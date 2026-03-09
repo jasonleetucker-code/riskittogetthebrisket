@@ -137,6 +137,21 @@ PY'''
       }
     }
 
+    stage('API Contract Check') {
+      when {
+        expression { fileExists('scripts/validate_api_contract.py') }
+      }
+      steps {
+        script {
+          if (isUnix()) {
+            sh 'python scripts/validate_api_contract.py --repo .'
+          } else {
+            bat 'python scripts\\validate_api_contract.py --repo .'
+          }
+        }
+      }
+    }
+
     stage('Frontend Build') {
       when {
         expression { fileExists('frontend/package.json') }

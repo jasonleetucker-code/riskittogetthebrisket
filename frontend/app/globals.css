@@ -275,6 +275,67 @@ tr:hover td {
   border-color: var(--cyan);
 }
 
+.login-shell {
+  min-height: calc(100vh - 120px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at top left, rgba(86, 214, 255, 0.08), transparent 48%);
+}
+
+.login-panel {
+  width: min(460px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(10, 22, 50, 0.85) 0%, rgba(10, 22, 46, 0.95) 100%);
+  padding: 18px;
+}
+
+.login-badge {
+  color: var(--cyan);
+  border-color: rgba(86, 214, 255, 0.35);
+  background: rgba(86, 214, 255, 0.08);
+}
+
+.login-form {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.login-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.login-input {
+  width: 100%;
+}
+
+.login-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.login-check input {
+  accent-color: var(--cyan);
+}
+
+.login-error {
+  margin: 0;
+  color: var(--red);
+  font-size: 0.8rem;
+}
+
+.login-button {
+  width: 100%;
+  padding: 9px 12px;
+}
+
 @media (max-width: 800px) {
   .main-shell {
     padding: 12px;
@@ -307,5 +368,10 @@ tr:hover td {
     overflow: auto;
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
+  }
+
+  .login-shell {
+    min-height: auto;
+    padding: 8px;
   }
 }

@@ -37,8 +37,58 @@ export function getSiteKeys(data) {
 
 export function buildRows(data) {
   const players = data?.players || {};
+  const playersArray = Array.isArray(data?.playersArray) ? data.playersArray : [];
   const posMap = data?.sleeper?.positions || {};
   const rows = [];
+
+  if (playersArray.length) {
+    for (const player of playersArray) {
+      if (!player || typeof player !== "object") continue;
+      const name = String(player.displayName || player.canonicalName || "").trim();
+      if (!name) continue;
+      const pos = normalizePos(player.position || "");
+      if (pos === "K") continue;
+
+      const values = {
+        raw: Number(player?.values?.rawComposite ?? 0) || 0,
+        scoring: Number(player?.values?.scoringAdjusted ?? player?.values?.rawComposite ?? 0) || 0,
+        scarcity: Number(
+          player?.values?.scarcityAdjusted ?? player?.values?.scoringAdjusted ?? player?.values?.rawComposite ?? 0
+        ) || 0,
+        full: Number(
+          player?.values?.finalAdjusted ?? player?.values?.overall ?? player?.values?.scarcityAdjusted ?? 0
+        ) || 0,
+      };
+
+      const canonicalSites =
+        player.canonicalSiteValues && typeof player.canonicalSiteValues === "object"
+          ? player.canonicalSiteValues
+          : {};
+
+      rows.push({
+        name,
+        pos: pos || "?",
+        assetClass: String(player.assetClass || classifyPos(pos || "?")),
+        values: {
+          raw: Math.round(values.raw),
+          scoring: Math.round(values.scoring),
+          scarcity: Math.round(values.scarcity),
+          full: Math.round(values.full),
+        },
+        siteCount: Number(player.sourceCount || 0),
+        confidence: Number(player.marketConfidence ?? 0),
+        marketLabel: "",
+        canonicalSites,
+        raw: player,
+      });
+    }
+
+    rows.sort((a, b) => b.values.full - a.values.full);
+    rows.forEach((r, i) => {
+      r.rank = i + 1;
+    });
+    return rows;
+  }
 
   for (const [name, player] of Object.entries(players)) {
     if (!player || typeof player !== "object") continue;

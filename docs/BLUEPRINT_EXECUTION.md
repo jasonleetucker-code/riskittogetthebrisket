@@ -197,7 +197,32 @@ For each proposed deal:
 2. **Source adapter spec** – codify required fields + metadata contract.
 3. **Identity schema** – create tables + matching utilities.
 4. **Initial data drop** – import existing CSVs (dlf_idp, etc.) into raw layer for testing pipeline.
-5. **Jenkinsfile update** – stub new stages for source pull + canonical build.
+5. **Jenkinsfile update** — stub new stages for source pull + canonical build.
 
 Once these are in place, Kodex can start implementing adapters + canonical pipeline while I finalize league context + trade engine specs.
+
+---
+
+## Runtime Reality Check (Live as of 2026-03-09)
+- Production frontend authority is explicitly controlled by backend env `FRONTEND_RUNTIME`.
+- Default runtime is `static` for deterministic production behavior.
+- Next runtime remains available (`next` / `auto`) but is no longer a silent implicit fallback.
+
+## Current Official `/api/data` Contract
+- Contract version: `2026-03-09.v1`
+- Required live fields:
+  - `contractVersion`
+  - `generatedAt`
+  - `players` (legacy map for Static runtime compatibility)
+  - `playersArray` (normalized stable array)
+  - `sites`
+  - `maxValues`
+- Contract health is validated:
+  - at runtime (status exposure)
+  - in CI (`scripts/validate_api_contract.py`)
+
+## Migration Honesty
+- `Dynasty Scraper.py` + `server.py` remain the live runtime backbone.
+- `src/` scaffold modules are partially implemented and not yet authoritative for end-to-end production valuation runtime.
+- Next frontend exists and is usable for dev, but Static runtime remains the primary production path in this phase.
 

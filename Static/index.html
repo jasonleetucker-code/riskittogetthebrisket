@@ -7,40 +7,46 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
-    /* ── TOKENS — CHICAGO BEARS EDITION ── */
+    /* ── TOKENS — MODERN CLASSIC ── */
     :root {
-      --bg:            #0B162A;
-      --bg-raised:     #0e1a30;
-      --bg-card:       #111e36;
-      --bg-soft:       #162540;
-      --border:        #1e3050;
-      --border-bright: #2a4068;
+      --bg:            #f5f7fb;
+      --bg-raised:     #eef3f8;
+      --bg-card:       #ffffff;
+      --card-bg:       var(--bg-card);
+      --bg-soft:       #f2f5fa;
+      --bg-hover:      rgba(24, 35, 53, 0.05);
+      --border:        #d8e0ea;
+      --border-bright: #c4cfdd;
+      --border-dim:    #e3eaf3;
 
-      --text:    #e8ecf4;
-      --subtext: #7a8fb0;
-      --muted:   #3a506e;
+      --text:    #182335;
+      --subtext: #5f6f84;
+      --muted:   #8794a6;
+      --text-muted: var(--subtext);
+      --heat-text-dark: #0f172a;
+      --heat-text-light: #f8fbff;
 
-      /* Bears orange accent system */
-      --cyan:          #C83803;
-      --cyan-dim:      #e04010;
-      --cyan-glow:     rgba(200, 56, 3, 0.22);
-      --cyan-soft:     rgba(200, 56, 3, 0.10);
-      --cyan-border:   rgba(200, 56, 3, 0.30);
+      /* Restrained orange accent */
+      --cyan:          #c45a1d;
+      --cyan-dim:      #a64a19;
+      --cyan-glow:     rgba(196, 90, 29, 0.12);
+      --cyan-soft:     rgba(196, 90, 29, 0.08);
+      --cyan-border:   rgba(196, 90, 29, 0.28);
 
-      --red:           #ff4060;
-      --red-glow:      rgba(255, 64, 96, 0.20);
-      --red-soft:      rgba(255, 64, 96, 0.08);
-      --red-border:    rgba(255, 64, 96, 0.25);
+      --red:           #c2474f;
+      --red-glow:      rgba(194, 71, 79, 0.14);
+      --red-soft:      rgba(194, 71, 79, 0.08);
+      --red-border:    rgba(194, 71, 79, 0.24);
 
-      --green:         #00e09a;
-      --green-glow:    rgba(0, 224, 154, 0.22);
-      --green-soft:    rgba(0, 224, 154, 0.08);
-      --green-border:  rgba(0, 224, 154, 0.25);
+      --green:         #2d8a59;
+      --green-glow:    rgba(45, 138, 89, 0.14);
+      --green-soft:    rgba(45, 138, 89, 0.08);
+      --green-border:  rgba(45, 138, 89, 0.24);
 
-      --amber:         #ffb340;
-      --amber-glow:    rgba(255,179,64,0.20);
-      --amber-soft:    rgba(255,179,64,0.08);
-      --amber-border:  rgba(255,179,64,0.25);
+      --amber:         #ac7a29;
+      --amber-glow:    rgba(172, 122, 41, 0.12);
+      --amber-soft:    rgba(172, 122, 41, 0.08);
+      --amber-border:  rgba(172, 122, 41, 0.24);
 
       --display: 'Syne', sans-serif;
       --mono:    'JetBrains Mono', monospace;
@@ -56,7 +62,7 @@
     /* ── BODY + GRID TEXTURE ── */
     body {
       font-family: var(--display);
-      background: var(--bg);
+      background: linear-gradient(180deg, #f8f9fc 0%, var(--bg) 35%, #f0f4f9 100%);
       color: var(--text);
       min-height: 100vh;
       position: relative;
@@ -68,9 +74,9 @@
       position: fixed;
       inset: 0;
       background-image:
-        linear-gradient(rgba(200,56,3,0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(200,56,3,0.02) 1px, transparent 1px);
-      background-size: 40px 40px;
+        linear-gradient(rgba(24,35,53,0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(24,35,53,0.018) 1px, transparent 1px);
+      background-size: 42px 42px;
       pointer-events: none;
       z-index: 0;
     }
@@ -83,7 +89,7 @@
       transform: translateX(-50%);
       width: 80vw;
       height: 60vh;
-      background: radial-gradient(ellipse, rgba(200,56,3,0.06) 0%, transparent 65%);
+      background: radial-gradient(ellipse, rgba(24,35,53,0.05) 0%, transparent 68%);
       pointer-events: none;
       z-index: 0;
     }
@@ -94,7 +100,7 @@
       right: 10vw;
       width: 40vw;
       height: 30vh;
-      background: radial-gradient(ellipse, rgba(200,56,3,0.04) 0%, transparent 70%);
+      background: radial-gradient(ellipse, rgba(196,90,29,0.05) 0%, transparent 72%);
       pointer-events: none;
       z-index: 0;
     }
@@ -127,7 +133,6 @@
 
     .brand h1 span {
       color: var(--cyan);
-      text-shadow: 0 0 20px var(--cyan-glow);
     }
 
     .brand p {
@@ -168,7 +173,6 @@
     .tab-btn.active {
       color: var(--cyan);
       border-bottom-color: var(--cyan);
-      text-shadow: 0 0 12px var(--cyan-glow);
     }
 
     .tab-btn:hover:not(.active) { color: var(--subtext); }
@@ -207,7 +211,7 @@
       padding: 7px 16px;
       border-radius: var(--radius-sm);
       border: 1px solid var(--cyan-border);
-      background: var(--cyan-soft);
+      background: #fff;
       color: var(--cyan);
       font-family: var(--display);
       font-weight: 700;
@@ -218,8 +222,8 @@
     }
 
     .btn:hover {
-      background: rgba(200,56,3,0.18);
-      box-shadow: 0 0 16px var(--cyan-glow), inset 0 0 12px rgba(200,56,3,0.08);
+      background: var(--cyan-soft);
+      box-shadow: 0 4px 12px rgba(24,35,53,0.08);
     }
 
     .btn-ghost {
@@ -229,7 +233,7 @@
     }
 
     .btn-ghost:hover {
-      background: rgba(255,255,255,0.04);
+      background: rgba(24,35,53,0.04);
       color: var(--text);
       box-shadow: none;
     }
@@ -394,28 +398,28 @@
       color: var(--red);
       background: var(--red-soft);
       border: 1px solid var(--red-border);
-      box-shadow: 0 0 14px var(--red-glow), inset 0 0 8px rgba(255,64,96,0.05);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
     }
 
     .decision-pill.win-b {
       color: var(--green);
       background: var(--green-soft);
       border: 1px solid var(--green-border);
-      box-shadow: 0 0 14px var(--green-glow), inset 0 0 8px rgba(0,224,154,0.05);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
     }
 
     .decision-pill.win-c {
       color: var(--amber);
       background: var(--amber-soft);
       border: 1px solid var(--amber-border);
-      box-shadow: 0 0 14px var(--amber-glow), inset 0 0 8px rgba(255,179,64,0.05);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
     }
 
     .decision-pill.even {
       color: var(--cyan);
       background: var(--cyan-soft);
       border: 1px solid var(--cyan-border);
-      box-shadow: 0 0 14px var(--cyan-glow), inset 0 0 8px rgba(200,56,3,0.05);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
     }
 
     .decision-pill.neutral {
@@ -902,7 +906,7 @@
       color: var(--cyan);
     }
     .pos-filter-btn:hover:not(.active) {
-      background: rgba(255,255,255,0.04);
+      background: var(--bg-hover);
       color: var(--text);
     }
 
@@ -944,8 +948,8 @@
     .trade-target-group { margin-bottom: 16px; }
     .trade-target-group h4 { font-size: 0.78rem; margin: 0 0 8px; color: var(--amber); }
     .trade-target-row { display: flex; align-items: center; gap: 10px; padding: 5px 8px; font-size: 0.75rem;
-      border-bottom: 1px solid rgba(255,255,255,0.04); }
-    .trade-target-row:hover { background: rgba(255,255,255,0.03); }
+      border-bottom: 1px solid var(--border-dim); }
+    .trade-target-row:hover { background: var(--bg-hover); }
     .tt-player { flex: 1; font-weight: 600; }
     .tt-pos { width: 30px; font-family: var(--mono); font-size: 0.65rem; font-weight: 700; }
     .tt-team { width: 120px; color: var(--subtext); font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1143,6 +1147,9 @@
       .player-name-input { width: 115px; }
       .header-actions .btn { padding: 7px 10px; font-size: 0.68rem; }
       th, td { padding: 6px 6px; }
+      .home-hero-row { flex-wrap: wrap; }
+      .home-hero-team-btn { margin-top: 2px; }
+      .home-hero-league { white-space: normal; line-height: 1.2; }
     }
 
     /* Safe area for notched phones */
@@ -1277,8 +1284,9 @@
       height: 58px;
       gap: 0;
       border-top: 1px solid var(--border-bright);
-      background: linear-gradient(180deg, rgba(12, 22, 40, 0.98), rgba(11, 22, 42, 0.98));
+      background: rgba(255, 255, 255, 0.96);
       backdrop-filter: blur(8px);
+      box-shadow: 0 -8px 24px rgba(24,35,53,0.08);
     }
 
     .mobile-nav-btn {
@@ -1304,7 +1312,7 @@
 
     .mobile-nav-btn.active {
       color: var(--cyan);
-      background: rgba(200, 56, 3, 0.08);
+      background: var(--cyan-soft);
     }
 
     .mobile-nav-btn .mi {
@@ -1323,11 +1331,11 @@
       position: sticky;
       top: 0;
       z-index: 40;
-      background: rgba(11,22,42,0.97);
+      background: rgba(248, 250, 253, 0.95);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
       padding: 10px 0 11px;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
+      border-bottom: 1px solid var(--border);
       margin-bottom: 0;
     }
 
@@ -1376,7 +1384,7 @@
 
     .mobile-action-btn {
       border: 1px solid var(--border);
-      background: var(--bg-card);
+      background: #fff;
       color: var(--text);
       border-radius: 8px;
       min-height: 34px;
@@ -1410,6 +1418,7 @@
       margin-bottom: 10px;
       position: relative;
       overflow: hidden;
+      box-shadow: 0 8px 24px rgba(24,35,53,0.06);
     }
 
     .home-hero-card::before {
@@ -1418,7 +1427,7 @@
       top: 0; left: 0; right: 0;
       height: 2px;
       background: linear-gradient(90deg, transparent 0%, var(--cyan) 40%, var(--cyan) 60%, transparent 100%);
-      opacity: 0.5;
+      opacity: 0.3;
     }
 
     .home-hero-eyebrow {
@@ -1433,9 +1442,14 @@
 
     .home-hero-row {
       display: flex;
-      align-items: flex-end;
+      align-items: flex-start;
       justify-content: space-between;
       gap: 10px;
+    }
+
+    .home-hero-info {
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
     .home-hero-league {
@@ -1444,11 +1458,16 @@
       color: var(--text);
       line-height: 1.15;
       letter-spacing: -0.01em;
-      flex: 1;
-      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .home-hero-team-btn {
+      flex: 0 0 auto;
+      white-space: nowrap;
+      font-size: 0.64rem;
+      padding-inline: 11px;
     }
 
     .home-hero-meta {
@@ -1600,6 +1619,7 @@
       border-radius: 12px;
       padding: 12px 14px;
       margin-bottom: 10px;
+      box-shadow: 0 6px 20px rgba(24,35,53,0.05);
     }
 
     /* Destination nav — stacked list of quick-jump destinations */
@@ -1714,7 +1734,7 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 10px 12px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      background: linear-gradient(180deg, rgba(24,35,53,0.03), rgba(24,35,53,0.015));
     }
 
     .mobile-kpi .kpi-label {
@@ -1743,6 +1763,7 @@
       background: var(--bg-card);
       border-radius: 12px;
       padding: 10px 12px;
+      box-shadow: 0 4px 16px rgba(24,35,53,0.04);
     }
 
     .mobile-row-head {
@@ -1785,7 +1806,7 @@
 
     .mobile-chip-btn {
       border: 1px solid var(--border);
-      background: var(--bg-soft);
+      background: #fff;
       color: var(--text);
       border-radius: 999px;
       padding: 4px 10px;
@@ -1894,6 +1915,31 @@
       padding: 0;
     }
 
+    .trade-empty-state {
+      width: 100%;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      background: var(--bg-soft);
+      padding: 10px;
+      font-size: 0.68rem;
+      color: var(--subtext);
+      line-height: 1.45;
+    }
+
+    .trade-empty-state .title {
+      display: block;
+      color: var(--text);
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .trade-empty-state .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
     .mobile-trade-tray {
       display: none;
       position: sticky;
@@ -1902,9 +1948,9 @@
       margin-top: 8px;
       border-radius: 12px;
       border: 1px solid var(--border-bright);
-      background: linear-gradient(180deg, rgba(11,22,42,0.97), rgba(16,34,62,0.97));
+      background: linear-gradient(180deg, #ffffff, #f5f8fc);
       padding: 9px 10px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.28);
+      box-shadow: 0 8px 24px rgba(24,35,53,0.12);
     }
 
     .mobile-trade-tray .tray-main {
@@ -2043,10 +2089,10 @@
       position: sticky;
       top: 56px;
       z-index: 25;
-      background: linear-gradient(180deg, rgba(11,22,42,0.98), rgba(11,22,42,0.86));
+      background: linear-gradient(180deg, rgba(245,247,251,0.98), rgba(245,247,251,0.90));
       backdrop-filter: blur(5px);
       padding: 8px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.04);
+      border-bottom: 1px solid var(--border-dim);
     }
 
     .rankings-mobile-list { display: none; }
@@ -2378,14 +2424,14 @@
       <div class="home-hero-card" id="homeHeroCard">
         <div class="home-hero-eyebrow" id="homeHeroEyebrow">Dynasty League</div>
         <div class="home-hero-row">
-          <div>
+          <div class="home-hero-info">
             <div class="home-hero-league" id="homeHeroLeague">—</div>
             <div class="home-hero-meta" id="homeHeroMeta">
               <span class="home-status-dot none" id="heroStatusDot"></span>
               <span id="heroStatusLabel">No data loaded</span>
             </div>
           </div>
-          <button class="mobile-chip-btn primary" onclick="showOnboarding()" style="flex-shrink:0;white-space:nowrap;font-size:0.64rem;" id="heroLeagueBtn">Connect</button>
+          <button class="mobile-chip-btn primary home-hero-team-btn" onclick="showOnboarding()" id="heroLeagueBtn">Connect</button>
         </div>
         <div class="home-hero-kpis" id="homeHeroKpis">
           <div class="home-hero-kpi">
@@ -2451,7 +2497,7 @@
             <div class="home-dest-left">
               <div class="home-dest-icon">≡</div>
               <div>
-                <div class="home-dest-label">Roster Rankings</div>
+                <div class="home-dest-label">Rosters</div>
                 <div class="home-dest-sub">League strength breakdown</div>
               </div>
             </div>
@@ -2498,7 +2544,7 @@
       <button class="tab-btn" data-tab="rosters" onclick="switchTab('rosters')">Rosters</button>
       <button class="tab-btn" data-tab="league" onclick="switchTab('league')">League</button>
       <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">Settings</button>
-      <span id="dataFreshness" style="display:none;margin-left:auto;font-size:0.68rem;font-family:var(--mono);color:var(--subtext);padding:6px 12px;"></span>
+      <span id="dataFreshnessTop" style="display:none;margin-left:auto;font-size:0.68rem;font-family:var(--mono);color:var(--subtext);padding:6px 12px;"></span>
     </div>
 
     <!-- ══ CALCULATOR TAB ══ -->
@@ -2532,6 +2578,7 @@
           <button class="btn btn-ghost btn-sm" onclick="importKtcTradeUrl()">↧ Import KTC Trade</button>
         </div>
         <div id="dataFreshness" style="margin-top:6px;line-height:1.8;"></div>
+        <div id="calculatorEmptyHint" style="display:none;margin-top:8px;font-size:0.72rem;color:var(--subtext);"></div>
       </div>
 
       <div class="mobile-trade-workspace mobile-only" id="mobileTradeWorkspace">
@@ -2796,6 +2843,15 @@
                 <input type="checkbox" id="rankingsShowLamCols" onchange="persistSettings(); buildFullRankings();">
               </label>
               <p class="settings-note">Keep this off for a cleaner one-column rankings view.</p>
+              <label class="form-label" style="margin-top:10px;">
+                <span>Show Rankings Source Columns
+                  <span class="tip-wrap"><span class="tip-icon">?</span>
+                    <span class="tip-text">Off by default. When enabled, Rankings shows the source-value columns (KTC, FantasyCalc, Dynasty Daddy, FantasyPros, Draft Sharks, Yahoo, Dynasty Nerds, DLF variants, and IDP source columns).</span>
+                  </span>
+                </span>
+                <input type="checkbox" id="rankingsShowSiteCols" onchange="persistSettings(); buildFullRankings();">
+              </label>
+              <p class="settings-note">Turn this on for source diagnostics, keep it off for the cleaner decision view.</p>
             </div>
           </div>
         </div>
@@ -2958,7 +3014,7 @@
             <option value="raw">Raw Market</option>
           </select>
         </label>
-        <input type="text" id="rankingsSearch" placeholder="Search player..." oninput="buildFullRankings()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card-bg);color:var(--text);font-size:0.78rem;width:180px;">
+        <input type="text" id="rankingsSearch" placeholder="Search player..." oninput="queueBuildFullRankings(120)" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card-bg);color:var(--text);font-size:0.78rem;width:180px;">
       </div>
 
       <div class="card" id="trendCard" style="margin-bottom:14px;">
@@ -3241,7 +3297,7 @@
         </div>
         <div class="mobile-segment" id="moreSectionNav" style="margin-bottom:10px;">
           <button class="mobile-segment-btn active" data-more-section="edge" onclick="setMobileMoreSection('edge')">Edge</button>
-          <button class="mobile-segment-btn" data-more-section="rosters" onclick="setMobileMoreSection('rosters')">Teams</button>
+          <button class="mobile-segment-btn" data-more-section="rosters" onclick="setMobileMoreSection('rosters')">Rosters</button>
           <button class="mobile-segment-btn" data-more-section="league" onclick="setMobileMoreSection('league')">League</button>
           <button class="mobile-segment-btn" data-more-section="trades" onclick="setMobileMoreSection('trades')">Trades</button>
           <button class="mobile-segment-btn" data-more-section="settings" onclick="setMobileMoreSection('settings')">Settings</button>
@@ -3301,8 +3357,8 @@
     { key:'dynastyNerds', label:'Dyn. Nerds',    defaultMax:9999,  defaultInclude:true,  defaultWeight:0.8, mode:'rank',    tep:true },
     { key:'dlfSf',        label:'DLF SF',        defaultMax:9999,  defaultInclude:true,  defaultWeight:0.8, mode:'value',   tep:false },
     { key:'dlfIdp',       label:'DLF IDP',       defaultMax:9999,  defaultInclude:true,  defaultWeight:0.8, mode:'value',   tep:false },
-    { key:'dlfRsf',       label:'DLF R SF',      defaultMax:9999,  defaultInclude:true,  defaultWeight:0.7, mode:'value',   tep:false },
-    { key:'dlfRidp',      label:'DLF R IDP',     defaultMax:9999,  defaultInclude:true,  defaultWeight:0.7, mode:'value',   tep:false },
+    { key:'dlfRsf',       label:'DLF R SF',      defaultMax:9999,  defaultInclude:false, defaultWeight:0.7, mode:'value',   tep:false },
+    { key:'dlfRidp',      label:'DLF R IDP',     defaultMax:9999,  defaultInclude:false, defaultWeight:0.7, mode:'value',   tep:false },
     { key:'idpTradeCalc', label:'IDP Trade',     defaultMax:9998,  defaultInclude:true,  defaultWeight:1.0, mode:'value',   tep:true },
     // IDP-specific sites
     { key:'pffIdp',         label:'PFF IDP',           defaultMax:6250,  defaultInclude:true,  defaultWeight:0.7, mode:'idpRank',  tep:false },
@@ -3331,7 +3387,9 @@
   const IDP_FACTOR = 0.57;               // IDP scaling factor vs offense
   const DEFAULT_ALPHA = 1.678;           // star player bonus exponent
   const DEFAULT_TOLERANCE = 0.05;        // 5% trade tolerance
-  const NATIVE_CANONICAL_VALUE_SITES = new Set(['ktc', 'idpTradeCalc', 'dlfSf', 'dlfIdp', 'dlfRsf', 'dlfRidp']);
+  const DEFAULT_TEAM_NAME = 'Draft Daddies';
+  const NATIVE_CANONICAL_VALUE_SITES = new Set(['ktc', 'idpTradeCalc', 'dlfSf', 'dlfIdp']);
+  const ROOKIE_ONLY_DLF_SITE_KEYS = new Set(['dlfRsf', 'dlfRidp']);
   const STORAGE_KEY = 'dynastyCalcV5';
   const WATCHLIST_KEY = 'dynasty_watchlist_v1';
   const RECENT_PLAYERS_KEY = 'dynasty_recent_players_v1';
@@ -3346,6 +3404,7 @@
   let rankingsSortAsc = false;
   let activeTabId = 'calculator';
   let globalSearchTargetSide = '';
+  let dataFreshnessDetailsOpen = false;
   let mobileMoreSection = 'edge';
   let mobileWatchSection = 'watchlist';
   let rankingsExtraFilters = {
@@ -3361,6 +3420,85 @@
     redraft: 'Redraft',
     ros: 'ROS',
   };
+  let rankingsBaseRowsCache = {
+    playersRef: null,
+    key: '',
+    rows: [],
+  };
+  let rankingsBuildDebounce = null;
+
+  function invalidateRankingsBaseRowsCache() {
+    rankingsBaseRowsCache = {
+      playersRef: null,
+      key: '',
+      rows: [],
+    };
+  }
+
+  function queueBuildFullRankings(delayMs = 120) {
+    clearTimeout(rankingsBuildDebounce);
+    rankingsBuildDebounce = setTimeout(() => {
+      buildFullRankings();
+    }, Math.max(0, Number(delayMs) || 0));
+  }
+
+  function getRankingsBaseRowsCacheKey(cfg = []) {
+    const dataStamp = String(loadedData?.scrapeTimestamp || loadedData?.date || '');
+    const playerCount = Object.keys(loadedData?.players || {}).length;
+    const lamStrength = Number(getLAMStrength() || 0).toFixed(3);
+    const scarcityStrength = Number(getScarcityStrength() || 0).toFixed(3);
+    const teamCount = Number(getLeagueTeamCount() || 0);
+    const starterReq = getLeagueStarterRequirements() || {};
+    const starterSig = Object.keys(starterReq).sort().map(k => `${k}:${starterReq[k]}`).join(',');
+    const cfgSig = cfg
+      .map(sc => `${sc.key}:${sc.include ? 1 : 0}:${Number(sc.weight || 0).toFixed(4)}:${Number(sc.max || 0)}`)
+      .join('|');
+    const pickSig = Object.entries(loadedData?.pickAnchors || {})
+      .map(([siteKey, pickMap]) => {
+        const vals = Object.values(pickMap || {}).map(v => Number(v)).filter(v => Number.isFinite(v));
+        const checksum = vals.reduce((acc, v) => acc + Math.round(v), 0);
+        return `${siteKey}:${vals.length}:${checksum}`;
+      })
+      .join('|');
+    return [dataStamp, playerCount, lamStrength, scarcityStrength, teamCount, starterSig, cfgSig, pickSig].join('~');
+  }
+
+  function enforceSingleCanonicalTop(rankedRows, sortBasis) {
+    if (!Array.isArray(rankedRows) || !rankedRows.length) return rankedRows;
+    const mode = String(sortBasis || 'full').toLowerCase();
+    const targetField = mode === 'raw'
+      ? 'rawComposite'
+      : (mode === 'scoring' ? 'scoringComposite' : 'adjustedComposite');
+    const topIdx = rankedRows.findIndex(r => Number(r?.[targetField]) >= COMPOSITE_SCALE);
+    if (topIdx < 0) return rankedRows;
+
+    for (let i = 0; i < rankedRows.length; i++) {
+      if (i === topIdx) continue;
+      const row = rankedRows[i];
+      if (!row || Number(row[targetField]) < COMPOSITE_SCALE) continue;
+
+      if (targetField === 'rawComposite') {
+        row.rawComposite = COMPOSITE_SCALE - 1;
+        if (row.adjustment) row.adjustment.rawMarketValue = COMPOSITE_SCALE - 1;
+      } else if (targetField === 'scoringComposite') {
+        row.scoringComposite = COMPOSITE_SCALE - 1;
+        if (row.adjustment) {
+          row.adjustment.scoringAdjustedValue = COMPOSITE_SCALE - 1;
+          if (row.adjustment.scoring && typeof row.adjustment.scoring === 'object') {
+            row.adjustment.scoring.finalAdjustedValue = COMPOSITE_SCALE - 1;
+          }
+        }
+      } else {
+        row.adjustedComposite = COMPOSITE_SCALE - 1;
+        if (row.adjustment) {
+          row.adjustment.finalAdjustedValue = COMPOSITE_SCALE - 1;
+          row.adjustment.valueDelta = (COMPOSITE_SCALE - 1) - Math.round(Number(row.adjustment.rawMarketValue || row.rawComposite || 0));
+        }
+      }
+      row.sortValue = getValueByRankingMode(row.adjustment, mode);
+    }
+    return rankedRows;
+  }
 
   function normalizeRankingsDataMode(mode) {
     const m = String(mode || '').toLowerCase();
@@ -4294,6 +4432,8 @@
     if (!siteValues || typeof siteValues !== 'object') return null;
     const isPick = !!opts.isPick;
     const playerName = opts.playerName || '';
+    const playerIsRookie = !!(opts.playerIsRookie ?? (!isPick && isRookiePlayerName(playerName, siteValues)));
+    const includeRookieOnlyDlf = !!opts.includeRookieOnlyDlf;
     const cctx = opts.ctx || getCanonicalValueContext();
     const playerPos = String(
       opts.playerPos != null
@@ -4312,6 +4452,12 @@
 
     cctx.cfg.forEach(sc => {
       if (!sc.include || !sc.max || sc.max <= 0) return;
+      if (ROOKIE_ONLY_DLF_SITE_KEYS.has(sc.key)) {
+        // Rookie-only DLF lists are overlay inputs. They are excluded from
+        // normal dynasty composite blending unless explicitly enabled for
+        // a rookie-focused context.
+        if (!(includeRookieOnlyDlf && playerIsRookie)) return;
+      }
       const rawValue = Number(siteValues[sc.key]);
       if (!Number.isFinite(rawValue)) return;
 
@@ -4410,6 +4556,14 @@
 
   function getPrecomputedAdjustmentBundle(playerData, rawComposite, position, playerName = '') {
     if (!playerData || typeof playerData !== 'object') return null;
+    const hasModernPrecomputed =
+      Number.isFinite(Number(playerData._scoringAdjusted)) ||
+      Number.isFinite(Number(playerData._scarcityAdjusted)) ||
+      Number.isFinite(Number(playerData._finalAdjusted)) ||
+      Number.isFinite(Number(playerData._combinedMultiplier)) ||
+      Number.isFinite(Number(playerData._scoringEffectiveMultiplier)) ||
+      Number.isFinite(Number(playerData._preCalibrationValue));
+    if (!hasModernPrecomputed) return null;
     const raw = clampValue(
       Math.round(Number(rawComposite ?? playerData._rawComposite ?? playerData._rawMarketValue ?? playerData._composite) || 0),
       1,
@@ -4479,23 +4633,45 @@
 
   let __topNonPickRawPlayersRef = null;
   let __topNonPickRawValue = null;
+  let __topNonPickRawPlayerName = null;
 
   function getTopNonPickRawFromLoadedData() {
     const players = loadedData?.players;
     if (!players || typeof players !== 'object') return null;
-    if (__topNonPickRawPlayersRef === players && Number.isFinite(__topNonPickRawValue) && __topNonPickRawValue > 0) {
+    if (
+      __topNonPickRawPlayersRef === players &&
+      Number.isFinite(__topNonPickRawValue) &&
+      __topNonPickRawValue > 0 &&
+      typeof __topNonPickRawPlayerName === 'string'
+    ) {
       return __topNonPickRawValue;
     }
     let top = 0;
+    let topName = '';
     for (const [name, pdata] of Object.entries(players)) {
       if (!pdata || typeof pdata !== 'object') continue;
       if (parsePickToken(name)) continue;
       const raw = Number(pdata._rawComposite ?? pdata._rawMarketValue ?? pdata._composite);
-      if (Number.isFinite(raw) && raw > top) top = raw;
+      if (!Number.isFinite(raw)) continue;
+      if (raw > top) {
+        top = raw;
+        topName = String(name || '');
+      } else if (raw === top) {
+        // Deterministic tie-break for canonical single-top behavior.
+        const current = String(name || '');
+        if (!topName || current.localeCompare(topName) < 0) topName = current;
+      }
     }
     __topNonPickRawPlayersRef = players;
     __topNonPickRawValue = top > 0 ? clampValue(Math.round(top), 1, COMPOSITE_SCALE) : null;
+    __topNonPickRawPlayerName = topName || null;
     return __topNonPickRawValue;
+  }
+
+  function getTopNonPickRawPlayerName() {
+    // Ensure cache is populated.
+    getTopNonPickRawFromLoadedData();
+    return typeof __topNonPickRawPlayerName === 'string' ? __topNonPickRawPlayerName : null;
   }
 
   function resolveLoadedPlayerDataForPrecomputed(playerName = '') {
@@ -4557,7 +4733,8 @@
       raw,
       preCalibrationValue,
       marketReliability,
-      assetClass
+      assetClass,
+      playerName
     ));
     const canonicalCeilingCalibrationApplied = finalAdjustedValue !== preCalibrationValue;
     const combinedMultiplier = finalAdjustedValue / Math.max(1, raw);
@@ -4588,19 +4765,32 @@
     };
   }
 
-  function applyFinalCanonicalCeilingCalibration(rawValue, candidateValue, marketReliability, assetClass) {
+  function applyFinalCanonicalCeilingCalibration(rawValue, candidateValue, marketReliability, assetClass, playerName = '') {
     const raw = clampValue(rawValue, 1, COMPOSITE_SCALE);
     const candidate = clampValue(candidateValue, 1, COMPOSITE_SCALE);
     const topNonPickRaw = getTopNonPickRawFromLoadedData();
+    const topNonPickName = getTopNonPickRawPlayerName();
     if (assetClass !== 'pick' && Number.isFinite(topNonPickRaw) && raw >= (topNonPickRaw - 0.5)) {
-      return COMPOSITE_SCALE;
+      const sameTopPlayer =
+        !!playerName &&
+        !!topNonPickName &&
+        normalizeForLookup(playerName) === normalizeForLookup(topNonPickName);
+      return sameTopPlayer ? COMPOSITE_SCALE : Math.min(COMPOSITE_SCALE - 1, candidate);
     }
-    if (assetClass === 'pick' || candidate >= COMPOSITE_SCALE || raw < 9600) return candidate;
+    if (assetClass === 'pick' || raw < 9600) return candidate >= COMPOSITE_SCALE ? (COMPOSITE_SCALE - 1) : candidate;
     const rel = clampValue(Number(marketReliability?.score ?? marketReliability ?? 0.6), MARKET_CONF_MIN, MARKET_CONF_MAX);
     const elitePct = clampValue((raw - 9600) / (COMPOSITE_SCALE - 9600), 0, 1);
     if (elitePct <= 0) return candidate;
     const pull = elitePct * (0.45 + (0.55 * rel));
-    return clampValue(candidate + ((COMPOSITE_SCALE - candidate) * pull), 1, COMPOSITE_SCALE);
+    const calibrated = clampValue(candidate + ((COMPOSITE_SCALE - candidate) * pull), 1, COMPOSITE_SCALE);
+    if (calibrated >= COMPOSITE_SCALE) {
+      const sameTopPlayer =
+        !!playerName &&
+        !!topNonPickName &&
+        normalizeForLookup(playerName) === normalizeForLookup(topNonPickName);
+      return sameTopPlayer ? COMPOSITE_SCALE : (COMPOSITE_SCALE - 1);
+    }
+    return calibrated;
   }
 
   function computeMetaValueForPlayer(playerName, opts = {}) {
@@ -4623,17 +4813,6 @@
     const pickInfo = parsePickToken(playerName);
     const direct = lookupPlayerData(playerName);
     if (pickInfo) {
-      const rookieProxy = get2026RookieProxyForPick(pickInfo);
-      if (rookieProxy && rookieProxy.value > 0) {
-        const siteDetails = buildSyntheticPickSiteMapFromMeta(rookieProxy.value) || { ktc: Math.round(rookieProxy.value) };
-        return {
-          metaValue: Math.round(rookieProxy.value),
-          rawMarketValue: Math.round(rookieProxy.value),
-          siteCount: Object.keys(siteDetails).length || 1,
-          siteDetails,
-          cv: 0,
-        };
-      }
       const directComp = Number(direct?.data?._composite);
       if (isFinite(directComp) && directComp > 0) {
         const raw = Number(direct?.data?._rawComposite);
@@ -4682,6 +4861,17 @@
 
     const buildValueOutput = (rawValue, base = {}) => {
       const raw = clampValue(Math.round(Number(rawValue) || 0), 1, COMPOSITE_SCALE);
+      if (rawOnly) {
+        return {
+          ...base,
+          metaValue: raw,
+          rawMarketValue: raw,
+          scoringAdjustedValue: raw,
+          scarcityAdjustedValue: raw,
+          finalAdjustedValue: raw,
+          valueDelta: 0,
+        };
+      }
       const adjPos = playerPos || (getPlayerPosition(playerName) || '');
       const precomputed = getPrecomputedAdjustmentBundle(direct?.data, raw, adjPos, direct?.name || playerName);
       const adjBundle = precomputed || computeFinalAdjustedValue(raw, adjPos, direct?.name || playerName, {
@@ -4689,17 +4879,6 @@
         cv: Number(base?.cv),
         siteDetails: base?.siteDetails || {},
       });
-      if (rawOnly) {
-        return {
-          ...base,
-          metaValue: raw,
-          rawMarketValue: raw,
-          scoringAdjustedValue: adjBundle?.scoringAdjustedValue ?? raw,
-          scarcityAdjustedValue: adjBundle?.scarcityAdjustedValue ?? raw,
-          finalAdjustedValue: adjBundle?.finalAdjustedValue ?? raw,
-          valueDelta: adjBundle?.valueDelta ?? 0,
-        };
-      }
       return {
         ...base,
         metaValue: clampValue(Math.round(Number(adjBundle?.finalAdjustedValue) || raw), 1, COMPOSITE_SCALE),
@@ -4983,86 +5162,21 @@
     `;
   }
 
-  function buildFullRankings() {
-    const tbody = document.getElementById('rookieBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-    buildRisingFallingSection();
-
-    if (!loadedData || !loadedData.players) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--subtext);padding:24px;">Update values first to see rankings</td></tr>';
-      const mobileList = document.getElementById('rankingsMobileList');
-      if (mobileList) {
-        mobileList.innerHTML = '<div class="mobile-row-card"><div class="mobile-row-name">Update values first to see rankings.</div></div>';
-      }
-      updateRankingsActiveChips();
-      return;
+  function getOrBuildRankingsBaseRows(cfg, canonicalCtx, posMap) {
+    const playersRef = loadedData?.players || null;
+    if (!playersRef || typeof playersRef !== 'object') return [];
+    const cacheKey = getRankingsBaseRowsCacheKey(cfg);
+    if (
+      rankingsBaseRowsCache.playersRef === playersRef &&
+      rankingsBaseRowsCache.key === cacheKey &&
+      Array.isArray(rankingsBaseRowsCache.rows) &&
+      rankingsBaseRowsCache.rows.length
+    ) {
+      return rankingsBaseRowsCache.rows;
     }
 
-    const cfg = getSiteConfig().filter(s => s.include);
-    const hdr = document.getElementById('rookieHeader');
-    const dataMode = getRankingsDataMode();
-    const dataModeLabel = RANKINGS_DATA_MODE_LABELS[dataMode] || 'Dynasty';
-    const titleEl = document.getElementById('rankingsTitle');
-    if (titleEl) titleEl.textContent = `${dataModeLabel} Rankings`;
-    if (dataMode !== 'dynasty') {
-      hdr.innerHTML = '<th style="width:40px">#</th><th>Player</th><th>Pos</th><th>Value</th>';
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--subtext);padding:24px;">${dataModeLabel} mode is isolated from dynasty values. Load a dedicated ${dataModeLabel} dataset to enable these rankings.</td></tr>`;
-      const mobileList = document.getElementById('rankingsMobileList');
-      if (mobileList) {
-        mobileList.innerHTML = `<div class="mobile-row-card"><div class="mobile-row-name">${dataModeLabel} mode needs a dedicated dataset.</div></div>`;
-      }
-      updateRankingsActiveChips();
-      return;
-    }
-
-    const sortArrow = rankingsSortAsc ? '\u2191' : '\u2193';
-    const sortBasis = getRankingsSortBasis();
-    const showAdjCols = showRankingsLAMColumns();
-    const valueColLabel = (
-      sortBasis === 'raw' ? 'Value (Raw)' :
-      sortBasis === 'scoring' ? 'Value (Scoring)' :
-      sortBasis === 'scarcity' ? 'Value (Scarcity)' :
-      'Value (Full)'
-    );
-    hdr.innerHTML = '<th style="width:40px">#</th><th>Player</th><th>Pos</th>' +
-      `<th style="min-width:85px;cursor:pointer;" onclick="toggleRankingsSort()">${valueColLabel} ${sortArrow}</th>` +
-      (showAdjCols ? `
-        <th style="min-width:78px;" title="Raw market value before all adjustments">Raw Mkt</th>
-        <th style="min-width:88px;" title="Scoring multiplier (effective after strength)">Score Mult</th>
-        <th style="min-width:90px;" title="Final value with league adjustment">Final Adj</th>
-        <th style="min-width:70px;" title="Final adjusted minus raw market value">\u0394</th>
-      ` : '') +
-      cfg.map(s => {
-        const site = sites.find(x => x.key === s.key);
-        return `<th style="font-size:0.62rem;">${site ? site.label : s.key}</th>`;
-      }).join('') +
-      '<th>Sites</th>';
-
-    const posMap = loadedData.sleeper?.positions || {};
-    const canonicalCtx = getCanonicalValueContext();
-    const search = (document.getElementById('rankingsSearch')?.value || '').trim().toLowerCase();
-    const rookieOnly = document.getElementById('rankingsRookieToggle')?.checked;
-    const myRosterOnly = document.getElementById('rankingsMyRosterToggle')?.checked;
-
-    // Get my team roster — check dropdown first, then localStorage
-    let myTeamName = document.getElementById('rosterMyTeam')?.value || '';
-    if (!myTeamName) myTeamName = localStorage.getItem('dynasty_my_team') || '';
-    const myRosterSet = new Set();
-    if (myRosterOnly && myTeamName && sleeperTeams.length) {
-      const myTeam = sleeperTeams.find(t => t.name === myTeamName);
-      if (myTeam) myTeam.players.forEach(p => myRosterSet.add(p.toLowerCase()));
-    }
-    // If checkbox is on but no team selected and no roster found, show hint
-    if (myRosterOnly && myRosterSet.size === 0) {
-      const body = document.getElementById('rookieBody');
-      if (body) body.innerHTML = '<tr><td colspan="20" style="text-align:center;padding:30px;color:var(--subtext);">Select your team in the Rosters tab first, then check "My roster only".</td></tr>';
-      return;
-    }
-
-    // Build ranked list of ALL players using live composite computation
-    let ranked = [];
-    for (const [name, pData] of Object.entries(loadedData.players)) {
+    const rows = [];
+    for (const [name, pData] of Object.entries(playersRef)) {
       const pickInfo = parsePickToken(name);
       let result = null;
       let pos = '';
@@ -5113,27 +5227,139 @@
       });
       if (result?.siteDetails?.__canonical) siteDetails.__canonical = 'yes';
 
-      const rawComposite = clampValue(Math.round(Number(result.rawMarketValue ?? result.metaValue) || 0), 1, COMPOSITE_SCALE);
+      const backendRaw = Number(!pickInfo ? (pData?._rawComposite ?? pData?._rawMarketValue ?? pData?._composite) : NaN);
+      const rawComposite = (
+        !pickInfo && Number.isFinite(backendRaw) && backendRaw > 0
+      )
+        ? clampValue(Math.round(backendRaw), 1, COMPOSITE_SCALE)
+        : clampValue(Math.round(Number(result.rawMarketValue ?? result.metaValue) || 0), 1, COMPOSITE_SCALE);
+      const backendSiteCount = Number(pData?._sites);
       const adjustment = getPrecomputedAdjustmentBundle(pData, rawComposite, pos, name)
         || computeFinalAdjustedValue(rawComposite, pos, name, { preferPrecomputed: false });
-        ranked.push({
-          name,
-          pos,
-          composite: rawComposite,
+      rows.push({
+        name,
+        pos,
+        composite: rawComposite,
         rawComposite,
         scoringComposite: adjustment.scoringAdjustedValue,
         scarcityComposite: adjustment.scarcityAdjustedValue,
         adjustedComposite: adjustment.finalAdjustedValue,
         adjustment,
-          siteCount: result.siteCount,
-          isRookie,
-          pData: siteDetails,
-          sourceData: pData || {},
-          cv: result.cv || 0,
-          sortValue: getValueByRankingMode(adjustment, sortBasis),
-        });
+        siteCount: (Number.isFinite(backendSiteCount) && backendSiteCount > 0)
+          ? Math.round(backendSiteCount)
+          : result.siteCount,
+        isRookie,
+        pData: siteDetails,
+        sourceData: pData || {},
+        cv: result.cv || 0,
+      });
     }
 
+    rankingsBaseRowsCache = {
+      playersRef,
+      key: cacheKey,
+      rows,
+    };
+    return rows;
+  }
+
+  function primeRankingsBaseRowsCache() {
+    if (!loadedData?.players) return;
+    try {
+      const cfg = getSiteConfig().filter(s => s.include);
+      const posMap = loadedData.sleeper?.positions || {};
+      const canonicalCtx = getCanonicalValueContext();
+      getOrBuildRankingsBaseRows(cfg, canonicalCtx, posMap);
+    } catch (_) {
+      // no-op warmup; buildFullRankings remains source of truth.
+    }
+  }
+
+  function buildFullRankings() {
+    const tbody = document.getElementById('rookieBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    buildRisingFallingSection();
+
+    if (!loadedData || !loadedData.players) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--subtext);padding:24px;">Update values first to see rankings</td></tr>';
+      const mobileList = document.getElementById('rankingsMobileList');
+      if (mobileList) {
+        mobileList.innerHTML = '<div class="mobile-row-card"><div class="mobile-row-name">Update values first to see rankings.</div></div>';
+      }
+      updateRankingsActiveChips();
+      return;
+    }
+
+    const cfg = getSiteConfig().filter(s => s.include);
+    const hdr = document.getElementById('rookieHeader');
+    const dataMode = getRankingsDataMode();
+    const dataModeLabel = RANKINGS_DATA_MODE_LABELS[dataMode] || 'Dynasty';
+    const titleEl = document.getElementById('rankingsTitle');
+    if (titleEl) titleEl.textContent = `${dataModeLabel} Rankings`;
+    if (dataMode !== 'dynasty') {
+      hdr.innerHTML = '<th style="width:40px">#</th><th>Player</th><th>Pos</th><th>Value</th>';
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--subtext);padding:24px;">${dataModeLabel} mode is isolated from dynasty values. Load a dedicated ${dataModeLabel} dataset to enable these rankings.</td></tr>`;
+      const mobileList = document.getElementById('rankingsMobileList');
+      if (mobileList) {
+        mobileList.innerHTML = `<div class="mobile-row-card"><div class="mobile-row-name">${dataModeLabel} mode needs a dedicated dataset.</div></div>`;
+      }
+      updateRankingsActiveChips();
+      return;
+    }
+
+    const sortArrow = rankingsSortAsc ? '\u2191' : '\u2193';
+    const sortBasis = getRankingsSortBasis();
+    const showAdjCols = showRankingsLAMColumns();
+    const showSourceCols = showRankingsSourceColumns();
+    const valueColLabel = (
+      sortBasis === 'raw' ? 'Value (Raw)' :
+      sortBasis === 'scoring' ? 'Value (Scoring)' :
+      sortBasis === 'scarcity' ? 'Value (Scarcity)' :
+      'Value (Full)'
+    );
+    hdr.innerHTML = '<th style="width:40px">#</th><th>Player</th><th>Pos</th>' +
+      `<th style="min-width:85px;cursor:pointer;" onclick="toggleRankingsSort()">${valueColLabel} ${sortArrow}</th>` +
+      (showAdjCols ? `
+        <th style="min-width:78px;" title="Raw market value before all adjustments">Raw Mkt</th>
+        <th style="min-width:88px;" title="Scoring multiplier (effective after strength)">Score Mult</th>
+        <th style="min-width:90px;" title="Final value with league adjustment">Final Adj</th>
+        <th style="min-width:70px;" title="Final adjusted minus raw market value">\u0394</th>
+      ` : '') +
+      (showSourceCols ? cfg.map(s => {
+        const site = sites.find(x => x.key === s.key);
+        return `<th style="font-size:0.62rem;">${site ? site.label : s.key}</th>`;
+      }).join('') : '') +
+      '<th>Sites</th>';
+
+    const posMap = loadedData.sleeper?.positions || {};
+    const canonicalCtx = getCanonicalValueContext();
+    const search = (document.getElementById('rankingsSearch')?.value || '').trim().toLowerCase();
+    const rookieOnly = document.getElementById('rankingsRookieToggle')?.checked;
+    const myRosterOnly = document.getElementById('rankingsMyRosterToggle')?.checked;
+
+    // Get my team roster — check dropdown first, then localStorage
+    let myTeamName = document.getElementById('rosterMyTeam')?.value || '';
+    if (!myTeamName) myTeamName = localStorage.getItem('dynasty_my_team') || '';
+    const myRosterSet = new Set();
+    if (myRosterOnly && myTeamName && sleeperTeams.length) {
+      const myTeam = sleeperTeams.find(t => t.name === myTeamName);
+      if (myTeam) myTeam.players.forEach(p => myRosterSet.add(p.toLowerCase()));
+    }
+    // If checkbox is on but no team selected and no roster found, show hint
+    if (myRosterOnly && myRosterSet.size === 0) {
+      const body = document.getElementById('rookieBody');
+      if (body) body.innerHTML = '<tr><td colspan="20" style="text-align:center;padding:30px;color:var(--subtext);">Select your team in the Rosters tab first, then check "My roster only".</td></tr>';
+      return;
+    }
+
+    // Build once + reuse: heavy per-player canonicalization/adjustment stays cached
+    // unless data/settings/source-config changed.
+    const baseRows = getOrBuildRankingsBaseRows(cfg, canonicalCtx, posMap);
+    let ranked = baseRows.map(r => ({
+      ...r,
+      sortValue: getValueByRankingMode(r.adjustment, sortBasis),
+    }));
     ranked.sort((a, b) => rankingsSortAsc ? a.sortValue - b.sortValue : b.sortValue - a.sortValue);
 
     // Apply filters before display capping so focused views (like rookies-only)
@@ -5213,6 +5439,9 @@
         .slice(0, DISPLAY_CAP);
     }
 
+    // Safety guard: keep only one true canonical ceiling value in the active view.
+    ranked = enforceSingleCanonicalTop(ranked, sortBasis);
+
     // Detect tier breaks (>8% drop)
     const tierBreaks = new Set();
     let tierNum = 1;
@@ -5229,7 +5458,7 @@
         tierNum++;
         const sepTr = document.createElement('tr');
         sepTr.className = 'tier-separator';
-        const colSpan = (4 + (showAdjCols ? 4 : 0)) + cfg.length + 1;
+        const colSpan = (4 + (showAdjCols ? 4 : 0)) + (showSourceCols ? cfg.length : 0) + 1;
         sepTr.innerHTML = `<td colspan="${colSpan}"><span class="tier-label">\u2500\u2500 Tier ${tierNum} \u2500\u2500</span></td>`;
         tbody.appendChild(sepTr);
       }
@@ -5266,10 +5495,12 @@
         `;
       }
 
-      cfg.forEach(sc => {
-        const val = Number((r.pData || {})[sc.key]);
-        cells += `<td style="font-family:var(--mono);font-size:0.68rem;text-align:center;color:${val != null && Number.isFinite(val) ? 'var(--text)' : 'var(--border)'};">${val != null && Number.isFinite(val) ? Math.round(val).toLocaleString() : '\u2014'}</td>`;
-      });
+      if (showSourceCols) {
+        cfg.forEach(sc => {
+          const val = Number((r.pData || {})[sc.key]);
+          cells += `<td style="font-family:var(--mono);font-size:0.68rem;text-align:center;color:${val != null && Number.isFinite(val) ? 'var(--text)' : 'var(--border)'};">${val != null && Number.isFinite(val) ? Math.round(val).toLocaleString() : '\u2014'}</td>`;
+        });
+      }
 
       cells += `<td style="text-align:center;font-family:var(--mono);font-size:0.72rem;color:var(--subtext);">${r.siteCount}</td>`;
 
@@ -5969,9 +6200,15 @@
         body.innerHTML = '<div class="mobile-row-card"><div class="mobile-row-name">No league trade data loaded.</div></div>';
         return;
       }
-      const rows = [...trades].slice(0, 16);
+      const rows = filterTradesToRollingWindow([...trades]).slice(0, 16);
+      const windowDays = getTradeHistoryWindowDays();
+      if (!rows.length) {
+        body.innerHTML = `<div class="mobile-row-card"><div class="mobile-row-name">No league trades in the last ${windowDays} days.</div></div>`;
+        return;
+      }
       body.innerHTML = rows.map((trade, idx) => {
-        const dt = trade?.timestamp ? new Date(trade.timestamp) : null;
+        const ts = normalizeTradeTimestampMs(trade?.timestamp);
+        const dt = ts ? new Date(ts) : null;
         const dateLabel = dt ? dt.toLocaleDateString() : 'Unknown date';
         const sides = Array.isArray(trade?.sides) ? trade.sides : [];
         const compactSides = sides.map(s => {
@@ -5998,6 +6235,7 @@
     const dataMode = getRankingsDataMode();
     const lamStrength = Number(document.getElementById('lamStrengthInput')?.value || 1);
     const showCols = !!document.getElementById('rankingsShowLamCols')?.checked;
+    const showSiteCols = !!document.getElementById('rankingsShowSiteCols')?.checked;
     body.innerHTML = `
       <div class="mobile-row-card">
         <div class="mobile-row-name">Default Value Basis</div>
@@ -6032,6 +6270,9 @@
         <div class="mobile-row-actions">
           <label class="mobile-chip-btn ${showCols ? 'primary' : ''}" style="display:inline-flex;align-items:center;gap:6px;">
             <input type="checkbox" ${showCols ? 'checked' : ''} onchange="const cb=document.getElementById('rankingsShowLamCols'); if(cb){cb.checked=this.checked;} persistSettings(); buildFullRankings(); buildMoreHub();" style="width:14px;height:14px;"> Show Breakdown Columns
+          </label>
+          <label class="mobile-chip-btn ${showSiteCols ? 'primary' : ''}" style="display:inline-flex;align-items:center;gap:6px;">
+            <input type="checkbox" ${showSiteCols ? 'checked' : ''} onchange="const cb=document.getElementById('rankingsShowSiteCols'); if(cb){cb.checked=this.checked;} persistSettings(); buildFullRankings(); buildMoreHub();" style="width:14px;height:14px;"> Show Source Columns
           </label>
           <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
             LAM Strength
@@ -6209,6 +6450,7 @@
     s = s.replace(/\s*\([^)]*\)\s*$/, '').trim();
     s = s
       .replace(/[-\u2010-\u2015\u2212]/g, ' ')  // hyphen + dash variants
+      .replace(/_+/g, ' ')                      // URL/slug separators
       .replace(/[,;:/\\|]+/g, ' ')
       .replace(/\bMIDDLE\b/g, 'MID')
       .replace(/\bFIRST\b/g, '1ST')
@@ -6335,13 +6577,12 @@
     const target = Number(metaValue);
     if (!isFinite(target) || target <= 0) return null;
     const canonicalTarget = Math.max(1, Math.min(COMPOSITE_SCALE, Math.round(target)));
-    const cfg = getSiteConfig();
     const out = {};
-    cfg.forEach(sc => {
-      if (!sc.include || !isFinite(Number(sc.max)) || Number(sc.max) <= 0) return;
-      out[sc.key] = canonicalTarget;
-    });
-    if (!Object.keys(out).length) out.ktc = canonicalTarget;
+    // Synthetic fallback is intentionally single-source. Do NOT stamp one modeled
+    // number into every site column (that creates fake cross-site agreement).
+    out.ktc = canonicalTarget;
+    out.__modeledValue = canonicalTarget;
+    out.__sourceType = '2026_rookie_proxy';
     out.__canonical = 'yes';
     return out;
   }
@@ -6467,6 +6708,7 @@
     if (!loadedData || !pickInfo) return null;
     const currentYear = parseInt(document.getElementById('pickCurrentYear')?.value) || 2026;
     const leagueSize = parseInt(document.getElementById('pickLeagueSize')?.value) || 12;
+    const siteKeySet = new Set((sites || []).map(s => s.key));
 
     const yearDisc1 = parseFloat(document.getElementById('pickYearDisc1')?.value) || 0.85;
     const yearDisc2 = parseFloat(document.getElementById('pickYearDisc2')?.value) || 0.72;
@@ -6485,6 +6727,7 @@
       if (!obj || typeof obj !== 'object') return null;
       const out = {};
       for (const [k, v] of Object.entries(obj)) {
+        if (!siteKeySet.has(k)) continue;
         const n = Number(v);
         if (isFinite(n) && n > 0) out[k] = Math.round(n);
       }
@@ -6511,12 +6754,6 @@
         }
       }
       return Object.keys(out).length ? out : null;
-    }
-
-    // 2026 picks: direct proxy to top-72 rookie fully-adjusted values.
-    const rookieProxy = get2026RookieProxyForPick(pickInfo);
-    if (rookieProxy && rookieProxy.value > 0) {
-      return buildSyntheticPickSiteMapFromMeta(rookieProxy.value);
     }
 
     // Helper: search loaded players for a pick name (fuzzy)
@@ -6676,6 +6913,8 @@
     const ordSuffix = r => r === 1 ? 'st' : r === 2 ? 'nd' : r === 3 ? 'rd' : 'th';
 
     if (pickInfo.kind === 'slot') {
+      // Resolution priority (real first):
+      // 1) canonical loaded pick rows, 2) pickAnchors, 3) tier-fill, 4) KTC slot fallback, 5) modeled rookie proxy.
       const r = pickInfo.round;
       const s = pickInfo.slot;
       const yr = Number.isFinite(pickInfo.year) ? pickInfo.year : currentYear;
@@ -6696,13 +6935,22 @@
       const tierData = resolvePickSiteValues({ kind: 'tier', year: yr, tier, round: r });
       // Prefer exact slot values; tier values should only fill missing sites.
       const merged = mergeSiteMapsPreferFirst(playerData, anchorData, tierData);
-      if (merged && isFinite(Number(merged.ktc)) && Number(merged.ktc) > 0) {
-        return merged;
+      if (merged && Object.keys(merged).length) return merged;
+
+      const ktcFallback = getKtcSlotFallback(key, yr);
+      if (ktcFallback) return ktcFallback;
+
+      // Last resort only: modeled 2026 rookie proxy, represented as synthetic fallback.
+      const rookieProxy = get2026RookieProxyForPick(pickInfo);
+      if (rookieProxy && rookieProxy.value > 0) {
+        return buildSyntheticPickSiteMapFromMeta(rookieProxy.value);
       }
-      return mergeSiteMaps(merged, getKtcSlotFallback(key, yr));
+      return null;
     }
 
     if (pickInfo.kind === 'tier') {
+      // Resolution priority (real first):
+      // 1) canonical loaded pick rows, 2) pickAnchors, 3) slot-average, 4) KTC tier fallback, 5) extrapolation, 6) modeled rookie proxy.
       const yr = Number.isFinite(pickInfo.year) ? pickInfo.year : currentYear;
       const r = pickInfo.round;
       const tier = pickInfo.tier;
@@ -6719,15 +6967,19 @@
       const anchorData = findPickFromAnchors({ kind: 'tier', year: yr, round: r, tier });
       const slotAvgData = averagePickSlotsFromPlayers(yr, r, tier);
       const merged = mergeSiteMaps(playerData, anchorData, slotAvgData);
-      if (merged) {
-        if (isFinite(Number(merged.ktc)) && Number(merged.ktc) > 0) return merged;
-        return mergeSiteMaps(merged, getKtcTierFallback(r, tier, yr));
-      }
+      if (merged && Object.keys(merged).length) return merged;
 
       const ktcTierFallback = getKtcTierFallback(r, tier, yr);
       if (ktcTierFallback) return ktcTierFallback;
 
-      return extrapolatePickRound(yr, r, tier, leagueSize);
+      const extrapolated = extrapolatePickRound(yr, r, tier, leagueSize);
+      if (extrapolated && Object.keys(extrapolated).length) return extrapolated;
+
+      const rookieProxy = get2026RookieProxyForPick(pickInfo);
+      if (rookieProxy && rookieProxy.value > 0) {
+        return buildSyntheticPickSiteMapFromMeta(rookieProxy.value);
+      }
+      return null;
     }
     return null;
   }
@@ -6961,6 +7213,7 @@
       rankingsDataMode: document.getElementById('rankingsDataMode')?.value,
       calculatorValueBasis: document.getElementById('calculatorValueBasis')?.value,
       rankingsShowLamCols: document.getElementById('rankingsShowLamCols')?.checked,
+      rankingsShowSiteCols: document.getElementById('rankingsShowSiteCols')?.checked,
       edgeHighConfidence: document.getElementById('edgeHighConfidence')?.checked,
       coveragePenalty: document.getElementById('coveragePenaltyToggle')?.checked,
       minCoverage: document.getElementById('minCoverageInput')?.value,
@@ -7009,6 +7262,13 @@
       if (d.rankingsShowLamCols != null) {
         const el = document.getElementById('rankingsShowLamCols');
         if (el) el.checked = !!d.rankingsShowLamCols;
+      }
+      if (d.rankingsShowSiteCols != null) {
+        const el = document.getElementById('rankingsShowSiteCols');
+        if (el) el.checked = !!d.rankingsShowSiteCols;
+      } else {
+        const el = document.getElementById('rankingsShowSiteCols');
+        if (el) el.checked = false;
       }
       if (d.edgeHighConfidence != null) {
         const el = document.getElementById('edgeHighConfidence');
@@ -7371,6 +7631,33 @@
   let sleeperIdToPlayer = {};  // sleeper_id -> canonical player name
   let ktcIdToPlayer = {};      // ktc playerID -> canonical player name
 
+  function resolvePreferredTeamName(opts = {}) {
+    const teams = Array.isArray(opts.teams) ? opts.teams : (Array.isArray(sleeperTeams) ? sleeperTeams : []);
+    if (!teams.length) return '';
+    const names = teams.map(t => String(t?.name || '').trim()).filter(Boolean);
+    if (!names.length) return '';
+
+    const byLower = new Map(names.map(n => [n.toLowerCase(), n]));
+    const resolveMatch = (candidate) => {
+      const c = String(candidate || '').trim();
+      if (!c) return '';
+      return byLower.get(c.toLowerCase()) || '';
+    };
+
+    const candidates = [
+      opts.explicitTeam,
+      opts.savedTeam,
+      opts.profileTeam,
+      DEFAULT_TEAM_NAME,
+    ];
+    for (const c of candidates) {
+      const match = resolveMatch(c);
+      if (match) return match;
+    }
+
+    return [...names].sort((a, b) => a.localeCompare(b))[0] || names[0];
+  }
+
   function populateTeamDropdowns() {
     const selA = document.getElementById('teamFilterA');
     const selB = document.getElementById('teamFilterB');
@@ -7397,9 +7684,6 @@
         opt.textContent = team.name;
         selMyTeam.appendChild(opt);
       });
-      // Try to restore saved team
-      const saved = localStorage.getItem('dynasty_my_team');
-      if (saved) selMyTeam.value = saved;
     }
     // Populate global team selector on calculator page
     const selGlobal = document.getElementById('globalMyTeam');
@@ -7411,8 +7695,6 @@
         opt.textContent = team.name;
         selGlobal.appendChild(opt);
       });
-      const saved = localStorage.getItem('dynasty_my_team');
-      if (saved) selGlobal.value = saved;
     }
     // Populate trade team filter
     const selTrade = document.getElementById('tradeTeamFilter');
@@ -7424,22 +7706,51 @@
         opt.textContent = team.name;
         selTrade.appendChild(opt);
       });
-      const saved = localStorage.getItem('dynasty_my_team');
-      if (saved) selTrade.value = saved;
     }
+
+    const profileTeam = getProfile()?.teamName || '';
+    const savedTeam = localStorage.getItem('dynasty_my_team') || '';
+    const preferred = resolvePreferredTeamName({
+      teams: sleeperTeams,
+      savedTeam,
+      profileTeam,
+    });
+    if (preferred) syncGlobalTeam(preferred);
+
     // Reset league tab so dropdowns get repopulated on next visit
     _leagueInited = false;
   }
 
   // Sync global team selector across all pages
   function syncGlobalTeam(teamName) {
-    localStorage.setItem('dynasty_my_team', teamName);
+    const profileTeam = getProfile()?.teamName || '';
+    const savedTeam = localStorage.getItem('dynasty_my_team') || '';
+    const resolved = resolvePreferredTeamName({
+      teams: sleeperTeams,
+      explicitTeam: teamName,
+      savedTeam,
+      profileTeam,
+    });
+    if (!resolved) return;
+
+    localStorage.setItem('dynasty_my_team', resolved);
     const selRoster = document.getElementById('rosterMyTeam');
     const selGlobal = document.getElementById('globalMyTeam');
     const selTrade = document.getElementById('tradeTeamFilter');
-    if (selRoster) selRoster.value = teamName;
-    if (selGlobal) selGlobal.value = teamName;
-    if (selTrade) selTrade.value = teamName;
+    if (selRoster) selRoster.value = resolved;
+    if (selGlobal) selGlobal.value = resolved;
+    if (selTrade) selTrade.value = resolved;
+
+    const profile = getProfile();
+    if (profile && profile.teamName !== resolved) {
+      const team = (Array.isArray(sleeperTeams) ? sleeperTeams : []).find(t => t.name === resolved);
+      saveProfile({
+        ...profile,
+        teamName: resolved,
+        rosterId: team?.rosterId ?? team?.roster_id ?? profile.rosterId ?? '',
+        savedAt: new Date().toISOString(),
+      });
+    }
     // Refresh any active tab that depends on team
     checkEdgeGate();
   }
@@ -7836,6 +8147,33 @@
     }
   }
 
+  function updateCalculatorEmptyHint() {
+    const el = document.getElementById('calculatorEmptyHint');
+    if (!el) return;
+    const hasData = !!(loadedData && loadedData.players && Object.keys(loadedData.players).length);
+    const hasAssets = getTradeSideAssets('A').length || getTradeSideAssets('B').length || getTradeSideAssets('C').length;
+    if (!hasData) {
+      el.style.display = '';
+      el.innerHTML = `
+        <strong style="color:var(--text);">No values loaded.</strong>
+        Run <strong>Update Values</strong> first, then add players or import a KTC trade URL.
+      `;
+      return;
+    }
+    if (!hasAssets) {
+      const team = localStorage.getItem('dynasty_my_team') || '';
+      el.style.display = '';
+      el.innerHTML = `
+        <strong style="color:var(--text);">Start your trade.</strong>
+        ${team ? `Team context: <strong>${team}</strong>.` : 'Choose your team for roster-aware context.'}
+        Add assets in each side, or import directly from KeepTradeCut.
+      `;
+      return;
+    }
+    el.style.display = 'none';
+    el.textContent = '';
+  }
+
   function renderMobileTradeWorkspace() {
     const sideA = getTradeSideAssets('A');
     const sideB = getTradeSideAssets('B');
@@ -7844,7 +8182,19 @@
     if (!wrapA || !wrapB) return;
 
     function renderChipList(rows, side) {
-      if (!rows.length) return '<span style="font-size:0.64rem;color:var(--subtext);">No assets yet.</span>';
+      if (!rows.length) {
+        return `
+          <div class="trade-empty-state">
+            <span class="title">No assets yet</span>
+            Start with search, import, or roster picks.
+            <div class="actions">
+              <button class="mobile-chip-btn primary" onclick="openGlobalSearchForTrade('${side}')">Add Asset</button>
+              ${side === 'B' ? '<button class="mobile-chip-btn" onclick="importKtcTradeUrl()">Import KTC</button>' : ''}
+              <button class="mobile-chip-btn" onclick="showOnboarding()">Choose Team</button>
+            </div>
+          </div>
+        `;
+      }
       return rows.map(r => `
         <span class="trade-chip">
           <span class="chip-name">${r.name}</span>
@@ -7856,6 +8206,7 @@
 
     wrapA.innerHTML = renderChipList(sideA, 'A');
     wrapB.innerHTML = renderChipList(sideB, 'B');
+    updateCalculatorEmptyHint();
   }
 
   function toggleTradeAnalysisMobile() {
@@ -8109,21 +8460,33 @@
     }
     if (typeof val !== 'object') return [];
 
-    // Draft-pick object support (season/round/pick or tier pick objects).
+    // Draft-pick object support (season/round/slot or tier pick objects).
     const season = val.season ?? val.year ?? val.pickYear ?? val.draftYear;
     const round = val.round ?? val.rd ?? val.pickRound ?? val.roundNo;
     const slot = val.pick_no ?? val.pick ?? val.slot ?? val.pickNumber ?? val.overall;
     const tier = String(val.tier ?? val.pickTier ?? val.range ?? '').trim().toLowerCase();
+    const typeHint = String(val.assetType ?? val.type ?? val.position ?? val.pos ?? '').trim().toLowerCase();
+    const pickLike = ['pick', 'draft_pick', 'future_pick'].includes(typeHint) || !!val.isPick || !!val.is_pick;
     if (season && round && slot && isFinite(Number(slot))) {
       return [`${season} Pick ${round}.${String(slot).padStart(2, '0')}`];
     }
     if (season && round && /^(early|mid|late)$/.test(tier)) {
       return [`${season} ${tier} ${round}`];
     }
+    for (const k of ['pickLabel', 'pick_name', 'pickName', 'draft_pick', 'draftPick', 'label', 'assetLabel', 'displayName']) {
+      if (val[k] != null) {
+        const pickLabel = String(val[k]).trim();
+        if (pickLike || parsePickToken(pickLabel)) return [pickLabel];
+      }
+    }
 
     for (const key of ['playerIds', 'playerID', 'playerId', 'players', 'assets', 'items', 'ids']) {
       if (val[key] != null) return extractKtcAssets(val[key]);
     }
+    for (const key of ['teamOne', 'team1', 'sideA', 'side1', 'teamTwo', 'team2', 'sideB', 'side2']) {
+      if (val[key] != null) return extractKtcAssets(val[key]);
+    }
+    if (pickLike && val.id != null) return [String(val.id)];
     for (const key of ['name', 'playerName', 'player']) {
       if (val[key] != null) return [String(val[key])];
     }
@@ -8135,6 +8498,11 @@
     let token = decodeUrlValue(String(asset)).trim();
     if (!token) return null;
     token = token.replace(/^['"]+|['"]+$/g, '').trim();
+    token = token
+      .replace(/\+/g, ' ')
+      .replace(/_+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
     if (!token) return null;
 
     function pickOrdinalSuffix(n) {
@@ -8150,8 +8518,10 @@
       const parsed = parsePickToken(rawPick);
       if (!parsed) return null;
       if (parsed.kind === 'slot') {
-        const y = Number.isFinite(parsed.year) ? `${parsed.year} ` : '';
-        return `${y}Pick ${parsed.round}.${String(parsed.slot).padStart(2, '0')}`.trim();
+        const year = Number.isFinite(parsed.year)
+          ? parsed.year
+          : (parseInt(document.getElementById('pickCurrentYear')?.value) || 2026);
+        return `${year} Pick ${parsed.round}.${String(parsed.slot).padStart(2, '0')}`.trim();
       }
       const year = Number.isFinite(parsed.year)
         ? parsed.year
@@ -8167,20 +8537,55 @@
       const tierIdx = { early: 0, mid: 1, late: 2 };
       const idxTier = ['early', 'mid', 'late'];
       const yearBaseVotes = {};
+      const slotYearBaseVotes = {};
 
       for (const [k, label] of Object.entries(ktcIdToPlayer || {})) {
         const pick = parsePickToken(label);
-        if (!pick || pick.kind !== 'tier' || !Number.isFinite(Number(pick.year))) continue;
         const kid = parseInt(String(k), 10);
         if (!Number.isFinite(kid)) continue;
-        const tier = String(pick.tier || '').toLowerCase();
-        if (!(tier in tierIdx)) continue;
-        const idx = ((Number(pick.round) - 1) * 3) + tierIdx[tier];
-        if (idx < 0 || idx > 17) continue;
-        const base = kid - idx;
+        if (!pick || !Number.isFinite(Number(pick.year))) continue;
         const y = Number(pick.year);
-        if (!yearBaseVotes[y]) yearBaseVotes[y] = {};
-        yearBaseVotes[y][base] = (yearBaseVotes[y][base] || 0) + 1;
+
+        if (pick.kind === 'slot') {
+          const rnd = Number(pick.round);
+          const slot = Number(pick.slot);
+          if (!Number.isFinite(rnd) || !Number.isFinite(slot)) continue;
+          const idx = ((rnd - 1) * 12) + (slot - 1);
+          if (idx < 0 || idx > 71) continue;
+          const base = kid - idx;
+          if (!slotYearBaseVotes[y]) slotYearBaseVotes[y] = {};
+          slotYearBaseVotes[y][base] = (slotYearBaseVotes[y][base] || 0) + 1;
+          continue;
+        }
+
+        if (pick.kind === 'tier') {
+          const tier = String(pick.tier || '').toLowerCase();
+          if (!(tier in tierIdx)) continue;
+          const idx = ((Number(pick.round) - 1) * 3) + tierIdx[tier];
+          if (idx < 0 || idx > 17) continue;
+          const base = kid - idx;
+          if (!yearBaseVotes[y]) yearBaseVotes[y] = {};
+          yearBaseVotes[y][base] = (yearBaseVotes[y][base] || 0) + 1;
+        }
+      }
+
+      for (const [yearStr, votes] of Object.entries(slotYearBaseVotes)) {
+        const year = Number(yearStr);
+        let bestBase = null;
+        let bestCnt = 0;
+        for (const [bStr, cnt] of Object.entries(votes)) {
+          if (cnt > bestCnt) {
+            bestCnt = cnt;
+            bestBase = Number(bStr);
+          }
+        }
+        // Require multiple anchors to avoid false mapping from sparse noise.
+        if (!Number.isFinite(bestBase) || bestCnt < 3) continue;
+        const idx = id - bestBase;
+        if (idx < 0 || idx > 71) continue;
+        const round = Math.floor(idx / 12) + 1;
+        const slot = (idx % 12) + 1;
+        return `${year} Pick ${round}.${String(slot).padStart(2, '0')}`;
       }
 
       for (const [yearStr, votes] of Object.entries(yearBaseVotes)) {
@@ -8275,10 +8680,15 @@
       hp.forEach((v, k) => params.append(k, v));
     }
 
+    const unresolved = [];
     function sideFrom(value) {
-      return extractKtcAssets(value)
-        .map(canonicalizeImportedAsset)
-        .filter(Boolean);
+      const out = [];
+      for (const rawAsset of extractKtcAssets(value)) {
+        const canon = canonicalizeImportedAsset(rawAsset);
+        if (canon) out.push(canon);
+        else if (rawAsset != null && String(rawAsset).trim()) unresolved.push(String(rawAsset).trim());
+      }
+      return out;
     }
 
     const pairs = [
@@ -8286,6 +8696,8 @@
       ['team1', 'team2'],
       ['sideA', 'sideB'],
       ['side1', 'side2'],
+      ['teamOneAssets', 'teamTwoAssets'],
+      ['teamA', 'teamB'],
     ];
     let sideA = [];
     let sideB = [];
@@ -8312,9 +8724,27 @@
       }
     }
 
+    // Fallback: hash payloads can be JSON/object-like without key=value fragments.
+    if (!sideA.length && !sideB.length && hash && !hash.includes('=')) {
+      const parsedHash = parseLooseObject(decodeUrlValue(hash));
+      if (parsedHash && typeof parsedHash === 'object') {
+        const aRaw = parsedHash.teamOne ?? parsedHash.team1 ?? parsedHash.sideA ?? parsedHash.side1 ?? parsedHash.teamA;
+        const bRaw = parsedHash.teamTwo ?? parsedHash.team2 ?? parsedHash.sideB ?? parsedHash.side2 ?? parsedHash.teamB;
+        if (aRaw != null && bRaw != null) {
+          sideA = sideFrom(aRaw);
+          sideB = sideFrom(bRaw);
+        }
+      }
+    }
+
     if (!sideA.length && !sideB.length) {
       alert('Could not parse trade assets from that KTC URL.');
       return;
+    }
+
+    if (unresolved.length) {
+      const preview = [...new Set(unresolved)].slice(0, 12);
+      console.warn(`[KTC Import] Unresolved assets (${unresolved.length}):`, preview);
     }
 
     switchTab('calculator');
@@ -9121,11 +9551,52 @@
     renderMobileTradeWorkspace();
     updateMobileTradeTray();
     saveTradeDraftState();
+    updateCalculatorEmptyHint();
     if (activeTabId === 'home') buildHomeHub();
     if (activeTabId === 'watch') buildWatchHub();
     if (activeTabId === 'more') buildMoreHub();
 
     persistSettings();
+  }
+
+  function toggleDataFreshnessDetails(forceOpen = null) {
+    if (typeof forceOpen === 'boolean') dataFreshnessDetailsOpen = !!forceOpen;
+    else dataFreshnessDetailsOpen = !dataFreshnessDetailsOpen;
+    const details = document.getElementById('dataFreshnessDetails');
+    const caret = document.getElementById('dataFreshnessToggleCaret');
+    if (details) details.style.display = dataFreshnessDetailsOpen ? 'block' : 'none';
+    if (caret) caret.textContent = dataFreshnessDetailsOpen ? '▾' : '▸';
+  }
+
+  function setTopFreshnessSummary(text, opts = {}) {
+    const el = document.getElementById('dataFreshnessTop');
+    if (!el) return;
+    const stale = !!opts.stale;
+    el.textContent = text || '';
+    el.style.display = text ? '' : 'none';
+    el.style.color = stale ? 'var(--amber)' : 'var(--subtext)';
+  }
+
+  function getScrapeFreshnessMeta(data) {
+    const stamp = data?.scrapeTimestamp || data?.date;
+    if (!stamp) return null;
+    const scrapeDate = new Date(stamp);
+    if (!isFinite(scrapeDate.getTime())) return null;
+    const ageHours = Math.max(0, Math.round((Date.now() - scrapeDate.getTime()) / 3600000));
+    const ageText = ageHours < 1 ? 'just now' : ageHours < 24 ? `${ageHours}h ago` : `${Math.round(ageHours / 24)}d ago`;
+    return {
+      ageHours,
+      ageText,
+      stale: ageHours > 48,
+    };
+  }
+
+  // Keep top freshness summary + detailed source card wording in one place.
+  function buildSourceFreshnessSummaryText(okCount, totalCount, scrapeAgeText = '', dlfCsvStale = false) {
+    const parts = [`Sources ${okCount}/${totalCount}`];
+    if (scrapeAgeText) parts.push(scrapeAgeText);
+    if (dlfCsvStale) parts.push('DLF stale');
+    return parts.join(' · ');
   }
 
   function loadJsonData(data) {
@@ -9140,6 +9611,7 @@
     data.players = cleanPlayers;
 
     loadedData = data;
+    invalidateRankingsBaseRowsCache();
     playerNames = Object.keys(data.players).sort();
     playerSleeperIds = {};
     sleeperIdToPlayer = {};
@@ -9177,17 +9649,14 @@
       }
     }
 
-    // Show data freshness
-    if (data.scrapeTimestamp || data.date) {
-      const scrapeDate = data.scrapeTimestamp ? new Date(data.scrapeTimestamp) : new Date(data.date);
-      const ageHours = Math.round((Date.now() - scrapeDate.getTime()) / 3600000);
-      const ageText = ageHours < 1 ? 'just now' : ageHours < 24 ? `${ageHours}h ago` : `${Math.round(ageHours/24)}d ago`;
-      const stale = ageHours > 48;
-      const freshEl = document.getElementById('dataFreshness');
-      if (freshEl) {
-        freshEl.innerHTML = `Data: <span style="color:${stale ? 'var(--amber)' : 'var(--green)'};font-weight:600;">${ageText}</span>${stale ? ' <span class="stale-badge">⚠ stale</span>' : ''}`;
-        freshEl.style.display = '';
-      }
+    // Show data freshness summary
+    let scrapeAgeText = '';
+    let scrapeAgeStale = false;
+    const freshnessMeta = getScrapeFreshnessMeta(data);
+    if (freshnessMeta) {
+      scrapeAgeText = freshnessMeta.ageText;
+      scrapeAgeStale = freshnessMeta.stale;
+      setTopFreshnessSummary(`Updated ${freshnessMeta.ageText}${freshnessMeta.stale ? ' · stale' : ''}`, { stale: freshnessMeta.stale });
     }
 
     if (data.sleeper && data.sleeper.teams) {
@@ -9242,31 +9711,85 @@
       dynastyNerdsInclude.disabled = false;
       dynastyNerdsInclude.checked = true;
     }
+    const dlfKeys = ['dlfSf', 'dlfIdp', 'dlfRsf', 'dlfRidp'];
+    const dlfImport = (data.settings && data.settings.dlfImport && typeof data.settings.dlfImport === 'object')
+      ? data.settings.dlfImport
+      : {};
+    const dlfImportRows = Object.values(dlfImport).filter(v => v && typeof v === 'object');
+    const dlfLoadedRows = dlfImportRows.filter(v => !!v.loaded);
+    const dlfHasFreshCsv = dlfLoadedRows.some(v => !(v.stale === true || Number(v.ageDays) > 7));
+    const dlfCsvStale = dlfLoadedRows.length > 0 && !dlfHasFreshCsv;
+    const dlfHasData = (
+      (Array.isArray(data.sites) && data.sites.some(s => dlfKeys.includes(s?.key) && Number(s.playerCount) > 0)) ||
+      dlfKeys.some(k => Number(data.maxValues?.[k]) > 0) ||
+      Object.values(data.players || {}).some(p => dlfKeys.some(k => Number(p?.[k]) > 0))
+    );
 
     const st = document.getElementById('dataStatus');
     const count = Object.keys(data.players).length;
-    const siteCount = data.sites ? data.sites.filter(s => s.playerCount > 0).length : 0;
+    const siteCount = data.sites ? data.sites.filter(s => {
+      const n = Number(s?.playerCount || 0);
+      if (n > 0) return true;
+      if (s?.key === 'dynastyNerds') return dynastyNerdsHasData;
+      if (s?.key === 'DLF') return dlfHasData && !dlfCsvStale;
+      return false;
+    }).length : 0;
     const leagueInfo = data.sleeper ? ` · ${data.sleeper.leagueName}` : '';
     const dateInfo = data.date ? ` · updated ${data.date}` : '';
     st.textContent = `✓ ${count} players loaded (${siteCount} sources${dateInfo})${leagueInfo}`;
     st.style.color = 'var(--green)';
 
-    // Data freshness: show per-site status pills
+    // Data freshness: compact summary + expandable site pills
     const freshnessEl = document.getElementById('dataFreshness');
     if (freshnessEl && data.sites) {
       const siteLabels = {ktc:'KTC', fantasyCalc:'FC', dynastyDaddy:'DD', fantasyPros:'FP',
                           draftSharks:'DS', yahoo:'Yahoo', dynastyNerds:'DN',
+                          DLF:'DLF',
                           dlfSf:'DLF SF', dlfIdp:'DLF IDP', dlfRsf:'DLF R SF', dlfRidp:'DLF R IDP',
                           idpTradeCalc:'IDP TC', pffIdp:'PFF', fantasyProsIdp:'FP IDP'};
+      const siteCountMap = new Map((data.sites || []).map(s => [String(s?.key || ''), Number(s?.playerCount || 0)]));
+      const dlfSubCount = dlfKeys.reduce((sum, k) => sum + Math.max(0, Number(siteCountMap.get(k) || 0)), 0);
       let html = '';
+      let okCount = 0;
+      let totalCount = 0;
       for (const s of data.sites) {
+        totalCount++;
         const label = siteLabels[s.key] || s.key;
-        const ok = s.playerCount > 0;
+        let displayCount = Number(s?.playerCount || 0);
+        let ok = displayCount > 0;
+        if (!ok && s.key === 'dynastyNerds' && dynastyNerdsHasData) {
+          ok = true;
+          displayCount = Math.max(displayCount, 1);
+        }
+        if (!ok && s.key === 'DLF' && dlfHasData) {
+          ok = !dlfCsvStale;
+          displayCount = Math.max(displayCount, dlfSubCount, 1);
+        }
+        if (ok && dlfCsvStale && (s.key === 'DLF' || dlfKeys.includes(s.key))) ok = false;
+        if (ok) okCount++;
         const color = ok ? 'var(--green)' : 'var(--red)';
         const bg = ok ? 'rgba(0,200,100,0.1)' : 'rgba(255,80,80,0.1)';
-        html += `<span style="display:inline-block;padding:2px 6px;margin:2px;border-radius:4px;font-size:0.62rem;font-family:var(--mono);color:${color};background:${bg};border:1px solid ${color}22;" title="${s.key}: ${s.playerCount} players">${label} ${ok ? s.playerCount : '✗'}</span>`;
+        let titleExtra = '';
+        if ((s.key === 'DLF' || dlfKeys.includes(s.key)) && dlfCsvStale) titleExtra = ' (csv >7d old)';
+        html += `<span style="display:inline-block;padding:2px 6px;margin:2px;border-radius:4px;font-size:0.62rem;font-family:var(--mono);color:${color};background:${bg};border:1px solid ${color}22;" title="${s.key}: ${displayCount} players${titleExtra}">${label} ${ok ? displayCount : '✗'}</span>`;
       }
-      freshnessEl.innerHTML = html;
+      const sourceSummaryText = buildSourceFreshnessSummaryText(okCount, totalCount, scrapeAgeText, dlfCsvStale);
+      freshnessEl.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" type="button" onclick="toggleDataFreshnessDetails()">
+            ${sourceSummaryText}
+            <span id="dataFreshnessToggleCaret">${dataFreshnessDetailsOpen ? '▾' : '▸'}</span>
+          </button>
+          <span style="font-size:0.66rem;color:var(--subtext);font-family:var(--mono);">Tap to view source health</span>
+        </div>
+        <div id="dataFreshnessDetails" style="margin-top:6px;line-height:1.8;display:${dataFreshnessDetailsOpen ? 'block' : 'none'};">
+          ${html}
+        </div>
+      `;
+      freshnessEl.style.display = '';
+      setTopFreshnessSummary(sourceSummaryText, {
+        stale: scrapeAgeStale || dlfCsvStale,
+      });
     }
     const qc = document.getElementById('quickUseCard');
     if (qc) qc.classList.add('data-loaded');
@@ -9277,6 +9800,8 @@
     // Initialize League Adjustment Multipliers
     initLAM();
     initScarcity();
+    // Warm rankings cache in the background so opening Rankings feels instant.
+    setTimeout(() => primeRankingsBaseRowsCache(), 0);
 
     // ── Historical trend tracking ──
     try {
@@ -9334,12 +9859,22 @@
       const raw = sessionStorage.getItem(STORAGE_KEY);
       if (raw) {
         const d = JSON.parse(raw);
-        if (d.rosterTeam) {
-          const sel = document.getElementById('rosterMyTeam');
-          if (sel) sel.value = d.rosterTeam;
-        }
+        const preferredFromSession = resolvePreferredTeamName({
+          teams: sleeperTeams,
+          explicitTeam: d.rosterTeam || '',
+          savedTeam: localStorage.getItem('dynasty_my_team') || '',
+          profileTeam: getProfile()?.teamName || '',
+        });
+        if (preferredFromSession) syncGlobalTeam(preferredFromSession);
       }
     } catch(_) {}
+    if (!localStorage.getItem('dynasty_my_team')) {
+      const preferred = resolvePreferredTeamName({
+        teams: sleeperTeams,
+        profileTeam: getProfile()?.teamName || '',
+      });
+      if (preferred) syncGlobalTeam(preferred);
+    }
 
     const mp = getMobilePrefs();
     if (mp.sortBasis) {
@@ -9365,6 +9900,7 @@
     buildWatchHub();
     buildMoreHub();
     updateRankingsActiveChips();
+    updateCalculatorEmptyHint();
 
     return true;
   }
@@ -10120,17 +10656,40 @@
   }
 
 
+  function normalizeTradeTimestampMs(ts) {
+    const n = Number(ts);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return n < 1_000_000_000_000 ? n * 1000 : n;
+  }
+
+  function getTradeHistoryWindowDays() {
+    const cfg = Number(loadedData?.sleeper?.tradeWindowDays);
+    if (Number.isFinite(cfg) && cfg >= 30) return Math.round(cfg);
+    return 365;
+  }
+
+  function filterTradesToRollingWindow(trades) {
+    if (!Array.isArray(trades) || !trades.length) return [];
+    const days = getTradeHistoryWindowDays();
+    const cutoffMs = Date.now() - (days * 24 * 60 * 60 * 1000);
+    return trades.filter(t => {
+      const ts = normalizeTradeTimestampMs(t?.timestamp);
+      return Number.isFinite(ts) && ts >= cutoffMs;
+    });
+  }
+
   // ── TRADE HISTORY GRADES ──
   function buildTradeGrades() {
     const card = document.getElementById('tradeGradesCard');
     const div = document.getElementById('tradeGrades');
     if (!card || !div || !loadedData) return;
-    const trades = loadedData.sleeper?.trades;
+    const trades = filterTradesToRollingWindow(loadedData.sleeper?.trades);
     if (!trades || !trades.length) { card.style.display = 'none'; return; }
 
     let html = '';
     for (const trade of trades.slice(0, 15)) {
-      const date = trade.timestamp ? new Date(trade.timestamp).toLocaleDateString() : '?';
+      const ts = normalizeTradeTimestampMs(trade.timestamp);
+      const date = ts ? new Date(ts).toLocaleDateString() : '?';
       let tradeHtml = `<div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:10px;">`;
       tradeHtml += `<div style="font-size:0.68rem;color:var(--subtext);margin-bottom:6px;">Week ${trade.week} · ${date}</div>`;
 
@@ -10191,7 +10750,13 @@
       return;
     }
 
-    const trades = loadedData.sleeper.trades;
+    const windowDays = getTradeHistoryWindowDays();
+    const trades = filterTradesToRollingWindow(loadedData.sleeper.trades);
+    if (!trades.length) {
+      listDiv.innerHTML = `<div class="card"><p style="color:var(--subtext);padding:12px;">No completed trades found in the last ${windowDays} days.</p></div>`;
+      if (statsCard) statsCard.style.display = 'none';
+      return;
+    }
     const teamFilter = document.getElementById('tradeTeamFilter')?.value || '';
     const alpha = parseFloat(document.getElementById('alphaSlider')?.value) || 1.075;
 
@@ -10200,7 +10765,8 @@
     const analyzed = [];
 
     for (const trade of trades) {
-      const date = trade.timestamp ? new Date(trade.timestamp).toLocaleDateString() : '?';
+      const ts = normalizeTradeTimestampMs(trade.timestamp);
+      const date = ts ? new Date(ts).toLocaleDateString() : '?';
       const sides = [];
 
       for (const side of trade.sides) {
@@ -10600,8 +11166,12 @@
       opt.textContent = team.name;
       sel.appendChild(opt);
     });
-    const saved = localStorage.getItem('dynasty_my_team');
-    if (saved) sel.value = saved;
+    const preferred = resolvePreferredTeamName({
+      teams: sleeperTeams,
+      savedTeam: localStorage.getItem('dynasty_my_team') || '',
+      profileTeam: getProfile()?.teamName || '',
+    });
+    if (preferred) sel.value = preferred;
   }
 
   function buildRosterDashboard() {
@@ -11550,6 +12120,10 @@
     return !!document.getElementById('rankingsShowLamCols')?.checked;
   }
 
+  function showRankingsSourceColumns() {
+    return !!document.getElementById('rankingsShowSiteCols')?.checked;
+  }
+
   function getLAM(position) {
     if (!lamMultipliers) return 1.0;
     const bucket = getLAMBucket(position);
@@ -11664,6 +12238,16 @@
     });
 
     return weights;
+  }
+
+  function getLeagueStarterRequirements() {
+    const weights = computeStarterSlotWeights();
+    const out = {};
+    Object.entries(weights || {}).forEach(([bucket, v]) => {
+      const n = Number(v);
+      if (Number.isFinite(n) && n > 0) out[bucket] = Number(n.toFixed(3));
+    });
+    return out;
   }
 
   function buildScarcityModelKey() {
@@ -11908,6 +12492,70 @@
       };
     }
 
+    // If backend already emitted league-adjusted values, use them as the scoring
+    // target and apply user strength as a clean blend. This avoids frontend
+    // recompute drift and preserves archetype/format-fit movement from scraper output.
+    const backendLeagueAdjusted = Number(pData?._leagueAdjusted);
+    if (Number.isFinite(backendLeagueAdjusted) && backendLeagueAdjusted > 0) {
+      const formatFitSource = String(pData?._formatFitSource || '');
+      const formatFitConfidence = Number(pData?._formatFitConfidence);
+      const formatFitRaw = Number(pData?._formatFitRaw);
+      const formatFitShrunk = Number(pData?._formatFitShrunk);
+      const formatFitFinal = Number(pData?._formatFitFinal);
+      const formatFitPPGTest = Number(pData?._formatFitPPGTest);
+      const formatFitPPGCustom = Number(pData?._formatFitPPGCustom);
+      const formatFitProductionShare = Number(pData?._formatFitProductionShare);
+
+      const backendTarget = clampValue(Math.round(backendLeagueAdjusted), 1, COMPOSITE_SCALE);
+      const backendMultiplier = backendTarget / Math.max(1, raw);
+      const rawDeviation = backendMultiplier - 1;
+      const deviationCap = assetClass === 'idp' ? IDP_SCORING_DEVIATION_CAP : OFF_SCORING_DEVIATION_CAP;
+      const cappedDeviation = clampValue(rawDeviation, -deviationCap, deviationCap);
+      const adjustmentStrength = clampValue(getLAMStrength(), 0, 1);
+      const evidenceConfidence = Number.isFinite(formatFitConfidence)
+        ? clampValue(formatFitConfidence, MARKET_CONF_MIN, MARKET_CONF_MAX)
+        : (formatFitSource ? 0.65 : 0.55);
+      const tierDampen = tierDampenForAsset(raw, assetClass);
+
+      let effectiveMultiplier = 1 + (cappedDeviation * adjustmentStrength);
+      const lamMin = assetClass === 'idp' ? Math.max(0.92, LAM_MIN_MULT) : Math.max(0.85, LAM_MIN_MULT);
+      const lamMax = assetClass === 'idp' ? Math.min(1.10, LAM_MAX_MULT) : Math.min(1.18, LAM_MAX_MULT);
+      effectiveMultiplier = clampValue(effectiveMultiplier, lamMin, lamMax);
+
+      const finalAdjustedValue = clampValue(
+        Math.round(raw * effectiveMultiplier),
+        1,
+        COMPOSITE_SCALE
+      );
+      const valueDelta = finalAdjustedValue - raw;
+
+      return {
+        baselineBucket: bucket,
+        rawCompositeValue: raw,
+        rawLeagueMultiplier: Number(pData?._rawLeagueMultiplier ?? backendMultiplier) || backendMultiplier,
+        shrunkLeagueMultiplier: Number(pData?._shrunkLeagueMultiplier ?? backendMultiplier) || backendMultiplier,
+        leagueMultiplier: backendMultiplier,
+        adjustmentStrength,
+        effectiveMultiplier,
+        finalAdjustedValue,
+        valueDelta,
+        formatFitSource,
+        formatFitConfidence,
+        formatFitRaw,
+        formatFitShrunk,
+        formatFitFinal,
+        formatFitPPGTest,
+        formatFitPPGCustom,
+        formatFitProductionShare,
+        assetClass,
+        marketReliabilityScore: marketReliability.score,
+        evidenceConfidence,
+        tierDampen,
+        rawDeviation,
+        cappedDeviation,
+      };
+    }
+
     let leagueMultiplier = getLAM(bucket);
     let rawLeagueMultiplier = Number(posDebug.rawMultiplier ?? leagueMultiplier) || leagueMultiplier;
     let shrunkLeagueMultiplier = Number(posDebug.shrunkMultiplier ?? leagueMultiplier) || leagueMultiplier;
@@ -11923,7 +12571,12 @@
 
     // Prefer player-level format-fit translation if available from scraper.
     // Fallback remains position-level LAM multipliers for compatibility.
-    const pMult = Number(pData?._formatFitProductionMultiplier);
+    // Prefer the model's full scoring-fit multiplier when available.
+    // _formatFitProductionMultiplier is already production-dampened and can
+    // make scoring mode too inert when combined with downstream dampening.
+    const pMultFinal = Number(pData?._formatFitFinal);
+    const pMultProduction = Number(pData?._formatFitProductionMultiplier);
+    const pMult = (Number.isFinite(pMultFinal) && pMultFinal > 0) ? pMultFinal : pMultProduction;
     if (Number.isFinite(pMult) && pMult > 0) {
       leagueMultiplier = pMult;
       rawLeagueMultiplier = Number(pData?._formatFitRaw ?? rawLeagueMultiplier) || rawLeagueMultiplier;
@@ -12111,13 +12764,26 @@
 
   // ── PROFILE & ONBOARDING ──
   const PROFILE_KEY = 'dynasty_profile';
-  const HARDCODED_SLEEPER_LEAGUE_ID = '1312006700437352448';
-  const HARDCODED_BASELINE_LEAGUE_ID = '1328545898812170240';
   const HARDCODED_LEAGUE_NAME_FALLBACK = 'Risk It To Get The Brisket';
 
+  function getCanonicalLeagueIds() {
+    const lam = loadedData?.settings?.lamLeagues || {};
+    const profile = getProfile() || {};
+    const customLeagueId = String(
+      lam.customLeagueId || profile.customLeagueId || profile.leagueId || ''
+    ).trim();
+    const baselineLeagueId = String(
+      lam.baselineLeagueId || profile.baselineLeagueId || ''
+    ).trim();
+    return { customLeagueId, baselineLeagueId };
+  }
+
+  function getCurrentLeagueId() {
+    return getCanonicalLeagueIds().customLeagueId;
+  }
+
   function getBaselineLeagueId() {
-    const id = loadedData?.settings?.lamLeagues?.baselineLeagueId || HARDCODED_BASELINE_LEAGUE_ID;
-    return String(id || HARDCODED_BASELINE_LEAGUE_ID);
+    return getCanonicalLeagueIds().baselineLeagueId;
   }
 
   function getProfile() {
@@ -12150,17 +12816,13 @@
 
       // Also set the rosterMyTeam dropdown if it matches
       if (profile.teamName) {
-        const sel = document.getElementById('rosterMyTeam');
-        if (sel) {
-          // Try to set it
-          for (const opt of sel.options) {
-            if (opt.value === profile.teamName) {
-              sel.value = profile.teamName;
-              localStorage.setItem('dynasty_my_team', profile.teamName);
-              break;
-            }
-          }
-        }
+        const preferred = resolvePreferredTeamName({
+          teams: sleeperTeams,
+          explicitTeam: profile.teamName,
+          savedTeam: localStorage.getItem('dynasty_my_team') || '',
+          profileTeam: profile.teamName,
+        });
+        if (preferred) syncGlobalTeam(preferred);
       }
     } else {
       bar.style.display = 'none';
@@ -12198,7 +12860,7 @@
     return r.json();
   }
 
-  // Onboarding flow (hardcoded Sleeper league)
+  // Onboarding flow (configured Sleeper league from backend settings/profile)
   let onboardState = {};
 
   function _teamExists(teamName) {
@@ -12209,12 +12871,26 @@
   function ensureHardcodedLeagueProfile() {
     const existing = getProfile() || {};
     const savedTeam = localStorage.getItem('dynasty_my_team') || '';
+    const ids = getCanonicalLeagueIds();
+    const customLeagueId = String(
+      ids.customLeagueId || existing.customLeagueId || existing.leagueId || ''
+    ).trim();
+    const baselineLeagueId = String(
+      ids.baselineLeagueId || existing.baselineLeagueId || ''
+    ).trim();
     const leagueName = String(loadedData?.sleeper?.leagueName || existing.leagueName || HARDCODED_LEAGUE_NAME_FALLBACK);
 
     let teamName = String(existing.teamName || savedTeam || '');
     let rosterId = existing.rosterId || '';
     if (Array.isArray(sleeperTeams) && sleeperTeams.length) {
-      if (!_teamExists(teamName)) teamName = sleeperTeams[0].name;
+      if (!_teamExists(teamName)) {
+        teamName = resolvePreferredTeamName({
+          teams: sleeperTeams,
+          explicitTeam: existing.teamName,
+          savedTeam,
+          profileTeam: existing.teamName,
+        });
+      }
       const t = sleeperTeams.find(x => x.name === teamName);
       if (t) rosterId = t.rosterId ?? t.roster_id ?? rosterId;
     } else if (!_teamExists(teamName)) {
@@ -12225,9 +12901,9 @@
       platform: 'sleeper',
       username: existing.username || 'Sleeper',
       userId: existing.userId || '',
-      leagueId: HARDCODED_SLEEPER_LEAGUE_ID,
-      customLeagueId: HARDCODED_SLEEPER_LEAGUE_ID,
-      baselineLeagueId: getBaselineLeagueId(),
+      leagueId: customLeagueId,
+      customLeagueId: customLeagueId,
+      baselineLeagueId: baselineLeagueId,
       leagueName,
       teamName,
       rosterId,
@@ -12241,12 +12917,14 @@
   async function loadHardcodedLeagueTeams() {
     let teams = Array.isArray(sleeperTeams) ? sleeperTeams : [];
     let leagueName = String(loadedData?.sleeper?.leagueName || HARDCODED_LEAGUE_NAME_FALLBACK);
+    const leagueId = getCurrentLeagueId();
     if (teams.length) return { teams, leagueName };
+    if (!leagueId) return { teams: [], leagueName };
 
     const [league, rosters, users] = await Promise.all([
-      sleeperFetchLeague(HARDCODED_SLEEPER_LEAGUE_ID),
-      sleeperFetchRosters(HARDCODED_SLEEPER_LEAGUE_ID),
-      sleeperFetchUsers(HARDCODED_SLEEPER_LEAGUE_ID),
+      sleeperFetchLeague(leagueId),
+      sleeperFetchRosters(leagueId),
+      sleeperFetchUsers(leagueId),
     ]);
 
     if (league?.name) leagueName = String(league.name);
@@ -12275,13 +12953,15 @@
     const overlay = document.getElementById('onboardOverlay');
     const modal = document.getElementById('onboardModal');
     if (!overlay || !modal) return;
+    const leagueId = getCurrentLeagueId();
+    const baselineLeagueId = getBaselineLeagueId();
 
     overlay.classList.add('active');
     modal.innerHTML = `
       <h2>Select Your Team</h2>
-      <p>Loading rosters from your hardcoded Sleeper league…</p>
-      <div class="onboard-loading">League ID: ${HARDCODED_SLEEPER_LEAGUE_ID}</div>
-      <div class="onboard-loading">Baseline ID: ${getBaselineLeagueId()}</div>
+      <p>Loading rosters from your configured Sleeper league…</p>
+      <div class="onboard-loading">League ID: ${leagueId || 'Not configured'}</div>
+      <div class="onboard-loading">Baseline ID: ${baselineLeagueId || 'Not configured'}</div>
     `;
 
     try {
@@ -12290,21 +12970,24 @@
       if (!teams.length) {
         modal.innerHTML = `
           <h2>League Not Available</h2>
-          <p>Could not load rosters for league <strong>${HARDCODED_SLEEPER_LEAGUE_ID}</strong>.</p>
+          <p>Could not load rosters for league <strong>${leagueId || 'Not configured'}</strong>.</p>
           <div id="onboardError"><p class="onboard-error">Try refreshing values, then open this again.</p></div>
           <button class="onboard-btn ghost" onclick="closeOnboarding()">Close</button>
         `;
         return;
       }
 
-      const selectedName = profile?.teamName && _teamExists(profile.teamName)
-        ? profile.teamName
-        : (localStorage.getItem('dynasty_my_team') || teams[0]?.name || '');
+      const selectedName = resolvePreferredTeamName({
+        teams,
+        explicitTeam: profile?.teamName || '',
+        savedTeam: localStorage.getItem('dynasty_my_team') || '',
+        profileTeam: profile?.teamName || '',
+      });
       const selectedTeam = teams.find(t => t.name === selectedName) || teams[0];
       onboardState = {
         username: profile?.username || 'Sleeper',
         userId: profile?.userId || '',
-        selectedLeague: { league_id: HARDCODED_SLEEPER_LEAGUE_ID, name: leagueName },
+        selectedLeague: { league_id: leagueId, name: leagueName },
         teams,
         selectedTeam,
       };
@@ -12328,7 +13011,7 @@
     } catch (e) {
       modal.innerHTML = `
         <h2>League Load Error</h2>
-        <p>Could not load your hardcoded league rosters.</p>
+      <p>Could not load your configured league rosters.</p>
         <div id="onboardError"><p class="onboard-error">${String(e?.message || e || 'Unknown error')}</p></div>
         <button class="onboard-btn ghost" onclick="closeOnboarding()">Close</button>
       `;
@@ -12348,13 +13031,20 @@
 
   function finishOnboarding() {
     const existing = getProfile() || {};
+    const ids = getCanonicalLeagueIds();
+    const customLeagueId = String(
+      ids.customLeagueId || existing.customLeagueId || existing.leagueId || ''
+    ).trim();
+    const baselineLeagueId = String(
+      ids.baselineLeagueId || existing.baselineLeagueId || ''
+    ).trim();
     const profile = {
       platform: 'sleeper',
       username: onboardState.username || existing.username || 'Sleeper',
       userId: onboardState.userId || existing.userId || '',
-      leagueId: HARDCODED_SLEEPER_LEAGUE_ID,
-      customLeagueId: HARDCODED_SLEEPER_LEAGUE_ID,
-      baselineLeagueId: getBaselineLeagueId(),
+      leagueId: customLeagueId,
+      customLeagueId: customLeagueId,
+      baselineLeagueId: baselineLeagueId,
       leagueName: onboardState.selectedLeague?.name || existing.leagueName || HARDCODED_LEAGUE_NAME_FALLBACK,
       teamName: onboardState.selectedTeam?.name,
       rosterId: onboardState.selectedTeam?.rosterId ?? onboardState.selectedTeam?.roster_id ?? existing.rosterId ?? '',
@@ -12373,10 +13063,7 @@
         }
       }
     }
-    localStorage.setItem('dynasty_my_team', profile.teamName);
-
-    // Trigger edge gate check
-    checkEdgeGate();
+    syncGlobalTeam(profile.teamName);
   }
 
   // ── SAVE/LOAD TRADES ──
@@ -12915,6 +13602,16 @@
       if(p<=0.75) { const t=(p-0.5)/0.25; return `rgb(${60+t*100|0},${100-t*40|0},${120-t*30|0})`; }
       const t=(p-0.75)/0.25; return `rgb(${160+t*60|0},${60-t*20|0},${90-t*20|0})`;
     }
+    function heatTextColor(bg) {
+      const m = String(bg || '').match(/rgb\(\s*(\d+),\s*(\d+),\s*(\d+)\s*\)/i);
+      if (!m) return 'var(--heat-text-dark)';
+      const r = Number(m[1]) || 0;
+      const g = Number(m[2]) || 0;
+      const b = Number(m[3]) || 0;
+      // Relative luminance threshold tuned for compact mono labels on colored badges.
+      const lum = ((0.2126 * r) + (0.7152 * g) + (0.0722 * b)) / 255;
+      return lum < 0.54 ? 'var(--heat-text-light)' : 'var(--heat-text-dark)';
+    }
 
     let h = '<table style="width:100%;border-collapse:collapse;font-size:0.74rem;"><thead><tr>';
     h += '<th style="text-align:left;padding:8px 6px;font-size:0.62rem;color:var(--subtext);font-family:var(--mono);">#</th>';
@@ -12925,14 +13622,15 @@
 
     overall.forEach((team,idx) => {
       const rk = gRanks[team.name]; const isMe = team.name===myTeam;
-      h += `<tr style="cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.03);${isMe?'background:rgba(200,56,3,0.06);':''}" onclick="document.getElementById('breakdownTeamSelect').value='${team.name.replace(/'/g,"\\'")}';switchLeagueSub('breakdown');">`;
+      h += `<tr style="cursor:pointer;border-bottom:1px solid var(--border-dim);${isMe?'background:rgba(200,56,3,0.06);':''}" onclick="document.getElementById('breakdownTeamSelect').value='${team.name.replace(/'/g,"\\'")}';switchLeagueSub('breakdown');">`;
       h += `<td style="padding:6px;font-family:var(--mono);font-weight:700;color:var(--subtext);">${idx+1}</td>`;
       h += `<td style="padding:6px;font-weight:700;${isMe?'color:var(--cyan);':''}">${team.name}</td>`;
       h += `<td style="padding:6px;text-align:right;font-family:var(--mono);font-weight:600;">${Math.round(team.total).toLocaleString()}</td>`;
       PG.forEach(g => {
         const rank = rk[g]; const bg = hc(rank,n);
         const gVal = Math.round(team.bg[g] || 0).toLocaleString();
-        h += `<td style="padding:6px;text-align:center;"><span title="${g}: ${gVal}" style="display:inline-block;min-width:32px;padding:4px 8px;border-radius:4px;background:${bg};font-family:var(--mono);font-weight:700;">${rank}</span></td>`;
+        const fg = heatTextColor(bg);
+        h += `<td style="padding:6px;text-align:center;"><span title="${g}: ${gVal}" style="display:inline-block;min-width:32px;padding:4px 8px;border-radius:4px;background:${bg};color:${fg};font-family:var(--mono);font-weight:700;">${rank}</span></td>`;
       });
       h += '</tr>';
     });
@@ -13015,7 +13713,7 @@
         const pickHint = (p.isPick && p.valueToken && p.valueToken !== p.name)
           ? `<span style="display:block;color:var(--subtext);font-size:0.6rem;">→ ${p.valueToken}</span>`
           : '';
-        h += `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:0.74rem;border-bottom:1px solid rgba(255,255,255,0.03);">`;
+        h += `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:0.74rem;border-bottom:1px solid var(--border-dim);">`;
         h += `<span style="width:22px;color:var(--subtext);font-family:var(--mono);font-size:0.66rem;">${i+1}</span>`;
         h += `<span style="flex:1;font-weight:600;">${p.name}${pickHint}</span>`;
         h += `<span style="font-family:var(--mono);font-size:0.62rem;font-weight:700;color:${pColor};width:48px;">${p.group === 'PICKS' ? 'PICK' : (p.pos || '?')}</span>`;
@@ -13034,7 +13732,7 @@
         const pickHint = (p.isPick && p.valueToken && p.valueToken !== p.name)
           ? `<span style="display:block;color:var(--subtext);font-size:0.6rem;">→ ${p.valueToken}</span>`
           : '';
-        h += `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:0.74rem;border-bottom:1px solid rgba(255,255,255,0.03);">`;
+        h += `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:0.74rem;border-bottom:1px solid var(--border-dim);">`;
         h += `<span style="width:22px;color:var(--subtext);font-family:var(--mono);font-size:0.66rem;">${i+1}</span>`;
         h += `<span style="flex:1;font-weight:600;">${p.name}${pickHint}</span>`;
         h += `<span style="font-family:var(--mono);font-size:0.62rem;font-weight:700;color:${GC[g]};width:42px;">${g === 'PICKS' ? 'PICK' : (p.pos || '?')}</span>`;
@@ -13098,7 +13796,7 @@
       side.d.playerAssets.slice(0,25).forEach((p,i)=>{
         const cl = GC[p.group] || '#9b59b6';
         const posLabel = p.pos || '?';
-        h+=`<div style="display:flex;gap:6px;align-items:center;padding:3px 6px;font-size:0.72rem;border-bottom:1px solid rgba(255,255,255,0.03);">`;
+        h+=`<div style="display:flex;gap:6px;align-items:center;padding:3px 6px;font-size:0.72rem;border-bottom:1px solid var(--border-dim);">`;
         h+=`<span style="width:18px;color:var(--subtext);font-family:var(--mono);font-size:0.62rem;">${i+1}</span>`;
         h+=`<span style="font-weight:600;flex:1;">${p.name}</span>`;
         h+=`<span style="color:${cl};font-family:var(--mono);font-size:0.6rem;font-weight:700;">${posLabel}</span>`;
@@ -13110,7 +13808,7 @@
           const pickHint = (p.valueToken && p.valueToken !== p.name)
             ? `<span style="display:block;color:var(--subtext);font-size:0.58rem;">→ ${p.valueToken}</span>`
             : '';
-          h += `<div style="display:flex;gap:6px;align-items:center;padding:3px 6px;font-size:0.72rem;border-bottom:1px solid rgba(255,255,255,0.03);">`;
+        h += `<div style="display:flex;gap:6px;align-items:center;padding:3px 6px;font-size:0.72rem;border-bottom:1px solid var(--border-dim);">`;
           h += `<span style="width:18px;color:var(--subtext);font-family:var(--mono);font-size:0.62rem;">${i+1}</span>`;
           h += `<span style="font-weight:600;flex:1;">${p.name}${pickHint}</span>`;
           h += `<span style="color:${GC.PICKS};font-family:var(--mono);font-size:0.6rem;font-weight:700;">PICK</span>`;
@@ -13174,7 +13872,7 @@
       const dt = String(t.date || '');
       const dtLabel = dt ? dt.slice(0, 10) : '—';
 
-      h += '<tr style="border-bottom:1px solid rgba(255,255,255,0.03);">';
+      h += '<tr style="border-bottom:1px solid var(--border-dim);">';
       h += `<td data-sort-value="${dt.replace(/"/g, '&quot;')}" style="padding:6px;font-family:var(--mono);color:var(--subtext);white-space:nowrap;">${dtLabel}</td>`;
       h += `<td style="padding:6px;min-width:220px;">${sideAText}</td>`;
       h += `<td data-sort-value="${sideAVal}" style="padding:6px;text-align:right;font-family:var(--mono);font-weight:600;">${sideAVal > 0 ? sideAVal.toLocaleString() : '—'}</td>`;
@@ -13238,7 +13936,7 @@
       if (s.tep) parts.push('TE+');
       const fmt = parts.join(' · ') || '—';
 
-      h += '<tr style="border-bottom:1px solid rgba(255,255,255,0.03);">';
+      h += '<tr style="border-bottom:1px solid var(--border-dim);">';
       h += `<td data-sort-value="${dt.replace(/"/g, '&quot;')}" style="padding:6px;font-family:var(--mono);color:var(--subtext);white-space:nowrap;">${dtLabel}</td>`;
       h += `<td style="padding:6px;font-weight:700;">${w.added || '—'}${av > 0 ? ` <span style="font-family:var(--mono);font-size:0.62rem;color:var(--subtext);">${av.toLocaleString()}</span>` : ''}</td>`;
       h += `<td data-sort-value="${bidSort}" style="padding:6px;text-align:right;font-family:var(--mono);color:var(--green);font-weight:600;white-space:nowrap;">${bidDisplay}</td>`;

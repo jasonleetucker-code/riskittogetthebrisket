@@ -1,0 +1,16 @@
+{
+  "generatedAt": "2026-03-09T15:08:21.221411",
+  "date": "2026-03-09",
+  "files": [
+    "dlf_idp.csv",
+    "dlf_rookie_idp.csv",
+    "dlf_rookie_superflex.csv",
+    "dlf_superflex.csv",
+    "dynasty_data.js",
+    "dynasty_data_2026-03-09.json",
+    "dynasty_full.csv",
+    "dynasty_values.csv",
+    "site_raw"
+  ],
+  "siteRawCount": 14
+}

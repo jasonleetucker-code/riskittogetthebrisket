@@ -10,6 +10,7 @@ const nav = [
   { href: "/", label: "Home" },
   { href: "/rankings", label: "Rankings" },
   { href: "/trade", label: "Trade" },
+  { href: "/login", label: "Login" },
 ];
 
 export default function RootLayout({ children }) {

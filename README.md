@@ -40,19 +40,27 @@ This repo is now wired so both sides can work together:
    - Tries backend `http://127.0.0.1:8000/api/data` first
    - Falls back to local `dynasty_data_YYYY-MM-DD.json` / `dynasty_data.js`
 
-2. **Python server can proxy Next pages**
+2. **Python server runtime is explicit (`FRONTEND_RUNTIME`)**
    - `server.py`
-   - If Next is running, backend serves:
-     - `/`
-     - `/rankings`
-     - `/trade`
-     - `/_next/*` assets
-   - If Next is not running, backend falls back to legacy static `index.html`
+   - `FRONTEND_RUNTIME=static` (default): serves legacy static app intentionally
+   - `FRONTEND_RUNTIME=next`: proxies Next intentionally (no silent static fallback)
+   - `FRONTEND_RUNTIME=auto`: tries Next first, then explicit static fallback
 
 ### Optional env vars
-- `ENABLE_NEXT_FRONTEND_PROXY=true|false` (default `true`)
+- `FRONTEND_RUNTIME=static|next|auto` (default `static`)
 - `FRONTEND_URL=http://127.0.0.1:3000`
+- `ENABLE_NEXT_FRONTEND_PROXY=true|false` (legacy/deprecated)
 - `BACKEND_API_URL=http://127.0.0.1:8000/api/data` (for Next route)
+- `SLEEPER_LEAGUE_ID=1312006700437352448` (canonical main league ID for backend scraper)
+- `BASELINE_LEAGUE_ID=1328545898812170240` (canonical baseline league for scoring/LAM comparison)
+
+### `/api/data` contract
+- `/api/data` is now versioned (`contractVersion=2026-03-09.v1`)
+- Preserves legacy Static compatibility fields (`players` map, `maxValues`, etc.)
+- Adds normalized stable fields (`playersArray`, `dataSource`, `contractHealth`)
+- Runtime + CI validation:
+  - runtime surfaced in `GET /api/status`
+  - CI check via `scripts/validate_api_contract.py`
 
 ## One-click helpers
 - `start_dynasty.bat` → starts Python server

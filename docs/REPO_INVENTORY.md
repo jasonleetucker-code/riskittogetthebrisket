@@ -58,4 +58,21 @@ data/
 3. Stand up `/src` scaffolding with placeholder modules + README for adapters/canonical/league layers.
 4. Document how current backend reads/writes data so we know where to intercept with canonical outputs.
 
+## Runtime Authority (Current, Live)
+- Authoritative production frontend runtime is now controlled by `FRONTEND_RUNTIME` in `server.py`.
+- Current default is `static` unless explicitly overridden.
+- Runtime modes:
+  - `static`: serves `Static/index.html` intentionally.
+  - `next`: proxies Next only; no silent fallback to static.
+  - `auto`: tries Next and explicitly falls back to static with status visibility.
+
+## Backend Data Contract (Current, Live)
+- `/api/data` now serves a versioned contract with `contractVersion = 2026-03-09.v1`.
+- Legacy compatibility remains in place (`players` object map, `maxValues`, etc.) for Static app continuity.
+- Normalized contract additions include:
+  - `playersArray` (stable player list shape)
+  - `dataSource` metadata
+  - `contractHealth` summary
+- Contract validation is enforced via runtime diagnostics (`/api/status`) and CI (`scripts/validate_api_contract.py` in Jenkins).
+
 This doc will be kept up to date as we migrate functionality into the new architecture.

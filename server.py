@@ -21,6 +21,9 @@ import time
 import logging
 import traceback
 import smtplib
+import gzip
+import hashlib
+import uuid
 import urllib.request
 import urllib.error
 from email.mime.text import MIMEText
@@ -29,14 +32,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, Request
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+
+from src.api.data_contract import (
+    CONTRACT_VERSION as API_DATA_CONTRACT_VERSION,
+    build_api_data_contract,
+    validate_api_data_contract,
+)
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
 SCRAPE_INTERVAL_HOURS = 2
 PORT = 8000
 HOST = "0.0.0.0"  # accessible from local network; use "127.0.0.1" for local only
+SCRAPE_STALL_SECONDS = int(os.getenv("SCRAPE_STALL_SECONDS", "900"))
+SCRAPE_RUN_TIMEOUT_SECONDS = int(os.getenv("SCRAPE_RUN_TIMEOUT_SECONDS", "7200"))
 
 # ── EMAIL ALERTS ────────────────────────────────────────────────────────
 # Configure alerts via environment variables (no hardcoded secrets):
@@ -53,7 +64,11 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:3000").rstrip("/")
-ENABLE_NEXT_FRONTEND_PROXY = _env_bool("ENABLE_NEXT_FRONTEND_PROXY", True)
+_legacy_next_proxy_enabled = _env_bool("ENABLE_NEXT_FRONTEND_PROXY", True)
+FRONTEND_RUNTIME = (os.getenv("FRONTEND_RUNTIME") or "").strip().lower()
+if FRONTEND_RUNTIME not in {"static", "next", "auto"}:
+    # Explicit production default: static unless user intentionally overrides.
+    FRONTEND_RUNTIME = "static"
 
 ALERT_ENABLED = _env_bool("ALERT_ENABLED", False)
 ALERT_TO = os.getenv("ALERT_TO", "")
@@ -135,14 +150,55 @@ log = logging.getLogger("dynasty-server")
 # ── STATE ───────────────────────────────────────────────────────────────
 # In-memory cache of latest scrape data
 latest_data: dict | None = None
-scrape_status = {
-    "last_scrape": None,      # ISO timestamp
-    "last_duration_sec": None,
-    "next_scrape": None,       # ISO timestamp
-    "is_running": False,
-    "last_error": None,
-    "scrape_count": 0,
+latest_contract_data: dict | None = None
+latest_data_bytes: bytes | None = None
+latest_data_gzip_bytes: bytes | None = None
+latest_data_etag: str | None = None
+latest_data_source: dict = {
+    "type": "",
+    "path": "",
+    "loadedAt": "",
 }
+contract_health: dict = {
+    "ok": False,
+    "status": "unknown",
+    "errors": ["contract not initialized"],
+    "warnings": [],
+    "errorCount": 1,
+    "warningCount": 0,
+    "checkedAt": None,
+    "contractVersion": API_DATA_CONTRACT_VERSION,
+    "playerCount": 0,
+}
+# Canonical scrape lifecycle state.
+# Compatibility aliases are maintained:
+#   running -> is_running
+#   error   -> last_error
+scrape_status = {
+    "running": False,
+    "is_running": False,      # legacy alias for UI compatibility
+    "hung": False,
+    "stalled": False,
+    "started_at": None,
+    "finished_at": None,
+    "last_heartbeat": None,
+    "last_scrape": None,      # last successful scrape ISO timestamp
+    "last_success_at": None,
+    "last_failure_at": None,
+    "last_duration_sec": None,
+    "next_scrape": None,      # ISO timestamp
+    "error": None,
+    "last_error": None,       # legacy alias for UI compatibility
+    "current_step": None,
+    "current_source": None,
+    "progress_step_index": 0,
+    "progress_step_total": 0,
+    "worker_id": None,
+    "scrape_count": 0,
+    "run_events": [],
+}
+# Single-owner run lock: only one scrape run can own mutable active state.
+scrape_run_lock = asyncio.Lock()
 uptime_status = {
     "enabled": UPTIME_CHECK_ENABLED,
     "target_url": UPTIME_CHECK_URL,
@@ -152,9 +208,477 @@ uptime_status = {
     "last_http_status": None,
     "consecutive_failures": 0,
 }
+frontend_runtime_status = {
+    "configured": FRONTEND_RUNTIME,
+    "active": "static",
+    "reason": "configured_static_default",
+    "fallbackFrom": None,
+    "lastChecked": None,
+}
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _parse_iso(ts: str | None) -> datetime | None:
+    if not ts:
+        return None
+    try:
+        return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def _seconds_since_iso(ts: str | None) -> float | None:
+    dt = _parse_iso(ts)
+    if dt is None:
+        return None
+    return max(0.0, (datetime.now(timezone.utc) - dt).total_seconds())
+
+
+def _trim_run_events(limit: int = 50) -> None:
+    events = scrape_status.get("run_events") or []
+    if len(events) > limit:
+        scrape_status["run_events"] = events[-limit:]
+
+
+def _record_scrape_event(event: str, level: str = "info", message: str = "", **meta) -> None:
+    payload = {
+        "ts": _utc_now_iso(),
+        "event": event,
+        "message": message,
+    }
+    if meta:
+        payload["meta"] = meta
+    scrape_status.setdefault("run_events", []).append(payload)
+    _trim_run_events()
+
+    log_line = f"[Scrape] {event}"
+    if message:
+        log_line += f" — {message}"
+    if meta:
+        log_line += f" | {meta}"
+    if level == "error":
+        log.error(log_line)
+    elif level == "warning":
+        log.warning(log_line)
+    else:
+        log.info(log_line)
+
+
+def _touch_scrape_heartbeat() -> None:
+    scrape_status["last_heartbeat"] = _utc_now_iso()
+
+
+def _is_scrape_stalled() -> bool:
+    if not scrape_status.get("running"):
+        return False
+    age = _seconds_since_iso(scrape_status.get("last_heartbeat"))
+    if age is None:
+        return False
+    return age > SCRAPE_STALL_SECONDS
+
+
+def _sync_scrape_alias_fields() -> None:
+    scrape_status["is_running"] = bool(scrape_status.get("running"))
+    scrape_status["last_error"] = scrape_status.get("error")
+
+
+def _reconcile_orphaned_running_state() -> None:
+    # Safety net: if status says running but lock is free, a prior worker exited
+    # unexpectedly before state cleanup. Reset running state explicitly.
+    if scrape_status.get("running") and not scrape_run_lock.locked():
+        _record_scrape_event(
+            "orphaned_running_reset",
+            level="warning",
+            message="Detected running=True without active lock; resetting state",
+            worker_id=scrape_status.get("worker_id"),
+        )
+        scrape_status["running"] = False
+        scrape_status["hung"] = True
+        scrape_status["stalled"] = True
+        scrape_status["finished_at"] = _utc_now_iso()
+        scrape_status["current_step"] = "stale_state_reset"
+        scrape_status["current_source"] = None
+        _touch_scrape_heartbeat()
+        _sync_scrape_alias_fields()
+
+
+def _start_scrape_run(trigger: str) -> str:
+    run_id = f"run-{uuid.uuid4().hex[:12]}"
+    now_iso = _utc_now_iso()
+    scrape_status.update(
+        {
+            "running": True,
+            "hung": False,
+            "stalled": False,
+            "started_at": now_iso,
+            "finished_at": None,
+            "last_heartbeat": now_iso,
+            "current_step": "bootstrap",
+            "current_source": "server",
+            "progress_step_index": 0,
+            "progress_step_total": 0,
+            "worker_id": run_id,
+        }
+    )
+    _sync_scrape_alias_fields()
+    _record_scrape_event("scrape_started", message=f"trigger={trigger}", trigger=trigger, worker_id=run_id)
+    return run_id
+
+
+def _update_scrape_progress(
+    *,
+    step: str | None = None,
+    source: str | None = None,
+    step_index: int | None = None,
+    step_total: int | None = None,
+    event: str | None = None,
+    message: str | None = None,
+    level: str = "info",
+    meta: dict | None = None,
+) -> None:
+    if step is not None:
+        scrape_status["current_step"] = step
+    if source is not None:
+        scrape_status["current_source"] = source
+    if step_index is not None:
+        scrape_status["progress_step_index"] = int(step_index)
+    if step_total is not None:
+        scrape_status["progress_step_total"] = int(step_total)
+    scrape_status["hung"] = False
+    scrape_status["stalled"] = False
+    _touch_scrape_heartbeat()
+    _sync_scrape_alias_fields()
+    if event:
+        _record_scrape_event(event, level=level, message=message or "", **(meta or {}))
+
+
+def _mark_scrape_success(elapsed: float, player_count: int, site_count: int, total_sites: int) -> None:
+    now_iso = _utc_now_iso()
+    scrape_status.update(
+        {
+            "running": False,
+            "hung": False,
+            "stalled": False,
+            "finished_at": now_iso,
+            "last_scrape": now_iso,
+            "last_success_at": now_iso,
+            "last_duration_sec": round(elapsed, 1),
+            "error": None,
+            "current_step": "complete",
+            "current_source": None,
+            "scrape_count": int(scrape_status.get("scrape_count", 0)) + 1,
+        }
+    )
+    _touch_scrape_heartbeat()
+    _sync_scrape_alias_fields()
+    _record_scrape_event(
+        "scrape_succeeded",
+        message=f"{player_count} players, {site_count}/{total_sites} sites, {elapsed:.1f}s",
+        player_count=player_count,
+        site_count=site_count,
+        total_sites=total_sites,
+        duration_sec=round(elapsed, 1),
+    )
+
+
+def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
+    now_iso = _utc_now_iso()
+    error_text = f"{type(exc).__name__}: {str(exc)[:400]}"
+    failed_step = scrape_status.get("current_step")
+    failed_source = scrape_status.get("current_source")
+    scrape_status.update(
+        {
+            "running": False,
+            "hung": False,
+            "stalled": False,
+            "finished_at": now_iso,
+            "last_failure_at": now_iso,
+            "last_duration_sec": round(elapsed, 1),
+            "error": error_text,
+            "current_step": "failed",
+        }
+    )
+    _touch_scrape_heartbeat()
+    _sync_scrape_alias_fields()
+    _record_scrape_event(
+        "scrape_failed",
+        level="error",
+        message=error_text,
+        failed_step=failed_step,
+        failed_source=failed_source,
+        duration_sec=round(elapsed, 1),
+    )
+
+
+def _finalize_scrape_run(worker_id: str) -> None:
+    # Guaranteed cleanup path (always called in run_scraper finally).
+    if scrape_status.get("worker_id") != worker_id:
+        return
+    if scrape_status.get("running"):
+        scrape_status["running"] = False
+        if not scrape_status.get("finished_at"):
+            scrape_status["finished_at"] = _utc_now_iso()
+        if scrape_status.get("current_step") not in {"complete", "failed"}:
+            scrape_status["current_step"] = "finalized"
+            _record_scrape_event(
+                "scrape_finalized_with_running_true",
+                level="warning",
+                message="Forced running=False during finally cleanup",
+                worker_id=worker_id,
+            )
+    if scrape_status.get("current_step") == "complete":
+        scrape_status["current_source"] = None
+    _touch_scrape_heartbeat()
+    _sync_scrape_alias_fields()
+
+
+def _build_scrape_progress_callback(worker_id: str):
+    async def _on_progress(payload: dict):
+        if scrape_status.get("worker_id") != worker_id:
+            return
+        if not isinstance(payload, dict):
+            return
+        _update_scrape_progress(
+            step=payload.get("step"),
+            source=payload.get("source"),
+            step_index=payload.get("step_index"),
+            step_total=payload.get("step_total"),
+            event=payload.get("event"),
+            message=payload.get("message"),
+            level=payload.get("level", "info"),
+            meta=payload.get("meta"),
+        )
+
+    return _on_progress
+
+
+def _scrape_status_payload() -> dict:
+    _reconcile_orphaned_running_state()
+    stalled = _is_scrape_stalled()
+    was_stalled = bool(scrape_status.get("stalled"))
+    if stalled:
+        scrape_status["hung"] = True
+        scrape_status["stalled"] = True
+        if not was_stalled:
+            _record_scrape_event(
+                "scrape_stalled_detected",
+                level="warning",
+                message=(
+                    f"No heartbeat update for >{SCRAPE_STALL_SECONDS}s "
+                    f"(step={scrape_status.get('current_step')}, "
+                    f"source={scrape_status.get('current_source')})"
+                ),
+                stall_threshold_sec=SCRAPE_STALL_SECONDS,
+                current_step=scrape_status.get("current_step"),
+                current_source=scrape_status.get("current_source"),
+            )
+    else:
+        scrape_status["hung"] = False
+        scrape_status["stalled"] = False
+    _sync_scrape_alias_fields()
+
+    payload = dict(scrape_status)
+    payload["stall_threshold_sec"] = SCRAPE_STALL_SECONDS
+    payload["run_timeout_sec"] = SCRAPE_RUN_TIMEOUT_SECONDS
+    payload["status_summary"] = (
+        "stalled"
+        if payload.get("stalled")
+        else "running"
+        if payload.get("running")
+        else "failed"
+        if payload.get("error")
+        else "idle"
+    )
+    return payload
+
+
+def _set_latest_data_source(source_type: str, path: str | None = None) -> None:
+    latest_data_source.update(
+        {
+            "type": str(source_type or ""),
+            "path": str(path or ""),
+            "loadedAt": _utc_now_iso(),
+        }
+    )
+
+
+def _build_source_health_snapshot(data: dict | None) -> dict:
+    payload = data or {}
+    sites = payload.get("sites")
+    if not isinstance(sites, list):
+        sites = []
+    source_counts: dict[str, int] = {}
+    missing: list[str] = []
+    available = 0
+    for row in sites:
+        if not isinstance(row, dict):
+            continue
+        key = str(row.get("key") or "").strip()
+        if not key:
+            continue
+        count = int(row.get("playerCount") or 0)
+        source_counts[key] = count
+        if count > 0:
+            available += 1
+        else:
+            missing.append(key)
+
+    failures: list[dict] = []
+    settings = payload.get("settings") if isinstance(payload.get("settings"), dict) else {}
+    dlf_import = settings.get("dlfImport") if isinstance(settings.get("dlfImport"), dict) else {}
+    for src_key, meta in dlf_import.items():
+        if not isinstance(meta, dict):
+            continue
+        if not meta.get("loaded", False):
+            failures.append(
+                {
+                    "source": src_key,
+                    "reason": "not_loaded",
+                    "details": {
+                        "file": meta.get("file"),
+                        "parseMode": meta.get("parseMode"),
+                        "badRows": meta.get("badRows"),
+                    },
+                }
+            )
+        elif meta.get("stale", False):
+            failures.append(
+                {
+                    "source": src_key,
+                    "reason": "stale_csv",
+                    "details": {
+                        "file": meta.get("file"),
+                        "ageDays": meta.get("ageDays"),
+                    },
+                }
+            )
+
+    return {
+        "total_sources": len(source_counts),
+        "sources_with_data": available,
+        "source_counts": source_counts,
+        "missing_sources": sorted(missing),
+        "source_failures": failures,
+    }
+
+
+def _set_frontend_runtime_status(active: str, reason: str, fallback_from: str | None = None) -> None:
+    prev = (
+        frontend_runtime_status.get("active"),
+        frontend_runtime_status.get("reason"),
+        frontend_runtime_status.get("fallbackFrom"),
+    )
+    frontend_runtime_status.update(
+        {
+            "configured": FRONTEND_RUNTIME,
+            "active": active,
+            "reason": reason,
+            "fallbackFrom": fallback_from,
+            "lastChecked": _utc_now_iso(),
+        }
+    )
+    current = (active, reason, fallback_from)
+    if current != prev:
+        log.info(
+            "[Frontend Runtime] configured=%s active=%s reason=%s fallback_from=%s",
+            FRONTEND_RUNTIME,
+            active,
+            reason,
+            fallback_from,
+        )
+
+
+def _resolve_frontend_path(path: str) -> Response | None:
+    mode = FRONTEND_RUNTIME
+
+    if mode == "static":
+        _set_frontend_runtime_status("static", "configured_static_mode")
+        return None
+
+    proxied, err = _proxy_next(path)
+
+    if mode == "next":
+        if proxied is not None:
+            _set_frontend_runtime_status("next", "configured_next_mode")
+            return proxied
+        _set_frontend_runtime_status("next-unavailable", "configured_next_mode_but_unreachable")
+        return HTMLResponse(
+            (
+                "<h1>Next frontend unavailable</h1>"
+                f"<p>FRONTEND_RUNTIME is set to <code>next</code> but proxy failed: {err or 'unknown error'}</p>"
+                "<p>Start Next on FRONTEND_URL or set FRONTEND_RUNTIME=static/auto.</p>"
+            ),
+            status_code=503,
+        )
+
+    # auto mode
+    if proxied is not None:
+        _set_frontend_runtime_status("next", "auto_mode_next_available")
+        return proxied
+    _set_frontend_runtime_status("static", "auto_mode_fallback_to_static", fallback_from="next")
+    return None
+
+
+# Initialize runtime status at process boot.
+if FRONTEND_RUNTIME == "static":
+    _set_frontend_runtime_status("static", "configured_static_mode")
+elif FRONTEND_RUNTIME == "next":
+    _set_frontend_runtime_status("next", "configured_next_mode_pending_probe")
+else:
+    _set_frontend_runtime_status("auto", "configured_auto_mode_pending_probe")
 
 
 # ── SCRAPER INTEGRATION ────────────────────────────────────────────────
+def _prime_latest_payload(data: dict | None) -> None:
+    """Pre-serialize latest payload once so /api/data returns instantly."""
+    global latest_contract_data, latest_data_bytes, latest_data_gzip_bytes, latest_data_etag, contract_health
+    latest_data_bytes = None
+    latest_data_gzip_bytes = None
+    latest_data_etag = None
+    latest_contract_data = None
+    if not data:
+        return
+    try:
+        contract_payload = build_api_data_contract(data, data_source=latest_data_source)
+        contract_report = validate_api_data_contract(contract_payload)
+        contract_payload["contractHealth"] = {
+            "ok": bool(contract_report.get("ok")),
+            "status": contract_report.get("status"),
+            "errorCount": int(contract_report.get("errorCount", 0)),
+            "warningCount": int(contract_report.get("warningCount", 0)),
+            "checkedAt": contract_report.get("checkedAt"),
+        }
+        latest_contract_data = contract_payload
+        contract_health = contract_report
+
+        if not contract_report.get("ok"):
+            log.error(
+                "API contract validation failed: %s",
+                "; ".join((contract_report.get("errors") or [])[:5]),
+            )
+
+        raw = json.dumps(contract_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        latest_data_bytes = raw
+        latest_data_gzip_bytes = gzip.compress(raw, compresslevel=5)
+        latest_data_etag = hashlib.sha1(raw).hexdigest()
+    except Exception as e:
+        contract_health = {
+            "ok": False,
+            "status": "invalid",
+            "errors": [f"contract build failed: {type(e).__name__}: {e}"],
+            "warnings": [],
+            "errorCount": 1,
+            "warningCount": 0,
+            "checkedAt": _utc_now_iso(),
+            "contractVersion": API_DATA_CONTRACT_VERSION,
+            "playerCount": 0,
+        }
+        log.error(f"Failed to pre-serialize latest payload: {e}")
+
+
 def load_from_disk() -> dict | None:
     """Load most recent dynasty_data_*.json from data/ directory."""
     json_files = sorted(DATA_DIR.glob("dynasty_data_*.json"), reverse=True)
@@ -163,9 +687,11 @@ def load_from_disk() -> dict | None:
         json_files = sorted(BASE_DIR.glob("dynasty_data_*.json"), reverse=True)
     if json_files:
         try:
-            with open(json_files[0]) as f:
+            latest_path = json_files[0]
+            with open(latest_path) as f:
                 data = json.load(f)
-            log.info(f"Loaded cached data from {json_files[0].name} "
+            _set_latest_data_source("disk_cache", str(latest_path))
+            log.info(f"Loaded cached data from {latest_path.name} "
                      f"({len(data.get('players', {}))} players)")
             return data
         except Exception as e:
@@ -191,80 +717,135 @@ def _load_json_file(path: Path | None) -> dict | None:
         return None
 
 
-async def run_scraper() -> dict | None:
+async def run_scraper(trigger: str = "manual") -> dict | None:
     """
     Import and run the scraper, returning the dashboard JSON dict.
     Runs in the same event loop as the server.
     """
-    global latest_data, scrape_status
-
-    if scrape_status["is_running"]:
-        log.warning("Scrape already in progress, skipping")
+    global latest_data
+    _reconcile_orphaned_running_state()
+    if scrape_run_lock.locked():
+        _record_scrape_event(
+            "scrape_rejected_already_running",
+            level="warning",
+            message="run_scraper called while lock already held",
+        )
         return latest_data
 
-    scrape_status["is_running"] = True
-    scrape_status["last_error"] = None
-    start = time.time()
-    log.info("=" * 60)
-    log.info("SCRAPE STARTING")
-    log.info("=" * 60)
+    async with scrape_run_lock:
+        start = time.time()
+        worker_id = _start_scrape_run(trigger=trigger)
+        log.info("=" * 60)
+        log.info("SCRAPE STARTING")
+        log.info("=" * 60)
 
-    try:
-        # Import the scraper module from its exact file path
-        # (importlib handles spaces in directory names that normal import can't)
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("Dynasty_Scraper", str(SCRAPER_PATH))
-        scraper = importlib.util.module_from_spec(spec)
-        sys.modules["Dynasty_Scraper"] = scraper
-        spec.loader.exec_module(scraper)
+        try:
+            _update_scrape_progress(
+                step="bootstrap",
+                source="import_scraper",
+                step_index=1,
+                step_total=4,
+                event="phase_start",
+                message="Importing scraper module",
+            )
 
-        # Override SCRIPT_DIR so output goes to our data/ folder
-        scraper.SCRIPT_DIR = str(DATA_DIR)
+            # Import the scraper module from its exact file path
+            # (importlib handles spaces in directory names that normal import can't)
+            import importlib.util
 
-        # Run the scraper's main async function
-        result = await scraper.run()
+            spec = importlib.util.spec_from_file_location("Dynasty_Scraper", str(SCRAPER_PATH))
+            scraper = importlib.util.module_from_spec(spec)
+            sys.modules["Dynasty_Scraper"] = scraper
+            spec.loader.exec_module(scraper)
 
-        if result and result.get("players"):
+            # Override SCRIPT_DIR so output goes to our data/ folder
+            scraper.SCRIPT_DIR = str(DATA_DIR)
+
+            _update_scrape_progress(
+                step="scrape",
+                source="Dynasty Scraper.py",
+                step_index=2,
+                step_total=4,
+                event="phase_start",
+                message="Executing scraper.run()",
+            )
+
+            progress_callback = _build_scrape_progress_callback(worker_id)
+
+            # Top-level run timeout guard so a wedged scraper cannot hold running=True forever.
+            result = await asyncio.wait_for(
+                scraper.run(progress_callback=progress_callback),
+                timeout=SCRAPE_RUN_TIMEOUT_SECONDS,
+            )
+
+            _update_scrape_progress(
+                step="validate",
+                source="result_payload",
+                step_index=3,
+                step_total=4,
+                event="phase_start",
+                message="Validating scraper output",
+            )
+
+            if not result or not result.get("players"):
+                raise RuntimeError("Scraper returned empty result")
+
+            _update_scrape_progress(
+                step="publish",
+                source="api_cache",
+                step_index=4,
+                step_total=4,
+                event="phase_start",
+                message="Publishing data to in-memory cache",
+            )
+
             latest_data = result
+            result_date = str(result.get("date") or "").strip()
+            source_path = ""
+            if result_date:
+                candidate = DATA_DIR / f"dynasty_data_{result_date}.json"
+                if candidate.exists():
+                    source_path = str(candidate)
+            _set_latest_data_source("scrape_run", source_path)
+            _prime_latest_payload(result)
             elapsed = time.time() - start
             player_count = len(result.get("players", {}))
-            site_count = len([s for s in result.get("sites", [])
-                              if s.get("playerCount", 0) > 0])
+            site_count = len([s for s in result.get("sites", []) if s.get("playerCount", 0) > 0])
             total_sites = len(result.get("sites", []))
 
-            scrape_status.update({
-                "last_scrape": datetime.now(timezone.utc).isoformat(),
-                "last_duration_sec": round(elapsed, 1),
-                "is_running": False,
-                "scrape_count": scrape_status["scrape_count"] + 1,
-            })
+            _mark_scrape_success(elapsed, player_count, site_count, total_sites)
 
-            log.info(f"SCRAPE COMPLETE — {player_count} players, "
-                     f"{site_count}/{total_sites} sites, {elapsed:.1f}s")
+            log.info(
+                f"SCRAPE COMPLETE — {player_count} players, "
+                f"{site_count}/{total_sites} sites, {elapsed:.1f}s"
+            )
 
             # Alert if fewer than half the sites returned data
             if total_sites > 0 and site_count < total_sites / 2:
                 send_alert(
                     f"Scrape partial: only {site_count}/{total_sites} sites",
-                    f"Players: {player_count}\nSites with data: {site_count}/{total_sites}\nDuration: {elapsed:.1f}s\n\nSome sites may be down or blocking the scraper."
+                    (
+                        f"Players: {player_count}\n"
+                        f"Sites with data: {site_count}/{total_sites}\n"
+                        f"Duration: {elapsed:.1f}s\n\n"
+                        "Some sites may be down or blocking the scraper."
+                    ),
                 )
 
             return result
-        else:
-            raise RuntimeError("Scraper returned empty result")
-
-    except Exception as e:
-        elapsed = time.time() - start
-        scrape_status["is_running"] = False
-        scrape_status["last_error"] = f"{type(e).__name__}: {str(e)[:200]}"
-        log.error(f"SCRAPE FAILED after {elapsed:.1f}s: {e}")
-        error_trace = traceback.format_exc()
-        log.error(error_trace)
-        send_alert(
-            f"Scrape failed: {type(e).__name__}",
-            f"Error: {e}\n\nDuration: {elapsed:.1f}s\n\n{error_trace[-1500:]}"
-        )
-        return None
+        except Exception as e:
+            elapsed = time.time() - start
+            _mark_scrape_failure(e, elapsed)
+            error_trace = traceback.format_exc()
+            log.error(f"SCRAPE FAILED after {elapsed:.1f}s: {e}")
+            log.error(error_trace)
+            send_alert(
+                f"Scrape failed: {type(e).__name__}",
+                f"Error: {e}\n\nDuration: {elapsed:.1f}s\n\n{error_trace[-1500:]}",
+            )
+            return None
+        finally:
+            _finalize_scrape_run(worker_id)
 
 
 def check_uptime_once() -> tuple[bool, str | None, int | None]:
@@ -345,7 +926,7 @@ async def uptime_watchdog_loop():
 async def scheduled_scrape():
     """Called by the background scheduler every SCRAPE_INTERVAL_HOURS."""
     log.info(f"Scheduled scrape triggered (every {SCRAPE_INTERVAL_HOURS}h)")
-    await run_scraper()
+    await run_scraper(trigger="scheduled")
     # Update next scrape time
     from datetime import timedelta
     scrape_status["next_scrape"] = (
@@ -372,6 +953,7 @@ async def lifespan(app: FastAPI):
 
     # 1. Load cached data immediately so the dashboard is usable right away
     latest_data = load_from_disk()
+    _prime_latest_payload(latest_data)
     if latest_data:
         log.info("Dashboard ready with cached data")
     else:
@@ -380,7 +962,7 @@ async def lifespan(app: FastAPI):
     # 2. Start first scrape in background (don't block startup)
     async def initial_scrape():
         await asyncio.sleep(3)  # small delay to let server finish booting
-        await run_scraper()
+        await run_scraper(trigger="startup")
 
     scrape_task = asyncio.create_task(initial_scrape())
 
@@ -389,6 +971,12 @@ async def lifespan(app: FastAPI):
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
 
     log.info(f"Server started — scraping every {SCRAPE_INTERVAL_HOURS}h")
+    if os.getenv("FRONTEND_RUNTIME") is None and _legacy_next_proxy_enabled:
+        log.info(
+            "FRONTEND_RUNTIME not set; defaulting to static. "
+            "Set FRONTEND_RUNTIME=auto|next to proxy Next intentionally."
+        )
+    log.info("Frontend runtime configured: %s (frontend_url=%s)", FRONTEND_RUNTIME, FRONTEND_URL)
     log.info(f"Dashboard: http://localhost:{PORT}")
 
     yield  # app is running
@@ -406,13 +994,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-def _proxy_next(path: str) -> Response | None:
+def _proxy_next(path: str) -> tuple[Response | None, str | None]:
     """
     Proxy frontend routes to local Next.js dev/prod server when available.
-    Returns None if proxy disabled/unavailable so legacy static fallback can handle it.
+    Returns (response, error_message). response is None when proxy is unavailable.
     """
-    if not ENABLE_NEXT_FRONTEND_PROXY:
-        return None
     try:
         target = f"{FRONTEND_URL}{path if path.startswith('/') else '/' + path}"
         req = urllib.request.Request(
@@ -429,7 +1015,7 @@ def _proxy_next(path: str) -> Response | None:
             cache_control = resp.headers.get("Cache-Control")
             if cache_control:
                 headers["cache-control"] = cache_control
-            return Response(content=body, status_code=getattr(resp, "status", 200), headers=headers)
+            return Response(content=body, status_code=getattr(resp, "status", 200), headers=headers), None
     except urllib.error.HTTPError as e:
         try:
             body = e.read()
@@ -439,39 +1025,77 @@ def _proxy_next(path: str) -> Response | None:
         ctype = e.headers.get("Content-Type") if e.headers else None
         if ctype:
             headers["content-type"] = ctype
-        return Response(content=body, status_code=e.code, headers=headers)
-    except Exception:
-        return None
+        return Response(content=body, status_code=e.code, headers=headers), f"HTTPError {e.code}"
+    except Exception as e:
+        return None, f"{type(e).__name__}: {e}"
 
 
 # ── API ROUTES ──────────────────────────────────────────────────────────
 @app.get("/api/data")
-async def get_data():
-    """Return latest scrape data as JSON."""
-    if latest_data:
-        return JSONResponse(content=latest_data)
+async def get_data(request: Request):
+    """Return latest normalized/validated data contract JSON."""
+    if latest_contract_data:
+        headers = {
+            "Cache-Control": "no-cache",
+        }
+        if latest_data_etag:
+            headers["ETag"] = latest_data_etag
+            incoming = request.headers.get("if-none-match", "").strip('"')
+            if incoming and incoming == latest_data_etag:
+                return Response(status_code=304, headers=headers)
+
+        accept_encoding = (request.headers.get("accept-encoding") or "").lower()
+        if "gzip" in accept_encoding and latest_data_gzip_bytes:
+            headers["Content-Encoding"] = "gzip"
+            return Response(content=latest_data_gzip_bytes, media_type="application/json", headers=headers)
+        if latest_data_bytes:
+            return Response(content=latest_data_bytes, media_type="application/json", headers=headers)
+        return JSONResponse(content=latest_contract_data, headers=headers)
     return JSONResponse(
         status_code=503,
         content={"error": "No data available yet. First scrape may still be running."}
     )
 
 
+@app.get("/api/dynasty-data")
+async def get_dynasty_data_alias(request: Request):
+    """Compatibility alias for frontend consumers expecting /api/dynasty-data."""
+    return await get_data(request)
+
+
 @app.get("/api/status")
 async def get_status():
     """Return scraper status info."""
+    status_payload = _scrape_status_payload()
+    source_health = _build_source_health_snapshot(latest_contract_data or latest_data)
     return JSONResponse(content={
-        **scrape_status,
+        **status_payload,
+        "frontend_runtime": frontend_runtime_status,
+        "contract": {
+            "version": API_DATA_CONTRACT_VERSION,
+            "health": contract_health,
+        },
+        "data_runtime": {
+            "last_data_refresh_at": latest_data_source.get("loadedAt"),
+            "active_data_source": latest_data_source,
+        },
+        "source_health": source_health,
         "uptime": uptime_status,
-        "has_data": latest_data is not None,
-        "player_count": len(latest_data.get("players", {})) if latest_data else 0,
-        "data_date": latest_data.get("date") if latest_data else None,
+        "has_data": latest_contract_data is not None,
+        "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
+        "data_date": (latest_contract_data or {}).get("date"),
     })
 
 
 @app.get("/api/health")
 async def get_health():
     """Basic health endpoint for reverse proxy / uptime probes."""
-    is_ok = scrape_status.get("last_error") in (None, "")
+    status_payload = _scrape_status_payload()
+    is_ok = (
+        status_payload.get("last_error") in (None, "")
+        and not status_payload.get("stalled")
+        and bool(contract_health.get("ok", False))
+    )
     status = "ok" if is_ok else "degraded"
     return JSONResponse(
         status_code=200 if is_ok else 503,
@@ -479,9 +1103,15 @@ async def get_health():
             "status": status,
             "service": "dynasty-server",
             "time_utc": datetime.now(timezone.utc).isoformat(),
-            "has_data": latest_data is not None,
-            "last_scrape": scrape_status.get("last_scrape"),
-            "scrape_running": scrape_status.get("is_running"),
+            "has_data": latest_contract_data is not None,
+            "last_scrape": status_payload.get("last_scrape"),
+            "scrape_running": status_payload.get("is_running"),
+            "scrape_stalled": status_payload.get("stalled"),
+            "current_step": status_payload.get("current_step"),
+            "current_source": status_payload.get("current_source"),
+            "contract_version": API_DATA_CONTRACT_VERSION,
+            "contract_ok": contract_health.get("ok"),
+            "frontend_runtime": frontend_runtime_status.get("active"),
             "uptime_watchdog": {
                 "enabled": uptime_status.get("enabled"),
                 "target_url": uptime_status.get("target_url"),
@@ -635,18 +1265,28 @@ async def get_scaffold_report():
 @app.post("/api/scrape")
 async def trigger_scrape(background_tasks: BackgroundTasks):
     """Manually trigger a scrape. Returns immediately; scrape runs in background."""
-    if scrape_status["is_running"]:
+    status_payload = _scrape_status_payload()
+    if status_payload.get("is_running") or scrape_run_lock.locked():
+        _record_scrape_event(
+            "scrape_request_rejected",
+            level="warning",
+            message="Manual trigger rejected because scrape is already active",
+            stalled=status_payload.get("stalled"),
+            current_step=status_payload.get("current_step"),
+            current_source=status_payload.get("current_source"),
+        )
         return JSONResponse(
             status_code=409,
             content={"error": "Scrape already in progress",
-                     "status": scrape_status}
+                     "status": status_payload}
         )
 
     # Run in background so the API returns immediately
-    background_tasks.add_task(run_scraper)
+    _record_scrape_event("scrape_requested", message="Manual scrape trigger accepted", trigger="manual_api")
+    background_tasks.add_task(run_scraper, "manual_api")
     return JSONResponse(content={
         "message": "Scrape started in background",
-        "status": scrape_status,
+        "status": _scrape_status_payload(),
     })
 
 
@@ -672,13 +1312,20 @@ async def test_alert():
 @app.get("/", response_class=HTMLResponse)
 async def serve_dashboard():
     """Serve the main dashboard HTML."""
-    proxied = _proxy_next("/")
-    if proxied is not None:
-        return proxied
+    routed = _resolve_frontend_path("/")
+    if routed is not None:
+        if isinstance(routed, Response) and routed.status_code == 503:
+            return routed
+        if FRONTEND_RUNTIME in {"next", "auto"} and frontend_runtime_status.get("active") == "next":
+            return routed
 
-    # Look for index.html in static/ first, then base dir
+    if FRONTEND_RUNTIME == "next":
+        # Explicit next-mode without fallback.
+        return routed if routed is not None else HTMLResponse("Next frontend unavailable", status_code=503)
+
     for path in [STATIC_DIR / "index.html", LEGACY_STATIC_DIR / "index.html", BASE_DIR / "index.html"]:
         if path.exists():
+            _set_frontend_runtime_status("static", "serving_static_index")
             return FileResponse(path, media_type="text/html")
     return HTMLResponse(
         "<h1>Dashboard not found</h1>"
@@ -686,32 +1333,53 @@ async def serve_dashboard():
         status_code=404,
     )
 
+
 @app.get("/rankings", response_class=HTMLResponse)
 async def serve_rankings():
-    proxied = _proxy_next("/rankings")
-    if proxied is not None:
-        return proxied
+    routed = _resolve_frontend_path("/rankings")
+    if routed is not None:
+        if isinstance(routed, Response) and routed.status_code == 503:
+            return routed
+        if FRONTEND_RUNTIME in {"next", "auto"} and frontend_runtime_status.get("active") == "next":
+            return routed
     return await serve_dashboard()
+
 
 @app.get("/trade", response_class=HTMLResponse)
 async def serve_trade():
-    proxied = _proxy_next("/trade")
-    if proxied is not None:
-        return proxied
+    routed = _resolve_frontend_path("/trade")
+    if routed is not None:
+        if isinstance(routed, Response) and routed.status_code == 503:
+            return routed
+        if FRONTEND_RUNTIME in {"next", "auto"} and frontend_runtime_status.get("active") == "next":
+            return routed
     return await serve_dashboard()
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def serve_login():
+    routed = _resolve_frontend_path("/login")
+    if routed is not None:
+        if isinstance(routed, Response) and routed.status_code == 503:
+            return routed
+        if FRONTEND_RUNTIME in {"next", "auto"} and frontend_runtime_status.get("active") == "next":
+            return routed
+    return await serve_dashboard()
+
 
 @app.get("/_next/{full_path:path}")
 async def serve_next_assets(full_path: str):
-    proxied = _proxy_next(f"/_next/{full_path}")
-    if proxied is not None:
-        return proxied
+    routed = _resolve_frontend_path(f"/_next/{full_path}")
+    if routed is not None:
+        return routed
     return Response(status_code=404)
+
 
 @app.get("/favicon.ico")
 async def serve_favicon():
-    proxied = _proxy_next("/favicon.ico")
-    if proxied is not None:
-        return proxied
+    routed = _resolve_frontend_path("/favicon.ico")
+    if routed is not None:
+        return routed
     return Response(status_code=404)
 
 
