@@ -2989,7 +2989,7 @@ async def extract_tables(page, label):
     return name_map
 
 
-def _dlf_rank_to_canonical(avg_rank, depth_hint, bucket="offense"):
+def _dlf_rank_to_canonical(avg_rank, depth_hint, bucket="offense", anchor_value=None):
     """Convert DLF Avg rank into canonical value units.
 
     Full dynasty lists (offense/idp) map into the full canonical band.
@@ -3009,15 +3009,27 @@ def _dlf_rank_to_canonical(avg_rank, depth_hint, bucket="offense"):
     b = str(bucket or "").strip().lower()
     if b in {"offense_rookie", "idp_rookie"}:
         # Rookie-only source band (support signal only, not full-market anchor).
-        # Defensive rookie lists are capped lower than offensive rookie lists.
+        # Top rookie values are tethered to real in-app rookie anchors rather than 9999:
+        # - Offense: Jeremiyah Love fully-adjusted value (fallback: top offensive rookie)
+        # - IDP: top defensive rookie fully-adjusted value
         if b == "idp_rookie":
-            band_top = 2800.0
-            band_floor = 140.0
-            band_exp = 0.76
+            default_top = 2800.0
+            band_exp = 0.78
+            floor_min = 90.0
+            floor_ratio = 0.045
         else:
-            band_top = 3600.0
-            band_floor = 220.0
-            band_exp = 0.72
+            default_top = 3600.0
+            band_exp = 0.74
+            floor_min = 140.0
+            floor_ratio = 0.055
+        try:
+            anchor_top = float(anchor_value)
+        except Exception:
+            anchor_top = default_top
+        if anchor_top <= 0:
+            anchor_top = default_top
+        band_top = max(400.0, min(9500.0, anchor_top))
+        band_floor = max(floor_min, band_top * floor_ratio)
         score = band_floor + ((band_top - band_floor) * (pct ** band_exp))
         if rank <= 1.0:
             score = band_top
@@ -3082,8 +3094,10 @@ def _dlf_search_dirs():
     dirs.extend([
         BASE_SCRIPT_DIR,
         os.path.join(BASE_SCRIPT_DIR, "data"),
+        os.path.join(BASE_SCRIPT_DIR, "exports", "latest"),
         SCRIPT_DIR,
         os.path.join(SCRIPT_DIR, "data"),
+        os.path.join(SCRIPT_DIR, "exports", "latest"),
     ])
     out = []
     seen = set()
@@ -3111,10 +3125,151 @@ def _resolve_dlf_input_file(filename):
     return None, candidates
 
 
+def _extract_json_object_from_text(text):
+    if not isinstance(text, str):
+        return None
+    start = text.find("{")
+    end = text.rfind("};")
+    if end == -1:
+        end = text.rfind("}")
+    if start < 0 or end <= start:
+        return None
+    blob = text[start : end + 1]
+    try:
+        return json.loads(blob)
+    except Exception:
+        return None
+
+
+def _load_latest_dashboard_players_for_dlf_anchor():
+    candidates = []
+    seen = set()
+    for root in [
+        BASE_SCRIPT_DIR,
+        os.path.join(BASE_SCRIPT_DIR, "data"),
+        SCRIPT_DIR,
+        os.path.join(SCRIPT_DIR, "data"),
+    ]:
+        if not root or not os.path.isdir(root):
+            continue
+        try:
+            for fname in os.listdir(root):
+                if fname.startswith("dynasty_data_") and fname.endswith(".json"):
+                    path = os.path.join(root, fname)
+                    ap = os.path.abspath(path)
+                    if ap not in seen and os.path.isfile(ap):
+                        seen.add(ap)
+                        candidates.append((os.path.getmtime(ap), ap))
+            js_path = os.path.join(root, "dynasty_data.js")
+            ap_js = os.path.abspath(js_path)
+            if ap_js not in seen and os.path.isfile(ap_js):
+                seen.add(ap_js)
+                candidates.append((os.path.getmtime(ap_js), ap_js))
+        except Exception:
+            continue
+    candidates.sort(key=lambda x: -x[0])
+
+    for _, path in candidates:
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                text = f.read()
+            obj = None
+            if path.lower().endswith(".json"):
+                obj = json.loads(text)
+            else:
+                obj = _extract_json_object_from_text(text)
+            if not isinstance(obj, dict):
+                continue
+            players = obj.get("players", {})
+            if isinstance(players, dict) and len(players) >= 50:
+                return players, path
+        except Exception:
+            continue
+    return {}, None
+
+
+def _resolve_dlf_rookie_anchor_values():
+    players, source_path = _load_latest_dashboard_players_for_dlf_anchor()
+    IDP_POS = {"DL", "DE", "DT", "LB", "DB", "CB", "S", "EDGE"}
+
+    def _best_adjusted_value(pdata):
+        if not isinstance(pdata, dict):
+            return None
+        for key in ("_finalAdjusted", "_leagueAdjusted", "_scoringAdjusted", "_scarcityAdjusted", "_composite", "_rawComposite"):
+            v = pdata.get(key)
+            if isinstance(v, (int, float)) and v > 0:
+                return float(v)
+        return None
+
+    def _is_rookie(pdata):
+        if not isinstance(pdata, dict):
+            return False
+        if pdata.get("_isRookie") is True:
+            return True
+        yrs = pdata.get("_yearsExp")
+        return isinstance(yrs, (int, float)) and int(yrs) == 0
+
+    def _pos_hint(pdata):
+        if not isinstance(pdata, dict):
+            return ""
+        return str(
+            pdata.get("_mustHaveRookiePos")
+            or pdata.get("_positionHint")
+            or pdata.get("_lamBucket")
+            or ""
+        ).upper()
+
+    offense_anchor = None
+    idp_anchor = None
+    offense_top_rookie = None
+    idp_top_rookie = None
+
+    for pname, pdata in players.items():
+        val = _best_adjusted_value(pdata)
+        if val is None:
+            continue
+        pos = _pos_hint(pdata)
+        rookie = _is_rookie(pdata)
+        if normalize_lookup_name(pname) == normalize_lookup_name("Jeremiyah Love"):
+            offense_anchor = val
+        if rookie:
+            if pos in IDP_POS:
+                if idp_top_rookie is None or val > idp_top_rookie:
+                    idp_top_rookie = val
+            else:
+                if offense_top_rookie is None or val > offense_top_rookie:
+                    offense_top_rookie = val
+
+    if offense_anchor is None:
+        offense_anchor = offense_top_rookie if isinstance(offense_top_rookie, (int, float)) else 3600.0
+    if idp_anchor is None:
+        idp_anchor = idp_top_rookie if isinstance(idp_top_rookie, (int, float)) else 2800.0
+
+    offense_anchor = max(1000.0, min(9500.0, float(offense_anchor)))
+    idp_anchor = max(800.0, min(7500.0, float(idp_anchor)))
+
+    return {
+        "offense_anchor": offense_anchor,
+        "idp_anchor": idp_anchor,
+        "source_path": source_path,
+    }
+
+
 def load_dlf_local_sources():
     """Load DLF rankings from local CSV files and convert Avg rank to canonical values."""
     source_maps = {}
     source_meta = {}
+    rookie_anchor_ctx = _resolve_dlf_rookie_anchor_values()
+    off_anchor = rookie_anchor_ctx.get("offense_anchor", 3600.0)
+    idp_anchor = rookie_anchor_ctx.get("idp_anchor", 2800.0)
+    anchor_src = rookie_anchor_ctx.get("source_path")
+    if anchor_src:
+        print(
+            f"  [DLF] Rookie anchor source: {anchor_src} "
+            f"(off={off_anchor:.0f}, idp={idp_anchor:.0f})"
+        )
+    else:
+        print(f"  [DLF] Rookie anchors fallback (off={off_anchor:.0f}, idp={idp_anchor:.0f})")
 
     for source_key, filename, bucket in DLF_LOCAL_CSV_SOURCES:
         path, searched = _resolve_dlf_input_file(filename)
@@ -3130,6 +3285,10 @@ def load_dlf_local_sources():
                 "badRows": 0,
                 "parseMode": "missing",
                 "bucket": bucket,
+                "anchorValueUsed": (
+                    round(idp_anchor, 2) if bucket == "idp_rookie"
+                    else (round(off_anchor, 2) if bucket == "offense_rookie" else None)
+                ),
                 "ageDays": None,
                 "stale": True,
             }
@@ -3176,8 +3335,13 @@ def load_dlf_local_sources():
 
         depth_hint = max(len(parsed), int(max(v for _, v in parsed)))
         name_map = {}
+        anchor_hint = None
+        if bucket == "offense_rookie":
+            anchor_hint = off_anchor
+        elif bucket == "idp_rookie":
+            anchor_hint = idp_anchor
         for name, avg_rank in parsed:
-            val = _dlf_rank_to_canonical(avg_rank, depth_hint, bucket=bucket)
+            val = _dlf_rank_to_canonical(avg_rank, depth_hint, bucket=bucket, anchor_value=anchor_hint)
             if val is None:
                 continue
             prev = name_map.get(name)
@@ -3196,6 +3360,7 @@ def load_dlf_local_sources():
             "badRows": bad_rows,
             "parseMode": parse_mode,
             "bucket": bucket,
+            "anchorValueUsed": round(anchor_hint, 2) if isinstance(anchor_hint, (int, float)) else None,
             "depthHint": depth_hint,
             "ageDays": round(age_days, 2) if isinstance(age_days, (int, float)) else None,
             "stale": bool(stale),
@@ -3205,6 +3370,15 @@ def load_dlf_local_sources():
             f"  [DLF] {filename}: loaded {len(name_map)} players "
             f"(parse={parse_mode}, bad_rows={bad_rows}, age_days={age_txt}, path={path})"
         )
+
+    # Explicit visibility for rookie-file ingestion health (both are expected inputs).
+    rsf_meta = source_meta.get("DLF_RSF", {})
+    ridp_meta = source_meta.get("DLF_RIDP", {})
+    print(
+        "  [DLF] Rookie files status: "
+        f"RSF={'loaded' if rsf_meta.get('loaded') else ('found-empty' if rsf_meta.get('found') else 'missing')} · "
+        f"RIDP={'loaded' if ridp_meta.get('loaded') else ('found-empty' if ridp_meta.get('found') else 'missing')}"
+    )
 
     return source_maps, source_meta
 
