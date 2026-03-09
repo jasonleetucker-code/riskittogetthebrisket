@@ -57,6 +57,7 @@ This repo is now wired so both sides can work together:
 ## One-click helpers
 - `start_dynasty.bat` → starts Python server
 - `start_frontend.bat` → starts Next dev server
+- `start_stack.bat` → starts backend + frontend together (separate terminal windows)
 - `run_scraper.bat` → runs scraper + debug loop
 
 ## GitHub
