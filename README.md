@@ -74,6 +74,8 @@ Run the scaffold pipeline:
 
 ```powershell
 python .\scripts\source_pull.py --repo .
+python .\scripts\validate_ingest.py --repo .
+python .\scripts\identity_resolve.py --repo .
 python .\scripts\canonical_build.py --repo .
 python .\scripts\league_refresh.py --repo .
 python .\scripts\reporting.py --repo .
@@ -81,9 +83,11 @@ python .\scripts\reporting.py --repo .
 
 Outputs:
 - `data/raw_sources/raw_source_snapshot_*.json`
+- `data/validation/ingest_validation_*.json`
+- `data/identity/identity_resolution_*.json`
 - `data/canonical/canonical_snapshot_*.json`
+- `data/validation/canonical_validation_*.json`
 - `data/league/league_snapshot_*.json`
-- `data/identity/identity_report_*.json` (unmatched/conflict/single-source coverage report)
 - `data/reports/ops_report_*.md`
 
 Scaffold API endpoints (served by `server.py`):
@@ -92,6 +96,7 @@ Scaffold API endpoints (served by `server.py`):
 - `GET /api/scaffold/canonical`
 - `GET /api/scaffold/league`
 - `GET /api/scaffold/identity`
+- `GET /api/scaffold/validation`
 - `GET /api/scaffold/report`
 
 ## Jenkins Lockstep

@@ -1,9 +1,15 @@
-from .contracts import CanonicalAssetValue, RawAssetRecord, RawSourceSnapshot, utc_now_iso
+from .contracts import (
+    CanonicalAssetValue,
+    RawAssetRecord,
+    RawSourceSnapshot,
+    SourceManifest,
+    utc_now_iso,
+)
 
 __all__ = [
     "CanonicalAssetValue",
     "RawAssetRecord",
     "RawSourceSnapshot",
+    "SourceManifest",
     "utc_now_iso",
 ]
-

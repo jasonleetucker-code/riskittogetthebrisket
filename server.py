@@ -5,7 +5,7 @@ Single command to run everything:
     python server.py
 
 Serves the dashboard at http://localhost:8000
-Scrapes all sites every 6 hours automatically.
+Scrapes all sites every 2 hours automatically.
 Manual scrape: POST http://localhost:8000/api/scrape
 
 Requirements:
@@ -376,13 +376,19 @@ async def get_status():
 async def get_scaffold_status():
     """Return latest scaffold snapshot metadata for raw/canonical/league/report outputs."""
     raw_file = _latest_file(DATA_DIR / "raw_sources", "raw_source_snapshot_*.json")
+    ingest_validation_file = _latest_file(DATA_DIR / "validation", "ingest_validation_*.json")
     canonical_file = _latest_file(DATA_DIR / "canonical", "canonical_snapshot_*.json")
+    canonical_validation_file = _latest_file(DATA_DIR / "validation", "canonical_validation_*.json")
     league_file = _latest_file(DATA_DIR / "league", "league_snapshot_*.json")
-    identity_file = _latest_file(DATA_DIR / "identity", "identity_report_*.json")
+    identity_file = _latest_file(DATA_DIR / "identity", "identity_resolution_*.json")
+    if identity_file is None:
+        identity_file = _latest_file(DATA_DIR / "identity", "identity_report_*.json")
     report_file = _latest_file(DATA_DIR / "reports", "ops_report_*.md")
 
     raw = _load_json_file(raw_file)
+    ingest_validation = _load_json_file(ingest_validation_file)
     canonical = _load_json_file(canonical_file)
+    canonical_validation = _load_json_file(canonical_validation_file)
     league = _load_json_file(league_file)
     identity = _load_json_file(identity_file)
 
@@ -408,9 +414,20 @@ async def get_scaffold_status():
                     else 0
                 ),
             },
+            "ingest_validation": {
+                "file": _meta(ingest_validation_file),
+                "status": ingest_validation.get("status", "missing") if ingest_validation else "missing",
+                "missing_snapshot_field_count": ingest_validation.get("missing_snapshot_field_count", 0) if ingest_validation else 0,
+                "missing_asset_field_count": ingest_validation.get("missing_asset_field_count", 0) if ingest_validation else 0,
+            },
             "canonical": {
                 "file": _meta(canonical_file),
                 "asset_count": canonical.get("asset_count", 0) if canonical else 0,
+            },
+            "canonical_validation": {
+                "file": _meta(canonical_validation_file),
+                "suspicious_jump_count": canonical_validation.get("suspicious_jump_count", 0) if canonical_validation else 0,
+                "rookie_universe_warning_count": canonical_validation.get("rookie_universe_warning_count", 0) if canonical_validation else 0,
             },
             "league": {
                 "file": _meta(league_file),
@@ -458,11 +475,29 @@ async def get_scaffold_league():
 
 @app.get("/api/scaffold/identity")
 async def get_scaffold_identity():
-    file_path = _latest_file(DATA_DIR / "identity", "identity_report_*.json")
+    file_path = _latest_file(DATA_DIR / "identity", "identity_resolution_*.json")
+    if file_path is None:
+        file_path = _latest_file(DATA_DIR / "identity", "identity_report_*.json")
     payload = _load_json_file(file_path)
     if payload is None:
         return JSONResponse(status_code=404, content={"error": "No identity report found"})
     return JSONResponse(content=payload)
+
+
+@app.get("/api/scaffold/validation")
+async def get_scaffold_validation():
+    ingest_file = _latest_file(DATA_DIR / "validation", "ingest_validation_*.json")
+    canonical_file = _latest_file(DATA_DIR / "validation", "canonical_validation_*.json")
+    ingest = _load_json_file(ingest_file)
+    canonical = _load_json_file(canonical_file)
+    return JSONResponse(
+        content={
+            "ingest_validation_file": str(ingest_file) if ingest_file else None,
+            "canonical_validation_file": str(canonical_file) if canonical_file else None,
+            "ingest": ingest or {},
+            "canonical": canonical or {},
+        }
+    )
 
 
 @app.get("/api/scaffold/report")

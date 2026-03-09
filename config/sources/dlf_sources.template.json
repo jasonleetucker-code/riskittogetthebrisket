@@ -1,41 +1,88 @@
 {
-  "version": 1,
+  "version": 2,
+  "season_default": "2026",
+  "format_key_default": "dynasty_sf",
   "sources": [
     {
-      "source_id": "DLF_SF",
-      "source_bucket": "offense_vet",
+      "enabled": true,
+      "source": "DLF_SF",
       "adapter": "dlf_csv",
+      "adapter_version": "1.0.0",
+      "season": "2026",
+      "format_key": "dynasty_sf",
+      "universe": "offense_vet",
+      "ingest_type": "manual_csv",
+      "ingest_method": "manual_csv",
+      "source_url": "https://dynastyleaguefootball.com/dynasty-superflex-rankings/",
+      "scoring_context": "dynasty superflex (no TEP in source)",
       "file": "dlf_superflex.csv",
-      "mode": "rank_avg"
+      "mode": "rank_avg",
+      "notes": "DLF export uses Avg rank as source signal."
     },
     {
-      "source_id": "DLF_IDP",
-      "source_bucket": "idp_vet",
+      "enabled": true,
+      "source": "DLF_IDP",
       "adapter": "dlf_csv",
+      "adapter_version": "1.0.0",
+      "season": "2026",
+      "format_key": "dynasty_idp",
+      "universe": "idp_vet",
+      "ingest_type": "manual_csv",
+      "ingest_method": "manual_csv",
+      "source_url": "https://dynastyleaguefootball.com/rankings/dynasty-idp-rankings/",
+      "scoring_context": "dynasty IDP",
       "file": "dlf_idp.csv",
-      "mode": "rank_avg"
+      "mode": "rank_avg",
+      "notes": "DLF export uses Avg rank as source signal."
     },
     {
-      "source_id": "DLF_RSF",
-      "source_bucket": "offense_rookie",
+      "enabled": true,
+      "source": "DLF_RSF",
       "adapter": "dlf_csv",
+      "adapter_version": "1.0.0",
+      "season": "2026",
+      "format_key": "dynasty_sf",
+      "universe": "offense_rookie",
+      "ingest_type": "manual_csv",
+      "ingest_method": "manual_csv",
+      "source_url": "https://dynastyleaguefootball.com/dynasty-rookie-superflex-rankings/",
+      "scoring_context": "rookie superflex",
       "file": "dlf_rookie_superflex.csv",
-      "mode": "rank_avg"
+      "mode": "rank_avg",
+      "notes": "Rookie-only list; must stay in rookie universe."
     },
     {
-      "source_id": "DLF_RIDP",
-      "source_bucket": "idp_rookie",
+      "enabled": true,
+      "source": "DLF_RIDP",
       "adapter": "dlf_csv",
+      "adapter_version": "1.0.0",
+      "season": "2026",
+      "format_key": "dynasty_idp",
+      "universe": "idp_rookie",
+      "ingest_type": "manual_csv",
+      "ingest_method": "manual_csv",
+      "source_url": "https://dynastyleaguefootball.com/dynasty-rookie-idp-rankings/",
+      "scoring_context": "rookie idp",
       "file": "dlf_rookie_idp.csv",
-      "mode": "rank_avg"
+      "mode": "rank_avg",
+      "notes": "Rookie-only IDP list; do not treat as full-pool ranking."
     },
     {
-      "source_id": "KTC_STUB",
-      "source_bucket": "offense_vet",
-      "adapter": "ktc_stub",
       "enabled": false,
+      "source": "KTC_STUB",
+      "adapter": "ktc_stub",
+      "adapter_version": "0.1.0",
+      "season": "2026",
+      "format_key": "dynasty_sf",
+      "universe": "offense_vet",
+      "ingest_type": "manual_csv",
+      "ingest_method": "manual_csv",
+      "source_url": "https://keeptradecut.com/",
+      "scoring_context": "ktc seed csv",
       "file": "data/ktc_seed.csv",
-      "mode": "rank_or_value_seed"
+      "mode": "rank_or_value_seed",
+      "notes": "Scaffold adapter for local seed testing; replace with live adapter."
     }
   ]
 }
+

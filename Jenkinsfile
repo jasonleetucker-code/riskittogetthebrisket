@@ -28,7 +28,7 @@ pipeline {
       }
     }
 
-    stage('Source Pull (Scaffold)') {
+    stage('Ingest') {
       when {
         expression { fileExists('scripts/source_pull.py') }
       }
@@ -43,7 +43,37 @@ pipeline {
       }
     }
 
-    stage('Canonical Build (Scaffold)') {
+    stage('Validate') {
+      when {
+        expression { fileExists('scripts/validate_ingest.py') }
+      }
+      steps {
+        script {
+          if (isUnix()) {
+            sh 'python scripts/validate_ingest.py --repo .'
+          } else {
+            bat 'python scripts\\validate_ingest.py --repo .'
+          }
+        }
+      }
+    }
+
+    stage('Identity Resolve') {
+      when {
+        expression { fileExists('scripts/identity_resolve.py') }
+      }
+      steps {
+        script {
+          if (isUnix()) {
+            sh 'python scripts/identity_resolve.py --repo .'
+          } else {
+            bat 'python scripts\\identity_resolve.py --repo .'
+          }
+        }
+      }
+    }
+
+    stage('Canonical Build') {
       when {
         expression { fileExists('scripts/canonical_build.py') }
       }
@@ -58,7 +88,7 @@ pipeline {
       }
     }
 
-    stage('League Refresh (Scaffold)') {
+    stage('League Refresh') {
       when {
         expression { fileExists('scripts/league_refresh.py') }
       }
@@ -73,7 +103,7 @@ pipeline {
       }
     }
 
-    stage('Reporting (Scaffold)') {
+    stage('Publish Report') {
       when {
         expression { fileExists('scripts/reporting.py') }
       }

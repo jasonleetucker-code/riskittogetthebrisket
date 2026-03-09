@@ -78,9 +78,10 @@ def _safe_read_rows(file_path: Path) -> tuple[list[dict[str, str]], list[str]]:
 class DlfCsvAdapter:
     """Local DLF CSV adapter that uses Avg rank as the source signal."""
 
-    def __init__(self, source_id: str, source_bucket: str) -> None:
+    def __init__(self, source_id: str, source_bucket: str, format_key: str = "dynasty_sf") -> None:
         self.source_id = source_id
         self.source_bucket = source_bucket
+        self.format_key = format_key
 
     def load(self, file_path: Path) -> AdapterResult:
         result = AdapterResult(
@@ -108,24 +109,40 @@ class DlfCsvAdapter:
                 continue
 
             asset_key = f"player::{norm_name}"
+            pos_guess = normalize_position_family(pos_raw)
+            team_guess = normalize_team(team_raw)
             rec = RawAssetRecord(
-                asset_key=asset_key,
-                display_name=name.strip(),
+                source=self.source_id,
+                snapshot_id="",
                 asset_type="player",
-                source_id=self.source_id,
-                source_bucket=self.source_bucket,
-                rank=avg_rank,
-                raw_value=None,
-                position=normalize_position_family(pos_raw),
-                team=normalize_team(team_raw),
-                rookie_flag="rookie" in self.source_bucket,
-                metadata={
+                external_asset_id=_first_present(row, "id", "player_id", "external_id"),
+                external_name=name.strip(),
+                display_name=name.strip(),
+                team_raw=team_raw,
+                position_raw=pos_raw,
+                age_raw=_first_present(row, "age"),
+                rookie_flag_raw=_first_present(row, "rookie", "rookie_flag"),
+                rank_raw=avg_rank,
+                value_raw=None,
+                tier_raw=_first_present(row, "tier"),
+                universe=self.source_bucket,
+                format_key=self.format_key,
+                is_idp="idp" in self.source_bucket.lower(),
+                is_offense="offense" in self.source_bucket.lower(),
+                source_notes="DLF Avg rank import",
+                metadata_json={
                     "raw_avg": avg_raw,
                     "raw_pos": pos_raw,
                     "raw_team": team_raw,
                     "profile_source": file_path.name,
                 },
+                name_normalized_guess=norm_name,
+                team_normalized_guess=team_guess,
+                position_normalized_guess=pos_guess,
+                asset_key=asset_key,
+                pick_round_guess=None,
+                pick_slot_guess="",
+                pick_year_guess=None,
             )
             result.records.append(rec)
         return result
-

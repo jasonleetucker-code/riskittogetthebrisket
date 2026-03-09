@@ -28,9 +28,10 @@ class KtcStubAdapter:
     - Can optionally read a local seed CSV if provided
     """
 
-    def __init__(self, source_id: str, source_bucket: str) -> None:
+    def __init__(self, source_id: str, source_bucket: str, format_key: str = "dynasty_sf") -> None:
         self.source_id = source_id
         self.source_bucket = source_bucket
+        self.format_key = format_key
 
     def load(self, file_path: Path) -> AdapterResult:
         result = AdapterResult(
@@ -70,27 +71,42 @@ class KtcStubAdapter:
 
                 pos = normalize_position_family(str(row.get("pos") or row.get("position") or ""))
                 team = normalize_team(str(row.get("team") or ""))
+                ext_id = str(row.get("id") or row.get("player_id") or row.get("external_id") or "").strip()
 
                 result.records.append(
                     RawAssetRecord(
+                        source=self.source_id,
+                        snapshot_id="",
+                        asset_type="player",
+                        external_asset_id=ext_id,
+                        external_name=name,
                         asset_key=f"player::{norm}",
                         display_name=name,
-                        asset_type="player",
-                        source_id=self.source_id,
-                        source_bucket=self.source_bucket,
-                        rank=rank,
-                        raw_value=value,
-                        position=pos,
-                        team=team,
-                        rookie_flag=False,
-                        metadata={
+                        team_raw=str(row.get("team") or ""),
+                        position_raw=str(row.get("pos") or row.get("position") or ""),
+                        age_raw=str(row.get("age") or ""),
+                        rookie_flag_raw=str(row.get("rookie") or ""),
+                        rank_raw=rank,
+                        value_raw=value,
+                        tier_raw=str(row.get("tier") or ""),
+                        universe=self.source_bucket,
+                        format_key=self.format_key,
+                        is_idp="idp" in self.source_bucket.lower(),
+                        is_offense="offense" in self.source_bucket.lower(),
+                        source_notes="KTC seed adapter (scaffold)",
+                        metadata_json={
                             "profile_source": file_path.name,
                             "adapter": "ktc_stub",
                         },
+                        name_normalized_guess=norm,
+                        team_normalized_guess=team,
+                        position_normalized_guess=pos,
+                        pick_round_guess=None,
+                        pick_slot_guess="",
+                        pick_year_guess=None,
                     )
                 )
 
         if not result.records:
             result.warnings.append(f"KTC stub seed file loaded but produced no usable rows: {file_path.name}")
         return result
-
