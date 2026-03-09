@@ -1,0 +1,28 @@
+{
+  "goal": "Audit and implement the intended canonical 0-9999 dynasty valuation architecture in the real live code path. Focus on source value -> canonical site value -> rawCompositeValue -> finalAdjustedValue -> rankings UI render. Remove drift between frontend and backend where possible, keep changes targeted, and do not redesign unrelated systems.",
+  "files": [
+    "index.html",
+    "Dynasty Scraper.py"
+  ],
+  "implementation_rules": [
+    "Do not redesign the app from scratch.",
+    "Keep changes tightly scoped to the canonical 0-9999 valuation architecture.",
+    "Do not infer correctness from helper names or comments.",
+    "Prefer one authoritative live path over duplicate parallel implementations.",
+    "Avoid display-only remaps that mask deeper architectural issues.",
+    "If a backend and frontend rule differ, either unify them or make the discrepancy explicit and intentional."
+  ],
+  "audit_requirements": [
+    "Verify rankings table site/source columns are rendering canonical transformed values, not raw pData values.",
+    "Trace the real live path used to build rawCompositeValue.",
+    "Verify rank and averaged-rank inputs flow through the intended monotonic rank-to-value curve.",
+    "Inspect KTC and IDP Trade Calculator handling for native 9999 source behavior and policy exceptions.",
+    "Verify pure IDP ranking sources use a multi-anchor IDP backbone in the live path.",
+    "Trace the actual live path for finalAdjustedValue and determine whether it is a real modeled value or a cosmetic remap.",
+    "Compare frontend and backend for logic drift affecting canonical values, site handling, IDP handling, or final score behavior.",
+    "Search for duplicate canonical conversion logic, old rank formulas, old idpRank formulas, raw pData display paths, and dead-but-still-live branches."
+  ],
+ "validation_commands": [
+  "python -m py_compile \"Dynasty Scraper.py\"",
+  "python .\\scripts\\validate_canonical_values.py"
+]

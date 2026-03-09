@@ -1,0 +1,12 @@
+# Dynasty Trade Calculator — Player List
+# One player name per line. Lines starting with # are ignored.
+# The scraper will look up each player across all sites.
+#
+# Note: The JSON output includes ALL players from every site (1000+),
+# so these are just the ones shown in the console results table.
+# The dashboard autocomplete works for any player in the full dataset.
+
+Caleb Williams
+Rome Odunze
+Luther Burden
+Colston Loveland

@@ -1,0 +1,221 @@
+2054:function normalizeRankingsDataMode(mode) {
+2060:function getRankingsDataMode() {
+2065:function setRankingsDataMode(mode, opts = {}) {
+2074:function handleValuationModeChange(mode) {
+2079:function isSortableHeader(th) {
+2092:function markSortableHeaders(root = document) {
+2099:function queueSortableHeaderRefresh() {
+2108:function headerLogicalIndex(th) {
+2120:function rowCellByLogicalIndex(row, logicalIdx) {
+2131:function isChildLikeTableRow(row) {
+2140:function cellSortText(cell) {
+2151:function parseSortValue(raw) {
+2241:function compareSortValues(a, b) {
+2260:function sortTableByHeader(th) {
+2335:function initGlobalTableSorting() {
+2362:function toggleCollapse(id) {
+2383:function switchTab(id) {
+2465:function getRookieHintData() {
+2488:function getRookiePosHint(name) {
+2494:function getPlayerDataByName(name) {
+2504:function hasAnyRankingSiteValue(pData) {
+2514:function isRookiePlayerName(name, pData = null) {
+2541:function getPosStyle(pos) {
+2550:function coeffOfVariation(values) {
+2564:function computeSiteStats() {
+2635:function computeMetaValueForPlayer(playerName, opts = {}) {
+2885:function filterRankingsPos(pos, btn) {
+2892:function toggleRankingsSort() {
+2897:function copyRankingsComposites(evt) {
+2968:function buildRisingFallingSection() {
+3054:function buildFullRankings() {
+3328:function buildRookieRankings() { buildFullRankings(); }
+3330:function setAlpha(v) { document.getElementById('alphaInput').value = v; }
+3333:function normalizeKey(s) { return (s||'').trim().replace(/\s+/g,' '); }
+3336:function generatePickDollarsFromRookies() {
+3425:function normalizePickKey(s) {
+3434:function pickTierSlotRange(tier, leagueSize) {
+3441:function pickSlotToTier(slot, leagueSize) {
+3449:function pickTierRepresentativeSlot(tier, leagueSize) {
+3456:function parseAnchorPickName(raw) {
+3545:function parsePickToken(raw) {
+3573:function buildSyntheticPickSiteMapFromMeta(metaValue) {
+3587:function build2026RookiePickProxyValues() {
+3674:function get2026RookieProxyForPick(pickInfo) {
+3704:function resolvePickSiteValues(pickInfo) {
+3712:function applyYearDiscount(value, year) {
+3722:function toNumericSiteMap(obj) {
+3732:function mergeSiteMaps(...maps) {
+3742:function mergeSiteMapsPreferFirst(...maps) {
+3761:function findPickData(searchTerms) {
+3774:function selectByYear(entries, targetYear, matcher) {
+3792:function averageValues(entries) {
+3799:function findPickFromAnchors(target) {
+3858:function getKtcSlotFallback(pickKey, year) {
+3866:function getKtcTierFallback(round, tier, year) {
+3885:function averagePickSlotsFromPlayers(year, round, tier) {
+3973:function extrapolatePickRound(year, round, tier, leagueSize) {
+4057:function parsePickDollarMap(text) {
+4069:function yearDiscount(year, s) {
+4078:function getTierSlot(tier, s) {
+4082:function resolvePickDollars(info, map, s) {
+4099:function getAnchorPicksUI() {
+4110:function getPickSettings() {
+4123:function getAnchorVals(siteKey) {
+4133:function buildAnchorPts(siteKey, s, map) {
+4147:function siteValFromDollars(siteKey, dollars, s, map) {
+4164:function getSiteConfig() {
+4181:function getKtcMax(cfg) { return (cfg.find(s=>s.key==='ktc')||{max:9999}).max; }
+4184:function persistSettings() {
+4219:function loadSettings() {
+4299:function saveSettingsAndRecalc() {
+4306:function initSiteConfig() {
+4324:function syncSiteConfigToLoadedData(data) {
+4353:function initAnchors() {
+4374:function buildPlayersTable() {
+4386:function buildSideBody(side, tbodyId) {
+4392:function createPlayerRow(side, tbodyId) {
+4482:function addPlayerRow(side, tbodyId) {
+4492:function updatePickStatus(row, nameVal) {
+4514:function clearPlayers() {
+4522:function swapSides() {
+4567:function toggleCompactMode(on) {
+4573:function toggleMultiTeam(on) {
+4597:function populateTeamDropdowns() {
+4658:function syncGlobalTeam(teamName) {
+4670:function updateTeamFilter() {
+4680:function populateRosterPanel(panelId, teamName, tbodyId) {
+4731:function getTeamPlayers(teamName) {
+4737:function isPlayerTE(name) {
+4747:function computeMetaFromSiteValues(siteValues, opts = {}) {
+4895:function getTradeItemValue(itemName) {
+4944:function getPlayerPosition(name) {
+4965:function handleJsonLoad(event) {
+4987:function normalizeForLookup(s) {
+4995:function getCanonicalPlayerName(name) {
+5005:function getPlayerNameBySleeperId(sleeperId) {
+5015:function getSleeperIdForName(name) {
+5034:function lookupPlayer(name) {
+5062:function autoFillRow(row) {
+5099:function decodeUrlValue(raw) {
+5113:function parseLooseObject(raw) {
+5133:function extractKtcAssets(raw) {
+5175:function canonicalizeImportedAsset(asset) {
+5198:function populateTradeSide(tbodyId, side, assets) {
+5216:function importKtcTradeUrl() {
+5242:function sideFrom(value) {
+5296:function showAutocomplete(input, query) {
+5382:function hideAutocomplete() {
+5387:function handleNameKeydown(e) {
+5436:function copyTradePitch() {
+5482:function addSuggestionToTrade(side, name) {
+5513:function scheduleRecalc() {
+5519:function recalculate() {
+5996:function loadJsonData(data) {
+6197:function autoFillAnchors(force) {
+6206:function slotToNum(slotStr) {
+6215:function entryToNum(entry) {
+6227:function selectEntriesForYear(entries) {
+6355:function resetPickAnchorsFromLoadedData() {
+6377:function buildEdgeProjectionKey() {
+6402:function clampEdgeValue(n, lo, hi) {
+6407:function rankMapFromSorted(items, valueKey) {
+6422:function rankToPercentile(rank, total) {
+6428:function projectPercentileToCurve(sortedValuesDesc, percentile) {
+6444:function edgeAssetClassFor(name, pos) {
+6451:function edgeMarketSource(assetClass) {
+6456:function confidenceLabelFromScore(score) {
+6462:function computeEdgeConfidence(row, externalUniverseSize, comparable) {
+6477:function buildEdgeProjectionLayer() {
+6627:function ensureEdgeProjectionLayer() {
+6641:function rowMatchesEdgePosFilter(row, posFilter) {
+6653:function buildEdgeTable() {
+6762:function sortEdgeData() {
+6785:function handleEdgeSort(col) {
+6796:function renderEdgeTable() {
+6869:function getPlayerEdge(playerName) {
+6897:function buildTradeGrades() {
+6955:function buildTradeHistoryPage() {
+6999:function gradeFromPct(pct, isWinner) {
+7110:function buildWaiverWire() {
+7168:function buildLeagueEdge() {
+7264:function posGroup(pos) {
+7284:function getRosterValueMode() {
+7289:function sumTopN(values, n) {
+7298:function estimatePickAssetValue(pName) {
+7320:function buildTeamValueBreakdown(team, playerMeta, allGroups, valueMode) {
+7366:function populateRosterTeamDropdown() {
+7380:function buildRosterDashboard() {
+7716:function openPlayerPopup(playerName) {
+7832:function closePlayerPopup() {
+7840:function checkEdgeGate() {
+7856:function scoreTeamWindow(team) {
+7901:function getTeamTier(teams) {
+7938:function computeLAM(scoringSettings, rosterPositions) {
+8015:function tieredBonus(avgYards, L) {
+8025:function scoreOffense(pos, settings) {
+8068:function scoreIDP(pos, settings) {
+8110:function getLAMBucket(position) {
+8118:function getLAMStrength() {
+8124:function normalizeValueBasis(value) {
+8133:function getValueBasisLabel(mode) {
+8140:function getRankingsSortBasis() {
+8144:function getCalculatorValueBasis() {
+8150:function updateCalculatorValueHeader() {
+8161:function syncValueBasisControls(mode) {
+8171:function handleValueBasisChange(mode, source = '') {
+8178:function showRankingsLAMColumns() {
+8182:function getLAM(position) {
+8188:function getLAMPositionDebug(position) {
+8197:function getScarcityStrength() {
+8203:function getLeagueTeamCount() {
+8210:function getScarcityBucket(position) {
+8216:function computeStarterSlotWeights() {
+8297:function buildScarcityModelKey() {
+8326:function buildScarcityModel() {
+8378:function ensureScarcityModel() {
+8405:function computeScarcityAdjustedValue(rawComposite, position) {
+8465:function computeLeagueAdjustedValue(rawComposite, position) {
+8496:function computeFinalAdjustedValue(rawComposite, position) {
+8522:function getValueByRankingMode(bundle, mode) {
+8530:function applyLAM(composite, position) {
+8534:function initLAM() {
+8622:function initScarcity() {
+8631:function getProfile() {
+8636:function saveProfile(profile) {
+8641:function updateProfileBar() {
+8709:function showOnboarding() {
+8719:function closeOnboarding() {
+8723:function showOnboardStep1() {
+8778:function showOnboardStep2() {
+8802:function selectOnboardLeague(idx, el) {
+8857:function selectOnboardTeam(idx, el) {
+8864:function finishOnboarding() {
+8897:function getSavedTrades() {
+8902:function populateSavedTrades() {
+8918:function saveTrade() {
+8947:function loadSavedTrade(idx) {
+8983:function deleteSavedTrade() {
+8997:function computeTradeImpact() {
+9015:function getTeamPosTotals(teamName, adds, removes) {
+9062:function rankTeams(posGroup) {
+9098:function buildTendencies() {
+9167:function generateTradePackages(targetName) {
+9219:function switchLeagueSub(id) {
+9236:function initLeagueTab() {
+9244:function _populateLeagueDropdowns() {
+9259:function _pickRoundSuffix(roundNum) {
+9266:function _getTeamStrengthSnapshot() {
+9300:function _buildTeamPickAssets(team, teamStrengthByRosterId) {
+9379:function buildPowerRankingsHeatmap() {
+9415:function hc(rank, total) {
+9448:function buildTeamBreakdown() {
+9551:function buildTeamComparison() {
+9562:function getData(name) {
+9628:function buildKtcTradesView() {
+9634:function filterKtcTrades() {
+9641:function _renderKtcTrades(trades, c) {
+9691:function _quickVal(name) {
+9699:function buildKtcWaiversView() {
+9705:function filterKtcWaivers() {
+9712:function _renderKtcWaivers(waivers, c) {

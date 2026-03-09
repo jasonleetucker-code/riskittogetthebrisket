@@ -1,0 +1,32 @@
+65:def _env_int(name, default):
+103:def get_cached(site_key):
+121:def set_cache(site_key, name_map):
+138:def retry(max_attempts=3, delay=2, backoff=2, exceptions=(Exception,)):
+213:def load_rookie_must_have(path):
+250:def clean_name(raw):
+290:def normalize_lookup_name(raw):
+300:def _tokenize(name):
+307:def similarity(a, b):
+360:def best_match(target, candidates, threshold=0.78, match_guard=None):
+377:def _name_tokens(name):
+383:def _first_name_compatible(a_first, b_first):
+396:def _is_safe_name_merge(src_name, dst_name):
+419:def match_all(players, name_map, results, site_key=None):
+508:def compute_max(name_map):
+521:def fetch_sleeper_rosters(league_id):
+915:def compute_empirical_lam(custom_league_id, baseline_league_id, seasons, all_nfl_players=None):
+1265:def print_lam_validation_examples(players_json, pos_map, empirical_lam, adjustment_strength=1.0):
+1517:def fetch_fantasycalc(players):
+1931:def _parse_ktc_literal(raw):
+1952:def _ktc_to_number(val, default=None):
+1969:def _ktc_to_int(val, default=""):
+1976:def _ktc_to_flag(val):
+1990:def _ktc_tep_level(tep_raw, tep_flag=False):
+2004:def _ktc_crowd_league_ok(settings):
+2019:def _extract_ktc_side_assets(side):
+2039:def _parse_ktc_settings(raw_settings):
+2065:def _resolve_ktc_player(val):
+2095:def _parse_ktc_trade(item):
+2234:def _parse_ktc_waiver(item):
+5467:def print_health_report():
+7794:def check_value_alerts(current_json):
