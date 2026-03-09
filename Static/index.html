@@ -12112,7 +12112,13 @@
   // ── PROFILE & ONBOARDING ──
   const PROFILE_KEY = 'dynasty_profile';
   const HARDCODED_SLEEPER_LEAGUE_ID = '1312006700437352448';
+  const HARDCODED_BASELINE_LEAGUE_ID = '1328545898812170240';
   const HARDCODED_LEAGUE_NAME_FALLBACK = 'Risk It To Get The Brisket';
+
+  function getBaselineLeagueId() {
+    const id = loadedData?.settings?.lamLeagues?.baselineLeagueId || HARDCODED_BASELINE_LEAGUE_ID;
+    return String(id || HARDCODED_BASELINE_LEAGUE_ID);
+  }
 
   function getProfile() {
     try { return JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null'); }
@@ -12220,6 +12226,8 @@
       username: existing.username || 'Sleeper',
       userId: existing.userId || '',
       leagueId: HARDCODED_SLEEPER_LEAGUE_ID,
+      customLeagueId: HARDCODED_SLEEPER_LEAGUE_ID,
+      baselineLeagueId: getBaselineLeagueId(),
       leagueName,
       teamName,
       rosterId,
@@ -12273,6 +12281,7 @@
       <h2>Select Your Team</h2>
       <p>Loading rosters from your hardcoded Sleeper league…</p>
       <div class="onboard-loading">League ID: ${HARDCODED_SLEEPER_LEAGUE_ID}</div>
+      <div class="onboard-loading">Baseline ID: ${getBaselineLeagueId()}</div>
     `;
 
     try {
@@ -12344,6 +12353,8 @@
       username: onboardState.username || existing.username || 'Sleeper',
       userId: onboardState.userId || existing.userId || '',
       leagueId: HARDCODED_SLEEPER_LEAGUE_ID,
+      customLeagueId: HARDCODED_SLEEPER_LEAGUE_ID,
+      baselineLeagueId: getBaselineLeagueId(),
       leagueName: onboardState.selectedLeague?.name || existing.leagueName || HARDCODED_LEAGUE_NAME_FALLBACK,
       teamName: onboardState.selectedTeam?.name,
       rosterId: onboardState.selectedTeam?.rosterId ?? onboardState.selectedTeam?.roster_id ?? existing.rosterId ?? '',
