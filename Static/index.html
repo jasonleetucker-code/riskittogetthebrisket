@@ -2849,7 +2849,7 @@
                     <span class="tip-text">Off by default. When enabled, Rankings shows the source-value columns (KTC, FantasyCalc, Dynasty Daddy, FantasyPros, Draft Sharks, Yahoo, Dynasty Nerds, DLF variants, and IDP source columns).</span>
                   </span>
                 </span>
-                <input type="checkbox" id="rankingsShowSiteCols" onchange="persistSettings(); buildFullRankings();">
+                <input type="checkbox" id="rankingsShowSiteCols" onchange="setRankingsSourceColumnsVisible(this.checked);">
               </label>
               <p class="settings-note">Turn this on for source diagnostics, keep it off for the cleaner decision view.</p>
             </div>
@@ -3013,6 +3013,10 @@
             <option value="scarcity">Scarcity Adjusted</option>
             <option value="raw">Raw Market</option>
           </select>
+        </label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;cursor:pointer;color:var(--subtext);">
+          <input type="checkbox" id="rankingsShowSiteColsQuick" onchange="setRankingsSourceColumnsVisible(this.checked)" style="width:14px;height:14px;">
+          Source cols
         </label>
         <input type="text" id="rankingsSearch" placeholder="Search player..." oninput="queueBuildFullRankings(120)" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card-bg);color:var(--text);font-size:0.78rem;width:180px;">
       </div>
@@ -5263,6 +5267,43 @@
     return rows;
   }
 
+  function dedupeRankingsRowsByName(rows = []) {
+    const out = [];
+    const idxByNorm = new Map();
+    for (const row of (rows || [])) {
+      if (!row || !row.name) continue;
+      // Keep pick rows untouched; dedupe focuses on player-name punctuation variants.
+      if (row.pos === 'PICK') {
+        out.push(row);
+        continue;
+      }
+      const norm = normalizeForLookup(row.name);
+      if (!norm) {
+        out.push(row);
+        continue;
+      }
+      const existingIdx = idxByNorm.get(norm);
+      if (existingIdx == null) {
+        idxByNorm.set(norm, out.length);
+        out.push(row);
+        continue;
+      }
+      const cur = out[existingIdx];
+      const rowSort = Number(row.sortValue || 0);
+      const curSort = Number(cur.sortValue || 0);
+      const rowSites = Number(row.siteCount || 0);
+      const curSites = Number(cur.siteCount || 0);
+      const rowRaw = Number(row.rawComposite || 0);
+      const curRaw = Number(cur.rawComposite || 0);
+      const keepRow =
+        (rowSort > curSort) ||
+        (rowSort === curSort && rowSites > curSites) ||
+        (rowSort === curSort && rowSites === curSites && rowRaw > curRaw);
+      if (keepRow) out[existingIdx] = row;
+    }
+    return out;
+  }
+
   function primeRankingsBaseRowsCache() {
     if (!loadedData?.players) return;
     try {
@@ -5360,6 +5401,7 @@
       ...r,
       sortValue: getValueByRankingMode(r.adjustment, sortBasis),
     }));
+    ranked = dedupeRankingsRowsByName(ranked);
     ranked.sort((a, b) => rankingsSortAsc ? a.sortValue - b.sortValue : b.sortValue - a.sortValue);
 
     // Apply filters before display capping so focused views (like rookies-only)
@@ -6272,7 +6314,7 @@
             <input type="checkbox" ${showCols ? 'checked' : ''} onchange="const cb=document.getElementById('rankingsShowLamCols'); if(cb){cb.checked=this.checked;} persistSettings(); buildFullRankings(); buildMoreHub();" style="width:14px;height:14px;"> Show Breakdown Columns
           </label>
           <label class="mobile-chip-btn ${showSiteCols ? 'primary' : ''}" style="display:inline-flex;align-items:center;gap:6px;">
-            <input type="checkbox" ${showSiteCols ? 'checked' : ''} onchange="const cb=document.getElementById('rankingsShowSiteCols'); if(cb){cb.checked=this.checked;} persistSettings(); buildFullRankings(); buildMoreHub();" style="width:14px;height:14px;"> Show Source Columns
+            <input type="checkbox" ${showSiteCols ? 'checked' : ''} onchange="setRankingsSourceColumnsVisible(this.checked);" style="width:14px;height:14px;"> Show Source Columns
           </label>
           <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
             LAM Strength
@@ -7270,6 +7312,7 @@
         const el = document.getElementById('rankingsShowSiteCols');
         if (el) el.checked = false;
       }
+      syncRankingsSourceColumnToggles();
       if (d.edgeHighConfidence != null) {
         const el = document.getElementById('edgeHighConfidence');
         if (el) el.checked = !!d.edgeHighConfidence;
@@ -12122,6 +12165,26 @@
 
   function showRankingsSourceColumns() {
     return !!document.getElementById('rankingsShowSiteCols')?.checked;
+  }
+
+  function syncRankingsSourceColumnToggles() {
+    const main = document.getElementById('rankingsShowSiteCols');
+    const quick = document.getElementById('rankingsShowSiteColsQuick');
+    const on = !!main?.checked;
+    if (quick) quick.checked = on;
+  }
+
+  function setRankingsSourceColumnsVisible(enabled) {
+    const on = !!enabled;
+    const main = document.getElementById('rankingsShowSiteCols');
+    const quick = document.getElementById('rankingsShowSiteColsQuick');
+    if (main) main.checked = on;
+    if (quick) quick.checked = on;
+    persistSettings();
+    buildFullRankings();
+    if (typeof buildMoreHub === 'function') {
+      try { buildMoreHub(); } catch(_) {}
+    }
   }
 
   function getLAM(position) {

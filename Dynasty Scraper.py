@@ -393,10 +393,26 @@ def clean_name(raw):
 def normalize_lookup_name(raw):
     """Name key for resilient matching across sources."""
     s = clean_name(raw or "").lower()
-    s = re.sub(r"[.\-']", " ", s)
+    # Treat punctuation variants as the same player identity:
+    # "T.J. Parker", "TJ Parker", and "T J Parker" -> "tj parker".
+    s = s.replace("-", " ")
+    s = s.replace(".", "")
+    s = s.replace("'", "")
     s = re.sub(r"[^a-z0-9\s]", " ", s)
     s = re.sub(r"\s+(jr|sr|ii|iii|iv|v)\s*$", "", s)
     s = re.sub(r"\s+", " ", s).strip()
+    if not s:
+        return s
+    parts = s.split()
+    # Collapse leading initial tokens: "t j parker" -> "tj parker".
+    initial_run = []
+    idx = 0
+    while idx < len(parts) and len(parts[idx]) == 1:
+        initial_run.append(parts[idx])
+        idx += 1
+    if len(initial_run) >= 2:
+        merged = ''.join(initial_run)
+        s = ' '.join([merged] + parts[idx:])
     return s
 
 
@@ -8283,6 +8299,96 @@ async def run(progress_callback=None):
             _pos_map[canonical] = player_pos
 
         players_json[canonical] = entry
+
+    # Merge punctuation/initial variants that still slipped through canonical resolution.
+    # Example: "T.J. Parker" and "TJ Parker" must resolve to one player row.
+    def _entry_site_count(e):
+        if not isinstance(e, dict):
+            return 0
+        c = 0
+        for _k, _v in e.items():
+            if str(_k).startswith("_"):
+                continue
+            if isinstance(_v, (int, float)) and _v is not None and float(_v) > 0:
+                c += 1
+        return c
+
+    def _pick_primary_name(a, b):
+        ea = players_json.get(a, {}) if isinstance(players_json.get(a), dict) else {}
+        eb = players_json.get(b, {}) if isinstance(players_json.get(b), dict) else {}
+        score_a = (
+            (10 if ea.get("_sleeperId") else 0)
+            + (5 if _get_pos(a) else 0)
+            + _entry_site_count(ea)
+        )
+        score_b = (
+            (10 if eb.get("_sleeperId") else 0)
+            + (5 if _get_pos(b) else 0)
+            + _entry_site_count(eb)
+        )
+        if score_a != score_b:
+            return a if score_a > score_b else b
+        # Prefer the cleaner display form (fewer punctuation marks).
+        punct_a = len(re.findall(r"[.\-']", a))
+        punct_b = len(re.findall(r"[.\-']", b))
+        if punct_a != punct_b:
+            return a if punct_a < punct_b else b
+        return a if a <= b else b
+
+    _by_norm_name = {}
+    _merged_name_variants = 0
+    for _name in sorted(list(players_json.keys())):
+        _norm = normalize_lookup_name(_name)
+        if not _norm:
+            continue
+        if _norm not in _by_norm_name:
+            _by_norm_name[_norm] = _name
+            continue
+        _other = _by_norm_name[_norm]
+        if _other == _name or _other not in players_json or _name not in players_json:
+            continue
+        _primary = _pick_primary_name(_other, _name)
+        _secondary = _name if _primary == _other else _other
+        if _primary == _secondary:
+            continue
+
+        _p_entry = players_json.get(_primary, {})
+        _s_entry = players_json.get(_secondary, {})
+        if not isinstance(_p_entry, dict) or not isinstance(_s_entry, dict):
+            continue
+
+        # Keep real site values additive (only fill missing source slots).
+        for _k, _v in _s_entry.items():
+            if str(_k).startswith("_"):
+                continue
+            if _k not in _p_entry and isinstance(_v, (int, float)) and _v is not None and float(_v) > 0:
+                _p_entry[_k] = _v
+
+        # Preserve identity metadata if primary lacks it.
+        if not _p_entry.get("_sleeperId") and _s_entry.get("_sleeperId"):
+            _p_entry["_sleeperId"] = _s_entry.get("_sleeperId")
+
+        _primary_pos = _get_pos(_primary)
+        _secondary_pos = _get_pos(_secondary)
+        if not _primary_pos and _secondary_pos:
+            _pos_map[_primary] = _secondary_pos
+
+        _sid = _p_entry.get("_sleeperId") or _s_entry.get("_sleeperId") or _player_id_map.get(_secondary)
+        if _sid:
+            _sid = str(_sid)
+            _p_entry["_sleeperId"] = _sid
+            _player_id_map[_primary] = _sid
+            _id_to_player[_sid] = _primary
+
+        players_json[_primary] = _p_entry
+        players_json.pop(_secondary, None)
+        _pos_map.pop(_secondary, None)
+        _player_id_map.pop(_secondary, None)
+        _by_norm_name[_norm] = _primary
+        _merged_name_variants += 1
+
+    if DEBUG and _merged_name_variants:
+        print(f"  [Dedup] Merged {_merged_name_variants} punctuation/initial name variants")
 
     # Backfill IDP positions for players that only came in through IDP-specific feeds.
     # This keeps IDP filters/coverage accurate even for deep-tier defenders not rostered.
