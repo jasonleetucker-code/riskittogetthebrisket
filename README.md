@@ -83,7 +83,16 @@ Outputs:
 - `data/raw_sources/raw_source_snapshot_*.json`
 - `data/canonical/canonical_snapshot_*.json`
 - `data/league/league_snapshot_*.json`
+- `data/identity/identity_report_*.json` (unmatched/conflict/single-source coverage report)
 - `data/reports/ops_report_*.md`
+
+Scaffold API endpoints (served by `server.py`):
+- `GET /api/scaffold/status`
+- `GET /api/scaffold/raw`
+- `GET /api/scaffold/canonical`
+- `GET /api/scaffold/league`
+- `GET /api/scaffold/identity`
+- `GET /api/scaffold/report`
 
 ## Jenkins Lockstep
 

@@ -56,3 +56,65 @@ def build_master_players(records: list[RawAssetRecord]) -> tuple[dict[str, Maste
             p.metadata["sources"] = sorted(srcs)
     return players, conflicts
 
+
+def build_identity_report(records: list[RawAssetRecord]) -> dict:
+    """
+    Produce a lightweight identity quality report for Phase-1 pipeline auditing.
+    """
+    players, conflicts = build_master_players(records)
+    coverage: dict[str, set[str]] = defaultdict(set)
+    unresolved: list[dict] = []
+
+    for rec in records:
+        if rec.asset_type != "player":
+            continue
+        norm = normalize_player_name(rec.display_name)
+        if not norm:
+            unresolved.append(
+                {
+                    "display_name": rec.display_name,
+                    "source_id": rec.source_id,
+                    "reason": "empty_normalized_name",
+                }
+            )
+            continue
+        coverage[f"player::{norm}"].add(rec.source_id)
+
+    single_source: list[dict] = []
+    for pid, sources in coverage.items():
+        if len(sources) == 1:
+            p = players.get(pid)
+            single_source.append(
+                {
+                    "player_id": pid,
+                    "display_name": p.display_name if p else pid,
+                    "sources": sorted(sources),
+                }
+            )
+
+    multi_source: list[dict] = []
+    for pid, sources in coverage.items():
+        if len(sources) > 1:
+            p = players.get(pid)
+            multi_source.append(
+                {
+                    "player_id": pid,
+                    "display_name": p.display_name if p else pid,
+                    "sources": sorted(sources),
+                }
+            )
+
+    report = {
+        "record_count": len(records),
+        "player_record_count": sum(1 for r in records if r.asset_type == "player"),
+        "master_player_count": len(players),
+        "conflict_count": len(conflicts),
+        "conflicts": conflicts,
+        "unresolved_count": len(unresolved),
+        "unresolved_records": unresolved,
+        "single_source_count": len(single_source),
+        "single_source_players": single_source,
+        "multi_source_count": len(multi_source),
+        "multi_source_players": multi_source,
+    }
+    return report

@@ -154,6 +154,24 @@ def load_from_disk() -> dict | None:
     return None
 
 
+def _latest_file(directory: Path, pattern: str) -> Path | None:
+    if not directory.exists():
+        return None
+    files = sorted(directory.glob(pattern), reverse=True)
+    return files[0] if files else None
+
+
+def _load_json_file(path: Path | None) -> dict | None:
+    if path is None or not path.exists():
+        return None
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        log.error(f"Failed to load scaffold json {path}: {e}")
+        return None
+
+
 async def run_scraper() -> dict | None:
     """
     Import and run the scraper, returning the dashboard JSON dict.
@@ -352,6 +370,107 @@ async def get_status():
         "player_count": len(latest_data.get("players", {})) if latest_data else 0,
         "data_date": latest_data.get("date") if latest_data else None,
     })
+
+
+@app.get("/api/scaffold/status")
+async def get_scaffold_status():
+    """Return latest scaffold snapshot metadata for raw/canonical/league/report outputs."""
+    raw_file = _latest_file(DATA_DIR / "raw_sources", "raw_source_snapshot_*.json")
+    canonical_file = _latest_file(DATA_DIR / "canonical", "canonical_snapshot_*.json")
+    league_file = _latest_file(DATA_DIR / "league", "league_snapshot_*.json")
+    identity_file = _latest_file(DATA_DIR / "identity", "identity_report_*.json")
+    report_file = _latest_file(DATA_DIR / "reports", "ops_report_*.md")
+
+    raw = _load_json_file(raw_file)
+    canonical = _load_json_file(canonical_file)
+    league = _load_json_file(league_file)
+    identity = _load_json_file(identity_file)
+
+    def _meta(path: Path | None) -> dict | None:
+        if path is None or not path.exists():
+            return None
+        stat = path.stat()
+        return {
+            "name": path.name,
+            "path": str(path),
+            "mtime": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
+            "size_bytes": stat.st_size,
+        }
+
+    return JSONResponse(
+        content={
+            "raw_sources": {
+                "file": _meta(raw_file),
+                "source_count": len(raw.get("snapshots", [])) if raw else 0,
+                "record_count": (
+                    sum(len(s.get("records", [])) for s in raw.get("snapshots", []))
+                    if raw
+                    else 0
+                ),
+            },
+            "canonical": {
+                "file": _meta(canonical_file),
+                "asset_count": canonical.get("asset_count", 0) if canonical else 0,
+            },
+            "league": {
+                "file": _meta(league_file),
+                "asset_count": league.get("asset_count", 0) if league else 0,
+            },
+            "identity": {
+                "file": _meta(identity_file),
+                "master_player_count": identity.get("master_player_count", 0) if identity else 0,
+                "single_source_count": identity.get("single_source_count", 0) if identity else 0,
+                "conflict_count": identity.get("conflict_count", 0) if identity else 0,
+            },
+            "report": {
+                "file": _meta(report_file),
+            },
+        }
+    )
+
+
+@app.get("/api/scaffold/raw")
+async def get_scaffold_raw():
+    file_path = _latest_file(DATA_DIR / "raw_sources", "raw_source_snapshot_*.json")
+    payload = _load_json_file(file_path)
+    if payload is None:
+        return JSONResponse(status_code=404, content={"error": "No raw scaffold snapshot found"})
+    return JSONResponse(content=payload)
+
+
+@app.get("/api/scaffold/canonical")
+async def get_scaffold_canonical():
+    file_path = _latest_file(DATA_DIR / "canonical", "canonical_snapshot_*.json")
+    payload = _load_json_file(file_path)
+    if payload is None:
+        return JSONResponse(status_code=404, content={"error": "No canonical scaffold snapshot found"})
+    return JSONResponse(content=payload)
+
+
+@app.get("/api/scaffold/league")
+async def get_scaffold_league():
+    file_path = _latest_file(DATA_DIR / "league", "league_snapshot_*.json")
+    payload = _load_json_file(file_path)
+    if payload is None:
+        return JSONResponse(status_code=404, content={"error": "No league scaffold snapshot found"})
+    return JSONResponse(content=payload)
+
+
+@app.get("/api/scaffold/identity")
+async def get_scaffold_identity():
+    file_path = _latest_file(DATA_DIR / "identity", "identity_report_*.json")
+    payload = _load_json_file(file_path)
+    if payload is None:
+        return JSONResponse(status_code=404, content={"error": "No identity report found"})
+    return JSONResponse(content=payload)
+
+
+@app.get("/api/scaffold/report")
+async def get_scaffold_report():
+    file_path = _latest_file(DATA_DIR / "reports", "ops_report_*.md")
+    if file_path is None or not file_path.exists():
+        return JSONResponse(status_code=404, content={"error": "No scaffold report found"})
+    return FileResponse(file_path, media_type="text/markdown")
 
 
 @app.post("/api/scrape")

@@ -4,27 +4,38 @@
     {
       "source_id": "DLF_SF",
       "source_bucket": "offense_vet",
+      "adapter": "dlf_csv",
       "file": "dlf_superflex.csv",
       "mode": "rank_avg"
     },
     {
       "source_id": "DLF_IDP",
       "source_bucket": "idp_vet",
+      "adapter": "dlf_csv",
       "file": "dlf_idp.csv",
       "mode": "rank_avg"
     },
     {
       "source_id": "DLF_RSF",
       "source_bucket": "offense_rookie",
+      "adapter": "dlf_csv",
       "file": "dlf_rookie_superflex.csv",
       "mode": "rank_avg"
     },
     {
       "source_id": "DLF_RIDP",
       "source_bucket": "idp_rookie",
+      "adapter": "dlf_csv",
       "file": "dlf_rookie_idp.csv",
       "mode": "rank_avg"
+    },
+    {
+      "source_id": "KTC_STUB",
+      "source_bucket": "offense_vet",
+      "adapter": "ktc_stub",
+      "enabled": false,
+      "file": "data/ktc_seed.csv",
+      "mode": "rank_or_value_seed"
     }
   ]
 }
-
