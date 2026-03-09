@@ -60,6 +60,16 @@ ALERT_TO = os.getenv("ALERT_TO", "")
 ALERT_FROM = os.getenv("ALERT_FROM", "")
 ALERT_PASSWORD = os.getenv("ALERT_PASSWORD") or os.getenv("GMAIL_APP_PASSWORD", "")
 
+# ── UPTIME WATCHDOG ────────────────────────────────────────────────────
+UPTIME_CHECK_ENABLED = _env_bool("UPTIME_CHECK_ENABLED", True)
+UPTIME_CHECK_URL = os.getenv(
+    "UPTIME_CHECK_URL",
+    "https://riskittogetthebrisket.org/api/health",
+).strip()
+UPTIME_CHECK_INTERVAL_SEC = int(os.getenv("UPTIME_CHECK_INTERVAL_SEC", "300"))
+UPTIME_CHECK_TIMEOUT_SEC = float(os.getenv("UPTIME_CHECK_TIMEOUT_SEC", "5"))
+UPTIME_ALERT_FAIL_THRESHOLD = int(os.getenv("UPTIME_ALERT_FAIL_THRESHOLD", "2"))
+
 # Rate limit: max 1 email per hour to avoid spam on repeated failures
 _last_alert_time = 0
 ALERT_COOLDOWN_SEC = 3600
@@ -132,6 +142,15 @@ scrape_status = {
     "is_running": False,
     "last_error": None,
     "scrape_count": 0,
+}
+uptime_status = {
+    "enabled": UPTIME_CHECK_ENABLED,
+    "target_url": UPTIME_CHECK_URL,
+    "last_check": None,
+    "last_ok": None,
+    "last_error": None,
+    "last_http_status": None,
+    "consecutive_failures": 0,
 }
 
 
@@ -248,6 +267,80 @@ async def run_scraper() -> dict | None:
         return None
 
 
+def check_uptime_once() -> tuple[bool, str | None, int | None]:
+    """Run one synchronous uptime probe against the configured URL."""
+    if not UPTIME_CHECK_URL:
+        return False, "UPTIME_CHECK_URL is empty", None
+
+    req = urllib.request.Request(
+        UPTIME_CHECK_URL,
+        headers={"User-Agent": "dynasty-uptime-watchdog/1.0"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=UPTIME_CHECK_TIMEOUT_SEC) as resp:
+            status_code = int(getattr(resp, "status", 200))
+            if 200 <= status_code < 400:
+                return True, None, status_code
+            return False, f"Unexpected status code {status_code}", status_code
+    except urllib.error.HTTPError as e:
+        return False, f"HTTPError {e.code}", int(e.code)
+    except Exception as e:
+        return False, f"{type(e).__name__}: {e}", None
+
+
+async def uptime_watchdog_loop():
+    """Periodic external uptime checks + alerting."""
+    if not UPTIME_CHECK_ENABLED:
+        log.info("Uptime watchdog disabled (UPTIME_CHECK_ENABLED=false)")
+        return
+    if not UPTIME_CHECK_URL:
+        log.warning("Uptime watchdog enabled but UPTIME_CHECK_URL is empty; watchdog disabled.")
+        uptime_status["enabled"] = False
+        return
+
+    log.info(
+        "Uptime watchdog enabled — url=%s interval=%ss threshold=%s",
+        UPTIME_CHECK_URL,
+        UPTIME_CHECK_INTERVAL_SEC,
+        UPTIME_ALERT_FAIL_THRESHOLD,
+    )
+    while True:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        ok, error, status_code = await asyncio.to_thread(check_uptime_once)
+        uptime_status["last_check"] = now_iso
+        uptime_status["last_http_status"] = status_code
+
+        if ok:
+            was_down = uptime_status["consecutive_failures"] >= UPTIME_ALERT_FAIL_THRESHOLD
+            uptime_status["consecutive_failures"] = 0
+            uptime_status["last_ok"] = now_iso
+            uptime_status["last_error"] = None
+            if was_down:
+                send_alert(
+                    "Uptime recovered",
+                    f"Recovered successfully.\nURL: {UPTIME_CHECK_URL}\nChecked at: {now_iso}\nStatus: {status_code}",
+                )
+        else:
+            uptime_status["consecutive_failures"] += 1
+            uptime_status["last_error"] = error
+            failures = uptime_status["consecutive_failures"]
+            log.warning("Uptime check failed (%s/%s): %s", failures, UPTIME_ALERT_FAIL_THRESHOLD, error)
+            if failures >= UPTIME_ALERT_FAIL_THRESHOLD:
+                send_alert(
+                    f"Uptime check failing ({failures} consecutive)",
+                    (
+                        f"URL: {UPTIME_CHECK_URL}\n"
+                        f"Consecutive failures: {failures}\n"
+                        f"Last status code: {status_code}\n"
+                        f"Last error: {error}\n"
+                        f"Checked at: {now_iso}"
+                    ),
+                )
+
+        await asyncio.sleep(max(30, UPTIME_CHECK_INTERVAL_SEC))
+
+
 # ── SCHEDULER ───────────────────────────────────────────────────────────
 async def scheduled_scrape():
     """Called by the background scheduler every SCRAPE_INTERVAL_HOURS."""
@@ -293,6 +386,7 @@ async def lifespan(app: FastAPI):
 
     # 3. Start the recurring schedule
     scheduler_task = asyncio.create_task(schedule_loop())
+    uptime_task = asyncio.create_task(uptime_watchdog_loop())
 
     log.info(f"Server started — scraping every {SCRAPE_INTERVAL_HOURS}h")
     log.info(f"Dashboard: http://localhost:{PORT}")
@@ -302,6 +396,7 @@ async def lifespan(app: FastAPI):
     # Cleanup
     scrape_task.cancel()
     scheduler_task.cancel()
+    uptime_task.cancel()
     log.info("Server shutting down")
 
 
@@ -366,10 +461,39 @@ async def get_status():
     """Return scraper status info."""
     return JSONResponse(content={
         **scrape_status,
+        "uptime": uptime_status,
         "has_data": latest_data is not None,
         "player_count": len(latest_data.get("players", {})) if latest_data else 0,
         "data_date": latest_data.get("date") if latest_data else None,
     })
+
+
+@app.get("/api/health")
+async def get_health():
+    """Basic health endpoint for reverse proxy / uptime probes."""
+    is_ok = scrape_status.get("last_error") in (None, "")
+    status = "ok" if is_ok else "degraded"
+    return JSONResponse(
+        status_code=200 if is_ok else 503,
+        content={
+            "status": status,
+            "service": "dynasty-server",
+            "time_utc": datetime.now(timezone.utc).isoformat(),
+            "has_data": latest_data is not None,
+            "last_scrape": scrape_status.get("last_scrape"),
+            "scrape_running": scrape_status.get("is_running"),
+            "uptime_watchdog": {
+                "enabled": uptime_status.get("enabled"),
+                "target_url": uptime_status.get("target_url"),
+            },
+        },
+    )
+
+
+@app.get("/api/uptime")
+async def get_uptime_status():
+    """Detailed uptime watchdog state."""
+    return JSONResponse(content=uptime_status)
 
 
 @app.get("/api/scaffold/status")
