@@ -86,6 +86,14 @@ Then `.\sync.bat "message"` will:
 
 If your Jenkins does not require auth, only `JENKINS_TRIGGER_URL` is needed.
 
+Quick verify command:
+```powershell
+.\scripts\verify_lockstep.ps1
+```
+
+Full setup + operating checklist:
+- `LOCKSTEP_SETUP.md`
+
 ## GitHub
 Remote:
 - `origin = https://github.com/jasonleetucker-code/riskittogetthebrisket.git`
