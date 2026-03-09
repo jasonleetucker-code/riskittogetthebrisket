@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "league_name": "Default Superflex + IDP Template",
+  "teams": 12,
+  "format": {
+    "superflex": true,
+    "te_premium": 1.5,
+    "ppr": 1.0
+  },
+  "starters": {
+    "QB": 1,
+    "RB": 2,
+    "WR": 2,
+    "TE": 1,
+    "FLEX": 2,
+    "SFLEX": 1,
+    "DL": 2,
+    "LB": 2,
+    "DB": 2,
+    "IDP_FLEX": 1
+  },
+  "pick_model": {
+    "future_year_discount": {
+      "2026": 1.0,
+      "2027": 0.88,
+      "2028": 0.78
+    }
+  }
+}
+

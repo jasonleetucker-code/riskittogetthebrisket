@@ -15,6 +15,7 @@ frontend/.next/
 *_session.json
 *.env
 .env*
+!.env.example
 
 # Generated scraper outputs
 dynasty_data.js

@@ -28,6 +28,66 @@ pipeline {
       }
     }
 
+    stage('Source Pull (Scaffold)') {
+      when {
+        expression { fileExists('scripts/source_pull.py') }
+      }
+      steps {
+        script {
+          if (isUnix()) {
+            sh 'python scripts/source_pull.py --repo .'
+          } else {
+            bat 'python scripts\\source_pull.py --repo .'
+          }
+        }
+      }
+    }
+
+    stage('Canonical Build (Scaffold)') {
+      when {
+        expression { fileExists('scripts/canonical_build.py') }
+      }
+      steps {
+        script {
+          if (isUnix()) {
+            sh 'python scripts/canonical_build.py --repo .'
+          } else {
+            bat 'python scripts\\canonical_build.py --repo .'
+          }
+        }
+      }
+    }
+
+    stage('League Refresh (Scaffold)') {
+      when {
+        expression { fileExists('scripts/league_refresh.py') }
+      }
+      steps {
+        script {
+          if (isUnix()) {
+            sh 'python scripts/league_refresh.py --repo .'
+          } else {
+            bat 'python scripts\\league_refresh.py --repo .'
+          }
+        }
+      }
+    }
+
+    stage('Reporting (Scaffold)') {
+      when {
+        expression { fileExists('scripts/reporting.py') }
+      }
+      steps {
+        script {
+          if (isUnix()) {
+            sh 'python scripts/reporting.py --repo .'
+          } else {
+            bat 'python scripts\\reporting.py --repo .'
+          }
+        }
+      }
+    }
+
     stage('Backend Smoke') {
       steps {
         script {

@@ -1,0 +1,2 @@
+"""Canonical engine scaffold package."""
+

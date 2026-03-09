@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "description": "Initial source weights for canonical blend scaffolding",
+  "universe_defaults": {
+    "offense_vet": 1.0,
+    "offense_rookie": 1.0,
+    "idp_vet": 1.0,
+    "idp_rookie": 1.0,
+    "picks": 1.0
+  },
+  "sources": {
+    "DLF_SF": 1.0,
+    "DLF_IDP": 1.0,
+    "DLF_RSF": 1.0,
+    "DLF_RIDP": 1.0
+  }
+}
+

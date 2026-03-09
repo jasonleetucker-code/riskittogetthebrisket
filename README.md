@@ -66,6 +66,25 @@ Example:
 .\sync.bat "Update rankings + trade UX"
 ```
 
+## Canonical Scaffold (Phase 0/1)
+
+New modular scaffold lives under `src/` with config templates under `config/`.
+
+Run the scaffold pipeline:
+
+```powershell
+python .\scripts\source_pull.py --repo .
+python .\scripts\canonical_build.py --repo .
+python .\scripts\league_refresh.py --repo .
+python .\scripts\reporting.py --repo .
+```
+
+Outputs:
+- `data/raw_sources/raw_source_snapshot_*.json`
+- `data/canonical/canonical_snapshot_*.json`
+- `data/league/league_snapshot_*.json`
+- `data/reports/ops_report_*.md`
+
 ## Jenkins Lockstep
 
 This repo now includes a root `Jenkinsfile` so Jenkins can build exactly what is on `main`.

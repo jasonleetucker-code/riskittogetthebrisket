@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "source_id": "DLF_SF",
+      "source_bucket": "offense_vet",
+      "file": "dlf_superflex.csv",
+      "mode": "rank_avg"
+    },
+    {
+      "source_id": "DLF_IDP",
+      "source_bucket": "idp_vet",
+      "file": "dlf_idp.csv",
+      "mode": "rank_avg"
+    },
+    {
+      "source_id": "DLF_RSF",
+      "source_bucket": "offense_rookie",
+      "file": "dlf_rookie_superflex.csv",
+      "mode": "rank_avg"
+    },
+    {
+      "source_id": "DLF_RIDP",
+      "source_bucket": "idp_rookie",
+      "file": "dlf_rookie_idp.csv",
+      "mode": "rank_avg"
+    }
+  ]
+}
+
