@@ -66,6 +66,26 @@ Example:
 .\sync.bat "Update rankings + trade UX"
 ```
 
+## Jenkins Lockstep
+
+This repo now includes a root `Jenkinsfile` so Jenkins can build exactly what is on `main`.
+
+### Optional: trigger Jenkins automatically after `sync.bat`
+Set these env vars once in PowerShell:
+
+```powershell
+[Environment]::SetEnvironmentVariable("JENKINS_TRIGGER_URL","https://<jenkins-host>/job/<job-name>/buildWithParameters","User")
+[Environment]::SetEnvironmentVariable("JENKINS_USER","<jenkins-username>","User")
+[Environment]::SetEnvironmentVariable("JENKINS_API_TOKEN","<jenkins-api-token>","User")
+```
+
+Then `.\sync.bat "message"` will:
+1. commit
+2. push
+3. trigger Jenkins via `scripts/trigger_jenkins.py`
+
+If your Jenkins does not require auth, only `JENKINS_TRIGGER_URL` is needed.
+
 ## GitHub
 Remote:
 - `origin = https://github.com/jasonleetucker-code/riskittogetthebrisket.git`

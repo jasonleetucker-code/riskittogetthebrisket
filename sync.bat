@@ -47,5 +47,14 @@ if errorlevel 1 (
   exit /b 1
 )
 
+if not "%JENKINS_TRIGGER_URL%"=="" (
+  echo [sync] Triggering Jenkins...
+  python "%~dp0scripts\trigger_jenkins.py"
+  if errorlevel 1 (
+    echo [sync] Jenkins trigger failed.
+    exit /b 1
+  )
+)
+
 echo [sync] Done.
 exit /b 0
