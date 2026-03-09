@@ -2,6 +2,23 @@ import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 
+async function fetchFromBackendApi() {
+  const backendUrl = process.env.BACKEND_API_URL || "http://127.0.0.1:8000/api/data";
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 1500);
+  try {
+    const res = await fetch(backendUrl, { cache: "no-store", signal: ctl.signal });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || typeof data !== "object") return null;
+    return { source: `backend:${backendUrl}`, data };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function parseDynastyDataJs(jsText) {
   if (!jsText) return null;
   const match = jsText.match(/window\.DYNASTY_DATA\s*=\s*(\{[\s\S]*\})\s*;?/);
@@ -40,6 +57,11 @@ function newestFile(files) {
 
 export async function GET() {
   try {
+    const backendPayload = await fetchFromBackendApi();
+    if (backendPayload) {
+      return NextResponse.json({ ok: true, source: backendPayload.source, data: backendPayload.data });
+    }
+
     const repoRoot = path.resolve(process.cwd(), "..");
 
     const jsonFile = newestFile(listCandidates(repoRoot));

@@ -21,6 +21,8 @@ import time
 import logging
 import traceback
 import smtplib
+import urllib.request
+import urllib.error
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone
@@ -28,7 +30,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, BackgroundTasks
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
@@ -49,6 +51,9 @@ def _env_bool(name: str, default: bool = False) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:3000").rstrip("/")
+ENABLE_NEXT_FRONTEND_PROXY = _env_bool("ENABLE_NEXT_FRONTEND_PROXY", True)
 
 ALERT_ENABLED = _env_bool("ALERT_ENABLED", False)
 ALERT_TO = os.getenv("ALERT_TO", "")
@@ -103,6 +108,7 @@ def send_alert(subject: str, body: str):
 BASE_DIR = Path(__file__).parent.resolve()
 DATA_DIR = BASE_DIR / "data"
 STATIC_DIR = BASE_DIR / "static"
+LEGACY_STATIC_DIR = BASE_DIR / "Static"
 SCRAPER_PATH = BASE_DIR / "Dynasty Scraper.py"
 
 DATA_DIR.mkdir(exist_ok=True)
@@ -287,6 +293,43 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+def _proxy_next(path: str) -> Response | None:
+    """
+    Proxy frontend routes to local Next.js dev/prod server when available.
+    Returns None if proxy disabled/unavailable so legacy static fallback can handle it.
+    """
+    if not ENABLE_NEXT_FRONTEND_PROXY:
+        return None
+    try:
+        target = f"{FRONTEND_URL}{path if path.startswith('/') else '/' + path}"
+        req = urllib.request.Request(
+            target,
+            headers={"User-Agent": "dynasty-server-next-proxy/1.0"},
+            method="GET",
+        )
+        with urllib.request.urlopen(req, timeout=1.5) as resp:
+            body = resp.read()
+            headers = {}
+            ctype = resp.headers.get("Content-Type")
+            if ctype:
+                headers["content-type"] = ctype
+            cache_control = resp.headers.get("Cache-Control")
+            if cache_control:
+                headers["cache-control"] = cache_control
+            return Response(content=body, status_code=getattr(resp, "status", 200), headers=headers)
+    except urllib.error.HTTPError as e:
+        try:
+            body = e.read()
+        except Exception:
+            body = b""
+        headers = {}
+        ctype = e.headers.get("Content-Type") if e.headers else None
+        if ctype:
+            headers["content-type"] = ctype
+        return Response(content=body, status_code=e.code, headers=headers)
+    except Exception:
+        return None
+
 
 # ── API ROUTES ──────────────────────────────────────────────────────────
 @app.get("/api/data")
@@ -351,8 +394,12 @@ async def test_alert():
 @app.get("/", response_class=HTMLResponse)
 async def serve_dashboard():
     """Serve the main dashboard HTML."""
+    proxied = _proxy_next("/")
+    if proxied is not None:
+        return proxied
+
     # Look for index.html in static/ first, then base dir
-    for path in [STATIC_DIR / "index.html", BASE_DIR / "index.html"]:
+    for path in [STATIC_DIR / "index.html", LEGACY_STATIC_DIR / "index.html", BASE_DIR / "index.html"]:
         if path.exists():
             return FileResponse(path, media_type="text/html")
     return HTMLResponse(
@@ -361,10 +408,40 @@ async def serve_dashboard():
         status_code=404,
     )
 
+@app.get("/rankings", response_class=HTMLResponse)
+async def serve_rankings():
+    proxied = _proxy_next("/rankings")
+    if proxied is not None:
+        return proxied
+    return await serve_dashboard()
+
+@app.get("/trade", response_class=HTMLResponse)
+async def serve_trade():
+    proxied = _proxy_next("/trade")
+    if proxied is not None:
+        return proxied
+    return await serve_dashboard()
+
+@app.get("/_next/{full_path:path}")
+async def serve_next_assets(full_path: str):
+    proxied = _proxy_next(f"/_next/{full_path}")
+    if proxied is not None:
+        return proxied
+    return Response(status_code=404)
+
+@app.get("/favicon.ico")
+async def serve_favicon():
+    proxied = _proxy_next("/favicon.ico")
+    if proxied is not None:
+        return proxied
+    return Response(status_code=404)
+
 
 # Serve any other static files (CSS, JS, images, etc.)
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+if LEGACY_STATIC_DIR.exists():
+    app.mount("/Static", StaticFiles(directory=str(LEGACY_STATIC_DIR)), name="legacy-static")
 
 
 # ── MAIN ────────────────────────────────────────────────────────────────
