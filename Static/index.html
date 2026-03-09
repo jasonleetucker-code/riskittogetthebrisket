@@ -5596,11 +5596,11 @@
       if (profile?.leagueName) {
         heroLeague.textContent = profile.leagueName;
         if (heroEyebrow) heroEyebrow.textContent = profile.teamName || 'Dynasty League';
-        if (heroBtn) { heroBtn.textContent = 'Switch'; heroBtn.onclick = () => showOnboarding(); }
+        if (heroBtn) { heroBtn.textContent = 'Choose Team'; heroBtn.onclick = () => showOnboarding(); }
       } else {
-        heroLeague.textContent = 'No League Connected';
-        if (heroEyebrow) heroEyebrow.textContent = 'Dynasty Trade Calculator';
-        if (heroBtn) { heroBtn.textContent = 'Connect'; heroBtn.onclick = () => showOnboarding(); }
+        heroLeague.textContent = loadedData?.sleeper?.leagueName || HARDCODED_LEAGUE_NAME_FALLBACK;
+        if (heroEyebrow) heroEyebrow.textContent = 'Hardcoded Sleeper League';
+        if (heroBtn) { heroBtn.textContent = 'Choose Team'; heroBtn.onclick = () => showOnboarding(); }
       }
     }
 
@@ -5659,7 +5659,7 @@
       }
 
       if (!profile) {
-        rows.push({ type: 'info', title: 'League not connected', sub: 'Connect Sleeper to unlock rosters & edge tools.' });
+        rows.push({ type: 'info', title: 'League auto-loaded', sub: 'Use Choose Team to set your roster context.' });
       } else {
         rows.push({ type: 'ok', title: profile.leagueName || 'League connected', sub: `${profile.teamName || ''} · Sleeper` });
       }
@@ -9193,7 +9193,8 @@
     if (data.sleeper && data.sleeper.teams) {
       sleeperTeams = data.sleeper.teams;
       populateTeamDropdowns();
-      updateProfileBar();  // Restore team selection from profile
+      // Hardcode league profile bootstrap: no login flow required.
+      ensureHardcodedLeagueProfile();
     }
     if (data.sleeper && data.sleeper.positions) {
       playerPositions = data.sleeper.positions;
@@ -12110,6 +12111,8 @@
 
   // ── PROFILE & ONBOARDING ──
   const PROFILE_KEY = 'dynasty_profile';
+  const HARDCODED_SLEEPER_LEAGUE_ID = '1312006700437352448';
+  const HARDCODED_LEAGUE_NAME_FALLBACK = 'Risk It To Get The Brisket';
 
   function getProfile() {
     try { return JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null'); }
@@ -12128,11 +12131,14 @@
     const profile = getProfile();
     if (!bar) return;
 
-    if (profile && profile.username) {
+    if (profile && (profile.username || profile.leagueName)) {
       bar.style.display = 'flex';
-      const initial = (profile.username[0] || '?').toUpperCase();
+      const idLabel = String(profile.username || profile.leagueName || '?');
+      const initial = (idLabel[0] || '?').toUpperCase();
       avatar.textContent = initial;
-      const parts = [profile.username];
+      const parts = [];
+      if (profile.leagueName) parts.push(profile.leagueName);
+      else if (profile.username) parts.push(profile.username);
       if (profile.teamName) parts.push(profile.teamName);
       text.textContent = parts.join(' · ');
 
@@ -12186,155 +12192,142 @@
     return r.json();
   }
 
-  // Onboarding flow
+  // Onboarding flow (hardcoded Sleeper league)
   let onboardState = {};
 
-  function showOnboarding() {
+  function _teamExists(teamName) {
+    const name = String(teamName || '').trim();
+    return !!name && Array.isArray(sleeperTeams) && sleeperTeams.some(t => t.name === name);
+  }
+
+  function ensureHardcodedLeagueProfile() {
+    const existing = getProfile() || {};
+    const savedTeam = localStorage.getItem('dynasty_my_team') || '';
+    const leagueName = String(loadedData?.sleeper?.leagueName || existing.leagueName || HARDCODED_LEAGUE_NAME_FALLBACK);
+
+    let teamName = String(existing.teamName || savedTeam || '');
+    let rosterId = existing.rosterId || '';
+    if (Array.isArray(sleeperTeams) && sleeperTeams.length) {
+      if (!_teamExists(teamName)) teamName = sleeperTeams[0].name;
+      const t = sleeperTeams.find(x => x.name === teamName);
+      if (t) rosterId = t.rosterId ?? t.roster_id ?? rosterId;
+    } else if (!_teamExists(teamName)) {
+      teamName = '';
+    }
+
+    const nextProfile = {
+      platform: 'sleeper',
+      username: existing.username || 'Sleeper',
+      userId: existing.userId || '',
+      leagueId: HARDCODED_SLEEPER_LEAGUE_ID,
+      leagueName,
+      teamName,
+      rosterId,
+      savedAt: new Date().toISOString(),
+    };
+    saveProfile(nextProfile);
+    if (teamName) syncGlobalTeam(teamName);
+    return nextProfile;
+  }
+
+  async function loadHardcodedLeagueTeams() {
+    let teams = Array.isArray(sleeperTeams) ? sleeperTeams : [];
+    let leagueName = String(loadedData?.sleeper?.leagueName || HARDCODED_LEAGUE_NAME_FALLBACK);
+    if (teams.length) return { teams, leagueName };
+
+    const [league, rosters, users] = await Promise.all([
+      sleeperFetchLeague(HARDCODED_SLEEPER_LEAGUE_ID),
+      sleeperFetchRosters(HARDCODED_SLEEPER_LEAGUE_ID),
+      sleeperFetchUsers(HARDCODED_SLEEPER_LEAGUE_ID),
+    ]);
+
+    if (league?.name) leagueName = String(league.name);
+    const userMap = {};
+    (users || []).forEach(u => { userMap[u.user_id] = u.display_name || u.username || `Roster ${u.user_id}`; });
+
+    teams = (rosters || []).map(r => ({
+      roster_id: r.roster_id,
+      rosterId: r.roster_id,
+      owner_id: r.owner_id,
+      ownerId: r.owner_id,
+      name: userMap[r.owner_id] || `Roster ${r.roster_id}`,
+      players: Array.isArray(r.players) ? r.players : [],
+      picks: [],
+      playerCount: Array.isArray(r.players) ? r.players.length : 0,
+    })).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+
+    if (teams.length && (!Array.isArray(sleeperTeams) || sleeperTeams.length === 0)) {
+      sleeperTeams = teams;
+      populateTeamDropdowns();
+    }
+    return { teams, leagueName };
+  }
+
+  async function showOnboarding() {
     const overlay = document.getElementById('onboardOverlay');
     const modal = document.getElementById('onboardModal');
     if (!overlay || !modal) return;
-    const profile = getProfile();
-    onboardState = { username: profile?.username || '' };
-    showOnboardStep1();
+
     overlay.classList.add('active');
+    modal.innerHTML = `
+      <h2>Select Your Team</h2>
+      <p>Loading rosters from your hardcoded Sleeper league…</p>
+      <div class="onboard-loading">League ID: ${HARDCODED_SLEEPER_LEAGUE_ID}</div>
+    `;
+
+    try {
+      const profile = ensureHardcodedLeagueProfile();
+      const { teams, leagueName } = await loadHardcodedLeagueTeams();
+      if (!teams.length) {
+        modal.innerHTML = `
+          <h2>League Not Available</h2>
+          <p>Could not load rosters for league <strong>${HARDCODED_SLEEPER_LEAGUE_ID}</strong>.</p>
+          <div id="onboardError"><p class="onboard-error">Try refreshing values, then open this again.</p></div>
+          <button class="onboard-btn ghost" onclick="closeOnboarding()">Close</button>
+        `;
+        return;
+      }
+
+      const selectedName = profile?.teamName && _teamExists(profile.teamName)
+        ? profile.teamName
+        : (localStorage.getItem('dynasty_my_team') || teams[0]?.name || '');
+      const selectedTeam = teams.find(t => t.name === selectedName) || teams[0];
+      onboardState = {
+        username: profile?.username || 'Sleeper',
+        userId: profile?.userId || '',
+        selectedLeague: { league_id: HARDCODED_SLEEPER_LEAGUE_ID, name: leagueName },
+        teams,
+        selectedTeam,
+      };
+
+      let teamCards = '';
+      teams.forEach((t, i) => {
+        const isSel = selectedTeam && t.name === selectedTeam.name;
+        const playerCount = Array.isArray(t.players) ? t.players.length : (t.playerCount || 0);
+        teamCards += `<div class="onboard-team ${isSel ? 'selected' : ''}" data-idx="${i}" onclick="selectOnboardTeam(${i},this)">
+          ${t.name} <span style="color:var(--subtext);">(${playerCount} players)</span>
+        </div>`;
+      });
+
+      modal.innerHTML = `
+        <h2>Select Your Team</h2>
+        <p><strong>${leagueName}</strong></p>
+        <div class="onboard-teams">${teamCards}</div>
+        <button class="onboard-btn primary" onclick="finishOnboarding()" id="onboardTeamDone">Done</button>
+        <br><button class="onboard-btn ghost" onclick="closeOnboarding()">Close</button>
+      `;
+    } catch (e) {
+      modal.innerHTML = `
+        <h2>League Load Error</h2>
+        <p>Could not load your hardcoded league rosters.</p>
+        <div id="onboardError"><p class="onboard-error">${String(e?.message || e || 'Unknown error')}</p></div>
+        <button class="onboard-btn ghost" onclick="closeOnboarding()">Close</button>
+      `;
+    }
   }
 
   function closeOnboarding() {
     document.getElementById('onboardOverlay')?.classList.remove('active');
-  }
-
-  function showOnboardStep1() {
-    const modal = document.getElementById('onboardModal');
-    modal.innerHTML = `
-      <h2>Connect Your League</h2>
-      <p>Enter your Sleeper username to find your dynasty leagues.</p>
-      <input type="text" class="onboard-input" id="onboardUsername" placeholder="Sleeper username"
-             value="${onboardState.username || ''}" onkeydown="if(event.key==='Enter')onboardLookup()">
-      <div id="onboardError"></div>
-      <button class="onboard-btn primary" onclick="onboardLookup()">Find Leagues</button>
-      <br><button class="onboard-btn ghost" onclick="closeOnboarding()">Skip for now</button>
-    `;
-    setTimeout(() => document.getElementById('onboardUsername')?.focus(), 100);
-  }
-
-  async function onboardLookup() {
-    const input = document.getElementById('onboardUsername');
-    const error = document.getElementById('onboardError');
-    const username = (input?.value || '').trim();
-    if (!username) { error.innerHTML = '<p class="onboard-error">Enter a username</p>'; return; }
-
-    error.innerHTML = '<p class="onboard-loading">Looking up user...</p>';
-
-    const user = await sleeperFetchUser(username);
-    if (!user || !user.user_id) {
-      error.innerHTML = '<p class="onboard-error">User not found. Check the spelling.</p>';
-      return;
-    }
-
-    onboardState.username = user.display_name || username;
-    onboardState.userId = user.user_id;
-    onboardState.avatar = user.avatar;
-
-    error.innerHTML = '<p class="onboard-loading">Finding leagues...</p>';
-
-    // Try current season first, then previous
-    const year = new Date().getFullYear();
-    let leagues = await sleeperFetchLeagues(user.user_id, year);
-    if (!leagues.length) leagues = await sleeperFetchLeagues(user.user_id, year - 1);
-
-    // Filter to dynasty leagues
-    const dynastyLeagues = leagues.filter(l =>
-      l.settings?.type === 2 || // dynasty
-      (l.name || '').toLowerCase().includes('dynasty') ||
-      (l.name || '').toLowerCase().includes('keeper')
-    );
-
-    if (!dynastyLeagues.length) {
-      error.innerHTML = '<p class="onboard-error">No dynasty leagues found for this user.</p>';
-      return;
-    }
-
-    onboardState.leagues = dynastyLeagues;
-    showOnboardStep2();
-  }
-
-  function showOnboardStep2() {
-    const modal = document.getElementById('onboardModal');
-    const leagues = onboardState.leagues || [];
-    let leagueCards = '';
-    leagues.forEach((l, i) => {
-      const teams = l.total_rosters || '?';
-      const sf = l.settings?.type === 2 ? 'Dynasty' : 'Keeper';
-      const scoring = l.scoring_settings?.rec === 1 ? 'PPR' : l.scoring_settings?.rec === 0.5 ? 'Half PPR' : '';
-      leagueCards += `<div class="onboard-league" data-idx="${i}" onclick="selectOnboardLeague(${i},this)">
-        <strong>${l.name || 'Unnamed League'}</strong>
-        <span>${teams} teams · ${sf} ${scoring ? '· ' + scoring : ''}</span>
-      </div>`;
-    });
-
-    modal.innerHTML = `
-      <h2>Select Your League</h2>
-      <p>Found ${leagues.length} dynasty league${leagues.length > 1 ? 's' : ''} for <strong>${onboardState.username}</strong></p>
-      <div class="onboard-leagues">${leagueCards}</div>
-      <div id="onboardError"></div>
-      <button class="onboard-btn primary" id="onboardLeagueNext" onclick="onboardPickTeam()" disabled>Continue</button>
-      <br><button class="onboard-btn ghost" onclick="showOnboardStep1()">← Back</button>
-    `;
-  }
-
-  function selectOnboardLeague(idx, el) {
-    document.querySelectorAll('.onboard-league').forEach(e => e.classList.remove('selected'));
-    el.classList.add('selected');
-    onboardState.selectedLeague = onboardState.leagues[idx];
-    document.getElementById('onboardLeagueNext').disabled = false;
-  }
-
-  async function onboardPickTeam() {
-    const league = onboardState.selectedLeague;
-    if (!league) return;
-    const error = document.getElementById('onboardError');
-    error.innerHTML = '<p class="onboard-loading">Loading rosters...</p>';
-
-    const [rosters, users] = await Promise.all([
-      sleeperFetchRosters(league.league_id),
-      sleeperFetchUsers(league.league_id)
-    ]);
-
-    const userMap = {};
-    users.forEach(u => { userMap[u.user_id] = u.display_name || u.username || 'Unknown'; });
-
-    const teams = rosters.map(r => {
-      const owner = r.owner_id;
-      const name = userMap[owner] || `Roster ${r.roster_id}`;
-      return { rosterId: r.roster_id, ownerId: owner, name, playerCount: (r.players || []).length };
-    }).sort((a, b) => a.name.localeCompare(b.name));
-
-    onboardState.teams = teams;
-
-    // Auto-detect user's team
-    const myTeam = teams.find(t => t.ownerId === onboardState.userId);
-
-    const modal = document.getElementById('onboardModal');
-    let teamCards = '';
-    teams.forEach((t, i) => {
-      const isMine = myTeam && t.rosterId === myTeam.rosterId;
-      teamCards += `<div class="onboard-team ${isMine ? 'selected' : ''}" data-idx="${i}" onclick="selectOnboardTeam(${i},this)">
-        ${t.name} <span style="color:var(--subtext);">(${t.playerCount} players)</span>
-        ${isMine ? ' <span style="color:var(--cyan);font-weight:700;">← You</span>' : ''}
-      </div>`;
-    });
-
-    if (myTeam) {
-      onboardState.selectedTeam = myTeam;
-    }
-
-    modal.innerHTML = `
-      <h2>Which team is yours?</h2>
-      <p><strong>${league.name}</strong></p>
-      <div class="onboard-teams">${teamCards}</div>
-      <button class="onboard-btn primary" onclick="finishOnboarding()" ${myTeam ? '' : 'disabled'} id="onboardTeamDone">Done</button>
-      <br><button class="onboard-btn ghost" onclick="showOnboardStep2()">← Back</button>
-    `;
   }
 
   function selectOnboardTeam(idx, el) {
@@ -12345,14 +12338,15 @@
   }
 
   function finishOnboarding() {
+    const existing = getProfile() || {};
     const profile = {
       platform: 'sleeper',
-      username: onboardState.username,
-      userId: onboardState.userId,
-      leagueId: onboardState.selectedLeague?.league_id,
-      leagueName: onboardState.selectedLeague?.name,
+      username: onboardState.username || existing.username || 'Sleeper',
+      userId: onboardState.userId || existing.userId || '',
+      leagueId: HARDCODED_SLEEPER_LEAGUE_ID,
+      leagueName: onboardState.selectedLeague?.name || existing.leagueName || HARDCODED_LEAGUE_NAME_FALLBACK,
       teamName: onboardState.selectedTeam?.name,
-      rosterId: onboardState.selectedTeam?.rosterId,
+      rosterId: onboardState.selectedTeam?.rosterId ?? onboardState.selectedTeam?.roster_id ?? existing.rosterId ?? '',
       savedAt: new Date().toISOString(),
     };
     saveProfile(profile);
@@ -13256,13 +13250,6 @@
     populateSavedTrades();
     updateProfileBar();
 
-    // Show onboarding on first visit (no saved profile)
-    const profile = getProfile();
-    if (!profile) {
-      // Delay slightly so the page renders first
-      setTimeout(() => showOnboarding(), 500);
-    }
-
     // Try server API first, then embedded data, then wait for file upload
     const fromServer = await fetchFromServer();
     if (!fromServer && window.DYNASTY_DATA) {
@@ -13270,6 +13257,10 @@
         const btn = document.getElementById('loadDataBtn');
         if (btn) btn.textContent = '✓ Auto-loaded';
       }
+    }
+    // Ensure hardcoded league profile exists after first successful data load.
+    if (loadedData?.sleeper) {
+      ensureHardcodedLeagueProfile();
     }
 
     // If on server, swap button to refresh
@@ -13342,3 +13333,4 @@
   </script>
 </body>
 </html>
+
