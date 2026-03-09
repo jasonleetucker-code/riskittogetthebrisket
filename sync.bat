@@ -11,8 +11,7 @@ set "MSG="
 if "%~1"=="" (
   set "MSG=Sync update %date% %time%"
 ) else (
-  set "MSG=%*"
-  set "MSG=%MSG:"=%"
+  set "MSG=%~1"
 )
 
 set "HAS_CHANGES=0"

@@ -61,6 +61,11 @@ This repo is now wired so both sides can work together:
 - `sync.bat` → git add + commit + push on current branch (no-op safe if nothing changed)
 - `run_scraper.bat` → runs scraper + debug loop
 
+Example:
+```powershell
+.\sync.bat "Update rankings + trade UX"
+```
+
 ## GitHub
 Remote:
 - `origin = https://github.com/jasonleetucker-code/riskittogetthebrisket.git`
