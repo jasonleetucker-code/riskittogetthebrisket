@@ -9423,8 +9423,43 @@ async def run(progress_callback=None):
                 return float(v)
         return None
 
+    def _latest_file(directory, pattern):
+        try:
+            import fnmatch
+            if not directory or not os.path.isdir(directory):
+                return None
+            candidates = [
+                os.path.join(directory, n)
+                for n in os.listdir(directory)
+                if fnmatch.fnmatch(n, pattern)
+            ]
+            if not candidates:
+                return None
+            return max(candidates, key=lambda p: os.path.getmtime(p))
+        except Exception:
+            return None
+
+    def _load_json_file(path):
+        try:
+            if not path or not os.path.isfile(path):
+                return None
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return None
+
     def _load_rank_curve_reference_payload():
-        p = _latest_file(DATA_DIR, "dynasty_data_*.json") or _latest_file(BASE_DIR, "dynasty_data_*.json")
+        p = None
+        candidate_dirs = [
+            os.path.join(SCRIPT_DIR, "data"),
+            SCRIPT_DIR,
+            os.path.join(BASE_SCRIPT_DIR, "data"),
+            BASE_SCRIPT_DIR,
+        ]
+        for d in candidate_dirs:
+            p = _latest_file(d, "dynasty_data_*.json")
+            if p:
+                break
         if not p:
             return {}, {}, ""
         payload = _load_json_file(p) or {}
@@ -9682,6 +9717,7 @@ async def run(progress_callback=None):
         canonical_site_values = {}
         max_value_site_raw = 0
         _is_this_idp = _player_is_idp(name)
+        _is_this_rookie = _is_rookie_for_curve(name, pdata)
         _has_rookie_only_dlf_signal = False
         _real_idp_market_source_count = 0
         for dash_key, raw_val in pdata.items():
@@ -9690,8 +9726,11 @@ async def run(progress_callback=None):
             if dash_key in _ROOKIE_ONLY_DLF_SITE_KEYS:
                 if raw_val > 0:
                     _has_rookie_only_dlf_signal = True
-                # Quarantine rookie-only DLF sources from normal dynasty composite math.
-                continue
+                # Rookie-only DLF sources are implemented as rookie-context signals only.
+                # They are excluded for non-rookies so rookie list ranks cannot distort
+                # veteran market composites.
+                if not _is_this_rookie:
+                    continue
             site_stat = site_stats.get(dash_key)
             site_max = max_values.get(dash_key, 9999)
             if site_max <= 0:

@@ -1869,13 +1869,29 @@
       padding: 10px;
     }
 
+    .trade-mobile-controls {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--bg-card);
+      padding: 10px;
+      margin-bottom: 2px;
+    }
+
+    .trade-mobile-side-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
     .trade-mobile-side h4 {
       font-size: 0.72rem;
       font-family: var(--mono);
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--subtext);
-      margin-bottom: 8px;
+      margin-bottom: 0;
     }
 
     .trade-chip-wrap {
@@ -1938,6 +1954,46 @@
       flex-wrap: wrap;
       gap: 6px;
       margin-top: 8px;
+    }
+
+    .mobile-roster-panel {
+      display: none;
+      margin-top: 8px;
+      border: 1px solid var(--border-dim);
+      border-radius: 10px;
+      background: var(--bg-soft);
+      max-height: 210px;
+      overflow: auto;
+    }
+
+    .mobile-roster-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 8px;
+      border-bottom: 1px solid var(--border-dim);
+      font-size: 0.68rem;
+    }
+
+    .mobile-roster-item:last-child {
+      border-bottom: none;
+    }
+
+    .mobile-roster-item .name {
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .mobile-roster-item .meta {
+      font-family: var(--mono);
+      color: var(--subtext);
+      font-size: 0.64rem;
+      white-space: nowrap;
     }
 
     .mobile-trade-tray {
@@ -2214,6 +2270,43 @@
       gap: 8px;
     }
 
+    .mobile-subsegment {
+      margin-top: 8px;
+      gap: 6px;
+    }
+
+    .mobile-subsegment .mobile-segment-btn {
+      min-height: 28px;
+      font-size: 0.58rem;
+      padding: 0 9px;
+    }
+
+    .mobile-preview-note {
+      font-size: 0.66rem;
+      color: var(--subtext);
+      font-family: var(--mono);
+      line-height: 1.35;
+    }
+
+    .mobile-embedded-panel {
+      margin-top: 8px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-soft);
+      padding: 8px;
+      max-height: 62vh;
+      overflow: auto;
+    }
+
+    .mobile-embedded-panel .card {
+      margin: 0;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      padding: 0;
+    }
+
     .mobile-inline-grid {
       display: grid;
       gap: 8px;
@@ -2316,6 +2409,10 @@
       #tab-calculator #tradeAnalysisCard,
       #tab-calculator #quickUseCard {
         display: none !important;
+      }
+
+      #tab-calculator.mobile-analysis-open #tradeAnalysisCard {
+        display: block !important;
       }
 
       .rankings-mobile-controls {
@@ -2641,19 +2738,85 @@
             <button class="mobile-chip-btn" id="mobilePowerModeQuickBtn" onclick="toggleMobilePowerModeFromTrade()">Power: Off</button>
           </div>
         </div>
-        <div class="trade-mobile-side">
-          <h4>Side A</h4>
-          <div class="trade-chip-wrap" id="mobileTradeSideA"></div>
+        <div class="trade-mobile-controls" id="mobileTradeControls">
+          <div class="mobile-row-actions" style="margin-top:0;">
+            <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+              My Team
+              <select id="mobileGlobalMyTeam" onchange="setMobileTradeMyTeam(this.value)" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:120px;">
+                <option value="">Select team</option>
+              </select>
+            </label>
+            <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+              Value
+              <select id="mobileCalculatorValueBasis" onchange="setMobileCalculatorValueBasis(this.value)" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;">
+                <option value="full">Fully Adjusted</option>
+                <option value="scoring">Scoring Adjusted</option>
+                <option value="scarcity">Scarcity Adjusted</option>
+                <option value="raw">Raw Market</option>
+              </select>
+            </label>
+            <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+              <input type="checkbox" id="mobileMultiTeamToggle" onchange="toggleMultiTeamFromMobile(this.checked)" style="width:14px;height:14px;"> 3-Team
+            </label>
+          </div>
           <div class="mobile-row-actions" style="margin-top:8px;">
-            <button class="mobile-chip-btn primary" onclick="openGlobalSearchForTrade('A')">+ Add Asset</button>
+            <input type="text" id="mobileKtcImportUrl" placeholder="Paste KeepTradeCut trade URL..." onkeydown="if(event.key==='Enter'){event.preventDefault();importKtcTradeFromMobile();}" style="font-size:0.72rem;padding:7px 9px;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:8px;min-width:0;flex:1;">
+            <button class="mobile-chip-btn" onclick="importKtcTradeFromMobile()">Import KTC</button>
+          </div>
+          <div class="mobile-row-actions" style="margin-top:8px;">
+            <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+              Saved
+              <select id="mobileSavedTradesSelect" onchange="loadSavedTradeFromMobile(this.value)" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:120px;">
+                <option value="">Saved Trades…</option>
+              </select>
+            </label>
+            <button class="mobile-chip-btn" id="mobileDeleteSavedTradeBtn" onclick="deleteSavedTradeFromMobile()">Delete</button>
           </div>
         </div>
         <div class="trade-mobile-side">
-          <h4>Side B</h4>
+          <div class="trade-mobile-side-head">
+            <h4>Side A</h4>
+            <select id="mobileTeamFilterA" onchange="setMobileTeamFilter('A', this.value)" style="font-size:0.7rem;padding:4px 8px;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:8px;max-width:56%;">
+              <option value="">All players</option>
+            </select>
+          </div>
+          <div class="trade-chip-wrap" id="mobileTradeSideA"></div>
+          <div class="mobile-row-actions" style="margin-top:8px;">
+            <button class="mobile-chip-btn primary" onclick="openGlobalSearchForTrade('A')">+ Add Asset</button>
+            <button class="mobile-chip-btn" onclick="addMobileTradeRow('A')">+ Row</button>
+            <button class="mobile-chip-btn" onclick="toggleMobileRosterPanel('A')">Roster</button>
+          </div>
+          <div class="mobile-roster-panel" id="mobileRosterPanelA"></div>
+        </div>
+        <div class="trade-mobile-side">
+          <div class="trade-mobile-side-head">
+            <h4>Side B</h4>
+            <select id="mobileTeamFilterB" onchange="setMobileTeamFilter('B', this.value)" style="font-size:0.7rem;padding:4px 8px;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:8px;max-width:56%;">
+              <option value="">All players</option>
+            </select>
+          </div>
           <div class="trade-chip-wrap" id="mobileTradeSideB"></div>
           <div class="mobile-row-actions" style="margin-top:8px;">
             <button class="mobile-chip-btn primary" onclick="openGlobalSearchForTrade('B')">+ Add Asset</button>
+            <button class="mobile-chip-btn" onclick="addMobileTradeRow('B')">+ Row</button>
+            <button class="mobile-chip-btn" onclick="toggleMobileRosterPanel('B')">Roster</button>
           </div>
+          <div class="mobile-roster-panel" id="mobileRosterPanelB"></div>
+        </div>
+        <div class="trade-mobile-side" id="mobileTradeSideCSection" style="display:none;">
+          <div class="trade-mobile-side-head">
+            <h4>Side C</h4>
+            <select id="mobileTeamFilterC" onchange="setMobileTeamFilter('C', this.value)" style="font-size:0.7rem;padding:4px 8px;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:8px;max-width:56%;">
+              <option value="">All players</option>
+            </select>
+          </div>
+          <div class="trade-chip-wrap" id="mobileTradeSideC"></div>
+          <div class="mobile-row-actions" style="margin-top:8px;">
+            <button class="mobile-chip-btn primary" onclick="openGlobalSearchForTrade('C')">+ Add Asset</button>
+            <button class="mobile-chip-btn" onclick="addMobileTradeRow('C')">+ Row</button>
+            <button class="mobile-chip-btn" onclick="toggleMobileRosterPanel('C')">Roster</button>
+          </div>
+          <div class="mobile-roster-panel" id="mobileRosterPanelC"></div>
         </div>
       </div>
 
@@ -2665,8 +2828,9 @@
         <div class="tray-actions">
           <button class="mobile-chip-btn" onclick="saveTrade()">Save</button>
           <button class="mobile-chip-btn" onclick="copyTradePitch()">Share</button>
+          <button class="mobile-chip-btn" id="mobileTradeImpactBtn" onclick="toggleTradeImpactMobile()">Impact</button>
           <button class="mobile-chip-btn" onclick="clearPlayers()">Clear</button>
-          <button class="mobile-chip-btn primary" onclick="toggleTradeAnalysisMobile()">Analyze</button>
+          <button class="mobile-chip-btn primary" id="mobileTradeAnalyzeBtn" onclick="toggleTradeAnalysisMobile()">Analyze</button>
         </div>
       </div>
 
@@ -3472,6 +3636,9 @@
   const MOBILE_PREFS_KEY = 'dynasty_mobile_prefs_v1';
   const MOBILE_MORE_SECTION_KEY = 'dynasty_mobile_more_section_v1';
   const MOBILE_WATCH_SECTION_KEY = 'dynasty_mobile_watch_section_v1';
+  const MOBILE_LEAGUE_SUB_KEY = 'dynasty_mobile_league_sub_v1';
+  const MOBILE_MORE_ROSTER_VIEW_KEY = 'dynasty_mobile_more_roster_view_v1';
+  const MOBILE_MORE_TRADES_VIEW_KEY = 'dynasty_mobile_more_trades_view_v1';
   const MOBILE_POWER_MODE_KEY = 'dynasty_mobile_power_mode_v1';
   let recalcTimer = null;
   let currentRankingsFilter = 'ALL';
@@ -3480,6 +3647,8 @@
   let globalSearchTargetSide = '';
   let dataFreshnessDetailsOpen = false;
   let mobileMoreSection = 'edge';
+  let mobileMoreRosterView = 'board';
+  let mobileMoreTradesView = 'history';
   let mobileWatchSection = 'watchlist';
   let mobilePowerModeEnabled = false;
   let rankingsExtraFilters = {
@@ -4136,9 +4305,19 @@
       setMobileMoreSection(target, { persist: true, refresh: false });
       setMobilePowerMode(true, { persist: true, refresh: false });
       switchTab(target, { allowLegacyMobile: true });
+      if (target === 'league') {
+        const leagueSub = getMobileLeagueSubPreference();
+        setTimeout(() => {
+          try { switchLeagueSub(leagueSub); } catch (_) {}
+        }, 0);
+      }
       return;
     }
     switchTab(target);
+    if (target === 'league') {
+      const leagueSub = getMobileLeagueSubPreference();
+      try { switchLeagueSub(leagueSub); } catch (_) {}
+    }
   }
 
   function getPrimaryMobileTab(tabId) {
@@ -4161,6 +4340,227 @@
     if (s === 'alerts') return 'alerts';
     if (s === 'targets') return 'targets';
     return 'watchlist';
+  }
+
+  function normalizeLeagueSubId(section) {
+    const s = String(section || '').toLowerCase();
+    if (s === 'heatmap') return 'heatmap';
+    if (s === 'breakdown') return 'breakdown';
+    if (s === 'compare') return 'compare';
+    if (s === 'ktctrades' || s === 'ktctrade' || s === 'tradedb') return 'ktcTrades';
+    if (s === 'ktcwaivers' || s === 'ktcwaiver' || s === 'waiverdb') return 'ktcWaivers';
+    return 'heatmap';
+  }
+
+  function getMobileLeagueSubPreference() {
+    try {
+      return normalizeLeagueSubId(localStorage.getItem(MOBILE_LEAGUE_SUB_KEY) || 'heatmap');
+    } catch (_) {
+      return 'heatmap';
+    }
+  }
+
+  function setMobileLeagueSubPreference(section) {
+    const normalized = normalizeLeagueSubId(section);
+    try { localStorage.setItem(MOBILE_LEAGUE_SUB_KEY, normalized); } catch (_) {}
+    return normalized;
+  }
+
+  function normalizeMobileMoreRosterSubview(section) {
+    const s = String(section || '').toLowerCase();
+    if (s === 'targets') return 'targets';
+    if (s === 'grades') return 'grades';
+    if (s === 'waivers') return 'waivers';
+    if (s === 'tendencies') return 'tendencies';
+    return 'board';
+  }
+
+  function normalizeMobileMoreTradesSubview(section) {
+    const s = String(section || '').toLowerCase();
+    if (s === 'stats') return 'stats';
+    return 'history';
+  }
+
+  function setMobileMoreRosterSubview(section, opts = {}) {
+    mobileMoreRosterView = normalizeMobileMoreRosterSubview(section);
+    if (opts.persist !== false) {
+      try { localStorage.setItem(MOBILE_MORE_ROSTER_VIEW_KEY, mobileMoreRosterView); } catch (_) {}
+    }
+    if (opts.refresh !== false && activeTabId === 'more' && normalizeMobileMoreSection(mobileMoreSection) === 'rosters') {
+      renderMobileMoreSection();
+    }
+  }
+
+  function setMobileMoreTradesSubview(section, opts = {}) {
+    mobileMoreTradesView = normalizeMobileMoreTradesSubview(section);
+    if (opts.persist !== false) {
+      try { localStorage.setItem(MOBILE_MORE_TRADES_VIEW_KEY, mobileMoreTradesView); } catch (_) {}
+    }
+    if (opts.refresh !== false && activeTabId === 'more' && normalizeMobileMoreSection(mobileMoreSection) === 'trades') {
+      renderMobileMoreSection();
+    }
+  }
+
+  const ROSTER_GROUP_KEYS = ['QB','RB','WR','TE','DL','LB','DB','PICKS'];
+
+  function getRosterGroupFilterState() {
+    const defaults = new Set(['QB','RB','WR','TE','PICKS']);
+    const state = {};
+    ROSTER_GROUP_KEYS.forEach(g => {
+      const cb = document.getElementById('rosterFilter_' + g);
+      state[g] = cb ? !!cb.checked : defaults.has(g);
+    });
+    return state;
+  }
+
+  function applyMobileMoreRosterControls() {
+    const teamName = String(document.getElementById('moreRosterTeamSelect')?.value || '');
+    const valueMode = String(document.getElementById('moreRosterValueModeSelect')?.value || 'full');
+
+    const rosterTeamEl = document.getElementById('rosterMyTeam');
+    if (rosterTeamEl && teamName) rosterTeamEl.value = teamName;
+    const rosterValueModeEl = document.getElementById('rosterValueMode');
+    if (rosterValueModeEl) rosterValueModeEl.value = valueMode;
+
+    if (teamName) syncGlobalTeam(teamName);
+    buildRosterDashboard();
+
+    // buildRosterDashboard creates group checkboxes dynamically; apply toggles after render.
+    ROSTER_GROUP_KEYS.forEach(g => {
+      const src = document.getElementById('moreRosterFilter_' + g);
+      const dst = document.getElementById('rosterFilter_' + g);
+      if (src && dst) dst.checked = !!src.checked;
+    });
+    buildRosterDashboard();
+    persistSettings();
+    buildHomeHub();
+    buildWatchHub();
+    buildMoreHub();
+  }
+
+  function applyMobileMoreLeagueControls() {
+    initLeagueTab();
+    const view = setMobileLeagueSubPreference(document.getElementById('moreLeagueViewSelect')?.value || 'heatmap');
+
+    if (view === 'breakdown') {
+      const team = String(document.getElementById('moreLeagueBreakdownTeam')?.value || '');
+      const el = document.getElementById('breakdownTeamSelect');
+      if (el && team) el.value = team;
+      const mode = String(document.getElementById('moreLeagueBreakdownMode')?.value || 'grouped');
+      const vm = document.getElementById('breakdownViewMode');
+      if (vm) vm.value = (mode === 'value' ? 'value' : 'grouped');
+    } else if (view === 'compare') {
+      const a = String(document.getElementById('moreLeagueCompareA')?.value || '');
+      const b = String(document.getElementById('moreLeagueCompareB')?.value || '');
+      const aEl = document.getElementById('compareTeamA');
+      const bEl = document.getElementById('compareTeamB');
+      if (aEl && a) aEl.value = a;
+      if (bEl && b) bEl.value = b;
+    }
+
+    switchLeagueSub(view);
+    persistSettings();
+    renderMobileMoreSection();
+  }
+
+  function applyMobileLeagueSearch(kind, value) {
+    const needle = String(value || '');
+    if (kind === 'trades') {
+      const desktop = document.getElementById('ktcTradeSearch');
+      if (desktop) desktop.value = needle;
+      filterKtcTrades();
+    } else {
+      const desktop = document.getElementById('ktcWaiverSearch');
+      if (desktop) desktop.value = needle;
+      filterKtcWaivers();
+    }
+    renderMobileMoreLeaguePreview(getMobileLeagueSubPreference());
+  }
+
+  function applyMobileMoreTradeControls() {
+    const team = String(document.getElementById('moreTradeTeamFilter')?.value || '');
+    const tradeFilter = document.getElementById('tradeTeamFilter');
+    if (tradeFilter) tradeFilter.value = team;
+    buildTradeHistoryPage();
+    persistSettings();
+    renderMobileMoreSection();
+  }
+
+  function refreshMobileMoreTendencies() {
+    buildTendencies();
+    setMobileMoreRosterSubview('tendencies', { persist: true, refresh: true });
+  }
+
+  function applyMobileMoreAdvancedSettings() {
+    const alpha = Number(document.getElementById('moreSettingsAlphaInput')?.value);
+    const lamStrength = Number(document.getElementById('moreSettingsLamInput')?.value);
+    const scarcityStrength = Number(document.getElementById('moreSettingsScarcityInput')?.value);
+    const tepMultiplier = Number(document.getElementById('moreSettingsTepInput')?.value);
+    const zBlend = !!document.getElementById('moreSettingsZBlendToggle')?.checked;
+
+    const alphaInput = document.getElementById('alphaInput');
+    const lamInput = document.getElementById('lamStrengthInput');
+    const scarcityInput = document.getElementById('scarcityStrengthInput');
+    const tepInput = document.getElementById('tepMultiplierInput');
+    const zToggle = document.getElementById('zScoreToggle');
+
+    if (alphaInput && Number.isFinite(alpha) && alpha >= 1 && alpha <= 3) alphaInput.value = alpha.toFixed(3);
+    if (lamInput && Number.isFinite(lamStrength) && lamStrength >= 0 && lamStrength <= 1) lamInput.value = lamStrength.toFixed(2);
+    if (scarcityInput && Number.isFinite(scarcityStrength) && scarcityStrength >= 0 && scarcityStrength <= 1) scarcityInput.value = scarcityStrength.toFixed(2);
+    if (tepInput && Number.isFinite(tepMultiplier) && tepMultiplier >= 1 && tepMultiplier <= 2) tepInput.value = tepMultiplier.toFixed(2);
+    if (zToggle) zToggle.checked = zBlend;
+
+    saveSettingsAndRecalc();
+    buildMoreHub();
+  }
+
+  function renderMobileMoreLeaguePreview(view) {
+    const preview = document.getElementById('moreLeaguePreview');
+    if (!preview) return;
+
+    let html = '';
+    try {
+      if (view === 'heatmap') {
+        buildPowerRankingsHeatmap();
+        html = document.getElementById('powerRankingsHeatmap')?.innerHTML || '';
+      } else if (view === 'breakdown') {
+        buildTeamBreakdown();
+        html = document.getElementById('teamBreakdownContent')?.innerHTML || '';
+      } else if (view === 'compare') {
+        buildTeamComparison();
+        html = document.getElementById('teamComparisonContent')?.innerHTML || '';
+      } else if (view === 'ktcTrades') {
+        filterKtcTrades();
+        html = document.getElementById('ktcTradesList')?.innerHTML || '';
+      } else if (view === 'ktcWaivers') {
+        filterKtcWaivers();
+        html = document.getElementById('ktcWaiversList')?.innerHTML || '';
+      }
+    } catch (_) {}
+
+    preview.innerHTML = html
+      ? `<div class="mobile-embedded-panel">${html}</div>`
+      : '<div class="mobile-row-card"><div class="mobile-row-name">No league view data available.</div></div>';
+  }
+
+  function renderMobileMoreTradesPreview() {
+    const preview = document.getElementById('moreTradesPreview');
+    if (!preview) return;
+    const mode = normalizeMobileMoreTradesSubview(mobileMoreTradesView);
+    const historyDiv = document.getElementById('tradeHistoryList');
+    const statsDiv = document.getElementById('tradeStats');
+    if (mode === 'stats') {
+      const statsHtml = statsDiv?.innerHTML || '';
+      preview.innerHTML = statsHtml
+        ? `<div class="mobile-embedded-panel">${statsHtml}</div>`
+        : '<div class="mobile-row-card"><div class="mobile-row-name">No winner/loser stats for this filter.</div></div>';
+      return;
+    }
+    const cards = historyDiv ? Array.from(historyDiv.querySelectorAll('.card')) : [];
+    const limited = cards.slice(0, 8).map(c => c.outerHTML).join('');
+    preview.innerHTML = limited
+      ? `<div class="mobile-embedded-panel">${limited}</div>`
+      : '<div class="mobile-row-card"><div class="mobile-row-name">No trades match this filter.</div></div>';
   }
 
   function getMobileTitleForTab(tabId) {
@@ -6661,13 +7061,73 @@
 
     if (section === 'rosters') {
       setTitle('Team Value Board');
+      try { buildRosterDashboard(); } catch (_) {}
       const snapshot = buildTeamValueSnapshot();
       if (!snapshot.length) {
         body.innerHTML = '<div class="mobile-row-card"><div class="mobile-row-name">No roster data available.</div></div>';
         return;
       }
+      const esc = (v) => String(v ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
       const myTeam = document.getElementById('rosterMyTeam')?.value || localStorage.getItem('dynasty_my_team') || '';
+      const rosterValueMode = getRosterValueMode();
+      const groupState = getRosterGroupFilterState();
+      const rosterSubview = normalizeMobileMoreRosterSubview(mobileMoreRosterView);
+      const teamOptions = sleeperTeams.map((t) => {
+        const name = String(t?.name || '');
+        const selected = myTeam && name === myTeam ? 'selected' : '';
+        return `<option value="${esc(name)}" ${selected}>${esc(name)}</option>`;
+      }).join('');
+      const rosterGroupControls = ROSTER_GROUP_KEYS.map((g) => {
+        const color = POS_GROUP_COLORS[g] || 'var(--subtext)';
+        const checked = groupState[g] ? 'checked' : '';
+        return `<label style="display:inline-flex;align-items:center;gap:6px;font-size:0.68rem;font-weight:700;color:${color};padding:4px 8px;border:1px solid var(--border-dim);border-radius:999px;background:var(--bg-card);">
+          <input type="checkbox" id="moreRosterFilter_${g}" ${checked} style="width:13px;height:13px;accent-color:${color};"> ${g}
+        </label>`;
+      }).join('');
       body.innerHTML = `
+        <div class="mobile-row-card">
+          <div class="mobile-row-name">Roster Controls</div>
+          <div class="mobile-row-sub">Use the same team, value lens, and position group filters as desktop.</div>
+          <div class="mobile-row-actions">
+            <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+              Team
+              <select id="moreRosterTeamSelect" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:120px;">
+                ${teamOptions}
+              </select>
+            </label>
+            <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+              Value
+              <select id="moreRosterValueModeSelect" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;">
+                <option value="full" ${rosterValueMode === 'full' ? 'selected' : ''}>Players + Picks</option>
+                <option value="players" ${rosterValueMode === 'players' ? 'selected' : ''}>Players only</option>
+                <option value="starters" ${rosterValueMode === 'starters' ? 'selected' : ''}>Starters only</option>
+              </select>
+            </label>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+            ${rosterGroupControls}
+          </div>
+          <div class="mobile-row-actions" style="margin-top:10px;">
+            <button class="mobile-chip-btn primary" onclick="applyMobileMoreRosterControls()">Apply Roster Controls</button>
+            <button class="mobile-chip-btn" onclick="openFullMobileWorkspace('rosters')">Open Full Rosters</button>
+          </div>
+        </div>
+        <div class="mobile-row-card">
+          <div class="mobile-row-name">Roster Insights</div>
+          <div class="mobile-row-sub">Use the same desktop modules directly in mobile.</div>
+          <div class="mobile-segment mobile-subsegment">
+            <button class="mobile-segment-btn ${rosterSubview === 'board' ? 'active' : ''}" onclick="setMobileMoreRosterSubview('board')">Board</button>
+            <button class="mobile-segment-btn ${rosterSubview === 'targets' ? 'active' : ''}" onclick="setMobileMoreRosterSubview('targets')">Targets</button>
+            <button class="mobile-segment-btn ${rosterSubview === 'grades' ? 'active' : ''}" onclick="setMobileMoreRosterSubview('grades')">Grades</button>
+            <button class="mobile-segment-btn ${rosterSubview === 'waivers' ? 'active' : ''}" onclick="setMobileMoreRosterSubview('waivers')">Waivers</button>
+            <button class="mobile-segment-btn ${rosterSubview === 'tendencies' ? 'active' : ''}" onclick="setMobileMoreRosterSubview('tendencies')">Tendencies</button>
+          </div>
+          <div id="moreRosterSubviewBody" style="margin-top:10px;"></div>
+        </div>
         <div class="mobile-row-card">
           <div class="mobile-row-name">Advanced Rosters Workspace</div>
           <div class="mobile-row-sub">Open the full roster dashboard, targets, grades, waivers, and tendencies.</div>
@@ -6675,7 +7135,7 @@
             <button class="mobile-chip-btn primary" onclick="openFullMobileWorkspace('rosters')">Open Full Rosters</button>
           </div>
         </div>
-      ` + snapshot.map((t, idx) => `
+      ` + (rosterSubview === 'board' ? snapshot.map((t, idx) => `
         <div class="mobile-row-card">
           <div class="mobile-row-head">
             <div>
@@ -6689,7 +7149,37 @@
             <button class="mobile-chip-btn" onclick="switchTab('calculator')">Trade</button>
           </div>
         </div>
-      `).join('');
+      `).join('') : '');
+
+      const subviewBody = document.getElementById('moreRosterSubviewBody');
+      if (subviewBody) {
+        const targetsHtml = document.getElementById('tradeTargets')?.innerHTML || '';
+        const gradesHtml = document.getElementById('tradeGrades')?.innerHTML || '';
+        const waiversHtml = document.getElementById('waiverWire')?.innerHTML || '';
+        const tendenciesHtml = document.getElementById('tendenciesBody')?.innerHTML || '';
+        if (rosterSubview === 'targets') {
+          subviewBody.innerHTML = targetsHtml
+            ? `<div class="mobile-embedded-panel">${targetsHtml}</div>`
+            : '<div class="mobile-preview-note">No target recommendations for current filters. Try another team or value lens.</div>';
+        } else if (rosterSubview === 'grades') {
+          subviewBody.innerHTML = gradesHtml
+            ? `<div class="mobile-embedded-panel">${gradesHtml}</div>`
+            : '<div class="mobile-preview-note">No trade grades available yet.</div>';
+        } else if (rosterSubview === 'waivers') {
+          subviewBody.innerHTML = waiversHtml
+            ? `<div class="mobile-embedded-panel">${waiversHtml}</div>`
+            : '<div class="mobile-preview-note">No waiver recommendations available with current data.</div>';
+        } else if (rosterSubview === 'tendencies') {
+          subviewBody.innerHTML = tendenciesHtml
+            ? `<div class="mobile-embedded-panel">${tendenciesHtml}</div>`
+            : `<div class="mobile-preview-note">Run trade tendency analysis to populate this view.</div>
+               <div class="mobile-row-actions" style="margin-top:8px;">
+                 <button class="mobile-chip-btn primary" onclick="refreshMobileMoreTendencies()">Analyze Trades</button>
+               </div>`;
+        } else {
+          subviewBody.innerHTML = '<div class="mobile-preview-note">Board mode shows the full team value table below with your current roster controls applied.</div>';
+        }
+      }
       return;
     }
 
@@ -6700,7 +7190,92 @@
         body.innerHTML = '<div class="mobile-row-card"><div class="mobile-row-name">No league overview available.</div></div>';
         return;
       }
+      initLeagueTab();
+      const esc = (v) => String(v ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+      const leagueView = getMobileLeagueSubPreference();
+      const breakdownTeam = String(document.getElementById('breakdownTeamSelect')?.value || localStorage.getItem('dynasty_my_team') || sleeperTeams?.[0]?.name || '');
+      const breakdownMode = String(document.getElementById('breakdownViewMode')?.value || 'grouped');
+      const compareA = String(document.getElementById('compareTeamA')?.value || sleeperTeams?.[0]?.name || '');
+      const compareB = String(document.getElementById('compareTeamB')?.value || sleeperTeams?.[1]?.name || sleeperTeams?.[0]?.name || '');
+      const tradeSearch = String(document.getElementById('ktcTradeSearch')?.value || '');
+      const waiverSearch = String(document.getElementById('ktcWaiverSearch')?.value || '');
+      const teamOptions = sleeperTeams.map((t) => {
+        const name = String(t?.name || '');
+        return `<option value="${esc(name)}">${esc(name)}</option>`;
+      }).join('');
       body.innerHTML = `
+        <div class="mobile-row-card">
+          <div class="mobile-row-name">League View Controls</div>
+          <div class="mobile-row-sub">Match desktop heatmap, breakdown, and comparison controls from mobile.</div>
+          <div class="mobile-row-actions">
+            <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+              View
+              <select id="moreLeagueViewSelect" onchange="setMobileLeagueSubPreference(this.value);renderMobileMoreSection();" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:118px;">
+                <option value="heatmap" ${leagueView === 'heatmap' ? 'selected' : ''}>Power Rankings</option>
+                <option value="breakdown" ${leagueView === 'breakdown' ? 'selected' : ''}>Team Breakdown</option>
+                <option value="compare" ${leagueView === 'compare' ? 'selected' : ''}>Comparison</option>
+                <option value="ktcTrades" ${leagueView === 'ktcTrades' ? 'selected' : ''}>Trade DB</option>
+                <option value="ktcWaivers" ${leagueView === 'ktcWaivers' ? 'selected' : ''}>Waiver DB</option>
+              </select>
+            </label>
+          </div>
+          ${leagueView === 'breakdown' ? `
+            <div class="mobile-row-actions" style="margin-top:8px;">
+              <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+                Team
+                <select id="moreLeagueBreakdownTeam" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:120px;">
+                  ${teamOptions}
+                </select>
+              </label>
+              <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+                Mode
+                <select id="moreLeagueBreakdownMode" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;">
+                  <option value="grouped" ${breakdownMode === 'grouped' ? 'selected' : ''}>By position</option>
+                  <option value="value" ${breakdownMode === 'value' ? 'selected' : ''}>By value</option>
+                </select>
+              </label>
+            </div>
+          ` : ''}
+          ${leagueView === 'compare' ? `
+            <div class="mobile-row-actions" style="margin-top:8px;">
+              <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+                Team A
+                <select id="moreLeagueCompareA" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:120px;">
+                  ${teamOptions}
+                </select>
+              </label>
+              <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+                Team B
+                <select id="moreLeagueCompareB" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:120px;">
+                  ${teamOptions}
+                </select>
+              </label>
+            </div>
+          ` : ''}
+          ${leagueView === 'ktcTrades' ? `
+            <div class="mobile-row-actions" style="margin-top:8px;">
+              <input id="moreLeagueTradeSearch" type="text" value="${esc(tradeSearch)}" placeholder="Search trade DB..." oninput="applyMobileLeagueSearch('trades', this.value)" style="font-size:0.72rem;padding:7px 9px;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:8px;min-width:0;flex:1;">
+            </div>
+          ` : ''}
+          ${leagueView === 'ktcWaivers' ? `
+            <div class="mobile-row-actions" style="margin-top:8px;">
+              <input id="moreLeagueWaiverSearch" type="text" value="${esc(waiverSearch)}" placeholder="Search waiver DB..." oninput="applyMobileLeagueSearch('waivers', this.value)" style="font-size:0.72rem;padding:7px 9px;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:8px;min-width:0;flex:1;">
+            </div>
+          ` : ''}
+          <div class="mobile-row-actions" style="margin-top:10px;">
+            <button class="mobile-chip-btn primary" onclick="applyMobileMoreLeagueControls()">Apply League View</button>
+            <button class="mobile-chip-btn" onclick="openFullMobileWorkspace('league')">Open Full League</button>
+          </div>
+        </div>
+        <div class="mobile-row-card">
+          <div class="mobile-row-name">League View Preview</div>
+          <div class="mobile-row-sub">Live output of the selected desktop league module.</div>
+          <div id="moreLeaguePreview"></div>
+        </div>
         <div class="mobile-row-card">
           <div class="mobile-row-name">Advanced League Workspace</div>
           <div class="mobile-row-sub">Open full power rankings, team breakdown, comparison, trade DB, and waiver DB.</div>
@@ -6724,11 +7299,19 @@
           </div>
         `).join('')}
       `;
+      const breakdownEl = document.getElementById('moreLeagueBreakdownTeam');
+      if (breakdownEl && breakdownTeam) breakdownEl.value = breakdownTeam;
+      const compareAEl = document.getElementById('moreLeagueCompareA');
+      if (compareAEl && compareA) compareAEl.value = compareA;
+      const compareBEl = document.getElementById('moreLeagueCompareB');
+      if (compareBEl && compareB) compareBEl.value = compareB;
+      renderMobileMoreLeaguePreview(leagueView);
       return;
     }
 
     if (section === 'trades') {
       setTitle('Trade Activity');
+      buildTradeHistoryPage();
       const trades = Array.isArray(loadedData?.sleeper?.trades) ? loadedData.sleeper.trades : [];
       if (!trades.length) {
         body.innerHTML = '<div class="mobile-row-card"><div class="mobile-row-name">No league trade data loaded.</div></div>';
@@ -6740,7 +7323,35 @@
         body.innerHTML = `<div class="mobile-row-card"><div class="mobile-row-name">No league trades in the last ${windowDays} days.</div></div>`;
         return;
       }
+      const teamFilterSel = document.getElementById('tradeTeamFilter');
+      const selectedFilter = String(teamFilterSel?.value || '');
+      const filterOptions = teamFilterSel
+        ? Array.from(teamFilterSel.options).map((opt) => {
+            const val = String(opt.value || '');
+            const sel = val === selectedFilter ? 'selected' : '';
+            return `<option value="${val.replace(/"/g, '&quot;')}" ${sel}>${String(opt.textContent || val)}</option>`;
+          }).join('')
+        : '<option value="">All trades</option>';
+      const tradesSubview = normalizeMobileMoreTradesSubview(mobileMoreTradesView);
       body.innerHTML = `
+        <div class="mobile-row-card">
+          <div class="mobile-row-name">Trade Controls</div>
+          <div class="mobile-row-sub">Match desktop trade history filters and analytics from mobile.</div>
+          <div class="mobile-row-actions">
+            <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+              Team
+              <select id="moreTradeTeamFilter" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:120px;">
+                ${filterOptions}
+              </select>
+            </label>
+            <button class="mobile-chip-btn primary" onclick="applyMobileMoreTradeControls()">Apply</button>
+          </div>
+          <div class="mobile-segment mobile-subsegment">
+            <button class="mobile-segment-btn ${tradesSubview === 'history' ? 'active' : ''}" onclick="setMobileMoreTradesSubview('history')">History</button>
+            <button class="mobile-segment-btn ${tradesSubview === 'stats' ? 'active' : ''}" onclick="setMobileMoreTradesSubview('stats')">Winners</button>
+          </div>
+          <div id="moreTradesPreview" style="margin-top:10px;"></div>
+        </div>
         <div class="mobile-row-card">
           <div class="mobile-row-name">Advanced Trades Workspace</div>
           <div class="mobile-row-sub">Open full trade history analytics and team filters.</div>
@@ -6748,26 +7359,8 @@
             <button class="mobile-chip-btn primary" onclick="openFullMobileWorkspace('trades')">Open Full Trades</button>
           </div>
         </div>
-      ` + rows.map((trade, idx) => {
-        const ts = normalizeTradeTimestampMs(trade?.timestamp);
-        const dt = ts ? new Date(ts) : null;
-        const dateLabel = dt ? dt.toLocaleDateString() : 'Unknown date';
-        const sides = Array.isArray(trade?.sides) ? trade.sides : [];
-        const compactSides = sides.map(s => {
-          const got = Array.isArray(s?.got) ? s.got : [];
-          const preview = got.slice(0, 2).join(', ');
-          return `${s?.team || 'Team'}: ${preview}${got.length > 2 ? '…' : ''}`;
-        }).join(' · ');
-        return `
-          <div class="mobile-row-card">
-            <div class="mobile-row-name">Trade ${idx + 1} · ${dateLabel}</div>
-            <div class="mobile-row-sub">${compactSides || 'Trade details unavailable.'}</div>
-            <div class="mobile-row-actions">
-              <button class="mobile-chip-btn primary" onclick="switchTab('calculator')">Open Builder</button>
-            </div>
-          </div>
-        `;
-      }).join('');
+      `;
+      renderMobileMoreTradesPreview();
       return;
     }
 
@@ -6776,6 +7369,10 @@
     const rankMode = getRankingsSortBasis();
     const dataMode = getRankingsDataMode();
     const lamStrength = Number(document.getElementById('lamStrengthInput')?.value || 1);
+    const alpha = Number(document.getElementById('alphaInput')?.value || DEFAULT_ALPHA);
+    const scarcityStrength = Number(document.getElementById('scarcityStrengthInput')?.value || 0.35);
+    const tepMultiplier = Number(document.getElementById('tepMultiplierInput')?.value || 1.15);
+    const zBlend = !!document.getElementById('zScoreToggle')?.checked;
     const showCols = !!document.getElementById('rankingsShowLamCols')?.checked;
     const showSiteCols = !!document.getElementById('rankingsShowSiteCols')?.checked;
     const mobilePower = getMobilePowerModeEnabled();
@@ -6831,6 +7428,32 @@
             <input type="checkbox" id="mobilePowerModeToggleMore" ${mobilePower ? 'checked' : ''} onchange="setMobilePowerMode(this.checked);" style="width:14px;height:14px;"> Enable Full Workspaces
           </label>
           <button class="mobile-chip-btn" onclick="openFullMobileWorkspace('settings')">Open Full Settings</button>
+        </div>
+      </div>
+      <div class="mobile-row-card">
+        <div class="mobile-row-name">Advanced Value Controls</div>
+        <div class="mobile-row-sub">Tune the same key settings used in desktop trade and ranking calculations.</div>
+        <div class="mobile-row-actions">
+          <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+            Alpha
+            <input id="moreSettingsAlphaInput" type="number" min="1" max="3" step="0.01" value="${alpha.toFixed(3)}" style="width:64px;background:transparent;color:var(--text);border:none;outline:none;font-family:var(--mono);font-size:0.72rem;">
+          </label>
+          <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+            LAM
+            <input id="moreSettingsLamInput" type="number" min="0" max="1" step="0.05" value="${lamStrength.toFixed(2)}" style="width:58px;background:transparent;color:var(--text);border:none;outline:none;font-family:var(--mono);font-size:0.72rem;">
+          </label>
+          <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+            Scarcity
+            <input id="moreSettingsScarcityInput" type="number" min="0" max="1" step="0.05" value="${scarcityStrength.toFixed(2)}" style="width:58px;background:transparent;color:var(--text);border:none;outline:none;font-family:var(--mono);font-size:0.72rem;">
+          </label>
+          <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+            TEP
+            <input id="moreSettingsTepInput" type="number" min="1" max="2" step="0.01" value="${tepMultiplier.toFixed(2)}" style="width:58px;background:transparent;color:var(--text);border:none;outline:none;font-family:var(--mono);font-size:0.72rem;">
+          </label>
+          <label class="mobile-chip-btn ${zBlend ? 'primary' : ''}" style="display:inline-flex;align-items:center;gap:6px;">
+            <input type="checkbox" id="moreSettingsZBlendToggle" ${zBlend ? 'checked' : ''} style="width:14px;height:14px;"> Z-Blend
+          </label>
+          <button class="mobile-chip-btn primary" onclick="applyMobileMoreAdvancedSettings()">Apply Advanced</button>
         </div>
       </div>
     `;
@@ -8225,6 +8848,10 @@
     multiTeamMode = on;
     document.getElementById('sideCSection').style.display = on ? 'block' : 'none';
     document.getElementById('tileSideC').style.display = on ? '' : 'none';
+    const mobileSideC = document.getElementById('mobileTradeSideCSection');
+    if (mobileSideC) mobileSideC.style.display = on ? '' : 'none';
+    const mobileToggle = document.getElementById('mobileMultiTeamToggle');
+    if (mobileToggle) mobileToggle.checked = !!on;
     document.getElementById('resultTiles').classList.toggle('three-way', on);
     // Hide trade bar + verdict bar in 3-team mode (they're 2-side only)
     document.querySelector('.trade-bar-wrap').style.display = on ? 'none' : '';
@@ -8336,6 +8963,7 @@
 
     // Reset league tab so dropdowns get repopulated on next visit
     _leagueInited = false;
+    syncMobileTradeControlState();
   }
 
   // Sync global team selector across all pages
@@ -8380,6 +9008,8 @@
     // Populate roster panels
     populateRosterPanel('rosterPanelA', teamFilterA, 'sideABody');
     populateRosterPanel('rosterPanelB', teamFilterB, 'sideBBody');
+    syncMobileTradeControlState();
+    renderMobileRosterPanels({ force: true });
   }
 
   function populateRosterPanel(panelId, teamName, tbodyId) {
@@ -8802,11 +9432,222 @@
     el.textContent = '';
   }
 
+  const mobileRosterPanelState = { A: false, B: false, C: false };
+  const mobileRosterPanelCacheKey = { A: '', B: '', C: '' };
+
+  function toggleMobileRosterPanel(side) {
+    const key = String(side || '').toUpperCase();
+    if (!['A', 'B', 'C'].includes(key)) return;
+    mobileRosterPanelState[key] = !mobileRosterPanelState[key];
+    if (!mobileRosterPanelState[key]) {
+      const panel = document.getElementById(`mobileRosterPanel${key}`);
+      if (panel) panel.style.display = 'none';
+      return;
+    }
+    renderMobileRosterPanel(key, { force: true });
+  }
+
+  function renderMobileRosterPanel(side, opts = {}) {
+    const key = String(side || '').toUpperCase();
+    const panel = document.getElementById(`mobileRosterPanel${key}`);
+    if (!panel) return;
+    const isOpen = !!mobileRosterPanelState[key];
+    if (!isOpen) {
+      panel.style.display = 'none';
+      return;
+    }
+
+    const teamName = String(document.getElementById(`teamFilter${key}`)?.value || '').trim();
+    if (!teamName) {
+      panel.innerHTML = '<div class="mobile-roster-item"><span class="name">Select a team to load roster assets.</span></div>';
+      panel.style.display = 'block';
+      mobileRosterPanelCacheKey[key] = '';
+      return;
+    }
+    const team = sleeperTeams.find(t => String(t?.name || '') === teamName);
+    if (!team) {
+      panel.innerHTML = '<div class="mobile-roster-item"><span class="name">Team roster not found.</span></div>';
+      panel.style.display = 'block';
+      mobileRosterPanelCacheKey[key] = '';
+      return;
+    }
+
+    const cacheKey = `${teamName}|${getCalculatorValueBasis()}|${team.players?.length || 0}|${Object.keys(loadedData?.players || {}).length}`;
+    if (!opts.force && mobileRosterPanelCacheKey[key] === cacheKey) {
+      panel.style.display = 'block';
+      return;
+    }
+
+    const rows = [];
+    (team.players || []).forEach(playerName => {
+      const pos = getPlayerPosition(playerName) || '';
+      if (isKickerPosition(pos)) return;
+      const result = getTradeItemValue(playerName);
+      const meta = Number(result?.metaValue || 0);
+      rows.push({
+        name: playerName,
+        pos,
+        meta: isFinite(meta) ? Math.round(meta) : 0,
+      });
+    });
+    rows.sort((a, b) => b.meta - a.meta || a.name.localeCompare(b.name));
+
+    if (!rows.length) {
+      panel.innerHTML = '<div class="mobile-roster-item"><span class="name">No usable assets on this roster.</span></div>';
+      panel.style.display = 'block';
+      mobileRosterPanelCacheKey[key] = cacheKey;
+      return;
+    }
+
+    const topRows = rows.slice(0, 28);
+    panel.innerHTML = topRows.map(r => `
+      <div class="mobile-roster-item">
+        <span class="name">${r.name}</span>
+        <span class="meta">${r.pos ? `${r.pos} · ` : ''}${r.meta > 0 ? r.meta.toLocaleString() : '—'}</span>
+        <button class="mobile-chip-btn" style="padding:2px 8px;font-size:0.64rem;" onclick="addAssetToTrade('${key}','${String(r.name).replace(/'/g, "\\'")}')">Add</button>
+      </div>
+    `).join('');
+    panel.style.display = 'block';
+    mobileRosterPanelCacheKey[key] = cacheKey;
+  }
+
+  function renderMobileRosterPanels(opts = {}) {
+    ['A', 'B', 'C'].forEach(side => renderMobileRosterPanel(side, opts));
+  }
+
+  function mirrorSelectOptions(sourceId, targetId) {
+    const src = document.getElementById(sourceId);
+    const dst = document.getElementById(targetId);
+    if (!src || !dst) return;
+    const sig = Array.from(src.options).map(o => `${o.value}::${o.textContent}`).join('|');
+    if (dst.dataset.optionsSig !== sig) {
+      dst.innerHTML = '';
+      Array.from(src.options).forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.value;
+        opt.textContent = o.textContent;
+        dst.appendChild(opt);
+      });
+      dst.dataset.optionsSig = sig;
+    }
+    dst.value = src.value || '';
+  }
+
+  function syncMobileTradeControlState() {
+    mirrorSelectOptions('globalMyTeam', 'mobileGlobalMyTeam');
+    mirrorSelectOptions('teamFilterA', 'mobileTeamFilterA');
+    mirrorSelectOptions('teamFilterB', 'mobileTeamFilterB');
+    mirrorSelectOptions('teamFilterC', 'mobileTeamFilterC');
+
+    const basis = getCalculatorValueBasis();
+    const basisSelect = document.getElementById('mobileCalculatorValueBasis');
+    if (basisSelect) basisSelect.value = basis;
+
+    const desktopUrl = document.getElementById('ktcImportUrl');
+    const mobileUrl = document.getElementById('mobileKtcImportUrl');
+    if (desktopUrl && mobileUrl && !mobileUrl.value.trim()) {
+      mobileUrl.value = String(desktopUrl.value || '').trim();
+    }
+
+    const mtDesktop = document.getElementById('multiTeamToggle');
+    const mtMobile = document.getElementById('mobileMultiTeamToggle');
+    if (mtMobile) mtMobile.checked = !!(mtDesktop?.checked || multiTeamMode);
+
+    const sideC = document.getElementById('mobileTradeSideCSection');
+    if (sideC) sideC.style.display = (mtDesktop?.checked || multiTeamMode) ? '' : 'none';
+
+    const analyzeBtn = document.getElementById('mobileTradeAnalyzeBtn');
+    const calcTab = document.getElementById('tab-calculator');
+    if (analyzeBtn && calcTab) {
+      analyzeBtn.textContent = calcTab.classList.contains('mobile-analysis-open') ? 'Hide' : 'Analyze';
+    }
+    const impactBtn = document.getElementById('mobileTradeImpactBtn');
+    const impactPanel = document.getElementById('tradeImpactPanel');
+    if (impactBtn && impactPanel) {
+      impactBtn.textContent = impactPanel.style.display === 'none' ? 'Impact' : 'Hide Impact';
+    }
+  }
+
+  function setMobileTradeMyTeam(teamName) {
+    syncGlobalTeam(String(teamName || ''));
+    syncMobileTradeControlState();
+    renderMobileTradeWorkspace();
+  }
+
+  function setMobileCalculatorValueBasis(mode) {
+    const normalized = String(mode || 'full');
+    const desktop = document.getElementById('calculatorValueBasis');
+    if (desktop) desktop.value = normalized;
+    handleValueBasisChange(normalized, 'calculator');
+    syncMobileTradeControlState();
+    renderMobileRosterPanels({ force: true });
+  }
+
+  function setMobileTeamFilter(side, value) {
+    const key = String(side || '').toUpperCase();
+    const desktop = document.getElementById(`teamFilter${key}`);
+    if (desktop) desktop.value = String(value || '');
+    updateTeamFilter();
+    scheduleRecalc();
+    syncMobileTradeControlState();
+    renderMobileRosterPanel(key, { force: true });
+  }
+
+  function toggleMultiTeamFromMobile(on) {
+    const desktop = document.getElementById('multiTeamToggle');
+    if (desktop) desktop.checked = !!on;
+    toggleMultiTeam(!!on);
+    renderMobileTradeWorkspace();
+    updateMobileTradeTray();
+    if (on) renderMobileRosterPanel('C', { force: true });
+  }
+
+  function importKtcTradeFromMobile() {
+    const mobileInp = document.getElementById('mobileKtcImportUrl');
+    const desktopInp = document.getElementById('ktcImportUrl');
+    const raw = String(mobileInp?.value || desktopInp?.value || '').trim();
+    if (!raw) {
+      alert('Paste a KeepTradeCut trade URL first.');
+      return;
+    }
+    if (desktopInp) desktopInp.value = raw;
+    if (mobileInp) mobileInp.value = raw;
+    importKtcTradeUrl();
+    syncMobileTradeControlState();
+  }
+
+  function addMobileTradeRow(side) {
+    const key = String(side || '').toUpperCase();
+    const tbodyId = key === 'A' ? 'sideABody' : key === 'B' ? 'sideBBody' : 'sideCBody';
+    const row = addPlayerRow(key, tbodyId);
+    if (row) {
+      renderMobileTradeWorkspace();
+      openGlobalSearchForTrade(key);
+    }
+  }
+
+  function loadSavedTradeFromMobile(idx) {
+    const desktopSel = document.getElementById('savedTradesSelect');
+    if (desktopSel) desktopSel.value = String(idx ?? '');
+    loadSavedTrade(idx);
+  }
+
+  function deleteSavedTradeFromMobile() {
+    const mobileSel = document.getElementById('mobileSavedTradesSelect');
+    const desktopSel = document.getElementById('savedTradesSelect');
+    const idx = String(mobileSel?.value || '');
+    if (desktopSel) desktopSel.value = idx;
+    deleteSavedTrade();
+  }
+
   function renderMobileTradeWorkspace() {
     const sideA = getTradeSideAssets('A');
     const sideB = getTradeSideAssets('B');
+    const sideC = getTradeSideAssets('C');
     const wrapA = document.getElementById('mobileTradeSideA');
     const wrapB = document.getElementById('mobileTradeSideB');
+    const wrapC = document.getElementById('mobileTradeSideC');
+    const sideCSection = document.getElementById('mobileTradeSideCSection');
     if (!wrapA || !wrapB) return;
 
     function renderChipList(rows, side) {
@@ -8817,7 +9658,7 @@
             Start with search, import, or roster picks.
             <div class="actions">
               <button class="mobile-chip-btn primary" onclick="openGlobalSearchForTrade('${side}')">Add Asset</button>
-              ${side === 'B' ? '<button class="mobile-chip-btn" onclick="importKtcTradeUrl()">Import KTC</button>' : ''}
+              ${side === 'B' ? '<button class="mobile-chip-btn" onclick="importKtcTradeFromMobile()">Import KTC</button>' : ''}
               <button class="mobile-chip-btn" onclick="showOnboarding()">Choose Team</button>
             </div>
           </div>
@@ -8834,15 +9675,32 @@
 
     wrapA.innerHTML = renderChipList(sideA, 'A');
     wrapB.innerHTML = renderChipList(sideB, 'B');
+    if (wrapC) wrapC.innerHTML = renderChipList(sideC, 'C');
+    if (sideCSection) sideCSection.style.display = multiTeamMode ? '' : 'none';
+    syncMobileTradeControlState();
+    renderMobileRosterPanels();
     updateCalculatorEmptyHint();
     syncMobilePowerModeControls();
   }
 
   function toggleTradeAnalysisMobile() {
+    const tab = document.getElementById('tab-calculator');
     const card = document.getElementById('tradeAnalysisCard');
-    if (!card) return;
-    const hidden = window.getComputedStyle(card).display === 'none';
-    card.style.display = hidden ? '' : 'none';
+    if (!card || !tab) return;
+    const opening = !tab.classList.contains('mobile-analysis-open');
+    tab.classList.toggle('mobile-analysis-open', opening);
+    card.style.display = opening ? '' : 'none';
+    const btn = document.getElementById('mobileTradeAnalyzeBtn');
+    if (btn) btn.textContent = opening ? 'Hide' : 'Analyze';
+  }
+
+  function toggleTradeImpactMobile() {
+    const panel = document.getElementById('tradeImpactPanel');
+    if (!panel) return;
+    const opening = panel.style.display === 'none';
+    panel.style.display = opening ? '' : 'none';
+    const btn = document.getElementById('mobileTradeImpactBtn');
+    if (btn) btn.textContent = opening ? 'Hide Impact' : 'Impact';
   }
 
   function updateMobileTradeTray() {
@@ -8854,7 +9712,12 @@
     const diff = String(document.getElementById('valueAdjustment')?.textContent || '—').trim();
     const verdict = String(document.getElementById('decision')?.textContent || 'Near even').trim();
     verdictEl.textContent = verdict || 'Near even';
-    kpisEl.textContent = `A ${tA} · B ${tB} · Gap ${diff}`;
+    if (multiTeamMode) {
+      const tC = String(document.getElementById('totalC')?.textContent || '—').trim();
+      kpisEl.textContent = `A ${tA} · B ${tB} · C ${tC}`;
+    } else {
+      kpisEl.textContent = `A ${tA} · B ${tB} · Gap ${diff}`;
+    }
   }
 
   function serializeTradeDraft() {
@@ -9385,6 +10248,13 @@
       inp.style.borderColor = 'var(--green)';
       setTimeout(() => { inp.style.borderColor = ''; }, 1200);
     }
+    const mobileInp = document.getElementById('mobileKtcImportUrl');
+    if (mobileInp) {
+      mobileInp.value = raw;
+      mobileInp.style.borderColor = 'var(--green)';
+      setTimeout(() => { mobileInp.style.borderColor = ''; }, 1200);
+    }
+    syncMobileTradeControlState();
   }
 
   // Autocomplete dropdown
@@ -10178,8 +11048,12 @@
     // Compute trade impact simulator
     computeTradeImpact();
 
-    renderMobileTradeWorkspace();
-    updateMobileTradeTray();
+    const mobileWorkspace = document.getElementById('mobileTradeWorkspace');
+    const shouldRefreshMobileTrade = !!mobileWorkspace && (isMobileViewport() || activeTabId === 'calculator');
+    if (shouldRefreshMobileTrade) {
+      renderMobileTradeWorkspace();
+      updateMobileTradeTray();
+    }
     saveTradeDraftState();
     updateCalculatorEmptyHint();
     if (activeTabId === 'home') buildHomeHub();
@@ -13812,19 +14686,27 @@
   }
 
   function populateSavedTrades() {
-    const sel = document.getElementById('savedTradesSelect');
-    if (!sel) return;
     const trades = getSavedTrades();
-    sel.innerHTML = '<option value="">Saved Trades…</option>';
-    trades.forEach((t, i) => {
-      const opt = document.createElement('option');
-      opt.value = i;
-      opt.textContent = t.label || `Trade ${i + 1}`;
-      sel.appendChild(opt);
+    const selects = ['savedTradesSelect', 'mobileSavedTradesSelect']
+      .map(id => document.getElementById(id))
+      .filter(Boolean);
+    selects.forEach(sel => {
+      const prev = String(sel.value || '');
+      sel.innerHTML = '<option value="">Saved Trades…</option>';
+      trades.forEach((t, i) => {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = t.label || `Trade ${i + 1}`;
+        sel.appendChild(opt);
+      });
+      if (prev && trades[Number(prev)]) sel.value = prev;
+      sel.style.display = trades.length ? '' : 'none';
     });
-    sel.style.display = trades.length ? '' : 'none';
-    const del = document.getElementById('deleteSavedBtn');
-    if (del) del.style.display = trades.length ? '' : 'none';
+    ['deleteSavedBtn', 'mobileDeleteSavedTradeBtn'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.style.display = trades.length ? '' : 'none';
+    });
+    syncMobileTradeControlState();
   }
 
   function saveTrade() {
@@ -13892,13 +14774,19 @@
       });
     }
     scheduleRecalc();
+    const selDesktop = document.getElementById('savedTradesSelect');
+    if (selDesktop) selDesktop.value = String(idx);
+    const selMobile = document.getElementById('mobileSavedTradesSelect');
+    if (selMobile) selMobile.value = String(idx);
     renderMobileTradeWorkspace();
     updateMobileTradeTray();
   }
 
   function deleteSavedTrade() {
-    const sel = document.getElementById('savedTradesSelect');
-    const idx = parseInt(sel?.value);
+    const selDesktop = document.getElementById('savedTradesSelect');
+    const selMobile = document.getElementById('mobileSavedTradesSelect');
+    const activeValue = String(selDesktop?.value || selMobile?.value || '');
+    const idx = parseInt(activeValue);
     if (isNaN(idx)) return;
     const trades = getSavedTrades();
     const name = trades[idx]?.label || 'this trade';
@@ -13908,7 +14796,8 @@
     populateSavedTrades();
     buildMoreHub();
     buildHomeHub();
-    sel.value = '';
+    if (selDesktop) selDesktop.value = '';
+    if (selMobile) selMobile.value = '';
   }
 
   // ── TRADE IMPACT SIMULATOR ──
@@ -14753,6 +15642,8 @@
 
     try {
       mobileMoreSection = normalizeMobileMoreSection(localStorage.getItem(MOBILE_MORE_SECTION_KEY) || mobileMoreSection);
+      mobileMoreRosterView = normalizeMobileMoreRosterSubview(localStorage.getItem(MOBILE_MORE_ROSTER_VIEW_KEY) || mobileMoreRosterView);
+      mobileMoreTradesView = normalizeMobileMoreTradesSubview(localStorage.getItem(MOBILE_MORE_TRADES_VIEW_KEY) || mobileMoreTradesView);
       mobileWatchSection = normalizeMobileWatchSection(localStorage.getItem(MOBILE_WATCH_SECTION_KEY) || mobileWatchSection);
     } catch (_) {}
 
