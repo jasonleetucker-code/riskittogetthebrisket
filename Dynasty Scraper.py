@@ -42,9 +42,11 @@ import json
 import os
 import time
 import datetime
+import math
 import hashlib
 import shutil
 import zipfile
+import bisect
 from difflib import SequenceMatcher
 from urllib.parse import urlparse
 
@@ -9351,31 +9353,274 @@ async def run(progress_callback=None):
     _REAL_IDP_MARKET_SITE_KEYS = {"idpTradeCalc", "pffIdp", "fantasyProsIdp", "dlfIdp", "draftSharksIdp"}
     IDP_ROOKIE_ONLY_NO_MARKET_CAP = 2600
 
-    for scraper_name, full_map in FULL_DATA.items():
-        dash_key = site_key_map.get(scraper_name, scraper_name)
-        if dash_key in _ROOKIE_ONLY_DLF_SITE_KEYS:
-            # Excluded from normal dynasty blend/stats; kept on player rows for rookie overlays/debug.
+    _curve_pos_map = SLEEPER_ROSTER_DATA.get("positions", {}) if isinstance(SLEEPER_ROSTER_DATA, dict) else {}
+    _rookie_must_have_norm = {
+        normalize_lookup_name(n)
+        for n in (ROOKIE_MUST_HAVE_NAMES or [])
+        if isinstance(n, str) and n.strip()
+    }
+
+    def _pos_for_curve(name, pdata=None):
+        p = str((pdata or {}).get("position") or _curve_pos_map.get(name) or _get_pos(name) or "").upper()
+        if p:
+            return p
+        ident = _resolve_identity_cached(name, preferred_pos="")
+        if ident and ident.get("pos"):
+            return str(ident.get("pos") or "").upper()
+        return ""
+
+    def _player_years_exp_for_curve(pname, pdata=None):
+        sid = str((pdata or {}).get("_sleeperId") or _player_id_map.get(pname) or "").strip()
+        if not sid:
+            ident = _resolve_identity_cached(pname, preferred_pos=_pos_for_curve(pname, pdata))
+            if ident and ident.get("id"):
+                sid = str(ident.get("id"))
+        if not sid:
+            return None
+        row = SLEEPER_ALL_NFL.get(sid)
+        if not isinstance(row, dict):
+            return None
+        raw = row.get("years_exp", row.get("experience", None))
+        try:
+            return int(raw)
+        except Exception:
+            return None
+
+    def _is_rookie_for_curve(pname, pdata=None):
+        yrs = _player_years_exp_for_curve(pname, pdata)
+        if yrs == 0:
+            return True
+        return normalize_lookup_name(pname) in _rookie_must_have_norm
+
+    def _asset_universe_key(pname, pdata=None, pos_hint=""):
+        if _looks_like_pick_name(pname):
+            return "picks"
+        pos = str(pos_hint or _pos_for_curve(pname, pdata) or "").upper()
+        is_idp = pos in _IDP_POSITIONS
+        is_rookie = _is_rookie_for_curve(pname, pdata)
+        if is_idp:
+            return "idp_rookies" if is_rookie else "idp_veterans"
+        return "offense_rookies" if is_rookie else "offense_veterans"
+
+    _asset_universe_cache = {}
+
+    def _asset_universe_cached(pname, pdata=None, pos_hint=""):
+        key = f"{str(pname or '')}|{str(pos_hint or '')}"
+        if not key:
+            return _asset_universe_key(pname, pdata, pos_hint=pos_hint)
+        if key in _asset_universe_cache:
+            return _asset_universe_cache[key]
+        u = _asset_universe_key(pname, pdata, pos_hint=pos_hint)
+        _asset_universe_cache[key] = u
+        return u
+
+    def _value_economy_target_from_entry(entry):
+        if not isinstance(entry, dict):
+            return None
+        for key in ("_finalAdjusted", "_leagueAdjusted", "_scoringAdjusted", "_scarcityAdjusted", "_composite", "_rawComposite"):
+            v = entry.get(key)
+            if isinstance(v, (int, float)) and v > 0:
+                return float(v)
+        return None
+
+    def _load_rank_curve_reference_payload():
+        p = _latest_file(DATA_DIR, "dynasty_data_*.json") or _latest_file(BASE_DIR, "dynasty_data_*.json")
+        if not p:
+            return {}, {}, ""
+        payload = _load_json_file(p) or {}
+        players = payload.get("players", {}) if isinstance(payload.get("players"), dict) else {}
+        sleeper = payload.get("sleeper", {}) if isinstance(payload.get("sleeper"), dict) else {}
+        pos_map = sleeper.get("positions", {}) if isinstance(sleeper.get("positions"), dict) else {}
+        return players, pos_map, str(p)
+
+    _curve_universes = ("offense_veterans", "offense_rookies", "idp_veterans", "idp_rookies", "picks")
+    _rank_curve_targets = {u: [] for u in _curve_universes}
+    _ref_players, _ref_pos_map, _rank_curve_ref_path = _load_rank_curve_reference_payload()
+    for _nm, _pd in (_ref_players or {}).items():
+        _val = _value_economy_target_from_entry(_pd)
+        if not isinstance(_val, (int, float)) or _val <= 0:
             continue
-        # Transform values first (rank→value conversion)
+        _u = _asset_universe_cached(_nm, _pd, pos_hint=_ref_pos_map.get(_nm, ""))
+        _rank_curve_targets.setdefault(_u, []).append(float(_val))
+    # Conservative fallback if no prior snapshot is available.
+    for _nm, _pd in players_json.items():
+        _u = _asset_universe_cached(_nm, _pd)
+        if len(_rank_curve_targets.get(_u, [])) >= 24:
+            continue
+        _v = _value_economy_target_from_entry(_pd)
+        if isinstance(_v, (int, float)) and _v > 0:
+            _rank_curve_targets.setdefault(_u, []).append(float(_v))
+    for _u in list(_rank_curve_targets.keys()):
+        _rank_curve_targets[_u] = sorted(
+            [float(v) for v in _rank_curve_targets.get(_u, []) if isinstance(v, (int, float)) and v > 0],
+            reverse=True,
+        )
+
+    _rank_curve_sites = set(_rank_sites) | set(_idp_rank_sites)
+    _rank_curve_source_ranks = {}  # (site, universe) -> ascending rank list
+    for _nm, _pd in players_json.items():
+        if not isinstance(_pd, dict):
+            continue
+        _u = _asset_universe_cached(_nm, _pd)
+        for _sk in _rank_curve_sites:
+            _rv = _pd.get(_sk)
+            if isinstance(_rv, (int, float)) and _rv > 0:
+                _rank_curve_source_ranks.setdefault((_sk, _u), []).append(float(_rv))
+    for _k in list(_rank_curve_source_ranks.keys()):
+        _rank_curve_source_ranks[_k] = sorted(_rank_curve_source_ranks.get(_k, []))
+
+    RANK_CURVE_MIN_SOURCE_COUNT = 10
+    RANK_CURVE_MIN_TARGET_COUNT = 24
+
+    def _rank_percentile(rank_value, sorted_ranks):
+        ranks = sorted_ranks or []
+        if not ranks:
+            return 1.0
+        n = len(ranks)
+        if n <= 1:
+            return 0.0
+        r = float(rank_value)
+        left = bisect.bisect_left(ranks, r)
+        right = bisect.bisect_right(ranks, r)
+        if left < right:
+            pos = (left + right - 1) / 2.0
+        elif left <= 0:
+            pos = 0.0
+        elif left >= n:
+            pos = float(n - 1)
+        else:
+            lo = float(ranks[left - 1])
+            hi = float(ranks[left])
+            frac = 0.0 if hi <= lo else max(0.0, min(1.0, (r - lo) / (hi - lo)))
+            pos = (left - 1) + frac
+        return max(0.0, min(1.0, pos / float(max(1, n - 1))))
+
+    def _value_at_percentile_desc(values_desc, pct):
+        vals = values_desc or []
+        if not vals:
+            return None
+        if len(vals) == 1:
+            return float(vals[0])
+        p = max(0.0, min(1.0, float(pct)))
+        idx = p * float(len(vals) - 1)
+        lo = int(math.floor(idx))
+        hi = int(math.ceil(idx))
+        if hi <= lo:
+            return float(vals[lo])
+        t = idx - lo
+        return float(vals[lo] + ((vals[hi] - vals[lo]) * t))
+
+    def _fallback_sparse_rank_value(rank_value, universe_key, site_max=9999.0):
+        rank = max(1.0, float(rank_value))
+        defaults = {
+            "offense_veterans": float(COMPOSITE_SCALE),
+            "offense_rookies": 3800.0,
+            "idp_veterans": float(IDP_ANCHOR_TOP),
+            "idp_rookies": 2800.0,
+            "picks": 4200.0,
+        }
+        targets = _rank_curve_targets.get(universe_key, [])
+        top_ref = float(targets[0]) if targets else float(defaults.get(universe_key, site_max or COMPOSITE_SCALE))
+        top_ref = max(200.0, min(float(COMPOSITE_SCALE), top_ref))
+        exp = 0.68 if "rookies" in universe_key else 0.62
+        off = 8.0 if "rookies" in universe_key else 18.0
+        val = top_ref * (((rank + off) / (1.0 + off)) ** (-exp))
+        floor_mult = 0.10 if "rookies" in universe_key else 0.06
+        floor_val = max(1.0, top_ref * floor_mult)
+        return max(floor_val, min(float(COMPOSITE_SCALE), float(val)))
+
+    _rank_curve_diagnostics = {
+        "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "referencePath": _rank_curve_ref_path,
+        "minSourceCount": RANK_CURVE_MIN_SOURCE_COUNT,
+        "minTargetCount": RANK_CURVE_MIN_TARGET_COUNT,
+        "universes": {u: {"targetCount": len(_rank_curve_targets.get(u, []))} for u in _curve_universes},
+        "sources": {},
+    }
+
+    def _calibrated_rank_to_value(dash_key, rank_value, pname, pdata=None, site_max=9999.0, universe_override=None):
+        universe_key = universe_override or _asset_universe_cached(pname, pdata)
+        source_ranks = _rank_curve_source_ranks.get((dash_key, universe_key), [])
+        target_curve = _rank_curve_targets.get(universe_key, [])
+        curve_ready = (
+            len(source_ranks) >= RANK_CURVE_MIN_SOURCE_COUNT
+            and len(target_curve) >= RANK_CURVE_MIN_TARGET_COUNT
+        )
+        if curve_ready:
+            pct = _rank_percentile(rank_value, source_ranks)
+            mapped = _value_at_percentile_desc(target_curve, pct)
+            if isinstance(mapped, (int, float)) and mapped > 0:
+                return float(mapped), universe_key, False
+        # Sparse conservative fallback (explicitly logged in diagnostics).
+        return float(_fallback_sparse_rank_value(rank_value, universe_key, site_max=site_max)), universe_key, True
+
+    for _sk in sorted(_rank_curve_sites):
+        for _u in _curve_universes:
+            _src = _rank_curve_source_ranks.get((_sk, _u), [])
+            _tgt = _rank_curve_targets.get(_u, [])
+            _curve_ready = len(_src) >= RANK_CURVE_MIN_SOURCE_COUNT and len(_tgt) >= RANK_CURVE_MIN_TARGET_COUNT
+            _samples = {}
+            if _src:
+                for _label, _rank in (
+                    ("top", _src[0]),
+                    ("middle", _src[len(_src) // 2]),
+                    ("tail", _src[-1]),
+                ):
+                    _val, _, _fb = _calibrated_rank_to_value(_sk, _rank, "", None, site_max=max_values.get(_sk, 9999), universe_override=_u)
+                    _samples[_label] = {"rank": round(float(_rank), 4), "value": int(round(_val)), "fallback": bool(_fb)}
+            _top_v = (_samples.get("top") or {}).get("value")
+            _tail_v = (_samples.get("tail") or {}).get("value")
+            _spread_ratio = (
+                round(float(_top_v) / max(1.0, float(_tail_v)), 3)
+                if isinstance(_top_v, (int, float)) and isinstance(_tail_v, (int, float))
+                else None
+            )
+            _suspicious = None
+            if isinstance(_spread_ratio, (int, float)):
+                if _spread_ratio < 1.35:
+                    _suspicious = "compressed_spacing"
+                elif _spread_ratio > 280:
+                    _suspicious = "inflated_spacing"
+            _rank_curve_diagnostics["sources"][f"{_sk}:{_u}"] = {
+                "sourceCount": len(_src),
+                "targetCount": len(_tgt),
+                "curveBuilt": bool(_curve_ready),
+                "fallbackUsed": not bool(_curve_ready),
+                "examples": _samples,
+                "spreadRatioTopToTail": _spread_ratio,
+                "suspiciousSpacing": _suspicious,
+            }
+
+    _curve_total = len(_rank_curve_diagnostics["sources"])
+    _curve_built = sum(1 for _v in _rank_curve_diagnostics["sources"].values() if _v.get("curveBuilt"))
+    _curve_fallback = _curve_total - _curve_built
+    print(
+        f"  [RankCurve] Built {_curve_built}/{_curve_total} source-universe curves "
+        f"(fallback {_curve_fallback}); reference={_rank_curve_ref_path or 'current run'}"
+    )
+
+    # Build site stats from the same transformed values used by composite math.
+    _site_keys_for_stats = set(site_key_map.values()) | set(SITE_WEIGHTS.keys())
+    for dash_key in sorted(_site_keys_for_stats):
+        if dash_key in _ROOKIE_ONLY_DLF_SITE_KEYS:
+            continue
         site_max = max_values.get(dash_key, 9999)
         transformed = []
-        for v in full_map.values():
-            if v is None or not isinstance(v, (int, float)) or v <= 0:
+        for _nm, _pd in players_json.items():
+            if not isinstance(_pd, dict):
                 continue
-            if dash_key in _idp_rank_sites:
-                # IDP rank sites: anchored curve — rank 1 → IDP_ANCHOR_TOP
-                tv = _idp_rank_to_value(v)
-            elif dash_key in _rank_sites:
-                # Offensive rank sites: standard curve — rank 1 → site_max
-                tv = site_max * ((v + RANK_OFFSET) / RANK_DIVISOR) ** RANK_EXPONENT
-            elif dash_key in _idp_value_cap_sites:
-                # IDPTradeCalc: only cap IDP players at anchor, let offensive through
-                # For stats, use raw values — z-score normalization handles scale
-                tv = v
+            _raw = _pd.get(dash_key)
+            if _raw is None or not isinstance(_raw, (int, float)) or _raw <= 0:
+                continue
+            _is_this_idp_local = _asset_universe_cached(_nm, _pd).startswith("idp_")
+            if dash_key in _rank_sites or dash_key in _idp_rank_sites:
+                tv, _, _ = _calibrated_rank_to_value(dash_key, _raw, _nm, _pd, site_max=site_max)
+            elif dash_key in _idp_value_cap_sites and _is_this_idp_local:
+                tv = min(float(_raw), float(IDP_ANCHOR_TOP))
             else:
-                tv = v
-            if tv > 0:
-                transformed.append(tv)
+                tv = float(_raw)
+            if isinstance(tv, (int, float)) and tv > 0:
+                transformed.append(float(tv))
         if len(transformed) >= 2:
             mean_val = sum(transformed) / len(transformed)
             variance = sum((v - mean_val) ** 2 for v in transformed) / len(transformed)
@@ -9386,7 +9631,7 @@ async def run(progress_callback=None):
                 "count": len(transformed),
             }
             if DEBUG:
-                print(f"  [Stats] {scraper_name}: μ={mean_val:.1f}  σ={stdev_val:.1f}  n={len(transformed)}")
+                print(f"  [Stats] {dash_key}: μ={mean_val:.1f}  σ={stdev_val:.1f}  n={len(transformed)}")
 
     # ── Compute composite value for every player ──
     _pos_map = SLEEPER_ROSTER_DATA.get("positions", {})
@@ -9434,6 +9679,7 @@ async def run(progress_callback=None):
 
     for name, pdata in players_json.items():
         wNorms = []
+        canonical_site_values = {}
         max_value_site_raw = 0
         _is_this_idp = _player_is_idp(name)
         _has_rookie_only_dlf_signal = False
@@ -9451,12 +9697,16 @@ async def run(progress_callback=None):
             if site_max <= 0:
                 continue
 
-            # Transform rank to value
-            if dash_key in _idp_rank_sites:
-                # IDP rank sites: anchored at IDP_ANCHOR_TOP
-                site_raw = _idp_rank_to_value(raw_val, _anchor_pos(name))
-            elif dash_key in _rank_sites:
-                site_raw = site_max * ((raw_val + RANK_OFFSET) / RANK_DIVISOR) ** RANK_EXPONENT
+            # Transform rank-only sources into canonical values via universe-specific
+            # Fully-Adjusted economy curves. Fallback uses conservative sparse curves.
+            if dash_key in _rank_sites or dash_key in _idp_rank_sites:
+                site_raw, _u_key, _fb_used = _calibrated_rank_to_value(
+                    dash_key,
+                    raw_val,
+                    name,
+                    pdata,
+                    site_max=site_max,
+                )
             elif dash_key in _idp_value_cap_sites and _is_this_idp:
                 # IDPTradeCalc: only cap IDP players at anchor
                 site_raw = min(raw_val, IDP_ANCHOR_TOP)
@@ -9470,6 +9720,8 @@ async def run(progress_callback=None):
 
             if site_raw <= 0:
                 continue
+
+            canonical_site_values[dash_key] = int(round(site_raw))
 
             if _is_this_idp and dash_key in _REAL_IDP_MARKET_SITE_KEYS:
                 _real_idp_market_source_count += 1
@@ -9572,6 +9824,7 @@ async def run(progress_callback=None):
         composites[name] = {
             "value": composite,
             "sites": len(wNorms),
+            "canonicalSiteValues": canonical_site_values,
             "marketConfidence": round(market_conf, 4),
             "dispersionCV": round(cv, 6),
             "idpRealMarketSources": int(_real_idp_market_source_count),
@@ -9582,6 +9835,7 @@ async def run(progress_callback=None):
     for name, comp in composites.items():
         players_json[name]["_composite"] = comp["value"]
         players_json[name]["_sites"] = comp["sites"]
+        players_json[name]["_canonicalSiteValues"] = dict(comp.get("canonicalSiteValues") or {})
         players_json[name]["_marketConfidence"] = comp.get("marketConfidence", 0.5)
         players_json[name]["_marketDispersionCV"] = comp.get("dispersionCV", 0.0)
         players_json[name]["_idpRealMarketSources"] = int(comp.get("idpRealMarketSources", 0) or 0)
@@ -10617,6 +10871,7 @@ async def run(progress_callback=None):
                 "activeUntil": "2026 NFL Draft completion",
                 "notes": "2026 slots map 1:1 to top-72 rookie composites (years_exp==0 + must-have list, minimum one source hit); 2027/2028 use tier model with outside-market blend and calibrated future discount.",
             },
+            "rankCurveDiagnostics": _rank_curve_diagnostics,
             "mustHaveRookies": list(ROOKIE_MUST_HAVE_NAMES or []),
             "dlfImport": dict(DLF_IMPORT_DEBUG or {}),
         },

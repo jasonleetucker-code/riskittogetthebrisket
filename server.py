@@ -33,6 +33,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, BackgroundTasks, Request
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -154,6 +155,11 @@ latest_contract_data: dict | None = None
 latest_data_bytes: bytes | None = None
 latest_data_gzip_bytes: bytes | None = None
 latest_data_etag: str | None = None
+# Lean runtime payload (drops heavy contract-only arrays not needed by Static app startup).
+latest_runtime_data: dict | None = None
+latest_runtime_data_bytes: bytes | None = None
+latest_runtime_data_gzip_bytes: bytes | None = None
+latest_runtime_data_etag: str | None = None
 latest_data_source: dict = {
     "type": "",
     "path": "",
@@ -634,11 +640,17 @@ else:
 # ── SCRAPER INTEGRATION ────────────────────────────────────────────────
 def _prime_latest_payload(data: dict | None) -> None:
     """Pre-serialize latest payload once so /api/data returns instantly."""
-    global latest_contract_data, latest_data_bytes, latest_data_gzip_bytes, latest_data_etag, contract_health
+    global latest_contract_data, latest_data_bytes, latest_data_gzip_bytes, latest_data_etag
+    global latest_runtime_data, latest_runtime_data_bytes, latest_runtime_data_gzip_bytes, latest_runtime_data_etag
+    global contract_health
     latest_data_bytes = None
     latest_data_gzip_bytes = None
     latest_data_etag = None
     latest_contract_data = None
+    latest_runtime_data = None
+    latest_runtime_data_bytes = None
+    latest_runtime_data_gzip_bytes = None
+    latest_runtime_data_etag = None
     if not data:
         return
     try:
@@ -664,6 +676,17 @@ def _prime_latest_payload(data: dict | None) -> None:
         latest_data_bytes = raw
         latest_data_gzip_bytes = gzip.compress(raw, compresslevel=5)
         latest_data_etag = hashlib.sha1(raw).hexdigest()
+
+        # Static runtime payload: keep canonical top-level data shape used by the live UI,
+        # but remove heavyweight contract array duplication to reduce parse/transfer cost.
+        runtime_payload = dict(contract_payload)
+        runtime_payload.pop("playersArray", None)
+        runtime_payload["payloadView"] = "runtime"
+        runtime_raw = json.dumps(runtime_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        latest_runtime_data = runtime_payload
+        latest_runtime_data_bytes = runtime_raw
+        latest_runtime_data_gzip_bytes = gzip.compress(runtime_raw, compresslevel=5)
+        latest_runtime_data_etag = hashlib.sha1(runtime_raw).hexdigest()
     except Exception as e:
         contract_health = {
             "ok": False,
@@ -993,6 +1016,7 @@ app = FastAPI(
     title="Dynasty Trade Calculator",
     lifespan=lifespan,
 )
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 def _proxy_next(path: str) -> tuple[Response | None, str | None]:
     """
@@ -1035,22 +1059,30 @@ def _proxy_next(path: str) -> tuple[Response | None, str | None]:
 async def get_data(request: Request):
     """Return latest normalized/validated data contract JSON."""
     if latest_contract_data:
+        view = (request.query_params.get("view") or "").strip().lower()
+        runtime_view = view in {"app", "runtime", "lite", "slim"}
+        payload_bytes = latest_runtime_data_bytes if runtime_view else latest_data_bytes
+        payload_gzip_bytes = latest_runtime_data_gzip_bytes if runtime_view else latest_data_gzip_bytes
+        payload_etag = latest_runtime_data_etag if runtime_view else latest_data_etag
+        payload_obj = latest_runtime_data if runtime_view else latest_contract_data
+
         headers = {
-            "Cache-Control": "no-cache",
+            # Keep dashboard startup fast with a short cache window + conditional revalidation.
+            "Cache-Control": "public, max-age=30, stale-while-revalidate=300",
         }
-        if latest_data_etag:
-            headers["ETag"] = latest_data_etag
+        if payload_etag:
+            headers["ETag"] = payload_etag
             incoming = request.headers.get("if-none-match", "").strip('"')
-            if incoming and incoming == latest_data_etag:
+            if incoming and incoming == payload_etag:
                 return Response(status_code=304, headers=headers)
 
         accept_encoding = (request.headers.get("accept-encoding") or "").lower()
-        if "gzip" in accept_encoding and latest_data_gzip_bytes:
+        if "gzip" in accept_encoding and payload_gzip_bytes:
             headers["Content-Encoding"] = "gzip"
-            return Response(content=latest_data_gzip_bytes, media_type="application/json", headers=headers)
-        if latest_data_bytes:
-            return Response(content=latest_data_bytes, media_type="application/json", headers=headers)
-        return JSONResponse(content=latest_contract_data, headers=headers)
+            return Response(content=payload_gzip_bytes, media_type="application/json", headers=headers)
+        if payload_bytes:
+            return Response(content=payload_bytes, media_type="application/json", headers=headers)
+        return JSONResponse(content=payload_obj, headers=headers)
     return JSONResponse(
         status_code=503,
         content={"error": "No data available yet. First scrape may still be running."}
@@ -1068,6 +1100,10 @@ async def get_status():
     """Return scraper status info."""
     status_payload = _scrape_status_payload()
     source_health = _build_source_health_snapshot(latest_contract_data or latest_data)
+    full_bytes = len(latest_data_bytes) if latest_data_bytes else 0
+    runtime_bytes = len(latest_runtime_data_bytes) if latest_runtime_data_bytes else 0
+    full_gzip_bytes = len(latest_data_gzip_bytes) if latest_data_gzip_bytes else 0
+    runtime_gzip_bytes = len(latest_runtime_data_gzip_bytes) if latest_runtime_data_gzip_bytes else 0
     return JSONResponse(content={
         **status_payload,
         "frontend_runtime": frontend_runtime_status,
@@ -1078,6 +1114,12 @@ async def get_status():
         "data_runtime": {
             "last_data_refresh_at": latest_data_source.get("loadedAt"),
             "active_data_source": latest_data_source,
+            "payload_bytes_full": full_bytes,
+            "payload_bytes_runtime": runtime_bytes,
+            "payload_gzip_bytes_full": full_gzip_bytes,
+            "payload_gzip_bytes_runtime": runtime_gzip_bytes,
+            "runtime_payload_savings_bytes": max(0, full_bytes - runtime_bytes),
+            "runtime_payload_savings_gzip_bytes": max(0, full_gzip_bytes - runtime_gzip_bytes),
         },
         "source_health": source_health,
         "uptime": uptime_status,

@@ -2355,7 +2355,6 @@
       }
     }
   </style>
-<script src="../dynasty_data.js" defer onerror="this.onerror=null;this.src='/dynasty_data.js';"></script>
 </head>
 <body>
   <!-- Global Search Overlay -->
@@ -3375,7 +3374,14 @@
   const Z_FLOOR = -2.0;                  // z-score floor (bottom ~2.3% of site)
   const Z_CEILING = 4.0;                 // z-score ceiling (preserves elite separation)
   const FUZZY_MATCH_THRESHOLD = 0.78;    // minimum similarity score for name matching
-  const TIER_BREAK_THRESHOLD = 0.08;     // 8% drop triggers tier break
+  // Dynamic tier-break tuning (replaces fixed % cliff).
+  const TIER_BREAK_MIN_REL = 0.032;       // minimum relative gap considered for a break
+  const TIER_BREAK_MAX_REL = 0.16;        // cap dynamic threshold in ultra-flat columns
+  const TIER_BREAK_MIN_ABS = 110;         // minimum absolute value gap for canonical 0-9999 values
+  const TIER_BREAK_RANGE_FRACTION = 0.012; // scale-aware absolute gap floor by column range
+  const TIER_BREAK_LOCAL_STRENGTH = 1.85; // local-cliff ratio vs neighboring gaps
+  const TIER_BREAK_MIN_SIZE = 4;          // minimum rows per tier to prevent fragmentation
+  const TIER_BREAK_MAX_TIERS = 12;        // hard safety cap for tier count
   const SINGLE_SOURCE_DISCOUNT = 0.88;   // baseline discount for players on only 1 site
   const OUTLIER_TRIM_GAP = 0.18;         // trim only true edge outliers
   const ELITE_NORM_THRESHOLD = 0.91;     // start elite expansion only at stronger consensus
@@ -3389,6 +3395,8 @@
   const IDP_MAX_RANK = 384;              // IDP rank curve: max rank
   const IDP_POWER = 3.28;                // IDP rank curve: steepness
   const IDP_FACTOR = 0.57;               // IDP scaling factor vs offense
+  const RANK_CURVE_MIN_SOURCE_COUNT = 10;
+  const RANK_CURVE_MIN_TARGET_COUNT = 24;
   const DEFAULT_ALPHA = 1.678;           // star player bonus exponent
   const DEFAULT_TOLERANCE = 0.05;        // 5% trade tolerance
   const DEFAULT_TEAM_NAME = 'Draft Daddies';
@@ -3714,6 +3722,99 @@
     return !!v && v.type === 'empty';
   }
 
+  function medianNumber(values) {
+    const nums = (values || []).filter(v => Number.isFinite(v)).slice().sort((a, b) => a - b);
+    if (!nums.length) return 0;
+    const mid = Math.floor(nums.length / 2);
+    return nums.length % 2 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2;
+  }
+
+  function computeTierBreakIndexesFromOrderedValues(values = []) {
+    const breaks = new Set();
+    if (!Array.isArray(values) || values.length < 2) return breaks;
+
+    const numericEntries = [];
+    values.forEach((v, idx) => {
+      const n = Number(v);
+      if (Number.isFinite(n)) numericEntries.push({ idx, value: n });
+    });
+    if (numericEntries.length < 2) return breaks;
+
+    // Keep a hard separator when numeric values end and empty/non-numeric rows begin.
+    for (let i = 1; i < values.length; i++) {
+      const prevNum = Number(values[i - 1]);
+      const curNum = Number(values[i]);
+      if (Number.isFinite(prevNum) && !Number.isFinite(curNum)) {
+        breaks.add(i);
+        break;
+      }
+    }
+
+    const gaps = [];
+    for (let i = 1; i < numericEntries.length; i++) {
+      const prev = Number(numericEntries[i - 1].value);
+      const cur = Number(numericEntries[i].value);
+      const absGap = Math.abs(prev - cur);
+      const relGap = absGap / Math.max(Math.abs(prev), Math.abs(cur), 1);
+      gaps.push({
+        numericPos: i, // break would occur before numericEntries[i]
+        absGap,
+        relGap,
+      });
+    }
+    if (!gaps.length) return breaks;
+
+    const relGaps = gaps.map(g => g.relGap);
+    const medianRel = medianNumber(relGaps);
+    const madRel = medianNumber(relGaps.map(v => Math.abs(v - medianRel)));
+    const dynamicRelBase = clampValue(medianRel + (madRel * 1.35), TIER_BREAK_MIN_REL, TIER_BREAK_MAX_REL);
+
+    const topVal = Number(numericEntries[0].value);
+    const bottomVal = Number(numericEntries[numericEntries.length - 1].value);
+    const valueRange = Math.abs(topVal - bottomVal);
+    const absFloor = Math.max(TIER_BREAK_MIN_ABS, valueRange * TIER_BREAK_RANGE_FRACTION);
+
+    const minTierSize = Math.max(2, TIER_BREAK_MIN_SIZE);
+    const maxTiers = Math.max(2, Math.min(TIER_BREAK_MAX_TIERS, Math.ceil(numericEntries.length / minTierSize)));
+    let tierCount = 1;
+    let lastBreakNumericPos = 0;
+
+    for (let gi = 0; gi < gaps.length; gi++) {
+      const g = gaps[gi];
+      if (tierCount >= maxTiers) break;
+
+      const rowsSinceLastBreak = g.numericPos - lastBreakNumericPos;
+      const rowsRemaining = numericEntries.length - g.numericPos;
+      if (rowsSinceLastBreak < minTierSize || rowsRemaining < minTierSize) continue;
+
+      const prevLocal = gaps[gi - 1]?.relGap ?? medianRel;
+      const nextLocal = gaps[gi + 1]?.relGap ?? medianRel;
+      const localBase = Math.max(0.0001, (prevLocal + nextLocal) / 2);
+      const localStrength = g.relGap / localBase;
+
+      const topBias = g.numericPos <= 12 ? 0.90 : (g.numericPos <= 24 ? 0.96 : 1.0);
+      const relThreshold = Math.max(TIER_BREAK_MIN_REL, dynamicRelBase * topBias);
+      const strongLocalCliff = (
+        g.relGap >= (TIER_BREAK_MIN_REL * 1.15) &&
+        g.absGap >= TIER_BREAK_MIN_ABS &&
+        localStrength >= TIER_BREAK_LOCAL_STRENGTH
+      );
+      const strongGlobalGap = (
+        g.relGap >= relThreshold &&
+        g.absGap >= (absFloor * 0.85)
+      );
+
+      if (!strongLocalCliff && !strongGlobalGap) continue;
+
+      const breakRowIdx = numericEntries[g.numericPos].idx;
+      breaks.add(breakRowIdx);
+      tierCount += 1;
+      lastBreakNumericPos = g.numericPos;
+    }
+
+    return breaks;
+  }
+
   function tableLogicalColumnCount(table, fallbackRow) {
     const headRow = table?.tHead?.rows?.[0];
     const cells = headRow ? Array.from(headRow.cells || []) : Array.from(fallbackRow?.cells || []);
@@ -3749,34 +3850,14 @@
     if (numericCount < 2) return;
 
     const colSpan = tableLogicalColumnCount(table, dataRows[0]);
+    const tierBreaks = computeTierBreakIndexesFromOrderedValues(
+      metrics.map(m => (m.parsed?.type === 'num' && Number.isFinite(m.parsed?.num)) ? Number(m.parsed.num) : NaN)
+    );
+
     let tierNum = 1;
-    let prevNum = null;
     const inserts = [];
-
     for (let i = 0; i < metrics.length; i++) {
-      const cur = metrics[i].parsed || { type: 'empty', num: 0 };
-      const curIsNum = cur.type === 'num' && isFinite(cur.num);
-
-      if (i === 0) {
-        prevNum = curIsNum ? Number(cur.num) : null;
-        metrics[i].row.dataset.tierNum = String(tierNum);
-        continue;
-      }
-
-      let breakHere = false;
-      if (prevNum != null && curIsNum) {
-        const relGap = Math.abs(Number(prevNum) - Number(cur.num)) / Math.max(Math.abs(Number(prevNum)), 1);
-        if (relGap > TIER_BREAK_THRESHOLD) breakHere = true;
-        prevNum = Number(cur.num);
-      } else if (prevNum != null && !curIsNum) {
-        // First non-numeric/empty after numeric block starts a new tier.
-        breakHere = true;
-        prevNum = null;
-      } else if (prevNum == null && curIsNum) {
-        prevNum = Number(cur.num);
-      }
-
-      if (breakHere) {
+      if (i > 0 && tierBreaks.has(i)) {
         tierNum += 1;
         inserts.push({ before: metrics[i].row, tier: tierNum });
       }
@@ -4267,6 +4348,7 @@
         const siteRaw = getCanonicalSiteValueForSource(sc, v, {
           ctx: { cfg, siteMode, flockOffset, flockDivisor, flockExponent, idpAnchor, idpRankOff, idpRankDiv, idpRankExp, tepMultiplier, siteTep },
           playerName: pName,
+          playerData: pData,
           playerPos: pPos,
           playerIsTE,
           playerIsIdp: ['DL','DE','DT','LB','DB','CB','S','EDGE'].includes(pPos),
@@ -4323,6 +4405,234 @@
     if (['DL','DE','DT','EDGE'].includes(p)) return 'DL';
     if (['DB','CB','S'].includes(p)) return 'DB';
     return 'ALL';
+  }
+
+  let __rankCurveCache = null;
+  let __rankCurveCacheKey = '';
+
+  function getValueEconomyPointFromPlayerData(pData = null) {
+    if (!pData || typeof pData !== 'object') return null;
+    const keys = ['_finalAdjusted', '_leagueAdjusted', '_scoringAdjusted', '_scarcityAdjusted', '_composite', '_rawComposite'];
+    for (const k of keys) {
+      const v = Number(pData[k]);
+      if (Number.isFinite(v) && v > 0) return v;
+    }
+    return null;
+  }
+
+  function getCurveUniverseForPlayer(playerName = '', pData = null, posOverride = '') {
+    if (parsePickToken(playerName)) return 'picks';
+    const pos = String(posOverride || getPlayerPosition(playerName) || pData?.position || '').toUpperCase();
+    const isIdp = IDP_POSITIONS.has(pos);
+    const isRookie = isRookiePlayerName(playerName, pData || {});
+    if (isIdp) return isRookie ? 'idp_rookies' : 'idp_veterans';
+    return isRookie ? 'offense_rookies' : 'offense_veterans';
+  }
+
+  function rankPercentileFromSortedRanks(rankValue, sortedRanks = []) {
+    if (!sortedRanks.length) return 1;
+    if (sortedRanks.length === 1) return 0;
+    const r = Number(rankValue);
+    if (!Number.isFinite(r)) return 1;
+    let left = 0;
+    let right = sortedRanks.length;
+    while (left < right) {
+      const mid = (left + right) >> 1;
+      if (sortedRanks[mid] < r) left = mid + 1;
+      else right = mid;
+    }
+    const l = left;
+    let l2 = left;
+    let right2 = sortedRanks.length;
+    while (l2 < right2) {
+      const mid = (l2 + right2) >> 1;
+      if (sortedRanks[mid] <= r) l2 = mid + 1;
+      else right2 = mid;
+    }
+    const rIdx = l2;
+    let pos;
+    if (l < rIdx) {
+      pos = (l + rIdx - 1) / 2;
+    } else if (l <= 0) {
+      pos = 0;
+    } else if (l >= sortedRanks.length) {
+      pos = sortedRanks.length - 1;
+    } else {
+      const lo = Number(sortedRanks[l - 1]);
+      const hi = Number(sortedRanks[l]);
+      const frac = hi > lo ? Math.max(0, Math.min(1, (r - lo) / (hi - lo))) : 0;
+      pos = (l - 1) + frac;
+    }
+    return Math.max(0, Math.min(1, pos / Math.max(1, sortedRanks.length - 1)));
+  }
+
+  function valueAtPercentileDesc(valuesDesc = [], percentile = 1) {
+    if (!Array.isArray(valuesDesc) || !valuesDesc.length) return null;
+    if (valuesDesc.length === 1) return Number(valuesDesc[0]);
+    const p = Math.max(0, Math.min(1, Number(percentile) || 0));
+    const idx = p * (valuesDesc.length - 1);
+    const lo = Math.floor(idx);
+    const hi = Math.ceil(idx);
+    if (hi <= lo) return Number(valuesDesc[lo]);
+    const t = idx - lo;
+    const lv = Number(valuesDesc[lo]);
+    const hv = Number(valuesDesc[hi]);
+    return lv + ((hv - lv) * t);
+  }
+
+  function buildRankCurveContext(c = null) {
+    const ctx = c || getCanonicalValueContext();
+    const players = loadedData?.players || {};
+    const playerCount = Object.keys(players).length;
+    if (!playerCount) return null;
+    const key = `${loadedData?.scrapeTimestamp || loadedData?.date || ''}|${playerCount}|${Number(ctx.idpAnchor || 0).toFixed(2)}`;
+    if (__rankCurveCache && __rankCurveCacheKey === key) return __rankCurveCache;
+
+    const universes = ['offense_veterans', 'offense_rookies', 'idp_veterans', 'idp_rookies', 'picks'];
+    const targets = Object.fromEntries(universes.map(u => [u, []]));
+    for (const [name, pData] of Object.entries(players)) {
+      const val = getValueEconomyPointFromPlayerData(pData);
+      if (!Number.isFinite(val) || val <= 0) continue;
+      const universe = getCurveUniverseForPlayer(name, pData);
+      if (!targets[universe]) targets[universe] = [];
+      targets[universe].push(Number(val));
+    }
+    Object.keys(targets).forEach(u => {
+      targets[u] = (targets[u] || []).filter(v => Number.isFinite(v) && v > 0).sort((a, b) => b - a);
+    });
+
+    const rankSites = (ctx.cfg || [])
+      .filter(sc => {
+        const mode = (ctx.siteMode?.[sc.key] || sc.mode || 'value');
+        return mode === 'rank' || mode === 'idpRank';
+      })
+      .map(sc => sc.key);
+    const sourceRanks = {};
+    for (const [name, pData] of Object.entries(players)) {
+      const universe = getCurveUniverseForPlayer(name, pData);
+      rankSites.forEach(sk => {
+        const rv = Number(pData?.[sk]);
+        if (!Number.isFinite(rv) || rv <= 0) return;
+        const k = `${sk}::${universe}`;
+        if (!Array.isArray(sourceRanks[k])) sourceRanks[k] = [];
+        sourceRanks[k].push(rv);
+      });
+    }
+    Object.keys(sourceRanks).forEach(k => sourceRanks[k].sort((a, b) => a - b));
+
+    const diagnostics = {
+      generatedAt: new Date().toISOString(),
+      minSourceCount: RANK_CURVE_MIN_SOURCE_COUNT,
+      minTargetCount: RANK_CURVE_MIN_TARGET_COUNT,
+      universes: Object.fromEntries(universes.map(u => [u, { targetCount: (targets[u] || []).length }])),
+      sources: {},
+    };
+    rankSites.forEach(sk => {
+      universes.forEach(u => {
+        const src = sourceRanks[`${sk}::${u}`] || [];
+        const tgt = targets[u] || [];
+        diagnostics.sources[`${sk}:${u}`] = {
+          sourceCount: src.length,
+          targetCount: tgt.length,
+          curveBuilt: src.length >= RANK_CURVE_MIN_SOURCE_COUNT && tgt.length >= RANK_CURVE_MIN_TARGET_COUNT,
+          fallbackUsed: !(src.length >= RANK_CURVE_MIN_SOURCE_COUNT && tgt.length >= RANK_CURVE_MIN_TARGET_COUNT),
+        };
+      });
+    });
+    const nextCtx = { key, targets, sourceRanks, diagnostics };
+    enrichRankCurveDiagnostics(nextCtx, ctx);
+    if (loadedData && typeof loadedData === 'object') loadedData.rankCurveDiagnostics = diagnostics;
+
+    __rankCurveCacheKey = key;
+    __rankCurveCache = nextCtx;
+    return __rankCurveCache;
+  }
+
+  function fallbackSparseRankValue(rankValue, universe, c, sc, curveCtx = null) {
+    const rank = Math.max(1, Number(rankValue) || 1);
+    const rc = curveCtx || buildRankCurveContext(c);
+    const defaults = {
+      offense_veterans: COMPOSITE_SCALE,
+      offense_rookies: 3800,
+      idp_veterans: Number(c?.idpAnchor || IDP_ANCHOR_DEFAULT || 6250),
+      idp_rookies: 2800,
+      picks: 4200,
+    };
+    const topFromTarget = Number(rc?.targets?.[universe]?.[0]);
+    const top = Math.max(200, Math.min(COMPOSITE_SCALE, Number.isFinite(topFromTarget) && topFromTarget > 0 ? topFromTarget : defaults[universe] || Number(sc?.max || COMPOSITE_SCALE)));
+    const exp = universe.includes('rookies') ? 0.68 : 0.62;
+    const off = universe.includes('rookies') ? 8 : 18;
+    const floor = top * (universe.includes('rookies') ? 0.10 : 0.06);
+    const est = top * Math.pow((rank + off) / (1 + off), -exp);
+    return Math.max(1, Math.min(COMPOSITE_SCALE, Math.max(floor, est)));
+  }
+
+  function calibrateRankToValueCurve(sc, rankValue, opts = {}, c = null) {
+    const ctx = c || getCanonicalValueContext();
+    const rc = buildRankCurveContext(ctx);
+    const universe = getCurveUniverseForPlayer(opts.playerName || '', opts.playerData || null, opts.playerPos || '');
+    const sourceRanks = rc?.sourceRanks?.[`${sc.key}::${universe}`] || [];
+    const targetCurve = rc?.targets?.[universe] || [];
+    const curveBuilt = sourceRanks.length >= RANK_CURVE_MIN_SOURCE_COUNT && targetCurve.length >= RANK_CURVE_MIN_TARGET_COUNT;
+    if (curveBuilt) {
+      const pct = rankPercentileFromSortedRanks(rankValue, sourceRanks);
+      const mapped = valueAtPercentileDesc(targetCurve, pct);
+      if (Number.isFinite(mapped) && mapped > 0) return mapped;
+    }
+    return fallbackSparseRankValue(rankValue, universe, ctx, sc, rc);
+  }
+
+  function enrichRankCurveDiagnostics(curveCtx, c = null) {
+    const rc = curveCtx || __rankCurveCache;
+    if (!rc || !rc.diagnostics || !rc.sourceRanks || !rc.targets) return;
+    const ctx = c || getCanonicalValueContext();
+    const findSite = (k) => (ctx.cfg || []).find(s => s.key === k) || { key: k, max: COMPOSITE_SCALE };
+    Object.entries(rc.diagnostics.sources || {}).forEach(([key, row]) => {
+      const [siteKey, universe] = String(key).split(':');
+      const src = rc.sourceRanks?.[`${siteKey}::${universe}`] || [];
+      const tgt = rc.targets?.[universe] || [];
+      if (!src.length) {
+        row.examples = {};
+        row.spreadRatioTopToTail = null;
+        row.suspiciousSpacing = null;
+        return;
+      }
+      const siteCfg = findSite(siteKey);
+      const curveBuilt = !!row.curveBuilt;
+      const sampleRanks = {
+        top: src[0],
+        middle: src[Math.floor(src.length / 2)],
+        tail: src[src.length - 1],
+      };
+      const examples = {};
+      Object.entries(sampleRanks).forEach(([label, rankVal]) => {
+        let value;
+        if (curveBuilt && tgt.length >= RANK_CURVE_MIN_TARGET_COUNT) {
+          const pct = rankPercentileFromSortedRanks(rankVal, src);
+          value = valueAtPercentileDesc(tgt, pct);
+        } else {
+          value = fallbackSparseRankValue(rankVal, universe, ctx, siteCfg, rc);
+        }
+        examples[label] = {
+          rank: Math.round(Number(rankVal) * 1000) / 1000,
+          value: Math.round(Number(value) || 0),
+          fallback: !curveBuilt,
+        };
+      });
+      row.examples = examples;
+      const topV = Number(examples.top?.value);
+      const tailV = Number(examples.tail?.value);
+      if (Number.isFinite(topV) && Number.isFinite(tailV) && tailV > 0) {
+        const spread = topV / tailV;
+        row.spreadRatioTopToTail = Math.round(spread * 1000) / 1000;
+        row.suspiciousSpacing = spread < 1.35 ? 'compressed_spacing' : (spread > 280 ? 'inflated_spacing' : null);
+      } else {
+        row.spreadRatioTopToTail = null;
+        row.suspiciousSpacing = null;
+      }
+      row.rookieIsolated = universe.includes('rookies');
+      row.idpIsolated = universe.startsWith('idp_');
+    });
   }
 
   function getIdpBackboneCurves(ctx = null) {
@@ -4388,10 +4698,15 @@
     if (!Number.isFinite(v)) return null;
     const mode = (c.siteMode?.[sc.key] || sc.mode || 'value');
     let siteRaw;
-    if (!opts.isPick && mode === 'rank') {
-      siteRaw = sc.max * Math.pow(((v + c.flockOffset) / c.flockDivisor), c.flockExponent);
-    } else if (!opts.isPick && mode === 'idpRank') {
-      siteRaw = interpolateIdpBackbone(v, opts.playerPos, c);
+    if (!opts.isPick && (mode === 'rank' || mode === 'idpRank')) {
+      // Rank-only sources: map rank percentile onto the same universe's
+      // Fully-Adjusted value distribution so spacing reflects real value economics.
+      siteRaw = calibrateRankToValueCurve(sc, v, opts, c);
+      if (!Number.isFinite(siteRaw) || siteRaw <= 0) {
+        // Defensive fallback only; calibrated curve above is the primary path.
+        if (mode === 'idpRank') siteRaw = interpolateIdpBackbone(v, opts.playerPos, c);
+        else siteRaw = sc.max * Math.pow(((v + c.flockOffset) / c.flockDivisor), c.flockExponent);
+      }
     } else {
       let nativeVal = v;
       if (sc.key === 'idpTradeCalc' && opts.playerIsIdp) {
@@ -4468,6 +4783,7 @@
       const siteRaw = getCanonicalSiteValueForSource(sc, rawValue, {
         ctx: cctx,
         playerName,
+        playerData: siteValues,
         playerPos,
         playerIsTE,
         playerIsIdp,
@@ -5219,6 +5535,7 @@
         const transformed = getCanonicalSiteValueForSource(sc, rawStored, {
           ctx: canonicalCtx,
           playerName: name,
+          playerData: pData,
           playerPos: pickInfo ? 'PICK' : pos,
           playerIsTE,
           playerIsIdp,
@@ -5484,15 +5801,11 @@
     // Safety guard: keep only one true canonical ceiling value in the active view.
     ranked = enforceSingleCanonicalTop(ranked, sortBasis);
 
-    // Detect tier breaks (>8% drop)
-    const tierBreaks = new Set();
+    // Detect tier breaks using dynamic cliff detection on the active sort column.
+    const tierBreaks = computeTierBreakIndexesFromOrderedValues(
+      ranked.map(r => Number(r?.sortValue))
+    );
     let tierNum = 1;
-    for (let i = 1; i < ranked.length; i++) {
-      if (ranked[i-1].sortValue > 0) {
-        const drop = (ranked[i-1].sortValue - ranked[i].sortValue) / ranked[i-1].sortValue;
-        if (drop > 0.08) tierBreaks.add(i);
-      }
-    }
 
     let displayRank = 0;
     ranked.forEach((r, idx) => {
@@ -6613,6 +6926,58 @@
     };
   }
 
+  function pickRoundSuffix(roundNum) {
+    const n = Number(roundNum);
+    if (!isFinite(n)) return 'th';
+    const v = Math.abs(Math.trunc(n));
+    if (v % 100 >= 11 && v % 100 <= 13) return 'th';
+    if (v % 10 === 1) return 'st';
+    if (v % 10 === 2) return 'nd';
+    if (v % 10 === 3) return 'rd';
+    return 'th';
+  }
+
+  function getCanonicalPickLookupLabels(pickInfo) {
+    if (!pickInfo) return [];
+    const currentYear = parseInt(document.getElementById('pickCurrentYear')?.value) || 2026;
+    const out = [];
+    const pushUnique = (label) => {
+      const s = String(label || '').trim();
+      if (!s) return;
+      if (!out.some(x => normalizeForLookup(x) === normalizeForLookup(s))) out.push(s);
+    };
+    const yr = Number.isFinite(pickInfo.year) ? pickInfo.year : currentYear;
+
+    if (pickInfo.kind === 'slot') {
+      const r = Number(pickInfo.round);
+      const s = Number(pickInfo.slot);
+      if (!isFinite(r) || !isFinite(s)) return out;
+      const slot2 = String(s).padStart(2, '0');
+      // Canonical scraper pick labels first.
+      pushUnique(`${yr} Pick ${r}.${slot2}`);
+      // Secondary aliases.
+      pushUnique(`${yr} ${r}.${slot2}`);
+      pushUnique(`${yr} ${r}.${s}`);
+      pushUnique(`${r}.${slot2}`);
+      pushUnique(`${r}.${s}`);
+      return out;
+    }
+
+    if (pickInfo.kind === 'tier') {
+      const r = Number(pickInfo.round);
+      const tier = String(pickInfo.tier || 'mid').toLowerCase();
+      const tierLabel = tier.charAt(0).toUpperCase() + tier.slice(1);
+      const suffix = pickRoundSuffix(r);
+      // Canonical scraper labels for tier picks.
+      pushUnique(`${yr} ${tierLabel} ${r}${suffix}`);
+      // Secondary aliases.
+      pushUnique(`${yr} ${tierLabel} ${r}`);
+      pushUnique(`${tierLabel} ${r}${suffix}`);
+      pushUnique(`${tierLabel} ${r}`);
+    }
+    return out;
+  }
+
   let rookiePickProxyCache = { key: '', data: null };
 
   function buildSyntheticPickSiteMapFromMeta(metaValue) {
@@ -7673,6 +8038,9 @@
   let playerSleeperIds = {};   // canonical player name -> sleeper_id
   let sleeperIdToPlayer = {};  // sleeper_id -> canonical player name
   let ktcIdToPlayer = {};      // ktc playerID -> canonical player name
+  let postDataViewsHydrated = false;
+  let trendComputeToken = 0;
+  let pendingTrendCompute = null;
 
   function resolvePreferredTeamName(opts = {}) {
     const teams = Array.isArray(opts.teams) ? opts.teams : (Array.isArray(sleeperTeams) ? sleeperTeams : []);
@@ -7958,6 +8326,17 @@
 
     const pickInfo = parsePickToken(itemName);
     if (pickInfo) {
+      // Trade-history picks can include ownership decoration (e.g., "(from Team X)").
+      // Resolve against canonical backend pick labels first so we value the exact traded pick
+      // before falling back to inferred/proxy paths.
+      const exactLabels = getCanonicalPickLookupLabels(pickInfo);
+      for (const label of exactLabels) {
+        const exact = computeMetaValueForPlayer(label, { rawOnly: true });
+        if (exact && exact.metaValue > 0) {
+          return applyTradeMode(exact, true);
+        }
+      }
+
       const directPick = computeMetaValueForPlayer(itemName, { rawOnly: true });
       if (directPick && directPick.metaValue > 0) {
         return applyTradeMode(directPick, true);
@@ -9225,6 +9604,7 @@
             const siteRawPreview = getCanonicalSiteValueForSource(sc, pickSiteData[key], {
               ctx: cctx,
               playerName: name,
+              playerData: pickSiteData,
               playerPos: 'PICK',
               playerIsTE: false,
               playerIsIdp: false,
@@ -9645,13 +10025,16 @@
   function loadJsonData(data) {
     if (!data || !data.players || !data.maxValues) return false;
 
-    // Clean unicode escapes in player names (e.g. \u0027 → ')
-    const cleanPlayers = {};
+    // Clean escaped unicode in player-name keys only when needed.
+    let cleanPlayers = null;
     for (const [name, vals] of Object.entries(data.players)) {
       const clean = name.replace(/\\u0027/g, "'").replace(/\\u2019/g, "\u2019").replace(/\\u00e9/g, "é");
+      if (clean === name) continue;
+      if (!cleanPlayers) cleanPlayers = { ...data.players };
+      delete cleanPlayers[name];
       cleanPlayers[clean] = vals;
     }
-    data.players = cleanPlayers;
+    if (cleanPlayers) data.players = cleanPlayers;
 
     loadedData = data;
     invalidateRankingsBaseRowsCache();
@@ -9843,53 +10226,9 @@
     // Initialize League Adjustment Multipliers
     initLAM();
     initScarcity();
-    // Warm rankings cache in the background so opening Rankings feels instant.
-    setTimeout(() => primeRankingsBaseRowsCache(), 0);
 
-    // ── Historical trend tracking ──
-    try {
-      const prevRaw = localStorage.getItem('dynasty_prev_composites');
-      const prevData = prevRaw ? JSON.parse(prevRaw) : {};
-      window.prevComposites = prevData;
-
-      // Compute current composites for all players
-      const currentComposites = {};
-      for (const name of Object.keys(data.players)) {
-        const result = computeMetaValueForPlayer(name);
-        if (result && result.metaValue > 0) {
-          currentComposites[name] = result.metaValue;
-        }
-      }
-      window.currentComposites = currentComposites;
-
-      // Compute trends (pct change from previous)
-      window.playerTrends = {};
-      const prevDate = localStorage.getItem('dynasty_prev_date') || '';
-      const currentDate = data.date || '';
-      if (prevDate && prevDate !== currentDate && Object.keys(prevData).length > 50) {
-        for (const [name, curVal] of Object.entries(currentComposites)) {
-          const prevVal = prevData[name];
-          if (prevVal && prevVal > 100) {
-            const pctChange = ((curVal - prevVal) / prevVal) * 100;
-            if (Math.abs(pctChange) >= 2) { // Only show 2%+ changes
-              window.playerTrends[name] = pctChange;
-            }
-          }
-        }
-        if (DEBUG_MODE) {
-          const up = Object.values(window.playerTrends).filter(v => v > 0).length;
-          const down = Object.values(window.playerTrends).filter(v => v < 0).length;
-          console.log(`[Trends] ${up} rising, ${down} falling (vs ${prevDate})`);
-        }
-      }
-
-      // Save current as previous for next time
-      localStorage.setItem('dynasty_prev_composites', JSON.stringify(currentComposites));
-      localStorage.setItem('dynasty_prev_date', currentDate);
-    } catch(e) {
-      window.prevComposites = {};
-      window.playerTrends = {};
-    }
+    // Non-critical warmups are intentionally deferred so first render becomes interactive sooner.
+    schedulePostLoadWarmups(data);
 
     // Auto-fill pick anchor values from scraped pick data
     autoFillAnchors();
@@ -9942,10 +10281,96 @@
     buildHomeHub();
     buildWatchHub();
     buildMoreHub();
+    postDataViewsHydrated = true;
     updateRankingsActiveChips();
     updateCalculatorEmptyHint();
 
     return true;
+  }
+
+  function queueIdleWork(fn, timeoutMs = 800) {
+    if (typeof fn !== 'function') return;
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(() => fn(), { timeout: timeoutMs });
+      return;
+    }
+    setTimeout(fn, 32);
+  }
+
+  function schedulePostLoadWarmups(data) {
+    queueIdleWork(() => primeRankingsBaseRowsCache(), 1200);
+    scheduleTrendComputation(data);
+  }
+
+  function scheduleTrendComputation(data) {
+    trendComputeToken += 1;
+    const token = trendComputeToken;
+    if (pendingTrendCompute) {
+      try { clearTimeout(pendingTrendCompute); } catch (_) {}
+      pendingTrendCompute = null;
+    }
+    queueIdleWork(() => runTrendComputation(data, token), 1500);
+  }
+
+  function runTrendComputation(data, token) {
+    if (!data || !data.players || token !== trendComputeToken) return;
+    try {
+      const prevRaw = localStorage.getItem('dynasty_prev_composites');
+      const prevData = prevRaw ? JSON.parse(prevRaw) : {};
+      window.prevComposites = prevData;
+      window.currentComposites = {};
+      window.playerTrends = {};
+
+      const names = Object.keys(data.players);
+      const currentComposites = {};
+      const chunkSize = 64;
+      let idx = 0;
+
+      const processChunk = () => {
+        if (token !== trendComputeToken || loadedData !== data) return;
+        const end = Math.min(idx + chunkSize, names.length);
+        for (; idx < end; idx++) {
+          const name = names[idx];
+          const result = computeMetaValueForPlayer(name);
+          if (result && result.metaValue > 0) {
+            currentComposites[name] = result.metaValue;
+          }
+        }
+        if (idx < names.length) {
+          pendingTrendCompute = setTimeout(processChunk, 0);
+          return;
+        }
+
+        pendingTrendCompute = null;
+        window.currentComposites = currentComposites;
+        const prevDate = localStorage.getItem('dynasty_prev_date') || '';
+        const currentDate = data.date || '';
+        if (prevDate && prevDate !== currentDate && Object.keys(prevData).length > 50) {
+          for (const [name, curVal] of Object.entries(currentComposites)) {
+            const prevVal = prevData[name];
+            if (prevVal && prevVal > 100) {
+              const pctChange = ((curVal - prevVal) / prevVal) * 100;
+              if (Math.abs(pctChange) >= 2) {
+                window.playerTrends[name] = pctChange;
+              }
+            }
+          }
+          if (DEBUG_MODE) {
+            const up = Object.values(window.playerTrends).filter(v => v > 0).length;
+            const down = Object.values(window.playerTrends).filter(v => v < 0).length;
+            console.log(`[Trends] ${up} rising, ${down} falling (vs ${prevDate})`);
+          }
+        }
+        localStorage.setItem('dynasty_prev_composites', JSON.stringify(currentComposites));
+        localStorage.setItem('dynasty_prev_date', currentDate);
+      };
+
+      processChunk();
+    } catch (e) {
+      pendingTrendCompute = null;
+      window.prevComposites = {};
+      window.playerTrends = {};
+    }
   }
 
   // ── AUTO-FILL PICK ANCHORS ──
@@ -11480,10 +11905,52 @@
 
   // ── SERVER INTEGRATION ──
   let serverMode = false;  // true when served from server.py
+  let embeddedDataScriptPromise = null;
+  const EMBEDDED_DATA_SCRIPT_PATHS = ['../dynasty_data.js', '/dynasty_data.js', './dynasty_data.js'];
+  const SERVER_DATA_FETCH_TIMEOUT_MS = 4000;
+
+  async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function ensureEmbeddedDataLoaded() {
+    if (window.DYNASTY_DATA && window.DYNASTY_DATA.players) return true;
+    if (embeddedDataScriptPromise) return embeddedDataScriptPromise;
+
+    embeddedDataScriptPromise = (async () => {
+      for (const src of EMBEDDED_DATA_SCRIPT_PATHS) {
+        const ok = await new Promise(resolve => {
+          const tag = document.createElement('script');
+          tag.async = true;
+          tag.src = src;
+          tag.onload = () => resolve(true);
+          tag.onerror = () => {
+            try { tag.remove(); } catch (_) {}
+            resolve(false);
+          };
+          document.head.appendChild(tag);
+        });
+        if (ok && window.DYNASTY_DATA && window.DYNASTY_DATA.players) return true;
+      }
+      return false;
+    })();
+
+    const loaded = await embeddedDataScriptPromise;
+    if (!loaded) embeddedDataScriptPromise = null;
+    return loaded;
+  }
 
   async function fetchFromServer() {
     try {
-      const resp = await fetch('/api/data');
+      const resp = await fetchWithTimeout('/api/data?view=app', {
+        headers: { 'Accept': 'application/json' }
+      }, SERVER_DATA_FETCH_TIMEOUT_MS);
       if (!resp.ok) return false;
       const data = await resp.json();
       if (data && data.players) {
@@ -14022,10 +14489,11 @@
     populateSavedTrades();
     updateProfileBar();
 
-    // Try server API first, then embedded data, then wait for file upload
+    // Try server API first, then lazily load embedded data only if needed.
     const fromServer = await fetchFromServer();
-    if (!fromServer && window.DYNASTY_DATA) {
-      if (loadJsonData(window.DYNASTY_DATA)) {
+    if (!fromServer) {
+      const embeddedReady = await ensureEmbeddedDataLoaded();
+      if (embeddedReady && loadJsonData(window.DYNASTY_DATA)) {
         const btn = document.getElementById('loadDataBtn');
         if (btn) btn.textContent = '✓ Auto-loaded';
       }
@@ -14096,11 +14564,13 @@
       initialTab = 'calculator';
     }
     switchTab(initialTab, { persist: false });
-    renderMobileTradeWorkspace();
-    updateMobileTradeTray();
-    buildHomeHub();
-    buildWatchHub();
-    buildMoreHub();
+    if (!postDataViewsHydrated) {
+      renderMobileTradeWorkspace();
+      updateMobileTradeTray();
+      buildHomeHub();
+      buildWatchHub();
+      buildMoreHub();
+    }
   });
   </script>
 </body>
