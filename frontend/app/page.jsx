@@ -14,7 +14,7 @@ export default function HomePage() {
     <section className="card">
       <h1 style={{ marginTop: 0 }}>React + Next.js Frontend</h1>
       <p className="muted" style={{ marginTop: 6 }}>
-        This is now the primary frontend shell. It reads your latest dynasty dataset directly and powers rankings + trade workflows in React.
+        This is the Next.js shell for development and incremental migration. It reads the latest dynasty dataset directly, while the Static app remains the default production runtime unless FRONTEND_RUNTIME is overridden.
       </p>
 
       {loading && <p>Loading latest dynasty data...</p>}

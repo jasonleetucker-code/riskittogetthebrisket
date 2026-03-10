@@ -3,7 +3,18 @@ import fs from "node:fs";
 import path from "node:path";
 
 async function fetchFromBackendApi() {
-  const backendUrl = process.env.BACKEND_API_URL || "http://127.0.0.1:8000/api/data";
+  const configuredBackendUrl = process.env.BACKEND_API_URL || "http://127.0.0.1:8000/api/data";
+  let backendUrl = configuredBackendUrl;
+  try {
+    const u = new URL(configuredBackendUrl);
+    if (/\/api\/data$/i.test(u.pathname) && !u.searchParams.has("view")) {
+      // Prefer the slim runtime contract for faster Next route hydration.
+      u.searchParams.set("view", "app");
+    }
+    backendUrl = u.toString();
+  } catch {
+    // Keep configured value as-is if URL parsing fails.
+  }
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 1500);
   try {

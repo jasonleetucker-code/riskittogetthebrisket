@@ -31,6 +31,29 @@ npm run dev
 Frontend:
 - [http://localhost:3000](http://localhost:3000)
 
+## Regression Harness (Desktop + Mobile)
+
+Automated parity/smoke suite targets the live runtime (`server.py` + `Static/index.html`) across:
+- desktop `1366x768`
+- mobile `390x844`
+- mobile large `430x932`
+
+One-time setup:
+```powershell
+npm install
+npm run regression:install
+```
+
+Run full gate (Python compile + API contract + Playwright regression):
+```powershell
+npm run regression
+```
+
+Run browser suite only:
+```powershell
+npm run regression:test
+```
+
 ## Server Linking (Backend <-> Frontend)
 
 This repo is now wired so both sides can work together:

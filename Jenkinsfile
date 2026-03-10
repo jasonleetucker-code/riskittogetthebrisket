@@ -170,6 +170,25 @@ PY'''
         }
       }
     }
+
+    stage('Regression Harness') {
+      when {
+        expression { fileExists('package.json') && fileExists('tests/e2e/playwright.config.js') }
+      }
+      steps {
+        script {
+          if (isUnix()) {
+            sh 'npm ci'
+            sh 'npx playwright install chromium'
+            sh 'npm run regression'
+          } else {
+            bat 'npm ci'
+            bat 'npx playwright install chromium'
+            bat 'npm run regression'
+          }
+        }
+      }
+    }
   }
 
   post {

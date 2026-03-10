@@ -1,0 +1,14 @@
+{
+  "name": "dynasty-trade-calculator-regression",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "regression:install": "playwright install chromium",
+    "regression:preflight": "python tests/e2e/preflight.py",
+    "regression:test": "playwright test -c tests/e2e/playwright.config.js",
+    "regression": "npm run regression:preflight && npm run regression:test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}

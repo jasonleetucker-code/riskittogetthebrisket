@@ -40,6 +40,7 @@ from fastapi.staticfiles import StaticFiles
 from src.api.data_contract import (
     CONTRACT_VERSION as API_DATA_CONTRACT_VERSION,
     build_api_data_contract,
+    build_api_startup_payload,
     validate_api_data_contract,
 )
 
@@ -136,6 +137,7 @@ DATA_DIR = BASE_DIR / "data"
 STATIC_DIR = BASE_DIR / "static"
 LEGACY_STATIC_DIR = BASE_DIR / "Static"
 SCRAPER_PATH = BASE_DIR / "Dynasty Scraper.py"
+RUNTIME_JS_DIR = (LEGACY_STATIC_DIR / "js") if (LEGACY_STATIC_DIR / "js").exists() else (STATIC_DIR / "js")
 
 DATA_DIR.mkdir(exist_ok=True)
 STATIC_DIR.mkdir(exist_ok=True)
@@ -160,6 +162,11 @@ latest_runtime_data: dict | None = None
 latest_runtime_data_bytes: bytes | None = None
 latest_runtime_data_gzip_bytes: bytes | None = None
 latest_runtime_data_etag: str | None = None
+# Startup-slim payload for first paint and early interaction.
+latest_startup_data: dict | None = None
+latest_startup_data_bytes: bytes | None = None
+latest_startup_data_gzip_bytes: bytes | None = None
+latest_startup_data_etag: str | None = None
 latest_data_source: dict = {
     "type": "",
     "path": "",
@@ -533,40 +540,136 @@ def _build_source_health_snapshot(data: dict | None) -> dict:
             missing.append(key)
 
     failures: list[dict] = []
+    seen_failures: set[tuple[str, str, str]] = set()
+
+    def _push_failure(source: str, reason: str, details: dict | None = None) -> None:
+        src = str(source or "").strip()
+        rsn = str(reason or "").strip() or "unknown"
+        d = details if isinstance(details, dict) else {}
+        detail_sig = str(d.get("error") or d.get("message") or "")
+        key = (src, rsn, detail_sig)
+        if key in seen_failures:
+            return
+        seen_failures.add(key)
+        failures.append(
+            {
+                "source": src,
+                "reason": rsn,
+                "details": d,
+            }
+        )
+
     settings = payload.get("settings") if isinstance(payload.get("settings"), dict) else {}
     dlf_import = settings.get("dlfImport") if isinstance(settings.get("dlfImport"), dict) else {}
     for src_key, meta in dlf_import.items():
         if not isinstance(meta, dict):
             continue
         if not meta.get("loaded", False):
-            failures.append(
+            _push_failure(
+                str(src_key),
+                "not_loaded",
                 {
-                    "source": src_key,
-                    "reason": "not_loaded",
-                    "details": {
-                        "file": meta.get("file"),
-                        "parseMode": meta.get("parseMode"),
-                        "badRows": meta.get("badRows"),
-                    },
-                }
+                    "file": meta.get("file"),
+                    "parseMode": meta.get("parseMode"),
+                    "badRows": meta.get("badRows"),
+                },
             )
         elif meta.get("stale", False):
-            failures.append(
+            _push_failure(
+                str(src_key),
+                "stale_csv",
                 {
-                    "source": src_key,
-                    "reason": "stale_csv",
-                    "details": {
-                        "file": meta.get("file"),
-                        "ageDays": meta.get("ageDays"),
-                    },
-                }
+                    "file": meta.get("file"),
+                    "ageDays": meta.get("ageDays"),
+                },
             )
+
+    source_run_summary = settings.get("sourceRunSummary")
+    source_runtime = {}
+    partial_run = False
+    if isinstance(source_run_summary, dict):
+        enabled_sources = source_run_summary.get("enabledSources")
+        complete_sources = source_run_summary.get("completeSources")
+        partial_sources = source_run_summary.get("partialSources")
+        timed_out_sources = source_run_summary.get("timedOutSources")
+        failed_sources = source_run_summary.get("failedSources")
+        source_rows = source_run_summary.get("sources")
+        if not isinstance(enabled_sources, list):
+            enabled_sources = []
+        if not isinstance(complete_sources, list):
+            complete_sources = []
+        if not isinstance(partial_sources, list):
+            partial_sources = []
+        if not isinstance(timed_out_sources, list):
+            timed_out_sources = []
+        if not isinstance(failed_sources, list):
+            failed_sources = []
+        if not isinstance(source_rows, dict):
+            source_rows = {}
+
+        for src in timed_out_sources:
+            row = source_rows.get(src) if isinstance(source_rows.get(src), dict) else {}
+            _push_failure(
+                str(src),
+                "timeout",
+                {
+                    "error": row.get("error"),
+                    "message": row.get("message"),
+                    "timeoutSec": row.get("timeoutSec"),
+                    "valueCount": row.get("valueCount"),
+                },
+            )
+        for src in failed_sources:
+            row = source_rows.get(src) if isinstance(source_rows.get(src), dict) else {}
+            _push_failure(
+                str(src),
+                "failed",
+                {
+                    "error": row.get("error"),
+                    "message": row.get("message"),
+                    "valueCount": row.get("valueCount"),
+                },
+            )
+        for src in partial_sources:
+            row = source_rows.get(src) if isinstance(source_rows.get(src), dict) else {}
+            _push_failure(
+                str(src),
+                "partial",
+                {
+                    "message": row.get("message"),
+                    "valueCount": row.get("valueCount"),
+                },
+            )
+
+        partial_run = bool(
+            source_run_summary.get("partialRun")
+            or partial_sources
+            or timed_out_sources
+            or failed_sources
+        )
+        source_runtime = {
+            "overall_status": source_run_summary.get("overallStatus"),
+            "partial_run": partial_run,
+            "started_at": source_run_summary.get("startedAt"),
+            "finished_at": source_run_summary.get("finishedAt"),
+            "duration_sec": source_run_summary.get("durationSec"),
+            "enabled_sources": sorted([str(s) for s in enabled_sources]),
+            "complete_sources": sorted([str(s) for s in complete_sources]),
+            "partial_sources": sorted([str(s) for s in partial_sources]),
+            "timed_out_sources": sorted([str(s) for s in timed_out_sources]),
+            "failed_sources": sorted([str(s) for s in failed_sources]),
+        }
+
+    if not partial_run:
+        partial_run = len(failures) > 0
 
     return {
         "total_sources": len(source_counts),
         "sources_with_data": available,
         "source_counts": source_counts,
         "missing_sources": sorted(missing),
+        "partial_run": bool(partial_run),
+        "source_runtime": source_runtime,
         "source_failures": failures,
     }
 
@@ -642,6 +745,7 @@ def _prime_latest_payload(data: dict | None) -> None:
     """Pre-serialize latest payload once so /api/data returns instantly."""
     global latest_contract_data, latest_data_bytes, latest_data_gzip_bytes, latest_data_etag
     global latest_runtime_data, latest_runtime_data_bytes, latest_runtime_data_gzip_bytes, latest_runtime_data_etag
+    global latest_startup_data, latest_startup_data_bytes, latest_startup_data_gzip_bytes, latest_startup_data_etag
     global contract_health
     latest_data_bytes = None
     latest_data_gzip_bytes = None
@@ -651,6 +755,10 @@ def _prime_latest_payload(data: dict | None) -> None:
     latest_runtime_data_bytes = None
     latest_runtime_data_gzip_bytes = None
     latest_runtime_data_etag = None
+    latest_startup_data = None
+    latest_startup_data_bytes = None
+    latest_startup_data_gzip_bytes = None
+    latest_startup_data_etag = None
     if not data:
         return
     try:
@@ -687,6 +795,15 @@ def _prime_latest_payload(data: dict | None) -> None:
         latest_runtime_data_bytes = runtime_raw
         latest_runtime_data_gzip_bytes = gzip.compress(runtime_raw, compresslevel=5)
         latest_runtime_data_etag = hashlib.sha1(runtime_raw).hexdigest()
+
+        # Startup payload: same contract shape, but strips heavyweight fields
+        # not needed for first screen render so first data-visible is faster.
+        startup_payload = build_api_startup_payload(runtime_payload)
+        startup_raw = json.dumps(startup_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        latest_startup_data = startup_payload
+        latest_startup_data_bytes = startup_raw
+        latest_startup_data_gzip_bytes = gzip.compress(startup_raw, compresslevel=5)
+        latest_startup_data_etag = hashlib.sha1(startup_raw).hexdigest()
     except Exception as e:
         contract_health = {
             "ok": False,
@@ -1060,15 +1177,32 @@ async def get_data(request: Request):
     """Return latest normalized/validated data contract JSON."""
     if latest_contract_data:
         view = (request.query_params.get("view") or "").strip().lower()
+        startup_view = view in {"startup", "boot", "initial"}
         runtime_view = view in {"app", "runtime", "lite", "slim"}
-        payload_bytes = latest_runtime_data_bytes if runtime_view else latest_data_bytes
-        payload_gzip_bytes = latest_runtime_data_gzip_bytes if runtime_view else latest_data_gzip_bytes
-        payload_etag = latest_runtime_data_etag if runtime_view else latest_data_etag
-        payload_obj = latest_runtime_data if runtime_view else latest_contract_data
+
+        payload_bytes = latest_data_bytes
+        payload_gzip_bytes = latest_data_gzip_bytes
+        payload_etag = latest_data_etag
+        payload_obj = latest_contract_data
+        payload_view_name = "full"
+
+        if startup_view and latest_startup_data is not None:
+            payload_bytes = latest_startup_data_bytes
+            payload_gzip_bytes = latest_startup_data_gzip_bytes
+            payload_etag = latest_startup_data_etag
+            payload_obj = latest_startup_data
+            payload_view_name = "startup"
+        elif runtime_view and latest_runtime_data is not None:
+            payload_bytes = latest_runtime_data_bytes
+            payload_gzip_bytes = latest_runtime_data_gzip_bytes
+            payload_etag = latest_runtime_data_etag
+            payload_obj = latest_runtime_data
+            payload_view_name = "runtime"
 
         headers = {
             # Keep dashboard startup fast with a short cache window + conditional revalidation.
             "Cache-Control": "public, max-age=30, stale-while-revalidate=300",
+            "X-Payload-View": payload_view_name,
         }
         if payload_etag:
             headers["ETag"] = payload_etag
@@ -1099,27 +1233,36 @@ async def get_dynasty_data_alias(request: Request):
 async def get_status():
     """Return scraper status info."""
     status_payload = _scrape_status_payload()
-    source_health = _build_source_health_snapshot(latest_contract_data or latest_data)
+    # Prefer full scrape payload for source-health truth (dlfImport/sourceRunSummary).
+    # Contract payload is a compatibility fallback when full payload is unavailable.
+    source_health = _build_source_health_snapshot(latest_data or latest_contract_data)
     full_bytes = len(latest_data_bytes) if latest_data_bytes else 0
     runtime_bytes = len(latest_runtime_data_bytes) if latest_runtime_data_bytes else 0
+    startup_bytes = len(latest_startup_data_bytes) if latest_startup_data_bytes else 0
     full_gzip_bytes = len(latest_data_gzip_bytes) if latest_data_gzip_bytes else 0
     runtime_gzip_bytes = len(latest_runtime_data_gzip_bytes) if latest_runtime_data_gzip_bytes else 0
+    startup_gzip_bytes = len(latest_startup_data_gzip_bytes) if latest_startup_data_gzip_bytes else 0
     return JSONResponse(content={
         **status_payload,
         "frontend_runtime": frontend_runtime_status,
         "contract": {
             "version": API_DATA_CONTRACT_VERSION,
             "health": contract_health,
+            "value_authority": (latest_contract_data or {}).get("valueAuthority"),
         },
         "data_runtime": {
             "last_data_refresh_at": latest_data_source.get("loadedAt"),
             "active_data_source": latest_data_source,
             "payload_bytes_full": full_bytes,
             "payload_bytes_runtime": runtime_bytes,
+            "payload_bytes_startup": startup_bytes,
             "payload_gzip_bytes_full": full_gzip_bytes,
             "payload_gzip_bytes_runtime": runtime_gzip_bytes,
+            "payload_gzip_bytes_startup": startup_gzip_bytes,
             "runtime_payload_savings_bytes": max(0, full_bytes - runtime_bytes),
             "runtime_payload_savings_gzip_bytes": max(0, full_gzip_bytes - runtime_gzip_bytes),
+            "startup_payload_savings_bytes": max(0, full_bytes - startup_bytes),
+            "startup_payload_savings_gzip_bytes": max(0, full_gzip_bytes - startup_gzip_bytes),
         },
         "source_health": source_health,
         "uptime": uptime_status,
@@ -1430,6 +1573,9 @@ if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 if LEGACY_STATIC_DIR.exists():
     app.mount("/Static", StaticFiles(directory=str(LEGACY_STATIC_DIR)), name="legacy-static")
+if RUNTIME_JS_DIR.exists():
+    # Expose extracted runtime modules for root-served index.html (`src="js/runtime/*"`).
+    app.mount("/js", StaticFiles(directory=str(RUNTIME_JS_DIR)), name="runtime-js")
 
 
 # ── MAIN ────────────────────────────────────────────────────────────────

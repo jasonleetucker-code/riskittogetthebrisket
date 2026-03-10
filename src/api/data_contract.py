@@ -7,13 +7,14 @@ import re
 from typing import Any
 
 
-CONTRACT_VERSION = "2026-03-09.v1"
+CONTRACT_VERSION = "2026-03-10.v2"
 
 REQUIRED_TOP_LEVEL_KEYS = {
     "contractVersion",
     "generatedAt",
     "players",
     "playersArray",
+    "valueAuthority",
     "sites",
     "maxValues",
 }
@@ -28,6 +29,20 @@ REQUIRED_PLAYER_KEYS = {
     "values",
     "canonicalSiteValues",
     "sourceCount",
+}
+
+# Fields that are useful for deeper diagnostics/explanations but are not required
+# for initial first-paint startup rendering in the Static runtime.
+STARTUP_HEAVY_PLAYER_FIELD_PREFIXES = ("_formatFit",)
+STARTUP_HEAVY_PLAYER_FIELDS = {
+    "_scoringAdjustment",
+}
+STARTUP_DROP_TOP_LEVEL_KEYS = {
+    # Large secondary blocks not required for first-screen calculator/rankings usability.
+    "coverageAudit",
+    "ktcCrowd",
+    # Runtime/startup views intentionally avoid the duplicated contract array.
+    "playersArray",
 }
 
 
@@ -159,6 +174,49 @@ def _derive_player_row(
     }
 
 
+def _build_value_authority_summary(players_array: list[dict[str, Any]]) -> dict[str, Any]:
+    total = len(players_array or [])
+    raw_present = 0
+    final_present = 0
+    canonical_map_present = 0
+    canonical_points = 0
+
+    for row in players_array or []:
+        if not isinstance(row, dict):
+            continue
+        values = row.get("values")
+        if isinstance(values, dict):
+            raw_v = _to_int_or_none(values.get("rawComposite"))
+            final_v = _to_int_or_none(values.get("finalAdjusted"))
+            if raw_v is not None and raw_v > 0:
+                raw_present += 1
+            if final_v is not None and final_v > 0:
+                final_present += 1
+
+        canonical_sites = row.get("canonicalSiteValues")
+        if isinstance(canonical_sites, dict):
+            non_null = 0
+            for val in canonical_sites.values():
+                n = _to_int_or_none(val)
+                if n is not None and n > 0:
+                    non_null += 1
+            if non_null > 0:
+                canonical_map_present += 1
+                canonical_points += non_null
+
+    return {
+        "mode": "backend_authoritative_with_explicit_frontend_fallback",
+        "fallbackPolicy": "frontend_recompute_only_when_backend_value_fields_missing",
+        "coverage": {
+            "playersTotal": total,
+            "rawCompositePresent": raw_present,
+            "finalAdjustedPresent": final_present,
+            "canonicalSiteMapPresent": canonical_map_present,
+            "canonicalSiteValuePoints": canonical_points,
+        },
+    }
+
+
 def build_api_data_contract(
     raw_payload: dict[str, Any],
     *,
@@ -205,6 +263,7 @@ def build_api_data_contract(
         "generatedAt": utc_now_iso(),
         "playersArray": players_array,
         "playerCount": len(players_array),
+        "valueAuthority": _build_value_authority_summary(players_array),
         "dataSource": {
             "type": str(data_source.get("type") or ""),
             "path": str(data_source.get("path") or ""),
@@ -212,6 +271,45 @@ def build_api_data_contract(
         },
     }
     return contract_payload
+
+
+def _strip_startup_player_fields(player_row: dict[str, Any]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for key, value in (player_row or {}).items():
+        key_s = str(key)
+        if key_s in STARTUP_HEAVY_PLAYER_FIELDS:
+            continue
+        if any(key_s.startswith(prefix) for prefix in STARTUP_HEAVY_PLAYER_FIELD_PREFIXES):
+            continue
+        out[key_s] = value
+    return out
+
+
+def build_api_startup_payload(contract_payload: dict[str, Any]) -> dict[str, Any]:
+    """
+    Build a startup-slim payload for first paint / early interaction.
+
+    Keeps the same top-level contract shape expected by the live Static app,
+    but strips heavyweight per-player debug fields and non-critical secondary
+    top-level blobs so startup transfer/parse cost is lower.
+    """
+    base = deepcopy(contract_payload or {})
+
+    for key in STARTUP_DROP_TOP_LEVEL_KEYS:
+        base.pop(key, None)
+
+    players_map = base.get("players")
+    if isinstance(players_map, dict):
+        slim_players: dict[str, Any] = {}
+        for name, pdata in players_map.items():
+            if isinstance(pdata, dict):
+                slim_players[str(name)] = _strip_startup_player_fields(pdata)
+            else:
+                slim_players[str(name)] = pdata
+        base["players"] = slim_players
+
+    base["payloadView"] = "startup"
+    return base
 
 
 def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
@@ -234,6 +332,14 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
     for key in sorted(REQUIRED_TOP_LEVEL_KEYS):
         if key not in payload:
             errors.append(f"missing top-level key: {key}")
+
+    value_authority = payload.get("valueAuthority")
+    if not isinstance(value_authority, dict):
+        errors.append("valueAuthority must be an object")
+    else:
+        coverage = value_authority.get("coverage")
+        if not isinstance(coverage, dict):
+            errors.append("valueAuthority.coverage must be an object")
 
     players_map = payload.get("players")
     if not isinstance(players_map, dict):
@@ -295,4 +401,3 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         "contractVersion": str(payload.get("contractVersion") or CONTRACT_VERSION),
         "playerCount": len(players_array),
     }
-

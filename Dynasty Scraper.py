@@ -231,9 +231,12 @@ LAM_SEASONS = [2025, 2024, 2023]  # Seasons to pull historical data from
 # ─────────────────────────────────────────
 # TRADE MOVEMENT ALERTS — email when your roster players move 5%+
 # ─────────────────────────────────────────
-ALERT_EMAIL    = "jasonleetucker@icloud.com"
-ALERT_THRESHOLD = 5.0   # percent change to trigger alert
-ALERT_ENABLED  = True
+ALERT_EMAIL = _env_str("ALERT_EMAIL", "jasonleetucker@icloud.com")
+try:
+    ALERT_THRESHOLD = float(_env_str("ALERT_THRESHOLD", "5.0"))  # percent change to trigger alert
+except Exception:
+    ALERT_THRESHOLD = 5.0
+ALERT_ENABLED = _env_str("ALERT_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
 
 # ─────────────────────────────────────────
 # DYNASTYNERDS LOGIN — required for full rankings access
@@ -245,9 +248,7 @@ DYNASTYNERDS_PASSWORD = os.environ.get("DN_PASS", "")
 # ─────────────────────────────────────────
 # DLF LOCAL CSV SOURCES (manual export drop-in)
 # ─────────────────────────────────────────
-DLF_SESSION = "dlf_session.json"
-DLF_EMAIL    = os.environ.get("DLF_EMAIL", "")
-DLF_PASSWORD = os.environ.get("DLF_PASS", "")
+# DLF is local-CSV only in this runtime. No login/session credentials are used.
 DLF_LOCAL_CSV_SOURCES = (
     ("DLF_SF", "dlf_superflex.csv", "offense"),
     ("DLF_IDP", "dlf_idp.csv", "idp"),
@@ -7633,6 +7634,7 @@ def print_health_report():
 # ─────────────────────────────────────────
 async def run(progress_callback=None):
     global DLF_IMPORT_DEBUG
+    run_started_at_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
     async def _emit_progress(
         step,
@@ -7644,6 +7646,13 @@ async def run(progress_callback=None):
         level="info",
         meta=None,
     ):
+        _mark_source_event(
+            source=source,
+            event=event,
+            message=message,
+            level=level,
+            meta=meta or {},
+        )
         if not callable(progress_callback):
             return
         payload = {
@@ -7682,6 +7691,101 @@ async def run(progress_callback=None):
         "FantasyCalc": _env_int("SCRAPER_SOURCE_TIMEOUT_FANTASYCALC", 90),
         "DLF_LocalCSV": _env_int("SCRAPER_SOURCE_TIMEOUT_DLF_LOCALCSV", 60),
     }
+    source_enabled_map = {
+        "FantasyCalc": bool(SITES.get("FantasyCalc")),
+        "DLF_LocalCSV": bool(SITES.get("DLF")),
+        "KTC": bool(SITES.get("KTC")),
+        "DynastyDaddy": bool(SITES.get("DynastyDaddy")),
+        "FantasyPros": bool(SITES.get("FantasyPros")),
+        "DraftSharks": bool(SITES.get("DraftSharks")),
+        "Yahoo": bool(SITES.get("Yahoo")),
+        "DynastyNerds": bool(SITES.get("DynastyNerds")),
+        "IDPTradeCalc": bool(SITES.get("IDPTradeCalc")),
+        "PFF_IDP": bool(SITES.get("PFF_IDP")),
+        "DraftSharks_IDP": bool(SITES.get("DraftSharks_IDP")),
+        "FantasyPros_IDP": bool(SITES.get("FantasyPros_IDP")),
+        "Flock": bool(SITES.get("Flock")),
+        "KTC_TradeDB": bool(SITES.get("KTC")),
+        "KTC_WaiverDB": bool(SITES.get("KTC")),
+    }
+    source_run_state = {}
+
+    def _duration_sec(started_at, finished_at):
+        if not started_at or not finished_at:
+            return None
+        try:
+            st = datetime.datetime.fromisoformat(str(started_at).replace("Z", "+00:00"))
+            en = datetime.datetime.fromisoformat(str(finished_at).replace("Z", "+00:00"))
+            return max(0.0, round((en - st).total_seconds(), 2))
+        except Exception:
+            return None
+
+    def _new_source_state(source_name, enabled_flag):
+        timeout_sec = int(source_timeouts.get(source_name, source_timeout_default))
+        return {
+            "source": source_name,
+            "enabled": bool(enabled_flag),
+            "timeoutSec": timeout_sec,
+            "state": "pending" if enabled_flag else "disabled",
+            "startedAt": None,
+            "finishedAt": None,
+            "durationSec": None,
+            "message": "",
+            "error": None,
+            "valueCount": 0,
+            "meta": {},
+        }
+
+    for _src_name, _enabled in source_enabled_map.items():
+        source_run_state[_src_name] = _new_source_state(_src_name, _enabled)
+
+    def _mark_source_event(source=None, event=None, message=None, level="info", meta=None):
+        src = str(source or "").strip()
+        ev = str(event or "").strip()
+        if not src or not ev.startswith("source_"):
+            return
+        if src not in source_run_state:
+            source_run_state[src] = _new_source_state(src, True)
+        row = source_run_state[src]
+        if not row.get("enabled"):
+            return
+        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        meta_obj = meta if isinstance(meta, dict) else {}
+        if ev == "source_start":
+            row["state"] = "running"
+            row["startedAt"] = row.get("startedAt") or now_iso
+            row["finishedAt"] = None
+            row["durationSec"] = None
+            row["error"] = None
+        elif ev == "source_complete":
+            row["state"] = "complete"
+            row["finishedAt"] = now_iso
+            row["durationSec"] = _duration_sec(row.get("startedAt"), now_iso)
+            row["error"] = None
+        elif ev == "source_partial":
+            row["state"] = "partial"
+            row["finishedAt"] = now_iso
+            row["durationSec"] = _duration_sec(row.get("startedAt"), now_iso)
+        elif ev == "source_failed":
+            msg_l = str(message or "").lower()
+            timed_out = ("timed out" in msg_l) or ("timeout" in msg_l)
+            row["state"] = "timeout" if timed_out else "failed"
+            row["finishedAt"] = now_iso
+            row["durationSec"] = _duration_sec(row.get("startedAt"), now_iso)
+            row["error"] = str(message or "").strip() or f"{src} failed"
+        if "valueCount" in meta_obj:
+            try:
+                row["valueCount"] = int(meta_obj.get("valueCount") or 0)
+            except Exception:
+                pass
+        if meta_obj:
+            prior_meta = row.get("meta") if isinstance(row.get("meta"), dict) else {}
+            prior_meta.update(meta_obj)
+            row["meta"] = prior_meta
+        if message:
+            row["message"] = str(message)
+        if level == "error" and not row.get("error"):
+            row["error"] = str(message or f"{src} failed")
 
     enabled_browser_sites = [
         s for s in (
@@ -7736,15 +7840,21 @@ async def run(progress_callback=None):
                 asyncio.to_thread(fetch_fantasycalc, PLAYERS),
                 timeout=source_timeouts["FantasyCalc"],
             )
+            fantasycalc_count = sum(
+                1 for v in fantasycalc_vals.values()
+                if isinstance(v, (int, float)) and v > 0
+            )
             for p, v in fantasycalc_vals.items():
                 all_results[p]["FantasyCalc"] = v
             await _emit_progress(
-                step="source_complete",
+                step="source_complete" if fantasycalc_count > 0 else "source_partial",
                 source="FantasyCalc",
                 step_index=progress_index,
                 step_total=planned_total_steps,
-                event="source_complete",
-                message=f"FantasyCalc complete ({sum(1 for v in fantasycalc_vals.values() if v is not None)} values)",
+                event="source_complete" if fantasycalc_count > 0 else "source_partial",
+                level="info" if fantasycalc_count > 0 else "warning",
+                message=f"FantasyCalc complete ({fantasycalc_count} mapped values)",
+                meta={"valueCount": fantasycalc_count},
             )
         except asyncio.TimeoutError:
             await _emit_progress(
@@ -7786,14 +7896,42 @@ async def run(progress_callback=None):
                 for p, v in site_results.items():
                     if v is not None:
                         all_results[p][source_key] = v
+            expected_dlf_sources = [str(sk) for sk, _, _ in DLF_LOCAL_CSV_SOURCES]
+            loaded_dlf_sources = sorted([
+                str(sk) for sk, meta in (dlf_meta or {}).items()
+                if isinstance(meta, dict) and bool(meta.get("loaded"))
+            ])
+            stale_dlf_sources = sorted([
+                str(sk) for sk, meta in (dlf_meta or {}).items()
+                if isinstance(meta, dict) and bool(meta.get("stale"))
+            ])
+            missing_dlf_sources = sorted(set(expected_dlf_sources) - set(loaded_dlf_sources))
+            dlf_value_count = sum(
+                1
+                for _player, row in all_results.items()
+                for src_key in ("DLF_SF", "DLF_IDP", "DLF_RSF", "DLF_RIDP")
+                if isinstance((row or {}).get(src_key), (int, float)) and (row or {}).get(src_key) > 0
+            )
+            dlf_partial = bool(missing_dlf_sources or stale_dlf_sources or dlf_value_count <= 0)
             await _emit_progress(
-                step="source_complete",
+                step="source_complete" if not dlf_partial else "source_partial",
                 source="DLF_LocalCSV",
                 step_index=progress_index,
                 step_total=planned_total_steps,
-                event="source_complete",
-                message=f"DLF local load complete ({len(dlf_source_maps)} source files)",
-                meta={"loaded_sources": list(dlf_source_maps.keys())},
+                event="source_complete" if not dlf_partial else "source_partial",
+                level="info" if not dlf_partial else "warning",
+                message=(
+                    f"DLF local load complete "
+                    f"(loaded={len(loaded_dlf_sources)}/{len(expected_dlf_sources)}, "
+                    f"values={dlf_value_count}, stale={len(stale_dlf_sources)})"
+                ),
+                meta={
+                    "valueCount": dlf_value_count,
+                    "expectedSources": expected_dlf_sources,
+                    "loadedSources": loaded_dlf_sources,
+                    "missingSources": missing_dlf_sources,
+                    "staleSources": stale_dlf_sources,
+                },
             )
         except asyncio.TimeoutError:
             await _emit_progress(
@@ -7929,13 +8067,20 @@ async def run(progress_callback=None):
                         try:
                             timeout_sec = source_timeouts.get(site, source_timeout_default)
                             result = await asyncio.wait_for(scraper(page, PLAYERS), timeout=timeout_sec)
+                            value_count = sum(
+                                1 for v in (result or {}).values()
+                                if isinstance(v, (int, float)) and v > 0
+                            )
+                            complete_event = "source_complete" if value_count > 0 else "source_partial"
                             await _emit_progress(
-                                step="source_complete",
+                                step="source_complete" if value_count > 0 else "source_partial",
                                 source=site,
                                 step_index=progress_index,
                                 step_total=planned_total_steps,
-                                event="source_complete",
-                                message=f"{site} completed",
+                                event=complete_event,
+                                level="info" if value_count > 0 else "warning",
+                                message=f"{site} completed ({value_count} mapped values)",
+                                meta={"valueCount": value_count},
                             )
                             return site, result
                         except asyncio.TimeoutError:
@@ -7979,13 +8124,19 @@ async def run(progress_callback=None):
                     parallel_results = await asyncio.gather(*all_parallel_tasks)
                     for site, site_results in parallel_results:
                         if site == "Flock":
+                            flock_count = sum(
+                                1 for v in (site_results or {}).values()
+                                if isinstance(v, (int, float)) and v > 0
+                            )
                             await _emit_progress(
-                                step="source_complete",
+                                step="source_complete" if flock_count > 0 else "source_partial",
                                 source="Flock",
                                 step_index=progress_index,
                                 step_total=planned_total_steps,
-                                event="source_complete",
-                                message=f"Flock completed ({len(site_results)} mapped values)",
+                                event="source_complete" if flock_count > 0 else "source_partial",
+                                level="info" if flock_count > 0 else "warning",
+                                message=f"Flock completed ({flock_count} mapped values)",
+                                meta={"valueCount": flock_count},
                             )
                             for p, v in site_results.items():
                                 if p in all_results:
@@ -8004,15 +8155,21 @@ async def run(progress_callback=None):
                     try:
                         timeout_sec = source_timeouts.get(site, source_timeout_default)
                         site_results = await asyncio.wait_for(scraper(page, PLAYERS), timeout=timeout_sec)
+                        value_count = sum(
+                            1 for v in (site_results or {}).values()
+                            if isinstance(v, (int, float)) and v > 0
+                        )
                         for p, v in site_results.items():
                             all_results[p][site] = v
                         await _emit_progress(
-                            step="source_complete",
+                            step="source_complete" if value_count > 0 else "source_partial",
                             source=site,
                             step_index=progress_index,
                             step_total=planned_total_steps,
-                            event="source_complete",
-                            message=f"{site} completed",
+                            event="source_complete" if value_count > 0 else "source_partial",
+                            level="info" if value_count > 0 else "warning",
+                            message=f"{site} completed ({value_count} mapped values)",
+                            meta={"valueCount": value_count},
                         )
                     except asyncio.TimeoutError:
                         await _emit_progress(
@@ -8048,13 +8205,16 @@ async def run(progress_callback=None):
                             scrape_ktc_trade_database(trade_page),
                             timeout=source_timeouts["KTC_TradeDB"],
                         )
+                        trade_count = len(KTC_CROWD_DATA.get("trades", []) or [])
                         await _emit_progress(
-                            step="source_complete",
+                            step="source_complete" if trade_count > 0 else "source_partial",
                             source="KTC_TradeDB",
                             step_index=progress_index,
                             step_total=planned_total_steps,
-                            event="source_complete",
-                            message="KTC trade database complete",
+                            event="source_complete" if trade_count > 0 else "source_partial",
+                            level="info" if trade_count > 0 else "warning",
+                            message=f"KTC trade database complete ({trade_count} trades)",
+                            meta={"valueCount": trade_count},
                         )
                         await trade_page.close()
                     except asyncio.TimeoutError:
@@ -8086,13 +8246,16 @@ async def run(progress_callback=None):
                             scrape_ktc_waiver_database(waiver_page),
                             timeout=source_timeouts["KTC_WaiverDB"],
                         )
+                        waiver_count = len(KTC_CROWD_DATA.get("waivers", []) or [])
                         await _emit_progress(
-                            step="source_complete",
+                            step="source_complete" if waiver_count > 0 else "source_partial",
                             source="KTC_WaiverDB",
                             step_index=progress_index,
                             step_total=planned_total_steps,
-                            event="source_complete",
-                            message="KTC waiver database complete",
+                            event="source_complete" if waiver_count > 0 else "source_partial",
+                            level="info" if waiver_count > 0 else "warning",
+                            message=f"KTC waiver database complete ({waiver_count} waivers)",
+                            meta={"valueCount": waiver_count},
                         )
                         await waiver_page.close()
                     except asyncio.TimeoutError:
@@ -8119,8 +8282,91 @@ async def run(progress_callback=None):
                         print(f"  [KTC Waiver DB error] {e}")
                 elif SITES.get("KTC"):
                     print("  [KTC Crowd] Skipping trade/waiver DB — no playerID→name mapping available")
+                    await _emit_progress(
+                        step="source_partial",
+                        source="KTC_TradeDB",
+                        step_index=progress_index,
+                        step_total=planned_total_steps,
+                        event="source_partial",
+                        level="warning",
+                        message="KTC trade DB skipped — no playerID→name mapping available",
+                        meta={"valueCount": 0, "skipReason": "missing_ktc_id_map"},
+                    )
+                    await _emit_progress(
+                        step="source_partial",
+                        source="KTC_WaiverDB",
+                        step_index=progress_index,
+                        step_total=planned_total_steps,
+                        event="source_partial",
+                        level="warning",
+                        message="KTC waiver DB skipped — no playerID→name mapping available",
+                        meta={"valueCount": 0, "skipReason": "missing_ktc_id_map"},
+                    )
 
                 await browser.close()
+
+    def _count_site_values_from_results(site_name):
+        if site_name == "DLF_LocalCSV":
+            dlf_keys = ("DLF_SF", "DLF_IDP", "DLF_RSF", "DLF_RIDP")
+            return sum(
+                1
+                for _player, row in all_results.items()
+                for k in dlf_keys
+                if isinstance((row or {}).get(k), (int, float)) and (row or {}).get(k) > 0
+            )
+        if site_name == "KTC_TradeDB":
+            return len(KTC_CROWD_DATA.get("trades", []) or [])
+        if site_name == "KTC_WaiverDB":
+            return len(KTC_CROWD_DATA.get("waivers", []) or [])
+        return sum(
+            1 for _player, row in all_results.items()
+            if isinstance((row or {}).get(site_name), (int, float)) and (row or {}).get(site_name) > 0
+        )
+
+    # Reconcile final per-source state after all source phases complete.
+    for _source_name, _state in source_run_state.items():
+        if not _state.get("enabled"):
+            _state["state"] = "disabled"
+            continue
+        _count = int(_state.get("valueCount") or 0)
+        if _count <= 0:
+            _count = _count_site_values_from_results(_source_name)
+        _state["valueCount"] = int(_count)
+        if _state.get("state") == "running":
+            _state["state"] = "partial" if _count <= 0 else "complete"
+            _state["finishedAt"] = _state.get("finishedAt") or datetime.datetime.now(datetime.timezone.utc).isoformat()
+            _state["durationSec"] = _duration_sec(_state.get("startedAt"), _state.get("finishedAt"))
+            if _count <= 0:
+                _state["message"] = _state.get("message") or "source ended without mapped values"
+        if _state.get("state") == "complete" and _count <= 0:
+            _state["state"] = "partial"
+            _state["message"] = _state.get("message") or "source completed with zero mapped values"
+
+    enabled_sources = sorted([s for s, row in source_run_state.items() if row.get("enabled")])
+    complete_sources = sorted([s for s, row in source_run_state.items() if row.get("enabled") and row.get("state") == "complete"])
+    partial_sources = sorted([s for s, row in source_run_state.items() if row.get("enabled") and row.get("state") == "partial"])
+    timeout_sources = sorted([s for s, row in source_run_state.items() if row.get("enabled") and row.get("state") == "timeout"])
+    failed_sources = sorted([s for s, row in source_run_state.items() if row.get("enabled") and row.get("state") == "failed"])
+    run_finished_at_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    source_run_summary = {
+        "startedAt": run_started_at_iso,
+        "finishedAt": run_finished_at_iso,
+        "durationSec": _duration_sec(run_started_at_iso, run_finished_at_iso),
+        "overallStatus": "partial" if (partial_sources or timeout_sources or failed_sources) else "complete",
+        "partialRun": bool(partial_sources or timeout_sources or failed_sources),
+        "enabledSources": enabled_sources,
+        "completeSources": complete_sources,
+        "partialSources": partial_sources,
+        "timedOutSources": timeout_sources,
+        "failedSources": failed_sources,
+        "sourceTimeouts": {k: int(v) for k, v in source_timeouts.items()},
+        "sources": source_run_state,
+    }
+    print(
+        "  [Source Summary] "
+        f"complete={len(complete_sources)}/{len(enabled_sources)} "
+        f"partial={len(partial_sources)} timeout={len(timeout_sources)} failed={len(failed_sources)}"
+    )
 
     # [NEW] Print scrape health report
     await _phase("health_report", "summary", message="Generating scrape health report")
@@ -10913,6 +11159,7 @@ async def run(progress_callback=None):
             "rankCurveDiagnostics": _rank_curve_diagnostics,
             "mustHaveRookies": list(ROOKIE_MUST_HAVE_NAMES or []),
             "dlfImport": dict(DLF_IMPORT_DEBUG or {}),
+            "sourceRunSummary": source_run_summary,
         },
         "sites": sites_meta,
         "maxValues": max_values,
