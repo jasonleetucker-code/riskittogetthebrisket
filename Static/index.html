@@ -2305,8 +2305,7 @@
 
       #tab-calculator .side-header,
       #tab-calculator .table-scroll,
-      #tab-calculator .add-player-btn,
-      #tab-calculator #sideCSection {
+      #tab-calculator .add-player-btn {
         display: none !important;
       }
 
@@ -2352,6 +2351,58 @@
         top: 56px;
         z-index: 22;
         margin-bottom: 8px;
+      }
+
+      /* Mobile power mode: restore full desktop workflows while keeping compact default mobile flow. */
+      body.mobile-power-mode #tab-calculator .side-header {
+        display: flex !important;
+      }
+      body.mobile-power-mode #tab-calculator .table-scroll,
+      body.mobile-power-mode #tab-calculator #tradeAnalysisCard,
+      body.mobile-power-mode #tab-calculator #quickUseCard {
+        display: block !important;
+      }
+      body.mobile-power-mode #tab-calculator .add-player-btn {
+        display: inline-flex !important;
+      }
+      body.mobile-power-mode #tab-calculator .table-scroll {
+        overflow-x: auto;
+      }
+
+      body.mobile-power-mode #rankingsDesktopTable {
+        display: block !important;
+      }
+      body.mobile-power-mode .rankings-mobile-list {
+        display: none !important;
+      }
+      body.mobile-power-mode #tab-rookies .pos-filters {
+        display: flex !important;
+      }
+      body.mobile-power-mode #tab-rookies label[for="rankingsRookieToggle"],
+      body.mobile-power-mode #tab-rookies label[for="rankingsMyRosterToggle"] {
+        display: inline-flex !important;
+      }
+
+      body.mobile-power-mode #tab-edge #edgeDesktopTableWrap {
+        display: block !important;
+      }
+      body.mobile-power-mode #tab-edge #edgeMobileList {
+        display: none !important;
+      }
+      body.mobile-power-mode #tab-edge .quick-use,
+      body.mobile-power-mode #tab-trades .quick-use,
+      body.mobile-power-mode #tab-rosters .quick-use {
+        position: static;
+        top: auto;
+      }
+
+      body.mobile-power-mode #tab-league #leagueSubTabs {
+        gap: 6px;
+      }
+      body.mobile-power-mode #tab-league #leagueSubTabs .btn {
+        border-radius: 8px !important;
+        font-size: 0.68rem;
+        padding: 6px 8px;
       }
     }
   </style>
@@ -2587,6 +2638,7 @@
             <button class="mobile-chip-btn" onclick="swapSides()">Swap</button>
             <button class="mobile-chip-btn" onclick="clearPlayers()">Clear</button>
             <button class="mobile-chip-btn" onclick="openGlobalSearch()">Search</button>
+            <button class="mobile-chip-btn" id="mobilePowerModeQuickBtn" onclick="toggleMobilePowerModeFromTrade()">Power: Off</button>
           </div>
         </div>
         <div class="trade-mobile-side">
@@ -2851,6 +2903,15 @@
                 <input type="checkbox" id="rankingsShowSiteCols" onchange="setRankingsSourceColumnsVisible(this.checked);">
               </label>
               <p class="settings-note">Turn this on for source diagnostics, keep it off for the cleaner decision view.</p>
+              <label class="form-label" style="margin-top:10px;">
+                <span>Mobile Power Mode
+                  <span class="tip-wrap"><span class="tip-icon">?</span>
+                    <span class="tip-text">Keeps full desktop workflows available on phones (full trade tables, full rankings table, full edge table, and advanced tabs).</span>
+                  </span>
+                </span>
+                <input type="checkbox" id="mobilePowerModeToggle" onchange="setMobilePowerMode(this.checked);">
+              </label>
+              <p class="settings-note">Off by default for speed and readability. Enable when you need complete desktop parity on mobile.</p>
             </div>
           </div>
         </div>
@@ -3411,6 +3472,7 @@
   const MOBILE_PREFS_KEY = 'dynasty_mobile_prefs_v1';
   const MOBILE_MORE_SECTION_KEY = 'dynasty_mobile_more_section_v1';
   const MOBILE_WATCH_SECTION_KEY = 'dynasty_mobile_watch_section_v1';
+  const MOBILE_POWER_MODE_KEY = 'dynasty_mobile_power_mode_v1';
   let recalcTimer = null;
   let currentRankingsFilter = 'ALL';
   let rankingsSortAsc = false;
@@ -3419,6 +3481,7 @@
   let dataFreshnessDetailsOpen = false;
   let mobileMoreSection = 'edge';
   let mobileWatchSection = 'watchlist';
+  let mobilePowerModeEnabled = false;
   let rankingsExtraFilters = {
     picksOnly: false,
     watchOnly: false,
@@ -4009,6 +4072,75 @@
     return window.matchMedia('(max-width: 920px)').matches;
   }
 
+  function getMobilePowerModeEnabled() {
+    return !!mobilePowerModeEnabled;
+  }
+
+  function syncMobilePowerModeControls() {
+    const enabled = getMobilePowerModeEnabled();
+    const ids = ['mobilePowerModeToggle', 'mobilePowerModeToggleMore'];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.checked = enabled;
+    });
+    const tradeBtn = document.getElementById('mobilePowerModeQuickBtn');
+    if (tradeBtn) {
+      tradeBtn.textContent = enabled ? 'Power: On' : 'Power: Off';
+      tradeBtn.classList.toggle('primary', enabled);
+    }
+  }
+
+  function setMobilePowerMode(on, opts = {}) {
+    mobilePowerModeEnabled = !!on;
+    document.body.classList.toggle('mobile-power-mode', mobilePowerModeEnabled);
+    syncMobilePowerModeControls();
+
+    if (opts.persist !== false) {
+      try { localStorage.setItem(MOBILE_POWER_MODE_KEY, mobilePowerModeEnabled ? '1' : '0'); } catch (_) {}
+      persistSettings();
+    }
+    if (opts.refresh !== false) {
+      if (activeTabId === 'rookies') buildFullRankings();
+      if (activeTabId === 'edge') buildEdgeTable();
+      if (activeTabId === 'more') buildMoreHub();
+      updateMobileChrome(activeTabId);
+    }
+  }
+
+  function hydrateMobilePowerModeFromStorage() {
+    let resolved = null;
+    try {
+      const rawSession = sessionStorage.getItem(STORAGE_KEY);
+      if (rawSession) {
+        const parsed = JSON.parse(rawSession);
+        if (typeof parsed?.mobilePowerMode === 'boolean') {
+          resolved = parsed.mobilePowerMode;
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const raw = localStorage.getItem(MOBILE_POWER_MODE_KEY);
+      if (resolved == null && raw != null) resolved = (raw === '1' || raw === 'true');
+    } catch (_) {}
+    if (resolved == null) {
+      resolved = !!document.getElementById('mobilePowerModeToggle')?.checked;
+    }
+    setMobilePowerMode(!!resolved, { persist: false, refresh: false });
+  }
+
+  function openFullMobileWorkspace(tabId) {
+    const target = String(tabId || '').toLowerCase();
+    if (!target) return;
+    if (isMobileViewport()) {
+      setMobileMoreSection(target, { persist: true, refresh: false });
+      setMobilePowerMode(true, { persist: true, refresh: false });
+      switchTab(target, { allowLegacyMobile: true });
+      return;
+    }
+    switchTab(target);
+  }
+
   function getPrimaryMobileTab(tabId) {
     if (['home', 'rookies', 'calculator', 'watch', 'more'].includes(tabId)) return tabId;
     return 'more';
@@ -4032,6 +4164,14 @@
   }
 
   function getMobileTitleForTab(tabId) {
+    const legacyMap = {
+      edge: 'Edge',
+      rosters: 'Rosters',
+      league: 'League',
+      trades: 'Trades',
+      settings: 'Settings',
+    };
+    if (legacyMap[tabId]) return `${legacyMap[tabId]} · Full`;
     const t = getPrimaryMobileTab(tabId);
     if (t === 'home') return 'Home';
     if (t === 'rookies') return 'Ranks';
@@ -4070,7 +4210,11 @@
   function openLegacyTabFromMore(id) {
     if (isMobileViewport()) {
       setMobileMoreSection(id, { persist: true, refresh: true });
-      switchTab('more');
+      if (getMobilePowerModeEnabled()) {
+        switchTab(id, { allowLegacyMobile: true });
+      } else {
+        switchTab('more');
+      }
       return;
     }
     switchTab(id);
@@ -4081,15 +4225,28 @@
     openGlobalSearchForTrade('B');
   }
 
+  function toggleMobilePowerModeFromTrade() {
+    const next = !getMobilePowerModeEnabled();
+    setMobilePowerMode(next, { persist: true, refresh: true });
+    if (next) {
+      switchTab('calculator', { allowLegacyMobile: true, persist: false });
+    }
+  }
+
   function switchTab(id, opts = {}) {
     const requestedId = id;
     let nextId = id;
     const mobilePrimary = ['home', 'rookies', 'calculator', 'watch', 'more'];
     const isMobile = isMobileViewport();
-    const redirectedToMore = isMobile && !mobilePrimary.includes(nextId);
+    const allowLegacyMobile = !!opts.allowLegacyMobile
+      || (isMobile && getMobilePowerModeEnabled() && !mobilePrimary.includes(nextId));
+    const redirectedToMore = isMobile && !allowLegacyMobile && !mobilePrimary.includes(nextId);
     if (redirectedToMore) {
       setMobileMoreSection(nextId, { persist: true, refresh: false });
       nextId = 'more';
+    }
+    if (isMobile && !redirectedToMore && !mobilePrimary.includes(requestedId)) {
+      setMobileMoreSection(requestedId, { persist: true, refresh: false });
     }
 
     activeTabId = nextId;
@@ -4108,7 +4265,7 @@
     if (nextId === 'rookies') buildRookieRankings();
 
     // Desktop-only tab execution path for legacy panels.
-    if (!redirectedToMore && !isMobile) {
+    if (!redirectedToMore && (!isMobile || allowLegacyMobile)) {
       if (requestedId === 'rosters') buildRosterDashboard();
       if (requestedId === 'trades') buildTradeHistoryPage();
       if (requestedId === 'edge') { checkEdgeGate(); buildEdgeTable(); }
@@ -6475,6 +6632,13 @@
         .slice(0, 12);
 
       body.innerHTML = `
+        <div class="mobile-row-card">
+          <div class="mobile-row-name">Advanced Edge Workspace</div>
+          <div class="mobile-row-sub">Open the full edge table, filters, and league map on mobile.</div>
+          <div class="mobile-row-actions">
+            <button class="mobile-chip-btn primary" onclick="openFullMobileWorkspace('edge')">Open Full Edge</button>
+          </div>
+        </div>
         <div class="mobile-inline-grid">
           <div class="mobile-inline-stat"><div class="label">Team Context</div><div class="value">${myTeamName || 'Not Set'}</div></div>
           <div class="mobile-inline-stat"><div class="label">Coverage</div><div class="value">${rows.length.toLocaleString()} assets</div></div>
@@ -6503,7 +6667,15 @@
         return;
       }
       const myTeam = document.getElementById('rosterMyTeam')?.value || localStorage.getItem('dynasty_my_team') || '';
-      body.innerHTML = snapshot.map((t, idx) => `
+      body.innerHTML = `
+        <div class="mobile-row-card">
+          <div class="mobile-row-name">Advanced Rosters Workspace</div>
+          <div class="mobile-row-sub">Open the full roster dashboard, targets, grades, waivers, and tendencies.</div>
+          <div class="mobile-row-actions">
+            <button class="mobile-chip-btn primary" onclick="openFullMobileWorkspace('rosters')">Open Full Rosters</button>
+          </div>
+        </div>
+      ` + snapshot.map((t, idx) => `
         <div class="mobile-row-card">
           <div class="mobile-row-head">
             <div>
@@ -6529,6 +6701,13 @@
         return;
       }
       body.innerHTML = `
+        <div class="mobile-row-card">
+          <div class="mobile-row-name">Advanced League Workspace</div>
+          <div class="mobile-row-sub">Open full power rankings, team breakdown, comparison, trade DB, and waiver DB.</div>
+          <div class="mobile-row-actions">
+            <button class="mobile-chip-btn primary" onclick="openFullMobileWorkspace('league')">Open Full League</button>
+          </div>
+        </div>
         <div class="mobile-inline-grid">
           <div class="mobile-inline-stat"><div class="label">Contenders</div><div class="value">${tiers.filter(t => t.tier === 'contender').length}</div></div>
           <div class="mobile-inline-stat"><div class="label">Rebuilders</div><div class="value">${tiers.filter(t => t.tier === 'rebuilder').length}</div></div>
@@ -6561,7 +6740,15 @@
         body.innerHTML = `<div class="mobile-row-card"><div class="mobile-row-name">No league trades in the last ${windowDays} days.</div></div>`;
         return;
       }
-      body.innerHTML = rows.map((trade, idx) => {
+      body.innerHTML = `
+        <div class="mobile-row-card">
+          <div class="mobile-row-name">Advanced Trades Workspace</div>
+          <div class="mobile-row-sub">Open full trade history analytics and team filters.</div>
+          <div class="mobile-row-actions">
+            <button class="mobile-chip-btn primary" onclick="openFullMobileWorkspace('trades')">Open Full Trades</button>
+          </div>
+        </div>
+      ` + rows.map((trade, idx) => {
         const ts = normalizeTradeTimestampMs(trade?.timestamp);
         const dt = ts ? new Date(ts) : null;
         const dateLabel = dt ? dt.toLocaleDateString() : 'Unknown date';
@@ -6591,6 +6778,7 @@
     const lamStrength = Number(document.getElementById('lamStrengthInput')?.value || 1);
     const showCols = !!document.getElementById('rankingsShowLamCols')?.checked;
     const showSiteCols = !!document.getElementById('rankingsShowSiteCols')?.checked;
+    const mobilePower = getMobilePowerModeEnabled();
     body.innerHTML = `
       <div class="mobile-row-card">
         <div class="mobile-row-name">Default Value Basis</div>
@@ -6633,6 +6821,16 @@
             LAM Strength
             <input type="number" min="0" max="1" step="0.05" value="${lamStrength.toFixed(2)}" onchange="const el=document.getElementById('lamStrengthInput'); if(el){el.value=this.value;} persistSettings(); recalculate(); buildFullRankings(); buildMoreHub();" style="width:66px;background:transparent;color:var(--text);border:none;outline:none;font-family:var(--mono);font-size:0.72rem;">
           </label>
+        </div>
+      </div>
+      <div class="mobile-row-card">
+        <div class="mobile-row-name">Mobile Power Mode</div>
+        <div class="mobile-row-sub">Unlock full desktop workflows while staying in mobile navigation.</div>
+        <div class="mobile-row-actions">
+          <label class="mobile-chip-btn ${mobilePower ? 'primary' : ''}" style="display:inline-flex;align-items:center;gap:6px;">
+            <input type="checkbox" id="mobilePowerModeToggleMore" ${mobilePower ? 'checked' : ''} onchange="setMobilePowerMode(this.checked);" style="width:14px;height:14px;"> Enable Full Workspaces
+          </label>
+          <button class="mobile-chip-btn" onclick="openFullMobileWorkspace('settings')">Open Full Settings</button>
         </div>
       </div>
     `;
@@ -7621,6 +7819,7 @@
       calculatorValueBasis: document.getElementById('calculatorValueBasis')?.value,
       rankingsShowLamCols: document.getElementById('rankingsShowLamCols')?.checked,
       rankingsShowSiteCols: document.getElementById('rankingsShowSiteCols')?.checked,
+      mobilePowerMode: getMobilePowerModeEnabled(),
       edgeHighConfidence: document.getElementById('edgeHighConfidence')?.checked,
       coveragePenalty: document.getElementById('coveragePenaltyToggle')?.checked,
       minCoverage: document.getElementById('minCoverageInput')?.value,
@@ -7677,6 +7876,10 @@
         const el = document.getElementById('rankingsShowSiteCols');
         if (el) el.checked = false;
       }
+      if (d.mobilePowerMode != null) {
+        const el = document.getElementById('mobilePowerModeToggle');
+        if (el) el.checked = !!d.mobilePowerMode;
+      }
       syncRankingsSourceColumnToggles();
       if (d.edgeHighConfidence != null) {
         const el = document.getElementById('edgeHighConfidence');
@@ -7732,6 +7935,9 @@
           const arr=d.anchors[s.key]; if (!Array.isArray(arr)) return;
           for(let i=0;i<6;i++) if(arr[i]!=null&&arr[i]!=='') sv(`anchor_${s.key}_${i}`,arr[i]);
         });
+      }
+      if (d.mobilePowerMode != null) {
+        setMobilePowerMode(!!d.mobilePowerMode, { persist: false, refresh: false });
       }
     } catch(_) {}
   }
@@ -8629,6 +8835,7 @@
     wrapA.innerHTML = renderChipList(sideA, 'A');
     wrapB.innerHTML = renderChipList(sideB, 'B');
     updateCalculatorEmptyHint();
+    syncMobilePowerModeControls();
   }
 
   function toggleTradeAnalysisMobile() {
@@ -14485,6 +14692,7 @@
     initSiteConfig();
     initAnchors();
     loadSettings();
+    hydrateMobilePowerModeFromStorage();
     buildPlayersTable();
     populateSavedTrades();
     updateProfileBar();
@@ -14550,7 +14758,8 @@
 
     window.addEventListener('resize', () => {
       if (isMobileViewport() && !['home', 'rookies', 'calculator', 'watch', 'more'].includes(activeTabId)) {
-        switchTab(activeTabId, { persist: false });
+        // Keep full legacy tab open on mobile for parity workflows.
+        switchTab(activeTabId, { persist: false, allowLegacyMobile: true });
         return;
       }
       updateMobileChrome(activeTabId);
@@ -14563,7 +14772,10 @@
     if (!isMobileViewport() && ['home', 'watch', 'more'].includes(initialTab)) {
       initialTab = 'calculator';
     }
-    switchTab(initialTab, { persist: false });
+    const allowLegacyOnInit = isMobileViewport()
+      && getMobilePowerModeEnabled()
+      && !['home', 'rookies', 'calculator', 'watch', 'more'].includes(initialTab);
+    switchTab(initialTab, { persist: false, allowLegacyMobile: allowLegacyOnInit });
     if (!postDataViewsHydrated) {
       renderMobileTradeWorkspace();
       updateMobileTradeTray();
