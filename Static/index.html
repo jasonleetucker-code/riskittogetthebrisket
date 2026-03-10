@@ -2735,6 +2735,7 @@
             <button class="mobile-chip-btn" onclick="swapSides()">Swap</button>
             <button class="mobile-chip-btn" onclick="clearPlayers()">Clear</button>
             <button class="mobile-chip-btn" onclick="openGlobalSearch()">Search</button>
+            <button class="mobile-chip-btn" onclick="openFullMobileWorkspace('calculator')">Full Grid</button>
             <button class="mobile-chip-btn" id="mobilePowerModeQuickBtn" onclick="toggleMobilePowerModeFromTrade()">Power: Off</button>
           </div>
         </div>
@@ -3075,7 +3076,7 @@
                 </span>
                 <input type="checkbox" id="mobilePowerModeToggle" onchange="setMobilePowerMode(this.checked);">
               </label>
-              <p class="settings-note">Off by default for speed and readability. Enable when you need complete desktop parity on mobile.</p>
+              <p class="settings-note">Enabled by default for full mobile parity. Turn off only if you prefer a lighter simplified mobile view.</p>
             </div>
           </div>
         </div>
@@ -3197,7 +3198,10 @@
         <button class="mobile-chip-btn primary" onclick="openRankingsFilterSheet()">Filters</button>
         <button class="mobile-chip-btn" onclick="openRankingsSortSheet()">Sort</button>
         <button class="mobile-chip-btn" onclick="buildFullRankings()">Refresh</button>
+        <button class="mobile-chip-btn" onclick="copyRankingsComposites(event)">Copy</button>
         <button class="mobile-chip-btn" onclick="openGlobalSearch()">Search</button>
+        <button class="mobile-chip-btn" id="rankingsQuickSideA" onclick="setRankingsQuickTradeSide('A')">Quick +A</button>
+        <button class="mobile-chip-btn" id="rankingsQuickSideB" onclick="setRankingsQuickTradeSide('B')">Quick +B</button>
       </div>
       <div id="rankingsActiveChips" class="mobile-row-actions mobile-only" style="margin-bottom:10px;"></div>
 
@@ -3530,6 +3534,13 @@
           <button class="mobile-segment-btn" data-more-section="trades" onclick="setMobileMoreSection('trades')">Trades</button>
           <button class="mobile-segment-btn" data-more-section="settings" onclick="setMobileMoreSection('settings')">Settings</button>
         </div>
+        <div class="mobile-row-actions" style="margin:0 0 10px;">
+          <button class="mobile-chip-btn" onclick="openFullMobileWorkspace('edge')">Full Edge</button>
+          <button class="mobile-chip-btn" onclick="openFullMobileWorkspace('rosters')">Full Rosters</button>
+          <button class="mobile-chip-btn" onclick="openFullMobileWorkspace('league')">Full League</button>
+          <button class="mobile-chip-btn" onclick="openFullMobileWorkspace('trades')">Full Trades</button>
+          <button class="mobile-chip-btn" onclick="openFullMobileWorkspace('settings')">Full Settings</button>
+        </div>
         <div class="mobile-section-title" id="moreSectionTitle">Market Edge</div>
         <div id="moreSectionBody" class="mobile-more-body"></div>
       </div>
@@ -3640,7 +3651,11 @@
   const MOBILE_MORE_ROSTER_VIEW_KEY = 'dynasty_mobile_more_roster_view_v1';
   const MOBILE_MORE_TRADES_VIEW_KEY = 'dynasty_mobile_more_trades_view_v1';
   const MOBILE_POWER_MODE_KEY = 'dynasty_mobile_power_mode_v1';
+  const MOBILE_RANKINGS_QUICK_SIDE_KEY = 'dynasty_rankings_quick_trade_side_v1';
+  const MOBILE_POWER_MODE_DEFAULT = true;
+  const PREV_TREND_STAMP_KEY = 'dynasty_prev_stamp';
   let recalcTimer = null;
+  let settingsPersistTimer = null;
   let currentRankingsFilter = 'ALL';
   let rankingsSortAsc = false;
   let activeTabId = 'calculator';
@@ -3669,7 +3684,18 @@
     key: '',
     rows: [],
   };
+  let rankingsTopKtcCache = {
+    playersRef: null,
+    limit: 0,
+    names: [],
+  };
   let rankingsBuildDebounce = null;
+  let rankingsQuickTradeSide = 'B';
+  const RANKINGS_MOBILE_INITIAL_ROWS = 260;
+  const RANKINGS_MOBILE_LOAD_STEP = 220;
+  let rankingsMobileVisibleCount = RANKINGS_MOBILE_INITIAL_ROWS;
+  let rankingsMobileRowsCache = [];
+  let rankingsMobileRenderSignature = '';
 
   function invalidateRankingsBaseRowsCache() {
     rankingsBaseRowsCache = {
@@ -3677,12 +3703,24 @@
       key: '',
       rows: [],
     };
+    rankingsTopKtcCache = {
+      playersRef: null,
+      limit: 0,
+      names: [],
+    };
   }
 
   function queueBuildFullRankings(delayMs = 120) {
     clearTimeout(rankingsBuildDebounce);
     rankingsBuildDebounce = setTimeout(() => {
       buildFullRankings();
+    }, Math.max(0, Number(delayMs) || 0));
+  }
+
+  function queuePersistSettings(delayMs = 220) {
+    clearTimeout(settingsPersistTimer);
+    settingsPersistTimer = setTimeout(() => {
+      persistSettings();
     }, Math.max(0, Number(delayMs) || 0));
   }
 
@@ -4292,9 +4330,7 @@
       const raw = localStorage.getItem(MOBILE_POWER_MODE_KEY);
       if (resolved == null && raw != null) resolved = (raw === '1' || raw === 'true');
     } catch (_) {}
-    if (resolved == null) {
-      resolved = !!document.getElementById('mobilePowerModeToggle')?.checked;
-    }
+    if (resolved == null) resolved = MOBILE_POWER_MODE_DEFAULT;
     setMobilePowerMode(!!resolved, { persist: false, refresh: false });
   }
 
@@ -4413,17 +4449,21 @@
     return state;
   }
 
-  function applyMobileMoreRosterControls() {
+  function applyMobileMoreRosterControls(skipHubRebuild = false) {
     const teamName = String(document.getElementById('moreRosterTeamSelect')?.value || '');
     const valueMode = String(document.getElementById('moreRosterValueModeSelect')?.value || 'full');
+    const basisMode = normalizeValueBasis(document.getElementById('moreRosterValueBasisSelect')?.value || getCalculatorValueBasis());
+    const basisChanged = basisMode !== getCalculatorValueBasis();
 
     const rosterTeamEl = document.getElementById('rosterMyTeam');
     if (rosterTeamEl && teamName) rosterTeamEl.value = teamName;
     const rosterValueModeEl = document.getElementById('rosterValueMode');
     if (rosterValueModeEl) rosterValueModeEl.value = valueMode;
+    if (basisChanged) syncValueBasisControls(basisMode);
 
     if (teamName) syncGlobalTeam(teamName);
-    buildRosterDashboard();
+    const needsRosterFilterBootstrap = !document.getElementById('rosterFilter_QB');
+    if (needsRosterFilterBootstrap) buildRosterDashboard();
 
     // buildRosterDashboard creates group checkboxes dynamically; apply toggles after render.
     ROSTER_GROUP_KEYS.forEach(g => {
@@ -4432,15 +4472,25 @@
       if (src && dst) dst.checked = !!src.checked;
     });
     buildRosterDashboard();
+    if (basisChanged) {
+      recalculate();
+      buildFullRankings();
+    }
     persistSettings();
-    buildHomeHub();
-    buildWatchHub();
-    buildMoreHub();
+    if (activeTabId === 'home') buildHomeHub();
+    if (activeTabId === 'watch') buildWatchHub();
+    if (activeTabId === 'more') {
+      if (skipHubRebuild) renderMobileMoreSection();
+      else buildMoreHub();
+    }
   }
 
-  function applyMobileMoreLeagueControls() {
+  function applyMobileMoreLeagueControls(skipHubRebuild = false) {
     initLeagueTab();
     const view = setMobileLeagueSubPreference(document.getElementById('moreLeagueViewSelect')?.value || 'heatmap');
+    const basisMode = normalizeValueBasis(document.getElementById('moreLeagueValueBasisSelect')?.value || getCalculatorValueBasis());
+    const basisChanged = basisMode !== getCalculatorValueBasis();
+    if (basisChanged) syncValueBasisControls(basisMode);
 
     if (view === 'breakdown') {
       const team = String(document.getElementById('moreLeagueBreakdownTeam')?.value || '');
@@ -4459,8 +4509,15 @@
     }
 
     switchLeagueSub(view);
+    if (basisChanged) {
+      recalculate();
+      buildFullRankings();
+    }
     persistSettings();
-    renderMobileMoreSection();
+    if (activeTabId === 'more' && normalizeMobileMoreSection(mobileMoreSection) === 'league') {
+      if (skipHubRebuild) renderMobileMoreLeaguePreview(view);
+      else renderMobileMoreSection();
+    }
   }
 
   function applyMobileLeagueSearch(kind, value) {
@@ -4477,13 +4534,16 @@
     renderMobileMoreLeaguePreview(getMobileLeagueSubPreference());
   }
 
-  function applyMobileMoreTradeControls() {
+  function applyMobileMoreTradeControls(skipHubRebuild = false) {
     const team = String(document.getElementById('moreTradeTeamFilter')?.value || '');
     const tradeFilter = document.getElementById('tradeTeamFilter');
     if (tradeFilter) tradeFilter.value = team;
     buildTradeHistoryPage();
     persistSettings();
-    renderMobileMoreSection();
+    if (activeTabId === 'more' && normalizeMobileMoreSection(mobileMoreSection) === 'trades') {
+      if (skipHubRebuild) renderMobileMoreTradesPreview();
+      else renderMobileMoreSection();
+    }
   }
 
   function refreshMobileMoreTendencies() {
@@ -4661,7 +4721,7 @@
     if (nextId === 'home') buildHomeHub();
     if (nextId === 'watch') buildWatchHub();
     if (nextId === 'more') buildMoreHub();
-    if (nextId === 'calculator') { renderMobileTradeWorkspace(); updateMobileTradeTray(); }
+    if (nextId === 'calculator' && isMobileViewport()) { renderMobileTradeWorkspace(); updateMobileTradeTray(); }
     if (nextId === 'rookies') buildRookieRankings();
 
     // Desktop-only tab execution path for legacy panels.
@@ -4780,12 +4840,8 @@
 
   function getPlayerDataByName(name) {
     if (!name || !loadedData?.players) return null;
-    if (loadedData.players[name]) return loadedData.players[name];
-    const norm = normalizeForLookup(name);
-    for (const [pn, pd] of Object.entries(loadedData.players)) {
-      if (normalizeForLookup(pn) === norm) return pd;
-    }
-    return null;
+    const canonical = resolveCanonicalPlayerName(name);
+    return canonical ? (loadedData.players[canonical] || null) : null;
   }
 
   function hasAnyRankingSiteValue(pData) {
@@ -4868,12 +4924,42 @@
   // Stats are computed on TRANSFORMED values (after Flock/IDP curves, TEP boost)
   // so z-scores are directly comparable across sites.
   let siteStatsCache = {};  // { siteKey: { mean, stdev, count } }
+  let siteStatsCachePlayersRef = null;
+  let siteStatsCacheKey = '';
+
+  function buildSiteStatsCacheKey(cfg = []) {
+    const players = loadedData?.players || {};
+    const stamp = String(loadedData?.scrapeTimestamp || loadedData?.date || '');
+    const cfgSig = (cfg || [])
+      .map(sc => `${sc.key}:${sc.include ? 1 : 0}:${Number(sc.max || 0)}:${sc.tep !== false ? 1 : 0}`)
+      .join('|');
+    const knobs = [
+      document.getElementById('flockOffsetInput')?.value || '',
+      document.getElementById('flockDivisorInput')?.value || '',
+      document.getElementById('flockExponentInput')?.value || '',
+      document.getElementById('idpAnchorInput')?.value || '',
+      document.getElementById('idpRankOffsetInput')?.value || '',
+      document.getElementById('idpRankDivisorInput')?.value || '',
+      document.getElementById('idpRankExponentInput')?.value || '',
+      document.getElementById('tepMultiplierInput')?.value || '',
+    ].join('|');
+    return `${stamp}|${Object.keys(players).length}|${cfgSig}|${knobs}`;
+  }
 
   function computeSiteStats() {
-    siteStatsCache = {};
     if (!loadedData || !loadedData.players) return;
 
     const cfg = getSiteConfig();
+    const playersRef = loadedData.players;
+    const nextKey = buildSiteStatsCacheKey(cfg);
+    if (
+      siteStatsCachePlayersRef === playersRef &&
+      siteStatsCacheKey === nextKey &&
+      Object.keys(siteStatsCache || {}).length
+    ) {
+      return;
+    }
+    siteStatsCache = {};
     const siteMode = Object.fromEntries(sites.map(s => [s.key, s.mode || 'value']));
     const flockOffset   = parseFloat(document.getElementById('flockOffsetInput').value)||27;
     const flockDivisor  = parseFloat(document.getElementById('flockDivisorInput').value)||28;
@@ -4925,6 +5011,8 @@
       const stdev = Math.sqrt(variance);
       siteStatsCache[key] = { mean, stdev, count: vals.length };
     }
+    siteStatsCachePlayersRef = playersRef;
+    siteStatsCacheKey = nextKey;
 
     if (DEBUG_MODE) {
       console.log('[Z-Score] Site stats recomputed:', Object.fromEntries(
@@ -4938,10 +5026,33 @@
 
   let __idpBackboneCache = null;
   let __idpBackboneCacheKey = '';
+  let __canonicalContextCache = null;
+  let __canonicalContextCacheKey = '';
+
+  function buildCanonicalContextCacheKey(cfg = []) {
+    const cfgSig = (cfg || [])
+      .map(sc => `${sc.key}:${sc.include ? 1 : 0}:${Number(sc.max || 0)}:${Number(sc.weight || 0).toFixed(4)}:${sc.tep !== false ? 1 : 0}`)
+      .join('|');
+    const knobs = [
+      document.getElementById('flockOffsetInput')?.value || '',
+      document.getElementById('flockDivisorInput')?.value || '',
+      document.getElementById('flockExponentInput')?.value || '',
+      document.getElementById('idpAnchorInput')?.value || '',
+      document.getElementById('idpRankOffsetInput')?.value || '',
+      document.getElementById('idpRankDivisorInput')?.value || '',
+      document.getElementById('idpRankExponentInput')?.value || '',
+      document.getElementById('tepMultiplierInput')?.value || '',
+    ].join('|');
+    return `${cfgSig}|${knobs}`;
+  }
 
   function getCanonicalValueContext() {
     const cfg = getSiteConfig();
-    return {
+    const key = buildCanonicalContextCacheKey(cfg);
+    if (__canonicalContextCache && __canonicalContextCacheKey === key) {
+      return __canonicalContextCache;
+    }
+    __canonicalContextCache = {
       cfg,
       siteMode: Object.fromEntries(sites.map(s => [s.key, s.mode || 'value'])),
       flockOffset: parseFloat(document.getElementById('flockOffsetInput')?.value) || 27,
@@ -4954,6 +5065,8 @@
       tepMultiplier: parseFloat(document.getElementById('tepMultiplierInput')?.value) || 1.15,
       siteTep: Object.fromEntries(cfg.map(s => [s.key, s.tep !== false])),
     };
+    __canonicalContextCacheKey = key;
+    return __canonicalContextCache;
   }
 
   function getIdpBucket(pos) {
@@ -5553,12 +5666,8 @@
 
   function resolveLoadedPlayerDataForPrecomputed(playerName = '') {
     if (!playerName || !loadedData?.players) return null;
-    if (loadedData.players[playerName]) return loadedData.players[playerName];
-    const norm = normalizeForLookup(playerName);
-    for (const [pn, pd] of Object.entries(loadedData.players)) {
-      if (normalizeForLookup(pn) === norm) return pd;
-    }
-    return null;
+    const canonical = resolveCanonicalPlayerName(playerName);
+    return canonical ? (loadedData.players[canonical] || null) : null;
   }
 
   function computeFinalAdjustedValueCore(rawComposite, position, playerName = '', context = {}) {
@@ -5677,13 +5786,9 @@
     if (!loadedData || !loadedData.players) return null;
     const lookupPlayerData = (name) => {
       if (!name || !loadedData?.players) return { name: '', data: null };
-      let data = loadedData.players[name];
-      if (data) return { name, data };
-      const norm = normalizeForLookup(name);
-      for (const [pn, pd] of Object.entries(loadedData.players)) {
-        if (normalizeForLookup(pn) === norm) return { name: pn, data: pd };
-      }
-      return { name: '', data: null };
+      const canonical = resolveCanonicalPlayerName(name);
+      if (!canonical) return { name: '', data: null };
+      return { name: canonical, data: loadedData.players[canonical] || null };
     };
 
     // Keep pick valuation identical across rankings + trade calculator.
@@ -6178,6 +6283,35 @@
     return out;
   }
 
+  function getTopKtcBaselineNames(limit = 400) {
+    const playersRef = loadedData?.players || null;
+    const useLimit = Math.max(1, Math.round(Number(limit) || 400));
+    if (!playersRef || typeof playersRef !== 'object') return [];
+    if (
+      rankingsTopKtcCache.playersRef === playersRef &&
+      rankingsTopKtcCache.limit === useLimit &&
+      Array.isArray(rankingsTopKtcCache.names) &&
+      rankingsTopKtcCache.names.length
+    ) {
+      return rankingsTopKtcCache.names;
+    }
+    const names = Object.entries(playersRef)
+      .filter(([name, pdata]) => {
+        if (parsePickToken(name)) return false;
+        const kv = Number(pdata?.ktc);
+        return isFinite(kv) && kv > 0;
+      })
+      .sort((a, b) => Number(b[1].ktc) - Number(a[1].ktc))
+      .slice(0, useLimit)
+      .map(([name]) => name);
+    rankingsTopKtcCache = {
+      playersRef,
+      limit: useLimit,
+      names,
+    };
+    return names;
+  }
+
   function primeRankingsBaseRowsCache() {
     if (!loadedData?.players) return;
     try {
@@ -6331,15 +6465,7 @@
       const DISPLAY_MIN = 640;
       const DISPLAY_CAP = 750;
       const KTC_BASELINE_COUNT = 400;
-      const topKtcNames = Object.entries(loadedData.players || {})
-        .filter(([name, pdata]) => {
-          if (parsePickToken(name)) return false;
-          const kv = Number(pdata?.ktc);
-          return isFinite(kv) && kv > 0;
-        })
-        .sort((a, b) => Number(b[1].ktc) - Number(a[1].ktc))
-        .slice(0, KTC_BASELINE_COUNT)
-        .map(([name]) => name);
+      const topKtcNames = getTopKtcBaselineNames(KTC_BASELINE_COUNT);
       const rankedByName = new Map(ranked.map(r => [r.name, r]));
       const displayRows = ranked.slice(0, Math.min(DISPLAY_MIN, ranked.length));
       const displaySet = new Set(displayRows.map(r => r.name));
@@ -6519,18 +6645,95 @@
       sortBasis === 'scarcity' ? 'Scarcity' :
       'Full'
     );
+    chips.push(`Quick+${getRankingsQuickTradeSide()}`);
     el.innerHTML = chips.map(c => `<span class="mobile-pill">${c}</span>`).join('');
   }
 
-  function renderRankingsMobileCards(rankedRows) {
+  function getRankingsQuickTradeSide() {
+    const side = String(rankingsQuickTradeSide || '').toUpperCase();
+    return side === 'A' ? 'A' : 'B';
+  }
+
+  function updateRankingsQuickTradeSideButtons() {
+    const side = getRankingsQuickTradeSide();
+    const aBtn = document.getElementById('rankingsQuickSideA');
+    const bBtn = document.getElementById('rankingsQuickSideB');
+    if (aBtn) {
+      aBtn.classList.toggle('primary', side === 'A');
+      aBtn.textContent = side === 'A' ? 'Quick +A ✓' : 'Quick +A';
+    }
+    if (bBtn) {
+      bBtn.classList.toggle('primary', side === 'B');
+      bBtn.textContent = side === 'B' ? 'Quick +B ✓' : 'Quick +B';
+    }
+  }
+
+  function setRankingsQuickTradeSide(side, opts = {}) {
+    rankingsQuickTradeSide = (String(side || '').toUpperCase() === 'A') ? 'A' : 'B';
+    if (opts.persist !== false) {
+      try { localStorage.setItem(MOBILE_RANKINGS_QUICK_SIDE_KEY, rankingsQuickTradeSide); } catch (_) {}
+    }
+    updateRankingsQuickTradeSideButtons();
+    updateRankingsActiveChips();
+    if (opts.refresh !== false) {
+      renderRankingsMobileCards(rankingsMobileRowsCache, { preserveCount: true });
+    }
+  }
+
+  function getRankingsMobileRenderSignature(rankedRows) {
+    const rows = Array.isArray(rankedRows) ? rankedRows : [];
+    const first = rows[0]?.name || '';
+    const last = rows[rows.length - 1]?.name || '';
+    const search = String(document.getElementById('rankingsSearch')?.value || '').trim().toLowerCase();
+    const sortBasis = getRankingsSortBasis();
+    const dataMode = getRankingsDataMode();
+    const rookieOnly = !!document.getElementById('rankingsRookieToggle')?.checked;
+    const myRosterOnly = !!document.getElementById('rankingsMyRosterToggle')?.checked;
+    return [
+      rows.length,
+      first,
+      last,
+      currentRankingsFilter,
+      sortBasis,
+      rankingsSortAsc ? 'asc' : 'desc',
+      dataMode,
+      rookieOnly ? 'rookie' : '',
+      myRosterOnly ? 'my' : '',
+      rankingsExtraFilters.picksOnly ? 'picks' : '',
+      rankingsExtraFilters.watchOnly ? 'watch' : '',
+      rankingsExtraFilters.trendingOnly ? 'trend' : '',
+      rankingsExtraFilters.ageBucket || 'ALL',
+      search,
+    ].join('|');
+  }
+
+  function loadMoreRankingsMobileCards() {
+    rankingsMobileVisibleCount = Math.min(
+      (Array.isArray(rankingsMobileRowsCache) ? rankingsMobileRowsCache.length : rankingsMobileVisibleCount),
+      rankingsMobileVisibleCount + RANKINGS_MOBILE_LOAD_STEP
+    );
+    renderRankingsMobileCards(rankingsMobileRowsCache, { preserveCount: true });
+  }
+
+  function renderRankingsMobileCards(rankedRows, opts = {}) {
     const wrap = document.getElementById('rankingsMobileList');
     if (!wrap) return;
+    const rows = Array.isArray(rankedRows) ? rankedRows : [];
+    rankingsMobileRowsCache = rows;
+    const sig = getRankingsMobileRenderSignature(rows);
+    if (!opts.preserveCount && sig !== rankingsMobileRenderSignature) {
+      rankingsMobileVisibleCount = RANKINGS_MOBILE_INITIAL_ROWS;
+    }
+    rankingsMobileRenderSignature = sig;
     if (!rankedRows || !rankedRows.length) {
       wrap.innerHTML = '<div class="mobile-row-card"><div class="mobile-row-name">No matching assets.</div></div>';
       return;
     }
-    const top = rankedRows.slice(0, 260);
-    wrap.innerHTML = top.map((r, idx) => {
+    const totalRows = rows.length;
+    const visibleRows = Math.max(1, Math.min(totalRows, rankingsMobileVisibleCount));
+    const top = rows.slice(0, visibleRows);
+    const quickSide = getRankingsQuickTradeSide();
+    const cards = top.map((r, idx) => {
       const name = r.name;
       const pos = r.pos || '?';
       const val = Math.round(r.sortValue || 0);
@@ -6551,13 +6754,31 @@
           </div>
           <div class="mobile-row-actions">
             <span class="mobile-pill ${pill.cls}">${pill.text}</span>
-            <button class="mobile-chip-btn primary" onclick="addAssetToTrade('B','${escaped}')">+Trade</button>
+            <button class="mobile-chip-btn primary" onclick="addAssetToTrade('${quickSide}','${escaped}')">+${quickSide}</button>
             <button class="mobile-chip-btn" onclick="openPlayerPopup('${escaped}')">Open</button>
             <button class="mobile-chip-btn ${watched ? 'bad' : 'good'}" onclick="toggleWatchAsset('${escaped}')">${watched ? 'Unwatch' : 'Watch'}</button>
           </div>
         </div>
       `;
     }).join('');
+    const remaining = Math.max(0, totalRows - visibleRows);
+    const footer = `
+      <div class="mobile-row-card">
+        <div class="mobile-row-head">
+          <div>
+            <div class="mobile-row-name">Showing ${visibleRows.toLocaleString()} of ${totalRows.toLocaleString()}</div>
+            <div class="mobile-row-sub">Mobile keeps first render fast, then lets you expand to full rankings.</div>
+          </div>
+          <div class="mobile-row-value">${Math.round((visibleRows / Math.max(1, totalRows)) * 100)}%</div>
+        </div>
+        <div class="mobile-row-actions">
+          ${remaining > 0 ? `<button class="mobile-chip-btn primary" onclick="loadMoreRankingsMobileCards()">Load ${Math.min(remaining, RANKINGS_MOBILE_LOAD_STEP).toLocaleString()} More</button>` : '<span class="mobile-pill fresh">All Loaded</span>'}
+          <button class="mobile-chip-btn" onclick="buildFullRankings()">Refresh</button>
+          <button class="mobile-chip-btn" onclick="openFullMobileWorkspace('rookies')">Full Table</button>
+        </div>
+      </div>
+    `;
+    wrap.innerHTML = cards + footer;
   }
 
   function getMobilePrefs() {
@@ -6602,6 +6823,8 @@
       <label class="sheet-item">Watchlist only <input id="sheetWatchOnly" type="checkbox"></label>
       <label class="sheet-item">Trending only <input id="sheetTrendingOnly" type="checkbox"></label>
       <label class="sheet-item">Picks only <input id="sheetPicksOnly" type="checkbox"></label>
+      <label class="sheet-item">Detail columns <input id="sheetShowDetailCols" type="checkbox"></label>
+      <label class="sheet-item">Source columns <input id="sheetShowSourceCols" type="checkbox"></label>
       <label class="sheet-item">Age bucket
         <select id="sheetAgeBucket" style="background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:0.72rem;">
           <option value="ALL">All</option>
@@ -6620,6 +6843,8 @@
     const wo = document.getElementById('sheetWatchOnly'); if (wo) wo.checked = !!prefs.watchOnly;
     const tr = document.getElementById('sheetTrendingOnly'); if (tr) tr.checked = !!prefs.trendingOnly;
     const po = document.getElementById('sheetPicksOnly'); if (po) po.checked = !!prefs.picksOnly;
+    const dc = document.getElementById('sheetShowDetailCols'); if (dc) dc.checked = showRankingsLAMColumns();
+    const sc = document.getElementById('sheetShowSourceCols'); if (sc) sc.checked = showRankingsSourceColumns();
     ov.classList.add('active');
   }
 
@@ -6641,11 +6866,16 @@
       trendingOnly: !!document.getElementById('sheetTrendingOnly')?.checked,
       ageBucket: document.getElementById('sheetAgeBucket')?.value || 'ALL',
     };
+    const showDetail = !!document.getElementById('sheetShowDetailCols')?.checked;
+    const showSources = !!document.getElementById('sheetShowSourceCols')?.checked;
+    setRankingsDetailColumnsVisible(showDetail, { persist: false, rebuild: false });
+    setRankingsSourceColumnsVisible(showSources, { persist: false, rebuild: false, refreshMore: false });
     saveMobilePrefs({
       ...getMobilePrefs(),
       filterPos: currentRankingsFilter,
       ...rankingsExtraFilters,
     });
+    persistSettings();
     closeRankingsFilterSheet();
     buildFullRankings();
   }
@@ -6941,51 +7171,66 @@
     setMobileWatchSection(mobileWatchSection, { persist: false });
   }
 
+  function buildRosterPlayerMetaMap() {
+    const playerMeta = {};
+    if (!loadedData?.players) return playerMeta;
+    for (const pName of Object.keys(loadedData.players)) {
+      const result = computeMetaValueForPlayer(pName);
+      if (!result || !isFinite(result.metaValue) || result.metaValue <= 0) continue;
+      const pos = getPlayerPosition(pName) || '';
+      if (isKickerPosition(pos)) continue;
+      playerMeta[pName.toLowerCase()] = {
+        name: pName,
+        meta: Number(result.metaValue),
+        pos,
+        group: posGroup(pos),
+      };
+    }
+    return playerMeta;
+  }
+
   function buildTeamValueSnapshot() {
     if (!loadedData?.players) return [];
     if (!Array.isArray(sleeperTeams) || !sleeperTeams.length) return [];
-    const posMap = loadedData?.sleeper?.positions || {};
-    const out = [];
-    for (const team of sleeperTeams) {
-      const rosterPlayers = Array.isArray(team?.players) ? team.players : [];
-      const rosterPicks = Array.isArray(team?.picks) ? team.picks : [];
-      let total = 0;
-      let pickTotal = 0;
-      let offTotal = 0;
-      let idpTotal = 0;
-      const offVals = [];
-      rosterPlayers.forEach(name => {
-        const result = computeMetaValueForPlayer(name);
-        if (!result || !isFinite(result.metaValue)) return;
-        const v = Number(result.metaValue);
-        const pos = String(posMap[name] || getPlayerPosition(name) || '').toUpperCase();
-        total += v;
-        if (OFFENSE_POSITIONS.has(pos)) {
-          offTotal += v;
-          offVals.push(v);
-        } else if (IDP_POSITIONS.has(pos)) {
-          idpTotal += v;
-        }
-      });
-      rosterPicks.forEach(pickName => {
-        const result = computeMetaValueForPlayer(pickName);
-        if (!result || !isFinite(result.metaValue)) return;
-        const v = Number(result.metaValue);
-        total += v;
-        pickTotal += v;
-      });
-      offVals.sort((a, b) => b - a);
-      const starterTotal = offVals.slice(0, 10).reduce((s, v) => s + v, 0);
-      out.push({
+
+    const allGroups = ['QB','RB','WR','TE','DL','LB','DB','PICKS'];
+    const valueMode = getRosterValueMode();
+    const groupState = getRosterGroupFilterState();
+    let activeGroups = allGroups.filter(g => !!groupState[g]);
+    if (!activeGroups.length) activeGroups = ['QB','RB','WR','TE','PICKS'];
+    const playerMeta = buildRosterPlayerMetaMap();
+
+    const out = sleeperTeams.map(team => {
+      const breakdown = buildTeamValueBreakdown(team, playerMeta, allGroups, valueMode);
+      const offenseVals = (Array.isArray(breakdown.playerDetails) ? breakdown.playerDetails : [])
+        .filter(p => ['QB', 'RB', 'WR', 'TE'].includes(p.group))
+        .map(p => Number(p.meta || 0))
+        .filter(v => Number.isFinite(v) && v > 0)
+        .sort((a, b) => b - a);
+      const starterTotal = offenseVals.slice(0, 10).reduce((s, v) => s + v, 0);
+      const byGroup = breakdown.byGroup || {};
+      let activeTotal = 0;
+      activeGroups.forEach(g => { activeTotal += Number(byGroup[g] || 0); });
+      const offTotal = ['QB', 'RB', 'WR', 'TE'].reduce((s, g) => s + Number(byGroup[g] || 0), 0);
+      const idpTotal = ['DL', 'LB', 'DB'].reduce((s, g) => s + Number(byGroup[g] || 0), 0);
+      const pickTotal = Number(byGroup.PICKS || 0);
+      return {
         name: team?.name || 'Team',
-        total,
+        total: Number(breakdown.total || 0),
+        activeTotal,
         starterTotal,
         offTotal,
         idpTotal,
         pickTotal,
-      });
-    }
-    return out.sort((a, b) => b.total - a.total);
+        byGroup,
+      };
+    });
+
+    return out.sort((a, b) =>
+      Number(b.activeTotal || 0) - Number(a.activeTotal || 0)
+      || Number(b.total || 0) - Number(a.total || 0)
+      || String(a.name || '').localeCompare(String(b.name || ''))
+    );
   }
 
   function selectMyTeamFromMore(teamName) {
@@ -6996,6 +7241,83 @@
     buildHomeHub();
     buildWatchHub();
     buildMoreHub();
+  }
+
+  function openTeamBreakdownFromMore(teamName) {
+    const team = String(teamName || '').trim();
+    if (!team) return;
+    setMobileLeagueSubPreference('breakdown');
+    const breakdownTeam = document.getElementById('breakdownTeamSelect');
+    if (breakdownTeam) breakdownTeam.value = team;
+    if (isMobileViewport()) {
+      setMobileMoreSection('league', { persist: true, refresh: false });
+      if (getMobilePowerModeEnabled()) {
+        switchTab('league', { allowLegacyMobile: true });
+      } else {
+        switchTab('more');
+      }
+      setTimeout(() => {
+        try {
+          switchLeagueSub('breakdown');
+          const moreBreakdownTeam = document.getElementById('moreLeagueBreakdownTeam');
+          if (moreBreakdownTeam) moreBreakdownTeam.value = team;
+          applyMobileMoreLeagueControls(false);
+        } catch (_) {}
+      }, 0);
+      return;
+    }
+    switchTab('league');
+    setTimeout(() => {
+      try {
+        switchLeagueSub('breakdown');
+        buildTeamBreakdown();
+      } catch (_) {}
+    }, 0);
+  }
+
+  function openTeamComparisonFromMore(teamName) {
+    const targetTeam = String(teamName || '').trim();
+    if (!targetTeam) return;
+    const myTeam = String(document.getElementById('rosterMyTeam')?.value || localStorage.getItem('dynasty_my_team') || '').trim();
+    const fallback = (sleeperTeams || []).find(t => String(t?.name || '').trim() && String(t?.name || '').trim() !== targetTeam)?.name || targetTeam;
+    const compareA = myTeam || fallback;
+    const compareB = (compareA === targetTeam) ? fallback : targetTeam;
+
+    setMobileLeagueSubPreference('compare');
+    const aEl = document.getElementById('compareTeamA');
+    const bEl = document.getElementById('compareTeamB');
+    if (aEl) aEl.value = compareA;
+    if (bEl) bEl.value = compareB;
+
+    if (isMobileViewport()) {
+      setMobileMoreSection('league', { persist: true, refresh: false });
+      if (getMobilePowerModeEnabled()) {
+        switchTab('league', { allowLegacyMobile: true });
+      } else {
+        switchTab('more');
+      }
+      setTimeout(() => {
+        try {
+          switchLeagueSub('compare');
+          const moreView = document.getElementById('moreLeagueViewSelect');
+          const moreA = document.getElementById('moreLeagueCompareA');
+          const moreB = document.getElementById('moreLeagueCompareB');
+          if (moreView) moreView.value = 'compare';
+          if (moreA) moreA.value = compareA;
+          if (moreB) moreB.value = compareB;
+          applyMobileMoreLeagueControls(false);
+        } catch (_) {}
+      }, 0);
+      return;
+    }
+
+    switchTab('league');
+    setTimeout(() => {
+      try {
+        switchLeagueSub('compare');
+        buildTeamComparison();
+      } catch (_) {}
+    }, 0);
   }
 
   function renderMobileMoreSection() {
@@ -7074,8 +7396,11 @@
         .replace(/"/g, '&quot;');
       const myTeam = document.getElementById('rosterMyTeam')?.value || localStorage.getItem('dynasty_my_team') || '';
       const rosterValueMode = getRosterValueMode();
+      const valueBasis = getCalculatorValueBasis();
       const groupState = getRosterGroupFilterState();
       const rosterSubview = normalizeMobileMoreRosterSubview(mobileMoreRosterView);
+      let activeGroupList = ROSTER_GROUP_KEYS.filter((g) => !!groupState[g]);
+      if (!activeGroupList.length) activeGroupList = ['QB', 'RB', 'WR', 'TE', 'PICKS'];
       const teamOptions = sleeperTeams.map((t) => {
         const name = String(t?.name || '');
         const selected = myTeam && name === myTeam ? 'selected' : '';
@@ -7085,9 +7410,43 @@
         const color = POS_GROUP_COLORS[g] || 'var(--subtext)';
         const checked = groupState[g] ? 'checked' : '';
         return `<label style="display:inline-flex;align-items:center;gap:6px;font-size:0.68rem;font-weight:700;color:${color};padding:4px 8px;border:1px solid var(--border-dim);border-radius:999px;background:var(--bg-card);">
-          <input type="checkbox" id="moreRosterFilter_${g}" ${checked} style="width:13px;height:13px;accent-color:${color};"> ${g}
+          <input type="checkbox" id="moreRosterFilter_${g}" ${checked} onchange="applyMobileMoreRosterControls(true)" style="width:13px;height:13px;accent-color:${color};"> ${g}
         </label>`;
       }).join('');
+      const rosterBoardCards = rosterSubview === 'board'
+        ? snapshot.map((t, idx) => {
+            const activeTotal = Number(t.activeTotal || 0);
+            const stackBars = activeGroupList.map((g) => {
+              const gVal = Number(t?.byGroup?.[g] || 0);
+              if (!Number.isFinite(gVal) || gVal <= 0) return '';
+              const pct = Math.max(2, Math.min(100, (gVal / Math.max(1, activeTotal)) * 100));
+              const color = POS_GROUP_COLORS[g] || 'var(--subtext)';
+              return `<span title="${g}: ${Math.round(gVal).toLocaleString()}" style="display:block;height:100%;width:${pct}%;background:${color};"></span>`;
+            }).join('') || '<span style="display:block;height:100%;width:100%;background:var(--border-dim);"></span>';
+            const escapedName = String(t.name || '').replace(/'/g, "\\'");
+            return `
+        <div class="mobile-row-card">
+          <div class="mobile-row-head">
+            <div>
+              <div class="mobile-row-name">#${idx + 1} ${t.name}${myTeam && t.name === myTeam ? ' ★' : ''}</div>
+              <div class="mobile-row-sub">Active ${Math.round(activeTotal).toLocaleString()} · Total ${Math.round(t.total || 0).toLocaleString()} · Starters ${Math.round(t.starterTotal || 0).toLocaleString()} · Picks ${Math.round(t.pickTotal || 0).toLocaleString()} · IDP ${Math.round(t.idpTotal || 0).toLocaleString()}</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+                <span style="font-size:0.62rem;color:var(--subtext);font-weight:700;letter-spacing:0.04em;">${activeGroupList.join('/')}</span>
+                <div style="flex:1;height:9px;border-radius:999px;overflow:hidden;background:var(--bg-soft);display:flex;min-width:100px;">${stackBars}</div>
+              </div>
+            </div>
+            <div class="mobile-row-value">${Math.round(activeTotal).toLocaleString()}</div>
+          </div>
+          <div class="mobile-row-actions">
+            <button class="mobile-chip-btn ${myTeam && t.name === myTeam ? 'primary' : ''}" onclick="selectMyTeamFromMore('${escapedName}')">${myTeam && t.name === myTeam ? 'My Team' : 'Set My Team'}</button>
+            <button class="mobile-chip-btn" onclick="openTeamBreakdownFromMore('${escapedName}')">Breakdown</button>
+            <button class="mobile-chip-btn" onclick="openTeamComparisonFromMore('${escapedName}')">Compare</button>
+            <button class="mobile-chip-btn" onclick="switchTab('calculator')">Trade</button>
+          </div>
+        </div>`;
+          }).join('')
+        : '';
+
       body.innerHTML = `
         <div class="mobile-row-card">
           <div class="mobile-row-name">Roster Controls</div>
@@ -7095,16 +7454,25 @@
           <div class="mobile-row-actions">
             <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
               Team
-              <select id="moreRosterTeamSelect" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:120px;">
+              <select id="moreRosterTeamSelect" onchange="applyMobileMoreRosterControls(true)" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:120px;">
                 ${teamOptions}
               </select>
             </label>
             <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
               Value
-              <select id="moreRosterValueModeSelect" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;">
+              <select id="moreRosterValueModeSelect" onchange="applyMobileMoreRosterControls(true)" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;">
                 <option value="full" ${rosterValueMode === 'full' ? 'selected' : ''}>Players + Picks</option>
                 <option value="players" ${rosterValueMode === 'players' ? 'selected' : ''}>Players only</option>
                 <option value="starters" ${rosterValueMode === 'starters' ? 'selected' : ''}>Starters only</option>
+              </select>
+            </label>
+            <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+              Basis
+              <select id="moreRosterValueBasisSelect" onchange="applyMobileMoreRosterControls(true)" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;">
+                <option value="full" ${valueBasis === 'full' ? 'selected' : ''}>Full</option>
+                <option value="scoring" ${valueBasis === 'scoring' ? 'selected' : ''}>Scoring</option>
+                <option value="scarcity" ${valueBasis === 'scarcity' ? 'selected' : ''}>Scarcity</option>
+                <option value="raw" ${valueBasis === 'raw' ? 'selected' : ''}>Raw</option>
               </select>
             </label>
           </div>
@@ -7135,21 +7503,8 @@
             <button class="mobile-chip-btn primary" onclick="openFullMobileWorkspace('rosters')">Open Full Rosters</button>
           </div>
         </div>
-      ` + (rosterSubview === 'board' ? snapshot.map((t, idx) => `
-        <div class="mobile-row-card">
-          <div class="mobile-row-head">
-            <div>
-              <div class="mobile-row-name">#${idx + 1} ${t.name}${myTeam && t.name === myTeam ? ' ★' : ''}</div>
-              <div class="mobile-row-sub">Starters ${Math.round(t.starterTotal).toLocaleString()} · Picks ${Math.round(t.pickTotal).toLocaleString()} · IDP ${Math.round(t.idpTotal).toLocaleString()}</div>
-            </div>
-            <div class="mobile-row-value">${Math.round(t.total).toLocaleString()}</div>
-          </div>
-          <div class="mobile-row-actions">
-            <button class="mobile-chip-btn ${myTeam && t.name === myTeam ? 'primary' : ''}" onclick="selectMyTeamFromMore('${String(t.name).replace(/'/g, "\\'")}')">${myTeam && t.name === myTeam ? 'My Team' : 'Set My Team'}</button>
-            <button class="mobile-chip-btn" onclick="switchTab('calculator')">Trade</button>
-          </div>
-        </div>
-      `).join('') : '');
+        ${rosterBoardCards}
+      `;
 
       const subviewBody = document.getElementById('moreRosterSubviewBody');
       if (subviewBody) {
@@ -7197,6 +7552,8 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
       const leagueView = getMobileLeagueSubPreference();
+      const valueBasis = getCalculatorValueBasis();
+      const myTeam = String(document.getElementById('rosterMyTeam')?.value || localStorage.getItem('dynasty_my_team') || '');
       const breakdownTeam = String(document.getElementById('breakdownTeamSelect')?.value || localStorage.getItem('dynasty_my_team') || sleeperTeams?.[0]?.name || '');
       const breakdownMode = String(document.getElementById('breakdownViewMode')?.value || 'grouped');
       const compareA = String(document.getElementById('compareTeamA')?.value || sleeperTeams?.[0]?.name || '');
@@ -7214,7 +7571,7 @@
           <div class="mobile-row-actions">
             <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
               View
-              <select id="moreLeagueViewSelect" onchange="setMobileLeagueSubPreference(this.value);renderMobileMoreSection();" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:118px;">
+              <select id="moreLeagueViewSelect" onchange="applyMobileMoreLeagueControls(true)" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:118px;">
                 <option value="heatmap" ${leagueView === 'heatmap' ? 'selected' : ''}>Power Rankings</option>
                 <option value="breakdown" ${leagueView === 'breakdown' ? 'selected' : ''}>Team Breakdown</option>
                 <option value="compare" ${leagueView === 'compare' ? 'selected' : ''}>Comparison</option>
@@ -7222,18 +7579,27 @@
                 <option value="ktcWaivers" ${leagueView === 'ktcWaivers' ? 'selected' : ''}>Waiver DB</option>
               </select>
             </label>
+            <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
+              Basis
+              <select id="moreLeagueValueBasisSelect" onchange="applyMobileMoreLeagueControls(true)" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;">
+                <option value="full" ${valueBasis === 'full' ? 'selected' : ''}>Full</option>
+                <option value="scoring" ${valueBasis === 'scoring' ? 'selected' : ''}>Scoring</option>
+                <option value="scarcity" ${valueBasis === 'scarcity' ? 'selected' : ''}>Scarcity</option>
+                <option value="raw" ${valueBasis === 'raw' ? 'selected' : ''}>Raw</option>
+              </select>
+            </label>
           </div>
           ${leagueView === 'breakdown' ? `
             <div class="mobile-row-actions" style="margin-top:8px;">
               <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
                 Team
-                <select id="moreLeagueBreakdownTeam" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:120px;">
+                <select id="moreLeagueBreakdownTeam" onchange="applyMobileMoreLeagueControls(true)" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:120px;">
                   ${teamOptions}
                 </select>
               </label>
               <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
                 Mode
-                <select id="moreLeagueBreakdownMode" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;">
+                <select id="moreLeagueBreakdownMode" onchange="applyMobileMoreLeagueControls(true)" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;">
                   <option value="grouped" ${breakdownMode === 'grouped' ? 'selected' : ''}>By position</option>
                   <option value="value" ${breakdownMode === 'value' ? 'selected' : ''}>By value</option>
                 </select>
@@ -7244,13 +7610,13 @@
             <div class="mobile-row-actions" style="margin-top:8px;">
               <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
                 Team A
-                <select id="moreLeagueCompareA" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:120px;">
+                <select id="moreLeagueCompareA" onchange="applyMobileMoreLeagueControls(true)" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:120px;">
                   ${teamOptions}
                 </select>
               </label>
               <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
                 Team B
-                <select id="moreLeagueCompareB" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:120px;">
+                <select id="moreLeagueCompareB" onchange="applyMobileMoreLeagueControls(true)" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:120px;">
                   ${teamOptions}
                 </select>
               </label>
@@ -7291,10 +7657,16 @@
           <div class="mobile-row-card">
             <div class="mobile-row-head">
               <div>
-                <div class="mobile-row-name">#${t.rank} ${t.name}</div>
+                <div class="mobile-row-name">#${t.rank} ${t.name}${myTeam && t.name === myTeam ? ' ★' : ''}</div>
                 <div class="mobile-row-sub">${t.tierLabel} · starters ${Math.round(t.starterValue || 0).toLocaleString()} · depth ${Math.round(t.depthValue || 0).toLocaleString()}</div>
               </div>
               <div class="mobile-row-value">${Math.round(t.totalValue || 0).toLocaleString()}</div>
+            </div>
+            <div class="mobile-row-actions">
+              <button class="mobile-chip-btn ${myTeam && t.name === myTeam ? 'primary' : ''}" onclick="selectMyTeamFromMore('${String(t.name).replace(/'/g, "\\'")}')">${myTeam && t.name === myTeam ? 'My Team' : 'Set My Team'}</button>
+              <button class="mobile-chip-btn" onclick="openTeamBreakdownFromMore('${String(t.name).replace(/'/g, "\\'")}')">Breakdown</button>
+              <button class="mobile-chip-btn" onclick="openTeamComparisonFromMore('${String(t.name).replace(/'/g, "\\'")}')">Compare</button>
+              <button class="mobile-chip-btn" onclick="switchTab('calculator')">Trade</button>
             </div>
           </div>
         `).join('')}
@@ -7340,7 +7712,7 @@
           <div class="mobile-row-actions">
             <label class="mobile-chip-btn" style="display:inline-flex;align-items:center;gap:6px;">
               Team
-              <select id="moreTradeTeamFilter" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:120px;">
+              <select id="moreTradeTeamFilter" onchange="applyMobileMoreTradeControls(true)" style="font-size:0.72rem;padding:4px 8px;background:transparent;color:var(--text);border:none;outline:none;min-width:120px;">
                 ${filterOptions}
               </select>
             </label>
@@ -7409,7 +7781,7 @@
         <div class="mobile-row-name">Adjustment Visibility</div>
         <div class="mobile-row-actions">
           <label class="mobile-chip-btn ${showCols ? 'primary' : ''}" style="display:inline-flex;align-items:center;gap:6px;">
-            <input type="checkbox" ${showCols ? 'checked' : ''} onchange="const cb=document.getElementById('rankingsShowLamCols'); if(cb){cb.checked=this.checked;} persistSettings(); buildFullRankings(); buildMoreHub();" style="width:14px;height:14px;"> Show Breakdown Columns
+            <input type="checkbox" ${showCols ? 'checked' : ''} onchange="setRankingsDetailColumnsVisible(this.checked); buildMoreHub();" style="width:14px;height:14px;"> Show Breakdown Columns
           </label>
           <label class="mobile-chip-btn ${showSiteCols ? 'primary' : ''}" style="display:inline-flex;align-items:center;gap:6px;">
             <input type="checkbox" ${showSiteCols ? 'checked' : ''} onchange="setRankingsSourceColumnsVisible(this.checked);" style="width:14px;height:14px;"> Show Source Columns
@@ -7721,30 +8093,45 @@
     return null;
   }
 
+  const pickTokenParseCache = new Map();
+
   function parsePickToken(raw) {
+    const currentYear = parseInt(document.getElementById('pickCurrentYear')?.value) || 2026;
+    const cacheKey = `${currentYear}|${String(raw || '').trim()}`;
+    if (pickTokenParseCache.has(cacheKey)) {
+      return pickTokenParseCache.get(cacheKey);
+    }
     const parsed = parseAnchorPickName(raw);
-    if (!parsed) return null;
+    if (!parsed) {
+      if (pickTokenParseCache.size > 8192) pickTokenParseCache.clear();
+      pickTokenParseCache.set(cacheKey, null);
+      return null;
+    }
 
     if (parsed.kind === 'slot') {
-      return {
+      const out = {
         kind: 'slot',
         year: Number.isFinite(parsed.year) ? parsed.year : null,
         round: parsed.round,
         slot: parsed.slot,
         key: `${parsed.round}.${String(parsed.slot).padStart(2, '0')}`,
       };
+      if (pickTokenParseCache.size > 8192) pickTokenParseCache.clear();
+      pickTokenParseCache.set(cacheKey, out);
+      return out;
     }
 
-    const yr = Number.isFinite(parsed.year)
-      ? parsed.year
-      : (parseInt(document.getElementById('pickCurrentYear')?.value) || 2026);
+    const yr = Number.isFinite(parsed.year) ? parsed.year : currentYear;
 
-    return {
+    const out = {
       kind: 'tier',
       year: yr,
       tier: parsed.tier || 'mid',
       round: parsed.round,
     };
+    if (pickTokenParseCache.size > 8192) pickTokenParseCache.clear();
+    pickTokenParseCache.set(cacheKey, out);
+    return out;
   }
 
   function pickRoundSuffix(roundNum) {
@@ -8403,8 +8790,39 @@
   }
 
   // ── SITE CONFIG ──
+  let __siteConfigCache = null;
+  let __siteConfigDirty = true;
+
+  function markSiteConfigDirty() {
+    __siteConfigDirty = true;
+    __siteConfigCache = null;
+    __canonicalContextCache = null;
+    __canonicalContextCacheKey = '';
+    __rankCurveCache = null;
+    __rankCurveCacheKey = '';
+    siteStatsCache = {};
+    siteStatsCachePlayersRef = null;
+    siteStatsCacheKey = '';
+  }
+
+  function bindSiteConfigListeners() {
+    sites.forEach(s => {
+      ['include_', 'max_', 'weight_', 'tep_'].forEach(prefix => {
+        const el = document.getElementById(prefix + s.key);
+        if (!el) return;
+        if (el.dataset.cfgBound === '1') return;
+        const ev = (prefix === 'max_' || prefix === 'weight_') ? 'input' : 'change';
+        el.addEventListener(ev, markSiteConfigDirty);
+        el.dataset.cfgBound = '1';
+      });
+    });
+  }
+
   function getSiteConfig() {
-    return sites.map(s => {
+    if (!__siteConfigDirty && Array.isArray(__siteConfigCache) && __siteConfigCache.length) {
+      return __siteConfigCache;
+    }
+    __siteConfigCache = sites.map(s => {
       const max = parseFloat((document.getElementById('max_'+s.key)||{}).value);
       const wt  = parseFloat((document.getElementById('weight_'+s.key)||{}).value);
       const inc = document.getElementById('include_'+s.key);
@@ -8418,6 +8836,8 @@
         tep: forceNonTep ? false : (tep ? tep.checked : (s.tep!==false))
       };
     });
+    __siteConfigDirty = false;
+    return __siteConfigCache;
   }
 
   function getKtcMax(cfg) { return (cfg.find(s=>s.key==='ktc')||{max:9999}).max; }
@@ -8562,6 +8982,7 @@
       if (d.mobilePowerMode != null) {
         setMobilePowerMode(!!d.mobilePowerMode, { persist: false, refresh: false });
       }
+      markSiteConfigDirty();
     } catch(_) {}
   }
 
@@ -8588,6 +9009,8 @@
       `;
       tbody.appendChild(tr);
     });
+    bindSiteConfigListeners();
+    markSiteConfigDirty();
   }
 
   function syncSiteConfigToLoadedData(data) {
@@ -8622,6 +9045,7 @@
         delete row.dataset.autoDisabledByDataSync;
       }
     });
+    markSiteConfigDirty();
   }
 
   function initAnchors() {
@@ -8871,9 +9295,64 @@
   let playerSleeperIds = {};   // canonical player name -> sleeper_id
   let sleeperIdToPlayer = {};  // sleeper_id -> canonical player name
   let ktcIdToPlayer = {};      // ktc playerID -> canonical player name
+  let playerNameByNorm = new Map();      // normalized player name -> canonical player name
+  let playerPosByNorm = new Map();       // normalized player name -> normalized position
+  let normalizeLookupCache = new Map();  // raw lookup token -> normalized lookup token
   let postDataViewsHydrated = false;
   let trendComputeToken = 0;
   let pendingTrendCompute = null;
+
+  function normalizePositionFamily(pos) {
+    const up = String(pos || '').trim().toUpperCase();
+    if (!up) return '';
+    if (['DE','DT','EDGE','NT'].includes(up)) return 'DL';
+    if (['CB','S','FS','SS'].includes(up)) return 'DB';
+    if (['OLB','ILB'].includes(up)) return 'LB';
+    return up;
+  }
+
+  function rebuildPlayerLookupCaches() {
+    playerNameByNorm = new Map();
+    playerPosByNorm = new Map();
+
+    const assignName = (name) => {
+      const canonical = String(name || '').trim();
+      const norm = normalizeForLookup(canonical);
+      if (!canonical || !norm) return;
+      if (!playerNameByNorm.has(norm)) playerNameByNorm.set(norm, canonical);
+    };
+    const assignPos = (name, pos) => {
+      const norm = normalizeForLookup(name);
+      if (!norm) return;
+      const normalizedPos = normalizePositionFamily(pos);
+      if (!normalizedPos) return;
+      if (!playerPosByNorm.has(norm)) playerPosByNorm.set(norm, normalizedPos);
+    };
+
+    for (const name of Object.keys(loadedData?.players || {})) assignName(name);
+    for (const [name, pos] of Object.entries(playerPositions || {})) {
+      assignName(name);
+      assignPos(name, pos);
+    }
+  }
+
+  function resolveCanonicalPlayerName(name) {
+    if (!name || !loadedData?.players) return '';
+    const direct = String(name || '').trim();
+    if (loadedData.players[direct]) return direct;
+    const norm = normalizeForLookup(direct);
+    if (!norm) return '';
+    return playerNameByNorm.get(norm) || '';
+  }
+
+  function resolvePlayerPositionByName(name) {
+    const canonical = resolveCanonicalPlayerName(name) || String(name || '').trim();
+    if (!canonical) return '';
+    const direct = playerPositions?.[canonical];
+    if (direct) return normalizePositionFamily(direct);
+    const norm = normalizeForLookup(canonical);
+    return playerPosByNorm.get(norm) || '';
+  }
 
   function resolvePreferredTeamName(opts = {}) {
     const teams = Array.isArray(opts.teams) ? opts.teams : (Array.isArray(sleeperTeams) ? sleeperTeams : []);
@@ -9072,12 +9551,7 @@
 
   function isPlayerTE(name) {
     if (!name) return false;
-    if (playerPositions[name] === 'TE') return true;
-    const norm = normalizeForLookup(name);
-    for (const [pn, pos] of Object.entries(playerPositions)) {
-      if (normalizeForLookup(pn) === norm) return pos === 'TE';
-    }
-    return false;
+    return resolvePlayerPositionByName(name) === 'TE';
   }
 
   function computeMetaFromSiteValues(siteValues, opts = {}) {
@@ -9141,47 +9615,99 @@
     };
   }
 
+  function normalizeTradeAssetLabel(asset) {
+    if (asset == null) return '';
+    if (typeof asset === 'string' || typeof asset === 'number') {
+      return String(asset).trim();
+    }
+    if (typeof asset === 'object') {
+      for (const key of ['name', 'label', 'assetLabel', 'displayName', 'playerName', 'asset']) {
+        const val = asset?.[key];
+        if (val != null && String(val).trim()) return String(val).trim();
+      }
+      if (asset?.pick != null && String(asset.pick).trim()) return String(asset.pick).trim();
+      if (asset?.id != null && String(asset.id).trim()) return String(asset.id).trim();
+    }
+    return '';
+  }
+
+  function getTradeSideItemLabels(items) {
+    if (!Array.isArray(items)) return [];
+    return items
+      .map(normalizeTradeAssetLabel)
+      .filter(Boolean);
+  }
+
+  let tradeItemValueCache = { key: '', map: new Map() };
+
   // ── TRADE ITEM VALUE RESOLVER ──
   // Returns { metaValue, isPick } for any trade item (player name or pick token)
   function getTradeItemValue(itemName) {
-    const applyTradeMode = (baseResult, isPick) => {
+    const normalizedName = normalizeTradeAssetLabel(itemName);
+    if (!normalizedName) return { metaValue: 0, isPick: false, displayName: '' };
+    const mode = getCalculatorValueBasis();
+    const cacheScope = `${String(loadedData?.scrapeTimestamp || loadedData?.date || '')}|${mode}`;
+    if (tradeItemValueCache.key !== cacheScope) {
+      tradeItemValueCache = { key: cacheScope, map: new Map() };
+    }
+    const cacheKey = `${mode}|${normalizeForLookup(normalizedName)}`;
+    const cached = tradeItemValueCache.map.get(cacheKey);
+    if (cached) return { ...cached };
+
+    const applyTradeMode = (baseResult, isPick, resolvedName = normalizedName) => {
       if (!baseResult) return { metaValue: 0, isPick };
       const raw = Math.max(1, Math.round(Number(baseResult.rawMarketValue ?? baseResult.metaValue) || 0));
-      const pos = isPick ? 'PICK' : (getPlayerPosition(itemName) || '');
-      const bundle = computeFinalAdjustedValue(raw, pos, itemName);
-      const mode = getCalculatorValueBasis();
+      const pos = isPick ? 'PICK' : (getPlayerPosition(resolvedName) || getPlayerPosition(normalizedName) || '');
+      const bundle = computeFinalAdjustedValue(raw, pos, resolvedName);
       const selected = Math.max(1, Math.round(getValueByRankingMode(bundle, mode)));
-      return {
+      const out = {
         ...baseResult,
         ...bundle,
         rawMarketValue: raw,
         metaValue: selected,
         isPick,
+        displayName: normalizedName,
+        resolvedName,
       };
+      tradeItemValueCache.map.set(cacheKey, out);
+      return { ...out };
     };
 
-    const pickInfo = parsePickToken(itemName);
+    const pickInfo = parsePickToken(normalizedName);
     if (pickInfo) {
       // Trade-history picks can include ownership decoration (e.g., "(from Team X)").
       // Resolve against canonical backend pick labels first so we value the exact traded pick
       // before falling back to inferred/proxy paths.
-      const exactLabels = getCanonicalPickLookupLabels(pickInfo);
+      const exactLabels = [];
+      const seen = new Set();
+      const pushLabel = (label) => {
+        const s = String(label || '').trim();
+        if (!s) return;
+        const nk = normalizeForLookup(s);
+        if (!nk || seen.has(nk)) return;
+        seen.add(nk);
+        exactLabels.push(s);
+      };
+      // Canonical labels first so equivalent pick strings resolve to the same
+      // backend pick row/value. Keep original as fallback only.
+      getCanonicalPickLookupLabels(pickInfo).forEach(pushLabel);
+      pushLabel(normalizedName);
       for (const label of exactLabels) {
         const exact = computeMetaValueForPlayer(label, { rawOnly: true });
         if (exact && exact.metaValue > 0) {
-          return applyTradeMode(exact, true);
+          return applyTradeMode(exact, true, label);
         }
       }
 
-      const directPick = computeMetaValueForPlayer(itemName, { rawOnly: true });
+      const directPick = computeMetaValueForPlayer(normalizedName, { rawOnly: true });
       if (directPick && directPick.metaValue > 0) {
-        return applyTradeMode(directPick, true);
+        return applyTradeMode(directPick, true, normalizedName);
       }
       const pickData = resolvePickSiteValues(pickInfo);
       if (pickData) {
-        const pickResult = computeMetaFromSiteValues(pickData, { isPick: true, playerName: itemName });
+        const pickResult = computeMetaFromSiteValues(pickData, { isPick: true, playerName: normalizedName });
         if (pickResult && pickResult.metaValue > 0) {
-          return applyTradeMode(pickResult, true);
+          return applyTradeMode(pickResult, true, normalizedName);
         }
 
         const ktcVal = Number(pickData.ktc);
@@ -9191,37 +9717,32 @@
             rawMarketValue: Math.round(ktcVal),
             siteCount: 1,
             siteDetails: { ktc: Math.round(ktcVal) },
-          }, true);
+          }, true, normalizedName);
         }
       }
-      return { metaValue: 0, isPick: true };
+      const out = { metaValue: 0, isPick: true, displayName: normalizedName, resolvedName: normalizedName };
+      tradeItemValueCache.map.set(cacheKey, out);
+      return { ...out };
     }
 
-    const result = computeMetaValueForPlayer(itemName, { rawOnly: true });
-    if (!result) return { metaValue: 0, isPick: false };
-    return applyTradeMode(result, false);
+    const result = computeMetaValueForPlayer(normalizedName, { rawOnly: true });
+    if (!result) {
+      const out = { metaValue: 0, isPick: false, displayName: normalizedName, resolvedName: normalizedName };
+      tradeItemValueCache.map.set(cacheKey, out);
+      return { ...out };
+    }
+    return applyTradeMode(result, false, normalizedName);
   }
 
   // [NEW] Get player position from any source
   function getPlayerPosition(name) {
     if (!name) return null;
-    let pos = playerPositions[name];
-    if (!pos) {
-      const norm = normalizeForLookup(name);
-      for (const [pn, p] of Object.entries(playerPositions)) {
-        if (normalizeForLookup(pn) === norm) { pos = p; break; }
-      }
-    }
+    let pos = resolvePlayerPositionByName(name);
     if (!pos) {
       pos = getRookiePosHint(name);
     }
     if (!pos) return null;
-    // Normalize IDP sub-positions: DE/DT/EDGE→DL, CB/S/FS/SS→DB, OLB/ILB→LB
-    const up = pos.toUpperCase();
-    if (['DE','DT','EDGE','NT'].includes(up)) return 'DL';
-    if (['CB','S','FS','SS'].includes(up)) return 'DB';
-    if (['OLB','ILB'].includes(up)) return 'LB';
-    return pos;
+    return normalizePositionFamily(pos);
   }
 
   function handleJsonLoad(event) {
@@ -9247,13 +9768,20 @@
   }
 
   function normalizeForLookup(s) {
-    return (s||'').trim().toLowerCase()
+    const raw = String(s || '');
+    if (!raw) return '';
+    const cached = normalizeLookupCache.get(raw);
+    if (cached != null) return cached;
+    const normalized = raw.trim().toLowerCase()
       .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
       // Treat hyphenated names and spaced names as equivalent (e.g., Hines-Allen vs Hines Allen).
       .replace(/[-,]/g, ' ')
       .replace(/['\u2018\u2019\u0060\u00B4\u2032.]/g, '')
       .replace(/\s+(jr|sr|ii|iii|iv|v)\.?$/i, '')
       .replace(/\s+/g, ' ');
+    if (normalizeLookupCache.size > 20000) normalizeLookupCache.clear();
+    normalizeLookupCache.set(raw, normalized);
+    return normalized;
   }
 
   function readJsonStore(key, fallback) {
@@ -9358,8 +9886,13 @@
       const inp = row.querySelector('.player-name-input');
       const name = String(inp?.value || '').trim();
       if (!name) return;
-      const result = computeMetaValueForPlayer(name);
-      const meta = result?.metaValue && isFinite(result.metaValue) ? Math.round(result.metaValue) : 0;
+      const cachedMeta = Number(row.dataset.metaValue);
+      const meta = (Number.isFinite(cachedMeta) && cachedMeta > 0)
+        ? Math.round(cachedMeta)
+        : (() => {
+            const result = computeMetaValueForPlayer(name);
+            return result?.metaValue && isFinite(result.metaValue) ? Math.round(result.metaValue) : 0;
+          })();
       out.push({ name, meta });
     });
     return out;
@@ -9777,12 +10310,8 @@
 
   function getCanonicalPlayerName(name) {
     if (!name || !loadedData?.players) return null;
-    if (loadedData.players[name]) return name;
-    const norm = normalizeForLookup(name);
-    for (const pn of Object.keys(loadedData.players)) {
-      if (normalizeForLookup(pn) === norm) return pn;
-    }
-    return null;
+    const canonical = resolveCanonicalPlayerName(name);
+    return canonical || null;
   }
 
   function getPlayerNameBySleeperId(sleeperId) {
@@ -10648,7 +11177,12 @@
         const name = (nameInp?nameInp.value:'').trim();
         const siteInps = Array.from(row.querySelectorAll('.site-input'));
         const anyVal = siteInps.some(i=>i.value!=='');
-        if (!name&&!anyVal) { const su=row.querySelector('.sites-used'); if(su)su.textContent=''; const mv=row.querySelector('.meta-value'); if(mv)mv.textContent=''; return; }
+        if (!name&&!anyVal) {
+          const su=row.querySelector('.sites-used'); if(su)su.textContent='';
+          const mv=row.querySelector('.meta-value'); if(mv)mv.textContent='';
+          row.dataset.metaValue = '';
+          return;
+        }
 
         const pickInfo = parsePickToken(name);
         const isPick = !!pickInfo;
@@ -10704,7 +11238,10 @@
         });
         const su = row.querySelector('.sites-used');
         if (su) su.textContent = composite ? String(composite.siteCount) : '';
-        if (!composite) return;
+        if (!composite) {
+          row.dataset.metaValue = '';
+          return;
+        }
 
         let metaValue = composite.rawCompositeValue;
         const rawMarketValue = composite.rawCompositeValue;
@@ -10792,6 +11329,7 @@
           }
           mvEl.innerHTML = display;
         }
+        row.dataset.metaValue = isFinite(metaValue) ? String(Math.max(1, Math.round(metaValue))) : '';
 
         const linear = metaValue;
         const weighted = Math.pow(metaValue, alpha);
@@ -10830,7 +11368,7 @@
         ['valueAdjustment','whoAhead','percentDiff'].forEach(id=>document.getElementById(id).textContent='–');
         pill.textContent='–'; pill.className='decision-pill neutral';
         if (suggestionEl) suggestionEl.style.display='none';
-        persistSettings(); return;
+        queuePersistSettings(); return;
       }
 
       const sides = [{name:'Side A',val:tA,cls:'win-a'},{name:'Side B',val:tB,cls:'win-b'},{name:'Side C',val:tC,cls:'win-c'}];
@@ -10840,7 +11378,7 @@
       if (winner.val === 0) {
         pill.textContent='–'; pill.className='decision-pill neutral';
         ['valueAdjustment','whoAhead','percentDiff'].forEach(id=>document.getElementById(id).textContent='–');
-        persistSettings(); return;
+        queuePersistSettings(); return;
       }
 
       const gapToSecond = winner.val - second.val;
@@ -10889,7 +11427,7 @@
         pill.textContent='–'; pill.className='decision-pill neutral';
         if (suggestionEl) suggestionEl.style.display='none';
         if (verdictBar) verdictBar.style.display='none';
-        persistSettings(); return;
+        queuePersistSettings(); return;
       }
 
       const diff = Math.abs(tA-tB);
@@ -11049,7 +11587,7 @@
     computeTradeImpact();
 
     const mobileWorkspace = document.getElementById('mobileTradeWorkspace');
-    const shouldRefreshMobileTrade = !!mobileWorkspace && (isMobileViewport() || activeTabId === 'calculator');
+    const shouldRefreshMobileTrade = !!mobileWorkspace && isMobileViewport();
     if (shouldRefreshMobileTrade) {
       renderMobileTradeWorkspace();
       updateMobileTradeTray();
@@ -11060,7 +11598,7 @@
     if (activeTabId === 'watch') buildWatchHub();
     if (activeTabId === 'more') buildMoreHub();
 
-    persistSettings();
+    queuePersistSettings();
   }
 
   function toggleDataFreshnessDetails(forceOpen = null) {
@@ -11118,6 +11656,8 @@
     if (cleanPlayers) data.players = cleanPlayers;
 
     loadedData = data;
+    normalizeLookupCache.clear();
+    pickTokenParseCache.clear();
     invalidateRankingsBaseRowsCache();
     playerNames = Object.keys(data.players).sort();
     playerSleeperIds = {};
@@ -11175,6 +11715,7 @@
     if (data.sleeper && data.sleeper.positions) {
       playerPositions = data.sleeper.positions;
     }
+    rebuildPlayerLookupCaches();
 
     if (data.maxValues && data.maxValues.idpTradeCalc) {
       // IDPTradeCalc anchor — use the scraper-computed value (max excl. Travis Hunter)
@@ -11359,9 +11900,15 @@
     loadTradeDraftState();
     renderMobileTradeWorkspace();
     updateMobileTradeTray();
-    buildHomeHub();
-    buildWatchHub();
-    buildMoreHub();
+    if (activeTabId === 'home') buildHomeHub();
+    if (activeTabId === 'watch') buildWatchHub();
+    if (activeTabId === 'more') buildMoreHub();
+    // Warm secondary hubs off the critical path so first paint/interaction stays snappy.
+    queueIdleWork(() => {
+      if (activeTabId !== 'home') buildHomeHub();
+      if (activeTabId !== 'watch') buildWatchHub();
+      if (activeTabId !== 'more') buildMoreHub();
+    }, 1200);
     postDataViewsHydrated = true;
     updateRankingsActiveChips();
     updateCalculatorEmptyHint();
@@ -11393,31 +11940,57 @@
     queueIdleWork(() => runTrendComputation(data, token), 1500);
   }
 
+  function getTrendComparableValue(name, pdata) {
+    const pre = Number(
+      pdata?._finalAdjusted
+      ?? pdata?._leagueAdjusted
+      ?? pdata?._scarcityAdjusted
+      ?? pdata?._scoringAdjusted
+      ?? pdata?._composite
+    );
+    if (Number.isFinite(pre) && pre > 0) {
+      return clampValue(Math.round(pre), 1, COMPOSITE_SCALE);
+    }
+    const result = computeMetaValueForPlayer(name);
+    if (result && Number.isFinite(result.metaValue) && result.metaValue > 0) {
+      return clampValue(Math.round(result.metaValue), 1, COMPOSITE_SCALE);
+    }
+    return 0;
+  }
+
   function runTrendComputation(data, token) {
     if (!data || !data.players || token !== trendComputeToken) return;
     try {
       const prevRaw = localStorage.getItem('dynasty_prev_composites');
       const prevData = prevRaw ? JSON.parse(prevRaw) : {};
+      const prevStamp = localStorage.getItem(PREV_TREND_STAMP_KEY) || '';
+      const currentStamp = String(data.scrapeTimestamp || data.date || '');
       window.prevComposites = prevData;
       window.currentComposites = {};
       window.playerTrends = {};
 
-      const names = Object.keys(data.players);
+      // Fast path: identical source snapshot already computed.
+      if (prevStamp && currentStamp && prevStamp === currentStamp && Object.keys(prevData).length > 50) {
+        window.currentComposites = prevData;
+        return;
+      }
+
+      const entries = Object.entries(data.players || {});
       const currentComposites = {};
       const chunkSize = 64;
       let idx = 0;
 
       const processChunk = () => {
         if (token !== trendComputeToken || loadedData !== data) return;
-        const end = Math.min(idx + chunkSize, names.length);
+        const end = Math.min(idx + chunkSize, entries.length);
         for (; idx < end; idx++) {
-          const name = names[idx];
-          const result = computeMetaValueForPlayer(name);
-          if (result && result.metaValue > 0) {
-            currentComposites[name] = result.metaValue;
+          const [name, pdata] = entries[idx];
+          const trendVal = getTrendComparableValue(name, pdata);
+          if (trendVal > 0) {
+            currentComposites[name] = trendVal;
           }
         }
-        if (idx < names.length) {
+        if (idx < entries.length) {
           pendingTrendCompute = setTimeout(processChunk, 0);
           return;
         }
@@ -11443,6 +12016,7 @@
           }
         }
         localStorage.setItem('dynasty_prev_composites', JSON.stringify(currentComposites));
+        if (currentStamp) localStorage.setItem(PREV_TREND_STAMP_KEY, currentStamp);
         localStorage.setItem('dynasty_prev_date', currentDate);
       };
 
@@ -12245,12 +12819,14 @@
       let sideTotals = [];
       for (const side of trade.sides) {
         let gotTotal = 0, gotItems = [];
-        for (const pName of side.got) {
-          const tiv = getTradeItemValue(pName);
+        for (const rawItem of getTradeSideItemLabels(side?.got)) {
+          const tiv = getTradeItemValue(rawItem);
           const val = tiv.metaValue;
-          gotTotal += val;
-          const pos = tiv.isPick ? '' : (getPlayerPosition(pName) || '');
-          gotItems.push({ name: pName, val, pos, isPick: tiv.isPick });
+          const safeVal = Number.isFinite(val) ? Math.max(0, Number(val)) : 0;
+          gotTotal += safeVal;
+          const itemName = tiv.displayName || rawItem;
+          const pos = tiv.isPick ? '' : (getPlayerPosition(tiv.resolvedName || itemName) || '');
+          gotItems.push({ name: itemName, val: safeVal, pos, isPick: tiv.isPick });
         }
         sideTotals.push({ team: side.team, total: gotTotal, items: gotItems });
       }
@@ -12320,13 +12896,15 @@
 
       for (const side of trade.sides) {
         let linearTotal = 0, weightedTotal = 0, items = [];
-        for (const pName of side.got) {
-          const tiv = getTradeItemValue(pName);
+        for (const rawItem of getTradeSideItemLabels(side?.got)) {
+          const tiv = getTradeItemValue(rawItem);
           const val = tiv.metaValue;
-          const pos = tiv.isPick ? '' : (getPlayerPosition(pName) || '');
-          linearTotal += val;
-          weightedTotal += Math.pow(Math.max(val, 1), alpha);
-          items.push({ name: pName, val: Math.round(val), pos, isPick: tiv.isPick });
+          const safeVal = Number.isFinite(val) ? Math.max(0, Number(val)) : 0;
+          const itemName = tiv.displayName || rawItem;
+          const pos = tiv.isPick ? '' : (getPlayerPosition(tiv.resolvedName || itemName) || '');
+          linearTotal += safeVal;
+          weightedTotal += Math.pow(Math.max(safeVal, 1), alpha);
+          items.push({ name: itemName, val: Math.round(safeVal), pos, isPick: tiv.isPick });
         }
         sides.push({ team: side.team, linear: linearTotal, weighted: weightedTotal, items });
       }
@@ -12749,20 +13327,7 @@
     });
 
     // Compute MetaValue for every player
-    const playerMeta = {};
-    for (const pName of Object.keys(loadedData.players)) {
-      const result = computeMetaValueForPlayer(pName);
-      if (result && result.metaValue > 0) {
-        const pos = getPlayerPosition(pName) || '';
-        if (isKickerPosition(pos)) continue;
-        playerMeta[pName.toLowerCase()] = {
-          name: pName,
-          meta: result.metaValue,
-          pos: pos,
-          group: posGroup(pos),
-        };
-      }
-    }
+    const playerMeta = buildRosterPlayerMetaMap();
 
     // Build team summaries
     const teams = sleeperTeams.map(team => {
@@ -13711,6 +14276,14 @@
     return !!document.getElementById('rankingsShowLamCols')?.checked;
   }
 
+  function setRankingsDetailColumnsVisible(enabled, opts = {}) {
+    const on = !!enabled;
+    const main = document.getElementById('rankingsShowLamCols');
+    if (main) main.checked = on;
+    if (opts.persist !== false) persistSettings();
+    if (opts.rebuild !== false) buildFullRankings();
+  }
+
   function showRankingsSourceColumns() {
     return !!document.getElementById('rankingsShowSiteCols')?.checked;
   }
@@ -13722,15 +14295,15 @@
     if (quick) quick.checked = on;
   }
 
-  function setRankingsSourceColumnsVisible(enabled) {
+  function setRankingsSourceColumnsVisible(enabled, opts = {}) {
     const on = !!enabled;
     const main = document.getElementById('rankingsShowSiteCols');
     const quick = document.getElementById('rankingsShowSiteColsQuick');
     if (main) main.checked = on;
     if (quick) quick.checked = on;
-    persistSettings();
-    buildFullRankings();
-    if (typeof buildMoreHub === 'function') {
+    if (opts.persist !== false) persistSettings();
+    if (opts.rebuild !== false) buildFullRankings();
+    if (opts.refreshMore !== false && typeof buildMoreHub === 'function') {
       try { buildMoreHub(); } catch(_) {}
     }
   }
@@ -15581,6 +16154,11 @@
     initSiteConfig();
     initAnchors();
     loadSettings();
+    try {
+      const savedQuickSide = localStorage.getItem(MOBILE_RANKINGS_QUICK_SIDE_KEY);
+      if (savedQuickSide) rankingsQuickTradeSide = (String(savedQuickSide).toUpperCase() === 'A') ? 'A' : 'B';
+    } catch (_) {}
+    updateRankingsQuickTradeSideButtons();
     hydrateMobilePowerModeFromStorage();
     buildPlayersTable();
     populateSavedTrades();
