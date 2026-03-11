@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Risk It To Get The Brisket</title>
+  <style>
+    :root {
+      --bg: #eef2f7;
+      --card: #ffffff;
+      --ink: #152033;
+      --muted: #5a6778;
+      --line: #d6deea;
+      --primary: #152033;
+      --danger: #b33939;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background:
+        radial-gradient(900px 340px at 20% -10%, rgba(21, 32, 51, 0.09), transparent 60%),
+        radial-gradient(700px 280px at 90% 110%, rgba(196, 90, 29, 0.08), transparent 60%),
+        var(--bg);
+      color: var(--ink);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .shell {
+      width: min(780px, 100%);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 28px;
+      box-shadow: 0 18px 45px rgba(18, 27, 43, 0.12);
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      letter-spacing: -0.02em;
+    }
+    p.sub {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 0.96rem;
+    }
+    .options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .option-btn {
+      border: 1px solid var(--line);
+      background: #f7f9fd;
+      border-radius: 12px;
+      padding: 16px 14px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .option-btn:hover {
+      border-color: #bec8d7;
+      background: #f1f5fb;
+    }
+    .login {
+      display: none;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfcff;
+      padding: 14px;
+      margin-top: 6px;
+    }
+    .login.active { display: block; }
+    .row { display: grid; gap: 6px; margin-bottom: 10px; }
+    label { font-size: 0.82rem; color: var(--muted); }
+    input {
+      width: 100%;
+      border: 1px solid #cad3e2;
+      border-radius: 9px;
+      padding: 10px 11px;
+      font-size: 0.95rem;
+      color: var(--ink);
+      background: #fff;
+      outline: none;
+    }
+    input:focus { border-color: #9aa9bf; }
+    .actions { display: flex; gap: 10px; align-items: center; }
+    .btn {
+      border: 1px solid var(--primary);
+      background: var(--primary);
+      color: #fff;
+      border-radius: 9px;
+      font-weight: 600;
+      padding: 10px 12px;
+      cursor: pointer;
+    }
+    .btn.secondary {
+      border-color: #c7d1e0;
+      background: #fff;
+      color: var(--ink);
+    }
+    .error {
+      margin-top: 8px;
+      color: var(--danger);
+      font-size: 0.86rem;
+      min-height: 1.2em;
+    }
+    @media (max-width: 680px) {
+      .options { grid-template-columns: 1fr; }
+      .shell { padding: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <h1>Risk It To Get The Brisket</h1>
+    <p class="sub">Choose where you want to go.</p>
+
+    <div class="options">
+      <button id="leagueOption" class="option-btn" type="button">League</button>
+      <button id="jasonOption" class="option-btn" type="button">Jason</button>
+    </div>
+
+    <section id="jasonLoginPanel" class="login" aria-live="polite">
+      <form id="jasonLoginForm">
+        <div class="row">
+          <label for="usernameInput">Username</label>
+          <input id="usernameInput" name="username" type="text" autocomplete="username" required />
+        </div>
+        <div class="row">
+          <label for="passwordInput">Password</label>
+          <input id="passwordInput" name="password" type="password" autocomplete="current-password" required />
+        </div>
+        <div class="actions">
+          <button id="loginSubmitBtn" class="btn" type="submit">Login</button>
+          <button id="loginCancelBtn" class="btn secondary" type="button">Cancel</button>
+        </div>
+        <div id="loginError" class="error"></div>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const params = new URLSearchParams(window.location.search || "");
+      const leagueBtn = document.getElementById("leagueOption");
+      const jasonBtn = document.getElementById("jasonOption");
+      const panel = document.getElementById("jasonLoginPanel");
+      const form = document.getElementById("jasonLoginForm");
+      const usernameInput = document.getElementById("usernameInput");
+      const passwordInput = document.getElementById("passwordInput");
+      const submitBtn = document.getElementById("loginSubmitBtn");
+      const cancelBtn = document.getElementById("loginCancelBtn");
+      const errorEl = document.getElementById("loginError");
+
+      const sanitizeNext = (raw) => {
+        const val = String(raw || "").trim();
+        if (!val) return "/app";
+        if (!val.startsWith("/") || val.startsWith("//")) return "/app";
+        return val;
+      };
+      const nextPath = sanitizeNext(params.get("next"));
+
+      const clearError = () => { errorEl.textContent = ""; };
+      const showError = (msg) => { errorEl.textContent = msg || "Login failed."; };
+      const showLogin = () => {
+        panel.classList.add("active");
+        clearError();
+        usernameInput.focus();
+      };
+      const hideLogin = () => {
+        panel.classList.remove("active");
+        clearError();
+        passwordInput.value = "";
+      };
+
+      async function statusCheck() {
+        try {
+          const resp = await fetch("/api/auth/status", { credentials: "same-origin" });
+          if (!resp.ok) return false;
+          const data = await resp.json();
+          return !!data.authenticated;
+        } catch (_) {
+          return false;
+        }
+      }
+
+      leagueBtn.addEventListener("click", () => {
+        window.location.href = "/league";
+      });
+
+      jasonBtn.addEventListener("click", async () => {
+        clearError();
+        if (await statusCheck()) {
+          window.location.href = nextPath;
+          return;
+        }
+        showLogin();
+      });
+
+      cancelBtn.addEventListener("click", () => hideLogin());
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        clearError();
+        const username = String(usernameInput.value || "").trim();
+        const password = String(passwordInput.value || "");
+        if (!username || !password) {
+          showError("Enter username and password.");
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Checking...";
+        try {
+          const resp = await fetch("/api/auth/login", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password, next: nextPath }),
+          });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok || !data.ok) {
+            showError(data.error || "Invalid username or password.");
+            return;
+          }
+          window.location.href = sanitizeNext(data.redirect || nextPath || "/app");
+        } catch (_) {
+          showError("Unable to reach login endpoint. Try again.");
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Login";
+        }
+      });
+
+      if (params.get("jason") === "1") {
+        showLogin();
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -26,6 +26,7 @@ import hashlib
 import uuid
 import urllib.request
 import urllib.error
+import urllib.parse
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone
@@ -34,7 +35,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, BackgroundTasks, Request
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.api.data_contract import (
@@ -86,6 +87,13 @@ UPTIME_CHECK_URL = os.getenv(
 UPTIME_CHECK_INTERVAL_SEC = int(os.getenv("UPTIME_CHECK_INTERVAL_SEC", "300"))
 UPTIME_CHECK_TIMEOUT_SEC = float(os.getenv("UPTIME_CHECK_TIMEOUT_SEC", "5"))
 UPTIME_ALERT_FAIL_THRESHOLD = int(os.getenv("UPTIME_ALERT_FAIL_THRESHOLD", "2"))
+
+# ── LIGHTWEIGHT AUTH GATE (PRIVATE-USE) ────────────────────────────────
+# App UI is intentionally gated behind Jason login.
+JASON_LOGIN_USERNAME = (os.getenv("JASON_LOGIN_USERNAME") or "jasonleetucker").strip()
+JASON_LOGIN_PASSWORD = os.getenv("JASON_LOGIN_PASSWORD") or "Elliott21!"
+JASON_AUTH_COOKIE_NAME = "jason_session"
+JASON_AUTH_COOKIE_SECURE = _env_bool("JASON_AUTH_COOKIE_SECURE", False)
 
 # Rate limit: max 1 email per hour to avoid spam on repeated failures
 _last_alert_time = 0
@@ -228,10 +236,70 @@ frontend_runtime_status = {
     "fallbackFrom": None,
     "lastChecked": None,
 }
+# In-memory auth sessions for private-use gate.
+auth_sessions: dict[str, dict] = {}
 
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _sanitize_next_path(raw: str | None, default: str = "/app") -> str:
+    value = str(raw or "").strip()
+    if not value:
+        return default
+    if value.startswith("http://") or value.startswith("https://"):
+        return default
+    if not value.startswith("/") or value.startswith("//"):
+        return default
+    if "\n" in value or "\r" in value:
+        return default
+    return value
+
+
+def _get_auth_session(request: Request) -> dict | None:
+    session_id = str(request.cookies.get(JASON_AUTH_COOKIE_NAME, "")).strip()
+    if not session_id:
+        return None
+    session = auth_sessions.get(session_id)
+    if not isinstance(session, dict):
+        return None
+    return session
+
+
+def _is_authenticated(request: Request) -> bool:
+    return _get_auth_session(request) is not None
+
+
+def _create_auth_session(username: str) -> str:
+    session_id = uuid.uuid4().hex
+    auth_sessions[session_id] = {
+        "username": str(username or ""),
+        "created_at": _utc_now_iso(),
+    }
+    if len(auth_sessions) > 5000:
+        oldest = sorted(
+            auth_sessions.items(),
+            key=lambda kv: str((kv[1] or {}).get("created_at") or ""),
+        )[:500]
+        for sid, _ in oldest:
+            auth_sessions.pop(sid, None)
+    return session_id
+
+
+def _clear_auth_session(request: Request) -> None:
+    session_id = str(request.cookies.get(JASON_AUTH_COOKIE_NAME, "")).strip()
+    if session_id:
+        auth_sessions.pop(session_id, None)
+
+
+def _auth_redirect_response(request: Request, default_next: str = "/app") -> RedirectResponse:
+    next_path = request.url.path
+    if request.url.query:
+        next_path = f"{next_path}?{request.url.query}"
+    safe_next = _sanitize_next_path(next_path, default_next)
+    encoded_next = urllib.parse.quote(safe_next, safe="/?=&")
+    return RedirectResponse(url=f"/?next={encoded_next}&jason=1", status_code=302)
 
 
 def _parse_iso(ts: str | None) -> datetime | None:
@@ -1493,11 +1561,121 @@ async def test_alert():
         )
 
 
-# ── DASHBOARD ROUTES ────────────────────────────────────────────────────
+# ── AUTH + ENTRY GATE ROUTES ────────────────────────────────────────────
+@app.get("/api/auth/status")
+async def auth_status(request: Request):
+    session = _get_auth_session(request)
+    return JSONResponse(
+        content={
+            "authenticated": bool(session),
+            "username": session.get("username") if session else None,
+        }
+    )
+
+
+@app.post("/api/auth/login")
+async def auth_login(request: Request):
+    payload: dict = {}
+    try:
+        raw = await request.json()
+        if isinstance(raw, dict):
+            payload = raw
+    except Exception:
+        payload = {}
+
+    username = str(payload.get("username") or "").strip()
+    password = str(payload.get("password") or "")
+    next_path = _sanitize_next_path(payload.get("next"), "/app")
+
+    if username != JASON_LOGIN_USERNAME or password != JASON_LOGIN_PASSWORD:
+        return JSONResponse(
+            status_code=401,
+            content={"ok": False, "error": "Invalid username or password."},
+        )
+
+    session_id = _create_auth_session(username)
+    response = JSONResponse(content={"ok": True, "redirect": next_path})
+    response.set_cookie(
+        key=JASON_AUTH_COOKIE_NAME,
+        value=session_id,
+        path="/",
+        httponly=True,
+        samesite="lax",
+        secure=JASON_AUTH_COOKIE_SECURE,
+    )
+    return response
+
+
+@app.post("/api/auth/logout")
+async def auth_logout(request: Request):
+    _clear_auth_session(request)
+    response = JSONResponse(content={"ok": True})
+    response.delete_cookie(key=JASON_AUTH_COOKIE_NAME, path="/")
+    return response
+
+
+@app.get("/logout")
+async def auth_logout_redirect(request: Request):
+    _clear_auth_session(request)
+    response = RedirectResponse(url="/", status_code=302)
+    response.delete_cookie(key=JASON_AUTH_COOKIE_NAME, path="/")
+    return response
+
+
 @app.get("/", response_class=HTMLResponse)
-async def serve_dashboard():
-    """Serve the main dashboard HTML."""
-    routed = _resolve_frontend_path("/")
+async def serve_landing():
+    for path in [LEGACY_STATIC_DIR / "landing.html", STATIC_DIR / "landing.html"]:
+        if path.exists():
+            return FileResponse(path, media_type="text/html")
+    return HTMLResponse(
+        "<h1>Landing page missing</h1><p>Expected Static/landing.html.</p>",
+        status_code=500,
+    )
+
+
+@app.get("/league", response_class=HTMLResponse)
+async def serve_league_entry():
+    return HTMLResponse(
+        """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>League</title>
+          <style>
+            body { margin:0; min-height:100vh; display:grid; place-items:center; font-family:Arial,sans-serif; background:#f4f6fb; color:#1d2430; }
+            .card { background:#fff; border:1px solid #dbe2ef; border-radius:14px; padding:26px; max-width:560px; width:min(92vw,560px); }
+            h1 { margin:0 0 10px; font-size:1.4rem; }
+            p { margin:0 0 16px; color:#586474; line-height:1.5; }
+            .row { display:flex; gap:10px; flex-wrap:wrap; }
+            a { display:inline-block; padding:10px 14px; border-radius:10px; text-decoration:none; font-weight:600; border:1px solid #dbe2ef; color:#1d2430; }
+            a.primary { background:#1d2430; color:#fff; border-color:#1d2430; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h1>League</h1>
+            <p>This entry is available without opening the private Jason workspace.</p>
+            <div class="row">
+              <a href="/">Back</a>
+              <a class="primary" href="/?jason=1">Open Jason Login</a>
+            </div>
+          </div>
+        </body>
+        </html>
+        """
+    )
+
+
+def _require_auth_or_redirect(request: Request, default_next: str = "/app") -> RedirectResponse | None:
+    if _is_authenticated(request):
+        return None
+    return _auth_redirect_response(request, default_next)
+
+
+async def _serve_app_shell(frontend_path: str) -> Response:
+    routed = _resolve_frontend_path(frontend_path)
     if routed is not None:
         if isinstance(routed, Response) and routed.status_code == 503:
             return routed
@@ -1505,7 +1683,6 @@ async def serve_dashboard():
             return routed
 
     if FRONTEND_RUNTIME == "next":
-        # Explicit next-mode without fallback.
         return routed if routed is not None else HTMLResponse("Next frontend unavailable", status_code=503)
 
     for path in [STATIC_DIR / "index.html", LEGACY_STATIC_DIR / "index.html", BASE_DIR / "index.html"]:
@@ -1519,37 +1696,53 @@ async def serve_dashboard():
     )
 
 
+# ── DASHBOARD ROUTES (AUTH REQUIRED) ────────────────────────────────────
+@app.get("/app", response_class=HTMLResponse)
+async def serve_dashboard(request: Request):
+    redirect = _require_auth_or_redirect(request, "/app")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/")
+
+
 @app.get("/rankings", response_class=HTMLResponse)
-async def serve_rankings():
-    routed = _resolve_frontend_path("/rankings")
-    if routed is not None:
-        if isinstance(routed, Response) and routed.status_code == 503:
-            return routed
-        if FRONTEND_RUNTIME in {"next", "auto"} and frontend_runtime_status.get("active") == "next":
-            return routed
-    return await serve_dashboard()
+async def serve_rankings(request: Request):
+    redirect = _require_auth_or_redirect(request, "/rankings")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/rankings")
 
 
 @app.get("/trade", response_class=HTMLResponse)
-async def serve_trade():
-    routed = _resolve_frontend_path("/trade")
-    if routed is not None:
-        if isinstance(routed, Response) and routed.status_code == 503:
-            return routed
-        if FRONTEND_RUNTIME in {"next", "auto"} and frontend_runtime_status.get("active") == "next":
-            return routed
-    return await serve_dashboard()
+async def serve_trade(request: Request):
+    redirect = _require_auth_or_redirect(request, "/trade")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/trade")
 
 
 @app.get("/login", response_class=HTMLResponse)
-async def serve_login():
-    routed = _resolve_frontend_path("/login")
-    if routed is not None:
-        if isinstance(routed, Response) and routed.status_code == 503:
-            return routed
-        if FRONTEND_RUNTIME in {"next", "auto"} and frontend_runtime_status.get("active") == "next":
-            return routed
-    return await serve_dashboard()
+async def serve_login(request: Request):
+    redirect = _require_auth_or_redirect(request, "/login")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/login")
+
+
+@app.get("/index.html", response_class=HTMLResponse)
+async def serve_index_alias(request: Request):
+    redirect = _require_auth_or_redirect(request, "/app")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/")
+
+
+@app.get("/Static/index.html", response_class=HTMLResponse)
+async def serve_legacy_index_alias(request: Request):
+    redirect = _require_auth_or_redirect(request, "/app")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/")
 
 
 @app.get("/_next/{full_path:path}")

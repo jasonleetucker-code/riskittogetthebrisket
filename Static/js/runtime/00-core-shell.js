@@ -86,6 +86,18 @@
     DL: 'DL',
     DB: 'DB',
   };
+  async function logoutJasonSession() {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'same-origin',
+      });
+    } catch (_) {
+      // Intentionally ignore logout API errors; still return to landing.
+    }
+    window.location.href = '/';
+  }
+
   let recalcTimer = null;
   let settingsPersistTimer = null;
   let currentRankingsFilter = 'ALL';
