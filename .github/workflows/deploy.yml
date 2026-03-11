@@ -29,13 +29,44 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
+      - name: Resolve Python dependency manifest
+        id: pydeps
+        shell: bash
         run: |
+          set -Eeuo pipefail
+          DEP_FILE=""
+          if [[ -f "requirements-prod.txt" ]]; then
+            DEP_FILE="requirements-prod.txt"
+          elif [[ -f "requirements.txt" ]]; then
+            DEP_FILE="requirements.txt"
+          elif [[ -f "requirements-dev.txt" ]]; then
+            DEP_FILE="requirements-dev.txt"
+          fi
+
+          if [[ -z "${DEP_FILE}" ]]; then
+            echo "::notice title=No Python manifest found::No requirements*.txt file found at repo root; skipping dependency install for validation job."
+            echo "mode=skip" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=requirements" >> "$GITHUB_OUTPUT"
+            echo "dep_file=${DEP_FILE}" >> "$GITHUB_OUTPUT"
+            echo "Using Python manifest: ${DEP_FILE}"
+          fi
+
+      - name: Install dependencies (requirements)
+        if: ${{ steps.pydeps.outputs.mode == 'requirements' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          DEP_FILE="${{ steps.pydeps.outputs.dep_file }}"
+          [[ -n "${DEP_FILE}" ]] || { echo "::error title=Dependency file missing::Manifest path not set after preflight."; exit 1; }
+          [[ -f "${DEP_FILE}" ]] || { echo "::error title=Dependency file missing::${DEP_FILE} does not exist in repository root."; exit 1; }
+          pip install -r "${DEP_FILE}"
 
       - name: Python syntax gate
+        shell: bash
         run: |
+          set -Eeuo pipefail
           python -m py_compile server.py "Dynasty Scraper.py"
           python -m py_compile src/api/data_contract.py
 
@@ -244,6 +275,7 @@ jobs:
 
       - name: Public health smoke test (optional)
         if: ${{ vars.PROD_PUBLIC_URL != '' }}
+        shell: bash
         run: |
           set -Eeuo pipefail
           curl --fail --silent --show-error --max-time 20 "${{ vars.PROD_PUBLIC_URL }}" >/tmp/public-health.json
