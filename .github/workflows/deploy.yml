@@ -22,10 +22,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -44,7 +44,7 @@ jobs:
           fi
 
           if [[ -z "${DEP_FILE}" ]]; then
-            echo "::notice title=No Python manifest found::No requirements*.txt file found at repo root; skipping dependency install for validation job."
+            echo "No requirements*.txt file found at repo root; skipping dependency install for validation job."
             echo "mode=skip" >> "$GITHUB_OUTPUT"
           else
             echo "mode=requirements" >> "$GITHUB_OUTPUT"
@@ -94,22 +94,13 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          REQUIRED="deploy/deploy.sh"
-          bash -n "${REQUIRED}"
+          bash -n "deploy/deploy.sh"
 
-          OPTIONAL_SCRIPTS=(
-            "deploy/setup-server.sh"
-            "deploy/rollback.sh"
-            "deploy/verify-deploy.sh"
-            "deploy/setup-ssl.sh"
-            "deploy/verify-ssl.sh"
-          )
-          for script in "${OPTIONAL_SCRIPTS[@]}"; do
-            if [[ -f "${script}" ]]; then
-              bash -n "${script}"
-            else
-              echo "::notice title=Optional deploy script not present::Skipping syntax check for ${script} (file not found)."
-            fi
+          # Syntax-check any additional deploy shell scripts that actually exist.
+          for script in deploy/*.sh; do
+            [[ -f "${script}" ]] || continue
+            [[ "${script}" == "deploy/deploy.sh" ]] && continue
+            bash -n "${script}"
           done
 
   deploy:
