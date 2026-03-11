@@ -158,7 +158,7 @@ jobs:
             exit 1
           fi
 
-          [[ -n "${DEPLOY_PORT:-}" ]] || echo "::notice title=Default SSH Port::DEPLOY_PORT not set; defaulting to 22."
+          [[ -n "${DEPLOY_PORT:-}" ]] || echo "DEPLOY_PORT not set; defaulting to 22."
 
           install -d -m 700 "$HOME/.ssh"
           DEPLOY_KEY_FILE="$HOME/.ssh/id_ed25519"
