@@ -237,8 +237,12 @@ main() {
 
   git config --global --add safe.directory "${APP_DIR}" >/dev/null 2>&1 || true
 
-  if [[ "${ALLOW_DIRTY_DEPLOY}" != "true" && -n "$(git status --porcelain)" ]]; then
-    error "Git working tree is not clean in ${APP_DIR}. Commit/stash changes or set ALLOW_DIRTY_DEPLOY=true."
+  # For deployment hosts, untracked runtime artifacts (for example .venv/) are normal.
+  # We block only tracked file drift unless ALLOW_DIRTY_DEPLOY=true.
+  local tracked_changes
+  tracked_changes="$(git status --porcelain --untracked-files=no)"
+  if [[ "${ALLOW_DIRTY_DEPLOY}" != "true" && -n "${tracked_changes}" ]]; then
+    error "Tracked git changes detected in ${APP_DIR}. Commit/stash changes or set ALLOW_DIRTY_DEPLOY=true."
     git status --short || true
     exit 1
   fi
