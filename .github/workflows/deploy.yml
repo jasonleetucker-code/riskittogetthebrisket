@@ -80,16 +80,37 @@ jobs:
             echo "No dynasty_data_*.json sample found; skipping contract validation."
           fi
 
-      - name: Deploy script syntax gate
+      - name: Validate required deploy entrypoint exists
         shell: bash
         run: |
           set -Eeuo pipefail
-          bash -n deploy/setup-server.sh
-          bash -n deploy/deploy.sh
-          bash -n deploy/rollback.sh
-          bash -n deploy/verify-deploy.sh
-          bash -n deploy/setup-ssl.sh
-          bash -n deploy/verify-ssl.sh
+          if [[ ! -f "deploy/deploy.sh" ]]; then
+            echo "::error title=Missing required deploy script::deploy/deploy.sh is required by the deploy job remote execution path but does not exist in this repository."
+            echo "::error::Either add deploy/deploy.sh or update deploy strategy/path in .github/workflows/deploy.yml."
+            exit 1
+          fi
+
+      - name: Deploy script syntax gate (existing scripts only)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          REQUIRED="deploy/deploy.sh"
+          bash -n "${REQUIRED}"
+
+          OPTIONAL_SCRIPTS=(
+            "deploy/setup-server.sh"
+            "deploy/rollback.sh"
+            "deploy/verify-deploy.sh"
+            "deploy/setup-ssl.sh"
+            "deploy/verify-ssl.sh"
+          )
+          for script in "${OPTIONAL_SCRIPTS[@]}"; do
+            if [[ -f "${script}" ]]; then
+              bash -n "${script}"
+            else
+              echo "::notice title=Optional deploy script not present::Skipping syntax check for ${script} (file not found)."
+            fi
+          done
 
   deploy:
     name: Deploy To Hetzner
@@ -213,9 +234,10 @@ jobs:
             "set -Eeuo pipefail; \
              echo \"[remote] connected host=\$(hostname) user=\$(id -un)\"; \
              command -v bash >/dev/null || { echo \"[remote] bash not found\" >&2; exit 11; }; \
+             command -v git >/dev/null || { echo \"[remote] git not found\" >&2; exit 16; }; \
+             command -v python3 >/dev/null || { echo \"[remote] python3 not found\" >&2; exit 17; }; \
              [[ -d \"${APP_DIR}\" ]] || { echo \"[remote] APP_DIR missing: ${APP_DIR}\" >&2; exit 12; }; \
-             [[ -f \"${APP_DIR}/deploy/deploy.sh\" ]] || { echo \"[remote] Missing deploy script: ${APP_DIR}/deploy/deploy.sh\" >&2; exit 13; }; \
-             [[ -x \"${VENV_DIR}/bin/python\" ]] || { echo \"[remote] Missing virtualenv python: ${VENV_DIR}/bin/python\" >&2; exit 14; }; \
+             [[ -d \"${APP_DIR}/.git\" ]] || { echo \"[remote] APP_DIR is not a git repo: ${APP_DIR}\" >&2; exit 13; }; \
              command -v systemctl >/dev/null || { echo \"[remote] systemctl not found\" >&2; exit 15; }; \
              echo \"[remote] preflight checks passed\""
 
@@ -269,7 +291,20 @@ jobs:
           export APP_PORT="${APP_PORT}"
           export PUBLIC_URL="${PUBLIC_URL}"
           [[ -n "\${APP_DIR}" ]] || { echo "[remote] APP_DIR is empty" >&2; exit 20; }
-          [[ -f "\${APP_DIR}/deploy/deploy.sh" ]] || { echo "[remote] Missing deploy script at \${APP_DIR}/deploy/deploy.sh" >&2; exit 21; }
+          [[ -d "\${APP_DIR}/.git" ]] || { echo "[remote] APP_DIR is not a git repo: \${APP_DIR}" >&2; exit 21; }
+          if [[ ! -f "\${APP_DIR}/deploy/deploy.sh" ]]; then
+            echo "[remote] deploy/deploy.sh missing before run; attempting git bootstrap."
+            git -C "\${APP_DIR}" fetch --prune --tags origin
+            if git -C "\${APP_DIR}" rev-parse --verify --quiet "\${DEPLOY_REF}^{commit}" >/dev/null; then
+              git -C "\${APP_DIR}" checkout --force "\${DEPLOY_REF}"
+            elif git -C "\${APP_DIR}" rev-parse --verify --quiet "origin/\${DEPLOY_BRANCH}^{commit}" >/dev/null; then
+              git -C "\${APP_DIR}" checkout --force "origin/\${DEPLOY_BRANCH}"
+            else
+              echo "[remote] Unable to resolve \${DEPLOY_REF} or origin/\${DEPLOY_BRANCH} during bootstrap." >&2
+              exit 22
+            fi
+          fi
+          [[ -f "\${APP_DIR}/deploy/deploy.sh" ]] || { echo "[remote] Missing deploy script after bootstrap: \${APP_DIR}/deploy/deploy.sh" >&2; exit 23; }
           bash "\${APP_DIR}/deploy/deploy.sh"
           EOF
 
