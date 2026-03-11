@@ -1,0 +1,250 @@
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      deploy_ref:
+        description: "Optional git ref (commit/tag/branch) to deploy. Default is current commit."
+        required: false
+        type: string
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate Build Inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Python syntax gate
+        run: |
+          python -m py_compile server.py "Dynasty Scraper.py"
+          python -m py_compile src/api/data_contract.py
+
+      - name: API data contract check (if sample data exists)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if ls dynasty_data_*.json >/dev/null 2>&1 || ls data/dynasty_data_*.json >/dev/null 2>&1; then
+            python scripts/validate_api_contract.py --repo .
+          else
+            echo "No dynasty_data_*.json sample found; skipping contract validation."
+          fi
+
+      - name: Deploy script syntax gate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n deploy/setup-server.sh
+          bash -n deploy/deploy.sh
+          bash -n deploy/rollback.sh
+          bash -n deploy/verify-deploy.sh
+          bash -n deploy/setup-ssl.sh
+          bash -n deploy/verify-ssl.sh
+
+  deploy:
+    name: Deploy To Hetzner
+    runs-on: ubuntu-latest
+    needs: validate
+    timeout-minutes: 25
+    environment: production
+    steps:
+      - name: Preflight validate deploy inputs (no SSH)
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          PROD_APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          PROD_VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/trade-calculator/.venv' }}
+          PROD_SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          require_non_empty() {
+            local name="$1"
+            local value="${!name:-}"
+            if [[ -z "${value}" ]]; then
+              echo "::error title=Missing Deploy Configuration::Required secret ${name} is empty or not set."
+              exit 1
+            fi
+          }
+
+          require_non_empty DEPLOY_HOST
+          require_non_empty DEPLOY_USER
+          require_non_empty DEPLOY_SSH_PRIVATE_KEY
+          require_non_empty DEPLOY_KNOWN_HOSTS
+
+          DEPLOY_HOST_RESOLVED="${DEPLOY_HOST}"
+          DEPLOY_USER_RESOLVED="${DEPLOY_USER}"
+          DEPLOY_PORT_RESOLVED="${DEPLOY_PORT:-22}"
+          DEPLOY_KEY_RESOLVED="${DEPLOY_SSH_PRIVATE_KEY}"
+          DEPLOY_KNOWN_HOSTS_RESOLVED="${DEPLOY_KNOWN_HOSTS}"
+
+          if ! [[ "${DEPLOY_PORT_RESOLVED}" =~ ^[0-9]+$ ]]; then
+            echo "::error title=Invalid SSH Port::Resolved deploy port must be numeric; got '${DEPLOY_PORT_RESOLVED}'."
+            exit 1
+          fi
+
+          if ! grep -Eq 'BEGIN [A-Z0-9 ]*PRIVATE KEY' <<<"${DEPLOY_KEY_RESOLVED}"; then
+            echo "::error title=Invalid SSH private key::Key does not look like a PEM/OpenSSH private key."
+            exit 1
+          fi
+
+          if ! grep -Eq '(^|[[:space:]])(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp[0-9]+)|^\|1\|' <<<"${DEPLOY_KNOWN_HOSTS_RESOLVED}"; then
+            echo "::error title=Invalid known_hosts::Known hosts data is missing a valid host key entry."
+            exit 1
+          fi
+
+          [[ -n "${DEPLOY_PORT:-}" ]] || echo "::notice title=Default SSH Port::DEPLOY_PORT not set; defaulting to 22."
+
+          install -d -m 700 "$HOME/.ssh"
+          DEPLOY_KEY_FILE="$HOME/.ssh/id_ed25519"
+          DEPLOY_KNOWN_HOSTS_FILE="$HOME/.ssh/known_hosts"
+          printf '%s\n' "${DEPLOY_KEY_RESOLVED}" | sed 's/\r$//' > "${DEPLOY_KEY_FILE}"
+          printf '%s\n' "${DEPLOY_KNOWN_HOSTS_RESOLVED}" | sed 's/\r$//' > "${DEPLOY_KNOWN_HOSTS_FILE}"
+          chmod 600 "${DEPLOY_KEY_FILE}"
+          chmod 644 "${DEPLOY_KNOWN_HOSTS_FILE}"
+          ssh-keygen -y -f "${DEPLOY_KEY_FILE}" >/dev/null
+          [[ -s "${DEPLOY_KNOWN_HOSTS_FILE}" ]] || { echo "::error title=known_hosts empty::Known hosts secret resolved to an empty file."; exit 1; }
+
+          {
+            echo "DEPLOY_HOST_RESOLVED=${DEPLOY_HOST_RESOLVED}"
+            echo "DEPLOY_USER_RESOLVED=${DEPLOY_USER_RESOLVED}"
+            echo "DEPLOY_PORT_RESOLVED=${DEPLOY_PORT_RESOLVED}"
+            echo "DEPLOY_KEY_FILE=${DEPLOY_KEY_FILE}"
+            echo "DEPLOY_KNOWN_HOSTS_FILE=${DEPLOY_KNOWN_HOSTS_FILE}"
+          } >> "$GITHUB_ENV"
+
+          echo "Deploy target: ${DEPLOY_USER_RESOLVED}@${DEPLOY_HOST_RESOLVED}:${DEPLOY_PORT_RESOLVED}"
+          echo "Remote app dir: ${PROD_APP_DIR}"
+          echo "Remote venv dir: ${PROD_VENV_DIR}"
+          echo "Remote service: ${PROD_SERVICE_NAME}"
+
+      - name: Validate known_hosts entry for target host
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          SSH_PORT="${DEPLOY_PORT_RESOLVED}"
+          TARGET_HOST="${DEPLOY_HOST_RESOLVED}"
+          if [[ "${SSH_PORT}" == "22" ]]; then
+            LOOKUP="${TARGET_HOST}"
+          else
+            LOOKUP="[${TARGET_HOST}]:${SSH_PORT}"
+          fi
+          if ! ssh-keygen -F "${LOOKUP}" -f "${DEPLOY_KNOWN_HOSTS_FILE}" >/dev/null 2>&1; then
+            echo "::error title=Host key mismatch::No known_hosts entry found for ${LOOKUP}. Recreate DEPLOY_KNOWN_HOSTS with: ssh-keyscan -H -p ${SSH_PORT} ${TARGET_HOST}"
+            exit 1
+          fi
+
+      - name: SSH preflight (connectivity + remote paths)
+        env:
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/trade-calculator/.venv' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ -n "${APP_DIR}" ]] || { echo "::error title=Missing APP_DIR::PROD_APP_DIR cannot be empty."; exit 1; }
+          [[ -n "${VENV_DIR}" ]] || { echo "::error title=Missing VENV_DIR::PROD_VENV_DIR cannot be empty."; exit 1; }
+
+          SSH_PORT="${DEPLOY_PORT_RESOLVED}"
+          TARGET="${DEPLOY_USER_RESOLVED}@${DEPLOY_HOST_RESOLVED}"
+          echo "Testing SSH connectivity to ${TARGET}:${SSH_PORT}"
+          ssh \
+            -i "${DEPLOY_KEY_FILE}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="${DEPLOY_KNOWN_HOSTS_FILE}" \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=3 \
+            -p "${SSH_PORT}" \
+            "${TARGET}" \
+            "set -Eeuo pipefail; \
+             echo \"[remote] connected host=\$(hostname) user=\$(id -un)\"; \
+             command -v bash >/dev/null || { echo \"[remote] bash not found\" >&2; exit 11; }; \
+             [[ -d \"${APP_DIR}\" ]] || { echo \"[remote] APP_DIR missing: ${APP_DIR}\" >&2; exit 12; }; \
+             [[ -f \"${APP_DIR}/deploy/deploy.sh\" ]] || { echo \"[remote] Missing deploy script: ${APP_DIR}/deploy/deploy.sh\" >&2; exit 13; }; \
+             [[ -x \"${VENV_DIR}/bin/python\" ]] || { echo \"[remote] Missing virtualenv python: ${VENV_DIR}/bin/python\" >&2; exit 14; }; \
+             command -v systemctl >/dev/null || { echo \"[remote] systemctl not found\" >&2; exit 15; }; \
+             echo \"[remote] preflight checks passed\""
+
+      - name: Run remote deploy script
+        env:
+          DEPLOY_REF_INPUT: ${{ github.event.inputs.deploy_ref }}
+          APP_NAME: ${{ vars.PROD_APP_NAME || 'riskittogetthebrisket' }}
+          APP_USER: ${{ vars.PROD_APP_USER || 'dynasty' }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/trade-calculator/.venv' }}
+          SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
+          DEPLOY_BRANCH: ${{ vars.PROD_DEPLOY_BRANCH || 'main' }}
+          AUTO_ROLLBACK: ${{ vars.PROD_AUTO_ROLLBACK || 'true' }}
+          APP_HOST: ${{ vars.PROD_APP_HOST || '127.0.0.1' }}
+          APP_PORT: ${{ vars.PROD_APP_PORT || '8000' }}
+          PUBLIC_URL: ${{ vars.PROD_PUBLIC_URL || '' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          DEPLOY_REF="${DEPLOY_REF_INPUT:-${GITHUB_SHA}}"
+          [[ -n "${DEPLOY_REF}" ]] || { echo "::error title=Missing DEPLOY_REF::Unable to determine deploy ref."; exit 1; }
+          if [[ "${DEPLOY_REF}" =~ [[:space:]] ]]; then
+            echo "::error title=Invalid DEPLOY_REF::deploy_ref cannot contain whitespace."
+            exit 1
+          fi
+
+          SSH_PORT="${DEPLOY_PORT_RESOLVED}"
+          TARGET="${DEPLOY_USER_RESOLVED}@${DEPLOY_HOST_RESOLVED}"
+          echo "Deploying ref '${DEPLOY_REF}' to ${TARGET}:${SSH_PORT}"
+          ssh \
+            -i "${DEPLOY_KEY_FILE}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="${DEPLOY_KNOWN_HOSTS_FILE}" \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=3 \
+            -p "${SSH_PORT}" \
+            "${TARGET}" \
+            "bash -s" <<EOF
+          set -Eeuo pipefail
+          export APP_NAME="${APP_NAME}"
+          export APP_USER="${APP_USER}"
+          export APP_DIR="${APP_DIR}"
+          export VENV_DIR="${VENV_DIR}"
+          export SERVICE_NAME="${SERVICE_NAME}"
+          export DEPLOY_BRANCH="${DEPLOY_BRANCH}"
+          export DEPLOY_REF="${DEPLOY_REF}"
+          export AUTO_ROLLBACK="${AUTO_ROLLBACK}"
+          export APP_HOST="${APP_HOST}"
+          export APP_PORT="${APP_PORT}"
+          export PUBLIC_URL="${PUBLIC_URL}"
+          [[ -n "\${APP_DIR}" ]] || { echo "[remote] APP_DIR is empty" >&2; exit 20; }
+          [[ -f "\${APP_DIR}/deploy/deploy.sh" ]] || { echo "[remote] Missing deploy script at \${APP_DIR}/deploy/deploy.sh" >&2; exit 21; }
+          bash "\${APP_DIR}/deploy/deploy.sh"
+          EOF
+
+      - name: Public health smoke test (optional)
+        if: ${{ vars.PROD_PUBLIC_URL != '' }}
+        run: |
+          set -Eeuo pipefail
+          curl --fail --silent --show-error --max-time 20 "${{ vars.PROD_PUBLIC_URL }}" >/tmp/public-health.json
+          head -c 400 /tmp/public-health.json || true
