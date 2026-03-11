@@ -27,7 +27,7 @@
 | `server.py` | Python backend that proxies Next, serves API, hits CSV data. | Legacy (to be replaced) | Keep running until new API ready; treat as fallback. |
 | `frontend/` | Next.js app with calculator UI. | Keep / evolve | Will hook into new API endpoints once canonical engine exists. |
 | `Static/` | Old static HTML dashboards. | Sunset later | Useful as fallback if Next/server offline. |
-| `scripts/` | Jenkins helper, sync script, trigger script. | Keep, update | Will update once new CI stages defined. |
+| `scripts/` | Pipeline scripts, sync script. | Keep, update | CI stages run via GitHub Actions. |
 | `dlf_*.csv` | Manual exports of DLF rankings (superflex, IDP, rookies). | Seed data | Move into `data/raw/dlf/` under new pipeline for reproducibility. |
 
 ## New structure to introduce
@@ -73,6 +73,6 @@ data/
   - `playersArray` (stable player list shape)
   - `dataSource` metadata
   - `contractHealth` summary
-- Contract validation is enforced via runtime diagnostics (`/api/status`) and CI (`scripts/validate_api_contract.py` in Jenkins).
+- Contract validation is enforced via runtime diagnostics (`/api/status`) and CI (`scripts/validate_api_contract.py` in GitHub Actions).
 
 This doc will be kept up to date as we migrate functionality into the new architecture.

@@ -119,22 +119,22 @@ For each proposed deal:
 
 ---
 
-## 9. Jenkins Responsibilities
+## 9. CI/CD Responsibilities (GitHub Actions)
 - Schedule source pulls and roster imports.
 - Validate: unmatched players, duplicate mappings, value outliers, rank jumps.
 - Rebuild canonical snapshots & publish artifacts.
 - Generate ops reports (risers/fallers, source failures, value drift, roster delta).
 - Maintain audit logs (snapshot IDs, weights, adjustments).
 
-### Jenkins File Targets
-1. `jenkins/source_pull` – run adapters, dump raw snapshots.
-2. `jenkins/canonical_build` – run normalization/blending per snapshot.
-3. `jenkins/league_refresh` – apply league settings, rebuild adjusted values.
-4. `jenkins/reporting` – output daily trend/ops report (Markdown/JSON).
+### Pipeline Script Targets
+1. `scripts/source_pull.py` – run adapters, dump raw snapshots.
+2. `scripts/canonical_build.py` – run normalization/blending per snapshot.
+3. `scripts/league_refresh.py` – apply league settings, rebuild adjusted values.
+4. `scripts/reporting.py` – output daily trend/ops report (Markdown/JSON).
 
 ---
 
-## 10. Execution Backlog (Jenkins + Kodex)
+## 10. Execution Backlog
 ### Phase 0 – Repo spine
 - [ ] Document current legacy stack (scrapers, server.py, frontend).
 - [ ] Carve out `/src` structure for new modules (`src/adapters`, `src/identity`, `src/canonical`, `src/league`, `src/api`).
@@ -197,9 +197,9 @@ For each proposed deal:
 2. **Source adapter spec** – codify required fields + metadata contract.
 3. **Identity schema** – create tables + matching utilities.
 4. **Initial data drop** – import existing CSVs (dlf_idp, etc.) into raw layer for testing pipeline.
-5. **Jenkinsfile update** — stub new stages for source pull + canonical build.
+5. **CI workflow update** — ensure GitHub Actions stages cover source pull + canonical build.
 
-Once these are in place, Kodex can start implementing adapters + canonical pipeline while I finalize league context + trade engine specs.
+Once these are in place, we can start implementing adapters + canonical pipeline while finalizing league context + trade engine specs.
 
 ---
 
@@ -219,7 +219,7 @@ Once these are in place, Kodex can start implementing adapters + canonical pipel
   - `maxValues`
 - Contract health is validated:
   - at runtime (status exposure)
-  - in CI (`scripts/validate_api_contract.py`)
+  - in CI via GitHub Actions (`scripts/validate_api_contract.py`)
 
 ## Migration Honesty
 - `Dynasty Scraper.py` + `server.py` remain the live runtime backbone.

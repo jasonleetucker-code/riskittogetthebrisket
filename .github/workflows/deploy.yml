@@ -1,0 +1,30 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_build:
+        description: "Rebuild frontend (--full)"
+        required: false
+        default: "false"
+        type: boolean
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Deploy to Hetzner
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd /opt/riskittogetthebrisket
+            if [ "${{ inputs.full_build }}" = "true" ]; then
+              bash deploy/deploy.sh --full
+            else
+              bash deploy/deploy.sh
+            fi

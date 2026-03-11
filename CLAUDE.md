@@ -9,9 +9,9 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 - **Backend**: Python 3, FastAPI, Uvicorn (port 8000)
 - **Frontend**: Next.js 15 + React 19 (port 3000), with static HTML fallback (`Static/`)
 - **Scraping**: Playwright (browser automation), legacy Selenium/requests (`Dynasty Scraper.py`)
-- **CI/CD**: Jenkins (see `Jenkinsfile`)
+- **CI/CD**: GitHub Actions (`.github/workflows/`)
 - **Testing**: Playwright E2E regression, Python unit tests
-- **Platform**: Windows (primary dev via `.bat` files), Linux/Unix (Jenkins CI)
+- **Platform**: Windows (primary dev via `.bat` files), Linux/Unix (GitHub Actions CI)
 
 ## Directory Structure
 
@@ -20,7 +20,7 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 ├── Dynasty Scraper.py         # Legacy scraper (~500KB, Selenium/requests)
 ├── codex_loop.py              # Codex agent audit helper
 ├── debug_loop.py              # Continuous smoke/debug testing loop
-├── Jenkinsfile                # CI/CD pipeline (cross-platform)
+├── .github/workflows/         # GitHub Actions CI/CD pipelines
 │
 ├── frontend/                  # Next.js app (App Router)
 │   ├── app/                   # Pages: rankings/, trade/, login/
@@ -43,7 +43,8 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 │   ├── weights/               # Source blending weights
 │   └── leagues/               # League profile templates
 │
-├── scripts/                   # Jenkins pipeline helper scripts
+├── scripts/                   # Pipeline helper scripts
+├── deploy/                    # Deployment configs (nginx, systemd, deploy scripts)
 ├── tests/
 │   ├── e2e/                   # Playwright regression (desktop + mobile)
 │   └── scoring/               # Scoring module unit tests
@@ -78,7 +79,7 @@ npm run regression                   # Full pipeline: preflight + tests
 ### Git Workflow
 
 ```powershell
-.\sync.bat "commit message"          # Git add, commit, push + optional Jenkins trigger
+.\sync.bat "commit message"          # Git add, commit, push
 ```
 
 ## API Endpoints
@@ -108,8 +109,11 @@ Separate canonical value chains for: offense vet, offense rookie, IDP vet, IDP r
 ### Adapter Pattern
 Pluggable source adapters (`src/adapters/base.py` defines the frozen contract). All adapters emit `RawAssetRecord` dataclasses with normalized fields. Current adapters: DLF CSV, KTC stub, manual CSV.
 
-### Jenkins Pipeline Stages
+### GitHub Actions CI Stages
 Checkout → Ingest → Validate → Identity Resolve → Canonical Build → League Refresh → Report → Backend Smoke → API Contract → Frontend Build → Regression Harness
+
+### Deployment
+Production runs on a Hetzner VPS with nginx reverse proxy, systemd service, and Let's Encrypt SSL. See `deploy/` directory and `LOCKSTEP_SETUP.md` for full setup guide.
 
 ## Non-Negotiable Rules
 

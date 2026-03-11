@@ -1,0 +1,113 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Git info
+        run: |
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: $(git rev-parse --short HEAD)"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install fastapi uvicorn pydantic
+
+      - name: Ingest
+        if: hashFiles('scripts/source_pull.py') != ''
+        run: python scripts/source_pull.py --repo .
+
+      - name: Validate ingest
+        if: hashFiles('scripts/validate_ingest.py') != ''
+        run: python scripts/validate_ingest.py --repo .
+
+      - name: Identity resolve
+        if: hashFiles('scripts/identity_resolve.py') != ''
+        run: python scripts/identity_resolve.py --repo .
+
+      - name: Canonical build
+        if: hashFiles('scripts/canonical_build.py') != ''
+        run: python scripts/canonical_build.py --repo .
+
+      - name: League refresh
+        if: hashFiles('scripts/league_refresh.py') != ''
+        run: python scripts/league_refresh.py --repo .
+
+      - name: Publish report
+        if: hashFiles('scripts/reporting.py') != ''
+        run: python scripts/reporting.py --repo .
+
+      - name: Backend smoke test
+        run: |
+          python --version
+          python -c "
+          import py_compile
+          py_compile.compile('server.py', doraise=True)
+          py_compile.compile('Dynasty Scraper.py', doraise=True)
+          print('Python compile checks passed')
+          "
+
+      - name: API contract check
+        if: hashFiles('scripts/validate_api_contract.py') != ''
+        run: python scripts/validate_api_contract.py --repo .
+
+      - name: Set up Node.js
+        if: hashFiles('frontend/package.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Frontend build
+        if: hashFiles('frontend/package.json') != ''
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install Playwright
+        if: hashFiles('tests/e2e/playwright.config.js') != ''
+        run: |
+          npm ci
+          npx playwright install chromium
+
+      - name: Regression tests
+        if: hashFiles('tests/e2e/playwright.config.js') != ''
+        run: npm run regression
+
+      - name: Save build info
+        if: always()
+        run: |
+          mkdir -p data
+          cat > data/build_info.json <<BUILDEOF
+          {
+            "runNumber": "${{ github.run_number }}",
+            "branch": "${{ github.ref_name }}",
+            "commit": "${{ github.sha }}",
+            "shortCommit": "$(git rev-parse --short HEAD)",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%S%z)",
+            "result": "${{ job.status }}"
+          }
+          BUILDEOF
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-info
+          path: data/build_info.json

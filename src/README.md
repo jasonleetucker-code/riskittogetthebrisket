@@ -10,4 +10,4 @@ Modular architecture for the new canonical dynasty engine.
 - `data_models/` — Pydantic/BaseModel schemas shared across layers.
 - `utils/` — shared helpers (logging, config loading, persistence).
 
-Each module will expose both CLI entrypoints (for Jenkins) and callable functions for the API layer.
+Each module exposes both CLI entrypoints (for CI pipelines) and callable functions for the API layer.

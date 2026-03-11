@@ -1,0 +1,32 @@
+# Systemd service unit for the Dynasty backend (FastAPI + Uvicorn)
+# Install: sudo cp deploy/systemd/dynasty-backend.service /etc/systemd/system/
+#          sudo systemctl daemon-reload
+#          sudo systemctl enable --now dynasty-backend
+
+[Unit]
+Description=Dynasty Trade Calculator Backend (FastAPI)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=codexops
+Group=codexops
+WorkingDirectory=/opt/riskittogetthebrisket
+EnvironmentFile=/opt/riskittogetthebrisket/.env
+ExecStart=/usr/bin/python3 server.py
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Safety limits
+MemoryMax=2G
+CPUQuota=200%
+
+# Graceful shutdown
+TimeoutStopSec=30
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target

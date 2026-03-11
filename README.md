@@ -130,33 +130,15 @@ Scaffold API endpoints (served by `server.py`):
 - `GET /api/scaffold/validation`
 - `GET /api/scaffold/report`
 
-## Jenkins Lockstep
+## CI/CD
 
-This repo now includes a root `Jenkinsfile` so Jenkins can build exactly what is on `main`.
+CI runs via **GitHub Actions** on every push to `main` and every PR (`.github/workflows/ci.yml`).
 
-### Optional: trigger Jenkins automatically after `sync.bat`
-Set these env vars once in PowerShell:
+Pipeline: Ingest → Validate → Identity → Canonical → League → Report → Backend Smoke → API Contract → Frontend Build → Regression Tests.
 
-```powershell
-[Environment]::SetEnvironmentVariable("JENKINS_TRIGGER_URL","https://<jenkins-host>/job/<job-name>/buildWithParameters","User")
-[Environment]::SetEnvironmentVariable("JENKINS_USER","<jenkins-username>","User")
-[Environment]::SetEnvironmentVariable("JENKINS_API_TOKEN","<jenkins-api-token>","User")
-```
+Deploy to production via `deploy/deploy.sh` on the server or the GitHub Actions deploy workflow.
 
-Then `.\sync.bat "message"` will:
-1. commit
-2. push
-3. trigger Jenkins via `scripts/trigger_jenkins.py`
-
-If your Jenkins does not require auth, only `JENKINS_TRIGGER_URL` is needed.
-
-Quick verify command:
-```powershell
-.\scripts\verify_lockstep.ps1
-```
-
-Full setup + operating checklist:
-- `LOCKSTEP_SETUP.md`
+Full deployment guide: `LOCKSTEP_SETUP.md`
 
 ## GitHub
 Remote:

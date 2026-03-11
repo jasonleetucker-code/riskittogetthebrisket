@@ -1,107 +1,121 @@
-# GitHub + Jenkins + Server Lockstep Checklist
+# Deployment Guide — riskittogetthebrisket.org
 
-This document is the single source of truth for keeping Codex, Jenkins, and the server in sync.
+## Overview
 
-## Current repo truth
+The site runs on a **Hetzner VPS** with:
+- **Backend**: Python FastAPI (systemd service on port 8000)
+- **Reverse proxy**: Nginx (ports 80/443 → 8000)
+- **SSL**: Let's Encrypt via Certbot (auto-renewing)
+- **CI**: GitHub Actions (runs on every push to `main`)
+- **CD**: GitHub Actions deploy workflow (manual trigger) or SSH + `deploy.sh`
 
-- Repo: `git@github.com:jasonleetucker-code/riskittogetthebrisket.git`
+## Repository
+
+- `origin`: `git@github.com:jasonleetucker-code/riskittogetthebrisket.git`
 - Branch: `main`
-- Jenkins pipeline file: `Jenkinsfile` (repo root)
-- Optional post-push Jenkins trigger: `scripts/trigger_jenkins.py` via `sync.bat`
 
-## 1) GitHub access (required)
+## First-Time Server Setup
 
-You need one of these:
+### Prerequisites
+- A Hetzner VPS (or any Ubuntu/Debian server) with root SSH access
+- DNS A record: `riskittogetthebrisket.org` → your server IP
+- DNS A record: `www.riskittogetthebrisket.org` → your server IP
 
-1. Add Codex/Kodex account as a collaborator on:
-   - `jasonleetucker-code/riskittogetthebrisket`
-2. Or add a deploy key/token for server automation (least privilege recommended)
+### Automated setup
 
-Recommended minimum permissions:
-- Read/Write code on this repo only
-
-Validation commands (from workspace):
-
-```powershell
-ssh -T git@github.com
-git ls-remote origin HEAD
-git push --dry-run origin main
-```
-
-Expected:
-- SSH auth success message
-- HEAD hash returned
-- dry-run push does not fail auth
-
-## 2) Hetzner server access (ideal)
-
-Target workspace path:
-- `/root/.openclaw/workspace/riskittogetthebrisket`
-
-Preferred setup:
-
-1. Create dedicated non-root operator user (example: `codexops`)
-2. Add SSH key for that user
-3. Grant only required sudo commands (if needed), not blanket root
-4. Clone repo with SSH remote:
+Run the setup script as root on the server:
 
 ```bash
-cd /root/.openclaw/workspace
-git clone git@github.com:jasonleetucker-code/riskittogetthebrisket.git
-cd riskittogetthebrisket
-git remote -v
-git fetch origin
-git checkout main
+git clone git@github.com:jasonleetucker-code/riskittogetthebrisket.git /opt/riskittogetthebrisket
+cd /opt/riskittogetthebrisket
+bash deploy/setup-server.sh
 ```
 
-## 3) Briefing / environment notes for Codex and Jenkins
+This installs nginx, Python, creates the `codexops` user, configures the systemd service, and sets up the reverse proxy.
 
-Python backend:
-- entrypoint: `server.py`
-- runs on: `http://localhost:8000`
-- scrape interval: `SCRAPE_INTERVAL_HOURS = 2`
+### SSL certificate
 
-Frontend:
-- directory: `frontend/`
-- dev server: `http://localhost:3000`
-- command: `npm run dev`
+After DNS is pointed:
 
-Key scripts:
-- `run_scraper.bat` -> scraper + debug loop
-- `sync.bat` -> git add/commit/push and optional Jenkins trigger
-- `start_stack.bat` -> starts backend + frontend
-
-Data locations:
-- generated exports: `data/`
-- main payload: `data/dynasty_data_YYYY-MM-DD.json` and `data/dynasty_data.js`
-
-Optional Jenkins trigger env vars (local machine):
-
-```powershell
-[Environment]::SetEnvironmentVariable("JENKINS_TRIGGER_URL","https://<jenkins-host>/job/<job-name>/buildWithParameters","User")
-[Environment]::SetEnvironmentVariable("JENKINS_USER","<jenkins-user>","User")
-[Environment]::SetEnvironmentVariable("JENKINS_API_TOKEN","<jenkins-api-token>","User")
+```bash
+bash deploy/setup-ssl.sh you@email.com
 ```
 
-## 4) Lockstep operating flow
+### Environment
 
-1. Make change
-2. Validate locally
-3. Run:
+Edit `/opt/riskittogetthebrisket/.env` with production values:
+
+```bash
+nano /opt/riskittogetthebrisket/.env
+```
+
+Key variables — see `.env.example` for the full list.
+
+## Deploying Updates
+
+### Option A: SSH deploy script (quick)
+
+```bash
+ssh your-server
+bash /opt/riskittogetthebrisket/deploy/deploy.sh          # pull + restart
+bash /opt/riskittogetthebrisket/deploy/deploy.sh --full    # + rebuild frontend
+```
+
+### Option B: GitHub Actions (from GitHub UI)
+
+1. Go to **Actions** → **Deploy to Production**
+2. Click **Run workflow**
+3. Optionally check "Rebuild frontend"
+
+Requires these repository secrets:
+- `HETZNER_HOST` — server IP or hostname
+- `HETZNER_USER` — SSH username (e.g., `codexops`)
+- `HETZNER_SSH_KEY` — private SSH key for that user
+
+### Option C: Local push + manual restart
 
 ```powershell
 .\sync.bat "Your commit message"
+# Then SSH in and restart:
+ssh your-server "cd /opt/riskittogetthebrisket && git pull origin main && sudo systemctl restart dynasty-backend"
 ```
 
-4. Confirm Jenkins job triggered and passed
-5. Pull latest on server and restart services
+## CI Pipeline (GitHub Actions)
 
-## 5) Done criteria
+Every push to `main` and every PR runs `.github/workflows/ci.yml`:
 
-You are in lockstep when all are true:
+1. Checkout
+2. Python pipeline scripts (ingest → validate → identity → canonical → league → report)
+3. Backend smoke test (compile check)
+4. API contract validation
+5. Frontend build (`npm ci && npm run build`)
+6. Playwright regression tests
 
-- GitHub collaborator/deploy token is active
-- local push to `origin/main` succeeds
-- Jenkins job runs from repo `Jenkinsfile`
-- server clone can `git pull` from same `origin`
-- `sync.bat` optionally triggers Jenkins automatically
+## Useful Commands (on the server)
+
+```bash
+# Service management
+sudo systemctl status dynasty-backend
+sudo systemctl restart dynasty-backend
+sudo journalctl -u dynasty-backend -f    # live logs
+
+# Nginx
+sudo nginx -t                            # test config
+sudo systemctl reload nginx
+
+# SSL
+sudo certbot renew --dry-run             # test renewal
+sudo certbot certificates                # check expiry
+
+# Health check
+curl https://riskittogetthebrisket.org/api/health
+```
+
+## Verification Checklist
+
+You're fully deployed when:
+- [ ] DNS A records point to server IP
+- [ ] `curl https://riskittogetthebrisket.org/api/health` returns OK
+- [ ] `systemctl is-active dynasty-backend` returns `active`
+- [ ] GitHub Actions CI passes on `main`
+- [ ] SSL certificate is valid (`certbot certificates`)
