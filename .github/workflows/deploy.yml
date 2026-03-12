@@ -96,7 +96,6 @@ jobs:
           set -Eeuo pipefail
           bash -n "deploy/deploy.sh"
 
-          # Syntax-check any additional deploy shell scripts that actually exist.
           for script in deploy/*.sh; do
             [[ -f "${script}" ]] || continue
             [[ "${script}" == "deploy/deploy.sh" ]] && continue
@@ -118,11 +117,14 @@ jobs:
           DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
           PROD_APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
-          PROD_VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/trade-calculator/.venv' }}
+          PROD_VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/.venvs/trade-calculator' }}
+          PROD_DEPLOY_STATE_DIR: ${{ vars.PROD_DEPLOY_STATE_DIR || '/home/dynasty/.deploy-state' }}
+          PROD_LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE: ${{ vars.PROD_LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE || '/home/dynasty/.deploy-state/trade-calculator.last_successful_deploy_commit' }}
           PROD_SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
         shell: bash
         run: |
           set -Eeuo pipefail
+
           require_non_empty() {
             local name="$1"
             local value="${!name:-}"
@@ -163,12 +165,21 @@ jobs:
           install -d -m 700 "$HOME/.ssh"
           DEPLOY_KEY_FILE="$HOME/.ssh/id_ed25519"
           DEPLOY_KNOWN_HOSTS_FILE="$HOME/.ssh/known_hosts"
+
           printf '%s\n' "${DEPLOY_KEY_RESOLVED}" | sed 's/\r$//' > "${DEPLOY_KEY_FILE}"
           printf '%s\n' "${DEPLOY_KNOWN_HOSTS_RESOLVED}" | sed 's/\r$//' > "${DEPLOY_KNOWN_HOSTS_FILE}"
+
           chmod 600 "${DEPLOY_KEY_FILE}"
           chmod 644 "${DEPLOY_KNOWN_HOSTS_FILE}"
+
           ssh-keygen -y -f "${DEPLOY_KEY_FILE}" >/dev/null
           [[ -s "${DEPLOY_KNOWN_HOSTS_FILE}" ]] || { echo "::error title=known_hosts empty::Known hosts secret resolved to an empty file."; exit 1; }
+
+          echo "Deploy key fingerprint:"
+          ssh-keygen -lf "${DEPLOY_KEY_FILE}"
+          ssh-keygen -y -f "${DEPLOY_KEY_FILE}" > /tmp/deploy_key.pub
+          echo "Derived public key fingerprint:"
+          ssh-keygen -lf /tmp/deploy_key.pub
 
           {
             echo "DEPLOY_HOST_RESOLVED=${DEPLOY_HOST_RESOLVED}"
@@ -181,6 +192,8 @@ jobs:
           echo "Deploy target: ${DEPLOY_USER_RESOLVED}@${DEPLOY_HOST_RESOLVED}:${DEPLOY_PORT_RESOLVED}"
           echo "Remote app dir: ${PROD_APP_DIR}"
           echo "Remote venv dir: ${PROD_VENV_DIR}"
+          echo "Remote deploy state dir: ${PROD_DEPLOY_STATE_DIR}"
+          echo "Remote last successful deploy file: ${PROD_LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}"
           echo "Remote service: ${PROD_SERVICE_NAME}"
 
       - name: Validate known_hosts entry for target host
@@ -189,11 +202,13 @@ jobs:
           set -Eeuo pipefail
           SSH_PORT="${DEPLOY_PORT_RESOLVED}"
           TARGET_HOST="${DEPLOY_HOST_RESOLVED}"
+
           if [[ "${SSH_PORT}" == "22" ]]; then
             LOOKUP="${TARGET_HOST}"
           else
             LOOKUP="[${TARGET_HOST}]:${SSH_PORT}"
           fi
+
           if ! ssh-keygen -F "${LOOKUP}" -f "${DEPLOY_KNOWN_HOSTS_FILE}" >/dev/null 2>&1; then
             echo "::error title=Host key mismatch::No known_hosts entry found for ${LOOKUP}. Recreate DEPLOY_KNOWN_HOSTS with: ssh-keyscan -H -p ${SSH_PORT} ${TARGET_HOST}"
             exit 1
@@ -202,7 +217,7 @@ jobs:
       - name: SSH preflight (connectivity + remote paths)
         env:
           APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
-          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/trade-calculator/.venv' }}
+          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/.venvs/trade-calculator' }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -211,6 +226,7 @@ jobs:
 
           SSH_PORT="${DEPLOY_PORT_RESOLVED}"
           TARGET="${DEPLOY_USER_RESOLVED}@${DEPLOY_HOST_RESOLVED}"
+
           echo "Testing SSH connectivity to ${TARGET}:${SSH_PORT}"
           ssh \
             -i "${DEPLOY_KEY_FILE}" \
@@ -223,14 +239,17 @@ jobs:
             -p "${SSH_PORT}" \
             "${TARGET}" \
             "set -Eeuo pipefail; \
+             echo '[remote] pwd:'; pwd; \
+             echo '[remote] git top-level:'; git -C '${APP_DIR}' rev-parse --show-toplevel; \
+             echo '[remote] git status --short:'; git -C '${APP_DIR}' status --short || true; \
              echo \"[remote] connected host=\$(hostname) user=\$(id -un)\"; \
              command -v bash >/dev/null || { echo \"[remote] bash not found\" >&2; exit 11; }; \
              command -v git >/dev/null || { echo \"[remote] git not found\" >&2; exit 16; }; \
              command -v python3 >/dev/null || { echo \"[remote] python3 not found\" >&2; exit 17; }; \
-             [[ -d \"${APP_DIR}\" ]] || { echo \"[remote] APP_DIR missing: ${APP_DIR}\" >&2; exit 12; }; \
-             [[ -d \"${APP_DIR}/.git\" ]] || { echo \"[remote] APP_DIR is not a git repo: ${APP_DIR}\" >&2; exit 13; }; \
+             [[ -d '${APP_DIR}' ]] || { echo \"[remote] APP_DIR missing: ${APP_DIR}\" >&2; exit 12; }; \
+             [[ -d '${APP_DIR}/.git' ]] || { echo \"[remote] APP_DIR is not a git repo: ${APP_DIR}\" >&2; exit 13; }; \
              command -v systemctl >/dev/null || { echo \"[remote] systemctl not found\" >&2; exit 15; }; \
-             echo \"[remote] preflight checks passed\""
+             echo '[remote] preflight checks passed'"
 
       - name: Run remote deploy script
         env:
@@ -238,7 +257,9 @@ jobs:
           APP_NAME: ${{ vars.PROD_APP_NAME || 'riskittogetthebrisket' }}
           APP_USER: ${{ vars.PROD_APP_USER || 'dynasty' }}
           APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
-          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/trade-calculator/.venv' }}
+          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/.venvs/trade-calculator' }}
+          DEPLOY_STATE_DIR: ${{ vars.PROD_DEPLOY_STATE_DIR || '/home/dynasty/.deploy-state' }}
+          LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE: ${{ vars.PROD_LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE || '/home/dynasty/.deploy-state/trade-calculator.last_successful_deploy_commit' }}
           SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
           DEPLOY_BRANCH: ${{ vars.PROD_DEPLOY_BRANCH || 'main' }}
           AUTO_ROLLBACK: ${{ vars.PROD_AUTO_ROLLBACK || 'true' }}
@@ -248,8 +269,10 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+
           DEPLOY_REF="${DEPLOY_REF_INPUT:-${GITHUB_SHA}}"
           [[ -n "${DEPLOY_REF}" ]] || { echo "::error title=Missing DEPLOY_REF::Unable to determine deploy ref."; exit 1; }
+
           if [[ "${DEPLOY_REF}" =~ [[:space:]] ]]; then
             echo "::error title=Invalid DEPLOY_REF::deploy_ref cannot contain whitespace."
             exit 1
@@ -257,6 +280,7 @@ jobs:
 
           SSH_PORT="${DEPLOY_PORT_RESOLVED}"
           TARGET="${DEPLOY_USER_RESOLVED}@${DEPLOY_HOST_RESOLVED}"
+
           echo "Deploying ref '${DEPLOY_REF}' to ${TARGET}:${SSH_PORT}"
           ssh \
             -i "${DEPLOY_KEY_FILE}" \
@@ -274,6 +298,8 @@ jobs:
           export APP_USER="${APP_USER}"
           export APP_DIR="${APP_DIR}"
           export VENV_DIR="${VENV_DIR}"
+          export DEPLOY_STATE_DIR="${DEPLOY_STATE_DIR}"
+          export LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE="${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}"
           export SERVICE_NAME="${SERVICE_NAME}"
           export DEPLOY_BRANCH="${DEPLOY_BRANCH}"
           export DEPLOY_REF="${DEPLOY_REF}"
@@ -281,8 +307,10 @@ jobs:
           export APP_HOST="${APP_HOST}"
           export APP_PORT="${APP_PORT}"
           export PUBLIC_URL="${PUBLIC_URL}"
+
           [[ -n "\${APP_DIR}" ]] || { echo "[remote] APP_DIR is empty" >&2; exit 20; }
           [[ -d "\${APP_DIR}/.git" ]] || { echo "[remote] APP_DIR is not a git repo: \${APP_DIR}" >&2; exit 21; }
+
           if [[ ! -f "\${APP_DIR}/deploy/deploy.sh" ]]; then
             echo "[remote] deploy/deploy.sh missing before run; attempting git bootstrap."
             git -C "\${APP_DIR}" fetch --prune --tags origin
@@ -295,6 +323,7 @@ jobs:
               exit 22
             fi
           fi
+
           [[ -f "\${APP_DIR}/deploy/deploy.sh" ]] || { echo "[remote] Missing deploy script after bootstrap: \${APP_DIR}/deploy/deploy.sh" >&2; exit 23; }
           bash "\${APP_DIR}/deploy/deploy.sh"
           EOF
