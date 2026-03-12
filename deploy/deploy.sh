@@ -123,13 +123,39 @@ maybe_build_frontend() {
   npm run --prefix "${APP_DIR}/frontend" build
 }
 
+ensure_systemd_service() {
+  require_command systemctl
+  if sudo systemctl cat "${SERVICE_NAME}" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local installer_script
+  installer_script="${APP_DIR}/deploy/install-systemd-service.sh"
+  warn "Systemd service ${SERVICE_NAME} not found. Attempting bootstrap install."
+  if [[ ! -f "${installer_script}" ]]; then
+    error "Missing bootstrap installer script: ${installer_script}"
+    exit 1
+  fi
+
+  APP_DIR="${APP_DIR}" \
+  APP_USER="${APP_USER}" \
+  VENV_DIR="${VENV_DIR}" \
+  SERVICE_NAME="${SERVICE_NAME}" \
+  bash "${installer_script}"
+
+  if ! sudo systemctl cat "${SERVICE_NAME}" >/dev/null 2>&1; then
+    error "Systemd service ${SERVICE_NAME} is still unavailable after bootstrap install."
+    exit 1
+  fi
+}
+
 restart_service() {
   require_command systemctl
   log "Restarting systemd service: ${SERVICE_NAME}"
-  systemctl restart "${SERVICE_NAME}"
-  if ! systemctl is-active --quiet "${SERVICE_NAME}"; then
+  sudo systemctl restart "${SERVICE_NAME}"
+  if ! sudo systemctl is-active --quiet "${SERVICE_NAME}"; then
     error "Service ${SERVICE_NAME} failed to become active after restart."
-    journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true
+    sudo journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true
     exit 1
   fi
   log "Service ${SERVICE_NAME} is active."
@@ -278,6 +304,7 @@ main() {
 
   prepare_python_runtime
   maybe_build_frontend
+  ensure_systemd_service
   restart_service
   verify_deploy
   record_success_state

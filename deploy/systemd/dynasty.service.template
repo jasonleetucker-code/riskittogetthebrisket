@@ -1,0 +1,16 @@
+[Unit]
+Description=Dynasty Trade Calculator (__SERVICE_NAME__)
+After=network.target
+
+[Service]
+Type=simple
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/server.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

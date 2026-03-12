@@ -108,10 +108,10 @@ main() {
   prepare_python_runtime
 
   log "Restarting service ${SERVICE_NAME} after rollback."
-  systemctl restart "${SERVICE_NAME}"
-  if ! systemctl is-active --quiet "${SERVICE_NAME}"; then
+  sudo systemctl restart "${SERVICE_NAME}"
+  if ! sudo systemctl is-active --quiet "${SERVICE_NAME}"; then
     error "Service ${SERVICE_NAME} is not active after rollback restart."
-    journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true
+    sudo journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true
     exit 1
   fi
 
