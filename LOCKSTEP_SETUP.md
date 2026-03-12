@@ -35,20 +35,23 @@ Expected:
 
 ## 2) Hetzner server access (ideal)
 
-Target workspace path:
-- `/root/.openclaw/workspace/riskittogetthebrisket`
+Current production target:
+- Host/IP: `178.156.148.92`
+- SSH user: `dynasty`
+- App path: `/home/dynasty/trade-calculator`
+- Venv path: `/home/dynasty/.venvs/trade-calculator`
+- Deploy state path: `/home/dynasty/.deploy-state`
 
 Preferred setup:
 
-1. Create dedicated non-root operator user (example: `codexops`)
-2. Add SSH key for that user
-3. Grant only required sudo commands (if needed), not blanket root
-4. Clone repo with SSH remote:
+1. Ensure SSH key access for `dynasty`
+2. Grant only required sudo commands for deploy automation (`systemctl`, `journalctl`, `install`), not blanket root
+3. Clone repo with SSH remote (fresh host bootstrap only):
 
 ```bash
-cd /root/.openclaw/workspace
-git clone git@github.com:jasonleetucker-code/riskittogetthebrisket.git
-cd riskittogetthebrisket
+cd /home/dynasty
+git clone git@github.com:jasonleetucker-code/riskittogetthebrisket.git trade-calculator
+cd trade-calculator
 git remote -v
 git fetch origin
 git checkout main
