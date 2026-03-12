@@ -72,6 +72,7 @@ main() {
   require_command git
   require_command bash
   require_command systemctl
+  require_command sudo
 
   [[ -d "${APP_DIR}" ]] || { error "APP_DIR does not exist: ${APP_DIR}"; exit 1; }
   cd "${APP_DIR}"
@@ -108,10 +109,10 @@ main() {
   prepare_python_runtime
 
   log "Restarting service ${SERVICE_NAME} after rollback."
-  sudo systemctl restart "${SERVICE_NAME}"
-  if ! sudo systemctl is-active --quiet "${SERVICE_NAME}"; then
+  sudo -n systemctl restart "${SERVICE_NAME}"
+  if ! sudo -n systemctl is-active --quiet "${SERVICE_NAME}"; then
     error "Service ${SERVICE_NAME} is not active after rollback restart."
-    sudo journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true
+    sudo -n journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true
     exit 1
   fi
 

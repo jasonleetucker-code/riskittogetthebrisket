@@ -57,6 +57,13 @@ require_non_empty() {
   fi
 }
 
+require_noninteractive_sudo() {
+  if ! sudo -n true >/dev/null 2>&1; then
+    error "Passwordless sudo is required for deploy automation. Configure NOPASSWD sudo for ${APP_USER} (systemctl, journalctl, install)."
+    exit 1
+  fi
+}
+
 resolve_git_ref() {
   local ref="$1"
   if git rev-parse --verify --quiet "${ref}^{commit}" >/dev/null; then
@@ -125,7 +132,7 @@ maybe_build_frontend() {
 
 ensure_systemd_service() {
   require_command systemctl
-  if sudo systemctl cat "${SERVICE_NAME}" >/dev/null 2>&1; then
+  if sudo -n systemctl cat "${SERVICE_NAME}" >/dev/null 2>&1; then
     return 0
   fi
 
@@ -143,7 +150,7 @@ ensure_systemd_service() {
   SERVICE_NAME="${SERVICE_NAME}" \
   bash "${installer_script}"
 
-  if ! sudo systemctl cat "${SERVICE_NAME}" >/dev/null 2>&1; then
+  if ! sudo -n systemctl cat "${SERVICE_NAME}" >/dev/null 2>&1; then
     error "Systemd service ${SERVICE_NAME} is still unavailable after bootstrap install."
     exit 1
   fi
@@ -152,10 +159,10 @@ ensure_systemd_service() {
 restart_service() {
   require_command systemctl
   log "Restarting systemd service: ${SERVICE_NAME}"
-  sudo systemctl restart "${SERVICE_NAME}"
-  if ! sudo systemctl is-active --quiet "${SERVICE_NAME}"; then
+  sudo -n systemctl restart "${SERVICE_NAME}"
+  if ! sudo -n systemctl is-active --quiet "${SERVICE_NAME}"; then
     error "Service ${SERVICE_NAME} failed to become active after restart."
-    sudo journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true
+    sudo -n journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true
     exit 1
   fi
   log "Service ${SERVICE_NAME} is active."
@@ -257,6 +264,8 @@ main() {
   require_command git
   require_command bash
   require_command curl
+  require_command sudo
+  require_noninteractive_sudo
 
   STATE_DIR="${APP_DIR}/.deploy"
   mkdir -p "${STATE_DIR}"
