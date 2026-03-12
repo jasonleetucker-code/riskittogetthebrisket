@@ -7,7 +7,8 @@ DEFAULT_APP_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 APP_NAME="${APP_NAME:-riskittogetthebrisket}"
 APP_USER="${APP_USER:-$(id -un)}"
 APP_DIR="${APP_DIR:-${DEFAULT_APP_DIR}}"
-VENV_DIR="${VENV_DIR:-${APP_DIR}/.venv}"
+APP_SLUG="${APP_SLUG:-$(basename "${APP_DIR}")}"
+VENV_DIR="${VENV_DIR:-${HOME}/.venvs/${APP_SLUG}}"
 SERVICE_NAME="${SERVICE_NAME:-dynasty}"
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 DEPLOY_REF="${DEPLOY_REF:-${DEPLOY_BRANCH}}"
@@ -18,8 +19,11 @@ PUBLIC_URL="${PUBLIC_URL:-}"
 RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-false}"
 STRICT_LOCAL_HEALTH="${STRICT_LOCAL_HEALTH:-true}"
 ALLOW_DIRTY_DEPLOY="${ALLOW_DIRTY_DEPLOY:-false}"
+DEPLOY_STATE_DIR="${DEPLOY_STATE_DIR:-${HOME}/.deploy-state}"
+LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE="${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE:-${DEPLOY_STATE_DIR}/${APP_SLUG}.last_successful_deploy_commit}"
+PRE_DEPLOY_COMMIT_FILE="${PRE_DEPLOY_COMMIT_FILE:-${DEPLOY_STATE_DIR}/${APP_SLUG}.pre_deploy_commit}"
+LAST_SUCCESSFUL_DEPLOY_AT_FILE="${LAST_SUCCESSFUL_DEPLOY_AT_FILE:-${DEPLOY_STATE_DIR}/${APP_SLUG}.last_successful_at_utc}"
 
-STATE_DIR=""
 PRE_DEPLOY_REV=""
 TARGET_REV=""
 ROLLBACK_ATTEMPTED="false"
@@ -57,6 +61,11 @@ require_non_empty() {
   fi
 }
 
+ensure_parent_dir() {
+  local target="$1"
+  mkdir -p "$(dirname "${target}")"
+}
+
 resolve_git_ref() {
   local ref="$1"
   if git rev-parse --verify --quiet "${ref}^{commit}" >/dev/null; then
@@ -91,6 +100,7 @@ prepare_python_runtime() {
   fi
 
   require_command python3
+  mkdir -p "$(dirname "${VENV_DIR}")"
   if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
     log "Creating virtualenv at ${VENV_DIR}"
     python3 -m venv "${VENV_DIR}"
@@ -126,10 +136,10 @@ maybe_build_frontend() {
 restart_service() {
   require_command systemctl
   log "Restarting systemd service: ${SERVICE_NAME}"
-  systemctl restart "${SERVICE_NAME}"
-  if ! systemctl is-active --quiet "${SERVICE_NAME}"; then
+  sudo systemctl restart "${SERVICE_NAME}"
+  if ! sudo systemctl is-active --quiet "${SERVICE_NAME}"; then
     error "Service ${SERVICE_NAME} failed to become active after restart."
-    journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true
+    sudo journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true
     exit 1
   fi
   log "Service ${SERVICE_NAME} is active."
@@ -153,9 +163,19 @@ verify_deploy() {
 }
 
 record_success_state() {
-  mkdir -p "${STATE_DIR}"
-  printf '%s\n' "${TARGET_REV}" > "${STATE_DIR}/last_successful_rev"
-  printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${STATE_DIR}/last_successful_at_utc"
+  ensure_parent_dir "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}"
+  ensure_parent_dir "${LAST_SUCCESSFUL_DEPLOY_AT_FILE}"
+  printf '%s\n' "${TARGET_REV}" > "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}"
+  printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${LAST_SUCCESSFUL_DEPLOY_AT_FILE}"
+}
+
+print_git_preflight() {
+  log "Preflight: pwd"
+  pwd
+  log "Preflight: git status --short"
+  git status --short
+  log "Preflight: git rev-parse --show-toplevel"
+  git rev-parse --show-toplevel
 }
 
 attempt_auto_rollback() {
@@ -190,6 +210,11 @@ attempt_auto_rollback() {
      APP_PORT="${APP_PORT}" \
      PUBLIC_URL="${PUBLIC_URL}" \
      STRICT_LOCAL_HEALTH="${STRICT_LOCAL_HEALTH}" \
+     APP_SLUG="${APP_SLUG}" \
+     DEPLOY_STATE_DIR="${DEPLOY_STATE_DIR}" \
+     LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE="${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}" \
+     PRE_DEPLOY_COMMIT_FILE="${PRE_DEPLOY_COMMIT_FILE}" \
+     LAST_SUCCESSFUL_DEPLOY_AT_FILE="${LAST_SUCCESSFUL_DEPLOY_AT_FILE}" \
      bash "${APP_DIR}/deploy/rollback.sh" "${PRE_DEPLOY_REV}"; then
     warn "Auto-rollback completed to ${PRE_DEPLOY_REV}."
   else
@@ -219,6 +244,11 @@ main() {
   require_non_empty DEPLOY_REF
   require_non_empty APP_HOST
   require_non_empty APP_PORT
+  require_non_empty APP_SLUG
+  require_non_empty VENV_DIR
+  require_non_empty LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE
+  require_non_empty PRE_DEPLOY_COMMIT_FILE
+  require_non_empty LAST_SUCCESSFUL_DEPLOY_AT_FILE
   if ! [[ "${APP_PORT}" =~ ^[0-9]+$ ]]; then
     error "APP_PORT must be numeric; got '${APP_PORT}'."
     exit 1
@@ -232,10 +262,9 @@ main() {
   require_command bash
   require_command curl
 
-  STATE_DIR="${APP_DIR}/.deploy"
-  mkdir -p "${STATE_DIR}"
-
   git config --global --add safe.directory "${APP_DIR}" >/dev/null 2>&1 || true
+
+  print_git_preflight
 
   # For deployment hosts, untracked runtime artifacts (for example .venv/) are normal.
   # We block only tracked file drift unless ALLOW_DIRTY_DEPLOY=true.
@@ -250,9 +279,11 @@ main() {
   local current_rev target_short
   current_rev="$(git rev-parse HEAD)"
   PRE_DEPLOY_REV="${current_rev}"
-  printf '%s\n' "${PRE_DEPLOY_REV}" > "${STATE_DIR}/pre_deploy_rev"
+  ensure_parent_dir "${PRE_DEPLOY_COMMIT_FILE}"
+  printf '%s\n' "${PRE_DEPLOY_REV}" > "${PRE_DEPLOY_COMMIT_FILE}"
 
-  log "Deploy context: app=${APP_NAME} user=${APP_USER} service=${SERVICE_NAME} app_dir=${APP_DIR}"
+  log "Deploy context: app=${APP_NAME} user=${APP_USER} service=${SERVICE_NAME} app_dir=${APP_DIR} venv_dir=${VENV_DIR}"
+  log "Deploy state files: pre_deploy=${PRE_DEPLOY_COMMIT_FILE} last_successful=${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}"
   log "Deploy target requested: DEPLOY_REF=${DEPLOY_REF} (fallback branch=${DEPLOY_BRANCH})"
   log "Current revision: ${current_rev}"
 

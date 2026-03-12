@@ -118,7 +118,14 @@ jobs:
           DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
           PROD_APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
-          PROD_VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/trade-calculator/.venv' }}
+          PROD_APP_USER: ${{ vars.PROD_APP_USER || 'dynasty' }}
+          PROD_VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/.venvs/trade-calculator' }}
+          PROD_DEPLOY_STATE_DIR: ${{ vars.PROD_DEPLOY_STATE_DIR || '/home/dynasty/.deploy-state' }}
+          PROD_LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE: ${{ vars.PROD_LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE || '/home/dynasty/.deploy-state/trade-calculator.last_successful_deploy_commit' }}
+          PROD_EXPECTED_DEPLOY_HOST: ${{ vars.PROD_EXPECTED_DEPLOY_HOST || 'riskittogetthebrisket.org' }}
+          PROD_EXPECTED_DEPLOY_IP: ${{ vars.PROD_EXPECTED_DEPLOY_IP || '5.161.188.92' }}
+          PROD_EXPECTED_DEPLOY_USER: ${{ vars.PROD_EXPECTED_DEPLOY_USER || 'dynasty' }}
+          PROD_DEPLOY_KEY_FINGERPRINT_ALLOWLIST: ${{ vars.PROD_DEPLOY_KEY_FINGERPRINT_ALLOWLIST || '' }}
           PROD_SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
         shell: bash
         run: |
@@ -136,6 +143,13 @@ jobs:
           require_non_empty DEPLOY_USER
           require_non_empty DEPLOY_SSH_PRIVATE_KEY
           require_non_empty DEPLOY_KNOWN_HOSTS
+          require_non_empty PROD_APP_DIR
+          require_non_empty PROD_APP_USER
+          require_non_empty PROD_VENV_DIR
+          require_non_empty PROD_DEPLOY_STATE_DIR
+          require_non_empty PROD_LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE
+          require_non_empty PROD_EXPECTED_DEPLOY_HOST
+          require_non_empty PROD_EXPECTED_DEPLOY_USER
 
           DEPLOY_HOST_RESOLVED="${DEPLOY_HOST}"
           DEPLOY_USER_RESOLVED="${DEPLOY_USER}"
@@ -158,6 +172,13 @@ jobs:
             exit 1
           fi
 
+          if [[ "${DEPLOY_USER_RESOLVED}" != "${PROD_EXPECTED_DEPLOY_USER}" ]]; then
+            echo "::warning title=Deploy user differs from expected::DEPLOY_USER=${DEPLOY_USER_RESOLVED}, expected=${PROD_EXPECTED_DEPLOY_USER}"
+          fi
+          if [[ "${DEPLOY_HOST_RESOLVED}" != "${PROD_EXPECTED_DEPLOY_HOST}" && "${DEPLOY_HOST_RESOLVED}" != "${PROD_EXPECTED_DEPLOY_IP}" ]]; then
+            echo "::warning title=Deploy host differs from expected::DEPLOY_HOST=${DEPLOY_HOST_RESOLVED}, expected host=${PROD_EXPECTED_DEPLOY_HOST}, expected ip=${PROD_EXPECTED_DEPLOY_IP}"
+          fi
+
           [[ -n "${DEPLOY_PORT:-}" ]] || echo "DEPLOY_PORT not set; defaulting to 22."
 
           install -d -m 700 "$HOME/.ssh"
@@ -168,7 +189,44 @@ jobs:
           chmod 600 "${DEPLOY_KEY_FILE}"
           chmod 644 "${DEPLOY_KNOWN_HOSTS_FILE}"
           ssh-keygen -y -f "${DEPLOY_KEY_FILE}" >/dev/null
+          DEPLOY_KEY_FINGERPRINT_SHA256="$(ssh-keygen -lf "${DEPLOY_KEY_FILE}" -E sha256 | awk '{print $2}')"
+          DEPLOY_KEY_FINGERPRINT_MD5="$(ssh-keygen -lf "${DEPLOY_KEY_FILE}" -E md5 | awk '{print $2}')"
+          [[ -n "${DEPLOY_KEY_FINGERPRINT_SHA256}" ]] || { echo "::error title=Fingerprint parsing failed::Could not extract SHA256 fingerprint from DEPLOY_SSH_PRIVATE_KEY."; exit 1; }
           [[ -s "${DEPLOY_KNOWN_HOSTS_FILE}" ]] || { echo "::error title=known_hosts empty::Known hosts secret resolved to an empty file."; exit 1; }
+          echo "GitHub DEPLOY_SSH_PRIVATE_KEY fingerprint (SHA256): ${DEPLOY_KEY_FINGERPRINT_SHA256}"
+          echo "GitHub DEPLOY_SSH_PRIVATE_KEY fingerprint (MD5): ${DEPLOY_KEY_FINGERPRINT_MD5}"
+
+          if [[ -n "${PROD_DEPLOY_KEY_FINGERPRINT_ALLOWLIST}" ]]; then
+            key_match="false"
+            IFS=',' read -r -a expected_fps <<<"${PROD_DEPLOY_KEY_FINGERPRINT_ALLOWLIST}"
+            for expected_fp in "${expected_fps[@]}"; do
+              expected_fp="$(echo "${expected_fp}" | tr -d '[:space:]')"
+              [[ -z "${expected_fp}" ]] && continue
+              if [[ "${DEPLOY_KEY_FINGERPRINT_SHA256}" == "${expected_fp}" ]]; then
+                key_match="true"
+                break
+              fi
+            done
+            if [[ "${key_match}" != "true" ]]; then
+              echo "::error title=Deploy key fingerprint mismatch::DEPLOY_SSH_PRIVATE_KEY fingerprint ${DEPLOY_KEY_FINGERPRINT_SHA256} not found in PROD_DEPLOY_KEY_FINGERPRINT_ALLOWLIST."
+              exit 1
+            fi
+            echo "Deploy key fingerprint matched PROD_DEPLOY_KEY_FINGERPRINT_ALLOWLIST."
+          else
+            echo "PROD_DEPLOY_KEY_FINGERPRINT_ALLOWLIST not set; fingerprint check is informational only."
+          fi
+
+          if command -v getent >/dev/null 2>&1; then
+            HOST_IPV4_LIST="$(getent ahostsv4 "${DEPLOY_HOST_RESOLVED}" | awk '{print $1}' | sort -u | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+            if [[ -n "${HOST_IPV4_LIST}" ]]; then
+              echo "Resolved IPv4 for ${DEPLOY_HOST_RESOLVED}: ${HOST_IPV4_LIST}"
+              if [[ -n "${PROD_EXPECTED_DEPLOY_IP}" ]] && ! grep -Fqw "${PROD_EXPECTED_DEPLOY_IP}" <<<"${HOST_IPV4_LIST}"; then
+                echo "::warning title=Deploy host IP differs from expected::Expected ${PROD_EXPECTED_DEPLOY_IP}, resolved ${HOST_IPV4_LIST}"
+              fi
+            else
+              echo "::warning title=Deploy host has no IPv4 resolution::Could not resolve IPv4 for ${DEPLOY_HOST_RESOLVED} via getent."
+            fi
+          fi
 
           {
             echo "DEPLOY_HOST_RESOLVED=${DEPLOY_HOST_RESOLVED}"
@@ -176,11 +234,14 @@ jobs:
             echo "DEPLOY_PORT_RESOLVED=${DEPLOY_PORT_RESOLVED}"
             echo "DEPLOY_KEY_FILE=${DEPLOY_KEY_FILE}"
             echo "DEPLOY_KNOWN_HOSTS_FILE=${DEPLOY_KNOWN_HOSTS_FILE}"
+            echo "DEPLOY_KEY_FINGERPRINT_SHA256=${DEPLOY_KEY_FINGERPRINT_SHA256}"
           } >> "$GITHUB_ENV"
 
           echo "Deploy target: ${DEPLOY_USER_RESOLVED}@${DEPLOY_HOST_RESOLVED}:${DEPLOY_PORT_RESOLVED}"
           echo "Remote app dir: ${PROD_APP_DIR}"
           echo "Remote venv dir: ${PROD_VENV_DIR}"
+          echo "Remote deploy state dir: ${PROD_DEPLOY_STATE_DIR}"
+          echo "Remote last successful deploy commit file: ${PROD_LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}"
           echo "Remote service: ${PROD_SERVICE_NAME}"
 
       - name: Validate known_hosts entry for target host
@@ -202,12 +263,16 @@ jobs:
       - name: SSH preflight (connectivity + remote paths)
         env:
           APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
-          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/trade-calculator/.venv' }}
+          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/.venvs/trade-calculator' }}
+          DEPLOY_STATE_DIR: ${{ vars.PROD_DEPLOY_STATE_DIR || '/home/dynasty/.deploy-state' }}
+          LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE: ${{ vars.PROD_LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE || '/home/dynasty/.deploy-state/trade-calculator.last_successful_deploy_commit' }}
         shell: bash
         run: |
           set -Eeuo pipefail
           [[ -n "${APP_DIR}" ]] || { echo "::error title=Missing APP_DIR::PROD_APP_DIR cannot be empty."; exit 1; }
           [[ -n "${VENV_DIR}" ]] || { echo "::error title=Missing VENV_DIR::PROD_VENV_DIR cannot be empty."; exit 1; }
+          [[ -n "${DEPLOY_STATE_DIR}" ]] || { echo "::error title=Missing DEPLOY_STATE_DIR::PROD_DEPLOY_STATE_DIR cannot be empty."; exit 1; }
+          [[ -n "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}" ]] || { echo "::error title=Missing LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE::PROD_LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE cannot be empty."; exit 1; }
 
           SSH_PORT="${DEPLOY_PORT_RESOLVED}"
           TARGET="${DEPLOY_USER_RESOLVED}@${DEPLOY_HOST_RESOLVED}"
@@ -215,6 +280,9 @@ jobs:
           ssh \
             -i "${DEPLOY_KEY_FILE}" \
             -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o PubkeyAuthentication=yes \
+            -o PasswordAuthentication=no \
             -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="${DEPLOY_KNOWN_HOSTS_FILE}" \
             -o ConnectTimeout=15 \
@@ -230,6 +298,16 @@ jobs:
              [[ -d \"${APP_DIR}\" ]] || { echo \"[remote] APP_DIR missing: ${APP_DIR}\" >&2; exit 12; }; \
              [[ -d \"${APP_DIR}/.git\" ]] || { echo \"[remote] APP_DIR is not a git repo: ${APP_DIR}\" >&2; exit 13; }; \
              command -v systemctl >/dev/null || { echo \"[remote] systemctl not found\" >&2; exit 15; }; \
+             [[ -n \"${VENV_DIR}\" ]] || { echo \"[remote] VENV_DIR is empty\" >&2; exit 18; }; \
+             [[ -n \"${DEPLOY_STATE_DIR}\" ]] || { echo \"[remote] DEPLOY_STATE_DIR is empty\" >&2; exit 19; }; \
+             [[ -n \"${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}\" ]] || { echo \"[remote] LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE is empty\" >&2; exit 24; }; \
+             cd \"${APP_DIR}\"; \
+             echo \"[remote] preflight pwd\"; \
+             pwd; \
+             echo \"[remote] preflight git status --short\"; \
+             git status --short || true; \
+             echo \"[remote] preflight git rev-parse --show-toplevel\"; \
+             git rev-parse --show-toplevel; \
              echo \"[remote] preflight checks passed\""
 
       - name: Run remote deploy script
@@ -238,7 +316,9 @@ jobs:
           APP_NAME: ${{ vars.PROD_APP_NAME || 'riskittogetthebrisket' }}
           APP_USER: ${{ vars.PROD_APP_USER || 'dynasty' }}
           APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
-          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/trade-calculator/.venv' }}
+          VENV_DIR: ${{ vars.PROD_VENV_DIR || '/home/dynasty/.venvs/trade-calculator' }}
+          DEPLOY_STATE_DIR: ${{ vars.PROD_DEPLOY_STATE_DIR || '/home/dynasty/.deploy-state' }}
+          LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE: ${{ vars.PROD_LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE || '/home/dynasty/.deploy-state/trade-calculator.last_successful_deploy_commit' }}
           SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
           DEPLOY_BRANCH: ${{ vars.PROD_DEPLOY_BRANCH || 'main' }}
           AUTO_ROLLBACK: ${{ vars.PROD_AUTO_ROLLBACK || 'true' }}
@@ -261,6 +341,9 @@ jobs:
           ssh \
             -i "${DEPLOY_KEY_FILE}" \
             -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o PubkeyAuthentication=yes \
+            -o PasswordAuthentication=no \
             -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="${DEPLOY_KNOWN_HOSTS_FILE}" \
             -o ConnectTimeout=15 \
@@ -274,6 +357,8 @@ jobs:
           export APP_USER="${APP_USER}"
           export APP_DIR="${APP_DIR}"
           export VENV_DIR="${VENV_DIR}"
+          export DEPLOY_STATE_DIR="${DEPLOY_STATE_DIR}"
+          export LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE="${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}"
           export SERVICE_NAME="${SERVICE_NAME}"
           export DEPLOY_BRANCH="${DEPLOY_BRANCH}"
           export DEPLOY_REF="${DEPLOY_REF}"
