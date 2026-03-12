@@ -53,7 +53,7 @@ main() {
 
   force_install="$(lower "${FORCE_SERVICE_INSTALL}")"
   unit_path="/etc/systemd/system/${SERVICE_NAME}.service"
-  if sudo systemctl cat "${SERVICE_NAME}" >/dev/null 2>&1; then
+  if sudo -n systemctl cat "${SERVICE_NAME}" >/dev/null 2>&1; then
     if [[ "${force_install}" != "true" && "${force_install}" != "1" && "${force_install}" != "yes" ]]; then
       log "Service ${SERVICE_NAME} already exists; skipping bootstrap install."
       exit 0
@@ -72,9 +72,9 @@ main() {
     -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
     "${SERVICE_TEMPLATE_PATH}" > "${tmp_unit}"
 
-  sudo install -m 0644 "${tmp_unit}" "${unit_path}"
-  sudo systemctl daemon-reload
-  sudo systemctl enable "${SERVICE_NAME}"
+  sudo -n install -m 0644 "${tmp_unit}" "${unit_path}"
+  sudo -n systemctl daemon-reload
+  sudo -n systemctl enable "${SERVICE_NAME}"
   log "Installed and enabled ${SERVICE_NAME}.service"
 }
 

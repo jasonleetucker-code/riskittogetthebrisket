@@ -79,12 +79,12 @@ main() {
   status_body="$(mktemp)"
   health_body="$(mktemp)"
   public_body="$(mktemp)"
-  trap 'rm -f "${status_body}" "${health_body}" "${public_body}"' EXIT
+  trap 'rm -f "${status_body:-}" "${health_body:-}" "${public_body:-}"' EXIT
 
   if [[ -n "${SERVICE_NAME}" ]] && command -v systemctl >/dev/null 2>&1; then
-    if ! sudo systemctl is-active --quiet "${SERVICE_NAME}"; then
+    if ! sudo -n systemctl is-active --quiet "${SERVICE_NAME}"; then
       error "Systemd service is not active: ${SERVICE_NAME}"
-      sudo journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true
+      sudo -n journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true
       exit 1
     fi
     log "Service is active: ${SERVICE_NAME}"
