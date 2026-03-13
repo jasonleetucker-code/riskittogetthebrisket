@@ -23,6 +23,10 @@ STATE_DIR=""
 PRE_DEPLOY_REV=""
 TARGET_REV=""
 ROLLBACK_ATTEMPTED="false"
+SYSTEMCTL_BIN=""
+JOURNALCTL_BIN=""
+INSTALL_BIN=""
+CHOWN_BIN=""
 
 log() {
   printf '[deploy] %s\n' "$*"
@@ -57,11 +61,33 @@ require_non_empty() {
   fi
 }
 
-require_noninteractive_sudo() {
-  if ! sudo -n true >/dev/null 2>&1; then
-    error "Passwordless sudo is required for deploy automation. Configure NOPASSWD sudo for ${APP_USER} (systemctl, journalctl, install)."
-    exit 1
+resolve_sudo_nopasswd_binary() {
+  local label="$1"
+  shift
+  local candidate
+  local checked_candidates=""
+
+  for candidate in "$@"; do
+    [[ -x "${candidate}" ]] || continue
+    checked_candidates="${checked_candidates}${checked_candidates:+, }${candidate}"
+    if sudo -n "${candidate}" --version >/dev/null 2>&1; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+
+  if [[ -n "${checked_candidates}" ]]; then
+    error "Missing NOPASSWD sudo permission for ${label}. Checked: ${checked_candidates}"
+  else
+    error "Could not resolve required binary for ${label}. Checked: $*"
   fi
+  exit 1
+}
+
+resolve_and_validate_sudo_binaries() {
+  SYSTEMCTL_BIN="$(resolve_sudo_nopasswd_binary "systemctl" /bin/systemctl /usr/bin/systemctl)"
+  JOURNALCTL_BIN="$(resolve_sudo_nopasswd_binary "journalctl" /bin/journalctl /usr/bin/journalctl)"
+  INSTALL_BIN="$(resolve_sudo_nopasswd_binary "install" /usr/bin/install /bin/install)"
 }
 
 resolve_git_ref() {
@@ -101,7 +127,10 @@ PY
   fi
 
   warn "site-packages is not writable (${site_packages}); repairing ownership on ${VENV_DIR}."
-  sudo -n chown -R "${APP_USER}:${APP_USER}" "${VENV_DIR}"
+  if [[ -z "${CHOWN_BIN}" ]]; then
+    CHOWN_BIN="$(resolve_sudo_nopasswd_binary "chown" /bin/chown /usr/bin/chown)"
+  fi
+  sudo -n "${CHOWN_BIN}" -R "${APP_USER}:${APP_USER}" "${VENV_DIR}"
 
   if [[ ! -w "${site_packages}" ]]; then
     error "site-packages remains non-writable after ownership repair: ${site_packages}"
@@ -154,7 +183,7 @@ maybe_build_frontend() {
 
 ensure_systemd_service() {
   require_command systemctl
-  if sudo -n systemctl cat "${SERVICE_NAME}" >/dev/null 2>&1; then
+  if sudo -n "${SYSTEMCTL_BIN}" cat "${SERVICE_NAME}" >/dev/null 2>&1; then
     return 0
   fi
 
@@ -172,7 +201,7 @@ ensure_systemd_service() {
   SERVICE_NAME="${SERVICE_NAME}" \
   bash "${installer_script}"
 
-  if ! sudo -n systemctl cat "${SERVICE_NAME}" >/dev/null 2>&1; then
+  if ! sudo -n "${SYSTEMCTL_BIN}" cat "${SERVICE_NAME}" >/dev/null 2>&1; then
     error "Systemd service ${SERVICE_NAME} is still unavailable after bootstrap install."
     exit 1
   fi
@@ -181,10 +210,10 @@ ensure_systemd_service() {
 restart_service() {
   require_command systemctl
   log "Restarting systemd service: ${SERVICE_NAME}"
-  sudo -n systemctl restart "${SERVICE_NAME}"
-  if ! sudo -n systemctl is-active --quiet "${SERVICE_NAME}"; then
+  sudo -n "${SYSTEMCTL_BIN}" restart "${SERVICE_NAME}"
+  if ! sudo -n "${SYSTEMCTL_BIN}" is-active --quiet "${SERVICE_NAME}"; then
     error "Service ${SERVICE_NAME} failed to become active after restart."
-    sudo -n journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true
+    sudo -n "${JOURNALCTL_BIN}" -u "${SERVICE_NAME}" -n 120 --no-pager || true
     exit 1
   fi
   log "Service ${SERVICE_NAME} is active."
@@ -287,7 +316,7 @@ main() {
   require_command bash
   require_command curl
   require_command sudo
-  require_noninteractive_sudo
+  resolve_and_validate_sudo_binaries
 
   STATE_DIR="${APP_DIR}/.deploy"
   mkdir -p "${STATE_DIR}"

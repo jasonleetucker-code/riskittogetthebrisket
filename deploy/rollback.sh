@@ -13,6 +13,9 @@ APP_PORT="${APP_PORT:-8000}"
 PUBLIC_URL="${PUBLIC_URL:-}"
 STRICT_LOCAL_HEALTH="${STRICT_LOCAL_HEALTH:-true}"
 ROLLBACK_REF="${1:-${ROLLBACK_REF:-}}"
+SYSTEMCTL_BIN=""
+JOURNALCTL_BIN=""
+CHOWN_BIN=""
 
 log() {
   printf '[rollback] %s\n' "$*"
@@ -34,11 +37,32 @@ require_command() {
   }
 }
 
-require_noninteractive_sudo() {
-  if ! sudo -n true >/dev/null 2>&1; then
-    error "Passwordless sudo is required for rollback automation."
-    exit 1
+resolve_sudo_nopasswd_binary() {
+  local label="$1"
+  shift
+  local candidate
+  local checked_candidates=""
+
+  for candidate in "$@"; do
+    [[ -x "${candidate}" ]] || continue
+    checked_candidates="${checked_candidates}${checked_candidates:+, }${candidate}"
+    if sudo -n "${candidate}" --version >/dev/null 2>&1; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+
+  if [[ -n "${checked_candidates}" ]]; then
+    error "Missing NOPASSWD sudo permission for ${label}. Checked: ${checked_candidates}"
+  else
+    error "Could not resolve required binary for ${label}. Checked: $*"
   fi
+  exit 1
+}
+
+resolve_and_validate_sudo_binaries() {
+  SYSTEMCTL_BIN="$(resolve_sudo_nopasswd_binary "systemctl" /bin/systemctl /usr/bin/systemctl)"
+  JOURNALCTL_BIN="$(resolve_sudo_nopasswd_binary "journalctl" /bin/journalctl /usr/bin/journalctl)"
 }
 
 resolve_git_ref() {
@@ -78,7 +102,10 @@ PY
   fi
 
   warn "site-packages is not writable (${site_packages}); repairing ownership on ${VENV_DIR}."
-  sudo -n chown -R "${APP_USER}:${APP_USER}" "${VENV_DIR}"
+  if [[ -z "${CHOWN_BIN}" ]]; then
+    CHOWN_BIN="$(resolve_sudo_nopasswd_binary "chown" /bin/chown /usr/bin/chown)"
+  fi
+  sudo -n "${CHOWN_BIN}" -R "${APP_USER}:${APP_USER}" "${VENV_DIR}"
 
   if [[ ! -w "${site_packages}" ]]; then
     error "site-packages remains non-writable after ownership repair: ${site_packages}"
@@ -109,7 +136,7 @@ main() {
   require_command bash
   require_command systemctl
   require_command sudo
-  require_noninteractive_sudo
+  resolve_and_validate_sudo_binaries
 
   [[ -d "${APP_DIR}" ]] || { error "APP_DIR does not exist: ${APP_DIR}"; exit 1; }
   cd "${APP_DIR}"
@@ -146,10 +173,10 @@ main() {
   prepare_python_runtime
 
   log "Restarting service ${SERVICE_NAME} after rollback."
-  sudo -n systemctl restart "${SERVICE_NAME}"
-  if ! sudo -n systemctl is-active --quiet "${SERVICE_NAME}"; then
+  sudo -n "${SYSTEMCTL_BIN}" restart "${SERVICE_NAME}"
+  if ! sudo -n "${SYSTEMCTL_BIN}" is-active --quiet "${SERVICE_NAME}"; then
     error "Service ${SERVICE_NAME} is not active after rollback restart."
-    sudo -n journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true
+    sudo -n "${JOURNALCTL_BIN}" -u "${SERVICE_NAME}" -n 120 --no-pager || true
     exit 1
   fi
 

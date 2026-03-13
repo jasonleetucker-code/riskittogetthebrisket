@@ -253,6 +253,10 @@ jobs:
              [[ -d '${APP_DIR}' ]] || { echo \"[remote] APP_DIR missing: ${APP_DIR}\" >&2; exit 12; }; \
              [[ -d '${APP_DIR}/.git' ]] || { echo \"[remote] APP_DIR is not a git repo: ${APP_DIR}\" >&2; exit 13; }; \
              command -v systemctl >/dev/null || { echo \"[remote] systemctl not found\" >&2; exit 15; }; \
+             command -v sudo >/dev/null || { echo \"[remote] sudo not found\" >&2; exit 18; }; \
+             ( [[ -x /bin/systemctl ]] && sudo -n /bin/systemctl --version >/dev/null 2>&1 ) || ( [[ -x /usr/bin/systemctl ]] && sudo -n /usr/bin/systemctl --version >/dev/null 2>&1 ) || { echo \"[remote] missing NOPASSWD sudo permission for systemctl (/bin/systemctl or /usr/bin/systemctl)\" >&2; exit 19; }; \
+             ( [[ -x /bin/journalctl ]] && sudo -n /bin/journalctl --version >/dev/null 2>&1 ) || ( [[ -x /usr/bin/journalctl ]] && sudo -n /usr/bin/journalctl --version >/dev/null 2>&1 ) || { echo \"[remote] missing NOPASSWD sudo permission for journalctl (/bin/journalctl or /usr/bin/journalctl)\" >&2; exit 20; }; \
+             ( [[ -x /usr/bin/install ]] && sudo -n /usr/bin/install --version >/dev/null 2>&1 ) || ( [[ -x /bin/install ]] && sudo -n /bin/install --version >/dev/null 2>&1 ) || { echo \"[remote] missing NOPASSWD sudo permission for install (/usr/bin/install or /bin/install)\" >&2; exit 21; }; \
              echo '[remote] preflight checks passed'"
 
       - name: Run remote deploy script

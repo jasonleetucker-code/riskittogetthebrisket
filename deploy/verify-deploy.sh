@@ -35,6 +35,29 @@ require_command() {
   }
 }
 
+resolve_sudo_nopasswd_binary() {
+  local label="$1"
+  shift
+  local candidate
+  local checked_candidates=""
+
+  for candidate in "$@"; do
+    [[ -x "${candidate}" ]] || continue
+    checked_candidates="${checked_candidates}${checked_candidates:+, }${candidate}"
+    if sudo -n "${candidate}" --version >/dev/null 2>&1; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+
+  if [[ -n "${checked_candidates}" ]]; then
+    error "Missing NOPASSWD sudo permission for ${label}. Checked: ${checked_candidates}"
+  else
+    error "Could not resolve required binary for ${label}. Checked: $*"
+  fi
+  exit 1
+}
+
 probe_with_retries() {
   local url="$1"
   local attempts="$2"
@@ -73,7 +96,7 @@ main() {
     exit 1
   fi
 
-  local status_url health_url status_body health_body public_body
+  local status_url health_url status_body health_body public_body systemctl_bin journalctl_bin
   status_url="http://${APP_HOST}:${APP_PORT}/api/status"
   health_url="http://${APP_HOST}:${APP_PORT}/api/health"
   status_body="$(mktemp)"
@@ -82,9 +105,12 @@ main() {
   trap 'rm -f "${status_body:-}" "${health_body:-}" "${public_body:-}"' EXIT
 
   if [[ -n "${SERVICE_NAME}" ]] && command -v systemctl >/dev/null 2>&1; then
-    if ! sudo -n systemctl is-active --quiet "${SERVICE_NAME}"; then
+    require_command sudo
+    systemctl_bin="$(resolve_sudo_nopasswd_binary "systemctl" /bin/systemctl /usr/bin/systemctl)"
+    journalctl_bin="$(resolve_sudo_nopasswd_binary "journalctl" /bin/journalctl /usr/bin/journalctl)"
+    if ! sudo -n "${systemctl_bin}" is-active --quiet "${SERVICE_NAME}"; then
       error "Systemd service is not active: ${SERVICE_NAME}"
-      sudo -n journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true
+      sudo -n "${journalctl_bin}" -u "${SERVICE_NAME}" -n 120 --no-pager || true
       exit 1
     fi
     log "Service is active: ${SERVICE_NAME}"
