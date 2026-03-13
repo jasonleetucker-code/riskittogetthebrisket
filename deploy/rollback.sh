@@ -29,6 +29,13 @@ require_command() {
   }
 }
 
+require_noninteractive_sudo() {
+  if ! sudo -n true >/dev/null 2>&1; then
+    error "Passwordless sudo is required for rollback automation (systemctl, journalctl)."
+    exit 1
+  fi
+}
+
 resolve_git_ref() {
   local ref="$1"
   if git rev-parse --verify --quiet "${ref}^{commit}" >/dev/null; then
@@ -73,6 +80,7 @@ main() {
   require_command bash
   require_command systemctl
   require_command sudo
+  require_noninteractive_sudo
 
   [[ -d "${APP_DIR}" ]] || { error "APP_DIR does not exist: ${APP_DIR}"; exit 1; }
   cd "${APP_DIR}"

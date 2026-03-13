@@ -35,6 +35,13 @@ require_command() {
   }
 }
 
+require_noninteractive_sudo() {
+  if ! sudo -n true >/dev/null 2>&1; then
+    error "Passwordless sudo is required for service verification checks."
+    exit 1
+  fi
+}
+
 probe_with_retries() {
   local url="$1"
   local attempts="$2"
@@ -82,6 +89,8 @@ main() {
   trap 'rm -f "${status_body:-}" "${health_body:-}" "${public_body:-}"' EXIT
 
   if [[ -n "${SERVICE_NAME}" ]] && command -v systemctl >/dev/null 2>&1; then
+    require_command sudo
+    require_noninteractive_sudo
     if ! sudo -n systemctl is-active --quiet "${SERVICE_NAME}"; then
       error "Systemd service is not active: ${SERVICE_NAME}"
       sudo -n journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true

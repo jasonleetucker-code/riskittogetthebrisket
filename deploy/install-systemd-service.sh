@@ -32,6 +32,13 @@ require_command() {
   }
 }
 
+require_noninteractive_sudo() {
+  if ! sudo -n true >/dev/null 2>&1; then
+    error "Passwordless sudo is required to install systemd units."
+    exit 1
+  fi
+}
+
 escape_sed_replacement() {
   printf '%s' "$1" | sed -e 's/[\\/&]/\\&/g'
 }
@@ -44,6 +51,7 @@ main() {
   require_command mktemp
   require_command sed
   require_command systemctl
+  require_noninteractive_sudo
 
   [[ -n "${SERVICE_NAME}" ]] || { error "SERVICE_NAME cannot be empty."; exit 1; }
   [[ -n "${APP_USER}" ]] || { error "APP_USER cannot be empty."; exit 1; }

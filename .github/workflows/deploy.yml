@@ -249,6 +249,8 @@ jobs:
              [[ -d '${APP_DIR}' ]] || { echo \"[remote] APP_DIR missing: ${APP_DIR}\" >&2; exit 12; }; \
              [[ -d '${APP_DIR}/.git' ]] || { echo \"[remote] APP_DIR is not a git repo: ${APP_DIR}\" >&2; exit 13; }; \
              command -v systemctl >/dev/null || { echo \"[remote] systemctl not found\" >&2; exit 15; }; \
+             command -v sudo >/dev/null || { echo \"[remote] sudo not found\" >&2; exit 18; }; \
+             sudo -n true >/dev/null 2>&1 || { echo \"[remote] passwordless sudo (-n) is required for deploy user\" >&2; exit 19; }; \
              echo '[remote] preflight checks passed'"
 
       - name: Run remote deploy script
