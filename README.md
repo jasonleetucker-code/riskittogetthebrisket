@@ -5,6 +5,12 @@ Private repo for your dynasty trade calculator stack:
 - Legacy static dashboard
 - New React + Next.js frontend (`frontend/`)
 
+## Production Bootstrap
+
+For first-time server setup and deploy hardening, use:
+- `deploy/PRODUCTION_BOOTSTRAP.md`
+- `deploy/bootstrap-production.sh`
+
 ## Quick Start (Windows / PowerShell)
 
 ### 1) Install frontend deps once
