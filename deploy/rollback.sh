@@ -42,23 +42,18 @@ resolve_git_ref() {
   return 1
 }
 
-detect_requirements_file() {
-  local candidate
-  for candidate in requirements-prod.txt requirements.txt requirements-dev.txt; do
-    if [[ -f "${candidate}" ]]; then
-      printf '%s\n' "${candidate}"
-      return 0
-    fi
-  done
-  return 1
+canonical_requirements_file() {
+  printf '%s\n' "requirements.txt"
 }
 
 prepare_python_runtime() {
-  local req_file=""
-  if ! req_file="$(detect_requirements_file)"; then
-    log "No Python dependency manifest found; skipping pip install."
-    return 0
+  local req_file
+  req_file="$(canonical_requirements_file)"
+  if [[ ! -f "${req_file}" ]]; then
+    error "Missing canonical Python dependency manifest: ${APP_DIR}/${req_file}"
+    exit 1
   fi
+  log "Python dependency manifest detected: ${req_file}"
   require_command python3
   if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
     log "Creating virtualenv at ${VENV_DIR}"

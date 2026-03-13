@@ -80,13 +80,17 @@ jobs:
             echo "No dynasty_data_*.json sample found; skipping contract validation."
           fi
 
-      - name: Validate required deploy entrypoint exists
+      - name: Validate required deploy artifacts exist
         shell: bash
         run: |
           set -Eeuo pipefail
           if [[ ! -f "deploy/deploy.sh" ]]; then
             echo "::error title=Missing required deploy script::deploy/deploy.sh is required by the deploy job remote execution path but does not exist in this repository."
             echo "::error::Either add deploy/deploy.sh or update deploy strategy/path in .github/workflows/deploy.yml."
+            exit 1
+          fi
+          if [[ ! -f "requirements.txt" ]]; then
+            echo "::error title=Missing Python manifest::requirements.txt is required for production deploy dependency installation."
             exit 1
           fi
 
