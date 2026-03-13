@@ -29,39 +29,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Resolve Python dependency manifest
-        id: pydeps
+      - name: Install dependencies (requirements.txt)
         shell: bash
         run: |
           set -Eeuo pipefail
-          DEP_FILE=""
-          if [[ -f "requirements-prod.txt" ]]; then
-            DEP_FILE="requirements-prod.txt"
-          elif [[ -f "requirements.txt" ]]; then
-            DEP_FILE="requirements.txt"
-          elif [[ -f "requirements-dev.txt" ]]; then
-            DEP_FILE="requirements-dev.txt"
-          fi
-
-          if [[ -z "${DEP_FILE}" ]]; then
-            echo "No requirements*.txt file found at repo root; skipping dependency install for validation job."
-            echo "mode=skip" >> "$GITHUB_OUTPUT"
-          else
-            echo "mode=requirements" >> "$GITHUB_OUTPUT"
-            echo "dep_file=${DEP_FILE}" >> "$GITHUB_OUTPUT"
-            echo "Using Python manifest: ${DEP_FILE}"
-          fi
-
-      - name: Install dependencies (requirements)
-        if: ${{ steps.pydeps.outputs.mode == 'requirements' }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
+          [[ -f "requirements.txt" ]] || { echo "::error title=Missing Python manifest::requirements.txt is required for production deploy dependency installation."; exit 1; }
           python -m pip install --upgrade pip
-          DEP_FILE="${{ steps.pydeps.outputs.dep_file }}"
-          [[ -n "${DEP_FILE}" ]] || { echo "::error title=Dependency file missing::Manifest path not set after preflight."; exit 1; }
-          [[ -f "${DEP_FILE}" ]] || { echo "::error title=Dependency file missing::${DEP_FILE} does not exist in repository root."; exit 1; }
-          pip install -r "${DEP_FILE}"
+          pip install -r requirements.txt
 
       - name: Python syntax gate
         shell: bash
@@ -69,6 +43,19 @@ jobs:
           set -Eeuo pipefail
           python -m py_compile server.py "Dynasty Scraper.py"
           python -m py_compile src/api/data_contract.py
+
+      - name: Python runtime import gate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import fastapi  # noqa: F401
+          import uvicorn  # noqa: F401
+          import requests  # noqa: F401
+          from playwright.async_api import async_playwright  # noqa: F401
+          import server  # noqa: F401
+          print("Runtime import gate passed.")
+          PY
 
       - name: API data contract check (if sample data exists)
         shell: bash
@@ -244,14 +231,14 @@ jobs:
             "${TARGET}" \
             "set -Eeuo pipefail; \
              echo '[remote] pwd:'; pwd; \
-             echo '[remote] git top-level:'; git -C '${APP_DIR}' rev-parse --show-toplevel; \
-             echo '[remote] git status --short:'; git -C '${APP_DIR}' status --short || true; \
              echo \"[remote] connected host=\$(hostname) user=\$(id -un)\"; \
              command -v bash >/dev/null || { echo \"[remote] bash not found\" >&2; exit 11; }; \
              command -v git >/dev/null || { echo \"[remote] git not found\" >&2; exit 16; }; \
              command -v python3 >/dev/null || { echo \"[remote] python3 not found\" >&2; exit 17; }; \
              [[ -d '${APP_DIR}' ]] || { echo \"[remote] APP_DIR missing: ${APP_DIR}\" >&2; exit 12; }; \
              [[ -d '${APP_DIR}/.git' ]] || { echo \"[remote] APP_DIR is not a git repo: ${APP_DIR}\" >&2; exit 13; }; \
+             echo '[remote] git top-level:'; git -C '${APP_DIR}' rev-parse --show-toplevel; \
+             echo '[remote] git status --short:'; git -C '${APP_DIR}' status --short || true; \
              command -v systemctl >/dev/null || { echo \"[remote] systemctl not found\" >&2; exit 15; }; \
              command -v sudo >/dev/null || { echo \"[remote] sudo not found\" >&2; exit 18; }; \
              ( [[ -x /bin/systemctl ]] && sudo -n /bin/systemctl --version >/dev/null 2>&1 ) || ( [[ -x /usr/bin/systemctl ]] && sudo -n /usr/bin/systemctl --version >/dev/null 2>&1 ) || { echo \"[remote] missing NOPASSWD sudo permission for systemctl (/bin/systemctl or /usr/bin/systemctl)\" >&2; exit 19; }; \
@@ -273,6 +260,7 @@ jobs:
           AUTO_ROLLBACK: ${{ vars.PROD_AUTO_ROLLBACK || 'true' }}
           APP_HOST: ${{ vars.PROD_APP_HOST || '127.0.0.1' }}
           APP_PORT: ${{ vars.PROD_APP_PORT || '8000' }}
+          STRICT_LOCAL_HEALTH: ${{ vars.PROD_STRICT_LOCAL_HEALTH || 'false' }}
           PUBLIC_URL: ${{ vars.PROD_PUBLIC_URL || '' }}
         shell: bash
         run: |
@@ -314,6 +302,7 @@ jobs:
           export AUTO_ROLLBACK="${AUTO_ROLLBACK}"
           export APP_HOST="${APP_HOST}"
           export APP_PORT="${APP_PORT}"
+          export STRICT_LOCAL_HEALTH="${STRICT_LOCAL_HEALTH}"
           export PUBLIC_URL="${PUBLIC_URL}"
 
           [[ -n "\${APP_DIR}" ]] || { echo "[remote] APP_DIR is empty" >&2; exit 20; }
