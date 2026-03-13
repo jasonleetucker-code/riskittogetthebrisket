@@ -4,10 +4,13 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_APP_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+APP_NAME="${APP_NAME:-riskittogetthebrisket}"
 APP_DIR="${APP_DIR:-${DEFAULT_APP_DIR}}"
 APP_USER="${APP_USER:-$(id -un)}"
 VENV_DIR="${VENV_DIR:-${APP_DIR}/.venv}"
 SERVICE_NAME="${SERVICE_NAME:-dynasty}"
+DEPLOY_STATE_DIR="${DEPLOY_STATE_DIR:-${APP_DIR}/.deploy}"
+LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE="${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE:-${DEPLOY_STATE_DIR}/${APP_NAME}.last_successful_deploy_commit}"
 APP_HOST="${APP_HOST:-127.0.0.1}"
 APP_PORT="${APP_PORT:-8000}"
 PUBLIC_URL="${PUBLIC_URL:-}"
@@ -143,7 +146,7 @@ main() {
   [[ -d ".git" ]] || { error "APP_DIR is not a git repository: ${APP_DIR}"; exit 1; }
 
   local state_dir rollback_target current_rev target_rev
-  state_dir="${APP_DIR}/.deploy"
+  state_dir="${DEPLOY_STATE_DIR}"
   mkdir -p "${state_dir}"
 
   if [[ -z "${ROLLBACK_REF}" && -f "${state_dir}/pre_deploy_rev" ]]; then
@@ -151,6 +154,9 @@ main() {
   fi
   if [[ -z "${ROLLBACK_REF}" && -f "${state_dir}/last_successful_rev" ]]; then
     ROLLBACK_REF="$(head -n 1 "${state_dir}/last_successful_rev" | tr -d '\r\n')"
+  fi
+  if [[ -z "${ROLLBACK_REF}" && -n "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}" && -f "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}" ]]; then
+    ROLLBACK_REF="$(head -n 1 "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}" | tr -d '\r\n')"
   fi
   if [[ -z "${ROLLBACK_REF}" ]]; then
     error "No rollback target specified and no saved revision found."
@@ -191,6 +197,10 @@ main() {
 
   printf '%s\n' "${rollback_target}" > "${state_dir}/last_successful_rev"
   printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${state_dir}/last_successful_at_utc"
+  if [[ -n "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}" ]]; then
+    mkdir -p "$(dirname "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}")"
+    printf '%s\n' "${rollback_target}" > "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}"
+  fi
   log "Rollback complete. Active revision: ${rollback_target}"
 }
 

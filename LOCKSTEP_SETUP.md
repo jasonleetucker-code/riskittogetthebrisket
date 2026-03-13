@@ -33,22 +33,22 @@ Expected:
 - HEAD hash returned
 - dry-run push does not fail auth
 
-## 2) Hetzner server access (ideal)
+## 2) Hetzner server access (production)
 
-Target workspace path:
-- `/root/.openclaw/workspace/riskittogetthebrisket`
+Current production target:
+- host: `178.156.148.92`
+- user: `dynasty`
+- app path: `/home/dynasty/trade-calculator`
 
-Preferred setup:
+Operator baseline:
 
-1. Create dedicated non-root operator user (example: `codexops`)
-2. Add SSH key for that user
-3. Grant only required sudo commands (if needed), not blanket root
-4. Clone repo with SSH remote:
+1. Use the non-root `dynasty` user for deploy operations.
+2. Keep SSH key-based auth enabled and host key verification strict.
+3. Grant only required sudo commands (systemctl/journalctl/install and optional repair commands), not blanket root.
+4. Verify repo wiring on-server:
 
 ```bash
-cd /root/.openclaw/workspace
-git clone git@github.com:jasonleetucker-code/riskittogetthebrisket.git
-cd riskittogetthebrisket
+cd /home/dynasty/trade-calculator
 git remote -v
 git fetch origin
 git checkout main

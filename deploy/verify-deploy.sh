@@ -58,6 +58,17 @@ resolve_sudo_nopasswd_binary() {
   exit 1
 }
 
+dump_service_diagnostics() {
+  local systemctl_bin="${1:-}"
+  local journalctl_bin="${2:-}"
+  if [[ -z "${SERVICE_NAME}" || -z "${systemctl_bin}" || -z "${journalctl_bin}" ]]; then
+    return 0
+  fi
+  warn "Collecting service diagnostics for ${SERVICE_NAME}"
+  sudo -n "${systemctl_bin}" status "${SERVICE_NAME}" --no-pager || true
+  sudo -n "${journalctl_bin}" -u "${SERVICE_NAME}" -n 160 --no-pager || true
+}
+
 probe_with_retries() {
   local url="$1"
   local attempts="$2"
@@ -116,7 +127,10 @@ main() {
     log "Service is active: ${SERVICE_NAME}"
   fi
 
-  probe_with_retries "${status_url}" "${VERIFY_MAX_ATTEMPTS}" "${VERIFY_SLEEP_SECONDS}" "${VERIFY_CURL_TIMEOUT}" "${status_body}"
+  if ! probe_with_retries "${status_url}" "${VERIFY_MAX_ATTEMPTS}" "${VERIFY_SLEEP_SECONDS}" "${VERIFY_CURL_TIMEOUT}" "${status_body}"; then
+    dump_service_diagnostics "${systemctl_bin:-}" "${journalctl_bin:-}"
+    exit 1
+  fi
   log "Status endpoint healthy: ${status_url}"
 
   local health_code
@@ -128,6 +142,7 @@ main() {
     if [[ -s "${health_body}" ]]; then
       sed -n '1,120p' "${health_body}" >&2 || true
     fi
+    dump_service_diagnostics "${systemctl_bin:-}" "${journalctl_bin:-}"
     exit 1
   else
     warn "Health endpoint returned HTTP ${health_code:-curl_error} (STRICT_LOCAL_HEALTH=${STRICT_LOCAL_HEALTH})."
