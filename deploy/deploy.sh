@@ -11,6 +11,8 @@ VENV_DIR="${VENV_DIR:-${APP_DIR}/.venv}"
 SERVICE_NAME="${SERVICE_NAME:-dynasty}"
 DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
 DEPLOY_REF="${DEPLOY_REF:-${DEPLOY_BRANCH}}"
+DEPLOY_STATE_DIR="${DEPLOY_STATE_DIR:-${APP_DIR}/.deploy}"
+LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE="${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE:-${DEPLOY_STATE_DIR}/${APP_NAME}.last_successful_deploy_commit}"
 AUTO_ROLLBACK="${AUTO_ROLLBACK:-true}"
 APP_HOST="${APP_HOST:-127.0.0.1}"
 APP_PORT="${APP_PORT:-8000}"
@@ -240,6 +242,10 @@ record_success_state() {
   mkdir -p "${STATE_DIR}"
   printf '%s\n' "${TARGET_REV}" > "${STATE_DIR}/last_successful_rev"
   printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${STATE_DIR}/last_successful_at_utc"
+  if [[ -n "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}" ]]; then
+    mkdir -p "$(dirname "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}")"
+    printf '%s\n' "${TARGET_REV}" > "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}"
+  fi
 }
 
 attempt_auto_rollback() {
@@ -268,7 +274,10 @@ attempt_auto_rollback() {
   ROLLBACK_ATTEMPTED="true"
   warn "AUTO_ROLLBACK enabled. Attempting rollback to ${PRE_DEPLOY_REV}."
   if APP_DIR="${APP_DIR}" \
+     APP_NAME="${APP_NAME}" \
      VENV_DIR="${VENV_DIR}" \
+     DEPLOY_STATE_DIR="${DEPLOY_STATE_DIR}" \
+     LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE="${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}" \
      SERVICE_NAME="${SERVICE_NAME}" \
      APP_HOST="${APP_HOST}" \
      APP_PORT="${APP_PORT}" \
@@ -301,6 +310,7 @@ main() {
   require_non_empty SERVICE_NAME
   require_non_empty DEPLOY_BRANCH
   require_non_empty DEPLOY_REF
+  require_non_empty DEPLOY_STATE_DIR
   require_non_empty APP_HOST
   require_non_empty APP_PORT
   if ! [[ "${APP_PORT}" =~ ^[0-9]+$ ]]; then
@@ -318,7 +328,7 @@ main() {
   require_command sudo
   resolve_and_validate_sudo_binaries
 
-  STATE_DIR="${APP_DIR}/.deploy"
+  STATE_DIR="${DEPLOY_STATE_DIR}"
   mkdir -p "${STATE_DIR}"
 
   git config --global --add safe.directory "${APP_DIR}" >/dev/null 2>&1 || true
