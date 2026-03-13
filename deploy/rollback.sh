@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_APP_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 APP_DIR="${APP_DIR:-${DEFAULT_APP_DIR}}"
+APP_USER="${APP_USER:-$(id -un)}"
 VENV_DIR="${VENV_DIR:-${APP_DIR}/.venv}"
 SERVICE_NAME="${SERVICE_NAME:-dynasty}"
 APP_HOST="${APP_HOST:-127.0.0.1}"
@@ -17,6 +18,10 @@ log() {
   printf '[rollback] %s\n' "$*"
 }
 
+warn() {
+  printf '[rollback][WARN] %s\n' "$*" >&2
+}
+
 error() {
   printf '[rollback][ERROR] %s\n' "$*" >&2
 }
@@ -27,6 +32,13 @@ require_command() {
     error "Required command not found: ${cmd}"
     exit 1
   }
+}
+
+require_noninteractive_sudo() {
+  if ! sudo -n true >/dev/null 2>&1; then
+    error "Passwordless sudo is required for rollback automation."
+    exit 1
+  fi
 }
 
 resolve_git_ref() {
@@ -46,12 +58,40 @@ canonical_requirements_file() {
   printf '%s\n' "requirements.txt"
 }
 
+ensure_venv_site_packages_writable() {
+  local venv_python="$1"
+  local site_packages=""
+
+  site_packages="$("${venv_python}" - <<'PY'
+import sysconfig
+print(sysconfig.get_paths().get("purelib", ""))
+PY
+)"
+
+  if [[ -z "${site_packages}" ]]; then
+    warn "Could not resolve site-packages path from venv; skipping ownership check."
+    return 0
+  fi
+
+  if [[ -w "${site_packages}" ]]; then
+    return 0
+  fi
+
+  warn "site-packages is not writable (${site_packages}); repairing ownership on ${VENV_DIR}."
+  sudo -n chown -R "${APP_USER}:${APP_USER}" "${VENV_DIR}"
+
+  if [[ ! -w "${site_packages}" ]]; then
+    error "site-packages remains non-writable after ownership repair: ${site_packages}"
+    exit 1
+  fi
+}
+
 prepare_python_runtime() {
   local req_file
   req_file="$(canonical_requirements_file)"
   if [[ ! -f "${req_file}" ]]; then
-    error "Missing canonical Python dependency manifest: ${APP_DIR}/${req_file}"
-    exit 1
+    warn "Canonical Python dependency manifest is missing in rollback target (${APP_DIR}/${req_file}); skipping dependency install."
+    return 0
   fi
   log "Python dependency manifest detected: ${req_file}"
   require_command python3
@@ -59,6 +99,7 @@ prepare_python_runtime() {
     log "Creating virtualenv at ${VENV_DIR}"
     python3 -m venv "${VENV_DIR}"
   fi
+  ensure_venv_site_packages_writable "${VENV_DIR}/bin/python"
   "${VENV_DIR}/bin/python" -m pip install --upgrade pip
   "${VENV_DIR}/bin/pip" install -r "${req_file}"
 }
@@ -68,6 +109,7 @@ main() {
   require_command bash
   require_command systemctl
   require_command sudo
+  require_noninteractive_sudo
 
   [[ -d "${APP_DIR}" ]] || { error "APP_DIR does not exist: ${APP_DIR}"; exit 1; }
   cd "${APP_DIR}"
