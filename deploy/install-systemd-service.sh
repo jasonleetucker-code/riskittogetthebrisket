@@ -11,6 +11,8 @@ VENV_DIR="${VENV_DIR:-${HOME}/.venvs/${APP_SLUG}}"
 SERVICE_NAME="${SERVICE_NAME:-dynasty}"
 SERVICE_TEMPLATE_PATH="${SERVICE_TEMPLATE_PATH:-${APP_DIR}/deploy/systemd/dynasty.service.template}"
 FORCE_SERVICE_INSTALL="${FORCE_SERVICE_INSTALL:-false}"
+SYSTEMCTL_BIN=""
+INSTALL_BIN=""
 
 log() {
   printf '[systemd-bootstrap] %s\n' "$*"
@@ -32,6 +34,34 @@ require_command() {
   }
 }
 
+resolve_sudo_nopasswd_binary() {
+  local label="$1"
+  shift
+  local candidate
+  local checked_candidates=""
+
+  for candidate in "$@"; do
+    [[ -x "${candidate}" ]] || continue
+    checked_candidates="${checked_candidates}${checked_candidates:+, }${candidate}"
+    if sudo -n "${candidate}" --version >/dev/null 2>&1; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+
+  if [[ -n "${checked_candidates}" ]]; then
+    error "Missing NOPASSWD sudo permission for ${label}. Checked: ${checked_candidates}"
+  else
+    error "Could not resolve required binary for ${label}. Checked: $*"
+  fi
+  exit 1
+}
+
+resolve_and_validate_sudo_binaries() {
+  SYSTEMCTL_BIN="$(resolve_sudo_nopasswd_binary "systemctl" /bin/systemctl /usr/bin/systemctl)"
+  INSTALL_BIN="$(resolve_sudo_nopasswd_binary "install" /usr/bin/install /bin/install)"
+}
+
 escape_sed_replacement() {
   printf '%s' "$1" | sed -e 's/[\\/&]/\\&/g'
 }
@@ -44,6 +74,7 @@ main() {
   require_command mktemp
   require_command sed
   require_command systemctl
+  resolve_and_validate_sudo_binaries
 
   [[ -n "${SERVICE_NAME}" ]] || { error "SERVICE_NAME cannot be empty."; exit 1; }
   [[ -n "${APP_USER}" ]] || { error "APP_USER cannot be empty."; exit 1; }
@@ -53,7 +84,7 @@ main() {
 
   force_install="$(lower "${FORCE_SERVICE_INSTALL}")"
   unit_path="/etc/systemd/system/${SERVICE_NAME}.service"
-  if sudo -n systemctl cat "${SERVICE_NAME}" >/dev/null 2>&1; then
+  if sudo -n "${SYSTEMCTL_BIN}" cat "${SERVICE_NAME}" >/dev/null 2>&1; then
     if [[ "${force_install}" != "true" && "${force_install}" != "1" && "${force_install}" != "yes" ]]; then
       log "Service ${SERVICE_NAME} already exists; skipping bootstrap install."
       exit 0
@@ -72,9 +103,9 @@ main() {
     -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
     "${SERVICE_TEMPLATE_PATH}" > "${tmp_unit}"
 
-  sudo -n install -m 0644 "${tmp_unit}" "${unit_path}"
-  sudo -n systemctl daemon-reload
-  sudo -n systemctl enable "${SERVICE_NAME}"
+  sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_unit}" "${unit_path}"
+  sudo -n "${SYSTEMCTL_BIN}" daemon-reload
+  sudo -n "${SYSTEMCTL_BIN}" enable "${SERVICE_NAME}"
   log "Installed and enabled ${SERVICE_NAME}.service"
 }
 
