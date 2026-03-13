@@ -81,6 +81,34 @@ canonical_requirements_file() {
   printf '%s\n' "requirements.txt"
 }
 
+ensure_venv_site_packages_writable() {
+  local venv_python="$1"
+  local site_packages=""
+
+  site_packages="$("${venv_python}" - <<'PY'
+import sysconfig
+print(sysconfig.get_paths().get("purelib", ""))
+PY
+)"
+
+  if [[ -z "${site_packages}" ]]; then
+    warn "Could not resolve site-packages path from venv; skipping ownership check."
+    return 0
+  fi
+
+  if [[ -w "${site_packages}" ]]; then
+    return 0
+  fi
+
+  warn "site-packages is not writable (${site_packages}); repairing ownership on ${VENV_DIR}."
+  sudo -n chown -R "${APP_USER}:${APP_USER}" "${VENV_DIR}"
+
+  if [[ ! -w "${site_packages}" ]]; then
+    error "site-packages remains non-writable after ownership repair: ${site_packages}"
+    exit 1
+  fi
+}
+
 prepare_python_runtime() {
   local req_file
   req_file="$(canonical_requirements_file)"
@@ -96,6 +124,7 @@ prepare_python_runtime() {
     python3 -m venv "${VENV_DIR}"
   fi
 
+  ensure_venv_site_packages_writable "${VENV_DIR}/bin/python"
   "${VENV_DIR}/bin/python" -m pip install --upgrade pip
   "${VENV_DIR}/bin/pip" install -r "${req_file}"
 }
