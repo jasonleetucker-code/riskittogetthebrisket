@@ -1638,36 +1638,12 @@ async def serve_landing():
 
 @app.get("/league", response_class=HTMLResponse)
 async def serve_league_entry():
+    league_path = LEGACY_STATIC_DIR / "league.html"
+    if league_path.exists():
+        return FileResponse(league_path, media_type="text/html")
     return HTMLResponse(
-        """
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>League</title>
-          <style>
-            body { margin:0; min-height:100vh; display:grid; place-items:center; font-family:Arial,sans-serif; background:#f4f6fb; color:#1d2430; }
-            .card { background:#fff; border:1px solid #dbe2ef; border-radius:14px; padding:26px; max-width:560px; width:min(92vw,560px); }
-            h1 { margin:0 0 10px; font-size:1.4rem; }
-            p { margin:0 0 16px; color:#586474; line-height:1.5; }
-            .row { display:flex; gap:10px; flex-wrap:wrap; }
-            a { display:inline-block; padding:10px 14px; border-radius:10px; text-decoration:none; font-weight:600; border:1px solid #dbe2ef; color:#1d2430; }
-            a.primary { background:#1d2430; color:#fff; border-color:#1d2430; }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <h1>League</h1>
-            <p>This entry is available without opening the private Jason workspace.</p>
-            <div class="row">
-              <a href="/">Back</a>
-              <a class="primary" href="/?jason=1">Open Jason Login</a>
-            </div>
-          </div>
-        </body>
-        </html>
-        """
+        "<h1>League page missing</h1><p>Expected Static/league.html.</p>",
+        status_code=500,
     )
 
 
