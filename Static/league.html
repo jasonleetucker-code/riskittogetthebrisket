@@ -115,6 +115,7 @@
     .pos-TE { background: #fef3e2; color: #b8600d; }
     .pos-LB, .pos-EDGE, .pos-S, .pos-DL, .pos-DB { background: #f0e8fd; color: #5b2ca0; }
     .ktc-val { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.82rem; }
+    .ktc-val.projected { opacity: 0.5; font-style: italic; }
     .budget-note {
       font-size: 0.82rem; color: var(--muted); margin-top: 8px; padding: 0 4px;
     }
@@ -194,9 +195,12 @@
           '<div class="team-picks-list">' + pickLabels + '</div>';
         }
         teamsGrid.innerHTML = html;
+        const ktcLabel = data.ktcSource === 'live' ? 'KTC Live' : 'KTC Cached';
         budgetNote.textContent = 'Total budget: $' + data.totalBudget +
           ' across ' + data.numTeams + ' teams, ' + data.draftRounds +
-          ' rounds (' + data.season + '). Highlighted = traded pick.';
+          ' rounds (' + data.season + '). ' + ktcLabel + ': ' +
+          data.ktcRookieCount + ' ranked, ' + data.ktcTotalFilled +
+          ' filled. Highlighted = traded pick.';
         teamsSection.style.display = '';
 
         // ── Picks by round ──
@@ -221,12 +225,15 @@
             const from = pick.isTraded
               ? '<span class="from-name">' + pick.originalOwner + '</span>'
               : '<span style="color:var(--muted);">—</span>';
-            const rookie = pick.rookieName || '<span style="color:var(--muted);">—</span>';
+            const isProjected = pick.rookieName && pick.rookieName.startsWith('Rookie #');
+            const rookie = pick.rookieName
+              ? (isProjected ? '<span style="color:var(--muted);font-style:italic;">' + pick.rookieName + '</span>' : pick.rookieName)
+              : '<span style="color:var(--muted);">—</span>';
             const pos = pick.rookiePos
               ? '<span class="rookie-pos ' + posClass(pick.rookiePos) + '">' + pick.rookiePos + '</span>'
               : '';
             const ktc = pick.rookieKtcValue
-              ? '<span class="ktc-val">' + pick.rookieKtcValue.toLocaleString() + '</span>'
+              ? '<span class="ktc-val' + (isProjected ? ' projected' : '') + '">' + pick.rookieKtcValue.toLocaleString() + (isProjected ? '*' : '') + '</span>'
               : '';
 
             picksHtml += '<tr' + cls + '>' +
