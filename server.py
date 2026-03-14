@@ -1790,43 +1790,201 @@ async def get_scaffold_report():
 
 
 # ── DRAFT CAPITAL ──────────────────────────────────────────────────────
-# All data read from "Copy of Draft Data.xlsx - Draft Data.csv":
-#   - Pick dollar values from "Final Dollar Per Pick" column (col 11)
-#   - Pick ownership from Sleeper API (traded_picks + draft order)
-#   - Rookie rankings from KTC composite section (cols 22-25, after "Rank" header)
+# Pick dollar values from CSV, rookie rankings from KTC (live) or CSV (fallback).
+# Uses a decay curve to fill/extrapolate KTC values to all 72 picks.
 DRAFT_DATA_CSV = Path(__file__).parent / "Copy of Draft Data.xlsx - Draft Data.csv"
 SLEEPER_LEAGUE_ID_FOR_DRAFT = os.getenv("SLEEPER_LEAGUE_ID", "1312006700437352448")
+_KTC_TOTAL_PICKS = 72  # fill rookie data for all 6 rounds (12 teams × 6 rounds)
+
+# Cache for KTC live data: {"rookies": [...], "fetched_at": timestamp}
+_ktc_cache = {"rookies": None, "fetched_at": 0}
+_KTC_CACHE_TTL = 6 * 3600  # 6 hours
 
 
-def _parse_draft_csv():
-    """Parse the draft data CSV into pick dollar values and rookie rankings."""
+import math
+import re
+
+
+def _ktc_decay_curve(known_rookies, total_picks=72):
+    """Extend rookie KTC values to `total_picks` using an exponential decay curve.
+
+    Fits an exponential decay  value = A * e^(-k * pick)  to the known data points,
+    then extrapolates for any missing picks beyond what KTC provides.
+    If fewer than `total_picks` rookies exist from KTC, synthetic entries are
+    generated with the curve values and placeholder names.
+    """
+    if not known_rookies:
+        return known_rookies
+
+    # Already have enough rookies
+    if len(known_rookies) >= total_picks:
+        return known_rookies[:total_picks]
+
+    # Fit exponential decay: ln(value) = ln(A) - k * pick
+    # Use first and last known data points for a robust fit
+    v1 = known_rookies[0]["value"]
+    vn = known_rookies[-1]["value"]
+    n = len(known_rookies)
+
+    if v1 <= 0 or vn <= 0 or n < 2:
+        return known_rookies
+
+    # k = (ln(v1) - ln(vn)) / (n - 1)
+    k = (math.log(v1) - math.log(vn)) / (n - 1)
+    A = v1 * math.exp(k)  # A = v1 / e^(-k*0) adjusted so pick index 0 → v1
+
+    extended = list(known_rookies)
+    for i in range(n, total_picks):
+        projected_value = max(1, int(round(A * math.exp(-k * i))))
+        extended.append({
+            "name": f"Rookie #{i + 1}",
+            "pos": "—",
+            "value": projected_value,
+        })
+    return extended
+
+
+def _fetch_ktc_rookies_live():
+    """Try to scrape KTC rookie rankings from keeptradecut.com.
+
+    Parses the HTML for player entries with class 'onePlayer'.
+    Returns list of {"name", "pos", "value"} or None on failure.
+    """
+    import html.parser
+
+    url = "https://keeptradecut.com/dynasty-rankings/rookie-rankings"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+    }
+
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        resp = urllib.request.urlopen(req, timeout=15)
+        raw = resp.read()
+        charset = resp.headers.get_content_charset() or "utf-8"
+        page_html = raw.decode(charset, errors="replace")
+    except Exception as e:
+        logging.info(f"KTC live fetch failed: {e}")
+        return None
+
+    # Parse player data from HTML — KTC uses divs with class "onePlayer"
+    # Each player has: .player-name (a tag text), .position, .value
+    rookies = []
+
+    class KTCParser(html.parser.HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self._in_player = False
+            self._in_name = False
+            self._in_pos = False
+            self._in_value = False
+            self._current = {}
+
+        def handle_starttag(self, tag, attrs):
+            cls = dict(attrs).get("class", "")
+            if "onePlayer" in cls:
+                self._in_player = True
+                self._current = {}
+            elif self._in_player:
+                if "player-name" in cls:
+                    self._in_name = True
+                elif cls.strip() == "position":
+                    self._in_pos = True
+                elif cls.strip() == "value":
+                    self._in_value = True
+
+        def handle_data(self, data):
+            text = data.strip()
+            if not text:
+                return
+            if self._in_name:
+                self._current["name"] = self._current.get("name", "") + text
+            elif self._in_pos:
+                self._current["pos"] = text
+            elif self._in_value:
+                self._current["value_str"] = text
+
+        def handle_endtag(self, tag):
+            if self._in_name and tag == "a":
+                self._in_name = False
+            elif self._in_pos and tag in ("span", "div", "p"):
+                self._in_pos = False
+            elif self._in_value and tag in ("span", "div", "p"):
+                self._in_value = False
+            elif self._in_player and tag == "div":
+                # Try to finalize this player
+                name = self._current.get("name", "").strip()
+                pos = self._current.get("pos", "").strip()
+                val_str = self._current.get("value_str", "").strip().replace(",", "")
+                if name and val_str:
+                    # Clean team suffix from name (e.g. "Player NAMEnyj" -> "Player NAME")
+                    # KTC appends 2-3 letter team codes or "FA"/"RFA"/"R" suffix
+                    clean_name = re.sub(r'\s+(FA|RFA|R|[A-Z]{2,3})$', '', name)
+                    try:
+                        value = int(val_str)
+                        if value > 0:
+                            # Filter to fantasy-relevant positions
+                            pos_upper = pos.upper()
+                            if any(p in pos_upper for p in ("QB", "RB", "WR", "TE")):
+                                rookies.append({"name": clean_name or name, "pos": pos, "value": value})
+                    except ValueError:
+                        pass
+                self._in_player = False
+
+    try:
+        parser = KTCParser()
+        parser.feed(page_html)
+    except Exception as e:
+        logging.warning(f"KTC HTML parse failed: {e}")
+        return None
+
+    if len(rookies) < 5:
+        logging.info(f"KTC parse returned only {len(rookies)} rookies, likely blocked")
+        return None
+
+    # Sort by value descending (should already be, but ensure)
+    rookies.sort(key=lambda r: -r["value"])
+    logging.info(f"KTC live: fetched {len(rookies)} rookies (top: {rookies[0]['name']} = {rookies[0]['value']})")
+    return rookies
+
+
+def _get_ktc_rookies():
+    """Get KTC rookie rankings: try live fetch (cached 6h), fall back to CSV."""
+    now = time.time()
+
+    # Return cache if fresh
+    if _ktc_cache["rookies"] is not None and (now - _ktc_cache["fetched_at"]) < _KTC_CACHE_TTL:
+        return _ktc_cache["rookies"]
+
+    # Try live fetch
+    live = _fetch_ktc_rookies_live()
+    if live:
+        _ktc_cache["rookies"] = live
+        _ktc_cache["fetched_at"] = now
+        return live
+
+    # Fall back to CSV
+    csv_rookies = _parse_csv_rookies()
+    if csv_rookies:
+        logging.info(f"Using CSV fallback: {len(csv_rookies)} rookies")
+        return csv_rookies
+
+    return []
+
+
+def _parse_csv_rookies():
+    """Parse rookie rankings from the draft data CSV (cols 22-25)."""
     import csv
     if not DRAFT_DATA_CSV.exists():
-        return [], []
+        return []
     try:
         with open(DRAFT_DATA_CSV, newline="", encoding="utf-8") as f:
             rows = list(csv.reader(f))
     except Exception:
-        return [], []
+        return []
 
-    # ── Pick dollar values from "Final Dollar Per Pick" column (index 11) ──
-    # Rows 1-72 (indices 1-72) contain picks 1.01-6.12
-    pick_dollars = []
-    for row in rows[1:]:  # skip header
-        if len(row) < 12:
-            continue
-        pick_str = row[0].strip() if row[0] else ""
-        val_str = row[11].strip() if row[11] else ""
-        if not pick_str or not val_str:
-            break  # end of pick data
-        try:
-            dollar = int(val_str)
-            pick_dollars.append(dollar)
-        except (ValueError, TypeError):
-            break
-
-    # ── Rookie rankings from cols 22-25 (Rank, Player, Pos, Composite) ──
-    # Find the "Rank" header row first, then parse data rows after it
     rookies = []
     rank_header_idx = None
     for i, row in enumerate(rows):
@@ -1844,12 +2002,44 @@ def _parse_draft_csv():
             if not rank_str or not player:
                 continue
             try:
-                int(rank_str)  # verify it's a number
+                int(rank_str)
                 value = int(value_str)
             except (ValueError, TypeError):
                 continue
             if value > 0:
                 rookies.append({"name": player, "pos": pos, "value": value})
+    return rookies
+
+
+def _parse_draft_csv():
+    """Parse the draft data CSV into pick dollar values and rookie rankings."""
+    import csv
+    if not DRAFT_DATA_CSV.exists():
+        return [], []
+    try:
+        with open(DRAFT_DATA_CSV, newline="", encoding="utf-8") as f:
+            rows = list(csv.reader(f))
+    except Exception:
+        return [], []
+
+    # ── Pick dollar values from "Final Dollar Per Pick" column (index 11) ──
+    pick_dollars = []
+    for row in rows[1:]:  # skip header
+        if len(row) < 12:
+            continue
+        pick_str = row[0].strip() if row[0] else ""
+        val_str = row[11].strip() if row[11] else ""
+        if not pick_str or not val_str:
+            break
+        try:
+            dollar = int(val_str)
+            pick_dollars.append(dollar)
+        except (ValueError, TypeError):
+            break
+
+    # Get rookies from KTC (live) or CSV (fallback), then fill to 72 via decay curve
+    rookies = _get_ktc_rookies()
+    rookies = _ktc_decay_curve(rookies, _KTC_TOTAL_PICKS)
 
     return pick_dollars, rookies
 
@@ -2033,7 +2223,7 @@ def _fetch_draft_capital():
             })
             total_budget += dollar
 
-    # Fill rookie rankings from CSV
+    # Fill rookie rankings (from KTC live or CSV fallback, extended via decay curve)
     for i, pick in enumerate(all_picks):
         if i < len(rookies):
             pick["rookieName"] = rookies[i]["name"]
@@ -2042,6 +2232,10 @@ def _fetch_draft_capital():
 
     sorted_teams = sorted(team_totals.items(), key=lambda x: -x[1])
 
+    # KTC data source info
+    ktc_source = "live" if (_ktc_cache["rookies"] is not None and (time.time() - _ktc_cache["fetched_at"]) < _KTC_CACHE_TTL) else "csv"
+    ktc_count = len([r for r in rookies if not r["name"].startswith("Rookie #")]) if rookies else 0
+
     return {
         "picks": all_picks,
         "teamTotals": [{"team": t, "auctionDollars": v} for t, v in sorted_teams],
@@ -2049,13 +2243,19 @@ def _fetch_draft_capital():
         "numTeams": num_teams,
         "draftRounds": draft_rounds,
         "season": current_year,
+        "ktcSource": ktc_source,
+        "ktcRookieCount": ktc_count,
+        "ktcTotalFilled": len(rookies),
     }
 
 
 @app.get("/api/draft-capital")
-async def get_draft_capital():
+async def get_draft_capital(refresh: str = ""):
     """Return draft capital breakdown per team using Sleeper pick ownership
-    and the pick value curve from the draft data spreadsheet."""
+    and the pick value curve from the draft data spreadsheet.
+    Pass ?refresh=1 to force a fresh KTC fetch."""
+    if refresh:
+        _ktc_cache["fetched_at"] = 0  # invalidate cache
     try:
         result = _fetch_draft_capital()
         return JSONResponse(content=result)
