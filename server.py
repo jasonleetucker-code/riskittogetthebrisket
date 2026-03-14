@@ -91,9 +91,12 @@ UPTIME_ALERT_FAIL_THRESHOLD = int(os.getenv("UPTIME_ALERT_FAIL_THRESHOLD", "2"))
 # ── LIGHTWEIGHT AUTH GATE (PRIVATE-USE) ────────────────────────────────
 # App UI is intentionally gated behind Jason login.
 JASON_LOGIN_USERNAME = (os.getenv("JASON_LOGIN_USERNAME") or "jasonleetucker").strip()
-JASON_LOGIN_PASSWORD = os.getenv("JASON_LOGIN_PASSWORD") or "Elliott21!"
+_raw_password = os.getenv("JASON_LOGIN_PASSWORD", "").strip()
+if not _raw_password:
+    raise RuntimeError("JASON_LOGIN_PASSWORD env var is required. Set it before starting the server.")
+JASON_LOGIN_PASSWORD = _raw_password
 JASON_AUTH_COOKIE_NAME = "jason_session"
-JASON_AUTH_COOKIE_SECURE = _env_bool("JASON_AUTH_COOKIE_SECURE", False)
+JASON_AUTH_COOKIE_SECURE = _env_bool("JASON_AUTH_COOKIE_SECURE", True)
 
 # Rate limit: max 1 email per hour to avoid spam on repeated failures
 _last_alert_time = 0
