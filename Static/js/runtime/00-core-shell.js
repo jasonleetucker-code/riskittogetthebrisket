@@ -806,6 +806,7 @@
   function normalizeMobileMoreSection(section) {
     const s = String(section || '').toLowerCase();
     if (s === 'rosters') return 'rosters';
+    if (s === 'draft') return 'draft';
     if (s === 'league') return 'league';
     if (s === 'trades') return 'trades';
     if (s === 'settings') return 'settings';
@@ -1371,6 +1372,7 @@
     // Desktop-only tab execution path for legacy panels.
     if (!redirectedToMore && (!isMobile || allowLegacyMobile)) {
       if (requestedId === 'rosters') buildRosterDashboard();
+      if (requestedId === 'draft') buildDraftCapital();
       if (requestedId === 'trades') buildTradeHistoryPage();
       if (requestedId === 'edge') { checkEdgeGate(); buildEdgeTable(); }
       if (requestedId === 'league') initLeagueTab();
@@ -1402,6 +1404,7 @@
       more: 'more',
       edge: 'edge',
       rosters: 'rosters',
+      draft: 'draft',
       league: 'league',
       trades: 'trades',
       settings: 'settings',

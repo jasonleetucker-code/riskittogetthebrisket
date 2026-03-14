@@ -1622,6 +1622,13 @@
       return;
     }
 
+    if (section === 'draft') {
+      setTitle('Draft Capital');
+      body.innerHTML = '<div id="mobileDraftCapitalWrap"></div>';
+      buildDraftCapital();
+      return;
+    }
+
     if (section === 'league') {
       setTitle('League Snapshot');
       const tiers = getTeamTier(sleeperTeams || []);

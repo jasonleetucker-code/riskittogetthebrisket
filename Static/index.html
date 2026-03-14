@@ -2907,6 +2907,16 @@
             </div>
             <div class="home-dest-arrow">›</div>
           </div>
+          <div class="home-dest-row" onclick="switchTab('draft')">
+            <div class="home-dest-left">
+              <div class="home-dest-icon">$</div>
+              <div>
+                <div class="home-dest-label">Draft</div>
+                <div class="home-dest-sub">Pick values & draft capital</div>
+              </div>
+            </div>
+            <div class="home-dest-arrow">›</div>
+          </div>
           <div class="home-dest-row" onclick="switchTab('more')">
             <div class="home-dest-left">
               <div class="home-dest-icon">⋯</div>
@@ -2946,6 +2956,7 @@
       <button class="tab-btn" data-tab="rookies" onclick="switchTab('rookies')">Rankings</button>
       <button class="tab-btn" data-tab="trades" onclick="switchTab('trades')">Trades</button>
       <button class="tab-btn" data-tab="rosters" onclick="switchTab('rosters')">Rosters</button>
+      <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')">Draft</button>
       <button class="tab-btn" data-tab="league" onclick="switchTab('league')">League</button>
       <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">Settings</button>
       <span id="dataFreshnessTop" style="display:none;margin-left:auto;font-size:0.68rem;font-family:var(--mono);color:var(--subtext);padding:6px 12px;"></span>
@@ -3718,6 +3729,25 @@
 
     </div><!-- /rosters -->
 
+    <!-- ══ DRAFT TAB ══ -->
+    <div id="tab-draft" class="tab-panel">
+      <div class="card">
+        <div class="card-title">Draft Capital — Auction Dollar Breakdown</div>
+        <div style="font-size:0.68rem;color:var(--subtext);margin-bottom:12px;">
+          Pick values use the dynasty auction-dollar curve. Rookie names from KTC rankings. Pick ownership from Sleeper.
+        </div>
+        <div id="draftCapitalLoading" style="color:var(--subtext);font-size:0.78rem;padding:12px;">Loading draft capital data...</div>
+        <div id="draftCapitalTeams" style="display:none;margin-bottom:20px;"></div>
+      </div>
+      <div class="card" style="display:none;" id="draftCapitalPicksCard">
+        <div class="card-title">All Picks — By Round</div>
+        <div style="font-size:0.68rem;color:var(--subtext);margin-bottom:12px;">
+          Traded picks highlighted. Dollar values from the auction curve.
+        </div>
+        <div id="draftCapitalPicks"></div>
+      </div>
+    </div><!-- /draft -->
+
     <!-- ══ LEAGUE TAB ══ -->
     <div id="tab-league" class="tab-panel">
       <div style="display:flex;gap:0;margin-bottom:14px;flex-wrap:wrap;" id="leagueSubTabs">
@@ -3886,6 +3916,7 @@
   <script src="js/runtime/10-rankings-and-picks.js"></script>
   <script src="js/runtime/20-data-and-calculator.js"></script>
   <script src="js/runtime/30-more-surfaces.js"></script>
+  <script src="js/runtime/35-draft-capital.js"></script>
   <script src="js/runtime/40-runtime-features.js"></script>
   <script src="js/runtime/50-bootstrap.js"></script>
 </body>
