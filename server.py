@@ -163,11 +163,33 @@ DATA_DIR.mkdir(exist_ok=True)
 STATIC_DIR.mkdir(exist_ok=True)
 
 # ── LOGGING ─────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+# R-8: Structured JSON logging when LOG_FORMAT=json (for log aggregation).
+# Default is human-readable for local dev and journalctl.
+LOG_FORMAT = os.getenv("LOG_FORMAT", "text").strip().lower()
+
+if LOG_FORMAT == "json":
+    class _JsonFormatter(logging.Formatter):
+        """Minimal JSON log formatter for structured log aggregation."""
+        def format(self, record):
+            entry = {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "level": record.levelname,
+                "logger": record.name,
+                "msg": record.getMessage(),
+            }
+            if record.exc_info and record.exc_info[0]:
+                entry["exception"] = self.formatException(record.exc_info)
+            return json.dumps(entry, ensure_ascii=False)
+
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(_JsonFormatter())
+    logging.basicConfig(level=logging.INFO, handlers=[_handler])
+else:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
 log = logging.getLogger("dynasty-server")
 
 # ── STATE ───────────────────────────────────────────────────────────────
@@ -206,6 +228,15 @@ contract_health: dict = {
 # R-6: Canonical pipeline data (shadow/primary mode)
 canonical_data: dict | None = None
 canonical_data_loaded_at: str | None = None
+# R-9: Lightweight metrics counters
+_metrics: dict = {
+    "server_start_time": None,
+    "request_count": 0,
+    "scrape_total": 0,
+    "scrape_failures": 0,
+    "scrape_duration_seconds_last": 0.0,
+    "data_age_seconds": 0.0,
+}
 # Canonical scrape lifecycle state.
 # Compatibility aliases are maintained:
 #   running -> is_running
@@ -501,6 +532,9 @@ def _mark_scrape_success(elapsed: float, player_count: int, site_count: int, tot
     # R-4: Record to rolling history
     _record_scrape_history("success", elapsed, player_count=player_count,
                            site_count=site_count, total_sites=total_sites)
+    # R-9: Update metrics counters
+    _metrics["scrape_total"] = _metrics.get("scrape_total", 0) + 1
+    _metrics["scrape_duration_seconds_last"] = round(elapsed, 1)
 
 
 def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
@@ -532,6 +566,10 @@ def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
     )
     # R-4: Record to rolling history
     _record_scrape_history("failure", elapsed, error=error_text)
+    # R-9: Update metrics counters
+    _metrics["scrape_total"] = _metrics.get("scrape_total", 0) + 1
+    _metrics["scrape_failures"] = _metrics.get("scrape_failures", 0) + 1
+    _metrics["scrape_duration_seconds_last"] = round(elapsed, 1)
 
 
 def _record_scrape_history(outcome: str, duration: float, **meta) -> None:
@@ -1314,6 +1352,8 @@ async def lifespan(app: FastAPI):
     """Startup: load cached data + kick off first scrape + start scheduler."""
     global latest_data
 
+    _metrics["server_start_time"] = _utc_now_iso()
+
     # 1. Load cached data immediately so the dashboard is usable right away
     latest_data = load_from_disk()
     _prime_latest_payload(latest_data)
@@ -1363,6 +1403,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+
+@app.middleware("http")
+async def _count_requests(request: Request, call_next):
+    """R-9: Count all HTTP requests for metrics."""
+    _metrics["request_count"] = _metrics.get("request_count", 0) + 1
+    return await call_next(request)
 
 def _proxy_next(path: str) -> tuple[Response | None, str | None]:
     """
@@ -1563,6 +1610,50 @@ async def get_health():
 async def get_uptime_status():
     """Detailed uptime watchdog state."""
     return JSONResponse(content=uptime_status)
+
+
+@app.get("/api/metrics")
+async def get_metrics():
+    """R-9: Lightweight metrics endpoint for dashboards and monitoring."""
+    now = datetime.now(timezone.utc)
+    # Calculate data age
+    data_age_seconds = None
+    loaded_at = latest_data_source.get("loadedAt")
+    if loaded_at:
+        try:
+            loaded_dt = datetime.fromisoformat(loaded_at)
+            data_age_seconds = round((now - loaded_dt).total_seconds(), 0)
+        except (ValueError, TypeError):
+            pass
+
+    # Calculate uptime
+    uptime_seconds = None
+    if _metrics.get("server_start_time"):
+        try:
+            start_dt = datetime.fromisoformat(_metrics["server_start_time"])
+            uptime_seconds = round((now - start_dt).total_seconds(), 0)
+        except (ValueError, TypeError):
+            pass
+
+    disk_ok, free_mb = _check_disk_space()
+
+    return JSONResponse(content={
+        "server_start_time": _metrics.get("server_start_time"),
+        "uptime_seconds": uptime_seconds,
+        "request_count": _metrics.get("request_count", 0),
+        "scrape_total": _metrics.get("scrape_total", 0),
+        "scrape_failures": _metrics.get("scrape_failures", 0),
+        "scrape_duration_seconds_last": _metrics.get("scrape_duration_seconds_last", 0),
+        "data_age_seconds": data_age_seconds,
+        "data_stale": (data_age_seconds or 0) > SCRAPE_INTERVAL_HOURS * 3 * 3600,
+        "has_data": latest_contract_data is not None,
+        "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
+        "disk_free_mb": free_mb,
+        "disk_ok": disk_ok,
+        "scrape_running": scrape_status.get("running", False),
+        "canonical_data_mode": CANONICAL_DATA_MODE,
+        "canonical_data_loaded": canonical_data is not None,
+    })
 
 
 @app.get("/api/scaffold/status")

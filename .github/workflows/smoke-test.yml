@@ -1,0 +1,170 @@
+name: Scheduled Smoke Test
+
+on:
+  schedule:
+    # Daily at 06:15 UTC — a low-traffic window for a heavier check.
+    - cron: "15 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: smoke-test
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Code Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Python syntax gate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m py_compile server.py "Dynasty Scraper.py"
+          python -m py_compile src/api/data_contract.py
+
+      - name: Python import gate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import fastapi
+          import uvicorn
+          import requests
+          from playwright.async_api import async_playwright
+          import server
+          print("Runtime import gate passed.")
+          PY
+
+      - name: Run unit tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          pip install pytest
+          python -m pytest tests/ -x -q --tb=short
+
+      - name: API contract check
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if ls dynasty_data_*.json >/dev/null 2>&1 || ls data/dynasty_data_*.json >/dev/null 2>&1; then
+            python scripts/validate_api_contract.py --repo .
+          else
+            echo "No sample data; skipping contract validation."
+          fi
+
+      - name: Deploy script syntax gate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for script in deploy/*.sh; do
+            [[ -f "${script}" ]] || continue
+            bash -n "${script}"
+          done
+
+  production-smoke:
+    name: Production Endpoint Smoke Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: ${{ vars.PROD_PUBLIC_URL != '' }}
+    steps:
+      - name: Smoke test production endpoints
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          URL="${{ vars.PROD_PUBLIC_URL }}"
+          URL="${URL%/}"
+          PASS=0
+          FAIL=0
+
+          check_endpoint() {
+            local path="$1"
+            local expect_code="${2:-200}"
+            local full_url="${URL}${path}"
+            local code
+            code=$(curl --silent --show-error --output /dev/null \
+              --write-out '%{http_code}' --max-time 15 "${full_url}" || echo "000")
+            if [[ "${code}" == "${expect_code}" ]]; then
+              echo "PASS: ${path} -> ${code}"
+              PASS=$((PASS + 1))
+            else
+              echo "FAIL: ${path} -> ${code} (expected ${expect_code})"
+              FAIL=$((FAIL + 1))
+            fi
+          }
+
+          echo "=== Production Smoke Test ==="
+          echo "Target: ${URL}"
+          echo ""
+
+          check_endpoint "/" 200
+          check_endpoint "/api/health" 200
+          check_endpoint "/api/status" 200
+          check_endpoint "/api/data" 200
+          check_endpoint "/league" 200
+          check_endpoint "/api/uptime" 200
+
+          echo ""
+          echo "Results: ${PASS} passed, ${FAIL} failed"
+
+          if [[ "${FAIL}" -gt 0 ]]; then
+            echo "::error title=Smoke Test Failures::${FAIL} endpoint(s) failed smoke test."
+            exit 1
+          fi
+
+      - name: Validate data contract shape
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          URL="${{ vars.PROD_PUBLIC_URL }}"
+          URL="${URL%/}"
+
+          curl --silent --show-error --max-time 20 "${URL}/api/data" > /tmp/data.json
+
+          python3 - <<'PY'
+          import json, sys
+          with open("/tmp/data.json") as f:
+              data = json.load(f)
+
+          checks = []
+          # Must have contract version
+          cv = data.get("contractVersion")
+          checks.append(("contractVersion present", cv is not None))
+
+          # Must have players
+          players = data.get("playersArray") or []
+          checks.append(("playersArray non-empty", len(players) > 0))
+          checks.append(("player count > 50", len(players) > 50))
+
+          # Must have sites
+          sites = data.get("sites") or []
+          checks.append(("sites array present", len(sites) > 0))
+
+          # Must have date
+          checks.append(("date present", data.get("date") is not None))
+
+          passed = all(ok for _, ok in checks)
+          for label, ok in checks:
+              status = "PASS" if ok else "FAIL"
+              print(f"  {status}: {label}")
+
+          if not passed:
+              print("::error title=Contract Validation Failed::Production data contract shape is invalid.")
+              sys.exit(1)
+          print(f"\nContract OK: {len(players)} players, {len(sites)} sites, version {cv}")
+          PY
