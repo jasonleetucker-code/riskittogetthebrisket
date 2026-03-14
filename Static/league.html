@@ -13,9 +13,10 @@
       --line: #d6deea;
       --primary: #152033;
       --accent: #c45a1d;
-      --tier1: #d4af37;
-      --tier2: #8b8b8b;
-      --tier3: #a0522d;
+      --green: #2d8a59;
+      --amber: #ac7a29;
+      --amber-soft: rgba(172, 122, 41, 0.10);
+      --red: #c2474f;
     }
     * { box-sizing: border-box; }
     body {
@@ -29,371 +30,237 @@
       color: var(--ink);
       padding: 24px;
     }
-    .shell {
-      max-width: 900px;
-      margin: 0 auto;
-    }
+    .shell { max-width: 960px; margin: 0 auto; }
     .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
     }
-    .header h1 {
-      margin: 0;
-      font-size: clamp(1.3rem, 3vw, 1.8rem);
-      letter-spacing: -0.02em;
-    }
-    .header .nav {
-      display: flex;
-      gap: 8px;
-    }
+    .header h1 { margin: 0; font-size: clamp(1.3rem, 3vw, 1.8rem); letter-spacing: -0.02em; }
+    .header .nav { display: flex; gap: 8px; }
     .header a {
-      display: inline-block;
-      padding: 8px 14px;
-      border-radius: 9px;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 0.88rem;
-      border: 1px solid var(--line);
-      color: var(--ink);
-      background: var(--card);
+      display: inline-block; padding: 8px 14px; border-radius: 9px;
+      text-decoration: none; font-weight: 600; font-size: 0.88rem;
+      border: 1px solid var(--line); color: var(--ink); background: var(--card);
     }
-    .header a.primary {
-      background: var(--primary);
-      color: #fff;
-      border-color: var(--primary);
+    .header a.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .subtitle { color: var(--muted); font-size: 0.92rem; margin: 0 0 20px; }
+
+    /* Team cards */
+    .teams-grid {
+      display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 28px;
     }
-    .subtitle {
-      color: var(--muted);
-      font-size: 0.92rem;
-      margin: 0 0 20px;
+    .team-row {
+      display: flex; align-items: center; gap: 12px;
+      background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+      padding: 12px 16px;
     }
-    .stats-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 10px;
-      margin-bottom: 20px;
+    .team-rank {
+      font-weight: 700; font-size: 1.1rem; color: var(--muted);
+      min-width: 28px; text-align: center;
     }
-    .stat-card {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 14px 16px;
-      text-align: center;
+    .team-name { font-weight: 700; font-size: 0.92rem; min-width: 110px; }
+    .team-bar-wrap {
+      flex: 1; background: #f0f3f8; border-radius: 5px; height: 22px;
+      position: relative; overflow: hidden;
     }
-    .stat-card .value {
-      font-size: 1.4rem;
-      font-weight: 700;
-      margin-bottom: 2px;
+    .team-bar {
+      height: 100%; background: var(--accent); border-radius: 5px;
+      transition: width 0.4s ease;
     }
-    .stat-card .label {
-      font-size: 0.78rem;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
+    .team-dollars {
+      font-weight: 700; font-size: 0.95rem; min-width: 48px; text-align: right;
+      font-variant-numeric: tabular-nums;
     }
-    .filter-bar {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 14px;
-      flex-wrap: wrap;
-      align-items: center;
+    .team-picks-count {
+      font-size: 0.78rem; color: var(--muted); min-width: 40px; text-align: right;
     }
-    .filter-bar input {
-      flex: 1;
-      min-width: 180px;
-      padding: 9px 12px;
-      border: 1px solid var(--line);
-      border-radius: 9px;
-      font-size: 0.92rem;
-      background: var(--card);
-      color: var(--ink);
-      outline: none;
+    .team-picks-list {
+      font-size: 0.72rem; color: var(--muted); margin: 2px 0 0 40px;
+      padding: 0 16px 4px;
     }
-    .filter-bar input:focus { border-color: #9aa9bf; }
-    .filter-bar select {
-      padding: 9px 10px;
-      border: 1px solid var(--line);
-      border-radius: 9px;
-      font-size: 0.88rem;
-      background: var(--card);
-      color: var(--ink);
-      cursor: pointer;
+    .traded-pick { color: var(--amber); font-weight: 600; }
+
+    /* Rounds */
+    .round-section { margin-bottom: 24px; }
+    .round-title {
+      font-weight: 700; font-size: 1rem; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 8px;
     }
+    .round-total { font-weight: 400; color: var(--muted); font-size: 0.85rem; }
     .table-wrap {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      overflow: hidden;
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 12px; overflow: hidden;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
     thead th {
-      background: #f4f6fb;
-      padding: 10px 12px;
-      text-align: left;
-      font-weight: 600;
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: var(--muted);
-      border-bottom: 1px solid var(--line);
-      cursor: pointer;
-      user-select: none;
-      white-space: nowrap;
+      background: #f4f6fb; padding: 8px 12px; text-align: left;
+      font-weight: 600; font-size: 0.76rem; text-transform: uppercase;
+      letter-spacing: 0.04em; color: var(--muted); border-bottom: 1px solid var(--line);
     }
-    thead th:hover { color: var(--ink); }
-    thead th.sorted-asc::after { content: " \u25B2"; font-size: 0.7rem; }
-    thead th.sorted-desc::after { content: " \u25BC"; font-size: 0.7rem; }
-    tbody td {
-      padding: 9px 12px;
-      border-bottom: 1px solid #f0f3f8;
-      white-space: nowrap;
-    }
+    tbody td { padding: 8px 12px; border-bottom: 1px solid #f0f3f8; }
     tbody tr:hover { background: #f8faff; }
-    .rank-cell { font-weight: 700; color: var(--muted); min-width: 36px; }
-    .name-cell { font-weight: 600; }
-    .pos-badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 6px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      background: #eef2f7;
-      color: var(--ink);
+    tbody tr.traded { background: var(--amber-soft); }
+    .pick-label { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .dollar-val { font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
+    .owner-name { font-weight: 600; }
+    .from-name { color: var(--amber); font-weight: 600; }
+    .rookie-name { font-weight: 500; }
+    .rookie-pos {
+      display: inline-block; padding: 1px 6px; border-radius: 4px;
+      font-size: 0.72rem; font-weight: 600; background: #eef2f7;
     }
     .pos-QB { background: #fde8e8; color: #9b2c2c; }
     .pos-RB { background: #e6f7ee; color: #1a7a3e; }
     .pos-WR { background: #e8f0fd; color: #2956a8; }
     .pos-TE { background: #fef3e2; color: #b8600d; }
-    .pos-DL, .pos-LB, .pos-DB { background: #f0e8fd; color: #5b2ca0; }
-    .value-cell { font-weight: 600; font-variant-numeric: tabular-nums; }
-    .tier-dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      margin-right: 4px;
-      vertical-align: middle;
+    .pos-LB, .pos-EDGE, .pos-S, .pos-DL, .pos-DB { background: #f0e8fd; color: #5b2ca0; }
+    .ktc-val { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.82rem; }
+    .budget-note {
+      font-size: 0.82rem; color: var(--muted); margin-top: 8px; padding: 0 4px;
     }
-    .tier-1 { background: var(--tier1); }
-    .tier-2 { background: var(--tier2); }
-    .tier-3 { background: var(--tier3); }
-    .loading {
-      text-align: center;
-      padding: 40px;
-      color: var(--muted);
-      font-size: 0.95rem;
-    }
-    .error-msg {
-      text-align: center;
-      padding: 30px;
-      color: #b33939;
-      font-size: 0.92rem;
-    }
+    .loading { text-align: center; padding: 40px; color: var(--muted); font-size: 0.95rem; }
+    .error-msg { text-align: center; padding: 30px; color: var(--red); font-size: 0.92rem; }
+
     @media (max-width: 680px) {
       body { padding: 14px; }
-      .stats-row { grid-template-columns: 1fr 1fr; }
-      .filter-bar input { min-width: 120px; }
-      table { font-size: 0.82rem; }
-      thead th, tbody td { padding: 7px 8px; }
+      .team-name { min-width: 80px; font-size: 0.82rem; }
+      .team-picks-list { margin-left: 20px; }
+      table { font-size: 0.78rem; }
+      thead th, tbody td { padding: 6px 8px; }
+      .hide-mobile { display: none; }
     }
   </style>
 </head>
 <body>
   <div class="shell">
     <div class="header">
-      <h1>League Rankings</h1>
+      <h1>Draft Capital</h1>
       <div class="nav">
         <a href="/">Home</a>
         <a class="primary" href="/?jason=1">Full App Login</a>
       </div>
     </div>
-    <p class="subtitle">Public dynasty rankings — log in for trade calculator, detailed values, and full tools.</p>
+    <p class="subtitle">Auction-dollar pick values from the dynasty draft curve. Pick ownership from Sleeper. Rookie values from KTC.</p>
 
-    <div class="stats-row" id="statsRow">
-      <div class="stat-card"><div class="value" id="statTotal">—</div><div class="label">Players</div></div>
-      <div class="stat-card"><div class="value" id="statSources">—</div><div class="label">Sources</div></div>
-      <div class="stat-card"><div class="value" id="statUpdated">—</div><div class="label">Updated</div></div>
-      <div class="stat-card"><div class="value" id="statContract">—</div><div class="label">Contract</div></div>
+    <div id="loadingMsg" class="loading">Loading draft capital...</div>
+    <div id="errorMsg" class="error-msg" style="display:none;"></div>
+
+    <div id="teamsSection" style="display:none;">
+      <div id="teamsGrid" class="teams-grid"></div>
+      <div id="budgetNote" class="budget-note"></div>
     </div>
 
-    <div class="filter-bar">
-      <input type="text" id="searchInput" placeholder="Search player name..." />
-      <select id="posFilter">
-        <option value="">All Positions</option>
-        <option value="QB">QB</option>
-        <option value="RB">RB</option>
-        <option value="WR">WR</option>
-        <option value="TE">TE</option>
-        <option value="DL">DL / EDGE</option>
-        <option value="LB">LB</option>
-        <option value="DB">DB / CB / S</option>
-      </select>
-    </div>
-
-    <div class="table-wrap">
-      <div class="loading" id="loadingMsg">Loading rankings...</div>
-      <div class="error-msg" id="errorMsg" style="display:none;"></div>
-      <table id="rankingsTable" style="display:none;">
-        <thead>
-          <tr>
-            <th data-col="rank">#</th>
-            <th data-col="name">Player</th>
-            <th data-col="pos">Pos</th>
-            <th data-col="team">Team</th>
-            <th data-col="value">Value</th>
-          </tr>
-        </thead>
-        <tbody id="rankingsBody"></tbody>
-      </table>
+    <div id="picksSection" style="display:none;margin-top:28px;">
+      <div id="picksContent"></div>
     </div>
   </div>
 
   <script>
     (() => {
-      const MAX_ROWS = 200;
-      let allPlayers = [];
-      let sortCol = "rank";
-      let sortAsc = true;
+      const loadingMsg = document.getElementById('loadingMsg');
+      const errorMsg = document.getElementById('errorMsg');
+      const teamsSection = document.getElementById('teamsSection');
+      const teamsGrid = document.getElementById('teamsGrid');
+      const budgetNote = document.getElementById('budgetNote');
+      const picksSection = document.getElementById('picksSection');
+      const picksContent = document.getElementById('picksContent');
 
-      const searchInput = document.getElementById("searchInput");
-      const posFilter = document.getElementById("posFilter");
-      const table = document.getElementById("rankingsTable");
-      const tbody = document.getElementById("rankingsBody");
-      const loadingMsg = document.getElementById("loadingMsg");
-      const errorMsg = document.getElementById("errorMsg");
-
-      function tierClass(rank) {
-        if (rank <= 12) return "tier-1";
-        if (rank <= 36) return "tier-2";
-        if (rank <= 72) return "tier-3";
-        return "";
+      function posClass(pos) {
+        const p = (pos || '').toUpperCase();
+        if (['DE','DT','EDGE'].includes(p)) return 'pos-DL';
+        if (['CB','SS','FS'].includes(p)) return 'pos-DB';
+        return 'pos-' + p;
       }
 
-      function posBadgeClass(pos) {
-        const p = (pos || "").toUpperCase();
-        if (["DL", "DE", "DT", "EDGE"].includes(p)) return "pos-DL";
-        if (["DB", "CB", "S", "SS", "FS"].includes(p)) return "pos-DB";
-        return "pos-" + p;
-      }
+      function render(data) {
+        // ── Team totals ──
+        const maxD = Math.max(...data.teamTotals.map(t => t.auctionDollars));
+        let html = '';
+        for (let i = 0; i < data.teamTotals.length; i++) {
+          const t = data.teamTotals[i];
+          const pct = maxD > 0 ? (t.auctionDollars / maxD * 100) : 0;
+          const teamPicks = data.picks.filter(p => p.currentOwner === t.team);
+          const pickLabels = teamPicks.map(p =>
+            p.isTraded ? '<span class="traded-pick">' + p.pick + '</span>' : p.pick
+          ).join(', ');
 
-      function posFamily(pos) {
-        const p = (pos || "").toUpperCase();
-        if (["DE", "DT", "EDGE"].includes(p)) return "DL";
-        if (["CB", "S", "SS", "FS"].includes(p)) return "DB";
-        return p;
-      }
+          html += '<div class="team-row">' +
+            '<div class="team-rank">' + (i + 1) + '</div>' +
+            '<div class="team-name">' + t.team + '</div>' +
+            '<div class="team-bar-wrap"><div class="team-bar" style="width:' + pct + '%"></div></div>' +
+            '<div class="team-dollars">$' + t.auctionDollars + '</div>' +
+            '<div class="team-picks-count">' + teamPicks.length + 'pk</div>' +
+          '</div>' +
+          '<div class="team-picks-list">' + pickLabels + '</div>';
+        }
+        teamsGrid.innerHTML = html;
+        budgetNote.textContent = 'Total budget: $' + data.totalBudget +
+          ' across ' + data.numTeams + ' teams, ' + data.draftRounds +
+          ' rounds (' + data.season + '). Highlighted = traded pick.';
+        teamsSection.style.display = '';
 
-      function renderTable() {
-        const query = (searchInput.value || "").toLowerCase().trim();
-        const posQ = posFilter.value;
+        // ── Picks by round ──
+        let picksHtml = '';
+        for (let round = 1; round <= data.draftRounds; round++) {
+          const roundPicks = data.picks.filter(p => p.round === round);
+          const roundTotal = roundPicks.reduce((s, p) => s + p.dollarValue, 0);
 
-        let filtered = allPlayers.filter(p => {
-          if (query && !(p.name || "").toLowerCase().includes(query)) return false;
-          if (posQ && posFamily(p.pos) !== posQ) return false;
-          return true;
-        });
+          picksHtml += '<div class="round-section">' +
+            '<div class="round-title">Round ' + round +
+            ' <span class="round-total">($' + roundTotal + ')</span></div>' +
+            '<div class="table-wrap"><table>' +
+            '<thead><tr>' +
+            '<th>Pick</th><th>$</th><th>Owner</th><th>From</th>' +
+            '<th class="hide-mobile">Rookie</th>' +
+            '<th class="hide-mobile">Pos</th>' +
+            '<th class="hide-mobile">KTC</th>' +
+            '</tr></thead><tbody>';
 
-        filtered.sort((a, b) => {
-          let va = a[sortCol], vb = b[sortCol];
-          if (sortCol === "value" || sortCol === "rank") {
-            va = Number(va) || 0;
-            vb = Number(vb) || 0;
-          } else {
-            va = String(va || "").toLowerCase();
-            vb = String(vb || "").toLowerCase();
+          for (const pick of roundPicks) {
+            const cls = pick.isTraded ? ' class="traded"' : '';
+            const from = pick.isTraded
+              ? '<span class="from-name">' + pick.originalOwner + '</span>'
+              : '<span style="color:var(--muted);">—</span>';
+            const rookie = pick.rookieName || '<span style="color:var(--muted);">—</span>';
+            const pos = pick.rookiePos
+              ? '<span class="rookie-pos ' + posClass(pick.rookiePos) + '">' + pick.rookiePos + '</span>'
+              : '';
+            const ktc = pick.rookieKtcValue
+              ? '<span class="ktc-val">' + pick.rookieKtcValue.toLocaleString() + '</span>'
+              : '';
+
+            picksHtml += '<tr' + cls + '>' +
+              '<td class="pick-label">' + pick.pick + '</td>' +
+              '<td class="dollar-val">$' + pick.dollarValue + '</td>' +
+              '<td class="owner-name">' + pick.currentOwner + '</td>' +
+              '<td>' + from + '</td>' +
+              '<td class="hide-mobile rookie-name">' + rookie + '</td>' +
+              '<td class="hide-mobile">' + pos + '</td>' +
+              '<td class="hide-mobile">' + ktc + '</td>' +
+            '</tr>';
           }
-          if (va < vb) return sortAsc ? -1 : 1;
-          if (va > vb) return sortAsc ? 1 : -1;
-          return 0;
-        });
-
-        const display = filtered.slice(0, MAX_ROWS);
-
-        document.querySelectorAll("thead th").forEach(th => {
-          th.classList.remove("sorted-asc", "sorted-desc");
-          if (th.dataset.col === sortCol) {
-            th.classList.add(sortAsc ? "sorted-asc" : "sorted-desc");
-          }
-        });
-
-        tbody.innerHTML = display.map(p => {
-          const tc = tierClass(p.rank);
-          const tierDot = tc ? `<span class="tier-dot ${tc}"></span>` : "";
-          return `<tr>
-            <td class="rank-cell">${tierDot}${p.rank}</td>
-            <td class="name-cell">${p.name}</td>
-            <td><span class="pos-badge ${posBadgeClass(p.pos)}">${p.pos}</span></td>
-            <td>${p.team || "—"}</td>
-            <td class="value-cell">${p.value != null ? p.value.toLocaleString() : "—"}</td>
-          </tr>`;
-        }).join("");
+          picksHtml += '</tbody></table></div></div>';
+        }
+        picksContent.innerHTML = picksHtml;
+        picksSection.style.display = '';
       }
 
-      document.querySelectorAll("thead th").forEach(th => {
-        th.addEventListener("click", () => {
-          const col = th.dataset.col;
-          if (!col) return;
-          if (sortCol === col) {
-            sortAsc = !sortAsc;
-          } else {
-            sortCol = col;
-            sortAsc = col === "rank";
-          }
-          renderTable();
-        });
-      });
-
-      searchInput.addEventListener("input", renderTable);
-      posFilter.addEventListener("change", renderTable);
-
-      async function loadData() {
+      async function load() {
         try {
-          const resp = await fetch("/api/data", { credentials: "same-origin" });
-          if (!resp.ok) throw new Error(`API returned ${resp.status}`);
+          const resp = await fetch('/api/draft-capital');
+          if (!resp.ok) throw new Error('API returned ' + resp.status);
           const data = await resp.json();
-
-          // Stats
-          const arr = data.playersArray || [];
-          document.getElementById("statTotal").textContent = arr.length;
-          document.getElementById("statSources").textContent =
-            (data.sites || []).length || "—";
-          document.getElementById("statUpdated").textContent =
-            (data.generatedAt || "").slice(0, 10) || "—";
-          document.getElementById("statContract").textContent =
-            data.contractVersion || "—";
-
-          // Build player list
-          allPlayers = arr.map((p, idx) => {
-            const vals = p.values || {};
-            const bestValue = vals.compositeValue ?? vals.finalAdjustedValue ?? vals.overallValue ?? null;
-            return {
-              rank: idx + 1,
-              name: p.canonicalName || p.displayName || "Unknown",
-              pos: p.position || "",
-              team: p.team || "",
-              value: bestValue != null ? Math.round(bestValue) : null,
-            };
-          });
-
-          loadingMsg.style.display = "none";
-          table.style.display = "";
-          renderTable();
+          if (data.error) throw new Error(data.error);
+          loadingMsg.style.display = 'none';
+          render(data);
         } catch (err) {
-          loadingMsg.style.display = "none";
-          errorMsg.textContent = "Could not load rankings: " + err.message;
-          errorMsg.style.display = "";
+          loadingMsg.style.display = 'none';
+          errorMsg.textContent = 'Could not load draft capital: ' + err.message;
+          errorMsg.style.display = '';
         }
       }
 
-      loadData();
+      load();
     })();
   </script>
 </body>
