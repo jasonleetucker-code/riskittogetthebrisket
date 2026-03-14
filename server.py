@@ -2180,6 +2180,17 @@ def _fetch_draft_capital():
                 round_picks.append({"origin_rid": origin_rid, "owner_rid": owner_rid, "slot": slot})
             round_picks.sort(key=lambda p: p["slot"])
 
+            # ── Expansion team averaging: picks 1 & 2 in each round ──
+            # Average the dollar values for the first two picks (expansion teams)
+            # and use that averaged value for team totals only.
+            expansion_avg = None
+            if len(round_picks) >= 2:
+                idx1 = (rnd - 1) * num_teams
+                idx2 = idx1 + 1
+                d1 = pick_dollars[idx1] if idx1 < len(pick_dollars) else 1
+                d2 = pick_dollars[idx2] if idx2 < len(pick_dollars) else 1
+                expansion_avg = (d1 + d2) // 2  # floor of average
+
             for pick_in_round, pi in enumerate(round_picks):
                 overall = (rnd - 1) * num_teams + pick_in_round
                 dollar = pick_dollars[overall] if overall < len(pick_dollars) else 1
@@ -2187,41 +2198,59 @@ def _fetch_draft_capital():
                 owner_name = roster_name_by_id.get(pi["owner_rid"], f"Team {pi['owner_rid']}")
                 is_traded = pi["origin_rid"] != pi["owner_rid"]
 
+                # For team totals, use the averaged value for picks 1 & 2
+                total_dollar = expansion_avg if (pick_in_round < 2 and expansion_avg is not None) else dollar
+
                 all_picks.append({
                     "pick": f"{rnd}.{str(pi['slot']).zfill(2)}",
                     "round": rnd,
                     "pickInRound": pick_in_round + 1,
                     "overallPick": overall + 1,
                     "dollarValue": dollar,
+                    "adjustedDollarValue": total_dollar,
                     "originalOwner": origin_name,
                     "currentOwner": owner_name,
                     "isTraded": is_traded,
+                    "isExpansion": pick_in_round < 2,
                     "rookieName": None,
                     "rookiePos": None,
                     "rookieKtcValue": None,
                 })
                 team_totals.setdefault(owner_name, 0)
-                team_totals[owner_name] += dollar
-                total_budget += dollar
+                team_totals[owner_name] += total_dollar
+                total_budget += total_dollar
     else:
         # Fallback: no Sleeper data, just show the dollar curve
         for i, dollar in enumerate(pick_dollars):
             rnd = i // num_teams + 1
             slot = i % num_teams + 1
+            pick_in_round = i % num_teams
+
+            # Expansion averaging for picks 1 & 2
+            total_dollar = dollar
+            if pick_in_round < 2:
+                idx1 = (rnd - 1) * num_teams
+                idx2 = idx1 + 1
+                d1 = pick_dollars[idx1] if idx1 < len(pick_dollars) else 1
+                d2 = pick_dollars[idx2] if idx2 < len(pick_dollars) else 1
+                total_dollar = (d1 + d2) // 2
+
             all_picks.append({
                 "pick": f"{rnd}.{str(slot).zfill(2)}",
                 "round": rnd,
                 "pickInRound": slot,
                 "overallPick": i + 1,
                 "dollarValue": dollar,
+                "adjustedDollarValue": total_dollar,
                 "originalOwner": f"Pick {slot}",
                 "currentOwner": f"Pick {slot}",
                 "isTraded": False,
+                "isExpansion": pick_in_round < 2,
                 "rookieName": None,
                 "rookiePos": None,
                 "rookieKtcValue": None,
             })
-            total_budget += dollar
+            total_budget += total_dollar
 
     # Fill rookie rankings (from KTC live or CSV fallback, extended via decay curve)
     for i, pick in enumerate(all_picks):
