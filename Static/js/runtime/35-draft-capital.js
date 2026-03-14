@@ -64,6 +64,7 @@
     }
     teamsHtml += '</div>';
     teamsHtml += `<div style="margin-top:12px;font-size:0.68rem;color:var(--subtext);">Total budget: $${data.totalBudget} across ${data.numTeams} teams, ${data.draftRounds} rounds (${data.season}). * = traded pick.</div>`;
+    teamsHtml += `<div style="margin-top:4px;font-size:0.66rem;color:var(--amber);">&#9888; Picks 1 &amp; 2 each round are expansion team picks — their dollar values are averaged together for team totals.</div>`;
     teamsDiv.innerHTML = teamsHtml;
     teamsDiv.style.display = 'block';
 
@@ -71,7 +72,7 @@
     let picksHtml = '';
     for (let round = 1; round <= data.draftRounds; round++) {
       const roundPicks = data.picks.filter(p => p.round === round);
-      const roundTotal = roundPicks.reduce((s, p) => s + p.dollarValue, 0);
+      const roundTotal = roundPicks.reduce((s, p) => s + (p.adjustedDollarValue || p.dollarValue), 0);
       picksHtml += `<div style="margin-bottom:16px;">`;
       picksHtml += `<div style="font-weight:700;font-size:0.78rem;margin-bottom:6px;">Round ${round} <span style="color:var(--subtext);font-weight:400;">($${roundTotal})</span></div>`;
       picksHtml += `<div class="table-scroll"><table>`;
