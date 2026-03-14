@@ -2029,42 +2029,46 @@ def _fetch_draft_capital():
     }
 
 
-def _fill_rookie_values(picks):
-    """Fill rookie name/pos/KTC value into picks from loaded contract data."""
-    if not latest_contract_data:
-        return
-    players = latest_contract_data.get("players") or {}
-
-    # Collect rookies with KTC values, sorted by value descending
+def _load_rookie_rankings_from_csv():
+    """Load rookie rankings from the draft data CSV (KTC composite values)."""
+    import csv
+    csv_path = Path(__file__).parent / "Copy of Draft Data.xlsx - Draft Data.csv"
+    if not csv_path.exists():
+        return []
     rookies = []
-    for name, pdata in players.items():
-        if not isinstance(pdata, dict):
-            continue
-        # Check if it's a rookie (years_exp == 0 or asset class is pick-like)
-        is_rookie = False
-        sleeper_meta = pdata.get("sleeperData") or {}
-        if sleeper_meta.get("years_exp") == 0:
-            is_rookie = True
-        # Also check if position data suggests rookie class
-        if pdata.get("rookie"):
-            is_rookie = True
-        if not is_rookie:
-            continue
+    try:
+        with open(csv_path, newline="", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            rows = list(reader)
+        # Rookie data starts at row 138 (0-indexed: 137), columns V-Y (indices 22-25)
+        # Format: Rank, Player, Pos, Composite
+        for row in rows:
+            if len(row) < 26:
+                continue
+            rank_str = row[22].strip() if row[22] else ""
+            player = row[23].strip() if row[23] else ""
+            pos = row[24].strip() if row[24] else ""
+            value_str = row[25].strip() if row[25] else ""
+            if not rank_str or not player or rank_str == "Rank":
+                continue
+            try:
+                value = int(value_str)
+            except (ValueError, TypeError):
+                continue
+            if value > 0:
+                rookies.append({"name": player, "pos": pos, "value": value})
+    except Exception:
+        pass
+    return rookies
 
-        # Get KTC value (or composite)
-        site_values = pdata.get("canonicalSiteValues") or {}
-        ktc_val = site_values.get("ktc")
-        composite = pdata.get("overall") or pdata.get("rawComposite") or 0
-        value = ktc_val if ktc_val is not None else composite
-        if not value or value <= 0:
-            continue
 
-        pos = pdata.get("position") or pdata.get("pos") or ""
-        rookies.append({"name": name, "pos": pos, "value": value})
+def _fill_rookie_values(picks):
+    """Fill rookie name/pos/KTC value into picks from CSV rookie rankings."""
+    rookies = _load_rookie_rankings_from_csv()
+    if not rookies:
+        return
 
-    rookies.sort(key=lambda r: -r["value"])
-
-    # Map rookies to picks by overall pick order
+    # Already sorted by rank in the CSV; map to picks by overall pick order
     for i, pick in enumerate(picks):
         if i < len(rookies):
             pick["rookieName"] = rookies[i]["name"]

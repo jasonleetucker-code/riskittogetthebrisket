@@ -2907,16 +2907,6 @@
             </div>
             <div class="home-dest-arrow">›</div>
           </div>
-          <div class="home-dest-row" onclick="switchTab('draft')">
-            <div class="home-dest-left">
-              <div class="home-dest-icon">$</div>
-              <div>
-                <div class="home-dest-label">Draft</div>
-                <div class="home-dest-sub">Pick values & draft capital</div>
-              </div>
-            </div>
-            <div class="home-dest-arrow">›</div>
-          </div>
           <div class="home-dest-row" onclick="switchTab('more')">
             <div class="home-dest-left">
               <div class="home-dest-icon">⋯</div>
@@ -2956,7 +2946,6 @@
       <button class="tab-btn" data-tab="rookies" onclick="switchTab('rookies')">Rankings</button>
       <button class="tab-btn" data-tab="trades" onclick="switchTab('trades')">Trades</button>
       <button class="tab-btn" data-tab="rosters" onclick="switchTab('rosters')">Rosters</button>
-      <button class="tab-btn" data-tab="draft" onclick="switchTab('draft')">Draft</button>
       <button class="tab-btn" data-tab="league" onclick="switchTab('league')">League</button>
       <button class="tab-btn" data-tab="settings" onclick="switchTab('settings')">Settings</button>
       <span id="dataFreshnessTop" style="display:none;margin-left:auto;font-size:0.68rem;font-family:var(--mono);color:var(--subtext);padding:6px 12px;"></span>
@@ -3729,25 +3718,6 @@
 
     </div><!-- /rosters -->
 
-    <!-- ══ DRAFT TAB ══ -->
-    <div id="tab-draft" class="tab-panel">
-      <div class="card">
-        <div class="card-title">Draft Capital — Auction Dollar Breakdown</div>
-        <div style="font-size:0.68rem;color:var(--subtext);margin-bottom:12px;">
-          Pick values use the dynasty auction-dollar curve. Rookie names from KTC rankings. Pick ownership from Sleeper.
-        </div>
-        <div id="draftCapitalLoading" style="color:var(--subtext);font-size:0.78rem;padding:12px;">Loading draft capital data...</div>
-        <div id="draftCapitalTeams" style="display:none;margin-bottom:20px;"></div>
-      </div>
-      <div class="card" style="display:none;" id="draftCapitalPicksCard">
-        <div class="card-title">All Picks — By Round</div>
-        <div style="font-size:0.68rem;color:var(--subtext);margin-bottom:12px;">
-          Traded picks highlighted. Dollar values from the auction curve.
-        </div>
-        <div id="draftCapitalPicks"></div>
-      </div>
-    </div><!-- /draft -->
-
     <!-- ══ LEAGUE TAB ══ -->
     <div id="tab-league" class="tab-panel">
       <div style="display:flex;gap:0;margin-bottom:14px;flex-wrap:wrap;" id="leagueSubTabs">
@@ -3755,7 +3725,8 @@
         <button class="btn btn-ghost btn-sm" style="border-radius:0;" onclick="switchLeagueSub('breakdown')">Team Breakdown</button>
         <button class="btn btn-ghost btn-sm" style="border-radius:0;" onclick="switchLeagueSub('compare')">Comparison</button>
         <button class="btn btn-ghost btn-sm" style="border-radius:0;" onclick="switchLeagueSub('ktcTrades')">Trade DB</button>
-        <button class="btn btn-ghost btn-sm" style="border-radius:0 var(--radius-sm) var(--radius-sm) 0;" onclick="switchLeagueSub('ktcWaivers')">Waiver DB</button>
+        <button class="btn btn-ghost btn-sm" style="border-radius:0;" onclick="switchLeagueSub('ktcWaivers')">Waiver DB</button>
+        <button class="btn btn-ghost btn-sm" style="border-radius:0 var(--radius-sm) var(--radius-sm) 0;" onclick="switchLeagueSub('draftCapital')">Draft Capital</button>
       </div>
 
       <div id="leagueSub-heatmap" class="card">
@@ -3801,6 +3772,16 @@
           <input type="text" id="ktcWaiverSearch" placeholder="Search player..." oninput="filterKtcWaivers()" style="font-size:0.72rem;padding:5px 10px;background:var(--bg-soft);color:var(--text);border:1px solid var(--border);border-radius:4px;width:180px;">
         </div>
         <div id="ktcWaiversList"></div>
+      </div>
+
+      <div id="leagueSub-draftCapital" class="card" style="display:none;">
+        <div class="card-title">Draft Capital — Auction Dollar Breakdown</div>
+        <div style="font-size:0.68rem;color:var(--subtext);margin-bottom:12px;">
+          Pick values use the dynasty auction-dollar curve. Rookie names from KTC rankings. Pick ownership from Sleeper.
+        </div>
+        <div id="draftCapitalLoading" style="color:var(--subtext);font-size:0.78rem;padding:12px;">Loading draft capital data...</div>
+        <div id="draftCapitalTeams" style="display:none;margin-bottom:20px;"></div>
+        <div id="draftCapitalPicks" style="margin-top:16px;"></div>
       </div>
     </div><!-- /league -->
 
