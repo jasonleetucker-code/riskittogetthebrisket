@@ -3725,7 +3725,8 @@
         <button class="btn btn-ghost btn-sm" style="border-radius:0;" onclick="switchLeagueSub('breakdown')">Team Breakdown</button>
         <button class="btn btn-ghost btn-sm" style="border-radius:0;" onclick="switchLeagueSub('compare')">Comparison</button>
         <button class="btn btn-ghost btn-sm" style="border-radius:0;" onclick="switchLeagueSub('ktcTrades')">Trade DB</button>
-        <button class="btn btn-ghost btn-sm" style="border-radius:0 var(--radius-sm) var(--radius-sm) 0;" onclick="switchLeagueSub('ktcWaivers')">Waiver DB</button>
+        <button class="btn btn-ghost btn-sm" style="border-radius:0;" onclick="switchLeagueSub('ktcWaivers')">Waiver DB</button>
+        <button class="btn btn-ghost btn-sm" style="border-radius:0 var(--radius-sm) var(--radius-sm) 0;" onclick="switchLeagueSub('draftCapital')">Draft Capital</button>
       </div>
 
       <div id="leagueSub-heatmap" class="card">
@@ -3771,6 +3772,16 @@
           <input type="text" id="ktcWaiverSearch" placeholder="Search player..." oninput="filterKtcWaivers()" style="font-size:0.72rem;padding:5px 10px;background:var(--bg-soft);color:var(--text);border:1px solid var(--border);border-radius:4px;width:180px;">
         </div>
         <div id="ktcWaiversList"></div>
+      </div>
+
+      <div id="leagueSub-draftCapital" class="card" style="display:none;">
+        <div class="card-title">Draft Capital — Auction Dollar Breakdown</div>
+        <div style="font-size:0.68rem;color:var(--subtext);margin-bottom:12px;">
+          Pick values use the dynasty auction-dollar curve. Rookie names from KTC rankings. Pick ownership from Sleeper.
+        </div>
+        <div id="draftCapitalLoading" style="color:var(--subtext);font-size:0.78rem;padding:12px;">Loading draft capital data...</div>
+        <div id="draftCapitalTeams" style="display:none;margin-bottom:20px;"></div>
+        <div id="draftCapitalPicks" style="margin-top:16px;"></div>
       </div>
     </div><!-- /league -->
 
@@ -3886,6 +3897,7 @@
   <script src="js/runtime/10-rankings-and-picks.js"></script>
   <script src="js/runtime/20-data-and-calculator.js"></script>
   <script src="js/runtime/30-more-surfaces.js"></script>
+  <script src="js/runtime/35-draft-capital.js"></script>
   <script src="js/runtime/40-runtime-features.js"></script>
   <script src="js/runtime/50-bootstrap.js"></script>
 </body>

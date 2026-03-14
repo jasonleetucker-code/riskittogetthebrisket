@@ -2150,7 +2150,7 @@
   // LEAGUE TAB
   // ═══════════════════════════════════════
   let _leagueInited = false;
-  const _leaguePanels = ['heatmap','breakdown','compare','ktcTrades','ktcWaivers'];
+  const _leaguePanels = ['heatmap','breakdown','compare','ktcTrades','ktcWaivers','draftCapital'];
 
   function switchLeagueSub(id) {
     _leaguePanels.forEach(p => {
@@ -2167,6 +2167,7 @@
     if (id === 'compare') buildTeamComparison();
     if (id === 'ktcTrades') buildKtcTradesView();
     if (id === 'ktcWaivers') buildKtcWaiversView();
+    if (id === 'draftCapital') buildDraftCapital();
   }
 
   function initLeagueTab() {
