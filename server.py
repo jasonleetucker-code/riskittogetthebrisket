@@ -1555,7 +1555,7 @@ async def get_status():
     })
 
 
-@app.get("/api/health")
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 async def get_health():
     """Basic health endpoint for reverse proxy / uptime probes."""
     status_payload = _scrape_status_payload()
@@ -1899,7 +1899,7 @@ async def auth_logout_redirect(request: Request):
     return response
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def serve_landing():
     for path in [LEGACY_STATIC_DIR / "landing.html", STATIC_DIR / "landing.html"]:
         if path.exists():
