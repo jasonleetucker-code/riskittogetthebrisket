@@ -23,6 +23,7 @@ import traceback
 import smtplib
 import gzip
 import hashlib
+import shutil
 import uuid
 import urllib.request
 import urllib.error
@@ -51,6 +52,14 @@ PORT = 8000
 HOST = "0.0.0.0"  # accessible from local network; use "127.0.0.1" for local only
 SCRAPE_STALL_SECONDS = int(os.getenv("SCRAPE_STALL_SECONDS", "900"))
 SCRAPE_RUN_TIMEOUT_SECONDS = int(os.getenv("SCRAPE_RUN_TIMEOUT_SECONDS", "7200"))
+
+# R-6: Canonical data mode — controls how canonical pipeline data is used.
+#   off     = ignore canonical pipeline output (default, current behavior)
+#   shadow  = load canonical data, log comparison with legacy, serve legacy
+#   primary = serve canonical data, fallback to legacy if unavailable
+CANONICAL_DATA_MODE = os.getenv("CANONICAL_DATA_MODE", "off").strip().lower()
+if CANONICAL_DATA_MODE not in ("off", "shadow", "primary"):
+    CANONICAL_DATA_MODE = "off"
 
 # ── EMAIL ALERTS ────────────────────────────────────────────────────────
 # Configure alerts via environment variables (no hardcoded secrets):
@@ -91,9 +100,12 @@ UPTIME_ALERT_FAIL_THRESHOLD = int(os.getenv("UPTIME_ALERT_FAIL_THRESHOLD", "2"))
 # ── LIGHTWEIGHT AUTH GATE (PRIVATE-USE) ────────────────────────────────
 # App UI is intentionally gated behind Jason login.
 JASON_LOGIN_USERNAME = (os.getenv("JASON_LOGIN_USERNAME") or "jasonleetucker").strip()
-JASON_LOGIN_PASSWORD = os.getenv("JASON_LOGIN_PASSWORD") or "Elliott21!"
+_raw_password = os.getenv("JASON_LOGIN_PASSWORD", "").strip()
+if not _raw_password:
+    raise RuntimeError("JASON_LOGIN_PASSWORD env var is required. Set it before starting the server.")
+JASON_LOGIN_PASSWORD = _raw_password
 JASON_AUTH_COOKIE_NAME = "jason_session"
-JASON_AUTH_COOKIE_SECURE = _env_bool("JASON_AUTH_COOKIE_SECURE", False)
+JASON_AUTH_COOKIE_SECURE = _env_bool("JASON_AUTH_COOKIE_SECURE", True)
 
 # Rate limit: max 1 email per hour to avoid spam on repeated failures
 _last_alert_time = 0
@@ -151,11 +163,33 @@ DATA_DIR.mkdir(exist_ok=True)
 STATIC_DIR.mkdir(exist_ok=True)
 
 # ── LOGGING ─────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+# R-8: Structured JSON logging when LOG_FORMAT=json (for log aggregation).
+# Default is human-readable for local dev and journalctl.
+LOG_FORMAT = os.getenv("LOG_FORMAT", "text").strip().lower()
+
+if LOG_FORMAT == "json":
+    class _JsonFormatter(logging.Formatter):
+        """Minimal JSON log formatter for structured log aggregation."""
+        def format(self, record):
+            entry = {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "level": record.levelname,
+                "logger": record.name,
+                "msg": record.getMessage(),
+            }
+            if record.exc_info and record.exc_info[0]:
+                entry["exception"] = self.formatException(record.exc_info)
+            return json.dumps(entry, ensure_ascii=False)
+
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(_JsonFormatter())
+    logging.basicConfig(level=logging.INFO, handlers=[_handler])
+else:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
 log = logging.getLogger("dynasty-server")
 
 # ── STATE ───────────────────────────────────────────────────────────────
@@ -191,6 +225,18 @@ contract_health: dict = {
     "contractVersion": API_DATA_CONTRACT_VERSION,
     "playerCount": 0,
 }
+# R-6: Canonical pipeline data (shadow/primary mode)
+canonical_data: dict | None = None
+canonical_data_loaded_at: str | None = None
+# R-9: Lightweight metrics counters
+_metrics: dict = {
+    "server_start_time": None,
+    "request_count": 0,
+    "scrape_total": 0,
+    "scrape_failures": 0,
+    "scrape_duration_seconds_last": 0.0,
+    "data_age_seconds": 0.0,
+}
 # Canonical scrape lifecycle state.
 # Compatibility aliases are maintained:
 #   running -> is_running
@@ -218,6 +264,10 @@ scrape_status = {
     "scrape_count": 0,
     "run_events": [],
 }
+# R-4: Rolling scrape history for success rate tracking.
+SCRAPE_HISTORY_MAX = 50
+scrape_history: list[dict] = []
+
 # Single-owner run lock: only one scrape run can own mutable active state.
 scrape_run_lock = asyncio.Lock()
 uptime_status = {
@@ -242,6 +292,22 @@ auth_sessions: dict[str, dict] = {}
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+# R-10: Disk space guard — minimum free space before writing data files (in MB)
+DISK_SPACE_MIN_MB = int(os.getenv("DISK_SPACE_MIN_MB", "500"))
+
+
+def _check_disk_space(path: Path | None = None) -> tuple[bool, int]:
+    """Check if there's enough disk space. Returns (ok, free_mb)."""
+    target = path or DATA_DIR
+    try:
+        usage = shutil.disk_usage(str(target))
+        free_mb = usage.free // (1024 * 1024)
+        return free_mb >= DISK_SPACE_MIN_MB, free_mb
+    except OSError:
+        # If we can't check, allow the write (fail-open)
+        return True, -1
 
 
 def _sanitize_next_path(raw: str | None, default: str = "/app") -> str:
@@ -463,6 +529,12 @@ def _mark_scrape_success(elapsed: float, player_count: int, site_count: int, tot
         total_sites=total_sites,
         duration_sec=round(elapsed, 1),
     )
+    # R-4: Record to rolling history
+    _record_scrape_history("success", elapsed, player_count=player_count,
+                           site_count=site_count, total_sites=total_sites)
+    # R-9: Update metrics counters
+    _metrics["scrape_total"] = _metrics.get("scrape_total", 0) + 1
+    _metrics["scrape_duration_seconds_last"] = round(elapsed, 1)
 
 
 def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
@@ -492,6 +564,49 @@ def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
         failed_source=failed_source,
         duration_sec=round(elapsed, 1),
     )
+    # R-4: Record to rolling history
+    _record_scrape_history("failure", elapsed, error=error_text)
+    # R-9: Update metrics counters
+    _metrics["scrape_total"] = _metrics.get("scrape_total", 0) + 1
+    _metrics["scrape_failures"] = _metrics.get("scrape_failures", 0) + 1
+    _metrics["scrape_duration_seconds_last"] = round(elapsed, 1)
+
+
+def _record_scrape_history(outcome: str, duration: float, **meta) -> None:
+    """R-4: Append to rolling scrape history for success rate tracking."""
+    entry = {
+        "ts": _utc_now_iso(),
+        "outcome": outcome,
+        "duration_sec": round(duration, 1),
+    }
+    entry.update(meta)
+    scrape_history.append(entry)
+    # Trim to max size
+    while len(scrape_history) > SCRAPE_HISTORY_MAX:
+        scrape_history.pop(0)
+
+
+def _scrape_success_rate_24h() -> dict:
+    """R-4: Calculate scrape success rate over the last 24 hours."""
+    now = datetime.now(timezone.utc)
+    recent = []
+    for entry in scrape_history:
+        try:
+            ts = datetime.fromisoformat(entry["ts"])
+            if (now - ts).total_seconds() <= 86400:
+                recent.append(entry)
+        except (ValueError, TypeError, KeyError):
+            continue
+    total = len(recent)
+    if total == 0:
+        return {"total": 0, "success": 0, "failure": 0, "rate": None}
+    successes = sum(1 for e in recent if e.get("outcome") == "success")
+    return {
+        "total": total,
+        "success": successes,
+        "failure": total - successes,
+        "rate": round(successes / total, 2),
+    }
 
 
 def _finalize_scrape_run(worker_id: str) -> None:
@@ -925,6 +1040,45 @@ def _load_json_file(path: Path | None) -> dict | None:
         return None
 
 
+def _load_canonical_snapshot() -> dict | None:
+    """R-6: Load the latest canonical pipeline snapshot if available."""
+    global canonical_data, canonical_data_loaded_at
+    if CANONICAL_DATA_MODE == "off":
+        return None
+    canonical_dir = DATA_DIR / "canonical"
+    canonical_file = _latest_file(canonical_dir, "canonical_snapshot_*.json")
+    if canonical_file is None:
+        return None
+    try:
+        with canonical_file.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        canonical_data = data
+        canonical_data_loaded_at = _utc_now_iso()
+        log.info(f"Canonical snapshot loaded: {canonical_file.name} "
+                 f"({len(data.get('assets', []))} assets, mode={CANONICAL_DATA_MODE})")
+        return data
+    except Exception as e:
+        log.error(f"Failed to load canonical snapshot {canonical_file}: {e}")
+        return None
+
+
+def _run_canonical_shadow_comparison(legacy_data: dict | None) -> None:
+    """R-6: In shadow mode, compare canonical vs legacy data and log differences."""
+    if CANONICAL_DATA_MODE != "shadow" or canonical_data is None or legacy_data is None:
+        return
+    canonical_assets = canonical_data.get("assets", [])
+    legacy_players = legacy_data.get("players", {})
+    log.info(
+        f"[SHADOW] Canonical: {len(canonical_assets)} assets, "
+        f"Legacy: {len(legacy_players)} players"
+    )
+    # Log top-10 canonical assets for comparison visibility
+    top_canonical = sorted(canonical_assets, key=lambda a: a.get("blended_value", 0), reverse=True)[:10]
+    if top_canonical:
+        names = [a.get("display_name", a.get("asset_key", "?")) for a in top_canonical]
+        log.info(f"[SHADOW] Top 10 canonical: {', '.join(names)}")
+
+
 async def run_scraper(trigger: str = "manual") -> dict | None:
     """
     Import and run the scraper, returning the dashboard JSON dict.
@@ -1007,6 +1161,56 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                 message="Publishing data to in-memory cache",
             )
 
+            elapsed = time.time() - start
+            player_count = len(result.get("players", {}))
+            site_count = len([s for s in result.get("sites", []) if s.get("playerCount", 0) > 0])
+            total_sites = len(result.get("sites", []))
+
+            # R-3: Block partial scrape promotion — don't overwrite good data
+            # with degraded data when fewer than half the sites returned results.
+            if total_sites > 0 and site_count < total_sites / 2:
+                log.warning(
+                    f"PARTIAL SCRAPE NOT PROMOTED — {site_count}/{total_sites} sites, "
+                    f"{player_count} players, {elapsed:.1f}s. Keeping last-known-good data."
+                )
+                send_alert(
+                    f"PARTIAL SCRAPE NOT PROMOTED: only {site_count}/{total_sites} sites",
+                    (
+                        f"Players: {player_count}\n"
+                        f"Sites with data: {site_count}/{total_sites}\n"
+                        f"Duration: {elapsed:.1f}s\n\n"
+                        "Partial scrape data was NOT promoted to production.\n"
+                        "The server continues serving last-known-good data.\n"
+                        "Some sites may be down or blocking the scraper."
+                    ),
+                )
+                _mark_scrape_success(elapsed, player_count, site_count, total_sites)
+                _record_scrape_event(
+                    "partial_scrape_blocked",
+                    level="warning",
+                    message=f"Only {site_count}/{total_sites} sites — data not promoted",
+                    site_count=site_count,
+                    total_sites=total_sites,
+                )
+                return latest_data  # Return existing data, not the partial result
+
+            # R-10: Disk space guard — skip disk write if space is critically low.
+            disk_ok, free_mb = _check_disk_space()
+            if not disk_ok:
+                log.error(
+                    f"DISK SPACE LOW — only {free_mb}MB free (minimum {DISK_SPACE_MIN_MB}MB). "
+                    "Scrape data will be served from memory but NOT written to disk."
+                )
+                send_alert(
+                    f"DISK SPACE CRITICALLY LOW: {free_mb}MB free",
+                    (
+                        f"Available disk space: {free_mb}MB\n"
+                        f"Minimum required: {DISK_SPACE_MIN_MB}MB\n\n"
+                        "Scrape data was loaded into memory but NOT written to disk.\n"
+                        "Please free disk space on the server."
+                    ),
+                )
+
             latest_data = result
             result_date = str(result.get("date") or "").strip()
             source_path = ""
@@ -1016,10 +1220,6 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                     source_path = str(candidate)
             _set_latest_data_source("scrape_run", source_path)
             _prime_latest_payload(result)
-            elapsed = time.time() - start
-            player_count = len(result.get("players", {}))
-            site_count = len([s for s in result.get("sites", []) if s.get("playerCount", 0) > 0])
-            total_sites = len(result.get("sites", []))
 
             _mark_scrape_success(elapsed, player_count, site_count, total_sites)
 
@@ -1028,17 +1228,10 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                 f"{site_count}/{total_sites} sites, {elapsed:.1f}s"
             )
 
-            # Alert if fewer than half the sites returned data
-            if total_sites > 0 and site_count < total_sites / 2:
-                send_alert(
-                    f"Scrape partial: only {site_count}/{total_sites} sites",
-                    (
-                        f"Players: {player_count}\n"
-                        f"Sites with data: {site_count}/{total_sites}\n"
-                        f"Duration: {elapsed:.1f}s\n\n"
-                        "Some sites may be down or blocking the scraper."
-                    ),
-                )
+            # R-6: Reload canonical data and run shadow comparison after each scrape
+            if CANONICAL_DATA_MODE != "off":
+                _load_canonical_snapshot()
+                _run_canonical_shadow_comparison(result)
 
             return result
         except Exception as e:
@@ -1159,6 +1352,8 @@ async def lifespan(app: FastAPI):
     """Startup: load cached data + kick off first scrape + start scheduler."""
     global latest_data
 
+    _metrics["server_start_time"] = _utc_now_iso()
+
     # 1. Load cached data immediately so the dashboard is usable right away
     latest_data = load_from_disk()
     _prime_latest_payload(latest_data)
@@ -1166,6 +1361,12 @@ async def lifespan(app: FastAPI):
         log.info("Dashboard ready with cached data")
     else:
         log.info("No cached data found — dashboard will show empty until first scrape completes")
+
+    # R-6: Load canonical pipeline data if shadow/primary mode is enabled
+    if CANONICAL_DATA_MODE != "off":
+        _load_canonical_snapshot()
+        _run_canonical_shadow_comparison(latest_data)
+        log.info(f"Canonical data mode: {CANONICAL_DATA_MODE}")
 
     # 2. Start first scrape in background (don't block startup)
     async def initial_scrape():
@@ -1202,6 +1403,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+
+@app.middleware("http")
+async def _count_requests(request: Request, call_next):
+    """R-9: Count all HTTP requests for metrics."""
+    _metrics["request_count"] = _metrics.get("request_count", 0) + 1
+    return await call_next(request)
 
 def _proxy_next(path: str) -> tuple[Response | None, str | None]:
     """
@@ -1337,16 +1545,39 @@ async def get_status():
         "has_data": latest_contract_data is not None,
         "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
         "data_date": (latest_contract_data or {}).get("date"),
+        # R-4: Scrape success rate tracking
+        "scrape_success_rate_24h": _scrape_success_rate_24h(),
+        "last_n_scrapes": scrape_history[-20:],
+        # R-6: Canonical pipeline mode
+        "canonical_data_mode": CANONICAL_DATA_MODE,
+        "canonical_data_loaded": canonical_data is not None,
+        "canonical_data_loaded_at": canonical_data_loaded_at,
     })
 
 
-@app.get("/api/health")
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 async def get_health():
     """Basic health endpoint for reverse proxy / uptime probes."""
     status_payload = _scrape_status_payload()
+
+    # R-1: Data freshness check — flag stale if no refresh in SCRAPE_INTERVAL_HOURS * 3
+    data_stale = False
+    data_age_hours = None
+    loaded_at = latest_data_source.get("loadedAt")
+    if loaded_at:
+        try:
+            loaded_dt = datetime.fromisoformat(loaded_at)
+            data_age_hours = round(
+                (datetime.now(timezone.utc) - loaded_dt).total_seconds() / 3600, 1
+            )
+            data_stale = data_age_hours > SCRAPE_INTERVAL_HOURS * 3
+        except (ValueError, TypeError):
+            pass
+
     is_ok = (
         status_payload.get("last_error") in (None, "")
         and not status_payload.get("stalled")
+        and not data_stale
         and bool(contract_health.get("ok", False))
     )
     status = "ok" if is_ok else "degraded"
@@ -1357,6 +1588,8 @@ async def get_health():
             "service": "dynasty-server",
             "time_utc": datetime.now(timezone.utc).isoformat(),
             "has_data": latest_contract_data is not None,
+            "data_stale": data_stale,
+            "data_age_hours": data_age_hours,
             "last_scrape": status_payload.get("last_scrape"),
             "scrape_running": status_payload.get("is_running"),
             "scrape_stalled": status_payload.get("stalled"),
@@ -1377,6 +1610,50 @@ async def get_health():
 async def get_uptime_status():
     """Detailed uptime watchdog state."""
     return JSONResponse(content=uptime_status)
+
+
+@app.get("/api/metrics")
+async def get_metrics():
+    """R-9: Lightweight metrics endpoint for dashboards and monitoring."""
+    now = datetime.now(timezone.utc)
+    # Calculate data age
+    data_age_seconds = None
+    loaded_at = latest_data_source.get("loadedAt")
+    if loaded_at:
+        try:
+            loaded_dt = datetime.fromisoformat(loaded_at)
+            data_age_seconds = round((now - loaded_dt).total_seconds(), 0)
+        except (ValueError, TypeError):
+            pass
+
+    # Calculate uptime
+    uptime_seconds = None
+    if _metrics.get("server_start_time"):
+        try:
+            start_dt = datetime.fromisoformat(_metrics["server_start_time"])
+            uptime_seconds = round((now - start_dt).total_seconds(), 0)
+        except (ValueError, TypeError):
+            pass
+
+    disk_ok, free_mb = _check_disk_space()
+
+    return JSONResponse(content={
+        "server_start_time": _metrics.get("server_start_time"),
+        "uptime_seconds": uptime_seconds,
+        "request_count": _metrics.get("request_count", 0),
+        "scrape_total": _metrics.get("scrape_total", 0),
+        "scrape_failures": _metrics.get("scrape_failures", 0),
+        "scrape_duration_seconds_last": _metrics.get("scrape_duration_seconds_last", 0),
+        "data_age_seconds": data_age_seconds,
+        "data_stale": (data_age_seconds or 0) > SCRAPE_INTERVAL_HOURS * 3 * 3600,
+        "has_data": latest_contract_data is not None,
+        "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
+        "disk_free_mb": free_mb,
+        "disk_ok": disk_ok,
+        "scrape_running": scrape_status.get("running", False),
+        "canonical_data_mode": CANONICAL_DATA_MODE,
+        "canonical_data_loaded": canonical_data is not None,
+    })
 
 
 @app.get("/api/scaffold/status")
@@ -1622,7 +1899,7 @@ async def auth_logout_redirect(request: Request):
     return response
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def serve_landing():
     for path in [LEGACY_STATIC_DIR / "landing.html", STATIC_DIR / "landing.html"]:
         if path.exists():
@@ -1635,36 +1912,12 @@ async def serve_landing():
 
 @app.get("/league", response_class=HTMLResponse)
 async def serve_league_entry():
+    league_path = LEGACY_STATIC_DIR / "league.html"
+    if league_path.exists():
+        return FileResponse(league_path, media_type="text/html")
     return HTMLResponse(
-        """
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>League</title>
-          <style>
-            body { margin:0; min-height:100vh; display:grid; place-items:center; font-family:Arial,sans-serif; background:#f4f6fb; color:#1d2430; }
-            .card { background:#fff; border:1px solid #dbe2ef; border-radius:14px; padding:26px; max-width:560px; width:min(92vw,560px); }
-            h1 { margin:0 0 10px; font-size:1.4rem; }
-            p { margin:0 0 16px; color:#586474; line-height:1.5; }
-            .row { display:flex; gap:10px; flex-wrap:wrap; }
-            a { display:inline-block; padding:10px 14px; border-radius:10px; text-decoration:none; font-weight:600; border:1px solid #dbe2ef; color:#1d2430; }
-            a.primary { background:#1d2430; color:#fff; border-color:#1d2430; }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <h1>League</h1>
-            <p>This entry is available without opening the private Jason workspace.</p>
-            <div class="row">
-              <a href="/">Back</a>
-              <a class="primary" href="/?jason=1">Open Jason Login</a>
-            </div>
-          </div>
-        </body>
-        </html>
-        """
+        "<h1>League page missing</h1><p>Expected Static/league.html.</p>",
+        status_code=500,
     )
 
 

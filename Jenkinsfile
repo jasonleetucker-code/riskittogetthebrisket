@@ -6,6 +6,11 @@ pipeline {
     disableConcurrentBuilds()
   }
 
+  // R-7: Run canonical pipeline every 6 hours automatically
+  triggers {
+    cron('H H/6 * * *')
+  }
+
   environment {
     PYTHONUNBUFFERED = '1'
   }

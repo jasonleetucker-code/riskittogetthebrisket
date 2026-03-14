@@ -22,6 +22,10 @@ def main() -> int:
     parser.add_argument("--repo", default=".", help="Repo root")
     args = parser.parse_args()
 
+    print("[league_refresh] WARNING: This is a scaffold. Full league adjustment math "
+          "(scarcity, replacement baselines, pick curves) is NOT implemented. "
+          "Output contains only pass-through canonical counts, not league-adjusted values.")
+
     repo = Path(args.repo).resolve()
     _bootstrap_path(repo)
 

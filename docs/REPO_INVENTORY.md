@@ -24,7 +24,7 @@
 | Component | Description | Status | Notes |
 | --- | --- | --- | --- |
 | `Dynasty Scraper.py` | Older scraping logic, uses Selenium/requests to pull rankings. | Legacy | Will mine for adapter hints but ultimate goal is modular adapters under `src/adapters`. |
-| `server.py` | Python backend that proxies Next, serves API, hits CSV data. | Legacy (to be replaced) | Keep running until new API ready; treat as fallback. |
+| `server.py` | Python backend that proxies Next, serves API, hits CSV data. | Legacy (active production) | Remains the sole production backend until canonical engine + league context engine are wired in and validated. No replacement timeline set. |
 | `frontend/` | Next.js app with calculator UI. | Keep / evolve | Will hook into new API endpoints once canonical engine exists. |
 | `Static/` | Old static HTML dashboards. | Sunset later | Useful as fallback if Next/server offline. |
 | `scripts/` | Jenkins helper, sync script, trigger script. | Keep, update | Will update once new CI stages defined. |

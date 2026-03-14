@@ -1,0 +1,93 @@
+name: Scheduled Health Check
+
+on:
+  schedule:
+    # Every 6 hours at a randomized minute offset to avoid thundering herd.
+    # GitHub Actions cron uses UTC.
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: health-check
+  cancel-in-progress: true
+
+jobs:
+  health:
+    name: Production Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: ${{ vars.PROD_PUBLIC_URL != '' }}
+    steps:
+      - name: Check /api/health
+        id: health
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          URL="${{ vars.PROD_PUBLIC_URL }}"
+          # Strip trailing slash if present
+          URL="${URL%/}"
+
+          HEALTH_URL="${URL}/api/health"
+          echo "Checking: ${HEALTH_URL}"
+
+          HTTP_CODE=$(curl --silent --show-error --output /tmp/health.json \
+            --write-out '%{http_code}' --max-time 15 "${HEALTH_URL}" || echo "000")
+
+          echo "HTTP status: ${HTTP_CODE}"
+
+          if [[ "${HTTP_CODE}" == "200" ]]; then
+            echo "status=healthy" >> "$GITHUB_OUTPUT"
+            echo "Health check passed."
+            cat /tmp/health.json | python3 -m json.tool 2>/dev/null || cat /tmp/health.json
+          elif [[ "${HTTP_CODE}" == "503" ]]; then
+            echo "status=degraded" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Health Degraded::Service returned 503 (degraded)."
+            cat /tmp/health.json | python3 -m json.tool 2>/dev/null || cat /tmp/health.json
+          else
+            echo "status=down" >> "$GITHUB_OUTPUT"
+            echo "::error title=Health Check Failed::Service returned HTTP ${HTTP_CODE}."
+            cat /tmp/health.json 2>/dev/null || true
+            exit 1
+          fi
+
+      - name: Check /api/status (data freshness)
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          URL="${{ vars.PROD_PUBLIC_URL }}"
+          URL="${URL%/}"
+
+          STATUS_URL="${URL}/api/status"
+          echo "Checking: ${STATUS_URL}"
+
+          HTTP_CODE=$(curl --silent --show-error --output /tmp/status.json \
+            --write-out '%{http_code}' --max-time 15 "${STATUS_URL}" || echo "000")
+
+          if [[ "${HTTP_CODE}" != "200" ]]; then
+            echo "::warning title=Status Unreachable::Status endpoint returned HTTP ${HTTP_CODE}."
+            exit 0
+          fi
+
+          # Extract key metrics
+          python3 - <<'PY'
+          import json, sys
+          try:
+              with open("/tmp/status.json") as f:
+                  data = json.load(f)
+              rate = data.get("scrape_success_rate_24h", {})
+              print(f"Scrape success rate (24h): {rate.get('rate', 'N/A')}")
+              print(f"  Total: {rate.get('total', 0)}, Success: {rate.get('success', 0)}, Failure: {rate.get('failure', 0)}")
+              print(f"Has data: {data.get('has_data', 'N/A')}")
+              print(f"Player count: {data.get('player_count', 'N/A')}")
+              print(f"Data date: {data.get('data_date', 'N/A')}")
+              print(f"Canonical mode: {data.get('canonical_data_mode', 'N/A')}")
+              last_scrape = data.get("last_scrape") or data.get("last_success_at")
+              if last_scrape:
+                  print(f"Last successful scrape: {last_scrape}")
+              # Warn on low success rate
+              if rate.get("rate") is not None and rate["rate"] < 0.5 and rate.get("total", 0) >= 2:
+                  print(f"::warning title=Low Scrape Success Rate::Only {rate['rate']*100:.0f}% of scrapes succeeded in the last 24h.")
+          except Exception as e:
+              print(f"Could not parse status: {e}")
+          PY

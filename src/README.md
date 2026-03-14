@@ -6,7 +6,7 @@ Modular architecture for the new canonical dynasty engine.
 - `identity/` — master player/pick identity mapping utilities.
 - `canonical/` — percentile transforms, curve logic, source blending, snapshot versioning.
 - `league/` — league settings parser, scarcity calculations, replacement baselines, pick discount logic.
-- `api/` — FastAPI/Starlette services for calculator, rankings, roster endpoints.
+- `api/` — API data contract builder and validator (`data_contract.py`). API service routes remain in `server.py` until the new engine replaces the legacy data path.
 - `data_models/` — Pydantic/BaseModel schemas shared across layers.
 - `utils/` — shared helpers (logging, config loading, persistence).
 

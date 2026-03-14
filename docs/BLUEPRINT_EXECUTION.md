@@ -136,25 +136,25 @@ For each proposed deal:
 
 ## 10. Execution Backlog (Jenkins + Kodex)
 ### Phase 0 – Repo spine
-- [ ] Document current legacy stack (scrapers, server.py, frontend).
-- [ ] Carve out `/src` structure for new modules (`src/adapters`, `src/identity`, `src/canonical`, `src/league`, `src/api`).
-- [ ] Add `.env.example` + config loaders.
+- [x] Document current legacy stack (scrapers, server.py, frontend).
+- [x] Carve out `/src` structure for new modules (`src/adapters`, `src/identity`, `src/canonical`, `src/league`, `src/api`).
+- [x] Add `.env.example` + config loaders.
 
 ### Phase 1 – Source adapters & raw store
-- [ ] Define adapter contract (inputs, normalization hints, metadata).
-- [ ] Implement initial adapters (DLF CSV import, KTC scrape stub, placeholder manual CSV loader) into `raw_source_*` tables/files.
-- [ ] Raw snapshot storage + CLI/cron entrypoint.
+- [x] Define adapter contract (inputs, normalization hints, metadata).
+- [x] Implement initial adapters (DLF CSV import, KTC scrape stub, placeholder manual CSV loader) into `raw_source_*` tables/files.
+- [x] Raw snapshot storage + CLI/cron entrypoint.
 - [ ] Unmatched-player report.
 
 ### Phase 2 – Identity mapping
-- [ ] Master `players` table + alias ingestion.
-- [ ] CLI to reconcile new names and flag manual review.
+- [x] Master `players` table + alias ingestion.
+- [x] CLI to reconcile new names and flag manual review.
 - [ ] Unit tests for suffix/punctuation/team changes.
 
 ### Phase 3 – Canonical pipeline
-- [ ] Define universes + weight config.
-- [ ] Percentile + curve transforms (power curve for MVP).
-- [ ] Source blending + snapshot versioning.
+- [x] Define universes + weight config.
+- [x] Percentile + curve transforms (power curve for MVP).
+- [x] Source blending + snapshot versioning.
 - [ ] Store canonical assets + value history.
 
 ### Phase 4 – League context
@@ -167,10 +167,10 @@ For each proposed deal:
 - [ ] Package adjustment logic.
 - [ ] Lineup impact service (per team roster profile).
 - [ ] REST endpoint + initial CLI.
-- [ ] Frontend calculator view (hook into Next app).
+- [x] Frontend calculator view (hook into Next app).
 
 ### Phase 6 – Rankings + roster dashboards
-- [ ] Rankings endpoint + table component.
+- [x] Rankings endpoint + table component.
 - [ ] Roster/team view (values, surpluses, needs).
 - [ ] Player detail page with trend chart + source contributions.
 
