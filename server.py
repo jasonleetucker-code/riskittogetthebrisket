@@ -100,10 +100,7 @@ UPTIME_ALERT_FAIL_THRESHOLD = int(os.getenv("UPTIME_ALERT_FAIL_THRESHOLD", "2"))
 # ── LIGHTWEIGHT AUTH GATE (PRIVATE-USE) ────────────────────────────────
 # App UI is intentionally gated behind Jason login.
 JASON_LOGIN_USERNAME = (os.getenv("JASON_LOGIN_USERNAME") or "jasonleetucker").strip()
-_raw_password = os.getenv("JASON_LOGIN_PASSWORD", "").strip()
-if not _raw_password:
-    raise RuntimeError("JASON_LOGIN_PASSWORD env var is required. Set it before starting the server.")
-JASON_LOGIN_PASSWORD = _raw_password
+JASON_LOGIN_PASSWORD = os.getenv("JASON_LOGIN_PASSWORD", "").strip()
 JASON_AUTH_COOKIE_NAME = "jason_session"
 JASON_AUTH_COOKIE_SECURE = _env_bool("JASON_AUTH_COOKIE_SECURE", True)
 
@@ -1351,6 +1348,9 @@ async def schedule_loop():
 async def lifespan(app: FastAPI):
     """Startup: load cached data + kick off first scrape + start scheduler."""
     global latest_data
+
+    if not JASON_LOGIN_PASSWORD:
+        raise RuntimeError("JASON_LOGIN_PASSWORD env var is required. Set it before starting the server.")
 
     _metrics["server_start_time"] = _utc_now_iso()
 
