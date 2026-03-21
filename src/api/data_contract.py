@@ -43,6 +43,8 @@ STARTUP_DROP_TOP_LEVEL_KEYS = {
     "ktcCrowd",
     # Runtime/startup views intentionally avoid the duplicated contract array.
     "playersArray",
+    # Shadow canonical comparison is debug-only; not needed for first paint.
+    "canonicalComparison",
 }
 
 
@@ -273,6 +275,58 @@ def build_api_data_contract(
     return contract_payload
 
 
+# ── Canonical comparison (shadow mode) ─────────────────────────────────
+
+
+def build_canonical_comparison_block(
+    canonical_snapshot: dict[str, Any],
+    *,
+    loaded_at: str | None = None,
+) -> dict[str, Any]:
+    """Build a non-authoritative comparison block from a canonical pipeline snapshot.
+
+    The block is designed to be attached to the contract payload under the
+    ``canonicalComparison`` key when ``CANONICAL_DATA_MODE=shadow``.  It
+    carries enough information for debugging tools and the future Next.js
+    trade page to render a side-by-side comparison against the live legacy
+    values — but it is **never** the value authority.
+    """
+    assets: list[dict[str, Any]] = canonical_snapshot.get("assets", [])
+
+    # Build a lightweight lookup: canonical_name → blended_value.
+    asset_lookup: dict[str, dict[str, Any]] = {}
+    for asset in assets:
+        key = str(asset.get("display_name", asset.get("asset_key", ""))).strip()
+        if not key:
+            continue
+        blended = _safe_num(asset.get("blended_value"))
+        universe = str(asset.get("universe", "")).strip() or None
+        sources_used = asset.get("sources_used")
+        if not isinstance(sources_used, (list, int)):
+            sources_used = None
+        asset_lookup[key] = {
+            "canonicalValue": _to_int_or_none(blended) if blended is not None else None,
+            "universe": universe,
+            "sourcesUsed": sources_used if isinstance(sources_used, int) else (
+                len(sources_used) if isinstance(sources_used, list) else None
+            ),
+        }
+
+    # Snapshot-level metadata.
+    run_id = str(canonical_snapshot.get("run_id", "")).strip() or None
+    snapshot_id = str(canonical_snapshot.get("source_snapshot_id", "")).strip() or None
+
+    return {
+        "mode": "shadow",
+        "notice": "Non-authoritative comparison data from the canonical pipeline. Live values remain legacy.",
+        "snapshotRunId": run_id,
+        "snapshotSourceId": snapshot_id,
+        "loadedAt": loaded_at or utc_now_iso(),
+        "assetCount": len(asset_lookup),
+        "assets": asset_lookup,
+    }
+
+
 def _strip_startup_player_fields(player_row: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for key, value in (player_row or {}).items():
@@ -387,6 +441,18 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         warnings.append("playersArray is empty")
     if not site_keys:
         warnings.append("sites is empty or missing keys")
+
+    # Optional: canonicalComparison (shadow mode comparison block).
+    canonical_cmp = payload.get("canonicalComparison")
+    if canonical_cmp is not None:
+        if not isinstance(canonical_cmp, dict):
+            warnings.append("canonicalComparison should be an object when present")
+        else:
+            if canonical_cmp.get("mode") != "shadow":
+                warnings.append("canonicalComparison.mode should be 'shadow'")
+            cmp_assets = canonical_cmp.get("assets")
+            if cmp_assets is not None and not isinstance(cmp_assets, dict):
+                warnings.append("canonicalComparison.assets should be an object map")
 
     ok = len(errors) == 0
     status = "healthy" if ok else "invalid"

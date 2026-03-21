@@ -43,6 +43,7 @@ from src.api.data_contract import (
     CONTRACT_VERSION as API_DATA_CONTRACT_VERSION,
     build_api_data_contract,
     build_api_startup_payload,
+    build_canonical_comparison_block,
     validate_api_data_contract,
 )
 
@@ -951,6 +952,22 @@ def _prime_latest_payload(data: dict | None) -> None:
             "warningCount": int(contract_report.get("warningCount", 0)),
             "checkedAt": contract_report.get("checkedAt"),
         }
+        # R-6 shadow: attach non-authoritative canonical comparison when available.
+        if CANONICAL_DATA_MODE == "shadow" and canonical_data is not None:
+            try:
+                cmp_block = build_canonical_comparison_block(
+                    canonical_data,
+                    loaded_at=canonical_data_loaded_at,
+                )
+                contract_payload["canonicalComparison"] = cmp_block
+                log.info(
+                    "[SHADOW] Attached canonicalComparison block: %d assets",
+                    cmp_block.get("assetCount", 0),
+                )
+            except Exception as cmp_err:
+                log.warning("[SHADOW] Failed to build canonical comparison: %s", cmp_err)
+                # Non-fatal — live payload still serves without comparison data.
+
         latest_contract_data = contract_payload
         contract_health = contract_report
 
