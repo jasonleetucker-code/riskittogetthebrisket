@@ -955,14 +955,20 @@ def _prime_latest_payload(data: dict | None) -> None:
         # R-6 shadow: attach non-authoritative canonical comparison when available.
         if CANONICAL_DATA_MODE == "shadow" and canonical_data is not None:
             try:
+                legacy_players = data.get("players") if isinstance(data, dict) else None
                 cmp_block = build_canonical_comparison_block(
                     canonical_data,
                     loaded_at=canonical_data_loaded_at,
+                    legacy_players=legacy_players,
                 )
                 contract_payload["canonicalComparison"] = cmp_block
+                summary = cmp_block.get("summary", {})
                 log.info(
-                    "[SHADOW] Attached canonicalComparison block: %d assets",
+                    "[SHADOW] Attached canonicalComparison block: %d assets "
+                    "(%d matched to legacy, avg|delta|=%s)",
                     cmp_block.get("assetCount", 0),
+                    summary.get("matchedToLegacy", 0),
+                    summary.get("avgAbsDelta", "n/a"),
                 )
             except Exception as cmp_err:
                 log.warning("[SHADOW] Failed to build canonical comparison: %s", cmp_err)

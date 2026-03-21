@@ -278,10 +278,44 @@ def build_api_data_contract(
 # ── Canonical comparison (shadow mode) ─────────────────────────────────
 
 
+def _extract_source_count(asset: dict[str, Any]) -> int | None:
+    """Extract source count from a canonical snapshot asset dict.
+
+    The pipeline writes ``source_values`` (dict[str, int]) via
+    ``CanonicalAssetValue.to_dict()``.  Older test fixtures may use
+    ``sources_used`` (list or int).  Handle both gracefully.
+    """
+    # Pipeline canonical output: source_values is a {source_id: score} dict
+    source_values = asset.get("source_values")
+    if isinstance(source_values, dict):
+        return len(source_values)
+
+    # Legacy/test fixture: sources_used as list or int
+    sources_used = asset.get("sources_used")
+    if isinstance(sources_used, int):
+        return sources_used
+    if isinstance(sources_used, list):
+        return len(sources_used)
+    return None
+
+
+def _extract_source_breakdown(asset: dict[str, Any]) -> dict[str, int] | None:
+    """Extract per-source canonical scores from a pipeline asset dict.
+
+    Returns ``{source_id: canonical_score}`` when the pipeline-format
+    ``source_values`` field is present, otherwise ``None``.
+    """
+    source_values = asset.get("source_values")
+    if isinstance(source_values, dict) and source_values:
+        return {str(k): _to_int_or_none(v) for k, v in source_values.items()}
+    return None
+
+
 def build_canonical_comparison_block(
     canonical_snapshot: dict[str, Any],
     *,
     loaded_at: str | None = None,
+    legacy_players: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a non-authoritative comparison block from a canonical pipeline snapshot.
 
@@ -290,10 +324,14 @@ def build_canonical_comparison_block(
     carries enough information for debugging tools and the future Next.js
     trade page to render a side-by-side comparison against the live legacy
     values — but it is **never** the value authority.
+
+    When *legacy_players* is supplied (the ``players`` dict from the scraper
+    payload), per-asset deltas are computed so debugging tools can spot the
+    biggest divergences between legacy and canonical values.
     """
     assets: list[dict[str, Any]] = canonical_snapshot.get("assets", [])
 
-    # Build a lightweight lookup: canonical_name → blended_value.
+    # Build a lightweight lookup: display_name → comparison entry.
     asset_lookup: dict[str, dict[str, Any]] = {}
     for asset in assets:
         key = str(asset.get("display_name", asset.get("asset_key", ""))).strip()
@@ -301,20 +339,50 @@ def build_canonical_comparison_block(
             continue
         blended = _safe_num(asset.get("blended_value"))
         universe = str(asset.get("universe", "")).strip() or None
-        sources_used = asset.get("sources_used")
-        if not isinstance(sources_used, (list, int)):
-            sources_used = None
-        asset_lookup[key] = {
+        source_count = _extract_source_count(asset)
+        source_breakdown = _extract_source_breakdown(asset)
+
+        entry: dict[str, Any] = {
             "canonicalValue": _to_int_or_none(blended) if blended is not None else None,
             "universe": universe,
-            "sourcesUsed": sources_used if isinstance(sources_used, int) else (
-                len(sources_used) if isinstance(sources_used, list) else None
-            ),
+            "sourcesUsed": source_count,
         }
+        if source_breakdown is not None:
+            entry["sourceBreakdown"] = source_breakdown
+
+        # Compute delta against legacy value if available.
+        if legacy_players is not None:
+            legacy_data = legacy_players.get(key)
+            if isinstance(legacy_data, dict):
+                legacy_val = _to_int_or_none(
+                    legacy_data.get("_finalAdjusted")
+                    or legacy_data.get("_leagueAdjusted")
+                    or legacy_data.get("_composite")
+                )
+                entry["legacyValue"] = legacy_val
+                canonical_int = entry["canonicalValue"]
+                if legacy_val is not None and canonical_int is not None:
+                    entry["delta"] = canonical_int - legacy_val
+
+        asset_lookup[key] = entry
 
     # Snapshot-level metadata.
     run_id = str(canonical_snapshot.get("run_id", "")).strip() or None
     snapshot_id = str(canonical_snapshot.get("source_snapshot_id", "")).strip() or None
+
+    # Summary statistics for quick debugging.
+    deltas = [a["delta"] for a in asset_lookup.values() if "delta" in a]
+    matched_count = sum(1 for a in asset_lookup.values() if "legacyValue" in a)
+    summary: dict[str, Any] = {
+        "canonicalAssetCount": len(asset_lookup),
+        "matchedToLegacy": matched_count,
+        "unmatchedCanonical": len(asset_lookup) - matched_count,
+    }
+    if deltas:
+        abs_deltas = [abs(d) for d in deltas]
+        summary["avgAbsDelta"] = int(round(sum(abs_deltas) / len(abs_deltas)))
+        summary["maxAbsDelta"] = max(abs_deltas)
+        summary["avgDelta"] = int(round(sum(deltas) / len(deltas)))
 
     return {
         "mode": "shadow",
@@ -323,6 +391,7 @@ def build_canonical_comparison_block(
         "snapshotSourceId": snapshot_id,
         "loadedAt": loaded_at or utc_now_iso(),
         "assetCount": len(asset_lookup),
+        "summary": summary,
         "assets": asset_lookup,
     }
 
@@ -453,6 +522,9 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             cmp_assets = canonical_cmp.get("assets")
             if cmp_assets is not None and not isinstance(cmp_assets, dict):
                 warnings.append("canonicalComparison.assets should be an object map")
+            cmp_summary = canonical_cmp.get("summary")
+            if cmp_summary is not None and not isinstance(cmp_summary, dict):
+                warnings.append("canonicalComparison.summary should be an object when present")
 
     ok = len(errors) == 0
     status = "healthy" if ok else "invalid"
