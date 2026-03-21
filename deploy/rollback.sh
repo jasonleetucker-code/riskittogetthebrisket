@@ -17,6 +17,7 @@ DEPLOY_STATE_DIR="${DEPLOY_STATE_DIR:-${HOME}/.deploy-state}"
 LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE="${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE:-${DEPLOY_STATE_DIR}/${APP_SLUG}.last_successful_deploy_commit}"
 PRE_DEPLOY_COMMIT_FILE="${PRE_DEPLOY_COMMIT_FILE:-${DEPLOY_STATE_DIR}/${APP_SLUG}.pre_deploy_commit}"
 LAST_SUCCESSFUL_DEPLOY_AT_FILE="${LAST_SUCCESSFUL_DEPLOY_AT_FILE:-${DEPLOY_STATE_DIR}/${APP_SLUG}.last_successful_at_utc}"
+DEPLOY_STATUS_FILE="${DEPLOY_STATUS_FILE:-${APP_DIR}/data/deploy_status.json}"
 
 log() {
   printf '[rollback] %s\n' "$*"
@@ -37,6 +38,43 @@ require_command() {
 ensure_parent_dir() {
   local target="$1"
   mkdir -p "$(dirname "${target}")"
+}
+
+record_rollback_status() {
+  local deployed_at_utc target_rev
+  deployed_at_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  target_rev="$1"
+  ensure_parent_dir "${DEPLOY_STATUS_FILE}"
+  DEPLOY_STATUS_FILE="${DEPLOY_STATUS_FILE}" \
+  DEPLOYED_AT_UTC="${deployed_at_utc}" \
+  APP_DIR="${APP_DIR}" \
+  SERVICE_NAME="${SERVICE_NAME}" \
+  TARGET_REV="${target_rev}" \
+  APP_HOST="${APP_HOST}" \
+  APP_PORT="${APP_PORT}" \
+  PUBLIC_URL="${PUBLIC_URL}" \
+  python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+status_path = Path(os.environ["DEPLOY_STATUS_FILE"])
+payload = {
+    "status": "rollback_success",
+    "deployedAtUtc": os.environ.get("DEPLOYED_AT_UTC", ""),
+    "appDir": os.environ.get("APP_DIR", ""),
+    "serviceName": os.environ.get("SERVICE_NAME", ""),
+    "targetRevision": os.environ.get("TARGET_REV", ""),
+    "trigger": "rollback",
+    "appHost": os.environ.get("APP_HOST", ""),
+    "appPort": os.environ.get("APP_PORT", ""),
+    "publicUrl": os.environ.get("PUBLIC_URL", ""),
+}
+status_path.parent.mkdir(parents=True, exist_ok=True)
+tmp_path = status_path.with_suffix(status_path.suffix + ".tmp")
+tmp_path.write_text(json.dumps(payload, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+tmp_path.replace(status_path)
+PY
 }
 
 resolve_git_ref() {
@@ -83,6 +121,7 @@ main() {
   require_command git
   require_command bash
   require_command systemctl
+  require_command python3
 
   [[ -d "${APP_DIR}" ]] || { error "APP_DIR does not exist: ${APP_DIR}"; exit 1; }
   cd "${APP_DIR}"
@@ -146,6 +185,7 @@ main() {
   ensure_parent_dir "${LAST_SUCCESSFUL_DEPLOY_AT_FILE}"
   printf '%s\n' "${rollback_target}" > "${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}"
   printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${LAST_SUCCESSFUL_DEPLOY_AT_FILE}"
+  record_rollback_status "${rollback_target}"
   log "Rollback complete. Active revision: ${rollback_target}"
 }
 

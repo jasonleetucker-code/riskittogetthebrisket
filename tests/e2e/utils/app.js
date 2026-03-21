@@ -1,7 +1,8 @@
 const { expect } = require("@playwright/test");
 
 function isMobileProject(testInfo) {
-  return testInfo.project.name.startsWith("mobile-");
+  const projectName = String(testInfo?.project?.name || "");
+  return projectName.startsWith("mobile-") || projectName.startsWith("tablet-");
 }
 
 function attachConsoleGuards(page, { allow = [] } = {}) {
@@ -50,7 +51,21 @@ async function ensureApiDataReady(page, request) {
 }
 
 async function gotoApp(page, request) {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const username = process.env.E2E_JASON_USERNAME || "jasonleetucker";
+  const password = process.env.E2E_JASON_PASSWORD || "e2e-local-password";
+  // Keep parity runs deterministic: do not reuse prior local/session state.
+  await page.addInitScript(() => {
+    try {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+    } catch (_) {}
+  });
+  try {
+    await page.request.post("/api/auth/login", {
+      data: { username, password, next: "/app" },
+    });
+  } catch (_) {}
+  await page.goto("/app", { waitUntil: "domcontentloaded" });
   await ensureApiDataReady(page, request);
   await page.waitForFunction(
     () => {
@@ -63,6 +78,7 @@ async function gotoApp(page, request) {
         Object.keys(runtimeData.players).length > 50
       );
     },
+    undefined,
     { timeout: 90_000 }
   );
 }

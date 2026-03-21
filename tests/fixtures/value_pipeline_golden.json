@@ -1,0 +1,1255 @@
+{
+  "meta": {
+    "generatedAt": "2026-03-19T12:34:34.914752+00:00",
+    "sourcePayloadPath": "C:\\Users\\jason\\OneDrive\\Desktop\\Trade Calculator\\data\\dynasty_data_2026-03-19.json",
+    "contractVersion": "2026-03-12.v4",
+    "goldenInputPath": "C:\\Users\\jason\\OneDrive\\Desktop\\Trade Calculator\\tests\\fixtures\\value_pipeline_golden_input.json",
+    "caseCount": 14,
+    "refreshCommand": "python scripts/refresh_value_pipeline_golden.py --source-payload <path-to-approved-dynasty-data.json>",
+    "latestLivePayloadGlob": "data/dynasty_data_*.json",
+    "purpose": "Golden regression suite for source presence + normalization + final adjusted values + merge identity."
+  },
+  "cases": [
+    {
+      "id": "elite_qb",
+      "category": "elite QB",
+      "canonicalName": "Josh Allen",
+      "stability": "stable",
+      "expected": {
+        "mergeIdentity": {
+          "canonicalName": "Josh Allen",
+          "position": "QB",
+          "playerId": "4984",
+          "assetClass": "offense"
+        },
+        "sourcePresence": {
+          "requiredSites": [
+            "ktc",
+            "fantasyCalc",
+            "dynastyDaddy",
+            "draftSharks",
+            "yahoo",
+            "idpTradeCalc",
+            "dlfSf"
+          ],
+          "minSourceCount": 8,
+          "maxSourceCount": null,
+          "presentSitesExpected": [
+            "dlfSf",
+            "draftSharks",
+            "dynastyDaddy",
+            "dynastyNerds",
+            "fantasyCalc",
+            "fantasyPros",
+            "idpTradeCalc",
+            "ktc",
+            "yahoo"
+          ]
+        },
+        "normalizedValues": {
+          "bands": {
+            "dlfSf": {
+              "min": 0.5921,
+              "max": 0.6121,
+              "expected": 0.6021
+            },
+            "draftSharks": {
+              "min": 0.99,
+              "max": 1.0,
+              "expected": 1.0
+            },
+            "dynastyDaddy": {
+              "min": 0.99,
+              "max": 1.0,
+              "expected": 1.0
+            },
+            "dynastyNerds": {
+              "min": 0.9522,
+              "max": 0.9722,
+              "expected": 0.9622
+            },
+            "fantasyCalc": {
+              "min": 0.99,
+              "max": 1.0,
+              "expected": 1.0
+            },
+            "fantasyPros": {
+              "min": 0.8321,
+              "max": 0.8521,
+              "expected": 0.8421
+            },
+            "idpTradeCalc": {
+              "min": 0.99,
+              "max": 1.0,
+              "expected": 1.0
+            },
+            "ktc": {
+              "min": 0.99,
+              "max": 1.0,
+              "expected": 1.0
+            },
+            "yahoo": {
+              "min": 0.99,
+              "max": 1.0,
+              "expected": 1.0
+            }
+          },
+          "tolerance": 0.01
+        },
+        "finalAdjustedValueBand": {
+          "min": 9949,
+          "max": 9999,
+          "expected": 9999
+        },
+        "rawValueBand": {
+          "min": 9949,
+          "max": 9999,
+          "expected": 9999
+        },
+        "coverageAndConfidence": {
+          "sourceCoverageCount": 9,
+          "confidence": 0.8639,
+          "sourceSpread": 103.9307
+        },
+        "rookieExpected": false
+      },
+      "notes": ""
+    },
+    {
+      "id": "elite_rb",
+      "category": "elite RB",
+      "canonicalName": "Bijan Robinson",
+      "stability": "stable",
+      "expected": {
+        "mergeIdentity": {
+          "canonicalName": "Bijan Robinson",
+          "position": "RB",
+          "playerId": "9509",
+          "assetClass": "offense"
+        },
+        "sourcePresence": {
+          "requiredSites": [
+            "ktc",
+            "fantasyCalc",
+            "dynastyDaddy",
+            "draftSharks",
+            "yahoo",
+            "idpTradeCalc",
+            "dlfSf"
+          ],
+          "minSourceCount": 8,
+          "maxSourceCount": null,
+          "presentSitesExpected": [
+            "dlfSf",
+            "draftSharks",
+            "dynastyDaddy",
+            "dynastyNerds",
+            "fantasyCalc",
+            "fantasyPros",
+            "idpTradeCalc",
+            "ktc",
+            "yahoo"
+          ]
+        },
+        "normalizedValues": {
+          "bands": {
+            "dlfSf": {
+              "min": 0.5755,
+              "max": 0.5955,
+              "expected": 0.5855
+            },
+            "draftSharks": {
+              "min": 0.9294,
+              "max": 0.9494,
+              "expected": 0.9394
+            },
+            "dynastyDaddy": {
+              "min": 0.99,
+              "max": 1.0,
+              "expected": 1.0
+            },
+            "dynastyNerds": {
+              "min": 0.9186,
+              "max": 0.9386,
+              "expected": 0.9286
+            },
+            "fantasyCalc": {
+              "min": 0.99,
+              "max": 1.0,
+              "expected": 1.0
+            },
+            "fantasyPros": {
+              "min": 0.6962,
+              "max": 0.7162,
+              "expected": 0.7062
+            },
+            "idpTradeCalc": {
+              "min": 0.99,
+              "max": 1.0,
+              "expected": 1.0
+            },
+            "ktc": {
+              "min": 0.99,
+              "max": 1.0,
+              "expected": 1.0
+            },
+            "yahoo": {
+              "min": 0.8658,
+              "max": 0.8858,
+              "expected": 0.8758
+            }
+          },
+          "tolerance": 0.01
+        },
+        "finalAdjustedValueBand": {
+          "min": 9215,
+          "max": 9307,
+          "expected": 9261
+        },
+        "rawValueBand": {
+          "min": 9080,
+          "max": 9172,
+          "expected": 9126
+        },
+        "coverageAndConfidence": {
+          "sourceCoverageCount": 9,
+          "confidence": 0.842,
+          "sourceSpread": 124.5783
+        },
+        "rookieExpected": false
+      },
+      "notes": ""
+    },
+    {
+      "id": "elite_wr",
+      "category": "elite WR",
+      "canonicalName": "Ja'Marr Chase",
+      "stability": "stable",
+      "expected": {
+        "mergeIdentity": {
+          "canonicalName": "Ja'Marr Chase",
+          "position": "WR",
+          "playerId": "7564",
+          "assetClass": "offense"
+        },
+        "sourcePresence": {
+          "requiredSites": [
+            "ktc",
+            "fantasyCalc",
+            "dynastyDaddy",
+            "draftSharks",
+            "yahoo",
+            "idpTradeCalc",
+            "dlfSf"
+          ],
+          "minSourceCount": 8,
+          "maxSourceCount": null,
+          "presentSitesExpected": [
+            "dlfSf",
+            "draftSharks",
+            "dynastyDaddy",
+            "dynastyNerds",
+            "fantasyCalc",
+            "fantasyPros",
+            "idpTradeCalc",
+            "ktc",
+            "yahoo"
+          ]
+        },
+        "normalizedValues": {
+          "bands": {
+            "dlfSf": {
+              "min": 0.5841,
+              "max": 0.6041,
+              "expected": 0.5941
+            },
+            "draftSharks": {
+              "min": 0.9208,
+              "max": 0.9408,
+              "expected": 0.9308
+            },
+            "dynastyDaddy": {
+              "min": 0.99,
+              "max": 1.0,
+              "expected": 1.0
+            },
+            "dynastyNerds": {
+              "min": 0.9023,
+              "max": 0.9223,
+              "expected": 0.9123
+            },
+            "fantasyCalc": {
+              "min": 0.99,
+              "max": 1.0,
+              "expected": 1.0
+            },
+            "fantasyPros": {
+              "min": 0.7264,
+              "max": 0.7464,
+              "expected": 0.7364
+            },
+            "idpTradeCalc": {
+              "min": 0.99,
+              "max": 1.0,
+              "expected": 1.0
+            },
+            "ktc": {
+              "min": 0.979,
+              "max": 0.999,
+              "expected": 0.989
+            },
+            "yahoo": {
+              "min": 0.8339,
+              "max": 0.8539,
+              "expected": 0.8439
+            }
+          },
+          "tolerance": 0.01
+        },
+        "finalAdjustedValueBand": {
+          "min": 8968,
+          "max": 9058,
+          "expected": 9013
+        },
+        "rawValueBand": {
+          "min": 9033,
+          "max": 9123,
+          "expected": 9078
+        },
+        "coverageAndConfidence": {
+          "sourceCoverageCount": 9,
+          "confidence": 0.8494,
+          "sourceSpread": 116.2529
+        },
+        "rookieExpected": false
+      },
+      "notes": ""
+    },
+    {
+      "id": "elite_te",
+      "category": "elite TE",
+      "canonicalName": "Brock Bowers",
+      "stability": "stable",
+      "expected": {
+        "mergeIdentity": {
+          "canonicalName": "Brock Bowers",
+          "position": "TE",
+          "playerId": "11604",
+          "assetClass": "offense"
+        },
+        "sourcePresence": {
+          "requiredSites": [
+            "ktc",
+            "fantasyCalc",
+            "dynastyDaddy",
+            "draftSharks",
+            "yahoo",
+            "idpTradeCalc",
+            "dlfSf"
+          ],
+          "minSourceCount": 8,
+          "maxSourceCount": null,
+          "presentSitesExpected": [
+            "dlfSf",
+            "draftSharks",
+            "dynastyDaddy",
+            "dynastyNerds",
+            "fantasyCalc",
+            "fantasyPros",
+            "idpTradeCalc",
+            "ktc",
+            "yahoo"
+          ]
+        },
+        "normalizedValues": {
+          "bands": {
+            "dlfSf": {
+              "min": 0.6715,
+              "max": 0.6915,
+              "expected": 0.6815
+            },
+            "draftSharks": {
+              "min": 0.7899,
+              "max": 0.8099,
+              "expected": 0.7999
+            },
+            "dynastyDaddy": {
+              "min": 0.934,
+              "max": 0.954,
+              "expected": 0.944
+            },
+            "dynastyNerds": {
+              "min": 0.8266,
+              "max": 0.8466,
+              "expected": 0.8366
+            },
+            "fantasyCalc": {
+              "min": 0.8263,
+              "max": 0.8463,
+              "expected": 0.8363
+            },
+            "fantasyPros": {
+              "min": 0.6886,
+              "max": 0.7086,
+              "expected": 0.6986
+            },
+            "idpTradeCalc": {
+              "min": 0.99,
+              "max": 1.0,
+              "expected": 1.0
+            },
+            "ktc": {
+              "min": 0.8626,
+              "max": 0.8826,
+              "expected": 0.8726
+            },
+            "yahoo": {
+              "min": 0.6488,
+              "max": 0.6688,
+              "expected": 0.6588
+            }
+          },
+          "tolerance": 0.01
+        },
+        "finalAdjustedValueBand": {
+          "min": 8182,
+          "max": 8264,
+          "expected": 8223
+        },
+        "rawValueBand": {
+          "min": 8214,
+          "max": 8296,
+          "expected": 8255
+        },
+        "coverageAndConfidence": {
+          "sourceCoverageCount": 9,
+          "confidence": 0.8635,
+          "sourceSpread": 147.2667
+        },
+        "rookieExpected": false
+      },
+      "notes": ""
+    },
+    {
+      "id": "elite_dl",
+      "category": "elite DL",
+      "canonicalName": "Will Anderson",
+      "stability": "moderate",
+      "expected": {
+        "mergeIdentity": {
+          "canonicalName": "Will Anderson",
+          "position": "DL",
+          "playerId": "10892",
+          "assetClass": "idp"
+        },
+        "sourcePresence": {
+          "requiredSites": [
+            "idpTradeCalc",
+            "pffIdp",
+            "fantasyProsIdp",
+            "dlfIdp"
+          ],
+          "minSourceCount": 4,
+          "maxSourceCount": null,
+          "presentSitesExpected": [
+            "dlfIdp",
+            "fantasyProsIdp",
+            "idpTradeCalc",
+            "pffIdp"
+          ]
+        },
+        "normalizedValues": {
+          "bands": {
+            "dlfIdp": {
+              "min": 0.5981,
+              "max": 0.6381,
+              "expected": 0.6181
+            },
+            "fantasyProsIdp": {
+              "min": 0.98,
+              "max": 1.0,
+              "expected": 1.0
+            },
+            "idpTradeCalc": {
+              "min": 0.6498,
+              "max": 0.6898,
+              "expected": 0.6698
+            },
+            "pffIdp": {
+              "min": 0.9724,
+              "max": 1.0,
+              "expected": 0.9924
+            }
+          },
+          "tolerance": 0.02
+        },
+        "finalAdjustedValueBand": {
+          "min": 5930,
+          "max": 6070,
+          "expected": 6000
+        },
+        "rawValueBand": {
+          "min": 5893,
+          "max": 6033,
+          "expected": 5963
+        },
+        "coverageAndConfidence": {
+          "sourceCoverageCount": 4,
+          "confidence": 0.5351,
+          "sourceSpread": 1.7483
+        },
+        "rookieExpected": false
+      },
+      "notes": ""
+    },
+    {
+      "id": "elite_lb",
+      "category": "elite LB",
+      "canonicalName": "Fred Warner",
+      "stability": "moderate",
+      "expected": {
+        "mergeIdentity": {
+          "canonicalName": "Fred Warner",
+          "position": "LB",
+          "playerId": "5041",
+          "assetClass": "idp"
+        },
+        "sourcePresence": {
+          "requiredSites": [
+            "idpTradeCalc",
+            "pffIdp",
+            "fantasyProsIdp",
+            "dlfIdp"
+          ],
+          "minSourceCount": 4,
+          "maxSourceCount": null,
+          "presentSitesExpected": [
+            "dlfIdp",
+            "fantasyProsIdp",
+            "idpTradeCalc",
+            "pffIdp"
+          ]
+        },
+        "normalizedValues": {
+          "bands": {
+            "dlfIdp": {
+              "min": 0.5523,
+              "max": 0.5923,
+              "expected": 0.5723
+            },
+            "fantasyProsIdp": {
+              "min": 0.3898,
+              "max": 0.4298,
+              "expected": 0.4098
+            },
+            "idpTradeCalc": {
+              "min": 0.5961,
+              "max": 0.6361,
+              "expected": 0.6161
+            },
+            "pffIdp": {
+              "min": 0.5584,
+              "max": 0.5984,
+              "expected": 0.5784
+            }
+          },
+          "tolerance": 0.02
+        },
+        "finalAdjustedValueBand": {
+          "min": 5431,
+          "max": 5571,
+          "expected": 5501
+        },
+        "rawValueBand": {
+          "min": 5416,
+          "max": 5556,
+          "expected": 5486
+        },
+        "coverageAndConfidence": {
+          "sourceCoverageCount": 4,
+          "confidence": 0.5958,
+          "sourceSpread": 3.7495
+        },
+        "rookieExpected": false
+      },
+      "notes": ""
+    },
+    {
+      "id": "elite_db",
+      "category": "elite DB",
+      "canonicalName": "Kyle Hamilton",
+      "stability": "moderate",
+      "expected": {
+        "mergeIdentity": {
+          "canonicalName": "Kyle Hamilton",
+          "position": "DB",
+          "playerId": "8339",
+          "assetClass": "idp"
+        },
+        "sourcePresence": {
+          "requiredSites": [
+            "idpTradeCalc",
+            "pffIdp",
+            "fantasyProsIdp",
+            "dlfIdp"
+          ],
+          "minSourceCount": 4,
+          "maxSourceCount": null,
+          "presentSitesExpected": [
+            "dlfIdp",
+            "fantasyProsIdp",
+            "idpTradeCalc",
+            "pffIdp"
+          ]
+        },
+        "normalizedValues": {
+          "bands": {
+            "dlfIdp": {
+              "min": 0.4787,
+              "max": 0.5187,
+              "expected": 0.4987
+            },
+            "fantasyProsIdp": {
+              "min": 0.2128,
+              "max": 0.2528,
+              "expected": 0.2328
+            },
+            "idpTradeCalc": {
+              "min": 0.4239,
+              "max": 0.4639,
+              "expected": 0.4439
+            },
+            "pffIdp": {
+              "min": 0.5656,
+              "max": 0.6056,
+              "expected": 0.5856
+            }
+          },
+          "tolerance": 0.02
+        },
+        "finalAdjustedValueBand": {
+          "min": 3919,
+          "max": 4059,
+          "expected": 3989
+        },
+        "rawValueBand": {
+          "min": 3862,
+          "max": 4002,
+          "expected": 3932
+        },
+        "coverageAndConfidence": {
+          "sourceCoverageCount": 4,
+          "confidence": 0.5,
+          "sourceSpread": 5.751
+        },
+        "rookieExpected": false
+      },
+      "notes": ""
+    },
+    {
+      "id": "rookie_offense",
+      "category": "rookie offensive player",
+      "canonicalName": "Jeremiyah Love",
+      "stability": "moderate",
+      "expected": {
+        "mergeIdentity": {
+          "canonicalName": "Jeremiyah Love",
+          "position": "RB",
+          "playerId": "13287",
+          "assetClass": "offense"
+        },
+        "sourcePresence": {
+          "requiredSites": [
+            "ktc",
+            "fantasyCalc",
+            "draftSharks",
+            "idpTradeCalc",
+            "dlfRsf"
+          ],
+          "minSourceCount": 8,
+          "maxSourceCount": null,
+          "presentSitesExpected": [
+            "dlfRsf",
+            "draftSharks",
+            "dynastyDaddy",
+            "dynastyNerds",
+            "fantasyCalc",
+            "fantasyPros",
+            "idpTradeCalc",
+            "ktc",
+            "yahoo"
+          ]
+        },
+        "normalizedValues": {
+          "bands": {
+            "dlfRsf": {
+              "min": 0.98,
+              "max": 1.0,
+              "expected": 1.0
+            },
+            "draftSharks": {
+              "min": 0.7714,
+              "max": 0.8114,
+              "expected": 0.7914
+            },
+            "dynastyDaddy": {
+              "min": 0.7395,
+              "max": 0.7795,
+              "expected": 0.7595
+            },
+            "dynastyNerds": {
+              "min": 0.6783,
+              "max": 0.7183,
+              "expected": 0.6983
+            },
+            "fantasyCalc": {
+              "min": 0.7826,
+              "max": 0.8226,
+              "expected": 0.8026
+            },
+            "fantasyPros": {
+              "min": 0.5729,
+              "max": 0.6129,
+              "expected": 0.5929
+            },
+            "idpTradeCalc": {
+              "min": 0.7544,
+              "max": 0.7944,
+              "expected": 0.7744
+            },
+            "ktc": {
+              "min": 0.7325,
+              "max": 0.7725,
+              "expected": 0.7525
+            },
+            "yahoo": {
+              "min": 0.6771,
+              "max": 0.7171,
+              "expected": 0.6971
+            }
+          },
+          "tolerance": 0.02
+        },
+        "finalAdjustedValueBand": {
+          "min": 7347,
+          "max": 7495,
+          "expected": 7421
+        },
+        "rawValueBand": {
+          "min": 7317,
+          "max": 7465,
+          "expected": 7391
+        },
+        "coverageAndConfidence": {
+          "sourceCoverageCount": 9,
+          "confidence": 0.8645,
+          "sourceSpread": 108.8382
+        },
+        "rookieExpected": true
+      },
+      "notes": ""
+    },
+    {
+      "id": "rookie_idp",
+      "category": "rookie IDP player",
+      "canonicalName": "Arvell Reese",
+      "stability": "unstable",
+      "expected": {
+        "mergeIdentity": {
+          "canonicalName": "Arvell Reese",
+          "position": "LB",
+          "playerId": "13377",
+          "assetClass": "idp"
+        },
+        "sourcePresence": {
+          "requiredSites": [
+            "idpTradeCalc",
+            "dlfRidp"
+          ],
+          "minSourceCount": 2,
+          "maxSourceCount": 2,
+          "presentSitesExpected": [
+            "dlfRidp",
+            "idpTradeCalc"
+          ]
+        },
+        "normalizedValues": {
+          "bands": {
+            "dlfRidp": {
+              "min": 0.96,
+              "max": 1.0,
+              "expected": 1.0
+            },
+            "idpTradeCalc": {
+              "min": 0.457,
+              "max": 0.537,
+              "expected": 0.497
+            }
+          },
+          "tolerance": 0.04
+        },
+        "finalAdjustedValueBand": {
+          "min": 4234,
+          "max": 4514,
+          "expected": 4374
+        },
+        "rawValueBand": {
+          "min": 4248,
+          "max": 4528,
+          "expected": 4388
+        },
+        "coverageAndConfidence": {
+          "sourceCoverageCount": 2,
+          "confidence": 0.3065,
+          "sourceSpread": 1.037
+        },
+        "rookieExpected": true
+      },
+      "notes": ""
+    },
+    {
+      "id": "aging_veteran",
+      "category": "aging veteran",
+      "canonicalName": "Aaron Rodgers",
+      "stability": "moderate",
+      "expected": {
+        "mergeIdentity": {
+          "canonicalName": "Aaron Rodgers",
+          "position": "QB",
+          "playerId": "96",
+          "assetClass": "offense"
+        },
+        "sourcePresence": {
+          "requiredSites": [
+            "ktc",
+            "fantasyCalc",
+            "draftSharks",
+            "idpTradeCalc",
+            "dlfSf"
+          ],
+          "minSourceCount": 8,
+          "maxSourceCount": null,
+          "presentSitesExpected": [
+            "dlfSf",
+            "draftSharks",
+            "dynastyDaddy",
+            "dynastyNerds",
+            "fantasyCalc",
+            "fantasyPros",
+            "idpTradeCalc",
+            "ktc",
+            "yahoo"
+          ]
+        },
+        "normalizedValues": {
+          "bands": {
+            "dlfSf": {
+              "min": 0.2688,
+              "max": 0.3088,
+              "expected": 0.2888
+            },
+            "draftSharks": {
+              "min": 0.1983,
+              "max": 0.2383,
+              "expected": 0.2183
+            },
+            "dynastyDaddy": {
+              "min": 0.2241,
+              "max": 0.2641,
+              "expected": 0.2441
+            },
+            "dynastyNerds": {
+              "min": 0.2191,
+              "max": 0.2591,
+              "expected": 0.2391
+            },
+            "fantasyCalc": {
+              "min": 0.2158,
+              "max": 0.2558,
+              "expected": 0.2358
+            },
+            "fantasyPros": {
+              "min": 0.1651,
+              "max": 0.2051,
+              "expected": 0.1851
+            },
+            "idpTradeCalc": {
+              "min": 0.2459,
+              "max": 0.2859,
+              "expected": 0.2659
+            },
+            "ktc": {
+              "min": 0.2219,
+              "max": 0.2619,
+              "expected": 0.2419
+            },
+            "yahoo": {
+              "min": 0.2624,
+              "max": 0.3024,
+              "expected": 0.2824
+            }
+          },
+          "tolerance": 0.02
+        },
+        "finalAdjustedValueBand": {
+          "min": 2439,
+          "max": 2579,
+          "expected": 2509
+        },
+        "rawValueBand": {
+          "min": 2374,
+          "max": 2514,
+          "expected": 2444
+        },
+        "coverageAndConfidence": {
+          "sourceCoverageCount": 9,
+          "confidence": 0.8767,
+          "sourceSpread": 419.3571
+        },
+        "rookieExpected": false
+      },
+      "notes": ""
+    },
+    {
+      "id": "injured_player",
+      "category": "injured player",
+      "canonicalName": "Jonathon Brooks",
+      "stability": "unstable",
+      "expected": {
+        "mergeIdentity": {
+          "canonicalName": "Jonathon Brooks",
+          "position": "RB",
+          "playerId": "11583",
+          "assetClass": "offense"
+        },
+        "sourcePresence": {
+          "requiredSites": [
+            "ktc",
+            "fantasyCalc",
+            "draftSharks",
+            "idpTradeCalc",
+            "dlfSf"
+          ],
+          "minSourceCount": 8,
+          "maxSourceCount": null,
+          "presentSitesExpected": [
+            "dlfSf",
+            "draftSharks",
+            "dynastyDaddy",
+            "dynastyNerds",
+            "fantasyCalc",
+            "fantasyPros",
+            "idpTradeCalc",
+            "ktc",
+            "yahoo"
+          ]
+        },
+        "normalizedValues": {
+          "bands": {
+            "dlfSf": {
+              "min": 0.1714,
+              "max": 0.2514,
+              "expected": 0.2114
+            },
+            "draftSharks": {
+              "min": 0.295,
+              "max": 0.375,
+              "expected": 0.335
+            },
+            "dynastyDaddy": {
+              "min": 0.2465,
+              "max": 0.3265,
+              "expected": 0.2865
+            },
+            "dynastyNerds": {
+              "min": 0.2036,
+              "max": 0.2836,
+              "expected": 0.2436
+            },
+            "fantasyCalc": {
+              "min": 0.2801,
+              "max": 0.3601,
+              "expected": 0.3201
+            },
+            "fantasyPros": {
+              "min": 0.1829,
+              "max": 0.2629,
+              "expected": 0.2229
+            },
+            "idpTradeCalc": {
+              "min": 0.3284,
+              "max": 0.4084,
+              "expected": 0.3684
+            },
+            "ktc": {
+              "min": 0.3005,
+              "max": 0.3805,
+              "expected": 0.3405
+            },
+            "yahoo": {
+              "min": 0.2934,
+              "max": 0.3734,
+              "expected": 0.3334
+            }
+          },
+          "tolerance": 0.04
+        },
+        "finalAdjustedValueBand": {
+          "min": 2888,
+          "max": 3168,
+          "expected": 3028
+        },
+        "rawValueBand": {
+          "min": 2869,
+          "max": 3149,
+          "expected": 3009
+        },
+        "coverageAndConfidence": {
+          "sourceCoverageCount": 9,
+          "confidence": 0.8181,
+          "sourceSpread": 255.3158
+        },
+        "rookieExpected": false,
+        "injuryProxy": {
+          "field": "_formatFitLowSample",
+          "expected": true
+        }
+      },
+      "notes": ""
+    },
+    {
+      "id": "draft_pick",
+      "category": "draft pick",
+      "canonicalName": "2026 Pick 1.01",
+      "stability": "stable",
+      "expected": {
+        "mergeIdentity": {
+          "canonicalName": "2026 Pick 1.01",
+          "position": "PICK",
+          "playerId": null,
+          "assetClass": "pick"
+        },
+        "sourcePresence": {
+          "requiredSites": [
+            "ktc",
+            "fantasyCalc",
+            "dynastyDaddy",
+            "yahoo",
+            "idpTradeCalc"
+          ],
+          "minSourceCount": 5,
+          "maxSourceCount": 5,
+          "presentSitesExpected": [
+            "dynastyDaddy",
+            "fantasyCalc",
+            "idpTradeCalc",
+            "ktc",
+            "yahoo"
+          ]
+        },
+        "normalizedValues": {
+          "bands": {
+            "dynastyDaddy": {
+              "min": 0.7106,
+              "max": 0.7306,
+              "expected": 0.7206
+            },
+            "fantasyCalc": {
+              "min": 0.8236,
+              "max": 0.8436,
+              "expected": 0.8336
+            },
+            "idpTradeCalc": {
+              "min": 0.8566,
+              "max": 0.8766,
+              "expected": 0.8666
+            },
+            "ktc": {
+              "min": 0.7225,
+              "max": 0.7425,
+              "expected": 0.7325
+            },
+            "yahoo": {
+              "min": 0.7445,
+              "max": 0.7645,
+              "expected": 0.7545
+            }
+          },
+          "tolerance": 0.01
+        },
+        "finalAdjustedValueBand": {
+          "min": 7354,
+          "max": 7428,
+          "expected": 7391
+        },
+        "rawValueBand": {
+          "min": 7354,
+          "max": 7428,
+          "expected": 7391
+        },
+        "coverageAndConfidence": {
+          "sourceCoverageCount": 5,
+          "confidence": 0.765,
+          "sourceSpread": 89.0333
+        },
+        "rookieExpected": false
+      },
+      "notes": ""
+    },
+    {
+      "id": "partial_source_coverage",
+      "category": "player with partial source coverage",
+      "canonicalName": "Brandon Aubrey",
+      "stability": "unstable",
+      "expected": {
+        "mergeIdentity": {
+          "canonicalName": "Brandon Aubrey",
+          "position": "K",
+          "playerId": "11533",
+          "assetClass": "offense"
+        },
+        "sourcePresence": {
+          "requiredSites": [
+            "draftSharks"
+          ],
+          "minSourceCount": 1,
+          "maxSourceCount": 1,
+          "presentSitesExpected": [
+            "draftSharks"
+          ]
+        },
+        "normalizedValues": {
+          "bands": {
+            "draftSharks": {
+              "min": 0.3929,
+              "max": 0.4729,
+              "expected": 0.4329
+            }
+          },
+          "tolerance": 0.04
+        },
+        "finalAdjustedValueBand": {
+          "min": 3218,
+          "max": 3498,
+          "expected": 3358
+        },
+        "rawValueBand": {
+          "min": 3218,
+          "max": 3498,
+          "expected": 3358
+        },
+        "coverageAndConfidence": {
+          "sourceCoverageCount": 1,
+          "confidence": 0.42,
+          "sourceSpread": 1.0
+        },
+        "rookieExpected": false
+      },
+      "notes": ""
+    },
+    {
+      "id": "conflicting_source_coverage",
+      "category": "player with conflicting source coverage",
+      "canonicalName": "Spencer Rattler",
+      "stability": "unstable",
+      "expected": {
+        "mergeIdentity": {
+          "canonicalName": "Spencer Rattler",
+          "position": "QB",
+          "playerId": "11562",
+          "assetClass": "offense"
+        },
+        "sourcePresence": {
+          "requiredSites": [
+            "ktc",
+            "fantasyCalc",
+            "dynastyDaddy",
+            "fantasyPros",
+            "yahoo",
+            "dynastyNerds",
+            "idpTradeCalc",
+            "dlfSf"
+          ],
+          "minSourceCount": 8,
+          "maxSourceCount": null,
+          "presentSitesExpected": [
+            "dlfSf",
+            "dynastyDaddy",
+            "dynastyNerds",
+            "fantasyCalc",
+            "fantasyPros",
+            "idpTradeCalc",
+            "ktc",
+            "yahoo"
+          ]
+        },
+        "normalizedValues": {
+          "bands": {
+            "dlfSf": {
+              "min": 0.1693,
+              "max": 0.2493,
+              "expected": 0.2093
+            },
+            "dynastyDaddy": {
+              "min": 0.1409,
+              "max": 0.2209,
+              "expected": 0.1809
+            },
+            "dynastyNerds": {
+              "min": 0.1901,
+              "max": 0.2701,
+              "expected": 0.2301
+            },
+            "fantasyCalc": {
+              "min": 0.1491,
+              "max": 0.2291,
+              "expected": 0.1891
+            },
+            "fantasyPros": {
+              "min": 0.1602,
+              "max": 0.2402,
+              "expected": 0.2002
+            },
+            "idpTradeCalc": {
+              "min": 0.228,
+              "max": 0.308,
+              "expected": 0.268
+            },
+            "ktc": {
+              "min": 0.1986,
+              "max": 0.2786,
+              "expected": 0.2386
+            },
+            "yahoo": {
+              "min": 0.153,
+              "max": 0.233,
+              "expected": 0.193
+            }
+          },
+          "tolerance": 0.04
+        },
+        "finalAdjustedValueBand": {
+          "min": 2069,
+          "max": 2349,
+          "expected": 2209
+        },
+        "rawValueBand": {
+          "min": 2012,
+          "max": 2292,
+          "expected": 2152
+        },
+        "coverageAndConfidence": {
+          "sourceCoverageCount": 8,
+          "confidence": 0.8703,
+          "sourceSpread": 2411.5
+        },
+        "rookieExpected": false,
+        "sourceConflict": {
+          "spreadMin": 1000.0,
+          "expectedSpread": 2411.5
+        }
+      },
+      "notes": ""
+    }
+  ]
+}

@@ -5,7 +5,7 @@ Single command to run everything:
     python server.py
 
 Serves the dashboard at http://localhost:8000
-Scrapes all sites every 2 hours automatically.
+Scrapes all sites on a configured interval (default: 4 hours).
 Manual scrape: POST http://localhost:8000/api/scrape
 
 Requirements:
@@ -14,8 +14,10 @@ Requirements:
 """
 
 import asyncio
+import html
 import json
 import os
+import random
 import sys
 import time
 import logging
@@ -27,9 +29,10 @@ import uuid
 import urllib.request
 import urllib.error
 import urllib.parse
+import shutil
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from contextlib import asynccontextmanager
 
@@ -44,9 +47,57 @@ from src.api.data_contract import (
     build_api_startup_payload,
     validate_api_data_contract,
 )
+from src.api.promotion_gate import (
+    evaluate_promotion_candidate,
+    load_promotion_gate_config,
+)
+from src.api.trade_scoring import score_trade_payload
+from src.api.raw_fallback_health import scan_raw_fallback_health
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
-SCRAPE_INTERVAL_HOURS = 2
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None or str(raw).strip() == "":
+        return float(default)
+    try:
+        return float(raw)
+    except Exception:
+        return float(default)
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None or str(raw).strip() == "":
+        return int(default)
+    try:
+        return int(float(raw))
+    except Exception:
+        return int(default)
+
+
+SCRAPE_INTERVAL_HOURS = max(0.5, _env_float("SCRAPE_INTERVAL_HOURS", 4.0))
+SCRAPE_INTERVAL_JITTER_MINUTES = max(0, _env_int("SCRAPE_INTERVAL_JITTER_MINUTES", 10))
+SCRAPE_FAILURE_BACKOFF_MINUTES = max(0, _env_int("SCRAPE_FAILURE_BACKOFF_MINUTES", 60))
+SCRAPE_MAX_BACKOFF_HOURS = max(
+    SCRAPE_INTERVAL_HOURS,
+    _env_float("SCRAPE_MAX_BACKOFF_HOURS", 12.0),
+)
+MAX_HEALTHY_SCRAPE_AGE_HOURS = max(
+    SCRAPE_INTERVAL_HOURS,
+    _env_float("MAX_HEALTHY_SCRAPE_AGE_HOURS", max(6.0, SCRAPE_INTERVAL_HOURS * 2.5)),
+)
+SCRAPE_SCHEDULER_ENABLED = str(os.getenv("SCRAPE_SCHEDULER_ENABLED", "true")).strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+SCRAPE_STARTUP_ENABLED = str(os.getenv("SCRAPE_STARTUP_ENABLED", "true")).strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 PORT = 8000
 HOST = "0.0.0.0"  # accessible from local network; use "127.0.0.1" for local only
 SCRAPE_STALL_SECONDS = int(os.getenv("SCRAPE_STALL_SECONDS", "900"))
@@ -67,7 +118,6 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:3000").rstrip("/")
-_legacy_next_proxy_enabled = _env_bool("ENABLE_NEXT_FRONTEND_PROXY", True)
 FRONTEND_RUNTIME = (os.getenv("FRONTEND_RUNTIME") or "").strip().lower()
 if FRONTEND_RUNTIME not in {"static", "next", "auto"}:
     # Explicit production default: static unless user intentionally overrides.
@@ -91,7 +141,30 @@ UPTIME_ALERT_FAIL_THRESHOLD = int(os.getenv("UPTIME_ALERT_FAIL_THRESHOLD", "2"))
 # ── LIGHTWEIGHT AUTH GATE (PRIVATE-USE) ────────────────────────────────
 # App UI is intentionally gated behind Jason login.
 JASON_LOGIN_USERNAME = (os.getenv("JASON_LOGIN_USERNAME") or "jasonleetucker").strip()
-JASON_LOGIN_PASSWORD = os.getenv("JASON_LOGIN_PASSWORD") or "Elliott21!"
+
+
+def _read_secret_file(path_like: str) -> str:
+    path = Path(path_like).expanduser()
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except Exception:
+        return ""
+
+
+JASON_LOGIN_PASSWORD_FILE = str(
+    os.getenv("JASON_LOGIN_PASSWORD_FILE")
+    or ((Path(__file__).parent / ".secrets" / "jason_login_password").resolve())
+).strip()
+JASON_LOGIN_PASSWORD = str(
+    os.getenv("JASON_LOGIN_PASSWORD")
+    or _read_secret_file(JASON_LOGIN_PASSWORD_FILE)
+    or ""
+).strip()
+JASON_AUTH_CONFIGURED = bool(JASON_LOGIN_PASSWORD)
+JASON_AUTH_MISSING_PASSWORD_ERROR = (
+    "Login unavailable: server auth is not configured. "
+    "Set JASON_LOGIN_PASSWORD or JASON_LOGIN_PASSWORD_FILE."
+)
 JASON_AUTH_COOKIE_NAME = "jason_session"
 JASON_AUTH_COOKIE_SECURE = _env_bool("JASON_AUTH_COOKIE_SECURE", False)
 
@@ -144,11 +217,37 @@ BASE_DIR = Path(__file__).parent.resolve()
 DATA_DIR = BASE_DIR / "data"
 STATIC_DIR = BASE_DIR / "static"
 LEGACY_STATIC_DIR = BASE_DIR / "Static"
+FRONTEND_DIR = BASE_DIR / "frontend"
+FRONTEND_NEXT_BUILD_DIR = FRONTEND_DIR / ".next"
+FRONTEND_APP_DIR = FRONTEND_DIR / "app"
+FRONTEND_LEAGUE_APP_DIR = FRONTEND_APP_DIR / "league"
 SCRAPER_PATH = BASE_DIR / "Dynasty Scraper.py"
 RUNTIME_JS_DIR = (LEGACY_STATIC_DIR / "js") if (LEGACY_STATIC_DIR / "js").exists() else (STATIC_DIR / "js")
 
+LEAGUE_TOP_LEVEL_SLUGS = [
+    "standings",
+    "franchises",
+    "awards",
+    "draft",
+    "trades",
+    "records",
+    "money",
+    "constitution",
+    "history",
+    "league-media",
+]
+LEAGUE_TOP_LEVEL_ROUTES = ["/league", *[f"/league/{slug}" for slug in LEAGUE_TOP_LEVEL_SLUGS]]
+LEAGUE_INLINE_FALLBACK_AUTHORITY = "public-league-inline-fallback-shell"
+
 DATA_DIR.mkdir(exist_ok=True)
 STATIC_DIR.mkdir(exist_ok=True)
+VALIDATION_DIR = DATA_DIR / "validation"
+VALIDATION_DIR.mkdir(parents=True, exist_ok=True)
+RUNTIME_LAST_GOOD_PATH = DATA_DIR / "runtime_last_good.json"
+RUNTIME_LAST_GOOD_META_PATH = DATA_DIR / "runtime_last_good_meta.json"
+DEPLOY_STATUS_PATH = DATA_DIR / "deploy_status.json"
+PROMOTION_REPORT_LATEST_PATH = VALIDATION_DIR / "promotion_gate_latest.json"
+PROMOTION_REPORT_GLOB = "promotion_gate_*.json"
 
 # ── LOGGING ─────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -179,6 +278,42 @@ latest_data_source: dict = {
     "type": "",
     "path": "",
     "loadedAt": "",
+}
+latest_source_health_snapshot: dict = {
+    "total_sources": 0,
+    "sources_with_data": 0,
+    "source_counts": {},
+    "missing_sources": [],
+    "partial_run": False,
+    "source_runtime": {},
+    "source_failures": [],
+}
+promotion_gate_config = load_promotion_gate_config()
+_runtime_route_authority_cache: dict | None = None
+_runtime_route_authority_cache_at: float = 0.0
+_deploy_status_cache: dict | None = None
+_deploy_status_cache_at: float = 0.0
+_deploy_status_cache_signature: tuple | None = None
+_frontend_raw_fallback_health_cache: dict | None = None
+_frontend_raw_fallback_health_cache_at: float = 0.0
+promotion_gate_state: dict = {
+    "lastAttemptAt": None,
+    "lastSuccessAt": None,
+    "lastFailureAt": None,
+    "lastStatus": "unknown",
+    "activePayloadPath": "",
+    "activePayloadType": "",
+    "lastReportPath": "",
+    "lastFailureSummary": "",
+    "lastGoodPath": str(RUNTIME_LAST_GOOD_PATH),
+}
+latest_promotion_report: dict = {
+    "generatedAt": None,
+    "status": "unknown",
+    "summary": {
+        "errors": ["promotion gate not initialized"],
+        "warnings": [],
+    },
 }
 contract_health: dict = {
     "ok": False,
@@ -216,7 +351,9 @@ scrape_status = {
     "progress_step_total": 0,
     "worker_id": None,
     "scrape_count": 0,
+    "consecutive_failures": 0,
     "run_events": [],
+    "next_scrape_delay_sec": None,
 }
 # Single-owner run lock: only one scrape run can own mutable active state.
 scrape_run_lock = asyncio.Lock()
@@ -242,6 +379,517 @@ auth_sessions: dict[str, dict] = {}
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _file_snapshot(path: Path) -> dict:
+    exists = path.exists()
+    payload = {
+        "path": str(path),
+        "exists": bool(exists),
+    }
+    if exists:
+        stat = path.stat()
+        payload["sizeBytes"] = int(stat.st_size)
+        payload["modifiedAt"] = datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat()
+    return payload
+
+
+def _stamp_route_authority(response: Response, *, route_id: str, authority: str) -> Response:
+    response.headers["X-Route-Id"] = route_id
+    response.headers["X-Route-Authority"] = authority
+    response.headers["X-Frontend-Runtime-Configured"] = FRONTEND_RUNTIME
+    response.headers["X-Frontend-Runtime-Active"] = str(frontend_runtime_status.get("active") or "")
+    return response
+
+
+def _dedupe_paths_case_insensitive(paths: list[Path]) -> list[Path]:
+    out: list[Path] = []
+    seen: set[str] = set()
+    for path in paths:
+        key = os.path.normcase(str(path))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(path)
+    return out
+
+
+def _league_static_root_candidates() -> list[Path]:
+    return _dedupe_paths_case_insensitive([LEGACY_STATIC_DIR, STATIC_DIR])
+
+
+def _league_asset_candidates(relative_path: str) -> list[Path]:
+    rel = Path(relative_path)
+    return [root / rel for root in _league_static_root_candidates()]
+
+
+def _first_existing_path(candidates: list[Path]) -> Path | None:
+    for path in candidates:
+        if path.exists():
+            return path
+    return None
+
+
+def _league_shell_artifact_status() -> dict[str, object]:
+    entry_candidates = _league_asset_candidates("league/index.html")
+    css_candidates = _league_asset_candidates("league/league.css")
+    js_candidates = _league_asset_candidates("league/league.js")
+
+    entry_path = _first_existing_path(entry_candidates)
+    css_path = _first_existing_path(css_candidates)
+    js_path = _first_existing_path(js_candidates)
+
+    return {
+        "entryCandidates": [str(path) for path in entry_candidates],
+        "cssCandidates": [str(path) for path in css_candidates],
+        "jsCandidates": [str(path) for path in js_candidates],
+        "entryPath": str(entry_path) if entry_path else "",
+        "cssPath": str(css_path) if css_path else "",
+        "jsPath": str(js_path) if js_path else "",
+        "entryExists": bool(entry_path),
+        "cssExists": bool(css_path),
+        "jsExists": bool(js_path),
+        "fullyReady": bool(entry_path and css_path and js_path),
+    }
+
+
+def _normalize_league_route_slug(league_path: str = "") -> str:
+    cleaned = str(league_path or "").strip().strip("/")
+    if not cleaned:
+        return "home"
+    slug = cleaned.split("/", 1)[0].strip().lower()
+    if slug in LEAGUE_TOP_LEVEL_SLUGS:
+        return slug
+    if slug == "home":
+        return "home"
+    return "unknown"
+
+
+def _league_route_label(slug: str) -> str:
+    if slug == "home":
+        return "Home"
+    if slug == "league-media":
+        return "League Media"
+    return slug.replace("-", " ").title()
+
+
+def _build_league_inline_fallback_html(league_path: str = "") -> str:
+    active_slug = _normalize_league_route_slug(league_path)
+    raw_path = str(league_path or "").strip().strip("/")
+    requested_path = "/league" if not raw_path else f"/league/{raw_path}"
+    active_title = _league_route_label(active_slug) if active_slug != "unknown" else "League Route Not Found"
+    safe_requested_path = html.escape(requested_path, quote=True)
+    safe_title = html.escape(active_title, quote=True)
+    safe_slug = html.escape(active_slug, quote=True)
+
+    nav_rows = [("home", "Home", "/league")]
+    nav_rows.extend((slug, _league_route_label(slug), f"/league/{slug}") for slug in LEAGUE_TOP_LEVEL_SLUGS)
+    nav_html = []
+    for slug, label, href in nav_rows:
+        active = " active" if slug == active_slug else ""
+        nav_html.append(
+            (
+                f'<a class="nav-link{active}" href="{html.escape(href, quote=True)}" '
+                f'data-nav-slug="{html.escape(slug, quote=True)}">{html.escape(label)}</a>'
+            )
+        )
+    nav_markup = "".join(nav_html)
+
+    known_route_markup = "".join(
+        f'<li><a href="{html.escape(route, quote=True)}">{html.escape(route)}</a></li>'
+        for route in LEAGUE_TOP_LEVEL_ROUTES
+    )
+
+    template = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Risk It to Get the Brisket | League HQ (Fallback)</title>
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --ink: #122338;
+      --muted: #526072;
+      --line: #d2d9e6;
+      --warning-bg: #fff4dd;
+      --warning-line: #ebb765;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(900px 360px at 12% -10%, rgba(12, 55, 112, 0.12), transparent 60%),
+        radial-gradient(700px 320px at 90% 110%, rgba(173, 83, 35, 0.09), transparent 60%),
+        var(--bg);
+    }
+    .shell { width: min(1040px, 100%); margin: 0 auto; padding: 28px 20px 32px; }
+    .header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .header h1 { margin: 0; font-size: clamp(1.35rem, 3vw, 1.9rem); }
+    .header .sub { margin: 2px 0 0; color: var(--muted); font-size: 0.94rem; }
+    .header a { color: var(--ink); text-decoration: none; font-weight: 600; }
+    .warning {
+      border: 1px solid var(--warning-line);
+      background: var(--warning-bg);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+    .warning strong { display: block; margin-bottom: 4px; }
+    .nav {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .nav-link {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 11px;
+      text-decoration: none;
+      color: var(--ink);
+      font-size: 0.89rem;
+      background: rgba(255, 255, 255, 0.85);
+      text-align: center;
+    }
+    .nav-link.active {
+      background: #122338;
+      color: #fff;
+      border-color: #122338;
+      font-weight: 700;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 12px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 10px 28px rgba(16, 25, 40, 0.08);
+    }
+    .card h2 { margin: 0 0 10px; font-size: 1.06rem; }
+    .meta { color: var(--muted); font-size: 0.88rem; margin-bottom: 8px; }
+    .list { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+    .list a { color: #153861; }
+    .kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-top: 10px; }
+    .kpi .tile { border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: #fbfdff; }
+    .tile .label { color: var(--muted); font-size: 0.79rem; margin-bottom: 4px; }
+    .tile .value { font-size: 1.04rem; font-weight: 700; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    @media (max-width: 880px) {
+      .grid { grid-template-columns: 1fr; }
+      .shell { padding: 20px 14px 26px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="header">
+      <div>
+        <h1>Risk It to Get the Brisket</h1>
+        <p class="sub">Public League HQ</p>
+      </div>
+      <a href="/">Back to Landing</a>
+    </header>
+
+    <section class="warning">
+      <strong>League shell fallback is active.</strong>
+      The canonical static shell file (<span class="mono">Static/league/index.html</span>) was missing at runtime.
+      This inline fallback keeps routes public and avoids a hard crash while deploy artifacts are repaired.
+      Requested route: <span class="mono">__REQUESTED_PATH__</span>.
+    </section>
+
+    <nav class="nav" aria-label="League sections">
+      __NAV_LINKS__
+    </nav>
+
+    <section class="grid">
+      <article class="card">
+        <h2>__ACTIVE_TITLE__</h2>
+        <div class="meta">Active slug: <span class="mono">__ACTIVE_SLUG__</span></div>
+        <p>This route is publicly accessible without Jason auth. The private valuation/trade routes remain gated.</p>
+        <p>Known League top-level routes:</p>
+        <ul class="list">__KNOWN_ROUTES__</ul>
+      </article>
+
+      <aside class="card">
+        <h2>Live Public Data</h2>
+        <div id="leagueFallbackData" class="meta">Loading /api/league/public…</div>
+        <div class="kpi" id="leagueFallbackKpis"></div>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const dataNode = document.getElementById("leagueFallbackData");
+      const kpiNode = document.getElementById("leagueFallbackKpis");
+
+      const esc = (v) =>
+        String(v ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+
+      const setKpis = (pairs) => {
+        if (!kpiNode) return;
+        kpiNode.innerHTML = pairs
+          .map(
+            ([label, value]) =>
+              `<div class="tile"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div></div>`,
+          )
+          .join("");
+      };
+
+      fetch("/api/league/public", { credentials: "same-origin" })
+        .then(async (resp) => {
+          const payload = await resp.json().catch(() => ({}));
+          if (!resp.ok || !payload || payload.ok !== true) {
+            const msg = payload && payload.error ? payload.error : `HTTP ${resp.status}`;
+            throw new Error(msg);
+          }
+          const league = payload.league || {};
+          const generatedAt = payload.generatedAt || payload.sourceLoadedAt || "unknown";
+          if (dataNode) {
+            dataNode.innerHTML =
+              `League: <strong>${esc(league.leagueName || "League")}</strong><br/>` +
+              `Generated: <span class="mono">${esc(generatedAt)}</span>`;
+          }
+          setKpis([
+            ["Teams", league.teamCount ?? 0],
+            ["Trades", league.tradeCount ?? 0],
+            ["Draft Rounds", league.draftRounds ?? "n/a"],
+          ]);
+        })
+        .catch((err) => {
+          if (dataNode) {
+            dataNode.textContent = `Public league payload unavailable: ${err && err.message ? err.message : "unknown error"}`;
+          }
+          setKpis([
+            ["Teams", "n/a"],
+            ["Trades", "n/a"],
+            ["Draft Rounds", "n/a"],
+          ]);
+        });
+    })();
+  </script>
+</body>
+</html>
+"""
+    return (
+        template
+        .replace("__REQUESTED_PATH__", safe_requested_path)
+        .replace("__ACTIVE_TITLE__", safe_title)
+        .replace("__ACTIVE_SLUG__", safe_slug)
+        .replace("__NAV_LINKS__", nav_markup)
+        .replace("__KNOWN_ROUTES__", known_route_markup)
+    )
+
+
+def _runtime_route_authority_payload() -> dict:
+    global _runtime_route_authority_cache, _runtime_route_authority_cache_at
+
+    cache_ttl_sec = 15.0
+    now = time.monotonic()
+    if (
+        _runtime_route_authority_cache is not None
+        and (now - _runtime_route_authority_cache_at) < cache_ttl_sec
+    ):
+        return _runtime_route_authority_cache
+
+    legacy_landing = LEGACY_STATIC_DIR / "landing.html"
+    static_landing = STATIC_DIR / "landing.html"
+    legacy_league_entry = LEGACY_STATIC_DIR / "league" / "index.html"
+    static_league_entry = STATIC_DIR / "league" / "index.html"
+    legacy_league_css = LEGACY_STATIC_DIR / "league" / "league.css"
+    static_league_css = STATIC_DIR / "league" / "league.css"
+    legacy_league_js = LEGACY_STATIC_DIR / "league" / "league.js"
+    static_league_js = STATIC_DIR / "league" / "league.js"
+    static_dashboard = STATIC_DIR / "index.html"
+    legacy_dashboard = LEGACY_STATIC_DIR / "index.html"
+    root_dashboard = BASE_DIR / "index.html"
+    league_shell_status = _league_shell_artifact_status()
+    league_runtime_authority = (
+        "public-static-league-shell"
+        if bool(league_shell_status.get("entryExists"))
+        else LEAGUE_INLINE_FALLBACK_AUTHORITY
+    )
+
+    next_league_pages = []
+    if FRONTEND_LEAGUE_APP_DIR.exists():
+        next_league_pages = sorted(
+            str(p.relative_to(BASE_DIR))
+            for p in FRONTEND_LEAGUE_APP_DIR.rglob("page.*")
+            if p.is_file()
+        )
+
+    warnings = []
+    if FRONTEND_NEXT_BUILD_DIR.exists():
+        warnings.append(
+            "frontend/.next artifacts exist but are non-authoritative unless a separate Next server "
+            "is reachable and FRONTEND_RUNTIME routes into next/auto proxy."
+        )
+    if FRONTEND_LEAGUE_APP_DIR.exists():
+        if not next_league_pages:
+            warnings.append(
+                "frontend/app/league contains no page.* route sources; /league authority stays in Static/league/index.html."
+            )
+        else:
+            warnings.append(
+                "frontend/app/league page.* sources exist but are non-authoritative while /league is served by "
+                "FastAPI static authority (serve_league_entry)."
+            )
+    if not bool(league_shell_status.get("entryExists")):
+        warnings.append(
+            "League static shell entry is missing; /league and /league/* will serve the inline emergency fallback "
+            "authority instead of returning raw 500."
+        )
+    elif not bool(league_shell_status.get("fullyReady")):
+        warnings.append(
+            "League static shell entry exists but one or more dependent assets (league.css/league.js) are missing; "
+            "route may render partially degraded."
+        )
+
+    routes = {
+        "/": {
+            "status": "complete",
+            "access": "public",
+            "handler": "serve_landing",
+            "runtimeAuthority": "public-static-landing-shell",
+            "sourceCandidates": [
+                str(legacy_landing),
+                str(static_landing),
+            ],
+        },
+        "/league": {
+            "status": "complete",
+            "access": "public",
+            "handler": "serve_league_entry",
+            "runtimeAuthority": league_runtime_authority,
+            "sourceCandidates": list(league_shell_status.get("entryCandidates") or []),
+            "fallbackAuthority": LEAGUE_INLINE_FALLBACK_AUTHORITY,
+            "fallbackEnabled": True,
+            "nextProxyFallbackEnabled": False,
+        },
+        "/league/{league_path:path}": {
+            "status": "complete",
+            "access": "public",
+            "handler": "serve_league_entry",
+            "runtimeAuthority": league_runtime_authority,
+            "expandedTopLevelRoutes": list(LEAGUE_TOP_LEVEL_ROUTES),
+            "fallbackAuthority": LEAGUE_INLINE_FALLBACK_AUTHORITY,
+            "fallbackEnabled": True,
+            "nextProxyFallbackEnabled": False,
+        },
+        "/app": {
+            "status": "complete",
+            "access": "auth-gated",
+            "handler": "serve_dashboard",
+            "authRedirect": "/?next=/app&jason=1",
+            "runtimeAuthority": "private-shell-via-_serve_app_shell",
+        },
+        "/rankings": {
+            "status": "complete",
+            "access": "auth-gated",
+            "handler": "serve_rankings",
+            "authRedirect": "/?next=/rankings&jason=1",
+            "runtimeAuthority": "private-shell-via-_serve_app_shell",
+        },
+        "/trade": {
+            "status": "complete",
+            "access": "auth-gated",
+            "handler": "serve_trade",
+            "authRedirect": "/?next=/trade&jason=1",
+            "runtimeAuthority": "private-shell-via-_serve_app_shell",
+        },
+        "/calculator": {
+            "status": "complete",
+            "access": "auth-gated",
+            "handler": "serve_calculator",
+            "authRedirect": "/?next=/calculator&jason=1",
+            "redirectTarget": "/trade",
+            "runtimeAuthority": "private-trade-compat-redirect",
+        },
+    }
+    for route in LEAGUE_TOP_LEVEL_ROUTES[1:]:
+        routes[route] = {
+            "status": "complete",
+            "access": "public",
+            "handler": "serve_league_entry",
+            "runtimeAuthority": league_runtime_authority,
+            "sourceAuthority": "/league/{league_path:path}",
+            "fallbackAuthority": LEAGUE_INLINE_FALLBACK_AUTHORITY,
+            "fallbackEnabled": True,
+            "nextProxyFallbackEnabled": False,
+        }
+
+    payload = {
+        "generatedAt": _utc_now_iso(),
+        "configuredFrontendRuntime": FRONTEND_RUNTIME,
+        "activeFrontendRuntime": frontend_runtime_status.get("active"),
+        "frontendUrl": FRONTEND_URL,
+        "routes": routes,
+        "deployReadiness": {
+            "leagueShell": {
+                "ok": bool(league_shell_status.get("fullyReady")),
+                "requiredForFullExperience": True,
+                "runtimeFallbackEnabled": True,
+                "runtimeFallbackAuthority": LEAGUE_INLINE_FALLBACK_AUTHORITY,
+                "currentRuntimeAuthority": league_runtime_authority,
+                "entryExists": bool(league_shell_status.get("entryExists")),
+                "cssExists": bool(league_shell_status.get("cssExists")),
+                "jsExists": bool(league_shell_status.get("jsExists")),
+                "entryPath": league_shell_status.get("entryPath") or "",
+                "cssPath": league_shell_status.get("cssPath") or "",
+                "jsPath": league_shell_status.get("jsPath") or "",
+            }
+        },
+        "privateShellResolutionOrder": {
+            "static": [
+                str(static_dashboard),
+                str(legacy_dashboard),
+                str(root_dashboard),
+            ],
+            "auto": [
+                "next-proxy-if-reachable",
+                str(static_dashboard),
+                str(legacy_dashboard),
+                str(root_dashboard),
+            ],
+            "next": [
+                "next-proxy-only",
+                "503 when unreachable (no static fallback)",
+            ],
+        },
+        "artifacts": {
+            "frontendNextBuild": _file_snapshot(FRONTEND_NEXT_BUILD_DIR),
+            "frontendLeagueAppDir": _file_snapshot(FRONTEND_LEAGUE_APP_DIR),
+            "frontendLeagueSourcePages": next_league_pages,
+            "legacyLanding": _file_snapshot(legacy_landing),
+            "legacyLeagueEntry": _file_snapshot(legacy_league_entry),
+            "staticLeagueEntry": _file_snapshot(static_league_entry),
+            "legacyLeagueCss": _file_snapshot(legacy_league_css),
+            "staticLeagueCss": _file_snapshot(static_league_css),
+            "legacyLeagueJs": _file_snapshot(legacy_league_js),
+            "staticLeagueJs": _file_snapshot(static_league_js),
+            "leagueShellStatus": league_shell_status,
+            "legacyDashboard": _file_snapshot(legacy_dashboard),
+        },
+        "warnings": warnings,
+    }
+    _runtime_route_authority_cache = payload
+    _runtime_route_authority_cache_at = now
+    return payload
 
 
 def _sanitize_next_path(raw: str | None, default: str = "/app") -> str:
@@ -299,7 +947,12 @@ def _auth_redirect_response(request: Request, default_next: str = "/app") -> Red
         next_path = f"{next_path}?{request.url.query}"
     safe_next = _sanitize_next_path(next_path, default_next)
     encoded_next = urllib.parse.quote(safe_next, safe="/?=&")
-    return RedirectResponse(url=f"/?next={encoded_next}&jason=1", status_code=302)
+    response = RedirectResponse(url=f"/?next={encoded_next}&jason=1", status_code=302)
+    return _stamp_route_authority(
+        response,
+        route_id=f"auth_gate:{request.url.path}",
+        authority="auth-gate-redirect",
+    )
 
 
 def _parse_iso(ts: str | None) -> datetime | None:
@@ -316,6 +969,94 @@ def _seconds_since_iso(ts: str | None) -> float | None:
     if dt is None:
         return None
     return max(0.0, (datetime.now(timezone.utc) - dt).total_seconds())
+
+
+def _file_signature(path: Path) -> tuple:
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return ("missing", str(path))
+    except Exception:
+        return ("error", str(path))
+    return ("present", str(path), int(stat.st_mtime_ns), int(stat.st_size))
+
+
+def _load_deploy_status() -> dict:
+    global _deploy_status_cache, _deploy_status_cache_at, _deploy_status_cache_signature
+
+    cache_ttl_sec = 15.0
+    now = time.monotonic()
+    signature = _file_signature(DEPLOY_STATUS_PATH)
+    if (
+        _deploy_status_cache is not None
+        and _deploy_status_cache_signature == signature
+        and (now - _deploy_status_cache_at) < cache_ttl_sec
+    ):
+        return _deploy_status_cache
+
+    payload = _load_json_from_path(DEPLOY_STATUS_PATH)
+    if isinstance(payload, dict):
+        _deploy_status_cache = payload
+        _deploy_status_cache_at = now
+        _deploy_status_cache_signature = signature
+        return payload
+    fallback = {
+        "status": "unknown",
+        "exists": False,
+        "path": str(DEPLOY_STATUS_PATH),
+    }
+    _deploy_status_cache = fallback
+    _deploy_status_cache_at = now
+    _deploy_status_cache_signature = signature
+    return fallback
+
+
+def _load_frontend_raw_fallback_health() -> dict:
+    global _frontend_raw_fallback_health_cache, _frontend_raw_fallback_health_cache_at
+    now = time.time()
+    cache_ttl_sec = 15.0
+    if (
+        _frontend_raw_fallback_health_cache is not None
+        and (now - _frontend_raw_fallback_health_cache_at) < cache_ttl_sec
+    ):
+        return _frontend_raw_fallback_health_cache
+
+    payload, _ = scan_raw_fallback_health(BASE_DIR, DATA_DIR, checked_at=_utc_now_iso())
+    _frontend_raw_fallback_health_cache = payload
+    _frontend_raw_fallback_health_cache_at = now
+    return payload
+
+
+def _compute_scrape_delay_seconds(
+    *,
+    failure_count: int,
+    include_jitter: bool = True,
+    forced_jitter_seconds: int | None = None,
+) -> int:
+    base_seconds = max(60, int(round(SCRAPE_INTERVAL_HOURS * 3600)))
+    jitter_seconds = 0
+    if forced_jitter_seconds is not None:
+        jitter_seconds = max(0, int(forced_jitter_seconds))
+    elif include_jitter and SCRAPE_INTERVAL_JITTER_MINUTES > 0:
+        jitter_seconds = random.randint(0, SCRAPE_INTERVAL_JITTER_MINUTES * 60)
+
+    failure_backoff_seconds = max(0, int(failure_count)) * max(0, SCRAPE_FAILURE_BACKOFF_MINUTES) * 60
+    max_seconds = max(base_seconds, int(round(SCRAPE_MAX_BACKOFF_HOURS * 3600)))
+    delay_seconds = min(max_seconds, base_seconds + failure_backoff_seconds + jitter_seconds)
+    return max(60, int(delay_seconds))
+
+
+def _set_next_scrape_from_policy(*, forced_jitter_seconds: int | None = None) -> int:
+    delay_seconds = _compute_scrape_delay_seconds(
+        failure_count=int(scrape_status.get("consecutive_failures", 0) or 0),
+        include_jitter=True,
+        forced_jitter_seconds=forced_jitter_seconds,
+    )
+    scrape_status["next_scrape_delay_sec"] = int(delay_seconds)
+    scrape_status["next_scrape"] = (
+        datetime.now(timezone.utc) + timedelta(seconds=delay_seconds)
+    ).isoformat()
+    return int(delay_seconds)
 
 
 def _trim_run_events(limit: int = 50) -> None:
@@ -364,6 +1105,12 @@ def _is_scrape_stalled() -> bool:
 def _sync_scrape_alias_fields() -> None:
     scrape_status["is_running"] = bool(scrape_status.get("running"))
     scrape_status["last_error"] = scrape_status.get("error")
+
+
+def _is_truthy_query_value(raw: str | None) -> bool:
+    if raw is None:
+        return False
+    return str(raw).strip().lower() in {"1", "true", "yes", "on", "y"}
 
 
 def _reconcile_orphaned_running_state() -> None:
@@ -451,6 +1198,7 @@ def _mark_scrape_success(elapsed: float, player_count: int, site_count: int, tot
             "current_step": "complete",
             "current_source": None,
             "scrape_count": int(scrape_status.get("scrape_count", 0)) + 1,
+            "consecutive_failures": 0,
         }
     )
     _touch_scrape_heartbeat()
@@ -480,6 +1228,7 @@ def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
             "last_duration_sec": round(elapsed, 1),
             "error": error_text,
             "current_step": "failed",
+            "consecutive_failures": int(scrape_status.get("consecutive_failures", 0) or 0) + 1,
         }
     )
     _touch_scrape_heartbeat()
@@ -584,6 +1333,86 @@ def _set_latest_data_source(source_type: str, path: str | None = None) -> None:
             "loadedAt": _utc_now_iso(),
         }
     )
+
+
+def _write_json_atomic(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp_path.replace(path)
+
+
+def _load_json_from_path(path: Path) -> dict | None:
+    if not path.exists():
+        return None
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        log.error(f"Failed to load JSON from {path}: {e}")
+        return None
+
+
+def _summarize_gate_failure(report: dict) -> str:
+    summary = report.get("summary") if isinstance(report, dict) else {}
+    if not isinstance(summary, dict):
+        return "promotion_gate_failed"
+    errors = summary.get("errors") if isinstance(summary.get("errors"), list) else []
+    critical = summary.get("criticalIssues") if isinstance(summary.get("criticalIssues"), list) else []
+    pieces: list[str] = []
+    if errors:
+        pieces.append("errors=" + ",".join(str(x) for x in errors[:6]))
+    if critical:
+        pieces.append("critical=" + ",".join(str(x) for x in critical[:6]))
+    if not pieces:
+        pieces.append("promotion_gate_failed")
+    return " | ".join(pieces)
+
+
+def _persist_promotion_report(report: dict) -> Path:
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    status = str(report.get("status") or "unknown").lower()
+    dated_path = VALIDATION_DIR / f"promotion_gate_{ts}_{status}.json"
+    _write_json_atomic(dated_path, report)
+    shutil.copy2(dated_path, PROMOTION_REPORT_LATEST_PATH)
+    return dated_path
+
+
+def _persist_last_good_payload(raw_payload: dict, report: dict, source_meta: dict) -> None:
+    _write_json_atomic(RUNTIME_LAST_GOOD_PATH, raw_payload)
+    meta = {
+        "savedAt": _utc_now_iso(),
+        "sourceMeta": source_meta,
+        "promotionStatus": report.get("status"),
+        "promotionReportPath": promotion_gate_state.get("lastReportPath"),
+    }
+    _write_json_atomic(RUNTIME_LAST_GOOD_META_PATH, meta)
+
+
+def _load_last_good_payload() -> dict | None:
+    payload = _load_json_from_path(RUNTIME_LAST_GOOD_PATH)
+    if not isinstance(payload, dict):
+        return None
+    log.info("Loaded runtime last-known-good payload from %s", RUNTIME_LAST_GOOD_PATH)
+    return payload
+
+
+def _initialize_promotion_gate_state_from_disk() -> None:
+    global latest_promotion_report
+    existing_report = _load_json_from_path(PROMOTION_REPORT_LATEST_PATH)
+    if isinstance(existing_report, dict):
+        latest_promotion_report = existing_report
+        promotion_gate_state["lastStatus"] = str(existing_report.get("status") or "unknown")
+        promotion_gate_state["lastReportPath"] = str(PROMOTION_REPORT_LATEST_PATH)
+
+    last_good_meta = _load_json_from_path(RUNTIME_LAST_GOOD_META_PATH)
+    if isinstance(last_good_meta, dict):
+        source_meta = last_good_meta.get("sourceMeta")
+        if isinstance(source_meta, dict):
+            promotion_gate_state["activePayloadPath"] = str(source_meta.get("path") or "")
+            promotion_gate_state["activePayloadType"] = str(source_meta.get("type") or "")
+        if last_good_meta.get("savedAt"):
+            promotion_gate_state["lastSuccessAt"] = str(last_good_meta.get("savedAt"))
 
 
 def _build_source_health_snapshot(data: dict | None) -> dict:
@@ -742,6 +1571,45 @@ def _build_source_health_snapshot(data: dict | None) -> dict:
     }
 
 
+def _runtime_architecture_truth() -> dict:
+    """
+    Single truth block for what is actually authoritative in the live runtime.
+
+    This intentionally de-scopes broad src/ pipeline authority claims until
+    canonical/identity/league scaffolds are wired into /api/data publication.
+    """
+    return {
+        "decision": "de_scope_src_pipeline_until_live",
+        "authoritative_runtime_path": {
+            "payload_producer": "Dynasty Scraper.py::run",
+            "payload_contract_builder": "src.api.data_contract.build_api_data_contract",
+            "runtime_endpoint": "/api/data",
+            "frontend_runtime_mode": FRONTEND_RUNTIME,
+            "contract_version": API_DATA_CONTRACT_VERSION,
+        },
+        "live_src_modules": [
+            "src.api.data_contract",
+            "src.scoring (optional import path used by Dynasty Scraper.py)",
+        ],
+        "non_authoritative_src_pipeline": [
+            "src.adapters + scripts/source_pull.py",
+            "src.identity + scripts/identity_resolve.py",
+            "src.canonical + scripts/canonical_build.py",
+            "src.league + scripts/league_refresh.py",
+        ],
+        "scaffold_endpoints": [
+            "/api/scaffold/status",
+            "/api/scaffold/raw",
+            "/api/scaffold/canonical",
+            "/api/scaffold/league",
+            "/api/scaffold/identity",
+            "/api/scaffold/validation",
+            "/api/scaffold/report",
+        ],
+        "scaffold_authority": "non_authoritative_debug_only",
+    }
+
+
 def _set_frontend_runtime_status(active: str, reason: str, fallback_from: str | None = None) -> None:
     prev = (
         frontend_runtime_status.get("active"),
@@ -809,86 +1677,94 @@ else:
 
 
 # ── SCRAPER INTEGRATION ────────────────────────────────────────────────
-def _prime_latest_payload(data: dict | None) -> None:
+def _prime_latest_payload(
+    data: dict | None,
+    *,
+    contract_payload: dict | None = None,
+    contract_report: dict | None = None,
+) -> bool:
     """Pre-serialize latest payload once so /api/data returns instantly."""
     global latest_contract_data, latest_data_bytes, latest_data_gzip_bytes, latest_data_etag
     global latest_runtime_data, latest_runtime_data_bytes, latest_runtime_data_gzip_bytes, latest_runtime_data_etag
     global latest_startup_data, latest_startup_data_bytes, latest_startup_data_gzip_bytes, latest_startup_data_etag
+    global latest_source_health_snapshot
     global contract_health
-    latest_data_bytes = None
-    latest_data_gzip_bytes = None
-    latest_data_etag = None
-    latest_contract_data = None
-    latest_runtime_data = None
-    latest_runtime_data_bytes = None
-    latest_runtime_data_gzip_bytes = None
-    latest_runtime_data_etag = None
-    latest_startup_data = None
-    latest_startup_data_bytes = None
-    latest_startup_data_gzip_bytes = None
-    latest_startup_data_etag = None
     if not data:
-        return
+        return False
     try:
-        contract_payload = build_api_data_contract(data, data_source=latest_data_source)
-        contract_report = validate_api_data_contract(contract_payload)
-        contract_payload["contractHealth"] = {
-            "ok": bool(contract_report.get("ok")),
-            "status": contract_report.get("status"),
-            "errorCount": int(contract_report.get("errorCount", 0)),
-            "warningCount": int(contract_report.get("warningCount", 0)),
-            "checkedAt": contract_report.get("checkedAt"),
+        built_contract = contract_payload or build_api_data_contract(data, data_source=latest_data_source)
+        report = contract_report or validate_api_data_contract(built_contract)
+        built_contract["contractHealth"] = {
+            "ok": bool(report.get("ok")),
+            "status": report.get("status"),
+            "errorCount": int(report.get("errorCount", 0)),
+            "warningCount": int(report.get("warningCount", 0)),
+            "checkedAt": report.get("checkedAt"),
         }
-        latest_contract_data = contract_payload
-        contract_health = contract_report
-
-        if not contract_report.get("ok"):
-            log.error(
-                "API contract validation failed: %s",
-                "; ".join((contract_report.get("errors") or [])[:5]),
-            )
-
-        raw = json.dumps(contract_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-        latest_data_bytes = raw
-        latest_data_gzip_bytes = gzip.compress(raw, compresslevel=5)
-        latest_data_etag = hashlib.sha1(raw).hexdigest()
+        raw = json.dumps(built_contract, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        full_gzip = gzip.compress(raw, compresslevel=5)
+        full_etag = hashlib.sha1(raw).hexdigest()
 
         # Static runtime payload: keep canonical top-level data shape used by the live UI,
         # but remove heavyweight contract array duplication to reduce parse/transfer cost.
-        runtime_payload = dict(contract_payload)
+        runtime_payload = dict(built_contract)
         runtime_payload.pop("playersArray", None)
         runtime_payload["payloadView"] = "runtime"
         runtime_raw = json.dumps(runtime_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-        latest_runtime_data = runtime_payload
-        latest_runtime_data_bytes = runtime_raw
-        latest_runtime_data_gzip_bytes = gzip.compress(runtime_raw, compresslevel=5)
-        latest_runtime_data_etag = hashlib.sha1(runtime_raw).hexdigest()
+        runtime_gzip = gzip.compress(runtime_raw, compresslevel=5)
+        runtime_etag = hashlib.sha1(runtime_raw).hexdigest()
 
         # Startup payload: same contract shape, but strips heavyweight fields
         # not needed for first screen render so first data-visible is faster.
         startup_payload = build_api_startup_payload(runtime_payload)
         startup_raw = json.dumps(startup_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-        latest_startup_data = startup_payload
-        latest_startup_data_bytes = startup_raw
-        latest_startup_data_gzip_bytes = gzip.compress(startup_raw, compresslevel=5)
-        latest_startup_data_etag = hashlib.sha1(startup_raw).hexdigest()
+        startup_gzip = gzip.compress(startup_raw, compresslevel=5)
+        startup_etag = hashlib.sha1(startup_raw).hexdigest()
     except Exception as e:
-        contract_health = {
-            "ok": False,
-            "status": "invalid",
-            "errors": [f"contract build failed: {type(e).__name__}: {e}"],
-            "warnings": [],
-            "errorCount": 1,
-            "warningCount": 0,
-            "checkedAt": _utc_now_iso(),
-            "contractVersion": API_DATA_CONTRACT_VERSION,
-            "playerCount": 0,
-        }
+        if latest_contract_data is None:
+            contract_health = {
+                "ok": False,
+                "status": "invalid",
+                "errors": [f"contract build failed: {type(e).__name__}: {e}"],
+                "warnings": [],
+                "errorCount": 1,
+                "warningCount": 0,
+                "checkedAt": _utc_now_iso(),
+                "contractVersion": API_DATA_CONTRACT_VERSION,
+                "playerCount": 0,
+            }
         log.error(f"Failed to pre-serialize latest payload: {e}")
+        return False
+
+    latest_contract_data = built_contract
+    latest_data_bytes = raw
+    latest_data_gzip_bytes = full_gzip
+    latest_data_etag = full_etag
+    latest_runtime_data = runtime_payload
+    latest_runtime_data_bytes = runtime_raw
+    latest_runtime_data_gzip_bytes = runtime_gzip
+    latest_runtime_data_etag = runtime_etag
+    latest_startup_data = startup_payload
+    latest_startup_data_bytes = startup_raw
+    latest_startup_data_gzip_bytes = startup_gzip
+    latest_startup_data_etag = startup_etag
+    contract_health = report
+    latest_source_health_snapshot = _build_source_health_snapshot(data)
+    if not report.get("ok"):
+        log.error(
+            "API contract validation failed: %s",
+            "; ".join((report.get("errors") or [])[:5]),
+        )
+    return True
 
 
 def load_from_disk() -> dict | None:
     """Load most recent dynasty_data_*.json from data/ directory."""
+    last_good = _load_last_good_payload()
+    if isinstance(last_good, dict) and isinstance(last_good.get("players"), dict) and last_good.get("players"):
+        _set_latest_data_source("runtime_last_good", str(RUNTIME_LAST_GOOD_PATH))
+        return last_good
+
     json_files = sorted(DATA_DIR.glob("dynasty_data_*.json"), reverse=True)
     if not json_files:
         # Also check base dir for existing files from standalone scraper runs
@@ -923,6 +1799,245 @@ def _load_json_file(path: Path | None) -> dict | None:
     except Exception as e:
         log.error(f"Failed to load scaffold json {path}: {e}")
         return None
+
+
+def _safe_int(v) -> int | None:
+    try:
+        return int(v)
+    except Exception:
+        return None
+
+
+def _trade_ts_to_iso(raw_ts) -> str | None:
+    ts = _safe_int(raw_ts)
+    if ts is None or ts <= 0:
+        return None
+    # Sleeper timestamps are normally ms, but normalize defensively.
+    if ts < 1_000_000_000_000:
+        ts *= 1000
+    try:
+        return datetime.fromtimestamp(ts / 1000.0, timezone.utc).isoformat()
+    except Exception:
+        return None
+
+
+def _build_public_league_payload(source_data: dict | None) -> dict:
+    """
+    Build a strict public-safe League payload.
+
+    This intentionally excludes private valuation/calculator internals and only
+    ships league identity/context summary fields.
+    """
+    if not isinstance(source_data, dict):
+        return {
+            "ok": False,
+            "error": "League data not ready yet.",
+            "generatedAt": _utc_now_iso(),
+            "sourceLoadedAt": latest_data_source.get("loadedAt"),
+            "sourceType": latest_data_source.get("type"),
+        }
+
+    sleeper = source_data.get("sleeper")
+    if not isinstance(sleeper, dict):
+        return {
+            "ok": False,
+            "error": "Sleeper league block is unavailable.",
+            "generatedAt": _utc_now_iso(),
+            "sourceLoadedAt": latest_data_source.get("loadedAt"),
+            "sourceType": latest_data_source.get("type"),
+        }
+
+    teams_raw = sleeper.get("teams")
+    if not isinstance(teams_raw, list):
+        teams_raw = []
+
+    team_summaries = []
+    for team in teams_raw:
+        if not isinstance(team, dict):
+            continue
+        players = team.get("players")
+        picks = team.get("picks")
+        pick_details = team.get("pickDetails")
+        team_summaries.append(
+            {
+                "name": str(team.get("name") or "Team").strip(),
+                "rosterId": _safe_int(team.get("roster_id")),
+                "playerCount": len(players) if isinstance(players, list) else 0,
+                "pickCount": len(picks) if isinstance(picks, list) else 0,
+                "pickDetailCount": len(pick_details) if isinstance(pick_details, list) else 0,
+            }
+        )
+    team_summaries.sort(key=lambda row: str(row.get("name") or "").lower())
+
+    trades_raw = sleeper.get("trades")
+    if not isinstance(trades_raw, list):
+        trades_raw = []
+    trades_sorted = sorted(
+        [t for t in trades_raw if isinstance(t, dict)],
+        key=lambda t: int(t.get("timestamp") or 0),
+        reverse=True,
+    )
+
+    recent_trades = []
+    for trade in trades_sorted[:8]:
+        sides = trade.get("sides")
+        side_summaries = []
+        if isinstance(sides, list):
+            for side in sides[:4]:
+                if not isinstance(side, dict):
+                    continue
+                got = side.get("got")
+                gave = side.get("gave")
+                side_summaries.append(
+                    {
+                        "team": str(side.get("team") or "Team").strip(),
+                        "rosterId": _safe_int(side.get("rosterId")),
+                        "gotCount": len(got) if isinstance(got, list) else 0,
+                        "gaveCount": len(gave) if isinstance(gave, list) else 0,
+                    }
+                )
+        recent_trades.append(
+            {
+                "leagueId": str(trade.get("leagueId") or "").strip() or None,
+                "week": _safe_int(trade.get("week")),
+                "timestampIso": _trade_ts_to_iso(trade.get("timestamp")),
+                "sideSummaries": side_summaries,
+            }
+        )
+
+    scoring_settings = sleeper.get("scoringSettings")
+    league_settings = sleeper.get("leagueSettings")
+    roster_positions = sleeper.get("rosterPositions")
+
+    payload = {
+        "ok": True,
+        "generatedAt": _utc_now_iso(),
+        "sourceLoadedAt": latest_data_source.get("loadedAt"),
+        "sourceType": latest_data_source.get("type"),
+        "league": {
+            "leagueId": str(sleeper.get("leagueId") or "").strip() or None,
+            "leagueName": str(sleeper.get("leagueName") or "").strip() or "League",
+            "teamCount": len(team_summaries),
+            "tradeCount": len(trades_sorted),
+            "tradeWindowDays": _safe_int(sleeper.get("tradeWindowDays")),
+            "tradeWindowStart": str(sleeper.get("tradeWindowStart") or "").strip() or None,
+            "scoringSettingCount": len(scoring_settings) if isinstance(scoring_settings, dict) else 0,
+            "draftRounds": (
+                _safe_int(league_settings.get("draft_rounds"))
+                if isinstance(league_settings, dict)
+                else None
+            ),
+            "rosterSlotCount": len(roster_positions) if isinstance(roster_positions, list) else 0,
+        },
+        "teams": team_summaries,
+        "recentTrades": recent_trades,
+        "moduleStatus": {
+            "home": "scaffold_live",
+            "standings": "scaffold_waiting_historical_data",
+            "franchises": "directory_live_detail_pending",
+            "awards": "methodology_defined_data_gated",
+            "draft": "scaffold_waiting_historical_data",
+            "trades": "rolling_window_live_historical_pending",
+            "records": "scaffold_waiting_historical_data",
+            "money": "manual_ledger_pending",
+            "constitution": "manual_content_pending",
+            "history": "scaffold_waiting_historical_data",
+            "leagueMedia": "manual_publishing_pending",
+        },
+        "note": (
+            "Public-safe subset. Private valuation, rankings, and calculator internals "
+            "are intentionally excluded."
+        ),
+    }
+    return payload
+
+
+def _attempt_runtime_promotion(
+    *,
+    candidate_payload: dict,
+    trigger: str,
+    source_type: str,
+    source_path: str,
+) -> tuple[bool, dict]:
+    global latest_data, latest_promotion_report
+
+    candidate_source_meta = {
+        "type": str(source_type or ""),
+        "path": str(source_path or ""),
+        "loadedAt": _utc_now_iso(),
+    }
+    previous_source_meta = dict(latest_data_source)
+    promotion_gate_state["lastAttemptAt"] = candidate_source_meta["loadedAt"]
+
+    contract_payload = build_api_data_contract(candidate_payload, data_source=candidate_source_meta)
+    contract_report = validate_api_data_contract(contract_payload)
+    report = evaluate_promotion_candidate(
+        raw_payload=candidate_payload,
+        contract_payload=contract_payload,
+        contract_report=contract_report,
+        repo_root=BASE_DIR,
+        trigger=trigger,
+        source_meta=candidate_source_meta,
+        baseline_raw_payload=latest_data if isinstance(latest_data, dict) else None,
+        baseline_contract_payload=(
+            latest_contract_data
+            if isinstance(latest_contract_data, dict)
+            else None
+        ),
+        config=promotion_gate_config,
+    )
+
+    report_path = _persist_promotion_report(report)
+    latest_promotion_report = report
+    promotion_gate_state["lastReportPath"] = str(report_path)
+    promotion_gate_state["lastStatus"] = str(report.get("status") or "unknown")
+
+    if str(report.get("status")) != "pass":
+        summary_text = _summarize_gate_failure(report)
+        promotion_gate_state["lastFailureAt"] = _utc_now_iso()
+        promotion_gate_state["lastFailureSummary"] = summary_text
+        return False, report
+
+    _set_latest_data_source(candidate_source_meta["type"], candidate_source_meta["path"])
+    primed = _prime_latest_payload(
+        candidate_payload,
+        contract_payload=contract_payload,
+        contract_report=contract_report,
+    )
+    if not primed:
+        latest_data_source.update(previous_source_meta)
+        prime_failure_report = {
+            "generatedAt": _utc_now_iso(),
+            "status": "fail",
+            "trigger": trigger,
+            "sourceMeta": candidate_source_meta,
+            "summary": {
+                "errors": ["promotion_cache_prime_failed"],
+                "warnings": [],
+                "criticalIssues": [],
+            },
+            "gates": {
+                "cachePrime": {
+                    "ok": False,
+                    "reason": "failed_to_prime_runtime_cache",
+                }
+            },
+        }
+        fail_path = _persist_promotion_report(prime_failure_report)
+        latest_promotion_report = prime_failure_report
+        promotion_gate_state["lastReportPath"] = str(fail_path)
+        promotion_gate_state["lastStatus"] = "fail"
+        promotion_gate_state["lastFailureAt"] = _utc_now_iso()
+        promotion_gate_state["lastFailureSummary"] = "promotion_cache_prime_failed"
+        return False, prime_failure_report
+
+    latest_data = candidate_payload
+    promotion_gate_state["lastSuccessAt"] = _utc_now_iso()
+    promotion_gate_state["lastFailureSummary"] = ""
+    promotion_gate_state["activePayloadPath"] = candidate_source_meta["path"]
+    promotion_gate_state["activePayloadType"] = candidate_source_meta["type"]
+    _persist_last_good_payload(candidate_payload, report, candidate_source_meta)
+    return True, report
 
 
 async def run_scraper(trigger: str = "manual") -> dict | None:
@@ -1000,22 +2115,28 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
 
             _update_scrape_progress(
                 step="publish",
-                source="api_cache",
+                source="promotion_gate",
                 step_index=4,
                 step_total=4,
                 event="phase_start",
-                message="Publishing data to in-memory cache",
+                message="Running promotion validation + publish gate",
             )
-
-            latest_data = result
             result_date = str(result.get("date") or "").strip()
             source_path = ""
             if result_date:
                 candidate = DATA_DIR / f"dynasty_data_{result_date}.json"
                 if candidate.exists():
                     source_path = str(candidate)
-            _set_latest_data_source("scrape_run", source_path)
-            _prime_latest_payload(result)
+            promoted, promotion_report = _attempt_runtime_promotion(
+                candidate_payload=result,
+                trigger=trigger,
+                source_type="scrape_run",
+                source_path=source_path,
+            )
+            if not promoted:
+                failure_summary = _summarize_gate_failure(promotion_report)
+                raise RuntimeError(f"Promotion gate rejected scrape output: {failure_summary}")
+
             elapsed = time.time() - start
             player_count = len(result.get("players", {}))
             site_count = len([s for s in result.get("sites", []) if s.get("playerCount", 0) > 0])
@@ -1132,66 +2253,145 @@ async def uptime_watchdog_loop():
 
 # ── SCHEDULER ───────────────────────────────────────────────────────────
 async def scheduled_scrape():
-    """Called by the background scheduler every SCRAPE_INTERVAL_HOURS."""
-    log.info(f"Scheduled scrape triggered (every {SCRAPE_INTERVAL_HOURS}h)")
+    """Called by the background scheduler according to policy-configured cadence."""
+    log.info(
+        "Scheduled scrape triggered (base_interval=%.2fh, failure_streak=%s)",
+        SCRAPE_INTERVAL_HOURS,
+        int(scrape_status.get("consecutive_failures", 0) or 0),
+    )
     await run_scraper(trigger="scheduled")
-    # Update next scrape time
-    from datetime import timedelta
-    scrape_status["next_scrape"] = (
-        datetime.now(timezone.utc) + timedelta(hours=SCRAPE_INTERVAL_HOURS)
-    ).isoformat()
+    _set_next_scrape_from_policy()
 
 
 async def schedule_loop():
-    """Simple async loop that runs the scraper on an interval."""
-    from datetime import timedelta
+    """Async loop that runs scraper on policy-controlled cadence with backoff + jitter."""
+    if not SCRAPE_SCHEDULER_ENABLED:
+        scrape_status["next_scrape"] = None
+        scrape_status["next_scrape_delay_sec"] = None
+        _record_scrape_event(
+            "scrape_scheduler_disabled",
+            level="warning",
+            message="SCRAPE_SCHEDULER_ENABLED=false; recurring scheduler loop is disabled",
+        )
+        return
+
     while True:
-        scrape_status["next_scrape"] = (
-            datetime.now(timezone.utc) + timedelta(hours=SCRAPE_INTERVAL_HOURS)
-        ).isoformat()
-        await asyncio.sleep(SCRAPE_INTERVAL_HOURS * 3600)
-        await scheduled_scrape()
+        delay_seconds = _set_next_scrape_from_policy()
+        await asyncio.sleep(max(30, delay_seconds))
+        try:
+            await scheduled_scrape()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            _record_scrape_event(
+                "scrape_scheduler_loop_error",
+                level="error",
+                message=f"{type(exc).__name__}: {exc}",
+            )
+            await asyncio.sleep(60)
 
 
 # ── APP LIFECYCLE ───────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: load cached data + kick off first scrape + start scheduler."""
+    """Startup: load cached data + optionally kick off first scrape + start scheduler."""
     global latest_data
 
+    _initialize_promotion_gate_state_from_disk()
+
     # 1. Load cached data immediately so the dashboard is usable right away
-    latest_data = load_from_disk()
-    _prime_latest_payload(latest_data)
-    if latest_data:
-        log.info("Dashboard ready with cached data")
+    cached = load_from_disk()
+    if cached:
+        cached_source_type = str(latest_data_source.get("type") or "")
+        cached_source_path = str(latest_data_source.get("path") or "")
+        if cached_source_type == "runtime_last_good":
+            latest_data = cached
+            primed = _prime_latest_payload(latest_data)
+            if primed:
+                promotion_gate_state["lastStatus"] = "pass"
+                promotion_gate_state["lastSuccessAt"] = _utc_now_iso()
+                promotion_gate_state["activePayloadType"] = cached_source_type
+                promotion_gate_state["activePayloadPath"] = cached_source_path
+                log.info("Dashboard ready with runtime last-known-good data")
+            else:
+                log.error("Failed to prime runtime last-known-good payload at startup")
+        else:
+            promoted, report = _attempt_runtime_promotion(
+                candidate_payload=cached,
+                trigger="startup_cache_load",
+                source_type=cached_source_type or "disk_cache",
+                source_path=cached_source_path,
+            )
+            if promoted:
+                log.info("Dashboard ready with startup cache data (promotion-gated)")
+            else:
+                latest_data = _load_last_good_payload()
+                if latest_data and _prime_latest_payload(latest_data):
+                    _set_latest_data_source("runtime_last_good", str(RUNTIME_LAST_GOOD_PATH))
+                    log.warning(
+                        "Startup cache failed promotion; serving last-known-good payload instead (%s)",
+                        _summarize_gate_failure(report),
+                    )
+                else:
+                    latest_data = None
+                    log.error(
+                        "Startup cache failed promotion and no last-known-good payload was available (%s)",
+                        _summarize_gate_failure(report),
+                    )
     else:
         log.info("No cached data found — dashboard will show empty until first scrape completes")
 
-    # 2. Start first scrape in background (don't block startup)
-    async def initial_scrape():
-        await asyncio.sleep(3)  # small delay to let server finish booting
-        await run_scraper(trigger="startup")
+    # 2. Optionally start first scrape in background (don't block startup)
+    scrape_task = None
+    if SCRAPE_STARTUP_ENABLED:
+        async def initial_scrape():
+            await asyncio.sleep(3)  # small delay to let server finish booting
+            await run_scraper(trigger="startup")
 
-    scrape_task = asyncio.create_task(initial_scrape())
+        scrape_task = asyncio.create_task(initial_scrape())
+    else:
+        log.info("Startup scrape disabled (SCRAPE_STARTUP_ENABLED=false)")
 
     # 3. Start the recurring schedule
-    scheduler_task = asyncio.create_task(schedule_loop())
+    scheduler_task = asyncio.create_task(schedule_loop()) if SCRAPE_SCHEDULER_ENABLED else None
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
 
-    log.info(f"Server started — scraping every {SCRAPE_INTERVAL_HOURS}h")
-    if os.getenv("FRONTEND_RUNTIME") is None and _legacy_next_proxy_enabled:
+    log.info(
+        "Server started — scrape scheduler=%s base_interval=%.2fh jitter=%sm failure_backoff=%sm max_backoff=%.2fh",
+        "enabled" if SCRAPE_SCHEDULER_ENABLED else "disabled",
+        SCRAPE_INTERVAL_HOURS,
+        SCRAPE_INTERVAL_JITTER_MINUTES,
+        SCRAPE_FAILURE_BACKOFF_MINUTES,
+        SCRAPE_MAX_BACKOFF_HOURS,
+    )
+    if os.getenv("FRONTEND_RUNTIME") is None:
         log.info(
             "FRONTEND_RUNTIME not set; defaulting to static. "
             "Set FRONTEND_RUNTIME=auto|next to proxy Next intentionally."
         )
+    if os.getenv("ENABLE_NEXT_FRONTEND_PROXY") is not None:
+        log.warning(
+            "ENABLE_NEXT_FRONTEND_PROXY is deprecated and ignored. "
+            "Use FRONTEND_RUNTIME=static|auto|next."
+        )
     log.info("Frontend runtime configured: %s (frontend_url=%s)", FRONTEND_RUNTIME, FRONTEND_URL)
+    if not JASON_AUTH_CONFIGURED:
+        log.error(
+            "JASON_LOGIN_PASSWORD is not set. Private routes remain auth-gated, "
+            "but login is disabled until JASON_LOGIN_PASSWORD is configured."
+        )
+    authority = _runtime_route_authority_payload()
+    for warning in authority.get("warnings", []):
+        log.warning("[Route Authority] %s", warning)
     log.info(f"Dashboard: http://localhost:{PORT}")
 
     yield  # app is running
 
     # Cleanup
-    scrape_task.cancel()
-    scheduler_task.cancel()
+    if scrape_task is not None:
+        scrape_task.cancel()
+    if scheduler_task is not None:
+        scheduler_task.cancel()
     uptime_task.cancel()
     log.info("Server shutting down")
 
@@ -1297,22 +2497,112 @@ async def get_dynasty_data_alias(request: Request):
     return await get_data(request)
 
 
+@app.post("/api/trade/score")
+async def score_trade(request: Request):
+    """
+    Backend-authoritative trade package scoring endpoint.
+    Resolves known assets against contract value bundles and returns package totals.
+    """
+    contract_payload = latest_contract_data
+    if not isinstance(contract_payload, dict):
+        return JSONResponse(
+            status_code=503,
+            content={"ok": False, "error": "No contract data available yet."},
+        )
+
+    try:
+        payload = await request.json()
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": "Invalid JSON request body."},
+        )
+
+    if not isinstance(payload, dict):
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": "Trade scoring payload must be an object."},
+        )
+
+    try:
+        result = score_trade_payload(contract_payload=contract_payload, request_payload=payload)
+        result["contractVersion"] = API_DATA_CONTRACT_VERSION
+        return JSONResponse(content=result)
+    except Exception as e:
+        log.error("Trade scoring failed: %s", e, exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"ok": False, "error": "Trade scoring failed.", "detail": str(e)},
+        )
+
+
+@app.get("/api/league/public")
+async def get_public_league_data():
+    """
+    Public-safe League API subset.
+    Intentionally avoids private valuation/calculator internals.
+    """
+    source_payload = latest_data or latest_contract_data
+    payload = _build_public_league_payload(source_payload)
+    headers = {"Cache-Control": "public, max-age=30, stale-while-revalidate=300"}
+    if payload.get("ok"):
+        return JSONResponse(content=payload, headers=headers)
+    return JSONResponse(status_code=503, content=payload, headers=headers)
+
+
 @app.get("/api/status")
-async def get_status():
+async def get_status(request: Request):
     """Return scraper status info."""
     status_payload = _scrape_status_payload()
+    player_count = int((latest_contract_data or {}).get("playerCount") or 0)
+    data_date = (latest_contract_data or {}).get("date")
+
+    # Compact mode is intentionally tiny for high-frequency UI polling.
+    if _is_truthy_query_value(request.query_params.get("compact")):
+        return JSONResponse(content={
+            "running": bool(status_payload.get("running")),
+            "is_running": bool(status_payload.get("is_running")),
+            "stalled": bool(status_payload.get("stalled")),
+            "status_summary": status_payload.get("status_summary"),
+            "next_scrape": status_payload.get("next_scrape"),
+            "next_scrape_delay_sec": status_payload.get("next_scrape_delay_sec"),
+            "consecutive_failures": int(status_payload.get("consecutive_failures", 0) or 0),
+            "last_scrape": status_payload.get("last_scrape"),
+            "last_error": status_payload.get("last_error"),
+            "player_count": player_count,
+            "data_date": data_date,
+            "has_data": latest_contract_data is not None,
+        })
+
     # Prefer full scrape payload for source-health truth (dlfImport/sourceRunSummary).
     # Contract payload is a compatibility fallback when full payload is unavailable.
-    source_health = _build_source_health_snapshot(latest_data or latest_contract_data)
+    source_health = latest_source_health_snapshot or _build_source_health_snapshot(latest_data or latest_contract_data)
     full_bytes = len(latest_data_bytes) if latest_data_bytes else 0
     runtime_bytes = len(latest_runtime_data_bytes) if latest_runtime_data_bytes else 0
     startup_bytes = len(latest_startup_data_bytes) if latest_startup_data_bytes else 0
     full_gzip_bytes = len(latest_data_gzip_bytes) if latest_data_gzip_bytes else 0
     runtime_gzip_bytes = len(latest_runtime_data_gzip_bytes) if latest_runtime_data_gzip_bytes else 0
     startup_gzip_bytes = len(latest_startup_data_gzip_bytes) if latest_startup_data_gzip_bytes else 0
+    authority_payload = _runtime_route_authority_payload()
+    frontend_raw_fallback_health = _load_frontend_raw_fallback_health()
+    frontend_runtime_payload = {
+        **frontend_runtime_status,
+        "raw_fallback_health": frontend_raw_fallback_health,
+    }
+    operator_report = (
+        latest_promotion_report.get("operatorReport")
+        if isinstance(latest_promotion_report.get("operatorReport"), dict)
+        else {}
+    )
+    deploy_status = _load_deploy_status()
     return JSONResponse(content={
         **status_payload,
-        "frontend_runtime": frontend_runtime_status,
+        "architecture": _runtime_architecture_truth(),
+        "frontend_runtime": frontend_runtime_payload,
+        "route_authority": {
+            "endpoint": "/api/runtime/route-authority",
+            "warnings": authority_payload.get("warnings", []),
+        },
         "contract": {
             "version": API_DATA_CONTRACT_VERSION,
             "health": contract_health,
@@ -1333,23 +2623,117 @@ async def get_status():
             "startup_payload_savings_gzip_bytes": max(0, full_gzip_bytes - startup_gzip_bytes),
         },
         "source_health": source_health,
+        "promotion_gate": {
+            "state": promotion_gate_state,
+            "latest_report": {
+                "generatedAt": latest_promotion_report.get("generatedAt"),
+                "status": latest_promotion_report.get("status"),
+                "summary": latest_promotion_report.get("summary"),
+                "operatorReport": operator_report,
+            },
+        },
         "uptime": uptime_status,
+        "automation": {
+            "scrape_scheduler": {
+                "enabled": bool(SCRAPE_SCHEDULER_ENABLED),
+                "base_interval_hours": float(SCRAPE_INTERVAL_HOURS),
+                "jitter_minutes": int(SCRAPE_INTERVAL_JITTER_MINUTES),
+                "failure_backoff_minutes": int(SCRAPE_FAILURE_BACKOFF_MINUTES),
+                "max_backoff_hours": float(SCRAPE_MAX_BACKOFF_HOURS),
+                "consecutive_failures": int(status_payload.get("consecutive_failures", 0) or 0),
+                "next_delay_seconds": status_payload.get("next_scrape_delay_sec"),
+            },
+            "health_policy": {
+                "max_healthy_scrape_age_hours": float(MAX_HEALTHY_SCRAPE_AGE_HOURS),
+            },
+            "deploy_status": deploy_status,
+        },
         "has_data": latest_contract_data is not None,
-        "player_count": int((latest_contract_data or {}).get("playerCount") or 0),
-        "data_date": (latest_contract_data or {}).get("date"),
+        "player_count": player_count,
+        "data_date": data_date,
     })
+
+
+@app.get("/api/validation/promotion-gate")
+async def get_promotion_gate_report():
+    latest_file = _latest_file(VALIDATION_DIR, PROMOTION_REPORT_GLOB)
+    file_payload = _load_json_file(latest_file)
+    payload = file_payload if isinstance(file_payload, dict) else latest_promotion_report
+    status = str(payload.get("status") or "unknown")
+    return JSONResponse(
+        status_code=200 if status == "pass" else 503 if status == "fail" else 200,
+        content={
+            "status": status,
+            "state": promotion_gate_state,
+            "reportFile": str(latest_file) if latest_file else "",
+            "report": payload,
+        },
+    )
+
+
+@app.get("/api/validation/operator-report")
+async def get_operator_report():
+    latest_file = _latest_file(VALIDATION_DIR, PROMOTION_REPORT_GLOB)
+    file_payload = _load_json_file(latest_file)
+    payload = file_payload if isinstance(file_payload, dict) else latest_promotion_report
+    operator_report = payload.get("operatorReport") if isinstance(payload.get("operatorReport"), dict) else {}
+    status = str(operator_report.get("status") or "unknown")
+    http_status = 503 if status == "critical" else 200
+    return JSONResponse(
+        status_code=http_status,
+        content={
+            "status": status,
+            "generatedAt": payload.get("generatedAt"),
+            "reportFile": str(latest_file) if latest_file else "",
+            "operatorReport": operator_report,
+        },
+    )
+
+
+@app.get("/api/architecture")
+async def get_architecture():
+    """Explicit runtime authority truth payload (non-marketing)."""
+    return JSONResponse(content=_runtime_architecture_truth())
+
+
+@app.get("/api/runtime/route-authority")
+async def get_runtime_route_authority():
+    """Machine-readable route authority map for runtime debugging and deploy audits."""
+    return JSONResponse(content=_runtime_route_authority_payload())
 
 
 @app.get("/api/health")
 async def get_health():
     """Basic health endpoint for reverse proxy / uptime probes."""
     status_payload = _scrape_status_payload()
+    frontend_raw_fallback_health = _load_frontend_raw_fallback_health()
+    last_scrape_age_sec = _seconds_since_iso(status_payload.get("last_scrape"))
+    last_scrape_age_hours = (
+        round(float(last_scrape_age_sec) / 3600.0, 3)
+        if last_scrape_age_sec is not None
+        else None
+    )
+    scrape_age_exceeded = bool(
+        last_scrape_age_hours is not None
+        and last_scrape_age_hours > float(MAX_HEALTHY_SCRAPE_AGE_HOURS)
+    )
+    last_success = _parse_iso(promotion_gate_state.get("lastSuccessAt"))
+    last_failure = _parse_iso(promotion_gate_state.get("lastFailureAt"))
+    promotion_failed = bool(
+        promotion_gate_state.get("lastStatus") == "fail"
+        and (last_success is None or (last_failure is not None and last_failure >= last_success))
+    )
     is_ok = (
         status_payload.get("last_error") in (None, "")
         and not status_payload.get("stalled")
         and bool(contract_health.get("ok", False))
+        and not promotion_failed
+        and not scrape_age_exceeded
     )
     status = "ok" if is_ok else "degraded"
+    health_warnings: list[str] = []
+    if int(frontend_raw_fallback_health.get("skipped_file_count") or 0) > 0:
+        health_warnings.append("frontend_raw_fallback_skipped_files")
     return JSONResponse(
         status_code=200 if is_ok else 503,
         content={
@@ -1364,7 +2748,18 @@ async def get_health():
             "current_source": status_payload.get("current_source"),
             "contract_version": API_DATA_CONTRACT_VERSION,
             "contract_ok": contract_health.get("ok"),
+            "promotion_gate_status": promotion_gate_state.get("lastStatus"),
+            "promotion_gate_last_failure": promotion_gate_state.get("lastFailureSummary"),
+            "last_scrape_age_hours": last_scrape_age_hours,
+            "max_healthy_scrape_age_hours": float(MAX_HEALTHY_SCRAPE_AGE_HOURS),
+            "scrape_age_exceeded": scrape_age_exceeded,
             "frontend_runtime": frontend_runtime_status.get("active"),
+            "frontend_raw_fallback": {
+                "status": frontend_raw_fallback_health.get("status"),
+                "selected_source": frontend_raw_fallback_health.get("selected_source"),
+                "skipped_file_count": int(frontend_raw_fallback_health.get("skipped_file_count") or 0),
+            },
+            "warnings": health_warnings,
             "uptime_watchdog": {
                 "enabled": uptime_status.get("enabled"),
                 "target_url": uptime_status.get("target_url"),
@@ -1381,7 +2776,7 @@ async def get_uptime_status():
 
 @app.get("/api/scaffold/status")
 async def get_scaffold_status():
-    """Return latest scaffold snapshot metadata for raw/canonical/league/report outputs."""
+    """Return latest scaffold snapshot metadata (non-authoritative diagnostics only)."""
     raw_file = _latest_file(DATA_DIR / "raw_sources", "raw_source_snapshot_*.json")
     ingest_validation_file = _latest_file(DATA_DIR / "validation", "ingest_validation_*.json")
     canonical_file = _latest_file(DATA_DIR / "canonical", "canonical_snapshot_*.json")
@@ -1412,6 +2807,14 @@ async def get_scaffold_status():
 
     return JSONResponse(
         content={
+            "authority": {
+                "status": "non_authoritative_scaffold_artifacts",
+                "authoritative_runtime_endpoint": "/api/data",
+                "note": (
+                    "Scaffold snapshots are diagnostics from scripts/*.py and are not "
+                    "the live runtime authority for rankings/calculator/player detail."
+                ),
+            },
             "raw_sources": {
                 "file": _meta(raw_file),
                 "source_count": len(raw.get("snapshots", [])) if raw else 0,
@@ -1567,6 +2970,7 @@ async def auth_status(request: Request):
     session = _get_auth_session(request)
     return JSONResponse(
         content={
+            "configured": JASON_AUTH_CONFIGURED,
             "authenticated": bool(session),
             "username": session.get("username") if session else None,
         }
@@ -1575,6 +2979,12 @@ async def auth_status(request: Request):
 
 @app.post("/api/auth/login")
 async def auth_login(request: Request):
+    if not JASON_AUTH_CONFIGURED:
+        return JSONResponse(
+            status_code=503,
+            content={"ok": False, "error": JASON_AUTH_MISSING_PASSWORD_ERROR},
+        )
+
     payload: dict = {}
     try:
         raw = await request.json()
@@ -1586,14 +2996,15 @@ async def auth_login(request: Request):
     username = str(payload.get("username") or "").strip()
     password = str(payload.get("password") or "")
     next_path = _sanitize_next_path(payload.get("next"), "/app")
+    username_match = username.casefold() == JASON_LOGIN_USERNAME.casefold()
 
-    if username != JASON_LOGIN_USERNAME or password != JASON_LOGIN_PASSWORD:
+    if not username_match or password != JASON_LOGIN_PASSWORD:
         return JSONResponse(
             status_code=401,
             content={"ok": False, "error": "Invalid username or password."},
         )
 
-    session_id = _create_auth_session(username)
+    session_id = _create_auth_session(JASON_LOGIN_USERNAME)
     response = JSONResponse(content={"ok": True, "redirect": next_path})
     response.set_cookie(
         key=JASON_AUTH_COOKIE_NAME,
@@ -1626,45 +3037,46 @@ async def auth_logout_redirect(request: Request):
 async def serve_landing():
     for path in [LEGACY_STATIC_DIR / "landing.html", STATIC_DIR / "landing.html"]:
         if path.exists():
-            return FileResponse(path, media_type="text/html")
-    return HTMLResponse(
+            return _stamp_route_authority(
+                FileResponse(path, media_type="text/html"),
+                route_id="/",
+                authority="public-static-landing-shell",
+            )
+    return _stamp_route_authority(
+        HTMLResponse(
         "<h1>Landing page missing</h1><p>Expected Static/landing.html.</p>",
         status_code=500,
+        ),
+        route_id="/",
+        authority="public-static-landing-shell-missing",
     )
 
 
 @app.get("/league", response_class=HTMLResponse)
-async def serve_league_entry():
-    return HTMLResponse(
-        """
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-          <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>League</title>
-          <style>
-            body { margin:0; min-height:100vh; display:grid; place-items:center; font-family:Arial,sans-serif; background:#f4f6fb; color:#1d2430; }
-            .card { background:#fff; border:1px solid #dbe2ef; border-radius:14px; padding:26px; max-width:560px; width:min(92vw,560px); }
-            h1 { margin:0 0 10px; font-size:1.4rem; }
-            p { margin:0 0 16px; color:#586474; line-height:1.5; }
-            .row { display:flex; gap:10px; flex-wrap:wrap; }
-            a { display:inline-block; padding:10px 14px; border-radius:10px; text-decoration:none; font-weight:600; border:1px solid #dbe2ef; color:#1d2430; }
-            a.primary { background:#1d2430; color:#fff; border-color:#1d2430; }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <h1>League</h1>
-            <p>This entry is available without opening the private Jason workspace.</p>
-            <div class="row">
-              <a href="/">Back</a>
-              <a class="primary" href="/?jason=1">Open Jason Login</a>
-            </div>
-          </div>
-        </body>
-        </html>
-        """
+@app.get("/league/{league_path:path}", response_class=HTMLResponse)
+async def serve_league_entry(league_path: str = ""):
+    # Public League shell is intentionally served from static assets and does not
+    # depend on private Jason auth/session.
+    for path in _league_asset_candidates("league/index.html"):
+        if path.exists():
+            return _stamp_route_authority(
+                FileResponse(path, media_type="text/html"),
+                route_id="/league",
+                authority="public-static-league-shell",
+            )
+
+    # Never proxy League routes into Next runtime. This public area remains
+    # public/static-owned by FastAPI and must not depend on Next route wiring.
+    # If static artifacts are missing, use an explicit inline fallback instead
+    # of hard-failing with a raw 500.
+    return _stamp_route_authority(
+        HTMLResponse(
+            _build_league_inline_fallback_html(league_path),
+            status_code=200,
+            headers={"Cache-Control": "no-store"},
+        ),
+        route_id="/league",
+        authority=LEAGUE_INLINE_FALLBACK_AUTHORITY,
     )
 
 
@@ -1674,25 +3086,46 @@ def _require_auth_or_redirect(request: Request, default_next: str = "/app") -> R
     return _auth_redirect_response(request, default_next)
 
 
-async def _serve_app_shell(frontend_path: str) -> Response:
+async def _serve_app_shell(frontend_path: str, route_id: str) -> Response:
     routed = _resolve_frontend_path(frontend_path)
     if routed is not None:
         if isinstance(routed, Response) and routed.status_code == 503:
-            return routed
+            return _stamp_route_authority(
+                routed,
+                route_id=route_id,
+                authority="private-next-proxy-unavailable",
+            )
         if FRONTEND_RUNTIME in {"next", "auto"} and frontend_runtime_status.get("active") == "next":
-            return routed
+            return _stamp_route_authority(
+                routed,
+                route_id=route_id,
+                authority="private-next-proxy-shell",
+            )
 
     if FRONTEND_RUNTIME == "next":
-        return routed if routed is not None else HTMLResponse("Next frontend unavailable", status_code=503)
+        fallback = routed if routed is not None else HTMLResponse("Next frontend unavailable", status_code=503)
+        return _stamp_route_authority(
+            fallback,
+            route_id=route_id,
+            authority="private-next-proxy-unavailable",
+        )
 
     for path in [STATIC_DIR / "index.html", LEGACY_STATIC_DIR / "index.html", BASE_DIR / "index.html"]:
         if path.exists():
             _set_frontend_runtime_status("static", "serving_static_index")
-            return FileResponse(path, media_type="text/html")
-    return HTMLResponse(
+            return _stamp_route_authority(
+                FileResponse(path, media_type="text/html"),
+                route_id=route_id,
+                authority="private-static-dashboard-shell",
+            )
+    return _stamp_route_authority(
+        HTMLResponse(
         "<h1>Dashboard not found</h1>"
         "<p>Place index.html in the static/ directory or project root.</p>",
         status_code=404,
+        ),
+        route_id=route_id,
+        authority="private-dashboard-shell-missing",
     )
 
 
@@ -1702,7 +3135,7 @@ async def serve_dashboard(request: Request):
     redirect = _require_auth_or_redirect(request, "/app")
     if redirect is not None:
         return redirect
-    return await _serve_app_shell("/")
+    return await _serve_app_shell("/", "/app")
 
 
 @app.get("/rankings", response_class=HTMLResponse)
@@ -1710,7 +3143,7 @@ async def serve_rankings(request: Request):
     redirect = _require_auth_or_redirect(request, "/rankings")
     if redirect is not None:
         return redirect
-    return await _serve_app_shell("/rankings")
+    return await _serve_app_shell("/rankings", "/rankings")
 
 
 @app.get("/trade", response_class=HTMLResponse)
@@ -1718,7 +3151,20 @@ async def serve_trade(request: Request):
     redirect = _require_auth_or_redirect(request, "/trade")
     if redirect is not None:
         return redirect
-    return await _serve_app_shell("/trade")
+    return await _serve_app_shell("/trade", "/trade")
+
+
+@app.get("/calculator", response_class=HTMLResponse)
+async def serve_calculator(request: Request):
+    redirect = _require_auth_or_redirect(request, "/calculator")
+    if redirect is not None:
+        return redirect
+    response = RedirectResponse(url="/trade", status_code=302)
+    return _stamp_route_authority(
+        response,
+        route_id="/calculator",
+        authority="private-trade-compat-redirect",
+    )
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -1726,7 +3172,7 @@ async def serve_login(request: Request):
     redirect = _require_auth_or_redirect(request, "/login")
     if redirect is not None:
         return redirect
-    return await _serve_app_shell("/login")
+    return await _serve_app_shell("/login", "/login")
 
 
 @app.get("/index.html", response_class=HTMLResponse)
@@ -1734,7 +3180,7 @@ async def serve_index_alias(request: Request):
     redirect = _require_auth_or_redirect(request, "/app")
     if redirect is not None:
         return redirect
-    return await _serve_app_shell("/")
+    return await _serve_app_shell("/", "/index.html")
 
 
 @app.get("/Static/index.html", response_class=HTMLResponse)
@@ -1742,7 +3188,7 @@ async def serve_legacy_index_alias(request: Request):
     redirect = _require_auth_or_redirect(request, "/app")
     if redirect is not None:
         return redirect
-    return await _serve_app_shell("/")
+    return await _serve_app_shell("/", "/Static/index.html")
 
 
 @app.get("/_next/{full_path:path}")
@@ -1776,12 +3222,15 @@ if __name__ == "__main__":
     import uvicorn
 
     print()
-    print("  ╔═══════════════════════════════════════════╗")
-    print("  ║   Dynasty Trade Calculator — Server       ║")
-    print(f"  ║   Dashboard: http://localhost:{PORT:<13}║")
-    print(f"  ║   Scrape interval: {SCRAPE_INTERVAL_HOURS}h{' ' * 21}║")
-    print(f"  ║   Alerts: {'ON → ' + ALERT_TO[:20] if ALERT_ENABLED else 'OFF':<30}║")
-    print("  ╚═══════════════════════════════════════════╝")
+    print("Dynasty Trade Calculator - Server")
+    print(f"Dashboard: http://localhost:{PORT}")
+    print(
+        "Scrape scheduler: "
+        f"{'enabled' if SCRAPE_SCHEDULER_ENABLED else 'disabled'} "
+        f"(base={SCRAPE_INTERVAL_HOURS:.2f}h, jitter={SCRAPE_INTERVAL_JITTER_MINUTES}m, "
+        f"failure_backoff={SCRAPE_FAILURE_BACKOFF_MINUTES}m, max_backoff={SCRAPE_MAX_BACKOFF_HOURS:.2f}h)"
+    )
+    print(f"Alerts: {'ON -> ' + ALERT_TO[:20] if ALERT_ENABLED else 'OFF'}")
     print()
 
     uvicorn.run(

@@ -5,6 +5,7 @@
   <title>Dynasty Trade Calculator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
     /* ── TOKENS — MODERN CLASSIC ── */
@@ -956,6 +957,202 @@
     .tt-meta { width: 55px; text-align: right; font-family: var(--mono); }
     .tt-note { font-size: 0.68rem; color: var(--subtext); font-style: italic; }
 
+    /* ── TRADE SUGGESTIONS V2 ── */
+    .tsv2-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .tsv2-control {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      background: var(--bg-soft);
+    }
+    .tsv2-control label {
+      display: block;
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+      color: var(--subtext);
+      margin-bottom: 6px;
+    }
+    .tsv2-control select,
+    .tsv2-control input {
+      width: 100%;
+      background: var(--bg-card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 5px 8px;
+      font-size: 0.74rem;
+    }
+    .tsv2-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .tsv2-caption {
+      font-size: 0.68rem;
+      color: var(--subtext);
+    }
+    .tsv2-exclusion-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .tsv2-exclusion-col {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px;
+      background: var(--bg-soft);
+      min-height: 110px;
+    }
+    .tsv2-exclusion-col h4 {
+      margin: 0 0 6px;
+      font-size: 0.67rem;
+      color: var(--subtext);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .tsv2-checks {
+      max-height: 170px;
+      overflow: auto;
+      border-top: 1px solid var(--border-dim);
+      margin-top: 6px;
+      padding-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .tsv2-check {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.72rem;
+      color: var(--text);
+      cursor: pointer;
+      line-height: 1.3;
+    }
+    .tsv2-check input { width: 14px; height: 14px; }
+    .tsv2-check small {
+      color: var(--subtext);
+      font-family: var(--mono);
+      margin-left: auto;
+      white-space: nowrap;
+    }
+    .tsv2-suggestion-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      margin-bottom: 10px;
+      background: linear-gradient(180deg, rgba(200,56,3,0.05), rgba(200,56,3,0.01));
+    }
+    .tsv2-headline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+    .tsv2-headline strong { font-size: 0.77rem; }
+    .tsv2-tag-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .tsv2-tag {
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+    }
+    .tsv2-trade-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 8px 0;
+    }
+    .tsv2-side {
+      border: 1px solid var(--border-dim);
+      border-radius: 6px;
+      padding: 8px;
+      background: var(--bg-card);
+    }
+    .tsv2-side h5 {
+      margin: 0 0 6px;
+      font-size: 0.64rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--subtext);
+    }
+    .tsv2-asset {
+      font-size: 0.72rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .tsv2-asset code {
+      margin-left: auto;
+      color: var(--subtext);
+      font-size: 0.66rem;
+    }
+    .tsv2-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 6px;
+      margin: 8px 0;
+      font-family: var(--mono);
+    }
+    .tsv2-metric {
+      border: 1px solid var(--border-dim);
+      border-radius: 5px;
+      padding: 6px;
+      background: var(--bg-card);
+      font-size: 0.66rem;
+    }
+    .tsv2-metric .v {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 2px;
+    }
+    .tsv2-why {
+      font-size: 0.72rem;
+      border-left: 3px solid var(--cyan);
+      padding: 4px 8px;
+      margin: 6px 0;
+      background: rgba(0, 180, 255, 0.06);
+    }
+    .tsv2-counter {
+      margin-top: 8px;
+      border-top: 1px solid var(--border-dim);
+      padding-top: 8px;
+      font-size: 0.72rem;
+    }
+    .tsv2-diag {
+      margin-top: 8px;
+      font-size: 0.66rem;
+      color: var(--subtext);
+      font-family: var(--mono);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
     /* ── EDGE FINDER ── */
     .edge-row { border-bottom: 1px solid var(--border-dim); }
     .edge-row:hover { background: rgba(200, 56, 3, 0.06); }
@@ -1016,6 +1213,29 @@
       line-height: 1.6;
     }
     .trade-suggestion strong { color: var(--amber); }
+    .trade-authority-warning {
+      display: none;
+      margin-top: 10px;
+      margin-bottom: 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--amber-border);
+      border-radius: 9px;
+      background: var(--amber-soft);
+      color: var(--amber);
+      font-family: var(--mono);
+      font-size: 0.66rem;
+      line-height: 1.4;
+    }
+    .trade-truth-summary {
+      display: none;
+      margin-top: 6px;
+      margin-bottom: 10px;
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      line-height: 1.45;
+      color: var(--subtext);
+      white-space: normal;
+    }
 
     /* ── MOBILE-FIRST OVERHAUL ── */
     @media (max-width: 768px) {
@@ -1041,6 +1261,13 @@
 
       /* Trade bar */
       .trade-bar-labels { font-size: 0.58rem; }
+      .trade-authority-warning {
+        font-size: 0.62rem;
+        padding: 7px 9px;
+      }
+      .trade-truth-summary {
+        font-size: 0.58rem;
+      }
 
       /* Results detail rows */
       .result-row { padding: 10px 0; font-size: 0.78rem; }
@@ -1119,6 +1346,13 @@
 
       /* Trade suggestion */
       .trade-suggestion { font-size: 0.72rem; padding: 10px 12px; }
+      .tsv2-controls,
+      .tsv2-exclusion-grid,
+      .tsv2-trade-grid {
+        grid-template-columns: 1fr;
+      }
+      .tsv2-checks { max-height: 140px; }
+      .tsv2-metrics { grid-template-columns: 1fr 1fr; }
 
       /* Side note */
       .side-note { font-size: 0.6rem; }
@@ -2134,6 +2368,16 @@
       gap: 6px;
       flex-wrap: wrap;
     }
+    .mobile-trade-tray .trade-authority-warning {
+      margin-top: 0;
+      margin-bottom: 7px;
+      font-size: 0.6rem;
+    }
+    .mobile-trade-tray .trade-truth-summary {
+      margin-top: 0;
+      margin-bottom: 7px;
+      font-size: 0.56rem;
+    }
 
     .mobile-trade-tray .tray-actions .mobile-chip-btn { min-height: 26px; }
 
@@ -2686,7 +2930,7 @@
       #tab-rookies .pos-filters,
       #tab-rookies label[for="rankingsRookieToggle"],
       #tab-rookies label[for="rankingsMyRosterToggle"] {
-        display: none;
+        display: none !important;
       }
 
       #tab-edge #edgeDesktopTableWrap {
@@ -3099,6 +3343,8 @@
           <div class="tray-verdict" id="mobileTradeVerdict">Near even</div>
           <div class="tray-kpis" id="mobileTradeKpis">A — · B — · Gap —</div>
         </div>
+        <div id="mobileTradeAuthorityWarning" class="trade-authority-warning" style="display:none;"></div>
+        <div id="mobileTradeTruthSummary" class="trade-truth-summary" style="display:none;"></div>
         <div class="tray-actions">
           <button class="mobile-chip-btn" onclick="saveTrade()">Save</button>
           <button class="mobile-chip-btn" onclick="copyTradePitch()">Share</button>
@@ -3131,6 +3377,8 @@
             <div class="tile-value" id="totalC">–</div>
           </div>
         </div>
+        <div id="tradeAuthorityWarning" class="trade-authority-warning" style="display:none;"></div>
+        <div id="tradeTruthSummary" class="trade-truth-summary" style="display:none;"></div>
 
         <div class="trade-bar-wrap">
           <div class="trade-bar-labels">
@@ -3504,10 +3752,10 @@
           <button class="pos-filter-btn" data-pos="DL" onclick="filterRankingsPos('DL',this)">DL</button>
           <button class="pos-filter-btn" data-pos="DB" onclick="filterRankingsPos('DB',this)">DB</button>
         </div>
-        <label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;cursor:pointer;margin-left:8px;">
+        <label for="rankingsRookieToggle" style="display:flex;align-items:center;gap:4px;font-size:0.72rem;cursor:pointer;margin-left:8px;">
           <input type="checkbox" id="rankingsRookieToggle" onchange="buildFullRankings()" style="width:14px;height:14px;"> Rookies only
         </label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:0.72rem;cursor:pointer;">
+        <label for="rankingsMyRosterToggle" style="display:flex;align-items:center;gap:4px;font-size:0.72rem;cursor:pointer;">
           <input type="checkbox" id="rankingsMyRosterToggle" onchange="buildFullRankings()" style="width:14px;height:14px;"> My roster only
         </label>
         <label style="font-size:0.72rem;color:var(--subtext);display:flex;align-items:center;gap:6px;">
@@ -3691,6 +3939,41 @@
       <div class="card" id="tradeTargetsCard" style="margin-bottom:14px;display:none;">
         <div class="card-title" style="margin-bottom:10px;">Trade Target Finder</div>
         <div id="tradeTargets"></div>
+      </div>
+
+      <div class="card" id="tradeSuggestionsV2Card" style="margin-bottom:14px;display:none;">
+        <div class="card-title" style="margin-bottom:8px;">Trade Suggestions</div>
+        <div class="tsv2-row">
+          <div class="tsv2-caption">Generate 2-3 sendable offers with realism tuning, strategy posture, exclusions, and likely counters.</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-sm" onclick="generateTradeSuggestionsV2()">Generate</button>
+            <button class="btn btn-ghost btn-sm" onclick="clearTradeSuggestionExclusions()">Clear Exclusions</button>
+          </div>
+        </div>
+        <div class="tsv2-controls">
+          <div class="tsv2-control">
+            <label for="tradeSuggestionsOpponent">Opponent Team</label>
+            <select id="tradeSuggestionsOpponent" onchange="onTradeSuggestionControlChange()"></select>
+          </div>
+          <div class="tsv2-control">
+            <label for="tradeSuggestionsRealism">Realism Mode</label>
+            <select id="tradeSuggestionsRealism" onchange="onTradeSuggestionControlChange()">
+              <option value="balanced">Balanced</option>
+              <option value="aggressive">Aggressive</option>
+              <option value="highly_realistic">Highly Realistic</option>
+            </select>
+          </div>
+          <div class="tsv2-control">
+            <label for="tradeSuggestionsStrategy">Strategy Mode</label>
+            <select id="tradeSuggestionsStrategy" onchange="onTradeSuggestionControlChange()">
+              <option value="neutral">Neutral</option>
+              <option value="contender">Contender</option>
+              <option value="rebuilder">Rebuilder</option>
+            </select>
+          </div>
+        </div>
+        <div id="tradeSuggestionsExclusions"></div>
+        <div id="tradeSuggestionsV2Results"></div>
       </div>
 
       <div class="card" id="tradeGradesCard" style="margin-bottom:14px;display:none;">
@@ -3882,12 +4165,12 @@
     </div>
   </div>
 
-    <script src="js/runtime/00-core-shell.js"></script>
-  <script src="js/runtime/10-rankings-and-picks.js"></script>
-  <script src="js/runtime/20-data-and-calculator.js"></script>
-  <script src="js/runtime/30-more-surfaces.js"></script>
-  <script src="js/runtime/40-runtime-features.js"></script>
-  <script src="js/runtime/50-bootstrap.js"></script>
+    <script src="js/runtime/00-core-shell.js" defer></script>
+  <script src="js/runtime/10-rankings-and-picks.js" defer></script>
+  <script src="js/runtime/20-data-and-calculator.js" defer></script>
+  <script src="js/runtime/30-more-surfaces.js" defer></script>
+  <script src="js/runtime/40-runtime-features.js" defer></script>
+  <script src="js/runtime/50-bootstrap.js" defer></script>
 </body>
 </html>
 

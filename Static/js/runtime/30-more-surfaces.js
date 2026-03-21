@@ -5,68 +5,85 @@
  */
 
   // ── TRADE HISTORY GRADES ──
-  function buildTradeGrades() {
+  async function buildTradeGrades() {
     const card = document.getElementById('tradeGradesCard');
     const div = document.getElementById('tradeGrades');
     if (!card || !div || !loadedData) return;
     const trades = filterTradesToRollingWindow(loadedData.sleeper?.trades);
     if (!trades || !trades.length) { card.style.display = 'none'; return; }
 
-    let html = '';
-    for (const trade of trades.slice(0, 15)) {
-      const ts = normalizeTradeTimestampMs(trade.timestamp);
-      const date = ts ? new Date(ts).toLocaleDateString() : '?';
-      let tradeHtml = `<div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:10px;">`;
-      tradeHtml += `<div style="font-size:0.68rem;color:var(--subtext);margin-bottom:6px;">Week ${trade.week} · ${date}</div>`;
-
-      let sideTotals = [];
-      for (const side of trade.sides) {
-        let gotTotal = 0, gotItems = [];
-        for (const rawItem of getTradeSideItemLabels(side?.got)) {
-          const tiv = getTradeItemValue(rawItem);
-          const val = tiv.metaValue;
-          const safeVal = Number.isFinite(val) ? Math.max(0, Number(val)) : 0;
-          gotTotal += safeVal;
-          const itemName = tiv.displayName || rawItem;
-          const pos = tiv.isPick ? '' : (getPlayerPosition(tiv.resolvedName || itemName) || '');
-          gotItems.push({ name: itemName, val: safeVal, pos, isPick: tiv.isPick });
-        }
-        sideTotals.push({ team: side.team, total: gotTotal, items: gotItems });
-      }
-
-      // Determine winner
-      const maxTotal = Math.max(...sideTotals.map(s => s.total));
-      const minTotal = Math.min(...sideTotals.map(s => s.total));
-      const pctGap = maxTotal > 0 ? ((maxTotal - minTotal) / maxTotal) * 100 : 0;
-
-      for (const side of sideTotals) {
-        const isWinner = sideTotals.length > 1 && side.total === maxTotal && pctGap > 3;
-        const borderColor = isWinner ? 'var(--green)' : (side.total === minTotal && pctGap > 3 ? 'var(--red)' : 'var(--border)');
-        tradeHtml += `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-left:3px solid ${borderColor};padding-left:8px;margin:4px 0;">`;
-        tradeHtml += `<span style="font-weight:600;min-width:100px;font-size:0.72rem;">${side.team}</span>`;
-        tradeHtml += `<span style="flex:1;font-size:0.68rem;color:var(--subtext);">got: ${side.items.map(i => i.name).join(', ')}</span>`;
-        tradeHtml += `<span style="font-family:var(--mono);font-size:0.72rem;font-weight:600;">${side.total.toLocaleString()}</span>`;
-        tradeHtml += `</div>`;
-      }
-
-      if (pctGap > 3 && sideTotals.length >= 2) {
-        const sorted = [...sideTotals].sort((a, b) => b.total - a.total);
-        const grade = pctGap < 8 ? 'B' : pctGap < 15 ? 'C' : pctGap < 25 ? 'D' : 'F';
-        const gradeColor = {B:'var(--green)',C:'var(--amber)',D:'var(--red)',F:'var(--red)'}[grade];
-        tradeHtml += `<div style="font-size:0.68rem;margin-top:4px;"><span style="font-weight:700;color:${gradeColor};">Grade: ${grade}</span> — ${sorted[0].team} won by ${pctGap.toFixed(0)}%</div>`;
-      } else {
-        tradeHtml += `<div style="font-size:0.68rem;margin-top:4px;color:var(--green);font-weight:600;">Fair trade (within 3%)</div>`;
-      }
-      tradeHtml += `</div>`;
-      html += tradeHtml;
-    }
-
-    div.innerHTML = html || '<div style="color:var(--subtext);font-size:0.72rem;">No trades found.</div>';
+    div.innerHTML = '<div style="color:var(--subtext);font-size:0.72rem;">Loading backend-authoritative trade grades…</div>';
     card.style.display = 'block';
+    try {
+      const analysis = await analyzeSleeperTradeHistory();
+      const diagnostics = analysis?.diagnostics || {};
+      const analyzed = Array.isArray(analysis?.analyzed) ? analysis.analyzed : [];
+      if (!analyzed.length) {
+        const backendUnavailable = String(diagnostics?.authority || '').includes('unavailable');
+        div.innerHTML = backendUnavailable
+          ? '<div style="color:var(--amber);font-size:0.72rem;">Trade grades unavailable: backend trade scoring authority is currently unavailable.</div>'
+          : '<div style="color:var(--subtext);font-size:0.72rem;">No trades found.</div>';
+        card.style.display = 'block';
+        return;
+      }
+
+      let html = '';
+      const fallbackUsed = Number(diagnostics?.summary?.fallbackUsed || 0);
+      if (fallbackUsed > 0) {
+        html += `<div style="border:1px solid var(--amber);background:rgba(246,194,62,0.12);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:0.68rem;color:var(--amber);">Backend authority scored these trades, but ${fallbackUsed} unresolved assets used explicit fallback values.</div>`;
+      }
+      for (const entry of analyzed.slice(0, 15)) {
+        const trade = entry?.trade || {};
+        const date = entry?.date || '?';
+        const sideTotals = Array.isArray(entry?.sides) ? entry.sides : [];
+        if (!sideTotals.length) continue;
+        const maxTotal = Math.max(...sideTotals.map(s => Number(s?.weighted || 0)));
+        const minTotal = Math.min(...sideTotals.map(s => Number(s?.weighted || 0)));
+        const pctGap = maxTotal > 0 ? ((maxTotal - minTotal) / maxTotal) * 100 : 0;
+
+        let tradeHtml = `<div style="border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;margin-bottom:10px;">`;
+        tradeHtml += `<div style="font-size:0.68rem;color:var(--subtext);margin-bottom:6px;">Week ${trade.week} · ${date}</div>`;
+        for (const side of sideTotals) {
+          const sideTotal = Number(side?.weighted || 0);
+          const isWinner = sideTotals.length > 1 && sideTotal === maxTotal && pctGap > 3;
+          const borderColor = isWinner ? 'var(--green)' : (sideTotal === minTotal && pctGap > 3 ? 'var(--red)' : 'var(--border)');
+          tradeHtml += `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-left:3px solid ${borderColor};padding-left:8px;margin:4px 0;">`;
+          tradeHtml += `<span style="font-weight:600;min-width:100px;font-size:0.72rem;">${side.team}</span>`;
+          tradeHtml += `<span style="flex:1;font-size:0.68rem;color:var(--subtext);">got: ${side.items.map(i => i.name).join(', ')}</span>`;
+          tradeHtml += `<span style="font-family:var(--mono);font-size:0.72rem;font-weight:600;">${Math.round(sideTotal).toLocaleString()}</span>`;
+          tradeHtml += `</div>`;
+        }
+
+        if (pctGap > 3 && sideTotals.length >= 2) {
+          const sorted = [...sideTotals].sort((a, b) => Number(b.weighted || 0) - Number(a.weighted || 0));
+          const grade = pctGap < 8 ? 'B' : pctGap < 15 ? 'C' : pctGap < 25 ? 'D' : 'F';
+          const gradeColor = {B:'var(--green)',C:'var(--amber)',D:'var(--red)',F:'var(--red)'}[grade];
+          tradeHtml += `<div style="font-size:0.68rem;margin-top:4px;"><span style="font-weight:700;color:${gradeColor};">Grade: ${grade}</span> — ${sorted[0].team} won by ${pctGap.toFixed(0)}%</div>`;
+        } else {
+          tradeHtml += `<div style="font-size:0.68rem;margin-top:4px;color:var(--green);font-weight:600;">Fair trade (within 3%)</div>`;
+        }
+        tradeHtml += `</div>`;
+        html += tradeHtml;
+      }
+
+      div.innerHTML = html || '<div style="color:var(--subtext);font-size:0.72rem;">No trades found.</div>';
+      card.style.display = 'block';
+    } catch (err) {
+      div.innerHTML = '<div style="color:var(--red);font-size:0.72rem;">Trade grades unavailable due to backend scoring error.</div>';
+      card.style.display = 'block';
+      console.error('[Trade Grades] Failed to render backend-authoritative grades.', err);
+    }
   }
 
   // ── TRADE HISTORY PAGE (Trades Tab) ──
-  function buildTradeHistoryPage() {
+  let tradeHistoryBuildSeq = 0;
+  async function buildTradeHistoryPage(opts = {}) {
+    const runId = ++tradeHistoryBuildSeq;
+    const shouldRenderMobilePreview = !!opts?.renderMobilePreview;
+    const syncMobilePreview = () => {
+      if (!shouldRenderMobilePreview) return;
+      if (typeof renderMobileMoreTradesPreview === 'function') renderMobileMoreTradesPreview();
+    };
     const listDiv = document.getElementById('tradeHistoryList');
     const statsCard = document.getElementById('tradeStatsCard');
     const statsDiv = document.getElementById('tradeStats');
@@ -76,17 +93,26 @@
       tradeHistoryRenderCache = [];
       listDiv.innerHTML = '<div class="card"><p style="color:var(--subtext);padding:12px;">No trade data available. Load dynasty data with a Sleeper league.</p></div>';
       if (statsCard) statsCard.style.display = 'none';
+      syncMobilePreview();
       return;
     }
 
-    const analysis = analyzeSleeperTradeHistory();
+    listDiv.innerHTML = '<div class="card"><p style="color:var(--subtext);padding:12px;">Scoring historical trades via backend authority…</p></div>';
+    try {
+      const analysis = await analyzeSleeperTradeHistory();
+      if (runId !== tradeHistoryBuildSeq) return;
     const windowDays = Number(analysis?.windowDays || getTradeHistoryWindowDays());
     const analyzed = Array.isArray(analysis?.analyzed) ? analysis.analyzed : [];
     const teamScores = analysis?.teamScores || {};
+      const diagnostics = analysis?.diagnostics || {};
     if (!analyzed.length) {
       tradeHistoryRenderCache = [];
-      listDiv.innerHTML = `<div class="card"><p style="color:var(--subtext);padding:12px;">No completed trades found in the last ${windowDays} days.</p></div>`;
+        const backendUnavailable = String(diagnostics?.authority || '').includes('unavailable');
+        listDiv.innerHTML = backendUnavailable
+          ? '<div class="card"><p style="color:var(--amber);padding:12px;">Historical trade scoring unavailable: backend authority is not responding.</p></div>'
+          : `<div class="card"><p style="color:var(--subtext);padding:12px;">No completed trades found in the last ${windowDays} days.</p></div>`;
       if (statsCard) statsCard.style.display = 'none';
+        syncMobilePreview();
       return;
     }
     const teamFilter = document.getElementById('tradeTeamFilter')?.value || '';
@@ -120,6 +146,14 @@
 
     // ── Trade List ──
     let listHtml = '';
+      const fallbackRows = Number(diagnostics?.summary?.fallbackUsed || 0);
+      const skippedTrades = Number(diagnostics?.tradesSkipped || 0);
+      if (fallbackRows > 0) {
+        listHtml += `<div class="card" style="border-color:var(--amber);background:rgba(246,194,62,0.12);"><p style="color:var(--amber);padding:10px 12px;font-size:0.72rem;">Backend authority scored this history, but ${fallbackRows} unresolved assets used explicit fallback values.</p></div>`;
+      }
+      if (skippedTrades > 0) {
+        listHtml += `<div class="card" style="border-color:var(--red);background:rgba(231,76,60,0.12);"><p style="color:var(--red);padding:10px 12px;font-size:0.72rem;">${skippedTrades} historical trades were skipped because backend authority scoring was unavailable for those rows.</p></div>`;
+      }
     for (let idx = 0; idx < filtered.length; idx++) {
       const a = filtered[idx];
       listHtml += `<div class="card" style="margin-bottom:10px;padding:12px;">`;
@@ -151,14 +185,16 @@
           listHtml += `</span>`;
         }
         listHtml += `</div>`;
-        listHtml += `<div style="font-family:var(--mono);font-size:0.66rem;margin-top:3px;">Linear: ${Math.round(side.linear).toLocaleString()} · Stud-adj: ${Math.round(side.weighted).toLocaleString()}</div>`;
+        const pkgDelta = Number(side.packageDeltaPct || 0);
+        const pkgSign = pkgDelta >= 0 ? '+' : '';
+        listHtml += `<div style="font-family:var(--mono);font-size:0.66rem;margin-top:3px;">Linear: ${Math.round(side.linear).toLocaleString()} · Package-adj: ${Math.round(side.weighted).toLocaleString()} (${pkgSign}${pkgDelta.toFixed(1)}%)</div>`;
         listHtml += `</div>`;
         listHtml += `</div>`;
       }
 
       if (a.pctGap >= 3) {
         listHtml += `<div style="font-size:0.66rem;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);color:var(--subtext);">`;
-        listHtml += `${a.winner.team} won by ${a.pctGap.toFixed(1)}% (stud-adjusted)`;
+        listHtml += `${a.winner.team} won by ${a.pctGap.toFixed(1)}% (package-adjusted)`;
         listHtml += `</div>`;
       } else {
         listHtml += `<div style="font-size:0.66rem;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);color:var(--green);font-weight:600;">Fair trade (within 3%)</div>`;
@@ -170,6 +206,15 @@
     }
 
     listDiv.innerHTML = listHtml || '<div class="card"><p style="color:var(--subtext);padding:12px;">No trades match the filter.</p></div>';
+      syncMobilePreview();
+    } catch (err) {
+      if (runId !== tradeHistoryBuildSeq) return;
+      tradeHistoryRenderCache = [];
+      listDiv.innerHTML = '<div class="card"><p style="color:var(--red);padding:12px;">Historical trade scoring failed. Backend authority is required for this view.</p></div>';
+      if (statsCard) statsCard.style.display = 'none';
+      syncMobilePreview();
+      console.error('[Trade History] Failed to build backend-authoritative analysis.', err);
+    }
   }
 
   // ── WAIVER WIRE GEMS ──
@@ -448,6 +493,1120 @@
     if (preferred) sel.value = preferred;
   }
 
+  const TRADE_SUGGESTIONS_V2_SESSION_KEY = 'dynasty_trade_suggestions_v2';
+  const TRADE_SUGGESTIONS_V2_MIN_VALUE = 140;
+  const SUGGESTION_GROUPS = ['QB','RB','WR','TE','DL','LB','DB'];
+  const SUGGESTION_MODE_REALISM = new Set(['aggressive', 'balanced', 'highly_realistic']);
+  const SUGGESTION_MODE_STRATEGY = new Set(['contender', 'rebuilder', 'neutral']);
+  const TRADE_SUGGESTIONS_MAX_RESULTS = 3;
+  const SUGGESTION_DIAG_MAX = 220;
+  const BB_VOLATILITY_KEYS = ['high', 'spike', 'boom', 'volatile'];
+  const __tradeSuggestionsV2 = {
+    state: null,
+    exclusionView: null,
+    diagnostics: null,
+  };
+
+  function _cloneTradeSuggestionState(state) {
+    if (!state || typeof state !== 'object') return null;
+    return JSON.parse(JSON.stringify(state));
+  }
+
+  function _normalizeStrategyMode(raw) {
+    const val = String(raw || 'neutral').trim().toLowerCase();
+    return SUGGESTION_MODE_STRATEGY.has(val) ? val : 'neutral';
+  }
+
+  function _normalizeRealismMode(raw) {
+    const val = String(raw || 'balanced').trim().toLowerCase().replace(/\s+/g, '_');
+    return SUGGESTION_MODE_REALISM.has(val) ? val : 'balanced';
+  }
+
+  function _normalizeExclusionSet(arr) {
+    if (!Array.isArray(arr)) return [];
+    const out = [];
+    const seen = new Set();
+    arr.forEach(item => {
+      const nk = normalizeForLookup(String(item || ''));
+      if (!nk || seen.has(nk)) return;
+      seen.add(nk);
+      out.push(nk);
+    });
+    return out;
+  }
+
+  function getDefaultTradeSuggestionsV2State() {
+    return {
+      opponentTeam: '',
+      realismMode: 'balanced',
+      strategyMode: 'neutral',
+      exclusions: {
+        ourPlayers: [],
+        ourPicks: [],
+        theirPlayers: [],
+        theirPicks: [],
+      },
+      lastOutput: null,
+    };
+  }
+
+  function loadTradeSuggestionsV2State() {
+    if (__tradeSuggestionsV2.state) return _cloneTradeSuggestionState(__tradeSuggestionsV2.state);
+    let parsed = null;
+    try {
+      const raw = sessionStorage.getItem(TRADE_SUGGESTIONS_V2_SESSION_KEY);
+      if (raw) parsed = JSON.parse(raw);
+    } catch (_) {
+      parsed = null;
+    }
+    const base = getDefaultTradeSuggestionsV2State();
+    if (!parsed || typeof parsed !== 'object') {
+      __tradeSuggestionsV2.state = base;
+      return _cloneTradeSuggestionState(base);
+    }
+    const next = {
+      ...base,
+      opponentTeam: String(parsed.opponentTeam || ''),
+      realismMode: _normalizeRealismMode(parsed.realismMode),
+      strategyMode: _normalizeStrategyMode(parsed.strategyMode),
+      exclusions: {
+        ourPlayers: _normalizeExclusionSet(parsed.exclusions?.ourPlayers),
+        ourPicks: _normalizeExclusionSet(parsed.exclusions?.ourPicks),
+        theirPlayers: _normalizeExclusionSet(parsed.exclusions?.theirPlayers),
+        theirPicks: _normalizeExclusionSet(parsed.exclusions?.theirPicks),
+      },
+      lastOutput: parsed.lastOutput && typeof parsed.lastOutput === 'object' ? parsed.lastOutput : null,
+    };
+    __tradeSuggestionsV2.state = next;
+    return _cloneTradeSuggestionState(next);
+  }
+
+  function saveTradeSuggestionsV2State(nextState) {
+    const base = getDefaultTradeSuggestionsV2State();
+    const merged = {
+      ...base,
+      ...(nextState || {}),
+      realismMode: _normalizeRealismMode(nextState?.realismMode),
+      strategyMode: _normalizeStrategyMode(nextState?.strategyMode),
+      exclusions: {
+        ourPlayers: _normalizeExclusionSet(nextState?.exclusions?.ourPlayers),
+        ourPicks: _normalizeExclusionSet(nextState?.exclusions?.ourPicks),
+        theirPlayers: _normalizeExclusionSet(nextState?.exclusions?.theirPlayers),
+        theirPicks: _normalizeExclusionSet(nextState?.exclusions?.theirPicks),
+      },
+      lastOutput: nextState?.lastOutput || null,
+    };
+    __tradeSuggestionsV2.state = merged;
+    try {
+      sessionStorage.setItem(TRADE_SUGGESTIONS_V2_SESSION_KEY, JSON.stringify(merged));
+    } catch (_) {}
+    return _cloneTradeSuggestionState(merged);
+  }
+
+  function _isBestBallContext() {
+    if (typeof getBestBallContextDetails === 'function') {
+      return !!getBestBallContextDetails().active;
+    }
+    const v = loadedData?.sleeper?.leagueSettings?.best_ball;
+    if (v === true || v === 1 || String(v).toLowerCase() === 'true') return true;
+    return true;
+  }
+
+  function _getAssetConfidenceScore(raw) {
+    const a = Number(raw?.marketReliabilityScore);
+    if (Number.isFinite(a) && a > 0) return clampValue(a, 0.20, 1.00);
+    const b = Number(raw?.marketConfidence);
+    if (Number.isFinite(b) && b > 0) return clampValue(b, 0.20, 1.00);
+    const fit = Number(raw?.formatFitConfidence);
+    if (Number.isFinite(fit) && fit > 0) return clampValue(fit, 0.20, 1.00);
+    return 0.45;
+  }
+
+  function _isLowConfidenceAsset(asset) {
+    return Number(asset?.confidence || 0) < 0.58 || Number(asset?.sourceCoverage || 0) <= 1;
+  }
+
+  function _parseAssetYearsExp(name) {
+    const p = loadedData?.players?.[name];
+    const years = Number(p?._yearsExp);
+    return Number.isFinite(years) && years >= 0 ? years : null;
+  }
+
+  function _isVolatileBestBallAsset(name) {
+    const p = loadedData?.players?.[name];
+    const vf = String(p?._formatFitVolatilityFlag || '').toLowerCase();
+    if (vf && vf !== 'none' && vf !== 'false' && vf !== '0') return true;
+    const tags = p?._formatFitScoringTags;
+    if (Array.isArray(tags) && tags.some(tag => BB_VOLATILITY_KEYS.some(k => String(tag).toLowerCase().includes(k)))) return true;
+    return false;
+  }
+
+  function _isRookieAsset(name) {
+    const p = loadedData?.players?.[name];
+    return !!isRookiePlayerName(name, p);
+  }
+
+  function _isAgingAsset(asset) {
+    if (!asset || asset.type !== 'player') return false;
+    const y = Number(asset.yearsExp);
+    if (!Number.isFinite(y)) return false;
+    if (asset.group === 'QB') return y >= 9;
+    if (asset.isIdp) return y >= 7;
+    return y >= 6;
+  }
+
+  function _assetListFromTeam(team, sideLabel, exclusions) {
+    const out = [];
+    if (!team || !Array.isArray(team.players)) return out;
+    const posMap = loadedData?.sleeper?.positions || {};
+    const seen = new Set();
+    const pushAsset = (label, forcedPick = false) => {
+      const cleanLabel = String(label || '').trim();
+      if (!cleanLabel) return;
+      const key = normalizeForLookup(cleanLabel);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      const isPick = forcedPick || !!parsePickToken(cleanLabel);
+      const exclusionBucket = isPick
+        ? (sideLabel === 'ours' ? exclusions.ourPicks : exclusions.theirPicks)
+        : (sideLabel === 'ours' ? exclusions.ourPlayers : exclusions.theirPlayers);
+      if (exclusionBucket.has(key)) return;
+      const tiv = getTradeItemValue(cleanLabel);
+      const value = Number(tiv?.metaValue || 0);
+      if (!Number.isFinite(value) || value <= TRADE_SUGGESTIONS_V2_MIN_VALUE) return;
+      const resolved = String(tiv?.resolvedName || cleanLabel).trim() || cleanLabel;
+      const pData = loadedData?.players?.[resolved] || loadedData?.players?.[cleanLabel] || null;
+      const raw = Math.max(1, Math.round(Number(tiv?.rawMarketValue ?? value) || value));
+      const scoring = Math.max(1, Math.round(Number(tiv?.scoringAdjustedValue ?? raw) || raw));
+      const scarcity = Math.max(1, Math.round(Number(tiv?.scarcityAdjustedValue ?? scoring) || scoring));
+      const full = Math.max(1, Math.round(Number(tiv?.finalAdjustedValue ?? value) || value));
+      const pos = isPick ? 'PICK' : String((posMap[resolved] || posMap[cleanLabel] || getPlayerPosition(resolved) || getPlayerPosition(cleanLabel) || '')).toUpperCase();
+      const group = isPick ? 'PICKS' : posGroup(pos);
+      const confidence = _getAssetConfidenceScore({
+        marketReliabilityScore: Number(tiv?.marketReliabilityScore),
+        marketConfidence: Number(tiv?.marketConfidence),
+        formatFitConfidence: Number(tiv?.formatFitConfidence),
+      });
+      const sourceCoverage = Math.max(0, Number(tiv?.siteCount || pData?._sites || 0));
+      out.push({
+        id: `${isPick ? 'pick' : 'player'}:${key}`,
+        key,
+        label: cleanLabel,
+        resolvedName: resolved,
+        type: isPick ? 'pick' : 'player',
+        teamName: team.name,
+        side: sideLabel,
+        value,
+        rawValue: raw,
+        scoringAdjustedValue: scoring,
+        scarcityAdjustedValue: scarcity,
+        fullValue: full,
+        position: pos || (isPick ? 'PICK' : ''),
+        group,
+        isIdp: !isPick && ['DL','LB','DB'].includes(group),
+        isOffense: !isPick && ['QB','RB','WR','TE'].includes(group),
+        confidence,
+        sourceCoverage,
+        yearsExp: _parseAssetYearsExp(resolved) ?? _parseAssetYearsExp(cleanLabel),
+        rookie: !isPick && _isRookieAsset(resolved),
+        volatilityFlag: !isPick && _isVolatileBestBallAsset(resolved),
+        formatFitTags: Array.isArray(pData?._formatFitScoringTags) ? pData._formatFitScoringTags.slice(0, 6) : [],
+      });
+    };
+
+    team.players.forEach(p => {
+      if (!p) return;
+      if (parsePickToken(p)) {
+        pushAsset(p, true);
+      } else {
+        const pos = String(posMap[p] || getPlayerPosition(p) || '').toUpperCase();
+        if (isKickerPosition(pos)) return;
+        pushAsset(p, false);
+      }
+    });
+    if (Array.isArray(team.picks)) {
+      team.picks.forEach(p => pushAsset(p, true));
+    }
+    return out.sort((a, b) => b.value - a.value || a.label.localeCompare(b.label));
+  }
+
+  function _buildNeedsFromAssets(assets, leagueAvgByGroup) {
+    const totals = {};
+    SUGGESTION_GROUPS.concat(['PICKS']).forEach(g => { totals[g] = 0; });
+    (assets || []).forEach(a => {
+      const g = a.group || 'Other';
+      if (totals[g] == null) totals[g] = 0;
+      totals[g] += Number(a.value || 0);
+    });
+    const ratio = {};
+    Object.keys(totals).forEach(g => {
+      const avg = Number(leagueAvgByGroup?.[g] || 0);
+      ratio[g] = avg > 0 ? (Number(totals[g] || 0) / avg) : 1;
+    });
+    const needs = SUGGESTION_GROUPS.slice().sort((a, b) => ratio[a] - ratio[b]);
+    const surplus = SUGGESTION_GROUPS.slice().sort((a, b) => ratio[b] - ratio[a]);
+    return {
+      totals,
+      ratio,
+      needs,
+      surplus,
+      needTop2: needs.slice(0, 2),
+      surplusTop2: surplus.slice(0, 2),
+      idpTotal: ['DL','LB','DB'].reduce((s, g) => s + Number(totals[g] || 0), 0),
+      offenseTotal: ['QB','RB','WR','TE'].reduce((s, g) => s + Number(totals[g] || 0), 0),
+    };
+  }
+
+  function _inferTeamPosture(team) {
+    if (!team) return 'neutral';
+    const tiers = typeof getTeamTier === 'function' ? getTeamTier(sleeperTeams || []) : [];
+    const match = tiers.find(t => String(t?.name || '').toLowerCase() === String(team.name || '').toLowerCase());
+    if (!match) return 'neutral';
+    if (match.tier === 'contender') return 'contender';
+    if (match.tier === 'rebuilder') return 'rebuilder';
+    return 'neutral';
+  }
+
+  function _getRealismConfig(mode) {
+    const resolved = _normalizeRealismMode(mode);
+    if (resolved === 'aggressive') {
+      return {
+        mode: resolved,
+        minEdgePct: 0.025,
+        maxEdgePct: 0.19,
+        minPlausibility: 46,
+        maxPiecesPerSide: 5,
+        maxIncomingPieces: 3,
+        candidateCap: 18,
+        weights: { ourEdge: 0.34, theirFit: 0.15, ourFit: 0.18, market: 0.14, package: 0.11, confidence: 0.08 },
+      };
+    }
+    if (resolved === 'highly_realistic') {
+      return {
+        mode: resolved,
+        minEdgePct: 0.008,
+        maxEdgePct: 0.075,
+        minPlausibility: 68,
+        maxPiecesPerSide: 4,
+        maxIncomingPieces: 3,
+        candidateCap: 15,
+        weights: { ourEdge: 0.18, theirFit: 0.22, ourFit: 0.16, market: 0.24, package: 0.14, confidence: 0.06 },
+      };
+    }
+    return {
+      mode: 'balanced',
+      minEdgePct: 0.015,
+      maxEdgePct: 0.12,
+      minPlausibility: 57,
+      maxPiecesPerSide: 4,
+      maxIncomingPieces: 3,
+      candidateCap: 16,
+      weights: { ourEdge: 0.26, theirFit: 0.18, ourFit: 0.16, market: 0.20, package: 0.12, confidence: 0.08 },
+    };
+  }
+
+  function _strategyScoreMultiplier(strategyMode, ourNeeds, asset, incoming) {
+    const strategy = _normalizeStrategyMode(strategyMode);
+    if (!asset) return 1;
+    let mult = 1;
+    if (strategy === 'contender') {
+      if (incoming) {
+        if (asset.type === 'pick') mult *= 0.78;
+        if (asset.type === 'player' && _isAgingAsset(asset)) mult *= 1.08;
+        if (asset.type === 'player' && ourNeeds.needTop2.includes(asset.group)) mult *= 1.12;
+      } else {
+        if (asset.type === 'pick') mult *= 1.12;
+        if (asset.type === 'player' && ourNeeds.needTop2.includes(asset.group)) mult *= 0.68;
+      }
+    } else if (strategy === 'rebuilder') {
+      if (incoming) {
+        if (asset.type === 'pick') mult *= 1.25;
+        if (asset.type === 'player' && (asset.rookie || Number(asset.yearsExp || 99) <= 2)) mult *= 1.18;
+        if (_isAgingAsset(asset)) mult *= 0.70;
+      } else {
+        if (asset.type === 'pick') mult *= 0.72;
+        if (asset.type === 'player' && _isAgingAsset(asset)) mult *= 1.12;
+      }
+    }
+    return mult;
+  }
+
+  function _scoreCandidateAsset(asset, ctx) {
+    if (!asset) return -1e9;
+    const { isIncoming, ourNeeds, theirNeeds, strategyMode, bestBallActive } = ctx;
+    let score = Number(asset.value || 0);
+    if (isIncoming) {
+      if (ourNeeds.needTop2.includes(asset.group)) score *= 1.26;
+      if (ourNeeds.surplusTop2.includes(asset.group)) score *= 0.92;
+      if (bestBallActive && asset.volatilityFlag) score *= 1.08;
+    } else {
+      if (ourNeeds.surplusTop2.includes(asset.group)) score *= 1.24;
+      if (ourNeeds.needTop2.includes(asset.group)) score *= 0.70;
+      if (_isLowConfidenceAsset(asset)) score *= 1.06;
+      if (asset.value > 8200) score *= 0.70;
+    }
+    if (!isIncoming && theirNeeds.needTop2.includes(asset.group)) score *= 1.12;
+    score *= _strategyScoreMultiplier(strategyMode, ourNeeds, asset, isIncoming);
+    return score;
+  }
+
+  function _pickCandidatesByMode(assets, cap, ctx) {
+    const ranked = (assets || [])
+      .map(a => ({ ...a, __candidateScore: _scoreCandidateAsset(a, ctx) }))
+      .filter(a => Number.isFinite(a.__candidateScore) && a.__candidateScore > 0)
+      .sort((a, b) => b.__candidateScore - a.__candidateScore || b.value - a.value)
+      .slice(0, Math.max(6, cap || 12))
+      .map(a => {
+        const clone = { ...a };
+        delete clone.__candidateScore;
+        return clone;
+      });
+    return ranked;
+  }
+
+  function _buildAssetCombos(assets, maxCount, opts = {}) {
+    const source = Array.isArray(assets) ? assets : [];
+    const maxCombos = Math.max(20, Number(opts.maxCombos || 280));
+    const minTotal = Math.max(0, Number(opts.minTotal || 0));
+    const maxTotal = Number.isFinite(Number(opts.maxTotal)) ? Number(opts.maxTotal) : Number.POSITIVE_INFINITY;
+    const out = [];
+    const stack = [];
+    const n = source.length;
+
+    function dfs(start, total) {
+      if (stack.length > 0 && total >= minTotal && total <= maxTotal) {
+        out.push({
+          assets: stack.slice(),
+          total,
+        });
+        if (out.length >= maxCombos) return;
+      }
+      if (stack.length >= maxCount) return;
+      for (let i = start; i < n; i += 1) {
+        const a = source[i];
+        const nextTotal = total + Number(a.value || 0);
+        if (nextTotal > maxTotal * 1.3) continue;
+        stack.push(a);
+        dfs(i + 1, nextTotal);
+        stack.pop();
+        if (out.length >= maxCombos) return;
+      }
+    }
+    dfs(0, 0);
+    return out;
+  }
+
+  function _weightedMeanConfidence(assets) {
+    const list = Array.isArray(assets) ? assets : [];
+    let numer = 0;
+    let denom = 0;
+    list.forEach(a => {
+      const w = Math.max(1, Number(a.value || 0));
+      const c = clampValue(Number(a.confidence || 0.45), 0.2, 1);
+      numer += c * w;
+      denom += w;
+    });
+    return denom > 0 ? (numer / denom) : 0.45;
+  }
+
+  function _countFringeAssets(assets) {
+    return (assets || []).filter(a => Number(a?.value || 0) < 700).length;
+  }
+
+  function _scoreMarketPlausibility(ourSend, theirSend, edgePct, realismCfg) {
+    const ourTotal = ourSend.reduce((s, a) => s + Number(a.value || 0), 0);
+    const theirTotal = theirSend.reduce((s, a) => s + Number(a.value || 0), 0);
+    const maxSide = Math.max(ourTotal, theirTotal, 1);
+    const gapPct = Math.abs(theirTotal - ourTotal) / maxSide;
+    let score = 100 - (gapPct * 540);
+    score -= Math.max(0, (ourSend.length - 3) * 10);
+    score -= Math.max(0, (theirSend.length - 2) * 10);
+    if (edgePct > realismCfg.maxEdgePct) score -= (edgePct - realismCfg.maxEdgePct) * 420;
+    if (edgePct < realismCfg.minEdgePct) score -= (realismCfg.minEdgePct - edgePct) * 300;
+    const lowConfCenterpiece = [...ourSend, ...theirSend]
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 2)
+      .some(a => _isLowConfidenceAsset(a));
+    if (lowConfCenterpiece) score -= 14;
+    return clampValue(score, 0, 100);
+  }
+
+  function _scorePackageRealism(ourSend, theirSend) {
+    const pieces = ourSend.length + theirSend.length;
+    const fringe = _countFringeAssets(ourSend) + _countFringeAssets(theirSend);
+    let score = 88;
+    score -= Math.max(0, pieces - 4) * 9;
+    score -= Math.max(0, fringe - 1) * 10;
+    if (ourSend.length >= 3 && theirSend.length >= 3) score -= 10;
+    if ((ourSend.length >= 2 && theirSend.length === 1) || (theirSend.length >= 2 && ourSend.length === 1)) score += 6;
+    return clampValue(score, 0, 100);
+  }
+
+  function _scoreFit(assetsIn, assetsOut, needs, strategyMode, bestBallActive) {
+    let score = 50;
+    assetsIn.forEach(a => {
+      if (needs.needTop2.includes(a.group)) score += 8;
+      if (needs.surplusTop2.includes(a.group)) score -= 4;
+      if (a.type === 'pick' && strategyMode === 'rebuilder') score += 7;
+      if (a.type === 'pick' && strategyMode === 'contender') score -= 5;
+      if (_isAgingAsset(a) && strategyMode === 'rebuilder') score -= 7;
+      if (_isAgingAsset(a) && strategyMode === 'contender') score += 3;
+      if (bestBallActive && a.volatilityFlag) score += 4;
+    });
+    assetsOut.forEach(a => {
+      if (needs.needTop2.includes(a.group)) score -= 6;
+      if (needs.surplusTop2.includes(a.group)) score += 3;
+      if (a.type === 'pick' && strategyMode === 'contender') score += 4;
+      if (a.type === 'pick' && strategyMode === 'rebuilder') score -= 5;
+    });
+    return clampValue(score, 0, 100);
+  }
+
+  function _scoreConfidence(ourSend, theirSend) {
+    const allAssets = (ourSend || []).concat(theirSend || []);
+    const mean = _weightedMeanConfidence(allAssets);
+    let score = clampValue(mean * 100, 0, 100);
+    const thinCenterpiece = allAssets
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 2)
+      .some(a => Number(a.sourceCoverage || 0) <= 1);
+    if (thinCenterpiece) score -= 18;
+    return clampValue(score, 0, 100);
+  }
+
+  function _scoreSuggestion(trade, ctx) {
+    const ourTotal = Number(trade.ourTotal || 0);
+    const theirTotal = Number(trade.theirTotal || 0);
+    const maxSide = Math.max(ourTotal, theirTotal, 1);
+    const edgePct = (theirTotal - ourTotal) / maxSide;
+    const ourEdgeScore = clampValue(50 + (edgePct * 320), 0, 100);
+    const theirFitScore = _scoreFit(trade.ourSend, trade.theirSend, ctx.theirNeeds, ctx.theirStrategy, ctx.bestBallActive);
+    const ourFitScore = _scoreFit(trade.theirSend, trade.ourSend, ctx.ourNeeds, ctx.ourStrategy, ctx.bestBallActive);
+    const marketPlausibilityScore = _scoreMarketPlausibility(trade.ourSend, trade.theirSend, edgePct, ctx.realismCfg);
+    const packageRealismScore = _scorePackageRealism(trade.ourSend, trade.theirSend);
+    const confidenceScore = _scoreConfidence(trade.ourSend, trade.theirSend);
+    const w = ctx.realismCfg.weights;
+    const weighted =
+      (ourEdgeScore * w.ourEdge) +
+      (theirFitScore * w.theirFit) +
+      (ourFitScore * w.ourFit) +
+      (marketPlausibilityScore * w.market) +
+      (packageRealismScore * w.package) +
+      (confidenceScore * w.confidence);
+    return {
+      edgePct,
+      scores: {
+        ourEdgeScore: Math.round(ourEdgeScore * 10) / 10,
+        theirFitScore: Math.round(theirFitScore * 10) / 10,
+        ourFitScore: Math.round(ourFitScore * 10) / 10,
+        marketPlausibilityScore: Math.round(marketPlausibilityScore * 10) / 10,
+        packageRealismScore: Math.round(packageRealismScore * 10) / 10,
+        confidenceScore: Math.round(confidenceScore * 10) / 10,
+      },
+      suggestionScore: Math.round(weighted * 10) / 10,
+    };
+  }
+
+  function _suggestionTradeKey(ourSend, theirSend) {
+    const left = (ourSend || []).map(a => a.id).sort().join('|');
+    const right = (theirSend || []).map(a => a.id).sort().join('|');
+    return `${left}=>${right}`;
+  }
+
+  function _deriveArchetypeTags(suggestion, ctx) {
+    const tags = [];
+    const reasons = [];
+    const ourSend = suggestion.ourSend || [];
+    const theirSend = suggestion.theirSend || [];
+    const ourPicks = ourSend.filter(a => a.type === 'pick').length;
+    const theirPicks = theirSend.filter(a => a.type === 'pick').length;
+    const sentAging = ourSend.filter(a => _isAgingAsset(a));
+    const recvAging = theirSend.filter(a => _isAgingAsset(a));
+    const recvYoung = theirSend.filter(a => a.type === 'player' && (a.rookie || Number(a.yearsExp || 99) <= 2));
+    const recvVolatile = theirSend.filter(a => a.volatilityFlag);
+    if (ourSend.length >= 2 && theirSend.length === 1 && suggestion.theirTotal >= suggestion.ourTotal * 0.92) {
+      tags.push('consolidation');
+      reasons.push('Packaging depth into one stronger asset.');
+    }
+    if ((ourPicks > 0 && recvAging.length > 0) || (theirPicks > 0 && sentAging.length > 0)) {
+      tags.push('veteran-for-picks');
+      reasons.push('Trade shape moves veteran production against draft capital.');
+    }
+    if (sentAging.length > 0 && (theirPicks > 0 || recvYoung.length > 0)) {
+      tags.push('sell aging');
+      reasons.push('Moves aging production into insulated youth/picks.');
+    }
+    const lowConfRecv = theirSend.filter(a => _isLowConfidenceAsset(a) && a.type === 'player' && a.value >= 1800);
+    if (lowConfRecv.length > 0 && suggestion.scores.marketPlausibilityScore >= ctx.realismCfg.minPlausibility - 8) {
+      tags.push('buy low');
+      reasons.push('Targets discounted assets with rebound paths.');
+    }
+    const ourIdpBefore = Number(ctx.ourNeeds.idpTotal || 0);
+    const ourIdpAfter = ourIdpBefore
+      - ourSend.filter(a => a.isIdp).reduce((s, a) => s + Number(a.value || 0), 0)
+      + theirSend.filter(a => a.isIdp).reduce((s, a) => s + Number(a.value || 0), 0);
+    const idpLeagueAvg = Number(ctx.leagueAvgByGroup?.DL || 0) + Number(ctx.leagueAvgByGroup?.LB || 0) + Number(ctx.leagueAvgByGroup?.DB || 0);
+    const beforeGap = Math.abs(ourIdpBefore - idpLeagueAvg);
+    const afterGap = Math.abs(ourIdpAfter - idpLeagueAvg);
+    if (Math.abs(beforeGap - afterGap) > 500 && afterGap < beforeGap) {
+      tags.push('IDP correction');
+      reasons.push('Improves IDP balance vs league replacement pressure.');
+    }
+    if (ctx.bestBallActive && recvVolatile.length > 0) {
+      tags.push('best-ball upside move');
+      reasons.push('Adds spike-week volatility that best-ball can auto-capture.');
+    }
+    return { tags: Array.from(new Set(tags)).slice(0, 3), reasons };
+  }
+
+  function _buildSendabilityNarratives(suggestion, ctx) {
+    const tags = suggestion.archetypeTags || [];
+    const need = ctx.ourNeeds.needTop2[0] || 'starter';
+    let helpsUs = '';
+    let helpsThem = '';
+    if (tags.includes('consolidation')) {
+      helpsUs = `Helps us consolidate depth into a stronger ${need} starter without overpaying in total value.`;
+    } else if (ctx.ourStrategy === 'rebuilder') {
+      helpsUs = 'Helps us shift value into younger insulation and pick runway while keeping upside intact.';
+    } else if (ctx.ourStrategy === 'contender') {
+      helpsUs = `Helps us add immediate lineup utility at ${need} for a playoff build.`;
+    } else {
+      helpsUs = `Helps us improve roster fit at ${need} while preserving a positive calculator edge.`;
+    }
+
+    if (tags.includes('sell aging')) {
+      helpsThem = 'Might appeal because they can convert aging production into younger or longer-horizon value.';
+    } else if (ctx.theirStrategy === 'contender') {
+      helpsThem = `Might work if they are pushing to contend and want usable weekly points at ${ctx.theirNeeds.needTop2[0] || 'a thin spot'}.`;
+    } else if (ctx.theirStrategy === 'rebuilder') {
+      helpsThem = 'Might appeal if they are retooling since they receive insulation via picks/younger profiles.';
+    } else {
+      helpsThem = `Could be sendable because it addresses their ${ctx.theirNeeds.needTop2[0] || 'lineup'} need with plausible market balance.`;
+    }
+    return { helpsUs, helpsThem };
+  }
+
+  function _findLikelyCounter(suggestion, ctx) {
+    const edgePct = Number(suggestion.edgePct || 0);
+    const plaus = Number(suggestion.scores?.marketPlausibilityScore || 0);
+    const theirFit = Number(suggestion.scores?.theirFitScore || 0);
+    if (edgePct <= ctx.realismCfg.minEdgePct + 0.01 && plaus >= ctx.realismCfg.minPlausibility && theirFit >= 57) {
+      return null;
+    }
+
+    const usedOur = new Set((suggestion.ourSend || []).map(a => a.id));
+    const availableUpgrades = ctx.ourCandidatePool.filter(a => !usedOur.has(a.id));
+    const pickInDeal = (suggestion.ourSend || []).find(a => a.type === 'pick');
+    if (pickInDeal) {
+      const betterPick = availableUpgrades
+        .filter(a => a.type === 'pick' && a.value > pickInDeal.value && a.value <= pickInDeal.value + 900)
+        .sort((a, b) => a.value - b.value)[0];
+      if (betterPick) {
+        return {
+          type: 'pick_upgrade',
+          note: `They may ask for your ${betterPick.label} instead of ${pickInDeal.label}.`,
+          adjustment: {
+            replaceOut: pickInDeal.label,
+            withOut: betterPick.label,
+          },
+        };
+      }
+    }
+
+    const weakestOut = (suggestion.ourSend || []).slice().sort((a, b) => a.value - b.value)[0];
+    if (weakestOut) {
+      const swap = availableUpgrades
+        .filter(a =>
+          a.type === weakestOut.type &&
+          (a.group === weakestOut.group || ctx.theirNeeds.needTop2.includes(a.group)) &&
+          a.value > weakestOut.value &&
+          a.value <= weakestOut.value + 1000
+        )
+        .sort((a, b) => a.value - b.value)[0];
+      if (swap) {
+        return {
+          type: 'secondary_swap',
+          note: `They may prefer ${swap.label} instead of ${weakestOut.label} for a cleaner positional fit.`,
+          adjustment: {
+            replaceOut: weakestOut.label,
+            withOut: swap.label,
+          },
+        };
+      }
+    }
+
+    const fringeOut = (suggestion.ourSend || []).find(a => Number(a.value || 0) < 500);
+    if (fringeOut && suggestion.ourSend.length >= 3) {
+      return {
+        type: 'cleaner_shape',
+        note: `They may ask to remove ${fringeOut.label} and keep this as a cleaner core package.`,
+        adjustment: {
+          removeOut: fringeOut.label,
+        },
+      };
+    }
+    return null;
+  }
+
+  function _generateTradeSuggestionsCore(params) {
+    const myTeam = params?.myTeam;
+    const oppTeam = params?.opponentTeam;
+    if (!myTeam || !oppTeam) return { suggestions: [], diagnostics: { reason: 'missing_team' } };
+    const realismCfg = _getRealismConfig(params.realismMode);
+    const bestBallActive = _isBestBallContext();
+    const exclusions = params.exclusions || {
+      ourPlayers: new Set(), ourPicks: new Set(), theirPlayers: new Set(), theirPicks: new Set(),
+    };
+
+    const ourAssets = _assetListFromTeam(myTeam, 'ours', exclusions);
+    const theirAssets = _assetListFromTeam(oppTeam, 'theirs', exclusions);
+    const leagueAvgByGroup = params.leagueAvgByGroup || {};
+    const ourNeeds = _buildNeedsFromAssets(ourAssets.filter(a => a.type === 'player'), leagueAvgByGroup);
+    const theirNeeds = _buildNeedsFromAssets(theirAssets.filter(a => a.type === 'player'), leagueAvgByGroup);
+    const ourStrategy = _normalizeStrategyMode(params.strategyMode === 'neutral' ? _inferTeamPosture(myTeam) : params.strategyMode);
+    const theirStrategy = _inferTeamPosture(oppTeam);
+
+    const candidateCtxOut = { isIncoming: false, ourNeeds, theirNeeds, strategyMode: ourStrategy, bestBallActive };
+    const candidateCtxIn = { isIncoming: true, ourNeeds, theirNeeds, strategyMode: ourStrategy, bestBallActive };
+    const ourCandidatePool = _pickCandidatesByMode(ourAssets, realismCfg.candidateCap, candidateCtxOut);
+    const theirCandidatePool = _pickCandidatesByMode(theirAssets, realismCfg.candidateCap, candidateCtxIn);
+    const maxSend = realismCfg.maxPiecesPerSide;
+    const maxReceive = Math.min(realismCfg.maxIncomingPieces, realismCfg.maxPiecesPerSide);
+    const ourCombos = _buildAssetCombos(ourCandidatePool, maxSend, { maxCombos: 420 });
+    const theirCombos = _buildAssetCombos(theirCandidatePool, maxReceive, { maxCombos: 260 });
+    const rejections = { edgeLow: 0, edgeHigh: 0, plausibility: 0, confidence: 0, package: 0 };
+    const kept = [];
+    const seen = new Set();
+    const hardCap = SUGGESTION_DIAG_MAX;
+
+    const scoreCtx = { ourNeeds, theirNeeds, ourStrategy, theirStrategy, realismCfg, bestBallActive };
+    for (const recv of theirCombos) {
+      const recvTotal = Number(recv.total || 0);
+      if (recvTotal <= 0) continue;
+      for (const send of ourCombos) {
+        const sendTotal = Number(send.total || 0);
+        if (sendTotal <= 0) continue;
+        const trade = {
+          ourSend: send.assets,
+          theirSend: recv.assets,
+          ourTotal: sendTotal,
+          theirTotal: recvTotal,
+        };
+        if (trade.ourSend.length > 5 || trade.theirSend.length > 5) continue;
+        const scored = _scoreSuggestion(trade, scoreCtx);
+        const edgePct = Number(scored.edgePct || 0);
+        if (edgePct < realismCfg.minEdgePct) { rejections.edgeLow += 1; continue; }
+        if (edgePct > realismCfg.maxEdgePct) { rejections.edgeHigh += 1; continue; }
+        if (scored.scores.marketPlausibilityScore < realismCfg.minPlausibility) { rejections.plausibility += 1; continue; }
+        if (scored.scores.packageRealismScore < 42) { rejections.package += 1; continue; }
+        if (scored.scores.confidenceScore < 36) { rejections.confidence += 1; continue; }
+        const key = _suggestionTradeKey(trade.ourSend, trade.theirSend);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const tagInfo = _deriveArchetypeTags({ ...trade, ...scored }, {
+          ...scoreCtx,
+          leagueAvgByGroup,
+        });
+        const suggestion = {
+          ...trade,
+          ...scored,
+          archetypeTags: tagInfo.tags,
+          archetypeReasons: tagInfo.reasons,
+        };
+        const narratives = _buildSendabilityNarratives(suggestion, scoreCtx);
+        suggestion.helpsUs = narratives.helpsUs;
+        suggestion.helpsThem = narratives.helpsThem;
+        kept.push(suggestion);
+        if (kept.length >= hardCap) break;
+      }
+      if (kept.length >= hardCap) break;
+    }
+
+    kept.sort((a, b) => b.suggestionScore - a.suggestionScore || b.edgePct - a.edgePct);
+    const top = kept.slice(0, TRADE_SUGGESTIONS_MAX_RESULTS).map((s, idx) => {
+      const counter = _findLikelyCounter(s, {
+        realismCfg,
+        ourNeeds,
+        theirNeeds,
+        ourCandidatePool,
+      });
+      return {
+        ...s,
+        rank: idx + 1,
+        likelyCounter: counter,
+      };
+    });
+
+    const diagnostics = {
+      realismMode: realismCfg.mode,
+      strategyMode: params.strategyMode,
+      effectiveOurStrategy: ourStrategy,
+      inferredTheirStrategy: theirStrategy,
+      bestBallActive,
+      candidateCounts: {
+        ourAssets: ourAssets.length,
+        theirAssets: theirAssets.length,
+        ourCandidatePool: ourCandidatePool.length,
+        theirCandidatePool: theirCandidatePool.length,
+        ourCombos: ourCombos.length,
+        theirCombos: theirCombos.length,
+      },
+      rejectionCounts: rejections,
+      selectedCount: top.length,
+      selectedScores: top.map(s => ({
+        score: s.suggestionScore,
+        edgePct: Number((s.edgePct * 100).toFixed(2)),
+        market: s.scores.marketPlausibilityScore,
+        package: s.scores.packageRealismScore,
+        confidence: s.scores.confidenceScore,
+      })),
+      archetypeSummary: top.map(s => ({
+        rank: s.rank,
+        tags: s.archetypeTags,
+      })),
+    };
+    return {
+      suggestions: top,
+      diagnostics,
+      context: {
+        ourNeeds,
+        theirNeeds,
+        ourCandidatePool,
+        theirCandidatePool,
+        realismCfg,
+        ourStrategy,
+        theirStrategy,
+        bestBallActive,
+      },
+    };
+  }
+
+  function _valueTone(v) {
+    if (!Number.isFinite(v)) return 'var(--subtext)';
+    if (v > 0) return 'var(--green)';
+    if (v < 0) return 'var(--red)';
+    return 'var(--subtext)';
+  }
+
+  function _renderSuggestionAssetsHtml(assets) {
+    return (assets || []).map(a => {
+      const pos = a.type === 'pick' ? 'PICK' : (a.position || a.group || '?');
+      return `<div class="tsv2-asset"><span style="font-family:var(--mono);font-size:0.62rem;color:var(--subtext);">${pos}</span><span>${a.label}</span><code>${Math.round(a.value || 0).toLocaleString()}</code></div>`;
+    }).join('');
+  }
+
+  function _renderTradeSuggestionsV2Results(out, uiCtx) {
+    const resultDiv = document.getElementById('tradeSuggestionsV2Results');
+    if (!resultDiv) return;
+    const suggestions = Array.isArray(out?.suggestions) ? out.suggestions : [];
+    if (!suggestions.length) {
+      resultDiv.innerHTML = '<div class="tt-note">No plausible suggestions passed the current realism/strategy filters. Try changing mode or clearing exclusions.</div>';
+      return;
+    }
+    let html = '';
+    suggestions.forEach(s => {
+      const edgePct = Number((Number(s.edgePct || 0) * 100).toFixed(1));
+      const edgeVal = Math.round(Number(s.theirTotal || 0) - Number(s.ourTotal || 0));
+      html += '<div class="tsv2-suggestion-card">';
+      html += '<div class="tsv2-headline">';
+      html += `<strong>Suggestion #${s.rank}</strong>`;
+      html += '<div class="tsv2-tag-wrap">';
+      (s.archetypeTags || []).forEach(tag => { html += `<span class="tsv2-tag">${tag}</span>`; });
+      if (!(s.archetypeTags || []).length) html += '<span class="tsv2-tag">balanced offer</span>';
+      html += '</div>';
+      html += '</div>';
+      html += '<div class="tsv2-trade-grid">';
+      html += `<div class="tsv2-side"><h5>You Send (${uiCtx?.myTeamName || 'Us'})</h5>${_renderSuggestionAssetsHtml(s.ourSend)}</div>`;
+      html += `<div class="tsv2-side"><h5>You Receive (${uiCtx?.opponentTeam || 'Them'})</h5>${_renderSuggestionAssetsHtml(s.theirSend)}</div>`;
+      html += '</div>';
+      html += '<div class="tsv2-metrics">';
+      html += `<div class="tsv2-metric">Calc Edge<span class="v" style="color:${_valueTone(edgeVal)}">${edgeVal > 0 ? '+' : ''}${edgeVal.toLocaleString()} (${edgePct > 0 ? '+' : ''}${edgePct}%)</span></div>`;
+      html += `<div class="tsv2-metric">Market Plausibility<span class="v">${Number(s.scores.marketPlausibilityScore).toFixed(1)}</span></div>`;
+      html += `<div class="tsv2-metric">Package Realism<span class="v">${Number(s.scores.packageRealismScore).toFixed(1)}</span></div>`;
+      html += `<div class="tsv2-metric">Confidence<span class="v">${Number(s.scores.confidenceScore).toFixed(1)}</span></div>`;
+      html += '</div>';
+      html += `<div class="tsv2-why"><strong>Why it helps us:</strong> ${s.helpsUs}</div>`;
+      html += `<div class="tsv2-why"><strong>Why it might help them:</strong> ${s.helpsThem}</div>`;
+      if (s.likelyCounter?.note) {
+        html += `<div class="tsv2-counter"><strong>Likely Counter:</strong> ${s.likelyCounter.note}</div>`;
+      } else {
+        html += '<div class="tsv2-counter"><strong>Likely Counter:</strong> No clean small counter identified under current realism/exclusion settings.</div>';
+      }
+      html += '</div>';
+    });
+
+    const diag = out?.diagnostics || {};
+    html += '<details style="margin-top:8px;"><summary style="cursor:pointer;font-size:0.68rem;color:var(--subtext);">Suggestion diagnostics</summary>';
+    html += `<div class="tsv2-diag">${JSON.stringify(diag, null, 2)}</div>`;
+    html += '</details>';
+    resultDiv.innerHTML = html;
+  }
+
+  function _getSuggestionStateFromDom() {
+    const state = loadTradeSuggestionsV2State();
+    const opponent = document.getElementById('tradeSuggestionsOpponent')?.value || state.opponentTeam || '';
+    const realismMode = _normalizeRealismMode(document.getElementById('tradeSuggestionsRealism')?.value || state.realismMode);
+    const strategyMode = _normalizeStrategyMode(document.getElementById('tradeSuggestionsStrategy')?.value || state.strategyMode);
+    return {
+      ...state,
+      opponentTeam: opponent,
+      realismMode,
+      strategyMode,
+    };
+  }
+
+  function _createExclusionBucketSets(exclusions) {
+    return {
+      ourPlayers: new Set(_normalizeExclusionSet(exclusions?.ourPlayers)),
+      ourPicks: new Set(_normalizeExclusionSet(exclusions?.ourPicks)),
+      theirPlayers: new Set(_normalizeExclusionSet(exclusions?.theirPlayers)),
+      theirPicks: new Set(_normalizeExclusionSet(exclusions?.theirPicks)),
+    };
+  }
+
+  function _renderExclusionColumn(title, searchId, listId, bucketKey, assets, selectedSet) {
+    const listItems = (assets || []).map(a => {
+      const checked = selectedSet.has(a.key) ? 'checked' : '';
+      const pos = a.type === 'pick' ? 'PICK' : (a.position || a.group || '?');
+      return `<label class="tsv2-check" data-filter-item="${a.label.toLowerCase().replace(/"/g, '&quot;')}"><input type="checkbox" ${checked} onchange="toggleTradeSuggestionExclusion('${bucketKey}','${a.key}',this.checked)"><span>${a.label}</span><small>${pos} ${Math.round(a.value || 0).toLocaleString()}</small></label>`;
+    }).join('');
+    return `
+      <div class="tsv2-exclusion-col">
+        <h4>${title}</h4>
+        <input id="${searchId}" type="text" placeholder="Search..." oninput="renderTradeSuggestionExclusionChecks()">
+        <div id="${listId}" class="tsv2-checks">${listItems || '<div class="tt-note">No assets available.</div>'}</div>
+      </div>
+    `;
+  }
+
+  function _renderTradeSuggestionsV2Exclusions(myTeam, oppTeam, state) {
+    const wrap = document.getElementById('tradeSuggestionsExclusions');
+    if (!wrap || !myTeam || !oppTeam) {
+      if (wrap) wrap.innerHTML = '';
+      return;
+    }
+    const ex = _createExclusionBucketSets(state?.exclusions || {});
+    const empty = { ourPlayers: new Set(), ourPicks: new Set(), theirPlayers: new Set(), theirPicks: new Set() };
+    const ourAll = _assetListFromTeam(myTeam, 'ours', empty);
+    const theirAll = _assetListFromTeam(oppTeam, 'theirs', empty);
+    const byType = (list, t) => list.filter(a => a.type === t);
+    wrap.innerHTML = `<div class="tsv2-exclusion-grid">
+      ${_renderExclusionColumn('Exclude Our Players', 'tsv2SearchOurPlayers', 'tsv2ListOurPlayers', 'ourPlayers', byType(ourAll, 'player'), ex.ourPlayers)}
+      ${_renderExclusionColumn('Exclude Our Picks', 'tsv2SearchOurPicks', 'tsv2ListOurPicks', 'ourPicks', byType(ourAll, 'pick'), ex.ourPicks)}
+      ${_renderExclusionColumn('Exclude Their Players', 'tsv2SearchTheirPlayers', 'tsv2ListTheirPlayers', 'theirPlayers', byType(theirAll, 'player'), ex.theirPlayers)}
+      ${_renderExclusionColumn('Exclude Their Picks', 'tsv2SearchTheirPicks', 'tsv2ListTheirPicks', 'theirPicks', byType(theirAll, 'pick'), ex.theirPicks)}
+    </div>`;
+    __tradeSuggestionsV2.exclusionView = {
+      ourAll,
+      theirAll,
+    };
+    renderTradeSuggestionExclusionChecks();
+  }
+
+  function renderTradeSuggestionExclusionChecks() {
+    const groups = [
+      { input: 'tsv2SearchOurPlayers', list: 'tsv2ListOurPlayers' },
+      { input: 'tsv2SearchOurPicks', list: 'tsv2ListOurPicks' },
+      { input: 'tsv2SearchTheirPlayers', list: 'tsv2ListTheirPlayers' },
+      { input: 'tsv2SearchTheirPicks', list: 'tsv2ListTheirPicks' },
+    ];
+    groups.forEach(g => {
+      const q = String(document.getElementById(g.input)?.value || '').trim().toLowerCase();
+      const list = document.getElementById(g.list);
+      if (!list) return;
+      list.querySelectorAll('[data-filter-item]').forEach(node => {
+        const text = String(node.getAttribute('data-filter-item') || '');
+        node.style.display = (!q || text.includes(q)) ? '' : 'none';
+      });
+    });
+  }
+
+  function toggleTradeSuggestionExclusion(bucket, key, checked) {
+    const state = _getSuggestionStateFromDom();
+    const validBuckets = ['ourPlayers','ourPicks','theirPlayers','theirPicks'];
+    if (!validBuckets.includes(bucket)) return;
+    const normalized = normalizeForLookup(key);
+    if (!normalized) return;
+    const next = new Set(_normalizeExclusionSet(state.exclusions?.[bucket]));
+    if (checked) next.add(normalized);
+    else next.delete(normalized);
+    state.exclusions[bucket] = Array.from(next);
+    state.lastOutput = null;
+    saveTradeSuggestionsV2State(state);
+    const results = document.getElementById('tradeSuggestionsV2Results');
+    if (results) {
+      results.innerHTML = '<div class="tt-note">Exclusions updated. Click Generate to refresh suggestions.</div>';
+    }
+  }
+
+  function clearTradeSuggestionExclusions() {
+    const state = _getSuggestionStateFromDom();
+    state.exclusions = {
+      ourPlayers: [],
+      ourPicks: [],
+      theirPlayers: [],
+      theirPicks: [],
+    };
+    saveTradeSuggestionsV2State(state);
+    generateTradeSuggestionsV2();
+  }
+
+  function _collectLeagueAvgByGroupForSuggestions() {
+    const teams = Array.isArray(sleeperTeams) ? sleeperTeams : [];
+    const empty = { ourPlayers: new Set(), ourPicks: new Set(), theirPlayers: new Set(), theirPicks: new Set() };
+    const totals = {};
+    SUGGESTION_GROUPS.concat(['PICKS']).forEach(g => { totals[g] = []; });
+    teams.forEach(t => {
+      const list = _assetListFromTeam(t, 'ours', empty);
+      const byGroup = {};
+      SUGGESTION_GROUPS.concat(['PICKS']).forEach(g => { byGroup[g] = 0; });
+      list.forEach(a => {
+        if (byGroup[a.group] == null) byGroup[a.group] = 0;
+        byGroup[a.group] += Number(a.value || 0);
+      });
+      Object.keys(byGroup).forEach(g => totals[g].push(byGroup[g]));
+    });
+    const avg = {};
+    Object.keys(totals).forEach(g => {
+      const vals = totals[g];
+      avg[g] = vals.length ? (vals.reduce((s, v) => s + v, 0) / vals.length) : 0;
+    });
+    return avg;
+  }
+
+  function _sanitizeSuggestionExclusionsForTeams(state, myTeam, oppTeam) {
+    const next = _cloneTradeSuggestionState(state) || getDefaultTradeSuggestionsV2State();
+    const empty = { ourPlayers: new Set(), ourPicks: new Set(), theirPlayers: new Set(), theirPicks: new Set() };
+    const ourAssets = _assetListFromTeam(myTeam, 'ours', empty);
+    const theirAssets = _assetListFromTeam(oppTeam, 'theirs', empty);
+    const ourPlayerKeys = new Set(ourAssets.filter(a => a.type === 'player').map(a => a.key));
+    const ourPickKeys = new Set(ourAssets.filter(a => a.type === 'pick').map(a => a.key));
+    const theirPlayerKeys = new Set(theirAssets.filter(a => a.type === 'player').map(a => a.key));
+    const theirPickKeys = new Set(theirAssets.filter(a => a.type === 'pick').map(a => a.key));
+    next.exclusions.ourPlayers = _normalizeExclusionSet(next.exclusions.ourPlayers).filter(k => ourPlayerKeys.has(k));
+    next.exclusions.ourPicks = _normalizeExclusionSet(next.exclusions.ourPicks).filter(k => ourPickKeys.has(k));
+    next.exclusions.theirPlayers = _normalizeExclusionSet(next.exclusions.theirPlayers).filter(k => theirPlayerKeys.has(k));
+    next.exclusions.theirPicks = _normalizeExclusionSet(next.exclusions.theirPicks).filter(k => theirPickKeys.has(k));
+    return next;
+  }
+
+  function _renderTradeSuggestionsV2Surface(myTeamName) {
+    const card = document.getElementById('tradeSuggestionsV2Card');
+    const results = document.getElementById('tradeSuggestionsV2Results');
+    const oppSel = document.getElementById('tradeSuggestionsOpponent');
+    const realismSel = document.getElementById('tradeSuggestionsRealism');
+    const strategySel = document.getElementById('tradeSuggestionsStrategy');
+    if (!card || !results || !oppSel || !realismSel || !strategySel || !myTeamName || !Array.isArray(sleeperTeams) || !sleeperTeams.length) {
+      if (card) card.style.display = 'none';
+      return;
+    }
+    const myTeam = sleeperTeams.find(t => t.name === myTeamName);
+    if (!myTeam) {
+      card.style.display = 'none';
+      return;
+    }
+    const state = loadTradeSuggestionsV2State();
+    const opponents = sleeperTeams.filter(t => t.name !== myTeamName);
+    if (!opponents.length) {
+      card.style.display = 'none';
+      return;
+    }
+    const lastOpp = opponents.some(t => t.name === state.opponentTeam) ? state.opponentTeam : opponents[0].name;
+    oppSel.innerHTML = opponents.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
+    oppSel.value = lastOpp;
+    realismSel.value = _normalizeRealismMode(state.realismMode);
+    strategySel.value = _normalizeStrategyMode(state.strategyMode);
+    const oppTeam = sleeperTeams.find(t => t.name === lastOpp);
+    const sanitized = _sanitizeSuggestionExclusionsForTeams({ ...state, opponentTeam: lastOpp }, myTeam, oppTeam);
+    saveTradeSuggestionsV2State(sanitized);
+    _renderTradeSuggestionsV2Exclusions(myTeam, oppTeam, sanitized);
+    card.style.display = 'block';
+    if (sanitized?.lastOutput?.suggestions?.length) {
+      _renderTradeSuggestionsV2Results(sanitized.lastOutput, {
+        myTeamName,
+        opponentTeam: lastOpp,
+      });
+    } else {
+      results.innerHTML = '<div class="tt-note">Choose settings and click Generate to build 2-3 sendable trades.</div>';
+    }
+  }
+
+  function onTradeSuggestionControlChange() {
+    const state = _getSuggestionStateFromDom();
+    const myTeamName = document.getElementById('rosterMyTeam')?.value || localStorage.getItem('dynasty_my_team') || '';
+    const myTeam = sleeperTeams.find(t => t.name === myTeamName);
+    const oppTeam = sleeperTeams.find(t => t.name === state.opponentTeam);
+    if (myTeam && oppTeam) {
+      const sanitized = _sanitizeSuggestionExclusionsForTeams(state, myTeam, oppTeam);
+      sanitized.lastOutput = null;
+      saveTradeSuggestionsV2State(sanitized);
+      _renderTradeSuggestionsV2Exclusions(myTeam, oppTeam, sanitized);
+    } else {
+      state.lastOutput = null;
+      saveTradeSuggestionsV2State(state);
+    }
+    const results = document.getElementById('tradeSuggestionsV2Results');
+    if (results) {
+      results.innerHTML = '<div class="tt-note">Settings updated. Click Generate to refresh suggestions.</div>';
+    }
+  }
+
+  function generateTradeSuggestionsV2() {
+    const myTeamName = document.getElementById('rosterMyTeam')?.value || localStorage.getItem('dynasty_my_team') || '';
+    const myTeam = sleeperTeams.find(t => t.name === myTeamName);
+    const state = _getSuggestionStateFromDom();
+    const oppTeam = sleeperTeams.find(t => t.name === state.opponentTeam);
+    if (!myTeam || !oppTeam) {
+      const results = document.getElementById('tradeSuggestionsV2Results');
+      if (results) results.innerHTML = '<div class="tt-note">Select your team and an opponent team first.</div>';
+      return;
+    }
+    const sanitized = _sanitizeSuggestionExclusionsForTeams(state, myTeam, oppTeam);
+    const leagueAvgByGroup = _collectLeagueAvgByGroupForSuggestions();
+    const exclusions = _createExclusionBucketSets(sanitized.exclusions);
+    const out = _generateTradeSuggestionsCore({
+      myTeam,
+      opponentTeam: oppTeam,
+      realismMode: sanitized.realismMode,
+      strategyMode: sanitized.strategyMode,
+      exclusions,
+      leagueAvgByGroup,
+    });
+    __tradeSuggestionsV2.diagnostics = out.diagnostics;
+    window.lastTradeSuggestionDiagnostics = out.diagnostics;
+    sanitized.lastOutput = out;
+    saveTradeSuggestionsV2State(sanitized);
+    _renderTradeSuggestionsV2Exclusions(myTeam, oppTeam, sanitized);
+    _renderTradeSuggestionsV2Results(out, {
+      myTeamName,
+      opponentTeam: oppTeam.name,
+    });
+  }
+
+  function getTradeSuggestionsV2State() {
+    return _cloneTradeSuggestionState(loadTradeSuggestionsV2State());
+  }
+
+  function setTradeSuggestionExclusions(nextExclusions) {
+    const state = _getSuggestionStateFromDom();
+    state.exclusions = {
+      ourPlayers: _normalizeExclusionSet(nextExclusions?.ourPlayers),
+      ourPicks: _normalizeExclusionSet(nextExclusions?.ourPicks),
+      theirPlayers: _normalizeExclusionSet(nextExclusions?.theirPlayers),
+      theirPicks: _normalizeExclusionSet(nextExclusions?.theirPicks),
+    };
+    saveTradeSuggestionsV2State(state);
+  }
+
+  window.__tradeSuggestionV2TestApi = {
+    normalizeRealismMode: _normalizeRealismMode,
+    normalizeStrategyMode: _normalizeStrategyMode,
+    getRealismConfig: _getRealismConfig,
+    deriveArchetypeTags: (s, c) => _deriveArchetypeTags(s, c),
+    findLikelyCounter: (s, c) => _findLikelyCounter(s, c),
+    generateCore: _generateTradeSuggestionsCore,
+  };
+
   function buildRosterDashboard() {
     const container = document.getElementById('rosterRankings');
     if (!container) return;
@@ -455,6 +1614,8 @@
     if (!loadedData || !sleeperTeams.length) {
       container.innerHTML = '<p style="color:var(--subtext);font-size:0.8rem;padding:12px;">Load dynasty data with Sleeper league to see roster rankings.</p>';
       document.getElementById('tradeTargetsCard').style.display = 'none';
+      const suggestionsCard = document.getElementById('tradeSuggestionsV2Card');
+      if (suggestionsCard) suggestionsCard.style.display = 'none';
       return;
     }
 
@@ -571,14 +1732,17 @@
     // ── TRADE TARGET FINDER ──
     const targetsCard = document.getElementById('tradeTargetsCard');
     const targetsDiv = document.getElementById('tradeTargets');
+    const suggestionsCard = document.getElementById('tradeSuggestionsV2Card');
     if (!myTeamName || !targetsCard || !targetsDiv) {
       if (targetsCard) targetsCard.style.display = 'none';
+      if (suggestionsCard) suggestionsCard.style.display = 'none';
       return;
     }
 
     const myTeam = teams.find(t => t.name === myTeamName);
     if (!myTeam) {
       targetsCard.style.display = 'none';
+      if (suggestionsCard) suggestionsCard.style.display = 'none';
       return;
     }
 
@@ -689,6 +1853,7 @@
 
     targetsDiv.innerHTML = targetsHtml;
     targetsCard.style.display = 'block';
+    _renderTradeSuggestionsV2Surface(myTeamName);
 
     // Build additional roster features
     buildTradeGrades();

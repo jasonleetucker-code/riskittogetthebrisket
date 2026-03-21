@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Risk It to Get the Brisket | League HQ</title>
+  <meta name="description" content="Public league headquarters for Risk It to Get the Brisket." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/Static/league/league.css" />
+</head>
+<body>
+  <div class="bg-shape bg-shape-a" aria-hidden="true"></div>
+  <div class="bg-shape bg-shape-b" aria-hidden="true"></div>
+
+  <div class="league-shell">
+    <header class="league-header">
+      <div class="brand-block">
+        <a class="brand-link" href="/league">Risk It to Get the Brisket</a>
+        <p class="brand-sub">Public League HQ</p>
+      </div>
+      <div class="header-actions">
+        <span class="pill pill-public">Public</span>
+        <a class="back-link" href="/">Back to Landing</a>
+      </div>
+    </header>
+
+    <section class="snapshot-bar" aria-live="polite">
+      <div id="leagueDataSummary" class="snapshot-title">Loading public league context…</div>
+      <div class="snapshot-meta">
+        <span id="leagueStatusBadge" class="pill pill-loading">Loading</span>
+        <span id="leagueDataTimestamp">No data timestamp yet</span>
+      </div>
+    </section>
+
+    <nav id="leagueNav" class="league-nav" aria-label="League sections">
+      <a class="league-nav-link active" href="/league" data-nav-slug="home">Home</a>
+      <a class="league-nav-link" href="/league/standings" data-nav-slug="standings">Standings</a>
+      <a class="league-nav-link" href="/league/franchises" data-nav-slug="franchises">Franchises</a>
+      <a class="league-nav-link" href="/league/awards" data-nav-slug="awards">Awards</a>
+      <a class="league-nav-link" href="/league/draft" data-nav-slug="draft">Draft</a>
+      <a class="league-nav-link" href="/league/trades" data-nav-slug="trades">Trades</a>
+      <a class="league-nav-link" href="/league/records" data-nav-slug="records">Records</a>
+      <a class="league-nav-link" href="/league/money" data-nav-slug="money">Money</a>
+      <a class="league-nav-link" href="/league/constitution" data-nav-slug="constitution">Constitution</a>
+      <a class="league-nav-link" href="/league/history" data-nav-slug="history">History</a>
+      <a class="league-nav-link" href="/league/league-media" data-nav-slug="league-media">League Media</a>
+    </nav>
+
+    <main id="leagueMain" class="league-main">
+      <section class="panel">
+        <h1>League Home</h1>
+        <p>This public League area is open without login.</p>
+        <p>Use the section links above, or open any route directly:</p>
+        <ul class="module-list">
+          <li><a href="/league/standings">/league/standings</a></li>
+          <li><a href="/league/franchises">/league/franchises</a></li>
+          <li><a href="/league/draft">/league/draft</a></li>
+          <li><a href="/league/trades">/league/trades</a></li>
+          <li><a href="/league/money">/league/money</a></li>
+          <li><a href="/league/constitution">/league/constitution</a></li>
+          <li><a href="/league/history">/league/history</a></li>
+          <li><a href="/league/league-media">/league/league-media</a></li>
+        </ul>
+      </section>
+    </main>
+
+    <footer class="league-footer">
+      Public-safe surface only. Private valuation and calculator internals stay in the Jason workspace.
+    </footer>
+  </div>
+
+  <noscript>
+    <div class="league-shell">
+      <section class="panel">
+        <h1>JavaScript Required</h1>
+        <p>The League HQ navigation requires JavaScript. Please enable JavaScript and reload.</p>
+      </section>
+    </div>
+  </noscript>
+
+  <script src="/Static/league/league.js" defer></script>
+</body>
+</html>

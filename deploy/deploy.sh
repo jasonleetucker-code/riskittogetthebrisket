@@ -16,6 +16,8 @@ AUTO_ROLLBACK="${AUTO_ROLLBACK:-true}"
 APP_HOST="${APP_HOST:-127.0.0.1}"
 APP_PORT="${APP_PORT:-8000}"
 PUBLIC_URL="${PUBLIC_URL:-}"
+DEPLOY_TRIGGER="${DEPLOY_TRIGGER:-unknown}"
+DEPLOY_RUN_URL="${DEPLOY_RUN_URL:-}"
 RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-false}"
 STRICT_LOCAL_HEALTH="${STRICT_LOCAL_HEALTH:-true}"
 ALLOW_DIRTY_DEPLOY="${ALLOW_DIRTY_DEPLOY:-false}"
@@ -23,6 +25,7 @@ DEPLOY_STATE_DIR="${DEPLOY_STATE_DIR:-${HOME}/.deploy-state}"
 LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE="${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE:-${DEPLOY_STATE_DIR}/${APP_SLUG}.last_successful_deploy_commit}"
 PRE_DEPLOY_COMMIT_FILE="${PRE_DEPLOY_COMMIT_FILE:-${DEPLOY_STATE_DIR}/${APP_SLUG}.pre_deploy_commit}"
 LAST_SUCCESSFUL_DEPLOY_AT_FILE="${LAST_SUCCESSFUL_DEPLOY_AT_FILE:-${DEPLOY_STATE_DIR}/${APP_SLUG}.last_successful_at_utc}"
+DEPLOY_STATUS_FILE="${DEPLOY_STATUS_FILE:-${APP_DIR}/data/deploy_status.json}"
 
 PRE_DEPLOY_REV=""
 TARGET_REV=""
@@ -169,6 +172,55 @@ record_success_state() {
   printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${LAST_SUCCESSFUL_DEPLOY_AT_FILE}"
 }
 
+record_deploy_status() {
+  local deployed_at_utc
+  deployed_at_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  ensure_parent_dir "${DEPLOY_STATUS_FILE}"
+  DEPLOY_STATUS_FILE="${DEPLOY_STATUS_FILE}" \
+  DEPLOYED_AT_UTC="${deployed_at_utc}" \
+  APP_NAME="${APP_NAME}" \
+  APP_DIR="${APP_DIR}" \
+  APP_USER="${APP_USER}" \
+  SERVICE_NAME="${SERVICE_NAME}" \
+  DEPLOY_BRANCH="${DEPLOY_BRANCH}" \
+  DEPLOY_REF="${DEPLOY_REF}" \
+  TARGET_REV="${TARGET_REV}" \
+  DEPLOY_TRIGGER="${DEPLOY_TRIGGER}" \
+  DEPLOY_RUN_URL="${DEPLOY_RUN_URL}" \
+  APP_HOST="${APP_HOST}" \
+  APP_PORT="${APP_PORT}" \
+  PUBLIC_URL="${PUBLIC_URL}" \
+  LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE="${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE}" \
+  python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+status_path = Path(os.environ["DEPLOY_STATUS_FILE"])
+payload = {
+    "status": "success",
+    "deployedAtUtc": os.environ.get("DEPLOYED_AT_UTC", ""),
+    "appName": os.environ.get("APP_NAME", ""),
+    "appDir": os.environ.get("APP_DIR", ""),
+    "appUser": os.environ.get("APP_USER", ""),
+    "serviceName": os.environ.get("SERVICE_NAME", ""),
+    "deployBranch": os.environ.get("DEPLOY_BRANCH", ""),
+    "deployRefRequested": os.environ.get("DEPLOY_REF", ""),
+    "targetRevision": os.environ.get("TARGET_REV", ""),
+    "trigger": os.environ.get("DEPLOY_TRIGGER", ""),
+    "runUrl": os.environ.get("DEPLOY_RUN_URL", ""),
+    "appHost": os.environ.get("APP_HOST", ""),
+    "appPort": os.environ.get("APP_PORT", ""),
+    "publicUrl": os.environ.get("PUBLIC_URL", ""),
+    "lastSuccessfulDeployCommitFile": os.environ.get("LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE", ""),
+}
+status_path.parent.mkdir(parents=True, exist_ok=True)
+tmp_path = status_path.with_suffix(status_path.suffix + ".tmp")
+tmp_path.write_text(json.dumps(payload, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+tmp_path.replace(status_path)
+PY
+}
+
 print_git_preflight() {
   log "Preflight: pwd"
   pwd
@@ -261,6 +313,7 @@ main() {
   require_command git
   require_command bash
   require_command curl
+  require_command python3
 
   git config --global --add safe.directory "${APP_DIR}" >/dev/null 2>&1 || true
 
@@ -312,6 +365,7 @@ main() {
   restart_service
   verify_deploy
   record_success_state
+  record_deploy_status
 
   log "Deployment succeeded at revision ${TARGET_REV}."
 }

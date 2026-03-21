@@ -175,6 +175,8 @@
       const trend = Number(pct);
       if (!isFinite(trend) || trend === 0) continue;
       if (parsePickToken(name)) continue;
+      const trendPlayerData = loadedData?.players?.[name];
+      if (trendPlayerData && typeof trendPlayerData === 'object' && isBackendFinalAuthorityQuarantined(trendPlayerData)) continue;
 
       const result = computeMetaValueForPlayer(name);
       if (!result || !isFinite(result.metaValue) || result.metaValue <= 0) continue;
@@ -248,6 +250,9 @@
     const rows = [];
     for (const [name, pData] of Object.entries(playersRef)) {
       const pickInfo = parsePickToken(name);
+      if (!pickInfo && pData && typeof pData === 'object' && isBackendFinalAuthorityQuarantined(pData)) {
+        continue;
+      }
       let result = null;
       let pos = '';
       let isRookie = false;
@@ -318,8 +323,21 @@
         ? clampValue(Math.round(backendRaw), 1, COMPOSITE_SCALE)
         : clampValue(Math.round(Number(result.rawMarketValue ?? result.metaValue) || 0), 1, COMPOSITE_SCALE);
       const backendSiteCount = Number(pData?._sites);
-      const adjustment = getPrecomputedAdjustmentBundle(pData, rawComposite, pos, name)
-        || computeFinalAdjustedValue(rawComposite, pos, name, { preferPrecomputed: false });
+      let adjustment = null;
+      if (pData && typeof pData === 'object') {
+        adjustment = resolveKnownPlayerAdjustmentBundle(pData, rawComposite, pos, name, {
+          siteCount: (Number.isFinite(backendSiteCount) && backendSiteCount > 0)
+            ? Math.round(backendSiteCount)
+            : Number(result?.siteCount || 0),
+          cv: Number(result?.cv || 0),
+          siteDetails: siteDetails || result?.siteDetails || {},
+          allowFrontendForKnown: false,
+        });
+      }
+      if (!adjustment) {
+        // Defensive fallback for unknown/manual rows only.
+        adjustment = computeFinalAdjustedValue(rawComposite, pos, name, { preferPrecomputed: false });
+      }
       rows.push({
         name,
         pos,
@@ -423,6 +441,249 @@
     } catch (_) {
       // no-op warmup; buildFullRankings remains source of truth.
     }
+  }
+
+  const RANKINGS_PARITY_TRACKED_SOURCES = ['yahoo', 'dynastyNerds', 'idpTradeCalc'];
+  const RANKINGS_PARITY_BUCKETS = ['QB', 'RB', 'WR', 'TE', 'DL', 'LB', 'DB'];
+
+  function normalizeRankingsParityBucket(pos) {
+    const p = String(pos || '').toUpperCase().trim();
+    if (['DE', 'DT', 'EDGE'].includes(p)) return 'DL';
+    if (['CB', 'S'].includes(p)) return 'DB';
+    if (RANKINGS_PARITY_BUCKETS.includes(p)) return p;
+    return '';
+  }
+
+  function createRankingsParityCoverageShape() {
+    return {
+      QB: 0,
+      RB: 0,
+      WR: 0,
+      TE: 0,
+      DL: 0,
+      LB: 0,
+      DB: 0,
+      OFF: 0,
+      IDP: 0,
+      TOTAL: 0,
+    };
+  }
+
+  function incrementRankingsParityCoverage(counter, bucket) {
+    if (!counter || !bucket) return;
+    counter[bucket] = Number(counter[bucket] || 0) + 1;
+    if (['QB', 'RB', 'WR', 'TE'].includes(bucket)) counter.OFF += 1;
+    if (['DL', 'LB', 'DB'].includes(bucket)) counter.IDP += 1;
+    counter.TOTAL += 1;
+  }
+
+  function buildRankingsBackendParityReport(baseRows = [], rankedRows = [], sortBasis = 'full', cfg = []) {
+    const generatedAt = new Date().toISOString();
+    const modes = ['raw', 'scoring', 'scarcity', 'bestBall', 'full'];
+    const modeParity = Object.fromEntries(
+      modes.map((mode) => [mode, {
+        compared: 0,
+        mismatchCount: 0,
+        maxAbsDiff: 0,
+        mismatchSamples: [],
+      }])
+    );
+    const sourceParity = {
+      compared: 0,
+      mismatchCount: 0,
+      maxAbsDiff: 0,
+      mismatchSamples: [],
+    };
+    const sortParity = {
+      compared: 0,
+      mismatchCount: 0,
+      maxAbsDiff: 0,
+      mismatchSamples: [],
+    };
+
+    const activeSourceKeys = Array.isArray(cfg)
+      ? cfg
+        .filter(sc => sc && sc.include && sc.key)
+        .map(sc => String(sc.key))
+      : [];
+    const trackedSourceKeys = RANKINGS_PARITY_TRACKED_SOURCES
+      .filter((sourceKey) => activeSourceKeys.includes(sourceKey));
+    const trackedSet = new Set(trackedSourceKeys);
+    const sourceCoverageExpected = {};
+    const sourceCoverageUi = {};
+    trackedSourceKeys.forEach((sourceKey) => {
+      sourceCoverageExpected[sourceKey] = createRankingsParityCoverageShape();
+      sourceCoverageUi[sourceKey] = createRankingsParityCoverageShape();
+    });
+
+    for (const row of (Array.isArray(baseRows) ? baseRows : [])) {
+      if (!row || !row.name) continue;
+      const sourceData = row.sourceData && typeof row.sourceData === 'object'
+        ? row.sourceData
+        : null;
+      if (!sourceData) continue;
+
+      const backendBundle = resolveKnownPlayerAdjustmentBundle(sourceData, row.rawComposite, row.pos, row.name, {
+        allowFrontendForKnown: false,
+      });
+      const uiBundle = row.adjustment || backendBundle;
+
+      if (backendBundle && uiBundle) {
+        for (const mode of modes) {
+          const expected = Math.round(Number(getValueByRankingMode(backendBundle, mode)) || 0);
+          const actual = Math.round(Number(getValueByRankingMode(uiBundle, mode)) || 0);
+          if (expected <= 0 || actual <= 0) continue;
+          const stats = modeParity[mode];
+          stats.compared += 1;
+          const diff = actual - expected;
+          const absDiff = Math.abs(diff);
+          if (absDiff > stats.maxAbsDiff) stats.maxAbsDiff = absDiff;
+          if (absDiff > 1) {
+            stats.mismatchCount += 1;
+            if (stats.mismatchSamples.length < 12) {
+              stats.mismatchSamples.push({
+                name: row.name,
+                expected,
+                actual,
+                diff,
+                authority: String(uiBundle?.resolverMetadata?.authority || ''),
+              });
+            }
+          }
+        }
+      }
+
+      const canonicalSiteValues = sourceData._canonicalSiteValues && typeof sourceData._canonicalSiteValues === 'object'
+        ? sourceData._canonicalSiteValues
+        : null;
+      const hasCanonicalMap = !!(canonicalSiteValues && Object.keys(canonicalSiteValues).length);
+      const bucket = normalizeRankingsParityBucket(row.pos);
+
+      for (const sourceKey of activeSourceKeys) {
+        const uiRaw = Number((row.pData || {})[sourceKey]);
+        const uiHas = Number.isFinite(uiRaw) && uiRaw > 0;
+        let expectedRaw = Number(canonicalSiteValues?.[sourceKey]);
+        if (!hasCanonicalMap) {
+          expectedRaw = uiRaw;
+        }
+        const expectedHas = Number.isFinite(expectedRaw) && expectedRaw > 0;
+
+        if (trackedSet.has(sourceKey) && bucket) {
+          if (expectedHas) incrementRankingsParityCoverage(sourceCoverageExpected[sourceKey], bucket);
+          if (uiHas) incrementRankingsParityCoverage(sourceCoverageUi[sourceKey], bucket);
+        }
+
+        if (!hasCanonicalMap) continue;
+        if (!expectedHas && !uiHas) continue;
+        sourceParity.compared += 1;
+        const diff = (uiHas ? Math.round(uiRaw) : 0) - (expectedHas ? Math.round(expectedRaw) : 0);
+        const absDiff = Math.abs(diff);
+        if (absDiff > sourceParity.maxAbsDiff) sourceParity.maxAbsDiff = absDiff;
+        if (!expectedHas || !uiHas || absDiff > 1) {
+          sourceParity.mismatchCount += 1;
+          if (sourceParity.mismatchSamples.length < 16) {
+            sourceParity.mismatchSamples.push({
+              name: row.name,
+              sourceKey,
+              expected: expectedHas ? Math.round(expectedRaw) : null,
+              actual: uiHas ? Math.round(uiRaw) : null,
+              diff,
+            });
+          }
+        }
+      }
+    }
+
+    const activeSortBasis = String(sortBasis || 'full');
+    for (const row of (Array.isArray(rankedRows) ? rankedRows : [])) {
+      if (!row || !row.name) continue;
+      const sourceData = row.sourceData && typeof row.sourceData === 'object'
+        ? row.sourceData
+        : null;
+      const bundle = row.adjustment || resolveKnownPlayerAdjustmentBundle(sourceData, row.rawComposite, row.pos, row.name, {
+        allowFrontendForKnown: false,
+      });
+      if (!bundle) continue;
+      const expectedSort = Math.round(Number(getValueByRankingMode(bundle, activeSortBasis)) || 0);
+      const actualSort = Math.round(Number(row.sortValue) || 0);
+      if (expectedSort <= 0 || actualSort <= 0) continue;
+      sortParity.compared += 1;
+      const diff = actualSort - expectedSort;
+      const absDiff = Math.abs(diff);
+      if (absDiff > sortParity.maxAbsDiff) sortParity.maxAbsDiff = absDiff;
+      if (absDiff > 1) {
+        sortParity.mismatchCount += 1;
+        if (sortParity.mismatchSamples.length < 12) {
+          sortParity.mismatchSamples.push({
+            name: row.name,
+            expected: expectedSort,
+            actual: actualSort,
+            diff,
+            sortBasis: activeSortBasis,
+          });
+        }
+      }
+    }
+
+    const trackedSourceCoverage = {};
+    let coverageMismatchCount = 0;
+    for (const sourceKey of trackedSourceKeys) {
+      const expected = sourceCoverageExpected[sourceKey] || createRankingsParityCoverageShape();
+      const actual = sourceCoverageUi[sourceKey] || createRankingsParityCoverageShape();
+      const mismatches = {};
+      let sourceMismatchCount = 0;
+      ['QB', 'RB', 'WR', 'TE', 'DL', 'LB', 'DB', 'OFF', 'IDP', 'TOTAL'].forEach((bucket) => {
+        const diff = Number(actual[bucket] || 0) - Number(expected[bucket] || 0);
+        mismatches[bucket] = diff;
+        if (diff !== 0) sourceMismatchCount += 1;
+      });
+      coverageMismatchCount += sourceMismatchCount;
+      trackedSourceCoverage[sourceKey] = {
+        expected,
+        actual,
+        mismatches,
+        mismatchBucketCount: sourceMismatchCount,
+      };
+    }
+
+    let modeMismatchTotal = 0;
+    let modeComparedTotal = 0;
+    let modeMaxAbsDiff = 0;
+    for (const stats of Object.values(modeParity)) {
+      modeMismatchTotal += Number(stats?.mismatchCount || 0);
+      modeComparedTotal += Number(stats?.compared || 0);
+      modeMaxAbsDiff = Math.max(modeMaxAbsDiff, Number(stats?.maxAbsDiff || 0));
+    }
+
+    const report = {
+      generatedAt,
+      sampledBaseRows: Array.isArray(baseRows) ? baseRows.length : 0,
+      sampledRenderedRows: Array.isArray(rankedRows) ? rankedRows.length : 0,
+      sortBasis: activeSortBasis,
+      sources: {
+        tracked: trackedSourceKeys,
+        bySource: trackedSourceCoverage,
+      },
+      values: {
+        byMode: modeParity,
+        summary: {
+          compared: modeComparedTotal,
+          mismatchCount: modeMismatchTotal,
+          maxAbsDiff: modeMaxAbsDiff,
+        },
+      },
+      sourceColumns: sourceParity,
+      renderedSortParity: sortParity,
+      summary: {
+        mismatchCount: modeMismatchTotal + sourceParity.mismatchCount + sortParity.mismatchCount + coverageMismatchCount,
+        modeMismatchCount: modeMismatchTotal,
+        sourceColumnMismatchCount: sourceParity.mismatchCount,
+        sortMismatchCount: sortParity.mismatchCount,
+        coverageMismatchBucketCount: coverageMismatchCount,
+      },
+    };
+    report.ok = report.summary.mismatchCount === 0;
+    return report;
   }
 
   function buildFullRankings() {
@@ -605,7 +866,10 @@
 
       const rookieBadge = r.isRookie ? '<span style="font-size:0.55rem;background:var(--amber);color:#000;padding:1px 4px;border-radius:3px;margin-left:4px;font-weight:700;">R</span>' : '';
       const posStyle = getPosStyle(r.pos);
-      const adjustment = r.adjustment || getPrecomputedAdjustmentBundle(r.sourceData, r.rawComposite, r.pos, r.name) || computeFinalAdjustedValue(r.rawComposite, r.pos, r.name);
+      const adjustment = r.adjustment || resolveKnownPlayerAdjustmentBundle(r.sourceData, r.rawComposite, r.pos, r.name, {
+        allowFrontendForKnown: false,
+      });
+      if (!adjustment) return;
       const scoring = adjustment.scoring;
       const scarcity = adjustment.scarcity;
 
@@ -698,6 +962,33 @@
     const title = document.getElementById('rankingsTitle');
     if (title) title.textContent = `${dataModeLabel} Rankings \u2014 ${total} players (${offCount} OFF, ${idpCount} IDP, ${rookieCount} rookies) · sort=${sortBasis}`;
     renderRankingsMobileCards(ranked);
+    const parityEnabled = (typeof isFrontendParityDiagnosticsEnabled === 'function')
+      ? isFrontendParityDiagnosticsEnabled()
+      : false;
+    const rankingsParityReport = parityEnabled
+      ? buildRankingsBackendParityReport(baseRows, ranked, sortBasis, cfg)
+      : {
+          generatedAt: new Date().toISOString(),
+          ok: true,
+          skipped: true,
+          reason: 'frontend_parity_diagnostics_disabled',
+        };
+    window.__rankingsBackendParity = rankingsParityReport;
+    if (typeof setFrontendBackendParitySection === 'function') {
+      setFrontendBackendParitySection('rankings', rankingsParityReport);
+    } else {
+      const parityStore = (typeof getFrontendBackendParitySnapshot === 'function')
+        ? getFrontendBackendParitySnapshot()
+        : ((window.__frontendBackendParity && typeof window.__frontendBackendParity === 'object')
+          ? window.__frontendBackendParity
+          : {});
+      parityStore.rankings = rankingsParityReport;
+      parityStore.generatedAt = new Date().toISOString();
+      window.__frontendBackendParity = parityStore;
+    }
+    if (!rankingsParityReport.ok) {
+      console.warn('[Parity] Rankings/UI drift detected against backend authority bundles', rankingsParityReport.summary);
+    }
     updateRankingsActiveChips();
   }
 
@@ -1767,7 +2058,7 @@
 
     if (section === 'trades') {
       setTitle('Trade Activity');
-      buildTradeHistoryPage();
+      void buildTradeHistoryPage({ renderMobilePreview: true });
       const trades = Array.isArray(loadedData?.sleeper?.trades) ? loadedData.sleeper.trades : [];
       if (!trades.length) {
         body.innerHTML = '<div class="mobile-row-card"><div class="mobile-row-name">No league trade data loaded.</div></div>';
@@ -1816,7 +2107,6 @@
           </div>
         </div>
       `;
-      renderMobileMoreTradesPreview();
       return;
     }
 
@@ -1971,6 +2261,72 @@
   // ── PICK PARSING ──
   function normalizeKey(s) { return (s||'').trim().replace(/\s+/g,' '); }
 
+  const PICK_DOLLAR_TOTAL_PICKS = 72;   // 6 rounds x 12 teams
+  const PICK_DOLLAR_TEAMS = 12;
+  const PICK_DOLLAR_BUDGET = 1200;
+  const PICK_DOLLAR_MIN_DOLLARS = 1;
+  const PICK_DOLLAR_DECAY = 0.046;
+
+  function allocatePickDollarsFromWeights(weights, opts = {}) {
+    const w = Array.isArray(weights) ? weights : [];
+    if (!w.length) return [];
+
+    const budget = Number.isFinite(Number(opts.budget)) ? Number(opts.budget) : PICK_DOLLAR_BUDGET;
+    const minDollars = Number.isFinite(Number(opts.minDollars)) ? Number(opts.minDollars) : PICK_DOLLAR_MIN_DOLLARS;
+    const precisionRaw = Number(opts.precision);
+    const precision = Number.isFinite(precisionRaw) && precisionRaw > 0
+      ? Math.max(1, Math.round(precisionRaw))
+      : 100;
+
+    const budgetUnits = Math.max(0, Math.round(budget * precision));
+    const minUnits = Math.max(0, Math.round(minDollars * precision));
+    const floorTotalUnits = minUnits * w.length;
+    const variablePoolUnits = Math.max(0, budgetUnits - floorTotalUnits);
+
+    const safeWeights = w.map(v => {
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    });
+    const weightTotal = safeWeights.reduce((a, b) => a + b, 0);
+
+    const rawUnits = safeWeights.map((val) => {
+      const share = weightTotal > 0 ? (val / weightTotal) : (1 / safeWeights.length);
+      return minUnits + (variablePoolUnits * share);
+    });
+
+    const units = rawUnits.map(v => Math.floor(v));
+    let remaining = budgetUnits - units.reduce((a, b) => a + b, 0);
+
+    const byFraction = rawUnits
+      .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+      .sort((a, b) => b.frac - a.frac);
+
+    for (let idx = 0; idx < byFraction.length && remaining > 0; idx++) {
+      units[byFraction[idx].i] += 1;
+      remaining -= 1;
+    }
+
+    // Defensive clamp if floating drift ever over-allocates.
+    if (remaining < 0) {
+      const ascending = rawUnits
+        .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+        .sort((a, b) => a.frac - b.frac);
+      for (let idx = 0; idx < ascending.length && remaining < 0; idx++) {
+        const i = ascending[idx].i;
+        if (units[i] > minUnits) {
+          units[i] -= 1;
+          remaining += 1;
+        }
+      }
+    }
+
+    return units;
+  }
+
+  function formatDollarFromCents(cents) {
+    return (Math.max(0, Number(cents) || 0) / 100).toFixed(2);
+  }
+
   // ── AUTO-GENERATE PICK DOLLARS FROM ROOKIE META VALUES ──
   function generatePickDollarsFromRookies() {
     if (!loadedData || !loadedData.players) {
@@ -1983,61 +2339,63 @@
       return;
     }
 
-    // Take top 72 (6 rounds × 12 teams), pad with minimum if fewer
-    const TOTAL_PICKS = 72;
-    const BUDGET = 1200;
     const picks = [];
-    for (let i = 0; i < TOTAL_PICKS; i++) {
-      const round = Math.floor(i / 12) + 1;
-      const slot = (i % 12) + 1;
+    for (let i = 0; i < PICK_DOLLAR_TOTAL_PICKS; i++) {
+      const round = Math.floor(i / PICK_DOLLAR_TEAMS) + 1;
+      const slot = (i % PICK_DOLLAR_TEAMS) + 1;
       const key = `${round}.${String(slot).padStart(2, '0')}`;
       const val = Number(proxy.slotValues[key]);
       picks.push(isFinite(val) && val > 0 ? val : 1);
     }
 
-    // Compute γ from coefficient of variation of top 6
-    const top6 = picks.slice(0, 6);
-    const avg6 = top6.reduce((a, b) => a + b, 0) / 6;
-    const std6 = Math.sqrt(top6.reduce((a, v) => a + (v - avg6) ** 2, 0) / 5);
-    const cv = avg6 > 0 ? std6 / avg6 : 0;
-    const gamma = Math.max(1.12, 1 + Math.min(0.35, 0.9 * cv));
+    // Spreadsheet-aligned formula: value * exp(-0.046 * position), then normalize
+    // to an exact $1,200 total with a $1 floor per pick.
+    const transformed = picks.map((v, i) => {
+      const position = i + 1; // 1-indexed position from 1.01 through 6.12
+      return v * Math.exp(-PICK_DOLLAR_DECAY * position);
+    });
+    // Spreadsheet rounding behavior: allocate WHOLE dollars with largest-remainder
+    // so visible pick values always sum to exactly $1,200.
+    const dollarsByPick = allocatePickDollarsFromWeights(transformed, {
+      budget: PICK_DOLLAR_BUDGET,
+      minDollars: PICK_DOLLAR_MIN_DOLLARS,
+      precision: 1,
+    });
 
-    // Apply formula: value^γ × exp(-0.046 × position)
-    const decay = 0.046;
-    const transformed = picks.map((v, i) => Math.pow(v, gamma) * Math.exp(-decay * i));
-    const totalTransformed = transformed.reduce((a, b) => a + b, 0);
-
-    // Normalize to $1,200 with $1 floor
-    const raw = transformed.map(t => 1 + (BUDGET - TOTAL_PICKS) * t / totalTransformed);
-
-    // Largest-remainder rounding to exactly $1,200
-    const floored = raw.map(v => Math.floor(v));
-    let leftover = BUDGET - floored.reduce((a, b) => a + b, 0);
-    const decimals = raw.map((v, i) => ({ i, dec: v - Math.floor(v) }));
-    decimals.sort((a, b) => b.dec - a.dec);
-    for (let j = 0; j < leftover; j++) {
-      floored[decimals[j].i] += 1;
-    }
-
-    // Build pick slot labels and dollar map text
-    const lines = [];
-    for (let i = 0; i < TOTAL_PICKS; i++) {
-      const round = Math.floor(i / 12) + 1;
-      const slot = (i % 12) + 1;
+    const pickLines = [];
+    const teamTotalsDollars = Array(PICK_DOLLAR_TEAMS).fill(0);
+    const roundTotalsDollars = Array(6).fill(0);
+    for (let i = 0; i < PICK_DOLLAR_TOTAL_PICKS; i++) {
+      const round = Math.floor(i / PICK_DOLLAR_TEAMS) + 1;
+      const slot = (i % PICK_DOLLAR_TEAMS) + 1;
       const key = `${round}.${String(slot).padStart(2, '0')}`;
-      lines.push(`${key}=${floored[i]}`);
+      const dollars = Math.max(0, Math.round(Number(dollarsByPick[i] || 0)));
+      pickLines.push(`${key}=${dollars}`);
+      teamTotalsDollars[slot - 1] += dollars;
+      roundTotalsDollars[round - 1] += dollars;
     }
 
-    const mapText = lines.join('\n');
+    const teamLines = teamTotalsDollars.map((dollars, idx) =>
+      `# Team ${String(idx + 1).padStart(2, '0')} Total=${Math.round(dollars)}`
+    );
+    const mapText = [
+      ...pickLines,
+      '',
+      '# Team Totals',
+      ...teamLines,
+    ].join('\n');
     document.getElementById('pickDollarMap').value = mapText;
 
-    // Show summary
-    const r1 = floored.slice(0, 12).reduce((a, b) => a + b, 0);
-    const r2 = floored.slice(12, 24).reduce((a, b) => a + b, 0);
-    const total = floored.reduce((a, b) => a + b, 0);
-    console.log(`Pick $ generated: γ=${gamma.toFixed(3)}, CV=${cv.toFixed(3)}, R1=$${r1}, R2=$${r2}, Total=$${total}`);
-    const topPreview = (proxy.ranked || []).slice(0, 6).map(r => `${r.name} (${Math.round(r.fullyAdjusted)})`).join(', ');
-    console.log(`Top rookies: ${topPreview}`);
+    const totalDollars = dollarsByPick.reduce((a, b) => a + Number(b || 0), 0);
+    const roundSummary = roundTotalsDollars
+      .map((dollars, idx) => `R${idx + 1}=$${Math.round(dollars)}`)
+      .join(', ');
+    const teamSummary = teamTotalsDollars
+      .map((dollars, idx) => `T${String(idx + 1).padStart(2, '0')}=$${Math.round(dollars)}`)
+      .join(', ');
+    console.log(`Pick $ generated: formula=value*exp(-0.046*position), Total=$${Math.round(totalDollars)}`);
+    console.log(`Round totals: ${roundSummary}`);
+    console.log(`Team totals: ${teamSummary}`);
 
     persistSettings();
     scheduleRecalc();
@@ -2327,22 +2685,20 @@
     if (rookiePickProxyCache.key === key && rookiePickProxyCache.data) return rookiePickProxyCache.data;
 
     const candidates = [];
+    const offenseOnly = new Set(['QB', 'RB', 'WR', 'TE']);
     for (const [name, pData] of Object.entries(loadedData.players || {})) {
       if (parsePickToken(name)) continue;
       if (!isRookiePlayerName(name, pData)) continue;
-      if (!hasAnyRankingSiteValue(pData)) continue;
-      const base = computeMetaValueForPlayer(name, { rawOnly: true });
-      if (!base) continue;
-      const raw = Number(base.rawMarketValue ?? base.metaValue);
-      if (!isFinite(raw) || raw <= 0) continue;
       const pos = (getPlayerPosition(name) || getRookiePosHint(name) || '').toUpperCase();
-      const full = Number(computeFinalAdjustedValue(raw, pos, name).finalAdjustedValue || 0);
-      if (!isFinite(full) || full <= 0) continue;
+      if (!offenseOnly.has(pos)) continue;
+      // Draft-capital proxy is anchored to KTC SF + TE+ values only.
+      const ktcVal = Number(pData?.ktc);
+      if (!isFinite(ktcVal) || ktcVal <= 0) continue;
       candidates.push({
         name,
         pos,
-        rawMarket: Math.round(raw),
-        fullyAdjusted: Math.round(full),
+        rawMarket: Math.round(ktcVal),
+        fullyAdjusted: Math.round(ktcVal),
       });
     }
     candidates.sort((a, b) => b.fullyAdjusted - a.fullyAdjusted);

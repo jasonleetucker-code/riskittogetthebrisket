@@ -6,6 +6,10 @@
     "regression:install": "playwright install chromium",
     "regression:preflight": "python tests/e2e/preflight.py",
     "regression:test": "playwright test -c tests/e2e/playwright.config.js",
+    "regression:test:smoke:release": "playwright test -c tests/e2e/playwright.config.js tests/e2e/specs/smoke-api.spec.js --project=desktop-1366 --project=mobile-390 --project=tablet-820 --workers=1",
+    "regression:test:parity": "playwright test -c tests/e2e/playwright.config.js tests/e2e/specs/parity-gate.spec.js --project=desktop-1366 --project=mobile-390",
+    "regression:smoke:release": "npm run regression:preflight && npm run regression:test:smoke:release",
+    "regression:parity": "npm run regression:preflight && npm run regression:test:parity",
     "regression": "npm run regression:preflight && npm run regression:test"
   },
   "devDependencies": {

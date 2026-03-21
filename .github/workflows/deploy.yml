@@ -24,6 +24,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Validate League shell artifacts are tracked
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          required_assets=(
+            "Static/league/index.html"
+            "Static/league/league.css"
+            "Static/league/league.js"
+          )
+          for rel in "${required_assets[@]}"; do
+            if [[ ! -f "${rel}" ]]; then
+              echo "::error title=Missing League shell artifact::${rel} is required for reproducible public League UX."
+              exit 1
+            fi
+            if ! git ls-files --error-unmatch "${rel}" >/dev/null 2>&1; then
+              echo "::error title=Untracked League shell artifact::${rel} exists but is not source-controlled."
+              exit 1
+            fi
+          done
+          echo "League shell source-control readiness check passed."
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -80,6 +101,22 @@ jobs:
             echo "No dynasty_data_*.json sample found; skipping contract validation."
           fi
 
+      - name: Semantic integrity ratchet gate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if ls dynasty_data_*.json >/dev/null 2>&1 || ls data/dynasty_data_*.json >/dev/null 2>&1; then
+            python scripts/semantic_ratchet_gate.py --repo .
+          else
+            echo "No dynasty_data_*.json sample found; skipping semantic ratchet gate."
+          fi
+
+      - name: Critical value/trade authority tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/run_critical_api_tests.py --repo .
+
       - name: Validate required deploy entrypoint exists
         shell: bash
         run: |
@@ -103,6 +140,63 @@ jobs:
             bash -n "${script}"
           done
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install Node dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          npm ci
+
+      - name: Install Playwright browser (Chromium)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          npx playwright install --with-deps chromium
+
+      - name: Seed runtime payload fixture for parity gate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          FIXTURE="tests/fixtures/runtime_last_good_fixture.json"
+          [[ -f "${FIXTURE}" ]] || { echo "::error title=Missing parity fixture::${FIXTURE} not found."; exit 1; }
+          mkdir -p data
+          cp "${FIXTURE}" "data/runtime_last_good.json"
+
+      - name: Release smoke gate (desktop + phone + tablet)
+        shell: bash
+        env:
+          E2E_JASON_PASSWORD: e2e-local-password
+        run: |
+          set -Eeuo pipefail
+          npm run regression:test:smoke:release
+
+      - name: Release parity gate (desktop + mobile)
+        shell: bash
+        env:
+          E2E_JASON_PASSWORD: e2e-local-password
+        run: |
+          set -Eeuo pipefail
+          npm run regression:test:parity
+
+      - name: Upload release gate artifacts (on failure)
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-artifacts
+          path: |
+            playwright-report
+            test-results
+            tmp/playwright/playwright-report
+            tmp/playwright/test-results
+            tests/e2e/playwright-report
+            tests/e2e/test-results
+          if-no-files-found: ignore
+
   deploy:
     name: Deploy To Hetzner
     runs-on: ubuntu-latest
@@ -110,6 +204,14 @@ jobs:
     timeout-minutes: 25
     environment: production
     steps:
+      - name: Checkout (for post-deploy probes)
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
       - name: Preflight validate deploy inputs (no SSH)
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -313,6 +415,8 @@ jobs:
       - name: Run remote deploy script
         env:
           DEPLOY_REF_INPUT: ${{ github.event.inputs.deploy_ref }}
+          DEPLOY_TRIGGER: github_actions
+          DEPLOY_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           APP_NAME: ${{ vars.PROD_APP_NAME || 'riskittogetthebrisket' }}
           APP_USER: ${{ vars.PROD_APP_USER || 'dynasty' }}
           APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
@@ -362,6 +466,8 @@ jobs:
           export SERVICE_NAME="${SERVICE_NAME}"
           export DEPLOY_BRANCH="${DEPLOY_BRANCH}"
           export DEPLOY_REF="${DEPLOY_REF}"
+          export DEPLOY_TRIGGER="${DEPLOY_TRIGGER}"
+          export DEPLOY_RUN_URL="${DEPLOY_RUN_URL}"
           export AUTO_ROLLBACK="${AUTO_ROLLBACK}"
           export APP_HOST="${APP_HOST}"
           export APP_PORT="${APP_PORT}"
@@ -391,3 +497,25 @@ jobs:
           set -Eeuo pipefail
           curl --fail --silent --show-error --max-time 20 "${{ vars.PROD_PUBLIC_URL }}" >/tmp/public-health.json
           head -c 400 /tmp/public-health.json || true
+
+      - name: Runtime smoke probe (post-deploy)
+        if: ${{ vars.PROD_PUBLIC_URL != '' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/runtime_probe.py \
+            --base-url "${{ vars.PROD_PUBLIC_URL }}" \
+            --mode smoke \
+            --strict-health \
+            --strict-operator \
+            --strict-routes \
+            --max-scrape-age-hours "${{ vars.PROD_MAX_HEALTHY_SCRAPE_AGE_HOURS || '10' }}" \
+            --output-json "tmp/runtime_probe_post_deploy.json"
+
+      - name: Upload post-deploy probe report
+        if: ${{ always() && vars.PROD_PUBLIC_URL != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-probe-post-deploy
+          path: tmp/runtime_probe_post_deploy.json
+          if-no-files-found: ignore

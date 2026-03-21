@@ -172,23 +172,27 @@
   async function updateServerStatus() {
     if (!serverMode) return;
     try {
-      const resp = await fetch('/api/status');
-      if (!resp.ok) return;
+      const resp = await fetch('/api/status?compact=1');
+      if (!resp.ok) return null;
       const s = await resp.json();
       const st = document.getElementById('dataStatus');
-      if (!st) return;
-      let txt = `✓ ${s.player_count} players`;
-      if (s.data_date) txt += ` · updated ${s.data_date}`;
-      if (s.is_running) txt += ' · 🔄 updating now...';
-      else if (s.next_scrape) {
-        const next = new Date(s.next_scrape);
-        const hrs = Math.max(0, (next - Date.now()) / 3600000);
-        txt += ` · next update in ${hrs.toFixed(1)}h`;
+      if (st) {
+        let txt = `✓ ${s.player_count} players`;
+        if (s.data_date) txt += ` · updated ${s.data_date}`;
+        if (s.is_running) txt += ' · 🔄 updating now...';
+        else if (s.next_scrape) {
+          const next = new Date(s.next_scrape);
+          const hrs = Math.max(0, (next - Date.now()) / 3600000);
+          txt += ` · next update in ${hrs.toFixed(1)}h`;
+        }
+        if (s.last_error) txt += ' · ⚠ last update had issues';
+        st.textContent = txt;
+        st.style.color = s.is_running ? 'var(--amber)' : 'var(--green)';
       }
-      if (s.last_error) txt += ' · ⚠ last update had issues';
-      st.textContent = txt;
-      st.style.color = s.is_running ? 'var(--amber)' : 'var(--green)';
-    } catch(e) {}
+      return s;
+    } catch(e) {
+      return null;
+    }
   }
 
   async function triggerScrape() {
@@ -201,17 +205,14 @@
         if (st) { st.textContent = '🔄 Refreshing values...'; st.style.color = 'var(--amber)'; }
         // Poll for completion
         const poll = setInterval(async () => {
-          await updateServerStatus();
-          try {
-            const sr = await fetch('/api/status');
-            const ss = await sr.json();
-            if (!ss.is_running) {
-              clearInterval(poll);
-              // Reload data
-              await fetchFromServer();
-              recalculate();
-            }
-          } catch(e) { clearInterval(poll); }
+          const ss = await updateServerStatus();
+          if (!ss) return;
+          if (!ss.is_running) {
+            clearInterval(poll);
+            // Reload data
+            await fetchFromServer();
+            recalculate();
+          }
         }, 5000);
       } else {
         alert(data.error || 'Refresh failed to start');
@@ -315,6 +316,34 @@
       }
     }
 
+    const confidenceScore = Number(
+      adjustmentInfo?.marketReliability?.score ??
+      result?.marketReliabilityScore ??
+      result?.marketConfidence ??
+      NaN
+    );
+    const confidenceText = Number.isFinite(confidenceScore) ? confidenceScore.toFixed(2) : 'n/a';
+    const sourceCoverageCount = Number(
+      adjustmentInfo?.sourceCoverage?.count ??
+      adjustmentInfo?.marketReliability?.siteCount ??
+      result?.siteCount ??
+      0
+    );
+    const bestBallValue = Number(
+      adjustmentInfo?.bestBallAdjustedValue ??
+      adjustmentInfo?.scarcityAdjustedValue ??
+      adjustmentInfo?.finalAdjustedValue ??
+      adjustmentInfo?.rawMarketValue ??
+      0
+    );
+    const bestBallDelta = bestBallValue - Number(
+      adjustmentInfo?.scarcityAdjustedValue ??
+      adjustmentInfo?.rawMarketValue ??
+      0
+    );
+    const popupTags = Array.isArray(adjustmentInfo?.adjustmentTags) ? adjustmentInfo.adjustmentTags : [];
+    const tagText = popupTags.length ? popupTags.slice(0, 5).join(', ') : '—';
+
     content.innerHTML = `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
         <h2>${playerName}</h2>
@@ -331,8 +360,12 @@
         <div style="font-size:0.75rem;font-family:var(--mono);margin-top:-8px;margin-bottom:12px;color:var(--subtext);display:flex;flex-wrap:wrap;gap:10px;row-gap:4px;">
           <span>Raw ${adjustmentInfo.rawMarketValue.toLocaleString()}</span>
           <span title="raw ${Number(adjustmentInfo.scoring.rawLeagueMultiplier || 1).toFixed(3)} · shrunk ${Number(adjustmentInfo.scoring.shrunkLeagueMultiplier || 1).toFixed(3)} · strength ${Number(adjustmentInfo.scoring.adjustmentStrength || 0).toFixed(2)}">Scoring ${Number(adjustmentInfo.scoring.effectiveMultiplier || 1).toFixed(3)}</span>
+          <span>Scarcity ${Number(adjustmentInfo.scarcityAdjustedValue ?? adjustmentInfo.rawMarketValue).toLocaleString()}</span>
+          <span>BestBall ${Number(bestBallValue || adjustmentInfo.rawMarketValue).toLocaleString()} (${bestBallDelta > 0 ? '+' : ''}${Math.round(bestBallDelta).toLocaleString()})</span>
+          <span>Conf ${confidenceText} · Src ${Number.isFinite(sourceCoverageCount) ? Math.round(sourceCoverageCount) : 0}</span>
           <span style="color:var(--green);font-weight:700;">Final ${adjustmentInfo.finalAdjustedValue.toLocaleString()}</span>
           <span style="color:${adjustmentInfo.valueDelta > 0 ? 'var(--green)' : adjustmentInfo.valueDelta < 0 ? 'var(--red)' : 'var(--subtext)'};">Δ ${adjustmentInfo.valueDelta > 0 ? '+' : ''}${adjustmentInfo.valueDelta.toLocaleString()}</span>
+          <span title="Resolver tags">Tags ${tagText}</span>
         </div>
       ` : ''}
       ${edgeHtml}
@@ -1387,8 +1420,11 @@
     if (context?.preferPrecomputed !== false) {
       const pData = resolveLoadedPlayerDataForPrecomputed(playerName);
       if (pData && typeof pData === 'object') {
-        const precomputed = getPrecomputedAdjustmentBundle(pData, rawComposite, position, playerName);
-        if (precomputed) return precomputed;
+        const knownBundle = resolveKnownPlayerAdjustmentBundle(pData, rawComposite, position, playerName, {
+          ...context,
+          allowFrontendForKnown: context?.allowFrontendForKnown === true,
+        });
+        if (knownBundle) return knownBundle;
       }
     }
     return computeFinalAdjustedValueCore(rawComposite, position, playerName, context);
@@ -1399,6 +1435,9 @@
     if (mode === 'raw') return bundle.rawMarketValue;
     if (mode === 'scoring') return bundle.scoringAdjustedValue;
     if (mode === 'scarcity') return bundle.scarcityAdjustedValue;
+    if (mode === 'bestball' || mode === 'bestBall') {
+      return bundle.bestBallAdjustedValue ?? bundle.scarcityAdjustedValue ?? bundle.finalAdjustedValue;
+    }
     return bundle.finalAdjustedValue;
   }
 

@@ -4,6 +4,49 @@
  * Extracted from legacy monolithic inline runtime to keep live behavior intact.
  */
 
+  function debounce(fn, waitMs = 120) {
+    let timer = null;
+    return (...args) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        fn(...args);
+      }, waitMs);
+    };
+  }
+
+  function startServerStatusPolling(intervalMs = 60000) {
+    let handle = null;
+    const tick = async () => {
+      if (document.hidden) return;
+      try {
+        await updateServerStatus();
+      } catch (_) {
+        // Ignore transient status polling failures.
+      }
+    };
+    const start = () => {
+      if (handle != null) return;
+      tick();
+      handle = setInterval(tick, intervalMs);
+    };
+    const stop = () => {
+      if (handle == null) return;
+      clearInterval(handle);
+      handle = null;
+    };
+    const onVisibilityChange = () => {
+      if (!document.hidden) tick();
+    };
+
+    start();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('beforeunload', () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    }, { once: true });
+  }
+
   // ── BOOT ──
   document.addEventListener('DOMContentLoaded', async () => {
     perfMark('dom_content_loaded');
@@ -46,13 +89,18 @@
         btn.textContent = '🔄 Refresh Values';
         btn.onclick = (e) => { e.preventDefault(); triggerScrape(); };
       }
-      // Poll status every 60s
-      setInterval(updateServerStatus, 60000);
+      // Poll status every 60s while tab is visible; refresh on visibility regain.
+      startServerStatusPolling(60000);
     }
 
     const gsInput = document.getElementById('globalSearchInput');
     if (gsInput) {
-      gsInput.addEventListener('input', (e) => renderGlobalSearchResults(e.target.value));
+      const renderSearchResultsDebounced = debounce((value) => {
+        renderGlobalSearchResults(value);
+      }, 90);
+      gsInput.addEventListener('input', (e) => {
+        renderSearchResultsDebounced(e.target.value);
+      });
       gsInput.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
           e.preventDefault();
@@ -85,14 +133,15 @@
       mobileMoreTradesView = normalizeMobileMoreTradesSubview(localStorage.getItem(MOBILE_MORE_TRADES_VIEW_KEY) || mobileMoreTradesView);
     } catch (_) {}
 
-    window.addEventListener('resize', () => {
+    const onResize = debounce(() => {
       if (isMobileViewport() && !['home', 'rookies', 'calculator', 'more'].includes(activeTabId)) {
         // Keep full legacy tab open on mobile for parity workflows.
         switchTab(activeTabId, { persist: false, allowLegacyMobile: true });
         return;
       }
-      updateMobileChrome(activeTabId);
-    });
+      requestAnimationFrame(() => updateMobileChrome(activeTabId));
+    }, 140);
+    window.addEventListener('resize', onResize, { passive: true });
 
     recalculate();
     perfMark('initial_recalculate_done');

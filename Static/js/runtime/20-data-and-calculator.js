@@ -113,6 +113,7 @@
         max: (isFinite(max)&&max>0)?max:s.defaultMax,
         include: inc?inc.checked:s.defaultInclude,
         weight: (isFinite(wt)&&wt>0)?wt:1.0,
+        mode: s.mode || 'value',
         tep: forceNonTep ? false : (tep ? tep.checked : (s.tep!==false))
       };
     });
@@ -369,6 +370,7 @@
   function createPlayerRow(side, tbodyId) {
     const tr = document.createElement('tr');
     tr.dataset.side = side;
+    tr.dataset.manualSiteOverride = '';
 
     const nameTd = document.createElement('td');
     nameTd.className = 'name-cell-wrap';
@@ -412,7 +414,11 @@
       pill.className='auto-pill'; pill.dataset.autoFor = s.key;
       wrap.appendChild(inp); wrap.appendChild(pill);
       td.appendChild(wrap); tr.appendChild(td);
-      inp.addEventListener('input', scheduleRecalc);
+      inp.addEventListener('input', () => {
+        // Row-level site edits opt this row into manual valuation mode.
+        tr.dataset.manualSiteOverride = '1';
+        scheduleRecalc();
+      });
     });
 
     const usedTd = document.createElement('td'); usedTd.className='sites-used'; tr.appendChild(usedTd);
@@ -435,6 +441,7 @@
         const mv = tr.querySelector('.meta-value'); if (mv) mv.innerHTML = '';
         const pills = tr.querySelectorAll('.auto-pill'); pills.forEach(p => p.textContent = '');
         tr.dataset.sleeperId = '';
+        tr.dataset.manualSiteOverride = '';
       }
       if (loadedData && val.length > 3) {
         autoFillRow(tr);
@@ -591,6 +598,7 @@
   // ── LOADED DATA ──
   let loadedData = null;
   let playerNames = [];
+  let playerNamesLower = [];
   let sleeperTeams = [];
   let teamFilterA = '';
   let teamFilterB = '';
@@ -605,6 +613,10 @@
   let postDataViewsHydrated = false;
   let trendComputeToken = 0;
   let pendingTrendCompute = null;
+  let globalSearchIndexPlayersRef = null;
+  let globalSearchIndex = [];
+  let globalSearchResultCachePlayersRef = null;
+  let globalSearchResultCache = new Map();
 
   function normalizePositionFamily(pos) {
     const up = String(pos || '').trim().toUpperCase();
@@ -638,6 +650,27 @@
       assignName(name);
       assignPos(name, pos);
     }
+  }
+
+  function resetGlobalSearchCaches() {
+    globalSearchIndexPlayersRef = null;
+    globalSearchIndex = [];
+    globalSearchResultCachePlayersRef = null;
+    globalSearchResultCache = new Map();
+  }
+
+  function getGlobalSearchIndex() {
+    const players = loadedData?.players;
+    if (!players || typeof players !== 'object') return [];
+    if (globalSearchIndexPlayersRef === players && globalSearchIndex.length === playerNames.length) {
+      return globalSearchIndex;
+    }
+    globalSearchIndex = playerNames.map((name, idx) => ({
+      name,
+      norm: normalizeForLookup(playerNamesLower[idx] || name),
+    }));
+    globalSearchIndexPlayersRef = players;
+    return globalSearchIndex;
   }
 
   function resolveCanonicalPlayerName(name) {
@@ -895,6 +928,8 @@
       siteCount: composite.siteCount,
       siteDetails: composite.siteDetails,
       cv: composite.cv,
+      marketConfidence: Number(composite.marketConfidence || 0),
+      rankSourceShare: Number(composite.rankSourceShare || 0),
       rawMarketValue,
       baselineBucket: adjBundle?.scoring?.baselineBucket || null,
       scoringMultiplierRaw: adjBundle?.scoring?.leagueMultiplier ?? 1,
@@ -943,6 +978,249 @@
   }
 
   let tradeItemValueCache = { key: '', map: new Map() };
+  let tradeBackendScoringState = {
+    recalcSeq: 0,
+    disabledUntil: 0,
+    lastError: '',
+    consecutiveFailures: 0,
+    lastSuccessAt: '',
+    lastRequestKey: '',
+    lastResponse: null,
+    inFlight: null,
+  };
+  const TRADE_FALLBACK_POLICY_KEY = 'dynasty_trade_fallback_policy';
+
+  function resolveTradeFallbackPolicy() {
+    const parseMode = (raw) => {
+      const normalized = String(raw || '').trim().toLowerCase();
+      if (normalized === 'disallow' || normalized === 'require_backend') return 'disallow';
+      if (normalized === 'allow' || normalized === 'enabled' || normalized === 'default') return 'allow';
+      return '';
+    };
+    const override = parseMode(window.__tradeFallbackPolicy);
+    if (override) {
+      return {
+        mode: override,
+        allowFallback: override !== 'disallow',
+        source: 'window.__tradeFallbackPolicy',
+      };
+    }
+    try {
+      const stored = parseMode(localStorage.getItem(TRADE_FALLBACK_POLICY_KEY) || '');
+      if (stored) {
+        return {
+          mode: stored,
+          allowFallback: stored !== 'disallow',
+          source: `localStorage:${TRADE_FALLBACK_POLICY_KEY}`,
+        };
+      }
+    } catch (_) {}
+    return {
+      mode: 'allow',
+      allowFallback: true,
+      source: 'default_allow',
+    };
+  }
+
+  function resolveRuntimeContractVersion() {
+    const preferred = [
+      loadedData?.contractVersion,
+      loadedData?.contract?.version,
+      loadedData?.valueAuthority?.contractVersion,
+    ];
+    for (const raw of preferred) {
+      const token = String(raw || '').trim();
+      if (token) return token;
+    }
+    const legacy = String(loadedData?.version || '').trim();
+    if (!legacy) return '';
+    if (/^\d+$/.test(legacy)) return '';
+    return legacy;
+  }
+
+  function setTradeAuthorityWarningState(state = {}) {
+    const warningEl = document.getElementById('tradeAuthorityWarning');
+    const mobileWarningEl = document.getElementById('mobileTradeAuthorityWarning');
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      visible: !!state?.visible,
+      level: String(state?.level || ''),
+      message: String(state?.message || ''),
+      details: Array.isArray(state?.details) ? state.details.map((d) => String(d || '').trim()).filter(Boolean) : [],
+    };
+    if (warningEl) {
+      if (!payload.visible || !payload.message) {
+        warningEl.style.display = 'none';
+        warningEl.textContent = '';
+      } else {
+        const color = payload.level === 'error' ? 'var(--red)' : 'var(--amber)';
+        warningEl.style.display = '';
+        warningEl.style.borderColor = color;
+        warningEl.style.color = color;
+        warningEl.innerHTML = `<strong>${payload.message}</strong>${payload.details.length ? ` <span style="color:var(--subtext);">${payload.details.join(' · ')}</span>` : ''}`;
+      }
+    }
+    if (mobileWarningEl) {
+      if (!payload.visible || !payload.message) {
+        mobileWarningEl.style.display = 'none';
+        mobileWarningEl.textContent = '';
+      } else {
+        mobileWarningEl.style.display = '';
+        mobileWarningEl.textContent = payload.message;
+        mobileWarningEl.style.color = payload.level === 'error' ? 'var(--red)' : 'var(--amber)';
+      }
+    }
+    window.__tradeCalculatorAuthorityState = payload;
+  }
+
+  function setTradeTruthSummaryState(state = {}) {
+    const summaryEl = document.getElementById('tradeTruthSummary');
+    const mobileSummaryEl = document.getElementById('mobileTradeTruthSummary');
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      visible: state?.visible !== false,
+      level: String(state?.level || 'info'),
+      headline: String(state?.headline || '').trim(),
+      points: Array.isArray(state?.points)
+        ? state.points.map((p) => String(p || '').trim()).filter(Boolean)
+        : [],
+      title: String(state?.title || '').trim(),
+    };
+    const textParts = [];
+    if (payload.headline) textParts.push(payload.headline);
+    if (payload.points.length) textParts.push(payload.points.join(' · '));
+    const text = textParts.join(' · ');
+    const color = payload.level === 'error'
+      ? 'var(--red)'
+      : (payload.level === 'warning' ? 'var(--amber)' : 'var(--subtext)');
+
+    const renderInto = (el) => {
+      if (!el) return;
+      if (!payload.visible || !text) {
+        el.style.display = 'none';
+        el.textContent = '';
+        el.removeAttribute('title');
+        return;
+      }
+      el.style.display = '';
+      el.style.color = color;
+      el.textContent = text;
+      if (payload.title) el.setAttribute('title', payload.title);
+      else el.removeAttribute('title');
+    };
+
+    renderInto(summaryEl);
+    renderInto(mobileSummaryEl);
+    window.__tradeCalculatorTruthState = payload;
+  }
+
+  function buildBackendTradeScoreRequest(payload = {}) {
+    const normalizeBasis = (typeof normalizeValueBasis === 'function')
+      ? normalizeValueBasis
+      : ((value) => {
+          const v = String(value || '').toLowerCase();
+          if (v === 'raw' || v === 'scoring' || v === 'scarcity') return v;
+          if (v === 'bestball' || v === 'best_ball' || v === 'best-ball') return 'bestBall';
+          return 'full';
+        });
+    const sidesIn = payload?.sides && typeof payload.sides === 'object' ? payload.sides : {};
+    const mapSide = (sideKey) => {
+      const entries = Array.isArray(sidesIn?.[sideKey]) ? sidesIn[sideKey] : [];
+      return entries.map((entry) => ({
+        label: String(entry?.name || entry?.label || '').trim(),
+        fallbackValue: Number(entry?.value || 0),
+        pos: String(entry?.pos || '').toUpperCase(),
+        isPick: !!entry?.isPick,
+        isIdp: !!entry?.isIdp,
+        isRookie: !!entry?.isRookie,
+        assetClass: String(entry?.assetClass || '').toLowerCase(),
+        confidence: Number(entry?.confidence ?? NaN),
+        bestBallLift: Number(entry?.bestBallLift ?? NaN),
+        manualOverride: !!entry?.manualOverride,
+      })).filter((row) => row.label);
+    };
+    return {
+      valueBasis: normalizeBasis(payload?.valueBasis || 'full'),
+      alpha: Number(payload?.alpha || DEFAULT_ALPHA),
+      bestBallMode: payload?.bestBallMode !== false,
+      sides: {
+        A: mapSide('A'),
+        B: mapSide('B'),
+        C: mapSide('C'),
+      },
+    };
+  }
+
+  async function scoreTradePackagesViaBackend(payload = {}) {
+    const now = Date.now();
+    if (Number(tradeBackendScoringState.disabledUntil || 0) > now) return null;
+    const requestBody = buildBackendTradeScoreRequest(payload);
+    const totalItems = ['A', 'B', 'C'].reduce((sum, side) => {
+      const rows = Array.isArray(requestBody?.sides?.[side]) ? requestBody.sides[side].length : 0;
+      return sum + rows;
+    }, 0);
+    if (!totalItems) return null;
+    const requestKey = JSON.stringify(requestBody);
+    if (tradeBackendScoringState.lastRequestKey === requestKey && tradeBackendScoringState.lastResponse) {
+      return tradeBackendScoringState.lastResponse;
+    }
+    if (tradeBackendScoringState.inFlight && tradeBackendScoringState.inFlight.key === requestKey) {
+      return tradeBackendScoringState.inFlight.promise;
+    }
+    const runFetch = async () => {
+      try {
+        const doFetch = (typeof fetchWithTimeout === 'function')
+          ? (url, options) => fetchWithTimeout(url, options, 6000)
+          : (url, options) => fetch(url, options);
+        const resp = await doFetch('/api/trade/score', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+        if (!resp || !resp.ok) {
+          tradeBackendScoringState.consecutiveFailures += 1;
+          tradeBackendScoringState.lastError = `http_${resp?.status || 'unknown'}`;
+          if (resp?.status === 404 || resp?.status === 405) {
+            tradeBackendScoringState.disabledUntil = Date.now() + (60 * 60 * 1000);
+          } else {
+            tradeBackendScoringState.disabledUntil = Date.now() + Math.min(45000, 5000 * tradeBackendScoringState.consecutiveFailures);
+          }
+          window.__tradeBackendScoringStatus = { ...tradeBackendScoringState };
+          return null;
+        }
+        const data = await resp.json();
+        if (!data || data.ok !== true || !data.sides || typeof data.sides !== 'object') {
+          tradeBackendScoringState.consecutiveFailures += 1;
+          tradeBackendScoringState.lastError = 'invalid_backend_trade_score_payload';
+          tradeBackendScoringState.disabledUntil = Date.now() + Math.min(45000, 5000 * tradeBackendScoringState.consecutiveFailures);
+          window.__tradeBackendScoringStatus = { ...tradeBackendScoringState };
+          return null;
+        }
+        tradeBackendScoringState.consecutiveFailures = 0;
+        tradeBackendScoringState.lastError = '';
+        tradeBackendScoringState.disabledUntil = 0;
+        tradeBackendScoringState.lastSuccessAt = new Date().toISOString();
+        tradeBackendScoringState.lastRequestKey = requestKey;
+        tradeBackendScoringState.lastResponse = data;
+        window.__tradeBackendScoringStatus = { ...tradeBackendScoringState };
+        return data;
+      } catch (err) {
+        tradeBackendScoringState.consecutiveFailures += 1;
+        tradeBackendScoringState.lastError = String(err?.message || err || 'backend_trade_score_fetch_failed');
+        tradeBackendScoringState.disabledUntil = Date.now() + Math.min(45000, 5000 * tradeBackendScoringState.consecutiveFailures);
+        window.__tradeBackendScoringStatus = { ...tradeBackendScoringState };
+        return null;
+      } finally {
+        tradeBackendScoringState.inFlight = null;
+      }
+    };
+    const promise = runFetch();
+    tradeBackendScoringState.inFlight = { key: requestKey, promise };
+    return promise;
+  }
 
   // ── TRADE ITEM VALUE RESOLVER ──
   // Returns { metaValue, isPick } for any trade item (player name or pick token)
@@ -950,7 +1228,11 @@
     const normalizedName = normalizeTradeAssetLabel(itemName);
     if (!normalizedName) return { metaValue: 0, isPick: false, displayName: '' };
     const mode = getCalculatorValueBasis();
-    const cacheScope = `${String(loadedData?.scrapeTimestamp || loadedData?.date || '')}|${mode}`;
+    const lamStrength = parseFloat(document.getElementById('lamStrengthInput')?.value);
+    const scarcityStrength = parseFloat(document.getElementById('scarcityStrengthInput')?.value);
+    const lamKey = Number.isFinite(lamStrength) ? lamStrength.toFixed(4) : 'na';
+    const scarcityKey = Number.isFinite(scarcityStrength) ? scarcityStrength.toFixed(4) : 'na';
+    const cacheScope = `${String(loadedData?.scrapeTimestamp || loadedData?.date || '')}|${mode}|lam=${lamKey}|scarcity=${scarcityKey}`;
     if (tradeItemValueCache.key !== cacheScope) {
       tradeItemValueCache = { key: cacheScope, map: new Map() };
     }
@@ -958,23 +1240,162 @@
     const cached = tradeItemValueCache.map.get(cacheKey);
     if (cached) return { ...cached };
 
-    const applyTradeMode = (baseResult, isPick, resolvedName = normalizedName) => {
-      if (!baseResult) return { metaValue: 0, isPick };
-      const raw = Math.max(1, Math.round(Number(baseResult.rawMarketValue ?? baseResult.metaValue) || 0));
+    const applyTradeMode = (
+      baseResult,
+      isPick,
+      resolvedName = normalizedName,
+      explicitBundle = null,
+      opts = {}
+    ) => {
+      if (!baseResult && !explicitBundle) return { metaValue: 0, isPick };
+      const raw = clampValue(
+        Math.round(
+          Number(
+            explicitBundle?.rawMarketValue ??
+            baseResult?.rawMarketValue ??
+            baseResult?.metaValue
+          ) || 0
+        ),
+        1,
+        COMPOSITE_SCALE
+      );
       const pos = isPick ? 'PICK' : (getPlayerPosition(resolvedName) || getPlayerPosition(normalizedName) || '');
-      const bundle = computeFinalAdjustedValue(raw, pos, resolvedName);
+      let bundle = explicitBundle;
+      let valueAuthority = String(opts?.valueAuthority || '');
+      if (!bundle) {
+        const knownData = resolveLoadedPlayerDataForPrecomputed(resolvedName);
+        if (knownData && typeof knownData === 'object') {
+          bundle = resolveKnownPlayerAdjustmentBundle(knownData, raw, pos, resolvedName, {
+            siteCount: Number(baseResult?.siteCount || 0),
+            cv: Number(baseResult?.cv || 0),
+            siteDetails: baseResult?.siteDetails || {},
+            allowFrontendForKnown: false,
+          });
+          if (bundle && !valueAuthority) {
+            valueAuthority = String(bundle?.resolverMetadata?.authority || 'backend_value_bundle');
+          }
+        }
+      }
+      if (!bundle) {
+        // Local recompute path: only used for unknown/manual assets.
+        bundle = computeFinalAdjustedValue(raw, pos, resolvedName, {
+          siteCount: Number(baseResult?.siteCount || 0),
+          cv: Number(baseResult?.cv),
+          siteDetails: baseResult?.siteDetails || {},
+          preferPrecomputed: false,
+        });
+        if (!valueAuthority) valueAuthority = 'frontend_runtime_fallback';
+      }
+      const bundleQuarantined = !!(
+        !isPick &&
+        (
+          bundle?.finalAuthorityQuarantined === true ||
+          (Array.isArray(bundle?.adjustmentTags) && bundle.adjustmentTags.includes('quarantined_from_final_authority'))
+        )
+      );
+      if (bundleQuarantined) {
+        const out = {
+          metaValue: 0,
+          isPick,
+          displayName: normalizedName,
+          resolvedName,
+          valueAuthority: valueAuthority || 'backend_quarantined_asset',
+          quarantined: true,
+          quarantineReasons: Array.isArray(bundle?.finalAuthorityQuarantineReasons)
+            ? bundle.finalAuthorityQuarantineReasons
+            : [],
+        };
+        tradeItemValueCache.map.set(cacheKey, out);
+        return { ...out };
+      }
       const selected = Math.max(1, Math.round(getValueByRankingMode(bundle, mode)));
+      const sourceCoverageCount = Number(
+        bundle?.sourceCoverage?.count ??
+        bundle?.marketReliability?.siteCount ??
+        baseResult?.siteCount ??
+        0
+      );
+      const sourceCoverageRatio = Number(
+        bundle?.sourceCoverage?.ratio ??
+        baseResult?.sourceCoverage?.ratio ??
+        NaN
+      );
+      const sourceCoverage = {
+        count: Number.isFinite(sourceCoverageCount) ? Math.max(0, Math.round(sourceCoverageCount)) : 0,
+        ratio: Number.isFinite(sourceCoverageRatio) ? clampValue(sourceCoverageRatio, 0, 1) : null,
+      };
+      const confidence = Number(
+        bundle?.marketReliability?.score ??
+        baseResult?.marketReliabilityScore ??
+        baseResult?.marketConfidence ??
+        baseResult?.confidence ??
+        NaN
+      );
+      const confidenceClamped = Number.isFinite(confidence)
+        ? clampValue(confidence, MARKET_CONF_MIN, MARKET_CONF_MAX)
+        : null;
       const out = {
-        ...baseResult,
+        ...(baseResult || {}),
         ...bundle,
         rawMarketValue: raw,
         metaValue: selected,
         isPick,
         displayName: normalizedName,
         resolvedName,
+        siteCount: sourceCoverage.count,
+        sourceCoverage,
+        confidence: confidenceClamped,
+        marketReliabilityScore: Number.isFinite(confidenceClamped)
+          ? confidenceClamped
+          : Number(bundle?.marketReliabilityScore ?? baseResult?.marketReliabilityScore ?? 0),
+        marketReliabilityLabel: String(
+          bundle?.marketReliability?.label ??
+          baseResult?.marketReliabilityLabel ??
+          ''
+        ),
+        adjustmentTags: Array.isArray(bundle?.adjustmentTags)
+          ? bundle.adjustmentTags
+          : (Array.isArray(baseResult?.adjustmentTags) ? baseResult.adjustmentTags : []),
+        valueAuthority: valueAuthority || String(bundle?.resolverMetadata?.authority || baseResult?.authoritySource || ''),
       };
       tradeItemValueCache.map.set(cacheKey, out);
       return { ...out };
+    };
+
+    const tryBackendKnownBundle = (candidateName, isPick) => {
+      const resolvedCandidate = String(candidateName || '').trim();
+      if (!resolvedCandidate) return null;
+      const knownData = resolveLoadedPlayerDataForPrecomputed(resolvedCandidate);
+      if (!knownData || typeof knownData !== 'object') return null;
+      if (!isPick && isBackendFinalAuthorityQuarantined(knownData)) {
+        const out = {
+          metaValue: 0,
+          isPick: false,
+          displayName: normalizedName,
+          resolvedName: resolvedCandidate,
+          valueAuthority: 'backend_quarantined_asset',
+          quarantined: true,
+          quarantineReasons: getBackendFinalAuthorityQuarantineReasons(knownData),
+        };
+        tradeItemValueCache.map.set(cacheKey, out);
+        return { ...out };
+      }
+      const pos = isPick ? 'PICK' : (getPlayerPosition(resolvedCandidate) || getPlayerPosition(normalizedName) || '');
+      const bundle = resolveKnownPlayerAdjustmentBundle(knownData, undefined, pos, resolvedCandidate, {
+        allowFrontendForKnown: false,
+      });
+      if (!bundle) return null;
+      return applyTradeMode({
+        rawMarketValue: bundle.rawMarketValue,
+        siteCount: Number(bundle?.sourceCoverage?.count ?? bundle?.marketReliability?.siteCount ?? knownData?._sites ?? 0),
+        siteDetails: (knownData?._canonicalSiteValues && typeof knownData._canonicalSiteValues === 'object')
+          ? knownData._canonicalSiteValues
+          : {},
+        cv: Number(knownData?._marketDispersionCV ?? 0) || 0,
+        authoritySource: 'backend_known_bundle',
+      }, isPick, resolvedCandidate, bundle, {
+        valueAuthority: String(bundle?.resolverMetadata?.authority || 'backend_value_bundle'),
+      });
     };
 
     const pickInfo = parsePickToken(normalizedName);
@@ -997,21 +1418,31 @@
       getCanonicalPickLookupLabels(pickInfo).forEach(pushLabel);
       pushLabel(normalizedName);
       for (const label of exactLabels) {
+        const backendExact = tryBackendKnownBundle(label, true);
+        if (backendExact && Number(backendExact.metaValue) > 0) {
+          return backendExact;
+        }
         const exact = computeMetaValueForPlayer(label, { rawOnly: true });
         if (exact && exact.metaValue > 0) {
-          return applyTradeMode(exact, true, label);
+          return applyTradeMode(exact, true, label, null, {
+            valueAuthority: String(exact?.authoritySource || ''),
+          });
         }
       }
 
       const directPick = computeMetaValueForPlayer(normalizedName, { rawOnly: true });
       if (directPick && directPick.metaValue > 0) {
-        return applyTradeMode(directPick, true, normalizedName);
+        return applyTradeMode(directPick, true, normalizedName, null, {
+          valueAuthority: String(directPick?.authoritySource || ''),
+        });
       }
       const pickData = resolvePickSiteValues(pickInfo);
       if (pickData) {
         const pickResult = computeMetaFromSiteValues(pickData, { isPick: true, playerName: normalizedName });
         if (pickResult && pickResult.metaValue > 0) {
-          return applyTradeMode(pickResult, true, normalizedName);
+          return applyTradeMode(pickResult, true, normalizedName, null, {
+            valueAuthority: 'frontend_pick_sites',
+          });
         }
 
         const ktcVal = Number(pickData.ktc);
@@ -1021,21 +1452,436 @@
             rawMarketValue: Math.round(ktcVal),
             siteCount: 1,
             siteDetails: { ktc: Math.round(ktcVal) },
-          }, true, normalizedName);
+          }, true, normalizedName, null, {
+            valueAuthority: 'frontend_pick_ktc_proxy',
+          });
         }
       }
-      const out = { metaValue: 0, isPick: true, displayName: normalizedName, resolvedName: normalizedName };
+      const out = {
+        metaValue: 0,
+        isPick: true,
+        displayName: normalizedName,
+        resolvedName: normalizedName,
+        valueAuthority: 'unresolved_pick',
+      };
       tradeItemValueCache.map.set(cacheKey, out);
       return { ...out };
     }
 
-    const result = computeMetaValueForPlayer(normalizedName, { rawOnly: true });
+    const canonicalPlayer = resolveCanonicalPlayerName(normalizedName) || normalizedName;
+    const backendKnown = tryBackendKnownBundle(canonicalPlayer, false);
+    if (backendKnown && backendKnown.quarantined) {
+      return backendKnown;
+    }
+    if (backendKnown && Number(backendKnown.metaValue) > 0) {
+      return backendKnown;
+    }
+
+    const result = computeMetaValueForPlayer(canonicalPlayer, { rawOnly: true });
     if (!result) {
-      const out = { metaValue: 0, isPick: false, displayName: normalizedName, resolvedName: normalizedName };
+      const out = {
+        metaValue: 0,
+        isPick: false,
+        displayName: normalizedName,
+        resolvedName: canonicalPlayer,
+        valueAuthority: 'unresolved_player',
+      };
       tradeItemValueCache.map.set(cacheKey, out);
       return { ...out };
     }
-    return applyTradeMode(result, false, normalizedName);
+    return applyTradeMode(result, false, canonicalPlayer, null, {
+      valueAuthority: String(result?.authoritySource || ''),
+    });
+  }
+
+  function runCalculatorAuthorityDiagnostics(opts = {}) {
+    const generatedAt = new Date().toISOString();
+    const playersMap = loadedData?.players;
+    if (!playersMap || typeof playersMap !== 'object') {
+      return {
+        generatedAt,
+        ok: false,
+        reason: 'no_loaded_data',
+        sampled: 0,
+      };
+    }
+
+    const sampleSize = Math.max(25, Math.min(600, Math.round(Number(opts?.sampleSize) || 180)));
+    const names = Object.keys(playersMap || {});
+    const nonPickNames = [];
+    const pickNames = [];
+    for (const name of names) {
+      if (parsePickToken(name)) pickNames.push(name);
+      else nonPickNames.push(name);
+    }
+    nonPickNames.sort((a, b) => a.localeCompare(b));
+    pickNames.sort((a, b) => a.localeCompare(b));
+    const pickTarget = Math.min(pickNames.length, Math.max(8, Math.round(sampleSize * 0.2)));
+    const nonPickTarget = Math.min(nonPickNames.length, Math.max(0, sampleSize - pickTarget));
+    const sampleNames = nonPickNames.slice(0, nonPickTarget).concat(pickNames.slice(0, pickTarget));
+    const basisModes = ['raw', 'scoring', 'scarcity', 'bestBall', 'full'];
+    const basisParity = Object.fromEntries(
+      basisModes.map((modeName) => [modeName, {
+        compared: 0,
+        mismatchCount: 0,
+        maxAbsDiff: 0,
+        mismatchSamples: [],
+      }])
+    );
+    const playerDetailParity = {
+      compared: 0,
+      mismatchCount: 0,
+      maxAbsDiff: 0,
+      mismatchSamples: [],
+    };
+    const authorityBreakdown = {};
+    const knownAssets = [];
+    const missingCoverage = [];
+    const rowsByNorm = new Map();
+
+    if (typeof getOrBuildRankingsBaseRows === 'function' && typeof getCanonicalValueContext === 'function') {
+      const cctx = getCanonicalValueContext();
+      const cfg = Array.isArray(cctx?.cfg) ? cctx.cfg : [];
+      const posMap = loadedData?.sleeper?.positions || {};
+      const rows = getOrBuildRankingsBaseRows(cfg, cctx, posMap);
+      for (const row of (rows || [])) {
+        if (!row?.name) continue;
+        rowsByNorm.set(normalizeForLookup(row.name), row);
+      }
+    }
+
+    for (const name of sampleNames) {
+      const isPick = !!parsePickToken(name);
+      const tiv = getTradeItemValue(name);
+      if (!tiv || Number(tiv?.metaValue || 0) <= 0) continue;
+      const canonicalName = String(tiv?.resolvedName || resolveCanonicalPlayerName(name) || name);
+      const authority = String(
+        tiv?.valueAuthority ||
+        tiv?.resolverMetadata?.authority ||
+        tiv?.authoritySource ||
+        'unknown'
+      );
+      authorityBreakdown[authority] = (authorityBreakdown[authority] || 0) + 1;
+
+      const sourceCoverageCount = Number(
+        tiv?.sourceCoverage?.count ??
+        tiv?.siteCount ??
+        tiv?.marketReliability?.siteCount ??
+        0
+      );
+      const confidence = Number(
+        tiv?.confidence ??
+        tiv?.marketReliability?.score ??
+        tiv?.marketReliabilityScore ??
+        tiv?.marketConfidence ??
+        NaN
+      );
+
+      const knownData = resolveLoadedPlayerDataForPrecomputed(canonicalName);
+      const adjPos = isPick ? 'PICK' : (getPlayerPosition(canonicalName) || getPlayerPosition(name) || '');
+      const backendBundle = (knownData && typeof knownData === 'object')
+        ? getPrecomputedAdjustmentBundle(knownData, undefined, adjPos, canonicalName)
+        : null;
+
+      if (backendBundle) {
+        for (const modeName of basisModes) {
+          const expected = Math.round(Number(getValueByRankingMode(backendBundle, modeName)) || 0);
+          const actual = Math.round(Number(getValueByRankingMode(tiv, modeName)) || 0);
+          if (expected <= 0 || actual <= 0) continue;
+          const stats = basisParity[modeName];
+          const diff = actual - expected;
+          const absDiff = Math.abs(diff);
+          stats.compared += 1;
+          if (absDiff > stats.maxAbsDiff) stats.maxAbsDiff = absDiff;
+          if (absDiff > 1) {
+            stats.mismatchCount += 1;
+            if (stats.mismatchSamples.length < 12) {
+              stats.mismatchSamples.push({
+                name,
+                expected,
+                actual,
+                diff,
+                authority,
+              });
+            }
+          }
+        }
+        if (!Number.isFinite(confidence) || sourceCoverageCount <= 0) {
+          if (missingCoverage.length < 32) {
+            missingCoverage.push({
+              name,
+              confidence: Number.isFinite(confidence) ? confidence : null,
+              sourceCoverageCount: Number.isFinite(sourceCoverageCount) ? sourceCoverageCount : 0,
+              authority,
+            });
+          }
+        }
+        knownAssets.push({
+          name,
+          isPick,
+          authority,
+          fullValue: Math.round(Number(getValueByRankingMode(tiv, 'full')) || 0),
+        });
+      }
+
+      const rankingRow = rowsByNorm.get(normalizeForLookup(name));
+      if (rankingRow && rankingRow.adjustment) {
+        for (const modeName of basisModes) {
+          const expected = Math.round(Number(getValueByRankingMode(rankingRow.adjustment, modeName)) || 0);
+          const actual = Math.round(Number(getValueByRankingMode(tiv, modeName)) || 0);
+          if (expected <= 0 || actual <= 0) continue;
+          const stats = basisParity[modeName];
+          const diff = actual - expected;
+          const absDiff = Math.abs(diff);
+          if (absDiff <= 1) continue;
+          stats.mismatchCount += 1;
+          if (absDiff > stats.maxAbsDiff) stats.maxAbsDiff = absDiff;
+          if (stats.mismatchSamples.length < 12) {
+            stats.mismatchSamples.push({
+              name,
+              expected,
+              actual,
+              diff,
+              authority,
+              source: 'rankings_row',
+            });
+          }
+        }
+      }
+
+      const detail = computeMetaValueForPlayer(name);
+      const expectedDetailFull = Math.round(Number(detail?.finalAdjustedValue ?? detail?.metaValue) || 0);
+      const calcFull = Math.round(Number(getValueByRankingMode(tiv, 'full')) || 0);
+      if (expectedDetailFull > 0 && calcFull > 0) {
+        const diff = calcFull - expectedDetailFull;
+        const absDiff = Math.abs(diff);
+        playerDetailParity.compared += 1;
+        if (absDiff > playerDetailParity.maxAbsDiff) playerDetailParity.maxAbsDiff = absDiff;
+        if (absDiff > 1) {
+          playerDetailParity.mismatchCount += 1;
+          if (playerDetailParity.mismatchSamples.length < 12) {
+            playerDetailParity.mismatchSamples.push({
+              name,
+              expected: expectedDetailFull,
+              actual: calcFull,
+              diff,
+              authority,
+            });
+          }
+        }
+      }
+    }
+
+    const representativeTrades = [];
+    const representativeTradeParity = {
+      evaluated: 0,
+      mismatchCount: 0,
+      mismatchSamples: [],
+    };
+    if (typeof clearPlayers === 'function' && typeof addAssetToTrade === 'function') {
+      const players = knownAssets
+        .filter((a) => !a.isPick && a.fullValue > 0)
+        .sort((a, b) => b.fullValue - a.fullValue || a.name.localeCompare(b.name));
+      const picks = knownAssets
+        .filter((a) => a.isPick && a.fullValue > 0)
+        .sort((a, b) => b.fullValue - a.fullValue || a.name.localeCompare(b.name));
+      const examples = [];
+      const pushExample = (key, label, sideA, sideB) => {
+        if (!sideA?.length || !sideB?.length) return;
+        const merged = sideA.concat(sideB);
+        const uniq = new Set(merged.map((v) => normalizeForLookup(v)));
+        if (uniq.size !== merged.length) return;
+        examples.push({ key, label, sideA, sideB });
+      };
+      pushExample(
+        'player_for_pick',
+        'Player for pick',
+        players[0] ? [players[0].name] : [],
+        picks[0] ? [picks[0].name] : []
+      );
+      pushExample(
+        'pick_bundle_for_player',
+        'Pick bundle for player',
+        [picks[0]?.name, picks[2]?.name].filter(Boolean),
+        players[8] ? [players[8].name] : []
+      );
+      pushExample(
+        'mixed_two_for_two',
+        'Mixed 2-for-2',
+        [players[4]?.name, picks[1]?.name].filter(Boolean),
+        [players[10]?.name, picks[4]?.name].filter(Boolean)
+      );
+
+      const readSideRows = (side) => {
+        const out = [];
+        const rows = Array.from(document.querySelectorAll(`#side${side}Body tr`));
+        for (const row of rows) {
+          const label = String(row.querySelector('.player-name-input')?.value || '').trim();
+          if (!label) continue;
+          const rowVal = Math.round(Number(row.dataset.metaValue) || 0);
+          const authority = String(row.dataset.valueAuthority || '');
+          let debug = null;
+          try { debug = row.dataset.adjustmentDebug ? JSON.parse(row.dataset.adjustmentDebug) : null; } catch (_) { debug = null; }
+          out.push({
+            name: label,
+            rowValue: rowVal,
+            authority,
+            confidence: Number(debug?.marketReliabilityScore ?? NaN),
+            sourceCoverageCount: Number(debug?.sourceCoverageCount ?? NaN),
+          });
+        }
+        return out;
+      };
+
+      for (const example of examples.slice(0, Math.max(1, Math.min(6, Number(opts?.tradeExampleCount) || 3)))) {
+        clearPlayers();
+        for (const name of example.sideA) addAssetToTrade('A', name);
+        for (const name of example.sideB) addAssetToTrade('B', name);
+        recalculate();
+        const rowA = readSideRows('A');
+        const rowB = readSideRows('B');
+        const checkRows = rowA.concat(rowB);
+        const rowMismatches = [];
+        for (const row of checkRows) {
+          const tiv = getTradeItemValue(row.name);
+          const expected = Math.round(Number(tiv?.metaValue || 0));
+          const actual = Math.round(Number(row?.rowValue || 0));
+          const diff = actual - expected;
+          if (Math.abs(diff) > 1) {
+            rowMismatches.push({
+              name: row.name,
+              expected,
+              actual,
+              diff,
+              authority: row.authority,
+            });
+          }
+        }
+        representativeTrades.push({
+          ...example,
+          rowCount: checkRows.length,
+          rowAuthorities: Object.fromEntries(
+            checkRows.reduce((acc, row) => {
+              const key = String(row.authority || 'unknown');
+              acc.set(key, (acc.get(key) || 0) + 1);
+              return acc;
+            }, new Map())
+          ),
+          rowMismatches,
+          hasPick: example.sideA.concat(example.sideB).some((n) => !!parsePickToken(n)),
+        });
+        representativeTradeParity.evaluated += 1;
+        if (rowMismatches.length) {
+          representativeTradeParity.mismatchCount += rowMismatches.length;
+          representativeTradeParity.mismatchSamples.push(...rowMismatches.slice(0, 8));
+        }
+      }
+      clearPlayers();
+      recalculate();
+    }
+
+    let basisMismatchTotal = 0;
+    let basisComparedTotal = 0;
+    let basisMaxAbsDiff = 0;
+    for (const stats of Object.values(basisParity)) {
+      basisMismatchTotal += Number(stats?.mismatchCount || 0);
+      basisComparedTotal += Number(stats?.compared || 0);
+      basisMaxAbsDiff = Math.max(basisMaxAbsDiff, Number(stats?.maxAbsDiff || 0));
+    }
+
+    const report = {
+      generatedAt,
+      ok: true,
+      sampled: sampleNames.length,
+      backendCoverage: {
+        knownWithBundle: knownAssets.length,
+        missingConfidenceOrCoverageCount: missingCoverage.length,
+        missingConfidenceOrCoverage: missingCoverage,
+      },
+      authorityBreakdown,
+      rankingsParity: {
+        byBasis: basisParity,
+        summary: {
+          compared: basisComparedTotal,
+          mismatchCount: basisMismatchTotal,
+          maxAbsDiff: basisMaxAbsDiff,
+        },
+      },
+      playerDetailParity,
+      representativeTrades,
+      representativeTradeParity,
+    };
+    window.__calculatorAuthorityDiagnostics = report;
+    return report;
+  }
+
+  function buildTradeCalculatorBackendParityReport(valueBasis = getCalculatorValueBasis()) {
+    const generatedAt = new Date().toISOString();
+    const basis = normalizeValueBasis(valueBasis || 'full');
+    const bySide = {
+      A: { rows: 0, compared: 0, mismatchCount: 0, manualOverrideRows: 0 },
+      B: { rows: 0, compared: 0, mismatchCount: 0, manualOverrideRows: 0 },
+      C: { rows: 0, compared: 0, mismatchCount: 0, manualOverrideRows: 0 },
+    };
+    const report = {
+      generatedAt,
+      valueBasis: basis,
+      compared: 0,
+      mismatchCount: 0,
+      maxAbsDiff: 0,
+      manualOverrideRows: 0,
+      unresolvedRows: 0,
+      mismatchSamples: [],
+      bySide,
+    };
+
+    ['A', 'B', 'C'].forEach((side) => {
+      const body = document.getElementById(`side${side}Body`);
+      if (!body) return;
+      const rows = Array.from(body.querySelectorAll('tr'));
+      for (const row of rows) {
+        const name = normalizeTradeAssetLabel(row.querySelector('.player-name-input')?.value || '');
+        if (!name) continue;
+        bySide[side].rows += 1;
+        const manualOverride = row.dataset.manualSiteOverride === '1';
+        if (manualOverride) {
+          report.manualOverrideRows += 1;
+          bySide[side].manualOverrideRows += 1;
+          continue;
+        }
+
+        const actualValue = Math.round(Number(row.dataset.metaValue || 0));
+        const authoritative = getTradeItemValue(name);
+        const expectedValue = Math.round(Number(authoritative?.metaValue || 0));
+        if (expectedValue <= 0 || actualValue <= 0) {
+          report.unresolvedRows += 1;
+          continue;
+        }
+
+        const diff = actualValue - expectedValue;
+        const absDiff = Math.abs(diff);
+        report.compared += 1;
+        bySide[side].compared += 1;
+        if (absDiff > report.maxAbsDiff) report.maxAbsDiff = absDiff;
+        if (absDiff > 1) {
+          report.mismatchCount += 1;
+          bySide[side].mismatchCount += 1;
+          if (report.mismatchSamples.length < 16) {
+            report.mismatchSamples.push({
+              side,
+              name,
+              expected: expectedValue,
+              actual: actualValue,
+              diff,
+              authority: String(row.dataset.valueAuthority || authoritative?.valueAuthority || ''),
+            });
+          }
+        }
+      }
+    });
+
+    report.ok = report.mismatchCount === 0;
+    return report;
   }
 
   // [NEW] Get player position from any source
@@ -1990,6 +2836,10 @@
       }
     });
 
+    // Autofill keeps known assets on authoritative backend valuation unless the
+    // user manually edits source fields again.
+    row.dataset.manualSiteOverride = '';
+
     if (filled > 0) {
       nameInp.style.borderColor = 'var(--green)';
       setTimeout(() => { nameInp.style.borderColor = ''; }, 1500);
@@ -2390,15 +3240,28 @@
     const teamSet = getTeamPlayers(teamFilter);
 
     const norm = query.toLowerCase();
-    let pool = playerNames;
-
-    let matches;
+    const matches = [];
     if (teamSet) {
-      const teamMatches = pool.filter(n => n.toLowerCase().includes(norm) && teamSet.has(n.toLowerCase()));
-      const otherMatches = pool.filter(n => n.toLowerCase().includes(norm) && !teamSet.has(n.toLowerCase()));
-      matches = [...teamMatches.slice(0, 6), ...otherMatches.slice(0, 2)];
+      const teamMatches = [];
+      const otherMatches = [];
+      for (let i = 0; i < playerNames.length; i++) {
+        const lower = playerNamesLower[i] || String(playerNames[i] || '').toLowerCase();
+        if (!lower.includes(norm)) continue;
+        if (teamSet.has(lower)) {
+          if (teamMatches.length < 6) teamMatches.push(playerNames[i]);
+        } else if (otherMatches.length < 2) {
+          otherMatches.push(playerNames[i]);
+        }
+        if (teamMatches.length >= 6 && otherMatches.length >= 2) break;
+      }
+      matches.push(...teamMatches, ...otherMatches);
     } else {
-      matches = pool.filter(n => n.toLowerCase().includes(norm)).slice(0, 8);
+      for (let i = 0; i < playerNames.length; i++) {
+        const lower = playerNamesLower[i] || String(playerNames[i] || '').toLowerCase();
+        if (!lower.includes(norm)) continue;
+        matches.push(playerNames[i]);
+        if (matches.length >= 8) break;
+      }
     }
     if (!matches.length) return;
 
@@ -2496,8 +3359,8 @@
     if (overlay) overlay.classList.remove('active');
   }
 
-  function scoreSearchMatch(name, queryNorm) {
-    const n = normalizeForLookup(name);
+  function scoreSearchMatch(nameOrNorm, queryNorm, alreadyNormalized = false) {
+    const n = alreadyNormalized ? String(nameOrNorm || '') : normalizeForLookup(nameOrNorm);
     if (!queryNorm) return 10;
     if (n === queryNorm) return 100;
     if (n.startsWith(queryNorm)) return 85;
@@ -2511,7 +3374,11 @@
     if (!loadedData?.players) return [];
     const q = String(query || '').trim();
     const qNorm = normalizeForLookup(q);
-    const source = Object.keys(loadedData.players || {});
+    const playersRef = loadedData.players;
+    if (globalSearchResultCachePlayersRef !== playersRef) {
+      globalSearchResultCachePlayersRef = playersRef;
+      globalSearchResultCache = new Map();
+    }
 
     if (!qNorm) {
       const recent = getRecentPlayers().slice(0, 8);
@@ -2520,11 +3387,25 @@
         .map(name => ({ name, score: 50 }));
     }
 
-    return source
-      .map(name => ({ name, score: scoreSearchMatch(name, qNorm) }))
-      .filter(x => x.score > 0)
-      .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
-      .slice(0, limit);
+    const cacheKey = `${qNorm}|${Math.max(1, Number(limit) || 40)}`;
+    const cached = globalSearchResultCache.get(cacheKey);
+    if (Array.isArray(cached)) return cached.slice(0, limit);
+
+    const scored = [];
+    const source = getGlobalSearchIndex();
+    for (let i = 0; i < source.length; i++) {
+      const row = source[i];
+      const score = scoreSearchMatch(row.norm, qNorm, true);
+      if (score > 0) scored.push({ name: row.name, score });
+    }
+    scored.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+    const trimmed = scored.slice(0, Math.max(1, Number(limit) || 40));
+    globalSearchResultCache.set(cacheKey, trimmed);
+    if (globalSearchResultCache.size > 48) {
+      const firstKey = globalSearchResultCache.keys().next().value;
+      if (firstKey != null) globalSearchResultCache.delete(firstKey);
+    }
+    return trimmed.slice(0, limit);
   }
 
   function addCompareCandidate(name) {
@@ -2736,8 +3617,9 @@
   }
 
   // ── RECALCULATE ──
-  function recalculate() {
+  async function recalculate() {
     // Site stats are computed on data load and settings save — not here
+    const recalcRunId = ++tradeBackendScoringState.recalcSeq;
 
     const calcValueBasis = getCalculatorValueBasis();
     const alpha     = parseFloat(document.getElementById('alphaInput').value)||DEFAULT_ALPHA;
@@ -2746,7 +3628,24 @@
     const cfg = cctx.cfg;
 
     const linTot = {A:0,B:0,C:0}, wtTot = {A:0,B:0,C:0};
-    const sideMetaValues = {A:[], B:[], C:[]}; // [NEW] collect for suggestion
+    const sidePackageEntries = {A:[], B:[], C:[]};
+    const localTruth = {
+      inputRows: 0,
+      scoredRows: 0,
+      manualOverrideRows: 0,
+      lowConfidenceRows: 0,
+      lowConfidenceNames: [],
+      excludedRows: [],
+    };
+    const pushExcludedRow = (side, name, reason) => {
+      if (!name) return;
+      if (localTruth.excludedRows.length >= 40) return;
+      localTruth.excludedRows.push({
+        side: String(side || ''),
+        name: String(name || '').trim(),
+        reason: String(reason || 'excluded'),
+      });
+    };
 
     ['sideABody','sideBBody','sideCBody'].forEach(tbodyId => {
       const el = document.getElementById(tbodyId);
@@ -2761,8 +3660,14 @@
           const su=row.querySelector('.sites-used'); if(su)su.textContent='';
           const mv=row.querySelector('.meta-value'); if(mv)mv.textContent='';
           row.dataset.metaValue = '';
+          row.dataset.packageEntry = '';
           return;
         }
+        localTruth.inputRows += 1;
+        if (row.dataset.manualSiteOverride === '1') {
+          localTruth.manualOverrideRows += 1;
+        }
+        row.dataset.truthFlags = '';
 
         const pickInfo = parsePickToken(name);
         const isPick = !!pickInfo;
@@ -2807,47 +3712,98 @@
             if (pill) pill.textContent='';
           }
         });
-        const composite = computeCanonicalCompositeFromSiteValues(inputSiteValues, {
-          ctx: cctx,
-          playerName: name,
-          playerPos: rowPos,
-          playerIsTE,
-          playerIsIdp: rowIsIdp,
-          isPick,
-          pickValuesCanonical,
-        });
         const su = row.querySelector('.sites-used');
-        if (su) su.textContent = composite ? String(composite.siteCount) : '';
-        if (!composite) {
-          row.dataset.metaValue = '';
-          return;
+        const allowAuthoritative = (row.dataset.manualSiteOverride !== '1') && !!name;
+        let metaValue = null;
+        let rawMarketValue = null;
+        let adjBundle = null;
+
+        if (allowAuthoritative) {
+          const authoritative = getTradeItemValue(name);
+          if (authoritative && Number(authoritative.metaValue) > 0) {
+            rawMarketValue = clampValue(
+              Math.round(Number(authoritative.rawMarketValue ?? authoritative.metaValue) || 0),
+              1,
+              COMPOSITE_SCALE
+            );
+            // Reuse the same basis resolver used by rankings + roster surfaces.
+            metaValue = Math.max(1, Math.round(Number(authoritative.metaValue) || getValueByRankingMode(authoritative, calcValueBasis)));
+            adjBundle = authoritative;
+            const sc = Number(
+              authoritative.sourceCoverage?.count ??
+              authoritative.siteCount ??
+              authoritative.marketReliability?.siteCount ??
+              0
+            );
+            if (su) su.textContent = (Number.isFinite(sc) && sc > 0) ? String(Math.round(sc)) : '';
+            const authorityTag = String(
+              authoritative.valueAuthority ||
+              authoritative.resolverMetadata?.authority ||
+              authoritative.authoritySource ||
+              ''
+            );
+            row.dataset.valueAuthority = authorityTag ? `backend_trade_item:${authorityTag}` : 'backend_trade_item';
+          }
         }
 
-        let metaValue = composite.rawCompositeValue;
-        const rawMarketValue = composite.rawCompositeValue;
-        const adjPos = isPick ? 'PICK' : (rowPos || (getPlayerPosition(name) || ''));
-        const adjBundle = computeFinalAdjustedValue(rawMarketValue, adjPos, name, {
-          siteCount: composite.siteCount,
-          cv: composite.cv,
-          siteDetails: composite.siteDetails,
-        });
-        metaValue = getValueByRankingMode(adjBundle, calcValueBasis);
+        if (!adjBundle) {
+          const composite = computeCanonicalCompositeFromSiteValues(inputSiteValues, {
+            ctx: cctx,
+            playerName: name,
+            playerPos: rowPos,
+            playerIsTE,
+            playerIsIdp: rowIsIdp,
+            isPick,
+            pickValuesCanonical,
+          });
+          if (su) su.textContent = composite ? String(composite.siteCount) : '';
+          if (!composite) {
+            row.dataset.metaValue = '';
+            row.dataset.adjustmentDebug = '';
+            row.dataset.lamDebug = '';
+            row.dataset.scarcityDebug = '';
+            row.dataset.valueAuthority = '';
+            row.dataset.packageEntry = '';
+            pushExcludedRow(side, name || '(unnamed row)', row.dataset.manualSiteOverride === '1'
+              ? 'manual_override_without_usable_value'
+              : 'no_usable_authoritative_or_manual_value');
+            return;
+          }
+          rawMarketValue = composite.rawCompositeValue;
+          const adjPos = isPick ? 'PICK' : (rowPos || (getPlayerPosition(name) || ''));
+          adjBundle = computeFinalAdjustedValue(rawMarketValue, adjPos, name, {
+            siteCount: composite.siteCount,
+            cv: composite.cv,
+            siteDetails: composite.siteDetails,
+            preferPrecomputed: false,
+          });
+          metaValue = getValueByRankingMode(adjBundle, calcValueBasis);
+          row.dataset.valueAuthority = 'manual_row_composite';
+        }
+
         if (adjBundle) {
           row.dataset.adjustmentDebug = JSON.stringify({
             rawMarketValue: adjBundle.rawMarketValue,
             marketReliabilityScore: Number(adjBundle.marketReliability?.score ?? 0),
             marketReliabilityLabel: String(adjBundle.marketReliability?.label || ''),
+            sourceCoverageCount: Number(adjBundle.sourceCoverage?.count ?? adjBundle.marketReliability?.siteCount ?? 0),
+            sourceCoverageRatio: Number(adjBundle.sourceCoverage?.ratio ?? NaN),
+            adjustmentTags: Array.isArray(adjBundle.adjustmentTags) ? adjBundle.adjustmentTags : [],
             scoringMultiplierRaw: Number(adjBundle.scoring?.leagueMultiplier ?? 1),
             scoringMultiplierEffective: Number(adjBundle.scoring?.effectiveMultiplier ?? 1),
             scarcityMultiplierRaw: Number(adjBundle.scarcity?.scarcityMultiplierRaw ?? 1),
             scarcityMultiplierEffective: Number(adjBundle.scarcity?.scarcityMultiplierEffective ?? 1),
             scoringAdjustedValue: Number(adjBundle.scoringAdjustedValue ?? adjBundle.rawMarketValue),
             scarcityAdjustedValue: Number(adjBundle.scarcityAdjustedValue ?? adjBundle.rawMarketValue),
+            bestBallAdjustedValue: Number(adjBundle.bestBallAdjustedValue ?? adjBundle.scarcityAdjustedValue ?? adjBundle.rawMarketValue),
             guardrailMin: Number(adjBundle.topEndGuardrail?.minValue ?? 0),
             guardrailMax: Number(adjBundle.topEndGuardrail?.maxValue ?? 0),
             guardrailApplied: !!adjBundle.topEndGuardrail?.applied,
             finalAdjustedValue: Number(adjBundle.finalAdjustedValue ?? adjBundle.rawMarketValue),
             valueDelta: Number(adjBundle.valueDelta ?? 0),
+            layerContributions: adjBundle.layerContributions || null,
+            layerSources: adjBundle.layerSources || null,
+            resolverMetadata: adjBundle.resolverMetadata || null,
           });
           row.dataset.lamDebug = JSON.stringify({
             baselineBucket: adjBundle.scoring?.baselineBucket,
@@ -2884,6 +3840,32 @@
           row.dataset.scarcityDebug = '';
         }
 
+        const confidenceScore = Number(
+          adjBundle?.marketReliability?.score ??
+          adjBundle?.marketReliabilityScore ??
+          adjBundle?.marketConfidence ??
+          NaN
+        );
+        const lowConfidence = Number.isFinite(confidenceScore) && confidenceScore > 0 && confidenceScore < 0.58;
+        if (lowConfidence) {
+          localTruth.lowConfidenceRows += 1;
+          if (localTruth.lowConfidenceNames.length < 18) {
+            const key = String(name || '').trim();
+            if (key && !localTruth.lowConfidenceNames.includes(key)) {
+              localTruth.lowConfidenceNames.push(key);
+            }
+          }
+        }
+        const bundleQuarantined = !!(
+          adjBundle?.finalAuthorityQuarantined === true ||
+          (Array.isArray(adjBundle?.adjustmentTags) && adjBundle.adjustmentTags.includes('quarantined_from_final_authority'))
+        );
+        const rowTruthFlags = [];
+        if (row.dataset.manualSiteOverride === '1') rowTruthFlags.push('manual override');
+        if (bundleQuarantined) rowTruthFlags.push('quarantined');
+        if (lowConfidence) rowTruthFlags.push('low confidence');
+        row.dataset.truthFlags = rowTruthFlags.join(',');
+
         const mvEl = row.querySelector('.meta-value');
         if (mvEl) {
           let display = isFinite(metaValue) ? Math.max(1, Math.round(metaValue)).toLocaleString() : '';
@@ -2907,17 +3889,349 @@
               display += `<span style="display:block;font-size:0.58rem;color:${tColor};font-family:var(--mono);" title="Change since last update">${arrow} ${trend > 0 ? '+' : ''}${trend.toFixed(1)}%</span>`;
             }
           }
+          if (display && rowTruthFlags.length) {
+            display += `<span style="display:block;font-size:0.56rem;color:var(--amber);font-family:var(--mono);" title="Scoring truth flags">${rowTruthFlags.join(' · ')}</span>`;
+          }
           mvEl.innerHTML = display;
         }
         row.dataset.metaValue = isFinite(metaValue) ? String(Math.max(1, Math.round(metaValue))) : '';
 
-        const linear = metaValue;
-        const weighted = Math.pow(metaValue, alpha);
-        if (!isFinite(linear)||!isFinite(weighted)) return;
-        linTot[side]+=linear; wtTot[side]+=weighted;
-        sideMetaValues[side].push(Math.round(metaValue)); // [NEW]
+        const linear = isFinite(metaValue) ? Math.max(1, Math.round(metaValue)) : NaN;
+        if (!isFinite(linear)) {
+          row.dataset.packageEntry = '';
+          pushExcludedRow(side, name || '(unnamed row)', 'non_finite_linear_value');
+          return;
+        }
+        linTot[side] += linear;
+
+        const playerData = resolveLoadedPlayerDataForPrecomputed(name);
+        const packageEntry = buildTradePackageEntryFromTradeItem(adjBundle || {}, {
+          name,
+          value: linear,
+          pos: isPick ? 'PICK' : rowPos,
+          isPick,
+          isIdp: rowIsIdp,
+          isRookie: !isPick && isRookiePlayerName(name, playerData || {}),
+          assetClass: isPick ? 'pick' : (rowIsIdp ? 'idp' : 'offense'),
+          confidence: Number(
+            adjBundle?.marketReliability?.score ??
+            adjBundle?.marketReliabilityScore ??
+            adjBundle?.marketConfidence ??
+            NaN
+          ),
+          bestBallLift: Number(
+            adjBundle?.bestBallDelta ??
+            NaN
+          ),
+          playerData,
+        });
+        if (packageEntry) {
+          packageEntry.manualOverride = row.dataset.manualSiteOverride === '1';
+          packageEntry.label = name;
+          sidePackageEntries[side].push(packageEntry);
+          row.dataset.packageEntry = JSON.stringify(packageEntry);
+          localTruth.scoredRows += 1;
+        } else {
+          row.dataset.packageEntry = '';
+          pushExcludedRow(side, name || '(unnamed row)', 'package_entry_unavailable');
+        }
       });
     });
+
+    const bestBallContextDetails = (typeof getBestBallContextDetails === 'function')
+      ? getBestBallContextDetails()
+      : {
+          active: isBestBallContextActive(),
+          assumed: false,
+          source: 'legacy_best_ball_context_helper',
+        };
+    const bestBallMode = !!bestBallContextDetails.active;
+    const fallbackPolicy = resolveTradeFallbackPolicy();
+    const localSidePackageScores = {
+      A: computeTradePackageScoreFromEntries(sidePackageEntries.A, { alpha, bestBallMode }),
+      B: computeTradePackageScoreFromEntries(sidePackageEntries.B, { alpha, bestBallMode }),
+      C: computeTradePackageScoreFromEntries(sidePackageEntries.C, { alpha, bestBallMode }),
+    };
+    const backendScorePayload = await scoreTradePackagesViaBackend({
+      valueBasis: calcValueBasis,
+      alpha,
+      bestBallMode,
+      sides: sidePackageEntries,
+    });
+    if (recalcRunId !== tradeBackendScoringState.recalcSeq) return;
+    const sideLabels = ['A', 'B', 'C'];
+    const backendHealthy = !!(backendScorePayload && backendScorePayload.ok === true);
+    const fallbackBySide = {};
+    let fallbackUsedCount = 0;
+    let fallbackBlockedCount = 0;
+    const sidePackageScores = { A: null, B: null, C: null };
+    for (const side of sideLabels) {
+      const hasEntries = Array.isArray(sidePackageEntries?.[side]) && sidePackageEntries[side].length > 0;
+      const backendSide = backendScorePayload?.sides?.[side];
+      const backendUsable = !!(backendSide && Number.isFinite(Number(backendSide.weightedTotal)));
+      let usedFallback = false;
+      let fallbackBlocked = false;
+      if (backendUsable) {
+        sidePackageScores[side] = backendSide;
+      } else if (!hasEntries) {
+        sidePackageScores[side] = localSidePackageScores[side];
+      } else if (fallbackPolicy.allowFallback) {
+        sidePackageScores[side] = localSidePackageScores[side];
+        usedFallback = true;
+      } else {
+        sidePackageScores[side] = null;
+        fallbackBlocked = true;
+        fallbackBlockedCount += 1;
+      }
+      if (usedFallback) fallbackUsedCount += 1;
+      fallbackBySide[side] = {
+        hasEntries,
+        backendUsable,
+        usedFallback,
+        fallbackBlocked,
+        reason: (usedFallback || fallbackBlocked)
+          ? (
+              fallbackBlocked
+                ? 'fallback_disallowed_by_policy'
+                : (
+                    backendHealthy
+                      ? 'backend_payload_missing_side_weighted_total'
+                      : (tradeBackendScoringState?.lastError || 'backend_trade_scoring_unavailable')
+                  )
+            )
+          : '',
+      };
+    }
+    const runtimeContractVersion = resolveRuntimeContractVersion();
+    const backendContractVersion = String(backendScorePayload?.contractVersion || '').trim();
+    const contractMismatch = !!(
+      backendHealthy &&
+      runtimeContractVersion &&
+      backendContractVersion &&
+      runtimeContractVersion !== backendContractVersion
+    );
+    const fallbackWhileBackendHealthy = backendHealthy && fallbackUsedCount > 0;
+    wtTot.A = Number(sidePackageScores.A?.weightedTotal || 0);
+    wtTot.B = Number(sidePackageScores.B?.weightedTotal || 0);
+    wtTot.C = Number(sidePackageScores.C?.weightedTotal || 0);
+
+    let authority = 'frontend_package_formula_fallback';
+    if (fallbackBlockedCount > 0) {
+      authority = 'backend_trade_scoring_required_fallback_disallowed';
+    } else if (backendHealthy) {
+      authority = (fallbackUsedCount > 0)
+        ? 'backend_trade_scoring_v1_with_frontend_fallback'
+        : String(backendScorePayload.authority || 'backend_trade_scoring_v1');
+    }
+
+    let authorityWarningState = { visible: false, level: '', message: '', details: [] };
+    if (contractMismatch) {
+      authorityWarningState = {
+        visible: true,
+        level: 'error',
+        message: 'Trade scoring contract mismatch: results are not trustworthy.',
+        details: [
+          `runtime=${runtimeContractVersion || 'unknown'}`,
+          `backend=${backendContractVersion || 'unknown'}`,
+        ],
+      };
+    } else if (fallbackBlockedCount > 0) {
+      authorityWarningState = {
+        visible: true,
+        level: 'error',
+        message: 'Backend package scoring is required and currently unavailable.',
+        details: [
+          `fallbackPolicy=${fallbackPolicy.mode}`,
+          `blockedSides=${fallbackBlockedCount}`,
+        ],
+      };
+    } else if (fallbackWhileBackendHealthy) {
+      authorityWarningState = {
+        visible: true,
+        level: 'error',
+        message: 'Authority drift detected: frontend fallback used while backend is healthy.',
+        details: [`fallbackSides=${fallbackUsedCount}`],
+      };
+    } else if (!backendHealthy && fallbackUsedCount > 0) {
+      authorityWarningState = {
+        visible: true,
+        level: 'warning',
+        message: 'Backend trade scoring unavailable. Using frontend fallback totals.',
+        details: [`fallbackPolicy=${fallbackPolicy.mode}`, `fallbackSides=${fallbackUsedCount}`],
+      };
+    } else if (bestBallContextDetails?.assumed) {
+      authorityWarningState = {
+        visible: true,
+        level: 'warning',
+        message: 'Best-ball context is assumed (not explicitly provided by league settings).',
+        details: [`source=${String(bestBallContextDetails?.source || 'unknown')}`],
+      };
+    }
+    setTradeAuthorityWarningState(authorityWarningState);
+    const backendSummary = (backendScorePayload?.summary && typeof backendScorePayload.summary === 'object')
+      ? backendScorePayload.summary
+      : null;
+    const manualOverrideResolvedRows = ['A', 'B', 'C'].reduce((sum, side) => {
+      const entries = Array.isArray(sidePackageEntries?.[side]) ? sidePackageEntries[side] : [];
+      return sum + entries.reduce((inner, entry) => inner + (entry?.manualOverride ? 1 : 0), 0);
+    }, 0);
+    const unresolvedAssetNames = [];
+    const quarantinedAssetNames = [];
+    for (const side of ['A', 'B', 'C']) {
+      const unresolvedEntries = Array.isArray(backendScorePayload?.sides?.[side]?.unresolvedEntries)
+        ? backendScorePayload.sides[side].unresolvedEntries
+        : [];
+      unresolvedEntries.forEach((entry) => {
+        const label = String(entry?.canonicalName || entry?.label || '').trim();
+        if (!label) return;
+        const reason = String(entry?.reason || '').toLowerCase();
+        if (reason.includes('quarantined')) {
+          if (quarantinedAssetNames.length < 12 && !quarantinedAssetNames.includes(label)) quarantinedAssetNames.push(label);
+        } else if (unresolvedAssetNames.length < 12 && !unresolvedAssetNames.includes(label)) {
+          unresolvedAssetNames.push(label);
+        }
+      });
+    }
+    const resolutionCounts = {
+      inputRows: localTruth.inputRows,
+      scoredRows: localTruth.scoredRows,
+      backendResolved: Number(backendSummary?.backendResolved || 0),
+      fallbackRows: Number(backendSummary?.fallbackUsed || 0),
+      quarantinedExcluded: Number(backendSummary?.quarantinedExcluded || 0),
+      unresolvedExcluded: Number(backendSummary?.unresolvedExcluded || 0),
+      manualOverrideRows: manualOverrideResolvedRows || localTruth.manualOverrideRows,
+      lowConfidenceRows: Number(localTruth.lowConfidenceRows || 0),
+      localExcludedRows: Number(localTruth.excludedRows.length || 0),
+    };
+    const truthHeadline = (
+      contractMismatch
+        ? 'Scoring truth: contract mismatch (do not trust this result).'
+        : (fallbackBlockedCount > 0
+          ? 'Scoring truth: backend scoring required; package totals withheld.'
+          : (backendHealthy
+            ? (fallbackUsedCount > 0
+              ? 'Scoring truth: partial (backend healthy, but local fallback totals were used).'
+              : 'Scoring truth: backend authoritative.')
+            : (fallbackPolicy.allowFallback
+              ? 'Scoring truth: partial (backend unavailable; using local fallback totals).'
+              : 'Scoring truth: backend unavailable.')))
+    );
+    const truthPoints = [];
+    if (backendContractVersion) truthPoints.push(`contract ${backendContractVersion}`);
+    if (fallbackUsedCount > 0) truthPoints.push(`local fallback totals ${fallbackUsedCount}`);
+    if (fallbackBlockedCount > 0) truthPoints.push(`blocked totals ${fallbackBlockedCount}`);
+    if (resolutionCounts.fallbackRows > 0) truthPoints.push(`fallback rows ${resolutionCounts.fallbackRows}`);
+    if (resolutionCounts.manualOverrideRows > 0) truthPoints.push(`manual overrides ${resolutionCounts.manualOverrideRows}`);
+    if (resolutionCounts.quarantinedExcluded > 0) truthPoints.push(`quarantined excluded ${resolutionCounts.quarantinedExcluded}`);
+    if (resolutionCounts.unresolvedExcluded > 0) truthPoints.push(`unresolved excluded ${resolutionCounts.unresolvedExcluded}`);
+    if (resolutionCounts.lowConfidenceRows > 0) truthPoints.push(`low confidence ${resolutionCounts.lowConfidenceRows}`);
+    if (!truthPoints.length) truthPoints.push('all scored rows resolved');
+    const truthTitleParts = [];
+    if (quarantinedAssetNames.length) truthTitleParts.push(`Quarantined: ${quarantinedAssetNames.join(', ')}`);
+    if (unresolvedAssetNames.length) truthTitleParts.push(`Unresolved: ${unresolvedAssetNames.join(', ')}`);
+    if (localTruth.lowConfidenceNames.length) truthTitleParts.push(`Low confidence: ${localTruth.lowConfidenceNames.join(', ')}`);
+    if (localTruth.excludedRows.length) {
+      const excludedPreview = localTruth.excludedRows
+        .slice(0, 8)
+        .map((row) => `${row.side || '?'}:${row.name} (${row.reason})`)
+        .join('; ');
+      if (excludedPreview) truthTitleParts.push(`Local exclusions: ${excludedPreview}`);
+    }
+    const truthLevel = (
+      contractMismatch || fallbackBlockedCount > 0 || fallbackWhileBackendHealthy
+    ) ? 'error' : (
+      (resolutionCounts.fallbackRows > 0 || resolutionCounts.quarantinedExcluded > 0 || resolutionCounts.unresolvedExcluded > 0 || resolutionCounts.manualOverrideRows > 0 || resolutionCounts.lowConfidenceRows > 0 || !backendHealthy || bestBallContextDetails?.assumed)
+        ? 'warning'
+        : 'info'
+    );
+    const truthSummaryState = {
+      visible: true,
+      level: truthLevel,
+      headline: truthHeadline,
+      points: truthPoints,
+      title: truthTitleParts.join(' | '),
+    };
+    setTradeTruthSummaryState(truthSummaryState);
+
+    window.__tradeCalculatorPackageDiagnostics = {
+      generatedAt: new Date().toISOString(),
+      alpha,
+      bestBallMode,
+      bestBallContext: bestBallContextDetails,
+      valueBasis: calcValueBasis,
+      authority,
+      backendHealthy,
+      localFormulaMode: 'fallback_only',
+      fallback: {
+        policy: fallbackPolicy,
+        usedCount: fallbackUsedCount,
+        blockedCount: fallbackBlockedCount,
+        bySide: fallbackBySide,
+        whileBackendHealthy: fallbackWhileBackendHealthy,
+      },
+      contract: {
+        runtimeVersion: runtimeContractVersion,
+        backendVersion: backendContractVersion,
+        mismatch: contractMismatch,
+      },
+      warning: authorityWarningState,
+      truthSummary: truthSummaryState,
+      resolution: resolutionCounts,
+      backendSummary,
+      sides: {
+        A: sidePackageScores.A,
+        B: sidePackageScores.B,
+        C: sidePackageScores.C,
+      },
+    };
+    if (fallbackWhileBackendHealthy) {
+      console.error('[Trade Authority] Backend reported healthy but calculator used frontend fallback totals.', {
+        fallbackBySide,
+        backendSummary: backendScorePayload?.summary || null,
+      });
+    }
+    if (fallbackBlockedCount > 0) {
+      console.error('[Trade Authority] Fallback disallowed while backend trade scoring unavailable for one or more sides.', {
+        fallbackBySide,
+        fallbackPolicy,
+      });
+    }
+    if (contractMismatch) {
+      console.error('[Trade Authority] Calculator/runtime contract version mismatch detected.', {
+        runtimeContractVersion,
+        backendContractVersion,
+      });
+    }
+    const parityEnabled = (typeof isFrontendParityDiagnosticsEnabled === 'function')
+      ? isFrontendParityDiagnosticsEnabled()
+      : false;
+    const tradeParityReport = parityEnabled
+      ? buildTradeCalculatorBackendParityReport(calcValueBasis)
+      : {
+          generatedAt: new Date().toISOString(),
+          ok: true,
+          skipped: true,
+          reason: 'frontend_parity_diagnostics_disabled',
+        };
+    window.__tradeCalculatorParity = tradeParityReport;
+    if (typeof setFrontendBackendParitySection === 'function') {
+      setFrontendBackendParitySection('tradeCalculator', tradeParityReport);
+    } else {
+      const parityStore = (typeof getFrontendBackendParitySnapshot === 'function')
+        ? getFrontendBackendParitySnapshot()
+        : ((window.__frontendBackendParity && typeof window.__frontendBackendParity === 'object')
+          ? window.__frontendBackendParity
+          : {});
+      parityStore.tradeCalculator = tradeParityReport;
+      parityStore.generatedAt = new Date().toISOString();
+      window.__frontendBackendParity = parityStore;
+    }
+    if (!tradeParityReport.ok) {
+      console.warn('[Parity] Trade calculator row drift detected against backend authority bundles', {
+        mismatchCount: tradeParityReport.mismatchCount,
+        maxAbsDiff: tradeParityReport.maxAbsDiff,
+      });
+    }
 
     const {A:lA,B:lB,C:lC} = linTot, {A:tA,B:tB,C:tC} = wtTot;
 
@@ -2928,10 +4242,32 @@
     const totalCEl = document.getElementById('totalC');
     if (totalCEl) totalCEl.textContent = tC?tC.toFixed(0):'–';
 
-    document.getElementById('sideANote').textContent = lA?`Linear: ${lA.toFixed(0)}`:'';
-    document.getElementById('sideBNote').textContent = lB?`Linear: ${lB.toFixed(0)}`:'';
+    const sideANoteText = lA
+      ? (
+          (sidePackageScores.A && Number.isFinite(Number(sidePackageScores.A?.packageDeltaPct)))
+            ? `Linear: ${lA.toFixed(0)} · Package ${(Number(sidePackageScores.A?.packageDeltaPct || 0) >= 0 ? '+' : '')}${Number(sidePackageScores.A?.packageDeltaPct || 0).toFixed(1)}%`
+            : `Linear: ${lA.toFixed(0)} · Package unavailable (backend required)`
+        )
+      : '';
+    const sideBNoteText = lB
+      ? (
+          (sidePackageScores.B && Number.isFinite(Number(sidePackageScores.B?.packageDeltaPct)))
+            ? `Linear: ${lB.toFixed(0)} · Package ${(Number(sidePackageScores.B?.packageDeltaPct || 0) >= 0 ? '+' : '')}${Number(sidePackageScores.B?.packageDeltaPct || 0).toFixed(1)}%`
+            : `Linear: ${lB.toFixed(0)} · Package unavailable (backend required)`
+        )
+      : '';
+    document.getElementById('sideANote').textContent = sideANoteText;
+    document.getElementById('sideBNote').textContent = sideBNoteText;
     const sideCNote = document.getElementById('sideCNote');
-    if (sideCNote) sideCNote.textContent = lC?`Linear: ${lC.toFixed(0)}`:'';
+    if (sideCNote) {
+      sideCNote.textContent = lC
+        ? (
+            (sidePackageScores.C && Number.isFinite(Number(sidePackageScores.C?.packageDeltaPct)))
+              ? `Linear: ${lC.toFixed(0)} · Package ${(Number(sidePackageScores.C?.packageDeltaPct || 0) >= 0 ? '+' : '')}${Number(sidePackageScores.C?.packageDeltaPct || 0).toFixed(1)}%`
+              : `Linear: ${lC.toFixed(0)} · Package unavailable (backend required)`
+          )
+        : '';
+    }
 
     const pill = document.getElementById('decision');
     const suggestionEl = document.getElementById('tradeSuggestion');
@@ -3220,6 +4556,32 @@
     return parts.join(' · ');
   }
 
+  function resolvePayloadSourceModes(data) {
+    const out = {};
+    const merge = (obj) => {
+      if (!obj || typeof obj !== 'object') return;
+      Object.entries(obj).forEach(([k, v]) => {
+        const key = String(k || '').trim();
+        const mode = String(v || '').trim().toLowerCase();
+        if (!key || !mode) return;
+        out[key] = mode;
+      });
+    };
+    merge(data?.settings?.sourceModes);
+    merge(data?.settings?.sourceColumnDiagnostics?.sourceModes);
+    return out;
+  }
+
+  function applyPayloadSourceModeOverrides(data) {
+    const sourceModes = resolvePayloadSourceModes(data);
+    const dnMode = String(sourceModes.DynastyNerds || sourceModes.dynastyNerds || '').toLowerCase();
+    if (!dnMode || (dnMode !== 'rank' && dnMode !== 'value')) return;
+    const dnSite = sites.find((s) => s?.key === 'dynastyNerds');
+    if (!dnSite || dnSite.mode === dnMode) return;
+    dnSite.mode = dnMode;
+    markSiteConfigDirty();
+  }
+
   function loadJsonData(data, opts = {}) {
     if (!data || !data.players || !data.maxValues) return false;
     const phase = String(opts.phase || 'full').toLowerCase();
@@ -3243,10 +4605,13 @@
     if (cleanPlayers) data.players = cleanPlayers;
 
     loadedData = data;
+    applyPayloadSourceModeOverrides(data);
     normalizeLookupCache.clear();
     pickTokenParseCache.clear();
     invalidateRankingsBaseRowsCache();
     playerNames = Object.keys(data.players).sort();
+    playerNamesLower = playerNames.map((name) => String(name || '').toLowerCase());
+    resetGlobalSearchCaches();
     playerSleeperIds = {};
     sleeperIdToPlayer = {};
     ktcIdToPlayer = {};
@@ -3334,18 +4699,21 @@
     });
     // Keep source table aligned to what's actually in loaded data.
     syncSiteConfigToLoadedData(data);
-    // DynastyNerds is part of the default market stack; stale session settings should not
-    // hide its column when valid data exists in the current dataset.
-    const dynastyNerdsHasData = (
-      (Array.isArray(data.sites) && data.sites.some(s => s?.key === 'dynastyNerds' && Number(s.playerCount) > 0)) ||
-      (Number(data.maxValues?.dynastyNerds) > 0) ||
-      Object.values(data.players || {}).some(p => Number(p?.dynastyNerds) > 0)
+    const playerRows = Object.values(data.players || {});
+    const sourceHasData = (sourceKey) => (
+      (Array.isArray(data.sites) && data.sites.some(s => s?.key === sourceKey && Number(s.playerCount) > 0)) ||
+      (Number(data.maxValues?.[sourceKey]) > 0) ||
+      playerRows.some(p => Number(p?.[sourceKey]) > 0)
     );
-    const dynastyNerdsInclude = document.getElementById('include_dynastyNerds');
-    if (dynastyNerdsInclude && dynastyNerdsHasData) {
-      dynastyNerdsInclude.disabled = false;
-      dynastyNerdsInclude.checked = true;
-    }
+    // Core sources should not stay hidden because of stale local/session config.
+    const forcedIncludeSources = ['dynastyNerds', 'dlfRsf', 'dlfRidp'];
+    forcedIncludeSources.forEach((sourceKey) => {
+      const includeEl = document.getElementById('include_' + sourceKey);
+      if (!includeEl || !sourceHasData(sourceKey)) return;
+      includeEl.disabled = false;
+      includeEl.checked = true;
+    });
+    const dynastyNerdsHasData = sourceHasData('dynastyNerds');
     const dlfKeys = ['dlfSf', 'dlfIdp', 'dlfRsf', 'dlfRidp'];
     const dlfImport = (data.settings && data.settings.dlfImport && typeof data.settings.dlfImport === 'object')
       ? data.settings.dlfImport
@@ -3357,7 +4725,7 @@
     const dlfHasData = (
       (Array.isArray(data.sites) && data.sites.some(s => dlfKeys.includes(s?.key) && Number(s.playerCount) > 0)) ||
       dlfKeys.some(k => Number(data.maxValues?.[k]) > 0) ||
-      Object.values(data.players || {}).some(p => dlfKeys.some(k => Number(p?.[k]) > 0))
+      playerRows.some(p => dlfKeys.some(k => Number(p?.[k]) > 0))
     );
 
     const st = document.getElementById('dataStatus');
@@ -3384,6 +4752,11 @@
                           idpTradeCalc:'IDP TC', pffIdp:'PFF', fantasyProsIdp:'FP IDP'};
       const siteCountMap = new Map((data.sites || []).map(s => [String(s?.key || ''), Number(s?.playerCount || 0)]));
       const dlfSubCount = dlfKeys.reduce((sum, k) => sum + Math.max(0, Number(siteCountMap.get(k) || 0)), 0);
+      const sourceDiagWarnings = Array.isArray(data?.settings?.sourceColumnDiagnostics?.warnings)
+        ? data.settings.sourceColumnDiagnostics.warnings
+        : (Array.isArray(data?.rawMarketDiagnostics?.sourceColumnDiagnosticsWarnings)
+          ? data.rawMarketDiagnostics.sourceColumnDiagnosticsWarnings
+          : []);
       let html = '';
       let okCount = 0;
       let totalCount = 0;
@@ -3408,6 +4781,18 @@
         if ((s.key === 'DLF' || dlfKeys.includes(s.key)) && dlfCsvStale) titleExtra = ' (csv >7d old)';
         html += `<span style="display:inline-block;padding:2px 6px;margin:2px;border-radius:4px;font-size:0.62rem;font-family:var(--mono);color:${color};background:${bg};border:1px solid ${color}22;" title="${s.key}: ${displayCount} players${titleExtra}">${label} ${ok ? displayCount : '✗'}</span>`;
       }
+      let warningsHtml = '';
+      if (sourceDiagWarnings.length) {
+        warningsHtml = `
+          <div style="margin-top:8px;padding:8px;border:1px solid var(--amber);border-radius:6px;background:rgba(255,174,0,0.08);">
+            <div style="font-size:0.67rem;font-weight:600;color:var(--amber);margin-bottom:4px;">Source diagnostics warnings</div>
+            <div style="font-size:0.63rem;color:var(--text);line-height:1.45;font-family:var(--mono);">
+              ${sourceDiagWarnings.slice(0, 8).map(w => `<div>- ${String(w || '')}</div>`).join('')}
+              ${sourceDiagWarnings.length > 8 ? `<div>- +${sourceDiagWarnings.length - 8} more</div>` : ''}
+            </div>
+          </div>
+        `;
+      }
       const sourceSummaryText = buildSourceFreshnessSummaryText(okCount, totalCount, scrapeAgeText, dlfCsvStale);
       freshnessEl.innerHTML = `
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -3419,6 +4804,7 @@
         </div>
         <div id="dataFreshnessDetails" style="margin-top:6px;line-height:1.8;display:${dataFreshnessDetailsOpen ? 'block' : 'none'};">
           ${html}
+          ${warningsHtml}
         </div>
       `;
       freshnessEl.style.display = '';
@@ -4426,6 +5812,11 @@
   }
 
   let tradeHistoryRenderCache = [];
+  let tradeHistoryAnalysisCache = {
+    key: '',
+    promise: null,
+    value: null,
+  };
 
   function gradeTradeHistorySide(pct, isWinner) {
     if (pct < 3) return { grade: 'A', color: 'var(--green)', label: 'Fair trade' };
@@ -4442,64 +5833,319 @@
     return { grade: 'F', color: '#ff4444', label: 'Fleeced' };
   }
 
-  function analyzeSleeperTradeHistory() {
+  function buildTradeHistoryAnalysisCacheKey(trades, context = {}) {
+    const marker = String(
+      loadedData?.scrapeTimestamp ||
+      loadedData?.date ||
+      loadedData?.updatedAt ||
+      ''
+    );
+    const first = trades[0] || {};
+    const last = trades[trades.length - 1] || {};
+    const firstTs = normalizeTradeTimestampMs(first?.timestamp) || '';
+    const lastTs = normalizeTradeTimestampMs(last?.timestamp) || '';
+    const firstWeek = String(first?.week ?? '');
+    const lastWeek = String(last?.week ?? '');
+    return [
+      marker,
+      String(context.valueBasis || 'full'),
+      String(Number(context.alpha || DEFAULT_ALPHA).toFixed(4)),
+      context.bestBallMode ? 'bb1' : 'bb0',
+      String(getTradeHistoryWindowDays()),
+      String(trades.length),
+      `${firstWeek}:${firstTs}`,
+      `${lastWeek}:${lastTs}`,
+    ].join('|');
+  }
+
+  function emptyTradeScoringSummary() {
+    return {
+      inputItems: 0,
+      backendResolved: 0,
+      fallbackUsed: 0,
+      quarantinedExcluded: 0,
+      unresolvedExcluded: 0,
+    };
+  }
+
+  function mergeTradeScoringSummary(target, incoming) {
+    const src = incoming && typeof incoming === 'object' ? incoming : {};
+    target.inputItems += Number(src.inputItems || 0);
+    target.backendResolved += Number(src.backendResolved || 0);
+    target.fallbackUsed += Number(src.fallbackUsed || 0);
+    target.quarantinedExcluded += Number(src.quarantinedExcluded || 0);
+    target.unresolvedExcluded += Number(src.unresolvedExcluded || 0);
+    return target;
+  }
+
+  async function scoreTradeHistorySidesViaBackend(sidePackageEntries = [], context = {}) {
+    const sideScores = new Array(sidePackageEntries.length).fill(null);
+    const summary = emptyTradeScoringSummary();
+    const failures = [];
+    const labelByOffset = ['A', 'B', 'C'];
+
+    for (let offset = 0; offset < sidePackageEntries.length; offset += 3) {
+      const requestSides = {
+        A: Array.isArray(sidePackageEntries[offset]) ? sidePackageEntries[offset] : [],
+        B: Array.isArray(sidePackageEntries[offset + 1]) ? sidePackageEntries[offset + 1] : [],
+        C: Array.isArray(sidePackageEntries[offset + 2]) ? sidePackageEntries[offset + 2] : [],
+      };
+      const backend = await scoreTradePackagesViaBackend({
+        valueBasis: context.valueBasis || 'full',
+        alpha: context.alpha || DEFAULT_ALPHA,
+        bestBallMode: context.bestBallMode !== false,
+        sides: requestSides,
+      });
+      if (!backend || backend.ok !== true || !backend.sides || typeof backend.sides !== 'object') {
+        failures.push({
+          offset,
+          reason: tradeBackendScoringState?.lastError || 'backend_trade_scoring_unavailable',
+        });
+        return {
+          ok: false,
+          sideScores,
+          summary,
+          failures,
+        };
+      }
+      mergeTradeScoringSummary(summary, backend.summary);
+      for (let i = 0; i < 3; i += 1) {
+        const globalIndex = offset + i;
+        if (globalIndex >= sidePackageEntries.length) break;
+        const sideLabel = labelByOffset[i];
+        const score = backend.sides?.[sideLabel];
+        const weighted = Number(score?.weightedTotal);
+        if (!Number.isFinite(weighted)) {
+          failures.push({
+            offset: globalIndex,
+            reason: 'backend_side_missing_weighted_total',
+            side: sideLabel,
+          });
+          return {
+            ok: false,
+            sideScores,
+            summary,
+            failures,
+          };
+        }
+        sideScores[globalIndex] = score;
+      }
+    }
+
+    return {
+      ok: true,
+      sideScores,
+      summary,
+      failures,
+    };
+  }
+
+  async function analyzeSleeperTradeHistory() {
     const windowDays = getTradeHistoryWindowDays();
+    const alpha = parseFloat(document.getElementById('alphaSlider')?.value) || 1.075;
+    const bestBallMode = isBestBallContextActive();
+    const valueBasis = getCalculatorValueBasis();
+    const noDataDiagnostics = {
+      generatedAt: new Date().toISOString(),
+      authority: 'backend_trade_scoring_v1',
+      localFormulaUsed: false,
+      backendHealthy: true,
+      valueBasis,
+      alpha,
+      bestBallMode,
+      windowDays,
+      tradesInWindow: 0,
+      tradesAnalyzed: 0,
+      tradesSkipped: 0,
+      skipReasons: {},
+      summary: emptyTradeScoringSummary(),
+      failures: [],
+    };
     if (!loadedData || !loadedData.sleeper?.trades?.length) {
-      return { windowDays, analyzed: [], teamScores: {} };
+      noDataDiagnostics.reason = 'no_trade_data_loaded';
+      window.__tradeHistoryScoringDiagnostics = noDataDiagnostics;
+      return { windowDays, analyzed: [], teamScores: {}, diagnostics: noDataDiagnostics };
     }
     const trades = filterTradesToRollingWindow(loadedData.sleeper.trades);
-    if (!trades.length) return { windowDays, analyzed: [], teamScores: {} };
-
-    const alpha = parseFloat(document.getElementById('alphaSlider')?.value) || 1.075;
-    const teamScores = {}; // teamName → { won: count, lost: count, totalGain: number }
-    const analyzed = [];
-
-    for (const trade of trades) {
-      const ts = normalizeTradeTimestampMs(trade.timestamp);
-      const date = ts ? new Date(ts).toLocaleDateString() : '?';
-      const sides = [];
-
-      for (const side of trade.sides) {
-        let linearTotal = 0, weightedTotal = 0, items = [];
-        for (const rawItem of getTradeSideItemLabels(side?.got)) {
-          const tiv = getTradeItemValue(rawItem);
-          const val = tiv.metaValue;
-          const safeVal = Number.isFinite(val) ? Math.max(0, Number(val)) : 0;
-          const itemName = tiv.displayName || rawItem;
-          const pos = tiv.isPick ? '' : (getPlayerPosition(tiv.resolvedName || itemName) || '');
-          linearTotal += safeVal;
-          weightedTotal += Math.pow(Math.max(safeVal, 1), alpha);
-          items.push({ name: itemName, val: Math.round(safeVal), pos, isPick: tiv.isPick });
-        }
-        sides.push({ team: side.team, linear: linearTotal, weighted: weightedTotal, items });
-      }
-
-      // Determine winner using stud-adjusted values
-      sides.sort((a, b) => b.weighted - a.weighted);
-      const winner = sides[0];
-      const loser = sides.length > 1 ? sides[sides.length - 1] : null;
-      const pctGap = loser && winner.weighted > 0 ? ((winner.weighted - loser.weighted) / winner.weighted) * 100 : 0;
-
-      const winnerGrade = gradeTradeHistorySide(pctGap, true);
-      const loserGrade = loser ? gradeTradeHistorySide(pctGap, false) : null;
-
-      // Track team scores
-      for (const s of sides) {
-        if (!teamScores[s.team]) teamScores[s.team] = { won: 0, lost: 0, totalGain: 0, trades: 0 };
-        teamScores[s.team].trades++;
-        if (s === winner && pctGap >= 3) {
-          teamScores[s.team].won++;
-          teamScores[s.team].totalGain += (winner.weighted - (loser ? loser.weighted : 0));
-        } else if (s === loser && pctGap >= 3) {
-          teamScores[s.team].lost++;
-          teamScores[s.team].totalGain -= (winner.weighted - loser.weighted);
-        }
-      }
-
-      analyzed.push({ trade, date, sides, winner, loser, pctGap, winnerGrade, loserGrade });
+    if (!trades.length) {
+      noDataDiagnostics.reason = 'no_trade_data_in_window';
+      window.__tradeHistoryScoringDiagnostics = noDataDiagnostics;
+      return { windowDays, analyzed: [], teamScores: {}, diagnostics: noDataDiagnostics };
     }
 
-    return { windowDays, analyzed, teamScores };
+    const context = { alpha, bestBallMode, valueBasis };
+    const cacheKey = buildTradeHistoryAnalysisCacheKey(trades, context);
+    if (tradeHistoryAnalysisCache.key === cacheKey && tradeHistoryAnalysisCache.value) {
+      const cached = tradeHistoryAnalysisCache.value;
+      window.__tradeHistoryScoringDiagnostics = cached?.diagnostics || noDataDiagnostics;
+      return cached;
+    }
+    if (tradeHistoryAnalysisCache.key === cacheKey && tradeHistoryAnalysisCache.promise) {
+      return tradeHistoryAnalysisCache.promise;
+    }
+
+    const run = async () => {
+      const diagnostics = {
+        generatedAt: new Date().toISOString(),
+        authority: 'backend_trade_scoring_v1',
+        localFormulaUsed: false,
+        backendHealthy: true,
+        valueBasis,
+        alpha,
+        bestBallMode,
+        windowDays,
+        tradesInWindow: trades.length,
+        tradesAnalyzed: 0,
+        tradesSkipped: 0,
+        skipReasons: {},
+        summary: emptyTradeScoringSummary(),
+        failures: [],
+      };
+      const teamScores = {}; // teamName → { won: count, lost: count, totalGain: number }
+      const analyzed = [];
+
+      for (const trade of trades) {
+        const ts = normalizeTradeTimestampMs(trade?.timestamp);
+        const date = ts ? new Date(ts).toLocaleDateString() : '?';
+        const sides = [];
+        const sidePackageEntries = [];
+        const rawSides = Array.isArray(trade?.sides) ? trade.sides : [];
+        if (!rawSides.length) {
+          diagnostics.tradesSkipped += 1;
+          diagnostics.skipReasons.missing_sides = Number(diagnostics.skipReasons.missing_sides || 0) + 1;
+          continue;
+        }
+
+        for (const side of rawSides) {
+          let linearTotal = 0;
+          const items = [];
+          const packageEntries = [];
+          for (const rawItem of getTradeSideItemLabels(side?.got)) {
+            const tiv = getTradeItemValue(rawItem);
+            const val = tiv.metaValue;
+            const safeVal = Number.isFinite(val) ? Math.max(0, Number(val)) : 0;
+            const itemName = tiv.displayName || rawItem;
+            const resolvedName = tiv?.resolvedName || itemName;
+            const playerData = resolveLoadedPlayerDataForPrecomputed(resolvedName) || {};
+            const pos = tiv.isPick ? '' : (getPlayerPosition(resolvedName) || '');
+            linearTotal += safeVal;
+            const packageEntry = buildTradePackageEntryFromTradeItem(tiv, {
+              label: itemName,
+              name: resolvedName,
+              value: Math.max(1, safeVal),
+              pos: tiv?.isPick ? 'PICK' : pos,
+              isPick: !!tiv?.isPick,
+              isIdp: !tiv?.isPick && IDP_POSITIONS.has(String(pos || '').toUpperCase()),
+              isRookie: !tiv?.isPick && isRookiePlayerName(resolvedName, playerData),
+              playerData,
+            });
+            if (packageEntry) {
+              packageEntry.label = itemName;
+              packageEntries.push(packageEntry);
+            }
+            items.push({ name: itemName, val: Math.round(safeVal), pos, isPick: tiv.isPick });
+          }
+          sidePackageEntries.push(packageEntries);
+          sides.push({
+            team: side?.team,
+            linear: linearTotal,
+            weighted: 0,
+            packageDeltaPct: 0,
+            packageMultiplier: 1,
+            packageComponents: {},
+            packageResolution: null,
+            items,
+          });
+        }
+
+        const scoring = await scoreTradeHistorySidesViaBackend(sidePackageEntries, context);
+        if (!scoring.ok) {
+          diagnostics.backendHealthy = false;
+          diagnostics.tradesSkipped += 1;
+          diagnostics.skipReasons.backend_trade_scoring_unavailable = Number(diagnostics.skipReasons.backend_trade_scoring_unavailable || 0) + 1;
+          diagnostics.failures.push({
+            tradeWeek: trade?.week,
+            tradeTimestamp: trade?.timestamp,
+            reasons: scoring.failures || [],
+          });
+          continue;
+        }
+        mergeTradeScoringSummary(diagnostics.summary, scoring.summary);
+        for (let idx = 0; idx < sides.length; idx += 1) {
+          const score = scoring.sideScores[idx] || {};
+          sides[idx].weighted = Number(score?.weightedTotal || 0);
+          sides[idx].packageDeltaPct = Number(score?.packageDeltaPct || 0);
+          sides[idx].packageMultiplier = Number(score?.packageMultiplier || 1);
+          sides[idx].packageComponents = score?.components || {};
+          sides[idx].packageResolution = score?.resolution || null;
+        }
+
+        // Determine winner using package-adjusted values.
+        sides.sort((a, b) => b.weighted - a.weighted);
+        const winner = sides[0];
+        const loser = sides.length > 1 ? sides[sides.length - 1] : null;
+        const pctGap = loser && winner.weighted > 0 ? ((winner.weighted - loser.weighted) / winner.weighted) * 100 : 0;
+
+        const winnerGrade = gradeTradeHistorySide(pctGap, true);
+        const loserGrade = loser ? gradeTradeHistorySide(pctGap, false) : null;
+
+        // Track team scores
+        for (const s of sides) {
+          if (!teamScores[s.team]) teamScores[s.team] = { won: 0, lost: 0, totalGain: 0, trades: 0 };
+          teamScores[s.team].trades++;
+          if (s === winner && pctGap >= 3) {
+            teamScores[s.team].won++;
+            teamScores[s.team].totalGain += (winner.weighted - (loser ? loser.weighted : 0));
+          } else if (s === loser && pctGap >= 3) {
+            teamScores[s.team].lost++;
+            teamScores[s.team].totalGain -= (winner.weighted - loser.weighted);
+          }
+        }
+
+        analyzed.push({ trade, date, sides, winner, loser, pctGap, winnerGrade, loserGrade });
+      }
+
+      diagnostics.tradesAnalyzed = analyzed.length;
+      if (!diagnostics.backendHealthy && !diagnostics.tradesAnalyzed) {
+        diagnostics.authority = 'backend_trade_scoring_unavailable';
+      } else if (!diagnostics.backendHealthy) {
+        diagnostics.authority = 'backend_trade_scoring_v1_partial';
+      }
+      window.__tradeHistoryScoringDiagnostics = diagnostics;
+      return { windowDays, analyzed, teamScores, diagnostics };
+    };
+
+    const promise = run()
+      .then((result) => {
+        if (tradeHistoryAnalysisCache.key === cacheKey) {
+          tradeHistoryAnalysisCache.value = result;
+        }
+        return result;
+      })
+      .catch((err) => {
+        const diagnostics = {
+          ...noDataDiagnostics,
+          generatedAt: new Date().toISOString(),
+          authority: 'backend_trade_scoring_unavailable',
+          backendHealthy: false,
+          reason: 'history_scoring_exception',
+          error: String(err?.message || err || 'unknown_error'),
+        };
+        window.__tradeHistoryScoringDiagnostics = diagnostics;
+        return { windowDays, analyzed: [], teamScores: {}, diagnostics };
+      })
+      .finally(() => {
+        if (tradeHistoryAnalysisCache.key === cacheKey) {
+          tradeHistoryAnalysisCache.promise = null;
+        }
+      });
+
+    tradeHistoryAnalysisCache = {
+      key: cacheKey,
+      promise,
+      value: null,
+    };
+    return promise;
   }
 
   function setTradeTeamFilterByName(selectId, teamName) {

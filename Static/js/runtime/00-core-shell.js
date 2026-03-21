@@ -16,8 +16,8 @@
     { key:'dynastyNerds', label:'Dyn. Nerds',    defaultMax:9999,  defaultInclude:true,  defaultWeight:0.8, mode:'rank',    tep:true },
     { key:'dlfSf',        label:'DLF SF',        defaultMax:9999,  defaultInclude:true,  defaultWeight:0.8, mode:'value',   tep:false },
     { key:'dlfIdp',       label:'DLF IDP',       defaultMax:9999,  defaultInclude:true,  defaultWeight:0.8, mode:'value',   tep:false },
-    { key:'dlfRsf',       label:'DLF R SF',      defaultMax:9999,  defaultInclude:false, defaultWeight:0.7, mode:'value',   tep:false },
-    { key:'dlfRidp',      label:'DLF R IDP',     defaultMax:9999,  defaultInclude:false, defaultWeight:0.7, mode:'value',   tep:false },
+    { key:'dlfRsf',       label:'DLF R SF',      defaultMax:9999,  defaultInclude:true,  defaultWeight:0.7, mode:'value',   tep:false },
+    { key:'dlfRidp',      label:'DLF R IDP',     defaultMax:9999,  defaultInclude:true,  defaultWeight:0.7, mode:'value',   tep:false },
     { key:'idpTradeCalc', label:'IDP Trade',     defaultMax:9998,  defaultInclude:true,  defaultWeight:1.0, mode:'value',   tep:true },
     // IDP-specific sites
     { key:'pffIdp',         label:'PFF IDP',           defaultMax:6250,  defaultInclude:true,  defaultWeight:0.7, mode:'idpRank',  tep:false },
@@ -38,7 +38,9 @@
   const TIER_BREAK_LOCAL_STRENGTH = 1.85; // local-cliff ratio vs neighboring gaps
   const TIER_BREAK_MIN_SIZE = 4;          // minimum rows per tier to prevent fragmentation
   const TIER_BREAK_MAX_TIERS = 12;        // hard safety cap for tier count
-  const SINGLE_SOURCE_DISCOUNT = 0.88;   // baseline discount for players on only 1 site
+  const SINGLE_SOURCE_DISCOUNT = 0.88;   // legacy fallback constant (keep for compatibility)
+  const SINGLE_SOURCE_DISCOUNT_MIN = 0.70;
+  const SINGLE_SOURCE_DISCOUNT_MAX = 0.88;
   const OUTLIER_TRIM_GAP = 0.18;         // trim only true edge outliers
   const ELITE_NORM_THRESHOLD = 0.91;     // start elite expansion only at stronger consensus
   const ELITE_BOOST_MAX = 0.12;          // cap elite expansion at +12.0%
@@ -55,6 +57,12 @@
   const RANK_CURVE_MIN_TARGET_COUNT = 24;
   const DEFAULT_ALPHA = 1.678;           // star player bonus exponent
   const DEFAULT_TOLERANCE = 0.05;        // 5% trade tolerance
+  const TRADE_PACKAGE_BASE_DEPTH_PENALTY = 0.02;
+  const TRADE_PACKAGE_MAX_DEPTH_PENALTY = 0.14;
+  const TRADE_PACKAGE_MAX_BESTBALL_RELIEF = 0.024;
+  const TRADE_PACKAGE_MAX_STUD_PREMIUM = 0.055;
+  const TRADE_PACKAGE_MIN_MULT = 0.88;
+  const TRADE_PACKAGE_MAX_MULT = 1.08;
   const DEFAULT_TEAM_NAME = 'Draft Daddies';
   const NATIVE_CANONICAL_VALUE_SITES = new Set(['ktc', 'idpTradeCalc', 'dlfSf', 'dlfIdp']);
   const ROOKIE_ONLY_DLF_SITE_KEYS = new Set(['dlfRsf', 'dlfRidp']);
@@ -71,7 +79,7 @@
   const MOBILE_MORE_TRADES_VIEW_KEY = 'dynasty_mobile_more_trades_view_v1';
   const MOBILE_POWER_MODE_KEY = 'dynasty_mobile_power_mode_v1';
   const MOBILE_RANKINGS_QUICK_SIDE_KEY = 'dynasty_rankings_quick_trade_side_v1';
-  const MOBILE_POWER_MODE_DEFAULT = true;
+const MOBILE_POWER_MODE_DEFAULT = false;
   const PREV_TREND_STAMP_KEY = 'dynasty_prev_stamp';
   const RANKINGS_POSITION_FILTER_OPTIONS = ['ALL', 'OFF', 'IDP', 'QB', 'RB', 'WR', 'TE', 'LB', 'DL', 'DB'];
   const RANKINGS_POSITION_FILTER_LABELS = {
@@ -138,6 +146,57 @@
   let rankingsMobileVisibleCount = RANKINGS_MOBILE_INITIAL_ROWS;
   let rankingsMobileRowsCache = [];
   let rankingsMobileRenderSignature = '';
+  const FRONTEND_PARITY_DEBUG_KEY = 'dynasty_parity_debug';
+
+  function setFrontendBackendParitySection(section, payload) {
+    const key = String(section || '').trim();
+    if (!key) return;
+    const store = (window.__frontendBackendParity && typeof window.__frontendBackendParity === 'object')
+      ? window.__frontendBackendParity
+      : {};
+    store.generatedAt = new Date().toISOString();
+    store[key] = payload || {};
+    window.__frontendBackendParity = store;
+  }
+
+  function getFrontendBackendParitySnapshot() {
+    if (!window.__frontendBackendParity || typeof window.__frontendBackendParity !== 'object') {
+      window.__frontendBackendParity = { generatedAt: new Date().toISOString() };
+    }
+    return window.__frontendBackendParity;
+  }
+
+  function isTruthyDebugFlag(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    return ['1', 'true', 'yes', 'on', 'enabled'].includes(normalized);
+  }
+
+  function isFalsyDebugFlag(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    return ['0', 'false', 'no', 'off', 'disabled'].includes(normalized);
+  }
+
+  function isFrontendParityDiagnosticsEnabled() {
+    if (window.__FORCE_FRONTEND_PARITY === true) return true;
+    if (window.__FORCE_FRONTEND_PARITY === false) return false;
+    try {
+      const stored = localStorage.getItem(FRONTEND_PARITY_DEBUG_KEY);
+      if (isTruthyDebugFlag(stored)) return true;
+      if (isFalsyDebugFlag(stored)) return false;
+    } catch (_) {}
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      const queryKeys = ['parityDebug', 'debugParity', 'parity'];
+      for (const key of queryKeys) {
+        const raw = params.get(key);
+        if (raw == null || String(raw).trim() === '') continue;
+        if (isTruthyDebugFlag(raw)) return true;
+        if (isFalsyDebugFlag(raw)) return false;
+      }
+    } catch (_) {}
+    // Preserve historical behavior for parity snapshots/tests unless explicitly disabled.
+    return true;
+  }
 
   function invalidateRankingsBaseRowsCache() {
     rankingsBaseRowsCache = {
@@ -187,8 +246,25 @@
     return [dataStamp, playerCount, lamStrength, scarcityStrength, teamCount, starterSig, cfgSig, pickSig].join('~');
   }
 
+  function rowHasBackendValueAuthority(row) {
+    if (!row || typeof row !== 'object') return false;
+    const authority = String(row?.adjustment?.resolverMetadata?.authority || '').toLowerCase();
+    if (authority === 'legacy_precomputed' || authority.startsWith('backend_')) {
+      return true;
+    }
+    const sourceData = row?.sourceData;
+    if (!sourceData || typeof sourceData !== 'object') return false;
+    if (sourceData.valueBundle && typeof sourceData.valueBundle === 'object') return true;
+    const legacyValues = sourceData.values;
+    if (!legacyValues || typeof legacyValues !== 'object') return false;
+    return Number.isFinite(Number(legacyValues.finalAdjusted ?? legacyValues.overall));
+  }
+
   function enforceSingleCanonicalTop(rankedRows, sortBasis) {
     if (!Array.isArray(rankedRows) || !rankedRows.length) return rankedRows;
+    // Backend bundles are authoritative. Do not mutate ranking values client-side when
+    // backend precomputed values are available for the current rows.
+    if (rankedRows.some(rowHasBackendValueAuthority)) return rankedRows;
     const mode = String(sortBasis || 'full').toLowerCase();
     const targetField = mode === 'raw'
       ? 'rawComposite'
@@ -1026,11 +1102,10 @@
     const team = String(document.getElementById('moreTradeTeamFilter')?.value || '');
     const tradeFilter = document.getElementById('tradeTeamFilter');
     if (tradeFilter) tradeFilter.value = team;
-    buildTradeHistoryPage();
+    void buildTradeHistoryPage({ renderMobilePreview: skipHubRebuild });
     persistSettings();
     if (activeTabId === 'more' && normalizeMobileMoreSection(mobileMoreSection) === 'trades') {
-      if (skipHubRebuild) renderMobileMoreTradesPreview();
-      else renderMobileMoreSection();
+      if (!skipHubRebuild) renderMobileMoreSection();
     }
   }
 
@@ -1371,7 +1446,7 @@
     // Desktop-only tab execution path for legacy panels.
     if (!redirectedToMore && (!isMobile || allowLegacyMobile)) {
       if (requestedId === 'rosters') buildRosterDashboard();
-      if (requestedId === 'trades') buildTradeHistoryPage();
+      if (requestedId === 'trades') void buildTradeHistoryPage();
       if (requestedId === 'edge') { checkEdgeGate(); buildEdgeTable(); }
       if (requestedId === 'league') initLeagueTab();
     }
@@ -1412,7 +1487,13 @@
   function getInitialTabFromUrl() {
     try {
       const params = new URLSearchParams(window.location.search || '');
-      return normalizeInitialTabFromUrl(params.get('tab') || params.get('view') || '');
+      const explicitTab = normalizeInitialTabFromUrl(params.get('tab') || params.get('view') || '');
+      if (explicitTab) return explicitTab;
+      const path = String(window.location.pathname || '').trim().toLowerCase();
+      if (path === '/rankings') return 'rookies';
+      if (path === '/trade') return 'calculator';
+      if (path === '/app') return 'calculator';
+      return '';
     } catch (_) {
       return '';
     }
@@ -1803,7 +1884,8 @@
 
   function getValueEconomyPointFromPlayerData(pData = null) {
     if (!pData || typeof pData !== 'object') return null;
-    const keys = ['_finalAdjusted', '_leagueAdjusted', '_scoringAdjusted', '_scarcityAdjusted', '_composite', '_rawComposite'];
+    // Raw-market layer calibration must be anchored to raw market outputs first.
+    const keys = ['_rawComposite', '_rawMarketValue', '_composite', '_scoringAdjusted', '_scarcityAdjusted', '_finalAdjusted', '_leagueAdjusted'];
     for (const k of keys) {
       const v = Number(pData[k]);
       if (Number.isFinite(v) && v > 0) return v;
@@ -2091,7 +2173,7 @@
     let siteRaw;
     if (!opts.isPick && (mode === 'rank' || mode === 'idpRank')) {
       // Rank-only sources: map rank percentile onto the same universe's
-      // Fully-Adjusted value distribution so spacing reflects real value economics.
+      // raw-market value distribution so spacing stays in the market layer.
       siteRaw = calibrateRankToValueCurve(sc, v, opts, c);
       if (!Number.isFinite(siteRaw) || siteRaw <= 0) {
         // Defensive fallback only; calibrated curve above is the primary path.
@@ -2135,6 +2217,39 @@
     return Math.max(0, Math.min(1, siteRaw / COMPOSITE_SCALE));
   }
 
+  function computeRawMarketConfidence(normValues = [], siteCount = 0, opts = {}) {
+    const vals = (normValues || []).filter(v => Number.isFinite(v) && v > 0);
+    const count = Math.max(0, Number(siteCount) || vals.length);
+    if (!vals.length || count <= 0) {
+      return { score: 0.20, cv: 0 };
+    }
+    const mean = vals.reduce((sum, v) => sum + v, 0) / vals.length;
+    const variance = vals.reduce((sum, v) => sum + ((v - mean) ** 2), 0) / vals.length;
+    const cv = mean > 0 ? (Math.sqrt(variance) / mean) : 0;
+    const siteScore = clampValue(count / 8, 0.20, 1.00);
+    const cvScore = clampValue(1 - (Math.min(cv, 0.35) / 0.35), 0.20, 1.00);
+    let score = clampValue((siteScore * 0.65) + (cvScore * 0.35), 0.20, 1.00);
+
+    let coverageCap = 1.00;
+    if (count <= 1) coverageCap = 0.42;
+    else if (count === 2) coverageCap = 0.58;
+    else if (count === 3) coverageCap = 0.70;
+
+    const rankSourceShare = clampValue(Number(opts.rankSourceShare || 0), 0, 1);
+    if (rankSourceShare >= 0.80) {
+      coverageCap = Math.min(coverageCap, count <= 2 ? 0.56 : 0.72);
+    }
+    if (opts.isRookie && count <= 2) {
+      coverageCap = Math.min(coverageCap, 0.52);
+    }
+    if (opts.isIdp && count <= 2) {
+      coverageCap = Math.min(coverageCap, 0.55);
+    }
+
+    score = Math.min(score, coverageCap);
+    return { score, cv };
+  }
+
   // Shared canonical composite engine.
   // Every live valuation path should route through this so canonical source transforms
   // (value/rank/idpRank) and composite blending stay identical across rankings + calculator.
@@ -2159,6 +2274,7 @@
     const siteDetails = {};
     let maxValueSiteRaw = 0;
     let nativeTopSiteRaw = 0;
+    let rankLikeCount = 0;
 
     cctx.cfg.forEach(sc => {
       if (!sc.include || !sc.max || sc.max <= 0) return;
@@ -2190,6 +2306,7 @@
       wNorms.push({ norm, weight: sc.weight });
       rawNorms.push(norm);
       siteDetails[sc.key] = Math.round(siteRaw);
+      if (mode === 'rank' || mode === 'idpRank') rankLikeCount += 1;
       if (NATIVE_CANONICAL_VALUE_SITES.has(sc.key)) {
         nativeTopSiteRaw = Math.max(nativeTopSiteRaw, siteRaw);
       }
@@ -2221,7 +2338,15 @@
     const metaNorm = wSum > 0 ? wTotal / wSum : 0;
 
     let metaValue = metaNorm * COMPOSITE_SCALE;
-    const cv = coeffOfVariation(rawNorms);
+    const confidenceCalc = computeRawMarketConfidence(rawNorms, wNorms.length, {
+      rankSourceShare: wNorms.length > 0 ? (rankLikeCount / wNorms.length) : 0,
+      isRookie: playerIsRookie,
+      isIdp: playerIsIdp,
+    });
+    const cv = Number.isFinite(Number(confidenceCalc.cv))
+      ? Number(confidenceCalc.cv)
+      : coeffOfVariation(rawNorms);
+    const marketConfidence = clampValue(Number(confidenceCalc.score || 0.20), 0.20, 1.00);
 
     if (rawNorms.length >= 4) {
       const sortedVals = [...rawNorms].sort((a, b) => a - b);
@@ -2237,7 +2362,11 @@
       }
     }
 
-    if (wNorms.length === 1) metaValue *= SINGLE_SOURCE_DISCOUNT;
+    if (wNorms.length === 1) {
+      const singleSrcDiscount = SINGLE_SOURCE_DISCOUNT_MIN
+        + ((SINGLE_SOURCE_DISCOUNT_MAX - SINGLE_SOURCE_DISCOUNT_MIN) * marketConfidence);
+      metaValue *= singleSrcDiscount;
+    }
 
     let capLimit = maxValueSiteRaw;
     if (playerIsIdp && capLimit > 0) {
@@ -2258,6 +2387,8 @@
       siteCount: wNorms.length,
       siteDetails,
       cv,
+      marketConfidence,
+      rankSourceShare: wNorms.length > 0 ? (rankLikeCount / wNorms.length) : 0,
       playerPos,
       playerIsTE,
       playerIsIdp,
@@ -2265,9 +2396,65 @@
     };
   }
 
+  function getBackendAuthoritativeValueBundle(playerData) {
+    if (!playerData || typeof playerData !== 'object') return null;
+    const direct = playerData.valueBundle && typeof playerData.valueBundle === 'object'
+      ? playerData.valueBundle
+      : null;
+    if (direct) return direct;
+    const legacyValues = playerData.values && typeof playerData.values === 'object'
+      ? playerData.values
+      : null;
+    if (!legacyValues) return null;
+    return {
+      rawValue: Number(legacyValues.rawComposite),
+      scoringAdjustedValue: Number(legacyValues.scoringAdjusted),
+      scarcityAdjustedValue: Number(legacyValues.scarcityAdjusted),
+      bestBallAdjustedValue: Number(legacyValues.bestBallAdjusted ?? legacyValues.scarcityAdjusted),
+      fullValue: Number(legacyValues.finalAdjusted ?? legacyValues.overall),
+      confidence: Number(playerData.marketConfidence ?? playerData._marketConfidence ?? 0.55),
+      sourceCoverage: {
+        count: Number(playerData.sourceCount ?? playerData._sites ?? 0),
+        ratio: Number(playerData._sourceCoverageRatio ?? null),
+      },
+      adjustmentTags: Array.isArray(playerData.adjustmentTags) ? playerData.adjustmentTags : [],
+      layers: {},
+    };
+  }
+
+  function getBackendFinalAuthorityGuardrails(playerData) {
+    if (!playerData || typeof playerData !== 'object') return null;
+    const direct = playerData?.valueBundle?.guardrails;
+    if (direct && typeof direct === 'object') return direct;
+    const legacy = playerData?._valueAuthorityGuardrails;
+    if (legacy && typeof legacy === 'object') return legacy;
+    return null;
+  }
+
+  function isBackendFinalAuthorityQuarantined(playerData) {
+    const guardrails = getBackendFinalAuthorityGuardrails(playerData);
+    if (guardrails && guardrails.quarantined === true) return true;
+    const tags = Array.isArray(playerData?._adjustmentTags) ? playerData._adjustmentTags : [];
+    return tags.includes('quarantined_from_final_authority');
+  }
+
+  function getBackendFinalAuthorityQuarantineReasons(playerData) {
+    const guardrails = getBackendFinalAuthorityGuardrails(playerData);
+    if (!guardrails || !Array.isArray(guardrails.quarantineReasons)) return [];
+    return guardrails.quarantineReasons
+      .map((reason) => String(reason || '').trim())
+      .filter(Boolean);
+  }
+
   function getPrecomputedAdjustmentBundle(playerData, rawComposite, position, playerName = '') {
     if (!playerData || typeof playerData !== 'object') return null;
+    const authoritativeBundle = getBackendAuthoritativeValueBundle(playerData);
+    const authorityGuardrails = getBackendFinalAuthorityGuardrails(playerData) || {};
+    const finalAuthorityQuarantined = isBackendFinalAuthorityQuarantined(playerData);
+    const finalAuthorityQuarantineReasons = getBackendFinalAuthorityQuarantineReasons(playerData);
+    const hasAuthoritativeBundle = !!(authoritativeBundle && typeof authoritativeBundle === 'object');
     const hasModernPrecomputed =
+      hasAuthoritativeBundle ||
       Number.isFinite(Number(playerData._scoringAdjusted)) ||
       Number.isFinite(Number(playerData._scarcityAdjusted)) ||
       Number.isFinite(Number(playerData._finalAdjusted)) ||
@@ -2275,23 +2462,112 @@
       Number.isFinite(Number(playerData._scoringEffectiveMultiplier)) ||
       Number.isFinite(Number(playerData._preCalibrationValue));
     if (!hasModernPrecomputed) return null;
+
     const raw = clampValue(
-      Math.round(Number(rawComposite ?? playerData._rawComposite ?? playerData._rawMarketValue ?? playerData._composite) || 0),
+      Math.round(
+        Number(
+          rawComposite ??
+          authoritativeBundle?.rawValue ??
+          playerData._rawComposite ??
+          playerData._rawMarketValue ??
+          playerData._composite
+        ) || 0
+      ),
       1,
       COMPOSITE_SCALE
     );
-    const finalAdjustedValue = Number(playerData._finalAdjusted ?? playerData._leagueAdjusted);
+    const scoringAdjustedValue = clampValue(
+      Math.round(
+        Number(
+          authoritativeBundle?.scoringAdjustedValue ??
+          playerData._scoringAdjusted ??
+          playerData._leagueAdjusted ??
+          raw
+        ) || raw
+      ),
+      1,
+      COMPOSITE_SCALE
+    );
+    const scarcityAdjustedValue = clampValue(
+      Math.round(
+        Number(
+          authoritativeBundle?.scarcityAdjustedValue ??
+          playerData._scarcityAdjusted ??
+          scoringAdjustedValue
+        ) || scoringAdjustedValue
+      ),
+      1,
+      COMPOSITE_SCALE
+    );
+    const bestBallAdjustedValue = clampValue(
+      Math.round(
+        Number(
+          authoritativeBundle?.bestBallAdjustedValue ??
+          playerData._bestBallAdjusted ??
+          scarcityAdjustedValue
+        ) || scarcityAdjustedValue
+      ),
+      1,
+      COMPOSITE_SCALE
+    );
+    const finalAdjustedValue = clampValue(
+      Math.round(
+        Number(
+          authoritativeBundle?.fullValue ??
+          playerData._finalAdjusted ??
+          playerData._leagueAdjusted ??
+          bestBallAdjustedValue
+        ) || bestBallAdjustedValue
+      ),
+      1,
+      COMPOSITE_SCALE
+    );
     if (!Number.isFinite(finalAdjustedValue) || finalAdjustedValue <= 0) return null;
-    const scoringAdjustedValue = clampValue(Math.round(Number(playerData._scoringAdjusted ?? raw) || raw), 1, COMPOSITE_SCALE);
-    const scarcityAdjustedValue = clampValue(Math.round(Number(playerData._scarcityAdjusted ?? scoringAdjustedValue) || scoringAdjustedValue), 1, COMPOSITE_SCALE);
-    const marketReliabilityScore = clampValue(Number(playerData._marketReliabilityScore ?? 0.55), MARKET_CONF_MIN, MARKET_CONF_MAX);
+
+    const marketReliabilityScore = clampValue(
+      Number(
+        authoritativeBundle?.confidence ??
+        playerData._marketReliabilityScore ??
+        playerData._marketConfidence ??
+        0.55
+      ),
+      MARKET_CONF_MIN,
+      MARKET_CONF_MAX
+    );
+    const sourceCoverage = (
+      authoritativeBundle?.sourceCoverage && typeof authoritativeBundle.sourceCoverage === 'object'
+    ) ? authoritativeBundle.sourceCoverage : {};
+    const sourceCoverageRatio = Number(
+      sourceCoverage.ratio ??
+      authoritativeBundle?.sourceCoverageRatio ??
+      playerData._sourceCoverageRatio
+    );
+    const siteCount = Number(
+      sourceCoverage.count ??
+      authoritativeBundle?.sourceCount ??
+      playerData._marketReliabilitySiteCount ??
+      playerData._sites ??
+      0
+    ) || 0;
+    const adjustmentTags = Array.isArray(authoritativeBundle?.adjustmentTags)
+      ? authoritativeBundle.adjustmentTags
+      : (Array.isArray(playerData._adjustmentTags) ? playerData._adjustmentTags : []);
+    const layerSources = authoritativeBundle?.layers && typeof authoritativeBundle.layers === 'object'
+      ? authoritativeBundle.layers
+      : {};
+
     return {
       rawMarketValue: raw,
       marketReliability: {
         score: marketReliabilityScore,
         label: String(playerData._marketReliabilityLabel || ''),
-        siteCount: Number(playerData._marketReliabilitySiteCount ?? playerData._sites ?? 0) || 0,
+        siteCount,
       },
+      sourceCoverage: {
+        count: siteCount,
+        ratio: Number.isFinite(sourceCoverageRatio) ? clampValue(sourceCoverageRatio, 0, 1) : null,
+      },
+      adjustmentTags,
       assetClass: String(playerData._assetClass || getAssetClass(position, playerName) || ''),
       scoring: {
         baselineBucket: String(playerData._lamBucket || ''),
@@ -2324,7 +2600,8 @@
       },
       scoringAdjustedValue,
       scarcityAdjustedValue,
-      guardrailedValue: clampValue(Math.round(Number(playerData._guardrailedValue ?? scarcityAdjustedValue) || scarcityAdjustedValue), 1, COMPOSITE_SCALE),
+      bestBallAdjustedValue,
+      guardrailedValue: clampValue(Math.round(Number(playerData._guardrailedValue ?? bestBallAdjustedValue) || bestBallAdjustedValue), 1, COMPOSITE_SCALE),
       topEndGuardrail: {
         minValue: Number(playerData._guardrailMin ?? 0) || 0,
         maxValue: Number(playerData._guardrailMax ?? 0) || 0,
@@ -2332,13 +2609,512 @@
         downCap: Number(playerData._guardrailDownCap ?? 0) || 0,
         applied: !!playerData._guardrailApplied,
       },
-      combinedMultiplierUnclamped: Number(playerData._combinedMultiplierUnclamped ?? playerData._combinedMultiplier ?? 1) || 1,
-      combinedMultiplier: Number(playerData._combinedMultiplier ?? playerData._effectiveMultiplier ?? 1) || 1,
-      boundedCombinedMultiplier: Number(playerData._boundedCombinedMultiplier ?? playerData._combinedMultiplier ?? 1) || 1,
+      combinedMultiplierUnclamped: Number(playerData._combinedMultiplierUnclamped ?? playerData._combinedMultiplier ?? (finalAdjustedValue / Math.max(1, raw))) || 1,
+      combinedMultiplier: Number(playerData._combinedMultiplier ?? playerData._effectiveMultiplier ?? (finalAdjustedValue / Math.max(1, raw))) || 1,
+      boundedCombinedMultiplier: Number(playerData._boundedCombinedMultiplier ?? playerData._combinedMultiplier ?? (finalAdjustedValue / Math.max(1, raw))) || 1,
       preCalibrationValue: clampValue(Math.round(Number(playerData._preCalibrationValue ?? finalAdjustedValue) || finalAdjustedValue), 1, COMPOSITE_SCALE),
       canonicalCeilingCalibrationApplied: !!playerData._canonicalCeilingCalibrationApplied,
-      finalAdjustedValue: clampValue(Math.round(finalAdjustedValue), 1, COMPOSITE_SCALE),
+      finalAdjustedValue,
       valueDelta: Math.round(Number(playerData._lamDelta ?? (finalAdjustedValue - raw)) || (finalAdjustedValue - raw)),
+      finalAuthorityStatus: String(authorityGuardrails?.finalAuthorityStatus || ''),
+      finalAuthorityQuarantined,
+      finalAuthorityQuarantineReasons,
+      layerContributions: {
+        scoringDelta: scoringAdjustedValue - raw,
+        scarcityDelta: scarcityAdjustedValue - scoringAdjustedValue,
+        bestBallDelta: bestBallAdjustedValue - scarcityAdjustedValue,
+        fullDelta: finalAdjustedValue - raw,
+      },
+      layerSources: {
+        scoring: String(layerSources?.scoring?.source || ''),
+        scarcity: String(layerSources?.scarcity?.source || ''),
+        bestBall: String(layerSources?.bestBall?.source || ''),
+        full: String(layerSources?.full?.source || ''),
+      },
+      resolverMetadata: {
+        authority: hasAuthoritativeBundle ? 'backend_value_bundle' : 'legacy_precomputed',
+        resolverVersion: String(authoritativeBundle?.resolver?.resolverVersion || ''),
+      },
+    };
+  }
+
+  function buildBackendRawPassthroughAdjustmentBundle(playerData, rawComposite, position, playerName = '', detail = {}) {
+    const raw = clampValue(
+      Math.round(
+        Number(
+          rawComposite ??
+          playerData?._rawComposite ??
+          playerData?._rawMarketValue ??
+          playerData?._composite
+        ) || 0
+      ),
+      1,
+      COMPOSITE_SCALE
+    );
+    const sourceCoverageCount = Number(playerData?._sites ?? 0) || 0;
+    const sourceCoverageRatio = Number(playerData?._sourceCoverageRatio ?? NaN);
+    const marketReliabilityScore = clampValue(
+      Number(playerData?._marketReliabilityScore ?? playerData?._marketConfidence ?? 0.45),
+      MARKET_CONF_MIN,
+      MARKET_CONF_MAX
+    );
+    const adjustmentTags = Array.isArray(playerData?._adjustmentTags)
+      ? [...playerData._adjustmentTags]
+      : [];
+    if (!adjustmentTags.includes('backend_adjustment_missing_passthrough')) {
+      adjustmentTags.push('backend_adjustment_missing_passthrough');
+    }
+    const fallbackReason = String(detail?.reason || 'missing_backend_adjustment_bundle');
+
+    return {
+      rawMarketValue: raw,
+      marketReliability: {
+        score: marketReliabilityScore,
+        label: String(playerData?._marketReliabilityLabel || ''),
+        siteCount: sourceCoverageCount,
+      },
+      sourceCoverage: {
+        count: sourceCoverageCount,
+        ratio: Number.isFinite(sourceCoverageRatio) ? clampValue(sourceCoverageRatio, 0, 1) : null,
+      },
+      adjustmentTags,
+      assetClass: String(playerData?._assetClass || getAssetClass(position, playerName) || ''),
+      scoring: {
+        baselineBucket: String(playerData?._lamBucket || ''),
+        rawCompositeValue: raw,
+        rawLeagueMultiplier: Number(playerData?._rawLeagueMultiplier ?? 1) || 1,
+        shrunkLeagueMultiplier: Number(playerData?._shrunkLeagueMultiplier ?? 1) || 1,
+        leagueMultiplier: 1,
+        adjustmentStrength: Number(playerData?._scoringAdjustmentStrength ?? playerData?._lamStrength ?? 0) || 0,
+        effectiveMultiplier: 1,
+        finalAdjustedValue: raw,
+        valueDelta: 0,
+        formatFitSource: String(playerData?._formatFitSource || ''),
+        formatFitConfidence: Number(playerData?._formatFitConfidence ?? 0) || 0,
+        formatFitRaw: Number(playerData?._formatFitRaw ?? 0) || 0,
+        formatFitShrunk: Number(playerData?._formatFitShrunk ?? 0) || 0,
+        formatFitFinal: Number(playerData?._formatFitFinal ?? 0) || 0,
+        formatFitPPGTest: Number(playerData?._formatFitPPGTest ?? 0) || 0,
+        formatFitPPGCustom: Number(playerData?._formatFitPPGCustom ?? 0) || 0,
+        formatFitProductionShare: Number(playerData?._formatFitProductionShare ?? 0) || 0,
+      },
+      scarcity: {
+        scarcityBucket: String(playerData?._lamBucket || ''),
+        scarcityMultiplierRaw: 1,
+        scarcityMultiplierEffective: 1,
+        scarcityStrength: Number(playerData?._scarcityStrength ?? 0) || 0,
+        replacementRank: Number(playerData?._replacementRank ?? 0) || 0,
+        replacementValue: Number(playerData?._replacementValue ?? 0) || 0,
+        valueAboveReplacement: Number(playerData?._valueAboveReplacement ?? 0) || 0,
+        finalScarcityAdjustedValue: raw,
+        scarcityDelta: 0,
+      },
+      scoringAdjustedValue: raw,
+      scarcityAdjustedValue: raw,
+      bestBallAdjustedValue: raw,
+      guardrailedValue: raw,
+      topEndGuardrail: {
+        minValue: raw,
+        maxValue: raw,
+        upCap: 0,
+        downCap: 0,
+        applied: false,
+      },
+      combinedMultiplierUnclamped: 1,
+      combinedMultiplier: 1,
+      boundedCombinedMultiplier: 1,
+      preCalibrationValue: raw,
+      canonicalCeilingCalibrationApplied: false,
+      finalAdjustedValue: raw,
+      valueDelta: 0,
+      finalAuthorityStatus: 'backend_raw_passthrough',
+      finalAuthorityQuarantined: false,
+      finalAuthorityQuarantineReasons: [],
+      layerContributions: {
+        scoringDelta: 0,
+        scarcityDelta: 0,
+        bestBallDelta: 0,
+        fullDelta: 0,
+      },
+      layerSources: {
+        scoring: 'backend_raw_passthrough',
+        scarcity: 'backend_raw_passthrough',
+        bestBall: 'backend_raw_passthrough',
+        full: 'backend_raw_passthrough',
+      },
+      resolverMetadata: {
+        authority: 'backend_raw_passthrough_fallback',
+        resolverVersion: String(playerData?.valueBundle?.resolver?.resolverVersion || ''),
+        reason: fallbackReason,
+      },
+    };
+  }
+
+  function resolveKnownPlayerAdjustmentBundle(playerData, rawComposite, position, playerName = '', context = {}) {
+    if (!playerData || typeof playerData !== 'object') return null;
+    const precomputed = getPrecomputedAdjustmentBundle(playerData, rawComposite, position, playerName);
+    if (precomputed) return precomputed;
+    if (context?.allowFrontendForKnown === true) {
+      return computeFinalAdjustedValueCore(rawComposite, position, playerName, {
+        ...context,
+        preferPrecomputed: false,
+      });
+    }
+    return buildBackendRawPassthroughAdjustmentBundle(playerData, rawComposite, position, playerName, {
+      reason: context?.missingReason || 'known_player_missing_backend_adjustment',
+    });
+  }
+
+  function clampTradePackage(value, lo, hi) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return lo;
+    return Math.max(lo, Math.min(hi, n));
+  }
+
+  function roundTradePackage(value, digits = 2) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    const p = Math.pow(10, Math.max(0, Math.floor(Number(digits) || 0)));
+    return Math.round(n * p) / p;
+  }
+
+  function normalizeTradePackagePos(pos) {
+    const p = String(pos || '').toUpperCase().trim();
+    if (['EDGE', 'DE', 'DT'].includes(p)) return 'DL';
+    if (['CB', 'S'].includes(p)) return 'DB';
+    return p;
+  }
+
+  function coerceBooleanFlag(value) {
+    if (value === true || value === false) return value;
+    if (value == null) return null;
+    if (typeof value === 'number') {
+      if (value === 1) return true;
+      if (value === 0) return false;
+      return null;
+    }
+    const normalized = String(value || '').trim().toLowerCase();
+    if (!normalized) return null;
+    if (['1', 'true', 'yes', 'on', 'enabled'].includes(normalized)) return true;
+    if (['0', 'false', 'no', 'off', 'disabled'].includes(normalized)) return false;
+    return null;
+  }
+
+  function getBestBallContextDetails() {
+    const leagueFlag = loadedData?.sleeper?.leagueSettings?.best_ball;
+    const explicitLeague = coerceBooleanFlag(leagueFlag);
+    if (explicitLeague != null) {
+      return {
+        active: explicitLeague,
+        assumed: false,
+        source: 'league_settings.best_ball',
+        raw: leagueFlag,
+      };
+    }
+
+    const overrideFlag = (typeof window !== 'undefined')
+      ? coerceBooleanFlag(window.__tradeBestBallDefault)
+      : null;
+    if (overrideFlag != null) {
+      return {
+        active: overrideFlag,
+        assumed: true,
+        source: 'window.__tradeBestBallDefault',
+        raw: window.__tradeBestBallDefault,
+      };
+    }
+
+    // Preserve runtime behavior for this product while making assumption explicit.
+    return {
+      active: true,
+      assumed: true,
+      source: 'default_assumption_best_ball_true',
+      raw: null,
+    };
+  }
+
+  function isBestBallContextActive() {
+    return !!getBestBallContextDetails().active;
+  }
+
+  function resolveTradePackageConfidence(item = {}, opts = {}) {
+    const explicit = Number(opts.confidence);
+    if (Number.isFinite(explicit)) return clampTradePackage(explicit, 0.20, 0.95);
+    const candidates = [
+      item?.confidence,
+      item?.marketReliabilityScore,
+      item?.marketReliability?.score,
+      item?.marketConfidence,
+      item?._marketReliabilityScore,
+      item?._formatFitConfidence,
+      item?._marketConfidence,
+      opts?.playerData?._marketReliabilityScore,
+      opts?.playerData?._formatFitConfidence,
+      opts?.playerData?._marketConfidence,
+      0.55,
+    ];
+    for (const raw of candidates) {
+      const n = Number(raw);
+      if (Number.isFinite(n)) return clampTradePackage(n, 0.20, 0.95);
+    }
+    return 0.55;
+  }
+
+  function resolveTradePackageBestBallLift(item = {}, opts = {}) {
+    const explicit = Number(opts.bestBallLift);
+    if (Number.isFinite(explicit)) return clampTradePackage(explicit, -0.18, 0.18);
+
+    const directDelta = [
+      item?.bestBallLift,
+      item?.best_ball_lift,
+      item?.bestBallDelta,
+      item?._bestBallDelta,
+      opts?.playerData?._bestBallDelta,
+    ];
+    for (const raw of directDelta) {
+      const n = Number(raw);
+      if (Number.isFinite(n)) return clampTradePackage(n, -0.18, 0.18);
+    }
+
+    const bbValue = Number(
+      item?.bestBallAdjustedValue ??
+      item?._bestBallAdjustedValue ??
+      item?._bestBallAdjusted ??
+      opts?.playerData?._bestBallAdjustedValue ??
+      opts?.playerData?._bestBallAdjusted
+    );
+    const scarcityValue = Number(
+      item?.scarcityAdjustedValue ??
+      item?._scarcityAdjusted ??
+      opts?.playerData?._scarcityAdjusted
+    );
+    if (Number.isFinite(bbValue) && Number.isFinite(scarcityValue) && scarcityValue > 0) {
+      return clampTradePackage((bbValue / scarcityValue) - 1, -0.18, 0.18);
+    }
+    return 0;
+  }
+
+  function buildTradePackageEntryFromTradeItem(item = {}, opts = {}) {
+    const name = String(
+      opts.name ??
+      item?.resolvedName ??
+      item?.displayName ??
+      item?.name ??
+      ''
+    ).trim();
+    const playerData = opts.playerData || resolveLoadedPlayerDataForPrecomputed(name) || null;
+    const fallbackPos = String(item?.position ?? item?.pos ?? '').toUpperCase();
+    const pickedPos = String(
+      opts.pos ||
+      (item?.isPick ? 'PICK' : '') ||
+      (name ? (getPlayerPosition(name) || '') : '') ||
+      fallbackPos
+    ).toUpperCase();
+    const explicitIsPick = (typeof opts.isPick === 'boolean')
+      ? opts.isPick
+      : (typeof item?.isPick === 'boolean'
+        ? item.isPick
+        : (typeof item?.is_pick === 'boolean' ? item.is_pick : null));
+    const inferredIsPick = (pickedPos === 'PICK') || !!(name && (typeof parsePickToken === 'function') && parsePickToken(name));
+    const isPick = explicitIsPick == null ? inferredIsPick : explicitIsPick;
+    const pos = isPick ? 'PICK' : normalizeTradePackagePos(pickedPos || fallbackPos);
+    const isIdp = !!(
+      opts.isIdp ??
+      item?.isIdp ??
+      item?.is_idp ??
+      (!isPick && IDP_POSITIONS.has(pos))
+    );
+    const isRookie = !!(
+      opts.isRookie ??
+      item?.isRookie ??
+      item?.is_rookie ??
+      (!isPick && isRookiePlayerName(name, playerData || {}))
+    );
+    const rawValue = Number(
+      opts.value ??
+      item?.value ??
+      item?.metaValue ??
+      item?.fullValue ??
+      item?.finalAdjustedValue ??
+      item?._finalAdjusted ??
+      item?._bestBallAdjustedValue ??
+      item?._bestBallAdjusted ??
+      item?._scarcityAdjusted ??
+      item?._scoringAdjusted ??
+      item?._rawComposite ??
+      item?._composite
+    );
+    if (!Number.isFinite(rawValue) || rawValue <= 0) return null;
+    const value = clampTradePackage(rawValue, 1, COMPOSITE_SCALE);
+    const assetClass = String(
+      opts.assetClass ??
+      item?.assetClass ??
+      item?.asset_class ??
+      (isPick ? 'pick' : (isIdp ? 'idp' : 'offense'))
+    ).toLowerCase();
+    return {
+      name,
+      value: Number(value),
+      pos,
+      isPick,
+      isIdp,
+      isRookie,
+      assetClass,
+      confidence: resolveTradePackageConfidence(item, { ...opts, playerData }),
+      bestBallLift: resolveTradePackageBestBallLift(item, { ...opts, playerData }),
+    };
+  }
+
+  // Legacy browser formula retained strictly as calculator fallback when backend scoring is unavailable.
+  function computeTradePackageScoreFromEntries(entries, opts = {}) {
+    const alpha = clampTradePackage(Number(opts.alpha ?? DEFAULT_ALPHA), 1.0, 3.0);
+    const bestBallMode = opts.bestBallMode !== false;
+    const normalized = [];
+    for (const raw of (Array.isArray(entries) ? entries : [])) {
+      const entry = buildTradePackageEntryFromTradeItem(raw || {}, raw || {});
+      if (!entry || !Number.isFinite(entry.value) || entry.value <= 0) continue;
+      normalized.push(entry);
+    }
+    const sortedEntries = normalized.sort((a, b) => b.value - a.value);
+    if (!sortedEntries.length) {
+      return {
+        weightedBase: 0,
+        linearTotal: 0,
+        weightedTotal: 0,
+        packageMultiplier: 1,
+        packageDeltaPct: 0,
+        assetCount: 0,
+        components: {},
+        entryEffects: [],
+      };
+    }
+
+    const weightedBase = sortedEntries.reduce((sum, e) => sum + Math.pow(Math.max(e.value, 1), alpha), 0);
+    const linearTotal = sortedEntries.reduce((sum, e) => sum + Math.max(e.value, 1), 0);
+    const n = sortedEntries.length;
+    const extras = Math.max(0, n - 1);
+    const pickCount = sortedEntries.reduce((sum, e) => sum + ((e.isPick || e.assetClass === 'pick') ? 1 : 0), 0);
+    const idpCount = sortedEntries.reduce((sum, e) => sum + ((e.isIdp || e.assetClass === 'idp') ? 1 : 0), 0);
+    const rookieCount = sortedEntries.reduce((sum, e) => sum + (e.isRookie ? 1 : 0), 0);
+    const top = sortedEntries[0];
+    const second = n > 1 ? sortedEntries[1] : null;
+    const topShare = clampTradePackage(top.value / Math.max(1, linearTotal), 0, 1);
+    const tierGap = clampTradePackage(
+      second ? ((top.value - second.value) / Math.max(1, top.value)) : 1,
+      0,
+      1
+    );
+
+    const elitePivot = top.assetClass === 'idp'
+      ? 4300
+      : (top.assetClass === 'pick' ? 5200 : (top.pos === 'QB' ? 6800 : 6200));
+    const eliteRange = top.assetClass === 'idp'
+      ? 2400
+      : (top.assetClass === 'pick' ? 2200 : 2600);
+    const eliteNorm = clampTradePackage((top.value - elitePivot) / Math.max(1, eliteRange), 0, 1);
+    const alphaStrength = clampTradePackage((alpha - 1.0) / 0.85, 0, 1.35);
+
+    let posFactor = 1.0;
+    if (top.pos === 'QB') posFactor += 0.1;
+    else if (top.pos === 'TE') posFactor += 0.03;
+    if (top.assetClass === 'idp') posFactor *= 0.82;
+    if (top.assetClass === 'pick') posFactor *= 0.78;
+    if (top.isRookie) posFactor *= 0.95;
+
+    let studPremium = TRADE_PACKAGE_MAX_STUD_PREMIUM * eliteNorm * posFactor * alphaStrength;
+    const concentration = n === 1
+      ? 1.0
+      : clampTradePackage(0.4 + (0.45 * topShare) + (0.35 * tierGap), 0.3, 1.0);
+    studPremium *= concentration;
+
+    let depthRate = TRADE_PACKAGE_BASE_DEPTH_PENALTY;
+    if (pickCount > 0) depthRate += 0.003;
+    if (idpCount === n) depthRate -= 0.003;
+    depthRate = clampTradePackage(depthRate, 0.012, 0.03);
+    const depthPenalty = Math.min(TRADE_PACKAGE_MAX_DEPTH_PENALTY, extras * depthRate);
+    const tierRelief = depthPenalty * clampTradePackage(
+      (0.55 * tierGap) + (0.35 * Math.max(0, topShare - 0.5)),
+      0,
+      0.8
+    );
+    const flatPenalty = extras > 0
+      ? (extras * 0.006 * clampTradePackage(1 - tierGap, 0, 1))
+      : 0;
+    const pickPenalty = pickCount > 1 ? ((pickCount - 1) * 0.0045) : 0;
+    const rookiePenalty = rookieCount > 1 ? ((rookieCount - 1) * 0.0035) : 0;
+    const idpPenalty = (idpCount > 1 && idpCount === n) ? (extras * 0.002) : 0;
+
+    const avgBestBallLift = sortedEntries.length
+      ? (
+          sortedEntries.reduce((sum, e) => sum + (Math.max(0, Number(e.bestBallLift) || 0) * (Number(e.confidence) || 0)), 0) /
+          sortedEntries.length
+        )
+      : 0;
+    const bestBallDepthRelief = (bestBallMode && extras > 0)
+      ? clampTradePackage((extras * 0.004) + (avgBestBallLift * 0.35), 0, TRADE_PACKAGE_MAX_BESTBALL_RELIEF)
+      : 0;
+
+    const rawPackageDelta = studPremium - depthPenalty + tierRelief - flatPenalty - pickPenalty - rookiePenalty - idpPenalty + bestBallDepthRelief;
+    const boundedPackageDelta = clampTradePackage(
+      rawPackageDelta,
+      TRADE_PACKAGE_MIN_MULT - 1,
+      TRADE_PACKAGE_MAX_MULT - 1
+    );
+    const packageMultiplier = clampTradePackage(1 + boundedPackageDelta, TRADE_PACKAGE_MIN_MULT, TRADE_PACKAGE_MAX_MULT);
+    const weightedTotal = weightedBase * packageMultiplier;
+    const penaltyPool = Math.max(
+      0,
+      depthPenalty - tierRelief + flatPenalty + pickPenalty + rookiePenalty + idpPenalty - bestBallDepthRelief
+    );
+
+    const entryEffects = [];
+    for (let idx = 0; idx < sortedEntries.length; idx += 1) {
+      const e = sortedEntries[idx];
+      const power = Math.pow(Math.max(1, e.value), alpha);
+      const share = power / Math.max(1, weightedBase);
+      const studLeverage = clampTradePackage(idx === 0 ? 0.85 : (0.25 + (share * 0.55)), 0.05, 1.25);
+      const depthExposure = clampTradePackage((1 - share) * (extras > 0 ? 1 : 0.4), 0, 1.2);
+      let entryDelta = (studPremium * studLeverage) - (penaltyPool * depthExposure);
+      if (bestBallMode && extras > 0) {
+        entryDelta += bestBallDepthRelief + (0.45 * Math.max(0, Number(e.bestBallLift) || 0));
+      }
+      entryDelta = clampTradePackage(entryDelta, -0.08, 0.08);
+      entryEffects.push({
+        name: e.name,
+        pos: e.pos,
+        assetClass: e.assetClass,
+        value: Math.round(e.value),
+        deltaPct: roundTradePackage(entryDelta * 100, 2),
+        weightedImpact: roundTradePackage(power * entryDelta, 2),
+      });
+    }
+
+    const absDeltaPct = Math.abs((packageMultiplier - 1) * 100);
+    const curveProfile = absDeltaPct >= 5.5
+      ? 'steep'
+      : (absDeltaPct <= 1.2 ? 'flat' : 'balanced');
+
+    return {
+      weightedBase: Number(weightedBase),
+      linearTotal: Number(linearTotal),
+      weightedTotal: Number(weightedTotal),
+      packageMultiplier: Number(packageMultiplier),
+      packageDeltaPct: Number((packageMultiplier - 1) * 100),
+      assetCount: n,
+      components: {
+        studPremium: Number(studPremium),
+        depthPenalty: Number(depthPenalty),
+        tierGapRelief: Number(tierRelief),
+        flatPackagePenalty: Number(flatPenalty),
+        pickBundlePenalty: Number(pickPenalty),
+        rookieBundlePenalty: Number(rookiePenalty),
+        idpBundlePenalty: Number(idpPenalty),
+        bestBallDepthRelief: Number(bestBallDepthRelief),
+        rawPackageDelta: Number(rawPackageDelta),
+        boundedPackageDelta: Number(boundedPackageDelta),
+        curveProfile,
+      },
+      entryEffects,
     };
   }
 
@@ -2517,6 +3293,42 @@
     const pickInfo = parsePickToken(playerName);
     const direct = lookupPlayerData(playerName);
     if (pickInfo) {
+      const directPrecomputed = getPrecomputedAdjustmentBundle(direct?.data, undefined, 'PICK', direct?.name || playerName);
+      if (directPrecomputed) {
+        const rawPickValue = clampValue(Math.round(Number(directPrecomputed.rawMarketValue || 0) || 0), 1, COMPOSITE_SCALE);
+        if (rawOnly) {
+          return {
+            metaValue: rawPickValue,
+            rawMarketValue: rawPickValue,
+            scoringAdjustedValue: rawPickValue,
+            scarcityAdjustedValue: rawPickValue,
+            bestBallAdjustedValue: rawPickValue,
+            finalAdjustedValue: rawPickValue,
+            siteCount: Math.max(1, Number(directPrecomputed?.marketReliability?.siteCount) || Number(direct?.data?._sites) || 1),
+            siteDetails: (direct?.data?._canonicalSiteValues && typeof direct?.data?._canonicalSiteValues === 'object')
+              ? direct.data._canonicalSiteValues
+              : {},
+            cv: Number(direct?.data?._marketDispersionCV ?? 0) || 0,
+            authoritySource: 'backend_pick_raw',
+          };
+        }
+        return {
+          metaValue: clampValue(Math.round(Number(directPrecomputed.finalAdjustedValue || rawPickValue) || rawPickValue), 1, COMPOSITE_SCALE),
+          rawMarketValue: rawPickValue,
+          scoringAdjustedValue: Number(directPrecomputed.scoringAdjustedValue ?? rawPickValue) || rawPickValue,
+          scarcityAdjustedValue: Number(directPrecomputed.scarcityAdjustedValue ?? rawPickValue) || rawPickValue,
+          bestBallAdjustedValue: Number(directPrecomputed.bestBallAdjustedValue ?? directPrecomputed.scarcityAdjustedValue ?? rawPickValue) || rawPickValue,
+          finalAdjustedValue: Number(directPrecomputed.finalAdjustedValue ?? rawPickValue) || rawPickValue,
+          siteCount: Math.max(1, Number(directPrecomputed?.marketReliability?.siteCount) || Number(direct?.data?._sites) || 1),
+          siteDetails: (direct?.data?._canonicalSiteValues && typeof direct?.data?._canonicalSiteValues === 'object')
+            ? direct.data._canonicalSiteValues
+            : {},
+          cv: Number(direct?.data?._marketDispersionCV ?? 0) || 0,
+          authoritySource: 'backend_pick_bundle',
+          ...directPrecomputed,
+        };
+      }
+
       const directComp = Number(direct?.data?._composite);
       if (isFinite(directComp) && directComp > 0) {
         const raw = Number(direct?.data?._rawComposite);
@@ -2577,18 +3389,25 @@
           rawMarketValue: raw,
           scoringAdjustedValue: raw,
           scarcityAdjustedValue: raw,
+          bestBallAdjustedValue: raw,
           finalAdjustedValue: raw,
           valueDelta: 0,
           authoritySource: String(base?.authoritySource || 'backend_raw'),
         };
       }
       const adjPos = playerPos || (getPlayerPosition(playerName) || '');
-      const precomputed = getPrecomputedAdjustmentBundle(direct?.data, raw, adjPos, direct?.name || playerName);
-      const adjBundle = precomputed || computeFinalAdjustedValue(raw, adjPos, direct?.name || playerName, {
-        siteCount: Number(base?.siteCount || 0),
-        cv: Number(base?.cv),
-        siteDetails: base?.siteDetails || {},
-      });
+      const adjBundle = resolveKnownPlayerAdjustmentBundle(
+        direct?.data,
+        raw,
+        adjPos,
+        direct?.name || playerName,
+        {
+          siteCount: Number(base?.siteCount || 0),
+          cv: Number(base?.cv),
+          siteDetails: base?.siteDetails || {},
+          allowFrontendForKnown: false,
+        }
+      );
       return {
         ...base,
         metaValue: clampValue(Math.round(Number(adjBundle?.finalAdjustedValue) || raw), 1, COMPOSITE_SCALE),
@@ -2608,12 +3427,15 @@
         valueAboveReplacement: adjBundle?.scarcity?.valueAboveReplacement ?? 0,
         marketReliabilityScore: adjBundle?.marketReliability?.score ?? 0,
         marketReliabilityLabel: adjBundle?.marketReliability?.label ?? '',
+        sourceCoverage: adjBundle?.sourceCoverage || null,
+        adjustmentTags: Array.isArray(adjBundle?.adjustmentTags) ? adjBundle.adjustmentTags : [],
         effectiveMultiplier: adjBundle?.combinedMultiplier ?? 1,
         scoringAdjustedValue: adjBundle?.scoringAdjustedValue ?? raw,
         scarcityAdjustedValue: adjBundle?.scarcityAdjustedValue ?? raw,
+        bestBallAdjustedValue: adjBundle?.bestBallAdjustedValue ?? adjBundle?.scarcityAdjustedValue ?? raw,
         finalAdjustedValue: adjBundle?.finalAdjustedValue ?? raw,
         valueDelta: adjBundle?.valueDelta ?? 0,
-        authoritySource: String(base?.authoritySource || (precomputed ? 'backend_adjusted' : 'frontend_adjusted_fallback')),
+        authoritySource: String(base?.authoritySource || adjBundle?.resolverMetadata?.authority || 'backend_adjusted'),
       };
     };
 
