@@ -56,7 +56,7 @@ def main() -> int:
     repo = Path(args.repo).resolve()
     _bootstrap_path(repo)
 
-    from src.adapters import DlfCsvAdapter, KtcStubAdapter, ManualCsvAdapter
+    from src.adapters import DlfCsvAdapter, KtcStubAdapter, ManualCsvAdapter, ScraperBridgeAdapter
     from src.data_models import RawAssetRecord, RawSourceSnapshot, SourceManifest, utc_now_iso
     from src.identity import build_identity_resolution
     from src.utils import load_json, normalize_player_name
@@ -126,6 +126,12 @@ def main() -> int:
             adapter = DlfCsvAdapter(source_id=source, source_bucket=universe, format_key=format_key)
         elif adapter_kind in {"ktc_stub", "ktc"}:
             adapter = KtcStubAdapter(source_id=source, source_bucket=universe, format_key=format_key)
+        elif adapter_kind in {"scraper_bridge", "bridge"}:
+            signal_type = str(src_cfg.get("signal_type", "value")).strip().lower()
+            adapter = ScraperBridgeAdapter(
+                source_id=source, source_bucket=universe,
+                format_key=format_key, signal_type=signal_type,
+            )
         elif adapter_kind in {"manual_csv", "manual"}:
             adapter = ManualCsvAdapter(source_id=source, source_bucket=universe)
         else:

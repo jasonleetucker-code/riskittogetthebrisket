@@ -82,6 +82,22 @@
       "file": "data/ktc_seed.csv",
       "mode": "rank_or_value_seed",
       "notes": "Scaffold adapter for local seed testing; replace with live adapter."
+    },
+    {
+      "enabled": true,
+      "source": "FANTASYCALC",
+      "adapter": "scraper_bridge",
+      "adapter_version": "1.0.0",
+      "season": "2026",
+      "format_key": "dynasty_sf",
+      "universe": "offense_vet",
+      "ingest_type": "scraper_export",
+      "ingest_method": "scraper_bridge",
+      "source_url": "https://api.fantasycalc.com/",
+      "scoring_context": "dynasty superflex TEP (FantasyCalc value signal)",
+      "file": "exports/latest/site_raw/fantasyCalc.csv",
+      "signal_type": "value",
+      "notes": "Reads FantasyCalc values from legacy scraper CSV export. Value-based signal (higher=better)."
     }
   ]
 }
