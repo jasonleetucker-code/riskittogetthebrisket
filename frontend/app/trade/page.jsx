@@ -2,29 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
-
-const VALUE_MODES = [
-  { key: "full", label: "Fully Adjusted" },
-  { key: "raw", label: "Raw" },
-  { key: "scoring", label: "Scoring" },
-  { key: "scarcity", label: "Scarcity" },
-];
-
-const STORAGE_KEY = "next_trade_workspace_v1";
-const RECENT_KEY = "next_trade_recent_assets_v1";
-
-function verdictFromGap(gap) {
-  const abs = Math.abs(gap);
-  if (abs < 200) return "Near even";
-  if (abs < 600) return "Lean";
-  if (abs < 1200) return "Strong lean";
-  return "Major gap";
-}
-
-function colorFromGap(gap) {
-  if (Math.abs(gap) < 200) return "";
-  return gap > 0 ? "green" : "red";
-}
+import {
+  VALUE_MODES,
+  STORAGE_KEY,
+  RECENT_KEY,
+  verdictFromGap,
+  colorFromGap,
+} from "@/lib/trade-logic";
 
 export default function TradePage() {
   const { loading, error, rows } = useDynastyData();
