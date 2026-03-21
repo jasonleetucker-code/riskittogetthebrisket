@@ -285,3 +285,192 @@ class TestBuildCanonicalByUniverse:
         assert len(result["offense_rookie"]) == 1
         # First player should have highest value
         assert result["offense_vet"][0].blended_value > result["offense_vet"][1].blended_value
+
+
+# ── _rank_records fallback paths ─────────────────────────────────────
+
+class TestRankRecordsFallbacks:
+    """_rank_records has 3 paths: rank_raw, value_raw, name-only. Test each."""
+
+    def test_value_raw_fallback_when_no_rank(self):
+        """When rank_raw is None, should fall back to value_raw descending."""
+        records = [
+            _make_record(name="Low", rank=None, value=1000.0),
+            _make_record(name="High", rank=None, value=9000.0),
+        ]
+        # Separate asset keys
+        records[0].asset_key = "player::low"
+        records[1].asset_key = "player::high"
+        scores = per_source_scores_for_universe(records)
+        dlf = scores["dlf_sf"]
+        # Higher value should get higher canonical score
+        assert dlf["player::high"] > dlf["player::low"]
+
+    def test_name_only_fallback(self):
+        """When both rank and value are None, falls back to name sort."""
+        records = [
+            _make_record(name="Zebra", rank=None, value=None),
+            _make_record(name="Alpha", rank=None, value=None),
+        ]
+        records[0].asset_key = "player::zebra"
+        records[1].asset_key = "player::alpha"
+        scores = per_source_scores_for_universe(records)
+        # Alpha comes first alphabetically -> gets rank 1 -> higher score
+        assert scores["dlf_sf"]["player::alpha"] > scores["dlf_sf"]["player::zebra"]
+
+    def test_rank_raw_preferred_over_value_raw(self):
+        """When rank_raw is present, value_raw is ignored for ordering."""
+        records = [
+            _make_record(name="RankGood", rank=1.0, value=100.0),
+            _make_record(name="ValueGood", rank=5.0, value=99999.0),
+        ]
+        records[0].asset_key = "player::rankgood"
+        records[1].asset_key = "player::valuegood"
+        scores = per_source_scores_for_universe(records)
+        # Rank 1 beats rank 5 regardless of value
+        assert scores["dlf_sf"]["player::rankgood"] > scores["dlf_sf"]["player::valuegood"]
+
+
+# ── blend edge cases ─────────────────────────────────────────────────
+
+class TestBlendEdgeCases:
+    def test_unknown_source_gets_default_weight_1(self):
+        """Source not in weights dict should use default weight 1.0."""
+        per_source = {"unknown_src": {"player::a": 7000}}
+        weights = {"dlf": 1.0}  # unknown_src not in weights
+        result = blend_source_values(per_source, weights, "test")
+        assert len(result) == 1
+        assert result[0].blended_value == 7000
+
+    def test_single_asset_from_many_sources(self):
+        per_source = {
+            "src1": {"player::a": 6000},
+            "src2": {"player::a": 8000},
+            "src3": {"player::a": 7000},
+        }
+        weights = {"src1": 1.0, "src2": 1.0, "src3": 1.0}
+        result = blend_source_values(per_source, weights, "test")
+        assert result[0].blended_value == 7000  # (6000+8000+7000)/3
+
+    def test_asset_seen_by_only_one_of_two_sources(self):
+        """Asset only in one source still gets blended (trivially)."""
+        per_source = {
+            "dlf": {"player::a": 8000, "player::b": 5000},
+            "ktc": {"player::a": 6000},
+        }
+        weights = {"dlf": 1.0, "ktc": 1.0}
+        result = blend_source_values(per_source, weights, "test")
+        by_key = {r.asset_key: r for r in result}
+        assert by_key["player::a"].blended_value == 7000  # (8000+6000)/2
+        assert by_key["player::b"].blended_value == 5000  # only dlf
+
+    def test_source_values_stored_per_asset(self):
+        per_source = {
+            "dlf": {"player::a": 8000},
+            "ktc": {"player::a": 6000},
+        }
+        weights = {"dlf": 1.0, "ktc": 1.0}
+        result = blend_source_values(per_source, weights, "test")
+        assert result[0].source_values == {"dlf": 8000, "ktc": 6000}
+
+    def test_blend_clamped_to_canonical_scale(self):
+        """Values above CANONICAL_SCALE should be clamped."""
+        per_source = {"src": {"player::a": CANONICAL_SCALE + 500}}
+        result = blend_source_values(per_source, {"src": 1.0}, "test")
+        assert result[0].blended_value <= CANONICAL_SCALE
+
+
+# ── flatten edge cases ───────────────────────────────────────────────
+
+class TestFlattenEdgeCases:
+    def test_empty_universe_skipped(self):
+        by_universe = {
+            "offense_vet": [CanonicalAssetValue("a", "A", "ov", {}, 5000)],
+            "idp_vet": [],
+        }
+        flat = flatten_canonical(by_universe)
+        assert len(flat) == 1
+
+    def test_all_empty_universes(self):
+        flat = flatten_canonical({"a": [], "b": []})
+        assert flat == []
+
+
+# ── detect_suspicious_value_jumps edge cases ─────────────────────────
+
+class TestDetectJumpsEdgeCases:
+    def test_large_negative_jump_detected(self):
+        current = [CanonicalAssetValue("a", "A", "off", {}, 1000)]
+        previous = [CanonicalAssetValue("a", "A", "off", {}, 5000)]
+        warnings = detect_suspicious_value_jumps(current, previous, jump_threshold=1800)
+        assert len(warnings) == 1
+        assert warnings[0]["delta"] == -4000
+
+    def test_exactly_at_threshold_triggers(self):
+        current = [CanonicalAssetValue("a", "A", "off", {}, 6800)]
+        previous = [CanonicalAssetValue("a", "A", "off", {}, 5000)]
+        warnings = detect_suspicious_value_jumps(current, previous, jump_threshold=1800)
+        assert len(warnings) == 1
+
+    def test_just_below_threshold_no_warning(self):
+        current = [CanonicalAssetValue("a", "A", "off", {}, 6799)]
+        previous = [CanonicalAssetValue("a", "A", "off", {}, 5000)]
+        warnings = detect_suspicious_value_jumps(current, previous, jump_threshold=1800)
+        assert len(warnings) == 0
+
+    def test_empty_previous_no_warnings(self):
+        current = [CanonicalAssetValue("a", "A", "off", {}, 9000)]
+        assert detect_suspicious_value_jumps(current, []) == []
+
+
+# ── percentile edge cases ────────────────────────────────────────────
+
+class TestPercentileEdgeCases:
+    def test_rank_zero_clamped(self):
+        """Rank 0 should be clamped to 1 and give percentile 1.0."""
+        p = percentile_from_rank(0.0, 100)
+        assert p == 1.0
+
+    def test_negative_rank_clamped(self):
+        p = percentile_from_rank(-5.0, 100)
+        assert p == 1.0
+
+    def test_fractional_rank(self):
+        """Fractional ranks (e.g. 1.5) should work smoothly."""
+        p1 = percentile_from_rank(1.0, 100)
+        p2 = percentile_from_rank(1.5, 100)
+        p3 = percentile_from_rank(2.0, 100)
+        assert p1 > p2 > p3
+
+    def test_canonical_never_exceeds_scale(self):
+        assert percentile_to_canonical(1.0) == CANONICAL_SCALE
+        assert percentile_to_canonical(1.5) == CANONICAL_SCALE  # clamped
+
+    def test_canonical_never_negative(self):
+        assert percentile_to_canonical(-0.5) == 0
+
+
+# ── multi-source build_canonical_by_universe ─────────────────────────
+
+class TestMultiSourceCanonical:
+    def test_two_sources_different_rankings(self):
+        """Two sources ranking same players differently should produce blended result."""
+        records = [
+            _make_record(name="A", source="dlf", rank=1.0, universe="offense_vet"),
+            _make_record(name="B", source="dlf", rank=2.0, universe="offense_vet"),
+            _make_record(name="A", source="ktc", rank=2.0, universe="offense_vet"),
+            _make_record(name="B", source="ktc", rank=1.0, universe="offense_vet"),
+        ]
+        # Fix asset keys for the ktc records
+        records[2].asset_key = "player::a"
+        records[3].asset_key = "player::b"
+        weights = {"dlf": 1.0, "ktc": 1.0}
+        result = build_canonical_by_universe(records, weights)
+        # Both players should be close in value since sources disagree
+        vals = [r.blended_value for r in result["offense_vet"]]
+        assert abs(vals[0] - vals[1]) < 500  # close, not identical
+
+    def test_display_names_propagated(self):
+        records = [_make_record(name="Josh Allen", rank=1.0)]
+        result = build_canonical_by_universe(records, {"dlf_sf": 1.0})
+        assert result["offense_vet"][0].display_name == "Josh Allen"

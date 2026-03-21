@@ -147,3 +147,72 @@ class TestDlfCsvAdapter:
         assert result.source_id == "dlf_sf"
         assert result.source_bucket == "offense_vet"
         assert result.file_path == str(csv_file)
+
+    def test_format_key_passthrough(self, tmp_path):
+        adapter = DlfCsvAdapter(source_id="dlf_sf", source_bucket="offense_vet", format_key="dynasty_1qb")
+        content = "name,pos,team,avg\nPatrick Mahomes,QB,KC,1.0\n"
+        path = tmp_path / "test.csv"
+        path.write_text(content)
+        result = adapter.load(path)
+        assert result.records[0].format_key == "dynasty_1qb"
+
+    def test_rank_column_fallback_order(self, adapter, tmp_path):
+        """avg takes priority over rank column."""
+        content = "name,pos,team,avg,rank\nJosh Allen,QB,BUF,2.5,10.0\n"
+        path = tmp_path / "test.csv"
+        path.write_text(content)
+        result = adapter.load(path)
+        assert result.records[0].rank_raw == 2.5
+
+    def test_row_without_rank_still_loads(self, adapter, tmp_path):
+        """Rows without any rank-like column still produce records with rank_raw=None."""
+        content = "name,pos,team\nJosh Allen,QB,BUF\n"
+        path = tmp_path / "test.csv"
+        path.write_text(content)
+        result = adapter.load(path)
+        assert len(result.records) == 1
+        assert result.records[0].rank_raw is None
+
+    def test_utf8_bom_handled(self, adapter, tmp_path):
+        """Files with BOM should parse correctly (utf-8-sig encoding)."""
+        content = "name,pos,team,avg\nJosh Allen,QB,BUF,1.0\n"
+        path = tmp_path / "test.csv"
+        # Write with utf-8-sig which prepends the BOM byte sequence
+        path.write_text(content, encoding="utf-8-sig")
+        result = adapter.load(path)
+        assert len(result.records) == 1
+        assert result.records[0].display_name == "Josh Allen"
+
+    def test_duplicate_player_names_both_kept(self, adapter, tmp_path):
+        """Two rows with same name should produce two records."""
+        content = "name,pos,team,avg\nJosh Allen,QB,BUF,1.0\nJosh Allen,LB,JAX,50.0\n"
+        path = tmp_path / "test.csv"
+        path.write_text(content)
+        result = adapter.load(path)
+        assert len(result.records) == 2
+
+    def test_metadata_json_contains_raw_values(self, adapter, csv_file):
+        result = adapter.load(csv_file)
+        meta = result.records[0].metadata_json
+        assert meta["raw_avg"] == "1.5"
+        assert meta["raw_pos"] == "QB"
+        assert meta["raw_team"] == "KC"
+        assert "dlf_superflex.csv" in meta["profile_source"]
+
+    def test_rookie_bucket_detection(self, tmp_path):
+        adapter = DlfCsvAdapter(source_id="dlf_rk", source_bucket="offense_rookie")
+        content = "name,pos,team,avg\nCaleb Williams,QB,CHI,1.0\n"
+        path = tmp_path / "test.csv"
+        path.write_text(content)
+        result = adapter.load(path)
+        assert result.records[0].is_offense is True
+        assert result.records[0].is_idp is False
+
+    def test_empty_csv_returns_no_records(self, adapter, tmp_path):
+        """CSV with only header row."""
+        content = "name,pos,team,avg\n"
+        path = tmp_path / "test.csv"
+        path.write_text(content)
+        result = adapter.load(path)
+        assert len(result.records) == 0
+        assert not result.warnings
