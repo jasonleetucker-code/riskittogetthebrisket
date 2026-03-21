@@ -1,0 +1,53 @@
+{
+  "enabled": true,
+  "seasonWindowsByYear": {
+    "2026": {
+      "offseasonStartDate": "2026-01-15",
+      "week1StartDate": "2026-09-10",
+      "week1EndDate": "2026-09-14"
+    }
+  },
+  "weights": {
+    "offseason": 0.18,
+    "week1": 0.06,
+    "postWeek1Initial": 0.02
+  },
+  "positionInfluence": {
+    "QB": 0.76,
+    "RB": 1.0,
+    "WR": 0.96,
+    "TE": 0.9,
+    "DL": 0.98,
+    "LB": 0.92,
+    "DB": 0.88
+  },
+  "positionDeltaCapPct": {
+    "QB": 0.08,
+    "RB": 0.12,
+    "WR": 0.11,
+    "TE": 0.1,
+    "DL": 0.1,
+    "LB": 0.09,
+    "DB": 0.08
+  },
+  "positionSignalBaseline": {
+    "QB": 0.56,
+    "RB": 0.54,
+    "WR": 0.53,
+    "TE": 0.52,
+    "DL": 0.52,
+    "LB": 0.52,
+    "DB": 0.51
+  },
+  "statusMultiplier": {
+    "exact_match": 1.0,
+    "deterministic_match": 0.97,
+    "fuzzy_match_reviewed": 0.88
+  },
+  "minSourceGate": 0.35,
+  "sourceGateDivisor": 5.0,
+  "minMatchConfidenceGate": 0.55,
+  "maxMatchConfidenceGate": 1.0,
+  "minEnabledMatchConfidence": 0.7,
+  "minParseConfidence": 0.6
+}

@@ -1,0 +1,129 @@
+{
+  "normalizeCases": [
+    {
+      "raw": "Amon-Ra St. Brown",
+      "expectedClean": "Amon-Ra St. Brown",
+      "expectedNormalized": "amon ra st brown"
+    },
+    {
+      "raw": "Amon Ra St Brown",
+      "expectedClean": "Amon Ra St Brown",
+      "expectedNormalized": "amon ra st brown"
+    },
+    {
+      "raw": "Willie Gay Jr.",
+      "expectedClean": "Willie Gay",
+      "expectedNormalized": "willie gay"
+    },
+    {
+      "raw": "Brian Thomas III",
+      "expectedClean": "Brian Thomas",
+      "expectedNormalized": "brian thomas"
+    },
+    {
+      "raw": "C.J. Stroud",
+      "expectedClean": "C.J. Stroud",
+      "expectedNormalized": "cj stroud"
+    },
+    {
+      "raw": "TJ Hockenson",
+      "expectedClean": "TJ Hockenson",
+      "expectedNormalized": "tj hockenson"
+    },
+    {
+      "raw": "2026 1.01",
+      "expectedClean": "2026 1.01",
+      "expectedNormalized": "2026 101"
+    },
+    {
+      "raw": "2026 Early 1st",
+      "expectedClean": "2026 Early 1st",
+      "expectedNormalized": "2026 early 1st"
+    },
+    {
+      "raw": "ALL OTHER WRs",
+      "expectedClean": "ALL OTHER WRs",
+      "expectedNormalized": "all other wrs"
+    }
+  ],
+  "safeMergeCases": [
+    {
+      "src": "C.J. Stroud",
+      "dst": "CJ Stroud",
+      "expected": true
+    },
+    {
+      "src": "Amon-Ra St. Brown",
+      "dst": "Amon Ra St Brown",
+      "expected": true
+    },
+    {
+      "src": "Josh Palmer",
+      "dst": "Joshua Palmer",
+      "expected": true
+    },
+    {
+      "src": "Brian Thomas Jr.",
+      "dst": "Brian Thomas",
+      "expected": true
+    },
+    {
+      "src": "Josh Allen",
+      "dst": "Josh Hines-Allen",
+      "expected": false
+    },
+    {
+      "src": "Tank Dell",
+      "dst": "Tank Bigsby",
+      "expected": false
+    },
+    {
+      "src": "Tank Dell",
+      "dst": "Nathaniel Dell",
+      "expected": false
+    },
+    {
+      "src": "James Williams",
+      "dst": "Jameson Williams",
+      "expected": false
+    }
+  ],
+  "bestMatchCases": [
+    {
+      "target": "Deshon Elliot",
+      "candidates": [
+        "DeShon Elliott",
+        "Deshaun Watson"
+      ],
+      "threshold": 0.78,
+      "expected": "DeShon Elliott"
+    },
+    {
+      "target": "TJ Hockenson",
+      "candidates": [
+        "T.J. Hockenson",
+        "Tyjae Spears"
+      ],
+      "threshold": 0.78,
+      "expected": "T.J. Hockenson"
+    },
+    {
+      "target": "Josh Allen",
+      "candidates": [
+        "Josh Hines-Allen",
+        "Josh Jacobs"
+      ],
+      "threshold": 0.78,
+      "expected": null
+    },
+    {
+      "target": "James Williams",
+      "candidates": [
+        "Jameson Williams",
+        "James Cook"
+      ],
+      "threshold": 0.78,
+      "expected": null
+    }
+  ]
+}

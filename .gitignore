@@ -1,6 +1,7 @@
 # Python
 __pycache__/
 *.py[cod]
+.venv/
 .pytest_cache/
 .scrape_cache/
 
@@ -12,6 +13,8 @@ tests/e2e/playwright-report/
 tests/e2e/test-results/
 tests/e2e/tests/
 test-results/
+playwright-report/
+tmp/
 
 # Local tooling
 .codex-loop/

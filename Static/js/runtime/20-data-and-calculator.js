@@ -3964,17 +3964,29 @@
     const fallbackBySide = {};
     let fallbackUsedCount = 0;
     let fallbackBlockedCount = 0;
+    let fallbackPolicyBlockedCount = 0;
+    let backendPayloadIssueCount = 0;
     const sidePackageScores = { A: null, B: null, C: null };
+    const sideHasEntriesMap = { A: false, B: false, C: false };
     for (const side of sideLabels) {
       const hasEntries = Array.isArray(sidePackageEntries?.[side]) && sidePackageEntries[side].length > 0;
+      sideHasEntriesMap[side] = hasEntries;
       const backendSide = backendScorePayload?.sides?.[side];
       const backendUsable = !!(backendSide && Number.isFinite(Number(backendSide.weightedTotal)));
       let usedFallback = false;
       let fallbackBlocked = false;
+      let payloadIssue = false;
       if (backendUsable) {
         sidePackageScores[side] = backendSide;
       } else if (!hasEntries) {
         sidePackageScores[side] = localSidePackageScores[side];
+      } else if (backendHealthy) {
+        // Backend responded but omitted side totals. Do not silently drift by using local package formula.
+        sidePackageScores[side] = null;
+        fallbackBlocked = true;
+        payloadIssue = true;
+        fallbackBlockedCount += 1;
+        backendPayloadIssueCount += 1;
       } else if (fallbackPolicy.allowFallback) {
         sidePackageScores[side] = localSidePackageScores[side];
         usedFallback = true;
@@ -3982,6 +3994,7 @@
         sidePackageScores[side] = null;
         fallbackBlocked = true;
         fallbackBlockedCount += 1;
+        fallbackPolicyBlockedCount += 1;
       }
       if (usedFallback) fallbackUsedCount += 1;
       fallbackBySide[side] = {
@@ -3989,18 +4002,30 @@
         backendUsable,
         usedFallback,
         fallbackBlocked,
+        payloadIssue,
+        totalsWithheldByIntegrityGate: false,
         reason: (usedFallback || fallbackBlocked)
           ? (
-              fallbackBlocked
+              payloadIssue
+                ? 'backend_payload_missing_side_weighted_total'
+                : (fallbackBlocked
                 ? 'fallback_disallowed_by_policy'
                 : (
                     backendHealthy
                       ? 'backend_payload_missing_side_weighted_total'
                       : (tradeBackendScoringState?.lastError || 'backend_trade_scoring_unavailable')
-                  )
+                  ))
             )
           : '',
       };
+    }
+    const enforceIntegrityHold = backendPayloadIssueCount > 0 || fallbackBlockedCount > 0;
+    if (enforceIntegrityHold) {
+      for (const side of sideLabels) {
+        if (!sideHasEntriesMap[side]) continue;
+        sidePackageScores[side] = null;
+        if (fallbackBySide[side]) fallbackBySide[side].totalsWithheldByIntegrityGate = true;
+      }
     }
     const runtimeContractVersion = resolveRuntimeContractVersion();
     const backendContractVersion = String(backendScorePayload?.contractVersion || '').trim();
@@ -4016,7 +4041,9 @@
     wtTot.C = Number(sidePackageScores.C?.weightedTotal || 0);
 
     let authority = 'frontend_package_formula_fallback';
-    if (fallbackBlockedCount > 0) {
+    if (backendPayloadIssueCount > 0) {
+      authority = 'backend_trade_scoring_invalid_payload';
+    } else if (fallbackBlockedCount > 0) {
       authority = 'backend_trade_scoring_required_fallback_disallowed';
     } else if (backendHealthy) {
       authority = (fallbackUsedCount > 0)
@@ -4035,6 +4062,15 @@
           `backend=${backendContractVersion || 'unknown'}`,
         ],
       };
+    } else if (backendPayloadIssueCount > 0) {
+      authorityWarningState = {
+        visible: true,
+        level: 'error',
+        message: 'Backend scoring payload was incomplete. Package totals are withheld to prevent drift.',
+        details: [
+          `invalidSides=${backendPayloadIssueCount}`,
+        ],
+      };
     } else if (fallbackBlockedCount > 0) {
       authorityWarningState = {
         visible: true,
@@ -4042,7 +4078,7 @@
         message: 'Backend package scoring is required and currently unavailable.',
         details: [
           `fallbackPolicy=${fallbackPolicy.mode}`,
-          `blockedSides=${fallbackBlockedCount}`,
+          `blockedSides=${fallbackPolicyBlockedCount || fallbackBlockedCount}`,
         ],
       };
     } else if (fallbackWhileBackendHealthy) {
@@ -4106,6 +4142,8 @@
     const truthHeadline = (
       contractMismatch
         ? 'Scoring truth: contract mismatch (do not trust this result).'
+        : (backendPayloadIssueCount > 0
+          ? 'Scoring truth: backend payload incomplete; package totals withheld.'
         : (fallbackBlockedCount > 0
           ? 'Scoring truth: backend scoring required; package totals withheld.'
           : (backendHealthy
@@ -4114,12 +4152,13 @@
               : 'Scoring truth: backend authoritative.')
             : (fallbackPolicy.allowFallback
               ? 'Scoring truth: partial (backend unavailable; using local fallback totals).'
-              : 'Scoring truth: backend unavailable.')))
+              : 'Scoring truth: backend unavailable.'))))
     );
     const truthPoints = [];
     if (backendContractVersion) truthPoints.push(`contract ${backendContractVersion}`);
+    if (backendPayloadIssueCount > 0) truthPoints.push(`backend payload issues ${backendPayloadIssueCount}`);
     if (fallbackUsedCount > 0) truthPoints.push(`local fallback totals ${fallbackUsedCount}`);
-    if (fallbackBlockedCount > 0) truthPoints.push(`blocked totals ${fallbackBlockedCount}`);
+    if (fallbackPolicyBlockedCount > 0) truthPoints.push(`blocked totals ${fallbackPolicyBlockedCount}`);
     if (resolutionCounts.fallbackRows > 0) truthPoints.push(`fallback rows ${resolutionCounts.fallbackRows}`);
     if (resolutionCounts.manualOverrideRows > 0) truthPoints.push(`manual overrides ${resolutionCounts.manualOverrideRows}`);
     if (resolutionCounts.quarantinedExcluded > 0) truthPoints.push(`quarantined excluded ${resolutionCounts.quarantinedExcluded}`);
@@ -4138,7 +4177,7 @@
       if (excludedPreview) truthTitleParts.push(`Local exclusions: ${excludedPreview}`);
     }
     const truthLevel = (
-      contractMismatch || fallbackBlockedCount > 0 || fallbackWhileBackendHealthy
+      contractMismatch || backendPayloadIssueCount > 0 || fallbackBlockedCount > 0 || fallbackWhileBackendHealthy
     ) ? 'error' : (
       (resolutionCounts.fallbackRows > 0 || resolutionCounts.quarantinedExcluded > 0 || resolutionCounts.unresolvedExcluded > 0 || resolutionCounts.manualOverrideRows > 0 || resolutionCounts.lowConfidenceRows > 0 || !backendHealthy || bestBallContextDetails?.assumed)
         ? 'warning'
@@ -4166,6 +4205,8 @@
         policy: fallbackPolicy,
         usedCount: fallbackUsedCount,
         blockedCount: fallbackBlockedCount,
+        policyBlockedCount: fallbackPolicyBlockedCount,
+        backendPayloadIssueCount,
         bySide: fallbackBySide,
         whileBackendHealthy: fallbackWhileBackendHealthy,
       },
@@ -4190,7 +4231,13 @@
         backendSummary: backendScorePayload?.summary || null,
       });
     }
-    if (fallbackBlockedCount > 0) {
+    if (backendPayloadIssueCount > 0) {
+      console.error('[Trade Authority] Backend trade scoring payload missing side totals; package totals withheld.', {
+        fallbackBySide,
+        backendSummary: backendScorePayload?.summary || null,
+      });
+    }
+    if (fallbackPolicyBlockedCount > 0) {
       console.error('[Trade Authority] Fallback disallowed while backend trade scoring unavailable for one or more sides.', {
         fallbackBySide,
         fallbackPolicy,

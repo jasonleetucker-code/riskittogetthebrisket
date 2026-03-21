@@ -1,0 +1,58 @@
+{
+  "canonicalPlayers": [
+    {
+      "canonical_player_id": "sleeper:1",
+      "canonical_name": "Kenneth Walker III",
+      "position_canonical": "RB",
+      "team_canonical": "SEA"
+    },
+    {
+      "canonical_player_id": "sleeper:2",
+      "canonical_name": "Byron Murphy II",
+      "position_canonical": "DL",
+      "team_canonical": "SEA"
+    },
+    {
+      "canonical_player_id": "sleeper:3",
+      "canonical_name": "DJ Moore",
+      "position_canonical": "WR",
+      "team_canonical": "CHI"
+    },
+    {
+      "canonical_player_id": "sleeper:4",
+      "canonical_name": "Josh Allen",
+      "position_canonical": "QB",
+      "team_canonical": "BUF"
+    }
+  ],
+  "matchCases": [
+    {
+      "name": "Kenneth Walker III",
+      "team": "SEA",
+      "position": "RB",
+      "expectedStatus": "exact_match",
+      "expectedId": "sleeper:1"
+    },
+    {
+      "name": "Ken Walker III",
+      "team": "SEA",
+      "position": "RB",
+      "expectedStatus": "deterministic_match",
+      "expectedId": "sleeper:1"
+    },
+    {
+      "name": "Byron Murphy",
+      "team": "SEA",
+      "position": "DL",
+      "expectedStatus": "deterministic_match",
+      "expectedId": "sleeper:2"
+    },
+    {
+      "name": "Unknown Player",
+      "team": "SEA",
+      "position": "WR",
+      "expectedStatus": "unresolved",
+      "expectedId": null
+    }
+  ]
+}

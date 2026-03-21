@@ -1,4 +1,4 @@
-# Repository Inventory — 2026-03-09
+# Repository Inventory — 2026-03-12
 
 ## High-level layout
 ```
@@ -23,40 +23,33 @@
 ## Legacy components
 | Component | Description | Status | Notes |
 | --- | --- | --- | --- |
-| `Dynasty Scraper.py` | Older scraping logic, uses Selenium/requests to pull rankings. | Legacy | Will mine for adapter hints but ultimate goal is modular adapters under `src/adapters`. |
-| `server.py` | Python backend that proxies Next, serves API, hits CSV data. | Legacy (to be replaced) | Keep running until new API ready; treat as fallback. |
-| `frontend/` | Next.js app with calculator UI. | Keep / evolve | Will hook into new API endpoints once canonical engine exists. |
-| `Static/` | Old static HTML dashboards. | Sunset later | Useful as fallback if Next/server offline. |
-| `scripts/` | Jenkins helper, sync script, trigger script. | Keep, update | Will update once new CI stages defined. |
-| `dlf_*.csv` | Manual exports of DLF rankings (superflex, IDP, rookies). | Seed data | Move into `data/raw/dlf/` under new pipeline for reproducibility. |
+| `Dynasty Scraper.py` | Live scrape + normalization + value-precompute runtime producer. | **Complete (live)** | Authoritative producer for current `/api/data` payload inputs. |
+| `server.py` | Live backend API + runtime mode switch + payload publication. | **Complete (live)** | Not a fallback; this is the live authority host today. |
+| `frontend/` | Next.js app + backend proxy route. | **Partial (live optional)** | Available when `FRONTEND_RUNTIME=next/auto`, not the default production runtime. |
+| `Static/` | Legacy static app shell and runtime JS. | **Complete (live default)** | Default production runtime with `FRONTEND_RUNTIME=static`. |
+| `scripts/` | Scaffold pipeline and validation helpers. | **Partial (mixed)** | Some are live diagnostics, canonical/league scripts are scaffold-only. |
+| `dlf_*.csv` | Manual source imports. | **Complete (live input)** | Still actively used by the live scraper flow. |
 
-## New structure to introduce
+## src/ Runtime Truth
 ```
 src/
-  adapters/          # source importers (DLF CSV, KTC scraper, etc.)
-  identity/          # master player/pick mapping utilities
-  canonical/         # percentile/curve/blending logic
-  league/            # scoring + scarcity + replacement engine
-  api/               # new FastAPI service exposing calculator + rankings
-  data_models/       # Pydantic models / schemas
-  utils/
-
-config/
-  sources/
-  leagues/
-  weights/
-
-data/
-  raw/
-  processed/
-  snapshots/
+  api/data_contract.py     # LIVE: authoritative /api/data contract/value-bundle shaping
+  scoring/*                # LIVE: imported by Dynasty Scraper.py (optional import)
+  adapters/*               # SCAFFOLD: source-pull pipeline only
+  identity/*               # SCAFFOLD: identity-resolve pipeline only
+  canonical/*              # SCAFFOLD: canonical-build pipeline only
+  league/*                 # SCAFFOLD: league-refresh pipeline only
 ```
 
-## Immediate actions derived from inventory
-1. Preserve `frontend`, `server.py`, and existing scripts so current workflow keeps working while new engine spins up.
-2. Relocate CSV inputs into a structured `data/raw/` tree with metadata.
-3. Stand up `/src` scaffolding with placeholder modules + README for adapters/canonical/league layers.
-4. Document how current backend reads/writes data so we know where to intercept with canonical outputs.
+## Runtime authority matrix
+| Layer | Current authority status | Live path |
+| --- | --- | --- |
+| Scrape + source merge | **Complete (authoritative)** | `Dynasty Scraper.py -> result["players"]` |
+| Value bundle resolver/contract | **Complete (authoritative)** | `src.api.data_contract.build_api_data_contract` inside `server.py` |
+| Static runtime consumption | **Complete (authoritative default)** | `Static/index.html` + `Static/js/runtime/*` + `/api/data` |
+| Next runtime consumption | **Partial (optional runtime)** | `frontend/app/api/dynasty-data/route.js` -> backend `/api/data` |
+| `src/adapters + identity + canonical + league` pipeline | **Partial (non-authoritative scaffold)** | `scripts/*.py` -> `data/*` artifacts -> `/api/scaffold/*` only |
+| `/api/scaffold/*` endpoints | **Complete (diagnostics only)** | Snapshot visibility, not live valuation authority |
 
 ## Runtime Authority (Current, Live)
 - Authoritative production frontend runtime is now controlled by `FRONTEND_RUNTIME` in `server.py`.
@@ -65,14 +58,21 @@ data/
   - `static`: serves `Static/index.html` intentionally.
   - `next`: proxies Next only; no silent fallback to static.
   - `auto`: tries Next and explicitly falls back to static with status visibility.
+- Critical route authority map now lives in `docs/RUNTIME_ROUTE_AUTHORITY.md` and `GET /api/runtime/route-authority`.
+- `frontend/.next` artifacts are not route authority by themselves.
 
 ## Backend Data Contract (Current, Live)
-- `/api/data` now serves a versioned contract with `contractVersion = 2026-03-09.v1`.
+- `/api/data` now serves a versioned contract from `src/api/data_contract.py::CONTRACT_VERSION` (currently `2026-03-20.v6`).
 - Legacy compatibility remains in place (`players` object map, `maxValues`, etc.) for Static app continuity.
 - Normalized contract additions include:
   - `playersArray` (stable player list shape)
+  - `runtimeAuthority` (explicit architecture truth block)
   - `dataSource` metadata
   - `contractHealth` summary
 - Contract validation is enforced via runtime diagnostics (`/api/status`) and CI (`scripts/validate_api_contract.py` in Jenkins).
+- Semantic validation output now includes root-cause buckets and high-impact samples for:
+  - blank non-pick positions
+  - `sourceCount > 0` with no positive canonical site values
+  - low-confidence split into actionable vs non-actionable rows
 
 This doc will be kept up to date as we migrate functionality into the new architecture.

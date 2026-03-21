@@ -129,7 +129,7 @@
       <form id="jasonLoginForm">
         <div class="row">
           <label for="usernameInput">Username</label>
-          <input id="usernameInput" name="username" type="text" autocomplete="username" required />
+          <input id="usernameInput" name="username" type="text" autocomplete="username" placeholder="Jason" required />
         </div>
         <div class="row">
           <label for="passwordInput">Password</label>
@@ -170,6 +170,7 @@
       const showLogin = () => {
         panel.classList.add("active");
         clearError();
+        if (!String(usernameInput.value || "").trim()) usernameInput.value = "Jason";
         usernameInput.focus();
       };
       const hideLogin = () => {
@@ -181,11 +182,14 @@
       async function statusCheck() {
         try {
           const resp = await fetch("/api/auth/status", { credentials: "same-origin" });
-          if (!resp.ok) return false;
+          if (!resp.ok) return { configured: true, authenticated: false };
           const data = await resp.json();
-          return !!data.authenticated;
+          return {
+            configured: data.configured !== false,
+            authenticated: !!data.authenticated,
+          };
         } catch (_) {
-          return false;
+          return { configured: true, authenticated: false };
         }
       }
 
@@ -195,11 +199,15 @@
 
       jasonBtn.addEventListener("click", async () => {
         clearError();
-        if (await statusCheck()) {
+        const status = await statusCheck();
+        if (status.authenticated) {
           window.location.href = nextPath;
           return;
         }
         showLogin();
+        if (status.configured === false) {
+          showError("Login unavailable: server auth is not configured.");
+        }
       });
 
       cancelBtn.addEventListener("click", () => hideLogin());
@@ -207,7 +215,7 @@
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
         clearError();
-        const username = String(usernameInput.value || "").trim();
+        const username = String(usernameInput.value || "Jason").trim();
         const password = String(passwordInput.value || "");
         if (!username || !password) {
           showError("Enter username and password.");

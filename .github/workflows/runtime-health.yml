@@ -1,0 +1,44 @@
+name: Runtime Health Monitor
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: runtime-health-monitor
+  cancel-in-progress: true
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Runtime health and freshness probe
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p tmp
+          python scripts/runtime_probe.py \
+            --base-url "${{ vars.PROD_PUBLIC_URL || 'https://riskittogetthebrisket.org' }}" \
+            --mode health \
+            --strict-health \
+            --strict-operator \
+            --max-scrape-age-hours "${{ vars.PROD_MAX_HEALTHY_SCRAPE_AGE_HOURS || '10' }}" \
+            --output-json tmp/runtime_probe_health.json
+
+      - name: Upload runtime health report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-probe-health
+          path: tmp/runtime_probe_health.json
+          if-no-files-found: ignore

@@ -8,7 +8,7 @@
 # ✓ FantasyPros              — browser, current month article
 # ✓ DraftSharks              — browser, TEP url (full infinite-scroll load)
 # ✓ Yahoo (Justin Boone)     — browser, auto-discovers current month articles
-# ✓ DynastyNerds             — browser, SF+TEP consensus rankings
+# ✓ DynastyNerds             — browser, SF+TEP dynasty values (rank-like fallback detection)
 # ✓ DLF (DynastyLeagueFootball) — local CSV imports, SF + IDP + rookie overlays (Avg rank → canonical value)
 # ✓ IDPTradeCalc             — browser, idptradecalculator.com (SF+TEP default)
 # ✓ Flock                    — browser, saved login session, reads OVR rank per player
@@ -43,7 +43,6 @@ import os
 import time
 import datetime
 import math
-import hashlib
 import shutil
 import zipfile
 import bisect
@@ -100,6 +99,28 @@ except Exception:
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_SCRIPT_DIR = SCRIPT_DIR  # immutable repo/script anchor for local source inputs
 
+
+def _copy_file_if_changed(src_path, dst_path):
+    """Copy src to dst only when the payload differs, preserving copy2 metadata on change."""
+    try:
+        with open(src_path, "rb") as src_f:
+            src_bytes = src_f.read()
+    except Exception:
+        shutil.copy2(src_path, dst_path)
+        return True
+
+    try:
+        with open(dst_path, "rb") as dst_f:
+            if dst_f.read() == src_bytes:
+                return False
+    except Exception:
+        pass
+
+    with open(dst_path, "wb") as dst_f:
+        dst_f.write(src_bytes)
+    shutil.copystat(src_path, dst_path)
+    return True
+
 def _env_int(name, default):
     """Read positive int env var with safe fallback."""
     try:
@@ -117,6 +138,11 @@ def _env_str(name, default=""):
         return str(default)
     v = str(raw).strip()
     return v if v else str(default)
+
+
+SKIP_BOOTSTRAP_IMPORTS = _env_str("DYNASTY_SCRAPER_SKIP_BOOTSTRAP", "false").strip().lower() in {
+    "1", "true", "yes", "on"
+}
 
 # Deep coverage targets and caps (tunable via env vars).
 TARGET_OFFENSIVE_POOL = _env_int("TARGET_OFFENSIVE_POOL", 350)
@@ -244,6 +270,8 @@ ALERT_ENABLED = _env_str("ALERT_ENABLED", "true").strip().lower() in {"1", "true
 DYNASTYNERDS_SESSION = "dynastynerds_session.json"
 DYNASTYNERDS_EMAIL    = os.environ.get("DN_EMAIL", "")
 DYNASTYNERDS_PASSWORD = os.environ.get("DN_PASS", "")
+DYNASTYNERDS_SF_TEP_URL = "https://www.dynastynerds.com/dynasty-rankings/sf-tep/"
+DYNASTYNERDS_LOGIN_REDIRECT = "/dynasty-rankings/sf-tep/"
 
 # ─────────────────────────────────────────
 # DLF LOCAL CSV SOURCES (manual export drop-in)
@@ -512,6 +540,13 @@ def _first_name_compatible(a_first, b_first):
         return True
     if len(b_first) == 1 and b_first == a_first[:1]:
         return True
+    # Guard against surname-like expansions that cause false merges:
+    # e.g. James Williams vs Jameson Williams.
+    if a_first.startswith(b_first) or b_first.startswith(a_first):
+        shorter = a_first if len(a_first) <= len(b_first) else b_first
+        longer = b_first if shorter == a_first else a_first
+        if len(shorter) >= 4 and (len(longer) - len(shorter)) >= 2 and longer.endswith("son"):
+            return False
     return SequenceMatcher(None, a_first, b_first).ratio() >= 0.72
 
 
@@ -624,6 +659,10 @@ def match_all(players, name_map, results, site_key=None):
 
 # Global dict collecting full name_map for every site (for JSON export)
 FULL_DATA = {}
+# Per-source runtime mode overrides discovered during scrape (e.g. rank vs value).
+SOURCE_MODE_OVERRIDES = {}
+# Per-source parser/schema diagnostics captured during scrape.
+SOURCE_SCHEMA_DIAGNOSTICS = {}
 DLF_IMPORT_DEBUG = {}
 
 # KTC playerID → name mapping (populated during KTC rankings scrape)
@@ -2821,7 +2860,7 @@ def print_lam_validation_examples(players_json, pos_map, empirical_lam, adjustme
         )
 
 
-if SLEEPER_LEAGUE_ID:
+if SLEEPER_LEAGUE_ID and not SKIP_BOOTSTRAP_IMPORTS:
     SLEEPER_PLAYERS, SLEEPER_ROSTER_DATA = fetch_sleeper_rosters(SLEEPER_LEAGUE_ID)
     if SLEEPER_PLAYERS:
         print(f"  Sample: {SLEEPER_PLAYERS[:5]}")
@@ -2840,6 +2879,8 @@ if SLEEPER_LEAGUE_ID:
         except Exception as e:
             print(f"  [LAM] Error: {e}")
             EMPIRICAL_LAM = None
+elif SKIP_BOOTSTRAP_IMPORTS:
+    print("  [Bootstrap] Skipping Sleeper/LAM import bootstrap (DYNASTY_SCRAPER_SKIP_BOOTSTRAP=true)")
 
 # PLAYERS list (for console table only)
 _players_file = os.path.join(SCRIPT_DIR, "players.txt")
@@ -5438,8 +5479,8 @@ async def scrape_yahoo(page, players):
 
 
 # ─────────────────────────────────────────
-# DynastyNerds — SF+TEP consensus rankings (requires login)
-# Uses /all/ALL page for one-shot extraction of consensus AVG rank
+# DynastyNerds — SF+TEP values feed (requires login)
+# Uses the public SF+TEP rankings route requested by product requirements.
 # ─────────────────────────────────────────
 async def _dynastynerds_login(page):
     """Auto-login to DynastyNerds."""
@@ -5447,8 +5488,11 @@ async def _dynastynerds_login(page):
         return False
     try:
         login_urls = [
-            # Preferred: includes explicit ranks redirect handshake.
-            "https://www.dynastynerds.com/log-in/?subdomain=ranks&path=/session&redirect=/super-flex-tightend-premium/all/ALL",
+            # Preferred: redirect directly to SF+TEP rankings page.
+            f"https://www.dynastynerds.com/log-in/?redirect={DYNASTYNERDS_LOGIN_REDIRECT}",
+            f"https://www.dynastynerds.com/log-in/?subdomain=www&path=/session&redirect={DYNASTYNERDS_LOGIN_REDIRECT}",
+            # Alternate login handshake, but still redirect to the SF+TEP rankings route.
+            f"https://www.dynastynerds.com/log-in/?subdomain=ranks&path=/session&redirect={DYNASTYNERDS_LOGIN_REDIRECT}",
             "https://www.dynastynerds.com/login/",
             "https://dynastynerds.com/login/",
         ]
@@ -5669,21 +5713,132 @@ def _load_dynastynerds_snapshot_fallback():
     return best_map
 
 
+def _dynastynerds_value_stats(name_map):
+    vals = sorted(
+        float(v)
+        for v in (name_map or {}).values()
+        if isinstance(v, (int, float)) and float(v) > 0
+    )
+    if not vals:
+        return {
+            "count": 0,
+            "min": None,
+            "p50": None,
+            "p90": None,
+            "max": None,
+            "rankLikeCount": 0,
+            "valueLikeCount": 0,
+        }
+    n = len(vals)
+    p50 = vals[n // 2] if (n % 2) else ((vals[(n // 2) - 1] + vals[n // 2]) / 2.0)
+    p90 = vals[max(0, min(n - 1, int(round((n - 1) * 0.90))))]
+    return {
+        "count": int(n),
+        "min": float(vals[0]),
+        "p50": float(p50),
+        "p90": float(p90),
+        "max": float(vals[-1]),
+        "rankLikeCount": int(sum(1 for v in vals if v <= 500)),
+        "valueLikeCount": int(sum(1 for v in vals if v >= 1000)),
+    }
+
+
+def _infer_dynastynerds_mode(name_map, metric_header="", headers=None):
+    """Infer whether DynastyNerds payload is rank-based or value-based.
+
+    DynastyNerds currently exposes value-style numbers; rank mode is retained only
+    as a compatibility fallback and should be treated as schema drift.
+    """
+    stats = _dynastynerds_value_stats(name_map)
+    if int(stats.get("count", 0) or 0) <= 0:
+        return "unknown"
+
+    metric_l = str(metric_header or "").strip().lower()
+    headers_l = [
+        str(h or "").strip().lower()
+        for h in (headers or [])
+        if str(h or "").strip()
+    ]
+    if "value" in metric_l or any("value" in h for h in headers_l):
+        return "value"
+
+    max_v = float(stats.get("max", 0.0) or 0.0)
+    p90 = float(stats.get("p90", 0.0) or 0.0)
+    p50 = float(stats.get("p50", 0.0) or 0.0)
+    if max_v >= 1200 or p90 >= 900 or p50 >= 650:
+        return "value"
+    return "rank"
+
+
+def _record_dynastynerds_schema_diag(
+    name_map,
+    mode,
+    *,
+    source_stage="",
+    headers=None,
+    metric_header="",
+    row_count=0,
+):
+    stats = _dynastynerds_value_stats(name_map)
+    mode_l = str(mode or "").strip().lower()
+    diag = {
+        "mode": mode_l or "unknown",
+        "expectedMode": "value",
+        "schemaDrift": bool(int(stats.get("count", 0) or 0) > 0 and mode_l not in {"value"}),
+        "sourceStage": str(source_stage or ""),
+        "metricHeader": str(metric_header or ""),
+        "headers": [str(h) for h in (headers or []) if str(h or "").strip()],
+        "tableRowCount": int(row_count or 0),
+        "valueStats": stats,
+    }
+    if diag["schemaDrift"]:
+        diag["warning"] = (
+            "DynastyNerds parsed rank-like output while value-based output is expected."
+        )
+    SOURCE_SCHEMA_DIAGNOSTICS["DynastyNerds"] = diag
+
+
 @retry(max_attempts=2, delay=3)
 async def scrape_dynastynerds(page, players):
     """Scrape DynastyNerds using its own browser context with saved session."""
     results = {p: None for p in players}
+    SOURCE_MODE_OVERRIDES["DynastyNerds"] = "unknown"
+    SOURCE_SCHEMA_DIAGNOSTICS.pop("DynastyNerds", None)
     cached = get_cached("DynastyNerds")
     if cached:
+        dn_mode = _infer_dynastynerds_mode(cached)
+        SOURCE_MODE_OVERRIDES["DynastyNerds"] = dn_mode
+        _record_dynastynerds_schema_diag(
+            cached,
+            dn_mode,
+            source_stage="cache",
+            headers=[],
+            metric_header="",
+            row_count=0,
+        )
         match_all(players, cached, results, site_key="DynastyNerds")
         return results
     name_map = {}
+    dn_headers = []
+    dn_metric_header = ""
+    dn_row_count = 0
+    dn_source_stage = "live_table"
+    used_top10_fallback = False
+    used_snapshot_fallback = False
 
     # Import playwright for own browser
     try:
         from playwright.async_api import async_playwright
     except ImportError:
         print("  [DynastyNerds] Playwright not available")
+        _record_dynastynerds_schema_diag(
+            name_map,
+            "unknown",
+            source_stage="playwright_missing",
+            headers=[],
+            metric_header="",
+            row_count=0,
+        )
         return results
 
     browser = None
@@ -5717,15 +5872,23 @@ async def scrape_dynastynerds(page, players):
 
             dn_page = await context.new_page()
 
-            url = "https://ranks.dynastynerds.com/super-flex-tightend-premium/all/ALL"
+            url = DYNASTYNERDS_SF_TEP_URL
             await dn_page.goto(url, timeout=25000, wait_until="domcontentloaded")
             await dn_page.wait_for_timeout(4000)
 
             body = await dn_page.inner_text("body")
 
-            # Check if we can see rankings
-            has_table = "Rank" in body and ("PLAYER" in body or "Player" in body)
-            needs_login = "Subscribe" in body or "Login" in body.split("Rank")[0] if "Rank" in body else "login" in body.lower()
+            # Check if we can see rankings.
+            has_table = (
+                ("Rank" in body or "Dynasty Value" in body)
+                and ("PLAYER" in body or "Player" in body)
+            )
+            body_lc = body.lower()
+            needs_login = (
+                "subscribe" in body_lc
+                or "members only" in body_lc
+                or ("login" in body_lc and "dynasty value" not in body_lc and "player" not in body_lc)
+            )
 
             if not has_table or needs_login:
                 if DYNASTYNERDS_EMAIL and DYNASTYNERDS_PASSWORD:
@@ -5767,61 +5930,119 @@ async def scrape_dynastynerds(page, players):
                 await dn_page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                 await dn_page.wait_for_timeout(1500)
 
-            # Extract: player name + AVG column (average rank across panel)
-            # Headers are: ['rank', 'player', 'bst', 'wst', 'avg', ...]
-            # AVG is column 4 — positional consensus rank average
-            # 0.00 means unranked by some panelists, skip those
+            # Extract player + metric from table. DynastyNerds layouts can emit either
+            # rank-like AVG values or 0-10k market-style values in the same table.
             js_data = await dn_page.evaluate("""() => {
-                const results = {};
-                const rows = document.querySelectorAll('table tbody tr, table tr');
-                for (const row of rows) {
-                    const cells = row.querySelectorAll('td');
-                    if (cells.length < 5) continue;
+                const out = { headers: [], rowCount: 0, metricHeader: '', values: {} };
+                const rows = Array.from(document.querySelectorAll('table tbody tr, table tr'));
+                out.rowCount = rows.length;
+                const headers = Array.from(document.querySelectorAll('table thead th'))
+                  .map(th => String(th.textContent || '').trim().toLowerCase());
+                out.headers = headers;
 
-                    // Find player name — look for <a> tag first, then use innerText
-                    let playerName = '';
-                    for (const cell of cells) {
-                        const link = cell.querySelector('a');
-                        if (link) {
-                            const t = link.textContent.trim();
-                            if (t.includes(' ') && t.length > 3 && t.length < 40) {
-                                playerName = t;
-                                break;
-                            }
-                        }
-                        // Fallback: use innerText which has newlines
-                        const lines = cell.innerText.split('\\n').map(s => s.trim()).filter(Boolean);
-                        for (const line of lines) {
-                            if (line.includes(' ') && line.length > 3 && line.length < 40
-                                && !/^(QB|RB|WR|TE|K|DEF|LB|DL|DB|S|CB|DE|DT|EDGE)$/i.test(line)
-                                && !/^\\d/.test(line) && !/^\\//.test(line)
-                                && !/^[A-Z]{2,4}$/.test(line)
-                                && !line.includes('/')) {
-                                playerName = line;
-                                break;
-                            }
-                        }
-                        if (playerName) break;
-                    }
+                const normNum = (txt) => {
+                  const raw = String(txt || '').replace(/,/g, '').replace(/[^0-9.\\-]/g, '').trim();
+                  if (!raw) return NaN;
+                  const n = parseFloat(raw);
+                  return Number.isFinite(n) ? n : NaN;
+                };
 
-                    if (!playerName) continue;
+                let playerIdx = headers.findIndex(h => /player/i.test(h));
+                if (playerIdx < 0) playerIdx = 1;
 
-                    // Get AVG column — it's the 5th column (index 4)
-                    // Format: "1.50", "3.00", "0.00" (0 = unranked, skip)
-                    const avgCell = cells[4];
-                    if (!avgCell) continue;
-                    const avgText = avgCell.textContent.trim().replace(/,/g, '');
-                    const avg = parseFloat(avgText);
-                    if (!isNaN(avg) && avg > 0 && avg < 500) {
-                        results[playerName] = avg;
-                    }
+                let metricIdx = -1;
+                const metricPriority = [/\\bvalue\\b/i, /\\bavg\\b/i, /consensus/i, /^rank$/i];
+                for (const rx of metricPriority) {
+                  const idx = headers.findIndex(h => rx.test(h));
+                  if (idx >= 0) { metricIdx = idx; break; }
                 }
-                return results;
+                if (metricIdx < 0 && headers.length > 0) metricIdx = headers.length - 1;
+                out.metricHeader = metricIdx >= 0 && metricIdx < headers.length ? headers[metricIdx] : '';
+
+                const POS_TOKEN = /^(QB|RB|WR|TE|K|DEF|DST|LB|DL|DB|S|CB|DE|DT|EDGE|IDL)$/i;
+
+                const extractName = (cell) => {
+                  if (!cell) return '';
+                  const link = cell.querySelector('a');
+                  if (link) {
+                    const t = String(link.textContent || '').trim();
+                    if (t.includes(' ') && t.length > 3 && t.length < 48) return t;
+                  }
+                  const lines = String(cell.innerText || '')
+                    .split('\\n')
+                    .map(s => s.trim())
+                    .filter(Boolean);
+                  for (const line of lines) {
+                    if (!line.includes(' ')) continue;
+                    if (line.length <= 3 || line.length >= 48) continue;
+                    if (POS_TOKEN.test(line)) continue;
+                    if (/^\\d/.test(line)) continue;
+                    if (/^\\//.test(line)) continue;
+                    if (/^[A-Z]{2,4}$/.test(line)) continue;
+                    if (line.includes('/')) continue;
+                    return line;
+                  }
+                  return '';
+                };
+
+                for (const row of rows) {
+                  const cells = Array.from(row.querySelectorAll('td'));
+                  if (cells.length < 3) continue;
+
+                  let playerName = '';
+                  if (playerIdx >= 0 && playerIdx < cells.length) {
+                    playerName = extractName(cells[playerIdx]);
+                  }
+                  if (!playerName) {
+                    for (const cell of cells) {
+                      playerName = extractName(cell);
+                      if (playerName) break;
+                    }
+                  }
+                  if (!playerName) continue;
+
+                  let metric = NaN;
+                  if (metricIdx >= 0 && metricIdx < cells.length) {
+                    metric = normNum(cells[metricIdx].textContent || '');
+                  }
+                  if (!Number.isFinite(metric) || metric <= 0) {
+                    for (let i = cells.length - 1; i >= 0; i--) {
+                      const cand = normNum(cells[i].textContent || '');
+                      if (Number.isFinite(cand) && cand > 0) {
+                        metric = cand;
+                        break;
+                      }
+                    }
+                  }
+                  if (!Number.isFinite(metric) || metric <= 0) continue;
+
+                  if (!(playerName in out.values)) {
+                    out.values[playerName] = metric;
+                  }
+                }
+                return out;
             }""")
 
-            if js_data:
-                for nm, val in js_data.items():
-                    name_map[clean_name(nm)] = float(val)
+            if isinstance(js_data, dict):
+                _js_values = js_data.get("values") if isinstance(js_data.get("values"), dict) else {}
+                for nm, val in _js_values.items():
+                    cn = clean_name(nm)
+                    if cn:
+                        name_map[cn] = float(val)
+                dn_headers = [
+                    str(h)
+                    for h in (js_data.get("headers") or [])
+                    if str(h or "").strip()
+                ]
+                dn_metric_header = str(js_data.get("metricHeader") or "").strip()
+                try:
+                    dn_row_count = int(js_data.get("rowCount", 0) or 0)
+                except Exception:
+                    dn_row_count = 0
+                if DEBUG:
+                    if dn_headers:
+                        print(f"  [DynastyNerds] Table headers: {dn_headers}")
+                    print(f"  [DynastyNerds] Parsed table rows: {dn_row_count}, extracted: {len(name_map)}")
 
             # If JS extraction failed, try text parsing
             if len(name_map) < 20:
@@ -5839,31 +6060,33 @@ async def scrape_dynastynerds(page, players):
                         and not re.match(r'^\d', line) and not re.match(r'^[A-Z]{2,4}$', line)
                         and not line.startswith('/')
                         and not any(kw in line.lower() for kw in ['rank', 'player', 'download', 'connect', 'updated'])):
-                        # Collect all numbers in the next ~10 lines
+                        # Collect all numbers in the next ~10 lines.
+                        # New DN layouts can expose either rank-like (<500) or
+                        # market-like (~0-10k) values.
                         nums = []
                         for j in range(i+1, min(i+12, len(lines))):
                             t = lines[j].strip()
                             try:
                                 num = float(t.replace(',', ''))
-                                if 0 <= num < 500:
+                                if 0 < num < 20000:
                                     nums.append(num)
                             except ValueError:
                                 pass
                             if ' ' in t and len(t) > 5 and not re.match(r'^\d', t) and not re.match(r'^[A-Z]{2,4}$', t) and t != line:
                                 break
-                        # AVG is typically the 2nd-to-last number
-                        if len(nums) >= 2:
-                            avg_val = nums[-2]  # 2nd to last
-                            if avg_val > 0:
+                        if nums:
+                            metric_val = max(nums) if max(nums) >= 600 else (nums[-2] if len(nums) >= 2 else nums[-1])
+                            if metric_val > 0:
                                 cn = clean_name(line)
                                 if cn and cn not in name_map:
-                                    name_map[cn] = avg_val
+                                    name_map[cn] = float(metric_val)
                     i += 1
 
             # Final fallback: public top10 endpoint (prevents hard-zero source state)
             if len(name_map) < 10:
                 fallback = _fetch_dynastynerds_top10_fallback()
                 if fallback:
+                    used_top10_fallback = True
                     if DEBUG:
                         print(f"  [DynastyNerds] Fallback top10 loaded: {len(fallback)} players")
                     for nm, avg in fallback.items():
@@ -5874,17 +6097,49 @@ async def scrape_dynastynerds(page, players):
             if len(name_map) < 20:
                 snapshot_fb = _load_dynastynerds_snapshot_fallback()
                 if snapshot_fb:
+                    used_snapshot_fallback = True
                     if DEBUG:
                         print(f"  [DynastyNerds] Snapshot fallback loaded: {len(snapshot_fb)} players")
                     for nm, avg in snapshot_fb.items():
                         if nm not in name_map:
                             name_map[nm] = float(avg)
 
+            if used_snapshot_fallback:
+                dn_source_stage = "snapshot_fallback"
+            elif used_top10_fallback:
+                dn_source_stage = "top10_fallback"
+            dn_mode = _infer_dynastynerds_mode(
+                name_map,
+                metric_header=dn_metric_header,
+                headers=dn_headers,
+            )
+            SOURCE_MODE_OVERRIDES["DynastyNerds"] = dn_mode
+            _record_dynastynerds_schema_diag(
+                name_map,
+                dn_mode,
+                source_stage=dn_source_stage,
+                headers=dn_headers,
+                metric_header=dn_metric_header,
+                row_count=dn_row_count,
+            )
+            if DEBUG and name_map:
+                _vals = sorted(v for v in name_map.values() if isinstance(v, (int, float)) and v > 0)
+                _mx = _vals[-1] if _vals else 0
+                _med = _vals[len(_vals)//2] if _vals else 0
+                print(
+                    f"  [DynastyNerds] Mode inference: {dn_mode} "
+                    f"(n={len(_vals)}, median={_med:.2f}, max={_mx:.2f})"
+                )
+
             if DEBUG:
-                print(f"  [DynastyNerds] {len(name_map)} players from ALL page")
+                print(f"  [DynastyNerds] {len(name_map)} players from SF+TEP page")
                 if name_map:
-                    sample = sorted(name_map.items(), key=lambda x: x[1])[:5]
-                    print(f"  [DynastyNerds] Sample (best AVG rank): {sample}")
+                    if SOURCE_MODE_OVERRIDES.get("DynastyNerds") == "value":
+                        sample = sorted(name_map.items(), key=lambda x: -x[1])[:5]
+                        print(f"  [DynastyNerds] Sample (top values): {sample}")
+                    else:
+                        sample = sorted(name_map.items(), key=lambda x: x[1])[:5]
+                        print(f"  [DynastyNerds] Sample (best ranks): {sample}")
 
             # Save session if we got data
             if name_map and os.path.exists(session_path):
@@ -5908,6 +6163,16 @@ async def scrape_dynastynerds(page, players):
                 await browser.close()
             except Exception:
                 pass
+
+    if not SOURCE_SCHEMA_DIAGNOSTICS.get("DynastyNerds"):
+        _record_dynastynerds_schema_diag(
+            name_map,
+            SOURCE_MODE_OVERRIDES.get("DynastyNerds", "unknown"),
+            source_stage="empty_or_error",
+            headers=dn_headers,
+            metric_header=dn_metric_header,
+            row_count=dn_row_count,
+        )
 
     if name_map:
         set_cache("DynastyNerds", name_map)
@@ -5955,13 +6220,23 @@ async def scrape_idptradecalc(page, players):
             extracted = {}
             items = []
             if isinstance(data_obj, dict):
-                for key in ["Sheet1", "players", "values", "data", "result"]:
+                seen_lists = set()
+                # IDPTradeCalc currently serves:
+                #   Sheet1 -> IDP players
+                #   Sheet2 -> slot picks
+                #   Sheet3 -> offensive players + tier picks
+                # Legacy payloads may expose players/values/data/result keys.
+                for key in ["Sheet1", "Sheet3", "Sheet2", "players", "values", "data", "result"]:
                     if isinstance(data_obj.get(key), list):
                         items.extend(data_obj.get(key) or [])
-                if not items:
-                    for v in data_obj.values():
-                        if isinstance(v, list):
-                            items.extend(v)
+                        seen_lists.add(key)
+                # Include any additional list-valued sheets to avoid silent coverage loss
+                # when the upstream source adds/renames tabs.
+                for key, v in data_obj.items():
+                    if key in seen_lists:
+                        continue
+                    if isinstance(v, list):
+                        items.extend(v)
             elif isinstance(data_obj, list):
                 items = list(data_obj)
 
@@ -6167,10 +6442,8 @@ async def scrape_idptradecalc(page, players):
 
         sorted_responses = sorted(api_data.items(), key=response_priority)
 
+        _idptc_payload_hits = 0
         for url, body in sorted_responses:
-            if name_map:
-                break
-
             if any(skip in url for skip in [
                 "googletagmanager", "googlesyndication",
                 "usercentrics", "cmp.", "analytics", "doubleclick"
@@ -6198,12 +6471,22 @@ async def scrape_idptradecalc(page, players):
                     except json.JSONDecodeError:
                         continue
 
+                # Parse the whole payload object when available so Sheet3 offense
+                # rows are not dropped when Sheet1 exists.
                 items = []
-                if isinstance(data, dict) and "Sheet1" in data:
-                    items = data["Sheet1"]
-                elif isinstance(data, list):
-                    items = data
-                elif isinstance(data, dict):
+                if isinstance(data, dict):
+                    parsed_map = _extract_idptc_name_map(data)
+                    if parsed_map:
+                        before = len(name_map)
+                        name_map.update(parsed_map)
+                        if len(name_map) > before:
+                            _idptc_payload_hits += 1
+                        if DEBUG:
+                            print(
+                                f"  [IDPTradeCalc] Parsed +{max(0, len(name_map) - before)} "
+                                f"(total {len(name_map)}) from {url[:60]}"
+                            )
+                        continue
                     for key in ["players", "values", "data", "result"]:
                         if key in data and isinstance(data[key], list):
                             items = data[key]
@@ -6213,6 +6496,8 @@ async def scrape_idptradecalc(page, players):
                             if isinstance(v, list) and len(v) > 10:
                                 items = v
                                 break
+                elif isinstance(data, list):
+                    items = data
 
                 if not items:
                     continue
@@ -6222,12 +6507,21 @@ async def scrape_idptradecalc(page, players):
                     print(f"  [IDPTradeCalc] Item keys: {list(sample.keys())[:10]}")
                 parsed_map = _extract_idptc_name_map(items)
                 if parsed_map:
+                    before = len(name_map)
                     name_map.update(parsed_map)
+                    if len(name_map) > before:
+                        _idptc_payload_hits += 1
+                    if DEBUG:
+                        print(
+                            f"  [IDPTradeCalc] Parsed +{max(0, len(name_map) - before)} "
+                            f"(total {len(name_map)}) from {url[:60]}"
+                        )
 
-                if name_map and DEBUG:
-                    print(f"  [IDPTradeCalc] Parsed {len(name_map)} players from {url[:60]}")
-                if name_map:
-                    break
+        if DEBUG and _idptc_payload_hits > 0:
+            print(
+                f"  [IDPTradeCalc] Aggregated {len(name_map)} players "
+                f"across {_idptc_payload_hits} response payload(s)"
+            )
 
         # Fallback: read script.js apiUrl directly and fetch payload via Playwright request client.
         # This avoids relying only on response interception, which can be flaky on some runs.
@@ -6364,6 +6658,8 @@ async def scrape_idptradecalc(page, players):
                 )
             return results
         _rank_signal_sites = {"DynastyNerds", "PFF_IDP", "FantasyPros_IDP", "DraftSharks_IDP", "DraftSharks"}
+        if str(SOURCE_MODE_OVERRIDES.get("DynastyNerds", "value")).lower() == "value":
+            _rank_signal_sites.discard("DynastyNerds")
         _candidates = {}
 
         def _upsert_missing_candidate(raw_name, rostered=False, site_name="", raw_val=None):
@@ -7633,8 +7929,10 @@ def print_health_report():
 # Main
 # ─────────────────────────────────────────
 async def run(progress_callback=None):
-    global DLF_IMPORT_DEBUG
+    global DLF_IMPORT_DEBUG, SOURCE_MODE_OVERRIDES, SOURCE_SCHEMA_DIAGNOSTICS
     run_started_at_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    SOURCE_MODE_OVERRIDES = {}
+    SOURCE_SCHEMA_DIAGNOSTICS = {}
 
     async def _emit_progress(
         step,
@@ -8305,6 +8603,40 @@ async def run(progress_callback=None):
 
                 await browser.close()
 
+    _source_to_full_data_keys = {
+        "KTC": ("KTC",),
+        "DynastyDaddy": ("DynastyDaddy",),
+        "FantasyPros": ("FantasyPros",),
+        "DraftSharks": ("DraftSharks",),
+        "Yahoo": ("Yahoo",),
+        "DynastyNerds": ("DynastyNerds",),
+        "IDPTradeCalc": ("IDPTradeCalc",),
+        "PFF_IDP": ("PFF_IDP",),
+        "DraftSharks_IDP": ("DraftSharks_IDP",),
+        "FantasyPros_IDP": ("FantasyPros_IDP",),
+        "Flock": ("Flock",),
+        "DLF_LocalCSV": ("DLF_SF", "DLF_IDP", "DLF_RSF", "DLF_RIDP"),
+    }
+
+    def _count_positive_values(value_map):
+        if not isinstance(value_map, dict):
+            return 0
+        return sum(
+            1
+            for _v in value_map.values()
+            if isinstance(_v, (int, float)) and _v > 0
+        )
+
+    def _count_site_values_from_full_data(site_name):
+        if site_name == "KTC_TradeDB":
+            return len(KTC_CROWD_DATA.get("trades", []) or [])
+        if site_name == "KTC_WaiverDB":
+            return len(KTC_CROWD_DATA.get("waivers", []) or [])
+        full_data_keys = _source_to_full_data_keys.get(site_name)
+        if not full_data_keys:
+            return None
+        return sum(_count_positive_values(FULL_DATA.get(_key, {})) for _key in full_data_keys)
+
     def _count_site_values_from_results(site_name):
         if site_name == "DLF_LocalCSV":
             dlf_keys = ("DLF_SF", "DLF_IDP", "DLF_RSF", "DLF_RIDP")
@@ -8328,8 +8660,19 @@ async def run(progress_callback=None):
         if not _state.get("enabled"):
             _state["state"] = "disabled"
             continue
-        _count = int(_state.get("valueCount") or 0)
-        if _count <= 0:
+        _sample_count = int(_state.get("valueCount") or 0)
+        _count = _sample_count
+        _full_count = _count_site_values_from_full_data(_source_name)
+        if _full_count is not None:
+            # Authoritative source coverage for full-map sources (Yahoo and peers)
+            # comes from FULL_DATA, not sampled PLAYERS mappings.
+            _count = int(_full_count)
+            if _sample_count != _count:
+                _meta = _state.get("meta") if isinstance(_state.get("meta"), dict) else {}
+                _meta["sampledValueCount"] = int(_sample_count)
+                _meta["authoritativeValueCount"] = int(_count)
+                _state["meta"] = _meta
+        elif _count <= 0:
             _count = _count_site_values_from_results(_source_name)
         _state["valueCount"] = int(_count)
         if _state.get("state") == "running":
@@ -8341,6 +8684,31 @@ async def run(progress_callback=None):
         if _state.get("state") == "complete" and _count <= 0:
             _state["state"] = "partial"
             _state["message"] = _state.get("message") or "source completed with zero mapped values"
+        if (
+            _state.get("state") == "complete"
+            and _full_count is not None
+            and _count > 0
+            and _sample_count != _count
+        ):
+            _state["message"] = (
+                f"{_source_name} complete "
+                f"({_count} authoritative mapped values; sampled={_sample_count})"
+            )
+        if _source_name == "DynastyNerds":
+            _dn_diag = SOURCE_SCHEMA_DIAGNOSTICS.get("DynastyNerds")
+            if isinstance(_dn_diag, dict):
+                _meta = _state.get("meta") if isinstance(_state.get("meta"), dict) else {}
+                _meta["schemaDiagnostics"] = dict(_dn_diag)
+                _state["meta"] = _meta
+                _dn_mode = str(_dn_diag.get("mode") or "").strip().lower()
+                if _count > 0 and _dn_mode and _dn_mode != "value" and _state.get("state") not in {"failed", "timeout"}:
+                    _state["state"] = "partial"
+                    _meta["schemaDrift"] = True
+                    _meta["schemaDriftReason"] = "expected_value_mode"
+                    _state["message"] = (
+                        "DynastyNerds schema drift: expected value-based output, "
+                        "parsed rank-like metrics."
+                    )
 
     enabled_sources = sorted([s for s, row in source_run_state.items() if row.get("enabled")])
     complete_sources = sorted([s for s, row in source_run_state.items() if row.get("enabled") and row.get("state") == "complete"])
@@ -8429,7 +8797,13 @@ async def run(progress_callback=None):
         "FantasyPros_IDP":  "fantasyProsIdp",
     }
 
-    RANK_BASED_SITES = {"dynastyNerds", "pffIdp", "fantasyProsIdp", "draftSharks"}
+    dn_mode = SOURCE_MODE_OVERRIDES.get("DynastyNerds", "value")
+    dn_is_rank_mode = str(dn_mode).lower() == "rank"
+    RANK_BASED_SITES = {"pffIdp", "fantasyProsIdp", "draftSharks"}
+    if dn_is_rank_mode:
+        RANK_BASED_SITES.add("dynastyNerds")
+    if DEBUG:
+        print(f"  [DynastyNerds] Active source mode for this run: {'rank' if dn_is_rank_mode else 'value'}")
     max_values = {}
     for scraper_name, full_map in FULL_DATA.items():
         dash_key = site_key_map.get(scraper_name, scraper_name)
@@ -8465,10 +8839,16 @@ async def run(progress_callback=None):
 
     for site_name, full_map in FULL_DATA.items():
         cap = _SITE_CAPS.get(site_name, 700)
+        # IDPTradeCalc is a dual-universe value source (OFF + IDP + picks).
+        # Do not trim it via generic caps; keep full source coverage.
+        if site_name == "IDPTradeCalc":
+            cap = max(cap, len(full_map))
         if len(full_map) > cap:
             # Keep top N by value (higher = better for value sites, lower = better for rank sites)
             dash_key = site_key_map.get(site_name, site_name)
-            rank_sites = {"Flock", "DynastyNerds", "PFF_IDP", "FantasyPros_IDP", "DraftSharks_IDP", "DraftSharks"}
+            rank_sites = {"Flock", "PFF_IDP", "FantasyPros_IDP", "DraftSharks_IDP", "DraftSharks"}
+            if dn_is_rank_mode:
+                rank_sites.add("DynastyNerds")
             if site_name in rank_sites:
                 # Rank-based: lower values are better
                 sorted_players = sorted(full_map.items(), key=lambda x: x[1] if x[1] is not None else 99999)
@@ -8560,6 +8940,11 @@ async def run(progress_callback=None):
             "team": pdata.get("team") or "",
             "search_rank": float(pdata.get("search_rank", 0) or 0),
             "years_exp": int(pdata.get("years_exp", pdata.get("experience", 0)) or 0),
+            "fantasy_positions": [
+                str(fp).upper()
+                for fp in (pdata.get("fantasy_positions") or [])
+                if str(fp).strip()
+            ],
         }
         _sleeper_name_candidates.setdefault(full, []).append(cand)
         _sleeper_norm_candidates.setdefault(normalize_lookup_name(full), []).append(cand)
@@ -8593,10 +8978,52 @@ async def run(progress_callback=None):
                 score += 300.0
         return score
 
+    _FANTASY_POS_FAMILIES = {"QB", "RB", "WR", "TE", "K", "DL", "LB", "DB", "EDGE", "DE", "DT", "CB", "S"}
+
+    def _candidate_matches_family(cand, pref_family=""):
+        if not pref_family:
+            return False
+        cand_pos_family = _pos_family(cand.get("pos"))
+        if cand_pos_family == pref_family:
+            return True
+        for fp in cand.get("fantasy_positions") or []:
+            if _pos_family(fp) == pref_family:
+                return True
+        return False
+
+    def _candidate_is_fantasy_relevant(cand):
+        if _pos_family(cand.get("pos")) in _FANTASY_POS_FAMILIES:
+            return True
+        for fp in cand.get("fantasy_positions") or []:
+            if _pos_family(fp) in _FANTASY_POS_FAMILIES:
+                return True
+        return False
+
     def _pick_best_candidate(candidates, preferred_pos=""):
         if not candidates:
             return None
-        return max(candidates, key=lambda c: _candidate_score(c, preferred_pos))
+        pref_family = _pos_family(preferred_pos)
+        if pref_family:
+            matching = [c for c in candidates if _candidate_matches_family(c, pref_family)]
+            if matching:
+                candidates = matching
+        fantasy_relevant = [c for c in candidates if _candidate_is_fantasy_relevant(c)]
+        if fantasy_relevant:
+            candidates = fantasy_relevant
+        # Deterministic candidate ordering: highest score first, then stable identity keys.
+        # This prevents run-to-run drift when candidates tie on heuristic score.
+        ranked = sorted(
+            candidates,
+            key=lambda c: (
+                -float(_candidate_score(c, preferred_pos)),
+                -int(c.get("active", 0) or 0),
+                -float(c.get("search_rank", 0.0) or 0.0),
+                -int(c.get("years_exp", 0) or 0),
+                str(c.get("name") or ""),
+                str(c.get("id") or ""),
+            ),
+        )
+        return ranked[0] if ranked else None
 
     def _looks_like_pick_name(name):
         s = str(name or "").upper().strip()
@@ -8650,6 +9077,19 @@ async def run(progress_callback=None):
     _IDP_POSITIONS = {"LB", "DL", "DE", "DT", "CB", "S", "DB", "EDGE"}
     _IDP_ONLY_SITES = {"pffIdp", "fantasyProsIdp", "dlfIdp", "dlfRidp"}  # IDPTradeCalc removed — it has both OFF and IDP
     _OFF_ONLY_SITES = {"dlfSf", "dlfRsf"}
+    _IDENTITY_PRIMARY_RESOLUTION_ORDER = (
+        "canonical_map_lookup",
+        "sleeper_identity_preferred",
+        "sleeper_identity_raw_fallback",
+        "fallback_clean_name",
+    )
+    _IDENTITY_SITE_MATCH_ORDER = (
+        "exact",
+        "clean",
+        "normalized",
+        "initial_last",
+        "fuzzy",
+    )
     _pos_map = dict(SLEEPER_ROSTER_DATA.get("positions", {}))
     _player_id_map = dict(SLEEPER_ROSTER_DATA.get("playerIds", {}))
     _id_to_player = dict(SLEEPER_ROSTER_DATA.get("idToPlayer", {}))
@@ -8664,48 +9104,207 @@ async def run(progress_callback=None):
                 return v.upper()
         return ""
 
+    def _prefer_site_value_for_merge(site_key, existing_value, incoming_value):
+        """Resolve same-site collisions after canonical-name merges.
+        Value sites keep the stronger market value (higher). Rank sites keep the better rank (lower).
+        """
+        try:
+            ex = float(existing_value)
+            inc = float(incoming_value)
+        except (TypeError, ValueError):
+            return False
+        if inc <= 0:
+            return False
+        if ex <= 0:
+            return True
+        if site_key in RANK_BASED_SITES:
+            return inc < ex
+        return inc > ex
+
+    def _diag_has_numeric(v):
+        return isinstance(v, (int, float)) and float(v) > 0
+
+    _identity_diag_by_source = {}
+    for _scraper_name, _full_map in FULL_DATA.items():
+        _dash_key = site_key_map.get(_scraper_name, _scraper_name)
+        _identity_diag_by_source[_dash_key] = {
+            "sourceRows": int(sum(1 for _v in (_full_map or {}).values() if _diag_has_numeric(_v))),
+            "matchedRows": 0,
+            "unmatchedRows": 0,
+            "duplicateCanonicalMatches": 0,
+            "conflictingPositions": 0,
+            "conflictingSourceIdentities": 0,
+            "unmatchedReasons": {},
+        }
+
+    _identity_diag_samples = {
+        "unmatchedSourceRows": [],
+        "duplicateCanonicalMatches": [],
+        "conflictingPositions": [],
+        "conflictingSourceIdentities": [],
+    }
+    _identity_canonical_pos_seen = {}
+    _identity_raw_identity_seen = {}
+
+    def _identity_source_keys_for_name(raw_name):
+        out = []
+        for _scraper_name, _full_map in FULL_DATA.items():
+            if _diag_has_numeric((_full_map or {}).get(raw_name)):
+                _dash_key = site_key_map.get(_scraper_name, _scraper_name)
+                out.append(_dash_key)
+        return out
+
+    def _identity_mark_unmatched(dash_key, reason, raw_name, canonical_hint=""):
+        row = _identity_diag_by_source.setdefault(
+            dash_key,
+            {
+                "sourceRows": 0,
+                "matchedRows": 0,
+                "unmatchedRows": 0,
+                "duplicateCanonicalMatches": 0,
+                "conflictingPositions": 0,
+                "conflictingSourceIdentities": 0,
+                "unmatchedReasons": {},
+            },
+        )
+        row["unmatchedRows"] = int(row.get("unmatchedRows", 0) or 0) + 1
+        ur = row.setdefault("unmatchedReasons", {})
+        ur[str(reason)] = int(ur.get(str(reason), 0) or 0) + 1
+        if len(_identity_diag_samples["unmatchedSourceRows"]) < 80:
+            _identity_diag_samples["unmatchedSourceRows"].append({
+                "source": dash_key,
+                "rawName": raw_name,
+                "canonicalHint": canonical_hint or "",
+                "reason": str(reason),
+            })
+
+    def _identity_record_dropped_name(raw_name, reason):
+        for _dash_key in _identity_source_keys_for_name(raw_name):
+            _identity_mark_unmatched(_dash_key, reason, raw_name, canonical_hint=raw_name)
+
     players_json = {}
     for name in sorted(all_names):
         raw_canonical = clean_name(name)
         if not raw_canonical:
+            _identity_record_dropped_name(name, "empty_clean_name")
             continue
         # Drop non-player bucket rows and ambiguous yearless pick labels.
         if re.match(r"^ALL OTHER\b", raw_canonical.upper()):
+            _identity_record_dropped_name(name, "all_other_bucket_row")
             continue
         if _looks_like_pick_name(raw_canonical) and not re.match(r"^20\d{2}\b", raw_canonical.upper()):
+            _identity_record_dropped_name(name, "yearless_pick_label")
             continue
 
         # Resolve to canonical rostered name first (merges "A. St. Brown" → "Amon-Ra St. Brown")
         canonical = _canonical_map.get(raw_canonical, raw_canonical)
         player_pos = _get_pos(canonical) or _get_pos(raw_canonical) or _get_pos(name)
+        identity_method = "canonical_map_lookup"
 
         # Then resolve to a full Sleeper identity for robust cross-source linkage.
         sleeper_identity = None
         if not _looks_like_pick_name(canonical):
             sleeper_identity = _resolve_sleeper_identity(canonical, preferred_pos=player_pos)
+            if sleeper_identity:
+                identity_method = "sleeper_identity_preferred"
             if not sleeper_identity and canonical != raw_canonical:
                 sleeper_identity = _resolve_sleeper_identity(raw_canonical, preferred_pos=player_pos)
+                if sleeper_identity:
+                    identity_method = "sleeper_identity_raw_fallback"
             if sleeper_identity:
                 canonical = sleeper_identity.get("name") or canonical
                 if sleeper_identity.get("pos"):
                     player_pos = sleeper_identity["pos"]
+
+        if identity_method == "canonical_map_lookup" and canonical == raw_canonical:
+            identity_method = "fallback_clean_name"
+
+        # Track conflicting position inferences across aliases merged to the same canonical player.
+        pos_family = _pos_family(player_pos)
+        if pos_family:
+            seen_pos = _identity_canonical_pos_seen.setdefault(canonical, set())
+            if seen_pos and pos_family not in seen_pos:
+                for _dash_key in _identity_source_keys_for_name(name):
+                    _row = _identity_diag_by_source.setdefault(_dash_key, {})
+                    _row["conflictingPositions"] = int(_row.get("conflictingPositions", 0) or 0) + 1
+                if len(_identity_diag_samples["conflictingPositions"]) < 80:
+                    _identity_diag_samples["conflictingPositions"].append({
+                        "rawName": name,
+                        "canonicalName": canonical,
+                        "newPos": pos_family,
+                        "seenPos": sorted(list(seen_pos)),
+                        "identityMethod": identity_method,
+                    })
+            seen_pos.add(pos_family)
+
+        # Track conflicting identity assignments for the same normalized raw label.
+        raw_norm = normalize_lookup_name(raw_canonical)
+        cur_sid = str((sleeper_identity or {}).get("id") or "").strip()
+        if raw_norm:
+            prev = _identity_raw_identity_seen.get(raw_norm)
+            cur_sig = {
+                "canonical": canonical,
+                "sleeperId": cur_sid,
+                "pos": pos_family or "",
+                "identityMethod": identity_method,
+            }
+            if prev:
+                canonical_conflict = str(prev.get("canonical") or "") != str(cur_sig.get("canonical") or "")
+                sid_conflict = bool(prev.get("sleeperId") and cur_sig.get("sleeperId") and prev.get("sleeperId") != cur_sig.get("sleeperId"))
+                if canonical_conflict or sid_conflict:
+                    for _dash_key in _identity_source_keys_for_name(name):
+                        _row = _identity_diag_by_source.setdefault(_dash_key, {})
+                        _row["conflictingSourceIdentities"] = int(_row.get("conflictingSourceIdentities", 0) or 0) + 1
+                    if len(_identity_diag_samples["conflictingSourceIdentities"]) < 80:
+                        _identity_diag_samples["conflictingSourceIdentities"].append({
+                            "rawNorm": raw_norm,
+                            "rawName": name,
+                            "previous": prev,
+                            "current": cur_sig,
+                        })
+            else:
+                _identity_raw_identity_seen[raw_norm] = cur_sig
 
         entry = players_json.get(canonical, {})
         is_idp = player_pos in _IDP_POSITIONS
         is_off = player_pos in _OFF_POSITIONS
 
         for scraper_name, full_map in FULL_DATA.items():
-            if name in full_map and full_map[name] is not None:
-                dash_key = site_key_map.get(scraper_name, scraper_name)
-                if dash_key not in entry:
-                    # Skip IDP-only sites for offensive players
-                    if dash_key in _IDP_ONLY_SITES and is_off:
-                        continue
-                    # Skip offensive-only sites for IDP players
-                    if dash_key in _OFF_ONLY_SITES and is_idp:
-                        continue
-                    val = full_map[name]
-                    entry[dash_key] = round(val, 2) if val != int(val) else int(val)
+            if not _diag_has_numeric(full_map.get(name)):
+                continue
+            dash_key = site_key_map.get(scraper_name, scraper_name)
+
+            # Skip IDP-only sites for offensive players
+            if dash_key in _IDP_ONLY_SITES and is_off:
+                _identity_mark_unmatched(dash_key, "site_position_filter_idp_only", name, canonical_hint=canonical)
+                continue
+            # Skip offensive-only sites for IDP players
+            if dash_key in _OFF_ONLY_SITES and is_idp:
+                _identity_mark_unmatched(dash_key, "site_position_filter_off_only", name, canonical_hint=canonical)
+                continue
+
+            val = full_map[name]
+            merged_val = round(val, 2) if val != int(val) else int(val)
+            _row = _identity_diag_by_source.setdefault(dash_key, {})
+            _row["matchedRows"] = int(_row.get("matchedRows", 0) or 0) + 1
+
+            if dash_key not in entry:
+                entry[dash_key] = merged_val
+                continue
+
+            _row["duplicateCanonicalMatches"] = int(_row.get("duplicateCanonicalMatches", 0) or 0) + 1
+            if len(_identity_diag_samples["duplicateCanonicalMatches"]) < 80:
+                _identity_diag_samples["duplicateCanonicalMatches"].append({
+                    "source": dash_key,
+                    "rawName": name,
+                    "canonicalName": canonical,
+                    "existingValue": entry.get(dash_key),
+                    "incomingValue": merged_val,
+                    "identityMethod": identity_method,
+                })
+
+            if _prefer_site_value_for_merge(dash_key, entry.get(dash_key), merged_val):
+                entry[dash_key] = merged_val
 
         if not entry:
             continue
@@ -8721,6 +9320,18 @@ async def run(progress_callback=None):
             _pos_map[canonical] = player_pos
 
         players_json[canonical] = entry
+
+    # Ensure unmatched counts are complete even when no explicit drop reason was captured.
+    for _dash_key, _row in _identity_diag_by_source.items():
+        _source_rows = int(_row.get("sourceRows", 0) or 0)
+        _matched_rows = int(_row.get("matchedRows", 0) or 0)
+        _tracked_unmatched = int(_row.get("unmatchedRows", 0) or 0)
+        _derived_unmatched = max(0, _source_rows - _matched_rows)
+        if _derived_unmatched > _tracked_unmatched:
+            _row["unmatchedRows"] = _derived_unmatched
+            _missing = _derived_unmatched - _tracked_unmatched
+            _ur = _row.setdefault("unmatchedReasons", {})
+            _ur["unknown_unmapped"] = int(_ur.get("unknown_unmapped", 0) or 0) + _missing
 
     # Merge punctuation/initial variants that still slipped through canonical resolution.
     # Example: "T.J. Parker" and "TJ Parker" must resolve to one player row.
@@ -8779,11 +9390,41 @@ async def run(progress_callback=None):
         if not isinstance(_p_entry, dict) or not isinstance(_s_entry, dict):
             continue
 
-        # Keep real site values additive (only fill missing source slots).
+        # Keep site values additive while still resolving same-site collisions
+        # deterministically (prevents silent data loss on variant merges).
         for _k, _v in _s_entry.items():
             if str(_k).startswith("_"):
                 continue
-            if _k not in _p_entry and isinstance(_v, (int, float)) and _v is not None and float(_v) > 0:
+            if not isinstance(_v, (int, float)) or _v is None or float(_v) <= 0:
+                continue
+
+            if _k not in _p_entry or not _diag_has_numeric(_p_entry.get(_k)):
+                _p_entry[_k] = _v
+                continue
+
+            _row = _identity_diag_by_source.setdefault(
+                str(_k),
+                {
+                    "sourceRows": 0,
+                    "matchedRows": 0,
+                    "unmatchedRows": 0,
+                    "duplicateCanonicalMatches": 0,
+                    "conflictingPositions": 0,
+                    "conflictingSourceIdentities": 0,
+                    "unmatchedReasons": {},
+                },
+            )
+            _row["duplicateCanonicalMatches"] = int(_row.get("duplicateCanonicalMatches", 0) or 0) + 1
+            if len(_identity_diag_samples["duplicateCanonicalMatches"]) < 80:
+                _identity_diag_samples["duplicateCanonicalMatches"].append({
+                    "source": str(_k),
+                    "rawName": _secondary,
+                    "canonicalName": _primary,
+                    "existingValue": _p_entry.get(_k),
+                    "incomingValue": _v,
+                    "identityMethod": "normalized_variant_merge",
+                })
+            if _prefer_site_value_for_merge(str(_k), _p_entry.get(_k), _v):
                 _p_entry[_k] = _v
 
         # Preserve identity metadata if primary lacks it.
@@ -9244,6 +9885,11 @@ async def run(progress_callback=None):
             "norm": {},
             "initial_last": {},
             "names": [],
+            "ambiguous": {
+                "clean": 0,
+                "norm": 0,
+                "initial_last": 0,
+            },
         }
         for src_name in full_map.keys():
             if not isinstance(src_name, str):
@@ -9258,6 +9904,9 @@ async def run(progress_callback=None):
                 if len(parts) >= 2:
                     out["initial_last"].setdefault((parts[0][0], parts[-1]), set()).add(src_name)
             out["names"].append(src_name)
+        out["ambiguous"]["clean"] = int(sum(1 for _vals in out["clean"].values() if len(_vals) > 1))
+        out["ambiguous"]["norm"] = int(sum(1 for _vals in out["norm"].values() if len(_vals) > 1))
+        out["ambiguous"]["initial_last"] = int(sum(1 for _vals in out["initial_last"].values() if len(_vals) > 1))
         return out
 
     def _unique_lookup(index_map, key):
@@ -9296,7 +9945,36 @@ async def run(progress_callback=None):
     _site_indices = {}
     for scraper_name, full_map in FULL_DATA.items():
         dash_key = site_key_map.get(scraper_name, scraper_name)
-        _site_indices[dash_key] = _build_site_indices(full_map)
+        _idx = _build_site_indices(full_map)
+        _site_indices[dash_key] = _idx
+        _amb = _idx.get("ambiguous", {}) if isinstance(_idx, dict) else {}
+        _amb_total = int(_amb.get("clean", 0) or 0) + int(_amb.get("norm", 0) or 0) + int(_amb.get("initial_last", 0) or 0)
+        if _amb_total > 0:
+            _row = _identity_diag_by_source.setdefault(
+                dash_key,
+                {
+                    "sourceRows": 0,
+                    "matchedRows": 0,
+                    "unmatchedRows": 0,
+                    "duplicateCanonicalMatches": 0,
+                    "conflictingPositions": 0,
+                    "conflictingSourceIdentities": 0,
+                    "unmatchedReasons": {},
+                },
+            )
+            _row["conflictingSourceIdentities"] = int(_row.get("conflictingSourceIdentities", 0) or 0) + _amb_total
+            if len(_identity_diag_samples["conflictingSourceIdentities"]) < 80:
+                _identity_diag_samples["conflictingSourceIdentities"].append({
+                    "rawNorm": "",
+                    "rawName": "",
+                    "previous": {
+                        "source": dash_key,
+                        "ambiguousCleanKeys": int(_amb.get("clean", 0) or 0),
+                        "ambiguousNormKeys": int(_amb.get("norm", 0) or 0),
+                        "ambiguousInitialLastKeys": int(_amb.get("initial_last", 0) or 0),
+                    },
+                    "current": {"source": dash_key, "reason": "ambiguous_source_index_keys"},
+                })
 
     def _find_site_candidate(site_key, target_name, target_pos="", target_sid="", allow_fuzzy=True):
         scraper_name = _dash_to_scraper.get(site_key)
@@ -9457,7 +10135,9 @@ async def run(progress_callback=None):
     # [NEW] Compute per-site mean and stdev for z-score normalization
     site_stats = {}
     # Site mode mapping
-    _rank_sites = {"dynastyNerds", "pffIdp", "draftSharksIdp", "fantasyProsIdp", "draftSharks"}
+    _rank_sites = {"pffIdp", "draftSharksIdp", "fantasyProsIdp", "draftSharks"}
+    if dn_is_rank_mode:
+        _rank_sites.add("dynastyNerds")
     _idp_rank_sites = set()  # currently none use idpRank mode in scraper (handled in dashboard)
     # DynastyDaddy values are treated as non-TEP and get TEP_MULT applied for TEs.
     _tep_sites = {"ktc", "fantasyCalc", "fantasyPros", "draftSharks",
@@ -9663,7 +10343,8 @@ async def run(progress_callback=None):
     def _value_economy_target_from_entry(entry):
         if not isinstance(entry, dict):
             return None
-        for key in ("_finalAdjusted", "_leagueAdjusted", "_scoringAdjusted", "_scarcityAdjusted", "_composite", "_rawComposite"):
+        # Raw-market curve calibration must be anchored to raw-market outputs first.
+        for key in ("_rawComposite", "_rawMarketValue", "_composite", "_scoringAdjusted", "_scarcityAdjusted", "_finalAdjusted", "_leagueAdjusted"):
             v = entry.get(key)
             if isinstance(v, (int, float)) and v > 0:
                 return float(v)
@@ -9951,11 +10632,37 @@ async def run(progress_callback=None):
         except Exception:
             return lo
 
-    def _market_confidence(norm_vals, site_count):
+    def _market_confidence(norm_vals, site_count, rank_source_count=0, is_rookie=False, is_idp=False):
         cv = _coeff_var(norm_vals)
         site_score = _clampf(float(site_count) / 8.0, 0.20, 1.00)
         cv_score = _clampf(1.0 - (min(cv, 0.35) / 0.35), 0.20, 1.00)
         conf = _clampf((site_score * 0.65) + (cv_score * 0.35), 0.20, 1.00)
+        try:
+            s_count = int(site_count or 0)
+        except Exception:
+            s_count = 0
+        try:
+            r_count = int(rank_source_count or 0)
+        except Exception:
+            r_count = 0
+        rank_share = (float(r_count) / float(s_count)) if s_count > 0 else 0.0
+
+        coverage_cap = 1.00
+        if s_count <= 1:
+            coverage_cap = 0.42
+        elif s_count == 2:
+            coverage_cap = 0.58
+        elif s_count == 3:
+            coverage_cap = 0.70
+
+        if rank_share >= 0.80:
+            coverage_cap = min(coverage_cap, 0.56 if s_count <= 2 else 0.72)
+        if bool(is_rookie) and s_count <= 2:
+            coverage_cap = min(coverage_cap, 0.52)
+        if bool(is_idp) and s_count <= 2:
+            coverage_cap = min(coverage_cap, 0.55)
+
+        conf = min(conf, coverage_cap)
         return conf, cv
 
     for name, pdata in players_json.items():
@@ -9966,6 +10673,7 @@ async def run(progress_callback=None):
         _is_this_rookie = _is_rookie_for_curve(name, pdata)
         _has_rookie_only_dlf_signal = False
         _real_idp_market_source_count = 0
+        _rank_source_count = 0
         for dash_key, raw_val in pdata.items():
             if raw_val is None or not isinstance(raw_val, (int, float)):
                 continue
@@ -9983,7 +10691,7 @@ async def run(progress_callback=None):
                 continue
 
             # Transform rank-only sources into canonical values via universe-specific
-            # Fully-Adjusted economy curves. Fallback uses conservative sparse curves.
+            # raw-market economy curves. Fallback uses conservative sparse curves.
             if dash_key in _rank_sites or dash_key in _idp_rank_sites:
                 site_raw, _u_key, _fb_used = _calibrated_rank_to_value(
                     dash_key,
@@ -10007,6 +10715,8 @@ async def run(progress_callback=None):
                 continue
 
             canonical_site_values[dash_key] = int(round(site_raw))
+            if dash_key in _rank_sites or dash_key in _idp_rank_sites:
+                _rank_source_count += 1
 
             if _is_this_idp and dash_key in _REAL_IDP_MARKET_SITE_KEYS:
                 _real_idp_market_source_count += 1
@@ -10054,7 +10764,13 @@ async def run(progress_callback=None):
         composite = meta_norm * COMPOSITE_SCALE
 
         norm_vals = [n for n, _ in wNorms]
-        market_conf, cv = _market_confidence(norm_vals, len(wNorms))
+        market_conf, cv = _market_confidence(
+            norm_vals,
+            len(wNorms),
+            rank_source_count=_rank_source_count,
+            is_rookie=_is_this_rookie,
+            is_idp=_is_this_idp,
+        )
 
         # Elite-separation expansion: consensus top-tier players should stay near ceiling.
         if len(norm_vals) >= 4:
@@ -10113,6 +10829,8 @@ async def run(progress_callback=None):
             "marketConfidence": round(market_conf, 4),
             "dispersionCV": round(cv, 6),
             "idpRealMarketSources": int(_real_idp_market_source_count),
+            "rankSourceCount": int(_rank_source_count),
+            "rankSourceShare": round((float(_rank_source_count) / float(max(1, len(wNorms)))), 6),
             "rookieOnlyDlfGuardrailApplied": bool(rookie_only_guardrail_applied),
         }
 
@@ -10124,6 +10842,8 @@ async def run(progress_callback=None):
         players_json[name]["_marketConfidence"] = comp.get("marketConfidence", 0.5)
         players_json[name]["_marketDispersionCV"] = comp.get("dispersionCV", 0.0)
         players_json[name]["_idpRealMarketSources"] = int(comp.get("idpRealMarketSources", 0) or 0)
+        players_json[name]["_rankSourceCount"] = int(comp.get("rankSourceCount", 0) or 0)
+        players_json[name]["_rankSourceShare"] = float(comp.get("rankSourceShare", 0.0) or 0.0)
         players_json[name]["_rookieOnlyDlfGuardrailApplied"] = bool(comp.get("rookieOnlyDlfGuardrailApplied", False))
 
     # ── Hard floor: seed rankings with at least top 400 KTC players ──
@@ -10629,13 +11349,13 @@ async def run(progress_callback=None):
                 entry["_rookieOnlyDlfGuardrailApplied"] = True
             comp_val = max(1, int(comp_val))
             entry["_composite"] = comp_val
-            entry["_sites"] = max(1, len(site_vals))
+            entry["_sites"] = int(len(site_vals))
             entry["_fallbackValue"] = True
             entry["_fallbackReason"] = "rostered_guarantee"
             _rostered_fallback_applied += 1
         elif not isinstance(entry.get("_sites"), int) or entry.get("_sites", 0) <= 0:
             site_vals, _, _ = _fallback_site_values_for_entry(entry, pref_pos)
-            entry["_sites"] = max(1, len(site_vals))
+            entry["_sites"] = int(len(site_vals))
 
         players_json[target_name] = entry
 
@@ -10705,7 +11425,7 @@ async def run(progress_callback=None):
             _seed = max(1, int(round(_must_have_curve[_ord])))
             _entry["_composite"] = _seed
             _site_vals, _, _ = _fallback_site_values_for_entry(_entry, _pref_pos)
-            _entry["_sites"] = max(1, len(_site_vals))
+            _entry["_sites"] = int(len(_site_vals))
             _entry["_fallbackValue"] = True
             _entry["_fallbackReason"] = "must_have_rookie_guarantee"
             _must_have_fallback += 1
@@ -10780,6 +11500,9 @@ async def run(progress_callback=None):
     _lam_cap = float(_lam_cfg.get("lamCap", 0.25) if isinstance(_lam_cfg, dict) else 0.25)
     _fit_prod_share = float(_lam_cfg.get("productionShare", 0.45) if isinstance(_lam_cfg, dict) else 0.45)
     _lam_default_strength = 1.0
+    _scoring_layer_model_version = "empirical_lam_scoring_v1"
+    _scarcity_layer_model_version = "market_positional_scarcity_v1"
+    _layer_input_by_player = {}
 
     def _lam_bucket(pos):
         p = str(pos or "").upper()
@@ -10790,6 +11513,101 @@ async def run(progress_callback=None):
         if p in {"OLB", "ILB"}:
             return "LB"
         return p
+
+    def _clamp_local(v, lo, hi):
+        try:
+            return max(lo, min(hi, float(v)))
+        except Exception:
+            return lo
+
+    def _scarcity_starters_per_team():
+        starters = {
+            "QB": 1.00,
+            "RB": 2.00,
+            "WR": 2.50,
+            "TE": 1.00,
+            "DL": 2.00,
+            "LB": 2.00,
+            "DB": 2.00,
+        }
+        roster_slots = (
+            (SLEEPER_ROSTER_DATA or {}).get("rosterPositions", [])
+            if isinstance(SLEEPER_ROSTER_DATA, dict)
+            else []
+        )
+        if not isinstance(roster_slots, list) or not roster_slots:
+            return starters
+
+        computed = {k: 0.0 for k in starters.keys()}
+        for raw_slot in roster_slots:
+            slot = str(raw_slot or "").strip().upper()
+            if not slot or slot in {"BN", "BENCH", "IR", "RESERVE", "TAXI", "TAXI_SQUAD"}:
+                continue
+
+            if slot in {"QB", "RB", "WR", "TE", "DL", "LB", "DB"}:
+                computed[slot] += 1.0
+                continue
+            if slot in {"DE", "DT", "EDGE", "NT"}:
+                computed["DL"] += 1.0
+                continue
+            if slot in {"CB", "S", "FS", "SS"}:
+                computed["DB"] += 1.0
+                continue
+            if slot in {"OLB", "ILB"}:
+                computed["LB"] += 1.0
+                continue
+
+            if slot in {"FLEX", "REC_FLEX", "WRRB_FLEX", "RBWR_FLEX", "WRRBTE_FLEX", "WR_RB_FLEX"}:
+                computed["RB"] += 0.45
+                computed["WR"] += 0.45
+                computed["TE"] += 0.10
+                continue
+            if slot in {"SUPER_FLEX", "SUPERFLEX", "OP", "SFLEX"}:
+                computed["QB"] += 0.70
+                computed["RB"] += 0.15
+                computed["WR"] += 0.10
+                computed["TE"] += 0.05
+                continue
+            if slot in {"TE_FLEX", "TIGHT_END_FLEX"}:
+                computed["TE"] += 1.0
+                continue
+
+            if slot in {"IDP_FLEX", "IDPFLEX", "DP_FLEX", "FLEX_IDP"}:
+                computed["DL"] += 0.34
+                computed["LB"] += 0.33
+                computed["DB"] += 0.33
+                continue
+            if slot in {"DL_LB_FLEX", "DL/LB", "DL_LB"}:
+                computed["DL"] += 0.50
+                computed["LB"] += 0.50
+                continue
+            if slot in {"LB_DB_FLEX", "LB/DB", "LB_DB"}:
+                computed["LB"] += 0.50
+                computed["DB"] += 0.50
+                continue
+            if slot in {"DL_DB_FLEX", "DL/DB", "DL_DB"}:
+                computed["DL"] += 0.50
+                computed["DB"] += 0.50
+                continue
+
+        if any(v > 0 for v in computed.values()):
+            for k in starters.keys():
+                starters[k] = round(max(0.0, float(computed.get(k, 0.0) or 0.0)), 3)
+        return starters
+
+    def _scarcity_team_count():
+        teams = 0
+        if isinstance(SLEEPER_ROSTER_DATA, dict):
+            league_settings = SLEEPER_ROSTER_DATA.get("leagueSettings", {})
+            try:
+                teams = int((league_settings or {}).get("num_teams"))
+            except Exception:
+                teams = 0
+            if teams <= 0:
+                teams = len(SLEEPER_ROSTER_DATA.get("teams", []) or [])
+        if teams <= 0:
+            teams = 12
+        return max(8, min(20, int(teams)))
 
     for name, pdata in players_json.items():
         if not isinstance(pdata, dict):
@@ -10822,6 +11640,7 @@ async def run(progress_callback=None):
         effective = 1.0 + ((league_mult - 1.0) * _lam_default_strength)
         effective = max(1.0 - _lam_cap, min(1.0 + _lam_cap, effective))
         final_adj = int(round(raw_comp * effective))
+        scoring_adj = max(1, int(final_adj))
         delta = final_adj - int(round(raw_comp))
 
         pdata["_lamBucket"] = bucket
@@ -10830,8 +11649,22 @@ async def run(progress_callback=None):
         pdata["_shrunkLeagueMultiplier"] = round(shrunk_mult, 6)
         pdata["_lamStrength"] = _lam_default_strength
         pdata["_effectiveMultiplier"] = round(effective, 6)
-        pdata["_leagueAdjusted"] = final_adj
+        pdata["_scoringAdjusted"] = scoring_adj
+        pdata["_scoringLayerSource"] = _scoring_layer_model_version
+        pdata["_leagueAdjusted"] = scoring_adj
         pdata["_lamDelta"] = delta
+        _layer_input_by_player[name] = {
+            "bucket": bucket,
+            "isPick": bool(bucket == "PICK"),
+            "scoring": int(scoring_adj),
+            "assetClass": (
+                "pick"
+                if bucket == "PICK"
+                else ("idp" if bucket in {"DL", "LB", "DB"} else "offense")
+            ),
+            "sourceCount": int(pdata.get("_sites", 0) or 0),
+            "marketConfidence": float(pdata.get("_marketConfidence", 0.0) or 0.0),
+        }
 
         # Expose per-player format-fit debug for frontend auditability.
         # Keep legacy LAM fields above for backward compatibility.
@@ -10909,6 +11742,172 @@ async def run(progress_callback=None):
                 if fit_dbg.get("rRookieEstimatedFitRatio") is not None else None
             )
 
+    _starters_per_team = _scarcity_starters_per_team()
+    _teams_count = _scarcity_team_count()
+    _scarcity_pool_by_bucket = {k: [] for k in ("QB", "RB", "WR", "TE", "DL", "LB", "DB")}
+    for _name, _layer_input in _layer_input_by_player.items():
+        if not isinstance(_layer_input, dict) or bool(_layer_input.get("isPick")):
+            continue
+        _bucket = str(_layer_input.get("bucket") or "")
+        _scoring = _layer_input.get("scoring")
+        if _bucket not in _scarcity_pool_by_bucket:
+            continue
+        if isinstance(_scoring, (int, float)) and _scoring > 0:
+            _scarcity_pool_by_bucket[_bucket].append(float(_scoring))
+
+    _scarcity_model = {}
+    for _bucket, _vals in _scarcity_pool_by_bucket.items():
+        _sorted_vals = sorted(
+            [float(v) for v in _vals if isinstance(v, (int, float)) and v > 0],
+            reverse=True,
+        )
+        _pool_size = len(_sorted_vals)
+        _starters = max(0.0, float(_starters_per_team.get(_bucket, 0.0) or 0.0))
+        _starter_demand = _starters * float(_teams_count)
+        if _pool_size <= 0:
+            _scarcity_model[_bucket] = {
+                "poolSize": 0,
+                "replacementRank": 0,
+                "replacementValue": 1.0,
+                "topValue": 1.0,
+                "span": 1.0,
+                "pressure": 0.0,
+                "starterDemand": _starter_demand,
+            }
+            continue
+
+        _replacement_rank = max(1, min(_pool_size, int(math.ceil(max(1.0, _starter_demand)))))
+        _replacement_value = float(_sorted_vals[_replacement_rank - 1])
+        _top_value = float(_sorted_vals[0])
+        _span = max(1.0, _top_value - _replacement_value)
+        _pressure = _clamp_local(
+            _starter_demand / max(1.0, float(_pool_size)),
+            0.0,
+            1.6,
+        )
+        _scarcity_model[_bucket] = {
+            "poolSize": int(_pool_size),
+            "replacementRank": int(_replacement_rank),
+            "replacementValue": float(_replacement_value),
+            "topValue": float(_top_value),
+            "span": float(_span),
+            "pressure": float(_pressure),
+            "starterDemand": float(_starter_demand),
+        }
+
+    _scoring_layer_count = 0
+    _scarcity_neutral_count = 0
+    _scarcity_adjusted_count = 0
+    _site_total = max(1.0, float(len(SITE_WEIGHTS.keys()) or 1))
+    for _name, _pdata in players_json.items():
+        if not isinstance(_pdata, dict):
+            continue
+        _layer_input = _layer_input_by_player.get(_name)
+        if not isinstance(_layer_input, dict):
+            _raw_comp = _pdata.get("_rawComposite", _pdata.get("_composite"))
+            if not isinstance(_raw_comp, (int, float)) or _raw_comp <= 0:
+                continue
+            _fallback_scoring = _pdata.get("_leagueAdjusted", _raw_comp)
+            if not isinstance(_fallback_scoring, (int, float)) or _fallback_scoring <= 0:
+                _fallback_scoring = _raw_comp
+            _fallback_scoring = max(1, int(round(float(_fallback_scoring))))
+            _fallback_bucket = (
+                "PICK"
+                if _looks_like_pick_name(_name)
+                else (_must_have_rookie_bucket(_name) or _lam_bucket(_get_pos(_name)))
+            )
+            _layer_input = {
+                "bucket": _fallback_bucket,
+                "isPick": bool(_fallback_bucket == "PICK"),
+                "scoring": int(_fallback_scoring),
+                "assetClass": (
+                    "pick"
+                    if _fallback_bucket == "PICK"
+                    else ("idp" if _fallback_bucket in {"DL", "LB", "DB"} else "offense")
+                ),
+                "sourceCount": int(_pdata.get("_sites", 0) or 0),
+                "marketConfidence": float(_pdata.get("_marketConfidence", 0.0) or 0.0),
+            }
+            _layer_input_by_player[_name] = _layer_input
+            _pdata["_scoringAdjusted"] = _fallback_scoring
+            _pdata["_scoringLayerSource"] = _scoring_layer_model_version
+            _pdata["_leagueAdjusted"] = _fallback_scoring
+
+        _scoring = max(1, int(round(float(_layer_input.get("scoring", 1) or 1))))
+        _bucket = str(_layer_input.get("bucket") or "")
+        _is_pick = bool(_layer_input.get("isPick"))
+        _source_count = int(_layer_input.get("sourceCount", 0) or 0)
+        _market_confidence = _clamp_local(_layer_input.get("marketConfidence", 0.0), 0.0, 1.0)
+        _coverage_ratio = _clamp_local(float(_source_count) / _site_total, 0.0, 1.0)
+        _reliability = _clamp_local((0.20 + (0.60 * _market_confidence) + (0.20 * _coverage_ratio)), 0.15, 1.0)
+        _bucket_model = _scarcity_model.get(_bucket) if _bucket in _scarcity_model else None
+
+        if _is_pick or not isinstance(_bucket_model, dict) or int(_bucket_model.get("poolSize", 0) or 0) <= 0:
+            _scarcity_adjusted = int(_scoring)
+            _scarcity_multiplier_raw = 1.0
+            _scarcity_multiplier_effective = 1.0
+            _normalized_vor = 0.0
+            _blend = 0.0
+            _tier_dampen = 1.0
+        else:
+            _replacement_value = float(_bucket_model.get("replacementValue", 1.0) or 1.0)
+            _span = max(1.0, float(_bucket_model.get("span", 1.0) or 1.0))
+            _pressure = _clamp_local(_bucket_model.get("pressure", 0.0), 0.0, 1.6)
+            _starter_demand_ratio = _clamp_local(
+                float(_bucket_model.get("starterDemand", 0.0) or 0.0) / max(1.0, float(_bucket_model.get("poolSize", 1) or 1.0)),
+                0.25,
+                1.6,
+            )
+            _value_above_replacement = float(_scoring) - _replacement_value
+            _normalized_vor = _clamp_local(_value_above_replacement / _span, -1.25, 1.25)
+            _shift_cap = 0.075 if _bucket in {"DL", "LB", "DB"} else 0.115
+            _raw_shift = _normalized_vor * _pressure * _starter_demand_ratio * 0.82
+            _scarcity_multiplier_raw = _clamp_local(1.0 + (_raw_shift * _shift_cap), 0.86, 1.16)
+
+            _tier_score = _clamp_local((float(_scoring) - 400.0) / 9200.0, 0.0, 1.0)
+            _tier_dampen = _clamp_local(1.0 - (0.35 * _tier_score), 0.62, 1.0)
+            if _source_count <= 1:
+                _tier_dampen = _clamp_local(_tier_dampen * 0.88, 0.40, 1.0)
+            _blend = _clamp_local(_reliability * _tier_dampen, 0.0, 1.0)
+
+            _scarcity_multiplier_effective = _clamp_local(
+                1.0 + ((_scarcity_multiplier_raw - 1.0) * _blend),
+                0.86,
+                1.16,
+            )
+            _scarcity_adjusted = max(1, int(round(float(_scoring) * _scarcity_multiplier_effective)))
+
+        if int(_scarcity_adjusted) == int(_scoring):
+            _scarcity_neutral_count += 1
+        else:
+            _scarcity_adjusted_count += 1
+        _scoring_layer_count += 1
+
+        _bucket_model = _scarcity_model.get(_bucket) if _bucket in _scarcity_model else {}
+        _pdata["_scarcityAdjusted"] = int(_scarcity_adjusted)
+        _pdata["_scarcityLayerSource"] = _scarcity_layer_model_version
+        _pdata["_scarcityBucket"] = str(_bucket or "")
+        _pdata["_scarcityMultiplierRaw"] = round(float(_scarcity_multiplier_raw), 6)
+        _pdata["_scarcityMultiplierEffective"] = round(float(_scarcity_multiplier_effective), 6)
+        _pdata["_scarcityBlend"] = round(float(_blend), 6)
+        _pdata["_scarcityReliability"] = round(float(_reliability), 6)
+        _pdata["_scarcityReplacementRank"] = int(_bucket_model.get("replacementRank", 0) or 0)
+        _pdata["_scarcityReplacementValue"] = int(round(float(_bucket_model.get("replacementValue", 0.0) or 0.0)))
+        _pdata["_scarcityPressure"] = round(float(_bucket_model.get("pressure", 0.0) or 0.0), 6)
+        _pdata["_scarcityStarterDemand"] = round(float(_bucket_model.get("starterDemand", 0.0) or 0.0), 6)
+        _pdata["_scoringModelVersion"] = _scoring_layer_model_version
+        _pdata["_scarcityModelVersion"] = _scarcity_layer_model_version
+
+    if _scoring_layer_count > 0:
+        print(
+            f"  [Value Layers] Scoring persisted for {_scoring_layer_count} assets "
+            f"(model={_scoring_layer_model_version})"
+        )
+        print(
+            f"  [Value Layers] Scarcity adjusted for {_scarcity_adjusted_count} assets; "
+            f"neutral passthrough {_scarcity_neutral_count} (model={_scarcity_layer_model_version})"
+        )
+
     if composites:
         top5 = sorted(composites.items(), key=lambda x: -x[1]["value"])[:5]
         print(f"  [Composite] Computed for {len(composites)} players")
@@ -10957,7 +11956,7 @@ async def run(progress_callback=None):
             has_idp_signal = any(isinstance(pdata.get(k), (int, float)) for k in ("pffIdp", "fantasyProsIdp", "draftSharksIdp"))
             has_off_signal = any(
                 isinstance(pdata.get(k), (int, float))
-                for k in ("ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros", "draftSharks", "yahoo", "dynastyNerds", "dlfSf")
+                for k in ("ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros", "draftSharks", "yahoo", "dynastyNerds", "dlfSf", "idpTradeCalc")
             )
             if has_idp_signal and not has_off_signal:
                 _pos_map[n] = "LB"
@@ -11132,6 +12131,357 @@ async def run(progress_callback=None):
         if DEBUG:
             print(f"  [Top Coverage] IDP missing by site: {idp_cov.get('missingBySite', {})}")
 
+    def _median_local(vals):
+        arr = sorted(float(v) for v in vals if isinstance(v, (int, float)) and v > 0)
+        if not arr:
+            return None
+        mid = len(arr) // 2
+        if len(arr) % 2:
+            return float(arr[mid])
+        return float((arr[mid - 1] + arr[mid]) / 2.0)
+
+    _coverage_hist = {}
+    _source_population = {}
+    for _sk in SITE_WEIGHTS.keys():
+        _source_population[_sk] = 0
+
+    _normalization_outliers = []
+    _one_site_high_value = []
+    _rookie_inflation_flags = []
+    _idp_inflation_flags = []
+
+    for _name, _comp in composites.items():
+        _pdata = players_json.get(_name) if isinstance(players_json.get(_name), dict) else {}
+        _raw = float(_comp.get("value", 0) or 0)
+        _sites = int(_comp.get("sites", 0) or 0)
+        _conf = float(_comp.get("marketConfidence", 0.0) or 0.0)
+        _rank_share = float(_comp.get("rankSourceShare", 0.0) or 0.0)
+        _canon = _comp.get("canonicalSiteValues", {})
+        _universe = _asset_universe_cached(_name, _pdata)
+        _is_rookie_universe = _universe in {"offense_rookies", "idp_rookies"}
+        _is_idp_universe = str(_universe).startswith("idp_")
+
+        _cov_key = str(_sites)
+        _coverage_hist[_cov_key] = int(_coverage_hist.get(_cov_key, 0) or 0) + 1
+
+        if isinstance(_canon, dict):
+            for _sk in _canon.keys():
+                _source_population[_sk] = int(_source_population.get(_sk, 0) or 0) + 1
+
+        _vals = [
+            float(_v)
+            for _v in (_canon or {}).values()
+            if isinstance(_v, (int, float)) and float(_v) > 0
+        ]
+        _med = _median_local(_vals)
+        if isinstance(_med, (int, float)) and _med >= 100 and len(_vals) >= 3:
+            _max_dev = max(abs((float(v) - _med) / _med) for v in _vals)
+            if _max_dev >= 0.55:
+                _normalization_outliers.append({
+                    "name": _name,
+                    "rawComposite": int(round(_raw)),
+                    "siteCount": _sites,
+                    "marketConfidence": round(_conf, 4),
+                    "medianCanonicalSiteValue": int(round(_med)),
+                    "maxRelDeviationPct": round(_max_dev * 100.0, 2),
+                    "sourceValues": {k: int(round(float(v))) for k, v in (_canon or {}).items() if isinstance(v, (int, float)) and float(v) > 0},
+                })
+
+        if _sites <= 1 and _raw >= 3200:
+            _one_site_high_value.append({
+                "name": _name,
+                "rawComposite": int(round(_raw)),
+                "siteCount": _sites,
+                "marketConfidence": round(_conf, 4),
+                "rankSourceShare": round(_rank_share, 4),
+                "universe": _universe,
+                "sources": sorted(list((_canon or {}).keys())),
+            })
+
+        if _is_rookie_universe and _raw >= 4800 and (_sites <= 2 or _conf <= 0.58 or _rank_share >= 0.80):
+            _rookie_inflation_flags.append({
+                "name": _name,
+                "rawComposite": int(round(_raw)),
+                "siteCount": _sites,
+                "marketConfidence": round(_conf, 4),
+                "rankSourceShare": round(_rank_share, 4),
+                "universe": _universe,
+                "rookieOnlyDlfGuardrailApplied": bool(_comp.get("rookieOnlyDlfGuardrailApplied", False)),
+            })
+
+        if _is_idp_universe and _raw >= 4200 and (_sites <= 2 or _conf <= 0.60 or _rank_share >= 0.80):
+            _idp_inflation_flags.append({
+                "name": _name,
+                "rawComposite": int(round(_raw)),
+                "siteCount": _sites,
+                "marketConfidence": round(_conf, 4),
+                "rankSourceShare": round(_rank_share, 4),
+                "idpRealMarketSources": int(_comp.get("idpRealMarketSources", 0) or 0),
+                "universe": _universe,
+                "rookieOnlyDlfGuardrailApplied": bool(_comp.get("rookieOnlyDlfGuardrailApplied", False)),
+            })
+
+    _normalization_outliers.sort(key=lambda r: (-float(r.get("maxRelDeviationPct", 0.0) or 0.0), -int(r.get("rawComposite", 0) or 0)))
+    _one_site_high_value.sort(key=lambda r: (-int(r.get("rawComposite", 0) or 0), r.get("name", "")))
+    _rookie_inflation_flags.sort(key=lambda r: (-int(r.get("rawComposite", 0) or 0), r.get("name", "")))
+    _idp_inflation_flags.sort(key=lambda r: (-int(r.get("rawComposite", 0) or 0), r.get("name", "")))
+
+    _rank_curve_samples = []
+    for _key, _row in (_rank_curve_diagnostics.get("sources", {}) or {}).items():
+        _examples = _row.get("examples", {})
+        if not isinstance(_examples, dict) or not _examples:
+            continue
+        _rank_curve_samples.append({
+            "sourceUniverse": _key,
+            "curveBuilt": bool(_row.get("curveBuilt", False)),
+            "fallbackUsed": bool(_row.get("fallbackUsed", False)),
+            "sourceCount": int(_row.get("sourceCount", 0) or 0),
+            "targetCount": int(_row.get("targetCount", 0) or 0),
+            "spreadRatioTopToTail": _row.get("spreadRatioTopToTail"),
+            "suspiciousSpacing": _row.get("suspiciousSpacing"),
+            "examples": _examples,
+        })
+    _rank_curve_samples.sort(
+        key=lambda r: (
+            0 if r.get("fallbackUsed") else 1,
+            int(r.get("sourceCount", 0) or 0),
+            str(r.get("sourceUniverse") or ""),
+        )
+    )
+
+    _source_keys_for_diag = sorted(set(site_key_map.values()) | set(SITE_WEIGHTS.keys()))
+    _source_population_by_class = {}
+    for _sk in _source_keys_for_diag:
+        _source_population_by_class[_sk] = {"total": 0, "offense": 0, "idp": 0, "picks": 0}
+
+    def _asset_class_for_diag(_name, _entry):
+        if _looks_like_pick_name(_name):
+            return "pick"
+        _p = _get_pos(_name)
+        if _p in _IDP_POSITIONS:
+            return "idp"
+        return "offense"
+
+    for _name, _entry in players_json.items():
+        if not isinstance(_entry, dict):
+            continue
+        _asset_class = _asset_class_for_diag(_name, _entry)
+        _canon_map = _entry.get("_canonicalSiteValues") if isinstance(_entry.get("_canonicalSiteValues"), dict) else {}
+        _source_vals = {}
+        if isinstance(_canon_map, dict) and _canon_map:
+            _source_vals = _canon_map
+        else:
+            for _sk in _source_keys_for_diag:
+                _v = _entry.get(_sk)
+                if isinstance(_v, (int, float)) and _v > 0:
+                    _source_vals[_sk] = _v
+        for _sk, _v in _source_vals.items():
+            if not isinstance(_v, (int, float)) or float(_v) <= 0:
+                continue
+            _row = _source_population_by_class.setdefault(_sk, {"total": 0, "offense": 0, "idp": 0, "picks": 0})
+            _row["total"] = int(_row.get("total", 0) or 0) + 1
+            if _asset_class == "idp":
+                _row["idp"] = int(_row.get("idp", 0) or 0) + 1
+            elif _asset_class == "pick":
+                _row["picks"] = int(_row.get("picks", 0) or 0) + 1
+            else:
+                _row["offense"] = int(_row.get("offense", 0) or 0) + 1
+
+    _scraped_population_by_source = {}
+    for _scraper_name, _full_map in FULL_DATA.items():
+        _dash_key = site_key_map.get(_scraper_name, _scraper_name)
+        _count = sum(1 for _v in (_full_map or {}).values() if isinstance(_v, (int, float)) and _v > 0)
+        _scraped_population_by_source[_dash_key] = int(_scraped_population_by_source.get(_dash_key, 0) or 0) + int(_count)
+
+    _source_drop_by_source = {}
+    for _sk in sorted(set(_source_population_by_class.keys()) | set(_scraped_population_by_source.keys())):
+        _scraped = int(_scraped_population_by_source.get(_sk, 0) or 0)
+        _payload_total = int((_source_population_by_class.get(_sk) or {}).get("total", 0) or 0)
+        _source_drop_by_source[_sk] = {
+            "scrapedRows": _scraped,
+            "payloadRows": _payload_total,
+            "droppedRows": max(0, _scraped - _payload_total),
+            "dropPct": round((max(0, _scraped - _payload_total) / float(_scraped) * 100.0), 2) if _scraped > 0 else 0.0,
+        }
+
+    _offense_expected_source_keys = {
+        "ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros",
+        "draftSharks", "yahoo", "dynastyNerds", "dlfSf", "dlfRsf", "idpTradeCalc",
+    }
+    _configured_source_keys = {
+        str(_row.get("key"))
+        for _row in sites_meta
+        if isinstance(_row, dict) and _row.get("key")
+    }
+    _source_diag_warnings = []
+    for _sk in sorted(_configured_source_keys):
+        _split = _source_population_by_class.get(_sk, {"total": 0, "offense": 0, "idp": 0, "picks": 0})
+        _scraped = int(_scraped_population_by_source.get(_sk, 0) or 0)
+        _payload_total = int(_split.get("total", 0) or 0)
+        _payload_off = int(_split.get("offense", 0) or 0)
+
+        if _scraped > 0 and _payload_total <= 0:
+            _source_diag_warnings.append(
+                f"{_sk}: scraped {_scraped} rows but none reached payload/source rendering."
+            )
+
+        if _sk in _offense_expected_source_keys and _scraped > 0 and _payload_total > 0:
+            _near_zero_cutoff = max(3, int(round(_payload_total * 0.02)))
+            if _payload_total >= 40 and _payload_off <= _near_zero_cutoff:
+                _source_diag_warnings.append(
+                    f"{_sk}: near-zero offensive population in payload "
+                    f"({_payload_off}/{_payload_total}, scraped={_scraped})."
+                )
+
+    for _scraper_name, _state in source_run_state.items():
+        _dash_key = site_key_map.get(_scraper_name, _scraper_name)
+        _mapped = int(_state.get("valueCount", 0) or 0)
+        _scraped = int(_scraped_population_by_source.get(_dash_key, 0) or 0)
+        _payload_total = int((_source_population_by_class.get(_dash_key) or {}).get("total", 0) or 0)
+        if _mapped <= 0 and _scraped > 0 and _payload_total <= 0:
+            _source_diag_warnings.append(
+                f"{_dash_key}: source mapped 0 direct values but scraped {_scraped} rows "
+                f"(possible stale fallback, key mismatch, or late-stage drop)."
+            )
+
+    _source_diag_warnings = sorted(set(_source_diag_warnings))
+    _identity_by_source_export = {}
+    _identity_totals = {
+        "sourceRows": 0,
+        "matchedRows": 0,
+        "unmatchedRows": 0,
+        "duplicateCanonicalMatches": 0,
+        "conflictingPositions": 0,
+        "conflictingSourceIdentities": 0,
+    }
+    for _sk, _row in sorted(_identity_diag_by_source.items(), key=lambda kv: kv[0]):
+        _src_rows = int(_row.get("sourceRows", 0) or 0)
+        _matched = int(_row.get("matchedRows", 0) or 0)
+        _unmatched = int(_row.get("unmatchedRows", 0) or 0)
+        _dupes = int(_row.get("duplicateCanonicalMatches", 0) or 0)
+        _pos_conf = int(_row.get("conflictingPositions", 0) or 0)
+        _id_conf = int(_row.get("conflictingSourceIdentities", 0) or 0)
+        _identity_totals["sourceRows"] += _src_rows
+        _identity_totals["matchedRows"] += _matched
+        _identity_totals["unmatchedRows"] += _unmatched
+        _identity_totals["duplicateCanonicalMatches"] += _dupes
+        _identity_totals["conflictingPositions"] += _pos_conf
+        _identity_totals["conflictingSourceIdentities"] += _id_conf
+        _identity_by_source_export[_sk] = {
+            "sourceRows": _src_rows,
+            "matchedRows": _matched,
+            "unmatchedRows": _unmatched,
+            "duplicateCanonicalMatches": _dupes,
+            "conflictingPositions": _pos_conf,
+            "conflictingSourceIdentities": _id_conf,
+            "unmatchedReasons": dict(_row.get("unmatchedReasons", {})),
+        }
+
+    _identity_resolution_diagnostics = {
+        "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "strategy": {
+            "primaryResolutionOrder": list(_IDENTITY_PRIMARY_RESOLUTION_ORDER),
+            "siteFallbackMatchOrder": list(_IDENTITY_SITE_MATCH_ORDER),
+            "siteCollisionPolicy": "value_sites_keep_higher_rank_sites_keep_lower",
+            "positionGuards": {
+                "idpOnlySitesFilteredForOffense": sorted(list(_IDP_ONLY_SITES)),
+                "offenseOnlySitesFilteredForIdp": sorted(list(_OFF_ONLY_SITES)),
+            },
+        },
+        "totals": dict(_identity_totals),
+        "bySource": dict(_identity_by_source_export),
+        "samples": {
+            "unmatchedSourceRows": list(_identity_diag_samples.get("unmatchedSourceRows", []))[:80],
+            "duplicateCanonicalMatches": list(_identity_diag_samples.get("duplicateCanonicalMatches", []))[:80],
+            "conflictingPositions": list(_identity_diag_samples.get("conflictingPositions", []))[:80],
+            "conflictingSourceIdentities": list(_identity_diag_samples.get("conflictingSourceIdentities", []))[:80],
+        },
+    }
+
+    _idptc_pos_coverage = {k: 0 for k in ("QB", "RB", "WR", "TE", "DL", "LB", "DB")}
+    _idptc_unknown_count = 0
+    for _name, _entry in players_json.items():
+        if not isinstance(_entry, dict):
+            continue
+        _idptc_val = _entry.get("idpTradeCalc")
+        if not isinstance(_idptc_val, (int, float)) or _idptc_val <= 0:
+            continue
+        if _looks_like_pick_name(_name):
+            continue
+        _pos_norm = _pos_family(_get_pos(_name))
+        if _pos_norm in _idptc_pos_coverage:
+            _idptc_pos_coverage[_pos_norm] = int(_idptc_pos_coverage.get(_pos_norm, 0) or 0) + 1
+        else:
+            _idptc_unknown_count += 1
+
+    _source_column_diagnostics = {
+        "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "sourceModes": dict(SOURCE_MODE_OVERRIDES or {}),
+        "identityResolution": dict(_identity_resolution_diagnostics),
+        "idpTradeCalcPositionCoverage": {
+            "qb": int(_idptc_pos_coverage.get("QB", 0) or 0),
+            "rb": int(_idptc_pos_coverage.get("RB", 0) or 0),
+            "wr": int(_idptc_pos_coverage.get("WR", 0) or 0),
+            "te": int(_idptc_pos_coverage.get("TE", 0) or 0),
+            "dl": int(_idptc_pos_coverage.get("DL", 0) or 0),
+            "lb": int(_idptc_pos_coverage.get("LB", 0) or 0),
+            "db": int(_idptc_pos_coverage.get("DB", 0) or 0),
+            "unknown": int(_idptc_unknown_count),
+        },
+        "finalPayloadPopulationBySource": {
+            _k: dict(_v)
+            for _k, _v in sorted(_source_population_by_class.items(), key=lambda kv: kv[0])
+        },
+        "scrapedPopulationBySource": {
+            _k: int(_v)
+            for _k, _v in sorted(_scraped_population_by_source.items(), key=lambda kv: kv[0])
+        },
+        "scrapeToPayloadDropBySource": {
+            _k: dict(_v)
+            for _k, _v in sorted(_source_drop_by_source.items(), key=lambda kv: kv[0])
+        },
+        "warnings": _source_diag_warnings,
+    }
+
+    _raw_market_diagnostics = {
+        "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "playerCount": int(len(composites)),
+        "coverageByPlayerSourceCount": dict(sorted(_coverage_hist.items(), key=lambda kv: int(kv[0]))),
+        "sourcePopulationCounts": dict(sorted(_source_population.items(), key=lambda kv: (-int(kv[1] or 0), kv[0]))),
+        "sourcePopulationByAssetClass": {
+            _k: dict(_v)
+            for _k, _v in sorted(_source_population_by_class.items(), key=lambda kv: kv[0])
+        },
+        "sourceColumnDiagnosticsWarnings": list(_source_diag_warnings),
+        "normalizationOutliers": _normalization_outliers[:60],
+        "oneSiteOnlyHighValuePlayers": _one_site_high_value[:60],
+        "rookieInflationFlags": _rookie_inflation_flags[:60],
+        "idpInflationFlags": _idp_inflation_flags[:60],
+        "rankConversionSamplesTopMidTail": _rank_curve_samples[:80],
+    }
+
+    print(
+        "  [Raw Market Audit] "
+        f"one-site-high={len(_one_site_high_value)} "
+        f"outliers={len(_normalization_outliers)} "
+        f"rookie-flags={len(_rookie_inflation_flags)} "
+        f"idp-flags={len(_idp_inflation_flags)}"
+    )
+    if _source_diag_warnings:
+        print(f"  [Source Diagnostics] warnings={len(_source_diag_warnings)}")
+        for _msg in _source_diag_warnings:
+            print(f"    ⚠ {_msg}")
+    _id_tot = _identity_resolution_diagnostics.get("totals", {}) if isinstance(_identity_resolution_diagnostics, dict) else {}
+    print(
+        "  [Identity Diagnostics] "
+        f"matched={int(_id_tot.get('matchedRows', 0) or 0)}/"
+        f"{int(_id_tot.get('sourceRows', 0) or 0)} "
+        f"unmatched={int(_id_tot.get('unmatchedRows', 0) or 0)} "
+        f"duplicates={int(_id_tot.get('duplicateCanonicalMatches', 0) or 0)} "
+        f"pos-conflicts={int(_id_tot.get('conflictingPositions', 0) or 0)} "
+        f"identity-conflicts={int(_id_tot.get('conflictingSourceIdentities', 0) or 0)}"
+    )
+
     await _phase("build_payload", "dashboard_json", message="Building canonical dashboard payload")
     dashboard_json = {
         "version": 4,
@@ -11160,6 +12510,10 @@ async def run(progress_callback=None):
             "mustHaveRookies": list(ROOKIE_MUST_HAVE_NAMES or []),
             "dlfImport": dict(DLF_IMPORT_DEBUG or {}),
             "sourceRunSummary": source_run_summary,
+            "sourceModes": dict(SOURCE_MODE_OVERRIDES or {}),
+            "sourceSchemaDiagnostics": dict(SOURCE_SCHEMA_DIAGNOSTICS or {}),
+            "sourceColumnDiagnostics": dict(_source_column_diagnostics or {}),
+            "identityResolutionDiagnostics": dict(_identity_resolution_diagnostics or {}),
         },
         "sites": sites_meta,
         "maxValues": max_values,
@@ -11167,6 +12521,7 @@ async def run(progress_callback=None):
         "pickAnchors": pick_anchors,
         "pickAnchorsRaw": pick_anchors_raw,
         "coverageAudit": coverage_audit,
+        "rawMarketDiagnostics": _raw_market_diagnostics,
         "players": players_json,
     }
 
@@ -11193,12 +12548,14 @@ async def run(progress_callback=None):
         dashboard_json["ktcIdMap"] = ktc_id_map
 
     await _phase("write_files", "dynasty_data_json", message="Writing dashboard JSON/JS outputs")
-    json_fname = os.path.join(SCRIPT_DIR, f"dynasty_data_{datetime.date.today()}.json")
+    json_basename = f"dynasty_data_{datetime.date.today()}.json"
+    json_fname = os.path.join(SCRIPT_DIR, json_basename)
     with open(json_fname, "w", encoding="utf-8") as f:
         json.dump(dashboard_json, f, indent=2, ensure_ascii=False)
     print(f"Saved to: {json_fname}")
 
-    js_fname = os.path.join(SCRIPT_DIR, "dynasty_data.js")
+    js_basename = "dynasty_data.js"
+    js_fname = os.path.join(SCRIPT_DIR, js_basename)
     with open(js_fname, "w", encoding="utf-8") as f:
         f.write("// Auto-generated by Dynasty Scraper — "
                 f"{datetime.date.today()}\n")
@@ -11206,6 +12563,38 @@ async def run(progress_callback=None):
         json.dump(dashboard_json, f, indent=2, ensure_ascii=False)
         f.write(";\n")
     print(f"Saved to: {js_fname}")
+
+    # Mirror core dashboard files to both repo root and repo data/ so manual
+    # runs and server startup always read the same latest payload.
+    _mirror_dirs = []
+    for _d in (
+        SCRIPT_DIR,
+        BASE_SCRIPT_DIR,
+        os.path.join(BASE_SCRIPT_DIR, "data"),
+    ):
+        if not _d:
+            continue
+        _ad = os.path.abspath(_d)
+        if _ad not in _mirror_dirs:
+            _mirror_dirs.append(_ad)
+
+    for _dst_dir in _mirror_dirs:
+        if _dst_dir == os.path.abspath(SCRIPT_DIR):
+            continue
+        try:
+            os.makedirs(_dst_dir, exist_ok=True)
+            _dst_json = os.path.join(_dst_dir, json_basename)
+            _dst_js = os.path.join(_dst_dir, js_basename)
+            if _copy_file_if_changed(json_fname, _dst_json):
+                print(f"Saved to: {_dst_json}")
+            else:
+                print(f"Unchanged: {_dst_json}")
+            if _copy_file_if_changed(js_fname, _dst_js):
+                print(f"Saved to: {_dst_js}")
+            else:
+                print(f"Unchanged: {_dst_js}")
+        except Exception as _mirror_err:
+            print(f"  [Write] Mirror warning for {_dst_dir}: {_mirror_err}")
 
     print(f"  {len(players_json)} players, {len(max_values)} sites with max values")
     if pick_anchors:

@@ -1,0 +1,45 @@
+name: Runtime Smoke Monitor
+
+on:
+  schedule:
+    - cron: '43 */12 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: runtime-smoke-monitor
+  cancel-in-progress: true
+
+jobs:
+  smoke-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Runtime route/auth smoke probe
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p tmp
+          python scripts/runtime_probe.py \
+            --base-url "${{ vars.PROD_PUBLIC_URL || 'https://riskittogetthebrisket.org' }}" \
+            --mode smoke \
+            --strict-health \
+            --strict-operator \
+            --strict-routes \
+            --max-scrape-age-hours "${{ vars.PROD_MAX_HEALTHY_SCRAPE_AGE_HOURS || '10' }}" \
+            --output-json tmp/runtime_probe_smoke.json
+
+      - name: Upload runtime smoke report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-probe-smoke
+          path: tmp/runtime_probe_smoke.json
+          if-no-files-found: ignore

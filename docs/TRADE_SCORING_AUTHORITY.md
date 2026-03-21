@@ -36,6 +36,7 @@ Last verified: 2026-03-20 (live runtime)
 ## Residual Browser-Only Logic
 - Manual row site-entry composition remains browser-side.
 - Local package formula remains as an explicit calculator fallback only when `/api/trade/score` is unavailable.
+- If backend responds but omits a populated side `weightedTotal`, calculator now withholds package totals (integrity hold) instead of falling back locally.
 - Historical trade analysis and trade grades require backend scoring authority; they now surface unavailable/partial authority state instead of silently scoring with browser formula.
 - Fallback diagnostics are explicit:
   - Calculator: `window.__tradeCalculatorPackageDiagnostics.fallback`
@@ -43,17 +44,30 @@ Last verified: 2026-03-20 (live runtime)
 
 ## Runtime Authority Diagnostics
 - Calculator now publishes authority state to `window.__tradeCalculatorAuthorityState`.
+- Calculator now publishes compact user-truth summary state to `window.__tradeCalculatorTruthState`.
 - Contract/version mismatch between runtime payload and trade-score response is surfaced as a hard error:
   - `window.__tradeCalculatorPackageDiagnostics.contract.mismatch === true`
   - UI warning banners: `#tradeAuthorityWarning` and `#mobileTradeAuthorityWarning`
+- Compact trust summary surfaces in UI:
+  - desktop: `#tradeTruthSummary`
+  - mobile: `#mobileTradeTruthSummary`
+  - includes authoritative/partial headline plus fallback/manual/quarantine/unresolved/low-confidence counts when present.
 - Fallback policy can be controlled with:
   - `window.__tradeFallbackPolicy = "allow" | "disallow"`
   - `localStorage["dynasty_trade_fallback_policy"] = "allow" | "disallow"`
 - When fallback is disallowed and backend scoring is unavailable, package totals are withheld and surfaced as non-authoritative:
   - `authority: "backend_trade_scoring_required_fallback_disallowed"`
   - `fallback.blockedCount > 0`
+- When backend is healthy but payload integrity is broken (missing side totals), package totals are withheld and surfaced as non-authoritative:
+  - `authority: "backend_trade_scoring_invalid_payload"`
+  - `fallback.backendPayloadIssueCount > 0`
+  - `fallback.bySide.<side>.payloadIssue === true`
 - Best-ball context assumptions are explicit in diagnostics:
   - `window.__tradeCalculatorPackageDiagnostics.bestBallContext`
+- Row-level truth flags are surfaced in the trade value cell when applicable:
+  - `manual override`
+  - `quarantined`
+  - `low confidence`
 
 ## Live Runtime Proof Snapshot (2026-03-20)
 - `POST /api/trade/score` returns:

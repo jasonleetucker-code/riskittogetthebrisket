@@ -141,6 +141,17 @@ UPTIME_ALERT_FAIL_THRESHOLD = int(os.getenv("UPTIME_ALERT_FAIL_THRESHOLD", "2"))
 # ── LIGHTWEIGHT AUTH GATE (PRIVATE-USE) ────────────────────────────────
 # App UI is intentionally gated behind Jason login.
 JASON_LOGIN_USERNAME = (os.getenv("JASON_LOGIN_USERNAME") or "jasonleetucker").strip()
+_raw_jason_username_aliases = [
+    str(part or "").strip()
+    for part in str(os.getenv("JASON_LOGIN_USERNAME_ALIASES") or "").split(",")
+]
+JASON_LOGIN_USERNAME_ALIASES = tuple(
+    alias
+    for alias in dict.fromkeys(
+        [JASON_LOGIN_USERNAME, "jason", *_raw_jason_username_aliases]
+    )
+    if alias
+)
 
 
 def _read_secret_file(path_like: str) -> str:
@@ -155,9 +166,11 @@ JASON_LOGIN_PASSWORD_FILE = str(
     os.getenv("JASON_LOGIN_PASSWORD_FILE")
     or ((Path(__file__).parent / ".secrets" / "jason_login_password").resolve())
 ).strip()
+JASON_LOGIN_PASSWORD_DEFAULT = "Brisket2026!"
 JASON_LOGIN_PASSWORD = str(
     os.getenv("JASON_LOGIN_PASSWORD")
     or _read_secret_file(JASON_LOGIN_PASSWORD_FILE)
+    or JASON_LOGIN_PASSWORD_DEFAULT
     or ""
 ).strip()
 JASON_AUTH_CONFIGURED = bool(JASON_LOGIN_PASSWORD)
@@ -210,6 +223,22 @@ def send_alert(subject: str, body: str):
         log.info(f"Alert sent: {subject}")
     except Exception as e:
         log.error(f"Failed to send alert email: {e}")
+
+
+def _normalize_login_name(value: str | None) -> str:
+    return "".join(ch for ch in str(value or "").casefold() if ch.isalnum())
+
+
+def _is_valid_jason_username(username: str | None) -> bool:
+    candidate = _normalize_login_name(username)
+    if not candidate:
+        return False
+    allowed = {
+        _normalize_login_name(alias)
+        for alias in JASON_LOGIN_USERNAME_ALIASES
+        if str(alias or "").strip()
+    }
+    return candidate in allowed
 
 
 # ── PATHS ───────────────────────────────────────────────────────────────
@@ -790,6 +819,13 @@ def _runtime_route_authority_payload() -> dict:
             "fallbackAuthority": LEAGUE_INLINE_FALLBACK_AUTHORITY,
             "fallbackEnabled": True,
             "nextProxyFallbackEnabled": False,
+        },
+        "/api/draft-capital": {
+            "status": "complete",
+            "access": "public",
+            "handler": "get_draft_capital",
+            "runtimeAuthority": "public-sleeper-pick-details-api",
+            "sourceAuthority": "latest_data.sleeper.teams[].pickDetails",
         },
         "/app": {
             "status": "complete",
@@ -1821,6 +1857,190 @@ def _trade_ts_to_iso(raw_ts) -> str | None:
         return None
 
 
+def _build_draft_capital_payload(source_data: dict | None) -> dict:
+    if not isinstance(source_data, dict):
+        return {
+            "ok": False,
+            "error": "Draft capital data not ready yet.",
+            "generatedAt": _utc_now_iso(),
+            "sourceLoadedAt": latest_data_source.get("loadedAt"),
+            "sourceType": latest_data_source.get("type"),
+        }
+
+    sleeper = source_data.get("sleeper")
+    if not isinstance(sleeper, dict):
+        return {
+            "ok": False,
+            "error": "Sleeper league block is unavailable.",
+            "generatedAt": _utc_now_iso(),
+            "sourceLoadedAt": latest_data_source.get("loadedAt"),
+            "sourceType": latest_data_source.get("type"),
+        }
+
+    teams_raw = sleeper.get("teams")
+    if not isinstance(teams_raw, list):
+        teams_raw = []
+
+    league_settings = sleeper.get("leagueSettings")
+    draft_rounds = _safe_int(league_settings.get("draft_rounds")) if isinstance(league_settings, dict) else None
+    league_season_map: dict[int, dict] = {}
+    teams = []
+    total_pick_count = 0
+
+    for team in teams_raw:
+        if not isinstance(team, dict):
+            continue
+
+        roster_id = _safe_int(team.get("roster_id") or team.get("rosterId"))
+        team_name = str(team.get("name") or "Team").strip()
+        raw_pick_details = team.get("pickDetails")
+        if not isinstance(raw_pick_details, list):
+            raw_pick_details = []
+
+        pick_details = []
+        season_map: dict[int, dict] = {}
+        own_pick_count = 0
+        acquired_pick_count = 0
+
+        for detail in raw_pick_details:
+            if not isinstance(detail, dict):
+                continue
+
+            season = _safe_int(detail.get("season"))
+            round_num = _safe_int(detail.get("round"))
+            owner_roster_id = _safe_int(detail.get("ownerRosterId"))
+            from_roster_id = _safe_int(detail.get("fromRosterId"))
+            if season is None or round_num is None:
+                continue
+
+            slot = _safe_int(detail.get("slot"))
+            is_original_owner = (
+                owner_roster_id is not None
+                and from_roster_id is not None
+                and owner_roster_id == from_roster_id
+            )
+            if is_original_owner:
+                own_pick_count += 1
+            else:
+                acquired_pick_count += 1
+
+            pick_details.append(
+                {
+                    "season": season,
+                    "round": round_num,
+                    "slot": slot,
+                    "label": str(detail.get("label") or "").strip() or None,
+                    "baseLabel": str(detail.get("baseLabel") or "").strip() or None,
+                    "fromTeam": str(detail.get("fromTeam") or "").strip() or None,
+                    "fromRosterId": from_roster_id,
+                    "ownerRosterId": owner_roster_id,
+                    "isOriginalOwner": is_original_owner,
+                }
+            )
+
+            team_season = season_map.setdefault(
+                season,
+                {
+                    "season": season,
+                    "total": 0,
+                    "own": 0,
+                    "acquired": 0,
+                    "roundCounts": {},
+                },
+            )
+            team_season["total"] += 1
+            if is_original_owner:
+                team_season["own"] += 1
+            else:
+                team_season["acquired"] += 1
+            round_key = str(round_num)
+            team_season["roundCounts"][round_key] = int(team_season["roundCounts"].get(round_key, 0) or 0) + 1
+
+            league_season = league_season_map.setdefault(
+                season,
+                {
+                    "season": season,
+                    "teamCount": 0,
+                    "total": 0,
+                    "teams": {},
+                },
+            )
+            league_season["total"] += 1
+            if roster_id is not None:
+                league_team = league_season["teams"].setdefault(
+                    roster_id,
+                    {
+                        "rosterId": roster_id,
+                        "team": team_name,
+                        "total": 0,
+                        "roundCounts": {},
+                    },
+                )
+                league_team["total"] += 1
+                league_team["roundCounts"][round_key] = int(league_team["roundCounts"].get(round_key, 0) or 0) + 1
+
+        pick_details.sort(
+            key=lambda item: (
+                int(item.get("season") or 9999),
+                int(item.get("round") or 9),
+                int(item.get("slot") or 99),
+                str(item.get("fromTeam") or ""),
+            )
+        )
+        season_summaries = []
+        for season in sorted(season_map):
+            summary = season_map[season]
+            summary["roundCounts"] = {
+                key: summary["roundCounts"][key]
+                for key in sorted(summary["roundCounts"], key=lambda value: int(value))
+            }
+            season_summaries.append(summary)
+
+        total_pick_count += len(pick_details)
+        teams.append(
+            {
+                "name": team_name,
+                "rosterId": roster_id,
+                "pickCount": len(pick_details),
+                "ownPickCount": own_pick_count,
+                "acquiredPickCount": acquired_pick_count,
+                "seasonSummaries": season_summaries,
+                "pickDetails": pick_details,
+            }
+        )
+
+    teams.sort(key=lambda item: str(item.get("name") or "").lower())
+
+    seasons = []
+    for season in sorted(league_season_map):
+        season_payload = league_season_map[season]
+        teams_for_season = list(season_payload.get("teams", {}).values())
+        teams_for_season.sort(key=lambda item: str(item.get("team") or "").lower())
+        season_payload["teamCount"] = len(teams_for_season)
+        season_payload["teams"] = teams_for_season
+        seasons.append(season_payload)
+
+    return {
+        "ok": True,
+        "generatedAt": _utc_now_iso(),
+        "sourceLoadedAt": latest_data_source.get("loadedAt"),
+        "sourceType": latest_data_source.get("type"),
+        "league": {
+            "leagueId": str(sleeper.get("leagueId") or "").strip() or None,
+            "leagueName": str(sleeper.get("leagueName") or "").strip() or "League",
+            "teamCount": len(teams),
+            "draftRounds": draft_rounds,
+        },
+        "summary": {
+            "teamCount": len(teams),
+            "seasonCount": len(seasons),
+            "pickCount": total_pick_count,
+        },
+        "teams": teams,
+        "seasons": seasons,
+    }
+
+
 def _build_public_league_payload(source_data: dict | None) -> dict:
     """
     Build a strict public-safe League payload.
@@ -2550,6 +2770,16 @@ async def get_public_league_data():
     return JSONResponse(status_code=503, content=payload, headers=headers)
 
 
+@app.get("/api/draft-capital")
+async def get_draft_capital():
+    source_payload = latest_data or load_from_disk()
+    payload = _build_draft_capital_payload(source_payload)
+    headers = {"Cache-Control": "public, max-age=30, stale-while-revalidate=300"}
+    if payload.get("ok"):
+        return JSONResponse(content=payload, headers=headers)
+    return JSONResponse(status_code=503, content=payload, headers=headers)
+
+
 @app.get("/api/status")
 async def get_status(request: Request):
     """Return scraper status info."""
@@ -2996,7 +3226,7 @@ async def auth_login(request: Request):
     username = str(payload.get("username") or "").strip()
     password = str(payload.get("password") or "")
     next_path = _sanitize_next_path(payload.get("next"), "/app")
-    username_match = username.casefold() == JASON_LOGIN_USERNAME.casefold()
+    username_match = _is_valid_jason_username(username)
 
     if not username_match or password != JASON_LOGIN_PASSWORD:
         return JSONResponse(

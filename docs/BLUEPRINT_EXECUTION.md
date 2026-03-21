@@ -1,228 +1,267 @@
-# Risk It To Get The Brisket — Canonical Dynasty Engine Blueprint
+# Risk It to Get the Brisket — Operating Blueprint
 
-_Last updated: 2026-03-09_
+_Last updated: 2026-03-12_
 
-## 1. Mission Statement
-Build a **private dynasty + IDP valuation platform** that:
-- Ingests multiple external rankings/value sources (KTC, DLF, Dynasty Nerds, etc.).
-- Resolves every asset (players, picks) to a single internal ID.
-- Normalizes each source into a shared 0–9999 canonical scale.
-- Applies **league-specific scarcity + scoring adjustments** (offense + IDP).
-- Powers a decision layer (trade calculator, rankings, roster/league dashboard).
+This is the working master blueprint for what the product is becoming, plus a
+repo-grounded execution checkpoint. It is not a claim that every module is
+already complete.
 
-This is a five-system stack:
-1. **Source ingestion system** — adapters + raw snapshots.
-2. **Identity mapping system** — master player/pick IDs.
-3. **Canonical value engine** — per-universe normalization + blending.
-4. **League context engine** — scoring, scarcity, replacement, pick logic.
-5. **Decision UI / API** — calculator, rankings, roster intelligence.
+## 1) Product Vision
+Risk It to Get the Brisket is evolving from a single trade calculator into a
+full dynasty platform with first-class IDP support, league-native valuation,
+and a public league identity layer.
 
-Everything downstream depends on getting those layers right and versioned.
+North-star outcomes:
+- Measure value correctly across players, picks, scoring formats, and league settings.
+- Turn values into action with calculator and realistic trade suggestions.
+- Represent league identity/history publicly without leaking private edge.
+- Deliver full-power mobile and desktop experiences with fast load and stable interactions.
 
----
+## 2) Non-Negotiable Product Rules
+- No fake completeness: feature existence in code is not proof of live wiring.
+- Mobile is not reduced mode: no desktop-only critical workflows.
+- Custom league reality matters: scoring, roster structure, IDP, pick economy.
+- Public pages must not expose private valuation or optimization internals.
+- Data quality and source completeness are more important than visual polish.
+- Rankings, calculator, and suggestions must share the same valuation backbone.
 
-## 2. Product Definition
-### What v1 **is**
-- Import & normalize signals from chosen sources.
-- Offensive + IDP assets share the same canonical economy.
-- League-scoped trade calculator with roster impact + balancing suggestions.
-- Rankings/roster/team-value dashboards fed by canonical values.
+## 3) Major Product Pillars
 
-### What v1 **is not**
-- No public SaaS, anonymous users, crowd voting, or content network.
-- No giant cross-league trade DB yet.
-- No podcast/news layer.
+### 3.1 Unified Valuation Engine
+Target behavior:
+- Aggregate intended sources when available.
+- Preserve per-source columns.
+- Resolve all assets to canonical entities.
+- Normalize to canonical 0-9999 economics.
+- Produce one backend-authoritative value bundle consumed everywhere.
 
-MVP = Source ingest → Canonical values → League adjustments → Trade calc → Rankings/Roster UI.
+Target source family includes:
+- KeepTradeCut
+- Dynasty IDP Trade Calculator
+- Draft Sharks
+- DLF CSV sources
+- Dynasty Nerds
+- Yahoo
+- FantasyPros
+- Dynasty Daddy
+- FantasyCalc
+- FantasyNavigator (or equivalent future source when integrated)
 
----
+### 3.2 Custom League Scoring Translation
+Target behavior:
+- Ingest Sleeper scoring settings for target league.
+- Compare against explicit baseline/test scoring config.
+- Use historical stat profiles to derive position/player effects.
+- Feed scoring effects into value resolution and trade evaluation.
 
-## 3. Architecture Layers
-### 3.1 Raw Source Layer
-- **Tables**: `raw_source_snapshots`, `raw_source_assets` (players + picks).
-- Store _exact_ payloads per source pull (name, source ID, rank, value, metadata).
-- Never mutate raw rows. Reruns should be possible without re-scraping.
+### 3.3 Trade Decision System
+Target behavior:
+- Stable calculator with full desktop/mobile parity.
+- Package/consolidation logic that is explainable and realistic.
+- Upgrade from passive grading to proactive sendable trade generation.
 
-### 3.2 Identity Resolution
-- **Master tables**: `players`, `player_aliases`, `picks`, `pick_aliases`.
-- Map Sleeper/KTC/DLF IDs, names, suffixes, positions, teams, rookie flags, IDP roles.
-- No value blending until asset IDs are resolved.
+### 3.4 Public League Pages
+Target behavior:
+- Public-safe league hub with history, franchises, awards, records, draft,
+  trades, constitution, money, and media modules.
+- Strong boundary between public content and private strategy edge.
 
-### 3.3 Canonical Normalization
-- Separate universes: Offense Vet, Offense Rookie, IDP Vet, IDP Rookie, Picks.
-- For each source snapshot:
-  1. Rank assets.
-  2. Convert to percentile.
-  3. Apply curve (e.g., `score = round(9999 * percentile^0.65)` for MVP).
-  4. Blend across sources with weights per universe.
-- Store in `canonical_snapshots`, `canonical_asset_values` (versioned).
+### 3.5 Mobile, Performance, and Reliability
+Target behavior:
+- Fast first paint, low interaction latency, no broken mobile controls.
+- Clear freshness/source health visibility.
+- Reliable deploy/update/sync flow with rollback safety.
 
-### 3.4 League Context Engine
-- **League tables**: `leagues`, `league_settings`, `league_rosters`, `roster_assets`.
-- Inputs: team count, lineup reqs, bench/taxi, superflex, TE premium, IDP structure, scoring per event, pick format.
-- Outputs: replacement baselines, scarcity multipliers, package compression rules, pick discounts.
+## 4) Authoritative Runtime Architecture (Truth)
 
-### 3.5 Decision Layer
-- Services: trade calc API, rankings API, roster/team view API.
-- Surfaces: calculator, rankings table, team/league dashboards, player detail, settings.
-- Display base values, league-adjusted values, trade liquidity values.
+Live authoritative value path today:
+- `Dynasty Scraper.py` builds runtime player/pick payload.
+- `src/api/data_contract.py` builds and validates `/api/data` contract.
+- `server.py` publishes `/api/data`, `/api/status`, startup/runtime/full views.
 
----
+Explicitly non-authoritative scaffold path today:
+- `src/adapters`, `src/identity`, `src/canonical`, `src/league`
+- `scripts/source_pull.py`, `scripts/identity_resolve.py`,
+  `scripts/canonical_build.py`, `scripts/league_refresh.py`
+- `/api/scaffold/*` endpoints
 
-## 4. Core Models & Tables
-| Area | Tables / Files |
-| --- | --- |
-| Raw ingest | `raw_source_snapshots`, `raw_source_asset_values` |
-| Identity | `players`, `player_aliases`, `picks`, `pick_aliases` |
-| Canonical | `canonical_snapshots`, `canonical_asset_values`, `value_history` |
-| League | `leagues`, `league_settings`, `league_rosters`, `roster_assets` |
-| Trade history | `trade_evaluations`, `package_adjustments` |
-| Config | `source_configs`, `league_profiles`, `pick_curves` |
+Frontend runtime truth:
+- `FRONTEND_RUNTIME=static` is default live runtime mode in `server.py`.
+- Next runtime is available in `next` or `auto`, but static remains default.
 
-Every canonical run is versioned. Trend charts must reference snapshot IDs.
+## 5) Canonical Value Bundle Contract
+For each known player/pick, resolver output must include:
+- `rawValue`
+- `scoringAdjustedValue`
+- `scarcityAdjustedValue`
+- `bestBallAdjustedValue`
+- `fullValue`
+- `confidence`
+- `sourceCoverage`
+- `adjustmentTags`
+- layer diagnostics/metadata used by rankings/calculator/player detail
 
----
+Current live contract source:
+- `src/api/data_contract.py` (`CONTRACT_VERSION` in code; currently `2026-03-19.v5`)
 
-## 5. Normalization & Blending Rules
-1. **Percentile transform** per source/universe.
-2. **Curve** (power/logistic) to widen elite tier, compress bottom.
-3. **Blend** sources with weights that reflect coverage + stability.
-4. **League adjustments**: apply scarcity multipliers, position factors, rookie optimism dial, contender vs rebuilder dial.
-5. **Trade liquidity**: add package compression (premium for fewer/better assets) + pick time discount.
+## 6) Module Architecture Map
+- Module A: Canonical entity layer (players, picks, aliases, identity map)
+- Module B: Source ingestion layer (scrape/API/CSV pulls + provenance)
+- Module C: Normalization layer (rank/value transforms + blending)
+- Module D: League context layer (Sleeper scoring + scarcity/replacement)
+- Module E: Valuation engine (authoritative value bundles and diagnostics)
+- Module F: Trade engine (package math, fairness, side deltas)
+- Module G: Trade suggestions engine (sendable offers + realism strategy)
+- Module H: Public league pages engine (history/records/awards/money/media)
+- Module I: Frontend experience layer (mobile + desktop parity)
+- Module J: Ops/observability layer (deploy, health, freshness, rollback)
 
----
+## 7) Phased Roadmap
+- Phase 1: Foundation stabilization (mobile parity, broken interactions, speed, deploy truth)
+- Phase 2: Value engine completion (source breadth, mapping, normalization, shared backbone)
+- Phase 3: League scoring intelligence (Sleeper-aware translation in live valuation)
+- Phase 4: Calculator decision-tool upgrade (deeper explainability and package realism)
+- Phase 5: Trade Suggestions v1 (realism/strategy modes, exclusions, counters, sendability)
+- Phase 6: Public League Pages expansion (history ecosystem without private-edge leakage)
+- Phase 7: Intelligence/content layer (interpretation signals, not valuation truth source)
 
-## 6. League Context & Pick Engine
-- Replacement level = (teams × starters) + injury buffer.
-- Scarcity multiplier per position = f(start demand, replacement dropoff).
-- Pick model: tiered curve by slot (1.01 elite, 1.04–1.06 strong, etc.), adjustable class strength + future discount.
-- Support early/mid/late buckets when slot unknown.
+## 8) Current Execution Checkpoint (Repo-Grounded)
 
----
+### 8.1 Status by Module
+- Valuation engine: `mostly working` (live in scraper + contract resolver).
+- Source ingestion (live runtime path): `mostly working` (multi-source scrape + diagnostics).
+- Source ingestion (`src/` scaffold path): `partial` (artifact pipeline, not live authority).
+- Canonical mapping: `partial` (live heuristics in scraper; scaffold identity exists but non-live).
+- 0-9999 normalization: `mostly working` (live composite + contract clamping).
+- Scoring translation: `partially built` (live scoring modules wired; still evolving).
+- Trade calculator (static runtime): `mostly working`.
+- Trade calculator (Next runtime): `partially built`.
+- Trade suggestions: `partially built` (static-only implementation; not migrated to Next).
+- Rankings (static runtime): `mostly working`.
+- Rankings (Next runtime): `mostly working`.
+- Public League Pages (Next): `scaffolded only` (no live `frontend/app/league/page.*`; runtime authority remains FastAPI static League shell).
+- Public/private boundary: `partial` (implemented in Next sanitization; backend public contract still needed).
+- Mobile parity overall: `wired but brittle` (strong static coverage, partial Next parity).
+- Performance/reliability: `partial` (recent wins, but shared JS and dual-runtime complexity remain).
+- Deployment/ops: `mostly working` (GitHub Actions + Jenkins + health checks + runtime switching).
 
-## 7. Trade Engine Contract
-For each proposed deal:
-1. Raw totals per side (base + league-adjusted values).
-2. Package adjustment / consolidation premium.
-3. Lineup impact (who becomes starter/bench, positional needs).
-4. Fairness band verdict + balancing suggestion (“add late 2nd or DB2-tier”).
-5. Optional mode: Market mirror vs My board.
+### 8.2 Phase Assessment
+Actual position:
+- Between `Phase 1` and early `Phase 2`.
 
----
+Why:
+- Foundation hardening and runtime-truth work is real.
+- Authoritative value bundles are live.
+- But architecture is still split (static default + partial Next migration), and
+  `src` canonical pipeline is not runtime authority yet.
 
-## 8. UI Surfaces (MVP)
-1. **Calculator** – add assets, live verdict, suggested balancers.
-2. **Rankings** – sortable master board (overall/offense/IDP/rookies/picks/my roster) with trend + source contribution.
-3. **Team/League view** – team values, strengths/weaknesses, roster profiles.
-4. **Player detail** – current value, trend history, tier, source breakdown.
-5. **Settings** – league scoring, source weights, pick discounts, rookie optimism, contender/rebuilder mode.
+## 9) Next Implementation Priorities (Ordered)
 
----
+### Priority 1 (highest leverage): Runtime authority cutover plan for migrated Next routes
+Objective:
+- Move from "Next exists" to controlled runtime authority for migrated routes.
 
-## 9. Jenkins Responsibilities
-- Schedule source pulls and roster imports.
-- Validate: unmatched players, duplicate mappings, value outliers, rank jumps.
-- Rebuild canonical snapshots & publish artifacts.
-- Generate ops reports (risers/fallers, source failures, value drift, roster delta).
-- Maintain audit logs (snapshot IDs, weights, adjustments).
+Work:
+- Add explicit backend route handling for `/calculator` parity path in `server.py`
+  (right now backend routes include `/trade` but not `/calculator`).
+- Define route-by-route cutover toggles and rollback checks.
+- Keep static fallback safe until parity gates pass.
 
-### Jenkins File Targets
-1. `jenkins/source_pull` – run adapters, dump raw snapshots.
-2. `jenkins/canonical_build` – run normalization/blending per snapshot.
-3. `jenkins/league_refresh` – apply league settings, rebuild adjusted values.
-4. `jenkins/reporting` – output daily trend/ops report (Markdown/JSON).
+Acceptance criteria:
+- `/`, `/rankings`, `/league`, `/calculator` reachable intentionally under chosen runtime mode.
+- Clear rollback path documented and tested.
 
----
+### Priority 2: Finish authoritative contract consumption in all active UIs
+Objective:
+- Remove remaining value-path ambiguity between legacy and migrated surfaces.
 
-## 10. Execution Backlog (Jenkins + Kodex)
-### Phase 0 – Repo spine
-- [ ] Document current legacy stack (scrapers, server.py, frontend).
-- [ ] Carve out `/src` structure for new modules (`src/adapters`, `src/identity`, `src/canonical`, `src/league`, `src/api`).
-- [ ] Add `.env.example` + config loaders.
+Work:
+- Continue reducing frontend fallback chains in `frontend/lib/dynasty-data.js`.
+- Keep `valueBundle` as primary and legacy aliases strictly compatibility-only.
+- Add explicit mismatch diagnostics where any UI recomputes known-asset values.
 
-### Phase 1 – Source adapters & raw store
-- [ ] Define adapter contract (inputs, normalization hints, metadata).
-- [ ] Implement initial adapters (DLF CSV import, KTC scrape stub, placeholder manual CSV loader) into `raw_source_*` tables/files.
-- [ ] Raw snapshot storage + CLI/cron entrypoint.
-- [ ] Unmatched-player report.
+Acceptance criteria:
+- Rankings/calculator/player detail parity holds for all selected value bases.
+- Confidence/sourceCoverage remain visible in active user surfaces.
 
-### Phase 2 – Identity mapping
-- [ ] Master `players` table + alias ingestion.
-- [ ] CLI to reconcile new names and flag manual review.
-- [ ] Unit tests for suffix/punctuation/team changes.
+### Priority 3: Trade suggestions migration into shared service layer
+Objective:
+- Prevent static-only "advanced" suggestions from becoming dead-path logic.
 
-### Phase 3 – Canonical pipeline
-- [ ] Define universes + weight config.
-- [ ] Percentile + curve transforms (power curve for MVP).
-- [ ] Source blending + snapshot versioning.
-- [ ] Store canonical assets + value history.
+Work:
+- Extract suggestion logic from `Static/js/runtime/30-more-surfaces.js` into
+  shared backend or shared library service with explicit contracts.
+- Reuse authoritative value bundles and package logic.
+- Expose realism/strategy/exclusions/counter outputs through one interface.
 
-### Phase 4 – League context
-- [ ] League settings schema + YAML/JSON import.
-- [ ] Starter demand + replacement math (offense + IDP positions).
-- [ ] Scarcity multipliers + rookie optimism dial.
-- [ ] Pick curve + time discount module.
+Acceptance criteria:
+- Same suggestion model reachable from the active calculator runtime.
+- No duplicate suggestion engines with different behavior.
 
-### Phase 5 – Trade API + calculator
-- [ ] Package adjustment logic.
-- [ ] Lineup impact service (per team roster profile).
-- [ ] REST endpoint + initial CLI.
-- [ ] Frontend calculator view (hook into Next app).
+### Priority 4: Public League data contract and admin-backed manual datasets
+Objective:
+- Make League Pages truthful and extensible without leaking private internals.
 
-### Phase 6 – Rankings + roster dashboards
-- [ ] Rankings endpoint + table component.
-- [ ] Roster/team view (values, surpluses, needs).
-- [ ] Player detail page with trend chart + source contributions.
+Work:
+- Add a dedicated public-safe backend contract endpoint (allowlist-first).
+- Add commissioner-managed stores for missing manual-first domains
+  (`rules_versions`, payouts ledger, media posts).
+- Keep missing-history modules explicitly blocked or provisional.
 
-### Phase 7 – Advanced tooling
-- [ ] Trade finder / target list.
-- [ ] Contender vs rebuilder toggle adjustments.
-- [ ] Historical value charts + regression alerts.
+Acceptance criteria:
+- League pages no longer rely on broad private payload sanitization alone.
+- Constitution/money/media can be maintained without code edits.
 
----
+### Priority 5: Historical data backbone for Phase 2+ league modules
+Objective:
+- Unlock records/awards/history with real attribution integrity.
 
-## 11. Open Decisions (Founder inputs required)
-- Source list + initial weights (per universe).
-- League scoring + lineup profile (official data entry).
-- Package tax multiplier scale.
-- Rookie optimism setting (baseline bump or neutral?).
-- Contender vs rebuilder heuristics.
-- Market mirror vs My board default mode.
-- Pick discount schedule (year offsets).
+Work:
+- Build ingestion/backfill for seasons, standings, matchups, weekly team scores,
+  weekly player scores, and roster ownership by week.
+- Add quality gates before enabling records/awards outputs.
 
----
+Acceptance criteria:
+- Historical attribution is reproducible and auditable.
+- Awards/records modules avoid fabricated outputs.
 
-## 12. Immediate Next Actions
-1. **Repo inventory** – tag legacy modules vs to-be-rebuilt components.
-2. **Source adapter spec** – codify required fields + metadata contract.
-3. **Identity schema** – create tables + matching utilities.
-4. **Initial data drop** – import existing CSVs (dlf_idp, etc.) into raw layer for testing pipeline.
-5. **Jenkinsfile update** — stub new stages for source pull + canonical build.
+## 10) What Should Wait
+- Do not prioritize intelligence/content ingestion as valuation input before
+  valuation/scoring/public-contract foundations are stable.
+- Do not claim `src/adapters|identity|canonical|league` as runtime authority
+  until wired into live `/api/data`.
+- Do not force full Next cutover before calculator + mobile parity gates pass.
 
-Once these are in place, Kodex can start implementing adapters + canonical pipeline while I finalize league context + trade engine specs.
-
----
-
-## Runtime Reality Check (Live as of 2026-03-09)
-- Production frontend authority is explicitly controlled by backend env `FRONTEND_RUNTIME`.
-- Default runtime is `static` for deterministic production behavior.
-- Next runtime remains available (`next` / `auto`) but is no longer a silent implicit fallback.
-
-## Current Official `/api/data` Contract
-- Contract version: `2026-03-09.v1`
-- Required live fields:
-  - `contractVersion`
-  - `generatedAt`
-  - `players` (legacy map for Static runtime compatibility)
-  - `playersArray` (normalized stable array)
-  - `sites`
-  - `maxValues`
-- Contract health is validated:
-  - at runtime (status exposure)
-  - in CI (`scripts/validate_api_contract.py`)
-
-## Migration Honesty
-- `Dynasty Scraper.py` + `server.py` remain the live runtime backbone.
-- `src/` scaffold modules are partially implemented and not yet authoritative for end-to-end production valuation runtime.
-- Next frontend exists and is usable for dev, but Static runtime remains the primary production path in this phase.
+## 11) Core Evidence Paths
+- Runtime authority and frontend mode:
+  - `server.py`
+- Live value bundle resolver + diagnostics:
+  - `src/api/data_contract.py`
+- Live source ingestion, normalization, scoring, and diagnostics:
+  - `Dynasty Scraper.py`
+- Scoring translation modules:
+  - `src/scoring/*`
+- Next migrated routes and loaders:
+  - `frontend/app/*`
+  - `frontend/lib/dynasty-data-server.js`
+  - `frontend/lib/dynasty-source.js`
+  - `frontend/lib/dynasty-data.js`
+- Trade/Rankings migration shell pages in Next:
+  - `frontend/app/trade/page.jsx`
+  - `frontend/app/rankings/page.jsx`
+- Public league route implementation:
+  - `server.py` (`/league`, `/league/{league_path:path}`)
+  - `Static/league/index.html`
+  - `Static/league/league.js`
+  - authority reference: `docs/RUNTIME_ROUTE_AUTHORITY.md`
+- Scaffold (non-authoritative) pipeline:
+  - `scripts/source_pull.py`
+  - `scripts/identity_resolve.py`
+  - `scripts/canonical_build.py`
+  - `scripts/league_refresh.py`
+- Regression and contract checks:
+  - `tests/api/test_value_pipeline_golden.py`
+  - `tests/api/test_status_compact.py`
+  - `tests/e2e/*`
+  - `scripts/validate_api_contract.py`
 

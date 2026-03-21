@@ -1,0 +1,233 @@
+{
+  "cases": [
+    {
+      "id": "known_1_for_1_dynasty_full",
+      "request": {
+        "valueBasis": "full",
+        "alpha": 1.678,
+        "bestBallMode": false,
+        "sides": {
+          "A": [
+            { "label": "Alpha QB", "fallbackValue": 111 }
+          ],
+          "B": [
+            { "label": "Delta WR", "fallbackValue": 222 }
+          ],
+          "C": []
+        }
+      },
+      "expect": {
+        "summary": {
+          "inputItems": 2,
+          "backendResolved": 2,
+          "fallbackUsed": 0,
+          "quarantinedExcluded": 0,
+          "unresolvedExcluded": 0
+        },
+        "sideResolution": {
+          "A": { "backendResolved": 1, "fallbackUsed": 0, "quarantinedExcluded": 0, "unresolvedExcluded": 0 },
+          "B": { "backendResolved": 1, "fallbackUsed": 0, "quarantinedExcluded": 0, "unresolvedExcluded": 0 }
+        },
+        "weightedTotalsPositiveSides": ["A", "B"],
+        "requireResolved": [
+          { "side": "A", "canonicalName": "Alpha QB", "resolutionPrefix": "backend_value_bundle", "value": 6100 },
+          { "side": "B", "canonicalName": "Delta WR", "resolutionPrefix": "backend_value_bundle", "value": 4800 }
+        ]
+      }
+    },
+    {
+      "id": "pick_heavy_uneven_package",
+      "request": {
+        "valueBasis": "full",
+        "alpha": 1.85,
+        "bestBallMode": true,
+        "sides": {
+          "A": [
+            { "label": "2026 Pick 1.01", "fallbackValue": 1 },
+            { "label": "2026 Pick 2.06", "fallbackValue": 1 }
+          ],
+          "B": [
+            { "label": "Delta WR", "fallbackValue": 1 },
+            { "label": "2027 Pick 1.11", "fallbackValue": 1 }
+          ],
+          "C": []
+        }
+      },
+      "expect": {
+        "summary": {
+          "inputItems": 4,
+          "backendResolved": 4,
+          "fallbackUsed": 0,
+          "quarantinedExcluded": 0,
+          "unresolvedExcluded": 0
+        },
+        "weightedTotalsPositiveSides": ["A", "B"],
+        "requireResolved": [
+          { "side": "A", "canonicalName": "2026 Pick 1.01", "assetClass": "pick" },
+          { "side": "A", "canonicalName": "2026 Pick 2.06", "assetClass": "pick" },
+          { "side": "B", "canonicalName": "2027 Pick 1.11", "assetClass": "pick" }
+        ]
+      }
+    },
+    {
+      "id": "idp_rookie_and_manual_override",
+      "request": {
+        "valueBasis": "full",
+        "alpha": 1.678,
+        "bestBallMode": true,
+        "sides": {
+          "A": [
+            { "label": "Beta LB", "fallbackValue": 12 },
+            { "label": "Rookie WR", "fallbackValue": 13 }
+          ],
+          "B": [
+            { "label": "Unknown Manual", "fallbackValue": 1550, "manualOverride": true, "pos": "WR", "assetClass": "offense" }
+          ],
+          "C": []
+        }
+      },
+      "expect": {
+        "summary": {
+          "inputItems": 3,
+          "backendResolved": 2,
+          "fallbackUsed": 1,
+          "quarantinedExcluded": 0,
+          "unresolvedExcluded": 0
+        },
+        "sideResolution": {
+          "A": { "backendResolved": 2, "fallbackUsed": 0, "quarantinedExcluded": 0, "unresolvedExcluded": 0 },
+          "B": { "backendResolved": 0, "fallbackUsed": 1, "quarantinedExcluded": 0, "unresolvedExcluded": 0 }
+        },
+        "requireResolved": [
+          { "side": "A", "canonicalName": "Beta LB", "assetClass": "idp" },
+          { "side": "A", "canonicalName": "Rookie WR", "resolutionPrefix": "backend_value_bundle" },
+          { "side": "B", "name": "Unknown Manual", "resolution": "fallback_manual_override", "value": 1550 }
+        ]
+      }
+    },
+    {
+      "id": "quarantined_and_unresolved_exclusions",
+      "request": {
+        "valueBasis": "full",
+        "alpha": 1.678,
+        "bestBallMode": false,
+        "sides": {
+          "A": [
+            { "label": "Mystery Asset", "fallbackValue": 3900 }
+          ],
+          "B": [
+            { "label": "Unknown No Value" }
+          ],
+          "C": []
+        }
+      },
+      "expect": {
+        "summary": {
+          "inputItems": 2,
+          "backendResolved": 0,
+          "fallbackUsed": 0,
+          "quarantinedExcluded": 1,
+          "unresolvedExcluded": 1
+        },
+        "sideResolution": {
+          "A": { "backendResolved": 0, "fallbackUsed": 0, "quarantinedExcluded": 1, "unresolvedExcluded": 0 },
+          "B": { "backendResolved": 0, "fallbackUsed": 0, "quarantinedExcluded": 0, "unresolvedExcluded": 1 }
+        },
+        "requireUnresolvedReasons": [
+          { "side": "A", "reason": "quarantined_from_final_authority" },
+          { "side": "B", "reason": "unresolved_unresolved" }
+        ]
+      }
+    },
+    {
+      "id": "te_premium_relevant_scoring_basis",
+      "request": {
+        "valueBasis": "scoring",
+        "alpha": 1.678,
+        "bestBallMode": false,
+        "sides": {
+          "A": [
+            { "label": "Gamma TE", "fallbackValue": 99 }
+          ],
+          "B": [
+            { "label": "Delta WR", "fallbackValue": 99 }
+          ],
+          "C": []
+        }
+      },
+      "expect": {
+        "summary": {
+          "inputItems": 2,
+          "backendResolved": 2,
+          "fallbackUsed": 0,
+          "quarantinedExcluded": 0,
+          "unresolvedExcluded": 0
+        },
+        "requireResolved": [
+          { "side": "A", "canonicalName": "Gamma TE", "value": 5600, "source": "scoringAdjustedValue" },
+          { "side": "B", "canonicalName": "Delta WR", "value": 4700, "source": "scoringAdjustedValue" }
+        ]
+      }
+    },
+    {
+      "id": "three_way_uneven_shape",
+      "request": {
+        "valueBasis": "full",
+        "alpha": 1.9,
+        "bestBallMode": true,
+        "sides": {
+          "A": [
+            { "label": "Alpha QB", "fallbackValue": 0 },
+            { "label": "2026 Pick 2.06", "fallbackValue": 0 }
+          ],
+          "B": [
+            { "label": "Epsilon RB", "fallbackValue": 0 }
+          ],
+          "C": [
+            { "label": "Beta LB", "fallbackValue": 0 },
+            { "label": "2027 Pick 1.11", "fallbackValue": 0 }
+          ]
+        }
+      },
+      "expect": {
+        "summary": {
+          "inputItems": 5,
+          "backendResolved": 5,
+          "fallbackUsed": 0,
+          "quarantinedExcluded": 0,
+          "unresolvedExcluded": 0
+        },
+        "weightedTotalsPositiveSides": ["A", "B", "C"]
+      }
+    },
+    {
+      "id": "unresolved_with_fallback_value",
+      "request": {
+        "valueBasis": "full",
+        "alpha": 1.678,
+        "bestBallMode": true,
+        "sides": {
+          "A": [
+            { "label": "Unknown With Fallback", "fallbackValue": 1200, "pos": "WR", "assetClass": "offense" }
+          ],
+          "B": [
+            { "label": "Alpha QB", "fallbackValue": 1 }
+          ],
+          "C": []
+        }
+      },
+      "expect": {
+        "summary": {
+          "inputItems": 2,
+          "backendResolved": 1,
+          "fallbackUsed": 1,
+          "quarantinedExcluded": 0,
+          "unresolvedExcluded": 0
+        },
+        "requireResolved": [
+          { "side": "A", "name": "Unknown With Fallback", "resolution": "fallback_unresolved", "value": 1200 }
+        ]
+      }
+    }
+  ]
+}

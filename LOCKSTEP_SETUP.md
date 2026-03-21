@@ -59,7 +59,7 @@ git checkout main
 Python backend:
 - entrypoint: `server.py`
 - runs on: `http://localhost:8000`
-- scrape interval: `SCRAPE_INTERVAL_HOURS = 2`
+- scrape interval: env-configurable (`SCRAPE_INTERVAL_HOURS`, default `4`)
 
 Frontend:
 - directory: `frontend/`
