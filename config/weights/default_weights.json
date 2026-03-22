@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "description": "Initial source weights for canonical blend scaffolding",
+  "version": 2,
+  "description": "Source weights for canonical blend. All sources default to 1.0 (equal weight) until founder tunes them.",
   "universe_defaults": {
     "offense_vet": 1.0,
     "offense_rookie": 1.0,
@@ -13,7 +13,17 @@
     "DLF_IDP": 1.0,
     "DLF_RSF": 1.0,
     "DLF_RIDP": 1.0,
-    "FANTASYCALC": 1.0
+    "FANTASYCALC": 1.0,
+    "KTC": 1.0,
+    "DYNASTYDADDY": 1.0,
+    "YAHOO": 1.0,
+    "FANTASYPROS": 1.0,
+    "DRAFTSHARKS": 1.0,
+    "DYNASTYNERDS": 1.0,
+    "FLOCK": 1.0,
+    "IDPTRADECALC": 1.0,
+    "PFF_IDP": 1.0,
+    "DRAFTSHARKS_IDP": 1.0,
+    "FANTASYPROS_IDP": 1.0
   }
 }
-

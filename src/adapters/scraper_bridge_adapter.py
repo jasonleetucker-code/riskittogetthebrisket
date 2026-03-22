@@ -59,7 +59,7 @@ class ScraperBridgeAdapter:
             source_bucket=self.source_bucket,
             file_path=str(file_path) if file_path else "",
         )
-        if not file_path or not file_path.exists():
+        if not file_path or not file_path.is_file():
             result.warnings.append(
                 f"Scraper bridge: file not found — {file_path}. "
                 "Run the legacy scraper to produce exports/latest/site_raw/ CSVs."

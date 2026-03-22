@@ -56,11 +56,14 @@ SCRAPE_STALL_SECONDS = int(os.getenv("SCRAPE_STALL_SECONDS", "900"))
 SCRAPE_RUN_TIMEOUT_SECONDS = int(os.getenv("SCRAPE_RUN_TIMEOUT_SECONDS", "7200"))
 
 # R-6: Canonical data mode — controls how canonical pipeline data is used.
-#   off     = ignore canonical pipeline output (default, current behavior)
-#   shadow  = load canonical data, log comparison with legacy, serve legacy
-#   primary = serve canonical data, fallback to legacy if unavailable
+#   off              = ignore canonical pipeline output (default, current behavior)
+#   shadow           = load canonical data, log comparison with legacy, serve legacy
+#   internal_primary = serve canonical values to internal/dev only (gated, not public)
+#   primary          = serve canonical data publicly, fallback to legacy if unavailable
+# IMPORTANT: default is always "off". Only change after running
+#   python scripts/check_promotion_readiness.py --target <mode>
 CANONICAL_DATA_MODE = os.getenv("CANONICAL_DATA_MODE", "off").strip().lower()
-if CANONICAL_DATA_MODE not in ("off", "shadow", "primary"):
+if CANONICAL_DATA_MODE not in ("off", "shadow", "internal_primary", "primary"):
     CANONICAL_DATA_MODE = "off"
 
 # ── EMAIL ALERTS ────────────────────────────────────────────────────────
@@ -954,8 +957,8 @@ def _prime_latest_payload(data: dict | None) -> None:
             "warningCount": int(contract_report.get("warningCount", 0)),
             "checkedAt": contract_report.get("checkedAt"),
         }
-        # R-6 shadow: attach non-authoritative canonical comparison when available.
-        if CANONICAL_DATA_MODE == "shadow" and canonical_data is not None:
+        # R-6 shadow/internal_primary: attach non-authoritative canonical comparison when available.
+        if CANONICAL_DATA_MODE in ("shadow", "internal_primary") and canonical_data is not None:
             try:
                 legacy_players = data.get("players") if isinstance(data, dict) else None
                 cmp_block = build_canonical_comparison_block(
@@ -1087,7 +1090,7 @@ def _load_canonical_snapshot() -> dict | None:
 def _run_canonical_shadow_comparison(legacy_data: dict | None) -> None:
     """R-6: In shadow mode, compare canonical vs legacy data and log differences."""
     global shadow_comparison_report
-    if CANONICAL_DATA_MODE != "shadow" or canonical_data is None or legacy_data is None:
+    if CANONICAL_DATA_MODE not in ("shadow", "internal_primary") or canonical_data is None or legacy_data is None:
         shadow_comparison_report = None
         return
 
@@ -1623,7 +1626,7 @@ async def get_status():
             "available": shadow_comparison_report is not None,
             "summary": shadow_comparison_report.get("summary") if shadow_comparison_report else None,
             "generatedAt": shadow_comparison_report.get("generatedAt") if shadow_comparison_report else None,
-        } if CANONICAL_DATA_MODE == "shadow" else None,
+        } if CANONICAL_DATA_MODE in ("shadow", "internal_primary") else None,
     })
 
 
@@ -1848,10 +1851,10 @@ async def get_scaffold_shadow():
     snapshot and legacy data are loaded.  Shows overlap, deltas,
     top risers/fallers, rank correlation, and distribution analysis.
     """
-    if CANONICAL_DATA_MODE != "shadow":
+    if CANONICAL_DATA_MODE not in ("shadow", "internal_primary"):
         return JSONResponse(
             status_code=404,
-            content={"error": "Shadow comparison not available (CANONICAL_DATA_MODE is not 'shadow')"},
+            content={"error": "Shadow comparison not available (CANONICAL_DATA_MODE must be 'shadow' or 'internal_primary')"},
         )
     if shadow_comparison_report is None:
         return JSONResponse(
@@ -1883,6 +1886,49 @@ async def get_scaffold_report():
     if file_path is None or not file_path.exists():
         return JSONResponse(status_code=404, content={"error": "No scaffold report found"})
     return FileResponse(file_path, media_type="text/markdown")
+
+
+@app.get("/api/scaffold/promotion")
+async def get_scaffold_promotion():
+    """Return promotion readiness check results for all modes.
+
+    Evaluates the current state against thresholds defined in
+    config/promotion/promotion_thresholds.json.
+    """
+    repo = Path(__file__).parent
+    try:
+        sys_path_backup = list(sys.path)
+        if str(repo) not in sys.path:
+            sys.path.insert(0, str(repo))
+        from scripts.check_promotion_readiness import (
+            check_shadow_readiness,
+            check_internal_primary_readiness,
+            check_public_primary_readiness,
+        )
+        results = {}
+        for target, checker in [
+            ("shadow", check_shadow_readiness),
+            ("internal_primary", check_internal_primary_readiness),
+            ("public_primary", check_public_primary_readiness),
+        ]:
+            checks = checker(repo)
+            passed = sum(1 for c in checks if c.get("pass") is True)
+            failed = sum(1 for c in checks if c.get("pass") is False)
+            manual = sum(1 for c in checks if c.get("pass") is None)
+            results[target] = {
+                "ready": failed == 0 and manual == 0,
+                "passed": passed,
+                "failed": failed,
+                "manual_verification": manual,
+                "checks": checks,
+            }
+        results["current_mode"] = CANONICAL_DATA_MODE
+        return JSONResponse(content=results)
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Promotion check failed: {e}"},
+        )
 
 
 # ── DRAFT CAPITAL ──────────────────────────────────────────────────────
