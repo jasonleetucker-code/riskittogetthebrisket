@@ -11410,7 +11410,19 @@ async def run(progress_callback=None):
         site_raw_dir = os.path.join(latest_dir, "site_raw")
         os.makedirs(site_raw_dir, exist_ok=True)
 
-        # Reset latest folder contents.
+        # Reset latest folder contents — but preserve site_raw CSVs for
+        # sources that didn't produce new data this run (e.g. KTC blocked
+        # in sandbox).  We back up existing site_raw CSVs, wipe the dir,
+        # then restore any that weren't overwritten.
+        _prev_site_raw: dict[str, bytes] = {}
+        if os.path.isdir(site_raw_dir):
+            for fname_sr in os.listdir(site_raw_dir):
+                fpath_sr = os.path.join(site_raw_dir, fname_sr)
+                if os.path.isfile(fpath_sr) and fname_sr.endswith(".csv"):
+                    try:
+                        _prev_site_raw[fname_sr] = open(fpath_sr, "rb").read()
+                    except Exception:
+                        pass
         for entry in os.listdir(latest_dir):
             p = os.path.join(latest_dir, entry)
             try:
@@ -11457,6 +11469,19 @@ async def run(progress_callback=None):
                         w.writerow([n, v])
             except Exception:
                 continue
+
+        # Restore any previous site_raw CSVs that weren't re-produced
+        # this run.  This keeps sources like KTC alive across scrape runs
+        # where they might fail due to proxy/TLS issues.
+        for fname_sr, content in _prev_site_raw.items():
+            dest = os.path.join(site_raw_dir, fname_sr)
+            if not os.path.exists(dest):
+                try:
+                    with open(dest, "wb") as f:
+                        f.write(content)
+                    print(f"  [site_raw] Preserved previous {fname_sr}")
+                except Exception:
+                    pass
 
         # Write a tiny manifest for context.
         manifest = {

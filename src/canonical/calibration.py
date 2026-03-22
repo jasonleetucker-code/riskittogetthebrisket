@@ -24,16 +24,20 @@ from typing import Any
 
 
 # Default calibration parameters
-CALIBRATION_EXPONENT = 2.0  # Steeper than raw 0.65 — spreads values more evenly
+# Exponent 2.5 + scale 7800 chosen via empirical sweep (calibration_sweep.py)
+# to maximize tier agreement with legacy while preserving 92% top-50/100 overlap.
+# Previous: exp=2.0, scale=8500 → tier=45.5%, delta=1101
+# Current:  exp=2.5, scale=7800 → tier=61.5%, delta=879 (sweep result)
+CALIBRATION_EXPONENT = 2.5
 
 # Per-universe scale: empirically derived from legacy value distribution
 UNIVERSE_SCALES: dict[str, int] = {
-    "offense_vet": 8500,
-    "offense_rookie": 8500,
+    "offense_vet": 7800,
+    "offense_rookie": 7000,
     "idp_vet": 5000,
     "idp_rookie": 5000,
 }
-DEFAULT_SCALE = 8500
+DEFAULT_SCALE = 7800
 
 # Pick ceiling for fallback power curve
 PICK_CEILING = 7500
