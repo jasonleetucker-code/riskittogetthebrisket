@@ -1,13 +1,19 @@
 {
-  "generated_at": "2026-03-22T14:25:08.909418+00:00",
+  "generated_at": "2026-03-22T14:46:51.243304+00:00",
   "source_file": "legacy_data_2026-03-22.json",
   "schema_version": "1.0",
   "stats": {
-    "total_entries": 732,
-    "unique_names": 732,
-    "nickname_expansions": 43
+    "total_entries": 936,
+    "unique_names": 936,
+    "nickname_expansions": 56
   },
   "entries": [
+    {
+      "name": "A'Shawn Robinson",
+      "normalized_name": "ashawn robinson",
+      "position": "DL",
+      "sleeper_id": "3218"
+    },
     {
       "name": "A.J. Brown",
       "normalized_name": "aj brown",
@@ -25,6 +31,12 @@
       "normalized_name": "aj barner",
       "position": "TE",
       "sleeper_id": "11603"
+    },
+    {
+      "name": "A.J. Epenesa",
+      "normalized_name": "aj epenesa",
+      "position": "DL",
+      "sleeper_id": "6802"
     },
     {
       "name": "A.J. Haulcy",
@@ -63,6 +75,12 @@
       "sleeper_id": "13302"
     },
     {
+      "name": "Adisa Isaac",
+      "normalized_name": "adisa isaac",
+      "position": "DL",
+      "sleeper_id": "11722"
+    },
+    {
       "name": "Adonai Mitchell",
       "normalized_name": "adonai mitchell",
       "position": "WR",
@@ -73,6 +91,12 @@
       "normalized_name": "aidan hutchinson",
       "position": "DL",
       "sleeper_id": "8289"
+    },
+    {
+      "name": "Akeem Davis-Gaither",
+      "normalized_name": "akeem davis-gaither",
+      "position": "LB",
+      "sleeper_id": "6860"
     },
     {
       "name": "Akheem Mesidor",
@@ -87,6 +111,12 @@
       "sleeper_id": "8142"
     },
     {
+      "name": "Alex Anzalone",
+      "normalized_name": "alex anzalone",
+      "position": "LB",
+      "sleeper_id": "4118"
+    },
+    {
       "name": "Alex Highsmith",
       "normalized_name": "alex highsmith",
       "position": "LB",
@@ -99,10 +129,40 @@
       "sleeper_id": "2617"
     },
     {
+      "name": "Alex Wright",
+      "normalized_name": "alex wright",
+      "position": "DL",
+      "sleeper_id": "8376"
+    },
+    {
+      "name": "Alim McNeill",
+      "normalized_name": "alim mcneill",
+      "position": "DL",
+      "sleeper_id": "7679"
+    },
+    {
+      "name": "Alohi Gilman",
+      "normalized_name": "alohi gilman",
+      "position": "DB",
+      "sleeper_id": "7069"
+    },
+    {
+      "name": "Alontae Taylor",
+      "normalized_name": "alontae taylor",
+      "position": "DB",
+      "sleeper_id": "8333"
+    },
+    {
       "name": "Alvin Kamara",
       "normalized_name": "alvin kamara",
       "position": "RB",
       "sleeper_id": "4035"
+    },
+    {
+      "name": "Amani Hooker",
+      "normalized_name": "amani hooker",
+      "position": "DB",
+      "sleeper_id": "5908"
     },
     {
       "name": "Amon-Ra St. Brown",
@@ -117,6 +177,12 @@
       "sleeper_id": "10226"
     },
     {
+      "name": "Andy Borregales",
+      "normalized_name": "andy borregales",
+      "position": "K",
+      "sleeper_id": "12713"
+    },
+    {
       "name": "Andrew Mukuba",
       "normalized_name": "andrew mukuba",
       "position": "DB",
@@ -129,10 +195,34 @@
       "sleeper_id": "6183"
     },
     {
+      "name": "Andrew Wingard",
+      "normalized_name": "andrew wingard",
+      "position": "DB",
+      "sleeper_id": "6416"
+    },
+    {
+      "name": "Dru Phillips",
+      "normalized_name": "dru phillips",
+      "position": "DB",
+      "sleeper_id": "11700"
+    },
+    {
       "name": "Andy Dalton",
       "normalized_name": "andy dalton",
       "position": "QB",
       "sleeper_id": "829"
+    },
+    {
+      "name": "Anfernee Jennings",
+      "normalized_name": "anfernee jennings",
+      "position": "LB",
+      "sleeper_id": "6848"
+    },
+    {
+      "name": "Anthony Gould",
+      "normalized_name": "anthony gould",
+      "position": "WR",
+      "sleeper_id": "11762"
     },
     {
       "name": "Anthony Hill",
@@ -153,10 +243,34 @@
       "sleeper_id": "6888"
     },
     {
+      "name": "Antonio Gibson",
+      "normalized_name": "antonio gibson",
+      "position": "RB",
+      "sleeper_id": "6945"
+    },
+    {
       "name": "Antonio Williams",
       "normalized_name": "antonio williams",
       "position": "RB",
       "sleeper_id": "7203"
+    },
+    {
+      "name": "Arden Key",
+      "normalized_name": "arden key",
+      "position": "DL",
+      "sleeper_id": "5067"
+    },
+    {
+      "name": "Arian Smith",
+      "normalized_name": "arian smith",
+      "position": "WR",
+      "sleeper_id": "12539"
+    },
+    {
+      "name": "Arnold Ebiketie",
+      "normalized_name": "arnold ebiketie",
+      "position": "DL",
+      "sleeper_id": "8325"
     },
     {
       "name": "Arvell Reese",
@@ -165,10 +279,22 @@
       "sleeper_id": "13377"
     },
     {
+      "name": "Ashton Gillotte",
+      "normalized_name": "ashton gillotte",
+      "position": "DL",
+      "sleeper_id": "12623"
+    },
+    {
       "name": "Ashton Jeanty",
       "normalized_name": "ashton jeanty",
       "position": "RB",
       "sleeper_id": "12527"
+    },
+    {
+      "name": "Ashtyn Davis",
+      "normalized_name": "ashtyn davis",
+      "position": "DB",
+      "sleeper_id": "6855"
     },
     {
       "name": "Audric Estime",
@@ -195,10 +321,28 @@
       "sleeper_id": "6485"
     },
     {
+      "name": "Azeez Ojulari",
+      "normalized_name": "azeez ojulari",
+      "position": "LB",
+      "sleeper_id": "7653"
+    },
+    {
       "name": "Baker Mayfield",
       "normalized_name": "baker mayfield",
       "position": "QB",
       "sleeper_id": "4892"
+    },
+    {
+      "name": "Bobby Brown",
+      "normalized_name": "bobby brown",
+      "position": "DL",
+      "sleeper_id": "7722"
+    },
+    {
+      "name": "Baron Browning",
+      "normalized_name": "baron browning",
+      "position": "LB",
+      "sleeper_id": "7681"
     },
     {
       "name": "Barrett Carter",
@@ -211,6 +355,12 @@
       "normalized_name": "bauer sharp",
       "position": "TE",
       "sleeper_id": "13308"
+    },
+    {
+      "name": "Behren Morton",
+      "normalized_name": "behren morton",
+      "position": "QB",
+      "sleeper_id": "13295"
     },
     {
       "name": "Ben Sinnott",
@@ -229,6 +379,12 @@
       "normalized_name": "bijan robinson",
       "position": "RB",
       "sleeper_id": "9509"
+    },
+    {
+      "name": "Billy Bowman",
+      "normalized_name": "billy bowman",
+      "position": "DB",
+      "sleeper_id": "12647"
     },
     {
       "name": "Blake Cashman",
@@ -285,16 +441,40 @@
       "sleeper_id": "11576"
     },
     {
+      "name": "Bralen Trice",
+      "normalized_name": "bralen trice",
+      "position": "DL",
+      "sleeper_id": "11721"
+    },
+    {
       "name": "Brandon Aiyuk",
       "normalized_name": "brandon aiyuk",
       "position": "WR",
       "sleeper_id": "6803"
     },
     {
+      "name": "Brandon Aubrey",
+      "normalized_name": "brandon aubrey",
+      "position": "K",
+      "sleeper_id": "11533"
+    },
+    {
+      "name": "Brandon Dorlus",
+      "normalized_name": "brandon dorlus",
+      "position": "DL",
+      "sleeper_id": "11740"
+    },
+    {
       "name": "Brandon Jones",
       "normalized_name": "brandon jones",
       "position": "DB",
       "sleeper_id": "6911"
+    },
+    {
+      "name": "Brandon McManus",
+      "normalized_name": "brandon mcmanus",
+      "position": "K",
+      "sleeper_id": "1433"
     },
     {
       "name": "Brashard Smith",
@@ -363,10 +543,28 @@
       "sleeper_id": "10874"
     },
     {
+      "name": "Bryan Cook",
+      "normalized_name": "bryan cook",
+      "position": "DB",
+      "sleeper_id": "8294"
+    },
+    {
+      "name": "Bryce Huff",
+      "normalized_name": "bryce huff",
+      "position": "DL",
+      "sleeper_id": "7391"
+    },
+    {
       "name": "Bryce Young",
       "normalized_name": "bryce young",
       "position": "QB",
       "sleeper_id": "9228"
+    },
+    {
+      "name": "Bub Means",
+      "normalized_name": "bub means",
+      "position": "WR",
+      "sleeper_id": "11748"
     },
     {
       "name": "Bucky Irving",
@@ -393,6 +591,12 @@
       "sleeper_id": "10925"
     },
     {
+      "name": "C.J. Gardner-Johnson",
+      "normalized_name": "cj gardner-johnson",
+      "position": "DB",
+      "sleeper_id": "5893"
+    },
+    {
       "name": "C.J. Stroud",
       "normalized_name": "cj stroud",
       "position": "QB",
@@ -409,6 +613,12 @@
       "normalized_name": "cj daniels",
       "position": "WR",
       "sleeper_id": "13270"
+    },
+    {
+      "name": "CJ Dippre",
+      "normalized_name": "cj dippre",
+      "position": "TE",
+      "sleeper_id": "12984"
     },
     {
       "name": "CJ Donaldson",
@@ -429,6 +639,18 @@
       "sleeper_id": "8111"
     },
     {
+      "name": "Cade Stover",
+      "normalized_name": "cade stover",
+      "position": "TE",
+      "sleeper_id": "11599"
+    },
+    {
+      "name": "Cairo Santos",
+      "normalized_name": "cairo santos",
+      "position": "K",
+      "sleeper_id": "2020"
+    },
+    {
       "name": "Caleb Douglas",
       "normalized_name": "caleb douglas",
       "position": "WR",
@@ -445,6 +667,12 @@
       "normalized_name": "caleb williams",
       "position": "QB",
       "sleeper_id": "11560"
+    },
+    {
+      "name": "Calen Bullock",
+      "normalized_name": "calen bullock",
+      "position": "DB",
+      "sleeper_id": "11710"
     },
     {
       "name": "Calijah Kancey",
@@ -465,10 +693,34 @@
       "sleeper_id": "4981"
     },
     {
+      "name": "Cam Akers",
+      "normalized_name": "cam akers",
+      "position": "RB",
+      "sleeper_id": "6938"
+    },
+    {
+      "name": "Cam Bynum",
+      "normalized_name": "cam bynum",
+      "position": "DB",
+      "sleeper_id": "7715"
+    },
+    {
+      "name": "Cam Little",
+      "normalized_name": "cam little",
+      "position": "K",
+      "sleeper_id": "11786"
+    },
+    {
       "name": "Cam Skattebo",
       "normalized_name": "cam skattebo",
       "position": "RB",
       "sleeper_id": "12481"
+    },
+    {
+      "name": "Cam Taylor-Britt",
+      "normalized_name": "cam taylor-britt",
+      "position": "DB",
+      "sleeper_id": "8341"
     },
     {
       "name": "Cam Ward",
@@ -477,10 +729,22 @@
       "sleeper_id": "12522"
     },
     {
+      "name": "Cameron Dicker",
+      "normalized_name": "cameron dicker",
+      "position": "K",
+      "sleeper_id": "8259"
+    },
+    {
       "name": "Cameron Heyward",
       "normalized_name": "cameron heyward",
       "position": "DL",
       "sleeper_id": "843"
+    },
+    {
+      "name": "Charvarius Ward",
+      "normalized_name": "charvarius ward",
+      "position": "DB",
+      "sleeper_id": "5493"
     },
     {
       "name": "Carl Granderson",
@@ -519,6 +783,12 @@
       "sleeper_id": "13364"
     },
     {
+      "name": "Chris Lacy",
+      "normalized_name": "chris lacy",
+      "position": "WR",
+      "sleeper_id": "5661"
+    },
+    {
       "name": "Cedric Gray",
       "normalized_name": "cedric gray",
       "position": "LB",
@@ -537,10 +807,40 @@
       "sleeper_id": "6786"
     },
     {
+      "name": "Chamarri Conner",
+      "normalized_name": "chamarri conner",
+      "position": "DB",
+      "sleeper_id": "10949"
+    },
+    {
+      "name": "Charlie Kolar",
+      "normalized_name": "charlie kolar",
+      "position": "TE",
+      "sleeper_id": "8127"
+    },
+    {
+      "name": "Charlie Smyth",
+      "normalized_name": "charlie smyth",
+      "position": "K",
+      "sleeper_id": "11653"
+    },
+    {
       "name": "Chase Brown",
       "normalized_name": "chase brown",
       "position": "RB",
       "sleeper_id": "9224"
+    },
+    {
+      "name": "Chase McLaughlin",
+      "normalized_name": "chase mclaughlin",
+      "position": "K",
+      "sleeper_id": "6650"
+    },
+    {
+      "name": "C.J. Roberts",
+      "normalized_name": "cj roberts",
+      "position": "DB",
+      "sleeper_id": "2666"
     },
     {
       "name": "Chase Young",
@@ -571,6 +871,18 @@
       "normalized_name": "chris bell",
       "position": "WR",
       "sleeper_id": "13311"
+    },
+    {
+      "name": "Chris Boswell",
+      "normalized_name": "chris boswell",
+      "position": "K",
+      "sleeper_id": "1945"
+    },
+    {
+      "name": "Chris Braswell",
+      "normalized_name": "chris braswell",
+      "position": "LB",
+      "sleeper_id": "11679"
     },
     {
       "name": "Chris Brazzell",
@@ -615,6 +927,36 @@
       "sleeper_id": "7664"
     },
     {
+      "name": "Christian Benford",
+      "normalized_name": "christian benford",
+      "position": "DB",
+      "sleeper_id": "8487"
+    },
+    {
+      "name": "Christian Elliss",
+      "normalized_name": "christian elliss",
+      "position": "LB",
+      "sleeper_id": "7921"
+    },
+    {
+      "name": "Christian Gonzalez",
+      "normalized_name": "christian gonzalez",
+      "position": "DB",
+      "sleeper_id": "10881"
+    },
+    {
+      "name": "Christian Harris",
+      "normalized_name": "christian harris",
+      "position": "LB",
+      "sleeper_id": "8278"
+    },
+    {
+      "name": "Christian Izien",
+      "normalized_name": "christian izien",
+      "position": "DB",
+      "sleeper_id": "11427"
+    },
+    {
       "name": "Christian Kirk",
       "normalized_name": "christian kirk",
       "position": "WR",
@@ -625,6 +967,12 @@
       "normalized_name": "christian mccaffrey",
       "position": "RB",
       "sleeper_id": "4034"
+    },
+    {
+      "name": "Christian Rozeboom",
+      "normalized_name": "christian rozeboom",
+      "position": "LB",
+      "sleeper_id": "7346"
     },
     {
       "name": "Christian Watson",
@@ -639,16 +987,34 @@
       "sleeper_id": "7594"
     },
     {
+      "name": "Coby Bryant",
+      "normalized_name": "coby bryant",
+      "position": "DB",
+      "sleeper_id": "8293"
+    },
+    {
       "name": "Cody Barton",
       "normalized_name": "cody barton",
       "position": "LB",
       "sleeper_id": "6065"
     },
     {
+      "name": "Cody Lindenberg",
+      "normalized_name": "cody lindenberg",
+      "position": "LB",
+      "sleeper_id": "12722"
+    },
+    {
       "name": "Cody Simon",
       "normalized_name": "cody simon",
       "position": "LB",
       "sleeper_id": "12648"
+    },
+    {
+      "name": "Cameron Young",
+      "normalized_name": "cameron young",
+      "position": "DL",
+      "sleeper_id": "10945"
     },
     {
       "name": "Colby Parkinson",
@@ -693,10 +1059,28 @@
       "sleeper_id": "4039"
     },
     {
+      "name": "Cooper McDonald",
+      "normalized_name": "cooper mcdonald",
+      "position": "LB",
+      "sleeper_id": "13174"
+    },
+    {
       "name": "Courtland Sutton",
       "normalized_name": "courtland sutton",
       "position": "WR",
       "sleeper_id": "5045"
+    },
+    {
+      "name": "Craig Woodson",
+      "normalized_name": "craig woodson",
+      "position": "DB",
+      "sleeper_id": "12654"
+    },
+    {
+      "name": "Christopher Allen",
+      "normalized_name": "christopher allen",
+      "position": "LB",
+      "sleeper_id": "8277"
     },
     {
       "name": "D'Andre Swift",
@@ -705,16 +1089,16 @@
       "sleeper_id": "6790"
     },
     {
-      "name": "DJ Giddens",
-      "normalized_name": "dj giddens",
-      "position": "RB",
-      "sleeper_id": "12471"
-    },
-    {
       "name": "DJ Moore",
       "normalized_name": "dj moore",
       "position": "WR",
       "sleeper_id": "4961"
+    },
+    {
+      "name": "D.J. Wonnum",
+      "normalized_name": "dj wonnum",
+      "position": "DL",
+      "sleeper_id": "6868"
     },
     {
       "name": "DK Metcalf",
@@ -723,10 +1107,34 @@
       "sleeper_id": "5846"
     },
     {
+      "name": "DJ Giddens",
+      "normalized_name": "dj giddens",
+      "position": "RB",
+      "sleeper_id": "12471"
+    },
+    {
+      "name": "DJ Rogers",
+      "normalized_name": "dj rogers",
+      "position": "TE",
+      "sleeper_id": "13355"
+    },
+    {
+      "name": "DaRon Bland",
+      "normalized_name": "daron bland",
+      "position": "DB",
+      "sleeper_id": "8476"
+    },
+    {
       "name": "Dadrion Taylor-Demerson",
       "normalized_name": "dadrion taylor-demerson",
       "position": "DB",
       "sleeper_id": "11744"
+    },
+    {
+      "name": "Dae'Quan Wright",
+      "normalized_name": "daequan wright",
+      "position": "TE",
+      "sleeper_id": "13331"
     },
     {
       "name": "Daiyan Henley",
@@ -753,6 +1161,12 @@
       "sleeper_id": "11667"
     },
     {
+      "name": "Dwight Bentley",
+      "normalized_name": "dwight bentley",
+      "position": "DB",
+      "sleeper_id": "7511"
+    },
+    {
       "name": "Dalton Kincaid",
       "normalized_name": "dalton kincaid",
       "position": "TE",
@@ -763,6 +1177,24 @@
       "normalized_name": "dalton schultz",
       "position": "TE",
       "sleeper_id": "5001"
+    },
+    {
+      "name": "Damien Martinez",
+      "normalized_name": "damien martinez",
+      "position": "RB",
+      "sleeper_id": "12462"
+    },
+    {
+      "name": "Dan Villari",
+      "normalized_name": "dan villari",
+      "position": "TE",
+      "sleeper_id": "13321"
+    },
+    {
+      "name": "Dane Belton",
+      "normalized_name": "dane belton",
+      "position": "DB",
+      "sleeper_id": "8395"
     },
     {
       "name": "Dane Key",
@@ -795,6 +1227,36 @@
       "sleeper_id": "12650"
     },
     {
+      "name": "Dante Fowler",
+      "normalized_name": "dante fowler",
+      "position": "LB",
+      "sleeper_id": "2308"
+    },
+    {
+      "name": "Dante Trader",
+      "normalized_name": "dante trader",
+      "position": "DB",
+      "sleeper_id": "12673"
+    },
+    {
+      "name": "Darien Porter",
+      "normalized_name": "darien porter",
+      "position": "DB",
+      "sleeper_id": "12584"
+    },
+    {
+      "name": "Darius Muasau",
+      "normalized_name": "darius muasau",
+      "position": "LB",
+      "sleeper_id": "11807"
+    },
+    {
+      "name": "Darius Robinson",
+      "normalized_name": "darius robinson",
+      "position": "DL",
+      "sleeper_id": "11658"
+    },
+    {
       "name": "Darius Slayton",
       "normalized_name": "darius slayton",
       "position": "WR",
@@ -811,6 +1273,12 @@
       "normalized_name": "darnell washington",
       "position": "TE",
       "sleeper_id": "9479"
+    },
+    {
+      "name": "Daron Payne",
+      "normalized_name": "daron payne",
+      "position": "DL",
+      "sleeper_id": "4976"
     },
     {
       "name": "Darren Waller",
@@ -843,6 +1311,18 @@
       "sleeper_id": "4033"
     },
     {
+      "name": "David Walker",
+      "normalized_name": "david walker",
+      "position": "LB",
+      "sleeper_id": "12645"
+    },
+    {
+      "name": "Davis Allen",
+      "normalized_name": "davis allen",
+      "position": "TE",
+      "sleeper_id": "10214"
+    },
+    {
       "name": "Davis Mills",
       "normalized_name": "davis mills",
       "position": "QB",
@@ -861,6 +1341,18 @@
       "sleeper_id": "5906"
     },
     {
+      "name": "Dax Hill",
+      "normalized_name": "dax hill",
+      "position": "DB",
+      "sleeper_id": "8286"
+    },
+    {
+      "name": "Dayo Odeyingbo",
+      "normalized_name": "dayo odeyingbo",
+      "position": "DL",
+      "sleeper_id": "7649"
+    },
+    {
       "name": "De'Von Achane",
       "normalized_name": "devon achane",
       "position": "RB",
@@ -877,6 +1369,12 @@
       "normalized_name": "deforest buckner",
       "position": "DL",
       "sleeper_id": "3172"
+    },
+    {
+      "name": "DeMarcus Lawrence",
+      "normalized_name": "demarcus lawrence",
+      "position": "DL",
+      "sleeper_id": "2064"
     },
     {
       "name": "DeMario Douglas",
@@ -927,6 +1425,12 @@
       "sleeper_id": "13333"
     },
     {
+      "name": "Demarcus Robinson",
+      "normalized_name": "demarcus robinson",
+      "position": "WR",
+      "sleeper_id": "3286"
+    },
+    {
       "name": "Demario Davis",
       "normalized_name": "demario davis",
       "position": "LB",
@@ -951,10 +1455,52 @@
       "sleeper_id": "13346"
     },
     {
+      "name": "Deommodore Lenoir",
+      "normalized_name": "deommodore lenoir",
+      "position": "DB",
+      "sleeper_id": "7819"
+    },
+    {
+      "name": "Deone Walker",
+      "normalized_name": "deone walker",
+      "position": "DL",
+      "sleeper_id": "12652"
+    },
+    {
+      "name": "Derek Barnett",
+      "normalized_name": "derek barnett",
+      "position": "DL",
+      "sleeper_id": "4065"
+    },
+    {
       "name": "Derek Carr",
       "normalized_name": "derek carr",
       "position": "QB",
       "sleeper_id": "2028"
+    },
+    {
+      "name": "Derek Stingley",
+      "normalized_name": "derek stingley",
+      "position": "DB",
+      "sleeper_id": "8308"
+    },
+    {
+      "name": "Derick Hall",
+      "normalized_name": "derick hall",
+      "position": "DL",
+      "sleeper_id": "10911"
+    },
+    {
+      "name": "Derius Davis",
+      "normalized_name": "derius davis",
+      "position": "WR",
+      "sleeper_id": "10234"
+    },
+    {
+      "name": "Derrick Barnes",
+      "normalized_name": "derrick barnes",
+      "position": "LB",
+      "sleeper_id": "7726"
     },
     {
       "name": "Derrick Brown",
@@ -999,6 +1545,18 @@
       "sleeper_id": "11834"
     },
     {
+      "name": "Devin Bush",
+      "normalized_name": "devin bush",
+      "position": "LB",
+      "sleeper_id": "5843"
+    },
+    {
+      "name": "Devin Culp",
+      "normalized_name": "devin culp",
+      "position": "TE",
+      "sleeper_id": "11820"
+    },
+    {
       "name": "Devin Lloyd",
       "normalized_name": "devin lloyd",
       "position": "LB",
@@ -1029,6 +1587,18 @@
       "sleeper_id": "10891"
     },
     {
+      "name": "Devonte Wyatt",
+      "normalized_name": "devonte wyatt",
+      "position": "DL",
+      "sleeper_id": "8270"
+    },
+    {
+      "name": "Devontez Walker",
+      "normalized_name": "devontez walker",
+      "position": "WR",
+      "sleeper_id": "11629"
+    },
+    {
       "name": "Dexter Lawrence",
       "normalized_name": "dexter lawrence",
       "position": "DL",
@@ -1053,10 +1623,28 @@
       "sleeper_id": "7677"
     },
     {
+      "name": "Dominic Lovett",
+      "normalized_name": "dominic lovett",
+      "position": "WR",
+      "sleeper_id": "12732"
+    },
+    {
+      "name": "Dondrea Tillman",
+      "normalized_name": "dondrea tillman",
+      "position": "DL",
+      "sleeper_id": "12427"
+    },
+    {
       "name": "Donovan Ezeiruaku",
       "normalized_name": "donovan ezeiruaku",
       "position": "DL",
       "sleeper_id": "12556"
+    },
+    {
+      "name": "Donovan Wilson",
+      "normalized_name": "donovan wilson",
+      "position": "DB",
+      "sleeper_id": "6291"
     },
     {
       "name": "Dont'e Thornton",
@@ -1069,6 +1657,12 @@
       "normalized_name": "dontayvion wicks",
       "position": "WR",
       "sleeper_id": "9486"
+    },
+    {
+      "name": "Dorance Armstrong",
+      "normalized_name": "dorance armstrong",
+      "position": "DL",
+      "sleeper_id": "5330"
     },
     {
       "name": "Dorian Williams",
@@ -1107,6 +1701,12 @@
       "sleeper_id": "13289"
     },
     {
+      "name": "Drew Sanders",
+      "normalized_name": "drew sanders",
+      "position": "LB",
+      "sleeper_id": "10929"
+    },
+    {
       "name": "Drue Tranquill",
       "normalized_name": "drue tranquill",
       "position": "LB",
@@ -1129,6 +1729,12 @@
       "normalized_name": "dylan sampson",
       "position": "RB",
       "sleeper_id": "12469"
+    },
+    {
+      "name": "E.J. Speed",
+      "normalized_name": "ej speed",
+      "position": "LB",
+      "sleeper_id": "6218"
     },
     {
       "name": "Ed Oliver",
@@ -1167,10 +1773,22 @@
       "sleeper_id": "12521"
     },
     {
+      "name": "Elijah Molden",
+      "normalized_name": "elijah molden",
+      "position": "DB",
+      "sleeper_id": "7682"
+    },
+    {
       "name": "Elijah Moore",
       "normalized_name": "elijah moore",
       "position": "WR",
       "sleeper_id": "7596"
+    },
+    {
+      "name": "Elijah Roberts",
+      "normalized_name": "elijah roberts",
+      "position": "DL",
+      "sleeper_id": "12671"
     },
     {
       "name": "Elijah Sarratt",
@@ -1197,6 +1815,12 @@
       "sleeper_id": "12514"
     },
     {
+      "name": "Emmanuel Henderson",
+      "normalized_name": "emmanuel henderson",
+      "position": "WR",
+      "sleeper_id": "13313"
+    },
+    {
       "name": "Emmanuel McNeil-Warren",
       "normalized_name": "emmanuel mcneil-warren",
       "position": "DB",
@@ -1209,6 +1833,12 @@
       "sleeper_id": "13337"
     },
     {
+      "name": "Eric Kendricks",
+      "normalized_name": "eric kendricks",
+      "position": "LB",
+      "sleeper_id": "2350"
+    },
+    {
       "name": "Eric McAlister",
       "normalized_name": "eric mcalister",
       "position": "WR",
@@ -1219,6 +1849,12 @@
       "normalized_name": "eric rivers",
       "position": "WR",
       "sleeper_id": "13316"
+    },
+    {
+      "name": "Eric Wilson",
+      "normalized_name": "eric wilson",
+      "position": "LB",
+      "sleeper_id": "8667"
     },
     {
       "name": "Erick All",
@@ -1237,6 +1873,18 @@
       "normalized_name": "evan engram",
       "position": "TE",
       "sleeper_id": "4066"
+    },
+    {
+      "name": "Evan McPherson",
+      "normalized_name": "evan mcpherson",
+      "position": "K",
+      "sleeper_id": "7839"
+    },
+    {
+      "name": "Evan Williams",
+      "normalized_name": "evan williams",
+      "position": "DB",
+      "sleeper_id": "11739"
     },
     {
       "name": "Fernando Mendoza",
@@ -1287,6 +1935,12 @@
       "sleeper_id": "1373"
     },
     {
+      "name": "Geno Stone",
+      "normalized_name": "geno stone",
+      "position": "DB",
+      "sleeper_id": "6923"
+    },
+    {
       "name": "George Holani",
       "normalized_name": "george holani",
       "position": "RB",
@@ -1329,16 +1983,34 @@
       "sleeper_id": "10899"
     },
     {
+      "name": "Graham Gano",
+      "normalized_name": "graham gano",
+      "position": "K",
+      "sleeper_id": "503"
+    },
+    {
       "name": "Grant Delpit",
       "normalized_name": "grant delpit",
       "position": "DB",
       "sleeper_id": "6799"
     },
     {
+      "name": "Greg Dortch",
+      "normalized_name": "greg dortch",
+      "position": "WR",
+      "sleeper_id": "5970"
+    },
+    {
       "name": "Greg Dulcich",
       "normalized_name": "greg dulcich",
       "position": "TE",
       "sleeper_id": "8172"
+    },
+    {
+      "name": "Greg Newsome",
+      "normalized_name": "greg newsome",
+      "position": "DB",
+      "sleeper_id": "7630"
     },
     {
       "name": "Greg Rousseau",
@@ -1353,6 +2025,12 @@
       "sleeper_id": "12502"
     },
     {
+      "name": "Haason Reddick",
+      "normalized_name": "haason reddick",
+      "position": "LB",
+      "sleeper_id": "4063"
+    },
+    {
       "name": "Harold Fannin",
       "normalized_name": "harold fannin",
       "position": "TE",
@@ -1365,10 +2043,28 @@
       "sleeper_id": "5030"
     },
     {
+      "name": "Harrison Butker",
+      "normalized_name": "harrison butker",
+      "position": "K",
+      "sleeper_id": "4227"
+    },
+    {
+      "name": "Harrison Mevis",
+      "normalized_name": "harrison mevis",
+      "position": "K",
+      "sleeper_id": "12015"
+    },
+    {
       "name": "Henry Ruggs",
       "normalized_name": "henry ruggs",
       "position": "WR",
       "sleeper_id": "6789"
+    },
+    {
+      "name": "Henry To'oTo'o",
+      "normalized_name": "henry tootoo",
+      "position": "LB",
+      "sleeper_id": "10970"
     },
     {
       "name": "Hollywood Smothers",
@@ -1381,6 +2077,12 @@
       "normalized_name": "hunter henry",
       "position": "TE",
       "sleeper_id": "3214"
+    },
+    {
+      "name": "Ifeatu Melifonwu",
+      "normalized_name": "ifeatu melifonwu",
+      "position": "DB",
+      "sleeper_id": "7680"
     },
     {
       "name": "Isaac Guerendo",
@@ -1419,6 +2121,18 @@
       "sleeper_id": "7782"
     },
     {
+      "name": "Isaiah McGuire",
+      "normalized_name": "isaiah mcguire",
+      "position": "DL",
+      "sleeper_id": "10943"
+    },
+    {
+      "name": "Isaiah Rodgers",
+      "normalized_name": "isaiah rodgers",
+      "position": "DB",
+      "sleeper_id": "7133"
+    },
+    {
       "name": "Isiah Pacheco",
       "normalized_name": "isiah pacheco",
       "position": "RB",
@@ -1449,6 +2163,18 @@
       "sleeper_id": "6806"
     },
     {
+      "name": "JT Tuimoloau",
+      "normalized_name": "jt tuimoloau",
+      "position": "DL",
+      "sleeper_id": "12594"
+    },
+    {
+      "name": "Ja'Corey Brooks",
+      "normalized_name": "jacorey brooks",
+      "position": "WR",
+      "sleeper_id": "12532"
+    },
+    {
       "name": "Ja'Kobi Lane",
       "normalized_name": "jakobi lane",
       "position": "WR",
@@ -1465,6 +2191,12 @@
       "normalized_name": "jamarr chase",
       "position": "WR",
       "sleeper_id": "7564"
+    },
+    {
+      "name": "Ja'Quan McMillian",
+      "normalized_name": "jaquan mcmillian",
+      "position": "DB",
+      "sleeper_id": "8752"
     },
     {
       "name": "Ja'Tavion Sanders",
@@ -1491,10 +2223,46 @@
       "sleeper_id": "13282"
     },
     {
+      "name": "Jack Gibbens",
+      "normalized_name": "jack gibbens",
+      "position": "LB",
+      "sleeper_id": "8680"
+    },
+    {
+      "name": "Jack Kiser",
+      "normalized_name": "jack kiser",
+      "position": "LB",
+      "sleeper_id": "12653"
+    },
+    {
       "name": "Jack Sanborn",
       "normalized_name": "jack sanborn",
       "position": "LB",
       "sleeper_id": "8363"
+    },
+    {
+      "name": "Jack Sawyer",
+      "normalized_name": "jack sawyer",
+      "position": "DL",
+      "sleeper_id": "12593"
+    },
+    {
+      "name": "Jackson Hawes",
+      "normalized_name": "jackson hawes",
+      "position": "TE",
+      "sleeper_id": "12658"
+    },
+    {
+      "name": "Jacob Cowing",
+      "normalized_name": "jacob cowing",
+      "position": "WR",
+      "sleeper_id": "11616"
+    },
+    {
+      "name": "Jacob Parrish",
+      "normalized_name": "jacob parrish",
+      "position": "DB",
+      "sleeper_id": "12605"
     },
     {
       "name": "Jacoby Brissett",
@@ -1533,6 +2301,12 @@
       "sleeper_id": "8119"
     },
     {
+      "name": "Jahdae Barron",
+      "normalized_name": "jahdae barron",
+      "position": "DB",
+      "sleeper_id": "12557"
+    },
+    {
       "name": "Jahdae Walker",
       "normalized_name": "jahdae walker",
       "position": "WR",
@@ -1545,10 +2319,28 @@
       "sleeper_id": "9221"
     },
     {
+      "name": "Jake Bates",
+      "normalized_name": "jake bates",
+      "position": "K",
+      "sleeper_id": "11539"
+    },
+    {
+      "name": "Jake Briningstool",
+      "normalized_name": "jake briningstool",
+      "position": "TE",
+      "sleeper_id": "12817"
+    },
+    {
       "name": "Jake Browning",
       "normalized_name": "jake browning",
       "position": "QB",
       "sleeper_id": "6111"
+    },
+    {
+      "name": "Jake Elliott",
+      "normalized_name": "jake elliott",
+      "position": "K",
+      "sleeper_id": "4195"
     },
     {
       "name": "Jake Ferguson",
@@ -1573,6 +2365,12 @@
       "normalized_name": "jakobi meyers",
       "position": "WR",
       "sleeper_id": "5947"
+    },
+    {
+      "name": "Jaleel McLaughlin",
+      "normalized_name": "jaleel mclaughlin",
+      "position": "RB",
+      "sleeper_id": "11439"
     },
     {
       "name": "Jalen Carter",
@@ -1617,10 +2415,28 @@
       "sleeper_id": "8314"
     },
     {
+      "name": "Jalen Ramsey",
+      "normalized_name": "jalen ramsey",
+      "position": "DB",
+      "sleeper_id": "3160"
+    },
+    {
+      "name": "Jalen Redmond",
+      "normalized_name": "jalen redmond",
+      "position": "DL",
+      "sleeper_id": "11328"
+    },
+    {
       "name": "Jalen Royals",
       "normalized_name": "jalen royals",
       "position": "WR",
       "sleeper_id": "12505"
+    },
+    {
+      "name": "Jalen Thompson",
+      "normalized_name": "jalen thompson",
+      "position": "DB",
+      "sleeper_id": "6711"
     },
     {
       "name": "Jalen Tolbert",
@@ -1651,6 +2467,12 @@
       "normalized_name": "jam miller",
       "position": "RB",
       "sleeper_id": "13403"
+    },
+    {
+      "name": "Jordan Miller",
+      "normalized_name": "jordan miller",
+      "position": "DL",
+      "sleeper_id": "12103"
     },
     {
       "name": "Jameis Winston",
@@ -1707,10 +2529,34 @@
       "sleeper_id": "11665"
     },
     {
+      "name": "Jared Wiley",
+      "normalized_name": "jared wiley",
+      "position": "TE",
+      "sleeper_id": "11595"
+    },
+    {
       "name": "Jarquez Hunter",
       "normalized_name": "jarquez hunter",
       "position": "RB",
       "sleeper_id": "11569"
+    },
+    {
+      "name": "Jason Myers",
+      "normalized_name": "jason myers",
+      "position": "K",
+      "sleeper_id": "2747"
+    },
+    {
+      "name": "Jason Pinnock",
+      "normalized_name": "jason pinnock",
+      "position": "DB",
+      "sleeper_id": "7816"
+    },
+    {
+      "name": "Jason Sanders",
+      "normalized_name": "jason sanders",
+      "position": "K",
+      "sleeper_id": "5119"
     },
     {
       "name": "Jauan Jennings",
@@ -1719,10 +2565,40 @@
       "sleeper_id": "7049"
     },
     {
+      "name": "Javon Baker",
+      "normalized_name": "javon baker",
+      "position": "WR",
+      "sleeper_id": "11645"
+    },
+    {
+      "name": "Javon Bullard",
+      "normalized_name": "javon bullard",
+      "position": "DB",
+      "sleeper_id": "11686"
+    },
+    {
+      "name": "Javon Hargrave",
+      "normalized_name": "javon hargrave",
+      "position": "DL",
+      "sleeper_id": "3256"
+    },
+    {
+      "name": "Javon Solomon",
+      "normalized_name": "javon solomon",
+      "position": "DL",
+      "sleeper_id": "11759"
+    },
+    {
       "name": "Javonte Williams",
       "normalized_name": "javonte williams",
       "position": "RB",
       "sleeper_id": "7588"
+    },
+    {
+      "name": "Jawhar Jordan",
+      "normalized_name": "jawhar jordan",
+      "position": "RB",
+      "sleeper_id": "11588"
     },
     {
       "name": "Jaxon Smith-Njigba",
@@ -1735,6 +2611,12 @@
       "normalized_name": "jaxson dart",
       "position": "QB",
       "sleeper_id": "12508"
+    },
+    {
+      "name": "Jaycee Horn",
+      "normalized_name": "jaycee horn",
+      "position": "DB",
+      "sleeper_id": "7642"
     },
     {
       "name": "Jayden Daniels",
@@ -1797,6 +2679,12 @@
       "sleeper_id": "11777"
     },
     {
+      "name": "Jaylon Jones",
+      "normalized_name": "jaylon jones",
+      "position": "DB",
+      "sleeper_id": "8702"
+    },
+    {
       "name": "Jeff Caldwell",
       "normalized_name": "jeff caldwell",
       "position": "WR",
@@ -1809,10 +2697,22 @@
       "sleeper_id": "6125"
     },
     {
+      "name": "Jeffrey Bassa",
+      "normalized_name": "jeffrey bassa",
+      "position": "LB",
+      "sleeper_id": "12672"
+    },
+    {
       "name": "Jer'Zhan Newton",
       "normalized_name": "jerzhan newton",
       "position": "DL",
       "sleeper_id": "11699"
+    },
+    {
+      "name": "Jeremiah Trotter",
+      "normalized_name": "jeremiah trotter",
+      "position": "LB",
+      "sleeper_id": "11752"
     },
     {
       "name": "Jeremiyah Love",
@@ -1827,10 +2727,22 @@
       "sleeper_id": "7016"
     },
     {
+      "name": "Jeremy Ruckert",
+      "normalized_name": "jeremy ruckert",
+      "position": "TE",
+      "sleeper_id": "8145"
+    },
+    {
       "name": "Jermaine Johnson",
       "normalized_name": "jermaine johnson",
       "position": "LB",
       "sleeper_id": "8398"
+    },
+    {
+      "name": "Jerome Baker",
+      "normalized_name": "jerome baker",
+      "position": "LB",
+      "sleeper_id": "5056"
     },
     {
       "name": "Jerome Ford",
@@ -1857,6 +2769,12 @@
       "sleeper_id": "7666"
     },
     {
+      "name": "Ji'Ayir Brown",
+      "normalized_name": "jiayir brown",
+      "position": "DB",
+      "sleeper_id": "10936"
+    },
+    {
       "name": "Jihaad Campbell",
       "normalized_name": "jihaad campbell",
       "position": "LB",
@@ -1867,6 +2785,12 @@
       "normalized_name": "jimmy horn",
       "position": "WR",
       "sleeper_id": "12523"
+    },
+    {
+      "name": "Joe Bachie",
+      "normalized_name": "joe bachie",
+      "position": "LB",
+      "sleeper_id": "7014"
     },
     {
       "name": "Joe Burrow",
@@ -1905,6 +2829,18 @@
       "sleeper_id": "3156"
     },
     {
+      "name": "Joey Porter",
+      "normalized_name": "joey porter",
+      "position": "DB",
+      "sleeper_id": "10913"
+    },
+    {
+      "name": "John Franklin-Myers",
+      "normalized_name": "john franklin-myers",
+      "position": "DL",
+      "sleeper_id": "5466"
+    },
+    {
       "name": "John Metchie",
       "normalized_name": "john metchie",
       "position": "WR",
@@ -1917,10 +2853,34 @@
       "sleeper_id": "13342"
     },
     {
+      "name": "Josh Newton",
+      "normalized_name": "josh newton",
+      "position": "DB",
+      "sleeper_id": "11764"
+    },
+    {
       "name": "Jonah Coleman",
       "normalized_name": "jonah coleman",
       "position": "RB",
       "sleeper_id": "13345"
+    },
+    {
+      "name": "Jonah Elliss",
+      "normalized_name": "jonah elliss",
+      "position": "DL",
+      "sleeper_id": "11714"
+    },
+    {
+      "name": "Jonah Laulu",
+      "normalized_name": "jonah laulu",
+      "position": "DL",
+      "sleeper_id": "11827"
+    },
+    {
+      "name": "Jonas Sanker",
+      "normalized_name": "jonas sanker",
+      "position": "DB",
+      "sleeper_id": "12619"
     },
     {
       "name": "Jonathan Allen",
@@ -1933,6 +2893,12 @@
       "normalized_name": "jonathan greenard",
       "position": "DL",
       "sleeper_id": "6900"
+    },
+    {
+      "name": "Jonathan Mingo",
+      "normalized_name": "jonathan mingo",
+      "position": "WR",
+      "sleeper_id": "10225"
     },
     {
       "name": "Jonathan Taylor",
@@ -1971,6 +2937,18 @@
       "sleeper_id": "10927"
     },
     {
+      "name": "Jordan Burch",
+      "normalized_name": "jordan burch",
+      "position": "DL",
+      "sleeper_id": "12579"
+    },
+    {
+      "name": "Jordan Davis",
+      "normalized_name": "jordan davis",
+      "position": "DL",
+      "sleeper_id": "8269"
+    },
+    {
       "name": "Jordan Hudson",
       "normalized_name": "jordan hudson",
       "position": "WR",
@@ -2001,6 +2979,12 @@
       "sleeper_id": "8408"
     },
     {
+      "name": "Jordan Watkins",
+      "normalized_name": "jordan watkins",
+      "position": "WR",
+      "sleeper_id": "12634"
+    },
+    {
       "name": "Jordan Whittington",
       "normalized_name": "jordan whittington",
       "position": "WR",
@@ -2017,6 +3001,24 @@
       "normalized_name": "jordyn tyson",
       "position": "WR",
       "sleeper_id": "13281"
+    },
+    {
+      "name": "Josaiah Stewart",
+      "normalized_name": "josaiah stewart",
+      "position": "DL",
+      "sleeper_id": "12621"
+    },
+    {
+      "name": "Joseph Ossai",
+      "normalized_name": "joseph ossai",
+      "position": "DL",
+      "sleeper_id": "7678"
+    },
+    {
+      "name": "Josey Jewell",
+      "normalized_name": "josey jewell",
+      "position": "LB",
+      "sleeper_id": "5334"
     },
     {
       "name": "Josh Allen",
@@ -2079,10 +3081,28 @@
       "sleeper_id": "13379"
     },
     {
+      "name": "Jourdan Lewis",
+      "normalized_name": "jourdan lewis",
+      "position": "DB",
+      "sleeper_id": "4129"
+    },
+    {
+      "name": "JuJu Smith-Schuster",
+      "normalized_name": "juju smith-schuster",
+      "position": "WR",
+      "sleeper_id": "4040"
+    },
+    {
       "name": "Julian Love",
       "normalized_name": "julian love",
       "position": "DB",
       "sleeper_id": "5876"
+    },
+    {
+      "name": "Junior Bergen",
+      "normalized_name": "junior bergen",
+      "position": "WR",
+      "sleeper_id": "12743"
     },
     {
       "name": "Junior Colson",
@@ -2127,16 +3147,40 @@
       "sleeper_id": null
     },
     {
+      "name": "Justin Reid",
+      "normalized_name": "justin reid",
+      "position": "DB",
+      "sleeper_id": "5036"
+    },
+    {
+      "name": "Justin Strnad",
+      "normalized_name": "justin strnad",
+      "position": "LB",
+      "sleeper_id": "6977"
+    },
+    {
       "name": "Juwan Johnson",
       "normalized_name": "juwan johnson",
       "position": "TE",
       "sleeper_id": "7002"
     },
     {
+      "name": "K'Lavon Chaisson",
+      "normalized_name": "klavon chaisson",
+      "position": "LB",
+      "sleeper_id": "6800"
+    },
+    {
       "name": "KC Concepcion",
       "normalized_name": "kc concepcion",
       "position": "WR",
       "sleeper_id": "13298"
+    },
+    {
+      "name": "Ka'imi Fairbairn",
+      "normalized_name": "kaimi fairbairn",
+      "position": "K",
+      "sleeper_id": "3451"
     },
     {
       "name": "KaVontae Turpin",
@@ -2149,6 +3193,18 @@
       "normalized_name": "kaden elliss",
       "position": "LB",
       "sleeper_id": "6302"
+    },
+    {
+      "name": "Korie Black",
+      "normalized_name": "korie black",
+      "position": "DB",
+      "sleeper_id": "12716"
+    },
+    {
+      "name": "Kain Medrano",
+      "normalized_name": "kain medrano",
+      "position": "LB",
+      "sleeper_id": "12684"
     },
     {
       "name": "Kaleb Johnson",
@@ -2167,6 +3223,18 @@
       "normalized_name": "kam curl",
       "position": "DB",
       "sleeper_id": "7136"
+    },
+    {
+      "name": "Kamari Lassiter",
+      "normalized_name": "kamari lassiter",
+      "position": "DB",
+      "sleeper_id": "11685"
+    },
+    {
+      "name": "Kamren Kinchens",
+      "normalized_name": "kamren kinchens",
+      "position": "DB",
+      "sleeper_id": "11726"
     },
     {
       "name": "Kareem Hunt",
@@ -2205,10 +3273,34 @@
       "sleeper_id": "9511"
     },
     {
+      "name": "Keeanu Benton",
+      "normalized_name": "keeanu benton",
+      "position": "DL",
+      "sleeper_id": "10901"
+    },
+    {
       "name": "Keenan Allen",
       "normalized_name": "keenan allen",
       "position": "WR",
       "sleeper_id": "1479"
+    },
+    {
+      "name": "Keion White",
+      "normalized_name": "keion white",
+      "position": "DL",
+      "sleeper_id": "10904"
+    },
+    {
+      "name": "Keisean Nixon",
+      "normalized_name": "keisean nixon",
+      "position": "DB",
+      "sleeper_id": "6333"
+    },
+    {
+      "name": "Kejon Owens",
+      "normalized_name": "kejon owens",
+      "position": "RB",
+      "sleeper_id": "13291"
     },
     {
       "name": "Keldric Faulk",
@@ -2235,6 +3327,12 @@
       "sleeper_id": "7567"
     },
     {
+      "name": "Kenneth Grant",
+      "normalized_name": "kenneth grant",
+      "position": "DL",
+      "sleeper_id": "12564"
+    },
+    {
       "name": "Kenneth Murray",
       "normalized_name": "kenneth murray",
       "position": "LB",
@@ -2245,6 +3343,12 @@
       "normalized_name": "kenneth walker",
       "position": "RB",
       "sleeper_id": "4634"
+    },
+    {
+      "name": "Kenny Moore",
+      "normalized_name": "kenny moore",
+      "position": "DB",
+      "sleeper_id": "4427"
     },
     {
       "name": "Kenny Pickett",
@@ -2271,10 +3375,28 @@
       "sleeper_id": "8348"
     },
     {
+      "name": "Kevin Byard",
+      "normalized_name": "kevin byard",
+      "position": "DB",
+      "sleeper_id": "3233"
+    },
+    {
       "name": "Kevin Coleman",
       "normalized_name": "kevin coleman",
       "position": "WR",
       "sleeper_id": "13338"
+    },
+    {
+      "name": "Kevin Winston",
+      "normalized_name": "kevin winston",
+      "position": "DB",
+      "sleeper_id": "12588"
+    },
+    {
+      "name": "Khalil Mack",
+      "normalized_name": "khalil mack",
+      "position": "LB",
+      "sleeper_id": "2036"
     },
     {
       "name": "Khalil Shakir",
@@ -2307,6 +3429,24 @@
       "sleeper_id": "10916"
     },
     {
+      "name": "Konata Mumpfield",
+      "normalized_name": "konata mumpfield",
+      "position": "WR",
+      "sleeper_id": "12718"
+    },
+    {
+      "name": "Kool-Aid McKinstry",
+      "normalized_name": "kool-aid mckinstry",
+      "position": "DB",
+      "sleeper_id": "11675"
+    },
+    {
+      "name": "Kris Jenkins",
+      "normalized_name": "kris jenkins",
+      "position": "DL",
+      "sleeper_id": "11688"
+    },
+    {
       "name": "Kwity Paye",
       "normalized_name": "kwity paye",
       "position": "DL",
@@ -2337,10 +3477,22 @@
       "sleeper_id": "7553"
     },
     {
+      "name": "Kyle Van Noy",
+      "normalized_name": "kyle van noy",
+      "position": "LB",
+      "sleeper_id": "2130"
+    },
+    {
       "name": "Kyle Williams",
       "normalized_name": "kyle williams",
       "position": "WR",
       "sleeper_id": "638"
+    },
+    {
+      "name": "Kyler Gordon",
+      "normalized_name": "kyler gordon",
+      "position": "DB",
+      "sleeper_id": "8365"
     },
     {
       "name": "Kyler Murray",
@@ -2359,6 +3511,12 @@
       "normalized_name": "kyzir white",
       "position": "LB",
       "sleeper_id": "5348"
+    },
+    {
+      "name": "L'Jarius Sneed",
+      "normalized_name": "ljarius sneed",
+      "position": "DB",
+      "sleeper_id": "7117"
     },
     {
       "name": "Ladd McConkey",
@@ -2383,6 +3541,24 @@
       "normalized_name": "lamar jackson",
       "position": "QB",
       "sleeper_id": "4881"
+    },
+    {
+      "name": "Landon Jackson",
+      "normalized_name": "landon jackson",
+      "position": "DL",
+      "sleeper_id": "12580"
+    },
+    {
+      "name": "Lathan Ransom",
+      "normalized_name": "lathan ransom",
+      "position": "DB",
+      "sleeper_id": "12611"
+    },
+    {
+      "name": "Lavonte David",
+      "normalized_name": "lavonte david",
+      "position": "LB",
+      "sleeper_id": "1192"
     },
     {
       "name": "Le'Veon Moss",
@@ -2445,6 +3621,12 @@
       "sleeper_id": "9481"
     },
     {
+      "name": "Luke Schoonmaker",
+      "normalized_name": "luke schoonmaker",
+      "position": "TE",
+      "sleeper_id": "10871"
+    },
+    {
       "name": "Luther Burden",
       "normalized_name": "luther burden",
       "position": "WR",
@@ -2463,10 +3645,22 @@
       "sleeper_id": "4177"
     },
     {
+      "name": "Mack Wilson",
+      "normalized_name": "mack wilson",
+      "position": "LB",
+      "sleeper_id": "6131"
+    },
+    {
       "name": "Makai Lemon",
       "normalized_name": "makai lemon",
       "position": "WR",
       "sleeper_id": "13294"
+    },
+    {
+      "name": "Malachi Corley",
+      "normalized_name": "malachi corley",
+      "position": "WR",
+      "sleeper_id": "11617"
     },
     {
       "name": "Malachi Fields",
@@ -2479,6 +3673,12 @@
       "normalized_name": "malachi lawrence",
       "position": "DL",
       "sleeper_id": "13359"
+    },
+    {
+      "name": "Malachi Moore",
+      "normalized_name": "malachi moore",
+      "position": "DB",
+      "sleeper_id": "12639"
     },
     {
       "name": "Malaki Starks",
@@ -2505,6 +3705,12 @@
       "sleeper_id": "8800"
     },
     {
+      "name": "Malik Mustapha",
+      "normalized_name": "malik mustapha",
+      "position": "DB",
+      "sleeper_id": "11731"
+    },
+    {
       "name": "Malik Nabers",
       "normalized_name": "malik nabers",
       "position": "WR",
@@ -2529,10 +3735,28 @@
       "sleeper_id": "11581"
     },
     {
+      "name": "Marcus Davenport",
+      "normalized_name": "marcus davenport",
+      "position": "DL",
+      "sleeper_id": "4965"
+    },
+    {
+      "name": "Marcus Jones",
+      "normalized_name": "marcus jones",
+      "position": "DB",
+      "sleeper_id": "8359"
+    },
+    {
       "name": "Marcus Mariota",
       "normalized_name": "marcus mariota",
       "position": "QB",
       "sleeper_id": "2307"
+    },
+    {
+      "name": "Marist Liufau",
+      "normalized_name": "marist liufau",
+      "position": "LB",
+      "sleeper_id": "11720"
     },
     {
       "name": "Mark Andrews",
@@ -2551,6 +3775,24 @@
       "normalized_name": "marlin klein",
       "position": "TE",
       "sleeper_id": "13307"
+    },
+    {
+      "name": "Marlon Humphrey",
+      "normalized_name": "marlon humphrey",
+      "position": "DB",
+      "sleeper_id": "4071"
+    },
+    {
+      "name": "Marlowe Wax",
+      "normalized_name": "marlowe wax",
+      "position": "LB",
+      "sleeper_id": "12835"
+    },
+    {
+      "name": "Marques Sigle",
+      "normalized_name": "marques sigle",
+      "position": "DB",
+      "sleeper_id": "12668"
     },
     {
       "name": "Marquise Brown",
@@ -2583,10 +3825,34 @@
       "sleeper_id": "12498"
     },
     {
+      "name": "Mason Tipton",
+      "normalized_name": "mason tipton",
+      "position": "WR",
+      "sleeper_id": "11895"
+    },
+    {
+      "name": "Matthew Judon",
+      "normalized_name": "matthew judon",
+      "position": "LB",
+      "sleeper_id": "3303"
+    },
+    {
+      "name": "Matt Milano",
+      "normalized_name": "matt milano",
+      "position": "LB",
+      "sleeper_id": "4191"
+    },
+    {
       "name": "Matthew Golden",
       "normalized_name": "matthew golden",
       "position": "WR",
       "sleeper_id": "12501"
+    },
+    {
+      "name": "Matthew Hibner",
+      "normalized_name": "matthew hibner",
+      "position": "TE",
+      "sleeper_id": "13324"
     },
     {
       "name": "Matthew Stafford",
@@ -2601,10 +3867,22 @@
       "sleeper_id": "13278"
     },
     {
+      "name": "Max Melton",
+      "normalized_name": "max melton",
+      "position": "DB",
+      "sleeper_id": "11693"
+    },
+    {
       "name": "Maxx Crosby",
       "normalized_name": "maxx crosby",
       "position": "DL",
       "sleeper_id": "5991"
+    },
+    {
+      "name": "Micah McFadden",
+      "normalized_name": "micah mcfadden",
+      "position": "LB",
+      "sleeper_id": "8396"
     },
     {
       "name": "Micah Parsons",
@@ -2617,6 +3895,12 @@
       "normalized_name": "michael carter",
       "position": "RB",
       "sleeper_id": "7835"
+    },
+    {
+      "name": "Mike Hall",
+      "normalized_name": "mike hall",
+      "position": "DL",
+      "sleeper_id": "11692"
     },
     {
       "name": "Michael Mayer",
@@ -2667,16 +3951,52 @@
       "sleeper_id": "12571"
     },
     {
+      "name": "Mike Sainristil",
+      "normalized_name": "mike sainristil",
+      "position": "DB",
+      "sleeper_id": "11676"
+    },
+    {
       "name": "Mike Washington",
       "normalized_name": "mike washington",
       "position": "RB",
       "sleeper_id": "13305"
     },
     {
+      "name": "Mike Williams",
+      "normalized_name": "mike williams",
+      "position": "WR",
+      "sleeper_id": "748"
+    },
+    {
       "name": "Miller Moss",
       "normalized_name": "miller moss",
       "position": "QB",
       "sleeper_id": "13310"
+    },
+    {
+      "name": "Milton Williams",
+      "normalized_name": "milton williams",
+      "position": "WR",
+      "sleeper_id": "2941"
+    },
+    {
+      "name": "Minkah Fitzpatrick",
+      "normalized_name": "minkah fitzpatrick",
+      "position": "DB",
+      "sleeper_id": "4963"
+    },
+    {
+      "name": "Mitchell Evans",
+      "normalized_name": "mitchell evans",
+      "position": "TE",
+      "sleeper_id": "12473"
+    },
+    {
+      "name": "Mitch Tinsley",
+      "normalized_name": "mitch tinsley",
+      "position": "WR",
+      "sleeper_id": "11068"
     },
     {
       "name": "Montez Sweat",
@@ -2697,6 +4017,18 @@
       "sleeper_id": "3973"
     },
     {
+      "name": "Myles Murphy",
+      "normalized_name": "myles murphy",
+      "position": "DL",
+      "sleeper_id": "10875"
+    },
+    {
+      "name": "Nahshon Wright",
+      "normalized_name": "nahshon wright",
+      "position": "DB",
+      "sleeper_id": "7687"
+    },
+    {
       "name": "Najee Harris",
       "normalized_name": "najee harris",
       "position": "RB",
@@ -2715,10 +4047,22 @@
       "sleeper_id": "13299"
     },
     {
+      "name": "Nate Hobbs",
+      "normalized_name": "nate hobbs",
+      "position": "DB",
+      "sleeper_id": "7823"
+    },
+    {
       "name": "Nate Landman",
       "normalized_name": "nate landman",
       "position": "LB",
       "sleeper_id": "8659"
+    },
+    {
+      "name": "Nate Wiggins",
+      "normalized_name": "nate wiggins",
+      "position": "DB",
+      "sleeper_id": "11656"
     },
     {
       "name": "Nic Scourton",
@@ -2769,6 +4113,18 @@
       "sleeper_id": "10940"
     },
     {
+      "name": "Nick Westbrook-Ikhine",
+      "normalized_name": "nick westbrook-ikhine",
+      "position": "WR",
+      "sleeper_id": "7496"
+    },
+    {
+      "name": "Nick Martin",
+      "normalized_name": "nick martin",
+      "position": "LB",
+      "sleeper_id": "3221"
+    },
+    {
       "name": "Nico Collins",
       "normalized_name": "nico collins",
       "position": "WR",
@@ -2781,6 +4137,18 @@
       "sleeper_id": "8280"
     },
     {
+      "name": "Nnamdi Madubuike",
+      "normalized_name": "nnamdi madubuike",
+      "position": "DL",
+      "sleeper_id": "6818"
+    },
+    {
+      "name": "Noah Brown",
+      "normalized_name": "noah brown",
+      "position": "WR",
+      "sleeper_id": "4234"
+    },
+    {
       "name": "Noah Fant",
       "normalized_name": "noah fant",
       "position": "TE",
@@ -2791,6 +4159,12 @@
       "normalized_name": "noah gray",
       "position": "TE",
       "sleeper_id": "7828"
+    },
+    {
+      "name": "Noah Sewell",
+      "normalized_name": "noah sewell",
+      "position": "LB",
+      "sleeper_id": "10984"
     },
     {
       "name": "Noah Thomas",
@@ -2823,6 +4197,12 @@
       "sleeper_id": "12495"
     },
     {
+      "name": "Oluwafemi Oladejo",
+      "normalized_name": "oluwafemi oladejo",
+      "position": "DL",
+      "sleeper_id": "12583"
+    },
+    {
       "name": "Omar Cooper",
       "normalized_name": "omar cooper",
       "position": "WR",
@@ -2841,10 +4221,22 @@
       "sleeper_id": "12507"
     },
     {
+      "name": "Omarr Norman-Lott",
+      "normalized_name": "omarr norman-lott",
+      "position": "DL",
+      "sleeper_id": "12615"
+    },
+    {
       "name": "Oronde Gadsden",
       "normalized_name": "oronde gadsden",
       "position": "TE",
       "sleeper_id": "12493"
+    },
+    {
+      "name": "Osa Odighizuwa",
+      "normalized_name": "osa odighizuwa",
+      "position": "DL",
+      "sleeper_id": "7695"
     },
     {
       "name": "Oscar Delp",
@@ -2871,6 +4263,12 @@
       "sleeper_id": "7600"
     },
     {
+      "name": "Patrick Jones",
+      "normalized_name": "patrick jones",
+      "position": "DL",
+      "sleeper_id": "7674"
+    },
+    {
       "name": "Patrick Mahomes",
       "normalized_name": "patrick mahomes",
       "position": "QB",
@@ -2881,6 +4279,18 @@
       "normalized_name": "patrick queen",
       "position": "LB",
       "sleeper_id": "6807"
+    },
+    {
+      "name": "Pat Surtain",
+      "normalized_name": "pat surtain",
+      "position": "DB",
+      "sleeper_id": "7641"
+    },
+    {
+      "name": "Paulson Adebo",
+      "normalized_name": "paulson adebo",
+      "position": "DB",
+      "sleeper_id": "7669"
     },
     {
       "name": "Payton Wilson",
@@ -2901,10 +4311,28 @@
       "sleeper_id": "13390"
     },
     {
+      "name": "Phil Mafah",
+      "normalized_name": "phil mafah",
+      "position": "RB",
+      "sleeper_id": "12738"
+    },
+    {
+      "name": "Princely Umanmielen",
+      "normalized_name": "princely umanmielen",
+      "position": "DL",
+      "sleeper_id": "12610"
+    },
+    {
       "name": "Puka Nacua",
       "normalized_name": "puka nacua",
       "position": "WR",
       "sleeper_id": "9493"
+    },
+    {
+      "name": "Quan Martin",
+      "normalized_name": "quan martin",
+      "position": "DB",
+      "sleeper_id": "10903"
     },
     {
       "name": "Quay Walker",
@@ -2949,6 +4377,12 @@
       "sleeper_id": "12512"
     },
     {
+      "name": "Quinyon Mitchell",
+      "normalized_name": "quinyon mitchell",
+      "position": "DB",
+      "sleeper_id": "11662"
+    },
+    {
       "name": "RJ Harvey",
       "normalized_name": "rj harvey",
       "position": "RB",
@@ -2959,6 +4393,18 @@
       "normalized_name": "rachaad white",
       "position": "RB",
       "sleeper_id": "8136"
+    },
+    {
+      "name": "Raheem Mostert",
+      "normalized_name": "raheem mostert",
+      "position": "RB",
+      "sleeper_id": "2749"
+    },
+    {
+      "name": "Raheim Sanders",
+      "normalized_name": "raheim sanders",
+      "position": "RB",
+      "sleeper_id": "12472"
     },
     {
       "name": "Rahsul Faison",
@@ -3003,6 +4449,12 @@
       "sleeper_id": "11575"
     },
     {
+      "name": "Reed Blankenship",
+      "normalized_name": "reed blankenship",
+      "position": "DB",
+      "sleeper_id": "8406"
+    },
+    {
       "name": "Reggie Virgil",
       "normalized_name": "reggie virgil",
       "position": "WR",
@@ -3033,6 +4485,18 @@
       "sleeper_id": "12470"
     },
     {
+      "name": "Riley Moss",
+      "normalized_name": "riley moss",
+      "position": "DB",
+      "sleeper_id": "10930"
+    },
+    {
+      "name": "Ra'Shaun Henry",
+      "normalized_name": "rashaun henry",
+      "position": "WR",
+      "sleeper_id": "8571"
+    },
+    {
       "name": "Robert Spillane",
       "normalized_name": "robert spillane",
       "position": "LB",
@@ -3057,6 +4521,12 @@
       "sleeper_id": "8121"
     },
     {
+      "name": "Ronnie Hickman",
+      "normalized_name": "ronnie hickman",
+      "position": "DB",
+      "sleeper_id": "11352"
+    },
+    {
       "name": "Roquan Smith",
       "normalized_name": "roquan smith",
       "position": "LB",
@@ -3075,16 +4545,34 @@
       "sleeper_id": "13340"
     },
     {
+      "name": "Ruke Orhorhoro",
+      "normalized_name": "ruke orhorhoro",
+      "position": "DL",
+      "sleeper_id": "11695"
+    },
+    {
       "name": "Russell Wilson",
       "normalized_name": "russell wilson",
       "position": "QB",
       "sleeper_id": "1234"
     },
     {
+      "name": "Ryan Fitzgerald",
+      "normalized_name": "ryan fitzgerald",
+      "position": "K",
+      "sleeper_id": "12961"
+    },
+    {
       "name": "Ryan Flournoy",
       "normalized_name": "ryan flournoy",
       "position": "WR",
       "sleeper_id": "11783"
+    },
+    {
+      "name": "Sai'vion Jones",
+      "normalized_name": "saivion jones",
+      "position": "DL",
+      "sleeper_id": "12628"
     },
     {
       "name": "Sam Darnold",
@@ -3111,10 +4599,22 @@
       "sleeper_id": "4147"
     },
     {
+      "name": "Smael Mondon",
+      "normalized_name": "smael mondon",
+      "position": "LB",
+      "sleeper_id": "12667"
+    },
+    {
       "name": "Saquon Barkley",
       "normalized_name": "saquon barkley",
       "position": "RB",
       "sleeper_id": "4866"
+    },
+    {
+      "name": "Sauce Gardner",
+      "normalized_name": "sauce gardner",
+      "position": "DB",
+      "sleeper_id": "8290"
     },
     {
       "name": "Savion Williams",
@@ -3129,10 +4629,28 @@
       "sleeper_id": "9506"
     },
     {
+      "name": "Shaun Dolac",
+      "normalized_name": "shaun dolac",
+      "position": "LB",
+      "sleeper_id": "13000"
+    },
+    {
+      "name": "Shavon Revel",
+      "normalized_name": "shavon revel",
+      "position": "DB",
+      "sleeper_id": "12559"
+    },
+    {
       "name": "Shedeur Sanders",
       "normalized_name": "shedeur sanders",
       "position": "QB",
       "sleeper_id": "12524"
+    },
+    {
+      "name": "Shemar James",
+      "normalized_name": "shemar james",
+      "position": "LB",
+      "sleeper_id": "12614"
     },
     {
       "name": "Shemar Stewart",
@@ -3165,16 +4683,22 @@
       "sleeper_id": "11562"
     },
     {
+      "name": "Spencer Shrader",
+      "normalized_name": "spencer shrader",
+      "position": "K",
+      "sleeper_id": "12185"
+    },
+    {
       "name": "Stefon Diggs",
       "normalized_name": "stefon diggs",
       "position": "WR",
       "sleeper_id": "2449"
     },
     {
-      "name": "T.J. Hockenson",
-      "normalized_name": "tj hockenson",
-      "position": "TE",
-      "sleeper_id": "5844"
+      "name": "T'Vondre Sweat",
+      "normalized_name": "tvondre sweat",
+      "position": "DL",
+      "sleeper_id": "11691"
     },
     {
       "name": "T.J. Edwards",
@@ -3183,10 +4707,22 @@
       "sleeper_id": "5960"
     },
     {
+      "name": "T.J. Hockenson",
+      "normalized_name": "tj hockenson",
+      "position": "TE",
+      "sleeper_id": "5844"
+    },
+    {
       "name": "T.J. Watt",
       "normalized_name": "tj watt",
       "position": "LB",
       "sleeper_id": "4070"
+    },
+    {
+      "name": "Ty Okada",
+      "normalized_name": "ty okada",
+      "position": "DB",
+      "sleeper_id": "11233"
     },
     {
       "name": "Tahj Brooks",
@@ -3225,6 +4761,18 @@
       "sleeper_id": "9230"
     },
     {
+      "name": "Tarheeb Still",
+      "normalized_name": "tarheeb still",
+      "position": "DB",
+      "sleeper_id": "11779"
+    },
+    {
+      "name": "Taron Johnson",
+      "normalized_name": "taron johnson",
+      "position": "DB",
+      "sleeper_id": "5341"
+    },
+    {
       "name": "Tatum Bethune",
       "normalized_name": "tatum bethune",
       "position": "LB",
@@ -3235,6 +4783,18 @@
       "normalized_name": "taylen green",
       "position": "QB",
       "sleeper_id": "13306"
+    },
+    {
+      "name": "Taylor Rapp",
+      "normalized_name": "taylor rapp",
+      "position": "DB",
+      "sleeper_id": "5882"
+    },
+    {
+      "name": "Taysom Hill",
+      "normalized_name": "taysom hill",
+      "position": "TE",
+      "sleeper_id": "4381"
     },
     {
       "name": "Teagan Quitoriano",
@@ -3279,10 +4839,22 @@
       "sleeper_id": "8311"
     },
     {
+      "name": "Terrion Arnold",
+      "normalized_name": "terrion arnold",
+      "position": "DB",
+      "sleeper_id": "11661"
+    },
+    {
       "name": "Terry McLaurin",
       "normalized_name": "terry mclaurin",
       "position": "WR",
       "sleeper_id": "5927"
+    },
+    {
+      "name": "Tershawn Wharton",
+      "normalized_name": "tershawn wharton",
+      "position": "DL",
+      "sleeper_id": "7301"
     },
     {
       "name": "Tetairoa McMillan",
@@ -3297,10 +4869,40 @@
       "sleeper_id": "12485"
     },
     {
+      "name": "Theo Jackson",
+      "normalized_name": "theo jackson",
+      "position": "DB",
+      "sleeper_id": "8496"
+    },
+    {
       "name": "Theo Johnson",
       "normalized_name": "theo johnson",
       "position": "TE",
       "sleeper_id": "11597"
+    },
+    {
+      "name": "Tim Patrick",
+      "normalized_name": "tim patrick",
+      "position": "WR",
+      "sleeper_id": "4351"
+    },
+    {
+      "name": "Tip Reiman",
+      "normalized_name": "tip reiman",
+      "position": "TE",
+      "sleeper_id": "11716"
+    },
+    {
+      "name": "Tommy Eichenberg",
+      "normalized_name": "tommy eichenberg",
+      "position": "LB",
+      "sleeper_id": "11761"
+    },
+    {
+      "name": "Tommy Tremble",
+      "normalized_name": "tommy tremble",
+      "position": "TE",
+      "sleeper_id": "7694"
     },
     {
       "name": "Tony Pollard",
@@ -3325,6 +4927,12 @@
       "normalized_name": "travis hunter",
       "position": "WR",
       "sleeper_id": "12530"
+    },
+    {
+      "name": "Travis Jones",
+      "normalized_name": "travis jones",
+      "position": "DL",
+      "sleeper_id": "8400"
     },
     {
       "name": "Travis Kelce",
@@ -3375,6 +4983,18 @@
       "sleeper_id": "4968"
     },
     {
+      "name": "Trent McDuffie",
+      "normalized_name": "trent mcduffie",
+      "position": "DB",
+      "sleeper_id": "8364"
+    },
+    {
+      "name": "Trenton Simpson",
+      "normalized_name": "trenton simpson",
+      "position": "LB",
+      "sleeper_id": "10935"
+    },
+    {
       "name": "Trevin Wallace",
       "normalized_name": "trevin wallace",
       "position": "LB",
@@ -3391,6 +5011,12 @@
       "normalized_name": "trevor lawrence",
       "position": "QB",
       "sleeper_id": "7523"
+    },
+    {
+      "name": "Trey Amos",
+      "normalized_name": "trey amos",
+      "position": "DB",
+      "sleeper_id": "12595"
     },
     {
       "name": "Trey Benson",
@@ -3429,6 +5055,18 @@
       "sleeper_id": "8135"
     },
     {
+      "name": "Troy Andersen",
+      "normalized_name": "troy andersen",
+      "position": "LB",
+      "sleeper_id": "8388"
+    },
+    {
+      "name": "Troy Dye",
+      "normalized_name": "troy dye",
+      "position": "LB",
+      "sleeper_id": "6941"
+    },
+    {
       "name": "Troy Franklin",
       "normalized_name": "troy franklin",
       "position": "WR",
@@ -3459,10 +5097,22 @@
       "sleeper_id": "7562"
     },
     {
+      "name": "Ty Johnson",
+      "normalized_name": "ty johnson",
+      "position": "RB",
+      "sleeper_id": "6039"
+    },
+    {
       "name": "Ty Simpson",
       "normalized_name": "ty simpson",
       "position": "QB",
       "sleeper_id": "13275"
+    },
+    {
+      "name": "Ty'Ron Hopper",
+      "normalized_name": "tyron hopper",
+      "position": "LB",
+      "sleeper_id": "11712"
     },
     {
       "name": "Tyjae Spears",
@@ -3483,6 +5133,24 @@
       "sleeper_id": "8132"
     },
     {
+      "name": "Tyler Badie",
+      "normalized_name": "tyler badie",
+      "position": "RB",
+      "sleeper_id": "8208"
+    },
+    {
+      "name": "Tyler Bass",
+      "normalized_name": "tyler bass",
+      "position": "K",
+      "sleeper_id": "7042"
+    },
+    {
+      "name": "Tyler Conklin",
+      "normalized_name": "tyler conklin",
+      "position": "TE",
+      "sleeper_id": "5133"
+    },
+    {
       "name": "Tyler Higbee",
       "normalized_name": "tyler higbee",
       "position": "TE",
@@ -3499,6 +5167,18 @@
       "normalized_name": "tyler johnson",
       "position": "WR",
       "sleeper_id": "6960"
+    },
+    {
+      "name": "Tyler Lockett",
+      "normalized_name": "tyler lockett",
+      "position": "WR",
+      "sleeper_id": "2374"
+    },
+    {
+      "name": "Tyler Loop",
+      "normalized_name": "tyler loop",
+      "position": "K",
+      "sleeper_id": "12711"
     },
     {
       "name": "Tyler Nubin",
@@ -3525,6 +5205,12 @@
       "sleeper_id": "8188"
     },
     {
+      "name": "Tyree Wilson",
+      "normalized_name": "tyree wilson",
+      "position": "LB",
+      "sleeper_id": "10889"
+    },
+    {
       "name": "Tyreek Hill",
       "normalized_name": "tyreek hill",
       "position": "WR",
@@ -3537,10 +5223,22 @@
       "sleeper_id": "6315"
     },
     {
+      "name": "Ty Montgomery",
+      "normalized_name": "ty montgomery",
+      "position": "RB",
+      "sleeper_id": "2399"
+    },
+    {
       "name": "Tyrice Knight",
       "normalized_name": "tyrice knight",
       "position": "LB",
       "sleeper_id": "11734"
+    },
+    {
+      "name": "Tyrique Stevenson",
+      "normalized_name": "tyrique stevenson",
+      "position": "DB",
+      "sleeper_id": "10897"
     },
     {
       "name": "Tyrone Tracy",
@@ -3555,10 +5253,34 @@
       "sleeper_id": "11256"
     },
     {
+      "name": "Tyson Campbell",
+      "normalized_name": "tyson campbell",
+      "position": "DB",
+      "sleeper_id": "7667"
+    },
+    {
       "name": "Uchenna Nwosu",
       "normalized_name": "uchenna nwosu",
       "position": "LB",
       "sleeper_id": "5061"
+    },
+    {
+      "name": "Upton Stout",
+      "normalized_name": "upton stout",
+      "position": "DB",
+      "sleeper_id": "12631"
+    },
+    {
+      "name": "Ventrell Miller",
+      "normalized_name": "ventrell miller",
+      "position": "LB",
+      "sleeper_id": "10947"
+    },
+    {
+      "name": "Vinny Anthony",
+      "normalized_name": "vinny anthony",
+      "position": "WR",
+      "sleeper_id": "13343"
     },
     {
       "name": "Walter Nolen",
@@ -3573,10 +5295,22 @@
       "sleeper_id": "8126"
     },
     {
+      "name": "Wil Lutz",
+      "normalized_name": "wil lutz",
+      "position": "K",
+      "sleeper_id": "3678"
+    },
+    {
       "name": "Will Anderson",
       "normalized_name": "will anderson",
       "position": "DL",
       "sleeper_id": "10892"
+    },
+    {
+      "name": "Will Harris",
+      "normalized_name": "will harris",
+      "position": "DB",
+      "sleeper_id": "5920"
     },
     {
       "name": "Will Howard",
@@ -3585,10 +5319,28 @@
       "sleeper_id": "12511"
     },
     {
+      "name": "Will Johnson",
+      "normalized_name": "will johnson",
+      "position": "K",
+      "sleeper_id": "2984"
+    },
+    {
+      "name": "Will Levis",
+      "normalized_name": "will levis",
+      "position": "QB",
+      "sleeper_id": "9999"
+    },
+    {
       "name": "Will McDonald",
       "normalized_name": "will mcdonald",
       "position": "DL",
       "sleeper_id": "10883"
+    },
+    {
+      "name": "Will Reichard",
+      "normalized_name": "will reichard",
+      "position": "K",
+      "sleeper_id": "11792"
     },
     {
       "name": "Will Shipley",
@@ -3597,10 +5349,22 @@
       "sleeper_id": "11577"
     },
     {
+      "name": "Willie Gay",
+      "normalized_name": "willie gay",
+      "position": "LB",
+      "sleeper_id": "7023"
+    },
+    {
       "name": "Woody Marks",
       "normalized_name": "woody marks",
       "position": "RB",
       "sleeper_id": "12474"
+    },
+    {
+      "name": "Xavier Watts",
+      "normalized_name": "xavier watts",
+      "position": "DB",
+      "sleeper_id": "12591"
     },
     {
       "name": "Xavier Hutchinson",
@@ -3625,12 +5389,6 @@
       "normalized_name": "xavier restrepo",
       "position": "WR",
       "sleeper_id": "12520"
-    },
-    {
-      "name": "Xavier Watts",
-      "normalized_name": "xavier watts",
-      "position": "DB",
-      "sleeper_id": "12591"
     },
     {
       "name": "Xavier Worthy",
@@ -3663,6 +5421,12 @@
       "sleeper_id": "1339"
     },
     {
+      "name": "Zach Harrison",
+      "normalized_name": "zach harrison",
+      "position": "DL",
+      "sleeper_id": "10934"
+    },
+    {
       "name": "Zach Sieler",
       "normalized_name": "zach sieler",
       "position": "DL",
@@ -3687,10 +5451,22 @@
       "sleeper_id": "5346"
     },
     {
+      "name": "Zaven Collins",
+      "normalized_name": "zaven collins",
+      "position": "LB",
+      "sleeper_id": "7637"
+    },
+    {
       "name": "Zay Flowers",
       "normalized_name": "zay flowers",
       "position": "WR",
       "sleeper_id": "9997"
+    },
+    {
+      "name": "Zyon McCollum",
+      "normalized_name": "zyon mccollum",
+      "position": "DB",
+      "sleeper_id": "8384"
     },
     {
       "name": "Adam Thielen",
@@ -3699,88 +5475,10 @@
       "sleeper_id": "1689"
     },
     {
-      "name": "Akeem Davis-Gaither",
-      "normalized_name": "akeem davis-gaither",
-      "position": "LB",
-      "sleeper_id": "6860"
-    },
-    {
-      "name": "Alex Anzalone",
-      "normalized_name": "alex anzalone",
-      "position": "LB",
-      "sleeper_id": "4118"
-    },
-    {
-      "name": "Alontae Taylor",
-      "normalized_name": "alontae taylor",
-      "position": "DB",
-      "sleeper_id": "8333"
-    },
-    {
-      "name": "Amani Hooker",
-      "normalized_name": "amani hooker",
-      "position": "DB",
-      "sleeper_id": "5908"
-    },
-    {
-      "name": "Andrew Wingard",
-      "normalized_name": "andrew wingard",
-      "position": "DB",
-      "sleeper_id": "6416"
-    },
-    {
-      "name": "Brandon Aubrey",
-      "normalized_name": "brandon aubrey",
-      "position": "K",
-      "sleeper_id": "11533"
-    },
-    {
-      "name": "Bub Means",
-      "normalized_name": "bub means",
-      "position": "WR",
-      "sleeper_id": "11748"
-    },
-    {
-      "name": "C.J. Gardner-Johnson",
-      "normalized_name": "cj gardner-johnson",
-      "position": "DB",
-      "sleeper_id": "5893"
-    },
-    {
-      "name": "Cade Stover",
-      "normalized_name": "cade stover",
-      "position": "TE",
-      "sleeper_id": "11599"
-    },
-    {
       "name": "Calais Campbell",
       "normalized_name": "calais campbell",
       "position": "DL",
       "sleeper_id": "125"
-    },
-    {
-      "name": "Calen Bullock",
-      "normalized_name": "calen bullock",
-      "position": "DB",
-      "sleeper_id": "11710"
-    },
-    {
-      "name": "Cam Bynum",
-      "normalized_name": "cam bynum",
-      "position": "DB",
-      "sleeper_id": "7715"
-    },
-    {
-      "name": "Cam Little",
-      "normalized_name": "cam little",
-      "position": "K",
-      "sleeper_id": "11786"
-    },
-    {
-      "name": "Cameron Dicker",
-      "normalized_name": "cameron dicker",
-      "position": "K",
-      "sleeper_id": "8259"
     },
     {
       "name": "Cameron Jordan",
@@ -3789,52 +5487,10 @@
       "sleeper_id": "957"
     },
     {
-      "name": "Chamarri Conner",
-      "normalized_name": "chamarri conner",
-      "position": "DB",
-      "sleeper_id": "10949"
-    },
-    {
-      "name": "Chase McLaughlin",
-      "normalized_name": "chase mclaughlin",
-      "position": "K",
-      "sleeper_id": "6650"
-    },
-    {
-      "name": "Chris Boswell",
-      "normalized_name": "chris boswell",
-      "position": "K",
-      "sleeper_id": "1945"
-    },
-    {
-      "name": "Christian Elliss",
-      "normalized_name": "christian elliss",
-      "position": "LB",
-      "sleeper_id": "7921"
-    },
-    {
-      "name": "Christian Gonzalez",
-      "normalized_name": "christian gonzalez",
-      "position": "DB",
-      "sleeper_id": "10881"
-    },
-    {
-      "name": "Christian Rozeboom",
-      "normalized_name": "christian rozeboom",
-      "position": "LB",
-      "sleeper_id": "7346"
-    },
-    {
       "name": "Clelin Ferrell",
       "normalized_name": "clelin ferrell",
       "position": "DL",
       "sleeper_id": "5842"
-    },
-    {
-      "name": "Coby Bryant",
-      "normalized_name": "coby bryant",
-      "position": "DB",
-      "sleeper_id": "8293"
     },
     {
       "name": "Curtis Samuel",
@@ -3849,28 +5505,10 @@
       "sleeper_id": "10894"
     },
     {
-      "name": "DaRon Bland",
-      "normalized_name": "daron bland",
-      "position": "DB",
-      "sleeper_id": "8476"
-    },
-    {
       "name": "Dan Bailey",
       "normalized_name": "dan bailey",
       "position": "K",
       "sleeper_id": "899"
-    },
-    {
-      "name": "Dane Belton",
-      "normalized_name": "dane belton",
-      "position": "DB",
-      "sleeper_id": "8395"
-    },
-    {
-      "name": "DeMarcus Lawrence",
-      "normalized_name": "demarcus lawrence",
-      "position": "DL",
-      "sleeper_id": "2064"
     },
     {
       "name": "Dee Alford",
@@ -3879,40 +5517,10 @@
       "sleeper_id": "8104"
     },
     {
-      "name": "Derek Stingley",
-      "normalized_name": "derek stingley",
-      "position": "DB",
-      "sleeper_id": "8308"
-    },
-    {
-      "name": "Derrick Barnes",
-      "normalized_name": "derrick barnes",
-      "position": "LB",
-      "sleeper_id": "7726"
-    },
-    {
-      "name": "Devin Bush",
-      "normalized_name": "devin bush",
-      "position": "LB",
-      "sleeper_id": "5843"
-    },
-    {
       "name": "Devin Duvernay",
       "normalized_name": "devin duvernay",
       "position": "WR",
       "sleeper_id": "6847"
-    },
-    {
-      "name": "Devontez Walker",
-      "normalized_name": "devontez walker",
-      "position": "WR",
-      "sleeper_id": "11629"
-    },
-    {
-      "name": "Dru Phillips",
-      "normalized_name": "dru phillips",
-      "position": "DB",
-      "sleeper_id": "11700"
     },
     {
       "name": "Elijah Higgins",
@@ -3921,46 +5529,16 @@
       "sleeper_id": "10231"
     },
     {
-      "name": "Eric Wilson",
-      "normalized_name": "eric wilson",
-      "position": "LB",
-      "sleeper_id": "8667"
-    },
-    {
-      "name": "Evan McPherson",
-      "normalized_name": "evan mcpherson",
-      "position": "K",
-      "sleeper_id": "7839"
-    },
-    {
       "name": "Gabe Davis",
       "normalized_name": "gabe davis",
       "position": "WR",
       "sleeper_id": "6943"
     },
     {
-      "name": "Geno Stone",
-      "normalized_name": "geno stone",
-      "position": "DB",
-      "sleeper_id": "6923"
-    },
-    {
-      "name": "Harrison Butker",
-      "normalized_name": "harrison butker",
-      "position": "K",
-      "sleeper_id": "4227"
-    },
-    {
       "name": "Hassan Haskins",
       "normalized_name": "hassan haskins",
       "position": "RB",
       "sleeper_id": "8123"
-    },
-    {
-      "name": "Henry To'oTo'o",
-      "normalized_name": "henry tootoo",
-      "position": "LB",
-      "sleeper_id": "10970"
     },
     {
       "name": "Isaiah Pola-Mao",
@@ -3975,70 +5553,16 @@
       "sleeper_id": "3931"
     },
     {
-      "name": "Jack Gibbens",
-      "normalized_name": "jack gibbens",
-      "position": "LB",
-      "sleeper_id": "8680"
-    },
-    {
       "name": "Jack Jones",
       "normalized_name": "jack jones",
       "position": "DB",
       "sleeper_id": "8261"
     },
     {
-      "name": "Jacob Parrish",
-      "normalized_name": "jacob parrish",
-      "position": "DB",
-      "sleeper_id": "12605"
-    },
-    {
       "name": "Jadeveon Clowney",
       "normalized_name": "jadeveon clowney",
       "position": "DL",
       "sleeper_id": "1947"
-    },
-    {
-      "name": "Jahdae Barron",
-      "normalized_name": "jahdae barron",
-      "position": "DB",
-      "sleeper_id": "12557"
-    },
-    {
-      "name": "Jake Bates",
-      "normalized_name": "jake bates",
-      "position": "K",
-      "sleeper_id": "11539"
-    },
-    {
-      "name": "Jake Elliott",
-      "normalized_name": "jake elliott",
-      "position": "K",
-      "sleeper_id": "4195"
-    },
-    {
-      "name": "Jaleel McLaughlin",
-      "normalized_name": "jaleel mclaughlin",
-      "position": "RB",
-      "sleeper_id": "11439"
-    },
-    {
-      "name": "Jalen Ramsey",
-      "normalized_name": "jalen ramsey",
-      "position": "DB",
-      "sleeper_id": "3160"
-    },
-    {
-      "name": "Jalen Redmond",
-      "normalized_name": "jalen redmond",
-      "position": "DL",
-      "sleeper_id": "11328"
-    },
-    {
-      "name": "Jalen Thompson",
-      "normalized_name": "jalen thompson",
-      "position": "DB",
-      "sleeper_id": "6711"
     },
     {
       "name": "Jamel Dean",
@@ -4053,142 +5577,10 @@
       "sleeper_id": "6136"
     },
     {
-      "name": "Jason Myers",
-      "normalized_name": "jason myers",
-      "position": "K",
-      "sleeper_id": "2747"
-    },
-    {
-      "name": "Jawhar Jordan",
-      "normalized_name": "jawhar jordan",
-      "position": "RB",
-      "sleeper_id": "11588"
-    },
-    {
       "name": "Jaylen Watson",
       "normalized_name": "jaylen watson",
       "position": "DB",
       "sleeper_id": "8373"
-    },
-    {
-      "name": "Jonas Sanker",
-      "normalized_name": "jonas sanker",
-      "position": "DB",
-      "sleeper_id": "12619"
-    },
-    {
-      "name": "Jordan Davis",
-      "normalized_name": "jordan davis",
-      "position": "DL",
-      "sleeper_id": "8269"
-    },
-    {
-      "name": "JuJu Smith-Schuster",
-      "normalized_name": "juju smith-schuster",
-      "position": "WR",
-      "sleeper_id": "4040"
-    },
-    {
-      "name": "K'Lavon Chaisson",
-      "normalized_name": "klavon chaisson",
-      "position": "LB",
-      "sleeper_id": "6800"
-    },
-    {
-      "name": "Ka'imi Fairbairn",
-      "normalized_name": "kaimi fairbairn",
-      "position": "K",
-      "sleeper_id": "3451"
-    },
-    {
-      "name": "Kamari Lassiter",
-      "normalized_name": "kamari lassiter",
-      "position": "DB",
-      "sleeper_id": "11685"
-    },
-    {
-      "name": "Kamren Kinchens",
-      "normalized_name": "kamren kinchens",
-      "position": "DB",
-      "sleeper_id": "11726"
-    },
-    {
-      "name": "Keisean Nixon",
-      "normalized_name": "keisean nixon",
-      "position": "DB",
-      "sleeper_id": "6333"
-    },
-    {
-      "name": "Kenny Moore",
-      "normalized_name": "kenny moore",
-      "position": "DB",
-      "sleeper_id": "4427"
-    },
-    {
-      "name": "Kevin Byard",
-      "normalized_name": "kevin byard",
-      "position": "DB",
-      "sleeper_id": "3233"
-    },
-    {
-      "name": "Kevin Winston",
-      "normalized_name": "kevin winston",
-      "position": "DB",
-      "sleeper_id": "12588"
-    },
-    {
-      "name": "Khalil Mack",
-      "normalized_name": "khalil mack",
-      "position": "LB",
-      "sleeper_id": "2036"
-    },
-    {
-      "name": "Konata Mumpfield",
-      "normalized_name": "konata mumpfield",
-      "position": "WR",
-      "sleeper_id": "12718"
-    },
-    {
-      "name": "Kool-Aid McKinstry",
-      "normalized_name": "kool-aid mckinstry",
-      "position": "DB",
-      "sleeper_id": "11675"
-    },
-    {
-      "name": "L'Jarius Sneed",
-      "normalized_name": "ljarius sneed",
-      "position": "DB",
-      "sleeper_id": "7117"
-    },
-    {
-      "name": "Lavonte David",
-      "normalized_name": "lavonte david",
-      "position": "LB",
-      "sleeper_id": "1192"
-    },
-    {
-      "name": "Malachi Moore",
-      "normalized_name": "malachi moore",
-      "position": "DB",
-      "sleeper_id": "12639"
-    },
-    {
-      "name": "Malik Mustapha",
-      "normalized_name": "malik mustapha",
-      "position": "DB",
-      "sleeper_id": "11731"
-    },
-    {
-      "name": "Marcus Jones",
-      "normalized_name": "marcus jones",
-      "position": "DB",
-      "sleeper_id": "8359"
-    },
-    {
-      "name": "Marlon Humphrey",
-      "normalized_name": "marlon humphrey",
-      "position": "DB",
-      "sleeper_id": "4071"
     },
     {
       "name": "Mike Jackson",
@@ -4197,94 +5589,10 @@
       "sleeper_id": "6025"
     },
     {
-      "name": "Mike Sainristil",
-      "normalized_name": "mike sainristil",
-      "position": "DB",
-      "sleeper_id": "11676"
-    },
-    {
-      "name": "Minkah Fitzpatrick",
-      "normalized_name": "minkah fitzpatrick",
-      "position": "DB",
-      "sleeper_id": "4963"
-    },
-    {
-      "name": "Myles Murphy",
-      "normalized_name": "myles murphy",
-      "position": "DL",
-      "sleeper_id": "10875"
-    },
-    {
-      "name": "Nahshon Wright",
-      "normalized_name": "nahshon wright",
-      "position": "DB",
-      "sleeper_id": "7687"
-    },
-    {
-      "name": "Nate Wiggins",
-      "normalized_name": "nate wiggins",
-      "position": "DB",
-      "sleeper_id": "11656"
-    },
-    {
-      "name": "Pat Surtain",
-      "normalized_name": "pat surtain",
-      "position": "DB",
-      "sleeper_id": "7641"
-    },
-    {
-      "name": "Paulson Adebo",
-      "normalized_name": "paulson adebo",
-      "position": "DB",
-      "sleeper_id": "7669"
-    },
-    {
       "name": "Philip Rivers",
       "normalized_name": "philip rivers",
       "position": "QB",
       "sleeper_id": "331"
-    },
-    {
-      "name": "Quinyon Mitchell",
-      "normalized_name": "quinyon mitchell",
-      "position": "DB",
-      "sleeper_id": "11662"
-    },
-    {
-      "name": "Raheim Sanders",
-      "normalized_name": "raheim sanders",
-      "position": "RB",
-      "sleeper_id": "12472"
-    },
-    {
-      "name": "Reed Blankenship",
-      "normalized_name": "reed blankenship",
-      "position": "DB",
-      "sleeper_id": "8406"
-    },
-    {
-      "name": "Riley Moss",
-      "normalized_name": "riley moss",
-      "position": "DB",
-      "sleeper_id": "10930"
-    },
-    {
-      "name": "Sauce Gardner",
-      "normalized_name": "sauce gardner",
-      "position": "DB",
-      "sleeper_id": "8290"
-    },
-    {
-      "name": "Shavon Revel",
-      "normalized_name": "shavon revel",
-      "position": "DB",
-      "sleeper_id": "12559"
-    },
-    {
-      "name": "Shemar James",
-      "normalized_name": "shemar james",
-      "position": "LB",
-      "sleeper_id": "12614"
     },
     {
       "name": "Theo Wease",
@@ -4293,94 +5601,10 @@
       "sleeper_id": "12860"
     },
     {
-      "name": "Tommy Tremble",
-      "normalized_name": "tommy tremble",
-      "position": "TE",
-      "sleeper_id": "7694"
-    },
-    {
-      "name": "Trent McDuffie",
-      "normalized_name": "trent mcduffie",
-      "position": "DB",
-      "sleeper_id": "8364"
-    },
-    {
-      "name": "Ty Johnson",
-      "normalized_name": "ty johnson",
-      "position": "RB",
-      "sleeper_id": "6039"
-    },
-    {
-      "name": "Tyler Conklin",
-      "normalized_name": "tyler conklin",
-      "position": "TE",
-      "sleeper_id": "5133"
-    },
-    {
-      "name": "Tyler Lockett",
-      "normalized_name": "tyler lockett",
-      "position": "WR",
-      "sleeper_id": "2374"
-    },
-    {
-      "name": "Tyler Loop",
-      "normalized_name": "tyler loop",
-      "position": "K",
-      "sleeper_id": "12711"
-    },
-    {
-      "name": "Tyson Campbell",
-      "normalized_name": "tyson campbell",
-      "position": "DB",
-      "sleeper_id": "7667"
-    },
-    {
-      "name": "Upton Stout",
-      "normalized_name": "upton stout",
-      "position": "DB",
-      "sleeper_id": "12631"
-    },
-    {
-      "name": "Wil Lutz",
-      "normalized_name": "wil lutz",
-      "position": "K",
-      "sleeper_id": "3678"
-    },
-    {
       "name": "Zonovan Knight",
       "normalized_name": "zonovan knight",
       "position": "RB",
       "sleeper_id": "8122"
-    },
-    {
-      "name": "Zyon McCollum",
-      "normalized_name": "zyon mccollum",
-      "position": "DB",
-      "sleeper_id": "8384"
-    },
-    {
-      "name": "Vinny Anthony",
-      "normalized_name": "vinny anthony",
-      "position": "WR",
-      "sleeper_id": "13343"
-    },
-    {
-      "name": "DJ Rogers",
-      "normalized_name": "dj rogers",
-      "position": "TE",
-      "sleeper_id": "13355"
-    },
-    {
-      "name": "Emmanuel Henderson",
-      "normalized_name": "emmanuel henderson",
-      "position": "WR",
-      "sleeper_id": "13313"
-    },
-    {
-      "name": "Matthew Hibner",
-      "normalized_name": "matthew hibner",
-      "position": "TE",
-      "sleeper_id": "13324"
     },
     {
       "name": "Kamari Ramsey",

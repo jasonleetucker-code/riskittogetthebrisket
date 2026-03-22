@@ -2887,6 +2887,32 @@ DEBUG     = True
 PLAYERS = [clean_name(p) for p in PLAYERS]
 
 
+def _detect_proxy() -> dict | None:
+    """Detect HTTP(S) proxy from environment for Playwright browser launch.
+
+    Returns a dict suitable for ``playwright.chromium.launch(proxy=...)``
+    or ``None`` when no proxy is configured.  Handles the ``user:pass@host:port``
+    format that container/CI egress proxies typically use.
+    """
+    from urllib.parse import urlparse as _urlparse
+
+    raw = os.environ.get("https_proxy") or os.environ.get("HTTPS_PROXY") or ""
+    if not raw:
+        return None
+    parsed = _urlparse(raw)
+    if not parsed.hostname:
+        return None
+    proxy: dict = {"server": f"http://{parsed.hostname}:{parsed.port or 3128}"}
+    if parsed.username:
+        proxy["username"] = parsed.username
+    if parsed.password:
+        proxy["password"] = parsed.password
+    return proxy
+
+
+_PLAYWRIGHT_PROXY: dict | None = _detect_proxy()
+
+
 async def safe_goto(page, urls, label, wait_ms=3000):
     """Navigate to the first working URL from a list. Returns True on success."""
     if isinstance(urls, str):
@@ -5034,7 +5060,7 @@ async def scrape_draftsharks(page, players):
     name_map = {}
     try:
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=True)
+            browser = await pw.chromium.launch(headless=True, proxy=_PLAYWRIGHT_PROXY)
             session_path = os.path.join(SCRIPT_DIR, DRAFTSHARKS_SESSION)
             ctx_opts = dict(
                 user_agent=(
@@ -5043,6 +5069,7 @@ async def scrape_draftsharks(page, players):
                     "Chrome/122.0.0.0 Safari/537.36"
                 ),
                 viewport={"width": 1280, "height": 900},
+                ignore_https_errors=bool(_PLAYWRIGHT_PROXY),
             )
             if os.path.exists(session_path):
                 ctx_opts["storage_state"] = session_path
@@ -5689,7 +5716,7 @@ async def scrape_dynastynerds(page, players):
     browser = None
     try:
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=True)
+            browser = await pw.chromium.launch(headless=True, proxy=_PLAYWRIGHT_PROXY)
 
             session_path = os.path.join(SCRIPT_DIR, DYNASTYNERDS_SESSION)
             ctx_opts = dict(
@@ -5699,6 +5726,7 @@ async def scrape_dynastynerds(page, players):
                     "Chrome/122.0.0.0 Safari/537.36"
                 ),
                 viewport={"width": 1280, "height": 900},
+                ignore_https_errors=bool(_PLAYWRIGHT_PROXY),
             )
             if os.path.exists(session_path):
                 ctx_opts["storage_state"] = session_path
@@ -6672,7 +6700,7 @@ async def scrape_draftsharks_idp(page, players):
     name_map = {}
     try:
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=True)
+            browser = await pw.chromium.launch(headless=True, proxy=_PLAYWRIGHT_PROXY)
             session_path = os.path.join(SCRIPT_DIR, DRAFTSHARKS_SESSION)
             ctx_opts = dict(
                 user_agent=(
@@ -6681,6 +6709,7 @@ async def scrape_draftsharks_idp(page, players):
                     "Chrome/122.0.0.0 Safari/537.36"
                 ),
                 viewport={"width": 1280, "height": 900},
+                ignore_https_errors=bool(_PLAYWRIGHT_PROXY),
             )
             if os.path.exists(session_path):
                 ctx_opts["storage_state"] = session_path
@@ -6989,7 +7018,7 @@ async def scrape_flock_with_session(pw, players):
 
     browser = None
     try:
-        browser = await pw.chromium.launch(headless=True)
+        browser = await pw.chromium.launch(headless=True, proxy=_PLAYWRIGHT_PROXY)
         ctx_opts = dict(
             user_agent=(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -6997,6 +7026,7 @@ async def scrape_flock_with_session(pw, players):
                 "Chrome/122.0.0.0 Safari/537.36"
             ),
             viewport={"width": 1280, "height": 900},
+            ignore_https_errors=bool(_PLAYWRIGHT_PROXY),
         )
         if has_session:
             ctx_opts["storage_state"] = session_path
@@ -7986,7 +8016,7 @@ async def run(progress_callback=None):
             # ── All other browser sites ──
             non_flock = [(s, fn) for s, fn in browser_order if SITES.get(s)]
             if non_flock or SITES.get("Flock"):
-                browser = await pw.chromium.launch(headless=True)
+                browser = await pw.chromium.launch(headless=True, proxy=_PLAYWRIGHT_PROXY)
                 context = await browser.new_context(
                     user_agent=(
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -7994,6 +8024,7 @@ async def run(progress_callback=None):
                         "Chrome/122.0.0.0 Safari/537.36"
                     ),
                     viewport={"width": 1280, "height": 900},
+                    ignore_https_errors=bool(_PLAYWRIGHT_PROXY),
                 )
 
                 # Block heavy resources for speed
