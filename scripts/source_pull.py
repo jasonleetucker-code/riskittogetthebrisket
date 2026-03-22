@@ -247,6 +247,16 @@ def main() -> int:
     )
     if run_payload["warnings"]:
         print(f"[source_pull] warnings={len(run_payload['warnings'])}")
+
+    # Named-source freshness check: KTC is critical for public-primary quality.
+    # Warn loudly if KTC contributed zero records so operators catch it immediately.
+    for snap in run_payload["snapshots"]:
+        if snap["source"] == "KTC" and snap["record_count"] == 0:
+            print("[source_pull] ⚠ KTC: 0 records ingested — blend quality will degrade")
+            print("[source_pull]   Check: exports/latest/site_raw/ktc.csv exists and has data")
+            print("[source_pull]   Run: python scripts/check_ktc_health.py --full")
+        elif snap["source"] == "KTC":
+            print(f"[source_pull] KTC: {snap['record_count']} records ingested ✓")
     return 0
 
 

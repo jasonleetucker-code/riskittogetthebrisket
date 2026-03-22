@@ -258,6 +258,20 @@ def main() -> int:
         f"rookie_warn={len(rookie_warn)} unmatched={validation_payload['unmatched_asset_count']} "
         f"low_conf={validation_payload['low_confidence_match_count']}"
     )
+
+    # Per-source contribution summary for operator visibility.
+    from collections import Counter
+    source_record_counts = Counter(r.source for r in all_records)
+    source_asset_counts: dict[str, int] = {}
+    for asset_dict in asset_dicts:
+        for src in asset_dict.get("source_values", {}):
+            source_asset_counts[src] = source_asset_counts.get(src, 0) + 1
+    contrib_parts = []
+    for src in sorted(source_record_counts):
+        records = source_record_counts[src]
+        assets = source_asset_counts.get(src, 0)
+        contrib_parts.append(f"{src}={records}r/{assets}a")
+    print(f"[canonical_build] sources: {', '.join(contrib_parts)}")
     return 0
 
 

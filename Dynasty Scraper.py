@@ -11458,6 +11458,7 @@ async def run(progress_callback=None):
                     pass
 
         # Export raw per-site maps to CSV for easier external sharing/audit.
+        _fresh_site_raw: set[str] = set()
         for scraper_name, full_map in FULL_DATA.items():
             dash_key = site_key_map.get(scraper_name, scraper_name)
             out_csv = os.path.join(site_raw_dir, f"{dash_key}.csv")
@@ -11467,28 +11468,33 @@ async def run(progress_callback=None):
                     w.writerow(["name", "value"])
                     for n, v in sorted(full_map.items(), key=lambda x: x[0].lower()):
                         w.writerow([n, v])
+                _fresh_site_raw.add(f"{dash_key}.csv")
             except Exception:
                 continue
 
         # Restore any previous site_raw CSVs that weren't re-produced
         # this run.  This keeps sources like KTC alive across scrape runs
         # where they might fail due to proxy/TLS issues.
+        _preserved_site_raw: set[str] = set()
         for fname_sr, content in _prev_site_raw.items():
             dest = os.path.join(site_raw_dir, fname_sr)
             if not os.path.exists(dest):
                 try:
                     with open(dest, "wb") as f:
                         f.write(content)
+                    _preserved_site_raw.add(fname_sr)
                     print(f"  [site_raw] Preserved previous {fname_sr}")
                 except Exception:
                     pass
 
-        # Write a tiny manifest for context.
+        # Write manifest with per-source freshness metadata.
         manifest = {
             "generatedAt": datetime.datetime.now().isoformat(),
             "date": str(datetime.date.today()),
             "files": sorted(os.listdir(latest_dir)),
             "siteRawCount": len(os.listdir(site_raw_dir)) if os.path.exists(site_raw_dir) else 0,
+            "siteRawFresh": sorted(_fresh_site_raw),
+            "siteRawPreserved": sorted(_preserved_site_raw),
         }
         with open(os.path.join(latest_dir, "manifest.json"), "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2, ensure_ascii=False)
