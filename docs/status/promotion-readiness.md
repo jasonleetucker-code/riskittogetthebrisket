@@ -1,6 +1,6 @@
 # Promotion Readiness Status
 
-_Updated: 2026-03-22 (final validation checkpoint — all collision bugs fixed, 408 tests)_
+_Updated: 2026-03-22 (KTC reliability phase — 11 fresh sources, KTC blocked in sandbox)_
 
 ## Current State: **INTERNAL_PRIMARY VALIDATED — 9/9 PASS**
 
@@ -11,28 +11,28 @@ Rollback: `export CANONICAL_DATA_MODE=off` and restart.
 
 | Check | Required | Actual | Status |
 |-------|----------|--------|--------|
-| Source count >= 4 | 4 | **14** | PASS |
-| Top-50 overlap >= 70% | 70% | **82%** | PASS |
-| Top-100 overlap >= 65% | 65% | **84%** | PASS |
-| Tier agreement >= 50% | 50% | **53.5%** | PASS |
-| Avg |delta| <= 1500 | 1500 | **999** | PASS |
-| Sample size >= 500 | 500 | 830 | PASS |
-| Multi-source blend >= 40% | 40% | **61%** | PASS |
+| Source count >= 4 | 4 | **13** | PASS |
+| Top-50 overlap >= 70% | 70% | **92%** | PASS |
+| Top-100 overlap >= 65% | 65% | **92%** | PASS |
+| Tier agreement >= 50% | 50% | **50.1%** | PASS |
+| Avg |delta| <= 1500 | 1500 | **1006** | PASS |
+| Sample size >= 500 | 500 | 1051 | PASS |
+| Multi-source blend >= 40% | 40% | **57%** | PASS |
 | IDP sources >= 2 | 2 | 5 | PASS |
 | Weights tuned | Yes | v4 | PASS |
 | Tests pass | Yes | 408 pass | PASS |
 
-## Public Primary: 8/12 Pass, 3 Hard Fails
+## Public Primary: 7/12 Pass, 4 Hard Fails
 
 | Check | Required | Actual | Status | Gap |
 |-------|----------|--------|--------|-----|
-| Source count >= 6 | 6 | 14 | **PASS** | — |
-| Top-50 overlap >= 80% | 80% | **82%** | **PASS** | +2% |
-| Top-100 overlap >= 75% | 75% | **84%** | **PASS** | +9% |
-| Tier agreement >= 65% | 65% | 53.5% | **FAIL** | **-11.5%** |
-| Avg delta <= 800 | 800 | 999 | **FAIL** | **+199** |
-| Sample >= 600 | 600 | 830 | **PASS** | — |
-| Multi-source >= 60% | 60% | **61%** | **PASS** | — |
+| Source count >= 6 | 6 | 13 | **PASS** | — |
+| Top-50 overlap >= 80% | 80% | **92%** | **PASS** | +12% |
+| Top-100 overlap >= 75% | 75% | **92%** | **PASS** | +17% |
+| Tier agreement >= 65% | 65% | 50.1% | **FAIL** | **-14.9%** |
+| Avg delta <= 800 | 800 | 1006 | **FAIL** | **+206** |
+| Sample >= 600 | 600 | 1051 | **PASS** | — |
+| Multi-source >= 60% | 60% | 57% | **FAIL** | **-3%** |
 | IDP sources >= 2 | 2 | 5 | **PASS** | — |
 | Weights tuned | Yes | v4 | **PASS** | — |
 | Tests pass | Yes | 408 | **PASS** | — |
@@ -41,33 +41,43 @@ Rollback: `export CANONICAL_DATA_MODE=off` and restart.
 
 ## What Blocks Public-Primary
 
-Two metric fails and one manual gate. All three trace to the same root cause.
+Three metric fails and one manual gate. All trace to KTC being missing.
 
-**The remaining metric gap (tier 53.5% vs 65%, delta 999 vs 800) is caused by the
-legacy reference being a 2-source composite (FantasyCalc + DLF only).** The 9 browser-
-based scraper sources cannot render in this sandbox environment — Playwright page loads
-timeout at 25 seconds despite HTTP connectivity being fine.
+**KTC is blocked in this sandbox** by an egress proxy TLS incompatibility (the proxy
+cannot negotiate TLS with keeptradecut.com). This is environment-specific — production
+(Hetzner VPS with direct internet) is expected to work.
 
-**This is the single remaining operational blocker.** The production server
-(`178.156.148.92`) has unrestricted browser rendering capability. Running the scraper
-there is expected to close both metric gaps and leave only founder approval.
+Without KTC, the multi-source blend drops below 60% and tier agreement suffers because
+KTC is the primary market reference. Adding ~500 KTC player values is expected to close
+all three metric gaps.
 
-See `docs/runbooks/production-activation-runbook.md` for exact steps.
+## KTC Freshness Check
+
+After any scrape run, look for this line in the output:
+```
+[KTC Status] FRESH — N players scraped     # success
+[KTC Status] BLOCKED — reason (0 players)  # failure with diagnosis
+```
+
+Health check for production: `python scripts/check_ktc_health.py --full`
 
 ## Validation Phase Summary
 
 | Milestone | Status |
 |-----------|--------|
-| Canonical pipeline built (14 sources) | Done |
+| Canonical pipeline built (13+ sources) | Done |
 | Collision bugs fixed (all 3 consumers) | Done |
 | Config-driven thresholds | Done |
+| Proxy-aware browser (11 sources fresh) | Done |
+| KTC failure diagnosed (proxy TLS) | Done |
+| KTC health check script | Done |
+| KTC freshness reporting | Done |
 | Shadow/comparison/block layers aligned | Done |
 | Internal-primary validated | Done |
 | Scarcity weight tuned (0.30) | Done |
 | 408 tests passing | Done |
-| Founder review (14/20 canonical right) | Done |
-| **Production scraper run** | **BLOCKED — needs Hetzner host** |
-| Public-primary decision | Pending production run |
+| **KTC fresh on production** | **BLOCKED — needs Hetzner host** |
+| Public-primary decision | Pending KTC + founder approval |
 
 ---
 

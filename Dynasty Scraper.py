@@ -632,6 +632,9 @@ KTC_ID_TO_NAME = {}
 # KTC crowdsourced trade + waiver data
 KTC_CROWD_DATA = {"trades": [], "waivers": []}
 
+# KTC blocker diagnosis — set by scrape_ktc on failure for source reporting
+_KTC_BLOCKER: str | None = None
+
 # KTC crowd DB league constraints (user-specific)
 KTC_CROWD_ALLOWED_TEAMS = {10, 12, 14}
 KTC_CROWD_ALLOWED_TEP_LEVELS = {1, 2}  # TE+ or TE++
@@ -2914,23 +2917,83 @@ _PLAYWRIGHT_PROXY: dict | None = _detect_proxy()
 
 
 async def safe_goto(page, urls, label, wait_ms=3000):
-    """Navigate to the first working URL from a list. Returns True on success."""
+    """Navigate to the first working URL from a list.
+
+    Returns a dict with keys:
+      ok       – True if the page loaded with status < 400
+      status   – HTTP status code or None
+      blocker  – short string describing the failure mode, or None
+    Legacy callers that check ``if await safe_goto(...)`` still work
+    because the dict is truthy when ok=True.
+    """
     if isinstance(urls, str):
         urls = [urls]
+    last_blocker = None
+    last_status = None
     for url in urls:
         try:
             resp = await page.goto(url, timeout=25000, wait_until="domcontentloaded")
+            last_status = resp.status if resp else None
             if resp and resp.status < 400:
                 await page.wait_for_timeout(wait_ms)
                 if DEBUG:
                     print(f"  [{label}] Loaded {url} (status {resp.status})")
-                return True
-            elif DEBUG:
-                print(f"  [{label}] Status {resp.status if resp else '?'} — {url}")
+                return {"ok": True, "status": resp.status, "blocker": None}
+            # Diagnose specific failure modes
+            body_snippet = ""
+            try:
+                body_snippet = (await page.inner_text("body"))[:300]
+            except Exception:
+                pass
+            if resp and resp.status == 503:
+                if "TLS_error" in body_snippet or "TLSV1" in body_snippet:
+                    last_blocker = "proxy_tls_incompatible"
+                    print(f"  [{label}] 503 — proxy TLS handshake failure (site requires newer TLS)")
+                elif "cloudflare" in body_snippet.lower() or "just a moment" in body_snippet.lower():
+                    last_blocker = "cloudflare_challenge"
+                    print(f"  [{label}] 503 — Cloudflare challenge page")
+                else:
+                    last_blocker = f"http_{resp.status}"
+                    print(f"  [{label}] 503 — {body_snippet[:80]}")
+            elif resp and resp.status == 403:
+                last_blocker = "http_403_forbidden"
+                print(f"  [{label}] 403 Forbidden — {url}")
+            elif resp and resp.status >= 400:
+                last_blocker = f"http_{resp.status}"
+                if DEBUG:
+                    print(f"  [{label}] Status {resp.status} — {url}")
+            else:
+                last_blocker = "no_response"
         except Exception as e:
+            err_str = str(e)
+            if "Timeout" in err_str:
+                last_blocker = "timeout"
+            elif "ERR_CERT" in err_str:
+                last_blocker = "tls_cert_error"
+            elif "ERR_NAME" in err_str or "ERR_FAILED" in err_str:
+                last_blocker = "dns_or_network"
+            else:
+                last_blocker = "navigation_exception"
             if DEBUG:
                 print(f"  [{label}] Failed {url}: {e}")
-    return False
+    # Return a falsy-like object that still carries diagnostic info
+    return _GotoResult(False, last_status, last_blocker)
+
+
+class _GotoResult:
+    """Result of safe_goto that is falsy when ok=False but carries metadata."""
+    __slots__ = ("ok", "status", "blocker")
+
+    def __init__(self, ok, status, blocker):
+        self.ok = ok
+        self.status = status
+        self.blocker = blocker
+
+    def __bool__(self):
+        return bool(self.ok)
+
+    def __getitem__(self, key):
+        return getattr(self, key)
 
 
 async def extract_tables(page, label):
@@ -3500,8 +3563,14 @@ async def scrape_ktc(page, players):
 
         page.on("response", handle_response)
 
-        ok  = await safe_goto(page, url, "KTC", wait_ms=5000)
-        if not ok:
+        goto_result = await safe_goto(page, url, "KTC", wait_ms=5000)
+        if not goto_result:
+            blocker = getattr(goto_result, "blocker", None) or "unknown"
+            status = getattr(goto_result, "status", None)
+            print(f"  [KTC] Page load failed — blocker={blocker}, status={status}")
+            # Store blocker for source-level reporting
+            global _KTC_BLOCKER
+            _KTC_BLOCKER = blocker
             return results
 
         try:
@@ -8379,6 +8448,13 @@ async def run(progress_callback=None):
     timeout_sources = sorted([s for s, row in source_run_state.items() if row.get("enabled") and row.get("state") == "timeout"])
     failed_sources = sorted([s for s, row in source_run_state.items() if row.get("enabled") and row.get("state") == "failed"])
     run_finished_at_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    # Inject KTC blocker diagnosis into source state if available
+    if _KTC_BLOCKER and "KTC" in source_run_state:
+        ktc_state = source_run_state["KTC"]
+        ktc_state.setdefault("meta", {})["blocker"] = _KTC_BLOCKER
+        if not ktc_state.get("error"):
+            ktc_state["error"] = f"KTC blocked: {_KTC_BLOCKER}"
+
     source_run_summary = {
         "startedAt": run_started_at_iso,
         "finishedAt": run_finished_at_iso,
@@ -8398,6 +8474,20 @@ async def run(progress_callback=None):
         f"complete={len(complete_sources)}/{len(enabled_sources)} "
         f"partial={len(partial_sources)} timeout={len(timeout_sources)} failed={len(failed_sources)}"
     )
+
+    # ── KTC Freshness Report ──
+    ktc_row = source_run_state.get("KTC", {})
+    ktc_count = int(ktc_row.get("valueCount") or 0)
+    ktc_state_label = ktc_row.get("state", "unknown")
+    ktc_blocker_label = (ktc_row.get("meta") or {}).get("blocker", "")
+    if ktc_count > 0:
+        print(f"  [KTC Status] FRESH — {ktc_count} players scraped")
+    elif ktc_state_label == "disabled":
+        print("  [KTC Status] DISABLED in config")
+    elif ktc_blocker_label:
+        print(f"  [KTC Status] BLOCKED — {ktc_blocker_label} (0 players)")
+    else:
+        print(f"  [KTC Status] FAILED — state={ktc_state_label}, error={ktc_row.get('error', 'unknown')} (0 players)")
 
     # [NEW] Print scrape health report
     await _phase("health_report", "summary", message="Generating scrape health report")
