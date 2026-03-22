@@ -1,6 +1,6 @@
 # Source Integration Tracker
 
-_Updated: 2026-03-22 (KTC reliability phase — proxy fix, 11 fresh sources, KTC diagnosed)_
+_Updated: 2026-03-22 (KTC format fix — playersArray adaptation, production validated reachable)_
 
 ## Pipeline
 
@@ -30,16 +30,24 @@ _Updated: 2026-03-22 (KTC reliability phase — proxy fix, 11 fresh sources, KTC
 | IDPTradeCalc | Browser | **FRESH** | 384 | — |
 | PFF_IDP | Browser | **FRESH** | 249 | — |
 | Yahoo | Browser | **FRESH** | 307 | — |
-| **KTC** | **Browser** | **BLOCKED** | **0** | **proxy_tls_incompatible** |
+| **KTC** | **Browser** | **SANDBOX BLOCKED / PROD READY** | **526 (prod)** | **proxy_tls (sandbox only)** |
 
 ### KTC Diagnosis
 
-KTC is blocked in this environment by the egress proxy's inability to negotiate TLS
-with `keeptradecut.com`. The proxy returns HTTP 503 with error:
-`TLSV1_ALERT_PROTOCOL_VERSION`. This is environment-specific — curl also fails.
-Production (Hetzner VPS with direct internet) is expected to work.
+**Sandbox:** Blocked by egress proxy TLS incompatibility (HTTP 503, `TLSV1_ALERT_PROTOCOL_VERSION`).
+
+**Production (178.156.148.92):** KTC is **reachable and extractable**. Confirmed via
+direct test on 2026-03-22:
+- HTTP 200, page loads 3.7 MB
+- `var playersArray = [...]` contains **526 players** with `playerName` + `superflexValues`
+- 443 DOM elements matching `[class*="player"]`
+
+**Format change (2026-03):** KTC migrated from `__NEXT_DATA__` (Next.js SSR) to inline
+`var playersArray = [...]`. Health check and scraper updated in commit `c1559d4` to
+detect both formats. Legacy `__NEXT_DATA__` path preserved as fallback.
 
 **Health check**: `python scripts/check_ktc_health.py --full`
+**Full runbook**: `docs/runbooks/ktc-production-validation.md`
 
 ## Current Metrics (11 fresh sources, no KTC player data)
 

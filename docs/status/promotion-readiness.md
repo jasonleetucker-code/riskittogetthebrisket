@@ -1,6 +1,6 @@
 # Promotion Readiness Status
 
-_Updated: 2026-03-22 (KTC reliability phase — 11 fresh sources, KTC blocked in sandbox)_
+_Updated: 2026-03-22 (KTC format fix applied — playersArray, production reachable, awaiting full scrape)_
 
 ## Current State: **INTERNAL_PRIMARY VALIDATED — 9/9 PASS**
 
@@ -43,9 +43,12 @@ Rollback: `export CANONICAL_DATA_MODE=off` and restart.
 
 Three metric fails and one manual gate. All trace to KTC being missing.
 
-**KTC is blocked in this sandbox** by an egress proxy TLS incompatibility (the proxy
-cannot negotiate TLS with keeptradecut.com). This is environment-specific — production
-(Hetzner VPS with direct internet) is expected to work.
+**KTC is blocked in this sandbox** by an egress proxy TLS incompatibility. However,
+**KTC is confirmed reachable on production** (178.156.148.92) — tested 2026-03-22 with
+526 players extracted via the new `playersArray` format.
+
+KTC format changed from `__NEXT_DATA__` to `var playersArray`. Health check and scraper
+code updated in commit `c1559d4`. Full production scrape needed to prove KTC end-to-end.
 
 Without KTC, the multi-source blend drops below 60% and tier agreement suffers because
 KTC is the primary market reference. Adding ~500 KTC player values is expected to close
@@ -76,7 +79,7 @@ Health check for production: `python scripts/check_ktc_health.py --full`
 | Internal-primary validated | Done |
 | Scarcity weight tuned (0.30) | Done |
 | 408 tests passing | Done |
-| **KTC fresh on production** | **BLOCKED — needs Hetzner host** |
+| **KTC fresh on production** | **READY — reachable, code fixed, awaiting full scrape** |
 | Public-primary decision | Pending KTC + founder approval |
 
 ---
