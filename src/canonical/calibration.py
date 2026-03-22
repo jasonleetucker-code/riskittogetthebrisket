@@ -16,6 +16,7 @@ agreement with the legacy system based on comparison batch data.
 """
 from __future__ import annotations
 
+import datetime
 import json
 import re
 from pathlib import Path
@@ -53,7 +54,7 @@ LEGACY_PICK_ROUND_CURVE: dict[int, int] = {
 }
 
 # Year discount: future year picks are worth less
-# Relative to current year (2026). Each year out reduces by this factor.
+# Relative to the current calendar year. Each year out reduces by this factor.
 PICK_YEAR_DISCOUNT = 0.70
 
 
@@ -108,8 +109,10 @@ def _parse_pick_info(name: str) -> dict[str, Any]:
     return info
 
 
-def _pick_curve_value(info: dict[str, Any], current_year: int = 2026) -> int:
+def _pick_curve_value(info: dict[str, Any], current_year: int | None = None) -> int:
     """Compute a pick value from the legacy round curve with tier/year adjustments."""
+    if current_year is None:
+        current_year = datetime.date.today().year
     rnd = info.get("round")
     if rnd is None or rnd not in LEGACY_PICK_ROUND_CURVE:
         rnd = min(LEGACY_PICK_ROUND_CURVE.keys(), default=1)

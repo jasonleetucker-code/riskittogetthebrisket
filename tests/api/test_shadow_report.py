@@ -164,6 +164,65 @@ class TestRankCorrelation(unittest.TestCase):
         report = build_shadow_comparison_report(_snapshot(assets), legacy)
         self.assertEqual(report["summary"]["top50Overlap"], 0)
 
+    def test_small_sample_denominator(self):
+        """When fewer than 50 assets exist, overlap % uses actual count as denominator."""
+        # 10 canonical, 10 legacy, all matching — should be 100%, not 20%
+        assets = [_asset(f"Player{i}", 10000 - i * 100) for i in range(10)]
+        legacy = {}
+        for i in range(10):
+            legacy.update(_legacy(f"Player{i}", 10000 - i * 100))
+        report = build_shadow_comparison_report(_snapshot(assets), legacy)
+        self.assertEqual(report["summary"]["top50Overlap"], 10)
+        self.assertEqual(report["summary"]["top50OverlapPct"], 100)
+
+    def test_empty_lists_no_division_by_zero(self):
+        """Empty canonical or legacy should produce 0% without crashing."""
+        report = build_shadow_comparison_report(_snapshot([]), {})
+        self.assertEqual(report["summary"]["top50Overlap"], 0)
+        self.assertEqual(report["summary"]["top50OverlapPct"], 0)
+
+
+class TestFinalValueUsed(unittest.TestCase):
+    """Shadow comparisons must use the final calibrated canonical value, not blended."""
+
+    def test_prefers_calibrated_over_blended(self):
+        asset = {
+            "display_name": "Josh Allen",
+            "blended_value": 5000,
+            "scarcity_adjusted_value": 7000,
+            "calibrated_value": 8000,
+            "universe": "offense_vet",
+            "source_values": {"DLF_SF": 5000},
+        }
+        legacy = _legacy("Josh Allen", 8500)
+        report = build_shadow_comparison_report(_snapshot([asset]), legacy)
+        match = report["biggestMismatches"][0]
+        # Should use calibrated (8000), not blended (5000)
+        self.assertEqual(match["canonicalValue"], 8000)
+        self.assertEqual(match["delta"], -500)  # 8000 - 8500
+
+    def test_falls_back_to_scarcity_then_blended(self):
+        # No calibrated_value, has scarcity_adjusted_value
+        asset_scar = {
+            "display_name": "Player A",
+            "blended_value": 3000,
+            "scarcity_adjusted_value": 4000,
+            "universe": "offense_vet",
+            "source_values": {"DLF_SF": 3000},
+        }
+        # No calibrated or scarcity, only blended
+        asset_raw = {
+            "display_name": "Player B",
+            "blended_value": 2000,
+            "universe": "offense_vet",
+            "source_values": {"DLF_SF": 2000},
+        }
+        legacy = {**_legacy("Player A", 5000), **_legacy("Player B", 5000)}
+        report = build_shadow_comparison_report(_snapshot([asset_scar, asset_raw]), legacy)
+        by_name = {m["name"]: m for m in report["biggestMismatches"]}
+        self.assertEqual(by_name["Player A"]["canonicalValue"], 4000)
+        self.assertEqual(by_name["Player B"]["canonicalValue"], 2000)
+
 
 class TestSummaryStats(unittest.TestCase):
     def test_avg_and_median(self):

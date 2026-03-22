@@ -125,9 +125,28 @@ class TestPickCurveValue:
         assert late < mid
 
     def test_future_year_discount(self):
-        current = _pick_curve_value({"year": 2026, "round": 1})
-        future = _pick_curve_value({"year": 2028, "round": 1})
+        current = _pick_curve_value({"year": 2026, "round": 1}, current_year=2026)
+        future = _pick_curve_value({"year": 2028, "round": 1}, current_year=2026)
         assert future < current
+
+    def test_current_year_not_discounted(self):
+        """A pick in the current year should NOT receive a future-year discount."""
+        import datetime
+        this_year = datetime.date.today().year
+        current_val = _pick_curve_value({"year": this_year, "round": 1})
+        no_year_val = _pick_curve_value({"round": 1})
+        # Current-year pick should equal a pick with no year (both undiscounted)
+        assert current_val == no_year_val
+
+    def test_default_year_uses_today(self):
+        """Default current_year should derive from today, not a hard-coded constant."""
+        import datetime
+        this_year = datetime.date.today().year
+        next_year = this_year + 1
+        # A pick dated next year should be discounted when using the default
+        default_val = _pick_curve_value({"year": next_year, "round": 1})
+        explicit_val = _pick_curve_value({"year": next_year, "round": 1}, current_year=this_year)
+        assert default_val == explicit_val
 
     def test_round_ordering(self):
         vals = [_pick_curve_value({"round": r}) for r in range(1, 7)]

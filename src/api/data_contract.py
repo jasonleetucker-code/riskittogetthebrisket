@@ -299,6 +299,19 @@ def _extract_source_count(asset: dict[str, Any]) -> int | None:
     return None
 
 
+def _canonical_final_value(asset: dict[str, Any]) -> float | None:
+    """Return the best available final canonical value for an asset.
+
+    Preference order: calibrated_value > scarcity_adjusted_value > blended_value.
+    This ensures shadow comparisons use the same value a consumer would see.
+    """
+    for key in ("calibrated_value", "scarcity_adjusted_value", "blended_value"):
+        v = _safe_num(asset.get(key))
+        if v is not None:
+            return v
+    return None
+
+
 def _extract_source_breakdown(asset: dict[str, Any]) -> dict[str, int] | None:
     """Extract per-source canonical scores from a pipeline asset dict.
 
@@ -337,13 +350,13 @@ def build_canonical_comparison_block(
         key = str(asset.get("display_name", asset.get("asset_key", ""))).strip()
         if not key:
             continue
-        blended = _safe_num(asset.get("blended_value"))
+        final = _canonical_final_value(asset)
         universe = str(asset.get("universe", "")).strip() or None
         source_count = _extract_source_count(asset)
         source_breakdown = _extract_source_breakdown(asset)
 
         entry: dict[str, Any] = {
-            "canonicalValue": _to_int_or_none(blended) if blended is not None else None,
+            "canonicalValue": _to_int_or_none(final) if final is not None else None,
             "universe": universe,
             "sourcesUsed": source_count,
         }
@@ -447,7 +460,7 @@ def build_shadow_comparison_report(
     deltas: list[dict[str, Any]] = []
     for name in matched_names:
         c_asset = canonical_by_name[name]
-        c_val = _to_int_or_none(c_asset.get("blended_value"))
+        c_val = _to_int_or_none(_canonical_final_value(c_asset))
         l_val = legacy_values[name]
         if c_val is None:
             continue
@@ -479,13 +492,14 @@ def build_shadow_comparison_report(
     # Rank correlation — Spearman-like: do the orderings roughly agree?
     # Use simple overlap of top-50 in each list.
     canonical_ranked = sorted(
-        [(n, _to_int_or_none(a.get("blended_value")) or 0) for n, a in canonical_by_name.items()],
+        [(n, _to_int_or_none(_canonical_final_value(a)) or 0) for n, a in canonical_by_name.items()],
         key=lambda x: -x[1],
     )
     legacy_ranked = sorted(legacy_values.items(), key=lambda x: -x[1])
     canonical_top50 = {name for name, _ in canonical_ranked[:50]}
     legacy_top50 = {name for name, _ in legacy_ranked[:50]}
     top50_overlap = len(canonical_top50 & legacy_top50)
+    top50_denom = min(len(canonical_top50), len(legacy_top50))
 
     # Delta distribution buckets.
     abs_deltas = [d["absDelta"] for d in deltas]
@@ -508,7 +522,7 @@ def build_shadow_comparison_report(
         "canonicalOnlyCount": len(canonical_only),
         "legacyOnlyCount": len(legacy_only),
         "top50Overlap": top50_overlap,
-        "top50OverlapPct": round(top50_overlap / 50 * 100) if True else 0,
+        "top50OverlapPct": round(top50_overlap / top50_denom * 100) if top50_denom > 0 else 0,
     }
     if abs_deltas:
         summary["avgAbsDelta"] = int(round(sum(abs_deltas) / len(abs_deltas)))
