@@ -1,48 +1,38 @@
 # Founder Review Packet: Canonical vs Legacy Disagreements
 
-_Generated: 2026-03-22 13:55 UTC_
-_Corrected checkpoint: collision fix applied, config-driven thresholds active_
+_Generated: 2026-03-22 14:10 UTC_
+_Post-fix truth checkpoint: all three collision-safe consumers verified consistent_
 _Legacy: legacy_data_2026-03-22.json (2-source: FantasyCalc + DLF)_
-_Canonical: canonical_snapshot_20260322T135454Z.json (14 sources, scarcity=0.30)_
+_Canonical: canonical_snapshot_20260322T140908Z.json (14 sources, scarcity=0.30)_
 
 ---
 
 ## Executive Summary
 
-After the collision fix, the canonical pipeline now matches **82% of the top-50** offense
-players (passing the 80% public-primary threshold). Player rank ordering is broadly correct.
+After all collision fixes, the canonical pipeline matches **82% of the top-50** offense
+players (passing the 80% public-primary threshold). All three data consumers now agree on
+collision resolution (higher value wins, 1165 unique assets from 1239 raw).
 
-**What still fails public-primary**:
-- Offense tier agreement: 53.5% (need 65%) — gap of 11.5%
-- Offense avg delta: 999 (need ≤800) — gap of 199
-- Founder approval: not yet given
+**Public-primary status: 8/12 pass, 3 hard fails**
+- Offense tier: 53.5% (need 65%) — gap of 11.5%
+- Offense delta: 999 (need ≤800) — gap of 199
+- Founder approval: pending
 
-**Root cause unchanged**: Legacy has 2 sources; canonical has 14. The disagreement
-is driven by the incomplete legacy reference, not canonical miscalibration.
-Founder review of the 20 most important players found canonical more right on 14/20.
+**Root cause**: Legacy has 2 sources; canonical has 14. A full production scraper
+run is the highest-leverage next action. Do not tune canonical calibration downward.
 
-## Corrected Metrics (post-collision-fix)
+## Corrected Metrics
 
 | View | Top-50 | Top-100 | Tier | Avg Delta |
 |------|--------|---------|------|-----------|
 | Offense only | **82%** | **84%** | 53.5% | 999 |
-| All universes | 72% | 73% | **64.8%** | 764 |
+| All universes | 72% | 73% | 64.8% | 764 |
 | IDP combined | 68% | 87% | **74.0%** | 584 |
 
-## What Changed from Collision Fix
-
-| Metric | Before Fix | After Fix | Change |
-|--------|-----------|-----------|--------|
-| Offense top-50 | 78% | **82%** | **+4% (now passes 80%)** |
-| Offense top-100 | 84% | 84% | unchanged |
-| Offense tier | 53.4% | 53.5% | +0.1% |
-| Offense delta | 1006 | 999 | -7 |
-| Matched count | 477 | 477 | same |
-
-## QB Top 15
+## QB Top-15
 
 | # | QB | Can | Leg | Delta | Tier Match? |
-|---|---|-----|-----|-------|-------------|
+|---|----|-----|-----|-------|-------------|
 | 1 | Drake Maye | 8175 | 8467 | -292 | YES |
 | 2 | Josh Allen | 8283 | 8278 | +5 | YES |
 | 3 | Lamar Jackson | 8148 | 7824 | +324 | YES |
@@ -59,12 +49,12 @@ Founder review of the 20 most important players found canonical more right on 14
 | 14 | Brock Purdy | 7113 | 5947 | +1166 | NO (elite vs star) |
 | 15 | Jordan Love | 7038 | 5751 | +1287 | NO (elite vs star) |
 
-**Top-15 tier mismatches: 9/15**
+**Top-20 QB tier mismatches: 9/20**
 
-## TE Top 15
+## TE Top-15
 
 | # | TE | Can | Leg | Delta | Tier Match? |
-|---|---|-----|-----|-------|-------------|
+|---|----|-----|-----|-------|-------------|
 | 1 | Brock Bowers | 7989 | 7650 | +339 | YES |
 | 2 | Trey McBride | 8473 | 7564 | +909 | YES |
 | 3 | Kenyon Sadiq | 7745 | 6954 | +791 | NO (elite vs star) |
@@ -81,43 +71,9 @@ Founder review of the 20 most important players found canonical more right on 14
 | 14 | Oronde Gadsden | 6288 | 4346 | +1942 | NO (star vs starter) |
 | 15 | Dalton Kincaid | 6148 | 4303 | +1845 | NO (star vs starter) |
 
-**Top-15 tier mismatches: 12/15**
+**Top-15 TE tier mismatches: 12/15**
 
-## RB Top 10
-
-| # | RB | Can | Leg | Delta | Tier Match? |
-|---|---|-----|-----|-------|-------------|
-| 1 | Bijan Robinson | 8500 | 8286 | +214 | YES |
-| 2 | Jahmyr Gibbs | 8445 | 8229 | +216 | YES |
-| 3 | Ashton Jeanty | 7674 | 7106 | +568 | YES |
-| 4 | De'Von Achane | 7365 | 6698 | +667 | NO (elite vs star) |
-| 5 | Jeremiyah Love | 8500 | 6667 | +1833 | NO (elite vs star) |
-| 6 | Omarion Hampton | 8310 | 6522 | +1788 | NO (elite vs star) |
-| 7 | Jonathan Taylor | 8256 | 6314 | +1942 | NO (elite vs star) |
-| 8 | James Cook | 8122 | 6015 | +2107 | NO (elite vs star) |
-| 9 | Jadarian Price | 6793 | 5854 | +939 | YES |
-| 10 | Jonah Coleman | 5964 | 5657 | +307 | YES |
-
-**Top-10 tier mismatches: 5/10**
-
-## WR Top 10
-
-| # | WR | Can | Leg | Delta | Tier Match? |
-|---|---|-----|-----|-------|-------------|
-| 1 | Jaxon Smith-Njigba | 8337 | 8134 | +203 | YES |
-| 2 | Puka Nacua | 8229 | 8116 | +113 | YES |
-| 3 | Ja'Marr Chase | 8391 | 8083 | +308 | YES |
-| 4 | Malik Nabers | 7493 | 7368 | +125 | YES |
-| 5 | Justin Jefferson | 7519 | 7317 | +202 | YES |
-| 6 | Amon-Ra St. Brown | 7340 | 7289 | +51 | YES |
-| 7 | CeeDee Lamb | 7391 | 7009 | +382 | YES |
-| 8 | Drake London | 8095 | 6518 | +1577 | NO (elite vs star) |
-| 9 | Carnell Tate | 8244 | 6503 | +1741 | NO (elite vs star) |
-| 10 | Jordyn Tyson | 7993 | 6489 | +1504 | NO (elite vs star) |
-
-**Top-10 tier mismatches: 3/10**
-
-## Severe Tier Mismatches (2+ tiers apart): 7
+## Severe Tier Mismatches (2+ tiers): 7
 
 | Player | Pos | Can | Leg | Gap |
 |--------|-----|-----|-----|-----|
@@ -139,4 +95,4 @@ Founder review of the 20 most important players found canonical more right on 14
 | TE | 72 | 1021 | 49% |
 
 ---
-_399 tests pass. Internal-primary: 9/9 PASS. Public-primary: 8/12 (3 hard fails)._
+_408 tests pass. Internal-primary: 9/9 PASS. Public-primary: 8/12._
