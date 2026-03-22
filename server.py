@@ -2016,6 +2016,48 @@ async def get_scaffold_mode():
     })
 
 
+@app.post("/api/trade/suggestions")
+async def post_trade_suggestions(request: Request):
+    """Generate trade suggestions for a given roster.
+
+    Accepts JSON body:
+        { "roster": ["Josh Allen", "Bijan Robinson", ...] }
+
+    Requires canonical data to be loaded. Returns roster analysis
+    and categorized trade suggestions (sell-high, buy-low,
+    consolidation, positional upgrades).
+    """
+    if canonical_data is None:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Canonical data not loaded. Trade suggestions require canonical values."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+
+    roster = body.get("roster")
+    if not isinstance(roster, list) or not roster:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Request body must include 'roster' as a non-empty array of player names."},
+        )
+
+    from src.trade.suggestions import generate_suggestions
+
+    try:
+        result = generate_suggestions(
+            roster_names=roster,
+            canonical_snapshot=canonical_data,
+        )
+    except Exception as e:
+        log.error(f"Trade suggestion generation failed: {e}")
+        return JSONResponse(status_code=500, content={"error": f"Suggestion generation failed: {e}"})
+
+    return JSONResponse(content=result)
+
+
 @app.get("/api/scaffold/validation")
 async def get_scaffold_validation():
     ingest_file = _latest_file(DATA_DIR / "validation", "ingest_validation_*.json")
