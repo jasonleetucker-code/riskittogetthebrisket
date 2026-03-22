@@ -38,7 +38,7 @@ def compute_scarcity_adjusted_values(
     *,
     floor_value: int = 100,
     scale_to: int = CANONICAL_SCALE,
-    scarcity_weight: float = 0.35,
+    scarcity_weight: float = 0.20,
 ) -> list[dict[str, Any]]:
     """Apply scarcity adjustment to canonical assets using replacement baselines.
 
