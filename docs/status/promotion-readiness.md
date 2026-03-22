@@ -1,16 +1,13 @@
 # Promotion Readiness Status
 
-_Updated: 2026-03-22 (founder approval GRANTED — primary mode implemented, ready for production activation)_
+_Updated: 2026-03-22 (IDP calibration fix — IDP tier 36.8% → 52.2%, offense unchanged)_
 
-## Current State: **FOUNDER APPROVED — AWAITING PRODUCTION ACTIVATION**
+## Current State: **FOUNDER APPROVED — IDP MATERIALLY IMPROVED**
 
-All automated metric checks pass. Founder approval granted. Primary mode overlay
-implemented in `server.py`. Production activation requires pulling this branch
-on production and setting `CANONICAL_DATA_MODE=primary`.
+All offense metrics pass. IDP improved from 36.8% to 52.2% tier agreement (+15.4%)
+with zero offense regression. Primary mode implemented and ready for production.
 
-See `docs/runbooks/public-primary-activation.md` for exact steps.
-
-## Public Primary: 10/12 Pass — Only Founder Approval Remains
+## Public Primary: 10/12 Pass
 
 | Check | Required | Actual | Status | Margin |
 |-------|----------|--------|--------|--------|
@@ -25,66 +22,53 @@ See `docs/runbooks/public-primary-activation.md` for exact steps.
 | Weights tuned | Yes | v4 | **PASS** | — |
 | Tests pass | Yes | 408 | **PASS** | — |
 | League context active | Yes | Yes | **PASS** | — |
-| Founder approval | Yes | No | **FAIL** | — |
+| Founder approval | Yes | Granted | **PASS** | — |
 
 ## Full Progress History
 
-| Metric | v1 (exp=2.0, no KTC) | v2 (exp=2.5, +KTC) | v3 (piecewise) | Final |
-|--------|----------------------|---------------------|----------------|-------|
-| Sources | 13 | 14 | 14 | 14 |
-| Blend | 57% FAIL | 61% PASS | 61% PASS | 61% PASS |
-| Top-50 | 92% PASS | 92% PASS | 92% PASS | 92% PASS |
-| Top-100 | 92% PASS | 93% PASS | 93% PASS | 93% PASS |
-| Tier | 50.1% FAIL | 61.5% FAIL | **66.3% PASS** | **66.3% PASS** |
-| Delta | 1006 FAIL | 879 FAIL | **742 PASS** | **742 PASS** |
-| Pub-primary | 7/12 | 9/12 | **10/12** | **10/12** |
+| Metric | v1 | v2 | v3 | v4 (IDP fix) |
+|--------|-----|-----|-----|-------------|
+| Off tier | 50.1% | 61.5% | **66.3%** | **66.3%** |
+| Off delta | 1006 | 879 | **742** | **742** |
+| IDP tier | — | — | 36.8% | **52.2%** |
+| IDP delta | — | — | 817 | **651** |
+| Overall tier | — | — | 57.7% | **63.6%** |
+| Overall delta | — | — | 711 | **648** |
+
+## IDP Calibration Fix
+
+**Root cause:** IDP used the same calibration parameters as offense (scale=5000, knee=0.65),
+but IDP has fundamentally different characteristics:
+- Fewer sources per player (avg 2.2 vs ~5 for offense)
+- More bench/depth players compressed into the bottom of the distribution
+- Scale of 5000 meant NO IDP player could reach star tier (legacy IDP tops ~6000)
+
+**Fix:** Per-universe calibration knees:
+- IDP_vet: scale 5000 → 5500, knee 0.65 → 0.80
+- Offense: unchanged (scale=7800, knee=0.65)
+
+**Result:** IDP tier 36.8% → 52.2% (+15.4%), offense completely unchanged.
 
 ## Position-Level Tier Agreement
 
-| Position | v1 | v2 | v3/Final |
-|----------|-----|-----|----------|
-| QB | 55.3% | 74.1% | **74.4%** |
-| WR | 46.8% | 67.2% | **71.0%** |
-| TE | 51.7% | 63.2% | **66.3%** |
-| RB | 35.2% | 56.3% | **62.2%** |
-
-## Final Pre-Launch Polish Pass (2026-03-22)
-
-**Phase A — RB-specific polish:**
-Tested scarcity weight (0.10-0.30) x calibration knee (0.65-0.70) grid.
-No tested change improved the system. Reducing scarcity helps RBs but damages QB/WR/TE
-by more. Current config is the best launch candidate.
-
-**Phase B — KTC freshness reliability:**
-- Scraper manifest now tracks `siteRawFresh` vs `siteRawPreserved` per-source
-- `source_pull.py` now warns explicitly when KTC contributes 0 records
-- `canonical_build.py` now logs per-source record/asset counts
-- KTC freshness is now visible at every pipeline stage
-
-**Phase C — Final checkpoint:**
-All metrics stable. 408 tests pass. KTC confirmed at 500 records.
-
-## KTC Freshness Visibility
-
-After every pipeline run, look for these signals:
-
-```
-[source_pull] KTC: 500 records ingested ✓           # healthy
-[source_pull] ⚠ KTC: 0 records ingested — ...       # problem
-
-[canonical_build] sources: ... KTC=500r/500a ...     # healthy
-```
-
-The scraper manifest (`exports/latest/manifest.json`) now includes:
-- `siteRawFresh`: list of CSVs produced this run
-- `siteRawPreserved`: list of CSVs carried forward from a previous run
+| Position | v3 | v4 (current) |
+|----------|-----|-------------|
+| QB | 74.4% | **74.4%** |
+| WR | 71.0% | **71.0%** |
+| TE | 66.3% | **66.3%** |
+| RB | 62.2% | **62.2%** |
+| DL | 46.0% | **~60%** |
+| LB | 41.1% | **~54%** |
+| DB | 23.3% | **~42%** |
 
 ## Activation Steps
 
-1. **Founder approval** — grant approval
-2. Run `python -m pytest tests/ --ignore=tests/e2e -q` on production
-3. Set `CANONICAL_DATA_MODE=public_primary` on production
-4. Verify via `curl /api/data | jq '.metadata.data_mode'`
+1. Pull latest code on production
+2. Run `python -m pytest tests/ --ignore=tests/e2e -q`
+3. Set `CANONICAL_DATA_MODE=primary`
+4. Restart service
+
+See `docs/runbooks/public-primary-activation.md` for full steps.
 
 ---
 
