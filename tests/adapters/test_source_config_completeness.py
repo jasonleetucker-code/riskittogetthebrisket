@@ -94,6 +94,58 @@ class TestSourceConfigCompleteness:
                 )
 
 
+class TestTepSfFlags:
+    """Verify TEP/SF flags in source config match legacy scraper behavior."""
+
+    # Legacy scraper _tep_sites: these sources natively include TEP
+    LEGACY_TEP_SITES = {"ktc", "fantasyCalc", "fantasyPros", "draftSharks",
+                        "yahoo", "dynastyNerds", "idpTradeCalc"}
+
+    def test_tep_flags_match_legacy_scraper(self, config):
+        """Sources the legacy scraper considers TEP-native must have includes_tep=true."""
+        for src in config["sources"]:
+            if not src.get("enabled"):
+                continue
+            fname = Path(src.get("file", "")).stem
+            is_tep_in_legacy = fname in self.LEGACY_TEP_SITES
+
+            # IDP-only sources are exempt (TEP doesn't apply to IDP)
+            universe = src.get("universe", "")
+            if "idp" in universe.lower() and src["source"] not in ("IDPTRADECALC",):
+                continue
+
+            # DLF sources use rank_avg mode and are always non-TEP
+            if src.get("adapter") == "dlf_csv":
+                assert src.get("includes_tep") is False, (
+                    f"{src['source']}: DLF rank-based sources should have includes_tep=false"
+                )
+                continue
+
+            if is_tep_in_legacy:
+                assert src.get("includes_tep") is True, (
+                    f"{src['source']} (file={fname}): legacy scraper lists this in _tep_sites, "
+                    f"but includes_tep={src.get('includes_tep')}"
+                )
+
+    def test_all_sources_have_tep_sf_flags(self, config):
+        """Every enabled source must declare includes_tep and includes_sf."""
+        for src in config["sources"]:
+            if not src.get("enabled"):
+                continue
+            assert "includes_tep" in src, f"{src['source']}: missing includes_tep flag"
+            assert "includes_sf" in src, f"{src['source']}: missing includes_sf flag"
+
+    def test_offense_vet_sources_are_sf(self, config):
+        """All offense_vet sources should be scraped in SF mode."""
+        for src in config["sources"]:
+            if not src.get("enabled"):
+                continue
+            if src.get("universe") == "offense_vet":
+                assert src.get("includes_sf") is True, (
+                    f"{src['source']}: offense_vet source should have includes_sf=true"
+                )
+
+
 class TestScraperBridgeGracefulMissing:
     def test_missing_csv_produces_warning_not_error(self):
         from src.adapters.scraper_bridge_adapter import ScraperBridgeAdapter

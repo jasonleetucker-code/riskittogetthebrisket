@@ -100,6 +100,8 @@ def main() -> int:
         scoring_context = str(src_cfg.get("scoring_context", "")).strip()
         adapter_kind = str(src_cfg.get("adapter", "dlf_csv")).strip().lower()
         adapter_version = str(src_cfg.get("adapter_version", "1.0.0")).strip()
+        includes_sf = bool(src_cfg.get("includes_sf", False))
+        includes_tep = bool(src_cfg.get("includes_tep", False))
         notes = str(src_cfg.get("notes", "")).strip()
         rel_file = str(src_cfg.get("file", "")).strip()
 
@@ -149,6 +151,9 @@ def main() -> int:
             rec.universe = universe or rec.universe
             rec.format_key = format_key or rec.format_key
             rec.source_notes = rec.source_notes or notes
+            # Carry TEP/SF flags so downstream code knows what's already baked in
+            rec.metadata_json["includes_sf"] = includes_sf
+            rec.metadata_json["includes_tep"] = includes_tep
 
             if not rec.asset_key:
                 if rec.asset_type == "player":

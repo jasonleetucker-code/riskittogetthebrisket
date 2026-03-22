@@ -130,21 +130,54 @@ def blend_source_values(
 
 
 def _collect_asset_metadata(records: list[RawAssetRecord]) -> dict[str, dict]:
-    """Collect position and team metadata from raw records.
+    """Collect position, team, and scoring-context metadata from raw records.
 
     When multiple sources provide position data for the same asset,
     prefer the first non-empty value found.
+
+    Also tracks per-source TEP/SF inclusion flags so downstream code
+    (league adjustments, scarcity) knows which adjustments are already
+    baked into the blended value and which still need to be applied.
     """
     meta: dict[str, dict] = {}
     for rec in records:
         key = rec.asset_key
         if key not in meta:
-            meta[key] = {}
+            meta[key] = {"sources_with_tep": [], "sources_without_tep": [],
+                         "sources_with_sf": [], "sources_without_sf": []}
         entry = meta[key]
         if not entry.get("position") and rec.position_normalized_guess:
             entry["position"] = rec.position_normalized_guess
         if not entry.get("team") and rec.team_normalized_guess:
             entry["team"] = rec.team_normalized_guess
+        # Track TEP/SF per source for this asset
+        rec_meta = rec.metadata_json or {}
+        if rec_meta.get("includes_tep"):
+            entry["sources_with_tep"].append(rec.source)
+        else:
+            entry["sources_without_tep"].append(rec.source)
+        if rec_meta.get("includes_sf"):
+            entry["sources_with_sf"].append(rec.source)
+        else:
+            entry["sources_without_sf"].append(rec.source)
+    # Compute summary flags
+    for entry in meta.values():
+        has_tep = entry["sources_with_tep"]
+        no_tep = entry["sources_without_tep"]
+        entry["tep_status"] = (
+            "all_included" if has_tep and not no_tep else
+            "none_included" if no_tep and not has_tep else
+            "mixed" if has_tep and no_tep else
+            "unknown"
+        )
+        has_sf = entry["sources_with_sf"]
+        no_sf = entry["sources_without_sf"]
+        entry["sf_status"] = (
+            "all_included" if has_sf and not no_sf else
+            "none_included" if no_sf and not has_sf else
+            "mixed" if has_sf and no_sf else
+            "unknown"
+        )
     return meta
 
 
