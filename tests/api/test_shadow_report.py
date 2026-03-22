@@ -224,6 +224,55 @@ class TestFinalValueUsed(unittest.TestCase):
         self.assertEqual(by_name["Player B"]["canonicalValue"], 2000)
 
 
+class TestShadowCollisionResolution(unittest.TestCase):
+    """Duplicate display_names must not silently overwrite — higher value wins."""
+
+    def test_keeps_higher_value_on_collision(self):
+        """Same player in rookie + vet: higher calibrated_value should be used."""
+        snap = _snapshot([
+            _asset("Carnell Tate", 7000, universe="offense_vet"),
+            _asset("Carnell Tate", 8200, universe="offense_rookie"),
+        ])
+        legacy = _legacy("Carnell Tate", 5000)
+        report = build_shadow_comparison_report(snap, legacy)
+        # Should use 8200 (rookie), not 7000 (vet)
+        self.assertEqual(report["summary"]["canonicalAssetCount"], 1)
+        match = report["biggestMismatches"][0]
+        self.assertEqual(match["canonicalValue"], 8200)
+        self.assertEqual(match["delta"], 3200)  # 8200 - 5000
+
+    def test_lower_value_does_not_overwrite(self):
+        """If higher-value entry appears first, lower one must not replace it."""
+        snap = _snapshot([
+            _asset("CJ Allen", 4500, universe="idp_vet"),
+            _asset("CJ Allen", 2200, universe="idp_rookie"),
+        ])
+        legacy = _legacy("CJ Allen", 3000)
+        report = build_shadow_comparison_report(snap, legacy)
+        match = report["biggestMismatches"][0]
+        self.assertEqual(match["canonicalValue"], 4500)
+
+    def test_no_collision_preserves_all(self):
+        """Unique names should all be preserved."""
+        snap = _snapshot([
+            _asset("Player A", 9000),
+            _asset("Player B", 8000),
+            _asset("Player C", 7000),
+        ])
+        report = build_shadow_comparison_report(snap, {})
+        self.assertEqual(report["summary"]["canonicalAssetCount"], 3)
+
+    def test_collision_does_not_inflate_asset_count(self):
+        """canonicalAssetCount should reflect unique names, not raw asset count."""
+        snap = _snapshot([
+            _asset("Dupe", 5000, universe="offense_vet"),
+            _asset("Dupe", 6000, universe="offense_rookie"),
+            _asset("Unique", 4000),
+        ])
+        report = build_shadow_comparison_report(snap, {})
+        self.assertEqual(report["summary"]["canonicalAssetCount"], 2)  # not 3
+
+
 class TestSummaryStats(unittest.TestCase):
     def test_avg_and_median(self):
         snap = _snapshot([

@@ -377,6 +377,13 @@ def build_canonical_comparison_block(
                 if legacy_val is not None and canonical_int is not None:
                     entry["delta"] = canonical_int - legacy_val
 
+        # On name collision, keep the entry with the higher canonical value.
+        existing_entry = asset_lookup.get(key)
+        if existing_entry is not None:
+            existing_val = existing_entry.get("canonicalValue") or 0
+            new_val = entry.get("canonicalValue") or 0
+            if existing_val >= new_val:
+                continue
         asset_lookup[key] = entry
 
     # Snapshot-level metadata.
@@ -430,12 +437,21 @@ def build_shadow_comparison_report(
     """
     canonical_assets = canonical_snapshot.get("assets", [])
 
-    # Build lookup tables.
+    # Build lookup tables.  On name collision (same player in rookie + vet
+    # universes), keep the entry with the higher final value — consistent
+    # with the comparison pipeline's collision strategy.
     canonical_by_name: dict[str, dict[str, Any]] = {}
     for asset in canonical_assets:
         name = str(asset.get("display_name", asset.get("asset_key", ""))).strip()
-        if name:
-            canonical_by_name[name] = asset
+        if not name:
+            continue
+        existing = canonical_by_name.get(name)
+        if existing is not None:
+            existing_val = _canonical_final_value(existing) or 0
+            new_val = _canonical_final_value(asset) or 0
+            if existing_val >= new_val:
+                continue
+        canonical_by_name[name] = asset
 
     legacy_values: dict[str, int] = {}
     for name, pdata in (legacy_players or {}).items():

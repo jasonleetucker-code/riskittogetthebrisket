@@ -149,6 +149,58 @@ class TestBuildCanonicalComparisonBlock(unittest.TestCase):
         self.assertEqual(summary["unmatchedCanonical"], 3)
 
 
+class TestComparisonBlockCollision(unittest.TestCase):
+    """Duplicate display_names in canonicalComparison must not silently overwrite."""
+
+    def test_keeps_higher_value_on_collision(self):
+        snap = {"assets": [
+            {"display_name": "Carnell Tate", "blended_value": 7000, "universe": "offense_vet", "source_values": {"A": 1}},
+            {"display_name": "Carnell Tate", "blended_value": 8200, "universe": "offense_rookie", "source_values": {"A": 1}},
+        ]}
+        block = build_canonical_comparison_block(snap)
+        self.assertEqual(block["assetCount"], 1)
+        self.assertEqual(block["assets"]["Carnell Tate"]["canonicalValue"], 8200)
+
+    def test_lower_value_does_not_overwrite(self):
+        snap = {"assets": [
+            {"display_name": "CJ Allen", "blended_value": 4500, "universe": "idp_vet", "source_values": {"A": 1}},
+            {"display_name": "CJ Allen", "blended_value": 2200, "universe": "idp_rookie", "source_values": {"A": 1}},
+        ]}
+        block = build_canonical_comparison_block(snap)
+        self.assertEqual(block["assets"]["CJ Allen"]["canonicalValue"], 4500)
+
+    def test_collision_does_not_inflate_count(self):
+        snap = {"assets": [
+            {"display_name": "Dupe", "blended_value": 5000, "universe": "offense_vet", "source_values": {"A": 1}},
+            {"display_name": "Dupe", "blended_value": 6000, "universe": "offense_rookie", "source_values": {"A": 1}},
+            {"display_name": "Unique", "blended_value": 4000, "universe": "offense_vet", "source_values": {"A": 1}},
+        ]}
+        block = build_canonical_comparison_block(snap)
+        self.assertEqual(block["assetCount"], 2)
+        self.assertEqual(block["summary"]["canonicalAssetCount"], 2)
+
+    def test_collision_delta_uses_higher_value(self):
+        """When a collision exists and legacy is provided, the delta should use the kept (higher) value."""
+        snap = {"assets": [
+            {"display_name": "Player X", "blended_value": 3000, "universe": "offense_vet", "source_values": {"A": 1}},
+            {"display_name": "Player X", "blended_value": 5000, "universe": "offense_rookie", "source_values": {"A": 1}},
+        ]}
+        legacy = {"Player X": {"_composite": 4000}}
+        block = build_canonical_comparison_block(snap, legacy_players=legacy)
+        entry = block["assets"]["Player X"]
+        self.assertEqual(entry["canonicalValue"], 5000)
+        self.assertEqual(entry["delta"], 1000)  # 5000 - 4000
+
+    def test_unique_names_unaffected(self):
+        snap = {"assets": [
+            {"display_name": "A", "blended_value": 9000, "source_values": {"X": 1}},
+            {"display_name": "B", "blended_value": 8000, "source_values": {"X": 1}},
+            {"display_name": "C", "blended_value": 7000, "source_values": {"X": 1}},
+        ]}
+        block = build_canonical_comparison_block(snap)
+        self.assertEqual(block["assetCount"], 3)
+
+
 class TestPipelineFormatSnapshot(unittest.TestCase):
     """Tests using the actual format produced by CanonicalAssetValue.to_dict()."""
 
