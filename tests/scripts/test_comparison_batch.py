@@ -13,6 +13,7 @@ if str(REPO) not in sys.path:
 
 from scripts.run_comparison_batch import (
     _normalize_name,
+    load_canonical,
     match_players,
     compute_stats,
     generate_markdown,
@@ -31,6 +32,56 @@ class TestNormalizeName:
 
     def test_apostrophe(self):
         assert _normalize_name("Ja'Marr Chase") == "jamarr chase"
+
+    def test_smart_apostrophe(self):
+        """Unicode right apostrophe U+2019 should normalize the same as ASCII."""
+        assert _normalize_name("Ja\u2019Marr Chase") == _normalize_name("Ja'Marr Chase")
+        assert _normalize_name("D\u2019Andre Swift") == "dandre swift"
+
+
+class TestLoadCanonicalCollision:
+    """Test that load_canonical handles name collisions across universes correctly."""
+
+    def _write_snapshot(self, tmp_path, assets):
+        import json
+        snap = {"assets": assets, "source_count": 2, "asset_count": len(assets)}
+        path = tmp_path / "snap.json"
+        path.write_text(json.dumps(snap))
+        return path
+
+    def test_keeps_higher_value_on_collision(self, tmp_path):
+        """When the same player appears in two universes, the higher value should win."""
+        assets = [
+            {"display_name": "Carnell Tate", "calibrated_value": 7000, "blended_value": 9000,
+             "universe": "offense_vet", "source_values": {"A": 1, "B": 2}},
+            {"display_name": "Carnell Tate", "calibrated_value": 8200, "blended_value": 9800,
+             "universe": "offense_rookie", "source_values": {"A": 1}},
+        ]
+        result = load_canonical(self._write_snapshot(tmp_path, assets))
+        assert "Carnell Tate" in result
+        assert result["Carnell Tate"]["value"] == 8200  # higher value wins
+        assert result["Carnell Tate"]["universe"] == "offense_rookie"
+
+    def test_no_collision_keeps_all(self, tmp_path):
+        assets = [
+            {"display_name": "Player A", "calibrated_value": 5000, "blended_value": 6000,
+             "universe": "offense_vet", "source_values": {"X": 1}},
+            {"display_name": "Player B", "calibrated_value": 4000, "blended_value": 5000,
+             "universe": "offense_vet", "source_values": {"X": 1}},
+        ]
+        result = load_canonical(self._write_snapshot(tmp_path, assets))
+        assert len(result) == 2
+
+    def test_lower_value_does_not_overwrite(self, tmp_path):
+        """If the higher value appears first, the lower one should not overwrite it."""
+        assets = [
+            {"display_name": "CJ Allen", "calibrated_value": 4500, "blended_value": 9000,
+             "universe": "idp_vet", "source_values": {"A": 1, "B": 2}},
+            {"display_name": "CJ Allen", "calibrated_value": 2200, "blended_value": 7000,
+             "universe": "idp_rookie", "source_values": {"A": 1}},
+        ]
+        result = load_canonical(self._write_snapshot(tmp_path, assets))
+        assert result["CJ Allen"]["value"] == 4500  # first (higher) value kept
 
 
 class TestMatchPlayers:

@@ -34,7 +34,7 @@ def _normalize_name(name: str) -> str:
     for sfx in (" Jr.", " Sr.", " II", " III", " IV", " V"):
         if n.endswith(sfx):
             n = n[: -len(sfx)].strip()
-    return n.lower().replace(".", "").replace("'", "").replace("'", "")
+    return n.lower().replace(".", "").replace("'", "").replace("\u2019", "")
 
 
 def load_legacy(path: Path) -> dict[str, dict]:
@@ -83,8 +83,15 @@ def load_canonical(path: Path) -> dict[str, dict]:
             continue
         universe = str(asset.get("universe", ""))
         source_count = len(asset.get("source_values", {}))
+        int_value = int(value)
+        # On name collision (same player in rookie + vet universes), keep
+        # the entry with the higher final value.  This mirrors the legacy
+        # composite which keeps the best available value per player.
+        existing = out.get(name)
+        if existing is not None and existing["value"] >= int_value:
+            continue
         out[name] = {
-            "value": int(value),
+            "value": int_value,
             "raw_blended": int(asset.get("blended_value", 0)),
             "name": name,
             "universe": universe,
