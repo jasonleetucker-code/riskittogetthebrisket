@@ -112,6 +112,28 @@ describe("inferValueBundle", () => {
     expect(v.raw).toBe(8501);
   });
 
+  it("prefers _canonicalDisplayValue for full when available", () => {
+    const player = {
+      _rawComposite: 7738,
+      _scoringAdjusted: 7738,
+      _scarcityAdjusted: 7738,
+      _finalAdjusted: 7738,
+      _canonicalDisplayValue: 9920,
+    };
+    const v = inferValueBundle(player);
+    expect(v.full).toBe(9920);
+    expect(v.raw).toBe(7738);
+  });
+
+  it("falls back to _finalAdjusted when _canonicalDisplayValue is missing", () => {
+    const player = {
+      _rawComposite: 7738,
+      _finalAdjusted: 7738,
+    };
+    const v = inferValueBundle(player);
+    expect(v.full).toBe(7738);
+  });
+
   it("returns zeros for empty/undefined player", () => {
     const v = inferValueBundle({});
     expect(v.raw).toBe(0);
@@ -206,6 +228,45 @@ describe("buildRows", () => {
     expect(rows.length).toBe(1);
     expect(rows[0].values.full).toBe(9100);
     expect(rows[0].values.raw).toBe(8500);
+  });
+
+  it("prefers displayValue for full in contract format", () => {
+    const data = {
+      playersArray: [
+        {
+          displayName: "Josh Allen",
+          position: "QB",
+          assetClass: "offense",
+          sourceCount: 6,
+          values: {
+            rawComposite: 7738,
+            scoringAdjusted: 7738,
+            scarcityAdjusted: 7738,
+            finalAdjusted: 7738,
+            overall: 7738,
+            displayValue: 9920,
+          },
+          canonicalSiteValues: {},
+        },
+      ],
+    };
+    const rows = buildRows(data);
+    expect(rows[0].values.full).toBe(9920);
+    expect(rows[0].values.raw).toBe(7738);
+  });
+
+  it("falls back to finalAdjusted when displayValue is missing", () => {
+    const data = {
+      playersArray: [
+        {
+          displayName: "Josh Allen",
+          position: "QB",
+          values: { finalAdjusted: 7738, rawComposite: 7738, overall: 7738 },
+        },
+      ],
+    };
+    const rows = buildRows(data);
+    expect(rows[0].values.full).toBe(7738);
   });
 
   it("sorts rows by full value descending", () => {

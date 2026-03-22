@@ -13,16 +13,21 @@ export const VALUE_MODES = [
 export const STORAGE_KEY = "next_trade_workspace_v1";
 export const RECENT_KEY = "next_trade_recent_assets_v1";
 
+// Verdict thresholds on the 1–9999 display scale (proportional to prior 200/600/1200 on 0–7800)
+const VERDICT_NEAR_EVEN = 256;
+const VERDICT_LEAN = 769;
+const VERDICT_STRONG_LEAN = 1538;
+
 export function verdictFromGap(gap) {
   const abs = Math.abs(gap);
-  if (abs < 200) return "Near even";
-  if (abs < 600) return "Lean";
-  if (abs < 1200) return "Strong lean";
+  if (abs < VERDICT_NEAR_EVEN) return "Near even";
+  if (abs < VERDICT_LEAN) return "Lean";
+  if (abs < VERDICT_STRONG_LEAN) return "Strong lean";
   return "Major gap";
 }
 
 export function colorFromGap(gap) {
-  if (Math.abs(gap) < 200) return "";
+  if (Math.abs(gap) < VERDICT_NEAR_EVEN) return "";
   return gap > 0 ? "green" : "red";
 }
 

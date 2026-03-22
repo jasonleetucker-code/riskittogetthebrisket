@@ -54,26 +54,27 @@ describe("constants", () => {
 // ── verdictFromGap ───────────────────────────────────────────────────
 
 describe("verdictFromGap", () => {
-  it("returns 'Near even' for gaps under 200", () => {
+  // Thresholds on 1–9999 display scale: 256, 769, 1538
+  it("returns 'Near even' for gaps under 256", () => {
     expect(verdictFromGap(0)).toBe("Near even");
-    expect(verdictFromGap(199)).toBe("Near even");
-    expect(verdictFromGap(-199)).toBe("Near even");
+    expect(verdictFromGap(255)).toBe("Near even");
+    expect(verdictFromGap(-255)).toBe("Near even");
   });
 
-  it("returns 'Lean' for gaps 200-599", () => {
-    expect(verdictFromGap(200)).toBe("Lean");
-    expect(verdictFromGap(599)).toBe("Lean");
-    expect(verdictFromGap(-300)).toBe("Lean");
+  it("returns 'Lean' for gaps 256-768", () => {
+    expect(verdictFromGap(256)).toBe("Lean");
+    expect(verdictFromGap(768)).toBe("Lean");
+    expect(verdictFromGap(-400)).toBe("Lean");
   });
 
-  it("returns 'Strong lean' for gaps 600-1199", () => {
-    expect(verdictFromGap(600)).toBe("Strong lean");
-    expect(verdictFromGap(1199)).toBe("Strong lean");
-    expect(verdictFromGap(-800)).toBe("Strong lean");
+  it("returns 'Strong lean' for gaps 769-1537", () => {
+    expect(verdictFromGap(769)).toBe("Strong lean");
+    expect(verdictFromGap(1537)).toBe("Strong lean");
+    expect(verdictFromGap(-1000)).toBe("Strong lean");
   });
 
-  it("returns 'Major gap' for gaps >= 1200", () => {
-    expect(verdictFromGap(1200)).toBe("Major gap");
+  it("returns 'Major gap' for gaps >= 1538", () => {
+    expect(verdictFromGap(1538)).toBe("Major gap");
     expect(verdictFromGap(5000)).toBe("Major gap");
     expect(verdictFromGap(-2000)).toBe("Major gap");
   });
@@ -88,7 +89,7 @@ describe("verdictFromGap", () => {
 describe("colorFromGap", () => {
   it("returns empty string for near-even gaps", () => {
     expect(colorFromGap(0)).toBe("");
-    expect(colorFromGap(199)).toBe("");
+    expect(colorFromGap(255)).toBe("");
     expect(colorFromGap(-100)).toBe("");
   });
 
