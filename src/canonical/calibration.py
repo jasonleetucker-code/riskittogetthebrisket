@@ -24,11 +24,18 @@ from typing import Any
 
 
 # Default calibration parameters
-# Exponent 2.5 + scale 7800 chosen via empirical sweep (calibration_sweep.py)
-# to maximize tier agreement with legacy while preserving 92% top-50/100 overlap.
-# Previous: exp=2.0, scale=8500 → tier=45.5%, delta=1101
-# Current:  exp=2.5, scale=7800 → tier=61.5%, delta=879 (sweep result)
+# Piecewise power curve chosen via empirical sweep (calibration_sweep.py):
+#   - Above the knee (percentile >= KNEE): standard power curve scale * p^exp
+#   - Below the knee: linear ramp from 0 to the curve value at the knee
+# This lifts the bottom ~35% of the distribution (bench/depth players) without
+# changing the top, fixing systematic bench→depth deflation that hit RBs hardest.
+#
+# Sweep history:
+#   v1: exp=2.0, scale=8500             → tier=45.5%, delta=1101
+#   v2: exp=2.5, scale=7800             → tier=61.5%, delta=879
+#   v3: exp=2.5, scale=7800, knee=0.65  → tier=69.7%, delta=646 (sweep result)
 CALIBRATION_EXPONENT = 2.5
+CALIBRATION_KNEE = 0.65  # percentile below which we use linear ramp
 
 # Per-universe scale: empirically derived from legacy value distribution
 UNIVERSE_SCALES: dict[str, int] = {
@@ -185,6 +192,7 @@ def calibrate_canonical_values(
     *,
     universe_scales: dict[str, int] | None = None,
     exponent: float = CALIBRATION_EXPONENT,
+    knee: float = CALIBRATION_KNEE,
     pick_ceiling: int = PICK_CEILING,
     legacy_path: Path | None = None,
 ) -> list[dict[str, Any]]:
@@ -227,7 +235,12 @@ def calibrate_canonical_values(
                 break
             rank = rank_idx + 1
             percentile = (depth - (rank - 1)) / depth
-            calibrated = int(round(scale * (percentile ** exponent)))
+            if percentile >= knee:
+                calibrated = int(round(scale * (percentile ** exponent)))
+            else:
+                # Linear ramp from 0 to the curve value at the knee
+                knee_val = scale * (knee ** exponent)
+                calibrated = int(round(knee_val * (percentile / knee)))
             calibrated = max(0, min(scale, calibrated))
 
             pos = str(asset.get("metadata", {}).get("position", "")).upper()
@@ -268,6 +281,7 @@ def get_calibration_params() -> dict[str, Any]:
     """Return current calibration parameters for documentation/inspection."""
     return {
         "exponent": CALIBRATION_EXPONENT,
+        "knee": CALIBRATION_KNEE,
         "universe_scales": dict(UNIVERSE_SCALES),
         "default_scale": DEFAULT_SCALE,
         "pick_ceiling": PICK_CEILING,
@@ -277,8 +291,8 @@ def get_calibration_params() -> dict[str, Any]:
         "pick_round_curve": dict(LEGACY_PICK_ROUND_CURVE),
         "pick_year_discount": PICK_YEAR_DISCOUNT,
         "description": (
-            f"Universe-aware power curve: scale * percentile^{CALIBRATION_EXPONENT}. "
-            f"Offense={UNIVERSE_SCALES.get('offense_vet')}, IDP={UNIVERSE_SCALES.get('idp_vet')}, "
+            f"Piecewise power curve: scale * percentile^{CALIBRATION_EXPONENT} above knee={CALIBRATION_KNEE}, "
+            f"linear ramp below. Offense={UNIVERSE_SCALES.get('offense_vet')}, IDP={UNIVERSE_SCALES.get('idp_vet')}, "
             f"picks use legacy curve (direct match or round-based), "
             f"kickers/punters capped at {NON_FANTASY_CEILING}."
         ),
