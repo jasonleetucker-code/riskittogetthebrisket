@@ -1,6 +1,6 @@
 # Promotion Readiness Status
 
-_Updated: 2026-03-22 (corrected checkpoint: collision fix + config-driven thresholds)_
+_Updated: 2026-03-22 (final validation checkpoint — all collision bugs fixed, 408 tests)_
 
 ## Current State: **INTERNAL_PRIMARY VALIDATED — 9/9 PASS**
 
@@ -20,7 +20,7 @@ Rollback: `export CANONICAL_DATA_MODE=off` and restart.
 | Multi-source blend >= 40% | 40% | **61%** | PASS |
 | IDP sources >= 2 | 2 | 5 | PASS |
 | Weights tuned | Yes | v4 | PASS |
-| Tests pass | Yes | 399 pass | PASS |
+| Tests pass | Yes | 408 pass | PASS |
 
 ## Public Primary: 8/12 Pass, 3 Hard Fails
 
@@ -35,45 +35,40 @@ Rollback: `export CANONICAL_DATA_MODE=off` and restart.
 | Multi-source >= 60% | 60% | **61%** | **PASS** | — |
 | IDP sources >= 2 | 2 | 5 | **PASS** | — |
 | Weights tuned | Yes | v4 | **PASS** | — |
-| Tests pass | Yes | 399 | **PASS** | — |
+| Tests pass | Yes | 408 | **PASS** | — |
 | League context active | Yes | Yes | **PASS** | — |
 | Founder approval | Yes | No | **FAIL** | — |
 
-## What Changed from Collision Fix
+## What Blocks Public-Primary
 
-The collision fix resolved a bug where 74 players appearing in both rookie and vet
-universes had the wrong entry kept. After the fix:
+Two metric fails and one manual gate. All three trace to the same root cause.
 
-| Metric | Before Fix | After Fix | Change |
-|--------|-----------|-----------|--------|
-| Offense top-50 | 78% | **82%** | **+4% — now passes 80% threshold** |
-| Offense delta | 1006 | **999** | -7 |
-| Offense tier | 53.4% | **53.5%** | +0.1% |
+**The remaining metric gap (tier 53.5% vs 65%, delta 999 vs 800) is caused by the
+legacy reference being a 2-source composite (FantasyCalc + DLF only).** The 9 browser-
+based scraper sources cannot render in this sandbox environment — Playwright page loads
+timeout at 25 seconds despite HTTP connectivity being fine.
 
-**Top-50 overlap was a blocker and is now cleared.**
+**This is the single remaining operational blocker.** The production server
+(`178.156.148.92`) has unrestricted browser rendering capability. Running the scraper
+there is expected to close both metric gaps and leave only founder approval.
 
-## Remaining Gap Analysis
+See `docs/runbooks/production-activation-runbook.md` for exact steps.
 
-The two remaining metric fails are both driven by the same root cause:
-**162 offense players where canonical is exactly 1 tier higher than legacy.**
+## Validation Phase Summary
 
-| Tier shift | Players | Avg delta |
-|------------|---------|-----------|
-| star → elite | 39 | 1637 |
-| starter → star | 55 | 1686 |
-| bench → starter | 40 | 1102 |
-| depth → bench | 28 | 1165 |
-| **Canonical 1 tier higher total** | **162** | **~1450** |
-
-Only 53 of these 162 would need to resolve to reach 65% tier agreement.
-If they resolve, the projected avg delta drops to ~569 (well under 800).
-
-**Root cause**: Legacy ran with 2 sources (FantasyCalc + DLF). The 9 missing
-browser-scraped sources would raise legacy values for these mid-tier players.
-A full 11-source legacy scraper run is the single action most likely to close
-both remaining gaps simultaneously.
+| Milestone | Status |
+|-----------|--------|
+| Canonical pipeline built (14 sources) | Done |
+| Collision bugs fixed (all 3 consumers) | Done |
+| Config-driven thresholds | Done |
+| Shadow/comparison/block layers aligned | Done |
+| Internal-primary validated | Done |
+| Scarcity weight tuned (0.30) | Done |
+| 408 tests passing | Done |
+| Founder review (14/20 canonical right) | Done |
+| **Production scraper run** | **BLOCKED — needs Hetzner host** |
+| Public-primary decision | Pending production run |
 
 ---
 
-_399 tests pass. Thresholds from config/promotion/promotion_thresholds.json._
-_Founder review packet: `data/comparison/founder_review_packet.md`_
+_408 tests pass. Thresholds from config/promotion/promotion_thresholds.json._
