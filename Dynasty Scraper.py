@@ -3653,7 +3653,17 @@ async def scrape_ktc(page, players):
             # KTC renders values in the DOM after client JS runs
             dom_data = await page.evaluate("""() => {
                 const results = {};
-                // Try reading from Next.js/React state
+                // Try reading from inline playersArray (current KTC format as of 2026-03)
+                if (typeof playersArray !== 'undefined' && Array.isArray(playersArray)) {
+                    for (const p of playersArray) {
+                        const name = p.playerName || p.name;
+                        const sfVals = p.superflexValues;
+                        const val = (sfVals && sfVals.value) || p.superflexValue || p.value;
+                        if (name && val) results[name] = parseInt(val);
+                    }
+                }
+                if (Object.keys(results).length > 10) return results;
+                // Try reading from Next.js/React state (legacy format)
                 const scripts = document.querySelectorAll('script[type="application/json"], script#__NEXT_DATA__');
                 for (const s of scripts) {
                     try {
@@ -3696,7 +3706,40 @@ async def scrape_ktc(page, players):
             content = await page.content()
             import json
 
-            # Try __NEXT_DATA__ script
+            # Try inline playersArray (current KTC format as of 2026-03)
+            pa_match = re.search(
+                r'var\s+playersArray\s*=\s*(\[.*?\]);\s*(?:var\s|\n)',
+                content, re.DOTALL,
+            )
+            if pa_match:
+                try:
+                    player_list = json.loads(pa_match.group(1))
+                    for item in player_list:
+                        pname = item.get("playerName")
+                        if not pname:
+                            continue
+                        val = None
+                        if SUPERFLEX:
+                            sf_vals = item.get("superflexValues")
+                            if isinstance(sf_vals, dict):
+                                val = sf_vals.get("value")
+                            if val is None:
+                                sf_vals2 = item.get("superflexValue")
+                                if isinstance(sf_vals2, dict):
+                                    val = sf_vals2.get("value")
+                                elif sf_vals2 is not None:
+                                    val = sf_vals2
+                        if val is None:
+                            val = item.get("value")
+                        if val is not None:
+                            name_map[clean_name(pname)] = int(float(val))
+                    if name_map and DEBUG:
+                        print(f"  [KTC] playersArray parsed {len(name_map)} players")
+                except Exception as e:
+                    if DEBUG:
+                        print(f"  [KTC] playersArray parse error: {e}")
+
+            # Try __NEXT_DATA__ script (legacy format)
             next_match = re.search(r'<script\s+id="__NEXT_DATA__"[^>]*>(.*?)</script>', content, re.DOTALL)
             if next_match:
                 try:

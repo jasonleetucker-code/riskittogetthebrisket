@@ -114,7 +114,33 @@ async def check_ktc(full=False):
         content = await page.content()
         print(f"Page content: {len(content)} bytes")
 
-        # Check __NEXT_DATA__
+        # Strategy 1: Check for inline playersArray (current KTC format as of 2026-03)
+        pa_match = re.search(
+            r'var\s+playersArray\s*=\s*(\[.*?\]);\s*(?:var\s|\n)',
+            content, re.DOTALL,
+        )
+        if pa_match:
+            try:
+                players = json.loads(pa_match.group(1))
+                if isinstance(players, list) and len(players) > 100:
+                    sample = players[0]
+                    name = sample.get("playerName", "?")
+                    sf_vals = sample.get("superflexValues", {})
+                    val = sf_vals.get("value") if isinstance(sf_vals, dict) else sample.get("value")
+                    print(f"playersArray: {len(players)} players")
+                    print(f"  Sample keys: {list(sample.keys())[:8]}")
+                    print(f"  Sample: {name} = {val}")
+                    print(f"OK: KTC data extraction confirmed ({len(players)} players)")
+                    await browser.close()
+                    return True
+                elif isinstance(players, list):
+                    print(f"WARNING: playersArray has only {len(players)} players (expected 400+)")
+            except json.JSONDecodeError as e:
+                print(f"  playersArray JSON parse error: {e}")
+        else:
+            print("playersArray not found in page source")
+
+        # Strategy 2: Check __NEXT_DATA__ (legacy KTC format)
         next_match = re.search(
             r'<script\s+id="__NEXT_DATA__"[^>]*>(.*?)</script>',
             content, re.DOTALL,
@@ -150,14 +176,21 @@ async def check_ktc(full=False):
         else:
             print("__NEXT_DATA__ not found in page source")
 
-        # Check DOM elements
+        # Strategy 3: Check DOM elements
         dom_count = await page.evaluate(
-            "document.querySelectorAll('.one-player, [class*=\"player-row\"]').length"
+            "document.querySelectorAll('[class*=\"player\"]').length"
         )
         print(f"DOM player elements: {dom_count}")
 
         if dom_count > 100:
             print(f"OK: KTC DOM rendering confirmed ({dom_count} elements)")
+            await browser.close()
+            return True
+
+        # Strategy 4: Regex fallback — count playerName occurrences in source
+        pn_count = content.count('"playerName"')
+        if pn_count > 100:
+            print(f"OK: KTC source contains {pn_count} playerName entries (regex-extractable)")
             await browser.close()
             return True
 
