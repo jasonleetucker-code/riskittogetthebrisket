@@ -77,18 +77,21 @@ def normalize_position_family(pos: str | None) -> str:
     if not tokens:
         return ""
     t = tokens[0]
-    if t.startswith("QB"):
+    # Strip trailing rank digits (e.g. "LB1" → "LB", "DL70" → "DL")
+    # DLF IDP CSVs use formats like "LB1", "LB67" for positional rank.
+    t_base = re.sub(r"\d+$", "", t) or t
+    if t_base.startswith("QB"):
         return "QB"
-    if t.startswith("RB"):
+    if t_base.startswith("RB"):
         return "RB"
-    if t.startswith("WR"):
+    if t_base.startswith("WR"):
         return "WR"
-    if t.startswith("TE"):
+    if t_base.startswith("TE"):
         return "TE"
-    if t in {"DE", "DT", "DL", "EDGE"}:
+    if t_base in {"DE", "DT", "DL", "EDGE"}:
         return "DL"
-    if t in {"LB", "ILB", "OLB"}:
+    if t_base in {"LB", "ILB", "OLB"}:
         return "LB"
-    if t in {"S", "SS", "FS", "CB", "DB"}:
+    if t_base in {"S", "SS", "FS", "CB", "DB"}:
         return "DB"
     return t
