@@ -289,12 +289,12 @@
       "ingest_type": "scraper_export",
       "ingest_method": "scraper_bridge",
       "source_url": "https://www.draftsharks.com/",
-      "scoring_context": "dynasty IDP (DraftSharks IDP value signal)",
+      "scoring_context": "dynasty IDP (DraftSharks IDP rank signal)",
       "includes_sf": false,
       "includes_tep": false,
       "file": "exports/latest/site_raw/draftSharksIdp.csv",
-      "signal_type": "value",
-      "notes": "DraftSharks IDP values. IDP-only universe, SF/TEP not applicable."
+      "signal_type": "rank",
+      "notes": "DraftSharks IDP ranks (lower=better, rank-order from dsValue). IDP-only universe, SF/TEP not applicable."
     },
     {
       "enabled": true,
