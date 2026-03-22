@@ -71,9 +71,9 @@ class TestLeagueSettings:
         assert demand == 48
 
     def test_starter_demand_dl(self, settings):
-        # DL: 2 direct + 1 IDP_FLEX = 3 per team * 12 = 36
+        # DL: 2 direct + 2 IDP_FLEX = 4 per team * 12 = 48
         demand = settings.starter_demand("DL")
-        assert demand == 36
+        assert demand == 48
 
     def test_direct_starter_demand(self, settings):
         assert settings.direct_starter_demand("QB") == 12
@@ -104,9 +104,9 @@ class TestReplacementCalculator:
         assert demand == 16
 
     def test_effective_demand_lb(self, calc):
-        # LB: 24 direct + 40% of 12 IDP_FLEX = 24 + 4.8 = 29
+        # LB: 24 direct + 40% of 24 IDP_FLEX = 24 + 9.6 = 34
         demand = calc.effective_demand("LB")
-        assert demand == 29
+        assert demand == 34
 
     def test_replacement_rank_includes_buffer(self, calc):
         demand = calc.effective_demand("QB")

@@ -228,3 +228,95 @@ class TestNormalizeTeamEdgeCases:
 
     def test_none_returns_empty(self):
         assert normalize_team(None) == ""
+
+
+# ── normalize_position_family ──────────────────────────────────────
+
+class TestNormalizePositionFamily:
+    # Standard positions
+    def test_qb(self):
+        assert normalize_position_family("QB") == "QB"
+
+    def test_rb(self):
+        assert normalize_position_family("RB") == "RB"
+
+    def test_wr(self):
+        assert normalize_position_family("WR") == "WR"
+
+    def test_te(self):
+        assert normalize_position_family("TE") == "TE"
+
+    # IDP positions
+    def test_dl(self):
+        assert normalize_position_family("DL") == "DL"
+
+    def test_de_maps_to_dl(self):
+        assert normalize_position_family("DE") == "DL"
+
+    def test_dt_maps_to_dl(self):
+        assert normalize_position_family("DT") == "DL"
+
+    def test_edge_maps_to_dl(self):
+        assert normalize_position_family("EDGE") == "DL"
+
+    def test_lb(self):
+        assert normalize_position_family("LB") == "LB"
+
+    def test_ilb_maps_to_lb(self):
+        assert normalize_position_family("ILB") == "LB"
+
+    def test_olb_maps_to_lb(self):
+        assert normalize_position_family("OLB") == "LB"
+
+    def test_db(self):
+        assert normalize_position_family("DB") == "DB"
+
+    def test_cb_maps_to_db(self):
+        assert normalize_position_family("CB") == "DB"
+
+    def test_s_maps_to_db(self):
+        assert normalize_position_family("S") == "DB"
+
+    def test_ss_maps_to_db(self):
+        assert normalize_position_family("SS") == "DB"
+
+    def test_fs_maps_to_db(self):
+        assert normalize_position_family("FS") == "DB"
+
+    # Sleeper dual positions — DL or DB always win over LB
+    def test_dl_lb_prefers_dl(self):
+        assert normalize_position_family("DL/LB") == "DL"
+
+    def test_lb_dl_prefers_dl(self):
+        assert normalize_position_family("LB/DL") == "DL"
+
+    def test_de_lb_prefers_dl(self):
+        assert normalize_position_family("DE/LB") == "DL"
+
+    def test_db_lb_prefers_db(self):
+        assert normalize_position_family("DB/LB") == "DB"
+
+    def test_lb_db_prefers_db(self):
+        assert normalize_position_family("LB/DB") == "DB"
+
+    def test_cb_lb_prefers_db(self):
+        assert normalize_position_family("CB/LB") == "DB"
+
+    def test_s_lb_prefers_db(self):
+        assert normalize_position_family("S/LB") == "DB"
+
+    def test_edge_lb_prefers_dl(self):
+        assert normalize_position_family("EDGE/LB") == "DL"
+
+    # Edge cases
+    def test_empty(self):
+        assert normalize_position_family("") == ""
+
+    def test_none(self):
+        assert normalize_position_family(None) == ""
+
+    def test_lowercase(self):
+        assert normalize_position_family("qb") == "QB"
+
+    def test_dl_lb_lowercase(self):
+        assert normalize_position_family("dl/lb") == "DL"

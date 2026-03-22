@@ -32,6 +32,17 @@ def normalize_position_family(pos: str | None) -> str:
     if not pos:
         return ""
     p = _ascii_fold(pos).upper().strip()
+
+    # Handle Sleeper-style dual positions (DL/LB, DB/LB) BEFORE splitting.
+    # Always prefer DL or DB over LB for IDP dual-eligible players.
+    if "/" in p:
+        parts = [s.strip() for s in p.split("/")]
+        for preferred in ("DL", "DE", "DT", "EDGE", "DB", "CB", "S", "SS", "FS"):
+            if preferred in parts:
+                return normalize_position_family(preferred)
+        # No preferred found — fall through with first part
+        p = parts[0]
+
     p = p.replace("(", " ").replace(")", " ")
     p = re.sub(r"[^A-Z0-9]+", " ", p).strip()
     tokens = p.split()

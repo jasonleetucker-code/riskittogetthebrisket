@@ -17,7 +17,7 @@
     "DL": 2,
     "LB": 2,
     "DB": 2,
-    "IDP_FLEX": 1
+    "IDP_FLEX": 2
   },
   "roster_size": 30,
   "taxi_size": 5,
