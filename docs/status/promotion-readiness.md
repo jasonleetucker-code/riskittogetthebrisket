@@ -1,10 +1,14 @@
 # Promotion Readiness Status
 
-_Updated: 2026-03-22 (final pre-launch polish pass complete)_
+_Updated: 2026-03-22 (founder approval GRANTED — primary mode implemented, ready for production activation)_
 
-## Current State: **PUBLIC_PRIMARY METRIC-READY — 10/12 PASS**
+## Current State: **FOUNDER APPROVED — AWAITING PRODUCTION ACTIVATION**
 
-All automated metric checks pass. Only founder approval remains.
+All automated metric checks pass. Founder approval granted. Primary mode overlay
+implemented in `server.py`. Production activation requires pulling this branch
+on production and setting `CANONICAL_DATA_MODE=primary`.
+
+See `docs/runbooks/public-primary-activation.md` for exact steps.
 
 ## Public Primary: 10/12 Pass — Only Founder Approval Remains
 
