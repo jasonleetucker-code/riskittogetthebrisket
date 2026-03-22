@@ -88,11 +88,13 @@ def blend_source_values(
     source_weights: dict[str, float],
     universe: str,
     asset_names: dict[str, str] | None = None,
+    asset_metadata: dict[str, dict] | None = None,
 ) -> list[CanonicalAssetValue]:
     weighted: dict[str, float] = defaultdict(float)
     total_w: dict[str, float] = defaultdict(float)
     by_source_for_asset: dict[str, dict[str, int]] = defaultdict(dict)
     names = asset_names or {}
+    meta_lookup = asset_metadata or {}
 
     for source_id, asset_scores in per_source_asset_scores.items():
         w = float(source_weights.get(source_id, 1.0))
@@ -120,11 +122,30 @@ def blend_source_values(
                     k: float(source_weights.get(k, 1.0))
                     for k in by_source_for_asset.get(asset_key, {})
                 },
-                metadata={},
+                metadata=dict(meta_lookup.get(asset_key, {})),
             )
         )
     out.sort(key=lambda x: x.blended_value, reverse=True)
     return out
+
+
+def _collect_asset_metadata(records: list[RawAssetRecord]) -> dict[str, dict]:
+    """Collect position and team metadata from raw records.
+
+    When multiple sources provide position data for the same asset,
+    prefer the first non-empty value found.
+    """
+    meta: dict[str, dict] = {}
+    for rec in records:
+        key = rec.asset_key
+        if key not in meta:
+            meta[key] = {}
+        entry = meta[key]
+        if not entry.get("position") and rec.position_normalized_guess:
+            entry["position"] = rec.position_normalized_guess
+        if not entry.get("team") and rec.team_normalized_guess:
+            entry["team"] = rec.team_normalized_guess
+    return meta
 
 
 def build_canonical_by_universe(
@@ -137,7 +158,11 @@ def build_canonical_by_universe(
     for universe, rows in grouped.items():
         per_source = per_source_scores_for_universe(rows, exponent=exponent)
         names = {r.asset_key: r.display_name for r in rows}
-        out[universe] = blend_source_values(per_source, source_weights=source_weights, universe=universe, asset_names=names)
+        asset_meta = _collect_asset_metadata(rows)
+        out[universe] = blend_source_values(
+            per_source, source_weights=source_weights, universe=universe,
+            asset_names=names, asset_metadata=asset_meta,
+        )
     return out
 
 

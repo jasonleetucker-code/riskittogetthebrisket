@@ -133,12 +133,13 @@ def check_internal_primary_readiness(repo: Path) -> list[dict]:
     weights = json.loads(weights_path.read_text()) if weights_path.exists() else {}
     source_weights = weights.get("sources", {})
     any_tuned = any(v != 1.0 for v in source_weights.values())
+    tuned_count = sum(1 for v in source_weights.values() if v != 1.0)
     results.append({
         "check": "source_weights_tuned",
         "required": True,
         "actual": any_tuned,
         "pass": any_tuned,
-        "note": "All weights are 1.0 — founder needs to set relative source weights",
+        "note": f"{tuned_count}/{len(source_weights)} weights differ from 1.0" if any_tuned else "All weights are 1.0 — founder needs to set relative source weights",
     })
 
     results.append({

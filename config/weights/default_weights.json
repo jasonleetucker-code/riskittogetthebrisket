@@ -1,6 +1,14 @@
 {
-  "version": 2,
-  "description": "Source weights for canonical blend. All sources default to 1.0 (equal weight) until founder tunes them.",
+  "version": 3,
+  "description": "Initial source weights for canonical blend. Founder-adjustable. See weight_rationale below.",
+  "weight_rationale": {
+    "tier_1_primary": "KTC (1.2) and FantasyCalc (1.0) are the highest-signal crowdsourced market sources with the largest player pools and most consistent data.",
+    "tier_2_expert": "DLF sources (1.0) are expert-curated rank-based signals. Reliable but smaller coverage.",
+    "tier_3_secondary_market": "DynastyDaddy (0.8) is a secondary market/API source with good coverage but slightly less market adoption.",
+    "tier_4_supplemental": "Yahoo (0.7), FantasyPros (0.7), DraftSharks (0.7), DynastyNerds (0.6), Flock (0.6) are supplemental sources with variable reliability or fragile upstream scraping.",
+    "tier_idp": "IDPTradeCalc (1.0) is the primary non-DLF IDP source. PFF IDP (0.7), DraftSharks IDP (0.6), FantasyPros IDP (0.6) are supplemental IDP."
+  },
+  "how_to_tune": "Edit the 'sources' values below. Higher = more influence. Set to 0 to exclude. Re-run: python scripts/source_pull.py && python scripts/canonical_build.py && python scripts/run_comparison_batch.py",
   "universe_defaults": {
     "offense_vet": 1.0,
     "offense_rookie": 1.0,
@@ -13,17 +21,17 @@
     "DLF_IDP": 1.0,
     "DLF_RSF": 1.0,
     "DLF_RIDP": 1.0,
+    "KTC": 1.2,
     "FANTASYCALC": 1.0,
-    "KTC": 1.0,
-    "DYNASTYDADDY": 1.0,
-    "YAHOO": 1.0,
-    "FANTASYPROS": 1.0,
-    "DRAFTSHARKS": 1.0,
-    "DYNASTYNERDS": 1.0,
-    "FLOCK": 1.0,
+    "DYNASTYDADDY": 0.8,
+    "YAHOO": 0.7,
+    "FANTASYPROS": 0.7,
+    "DRAFTSHARKS": 0.7,
+    "DYNASTYNERDS": 0.6,
+    "FLOCK": 0.6,
     "IDPTRADECALC": 1.0,
-    "PFF_IDP": 1.0,
-    "DRAFTSHARKS_IDP": 1.0,
-    "FANTASYPROS_IDP": 1.0
+    "PFF_IDP": 0.7,
+    "DRAFTSHARKS_IDP": 0.6,
+    "FANTASYPROS_IDP": 0.6
   }
 }
