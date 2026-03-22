@@ -1129,6 +1129,7 @@ def _apply_canonical_primary_overlay(contract: dict) -> int:
             continue
         canonical_lookup[name] = {
             "calibrated_value": int(cal_val),
+            "display_value": asset.get("display_value"),
             "blended_value": asset.get("blended_value"),
             "source_count": len(asset.get("source_values", {})),
             "universe": asset.get("universe", ""),
@@ -1166,6 +1167,9 @@ def _apply_canonical_primary_overlay(contract: dict) -> int:
         pdata["_rawComposite"] = cal_val
         pdata["_valueAuthority"] = "canonical"
         pdata["_canonicalSourceCount"] = canon["source_count"]
+        # Display-scale value (1–9999) for public-facing use
+        if canon.get("display_value") is not None:
+            pdata["_canonicalDisplayValue"] = canon["display_value"]
         overlay_count += 1
 
     # Mark the contract as canonical-authoritative
@@ -1923,6 +1927,7 @@ async def get_scaffold_canonical():
                 continue
             player_values[name] = {
                 "calibrated_value": a.get("calibrated_value"),
+                "display_value": a.get("display_value"),
                 "blended_value": a.get("blended_value"),
                 "scarcity_adjusted_value": a.get("scarcity_adjusted_value"),
                 "universe": a.get("universe", ""),

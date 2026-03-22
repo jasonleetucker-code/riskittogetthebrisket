@@ -63,6 +63,25 @@ UNIVERSE_KNEES: dict[str, float] = {
 # Pick ceiling for fallback power curve
 PICK_CEILING = 7500
 
+# ── Display Scale ──
+# Public-facing 1–9999 scale. Pure presentation remap of internal calibrated values.
+# Linear: display = max(1, round(calibrated * 9999 / INTERNAL_SCALE_MAX))
+# INTERNAL_SCALE_MAX = offense_vet scale (the highest possible calibrated value).
+DISPLAY_SCALE_MAX = 9999
+INTERNAL_SCALE_MAX = 7800  # must equal UNIVERSE_SCALES["offense_vet"]
+
+
+def to_display_value(calibrated_value: int | float) -> int:
+    """Convert internal calibrated value (0–7800) to display scale (1–9999).
+
+    Linear proportional remap with fixed denominator. Monotonic, deterministic,
+    and preserves relative spacing. Does not affect internal model logic.
+    """
+    if calibrated_value <= 0:
+        return 1
+    return max(1, min(DISPLAY_SCALE_MAX, round(calibrated_value * DISPLAY_SCALE_MAX / INTERNAL_SCALE_MAX)))
+
+
 # Non-fantasy positions that should be calibrated very low
 NON_FANTASY_POSITIONS = {"K", "P", "OL"}
 NON_FANTASY_CEILING = 600  # Legacy kickers max at ~568
@@ -294,6 +313,12 @@ def calibrate_canonical_values(
             asset["calibrated_value"] = min(pick_ceiling, int(asset.get("blended_value", 0) * 0.5))
             asset["_pick_calibration_source"] = "fallback"
 
+    # Apply display-scale values to all assets (players + picks)
+    for asset in assets:
+        cv = asset.get("calibrated_value")
+        if cv is not None:
+            asset["display_value"] = to_display_value(cv)
+
     return assets
 
 
@@ -323,5 +348,11 @@ def get_calibration_params() -> dict[str, Any]:
             "starter": ">= 3000",
             "bench": ">= 1500",
             "depth": "< 1500",
+        },
+        "display_scale": {
+            "max": DISPLAY_SCALE_MAX,
+            "internal_max": INTERNAL_SCALE_MAX,
+            "formula": f"max(1, round(calibrated_value * {DISPLAY_SCALE_MAX} / {INTERNAL_SCALE_MAX}))",
+            "description": "Linear remap of internal calibrated values to 1–9999 public display scale.",
         },
     }

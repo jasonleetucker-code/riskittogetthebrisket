@@ -133,12 +133,14 @@ def _player_value_bundle(p_data: dict[str, Any]) -> dict[str, int | None]:
     if final is None:
         final = raw
     overall = final
+    display = _to_int_or_none(p_data.get("_canonicalDisplayValue"))
     return {
         "overall": overall,
         "rawComposite": raw,
         "scoringAdjusted": scoring,
         "scarcityAdjusted": scarcity,
         "finalAdjusted": final,
+        "displayValue": display,
     }
 
 
@@ -355,8 +357,10 @@ def build_canonical_comparison_block(
         source_count = _extract_source_count(asset)
         source_breakdown = _extract_source_breakdown(asset)
 
+        display = _to_int_or_none(asset.get("display_value"))
         entry: dict[str, Any] = {
             "canonicalValue": _to_int_or_none(final) if final is not None else None,
+            "displayValue": display,
             "universe": universe,
             "sourcesUsed": source_count,
         }
