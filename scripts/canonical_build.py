@@ -116,12 +116,16 @@ def main() -> int:
             if player_map_path.exists():
                 _, nickname_lookup = build_player_map_lookup(player_map_path)
 
+            supplemental_path = repo / "data" / "player_map" / "supplemental_positions.json"
             asset_dicts, enrichment_summary = enrich_positions(
-                asset_dicts, legacy_lookup, nickname_lookup, infer_idp=True
+                asset_dicts, legacy_lookup, nickname_lookup,
+                infer_idp=True,
+                supplemental_path=supplemental_path if supplemental_path.exists() else None,
             )
             print(
                 f"[canonical_build] enrichment: {enrichment_summary['enriched_from_legacy']} legacy, "
                 f"{enrichment_summary['enriched_from_nickname']} nickname, "
+                f"{enrichment_summary.get('enriched_from_supplemental', 0)} supplemental, "
                 f"{enrichment_summary['enriched_from_universe_infer']} IDP inferred, "
                 f"{enrichment_summary['already_had_position']} adapter, "
                 f"{enrichment_summary['skipped_picks']} picks, "

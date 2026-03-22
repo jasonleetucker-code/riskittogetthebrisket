@@ -1,55 +1,53 @@
 # Source Integration Tracker
 
-_Updated: 2026-03-22 (Phase D — internal_primary ready + pick calibration)_
+_Updated: 2026-03-22 (Phase D — identity resolution + supplemental positions)_
 
----
+## Active Sources (14 real)
 
-## Active Sources (14 real sources, all active)
-
-| Source | Records | Weight | Data Origin |
-|--------|--------:|-------:|-------------|
-| DLF Superflex | 278 | 1.0 | Real (manual CSV) |
-| DLF IDP | 185 | 1.0 | Real (manual CSV) |
-| DLF Rookie SF | 66 | 1.0 | Real (manual CSV) |
-| DLF Rookie IDP | 30 | 1.0 | Real (manual CSV) |
-| FantasyCalc | 451 | 1.0 | Real (scraper export) |
-| KTC | 500 | 1.2 | Real (archived scraper export) |
-| DynastyDaddy | 336 | 0.8 | Real (archived scraper export) |
-| Yahoo | 457 | 0.7 | Real (archived scraper export) |
-| FantasyPros | 303 | 0.7 | Real (archived scraper export) |
-| DraftSharks | 490 | 0.5 | Real (archived scraper export) |
-| DynastyNerds | 12 | 0.6 | Real (partial, paywalled) |
-| IDPTradeCalc | 383 | 1.0 | Real (archived scraper export) |
-| PFF IDP | 249 | 0.7 | Real (archived scraper export) |
-| FantasyPros IDP | 70 | 0.6 | Real (archived scraper export) |
+| Source | Records | Weight |
+|--------|--------:|-------:|
+| DLF Superflex | 278 | 1.0 |
+| DLF IDP | 185 | 1.0 |
+| DLF Rookie SF | 66 | 1.0 |
+| DLF Rookie IDP | 30 | 1.0 |
+| FantasyCalc | 451 | 1.0 |
+| KTC | 500 | 1.2 |
+| DynastyDaddy | 336 | 0.8 |
+| Yahoo | 457 | 0.7 |
+| FantasyPros | 303 | 0.7 |
+| DraftSharks | 490 | 0.5 |
+| DynastyNerds | 12 | 0.6 |
+| IDPTradeCalc | 383 | 1.0 |
+| PFF IDP | 249 | 0.7 |
+| FantasyPros IDP | 70 | 0.6 |
 
 ## Pipeline
 
 ```
-Source CSVs → Adapter → Identity → Canonical Blend (14 sources, weight v4)
-  → Position Enrichment (legacy + nickname + IDP infer = 77.1%)
-  → Scarcity Adjustment (dampened 35% VAR, 952 assets)
+Source CSVs → Adapter → Identity Resolution (initial collapsing + suffix cleanup)
+  → Canonical Blend (14 sources, weight v4)
+  → Position Enrichment (legacy + nickname + supplemental + IDP infer = 82.0%)
+  → Scarcity Adjustment (dampened 35% VAR, 1003 assets)
   → Player Calibration (offense=8500, IDP=5000, K≤600)
-  → Pick Calibration (legacy direct match → round curve → fallback)
+  → Pick Calibration (legacy curve)
   → Canonical Snapshot
 ```
 
 ## Key Metrics
 
-| Metric | Value |
-|--------|-------|
-| Sources | 14 (all real) |
-| Assets | 1251 |
-| Position coverage | 77.1% (965/1251) |
-| Scarcity-adjusted | 952 |
-| Multi-source blend | 61% |
-| **Offense players top-50** | **72%** (threshold: 70%) |
-| **Offense players top-100** | **81%** (threshold: 65%) |
-| **Offense players tier agreement** | **56.8%** (threshold: 50%) |
-| **Offense players avg delta** | **988** (threshold: 1500) |
-| Offense combined tier agreement | 63.2% |
-| IDP tier agreement | 76.2% |
-| Overall avg delta | 749 |
-| Overall tier agreement | 67.4% |
-| **Internal-primary** | **9/10 pass (all hard checks)** |
-| Public-primary | 6/12 pass |
+| Metric | Value | Threshold | Status |
+|--------|-------|-----------|--------|
+| Sources | 14 | — | — |
+| Assets | 1239 | — | — |
+| Position coverage | 82.0% | — | — |
+| Scarcity-adjusted | 1003 | — | — |
+| Multi-source blend | **61%** | 60% | ✓ PASS |
+| Offense players top-50 | **76%** | 70% | ✓ PASS |
+| Offense players top-100 | **81%** | 65% | ✓ PASS |
+| Offense players tier | **52.9%** | 50% | ✓ PASS |
+| Offense players delta | **1033** | 1500 | ✓ PASS |
+| IDP tier agreement | 75.6% | — | — |
+| Overall avg delta | 774 | — | — |
+| Overall tier agreement | 65.1% | — | — |
+| **Internal-primary** | **9/10 pass** | All hard | ✓ |
+| **Public-primary** | **7/12 pass** | — | — |

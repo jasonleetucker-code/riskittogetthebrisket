@@ -168,6 +168,7 @@ def enrich_positions(
     nickname_lookup: dict[str, str] | None = None,
     *,
     infer_idp: bool = True,
+    supplemental_path: Path | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Enrich canonical assets with position data using multiple strategies.
 
@@ -176,23 +177,38 @@ def enrich_positions(
     2. Skip if it's a pick asset
     3. Try primary legacy lookup by normalized name
     4. Try nickname-expanded variants
-    5. If IDP and infer_idp=True, assign default IDP position
+    5. Try supplemental position map (curated multi-source players)
+    6. If IDP and infer_idp=True, assign default IDP position
 
     Args:
         assets: List of canonical asset dicts.
         legacy_lookup: normalized_name → position from build_legacy_position_lookup.
         nickname_lookup: nickname_variant → position (optional).
         infer_idp: Whether to infer IDP position from universe/source context.
+        supplemental_path: Path to supplemental_positions.json (optional).
 
     Returns:
         Tuple of (enriched assets, summary dict).
     """
     nickname_lookup = nickname_lookup or {}
 
+    # Load supplemental position map if available
+    supplemental_lookup: dict[str, str] = {}
+    if supplemental_path and supplemental_path.exists():
+        try:
+            data = json.loads(supplemental_path.read_text())
+            for name, pos in data.get("players", {}).items():
+                norm = _normalize_name(name)
+                if norm and pos:
+                    supplemental_lookup[norm] = pos
+        except Exception:
+            pass
+
     counts = {
         "already_had_position": 0,
         "enriched_from_legacy": 0,
         "enriched_from_nickname": 0,
+        "enriched_from_supplemental": 0,
         "enriched_from_universe_infer": 0,
         "skipped_picks": 0,
         "unmatched": 0,
@@ -234,7 +250,15 @@ def enrich_positions(
             counts["enriched_from_nickname"] += 1
             continue
 
-        # Strategy 3: Universe/source-based IDP inference
+        # Strategy 3: Supplemental position map (curated multi-source players)
+        pos = supplemental_lookup.get(norm)
+        if pos:
+            meta["position"] = pos
+            meta["position_source"] = "supplemental_map"
+            counts["enriched_from_supplemental"] += 1
+            continue
+
+        # Strategy 4: Universe/source-based IDP inference
         if infer_idp and _is_idp_asset(asset):
             meta["position"] = DEFAULT_IDP_POSITION
             meta["position_source"] = "universe_inferred"
@@ -248,6 +272,7 @@ def enrich_positions(
         counts["already_had_position"]
         + counts["enriched_from_legacy"]
         + counts["enriched_from_nickname"]
+        + counts["enriched_from_supplemental"]
         + counts["enriched_from_universe_infer"]
     )
 

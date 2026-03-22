@@ -126,9 +126,10 @@ def check_internal_primary_readiness(repo: Path) -> list[dict]:
     sample = stats.get("count", 0)
     results.append({"check": "comparison_batch_sample_min", "required": 500, "actual": sample, "pass": sample >= 500})
 
-    # Multi-source blend percentage
-    total_assets = snap.get("asset_count", 0)
-    multi = stats.get("multi_source_count", 0)
+    # Multi-source blend percentage — compute from snapshot directly
+    assets = snap.get("assets", [])
+    total_assets = len(assets)
+    multi = sum(1 for a in assets if len(a.get("source_values", {})) > 1)
     blend_pct = round(multi / total_assets * 100) if total_assets else 0
     results.append({"check": "multi_source_blend_pct_min", "required": 40, "actual": blend_pct, "pass": blend_pct >= 40})
 

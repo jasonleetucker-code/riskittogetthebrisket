@@ -3,12 +3,39 @@ from __future__ import annotations
 import re
 import unicodedata
 
-_SUFFIX_RE = re.compile(r"\b(jr|sr|ii|iii|iv|v)\b\.?", re.IGNORECASE)
+_SUFFIX_RE = re.compile(r"\b(jr|sr|ii|iii|iv|v|dr)\b\.?", re.IGNORECASE)
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
 
 
 def _ascii_fold(value: str) -> str:
     return unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+
+
+def _collapse_initials(s: str) -> str:
+    """Collapse adjacent single-letter words into a single token.
+
+    'a j brown' → 'aj brown'
+    't j hockenson' → 'tj hockenson'
+    'd k metcalf' → 'dk metcalf'
+
+    This ensures 'T.J. Hockenson' (→ 't j hockenson') matches
+    'TJ Hockenson' (→ 'tj hockenson').
+    """
+    parts = s.split()
+    result = []
+    i = 0
+    while i < len(parts):
+        if len(parts[i]) == 1 and parts[i].isalpha():
+            # Collect consecutive single-letter words
+            initials = parts[i]
+            while i + 1 < len(parts) and len(parts[i + 1]) == 1 and parts[i + 1].isalpha():
+                i += 1
+                initials += parts[i]
+            result.append(initials)
+        else:
+            result.append(parts[i])
+        i += 1
+    return " ".join(result)
 
 
 def normalize_player_name(name: str | None) -> str:
@@ -19,6 +46,7 @@ def normalize_player_name(name: str | None) -> str:
     s = _SUFFIX_RE.sub("", s)
     s = _NON_ALNUM_RE.sub(" ", s).strip()
     s = re.sub(r"\s+", " ", s)
+    s = _collapse_initials(s)
     return s
 
 
@@ -64,4 +92,3 @@ def normalize_position_family(pos: str | None) -> str:
     if t in {"S", "SS", "FS", "CB", "DB"}:
         return "DB"
     return t
-
