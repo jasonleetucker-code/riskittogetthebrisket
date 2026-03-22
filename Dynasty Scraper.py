@@ -2878,7 +2878,7 @@ SITES = {
     "Flock":        False,
     # IDP-specific sites
     "PFF_IDP":          True,
-    "DraftSharks_IDP":  False,  # Merged into DraftSharks (paid account covers both)
+    "DraftSharks_IDP":  True,   # Separate IDP scraper — uses shared DraftSharks session
     "FantasyPros_IDP":  True,
 }
 
@@ -6790,6 +6790,106 @@ async def scrape_pff_idp(page, players):
     return results
 
 
+async def _draftsharks_extract_idp_load_rows(ds_page, label):
+    """Extract IDP players from DraftSharks load-rows endpoint."""
+    name_map = {}
+    try:
+        js_data = await ds_page.evaluate(r"""async () => {
+            const idpPositions = new Set(['DL', 'LB', 'DB', 'DE', 'DT', 'CB', 'S', 'ED', 'EDGE', 'IDL', 'SS', 'FS']);
+            const fetchUrl = new URL('/dynasty-rankings/load-rows', window.location.origin);
+            fetchUrl.searchParams.set('offset', '0');
+            fetchUrl.searchParams.set('fantasyPosition', '');
+            fetchUrl.searchParams.set('pprSuperflexSlug', 'idp/te-premium-superflex');
+            fetchUrl.searchParams.set('playerGroup', 'all');
+            fetchUrl.searchParams.set('sort', '-dsValue');
+
+            const resp = await fetch(fetchUrl.toString(), {
+                credentials: 'include',
+                headers: { 'x-requested-with': 'XMLHttpRequest' }
+            });
+            if (!resp.ok) {
+                return { ok: false, status: resp.status, endpoint: fetchUrl.toString(), data: [] };
+            }
+
+            const html = await resp.text();
+            if (!html || html.length < 500) {
+                return { ok: false, status: resp.status, endpoint: fetchUrl.toString(), data: [] };
+            }
+
+            const table = document.createElement('table');
+            table.innerHTML = html;
+            const tbodies = Array.from(table.querySelectorAll('tbody[data-player-row]'));
+            const out = [];
+            const posCounts = {};
+
+            const parseIntSafe = (txt) => {
+                if (!txt) return null;
+                const n = parseInt(String(txt).replace(/[^0-9]/g, ''), 10);
+                return Number.isFinite(n) && n > 0 ? n : null;
+            };
+
+            for (const tb of tbodies) {
+                const pos = (tb.getAttribute('data-fantasy-position') || '').toUpperCase().trim();
+                // Keep IDP positions; also keep any position not in offense set
+                const offenseSet = new Set(['QB', 'RB', 'WR', 'TE', 'K']);
+                if (offenseSet.has(pos)) continue;  // Skip offense players
+
+                const name = (tb.getAttribute('data-player-name') || '').trim();
+                if (!name || !name.includes(' ')) continue;
+
+                let rank = parseIntSafe(tb.querySelector('.column-title.rank-index span')?.textContent);
+                if (rank == null) {
+                    rank = parseIntSafe(tb.querySelector('td.rank .column-title span')?.textContent);
+                }
+                if (rank == null) {
+                    rank = parseIntSafe(tb.querySelector('td[data-attribute="dsValue"] .column-title')?.textContent);
+                }
+                if (rank == null) continue;
+
+                out.push([name, rank, pos]);
+                posCounts[pos] = (posCounts[pos] || 0) + 1;
+            }
+
+            return {
+                ok: true,
+                endpoint: fetchUrl.toString(),
+                status: resp.status,
+                totalRows: tbodies.length,
+                idpRows: out.length,
+                posCounts,
+                sample: out.slice(0, 5),
+                data: out
+            };
+        }""")
+
+        if js_data and isinstance(js_data, dict):
+            rows = js_data.get("data", []) or []
+            for row in rows:
+                if not isinstance(row, (list, tuple)) or len(row) < 2:
+                    continue
+                nm = str(row[0]).strip()
+                try:
+                    rk = float(row[1])
+                except Exception:
+                    continue
+                if nm and rk > 0:
+                    name_map[clean_name(nm)] = rk
+
+            if DEBUG:
+                print(f"  [{label}] load-rows endpoint: {js_data.get('endpoint', '?')}")
+                print(f"  [{label}] load-rows IDP rows: {js_data.get('idpRows', 0)} (total={js_data.get('totalRows', 0)})")
+                if js_data.get("posCounts"):
+                    print(f"  [{label}] load-rows IDP positions: {js_data.get('posCounts')}")
+                if name_map:
+                    sample = sorted(name_map.items(), key=lambda x: x[1])[:5]
+                    print(f"  [{label}] load-rows sample (best rank): {sample}")
+    except Exception as e:
+        if DEBUG:
+            print(f"  [{label}] load-rows IDP parse failed: {e}")
+
+    return name_map
+
+
 # ─────────────────────────────────────────
 # DraftSharks IDP — dynasty IDP rankings (uses shared DraftSharks session)
 # ─────────────────────────────────────────
@@ -6863,7 +6963,11 @@ async def scrape_draftsharks_idp(page, players):
                     await ds_page.goto(url, timeout=25000, wait_until="domcontentloaded")
                     await ds_page.wait_for_timeout(4000)
 
-            name_map = await _draftsharks_extract_table(ds_page, "DraftSharks_IDP")
+            # Preferred path: load-rows endpoint (same as offense but keep IDP positions)
+            name_map = await _draftsharks_extract_idp_load_rows(ds_page, "DraftSharks_IDP")
+            if not name_map:
+                # Fallback: rendered table scrape
+                name_map = await _draftsharks_extract_table(ds_page, "DraftSharks_IDP")
 
             # Save session
             if name_map:
