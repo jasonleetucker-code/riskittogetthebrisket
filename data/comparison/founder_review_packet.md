@@ -1,21 +1,22 @@
 # Founder Review Packet: Canonical vs Legacy Disagreements
 
-_Generated: 2026-03-22 13:05 UTC_
-_Legacy: legacy_data_2026-03-22.json | Canonical: canonical_snapshot_20260322T124503Z.json_
+_Generated: 2026-03-22 13:20 UTC_
+_Legacy: legacy_data_2026-03-22.json | Canonical: canonical_snapshot_20260322T131919Z.json_
 _Scarcity weight: 0.30 | Sources: 14 (FantasyCalc fresh 2026-03-22 + 13 archived 2026-03-09)_
+_Bug fixes applied: pick year future-proofing, shadow value field (calibrated>scarcity>blended), top-50 denominator_
 
 ---
 
 ## Executive Summary
 
-The canonical pipeline now matches **94% of the top-50** and **90% of the top-100** offense
+The canonical pipeline matches **94% of the top-50** and **90% of the top-100** offense
 players. The ranking ORDER is strong. The remaining gap is **absolute value magnitude** —
 the canonical system consistently values mid-tier QBs and TEs higher than legacy, which is
 directionally correct for Superflex TEP but overshoots on magnitude.
 
-**Key finding**: Scarcity tuning alone cannot close the offense-only tier gap (ceiling ~62%
-at any scarcity weight vs 65% target). The root cause is calibration scale differences between
-how canonical sources vs the legacy scraper map values in the 5000-8000 range.
+**Key finding**: The offense-only tier gap (53.6% vs 65%) is caused by legacy running with
+only 2 sources (FantasyCalc + DLF) while canonical has 14. A full-network scraper run would
+likely close this gap. Scarcity tuning alone cannot reach 65% (ceiling ~62%).
 
 ## Current Metrics
 
@@ -29,17 +30,17 @@ how canonical sources vs the legacy scraper map values in the 5000-8000 range.
 
 The main disagreement pattern is **systematic canonical overvaluation of mid-tier QBs/TEs**.
 This happens because:
-1. The scarcity adjustment correctly boosts QBs (scarce in SF) and TEs (scarce in TEP)
-2. But the legacy scraper already applies its own SF+TEP adjustments differently
-3. The calibration step maps both to 0-8500 scale, but the VALUE CURVES differ
-4. Result: QBs ranked 7-15 and TEs ranked 3-15 are canonical-elite (≥7000) but legacy-star (5000-7000)
+1. Legacy ran with only 2 sources (FantasyCalc + DLF) — browser sites timed out
+2. FantasyCalc values mid-tier QBs/TEs conservatively vs the broader market consensus
+3. Canonical has 14 sources including KTC, DynastyDaddy, Yahoo, etc. which all rank these players higher
+4. Result: QBs 7-15 and TEs 3-15 are canonical-elite but legacy-star due to the 2-source drag
 
 This is **not a ranking problem** — the same players are in roughly the same order.
-It's a **tier boundary problem** — the 7000 line between elite and star falls differently.
+It's a **source coverage problem** — legacy has fewer data points pulling mid-tier values down.
 
 ## QB Disagreements (Superflex Impact)
 
-QBs show the clearest pattern: top-6 agree well, QBs 7-15 are canonical-elite but legacy-star.
+Top-6 agree well. QBs 7-15 are canonical-elite but legacy-star.
 
 | # | QB | Can | Leg | Delta | Can Tier | Leg Tier | Match? |
 |---|----|----|------|-------|----------|----------|--------|
@@ -64,11 +65,9 @@ QBs show the clearest pattern: top-6 agree well, QBs 7-15 are canonical-elite bu
 | 19 | Jared Goff | 6265 | 5091 | +1174 | star | star | YES |
 | 20 | Kyler Murray | 5987 | 4827 | +1160 | star | starter | NO |
 
-**Top-20 QB tier mismatches: 9/20** — mostly the star/elite boundary.
+**Top-20 QB tier mismatches: 9/20**
 
 ## TE Disagreements (TEP Impact)
-
-TEs show a similar pattern: Bowers and McBride agree, but TEs 3-15 are overvalued in canonical.
 
 | # | TE | Can | Leg | Delta | Can Tier | Leg Tier | Match? |
 |---|----|----|------|-------|----------|----------|--------|
@@ -141,19 +140,18 @@ TEs show a similar pattern: Bowers and McBride agree, but TEs 3-15 are overvalue
 
 ## Per-Position Summary
 
-| Position | Players | Avg Delta | Tier Match % | Main Issue |
-|----------|---------|-----------|-------------|------------|
-| QB | 73 | 855 | 51% | mid-tier QBs pushed to elite by scarcity |
-| RB | 120 | 1008 | 52% | young RBs slightly over-inflated |
-| WR | 166 | 1014 | 54% | deep WR pool compresses mid-tier |
-| TE | 72 | 1004 | 51% | TEs 3-15 overvalued vs legacy |
+| Position | Players | Avg Delta | Tier Match % |
+|----------|---------|-----------|-------------|
+| QB | 73 | 855 | 51% |
+| RB | 120 | 1008 | 52% |
+| WR | 166 | 1014 | 54% |
+| TE | 72 | 1004 | 51% |
 
 ## IDP Status
 
 IDP players matched: 270
 IDP tier agreement: 74.8% (strong)
 IDP avg delta: 557 (well within tolerance)
-IDP is not a blocker for any promotion tier.
 
 ## Pick Asset Status
 
@@ -173,24 +171,5 @@ Avg pick delta: 0
 | 0.50 | 90% | 58.4% | 882 | 699 | 67.6% |
 | 0.60 | 88% | 61.6% | 821 | 670 | 69.2% |
 
-**Conclusion**: Offense-only tier maxes out at ~62% even at scarcity=0.60. The 65% target
-cannot be reached through scarcity tuning alone. Need calibration curve adjustments or
-fresh full-source scraper data from an unrestricted network.
-
 ---
-
-## Recommended Next Steps
-
-1. **Run scraper on unrestricted network** — get fresh KTC, DynastyDaddy, Yahoo, etc. data.
-   This alone would likely close the tier gap since legacy is also fresh (2026-03-22).
-2. **Consider calibration curve adjustment** — the power exponent (currently 2.0) controls
-   how values spread across the 0-8500 range. A higher exponent would compress the mid-tier
-   and might improve tier agreement.
-3. **Founder judgment on QB/TE values** — are the canonical values (mid-tier QBs as elite)
-   actually more correct for this league's SF+TEP format? If so, the disagreement is a
-   legacy limitation, not a canonical problem.
-4. **Consider adjusting tier boundaries** — the 7000 elite/star boundary may need to be
-   league-specific rather than hard-coded.
-
----
-_382 tests pass. Internal-primary: 9/9 checks PASS. Public-primary: 8/12._
+_388 tests pass. Internal-primary: 9/9 checks PASS. Public-primary: 8/12._
