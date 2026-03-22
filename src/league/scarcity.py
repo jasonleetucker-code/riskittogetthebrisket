@@ -38,20 +38,24 @@ def compute_scarcity_adjusted_values(
     *,
     floor_value: int = 100,
     scale_to: int = CANONICAL_SCALE,
+    scarcity_weight: float = 0.35,
 ) -> list[dict[str, Any]]:
     """Apply scarcity adjustment to canonical assets using replacement baselines.
 
-    For each asset with a known position:
-    - Compute VAR = blended_value - replacement_baseline
-    - Rescale to 0-{scale_to} range based on the maximum VAR observed
+    Uses a dampened blend of raw value and VAR signal:
+    - adjusted = (1 - scarcity_weight) * blended + scarcity_weight * var_scaled
 
-    Assets without position data retain their raw blended value.
+    This prevents the scarcity signal from completely overriding source consensus,
+    which is important because some positions (QBs in superflex) have very high
+    replacement baselines that would compress their range too aggressively.
 
     Args:
         canonical_assets: List of asset dicts from canonical snapshot.
         baselines: Position → PositionBaseline from ReplacementCalculator.
         floor_value: Minimum adjusted value for players at or below replacement.
         scale_to: Target scale maximum (default 9999).
+        scarcity_weight: How much VAR influences the final value (0.0-1.0).
+            0.0 = pure blended value, 1.0 = pure VAR. Default 0.35.
 
     Returns:
         List of asset dicts with added fields:
@@ -89,19 +93,25 @@ def compute_scarcity_adjusted_values(
 
         enriched.append(entry)
 
-    # Scale VAR to target range
+    # Scale VAR and blend with raw value
     if max_var <= 0:
-        max_var = 1  # Avoid division by zero
+        max_var = 1
 
     for entry in enriched:
+        blended = int(entry.get("blended_value", 0))
         var = entry.get("var_raw")
         if var is not None:
-            # Linear scale: VAR / max_VAR * scale_to
-            scaled = int(round((var / max_var) * scale_to))
-            entry["scarcity_adjusted_value"] = max(floor_value if var > 0 else 0, scaled)
+            # Scale VAR to target range
+            var_scaled = int(round((var / max_var) * scale_to))
+            var_scaled = max(floor_value if var > 0 else 0, var_scaled)
+            # Dampened blend: mostly raw value with scarcity signal mixed in
+            adjusted = int(round(
+                (1.0 - scarcity_weight) * blended + scarcity_weight * var_scaled
+            ))
+            entry["scarcity_adjusted_value"] = max(0, adjusted)
         else:
             # No position data — use raw blended value as fallback
-            entry["scarcity_adjusted_value"] = int(entry.get("blended_value", 0))
+            entry["scarcity_adjusted_value"] = blended
 
     return enriched
 

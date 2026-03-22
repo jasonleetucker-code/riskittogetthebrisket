@@ -1,15 +1,14 @@
-"""Position enrichment for canonical assets using legacy player data.
+"""Position enrichment for canonical assets.
 
-The canonical pipeline's source CSVs (exports/latest/site_raw/*.csv) only contain
-name and value columns — no position data. DLF adapters extract position from their
-rank-suffix format, but all other sources leave position empty.
-
-This module fills the gap by cross-referencing canonical assets against the legacy
-player map (data/legacy_data_*.json), which has _lamBucket position data for ~94%
-of players.
+Uses multiple strategies to fill missing position metadata:
+1. Legacy player map lookup (normalized name matching)
+2. Nickname expansion (Cam→Cameron, TJ→T.J., etc.)
+3. Universe-based inference (IDP universe assets from IDP-only sources)
+4. Source-based inference (IDPTradeCalc, PFF_IDP → IDP positions)
 
 Position provenance is tracked: each enriched asset records whether its position
-came from source data ("adapter") or from this enrichment step ("legacy_enrichment").
+came from source data ("adapter"), legacy lookup ("legacy_enrichment"),
+nickname matching ("nickname_match"), or universe/source inference ("universe_inferred").
 """
 from __future__ import annotations
 
@@ -20,24 +19,33 @@ from typing import Any
 
 # Canonical league positions (maps legacy values to standard forms)
 LEGACY_POS_MAP: dict[str, str] = {
-    "QB": "QB",
-    "RB": "RB",
-    "WR": "WR",
-    "TE": "TE",
-    "DL": "DL",
-    "DE": "DL",
-    "DT": "DL",
-    "LB": "LB",
-    "ILB": "LB",
-    "OLB": "LB",
-    "DB": "DB",
-    "CB": "DB",
-    "S": "DB",
-    "SS": "DB",
-    "FS": "DB",
-    "K": "K",
-    "PICK": "PICK",
+    "QB": "QB", "RB": "RB", "WR": "WR", "TE": "TE",
+    "DL": "DL", "DE": "DL", "DT": "DL",
+    "LB": "LB", "ILB": "LB", "OLB": "LB",
+    "DB": "DB", "CB": "DB", "S": "DB", "SS": "DB", "FS": "DB",
+    "K": "K", "P": "K", "PICK": "PICK",
 }
+
+# Common nickname → formal first-name mappings
+NICKNAME_MAP: dict[str, str] = {
+    "cam": "cameron",
+    "tj": "t j",
+    "cj": "c j",
+    "dj": "d j",
+    "aj": "a j",
+    "jt": "j t",
+    "dk": "d k",
+    "kj": "k j",
+    "pj": "p j",
+    "rj": "r j",
+}
+
+# Sources known to only contain IDP players
+IDP_ONLY_SOURCES = {"IDPTRADECALC", "PFF_IDP", "FANTASYPROS_IDP"}
+
+# Default IDP position when we know a player is IDP but not which specific position
+# LB is the most common IDP position and replacement baselines are similar across IDP
+DEFAULT_IDP_POSITION = "LB"
 
 
 def _normalize_name(name: str) -> str:
@@ -57,8 +65,45 @@ def _is_pick_asset(name: str) -> bool:
         r"^(early|mid|late)\s+\d",
         r"^\d{4}\s+\d+\.\d+",
         r"pick\s+\d+\.\d+",
+        r"^\d{4}\s+\d+(st|nd|rd|th)$",
     ]
     return any(re.search(p, n) for p in pick_patterns)
+
+
+def _nickname_variants(norm_name: str) -> list[str]:
+    """Generate nickname-expanded variants of a normalized name."""
+    parts = norm_name.split()
+    if len(parts) < 2:
+        return []
+
+    first = parts[0]
+    rest = " ".join(parts[1:])
+    variants = []
+
+    # Try expanding nickname → formal
+    if first in NICKNAME_MAP:
+        variants.append(NICKNAME_MAP[first] + " " + rest)
+
+    # Try reducing formal → nickname
+    for nick, formal in NICKNAME_MAP.items():
+        formal_clean = formal.replace(" ", "")
+        if first == formal_clean:
+            variants.append(nick + " " + rest)
+
+    # Handle "Dr" suffix (e.g., "Gervon Dexter Dr" → "Gervon Dexter")
+    if parts[-1] in ("dr", "sr", "jr", "i"):
+        variants.append(" ".join(parts[:-1]))
+
+    return variants
+
+
+def _is_idp_asset(asset: dict[str, Any]) -> bool:
+    """Check if asset is from an IDP universe or IDP-only sources."""
+    universe = str(asset.get("universe", ""))
+    if "idp" in universe.lower():
+        return True
+    sources = set(asset.get("source_values", {}).keys())
+    return bool(sources and sources.issubset(IDP_ONLY_SOURCES))
 
 
 def build_legacy_position_lookup(legacy_path: Path) -> dict[str, str]:
@@ -91,33 +136,67 @@ def build_legacy_position_lookup(legacy_path: Path) -> dict[str, str]:
     return lookup
 
 
+def build_player_map_lookup(player_map_path: Path) -> tuple[dict[str, str], dict[str, str]]:
+    """Build lookups from the exported player position map.
+
+    Returns:
+        Tuple of (primary_lookup, nickname_lookup) dicts mapping
+        normalized name → position.
+    """
+    data = json.loads(player_map_path.read_text())
+    primary: dict[str, str] = {}
+    nickname: dict[str, str] = {}
+
+    for entry in data.get("entries", []):
+        norm = entry.get("normalized_name", "")
+        pos = entry.get("position", "")
+        if norm and pos:
+            primary[norm] = pos
+
+    # Build nickname variants from primary
+    for norm, pos in list(primary.items()):
+        for variant in _nickname_variants(norm):
+            if variant not in primary:
+                nickname[variant] = pos
+
+    return primary, nickname
+
+
 def enrich_positions(
     assets: list[dict[str, Any]],
     legacy_lookup: dict[str, str],
-) -> list[dict[str, Any]]:
-    """Enrich canonical assets with position data from legacy player map.
+    nickname_lookup: dict[str, str] | None = None,
+    *,
+    infer_idp: bool = True,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Enrich canonical assets with position data using multiple strategies.
 
-    For each asset that lacks position in its metadata:
-    1. Skip if it's a pick asset (picks don't have player positions)
-    2. Try to match against legacy position lookup by normalized name
-    3. If matched, set metadata.position and record provenance
-
-    Assets that already have position from source data are left unchanged
-    but get provenance marked as "adapter".
+    Strategies applied in order:
+    1. Skip if already has position from source adapter
+    2. Skip if it's a pick asset
+    3. Try primary legacy lookup by normalized name
+    4. Try nickname-expanded variants
+    5. If IDP and infer_idp=True, assign default IDP position
 
     Args:
         assets: List of canonical asset dicts.
         legacy_lookup: normalized_name → position from build_legacy_position_lookup.
+        nickname_lookup: nickname_variant → position (optional).
+        infer_idp: Whether to infer IDP position from universe/source context.
 
     Returns:
-        Same list with enriched metadata. Each asset gets:
-        - metadata.position: the position (possibly newly set)
-        - metadata.position_source: "adapter" | "legacy_enrichment" | None
+        Tuple of (enriched assets, summary dict).
     """
-    enriched_count = 0
-    skipped_picks = 0
-    already_had = 0
-    unmatched = 0
+    nickname_lookup = nickname_lookup or {}
+
+    counts = {
+        "already_had_position": 0,
+        "enriched_from_legacy": 0,
+        "enriched_from_nickname": 0,
+        "enriched_from_universe_infer": 0,
+        "skipped_picks": 0,
+        "unmatched": 0,
+    }
 
     for asset in assets:
         meta = asset.setdefault("metadata", {})
@@ -126,33 +205,56 @@ def enrich_positions(
         # Already has position from source adapter
         if meta.get("position"):
             meta["position_source"] = "adapter"
-            already_had += 1
+            counts["already_had_position"] += 1
             continue
 
         # Skip pick assets
         if _is_pick_asset(display_name):
             meta["position_source"] = None
-            skipped_picks += 1
+            counts["skipped_picks"] += 1
             continue
 
-        # Try legacy lookup
+        # Strategy 1: Primary legacy lookup
         norm = _normalize_name(display_name)
         pos = legacy_lookup.get(norm)
         if pos:
             meta["position"] = pos
             meta["position_source"] = "legacy_enrichment"
-            enriched_count += 1
-        else:
-            meta["position_source"] = None
-            unmatched += 1
+            counts["enriched_from_legacy"] += 1
+            continue
 
-    return assets, {
-        "already_had_position": already_had,
-        "enriched_from_legacy": enriched_count,
-        "skipped_picks": skipped_picks,
-        "unmatched": unmatched,
+        # Strategy 2: Nickname variant matching
+        for variant in _nickname_variants(norm):
+            pos = legacy_lookup.get(variant) or nickname_lookup.get(variant)
+            if pos:
+                break
+        if pos:
+            meta["position"] = pos
+            meta["position_source"] = "nickname_match"
+            counts["enriched_from_nickname"] += 1
+            continue
+
+        # Strategy 3: Universe/source-based IDP inference
+        if infer_idp and _is_idp_asset(asset):
+            meta["position"] = DEFAULT_IDP_POSITION
+            meta["position_source"] = "universe_inferred"
+            counts["enriched_from_universe_infer"] += 1
+            continue
+
+        meta["position_source"] = None
+        counts["unmatched"] += 1
+
+    total_with_pos = (
+        counts["already_had_position"]
+        + counts["enriched_from_legacy"]
+        + counts["enriched_from_nickname"]
+        + counts["enriched_from_universe_infer"]
+    )
+
+    summary = {
+        **counts,
         "total": len(assets),
-        "position_coverage_pct": round(
-            (already_had + enriched_count) / len(assets) * 100, 1
-        ) if assets else 0,
+        "position_coverage_pct": round(total_with_pos / len(assets) * 100, 1) if assets else 0,
     }
+
+    return assets, summary

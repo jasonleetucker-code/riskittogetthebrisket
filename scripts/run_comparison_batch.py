@@ -241,12 +241,76 @@ def compute_stats(matched: list[dict]) -> dict:
     }
 
 
-def compute_universe_stats(matched: list[dict]) -> dict[str, dict]:
-    """Compute per-universe comparison stats with overlap and tier metrics.
+def _is_pick_name(name: str) -> bool:
+    """Check if a player name looks like a draft pick."""
+    import re
+    n = name.lower().strip()
+    patterns = [
+        r"^\d{4}\s+(pick|early|mid|late)",
+        r"^(early|mid|late)\s+\d",
+        r"^\d{4}\s+\d+\.\d+",
+        r"pick\s+\d+\.\d+",
+        r"^\d{4}\s+\d+(st|nd|rd|th)$",
+    ]
+    return any(re.search(p, n) for p in patterns)
 
-    Returns stats for each universe plus an 'offense_combined' view
-    (offense_vet + offense_rookie) and 'idp_combined' (idp_vet + idp_rookie),
-    which are the most decision-useful comparisons.
+
+def _compute_group_stats(subset: list[dict]) -> dict:
+    """Compute overlap/tier/delta stats for a filtered subset of matched players."""
+    if len(subset) < 5:
+        return {"count": len(subset), "too_small": True}
+
+    abs_deltas = sorted([m["abs_delta"] for m in subset])
+    n = len(abs_deltas)
+
+    by_c = sorted(subset, key=lambda m: -m["canonical_value"])
+    by_l = sorted(subset, key=lambda m: -m["legacy_value"])
+
+    top_n = min(50, n)
+    c_top = {m["name"] for m in by_c[:top_n]}
+    l_top = {m["name"] for m in by_l[:top_n]}
+    top_overlap = len(c_top & l_top)
+
+    # Also compute top-100 if enough data
+    top100_overlap = None
+    top100_pct = None
+    if n >= 100:
+        c_top100 = {m["name"] for m in by_c[:100]}
+        l_top100 = {m["name"] for m in by_l[:100]}
+        top100_overlap = len(c_top100 & l_top100)
+        top100_pct = round(top100_overlap / 100 * 100)
+
+    def tier(v):
+        if v >= 7000: return "elite"
+        if v >= 5000: return "star"
+        if v >= 3000: return "starter"
+        if v >= 1500: return "bench"
+        return "depth"
+
+    tier_agree = sum(1 for m in subset if tier(m["canonical_value"]) == tier(m["legacy_value"]))
+
+    return {
+        "count": n,
+        "avg_abs_delta": int(round(sum(abs_deltas) / n)),
+        "median_abs_delta": abs_deltas[n // 2],
+        "top_n_used": top_n,
+        "top_n_overlap": top_overlap,
+        "top_n_overlap_pct": round(top_overlap / top_n * 100),
+        "top100_overlap": top100_overlap,
+        "top100_overlap_pct": top100_pct,
+        "tier_agreement": tier_agree,
+        "tier_agreement_pct": round(tier_agree / n * 100, 1),
+    }
+
+
+def compute_universe_stats(matched: list[dict]) -> dict[str, dict]:
+    """Compute per-universe and player-only comparison stats.
+
+    Returns stats for each universe plus:
+    - offense_combined: offense_vet + offense_rookie
+    - idp_combined: idp_vet + idp_rookie
+    - players_only: all matched players excluding picks (most decision-useful)
+    - offense_players_only: offense players excluding picks
     """
     # Define universe groups
     groups: dict[str, list[str]] = {
@@ -259,43 +323,21 @@ def compute_universe_stats(matched: list[dict]) -> dict[str, dict]:
     }
 
     result: dict[str, dict] = {}
+
     for group_name, universes in groups.items():
         subset = [m for m in matched if m.get("universe") in universes]
         if len(subset) < 10:
             continue
+        result[group_name] = _compute_group_stats(subset)
 
-        abs_deltas = sorted([m["abs_delta"] for m in subset])
-        n = len(abs_deltas)
+    # Player-only views (exclude picks from matching — most decision-useful)
+    all_players = [m for m in matched if not _is_pick_name(m["name"]) and m.get("legacy_pos", "") != "PICK"]
+    if len(all_players) >= 10:
+        result["players_only"] = _compute_group_stats(all_players)
 
-        # Top-N overlap within this universe
-        by_c = sorted(subset, key=lambda m: -m["canonical_value"])
-        by_l = sorted(subset, key=lambda m: -m["legacy_value"])
-
-        top_n = min(50, n)
-        c_top = {m["name"] for m in by_c[:top_n]}
-        l_top = {m["name"] for m in by_l[:top_n]}
-        top_overlap = len(c_top & l_top)
-
-        # Tier agreement
-        def tier(v):
-            if v >= 7000: return "elite"
-            if v >= 5000: return "star"
-            if v >= 3000: return "starter"
-            if v >= 1500: return "bench"
-            return "depth"
-
-        tier_agree = sum(1 for m in subset if tier(m["canonical_value"]) == tier(m["legacy_value"]))
-
-        result[group_name] = {
-            "count": n,
-            "avg_abs_delta": int(round(sum(abs_deltas) / n)),
-            "median_abs_delta": abs_deltas[n // 2],
-            "top_n_used": top_n,
-            "top_n_overlap": top_overlap,
-            "top_n_overlap_pct": round(top_overlap / top_n * 100),
-            "tier_agreement": tier_agree,
-            "tier_agreement_pct": round(tier_agree / n * 100, 1),
-        }
+    offense_players = [m for m in all_players if m.get("universe") in ("offense_vet", "offense_rookie")]
+    if len(offense_players) >= 10:
+        result["offense_players_only"] = _compute_group_stats(offense_players)
 
     return result
 
@@ -449,8 +491,9 @@ def generate_markdown(
             "| Universe | Players | Avg Delta | Top-N Overlap | Tier Agreement |",
             "|----------|---------|-----------|---------------|----------------|",
         ])
-        # Order: offense_combined first (most decision-useful), then individual
-        display_order = ["offense_combined", "offense_vet", "offense_rookie",
+        # Order: player-only first (most decision-useful), then by universe
+        display_order = ["offense_players_only", "players_only",
+                         "offense_combined", "offense_vet", "offense_rookie",
                          "idp_combined", "idp_vet", "idp_rookie"]
         for u in display_order:
             if u not in universe_stats:
@@ -464,8 +507,9 @@ def generate_markdown(
             )
         lines.extend([
             "",
-            "_Offense Combined is the most decision-useful view — it's the universe "
-            "users actually trade in. IDP metrics are secondary._",
+            "_**Offense Players Only** is the most decision-useful view — it measures "
+            "how well the canonical system ranks actual tradeable players, excluding picks. "
+            "IDP metrics are secondary._",
         ])
 
     lines.extend([
@@ -581,12 +625,13 @@ def main() -> int:
 
     if universe_stats:
         print(f"\n--- UNIVERSE BREAKDOWN ---")
-        for u in ["offense_combined", "offense_vet", "idp_combined", "idp_vet"]:
+        for u in ["offense_players_only", "players_only", "offense_combined", "idp_combined"]:
             if u in universe_stats:
                 us = universe_stats[u]
+                t100 = f", top100={us['top100_overlap_pct']}%" if us.get('top100_overlap_pct') is not None else ""
                 print(f"{u}: {us['count']} matched, delta={us['avg_abs_delta']}, "
                       f"top-{us['top_n_used']}={us['top_n_overlap_pct']}%, "
-                      f"tier={us['tier_agreement_pct']}%")
+                      f"tier={us['tier_agreement_pct']}%{t100}")
 
     return 0
 

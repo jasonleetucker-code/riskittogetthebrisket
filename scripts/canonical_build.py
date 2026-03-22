@@ -103,12 +103,27 @@ def main() -> int:
     legacy_file = _latest(repo / "data", "legacy_data_*.json")
     if legacy_file:
         try:
-            from src.canonical.enrich import build_legacy_position_lookup, enrich_positions
+            from src.canonical.enrich import (
+                build_legacy_position_lookup,
+                build_player_map_lookup,
+                enrich_positions,
+            )
             legacy_lookup = build_legacy_position_lookup(legacy_file)
-            asset_dicts, enrichment_summary = enrich_positions(asset_dicts, legacy_lookup)
+
+            # Load nickname lookup from exported player map if available
+            player_map_path = repo / "data" / "player_map" / "player_position_map.json"
+            nickname_lookup = {}
+            if player_map_path.exists():
+                _, nickname_lookup = build_player_map_lookup(player_map_path)
+
+            asset_dicts, enrichment_summary = enrich_positions(
+                asset_dicts, legacy_lookup, nickname_lookup, infer_idp=True
+            )
             print(
-                f"[canonical_build] enrichment: {enrichment_summary['enriched_from_legacy']} from legacy, "
-                f"{enrichment_summary['already_had_position']} from adapter, "
+                f"[canonical_build] enrichment: {enrichment_summary['enriched_from_legacy']} legacy, "
+                f"{enrichment_summary['enriched_from_nickname']} nickname, "
+                f"{enrichment_summary['enriched_from_universe_infer']} IDP inferred, "
+                f"{enrichment_summary['already_had_position']} adapter, "
                 f"{enrichment_summary['skipped_picks']} picks, "
                 f"{enrichment_summary['unmatched']} unmatched → "
                 f"{enrichment_summary['position_coverage_pct']}% coverage"

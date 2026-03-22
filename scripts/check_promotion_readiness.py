@@ -80,9 +80,9 @@ def check_internal_primary_readiness(repo: Path) -> list[dict]:
     if comp_path and comp_path.exists():
         comp = json.loads(comp_path.read_text())
         stats = comp.get("stats", {})
-        # Use offense_combined universe stats when available (most decision-useful)
+        # Use offense_players_only when available (most decision-useful), fall back to offense_combined
         uni_stats = comp.get("universe_stats", {})
-        offense_stats = uni_stats.get("offense_combined", {})
+        offense_stats = uni_stats.get("offense_players_only") or uni_stats.get("offense_combined", {})
     else:
         stats = {}
         offense_stats = {}
@@ -102,22 +102,24 @@ def check_internal_primary_readiness(repo: Path) -> list[dict]:
     source_count = snap.get("source_count", 0)
     results.append({"check": "source_count_min", "required": 4, "actual": source_count, "pass": source_count >= 4})
 
-    # Use offense_combined overlap/tier when available, fall back to overall
+    # Use offense_players_only overlap/tier when available, fall back to overall
     t50 = offense_stats.get("top_n_overlap_pct", stats.get("top50_overlap_pct", 0))
-    t50_note = "offense_combined" if offense_stats.get("top_n_overlap_pct") is not None else "overall"
+    t50_note = "offense_players_only" if offense_stats.get("top_n_overlap_pct") is not None else "overall"
     results.append({"check": "top50_overlap_min_pct", "required": 70, "actual": t50, "pass": t50 >= 70,
                     "note": f"Using {t50_note} view"})
 
-    t100 = stats.get("top100_overlap_pct", 0)
-    results.append({"check": "top100_overlap_min_pct", "required": 65, "actual": t100 or 0, "pass": (t100 or 0) >= 65})
+    t100 = offense_stats.get("top100_overlap_pct", stats.get("top100_overlap_pct", 0)) or 0
+    t100_note = "offense_players_only" if offense_stats.get("top100_overlap_pct") is not None else "overall"
+    results.append({"check": "top100_overlap_min_pct", "required": 65, "actual": t100, "pass": t100 >= 65,
+                    "note": f"Using {t100_note} view"})
 
     tier_pct = offense_stats.get("tier_agreement_pct", stats.get("verdict_tier_agreement_pct", 0))
-    tier_note = "offense_combined" if offense_stats.get("tier_agreement_pct") is not None else "overall"
+    tier_note = "offense_players_only" if offense_stats.get("tier_agreement_pct") is not None else "overall"
     results.append({"check": "verdict_tier_agreement_min_pct", "required": 50, "actual": tier_pct, "pass": tier_pct >= 50,
                     "note": f"Using {tier_note} view"})
 
     avg_delta = offense_stats.get("avg_abs_delta", stats.get("avg_abs_delta", 9999))
-    delta_note = "offense_combined" if offense_stats.get("avg_abs_delta") is not None else "overall"
+    delta_note = "offense_players_only" if offense_stats.get("avg_abs_delta") is not None else "overall"
     results.append({"check": "avg_abs_delta_max", "required": 1500, "actual": avg_delta, "pass": avg_delta <= 1500,
                     "note": f"Using {delta_note} view"})
 
