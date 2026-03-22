@@ -44,6 +44,7 @@ from src.api.data_contract import (
     build_api_data_contract,
     build_api_startup_payload,
     build_canonical_comparison_block,
+    build_shadow_comparison_report,
     validate_api_data_contract,
 )
 
@@ -226,6 +227,7 @@ contract_health: dict = {
 # R-6: Canonical pipeline data (shadow/primary mode)
 canonical_data: dict | None = None
 canonical_data_loaded_at: str | None = None
+shadow_comparison_report: dict | None = None
 # R-9: Lightweight metrics counters
 _metrics: dict = {
     "server_start_time": None,
@@ -1084,19 +1086,64 @@ def _load_canonical_snapshot() -> dict | None:
 
 def _run_canonical_shadow_comparison(legacy_data: dict | None) -> None:
     """R-6: In shadow mode, compare canonical vs legacy data and log differences."""
+    global shadow_comparison_report
     if CANONICAL_DATA_MODE != "shadow" or canonical_data is None or legacy_data is None:
+        shadow_comparison_report = None
         return
-    canonical_assets = canonical_data.get("assets", [])
+
     legacy_players = legacy_data.get("players", {})
+    try:
+        report = build_shadow_comparison_report(canonical_data, legacy_players)
+    except Exception as e:
+        log.warning("[SHADOW] Failed to build comparison report: %s", e)
+        shadow_comparison_report = None
+        return
+
+    shadow_comparison_report = report
+    s = report.get("summary", {})
+
     log.info(
-        f"[SHADOW] Canonical: {len(canonical_assets)} assets, "
-        f"Legacy: {len(legacy_players)} players"
+        "[SHADOW] Comparison: canonical=%d legacy=%d matched=%d "
+        "canonical_only=%d legacy_only=%d",
+        s.get("canonicalAssetCount", 0),
+        s.get("legacyPlayerCount", 0),
+        s.get("matchedCount", 0),
+        s.get("canonicalOnlyCount", 0),
+        s.get("legacyOnlyCount", 0),
     )
-    # Log top-10 canonical assets for comparison visibility
-    top_canonical = sorted(canonical_assets, key=lambda a: a.get("blended_value", 0), reverse=True)[:10]
-    if top_canonical:
-        names = [a.get("display_name", a.get("asset_key", "?")) for a in top_canonical]
-        log.info(f"[SHADOW] Top 10 canonical: {', '.join(names)}")
+
+    if s.get("avgAbsDelta") is not None:
+        log.info(
+            "[SHADOW] Delta stats: avg|delta|=%d median=%d p90=%d max=%d",
+            s["avgAbsDelta"],
+            s.get("medianAbsDelta", 0),
+            s.get("p90AbsDelta", 0),
+            s.get("maxAbsDelta", 0),
+        )
+        dist = s.get("deltaDistribution", {})
+        if dist:
+            log.info(
+                "[SHADOW] Distribution: <200=%d  200-600=%d  600-1200=%d  >1200=%d",
+                dist.get("under200", 0),
+                dist.get("200to600", 0),
+                dist.get("600to1200", 0),
+                dist.get("over1200", 0),
+            )
+
+    log.info(
+        "[SHADOW] Top-50 overlap: %d/50 (%d%%)",
+        s.get("top50Overlap", 0),
+        s.get("top50OverlapPct", 0),
+    )
+
+    risers = report.get("topRisers", [])[:5]
+    fallers = report.get("topFallers", [])[:5]
+    if risers:
+        riser_strs = [f"{r['name']}(+{r['delta']})" for r in risers]
+        log.info("[SHADOW] Top risers: %s", ", ".join(riser_strs))
+    if fallers:
+        faller_strs = [f"{r['name']}({r['delta']})" for r in fallers]
+        log.info("[SHADOW] Top fallers: %s", ", ".join(faller_strs))
 
 
 async def run_scraper(trigger: str = "manual") -> dict | None:
@@ -1572,6 +1619,11 @@ async def get_status():
         "canonical_data_mode": CANONICAL_DATA_MODE,
         "canonical_data_loaded": canonical_data is not None,
         "canonical_data_loaded_at": canonical_data_loaded_at,
+        "canonical_shadow_comparison": {
+            "available": shadow_comparison_report is not None,
+            "summary": shadow_comparison_report.get("summary") if shadow_comparison_report else None,
+            "generatedAt": shadow_comparison_report.get("generatedAt") if shadow_comparison_report else None,
+        } if CANONICAL_DATA_MODE == "shadow" else None,
     })
 
 
@@ -1786,6 +1838,27 @@ async def get_scaffold_identity():
     if payload is None:
         return JSONResponse(status_code=404, content={"error": "No identity report found"})
     return JSONResponse(content=payload)
+
+
+@app.get("/api/scaffold/shadow")
+async def get_scaffold_shadow():
+    """Return the latest shadow comparison report (canonical vs legacy).
+
+    Available when CANONICAL_DATA_MODE=shadow and both a canonical
+    snapshot and legacy data are loaded.  Shows overlap, deltas,
+    top risers/fallers, rank correlation, and distribution analysis.
+    """
+    if CANONICAL_DATA_MODE != "shadow":
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Shadow comparison not available (CANONICAL_DATA_MODE is not 'shadow')"},
+        )
+    if shadow_comparison_report is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "No shadow comparison report generated yet. Ensure canonical snapshot and legacy data are both loaded."},
+        )
+    return JSONResponse(content=shadow_comparison_report)
 
 
 @app.get("/api/scaffold/validation")

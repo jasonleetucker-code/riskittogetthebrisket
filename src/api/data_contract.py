@@ -396,6 +396,145 @@ def build_canonical_comparison_block(
     }
 
 
+def build_shadow_comparison_report(
+    canonical_snapshot: dict[str, Any],
+    legacy_players: dict[str, Any],
+) -> dict[str, Any]:
+    """Build a structured comparison report for shadow-mode diagnostics.
+
+    This is the *analysis* complement to ``build_canonical_comparison_block``
+    (which is the *payload* complement).  It produces a human-readable,
+    decision-useful report that answers:
+
+    * How many players overlap between canonical and legacy?
+    * Where do they agree and disagree?
+    * Which players have the biggest value divergences?
+    * Does the canonical snapshot look sane (rank correlation)?
+    * What's only in one source but not the other?
+
+    The output is designed for ``/api/scaffold/shadow`` and server logs.
+    It never touches the authoritative payload.
+    """
+    canonical_assets = canonical_snapshot.get("assets", [])
+
+    # Build lookup tables.
+    canonical_by_name: dict[str, dict[str, Any]] = {}
+    for asset in canonical_assets:
+        name = str(asset.get("display_name", asset.get("asset_key", ""))).strip()
+        if name:
+            canonical_by_name[name] = asset
+
+    legacy_values: dict[str, int] = {}
+    for name, pdata in (legacy_players or {}).items():
+        if not isinstance(pdata, dict):
+            continue
+        val = _to_int_or_none(
+            pdata.get("_finalAdjusted")
+            or pdata.get("_leagueAdjusted")
+            or pdata.get("_composite")
+        )
+        if val is not None and val > 0:
+            legacy_values[name] = val
+
+    # Overlap analysis.
+    canonical_names = set(canonical_by_name.keys())
+    legacy_names = set(legacy_values.keys())
+    matched_names = canonical_names & legacy_names
+    canonical_only = canonical_names - legacy_names
+    legacy_only = legacy_names - canonical_names
+
+    # Per-player deltas for matched players.
+    deltas: list[dict[str, Any]] = []
+    for name in matched_names:
+        c_asset = canonical_by_name[name]
+        c_val = _to_int_or_none(c_asset.get("blended_value"))
+        l_val = legacy_values[name]
+        if c_val is None:
+            continue
+        delta = c_val - l_val
+        deltas.append({
+            "name": name,
+            "canonicalValue": c_val,
+            "legacyValue": l_val,
+            "delta": delta,
+            "absDelta": abs(delta),
+            "pctDelta": round(delta / l_val * 100, 1) if l_val else 0,
+            "universe": str(c_asset.get("universe", "")),
+            "sourcesUsed": _extract_source_count(c_asset),
+        })
+
+    deltas.sort(key=lambda d: d["absDelta"], reverse=True)
+
+    # Top movers — biggest positive and negative deltas.
+    top_risers = sorted(
+        [d for d in deltas if d["delta"] > 0],
+        key=lambda d: d["delta"],
+        reverse=True,
+    )[:10]
+    top_fallers = sorted(
+        [d for d in deltas if d["delta"] < 0],
+        key=lambda d: d["delta"],
+    )[:10]
+
+    # Rank correlation — Spearman-like: do the orderings roughly agree?
+    # Use simple overlap of top-50 in each list.
+    canonical_ranked = sorted(
+        [(n, _to_int_or_none(a.get("blended_value")) or 0) for n, a in canonical_by_name.items()],
+        key=lambda x: -x[1],
+    )
+    legacy_ranked = sorted(legacy_values.items(), key=lambda x: -x[1])
+    canonical_top50 = {name for name, _ in canonical_ranked[:50]}
+    legacy_top50 = {name for name, _ in legacy_ranked[:50]}
+    top50_overlap = len(canonical_top50 & legacy_top50)
+
+    # Delta distribution buckets.
+    abs_deltas = [d["absDelta"] for d in deltas]
+    buckets = {"under200": 0, "200to600": 0, "600to1200": 0, "over1200": 0}
+    for ad in abs_deltas:
+        if ad < 200:
+            buckets["under200"] += 1
+        elif ad < 600:
+            buckets["200to600"] += 1
+        elif ad < 1200:
+            buckets["600to1200"] += 1
+        else:
+            buckets["over1200"] += 1
+
+    # Summary stats.
+    summary: dict[str, Any] = {
+        "canonicalAssetCount": len(canonical_by_name),
+        "legacyPlayerCount": len(legacy_values),
+        "matchedCount": len(deltas),
+        "canonicalOnlyCount": len(canonical_only),
+        "legacyOnlyCount": len(legacy_only),
+        "top50Overlap": top50_overlap,
+        "top50OverlapPct": round(top50_overlap / 50 * 100) if True else 0,
+    }
+    if abs_deltas:
+        summary["avgAbsDelta"] = int(round(sum(abs_deltas) / len(abs_deltas)))
+        summary["medianAbsDelta"] = int(sorted(abs_deltas)[len(abs_deltas) // 2])
+        summary["maxAbsDelta"] = max(abs_deltas)
+        summary["p90AbsDelta"] = int(sorted(abs_deltas)[int(len(abs_deltas) * 0.9)])
+        summary["deltaDistribution"] = buckets
+
+    # Snapshot metadata.
+    source_count = canonical_snapshot.get("source_count", 0)
+    universes = canonical_snapshot.get("asset_count_by_universe", {})
+
+    return {
+        "generatedAt": utc_now_iso(),
+        "snapshotRunId": str(canonical_snapshot.get("run_id", "")).strip() or None,
+        "snapshotSourceCount": source_count,
+        "snapshotUniverses": universes,
+        "summary": summary,
+        "topRisers": top_risers,
+        "topFallers": top_fallers,
+        "biggestMismatches": deltas[:20],
+        "canonicalOnlySample": sorted(canonical_only)[:20],
+        "legacyOnlySample": sorted(legacy_only)[:20],
+    }
+
+
 def _strip_startup_player_fields(player_row: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for key, value in (player_row or {}).items():
