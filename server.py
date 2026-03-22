@@ -957,8 +957,17 @@ def _prime_latest_payload(data: dict | None) -> None:
             "warningCount": int(contract_report.get("warningCount", 0)),
             "checkedAt": contract_report.get("checkedAt"),
         }
-        # R-6 shadow/internal_primary: attach non-authoritative canonical comparison when available.
-        if CANONICAL_DATA_MODE in ("shadow", "internal_primary") and canonical_data is not None:
+        # R-6 primary: overlay canonical calibrated values as authoritative public values.
+        if CANONICAL_DATA_MODE == "primary" and canonical_data is not None:
+            overlay_count = _apply_canonical_primary_overlay(contract_payload)
+            log.info(
+                "[PRIMARY] Canonical overlay applied: %d/%d players now serve canonical values",
+                overlay_count,
+                len(contract_payload.get("players", {})),
+            )
+
+        # R-6 shadow/internal_primary/primary: attach canonical comparison when available.
+        if CANONICAL_DATA_MODE in ("shadow", "internal_primary", "primary") and canonical_data is not None:
             try:
                 legacy_players = data.get("players") if isinstance(data, dict) else None
                 cmp_block = build_canonical_comparison_block(
@@ -1087,10 +1096,90 @@ def _load_canonical_snapshot() -> dict | None:
         return None
 
 
+def _apply_canonical_primary_overlay(contract: dict) -> int:
+    """R-6 primary mode: overlay canonical calibrated values onto the public contract.
+
+    For each player in the canonical snapshot that matches a player in the contract,
+    replace the value fields the frontend reads (_finalAdjusted, _leagueAdjusted,
+    _composite) with the canonical calibrated_value.  This makes canonical the
+    authoritative value source while preserving all other player metadata
+    (position, team, format-fit, scoring, etc.) from the legacy scraper.
+
+    Returns the number of players overlaid.
+    """
+    if canonical_data is None:
+        return 0
+
+    players = contract.get("players")
+    if not players or not isinstance(players, dict):
+        return 0
+
+    # Build name-normalized lookup from canonical assets
+    import re
+    assets = canonical_data.get("assets", [])
+    canonical_lookup: dict[str, dict] = {}
+    for asset in assets:
+        name = str(asset.get("display_name", "")).strip()
+        cal_val = asset.get("calibrated_value")
+        if not name or cal_val is None:
+            continue
+        # Keep the higher value if duplicate names exist
+        existing = canonical_lookup.get(name)
+        if existing is not None and existing["calibrated_value"] >= int(cal_val):
+            continue
+        canonical_lookup[name] = {
+            "calibrated_value": int(cal_val),
+            "blended_value": asset.get("blended_value"),
+            "source_count": len(asset.get("source_values", {})),
+            "universe": asset.get("universe", ""),
+        }
+
+    # Normalize helper
+    def _norm(n: str) -> str:
+        n = n.strip()
+        for sfx in (" Jr.", " Sr.", " II", " III", " IV", " V"):
+            if n.endswith(sfx):
+                n = n[: -len(sfx)].strip()
+        return n.lower().replace(".", "").replace("'", "").replace("\u2019", "")
+
+    # Build normalized lookup
+    canonical_norm: dict[str, tuple[str, dict]] = {}
+    for name, data in canonical_lookup.items():
+        canonical_norm[_norm(name)] = (name, data)
+
+    overlay_count = 0
+    for player_name, pdata in players.items():
+        if not isinstance(pdata, dict):
+            continue
+        norm = _norm(player_name)
+        match = canonical_norm.get(norm)
+        if match is None:
+            continue
+
+        _canon_name, canon = match
+        cal_val = canon["calibrated_value"]
+
+        # Overlay the value fields the frontend reads
+        pdata["_finalAdjusted"] = cal_val
+        pdata["_leagueAdjusted"] = cal_val
+        pdata["_composite"] = cal_val
+        pdata["_rawComposite"] = cal_val
+        pdata["_valueAuthority"] = "canonical"
+        pdata["_canonicalSourceCount"] = canon["source_count"]
+        overlay_count += 1
+
+    # Mark the contract as canonical-authoritative
+    contract["valueAuthority"] = "canonical"
+    contract["canonicalOverlayCount"] = overlay_count
+    contract["canonicalAssetCount"] = len(canonical_lookup)
+
+    return overlay_count
+
+
 def _run_canonical_shadow_comparison(legacy_data: dict | None) -> None:
     """R-6: In shadow mode, compare canonical vs legacy data and log differences."""
     global shadow_comparison_report
-    if CANONICAL_DATA_MODE not in ("shadow", "internal_primary") or canonical_data is None or legacy_data is None:
+    if CANONICAL_DATA_MODE not in ("shadow", "internal_primary", "primary") or canonical_data is None or legacy_data is None:
         shadow_comparison_report = None
         return
 
@@ -1889,10 +1978,10 @@ async def get_scaffold_shadow():
     snapshot and legacy data are loaded.  Shows overlap, deltas,
     top risers/fallers, rank correlation, and distribution analysis.
     """
-    if CANONICAL_DATA_MODE not in ("shadow", "internal_primary"):
+    if CANONICAL_DATA_MODE not in ("shadow", "internal_primary", "primary"):
         return JSONResponse(
             status_code=404,
-            content={"error": "Shadow comparison not available (CANONICAL_DATA_MODE must be 'shadow' or 'internal_primary')"},
+            content={"error": "Shadow comparison not available (CANONICAL_DATA_MODE must be 'shadow', 'internal_primary', or 'primary')"},
         )
     if shadow_comparison_report is None:
         return JSONResponse(
@@ -1905,15 +1994,20 @@ async def get_scaffold_shadow():
 @app.get("/api/scaffold/mode")
 async def get_scaffold_mode():
     """Return current canonical data mode and status."""
+    public_serves = (
+        "canonical (primary mode — canonical calibrated values overlaid on legacy contract)"
+        if CANONICAL_DATA_MODE == "primary"
+        else "legacy (canonical data used for comparison/shadow only)"
+    )
     return JSONResponse(content={
         "canonical_data_mode": CANONICAL_DATA_MODE,
         "canonical_loaded": canonical_data is not None,
         "canonical_loaded_at": canonical_data_loaded_at,
         "canonical_asset_count": len(canonical_data.get("assets", [])) if canonical_data else 0,
         "shadow_comparison_available": shadow_comparison_report is not None,
-        "public_api_serves": "legacy (always, regardless of mode)",
-        "internal_api_available": CANONICAL_DATA_MODE == "internal_primary",
-        "rollback": "Set CANONICAL_DATA_MODE=off and restart to revert",
+        "public_api_serves": public_serves,
+        "internal_api_available": CANONICAL_DATA_MODE in ("internal_primary", "primary"),
+        "rollback": "Set CANONICAL_DATA_MODE=off (or internal_primary) and restart to revert",
     })
 
 
