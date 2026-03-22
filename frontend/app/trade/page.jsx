@@ -11,6 +11,7 @@ import {
 } from "@/lib/trade-logic";
 
 const ROSTER_KEY = "next_trade_roster_v1";
+const TEAM_KEY = "next_trade_team_v1";
 const SUGG_TYPES = [
   { key: "sellHigh", label: "Sell High" },
   { key: "buyLow", label: "Buy Low" },
@@ -39,7 +40,7 @@ function edgeBadge(edge) {
 }
 
 export default function TradePage() {
-  const { loading, error, rows } = useDynastyData();
+  const { loading, error, rows, rawData } = useDynastyData();
   const [valueMode, setValueMode] = useState("full");
   const [sideA, setSideA] = useState([]);
   const [sideB, setSideB] = useState([]);
@@ -58,17 +59,31 @@ export default function TradePage() {
   const [suggestionsError, setSuggestionsError] = useState(null);
   const [suggestionTab, setSuggestionTab] = useState("sellHigh");
 
+  // Sleeper team selection state
+  const [selectedTeamIdx, setSelectedTeamIdx] = useState(-1);
+  const [leagueRosters, setLeagueRosters] = useState(null);
+
+  // Extract Sleeper teams from dynasty data
+  const sleeperTeams = useMemo(() => {
+    const teams = rawData?.sleeper?.teams;
+    return Array.isArray(teams) && teams.length > 0 ? teams : null;
+  }, [rawData]);
+
   const rowByName = useMemo(() => {
     const m = new Map();
     rows.forEach((r) => m.set(r.name, r));
     return m;
   }, [rows]);
 
-  // Hydrate roster input from localStorage
+  // Hydrate roster input and team selection from localStorage
   useEffect(() => {
     try {
       const saved = localStorage.getItem(ROSTER_KEY);
       if (saved) setRosterInput(saved);
+    } catch { /* ignore */ }
+    try {
+      const savedTeam = localStorage.getItem(TEAM_KEY);
+      if (savedTeam !== null) setSelectedTeamIdx(Number(savedTeam));
     } catch { /* ignore */ }
   }, []);
 
@@ -167,6 +182,40 @@ export default function TradePage() {
       .filter(Boolean);
   }, [rosterInput]);
 
+  function selectTeam(idx) {
+    const i = Number(idx);
+    setSelectedTeamIdx(i);
+    localStorage.setItem(TEAM_KEY, String(i));
+
+    if (i < 0 || !sleeperTeams || !sleeperTeams[i]) {
+      setLeagueRosters(null);
+      return;
+    }
+
+    const team = sleeperTeams[i];
+    // Combine players + picks (picks stripped of provenance suffixes)
+    const picks = (team.picks || []).map((p) => {
+      // "2026 1.06 (from Pop Trunk)" → "2026 1st" style normalization
+      const m = p.match(/^(\d{4})\s+(\d)\./);
+      if (m) {
+        const round = { "1": "1st", "2": "2nd", "3": "3rd", "4": "4th" }[m[2]] || `${m[2]}th`;
+        return `${m[1]} ${round}`;
+      }
+      return p.replace(/\s*\(.*\)/, "").trim();
+    });
+    // Deduplicate picks (team may own multiple of the same round)
+    const rosterNames = [...(team.players || []), ...picks];
+    const newInput = rosterNames.join("\n");
+    setRosterInput(newInput);
+    localStorage.setItem(ROSTER_KEY, newInput);
+
+    // Build opponent rosters for opponent-aware suggestions
+    const opponents = sleeperTeams
+      .filter((_, oi) => oi !== i)
+      .map((t) => ({ team_name: t.name, players: t.players || [] }));
+    setLeagueRosters(opponents);
+  }
+
   async function fetchSuggestions() {
     const roster = parseRoster();
     if (roster.length < 3) {
@@ -181,7 +230,7 @@ export default function TradePage() {
       const res = await fetch("/api/trade/suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roster }),
+        body: JSON.stringify(leagueRosters ? { roster, league_rosters: leagueRosters } : { roster }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -279,14 +328,41 @@ export default function TradePage() {
           <div className="card" style={{ marginTop: 12 }}>
             <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Trade Suggestions</h2>
             <p className="muted" style={{ margin: "4px 0 10px", fontSize: "0.76rem" }}>
-              Enter your roster to get roster-aware trade ideas — sell-high, buy-low, consolidation, and upgrade targets.
+              {sleeperTeams
+                ? "Select your team from the league, or enter a roster manually."
+                : "Enter your roster to get roster-aware trade ideas."}
             </p>
+
+            {/* Team selector from Sleeper league */}
+            {sleeperTeams && (
+              <div className="row" style={{ marginBottom: 8, alignItems: "center" }}>
+                <select
+                  className="select"
+                  value={selectedTeamIdx}
+                  onChange={(e) => selectTeam(e.target.value)}
+                  style={{ flex: 1, maxWidth: 320 }}
+                >
+                  <option value={-1}>Select your team...</option>
+                  {sleeperTeams.map((t, i) => (
+                    <option key={i} value={i}>
+                      {t.name} ({(t.players || []).length} players, {(t.picks || []).length} picks)
+                    </option>
+                  ))}
+                </select>
+                {selectedTeamIdx >= 0 && sleeperTeams[selectedTeamIdx] && (
+                  <span className="muted" style={{ fontSize: "0.72rem" }}>
+                    Loaded {(sleeperTeams[selectedTeamIdx].players || []).length} players + {(sleeperTeams[selectedTeamIdx].picks || []).length} picks
+                    {leagueRosters ? ` · ${leagueRosters.length} opponents` : ""}
+                  </span>
+                )}
+              </div>
+            )}
 
             <textarea
               className="input"
               placeholder="Enter roster (comma or newline separated): Josh Allen, Bijan Robinson, Ja'Marr Chase, ..."
               value={rosterInput}
-              onChange={(e) => setRosterInput(e.target.value)}
+              onChange={(e) => { setRosterInput(e.target.value); setSelectedTeamIdx(-1); setLeagueRosters(null); }}
               rows={3}
               style={{ width: "100%", resize: "vertical", fontFamily: "inherit", fontSize: "0.82rem" }}
             />
@@ -303,6 +379,9 @@ export default function TradePage() {
               {suggestions && (
                 <span className="muted" style={{ fontSize: "0.76rem" }}>
                   {suggestions.totalSuggestions} suggestions · {suggestions.metadata?.rosterMatched || 0}/{parseRoster().length} matched
+                  {(suggestions.metadata?.opponentRostersAnalyzed || 0) > 0
+                    ? ` · ${suggestions.metadata.opponentRostersAnalyzed} opponents analyzed`
+                    : ""}
                 </span>
               )}
             </div>
