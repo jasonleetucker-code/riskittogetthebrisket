@@ -34,10 +34,14 @@ Scrape timestamp: `2026-03-22T15:10:15` | KTC updated separately at `16:50:29`
 | FantasyPros_IDP | idp_vet | Browser | **FRESH** | 70 | Produced by scrape |
 | DLF_IDP | idp_vet | CSV | **FRESH** | 185 | Manual CSV, 2026-03-21 |
 | DLF_RIDP | idp_rookie | CSV | **FRESH** | 30 | Manual CSV, 2026-03-21 |
-| DraftSharks_IDP | idp_vet | Browser | **ENABLED** | 0 | Was disabled, now enabled. Needs production scrape |
+| DraftSharks_IDP | idp_vet | API | **FRESH** | 103 | Scraped via load-rows API, rank-based |
 | Flock | offense_vet | Browser | **FAILED** | 0 | flock_session.json missing, no credentials |
 
-**Summary:** 14 FRESH, 1 ENABLED (pending production scrape), 1 FAILED (no credentials)
+**Summary:** 15 FRESH, 1 FAILED (Flock — no credentials)
+
+### Investigated but no IDP data: DynastyNerds
+DynastyNerds rankings SPA contains zero IDP data (only QB/RB/WR/TE).
+No IDP routes, tabs, or API endpoints exist. /category/idp/ is blog articles only.
 
 ## Source Reliability by Category
 
@@ -54,12 +58,13 @@ Scrape timestamp: `2026-03-22T15:10:15` | KTC updated separately at `16:50:29`
 | DLF_SF | High | Low | Manual CSV, always available |
 | Flock | Failed | High | Session expired, no auto-login credentials |
 
-### IDP Sources (5 active + 1 pending)
+### IDP Sources (6 active)
 | Source | Reliability | Risk | Players | Notes |
 |--------|-------------|------|---------|-------|
 | IDPTradeCalc | High | Medium | 384 | Primary IDP source |
 | PFF_IDP | Medium | High | 249 | Google search discovery, often fails |
 | DLF_IDP | High | Low | 185 | Manual CSV |
+| DraftSharks_IDP | High | Low | 103 | Live via load-rows API, rank-based |
 | FantasyPros_IDP | Medium | Medium | 70 | Low count but stable |
 | DLF_RIDP | High | Low | 30 | Rookie IDP only |
 | DraftSharks_IDP | Pending | Medium | 0 | Just enabled, needs production scrape |
@@ -103,6 +108,10 @@ IDP uses a higher knee (0.80 vs 0.65) because:
 
 ## IDP Source Density
 
-155 IDP players have only 1 source (23% tier). 81 have 2 sources (21%).
-Players with 3-4 sources achieve 55-61% tier — comparable to offense.
-Enabling DraftSharks_IDP will add a 6th IDP source in the next production scrape.
+IDP source density after DraftSharks_IDP addition:
+- DL: 31% single-source (best), 6 sources cover DL
+- DB: 43% single-source, 6 sources cover DB
+- **LB: 80% single-source (worst)**, only 2 sources cover LB significantly (IDPTradeCalc + DraftSharks_IDP)
+- DLF_IDP covers 0 LBs, PFF_IDP covers only 18, FantasyPros_IDP covers 4
+
+LB source density is the dominant remaining IDP quality gap.
