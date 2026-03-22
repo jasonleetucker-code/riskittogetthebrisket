@@ -98,6 +98,24 @@ def main() -> int:
 
     asset_dicts = [a.to_dict() for a in all_assets]
 
+    # Position enrichment from legacy player data
+    enrichment_summary = None
+    legacy_file = _latest(repo / "data", "legacy_data_*.json")
+    if legacy_file:
+        try:
+            from src.canonical.enrich import build_legacy_position_lookup, enrich_positions
+            legacy_lookup = build_legacy_position_lookup(legacy_file)
+            asset_dicts, enrichment_summary = enrich_positions(asset_dicts, legacy_lookup)
+            print(
+                f"[canonical_build] enrichment: {enrichment_summary['enriched_from_legacy']} from legacy, "
+                f"{enrichment_summary['already_had_position']} from adapter, "
+                f"{enrichment_summary['skipped_picks']} picks, "
+                f"{enrichment_summary['unmatched']} unmatched → "
+                f"{enrichment_summary['position_coverage_pct']}% coverage"
+            )
+        except Exception as e:
+            print(f"[canonical_build] enrichment skipped: {e}")
+
     # Scarcity adjustment via league context engine
     league_cfg_path = repo / "config" / "leagues" / "default_superflex_idp.template.json"
     scarcity_summary = None
@@ -129,10 +147,14 @@ def main() -> int:
         calibration_params = get_calibration_params()
         cal_vals = [a.get("calibrated_value", 0) for a in asset_dicts if a.get("calibrated_value") is not None]
         if cal_vals:
+            uni_scales = calibration_params.get('universe_scales', {})
+            scales_str = ", ".join(f"{k}={v}" for k, v in sorted(uni_scales.items()))
             print(
                 f"[canonical_build] calibration: {len(cal_vals)} assets, "
                 f"range {min(cal_vals)}-{max(cal_vals)}, "
-                f"exponent={calibration_params['exponent']}, scale={calibration_params['scale']}"
+                f"exponent={calibration_params['exponent']}, "
+                f"pick_ceiling={calibration_params.get('pick_ceiling', 'n/a')}, "
+                f"scales=[{scales_str}]"
             )
     except Exception as e:
         print(f"[canonical_build] calibration skipped: {e}")
@@ -152,6 +174,7 @@ def main() -> int:
             u: [a.to_dict() for a in rows] for u, rows in canonical_by_universe.items()
         },
         "assets": asset_dicts,
+        "enrichment_summary": enrichment_summary,
         "scarcity_summary": scarcity_summary,
         "calibration": calibration_params,
     }

@@ -55,7 +55,7 @@ def load_legacy(path: Path) -> dict[str, dict]:
         val = int(val)
         if val <= 0:
             continue
-        pos = str(pdata.get("POS") or pdata.get("pos") or "").upper()
+        pos = str(pdata.get("_lamBucket") or pdata.get("POS") or pdata.get("pos") or "").upper()
         out[name] = {"value": val, "pos": pos, "name": name}
     return out
 
@@ -241,6 +241,65 @@ def compute_stats(matched: list[dict]) -> dict:
     }
 
 
+def compute_universe_stats(matched: list[dict]) -> dict[str, dict]:
+    """Compute per-universe comparison stats with overlap and tier metrics.
+
+    Returns stats for each universe plus an 'offense_combined' view
+    (offense_vet + offense_rookie) and 'idp_combined' (idp_vet + idp_rookie),
+    which are the most decision-useful comparisons.
+    """
+    # Define universe groups
+    groups: dict[str, list[str]] = {
+        "offense_vet": ["offense_vet"],
+        "offense_rookie": ["offense_rookie"],
+        "idp_vet": ["idp_vet"],
+        "idp_rookie": ["idp_rookie"],
+        "offense_combined": ["offense_vet", "offense_rookie"],
+        "idp_combined": ["idp_vet", "idp_rookie"],
+    }
+
+    result: dict[str, dict] = {}
+    for group_name, universes in groups.items():
+        subset = [m for m in matched if m.get("universe") in universes]
+        if len(subset) < 10:
+            continue
+
+        abs_deltas = sorted([m["abs_delta"] for m in subset])
+        n = len(abs_deltas)
+
+        # Top-N overlap within this universe
+        by_c = sorted(subset, key=lambda m: -m["canonical_value"])
+        by_l = sorted(subset, key=lambda m: -m["legacy_value"])
+
+        top_n = min(50, n)
+        c_top = {m["name"] for m in by_c[:top_n]}
+        l_top = {m["name"] for m in by_l[:top_n]}
+        top_overlap = len(c_top & l_top)
+
+        # Tier agreement
+        def tier(v):
+            if v >= 7000: return "elite"
+            if v >= 5000: return "star"
+            if v >= 3000: return "starter"
+            if v >= 1500: return "bench"
+            return "depth"
+
+        tier_agree = sum(1 for m in subset if tier(m["canonical_value"]) == tier(m["legacy_value"]))
+
+        result[group_name] = {
+            "count": n,
+            "avg_abs_delta": int(round(sum(abs_deltas) / n)),
+            "median_abs_delta": abs_deltas[n // 2],
+            "top_n_used": top_n,
+            "top_n_overlap": top_overlap,
+            "top_n_overlap_pct": round(top_overlap / top_n * 100),
+            "tier_agreement": tier_agree,
+            "tier_agreement_pct": round(tier_agree / n * 100, 1),
+        }
+
+    return result
+
+
 def generate_markdown(
     stats: dict,
     matched: list[dict],
@@ -248,6 +307,7 @@ def generate_markdown(
     legacy_only: list[str],
     canonical_path: str,
     legacy_path: str,
+    universe_stats: dict[str, dict] | None = None,
 ) -> str:
     """Generate a founder-readable markdown report."""
     lines = [
@@ -376,6 +436,38 @@ def generate_markdown(
         sign = "+" if m["delta"] > 0 else ""
         lines.append(f"| {m['name']} | {m['canonical_value']} | {m['legacy_value']} | {sign}{m['delta']} | {m['universe']} | {m['source_count']} |")
 
+    # Universe-aware comparison
+    if universe_stats:
+        lines.extend([
+            "",
+            "---",
+            "",
+            "## Universe-Aware Comparison",
+            "",
+            "Compares like-with-like by filtering to specific universes.",
+            "",
+            "| Universe | Players | Avg Delta | Top-N Overlap | Tier Agreement |",
+            "|----------|---------|-----------|---------------|----------------|",
+        ])
+        # Order: offense_combined first (most decision-useful), then individual
+        display_order = ["offense_combined", "offense_vet", "offense_rookie",
+                         "idp_combined", "idp_vet", "idp_rookie"]
+        for u in display_order:
+            if u not in universe_stats:
+                continue
+            us = universe_stats[u]
+            label = u.replace("_", " ").title()
+            lines.append(
+                f"| **{label}** | {us['count']} | {us['avg_abs_delta']} | "
+                f"{us['top_n_overlap']}/{us['top_n_used']} ({us['top_n_overlap_pct']}%) | "
+                f"{us['tier_agreement_pct']}% |"
+            )
+        lines.extend([
+            "",
+            "_Offense Combined is the most decision-useful view — it's the universe "
+            "users actually trade in. IDP metrics are secondary._",
+        ])
+
     lines.extend([
         "",
         "---",
@@ -438,6 +530,7 @@ def main() -> int:
     print(f"[comparison] Matched: {len(matched)}, Canonical-only: {len(canonical_only)}, Legacy-only: {len(legacy_only)}")
 
     stats = compute_stats(matched)
+    universe_stats = compute_universe_stats(matched)
 
     # Output
     out_dir = repo / args.output_dir
@@ -455,6 +548,7 @@ def main() -> int:
         "canonical_only_count": len(canonical_only),
         "legacy_only_count": len(legacy_only),
         "stats": stats,
+        "universe_stats": universe_stats,
         "top_risers": sorted(matched, key=lambda m: m["delta"], reverse=True)[:20],
         "top_fallers": sorted(matched, key=lambda m: m["delta"])[:20],
         "biggest_mismatches": sorted(matched, key=lambda m: -m["abs_delta"])[:30],
@@ -469,6 +563,7 @@ def main() -> int:
     md = generate_markdown(
         stats, matched, canonical_only, legacy_only,
         canonical_path.name, legacy_path.name,
+        universe_stats=universe_stats,
     )
     md_path = out_dir / f"comparison_report_{ts}.md"
     md_path.write_text(md)
@@ -483,6 +578,15 @@ def main() -> int:
     if stats.get("multi_source_avg_delta") is not None:
         print(f"Multi-source avg delta: {stats['multi_source_avg_delta']} ({stats['multi_source_count']} players)")
         print(f"Single-source avg delta: {stats['single_source_avg_delta']} ({stats['single_source_count']} players)")
+
+    if universe_stats:
+        print(f"\n--- UNIVERSE BREAKDOWN ---")
+        for u in ["offense_combined", "offense_vet", "idp_combined", "idp_vet"]:
+            if u in universe_stats:
+                us = universe_stats[u]
+                print(f"{u}: {us['count']} matched, delta={us['avg_abs_delta']}, "
+                      f"top-{us['top_n_used']}={us['top_n_overlap_pct']}%, "
+                      f"tier={us['tier_agreement_pct']}%")
 
     return 0
 
