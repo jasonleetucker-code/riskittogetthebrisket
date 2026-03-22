@@ -1,166 +1,136 @@
 # Founder Review Packet: Canonical vs Legacy Player Disagreements
 
-_Generated: 2026-03-22 12:19 UTC_
-
-This packet highlights the biggest remaining disagreements between the
-canonical pipeline and the legacy system for offense players (excluding picks
-and kickers). Use it to judge whether the remaining differences feel
-acceptable or indicate problems that need fixing before public launch.
+_Generated: 2026-03-22 12:45 UTC_
+_Legacy: legacy_data_2026-03-22.json | Canonical: canonical_snapshot_20260322T124503Z.json_
+_Scarcity weight: 0.30 | Sources: 14 (FantasyCalc fresh 2026-03-22, 13 archived 2026-03-09)_
 
 ---
 
 ## Current Metrics (offense players only)
 
-| Metric | Value | Public-Primary Threshold |
-|--------|-------|-------------------------|
-| Top-50 overlap | **80%** | 80% ✓ |
-| Top-100 overlap | **81%** | 75% ✓ |
-| Tier agreement | **50.5%** | 65% ✗ (gap: -14.5%) |
-| Avg delta | **1071** | 800 ✗ (gap: +271) |
+| Metric | Value | Public-Primary Threshold | Status |
+|--------|-------|-------------------------|--------|
+| Top-50 overlap | **94%** | 80% | PASS (+14%) |
+| Top-100 overlap | **90%** | 75% | PASS (+15%) |
+| Tier agreement | **53.6%** | 65% | FAIL (-11.4%) |
+| Avg delta | **972** | 800 | FAIL (+172) |
+| Overall avg delta | **739** | 800 | **PASS** (-61) |
+| Overall tier agreement | **65.2%** | 65% | **PASS** (+0.2%) |
 
-## Canonical Values HIGHER Than Legacy
+## Canonical Values HIGHER Than Legacy (Top 20)
 
-These players are valued more by the canonical system. Often RBs benefiting
-from multi-source consensus or mid-tier players the canonical system rates higher.
+| Player | Pos | Canonical | Legacy | Delta | Sources |
+|--------|-----|-----------|--------|-------|---------|
+| Brenton Strange | TE | 5493 | 1700 | +3793 | 6 |
+| Jordyn Tyson | WR | 6841 | 3668 | +3173 | 6 |
+| Kenyon Sadiq | TE | 7014 | 3858 | +3156 | 6 |
+| Chris Brazzell II | WR | 6119 | 3169 | +2950 | 1 |
+| Carnell Tate | WR | 7315 | 4388 | +2927 | 6 |
+| Jonah Coleman | RB | 5964 | 3054 | +2910 | 6 |
+| Denzel Boston | WR | 6102 | 3250 | +2852 | 6 |
+| KC Concepcion | WR | 6125 | 3330 | +2795 | 6 |
+| Jadarian Price | RB | 5895 | 3161 | +2734 | 6 |
+| Jacoby Brissett | QB | 4351 | 1703 | +2648 | 5 |
+| Fernando Mendoza | QB | 6939 | 4342 | +2597 | 6 |
+| Eli Stowers | TE | 6010 | 3427 | +2583 | 6 |
+| Makai Lemon | WR | 7188 | 4657 | +2531 | 6 |
+| Bucky Irving | RB | 7726 | 5316 | +2410 | 7 |
+| TreVeyon Henderson | RB | 7752 | 5344 | +2408 | 7 |
+| Omar Cooper | WR | 5559 | 3218 | +2341 | 6 |
+| Breece Hall | RB | 7804 | 5476 | +2328 | 7 |
+| Harold Fannin | TE | 6964 | 4673 | +2291 | 7 |
+| Colby Parkinson | TE | 2800 | 539 | +2261 | 6 |
+| Quinshon Judkins | RB | 7596 | 5395 | +2201 | 7 |
 
-| Player | Pos | Canonical | Legacy | Delta | Sources | Likely Reason |
-|--------|-----|-----------|--------|-------|---------|---------------|
-| Brenton Strange | TE | 5537 | 1769 | +3768 | 6 | TE valued more by market sources |
-| Jacoby Brissett | QB | 3950 | 1312 | +2638 | 5 | Multi-source consensus differs |
-| TreVeyon Henderson | RB | 7674 | 5244 | +2430 | 7 | RB consensus higher across sources |
-| Elijah Higgins | TE | 2364 | 1 | +2363 | 1 | TE valued more by market sources |
-| Dane Key | WR | 3106 | 810 | +2296 | 1 | Multi-source consensus differs |
-| Bucky Irving | RB | 7726 | 5449 | +2277 | 7 | RB consensus higher across sources |
-| Colby Parkinson | TE | 2975 | 701 | +2274 | 6 | TE valued more by market sources |
-| Harold Fannin | TE | 6989 | 4757 | +2232 | 7 | TE valued more by market sources |
-| Breece Hall | RB | 7752 | 5544 | +2208 | 7 | RB consensus higher across sources |
-| Chris Olave | WR | 7315 | 5165 | +2150 | 7 | Canonical ranks significantly higher |
-| Quinshon Judkins | RB | 7416 | 5272 | +2144 | 7 | RB consensus higher across sources |
-| Jake Tonges | TE | 2927 | 786 | +2141 | 5 | TE valued more by market sources |
-| Christian McCaffrey | RB | 7545 | 5418 | +2127 | 7 | RB consensus higher across sources |
-| RJ Harvey | RB | 6407 | 4306 | +2101 | 7 | RB consensus higher across sources |
-| Ricky Pearsall | WR | 5964 | 3907 | +2057 | 7 | Multi-source consensus differs |
-| Nico Collins | WR | 7830 | 5783 | +2047 | 7 | Multi-source consensus differs |
-| Bhayshul Tuten | RB | 5515 | 3483 | +2032 | 7 | RB consensus higher across sources |
-| Tucker Kraft | TE | 7365 | 5343 | +2022 | 7 | TE valued more by market sources |
-| James Cook | RB | 8042 | 6038 | +2004 | 7 | RB consensus higher across sources |
-| Rashee Rice | WR | 7038 | 5035 | +2003 | 7 | Canonical ranks significantly higher |
+## Canonical Values LOWER Than Legacy (Top 20)
 
-## Canonical Values LOWER Than Legacy
+| Player | Pos | Canonical | Legacy | Delta | Sources |
+|--------|-----|-----------|--------|-------|---------|
+| Justin Joly | TE | 488 | 2144 | -1656 | 3 |
+| Jordan Hudson | WR | 125 | 1682 | -1557 | 1 |
+| Vinny Anthony | WR | 1 | 1534 | -1533 | 1 |
+| Nick Chubb | RB | 613 | 1972 | -1359 | 5 |
+| Josh Cuevas | TE | 569 | 1764 | -1195 | 2 |
+| Roschon Johnson | RB | 481 | 1634 | -1153 | 5 |
+| Austin Ekeler | RB | 456 | 1536 | -1080 | 4 |
+| Darren Waller | TE | 650 | 1603 | -953 | 6 |
+| Cade Klubnik | QB | 760 | 1689 | -929 | 4 |
+| Eric Rivers | WR | 635 | 1534 | -899 | 2 |
+| Kenny Pickett | QB | 412 | 1235 | -823 | 4 |
+| Bub Means | WR | 120 | 933 | -813 | 2 |
+| JuJu Smith-Schuster | WR | 114 | 924 | -810 | 2 |
+| Curtis Samuel | WR | 198 | 930 | -732 | 1 |
+| Noah Fant | TE | 835 | 1556 | -721 | 5 |
+| DJ Rogers | TE | 125 | 838 | -713 | 1 |
+| Spencer Rattler | QB | 1384 | 2034 | -650 | 6 |
+| Dillon Gabriel | QB | 1142 | 1788 | -646 | 7 |
+| Jonnu Smith | TE | 1555 | 2189 | -634 | 6 |
+| Tyler Conklin | TE | 281 | 872 | -591 | 2 |
 
-These players are valued less by the canonical system. Often QBs where the
-legacy system applies higher superflex premium, or players where legacy has
-more recent data.
-
-| Player | Pos | Canonical | Legacy | Delta | Sources | Likely Reason |
-|--------|-----|-----------|--------|-------|---------|---------------|
-| Justin Joly | TE | 562 | 4377 | -3815 | 3 | Source consensus disagrees with legacy |
-| Jordan Hudson | WR | 1 | 3434 | -3433 | 1 | Limited source coverage in canonical |
-| Michael Trigg | TE | 2466 | 5724 | -3258 | 5 | Source consensus disagrees with legacy |
-| Josh Cuevas | TE | 584 | 3243 | -2659 | 2 | Limited source coverage in canonical |
-| Caleb Douglas | WR | 555 | 3154 | -2599 | 3 | Source consensus disagrees with legacy |
-| Cade Klubnik | QB | 844 | 3318 | -2474 | 4 | QB superflex premium lower in canonical |
-| Vinny Anthony | WR | 1 | 2445 | -2444 | 1 | Limited source coverage in canonical |
-| Eric Rivers | WR | 752 | 3031 | -2279 | 2 | Limited source coverage in canonical |
-| Aaron Anderson | WR | 1132 | 3302 | -2170 | 3 | Source consensus disagrees with legacy |
-| Reggie Virgil | WR | 951 | 2897 | -1946 | 5 | Source consensus disagrees with legacy |
-| Carson Beck | QB | 1244 | 3150 | -1906 | 5 | QB superflex premium lower in canonical |
-| Taylen Green | QB | 1822 | 3710 | -1888 | 3 | QB superflex premium lower in canonical |
-| Josh Cameron | WR | 1886 | 3755 | -1869 | 3 | Source consensus disagrees with legacy |
-| Cole Payton | QB | 1566 | 3425 | -1859 | 4 | QB superflex premium lower in canonical |
-| Garrett Nussmeier | QB | 3156 | 5010 | -1854 | 5 | QB superflex premium lower in canonical |
-| Eric McAlister | WR | 2264 | 4112 | -1848 | 3 | Source consensus disagrees with legacy |
-| Jeff Caldwell | WR | 1193 | 3031 | -1838 | 4 | Source consensus disagrees with legacy |
-| J'Mari Taylor | RB | 1747 | 3523 | -1776 | 5 | Source consensus disagrees with legacy |
-| Skyler Bell | WR | 3189 | 4961 | -1772 | 5 | Source consensus disagrees with legacy |
-| Ted Hurst | WR | 3008 | 4739 | -1731 | 5 | Source consensus disagrees with legacy |
-
-## Tier Mismatch Cases (2+ tiers apart)
-
-Players where canonical and legacy disagree by 2 or more value tiers.
-These are the cases most likely to feel 'wrong' to users.
-
-**13 players** have 2+ tier disagreements.
+## Tier Mismatch Cases (2+ tiers apart): 4 players
 
 | Player | Pos | Can Value | Can Tier | Leg Value | Leg Tier | Gap |
 |--------|-----|-----------|----------|-----------|----------|-----|
-| Brenton Strange | TE | 5537 | star | 1769 | bench | 2 |
-| Michael Trigg | TE | 2466 | bench | 5724 | star | 2 |
-| Jacoby Brissett | QB | 3950 | starter | 1312 | depth | 2 |
-| Justin Joly | TE | 562 | depth | 4377 | starter | 2 |
-| Dane Key | WR | 3106 | starter | 810 | depth | 2 |
-| Cade Klubnik | QB | 844 | depth | 3318 | starter | 2 |
-| Jordan Hudson | WR | 1 | depth | 3434 | starter | 2 |
-| Aaron Anderson | WR | 1132 | depth | 3302 | starter | 2 |
-| Jeff Caldwell | WR | 1193 | depth | 3031 | starter | 2 |
-| Carson Beck | QB | 1244 | depth | 3150 | starter | 2 |
-| Eric Rivers | WR | 752 | depth | 3031 | starter | 2 |
-| Josh Cuevas | TE | 584 | depth | 3243 | starter | 2 |
-| Caleb Douglas | WR | 555 | depth | 3154 | starter | 2 |
+| Brenton Strange | TE | 5493 | star | 1700 | bench | 2 |
+| Kenyon Sadiq | TE | 7014 | elite | 3858 | starter | 2 |
+| Carnell Tate | WR | 7315 | elite | 4388 | starter | 2 |
+| Makai Lemon | WR | 7188 | elite | 4657 | starter | 2 |
 
-## QB Scarcity Analysis
-
-QBs are the position most affected by scarcity weighting in superflex.
-The canonical system dampens scarcity at 20% to avoid over-compressing QB values.
+## QB Scarcity Analysis (top 15)
 
 | QB | Canonical | Legacy | Delta | Tier Match? |
 |----|-----------|--------|-------|-------------|
-| Drake Maye | 8310 | 8410 | -100 | ✓ |
-| Josh Allen | 8364 | 8278 | +86 | ✓ |
-| Lamar Jackson | 8283 | 7814 | +469 | ✓ |
-| Jayden Daniels | 8229 | 7593 | +636 | ✓ |
-| Caleb Williams | 8068 | 7316 | +752 | ✓ |
-| Joe Burrow | 8095 | 7284 | +811 | ✓ |
-| Fernando Mendoza | 7113 | 7163 | -50 | ✓ |
-| Justin Herbert | 8015 | 6933 | +1082 | ✗ (elite vs star) |
-| Jalen Hurts | 7909 | 6682 | +1227 | ✗ (elite vs star) |
-| Patrick Mahomes | 7962 | 6648 | +1314 | ✗ (elite vs star) |
-| Jaxson Dart | 7804 | 6555 | +1249 | ✗ (elite vs star) |
-| Bo Nix | 7493 | 6169 | +1324 | ✗ (elite vs star) |
-| Trevor Lawrence | 7700 | 6129 | +1571 | ✗ (elite vs star) |
-| Brock Purdy | 7340 | 5981 | +1359 | ✗ (elite vs star) |
-| Jordan Love | 7239 | 5784 | +1455 | ✗ (elite vs star) |
+| Drake Maye | 8175 | 8467 | -292 | ✓ |
+| Josh Allen | 8283 | 8278 | +5 | ✓ |
+| Lamar Jackson | 8148 | 7824 | +324 | ✓ |
+| Jayden Daniels | 8068 | 7733 | +335 | ✓ |
+| Caleb Williams | 7936 | 7408 | +528 | ✓ |
+| Joe Burrow | 8015 | 7373 | +642 | ✓ |
+| Patrick Mahomes | 7830 | 6834 | +996 | ✗ (elite vs star) |
+| Justin Herbert | 7883 | 6752 | +1131 | ✗ (elite vs star) |
+| Jalen Hurts | 7778 | 6711 | +1067 | ✗ (elite vs star) |
+| Jaxson Dart | 7545 | 6580 | +965 | ✗ (elite vs star) |
+| Bo Nix | 7264 | 6267 | +997 | ✗ (elite vs star) |
+| Trevor Lawrence | 7416 | 6144 | +1272 | ✗ (elite vs star) |
+| Brock Purdy | 7113 | 5947 | +1166 | ✗ (elite vs star) |
+| Jordan Love | 7038 | 5751 | +1287 | ✗ (elite vs star) |
+| Dak Prescott | 6670 | 5654 | +1016 | ✓ |
 
-## TE Analysis
+## TE Analysis (top 15)
 
 | TE | Canonical | Legacy | Delta | Tier Match? |
 |----|-----------|--------|-------|-------------|
-| Brock Bowers | 7883 | 7762 | +121 | ✓ |
-| Trey McBride | 8473 | 7536 | +937 | ✓ |
-| Kenyon Sadiq | 6964 | 6835 | +129 | ✓ |
-| Colston Loveland | 8148 | 6226 | +1922 | ✗ (elite vs star) |
-| Eli Stowers | 6010 | 6138 | -128 | ✓ |
-| Tyler Warren | 7989 | 6011 | +1978 | ✗ (elite vs star) |
-| Michael Trigg | 2466 | 5724 | -3258 | ✗ (bench vs star) |
-| Tucker Kraft | 7365 | 5343 | +2022 | ✗ (elite vs star) |
-| Max Klare | 3657 | 5342 | -1685 | ✗ (starter vs star) |
-| Sam LaPorta | 7063 | 5324 | +1739 | ✗ (elite vs star) |
-| Kyle Pitts | 6694 | 4884 | +1810 | ✗ (star vs starter) |
-| Harold Fannin | 6989 | 4757 | +2232 | ✗ (star vs starter) |
-| George Kittle | 6033 | 4408 | +1625 | ✗ (star vs starter) |
-| Dalton Kincaid | 6242 | 4396 | +1846 | ✗ (star vs starter) |
-| Justin Joly | 562 | 4377 | -3815 | ✗ (depth vs starter) |
+| Brock Bowers | 7989 | 7650 | +339 | ✓ |
+| Trey McBride | 8473 | 7564 | +909 | ✓ |
+| Colston Loveland | 8202 | 6167 | +2035 | ✗ (elite vs star) |
+| Tyler Warren | 8042 | 5956 | +2086 | ✗ (elite vs star) |
+| Tucker Kraft | 7570 | 5411 | +2159 | ✗ (elite vs star) |
+| Sam LaPorta | 7088 | 5255 | +1833 | ✗ (elite vs star) |
+| Kyle Pitts | 6767 | 4835 | +1932 | ✗ (star vs starter) |
+| Harold Fannin | 6964 | 4673 | +2291 | ✗ (star vs starter) |
+| George Kittle | 6056 | 4428 | +1628 | ✗ (star vs starter) |
+| Oronde Gadsden | 6288 | 4346 | +1942 | ✗ (star vs starter) |
+| Dalton Kincaid | 6148 | 4303 | +1845 | ✗ (star vs starter) |
+| Mark Andrews | 4710 | 4124 | +586 | ✓ |
+| T.J. Hockenson | 4730 | 3963 | +767 | ✓ |
+| Travis Kelce | 3931 | 3915 | +16 | ✓ |
+| Kenyon Sadiq | 7014 | 3858 | +3156 | ✗ (elite vs starter) |
 
 ---
 
-## Key Disagreement Themes
+## Per-Position Summary
 
-| Position | Players | Avg Delta | Theme |
-|----------|---------|-----------|-------|
-| QB | 71 | 1021 | Legacy superflex premium is higher; canonical dampens QB scarcity |
-| RB | 121 | 1016 | Canonical RB consensus often higher; more sources agree on RB values |
-| WR | 164 | 1073 | Generally closest agreement; largest position group |
-| TE | 72 | 1072 | TE premium varies between systems; some TEs rank very differently |
+| Position | Players | Avg Delta |
+|----------|---------|-----------|
+| QB | 73 | 855 |
+| RB | 120 | 1008 |
+| WR | 166 | 1014 |
+| TE | 72 | 1004 |
 
-## What This Means for Public-Primary
+## Key Takeaway
 
-The remaining gap is primarily driven by:
-1. **QB superflex premium**: Legacy values top QBs ~500-2000 higher than canonical
-2. **Tier boundary sensitivity**: Many players sit near tier boundaries (3000, 5000, 7000)
-   where small value differences cause tier mismatches
-3. **Data staleness**: Legacy data is from 2026-03-09; a fresh scraper run would
-   likely improve agreement as both systems would use contemporaneous data
-
-The top-50 and top-100 overlap metrics now pass public-primary thresholds,
-meaning the canonical system correctly identifies the most valuable players.
-The remaining tier/delta gap is about magnitude calibration, not ranking quality.
+The canonical system now correctly ranks **94% of the top-50** and **90% of the top-100**
+offense players. The remaining gap is about absolute value magnitude, not player ordering.
+The overall metrics (all universes) now **pass public-primary thresholds** (delta 739 < 800,
+tier 65.2% ≥ 65%). The offense-only view still fails because offense player values span a
+wider range, making tier boundaries more sensitive to calibration differences.
