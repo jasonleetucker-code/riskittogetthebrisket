@@ -61,7 +61,11 @@ def load_legacy(path: Path) -> dict[str, dict]:
 
 
 def load_canonical(path: Path) -> dict[str, dict]:
-    """Load canonical snapshot and extract per-asset blended values."""
+    """Load canonical snapshot and extract per-asset values.
+
+    Uses scarcity_adjusted_value when available (from league context engine),
+    falling back to raw blended_value.
+    """
     data = json.loads(path.read_text())
     assets = data.get("assets", [])
     out: dict[str, dict] = {}
@@ -69,13 +73,19 @@ def load_canonical(path: Path) -> dict[str, dict]:
         name = str(asset.get("display_name", asset.get("asset_key", ""))).strip()
         if not name:
             continue
-        blended = asset.get("blended_value")
-        if blended is None:
+        # Prefer calibrated > scarcity-adjusted > raw blended
+        value = (
+            asset.get("calibrated_value")
+            or asset.get("scarcity_adjusted_value")
+            or asset.get("blended_value")
+        )
+        if value is None:
             continue
         universe = str(asset.get("universe", ""))
         source_count = len(asset.get("source_values", {}))
         out[name] = {
-            "value": int(blended),
+            "value": int(value),
+            "raw_blended": int(asset.get("blended_value", 0)),
             "name": name,
             "universe": universe,
             "source_count": source_count,

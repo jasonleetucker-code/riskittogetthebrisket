@@ -96,6 +96,47 @@ def main() -> int:
     run_id = str(raw_payload.get("run_id") or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
     out_file = out_dir / f"canonical_snapshot_{run_id}.json"
 
+    asset_dicts = [a.to_dict() for a in all_assets]
+
+    # Scarcity adjustment via league context engine
+    league_cfg_path = repo / "config" / "leagues" / "default_superflex_idp.template.json"
+    scarcity_summary = None
+    if league_cfg_path.exists():
+        try:
+            from src.league import LeagueSettings, ReplacementCalculator
+            from src.league.scarcity import compute_scarcity_adjusted_values, build_scarcity_summary
+
+            settings = LeagueSettings.from_json(league_cfg_path)
+            calc = ReplacementCalculator(settings)
+            baselines = calc.compute_baselines(asset_dicts)
+            enriched = compute_scarcity_adjusted_values(asset_dicts, baselines)
+            scarcity_summary = build_scarcity_summary(enriched, baselines)
+
+            # Replace asset dicts with enriched versions
+            asset_dicts = enriched
+            print(
+                f"[canonical_build] scarcity: {scarcity_summary['with_position']} assets adjusted, "
+                f"{scarcity_summary['without_position']} without position"
+            )
+        except Exception as e:
+            print(f"[canonical_build] scarcity adjustment skipped: {e}")
+
+    # Distribution calibration: remap values to match legacy-like distribution
+    calibration_params = None
+    try:
+        from src.canonical.calibration import calibrate_canonical_values, get_calibration_params
+        asset_dicts = calibrate_canonical_values(asset_dicts)
+        calibration_params = get_calibration_params()
+        cal_vals = [a.get("calibrated_value", 0) for a in asset_dicts if a.get("calibrated_value") is not None]
+        if cal_vals:
+            print(
+                f"[canonical_build] calibration: {len(cal_vals)} assets, "
+                f"range {min(cal_vals)}-{max(cal_vals)}, "
+                f"exponent={calibration_params['exponent']}, scale={calibration_params['scale']}"
+            )
+    except Exception as e:
+        print(f"[canonical_build] calibration skipped: {e}")
+
     payload = {
         "run_id": run_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -110,7 +151,9 @@ def main() -> int:
         "assets_by_universe": {
             u: [a.to_dict() for a in rows] for u, rows in canonical_by_universe.items()
         },
-        "assets": [a.to_dict() for a in all_assets],
+        "assets": asset_dicts,
+        "scarcity_summary": scarcity_summary,
+        "calibration": calibration_params,
     }
     save_json(out_file, payload)
 

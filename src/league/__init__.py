@@ -18,5 +18,11 @@ Usage:
 
 from src.league.settings import LeagueSettings
 from src.league.replacement import ReplacementCalculator
+from src.league.scarcity import compute_scarcity_adjusted_values, build_scarcity_summary
 
-__all__ = ["LeagueSettings", "ReplacementCalculator"]
+__all__ = [
+    "LeagueSettings",
+    "ReplacementCalculator",
+    "compute_scarcity_adjusted_values",
+    "build_scarcity_summary",
+]

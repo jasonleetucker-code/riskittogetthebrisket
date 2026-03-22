@@ -1,6 +1,6 @@
 # Promotion Readiness Status
 
-_Updated: 2026-03-22 (post Phase A-D execution)_
+_Updated: 2026-03-22 (post real-exports + scarcity + calibration)_
 
 ## Mode Progression
 
@@ -14,67 +14,55 @@ off → shadow → internal_primary → public_primary
 
 ### Shadow Mode: READY (3/3 hard checks pass)
 
-| Check | Required | Actual | Status |
-|-------|----------|--------|--------|
-| Canonical snapshot exists | Yes | Yes | PASS |
-| Asset count >= 500 | 500 | 747 | PASS |
-| Source count >= 2 | 2 | 7 | PASS |
-| Tests pass | Yes | 297 pass | PASS |
+All checks pass. Can activate with `CANONICAL_DATA_MODE=shadow`.
 
-### Internal Primary: NOT READY (5/10 pass, was 3/10)
+### Internal Primary: NOT READY (5/10 pass)
 
-| Check | Required | Actual | Status | Change |
-|-------|----------|--------|--------|--------|
-| Source count >= 4 | 4 | 7 | PASS | was 5 |
-| Top-50 overlap >= 70% | 70% | 64% | FAIL | was 62% |
-| Top-100 overlap >= 65% | 65% | 63% | FAIL | same |
-| Tier agreement >= 50% | 50% | 13.6% | FAIL | was 13.4% |
-| Avg |delta| <= 1500 | 1500 | 2975 | FAIL | was 2903 |
-| Sample size >= 500 | 500 | 670 | PASS | same |
-| Multi-source blend >= 40% | 40% | 50% | PASS | **was 35%** |
-| IDP sources >= 2 | 2 | 2 | PASS | same |
-| Weights tuned | Yes | Yes (10/16) | PASS | **was No** |
-| Tests pass | Yes | 297 pass | PASS | was 268 |
+| Check | Required | Actual | Status | Trend |
+|-------|----------|--------|--------|-------|
+| Source count >= 4 | 4 | **14** | PASS | 5→7→14 |
+| Top-50 overlap >= 70% | 70% | 40% | FAIL | 62%→50%→40%* |
+| Top-100 overlap >= 65% | 65% | 45% | FAIL | 63%→59%→45%* |
+| Tier agreement >= 50% | 50% | **23.9%** | FAIL | 13.4%→11.8%→**23.9%** |
+| Avg |delta| <= 1500 | 1500 | **2225** | FAIL | 2903→3152→**2225** |
+| Sample size >= 500 | 500 | **838** | PASS | 670→838 |
+| Multi-source blend >= 40% | 40% | **54%** | PASS | 35%→53%→54% |
+| IDP sources >= 2 | 2 | **5** | PASS | 2→5 |
+| Weights tuned | Yes | Yes | PASS | — |
+| Tests pass | Yes | 323 pass | PASS | 268→297→323 |
 
-### Public Primary: NOT READY (5/12 pass, was 2/12)
+*Top-50/100 overlap dropped because 14 sources brought in many more IDP/pick assets that rank high in their universe but aren't in legacy's top-50.
 
-New PASS: source_count (7 >= 6), weights tuned, league context engine active.
-Still FAIL: overlap metrics, delta, multi-source 60%, founder approval.
+### What Improved
 
----
+| Metric | Phase start | Now | Change |
+|--------|------------|-----|--------|
+| Sources | 7 (2 real + 2 seed) | **14 (all real)** | +7 real sources |
+| Tier agreement | 13.6% | **23.9%** | +76% improvement |
+| Avg delta | 2975 | **2225** | -25% improvement |
+| Total assets | 747 | **1251** | +67% |
+| Multi-source | 392 | **759** | +94% |
 
-## What Improved This Phase
+### What Still Blocks
 
-1. **Source count**: 5 → 7 (KTC + DynastyDaddy activated via test seeds)
-2. **Multi-source blend**: 35% → 50% (crossed the 40% threshold)
-3. **Weights tuned**: All 1.0 → tiered 0.6-1.2 profile (10/16 differ)
-4. **League context engine**: Empty → real replacement baseline calculator with 21 tests
-5. **Internal-primary checks passing**: 3/10 → 5/10
-6. **Public-primary checks passing**: 2/12 → 5/12
+1. **Top-50 overlap (40%, need 70%)**: IDP/pick assets calibrated high within their universe compete with offense assets for top-50 spots. The legacy system doesn't rank IDP players this high. Fix: either filter comparison to offense-only or adjust IDP calibration to match legacy IDP value ceilings.
 
-## What Still Blocks Internal Primary
+2. **Tier agreement (23.9%, need 50%)**: Improved 76% but still below threshold. Root cause: 692 assets lack position data → no scarcity adjustment → inflated values. Improving position data coverage from source adapters would help.
 
-The 4 remaining failures are all overlap/delta/tier metrics. These are fundamentally caused by:
-1. **Normalization approach difference**: canonical uses percentile power curve; legacy uses Z-score. Same player, different scale.
-2. **Source count**: canonical has 7 sources for offense_vet but only 2 real ones (DLF + FantasyCalc). KTC and DynastyDaddy are test seeds.
-3. **No league adjustments applied yet**: canonical values are raw blends without scarcity/replacement adjustments.
+3. **Avg delta (2225, need 1500)**: Improved 25% but still above threshold. Same root cause as tier agreement — distribution calibration helped but assets without position data dilute the improvement.
 
-**To close the gap**: get real KTC + DynastyDaddy scraper exports, then apply replacement-level adjustments to canonical values using the new league engine.
+### Next Steps to Close Gap
 
-## 0f83 Weighting Branch: RETIRED
-
-Does not exist. One weighting truth: `config/weights/default_weights.json` applied by `src/canonical/transform.py:blend_source_values()`.
+1. **Filter comparison to offense-only** or add universe-aware comparison
+2. **Improve position data in bridge adapter** — extract position from legacy data when available
+3. **Apply scarcity to IDP assets** — currently 692 assets lack position data for scarcity
 
 ---
 
-## Running the Checks
+## 0f83 Status: RETIRED (no branch exists)
 
-```bash
-python scripts/check_promotion_readiness.py          # All modes
-python scripts/check_promotion_readiness.py --json    # Machine-readable
-GET /api/scaffold/promotion                           # Runtime endpoint
-```
+One weighting truth: `config/weights/default_weights.json`
 
 ---
 
-_All numbers from actual pipeline runs and comparison batches._
+_All numbers from actual pipeline runs with real scraper data._
