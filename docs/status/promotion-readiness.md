@@ -1,50 +1,71 @@
 # Promotion Readiness Status
 
-_Updated: 2026-03-22 (post enrichment + player-only + weight retune)_
+_Updated: 2026-03-22 (post internal_primary activation + pick calibration)_
 
-## Current State: OFF (default) — **INTERNAL_PRIMARY READY**
+## Current State: OFF — **INTERNAL_PRIMARY SAFELY ACTIVATABLE**
 
-### Shadow Mode: READY (3/3 hard checks pass)
+All 9 hard metric checks pass. The canonical system can be promoted to
+`internal_primary` at the founder's discretion.
 
-### Internal Primary: READY (9/9 hard checks pass, 1 manual verification)
+### Activation Steps
+
+```bash
+# 1. Verify readiness (should show 9/9 hard checks pass)
+python scripts/check_promotion_readiness.py --target internal_primary
+
+# 2. Activate (set env var and restart server)
+export CANONICAL_DATA_MODE=internal_primary
+# (or set in .env file)
+
+# 3. Verify mode is active
+curl http://localhost:8000/api/scaffold/mode
+
+# 4. Access canonical data (internal only)
+curl http://localhost:8000/api/scaffold/canonical
+```
+
+### Rollback Steps
+
+```bash
+# Set mode back to off and restart
+export CANONICAL_DATA_MODE=off
+```
+
+### What internal_primary Means
+
+- Public `/api/data` **still serves legacy data** (unchanged)
+- Canonical snapshot loads and comparison runs automatically
+- `/api/scaffold/canonical` serves canonical player values for internal testing
+- `/api/scaffold/shadow` shows comparison report
+- `/api/scaffold/mode` shows current mode status
+
+---
+
+## Internal Primary: 9/9 Hard Checks Pass
 
 | Check | Required | Actual | Status |
 |-------|----------|--------|--------|
 | Source count >= 4 | 4 | **14** | PASS |
-| Top-50 overlap >= 70% | 70% | **72%** | **PASS** |
-| Top-100 overlap >= 65% | 65% | **81%** | **PASS** |
-| Tier agreement >= 50% | 50% | **56.8%** | **PASS** |
-| Avg |delta| <= 1500 | 1500 | **988** | **PASS** |
+| Top-50 overlap >= 70% | 70% | **72%** | PASS |
+| Top-100 overlap >= 65% | 65% | **81%** | PASS |
+| Tier agreement >= 50% | 50% | **56.8%** | PASS |
+| Avg |delta| <= 1500 | 1500 | **988** | PASS |
 | Sample size >= 500 | 500 | 838 | PASS |
 | Multi-source blend >= 40% | 40% | 54% | PASS |
 | IDP sources >= 2 | 2 | 5 | PASS |
-| Weights tuned | Yes | Yes (v4) | PASS |
-| Tests pass | Yes | 351 pass | PASS (manual) |
+| Weights tuned | Yes | v4 | PASS |
+| Tests pass | Yes | 372 pass | PASS (manual) |
 
-**All hard metric thresholds now pass. The canonical system can be promoted to internal_primary when the founder is ready.**
+## Public Primary: 6/12 Pass (NOT READY)
 
-### Public Primary: NOT READY (6/12 pass)
-
-| Check | Required | Actual | Status |
-|-------|----------|--------|--------|
-| Top-50 overlap >= 80% | 80% | 72% | FAIL (-8%) |
-| Tier agreement >= 65% | 65% | 56.8% | FAIL (-8.2%) |
-| Avg delta <= 800 | 800 | 988 | FAIL (+188) |
-| Multi-source blend >= 60% | 60% | 54% | FAIL (-6%) |
-| Founder approval | Yes | No | FAIL |
-
-### What Changed This Phase
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Position coverage | 64.7% | **77.1%** | +19% |
-| Scarcity-adjusted | 797 | **952** | +19% |
-| Offense top-50 (players) | 54% | **72%** | **+33%** |
-| Offense top-100 (players) | — | **81%** | New metric |
-| Offense tier agreement | 40.0% | **56.8%** | **+42%** |
-| Offense avg delta | 1436 | **988** | **-31%** |
-| Internal-primary passes | 7/10 | **9/10** | +2 (all hard checks pass) |
+| Check | Required | Actual | Gap |
+|-------|----------|--------|-----|
+| Top-50 overlap >= 80% | 80% | 72% | -8% |
+| Tier agreement >= 65% | 65% | 56.8% | -8.2% |
+| Avg delta <= 800 | 800 | 988 | +188 |
+| Multi-source blend >= 60% | 60% | 54% | -6% |
+| Founder approval | Yes | No | — |
 
 ---
 
-_All comparison metrics now use offense_players_only view (excludes picks). 351 tests pass._
+_372 tests pass. All comparison metrics use offense_players_only view._

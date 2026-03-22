@@ -18,7 +18,13 @@ from src.canonical.calibration import (
     PICK_CEILING,
     DEFAULT_SCALE,
     _is_pick,
+    _parse_pick_info,
+    _pick_curve_value,
+    LEGACY_PICK_ROUND_CURVE,
 )
+
+
+LEGACY_PATH = REPO / "data" / "legacy_data_2026-03-10.json"
 
 
 def _make_assets(universe: str, values: list[int], names: list[str] | None = None) -> list[dict]:
@@ -66,21 +72,8 @@ class TestCalibration:
         assert cal_vals == sorted(cal_vals, reverse=True)
 
 
-class TestPickCeiling:
-    def test_picks_capped(self):
-        assets = _make_assets(
-            "offense_vet", [9999, 9500, 9000],
-            names=["2026 Pick 1.01", "2026 Early 1st", "Real Player"]
-        )
-        result = calibrate_canonical_values(assets)
-        pick1 = [a for a in result if "Pick 1.01" in a["display_name"]][0]
-        player = [a for a in result if "Real Player" in a["display_name"]][0]
-
-        assert pick1["calibrated_value"] <= PICK_CEILING
-        # The player should not be capped
-        assert player["calibrated_value"] > 0
-
-    def test_is_pick_detection(self):
+class TestPickDetection:
+    def test_is_pick(self):
         assert _is_pick({"display_name": "2026 Pick 1.01"}) is True
         assert _is_pick({"display_name": "2026 Early 1st"}) is True
         assert _is_pick({"display_name": "Early 1st"}) is True
@@ -89,6 +82,82 @@ class TestPickCeiling:
         assert _is_pick({"display_name": "2027 2nd"}) is True
         assert _is_pick({"display_name": "Patrick Mahomes"}) is False
         assert _is_pick({"display_name": "T.J. Watt"}) is False
+
+
+class TestPickParsing:
+    def test_specific_pick(self):
+        info = _parse_pick_info("2026 Pick 1.01")
+        assert info["year"] == 2026
+        assert info["round"] == 1
+        assert info["slot"] == 1
+
+    def test_tiered_pick(self):
+        info = _parse_pick_info("2027 Early 1st")
+        assert info["year"] == 2027
+        assert info["round"] == 1
+        assert info["tier"] == "early"
+
+    def test_bare_year_round(self):
+        info = _parse_pick_info("2026 1st")
+        assert info["year"] == 2026
+        assert info["round"] == 1
+
+    def test_no_year(self):
+        info = _parse_pick_info("Mid 2nd")
+        assert info["year"] is None
+        assert info["round"] == 2
+        assert info["tier"] == "mid"
+
+
+class TestPickCurveValue:
+    def test_round_1_value(self):
+        val = _pick_curve_value({"round": 1})
+        assert 5000 < val < 8000
+
+    def test_early_tier_boost(self):
+        early = _pick_curve_value({"round": 1, "tier": "early"})
+        mid = _pick_curve_value({"round": 1})
+        assert early > mid
+
+    def test_late_tier_discount(self):
+        late = _pick_curve_value({"round": 1, "tier": "late"})
+        mid = _pick_curve_value({"round": 1})
+        assert late < mid
+
+    def test_future_year_discount(self):
+        current = _pick_curve_value({"year": 2026, "round": 1})
+        future = _pick_curve_value({"year": 2028, "round": 1})
+        assert future < current
+
+    def test_round_ordering(self):
+        vals = [_pick_curve_value({"round": r}) for r in range(1, 7)]
+        assert vals == sorted(vals, reverse=True)
+
+
+class TestPickCalibrationWithLegacy:
+    def test_direct_legacy_match(self):
+        if not LEGACY_PATH.exists():
+            pytest.skip("No legacy data")
+        assets = [
+            {"display_name": "2026 Pick 1.01", "blended_value": 9999,
+             "universe": "offense_vet", "source_values": {"KTC": 9999}},
+        ]
+        result = calibrate_canonical_values(assets, legacy_path=LEGACY_PATH)
+        pick = result[0]
+        # Should match legacy value of 7311
+        assert pick["calibrated_value"] == 7311
+        assert pick["_pick_calibration_source"] == "legacy_direct"
+
+    def test_round_curve_fallback(self):
+        assets = [
+            {"display_name": "2030 Early 1st", "blended_value": 5000,
+             "universe": "offense_vet", "source_values": {"KTC": 5000}},
+        ]
+        result = calibrate_canonical_values(assets)
+        pick = result[0]
+        assert pick["_pick_calibration_source"] == "round_curve"
+        # Future year should be discounted
+        assert pick["calibrated_value"] < LEGACY_PICK_ROUND_CURVE[1]
 
 
 class TestNonFantasyCeiling:
@@ -124,11 +193,9 @@ class TestCalibrationDistribution:
         assert elite_pct < 20
 
     def test_idp_has_no_elite(self):
-        """IDP scale of 5000 means no one reaches elite tier (>=7000)."""
         values = list(range(9999, 5000, -50))
         assets = _make_assets("idp_vet", values)
         result = calibrate_canonical_values(assets)
-
         for a in result:
             assert a["calibrated_value"] <= UNIVERSE_SCALES["idp_vet"]
 
@@ -138,7 +205,8 @@ class TestCalibrationParams:
         params = get_calibration_params()
         assert "exponent" in params
         assert "universe_scales" in params
-        assert "pick_ceiling" in params
+        assert "pick_calibration" in params
+        assert "pick_round_curve" in params
         assert params["exponent"] == CALIBRATION_EXPONENT
 
     def test_custom_scales(self):

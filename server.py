@@ -1864,6 +1864,76 @@ async def get_scaffold_shadow():
     return JSONResponse(content=shadow_comparison_report)
 
 
+@app.get("/api/scaffold/canonical")
+async def get_scaffold_canonical():
+    """Return canonical pipeline data for internal evaluation.
+
+    Only available when CANONICAL_DATA_MODE=internal_primary.
+    This is the internal-primary endpoint: it serves canonical values
+    for testing/evaluation without affecting the public /api/data path.
+
+    Returns the latest canonical snapshot with all enrichment, scarcity,
+    and calibration applied.
+    """
+    if CANONICAL_DATA_MODE != "internal_primary":
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "Canonical data endpoint not available",
+                "detail": f"CANONICAL_DATA_MODE={CANONICAL_DATA_MODE}, must be 'internal_primary'",
+                "public_data": "/api/data (always serves legacy)",
+            },
+        )
+    if canonical_data is None:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "No canonical snapshot loaded. Run the canonical pipeline first."},
+        )
+    # Build a lightweight player-values response (not the full snapshot)
+    assets = canonical_data.get("assets", [])
+    player_values = {}
+    for a in assets:
+        name = a.get("display_name", "")
+        if not name:
+            continue
+        player_values[name] = {
+            "calibrated_value": a.get("calibrated_value"),
+            "blended_value": a.get("blended_value"),
+            "scarcity_adjusted_value": a.get("scarcity_adjusted_value"),
+            "universe": a.get("universe", ""),
+            "source_count": len(a.get("source_values", {})),
+            "position": (a.get("metadata") or {}).get("position"),
+        }
+    return JSONResponse(content={
+        "mode": CANONICAL_DATA_MODE,
+        "source_count": canonical_data.get("source_count", 0),
+        "asset_count": canonical_data.get("asset_count", 0),
+        "loaded_at": canonical_data_loaded_at,
+        "run_id": canonical_data.get("run_id", ""),
+        "calibration": canonical_data.get("calibration"),
+        "enrichment_summary": canonical_data.get("enrichment_summary"),
+        "scarcity_summary": canonical_data.get("scarcity_summary"),
+        "player_count": len(player_values),
+        "players": player_values,
+        "_note": "This is internal-primary data for evaluation only. Public API at /api/data still serves legacy values.",
+    })
+
+
+@app.get("/api/scaffold/mode")
+async def get_scaffold_mode():
+    """Return current canonical data mode and status."""
+    return JSONResponse(content={
+        "canonical_data_mode": CANONICAL_DATA_MODE,
+        "canonical_loaded": canonical_data is not None,
+        "canonical_loaded_at": canonical_data_loaded_at,
+        "canonical_asset_count": len(canonical_data.get("assets", [])) if canonical_data else 0,
+        "shadow_comparison_available": shadow_comparison_report is not None,
+        "public_api_serves": "legacy (always, regardless of mode)",
+        "internal_api_available": CANONICAL_DATA_MODE == "internal_primary",
+        "rollback": "Set CANONICAL_DATA_MODE=off and restart to revert",
+    })
+
+
 @app.get("/api/scaffold/validation")
 async def get_scaffold_validation():
     ingest_file = _latest_file(DATA_DIR / "validation", "ingest_validation_*.json")

@@ -158,7 +158,7 @@ def main() -> int:
     calibration_params = None
     try:
         from src.canonical.calibration import calibrate_canonical_values, get_calibration_params
-        asset_dicts = calibrate_canonical_values(asset_dicts)
+        asset_dicts = calibrate_canonical_values(asset_dicts, legacy_path=legacy_file)
         calibration_params = get_calibration_params()
         cal_vals = [a.get("calibrated_value", 0) for a in asset_dicts if a.get("calibrated_value") is not None]
         if cal_vals:
