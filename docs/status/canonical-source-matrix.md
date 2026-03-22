@@ -1,231 +1,210 @@
 # Canonical Pipeline — Source Integration Matrix
 
-_Generated: 2026-03-21_
-_Context: Execution map for integrating legacy scraper sources into the canonical pipeline._
+_Updated: 2026-03-22_
+_Previous version: 2026-03-21_
+_Context: Current-state matrix of all sources relevant to the canonical pipeline._
 
 ---
 
-## 1. Source-by-Source Matrix
+## 1. What Has Changed Since Last Version
+
+The previous matrix (2026-03-21) was a planning document. Since then:
+
+- **ScraperBridgeAdapter built** — `src/adapters/scraper_bridge_adapter.py` is functional with 21 tests
+- **FantasyCalc enabled** — Active in config, producing 452 player records via scraper bridge
+- **2-source blending validated** — 264 offense_vet assets now blend DLF_SF + FANTASYCALC
+- **Canonical snapshot produced** — `data/canonical/canonical_snapshot_*.json` with 747 assets across 4 universes
+- **Shadow comparison wired** — `server.py` can load the snapshot in `CANONICAL_DATA_MODE=shadow`
+
+This revision reflects **ground truth as of 2026-03-22**, not aspirations.
+
+---
+
+## 2. Source-by-Source Matrix
 
 ### Legend
 
 | Column | Meaning |
 |--------|---------|
-| **Legacy Scraper** | Does `Dynasty Scraper.py` fetch this source? |
-| **Canonical Adapter** | Does `src/adapters/` have a working adapter? |
-| **Adapter Status** | `functional` / `stub` / `placeholder` / `absent` |
-| **Identity Handling** | Can `src/identity/matcher.py` resolve players from this source? |
-| **Blending Ready** | Can `src/canonical/transform.py` consume it today? |
-| **Safest Input Path** | Lowest-risk way to get data into the canonical pipeline |
-| **Missing Tests** | What test coverage gaps exist for this source |
-| **Priority** | `P1` (next) / `P2` (soon) / `P3` (later) / `P4` (defer) |
-
----
+| **Legacy Scraper** | Does `Dynasty Scraper.py` scrape this source? |
+| **Scraper Export Exists** | Is a CSV present in `exports/latest/site_raw/`? |
+| **Canonical Adapter** | Which adapter would consume it? |
+| **Adapter Status** | `active` / `ready` / `stub` / `placeholder` |
+| **Currently Blending** | Is this source in the latest canonical snapshot? |
+| **Signal Type** | `value` (higher=better) or `rank` (lower=better) |
+| **Tests** | Test coverage status |
+| **Next Action** | What needs to happen for this source |
 
 ### Offense — Veteran Universe
 
-| Source | Legacy Scraper | Canonical Adapter | Adapter Status | Identity Handling | Blending Ready | Safest Input Path | Missing Tests | Priority |
-|--------|---------------|-------------------|----------------|-------------------|----------------|-------------------|---------------|----------|
-| **DLF Superflex** | Yes — local CSV | `dlf_csv_adapter.py` | **Functional** | Yes — name+team+pos | Yes — rank_raw signal | `dlf_superflex.csv` seed | Covered (Phase A) | **Done** |
-| **KTC** | Yes — API intercept + DOM | `ktc_stub_adapter.py` | **Stub** (seed CSV only) | Yes — same matcher | Yes if enabled | Scraper export `exports/latest/site_raw/ktc.csv` | No adapter tests | **P1** |
-| **FantasyCalc** | Yes — JSON API | None | **Absent** | Yes — same matcher | No — needs adapter | Scraper export `exports/latest/site_raw/fantasyCalc.csv` (453 rows, `name,value` format) | N/A | **P1** |
-| **DynastyDaddy** | Yes — API intercept | None | **Absent** | Yes — same matcher | No — needs adapter | Scraper export `site_raw/dynastyDaddy.csv` | N/A | **P2** |
-| **FantasyPros** | Yes — article scrape | None | **Absent** | Yes — same matcher | No — needs adapter | Scraper export `site_raw/fantasyPros.csv` | N/A | **P3** |
-| **DraftSharks** | Yes — API + scroll | None | **Absent** | Yes — same matcher | No — needs adapter | Scraper export `site_raw/draftSharks.csv` | N/A | **P3** |
-| **Yahoo** | Yes — article scrape | None | **Absent** | Yes — same matcher | No — needs adapter | Scraper export `site_raw/yahoo.csv` | N/A | **P3** |
-| **DynastyNerds** | Yes — table scrape (paywalled) | None | **Absent** | Yes — same matcher | No — needs adapter | Scraper export `site_raw/dynastyNerds.csv` | N/A | **P4** |
-| **Flock** | Yes — session-based API | None | **Absent** | Yes — same matcher | No — needs adapter | Scraper export `site_raw/flock.csv` | N/A | **P4** |
+| Source | Legacy Scraper | Export Exists | Canonical Adapter | Adapter Status | Currently Blending | Signal | Tests | Next Action |
+|--------|:-:|:-:|---|---|:-:|---|---|---|
+| **DLF Superflex** | Yes | Yes (279 rows) | `DlfCsvAdapter` | **Active** | **Yes** | rank_avg | 25+ tests | None — done |
+| **FantasyCalc** | Yes | **Yes** (453 rows) | `ScraperBridgeAdapter` | **Active** | **Yes** | value | 21 tests | None — done |
+| **KTC** | Yes | **No** | `ScraperBridgeAdapter` | **Ready** (needs CSV) | No | value | Covered by bridge tests | **P1**: Need scraper to export `ktc.csv` |
+| **DynastyDaddy** | Yes | **No** | `ScraperBridgeAdapter` | **Ready** (needs CSV) | No | value | Covered by bridge tests | **P2**: Need scraper to export `dynastyDaddy.csv` |
+| **Yahoo** | Yes | **No** | `ScraperBridgeAdapter` | **Ready** (needs CSV) | No | value | Covered by bridge tests | **P3**: Need scraper to export `yahoo.csv` |
+| **FantasyPros** | Yes | **No** | `ScraperBridgeAdapter` | **Ready** (needs CSV) | No | value | Covered by bridge tests | **P3**: Need scraper to export `fantasyPros.csv` |
+| **DraftSharks** | Yes | **No** | `ScraperBridgeAdapter` | **Ready** (needs CSV) | No | **rank** | Covered by bridge tests | **P3**: Need scraper to export + rank signal |
+| **DynastyNerds** | Yes (paywalled) | **No** | `ScraperBridgeAdapter` | **Ready** (needs CSV) | No | **rank** | Covered by bridge tests | **P4**: Unreliable upstream |
+| **Flock** | Yes (session) | **No** | `ScraperBridgeAdapter` | **Ready** (needs CSV) | No | **rank** | Covered by bridge tests | **P4**: Session expires frequently |
 
-### IDP Universe
+### IDP — Veteran Universe
 
-| Source | Legacy Scraper | Canonical Adapter | Adapter Status | Identity Handling | Blending Ready | Safest Input Path | Missing Tests | Priority |
-|--------|---------------|-------------------|----------------|-------------------|----------------|-------------------|---------------|----------|
-| **DLF IDP** | Yes — local CSV | `dlf_csv_adapter.py` | **Functional** | Yes | Yes | `dlf_idp.csv` seed | Covered (Phase A) | **Done** |
-| **IDPTradeCalc** | Yes — Google Sheets + JS | None | **Absent** | Yes — same matcher | No — needs adapter | Scraper export `site_raw/idpTradeCalc.csv` | N/A | **P2** |
-| **PFF IDP** | Yes — article scrape | None | **Absent** | Yes — same matcher | No — needs adapter | Scraper export `site_raw/pffIdp.csv` (rank-based) | N/A | **P3** |
-| **DraftSharks IDP** | Yes — table scrape | None | **Absent** | Yes — same matcher | No — needs adapter | Scraper export `site_raw/draftSharksIdp.csv` | N/A | **P3** |
-| **FantasyPros IDP** | Yes — table + ECR | None | **Absent** | Yes — same matcher | No — needs adapter | Scraper export `site_raw/fantasyProsIdp.csv` (rank-based) | N/A | **P3** |
+| Source | Legacy Scraper | Export Exists | Canonical Adapter | Adapter Status | Currently Blending | Signal | Tests | Next Action |
+|--------|:-:|:-:|---|---|:-:|---|---|---|
+| **DLF IDP** | Yes | Yes (186 rows) | `DlfCsvAdapter` | **Active** | **Yes** (single-source) | rank_avg | 25+ tests | None — done |
+| **IDPTradeCalc** | Yes | **No** | `ScraperBridgeAdapter` | **Ready** (needs CSV) | No | value | Covered by bridge tests | **P2**: Only non-DLF IDP source |
+| **PFF IDP** | Yes | **No** | `ScraperBridgeAdapter` | **Ready** (needs CSV) | No | **rank** | Covered by bridge tests | **P4**: Often fails in scraper |
+| **DraftSharks IDP** | Yes | **No** | `ScraperBridgeAdapter` | **Ready** (needs CSV) | No | value | Covered by bridge tests | **P4**: Low marginal signal |
+| **FantasyPros IDP** | Yes | **No** | `ScraperBridgeAdapter` | **Ready** (needs CSV) | No | **rank** | Covered by bridge tests | **P4**: Low marginal signal |
 
-### Rookie Universe
+### Rookie Universes
 
-| Source | Legacy Scraper | Canonical Adapter | Adapter Status | Identity Handling | Blending Ready | Safest Input Path | Missing Tests | Priority |
-|--------|---------------|-------------------|----------------|-------------------|----------------|-------------------|---------------|----------|
-| **DLF Rookie SF** | Yes — local CSV | `dlf_csv_adapter.py` | **Functional** | Yes | Yes | `dlf_rookie_superflex.csv` seed | Covered (Phase A) | **Done** |
-| **DLF Rookie IDP** | Yes — local CSV | `dlf_csv_adapter.py` | **Functional** | Yes | Yes | `dlf_rookie_idp.csv` seed | Covered (Phase A) | **Done** |
+| Source | Legacy Scraper | Export Exists | Canonical Adapter | Adapter Status | Currently Blending | Signal | Tests | Next Action |
+|--------|:-:|:-:|---|---|:-:|---|---|---|
+| **DLF Rookie SF** | Yes | Yes (67 rows) | `DlfCsvAdapter` | **Active** | **Yes** (single-source) | rank_avg | 25+ tests | None — done |
+| **DLF Rookie IDP** | Yes | Yes (31 rows) | `DlfCsvAdapter` | **Active** | **Yes** (single-source) | rank_avg | 25+ tests | None — done |
 
 ---
 
-## 2. Scraper Export Bridge — The Key Insight
-
-The legacy scraper already writes per-site CSVs to `exports/latest/site_raw/{key}.csv` in a simple `name,value` format. This is the **safest, zero-new-scraping path** for getting additional sources into the canonical pipeline:
+## 3. Current Pipeline State (Measured)
 
 ```
-Legacy Scraper (production)
+Sources in canonical pipeline:  5  (DLF_SF, DLF_IDP, DLF_RSF, DLF_RIDP, FANTASYCALC)
+Raw records ingested:          1011
+Canonical assets produced:      747
+Multi-source blended assets:    264 (35.3%) — all in offense_vet
+Single-source assets:           483 (64.7%) — IDP + rookies (DLF only)
+
+Blend coverage by universe:
+  offense_vet:    264/466 (56.7%) — DLF_SF + FANTASYCALC
+  idp_vet:          0/185 (0%)   — DLF_IDP only
+  offense_rookie:   0/66  (0%)   — DLF_RSF only
+  idp_rookie:       0/30  (0%)   — DLF_RIDP only
+```
+
+---
+
+## 4. Adapter Architecture (Implemented)
+
+```
+Legacy Scraper (production, live)
   │
-  ├── exports/latest/site_raw/ktc.csv          (name, value)
-  ├── exports/latest/site_raw/fantasyCalc.csv  (name, value) ← 453 rows
-  ├── exports/latest/site_raw/dynastyDaddy.csv (name, value)
-  ├── exports/latest/site_raw/fantasyPros.csv  (name, value)
+  ├── exports/latest/site_raw/fantasyCalc.csv ← 453 rows (ACTIVE)
+  ├── exports/latest/site_raw/ktc.csv         ← NOT YET EXPORTED
+  ├── exports/latest/site_raw/dynastyDaddy.csv ← NOT YET EXPORTED
   └── ...
          │
          ▼
-  New "scraper-bridge" adapter reads these CSVs
+  ScraperBridgeAdapter (src/adapters/scraper_bridge_adapter.py)
+    ├── signal_type="value"  → stores value_raw (higher=better)
+    └── signal_type="rank"   → stores rank_raw  (lower=better)
          │
          ▼
-  Canonical pipeline blends them
+  source_pull.py → canonical_build.py → data/canonical/
 ```
 
-**Critical**: This path does NOT require new website scraping. The legacy scraper already does the scraping. We just need an adapter that reads its CSV output.
+Adding a new source requires **only a config entry** — no new adapter code:
 
-### Scraper Export Format
-
-All site_raw CSVs share a common format:
-```csv
-name,value
-Patrick Mahomes,9050
-Josh Allen,8800
-...
+```json
+{
+  "enabled": true,
+  "source": "DYNASTYDADDY",
+  "adapter": "scraper_bridge",
+  "universe": "offense_vet",
+  "file": "exports/latest/site_raw/dynastyDaddy.csv",
+  "signal_type": "value"
+}
 ```
 
-- **Value-based sites**: Higher = better (KTC, FantasyCalc, DynastyDaddy, Yahoo, IDPTradeCalc)
-- **Rank-based sites**: Lower = better (DynastyNerds, PFF IDP, FantasyPros IDP, DraftSharks, Flock)
-
-The existing `KtcStubAdapter` already handles `name,value` CSV format. A generalized "scraper bridge" adapter could handle ALL exported sites.
+Plus a weight entry in `config/weights/default_weights.json`.
 
 ---
 
-## 3. Recommended Integration Order
+## 5. Recommended Integration Order
 
-### Phase B1: KTC + FantasyCalc (next — enables meaningful 3-source blending)
+### Completed: DLF (4 universes) + FantasyCalc
 
-| Step | Action | Rationale |
-|------|--------|-----------|
-| B1.1 | **Promote KTC stub to read scraper export** | Change `ktc_stub_adapter.py` to read `exports/latest/site_raw/ktc.csv` instead of a manual seed. Already mostly works — adapter reads `name,value` CSV. |
-| B1.2 | **Build `ScraperBridgeAdapter`** (or adapt KTC stub to be generic) | A single adapter that reads any `name,value` CSV from scraper exports. Parameterized by source_id, universe, and whether the signal is rank-based or value-based. |
-| B1.3 | **Add FantasyCalc config** | Point ScraperBridgeAdapter at `exports/latest/site_raw/fantasyCalc.csv`. FantasyCalc has the cleanest API data (JSON API, no scraping fragility) and already exports 453 players. |
-| B1.4 | **Enable KTC + FantasyCalc in source config** | Add entries to `dlf_sources.template.json` with appropriate weights. |
-| B1.5 | **Validate 3-source blend** | Run canonical pipeline with DLF + KTC + FantasyCalc. Verify blending math produces sensible 0–9999 output. |
-| B1.6 | **Write tests for ScraperBridgeAdapter** | Cover: value-based signal, rank-based signal, missing file, empty rows, name normalization. |
+Already active. 264 blended assets in offense_vet.
 
-**Why FantasyCalc first (alongside KTC)**:
-- Cleanest data: JSON API with no scraping fragility
-- Already has the largest export (453 rows)
-- Value-based signal (same as KTC) — no rank-inversion complexity
-- No credentials needed
-- One of the highest-signal sources in the legacy composite
+### Phase B2: KTC + DynastyDaddy (next — expand offense_vet depth)
 
-### Phase B2: DynastyDaddy + IDPTradeCalc (soon — adds IDP depth)
+| Source | Why Now | Blocker | Action Required |
+|--------|---------|---------|-----------------|
+| **KTC** | Highest-signal source in the legacy composite. Same `name,value` format. | Scraper not exporting `ktc.csv` in current run | Ensure legacy scraper exports `site_raw/ktc.csv`; add config entry |
+| **DynastyDaddy** | Second-highest-signal value source. API-based in legacy scraper. | Scraper not exporting `dynastyDaddy.csv` in current run | Same as KTC |
 
-| Step | Action | Rationale |
-|------|--------|-----------|
-| B2.1 | **Add DynastyDaddy config** | Point ScraperBridgeAdapter at `site_raw/dynastyDaddy.csv`. Value-based, no special handling. |
-| B2.2 | **Add IDPTradeCalc config** | Point at `site_raw/idpTradeCalc.csv`. Value-based. Only source in legacy that covers both offense + IDP in a single map. |
-| B2.3 | **Validate 5-source blend** | DLF + KTC + FantasyCalc + DynastyDaddy + IDPTradeCalc. |
+**Expected result**: 3-4 source blending for offense_vet. Higher confidence composite values.
 
-**Why IDPTradeCalc in Phase B2**: It's the only non-DLF source providing IDP values. Without it, IDP blending has only 1 source.
+**What blocks this is not adapter code** — the ScraperBridgeAdapter already handles both. The blocker is that the legacy scraper's last run did not export these CSVs (it exported only DLF + FantasyCalc in the current `exports/latest/site_raw/` directory). When the scraper next runs successfully with KTC and DynastyDaddy, their CSVs will appear and the pipeline will ingest them automatically.
 
-### Phase B3: FantasyPros + DraftSharks + Yahoo (later — incremental coverage)
+### Phase B3: IDPTradeCalc (soon — first multi-source IDP)
 
-| Source | Notes |
-|--------|-------|
-| **FantasyPros** | Article-based scraping; data sometimes spotty. Add when 5-source blend is validated. |
-| **DraftSharks** | Rank-based signal. Adapter needs rank-inversion (lower rank → higher canonical score). |
-| **Yahoo** | Article discovery is fragile in legacy scraper. Worth adding but low marginal signal. |
+| Source | Why | Blocker | Action Required |
+|--------|-----|---------|-----------------|
+| **IDPTradeCalc** | Only non-DLF IDP source. Without it, idp_vet has 0% multi-source blending. | Scraper not exporting `idpTradeCalc.csv` | Config entry + weight. Note: IDPTradeCalc covers both offense+IDP in a single CSV — will need universe assignment decision. |
 
-### Phase B4: Defer — DynastyNerds + Flock + PFF IDP (not now)
+**Expected result**: First multi-source IDP values. Currently idp_vet is 100% DLF-only.
+
+### Phase B4: FantasyPros + DraftSharks + Yahoo (later — incremental)
+
+| Source | Signal Type | Notes |
+|--------|-------------|-------|
+| **FantasyPros** | value | Article-based, sometimes spotty in legacy scraper |
+| **DraftSharks** | **rank** | First rank-based source to test that signal path end-to-end |
+| **Yahoo** | value | Fragile article discovery; low marginal signal |
+
+**Expected result**: 6-7 source blending for offense_vet. Rank-based signal path validated.
+
+### Phase B5: Defer — DynastyNerds + Flock + PFF IDP + IDP secondaries
 
 | Source | Why Defer |
 |--------|-----------|
-| **DynastyNerds** | Paywalled. Requires session credentials. Scraper data quality varies. Wait until Phase B1-B3 sources prove the adapter pattern. |
-| **Flock** | Session-based, expires frequently. Low reliability. |
+| **DynastyNerds** | Paywalled. Session-dependent. Scraper data quality varies. |
+| **Flock** | Session expires frequently. Unreliable upstream. |
 | **PFF IDP** | Often fails in legacy scraper. Rank-based with fragile article discovery. |
-| **DraftSharks IDP** | Lower priority — IDPTradeCalc covers IDP values. |
-| **FantasyPros IDP** | Lower priority — DLF IDP + IDPTradeCalc sufficient for MVP. |
+| **DraftSharks IDP** | IDPTradeCalc covers the IDP need. Low marginal value. |
+| **FantasyPros IDP** | DLF IDP + IDPTradeCalc sufficient for MVP. |
 
 ---
 
-## 4. Blockers by Source
+## 6. Blockers (Current)
 
-| Source | Blocker | Severity | Resolution |
-|--------|---------|----------|------------|
-| **KTC** | Stub adapter is disabled in config; no pointer to scraper export | Low | Update config + file path |
-| **FantasyCalc** | No adapter exists | Medium | Build ScraperBridgeAdapter (reusable for all) |
-| **DynastyDaddy** | No adapter exists | Medium | Same ScraperBridgeAdapter |
-| **IDPTradeCalc** | No adapter exists; mixed offense+IDP in single CSV | Medium | ScraperBridgeAdapter + universe splitting logic |
-| **FantasyPros** | No adapter; data quality variable | Low | ScraperBridgeAdapter once validated |
-| **DraftSharks** | No adapter; rank-based signal needs inversion | Low | ScraperBridgeAdapter with `signal_type=rank` |
-| **Yahoo** | No adapter; fragile article discovery in legacy | Low | ScraperBridgeAdapter |
-| **DynastyNerds** | No adapter; paywalled; session required | Medium | Wait — scraper handles session, export works if scrape succeeds |
-| **Flock** | No adapter; session expires frequently | High | Unreliable upstream — defer |
-| **PFF IDP** | No adapter; often fails in legacy scraper | High | Unreliable upstream — defer |
-| **ALL sources** | Source weights are all 1.0 — founder decision needed | **Blocking** | Founder must set relative weights before production use |
-| **ALL sources** | `server.py` does not consume canonical output | **Blocking** | Phase D wiring required before any of this reaches production |
+| Blocker | Scope | Severity | Resolution Path |
+|---------|-------|----------|-----------------|
+| **Missing scraper CSVs** | KTC, DynastyDaddy, IDPTradeCalc, all P3/P4 sources | **Primary** | Wait for legacy scraper to run with these sites succeeding, or manually trigger scrape |
+| **Source weights all 1.0** | All sources | Medium | Founder decision needed. Equal weights are functional but not tuned. |
+| **server.py not consuming canonical output** | All sources | Medium | Shadow mode wired; primary mode requires Phase D work |
+| **No position/team data from bridge sources** | FantasyCalc, all future bridge sources | Low | Identity matcher falls to name-only (0.85 confidence). Functional but lower precision. |
+| **FantasyCalc picks in offense_vet** | FantasyCalc | Low | FantasyCalc CSV includes "2026 1st", "2026 Pick 1.01" etc. These get asset_type=player since bridge adapter doesn't classify picks. Future enhancement to detect pick names. |
 
 ---
 
-## 5. Architecture: ScraperBridgeAdapter (Recommended)
+## 7. Test Coverage
 
-Rather than writing N separate adapters, build one generic adapter:
-
-```python
-class ScraperBridgeAdapter:
-    """Reads per-site CSV exports from the legacy scraper."""
-
-    def __init__(
-        self,
-        source_id: str,
-        source_bucket: str,    # offense_vet, idp_vet, etc.
-        signal_type: str,      # "value" (higher=better) or "rank" (lower=better)
-        format_key: str = "dynasty_sf",
-    ): ...
-
-    def load(self, file_path: Path) -> AdapterResult:
-        # Reads name,value CSV
-        # Normalizes names
-        # Sets rank_raw or value_raw based on signal_type
-        ...
-```
-
-**Why one adapter, not many**:
-- All scraper exports share the same `name,value` format
-- Differences are only: source_id, universe, and whether signal is rank vs value
-- Fewer adapters = less code to test and maintain
-- New sources just need a config entry, not new code
-
----
-
-## 6. What This Does NOT Cover
-
-- **No new website scraping** — all sources come through the legacy scraper's existing exports
-- **No production wiring** — `server.py` changes are Phase D, not Phase B
-- **No weight tuning** — founder decision (blocked)
-- **No IDP-specific scarcity/replacement math** — Phase C (league engine)
-- **No pick/draft capital integration** — separate concern (FantasyCalc exports include picks, but pick handling needs its own adapter path)
-
----
-
-## 7. Test Coverage Gaps by Source
-
-| Source | Existing Tests | Needed |
-|--------|---------------|--------|
-| DLF (all 4 universes) | 25+ tests (Phase A complete) | Sufficient for now |
-| KTC stub | **None** | Need: seed CSV load, missing file, empty rows, value+rank signals, name normalization |
-| ScraperBridgeAdapter | **N/A (doesn't exist)** | Need: value-based signal, rank-based signal, missing file, empty rows, name normalization, signal_type validation |
-| Identity with multi-source | 14+ tests (Phase A complete) | Need: cross-source same-player merge with value+rank signals |
-| Canonical blend with 3+ sources | 2 tests (Phase A) | Need: 3+ source blend validation, source weight sensitivity, universe isolation |
+| Component | Tests | Status |
+|-----------|-------|--------|
+| DlfCsvAdapter | 25+ | Complete |
+| ScraperBridgeAdapter | 21 | Complete — covers value/rank signals, edge cases, real FantasyCalc CSV |
+| KtcStubAdapter | 0 | Not needed if bridge adapter replaces it for production use |
+| Canonical transform | 40+ | Complete |
+| Identity matcher | 28+ | Complete |
+| Snapshot integration | 14 | Complete — covers pipeline→snapshot→comparison block |
+| Multi-source blending | Covered in transform tests | 2+ source scenarios tested |
 
 ---
 
 ## 8. Decision Log
 
-| Decision | Rationale |
-|----------|-----------|
-| Use scraper exports, not new scraping | Zero new scraping risk. Legacy scraper already works. Bridge adapter just reads its output. |
-| FantasyCalc before DynastyDaddy | Cleaner API data, largest export, highest reliability in legacy scraper. |
-| IDPTradeCalc in Phase B2 | Only non-DLF IDP source. Critical for IDP blending depth. |
-| Defer DynastyNerds/Flock/PFF | Unreliable upstream scraping. Low marginal signal vs fragility risk. |
-| One ScraperBridgeAdapter, not N adapters | All exports share format. Config-driven is simpler. |
-| Rank-based sources need explicit signal_type | DraftSharks, DynastyNerds, PFF use rank (lower=better). Adapter must invert for canonical scoring. |
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-03-21 | Use scraper exports, not new scraping | Zero scraping risk. Legacy scraper handles all website interaction. |
+| 2026-03-21 | One ScraperBridgeAdapter for all export sources | All scraper CSVs share `name,value` format. Config-driven, not code-driven. |
+| 2026-03-21 | FantasyCalc as first bridge source | Cleanest data (JSON API), largest export (453 rows), already present in exports. |
+| 2026-03-22 | KTC + DynastyDaddy as next priority | Highest-signal value sources. Blocked only by missing scraper CSVs, not by code. |
+| 2026-03-22 | IDPTradeCalc for first multi-source IDP | Only non-DLF IDP source available. Critical for IDP blending confidence. |
+| 2026-03-22 | Defer DynastyNerds/Flock/PFF | Unreliable upstream. Low marginal signal vs fragility. |
 
 ---
 

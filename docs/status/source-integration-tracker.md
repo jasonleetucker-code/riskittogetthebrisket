@@ -1,61 +1,86 @@
 # Source Integration Tracker
 
-_Generated: 2026-03-14_
+_Updated: 2026-03-22_
+_Previous version: 2026-03-14_
 
-This document tracks the status of every value source that the platform intends to support.
+This document tracks the factual status of every value source in the canonical pipeline.
 
 ---
 
-## Active Sources
+## Active Sources (in canonical pipeline)
 
-| Source | Adapter | Config | Pipeline Status | Production Status | Notes |
-|--------|---------|--------|----------------|-------------------|-------|
-| DLF Superflex | `src/adapters/dlf_csv_adapter.py` | Enabled in `dlf_sources.template.json` | Runs in Jenkins via `source_pull.py` | **Seed CSV only** — adapter output not consumed by `server.py` | Fully functional adapter with fallback parsing. Uses `dlf_superflex.csv` seed. |
-| DLF IDP | Same adapter | Enabled | Runs in Jenkins | **Seed CSV only** | Uses `dlf_idp.csv` seed. |
-| DLF Rookie Superflex | Same adapter | Enabled | Runs in Jenkins | **Seed CSV only** | Uses `dlf_rookie_superflex.csv` seed. |
-| DLF Rookie IDP | Same adapter | Enabled | Runs in Jenkins | **Seed CSV only** | Uses `dlf_rookie_idp.csv` seed. |
+| Source | Adapter | Config | Blending | Records | Universe | Signal |
+|--------|---------|--------|:--------:|--------:|----------|--------|
+| DLF Superflex | `DlfCsvAdapter` | Enabled | **Yes** | 278 | offense_vet | rank_avg |
+| DLF IDP | `DlfCsvAdapter` | Enabled | Yes (single) | 185 | idp_vet | rank_avg |
+| DLF Rookie SF | `DlfCsvAdapter` | Enabled | Yes (single) | 66 | offense_rookie | rank_avg |
+| DLF Rookie IDP | `DlfCsvAdapter` | Enabled | Yes (single) | 30 | idp_rookie | rank_avg |
+| FantasyCalc | `ScraperBridgeAdapter` | Enabled | **Yes** | 452 | offense_vet | value |
 
-## Stubbed / Disabled Sources
+**Multi-source blending**: 264 assets in offense_vet are blended across DLF_SF + FANTASYCALC.
 
-| Source | Adapter | Config | Status | Blocker |
-|--------|---------|--------|--------|---------|
-| KTC (KeepTradeCut) | `src/adapters/ktc_stub_adapter.py` | **Disabled** (`"enabled": false`) | Stub reads seed CSVs only; no live scraping | Needs live scraping implementation or reliable seed pipeline |
-| Manual CSV | `src/adapters/manual_csv_adapter.py` | Not configured | Placeholder — returns empty results | Needs implementation |
+## Ready Sources (adapter exists, awaiting scraper CSV export)
 
-## Planned Sources (No Implementation)
+These sources can be activated with a config entry only — no adapter code needed.
 
-| Source | Priority | Blueprint Reference | Notes |
-|--------|----------|-------------------|-------|
-| Dynasty Nerds | Medium | Blueprint §1 mentions multi-source | Would strengthen offense + rookie coverage |
-| Yahoo Fantasy | Medium | Implied by multi-source strategy | No adapter, no config |
-| IDPTradeCalc | Medium | Implied by IDP emphasis | Would strengthen IDP value coverage |
+| Source | Adapter | Signal Type | Export File Expected | Status |
+|--------|---------|-------------|---------------------|--------|
+| KTC | `ScraperBridgeAdapter` | value | `exports/latest/site_raw/ktc.csv` | **CSV not present** — scraper last run did not export it |
+| DynastyDaddy | `ScraperBridgeAdapter` | value | `exports/latest/site_raw/dynastyDaddy.csv` | CSV not present |
+| Yahoo | `ScraperBridgeAdapter` | value | `exports/latest/site_raw/yahoo.csv` | CSV not present |
+| FantasyPros | `ScraperBridgeAdapter` | value | `exports/latest/site_raw/fantasyPros.csv` | CSV not present |
+| DraftSharks | `ScraperBridgeAdapter` | rank | `exports/latest/site_raw/draftSharks.csv` | CSV not present |
+| IDPTradeCalc | `ScraperBridgeAdapter` | value | `exports/latest/site_raw/idpTradeCalc.csv` | CSV not present |
+| DynastyNerds | `ScraperBridgeAdapter` | rank | `exports/latest/site_raw/dynastyNerds.csv` | CSV not present |
+| Flock | `ScraperBridgeAdapter` | rank | `exports/latest/site_raw/flock.csv` | CSV not present |
+| PFF IDP | `ScraperBridgeAdapter` | rank | `exports/latest/site_raw/pffIdp.csv` | CSV not present |
+| DraftSharks IDP | `ScraperBridgeAdapter` | value | `exports/latest/site_raw/draftSharksIdp.csv` | CSV not present |
+| FantasyPros IDP | `ScraperBridgeAdapter` | rank | `exports/latest/site_raw/fantasyProsIdp.csv` | CSV not present |
+
+## Disabled / Superseded Sources
+
+| Source | Adapter | Status | Notes |
+|--------|---------|--------|-------|
+| KTC_STUB | `KtcStubAdapter` | Disabled in config | Superseded by ScraperBridgeAdapter for KTC data |
+| Manual CSV | `ManualCsvAdapter` | Placeholder | Returns empty results; not implemented |
 
 ## Legacy Source (Production)
 
 | Source | Status | Notes |
 |--------|--------|-------|
-| `Dynasty Scraper.py` multi-source scrape | **LIVE** — sole production data source | Scrapes multiple sites via Selenium/requests. Output consumed by `server.py` as `dynasty_data_*.json`. This is what actually powers the site today. |
+| `Dynasty Scraper.py` | **LIVE** — sole production data source | Scrapes 11+ sites. Output consumed by `server.py` as `dynasty_data_*.json`. Exports per-site CSVs to `exports/latest/site_raw/` for bridge adapter consumption. |
 
 ---
 
 ## Key Metrics
 
-- **Sources with working adapters**: 1 (DLF CSV — covers 4 universes)
-- **Sources active in pipeline**: 4 DLF universes (seed CSV only, output not in production)
-- **Sources in production**: 1 (legacy scraper only)
-- **Sources needed for meaningful blending**: minimum 2 (DLF + KTC)
+- **Adapters available**: 4 (`DlfCsvAdapter`, `KtcStubAdapter`, `ManualCsvAdapter`, `ScraperBridgeAdapter`)
+- **Sources active in pipeline**: 5 (4 DLF + 1 FantasyCalc)
+- **Sources with multi-source blending**: 1 universe (offense_vet: DLF_SF + FANTASYCALC)
+- **Sources ready but awaiting CSV**: 11 (all legacy scraper sites not currently exporting)
+- **Sources in production** (live on website): 0 — canonical pipeline output not yet consumed by `server.py` in primary mode
+- **Shadow comparison**: Wired — `CANONICAL_DATA_MODE=shadow` attaches canonical values to `/api/data` payload
 
-## What "Production" Means
+## What "Active in Pipeline" Means
+
+A source is "active in the canonical pipeline" when:
+1. Its adapter runs in `scripts/source_pull.py`
+2. Records appear in `data/raw_sources/raw_source_snapshot_*.json`
+3. Values appear in `data/canonical/canonical_snapshot_*.json`
+
+FantasyCalc and all 4 DLF sources meet these criteria.
+
+## What "In Production" Means
 
 A source is "in production" only when:
-1. Its adapter runs in the canonical pipeline
-2. The canonical pipeline output is consumed by `server.py`
+1. Active in the canonical pipeline (above)
+2. Canonical pipeline output consumed by `server.py` in primary mode
 3. Values from that source appear in the frontend
 
-Currently **zero** new-engine sources meet all three criteria. All live data comes from the legacy scraper.
+Currently **zero** canonical sources meet all three criteria. The shadow comparison path is wired but only serves comparison data, not authoritative values.
 
 ## Next Steps
 
-1. **Enable KTC** — either implement live scraping or establish reliable seed CSV workflow
-2. **Set source weights** — founder decision needed (currently all 1.0)
-3. **Wire canonical output to `server.py`** — without this, no new-engine source reaches production
+1. **Get more scraper CSVs** — The primary blocker is that the latest scraper run only exported DLF + FantasyCalc CSVs. When KTC/DynastyDaddy/etc. exports appear, adding them is config-only.
+2. **Set source weights** — Founder decision needed (currently all 1.0).
+3. **Phase D: Wire canonical → server.py primary mode** — Required before any canonical source reaches production.
