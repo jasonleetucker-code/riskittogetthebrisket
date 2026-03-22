@@ -2021,11 +2021,17 @@ async def post_trade_suggestions(request: Request):
     """Generate trade suggestions for a given roster.
 
     Accepts JSON body:
-        { "roster": ["Josh Allen", "Bijan Robinson", ...] }
+        {
+          "roster": ["Josh Allen", "Bijan Robinson", ...],
+          "league_rosters": [                              // optional
+            {"team_name": "Team A", "players": ["Player1", ...]},
+            ...
+          ]
+        }
 
     Requires canonical data to be loaded. Returns roster analysis
-    and categorized trade suggestions (sell-high, buy-low,
-    consolidation, positional upgrades).
+    and categorized trade suggestions with market-edge signals
+    and optional opponent-fit labels.
     """
     if canonical_data is None:
         return JSONResponse(
@@ -2046,10 +2052,15 @@ async def post_trade_suggestions(request: Request):
 
     from src.trade.suggestions import generate_suggestions
 
+    league_rosters = body.get("league_rosters")
+    if league_rosters is not None and not isinstance(league_rosters, list):
+        league_rosters = None
+
     try:
         result = generate_suggestions(
             roster_names=roster,
             canonical_snapshot=canonical_data,
+            league_rosters=league_rosters,
         )
     except Exception as e:
         log.error(f"Trade suggestion generation failed: {e}")

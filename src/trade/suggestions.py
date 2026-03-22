@@ -1,14 +1,18 @@
-"""Trade suggestion engine v1.
+"""Trade suggestion engine v2.
 
 Given a roster, canonical values, and league context, generates actionable
 trade suggestions: sell-high, buy-low, consolidation, positional upgrades.
+
+v2 adds:
+- Market-disagreement signals (source CV, edge detection)
+- Opponent-aware filtering (bilateral roster fit when league rosters provided)
 
 Design principles:
 - Deterministic: same inputs → same outputs
 - Roster-aware: understands positional surplus and need
 - Value-aware: uses canonical display values for fairness
 - League-aware: uses replacement baselines for scarcity
-- No opponent data required: works from market values only
+- Signal-honest: only flags edges when supported by data
 
 The engine does NOT modify any internal canonical values or calibration.
 """
@@ -46,6 +50,10 @@ MAX_SUGGESTIONS_PER_TYPE = 8
 # Consolidation: the upgrade target must be worth at least this fraction
 # of the combined depth pieces
 CONSOLIDATION_MIN_UPGRADE_RATIO = 0.70
+
+# Market-disagreement thresholds
+HIGH_DISPERSION_CV = 0.12   # CV above this = sources disagree meaningfully
+LOW_DISPERSION_CV = 0.04    # CV below this = strong consensus
 
 # Position aliases for normalization
 _POS_ALIASES: dict[str, str] = {
@@ -99,6 +107,67 @@ class TradeSuggestion:
     strategy: str  # "contender", "rebuilder", "neutral"
 
 
+# ── Market-disagreement helpers ──────────────────────────────────────
+
+def _compute_cv(values: list[float]) -> float | None:
+    """Coefficient of variation: std / mean. None if < 2 values or mean is 0."""
+    if len(values) < 2:
+        return None
+    mean = sum(values) / len(values)
+    if mean <= 0:
+        return None
+    var = sum((v - mean) ** 2 for v in values) / len(values)
+    return math.sqrt(var) / mean
+
+
+def _edge_for_suggestion(s: TradeSuggestion) -> tuple[str | None, str | None]:
+    """Determine if a suggestion has a market edge signal.
+
+    Returns (edge_type, explanation) or (None, None).
+    Edge types: "market_discount", "market_premium", "high_dispersion"
+    """
+    give_cvs = [p.dispersion_cv for p in s.give if p.dispersion_cv is not None]
+    recv_cvs = [p.dispersion_cv for p in s.receive if p.dispersion_cv is not None]
+
+    # High dispersion on the receive side = potential buy-low (market hasn't settled)
+    if recv_cvs and max(recv_cvs) >= HIGH_DISPERSION_CV:
+        target = max(s.receive, key=lambda p: p.dispersion_cv or 0)
+        if s.gap < 0:  # I'm getting more value than I'm giving
+            return (
+                "market_discount",
+                f"Sources disagree on {target.name} (CV {target.dispersion_cv:.0%}) — "
+                f"potential buy-low if the higher sources are right.",
+            )
+        return (
+            "high_dispersion",
+            f"Sources disagree on {target.name} (CV {target.dispersion_cv:.0%}) — "
+            f"value is less certain than usual.",
+        )
+
+    # Low dispersion on what I'm giving, high on what I'm getting
+    if give_cvs and recv_cvs:
+        give_avg_cv = sum(give_cvs) / len(give_cvs)
+        recv_avg_cv = sum(recv_cvs) / len(recv_cvs)
+        if give_avg_cv <= LOW_DISPERSION_CV and recv_avg_cv >= HIGH_DISPERSION_CV * 0.8:
+            return (
+                "market_premium",
+                f"You're moving a consensus-stable asset for one where sources disagree — "
+                f"your side has lower pricing risk.",
+            )
+
+    # High dispersion on what I'm giving = potential sell-high
+    if give_cvs and max(give_cvs) >= HIGH_DISPERSION_CV:
+        seller = max(s.give, key=lambda p: p.dispersion_cv or 0)
+        if s.gap > 0:
+            return (
+                "market_premium",
+                f"Sources disagree on {seller.name} (CV {seller.dispersion_cv:.0%}) — "
+                f"selling before the market corrects down could be smart.",
+            )
+
+    return (None, None)
+
+
 # ── Core engine ──────────────────────────────────────────────────────
 
 def _norm_pos(pos: str) -> str:
@@ -122,16 +191,23 @@ def build_asset_pool(canonical_snapshot: dict[str, Any]) -> list[PlayerAsset]:
             dv = to_display_value(cv)
         meta = a.get("metadata", {}) or {}
         pos = _norm_pos(str(meta.get("position", "") or ""))
+
+        # Compute source dispersion CV
+        source_values = a.get("source_values", {})
+        sv_list = [float(v) for v in source_values.values() if v is not None] if isinstance(source_values, dict) else []
+        dispersion = _compute_cv(sv_list)
+
         pool.append(PlayerAsset(
             name=name,
             position=pos,
             display_value=int(dv),
             calibrated_value=int(cv),
-            source_count=len(a.get("source_values", {})),
+            source_count=len(sv_list),
             team=str(meta.get("team", "") or ""),
             rookie=bool(meta.get("rookie", False)),
             years_exp=meta.get("years_exp"),
             universe=str(a.get("universe", "")),
+            dispersion_cv=round(dispersion, 4) if dispersion is not None else None,
         ))
     pool.sort(key=lambda x: -x.display_value)
     return pool
@@ -145,7 +221,6 @@ def analyze_roster(
     """Analyze a roster for positional surplus and need."""
     needs = starter_needs or DEFAULT_STARTER_NEEDS
 
-    # Match roster names to assets
     pool_by_name: dict[str, PlayerAsset] = {}
     for a in asset_pool:
         key = a.name.lower().strip()
@@ -162,11 +237,9 @@ def analyze_roster(
         matched += 1
         by_position.setdefault(a.position, []).append(a)
 
-    # Sort each position by value descending
     for pos in by_position:
         by_position[pos].sort(key=lambda x: -x.display_value)
 
-    # Compute surplus/need
     surplus_positions: list[str] = []
     need_positions: list[str] = []
     starter_counts: dict[str, int] = {}
@@ -204,7 +277,6 @@ def _fairness_label(gap: int) -> str:
 
 
 def _strategy_for_player(player: PlayerAsset) -> str:
-    """Infer whether a player is a contender or rebuilder asset."""
     if player.rookie or (player.years_exp is not None and player.years_exp <= 2):
         return "rebuilder"
     if player.years_exp is not None and player.years_exp >= 8:
@@ -220,6 +292,60 @@ def _confidence_from_sources(source_count: int) -> str:
     return "low"
 
 
+# ── Opponent-aware helpers ───────────────────────────────────────────
+
+def _analyze_opponent_rosters(
+    league_rosters: list[dict[str, Any]],
+    asset_pool: list[PlayerAsset],
+) -> dict[str, RosterAnalysis]:
+    """Analyze all opponent rosters for need/surplus."""
+    pool_by_name: dict[str, PlayerAsset] = {}
+    for a in asset_pool:
+        pool_by_name[a.name.lower().strip()] = a
+
+    result: dict[str, RosterAnalysis] = {}
+    for roster_entry in league_rosters:
+        team_name = str(roster_entry.get("team_name", roster_entry.get("owner", ""))).strip()
+        if not team_name:
+            continue
+        players = roster_entry.get("players", [])
+        if not isinstance(players, list) or not players:
+            continue
+        analysis = analyze_roster(players, asset_pool)
+        result[team_name] = analysis
+    return result
+
+
+def _opponent_fit_label(
+    suggestion: TradeSuggestion,
+    opponent_analyses: dict[str, RosterAnalysis],
+) -> str | None:
+    """Find which opponents would benefit from the player I'm giving away.
+
+    Returns a human-readable fit description or None.
+    """
+    give_positions = {p.position for p in suggestion.give}
+    receive_positions = {p.position for p in suggestion.receive}
+
+    fitting_teams: list[str] = []
+    for team_name, analysis in opponent_analyses.items():
+        # Opponent needs what I'm giving
+        opp_needs_my_give = any(pos in analysis.need_positions for pos in give_positions)
+        # Opponent has surplus at what I'm receiving (they can afford to trade it)
+        opp_surplus_my_recv = any(pos in analysis.surplus_positions for pos in receive_positions)
+
+        if opp_needs_my_give and opp_surplus_my_recv:
+            fitting_teams.append(team_name)
+        elif opp_needs_my_give:
+            fitting_teams.append(team_name)
+
+    if not fitting_teams:
+        return None
+    if len(fitting_teams) == 1:
+        return f"Strong bilateral fit: {fitting_teams[0]} needs {', '.join(give_positions)} and could deal."
+    return f"Potential trade partners ({len(fitting_teams)}): {', '.join(fitting_teams[:3])}"
+
+
 # ── Suggestion generators ───────────────────────────────────────────
 
 def _generate_sell_high(
@@ -227,7 +353,6 @@ def _generate_sell_high(
     asset_pool: list[PlayerAsset],
     roster_names_set: set[str],
 ) -> list[TradeSuggestion]:
-    """Find sell-high candidates: surplus-position veterans with high value."""
     suggestions: list[TradeSuggestion] = []
 
     for pos in roster.surplus_positions:
@@ -235,15 +360,12 @@ def _generate_sell_high(
         if len(players) < 2:
             continue
         need = DEFAULT_STARTER_NEEDS.get(pos, 1)
-        # Sell candidates: depth pieces (ranked after starters) with decent value
         sell_candidates = [p for p in players[need:] if p.display_value >= MIN_RELEVANT_VALUE]
         if not sell_candidates:
             continue
 
         for sell in sell_candidates[:3]:
-            # Find buy targets at need positions
             for need_pos in roster.need_positions:
-                # Find a target near sell value
                 targets = [
                     a for a in asset_pool
                     if a.position == need_pos
@@ -253,7 +375,6 @@ def _generate_sell_high(
                 ]
                 if not targets:
                     continue
-                # Best target: closest in value, slight underpay preferred
                 targets.sort(key=lambda t: abs(t.display_value - sell.display_value))
                 target = targets[0]
                 gap = sell.display_value - target.display_value
@@ -281,18 +402,13 @@ def _generate_buy_low(
     asset_pool: list[PlayerAsset],
     roster_names_set: set[str],
 ) -> list[TradeSuggestion]:
-    """Find buy-low targets: need-position players slightly below roster depth value."""
     suggestions: list[TradeSuggestion] = []
 
-    # For each need position, find targets that could be acquired cheaply
     for need_pos in roster.need_positions:
-        # What is my current best asset at this position?
         current = roster.by_position.get(need_pos, [])
-        # I want targets better than what I have
         current_best = current[0].display_value if current else 0
         target_floor = max(MIN_RELEVANT_VALUE, current_best)
 
-        # Targets: above my current best, available on market
         targets = [
             a for a in asset_pool
             if a.position == need_pos
@@ -302,7 +418,6 @@ def _generate_buy_low(
         if not targets:
             continue
 
-        # For each target, find what I could trade from surplus
         for target in targets[:5]:
             for surplus_pos in roster.surplus_positions:
                 depth = roster.by_position.get(surplus_pos, [])
@@ -327,7 +442,6 @@ def _generate_buy_low(
                             strategy="neutral",
                         ))
 
-    # Deduplicate by target name, keep best fairness
     seen: dict[str, TradeSuggestion] = {}
     for s in suggestions:
         key = s.receive[0].name
@@ -342,10 +456,8 @@ def _generate_consolidation(
     asset_pool: list[PlayerAsset],
     roster_names_set: set[str],
 ) -> list[TradeSuggestion]:
-    """Find 2-for-1 consolidation trades: combine depth into a difference-maker."""
     suggestions: list[TradeSuggestion] = []
 
-    # Collect all tradeable depth pieces across surplus positions
     tradeable: list[PlayerAsset] = []
     for pos in roster.surplus_positions:
         players = roster.by_position.get(pos, [])
@@ -358,7 +470,6 @@ def _generate_consolidation(
     if len(tradeable) < 2:
         return []
 
-    # Try pairs of depth pieces
     tried: set[str] = set()
     for i in range(min(len(tradeable), 6)):
         for j in range(i + 1, min(len(tradeable), 8)):
@@ -369,11 +480,9 @@ def _generate_consolidation(
                 continue
             tried.add(pair_key)
 
-            # Find a single upgrade target worth the package
             min_target = int(combined * CONSOLIDATION_MIN_UPGRADE_RATIO)
             max_target = combined + FAIRNESS_TOLERANCE
 
-            # Prefer need-position targets
             for prefer_need in [True, False]:
                 targets = [
                     a for a in asset_pool
@@ -403,7 +512,7 @@ def _generate_consolidation(
                     confidence=_confidence_from_sources(target.source_count),
                     strategy="contender" if target.display_value >= 7000 else "neutral",
                 ))
-                break  # One target per pair is enough
+                break
 
     suggestions.sort(key=lambda s: -s.receive_total)
     return suggestions[:MAX_SUGGESTIONS_PER_TYPE]
@@ -414,7 +523,6 @@ def _generate_positional_upgrades(
     asset_pool: list[PlayerAsset],
     roster_names_set: set[str],
 ) -> list[TradeSuggestion]:
-    """Find same-position upgrades: trade a starter + sweetener for a better starter."""
     suggestions: list[TradeSuggestion] = []
 
     for pos in DEFAULT_STARTER_NEEDS:
@@ -425,15 +533,13 @@ def _generate_positional_upgrades(
         if need < 1:
             continue
 
-        # Current starter range
         starters = players[:need]
         depth = [p for p in players[need:] if p.display_value >= MIN_RELEVANT_VALUE]
         if not starters or not depth:
             continue
 
-        # For the weakest starter, find an upgrade target
         weakest_starter = starters[-1]
-        upgrade_floor = weakest_starter.display_value + 500  # meaningful upgrade
+        upgrade_floor = weakest_starter.display_value + 500
 
         targets = [
             a for a in asset_pool
@@ -445,16 +551,13 @@ def _generate_positional_upgrades(
             continue
 
         for target in targets[:3]:
-            # Trade weakest starter + a depth piece from any surplus
             gap_needed = target.display_value - weakest_starter.display_value
-            # Find a sweetener
             sweeteners = [
                 p for p in depth
                 if p.name != weakest_starter.name
                 and abs(p.display_value - gap_needed) < FAIRNESS_TOLERANCE
             ]
             if not sweeteners:
-                # Try any surplus depth piece
                 for sp in roster.surplus_positions:
                     sp_depth = roster.by_position.get(sp, [])
                     sp_need = DEFAULT_STARTER_NEEDS.get(sp, 1)
@@ -497,7 +600,6 @@ def _find_balancers(
     roster_names_set: set[str],
     exclude_names: set[str],
 ) -> list[PlayerAsset]:
-    """Find assets that could balance a trade gap."""
     if abs(gap) < 256:
         return []
     target_value = abs(gap)
@@ -520,6 +622,7 @@ def generate_suggestions(
     *,
     starter_needs: dict[str, int] | None = None,
     max_per_type: int = MAX_SUGGESTIONS_PER_TYPE,
+    league_rosters: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Generate trade suggestions for a given roster.
 
@@ -528,6 +631,8 @@ def generate_suggestions(
         canonical_snapshot: Full canonical snapshot with assets.
         starter_needs: Override positional starter needs.
         max_per_type: Max suggestions per category.
+        league_rosters: Optional list of opponent rosters for bilateral fit.
+            Each entry: {"team_name": "...", "players": ["name1", "name2", ...]}
 
     Returns:
         Dict with suggestion categories, roster analysis, and metadata.
@@ -541,14 +646,27 @@ def generate_suggestions(
     consolidation = _generate_consolidation(roster, pool, roster_set)
     upgrades = _generate_positional_upgrades(roster, pool, roster_set)
 
-    # Add balancers to suggestions with non-even fairness
+    # Phase 3: Opponent-aware analysis (if league rosters provided)
+    opponent_analyses: dict[str, RosterAnalysis] = {}
+    if league_rosters:
+        opponent_analyses = _analyze_opponent_rosters(league_rosters, pool)
+
+    # Add edge signals, balancers, and opponent fit
     all_suggestions = sell_high + buy_low + consolidation + upgrades
     for s in all_suggestions:
+        # Phase 2: Market-disagreement edge
+        edge, explanation = _edge_for_suggestion(s)
+        s.__dict__["edge"] = edge
+        s.__dict__["edge_explanation"] = explanation
+
+        # Balancers for non-even trades
         if s.fairness != "even":
             exclude = {p.name.lower() for p in s.give + s.receive}
-            s_balancers = _find_balancers(s.gap, pool, roster_set, exclude)
-            # Store on the suggestion object (we'll serialize later)
-            s.__dict__["balancers"] = s_balancers
+            s.__dict__["balancers"] = _find_balancers(s.gap, pool, roster_set, exclude)
+
+        # Phase 3: Opponent fit
+        if opponent_analyses:
+            s.__dict__["opponent_fit"] = _opponent_fit_label(s, opponent_analyses)
 
     return {
         "rosterAnalysis": _serialize_roster(roster),
@@ -562,6 +680,8 @@ def generate_suggestions(
             "rosterMatched": roster.roster_size,
             "rosterProvided": len(roster_names),
             "starterNeeds": starter_needs or DEFAULT_STARTER_NEEDS,
+            "opponentRostersProvided": len(league_rosters) if league_rosters else 0,
+            "opponentRostersAnalyzed": len(opponent_analyses),
         },
     }
 
@@ -569,13 +689,16 @@ def generate_suggestions(
 # ── Serializers ──────────────────────────────────────────────────────
 
 def _serialize_player(p: PlayerAsset) -> dict[str, Any]:
-    return {
+    result: dict[str, Any] = {
         "name": p.name,
         "position": p.position,
         "displayValue": p.display_value,
         "team": p.team,
         "rookie": p.rookie,
     }
+    if p.dispersion_cv is not None:
+        result["dispersionCV"] = p.dispersion_cv
+    return result
 
 
 def _serialize_suggestion(s: TradeSuggestion) -> dict[str, Any]:
@@ -595,6 +718,13 @@ def _serialize_suggestion(s: TradeSuggestion) -> dict[str, Any]:
     balancers = s.__dict__.get("balancers", [])
     if balancers:
         result["suggestedBalancers"] = [_serialize_player(b) for b in balancers]
+    edge = s.__dict__.get("edge")
+    if edge:
+        result["edge"] = edge
+        result["edgeExplanation"] = s.__dict__.get("edge_explanation", "")
+    opponent_fit = s.__dict__.get("opponent_fit")
+    if opponent_fit:
+        result["opponentFit"] = opponent_fit
     return result
 
 

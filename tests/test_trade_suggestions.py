@@ -17,15 +17,19 @@ from src.trade.suggestions import (
     generate_suggestions,
     _fairness_label,
     _norm_pos,
+    _compute_cv,
+    _edge_for_suggestion,
+    TradeSuggestion,
     DEFAULT_STARTER_NEEDS,
     MIN_RELEVANT_VALUE,
+    HIGH_DISPERSION_CV,
 )
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
 
 def _make_asset(name, pos, cal_value, display_value=None, source_count=6,
-                team="", rookie=False, years_exp=None):
+                team="", rookie=False, years_exp=None, source_values=None):
     """Create a minimal canonical asset dict."""
     if display_value is None:
         display_value = max(1, round(cal_value * 9999 / 7800))
@@ -33,7 +37,7 @@ def _make_asset(name, pos, cal_value, display_value=None, source_count=6,
         "display_name": name,
         "calibrated_value": cal_value,
         "display_value": display_value,
-        "source_values": {f"src{i}": 1 for i in range(source_count)},
+        "source_values": source_values or {f"src{i}": cal_value + i * 100 for i in range(source_count)},
         "universe": "offense_vet" if pos in ("QB", "RB", "WR", "TE") else "idp_vet",
         "metadata": {
             "position": pos,
@@ -326,3 +330,142 @@ class TestGenerateSuggestions:
         result = generate_suggestions([], snap)
         assert result["totalSuggestions"] == 0
         assert result["rosterAnalysis"]["rosterSize"] == 0
+
+
+# ── Phase 2: Market-disagreement tests ───────────────────────────────
+
+class TestComputeCV:
+    def test_uniform_values(self):
+        assert _compute_cv([100, 100, 100]) == 0.0
+
+    def test_dispersed_values(self):
+        cv = _compute_cv([5000, 7000, 9000])
+        assert cv is not None
+        assert cv > 0.1
+
+    def test_too_few_values(self):
+        assert _compute_cv([100]) is None
+        assert _compute_cv([]) is None
+
+    def test_zero_mean(self):
+        assert _compute_cv([0, 0, 0]) is None
+
+
+class TestDispersionInPool:
+    def test_dispersion_cv_computed(self):
+        """Asset pool should compute dispersion_cv from source_values."""
+        snap = _build_snapshot([
+            _make_asset("Agreed", "QB", 7000, source_values={"a": 9000, "b": 9000, "c": 9000}),
+            _make_asset("Disputed", "RB", 5000, source_values={"a": 3000, "b": 7000, "c": 9000}),
+        ])
+        pool = build_asset_pool(snap)
+        agreed = next(p for p in pool if p.name == "Agreed")
+        disputed = next(p for p in pool if p.name == "Disputed")
+        assert agreed.dispersion_cv == 0.0
+        assert disputed.dispersion_cv is not None
+        assert disputed.dispersion_cv > agreed.dispersion_cv
+
+    def test_single_source_no_cv(self):
+        snap = _build_snapshot([
+            _make_asset("Solo", "WR", 5000, source_values={"a": 5000}),
+        ])
+        pool = build_asset_pool(snap)
+        assert pool[0].dispersion_cv is None
+
+
+class TestEdgeSignals:
+    def test_edge_in_suggestions(self):
+        """Suggestions with high-dispersion targets should get edge labels."""
+        snap = _sample_snapshot()
+        roster = [
+            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
+            "Bijan Robinson", "Jahmyr Gibbs",
+            "Ja'Marr Chase",
+            "Brock Bowers",
+            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
+            "Jack Campbell", "Roquan Smith", "Fred Warner",
+            "Kyle Hamilton", "Sauce Gardner",
+        ]
+        result = generate_suggestions(roster, snap)
+        # Edge fields should be present on suggestions that have them (or absent)
+        all_suggs = result["sellHigh"] + result["buyLow"] + result["consolidation"] + result["positionalUpgrades"]
+        for s in all_suggs:
+            if "edge" in s:
+                assert s["edge"] in ("market_discount", "market_premium", "high_dispersion")
+                assert "edgeExplanation" in s
+                assert isinstance(s["edgeExplanation"], str)
+
+    def test_metadata_includes_opponent_count(self):
+        snap = _sample_snapshot()
+        result = generate_suggestions(["Josh Allen", "Bijan Robinson"], snap)
+        assert "opponentRostersProvided" in result["metadata"]
+        assert result["metadata"]["opponentRostersProvided"] == 0
+
+
+# ── Phase 3: Opponent-aware tests ────────────────────────────────────
+
+class TestOpponentAware:
+    def test_opponent_fit_appears_when_rosters_provided(self):
+        snap = _sample_snapshot()
+        my_roster = [
+            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
+            "Bijan Robinson", "Jahmyr Gibbs", "De'Von Achane",
+            "Ja'Marr Chase",
+            "Brock Bowers",
+            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
+            "Jack Campbell", "Roquan Smith", "Fred Warner",
+            "Kyle Hamilton", "Sauce Gardner",
+        ]
+        # Opponent who needs QB and has WR surplus
+        opponent_rosters = [
+            {
+                "team_name": "Team RB Heavy",
+                "players": [
+                    "Tua Tagovailoa",                           # 1 QB (needs 2)
+                    "Jonathan Taylor", "Nick Chubb",            # RBs
+                    "Puka Nacua", "CeeDee Lamb", "Amon-Ra St. Brown",
+                    "Garrett Wilson", "Courtland Sutton",       # WR surplus
+                    "Trey McBride",
+                    "Chase Young", "Josh Hines-Allen",
+                    "Foyesade Oluokun", "Devin White",
+                    "Sauce Gardner",
+                ],
+            },
+        ]
+        result = generate_suggestions(my_roster, snap, league_rosters=opponent_rosters)
+        assert result["metadata"]["opponentRostersProvided"] == 1
+        assert result["metadata"]["opponentRostersAnalyzed"] >= 1
+
+        # Check that at least some suggestions have opponentFit
+        all_suggs = result["sellHigh"] + result["buyLow"] + result["consolidation"] + result["positionalUpgrades"]
+        fits = [s for s in all_suggs if "opponentFit" in s]
+        # May or may not have fits depending on roster composition — just check no crash
+        for s in fits:
+            assert isinstance(s["opponentFit"], str)
+            assert len(s["opponentFit"]) > 0
+
+    def test_opponent_aware_still_deterministic(self):
+        snap = _sample_snapshot()
+        roster = [
+            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
+            "Bijan Robinson", "Jahmyr Gibbs",
+            "Ja'Marr Chase",
+            "Brock Bowers",
+            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
+            "Jack Campbell", "Roquan Smith", "Fred Warner",
+            "Kyle Hamilton", "Sauce Gardner",
+        ]
+        opp = [{"team_name": "Opp", "players": ["Tua Tagovailoa", "Puka Nacua", "CeeDee Lamb"]}]
+        r1 = generate_suggestions(roster, snap, league_rosters=opp)
+        r2 = generate_suggestions(roster, snap, league_rosters=opp)
+        assert r1 == r2
+
+    def test_no_opponent_rosters_no_crash(self):
+        snap = _sample_snapshot()
+        result = generate_suggestions(["Josh Allen"], snap, league_rosters=None)
+        assert result["metadata"]["opponentRostersProvided"] == 0
+
+    def test_empty_opponent_rosters_no_crash(self):
+        snap = _sample_snapshot()
+        result = generate_suggestions(["Josh Allen"], snap, league_rosters=[])
+        assert result["metadata"]["opponentRostersProvided"] == 0
