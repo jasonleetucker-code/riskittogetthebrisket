@@ -2824,7 +2824,7 @@
           <span class="edit-btn" onclick="showOnboarding()" title="Change account">✏️</span>
         </div>
         <input type="file" id="jsonFileInput" accept=".json" style="display:none" onchange="handleJsonLoad(event)">
-        <button class="btn btn-sm" onclick="document.getElementById('jsonFileInput').click()" id="loadDataBtn">📊 Update Values</button>
+        <button class="btn btn-sm" onclick="triggerScrape()" id="loadDataBtn">🔄 Refresh Values</button>
         <button class="btn btn-ghost btn-sm" onclick="swapSides()" title="Swap Side A ↔ Side B">⇄ Swap</button>
         <button class="btn btn-ghost btn-sm" onclick="clearPlayers()">⟳ Clear</button>
         <button class="btn btn-ghost btn-sm" onclick="logoutJasonSession()">Logout</button>

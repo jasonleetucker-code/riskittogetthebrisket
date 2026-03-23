@@ -39,13 +39,14 @@
       ensureHardcodedLeagueProfile();
     }
 
-    // If on server, swap button to refresh
-    if (serverMode) {
+    // If offline (standalone mode), swap button to file-upload fallback
+    if (!serverMode) {
       const btn = document.getElementById('loadDataBtn');
       if (btn) {
-        btn.textContent = '🔄 Refresh Values';
-        btn.onclick = (e) => { e.preventDefault(); triggerScrape(); };
+        btn.textContent = '📊 Update Values';
+        btn.onclick = () => document.getElementById('jsonFileInput').click();
       }
+    } else {
       // Poll status every 60s
       setInterval(updateServerStatus, 60000);
     }
