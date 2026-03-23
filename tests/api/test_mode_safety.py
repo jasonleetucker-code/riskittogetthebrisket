@@ -96,9 +96,6 @@ class TestPromotionReadiness:
 
     def test_all_hard_checks_pass(self):
         """Run actual readiness checks and verify all hard checks pass."""
-        comp_dir = REPO / "data" / "comparison"
-        if not any(comp_dir.glob("comparison_batch_*.json")) if comp_dir.exists() else True:
-            pytest.skip("No comparison_batch artifact available (data pipeline not run)")
         from scripts.check_promotion_readiness import check_internal_primary_readiness
         results = check_internal_primary_readiness(REPO)
         hard_fails = [r for r in results if r.get("pass") is False]
