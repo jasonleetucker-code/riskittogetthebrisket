@@ -22,10 +22,14 @@ from src.trade.suggestions import (
     _norm_pos,
     _compute_cv,
     _edge_for_suggestion,
+    _apply_quality_filters,
     TradeSuggestion,
     DEFAULT_STARTER_NEEDS,
     MIN_RELEVANT_VALUE,
     HIGH_DISPERSION_CV,
+    MAX_GIVE_PLAYER_APPEARANCES,
+    MAX_RECEIVE_TARGET_PER_CATEGORY,
+    MAX_LOW_CONFIDENCE_PER_CATEGORY,
 )
 
 
@@ -653,4 +657,174 @@ class TestRankingInOutput:
         opp = [{"team_name": "Opp", "players": ["Tua Tagovailoa", "Puka Nacua", "CeeDee Lamb"]}]
         r1 = generate_suggestions(roster, snap, league_rosters=opp)
         r2 = generate_suggestions(roster, snap, league_rosters=opp)
+        assert r1 == r2
+
+
+# ── Phase 5: Quality filter tests ────────────────────────────────────
+
+class TestQualityFilters:
+    def test_consolidation_stretches_removed(self):
+        """Consolidation suggestions with fairness='stretch' should be suppressed."""
+        s_even = _make_suggestion(fairness="even")
+        s_even.type = "consolidation"
+        s_stretch = _make_suggestion(fairness="stretch", give_name="Player C", recv_name="Player D")
+        s_stretch.type = "consolidation"
+        s_lean = _make_suggestion(fairness="lean", give_name="Player E", recv_name="Player F")
+        s_lean.type = "consolidation"
+
+        result = _apply_quality_filters({
+            "sell_high": [],
+            "buy_low": [],
+            "consolidation": [s_even, s_stretch, s_lean],
+            "positional_upgrade": [],
+        })
+        consol = result["consolidation"]
+        assert len(consol) == 2
+        assert all(s.fairness != "stretch" for s in consol)
+
+    def test_receive_target_cap(self):
+        """Max 2 suggestions per receive-target within a category."""
+        suggs = [
+            _make_suggestion(give_name=f"Seller {i}", recv_name="Same Target")
+            for i in range(5)
+        ]
+        result = _apply_quality_filters({
+            "sell_high": suggs,
+            "buy_low": [],
+            "consolidation": [],
+            "positional_upgrade": [],
+        })
+        assert len(result["sell_high"]) == MAX_RECEIVE_TARGET_PER_CATEGORY
+
+    def test_low_confidence_cap(self):
+        """Max 2 low-confidence suggestions per category."""
+        suggs = [
+            _make_suggestion(confidence="low", give_name=f"Low {i}", recv_name=f"Target {i}")
+            for i in range(5)
+        ]
+        # Add one high-conf to verify it's not affected
+        high = _make_suggestion(confidence="high", give_name="High Guy", recv_name="High Target")
+        result = _apply_quality_filters({
+            "sell_high": [high] + suggs,
+            "buy_low": [],
+            "consolidation": [],
+            "positional_upgrade": [],
+        })
+        low_count = sum(1 for s in result["sell_high"] if s.confidence == "low")
+        assert low_count == MAX_LOW_CONFIDENCE_PER_CATEGORY
+        # High-conf still present
+        assert any(s.confidence == "high" for s in result["sell_high"])
+
+    def test_give_player_cross_category_cap(self):
+        """A player appearing as give in sell_high should count toward their
+        cap in consolidation too."""
+        # 3 sell_high suggestions all giving Player A
+        sell = [
+            _make_suggestion(give_name="Player A", recv_name=f"Target {i}")
+            for i in range(3)
+        ]
+        # 2 more in buy_low giving Player A
+        buy = [
+            _make_suggestion(give_name="Player A", recv_name=f"Buy Target {i}")
+            for i in range(2)
+        ]
+        result = _apply_quality_filters({
+            "sell_high": sell,
+            "buy_low": buy,
+            "consolidation": [],
+            "positional_upgrade": [],
+        })
+        total_a = sum(
+            1 for s in result["sell_high"] + result["buy_low"]
+            if any(p.name == "Player A" for p in s.give)
+        )
+        assert total_a <= MAX_GIVE_PLAYER_APPEARANCES
+
+    def test_give_player_cap_individual_tracking(self):
+        """Consolidation pairs track individual players, not the pair string."""
+        # Player A appears 3x in sell_high (maxes out)
+        sell = [
+            _make_suggestion(give_name="Player A", recv_name=f"T{i}")
+            for i in range(3)
+        ]
+        # Consolidation gives Player A + Player B — should be blocked
+        consol_s = _make_suggestion(give_name="Player A", recv_name="Big Target")
+        consol_s.type = "consolidation"
+        consol_s.give.append(PlayerAsset("Player B", "RB", 3000, 3000, source_count=6))
+
+        result = _apply_quality_filters({
+            "sell_high": sell,
+            "buy_low": [],
+            "consolidation": [consol_s],
+            "positional_upgrade": [],
+        })
+        assert len(result["consolidation"]) == 0
+
+    def test_filters_preserve_order(self):
+        """Filters should never reorder; only remove."""
+        suggs = [
+            _make_suggestion(give_name=f"Player {i}", recv_name=f"Target {i}", give_val=9000 - i * 100)
+            for i in range(6)
+        ]
+        result = _apply_quality_filters({
+            "sell_high": suggs,
+            "buy_low": [],
+            "consolidation": [],
+            "positional_upgrade": [],
+        })
+        vals = [s.give_total for s in result["sell_high"]]
+        assert vals == sorted(vals, reverse=True)
+
+    def test_quality_filters_deterministic(self):
+        """Same inputs to quality filter produce same outputs."""
+        suggs = [
+            _make_suggestion(give_name=f"P{i}", recv_name=f"T{i}", confidence=("low" if i > 3 else "high"))
+            for i in range(6)
+        ]
+        cats = {"sell_high": list(suggs), "buy_low": [], "consolidation": [], "positional_upgrade": []}
+        r1 = _apply_quality_filters(dict(cats))
+        r2 = _apply_quality_filters(dict(cats))
+        assert len(r1["sell_high"]) == len(r2["sell_high"])
+        for a, b in zip(r1["sell_high"], r2["sell_high"]):
+            assert a.give[0].name == b.give[0].name
+
+    def test_integration_idp_heavy_no_over_repetition(self):
+        """IDP-heavy roster: no player should appear as give more than 3 times."""
+        snap = _sample_snapshot()
+        # Build an IDP-heavy roster from sample data
+        roster = [
+            "Joe Burrow",
+            "Bijan Robinson", "Jahmyr Gibbs",
+            "Ja'Marr Chase",
+            "Brock Bowers",
+            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa", "Micah Parsons",
+            "Jack Campbell", "Roquan Smith", "Fred Warner",
+            "Kyle Hamilton", "Sauce Gardner",
+        ]
+        result = generate_suggestions(roster, snap)
+        from collections import Counter
+        freq = Counter()
+        for cat in ["sellHigh", "buyLow", "consolidation", "positionalUpgrades"]:
+            for s in result[cat]:
+                for p in s["give"]:
+                    freq[p["name"]] += 1
+        if freq:
+            assert freq.most_common(1)[0][1] <= MAX_GIVE_PLAYER_APPEARANCES, (
+                f"{freq.most_common(1)[0][0]} appears {freq.most_common(1)[0][1]}x as give"
+            )
+
+    def test_filtered_output_still_deterministic(self):
+        """Full pipeline with filters must remain deterministic."""
+        snap = _sample_snapshot()
+        roster = [
+            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
+            "Bijan Robinson", "Jahmyr Gibbs",
+            "Ja'Marr Chase",
+            "Brock Bowers",
+            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
+            "Jack Campbell", "Roquan Smith", "Fred Warner",
+            "Kyle Hamilton", "Sauce Gardner",
+        ]
+        r1 = generate_suggestions(roster, snap)
+        r2 = generate_suggestions(roster, snap)
         assert r1 == r2

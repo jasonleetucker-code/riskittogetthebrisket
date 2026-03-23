@@ -51,6 +51,21 @@ MAX_SUGGESTIONS_PER_TYPE = 8
 # of the combined depth pieces
 CONSOLIDATION_MIN_UPGRADE_RATIO = 0.70
 
+# ── Quality filter thresholds ────────────────────────────────────────
+# These control post-ranking deduplication and noise suppression.
+
+# Max times a single give-player can appear across ALL categories combined.
+# Prevents "Breece Hall fatigue" — seeing the same outgoing player 7 times.
+MAX_GIVE_PLAYER_APPEARANCES = 3
+
+# Max suggestions per receive-target within a single category.
+# Prevents consolidation from showing 6 different pairs all targeting Bijan.
+MAX_RECEIVE_TARGET_PER_CATEGORY = 2
+
+# Max low-confidence suggestions per category.
+# Low-conf ideas are speculative; cap keeps the feed actionable.
+MAX_LOW_CONFIDENCE_PER_CATEGORY = 2
+
 # Market-disagreement thresholds
 HIGH_DISPERSION_CV = 0.12   # CV above this = sources disagree meaningfully
 LOW_DISPERSION_CV = 0.04    # CV below this = strong consensus
@@ -741,6 +756,78 @@ def _find_balancers(
     return candidates[:3]
 
 
+# ── Quality filter ───────────────────────────────────────────────────
+
+def _apply_quality_filters(
+    categories: dict[str, list[TradeSuggestion]],
+) -> dict[str, list[TradeSuggestion]]:
+    """Post-ranking quality pass.  Deterministic, operates on already-ranked lists.
+
+    Filters applied in order:
+    1. Per-category: suppress consolidation stretches (fairness == "stretch")
+    2. Per-category: cap receive-target repetition
+    3. Per-category: cap low-confidence suggestions
+    4. Cross-category: cap give-player appearances globally
+
+    Each filter preserves the existing rank order — it only removes, never reorders.
+    """
+    # ── 1. Suppress consolidation stretches ──────────────────────────
+    if "consolidation" in categories:
+        categories["consolidation"] = [
+            s for s in categories["consolidation"]
+            if s.fairness != "stretch"
+        ]
+
+    # ── 2. Cap receive-target repetition per category ────────────────
+    for cat_name, suggs in categories.items():
+        recv_counts: dict[str, int] = {}
+        filtered: list[TradeSuggestion] = []
+        for s in suggs:
+            recv_key = "|".join(sorted(p.name for p in s.receive))
+            recv_counts[recv_key] = recv_counts.get(recv_key, 0) + 1
+            if recv_counts[recv_key] <= MAX_RECEIVE_TARGET_PER_CATEGORY:
+                filtered.append(s)
+        categories[cat_name] = filtered
+
+    # ── 3. Cap low-confidence suggestions per category ───────────────
+    for cat_name, suggs in categories.items():
+        low_count = 0
+        filtered = []
+        for s in suggs:
+            if s.confidence == "low":
+                low_count += 1
+                if low_count > MAX_LOW_CONFIDENCE_PER_CATEGORY:
+                    continue
+            filtered.append(s)
+        categories[cat_name] = filtered
+
+    # ── 4. Cross-category give-player cap ────────────────────────────
+    # Track each individual give-player (not the pair), so "Maxx Crosby"
+    # in sell_high AND consolidation shares one counter.
+    # Process categories in priority order: sell_high first (most actionable),
+    # then buy_low, consolidation, upgrades.  Earlier categories consume quota.
+    cat_order = ["sell_high", "buy_low", "consolidation", "positional_upgrade"]
+    give_counts: dict[str, int] = {}
+
+    for cat_name in cat_order:
+        suggs = categories.get(cat_name, [])
+        filtered = []
+        for s in suggs:
+            # Check if ANY give-player would exceed the cap
+            would_exceed = any(
+                give_counts.get(p.name, 0) >= MAX_GIVE_PLAYER_APPEARANCES
+                for p in s.give
+            )
+            if would_exceed:
+                continue
+            for p in s.give:
+                give_counts[p.name] = give_counts.get(p.name, 0) + 1
+            filtered.append(s)
+        categories[cat_name] = filtered
+
+    return categories
+
+
 # ── Main entry point ─────────────────────────────────────────────────
 
 def generate_suggestions(
@@ -803,7 +890,20 @@ def generate_suggestions(
     consolidation.sort(key=sort_key)
     upgrades.sort(key=sort_key)
 
-    # Enforce per-category caps after ranking
+    # Phase 5: Quality filters — deduplication and noise suppression.
+    # Applied AFTER ranking so we keep the best-ranked instances.
+    filtered = _apply_quality_filters({
+        "sell_high": sell_high,
+        "buy_low": buy_low,
+        "consolidation": consolidation,
+        "positional_upgrade": upgrades,
+    })
+    sell_high = filtered["sell_high"]
+    buy_low = filtered["buy_low"]
+    consolidation = filtered["consolidation"]
+    upgrades = filtered["positional_upgrade"]
+
+    # Enforce per-category caps after filtering
     sell_high = sell_high[:max_per_type]
     buy_low = buy_low[:max_per_type]
     consolidation = consolidation[:max_per_type]
