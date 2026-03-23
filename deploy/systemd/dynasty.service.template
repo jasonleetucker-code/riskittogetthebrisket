@@ -11,6 +11,7 @@ ExecStart=__VENV_DIR__/bin/python __APP_DIR__/server.py
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-__APP_DIR__/.env
 
 [Install]
 WantedBy=multi-user.target
