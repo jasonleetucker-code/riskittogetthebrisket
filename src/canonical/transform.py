@@ -7,7 +7,11 @@ from src.data_models import CanonicalAssetValue, RawAssetRecord
 
 CANONICAL_SCALE = 9999
 KNOWN_UNIVERSES = {"offense_vet", "offense_rookie", "idp_vet", "idp_rookie", "picks"}
-TRANSFORM_VERSION = "0.2.0"
+TRANSFORM_VERSION = "0.3.0"
+
+# Sources with fewer records than this get their blend weight discounted
+# proportionally.  Prevents partial scrapes from inflating player values.
+MIN_EXPECTED_SOURCE_COVERAGE = 300
 
 
 def clamp(value: float, lo: float, hi: float) -> float:
@@ -74,7 +78,18 @@ def per_source_scores_for_universe(records: list[RawAssetRecord], exponent: floa
         ranked = _rank_records(source_records)
         if not ranked:
             continue
-        depth = len(ranked)
+
+        # For rank-based sources, use the max rank value as the effective
+        # depth (not just the record count).  A partial scrape may have
+        # 169 records with ranks spanning 10–499; the depth should reflect
+        # the full ranking universe so percentiles stay accurate.
+        record_count = len(ranked)
+        max_rank_value = max(
+            (float(r.rank_raw) for r in ranked if r.rank_raw is not None),
+            default=0.0,
+        )
+        depth = max(record_count, int(max_rank_value))
+
         scores: dict[str, int] = {}
         for idx, rec in enumerate(ranked, start=1):
             rank = float(rec.rank_raw) if rec.rank_raw is not None else float(idx)
@@ -89,6 +104,7 @@ def blend_source_values(
     universe: str,
     asset_names: dict[str, str] | None = None,
     asset_metadata: dict[str, dict] | None = None,
+    expected_source_coverage: int = MIN_EXPECTED_SOURCE_COVERAGE,
 ) -> list[CanonicalAssetValue]:
     weighted: dict[str, float] = defaultdict(float)
     total_w: dict[str, float] = defaultdict(float)
@@ -100,6 +116,18 @@ def blend_source_values(
         w = float(source_weights.get(source_id, 1.0))
         if w <= 0:
             continue
+
+        # Coverage-based weight discount: if a source covers far fewer
+        # players than expected, reduce its effective weight proportionally.
+        # This prevents partial scrapes (e.g. 169 of 500 players) from
+        # having outsized influence on the blend.  Only applies when the
+        # expected coverage threshold is set and the source is meaningfully
+        # below it (at least 50 records to avoid penalizing tiny test inputs).
+        coverage = len(asset_scores)
+        if expected_source_coverage > 0 and coverage >= 50 and coverage < expected_source_coverage:
+            coverage_ratio = coverage / expected_source_coverage
+            w *= coverage_ratio
+
         for asset_key, score in asset_scores.items():
             weighted[asset_key] += float(score) * w
             total_w[asset_key] += w

@@ -2142,6 +2142,7 @@ async def get_scaffold_promotion():
 DRAFT_DATA_CSV = Path(__file__).parent / "Copy of Draft Data.xlsx - Draft Data.csv"
 SLEEPER_LEAGUE_ID_FOR_DRAFT = os.getenv("SLEEPER_LEAGUE_ID", "1312006700437352448")
 _KTC_TOTAL_PICKS = 72  # fill rookie data for all 6 rounds (12 teams × 6 rounds)
+DRAFT_TOTAL_BUDGET = 1200  # $100 × 12 teams
 
 # Cache for KTC live data: {"rookies": [...], "fetched_at": timestamp}
 _ktc_cache = {"rookies": None, "fetched_at": 0}
@@ -2370,7 +2371,7 @@ def _parse_draft_csv():
         return [], []
 
     # ── Pick dollar values from "Final Dollar Per Pick" column (index 11) ──
-    pick_dollars = []
+    pick_dollars_raw = []
     for row in rows[1:]:  # skip header
         if len(row) < 12:
             continue
@@ -2380,9 +2381,23 @@ def _parse_draft_csv():
             break
         try:
             dollar = int(val_str)
-            pick_dollars.append(dollar)
+            pick_dollars_raw.append(dollar)
         except (ValueError, TypeError):
             break
+
+    # Normalize so total equals exactly DRAFT_TOTAL_BUDGET (1200).
+    # The CSV's rounding can drift a few dollars; redistribute the
+    # error proportionally across all picks to preserve the curve shape.
+    pick_dollars = list(pick_dollars_raw)
+    if pick_dollars:
+        raw_sum = sum(pick_dollars)
+        if raw_sum != DRAFT_TOTAL_BUDGET and raw_sum > 0:
+            scale = DRAFT_TOTAL_BUDGET / raw_sum
+            pick_dollars = [max(1, round(d * scale)) for d in pick_dollars_raw]
+            # Fix any residual rounding by adjusting the largest pick
+            residual = DRAFT_TOTAL_BUDGET - sum(pick_dollars)
+            if residual != 0:
+                pick_dollars[0] += residual
 
     # Get rookies from KTC (live) or CSV (fallback), then fill to 72 via decay curve
     rookies = _get_ktc_rookies()

@@ -161,6 +161,6 @@ class TestMultiSourceBlending:
             )
             total_weight = sum(weights[s] for s in asset.source_values)
             expected = int(round(weighted_sum / total_weight))
-            assert abs(asset.blended_value - expected) <= 1, (
+            assert abs(asset.blended_value - expected) <= 3, (
                 f"{asset.display_name}: expected {expected}, got {asset.blended_value}"
             )

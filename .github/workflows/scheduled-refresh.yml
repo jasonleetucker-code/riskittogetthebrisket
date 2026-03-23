@@ -1,0 +1,140 @@
+name: Scheduled Data Refresh
+
+# Runs the scraper + canonical rebuild every 3 hours.
+# This keeps the site data fresh without manual intervention.
+# The scraper itself is idempotent and overwrites exports/latest/site_raw/.
+
+on:
+  schedule:
+    # Every 3 hours at minute 42 (UTC) to avoid thundering herd.
+    - cron: "42 */3 * * *"
+  workflow_dispatch:
+    inputs:
+      skip_scrape:
+        description: "Skip scraper, only rebuild canonical (for debugging)"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: data-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Scrape + Rebuild + Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # Playwright browser for scraper
+          pip install playwright 2>/dev/null || true
+          python -m playwright install chromium 2>/dev/null || true
+
+      - name: Run scraper
+        if: ${{ inputs.skip_scrape != true }}
+        shell: bash
+        timeout-minutes: 15
+        env:
+          DN_EMAIL: ${{ secrets.DN_EMAIL }}
+          DN_PASS: ${{ secrets.DN_PASS }}
+        run: |
+          set -Eeuo pipefail
+          echo "::group::Scraper output"
+          python "Dynasty Scraper.py" 2>&1 || {
+            echo "::warning title=Scraper partial failure::Scraper exited non-zero but may have partial data"
+          }
+          echo "::endgroup::"
+
+          # Verify at least KTC data was produced (primary source)
+          if [[ -f "exports/latest/site_raw/ktc.csv" ]]; then
+            KTC_LINES=$(wc -l < "exports/latest/site_raw/ktc.csv")
+            echo "KTC CSV: ${KTC_LINES} lines"
+            if (( KTC_LINES < 100 )); then
+              echo "::error title=KTC data too small::Only ${KTC_LINES} lines in KTC export"
+              exit 1
+            fi
+          else
+            echo "::error title=KTC data missing::exports/latest/site_raw/ktc.csv not found"
+            exit 1
+          fi
+
+      - name: Rebuild canonical snapshot
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "::group::Canonical rebuild"
+          python scripts/source_pull.py --repo .
+          echo "::endgroup::"
+
+      - name: Verify canonical output
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          SNAP=$(ls -t data/canonical/canonical_snapshot_*.json 2>/dev/null | head -1)
+          if [[ -z "$SNAP" ]]; then
+            echo "::error title=No canonical snapshot::Canonical rebuild produced no snapshot"
+            exit 1
+          fi
+          ASSETS=$(python -c "import json; print(len(json.load(open('${SNAP}')).get('assets', [])))")
+          echo "Canonical snapshot: ${SNAP} (${ASSETS} assets)"
+          if (( ASSETS < 500 )); then
+            echo "::error title=Canonical too small::Only ${ASSETS} assets in snapshot"
+            exit 1
+          fi
+
+      - name: Commit updated data
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/
+          if git diff --cached --quiet; then
+            echo "No data changes to commit"
+          else
+            git commit -m "chore: automated data refresh $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+          fi
+
+      - name: Trigger deploy
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Trigger the deploy workflow if data was updated
+          if git log -1 --pretty=%B | grep -q "automated data refresh"; then
+            echo "Data updated — deploy will trigger automatically via push to main"
+          else
+            echo "No data changes — skipping deploy trigger"
+          fi
+
+      - name: Report freshness
+        if: always()
+        shell: bash
+        run: |
+          echo "## Data Refresh Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Source | Lines | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|--------|-------|--------|" >> "$GITHUB_STEP_SUMMARY"
+          for csv in exports/latest/site_raw/*.csv; do
+            name=$(basename "$csv" .csv)
+            lines=$(wc -l < "$csv" 2>/dev/null || echo "0")
+            status="OK"
+            if (( lines < 10 )); then status="⚠️ LOW"; fi
+            echo "| ${name} | ${lines} | ${status} |" >> "$GITHUB_STEP_SUMMARY"
+          done
