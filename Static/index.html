@@ -1003,6 +1003,20 @@
     .meta-edge-buy { color: var(--green); }
     .meta-edge-sell { color: var(--red); }
 
+    /* ── TRADE FINDER ── */
+    #finderTable th { padding: 7px 10px; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em;
+                      color: var(--subtext); border-bottom: 1px solid var(--border); text-align: left;
+                      white-space: nowrap; }
+    #finderTable td { padding: 6px 10px; font-size: 0.72rem; font-family: var(--mono); border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.05)); }
+    .finder-row:hover { background: var(--bg-hover); }
+    .finder-give { color: var(--red, #ff6b6b); }
+    .finder-recv { color: var(--green, #4ecdc4); }
+    .finder-neutral { color: var(--subtext); }
+    .finder-badge { display:inline-block;padding:2px 6px;border-radius:3px;font-size:0.62rem;font-weight:600; }
+    .finder-badge-good { background:rgba(78,205,196,0.15);color:var(--green); }
+    .finder-badge-fair { background:rgba(255,193,7,0.15);color:var(--amber); }
+    .finder-badge-partial { background:rgba(255,255,255,0.08);color:var(--subtext); }
+
     /* [NEW] ── TRADE SUGGESTION ── */
     .trade-suggestion {
       font-family: var(--mono);
@@ -2897,6 +2911,16 @@
             </div>
             <div class="home-dest-arrow">›</div>
           </div>
+          <div class="home-dest-row" onclick="switchTab('finder')">
+            <div class="home-dest-left">
+              <div class="home-dest-icon">⇄</div>
+              <div>
+                <div class="home-dest-label">Trade Finder</div>
+                <div class="home-dest-sub">Board arbitrage opportunities</div>
+              </div>
+            </div>
+            <div class="home-dest-arrow">›</div>
+          </div>
           <div class="home-dest-row" onclick="switchTab('rosters')">
             <div class="home-dest-left">
               <div class="home-dest-icon">≡</div>
@@ -2943,6 +2967,7 @@
     <div class="tabs desktop-only">
       <button class="tab-btn active" data-tab="calculator" onclick="switchTab('calculator')">Calculator</button>
       <button class="tab-btn" data-tab="edge" onclick="switchTab('edge')">Edge</button>
+      <button class="tab-btn" data-tab="finder" onclick="switchTab('finder')">Finder</button>
       <button class="tab-btn" data-tab="rookies" onclick="switchTab('rookies')">Rankings</button>
       <button class="tab-btn" data-tab="trades" onclick="switchTab('trades')">Trades</button>
       <button class="tab-btn" data-tab="rosters" onclick="switchTab('rosters')">Rosters</button>
@@ -3642,6 +3667,58 @@
       </div><!-- /edgeContent -->
     </div>
 
+    <!-- ══ TRADE FINDER TAB ══ -->
+    <div id="tab-finder" class="tab-panel">
+      <div id="finderGate" class="edge-gate">
+        <p><strong>Select your team above</strong> to find board-arbitrage trades.</p>
+      </div>
+      <div id="finderContent" style="display:none;">
+        <div class="card quick-use" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+          <div style="flex:1 1 300px;">
+            <strong>Trade Finder</strong> —
+            Finds trades where our model favors your side, but KTC makes it look fair to the opponent.
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <label style="font-size:0.72rem;color:var(--subtext);">Opponent:
+              <select id="finderOpponentFilter" style="font-size:0.72rem;padding:3px 6px;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:4px;">
+                <option value="all">All Teams</option>
+              </select>
+            </label>
+            <label style="font-size:0.72rem;color:var(--subtext);">Type:
+              <select id="finderTypeFilter" style="font-size:0.72rem;padding:3px 6px;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:4px;">
+                <option value="all">All Sizes</option>
+                <option value="1-for-1">1-for-1</option>
+                <option value="2-for-1">2-for-1</option>
+                <option value="1-for-2">1-for-2</option>
+              </select>
+            </label>
+            <button class="btn-primary" onclick="runTradeFinder()" style="font-size:0.72rem;padding:5px 14px;">Find Trades</button>
+          </div>
+        </div>
+        <div id="finderStatus" style="display:none;" class="card">
+          <span style="color:var(--amber);">Searching for arbitrage trades...</span>
+        </div>
+        <div id="finderWarnings" style="display:none;" class="card"></div>
+        <div id="finderSummary" style="display:none;" class="card">
+          <div class="card-title">Results</div>
+          <div id="finderSummaryText" style="font-size:0.75rem;color:var(--subtext);margin-bottom:8px;"></div>
+        </div>
+        <div id="finderResultsWrap" style="display:none;">
+          <div id="finderDesktopTableWrap">
+            <table class="edge-table" id="finderTable" style="width:100%;border-collapse:collapse;">
+              <thead>
+                <tr id="finderHeader"></tr>
+              </thead>
+              <tbody id="finderBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="finderEmpty" style="display:none;" class="card">
+          <span style="color:var(--subtext);">No arbitrage trades found. Try selecting more opponents or different teams.</span>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ TRADES TAB ══ -->
     <div id="tab-trades" class="tab-panel">
       <div class="card quick-use" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
@@ -3794,6 +3871,7 @@
         </div>
         <div class="mobile-segment" id="moreSectionNav" style="margin-bottom:10px;">
           <button class="mobile-segment-btn active" data-more-section="edge" onclick="setMobileMoreSection('edge')">Edge</button>
+          <button class="mobile-segment-btn" data-more-section="finder" onclick="setMobileMoreSection('finder')">Finder</button>
           <button class="mobile-segment-btn" data-more-section="rosters" onclick="setMobileMoreSection('rosters')">Rosters</button>
           <button class="mobile-segment-btn" data-more-section="league" onclick="setMobileMoreSection('league')">League</button>
           <button class="mobile-segment-btn" data-more-section="trades" onclick="setMobileMoreSection('trades')">Trades</button>

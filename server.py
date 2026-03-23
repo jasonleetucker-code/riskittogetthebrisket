@@ -2069,6 +2069,69 @@ async def post_trade_suggestions(request: Request):
     return JSONResponse(content=result)
 
 
+@app.post("/api/trade/finder")
+async def post_trade_finder(request: Request):
+    """Find board-arbitrage trades: good for me on our model, plausible for them on KTC.
+
+    Accepts JSON body:
+        {
+          "myTeam": "Team Name",
+          "opponentTeams": ["Opponent 1", "Opponent 2"]   // or ["all"] for all teams
+        }
+
+    Requires live data to be loaded. Works against the production data payload
+    (players dict with _rawComposite / _canonicalSiteValues fields).
+    """
+    if latest_contract_data is None:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "No data loaded. Trade Finder requires live player data."},
+        )
+    players = latest_contract_data.get("players")
+    sleeper = latest_contract_data.get("sleeper") or {}
+    sleeper_teams = sleeper.get("teams") or []
+    if not players or not sleeper_teams:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Player data or Sleeper rosters not available."},
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+
+    my_team = body.get("myTeam")
+    if not my_team or not isinstance(my_team, str):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Request body must include 'myTeam' as a team name string."},
+        )
+
+    opponent_teams = body.get("opponentTeams", [])
+    if not isinstance(opponent_teams, list):
+        return JSONResponse(status_code=400, content={"error": "'opponentTeams' must be a list."})
+
+    # "all" means trade with every team except mine
+    if opponent_teams == ["all"] or not opponent_teams:
+        opponent_teams = [t["name"] for t in sleeper_teams if t.get("name") != my_team]
+
+    from src.trade.finder import find_trades
+
+    try:
+        result = find_trades(
+            players=players,
+            my_team=my_team,
+            opponent_teams=opponent_teams,
+            sleeper_teams=sleeper_teams,
+        )
+    except Exception as e:
+        log.error(f"Trade Finder failed: {e}")
+        return JSONResponse(status_code=500, content={"error": f"Trade Finder failed: {e}"})
+
+    return JSONResponse(content=result)
+
+
 @app.get("/api/scaffold/validation")
 async def get_scaffold_validation():
     ingest_file = _latest_file(DATA_DIR / "validation", "ingest_validation_*.json")

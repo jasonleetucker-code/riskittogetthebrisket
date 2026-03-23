@@ -735,6 +735,18 @@
       });
     }
 
+    // Populate Trade Finder opponent dropdown
+    const selFinder = document.getElementById('finderOpponentFilter');
+    if (selFinder) {
+      selFinder.innerHTML = '<option value="all">All Teams</option>';
+      sleeperTeams.forEach(team => {
+        const opt = document.createElement('option');
+        opt.value = team.name;
+        opt.textContent = team.name;
+        selFinder.appendChild(opt);
+      });
+    }
+
     const profileTeam = getProfile()?.teamName || '';
     const savedTeam = localStorage.getItem('dynasty_my_team') || '';
     const preferred = resolvePreferredTeamName({
@@ -781,6 +793,7 @@
     }
     // Refresh any active tab that depends on team
     checkEdgeGate();
+    if (typeof checkFinderGate === 'function') checkFinderGate();
   }
 
   function updateTeamFilter() {
