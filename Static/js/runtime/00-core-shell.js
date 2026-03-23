@@ -805,6 +805,7 @@
 
   function normalizeMobileMoreSection(section) {
     const s = String(section || '').toLowerCase();
+    if (s === 'finder') return 'finder';
     if (s === 'rosters') return 'rosters';
     if (s === 'league') return 'league';
     if (s === 'trades') return 'trades';
@@ -1269,6 +1270,7 @@
   function getMobileTitleForTab(tabId) {
     const legacyMap = {
       edge: 'Edge',
+      finder: 'Finder',
       rosters: 'Rosters',
       league: 'League',
       trades: 'Trades',
@@ -1281,6 +1283,7 @@
     if (t === 'calculator') return 'Trade';
     const section = normalizeMobileMoreSection(mobileMoreSection);
     if (section === 'edge') return 'More · Edge';
+    if (section === 'finder') return 'More · Finder';
     if (section === 'rosters') return 'More · Teams';
     if (section === 'league') return 'More · League';
     if (section === 'trades') return 'More · Trades';
@@ -1373,6 +1376,7 @@
       if (requestedId === 'rosters') buildRosterDashboard();
       if (requestedId === 'trades') buildTradeHistoryPage();
       if (requestedId === 'edge') { checkEdgeGate(); buildEdgeTable(); }
+      if (requestedId === 'finder') { checkFinderGate(); }
       if (requestedId === 'league') initLeagueTab();
     }
 

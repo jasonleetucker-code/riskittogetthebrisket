@@ -1820,6 +1820,25 @@
       return;
     }
 
+    if (section === 'finder') {
+      setTitle('Trade Finder');
+      const myTeam = document.getElementById('rosterMyTeam')?.value || localStorage.getItem('dynasty_my_team') || '';
+      body.innerHTML = `
+        <div class="mobile-row-card">
+          <div class="mobile-row-name">Trade Finder</div>
+          <div class="mobile-row-sub">Find trades where our model favors your side, but KTC makes it fair for the opponent.</div>
+          <div class="mobile-row-actions">
+            <button class="mobile-chip-btn primary" onclick="openFullMobileWorkspace('finder')">Open Trade Finder</button>
+          </div>
+        </div>
+        <div class="mobile-row-card">
+          <div class="mobile-row-name">Your Team</div>
+          <div class="mobile-row-sub">${myTeam || 'Not selected — set team above'}</div>
+        </div>
+      `;
+      return;
+    }
+
     setTitle('Mobile Settings');
     const valueMode = getCalculatorValueBasis();
     const rankMode = getRankingsSortBasis();

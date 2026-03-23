@@ -2704,3 +2704,176 @@
     if(waivers.length>50) h+=`<div style="text-align:center;padding:10px;color:var(--subtext);font-size:0.72rem;">Showing 50 of ${waivers.length}</div>`;
     c.innerHTML=h;
   }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ── TRADE FINDER ─────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════
+
+  let _finderLastResults = null;
+
+  function checkFinderGate() {
+    const gate = document.getElementById('finderGate');
+    const content = document.getElementById('finderContent');
+    const myTeam = document.getElementById('rosterMyTeam')?.value
+                || document.getElementById('globalMyTeam')?.value
+                || localStorage.getItem('dynasty_my_team') || '';
+    if (gate && content) {
+      if (myTeam) {
+        gate.style.display = 'none';
+        content.style.display = '';
+      } else {
+        gate.style.display = '';
+        content.style.display = 'none';
+      }
+    }
+  }
+
+  function runTradeFinder() {
+    const myTeam = document.getElementById('rosterMyTeam')?.value
+                || document.getElementById('globalMyTeam')?.value
+                || localStorage.getItem('dynasty_my_team') || '';
+    if (!myTeam) {
+      checkFinderGate();
+      return;
+    }
+
+    const oppFilter = document.getElementById('finderOpponentFilter')?.value || 'all';
+    const opponentTeams = oppFilter === 'all' ? ['all'] : [oppFilter];
+
+    const statusEl = document.getElementById('finderStatus');
+    const resultsEl = document.getElementById('finderResultsWrap');
+    const emptyEl = document.getElementById('finderEmpty');
+    const summaryEl = document.getElementById('finderSummary');
+    const warningsEl = document.getElementById('finderWarnings');
+
+    if (statusEl) statusEl.style.display = '';
+    if (resultsEl) resultsEl.style.display = 'none';
+    if (emptyEl) emptyEl.style.display = 'none';
+    if (summaryEl) summaryEl.style.display = 'none';
+    if (warningsEl) warningsEl.style.display = 'none';
+
+    fetch('/api/trade/finder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ myTeam, opponentTeams }),
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (statusEl) statusEl.style.display = 'none';
+
+      if (data.error) {
+        if (emptyEl) {
+          emptyEl.innerHTML = `<span style="color:var(--red);">${data.error}</span>`;
+          emptyEl.style.display = '';
+        }
+        return;
+      }
+
+      _finderLastResults = data;
+
+      // Show warnings
+      if (data.warnings && data.warnings.length > 0 && warningsEl) {
+        warningsEl.innerHTML = data.warnings.map(w =>
+          `<div style="font-size:0.72rem;color:var(--amber);margin:2px 0;">⚠ ${w}</div>`
+        ).join('');
+        warningsEl.style.display = '';
+      }
+
+      // Show summary
+      const meta = data.metadata || {};
+      if (summaryEl) {
+        const txt = document.getElementById('finderSummaryText');
+        if (txt) {
+          txt.textContent = `${meta.returned || 0} arbitrage trades found from ${meta.totalCandidatesEvaluated || 0} candidates across ${meta.opponentsAnalyzed || 0} opponents · KTC coverage: ${meta.ktcCoveragePercent || 0}%`;
+        }
+        summaryEl.style.display = '';
+      }
+
+      renderFinderResults(data.trades || []);
+    })
+    .catch(err => {
+      if (statusEl) statusEl.style.display = 'none';
+      if (emptyEl) {
+        emptyEl.innerHTML = `<span style="color:var(--red);">Request failed: ${err.message || err}</span>`;
+        emptyEl.style.display = '';
+      }
+    });
+  }
+
+  function renderFinderResults(trades) {
+    const resultsEl = document.getElementById('finderResultsWrap');
+    const emptyEl = document.getElementById('finderEmpty');
+    const header = document.getElementById('finderHeader');
+    const body = document.getElementById('finderBody');
+    const typeFilter = document.getElementById('finderTypeFilter')?.value || 'all';
+
+    let filtered = trades;
+    if (typeFilter !== 'all') {
+      filtered = trades.filter(t => t.packageSize === typeFilter);
+    }
+
+    if (!filtered.length) {
+      if (resultsEl) resultsEl.style.display = 'none';
+      if (emptyEl) emptyEl.style.display = '';
+      return;
+    }
+
+    if (resultsEl) resultsEl.style.display = '';
+    if (emptyEl) emptyEl.style.display = 'none';
+
+    // Build header
+    if (header) {
+      header.innerHTML = `
+        <th>You Give</th>
+        <th>You Get</th>
+        <th>Size</th>
+        <th>Board Δ</th>
+        <th>KTC Δ (Opp)</th>
+        <th>Opp Appeal</th>
+        <th>Score</th>
+        <th>Coverage</th>
+      `;
+    }
+
+    // Build rows
+    if (body) {
+      let h = '';
+      filtered.forEach((t, i) => {
+        const giveNames = t.give.map(a =>
+          `<span title="${a.position} · Model: ${(a.modelValue||0).toLocaleString()} · KTC: ${a.ktcValue != null ? a.ktcValue.toLocaleString() : 'N/A'}">${a.name}</span>`
+        ).join('<br>');
+        const recvNames = t.receive.map(a =>
+          `<span title="${a.position} · Model: ${(a.modelValue||0).toLocaleString()} · KTC: ${a.ktcValue != null ? a.ktcValue.toLocaleString() : 'N/A'}">${a.name}</span>`
+        ).join('<br>');
+
+        const boardColor = t.boardDelta > 0 ? 'var(--green)' : t.boardDelta < 0 ? 'var(--red)' : 'var(--subtext)';
+        const oppAppealPct = (t.opponentKtcAppeal * 100).toFixed(1);
+        const oppColor = t.opponentKtcAppeal >= 0 ? 'var(--green)' : 'var(--amber)';
+        const coverageBadge = t.ktcCoverage === 'full'
+          ? '<span class="finder-badge finder-badge-good">Full</span>'
+          : t.ktcCoverage === 'partial'
+            ? '<span class="finder-badge finder-badge-partial">Partial</span>'
+            : '<span class="finder-badge finder-badge-partial">None</span>';
+
+        h += `<tr class="finder-row">`;
+        h += `<td class="finder-give">${giveNames}</td>`;
+        h += `<td class="finder-recv">${recvNames}</td>`;
+        h += `<td>${t.packageSize}</td>`;
+        h += `<td style="color:${boardColor};font-weight:600;">+${t.boardDelta.toLocaleString()}</td>`;
+        h += `<td style="color:${oppColor};">${t.opponentKtcAppeal >= 0 ? '+' : ''}${oppAppealPct}%</td>`;
+        h += `<td style="color:${oppColor};">${t.opponentKtcAppeal >= 0 ? 'Fair/Wins' : 'Slight loss'}</td>`;
+        h += `<td style="font-weight:600;">${t.arbitrageScore}</td>`;
+        h += `<td>${coverageBadge}</td>`;
+        h += `</tr>`;
+
+        // Detail row with model + KTC values
+        const giveDetail = t.give.map(a => `${a.name}: Model ${(a.modelValue||0).toLocaleString()} / KTC ${a.ktcValue != null ? a.ktcValue.toLocaleString() : '—'}`).join(' · ');
+        const recvDetail = t.receive.map(a => `${a.name}: Model ${(a.modelValue||0).toLocaleString()} / KTC ${a.ktcValue != null ? a.ktcValue.toLocaleString() : '—'}`).join(' · ');
+        h += `<tr class="finder-row" style="font-size:0.62rem;color:var(--subtext);">`;
+        h += `<td colspan="4" style="padding:2px 10px 8px;">Give totals — Model: ${t.giveModelTotal.toLocaleString()} / KTC: ${t.giveKtcTotal.toLocaleString()}</td>`;
+        h += `<td colspan="4" style="padding:2px 10px 8px;">Get totals — Model: ${t.receiveModelTotal.toLocaleString()} / KTC: ${t.receiveKtcTotal.toLocaleString()}</td>`;
+        h += `</tr>`;
+      });
+      body.innerHTML = h;
+    }
+  }
