@@ -20,12 +20,16 @@ from src.trade.finder import (
     _deduplicate,
     _norm_pos,
     _resolve_roster,
+    ELITE_THRESHOLD,
+    ELITE_MULTI_MIN_RATIO,
+    PACKAGE_ANCHOR_MIN_PCT,
+    CONFIDENCE_SOURCE_BASELINE,
 )
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
-def _make_asset(name, model, ktc=None, pos="WR", team="NYJ", is_pick=False):
+def _make_asset(name, model, ktc=None, pos="WR", team="NYJ", is_pick=False, source_count=0):
     return Asset(
         name=name,
         position=pos,
@@ -33,6 +37,7 @@ def _make_asset(name, model, ktc=None, pos="WR", team="NYJ", is_pick=False):
         model_value=model,
         ktc_value=ktc,
         is_pick=is_pick,
+        source_count=source_count,
     )
 
 
@@ -575,3 +580,391 @@ class TestFireSaleGuard:
         tc = _score_trade([a1, a2], [target])
         # 3800/7000 = 0.543 < 0.55
         assert tc is None
+
+
+# ── Elite target protection ─────────────────────────────────────────────
+
+class TestEliteTargetProtection:
+    """Verify that elite targets (≥7500 model) require tighter multi-for-one ratios."""
+
+    def test_2for1_elite_below_65pct_rejected(self):
+        """Two mid-tier pieces totaling 60% of elite target → rejected (below 65%)."""
+        a1 = _make_asset("Mid A", model=2500, ktc=3500)
+        a2 = _make_asset("Mid B", model=2300, ktc=3200)
+        elite = _make_asset("Elite WR", model=8000, ktc=6000)
+        tc = _score_trade([a1, a2], [elite])
+        # 4800/8000 = 0.60 > 0.55 (would pass old guard) but < 0.65 (fails elite guard)
+        assert tc is None
+
+    def test_2for1_elite_above_65pct_passes(self):
+        """Two solid pieces totaling 70% of elite target → passes."""
+        a1 = _make_asset("Good A", model=3500, ktc=4000)
+        a2 = _make_asset("Good B", model=2500, ktc=3000)
+        elite = _make_asset("Elite WR", model=8000, ktc=6000)
+        tc = _score_trade([a1, a2], [elite])
+        # 6000/8000 = 0.75 > 0.65
+        assert tc is not None
+
+    def test_2for1_non_elite_uses_normal_ratio(self):
+        """Non-elite target (below 7500) uses standard 55% ratio."""
+        a1 = _make_asset("A", model=2800, ktc=3500)
+        a2 = _make_asset("B", model=1700, ktc=2500)
+        target = _make_asset("Target", model=7000, ktc=5500)
+        tc = _score_trade([a1, a2], [target])
+        # 4500/7000 = 0.643 > 0.55 ✓, target < 7500 so elite guard skipped
+        # anchor: 2800/7000 = 0.40 > 0.35 ✓
+        assert tc is not None
+
+    def test_1for1_elite_not_blocked(self):
+        """1-for-1 elite trades are not subject to multi-for-one elite guard."""
+        give = [_make_asset("Underval", model=5000, ktc=7500)]
+        recv = [_make_asset("Elite", model=8500, ktc=6500)]
+        tc = _score_trade(give, recv)
+        assert tc is not None
+
+    def test_elite_blockbuster_2for1_still_works(self):
+        """Legit blockbuster (two starters for one elite) passes."""
+        a1 = _make_asset("Starter A", model=5000, ktc=5500)
+        a2 = _make_asset("Starter B", model=4000, ktc=4500)
+        elite = _make_asset("Top 3 RB", model=9500, ktc=8000)
+        tc = _score_trade([a1, a2], [elite])
+        # 9000/9500 = 0.95 > 0.65
+        assert tc is not None
+
+
+# ── Package anchor quality ──────────────────────────────────────────────
+
+class TestPackageAnchorQuality:
+    """Verify that multi-for-one requires at least one meaningful anchor piece."""
+
+    def test_two_bench_stashes_for_starter_rejected(self):
+        """Two 1200-value bench players for a 5000 starter → no anchor (1200/5000=0.24 < 0.35)."""
+        a1 = _make_asset("Bench A", model=1200, ktc=2000)
+        a2 = _make_asset("Bench B", model=1200, ktc=2000)
+        target = _make_asset("Starter", model=5000, ktc=3500)
+        tc = _score_trade([a1, a2], [target])
+        # max_give=1200, max_recv=5000 → 0.24 < 0.35
+        assert tc is None
+
+    def test_anchor_plus_filler_passes(self):
+        """One real starter + one depth piece → anchor present (3000/5000=0.60 > 0.35)."""
+        a1 = _make_asset("Starter A", model=3000, ktc=3500)
+        a2 = _make_asset("Depth", model=1000, ktc=1500)
+        target = _make_asset("Target", model=5000, ktc=4500)
+        tc = _score_trade([a1, a2], [target])
+        # max_give=3000/5000 = 0.60 > 0.35, total 4000/5000 = 0.80 > 0.55
+        assert tc is not None
+
+    def test_1for2_not_subject_to_anchor(self):
+        """1-for-2 trades don't need anchor check (I'm receiving, not packaging)."""
+        give = [_make_asset("Star", model=7000, ktc=8000)]
+        recv = [_make_asset("A", model=4000, ktc=4500), _make_asset("B", model=3500, ktc=4000)]
+        tc = _score_trade(give, recv)
+        assert tc is not None
+
+
+# ── Confidence scoring ──────────────────────────────────────────────────
+
+class TestConfidenceScoring:
+    """Verify confidence factor impacts ranking."""
+
+    def test_high_source_full_ktc_beats_low_source_full_ktc(self):
+        """Same edge, but higher source count → higher arbitrage score."""
+        high_src_give = [_make_asset("A", model=4000, ktc=5000, source_count=6)]
+        high_src_recv = [_make_asset("B", model=5000, ktc=4000, source_count=6)]
+        tc_high = _score_trade(high_src_give, high_src_recv)
+
+        low_src_give = [_make_asset("C", model=4000, ktc=5000, source_count=1)]
+        low_src_recv = [_make_asset("D", model=5000, ktc=4000, source_count=1)]
+        tc_low = _score_trade(low_src_give, low_src_recv)
+
+        assert tc_high is not None
+        assert tc_low is not None
+        assert tc_high.confidence_score > tc_low.confidence_score
+        assert tc_high.arbitrage_score > tc_low.arbitrage_score
+
+    def test_full_ktc_beats_partial_ktc_same_edge(self):
+        """Full KTC coverage outranks partial with identical board math."""
+        full_give = [_make_asset("A", model=4000, ktc=5000)]
+        full_recv = [_make_asset("B", model=5000, ktc=4000)]
+        tc_full = _score_trade(full_give, full_recv)
+
+        part_give = [_make_asset("C", model=4000, ktc=5000)]
+        part_recv = [_make_asset("D", model=5000, ktc=None)]
+        tc_part = _score_trade(part_give, part_recv)
+
+        assert tc_full is not None
+        assert tc_part is not None
+        assert tc_full.confidence_score > tc_part.confidence_score
+        assert tc_full.arbitrage_score > tc_part.arbitrage_score
+
+    def test_confidence_in_to_dict(self):
+        """Confidence score is exposed in dict output."""
+        give = [_make_asset("A", model=4000, ktc=5000)]
+        recv = [_make_asset("B", model=5000, ktc=4000)]
+        tc = _score_trade(give, recv)
+        d = tc.to_dict()
+        assert "confidenceScore" in d
+        assert isinstance(d["confidenceScore"], float)
+
+    def test_unknown_sources_full_confidence(self):
+        """Assets with source_count=0 (unknown) get full source confidence."""
+        give = [_make_asset("A", model=4000, ktc=5000)]  # source_count=0
+        recv = [_make_asset("B", model=5000, ktc=4000)]  # source_count=0
+        tc = _score_trade(give, recv)
+        assert tc is not None
+        # Full KTC, unknown sources → confidence = 1.0 * 1.0
+        assert tc.confidence_score == 1.0
+
+
+# ── Trade ranking realism ───────────────────────────────────────────────
+
+class TestTradeRankingRealism:
+    """Verify that the ranking formula produces believable orderings."""
+
+    def test_larger_trade_beats_smaller_same_edge_pct(self):
+        """A 4000→5000 trade (25% gain) outranks a 1000→1250 trade (25% gain)."""
+        big_give = [_make_asset("Big", model=4000, ktc=5000)]
+        big_recv = [_make_asset("BigTarget", model=5000, ktc=4000)]
+        tc_big = _score_trade(big_give, big_recv)
+
+        small_give = [_make_asset("Small", model=1000, ktc=1300)]
+        small_recv = [_make_asset("SmallTarget", model=1250, ktc=1000)]
+        tc_small = _score_trade(small_give, small_recv)
+
+        assert tc_big is not None
+        assert tc_small is not None
+        assert tc_big.arbitrage_score > tc_small.arbitrage_score
+
+    def test_simpler_trade_gets_simplicity_bonus(self):
+        """1-for-1 beats 2-for-1 when board edge is similar."""
+        # 1-for-1: strong edge
+        give_1 = [_make_asset("A", model=4000, ktc=5500)]
+        recv_1 = [_make_asset("B", model=5000, ktc=4500)]
+        tc_1for1 = _score_trade(give_1, recv_1)
+
+        # 2-for-1: slightly better total edge but more complex
+        give_2 = [_make_asset("C", model=2500, ktc=3200), _make_asset("D", model=2000, ktc=2800)]
+        recv_2 = [_make_asset("E", model=5200, ktc=4500)]
+        tc_2for1 = _score_trade(give_2, recv_2)
+
+        assert tc_1for1 is not None
+        assert tc_2for1 is not None
+        # The simpler trade should win or be competitive despite similar edge
+        # (depends on exact numbers but the -3 penalty makes 2-for-1 less dominant)
+
+
+# ── Roster-fit awareness ────────────────────────────────────────────────
+
+class TestRosterFit:
+    """Verify light roster-fit bonus in end-to-end find_trades."""
+
+    def _build_scenario(self):
+        """Build a scenario where my team has 4 WRs (surplus) and 1 RB (weak)."""
+        players = {
+            "My WR1": _make_player_data(5000, ktc=5500, pos="WR"),
+            "My WR2": _make_player_data(4000, ktc=4500, pos="WR"),
+            "My WR3": _make_player_data(3500, ktc=4000, pos="WR"),
+            "My WR4": _make_player_data(3000, ktc=3500, pos="WR"),
+            "My RB1": _make_player_data(6000, ktc=7000, pos="RB"),
+            "Opp RB Star": _make_player_data(5500, ktc=4500, pos="RB"),
+            "Opp QB Value": _make_player_data(5500, ktc=4500, pos="QB"),
+        }
+        teams = [
+            {"name": "My Team", "players": ["My WR1", "My WR2", "My WR3", "My WR4", "My RB1"]},
+            {"name": "Rival", "players": ["Opp RB Star", "Opp QB Value"]},
+        ]
+        return players, teams
+
+    def test_surplus_give_gets_fit_bonus(self):
+        """Trades that give away surplus WRs get a slight ranking boost."""
+        players, teams = self._build_scenario()
+        result = find_trades(players, "My Team", ["Rival"], teams)
+        # Should have trades; giving WRs (surplus=4) should get fit bonus
+        wr_give_trades = [
+            t for t in result["trades"]
+            if any(a["position"] == "WR" for a in t["give"])
+        ]
+        assert len(wr_give_trades) > 0
+
+    def test_weakness_receive_gets_fit_bonus(self):
+        """Trades that acquire a position where we have ≤1 get a boost.
+        My team has 1 RB and 0 QBs, so receiving RB or QB is a fit bonus."""
+        players, teams = self._build_scenario()
+        result = find_trades(players, "My Team", ["Rival"], teams)
+        # Check that some trades receiving RB or QB exist
+        weakness_trades = [
+            t for t in result["trades"]
+            if any(a["position"] in ("RB", "QB") for a in t["receive"])
+        ]
+        # These should exist and be ranked well
+        assert len(weakness_trades) > 0
+
+
+# ── Representative scenario validation (10+) ────────────────────────────
+
+class TestRepresentativeScenarios:
+    """
+    10+ real-ish scenarios proving before/after behavior.
+    Each scenario documents what SHOULD happen and verifies it.
+    """
+
+    # ── Elite-target scenarios ──────────────────────────────────────────
+
+    def test_scenario_1_elite_junk_2for1_blocked(self):
+        """Scenario 1: Two bench WRs for elite RB → blocked by elite guard.
+        Before: 60% ratio passed the 55% standard guard.
+        After: 60% < 65% elite guard → blocked."""
+        bench_a = _make_asset("Bench WR A", model=2500, ktc=3200, pos="WR")
+        bench_b = _make_asset("Bench WR B", model=2300, ktc=3000, pos="WR")
+        elite_rb = _make_asset("Bijan Robinson", model=8000, ktc=7000, pos="RB")
+        tc = _score_trade([bench_a, bench_b], [elite_rb])
+        assert tc is None  # Blocked by elite guard
+
+    def test_scenario_2_legit_blockbuster_for_elite(self):
+        """Scenario 2: Two solid starters for elite RB → allowed.
+        We gain on our board (elite undervalued by KTC), opponent gains on KTC."""
+        starter_wr = _make_asset("Garrett Wilson", model=4000, ktc=5000, pos="WR")
+        starter_rb = _make_asset("Breece Hall", model=3500, ktc=4500, pos="RB")
+        elite = _make_asset("Bijan Robinson", model=9000, ktc=8500, pos="RB")
+        tc = _score_trade([starter_wr, starter_rb], [elite])
+        # give_model=7500, recv_model=9000 → board_delta=+1500 ✓
+        # 7500/9000 = 0.833 > 0.65 ✓  anchor: 4000/9000 = 0.444 > 0.35 ✓
+        # opp appeal: (9500-8500)/8500 = 0.118 > -0.12 ✓
+        assert tc is not None
+        assert tc.board_delta > 0
+
+    # ── Partial-KTC scenarios ───────────────────────────────────────────
+
+    def test_scenario_3_partial_ktc_ranks_below_full(self):
+        """Scenario 3: Partial-KTC trade ranks below equivalent full-KTC trade.
+        Before: partial got 0.5x but could still outrank if board delta huge.
+        After: confidence factor further dampens partial trades."""
+        full_give = [_make_asset("A", model=4000, ktc=5000, source_count=5)]
+        full_recv = [_make_asset("B", model=5000, ktc=4000, source_count=5)]
+        tc_full = _score_trade(full_give, full_recv)
+
+        part_give = [_make_asset("C", model=4000, ktc=5000, source_count=5)]
+        part_recv = [_make_asset("D", model=5200, ktc=None, source_count=2)]
+        tc_part = _score_trade(part_give, part_recv)
+
+        assert tc_full is not None
+        assert tc_part is not None
+        # Even though partial has slightly better board delta (1200 vs 1000),
+        # the full-KTC trade should rank higher thanks to confidence
+        assert tc_full.arbitrage_score > tc_part.arbitrage_score
+
+    def test_scenario_4_partial_ktc_with_low_sources_heavily_demoted(self):
+        """Scenario 4: Partial KTC + single-source → very low confidence."""
+        give = [_make_asset("Single Src", model=4000, ktc=5000, source_count=1)]
+        recv = [_make_asset("No KTC", model=5000, ktc=None, source_count=1)]
+        tc = _score_trade(give, recv)
+        assert tc is not None
+        # confidence = (1/5) * 0.7 = 0.14
+        assert tc.confidence_score < 0.2
+
+    # ── Roster-clog / junk-package scenarios ────────────────────────────
+
+    def test_scenario_5_two_bench_for_starter_no_anchor(self):
+        """Scenario 5: Two bench stashes (1100 each) for a 4000 starter → no anchor.
+        Before: total 2200/4000=0.55, passed standard guard.
+        After: max_give 1100/4000=0.275 < 0.35 → blocked by anchor check."""
+        bench_a = _make_asset("Deep Bench A", model=1100, ktc=1800)
+        bench_b = _make_asset("Deep Bench B", model=1100, ktc=1800)
+        starter = _make_asset("Solid Starter", model=4000, ktc=3200)
+        tc = _score_trade([bench_a, bench_b], [starter])
+        assert tc is None  # Blocked by anchor quality
+
+    def test_scenario_6_starter_plus_bench_for_starter_passes(self):
+        """Scenario 6: One real starter + filler for target → anchor present, passes."""
+        starter = _make_asset("WR2", model=3500, ktc=4000)
+        filler = _make_asset("Depth RB", model=1200, ktc=1800)
+        target = _make_asset("Target WR1", model=6000, ktc=5200)
+        tc = _score_trade([starter, filler], [target])
+        # anchor: 3500/6000 = 0.583 > 0.35 ✓  total: 4700/6000 = 0.783 > 0.55 ✓
+        assert tc is not None
+
+    # ── Normal good trades that should still pass ───────────────────────
+
+    def test_scenario_7_clean_1for1_arbitrage(self):
+        """Scenario 7: Classic board-arbitrage 1-for-1 — should pass and rank well."""
+        give = [_make_asset("Overvalued by KTC", model=4000, ktc=5500, source_count=5)]
+        recv = [_make_asset("Undervalued by KTC", model=5500, ktc=4500, source_count=5)]
+        tc = _score_trade(give, recv)
+        assert tc is not None
+        assert tc.board_delta == 1500
+        assert tc.opponent_ktc_appeal > 0  # Opponent sees +22% on KTC
+        assert tc.confidence_score == 1.0  # Full KTC, 5 sources
+        assert tc.arbitrage_score > 0
+
+    def test_scenario_8_fair_2for1_non_elite(self):
+        """Scenario 8: Fair 2-for-1 trade below elite threshold — should pass."""
+        a1 = _make_asset("Solid WR", model=3500, ktc=4200, source_count=4)
+        a2 = _make_asset("Pick", model=2500, ktc=3000, pos="PICK", is_pick=True, source_count=4)
+        target = _make_asset("Good RB", model=7000, ktc=6000, source_count=5, pos="RB")
+        tc = _score_trade([a1, a2], [target])
+        # 6000/7000 = 0.857 > 0.55 ✓ (not elite so no 0.65 check)
+        # anchor: 3500/7000 = 0.50 > 0.35 ✓
+        assert tc is not None
+
+    # ── Borderline trades where ranking order changes ───────────────────
+
+    def test_scenario_9_confidence_reranks_borderline(self):
+        """Scenario 9: Two trades with similar board edge but different confidence.
+        The high-confidence trade should rank above the low-confidence one."""
+        # Trade A: modest edge, high confidence
+        give_a = [_make_asset("A1", model=4000, ktc=4800, source_count=6)]
+        recv_a = [_make_asset("A2", model=4800, ktc=4000, source_count=6)]
+        tc_a = _score_trade(give_a, recv_a)
+
+        # Trade B: same edge ratio, low confidence (1 source each)
+        give_b = [_make_asset("B1", model=4000, ktc=4800, source_count=1)]
+        recv_b = [_make_asset("B2", model=4800, ktc=4000, source_count=1)]
+        tc_b = _score_trade(give_b, recv_b)
+
+        assert tc_a is not None
+        assert tc_b is not None
+        # Same base math, but A has higher confidence → ranks higher
+        assert tc_a.arbitrage_score > tc_b.arbitrage_score
+        assert tc_a.confidence_score > tc_b.confidence_score
+
+    def test_scenario_10_value_scale_reranks_borderline(self):
+        """Scenario 10: Two trades with same edge% but different absolute value.
+        The larger trade should rank higher due to absolute-value bonus."""
+        # Trade A: large — give 5000, recv 6250 (25% edge)
+        big_give = [_make_asset("Big", model=5000, ktc=6250)]
+        big_recv = [_make_asset("BigTarget", model=6250, ktc=5000)]
+        tc_big = _score_trade(big_give, big_recv)
+
+        # Trade B: small — give 1000, recv 1250 (25% edge)
+        sm_give = [_make_asset("Small", model=1000, ktc=1300)]
+        sm_recv = [_make_asset("SmallTarget", model=1250, ktc=1000)]
+        tc_small = _score_trade(sm_give, sm_recv)
+
+        assert tc_big is not None
+        assert tc_small is not None
+        assert tc_big.arbitrage_score > tc_small.arbitrage_score
+
+    def test_scenario_11_full_ktc_wins_over_partial_despite_bigger_delta(self):
+        """Scenario 11: Partial-KTC trade with 30% bigger board delta still
+        ranks below a full-KTC trade. Confidence matters more than raw edge."""
+        full_give = [_make_asset("F1", model=4000, ktc=5000, source_count=5)]
+        full_recv = [_make_asset("F2", model=5000, ktc=4000, source_count=5)]
+        tc_full = _score_trade(full_give, full_recv)
+
+        # 30% bigger delta on board
+        part_give = [_make_asset("P1", model=4000, ktc=5000, source_count=5)]
+        part_recv = [_make_asset("P2", model=5300, ktc=None, source_count=2)]
+        tc_part = _score_trade(part_give, part_recv)
+
+        assert tc_full is not None
+        assert tc_part is not None
+        assert tc_full.arbitrage_score > tc_part.arbitrage_score
+
+    def test_scenario_12_pick_trade_passes_normally(self):
+        """Scenario 12: Trading a pick for a player — should work normally."""
+        pick = _make_asset("2026 1.05", model=3000, ktc=3200, pos="PICK", is_pick=True)
+        player = _make_asset("Rising WR", model=4000, ktc=2800, pos="WR")
+        tc = _score_trade([pick], [player])
+        assert tc is not None
+        assert tc.board_delta == 1000

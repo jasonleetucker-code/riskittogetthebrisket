@@ -29,6 +29,14 @@ JUNK_THRESHOLD = 400           # Assets below this are roster clog
 SINGLE_SOURCE_DISCOUNT = 0.88  # Match frontend: 12% haircut for single-source assets
 MULTI_FOR_ONE_MIN_RATIO = 0.55 # 2-for-1 give side must be >= 55% of receive model value
 
+# ── Hardening-pass thresholds ────────────────────────────────────────────
+ELITE_THRESHOLD = 7500         # Model value above which a player is "elite"
+ELITE_MULTI_MIN_RATIO = 0.65   # Tighter ratio for elite targets in multi-for-one
+PACKAGE_ANCHOR_MIN_PCT = 0.35  # Best give piece must be ≥35% of best receive piece
+CONFIDENCE_SOURCE_BASELINE = 5 # Expected source count for full confidence
+ROSTER_SURPLUS_THRESHOLD = 4   # ≥4 at a position = surplus (light fit bonus)
+ROSTER_WEAK_THRESHOLD = 1      # ≤1 at a position = weakness (light fit bonus)
+
 # Position normalization aliases
 _POS_ALIASES: dict[str, str] = {
     "DE": "DL", "DT": "DL", "CB": "DB", "S": "DB", "SS": "DB", "FS": "DB",
@@ -74,6 +82,7 @@ class TradeCandidate:
     opponent_ktc_appeal: float = 0.0   # how favorable for opponent on KTC (positive = they like it)
     arbitrage_score: float = 0.0  # composite ranking score
     ktc_coverage: str = "full"    # full / partial / none
+    confidence_score: float = 1.0 # 0-1, source coverage × KTC coverage
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -92,6 +101,7 @@ class TradeCandidate:
             "opponentKtcAppeal": round(self.opponent_ktc_appeal, 3),
             "arbitrageScore": round(self.arbitrage_score, 2),
             "ktcCoverage": self.ktc_coverage,
+            "confidenceScore": round(self.confidence_score, 2),
             "packageSize": f"{len(self.give)}-for-{len(self.receive)}",
         }
 
@@ -225,6 +235,17 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     if len(give) > len(receive):
         if give_model < recv_model * MULTI_FOR_ONE_MIN_RATIO:
             return None
+        # ── Elite target protection (tighter ratio) ──────────────────
+        max_recv = max(a.model_value for a in receive)
+        if max_recv >= ELITE_THRESHOLD:
+            if give_model < recv_model * ELITE_MULTI_MIN_RATIO:
+                return None
+        # ── Package anchor quality ───────────────────────────────────
+        # At least one give piece must be a real starter-quality asset,
+        # not just two bench stashes that happen to sum high enough.
+        max_give = max(a.model_value for a in give)
+        if max_give < max_recv * PACKAGE_ANCHOR_MIN_PCT:
+            return None
 
     # KTC scoring
     give_ktc_assets = [a for a in give if a.has_ktc]
@@ -277,9 +298,30 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     if coverage == "partial":
         arbitrage *= 0.5
 
-    # Penalize larger packages slightly (simplicity bonus)
+    # ── Confidence factor (source coverage × KTC coverage) ───────────
+    all_assets = give + receive
+    source_counts = [a.source_count for a in all_assets if a.source_count > 0]
+    if source_counts:
+        avg_sources = sum(source_counts) / len(source_counts)
+        source_confidence = min(1.0, avg_sources / CONFIDENCE_SOURCE_BASELINE)
+    else:
+        # Unknown source counts — assume reasonable
+        source_confidence = 1.0
+    ktc_confidence = 1.0 if coverage == "full" else 0.7
+    confidence = source_confidence * ktc_confidence
+
+    # Apply confidence as a soft multiplier (floor at 0.7 to avoid killing trades)
+    arbitrage *= (0.7 + 0.3 * confidence)
+
+    # ── Absolute-value bonus ────────────────────────────────────────
+    # Larger, more impactful trades rank above trivially small ones
+    # with similar edge percentages.
+    value_moved = min(give_model, recv_model)
+    arbitrage += min(1.0, value_moved / 5000) * 5
+
+    # Penalize larger packages (simplicity bonus)
     pkg_size = len(give) + len(receive)
-    arbitrage -= (pkg_size - 2) * 2
+    arbitrage -= (pkg_size - 2) * 3
 
     tc = TradeCandidate(
         give=give,
@@ -293,6 +335,7 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
         opponent_ktc_appeal=opp_appeal,
         arbitrage_score=arbitrage,
         ktc_coverage=coverage,
+        confidence_score=confidence,
     )
     return tc
 
@@ -441,8 +484,27 @@ def find_trades(
         all_trades.extend(_generate_2for1(my_roster, opp_filtered))
         all_trades.extend(_generate_1for2(my_roster, opp_filtered))
 
-    # Deduplicate and rank
+    # Deduplicate
     all_trades = _deduplicate(all_trades)
+
+    # ── Light roster-fit adjustment ──────────────────────────────────
+    # Slightly reward trades that shed surplus positions or fill weak ones.
+    my_pos_counts: dict[str, int] = {}
+    for a in my_roster:
+        if a.position:
+            my_pos_counts[a.position] = my_pos_counts.get(a.position, 0) + 1
+
+    for tc in all_trades:
+        fit_bonus = 0.0
+        for a in tc.give:
+            if my_pos_counts.get(a.position, 0) >= ROSTER_SURPLUS_THRESHOLD:
+                fit_bonus += 1.0
+        for a in tc.receive:
+            if my_pos_counts.get(a.position, 0) <= ROSTER_WEAK_THRESHOLD:
+                fit_bonus += 1.5
+        tc.arbitrage_score += fit_bonus
+
+    # Rank
     all_trades.sort(key=lambda t: t.arbitrage_score, reverse=True)
 
     # Keep only positive-arbitrage trades with positive board delta
