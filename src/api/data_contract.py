@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import datetime, timezone
 import math
 import re
 from typing import Any
+
+from src.data_models.contracts import utc_now_iso
 
 
 CONTRACT_VERSION = "2026-03-10.v2"
@@ -46,10 +47,6 @@ STARTUP_DROP_TOP_LEVEL_KEYS = {
     # Shadow canonical comparison is debug-only; not needed for first paint.
     "canonicalComparison",
 }
-
-
-def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _safe_num(v: Any) -> float | None:

@@ -22,7 +22,7 @@ from src.canonical.enrich import (
 )
 
 
-LEGACY_PATH = REPO / "data" / "legacy_data_2026-03-10.json"
+LEGACY_PATH = REPO / "data" / "legacy_data_2026-03-22.json"
 
 
 class TestNormalizeName:

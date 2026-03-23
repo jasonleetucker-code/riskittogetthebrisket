@@ -17,11 +17,15 @@ from __future__ import annotations
 import csv
 import json
 import random
+import sys
 from pathlib import Path
 
+# Ensure repo root is on sys.path for shared imports
+_REPO = Path(__file__).resolve().parents[1]
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
 
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+from scripts._shared import _repo_root
 
 
 def load_fantasycalc_players(repo: Path) -> list[tuple[str, int]]:

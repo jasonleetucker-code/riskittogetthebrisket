@@ -24,7 +24,7 @@ from src.canonical.calibration import (
 )
 
 
-LEGACY_PATH = REPO / "data" / "legacy_data_2026-03-10.json"
+LEGACY_PATH = REPO / "data" / "legacy_data_2026-03-22.json"
 
 
 def _make_assets(universe: str, values: list[int], names: list[str] | None = None) -> list[dict]:
@@ -163,8 +163,8 @@ class TestPickCalibrationWithLegacy:
         ]
         result = calibrate_canonical_values(assets, legacy_path=LEGACY_PATH)
         pick = result[0]
-        # Should match legacy value of 7311
-        assert pick["calibrated_value"] == 7311
+        # Should match legacy value (6656 in 2026-03-22 snapshot)
+        assert pick["calibrated_value"] == 6656
         assert pick["_pick_calibration_source"] == "legacy_direct"
 
     def test_round_curve_fallback(self):

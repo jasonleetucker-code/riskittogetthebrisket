@@ -23,23 +23,12 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Ensure repo root is on sys.path for shared imports
+_REPO = Path(__file__).resolve().parents[1]
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
 
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
-
-
-def _latest_file(directory: Path, pattern: str) -> Path | None:
-    files = sorted(directory.glob(pattern), reverse=True)
-    return files[0] if files else None
-
-
-def _normalize_name(name: str) -> str:
-    """Normalize player name for matching."""
-    n = name.strip()
-    for sfx in (" Jr.", " Sr.", " II", " III", " IV", " V"):
-        if n.endswith(sfx):
-            n = n[: -len(sfx)].strip()
-    return n.lower().replace(".", "").replace("'", "").replace("\u2019", "")
+from scripts._shared import _repo_root, _latest as _latest_file, _normalize_name
 
 
 # Common nickname → formal name mappings for fuzzy enrichment

@@ -17,24 +17,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from collections import defaultdict
 
+# Ensure repo root is on sys.path for shared imports
+_REPO = Path(__file__).resolve().parents[1]
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
 
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[1]
-
-
-def _latest_file(directory: Path, pattern: str) -> Path | None:
-    files = sorted(directory.glob(pattern), reverse=True)
-    return files[0] if files else None
-
-
-def _normalize_name(name: str) -> str:
-    """Minimal normalization for cross-system name matching."""
-    n = name.strip()
-    # Strip common suffixes
-    for sfx in (" Jr.", " Sr.", " II", " III", " IV", " V"):
-        if n.endswith(sfx):
-            n = n[: -len(sfx)].strip()
-    return n.lower().replace(".", "").replace("'", "").replace("\u2019", "")
+from scripts._shared import _repo_root, _latest as _latest_file, _normalize_name
 
 
 def load_legacy(path: Path) -> dict[str, dict]:
