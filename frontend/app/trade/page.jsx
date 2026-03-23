@@ -22,13 +22,19 @@ const SUGG_TYPES = [
 function fairnessColor(f) {
   if (f === "even") return "var(--green)";
   if (f === "lean") return "var(--cyan)";
-  return "var(--muted)";
+  return "var(--red)";
+}
+
+function fairnessLabel(f) {
+  if (f === "even") return "Even value";
+  if (f === "lean") return "Slight lean";
+  return "Stretch";
 }
 
 function confidenceBadge(c) {
-  if (c === "high") return { bg: "rgba(52,211,153,0.15)", border: "rgba(52,211,153,0.4)", color: "var(--green)" };
-  if (c === "medium") return { bg: "rgba(86,214,255,0.12)", border: "rgba(86,214,255,0.35)", color: "var(--cyan)" };
-  return { bg: "rgba(153,166,200,0.1)", border: "var(--border)", color: "var(--muted)" };
+  if (c === "high") return { label: "High consensus", bg: "rgba(52,211,153,0.15)", border: "rgba(52,211,153,0.4)", color: "var(--green)" };
+  if (c === "medium") return { label: "Moderate consensus", bg: "rgba(86,214,255,0.12)", border: "rgba(86,214,255,0.35)", color: "var(--cyan)" };
+  return { label: "Low consensus", bg: "rgba(153,166,200,0.1)", border: "var(--border)", color: "var(--muted)" };
 }
 
 function edgeBadge(edge) {
@@ -392,10 +398,10 @@ export default function TradePage() {
 
             {/* Roster analysis summary */}
             {suggestions?.rosterAnalysis && (
-              <div style={{ marginTop: 10, display: "flex", gap: 12, flexWrap: "wrap", fontSize: "0.78rem" }}>
+              <div style={{ marginTop: 10, display: "flex", gap: 16, flexWrap: "wrap", fontSize: "0.78rem" }}>
                 {suggestions.rosterAnalysis.surplusPositions.length > 0 && (
                   <span>
-                    <span className="label">Surplus </span>
+                    <span className="label">Can trade from </span>
                     <span style={{ color: "var(--green)", fontWeight: 600 }}>
                       {suggestions.rosterAnalysis.surplusPositions.join(", ")}
                     </span>
@@ -403,11 +409,15 @@ export default function TradePage() {
                 )}
                 {suggestions.rosterAnalysis.needPositions.length > 0 && (
                   <span>
-                    <span className="label">Need </span>
+                    <span className="label">Should target </span>
                     <span style={{ color: "var(--red)", fontWeight: 600 }}>
                       {suggestions.rosterAnalysis.needPositions.join(", ")}
                     </span>
                   </span>
+                )}
+                {suggestions.rosterAnalysis.surplusPositions.length === 0 &&
+                 suggestions.rosterAnalysis.needPositions.length === 0 && (
+                  <span className="muted">Roster is balanced — no clear surplus or need detected.</span>
                 )}
               </div>
             )}
@@ -416,22 +426,28 @@ export default function TradePage() {
             {suggestions && suggestions.totalSuggestions > 0 && (
               <>
                 <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
-                  {SUGG_TYPES.map((t) => (
-                    <button
-                      key={t.key}
-                      className="button"
-                      onClick={() => setSuggestionTab(t.key)}
-                      style={{
-                        fontSize: "0.76rem",
-                        padding: "5px 10px",
-                        borderColor: suggestionTab === t.key ? "var(--cyan)" : "var(--border)",
-                        color: suggestionTab === t.key ? "var(--cyan)" : "var(--muted)",
-                        background: suggestionTab === t.key ? "rgba(86,214,255,0.08)" : undefined,
-                      }}
-                    >
-                      {t.label} ({suggestionCounts[t.key] || 0})
-                    </button>
-                  ))}
+                  {SUGG_TYPES.map((t) => {
+                    const count = suggestionCounts[t.key] || 0;
+                    const isActive = suggestionTab === t.key;
+                    const isEmpty = count === 0;
+                    return (
+                      <button
+                        key={t.key}
+                        className="button"
+                        onClick={() => setSuggestionTab(t.key)}
+                        style={{
+                          fontSize: "0.76rem",
+                          padding: "5px 10px",
+                          borderColor: isActive ? "var(--cyan)" : "var(--border)",
+                          color: isActive ? "var(--cyan)" : isEmpty ? "var(--border)" : "var(--muted)",
+                          background: isActive ? "rgba(86,214,255,0.08)" : undefined,
+                          opacity: isEmpty && !isActive ? 0.5 : 1,
+                        }}
+                      >
+                        {t.label}{count > 0 ? ` (${count})` : ""}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Suggestion cards */}
@@ -439,35 +455,63 @@ export default function TradePage() {
                   {(suggestions[suggestionTab] || []).map((s, i) => {
                     const eb = edgeBadge(s.edge);
                     const cb = confidenceBadge(s.confidence);
+                    const rs = s.rankScore;
+                    const isTopPick = i === 0 && rs && rs.total >= 12;
                     return (
                       <div
                         key={`${suggestionTab}-${i}`}
                         className="card"
-                        style={{ padding: 10, borderColor: s.edge ? "rgba(86,214,255,0.3)" : undefined }}
+                        style={{
+                          padding: 10,
+                          borderColor: isTopPick ? "rgba(52,211,153,0.5)" : s.edge ? "rgba(86,214,255,0.3)" : undefined,
+                          borderWidth: isTopPick ? 2 : undefined,
+                        }}
                       >
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                           <div style={{ flex: 1 }}>
-                            {/* Give / Get */}
-                            <div style={{ fontSize: "0.82rem" }}>
-                              <span style={{ color: "var(--red)", fontWeight: 600 }}>Give: </span>
-                              {s.give.map((p) => `${p.name} (${p.position}, ${p.displayValue.toLocaleString()})`).join(" + ")}
-                            </div>
-                            <div style={{ fontSize: "0.82rem", marginTop: 3 }}>
-                              <span style={{ color: "var(--green)", fontWeight: 600 }}>Get: </span>
-                              {s.receive.map((p) => `${p.name} (${p.position}, ${p.displayValue.toLocaleString()})`).join(" + ")}
+                            {/* Rank + Give / Get */}
+                            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                              <span style={{
+                                fontSize: "0.68rem", fontWeight: 700, color: i === 0 ? "var(--green)" : "var(--muted)",
+                                minWidth: 18,
+                              }}>#{i + 1}</span>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: "0.82rem" }}>
+                                  <span style={{ color: "var(--red)", fontWeight: 600 }}>Give </span>
+                                  {s.give.map((p, pi) => (
+                                    <span key={pi}>
+                                      {pi > 0 && <span className="muted"> + </span>}
+                                      <span style={{ fontWeight: 600 }}>{p.name}</span>
+                                      <span className="muted"> {p.position} {p.displayValue.toLocaleString()}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                                <div style={{ fontSize: "0.82rem", marginTop: 3 }}>
+                                  <span style={{ color: "var(--green)", fontWeight: 600 }}>Get </span>
+                                  {s.receive.map((p, pi) => (
+                                    <span key={pi}>
+                                      {pi > 0 && <span className="muted"> + </span>}
+                                      <span style={{ fontWeight: 600 }}>{p.name}</span>
+                                      <span className="muted"> {p.position} {p.displayValue.toLocaleString()}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
                             </div>
 
                             {/* Badges row */}
-                            <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                            <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap", marginLeft: 24 }}>
                               <span className="badge" style={{ color: fairnessColor(s.fairness), borderColor: fairnessColor(s.fairness) }}>
-                                {s.fairness === "even" ? "Fair" : s.fairness === "lean" ? "Slight lean" : "Stretch"}
+                                {fairnessLabel(s.fairness)}
                                 {s.gap !== 0 && ` (${s.gap > 0 ? "+" : ""}${s.gap.toLocaleString()})`}
                               </span>
                               <span className="badge" style={{ color: cb.color, borderColor: cb.border, background: cb.bg }}>
-                                {s.confidence}
+                                {cb.label}
                               </span>
                               {s.strategy !== "neutral" && (
-                                <span className="badge">{s.strategy}</span>
+                                <span className="badge" style={{ textTransform: "capitalize" }}>
+                                  {s.strategy === "contender" ? "Contender move" : "Rebuilder move"}
+                                </span>
                               )}
                               {eb && (
                                 <span className="badge" style={{ color: eb.color, background: eb.bg, borderColor: eb.color }}>
@@ -477,27 +521,45 @@ export default function TradePage() {
                             </div>
 
                             {/* Rationale */}
-                            <div className="muted" style={{ fontSize: "0.74rem", marginTop: 5 }}>{s.rationale}</div>
-                            {s.whyThisHelps && (
-                              <div style={{ fontSize: "0.74rem", marginTop: 2, color: "var(--cyan)" }}>{s.whyThisHelps}</div>
-                            )}
-                            {s.edgeExplanation && (
-                              <div style={{ fontSize: "0.72rem", marginTop: 2, fontStyle: "italic", color: "#fbbf24" }}>{s.edgeExplanation}</div>
-                            )}
+                            <div style={{ marginLeft: 24 }}>
+                              <div className="muted" style={{ fontSize: "0.74rem", marginTop: 5 }}>{s.rationale}</div>
+                              {s.whyThisHelps && (
+                                <div style={{ fontSize: "0.74rem", marginTop: 2, color: "var(--cyan)" }}>{s.whyThisHelps}</div>
+                              )}
+                              {s.edgeExplanation && (
+                                <div style={{ fontSize: "0.72rem", marginTop: 2, fontStyle: "italic", color: "#fbbf24" }}>{s.edgeExplanation}</div>
+                              )}
 
-                            {/* Balancers */}
-                            {s.suggestedBalancers?.length > 0 && (
-                              <div className="muted" style={{ fontSize: "0.72rem", marginTop: 4 }}>
-                                Balancers: {s.suggestedBalancers.map((b) => `${b.name} (${b.displayValue.toLocaleString()})`).join(", ")}
-                              </div>
-                            )}
+                              {/* Balancers */}
+                              {s.suggestedBalancers?.length > 0 && (
+                                <div className="muted" style={{ fontSize: "0.72rem", marginTop: 4 }}>
+                                  To even it out, add: {s.suggestedBalancers.map((b) => `${b.name} (${b.displayValue.toLocaleString()})`).join(", ")}
+                                </div>
+                              )}
 
-                            {/* Opponent fit */}
-                            {s.opponentFit && (
-                              <div style={{ fontSize: "0.72rem", marginTop: 3, color: "var(--cyan)" }}>
-                                {s.opponentFit}
-                              </div>
-                            )}
+                              {/* Opponent fit */}
+                              {s.opponentFit && (
+                                <div style={{ fontSize: "0.72rem", marginTop: 3, color: "var(--cyan)" }}>
+                                  {s.opponentFit}
+                                </div>
+                              )}
+
+                              {/* Rank score transparency (collapsed by default) */}
+                              {rs && (
+                                <details style={{ marginTop: 4 }}>
+                                  <summary className="muted" style={{ fontSize: "0.66rem", cursor: "pointer" }}>
+                                    Why #{i + 1}? Score {rs.total}
+                                  </summary>
+                                  <div className="muted" style={{ fontSize: "0.66rem", marginTop: 2, lineHeight: 1.5 }}>
+                                    Value {rs.base_value} + Fairness {rs.fairness} + Consensus {rs.confidence}
+                                    {rs.need_severity > 0 && ` + Need ${rs.need_severity}`}
+                                    {rs.edge > 0 && ` + Edge ${rs.edge}`}
+                                    {rs.opponent_fit > 0 && ` + Partner ${rs.opponent_fit}`}
+                                    {" "}= {rs.total}
+                                  </div>
+                                </details>
+                              )}
+                            </div>
                           </div>
 
                           {/* Apply button */}
@@ -513,16 +575,31 @@ export default function TradePage() {
                     );
                   })}
                   {(suggestions[suggestionTab] || []).length === 0 && (
-                    <div className="muted" style={{ fontSize: "0.82rem" }}>No suggestions in this category for your roster.</div>
+                    <div className="muted" style={{ fontSize: "0.82rem", padding: "8px 0" }}>
+                      {suggestionTab === "sellHigh"
+                        ? "No sell-high opportunities found. You may not have enough depth at any position to move a piece."
+                        : suggestionTab === "buyLow"
+                        ? "No buy-low targets found. Your surplus positions may not have tradeable pieces in the right value range."
+                        : suggestionTab === "consolidation"
+                        ? "No consolidation trades found. This requires 2+ depth pieces that combine into a single upgrade."
+                        : "No positional upgrades found. Your starters may already be top-tier, or no upgrade targets match your depth value."}
+                    </div>
                   )}
                 </div>
               </>
             )}
 
             {suggestions && suggestions.totalSuggestions === 0 && (
-              <p className="muted" style={{ marginTop: 10, fontSize: "0.82rem" }}>
-                No trade suggestions found. Your roster may be well-balanced, or too few players were matched.
-              </p>
+              <div style={{ marginTop: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 8, fontSize: "0.82rem" }}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>No trade suggestions found</div>
+                <div className="muted" style={{ fontSize: "0.76rem", lineHeight: 1.5 }}>
+                  {suggestions.metadata?.rosterMatched < 5
+                    ? `Only ${suggestions.metadata?.rosterMatched || 0} of ${parseRoster().length} players matched our database. Check spelling or try adding more players.`
+                    : suggestions.rosterAnalysis?.surplusPositions?.length === 0
+                    ? "Your roster has no clear positional surplus. The engine needs at least one position with depth beyond starters to suggest trades."
+                    : "Your roster appears well-balanced. No actionable trades met our quality threshold."}
+                </div>
+              </div>
             )}
           </div>
 
