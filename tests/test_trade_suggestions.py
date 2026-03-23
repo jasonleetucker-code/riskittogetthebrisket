@@ -12,9 +12,12 @@ import pytest
 
 from src.trade.suggestions import (
     PlayerAsset,
+    RosterAnalysis,
     build_asset_pool,
     analyze_roster,
     generate_suggestions,
+    rank_score,
+    rank_score_breakdown,
     _fairness_label,
     _norm_pos,
     _compute_cv,
@@ -469,3 +472,185 @@ class TestOpponentAware:
         snap = _sample_snapshot()
         result = generate_suggestions(["Josh Allen"], snap, league_rosters=[])
         assert result["metadata"]["opponentRostersProvided"] == 0
+
+
+# ── Phase 4: Ranking tests ──────────────────────────────────────────
+
+def _make_suggestion(
+    give_val=5000, recv_val=5200, fairness="even", confidence="high",
+    give_pos="RB", recv_pos="WR", give_name="Player A", recv_name="Player B",
+    strategy="neutral", edge=None, opponent_fit=None,
+):
+    """Helper to build a TradeSuggestion with optional enrichment."""
+    s = TradeSuggestion(
+        type="sell_high",
+        give=[PlayerAsset(give_name, give_pos, give_val, give_val, source_count=6)],
+        receive=[PlayerAsset(recv_name, recv_pos, recv_val, recv_val, source_count=6)],
+        give_total=give_val,
+        receive_total=recv_val,
+        gap=give_val - recv_val,
+        fairness=fairness,
+        rationale="test",
+        why_this_helps="test",
+        confidence=confidence,
+        strategy=strategy,
+    )
+    if edge is not None:
+        s.__dict__["edge"] = edge
+    if opponent_fit is not None:
+        s.__dict__["opponent_fit"] = opponent_fit
+    return s
+
+
+class TestRankScore:
+    def test_deterministic(self):
+        """Same inputs → same score."""
+        s = _make_suggestion()
+        assert rank_score(s) == rank_score(s)
+
+    def test_even_beats_lean(self):
+        """An even trade ranks higher than a lean trade, all else equal."""
+        even = _make_suggestion(fairness="even")
+        lean = _make_suggestion(fairness="lean")
+        assert rank_score(even) > rank_score(lean)
+
+    def test_lean_beats_stretch(self):
+        lean = _make_suggestion(fairness="lean")
+        stretch = _make_suggestion(fairness="stretch")
+        assert rank_score(lean) > rank_score(stretch)
+
+    def test_high_conf_beats_low(self):
+        """High confidence ranks above low confidence, all else equal."""
+        high = _make_suggestion(confidence="high")
+        low = _make_suggestion(confidence="low")
+        assert rank_score(high) > rank_score(low)
+
+    def test_edge_bonus_applied(self):
+        """Market discount edge adds to score."""
+        no_edge = _make_suggestion()
+        with_edge = _make_suggestion(edge="market_discount")
+        assert rank_score(with_edge) > rank_score(no_edge)
+
+    def test_opponent_fit_bonus(self):
+        """Opponent fit adds to score."""
+        no_fit = _make_suggestion()
+        with_fit = _make_suggestion(opponent_fit="Team A needs RB")
+        assert rank_score(with_fit) > rank_score(no_fit)
+
+    def test_need_severity_with_roster(self):
+        """Filling a gaping need scores higher than a non-need position."""
+        s_need = _make_suggestion(recv_pos="WR")
+        s_no_need = _make_suggestion(recv_pos="QB")
+        # Build a roster that needs WR but not QB
+        roster = RosterAnalysis(
+            roster_size=10,
+            by_position={"QB": [], "WR": []},
+            surplus_positions=[],
+            need_positions=["WR"],
+            starter_counts={"QB": 2, "WR": 1},
+            depth_counts={"QB": 0, "WR": 0},
+        )
+        assert rank_score(s_need, roster) > rank_score(s_no_need, roster)
+
+    def test_breakdown_sums_to_total(self):
+        """Breakdown components must sum to total."""
+        s = _make_suggestion(edge="high_dispersion", opponent_fit="Team A")
+        bd = rank_score_breakdown(s)
+        expected = (
+            bd["base_value"] + bd["fairness"] + bd["confidence"]
+            + bd["need_severity"] + bd["edge"] + bd["opponent_fit"]
+        )
+        assert abs(bd["total"] - expected) < 0.01
+
+    def test_higher_value_helps_but_not_dominant(self):
+        """A cheap even/high trade can beat an expensive stretch/low trade.
+
+        cheap_good: base=2.5 + fair=3 + conf=2 = 7.5
+        expensive_bad: base=7.0 + fair=0 + conf=0 = 7.0
+        Quality factors outweigh raw value.
+        """
+        cheap_good = _make_suggestion(give_val=2500, recv_val=2600, fairness="even", confidence="high")
+        expensive_bad = _make_suggestion(give_val=7000, recv_val=9500, fairness="stretch", confidence="low")
+        assert rank_score(cheap_good) > rank_score(expensive_bad)
+
+
+class TestRankingInOutput:
+    def test_rank_score_in_serialized_output(self):
+        """Every suggestion in output must include rankScore breakdown."""
+        snap = _sample_snapshot()
+        roster = [
+            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
+            "Bijan Robinson", "Jahmyr Gibbs",
+            "Ja'Marr Chase",
+            "Brock Bowers",
+            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
+            "Jack Campbell", "Roquan Smith", "Fred Warner",
+            "Kyle Hamilton", "Sauce Gardner",
+        ]
+        result = generate_suggestions(roster, snap)
+        all_suggs = result["sellHigh"] + result["buyLow"] + result["consolidation"] + result["positionalUpgrades"]
+        for s in all_suggs:
+            assert "rankScore" in s
+            rs = s["rankScore"]
+            assert "total" in rs
+            assert "base_value" in rs
+            assert "fairness" in rs
+            assert "confidence" in rs
+            assert "need_severity" in rs
+            assert "edge" in rs
+            assert "opponent_fit" in rs
+
+    def test_output_ordered_by_rank_within_category(self):
+        """Within each category, suggestions must be ordered by rank score descending."""
+        snap = _sample_snapshot()
+        roster = [
+            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
+            "Bijan Robinson", "Jahmyr Gibbs", "De'Von Achane",
+            "Ja'Marr Chase",
+            "Brock Bowers",
+            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
+            "Jack Campbell", "Roquan Smith", "Fred Warner",
+            "Kyle Hamilton", "Sauce Gardner",
+        ]
+        result = generate_suggestions(roster, snap)
+        for cat in ["sellHigh", "buyLow", "consolidation", "positionalUpgrades"]:
+            suggs = result[cat]
+            if len(suggs) < 2:
+                continue
+            scores = [s["rankScore"]["total"] for s in suggs]
+            for i in range(len(scores) - 1):
+                assert scores[i] >= scores[i + 1], (
+                    f"{cat}[{i}] score {scores[i]} < [{i+1}] score {scores[i+1]}"
+                )
+
+    def test_ranking_still_deterministic(self):
+        """Ranked output must be identical across runs."""
+        snap = _sample_snapshot()
+        roster = [
+            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
+            "Bijan Robinson", "Jahmyr Gibbs",
+            "Ja'Marr Chase",
+            "Brock Bowers",
+            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
+            "Jack Campbell", "Roquan Smith", "Fred Warner",
+            "Kyle Hamilton", "Sauce Gardner",
+        ]
+        r1 = generate_suggestions(roster, snap)
+        r2 = generate_suggestions(roster, snap)
+        assert r1 == r2
+
+    def test_ranking_with_opponents_deterministic(self):
+        snap = _sample_snapshot()
+        roster = [
+            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
+            "Bijan Robinson", "Jahmyr Gibbs",
+            "Ja'Marr Chase",
+            "Brock Bowers",
+            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
+            "Jack Campbell", "Roquan Smith", "Fred Warner",
+            "Kyle Hamilton", "Sauce Gardner",
+        ]
+        opp = [{"team_name": "Opp", "players": ["Tua Tagovailoa", "Puka Nacua", "CeeDee Lamb"]}]
+        r1 = generate_suggestions(roster, snap, league_rosters=opp)
+        r2 = generate_suggestions(roster, snap, league_rosters=opp)
+        assert r1 == r2

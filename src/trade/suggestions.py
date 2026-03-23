@@ -292,6 +292,128 @@ def _confidence_from_sources(source_count: int) -> str:
     return "low"
 
 
+# ── Ranking score ────────────────────────────────────────────────────
+#
+# Formula (deterministic, additive, all terms visible):
+#
+#   rank_score = base_value
+#              + fairness_bonus
+#              + confidence_bonus
+#              + need_severity_bonus
+#              + edge_bonus
+#              + opponent_fit_bonus
+#
+# base_value:         min(give_total, receive_total) / 1000
+#                     Normalizes to ~1–10 range.  Bigger trades score higher,
+#                     but this is only one factor.
+#
+# fairness_bonus:     +3 (even)  |  +1 (lean)  |  0 (stretch)
+#                     Even trades are far more actionable.
+#
+# confidence_bonus:   +2 (high)  |  +1 (medium)  |  0 (low)
+#                     High source consensus = more trustworthy suggestion.
+#
+# need_severity_bonus: +2 if the receive position has 0 starters on roster
+#                      +1 if below starter threshold
+#                      Filling a gaping hole > marginal depth swap.
+#
+# edge_bonus:         +1.5 (market_discount)  |  +1 (market_premium)  |
+#                     +0.5 (high_dispersion)
+#                     Market disagreement that favors the user.
+#
+# opponent_fit_bonus: +1.5 if opponent_fit text present
+#                     A real trade partner exists.
+#
+# Tiebreaker: abs(gap) ascending (tighter trades first), then alphabetical
+# give-side name for full determinism.
+
+_FAIRNESS_RANK_BONUS = {"even": 3.0, "lean": 1.0, "stretch": 0.0}
+_CONFIDENCE_RANK_BONUS = {"high": 2.0, "medium": 1.0, "low": 0.0}
+_EDGE_RANK_BONUS = {"market_discount": 1.5, "market_premium": 1.0, "high_dispersion": 0.5}
+
+
+def rank_score(
+    s: TradeSuggestion,
+    roster: RosterAnalysis | None = None,
+) -> float:
+    """Compute an explainable ranking score for a suggestion.
+
+    Higher = better.  Deterministic for identical inputs.
+    """
+    # 1. Base value: normalized trade magnitude
+    base = min(s.give_total, s.receive_total) / 1000.0
+
+    # 2. Fairness bonus
+    fair = _FAIRNESS_RANK_BONUS.get(s.fairness, 0.0)
+
+    # 3. Confidence bonus
+    conf = _CONFIDENCE_RANK_BONUS.get(s.confidence, 0.0)
+
+    # 4. Need severity bonus
+    need_sev = 0.0
+    if roster is not None:
+        for p in s.receive:
+            if p.position in roster.need_positions:
+                starter_ct = roster.starter_counts.get(p.position, 0)
+                needed = DEFAULT_STARTER_NEEDS.get(p.position, 1)
+                if starter_ct == 0:
+                    need_sev = max(need_sev, 2.0)
+                elif starter_ct < needed:
+                    need_sev = max(need_sev, 1.0)
+
+    # 5. Edge bonus (from __dict__ annotation set post-construction)
+    edge = s.__dict__.get("edge")
+    edge_b = _EDGE_RANK_BONUS.get(edge, 0.0) if edge else 0.0
+
+    # 6. Opponent-fit bonus
+    opp_fit = 1.5 if s.__dict__.get("opponent_fit") else 0.0
+
+    return base + fair + conf + need_sev + edge_b + opp_fit
+
+
+def rank_score_breakdown(
+    s: TradeSuggestion,
+    roster: RosterAnalysis | None = None,
+) -> dict[str, float]:
+    """Return the individual components of rank_score for debugging."""
+    base = min(s.give_total, s.receive_total) / 1000.0
+    fair = _FAIRNESS_RANK_BONUS.get(s.fairness, 0.0)
+    conf = _CONFIDENCE_RANK_BONUS.get(s.confidence, 0.0)
+
+    need_sev = 0.0
+    if roster is not None:
+        for p in s.receive:
+            if p.position in roster.need_positions:
+                starter_ct = roster.starter_counts.get(p.position, 0)
+                needed = DEFAULT_STARTER_NEEDS.get(p.position, 1)
+                if starter_ct == 0:
+                    need_sev = max(need_sev, 2.0)
+                elif starter_ct < needed:
+                    need_sev = max(need_sev, 1.0)
+
+    edge = s.__dict__.get("edge")
+    edge_b = _EDGE_RANK_BONUS.get(edge, 0.0) if edge else 0.0
+    opp_fit = 1.5 if s.__dict__.get("opponent_fit") else 0.0
+
+    return {
+        "base_value": round(base, 2),
+        "fairness": round(fair, 2),
+        "confidence": round(conf, 2),
+        "need_severity": round(need_sev, 2),
+        "edge": round(edge_b, 2),
+        "opponent_fit": round(opp_fit, 2),
+        "total": round(base + fair + conf + need_sev + edge_b + opp_fit, 2),
+    }
+
+
+def _rank_sort_key(s: TradeSuggestion, roster: RosterAnalysis | None = None):
+    """Sort key: higher score first, then tighter gap, then alphabetical."""
+    score = rank_score(s, roster)
+    # Negate score for descending; abs(gap) ascending; alphabetical give name
+    give_name = s.give[0].name if s.give else ""
+    return (-score, abs(s.gap), give_name)
+
+
 # ── Opponent-aware helpers ───────────────────────────────────────────
 
 def _analyze_opponent_rosters(
@@ -393,8 +515,9 @@ def _generate_sell_high(
                     strategy=_strategy_for_player(sell),
                 ))
 
+    # Preliminary sort by value; final ranking applied in generate_suggestions()
     suggestions.sort(key=lambda s: -min(s.give_total, s.receive_total))
-    return suggestions[:MAX_SUGGESTIONS_PER_TYPE]
+    return suggestions
 
 
 def _generate_buy_low(
@@ -442,13 +565,15 @@ def _generate_buy_low(
                             strategy="neutral",
                         ))
 
+    # Deduplicate by receive target (keep tightest gap)
     seen: dict[str, TradeSuggestion] = {}
     for s in suggestions:
         key = s.receive[0].name
         if key not in seen or abs(s.gap) < abs(seen[key].gap):
             seen[key] = s
+    # Preliminary sort by value; final ranking applied in generate_suggestions()
     result = sorted(seen.values(), key=lambda s: -s.receive_total)
-    return result[:MAX_SUGGESTIONS_PER_TYPE]
+    return result
 
 
 def _generate_consolidation(
@@ -514,8 +639,9 @@ def _generate_consolidation(
                 ))
                 break
 
+    # Preliminary sort; final ranking applied in generate_suggestions()
     suggestions.sort(key=lambda s: -s.receive_total)
-    return suggestions[:MAX_SUGGESTIONS_PER_TYPE]
+    return suggestions
 
 
 def _generate_positional_upgrades(
@@ -590,8 +716,9 @@ def _generate_positional_upgrades(
                 strategy="contender",
             ))
 
+    # Preliminary sort; final ranking applied in generate_suggestions()
     suggestions.sort(key=lambda s: -s.receive_total)
-    return suggestions[:MAX_SUGGESTIONS_PER_TYPE]
+    return suggestions
 
 
 def _find_balancers(
@@ -651,9 +778,9 @@ def generate_suggestions(
     if league_rosters:
         opponent_analyses = _analyze_opponent_rosters(league_rosters, pool)
 
-    # Add edge signals, balancers, and opponent fit
-    all_suggestions = sell_high + buy_low + consolidation + upgrades
-    for s in all_suggestions:
+    # Enrich all suggestions with edge signals, balancers, opponent fit
+    all_unranked = sell_high + buy_low + consolidation + upgrades
+    for s in all_unranked:
         # Phase 2: Market-disagreement edge
         edge, explanation = _edge_for_suggestion(s)
         s.__dict__["edge"] = edge
@@ -668,12 +795,28 @@ def generate_suggestions(
         if opponent_analyses:
             s.__dict__["opponent_fit"] = _opponent_fit_label(s, opponent_analyses)
 
+    # Phase 4: Deterministic ranking — applied AFTER enrichment so edge
+    # and opponent-fit bonuses affect ordering.
+    sort_key = lambda s: _rank_sort_key(s, roster)
+    sell_high.sort(key=sort_key)
+    buy_low.sort(key=sort_key)
+    consolidation.sort(key=sort_key)
+    upgrades.sort(key=sort_key)
+
+    # Enforce per-category caps after ranking
+    sell_high = sell_high[:max_per_type]
+    buy_low = buy_low[:max_per_type]
+    consolidation = consolidation[:max_per_type]
+    upgrades = upgrades[:max_per_type]
+
+    all_suggestions = sell_high + buy_low + consolidation + upgrades
+
     return {
         "rosterAnalysis": _serialize_roster(roster),
-        "sellHigh": [_serialize_suggestion(s) for s in sell_high],
-        "buyLow": [_serialize_suggestion(s) for s in buy_low],
-        "consolidation": [_serialize_suggestion(s) for s in consolidation],
-        "positionalUpgrades": [_serialize_suggestion(s) for s in upgrades],
+        "sellHigh": [_serialize_suggestion(s, roster) for s in sell_high],
+        "buyLow": [_serialize_suggestion(s, roster) for s in buy_low],
+        "consolidation": [_serialize_suggestion(s, roster) for s in consolidation],
+        "positionalUpgrades": [_serialize_suggestion(s, roster) for s in upgrades],
         "totalSuggestions": len(all_suggestions),
         "metadata": {
             "assetPoolSize": len(pool),
@@ -701,7 +844,7 @@ def _serialize_player(p: PlayerAsset) -> dict[str, Any]:
     return result
 
 
-def _serialize_suggestion(s: TradeSuggestion) -> dict[str, Any]:
+def _serialize_suggestion(s: TradeSuggestion, roster: RosterAnalysis | None = None) -> dict[str, Any]:
     result: dict[str, Any] = {
         "type": s.type,
         "give": [_serialize_player(p) for p in s.give],
@@ -715,6 +858,8 @@ def _serialize_suggestion(s: TradeSuggestion) -> dict[str, Any]:
         "confidence": s.confidence,
         "strategy": s.strategy,
     }
+    # Rank score breakdown (explainability)
+    result["rankScore"] = rank_score_breakdown(s, roster)
     balancers = s.__dict__.get("balancers", [])
     if balancers:
         result["suggestedBalancers"] = [_serialize_player(b) for b in balancers]
