@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+    # Skip deploy for data-only commits from scheduled-refresh.
+    # Data flows to production via the server's own scrape loop, not via git deploy.
+    paths-ignore:
+      - 'data/**'
+      - 'exports/**'
   workflow_dispatch:
     inputs:
       deploy_ref:
@@ -56,6 +61,13 @@ jobs:
           import server  # noqa: F401
           print("Runtime import gate passed.")
           PY
+
+      - name: Run unit tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          pip install pytest
+          python -m pytest tests/ -x -q --tb=short
 
       - name: API data contract check (if sample data exists)
         shell: bash
@@ -325,10 +337,70 @@ jobs:
           bash "\${APP_DIR}/deploy/deploy.sh"
           EOF
 
-      - name: Public health smoke test (optional)
+      - name: Post-deploy smoke test
         if: ${{ vars.PROD_PUBLIC_URL != '' }}
         shell: bash
         run: |
           set -Eeuo pipefail
-          curl --fail --silent --show-error --max-time 20 "${{ vars.PROD_PUBLIC_URL }}" >/tmp/public-health.json
-          head -c 400 /tmp/public-health.json || true
+          URL="${{ vars.PROD_PUBLIC_URL }}"
+          URL="${URL%/}"
+          PASS=0
+          FAIL=0
+
+          check_endpoint() {
+            local path="$1"
+            local expect_code="${2:-200}"
+            local full_url="${URL}${path}"
+            local code
+            code=$(curl --silent --show-error --output /dev/null \
+              --write-out '%{http_code}' --max-time 15 "${full_url}" || echo "000")
+            if [[ "${code}" == "${expect_code}" ]]; then
+              echo "PASS: ${path} -> ${code}"
+              PASS=$((PASS + 1))
+            else
+              echo "FAIL: ${path} -> ${code} (expected ${expect_code})"
+              FAIL=$((FAIL + 1))
+            fi
+          }
+
+          echo "=== Post-Deploy Smoke Test ==="
+          echo "Target: ${URL}"
+
+          check_endpoint "/api/health" 200
+          check_endpoint "/api/status" 200
+          check_endpoint "/api/data" 200
+          check_endpoint "/" 200
+
+          echo ""
+          echo "Results: ${PASS} passed, ${FAIL} failed"
+
+          if [[ "${FAIL}" -gt 0 ]]; then
+            echo "::error title=Post-Deploy Smoke Failure::${FAIL} endpoint(s) failed after deploy."
+            exit 1
+          fi
+
+      - name: Validate live data contract
+        if: ${{ vars.PROD_PUBLIC_URL != '' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          URL="${{ vars.PROD_PUBLIC_URL }}"
+          URL="${URL%/}"
+
+          curl --silent --show-error --max-time 20 "${URL}/api/health" > /tmp/health.json
+
+          python3 - <<'PY'
+          import json, sys
+          with open("/tmp/health.json") as f:
+              data = json.load(f)
+          status = data.get("status", "unknown")
+          has_data = data.get("has_data", False)
+          stale = data.get("data_stale", True)
+          print(f"  status={status} has_data={has_data} data_stale={stale}")
+          if status not in ("ok", "degraded"):
+              print("::error title=Unexpected health status::Health returned unexpected status.")
+              sys.exit(1)
+          if not has_data:
+              print("::warning title=No data loaded::Server reports no data loaded.")
+          print("Post-deploy health validation passed.")
+          PY
