@@ -751,19 +751,83 @@ def _find_balancers(
     asset_pool: list[PlayerAsset],
     roster_names_set: set[str],
     exclude_names: set[str],
-) -> list[PlayerAsset]:
+    roster: RosterAnalysis | None = None,
+) -> tuple[list[PlayerAsset], str]:
+    """Find realistic balancer add-ons for a near-there trade.
+
+    Direction-aware:
+    - gap < 0 (user underpays): search user's roster for expendable add-ons.
+    - gap > 0 (user overpays): search global pool for what opponent could add.
+
+    Returns (balancers, side) where side is "you_add" or "they_add".
+    """
     if abs(gap) < 256:
-        return []
+        return ([], "")
     target_value = abs(gap)
-    candidates = [
+    side = "you_add" if gap < 0 else "they_add"
+
+    if gap < 0 and roster is not None:
+        # User needs to sweeten — search THEIR roster for expendable depth
+        candidates = _roster_balancer_candidates(
+            target_value, roster, exclude_names,
+        )
+    else:
+        # Opponent needs to sweeten — search global pool
+        candidates = _pool_balancer_candidates(
+            target_value, asset_pool, roster_names_set, exclude_names,
+        )
+
+    candidates.sort(key=lambda c: (
+        0 if (roster and c.position in roster.surplus_positions) else 1,
+        abs(c.display_value - target_value),
+        c.name,
+    ))
+    return (candidates[:MAX_BALANCERS], side)
+
+
+def _roster_balancer_candidates(
+    target_value: int,
+    roster: RosterAnalysis,
+    exclude_names: set[str],
+) -> list[PlayerAsset]:
+    """Find expendable depth pieces from the user's roster."""
+    candidates: list[PlayerAsset] = []
+
+    # Prefer surplus-position depth, then any non-starter depth
+    for pos in list(roster.surplus_positions) + list(DEFAULT_STARTER_NEEDS.keys()):
+        players = roster.by_position.get(pos, [])
+        need = DEFAULT_STARTER_NEEDS.get(pos, 1)
+        for p in players[need:]:
+            if (
+                p.name.lower() not in exclude_names
+                and p.position  # skip positionless
+                and p.display_value >= MIN_RELEVANT_VALUE
+                and abs(p.display_value - target_value) < target_value * 0.5
+            ):
+                if not any(c.name == p.name for c in candidates):
+                    candidates.append(p)
+    return candidates
+
+
+def _pool_balancer_candidates(
+    target_value: int,
+    asset_pool: list[PlayerAsset],
+    roster_names_set: set[str],
+    exclude_names: set[str],
+) -> list[PlayerAsset]:
+    """Find realistic balancer candidates from the global asset pool."""
+    return [
         a for a in asset_pool
         if a.name.lower() not in roster_names_set
         and a.name.lower() not in exclude_names
-        and a.display_value >= 100
+        and a.position  # skip positionless / placeholder entries
+        and a.display_value >= MIN_RELEVANT_VALUE
         and abs(a.display_value - target_value) < target_value * 0.4
     ]
-    candidates.sort(key=lambda c: abs(c.display_value - target_value))
-    return candidates[:3]
+
+
+# Maximum balancers to suggest per trade
+MAX_BALANCERS = 2
 
 
 # ── Quality filter ───────────────────────────────────────────────────
@@ -929,7 +993,9 @@ def generate_suggestions(
         # Balancers for non-even trades
         if s.fairness != "even":
             exclude = {p.name.lower() for p in s.give + s.receive}
-            s.__dict__["balancers"] = _find_balancers(s.gap, pool, roster_set, exclude)
+            bals, side = _find_balancers(s.gap, pool, roster_set, exclude, roster)
+            s.__dict__["balancers"] = bals
+            s.__dict__["balancer_side"] = side
 
         # Phase 3: Opponent fit
         if opponent_analyses:
@@ -1016,6 +1082,9 @@ def _serialize_suggestion(s: TradeSuggestion, roster: RosterAnalysis | None = No
     balancers = s.__dict__.get("balancers", [])
     if balancers:
         result["suggestedBalancers"] = [_serialize_player(b) for b in balancers]
+        bal_side = s.__dict__.get("balancer_side", "")
+        if bal_side:
+            result["balancerSide"] = bal_side
     edge = s.__dict__.get("edge")
     if edge:
         result["edge"] = edge

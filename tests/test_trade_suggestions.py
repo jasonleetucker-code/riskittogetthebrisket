@@ -23,11 +23,15 @@ from src.trade.suggestions import (
     _compute_cv,
     _edge_for_suggestion,
     _apply_quality_filters,
+    _find_balancers,
+    _roster_balancer_candidates,
+    _pool_balancer_candidates,
     TradeSuggestion,
     DEFAULT_STARTER_NEEDS,
     MIN_RELEVANT_VALUE,
     MIN_ACTIONABLE_VALUE,
     MAX_GAP_FOR_1FOR1,
+    MAX_BALANCERS,
     HIGH_DISPERSION_CV,
     MAX_GIVE_PLAYER_APPEARANCES,
     MAX_RECEIVE_TARGET_PER_CATEGORY,
@@ -1069,6 +1073,234 @@ class TestNewFiltersDeterministic:
         roster = [
             "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
             "Bijan Robinson", "Jahmyr Gibbs", "De'Von Achane",
+            "Ja'Marr Chase",
+            "Brock Bowers",
+            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
+            "Jack Campbell", "Roquan Smith", "Fred Warner",
+            "Kyle Hamilton", "Sauce Gardner",
+        ]
+        r1 = generate_suggestions(roster, snap)
+        r2 = generate_suggestions(roster, snap)
+        assert r1 == r2
+
+
+# ── Phase 2B: Balancer improvement tests ─────────────────────────────
+
+def _make_pool_and_roster():
+    """Build a test pool and roster with known depth for balancer testing."""
+    snap = _sample_snapshot()
+    pool = build_asset_pool(snap)
+    # QB-heavy roster with known surplus
+    roster_names = [
+        "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",  # 4 QB (need 2 → 2 depth)
+        "Bijan Robinson", "Jahmyr Gibbs", "De'Von Achane",  # 3 RB (need 3 → 0 depth)
+        "Ja'Marr Chase",                                     # 1 WR (need 4 → deficit)
+        "Brock Bowers",                                      # 1 TE
+        "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",   # 3 DL
+        "Jack Campbell", "Roquan Smith", "Fred Warner",      # 3 LB
+        "Kyle Hamilton", "Sauce Gardner",                    # 2 DB
+    ]
+    roster = analyze_roster(roster_names, pool)
+    roster_set = {n.lower() for n in roster_names}
+    return pool, roster, roster_set
+
+
+class TestFindBalancersDirection:
+    """Balancers should come from the right side depending on gap direction."""
+
+    def test_negative_gap_searches_user_roster(self):
+        """When user underpays (gap < 0), balancers come from their roster."""
+        pool, roster, roster_set = _make_pool_and_roster()
+        # User underpays by ~7300 — their QB depth (Caleb Williams ~9331, Drake Maye ~9721)
+        # should be candidates since those are surplus QBs
+        bals, side = _find_balancers(-7300, pool, roster_set, set(), roster)
+        assert side == "you_add"
+        # If balancers found, they must be from the user's roster
+        for b in bals:
+            assert b.name.lower() in roster_set
+
+    def test_positive_gap_searches_global_pool(self):
+        """When user overpays (gap > 0), balancers come from global pool."""
+        pool, roster, roster_set = _make_pool_and_roster()
+        bals, side = _find_balancers(3000, pool, roster_set, set(), roster)
+        assert side == "they_add"
+        # Balancers must NOT be from user's roster
+        for b in bals:
+            assert b.name.lower() not in roster_set
+
+    def test_small_gap_returns_nothing(self):
+        """Gaps under 256 don't need balancers."""
+        pool, roster, roster_set = _make_pool_and_roster()
+        bals, side = _find_balancers(100, pool, roster_set, set(), roster)
+        assert bals == []
+        assert side == ""
+
+    def test_no_roster_falls_back_to_pool(self):
+        """Without roster context, negative gap still uses global pool."""
+        pool, _, roster_set = _make_pool_and_roster()
+        bals, side = _find_balancers(-3000, pool, roster_set, set(), None)
+        assert side == "you_add"
+        # Falls back to pool search since no roster provided
+        for b in bals:
+            assert b.name.lower() not in roster_set
+
+
+class TestBalancerQuality:
+    """Balancers must be realistic — positioned, valued, capped."""
+
+    def test_max_2_balancers(self):
+        """Never more than MAX_BALANCERS results."""
+        assert MAX_BALANCERS == 2
+        pool, roster, roster_set = _make_pool_and_roster()
+        bals, _ = _find_balancers(3000, pool, roster_set, set(), roster)
+        assert len(bals) <= 2
+
+    def test_no_positionless_balancers(self):
+        """Balancers with empty position are filtered out."""
+        pool, roster, roster_set = _make_pool_and_roster()
+        bals, _ = _find_balancers(5000, pool, roster_set, set(), roster)
+        for b in bals:
+            assert b.position != "", f"{b.name} has empty position"
+
+    def test_no_below_min_relevant_value(self):
+        """Balancers below MIN_RELEVANT_VALUE (500) are filtered."""
+        pool, roster, roster_set = _make_pool_and_roster()
+        bals, _ = _find_balancers(3000, pool, roster_set, set(), roster)
+        for b in bals:
+            assert b.display_value >= MIN_RELEVANT_VALUE
+
+    def test_surplus_positions_preferred(self):
+        """When roster has surplus, those depth pieces sort first."""
+        pool, roster, roster_set = _make_pool_and_roster()
+        assert "QB" in roster.surplus_positions
+        # Large negative gap — user needs to add from their roster
+        bals, side = _find_balancers(-7500, pool, roster_set, set(), roster)
+        assert side == "you_add"
+        if len(bals) >= 1:
+            # First balancer should be from surplus position
+            assert bals[0].position in roster.surplus_positions
+
+    def test_exclude_names_respected(self):
+        """Players in exclude_names are never suggested."""
+        pool, roster, roster_set = _make_pool_and_roster()
+        bals_all, _ = _find_balancers(5000, pool, roster_set, set(), roster)
+        if bals_all:
+            excluded_name = bals_all[0].name.lower()
+            bals_without, _ = _find_balancers(5000, pool, roster_set, {excluded_name}, roster)
+            excluded_names = {b.name.lower() for b in bals_without}
+            assert excluded_name not in excluded_names
+
+
+class TestPoolBalancerCandidates:
+    """Unit tests for _pool_balancer_candidates."""
+
+    def test_filters_positionless(self):
+        """Positionless assets are excluded."""
+        pool = [
+            PlayerAsset("Real", "WR", 1000, 1000, source_count=4),
+            PlayerAsset("Ghost", "", 1000, 1000, source_count=4),
+        ]
+        result = _pool_balancer_candidates(1000, pool, set(), set())
+        assert len(result) == 1
+        assert result[0].name == "Real"
+
+    def test_filters_below_min(self):
+        """Assets below MIN_RELEVANT_VALUE are excluded."""
+        pool = [
+            PlayerAsset("Scrub", "RB", 200, 200, source_count=4),
+            PlayerAsset("Starter", "RB", 1000, 1000, source_count=4),
+        ]
+        result = _pool_balancer_candidates(1000, pool, set(), set())
+        assert all(p.display_value >= MIN_RELEVANT_VALUE for p in result)
+
+
+class TestRosterBalancerCandidates:
+    """Unit tests for _roster_balancer_candidates."""
+
+    def test_only_returns_depth(self):
+        """Only depth pieces (beyond starter need) are candidates."""
+        roster = RosterAnalysis(
+            roster_size=5,
+            by_position={
+                "QB": [
+                    PlayerAsset("QB1", "QB", 9000, 9000),
+                    PlayerAsset("QB2", "QB", 8000, 8000),
+                    PlayerAsset("QB3", "QB", 7000, 7000),  # depth (need=2)
+                ],
+            },
+            surplus_positions=["QB"],
+            need_positions=[],
+            starter_counts={"QB": 2},
+            depth_counts={"QB": 1},
+        )
+        result = _roster_balancer_candidates(7000, roster, set())
+        names = {p.name for p in result}
+        # QB3 is depth, should be a candidate
+        assert "QB3" in names
+        # QB1 and QB2 are starters, should NOT be candidates
+        assert "QB1" not in names
+        assert "QB2" not in names
+
+    def test_skips_positionless(self):
+        """Depth pieces without position are excluded."""
+        roster = RosterAnalysis(
+            roster_size=2,
+            by_position={
+                "": [
+                    PlayerAsset("Pick", "", 7000, 7000),
+                    PlayerAsset("Pick2", "", 6000, 6000),
+                    PlayerAsset("Pick3", "", 5000, 5000),
+                ],
+            },
+            surplus_positions=[""],
+            need_positions=[],
+            starter_counts={},
+            depth_counts={},
+        )
+        result = _roster_balancer_candidates(6000, roster, set())
+        assert len(result) == 0
+
+
+class TestBalancerSideSerialization:
+    """The balancerSide field appears in serialized output."""
+
+    def test_balancer_side_in_output(self):
+        """Suggestions with balancers should include balancerSide."""
+        snap = _sample_snapshot()
+        roster = [
+            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
+            "Bijan Robinson", "Jahmyr Gibbs",
+            "Ja'Marr Chase",
+            "Brock Bowers",
+            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
+            "Jack Campbell", "Roquan Smith", "Fred Warner",
+            "Kyle Hamilton", "Sauce Gardner",
+        ]
+        result = generate_suggestions(roster, snap)
+        all_suggs = (
+            result["sellHigh"] + result["buyLow"]
+            + result["consolidation"] + result["positionalUpgrades"]
+        )
+        for s in all_suggs:
+            if "suggestedBalancers" in s:
+                assert "balancerSide" in s
+                assert s["balancerSide"] in ("you_add", "they_add")
+
+
+class TestBalancerDeterminism:
+    """Balancer results must be deterministic."""
+
+    def test_find_balancers_deterministic(self):
+        pool, roster, roster_set = _make_pool_and_roster()
+        r1 = _find_balancers(-5000, pool, roster_set, set(), roster)
+        r2 = _find_balancers(-5000, pool, roster_set, set(), roster)
+        assert r1 == r2
+
+    def test_full_pipeline_with_balancers_deterministic(self):
+        snap = _sample_snapshot()
+        roster = [
+            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
+            "Bijan Robinson", "Jahmyr Gibbs",
             "Ja'Marr Chase",
             "Brock Bowers",
             "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
