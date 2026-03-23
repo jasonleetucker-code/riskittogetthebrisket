@@ -1,7 +1,7 @@
-name: PR Validation
+﻿name: PR Validation
 
 # Runs on every pull request to provide pre-merge feedback.
-# This is the "preview/staging" gate — validates code quality before merge.
+# This is the "preview/staging" gate â€” validates code quality before merge.
 # Production deploy only happens after merge to main (see deploy.yml).
 
 on:
@@ -54,6 +54,14 @@ jobs:
           import server
           print("Runtime import gate passed.")
           PY
+      - name: Generate comparison artifact for promotion-readiness test
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/source_pull.py
+          python scripts/canonical_build.py
+          python scripts/run_comparison_batch.py
+
 
       - name: Run unit tests
         shell: bash
@@ -79,3 +87,4 @@ jobs:
             [[ -f "${script}" ]] || continue
             bash -n "${script}"
           done
+
