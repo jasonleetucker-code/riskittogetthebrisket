@@ -632,6 +632,9 @@ KTC_ID_TO_NAME = {}
 # KTC crowdsourced trade + waiver data
 KTC_CROWD_DATA = {"trades": [], "waivers": []}
 
+# KTC blocker diagnosis — set by scrape_ktc on failure for source reporting
+_KTC_BLOCKER: str | None = None
+
 # KTC crowd DB league constraints (user-specific)
 KTC_CROWD_ALLOWED_TEAMS = {10, 12, 14}
 KTC_CROWD_ALLOWED_TEP_LEVELS = {1, 2}  # TE+ or TE++
@@ -2875,7 +2878,7 @@ SITES = {
     "Flock":        False,
     # IDP-specific sites
     "PFF_IDP":          True,
-    "DraftSharks_IDP":  False,  # Merged into DraftSharks (paid account covers both)
+    "DraftSharks_IDP":  True,   # Separate IDP scraper — uses shared DraftSharks session
     "FantasyPros_IDP":  True,
 }
 
@@ -2887,24 +2890,110 @@ DEBUG     = True
 PLAYERS = [clean_name(p) for p in PLAYERS]
 
 
+def _detect_proxy() -> dict | None:
+    """Detect HTTP(S) proxy from environment for Playwright browser launch.
+
+    Returns a dict suitable for ``playwright.chromium.launch(proxy=...)``
+    or ``None`` when no proxy is configured.  Handles the ``user:pass@host:port``
+    format that container/CI egress proxies typically use.
+    """
+    from urllib.parse import urlparse as _urlparse
+
+    raw = os.environ.get("https_proxy") or os.environ.get("HTTPS_PROXY") or ""
+    if not raw:
+        return None
+    parsed = _urlparse(raw)
+    if not parsed.hostname:
+        return None
+    proxy: dict = {"server": f"http://{parsed.hostname}:{parsed.port or 3128}"}
+    if parsed.username:
+        proxy["username"] = parsed.username
+    if parsed.password:
+        proxy["password"] = parsed.password
+    return proxy
+
+
+_PLAYWRIGHT_PROXY: dict | None = _detect_proxy()
+
+
 async def safe_goto(page, urls, label, wait_ms=3000):
-    """Navigate to the first working URL from a list. Returns True on success."""
+    """Navigate to the first working URL from a list.
+
+    Returns a dict with keys:
+      ok       – True if the page loaded with status < 400
+      status   – HTTP status code or None
+      blocker  – short string describing the failure mode, or None
+    Legacy callers that check ``if await safe_goto(...)`` still work
+    because the dict is truthy when ok=True.
+    """
     if isinstance(urls, str):
         urls = [urls]
+    last_blocker = None
+    last_status = None
     for url in urls:
         try:
             resp = await page.goto(url, timeout=25000, wait_until="domcontentloaded")
+            last_status = resp.status if resp else None
             if resp and resp.status < 400:
                 await page.wait_for_timeout(wait_ms)
                 if DEBUG:
                     print(f"  [{label}] Loaded {url} (status {resp.status})")
-                return True
-            elif DEBUG:
-                print(f"  [{label}] Status {resp.status if resp else '?'} — {url}")
+                return {"ok": True, "status": resp.status, "blocker": None}
+            # Diagnose specific failure modes
+            body_snippet = ""
+            try:
+                body_snippet = (await page.inner_text("body"))[:300]
+            except Exception:
+                pass
+            if resp and resp.status == 503:
+                if "TLS_error" in body_snippet or "TLSV1" in body_snippet:
+                    last_blocker = "proxy_tls_incompatible"
+                    print(f"  [{label}] 503 — proxy TLS handshake failure (site requires newer TLS)")
+                elif "cloudflare" in body_snippet.lower() or "just a moment" in body_snippet.lower():
+                    last_blocker = "cloudflare_challenge"
+                    print(f"  [{label}] 503 — Cloudflare challenge page")
+                else:
+                    last_blocker = f"http_{resp.status}"
+                    print(f"  [{label}] 503 — {body_snippet[:80]}")
+            elif resp and resp.status == 403:
+                last_blocker = "http_403_forbidden"
+                print(f"  [{label}] 403 Forbidden — {url}")
+            elif resp and resp.status >= 400:
+                last_blocker = f"http_{resp.status}"
+                if DEBUG:
+                    print(f"  [{label}] Status {resp.status} — {url}")
+            else:
+                last_blocker = "no_response"
         except Exception as e:
+            err_str = str(e)
+            if "Timeout" in err_str:
+                last_blocker = "timeout"
+            elif "ERR_CERT" in err_str:
+                last_blocker = "tls_cert_error"
+            elif "ERR_NAME" in err_str or "ERR_FAILED" in err_str:
+                last_blocker = "dns_or_network"
+            else:
+                last_blocker = "navigation_exception"
             if DEBUG:
                 print(f"  [{label}] Failed {url}: {e}")
-    return False
+    # Return a falsy-like object that still carries diagnostic info
+    return _GotoResult(False, last_status, last_blocker)
+
+
+class _GotoResult:
+    """Result of safe_goto that is falsy when ok=False but carries metadata."""
+    __slots__ = ("ok", "status", "blocker")
+
+    def __init__(self, ok, status, blocker):
+        self.ok = ok
+        self.status = status
+        self.blocker = blocker
+
+    def __bool__(self):
+        return bool(self.ok)
+
+    def __getitem__(self, key):
+        return getattr(self, key)
 
 
 async def extract_tables(page, label):
@@ -3474,8 +3563,14 @@ async def scrape_ktc(page, players):
 
         page.on("response", handle_response)
 
-        ok  = await safe_goto(page, url, "KTC", wait_ms=5000)
-        if not ok:
+        goto_result = await safe_goto(page, url, "KTC", wait_ms=5000)
+        if not goto_result:
+            blocker = getattr(goto_result, "blocker", None) or "unknown"
+            status = getattr(goto_result, "status", None)
+            print(f"  [KTC] Page load failed — blocker={blocker}, status={status}")
+            # Store blocker for source-level reporting
+            global _KTC_BLOCKER
+            _KTC_BLOCKER = blocker
             return results
 
         try:
@@ -3558,7 +3653,17 @@ async def scrape_ktc(page, players):
             # KTC renders values in the DOM after client JS runs
             dom_data = await page.evaluate("""() => {
                 const results = {};
-                // Try reading from Next.js/React state
+                // Try reading from inline playersArray (current KTC format as of 2026-03)
+                if (typeof playersArray !== 'undefined' && Array.isArray(playersArray)) {
+                    for (const p of playersArray) {
+                        const name = p.playerName || p.name;
+                        const sfVals = p.superflexValues;
+                        const val = (sfVals && sfVals.value) || p.superflexValue || p.value;
+                        if (name && val) results[name] = parseInt(val);
+                    }
+                }
+                if (Object.keys(results).length > 10) return results;
+                // Try reading from Next.js/React state (legacy format)
                 const scripts = document.querySelectorAll('script[type="application/json"], script#__NEXT_DATA__');
                 for (const s of scripts) {
                     try {
@@ -3601,7 +3706,40 @@ async def scrape_ktc(page, players):
             content = await page.content()
             import json
 
-            # Try __NEXT_DATA__ script
+            # Try inline playersArray (current KTC format as of 2026-03)
+            pa_match = re.search(
+                r'var\s+playersArray\s*=\s*(\[.*?\]);\s*(?:var\s|\n)',
+                content, re.DOTALL,
+            )
+            if pa_match:
+                try:
+                    player_list = json.loads(pa_match.group(1))
+                    for item in player_list:
+                        pname = item.get("playerName")
+                        if not pname:
+                            continue
+                        val = None
+                        if SUPERFLEX:
+                            sf_vals = item.get("superflexValues")
+                            if isinstance(sf_vals, dict):
+                                val = sf_vals.get("value")
+                            if val is None:
+                                sf_vals2 = item.get("superflexValue")
+                                if isinstance(sf_vals2, dict):
+                                    val = sf_vals2.get("value")
+                                elif sf_vals2 is not None:
+                                    val = sf_vals2
+                        if val is None:
+                            val = item.get("value")
+                        if val is not None:
+                            name_map[clean_name(pname)] = int(float(val))
+                    if name_map and DEBUG:
+                        print(f"  [KTC] playersArray parsed {len(name_map)} players")
+                except Exception as e:
+                    if DEBUG:
+                        print(f"  [KTC] playersArray parse error: {e}")
+
+            # Try __NEXT_DATA__ script (legacy format)
             next_match = re.search(r'<script\s+id="__NEXT_DATA__"[^>]*>(.*?)</script>', content, re.DOTALL)
             if next_match:
                 try:
@@ -5034,7 +5172,7 @@ async def scrape_draftsharks(page, players):
     name_map = {}
     try:
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=True)
+            browser = await pw.chromium.launch(headless=True, proxy=_PLAYWRIGHT_PROXY)
             session_path = os.path.join(SCRIPT_DIR, DRAFTSHARKS_SESSION)
             ctx_opts = dict(
                 user_agent=(
@@ -5043,6 +5181,7 @@ async def scrape_draftsharks(page, players):
                     "Chrome/122.0.0.0 Safari/537.36"
                 ),
                 viewport={"width": 1280, "height": 900},
+                ignore_https_errors=bool(_PLAYWRIGHT_PROXY),
             )
             if os.path.exists(session_path):
                 ctx_opts["storage_state"] = session_path
@@ -5689,7 +5828,7 @@ async def scrape_dynastynerds(page, players):
     browser = None
     try:
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=True)
+            browser = await pw.chromium.launch(headless=True, proxy=_PLAYWRIGHT_PROXY)
 
             session_path = os.path.join(SCRIPT_DIR, DYNASTYNERDS_SESSION)
             ctx_opts = dict(
@@ -5699,6 +5838,7 @@ async def scrape_dynastynerds(page, players):
                     "Chrome/122.0.0.0 Safari/537.36"
                 ),
                 viewport={"width": 1280, "height": 900},
+                ignore_https_errors=bool(_PLAYWRIGHT_PROXY),
             )
             if os.path.exists(session_path):
                 ctx_opts["storage_state"] = session_path
@@ -6650,6 +6790,106 @@ async def scrape_pff_idp(page, players):
     return results
 
 
+async def _draftsharks_extract_idp_load_rows(ds_page, label):
+    """Extract IDP players from DraftSharks load-rows endpoint."""
+    name_map = {}
+    try:
+        js_data = await ds_page.evaluate(r"""async () => {
+            const idpPositions = new Set(['DL', 'LB', 'DB', 'DE', 'DT', 'CB', 'S', 'ED', 'EDGE', 'IDL', 'SS', 'FS']);
+            const fetchUrl = new URL('/dynasty-rankings/load-rows', window.location.origin);
+            fetchUrl.searchParams.set('offset', '0');
+            fetchUrl.searchParams.set('fantasyPosition', '');
+            fetchUrl.searchParams.set('pprSuperflexSlug', 'idp/te-premium-superflex');
+            fetchUrl.searchParams.set('playerGroup', 'all');
+            fetchUrl.searchParams.set('sort', '-dsValue');
+
+            const resp = await fetch(fetchUrl.toString(), {
+                credentials: 'include',
+                headers: { 'x-requested-with': 'XMLHttpRequest' }
+            });
+            if (!resp.ok) {
+                return { ok: false, status: resp.status, endpoint: fetchUrl.toString(), data: [] };
+            }
+
+            const html = await resp.text();
+            if (!html || html.length < 500) {
+                return { ok: false, status: resp.status, endpoint: fetchUrl.toString(), data: [] };
+            }
+
+            const table = document.createElement('table');
+            table.innerHTML = html;
+            const tbodies = Array.from(table.querySelectorAll('tbody[data-player-row]'));
+            const out = [];
+            const posCounts = {};
+
+            const parseIntSafe = (txt) => {
+                if (!txt) return null;
+                const n = parseInt(String(txt).replace(/[^0-9]/g, ''), 10);
+                return Number.isFinite(n) && n > 0 ? n : null;
+            };
+
+            for (const tb of tbodies) {
+                const pos = (tb.getAttribute('data-fantasy-position') || '').toUpperCase().trim();
+                // Keep IDP positions; also keep any position not in offense set
+                const offenseSet = new Set(['QB', 'RB', 'WR', 'TE', 'K']);
+                if (offenseSet.has(pos)) continue;  // Skip offense players
+
+                const name = (tb.getAttribute('data-player-name') || '').trim();
+                if (!name || !name.includes(' ')) continue;
+
+                let rank = parseIntSafe(tb.querySelector('.column-title.rank-index span')?.textContent);
+                if (rank == null) {
+                    rank = parseIntSafe(tb.querySelector('td.rank .column-title span')?.textContent);
+                }
+                if (rank == null) {
+                    rank = parseIntSafe(tb.querySelector('td[data-attribute="dsValue"] .column-title')?.textContent);
+                }
+                if (rank == null) continue;
+
+                out.push([name, rank, pos]);
+                posCounts[pos] = (posCounts[pos] || 0) + 1;
+            }
+
+            return {
+                ok: true,
+                endpoint: fetchUrl.toString(),
+                status: resp.status,
+                totalRows: tbodies.length,
+                idpRows: out.length,
+                posCounts,
+                sample: out.slice(0, 5),
+                data: out
+            };
+        }""")
+
+        if js_data and isinstance(js_data, dict):
+            rows = js_data.get("data", []) or []
+            for row in rows:
+                if not isinstance(row, (list, tuple)) or len(row) < 2:
+                    continue
+                nm = str(row[0]).strip()
+                try:
+                    rk = float(row[1])
+                except Exception:
+                    continue
+                if nm and rk > 0:
+                    name_map[clean_name(nm)] = rk
+
+            if DEBUG:
+                print(f"  [{label}] load-rows endpoint: {js_data.get('endpoint', '?')}")
+                print(f"  [{label}] load-rows IDP rows: {js_data.get('idpRows', 0)} (total={js_data.get('totalRows', 0)})")
+                if js_data.get("posCounts"):
+                    print(f"  [{label}] load-rows IDP positions: {js_data.get('posCounts')}")
+                if name_map:
+                    sample = sorted(name_map.items(), key=lambda x: x[1])[:5]
+                    print(f"  [{label}] load-rows sample (best rank): {sample}")
+    except Exception as e:
+        if DEBUG:
+            print(f"  [{label}] load-rows IDP parse failed: {e}")
+
+    return name_map
+
+
 # ─────────────────────────────────────────
 # DraftSharks IDP — dynasty IDP rankings (uses shared DraftSharks session)
 # ─────────────────────────────────────────
@@ -6672,7 +6912,7 @@ async def scrape_draftsharks_idp(page, players):
     name_map = {}
     try:
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=True)
+            browser = await pw.chromium.launch(headless=True, proxy=_PLAYWRIGHT_PROXY)
             session_path = os.path.join(SCRIPT_DIR, DRAFTSHARKS_SESSION)
             ctx_opts = dict(
                 user_agent=(
@@ -6681,6 +6921,7 @@ async def scrape_draftsharks_idp(page, players):
                     "Chrome/122.0.0.0 Safari/537.36"
                 ),
                 viewport={"width": 1280, "height": 900},
+                ignore_https_errors=bool(_PLAYWRIGHT_PROXY),
             )
             if os.path.exists(session_path):
                 ctx_opts["storage_state"] = session_path
@@ -6722,7 +6963,11 @@ async def scrape_draftsharks_idp(page, players):
                     await ds_page.goto(url, timeout=25000, wait_until="domcontentloaded")
                     await ds_page.wait_for_timeout(4000)
 
-            name_map = await _draftsharks_extract_table(ds_page, "DraftSharks_IDP")
+            # Preferred path: load-rows endpoint (same as offense but keep IDP positions)
+            name_map = await _draftsharks_extract_idp_load_rows(ds_page, "DraftSharks_IDP")
+            if not name_map:
+                # Fallback: rendered table scrape
+                name_map = await _draftsharks_extract_table(ds_page, "DraftSharks_IDP")
 
             # Save session
             if name_map:
@@ -6989,7 +7234,7 @@ async def scrape_flock_with_session(pw, players):
 
     browser = None
     try:
-        browser = await pw.chromium.launch(headless=True)
+        browser = await pw.chromium.launch(headless=True, proxy=_PLAYWRIGHT_PROXY)
         ctx_opts = dict(
             user_agent=(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -6997,6 +7242,7 @@ async def scrape_flock_with_session(pw, players):
                 "Chrome/122.0.0.0 Safari/537.36"
             ),
             viewport={"width": 1280, "height": 900},
+            ignore_https_errors=bool(_PLAYWRIGHT_PROXY),
         )
         if has_session:
             ctx_opts["storage_state"] = session_path
@@ -7986,7 +8232,7 @@ async def run(progress_callback=None):
             # ── All other browser sites ──
             non_flock = [(s, fn) for s, fn in browser_order if SITES.get(s)]
             if non_flock or SITES.get("Flock"):
-                browser = await pw.chromium.launch(headless=True)
+                browser = await pw.chromium.launch(headless=True, proxy=_PLAYWRIGHT_PROXY)
                 context = await browser.new_context(
                     user_agent=(
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -7994,6 +8240,7 @@ async def run(progress_callback=None):
                         "Chrome/122.0.0.0 Safari/537.36"
                     ),
                     viewport={"width": 1280, "height": 900},
+                    ignore_https_errors=bool(_PLAYWRIGHT_PROXY),
                 )
 
                 # Block heavy resources for speed
@@ -8348,6 +8595,13 @@ async def run(progress_callback=None):
     timeout_sources = sorted([s for s, row in source_run_state.items() if row.get("enabled") and row.get("state") == "timeout"])
     failed_sources = sorted([s for s, row in source_run_state.items() if row.get("enabled") and row.get("state") == "failed"])
     run_finished_at_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    # Inject KTC blocker diagnosis into source state if available
+    if _KTC_BLOCKER and "KTC" in source_run_state:
+        ktc_state = source_run_state["KTC"]
+        ktc_state.setdefault("meta", {})["blocker"] = _KTC_BLOCKER
+        if not ktc_state.get("error"):
+            ktc_state["error"] = f"KTC blocked: {_KTC_BLOCKER}"
+
     source_run_summary = {
         "startedAt": run_started_at_iso,
         "finishedAt": run_finished_at_iso,
@@ -8367,6 +8621,20 @@ async def run(progress_callback=None):
         f"complete={len(complete_sources)}/{len(enabled_sources)} "
         f"partial={len(partial_sources)} timeout={len(timeout_sources)} failed={len(failed_sources)}"
     )
+
+    # ── KTC Freshness Report ──
+    ktc_row = source_run_state.get("KTC", {})
+    ktc_count = int(ktc_row.get("valueCount") or 0)
+    ktc_state_label = ktc_row.get("state", "unknown")
+    ktc_blocker_label = (ktc_row.get("meta") or {}).get("blocker", "")
+    if ktc_count > 0:
+        print(f"  [KTC Status] FRESH — {ktc_count} players scraped")
+    elif ktc_state_label == "disabled":
+        print("  [KTC Status] DISABLED in config")
+    elif ktc_blocker_label:
+        print(f"  [KTC Status] BLOCKED — {ktc_blocker_label} (0 players)")
+    else:
+        print(f"  [KTC Status] FAILED — state={ktc_state_label}, error={ktc_row.get('error', 'unknown')} (0 players)")
 
     # [NEW] Print scrape health report
     await _phase("health_report", "summary", message="Generating scrape health report")
@@ -11246,7 +11514,19 @@ async def run(progress_callback=None):
         site_raw_dir = os.path.join(latest_dir, "site_raw")
         os.makedirs(site_raw_dir, exist_ok=True)
 
-        # Reset latest folder contents.
+        # Reset latest folder contents — but preserve site_raw CSVs for
+        # sources that didn't produce new data this run (e.g. KTC blocked
+        # in sandbox).  We back up existing site_raw CSVs, wipe the dir,
+        # then restore any that weren't overwritten.
+        _prev_site_raw: dict[str, bytes] = {}
+        if os.path.isdir(site_raw_dir):
+            for fname_sr in os.listdir(site_raw_dir):
+                fpath_sr = os.path.join(site_raw_dir, fname_sr)
+                if os.path.isfile(fpath_sr) and fname_sr.endswith(".csv"):
+                    try:
+                        _prev_site_raw[fname_sr] = open(fpath_sr, "rb").read()
+                    except Exception:
+                        pass
         for entry in os.listdir(latest_dir):
             p = os.path.join(latest_dir, entry)
             try:
@@ -11282,6 +11562,7 @@ async def run(progress_callback=None):
                     pass
 
         # Export raw per-site maps to CSV for easier external sharing/audit.
+        _fresh_site_raw: set[str] = set()
         for scraper_name, full_map in FULL_DATA.items():
             dash_key = site_key_map.get(scraper_name, scraper_name)
             out_csv = os.path.join(site_raw_dir, f"{dash_key}.csv")
@@ -11291,15 +11572,33 @@ async def run(progress_callback=None):
                     w.writerow(["name", "value"])
                     for n, v in sorted(full_map.items(), key=lambda x: x[0].lower()):
                         w.writerow([n, v])
+                _fresh_site_raw.add(f"{dash_key}.csv")
             except Exception:
                 continue
 
-        # Write a tiny manifest for context.
+        # Restore any previous site_raw CSVs that weren't re-produced
+        # this run.  This keeps sources like KTC alive across scrape runs
+        # where they might fail due to proxy/TLS issues.
+        _preserved_site_raw: set[str] = set()
+        for fname_sr, content in _prev_site_raw.items():
+            dest = os.path.join(site_raw_dir, fname_sr)
+            if not os.path.exists(dest):
+                try:
+                    with open(dest, "wb") as f:
+                        f.write(content)
+                    _preserved_site_raw.add(fname_sr)
+                    print(f"  [site_raw] Preserved previous {fname_sr}")
+                except Exception:
+                    pass
+
+        # Write manifest with per-source freshness metadata.
         manifest = {
             "generatedAt": datetime.datetime.now().isoformat(),
             "date": str(datetime.date.today()),
             "files": sorted(os.listdir(latest_dir)),
             "siteRawCount": len(os.listdir(site_raw_dir)) if os.path.exists(site_raw_dir) else 0,
+            "siteRawFresh": sorted(_fresh_site_raw),
+            "siteRawPreserved": sorted(_preserved_site_raw),
         }
         with open(os.path.join(latest_dir, "manifest.json"), "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2, ensure_ascii=False)

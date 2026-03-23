@@ -6,15 +6,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 import sys
 
+# Ensure repo root is on sys.path for shared imports
+_REPO = Path(__file__).resolve().parents[1]
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
+
 
 def _bootstrap_path(repo: Path) -> None:
     if str(repo) not in sys.path:
         sys.path.insert(0, str(repo))
 
 
-def _latest(path: Path, pattern: str) -> Path | None:
-    files = sorted(path.glob(pattern), reverse=True)
-    return files[0] if files else None
+from scripts._shared import _latest
 
 
 def main() -> int:

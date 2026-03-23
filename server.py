@@ -43,6 +43,8 @@ from src.api.data_contract import (
     CONTRACT_VERSION as API_DATA_CONTRACT_VERSION,
     build_api_data_contract,
     build_api_startup_payload,
+    build_canonical_comparison_block,
+    build_shadow_comparison_report,
     validate_api_data_contract,
 )
 
@@ -54,11 +56,14 @@ SCRAPE_STALL_SECONDS = int(os.getenv("SCRAPE_STALL_SECONDS", "900"))
 SCRAPE_RUN_TIMEOUT_SECONDS = int(os.getenv("SCRAPE_RUN_TIMEOUT_SECONDS", "7200"))
 
 # R-6: Canonical data mode — controls how canonical pipeline data is used.
-#   off     = ignore canonical pipeline output (default, current behavior)
-#   shadow  = load canonical data, log comparison with legacy, serve legacy
-#   primary = serve canonical data, fallback to legacy if unavailable
+#   off              = ignore canonical pipeline output (default, current behavior)
+#   shadow           = load canonical data, log comparison with legacy, serve legacy
+#   internal_primary = serve canonical values to internal/dev only (gated, not public)
+#   primary          = serve canonical data publicly, fallback to legacy if unavailable
+# IMPORTANT: default is always "off". Only change after running
+#   python scripts/check_promotion_readiness.py --target <mode>
 CANONICAL_DATA_MODE = os.getenv("CANONICAL_DATA_MODE", "off").strip().lower()
-if CANONICAL_DATA_MODE not in ("off", "shadow", "primary"):
+if CANONICAL_DATA_MODE not in ("off", "shadow", "internal_primary", "primary"):
     CANONICAL_DATA_MODE = "off"
 
 # ── EMAIL ALERTS ────────────────────────────────────────────────────────
@@ -225,6 +230,7 @@ contract_health: dict = {
 # R-6: Canonical pipeline data (shadow/primary mode)
 canonical_data: dict | None = None
 canonical_data_loaded_at: str | None = None
+shadow_comparison_report: dict | None = None
 # R-9: Lightweight metrics counters
 _metrics: dict = {
     "server_start_time": None,
@@ -951,6 +957,37 @@ def _prime_latest_payload(data: dict | None) -> None:
             "warningCount": int(contract_report.get("warningCount", 0)),
             "checkedAt": contract_report.get("checkedAt"),
         }
+        # R-6 primary: overlay canonical calibrated values as authoritative public values.
+        if CANONICAL_DATA_MODE == "primary" and canonical_data is not None:
+            overlay_count = _apply_canonical_primary_overlay(contract_payload)
+            log.info(
+                "[PRIMARY] Canonical overlay applied: %d/%d players now serve canonical values",
+                overlay_count,
+                len(contract_payload.get("players", {})),
+            )
+
+        # R-6 shadow/internal_primary/primary: attach canonical comparison when available.
+        if CANONICAL_DATA_MODE in ("shadow", "internal_primary", "primary") and canonical_data is not None:
+            try:
+                legacy_players = data.get("players") if isinstance(data, dict) else None
+                cmp_block = build_canonical_comparison_block(
+                    canonical_data,
+                    loaded_at=canonical_data_loaded_at,
+                    legacy_players=legacy_players,
+                )
+                contract_payload["canonicalComparison"] = cmp_block
+                summary = cmp_block.get("summary", {})
+                log.info(
+                    "[SHADOW] Attached canonicalComparison block: %d assets "
+                    "(%d matched to legacy, avg|delta|=%s)",
+                    cmp_block.get("assetCount", 0),
+                    summary.get("matchedToLegacy", 0),
+                    summary.get("avgAbsDelta", "n/a"),
+                )
+            except Exception as cmp_err:
+                log.warning("[SHADOW] Failed to build canonical comparison: %s", cmp_err)
+                # Non-fatal — live payload still serves without comparison data.
+
         latest_contract_data = contract_payload
         contract_health = contract_report
 
@@ -1059,21 +1096,150 @@ def _load_canonical_snapshot() -> dict | None:
         return None
 
 
+def _apply_canonical_primary_overlay(contract: dict) -> int:
+    """R-6 primary mode: overlay canonical calibrated values onto the public contract.
+
+    For each player in the canonical snapshot that matches a player in the contract,
+    replace the value fields the frontend reads (_finalAdjusted, _leagueAdjusted,
+    _composite) with the canonical calibrated_value.  This makes canonical the
+    authoritative value source while preserving all other player metadata
+    (position, team, format-fit, scoring, etc.) from the legacy scraper.
+
+    Returns the number of players overlaid.
+    """
+    if canonical_data is None:
+        return 0
+
+    players = contract.get("players")
+    if not players or not isinstance(players, dict):
+        return 0
+
+    # Build name-normalized lookup from canonical assets
+    import re
+    assets = canonical_data.get("assets", [])
+    canonical_lookup: dict[str, dict] = {}
+    for asset in assets:
+        name = str(asset.get("display_name", "")).strip()
+        cal_val = asset.get("calibrated_value")
+        if not name or cal_val is None:
+            continue
+        # Keep the higher value if duplicate names exist
+        existing = canonical_lookup.get(name)
+        if existing is not None and existing["calibrated_value"] >= int(cal_val):
+            continue
+        canonical_lookup[name] = {
+            "calibrated_value": int(cal_val),
+            "display_value": asset.get("display_value"),
+            "blended_value": asset.get("blended_value"),
+            "source_count": len(asset.get("source_values", {})),
+            "universe": asset.get("universe", ""),
+        }
+
+    # Normalize helper
+    def _norm(n: str) -> str:
+        n = n.strip()
+        for sfx in (" Jr.", " Sr.", " II", " III", " IV", " V"):
+            if n.endswith(sfx):
+                n = n[: -len(sfx)].strip()
+        return n.lower().replace(".", "").replace("'", "").replace("\u2019", "")
+
+    # Build normalized lookup
+    canonical_norm: dict[str, tuple[str, dict]] = {}
+    for name, data in canonical_lookup.items():
+        canonical_norm[_norm(name)] = (name, data)
+
+    overlay_count = 0
+    for player_name, pdata in players.items():
+        if not isinstance(pdata, dict):
+            continue
+        norm = _norm(player_name)
+        match = canonical_norm.get(norm)
+        if match is None:
+            continue
+
+        _canon_name, canon = match
+        cal_val = canon["calibrated_value"]
+
+        # Overlay the value fields the frontend reads
+        pdata["_finalAdjusted"] = cal_val
+        pdata["_leagueAdjusted"] = cal_val
+        pdata["_composite"] = cal_val
+        pdata["_rawComposite"] = cal_val
+        pdata["_valueAuthority"] = "canonical"
+        pdata["_canonicalSourceCount"] = canon["source_count"]
+        # Display-scale value (1–9999) for public-facing use
+        if canon.get("display_value") is not None:
+            pdata["_canonicalDisplayValue"] = canon["display_value"]
+        overlay_count += 1
+
+    # Mark the contract as canonical-authoritative
+    contract["valueAuthority"] = "canonical"
+    contract["canonicalOverlayCount"] = overlay_count
+    contract["canonicalAssetCount"] = len(canonical_lookup)
+
+    return overlay_count
+
+
 def _run_canonical_shadow_comparison(legacy_data: dict | None) -> None:
     """R-6: In shadow mode, compare canonical vs legacy data and log differences."""
-    if CANONICAL_DATA_MODE != "shadow" or canonical_data is None or legacy_data is None:
+    global shadow_comparison_report
+    if CANONICAL_DATA_MODE not in ("shadow", "internal_primary", "primary") or canonical_data is None or legacy_data is None:
+        shadow_comparison_report = None
         return
-    canonical_assets = canonical_data.get("assets", [])
+
     legacy_players = legacy_data.get("players", {})
+    try:
+        report = build_shadow_comparison_report(canonical_data, legacy_players)
+    except Exception as e:
+        log.warning("[SHADOW] Failed to build comparison report: %s", e)
+        shadow_comparison_report = None
+        return
+
+    shadow_comparison_report = report
+    s = report.get("summary", {})
+
     log.info(
-        f"[SHADOW] Canonical: {len(canonical_assets)} assets, "
-        f"Legacy: {len(legacy_players)} players"
+        "[SHADOW] Comparison: canonical=%d legacy=%d matched=%d "
+        "canonical_only=%d legacy_only=%d",
+        s.get("canonicalAssetCount", 0),
+        s.get("legacyPlayerCount", 0),
+        s.get("matchedCount", 0),
+        s.get("canonicalOnlyCount", 0),
+        s.get("legacyOnlyCount", 0),
     )
-    # Log top-10 canonical assets for comparison visibility
-    top_canonical = sorted(canonical_assets, key=lambda a: a.get("blended_value", 0), reverse=True)[:10]
-    if top_canonical:
-        names = [a.get("display_name", a.get("asset_key", "?")) for a in top_canonical]
-        log.info(f"[SHADOW] Top 10 canonical: {', '.join(names)}")
+
+    if s.get("avgAbsDelta") is not None:
+        log.info(
+            "[SHADOW] Delta stats: avg|delta|=%d median=%d p90=%d max=%d",
+            s["avgAbsDelta"],
+            s.get("medianAbsDelta", 0),
+            s.get("p90AbsDelta", 0),
+            s.get("maxAbsDelta", 0),
+        )
+        dist = s.get("deltaDistribution", {})
+        if dist:
+            log.info(
+                "[SHADOW] Distribution: <200=%d  200-600=%d  600-1200=%d  >1200=%d",
+                dist.get("under200", 0),
+                dist.get("200to600", 0),
+                dist.get("600to1200", 0),
+                dist.get("over1200", 0),
+            )
+
+    log.info(
+        "[SHADOW] Top-50 overlap: %d/50 (%d%%)",
+        s.get("top50Overlap", 0),
+        s.get("top50OverlapPct", 0),
+    )
+
+    risers = report.get("topRisers", [])[:5]
+    fallers = report.get("topFallers", [])[:5]
+    if risers:
+        riser_strs = [f"{r['name']}(+{r['delta']})" for r in risers]
+        log.info("[SHADOW] Top risers: %s", ", ".join(riser_strs))
+    if fallers:
+        faller_strs = [f"{r['name']}({r['delta']})" for r in fallers]
+        log.info("[SHADOW] Top fallers: %s", ", ".join(faller_strs))
 
 
 async def run_scraper(trigger: str = "manual") -> dict | None:
@@ -1549,6 +1715,11 @@ async def get_status():
         "canonical_data_mode": CANONICAL_DATA_MODE,
         "canonical_data_loaded": canonical_data is not None,
         "canonical_data_loaded_at": canonical_data_loaded_at,
+        "canonical_shadow_comparison": {
+            "available": shadow_comparison_report is not None,
+            "summary": shadow_comparison_report.get("summary") if shadow_comparison_report else None,
+            "generatedAt": shadow_comparison_report.get("generatedAt") if shadow_comparison_report else None,
+        } if CANONICAL_DATA_MODE in ("shadow", "internal_primary") else None,
     })
 
 
@@ -1738,6 +1909,45 @@ async def get_scaffold_raw():
 
 @app.get("/api/scaffold/canonical")
 async def get_scaffold_canonical():
+    """Return canonical pipeline data.
+
+    In internal_primary mode: serves a curated player-values response with
+    calibrated values, scarcity adjustments, and enrichment metadata — suitable
+    for evaluation without affecting the public /api/data path.
+
+    In other modes: serves the raw canonical snapshot JSON (debug view).
+    """
+    if CANONICAL_DATA_MODE == "internal_primary" and canonical_data is not None:
+        # Build a lightweight player-values response (not the full snapshot)
+        assets = canonical_data.get("assets", [])
+        player_values = {}
+        for a in assets:
+            name = a.get("display_name", "")
+            if not name:
+                continue
+            player_values[name] = {
+                "calibrated_value": a.get("calibrated_value"),
+                "display_value": a.get("display_value"),
+                "blended_value": a.get("blended_value"),
+                "scarcity_adjusted_value": a.get("scarcity_adjusted_value"),
+                "universe": a.get("universe", ""),
+                "source_count": len(a.get("source_values", {})),
+                "position": (a.get("metadata") or {}).get("position"),
+            }
+        return JSONResponse(content={
+            "mode": CANONICAL_DATA_MODE,
+            "source_count": canonical_data.get("source_count", 0),
+            "asset_count": canonical_data.get("asset_count", 0),
+            "loaded_at": canonical_data_loaded_at,
+            "run_id": canonical_data.get("run_id", ""),
+            "calibration": canonical_data.get("calibration"),
+            "enrichment_summary": canonical_data.get("enrichment_summary"),
+            "scarcity_summary": canonical_data.get("scarcity_summary"),
+            "player_count": len(player_values),
+            "players": player_values,
+            "_note": "This is internal-primary data for evaluation only. Public API at /api/data still serves legacy values.",
+        })
+    # Default: serve raw canonical snapshot
     file_path = _latest_file(DATA_DIR / "canonical", "canonical_snapshot_*.json")
     payload = _load_json_file(file_path)
     if payload is None:
@@ -1765,6 +1975,100 @@ async def get_scaffold_identity():
     return JSONResponse(content=payload)
 
 
+@app.get("/api/scaffold/shadow")
+async def get_scaffold_shadow():
+    """Return the latest shadow comparison report (canonical vs legacy).
+
+    Available when CANONICAL_DATA_MODE=shadow and both a canonical
+    snapshot and legacy data are loaded.  Shows overlap, deltas,
+    top risers/fallers, rank correlation, and distribution analysis.
+    """
+    if CANONICAL_DATA_MODE not in ("shadow", "internal_primary", "primary"):
+        return JSONResponse(
+            status_code=404,
+            content={"error": "Shadow comparison not available (CANONICAL_DATA_MODE must be 'shadow', 'internal_primary', or 'primary')"},
+        )
+    if shadow_comparison_report is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "No shadow comparison report generated yet. Ensure canonical snapshot and legacy data are both loaded."},
+        )
+    return JSONResponse(content=shadow_comparison_report)
+
+
+@app.get("/api/scaffold/mode")
+async def get_scaffold_mode():
+    """Return current canonical data mode and status."""
+    public_serves = (
+        "canonical (primary mode — canonical calibrated values overlaid on legacy contract)"
+        if CANONICAL_DATA_MODE == "primary"
+        else "legacy (canonical data used for comparison/shadow only)"
+    )
+    return JSONResponse(content={
+        "canonical_data_mode": CANONICAL_DATA_MODE,
+        "canonical_loaded": canonical_data is not None,
+        "canonical_loaded_at": canonical_data_loaded_at,
+        "canonical_asset_count": len(canonical_data.get("assets", [])) if canonical_data else 0,
+        "shadow_comparison_available": shadow_comparison_report is not None,
+        "public_api_serves": public_serves,
+        "internal_api_available": CANONICAL_DATA_MODE in ("internal_primary", "primary"),
+        "rollback": "Set CANONICAL_DATA_MODE=off (or internal_primary) and restart to revert",
+    })
+
+
+@app.post("/api/trade/suggestions")
+async def post_trade_suggestions(request: Request):
+    """Generate trade suggestions for a given roster.
+
+    Accepts JSON body:
+        {
+          "roster": ["Josh Allen", "Bijan Robinson", ...],
+          "league_rosters": [                              // optional
+            {"team_name": "Team A", "players": ["Player1", ...]},
+            ...
+          ]
+        }
+
+    Requires canonical data to be loaded. Returns roster analysis
+    and categorized trade suggestions with market-edge signals
+    and optional opponent-fit labels.
+    """
+    if canonical_data is None:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Canonical data not loaded. Trade suggestions require canonical values."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+
+    roster = body.get("roster")
+    if not isinstance(roster, list) or not roster:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Request body must include 'roster' as a non-empty array of player names."},
+        )
+
+    from src.trade.suggestions import generate_suggestions
+
+    league_rosters = body.get("league_rosters")
+    if league_rosters is not None and not isinstance(league_rosters, list):
+        league_rosters = None
+
+    try:
+        result = generate_suggestions(
+            roster_names=roster,
+            canonical_snapshot=canonical_data,
+            league_rosters=league_rosters,
+        )
+    except Exception as e:
+        log.error(f"Trade suggestion generation failed: {e}")
+        return JSONResponse(status_code=500, content={"error": f"Suggestion generation failed: {e}"})
+
+    return JSONResponse(content=result)
+
+
 @app.get("/api/scaffold/validation")
 async def get_scaffold_validation():
     ingest_file = _latest_file(DATA_DIR / "validation", "ingest_validation_*.json")
@@ -1789,12 +2093,56 @@ async def get_scaffold_report():
     return FileResponse(file_path, media_type="text/markdown")
 
 
+@app.get("/api/scaffold/promotion")
+async def get_scaffold_promotion():
+    """Return promotion readiness check results for all modes.
+
+    Evaluates the current state against thresholds defined in
+    config/promotion/promotion_thresholds.json.
+    """
+    repo = Path(__file__).parent
+    try:
+        sys_path_backup = list(sys.path)
+        if str(repo) not in sys.path:
+            sys.path.insert(0, str(repo))
+        from scripts.check_promotion_readiness import (
+            check_shadow_readiness,
+            check_internal_primary_readiness,
+            check_public_primary_readiness,
+        )
+        results = {}
+        for target, checker in [
+            ("shadow", check_shadow_readiness),
+            ("internal_primary", check_internal_primary_readiness),
+            ("public_primary", check_public_primary_readiness),
+        ]:
+            checks = checker(repo)
+            passed = sum(1 for c in checks if c.get("pass") is True)
+            failed = sum(1 for c in checks if c.get("pass") is False)
+            manual = sum(1 for c in checks if c.get("pass") is None)
+            results[target] = {
+                "ready": failed == 0 and manual == 0,
+                "passed": passed,
+                "failed": failed,
+                "manual_verification": manual,
+                "checks": checks,
+            }
+        results["current_mode"] = CANONICAL_DATA_MODE
+        return JSONResponse(content=results)
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Promotion check failed: {e}"},
+        )
+
+
 # ── DRAFT CAPITAL ──────────────────────────────────────────────────────
 # Pick dollar values from CSV, rookie rankings from KTC (live) or CSV (fallback).
 # Uses a decay curve to fill/extrapolate KTC values to all 72 picks.
 DRAFT_DATA_CSV = Path(__file__).parent / "Copy of Draft Data.xlsx - Draft Data.csv"
 SLEEPER_LEAGUE_ID_FOR_DRAFT = os.getenv("SLEEPER_LEAGUE_ID", "1312006700437352448")
 _KTC_TOTAL_PICKS = 72  # fill rookie data for all 6 rounds (12 teams × 6 rounds)
+DRAFT_TOTAL_BUDGET = 1200  # $100 × 12 teams
 
 # Cache for KTC live data: {"rookies": [...], "fetched_at": timestamp}
 _ktc_cache = {"rookies": None, "fetched_at": 0}
@@ -2023,7 +2371,7 @@ def _parse_draft_csv():
         return [], []
 
     # ── Pick dollar values from "Final Dollar Per Pick" column (index 11) ──
-    pick_dollars = []
+    pick_dollars_raw = []
     for row in rows[1:]:  # skip header
         if len(row) < 12:
             continue
@@ -2033,9 +2381,23 @@ def _parse_draft_csv():
             break
         try:
             dollar = int(val_str)
-            pick_dollars.append(dollar)
+            pick_dollars_raw.append(dollar)
         except (ValueError, TypeError):
             break
+
+    # Normalize so total equals exactly DRAFT_TOTAL_BUDGET (1200).
+    # The CSV's rounding can drift a few dollars; redistribute the
+    # error proportionally across all picks to preserve the curve shape.
+    pick_dollars = list(pick_dollars_raw)
+    if pick_dollars:
+        raw_sum = sum(pick_dollars)
+        if raw_sum != DRAFT_TOTAL_BUDGET and raw_sum > 0:
+            scale = DRAFT_TOTAL_BUDGET / raw_sum
+            pick_dollars = [max(1, round(d * scale)) for d in pick_dollars_raw]
+            # Fix any residual rounding by adjusting the largest pick
+            residual = DRAFT_TOTAL_BUDGET - sum(pick_dollars)
+            if residual != 0:
+                pick_dollars[0] += residual
 
     # Get rookies from KTC (live) or CSV (fallback), then fill to 72 via decay curve
     rookies = _get_ktc_rookies()

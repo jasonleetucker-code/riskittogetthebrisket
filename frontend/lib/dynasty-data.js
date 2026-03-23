@@ -21,7 +21,10 @@ export function inferValueBundle(player = {}) {
   const raw = Number(player._rawComposite ?? player._rawMarketValue ?? player._composite ?? 0) || 0;
   const scoring = Number(player._scoringAdjusted ?? raw) || raw;
   const scarcity = Number(player._scarcityAdjusted ?? scoring) || scoring;
-  const full = Number(player._finalAdjusted ?? player._leagueAdjusted ?? scarcity) || scarcity;
+  // Prefer 1–9999 display value; fall back to internal calibrated value
+  const display = Number(player._canonicalDisplayValue ?? 0) || 0;
+  const internal = Number(player._finalAdjusted ?? player._leagueAdjusted ?? scarcity) || scarcity;
+  const full = display || internal;
   return {
     raw: Math.round(raw),
     scoring: Math.round(scoring),
@@ -49,15 +52,18 @@ export function buildRows(data) {
       const pos = normalizePos(player.position || "");
       if (pos === "K") continue;
 
+      // Prefer 1–9999 display value; fall back to internal calibrated value
+      const displayVal = Number(player?.values?.displayValue ?? 0) || 0;
+      const internalVal = Number(
+        player?.values?.finalAdjusted ?? player?.values?.overall ?? player?.values?.scarcityAdjusted ?? 0
+      ) || 0;
       const values = {
         raw: Number(player?.values?.rawComposite ?? 0) || 0,
         scoring: Number(player?.values?.scoringAdjusted ?? player?.values?.rawComposite ?? 0) || 0,
         scarcity: Number(
           player?.values?.scarcityAdjusted ?? player?.values?.scoringAdjusted ?? player?.values?.rawComposite ?? 0
         ) || 0,
-        full: Number(
-          player?.values?.finalAdjusted ?? player?.values?.overall ?? player?.values?.scarcityAdjusted ?? 0
-        ) || 0,
+        full: displayVal || internalVal,
       };
 
       const canonicalSites =

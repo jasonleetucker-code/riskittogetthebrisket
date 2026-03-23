@@ -122,3 +122,201 @@ class TestNormalizePositionFamily:
     def test_unknown_position_passthrough(self):
         assert normalize_position_family("K") == "K"
         assert normalize_position_family("P") == "P"
+
+
+# ── Dynasty-specific name edge cases ─────────────────────────────────
+
+class TestDynastyNameEdgeCases:
+    """Real player names that have historically caused matching failures."""
+
+    def test_hyphenated_first_name(self):
+        # Amon-Ra St. Brown — hyphen becomes space, period stripped
+        result = normalize_player_name("Amon-Ra St. Brown")
+        assert "amon" in result
+        assert "ra" in result
+        assert "brown" in result
+
+    def test_period_initials(self):
+        # T.J. Hockenson — periods become spaces
+        result = normalize_player_name("T.J. Hockenson")
+        assert "hockenson" in result
+        assert "t" in result
+        assert "j" in result
+
+    def test_apostrophe_variants(self):
+        # Straight apostrophe: non-alnum regex replaces with space → "ja marr chase"
+        base = normalize_player_name("Ja'Marr Chase")
+        assert base == "ja marr chase"
+        # Backtick: also non-alnum → same result
+        assert normalize_player_name("Ja`Marr Chase") == base
+
+    def test_smart_apostrophe_folds_differently(self):
+        # Right single quote U+2019: ASCII folds to empty → "jamarr chase" (no space)
+        # This is a known inconsistency: smart quotes lose the separator.
+        # Documenting current behavior so future changes are intentional.
+        result = normalize_player_name("Ja\u2019Marr Chase")
+        assert result == "jamarr chase"
+
+    def test_suffix_iv(self):
+        assert normalize_player_name("Chris Olave IV") == "chris olave"
+
+    def test_suffix_v_alone(self):
+        # "V" as suffix — regex \bv\b should match
+        assert normalize_player_name("Player Name V") == "player name"
+
+    def test_pick_string_preserved(self):
+        # Pick tokens should survive normalization intact
+        result = normalize_player_name("2026 Early 1st")
+        assert "2026" in result
+        assert "1st" in result
+
+    def test_compound_hyphenated_last_name(self):
+        # Jaxon Smith-Njigba — hyphen becomes space
+        result = normalize_player_name("Jaxon Smith-Njigba")
+        assert "jaxon" in result
+        assert "smith" in result
+        assert "njigba" in result
+
+    def test_double_suffix_stripped(self):
+        # Edge case: name has both Jr and III (shouldn't happen but shouldn't crash)
+        result = normalize_player_name("Player Name Jr. III")
+        assert result == "player name"
+
+    def test_non_ascii_name(self):
+        # José -> jose
+        assert normalize_player_name("José Rodríguez") == "jose rodriguez"
+
+    def test_all_whitespace(self):
+        assert normalize_player_name("   ") == ""
+
+
+class TestNormalizePositionFamilyEdgeCases:
+    """Position strings seen across different data sources."""
+
+    @pytest.mark.parametrize("input_pos,expected", [
+        ("NT", "NT"),       # Nose tackle — not in DL set currently
+        ("FLEX", "FLEX"),   # Fantasy position
+        ("SUPER_FLEX", "SUPER"),  # startswith check takes first token
+    ])
+    def test_fantasy_and_rare_positions(self, input_pos, expected):
+        assert normalize_position_family(input_pos) == expected
+
+    def test_lowercase_edge(self):
+        assert normalize_position_family("edge") == "DL"
+
+    def test_mixed_case_ilb(self):
+        assert normalize_position_family("Ilb") == "LB"
+
+    def test_position_with_number_suffix(self):
+        # "QB1" — startswith("QB") is true
+        assert normalize_position_family("QB1") == "QB"
+
+    def test_slash_separated_position(self):
+        # "DE/DT" — non-alnum becomes space, takes first token
+        result = normalize_position_family("DE/DT")
+        assert result == "DL"
+
+
+class TestNormalizeTeamEdgeCases:
+    def test_three_letter_abbreviation(self):
+        assert normalize_team("buf") == "BUF"
+        assert normalize_team("SF") == "SF"
+
+    def test_full_team_name_passthrough(self):
+        # Full names just get uppercased
+        assert normalize_team("Kansas City") == "KANSAS CITY"
+
+    def test_none_returns_empty(self):
+        assert normalize_team(None) == ""
+
+
+# ── normalize_position_family ──────────────────────────────────────
+
+class TestNormalizePositionFamily:
+    # Standard positions
+    def test_qb(self):
+        assert normalize_position_family("QB") == "QB"
+
+    def test_rb(self):
+        assert normalize_position_family("RB") == "RB"
+
+    def test_wr(self):
+        assert normalize_position_family("WR") == "WR"
+
+    def test_te(self):
+        assert normalize_position_family("TE") == "TE"
+
+    # IDP positions
+    def test_dl(self):
+        assert normalize_position_family("DL") == "DL"
+
+    def test_de_maps_to_dl(self):
+        assert normalize_position_family("DE") == "DL"
+
+    def test_dt_maps_to_dl(self):
+        assert normalize_position_family("DT") == "DL"
+
+    def test_edge_maps_to_dl(self):
+        assert normalize_position_family("EDGE") == "DL"
+
+    def test_lb(self):
+        assert normalize_position_family("LB") == "LB"
+
+    def test_ilb_maps_to_lb(self):
+        assert normalize_position_family("ILB") == "LB"
+
+    def test_olb_maps_to_lb(self):
+        assert normalize_position_family("OLB") == "LB"
+
+    def test_db(self):
+        assert normalize_position_family("DB") == "DB"
+
+    def test_cb_maps_to_db(self):
+        assert normalize_position_family("CB") == "DB"
+
+    def test_s_maps_to_db(self):
+        assert normalize_position_family("S") == "DB"
+
+    def test_ss_maps_to_db(self):
+        assert normalize_position_family("SS") == "DB"
+
+    def test_fs_maps_to_db(self):
+        assert normalize_position_family("FS") == "DB"
+
+    # Sleeper dual positions — DL or DB always win over LB
+    def test_dl_lb_prefers_dl(self):
+        assert normalize_position_family("DL/LB") == "DL"
+
+    def test_lb_dl_prefers_dl(self):
+        assert normalize_position_family("LB/DL") == "DL"
+
+    def test_de_lb_prefers_dl(self):
+        assert normalize_position_family("DE/LB") == "DL"
+
+    def test_db_lb_prefers_db(self):
+        assert normalize_position_family("DB/LB") == "DB"
+
+    def test_lb_db_prefers_db(self):
+        assert normalize_position_family("LB/DB") == "DB"
+
+    def test_cb_lb_prefers_db(self):
+        assert normalize_position_family("CB/LB") == "DB"
+
+    def test_s_lb_prefers_db(self):
+        assert normalize_position_family("S/LB") == "DB"
+
+    def test_edge_lb_prefers_dl(self):
+        assert normalize_position_family("EDGE/LB") == "DL"
+
+    # Edge cases
+    def test_empty(self):
+        assert normalize_position_family("") == ""
+
+    def test_none(self):
+        assert normalize_position_family(None) == ""
+
+    def test_lowercase(self):
+        assert normalize_position_family("qb") == "QB"
+
+    def test_dl_lb_lowercase(self):
+        assert normalize_position_family("dl/lb") == "DL"

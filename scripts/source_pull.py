@@ -56,7 +56,7 @@ def main() -> int:
     repo = Path(args.repo).resolve()
     _bootstrap_path(repo)
 
-    from src.adapters import DlfCsvAdapter, KtcStubAdapter, ManualCsvAdapter
+    from src.adapters import DlfCsvAdapter, KtcStubAdapter, ManualCsvAdapter, ScraperBridgeAdapter
     from src.data_models import RawAssetRecord, RawSourceSnapshot, SourceManifest, utc_now_iso
     from src.identity import build_identity_resolution
     from src.utils import load_json, normalize_player_name
@@ -100,6 +100,8 @@ def main() -> int:
         scoring_context = str(src_cfg.get("scoring_context", "")).strip()
         adapter_kind = str(src_cfg.get("adapter", "dlf_csv")).strip().lower()
         adapter_version = str(src_cfg.get("adapter_version", "1.0.0")).strip()
+        includes_sf = bool(src_cfg.get("includes_sf", False))
+        includes_tep = bool(src_cfg.get("includes_tep", False))
         notes = str(src_cfg.get("notes", "")).strip()
         rel_file = str(src_cfg.get("file", "")).strip()
 
@@ -126,6 +128,12 @@ def main() -> int:
             adapter = DlfCsvAdapter(source_id=source, source_bucket=universe, format_key=format_key)
         elif adapter_kind in {"ktc_stub", "ktc"}:
             adapter = KtcStubAdapter(source_id=source, source_bucket=universe, format_key=format_key)
+        elif adapter_kind in {"scraper_bridge", "bridge"}:
+            signal_type = str(src_cfg.get("signal_type", "value")).strip().lower()
+            adapter = ScraperBridgeAdapter(
+                source_id=source, source_bucket=universe,
+                format_key=format_key, signal_type=signal_type,
+            )
         elif adapter_kind in {"manual_csv", "manual"}:
             adapter = ManualCsvAdapter(source_id=source, source_bucket=universe)
         else:
@@ -143,6 +151,9 @@ def main() -> int:
             rec.universe = universe or rec.universe
             rec.format_key = format_key or rec.format_key
             rec.source_notes = rec.source_notes or notes
+            # Carry TEP/SF flags so downstream code knows what's already baked in
+            rec.metadata_json["includes_sf"] = includes_sf
+            rec.metadata_json["includes_tep"] = includes_tep
 
             if not rec.asset_key:
                 if rec.asset_type == "player":
@@ -236,6 +247,16 @@ def main() -> int:
     )
     if run_payload["warnings"]:
         print(f"[source_pull] warnings={len(run_payload['warnings'])}")
+
+    # Named-source freshness check: KTC is critical for public-primary quality.
+    # Warn loudly if KTC contributed zero records so operators catch it immediately.
+    for snap in run_payload["snapshots"]:
+        if snap["source"] == "KTC" and snap["record_count"] == 0:
+            print("[source_pull] ⚠ KTC: 0 records ingested — blend quality will degrade")
+            print("[source_pull]   Check: exports/latest/site_raw/ktc.csv exists and has data")
+            print("[source_pull]   Run: python scripts/check_ktc_health.py --full")
+        elif snap["source"] == "KTC":
+            print(f"[source_pull] KTC: {snap['record_count']} records ingested ✓")
     return 0
 
 

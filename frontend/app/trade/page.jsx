@@ -1,33 +1,52 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
+import {
+  VALUE_MODES,
+  STORAGE_KEY,
+  RECENT_KEY,
+  verdictFromGap,
+  colorFromGap,
+} from "@/lib/trade-logic";
 
-const VALUE_MODES = [
-  { key: "full", label: "Fully Adjusted" },
-  { key: "raw", label: "Raw" },
-  { key: "scoring", label: "Scoring" },
-  { key: "scarcity", label: "Scarcity" },
+const ROSTER_KEY = "next_trade_roster_v1";
+const TEAM_KEY = "next_trade_team_v1";
+const SUGG_TYPES = [
+  { key: "sellHigh", label: "Sell High" },
+  { key: "buyLow", label: "Buy Low" },
+  { key: "consolidation", label: "Consolidation" },
+  { key: "positionalUpgrades", label: "Upgrades" },
 ];
 
-const STORAGE_KEY = "next_trade_workspace_v1";
-const RECENT_KEY = "next_trade_recent_assets_v1";
-
-function verdictFromGap(gap) {
-  const abs = Math.abs(gap);
-  if (abs < 200) return "Near even";
-  if (abs < 600) return "Lean";
-  if (abs < 1200) return "Strong lean";
-  return "Major gap";
+function fairnessColor(f) {
+  if (f === "even") return "var(--green)";
+  if (f === "lean") return "var(--cyan)";
+  return "var(--red)";
 }
 
-function colorFromGap(gap) {
-  if (Math.abs(gap) < 200) return "";
-  return gap > 0 ? "green" : "red";
+function fairnessLabel(f) {
+  if (f === "even") return "Even value";
+  if (f === "lean") return "Slight lean";
+  return "Stretch";
+}
+
+function confidenceBadge(c) {
+  if (c === "high") return { label: "High consensus", bg: "rgba(52,211,153,0.15)", border: "rgba(52,211,153,0.4)", color: "var(--green)" };
+  if (c === "medium") return { label: "Moderate consensus", bg: "rgba(86,214,255,0.12)", border: "rgba(86,214,255,0.35)", color: "var(--cyan)" };
+  return { label: "Low consensus", bg: "rgba(153,166,200,0.1)", border: "var(--border)", color: "var(--muted)" };
+}
+
+function edgeBadge(edge) {
+  if (!edge) return null;
+  if (edge === "market_discount") return { text: "Buy Low", bg: "rgba(52,211,153,0.15)", color: "var(--green)" };
+  if (edge === "market_premium") return { text: "Sell High", bg: "rgba(248,113,113,0.15)", color: "var(--red)" };
+  if (edge === "high_dispersion") return { text: "Sources Disagree", bg: "rgba(251,191,36,0.15)", color: "#fbbf24" };
+  return null;
 }
 
 export default function TradePage() {
-  const { loading, error, rows } = useDynastyData();
+  const { loading, error, rows, rawData } = useDynastyData();
   const [valueMode, setValueMode] = useState("full");
   const [sideA, setSideA] = useState([]);
   const [sideB, setSideB] = useState([]);
@@ -39,11 +58,40 @@ export default function TradePage() {
   const [hydrated, setHydrated] = useState(false);
   const pickerInputRef = useRef(null);
 
+  // Suggestions state
+  const [rosterInput, setRosterInput] = useState("");
+  const [suggestions, setSuggestions] = useState(null);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState(null);
+  const [suggestionTab, setSuggestionTab] = useState("sellHigh");
+
+  // Sleeper team selection state
+  const [selectedTeamIdx, setSelectedTeamIdx] = useState(-1);
+  const [leagueRosters, setLeagueRosters] = useState(null);
+
+  // Extract Sleeper teams from dynasty data
+  const sleeperTeams = useMemo(() => {
+    const teams = rawData?.sleeper?.teams;
+    return Array.isArray(teams) && teams.length > 0 ? teams : null;
+  }, [rawData]);
+
   const rowByName = useMemo(() => {
     const m = new Map();
     rows.forEach((r) => m.set(r.name, r));
     return m;
   }, [rows]);
+
+  // Hydrate roster input and team selection from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(ROSTER_KEY);
+      if (saved) setRosterInput(saved);
+    } catch { /* ignore */ }
+    try {
+      const savedTeam = localStorage.getItem(TEAM_KEY);
+      if (savedTeam !== null) setSelectedTeamIdx(Number(savedTeam));
+    } catch { /* ignore */ }
+  }, []);
 
   useEffect(() => {
     try {
@@ -52,9 +100,7 @@ export default function TradePage() {
         const parsed = JSON.parse(rawRecent);
         if (Array.isArray(parsed)) setRecentNames(parsed.filter((x) => typeof x === "string").slice(0, 20));
       }
-    } catch {
-      // ignore localStorage parse errors
-    }
+    } catch { /* ignore */ }
   }, []);
 
   useEffect(() => {
@@ -67,35 +113,23 @@ export default function TradePage() {
           const nextMode = String(parsed.valueMode || "full");
           if (VALUE_MODES.some((m) => m.key === nextMode)) setValueMode(nextMode);
           setActiveSide(parsed.activeSide === "B" ? "B" : "A");
-
           const a = Array.isArray(parsed.sideA) ? parsed.sideA.map((n) => rowByName.get(n)).filter(Boolean) : [];
           const b = Array.isArray(parsed.sideB) ? parsed.sideB.map((n) => rowByName.get(n)).filter(Boolean) : [];
           setSideA(a);
           setSideB(b);
         }
       }
-    } catch {
-      // ignore localStorage parse errors
-    } finally {
-      setHydrated(true);
-    }
+    } catch { /* ignore */ } finally { setHydrated(true); }
   }, [rows, hydrated, rowByName]);
 
   useEffect(() => {
     if (!hydrated) return;
-    const payload = {
-      valueMode,
-      activeSide,
-      sideA: sideA.map((r) => r.name),
-      sideB: sideB.map((r) => r.name),
-    };
+    const payload = { valueMode, activeSide, sideA: sideA.map((r) => r.name), sideB: sideB.map((r) => r.name) };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }, [hydrated, valueMode, activeSide, sideA, sideB]);
 
   useEffect(() => {
-    if (pickerOpen && pickerInputRef.current) {
-      pickerInputRef.current.focus();
-    }
+    if (pickerOpen && pickerInputRef.current) pickerInputRef.current.focus();
   }, [pickerOpen]);
 
   const totalA = useMemo(() => sideA.reduce((sum, r) => sum + Number(r.values?.[valueMode] || 0), 0), [sideA, valueMode]);
@@ -105,17 +139,13 @@ export default function TradePage() {
   const pickerRows = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase();
     const isInTrade = new Set([...sideA, ...sideB].map((r) => r.name));
-
     let list = rows.filter((r) => !isInTrade.has(r.name));
     if (pickerFilter !== "all") list = list.filter((r) => r.assetClass === pickerFilter);
     if (q) list = list.filter((r) => r.name.toLowerCase().includes(q));
-
     return list.slice(0, 80);
   }, [rows, sideA, sideB, pickerQuery, pickerFilter]);
 
-  const recentRows = useMemo(() => {
-    return recentNames.map((n) => rowByName.get(n)).filter(Boolean);
-  }, [recentNames, rowByName]);
+  const recentRows = useMemo(() => recentNames.map((n) => rowByName.get(n)).filter(Boolean), [recentNames, rowByName]);
 
   function addRecent(name) {
     setRecentNames((prev) => {
@@ -127,30 +157,20 @@ export default function TradePage() {
 
   function addToSide(row, side) {
     if (!row) return;
-    const inA = sideA.some((r) => r.name === row.name);
-    const inB = sideB.some((r) => r.name === row.name);
-    if (inA || inB) return;
-    if (side === "A") {
-      setSideA((prev) => (prev.some((r) => r.name === row.name) ? prev : [...prev, row]));
-    } else {
-      setSideB((prev) => (prev.some((r) => r.name === row.name) ? prev : [...prev, row]));
-    }
+    if (sideA.some((r) => r.name === row.name) || sideB.some((r) => r.name === row.name)) return;
+    if (side === "A") setSideA((prev) => (prev.some((r) => r.name === row.name) ? prev : [...prev, row]));
+    else setSideB((prev) => (prev.some((r) => r.name === row.name) ? prev : [...prev, row]));
     addRecent(row.name);
   }
 
-  function addToActiveSide(row) {
-    addToSide(row, activeSide);
-  }
+  function addToActiveSide(row) { addToSide(row, activeSide); }
 
   function removeFromSide(name, side) {
     if (side === "A") setSideA((prev) => prev.filter((r) => r.name !== name));
     else setSideB((prev) => prev.filter((r) => r.name !== name));
   }
 
-  function clearTrade() {
-    setSideA([]);
-    setSideB([]);
-  }
+  function clearTrade() { setSideA([]); setSideB([]); }
 
   function swapSides() {
     setSideA(sideB);
@@ -158,10 +178,91 @@ export default function TradePage() {
     setActiveSide((s) => (s === "A" ? "B" : "A"));
   }
 
-  function openPickerFor(side) {
-    setActiveSide(side);
-    setPickerOpen(true);
+  function openPickerFor(side) { setActiveSide(side); setPickerOpen(true); }
+
+  // ── Suggestions logic ─────────────────────────────────────────────
+  const parseRoster = useCallback(() => {
+    return rosterInput
+      .split(/[,\n]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }, [rosterInput]);
+
+  function selectTeam(idx) {
+    const i = Number(idx);
+    setSelectedTeamIdx(i);
+    localStorage.setItem(TEAM_KEY, String(i));
+
+    if (i < 0 || !sleeperTeams || !sleeperTeams[i]) {
+      setLeagueRosters(null);
+      return;
+    }
+
+    const team = sleeperTeams[i];
+    // Combine players + picks (picks stripped of provenance suffixes)
+    const picks = (team.picks || []).map((p) => {
+      // "2026 1.06 (from Pop Trunk)" → "2026 1st" style normalization
+      const m = p.match(/^(\d{4})\s+(\d)\./);
+      if (m) {
+        const round = { "1": "1st", "2": "2nd", "3": "3rd", "4": "4th" }[m[2]] || `${m[2]}th`;
+        return `${m[1]} ${round}`;
+      }
+      return p.replace(/\s*\(.*\)/, "").trim();
+    });
+    // Deduplicate picks (team may own multiple of the same round)
+    const rosterNames = [...(team.players || []), ...picks];
+    const newInput = rosterNames.join("\n");
+    setRosterInput(newInput);
+    localStorage.setItem(ROSTER_KEY, newInput);
+
+    // Build opponent rosters for opponent-aware suggestions
+    const opponents = sleeperTeams
+      .filter((_, oi) => oi !== i)
+      .map((t) => ({ team_name: t.name, players: t.players || [] }));
+    setLeagueRosters(opponents);
   }
+
+  async function fetchSuggestions() {
+    const roster = parseRoster();
+    if (roster.length < 3) {
+      setSuggestionsError("Enter at least 3 player names to get suggestions.");
+      return;
+    }
+    setSuggestionsLoading(true);
+    setSuggestionsError(null);
+    setSuggestions(null);
+    localStorage.setItem(ROSTER_KEY, rosterInput);
+    try {
+      const res = await fetch("/api/trade/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(leagueRosters ? { roster, league_rosters: leagueRosters } : { roster }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSuggestionsError(data.error || `Server error (${res.status})`);
+        return;
+      }
+      setSuggestions(data);
+    } catch (err) {
+      setSuggestionsError("Could not reach suggestion service.");
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  }
+
+  function applySuggestion(s) {
+    const giveRows = s.give.map((p) => rowByName.get(p.name)).filter(Boolean);
+    const recvRows = s.receive.map((p) => rowByName.get(p.name)).filter(Boolean);
+    setSideA(giveRows);
+    setSideB(recvRows);
+  }
+
+  // Count per category
+  const suggestionCounts = useMemo(() => {
+    if (!suggestions) return {};
+    return Object.fromEntries(SUGG_TYPES.map((t) => [t.key, (suggestions[t.key] || []).length]));
+  }, [suggestions]);
 
   return (
     <section className="card">
@@ -175,15 +276,14 @@ export default function TradePage() {
         <>
           <div className="row" style={{ marginBottom: 10 }}>
             <select className="select" value={valueMode} onChange={(e) => setValueMode(e.target.value)}>
-              {VALUE_MODES.map((m) => (
-                <option key={m.key} value={m.key}>{m.label}</option>
-              ))}
+              {VALUE_MODES.map((m) => (<option key={m.key} value={m.key}>{m.label}</option>))}
             </select>
             <button className="button" onClick={swapSides}>Swap Sides</button>
             <button className="button" onClick={clearTrade}>Clear Trade</button>
           </div>
 
           <div className="row" style={{ alignItems: "stretch", paddingBottom: 78 }}>
+            {/* Side A */}
             <div className="card" style={{ flex: 1, minWidth: 280 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <h3 style={{ margin: 0 }}>Side A</h3>
@@ -206,6 +306,7 @@ export default function TradePage() {
               </div>
             </div>
 
+            {/* Side B */}
             <div className="card" style={{ flex: 1, minWidth: 280 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <h3 style={{ margin: 0 }}>Side B</h3>
@@ -229,6 +330,280 @@ export default function TradePage() {
             </div>
           </div>
 
+          {/* ── Suggestions Panel ─────────────────────────────────── */}
+          <div className="card" style={{ marginTop: 12 }}>
+            <h2 style={{ margin: 0, fontSize: "1.1rem" }}>Trade Suggestions</h2>
+            <p className="muted" style={{ margin: "4px 0 10px", fontSize: "0.76rem" }}>
+              {sleeperTeams
+                ? "Select your team from the league, or enter a roster manually."
+                : "Enter your roster to get roster-aware trade ideas."}
+            </p>
+
+            {/* Team selector from Sleeper league */}
+            {sleeperTeams && (
+              <div className="row" style={{ marginBottom: 8, alignItems: "center" }}>
+                <select
+                  className="select"
+                  value={selectedTeamIdx}
+                  onChange={(e) => selectTeam(e.target.value)}
+                  style={{ flex: 1, maxWidth: 320 }}
+                >
+                  <option value={-1}>Select your team...</option>
+                  {sleeperTeams.map((t, i) => (
+                    <option key={i} value={i}>
+                      {t.name} ({(t.players || []).length} players, {(t.picks || []).length} picks)
+                    </option>
+                  ))}
+                </select>
+                {selectedTeamIdx >= 0 && sleeperTeams[selectedTeamIdx] && (
+                  <span className="muted" style={{ fontSize: "0.72rem" }}>
+                    Loaded {(sleeperTeams[selectedTeamIdx].players || []).length} players + {(sleeperTeams[selectedTeamIdx].picks || []).length} picks
+                    {leagueRosters ? ` · ${leagueRosters.length} opponents` : ""}
+                  </span>
+                )}
+              </div>
+            )}
+
+            <textarea
+              className="input"
+              placeholder="Enter roster (comma or newline separated): Josh Allen, Bijan Robinson, Ja'Marr Chase, ..."
+              value={rosterInput}
+              onChange={(e) => { setRosterInput(e.target.value); setSelectedTeamIdx(-1); setLeagueRosters(null); }}
+              rows={3}
+              style={{ width: "100%", resize: "vertical", fontFamily: "inherit", fontSize: "0.82rem" }}
+            />
+
+            <div className="row" style={{ marginTop: 8, alignItems: "center" }}>
+              <button
+                className="button"
+                onClick={fetchSuggestions}
+                disabled={suggestionsLoading}
+                style={{ fontWeight: 700, borderColor: "var(--cyan)", color: "var(--cyan)" }}
+              >
+                {suggestionsLoading ? "Analyzing..." : "Get Suggestions"}
+              </button>
+              {suggestions && (
+                <span className="muted" style={{ fontSize: "0.76rem" }}>
+                  {suggestions.totalSuggestions} suggestions · {suggestions.metadata?.rosterMatched || 0}/{parseRoster().length} matched
+                  {(suggestions.metadata?.opponentRostersAnalyzed || 0) > 0
+                    ? ` · ${suggestions.metadata.opponentRostersAnalyzed} opponents analyzed`
+                    : ""}
+                </span>
+              )}
+            </div>
+
+            {suggestionsError && (
+              <p style={{ color: "var(--red)", fontSize: "0.82rem", margin: "8px 0 0" }}>{suggestionsError}</p>
+            )}
+
+            {/* Roster analysis summary */}
+            {suggestions?.rosterAnalysis && (
+              <div style={{ marginTop: 10, display: "flex", gap: 16, flexWrap: "wrap", fontSize: "0.78rem" }}>
+                {suggestions.rosterAnalysis.surplusPositions.length > 0 && (
+                  <span>
+                    <span className="label">Can trade from </span>
+                    <span style={{ color: "var(--green)", fontWeight: 600 }}>
+                      {suggestions.rosterAnalysis.surplusPositions.join(", ")}
+                    </span>
+                  </span>
+                )}
+                {suggestions.rosterAnalysis.needPositions.length > 0 && (
+                  <span>
+                    <span className="label">Should target </span>
+                    <span style={{ color: "var(--red)", fontWeight: 600 }}>
+                      {suggestions.rosterAnalysis.needPositions.join(", ")}
+                    </span>
+                  </span>
+                )}
+                {suggestions.rosterAnalysis.surplusPositions.length === 0 &&
+                 suggestions.rosterAnalysis.needPositions.length === 0 && (
+                  <span className="muted">Roster is balanced — no clear surplus or need detected.</span>
+                )}
+              </div>
+            )}
+
+            {/* Category tabs */}
+            {suggestions && suggestions.totalSuggestions > 0 && (
+              <>
+                <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
+                  {SUGG_TYPES.map((t) => {
+                    const count = suggestionCounts[t.key] || 0;
+                    const isActive = suggestionTab === t.key;
+                    const isEmpty = count === 0;
+                    return (
+                      <button
+                        key={t.key}
+                        className="button"
+                        onClick={() => setSuggestionTab(t.key)}
+                        style={{
+                          fontSize: "0.76rem",
+                          padding: "5px 10px",
+                          borderColor: isActive ? "var(--cyan)" : "var(--border)",
+                          color: isActive ? "var(--cyan)" : isEmpty ? "var(--border)" : "var(--muted)",
+                          background: isActive ? "rgba(86,214,255,0.08)" : undefined,
+                          opacity: isEmpty && !isActive ? 0.5 : 1,
+                        }}
+                      >
+                        {t.label}{count > 0 ? ` (${count})` : ""}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Suggestion cards */}
+                <div className="list" style={{ marginTop: 10 }}>
+                  {(suggestions[suggestionTab] || []).map((s, i) => {
+                    const eb = edgeBadge(s.edge);
+                    const cb = confidenceBadge(s.confidence);
+                    const rs = s.rankScore;
+                    const isTopPick = i === 0 && rs && rs.total >= 12;
+                    return (
+                      <div
+                        key={`${suggestionTab}-${i}`}
+                        className="card"
+                        style={{
+                          padding: 10,
+                          borderColor: isTopPick ? "rgba(52,211,153,0.5)" : s.edge ? "rgba(86,214,255,0.3)" : undefined,
+                          borderWidth: isTopPick ? 2 : undefined,
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                          <div style={{ flex: 1 }}>
+                            {/* Rank + Give / Get */}
+                            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                              <span style={{
+                                fontSize: "0.68rem", fontWeight: 700, color: i === 0 ? "var(--green)" : "var(--muted)",
+                                minWidth: 18,
+                              }}>#{i + 1}</span>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: "0.82rem" }}>
+                                  <span style={{ color: "var(--red)", fontWeight: 600 }}>Give </span>
+                                  {s.give.map((p, pi) => (
+                                    <span key={pi}>
+                                      {pi > 0 && <span className="muted"> + </span>}
+                                      <span style={{ fontWeight: 600 }}>{p.name}</span>
+                                      <span className="muted"> {p.position} {p.displayValue.toLocaleString()}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                                <div style={{ fontSize: "0.82rem", marginTop: 3 }}>
+                                  <span style={{ color: "var(--green)", fontWeight: 600 }}>Get </span>
+                                  {s.receive.map((p, pi) => (
+                                    <span key={pi}>
+                                      {pi > 0 && <span className="muted"> + </span>}
+                                      <span style={{ fontWeight: 600 }}>{p.name}</span>
+                                      <span className="muted"> {p.position} {p.displayValue.toLocaleString()}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Badges row */}
+                            <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap", marginLeft: 24 }}>
+                              <span className="badge" style={{ color: fairnessColor(s.fairness), borderColor: fairnessColor(s.fairness) }}>
+                                {fairnessLabel(s.fairness)}
+                                {s.gap !== 0 && ` (${s.gap > 0 ? "+" : ""}${s.gap.toLocaleString()})`}
+                              </span>
+                              <span className="badge" style={{ color: cb.color, borderColor: cb.border, background: cb.bg }}>
+                                {cb.label}
+                              </span>
+                              {s.strategy !== "neutral" && (
+                                <span className="badge" style={{ textTransform: "capitalize" }}>
+                                  {s.strategy === "contender" ? "Contender move" : "Rebuilder move"}
+                                </span>
+                              )}
+                              {eb && (
+                                <span className="badge" style={{ color: eb.color, background: eb.bg, borderColor: eb.color }}>
+                                  {eb.text}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Rationale */}
+                            <div style={{ marginLeft: 24 }}>
+                              <div className="muted" style={{ fontSize: "0.74rem", marginTop: 5 }}>{s.rationale}</div>
+                              {s.whyThisHelps && (
+                                <div style={{ fontSize: "0.74rem", marginTop: 2, color: "var(--cyan)" }}>{s.whyThisHelps}</div>
+                              )}
+                              {s.edgeExplanation && (
+                                <div style={{ fontSize: "0.72rem", marginTop: 2, fontStyle: "italic", color: "#fbbf24" }}>{s.edgeExplanation}</div>
+                              )}
+
+                              {/* Balancers */}
+                              {s.suggestedBalancers?.length > 0 && (
+                                <div className="muted" style={{ fontSize: "0.72rem", marginTop: 4 }}>
+                                  To even it out, add: {s.suggestedBalancers.map((b) => `${b.name} (${b.displayValue.toLocaleString()})`).join(", ")}
+                                </div>
+                              )}
+
+                              {/* Opponent fit */}
+                              {s.opponentFit && (
+                                <div style={{ fontSize: "0.72rem", marginTop: 3, color: "var(--cyan)" }}>
+                                  {s.opponentFit}
+                                </div>
+                              )}
+
+                              {/* Rank score transparency (collapsed by default) */}
+                              {rs && (
+                                <details style={{ marginTop: 4 }}>
+                                  <summary className="muted" style={{ fontSize: "0.66rem", cursor: "pointer" }}>
+                                    Why #{i + 1}? Score {rs.total}
+                                  </summary>
+                                  <div className="muted" style={{ fontSize: "0.66rem", marginTop: 2, lineHeight: 1.5 }}>
+                                    Value {rs.base_value} + Fairness {rs.fairness} + Consensus {rs.confidence}
+                                    {rs.need_severity > 0 && ` + Need ${rs.need_severity}`}
+                                    {rs.edge > 0 && ` + Edge ${rs.edge}`}
+                                    {rs.opponent_fit > 0 && ` + Partner ${rs.opponent_fit}`}
+                                    {" "}= {rs.total}
+                                  </div>
+                                </details>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Apply button */}
+                          <button
+                            className="button"
+                            style={{ fontSize: "0.72rem", padding: "4px 8px", whiteSpace: "nowrap" }}
+                            onClick={() => applySuggestion(s)}
+                          >
+                            Load Trade
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {(suggestions[suggestionTab] || []).length === 0 && (
+                    <div className="muted" style={{ fontSize: "0.82rem", padding: "8px 0" }}>
+                      {suggestionTab === "sellHigh"
+                        ? "No sell-high opportunities found. You may not have enough depth at any position to move a piece."
+                        : suggestionTab === "buyLow"
+                        ? "No buy-low targets found. Your surplus positions may not have tradeable pieces in the right value range."
+                        : suggestionTab === "consolidation"
+                        ? "No consolidation trades found. This requires 2+ depth pieces that combine into a single upgrade."
+                        : "No positional upgrades found. Your starters may already be top-tier, or no upgrade targets match your depth value."}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {suggestions && suggestions.totalSuggestions === 0 && (
+              <div style={{ marginTop: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 8, fontSize: "0.82rem" }}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>No trade suggestions found</div>
+                <div className="muted" style={{ fontSize: "0.76rem", lineHeight: 1.5 }}>
+                  {suggestions.metadata?.rosterMatched < 5
+                    ? `Only ${suggestions.metadata?.rosterMatched || 0} of ${parseRoster().length} players matched our database. Check spelling or try adding more players.`
+                    : suggestions.rosterAnalysis?.surplusPositions?.length === 0
+                    ? "Your roster has no clear positional surplus. The engine needs at least one position with depth beyond starters to suggest trades."
+                    : "Your roster appears well-balanced. No actionable trades met our quality threshold."}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Sticky verdict tray */}
           <div className="trade-sticky-tray">
             <div className="trade-tray-main">
               <div>
@@ -247,6 +622,7 @@ export default function TradePage() {
             </div>
           </div>
 
+          {/* Picker overlay */}
           {pickerOpen && (
             <div className="picker-overlay" onClick={() => setPickerOpen(false)}>
               <div className="picker-sheet" onClick={(e) => e.stopPropagation()}>
@@ -257,7 +633,6 @@ export default function TradePage() {
                   </div>
                   <button className="button" onClick={() => setPickerOpen(false)}>Close</button>
                 </div>
-
                 <div className="row" style={{ marginTop: 10 }}>
                   <input
                     ref={pickerInputRef}
@@ -274,7 +649,6 @@ export default function TradePage() {
                     <option value="pick">Picks</option>
                   </select>
                 </div>
-
                 {!pickerQuery && recentRows.length > 0 && (
                   <div style={{ marginTop: 10 }}>
                     <div className="label" style={{ marginBottom: 6 }}>Recent</div>
@@ -291,7 +665,6 @@ export default function TradePage() {
                     </div>
                   </div>
                 )}
-
                 <div className="list" style={{ marginTop: 10, maxHeight: "52vh", overflow: "auto", paddingRight: 4 }}>
                   {pickerRows.map((r) => (
                     <button key={`pick-${r.name}`} className="asset-row button-reset" onClick={() => addToActiveSide(r)}>

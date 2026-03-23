@@ -6,15 +6,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 import sys
 
+# Ensure repo root is on sys.path for shared imports
+_REPO = Path(__file__).resolve().parents[1]
+if str(_REPO) not in sys.path:
+    sys.path.insert(0, str(_REPO))
+
+from scripts._shared import _latest
+
 
 def _bootstrap_path(repo: Path) -> None:
     if str(repo) not in sys.path:
         sys.path.insert(0, str(repo))
-
-
-def _latest(path: Path, pattern: str) -> Path | None:
-    files = sorted(path.glob(pattern), reverse=True)
-    return files[0] if files else None
 
 
 def _second_latest(path: Path, pattern: str) -> Path | None:
@@ -96,6 +98,88 @@ def main() -> int:
     run_id = str(raw_payload.get("run_id") or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
     out_file = out_dir / f"canonical_snapshot_{run_id}.json"
 
+    asset_dicts = [a.to_dict() for a in all_assets]
+
+    # Position enrichment from legacy player data
+    enrichment_summary = None
+    legacy_file = _latest(repo / "data", "legacy_data_*.json")
+    if legacy_file:
+        try:
+            from src.canonical.enrich import (
+                build_legacy_position_lookup,
+                build_player_map_lookup,
+                enrich_positions,
+            )
+            legacy_lookup = build_legacy_position_lookup(legacy_file)
+
+            # Load nickname lookup from exported player map if available
+            player_map_path = repo / "data" / "player_map" / "player_position_map.json"
+            nickname_lookup = {}
+            if player_map_path.exists():
+                _, nickname_lookup = build_player_map_lookup(player_map_path)
+
+            supplemental_path = repo / "data" / "player_map" / "supplemental_positions.json"
+            asset_dicts, enrichment_summary = enrich_positions(
+                asset_dicts, legacy_lookup, nickname_lookup,
+                infer_idp=True,
+                supplemental_path=supplemental_path if supplemental_path.exists() else None,
+            )
+            print(
+                f"[canonical_build] enrichment: {enrichment_summary['enriched_from_legacy']} legacy, "
+                f"{enrichment_summary['enriched_from_nickname']} nickname, "
+                f"{enrichment_summary.get('enriched_from_supplemental', 0)} supplemental, "
+                f"{enrichment_summary['enriched_from_universe_infer']} IDP inferred, "
+                f"{enrichment_summary['already_had_position']} adapter, "
+                f"{enrichment_summary['skipped_picks']} picks, "
+                f"{enrichment_summary['unmatched']} unmatched → "
+                f"{enrichment_summary['position_coverage_pct']}% coverage"
+            )
+        except Exception as e:
+            print(f"[canonical_build] enrichment skipped: {e}")
+
+    # Scarcity adjustment via league context engine
+    league_cfg_path = repo / "config" / "leagues" / "default_superflex_idp.template.json"
+    scarcity_summary = None
+    if league_cfg_path.exists():
+        try:
+            from src.league import LeagueSettings, ReplacementCalculator
+            from src.league.scarcity import compute_scarcity_adjusted_values, build_scarcity_summary
+
+            settings = LeagueSettings.from_json(league_cfg_path)
+            calc = ReplacementCalculator(settings)
+            baselines = calc.compute_baselines(asset_dicts)
+            enriched = compute_scarcity_adjusted_values(asset_dicts, baselines)
+            scarcity_summary = build_scarcity_summary(enriched, baselines)
+
+            # Replace asset dicts with enriched versions
+            asset_dicts = enriched
+            print(
+                f"[canonical_build] scarcity: {scarcity_summary['with_position']} assets adjusted, "
+                f"{scarcity_summary['without_position']} without position"
+            )
+        except Exception as e:
+            print(f"[canonical_build] scarcity adjustment skipped: {e}")
+
+    # Distribution calibration: remap values to match legacy-like distribution
+    calibration_params = None
+    try:
+        from src.canonical.calibration import calibrate_canonical_values, get_calibration_params
+        asset_dicts = calibrate_canonical_values(asset_dicts, legacy_path=legacy_file)
+        calibration_params = get_calibration_params()
+        cal_vals = [a.get("calibrated_value", 0) for a in asset_dicts if a.get("calibrated_value") is not None]
+        if cal_vals:
+            uni_scales = calibration_params.get('universe_scales', {})
+            scales_str = ", ".join(f"{k}={v}" for k, v in sorted(uni_scales.items()))
+            print(
+                f"[canonical_build] calibration: {len(cal_vals)} assets, "
+                f"range {min(cal_vals)}-{max(cal_vals)}, "
+                f"exponent={calibration_params['exponent']}, "
+                f"pick_ceiling={calibration_params.get('pick_ceiling', 'n/a')}, "
+                f"scales=[{scales_str}]"
+            )
+    except Exception as e:
+        print(f"[canonical_build] calibration skipped: {e}")
+
     payload = {
         "run_id": run_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -110,7 +194,10 @@ def main() -> int:
         "assets_by_universe": {
             u: [a.to_dict() for a in rows] for u, rows in canonical_by_universe.items()
         },
-        "assets": [a.to_dict() for a in all_assets],
+        "assets": asset_dicts,
+        "enrichment_summary": enrichment_summary,
+        "scarcity_summary": scarcity_summary,
+        "calibration": calibration_params,
     }
     save_json(out_file, payload)
 
@@ -173,6 +260,20 @@ def main() -> int:
         f"rookie_warn={len(rookie_warn)} unmatched={validation_payload['unmatched_asset_count']} "
         f"low_conf={validation_payload['low_confidence_match_count']}"
     )
+
+    # Per-source contribution summary for operator visibility.
+    from collections import Counter
+    source_record_counts = Counter(r.source for r in all_records)
+    source_asset_counts: dict[str, int] = {}
+    for asset_dict in asset_dicts:
+        for src in asset_dict.get("source_values", {}):
+            source_asset_counts[src] = source_asset_counts.get(src, 0) + 1
+    contrib_parts = []
+    for src in sorted(source_record_counts):
+        records = source_record_counts[src]
+        assets = source_asset_counts.get(src, 0)
+        contrib_parts.append(f"{src}={records}r/{assets}a")
+    print(f"[canonical_build] sources: {', '.join(contrib_parts)}")
     return 0
 
 

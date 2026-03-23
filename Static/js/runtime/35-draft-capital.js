@@ -81,9 +81,6 @@
         <th style="width:40px;">$</th>
         <th>Owner</th>
         <th>From</th>
-        <th>Rookie</th>
-        <th style="width:50px;">Pos</th>
-        <th style="width:70px;">KTC Value</th>
       </tr></thead><tbody>`;
 
       for (const pick of roundPicks) {
@@ -91,23 +88,12 @@
         const fromCol = pick.isTraded
           ? `<span style="color:var(--amber);font-weight:600;">${pick.originalOwner}</span>`
           : '<span style="color:var(--muted);">—</span>';
-        const isProjected = pick.rookieName && pick.rookieName.startsWith('Rookie #');
-        const rookieName = pick.rookieName
-          ? (isProjected ? `<span style="color:var(--muted);font-style:italic;">${pick.rookieName}</span>` : pick.rookieName)
-          : '<span style="color:var(--muted);">—</span>';
-        const rookiePos = pick.rookiePos || '';
-        const rookieVal = pick.rookieKtcValue
-          ? (isProjected ? `<span style="opacity:0.5;font-style:italic;">${pick.rookieKtcValue.toLocaleString()}*</span>` : pick.rookieKtcValue.toLocaleString())
-          : '';
 
         picksHtml += `<tr style="${tradedStyle}">
           <td style="font-family:var(--mono);font-weight:600;">${pick.pick}</td>
           <td style="font-family:var(--mono);font-weight:700;color:var(--green);">$${pick.dollarValue}</td>
           <td style="font-weight:600;">${pick.currentOwner}</td>
           <td>${fromCol}</td>
-          <td>${rookieName}</td>
-          <td style="font-size:0.68rem;color:var(--subtext);">${rookiePos}</td>
-          <td style="font-family:var(--mono);font-size:0.72rem;">${rookieVal}</td>
         </tr>`;
       }
       picksHtml += '</tbody></table></div></div>';
