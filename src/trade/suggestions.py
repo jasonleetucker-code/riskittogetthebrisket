@@ -51,6 +51,18 @@ MAX_SUGGESTIONS_PER_TYPE = 8
 # of the combined depth pieces
 CONSOLIDATION_MIN_UPGRADE_RATIO = 0.70
 
+# Max overpay ratio for consolidation "stretch" trades to survive filtering.
+# A stretch consolidation is kept if gap / give_total ≤ this value — i.e.,
+# you're overpaying by at most 30% of what you send out.  This lets through
+# realistic "2 depth pieces for 1 starter" packages while still blocking
+# absurd overpays.
+CONSOLIDATION_MAX_OVERPAY_RATIO = 0.30
+
+# Positional upgrades: when searching surplus positions for a sweetener,
+# allow up to this multiple of FAIRNESS_TOLERANCE.  Surplus depth is
+# expendable, so slightly wider tolerance is acceptable.
+UPGRADE_SWEETENER_SURPLUS_MULTIPLIER = 2.0
+
 # ── Quality filter thresholds ────────────────────────────────────────
 # These control post-ranking deduplication and noise suppression.
 
@@ -643,7 +655,9 @@ def _generate_consolidation(
                 ]
                 if not targets:
                     continue
-                targets.sort(key=lambda t: -t.display_value)
+                # Pick the closest-value target (smallest gap) rather than
+                # the most expensive one.  This produces fairer packages.
+                targets.sort(key=lambda t: abs(combined - t.display_value))
                 target = targets[0]
                 gap = combined - target.display_value
                 pos_note = f" at a position of need ({target.position})" if target.position in roster.need_positions else ""
@@ -701,7 +715,8 @@ def _generate_positional_upgrades(
         if not targets:
             continue
 
-        for target in targets[:3]:
+        targets.sort(key=lambda t: t.display_value)  # closest upgrade first
+        for target in targets[:5]:
             gap_needed = target.display_value - weakest_starter.display_value
             sweeteners = [
                 p for p in depth
@@ -709,11 +724,14 @@ def _generate_positional_upgrades(
                 and abs(p.display_value - gap_needed) < FAIRNESS_TOLERANCE
             ]
             if not sweeteners:
+                # Widen tolerance for surplus-position sweeteners — these
+                # are expendable depth the user can afford to overpay with.
+                surplus_tol = int(FAIRNESS_TOLERANCE * UPGRADE_SWEETENER_SURPLUS_MULTIPLIER)
                 for sp in roster.surplus_positions:
                     sp_depth = roster.by_position.get(sp, [])
                     sp_need = DEFAULT_STARTER_NEEDS.get(sp, 1)
                     for p in sp_depth[sp_need:]:
-                        if p.display_value >= MIN_RELEVANT_VALUE and abs(p.display_value - gap_needed) < FAIRNESS_TOLERANCE:
+                        if p.display_value >= MIN_RELEVANT_VALUE and abs(p.display_value - gap_needed) < surplus_tol:
                             sweeteners.append(p)
             if not sweeteners:
                 continue
@@ -848,11 +866,14 @@ def _apply_quality_filters(
 
     Each filter preserves the existing rank order — it only removes, never reorders.
     """
-    # ── 1. Suppress consolidation stretches ──────────────────────────
+    # ── 1. Suppress unrealistic consolidation stretches ────────────
+    # Allow stretch consolidations where the overpay is ≤30% of the
+    # give total — these are plausible "package for upgrade" deals.
     if "consolidation" in categories:
         categories["consolidation"] = [
             s for s in categories["consolidation"]
             if s.fairness != "stretch"
+            or (s.give_total > 0 and s.gap / s.give_total <= CONSOLIDATION_MAX_OVERPAY_RATIO)
         ]
 
     # ── 2. Cap receive-target repetition per category ────────────────
@@ -919,28 +940,34 @@ def _apply_quality_filters(
         ]
 
     # ── 7. Cross-category give-player cap ────────────────────────────
-    # Track each individual give-player (not the pair), so "Maxx Crosby"
-    # in sell_high AND consolidation shares one counter.
-    # Process categories in priority order: sell_high first (most actionable),
-    # then buy_low, consolidation, upgrades.  Earlier categories consume quota.
-    cat_order = ["sell_high", "buy_low", "consolidation", "positional_upgrade"]
-    give_counts: dict[str, int] = {}
-
-    for cat_name in cat_order:
-        suggs = categories.get(cat_name, [])
-        filtered = []
-        for s in suggs:
-            # Check if ANY give-player would exceed the cap
-            would_exceed = any(
-                give_counts.get(p.name, 0) >= MAX_GIVE_PLAYER_APPEARANCES
-                for p in s.give
-            )
-            if would_exceed:
-                continue
-            for p in s.give:
-                give_counts[p.name] = give_counts.get(p.name, 0) + 1
-            filtered.append(s)
-        categories[cat_name] = filtered
+    # Two separate budgets:
+    #   (a) 1-for-1 categories (sell_high, buy_low) share one counter.
+    #   (b) Package categories (consolidation, positional_upgrade) share
+    #       a separate counter.
+    # This prevents sell_high from consuming all appearances of surplus
+    # depth players, leaving no room for package deals that use the same
+    # players in a fundamentally different trade structure.
+    _cap_group = [
+        ["sell_high", "buy_low"],
+        ["consolidation", "positional_upgrade"],
+    ]
+    for group in _cap_group:
+        give_counts: dict[str, int] = {}
+        for cat_name in group:
+            suggs = categories.get(cat_name, [])
+            filtered = []
+            for s in suggs:
+                # Check if ANY give-player would exceed the cap
+                would_exceed = any(
+                    give_counts.get(p.name, 0) >= MAX_GIVE_PLAYER_APPEARANCES
+                    for p in s.give
+                )
+                if would_exceed:
+                    continue
+                for p in s.give:
+                    give_counts[p.name] = give_counts.get(p.name, 0) + 1
+                filtered.append(s)
+            categories[cat_name] = filtered
 
     return categories
 

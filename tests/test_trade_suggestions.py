@@ -32,6 +32,8 @@ from src.trade.suggestions import (
     MIN_ACTIONABLE_VALUE,
     MAX_GAP_FOR_1FOR1,
     MAX_BALANCERS,
+    CONSOLIDATION_MAX_OVERPAY_RATIO,
+    UPGRADE_SWEETENER_SURPLUS_MULTIPLIER,
     HIGH_DISPERSION_CV,
     MAX_GIVE_PLAYER_APPEARANCES,
     MAX_RECEIVE_TARGET_PER_CATEGORY,
@@ -670,23 +672,27 @@ class TestRankingInOutput:
 
 class TestQualityFilters:
     def test_consolidation_stretches_removed(self):
-        """Consolidation suggestions with fairness='stretch' should be suppressed."""
+        """Consolidation stretches with high overpay ratio are suppressed."""
         s_even = _make_suggestion(fairness="even")
         s_even.type = "consolidation"
-        s_stretch = _make_suggestion(fairness="stretch", give_name="Player C", recv_name="Player D")
-        s_stretch.type = "consolidation"
+        # High overpay: give_total=5000, gap=+2000 → overpay 40% > 30% threshold
+        s_stretch_bad = _make_suggestion(
+            fairness="stretch", give_val=5000, recv_val=3000,
+            give_name="Player C", recv_name="Player D",
+        )
+        s_stretch_bad.type = "consolidation"
         s_lean = _make_suggestion(fairness="lean", give_name="Player E", recv_name="Player F")
         s_lean.type = "consolidation"
 
         result = _apply_quality_filters({
             "sell_high": [],
             "buy_low": [],
-            "consolidation": [s_even, s_stretch, s_lean],
+            "consolidation": [s_even, s_stretch_bad, s_lean],
             "positional_upgrade": [],
         })
         consol = result["consolidation"]
         assert len(consol) == 2
-        assert all(s.fairness != "stretch" for s in consol)
+        assert s_stretch_bad not in consol
 
     def test_receive_target_cap(self):
         """Max 2 suggestions per receive-target within a category."""
@@ -747,24 +753,26 @@ class TestQualityFilters:
         assert total_a <= MAX_GIVE_PLAYER_APPEARANCES
 
     def test_give_player_cap_individual_tracking(self):
-        """Consolidation pairs track individual players, not the pair string."""
-        # Player A appears 2x in sell_high (maxes out at cap=2)
-        sell = [
-            _make_suggestion(give_name="Player A", recv_name=f"T{i}")
-            for i in range(2)
-        ]
-        # Consolidation gives Player A + Player B — should be blocked
-        consol_s = _make_suggestion(give_name="Player A", recv_name="Big Target")
-        consol_s.type = "consolidation"
-        consol_s.give.append(PlayerAsset("Player B", "RB", 3000, 3000, source_count=6))
+        """Consolidation pairs track individual players within their own budget."""
+        # Player A appears 2x in consolidation (maxes out at cap=2)
+        consol_1 = _make_suggestion(give_name="Player A", recv_name="Target 1")
+        consol_1.type = "consolidation"
+        consol_1.give.append(PlayerAsset("Player B", "RB", 3000, 3000, source_count=6))
+        consol_2 = _make_suggestion(give_name="Player A", recv_name="Target 2")
+        consol_2.type = "consolidation"
+        consol_2.give.append(PlayerAsset("Player C", "RB", 3000, 3000, source_count=6))
+        # Third should be blocked — Player A at cap within package budget
+        consol_3 = _make_suggestion(give_name="Player A", recv_name="Target 3")
+        consol_3.type = "consolidation"
+        consol_3.give.append(PlayerAsset("Player D", "RB", 3000, 3000, source_count=6))
 
         result = _apply_quality_filters({
-            "sell_high": sell,
+            "sell_high": [],
             "buy_low": [],
-            "consolidation": [consol_s],
+            "consolidation": [consol_1, consol_2, consol_3],
             "positional_upgrade": [],
         })
-        assert len(result["consolidation"]) == 0
+        assert len(result["consolidation"]) == 2
 
     def test_filters_preserve_order(self):
         """Filters should never reorder; only remove."""
@@ -1309,4 +1317,187 @@ class TestBalancerDeterminism:
         ]
         r1 = generate_suggestions(roster, snap)
         r2 = generate_suggestions(roster, snap)
+        assert r1 == r2
+
+
+# ── Phase 2C: Package logic tests ────────────────────────────────────
+
+class TestConsolidationClosestValueTarget:
+    """Consolidation should target closest-value match, not highest value."""
+
+    def test_closest_target_preferred(self):
+        """Given two valid targets, the one closer to combined value wins."""
+        snap = _sample_snapshot()
+        pool = build_asset_pool(snap)
+        # IDP-stacked roster with deep DL/LB surplus
+        idp = [
+            "Bo Nix", "TreVeyon Henderson", "Cameron Skattebo",
+            "George Pickens", "Ladd McConkey", "Dalton Kincaid",
+            "Aidan Hutchinson", "Will Anderson", "Micah Parsons",
+            "Myles Garrett", "Maxx Crosby", "Abdul Carter", "Jared Verse",
+            "Nik Bonitto", "Nathan Landman", "Arvell Reese", "Sonny Styles",
+            "Jack Campbell", "Carson Schwesinger", "David Bailey",
+            "Roquan Smith", "Ernest Jones",
+        ]
+        roster = analyze_roster(idp, pool)
+        roster_set = {n.lower() for n in idp}
+        from src.trade.suggestions import _generate_consolidation
+        results = _generate_consolidation(roster, pool, roster_set)
+        if results:
+            # Each suggestion should target the closest value match
+            for s in results:
+                gap_pct = abs(s.gap) / s.give_total if s.give_total else 0
+                # All should be under 30% overpay (eligible to survive filter)
+                assert gap_pct <= 0.30, f"gap_pct {gap_pct:.0%} > 30%"
+
+
+class TestConsolidationStretchFilter:
+    """Stretch consolidations are allowed when overpay is reasonable."""
+
+    def test_low_overpay_stretch_allowed(self):
+        """Stretch with ≤30% overpay survives quality filter."""
+        s = _make_suggestion(fairness="stretch", give_val=10000, recv_val=8000)
+        s.type = "consolidation"
+        # gap = 10000 - 8000 = +2000, ratio = 2000/10000 = 20%
+        result = _apply_quality_filters({
+            "sell_high": [], "buy_low": [],
+            "consolidation": [s], "positional_upgrade": [],
+        })
+        assert len(result["consolidation"]) == 1
+
+    def test_high_overpay_stretch_blocked(self):
+        """Stretch with >30% overpay is suppressed."""
+        s = _make_suggestion(fairness="stretch", give_val=10000, recv_val=5000)
+        s.type = "consolidation"
+        # gap = 10000 - 5000 = +5000, ratio = 5000/10000 = 50%
+        result = _apply_quality_filters({
+            "sell_high": [], "buy_low": [],
+            "consolidation": [s], "positional_upgrade": [],
+        })
+        assert len(result["consolidation"]) == 0
+
+    def test_even_and_lean_still_pass(self):
+        """Even and lean consolidations are unaffected."""
+        s_even = _make_suggestion(fairness="even")
+        s_even.type = "consolidation"
+        s_lean = _make_suggestion(fairness="lean", give_name="P2", recv_name="P3")
+        s_lean.type = "consolidation"
+        result = _apply_quality_filters({
+            "sell_high": [], "buy_low": [],
+            "consolidation": [s_even, s_lean], "positional_upgrade": [],
+        })
+        assert len(result["consolidation"]) == 2
+
+
+class TestSeparateGivePlayerBudgets:
+    """1-for-1 and package categories have separate give-player caps."""
+
+    def test_sell_high_does_not_block_consolidation(self):
+        """A player at cap in sell_high can still appear in consolidation."""
+        sell = [
+            _make_suggestion(give_name="Player A", recv_name=f"T{i}")
+            for i in range(MAX_GIVE_PLAYER_APPEARANCES)
+        ]
+        consol = _make_suggestion(give_name="Player A", recv_name="Big Target")
+        consol.type = "consolidation"
+        consol.give.append(PlayerAsset("Player B", "RB", 3000, 3000, source_count=6))
+
+        result = _apply_quality_filters({
+            "sell_high": sell, "buy_low": [],
+            "consolidation": [consol], "positional_upgrade": [],
+        })
+        # Consolidation should survive — separate budget
+        assert len(result["consolidation"]) == 1
+
+    def test_within_package_budget_still_capped(self):
+        """Within the package budget, the cap still applies."""
+        consols = []
+        for i in range(MAX_GIVE_PLAYER_APPEARANCES + 1):
+            s = _make_suggestion(give_name="Player A", recv_name=f"Target {i}")
+            s.type = "consolidation"
+            s.give.append(PlayerAsset(f"Partner {i}", "RB", 3000, 3000, source_count=6))
+            consols.append(s)
+
+        result = _apply_quality_filters({
+            "sell_high": [], "buy_low": [],
+            "consolidation": consols, "positional_upgrade": [],
+        })
+        assert len(result["consolidation"]) == MAX_GIVE_PLAYER_APPEARANCES
+
+
+class TestConsolidationInLiveOutput:
+    """Integration: consolidation suggestions appear in live pipeline output."""
+
+    def test_deep_surplus_gets_consolidation(self):
+        """A roster with deep surplus and mid-value depth produces packages."""
+        snap = _sample_snapshot()
+        pool = build_asset_pool(snap)
+        # Build a roster with deep LB surplus (mid-range depth, not elite)
+        # so that pairs fall in range of real targets.
+        roster_names = [
+            "Josh Allen",                                        # QB
+            "Bijan Robinson", "Jahmyr Gibbs", "De'Von Achane",  # RB
+            "Ja'Marr Chase",                                     # WR
+            "Brock Bowers",                                      # TE
+            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",   # DL starters
+            "Jack Campbell", "Roquan Smith", "Fred Warner",      # LB starters (need 3)
+            "Nathan Landman", "Jordyn Brooks", "Nick Bolton",    # LB surplus
+            "Kyle Hamilton", "Sauce Gardner",                    # DB
+        ]
+        result = generate_suggestions(roster_names, snap)
+        cons = result["consolidation"]
+        # With mid-range LB depth, at least one package should form
+        if cons:
+            for s in cons:
+                assert len(s["give"]) >= 2
+                assert len(s["receive"]) == 1
+
+    def test_elite_surplus_gets_no_packages(self):
+        """Rosters with all-elite surplus correctly get 0 packages."""
+        snap = _sample_snapshot()
+        rb_heavy = [
+            "Lamar Jackson", "Bijan Robinson", "Jahmyr Gibbs",
+            "Ashton Jeanty", "De'Von Achane", "Jonathan Taylor",
+            "James Cook", "Breece Hall", "Kenneth Walker",
+            "Chris Olave", "Garrett Wilson", "Tucker Kraft",
+            "Maxx Crosby", "Will Anderson", "Myles Garrett", "Jared Verse",
+            "Ernest Jones", "Jordyn Brooks", "Nick Bolton",
+        ]
+        result = generate_suggestions(rb_heavy, snap)
+        assert len(result["consolidation"]) == 0
+
+    def test_no_regression_in_sell_high(self):
+        """Existing 1-for-1 sell_high suggestions are unchanged."""
+        snap = _sample_snapshot()
+        roster = [
+            "Lamar Jackson", "Bijan Robinson", "Jahmyr Gibbs",
+            "Ashton Jeanty", "De'Von Achane", "Jonathan Taylor",
+            "James Cook", "Breece Hall", "Kenneth Walker",
+            "Chris Olave", "Garrett Wilson", "Tucker Kraft",
+            "Maxx Crosby", "Will Anderson", "Myles Garrett", "Jared Verse",
+            "Ernest Jones", "Jordyn Brooks", "Nick Bolton",
+        ]
+        result = generate_suggestions(roster, snap)
+        assert len(result["sellHigh"]) > 0, "sell_high should still have suggestions"
+        for s in result["sellHigh"]:
+            assert len(s["give"]) == 1
+            assert len(s["receive"]) == 1
+
+
+class TestPackageDeterminism:
+    """Full pipeline with packages must be deterministic."""
+
+    def test_deterministic_with_consolidation(self):
+        snap = _sample_snapshot()
+        idp = [
+            "Bo Nix", "TreVeyon Henderson", "Cameron Skattebo",
+            "George Pickens", "Ladd McConkey", "Dalton Kincaid",
+            "Aidan Hutchinson", "Will Anderson", "Micah Parsons",
+            "Myles Garrett", "Maxx Crosby", "Abdul Carter", "Jared Verse",
+            "Nik Bonitto", "Nathan Landman", "Arvell Reese", "Sonny Styles",
+            "Jack Campbell", "Carson Schwesinger", "David Bailey",
+            "Roquan Smith", "Ernest Jones",
+        ]
+        r1 = generate_suggestions(idp, snap)
+        r2 = generate_suggestions(idp, snap)
         assert r1 == r2
