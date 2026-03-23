@@ -26,6 +26,8 @@ from src.trade.suggestions import (
     TradeSuggestion,
     DEFAULT_STARTER_NEEDS,
     MIN_RELEVANT_VALUE,
+    MIN_ACTIONABLE_VALUE,
+    MAX_GAP_FOR_1FOR1,
     HIGH_DISPERSION_CV,
     MAX_GIVE_PLAYER_APPEARANCES,
     MAX_RECEIVE_TARGET_PER_CATEGORY,
@@ -717,13 +719,13 @@ class TestQualityFilters:
 
     def test_give_player_cross_category_cap(self):
         """A player appearing as give in sell_high should count toward their
-        cap in consolidation too."""
-        # 3 sell_high suggestions all giving Player A
+        cap in buy_low too."""
+        # 2 sell_high suggestions giving Player A (fills cap at 2)
         sell = [
             _make_suggestion(give_name="Player A", recv_name=f"Target {i}")
-            for i in range(3)
+            for i in range(2)
         ]
-        # 2 more in buy_low giving Player A
+        # 2 more in buy_low giving Player A — should be blocked
         buy = [
             _make_suggestion(give_name="Player A", recv_name=f"Buy Target {i}")
             for i in range(2)
@@ -742,10 +744,10 @@ class TestQualityFilters:
 
     def test_give_player_cap_individual_tracking(self):
         """Consolidation pairs track individual players, not the pair string."""
-        # Player A appears 3x in sell_high (maxes out)
+        # Player A appears 2x in sell_high (maxes out at cap=2)
         sell = [
             _make_suggestion(give_name="Player A", recv_name=f"T{i}")
-            for i in range(3)
+            for i in range(2)
         ]
         # Consolidation gives Player A + Player B — should be blocked
         consol_s = _make_suggestion(give_name="Player A", recv_name="Big Target")
@@ -819,6 +821,254 @@ class TestQualityFilters:
         roster = [
             "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
             "Bijan Robinson", "Jahmyr Gibbs",
+            "Ja'Marr Chase",
+            "Brock Bowers",
+            "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",
+            "Jack Campbell", "Roquan Smith", "Fred Warner",
+            "Kyle Hamilton", "Sauce Gardner",
+        ]
+        r1 = generate_suggestions(roster, snap)
+        r2 = generate_suggestions(roster, snap)
+        assert r1 == r2
+
+
+# ── Phase 2A: Noise suppression filter tests ─────────────────────────
+
+class TestFairButWeakFilter:
+    """Filter 4: suppress trades where both sides are below MIN_ACTIONABLE_VALUE."""
+
+    def test_both_sides_low_value_suppressed(self):
+        """Two low-value players trading — not worth the conversation."""
+        s_low = _make_suggestion(
+            give_val=1500, recv_val=1600,
+            give_name="Scrub A", recv_name="Scrub B",
+        )
+        s_high = _make_suggestion(
+            give_val=6000, recv_val=6200,
+            give_name="Star A", recv_name="Star B",
+        )
+        result = _apply_quality_filters({
+            "sell_high": [s_high, s_low],
+            "buy_low": [],
+            "consolidation": [],
+            "positional_upgrade": [],
+        })
+        assert len(result["sell_high"]) == 1
+        assert result["sell_high"][0].give[0].name == "Star A"
+
+    def test_one_side_above_threshold_kept(self):
+        """If one side is above MIN_ACTIONABLE_VALUE, the trade is kept."""
+        s = _make_suggestion(
+            give_val=1500, recv_val=3000,
+            give_name="Depth", recv_name="Starter",
+        )
+        result = _apply_quality_filters({
+            "sell_high": [s],
+            "buy_low": [],
+            "consolidation": [],
+            "positional_upgrade": [],
+        })
+        assert len(result["sell_high"]) == 1
+
+    def test_exactly_at_threshold_kept(self):
+        """Players at exactly MIN_ACTIONABLE_VALUE are kept."""
+        s = _make_suggestion(
+            give_val=MIN_ACTIONABLE_VALUE, recv_val=MIN_ACTIONABLE_VALUE,
+            give_name="Border A", recv_name="Border B",
+        )
+        result = _apply_quality_filters({
+            "sell_high": [s],
+            "buy_low": [],
+            "consolidation": [],
+            "positional_upgrade": [],
+        })
+        assert len(result["sell_high"]) == 1
+
+
+class TestSameTierSwapFilter:
+    """Filter 5: suppress 1-for-1 same-position trades within 500 value."""
+
+    def test_same_pos_close_value_suppressed(self):
+        """WR-for-WR within 200 value — lateral move, no strategic gain."""
+        s = _make_suggestion(
+            give_val=5000, recv_val=5200,
+            give_pos="WR", recv_pos="WR",
+            give_name="WR A", recv_name="WR B",
+        )
+        result = _apply_quality_filters({
+            "sell_high": [s],
+            "buy_low": [],
+            "consolidation": [],
+            "positional_upgrade": [],
+        })
+        assert len(result["sell_high"]) == 0
+
+    def test_same_pos_large_gap_kept(self):
+        """WR-for-WR with 600 value difference — meaningful upgrade, kept."""
+        s = _make_suggestion(
+            give_val=5000, recv_val=5600,
+            give_pos="WR", recv_pos="WR",
+            give_name="WR A", recv_name="WR B",
+        )
+        result = _apply_quality_filters({
+            "sell_high": [s],
+            "buy_low": [],
+            "consolidation": [],
+            "positional_upgrade": [],
+        })
+        assert len(result["sell_high"]) == 1
+
+    def test_different_pos_close_value_kept(self):
+        """RB-for-WR within 200 value — cross-position, has strategic value."""
+        s = _make_suggestion(
+            give_val=5000, recv_val=5200,
+            give_pos="RB", recv_pos="WR",
+            give_name="RB Guy", recv_name="WR Guy",
+        )
+        result = _apply_quality_filters({
+            "sell_high": [s],
+            "buy_low": [],
+            "consolidation": [],
+            "positional_upgrade": [],
+        })
+        assert len(result["sell_high"]) == 1
+
+    def test_multi_player_trade_not_affected(self):
+        """2-for-1 trades are never caught by same-tier filter."""
+        s = _make_suggestion(
+            give_val=5000, recv_val=5200,
+            give_pos="WR", recv_pos="WR",
+            give_name="WR A", recv_name="WR B",
+        )
+        s.give.append(PlayerAsset("WR C", "WR", 2000, 2000, source_count=6))
+        result = _apply_quality_filters({
+            "sell_high": [s],
+            "buy_low": [],
+            "consolidation": [],
+            "positional_upgrade": [],
+        })
+        assert len(result["sell_high"]) == 1
+
+
+class TestNearMiss1For1Filter:
+    """Filter 6: suppress 1-for-1s with big gap and attached balancers."""
+
+    def test_big_gap_with_balancers_suppressed(self):
+        """Gap > MAX_GAP_FOR_1FOR1 with balancers = should be a package deal."""
+        s = _make_suggestion(
+            give_val=6000, recv_val=6600,
+            give_name="Player A", recv_name="Player B",
+        )
+        s.__dict__["balancers"] = [
+            PlayerAsset("Filler", "WR", 600, 600, source_count=4)
+        ]
+        result = _apply_quality_filters({
+            "sell_high": [],
+            "buy_low": [s],
+            "consolidation": [],
+            "positional_upgrade": [],
+        })
+        assert len(result["buy_low"]) == 0
+
+    def test_small_gap_with_balancers_kept(self):
+        """Gap <= MAX_GAP_FOR_1FOR1 with balancers — close enough, keep it."""
+        s = _make_suggestion(
+            give_val=6000, recv_val=6300,
+            give_name="Player A", recv_name="Player B",
+        )
+        s.__dict__["balancers"] = [
+            PlayerAsset("Filler", "WR", 300, 300, source_count=4)
+        ]
+        result = _apply_quality_filters({
+            "sell_high": [],
+            "buy_low": [s],
+            "consolidation": [],
+            "positional_upgrade": [],
+        })
+        assert len(result["buy_low"]) == 1
+
+    def test_big_gap_no_balancers_kept(self):
+        """Gap > MAX_GAP_FOR_1FOR1 but no balancers — engine didn't flag it."""
+        s = _make_suggestion(
+            give_val=6000, recv_val=6600,
+            give_name="Player A", recv_name="Player B",
+        )
+        result = _apply_quality_filters({
+            "sell_high": [],
+            "buy_low": [s],
+            "consolidation": [],
+            "positional_upgrade": [],
+        })
+        assert len(result["buy_low"]) == 1
+
+    def test_multi_player_trade_not_affected(self):
+        """2-for-1 with gap and balancers — not a 1-for-1, keep it."""
+        s = _make_suggestion(
+            give_val=6000, recv_val=6600,
+            give_name="Player A", recv_name="Player B",
+        )
+        s.give.append(PlayerAsset("Player C", "RB", 500, 500, source_count=4))
+        s.__dict__["balancers"] = [
+            PlayerAsset("Filler", "WR", 600, 600, source_count=4)
+        ]
+        result = _apply_quality_filters({
+            "sell_high": [],
+            "buy_low": [s],
+            "consolidation": [],
+            "positional_upgrade": [],
+        })
+        assert len(result["buy_low"]) == 1
+
+
+class TestTightenedGivePlayerCap:
+    """Verify MAX_GIVE_PLAYER_APPEARANCES = 2 works correctly."""
+
+    def test_cap_is_2(self):
+        assert MAX_GIVE_PLAYER_APPEARANCES == 2
+
+    def test_third_appearance_blocked(self):
+        """Player A appearing 3x in sell_high — only first 2 survive."""
+        suggs = [
+            _make_suggestion(give_name="Player A", recv_name=f"Target {i}")
+            for i in range(3)
+        ]
+        result = _apply_quality_filters({
+            "sell_high": suggs,
+            "buy_low": [],
+            "consolidation": [],
+            "positional_upgrade": [],
+        })
+        total_a = sum(
+            1 for s in result["sell_high"]
+            if any(p.name == "Player A" for p in s.give)
+        )
+        assert total_a == 2
+
+    def test_different_players_unaffected(self):
+        """Different give-players should each get their own 2-appearance budget."""
+        suggs = [
+            _make_suggestion(give_name="Player A", recv_name="T1"),
+            _make_suggestion(give_name="Player A", recv_name="T2"),
+            _make_suggestion(give_name="Player B", recv_name="T3"),
+            _make_suggestion(give_name="Player B", recv_name="T4"),
+        ]
+        result = _apply_quality_filters({
+            "sell_high": suggs,
+            "buy_low": [],
+            "consolidation": [],
+            "positional_upgrade": [],
+        })
+        assert len(result["sell_high"]) == 4
+
+
+class TestNewFiltersDeterministic:
+    """All new filters must preserve determinism."""
+
+    def test_full_pipeline_deterministic(self):
+        snap = _sample_snapshot()
+        roster = [
+            "Josh Allen", "Lamar Jackson", "Drake Maye", "Caleb Williams",
+            "Bijan Robinson", "Jahmyr Gibbs", "De'Von Achane",
             "Ja'Marr Chase",
             "Brock Bowers",
             "Aidan Hutchinson", "Myles Garrett", "Nick Bosa",

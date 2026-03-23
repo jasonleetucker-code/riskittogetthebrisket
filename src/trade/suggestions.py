@@ -56,7 +56,8 @@ CONSOLIDATION_MIN_UPGRADE_RATIO = 0.70
 
 # Max times a single give-player can appear across ALL categories combined.
 # Prevents "Breece Hall fatigue" — seeing the same outgoing player 7 times.
-MAX_GIVE_PLAYER_APPEARANCES = 3
+# Lowered from 3→2 after audit showed 52.5% of suggestions were repetitive.
+MAX_GIVE_PLAYER_APPEARANCES = 2
 
 # Max suggestions per receive-target within a single category.
 # Prevents consolidation from showing 6 different pairs all targeting Bijan.
@@ -65,6 +66,15 @@ MAX_RECEIVE_TARGET_PER_CATEGORY = 2
 # Max low-confidence suggestions per category.
 # Low-conf ideas are speculative; cap keeps the feed actionable.
 MAX_LOW_CONFIDENCE_PER_CATEGORY = 2
+
+# Minimum display value for BOTH sides of a trade to be "actionable".
+# Swapping two depth pieces worth < 2000 each isn't worth negotiating.
+MIN_ACTIONABLE_VALUE = 2000
+
+# Suppress 1-for-1 suggestions where the gap admits the trade needs sweeteners.
+# If abs(gap) exceeds this and the engine attached balancers, it's really a
+# package deal masquerading as a 1-for-1.
+MAX_GAP_FOR_1FOR1 = 400
 
 # Market-disagreement thresholds
 HIGH_DISPERSION_CV = 0.12   # CV above this = sources disagree meaningfully
@@ -767,7 +777,10 @@ def _apply_quality_filters(
     1. Per-category: suppress consolidation stretches (fairness == "stretch")
     2. Per-category: cap receive-target repetition
     3. Per-category: cap low-confidence suggestions
-    4. Cross-category: cap give-player appearances globally
+    4. Suppress fair-but-weak trades (both sides below MIN_ACTIONABLE_VALUE)
+    5. Suppress same-tier swaps (1-for-1 same-position within 500 value)
+    6. Suppress near-miss 1-for-1s that need packaging (gap > MAX_GAP_FOR_1FOR1 with balancers)
+    7. Cross-category: cap give-player appearances globally
 
     Each filter preserves the existing rank order — it only removes, never reorders.
     """
@@ -801,7 +814,47 @@ def _apply_quality_filters(
             filtered.append(s)
         categories[cat_name] = filtered
 
-    # ── 4. Cross-category give-player cap ────────────────────────────
+    # ── 4. Suppress fair-but-weak trades ─────────────────────────────
+    # Both sides below MIN_ACTIONABLE_VALUE = not worth the conversation.
+    for cat_name, suggs in categories.items():
+        categories[cat_name] = [
+            s for s in suggs
+            if not all(
+                p.display_value < MIN_ACTIONABLE_VALUE
+                for p in s.give + s.receive
+            )
+        ]
+
+    # ── 5. Suppress same-tier swaps ──────────────────────────────────
+    # 1-for-1 trades at the same position within 500 display value
+    # offer no strategic benefit — just lateral movement.
+    for cat_name, suggs in categories.items():
+        categories[cat_name] = [
+            s for s in suggs
+            if not (
+                len(s.give) == 1
+                and len(s.receive) == 1
+                and s.give[0].position == s.receive[0].position
+                and abs(s.give[0].display_value - s.receive[0].display_value) < 500
+            )
+        ]
+
+    # ── 6. Suppress near-miss 1-for-1s that need packaging ──────────
+    # If the engine attached balancers and gap > MAX_GAP_FOR_1FOR1,
+    # the suggestion is really a package deal.  Showing it as a 1-for-1
+    # is misleading.
+    for cat_name, suggs in categories.items():
+        categories[cat_name] = [
+            s for s in suggs
+            if not (
+                len(s.give) == 1
+                and len(s.receive) == 1
+                and abs(s.gap) > MAX_GAP_FOR_1FOR1
+                and s.__dict__.get("balancers")
+            )
+        ]
+
+    # ── 7. Cross-category give-player cap ────────────────────────────
     # Track each individual give-player (not the pair), so "Maxx Crosby"
     # in sell_high AND consolidation shares one counter.
     # Process categories in priority order: sell_high first (most actionable),
