@@ -333,14 +333,23 @@ main() {
 
   git config --global --add safe.directory "${APP_DIR}" >/dev/null 2>&1 || true
 
-  # For deployment hosts, untracked runtime artifacts (for example .venv/) are normal.
-  # We block only tracked file drift unless ALLOW_DIRTY_DEPLOY=true.
+  # ── Handle tracked file drift ──────────────────────────────────────────
+  # Production servers should never have tracked file modifications.  When
+  # they do (operator edits, Claude Code sessions, script side-effects) we
+  # auto-stash instead of hard-failing, so deploys stay unblocked while the
+  # diff is preserved for post-mortem.
   local tracked_changes
   tracked_changes="$(git status --porcelain --untracked-files=no)"
-  if [[ "${ALLOW_DIRTY_DEPLOY}" != "true" && -n "${tracked_changes}" ]]; then
-    error "Tracked git changes detected in ${APP_DIR}. Commit/stash changes or set ALLOW_DIRTY_DEPLOY=true."
-    git status --short || true
-    exit 1
+  if [[ -n "${tracked_changes}" ]]; then
+    if [[ "${ALLOW_DIRTY_DEPLOY}" == "true" ]]; then
+      warn "Tracked changes detected but ALLOW_DIRTY_DEPLOY=true — proceeding without stash."
+    else
+      warn "Tracked git changes detected in ${APP_DIR}:"
+      git diff --stat || true
+      local stash_name="deploy-auto-stash-$(date -u +%Y%m%dT%H%M%SZ)"
+      log "Auto-stashing tracked changes as '${stash_name}' (inspect later with: git stash show -p 'stash@{0}')."
+      git stash push -m "${stash_name}" --include-untracked=false
+    fi
   fi
 
   local current_rev target_short

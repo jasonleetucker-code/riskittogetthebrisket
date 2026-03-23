@@ -15,12 +15,17 @@ test-results/
 
 # Local tooling
 .codex-loop/
+.claude/
 
-# Secrets / sessions
+# Deploy state (when using local default path inside repo)
+.deploy/
+
+# Secrets / sessions / operator credentials
 *_session.json
 *.env
 .env*
 !.env.example
+.secrets/
 
 # Generated scraper outputs
 dynasty_data.js
@@ -28,6 +33,10 @@ dynasty_data_*.json
 dynasty_full.csv
 dynasty_values.csv
 data/
+exports/
+
+# Temporary sync artifacts (created by sync.bat or manual operations)
+tmp_sync_*/
 
 # Optional local artifacts
 *.log
