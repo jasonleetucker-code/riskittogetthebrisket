@@ -182,26 +182,62 @@ class TestScoreTrade:
         assert _score_trade([], [_make_asset("A", 5000, 5000)]) is None
         assert _score_trade([_make_asset("A", 5000, 5000)], []) is None
 
-    def test_no_ktc_coverage(self):
-        """Trades work with no KTC but have 'none' coverage."""
+    def test_no_ktc_outgoing_rejected(self):
+        """Outgoing asset with no KTC must be rejected."""
+        give = [_make_asset("A", model=4000, ktc=None)]
+        recv = [_make_asset("B", model=5000, ktc=5000)]
+        assert _score_trade(give, recv) is None
+
+    def test_no_ktc_both_sides_rejected(self):
+        """No KTC on either side → rejected (can't verify plausibility)."""
         give = [_make_asset("A", model=4000, ktc=None)]
         recv = [_make_asset("B", model=5000, ktc=None)]
-        tc = _score_trade(give, recv)
-        assert tc is not None
-        assert tc.ktc_coverage == "none"
-        assert tc.board_delta == 1000
+        assert _score_trade(give, recv) is None
 
-    def test_partial_ktc_coverage(self):
+    def test_partial_ktc_outgoing_missing_rejected(self):
+        """Outgoing asset missing KTC in a 2-for-1 → rejected."""
+        give = [_make_asset("A", model=2000, ktc=3000), _make_asset("B", model=2000, ktc=None)]
+        recv = [_make_asset("C", model=5000, ktc=4500)]
+        assert _score_trade(give, recv) is None
+
+    def test_partial_ktc_incoming_missing_allowed(self):
+        """Incoming asset missing KTC is okay — outgoing side has full KTC."""
         give = [_make_asset("A", model=4000, ktc=5000)]
         recv = [_make_asset("B", model=5000, ktc=None)]
         tc = _score_trade(give, recv)
         assert tc is not None
         assert tc.ktc_coverage == "partial"
 
+    def test_partial_coverage_demoted_below_full(self):
+        """Partial coverage trades score lower than equivalent full coverage."""
+        give_full = [_make_asset("A", model=4000, ktc=5000)]
+        recv_full = [_make_asset("B", model=5000, ktc=4000)]
+        tc_full = _score_trade(give_full, recv_full)
+
+        give_partial = [_make_asset("C", model=4000, ktc=5000)]
+        recv_partial = [_make_asset("D", model=5000, ktc=None)]
+        tc_partial = _score_trade(give_partial, recv_partial)
+
+        assert tc_full is not None
+        assert tc_partial is not None
+        assert tc_full.arbitrage_score > tc_partial.arbitrage_score
+
+    def test_low_ktc_outgoing_rejected(self):
+        """Outgoing asset with KTC below MIN_KTC_VALUE → rejected."""
+        give = [_make_asset("A", model=4000, ktc=200)]
+        recv = [_make_asset("B", model=5000, ktc=5000)]
+        assert _score_trade(give, recv) is None
+
     def test_junk_trade_rejected(self):
         """Both sides below junk threshold → rejected."""
-        give = [_make_asset("A", model=300, ktc=300)]
-        recv = [_make_asset("B", model=350, ktc=200)]
+        give = [_make_asset("A", model=300, ktc=500)]
+        recv = [_make_asset("B", model=350, ktc=500)]
+        assert _score_trade(give, recv) is None
+
+    def test_no_ktc_junk_for_elite_rejected(self):
+        """No-KTC junk player offered for elite target → rejected."""
+        give = [_make_asset("Jalen Redmond", model=900, ktc=None)]
+        recv = [_make_asset("Bijan Robinson", model=9000, ktc=8500)]
         assert _score_trade(give, recv) is None
 
     def test_to_dict(self):

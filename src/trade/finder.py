@@ -188,6 +188,14 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     if give_names & receive_names:
         return None
 
+    # ── Outgoing KTC gate ────────────────────────────────────────────
+    # Every outgoing asset MUST have a usable KTC value.  Without it we
+    # cannot prove the deal looks plausible to the opponent, so offering
+    # a no-KTC player for an elite return is nonsense.
+    for a in give:
+        if not a.has_ktc or a.ktc_value < MIN_KTC_VALUE:  # type: ignore[operator]
+            return None
+
     give_model = sum(a.model_value for a in give)
     recv_model = sum(a.model_value for a in receive)
     board_delta = recv_model - give_model
@@ -203,10 +211,8 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     any_have_ktc = bool(give_ktc_assets) or bool(recv_ktc_assets)
 
     if not any_have_ktc:
-        coverage = "none"
-        give_ktc = 0
-        recv_ktc = 0
-        opp_appeal = 0.0
+        # No KTC on either side — cannot evaluate opponent plausibility at all
+        return None
     elif all_have_ktc:
         coverage = "full"
         give_ktc = sum(a.ktc_value for a in give)  # type: ignore[arg-type]
@@ -221,7 +227,7 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
         opp_appeal = (give_ktc - recv_ktc) / max(recv_ktc, 1) if recv_ktc > 0 else 0.0
 
     # The opponent must not get destroyed on KTC — they need to see a fair deal
-    if coverage == "full" and opp_appeal < KTC_OPPONENT_FLOOR:
+    if opp_appeal < KTC_OPPONENT_FLOOR:
         return None
 
     # Filter out junk trades: at least one meaningful asset on each side
@@ -237,18 +243,17 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     ktc_delta = give_ktc - recv_ktc  # positive = opponent gets more KTC than they give
 
     # Core arbitrage: we win on model, opponent wins (or breaks even) on KTC
-    if coverage in ("full", "partial"):
-        arbitrage = (
-            board_gain_norm * 50           # Our model advantage (scaled)
-            + opp_appeal * 30              # Opponent's KTC appeal
-            + (1.0 if board_delta > 0 else 0.0) * 10  # Bonus for positive board delta
-        )
-        # Penalize if opponent loses on KTC (less plausible)
-        if opp_appeal < 0:
-            arbitrage += opp_appeal * 20  # Additional penalty
-    else:
-        # No KTC coverage — rank by model delta only, with lower confidence
-        arbitrage = board_gain_norm * 30
+    arbitrage = (
+        board_gain_norm * 50           # Our model advantage (scaled)
+        + opp_appeal * 30              # Opponent's KTC appeal
+        + (1.0 if board_delta > 0 else 0.0) * 10  # Bonus for positive board delta
+    )
+    # Penalize if opponent loses on KTC (less plausible)
+    if opp_appeal < 0:
+        arbitrage += opp_appeal * 20  # Additional penalty
+    # Partial coverage means we can't fully verify plausibility — demote
+    if coverage == "partial":
+        arbitrage *= 0.5
 
     # Penalize larger packages slightly (simplicity bonus)
     pkg_size = len(give) + len(receive)
