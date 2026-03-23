@@ -36,12 +36,14 @@ def _make_asset(name, model, ktc=None, pos="WR", team="NYJ", is_pick=False):
     )
 
 
-def _make_player_data(model, ktc=None, pos="WR", team="NYJ"):
+def _make_player_data(model, ktc=None, pos="WR", team="NYJ", sites=5):
     """Build a raw player data dict matching the live payload shape."""
     d = {
         "_finalAdjusted": model,
+        "_leagueAdjusted": model,
         "_rawComposite": model,
         "_composite": model,
+        "_sites": sites,
         "position": pos,
         "team": team,
     }
@@ -451,3 +453,125 @@ class TestFindTrades:
             sleeper_teams=self._sample_teams(),
         )
         assert result["metadata"]["opponentsAnalyzed"] == 0
+
+
+# ── Source robustness and fire-sale guard regression tests ───────────────
+
+class TestSourceRobustness:
+    """Test single-source discount and league-adjusted value usage."""
+
+    def test_single_source_discount_applied(self):
+        """Single-source players get 12% haircut matching frontend SINGLE_SOURCE_DISCOUNT."""
+        players = {
+            "Single Source": {
+                "_leagueAdjusted": 5000,
+                "_rawComposite": 5000,
+                "_sites": 1,
+                "_canonicalSiteValues": {"ktc": 4500},
+                "position": "WR",
+            },
+        }
+        pool = build_asset_pool(players)
+        assert len(pool) == 1
+        # 5000 * 0.88 = 4400
+        assert pool[0].model_value == 4400
+        assert pool[0].source_count == 1
+
+    def test_multi_source_no_discount(self):
+        """Multi-source players get no discount."""
+        players = {
+            "Multi Source": {
+                "_leagueAdjusted": 5000,
+                "_rawComposite": 5000,
+                "_sites": 5,
+                "_canonicalSiteValues": {"ktc": 4500},
+                "position": "WR",
+            },
+        }
+        pool = build_asset_pool(players)
+        assert pool[0].model_value == 5000
+        assert pool[0].source_count == 5
+
+    def test_league_adjusted_preferred_over_raw(self):
+        """_leagueAdjusted is used when _finalAdjusted is absent."""
+        players = {
+            "LAM Player": {
+                "_leagueAdjusted": 5200,
+                "_rawComposite": 5000,
+                "_sites": 5,
+                "_canonicalSiteValues": {"ktc": 4800},
+                "position": "WR",
+            },
+        }
+        pool = build_asset_pool(players)
+        assert pool[0].model_value == 5200  # Uses _leagueAdjusted, not _rawComposite
+
+    def test_final_adjusted_preferred_over_league(self):
+        """_finalAdjusted takes precedence when present."""
+        players = {
+            "Final Player": {
+                "_finalAdjusted": 5500,
+                "_leagueAdjusted": 5200,
+                "_rawComposite": 5000,
+                "_sites": 5,
+                "_canonicalSiteValues": {"ktc": 4800},
+                "position": "WR",
+            },
+        }
+        pool = build_asset_pool(players)
+        assert pool[0].model_value == 5500
+
+
+class TestFireSaleGuard:
+    """Test that multi-for-one trades require meaningful give-side value."""
+
+    def test_2for1_fire_sale_rejected(self):
+        """Two low-value assets for an elite target → rejected."""
+        a1 = _make_asset("Depth A", model=2000, ktc=3500)
+        a2 = _make_asset("Depth B", model=1800, ktc=3000)
+        elite = _make_asset("Elite", model=7000, ktc=5500)
+        tc = _score_trade([a1, a2], [elite])
+        # 3800/7000 = 0.54 < 0.55 threshold
+        assert tc is None
+
+    def test_2for1_fair_package_passes(self):
+        """Two solid assets for one elite → passes when ratio is fair."""
+        a1 = _make_asset("Good A", model=3500, ktc=4000)
+        a2 = _make_asset("Good B", model=3000, ktc=3500)
+        elite = _make_asset("Elite", model=7000, ktc=5500)
+        tc = _score_trade([a1, a2], [elite])
+        # 6500/7000 = 0.93 > 0.55
+        assert tc is not None
+
+    def test_1for1_not_affected_by_fire_sale_guard(self):
+        """1-for-1 trades are not subject to the multi-for-one ratio."""
+        give = [_make_asset("A", model=4000, ktc=5000)]
+        recv = [_make_asset("B", model=5000, ktc=4000)]
+        tc = _score_trade(give, recv)
+        assert tc is not None
+
+    def test_1for2_not_affected_by_fire_sale_guard(self):
+        """1-for-2 (I give less, get more pieces) is not subject to ratio."""
+        give = [_make_asset("Star", model=7000, ktc=8000)]
+        recv = [_make_asset("A", model=4000, ktc=4500), _make_asset("B", model=3500, ktc=4000)]
+        tc = _score_trade(give, recv)
+        # 1-for-2: len(give)=1 <= len(receive)=2, guard doesn't apply
+        assert tc is not None
+
+    def test_2for1_barely_above_threshold_passes(self):
+        """Just above the 55% ratio → passes."""
+        a1 = _make_asset("A", model=2800, ktc=3500)
+        a2 = _make_asset("B", model=1200, ktc=2000)
+        target = _make_asset("Target", model=7000, ktc=5000)
+        tc = _score_trade([a1, a2], [target])
+        # 4000/7000 = 0.571 > 0.55
+        assert tc is not None
+
+    def test_2for1_barely_below_threshold_rejected(self):
+        """Just below the 55% ratio → rejected."""
+        a1 = _make_asset("A", model=2700, ktc=3500)
+        a2 = _make_asset("B", model=1100, ktc=2000)
+        target = _make_asset("Target", model=7000, ktc=5000)
+        tc = _score_trade([a1, a2], [target])
+        # 3800/7000 = 0.543 < 0.55
+        assert tc is None

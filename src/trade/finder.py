@@ -26,6 +26,8 @@ KTC_OPPONENT_IDEAL = 0.0       # Ideally opponent gains or breaks even on KTC
 MAX_PACKAGE_SIZE = 3           # Max assets on either side
 MAX_RESULTS = 40               # Cap returned results
 JUNK_THRESHOLD = 400           # Assets below this are roster clog
+SINGLE_SOURCE_DISCOUNT = 0.88  # Match frontend: 12% haircut for single-source assets
+MULTI_FOR_ONE_MIN_RATIO = 0.55 # 2-for-1 give side must be >= 55% of receive model value
 
 # Position normalization aliases
 _POS_ALIASES: dict[str, str] = {
@@ -41,9 +43,10 @@ class Asset:
     name: str
     position: str
     team: str
-    model_value: int        # Our board's value (rawComposite/finalAdjusted)
+    model_value: int        # Our board's value (league-adjusted with single-source discount)
     ktc_value: int | None   # KTC value (None = no KTC coverage)
     is_pick: bool = False
+    source_count: int = 0   # Number of valuation sources
 
     @property
     def has_ktc(self) -> bool:
@@ -101,8 +104,13 @@ def build_asset_pool(
     for name, pdata in players.items():
         if not isinstance(pdata, dict):
             continue
-        # Model value: prefer _finalAdjusted, fallback to _rawComposite, then _composite
+        # Model value: prefer _finalAdjusted, then _leagueAdjusted (LAM-adjusted),
+        # then _rawComposite, then _composite.  The scraper almost never sets
+        # _finalAdjusted but always sets _leagueAdjusted, so this chain ensures
+        # Trade Finder uses league-context values like the frontend does.
         model = _int_or_none(pdata.get("_finalAdjusted"))
+        if model is None:
+            model = _int_or_none(pdata.get("_leagueAdjusted"))
         if model is None:
             model = _int_or_none(pdata.get("_rawComposite"))
         if model is None:
@@ -111,6 +119,11 @@ def build_asset_pool(
             model = _int_or_none(pdata.get("_composite"))
         if model is None or model < 1:
             continue
+
+        # Apply single-source discount to match frontend behavior
+        source_count = _int_or_none(pdata.get("_sites")) or 0
+        if source_count == 1:
+            model = int(model * SINGLE_SOURCE_DISCOUNT)
 
         # KTC value from canonical site values
         csv = pdata.get("_canonicalSiteValues")
@@ -138,6 +151,7 @@ def build_asset_pool(
             model_value=model,
             ktc_value=ktc,
             is_pick=is_pick,
+            source_count=source_count,
         ))
     return pool
 
@@ -203,6 +217,14 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     # Must be positive on our board (we receive more model value than we give)
     if board_delta < MAX_BOARD_LOSS:
         return None
+
+    # ── Multi-for-one fire sale guard ────────────────────────────────
+    # Prevent suggesting two roster fillers for an elite target.
+    # When giving more pieces than receiving, the give side's total model
+    # value must be a meaningful fraction of the receive side.
+    if len(give) > len(receive):
+        if give_model < recv_model * MULTI_FOR_ONE_MIN_RATIO:
+            return None
 
     # KTC scoring
     give_ktc_assets = [a for a in give if a.has_ktc]
