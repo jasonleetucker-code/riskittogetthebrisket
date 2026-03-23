@@ -76,8 +76,11 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          echo "::group::Canonical rebuild"
+          echo "::group::Source pull"
           python scripts/source_pull.py --repo .
+          echo "::endgroup::"
+          echo "::group::Canonical build"
+          python scripts/canonical_build.py --repo .
           echo "::endgroup::"
 
       - name: Verify canonical output
