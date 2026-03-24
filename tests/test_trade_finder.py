@@ -20,6 +20,10 @@ from src.trade.finder import (
     _deduplicate,
     _norm_pos,
     _resolve_roster,
+    _confidence_tier,
+    _edge_label,
+    _opp_appeal_phrase,
+    _build_summary,
     ELITE_THRESHOLD,
     ELITE_MULTI_MIN_RATIO,
     PACKAGE_ANCHOR_MIN_PCT,
@@ -968,3 +972,250 @@ class TestRepresentativeScenarios:
         tc = _score_trade([pick], [player])
         assert tc is not None
         assert tc.board_delta == 1000
+
+
+# ── Explainability helpers ──────────────────────────────────────────────
+
+class TestConfidenceTier:
+    def test_high(self):
+        assert _confidence_tier(1.0) == "high"
+        assert _confidence_tier(0.75) == "high"
+
+    def test_moderate(self):
+        assert _confidence_tier(0.74) == "moderate"
+        assert _confidence_tier(0.45) == "moderate"
+
+    def test_low(self):
+        assert _confidence_tier(0.44) == "low"
+        assert _confidence_tier(0.0) == "low"
+
+
+class TestEdgeLabel:
+    def test_strong(self):
+        assert _edge_label(0.30) == "Strong Edge"
+
+    def test_moderate(self):
+        assert _edge_label(0.15) == "Moderate Edge"
+
+    def test_slight(self):
+        assert _edge_label(0.05) == "Slight Edge"
+
+
+class TestOppAppealPhrase:
+    def test_positive(self):
+        p = _opp_appeal_phrase(0.15)
+        assert "gains" in p and "15%" in p
+
+    def test_even(self):
+        assert "breaks even" in _opp_appeal_phrase(0.03)
+
+    def test_negative(self):
+        p = _opp_appeal_phrase(-0.08)
+        assert "gives up" in p and "8%" in p
+
+
+class TestBuildSummary:
+    def test_full_coverage_summary(self):
+        s = _build_summary(1000, 0.25, 0.15, "full", "high", "Strong Edge", "1-for-1")
+        assert "Strong Edge" in s
+        assert "1,000" in s
+        assert "25%" in s
+        assert "opponent gains" in s
+        assert "high confidence" in s
+        assert "1-for-1" in s
+        # "partial" should NOT appear in full-coverage summaries
+        assert "partial" not in s
+
+    def test_partial_coverage_summary(self):
+        s = _build_summary(500, 0.10, 0.0, "partial", "moderate", "Moderate Edge", "2-for-1")
+        assert "partial KTC" in s
+        assert "moderate confidence" in s
+
+
+# ── Explainability fields on TradeCandidate ─────────────────────────────
+
+class TestExplainabilityFields:
+    """Verify that scored trades carry all explainability metadata."""
+
+    def test_full_ktc_1for1_has_all_fields(self):
+        """A clean 1-for-1 trade should have all explainability fields populated."""
+        give = [_make_asset("A", model=4000, ktc=5500, source_count=5)]
+        recv = [_make_asset("B", model=5500, ktc=4500, source_count=5)]
+        tc = _score_trade(give, recv)
+        assert tc is not None
+
+        # Confidence tier
+        assert tc.confidence_tier == "high"
+        assert tc.confidence_score == 1.0
+
+        # Edge label
+        assert tc.edge_label in ("Strong Edge", "Moderate Edge", "Slight Edge")
+
+        # Summary is non-empty and human-readable
+        assert len(tc.summary) > 20
+        assert "confidence" in tc.summary
+
+        # Ranking factors breakdown
+        rf = tc.ranking_factors
+        assert "boardEdge" in rf
+        assert "ktcAppeal" in rf
+        assert "confidenceMultiplier" in rf
+        assert "valueScale" in rf
+        assert "simplicityPenalty" in rf
+        assert "rosterFitBonus" in rf
+        assert rf["rosterFitBonus"] == 0.0  # Not in find_trades context
+
+        # Flags
+        assert "full_ktc" in tc.flags
+        assert "high_confidence" in tc.flags
+
+    def test_partial_ktc_flags(self):
+        """Partial coverage trade should have partial_ktc flag and lower confidence tier."""
+        give = [_make_asset("A", model=4000, ktc=5000, source_count=2)]
+        recv = [_make_asset("B", model=5000, ktc=None, source_count=1)]
+        tc = _score_trade(give, recv)
+        assert tc is not None
+        assert "partial_ktc" in tc.flags
+        assert tc.confidence_tier in ("low", "moderate")
+        assert "partial KTC" in tc.summary
+
+    def test_2for1_elite_has_elite_and_anchor_flags(self):
+        """2-for-1 targeting an elite should carry both elite_target and anchor_verified flags."""
+        a1 = _make_asset("Starter", model=4000, ktc=5000)
+        a2 = _make_asset("Piece", model=3500, ktc=4000)
+        elite = _make_asset("Elite", model=9000, ktc=8000)
+        tc = _score_trade([a1, a2], [elite])
+        assert tc is not None
+        assert "elite_target" in tc.flags
+        assert "anchor_verified" in tc.flags
+
+    def test_2for1_non_elite_has_anchor_not_elite(self):
+        """2-for-1 below elite threshold has anchor_verified but not elite_target."""
+        a1 = _make_asset("A", model=2800, ktc=3500)
+        a2 = _make_asset("B", model=1700, ktc=2500)
+        target = _make_asset("Target", model=7000, ktc=5500)
+        tc = _score_trade([a1, a2], [target])
+        assert tc is not None
+        assert "anchor_verified" in tc.flags
+        assert "elite_target" not in tc.flags
+
+    def test_1for1_no_anchor_or_elite_flags(self):
+        """1-for-1 trades don't have multi-for-one flags."""
+        give = [_make_asset("A", model=4000, ktc=5000)]
+        recv = [_make_asset("B", model=5000, ktc=4000)]
+        tc = _score_trade(give, recv)
+        assert tc is not None
+        assert "anchor_verified" not in tc.flags
+        assert "elite_target" not in tc.flags
+
+    def test_to_dict_includes_explainability(self):
+        """The serialized dict includes all new explainability fields."""
+        give = [_make_asset("A", model=4000, ktc=5000)]
+        recv = [_make_asset("B", model=5000, ktc=4000)]
+        tc = _score_trade(give, recv)
+        d = tc.to_dict()
+        assert "confidenceTier" in d
+        assert "edgeLabel" in d
+        assert "summary" in d
+        assert isinstance(d["summary"], str)
+        assert "rankingFactors" in d
+        assert isinstance(d["rankingFactors"], dict)
+        assert "flags" in d
+        assert isinstance(d["flags"], list)
+
+    def test_ranking_factors_sum_near_arbitrage(self):
+        """Factor breakdown should roughly reconstruct the final arbitrage score
+        (minus the roster-fit bonus which is added later in find_trades)."""
+        give = [_make_asset("A", model=4000, ktc=5000, source_count=5)]
+        recv = [_make_asset("B", model=5000, ktc=4000, source_count=5)]
+        tc = _score_trade(give, recv)
+        rf = tc.ranking_factors
+        # Core = (boardEdge + ktcAppeal + positiveBonus + ktcPenalty) * confidenceMultiplier + valueScale + simplicityPenalty
+        core = rf["boardEdge"] + rf["ktcAppeal"] + rf["positiveBonus"] + rf["ktcPenalty"]
+        reconstructed = core * rf["confidenceMultiplier"] + rf["valueScale"] + rf["simplicityPenalty"]
+        assert abs(reconstructed - tc.arbitrage_score) < 0.1
+
+
+# ── Roster-fit explainability ───────────────────────────────────────────
+
+class TestRosterFitExplainability:
+    """Verify roster-fit bonus is visible in flags, ranking_factors, and summary."""
+
+    def _build_surplus_scenario(self):
+        """My team has 5 WRs (surplus) and 0 QBs (need)."""
+        players = {
+            "My WR1": _make_player_data(5000, ktc=5500, pos="WR"),
+            "My WR2": _make_player_data(4000, ktc=4500, pos="WR"),
+            "My WR3": _make_player_data(3500, ktc=4000, pos="WR"),
+            "My WR4": _make_player_data(3000, ktc=3500, pos="WR"),
+            "My WR5": _make_player_data(2500, ktc=3000, pos="WR"),
+            "Opp QB Star": _make_player_data(5500, ktc=4500, pos="QB"),
+        }
+        teams = [
+            {"name": "My Team", "players": [
+                "My WR1", "My WR2", "My WR3", "My WR4", "My WR5"]},
+            {"name": "Rival", "players": ["Opp QB Star"]},
+        ]
+        return players, teams
+
+    def test_roster_fit_flag_present(self):
+        """Trades matching roster surplus/need should have roster_fit flag."""
+        players, teams = self._build_surplus_scenario()
+        result = find_trades(players, "My Team", ["Rival"], teams)
+        fit_trades = [t for t in result["trades"] if "roster_fit" in t["flags"]]
+        assert len(fit_trades) > 0
+
+    def test_roster_fit_bonus_in_ranking_factors(self):
+        """The rosterFitBonus should be non-zero in affected trades."""
+        players, teams = self._build_surplus_scenario()
+        result = find_trades(players, "My Team", ["Rival"], teams)
+        fit_trades = [t for t in result["trades"] if "roster_fit" in t["flags"]]
+        assert len(fit_trades) > 0
+        for t in fit_trades:
+            assert t["rankingFactors"]["rosterFitBonus"] > 0
+
+    def test_roster_fit_in_summary(self):
+        """The summary should mention roster fit when bonus applied."""
+        players, teams = self._build_surplus_scenario()
+        result = find_trades(players, "My Team", ["Rival"], teams)
+        fit_trades = [t for t in result["trades"] if "roster_fit" in t["flags"]]
+        assert len(fit_trades) > 0
+        for t in fit_trades:
+            assert "Roster fit:" in t["summary"]
+
+
+# ── Before/after output examples ────────────────────────────────────────
+
+class TestBeforeAfterExplainability:
+    """Document concrete before/after examples showing the new fields."""
+
+    def test_example_strong_1for1_output(self):
+        """Example: Strong 1-for-1 arbitrage with full KTC and high confidence."""
+        give = [_make_asset("Overvalued", model=4000, ktc=6000, source_count=6)]
+        recv = [_make_asset("Undervalued", model=6000, ktc=5000, source_count=6)]
+        tc = _score_trade(give, recv)
+        d = tc.to_dict()
+
+        # Before: only had boardDelta=2000, arbitrageScore=X, ktcCoverage="full"
+        # After: also has confidenceTier, edgeLabel, summary, rankingFactors, flags
+        assert d["boardDelta"] == 2000
+        assert d["confidenceTier"] == "high"
+        assert d["edgeLabel"] == "Strong Edge"
+        assert "you gain 2,000" in d["summary"]
+        assert "full_ktc" in d["flags"]
+        assert "high_confidence" in d["flags"]
+        assert d["rankingFactors"]["boardEdge"] > 0
+
+    def test_example_low_confidence_partial_output(self):
+        """Example: Low-confidence partial-KTC trade."""
+        give = [_make_asset("Single", model=3000, ktc=4000, source_count=1)]
+        recv = [_make_asset("NoKTC", model=4000, ktc=None, source_count=1)]
+        tc = _score_trade(give, recv)
+        d = tc.to_dict()
+
+        # This trade is partial-KTC with single-source — very low confidence
+        assert d["confidenceTier"] == "low"
+        assert "partial_ktc" in d["flags"]
+        assert "low_confidence" in d["flags"]
+        assert "partial KTC" in d["summary"]
+        assert d["confidenceScore"] < 0.2
