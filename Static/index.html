@@ -280,7 +280,7 @@
       content: '';
       position: absolute;
       top: 0; left: 0; right: 0;
-      height: 1px;
+      height: 3px;
     }
 
     .result-tile-a::before { background: linear-gradient(90deg, transparent, var(--red), transparent); }
@@ -1016,6 +1016,292 @@
     .finder-badge-good { background:rgba(78,205,196,0.15);color:var(--green); }
     .finder-badge-fair { background:rgba(255,193,7,0.15);color:var(--amber); }
     .finder-badge-partial { background:rgba(255,255,255,0.08);color:var(--subtext); }
+
+    /* ── Trade Finder cards ── */
+    .finder-cards { display:flex; flex-direction:column; gap:10px; }
+    .finder-card {
+      background: var(--bg-card); border:1px solid var(--border); border-radius:8px;
+      padding:12px 14px; font-family:var(--mono); position:relative;
+      transition: border-color 0.15s;
+    }
+    .finder-card:hover { border-color: var(--accent, #60a5fa); }
+    .finder-card-top3 { border-left: 3px solid var(--green, #4ecdc4); }
+    .finder-card-header {
+      display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:6px;
+    }
+    .finder-card-header .finder-edge-badge {
+      font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:4px;
+    }
+    .finder-edge-strong { background:rgba(78,205,196,0.18); color:var(--green); }
+    .finder-edge-moderate { background:rgba(255,193,7,0.15); color:var(--amber); }
+    .finder-edge-slight { background:rgba(255,255,255,0.08); color:var(--subtext); }
+    .finder-conf-badge {
+      font-size:0.60rem; font-weight:600; padding:2px 6px; border-radius:3px;
+    }
+    .finder-conf-high { background:rgba(78,205,196,0.12); color:var(--green); }
+    .finder-conf-moderate { background:rgba(255,193,7,0.12); color:var(--amber); }
+    .finder-conf-low { background:rgba(255,255,255,0.06); color:var(--subtext); }
+    .finder-card-summary {
+      font-size:0.70rem; color:var(--text); line-height:1.45; margin-bottom:8px;
+    }
+    .finder-card-sides {
+      display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:6px;
+    }
+    .finder-card-side { font-size:0.68rem; }
+    .finder-card-side-label {
+      font-size:0.58rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;
+      margin-bottom:3px; color:var(--subtext);
+    }
+    .finder-card-side-give .finder-card-side-label { color: var(--red, #ff6b6b); }
+    .finder-card-side-recv .finder-card-side-label { color: var(--green, #4ecdc4); }
+    .finder-card-player {
+      display:flex; justify-content:space-between; gap:4px; padding:1px 0;
+    }
+    .finder-card-player-name { color: var(--text); }
+    .finder-card-player-val { color: var(--subtext); font-size:0.62rem; }
+    .finder-card-stats {
+      display:flex; flex-wrap:wrap; gap:8px; font-size:0.62rem; color:var(--subtext);
+      padding-top:6px; border-top:1px solid var(--border-subtle, rgba(255,255,255,0.05));
+    }
+    .finder-card-stat-val { font-weight:600; color:var(--text); }
+    .finder-card-flags {
+      display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;
+    }
+    .finder-card-flag {
+      font-size:0.56rem; padding:1px 5px; border-radius:3px;
+      background:rgba(255,255,255,0.06); color:var(--subtext);
+    }
+    .finder-card-details {
+      display:none; margin-top:8px; padding-top:8px;
+      border-top:1px solid var(--border-subtle, rgba(255,255,255,0.05));
+      font-size:0.62rem; color:var(--subtext);
+    }
+    .finder-card-details.open { display:block; }
+    .finder-detail-toggle {
+      font-size:0.60rem; color:var(--accent, #60a5fa); cursor:pointer;
+      background:none; border:none; padding:0; margin-top:4px;
+      font-family:var(--mono);
+    }
+    .finder-detail-toggle:hover { text-decoration:underline; }
+    .finder-detail-grid {
+      display:grid; grid-template-columns:1fr 1fr; gap:2px 12px;
+    }
+    .finder-card-rank { position:absolute; top:10px; right:12px; font-size:0.58rem; color:var(--subtext); }
+    @media (max-width: 600px) {
+      .finder-card-sides { grid-template-columns:1fr; gap:8px; }
+      .finder-card-header { gap:4px; }
+      .finder-card { padding:10px 10px; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       UI POLISH PASS — Hierarchy, Scanability, Mobile, Trust
+       ═══════════════════════════════════════════════════════════════════ */
+
+    /* ── Shared: Section Header ── */
+    .section-head {
+      display:flex; align-items:center; gap:10px; margin-bottom:14px;
+      padding-bottom:10px; border-bottom:1px solid var(--border);
+    }
+    .section-head-title {
+      font-family:var(--display); font-size:0.92rem; font-weight:700;
+      color:var(--text); letter-spacing:-0.01em;
+    }
+    .section-head-sub {
+      font-family:var(--mono); font-size:0.62rem; color:var(--subtext);
+      letter-spacing:0.04em;
+    }
+    .section-head-badge {
+      display:inline-flex; align-items:center; gap:4px;
+      font-family:var(--mono); font-size:0.58rem; font-weight:600;
+      padding:2px 8px; border-radius:4px;
+      background:var(--cyan-soft); color:var(--cyan); border:1px solid var(--cyan-border);
+    }
+
+    /* ── Shared: Filter Bar ── */
+    .filter-bar {
+      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+      padding:8px 12px; background:var(--bg-soft); border:1px solid var(--border-dim);
+      border-radius:var(--radius-sm); margin-bottom:12px; font-size:0.72rem;
+    }
+    .filter-bar label { font-family:var(--mono); font-size:0.65rem; color:var(--subtext); }
+    .filter-bar select, .filter-bar input[type="text"] {
+      font-size:0.70rem; padding:3px 8px; background:var(--bg-card); border:1px solid var(--border);
+      border-radius:4px; color:var(--text); font-family:var(--mono);
+    }
+    .filter-bar .filter-active-hint {
+      font-family:var(--mono); font-size:0.58rem; padding:2px 6px;
+      background:var(--amber-soft, rgba(172,122,41,0.1)); color:var(--amber);
+      border-radius:3px; font-weight:600;
+    }
+
+    /* ── Shared: Stat Pill ── */
+    .stat-pill {
+      display:inline-flex; align-items:center; gap:4px;
+      font-family:var(--mono); font-size:0.62rem; padding:3px 8px;
+      border-radius:4px; background:var(--bg-soft); border:1px solid var(--border-dim);
+    }
+    .stat-pill-val { font-weight:700; color:var(--text); }
+    .stat-pill-label { color:var(--subtext); }
+    .stat-pill-green .stat-pill-val { color:var(--green); }
+    .stat-pill-red .stat-pill-val { color:var(--red); }
+    .stat-pill-amber .stat-pill-val { color:var(--amber); }
+
+    /* ── Shared: Warning Banner ── */
+    .warning-banner {
+      display:flex; align-items:flex-start; gap:8px;
+      padding:10px 14px; border-radius:var(--radius-sm);
+      background:rgba(172,122,41,0.08); border:1px solid rgba(172,122,41,0.2);
+      font-family:var(--mono); font-size:0.68rem; color:var(--amber);
+      line-height:1.5; margin-bottom:10px;
+    }
+    .warning-banner-icon { flex-shrink:0; font-size:0.8rem; }
+
+    /* ── Global: Tabs tighter active state ── */
+    .tab-btn.active {
+      border-bottom-width:3px;
+      font-weight:700;
+    }
+
+    /* ── Global: Quick-use card refinement ── */
+    .card.quick-use {
+      padding:14px 16px;
+      margin-bottom:16px;
+      border-left:3px solid var(--cyan-border);
+    }
+    .card.quick-use strong {
+      font-family:var(--display); font-size:0.82rem; color:var(--text);
+    }
+
+    /* ── Global: Table improvements ── */
+    thead th {
+      position:sticky; top:0; z-index:4;
+      background:var(--bg-soft);
+    }
+    tbody tr:nth-child(even) td { background:rgba(24,35,53,0.015); }
+    tbody tr:nth-child(even):hover td { background:rgba(200,56,3,0.04); }
+
+    /* ── Rankings: Better tier breaks ── */
+    .tier-separator td {
+      padding:4px 12px !important;
+      border-bottom:2px solid var(--cyan-border) !important;
+      background:linear-gradient(90deg, var(--cyan-soft), var(--bg-soft) 60%) !important;
+    }
+    .tier-label {
+      font-size:0.60rem;
+      display:inline-flex; align-items:center; gap:6px;
+    }
+
+    /* ── Rankings: Value bar refinement ── */
+    .ranking-value-bar {
+      height:4px; border-radius:2px; background:var(--bg-raised);
+      overflow:hidden; margin-top:2px;
+    }
+    .ranking-value-bar-fill {
+      height:100%; border-radius:2px; transition:width 0.3s ease;
+    }
+
+    /* ── Rankings: Position badge refinement ── */
+    .pos-badge-inline {
+      display:inline-block; padding:1px 6px; border-radius:3px;
+      font-family:var(--mono); font-size:0.58rem; font-weight:700;
+      letter-spacing:0.04em; line-height:1.4;
+    }
+
+    /* ── Edge: Summary card polish ── */
+    .edge-summary-card {
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:var(--radius-sm); padding:12px 14px; margin-bottom:8px;
+    }
+    .edge-summary-card h4 {
+      font-family:var(--mono); font-size:0.60rem; font-weight:600;
+      text-transform:uppercase; letter-spacing:0.1em; color:var(--subtext);
+      margin-bottom:8px;
+    }
+    .edge-summary-item {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:3px 0; font-size:0.72rem;
+    }
+    .edge-summary-item-name { font-weight:600; color:var(--text); }
+    .edge-summary-item-val { font-family:var(--mono); font-weight:600; }
+    .edge-summary-buy .edge-summary-item-val { color:var(--green); }
+    .edge-summary-sell .edge-summary-item-val { color:var(--red); }
+
+    /* ── Edge: Table header stickiness ── */
+    .edge-table thead th {
+      position:sticky; top:0; z-index:5;
+      background:var(--bg-soft); backdrop-filter:blur(4px);
+    }
+
+    /* ── Roster Dashboard: Sub-section cards ── */
+    .roster-sub-card {
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:var(--radius); padding:14px 16px;
+      margin-bottom:12px;
+    }
+    .roster-sub-card .section-head { margin-bottom:10px; padding-bottom:8px; }
+
+    /* ── Trade Builder: Verdict emphasis ── */
+    .verdict-block {
+      text-align:center; padding:16px; margin:12px 0;
+      background:var(--bg-soft); border:1px solid var(--border);
+      border-radius:var(--radius); position:relative;
+    }
+    .verdict-label {
+      font-family:var(--display); font-size:1.1rem; font-weight:800;
+      color:var(--text); margin-bottom:4px;
+    }
+    .verdict-detail {
+      font-family:var(--mono); font-size:0.70rem; color:var(--subtext);
+    }
+
+    /* ── Trade History: Card separation ── */
+    .trade-history-card {
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:var(--radius-sm); padding:12px 14px;
+      margin-bottom:10px; transition:border-color 0.15s;
+    }
+    .trade-history-card:hover { border-color:var(--border-bright); }
+    .trade-history-card-header {
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:8px; font-size:0.68rem; color:var(--subtext);
+    }
+    .trade-history-sides {
+      display:grid; grid-template-columns:1fr 1fr; gap:10px;
+    }
+    .trade-history-side { font-size:0.72rem; }
+    .trade-history-side-label {
+      font-family:var(--mono); font-size:0.56rem; font-weight:700;
+      text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;
+    }
+    .trade-history-winner { border-left:3px solid var(--green); }
+    .trade-history-loser { border-left:3px solid var(--red); }
+    .trade-history-fair { border-left:3px solid var(--border); }
+
+    /* ── Trade Finder: Card refinements ── */
+    .finder-card-summary {
+      font-size:0.72rem; color:var(--subtext); line-height:1.5;
+    }
+    .finder-card-top3 .finder-card-summary {
+      color:var(--text);
+    }
+
+    /* ── Mobile refinements ── */
+    @media (max-width: 768px) {
+      .section-head { flex-wrap:wrap; gap:6px; }
+      .section-head-title { font-size:0.84rem; }
+      .filter-bar { padding:6px 10px; gap:6px; }
+      .trade-history-sides { grid-template-columns:1fr; gap:6px; }
+      .stat-pill { font-size:0.58rem; padding:2px 6px; }
+      .verdict-label { font-size:0.95rem; }
+      .roster-name { width:110px; }
+      .roster-bar-wrap { min-width:80px; }
+    }
+
+    @media (max-width: 420px) {
+      .card.quick-use { padding:10px 12px; border-left-width:2px; }
+      .filter-bar { flex-direction:column; align-items:stretch; }
+      .section-head-title { font-size:0.78rem; }
+    }
 
     /* [NEW] ── TRADE SUGGESTION ── */
     .trade-suggestion {
@@ -2916,7 +3202,7 @@
               <div class="home-dest-icon">⇄</div>
               <div>
                 <div class="home-dest-label">Trade Finder</div>
-                <div class="home-dest-sub">Board arbitrage opportunities</div>
+                <div class="home-dest-sub">Trades where you win on value</div>
               </div>
             </div>
             <div class="home-dest-arrow">›</div>
@@ -3192,8 +3478,8 @@
             </span>
             <span class="rv" id="valueAdjustment">–</span>
           </div>
-          <div class="result-row" style="padding:10px 0;">
-            <span class="rl">Verdict</span>
+          <div class="result-row" style="padding:12px 0;margin-top:4px;border-top:2px solid var(--border);">
+            <span class="rl" style="font-weight:700;font-size:0.85rem;color:var(--text);">Verdict</span>
             <span class="rv"><span class="decision-pill neutral" id="decision">–</span></span>
           </div>
         </div>
@@ -3596,10 +3882,10 @@
       <div class="card quick-use" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <div>
           <strong>Market Edge Finder</strong> —
-          Project your model rank onto market curves, then compare projected market value vs actual market value.
+          Shows where our model disagrees with the market on player values.
           <span style="color:var(--subtext);font-size:0.72rem;display:block;margin-top:4px;">
-            <span style="color:var(--green);">BUY</span> = projected market value is above actual market value ·
-            <span style="color:var(--red);">SELL</span> = actual market value is above projected market value
+            <span style="color:var(--green);font-weight:600;">BUY</span> = market undervalues this player (good time to acquire) ·
+            <span style="color:var(--red);font-weight:600;">SELL</span> = market overvalues this player (good time to trade away)
           </span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -3670,13 +3956,13 @@
     <!-- ══ TRADE FINDER TAB ══ -->
     <div id="tab-finder" class="tab-panel">
       <div id="finderGate" class="edge-gate">
-        <p><strong>Select your team above</strong> to find board-arbitrage trades.</p>
+        <p><strong>Select your team above</strong> to find trades where you win on value but the other manager still sees a fair deal.</p>
       </div>
       <div id="finderContent" style="display:none;">
         <div class="card quick-use" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
           <div style="flex:1 1 300px;">
             <strong>Trade Finder</strong> —
-            Finds trades where our model favors your side, but KTC makes it look fair to the opponent.
+            Finds trades where you gain value on our model, but the deal looks fair or better to the other manager on KTC.
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <label style="font-size:0.72rem;color:var(--subtext);">Opponent:
@@ -3704,7 +3990,8 @@
           <div id="finderSummaryText" style="font-size:0.75rem;color:var(--subtext);margin-bottom:8px;"></div>
         </div>
         <div id="finderResultsWrap" style="display:none;">
-          <div id="finderDesktopTableWrap">
+          <div id="finderCardsWrap" class="finder-cards"></div>
+          <div id="finderDesktopTableWrap" style="display:none;">
             <table class="edge-table" id="finderTable" style="width:100%;border-collapse:collapse;">
               <thead>
                 <tr id="finderHeader"></tr>

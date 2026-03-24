@@ -3126,8 +3126,9 @@
           pickSuggestions.sort((a, b) => a.diff - b.diff);
           pickSuggestions = pickSuggestions.slice(0, 3);
 
-          let html = `<strong>Side ${aheadSide} is ahead by ~${gap.toLocaleString()}</strong>`;
-          html += ` (${(pct*100).toFixed(1)}%). `;
+          const gapLabel = pct >= 0.20 ? 'significantly ahead' : pct >= 0.10 ? 'ahead' : 'slightly ahead';
+          let html = `<strong>Side ${aheadSide} is ${gapLabel} by ~${gap.toLocaleString()}</strong>`;
+          html += ` (${(pct*100).toFixed(1)}% gap). `;
 
           if (candidates.length > 0 || pickSuggestions.length > 0) {
             html += `<span style="color:var(--subtext);">Add one of these to Side ${behindSide} to even it out:</span>`;
@@ -3161,7 +3162,7 @@
           suggestionEl.innerHTML = html;
           suggestionEl.style.display = 'block';
         } else if (pct > 0.02) {
-          suggestionEl.innerHTML = `<strong>Close enough.</strong> Side ${aheadSide} is slightly ahead (${(pct*100).toFixed(1)}%) but within the fair range.`;
+          suggestionEl.innerHTML = `<strong>Fair trade.</strong> Side ${aheadSide} is slightly ahead (${(pct*100).toFixed(1)}%) but this is within the normal fair range — most leagues would accept this.`;
           suggestionEl.style.display = 'block';
         } else {
           suggestionEl.style.display = 'none';
@@ -4220,10 +4221,10 @@
     const sells = edgeData.filter(p => p.signal === 'SELL').length;
     const myBuys = edgeData.filter(p => p.signal === 'BUY' && p.isOnMyRoster).length;
     const mySells = edgeData.filter(p => p.signal === 'SELL' && p.isOnMyRoster).length;
-    let summary = `${edgeData.length} assets — ${buys} buys, ${sells} sells`;
-    if (highConfidenceOnly) summary += ' · high confidence only';
-    if (requestedRosterFilter !== rosterFilter) summary += ' · no team selected, showing all players';
-    if (myTeamName) summary += ` · Your roster: ${myBuys} buys, ${mySells} sells`;
+    let summary = `${edgeData.length} players scanned — ${buys} undervalued (BUY), ${sells} overvalued (SELL)`;
+    if (highConfidenceOnly) summary += ' · showing high-confidence edges only';
+    if (requestedRosterFilter !== rosterFilter) summary += ' · select your team to filter to your roster';
+    if (myTeamName) summary += ` · On your roster: ${myBuys} buys, ${mySells} sells`;
     document.getElementById('edgeSummary').textContent = summary;
 
     // Summary cards: top buys and sells on your roster
@@ -4246,15 +4247,19 @@
         CB:'#16a085',S:'#16a085',DB:'#16a085',PICK:'#f39c12',
       };
       const renderList = (list, isBuy) => {
-        if (!list.length) return '<span style="color:var(--subtext);font-size:0.68rem;">None found</span>';
+        if (!list.length) return '<span style="color:var(--subtext);font-size:0.68rem;">None on your roster</span>';
         return list.map(p => {
           const posC = POS_C[(p.pos||'').toUpperCase()] || 'var(--subtext)';
           const sign = isBuy ? '+' : '';
           const edgeVal = Math.round(Number(p.valueEdge || 0));
-          return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid var(--border-dim);">
-            <span style="color:${posC};font-family:var(--mono);font-size:0.6rem;font-weight:700;width:28px;">${p.pos}</span>
-            <span style="flex:1;font-weight:600;">${p.name}</span>
-            <span style="font-family:var(--mono);color:${isBuy?'var(--green)':'var(--red)'};font-size:0.7rem;">${sign}${edgeVal.toLocaleString()}</span>
+          const edgePct = Number(p.edgePct || 0);
+          const pctStr = `${edgePct > 0 ? '+' : ''}${edgePct.toFixed(0)}%`;
+          return `<div class="edge-summary-item ${isBuy ? 'edge-summary-buy' : 'edge-summary-sell'}">
+            <span style="display:flex;align-items:center;gap:5px;">
+              <span style="color:${posC};font-family:var(--mono);font-size:0.58rem;font-weight:700;width:26px;">${p.pos}</span>
+              <span class="edge-summary-item-name">${p.name}</span>
+            </span>
+            <span class="edge-summary-item-val">${sign}${edgeVal.toLocaleString()} <span style="font-size:0.60rem;opacity:0.7;">(${pctStr})</span></span>
           </div>`;
         }).join('');
       };
@@ -4320,23 +4325,23 @@
     if (!hdr || !tbody) return;
 
     const cols = [
-      { key: 'name', label: 'Asset' },
-      { key: 'pos', label: 'Pos' },
-      { key: 'marketLabel', label: 'Mkt' },
-      { key: 'actualExternal', label: 'Actual' },
-      { key: 'projectedExternal', label: 'Projected' },
-      { key: 'modelValue', label: 'Internal' },
-      { key: 'externalRank', label: 'Mkt #' },
-      { key: 'modelRank', label: 'Model #' },
-      { key: 'valueEdge', label: 'Value Edge' },
-      { key: 'edgePct', label: 'Edge %' },
-      { key: 'rankEdge', label: 'Rank Edge' },
-      { key: 'confidenceScore', label: 'Conf' },
-      { key: 'signal', label: 'Signal' },
+      { key: 'name', label: 'Player', tip: 'Player or pick name' },
+      { key: 'pos', label: 'Pos', tip: 'Position' },
+      { key: 'marketLabel', label: 'Source', tip: 'Which market source is used for comparison' },
+      { key: 'actualExternal', label: 'Market Val', tip: 'Current value on the selected market source' },
+      { key: 'projectedExternal', label: 'Projected', tip: 'Projected market value based on trend curve' },
+      { key: 'modelValue', label: 'Our Value', tip: 'Our composite model value (league-adjusted)' },
+      { key: 'externalRank', label: 'Market Rank', tip: 'Rank on the selected market source' },
+      { key: 'modelRank', label: 'Our Rank', tip: 'Rank on our composite model' },
+      { key: 'valueEdge', label: 'Value Edge', tip: 'Difference between our value and the market (positive = we value higher)' },
+      { key: 'edgePct', label: 'Edge %', tip: 'Value edge as a percentage of market value' },
+      { key: 'rankEdge', label: 'Rank Edge', tip: 'Rank difference (positive = we rank higher than market)' },
+      { key: 'confidenceScore', label: 'Confidence', tip: 'How reliable the edge signal is (based on source count and data coverage)' },
+      { key: 'signal', label: 'Signal', tip: 'BUY = undervalued by market, SELL = overvalued by market, HOLD = fair value' },
     ];
     hdr.innerHTML = cols.map(c => {
       const cls = edgeSortCol === c.key ? (edgeSortDir === 'asc' ? 'sorted-asc' : 'sorted-desc') : '';
-      return `<th class="${cls}" onclick="handleEdgeSort('${c.key}')">${c.label}</th>`;
+      return `<th class="${cls}" title="${c.tip}" onclick="handleEdgeSort('${c.key}')">${c.label}</th>`;
     }).join('');
 
     if (!data.length) {
@@ -4379,7 +4384,12 @@
       html += `<td class="edge-val" style="color:${valueColor};font-weight:600;">${valueEdge > 0 ? '+' : ''}${Math.round(valueEdge).toLocaleString()}</td>`;
       html += `<td class="edge-pct ${pctClass}">${pctSign}${edgePct.toFixed(1)}%</td>`;
       html += `<td class="edge-val" style="color:${rankColor};font-weight:600;">${rankEdge > 0 ? '+' : ''}${Math.round(rankEdge)}</td>`;
-      html += `<td class="edge-val" style="color:${confColor};font-weight:600;" title="score ${(Number(p.confidenceScore) || 0).toFixed(2)} · sites ${p.siteCount} · curve ${p.curveSize}">${p.confidenceLabel}</td>`;
+      const confTip = p.confidenceLabel === 'HIGH'
+        ? `High confidence: ${p.siteCount} sources, strong data coverage`
+        : p.confidenceLabel === 'MED'
+          ? `Moderate confidence: ${p.siteCount} sources, some data gaps`
+          : `Low confidence: ${p.siteCount || 'few'} sources, limited data — treat with caution`;
+      html += `<td class="edge-val" style="color:${confColor};font-weight:600;" title="${confTip}">${p.confidenceLabel}</td>`;
       html += `<td>${signalBadge}</td>`;
       html += `</tr>`;
     }

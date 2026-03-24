@@ -26,6 +26,16 @@ KTC_OPPONENT_IDEAL = 0.0       # Ideally opponent gains or breaks even on KTC
 MAX_PACKAGE_SIZE = 3           # Max assets on either side
 MAX_RESULTS = 40               # Cap returned results
 JUNK_THRESHOLD = 400           # Assets below this are roster clog
+SINGLE_SOURCE_DISCOUNT = 0.88  # Match frontend: 12% haircut for single-source assets
+MULTI_FOR_ONE_MIN_RATIO = 0.55 # 2-for-1 give side must be >= 55% of receive model value
+
+# ── Hardening-pass thresholds ────────────────────────────────────────────
+ELITE_THRESHOLD = 7500         # Model value above which a player is "elite"
+ELITE_MULTI_MIN_RATIO = 0.65   # Tighter ratio for elite targets in multi-for-one
+PACKAGE_ANCHOR_MIN_PCT = 0.35  # Best give piece must be ≥35% of best receive piece
+CONFIDENCE_SOURCE_BASELINE = 5 # Expected source count for full confidence
+ROSTER_SURPLUS_THRESHOLD = 4   # ≥4 at a position = surplus (light fit bonus)
+ROSTER_WEAK_THRESHOLD = 1      # ≤1 at a position = weakness (light fit bonus)
 
 # Position normalization aliases
 _POS_ALIASES: dict[str, str] = {
@@ -41,9 +51,10 @@ class Asset:
     name: str
     position: str
     team: str
-    model_value: int        # Our board's value (rawComposite/finalAdjusted)
+    model_value: int        # Our board's value (league-adjusted with single-source discount)
     ktc_value: int | None   # KTC value (None = no KTC coverage)
     is_pick: bool = False
+    source_count: int = 0   # Number of valuation sources
 
     @property
     def has_ktc(self) -> bool:
@@ -71,6 +82,14 @@ class TradeCandidate:
     opponent_ktc_appeal: float = 0.0   # how favorable for opponent on KTC (positive = they like it)
     arbitrage_score: float = 0.0  # composite ranking score
     ktc_coverage: str = "full"    # full / partial / none
+    confidence_score: float = 1.0 # 0-1, source coverage × KTC coverage
+
+    # ── Explainability fields ────────────────────────────────────────────
+    confidence_tier: str = "high"    # "high" / "moderate" / "low"
+    edge_label: str = ""             # "Strong Edge" / "Moderate Edge" / "Slight Edge"
+    summary: str = ""                # Human-readable one-liner
+    ranking_factors: dict = field(default_factory=dict)   # Score component breakdown
+    flags: list[str] = field(default_factory=list)        # Active guards/bonuses
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -89,8 +108,59 @@ class TradeCandidate:
             "opponentKtcAppeal": round(self.opponent_ktc_appeal, 3),
             "arbitrageScore": round(self.arbitrage_score, 2),
             "ktcCoverage": self.ktc_coverage,
+            "confidenceScore": round(self.confidence_score, 2),
+            "confidenceTier": self.confidence_tier,
+            "edgeLabel": self.edge_label,
+            "summary": self.summary,
+            "rankingFactors": self.ranking_factors,
+            "flags": list(self.flags),
             "packageSize": f"{len(self.give)}-for-{len(self.receive)}",
         }
+
+
+# ── Explainability helpers ────────────────────────────────────────────────
+
+def _confidence_tier(score: float) -> str:
+    if score >= 0.75:
+        return "high"
+    if score >= 0.45:
+        return "moderate"
+    return "low"
+
+
+def _edge_label(board_gain_pct: float) -> str:
+    if board_gain_pct >= 0.25:
+        return "Strong Edge"
+    if board_gain_pct >= 0.10:
+        return "Moderate Edge"
+    return "Slight Edge"
+
+
+def _opp_appeal_phrase(appeal: float) -> str:
+    if appeal >= 0.10:
+        return f"opponent gains {appeal:.0%} on KTC"
+    if appeal >= 0.0:
+        return "opponent breaks even on KTC"
+    return f"opponent gives up {abs(appeal):.0%} on KTC"
+
+
+def _build_summary(
+    board_delta: int,
+    board_gain_pct: float,
+    opp_appeal: float,
+    coverage: str,
+    confidence_tier: str,
+    edge_label: str,
+    pkg_size_str: str,
+) -> str:
+    parts = [
+        f"{edge_label}: you gain {board_delta:,} board value (+{board_gain_pct:.0%})",
+        _opp_appeal_phrase(opp_appeal),
+    ]
+    if coverage == "partial":
+        parts.append("partial KTC coverage")
+    parts.append(f"{confidence_tier} confidence")
+    return ". ".join(parts) + f". ({pkg_size_str})"
 
 
 def build_asset_pool(
@@ -101,8 +171,13 @@ def build_asset_pool(
     for name, pdata in players.items():
         if not isinstance(pdata, dict):
             continue
-        # Model value: prefer _finalAdjusted, fallback to _rawComposite, then _composite
+        # Model value: prefer _finalAdjusted, then _leagueAdjusted (LAM-adjusted),
+        # then _rawComposite, then _composite.  The scraper almost never sets
+        # _finalAdjusted but always sets _leagueAdjusted, so this chain ensures
+        # Trade Finder uses league-context values like the frontend does.
         model = _int_or_none(pdata.get("_finalAdjusted"))
+        if model is None:
+            model = _int_or_none(pdata.get("_leagueAdjusted"))
         if model is None:
             model = _int_or_none(pdata.get("_rawComposite"))
         if model is None:
@@ -111,6 +186,11 @@ def build_asset_pool(
             model = _int_or_none(pdata.get("_composite"))
         if model is None or model < 1:
             continue
+
+        # Apply single-source discount to match frontend behavior
+        source_count = _int_or_none(pdata.get("_sites")) or 0
+        if source_count == 1:
+            model = int(model * SINGLE_SOURCE_DISCOUNT)
 
         # KTC value from canonical site values
         csv = pdata.get("_canonicalSiteValues")
@@ -138,6 +218,7 @@ def build_asset_pool(
             model_value=model,
             ktc_value=ktc,
             is_pick=is_pick,
+            source_count=source_count,
         ))
     return pool
 
@@ -188,6 +269,14 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     if give_names & receive_names:
         return None
 
+    # ── Outgoing KTC gate ────────────────────────────────────────────
+    # Every outgoing asset MUST have a usable KTC value.  Without it we
+    # cannot prove the deal looks plausible to the opponent, so offering
+    # a no-KTC player for an elite return is nonsense.
+    for a in give:
+        if not a.has_ktc or a.ktc_value < MIN_KTC_VALUE:  # type: ignore[operator]
+            return None
+
     give_model = sum(a.model_value for a in give)
     recv_model = sum(a.model_value for a in receive)
     board_delta = recv_model - give_model
@@ -196,6 +285,29 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     if board_delta < MAX_BOARD_LOSS:
         return None
 
+    # ── Multi-for-one fire sale guard ────────────────────────────────
+    # Prevent suggesting two roster fillers for an elite target.
+    # When giving more pieces than receiving, the give side's total model
+    # value must be a meaningful fraction of the receive side.
+    flags: list[str] = []
+
+    if len(give) > len(receive):
+        if give_model < recv_model * MULTI_FOR_ONE_MIN_RATIO:
+            return None
+        # ── Elite target protection (tighter ratio) ──────────────────
+        max_recv = max(a.model_value for a in receive)
+        if max_recv >= ELITE_THRESHOLD:
+            if give_model < recv_model * ELITE_MULTI_MIN_RATIO:
+                return None
+            flags.append("elite_target")
+        # ── Package anchor quality ───────────────────────────────────
+        # At least one give piece must be a real starter-quality asset,
+        # not just two bench stashes that happen to sum high enough.
+        max_give = max(a.model_value for a in give)
+        if max_give < max_recv * PACKAGE_ANCHOR_MIN_PCT:
+            return None
+        flags.append("anchor_verified")
+
     # KTC scoring
     give_ktc_assets = [a for a in give if a.has_ktc]
     recv_ktc_assets = [a for a in receive if a.has_ktc]
@@ -203,10 +315,8 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     any_have_ktc = bool(give_ktc_assets) or bool(recv_ktc_assets)
 
     if not any_have_ktc:
-        coverage = "none"
-        give_ktc = 0
-        recv_ktc = 0
-        opp_appeal = 0.0
+        # No KTC on either side — cannot evaluate opponent plausibility at all
+        return None
     elif all_have_ktc:
         coverage = "full"
         give_ktc = sum(a.ktc_value for a in give)  # type: ignore[arg-type]
@@ -214,14 +324,16 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
         # Opponent gives recv_ktc to get give_ktc back
         # Opponent appeal = (what they get - what they give) / what they give
         opp_appeal = (give_ktc - recv_ktc) / max(recv_ktc, 1)
+        flags.append("full_ktc")
     else:
         coverage = "partial"
         give_ktc = sum(a.ktc_value or 0 for a in give)
         recv_ktc = sum(a.ktc_value or 0 for a in receive)
         opp_appeal = (give_ktc - recv_ktc) / max(recv_ktc, 1) if recv_ktc > 0 else 0.0
+        flags.append("partial_ktc")
 
     # The opponent must not get destroyed on KTC — they need to see a fair deal
-    if coverage == "full" and opp_appeal < KTC_OPPONENT_FLOOR:
+    if opp_appeal < KTC_OPPONENT_FLOOR:
         return None
 
     # Filter out junk trades: at least one meaningful asset on each side
@@ -237,22 +349,67 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     ktc_delta = give_ktc - recv_ktc  # positive = opponent gets more KTC than they give
 
     # Core arbitrage: we win on model, opponent wins (or breaks even) on KTC
-    if coverage in ("full", "partial"):
-        arbitrage = (
-            board_gain_norm * 50           # Our model advantage (scaled)
-            + opp_appeal * 30              # Opponent's KTC appeal
-            + (1.0 if board_delta > 0 else 0.0) * 10  # Bonus for positive board delta
-        )
-        # Penalize if opponent loses on KTC (less plausible)
-        if opp_appeal < 0:
-            arbitrage += opp_appeal * 20  # Additional penalty
-    else:
-        # No KTC coverage — rank by model delta only, with lower confidence
-        arbitrage = board_gain_norm * 30
+    f_board_edge = board_gain_norm * 50
+    f_ktc_appeal = opp_appeal * 30
+    f_positive_bonus = (1.0 if board_delta > 0 else 0.0) * 10
+    arbitrage = f_board_edge + f_ktc_appeal + f_positive_bonus
 
-    # Penalize larger packages slightly (simplicity bonus)
+    # Penalize if opponent loses on KTC (less plausible)
+    f_ktc_penalty = 0.0
+    if opp_appeal < 0:
+        f_ktc_penalty = opp_appeal * 20
+        arbitrage += f_ktc_penalty
+    # Partial coverage means we can't fully verify plausibility — demote
+    if coverage == "partial":
+        arbitrage *= 0.5
+
+    # ── Confidence factor (source coverage × KTC coverage) ───────────
+    all_assets = give + receive
+    source_counts = [a.source_count for a in all_assets if a.source_count > 0]
+    if source_counts:
+        avg_sources = sum(source_counts) / len(source_counts)
+        source_confidence = min(1.0, avg_sources / CONFIDENCE_SOURCE_BASELINE)
+    else:
+        # Unknown source counts — assume reasonable
+        source_confidence = 1.0
+    ktc_confidence = 1.0 if coverage == "full" else 0.7
+    confidence = source_confidence * ktc_confidence
+
+    # Apply confidence as a soft multiplier (floor at 0.7 to avoid killing trades)
+    f_confidence_mult = 0.7 + 0.3 * confidence
+    arbitrage *= f_confidence_mult
+
+    # ── Absolute-value bonus ────────────────────────────────────────
+    # Larger, more impactful trades rank above trivially small ones
+    # with similar edge percentages.
+    value_moved = min(give_model, recv_model)
+    f_value_scale = min(1.0, value_moved / 5000) * 5
+    arbitrage += f_value_scale
+
+    # Penalize larger packages (simplicity bonus)
     pkg_size = len(give) + len(receive)
-    arbitrage -= (pkg_size - 2) * 2
+    f_simplicity = -(pkg_size - 2) * 3
+    arbitrage += f_simplicity
+
+    # ── Build explainability fields ──────────────────────────────────
+    conf_tier = _confidence_tier(confidence)
+    flags.append(f"{conf_tier}_confidence")
+    edge_lbl = _edge_label(board_gain_norm)
+    pkg_size_str = f"{len(give)}-for-{len(receive)}"
+    summary = _build_summary(
+        board_delta, board_gain_norm, opp_appeal,
+        coverage, conf_tier, edge_lbl, pkg_size_str,
+    )
+    ranking_factors = {
+        "boardEdge": round(f_board_edge, 2),
+        "ktcAppeal": round(f_ktc_appeal, 2),
+        "positiveBonus": round(f_positive_bonus, 2),
+        "ktcPenalty": round(f_ktc_penalty, 2),
+        "confidenceMultiplier": round(f_confidence_mult, 3),
+        "valueScale": round(f_value_scale, 2),
+        "simplicityPenalty": round(f_simplicity, 2),
+        "rosterFitBonus": 0.0,  # populated in find_trades if applicable
+    }
 
     tc = TradeCandidate(
         give=give,
@@ -266,6 +423,12 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
         opponent_ktc_appeal=opp_appeal,
         arbitrage_score=arbitrage,
         ktc_coverage=coverage,
+        confidence_score=confidence,
+        confidence_tier=conf_tier,
+        edge_label=edge_lbl,
+        summary=summary,
+        ranking_factors=ranking_factors,
+        flags=flags,
     )
     return tc
 
@@ -414,8 +577,34 @@ def find_trades(
         all_trades.extend(_generate_2for1(my_roster, opp_filtered))
         all_trades.extend(_generate_1for2(my_roster, opp_filtered))
 
-    # Deduplicate and rank
+    # Deduplicate
     all_trades = _deduplicate(all_trades)
+
+    # ── Light roster-fit adjustment ──────────────────────────────────
+    # Slightly reward trades that shed surplus positions or fill weak ones.
+    my_pos_counts: dict[str, int] = {}
+    for a in my_roster:
+        if a.position:
+            my_pos_counts[a.position] = my_pos_counts.get(a.position, 0) + 1
+
+    for tc in all_trades:
+        fit_bonus = 0.0
+        fit_reasons: list[str] = []
+        for a in tc.give:
+            if my_pos_counts.get(a.position, 0) >= ROSTER_SURPLUS_THRESHOLD:
+                fit_bonus += 1.0
+                fit_reasons.append(f"sheds {a.position} surplus")
+        for a in tc.receive:
+            if my_pos_counts.get(a.position, 0) <= ROSTER_WEAK_THRESHOLD:
+                fit_bonus += 1.5
+                fit_reasons.append(f"fills {a.position} need")
+        if fit_bonus > 0:
+            tc.arbitrage_score += fit_bonus
+            tc.flags.append("roster_fit")
+            tc.ranking_factors["rosterFitBonus"] = round(fit_bonus, 2)
+            tc.summary += " Roster fit: " + ", ".join(fit_reasons) + "."
+
+    # Rank
     all_trades.sort(key=lambda t: t.arbitrage_score, reverse=True)
 
     # Keep only positive-arbitrage trades with positive board delta
