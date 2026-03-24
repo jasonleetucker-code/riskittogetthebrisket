@@ -1,4 +1,4 @@
-"""Tests for CANONICAL_DATA_MODE behavior and internal-primary safety."""
+﻿"""Tests for CANONICAL_DATA_MODE behavior and internal-primary safety."""
 from __future__ import annotations
 
 import json
@@ -25,12 +25,12 @@ class TestModeValidation:
     def test_default_is_off(self):
         """The .env.example default must be off to protect public safety."""
         env_path = REPO / ".env.example"
-        content = env_path.read_text()
+        content = env_path.read_text(encoding="utf-8")
         assert "CANONICAL_DATA_MODE=off" in content
 
     def test_server_defaults_to_off(self):
         """server.py must default to off when env var is unset."""
-        server_py = (REPO / "server.py").read_text()
+        server_py = (REPO / "server.py").read_text(encoding="utf-8")
         assert 'os.getenv("CANONICAL_DATA_MODE", "off")' in server_py
 
 
@@ -39,7 +39,7 @@ class TestInternalPrimarySafety:
 
     def test_api_data_always_serves_legacy(self):
         """The /api/data endpoint must always serve legacy data regardless of mode."""
-        server_py = (REPO / "server.py").read_text()
+        server_py = (REPO / "server.py").read_text(encoding="utf-8")
         # Verify there's no mode-conditional logic in the data endpoint
         # that would switch to canonical data
         assert "latest_contract_data" in server_py
@@ -48,20 +48,20 @@ class TestInternalPrimarySafety:
 
     def test_scaffold_canonical_internal_primary_branch(self):
         """The canonical scaffold endpoint must serve curated data in internal_primary mode."""
-        server_py = (REPO / "server.py").read_text()
+        server_py = (REPO / "server.py").read_text(encoding="utf-8")
         assert 'CANONICAL_DATA_MODE == "internal_primary"' in server_py
         # Verify the curated view includes the safety note
         assert "internal-primary data for evaluation only" in server_py
 
     def test_no_duplicate_scaffold_canonical_routes(self):
         """There must be exactly one /api/scaffold/canonical route definition."""
-        server_py = (REPO / "server.py").read_text()
+        server_py = (REPO / "server.py").read_text(encoding="utf-8")
         count = server_py.count('@app.get("/api/scaffold/canonical")')
         assert count == 1, f"Expected 1 route, found {count} duplicate definitions"
 
     def test_scaffold_endpoints_documented(self):
         """All scaffold endpoints should be documented in server.py."""
-        server_py = (REPO / "server.py").read_text()
+        server_py = (REPO / "server.py").read_text(encoding="utf-8")
         assert "/api/scaffold/canonical" in server_py
         assert "/api/scaffold/mode" in server_py
         assert "/api/scaffold/shadow" in server_py
@@ -72,14 +72,14 @@ class TestRollbackPath:
 
     def test_mode_off_disables_canonical_loading(self):
         """Setting mode=off should skip canonical snapshot loading."""
-        server_py = (REPO / "server.py").read_text()
+        server_py = (REPO / "server.py").read_text(encoding="utf-8")
         assert 'CANONICAL_DATA_MODE == "off"' in server_py
         # Verify it returns None (skips loading)
         assert "return None" in server_py  # in _load_canonical_snapshot
 
     def test_rollback_documented(self):
         """Rollback instructions should be documented."""
-        env_example = (REPO / ".env.example").read_text()
+        env_example = (REPO / ".env.example").read_text(encoding="utf-8")
         assert "revert" in env_example.lower() or "CANONICAL_DATA_MODE=off" in env_example
 
 
@@ -91,7 +91,7 @@ class TestPromotionReadiness:
 
     def test_readiness_uses_offense_players_only(self):
         """Promotion readiness should use offense_players_only metrics."""
-        script = (REPO / "scripts" / "check_promotion_readiness.py").read_text()
+        script = (REPO / "scripts" / "check_promotion_readiness.py").read_text(encoding="utf-8")
         assert "offense_players_only" in script
 
     def test_all_hard_checks_pass(self):
@@ -113,7 +113,7 @@ class TestCanonicalSnapshotIntegrity:
         snapshots = sorted(canonical_dir.glob("canonical_snapshot_*.json"), reverse=True)
         if not snapshots:
             pytest.skip("No canonical snapshot available")
-        self.snapshot = json.loads(snapshots[0].read_text())
+        self.snapshot = json.loads(snapshots[0].read_text(encoding="utf-8"))
 
     def test_has_assets(self):
         assets = self.snapshot.get("assets", [])
@@ -161,7 +161,7 @@ class TestModeIsolation:
 
     def test_public_data_path_ignores_canonical(self):
         """The /api/data code path must not conditionally serve canonical data."""
-        server_py = (REPO / "server.py").read_text()
+        server_py = (REPO / "server.py").read_text(encoding="utf-8")
         # Find the api_data function and verify it doesn't branch on canonical mode
         # for its primary response
         import re
@@ -178,7 +178,7 @@ class TestModeIsolation:
 
     def test_shadow_comparison_non_authoritative(self):
         """Shadow comparison block must be non-authoritative metadata only."""
-        server_py = (REPO / "server.py").read_text()
+        server_py = (REPO / "server.py").read_text(encoding="utf-8")
         # The canonicalComparison block should be clearly non-authoritative
         assert "canonicalComparison" in server_py
         # It should be in shadow/internal_primary modes only
@@ -186,5 +186,5 @@ class TestModeIsolation:
 
     def test_invalid_mode_falls_back_to_off(self):
         """Invalid CANONICAL_DATA_MODE values must fall back to off."""
-        server_py = (REPO / "server.py").read_text()
+        server_py = (REPO / "server.py").read_text(encoding="utf-8")
         assert 'CANONICAL_DATA_MODE = "off"' in server_py  # fallback assignment

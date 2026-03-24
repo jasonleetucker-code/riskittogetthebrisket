@@ -1,8 +1,8 @@
-name: Scheduled Smoke Test
+﻿name: Scheduled Smoke Test
 
 on:
   schedule:
-    # Daily at 06:15 UTC — a low-traffic window for a heavier check.
+    # Daily at 06:15 UTC â€” a low-traffic window for a heavier check.
     - cron: "15 6 * * *"
   workflow_dispatch:
 
@@ -50,6 +50,14 @@ jobs:
           import server
           print("Runtime import gate passed.")
           PY
+      - name: Generate comparison artifact for promotion-readiness test
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/source_pull.py
+          python scripts/canonical_build.py
+          python scripts/run_comparison_batch.py
+
 
       - name: Generate comparison artifact for promotion-readiness test
         shell: bash
@@ -176,3 +184,4 @@ jobs:
               sys.exit(1)
           print(f"\nContract OK: {len(players)} players, {len(sites)} sites, version {cv}")
           PY
+
