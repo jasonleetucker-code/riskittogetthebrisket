@@ -189,7 +189,7 @@
     }
 
     if (!rows.length) {
-      content.innerHTML = '<div style="color:var(--subtext);font-size:0.72rem;">No rising/falling data yet. Run a new scrape on a later date to compare snapshots.</div>';
+      content.innerHTML = '<div style="color:var(--subtext);font-size:0.72rem;">No rising/falling data yet. Update values again later to see which players are trending up or down.</div>';
       return;
     }
 
@@ -468,19 +468,20 @@
       sortBasis === 'scarcity' ? 'Value (Scarcity)' :
       'Value (Full)'
     );
-    hdr.innerHTML = '<th style="width:40px">#</th><th>Player</th><th>Pos</th>' +
-      `<th style="min-width:85px;cursor:pointer;" onclick="toggleRankingsSort()">${valueColLabel} ${sortArrow}</th>` +
+    hdr.innerHTML = '<th style="width:40px" title="Overall rank">#</th><th title="Player or pick name">Player</th><th title="Position">Pos</th>' +
+      `<th style="min-width:85px;cursor:pointer;" title="Click to change sort mode" onclick="toggleRankingsSort()">${valueColLabel} ${sortArrow}</th>` +
       (showAdjCols ? `
-        <th style="min-width:78px;" title="Raw market value before all adjustments">Raw Mkt</th>
-        <th style="min-width:88px;" title="Scoring multiplier (effective after strength)">Score Mult</th>
-        <th style="min-width:90px;" title="Final value with league adjustment">Final Adj</th>
-        <th style="min-width:70px;" title="Final adjusted minus raw market value">\u0394</th>
+        <th style="min-width:78px;" title="Raw market value before scoring and scarcity adjustments">Raw Market</th>
+        <th style="min-width:88px;" title="How much your league's scoring format changes this player's value (1.00 = no change)">Scoring Adj</th>
+        <th style="min-width:90px;" title="Final value after all league adjustments">Final Value</th>
+        <th style="min-width:70px;" title="How much league adjustments changed the value (Final minus Raw)">Change</th>
       ` : '') +
       (showSourceCols ? cfg.map(s => {
         const site = sites.find(x => x.key === s.key);
-        return `<th style="font-size:0.62rem;">${site ? site.label : s.key}</th>`;
+        const label = site ? site.label : s.key;
+        return `<th style="font-size:0.62rem;" title="Value from ${label}">${label}</th>`;
       }).join('') : '') +
-      '<th>Sites</th>';
+      '<th title="Number of sources with data for this player (more sources = higher confidence)">Sources</th>';
 
     const posMap = loadedData.sleeper?.positions || {};
     const canonicalCtx = getCanonicalValueContext();
@@ -637,7 +638,10 @@
         });
       }
 
-      cells += `<td style="text-align:center;font-family:var(--mono);font-size:0.72rem;color:var(--subtext);">${r.siteCount}</td>`;
+      const sc_ = Number(r.siteCount) || 0;
+      const scColor = sc_ >= 5 ? 'var(--green)' : sc_ >= 3 ? 'var(--text)' : sc_ >= 1 ? 'var(--amber)' : 'var(--subtext)';
+      const scTip = sc_ >= 5 ? 'Strong coverage' : sc_ >= 3 ? 'Good coverage' : sc_ >= 1 ? 'Limited coverage' : 'No sources';
+      cells += `<td style="text-align:center;font-family:var(--mono);font-size:0.72rem;color:${scColor};" title="${scTip}: ${sc_} source${sc_ !== 1 ? 's' : ''}">${sc_}</td>`;
 
       tr.innerHTML = cells;
       tr.dataset.rawComposite = String(Math.round(r.rawComposite));
@@ -1118,7 +1122,7 @@
       const rows = [];
 
       if (!loadedData) {
-        rows.push({ type: 'warn', title: 'No player data', sub: 'Tap Refresh ↑ to load values from scraper.' });
+        rows.push({ type: 'warn', title: 'No player data', sub: 'Tap Refresh to load current values.' });
       } else if (ageHours != null && ageHours > 48) {
         rows.push({ type: 'warn', title: `Data is ${Math.round(ageHours)}h old`, sub: 'Refresh values to improve trade confidence.' });
       } else if (ageHours != null) {

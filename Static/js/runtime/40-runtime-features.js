@@ -273,13 +273,13 @@
         if (highSites.length) narrative += ` Valued highest by ${highSites.join(', ')}.`;
         if (lowSites.length) narrative += ` Lowest on ${lowSites.join(', ')}.`;
       } else {
-        narrative = `Sites disagree significantly (CV: ${(result.cv * 100).toFixed(0)}%).`;
-        if (highSites.length) narrative += ` ${highSites.join(', ')} bullish.`;
-        if (lowSites.length) narrative += ` ${lowSites.join(', ')} bearish.`;
+        narrative = `Sources disagree significantly (${(result.cv * 100).toFixed(0)}% variance).`;
+        if (highSites.length) narrative += ` ${highSites.join(', ')} value higher.`;
+        if (lowSites.length) narrative += ` ${lowSites.join(', ')} value lower.`;
         narrative += ' Trade value is uncertain — use this to your advantage.';
       }
     } else if (siteVals.length === 1) {
-      narrative = `Only found on 1 source — value is speculative. 15% confidence discount applied.`;
+      narrative = `Only 1 source — value is speculative (12% confidence discount applied). Treat with caution.`;
     } else {
       narrative = `Limited data (${siteVals.length} sources). Value may be less reliable.`;
     }
@@ -293,7 +293,7 @@
         const color = label === 'SELL' ? 'var(--red)' : 'var(--green)';
         const sign = edge.edgePct > 0 ? '+' : '';
         const src = edge.externalSource || 'Market';
-        edgeHtml = `<div style="margin-top:8px;font-size:0.82rem;"><span style="font-weight:700;color:${color};">${label}</span> <span style="font-family:var(--mono);">${src} ${sign}${edge.edgePct.toFixed(1)}% vs projected curve</span></div>`;
+        edgeHtml = `<div style="margin-top:8px;font-size:0.82rem;"><span style="font-weight:700;color:${color};">${label}</span> <span style="font-family:var(--mono);">${src} ${sign}${edge.edgePct.toFixed(1)}% vs market trend</span></div>`;
       }
     }
 
@@ -2458,7 +2458,8 @@
     h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">';
     GROUPS.forEach(g => {
       const r=posRanks[g];const cl=GC[g];
-      h += `<span style="padding:4px 12px;border-radius:20px;font-size:0.68rem;font-weight:700;font-family:var(--mono);color:${cl};border:1px solid ${cl}44;background:${r<=3?cl+'22':'transparent'};">${g}: ${r}${ord(r)}</span>`;
+      const rankTip = r <= 3 ? 'Top 3 in league' : r <= 6 ? 'Above average' : r <= 9 ? 'Below average' : 'Bottom third';
+      h += `<span title="${g} rank: ${r}${ord(r)} of ${sleeperTeams.length} — ${rankTip}" style="padding:4px 12px;border-radius:20px;font-size:0.68rem;font-weight:700;font-family:var(--mono);color:${cl};border:1px solid ${cl}44;background:${r<=3?cl+'22':'transparent'};">${g}: ${r}${ord(r)}</span>`;
     });
     h += '</div>';
 

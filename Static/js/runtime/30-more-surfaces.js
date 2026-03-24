@@ -213,19 +213,21 @@
     const top = unrostered.slice(0, 25);
 
     if (!top.length) {
-      div.innerHTML = '<div style="color:var(--subtext);font-size:0.72rem;">No high-value unrostered players found.</div>';
+      div.innerHTML = '<div style="color:var(--subtext);font-size:0.72rem;">No high-value free agents found — your league is well-managed.</div>';
       card.style.display = 'block';
       return;
     }
 
     const POS_C = {QB:'#e74c3c',RB:'#27ae60',WR:'#3498db',TE:'#e67e22',LB:'#9b59b6',DL:'#9b59b6',DE:'#9b59b6',DT:'#9b59b6',EDGE:'#9b59b6',CB:'#16a085',S:'#16a085',DB:'#16a085'};
-    let html = '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+    let html = `<div style="font-size:0.68rem;color:var(--subtext);margin-bottom:8px;">Players not on any roster with meaningful trade value. Higher value = bigger opportunity.</div>`;
+    html += '<div style="display:flex;flex-wrap:wrap;gap:6px;">';
     for (const p of top) {
       const posC = POS_C[(p.pos || '').toUpperCase()] || 'var(--subtext)';
+      const sitesLabel = p.sites >= 5 ? '' : p.sites >= 3 ? '' : ` · <span style="color:var(--amber);font-size:0.58rem;">${p.sites} src</span>`;
       html += `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.72rem;">`;
       html += `<span style="color:${posC};font-weight:700;font-family:var(--mono);font-size:0.62rem;">${p.pos}</span>`;
       html += `<span style="font-weight:600;">${p.name}</span>`;
-      html += `<span style="font-family:var(--mono);color:var(--subtext);">${p.meta.toLocaleString()}</span>`;
+      html += `<span style="font-family:var(--mono);color:var(--subtext);">${p.meta.toLocaleString()}${sitesLabel}</span>`;
       html += `</div>`;
     }
     html += '</div>';
@@ -292,21 +294,21 @@
       html += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">`;
       html += `<span style="font-weight:600;min-width:130px;font-size:0.73rem;">${t.name}${isMe ? ' ⭐' : ''}</span>`;
       html += `<div style="flex:1;display:flex;gap:4px;align-items:center;">`;
-      html += `<div style="width:${sellPct}%;height:10px;background:var(--red);border-radius:2px;min-width:${t.sellEdge > 0 ? 2 : 0}px;" title="SELL edge: ${t.sellEdge}%"></div>`;
-      html += `<span style="font-size:0.6rem;color:var(--red);font-family:var(--mono);min-width:35px;">${t.sellCount}S</span>`;
-      html += `<div style="width:${buyPct}%;height:10px;background:var(--green);border-radius:2px;min-width:${t.buyEdge > 0 ? 2 : 0}px;" title="BUY edge: ${t.buyEdge}%"></div>`;
-      html += `<span style="font-size:0.6rem;color:var(--green);font-family:var(--mono);">${t.buyCount}B</span>`;
+      html += `<div style="width:${sellPct}%;height:10px;background:var(--red);border-radius:2px;min-width:${t.sellEdge > 0 ? 2 : 0}px;" title="Market overvalues ${t.sellCount} of their players by avg ${t.sellEdge}%"></div>`;
+      html += `<span style="font-size:0.6rem;color:var(--red);font-family:var(--mono);min-width:35px;" title="${t.sellCount} overvalued players">${t.sellCount} sell</span>`;
+      html += `<div style="width:${buyPct}%;height:10px;background:var(--green);border-radius:2px;min-width:${t.buyEdge > 0 ? 2 : 0}px;" title="Market undervalues ${t.buyCount} of their players by avg ${t.buyEdge}%"></div>`;
+      html += `<span style="font-size:0.6rem;color:var(--green);font-family:var(--mono);" title="${t.buyCount} undervalued players">${t.buyCount} buy</span>`;
       html += `</div></div>`;
 
       // Show top exploitable players for this team
       if (t.topSells.length || t.topBuys.length) {
         html += `<div style="font-size:0.62rem;color:var(--subtext);padding-left:140px;">`;
         if (t.topSells.length) {
-          html += `<span style="color:var(--red);">Overvalued: ${t.topSells.map(p => `${p.name} +${p.pct.toFixed(0)}%`).join(', ')}</span>`;
+          html += `<span style="color:var(--red);">Market overvalues: ${t.topSells.map(p => `${p.name} +${p.pct.toFixed(0)}%`).join(', ')}</span>`;
         }
         if (t.topSells.length && t.topBuys.length) html += ' · ';
         if (t.topBuys.length) {
-          html += `<span style="color:var(--green);">Undervalued: ${t.topBuys.map(p => `${p.name} ${p.pct.toFixed(0)}%`).join(', ')}</span>`;
+          html += `<span style="color:var(--green);">Market undervalues: ${t.topBuys.map(p => `${p.name} ${p.pct.toFixed(0)}%`).join(', ')}</span>`;
         }
         html += `</div>`;
       }
@@ -663,7 +665,7 @@
               if (ratio < worstRatio) { worstRatio = ratio; worstPos = g; }
             }
             if (worstPos && worstRatio < 1.0) {
-              theirNeed = `needs ${worstPos}`;
+              theirNeed = `they need ${worstPos}`;
             }
           }
 
