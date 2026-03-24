@@ -102,15 +102,17 @@
     // ── Stats Card: Trade Winners & Losers ──
     if (statsDiv && statsCard) {
       const sorted = Object.entries(teamScores).sort((a, b) => b[1].totalGain - a[1].totalGain);
-      let statsHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;">';
+      let statsHtml = '<div class="section-head"><span class="section-head-title">Trade Winners & Losers</span></div>';
+      statsHtml += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;">';
       for (const [teamName, s] of sorted) {
         const netSign = s.totalGain >= 0 ? '+' : '';
         const netColor = s.totalGain >= 0 ? 'var(--green)' : 'var(--red)';
         const record = `${s.won}W-${s.lost}L`;
-        statsHtml += `<div style="border:1px solid var(--border);border-radius:6px;padding:8px 12px;">`;
+        const borderLeftColor = s.totalGain >= 0 ? 'var(--green)' : s.totalGain < -50 ? 'var(--red)' : 'var(--border)';
+        statsHtml += `<div style="border:1px solid var(--border);border-left:3px solid ${borderLeftColor};border-radius:6px;padding:10px 14px;">`;
         statsHtml += `<div style="font-weight:700;font-size:0.78rem;">${teamName}</div>`;
-        statsHtml += `<div style="font-family:var(--mono);font-size:0.68rem;color:var(--subtext);">${s.trades} trades · ${record}</div>`;
-        statsHtml += `<div style="font-family:var(--mono);font-size:0.72rem;font-weight:600;color:${netColor};">${netSign}${Math.round(Math.pow(Math.abs(s.totalGain), 1/alpha)).toLocaleString()} net value</div>`;
+        statsHtml += `<div style="font-family:var(--mono);font-size:0.68rem;color:var(--subtext);margin:2px 0;">${s.trades} trades · ${record}</div>`;
+        statsHtml += `<div style="font-family:var(--mono);font-size:0.75rem;font-weight:700;color:${netColor};">${netSign}${Math.round(Math.pow(Math.abs(s.totalGain), 1/alpha)).toLocaleString()} net value</div>`;
         statsHtml += `</div>`;
       }
       statsHtml += '</div>';
@@ -122,47 +124,48 @@
     let listHtml = '';
     for (let idx = 0; idx < filtered.length; idx++) {
       const a = filtered[idx];
-      listHtml += `<div class="card" style="margin-bottom:10px;padding:12px;">`;
-      listHtml += `<div style="font-size:0.68rem;color:var(--subtext);margin-bottom:8px;">Week ${a.trade.week} · ${a.date}</div>`;
+      const cardBorder = a.pctGap >= 3
+        ? (a.winner === a.sides[0] ? 'trade-history-winner' : 'trade-history-loser')
+        : 'trade-history-fair';
+      listHtml += `<div class="trade-history-card ${cardBorder}">`;
+      listHtml += `<div class="trade-history-card-header">`;
+      listHtml += `<span>Week ${a.trade.week} · ${a.date}</span>`;
+      if (a.pctGap >= 3) {
+        listHtml += `<span class="stat-pill stat-pill-green"><span class="stat-pill-label">${a.winner.team} won by</span> <span class="stat-pill-val">${a.pctGap.toFixed(1)}%</span></span>`;
+      } else {
+        listHtml += `<span class="stat-pill stat-pill-green"><span class="stat-pill-val">Fair trade</span></span>`;
+      }
+      listHtml += `</div>`;
 
+      listHtml += `<div class="trade-history-sides">`;
       for (const side of a.sides) {
         const isWinner = side === a.winner && a.pctGap >= 3;
         const isLoser = side === a.loser && a.pctGap >= 3;
         const grade = isWinner ? a.winnerGrade : isLoser ? a.loserGrade : { grade: 'A', color: 'var(--green)', label: 'Fair' };
-        const borderColor = isWinner ? 'var(--green)' : isLoser ? 'var(--red)' : 'var(--border)';
 
-        listHtml += `<div style="border-left:3px solid ${borderColor};padding:6px 10px;margin:4px 0;display:flex;align-items:flex-start;gap:8px;">`;
-        listHtml += `<div style="min-width:90px;">`;
-        listHtml += `<div style="font-weight:700;font-size:0.72rem;">${side.team}</div>`;
-        listHtml += `<div style="font-weight:800;font-size:0.82rem;color:${grade.color};">${grade.grade}</div>`;
-        listHtml += `<div style="font-size:0.58rem;color:var(--subtext);">${grade.label}</div>`;
+        listHtml += `<div class="trade-history-side">`;
+        listHtml += `<div class="trade-history-side-label" style="display:flex;align-items:center;gap:6px;">`;
+        listHtml += `<span>${side.team}</span>`;
+        listHtml += `<span style="font-size:0.72rem;font-weight:800;color:${grade.color};">${grade.grade}</span>`;
+        listHtml += `<span style="font-size:0.52rem;color:var(--subtext);font-weight:400;">${grade.label}</span>`;
         listHtml += `</div>`;
 
-        listHtml += `<div style="flex:1;">`;
-        listHtml += `<div style="font-size:0.68rem;color:var(--subtext);margin-bottom:2px;">Received:</div>`;
-        listHtml += `<div style="display:flex;flex-wrap:wrap;gap:4px;">`;
+        listHtml += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px;">`;
         for (const item of side.items) {
           const posC = item.isPick ? 'var(--amber)' :
             ({'QB':'#e74c3c','RB':'#27ae60','WR':'#3498db','TE':'#e67e22'}[item.pos] || '#9b59b6');
           const posLabel = item.isPick ? 'PICK' : item.pos;
-          listHtml += `<span style="font-size:0.66rem;padding:2px 6px;border:1px solid var(--border);border-radius:4px;">`;
+          listHtml += `<span style="font-size:0.66rem;padding:2px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg-soft);">`;
           listHtml += `<span style="color:${posC};font-weight:700;font-size:0.58rem;">${posLabel}</span> `;
           listHtml += `${item.name} <span style="font-family:var(--mono);color:var(--subtext);">${item.val.toLocaleString()}</span>`;
           listHtml += `</span>`;
         }
         listHtml += `</div>`;
-        listHtml += `<div style="font-family:var(--mono);font-size:0.66rem;margin-top:3px;">Linear: ${Math.round(side.linear).toLocaleString()} · Stud-adj: ${Math.round(side.weighted).toLocaleString()}</div>`;
-        listHtml += `</div>`;
+        listHtml += `<div style="font-family:var(--mono);font-size:0.62rem;color:var(--subtext);">Total: ${Math.round(side.weighted).toLocaleString()}</div>`;
         listHtml += `</div>`;
       }
+      listHtml += `</div>`;
 
-      if (a.pctGap >= 3) {
-        listHtml += `<div style="font-size:0.66rem;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);color:var(--subtext);">`;
-        listHtml += `${a.winner.team} won by ${a.pctGap.toFixed(1)}% (stud-adjusted)`;
-        listHtml += `</div>`;
-      } else {
-        listHtml += `<div style="font-size:0.66rem;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);color:var(--green);font-weight:600;">Fair trade (within 3%)</div>`;
-      }
       listHtml += `<div style="margin-top:8px;display:flex;justify-content:flex-end;">`;
       listHtml += `<button class="mobile-chip-btn primary" onclick="openHistoricalTradeInBuilder(${idx})">Open Builder</button>`;
       listHtml += `</div>`;
@@ -512,18 +515,27 @@
     }
 
     // ── Render ──
-    // Checkboxes
-    let html = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center;">';
-    html += '<span style="font-size:0.68rem;color:var(--subtext);font-weight:600;">Show:</span>';
+    // Section header
+    let html = '<div class="section-head">';
+    html += '<span class="section-head-title">Power Rankings</span>';
+    const lensLabel = valueMode === 'full' ? 'Players + Picks' : valueMode === 'players' ? 'Players only' : 'Starters only';
+    html += `<span class="section-head-badge">${lensLabel}</span>`;
+    html += '</div>';
+
+    // Position filter bar
+    html += '<div class="filter-bar">';
+    html += '<span style="font-weight:600;color:var(--subtext);">Positions:</span>';
+    const offGroups = ['QB','RB','WR','TE','PICKS'];
+    const defGroups = ['DL','LB','DB'];
     ALL_GROUPS.forEach(g => {
       const checked = activeGroups.has(g) ? 'checked' : '';
       const color = POS_GROUP_COLORS[g] || 'var(--subtext)';
+      const sep = g === 'DL' ? '<span style="width:1px;height:16px;background:var(--border);margin:0 2px;"></span>' : '';
+      html += sep;
       html += `<label style="display:flex;align-items:center;gap:3px;font-size:0.68rem;cursor:pointer;">`;
       html += `<input type="checkbox" id="rosterFilter_${g}" ${checked} onchange="buildRosterDashboard()" style="width:13px;height:13px;accent-color:${color};">`;
       html += `<span style="color:${color};font-weight:700;">${g}</span></label>`;
     });
-    const lensLabel = valueMode === 'full' ? 'Players + Picks' : valueMode === 'players' ? 'Players only' : 'Starters only';
-    html += `<span style="margin-left:auto;font-size:0.66rem;color:var(--subtext);font-family:var(--mono);">Lens: ${lensLabel}</span>`;
     html += '</div>';
 
     // Legend
@@ -598,11 +610,10 @@
 
     let targetsHtml = '';
 
-    // Summary
-    targetsHtml += '<div style="font-size:0.75rem;color:var(--subtext);margin-bottom:14px;">';
-    targetsHtml += `<strong>${myTeamName}</strong> — `;
-    targetsHtml += `Strongest: <span style="color:${POS_GROUP_COLORS[strongest[0]]};font-weight:600">${strongest[0]}</span> (${(myStrengths[strongest[0]]*100).toFixed(0)}% of avg) · `;
-    targetsHtml += `Weakest: <span style="color:${POS_GROUP_COLORS[weakest[0]]};font-weight:600">${weakest[0]}</span> (${(myStrengths[weakest[0]]*100).toFixed(0)}% of avg)`;
+    // Summary — stronger visual treatment for strength/weakness
+    targetsHtml += '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">';
+    targetsHtml += `<span class="stat-pill stat-pill-green"><span class="stat-pill-label">Strongest</span> <span class="stat-pill-val" style="color:${POS_GROUP_COLORS[strongest[0]]}">${strongest[0]} (${(myStrengths[strongest[0]]*100).toFixed(0)}%)</span></span>`;
+    targetsHtml += `<span class="stat-pill stat-pill-red"><span class="stat-pill-label">Weakest</span> <span class="stat-pill-val" style="color:${POS_GROUP_COLORS[weakest[0]]}">${weakest[0]} (${(myStrengths[weakest[0]]*100).toFixed(0)}%)</span></span>`;
     targetsHtml += '</div>';
 
     // Find trade targets at our two weakest positions from teams that are strong there

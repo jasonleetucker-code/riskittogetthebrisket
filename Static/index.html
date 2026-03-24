@@ -280,7 +280,7 @@
       content: '';
       position: absolute;
       top: 0; left: 0; right: 0;
-      height: 1px;
+      height: 3px;
     }
 
     .result-tile-a::before { background: linear-gradient(90deg, transparent, var(--red), transparent); }
@@ -1091,6 +1091,216 @@
       .finder-card-sides { grid-template-columns:1fr; gap:8px; }
       .finder-card-header { gap:4px; }
       .finder-card { padding:10px 10px; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       UI POLISH PASS — Hierarchy, Scanability, Mobile, Trust
+       ═══════════════════════════════════════════════════════════════════ */
+
+    /* ── Shared: Section Header ── */
+    .section-head {
+      display:flex; align-items:center; gap:10px; margin-bottom:14px;
+      padding-bottom:10px; border-bottom:1px solid var(--border);
+    }
+    .section-head-title {
+      font-family:var(--display); font-size:0.92rem; font-weight:700;
+      color:var(--text); letter-spacing:-0.01em;
+    }
+    .section-head-sub {
+      font-family:var(--mono); font-size:0.62rem; color:var(--subtext);
+      letter-spacing:0.04em;
+    }
+    .section-head-badge {
+      display:inline-flex; align-items:center; gap:4px;
+      font-family:var(--mono); font-size:0.58rem; font-weight:600;
+      padding:2px 8px; border-radius:4px;
+      background:var(--cyan-soft); color:var(--cyan); border:1px solid var(--cyan-border);
+    }
+
+    /* ── Shared: Filter Bar ── */
+    .filter-bar {
+      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+      padding:8px 12px; background:var(--bg-soft); border:1px solid var(--border-dim);
+      border-radius:var(--radius-sm); margin-bottom:12px; font-size:0.72rem;
+    }
+    .filter-bar label { font-family:var(--mono); font-size:0.65rem; color:var(--subtext); }
+    .filter-bar select, .filter-bar input[type="text"] {
+      font-size:0.70rem; padding:3px 8px; background:var(--bg-card); border:1px solid var(--border);
+      border-radius:4px; color:var(--text); font-family:var(--mono);
+    }
+    .filter-bar .filter-active-hint {
+      font-family:var(--mono); font-size:0.58rem; padding:2px 6px;
+      background:var(--amber-soft, rgba(172,122,41,0.1)); color:var(--amber);
+      border-radius:3px; font-weight:600;
+    }
+
+    /* ── Shared: Stat Pill ── */
+    .stat-pill {
+      display:inline-flex; align-items:center; gap:4px;
+      font-family:var(--mono); font-size:0.62rem; padding:3px 8px;
+      border-radius:4px; background:var(--bg-soft); border:1px solid var(--border-dim);
+    }
+    .stat-pill-val { font-weight:700; color:var(--text); }
+    .stat-pill-label { color:var(--subtext); }
+    .stat-pill-green .stat-pill-val { color:var(--green); }
+    .stat-pill-red .stat-pill-val { color:var(--red); }
+    .stat-pill-amber .stat-pill-val { color:var(--amber); }
+
+    /* ── Shared: Warning Banner ── */
+    .warning-banner {
+      display:flex; align-items:flex-start; gap:8px;
+      padding:10px 14px; border-radius:var(--radius-sm);
+      background:rgba(172,122,41,0.08); border:1px solid rgba(172,122,41,0.2);
+      font-family:var(--mono); font-size:0.68rem; color:var(--amber);
+      line-height:1.5; margin-bottom:10px;
+    }
+    .warning-banner-icon { flex-shrink:0; font-size:0.8rem; }
+
+    /* ── Global: Tabs tighter active state ── */
+    .tab-btn.active {
+      border-bottom-width:3px;
+      font-weight:700;
+    }
+
+    /* ── Global: Quick-use card refinement ── */
+    .card.quick-use {
+      padding:14px 16px;
+      margin-bottom:16px;
+      border-left:3px solid var(--cyan-border);
+    }
+    .card.quick-use strong {
+      font-family:var(--display); font-size:0.82rem; color:var(--text);
+    }
+
+    /* ── Global: Table improvements ── */
+    thead th {
+      position:sticky; top:0; z-index:4;
+      background:var(--bg-soft);
+    }
+    tbody tr:nth-child(even) td { background:rgba(24,35,53,0.015); }
+    tbody tr:nth-child(even):hover td { background:rgba(200,56,3,0.04); }
+
+    /* ── Rankings: Better tier breaks ── */
+    .tier-separator td {
+      padding:4px 12px !important;
+      border-bottom:2px solid var(--cyan-border) !important;
+      background:linear-gradient(90deg, var(--cyan-soft), var(--bg-soft) 60%) !important;
+    }
+    .tier-label {
+      font-size:0.60rem;
+      display:inline-flex; align-items:center; gap:6px;
+    }
+
+    /* ── Rankings: Value bar refinement ── */
+    .ranking-value-bar {
+      height:4px; border-radius:2px; background:var(--bg-raised);
+      overflow:hidden; margin-top:2px;
+    }
+    .ranking-value-bar-fill {
+      height:100%; border-radius:2px; transition:width 0.3s ease;
+    }
+
+    /* ── Rankings: Position badge refinement ── */
+    .pos-badge-inline {
+      display:inline-block; padding:1px 6px; border-radius:3px;
+      font-family:var(--mono); font-size:0.58rem; font-weight:700;
+      letter-spacing:0.04em; line-height:1.4;
+    }
+
+    /* ── Edge: Summary card polish ── */
+    .edge-summary-card {
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:var(--radius-sm); padding:12px 14px; margin-bottom:8px;
+    }
+    .edge-summary-card h4 {
+      font-family:var(--mono); font-size:0.60rem; font-weight:600;
+      text-transform:uppercase; letter-spacing:0.1em; color:var(--subtext);
+      margin-bottom:8px;
+    }
+    .edge-summary-item {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:3px 0; font-size:0.72rem;
+    }
+    .edge-summary-item-name { font-weight:600; color:var(--text); }
+    .edge-summary-item-val { font-family:var(--mono); font-weight:600; }
+    .edge-summary-buy .edge-summary-item-val { color:var(--green); }
+    .edge-summary-sell .edge-summary-item-val { color:var(--red); }
+
+    /* ── Edge: Table header stickiness ── */
+    .edge-table thead th {
+      position:sticky; top:0; z-index:5;
+      background:var(--bg-soft); backdrop-filter:blur(4px);
+    }
+
+    /* ── Roster Dashboard: Sub-section cards ── */
+    .roster-sub-card {
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:var(--radius); padding:14px 16px;
+      margin-bottom:12px;
+    }
+    .roster-sub-card .section-head { margin-bottom:10px; padding-bottom:8px; }
+
+    /* ── Trade Builder: Verdict emphasis ── */
+    .verdict-block {
+      text-align:center; padding:16px; margin:12px 0;
+      background:var(--bg-soft); border:1px solid var(--border);
+      border-radius:var(--radius); position:relative;
+    }
+    .verdict-label {
+      font-family:var(--display); font-size:1.1rem; font-weight:800;
+      color:var(--text); margin-bottom:4px;
+    }
+    .verdict-detail {
+      font-family:var(--mono); font-size:0.70rem; color:var(--subtext);
+    }
+
+    /* ── Trade History: Card separation ── */
+    .trade-history-card {
+      background:var(--bg-card); border:1px solid var(--border);
+      border-radius:var(--radius-sm); padding:12px 14px;
+      margin-bottom:10px; transition:border-color 0.15s;
+    }
+    .trade-history-card:hover { border-color:var(--border-bright); }
+    .trade-history-card-header {
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:8px; font-size:0.68rem; color:var(--subtext);
+    }
+    .trade-history-sides {
+      display:grid; grid-template-columns:1fr 1fr; gap:10px;
+    }
+    .trade-history-side { font-size:0.72rem; }
+    .trade-history-side-label {
+      font-family:var(--mono); font-size:0.56rem; font-weight:700;
+      text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;
+    }
+    .trade-history-winner { border-left:3px solid var(--green); }
+    .trade-history-loser { border-left:3px solid var(--red); }
+    .trade-history-fair { border-left:3px solid var(--border); }
+
+    /* ── Trade Finder: Card refinements ── */
+    .finder-card-summary {
+      font-size:0.72rem; color:var(--subtext); line-height:1.5;
+    }
+    .finder-card-top3 .finder-card-summary {
+      color:var(--text);
+    }
+
+    /* ── Mobile refinements ── */
+    @media (max-width: 768px) {
+      .section-head { flex-wrap:wrap; gap:6px; }
+      .section-head-title { font-size:0.84rem; }
+      .filter-bar { padding:6px 10px; gap:6px; }
+      .trade-history-sides { grid-template-columns:1fr; gap:6px; }
+      .stat-pill { font-size:0.58rem; padding:2px 6px; }
+      .verdict-label { font-size:0.95rem; }
+      .roster-name { width:110px; }
+      .roster-bar-wrap { min-width:80px; }
+    }
+
+    @media (max-width: 420px) {
+      .card.quick-use { padding:10px 12px; border-left-width:2px; }
+      .filter-bar { flex-direction:column; align-items:stretch; }
+      .section-head-title { font-size:0.78rem; }
     }
 
     /* [NEW] ── TRADE SUGGESTION ── */
@@ -3268,8 +3478,8 @@
             </span>
             <span class="rv" id="valueAdjustment">–</span>
           </div>
-          <div class="result-row" style="padding:10px 0;">
-            <span class="rl">Verdict</span>
+          <div class="result-row" style="padding:12px 0;margin-top:4px;border-top:2px solid var(--border);">
+            <span class="rl" style="font-weight:700;font-size:0.85rem;color:var(--text);">Verdict</span>
             <span class="rv"><span class="decision-pill neutral" id="decision">–</span></span>
           </div>
         </div>

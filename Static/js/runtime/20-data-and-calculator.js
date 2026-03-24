@@ -4246,15 +4246,19 @@
         CB:'#16a085',S:'#16a085',DB:'#16a085',PICK:'#f39c12',
       };
       const renderList = (list, isBuy) => {
-        if (!list.length) return '<span style="color:var(--subtext);font-size:0.68rem;">None found</span>';
+        if (!list.length) return '<span style="color:var(--subtext);font-size:0.68rem;">None on your roster</span>';
         return list.map(p => {
           const posC = POS_C[(p.pos||'').toUpperCase()] || 'var(--subtext)';
           const sign = isBuy ? '+' : '';
           const edgeVal = Math.round(Number(p.valueEdge || 0));
-          return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid var(--border-dim);">
-            <span style="color:${posC};font-family:var(--mono);font-size:0.6rem;font-weight:700;width:28px;">${p.pos}</span>
-            <span style="flex:1;font-weight:600;">${p.name}</span>
-            <span style="font-family:var(--mono);color:${isBuy?'var(--green)':'var(--red)'};font-size:0.7rem;">${sign}${edgeVal.toLocaleString()}</span>
+          const edgePct = Number(p.edgePct || 0);
+          const pctStr = `${edgePct > 0 ? '+' : ''}${edgePct.toFixed(0)}%`;
+          return `<div class="edge-summary-item ${isBuy ? 'edge-summary-buy' : 'edge-summary-sell'}">
+            <span style="display:flex;align-items:center;gap:5px;">
+              <span style="color:${posC};font-family:var(--mono);font-size:0.58rem;font-weight:700;width:26px;">${p.pos}</span>
+              <span class="edge-summary-item-name">${p.name}</span>
+            </span>
+            <span class="edge-summary-item-val">${sign}${edgeVal.toLocaleString()} <span style="font-size:0.60rem;opacity:0.7;">(${pctStr})</span></span>
           </div>`;
         }).join('');
       };
