@@ -119,11 +119,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Trigger the deploy workflow if data was updated
+          set -Eeuo pipefail
           if git log -1 --pretty=%B | grep -q "automated data refresh"; then
-            echo "Data updated — deploy will trigger automatically via push to main"
+            echo "Data updated, dispatching deploy workflow explicitly"
+            gh workflow run deploy.yml --ref main
           else
-            echo "No data changes — skipping deploy trigger"
+            echo "No data changes, skipping deploy trigger"
           fi
 
       - name: Report freshness
