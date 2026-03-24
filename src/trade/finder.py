@@ -29,6 +29,11 @@ JUNK_THRESHOLD = 400           # Assets below this are roster clog
 SINGLE_SOURCE_DISCOUNT = 0.88  # Match frontend: 12% haircut for single-source assets
 MULTI_FOR_ONE_MIN_RATIO = 0.55 # 2-for-1 give side must be >= 55% of receive model value
 
+# ── KTC quality gates ──────────────────────────────────────────────────
+EXCLUDED_POSITIONS = {"K", "PK", "DST", "DEF"}   # No real KTC support
+PARTIAL_KTC_MAX_RANK = 15      # Partial-KTC trades cannot appear above this rank
+PARTIAL_KTC_ARBITRAGE_CAP = 8.0  # Hard ceiling on partial-KTC arbitrage score
+
 # ── Hardening-pass thresholds ────────────────────────────────────────────
 ELITE_THRESHOLD = 7500         # Model value above which a player is "elite"
 ELITE_MULTI_MIN_RATIO = 0.65   # Tighter ratio for elite targets in multi-for-one
@@ -155,10 +160,14 @@ def _build_summary(
 ) -> str:
     parts = [
         f"{edge_label}: you gain {board_delta:,} board value (+{board_gain_pct:.0%})",
-        _opp_appeal_phrase(opp_appeal),
     ]
-    if coverage == "partial":
-        parts.append("partial KTC coverage")
+    # Only claim KTC opponent appeal when coverage is full
+    if coverage == "full":
+        parts.append(_opp_appeal_phrase(opp_appeal))
+    elif coverage == "partial":
+        parts.append("partial KTC — opponent view estimated only")
+    else:
+        parts.append("no KTC data — opponent view unavailable")
     parts.append(f"{confidence_tier} confidence")
     return ". ".join(parts) + f". ({pkg_size_str})"
 
@@ -210,6 +219,10 @@ def build_asset_pool(
         )
         if is_pick:
             pos = "PICK"
+
+        # Exclude positions without meaningful KTC support
+        if pos in EXCLUDED_POSITIONS:
+            continue
 
         pool.append(Asset(
             name=name,
@@ -275,6 +288,21 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     # a no-KTC player for an elite return is nonsense.
     for a in give:
         if not a.has_ktc or a.ktc_value < MIN_KTC_VALUE:  # type: ignore[operator]
+            return None
+
+    # ── Receive-side KTC gate ─────────────────────────────────────────
+    # At least one receive asset must have KTC so the opponent-appeal
+    # calculation is grounded in real market data.
+    recv_ktc_count = sum(1 for a in receive if a.has_ktc)
+    if recv_ktc_count == 0:
+        return None
+
+    # ── IDP dilution guard ────────────────────────────────────────────
+    # IDP assets without KTC must not constitute the majority of either
+    # side — they distort the KTC-based opponent appeal calculation.
+    for side, label in [(give, "give"), (receive, "receive")]:
+        idp_no_ktc = [a for a in side if a.position in IDP_POSITIONS and not a.has_ktc]
+        if len(idp_no_ktc) > 0 and len(idp_no_ktc) >= len(side) / 2:
             return None
 
     give_model = sum(a.model_value for a in give)
@@ -359,9 +387,10 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     if opp_appeal < 0:
         f_ktc_penalty = opp_appeal * 20
         arbitrage += f_ktc_penalty
-    # Partial coverage means we can't fully verify plausibility — demote
+    # Partial coverage: severe demotion — these cannot compete with full-KTC trades
     if coverage == "partial":
-        arbitrage *= 0.5
+        arbitrage *= 0.3
+        arbitrage = min(arbitrage, PARTIAL_KTC_ARBITRAGE_CAP)
 
     # ── Confidence factor (source coverage × KTC coverage) ───────────
     all_assets = give + receive
@@ -609,6 +638,19 @@ def find_trades(
 
     # Keep only positive-arbitrage trades with positive board delta
     ranked = [t for t in all_trades if t.arbitrage_score > 0 and t.board_delta > 0]
+
+    # ── Enforce full-KTC priority in top results ─────────────────────
+    # Partial-KTC trades are pushed below PARTIAL_KTC_MAX_RANK so
+    # premium recommendation slots are reserved for trustworthy trades.
+    full_ktc = [t for t in ranked if t.ktc_coverage == "full"]
+    partial_ktc = [t for t in ranked if t.ktc_coverage != "full"]
+    if len(full_ktc) >= PARTIAL_KTC_MAX_RANK:
+        # Enough full-KTC trades to fill top slots — append partials after
+        ranked = full_ktc + partial_ktc
+    else:
+        # Not enough full-KTC — partials fill remaining slots after the full ones
+        ranked = full_ktc + partial_ktc
+
     capped = ranked[:max_results]
 
     return {

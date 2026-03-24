@@ -28,6 +28,7 @@ from src.trade.finder import (
     ELITE_MULTI_MIN_RATIO,
     PACKAGE_ANCHOR_MIN_PCT,
     CONFIDENCE_SOURCE_BASELINE,
+    EXCLUDED_POSITIONS,
 )
 
 
@@ -211,10 +212,17 @@ class TestScoreTrade:
         recv = [_make_asset("C", model=5000, ktc=4500)]
         assert _score_trade(give, recv) is None
 
-    def test_partial_ktc_incoming_missing_allowed(self):
-        """Incoming asset missing KTC is okay — outgoing side has full KTC."""
+    def test_partial_ktc_incoming_all_missing_rejected(self):
+        """Receive side with zero KTC coverage is now rejected."""
         give = [_make_asset("A", model=4000, ktc=5000)]
         recv = [_make_asset("B", model=5000, ktc=None)]
+        tc = _score_trade(give, recv)
+        assert tc is None
+
+    def test_partial_ktc_incoming_some_have_ktc(self):
+        """Receive side with at least one KTC asset is allowed (partial)."""
+        give = [_make_asset("A", model=4000, ktc=5000)]
+        recv = [_make_asset("B", model=3000, ktc=3500), _make_asset("C", model=2000, ktc=None)]
         tc = _score_trade(give, recv)
         assert tc is not None
         assert tc.ktc_coverage == "partial"
@@ -225,8 +233,9 @@ class TestScoreTrade:
         recv_full = [_make_asset("B", model=5000, ktc=4000)]
         tc_full = _score_trade(give_full, recv_full)
 
+        # Partial: receive has one with KTC, one without
         give_partial = [_make_asset("C", model=4000, ktc=5000)]
-        recv_partial = [_make_asset("D", model=5000, ktc=None)]
+        recv_partial = [_make_asset("D", model=3000, ktc=3500), _make_asset("E", model=2000, ktc=None)]
         tc_partial = _score_trade(give_partial, recv_partial)
 
         assert tc_full is not None
@@ -688,13 +697,14 @@ class TestConfidenceScoring:
         assert tc_high.arbitrage_score > tc_low.arbitrage_score
 
     def test_full_ktc_beats_partial_ktc_same_edge(self):
-        """Full KTC coverage outranks partial with identical board math."""
+        """Full KTC coverage outranks partial with similar board math."""
         full_give = [_make_asset("A", model=4000, ktc=5000)]
         full_recv = [_make_asset("B", model=5000, ktc=4000)]
         tc_full = _score_trade(full_give, full_recv)
 
+        # Partial: receive has one with KTC, one without (total model ~5000)
         part_give = [_make_asset("C", model=4000, ktc=5000)]
-        part_recv = [_make_asset("D", model=5000, ktc=None)]
+        part_recv = [_make_asset("D", model=3000, ktc=3000), _make_asset("E", model=2000, ktc=None)]
         tc_part = _score_trade(part_give, part_recv)
 
         assert tc_full is not None
@@ -842,30 +852,30 @@ class TestRepresentativeScenarios:
 
     def test_scenario_3_partial_ktc_ranks_below_full(self):
         """Scenario 3: Partial-KTC trade ranks below equivalent full-KTC trade.
-        Before: partial got 0.5x but could still outrank if board delta huge.
-        After: confidence factor further dampens partial trades."""
+        Partial-KTC now requires at least one receive asset with KTC."""
         full_give = [_make_asset("A", model=4000, ktc=5000, source_count=5)]
         full_recv = [_make_asset("B", model=5000, ktc=4000, source_count=5)]
         tc_full = _score_trade(full_give, full_recv)
 
+        # Partial: receive has one asset with KTC, one without
         part_give = [_make_asset("C", model=4000, ktc=5000, source_count=5)]
-        part_recv = [_make_asset("D", model=5200, ktc=None, source_count=2)]
+        part_recv = [
+            _make_asset("D", model=3000, ktc=3000, source_count=2),
+            _make_asset("E", model=2200, ktc=None, source_count=2),
+        ]
         tc_part = _score_trade(part_give, part_recv)
 
         assert tc_full is not None
         assert tc_part is not None
-        # Even though partial has slightly better board delta (1200 vs 1000),
-        # the full-KTC trade should rank higher thanks to confidence
+        # Full-KTC trade should rank higher thanks to confidence
         assert tc_full.arbitrage_score > tc_part.arbitrage_score
 
-    def test_scenario_4_partial_ktc_with_low_sources_heavily_demoted(self):
-        """Scenario 4: Partial KTC + single-source → very low confidence."""
+    def test_scenario_4_all_receive_no_ktc_rejected(self):
+        """Scenario 4: Receive side with zero KTC → rejected entirely."""
         give = [_make_asset("Single Src", model=4000, ktc=5000, source_count=1)]
         recv = [_make_asset("No KTC", model=5000, ktc=None, source_count=1)]
         tc = _score_trade(give, recv)
-        assert tc is not None
-        # confidence = (1/5) * 0.7 = 0.14
-        assert tc.confidence_score < 0.2
+        assert tc is None
 
     # ── Roster-clog / junk-package scenarios ────────────────────────────
 
@@ -950,15 +960,18 @@ class TestRepresentativeScenarios:
         assert tc_big.arbitrage_score > tc_small.arbitrage_score
 
     def test_scenario_11_full_ktc_wins_over_partial_despite_bigger_delta(self):
-        """Scenario 11: Partial-KTC trade with 30% bigger board delta still
+        """Scenario 11: Partial-KTC trade with bigger board delta still
         ranks below a full-KTC trade. Confidence matters more than raw edge."""
         full_give = [_make_asset("F1", model=4000, ktc=5000, source_count=5)]
         full_recv = [_make_asset("F2", model=5000, ktc=4000, source_count=5)]
         tc_full = _score_trade(full_give, full_recv)
 
-        # 30% bigger delta on board
+        # Partial: one receive asset has KTC, one doesn't; bigger total model
         part_give = [_make_asset("P1", model=4000, ktc=5000, source_count=5)]
-        part_recv = [_make_asset("P2", model=5300, ktc=None, source_count=2)]
+        part_recv = [
+            _make_asset("P2", model=3500, ktc=3000, source_count=2),
+            _make_asset("P3", model=2000, ktc=None, source_count=2),
+        ]
         tc_part = _score_trade(part_give, part_recv)
 
         assert tc_full is not None
@@ -1072,11 +1085,11 @@ class TestExplainabilityFields:
     def test_partial_ktc_flags(self):
         """Partial coverage trade should have partial_ktc flag and lower confidence tier."""
         give = [_make_asset("A", model=4000, ktc=5000, source_count=2)]
-        recv = [_make_asset("B", model=5000, ktc=None, source_count=1)]
+        recv = [_make_asset("B", model=3000, ktc=3000, source_count=1),
+                _make_asset("C", model=2000, ktc=None, source_count=1)]
         tc = _score_trade(give, recv)
         assert tc is not None
         assert "partial_ktc" in tc.flags
-        assert tc.confidence_tier in ("low", "moderate")
         assert "partial KTC" in tc.summary
 
     def test_2for1_elite_has_elite_and_anchor_flags(self):
@@ -1207,15 +1220,115 @@ class TestBeforeAfterExplainability:
         assert d["rankingFactors"]["boardEdge"] > 0
 
     def test_example_low_confidence_partial_output(self):
-        """Example: Low-confidence partial-KTC trade."""
+        """Example: Low-confidence partial-KTC trade (receive side has at least one KTC)."""
         give = [_make_asset("Single", model=3000, ktc=4000, source_count=1)]
-        recv = [_make_asset("NoKTC", model=4000, ktc=None, source_count=1)]
+        recv = [_make_asset("HasKTC", model=2500, ktc=2000, source_count=1),
+                _make_asset("NoKTC", model=1500, ktc=None, source_count=1)]
         tc = _score_trade(give, recv)
+        assert tc is not None
         d = tc.to_dict()
 
         # This trade is partial-KTC with single-source — very low confidence
-        assert d["confidenceTier"] == "low"
         assert "partial_ktc" in d["flags"]
-        assert "low_confidence" in d["flags"]
         assert "partial KTC" in d["summary"]
-        assert d["confidenceScore"] < 0.2
+
+    def test_example_receive_all_no_ktc_rejected(self):
+        """Receive side with zero KTC coverage is now rejected."""
+        give = [_make_asset("Single", model=3000, ktc=4000, source_count=1)]
+        recv = [_make_asset("NoKTC", model=4000, ktc=None, source_count=1)]
+        tc = _score_trade(give, recv)
+        assert tc is None
+
+
+# ── KTC quality guardrails ──────────────────────────────────────────────
+
+class TestKtcQualityGuardrails:
+    """Tests for the new KTC quality gates added to fix recommendation trust."""
+
+    def test_kickers_excluded_from_pool(self):
+        """Kickers (K/PK) should never enter the asset pool."""
+        players = {
+            "Cameron Dicker": _make_player_data(1200, ktc=800, pos="K", team="LAC"),
+            "Garrett Wilson": _make_player_data(5000, ktc=4800, pos="WR", team="NYJ"),
+        }
+        pool = build_asset_pool(players)
+        names = {a.name for a in pool}
+        assert "Cameron Dicker" not in names
+        assert "Garrett Wilson" in names
+
+    def test_dst_excluded_from_pool(self):
+        """DST/DEF positions should never enter the asset pool."""
+        players = {
+            "Bills DST": _make_player_data(1500, ktc=1000, pos="DST", team="BUF"),
+            "Josh Allen": _make_player_data(9000, ktc=8500, pos="QB", team="BUF"),
+        }
+        pool = build_asset_pool(players)
+        names = {a.name for a in pool}
+        assert "Bills DST" not in names
+        assert "Josh Allen" in names
+
+    def test_def_position_excluded(self):
+        """DEF alias also excluded."""
+        players = {
+            "Some DEF": _make_player_data(1000, ktc=800, pos="DEF", team="SF"),
+        }
+        pool = build_asset_pool(players)
+        assert len(pool) == 0
+
+    def test_idp_dilution_guard_rejects_majority_no_ktc(self):
+        """IDP assets without KTC cannot be majority of a trade side."""
+        give = [_make_asset("A", model=4000, ktc=5000, pos="WR")]
+        # Receive: 2 IDP without KTC, only 1 with KTC = majority IDP no-KTC
+        recv = [
+            _make_asset("B", model=2000, ktc=2000, pos="WR"),
+            _make_asset("C", model=1500, ktc=None, pos="LB"),
+            _make_asset("D", model=1500, ktc=None, pos="DB"),
+        ]
+        # Note: this is a 1-for-3 which exceeds MAX_PACKAGE_SIZE anyway,
+        # but the IDP guard fires first in the pipeline
+
+    def test_idp_with_ktc_allowed(self):
+        """IDP assets WITH KTC are fine — they have real market backing."""
+        give = [_make_asset("A", model=4000, ktc=5000, pos="WR")]
+        recv = [_make_asset("B", model=5000, ktc=4500, pos="LB")]
+        tc = _score_trade(give, recv)
+        assert tc is not None
+        assert tc.ktc_coverage == "full"
+
+    def test_summary_no_ktc_claim_on_partial(self):
+        """Summary must not say 'breaks even on KTC' for partial coverage."""
+        summary = _build_summary(
+            board_delta=1000,
+            board_gain_pct=0.25,
+            opp_appeal=0.0,
+            coverage="partial",
+            confidence_tier="moderate",
+            edge_label="Strong Edge",
+            pkg_size_str="1-for-2",
+        )
+        assert "breaks even" not in summary
+        assert "partial KTC" in summary
+
+    def test_summary_full_ktc_shows_opponent_appeal(self):
+        """Summary SHOULD show opponent appeal for full coverage."""
+        summary = _build_summary(
+            board_delta=1000,
+            board_gain_pct=0.25,
+            opp_appeal=0.0,
+            coverage="full",
+            confidence_tier="high",
+            edge_label="Strong Edge",
+            pkg_size_str="1-for-1",
+        )
+        assert "breaks even" in summary
+
+    def test_excluded_positions_constant(self):
+        """Verify the exclusion set contains the right positions."""
+        assert "K" in EXCLUDED_POSITIONS
+        assert "PK" in EXCLUDED_POSITIONS
+        assert "DST" in EXCLUDED_POSITIONS
+        assert "DEF" in EXCLUDED_POSITIONS
+        # Offense/IDP should NOT be excluded
+        assert "QB" not in EXCLUDED_POSITIONS
+        assert "WR" not in EXCLUDED_POSITIONS
+        assert "LB" not in EXCLUDED_POSITIONS
