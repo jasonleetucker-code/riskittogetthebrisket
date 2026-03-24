@@ -1017,6 +1017,82 @@
     .finder-badge-fair { background:rgba(255,193,7,0.15);color:var(--amber); }
     .finder-badge-partial { background:rgba(255,255,255,0.08);color:var(--subtext); }
 
+    /* ── Trade Finder cards ── */
+    .finder-cards { display:flex; flex-direction:column; gap:10px; }
+    .finder-card {
+      background: var(--bg-card); border:1px solid var(--border); border-radius:8px;
+      padding:12px 14px; font-family:var(--mono); position:relative;
+      transition: border-color 0.15s;
+    }
+    .finder-card:hover { border-color: var(--accent, #60a5fa); }
+    .finder-card-top3 { border-left: 3px solid var(--green, #4ecdc4); }
+    .finder-card-header {
+      display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:6px;
+    }
+    .finder-card-header .finder-edge-badge {
+      font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:4px;
+    }
+    .finder-edge-strong { background:rgba(78,205,196,0.18); color:var(--green); }
+    .finder-edge-moderate { background:rgba(255,193,7,0.15); color:var(--amber); }
+    .finder-edge-slight { background:rgba(255,255,255,0.08); color:var(--subtext); }
+    .finder-conf-badge {
+      font-size:0.60rem; font-weight:600; padding:2px 6px; border-radius:3px;
+    }
+    .finder-conf-high { background:rgba(78,205,196,0.12); color:var(--green); }
+    .finder-conf-moderate { background:rgba(255,193,7,0.12); color:var(--amber); }
+    .finder-conf-low { background:rgba(255,255,255,0.06); color:var(--subtext); }
+    .finder-card-summary {
+      font-size:0.70rem; color:var(--text); line-height:1.45; margin-bottom:8px;
+    }
+    .finder-card-sides {
+      display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:6px;
+    }
+    .finder-card-side { font-size:0.68rem; }
+    .finder-card-side-label {
+      font-size:0.58rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;
+      margin-bottom:3px; color:var(--subtext);
+    }
+    .finder-card-side-give .finder-card-side-label { color: var(--red, #ff6b6b); }
+    .finder-card-side-recv .finder-card-side-label { color: var(--green, #4ecdc4); }
+    .finder-card-player {
+      display:flex; justify-content:space-between; gap:4px; padding:1px 0;
+    }
+    .finder-card-player-name { color: var(--text); }
+    .finder-card-player-val { color: var(--subtext); font-size:0.62rem; }
+    .finder-card-stats {
+      display:flex; flex-wrap:wrap; gap:8px; font-size:0.62rem; color:var(--subtext);
+      padding-top:6px; border-top:1px solid var(--border-subtle, rgba(255,255,255,0.05));
+    }
+    .finder-card-stat-val { font-weight:600; color:var(--text); }
+    .finder-card-flags {
+      display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;
+    }
+    .finder-card-flag {
+      font-size:0.56rem; padding:1px 5px; border-radius:3px;
+      background:rgba(255,255,255,0.06); color:var(--subtext);
+    }
+    .finder-card-details {
+      display:none; margin-top:8px; padding-top:8px;
+      border-top:1px solid var(--border-subtle, rgba(255,255,255,0.05));
+      font-size:0.62rem; color:var(--subtext);
+    }
+    .finder-card-details.open { display:block; }
+    .finder-detail-toggle {
+      font-size:0.60rem; color:var(--accent, #60a5fa); cursor:pointer;
+      background:none; border:none; padding:0; margin-top:4px;
+      font-family:var(--mono);
+    }
+    .finder-detail-toggle:hover { text-decoration:underline; }
+    .finder-detail-grid {
+      display:grid; grid-template-columns:1fr 1fr; gap:2px 12px;
+    }
+    .finder-card-rank { position:absolute; top:10px; right:12px; font-size:0.58rem; color:var(--subtext); }
+    @media (max-width: 600px) {
+      .finder-card-sides { grid-template-columns:1fr; gap:8px; }
+      .finder-card-header { gap:4px; }
+      .finder-card { padding:10px 10px; }
+    }
+
     /* [NEW] ── TRADE SUGGESTION ── */
     .trade-suggestion {
       font-family: var(--mono);
@@ -3704,7 +3780,8 @@
           <div id="finderSummaryText" style="font-size:0.75rem;color:var(--subtext);margin-bottom:8px;"></div>
         </div>
         <div id="finderResultsWrap" style="display:none;">
-          <div id="finderDesktopTableWrap">
+          <div id="finderCardsWrap" class="finder-cards"></div>
+          <div id="finderDesktopTableWrap" style="display:none;">
             <table class="edge-table" id="finderTable" style="width:100%;border-collapse:collapse;">
               <thead>
                 <tr id="finderHeader"></tr>

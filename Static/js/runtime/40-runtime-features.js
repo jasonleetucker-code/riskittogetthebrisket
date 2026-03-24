@@ -2803,8 +2803,7 @@
   function renderFinderResults(trades) {
     const resultsEl = document.getElementById('finderResultsWrap');
     const emptyEl = document.getElementById('finderEmpty');
-    const header = document.getElementById('finderHeader');
-    const body = document.getElementById('finderBody');
+    const cardsWrap = document.getElementById('finderCardsWrap');
     const typeFilter = document.getElementById('finderTypeFilter')?.value || 'all';
 
     let filtered = trades;
@@ -2821,59 +2820,119 @@
     if (resultsEl) resultsEl.style.display = '';
     if (emptyEl) emptyEl.style.display = 'none';
 
-    // Build header
-    if (header) {
-      header.innerHTML = `
-        <th>You Give</th>
-        <th>You Get</th>
-        <th>Size</th>
-        <th>Board Δ</th>
-        <th>KTC Δ (Opp)</th>
-        <th>Opp Appeal</th>
-        <th>Score</th>
-        <th>Coverage</th>
+    if (!cardsWrap) return;
+
+    let h = '';
+    filtered.forEach((t, i) => {
+      const isTop3 = i < 3;
+      const cardCls = isTop3 ? 'finder-card finder-card-top3' : 'finder-card';
+
+      // Edge badge class
+      const edgeLbl = t.edgeLabel || 'Slight Edge';
+      const edgeCls = edgeLbl.includes('Strong') ? 'finder-edge-strong'
+        : edgeLbl.includes('Moderate') ? 'finder-edge-moderate' : 'finder-edge-slight';
+
+      // Confidence badge class
+      const confTier = t.confidenceTier || 'moderate';
+      const confCls = confTier === 'high' ? 'finder-conf-high'
+        : confTier === 'moderate' ? 'finder-conf-moderate' : 'finder-conf-low';
+
+      // Coverage badge
+      const covLbl = t.ktcCoverage === 'full' ? 'Full KTC' : t.ktcCoverage === 'partial' ? 'Partial KTC' : 'No KTC';
+      const covCls = t.ktcCoverage === 'full' ? 'finder-badge-good' : 'finder-badge-partial';
+
+      // Build player lines
+      const givePlayers = (t.give || []).map(a => {
+        const val = (a.modelValue || 0).toLocaleString();
+        const ktc = a.ktcValue != null ? a.ktcValue.toLocaleString() : '—';
+        return `<div class="finder-card-player">` +
+          `<span class="finder-card-player-name">${a.name} <span style="color:var(--subtext);font-size:0.58rem;">${a.position}</span></span>` +
+          `<span class="finder-card-player-val">${val}</span>` +
+          `</div>`;
+      }).join('');
+      const recvPlayers = (t.receive || []).map(a => {
+        const val = (a.modelValue || 0).toLocaleString();
+        const ktc = a.ktcValue != null ? a.ktcValue.toLocaleString() : '—';
+        return `<div class="finder-card-player">` +
+          `<span class="finder-card-player-name">${a.name} <span style="color:var(--subtext);font-size:0.58rem;">${a.position}</span></span>` +
+          `<span class="finder-card-player-val">${val}</span>` +
+          `</div>`;
+      }).join('');
+
+      // Flags: show only user-meaningful ones
+      const displayFlags = (t.flags || []).filter(f =>
+        ['elite_target', 'anchor_verified', 'roster_fit', 'partial_ktc'].includes(f)
+      );
+      const flagLabels = {
+        elite_target: 'Elite Target',
+        anchor_verified: 'Anchor Verified',
+        roster_fit: 'Roster Fit',
+        partial_ktc: 'Partial KTC',
+      };
+      const flagsHtml = displayFlags.map(f =>
+        `<span class="finder-card-flag">${flagLabels[f] || f}</span>`
+      ).join('');
+
+      // Stats row
+      const boardSign = t.boardDelta >= 0 ? '+' : '';
+      const boardColor = t.boardDelta > 0 ? 'var(--green)' : 'var(--subtext)';
+      const oppPct = (t.opponentKtcAppeal * 100).toFixed(1);
+      const oppSign = t.opponentKtcAppeal >= 0 ? '+' : '';
+      const oppColor = t.opponentKtcAppeal >= 0 ? 'var(--green)' : 'var(--amber)';
+
+      // Ranking factors detail (collapsed)
+      const rf = t.rankingFactors || {};
+      const detailId = `finderDetail_${i}`;
+      const detailHtml = `
+        <div class="finder-detail-grid">
+          <span>Board edge</span><span class="finder-card-stat-val">${rf.boardEdge ?? '—'}</span>
+          <span>KTC appeal</span><span class="finder-card-stat-val">${rf.ktcAppeal ?? '—'}</span>
+          <span>Confidence ×</span><span class="finder-card-stat-val">${rf.confidenceMultiplier ?? '—'}</span>
+          <span>Value scale</span><span class="finder-card-stat-val">${rf.valueScale ?? '—'}</span>
+          <span>Simplicity</span><span class="finder-card-stat-val">${rf.simplicityPenalty ?? '—'}</span>
+          <span>Roster fit</span><span class="finder-card-stat-val">${rf.rosterFitBonus ?? '—'}</span>
+        </div>
       `;
-    }
 
-    // Build rows
-    if (body) {
-      let h = '';
-      filtered.forEach((t, i) => {
-        const giveNames = t.give.map(a =>
-          `<span title="${a.position} · Model: ${(a.modelValue||0).toLocaleString()} · KTC: ${a.ktcValue != null ? a.ktcValue.toLocaleString() : 'N/A'}">${a.name}</span>`
-        ).join('<br>');
-        const recvNames = t.receive.map(a =>
-          `<span title="${a.position} · Model: ${(a.modelValue||0).toLocaleString()} · KTC: ${a.ktcValue != null ? a.ktcValue.toLocaleString() : 'N/A'}">${a.name}</span>`
-        ).join('<br>');
+      h += `<div class="${cardCls}">`;
+      // Rank badge
+      h += `<span class="finder-card-rank">#${i + 1} · ${t.packageSize}</span>`;
+      // Header: edge badge + confidence badge + coverage badge
+      h += `<div class="finder-card-header">`;
+      h += `<span class="finder-edge-badge ${edgeCls}">${edgeLbl}</span>`;
+      h += `<span class="finder-conf-badge ${confCls}">${confTier} confidence</span>`;
+      h += `<span class="finder-badge ${covCls}">${covLbl}</span>`;
+      h += `</div>`;
+      // Summary
+      if (t.summary) {
+        h += `<div class="finder-card-summary">${t.summary}</div>`;
+      }
+      // Give / Get sides
+      h += `<div class="finder-card-sides">`;
+      h += `<div class="finder-card-side finder-card-side-give">`;
+      h += `<div class="finder-card-side-label">You Give</div>`;
+      h += givePlayers;
+      h += `</div>`;
+      h += `<div class="finder-card-side finder-card-side-recv">`;
+      h += `<div class="finder-card-side-label">You Get</div>`;
+      h += recvPlayers;
+      h += `</div>`;
+      h += `</div>`;
+      // Stats
+      h += `<div class="finder-card-stats">`;
+      h += `<span>Board Δ <span class="finder-card-stat-val" style="color:${boardColor};">${boardSign}${t.boardDelta.toLocaleString()}</span></span>`;
+      h += `<span>Opp KTC <span class="finder-card-stat-val" style="color:${oppColor};">${oppSign}${oppPct}%</span></span>`;
+      h += `<span>Score <span class="finder-card-stat-val">${t.arbitrageScore}</span></span>`;
+      h += `</div>`;
+      // Flags
+      if (flagsHtml) {
+        h += `<div class="finder-card-flags">${flagsHtml}</div>`;
+      }
+      // Expand detail toggle
+      h += `<button class="finder-detail-toggle" onclick="document.getElementById('${detailId}').classList.toggle('open');this.textContent=this.textContent==='▸ Score breakdown'?'▾ Score breakdown':'▸ Score breakdown';">▸ Score breakdown</button>`;
+      h += `<div id="${detailId}" class="finder-card-details">${detailHtml}</div>`;
+      h += `</div>`; // end card
+    });
 
-        const boardColor = t.boardDelta > 0 ? 'var(--green)' : t.boardDelta < 0 ? 'var(--red)' : 'var(--subtext)';
-        const oppAppealPct = (t.opponentKtcAppeal * 100).toFixed(1);
-        const oppColor = t.opponentKtcAppeal >= 0 ? 'var(--green)' : 'var(--amber)';
-        const coverageBadge = t.ktcCoverage === 'full'
-          ? '<span class="finder-badge finder-badge-good">Full</span>'
-          : t.ktcCoverage === 'partial'
-            ? '<span class="finder-badge finder-badge-partial">Partial</span>'
-            : '<span class="finder-badge finder-badge-partial">None</span>';
-
-        h += `<tr class="finder-row">`;
-        h += `<td class="finder-give">${giveNames}</td>`;
-        h += `<td class="finder-recv">${recvNames}</td>`;
-        h += `<td>${t.packageSize}</td>`;
-        h += `<td style="color:${boardColor};font-weight:600;">+${t.boardDelta.toLocaleString()}</td>`;
-        h += `<td style="color:${oppColor};">${t.opponentKtcAppeal >= 0 ? '+' : ''}${oppAppealPct}%</td>`;
-        h += `<td style="color:${oppColor};">${t.opponentKtcAppeal >= 0 ? 'Fair/Wins' : 'Slight loss'}</td>`;
-        h += `<td style="font-weight:600;">${t.arbitrageScore}</td>`;
-        h += `<td>${coverageBadge}</td>`;
-        h += `</tr>`;
-
-        // Detail row with model + KTC values
-        const giveDetail = t.give.map(a => `${a.name}: Model ${(a.modelValue||0).toLocaleString()} / KTC ${a.ktcValue != null ? a.ktcValue.toLocaleString() : '—'}`).join(' · ');
-        const recvDetail = t.receive.map(a => `${a.name}: Model ${(a.modelValue||0).toLocaleString()} / KTC ${a.ktcValue != null ? a.ktcValue.toLocaleString() : '—'}`).join(' · ');
-        h += `<tr class="finder-row" style="font-size:0.62rem;color:var(--subtext);">`;
-        h += `<td colspan="4" style="padding:2px 10px 8px;">Give totals — Model: ${t.giveModelTotal.toLocaleString()} / KTC: ${t.giveKtcTotal.toLocaleString()}</td>`;
-        h += `<td colspan="4" style="padding:2px 10px 8px;">Get totals — Model: ${t.receiveModelTotal.toLocaleString()} / KTC: ${t.receiveKtcTotal.toLocaleString()}</td>`;
-        h += `</tr>`;
-      });
-      body.innerHTML = h;
-    }
+    cardsWrap.innerHTML = h;
   }
