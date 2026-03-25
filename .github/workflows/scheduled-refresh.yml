@@ -16,6 +16,10 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: write
+  actions: write
+
 concurrency:
   group: data-refresh
   cancel-in-progress: false
@@ -119,21 +123,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-      - name: Trigger deploy
-        if: success()
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
           set -Eeuo pipefail
           # deploy.yml uses paths-ignore for data/** and exports/**, so
           # data-only pushes will NOT auto-trigger a deploy. Dispatch manually.
           if git log -1 --pretty=%B | grep -q "automated data refresh"; then
             echo "Data updated, dispatching deploy workflow explicitly"
-            gh workflow run deploy.yml --ref main
-          else
-            echo "No data changes, skipping deploy trigger"
-          fi
             gh workflow run deploy.yml --ref main
           else
             echo "No data changes, skipping deploy trigger"
@@ -151,6 +145,6 @@ jobs:
             name=$(basename "$csv" .csv)
             lines=$(wc -l < "$csv" 2>/dev/null || echo "0")
             status="OK"
-            if (( lines < 10 )); then status="⚠️ LOW"; fi
+            if (( lines < 10 )); then status="LOW"; fi
             echo "| ${name} | ${lines} | ${status} |" >> "$GITHUB_STEP_SUMMARY"
           done
