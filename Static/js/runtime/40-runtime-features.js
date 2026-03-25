@@ -2839,8 +2839,8 @@
         : confTier === 'moderate' ? 'finder-conf-moderate' : 'finder-conf-low';
 
       // Coverage badge
-      const covLbl = t.ktcCoverage === 'full' ? 'Full KTC' : t.ktcCoverage === 'partial' ? 'Partial KTC' : 'No KTC';
-      const covCls = t.ktcCoverage === 'full' ? 'finder-badge-good' : 'finder-badge-partial';
+      const covLbl = t.ktcCoverage === 'full' ? 'Full KTC' : t.ktcCoverage === 'partial' ? 'Partial KTC ⚠' : 'No KTC';
+      const covCls = t.ktcCoverage === 'full' ? 'finder-badge-good' : t.ktcCoverage === 'partial' ? 'finder-badge-warn' : 'finder-badge-partial';
 
       // Build player lines
       const givePlayers = (t.give || []).map(a => {
@@ -2880,6 +2880,7 @@
       const oppPct = (t.opponentKtcAppeal * 100).toFixed(1);
       const oppSign = t.opponentKtcAppeal >= 0 ? '+' : '';
       const oppColor = t.opponentKtcAppeal >= 0 ? 'var(--green)' : 'var(--amber)';
+      const oppTrustworthy = t.ktcCoverage === 'full';
 
       // Ranking factors detail (collapsed)
       const rf = t.rankingFactors || {};
@@ -2922,7 +2923,9 @@
       // Stats
       h += `<div class="finder-card-stats">`;
       h += `<span>Board Δ <span class="finder-card-stat-val" style="color:${boardColor};">${boardSign}${t.boardDelta.toLocaleString()}</span></span>`;
-      h += `<span>Opp KTC <span class="finder-card-stat-val" style="color:${oppColor};">${oppSign}${oppPct}%</span></span>`;
+      h += oppTrustworthy
+        ? `<span>Opp KTC <span class="finder-card-stat-val" style="color:${oppColor};">${oppSign}${oppPct}%</span></span>`
+        : `<span>Opp KTC <span class="finder-card-stat-val" style="color:var(--muted);font-style:italic;">est.</span></span>`;
       h += `<span>Score <span class="finder-card-stat-val">${t.arbitrageScore}</span></span>`;
       h += `</div>`;
       // Flags
