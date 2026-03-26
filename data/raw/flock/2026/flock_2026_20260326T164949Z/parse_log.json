@@ -1,0 +1,10 @@
+{
+  "source": "FLOCK",
+  "snapshot_id": "flock_2026_20260326T164949Z",
+  "adapter": "scraper_bridge",
+  "record_count": 0,
+  "warnings": [
+    "Raw input file missing: /home/runner/work/riskittogetthebrisket/riskittogetthebrisket/exports/latest/site_raw/flock.csv",
+    "Scraper bridge: file not found \u2014 .. Run the legacy scraper to produce exports/latest/site_raw/ CSVs."
+  ]
+}
