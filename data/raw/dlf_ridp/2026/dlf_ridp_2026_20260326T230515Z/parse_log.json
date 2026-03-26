@@ -1,0 +1,7 @@
+{
+  "source": "DLF_RIDP",
+  "snapshot_id": "dlf_ridp_2026_20260326T230515Z",
+  "adapter": "dlf_csv",
+  "record_count": 30,
+  "warnings": []
+}
