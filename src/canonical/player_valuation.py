@@ -273,7 +273,6 @@ def base_value_curve(
 def compute_tier_adjustments(
     consensus_ranks: list[float],
     tier_ids: list[int],
-    base_values: list[float],
     boundaries: list[TierBoundary],
     *,
     cliff_base: float = CLIFF_BASE_POINTS,
@@ -296,36 +295,26 @@ def compute_tier_adjustments(
     if n == 0:
         return []
 
-    # Build a mapping: tier_id → cliff bonus earned when crossing INTO that tier
-    # from the tier above.  Tier 1 (the top) gets no cliff; tier 2 gets the
-    # cliff at the first boundary, etc.
+    # Map each tier boundary to a cliff size that decays with rank.
+    # tier_id_below is the tier you drop INTO; the cliff bonus accrues
+    # to every tier above it.
     cliff_at_boundary: dict[int, float] = {}
     for b in boundaries:
-        rank_pos = b.rank_position
-        cliff_size = cliff_base * math.exp(-cliff_decay * rank_pos)
-        cliff_at_boundary[b.tier_id_below] = cliff_size
+        cliff_at_boundary[b.tier_id_below] = cliff_base * math.exp(
+            -cliff_decay * b.rank_position
+        )
 
-    # Cumulative cliff: a player in tier T benefits from all cliffs below T.
-    # In other words, every player above a cliff gets that cliff added.
+    # Walk tiers top-down.  Tier 1 accumulates all cliffs; each subsequent
+    # tier loses the cliff that sits above it.
     max_tier = max(tier_ids) if tier_ids else 1
-    cumulative_cliff: dict[int, float] = {}
-    running = 0.0
-    for t in range(max_tier, 0, -1):
-        cumulative_cliff[t] = running
-        if t in cliff_at_boundary:
-            running += cliff_at_boundary[t]
-    # Tier 1 (top) collects all cliffs below it
-    # Re-run forward to assign correctly
-    cumulative_cliff_final: dict[int, float] = {}
-    total_cliff = sum(cliff_at_boundary.values())
-    accumulated = total_cliff
+    accumulated = sum(cliff_at_boundary.values())
+    tier_bonus: dict[int, float] = {}
     for t in range(1, max_tier + 1):
-        cumulative_cliff_final[t] = accumulated
+        tier_bonus[t] = accumulated
         if t + 1 in cliff_at_boundary:
             accumulated -= cliff_at_boundary[t + 1]
 
-    adjustments = [cumulative_cliff_final.get(tier_ids[i], 0.0) for i in range(n)]
-    return adjustments
+    return [tier_bonus.get(tier_ids[i], 0.0) for i in range(n)]
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -469,7 +458,7 @@ def run_valuation(
 
     # ── Step 4: Tier cliff injection ──
     tier_adjustments = compute_tier_adjustments(
-        sorted_ranks, tier_ids, base_values, boundaries,
+        sorted_ranks, tier_ids, boundaries,
         cliff_base=cliff_base, cliff_decay=cliff_decay,
     )
 

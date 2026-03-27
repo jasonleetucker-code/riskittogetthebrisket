@@ -216,20 +216,18 @@ class TestTierCliffs:
     def test_no_cliffs_single_tier(self):
         ranks = [1.0, 2.0, 3.0]
         tiers = [1, 1, 1]
-        bases = [100.0, 90.0, 80.0]
-        adjustments = compute_tier_adjustments(ranks, tiers, bases, [])
+        adjustments = compute_tier_adjustments(ranks, tiers, [])
         assert all(a == 0.0 for a in adjustments)
 
     def test_cliff_creates_gap(self):
         ranks = [1.0, 2.0, 3.0, 20.0, 21.0, 22.0]
         tiers = [1, 1, 1, 2, 2, 2]
-        bases = [100, 90, 80, 40, 35, 30]
         boundary = TierBoundary(
             tier_id_above=1, tier_id_below=2,
             player_above="P2", player_below="P3",
             raw_gap=17.0, gap_score=3.0, rank_position=3.0,
         )
-        adj = compute_tier_adjustments(ranks, tiers, bases, [boundary])
+        adj = compute_tier_adjustments(ranks, tiers, [boundary])
         # Tier 1 players should get a positive adjustment
         assert all(a > 0 for a in adj[:3])
         # Tier 2 players should get zero (or less than tier 1)
@@ -251,9 +249,8 @@ class TestTierCliffs:
         # Two-boundary scenario
         ranks = [1.0, 2.0, 50.0, 51.0, 150.0, 151.0]
         tiers = [1, 1, 2, 2, 3, 3]
-        bases = [100, 90, 50, 45, 20, 18]
         adj = compute_tier_adjustments(
-            ranks, tiers, bases, [boundary_early, boundary_late],
+            ranks, tiers, [boundary_early, boundary_late],
         )
         # Tier 1 adj (includes both cliffs) > Tier 2 adj (includes only late cliff)
         assert adj[0] > adj[2]
@@ -261,7 +258,7 @@ class TestTierCliffs:
         assert abs(adj[4]) < 1e-9
 
     def test_empty(self):
-        assert compute_tier_adjustments([], [], [], []) == []
+        assert compute_tier_adjustments([], [], []) == []
 
 
 # ─────────────────────────────────────────────────────────────
