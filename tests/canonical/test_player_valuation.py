@@ -698,15 +698,40 @@ class TestBuildPlayerInputs:
         assert mahomes.source_ranks == [1.0, 2.0]
         assert mahomes.metadata["position"] == "QB"
 
-    def test_skips_zero_weight_sources(self):
+    def test_excluded_sources_are_filtered(self):
+        """Records from excluded sources should be dropped entirely."""
         records = [
             {"asset_key": "p1", "display_name": "P1",
              "source": "BAD", "rank_raw": 1.0},
+            {"asset_key": "p1", "display_name": "P1",
+             "source": "GOOD", "rank_raw": 3.0},
         ]
         inputs = build_player_inputs_from_raw_records(
-            records, source_weights={"BAD": 0.0},
+            records, excluded_sources={"BAD"},
+        )
+        assert len(inputs) == 1
+        assert inputs[0].source_ranks == [3.0]
+
+    def test_excluding_all_sources_yields_empty(self):
+        records = [
+            {"asset_key": "p1", "display_name": "P1",
+             "source": "ONLY", "rank_raw": 1.0},
+        ]
+        inputs = build_player_inputs_from_raw_records(
+            records, excluded_sources={"ONLY"},
         )
         assert len(inputs) == 0
+
+    def test_no_exclusions_includes_everything(self):
+        records = [
+            {"asset_key": "p1", "display_name": "P1",
+             "source": "A", "rank_raw": 1.0},
+            {"asset_key": "p1", "display_name": "P1",
+             "source": "B", "rank_raw": 5.0},
+        ]
+        inputs = build_player_inputs_from_raw_records(records)
+        assert len(inputs) == 1
+        assert inputs[0].source_ranks == [1.0, 5.0]
 
     def test_skips_no_rank(self):
         records = [

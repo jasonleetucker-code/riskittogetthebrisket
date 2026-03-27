@@ -548,24 +548,27 @@ def _collect_hyperparams(params: dict[str, Any]) -> dict[str, Any]:
 
 def build_player_inputs_from_raw_records(
     records: list[dict[str, Any]],
-    source_weights: dict[str, float] | None = None,
+    excluded_sources: set[str] | None = None,
 ) -> list[PlayerInput]:
     """Convert raw adapter records (grouped by asset_key) into PlayerInput.
 
     Each unique asset_key becomes one PlayerInput.  Source ranks are
-    extracted from rank_raw fields.  When source_weights are provided,
-    sources with weight <= 0 are excluded.
+    extracted from rank_raw fields.
+
+    This helper performs source *filtering*, not source *weighting*.
+    Every included source contributes one rank with equal influence.
+    If weighted source contribution is needed, it should be implemented
+    in the consensus-rank step, not here.
 
     Args:
         records: List of dicts with at least asset_key, display_name,
                  source, rank_raw fields.
-        source_weights: Optional source → weight mapping.  Sources with
-                        weight <= 0 are skipped.
+        excluded_sources: Optional set of source names to skip entirely.
 
     Returns:
         List of PlayerInput ready for run_valuation().
     """
-    weights = source_weights or {}
+    skip = excluded_sources or set()
     by_key: dict[str, dict[str, Any]] = {}
 
     for rec in records:
@@ -573,7 +576,7 @@ def build_player_inputs_from_raw_records(
         if not key:
             continue
         source = rec.get("source", "")
-        if weights and weights.get(source, 1.0) <= 0:
+        if source in skip:
             continue
         rank = rec.get("rank_raw")
         if rank is None:
