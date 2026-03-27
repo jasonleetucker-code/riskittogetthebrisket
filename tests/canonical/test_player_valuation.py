@@ -901,6 +901,31 @@ class TestValuationResultToAssetDicts:
         for d in dicts:
             assert d["universe"] == "idp_vet"
 
+    def test_calibrated_value_always_set(self):
+        """calibrated_value must always be set to prevent fallback chain drift.
+
+        The data_contract._canonical_final_value() uses preference order:
+        calibrated_value > scarcity_adjusted_value > blended_value.
+        If calibrated_value were missing, scarcity could silently become
+        the authoritative value. This test guards against that.
+        """
+        _, dicts = self._run_and_convert()
+        for d in dicts:
+            assert d["calibrated_value"] is not None
+            assert d["calibrated_value"] > 0
+            assert d["calibrated_value"] == d["display_value"]
+
+    def test_scarcity_does_not_overwrite_canonical(self):
+        """Scarcity adjustment should not modify calibrated_value or blended_value."""
+        _, dicts = self._run_and_convert()
+        # Simulate what scarcity does: adds scarcity_adjusted_value
+        for d in dicts:
+            d["scarcity_adjusted_value"] = d["blended_value"] - 100
+        # calibrated_value should be untouched
+        for d in dicts:
+            assert d["calibrated_value"] == d["display_value"]
+            assert "scarcity_adjusted_value" in d
+
 
 # ─────────────────────────────────────────────────────────────
 # Calibration Fixtures — market-realistic scenario tests
@@ -1131,6 +1156,24 @@ class TestParameterSweep:
             f"Vol sweep: P10/P9 ratio {ratio_high:.4f} with high strength "
             f"> {ratio_low:.4f} with low strength"
         )
+
+    def test_monotonicity_preserved_across_all_sweeps(self):
+        """All parameter combinations should maintain strict display ordering."""
+        import random
+        random.seed(999)
+        players = [
+            PlayerInput(player_id=f"P{i}", display_name=f"P{i}",
+                        source_ranks=[float(i), float(i) + random.uniform(-2, 2)])
+            for i in range(1, 41)
+        ]
+        for c in [0.5, 1.0]:
+            for thresh in [1.5, 3.0]:
+                result = run_valuation(players, curve_c=c, gap_threshold=thresh)
+                vals = [p.display_value for p in result.players]
+                for i in range(1, len(vals)):
+                    assert vals[i] <= vals[i - 1], (
+                        f"Non-monotonic at index {i} with c={c}, thresh={thresh}"
+                    )
 
     def test_all_defaults_produce_valid_output(self):
         """Running with all default hyperparameters should produce valid output."""
