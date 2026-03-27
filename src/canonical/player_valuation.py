@@ -78,7 +78,7 @@ class PlayerValuation:
 
     # Step 2 outputs
     tier_id: int
-    tier_break_above: bool        # True if a tier break exists just above this player
+    is_tier_start: bool           # True if this player is the first player in a new tier (a break exists directly above)
     gap_to_next: float | None     # raw gap to next-ranked player
     gap_score: float | None       # normalized gap score
 
@@ -458,8 +458,8 @@ def run_valuation(
         min_tier_size=min_tier_size,
     )
 
-    # Build set of players that sit just below a tier break
-    break_below_players = {b.player_below for b in boundaries}
+    # Build set of players that start a new tier (first player below a break)
+    tier_start_players = {b.player_below for b in boundaries}
 
     # ── Step 3: Base value curve ──
     base_values = [
@@ -508,7 +508,7 @@ def run_valuation(
             consensus_rank=cr,
             rank_volatility=vol,
             tier_id=tier_ids[i],
-            tier_break_above=p.player_id in break_below_players,
+            is_tier_start=p.player_id in tier_start_players,
             gap_to_next=raw_gaps[i],
             gap_score=gap_scores[i],
             base_value=base_values[i],

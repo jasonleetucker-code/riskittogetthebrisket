@@ -347,6 +347,24 @@ class TestFullPipeline:
         tier_ids = {p.tier_id for p in result.players}
         assert len(tier_ids) >= 2
 
+    def test_is_tier_start_marks_first_in_new_tier(self):
+        """is_tier_start should be True only for the first player below a tier break."""
+        players = {}
+        for i in range(1, 11):
+            players[f"Elite{i}"] = [float(i)]
+        for i in range(30, 41):
+            players[f"Starter{i}"] = [float(i)]
+        result = _quick_pipeline(players)
+        tier_starts = [p for p in result.players if p.is_tier_start]
+        # There should be at least one tier-start player
+        assert len(tier_starts) >= 1
+        for p in tier_starts:
+            # A tier-start player should not be in tier 1
+            assert p.tier_id > 1
+        # Non-tier-start players in tier 1 should all have is_tier_start=False
+        tier1 = [p for p in result.players if p.tier_id == 1]
+        assert all(not p.is_tier_start for p in tier1)
+
     def test_diagnostics_populated(self):
         result = _quick_pipeline({
             "A": [1.0, 2.0, 3.0],
