@@ -13,6 +13,15 @@ from .transform import (
     split_by_universe,
 )
 from .pipeline import write_canonical_snapshot
+from .player_valuation import (
+    run_valuation,
+    build_player_inputs_from_raw_records,
+    build_player_inputs_from_record_objects,
+    valuation_result_to_asset_dicts,
+    PlayerInput,
+    PlayerValuation,
+    ValuationResult,
+)
 
 __all__ = [
     "CANONICAL_SCALE",
@@ -28,4 +37,12 @@ __all__ = [
     "rookie_universe_warnings",
     "split_by_universe",
     "write_canonical_snapshot",
+    # Canonical valuation engine
+    "run_valuation",
+    "build_player_inputs_from_raw_records",
+    "build_player_inputs_from_record_objects",
+    "valuation_result_to_asset_dicts",
+    "PlayerInput",
+    "PlayerValuation",
+    "ValuationResult",
 ]

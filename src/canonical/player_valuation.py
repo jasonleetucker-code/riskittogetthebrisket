@@ -632,3 +632,116 @@ def build_player_inputs_from_raw_records(
         for data in by_key.values()
         if data["source_ranks"]  # must have at least one rank
     ]
+
+
+def valuation_result_to_asset_dicts(
+    result: ValuationResult,
+    universe: str,
+) -> list[dict[str, Any]]:
+    """Convert ValuationResult players into canonical asset dicts.
+
+    Produces dicts compatible with the existing pipeline (enrich, scarcity,
+    server overlay).  The key mapping:
+
+        display_value  → blended_value (0–9999 scale, used by calibration/overlay)
+        display_value  → calibrated_value (no separate calibration step needed)
+        final_value    → canonical_raw_value (internal continuous value)
+
+    The new pipeline replaces both transform.py blend AND calibration.py remap
+    in a single pass, so calibrated_value = display_value.
+    """
+    assets: list[dict[str, Any]] = []
+    for pv in result.players:
+        source_values = {}
+        # Build source_values from source_ranks (source names from metadata)
+        source_names = pv.metadata.get("_source_names", [])
+        for i, rank in enumerate(pv.source_ranks):
+            src_name = source_names[i] if i < len(source_names) else f"source_{i}"
+            source_values[src_name] = int(round(rank))
+
+        asset = {
+            "asset_key": pv.player_id,
+            "display_name": pv.display_name,
+            "universe": universe,
+            "source_values": source_values,
+            "blended_value": pv.display_value,
+            "calibrated_value": pv.display_value,
+            "display_value": pv.display_value,
+            "source_weights_used": {},
+            "metadata": dict(pv.metadata),
+            "source_count": len(pv.source_ranks),
+            # New canonical fields for explainability
+            "canonical_consensus_rank": round(pv.consensus_rank, 4),
+            "canonical_tier_id": pv.tier_id,
+            "canonical_is_tier_start": pv.is_tier_start,
+            "canonical_base_value": round(pv.base_value, 4),
+            "canonical_tier_adjustment": round(pv.tier_adjustment, 4),
+            "canonical_volatility_adjustment": round(pv.volatility_adjustment, 4),
+            "canonical_final_value": round(pv.final_value, 4),
+            "canonical_rank_volatility": round(pv.rank_volatility, 4),
+            "canonical_monotonic_clamp": pv.monotonic_clamp_applied,
+            "_pick_calibration_source": "canonical_pipeline",
+        }
+        assets.append(asset)
+    return assets
+
+
+def build_player_inputs_from_record_objects(
+    records: list[Any],
+    excluded_sources: set[str] | None = None,
+) -> list[PlayerInput]:
+    """Convert RawAssetRecord objects into PlayerInput for the valuation pipeline.
+
+    This is the primary integration bridge from the existing adapter/source
+    pipeline.  Unlike build_player_inputs_from_raw_records (which takes dicts),
+    this accepts objects with attribute access (RawAssetRecord dataclass
+    instances from src.data_models).
+
+    Args:
+        records: List of RawAssetRecord objects (or any object with
+                 asset_key, display_name, source, rank_raw,
+                 position_normalized_guess, team_normalized_guess attrs).
+        excluded_sources: Optional set of source names to skip.
+
+    Returns:
+        List of PlayerInput ready for run_valuation().
+    """
+    skip = excluded_sources or set()
+    by_key: dict[str, dict[str, Any]] = {}
+
+    for rec in records:
+        key = getattr(rec, "asset_key", "") or ""
+        if not key:
+            continue
+        source = getattr(rec, "source", "") or ""
+        if source in skip:
+            continue
+        rank = getattr(rec, "rank_raw", None)
+        if rank is None:
+            continue
+
+        if key not in by_key:
+            by_key[key] = {
+                "player_id": key,
+                "display_name": getattr(rec, "display_name", key) or key,
+                "source_ranks": [],
+                "metadata": {"_source_names": []},
+            }
+            pos = getattr(rec, "position_normalized_guess", "") or getattr(rec, "position_raw", "")
+            team = getattr(rec, "team_normalized_guess", "") or getattr(rec, "team_raw", "")
+            universe = getattr(rec, "universe", "")
+            if pos:
+                by_key[key]["metadata"]["position"] = pos
+            if team:
+                by_key[key]["metadata"]["team"] = team
+            if universe:
+                by_key[key]["metadata"]["universe"] = universe
+
+        by_key[key]["source_ranks"].append(float(rank))
+        by_key[key]["metadata"]["_source_names"].append(source)
+
+    return [
+        PlayerInput(**data)
+        for data in by_key.values()
+        if data["source_ranks"]
+    ]
