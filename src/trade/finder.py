@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Any
 
+from src.utils.name_clean import POSITION_ALIASES as _POS_ALIASES
+
 # ── Thresholds ──────────────────────────────────────────────────────────
 MIN_ASSET_VALUE = 800          # Minimum model value to consider an asset tradeable
 MIN_KTC_VALUE = 500            # Minimum KTC value to include in trade
@@ -46,8 +48,6 @@ PACKAGE_ANCHOR_MIN_PCT = 0.35  # Best give piece must be ≥35% of best receive 
 CONFIDENCE_SOURCE_BASELINE = 5 # Expected source count for full confidence
 ROSTER_SURPLUS_THRESHOLD = 4   # ≥4 at a position = surplus (light fit bonus)
 ROSTER_WEAK_THRESHOLD = 1      # ≤1 at a position = weakness (light fit bonus)
-
-from src.utils.name_clean import POSITION_ALIASES as _POS_ALIASES
 
 IDP_POSITIONS = {"DL", "LB", "DB"}
 

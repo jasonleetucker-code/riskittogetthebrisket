@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.canonical.calibration import to_display_value
+from src.utils.name_clean import POSITION_ALIASES as _POS_ALIASES
 
 
 # ── Configuration ────────────────────────────────────────────────────
@@ -98,8 +99,6 @@ LOW_DISPERSION_CV = 0.04    # CV below this = strong consensus
 # targets, give-side pieces, throw-ins, and balancers.
 # Set to 0 to disable.
 KTC_TOP_N_FILTER = 150
-
-from src.utils.name_clean import POSITION_ALIASES as _POS_ALIASES
 
 
 # ── Data structures ─────────────────────────────────────────────────

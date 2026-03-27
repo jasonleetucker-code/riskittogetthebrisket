@@ -194,7 +194,7 @@ class TestNormalizePositionFamilyEdgeCases:
     """Position strings seen across different data sources."""
 
     @pytest.mark.parametrize("input_pos,expected", [
-        ("NT", "NT"),       # Nose tackle — not in DL set currently
+        ("NT", "DL"),       # Nose tackle — maps to DL in canonical aliases
         ("FLEX", "FLEX"),   # Fantasy position
         ("SUPER_FLEX", "SUPER"),  # startswith check takes first token
     ])
