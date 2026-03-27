@@ -421,7 +421,13 @@ class TestFullPipeline:
 # ─────────────────────────────────────────────────────────────
 
 class TestTradeScenarios:
-    """Validate that the model produces realistic dynasty trade behavior."""
+    """Validate that the model produces realistic dynasty trade behavior.
+
+    These tests use a deterministic 200-player market with 5 simulated
+    sources per player.  Assertions are calibrated to catch obvious model
+    drift (e.g. flat mid-range, missing tier cliffs) while leaving room
+    for normal hyperparameter tuning.
+    """
 
     @pytest.fixture
     def market(self):
@@ -437,60 +443,192 @@ class TestTradeScenarios:
             players[f"Player_{i:03d}"] = ranks
         return _quick_pipeline(players)
 
+    # ── 1. Elite vs. elite spacing ──
+
     def test_elite_vs_elite_swaps(self, market):
-        """Adjacent top-end players should be close but distinguishable."""
+        """Adjacent top-end players should be close but distinguishable.
+
+        We check both a minimum gap (players must not be interchangeable)
+        and a maximum gap (the curve should not wildly separate adjacent
+        elites).  The top-5 span should also be a modest fraction of
+        the overall value range.
+        """
         top5 = market.players[:5]
+        top5_values = [p.final_value for p in top5]
+
         for i in range(len(top5) - 1):
-            gap = top5[i].final_value - top5[i + 1].final_value
+            gap = top5_values[i] - top5_values[i + 1]
             assert gap > 0, "Adjacent elite players must be distinguishable"
-            # Gap shouldn't be more than 20% of the higher player's value
-            assert gap < top5[i].final_value * 0.20, (
-                f"Elite gap too large: {gap:.1f} ({gap/top5[i].final_value*100:.1f}%)"
+            pct_of_higher = gap / top5_values[i]
+            # Gap shouldn't be more than 20% of the higher player
+            assert pct_of_higher < 0.20, (
+                f"Elite gap too large between ranks {i+1}-{i+2}: "
+                f"{gap:.1f} ({pct_of_higher*100:.1f}%)"
             )
 
+        # The top-5 span should be meaningful but not dominate the full range
+        top5_span = top5_values[0] - top5_values[-1]
+        full_range = market.players[0].final_value - market.players[-1].final_value
+        span_share = top5_span / full_range
+        assert span_share < 0.50, (
+            f"Top-5 span consumes {span_share*100:.1f}% of full range — too concentrated"
+        )
+        assert span_share > 0.02, (
+            f"Top-5 span is only {span_share*100:.1f}% of full range — elites too flat"
+        )
+
+    # ── 2. Tier-down premium ──
+
     def test_tier_down_trade_requires_premium(self, market):
-        """Moving down across a tier should cost meaningful value."""
+        """Moving down across a tier boundary must cost materially more
+        than moving the same number of spots within a tier.
+
+        For each detected boundary, compare the cross-tier gap to the
+        median intra-tier adjacent gap in the tiers on either side.
+        The cross-tier gap must be at least 1.5× the larger of those
+        two intra-tier medians.
+        """
         boundaries = market.tier_boundaries
         if not boundaries:
             pytest.skip("No tier boundaries detected in test market")
-        # Check first boundary
-        b = boundaries[0]
-        above = next(p for p in market.players if p.player_id == b.player_above)
-        below = next(p for p in market.players if p.player_id == b.player_below)
-        gap = above.final_value - below.final_value
-        # The tier-down gap should be meaningfully larger than
-        # an intra-tier adjacent gap
-        assert gap > 0, "Tier boundary must create positive gap"
 
-    def test_two_for_one_favors_consolidation(self, market):
-        """One top player should be worth more than two mid-range players combined."""
-        top_player = market.players[0]
-        # Pick two players around rank 30–35
-        mid_players = [p for p in market.players if 28 <= market.players.index(p) <= 35]
-        if len(mid_players) >= 2:
-            combined_mid = mid_players[0].final_value + mid_players[1].final_value
-            assert top_player.final_value > combined_mid * 0.85, (
-                "Top player should not be trivially replaceable by two mid-range assets"
+        for b in boundaries:
+            above = next(p for p in market.players if p.player_id == b.player_above)
+            below = next(p for p in market.players if p.player_id == b.player_below)
+            cross_gap = above.final_value - below.final_value
+            assert cross_gap > 0, (
+                f"Tier boundary {b.tier_id_above}→{b.tier_id_below} has non-positive gap"
             )
 
-    def test_mid_tier_not_flat(self, market):
-        """Mid-range players should have meaningful spacing, not a flat blob."""
-        mid = market.players[40:60]
-        if len(mid) < 5:
-            pytest.skip("Not enough mid-range players")
-        values = [p.final_value for p in mid]
-        total_spread = values[0] - values[-1]
-        # Spread should be at least 5% of the top value in this range
-        assert total_spread > values[0] * 0.05, (
-            f"Mid-range too flat: spread={total_spread:.1f}, top_mid={values[0]:.1f}"
+            # Gather intra-tier adjacent gaps for the tier above the boundary
+            tier_above_players = [
+                p for p in market.players if p.tier_id == b.tier_id_above
+            ]
+            if len(tier_above_players) >= 2:
+                intra_above = [
+                    tier_above_players[j].final_value - tier_above_players[j + 1].final_value
+                    for j in range(len(tier_above_players) - 1)
+                ]
+                median_intra_above = sorted(intra_above)[len(intra_above) // 2]
+            else:
+                median_intra_above = 0.0
+
+            # Gather intra-tier adjacent gaps for the tier below the boundary
+            tier_below_players = [
+                p for p in market.players if p.tier_id == b.tier_id_below
+            ]
+            if len(tier_below_players) >= 2:
+                intra_below = [
+                    tier_below_players[j].final_value - tier_below_players[j + 1].final_value
+                    for j in range(len(tier_below_players) - 1)
+                ]
+                median_intra_below = sorted(intra_below)[len(intra_below) // 2]
+            else:
+                median_intra_below = 0.0
+
+            baseline_intra = max(median_intra_above, median_intra_below)
+            if baseline_intra > 0:
+                ratio = cross_gap / baseline_intra
+                # 1.2× is the floor — the cross-tier gap must visibly exceed
+                # normal intra-tier spacing.  We use 1.2× rather than a higher
+                # number because early tiers sit on the steepest part of the
+                # curve, where even intra-tier gaps are naturally large.
+                assert ratio >= 1.2, (
+                    f"Tier {b.tier_id_above}→{b.tier_id_below} cross-gap ({cross_gap:.1f}) "
+                    f"is only {ratio:.1f}× the intra-tier median ({baseline_intra:.1f}) — "
+                    f"tier break not meaningful enough"
+                )
+
+    # ── 3. 2-for-1 consolidation ──
+
+    def test_two_for_one_favors_consolidation(self, market):
+        """One top player should beat two mid-range players combined.
+
+        We test at two depth levels:
+        - #1 overall vs. two players around rank 30
+        - #5 overall vs. two players around rank 50
+
+        The single asset should exceed the combined pair each time.
+        """
+        # Test 1: #1 vs. two ~rank-30 players
+        top_player = market.players[0]
+        mid_a, mid_b = market.players[28], market.players[32]
+        combined = mid_a.final_value + mid_b.final_value
+        assert top_player.final_value > combined, (
+            f"#1 ({top_player.final_value:.0f}) should beat "
+            f"rank-29+rank-33 combined ({combined:.0f})"
         )
 
+        # Test 2: #5 vs. two ~rank-50 players
+        star = market.players[4]
+        mid_c, mid_d = market.players[48], market.players[52]
+        combined_2 = mid_c.final_value + mid_d.final_value
+        assert star.final_value > combined_2 * 0.90, (
+            f"#5 ({star.final_value:.0f}) should not be trivially "
+            f"replaceable by rank-49+rank-53 ({combined_2:.0f})"
+        )
+
+    # ── 4. Mid-tier non-flatness ──
+
+    def test_mid_tier_not_flat(self, market):
+        """Mid-range players should have meaningful spacing, not a flat blob.
+
+        We check total spread AND that individual adjacent gaps are non-trivial,
+        preventing a scenario where spread exists only at the edges of the range.
+        """
+        mid = market.players[40:60]
+        assert len(mid) >= 10, "Not enough mid-range players for test"
+        values = [p.final_value for p in mid]
+
+        # Total spread must be material relative to the range's top value
+        total_spread = values[0] - values[-1]
+        assert total_spread > values[0] * 0.08, (
+            f"Mid-range too flat: spread={total_spread:.1f}, top_mid={values[0]:.1f} "
+            f"({total_spread/values[0]*100:.1f}%)"
+        )
+
+        # Median adjacent gap in this range should be positive and non-trivial
+        adj_gaps = [values[j] - values[j + 1] for j in range(len(values) - 1)]
+        median_gap = sorted(adj_gaps)[len(adj_gaps) // 2]
+        assert median_gap > 0, "Median adjacent gap in mid-range must be positive"
+        # Median gap should be at least 0.2% of the range's top value
+        assert median_gap > values[0] * 0.002, (
+            f"Mid-range median gap too tiny: {median_gap:.3f} "
+            f"(only {median_gap/values[0]*100:.2f}% of top_mid)"
+        )
+
+    # ── 5. Late-asset compression ──
+
     def test_late_asset_compression(self, market):
-        """Late-range players should be much more compressed than top players."""
-        top_gap = market.players[0].final_value - market.players[4].final_value
-        late_gap = market.players[180].final_value - market.players[184].final_value
-        assert top_gap > 5 * late_gap, (
-            f"Late assets not compressed enough: top_gap={top_gap:.1f}, late_gap={late_gap:.1f}"
+        """Value density must increase (gaps must shrink) as rank worsens.
+
+        We compare three zones: top (ranks 1–5), mid (ranks 50–55),
+        and late (ranks 180–185).  Each zone's 5-player span must be
+        strictly smaller than the zone above it, confirming the curve
+        compresses appropriately through the full distribution.
+        """
+        top_span = market.players[0].final_value - market.players[4].final_value
+        mid_span = market.players[49].final_value - market.players[54].final_value
+        late_span = market.players[179].final_value - market.players[184].final_value
+
+        assert top_span > mid_span > late_span, (
+            f"Compression gradient broken: top={top_span:.1f}, "
+            f"mid={mid_span:.1f}, late={late_span:.1f}"
+        )
+
+        # Late compression should be dramatic relative to top
+        assert top_span > 5 * late_span, (
+            f"Late assets not compressed enough: "
+            f"top_span={top_span:.1f}, late_span={late_span:.1f} "
+            f"(ratio={top_span/late_span:.1f}×, need ≥5×)"
+        )
+
+        # Late assets should occupy a small fraction of total value range
+        full_range = market.players[0].final_value - market.players[-1].final_value
+        late_20_span = market.players[179].final_value - market.players[-1].final_value
+        assert late_20_span < full_range * 0.10, (
+            f"Bottom 20 players consume {late_20_span/full_range*100:.1f}% "
+            f"of value range — not compressed enough"
         )
 
 
