@@ -78,7 +78,7 @@ class PlayerValuation:
 
     # Step 2 outputs
     tier_id: int
-    tier_break_above: bool        # True if a tier break exists just above this player
+    is_tier_start: bool           # True if this player is the first player in a new tier (a break exists directly above)
     gap_to_next: float | None     # raw gap to next-ranked player
     gap_score: float | None       # normalized gap score
 
@@ -87,6 +87,9 @@ class PlayerValuation:
     tier_adjustment: float        # cliff injection amount
     volatility_adjustment: float  # compression amount (negative)
     final_value: float            # base + tier_adj + vol_adj
+
+    # Monotonicity enforcement
+    monotonic_clamp_applied: bool  # True if this player's value was clamped down to preserve strict ordering
 
     # Display
     display_value: int            # mapped to 1–9999
@@ -116,6 +119,7 @@ class ValuationResult:
     players: list[PlayerValuation]
     tier_boundaries: list[TierBoundary]
     tier_count: int
+    monotonic_clamp_count: int        # number of players whose values were clamped to preserve strict ordering
     hyperparameters: dict[str, Any]
 
 
@@ -273,7 +277,6 @@ def base_value_curve(
 def compute_tier_adjustments(
     consensus_ranks: list[float],
     tier_ids: list[int],
-    base_values: list[float],
     boundaries: list[TierBoundary],
     *,
     cliff_base: float = CLIFF_BASE_POINTS,
@@ -296,36 +299,26 @@ def compute_tier_adjustments(
     if n == 0:
         return []
 
-    # Build a mapping: tier_id → cliff bonus earned when crossing INTO that tier
-    # from the tier above.  Tier 1 (the top) gets no cliff; tier 2 gets the
-    # cliff at the first boundary, etc.
+    # Map each tier boundary to a cliff size that decays with rank.
+    # tier_id_below is the tier you drop INTO; the cliff bonus accrues
+    # to every tier above it.
     cliff_at_boundary: dict[int, float] = {}
     for b in boundaries:
-        rank_pos = b.rank_position
-        cliff_size = cliff_base * math.exp(-cliff_decay * rank_pos)
-        cliff_at_boundary[b.tier_id_below] = cliff_size
+        cliff_at_boundary[b.tier_id_below] = cliff_base * math.exp(
+            -cliff_decay * b.rank_position
+        )
 
-    # Cumulative cliff: a player in tier T benefits from all cliffs below T.
-    # In other words, every player above a cliff gets that cliff added.
+    # Walk tiers top-down.  Tier 1 accumulates all cliffs; each subsequent
+    # tier loses the cliff that sits above it.
     max_tier = max(tier_ids) if tier_ids else 1
-    cumulative_cliff: dict[int, float] = {}
-    running = 0.0
-    for t in range(max_tier, 0, -1):
-        cumulative_cliff[t] = running
-        if t in cliff_at_boundary:
-            running += cliff_at_boundary[t]
-    # Tier 1 (top) collects all cliffs below it
-    # Re-run forward to assign correctly
-    cumulative_cliff_final: dict[int, float] = {}
-    total_cliff = sum(cliff_at_boundary.values())
-    accumulated = total_cliff
+    accumulated = sum(cliff_at_boundary.values())
+    tier_bonus: dict[int, float] = {}
     for t in range(1, max_tier + 1):
-        cumulative_cliff_final[t] = accumulated
+        tier_bonus[t] = accumulated
         if t + 1 in cliff_at_boundary:
             accumulated -= cliff_at_boundary[t + 1]
 
-    adjustments = [cumulative_cliff_final.get(tier_ids[i], 0.0) for i in range(n)]
-    return adjustments
+    return [tier_bonus.get(tier_ids[i], 0.0) for i in range(n)]
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -381,11 +374,37 @@ def compute_volatility_adjustments(
 # STEP 6 — FULL PIPELINE
 # ══════════════════════════════════════════════════════════════════════
 
-def _to_display(value: float, max_raw: float) -> int:
-    """Map a raw final value onto the 1–9999 display scale."""
-    if max_raw <= 0:
+def compute_display_anchor(
+    *,
+    curve_a: float = CURVE_A,
+    curve_b: float = CURVE_B,
+    curve_c: float = CURVE_C,
+    cliff_base: float = CLIFF_BASE_POINTS,
+) -> float:
+    """Compute a stable display-scale anchor from curve hyperparameters.
+
+    The anchor is the theoretical maximum raw value: the base-curve value
+    at rank 1 plus one full cliff bonus.  Because it depends only on
+    hyperparameters (not on player data), it is stable across daily data
+    refreshes and only changes when the model is deliberately retuned.
+
+    This prevents the display scale from drifting when the top player's
+    consensus rank or tier structure shifts between runs.
+    """
+    return base_value_curve(1.0, A=curve_a, B=curve_b, C=curve_c) + cliff_base
+
+
+def _to_display(value: float, anchor: float) -> int:
+    """Map a raw final value onto the 1–9999 display scale.
+
+    Args:
+        value: Raw final value from the pipeline.
+        anchor: Stable display anchor (from compute_display_anchor).
+                Values above the anchor are clamped to DISPLAY_SCALE_MAX.
+    """
+    if anchor <= 0:
         return DISPLAY_SCALE_MIN
-    scaled = value / max_raw * DISPLAY_SCALE_MAX
+    scaled = value / anchor * DISPLAY_SCALE_MAX
     return max(DISPLAY_SCALE_MIN, min(DISPLAY_SCALE_MAX, round(scaled)))
 
 
@@ -433,6 +452,7 @@ def run_valuation(
             players=[],
             tier_boundaries=[],
             tier_count=0,
+            monotonic_clamp_count=0,
             hyperparameters=_collect_hyperparams(locals()),
         )
 
@@ -458,8 +478,8 @@ def run_valuation(
         min_tier_size=min_tier_size,
     )
 
-    # Build set of players that sit just below a tier break
-    break_below_players = {b.player_below for b in boundaries}
+    # Build set of players that start a new tier (first player below a break)
+    tier_start_players = {b.player_below for b in boundaries}
 
     # ── Step 3: Base value curve ──
     base_values = [
@@ -469,7 +489,7 @@ def run_valuation(
 
     # ── Step 4: Tier cliff injection ──
     tier_adjustments = compute_tier_adjustments(
-        sorted_ranks, tier_ids, base_values, boundaries,
+        sorted_ranks, tier_ids, boundaries,
         cliff_base=cliff_base, cliff_decay=cliff_decay,
     )
 
@@ -490,12 +510,17 @@ def run_valuation(
     # ── Enforce strict monotonic decrease ──
     # Small rounding or volatility adjustments could theoretically create
     # a non-monotonic blip.  Walk forward and clamp.
+    clamped_indices: set[int] = set()
     for i in range(1, len(raw_finals)):
         if raw_finals[i] >= raw_finals[i - 1]:
             raw_finals[i] = raw_finals[i - 1] - 0.01
+            clamped_indices.add(i)
 
     # ── Step 6: Display scale mapping ──
-    max_raw = raw_finals[0] if raw_finals else 1.0
+    display_anchor = compute_display_anchor(
+        curve_a=curve_a, curve_b=curve_b, curve_c=curve_c,
+        cliff_base=cliff_base,
+    )
 
     results: list[PlayerValuation] = []
     for i, (p, cr, med, avg, vol) in enumerate(consensus_data):
@@ -508,14 +533,15 @@ def run_valuation(
             consensus_rank=cr,
             rank_volatility=vol,
             tier_id=tier_ids[i],
-            tier_break_above=p.player_id in break_below_players,
+            is_tier_start=p.player_id in tier_start_players,
             gap_to_next=raw_gaps[i],
             gap_score=gap_scores[i],
             base_value=base_values[i],
             tier_adjustment=tier_adjustments[i],
             volatility_adjustment=vol_adjustments[i],
             final_value=raw_finals[i],
-            display_value=_to_display(raw_finals[i], max_raw),
+            monotonic_clamp_applied=i in clamped_indices,
+            display_value=_to_display(raw_finals[i], display_anchor),
             metadata=dict(p.metadata),
         )
         results.append(pv)
@@ -524,6 +550,7 @@ def run_valuation(
         players=results,
         tier_boundaries=boundaries,
         tier_count=max(tier_ids) if tier_ids else 0,
+        monotonic_clamp_count=len(clamped_indices),
         hyperparameters=_collect_hyperparams({
             "w_median": w_median, "w_mean": w_mean,
             "gap_window": gap_window, "gap_threshold": gap_threshold,
@@ -550,24 +577,27 @@ def _collect_hyperparams(params: dict[str, Any]) -> dict[str, Any]:
 
 def build_player_inputs_from_raw_records(
     records: list[dict[str, Any]],
-    source_weights: dict[str, float] | None = None,
+    excluded_sources: set[str] | None = None,
 ) -> list[PlayerInput]:
     """Convert raw adapter records (grouped by asset_key) into PlayerInput.
 
     Each unique asset_key becomes one PlayerInput.  Source ranks are
-    extracted from rank_raw fields.  When source_weights are provided,
-    sources with weight <= 0 are excluded.
+    extracted from rank_raw fields.
+
+    This helper performs source *filtering*, not source *weighting*.
+    Every included source contributes one rank with equal influence.
+    If weighted source contribution is needed, it should be implemented
+    in the consensus-rank step, not here.
 
     Args:
         records: List of dicts with at least asset_key, display_name,
                  source, rank_raw fields.
-        source_weights: Optional source → weight mapping.  Sources with
-                        weight <= 0 are skipped.
+        excluded_sources: Optional set of source names to skip entirely.
 
     Returns:
         List of PlayerInput ready for run_valuation().
     """
-    weights = source_weights or {}
+    skip = excluded_sources or set()
     by_key: dict[str, dict[str, Any]] = {}
 
     for rec in records:
@@ -575,7 +605,7 @@ def build_player_inputs_from_raw_records(
         if not key:
             continue
         source = rec.get("source", "")
-        if weights and weights.get(source, 1.0) <= 0:
+        if source in skip:
             continue
         rank = rec.get("rank_raw")
         if rank is None:
@@ -601,4 +631,117 @@ def build_player_inputs_from_raw_records(
         PlayerInput(**data)
         for data in by_key.values()
         if data["source_ranks"]  # must have at least one rank
+    ]
+
+
+def valuation_result_to_asset_dicts(
+    result: ValuationResult,
+    universe: str,
+) -> list[dict[str, Any]]:
+    """Convert ValuationResult players into canonical asset dicts.
+
+    Produces dicts compatible with the existing pipeline (enrich, scarcity,
+    server overlay).  The key mapping:
+
+        display_value  → blended_value (0–9999 scale, used by calibration/overlay)
+        display_value  → calibrated_value (no separate calibration step needed)
+        final_value    → canonical_raw_value (internal continuous value)
+
+    The new pipeline replaces both transform.py blend AND calibration.py remap
+    in a single pass, so calibrated_value = display_value.
+    """
+    assets: list[dict[str, Any]] = []
+    for pv in result.players:
+        source_values = {}
+        # Build source_values from source_ranks (source names from metadata)
+        source_names = pv.metadata.get("_source_names", [])
+        for i, rank in enumerate(pv.source_ranks):
+            src_name = source_names[i] if i < len(source_names) else f"source_{i}"
+            source_values[src_name] = int(round(rank))
+
+        asset = {
+            "asset_key": pv.player_id,
+            "display_name": pv.display_name,
+            "universe": universe,
+            "source_values": source_values,
+            "blended_value": pv.display_value,
+            "calibrated_value": pv.display_value,
+            "display_value": pv.display_value,
+            "source_weights_used": {},
+            "metadata": dict(pv.metadata),
+            "source_count": len(pv.source_ranks),
+            # New canonical fields for explainability
+            "canonical_consensus_rank": round(pv.consensus_rank, 4),
+            "canonical_tier_id": pv.tier_id,
+            "canonical_is_tier_start": pv.is_tier_start,
+            "canonical_base_value": round(pv.base_value, 4),
+            "canonical_tier_adjustment": round(pv.tier_adjustment, 4),
+            "canonical_volatility_adjustment": round(pv.volatility_adjustment, 4),
+            "canonical_final_value": round(pv.final_value, 4),
+            "canonical_rank_volatility": round(pv.rank_volatility, 4),
+            "canonical_monotonic_clamp": pv.monotonic_clamp_applied,
+            "_pick_calibration_source": "canonical_pipeline",
+        }
+        assets.append(asset)
+    return assets
+
+
+def build_player_inputs_from_record_objects(
+    records: list[Any],
+    excluded_sources: set[str] | None = None,
+) -> list[PlayerInput]:
+    """Convert RawAssetRecord objects into PlayerInput for the valuation pipeline.
+
+    This is the primary integration bridge from the existing adapter/source
+    pipeline.  Unlike build_player_inputs_from_raw_records (which takes dicts),
+    this accepts objects with attribute access (RawAssetRecord dataclass
+    instances from src.data_models).
+
+    Args:
+        records: List of RawAssetRecord objects (or any object with
+                 asset_key, display_name, source, rank_raw,
+                 position_normalized_guess, team_normalized_guess attrs).
+        excluded_sources: Optional set of source names to skip.
+
+    Returns:
+        List of PlayerInput ready for run_valuation().
+    """
+    skip = excluded_sources or set()
+    by_key: dict[str, dict[str, Any]] = {}
+
+    for rec in records:
+        key = getattr(rec, "asset_key", "") or ""
+        if not key:
+            continue
+        source = getattr(rec, "source", "") or ""
+        if source in skip:
+            continue
+        rank = getattr(rec, "rank_raw", None)
+        if rank is None:
+            continue
+
+        if key not in by_key:
+            by_key[key] = {
+                "player_id": key,
+                "display_name": getattr(rec, "display_name", key) or key,
+                "source_ranks": [],
+                "metadata": {"_source_names": []},
+            }
+            pos = getattr(rec, "position_normalized_guess", "") or getattr(rec, "position_raw", "")
+            team = getattr(rec, "team_normalized_guess", "") or getattr(rec, "team_raw", "")
+            universe = getattr(rec, "universe", "")
+            if pos:
+                by_key[key]["metadata"]["position"] = pos
+            if team:
+                by_key[key]["metadata"]["team"] = team
+            if universe:
+                by_key[key]["metadata"]["universe"] = universe
+
+        by_key[key]["source_ranks"].append(float(rank))
+        by_key[key]["metadata"]["_source_names"].append(source)
+
+    return [
+        PlayerInput(**data)
+        for data in by_key.values()
+        if data["source_ranks"]
     ]

@@ -69,14 +69,9 @@ def _to_int_or_none(v: Any) -> int | None:
 
 
 def _normalize_pos(pos: Any) -> str:
+    from src.utils.name_clean import POSITION_ALIASES
     p = str(pos or "").strip().upper()
-    if p in {"DE", "DT", "EDGE", "NT"}:
-        return "DL"
-    if p in {"CB", "S", "FS", "SS"}:
-        return "DB"
-    if p in {"OLB", "ILB"}:
-        return "LB"
-    return p
+    return POSITION_ALIASES.get(p, p)
 
 
 def _is_pick_name(name: str) -> bool:

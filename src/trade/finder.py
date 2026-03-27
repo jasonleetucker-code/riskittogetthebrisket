@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Any
 
+from src.utils.name_clean import POSITION_ALIASES as _POS_ALIASES
+
 # ── Thresholds ──────────────────────────────────────────────────────────
 MIN_ASSET_VALUE = 800          # Minimum model value to consider an asset tradeable
 MIN_KTC_VALUE = 500            # Minimum KTC value to include in trade
@@ -34,6 +36,11 @@ EXCLUDED_POSITIONS = {"K", "PK", "DST", "DEF"}   # No real KTC support
 PARTIAL_KTC_MAX_RANK = 15      # Partial-KTC trades cannot appear above this rank
 PARTIAL_KTC_ARBITRAGE_CAP = 8.0  # Hard ceiling on partial-KTC arbitrage score
 
+# ── KTC quality gate ──────────────────────────────────────────────────
+# Hard filter: only players ranked inside the KTC top-N are eligible.
+# Set to 0 to disable.
+KTC_TOP_N_FILTER = 150
+
 # ── Hardening-pass thresholds ────────────────────────────────────────────
 ELITE_THRESHOLD = 7500         # Model value above which a player is "elite"
 ELITE_MULTI_MIN_RATIO = 0.65   # Tighter ratio for elite targets in multi-for-one
@@ -42,11 +49,6 @@ CONFIDENCE_SOURCE_BASELINE = 5 # Expected source count for full confidence
 ROSTER_SURPLUS_THRESHOLD = 4   # ≥4 at a position = surplus (light fit bonus)
 ROSTER_WEAK_THRESHOLD = 1      # ≤1 at a position = weakness (light fit bonus)
 
-# Position normalization aliases
-_POS_ALIASES: dict[str, str] = {
-    "DE": "DL", "DT": "DL", "CB": "DB", "S": "DB", "SS": "DB", "FS": "DB",
-    "OLB": "LB", "ILB": "LB", "MLB": "LB",
-}
 IDP_POSITIONS = {"DL", "LB", "DB"}
 
 
@@ -60,6 +62,7 @@ class Asset:
     ktc_value: int | None   # KTC value (None = no KTC coverage)
     is_pick: bool = False
     source_count: int = 0   # Number of valuation sources
+    ktc_rank: int | None = None  # 1-based KTC rank (None = no KTC data)
 
     @property
     def has_ktc(self) -> bool:
@@ -100,10 +103,12 @@ class TradeCandidate:
         return {
             "give": [{"name": a.name, "position": a.position, "team": a.team,
                        "modelValue": a.model_value,
-                       "ktcValue": a.ktc_value} for a in self.give],
+                       "ktcValue": a.ktc_value,
+                       "ktcRank": a.ktc_rank} for a in self.give],
             "receive": [{"name": a.name, "position": a.position, "team": a.team,
                          "modelValue": a.model_value,
-                         "ktcValue": a.ktc_value} for a in self.receive],
+                         "ktcValue": a.ktc_value,
+                         "ktcRank": a.ktc_rank} for a in self.receive],
             "giveModelTotal": self.give_model_total,
             "receiveModelTotal": self.receive_model_total,
             "giveKtcTotal": self.give_ktc_total,
@@ -174,8 +179,16 @@ def _build_summary(
 
 def build_asset_pool(
     players: dict[str, Any],
+    *,
+    ktc_top_n: int = KTC_TOP_N_FILTER,
 ) -> list[Asset]:
-    """Convert raw players dict into Asset objects with model + KTC values."""
+    """Convert raw players dict into Asset objects with model + KTC values.
+
+    Args:
+        players: Raw players dict from the live data payload.
+        ktc_top_n: Only include players ranked inside the KTC top N.
+            Ranking is based on KTC value (descending). Set to 0 to disable.
+    """
     pool: list[Asset] = []
     for name, pdata in players.items():
         if not isinstance(pdata, dict):
@@ -233,6 +246,18 @@ def build_asset_pool(
             is_pick=is_pick,
             source_count=source_count,
         ))
+
+    # ── Assign KTC rank and apply top-N filter ────────────────────
+    # Rank by KTC value descending.  Players without KTC get no rank.
+    with_ktc = [a for a in pool if a.has_ktc]
+    with_ktc.sort(key=lambda a: -(a.ktc_value or 0))
+    for i, a in enumerate(with_ktc):
+        a.ktc_rank = i + 1
+
+    if ktc_top_n > 0:
+        eligible_names = {a.name for a in with_ktc if a.ktc_rank is not None and a.ktc_rank <= ktc_top_n}
+        pool = [a for a in pool if a.name in eligible_names]
+
     return pool
 
 
@@ -542,6 +567,7 @@ def find_trades(
     sleeper_teams: list[dict[str, Any]],
     *,
     max_results: int = MAX_RESULTS,
+    ktc_top_n: int = KTC_TOP_N_FILTER,
 ) -> dict[str, Any]:
     """
     Find board-arbitrage trades.
@@ -558,12 +584,14 @@ def find_trades(
         Full Sleeper teams array from the data payload.
     max_results : int
         Maximum number of results to return.
+    ktc_top_n : int
+        Only include players ranked in the KTC top N. Set to 0 to disable.
 
     Returns
     -------
     dict with trades, metadata, and any warnings.
     """
-    pool = build_asset_pool(players)
+    pool = build_asset_pool(players, ktc_top_n=ktc_top_n)
     pool_by_name: dict[str, Asset] = {}
     for a in pool:
         pool_by_name[a.name] = a
@@ -664,6 +692,7 @@ def find_trades(
             "totalQualified": len(ranked),
             "returned": len(capped),
             "assetPoolSize": len(pool),
+            "ktcTopNFilter": ktc_top_n,
             "ktcCoveragePercent": round(ktc_coverage_pct * 100, 1),
         },
         "warnings": warnings,

@@ -29,6 +29,11 @@ def main() -> int:
     parser.add_argument("--repo", default=".", help="Repo root")
     parser.add_argument("--exponent", type=float, default=0.65)
     parser.add_argument("--jump-threshold", type=int, default=1800)
+    parser.add_argument(
+        "--engine", choices=["legacy", "canonical"], default="legacy",
+        help="Valuation engine: 'legacy' (percentile blend + calibration) or "
+             "'canonical' (6-step rank-based pipeline from player_valuation.py)",
+    )
     args = parser.parse_args()
 
     repo = Path(args.repo).resolve()
@@ -42,7 +47,7 @@ def main() -> int:
         flatten_canonical,
         rookie_universe_warnings,
     )
-    from src.data_models import RawAssetRecord
+    from src.data_models import CanonicalAssetValue, RawAssetRecord
     from src.utils import load_json, save_json
 
     raw_file = _latest(repo / "data" / "raw_sources", "raw_source_snapshot_*.json")
@@ -90,15 +95,61 @@ def main() -> int:
     weights_cfg = load_json(repo / "config" / "weights" / "default_weights.json", default={}) or {}
     source_weights = dict(weights_cfg.get("sources", {}))
 
-    canonical_by_universe = build_canonical_by_universe(all_records, source_weights=source_weights, exponent=args.exponent)
-    all_assets = flatten_canonical(canonical_by_universe)
+    # ── Value engine selection ──
+    use_canonical_engine = args.engine == "canonical"
+
+    if use_canonical_engine:
+        from src.canonical.player_valuation import (
+            build_player_inputs_from_record_objects,
+            run_valuation,
+            valuation_result_to_asset_dicts,
+        )
+        from src.canonical.transform import split_by_universe as _split
+
+        grouped = _split(all_records)
+        asset_dicts: list[dict] = []
+        valuation_summaries: dict[str, dict] = {}
+
+        for universe, universe_records in grouped.items():
+            player_inputs = build_player_inputs_from_record_objects(universe_records)
+            if not player_inputs:
+                continue
+            result = run_valuation(player_inputs)
+            universe_assets = valuation_result_to_asset_dicts(result, universe)
+            asset_dicts.extend(universe_assets)
+            valuation_summaries[universe] = {
+                "player_count": len(result.players),
+                "tier_count": result.tier_count,
+                "monotonic_clamp_count": result.monotonic_clamp_count,
+                "hyperparameters": result.hyperparameters,
+            }
+
+        asset_dicts.sort(key=lambda a: a.get("blended_value", 0), reverse=True)
+        # Build a lightweight all_assets list for jump detection
+        all_assets = [
+            CanonicalAssetValue(
+                asset_key=a["asset_key"], display_name=a["display_name"],
+                universe=a["universe"], source_values=a.get("source_values", {}),
+                blended_value=a.get("blended_value", 0),
+            )
+            for a in asset_dicts
+        ]
+        canonical_by_universe = {}
+        for a in all_assets:
+            canonical_by_universe.setdefault(a.universe, []).append(a)
+        print(f"[canonical_build] engine=canonical, {len(asset_dicts)} assets across {len(valuation_summaries)} universes")
+        for u, s in sorted(valuation_summaries.items()):
+            print(f"  {u}: {s['player_count']} players, {s['tier_count']} tiers, {s['monotonic_clamp_count']} clamps")
+    else:
+        canonical_by_universe = build_canonical_by_universe(all_records, source_weights=source_weights, exponent=args.exponent)
+        all_assets = flatten_canonical(canonical_by_universe)
+        asset_dicts = [a.to_dict() for a in all_assets]
+        valuation_summaries = None
 
     out_dir = repo / "data" / "canonical"
     out_dir.mkdir(parents=True, exist_ok=True)
     run_id = str(raw_payload.get("run_id") or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
     out_file = out_dir / f"canonical_snapshot_{run_id}.json"
-
-    asset_dicts = [a.to_dict() for a in all_assets]
 
     # Position enrichment from legacy player data
     enrichment_summary = None
@@ -161,24 +212,26 @@ def main() -> int:
             print(f"[canonical_build] scarcity adjustment skipped: {e}")
 
     # Distribution calibration: remap values to match legacy-like distribution
+    # Skipped when using the canonical engine — values are already display-scaled.
     calibration_params = None
-    try:
-        from src.canonical.calibration import calibrate_canonical_values, get_calibration_params
-        asset_dicts = calibrate_canonical_values(asset_dicts, legacy_path=legacy_file)
-        calibration_params = get_calibration_params()
-        cal_vals = [a.get("calibrated_value", 0) for a in asset_dicts if a.get("calibrated_value") is not None]
-        if cal_vals:
-            uni_scales = calibration_params.get('universe_scales', {})
-            scales_str = ", ".join(f"{k}={v}" for k, v in sorted(uni_scales.items()))
-            print(
-                f"[canonical_build] calibration: {len(cal_vals)} assets, "
-                f"range {min(cal_vals)}-{max(cal_vals)}, "
-                f"exponent={calibration_params['exponent']}, "
-                f"pick_ceiling={calibration_params.get('pick_ceiling', 'n/a')}, "
-                f"scales=[{scales_str}]"
-            )
-    except Exception as e:
-        print(f"[canonical_build] calibration skipped: {e}")
+    if not use_canonical_engine:
+        try:
+            from src.canonical.calibration import calibrate_canonical_values, get_calibration_params
+            asset_dicts = calibrate_canonical_values(asset_dicts, legacy_path=legacy_file)
+            calibration_params = get_calibration_params()
+            cal_vals = [a.get("calibrated_value", 0) for a in asset_dicts if a.get("calibrated_value") is not None]
+            if cal_vals:
+                uni_scales = calibration_params.get('universe_scales', {})
+                scales_str = ", ".join(f"{k}={v}" for k, v in sorted(uni_scales.items()))
+                print(
+                    f"[canonical_build] calibration: {len(cal_vals)} assets, "
+                    f"range {min(cal_vals)}-{max(cal_vals)}, "
+                    f"exponent={calibration_params['exponent']}, "
+                    f"pick_ceiling={calibration_params.get('pick_ceiling', 'n/a')}, "
+                    f"scales=[{scales_str}]"
+                )
+        except Exception as e:
+            print(f"[canonical_build] calibration skipped: {e}")
 
     payload = {
         "run_id": run_id,
@@ -186,6 +239,7 @@ def main() -> int:
         "source_snapshot_id": raw_payload.get("run_id", ""),
         "input_snapshot": raw_file.name,
         "transform_version": TRANSFORM_VERSION,
+        "valuation_engine": "canonical" if use_canonical_engine else "legacy",
         "canonical_scale": 9999,
         "known_universes": sorted(KNOWN_UNIVERSES),
         "source_count": len({r.source for r in all_records}),
@@ -193,11 +247,12 @@ def main() -> int:
         "asset_count_by_universe": {u: len(v) for u, v in canonical_by_universe.items()},
         "assets_by_universe": {
             u: [a.to_dict() for a in rows] for u, rows in canonical_by_universe.items()
-        },
+        } if not use_canonical_engine else {},
         "assets": asset_dicts,
         "enrichment_summary": enrichment_summary,
         "scarcity_summary": scarcity_summary,
         "calibration": calibration_params,
+        "valuation_summaries": valuation_summaries,
     }
     save_json(out_file, payload)
 

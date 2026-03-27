@@ -29,6 +29,7 @@ from src.trade.finder import (
     PACKAGE_ANCHOR_MIN_PCT,
     CONFIDENCE_SOURCE_BASELINE,
     EXCLUDED_POSITIONS,
+    KTC_TOP_N_FILTER,
 )
 
 
@@ -139,19 +140,20 @@ class TestBuildAssetPool:
         assert pool[0].position == "PICK"
 
     def test_model_value_fallback_chain(self):
+        # Disable KTC filter for this unit test — testing model fallback, not KTC
         # _finalAdjusted first
         p = {"_finalAdjusted": 5000, "_rawComposite": 4000, "_composite": 3000, "position": "WR"}
-        pool = build_asset_pool({"A": p})
+        pool = build_asset_pool({"A": p}, ktc_top_n=0)
         assert pool[0].model_value == 5000
 
         # _rawComposite next
         p2 = {"_rawComposite": 4000, "_composite": 3000, "position": "WR"}
-        pool2 = build_asset_pool({"B": p2})
+        pool2 = build_asset_pool({"B": p2}, ktc_top_n=0)
         assert pool2[0].model_value == 4000
 
         # _composite last
         p3 = {"_composite": 3000, "position": "WR"}
-        pool3 = build_asset_pool({"C": p3})
+        pool3 = build_asset_pool({"C": p3}, ktc_top_n=0)
         assert pool3[0].model_value == 3000
 
 
@@ -1332,3 +1334,96 @@ class TestKtcQualityGuardrails:
         assert "QB" not in EXCLUDED_POSITIONS
         assert "WR" not in EXCLUDED_POSITIONS
         assert "LB" not in EXCLUDED_POSITIONS
+
+
+# ── KTC Top-N Filter ───────────────────────────────────────────────────
+
+class TestKtcTopNFilter:
+    """Verify the KTC top-150 quality gate in the finder engine."""
+
+    def test_default_filter_is_150(self):
+        assert KTC_TOP_N_FILTER == 150
+
+    def test_pool_filtered_to_top_n(self):
+        """Players outside KTC top N are excluded from the pool."""
+        players = {}
+        for i in range(200):
+            ktc = 9000 - i * 40
+            players[f"Player_{i:03d}"] = _make_player_data(
+                model=ktc, ktc=ktc, pos="WR",
+            )
+        pool = build_asset_pool(players, ktc_top_n=100)
+        assert len(pool) == 100
+
+    def test_pool_preserves_all_when_disabled(self):
+        players = {}
+        for i in range(200):
+            ktc = 9000 - i * 40
+            players[f"Player_{i:03d}"] = _make_player_data(
+                model=ktc, ktc=ktc, pos="WR",
+            )
+        pool = build_asset_pool(players, ktc_top_n=0)
+        assert len(pool) == 200
+
+    def test_no_ktc_players_excluded_by_filter(self):
+        """Players without KTC data are excluded when the filter is active."""
+        players = {
+            "HasKTC": _make_player_data(5000, ktc=4500, pos="QB"),
+            "NoKTC": _make_player_data(6000, pos="WR"),  # Higher model but no KTC
+        }
+        pool = build_asset_pool(players, ktc_top_n=150)
+        names = {a.name for a in pool}
+        assert "HasKTC" in names
+        assert "NoKTC" not in names
+
+    def test_ktc_rank_assigned_by_ktc_value(self):
+        """KTC rank should be based on KTC value, not model value."""
+        players = {
+            "HighModel": _make_player_data(9000, ktc=3000, pos="QB"),
+            "HighKTC": _make_player_data(3000, ktc=9000, pos="WR"),
+        }
+        pool = build_asset_pool(players, ktc_top_n=0)
+        by_name = {a.name: a for a in pool}
+        assert by_name["HighKTC"].ktc_rank == 1  # Higher KTC = rank 1
+        assert by_name["HighModel"].ktc_rank == 2
+
+    def test_filter_in_find_trades_metadata(self):
+        """The ktcTopNFilter should appear in find_trades metadata."""
+        players = {
+            f"P{i}": _make_player_data(5000 - i * 10, ktc=5000 - i * 10, pos="WR")
+            for i in range(20)
+        }
+        sleeper_teams = _make_sleeper_teams({
+            "MyTeam": [f"P{i}" for i in range(10)],
+            "TheirTeam": [f"P{i}" for i in range(10, 20)],
+        })
+        result = find_trades(
+            players, "MyTeam", ["TheirTeam"], sleeper_teams,
+            ktc_top_n=50,
+        )
+        assert result["metadata"]["ktcTopNFilter"] == 50
+
+    def test_trades_only_contain_top_n_players(self):
+        """Every player in every trade must be inside the KTC top N."""
+        players = {}
+        for i in range(50):
+            ktc = 9000 - i * 100
+            model = ktc + (i % 2) * 200 - 100  # Slight model/KTC disagreement
+            pos = ["QB", "RB", "WR", "TE"][i % 4]
+            players[f"P{i:02d}"] = _make_player_data(model, ktc=ktc, pos=pos)
+
+        sleeper_teams = _make_sleeper_teams({
+            "Me": [f"P{i:02d}" for i in range(0, 25)],
+            "Them": [f"P{i:02d}" for i in range(25, 50)],
+        })
+        result = find_trades(
+            players, "Me", ["Them"], sleeper_teams,
+            ktc_top_n=30,
+        )
+        eligible_names = {f"P{i:02d}" for i in range(30)}
+        for trade in result.get("trades", []):
+            for side in ("give", "receive"):
+                for player in trade[side]:
+                    assert player["name"] in eligible_names, (
+                        f"{player['name']} in {side} is outside KTC top 30"
+                    )

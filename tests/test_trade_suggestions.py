@@ -38,6 +38,7 @@ from src.trade.suggestions import (
     MAX_GIVE_PLAYER_APPEARANCES,
     MAX_RECEIVE_TARGET_PER_CATEGORY,
     MAX_LOW_CONFIDENCE_PER_CATEGORY,
+    KTC_TOP_N_FILTER,
 )
 
 
@@ -1501,3 +1502,109 @@ class TestPackageDeterminism:
         r1 = generate_suggestions(idp, snap)
         r2 = generate_suggestions(idp, snap)
         assert r1 == r2
+
+
+# ── KTC Top-N Filter ───────────────────────────────────────────────────
+
+class TestKtcTopNFilter:
+    """Verify the KTC top-150 quality gate in the suggestions engine."""
+
+    def _make_large_snapshot(self, n=200):
+        """Build a snapshot with n players of descending value."""
+        assets = []
+        for i in range(n):
+            val = 9000 - i * 40
+            pos = ["QB", "RB", "WR", "TE"][i % 4]
+            assets.append(_make_asset(
+                f"Player_{i:03d}", pos, val,
+                display_value=val,
+                source_count=6,
+            ))
+        return _build_snapshot(assets)
+
+    def test_default_filter_is_150(self):
+        assert KTC_TOP_N_FILTER == 150
+
+    def test_pool_size_capped_at_top_n(self):
+        snap = self._make_large_snapshot(300)
+        pool = build_asset_pool(snap, ktc_top_n=150)
+        assert len(pool) == 150
+
+    def test_pool_all_top_ranked(self):
+        snap = self._make_large_snapshot(300)
+        pool = build_asset_pool(snap, ktc_top_n=100)
+        for p in pool:
+            assert p.ktc_rank is not None
+            assert p.ktc_rank <= 100
+
+    def test_filter_disabled_when_zero(self):
+        snap = self._make_large_snapshot(300)
+        pool = build_asset_pool(snap, ktc_top_n=0)
+        assert len(pool) == 300
+
+    def test_top_n_preserves_ordering(self):
+        snap = self._make_large_snapshot(200)
+        pool = build_asset_pool(snap, ktc_top_n=50)
+        vals = [p.display_value for p in pool]
+        assert vals == sorted(vals, reverse=True)
+
+    def test_ktc_rank_assigned_sequentially(self):
+        snap = self._make_large_snapshot(50)
+        pool = build_asset_pool(snap, ktc_top_n=0)
+        ranks = [p.ktc_rank for p in pool]
+        assert ranks == list(range(1, 51))
+
+    def test_suggestions_only_include_top_n_players(self):
+        """Every player in every suggestion must be inside the KTC top N."""
+        snap = self._make_large_snapshot(200)
+        # Roster of top-tier players
+        roster = [f"Player_{i:03d}" for i in range(20)]
+        result = generate_suggestions(roster, snap, ktc_top_n=100)
+        all_suggestions = (
+            result.get("sellHigh", [])
+            + result.get("buyLow", [])
+            + result.get("consolidation", [])
+            + result.get("positionalUpgrades", [])
+        )
+        for s in all_suggestions:
+            for side in ("give", "receive"):
+                for player in s[side]:
+                    assert player.get("ktcRank") is not None, (
+                        f"{player['name']} in {side} has no ktcRank"
+                    )
+                    assert player["ktcRank"] <= 100, (
+                        f"{player['name']} ranked {player['ktcRank']} — "
+                        f"outside top 100 filter"
+                    )
+
+    def test_no_suggestions_with_very_tight_filter(self):
+        """With an impossibly tight filter, should return 0 suggestions gracefully."""
+        snap = self._make_large_snapshot(200)
+        roster = [f"Player_{i:03d}" for i in range(20)]
+        result = generate_suggestions(roster, snap, ktc_top_n=5)
+        # With only 5 players in the pool, the roster can't match many
+        # and surplus/need detection won't fire. Should be 0 or very few.
+        total = result["totalSuggestions"]
+        assert total >= 0  # Just ensure it doesn't crash
+
+    def test_metadata_includes_filter(self):
+        snap = self._make_large_snapshot(200)
+        roster = [f"Player_{i:03d}" for i in range(20)]
+        result = generate_suggestions(roster, snap, ktc_top_n=100)
+        assert result["metadata"]["ktcTopNFilter"] == 100
+
+    def test_balancers_respect_filter(self):
+        """Balancer candidates must also come from the filtered pool."""
+        snap = self._make_large_snapshot(200)
+        pool = build_asset_pool(snap, ktc_top_n=50)
+        roster_set = set()
+        exclude = set()
+        candidates = _pool_balancer_candidates(
+            target_value=3000,
+            asset_pool=pool,
+            roster_names_set=roster_set,
+            exclude_names=exclude,
+        )
+        for c in candidates:
+            assert c.ktc_rank is not None
+            assert c.ktc_rank <= 50
