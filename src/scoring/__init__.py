@@ -7,7 +7,6 @@ from .sleeper_ingest import (
     normalize_scoring_settings,
     persist_scoring_config,
 )
-from .scoring_normalizer import normalize_scoring_map
 from .scoring_delta import bucket_rule_contributions, compare_to_baseline, persist_scoring_delta_map
 from .feature_engineering import compute_profile_features, infer_scoring_tags
 from .archetype_model import build_scoring_tags, infer_archetype, summarize_archetype_priors
@@ -29,7 +28,6 @@ __all__ = [
     "extract_scoring_settings",
     "normalize_scoring_settings",
     "persist_scoring_config",
-    "normalize_scoring_map",
     "compare_to_baseline",
     "bucket_rule_contributions",
     "persist_scoring_delta_map",
