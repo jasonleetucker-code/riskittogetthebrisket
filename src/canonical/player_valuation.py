@@ -88,6 +88,9 @@ class PlayerValuation:
     volatility_adjustment: float  # compression amount (negative)
     final_value: float            # base + tier_adj + vol_adj
 
+    # Monotonicity enforcement
+    monotonic_clamp_applied: bool  # True if this player's value was clamped down to preserve strict ordering
+
     # Display
     display_value: int            # mapped to 1–9999
 
@@ -116,6 +119,7 @@ class ValuationResult:
     players: list[PlayerValuation]
     tier_boundaries: list[TierBoundary]
     tier_count: int
+    monotonic_clamp_count: int        # number of players whose values were clamped to preserve strict ordering
     hyperparameters: dict[str, Any]
 
 
@@ -422,6 +426,7 @@ def run_valuation(
             players=[],
             tier_boundaries=[],
             tier_count=0,
+            monotonic_clamp_count=0,
             hyperparameters=_collect_hyperparams(locals()),
         )
 
@@ -479,9 +484,11 @@ def run_valuation(
     # ── Enforce strict monotonic decrease ──
     # Small rounding or volatility adjustments could theoretically create
     # a non-monotonic blip.  Walk forward and clamp.
+    clamped_indices: set[int] = set()
     for i in range(1, len(raw_finals)):
         if raw_finals[i] >= raw_finals[i - 1]:
             raw_finals[i] = raw_finals[i - 1] - 0.01
+            clamped_indices.add(i)
 
     # ── Step 6: Display scale mapping ──
     max_raw = raw_finals[0] if raw_finals else 1.0
@@ -504,6 +511,7 @@ def run_valuation(
             tier_adjustment=tier_adjustments[i],
             volatility_adjustment=vol_adjustments[i],
             final_value=raw_finals[i],
+            monotonic_clamp_applied=i in clamped_indices,
             display_value=_to_display(raw_finals[i], max_raw),
             metadata=dict(p.metadata),
         )
@@ -513,6 +521,7 @@ def run_valuation(
         players=results,
         tier_boundaries=boundaries,
         tier_count=max(tier_ids) if tier_ids else 0,
+        monotonic_clamp_count=len(clamped_indices),
         hyperparameters=_collect_hyperparams({
             "w_median": w_median, "w_mean": w_mean,
             "gap_window": gap_window, "gap_threshold": gap_threshold,

@@ -379,6 +379,42 @@ class TestFullPipeline:
         assert "w_median" in hp
         assert "curve_a" in hp
 
+    def test_monotonic_clamp_count_zero_normal_case(self):
+        """Well-separated single-source ranks should not trigger any clamps."""
+        players = {f"P{i}": [float(i)] for i in range(1, 21)}
+        result = _quick_pipeline(players)
+        assert result.monotonic_clamp_count == 0
+        assert all(not p.monotonic_clamp_applied for p in result.players)
+
+    def test_monotonic_clamp_detects_forced_tie(self):
+        """Players with identical consensus ranks should trigger clamp diagnostics."""
+        # Give two players identical ranks from all sources → same consensus rank
+        # The volatility adjustment won't differentiate them, so the clamp must fire.
+        players = {
+            "A": [1.0],
+            "B": [5.0],
+            "C": [5.0],  # tied with B
+            "D": [10.0],
+        }
+        result = _quick_pipeline(players)
+        assert result.monotonic_clamp_count >= 1
+        clamped = [p for p in result.players if p.monotonic_clamp_applied]
+        assert len(clamped) >= 1
+
+    def test_monotonic_clamp_count_matches_per_player_flags(self):
+        """Result-level count must equal the number of per-player flags."""
+        players = {
+            "A": [1.0], "B": [1.0], "C": [1.0],  # all tied
+            "D": [10.0], "E": [20.0],
+        }
+        result = _quick_pipeline(players)
+        flag_count = sum(1 for p in result.players if p.monotonic_clamp_applied)
+        assert result.monotonic_clamp_count == flag_count
+
+    def test_empty_input_clamp_count_zero(self):
+        result = run_valuation([])
+        assert result.monotonic_clamp_count == 0
+
 
 # ─────────────────────────────────────────────────────────────
 # Trade Scenario Validation
