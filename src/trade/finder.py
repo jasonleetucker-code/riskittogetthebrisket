@@ -47,11 +47,8 @@ CONFIDENCE_SOURCE_BASELINE = 5 # Expected source count for full confidence
 ROSTER_SURPLUS_THRESHOLD = 4   # ≥4 at a position = surplus (light fit bonus)
 ROSTER_WEAK_THRESHOLD = 1      # ≤1 at a position = weakness (light fit bonus)
 
-# Position normalization aliases
-_POS_ALIASES: dict[str, str] = {
-    "DE": "DL", "DT": "DL", "CB": "DB", "S": "DB", "SS": "DB", "FS": "DB",
-    "OLB": "LB", "ILB": "LB", "MLB": "LB",
-}
+from src.utils.name_clean import POSITION_ALIASES as _POS_ALIASES
+
 IDP_POSITIONS = {"DL", "LB", "DB"}
 
 

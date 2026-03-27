@@ -23,6 +23,7 @@ POSITION_ALIASES: dict[str, str] = {
     "LB": "LB",
     "ILB": "LB",
     "OLB": "LB",
+    "MLB": "LB",
     "DB": "DB",
     "CB": "DB",
     "S": "DB",

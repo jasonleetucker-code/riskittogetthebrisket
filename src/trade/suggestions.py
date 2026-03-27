@@ -99,12 +99,7 @@ LOW_DISPERSION_CV = 0.04    # CV below this = strong consensus
 # Set to 0 to disable.
 KTC_TOP_N_FILTER = 150
 
-# Position aliases for normalization
-_POS_ALIASES: dict[str, str] = {
-    "DE": "DL", "DT": "DL", "EDGE": "DL", "NT": "DL",
-    "CB": "DB", "S": "DB", "FS": "DB", "SS": "DB",
-    "OLB": "LB", "ILB": "LB",
-}
+from src.utils.name_clean import POSITION_ALIASES as _POS_ALIASES
 
 
 # ── Data structures ─────────────────────────────────────────────────
