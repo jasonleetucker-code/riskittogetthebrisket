@@ -31,28 +31,7 @@ if str(_REPO) not in sys.path:
 from scripts._shared import _repo_root, _latest as _latest_file, _normalize_name
 
 
-# Common nickname → formal name mappings for fuzzy enrichment
-NICKNAME_MAP: dict[str, str] = {
-    "cam": "cameron",
-    "tj": "t j",
-    "cj": "c j",
-    "dj": "d j",
-    "aj": "a j",
-    "jt": "j t",
-    "dk": "d k",
-    "kj": "k j",
-    "pj": "p j",
-    "rj": "r j",
-}
-
-# Canonical position mapping
-POS_MAP: dict[str, str] = {
-    "QB": "QB", "RB": "RB", "WR": "WR", "TE": "TE",
-    "DL": "DL", "DE": "DL", "DT": "DL",
-    "LB": "LB", "ILB": "LB", "OLB": "LB",
-    "DB": "DB", "CB": "DB", "S": "DB", "SS": "DB", "FS": "DB",
-    "K": "K", "P": "K",
-}
+from src.utils.name_clean import NICKNAME_MAP, POSITION_ALIASES as POS_MAP  # noqa: F401
 
 
 def build_player_map(legacy_path: Path) -> dict:

@@ -25,26 +25,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.league.settings import LeagueSettings
-
-
-# Position mapping from canonical pipeline universes/positions to league positions
-POSITION_ALIASES: dict[str, str] = {
-    "QB": "QB",
-    "RB": "RB",
-    "WR": "WR",
-    "TE": "TE",
-    "DL": "DL",
-    "DE": "DL",
-    "DT": "DL",
-    "LB": "LB",
-    "ILB": "LB",
-    "OLB": "LB",
-    "DB": "DB",
-    "CB": "DB",
-    "S": "DB",
-    "SS": "DB",
-    "FS": "DB",
-}
+from src.utils.name_clean import POSITION_ALIASES  # noqa: F401 — re-exported for back-compat
 
 # Injury buffer: extra roster spots beyond starters to account for
 # injuries, byes, and roster churn. As a fraction of starter demand.

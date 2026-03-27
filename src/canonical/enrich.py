@@ -17,28 +17,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-# Canonical league positions (maps legacy values to standard forms)
-LEGACY_POS_MAP: dict[str, str] = {
-    "QB": "QB", "RB": "RB", "WR": "WR", "TE": "TE",
-    "DL": "DL", "DE": "DL", "DT": "DL",
-    "LB": "LB", "ILB": "LB", "OLB": "LB",
-    "DB": "DB", "CB": "DB", "S": "DB", "SS": "DB", "FS": "DB",
-    "K": "K", "P": "K", "PICK": "PICK",
-}
-
-# Common nickname → formal first-name mappings
-NICKNAME_MAP: dict[str, str] = {
-    "cam": "cameron",
-    "tj": "t j",
-    "cj": "c j",
-    "dj": "d j",
-    "aj": "a j",
-    "jt": "j t",
-    "dk": "d k",
-    "kj": "k j",
-    "pj": "p j",
-    "rj": "r j",
-}
+from src.utils.name_clean import POSITION_ALIASES as LEGACY_POS_MAP  # noqa: F401
+from src.utils.name_clean import NICKNAME_MAP  # noqa: F401
 
 # Sources known to only contain IDP players
 IDP_ONLY_SOURCES = {"IDPTRADECALC", "PFF_IDP", "FANTASYPROS_IDP"}
