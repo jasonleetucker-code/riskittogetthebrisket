@@ -29,6 +29,7 @@ from src.canonical.player_valuation import (
     ValuationResult,
     base_value_curve,
     compute_consensus_rank,
+    compute_display_anchor,
     compute_tier_adjustments,
     compute_volatility_adjustments,
     detect_tiers,
@@ -37,6 +38,7 @@ from src.canonical.player_valuation import (
     CURVE_A,
     CURVE_B,
     CURVE_C,
+    CLIFF_BASE_POINTS,
     DISPLAY_SCALE_MAX,
     DISPLAY_SCALE_MIN,
     W_MEDIAN,
@@ -311,7 +313,11 @@ class TestFullPipeline:
     def test_single_player(self):
         result = _quick_pipeline({"Alpha": [1.0]})
         assert len(result.players) == 1
-        assert result.players[0].display_value == DISPLAY_SCALE_MAX
+        # With a stable anchor, a single player (no tier cliffs) lands
+        # just below max since the anchor includes cliff headroom
+        dv = result.players[0].display_value
+        assert dv > DISPLAY_SCALE_MAX * 0.90
+        assert dv <= DISPLAY_SCALE_MAX
 
     def test_ordering_preserved(self):
         """Final values must strictly decrease with worsening rank."""
@@ -329,9 +335,52 @@ class TestFullPipeline:
         for p in result.players:
             assert DISPLAY_SCALE_MIN <= p.display_value <= DISPLAY_SCALE_MAX
 
-    def test_top_player_gets_max_display(self):
+    def test_top_player_display_near_max(self):
+        """Top player should land near but not necessarily at DISPLAY_SCALE_MAX.
+
+        The display scale uses a stable hyperparameter-derived anchor, so
+        the top player reaches 9999 only when their raw value (base + tier
+        cliffs) meets or exceeds the anchor.  With a small player set and
+        modest cliffs, the top player typically lands in the high 9000s.
+        """
         result = _quick_pipeline({"A": [1.0], "B": [5.0], "C": [10.0]})
-        assert result.players[0].display_value == DISPLAY_SCALE_MAX
+        top_dv = result.players[0].display_value
+        assert top_dv > DISPLAY_SCALE_MAX * 0.90, (
+            f"Top player display {top_dv} too low — should be near {DISPLAY_SCALE_MAX}"
+        )
+        assert top_dv <= DISPLAY_SCALE_MAX
+
+    def test_display_anchor_is_stable(self):
+        """Display anchor depends only on hyperparameters, not player data.
+
+        Two different player sets with the same hyperparameters must
+        produce the same anchor, so display values for unchanged players
+        don't drift between runs.
+        """
+        anchor = compute_display_anchor()
+        assert anchor == base_value_curve(1.0) + CLIFF_BASE_POINTS
+
+    def test_display_stable_across_different_populations(self):
+        """A mid-rank player's display value should not shift when the
+        population around them changes (as long as their own consensus
+        rank stays the same).
+        """
+        # Small population: 30 players
+        small = {f"P{i}": [float(i)] for i in range(1, 31)}
+        small_result = _quick_pipeline(small)
+        p15_small = next(p for p in small_result.players if p.player_id == "P15")
+
+        # Large population: 200 players (P1–P30 same ranks, plus 170 more)
+        large = {f"P{i}": [float(i)] for i in range(1, 201)}
+        large_result = _quick_pipeline(large)
+        p15_large = next(p for p in large_result.players if p.player_id == "P15")
+
+        # Display values should be very close (only tier detection can
+        # cause minor differences due to different population structure)
+        assert abs(p15_small.display_value - p15_large.display_value) < 200, (
+            f"P15 display shifted by {abs(p15_small.display_value - p15_large.display_value)} "
+            f"points between population sizes — anchor not stable"
+        )
 
     def test_tier_ids_assigned(self):
         # Create scenario with an obvious cliff

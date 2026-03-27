@@ -374,11 +374,37 @@ def compute_volatility_adjustments(
 # STEP 6 — FULL PIPELINE
 # ══════════════════════════════════════════════════════════════════════
 
-def _to_display(value: float, max_raw: float) -> int:
-    """Map a raw final value onto the 1–9999 display scale."""
-    if max_raw <= 0:
+def compute_display_anchor(
+    *,
+    curve_a: float = CURVE_A,
+    curve_b: float = CURVE_B,
+    curve_c: float = CURVE_C,
+    cliff_base: float = CLIFF_BASE_POINTS,
+) -> float:
+    """Compute a stable display-scale anchor from curve hyperparameters.
+
+    The anchor is the theoretical maximum raw value: the base-curve value
+    at rank 1 plus one full cliff bonus.  Because it depends only on
+    hyperparameters (not on player data), it is stable across daily data
+    refreshes and only changes when the model is deliberately retuned.
+
+    This prevents the display scale from drifting when the top player's
+    consensus rank or tier structure shifts between runs.
+    """
+    return base_value_curve(1.0, A=curve_a, B=curve_b, C=curve_c) + cliff_base
+
+
+def _to_display(value: float, anchor: float) -> int:
+    """Map a raw final value onto the 1–9999 display scale.
+
+    Args:
+        value: Raw final value from the pipeline.
+        anchor: Stable display anchor (from compute_display_anchor).
+                Values above the anchor are clamped to DISPLAY_SCALE_MAX.
+    """
+    if anchor <= 0:
         return DISPLAY_SCALE_MIN
-    scaled = value / max_raw * DISPLAY_SCALE_MAX
+    scaled = value / anchor * DISPLAY_SCALE_MAX
     return max(DISPLAY_SCALE_MIN, min(DISPLAY_SCALE_MAX, round(scaled)))
 
 
@@ -491,7 +517,10 @@ def run_valuation(
             clamped_indices.add(i)
 
     # ── Step 6: Display scale mapping ──
-    max_raw = raw_finals[0] if raw_finals else 1.0
+    display_anchor = compute_display_anchor(
+        curve_a=curve_a, curve_b=curve_b, curve_c=curve_c,
+        cliff_base=cliff_base,
+    )
 
     results: list[PlayerValuation] = []
     for i, (p, cr, med, avg, vol) in enumerate(consensus_data):
@@ -512,7 +541,7 @@ def run_valuation(
             volatility_adjustment=vol_adjustments[i],
             final_value=raw_finals[i],
             monotonic_clamp_applied=i in clamped_indices,
-            display_value=_to_display(raw_finals[i], max_raw),
+            display_value=_to_display(raw_finals[i], display_anchor),
             metadata=dict(p.metadata),
         )
         results.append(pv)
