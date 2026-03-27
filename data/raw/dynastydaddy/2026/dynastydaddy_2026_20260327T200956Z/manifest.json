@@ -1,0 +1,19 @@
+{
+  "source": "DYNASTYDADDY",
+  "snapshot_id": "dynastydaddy_2026_20260327T200956Z",
+  "pulled_at_utc": "2026-03-27T20:09:56.690500+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty superflex (DynastyDaddy value signal, no TEP)",
+  "universe": "offense_vet",
+  "ingest_method": "scraper_bridge",
+  "ingest_type": "scraper_export",
+  "source_url": "https://dynastydaddy.com/",
+  "format_key": "dynasty_sf",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/exports/latest/site_raw/dynastyDaddy.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/dynastydaddy/2026/dynastydaddy_2026_20260327T200956Z",
+  "record_count": 366,
+  "hash": "48dbcaf9370a30cbc73c5a5ce14e573e41cc5eff33eed3d0bdced6836554b225",
+  "notes": "DynastyDaddy values are SF but NOT TEP-adjusted. Legacy scraper applies TEP_MULT=1.15 to TEs during composite building. Canonical pipeline must handle TEP for this source.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
