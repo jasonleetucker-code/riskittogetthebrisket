@@ -72,17 +72,18 @@ export default function RankingsPage() {
   }
 
   // Compute stable overall model rank before any filters/sorts.
-  // Uses canonical consensus_rank (decimal) when available, falls back
-  // to integer position rank sorted by full model value.
+  // Priority: canonical consensus rank (decimal from pipeline) > computed
+  // consensus rank (decimal from per-site rank blending) > integer fallback.
   const modelRankMap = useMemo(() => {
-    const hasCanonical = rows.some((r) => r.canonicalConsensusRank != null && r.canonicalConsensusRank > 0);
     const map = new Map();
-    if (hasCanonical) {
-      rows.forEach((r) => {
-        if (r.canonicalConsensusRank > 0) map.set(r.name, r.canonicalConsensusRank);
-      });
-    }
-    // Fill in fallback integer ranks for any rows without canonical rank
+    rows.forEach((r) => {
+      if (r.canonicalConsensusRank > 0) {
+        map.set(r.name, r.canonicalConsensusRank);
+      } else if (r.computedConsensusRank > 0) {
+        map.set(r.name, r.computedConsensusRank);
+      }
+    });
+    // Fill in fallback integer ranks for any rows without a consensus rank
     const sorted = [...rows].sort((a, b) => b.values.full - a.values.full);
     sorted.forEach((r, i) => {
       if (!map.has(r.name)) map.set(r.name, i + 1);
@@ -253,9 +254,9 @@ export default function RankingsPage() {
             <table>
               <thead>
                 <tr>
-                  <th onClick={() => nextSort("selected")}>{thLabel("#", "selected")}</th>
-                  <th title="Canonical consensus rank from our model (stable across filters; decimal when available)">Our Rank</th>
-                  <th onClick={() => nextSort("name")}>{thLabel("Player", "name")}</th>
+                  <th className="sticky-col-0" onClick={() => nextSort("selected")}>{thLabel("#", "selected")}</th>
+                  <th className="sticky-col-1" title="Consensus rank across sources (weighted median/mean blend)">Our Rank</th>
+                  <th className="sticky-col-2" onClick={() => nextSort("name")}>{thLabel("Player", "name")}</th>
                   <th onClick={() => nextSort("pos")}>{thLabel("Pos", "pos")}</th>
                   <th onClick={() => nextSort("selected")}>{thLabel(VALUE_MODES.find((m) => m.key === valueMode)?.label || "Value", "selected")}</th>
                   <th onClick={() => nextSort("raw")}>{thLabel("Raw", "raw")}</th>
@@ -270,9 +271,9 @@ export default function RankingsPage() {
               <tbody>
                 {filtered.map((row, i) => (
                   <tr key={row.name}>
-                    <td>{i + 1}</td>
-                    <td style={{ fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)", textAlign: "center" }}>{formatRank(modelRankMap.get(row.name))}</td>
-                    <td>
+                    <td className="sticky-col-0">{i + 1}</td>
+                    <td className="sticky-col-1" style={{ fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)", textAlign: "center" }}>{formatRank(modelRankMap.get(row.name))}</td>
+                    <td className="sticky-col-2">
                       {tierStarts.has(i) ? (
                         <div className="tier-label">Tier {Array.from(tierStarts).filter((x) => x <= i).length}</div>
                       ) : null}
