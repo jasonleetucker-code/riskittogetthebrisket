@@ -9,6 +9,7 @@ import {
   inferValueBundle,
   buildRows,
   getSiteKeys,
+  rankToValue,
 } from "@/lib/dynasty-data";
 
 // ── normalizePos ─────────────────────────────────────────────────────
@@ -165,6 +166,46 @@ describe("getSiteKeys", () => {
   });
 });
 
+// ── rankToValue ─────────────────────────────────────────────────────
+
+describe("rankToValue", () => {
+  it("returns 0 for invalid inputs", () => {
+    expect(rankToValue(null)).toBe(0);
+    expect(rankToValue(undefined)).toBe(0);
+    expect(rankToValue(0)).toBe(0);
+    expect(rankToValue(-1)).toBe(0);
+    expect(rankToValue(NaN)).toBe(0);
+  });
+
+  it("returns values in 1–9999 range for valid ranks", () => {
+    for (const rank of [1, 10, 50, 100, 500]) {
+      const v = rankToValue(rank);
+      expect(v).toBeGreaterThanOrEqual(1);
+      expect(v).toBeLessThanOrEqual(9999);
+    }
+  });
+
+  it("uses canonical inverse-power curve (A / (rank + B)^C)", () => {
+    const v1 = rankToValue(1);
+    const v50 = rankToValue(50);
+    expect(v50).toBeGreaterThan(v1 * 0.05);
+    expect(v50).toBeLessThan(v1 * 0.5);
+  });
+
+  it("is monotonically decreasing", () => {
+    let prev = rankToValue(1);
+    for (let r = 2; r <= 200; r++) {
+      const cur = rankToValue(r);
+      expect(cur).toBeLessThanOrEqual(prev);
+      prev = cur;
+    }
+  });
+
+  it("rank 1 yields near-max value", () => {
+    expect(rankToValue(1)).toBeGreaterThan(9000);
+  });
+});
+
 // ── buildRows ────────────────────────────────────────────────────────
 
 describe("buildRows", () => {
@@ -269,12 +310,13 @@ describe("buildRows", () => {
     expect(rows[0].values.full).toBe(7738);
   });
 
-  it("sorts rows by full value descending", () => {
+  it("sorts rows by consensus rank ascending (rank-first)", () => {
+    // canonicalConsensusRank drives sort order (lower = better = first).
     const data = {
       playersArray: [
-        { displayName: "Low", position: "RB", values: { finalAdjusted: 1000, rawComposite: 1000, overall: 1000 } },
-        { displayName: "High", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 } },
-        { displayName: "Mid", position: "WR", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 } },
+        { displayName: "Low", position: "RB", canonicalConsensusRank: 30, values: { finalAdjusted: 1000, rawComposite: 1000, overall: 1000 } },
+        { displayName: "High", position: "QB", canonicalConsensusRank: 1, values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 } },
+        { displayName: "Mid", position: "WR", canonicalConsensusRank: 15, values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 } },
       ],
     };
     const rows = buildRows(data);
@@ -349,6 +391,18 @@ describe("buildRows", () => {
     // At least some players should have non-integer ranks
     const nonIntegers = rows.filter((r) => r.computedConsensusRank != null && r.computedConsensusRank % 1 !== 0);
     expect(nonIntegers.length).toBeGreaterThan(0);
+
+    // Rank-first: values.full should be derived from consensus rank, not raw input
+    expect(p0.rankDerivedValue).toBeDefined();
+    expect(p0.rankDerivedValue).toBeGreaterThan(0);
+    expect(p0.values.full).toBe(p0.rankDerivedValue);
+
+    // Rows should be sorted by consensus rank ascending (rank-first)
+    for (let i = 1; i < rows.length; i++) {
+      const prev = rows[i - 1].computedConsensusRank ?? Infinity;
+      const curr = rows[i].computedConsensusRank ?? Infinity;
+      expect(prev).toBeLessThanOrEqual(curr);
+    }
   });
 
   it("computes consensus ranks even when players have different site coverage", () => {

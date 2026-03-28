@@ -4,6 +4,31 @@
  * Extracted from legacy monolithic inline runtime to keep live behavior intact.
  */
 
+  // ── Consensus rank infrastructure ──
+  const _SITE_WEIGHTS = {
+    ktc: 1.3, fantasyCalc: 1.0, dynastyDaddy: 1.0,
+    draftSharks: 0.9, fantasyPros: 0.8, yahoo: 0.8,
+    dynastyNerds: 0.8, idpTradeCalc: 1.0, flock: 0.8,
+    dlfSf: 0.8, dlfIdp: 0.8, dlfRsf: 0.7, dlfRidp: 0.7,
+    pffIdp: 0.7, fantasyProsIdp: 0.7, draftSharksIdp: 0.7,
+  };
+
+  // Rank-to-value curve (mirrors src/canonical/player_valuation.py)
+  const _CURVE_A = 10000, _CURVE_B = 1.5, _CURVE_C = 0.72, _CLIFF_BASE = 120;
+  const _DISPLAY_ANCHOR = _CURVE_A / Math.pow(1 + _CURVE_B, _CURVE_C) + _CLIFF_BASE;
+
+  function _rankToValue(rank) {
+    if (rank == null || !Number.isFinite(rank) || rank <= 0) return 0;
+    const base = _CURVE_A / Math.pow(rank + _CURVE_B, _CURVE_C);
+    return Math.max(1, Math.min(9999, Math.round((base / _DISPLAY_ANCHOR) * 9999)));
+  }
+
+  function _formatRank(rank) {
+    if (rank == null || !Number.isFinite(rank)) return '—';
+    if (rank % 1 !== 0) return rank.toFixed(1);
+    return String(Math.round(rank));
+  }
+
   // ── RANKINGS TAB ──
   function normalizeRankingsFilterPos(pos) {
     return RANKINGS_POSITION_FILTER_OPTIONS.includes(pos) ? pos : 'ALL';
@@ -470,7 +495,7 @@
       sortBasis === 'scarcity' ? 'Value (Scarcity)' :
       'Our Value'
     );
-    hdr.innerHTML = '<th style="width:40px" title="Row number in current view">#</th><th style="width:60px" title="Canonical consensus rank from our model (stable across filters; decimal when available)">Our Rank</th><th title="Player or pick name">Player</th><th title="Position">Pos</th>' +
+    hdr.innerHTML = '<th style="width:40px" title="Row number in current view">#</th><th style="width:60px" title="Decimal consensus rank aggregated from per-source ranks (weighted median/mean blend)">Our Rank</th><th title="Player or pick name">Player</th><th title="Position">Pos</th>' +
       `<th style="min-width:85px;cursor:pointer;" title="Click to change sort mode" onclick="toggleRankingsSort()">${valueColLabel} ${sortArrow}</th>` +
       (showAdjCols ? `
         <th style="min-width:78px;" title="Raw market value before scoring and scarcity adjustments">Raw Market</th>
@@ -510,21 +535,53 @@
     // unless data/settings/source-config changed.
     const baseRows = getOrBuildRankingsBaseRows(cfg, canonicalCtx, posMap);
 
-    // ── Compute stable overall model rank ────────────────────────────────
-    // Use canonical consensus_rank (decimal) when available from the pipeline.
-    // Fall back to integer position rank (sorted by adjustedComposite) when
-    // canonical data is not present.
-    const byModelValue = [...baseRows].sort((a, b) => b.adjustedComposite - a.adjustedComposite);
-    const positionRankMap = new Map();
-    byModelValue.forEach((r, i) => positionRankMap.set(r.name, i + 1));
-    const hasCanonicalRanks = baseRows.some(r => r.canonicalConsensusRank != null && r.canonicalConsensusRank > 0);
+    // ── Compute consensus rank from per-site rank aggregation ─────────────
+    // 1. For each source site, convert site values → per-site ordinal ranks
+    // 2. Aggregate per-site ranks → consensus rank (70% median + 30% weighted mean)
+    // 3. Convert consensus rank → display value via _rankToValue()
+    const _siteCounts = {};
+    for (const r of baseRows) {
+      const sites = r.canonicalSiteValues || r._canonicalSiteValues || {};
+      for (const [k, v] of Object.entries(sites)) {
+        if (Number.isFinite(Number(v)) && Number(v) > 0) _siteCounts[k] = (_siteCounts[k] || 0) + 1;
+      }
+    }
+    const _activeSites = Object.keys(_siteCounts).filter(k => _siteCounts[k] >= 20);
+    const _siteRanks = {};
+    for (const site of _activeSites) {
+      const withVal = baseRows
+        .filter(r => { const v = Number((r.canonicalSiteValues || r._canonicalSiteValues || {})[site]); return Number.isFinite(v) && v > 0; })
+        .sort((a, b) => Number((b.canonicalSiteValues || b._canonicalSiteValues || {})[site]) - Number((a.canonicalSiteValues || a._canonicalSiteValues || {})[site]));
+      const rm = new Map();
+      withVal.forEach((r, i) => rm.set(r.name, i + 1));
+      _siteRanks[site] = rm;
+    }
+    const modelRankMap = new Map();
+    for (const r of baseRows) {
+      const ranks = [], weights = [];
+      for (const site of _activeSites) {
+        const rank = _siteRanks[site]?.get(r.name);
+        if (rank != null) { ranks.push(rank); weights.push(_SITE_WEIGHTS[site] || 0.8); }
+      }
+      if (ranks.length >= 1) {
+        let wSum = 0, wTotal = 0;
+        for (let i = 0; i < ranks.length; i++) { wSum += ranks[i] * weights[i]; wTotal += weights[i]; }
+        const wMean = wSum / wTotal;
+        const sorted = [...ranks].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+        modelRankMap.set(r.name, Math.round((0.7 * median + 0.3 * wMean) * 10) / 10);
+      }
+    }
+    // Integer fallback for players without enough site data
+    const _valSorted = [...baseRows].sort((a, b) => b.adjustedComposite - a.adjustedComposite);
+    _valSorted.forEach((r, i) => { if (!modelRankMap.has(r.name)) modelRankMap.set(r.name, i + 1); });
 
     let ranked = baseRows.map(r => ({
       ...r,
       sortValue: getValueByRankingMode(r.adjustment, sortBasis),
-      overallModelRank: hasCanonicalRanks && r.canonicalConsensusRank > 0
-        ? r.canonicalConsensusRank
-        : (positionRankMap.get(r.name) || 0),
+      overallModelRank: modelRankMap.get(r.name) || 0,
+      rankDerivedValue: _rankToValue(modelRankMap.get(r.name) || 0),
     }));
     ranked = dedupeRankingsRowsByName(ranked);
     ranked.sort((a, b) => rankingsSortAsc ? a.sortValue - b.sortValue : b.sortValue - a.sortValue);
@@ -627,7 +684,7 @@
 
       let cells = `
         <td style="text-align:center;font-family:var(--mono);font-size:0.72rem;color:var(--subtext);">${displayRank}</td>
-        <td style="text-align:center;font-family:var(--mono);font-size:0.72rem;font-weight:700;color:var(--cyan);">${Number.isFinite(r.overallModelRank) && r.overallModelRank % 1 !== 0 ? r.overallModelRank.toFixed(1) : Math.round(r.overallModelRank)}</td>
+        <td style="text-align:center;font-family:var(--mono);font-size:0.72rem;font-weight:700;color:var(--cyan);">${_formatRank(r.overallModelRank)}</td>
         <td style="font-weight:600;font-size:0.8rem;"><a href="#" onclick="event.preventDefault();openPlayerPopup('${r.name.replace(/'/g,"\\'")}');return false;" style="color:var(--text);text-decoration:none;border-bottom:1px dotted var(--border);" onmouseover="this.style.color='var(--cyan)'" onmouseout="this.style.color='var(--text)'">${r.name}</a>${rookieBadge}</td>
         <td><span class="ac-pos" style="${posStyle}">${r.pos || '?'}</span></td>
         <td style="font-family:var(--mono);font-weight:700;color:var(--cyan);position:relative;">
@@ -862,7 +919,7 @@
       const pill = getFreshnessPillForAsset(name, r.sourceData || (loadedData?.players?.[name] || {}));
       const escaped = String(name).replace(/'/g, "\\'");
       const rankLabel = `#${idx + 1}`;
-      const modelRankDisplay = r.overallModelRank ? (Number.isFinite(r.overallModelRank) && r.overallModelRank % 1 !== 0 ? r.overallModelRank.toFixed(1) : Math.round(r.overallModelRank)) : '';
+      const modelRankDisplay = r.overallModelRank ? _formatRank(r.overallModelRank) : '';
       const modelRankLabel = modelRankDisplay ? `Our Rank ${modelRankDisplay}` : '';
       let sourceBlock = '';
       if (showSourceCols) {

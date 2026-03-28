@@ -47,6 +47,25 @@ const SITE_WEIGHTS = {
   pffIdp: 0.7, fantasyProsIdp: 0.7, draftSharksIdp: 0.7,
 };
 
+// ── Rank-to-value curve (mirrors src/canonical/player_valuation.py) ──
+// Formula: base = A / (rank + B)^C
+const CURVE_A = 10000.0;
+const CURVE_B = 1.5;
+const CURVE_C = 0.72;
+const CLIFF_BASE = 120.0;
+// Display anchor: theoretical max raw value (rank-1 base + one cliff).
+const DISPLAY_ANCHOR = CURVE_A / Math.pow(1 + CURVE_B, CURVE_C) + CLIFF_BASE;
+
+/**
+ * Convert a consensus rank to a display value (1–9999 scale).
+ * Uses the same inverse-power curve as the canonical backend pipeline.
+ */
+export function rankToValue(rank) {
+  if (rank == null || !Number.isFinite(rank) || rank <= 0) return 0;
+  const base = CURVE_A / Math.pow(rank + CURVE_B, CURVE_C);
+  return Math.max(1, Math.min(9999, Math.round((base / DISPLAY_ANCHOR) * 9999)));
+}
+
 /**
  * Compute a decimal consensus rank for each row from per-site values.
  * For each site, ranks rows by that site's value (desc), then blends
@@ -117,7 +136,12 @@ function computeConsensusRanks(rows) {
       : sorted[mid];
 
     // Blend: 70% median, 30% weighted mean
-    row.computedConsensusRank = Math.round((0.7 * median + 0.3 * wMean) * 10) / 10;
+    const consensus = Math.round((0.7 * median + 0.3 * wMean) * 10) / 10;
+    row.computedConsensusRank = consensus;
+    row.rankSourceCount = ranks.length;
+    row.rankMedian = Math.round(median * 10) / 10;
+    row.rankMean = Math.round(wMean * 10) / 10;
+    row.rankDerivedValue = rankToValue(consensus);
   }
   if (typeof window !== "undefined") {
     const set = rows.filter((r) => r.computedConsensusRank != null);
@@ -179,11 +203,16 @@ export function buildRows(data) {
       });
     }
 
-    rows.sort((a, b) => b.values.full - a.values.full);
-    rows.forEach((r, i) => {
-      r.rank = i + 1;
-    });
     computeConsensusRanks(rows);
+    // Rank-first: override full value with rank-derived value for ranked rows.
+    for (const r of rows) {
+      if (r.rankDerivedValue > 0) r.values.full = r.rankDerivedValue;
+    }
+    rows.sort((a, b) => {
+      const ra = r => r.computedConsensusRank ?? r.canonicalConsensusRank ?? Infinity;
+      return ra(a) - ra(b);
+    });
+    rows.forEach((r, i) => { r.rank = i + 1; });
     return rows;
   }
 
@@ -211,11 +240,15 @@ export function buildRows(data) {
     });
   }
 
-  rows.sort((a, b) => b.values.full - a.values.full);
-  rows.forEach((r, i) => {
-    r.rank = i + 1;
-  });
   computeConsensusRanks(rows);
+  for (const r of rows) {
+    if (r.rankDerivedValue > 0) r.values.full = r.rankDerivedValue;
+  }
+  rows.sort((a, b) => {
+    const ra = r => r.computedConsensusRank ?? r.canonicalConsensusRank ?? Infinity;
+    return ra(a) - ra(b);
+  });
+  rows.forEach((r, i) => { r.rank = i + 1; });
   return rows;
 }
 
