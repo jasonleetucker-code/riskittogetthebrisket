@@ -81,7 +81,7 @@ export default function TradePage() {
     return m;
   }, [rows]);
 
-  // Hydrate roster input and team selection from localStorage
+  // Hydrate roster input, team selection, and recent names from localStorage
   useEffect(() => {
     try {
       const saved = localStorage.getItem(ROSTER_KEY);
@@ -91,9 +91,6 @@ export default function TradePage() {
       const savedTeam = localStorage.getItem(TEAM_KEY);
       if (savedTeam !== null) setSelectedTeamIdx(Number(savedTeam));
     } catch { /* ignore */ }
-  }, []);
-
-  useEffect(() => {
     try {
       const rawRecent = localStorage.getItem(RECENT_KEY);
       if (rawRecent) {

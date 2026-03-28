@@ -38,6 +38,118 @@ export function getSiteKeys(data) {
   return sites.map((s) => String(s?.key || "")).filter(Boolean);
 }
 
+// Site weights for consensus rank (mirrors scraper SITE_WEIGHTS).
+const SITE_WEIGHTS = {
+  ktc: 1.3, fantasyCalc: 1.0, dynastyDaddy: 1.0,
+  draftSharks: 0.9, fantasyPros: 0.8, yahoo: 0.8,
+  dynastyNerds: 0.8, idpTradeCalc: 1.0, flock: 0.8,
+  dlfSf: 0.8, dlfIdp: 0.8, dlfRsf: 0.7, dlfRidp: 0.7,
+  pffIdp: 0.7, fantasyProsIdp: 0.7, draftSharksIdp: 0.7,
+};
+
+// ── Rank-to-value curve (mirrors src/canonical/player_valuation.py) ──
+// Formula: base = A / (rank + B)^C
+const CURVE_A = 10000.0;
+const CURVE_B = 1.5;
+const CURVE_C = 0.72;
+const CLIFF_BASE = 120.0;
+// Display anchor: theoretical max raw value (rank-1 base + one cliff).
+// Computed from hyperparameters only, so it's stable across data refreshes.
+const DISPLAY_ANCHOR = CURVE_A / Math.pow(1 + CURVE_B, CURVE_C) + CLIFF_BASE;
+
+/**
+ * Convert a consensus rank to a display value (1–9999 scale).
+ * Uses the same inverse-power curve as the canonical backend pipeline.
+ */
+export function rankToValue(rank) {
+  if (rank == null || !Number.isFinite(rank) || rank <= 0) return 0;
+  const base = CURVE_A / Math.pow(rank + CURVE_B, CURVE_C);
+  return Math.max(1, Math.min(9999, Math.round((base / DISPLAY_ANCHOR) * 9999)));
+}
+
+/**
+ * Compute a decimal consensus rank for each row from per-site values.
+ *
+ * Pipeline:
+ *   1. For each source site, convert site values → site-internal ordinal ranks
+ *   2. Aggregate per-site ranks → consensus rank (70% median + 30% weighted mean)
+ *   3. Convert consensus rank → canonical value via rankToValue()
+ *
+ * Sets on each row:
+ *   - computedConsensusRank  (decimal, e.g. 15.7)
+ *   - rankSourceCount        (how many sites contributed)
+ *   - rankMedian / rankMean  (diagnostic)
+ *   - rankDerivedValue       (value from rank-to-value curve)
+ */
+function computeConsensusRanks(rows) {
+  // Collect all site keys that have meaningful data
+  const siteCounts = {};
+  for (const row of rows) {
+    for (const [key, val] of Object.entries(row.canonicalSites || {})) {
+      if (Number.isFinite(Number(val)) && Number(val) > 0) {
+        siteCounts[key] = (siteCounts[key] || 0) + 1;
+      }
+    }
+  }
+  // Only use sites with at least 20 players to avoid sparse-data noise
+  const activeSites = Object.keys(siteCounts).filter((k) => siteCounts[k] >= 20);
+  if (activeSites.length === 0) return;
+
+  // For each site, sort rows and assign ranks
+  const siteRanks = {}; // siteRanks[siteName] = Map<rowName, rank>
+  for (const site of activeSites) {
+    const withVal = rows
+      .filter((r) => {
+        const v = Number(r.canonicalSites?.[site]);
+        return Number.isFinite(v) && v > 0;
+      })
+      .sort((a, b) => Number(b.canonicalSites[site]) - Number(a.canonicalSites[site]));
+
+    const rankMap = new Map();
+    for (let i = 0; i < withVal.length; i++) {
+      rankMap.set(withVal[i].name, i + 1);
+    }
+    siteRanks[site] = rankMap;
+  }
+
+  // For each row, compute consensus rank from per-site ranks
+  for (const row of rows) {
+    const ranks = [];
+    const weights = [];
+    for (const site of activeSites) {
+      const rank = siteRanks[site]?.get(row.name);
+      if (rank != null) {
+        ranks.push(rank);
+        weights.push(SITE_WEIGHTS[site] || 0.8);
+      }
+    }
+    if (ranks.length < 1) continue;
+
+    // Weighted mean
+    let wSum = 0, wTotal = 0;
+    for (let i = 0; i < ranks.length; i++) {
+      wSum += ranks[i] * weights[i];
+      wTotal += weights[i];
+    }
+    const wMean = wSum / wTotal;
+
+    // Median
+    const sorted = [...ranks].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 === 0
+      ? (sorted[mid - 1] + sorted[mid]) / 2
+      : sorted[mid];
+
+    // Blend: 70% median, 30% weighted mean
+    const consensus = Math.round((0.7 * median + 0.3 * wMean) * 10) / 10;
+    row.computedConsensusRank = consensus;
+    row.rankSourceCount = ranks.length;
+    row.rankMedian = Math.round(median * 10) / 10;
+    row.rankMean = Math.round(wMean * 10) / 10;
+    row.rankDerivedValue = rankToValue(consensus);
+  }
+}
+
 export function buildRows(data) {
   const players = data?.players || {};
   const playersArray = Array.isArray(data?.playersArray) ? data.playersArray : [];
@@ -85,14 +197,23 @@ export function buildRows(data) {
         confidence: Number(player.marketConfidence ?? 0),
         marketLabel: "",
         canonicalSites,
+        canonicalConsensusRank: Number(player.canonicalConsensusRank) || null,
+        canonicalTierId: Number(player.canonicalTierId) || null,
         raw: player,
       });
     }
 
-    rows.sort((a, b) => b.values.full - a.values.full);
-    rows.forEach((r, i) => {
-      r.rank = i + 1;
+    computeConsensusRanks(rows);
+    // Rank-first: override full value with rank-derived value for ranked rows.
+    for (const r of rows) {
+      if (r.rankDerivedValue > 0) r.values.full = r.rankDerivedValue;
+    }
+    rows.sort((a, b) => {
+      // Primary: consensus rank ascending (lower = better).
+      const ra = r => r.computedConsensusRank ?? r.canonicalConsensusRank ?? Infinity;
+      return ra(a) - ra(b);
     });
+    rows.forEach((r, i) => { r.rank = i + 1; });
     return rows;
   }
 
@@ -114,14 +235,21 @@ export function buildRows(data) {
       confidence: Number(player._marketReliabilityScore ?? 0),
       marketLabel: String(player._marketReliabilityLabel || ""),
       canonicalSites,
+      canonicalConsensusRank: Number(player._canonicalConsensusRank) || null,
+      canonicalTierId: Number(player._canonicalTierId) || null,
       raw: player,
     });
   }
 
-  rows.sort((a, b) => b.values.full - a.values.full);
-  rows.forEach((r, i) => {
-    r.rank = i + 1;
+  computeConsensusRanks(rows);
+  for (const r of rows) {
+    if (r.rankDerivedValue > 0) r.values.full = r.rankDerivedValue;
+  }
+  rows.sort((a, b) => {
+    const ra = r => r.computedConsensusRank ?? r.canonicalConsensusRank ?? Infinity;
+    return ra(a) - ra(b);
   });
+  rows.forEach((r, i) => { r.rank = i + 1; });
   return rows;
 }
 

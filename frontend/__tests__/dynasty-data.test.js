@@ -7,6 +7,7 @@ import {
   normalizePos,
   classifyPos,
   inferValueBundle,
+  rankToValue,
   buildRows,
   getSiteKeys,
 } from "@/lib/dynasty-data";
@@ -167,6 +168,45 @@ describe("getSiteKeys", () => {
 
 // ── buildRows ────────────────────────────────────────────────────────
 
+describe("rankToValue", () => {
+  it("maps rank 1 to approximately 9999", () => {
+    const v = rankToValue(1);
+    expect(v).toBeGreaterThan(9500);
+    expect(v).toBeLessThanOrEqual(9999);
+  });
+
+  it("produces monotonically decreasing values as rank increases", () => {
+    const ranks = [1, 5, 10, 25, 50, 100, 200, 500];
+    const values = ranks.map(rankToValue);
+    for (let i = 1; i < values.length; i++) {
+      expect(values[i]).toBeLessThan(values[i - 1]);
+    }
+  });
+
+  it("returns 0 for invalid rank inputs", () => {
+    expect(rankToValue(0)).toBe(0);
+    expect(rankToValue(-1)).toBe(0);
+    expect(rankToValue(null)).toBe(0);
+    expect(rankToValue(undefined)).toBe(0);
+  });
+
+  it("returns values in 1–9999 range", () => {
+    for (const rank of [1, 10, 100, 500, 1000]) {
+      const v = rankToValue(rank);
+      expect(v).toBeGreaterThanOrEqual(1);
+      expect(v).toBeLessThanOrEqual(9999);
+    }
+  });
+
+  it("uses canonical inverse-power curve (A / (rank + B)^C)", () => {
+    // Rank 50 should be meaningfully lower than rank 1 but still significant
+    const v1 = rankToValue(1);
+    const v50 = rankToValue(50);
+    expect(v50).toBeGreaterThan(v1 * 0.05);
+    expect(v50).toBeLessThan(v1 * 0.5);
+  });
+});
+
 describe("buildRows", () => {
   it("builds rows from playersArray (contract format)", () => {
     const data = {
@@ -269,12 +309,13 @@ describe("buildRows", () => {
     expect(rows[0].values.full).toBe(7738);
   });
 
-  it("sorts rows by full value descending", () => {
+  it("sorts rows by consensus rank ascending (rank-first)", () => {
+    // canonicalConsensusRank drives sort order (lower = better = first).
     const data = {
       playersArray: [
-        { displayName: "Low", position: "RB", values: { finalAdjusted: 1000, rawComposite: 1000, overall: 1000 } },
-        { displayName: "High", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 } },
-        { displayName: "Mid", position: "WR", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 } },
+        { displayName: "Low", position: "RB", canonicalConsensusRank: 30, values: { finalAdjusted: 1000, rawComposite: 1000, overall: 1000 } },
+        { displayName: "High", position: "QB", canonicalConsensusRank: 1, values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 } },
+        { displayName: "Mid", position: "WR", canonicalConsensusRank: 15, values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 } },
       ],
     };
     const rows = buildRows(data);
@@ -317,6 +358,77 @@ describe("buildRows", () => {
     const rows = buildRows(data);
     expect(rows.every((r) => r.pos === "PICK")).toBe(true);
     expect(rows.every((r) => r.assetClass === "pick")).toBe(true);
+  });
+
+  it("computes decimal consensus ranks from site values", () => {
+    // Generate 25 players with varying site values across 2 sites
+    const players = [];
+    for (let i = 0; i < 25; i++) {
+      players.push({
+        displayName: `Player ${i}`,
+        position: "QB",
+        values: { finalAdjusted: 9000 - i * 100, rawComposite: 9000 - i * 100, overall: 9000 - i * 100 },
+        canonicalSiteValues: {
+          ktc: 9000 - i * 100,            // same order as full value
+          fantasyCalc: 9000 - (24 - i) * 100,  // reversed order
+        },
+      });
+    }
+    const rows = buildRows({ playersArray: players });
+    expect(rows.length).toBe(25);
+
+    // Player 0 is rank 1 at ktc but rank 25 at fantasyCalc
+    const p0 = rows.find((r) => r.name === "Player 0");
+    expect(p0.computedConsensusRank).toBeDefined();
+    expect(p0.computedConsensusRank).not.toBe(1); // should NOT be clean integer 1
+
+    // Player 12 is rank 13 at both sites, so consensus should be 13
+    const p12 = rows.find((r) => r.name === "Player 12");
+    expect(p12.computedConsensusRank).toBeDefined();
+    expect(p12.computedConsensusRank).toBe(13);
+
+    // At least some players should have non-integer ranks
+    const nonIntegers = rows.filter((r) => r.computedConsensusRank != null && r.computedConsensusRank % 1 !== 0);
+    expect(nonIntegers.length).toBeGreaterThan(0);
+
+    // Rank-first: values.full should be derived from consensus rank, not raw input
+    expect(p0.rankDerivedValue).toBeDefined();
+    expect(p0.rankDerivedValue).toBeGreaterThan(0);
+    expect(p0.values.full).toBe(p0.rankDerivedValue);
+
+    // Rows should be sorted by consensus rank ascending (rank-first)
+    for (let i = 1; i < rows.length; i++) {
+      const prev = rows[i - 1].computedConsensusRank ?? Infinity;
+      const curr = rows[i].computedConsensusRank ?? Infinity;
+      expect(prev).toBeLessThanOrEqual(curr);
+    }
+  });
+
+  it("computes consensus ranks even when players have different site coverage", () => {
+    // 30 players across 3 sites, with some players missing from some sites
+    const players = [];
+    for (let i = 0; i < 30; i++) {
+      const sites = { ktc: 9000 - i * 100 };
+      if (i < 25) sites.fantasyCalc = 8000 - i * 80;
+      if (i % 2 === 0) sites.dynastyDaddy = 7500 - i * 90;
+      players.push({
+        displayName: `TestPlayer ${i}`,
+        position: i < 20 ? "QB" : "RB",
+        values: { finalAdjusted: 9000 - i * 100, rawComposite: 9000 - i * 100, overall: 9000 - i * 100 },
+        canonicalSiteValues: sites,
+      });
+    }
+    const rows = buildRows({ playersArray: players });
+    const withRank = rows.filter((r) => r.computedConsensusRank != null);
+    expect(withRank.length).toBeGreaterThan(25);
+
+    // Players with 3 sites should have more nuanced ranks than those with 1
+    const p0 = rows.find((r) => r.name === "TestPlayer 0");
+    const p1 = rows.find((r) => r.name === "TestPlayer 1");
+    expect(p0.computedConsensusRank).toBeDefined();
+    expect(p1.computedConsensusRank).toBeDefined();
+    // Different rank due to different site coverage
+    expect(p0.computedConsensusRank).not.toBe(p1.computedConsensusRank);
   });
 
   it("returns empty array for empty data", () => {

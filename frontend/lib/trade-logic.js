@@ -4,7 +4,7 @@
  */
 
 export const VALUE_MODES = [
-  { key: "full", label: "Fully Adjusted" },
+  { key: "full", label: "Our Value" },
   { key: "raw", label: "Raw" },
   { key: "scoring", label: "Scoring" },
   { key: "scarcity", label: "Scarcity" },
