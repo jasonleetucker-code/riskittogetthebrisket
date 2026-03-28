@@ -74,6 +74,15 @@ const OFF_ONLY_SITES = new Set(["dlfSf", "dlfRsf"]);
 const IDP_POSITIONS = new Set(["DL", "DE", "DT", "LB", "DB", "CB", "S", "EDGE"]);
 
 /**
+ * Single source of truth for rank resolution.
+ * canonicalConsensusRank (backend pipeline) wins when present;
+ * computedConsensusRank (frontend per-site blend) is the fallback.
+ */
+export function resolvedRank(row) {
+  return row?.canonicalConsensusRank ?? row?.computedConsensusRank ?? Infinity;
+}
+
+/**
  * Compute a decimal consensus rank for each row from per-site values.
  * For each site, ranks rows by that site's value (desc), then blends
  * per-site ranks via weighted 70% median / 30% mean.
@@ -217,10 +226,7 @@ export function buildRows(data) {
     }
 
     computeConsensusRanks(rows);
-    rows.sort((a, b) => {
-      const ra = r => r.computedConsensusRank ?? r.canonicalConsensusRank ?? Infinity;
-      return ra(a) - ra(b);
-    });
+    rows.sort((a, b) => resolvedRank(a) - resolvedRank(b));
     rows.forEach((r, i) => { r.rank = i + 1; });
     return rows;
   }
@@ -250,10 +256,7 @@ export function buildRows(data) {
   }
 
   computeConsensusRanks(rows);
-  rows.sort((a, b) => {
-    const ra = r => r.computedConsensusRank ?? r.canonicalConsensusRank ?? Infinity;
-    return ra(a) - ra(b);
-  });
+  rows.sort((a, b) => resolvedRank(a) - resolvedRank(b));
   rows.forEach((r, i) => { r.rank = i + 1; });
   return rows;
 }

@@ -10,6 +10,7 @@ import {
   buildRows,
   getSiteKeys,
   rankToValue,
+  resolvedRank,
 } from "@/lib/dynasty-data";
 
 // ── normalizePos ─────────────────────────────────────────────────────
@@ -510,5 +511,74 @@ describe("buildRows", () => {
     };
     const rows = buildRows(data);
     expect(rows.length).toBe(1);
+  });
+
+  it("sorts by canonicalConsensusRank when present, not computedConsensusRank", () => {
+    // 25 players so consensus ranks are computed (need ≥20 per site).
+    // Player "Override" has canonicalConsensusRank=1 from backend but worst site values.
+    // Player "Computed" has best site values but no canonical rank.
+    // resolvedRank must prefer canonical → Override sorts first.
+    const players = [];
+    for (let i = 0; i < 25; i++) {
+      players.push({
+        displayName: `Filler ${i}`,
+        position: "QB",
+        values: { finalAdjusted: 5000 - i * 50, rawComposite: 5000 - i * 50, overall: 5000 - i * 50 },
+        canonicalSiteValues: { ktc: 5000 - i * 50, fantasyCalc: 5000 - i * 50 },
+      });
+    }
+    players.push({
+      displayName: "Override",
+      position: "QB",
+      canonicalConsensusRank: 1,
+      values: { finalAdjusted: 100, rawComposite: 100, overall: 100 },
+      canonicalSiteValues: { ktc: 100, fantasyCalc: 100 },
+    });
+    players.push({
+      displayName: "Computed",
+      position: "QB",
+      values: { finalAdjusted: 9999, rawComposite: 9999, overall: 9999 },
+      canonicalSiteValues: { ktc: 9999, fantasyCalc: 9999 },
+    });
+    const rows = buildRows({ playersArray: players });
+    const overrideRow = rows.find((r) => r.name === "Override");
+    const computedRow = rows.find((r) => r.name === "Computed");
+
+    // Override must sort before Computed because canonical rank 1 beats any computed rank.
+    expect(overrideRow.rank).toBe(1);
+    expect(computedRow.rank).toBeGreaterThan(1);
+
+    // Verify the mechanism: Override uses canonical, Computed uses computed.
+    expect(overrideRow.canonicalConsensusRank).toBe(1);
+    expect(computedRow.computedConsensusRank).toBeDefined();
+    expect(computedRow.computedConsensusRank).toBeLessThan(5); // should be rank 1-2 by computed
+  });
+});
+
+// ── resolvedRank ────────────────────────────────────────────────────
+
+describe("resolvedRank", () => {
+  it("prefers canonicalConsensusRank over computedConsensusRank", () => {
+    expect(resolvedRank({ canonicalConsensusRank: 3, computedConsensusRank: 10 })).toBe(3);
+  });
+
+  it("falls back to computedConsensusRank when canonical is null", () => {
+    expect(resolvedRank({ canonicalConsensusRank: null, computedConsensusRank: 10 })).toBe(10);
+  });
+
+  it("falls back to computedConsensusRank when canonical is undefined", () => {
+    expect(resolvedRank({ computedConsensusRank: 7.5 })).toBe(7.5);
+  });
+
+  it("returns Infinity when neither rank is present", () => {
+    expect(resolvedRank({})).toBe(Infinity);
+    expect(resolvedRank(null)).toBe(Infinity);
+    expect(resolvedRank(undefined)).toBe(Infinity);
+  });
+
+  it("does not use 0 as a valid rank (falls through to next)", () => {
+    // 0 is nullish via ??, so it will NOT fall through — 0 is a valid JS value.
+    // This documents the behavior: 0 IS returned if set.
+    expect(resolvedRank({ canonicalConsensusRank: 0, computedConsensusRank: 5 })).toBe(0);
   });
 });

@@ -9838,8 +9838,8 @@ async def run(progress_callback=None):
     SINGLE_SOURCE_DISCOUNT = 0.85  # 15% discount for players on only 1 site
     COMPOSITE_SCALE = 9999
     OUTLIER_TRIM_GAP = 0.18       # Trim only true outliers, not legitimate elite values
-    ELITE_NORM_THRESHOLD = 0.91   # Start elite expansion only at stronger consensus
-    ELITE_BOOST_MAX = 0.045       # Cap elite expansion at +4.5%
+    ELITE_NORM_THRESHOLD = 0.88   # Start elite expansion at broad consensus
+    ELITE_BOOST_MAX = 0.08        # Cap elite expansion at +8%
     IDP_VALUE_HEADROOM_FRACTION = 0.18  # controlled IDP lift above value-site cap
     SINGLE_SOURCE_DISCOUNT_MIN = 0.70
     SINGLE_SOURCE_DISCOUNT_MAX = 0.88
@@ -10373,6 +10373,22 @@ async def run(progress_callback=None):
                 elite_boost = 1.0 + (ELITE_BOOST_MAX * span * agreement * market_conf)
                 composite *= elite_boost
 
+        # Ceiling pull: for high-value offense players with multiple strong value
+        # sources, pull the composite toward the top value source.  This prevents
+        # players like Josh Allen from being compressed below their market ceiling
+        # by the averaging effect of Z-score normalization.
+        if (
+            not _is_this_idp
+            and max_value_site_raw >= 9000
+            and composite >= 8500
+            and len(wNorms) >= 4
+            and market_conf >= 0.60
+        ):
+            gap = max_value_site_raw - composite
+            if gap > 0:
+                pull_strength = min(0.50, 0.30 + 0.20 * market_conf)
+                composite += gap * pull_strength
+
         # Single-source discount
         if len(wNorms) == 1:
             single_src_discount = (
@@ -10481,15 +10497,22 @@ async def run(progress_callback=None):
     # Players with only 1 source and low confidence get a steeper discount.
     # This prevents low-liquidity veterans from floating into elite ranges
     # based on a single rank source.
-    SINGLE_SOURCE_STEEP_THRESHOLD = 0.55  # confidence below this → extra discount
-    SINGLE_SOURCE_STEEP_EXTRA = 0.15      # additional 15% discount
+    SINGLE_SOURCE_STEEP_THRESHOLD = 0.65  # confidence below this → extra discount
+    SINGLE_SOURCE_STEEP_EXTRA = 0.20      # additional 20% discount at zero confidence
+    _RANK_ONLY_SOURCES = _rank_sites | _idp_rank_sites  # rank-only sites get extra penalty
     _single_src_adjusted = 0
     for name, comp in composites.items():
         if comp.get("sites", 0) != 1:
             continue
         conf = comp.get("marketConfidence", 0.5)
+        csv = comp.get("canonicalSiteValues", {})
+        is_rank_only = all(k in _RANK_ONLY_SOURCES for k in csv if csv[k] and isinstance(csv[k], (int, float)) and csv[k] > 0)
         if conf < SINGLE_SOURCE_STEEP_THRESHOLD and comp["value"] > 2000:
-            extra_discount = 1.0 - SINGLE_SOURCE_STEEP_EXTRA * (1.0 - conf / SINGLE_SOURCE_STEEP_THRESHOLD)
+            steep_factor = 1.0 - conf / SINGLE_SOURCE_STEEP_THRESHOLD  # 0→1 as conf→0
+            extra_discount = 1.0 - SINGLE_SOURCE_STEEP_EXTRA * steep_factor
+            # Rank-only single-source players get an additional 10% penalty
+            if is_rank_only:
+                extra_discount *= 0.90
             composites[name]["value"] = max(1, int(round(comp["value"] * extra_discount)))
             _single_src_adjusted += 1
     if _single_src_adjusted:

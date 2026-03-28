@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
+import { resolvedRank } from "@/lib/dynasty-data";
 import { VALUE_MODES } from "@/lib/trade-logic";
 
 const FILTERS = [
@@ -73,19 +74,19 @@ export default function RankingsPage() {
   }
 
   // Stable overall model rank before any filters/sorts.
-  // Priority: canonical consensus rank (from pipeline) > computed consensus
-  // rank (decimal, from per-site rank blending in buildRows) > integer fallback.
+  // Uses the shared resolvedRank() helper: canonicalConsensusRank >
+  // computedConsensusRank > integer fallback by value.
   const modelRankMap = useMemo(() => {
     const map = new Map();
 
     rows.forEach((r) => {
-      const rank = r.canonicalConsensusRank ?? r.computedConsensusRank;
-      if (rank != null && Number.isFinite(rank) && rank > 0) {
+      const rank = resolvedRank(r);
+      if (Number.isFinite(rank) && rank > 0) {
         map.set(r.name, rank);
       }
     });
 
-    // Integer fallback for rows without a consensus rank
+    // Integer fallback for rows without any consensus rank
     const sorted = [...rows].sort((a, b) => b.values.full - a.values.full);
     sorted.forEach((r, i) => {
       if (!map.has(r.name)) map.set(r.name, i + 1);

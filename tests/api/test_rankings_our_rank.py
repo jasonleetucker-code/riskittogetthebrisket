@@ -228,3 +228,155 @@ class TestScraperSourceClassification:
         assert "Rookie Bridge" in src or "rookie bridge" in src.lower(), (
             "Scraper should have post-composite rookie bridge calibration"
         )
+
+
+class TestEliteCeilingExpansion:
+    """Verify the elite ceiling expansion and ceiling-pull mechanisms."""
+
+    SCRAPER_PATH = Path(__file__).resolve().parents[2] / "Dynasty Scraper.py"
+
+    def test_elite_boost_max_at_least_8_percent(self):
+        """ELITE_BOOST_MAX should be >= 0.08 for sufficient elite separation."""
+        src = self.SCRAPER_PATH.read_text()
+        match = re.search(r"ELITE_BOOST_MAX\s*=\s*([\d.]+)", src)
+        assert match is not None, "ELITE_BOOST_MAX not found"
+        assert float(match.group(1)) >= 0.08, (
+            f"ELITE_BOOST_MAX should be >= 0.08, got {match.group(1)}"
+        )
+
+    def test_elite_norm_threshold_at_most_0_90(self):
+        """ELITE_NORM_THRESHOLD should be <= 0.90 to capture broader elite tier."""
+        src = self.SCRAPER_PATH.read_text()
+        match = re.search(r"ELITE_NORM_THRESHOLD\s*=\s*([\d.]+)", src)
+        assert match is not None, "ELITE_NORM_THRESHOLD not found"
+        assert float(match.group(1)) <= 0.90, (
+            f"ELITE_NORM_THRESHOLD should be <= 0.90, got {match.group(1)}"
+        )
+
+    def test_ceiling_pull_exists(self):
+        """A ceiling-pull mechanism should exist for high-value offense players."""
+        src = self.SCRAPER_PATH.read_text()
+        assert "Ceiling pull" in src or "ceiling pull" in src.lower(), (
+            "Scraper should have a ceiling-pull step for elite offense players"
+        )
+
+    def test_ceiling_pull_requires_multiple_sources(self):
+        """Ceiling pull should require >= 4 sources to prevent single-source inflation."""
+        src = self.SCRAPER_PATH.read_text()
+        # Find the ceiling pull section
+        cp_start = src.lower().find("ceiling pull")
+        assert cp_start > 0, "Ceiling pull section not found"
+        cp_block = src[cp_start:cp_start + 500]
+        assert "len(wNorms) >= 4" in cp_block, (
+            "Ceiling pull should require at least 4 sources"
+        )
+
+    def test_ceiling_pull_offense_only(self):
+        """Ceiling pull should only apply to non-IDP players."""
+        src = self.SCRAPER_PATH.read_text()
+        cp_start = src.lower().find("ceiling pull")
+        assert cp_start > 0
+        cp_block = src[cp_start:cp_start + 500]
+        assert "not _is_this_idp" in cp_block, (
+            "Ceiling pull should be restricted to offense players"
+        )
+
+
+class TestSingleSourceDecay:
+    """Verify single-source veteran suppression is aggressive enough."""
+
+    SCRAPER_PATH = Path(__file__).resolve().parents[2] / "Dynasty Scraper.py"
+
+    def test_steep_threshold_at_least_0_60(self):
+        """SINGLE_SOURCE_STEEP_THRESHOLD should be >= 0.60 for broader coverage."""
+        src = self.SCRAPER_PATH.read_text()
+        match = re.search(r"SINGLE_SOURCE_STEEP_THRESHOLD\s*=\s*([\d.]+)", src)
+        assert match is not None, "SINGLE_SOURCE_STEEP_THRESHOLD not found"
+        assert float(match.group(1)) >= 0.60, (
+            f"SINGLE_SOURCE_STEEP_THRESHOLD should be >= 0.60, got {match.group(1)}"
+        )
+
+    def test_steep_extra_at_least_0_20(self):
+        """SINGLE_SOURCE_STEEP_EXTRA should be >= 0.20 for meaningful suppression."""
+        src = self.SCRAPER_PATH.read_text()
+        match = re.search(r"SINGLE_SOURCE_STEEP_EXTRA\s*=\s*([\d.]+)", src)
+        assert match is not None, "SINGLE_SOURCE_STEEP_EXTRA not found"
+        assert float(match.group(1)) >= 0.20, (
+            f"SINGLE_SOURCE_STEEP_EXTRA should be >= 0.20, got {match.group(1)}"
+        )
+
+    def test_rank_only_source_extra_penalty(self):
+        """Single-source rank-only players should get an additional penalty."""
+        src = self.SCRAPER_PATH.read_text()
+        steep_section = src[src.find("Single-source reliability floor"):]
+        assert "is_rank_only" in steep_section or "rank_only" in steep_section.lower(), (
+            "Single-source steep discount should check for rank-only sources"
+        )
+
+    def test_inline_discount_min_at_most_0_70(self):
+        """SINGLE_SOURCE_DISCOUNT_MIN should be <= 0.70 (30% minimum haircut)."""
+        src = self.SCRAPER_PATH.read_text()
+        match = re.search(r"SINGLE_SOURCE_DISCOUNT_MIN\s*=\s*([\d.]+)", src)
+        assert match is not None, "SINGLE_SOURCE_DISCOUNT_MIN not found"
+        assert float(match.group(1)) <= 0.70, (
+            f"SINGLE_SOURCE_DISCOUNT_MIN should be <= 0.70, got {match.group(1)}"
+        )
+
+
+class TestFrontendRankPrecedence:
+    """Verify unified rank precedence across frontend files."""
+
+    DYNASTY_DATA_JS = Path(__file__).resolve().parents[2] / "frontend" / "lib" / "dynasty-data.js"
+    RANKINGS_PAGE = Path(__file__).resolve().parents[2] / "frontend" / "app" / "rankings" / "page.jsx"
+
+    def test_resolved_rank_helper_exported(self):
+        """dynasty-data.js should export a resolvedRank helper."""
+        src = self.DYNASTY_DATA_JS.read_text()
+        assert "export function resolvedRank" in src, (
+            "dynasty-data.js should export resolvedRank()"
+        )
+
+    def test_resolved_rank_canonical_first(self):
+        """resolvedRank should prefer canonicalConsensusRank over computed."""
+        src = self.DYNASTY_DATA_JS.read_text()
+        fn_start = src.find("export function resolvedRank")
+        assert fn_start > 0
+        fn_body = src[fn_start:fn_start + 200]
+        # canonical should appear before computed in the ?? chain
+        canonical_pos = fn_body.find("canonicalConsensusRank")
+        computed_pos = fn_body.find("computedConsensusRank")
+        assert canonical_pos > 0 and computed_pos > 0, (
+            "resolvedRank should reference both rank fields"
+        )
+        assert canonical_pos < computed_pos, (
+            "canonicalConsensusRank must come before computedConsensusRank"
+        )
+
+    def test_build_rows_uses_resolved_rank(self):
+        """buildRows sort should use resolvedRank, not inline precedence."""
+        src = self.DYNASTY_DATA_JS.read_text()
+        # Find the sort calls in buildRows
+        fn_start = src.find("export function buildRows")
+        assert fn_start > 0
+        fn_body = src[fn_start:]
+        # Should NOT have inline "r.computedConsensusRank ?? r.canonicalConsensusRank"
+        assert "computedConsensusRank ?? r.canonicalConsensusRank" not in fn_body, (
+            "buildRows should not have inline rank precedence — use resolvedRank()"
+        )
+        assert "resolvedRank" in fn_body, (
+            "buildRows should use resolvedRank() for sorting"
+        )
+
+    def test_rankings_page_imports_resolved_rank(self):
+        """rankings/page.jsx should import resolvedRank from dynasty-data."""
+        src = self.RANKINGS_PAGE.read_text()
+        assert "resolvedRank" in src, (
+            "rankings/page.jsx should import and use resolvedRank"
+        )
+
+    def test_rankings_page_no_inline_precedence(self):
+        """rankings/page.jsx should not have its own inline rank precedence chain."""
+        src = self.RANKINGS_PAGE.read_text()
+        assert "r.canonicalConsensusRank ?? r.computedConsensusRank" not in src, (
+            "modelRankMap should use resolvedRank(), not inline ??"
+        )
