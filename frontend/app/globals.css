@@ -165,32 +165,22 @@ tr:hover td {
   background: rgba(255, 255, 255, 0.02);
 }
 
-/* Sticky frozen columns: #, Our Rank, Player */
-.sticky-col-0,
-.sticky-col-1,
-.sticky-col-2 {
+/* Sticky frozen player name column on horizontal scroll */
+.sticky-name {
   position: sticky;
+  left: 0;
   z-index: 2;
   background: #122547;
+  min-width: 140px;
+  box-shadow: 4px 0 8px -2px rgba(0, 0, 0, 0.4);
 }
-.sticky-col-0 { left: 0; }
-.sticky-col-1 { left: 35px; }
-.sticky-col-2 { left: 90px; }
 
-thead .sticky-col-0,
-thead .sticky-col-1,
-thead .sticky-col-2 {
+thead .sticky-name {
   z-index: 3;
   background: #0e1d3d;
 }
 
-.sticky-col-2 {
-  box-shadow: 4px 0 8px -2px rgba(0, 0, 0, 0.4);
-}
-
-tr:hover .sticky-col-0,
-tr:hover .sticky-col-1,
-tr:hover .sticky-col-2 {
+tr:hover .sticky-name {
   background: #152a52;
 }
 

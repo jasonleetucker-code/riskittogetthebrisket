@@ -42,9 +42,9 @@ export function getSiteKeys(data) {
 const SITE_WEIGHTS = {
   ktc: 1.3, fantasyCalc: 1.0, dynastyDaddy: 1.0,
   draftSharks: 0.9, fantasyPros: 0.8, yahoo: 0.8,
-  dynastyNerds: 0.8, idpTradeCalc: 1.0,
-  dlf: 0.8, dlfDynasty: 0.8, dlfRedraft: 0.7, dlfBestBall: 0.7,
-  pff: 0.7, fantasyProsIdp: 0.7, flock: 0.8,
+  dynastyNerds: 0.8, idpTradeCalc: 1.0, flock: 0.8,
+  dlfSf: 0.8, dlfIdp: 0.8, dlfRsf: 0.7, dlfRidp: 0.7,
+  pffIdp: 0.7, fantasyProsIdp: 0.7, draftSharksIdp: 0.7,
 };
 
 /**

@@ -254,9 +254,9 @@ export default function RankingsPage() {
             <table>
               <thead>
                 <tr>
-                  <th className="sticky-col-0" onClick={() => nextSort("selected")}>{thLabel("#", "selected")}</th>
-                  <th className="sticky-col-1" title="Consensus rank across sources (weighted median/mean blend)">Our Rank</th>
-                  <th className="sticky-col-2" onClick={() => nextSort("name")}>{thLabel("Player", "name")}</th>
+                  <th onClick={() => nextSort("selected")}>{thLabel("#", "selected")}</th>
+                  <th title="Consensus rank across sources (weighted median/mean blend)">Our Rank</th>
+                  <th className="sticky-name" onClick={() => nextSort("name")}>{thLabel("Player", "name")}</th>
                   <th onClick={() => nextSort("pos")}>{thLabel("Pos", "pos")}</th>
                   <th onClick={() => nextSort("selected")}>{thLabel(VALUE_MODES.find((m) => m.key === valueMode)?.label || "Value", "selected")}</th>
                   <th onClick={() => nextSort("raw")}>{thLabel("Raw", "raw")}</th>
@@ -271,9 +271,9 @@ export default function RankingsPage() {
               <tbody>
                 {filtered.map((row, i) => (
                   <tr key={row.name}>
-                    <td className="sticky-col-0">{i + 1}</td>
-                    <td className="sticky-col-1" style={{ fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)", textAlign: "center" }}>{formatRank(modelRankMap.get(row.name))}</td>
-                    <td className="sticky-col-2">
+                    <td>{i + 1}</td>
+                    <td style={{ fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)", textAlign: "center" }}>{formatRank(modelRankMap.get(row.name))}</td>
+                    <td className="sticky-name">
                       {tierStarts.has(i) ? (
                         <div className="tier-label">Tier {Array.from(tierStarts).filter((x) => x <= i).length}</div>
                       ) : null}
