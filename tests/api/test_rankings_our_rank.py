@@ -44,27 +44,27 @@ class TestOurRankComputation:
         )
 
     def test_rank_assigned_before_filters_in_build_function(self):
-        """modelRankMap must be built before filtering inside buildFullRankings."""
+        """Rank map must be built before filtering inside buildFullRankings."""
         src = RANKINGS_JS.read_text()
         # Find the buildFullRankings function
         fn_start = src.find("function buildFullRankings()")
         assert fn_start > 0, "buildFullRankings not found"
         fn_body = src[fn_start:]
-        rank_map_pos = fn_body.find("modelRankMap")
+        # positionRankMap is the fallback; canonical ranks come from row data
+        rank_map_pos = fn_body.find("positionRankMap")
         # Filter application: ranked = ranked.filter(...)
         filter_pos = fn_body.find("ranked = ranked.filter")
-        assert rank_map_pos > 0, "modelRankMap not found in buildFullRankings"
+        assert rank_map_pos > 0, "positionRankMap not found in buildFullRankings"
         assert filter_pos > 0, "filter logic not found in buildFullRankings"
         assert rank_map_pos < filter_pos, (
-            "modelRankMap must be computed before filtering is applied"
+            "positionRankMap must be computed before filtering is applied"
         )
 
-    def test_rank_is_one_based(self):
-        """Rank assignment should use i + 1 (1-based)."""
+    def test_fallback_rank_is_one_based(self):
+        """Fallback rank assignment should use i + 1 (1-based)."""
         src = RANKINGS_JS.read_text()
-        # The forEach that assigns rank should add 1
-        assert "modelRankMap.set(r.name, i + 1)" in src, (
-            "Model rank should be 1-based (i + 1)"
+        assert "positionRankMap.set(r.name, i + 1)" in src, (
+            "Fallback rank should be 1-based (i + 1)"
         )
 
 
@@ -103,4 +103,103 @@ class TestOurRankOnMobile:
         # Specifically in the mobile card template
         assert "modelRankLabel" in src, (
             "Mobile cards should use modelRankLabel variable"
+        )
+
+
+class TestCanonicalRankSupport:
+    """Verify canonical consensus_rank (decimal) flows through to the UI."""
+
+    def test_row_carries_canonical_consensus_rank(self):
+        """Each row object should carry canonicalConsensusRank from player data."""
+        src = RANKINGS_JS.read_text()
+        assert "canonicalConsensusRank:" in src, (
+            "Row object must include canonicalConsensusRank field"
+        )
+
+    def test_row_carries_canonical_tier_id(self):
+        """Each row object should carry canonicalTierId from player data."""
+        src = RANKINGS_JS.read_text()
+        assert "canonicalTierId:" in src, (
+            "Row object must include canonicalTierId field"
+        )
+
+    def test_canonical_rank_preferred_over_integer_fallback(self):
+        """When canonical ranks are available, they should be used over integer fallback."""
+        src = RANKINGS_JS.read_text()
+        assert "hasCanonicalRanks" in src, (
+            "Code should check for canonical rank availability"
+        )
+        assert "canonicalConsensusRank" in src, (
+            "Code should reference canonicalConsensusRank for the model rank"
+        )
+
+    def test_decimal_rank_formatting(self):
+        """Our Rank cell should format decimal values with toFixed(1)."""
+        src = RANKINGS_JS.read_text()
+        assert "toFixed(1)" in src, (
+            "Decimal rank should be formatted with 1 decimal place"
+        )
+
+
+class TestLegacyLabelsRemoved:
+    """Verify legacy terminology is replaced with canonical terminology."""
+
+    def test_no_fully_adjusted_in_rankings_dropdown(self):
+        """Rankings sort dropdown should not say 'Fully Adjusted'."""
+        src = RANKINGS_JS.read_text()
+        # Check only in the rankings-related areas (not unrelated code)
+        # The RANKINGS_DATA_MODE_LABELS constant area and buildFullRankings area
+        assert "Fully Adjusted" not in src, (
+            "Rankings JS still contains 'Fully Adjusted' — should be 'Our Value'"
+        )
+
+    def test_no_final_value_column_header(self):
+        """Detail column should not say 'Final Value' — should say 'Our Value'."""
+        src = RANKINGS_JS.read_text()
+        assert ">Final Value<" not in src, (
+            "Column header still says 'Final Value' — should be 'Our Value'"
+        )
+
+    def test_value_full_label_is_our_value(self):
+        """The default sort mode label should be 'Our Value' not 'Value (Full)'."""
+        src = RANKINGS_JS.read_text()
+        # In the valueColLabel determination
+        assert "'Our Value'" in src, (
+            "Default value column label should be 'Our Value'"
+        )
+
+    def test_rankings_html_dropdown_says_our_value(self):
+        """The HTML sort dropdown for rankings should say 'Our Value'."""
+        html_path = Path(__file__).resolve().parents[2] / "Static" / "index.html"
+        src = html_path.read_text()
+        # Find the rankingsSortBasis select
+        import re
+        match = re.search(r'id="rankingsSortBasis".*?</select>', src, re.DOTALL)
+        assert match is not None, "rankingsSortBasis select not found"
+        select_html = match.group(0)
+        assert "Our Value" in select_html, (
+            "Rankings sort dropdown should have 'Our Value' option"
+        )
+        assert "Fully Adjusted" not in select_html, (
+            "Rankings sort dropdown should not have 'Fully Adjusted' option"
+        )
+
+
+class TestServerCanonicalOverlay:
+    """Verify server pushes canonical rank and tier to player data."""
+
+    def test_server_pushes_consensus_rank(self):
+        """server.py overlay should set _canonicalConsensusRank on player data."""
+        server_path = Path(__file__).resolve().parents[2] / "server.py"
+        src = server_path.read_text()
+        assert "_canonicalConsensusRank" in src, (
+            "Server overlay must push _canonicalConsensusRank to player data"
+        )
+
+    def test_server_pushes_tier_id(self):
+        """server.py overlay should set _canonicalTierId on player data."""
+        server_path = Path(__file__).resolve().parents[2] / "server.py"
+        src = server_path.read_text()
+        assert "_canonicalTierId" in src, (
+            "Server overlay must push _canonicalTierId to player data"
         )

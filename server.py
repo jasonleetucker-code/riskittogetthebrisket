@@ -1133,6 +1133,8 @@ def _apply_canonical_primary_overlay(contract: dict) -> int:
             "blended_value": asset.get("blended_value"),
             "source_count": len(asset.get("source_values", {})),
             "universe": asset.get("universe", ""),
+            "consensus_rank": asset.get("canonical_consensus_rank"),
+            "tier_id": asset.get("canonical_tier_id"),
         }
 
     # Normalize helper
@@ -1170,6 +1172,11 @@ def _apply_canonical_primary_overlay(contract: dict) -> int:
         # Display-scale value (1–9999) for public-facing use
         if canon.get("display_value") is not None:
             pdata["_canonicalDisplayValue"] = canon["display_value"]
+        # Canonical consensus rank (decimal) and tier for frontend rankings
+        if canon.get("consensus_rank") is not None:
+            pdata["_canonicalConsensusRank"] = round(float(canon["consensus_rank"]), 2)
+        if canon.get("tier_id") is not None:
+            pdata["_canonicalTierId"] = int(canon["tier_id"])
         overlay_count += 1
 
     # Mark the contract as canonical-authoritative
