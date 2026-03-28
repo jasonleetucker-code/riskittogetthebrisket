@@ -210,6 +210,14 @@ latest_data_source: dict = {
     "path": "",
     "loadedAt": "",
 }
+# Pre-computed payload metrics (set once in _prime_latest_payload, read on every /api/status).
+_payload_metrics: dict = {}
+# Cached source health snapshot (recomputed only when data changes).
+_cached_source_health: dict | None = None
+_cached_source_health_data_id: int = 0  # id(latest_data) when snapshot was built
+# Cached 24h scrape success rate (recomputed at most every 60s).
+_cached_success_rate: dict | None = None
+_cached_success_rate_at: float = 0.0
 contract_health: dict = {
     "ok": False,
     "status": "unknown",
@@ -235,12 +243,8 @@ _metrics: dict = {
     "data_age_seconds": 0.0,
 }
 # Canonical scrape lifecycle state.
-# Compatibility aliases are maintained:
-#   running -> is_running
-#   error   -> last_error
 scrape_status = {
     "running": False,
-    "is_running": False,      # legacy alias for UI compatibility
     "hung": False,
     "stalled": False,
     "started_at": None,
@@ -252,7 +256,6 @@ scrape_status = {
     "last_duration_sec": None,
     "next_scrape": None,      # ISO timestamp
     "error": None,
-    "last_error": None,       # legacy alias for UI compatibility
     "current_step": None,
     "current_source": None,
     "progress_step_index": 0,
@@ -424,10 +427,6 @@ def _is_scrape_stalled() -> bool:
     return age > SCRAPE_STALL_SECONDS
 
 
-def _sync_scrape_alias_fields() -> None:
-    scrape_status["is_running"] = bool(scrape_status.get("running"))
-    scrape_status["last_error"] = scrape_status.get("error")
-
 
 def _reconcile_orphaned_running_state() -> None:
     # Safety net: if status says running but lock is free, a prior worker exited
@@ -446,7 +445,7 @@ def _reconcile_orphaned_running_state() -> None:
         scrape_status["current_step"] = "stale_state_reset"
         scrape_status["current_source"] = None
         _touch_scrape_heartbeat()
-        _sync_scrape_alias_fields()
+    
 
 
 def _start_scrape_run(trigger: str) -> str:
@@ -467,7 +466,7 @@ def _start_scrape_run(trigger: str) -> str:
             "worker_id": run_id,
         }
     )
-    _sync_scrape_alias_fields()
+
     _record_scrape_event("scrape_started", message=f"trigger={trigger}", trigger=trigger, worker_id=run_id)
     return run_id
 
@@ -494,7 +493,7 @@ def _update_scrape_progress(
     scrape_status["hung"] = False
     scrape_status["stalled"] = False
     _touch_scrape_heartbeat()
-    _sync_scrape_alias_fields()
+
     if event:
         _record_scrape_event(event, level=level, message=message or "", **(meta or {}))
 
@@ -517,7 +516,7 @@ def _mark_scrape_success(elapsed: float, player_count: int, site_count: int, tot
         }
     )
     _touch_scrape_heartbeat()
-    _sync_scrape_alias_fields()
+
     _record_scrape_event(
         "scrape_succeeded",
         message=f"{player_count} players, {site_count}/{total_sites} sites, {elapsed:.1f}s",
@@ -552,7 +551,7 @@ def _mark_scrape_failure(exc: Exception, elapsed: float) -> None:
         }
     )
     _touch_scrape_heartbeat()
-    _sync_scrape_alias_fields()
+
     _record_scrape_event(
         "scrape_failed",
         level="error",
@@ -583,7 +582,7 @@ def _record_scrape_history(outcome: str, duration: float, **meta) -> None:
         scrape_history.pop(0)
 
 
-def _scrape_success_rate_24h() -> dict:
+def _scrape_success_rate_24h_uncached() -> dict:
     """R-4: Calculate scrape success rate over the last 24 hours."""
     now = datetime.now(timezone.utc)
     recent = []
@@ -606,6 +605,30 @@ def _scrape_success_rate_24h() -> dict:
     }
 
 
+def _scrape_success_rate_24h() -> dict:
+    """Cached wrapper — recomputes at most every 60 seconds."""
+    global _cached_success_rate, _cached_success_rate_at
+    import time as _time
+    now = _time.monotonic()
+    if _cached_success_rate is not None and (now - _cached_success_rate_at) < 60:
+        return _cached_success_rate
+    _cached_success_rate = _scrape_success_rate_24h_uncached()
+    _cached_success_rate_at = now
+    return _cached_success_rate
+
+
+def _get_source_health_cached() -> dict:
+    """Return cached source health snapshot; recompute only when data changes."""
+    global _cached_source_health, _cached_source_health_data_id
+    data = latest_data or latest_contract_data
+    data_identity = id(data)
+    if _cached_source_health is not None and _cached_source_health_data_id == data_identity:
+        return _cached_source_health
+    _cached_source_health = _build_source_health_snapshot(data)
+    _cached_source_health_data_id = data_identity
+    return _cached_source_health
+
+
 def _finalize_scrape_run(worker_id: str) -> None:
     # Guaranteed cleanup path (always called in run_scraper finally).
     if scrape_status.get("worker_id") != worker_id:
@@ -625,7 +648,7 @@ def _finalize_scrape_run(worker_id: str) -> None:
     if scrape_status.get("current_step") == "complete":
         scrape_status["current_source"] = None
     _touch_scrape_heartbeat()
-    _sync_scrape_alias_fields()
+
 
 
 def _build_scrape_progress_callback(worker_id: str):
@@ -671,9 +694,12 @@ def _scrape_status_payload() -> dict:
     else:
         scrape_status["hung"] = False
         scrape_status["stalled"] = False
-    _sync_scrape_alias_fields()
+
 
     payload = dict(scrape_status)
+    # Compute compatibility aliases on read instead of syncing on every write.
+    payload["is_running"] = bool(payload.get("running"))
+    payload["last_error"] = payload.get("error")
     payload["stall_threshold_sec"] = SCRAPE_STALL_SECONDS
     payload["run_timeout_sec"] = SCRAPE_RUN_TIMEOUT_SECONDS
     payload["status_summary"] = (
@@ -998,6 +1024,16 @@ def _prime_latest_payload(data: dict | None) -> None:
         latest_startup_data_bytes = startup_raw
         latest_startup_data_gzip_bytes = gzip.compress(startup_raw, compresslevel=5)
         latest_startup_data_etag = hashlib.sha1(startup_raw).hexdigest()
+
+        # Pre-compute payload metrics so /api/status doesn't recalculate per request.
+        global _payload_metrics, _cached_source_health
+        _payload_metrics = {
+            "full_bytes": len(raw),
+            "startup_bytes": len(startup_raw),
+            "full_gzip_bytes": len(latest_data_gzip_bytes),
+            "startup_gzip_bytes": len(latest_startup_data_gzip_bytes),
+        }
+        _cached_source_health = None  # Invalidate on new data load.
     except Exception as e:
         contract_health = {
             "ok": False,
@@ -1646,11 +1682,12 @@ async def get_status():
     status_payload = _scrape_status_payload()
     # Prefer full scrape payload for source-health truth (dlfImport/sourceRunSummary).
     # Contract payload is a compatibility fallback when full payload is unavailable.
-    source_health = _build_source_health_snapshot(latest_data or latest_contract_data)
-    full_bytes = len(latest_data_bytes) if latest_data_bytes else 0
-    startup_bytes = len(latest_startup_data_bytes) if latest_startup_data_bytes else 0
-    full_gzip_bytes = len(latest_data_gzip_bytes) if latest_data_gzip_bytes else 0
-    startup_gzip_bytes = len(latest_startup_data_gzip_bytes) if latest_startup_data_gzip_bytes else 0
+    source_health = _get_source_health_cached()
+    pm = _payload_metrics
+    full_bytes = pm.get("full_bytes", 0)
+    startup_bytes = pm.get("startup_bytes", 0)
+    full_gzip_bytes = pm.get("full_gzip_bytes", 0)
+    startup_gzip_bytes = pm.get("startup_gzip_bytes", 0)
     return JSONResponse(content={
         **status_payload,
         "frontend_runtime": frontend_runtime_status,

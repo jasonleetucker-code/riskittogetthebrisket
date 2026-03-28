@@ -393,6 +393,7 @@ def clean_name(raw):
     return name
 
 
+@functools.lru_cache(maxsize=8192)
 def normalize_lookup_name(raw):
     """Name key for resilient matching across sources."""
     s = clean_name(raw or "").lower()
@@ -4873,11 +4874,11 @@ async def _draftsharks_login(page):
         await email_inp.click()
         await email_inp.fill("")
         await email_inp.type(DRAFTSHARKS_EMAIL, delay=30)
-        await page.wait_for_timeout(300)
+        await page.wait_for_timeout(150)
         await pw_inp.click()
         await pw_inp.fill("")
         await pw_inp.type(DRAFTSHARKS_PASSWORD, delay=30)
-        await page.wait_for_timeout(500)
+        await page.wait_for_timeout(200)
 
         submit = await page.query_selector('button[type="submit"], input[type="submit"], button:has-text("Log In"), button:has-text("Sign In"), button:has-text("Login")')
         if submit:
@@ -6203,7 +6204,7 @@ async def scrape_idptradecalc(page, players):
                     });
                 }
             """)
-            await page.wait_for_timeout(500)
+            await page.wait_for_timeout(200)
             if DEBUG:
                 print(f"  [IDPTradeCalc] Dismissed cookie consent overlay")
         except Exception:
@@ -6221,25 +6222,25 @@ async def scrape_idptradecalc(page, players):
             changed = False
             if not sf_checked:
                 await page.evaluate("document.getElementById('toggleButton').click()")
-                await page.wait_for_timeout(800)
+                await page.wait_for_timeout(400)
                 changed = True
 
             if not tep_checked:
                 await page.evaluate("document.getElementById('toggleButtonTEP').click()")
-                await page.wait_for_timeout(800)
+                await page.wait_for_timeout(400)
                 changed = True
 
             if not changed:
                 if DEBUG:
                     print(f"  [IDPTradeCalc] Both already checked — cycling OFF→ON to refresh")
                 await page.evaluate("document.getElementById('toggleButton').click()")
-                await page.wait_for_timeout(500)
+                await page.wait_for_timeout(250)
                 await page.evaluate("document.getElementById('toggleButtonTEP').click()")
-                await page.wait_for_timeout(500)
+                await page.wait_for_timeout(250)
                 await page.evaluate("document.getElementById('toggleButtonTEP').click()")
-                await page.wait_for_timeout(500)
+                await page.wait_for_timeout(250)
                 await page.evaluate("document.getElementById('toggleButton').click()")
-                await page.wait_for_timeout(1000)
+                await page.wait_for_timeout(500)
 
             sf_final = await page.evaluate(
                 "document.getElementById('toggleButton').checked")
@@ -6255,7 +6256,7 @@ async def scrape_idptradecalc(page, players):
                         if (typeof toggleRankings === 'function') toggleRankings();
                     }
                 """)
-                await page.wait_for_timeout(500)
+                await page.wait_for_timeout(300)
             if not tep_final:
                 await page.evaluate("""
                     () => {
@@ -6263,7 +6264,7 @@ async def scrape_idptradecalc(page, players):
                         if (typeof toggleTEP === 'function') toggleTEP();
                     }
                 """)
-                await page.wait_for_timeout(500)
+                await page.wait_for_timeout(300)
             return True
 
         await ensure_toggles_on()
@@ -6293,7 +6294,7 @@ async def scrape_idptradecalc(page, players):
             if DEBUG:
                 print(f"  [IDPTradeCalc] No new API data after toggle cycle")
 
-        await page.wait_for_timeout(2000)
+        await page.wait_for_timeout(1000)
 
         # ── Parse intercepted API responses ──
         def response_priority(item):
@@ -6581,7 +6582,7 @@ async def scrape_idptradecalc(page, players):
                 print(f"  [IDPTradeCalc] {len(missing)} players missing — batch searching via autocomplete")
 
             await ensure_toggles_on()
-            await page.wait_for_timeout(1000)
+            await page.wait_for_timeout(500)
 
             found_count = 0
             for pi, player in enumerate(missing):
@@ -6608,7 +6609,7 @@ async def scrape_idptradecalc(page, players):
                     await input_box.evaluate("el => el.value = ''")
                     await page.wait_for_timeout(100)
                     await page.keyboard.type(player, delay=20)
-                    await page.wait_for_timeout(800)
+                    await page.wait_for_timeout(500)
 
                     body_text = await page.inner_text("body")
                     last_name = player.split()[-1]
@@ -6644,7 +6645,7 @@ async def scrape_idptradecalc(page, players):
                 clear_btn = await page.query_selector("text=Clear")
                 if clear_btn and await clear_btn.is_visible():
                     await clear_btn.click()
-                    await page.wait_for_timeout(500)
+                    await page.wait_for_timeout(200)
             except Exception:
                 pass
 
@@ -7159,12 +7160,12 @@ async def _flock_auto_login(page):
         await email_input.click()
         await email_input.fill("")
         await email_input.type(FLOCK_EMAIL, delay=30)
-        await page.wait_for_timeout(300)
+        await page.wait_for_timeout(150)
 
         await pw_input.click()
         await pw_input.fill("")
         await pw_input.type(FLOCK_PASSWORD, delay=30)
-        await page.wait_for_timeout(300)
+        await page.wait_for_timeout(150)
 
         # Find and click login/submit button
         login_btn = None
@@ -7495,7 +7496,7 @@ async def _flock_get_ovr(page, player_name):
                 return True
 
             await page.keyboard.press("Escape")
-            await page.wait_for_timeout(600)
+            await page.wait_for_timeout(300)
 
             still_there = await page.evaluate("""
                 () => {
@@ -7512,7 +7513,7 @@ async def _flock_get_ovr(page, player_name):
                     if (modal) modal.click();
                 }
             """)
-            await page.wait_for_timeout(600)
+            await page.wait_for_timeout(300)
 
             still_there = await page.evaluate("""
                 () => {
@@ -7544,7 +7545,7 @@ async def _flock_get_ovr(page, player_name):
                     }
                 """)
                 if closed:
-                    await page.wait_for_timeout(600)
+                    await page.wait_for_timeout(300)
                     continue
 
             if attempt >= 2:
@@ -7564,7 +7565,7 @@ async def _flock_get_ovr(page, player_name):
                         });
                     }
                 """)
-                await page.wait_for_timeout(300)
+                await page.wait_for_timeout(150)
                 return True
         return False
 
@@ -7597,7 +7598,7 @@ async def _flock_get_ovr(page, player_name):
             return None
 
         await add_btn.evaluate("el => el.click()")
-        await page.wait_for_timeout(1000)
+        await page.wait_for_timeout(500)
     except Exception as e:
         await dismiss_modals()
         return None
@@ -7633,12 +7634,12 @@ async def _flock_get_ovr(page, player_name):
         if search_input:
             await search_input.click()
             await search_input.fill("")
-            await page.wait_for_timeout(200)
+            await page.wait_for_timeout(100)
             await search_input.type(player_name, delay=50)
         else:
             await page.keyboard.type(player_name, delay=60)
 
-        await page.wait_for_timeout(1500)
+        await page.wait_for_timeout(800)
 
     except Exception as e:
         await page.keyboard.press("Escape")
@@ -7646,7 +7647,7 @@ async def _flock_get_ovr(page, player_name):
 
     clicked = False
     try:
-        await page.wait_for_timeout(1000)
+        await page.wait_for_timeout(500)
 
         clicked = await page.evaluate("""
             (searchTerms) => {
@@ -7678,7 +7679,7 @@ async def _flock_get_ovr(page, player_name):
         """, [last_name, first_name, player_name.lower()])
 
         if clicked:
-            await page.wait_for_timeout(1500)
+            await page.wait_for_timeout(800)
 
         if not clicked:
             for sel in [
@@ -7695,7 +7696,7 @@ async def _flock_get_ovr(page, player_name):
                             if box and box['height'] < 200:
                                 await el.evaluate("el => el.click()")
                                 clicked = True
-                                await page.wait_for_timeout(1500)
+                                await page.wait_for_timeout(800)
                                 break
                     if clicked:
                         break
@@ -7707,17 +7708,17 @@ async def _flock_get_ovr(page, player_name):
 
     if not clicked:
         await page.keyboard.press("Escape")
-        await page.wait_for_timeout(500)
+        await page.wait_for_timeout(250)
         await dismiss_modals()
         return None
 
-    await page.wait_for_timeout(1000)
+    await page.wait_for_timeout(500)
     await dismiss_modals()
 
     # ── Read OVR value ──
     ovr = None
     try:
-        await page.wait_for_timeout(500)
+        await page.wait_for_timeout(300)
         content = await page.inner_text("body")
         post_ovrs = re.findall(r'(\d+\.?\d*)\s*OVR', content)
 
@@ -7776,7 +7777,7 @@ async def _flock_get_ovr(page, player_name):
         """)
 
         if removed:
-            await page.wait_for_timeout(600)
+            await page.wait_for_timeout(300)
             await dismiss_modals()
         else:
             card_clicked = await page.evaluate("""
@@ -7790,14 +7791,14 @@ async def _flock_get_ovr(page, player_name):
             """, last_name)
 
             if card_clicked:
-                await page.wait_for_timeout(800)
+                await page.wait_for_timeout(400)
                 for sel in ["text=Remove", "text=Delete", "text=remove"]:
                     try:
                         rm = await page.query_selector(sel)
                         if rm and await rm.is_visible():
                             await rm.evaluate("el => el.click()")
                             removed = True
-                            await page.wait_for_timeout(500)
+                            await page.wait_for_timeout(250)
                             break
                     except Exception:
                         pass
@@ -10824,6 +10825,14 @@ async def run(progress_callback=None):
         )
     ], 800.0) * 0.20)))
 
+    # Pre-build reverse index: normalized name → first matching player key.
+    # Replaces O(N*M) inner-loop scans with O(1) dict lookups.
+    _norm_to_player_key: dict[str, str] = {}
+    for _pn in players_json.keys():
+        _nk = normalize_lookup_name(_pn)
+        if _nk and _nk not in _norm_to_player_key:
+            _norm_to_player_key[_nk] = _pn
+
     for raw_name in SLEEPER_PLAYERS:
         clean_nm = clean_name(raw_name)
         if not clean_nm:
@@ -10838,10 +10847,7 @@ async def run(progress_callback=None):
                 existing_key = can
             else:
                 norm = normalize_lookup_name(clean_nm)
-                for pn in players_json.keys():
-                    if normalize_lookup_name(pn) == norm:
-                        existing_key = pn
-                        break
+                existing_key = _norm_to_player_key.get(norm)
 
         target_name = existing_key or _canonical_map.get(clean_nm, clean_nm)
         pref_pos = _get_pos(target_name) or _get_pos(clean_nm)
@@ -10904,6 +10910,10 @@ async def run(progress_callback=None):
             entry["_sites"] = max(1, len(site_vals))
 
         players_json[target_name] = entry
+        # Keep reverse index current for the rookie guarantee phase that follows.
+        _tn_norm = normalize_lookup_name(target_name)
+        if _tn_norm and _tn_norm not in _norm_to_player_key:
+            _norm_to_player_key[_tn_norm] = target_name
 
     if _rostered_missing_added or _rostered_fallback_applied:
         print(
@@ -10939,10 +10949,7 @@ async def run(progress_callback=None):
             _existing_key = _clean_nm
         else:
             _norm = normalize_lookup_name(_clean_nm)
-            for _pn in players_json.keys():
-                if normalize_lookup_name(_pn) == _norm:
-                    _existing_key = _pn
-                    break
+            _existing_key = _norm_to_player_key.get(_norm)
 
         _target_name = _existing_key or _canonical_map.get(_clean_nm, _clean_nm)
         _pref_pos = _get_pos(_target_name) or _get_pos(_clean_nm)
