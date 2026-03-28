@@ -192,12 +192,19 @@
   }
 
   async function triggerScrape() {
-    if (!serverMode) return;
+    const btn = document.getElementById('loadDataBtn');
+    const st = document.getElementById('dataStatus');
+
+    // Show immediate feedback
+    if (btn) { btn.disabled = true; btn.textContent = '🔄 Refreshing...'; }
+    if (st) { st.textContent = '🔄 Connecting to server...'; st.style.color = 'var(--amber)'; }
+
     try {
       const resp = await fetch('/api/scrape', { method: 'POST' });
       const data = await resp.json();
       if (resp.ok) {
-        const st = document.getElementById('dataStatus');
+        // Server accepted — we are live
+        serverMode = true;
         if (st) { st.textContent = '🔄 Refreshing values...'; st.style.color = 'var(--amber)'; }
         // Poll for completion
         const poll = setInterval(async () => {
@@ -210,14 +217,22 @@
               // Reload data
               await fetchFromServer();
               recalculate();
+              if (btn) { btn.disabled = false; btn.textContent = '🔄 Refresh Values'; }
             }
-          } catch(e) { clearInterval(poll); }
+          } catch(e) {
+            clearInterval(poll);
+            if (btn) { btn.disabled = false; btn.textContent = '🔄 Refresh Values'; }
+          }
         }, 5000);
       } else {
+        if (btn) { btn.disabled = false; btn.textContent = '🔄 Refresh Values'; }
         alert(data.error || 'Refresh failed to start');
       }
     } catch(e) {
-      alert('Could not reach the server');
+      // Server unreachable — show clear error, never silently fall back to upload
+      if (btn) { btn.disabled = false; btn.textContent = '🔄 Refresh Values'; }
+      if (st) { st.textContent = '⚠ Server unreachable — cannot refresh'; st.style.color = 'var(--red, #e74c3c)'; }
+      alert('Could not reach the server. Make sure the backend is running.');
     }
   }
 

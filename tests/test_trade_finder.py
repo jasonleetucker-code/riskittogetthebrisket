@@ -274,6 +274,103 @@ class TestScoreTrade:
         assert isinstance(d["arbitrageScore"], float)
 
 
+# ── Strict positive opponent KTC gate ────────────────────────────────────
+
+class TestStrictPositiveOpponentKtc:
+    """Opponent must STRICTLY WIN on KTC — no break-even, no loss."""
+
+    def test_opponent_gains_on_ktc_allowed(self):
+        """opp_appeal > 0 → trade is allowed."""
+        give = [_make_asset("A", model=4000, ktc=5000)]
+        recv = [_make_asset("B", model=5000, ktc=4500)]
+        tc = _score_trade(give, recv)
+        assert tc is not None
+        assert tc.opponent_ktc_appeal > 0
+
+    def test_opponent_breakeven_on_ktc_rejected(self):
+        """opp_appeal == 0 (exact break-even) → rejected."""
+        give = [_make_asset("A", model=4000, ktc=5000)]
+        recv = [_make_asset("B", model=5000, ktc=5000)]
+        tc = _score_trade(give, recv)
+        assert tc is None
+
+    def test_opponent_slight_loss_on_ktc_rejected(self):
+        """opp_appeal slightly negative → rejected."""
+        give = [_make_asset("A", model=4000, ktc=4900)]
+        recv = [_make_asset("B", model=5000, ktc=5000)]
+        tc = _score_trade(give, recv)
+        assert tc is None
+
+    def test_opponent_large_loss_on_ktc_rejected(self):
+        """opp_appeal deeply negative → rejected."""
+        give = [_make_asset("A", model=3000, ktc=3000)]
+        recv = [_make_asset("B", model=5000, ktc=5000)]
+        tc = _score_trade(give, recv)
+        assert tc is None
+
+    def test_partial_ktc_zero_appeal_rejected(self):
+        """Partial KTC with zero opponent appeal → rejected."""
+        give = [_make_asset("A", model=4000, ktc=3000)]
+        recv = [_make_asset("B", model=3000, ktc=3000),
+                _make_asset("C", model=2000, ktc=None)]
+        tc = _score_trade(give, recv)
+        assert tc is None
+
+    def test_partial_ktc_positive_appeal_allowed(self):
+        """Partial KTC with positive opponent appeal → allowed."""
+        give = [_make_asset("A", model=4000, ktc=5000)]
+        recv = [_make_asset("B", model=3000, ktc=3000),
+                _make_asset("C", model=2000, ktc=None)]
+        tc = _score_trade(give, recv)
+        assert tc is not None
+        assert tc.opponent_ktc_appeal > 0
+
+    def test_partial_ktc_negative_appeal_rejected(self):
+        """Partial KTC with negative opponent appeal → rejected."""
+        give = [_make_asset("A", model=4000, ktc=2500)]
+        recv = [_make_asset("B", model=3000, ktc=3000),
+                _make_asset("C", model=2000, ktc=None)]
+        tc = _score_trade(give, recv)
+        assert tc is None
+
+    def test_all_returned_trades_have_positive_opponent_ktc(self):
+        """End-to-end: every trade in results has opponent_ktc_appeal > 0."""
+        players = {
+            "My WR1": _make_player_data(4000, ktc=5500, pos="WR"),
+            "My WR2": _make_player_data(3500, ktc=5000, pos="WR"),
+            "My RB1": _make_player_data(5000, ktc=6000, pos="RB"),
+            "Opp WR1": _make_player_data(5500, ktc=4500, pos="WR"),
+            "Opp RB1": _make_player_data(4500, ktc=4000, pos="RB"),
+        }
+        teams = _make_sleeper_teams({
+            "Me": ["My WR1", "My WR2", "My RB1"],
+            "Them": ["Opp WR1", "Opp RB1"],
+        })
+        result = find_trades(players, "Me", ["Them"], teams)
+        for t in result["trades"]:
+            assert t["opponentKtcAppeal"] > 0, (
+                f"Trade has non-positive opponent KTC appeal: {t['opponentKtcAppeal']}"
+            )
+
+    def test_no_breaks_even_in_any_summary(self):
+        """No trade summary should contain 'breaks even'."""
+        players = {
+            "My WR1": _make_player_data(4000, ktc=5500, pos="WR"),
+            "My RB1": _make_player_data(5000, ktc=6000, pos="RB"),
+            "Opp WR1": _make_player_data(5500, ktc=4500, pos="WR"),
+            "Opp RB1": _make_player_data(4500, ktc=4000, pos="RB"),
+        }
+        teams = _make_sleeper_teams({
+            "Me": ["My WR1", "My RB1"],
+            "Them": ["Opp WR1", "Opp RB1"],
+        })
+        result = find_trades(players, "Me", ["Them"], teams)
+        for t in result["trades"]:
+            assert "breaks even" not in t["summary"], (
+                f"Summary contains 'breaks even': {t['summary']}"
+            )
+
+
 # ── Candidate generation ─────────────────────────────────────────────────
 
 class TestGenerate1for1:
@@ -572,7 +669,7 @@ class TestFireSaleGuard:
 
     def test_1for2_not_affected_by_fire_sale_guard(self):
         """1-for-2 (I give less, get more pieces) is not subject to ratio."""
-        give = [_make_asset("Star", model=7000, ktc=8000)]
+        give = [_make_asset("Star", model=7000, ktc=9000)]
         recv = [_make_asset("A", model=4000, ktc=4500), _make_asset("B", model=3500, ktc=4000)]
         tc = _score_trade(give, recv)
         # 1-for-2: len(give)=1 <= len(receive)=2, guard doesn't apply
@@ -672,7 +769,7 @@ class TestPackageAnchorQuality:
 
     def test_1for2_not_subject_to_anchor(self):
         """1-for-2 trades don't need anchor check (I'm receiving, not packaging)."""
-        give = [_make_asset("Star", model=7000, ktc=8000)]
+        give = [_make_asset("Star", model=7000, ktc=9000)]
         recv = [_make_asset("A", model=4000, ktc=4500), _make_asset("B", model=3500, ktc=4000)]
         tc = _score_trade(give, recv)
         assert tc is not None
@@ -1021,8 +1118,9 @@ class TestOppAppealPhrase:
         p = _opp_appeal_phrase(0.15)
         assert "gains" in p and "15%" in p
 
-    def test_even(self):
-        assert "breaks even" in _opp_appeal_phrase(0.03)
+    def test_small_positive(self):
+        p = _opp_appeal_phrase(0.03)
+        assert "gains" in p and "3%" in p
 
     def test_negative(self):
         p = _opp_appeal_phrase(-0.08)
@@ -1145,8 +1243,8 @@ class TestExplainabilityFields:
         recv = [_make_asset("B", model=5000, ktc=4000, source_count=5)]
         tc = _score_trade(give, recv)
         rf = tc.ranking_factors
-        # Core = (boardEdge + ktcAppeal + positiveBonus + ktcPenalty) * confidenceMultiplier + valueScale + simplicityPenalty
-        core = rf["boardEdge"] + rf["ktcAppeal"] + rf["positiveBonus"] + rf["ktcPenalty"]
+        # Core = (boardEdge + ktcAppeal + positiveBonus) * confidenceMultiplier + valueScale + simplicityPenalty
+        core = rf["boardEdge"] + rf["ktcAppeal"] + rf["positiveBonus"]
         reconstructed = core * rf["confidenceMultiplier"] + rf["valueScale"] + rf["simplicityPenalty"]
         assert abs(reconstructed - tc.arbitrage_score) < 0.1
 
@@ -1316,13 +1414,14 @@ class TestKtcQualityGuardrails:
         summary = _build_summary(
             board_delta=1000,
             board_gain_pct=0.25,
-            opp_appeal=0.0,
+            opp_appeal=0.05,
             coverage="full",
             confidence_tier="high",
             edge_label="Strong Edge",
             pkg_size_str="1-for-1",
         )
-        assert "breaks even" in summary
+        assert "opponent gains" in summary
+        assert "5%" in summary
 
     def test_excluded_positions_constant(self):
         """Verify the exclusion set contains the right positions."""

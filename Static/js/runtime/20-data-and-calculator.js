@@ -1074,7 +1074,7 @@
           return;
         }
         const btn = document.getElementById('loadDataBtn');
-        if (btn) { btn.textContent = '✓ Values Loaded'; setTimeout(() => { btn.textContent = '📊 Update Values'; }, 3000); }
+        if (btn) { btn.textContent = '✓ Values Loaded'; setTimeout(() => { btn.textContent = '📊 Import File'; }, 3000); }
         recalculate();
       } catch(err) {
         alert('Couldn\'t read that file. Make sure it\'s the right one.');
@@ -1241,7 +1241,7 @@
       el.style.display = '';
       el.innerHTML = `
         <strong style="color:var(--text);">No values loaded.</strong>
-        Run <strong>Update Values</strong> first, then add players or import a KTC trade URL.
+        Tap <strong>Refresh Values</strong> first, then add players or import a KTC trade URL.
       `;
       return;
     }
@@ -4152,9 +4152,9 @@
 
   function buildEdgeTable() {
     if (!loadedData || !loadedData.players) {
-      document.getElementById('edgeSummary').textContent = 'Tap Update Values to load player data first.';
+      document.getElementById('edgeSummary').textContent = 'Tap Refresh Values to load player data first.';
       document.getElementById('edgeBody').innerHTML = '';
-      renderEdgeCardsInto('edgeMobileList', [], { emptyText: 'Tap Update Values to load edge signals.' });
+      renderEdgeCardsInto('edgeMobileList', [], { emptyText: 'Tap Refresh Values to load edge signals.' });
       return;
     }
 

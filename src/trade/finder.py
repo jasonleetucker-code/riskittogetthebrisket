@@ -3,9 +3,9 @@ Trade Finder Engine
 ===================
 Finds trades where:
   - Our model values favor my side (I receive more board value than I give)
-  - KTC values make the deal look fair or favorable to the opponent
+  - KTC values show the opponent WINNING on market numbers (strictly positive gain)
   - The result is "board arbitrage" — good for me on our numbers,
-    plausible for them on market numbers.
+    clearly appealing to them on market numbers.
 
 Works against the live production data payload (players dict with
 _rawComposite / _canonicalSiteValues fields).
@@ -23,8 +23,6 @@ from src.utils.name_clean import POSITION_ALIASES as _POS_ALIASES
 MIN_ASSET_VALUE = 800          # Minimum model value to consider an asset tradeable
 MIN_KTC_VALUE = 500            # Minimum KTC value to include in trade
 MAX_BOARD_LOSS = -200          # Never suggest a trade where my board delta is worse than this
-KTC_OPPONENT_FLOOR = -0.12     # Opponent must not lose more than 12% on KTC
-KTC_OPPONENT_IDEAL = 0.0       # Ideally opponent gains or breaks even on KTC
 MAX_PACKAGE_SIZE = 3           # Max assets on either side
 MAX_RESULTS = 40               # Cap returned results
 JUNK_THRESHOLD = 400           # Assets below this are roster clog
@@ -147,10 +145,8 @@ def _edge_label(board_gain_pct: float) -> str:
 
 
 def _opp_appeal_phrase(appeal: float) -> str:
-    if appeal >= 0.10:
+    if appeal > 0:
         return f"opponent gains {appeal:.0%} on KTC"
-    if appeal >= 0.0:
-        return "opponent breaks even on KTC"
     return f"opponent gives up {abs(appeal):.0%} on KTC"
 
 
@@ -385,8 +381,8 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
         opp_appeal = (give_ktc - recv_ktc) / max(recv_ktc, 1) if recv_ktc > 0 else 0.0
         flags.append("partial_ktc")
 
-    # The opponent must not get destroyed on KTC — they need to see a fair deal
-    if opp_appeal < KTC_OPPONENT_FLOOR:
+    # The opponent must STRICTLY WIN on KTC — no break-even, no loss.
+    if opp_appeal <= 0:
         return None
 
     # Filter out junk trades: at least one meaningful asset on each side
@@ -401,17 +397,12 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
     board_gain_norm = board_delta / max(give_model, 1)
     ktc_delta = give_ktc - recv_ktc  # positive = opponent gets more KTC than they give
 
-    # Core arbitrage: we win on model, opponent wins (or breaks even) on KTC
+    # Core arbitrage: we win on model, opponent wins on KTC
     f_board_edge = board_gain_norm * 50
     f_ktc_appeal = opp_appeal * 30
     f_positive_bonus = (1.0 if board_delta > 0 else 0.0) * 10
     arbitrage = f_board_edge + f_ktc_appeal + f_positive_bonus
 
-    # Penalize if opponent loses on KTC (less plausible)
-    f_ktc_penalty = 0.0
-    if opp_appeal < 0:
-        f_ktc_penalty = opp_appeal * 20
-        arbitrage += f_ktc_penalty
     # Partial coverage: severe demotion — these cannot compete with full-KTC trades
     if coverage == "partial":
         arbitrage *= 0.3
@@ -458,7 +449,6 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
         "boardEdge": round(f_board_edge, 2),
         "ktcAppeal": round(f_ktc_appeal, 2),
         "positiveBonus": round(f_positive_bonus, 2),
-        "ktcPenalty": round(f_ktc_penalty, 2),
         "confidenceMultiplier": round(f_confidence_mult, 3),
         "valueScale": round(f_value_scale, 2),
         "simplicityPenalty": round(f_simplicity, 2),
