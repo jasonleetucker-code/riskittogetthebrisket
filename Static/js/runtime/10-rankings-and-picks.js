@@ -13,6 +13,11 @@
     pffIdp: 0.7, fantasyProsIdp: 0.7, draftSharksIdp: 0.7,
   };
 
+  // Source-type sets for universe-aware filtering (mirrors scraper).
+  const _IDP_ONLY_SITES = new Set(['pffIdp', 'fantasyProsIdp', 'dlfIdp', 'dlfRidp', 'draftSharksIdp']);
+  const _OFF_ONLY_SITES = new Set(['dlfSf', 'dlfRsf']);
+  const _IDP_POS = new Set(['DL', 'DE', 'DT', 'LB', 'DB', 'CB', 'S', 'EDGE']);
+
   // Rank-to-value curve (mirrors src/canonical/player_valuation.py)
   const _CURVE_A = 10000, _CURVE_B = 1.5, _CURVE_C = 0.72, _CLIFF_BASE = 120;
   const _DISPLAY_ANCHOR = _CURVE_A / Math.pow(1 + _CURVE_B, _CURVE_C) + _CLIFF_BASE;
@@ -558,8 +563,11 @@
     }
     const modelRankMap = new Map();
     for (const r of baseRows) {
+      const _isIdp = _IDP_POS.has(r.pos);
       const ranks = [], weights = [];
       for (const site of _activeSites) {
+        if (_IDP_ONLY_SITES.has(site) && !_isIdp) continue;
+        if (_OFF_ONLY_SITES.has(site) && _isIdp) continue;
         const rank = _siteRanks[site]?.get(r.name);
         if (rank != null) { ranks.push(rank); weights.push(_SITE_WEIGHTS[site] || 0.8); }
       }

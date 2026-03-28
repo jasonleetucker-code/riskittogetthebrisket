@@ -66,10 +66,18 @@ export function rankToValue(rank) {
   return Math.max(1, Math.min(9999, Math.round((base / DISPLAY_ANCHOR) * 9999)));
 }
 
+// Source-type sets for universe-aware filtering (mirrors scraper).
+const IDP_ONLY_SITES = new Set([
+  "pffIdp", "fantasyProsIdp", "dlfIdp", "dlfRidp", "draftSharksIdp",
+]);
+const OFF_ONLY_SITES = new Set(["dlfSf", "dlfRsf"]);
+const IDP_POSITIONS = new Set(["DL", "DE", "DT", "LB", "DB", "CB", "S", "EDGE"]);
+
 /**
  * Compute a decimal consensus rank for each row from per-site values.
  * For each site, ranks rows by that site's value (desc), then blends
  * per-site ranks via weighted 70% median / 30% mean.
+ * Universe-aware: IDP-only sites excluded for offense players and vice versa.
  */
 function computeConsensusRanks(rows) {
   // Collect all site keys that have meaningful data
@@ -107,11 +115,16 @@ function computeConsensusRanks(rows) {
     siteRanks[site] = rankMap;
   }
 
-  // For each row, compute consensus rank from per-site ranks
+  // For each row, compute consensus rank from per-site ranks.
+  // Universe-aware: skip IDP-only sites for offense and vice versa.
   for (const row of rows) {
+    const isIdp = IDP_POSITIONS.has(row.pos);
     const ranks = [];
     const weights = [];
     for (const site of activeSites) {
+      // Skip mismatched universe sources
+      if (IDP_ONLY_SITES.has(site) && !isIdp) continue;
+      if (OFF_ONLY_SITES.has(site) && isIdp) continue;
       const rank = siteRanks[site]?.get(row.name);
       if (rank != null) {
         ranks.push(rank);

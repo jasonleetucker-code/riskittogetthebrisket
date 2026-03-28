@@ -468,6 +468,34 @@ describe("buildRows", () => {
     expect(p0.values.full).not.toBe(p0.rankDerivedValue);
   });
 
+  it("excludes IDP-only sites from offense player consensus rank", () => {
+    // 25 offense players with site values from both offense and IDP sources.
+    // The IDP-only source (draftSharksIdp) should NOT affect offense consensus rank.
+    const players = [];
+    for (let i = 0; i < 25; i++) {
+      players.push({
+        displayName: `OffPlayer ${i}`,
+        position: "QB",
+        values: { finalAdjusted: 9000 - i * 100, rawComposite: 9000 - i * 100, overall: 9000 - i * 100 },
+        canonicalSiteValues: {
+          ktc: 9000 - i * 100,
+          fantasyCalc: 9000 - i * 120,
+          // IDP-only source — should be excluded from offense consensus
+          draftSharksIdp: 1000 + i * 50,  // inverse order to disrupt if included
+        },
+      });
+    }
+    const rows = buildRows({ playersArray: players });
+    const p0 = rows.find((r) => r.name === "OffPlayer 0");
+    const p24 = rows.find((r) => r.name === "OffPlayer 24");
+
+    // Without filtering, draftSharksIdp would make p0 rank WORSE (high IDP rank).
+    // With filtering, p0 should have the best (lowest) consensus rank.
+    expect(p0.computedConsensusRank).toBeDefined();
+    expect(p24.computedConsensusRank).toBeDefined();
+    expect(p0.computedConsensusRank).toBeLessThan(p24.computedConsensusRank);
+  });
+
   it("returns empty array for empty data", () => {
     expect(buildRows({})).toEqual([]);
     expect(buildRows({ players: {} })).toEqual([]);

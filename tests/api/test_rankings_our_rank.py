@@ -127,6 +127,44 @@ class TestOurRankOnMobile:
         )
 
 
+class TestUniverseAwareFiltering:
+    """Verify IDP-only and offense-only source filtering in consensus rank."""
+
+    def test_idp_only_sites_set_defined(self):
+        """Should define _IDP_ONLY_SITES set for universe filtering."""
+        src = RANKINGS_JS.read_text()
+        assert "_IDP_ONLY_SITES" in src, "Should define IDP-only site set"
+
+    def test_off_only_sites_set_defined(self):
+        """Should define _OFF_ONLY_SITES set for universe filtering."""
+        src = RANKINGS_JS.read_text()
+        assert "_OFF_ONLY_SITES" in src, "Should define offense-only site set"
+
+    def test_draftSharksIdp_in_idp_only_sites(self):
+        """draftSharksIdp must be in the IDP-only filter set."""
+        src = RANKINGS_JS.read_text()
+        # Find the _IDP_ONLY_SITES definition
+        match = re.search(r"_IDP_ONLY_SITES\s*=\s*new Set\(\[([^\]]+)\]", src)
+        assert match is not None, "_IDP_ONLY_SITES Set not found"
+        assert "draftSharksIdp" in match.group(1), (
+            "draftSharksIdp must be in _IDP_ONLY_SITES"
+        )
+
+    def test_consensus_rank_skips_idp_for_offense(self):
+        """Consensus rank loop should skip IDP-only sites for non-IDP rows."""
+        src = RANKINGS_JS.read_text()
+        assert "_IDP_ONLY_SITES.has(site)" in src, (
+            "Should check _IDP_ONLY_SITES during consensus rank aggregation"
+        )
+
+    def test_draftSharksIdp_weight_defined(self):
+        """draftSharksIdp should have an explicit weight in _SITE_WEIGHTS."""
+        src = RANKINGS_JS.read_text()
+        assert "draftSharksIdp:" in src, (
+            "draftSharksIdp should have an explicit weight"
+        )
+
+
 class TestValueLabels:
     """Verify value column labels use canonical wording."""
 
@@ -141,3 +179,52 @@ class TestValueLabels:
         """Default value column label should be 'Our Value'."""
         src = RANKINGS_JS.read_text()
         assert "'Our Value'" in src, "Should use 'Our Value' as the default label"
+
+
+class TestScraperSourceClassification:
+    """Verify the scraper has correct source-type classification."""
+
+    SCRAPER_PATH = Path(__file__).resolve().parents[2] / "Dynasty Scraper.py"
+
+    def test_draftSharksIdp_in_scraper_idp_only_sites(self):
+        """draftSharksIdp must be in _IDP_ONLY_SITES in Dynasty Scraper."""
+        src = self.SCRAPER_PATH.read_text()
+        match = re.search(r"_IDP_ONLY_SITES\s*=\s*\{([^}]+)\}", src)
+        assert match is not None, "_IDP_ONLY_SITES not found in scraper"
+        assert "draftSharksIdp" in match.group(1), (
+            "draftSharksIdp must be in _IDP_ONLY_SITES in the scraper"
+        )
+
+    def test_composite_loop_has_universe_filter(self):
+        """Composite loop should filter IDP sources for offense players."""
+        src = self.SCRAPER_PATH.read_text()
+        # Find the composite loop area
+        loop_start = src.find("for dash_key, raw_val in pdata.items():")
+        assert loop_start > 0, "Composite loop not found"
+        loop_body = src[loop_start:loop_start + 1000]
+        assert "_IDP_ONLY_SITES" in loop_body, (
+            "Composite loop should check _IDP_ONLY_SITES for universe filtering"
+        )
+
+    def test_draftSharksIdp_has_scraper_weight(self):
+        """draftSharksIdp should have an explicit weight in SITE_WEIGHTS."""
+        src = self.SCRAPER_PATH.read_text()
+        match = re.search(r"SITE_WEIGHTS\s*=\s*\{([^}]+)\}", src)
+        assert match is not None, "SITE_WEIGHTS not found in scraper"
+        assert "draftSharksIdp" in match.group(1), (
+            "draftSharksIdp should have an explicit weight in SITE_WEIGHTS"
+        )
+
+    def test_idp_anchor_locking_present(self):
+        """Post-composite IDP anchor locking step should exist."""
+        src = self.SCRAPER_PATH.read_text()
+        assert "IDP Anchor Lock" in src or "IDP anchor lock" in src.lower(), (
+            "Scraper should have post-composite IDP anchor locking"
+        )
+
+    def test_rookie_bridge_present(self):
+        """Post-composite rookie bridge calibration should exist."""
+        src = self.SCRAPER_PATH.read_text()
+        assert "Rookie Bridge" in src or "rookie bridge" in src.lower(), (
+            "Scraper should have post-composite rookie bridge calibration"
+        )

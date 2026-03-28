@@ -8915,7 +8915,7 @@ async def run(progress_callback=None):
     # IDP-only sites should not contribute values to offensive players
     _OFF_POSITIONS = {"QB", "RB", "WR", "TE", "K"}
     _IDP_POSITIONS = {"LB", "DL", "DE", "DT", "CB", "S", "DB", "EDGE"}
-    _IDP_ONLY_SITES = {"pffIdp", "fantasyProsIdp", "dlfIdp", "dlfRidp"}  # IDPTradeCalc removed — it has both OFF and IDP
+    _IDP_ONLY_SITES = {"pffIdp", "fantasyProsIdp", "dlfIdp", "dlfRidp", "draftSharksIdp"}  # IDPTradeCalc removed — it has both OFF and IDP
     _OFF_ONLY_SITES = {"dlfSf", "dlfRsf"}
     _pos_map = dict(SLEEPER_ROSTER_DATA.get("positions", {}))
     _player_id_map = dict(SLEEPER_ROSTER_DATA.get("playerIds", {}))
@@ -9858,7 +9858,7 @@ async def run(progress_callback=None):
         "fantasyPros": 0.8, "draftSharks": 0.9, "yahoo": 0.8,
         "dynastyNerds": 0.8, "idpTradeCalc": 1.0,
         "dlfSf": 0.8, "dlfIdp": 0.8, "dlfRsf": 0.7, "dlfRidp": 0.7,
-        "pffIdp": 0.7, "fantasyProsIdp": 0.7,
+        "pffIdp": 0.7, "fantasyProsIdp": 0.7, "draftSharksIdp": 0.7,
     }
     # Rookie-only DLF exports remain visible as source signals, but are quarantined
     # from normal dynasty composite math so rookie rank lists cannot inflate market value.
@@ -10236,6 +10236,12 @@ async def run(progress_callback=None):
         for dash_key, raw_val in pdata.items():
             if raw_val is None or not isinstance(raw_val, (int, float)):
                 continue
+            # Universe-aware source filtering: IDP-only sources must not
+            # contribute to offense composites (and vice versa).
+            if dash_key in _IDP_ONLY_SITES and not _is_this_idp:
+                continue
+            if dash_key in _OFF_ONLY_SITES and _is_this_idp:
+                continue
             if dash_key in _ROOKIE_ONLY_DLF_SITE_KEYS:
                 if raw_val > 0:
                     _has_rookie_only_dlf_signal = True
@@ -10301,16 +10307,46 @@ async def run(progress_callback=None):
         if not wNorms:
             continue
 
-        # Adaptive trimming: remove only true edge outliers at either end.
+        # Adaptive trimming: remove disconnected outliers at either end.
+        # Uses cluster-gap detection: walk from each edge inward, trimming values
+        # that are far from the cluster median AND separated by a significant gap.
+        # This catches paired outliers (e.g., two low sources both far from pack).
         if len(wNorms) >= 5:
             sorted_norms = sorted(wNorms, key=lambda x: x[0])
-            low_gap = sorted_norms[1][0] - sorted_norms[0][0]
-            high_gap = sorted_norms[-1][0] - sorted_norms[-2][0]
-            start_idx = 1 if low_gap >= OUTLIER_TRIM_GAP else 0
-            end_idx = -1 if high_gap >= OUTLIER_TRIM_GAP else None
-            trimmed = sorted_norms[start_idx:end_idx] if end_idx is not None else sorted_norms[start_idx:]
-            if not trimmed:
-                trimmed = sorted_norms
+            n = len(sorted_norms)
+            median_val = sorted_norms[n // 2][0]
+            max_trim = max(1, n // 3)  # never trim more than 1/3 of sources
+
+            # Low-end trimming
+            start_idx = 0
+            for i in range(min(max_trim, n // 2)):
+                gap_to_next = sorted_norms[i + 1][0] - sorted_norms[i][0]
+                dist_to_median = median_val - sorted_norms[i][0]
+                if gap_to_next >= OUTLIER_TRIM_GAP:
+                    start_idx = i + 1
+                    break
+                elif dist_to_median >= OUTLIER_TRIM_GAP * 2:
+                    # Value is very far from median; keep checking if next is also disconnected
+                    start_idx = i + 1
+                else:
+                    break
+
+            # High-end trimming
+            end_idx = n
+            for i in range(n - 1, max(n - 1 - max_trim, n // 2), -1):
+                gap_to_prev = sorted_norms[i][0] - sorted_norms[i - 1][0]
+                dist_to_median = sorted_norms[i][0] - median_val
+                if gap_to_prev >= OUTLIER_TRIM_GAP:
+                    end_idx = i
+                    break
+                elif dist_to_median >= OUTLIER_TRIM_GAP * 2:
+                    end_idx = i
+                else:
+                    break
+
+            trimmed = sorted_norms[start_idx:end_idx]
+            if len(trimmed) < 3:
+                trimmed = sorted_norms  # safety: keep at least 3 sources
         else:
             trimmed = wNorms
 
@@ -10382,6 +10418,82 @@ async def run(progress_callback=None):
             "idpRealMarketSources": int(_real_idp_market_source_count),
             "rookieOnlyDlfGuardrailApplied": bool(rookie_only_guardrail_applied),
         }
+
+    # ── Post-composite: IDP anchor locking ──────────────────────────────
+    # The top IDP player's composite is locked to the IDPTradeCalc anchor
+    # value. All other IDP composites are scaled relative to that locked
+    # anchor to prevent IDP values from drifting in the mixed economy.
+    _idp_composites = {
+        n: c for n, c in composites.items()
+        if _player_is_idp(n) and c.get("value", 0) > 0
+    }
+    if _idp_composites and IDP_ANCHOR_TOP > 0:
+        _idp_top_name = max(_idp_composites, key=lambda n: _idp_composites[n]["value"])
+        _idp_top_val = _idp_composites[_idp_top_name]["value"]
+        _idp_locked_top = int(round(IDP_ANCHOR_TOP))
+        if _idp_top_val > 0 and abs(_idp_top_val - _idp_locked_top) > 50:
+            _idp_scale = float(_idp_locked_top) / float(_idp_top_val)
+            _idp_anchor_adjusted = 0
+            for n in _idp_composites:
+                old_val = composites[n]["value"]
+                # Scale proportionally but preserve ordering.  Use a blended
+                # approach: move toward the anchor-scaled value, weighted by
+                # confidence.  Low-confidence IDP composites get pulled harder.
+                conf = composites[n].get("marketConfidence", 0.5)
+                blend = 0.70 + 0.30 * conf  # high conf → lighter pull
+                new_val = int(round(old_val * (_idp_scale * blend + (1.0 - blend))))
+                new_val = max(1, min(new_val, _idp_locked_top))
+                if new_val != old_val:
+                    composites[n]["value"] = new_val
+                    _idp_anchor_adjusted += 1
+            if _idp_anchor_adjusted:
+                print(f"  [IDP Anchor Lock] Locked {_idp_top_name} at {_idp_locked_top} "
+                      f"(was {_idp_top_val}), adjusted {_idp_anchor_adjusted} IDP composites")
+
+    # ── Post-composite: Rookie bridge calibration ─────────────────────
+    # For rookies that appear on both rookie-only sources AND mixed sources,
+    # the mixed-source value is authoritative.  Rookie-only sources should
+    # not push the composite above the mixed-source consensus.
+    _MIXED_VALUE_SITES = {"ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros",
+                          "yahoo", "idpTradeCalc"}
+    _ROOKIE_ONLY_SITES = {"dlfRsf", "dlfRidp"}
+    _rookie_bridge_adjusted = 0
+    for name, comp in composites.items():
+        if not _is_rookie_for_curve(name, players_json.get(name)):
+            continue
+        csv = comp.get("canonicalSiteValues", {})
+        mixed_vals = [v for k, v in csv.items() if k in _MIXED_VALUE_SITES
+                      and isinstance(v, (int, float)) and v > 0]
+        rookie_only_vals = [v for k, v in csv.items() if k in _ROOKIE_ONLY_SITES
+                            and isinstance(v, (int, float)) and v > 0]
+        if not mixed_vals or not rookie_only_vals:
+            continue
+        # The mixed-source consensus is the bridge anchor.  Composite should
+        # not exceed it by more than a controlled margin.
+        mixed_ceiling = max(mixed_vals) * 1.05  # 5% headroom above best mixed source
+        if comp["value"] > mixed_ceiling:
+            composites[name]["value"] = int(round(mixed_ceiling))
+            _rookie_bridge_adjusted += 1
+    if _rookie_bridge_adjusted:
+        print(f"  [Rookie Bridge] Capped {_rookie_bridge_adjusted} rookies to mixed-source ceiling")
+
+    # ── Post-composite: Single-source reliability floor ───────────────
+    # Players with only 1 source and low confidence get a steeper discount.
+    # This prevents low-liquidity veterans from floating into elite ranges
+    # based on a single rank source.
+    SINGLE_SOURCE_STEEP_THRESHOLD = 0.55  # confidence below this → extra discount
+    SINGLE_SOURCE_STEEP_EXTRA = 0.15      # additional 15% discount
+    _single_src_adjusted = 0
+    for name, comp in composites.items():
+        if comp.get("sites", 0) != 1:
+            continue
+        conf = comp.get("marketConfidence", 0.5)
+        if conf < SINGLE_SOURCE_STEEP_THRESHOLD and comp["value"] > 2000:
+            extra_discount = 1.0 - SINGLE_SOURCE_STEEP_EXTRA * (1.0 - conf / SINGLE_SOURCE_STEEP_THRESHOLD)
+            composites[name]["value"] = max(1, int(round(comp["value"] * extra_discount)))
+            _single_src_adjusted += 1
+    if _single_src_adjusted:
+        print(f"  [Single-Source] Applied steep discount to {_single_src_adjusted} low-confidence single-source players")
 
     # Add composite to players_json
     for name, comp in composites.items():
