@@ -48,7 +48,7 @@
       sortBasis === 'raw' ? 'Raw Market' :
       sortBasis === 'scoring' ? 'Scoring Adjusted' :
       sortBasis === 'scarcity' ? 'Scarcity Adjusted' :
-      'Fully Adjusted'
+      'Our Value'
     );
     const lines = showAdjCols
       ? ['Rank\tPlayer\tPos\tValue\tRaw\tScoring Mult\tAdjusted\tDelta']
@@ -463,12 +463,12 @@
     const showAdjCols = showRankingsLAMColumns();
     const showSourceCols = showRankingsSourceColumns();
     const valueColLabel = (
-      sortBasis === 'raw' ? 'Value (Raw)' :
-      sortBasis === 'scoring' ? 'Value (Scoring)' :
-      sortBasis === 'scarcity' ? 'Value (Scarcity)' :
-      'Value (Full)'
+      sortBasis === 'raw' ? 'Raw' :
+      sortBasis === 'scoring' ? 'Scoring' :
+      sortBasis === 'scarcity' ? 'Scarcity' :
+      'Our Value'
     );
-    hdr.innerHTML = '<th style="width:40px" title="Row number in current view">#</th><th style="width:60px" title="Player rank based on our model\'s fully-adjusted value (stable across filters)">Our Rank</th><th title="Player or pick name">Player</th><th title="Position">Pos</th>' +
+    hdr.innerHTML = '<th style="width:40px" title="Row number in current view">#</th><th style="width:60px" title="Decimal consensus rank aggregated from per-source ranks (stable across filters)">Our Rank</th><th title="Player or pick name">Player</th><th title="Position">Pos</th>' +
       `<th style="min-width:85px;cursor:pointer;" title="Click to change sort mode" onclick="toggleRankingsSort()">${valueColLabel} ${sortArrow}</th>` +
       (showAdjCols ? `
         <th style="min-width:78px;" title="Raw market value before scoring and scarcity adjustments">Raw Market</th>
@@ -508,18 +508,80 @@
     // unless data/settings/source-config changed.
     const baseRows = getOrBuildRankingsBaseRows(cfg, canonicalCtx, posMap);
 
-    // ── Compute stable overall model rank ────────────────────────────────
-    // Rank every player by finalAdjustedValue (our full model output) BEFORE
-    // any filters or sort-basis changes.  This rank is stable and represents
-    // where the player stands in our internal value system.
-    const byModelValue = [...baseRows].sort((a, b) => b.adjustedComposite - a.adjustedComposite);
+    // ── Compute consensus rank from per-site values ────────────────────
+    // For each source site, convert values to ordinal ranks within that
+    // site, then aggregate via 70% median + 30% weighted mean.
+    // This produces a decimal consensus rank (e.g. 15.7) that is the
+    // primary ranking truth — NOT derived from value sorting.
+    const _SITE_WEIGHTS = {
+      ktc: 1.3, fantasyCalc: 1.0, dynastyDaddy: 1.0,
+      draftSharks: 0.9, fantasyPros: 0.8, yahoo: 0.8,
+      dynastyNerds: 0.8, idpTradeCalc: 1.0, flock: 0.8,
+      dlfSf: 0.8, dlfIdp: 0.8, dlfRsf: 0.7, dlfRidp: 0.7,
+      pffIdp: 0.7, fantasyProsIdp: 0.7, draftSharksIdp: 0.7,
+    };
+    // Rank-to-value curve (mirrors src/canonical/player_valuation.py)
+    const _CURVE_A = 10000, _CURVE_B = 1.5, _CURVE_C = 0.72, _CLIFF_BASE = 120;
+    const _DISPLAY_ANCHOR = _CURVE_A / Math.pow(1 + _CURVE_B, _CURVE_C) + _CLIFF_BASE;
+    function _rankToValue(rank) {
+      if (!rank || rank <= 0) return 0;
+      const base = _CURVE_A / Math.pow(rank + _CURVE_B, _CURVE_C);
+      return Math.max(1, Math.min(9999, Math.round((base / _DISPLAY_ANCHOR) * 9999)));
+    }
+    function _formatRank(rank) {
+      if (rank == null || !isFinite(rank)) return '—';
+      return rank % 1 !== 0 ? rank.toFixed(1) : String(Math.round(rank));
+    }
+
+    // Step 1: collect site counts
+    const _siteCounts = {};
+    for (const r of baseRows) {
+      const sites = r.pData || {};
+      for (const [key, val] of Object.entries(sites)) {
+        if (key === '__canonical') continue;
+        if (isFinite(val) && val > 0) _siteCounts[key] = (_siteCounts[key] || 0) + 1;
+      }
+    }
+    const _activeSites = Object.keys(_siteCounts).filter(k => _siteCounts[k] >= 20);
+
+    // Step 2: per-site ordinal ranks
+    const _siteRanks = {};
+    for (const site of _activeSites) {
+      const withVal = baseRows
+        .filter(r => { const v = Number(r.pData?.[site]); return isFinite(v) && v > 0; })
+        .sort((a, b) => Number(b.pData[site]) - Number(a.pData[site]));
+      const rm = new Map();
+      withVal.forEach((r, i) => rm.set(r.name, i + 1));
+      _siteRanks[site] = rm;
+    }
+
+    // Step 3: consensus rank per player
     const modelRankMap = new Map();
-    byModelValue.forEach((r, i) => modelRankMap.set(r.name, i + 1));
+    for (const r of baseRows) {
+      const ranks = [], weights = [];
+      for (const site of _activeSites) {
+        const rank = _siteRanks[site]?.get(r.name);
+        if (rank != null) { ranks.push(rank); weights.push(_SITE_WEIGHTS[site] || 0.8); }
+      }
+      if (ranks.length < 1) continue;
+      let wSum = 0, wTotal = 0;
+      for (let i = 0; i < ranks.length; i++) { wSum += ranks[i] * weights[i]; wTotal += weights[i]; }
+      const wMean = wSum / wTotal;
+      const sorted = [...ranks].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+      const consensus = Math.round((0.7 * median + 0.3 * wMean) * 10) / 10;
+      modelRankMap.set(r.name, consensus);
+    }
+    // Fallback for players without enough site data: assign integer rank by value
+    const _valSorted = [...baseRows].sort((a, b) => b.adjustedComposite - a.adjustedComposite);
+    _valSorted.forEach((r, i) => { if (!modelRankMap.has(r.name)) modelRankMap.set(r.name, i + 1); });
 
     let ranked = baseRows.map(r => ({
       ...r,
       sortValue: getValueByRankingMode(r.adjustment, sortBasis),
       overallModelRank: modelRankMap.get(r.name) || 0,
+      rankDerivedValue: _rankToValue(modelRankMap.get(r.name) || 0),
     }));
     ranked = dedupeRankingsRowsByName(ranked);
     ranked.sort((a, b) => rankingsSortAsc ? a.sortValue - b.sortValue : b.sortValue - a.sortValue);
@@ -622,7 +684,7 @@
 
       let cells = `
         <td style="text-align:center;font-family:var(--mono);font-size:0.72rem;color:var(--subtext);">${displayRank}</td>
-        <td style="text-align:center;font-family:var(--mono);font-size:0.72rem;font-weight:700;color:var(--cyan);">${r.overallModelRank}</td>
+        <td style="text-align:center;font-family:var(--mono);font-size:0.72rem;font-weight:700;color:var(--cyan);">${_formatRank(r.overallModelRank)}</td>
         <td style="font-weight:600;font-size:0.8rem;"><a href="#" onclick="event.preventDefault();openPlayerPopup('${r.name.replace(/'/g,"\\'")}');return false;" style="color:var(--text);text-decoration:none;border-bottom:1px dotted var(--border);" onmouseover="this.style.color='var(--cyan)'" onmouseout="this.style.color='var(--text)'">${r.name}</a>${rookieBadge}</td>
         <td><span class="ac-pos" style="${posStyle}">${r.pos || '?'}</span></td>
         <td style="font-family:var(--mono);font-weight:700;color:var(--cyan);position:relative;">
@@ -857,7 +919,7 @@
       const pill = getFreshnessPillForAsset(name, r.sourceData || (loadedData?.players?.[name] || {}));
       const escaped = String(name).replace(/'/g, "\\'");
       const rankLabel = `#${idx + 1}`;
-      const modelRankLabel = r.overallModelRank ? `Our Rank ${r.overallModelRank}` : '';
+      const modelRankLabel = r.overallModelRank ? `Our Rank ${_formatRank(r.overallModelRank)}` : '';
       let sourceBlock = '';
       if (showSourceCols) {
         const sourceCells = sourceCfg.map(sc => {
@@ -1007,7 +1069,7 @@
     if (!ov || !grid) return;
     const basis = getRankingsSortBasis();
     grid.innerHTML = `
-      <button class="sheet-item" onclick="setRankingsSortBasisFromSheet('full')">Fully Adjusted ${basis==='full'?'✓':''}</button>
+      <button class="sheet-item" onclick="setRankingsSortBasisFromSheet('full')">Our Value ${basis==='full'?'✓':''}</button>
       <button class="sheet-item" onclick="setRankingsSortBasisFromSheet('scoring')">Scoring Adjusted ${basis==='scoring'?'✓':''}</button>
       <button class="sheet-item" onclick="setRankingsSortBasisFromSheet('scarcity')">Scarcity Adjusted ${basis==='scarcity'?'✓':''}</button>
       <button class="sheet-item" onclick="setRankingsSortBasisFromSheet('raw')">Raw Market ${basis==='raw'?'✓':''}</button>
@@ -1880,7 +1942,7 @@
         <div class="mobile-row-sub">Controls rankings and calculator value lens.</div>
         <div class="mobile-row-actions">
           <select onchange="handleValueBasisChange(this.value, 'mobileMoreSettings')" style="font-size:0.74rem;padding:6px 8px;background:var(--bg-card);color:var(--text);border:1px solid var(--border);border-radius:6px;">
-            <option value="full" ${valueMode === 'full' ? 'selected' : ''}>Fully Adjusted</option>
+            <option value="full" ${valueMode === 'full' ? 'selected' : ''}>Our Value</option>
             <option value="scoring" ${valueMode === 'scoring' ? 'selected' : ''}>Scoring Adjusted</option>
             <option value="scarcity" ${valueMode === 'scarcity' ? 'selected' : ''}>Scarcity Adjusted</option>
             <option value="raw" ${valueMode === 'raw' ? 'selected' : ''}>Raw Market</option>

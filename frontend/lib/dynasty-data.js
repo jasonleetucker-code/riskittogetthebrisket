@@ -47,10 +47,39 @@ const SITE_WEIGHTS = {
   pffIdp: 0.7, fantasyProsIdp: 0.7, draftSharksIdp: 0.7,
 };
 
+// ── Rank-to-value curve (mirrors src/canonical/player_valuation.py) ──
+// Formula: base = A / (rank + B)^C
+const CURVE_A = 10000.0;
+const CURVE_B = 1.5;
+const CURVE_C = 0.72;
+const CLIFF_BASE = 120.0;
+// Display anchor: theoretical max raw value (rank-1 base + one cliff).
+// Computed from hyperparameters only, so it's stable across data refreshes.
+const DISPLAY_ANCHOR = CURVE_A / Math.pow(1 + CURVE_B, CURVE_C) + CLIFF_BASE;
+
+/**
+ * Convert a consensus rank to a display value (1–9999 scale).
+ * Uses the same inverse-power curve as the canonical backend pipeline.
+ */
+export function rankToValue(rank) {
+  if (rank == null || !Number.isFinite(rank) || rank <= 0) return 0;
+  const base = CURVE_A / Math.pow(rank + CURVE_B, CURVE_C);
+  return Math.max(1, Math.min(9999, Math.round((base / DISPLAY_ANCHOR) * 9999)));
+}
+
 /**
  * Compute a decimal consensus rank for each row from per-site values.
- * For each site, ranks rows by that site's value (desc), then blends
- * per-site ranks via weighted 70% median / 30% mean.
+ *
+ * Pipeline:
+ *   1. For each source site, convert site values → site-internal ordinal ranks
+ *   2. Aggregate per-site ranks → consensus rank (70% median + 30% weighted mean)
+ *   3. Convert consensus rank → canonical value via rankToValue()
+ *
+ * Sets on each row:
+ *   - computedConsensusRank  (decimal, e.g. 15.7)
+ *   - rankSourceCount        (how many sites contributed)
+ *   - rankMedian / rankMean  (diagnostic)
+ *   - rankDerivedValue       (value from rank-to-value curve)
  */
 function computeConsensusRanks(rows) {
   // Collect all site keys that have meaningful data
@@ -64,12 +93,7 @@ function computeConsensusRanks(rows) {
   }
   // Only use sites with at least 20 players to avoid sparse-data noise
   const activeSites = Object.keys(siteCounts).filter((k) => siteCounts[k] >= 20);
-  if (activeSites.length === 0) {
-    if (typeof window !== "undefined") {
-      console.warn("[ConsensusRank] No active sites found.", "siteCounts:", JSON.stringify(siteCounts));
-    }
-    return;
-  }
+  if (activeSites.length === 0) return;
 
   // For each site, sort rows and assign ranks
   const siteRanks = {}; // siteRanks[siteName] = Map<rowName, rank>
@@ -117,12 +141,12 @@ function computeConsensusRanks(rows) {
       : sorted[mid];
 
     // Blend: 70% median, 30% weighted mean
-    row.computedConsensusRank = Math.round((0.7 * median + 0.3 * wMean) * 10) / 10;
-  }
-  if (typeof window !== "undefined") {
-    const set = rows.filter((r) => r.computedConsensusRank != null);
-    const decimals = set.filter((r) => r.computedConsensusRank % 1 !== 0);
-    console.log(`[ConsensusRank] ${activeSites.length} sites, ${set.length}/${rows.length} ranked, ${decimals.length} with decimals`);
+    const consensus = Math.round((0.7 * median + 0.3 * wMean) * 10) / 10;
+    row.computedConsensusRank = consensus;
+    row.rankSourceCount = ranks.length;
+    row.rankMedian = Math.round(median * 10) / 10;
+    row.rankMean = Math.round(wMean * 10) / 10;
+    row.rankDerivedValue = rankToValue(consensus);
   }
 }
 
@@ -179,11 +203,17 @@ export function buildRows(data) {
       });
     }
 
-    rows.sort((a, b) => b.values.full - a.values.full);
-    rows.forEach((r, i) => {
-      r.rank = i + 1;
-    });
     computeConsensusRanks(rows);
+    // Rank-first: override full value with rank-derived value for ranked rows.
+    for (const r of rows) {
+      if (r.rankDerivedValue > 0) r.values.full = r.rankDerivedValue;
+    }
+    rows.sort((a, b) => {
+      // Primary: consensus rank ascending (lower = better).
+      const ra = r => r.computedConsensusRank ?? r.canonicalConsensusRank ?? Infinity;
+      return ra(a) - ra(b);
+    });
+    rows.forEach((r, i) => { r.rank = i + 1; });
     return rows;
   }
 
@@ -211,11 +241,15 @@ export function buildRows(data) {
     });
   }
 
-  rows.sort((a, b) => b.values.full - a.values.full);
-  rows.forEach((r, i) => {
-    r.rank = i + 1;
-  });
   computeConsensusRanks(rows);
+  for (const r of rows) {
+    if (r.rankDerivedValue > 0) r.values.full = r.rankDerivedValue;
+  }
+  rows.sort((a, b) => {
+    const ra = r => r.computedConsensusRank ?? r.canonicalConsensusRank ?? Infinity;
+    return ra(a) - ra(b);
+  });
+  rows.forEach((r, i) => { r.rank = i + 1; });
   return rows;
 }
 

@@ -1,7 +1,8 @@
-"""Tests that the rankings page includes an 'Our Rank' column derived from our model.
+"""Tests that the rankings page includes an 'Our Rank' column derived from
+consensus rank aggregation, NOT from value sorting.
 
 Static-analysis tests verifying the JS source code contains the correct
-column definition, rank computation, and data attribute for Our Rank.
+column definition, consensus rank computation, and data attribute for Our Rank.
 """
 from __future__ import annotations
 
@@ -22,36 +23,46 @@ class TestOurRankColumnExists:
         src = RANKINGS_JS.read_text()
         assert "Our Rank" in src, "Rankings JS does not contain 'Our Rank' header"
 
-    def test_header_our_rank_has_tooltip(self):
-        """Our Rank header should have a title/tooltip explaining it."""
+    def test_header_our_rank_has_consensus_tooltip(self):
+        """Our Rank header should have a title/tooltip mentioning consensus rank."""
         src = RANKINGS_JS.read_text()
-        # Look for the th element with Our Rank and a title attribute
-        match = re.search(r'<th[^>]*title="[^"]*model[^"]*"[^>]*>Our Rank', src, re.IGNORECASE)
+        match = re.search(
+            r'<th[^>]*title="[^"]*consensus[^"]*"[^>]*>Our Rank',
+            src, re.IGNORECASE,
+        )
         assert match is not None, (
-            "Our Rank header should have a title attribute mentioning 'model'"
+            "Our Rank header should have a title attribute mentioning 'consensus'"
         )
 
 
-class TestOurRankComputation:
-    """Verify rank is computed from our model value, not arbitrary index."""
+class TestConsensusRankComputation:
+    """Verify rank is computed from per-site rank aggregation, not value sorting."""
 
-    def test_rank_computed_from_adjusted_composite(self):
-        """overallModelRank must be derived by sorting on adjustedComposite."""
+    def test_uses_site_weights(self):
+        """Consensus rank computation should use per-site weights."""
         src = RANKINGS_JS.read_text()
-        # The sort that computes model rank should reference adjustedComposite
-        assert "b.adjustedComposite - a.adjustedComposite" in src, (
-            "Model rank sort should compare adjustedComposite (our final model value)"
+        assert "_SITE_WEIGHTS" in src, (
+            "Rankings should define site weights for consensus rank aggregation"
         )
 
-    def test_rank_assigned_before_filters_in_build_function(self):
+    def test_uses_median_mean_blend(self):
+        """Consensus rank should blend 70% median + 30% weighted mean."""
+        src = RANKINGS_JS.read_text()
+        assert "0.7 * median" in src, "Should use 70% median blend"
+        assert "0.3 * wMean" in src, "Should use 30% weighted mean blend"
+
+    def test_per_site_ranking(self):
+        """Should rank players within each site before aggregating."""
+        src = RANKINGS_JS.read_text()
+        assert "_siteRanks" in src, "Should compute per-site rank maps"
+
+    def test_rank_assigned_before_filters(self):
         """modelRankMap must be built before filtering inside buildFullRankings."""
         src = RANKINGS_JS.read_text()
-        # Find the buildFullRankings function
         fn_start = src.find("function buildFullRankings()")
         assert fn_start > 0, "buildFullRankings not found"
         fn_body = src[fn_start:]
         rank_map_pos = fn_body.find("modelRankMap")
-        # Filter application: ranked = ranked.filter(...)
         filter_pos = fn_body.find("ranked = ranked.filter")
         assert rank_map_pos > 0, "modelRankMap not found in buildFullRankings"
         assert filter_pos > 0, "filter logic not found in buildFullRankings"
@@ -59,13 +70,17 @@ class TestOurRankComputation:
             "modelRankMap must be computed before filtering is applied"
         )
 
-    def test_rank_is_one_based(self):
-        """Rank assignment should use i + 1 (1-based)."""
+    def test_rank_to_value_curve_present(self):
+        """Should have the canonical rank-to-value curve function."""
         src = RANKINGS_JS.read_text()
-        # The forEach that assigns rank should add 1
-        assert "modelRankMap.set(r.name, i + 1)" in src, (
-            "Model rank should be 1-based (i + 1)"
-        )
+        assert "_rankToValue" in src, "Should define _rankToValue function"
+        assert "_CURVE_A" in src, "Should use canonical curve parameter A"
+
+    def test_format_rank_shows_decimals(self):
+        """Rank formatting should show decimal precision."""
+        src = RANKINGS_JS.read_text()
+        assert "_formatRank" in src, "Should define _formatRank function"
+        assert "toFixed(1)" in src, "Should format decimals to 1 place"
 
 
 class TestOurRankInRowData:
@@ -78,11 +93,18 @@ class TestOurRankInRowData:
             "Row object must include overallModelRank field"
         )
 
-    def test_cell_renders_overall_model_rank(self):
-        """The table cell should display r.overallModelRank."""
+    def test_row_has_rank_derived_value(self):
+        """Each row should have a rankDerivedValue from the rank-to-value curve."""
         src = RANKINGS_JS.read_text()
-        assert "r.overallModelRank" in src, (
-            "Cell rendering must reference r.overallModelRank"
+        assert "rankDerivedValue:" in src, (
+            "Row object must include rankDerivedValue field"
+        )
+
+    def test_cell_renders_formatted_rank(self):
+        """The table cell should display formatted rank with decimals."""
+        src = RANKINGS_JS.read_text()
+        assert "_formatRank(r.overallModelRank)" in src, (
+            "Cell rendering must use _formatRank for decimal display"
         )
 
     def test_data_attribute_stored_on_tr(self):
@@ -100,7 +122,22 @@ class TestOurRankOnMobile:
         """Mobile card subtitle should include 'Our Rank' label."""
         src = RANKINGS_JS.read_text()
         assert "Our Rank" in src, "Mobile rendering should mention Our Rank"
-        # Specifically in the mobile card template
         assert "modelRankLabel" in src, (
             "Mobile cards should use modelRankLabel variable"
         )
+
+
+class TestValueLabels:
+    """Verify value column labels use canonical wording."""
+
+    def test_no_fully_adjusted_label(self):
+        """Should not use 'Fully Adjusted' as a label."""
+        src = RANKINGS_JS.read_text()
+        assert "Fully Adjusted" not in src, (
+            "Should not use legacy 'Fully Adjusted' label"
+        )
+
+    def test_default_value_label_is_our_value(self):
+        """Default value column label should be 'Our Value'."""
+        src = RANKINGS_JS.read_text()
+        assert "'Our Value'" in src, "Should use 'Our Value' as the default label"

@@ -16,7 +16,7 @@ export default function RankingsPage() {
   const [query, setQuery] = useState("");
   const [assetFilter, setAssetFilter] = useState("all");
   const [valueMode, setValueMode] = useState("full");
-  const [sort, setSort] = useState({ key: "selected", dir: "desc" });
+  const [sort, setSort] = useState({ key: "ourRank", dir: "asc" });
   const [copyStatus, setCopyStatus] = useState("");
 
   function getNumeric(v) {
