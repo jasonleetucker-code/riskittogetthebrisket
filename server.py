@@ -81,7 +81,6 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:3000").rstrip("/")
-_legacy_next_proxy_enabled = _env_bool("ENABLE_NEXT_FRONTEND_PROXY", True)
 FRONTEND_RUNTIME = (os.getenv("FRONTEND_RUNTIME") or "").strip().lower()
 if FRONTEND_RUNTIME not in {"static", "next", "auto"}:
     # Default: Next.js frontend.  Set FRONTEND_RUNTIME=static to revert to legacy.
@@ -201,11 +200,6 @@ latest_contract_data: dict | None = None
 latest_data_bytes: bytes | None = None
 latest_data_gzip_bytes: bytes | None = None
 latest_data_etag: str | None = None
-# Lean runtime payload (drops heavy contract-only arrays not needed by Static app startup).
-latest_runtime_data: dict | None = None
-latest_runtime_data_bytes: bytes | None = None
-latest_runtime_data_gzip_bytes: bytes | None = None
-latest_runtime_data_etag: str | None = None
 # Startup-slim payload for first paint and early interaction.
 latest_startup_data: dict | None = None
 latest_startup_data_bytes: bytes | None = None
@@ -930,17 +924,12 @@ else:
 def _prime_latest_payload(data: dict | None) -> None:
     """Pre-serialize latest payload once so /api/data returns instantly."""
     global latest_contract_data, latest_data_bytes, latest_data_gzip_bytes, latest_data_etag
-    global latest_runtime_data, latest_runtime_data_bytes, latest_runtime_data_gzip_bytes, latest_runtime_data_etag
     global latest_startup_data, latest_startup_data_bytes, latest_startup_data_gzip_bytes, latest_startup_data_etag
     global contract_health
     latest_data_bytes = None
     latest_data_gzip_bytes = None
     latest_data_etag = None
     latest_contract_data = None
-    latest_runtime_data = None
-    latest_runtime_data_bytes = None
-    latest_runtime_data_gzip_bytes = None
-    latest_runtime_data_etag = None
     latest_startup_data = None
     latest_startup_data_bytes = None
     latest_startup_data_gzip_bytes = None
@@ -1002,20 +991,8 @@ def _prime_latest_payload(data: dict | None) -> None:
         latest_data_gzip_bytes = gzip.compress(raw, compresslevel=5)
         latest_data_etag = hashlib.sha1(raw).hexdigest()
 
-        # Static runtime payload: keep canonical top-level data shape used by the live UI,
-        # but remove heavyweight contract array duplication to reduce parse/transfer cost.
-        runtime_payload = dict(contract_payload)
-        runtime_payload.pop("playersArray", None)
-        runtime_payload["payloadView"] = "runtime"
-        runtime_raw = json.dumps(runtime_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-        latest_runtime_data = runtime_payload
-        latest_runtime_data_bytes = runtime_raw
-        latest_runtime_data_gzip_bytes = gzip.compress(runtime_raw, compresslevel=5)
-        latest_runtime_data_etag = hashlib.sha1(runtime_raw).hexdigest()
-
-        # Startup payload: same contract shape, but strips heavyweight fields
-        # not needed for first screen render so first data-visible is faster.
-        startup_payload = build_api_startup_payload(runtime_payload)
+        # Startup payload: strips heavyweight fields not needed for first paint.
+        startup_payload = build_api_startup_payload(contract_payload)
         startup_raw = json.dumps(startup_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         latest_startup_data = startup_payload
         latest_startup_data_bytes = startup_raw
@@ -1624,7 +1601,6 @@ async def get_data(request: Request):
     if latest_contract_data:
         view = (request.query_params.get("view") or "").strip().lower()
         startup_view = view in {"startup", "boot", "initial"}
-        runtime_view = view in {"app", "runtime", "lite", "slim"}
 
         payload_bytes = latest_data_bytes
         payload_gzip_bytes = latest_data_gzip_bytes
@@ -1638,12 +1614,6 @@ async def get_data(request: Request):
             payload_etag = latest_startup_data_etag
             payload_obj = latest_startup_data
             payload_view_name = "startup"
-        elif runtime_view and latest_runtime_data is not None:
-            payload_bytes = latest_runtime_data_bytes
-            payload_gzip_bytes = latest_runtime_data_gzip_bytes
-            payload_etag = latest_runtime_data_etag
-            payload_obj = latest_runtime_data
-            payload_view_name = "runtime"
 
         headers = {
             # Keep dashboard startup fast with a short cache window + conditional revalidation.
@@ -1669,11 +1639,6 @@ async def get_data(request: Request):
     )
 
 
-@app.get("/api/dynasty-data")
-async def get_dynasty_data_alias(request: Request):
-    """Compatibility alias for frontend consumers expecting /api/dynasty-data."""
-    return await get_data(request)
-
 
 @app.get("/api/status")
 async def get_status():
@@ -1683,10 +1648,8 @@ async def get_status():
     # Contract payload is a compatibility fallback when full payload is unavailable.
     source_health = _build_source_health_snapshot(latest_data or latest_contract_data)
     full_bytes = len(latest_data_bytes) if latest_data_bytes else 0
-    runtime_bytes = len(latest_runtime_data_bytes) if latest_runtime_data_bytes else 0
     startup_bytes = len(latest_startup_data_bytes) if latest_startup_data_bytes else 0
     full_gzip_bytes = len(latest_data_gzip_bytes) if latest_data_gzip_bytes else 0
-    runtime_gzip_bytes = len(latest_runtime_data_gzip_bytes) if latest_runtime_data_gzip_bytes else 0
     startup_gzip_bytes = len(latest_startup_data_gzip_bytes) if latest_startup_data_gzip_bytes else 0
     return JSONResponse(content={
         **status_payload,
@@ -1700,13 +1663,9 @@ async def get_status():
             "last_data_refresh_at": latest_data_source.get("loadedAt"),
             "active_data_source": latest_data_source,
             "payload_bytes_full": full_bytes,
-            "payload_bytes_runtime": runtime_bytes,
             "payload_bytes_startup": startup_bytes,
             "payload_gzip_bytes_full": full_gzip_bytes,
-            "payload_gzip_bytes_runtime": runtime_gzip_bytes,
             "payload_gzip_bytes_startup": startup_gzip_bytes,
-            "runtime_payload_savings_bytes": max(0, full_bytes - runtime_bytes),
-            "runtime_payload_savings_gzip_bytes": max(0, full_gzip_bytes - runtime_gzip_bytes),
             "startup_payload_savings_bytes": max(0, full_bytes - startup_bytes),
             "startup_payload_savings_gzip_bytes": max(0, full_gzip_bytes - startup_gzip_bytes),
         },
@@ -2929,21 +2888,6 @@ async def serve_login(request: Request):
     return await _serve_app_shell("/login")
 
 
-@app.get("/index.html", response_class=HTMLResponse)
-async def serve_index_alias(request: Request):
-    redirect = _require_auth_or_redirect(request, "/app")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/")
-
-
-@app.get("/Static/index.html", response_class=HTMLResponse)
-async def serve_legacy_index_alias(request: Request):
-    redirect = _require_auth_or_redirect(request, "/app")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/")
-
 
 @app.get("/_next/{full_path:path}")
 async def serve_next_assets(full_path: str):
@@ -2961,14 +2905,15 @@ async def serve_favicon():
     return Response(status_code=404)
 
 
-# Serve any other static files (CSS, JS, images, etc.)
+# Serve static files.
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-if LEGACY_STATIC_DIR.exists():
-    app.mount("/Static", StaticFiles(directory=str(LEGACY_STATIC_DIR)), name="legacy-static")
-if RUNTIME_JS_DIR.exists():
-    # Expose extracted runtime modules for root-served index.html (`src="js/runtime/*"`).
-    app.mount("/js", StaticFiles(directory=str(RUNTIME_JS_DIR)), name="runtime-js")
+# Legacy mounts — only needed when FRONTEND_RUNTIME=static.
+if FRONTEND_RUNTIME == "static":
+    if LEGACY_STATIC_DIR.exists():
+        app.mount("/Static", StaticFiles(directory=str(LEGACY_STATIC_DIR)), name="legacy-static")
+    if RUNTIME_JS_DIR.exists():
+        app.mount("/js", StaticFiles(directory=str(RUNTIME_JS_DIR)), name="runtime-js")
 
 
 # ── MAIN ────────────────────────────────────────────────────────────────

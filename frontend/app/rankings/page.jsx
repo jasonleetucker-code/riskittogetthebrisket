@@ -2,13 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
-
-const VALUE_MODES = [
-  { key: "full", label: "Our Value" },
-  { key: "raw", label: "Raw" },
-  { key: "scoring", label: "Scoring" },
-  { key: "scarcity", label: "Scarcity" },
-];
+import { VALUE_MODES } from "@/lib/trade-logic";
 
 const FILTERS = [
   { key: "all", label: "All" },

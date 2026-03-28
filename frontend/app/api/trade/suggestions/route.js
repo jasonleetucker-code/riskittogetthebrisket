@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 
-export async function POST(request) {
-  const backendUrl = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
-  const base = backendUrl.replace(/\/api\/data\/?$/, "");
-  const url = `${base}/api/trade/suggestions`;
+// Pre-compute backend suggestions URL once at module load.
+const SUGGESTIONS_URL = (() => {
+  const base = (process.env.BACKEND_API_URL || "http://127.0.0.1:8000").replace(/\/api\/data\/?$/, "");
+  return `${base}/api/trade/suggestions`;
+})();
 
+export async function POST(request) {
   let body;
   try {
     body = await request.json();
@@ -15,7 +17,7 @@ export async function POST(request) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 5000);
   try {
-    const res = await fetch(url, {
+    const res = await fetch(SUGGESTIONS_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

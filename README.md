@@ -78,7 +78,6 @@ This repo is now wired so both sides can work together:
 ### Optional env vars
 - `FRONTEND_RUNTIME=next|static|auto` (default `next`)
 - `FRONTEND_URL=http://127.0.0.1:3000`
-- `ENABLE_NEXT_FRONTEND_PROXY=true|false` (legacy/deprecated)
 - `BACKEND_API_URL=http://127.0.0.1:8000/api/data` (for Next route)
 - `SLEEPER_LEAGUE_ID=1312006700437352448` (canonical main league ID for backend scraper)
 - `BASELINE_LEAGUE_ID=1328545898812170240` (canonical baseline league for scoring/LAM comparison)

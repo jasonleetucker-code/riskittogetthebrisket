@@ -656,7 +656,7 @@ def compute_max(name_map):
 def fetch_sleeper_rosters(league_id):
     """Fetch all rostered player names from a Sleeper league.
     Returns (player_names_list, roster_data_for_json)."""
-    import requests as _req
+    _req = requests
 
     VALID_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF",
                        "LB", "DL", "DE", "DT", "CB", "S", "DB"}
@@ -1239,7 +1239,7 @@ def compute_empirical_lam(custom_league_id, baseline_league_id, seasons, all_nfl
     Returns:
         dict with fallback position multipliers + per-player format-fit debug map.
     """
-    import requests as _req
+    _req = requests
     from collections import defaultdict
 
     CORE_BUCKETS = ("QB", "RB", "WR", "TE", "DL", "LB", "DB")
@@ -3704,7 +3704,6 @@ async def scrape_ktc(page, players):
         # ── Strategy 3: Full page source parsing ──
         if not name_map:
             content = await page.content()
-            import json
 
             # Try inline playersArray (current KTC format as of 2026-03)
             pa_match = re.search(
@@ -7196,9 +7195,8 @@ async def _flock_auto_login(page):
             try:
                 session_path = os.path.join(SCRIPT_DIR, FLOCK_SESSION)
                 storage = await page.context.storage_state()
-                import json as _json
                 with open(session_path, "w") as f:
-                    _json.dump(storage, f)
+                    json.dump(storage, f)
                 print(f"  [Flock] Session saved to {FLOCK_SESSION}")
             except Exception as e:
                 print(f"  [Flock] Warning: couldn't save session: {e}")

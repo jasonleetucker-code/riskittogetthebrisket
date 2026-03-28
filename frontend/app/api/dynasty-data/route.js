@@ -2,27 +2,29 @@ import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 
-async function fetchFromBackendApi() {
-  const configuredBackendUrl = process.env.BACKEND_API_URL || "http://127.0.0.1:8000/api/data";
-  let backendUrl = configuredBackendUrl;
+// Pre-compute backend URL once at module load.
+const BACKEND_URL = (() => {
+  const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000/api/data";
   try {
-    const u = new URL(configuredBackendUrl);
+    const u = new URL(base);
     if (/\/api\/data$/i.test(u.pathname) && !u.searchParams.has("view")) {
-      // Prefer the slim runtime contract for faster Next route hydration.
       u.searchParams.set("view", "app");
     }
-    backendUrl = u.toString();
+    return u.toString();
   } catch {
-    // Keep configured value as-is if URL parsing fails.
+    return base;
   }
+})();
+
+async function fetchFromBackendApi() {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 1500);
   try {
-    const res = await fetch(backendUrl, { cache: "no-store", signal: ctl.signal });
+    const res = await fetch(BACKEND_URL, { cache: "no-store", signal: ctl.signal });
     if (!res.ok) return null;
     const data = await res.json();
     if (!data || typeof data !== "object") return null;
-    return { source: `backend:${backendUrl}`, data };
+    return { source: `backend:${BACKEND_URL}`, data };
   } catch {
     return null;
   } finally {
