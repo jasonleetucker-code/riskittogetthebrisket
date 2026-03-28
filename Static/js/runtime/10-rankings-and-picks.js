@@ -432,7 +432,7 @@
     buildRisingFallingSection();
 
     if (!loadedData || !loadedData.players) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--subtext);padding:24px;">Update values first to see rankings</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--subtext);padding:24px;">Refresh values first to see rankings</td></tr>';
       const mobileList = document.getElementById('rankingsMobileList');
       if (mobileList) {
         mobileList.innerHTML = '<div class="mobile-row-card"><div class="mobile-row-name">Update values first to see rankings.</div></div>';
@@ -468,7 +468,7 @@
       sortBasis === 'scarcity' ? 'Value (Scarcity)' :
       'Value (Full)'
     );
-    hdr.innerHTML = '<th style="width:40px" title="Overall rank">#</th><th title="Player or pick name">Player</th><th title="Position">Pos</th>' +
+    hdr.innerHTML = '<th style="width:40px" title="Row number in current view">#</th><th style="width:60px" title="Player rank based on our model\'s fully-adjusted value (stable across filters)">Our Rank</th><th title="Player or pick name">Player</th><th title="Position">Pos</th>' +
       `<th style="min-width:85px;cursor:pointer;" title="Click to change sort mode" onclick="toggleRankingsSort()">${valueColLabel} ${sortArrow}</th>` +
       (showAdjCols ? `
         <th style="min-width:78px;" title="Raw market value before scoring and scarcity adjustments">Raw Market</th>
@@ -507,9 +507,19 @@
     // Build once + reuse: heavy per-player canonicalization/adjustment stays cached
     // unless data/settings/source-config changed.
     const baseRows = getOrBuildRankingsBaseRows(cfg, canonicalCtx, posMap);
+
+    // ── Compute stable overall model rank ────────────────────────────────
+    // Rank every player by finalAdjustedValue (our full model output) BEFORE
+    // any filters or sort-basis changes.  This rank is stable and represents
+    // where the player stands in our internal value system.
+    const byModelValue = [...baseRows].sort((a, b) => b.adjustedComposite - a.adjustedComposite);
+    const modelRankMap = new Map();
+    byModelValue.forEach((r, i) => modelRankMap.set(r.name, i + 1));
+
     let ranked = baseRows.map(r => ({
       ...r,
       sortValue: getValueByRankingMode(r.adjustment, sortBasis),
+      overallModelRank: modelRankMap.get(r.name) || 0,
     }));
     ranked = dedupeRankingsRowsByName(ranked);
     ranked.sort((a, b) => rankingsSortAsc ? a.sortValue - b.sortValue : b.sortValue - a.sortValue);
@@ -594,7 +604,7 @@
         tierNum++;
         const sepTr = document.createElement('tr');
         sepTr.className = 'tier-separator';
-        const colSpan = (4 + (showAdjCols ? 4 : 0)) + (showSourceCols ? cfg.length : 0) + 1;
+        const colSpan = (5 + (showAdjCols ? 4 : 0)) + (showSourceCols ? cfg.length : 0) + 1;
         sepTr.innerHTML = `<td colspan="${colSpan}"><span class="tier-label">\u2500\u2500 Tier ${tierNum} \u2500\u2500</span></td>`;
         tbody.appendChild(sepTr);
       }
@@ -612,6 +622,7 @@
 
       let cells = `
         <td style="text-align:center;font-family:var(--mono);font-size:0.72rem;color:var(--subtext);">${displayRank}</td>
+        <td style="text-align:center;font-family:var(--mono);font-size:0.72rem;font-weight:700;color:var(--cyan);">${r.overallModelRank}</td>
         <td style="font-weight:600;font-size:0.8rem;"><a href="#" onclick="event.preventDefault();openPlayerPopup('${r.name.replace(/'/g,"\\'")}');return false;" style="color:var(--text);text-decoration:none;border-bottom:1px dotted var(--border);" onmouseover="this.style.color='var(--cyan)'" onmouseout="this.style.color='var(--text)'">${r.name}</a>${rookieBadge}</td>
         <td><span class="ac-pos" style="${posStyle}">${r.pos || '?'}</span></td>
         <td style="font-family:var(--mono);font-weight:700;color:var(--cyan);position:relative;">
@@ -644,6 +655,7 @@
       cells += `<td style="text-align:center;font-family:var(--mono);font-size:0.72rem;color:${scColor};" title="${scTip}: ${sc_} source${sc_ !== 1 ? 's' : ''}">${sc_}</td>`;
 
       tr.innerHTML = cells;
+      tr.dataset.overallModelRank = String(r.overallModelRank);
       tr.dataset.rawComposite = String(Math.round(r.rawComposite));
       tr.dataset.scoringComposite = String(Math.round(r.scoringComposite));
       tr.dataset.scarcityComposite = String(Math.round(r.scarcityComposite));
@@ -845,6 +857,7 @@
       const pill = getFreshnessPillForAsset(name, r.sourceData || (loadedData?.players?.[name] || {}));
       const escaped = String(name).replace(/'/g, "\\'");
       const rankLabel = `#${idx + 1}`;
+      const modelRankLabel = r.overallModelRank ? `Our Rank ${r.overallModelRank}` : '';
       let sourceBlock = '';
       if (showSourceCols) {
         const sourceCells = sourceCfg.map(sc => {
@@ -870,7 +883,7 @@
           <div class="mobile-row-head">
             <div>
               <div class="mobile-row-name">${name}</div>
-              <div class="mobile-row-sub">${rankLabel} · ${pos} · trend ${trendText}</div>
+              <div class="mobile-row-sub">${rankLabel}${modelRankLabel ? ` · ${modelRankLabel}` : ''} · ${pos} · trend ${trendText}</div>
             </div>
             <div class="mobile-row-value">${val > 0 ? val.toLocaleString() : '—'}</div>
           </div>
