@@ -392,10 +392,10 @@ describe("buildRows", () => {
     const nonIntegers = rows.filter((r) => r.computedConsensusRank != null && r.computedConsensusRank % 1 !== 0);
     expect(nonIntegers.length).toBeGreaterThan(0);
 
-    // Rank-first: values.full should be derived from consensus rank, not raw input
+    // rankDerivedValue is computed for diagnostics but does NOT overwrite values.full
     expect(p0.rankDerivedValue).toBeDefined();
     expect(p0.rankDerivedValue).toBeGreaterThan(0);
-    expect(p0.values.full).toBe(p0.rankDerivedValue);
+    expect(p0.values.full).not.toBe(p0.rankDerivedValue);
 
     // Rows should be sorted by consensus rank ascending (rank-first)
     for (let i = 1; i < rows.length; i++) {
@@ -430,6 +430,42 @@ describe("buildRows", () => {
     expect(p1.computedConsensusRank).toBeDefined();
     // Different rank due to different site coverage
     expect(p0.computedConsensusRank).not.toBe(p1.computedConsensusRank);
+  });
+
+  it("does not overwrite backend display value with rankDerivedValue", () => {
+    // Regression: the frontend was replacing values.full with rankDerivedValue,
+    // causing top players like Josh Allen to show wrong values.
+    const BACKEND_DISPLAY = 9325;
+    const players = [];
+    for (let i = 0; i < 25; i++) {
+      players.push({
+        displayName: `Player ${i}`,
+        position: "QB",
+        values: {
+          displayValue: BACKEND_DISPLAY - i * 100,
+          finalAdjusted: BACKEND_DISPLAY - i * 100,
+          rawComposite: 8000 - i * 100,
+          overall: BACKEND_DISPLAY - i * 100,
+        },
+        canonicalSiteValues: {
+          ktc: 9000 - i * 100,
+          fantasyCalc: 9000 - i * 120,
+        },
+      });
+    }
+    const rows = buildRows({ playersArray: players });
+    const p0 = rows.find((r) => r.name === "Player 0");
+
+    // Backend display value must survive untouched
+    expect(p0.values.full).toBe(BACKEND_DISPLAY);
+
+    // Consensus rank and rankDerivedValue are still computed
+    expect(p0.computedConsensusRank).toBeDefined();
+    expect(p0.rankDerivedValue).toBeDefined();
+    expect(p0.rankDerivedValue).toBeGreaterThan(0);
+
+    // But they are NOT used as the displayed value
+    expect(p0.values.full).not.toBe(p0.rankDerivedValue);
   });
 
   it("returns empty array for empty data", () => {

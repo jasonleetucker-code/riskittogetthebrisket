@@ -204,10 +204,6 @@ export function buildRows(data) {
     }
 
     computeConsensusRanks(rows);
-    // Rank-first: override full value with rank-derived value for ranked rows.
-    for (const r of rows) {
-      if (r.rankDerivedValue > 0) r.values.full = r.rankDerivedValue;
-    }
     rows.sort((a, b) => {
       const ra = r => r.computedConsensusRank ?? r.canonicalConsensusRank ?? Infinity;
       return ra(a) - ra(b);
@@ -241,9 +237,6 @@ export function buildRows(data) {
   }
 
   computeConsensusRanks(rows);
-  for (const r of rows) {
-    if (r.rankDerivedValue > 0) r.values.full = r.rankDerivedValue;
-  }
   rows.sort((a, b) => {
     const ra = r => r.computedConsensusRank ?? r.canonicalConsensusRank ?? Infinity;
     return ra(a) - ra(b);
