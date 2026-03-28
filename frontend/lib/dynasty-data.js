@@ -85,6 +85,8 @@ export function buildRows(data) {
         confidence: Number(player.marketConfidence ?? 0),
         marketLabel: "",
         canonicalSites,
+        canonicalConsensusRank: Number(player.canonicalConsensusRank) || null,
+        canonicalTierId: Number(player.canonicalTierId) || null,
         raw: player,
       });
     }
@@ -114,6 +116,8 @@ export function buildRows(data) {
       confidence: Number(player._marketReliabilityScore ?? 0),
       marketLabel: String(player._marketReliabilityLabel || ""),
       canonicalSites,
+      canonicalConsensusRank: Number(player._canonicalConsensusRank) || null,
+      canonicalTierId: Number(player._canonicalTierId) || null,
       raw: player,
     });
   }

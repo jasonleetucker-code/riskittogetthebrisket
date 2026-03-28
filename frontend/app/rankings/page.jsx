@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 
 const VALUE_MODES = [
-  { key: "full", label: "Fully Adjusted" },
+  { key: "full", label: "Our Value" },
   { key: "raw", label: "Raw" },
   { key: "scoring", label: "Scoring" },
   { key: "scarcity", label: "Scarcity" },
@@ -77,6 +77,25 @@ export default function RankingsPage() {
     });
   }
 
+  // Compute stable overall model rank before any filters/sorts.
+  // Uses canonical consensus_rank (decimal) when available, falls back
+  // to integer position rank sorted by full model value.
+  const modelRankMap = useMemo(() => {
+    const hasCanonical = rows.some((r) => r.canonicalConsensusRank != null && r.canonicalConsensusRank > 0);
+    const map = new Map();
+    if (hasCanonical) {
+      rows.forEach((r) => {
+        if (r.canonicalConsensusRank > 0) map.set(r.name, r.canonicalConsensusRank);
+      });
+    }
+    // Fill in fallback integer ranks for any rows without canonical rank
+    const sorted = [...rows].sort((a, b) => b.values.full - a.values.full);
+    sorted.forEach((r, i) => {
+      if (!map.has(r.name)) map.set(r.name, i + 1);
+    });
+    return map;
+  }, [rows]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     let list = rows;
@@ -138,7 +157,8 @@ export default function RankingsPage() {
 
   async function copyValues() {
     const headers = [
-      "Rank",
+      "#",
+      "Our Rank",
       "Player",
       "Pos",
       VALUE_MODES.find((m) => m.key === valueMode)?.label || "Value",
@@ -151,8 +171,10 @@ export default function RankingsPage() {
     const lines = [headers.join(",")];
 
     filtered.forEach((row, idx) => {
+      const ourRank = modelRankMap.get(row.name);
       const cols = [
         String(idx + 1),
+        ourRank != null ? (ourRank % 1 !== 0 ? ourRank.toFixed(1) : String(Math.round(ourRank))) : "",
         `"${row.name.replace(/"/g, '""')}"`,
         row.pos,
         String(Math.round(Number(row.values?.[valueMode] || 0))),
@@ -176,6 +198,12 @@ export default function RankingsPage() {
       setCopyStatus("Copy failed");
       setTimeout(() => setCopyStatus(""), 1800);
     }
+  }
+
+  function formatRank(rank) {
+    if (rank == null || !Number.isFinite(rank)) return "—";
+    if (rank % 1 !== 0) return rank.toFixed(1);
+    return String(Math.round(rank));
   }
 
   function thLabel(label, key) {
@@ -232,6 +260,7 @@ export default function RankingsPage() {
               <thead>
                 <tr>
                   <th onClick={() => nextSort("selected")}>{thLabel("#", "selected")}</th>
+                  <th title="Canonical consensus rank from our model (stable across filters; decimal when available)">Our Rank</th>
                   <th onClick={() => nextSort("name")}>{thLabel("Player", "name")}</th>
                   <th onClick={() => nextSort("pos")}>{thLabel("Pos", "pos")}</th>
                   <th onClick={() => nextSort("selected")}>{thLabel(VALUE_MODES.find((m) => m.key === valueMode)?.label || "Value", "selected")}</th>
@@ -248,6 +277,7 @@ export default function RankingsPage() {
                 {filtered.map((row, i) => (
                   <tr key={row.name}>
                     <td>{i + 1}</td>
+                    <td style={{ fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)", textAlign: "center" }}>{formatRank(modelRankMap.get(row.name))}</td>
                     <td>
                       {tierStarts.has(i) ? (
                         <div className="tier-label">Tier {Array.from(tierStarts).filter((x) => x <= i).length}</div>
