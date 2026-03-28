@@ -1997,7 +1997,7 @@
   // ── AUTO-GENERATE PICK DOLLARS FROM ROOKIE META VALUES ──
   function generatePickDollarsFromRookies() {
     if (!loadedData || !loadedData.players) {
-      alert('Tap Update Values to load player data first.');
+      alert('Tap Refresh Values to load player data first.');
       return;
     }
     const proxy = build2026RookiePickProxyValues();

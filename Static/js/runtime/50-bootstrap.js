@@ -39,16 +39,16 @@
       ensureHardcodedLeagueProfile();
     }
 
-    // If offline (standalone mode), swap button to file-upload fallback
-    if (!serverMode) {
-      const btn = document.getElementById('loadDataBtn');
-      if (btn) {
-        btn.textContent = '📊 Update Values';
-        btn.onclick = () => document.getElementById('jsonFileInput').click();
-      }
-    } else {
-      // Poll status every 60s
+    // "Refresh Values" always triggers the live pipeline via triggerScrape().
+    // Manual file import is a separate action and is never wired to this button.
+    if (serverMode) {
+      // Already connected — start status polling
       setInterval(updateServerStatus, 60000);
+    } else {
+      // Not yet connected — button still says "Refresh Values" and will attempt
+      // the server call when clicked, showing a clear error if unreachable.
+      const btn = document.getElementById('loadDataBtn');
+      if (btn) btn.textContent = '🔄 Refresh Values';
     }
 
     const gsInput = document.getElementById('globalSearchInput');
