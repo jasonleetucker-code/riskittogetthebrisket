@@ -1,0 +1,19 @@
+{
+  "source": "DLF_IDP",
+  "snapshot_id": "dlf_idp_2026_20260328T171025Z",
+  "pulled_at_utc": "2026-03-28T17:10:25.625043+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty IDP",
+  "universe": "idp_vet",
+  "ingest_method": "manual_csv",
+  "ingest_type": "manual_csv",
+  "source_url": "https://dynastyleaguefootball.com/rankings/dynasty-idp-rankings/",
+  "format_key": "dynasty_idp",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/dlf_idp.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/dlf_idp/2026/dlf_idp_2026_20260328T171025Z",
+  "record_count": 185,
+  "hash": "0c6b31d98f6ab83711bf6779d128bd2e99a6ffd950bab3bb31a2e45c5d25ced7",
+  "notes": "DLF IDP rankings. IDP-only universe, SF/TEP not applicable.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
