@@ -27,6 +27,7 @@ export default function RankingsPage() {
   function getValueForSort(row, key) {
     if (key === "name") return row.name;
     if (key === "pos") return row.pos;
+    if (key === "ourRank") return getNumeric(modelRankMap.get(row.name));
     if (key === "sites") return getNumeric(row.siteCount);
     if (key === "selected") return getNumeric(row.values?.[valueMode]);
     if (key === "raw") return getNumeric(row.values?.raw);
@@ -66,102 +67,25 @@ export default function RankingsPage() {
       if (prev.key === key) {
         return { key, dir: prev.dir === "desc" ? "asc" : "desc" };
       }
-      const nextDir = key === "name" || key === "pos" ? "asc" : "desc";
+      const nextDir = key === "name" || key === "pos" || key === "ourRank" ? "asc" : "desc";
       return { key, dir: nextDir };
     });
   }
 
-  // Site weights for consensus rank (mirrors scraper SITE_WEIGHTS).
-  const RANK_SITE_WEIGHTS = {
-    ktc: 1.3, fantasyCalc: 1.0, dynastyDaddy: 1.0,
-    draftSharks: 0.9, fantasyPros: 0.8, yahoo: 0.8,
-    dynastyNerds: 0.8, idpTradeCalc: 1.0, flock: 0.8,
-    dlfSf: 0.8, dlfIdp: 0.8, dlfRsf: 0.7, dlfRidp: 0.7,
-    pffIdp: 0.7, fantasyProsIdp: 0.7, draftSharksIdp: 0.7,
-  };
-
-  // Compute stable overall model rank before any filters/sorts.
-  // Priority: canonical consensus rank (decimal from pipeline) > computed
-  // consensus rank (decimal from per-site rank blending) > integer fallback.
+  // Stable overall model rank before any filters/sorts.
+  // Priority: canonical consensus rank (from pipeline) > computed consensus
+  // rank (decimal, from per-site rank blending in buildRows) > integer fallback.
   const modelRankMap = useMemo(() => {
     const map = new Map();
 
-    // Check for canonical ranks first
     rows.forEach((r) => {
-      if (r.canonicalConsensusRank > 0) {
-        map.set(r.name, r.canonicalConsensusRank);
-      } else if (r.computedConsensusRank > 0) {
-        map.set(r.name, r.computedConsensusRank);
+      const rank = r.canonicalConsensusRank ?? r.computedConsensusRank;
+      if (rank != null && Number.isFinite(rank) && rank > 0) {
+        map.set(r.name, rank);
       }
     });
 
-    // If no rows have decimal ranks, compute them inline from site data
-    if (typeof window !== "undefined" && rows.length > 0) {
-      const r0 = rows[0];
-      const cs = r0.canonicalSites || {};
-      const nonNull = Object.entries(cs).filter(([, v]) => v != null && Number(v) > 0);
-      console.log(`[ModelRank] map.size=${map.size}, rows[0].name=${r0.name}, canonicalSites non-null=${nonNull.length}`, nonNull.slice(0, 5));
-    }
-    if (map.size === 0 && rows.length > 0) {
-      // Count players per site
-      const siteCounts = {};
-      for (const row of rows) {
-        const sites = row.canonicalSites || {};
-        for (const [key, val] of Object.entries(sites)) {
-          const n = Number(val);
-          if (Number.isFinite(n) && n > 0) {
-            siteCounts[key] = (siteCounts[key] || 0) + 1;
-          }
-        }
-      }
-      const activeSites = Object.keys(siteCounts).filter((k) => siteCounts[k] >= 20);
-
-      if (activeSites.length > 0) {
-        // Build per-site rank maps
-        const siteRankMaps = {};
-        for (const site of activeSites) {
-          const withVal = rows
-            .filter((r) => {
-              const v = Number(r.canonicalSites?.[site]);
-              return Number.isFinite(v) && v > 0;
-            })
-            .sort((a, b) => Number(b.canonicalSites[site]) - Number(a.canonicalSites[site]));
-          const rm = new Map();
-          withVal.forEach((r, i) => rm.set(r.name, i + 1));
-          siteRankMaps[site] = rm;
-        }
-
-        // Compute consensus for each row
-        for (const row of rows) {
-          const ranks = [];
-          const weights = [];
-          for (const site of activeSites) {
-            const rank = siteRankMaps[site]?.get(row.name);
-            if (rank != null) {
-              ranks.push(rank);
-              weights.push(RANK_SITE_WEIGHTS[site] || 0.8);
-            }
-          }
-          if (ranks.length < 1) continue;
-
-          let wSum = 0, wTotal = 0;
-          for (let i = 0; i < ranks.length; i++) {
-            wSum += ranks[i] * weights[i];
-            wTotal += weights[i];
-          }
-          const wMean = wSum / wTotal;
-          const sorted = [...ranks].sort((a, b) => a - b);
-          const mid = Math.floor(sorted.length / 2);
-          const median = sorted.length % 2 === 0
-            ? (sorted[mid - 1] + sorted[mid]) / 2
-            : sorted[mid];
-          const consensus = Math.round((0.7 * median + 0.3 * wMean) * 10) / 10;
-          if (consensus > 0) map.set(row.name, consensus);
-        }
-      }
-    }
-
-    // Fill in fallback integer ranks for any rows without a consensus rank
+    // Integer fallback for rows without a consensus rank
     const sorted = [...rows].sort((a, b) => b.values.full - a.values.full);
     sorted.forEach((r, i) => {
       if (!map.has(r.name)) map.set(r.name, i + 1);
@@ -187,7 +111,7 @@ export default function RankingsPage() {
       if (cmp !== 0) return cmp;
       return a.name.localeCompare(b.name);
     });
-  }, [rows, assetFilter, query, sort.key, sort.dir, valueMode]);
+  }, [rows, assetFilter, query, sort.key, sort.dir, valueMode, modelRankMap]);
 
   const tierStarts = useMemo(() => {
     const starts = new Set([0]);
@@ -333,7 +257,7 @@ export default function RankingsPage() {
               <thead>
                 <tr>
                   <th onClick={() => nextSort("selected")}>{thLabel("#", "selected")}</th>
-                  <th title="Consensus rank across sources (weighted median/mean blend)">Our Rank</th>
+                  <th onClick={() => nextSort("ourRank")} title="Consensus rank across sources (weighted median/mean blend)">{thLabel("Our Rank", "ourRank")}</th>
                   <th className="sticky-name" onClick={() => nextSort("name")}>{thLabel("Player", "name")}</th>
                   <th onClick={() => nextSort("pos")}>{thLabel("Pos", "pos")}</th>
                   <th onClick={() => nextSort("selected")}>{thLabel(VALUE_MODES.find((m) => m.key === valueMode)?.label || "Value", "selected")}</th>

@@ -45,6 +45,7 @@ function parseDynastyDataJs(jsText) {
 
 function listCandidates(baseDir) {
   const checks = [
+    path.join(baseDir, "exports", "latest"),
     path.join(baseDir, "data"),
     baseDir,
   ];
@@ -84,6 +85,7 @@ export async function GET() {
     }
 
     const jsCandidates = [
+      path.join(repoRoot, "exports", "latest", "dynasty_data.js"),
       path.join(repoRoot, "dynasty_data.js"),
       path.join(repoRoot, "data", "dynasty_data.js"),
     ];

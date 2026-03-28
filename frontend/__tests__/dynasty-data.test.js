@@ -351,6 +351,33 @@ describe("buildRows", () => {
     expect(nonIntegers.length).toBeGreaterThan(0);
   });
 
+  it("computes consensus ranks even when players have different site coverage", () => {
+    // 30 players across 3 sites, with some players missing from some sites
+    const players = [];
+    for (let i = 0; i < 30; i++) {
+      const sites = { ktc: 9000 - i * 100 };
+      if (i < 25) sites.fantasyCalc = 8000 - i * 80;
+      if (i % 2 === 0) sites.dynastyDaddy = 7500 - i * 90;
+      players.push({
+        displayName: `TestPlayer ${i}`,
+        position: i < 20 ? "QB" : "RB",
+        values: { finalAdjusted: 9000 - i * 100, rawComposite: 9000 - i * 100, overall: 9000 - i * 100 },
+        canonicalSiteValues: sites,
+      });
+    }
+    const rows = buildRows({ playersArray: players });
+    const withRank = rows.filter((r) => r.computedConsensusRank != null);
+    expect(withRank.length).toBeGreaterThan(25);
+
+    // Players with 3 sites should have more nuanced ranks than those with 1
+    const p0 = rows.find((r) => r.name === "TestPlayer 0");
+    const p1 = rows.find((r) => r.name === "TestPlayer 1");
+    expect(p0.computedConsensusRank).toBeDefined();
+    expect(p1.computedConsensusRank).toBeDefined();
+    // Different rank due to different site coverage
+    expect(p0.computedConsensusRank).not.toBe(p1.computedConsensusRank);
+  });
+
   it("returns empty array for empty data", () => {
     expect(buildRows({})).toEqual([]);
     expect(buildRows({ players: {} })).toEqual([]);
