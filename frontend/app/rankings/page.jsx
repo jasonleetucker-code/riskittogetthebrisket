@@ -2,13 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
-
-const VALUE_MODES = [
-  { key: "full", label: "Fully Adjusted" },
-  { key: "raw", label: "Raw" },
-  { key: "scoring", label: "Scoring" },
-  { key: "scarcity", label: "Scarcity" },
-];
+import { VALUE_MODES } from "@/lib/trade-logic";
 
 const FILTERS = [
   { key: "all", label: "All" },
@@ -33,6 +27,7 @@ export default function RankingsPage() {
   function getValueForSort(row, key) {
     if (key === "name") return row.name;
     if (key === "pos") return row.pos;
+    if (key === "ourRank") return getNumeric(modelRankMap.get(row.name));
     if (key === "sites") return getNumeric(row.siteCount);
     if (key === "selected") return getNumeric(row.values?.[valueMode]);
     if (key === "raw") return getNumeric(row.values?.raw);
@@ -72,10 +67,31 @@ export default function RankingsPage() {
       if (prev.key === key) {
         return { key, dir: prev.dir === "desc" ? "asc" : "desc" };
       }
-      const nextDir = key === "name" || key === "pos" ? "asc" : "desc";
+      const nextDir = key === "name" || key === "pos" || key === "ourRank" ? "asc" : "desc";
       return { key, dir: nextDir };
     });
   }
+
+  // Stable overall model rank before any filters/sorts.
+  // Priority: canonical consensus rank (from pipeline) > computed consensus
+  // rank (decimal, from per-site rank blending in buildRows) > integer fallback.
+  const modelRankMap = useMemo(() => {
+    const map = new Map();
+
+    rows.forEach((r) => {
+      const rank = r.canonicalConsensusRank ?? r.computedConsensusRank;
+      if (rank != null && Number.isFinite(rank) && rank > 0) {
+        map.set(r.name, rank);
+      }
+    });
+
+    // Integer fallback for rows without a consensus rank
+    const sorted = [...rows].sort((a, b) => b.values.full - a.values.full);
+    sorted.forEach((r, i) => {
+      if (!map.has(r.name)) map.set(r.name, i + 1);
+    });
+    return map;
+  }, [rows]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -95,7 +111,7 @@ export default function RankingsPage() {
       if (cmp !== 0) return cmp;
       return a.name.localeCompare(b.name);
     });
-  }, [rows, assetFilter, query, sort.key, sort.dir, valueMode]);
+  }, [rows, assetFilter, query, sort.key, sort.dir, valueMode, modelRankMap]);
 
   const tierStarts = useMemo(() => {
     const starts = new Set([0]);
@@ -138,7 +154,8 @@ export default function RankingsPage() {
 
   async function copyValues() {
     const headers = [
-      "Rank",
+      "#",
+      "Our Rank",
       "Player",
       "Pos",
       VALUE_MODES.find((m) => m.key === valueMode)?.label || "Value",
@@ -151,8 +168,10 @@ export default function RankingsPage() {
     const lines = [headers.join(",")];
 
     filtered.forEach((row, idx) => {
+      const ourRank = modelRankMap.get(row.name);
       const cols = [
         String(idx + 1),
+        ourRank != null ? (ourRank % 1 !== 0 ? ourRank.toFixed(1) : String(Math.round(ourRank))) : "",
         `"${row.name.replace(/"/g, '""')}"`,
         row.pos,
         String(Math.round(Number(row.values?.[valueMode] || 0))),
@@ -176,6 +195,12 @@ export default function RankingsPage() {
       setCopyStatus("Copy failed");
       setTimeout(() => setCopyStatus(""), 1800);
     }
+  }
+
+  function formatRank(rank) {
+    if (rank == null || !Number.isFinite(rank)) return "—";
+    if (rank % 1 !== 0) return rank.toFixed(1);
+    return String(Math.round(rank));
   }
 
   function thLabel(label, key) {
@@ -232,7 +257,8 @@ export default function RankingsPage() {
               <thead>
                 <tr>
                   <th onClick={() => nextSort("selected")}>{thLabel("#", "selected")}</th>
-                  <th onClick={() => nextSort("name")}>{thLabel("Player", "name")}</th>
+                  <th onClick={() => nextSort("ourRank")} title="Consensus rank across sources (weighted median/mean blend)">{thLabel("Our Rank", "ourRank")}</th>
+                  <th className="sticky-name" onClick={() => nextSort("name")}>{thLabel("Player", "name")}</th>
                   <th onClick={() => nextSort("pos")}>{thLabel("Pos", "pos")}</th>
                   <th onClick={() => nextSort("selected")}>{thLabel(VALUE_MODES.find((m) => m.key === valueMode)?.label || "Value", "selected")}</th>
                   <th onClick={() => nextSort("raw")}>{thLabel("Raw", "raw")}</th>
@@ -248,7 +274,8 @@ export default function RankingsPage() {
                 {filtered.map((row, i) => (
                   <tr key={row.name}>
                     <td>{i + 1}</td>
-                    <td>
+                    <td style={{ fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)", textAlign: "center" }}>{formatRank(modelRankMap.get(row.name))}</td>
+                    <td className="sticky-name">
                       {tierStarts.has(i) ? (
                         <div className="tier-label">Tier {Array.from(tierStarts).filter((x) => x <= i).length}</div>
                       ) : null}

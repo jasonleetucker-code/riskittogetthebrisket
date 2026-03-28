@@ -38,6 +38,94 @@ export function getSiteKeys(data) {
   return sites.map((s) => String(s?.key || "")).filter(Boolean);
 }
 
+// Site weights for consensus rank (mirrors scraper SITE_WEIGHTS).
+const SITE_WEIGHTS = {
+  ktc: 1.3, fantasyCalc: 1.0, dynastyDaddy: 1.0,
+  draftSharks: 0.9, fantasyPros: 0.8, yahoo: 0.8,
+  dynastyNerds: 0.8, idpTradeCalc: 1.0, flock: 0.8,
+  dlfSf: 0.8, dlfIdp: 0.8, dlfRsf: 0.7, dlfRidp: 0.7,
+  pffIdp: 0.7, fantasyProsIdp: 0.7, draftSharksIdp: 0.7,
+};
+
+/**
+ * Compute a decimal consensus rank for each row from per-site values.
+ * For each site, ranks rows by that site's value (desc), then blends
+ * per-site ranks via weighted 70% median / 30% mean.
+ */
+function computeConsensusRanks(rows) {
+  // Collect all site keys that have meaningful data
+  const siteCounts = {};
+  for (const row of rows) {
+    for (const [key, val] of Object.entries(row.canonicalSites || {})) {
+      if (Number.isFinite(Number(val)) && Number(val) > 0) {
+        siteCounts[key] = (siteCounts[key] || 0) + 1;
+      }
+    }
+  }
+  // Only use sites with at least 20 players to avoid sparse-data noise
+  const activeSites = Object.keys(siteCounts).filter((k) => siteCounts[k] >= 20);
+  if (activeSites.length === 0) {
+    if (typeof window !== "undefined") {
+      console.warn("[ConsensusRank] No active sites found.", "siteCounts:", JSON.stringify(siteCounts));
+    }
+    return;
+  }
+
+  // For each site, sort rows and assign ranks
+  const siteRanks = {}; // siteRanks[siteName] = Map<rowName, rank>
+  for (const site of activeSites) {
+    const withVal = rows
+      .filter((r) => {
+        const v = Number(r.canonicalSites?.[site]);
+        return Number.isFinite(v) && v > 0;
+      })
+      .sort((a, b) => Number(b.canonicalSites[site]) - Number(a.canonicalSites[site]));
+
+    const rankMap = new Map();
+    for (let i = 0; i < withVal.length; i++) {
+      rankMap.set(withVal[i].name, i + 1);
+    }
+    siteRanks[site] = rankMap;
+  }
+
+  // For each row, compute consensus rank from per-site ranks
+  for (const row of rows) {
+    const ranks = [];
+    const weights = [];
+    for (const site of activeSites) {
+      const rank = siteRanks[site]?.get(row.name);
+      if (rank != null) {
+        ranks.push(rank);
+        weights.push(SITE_WEIGHTS[site] || 0.8);
+      }
+    }
+    if (ranks.length < 1) continue;
+
+    // Weighted mean
+    let wSum = 0, wTotal = 0;
+    for (let i = 0; i < ranks.length; i++) {
+      wSum += ranks[i] * weights[i];
+      wTotal += weights[i];
+    }
+    const wMean = wSum / wTotal;
+
+    // Median
+    const sorted = [...ranks].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 === 0
+      ? (sorted[mid - 1] + sorted[mid]) / 2
+      : sorted[mid];
+
+    // Blend: 70% median, 30% weighted mean
+    row.computedConsensusRank = Math.round((0.7 * median + 0.3 * wMean) * 10) / 10;
+  }
+  if (typeof window !== "undefined") {
+    const set = rows.filter((r) => r.computedConsensusRank != null);
+    const decimals = set.filter((r) => r.computedConsensusRank % 1 !== 0);
+    console.log(`[ConsensusRank] ${activeSites.length} sites, ${set.length}/${rows.length} ranked, ${decimals.length} with decimals`);
+  }
+}
+
 export function buildRows(data) {
   const players = data?.players || {};
   const playersArray = Array.isArray(data?.playersArray) ? data.playersArray : [];
@@ -85,6 +173,8 @@ export function buildRows(data) {
         confidence: Number(player.marketConfidence ?? 0),
         marketLabel: "",
         canonicalSites,
+        canonicalConsensusRank: Number(player.canonicalConsensusRank) || null,
+        canonicalTierId: Number(player.canonicalTierId) || null,
         raw: player,
       });
     }
@@ -93,6 +183,7 @@ export function buildRows(data) {
     rows.forEach((r, i) => {
       r.rank = i + 1;
     });
+    computeConsensusRanks(rows);
     return rows;
   }
 
@@ -114,6 +205,8 @@ export function buildRows(data) {
       confidence: Number(player._marketReliabilityScore ?? 0),
       marketLabel: String(player._marketReliabilityLabel || ""),
       canonicalSites,
+      canonicalConsensusRank: Number(player._canonicalConsensusRank) || null,
+      canonicalTierId: Number(player._canonicalTierId) || null,
       raw: player,
     });
   }
@@ -122,6 +215,7 @@ export function buildRows(data) {
   rows.forEach((r, i) => {
     r.rank = i + 1;
   });
+  computeConsensusRanks(rows);
   return rows;
 }
 

@@ -140,7 +140,8 @@ a {
 
 table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.82rem;
 }
 
@@ -162,6 +163,25 @@ th {
 
 tr:hover td {
   background: rgba(255, 255, 255, 0.02);
+}
+
+/* Sticky frozen player name column on horizontal scroll */
+.sticky-name {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #122547;
+  min-width: 140px;
+  box-shadow: 4px 0 8px -2px rgba(0, 0, 0, 0.4);
+}
+
+thead .sticky-name {
+  z-index: 3;
+  background: #0e1d3d;
+}
+
+tr:hover .sticky-name {
+  background: #152a52;
 }
 
 .badge {
