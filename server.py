@@ -84,8 +84,8 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:3000").rstrip("/")
 _legacy_next_proxy_enabled = _env_bool("ENABLE_NEXT_FRONTEND_PROXY", True)
 FRONTEND_RUNTIME = (os.getenv("FRONTEND_RUNTIME") or "").strip().lower()
 if FRONTEND_RUNTIME not in {"static", "next", "auto"}:
-    # Explicit production default: static unless user intentionally overrides.
-    FRONTEND_RUNTIME = "static"
+    # Default: Next.js frontend.  Set FRONTEND_RUNTIME=static to revert to legacy.
+    FRONTEND_RUNTIME = "next"
 
 ALERT_ENABLED = _env_bool("ALERT_ENABLED", False)
 ALERT_TO = os.getenv("ALERT_TO", "")
@@ -1550,10 +1550,10 @@ async def lifespan(app: FastAPI):
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
 
     log.info(f"Server started — scraping every {SCRAPE_INTERVAL_HOURS}h")
-    if os.getenv("FRONTEND_RUNTIME") is None and _legacy_next_proxy_enabled:
+    if os.getenv("FRONTEND_RUNTIME") is None:
         log.info(
-            "FRONTEND_RUNTIME not set; defaulting to static. "
-            "Set FRONTEND_RUNTIME=auto|next to proxy Next intentionally."
+            "FRONTEND_RUNTIME not set; defaulting to next. "
+            "Set FRONTEND_RUNTIME=static to revert to legacy frontend."
         )
     log.info("Frontend runtime configured: %s (frontend_url=%s)", FRONTEND_RUNTIME, FRONTEND_URL)
     log.info(f"Dashboard: http://localhost:{PORT}")
@@ -2836,23 +2836,34 @@ async def auth_logout_redirect(request: Request):
 
 
 @app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
-async def serve_landing():
+async def serve_landing(request: Request):
+    # In next/auto mode, proxy to Next.js home page.
+    if FRONTEND_RUNTIME != "static":
+        routed = _resolve_frontend_path("/")
+        if routed is not None:
+            return routed
+    # Fallback to static landing page.
     for path in [LEGACY_STATIC_DIR / "landing.html", STATIC_DIR / "landing.html"]:
         if path.exists():
             return FileResponse(path, media_type="text/html")
     return HTMLResponse(
-        "<h1>Landing page missing</h1><p>Expected Static/landing.html.</p>",
+        "<h1>Landing page missing</h1><p>Expected Static/landing.html or Next.js frontend.</p>",
         status_code=500,
     )
 
 
 @app.get("/league", response_class=HTMLResponse)
 async def serve_league_entry():
+    # In next/auto mode, proxy to Next.js; fall back to static league page.
+    if FRONTEND_RUNTIME != "static":
+        routed = _resolve_frontend_path("/league")
+        if routed is not None:
+            return routed
     league_path = LEGACY_STATIC_DIR / "league.html"
     if league_path.exists():
         return FileResponse(league_path, media_type="text/html")
     return HTMLResponse(
-        "<h1>League page missing</h1><p>Expected Static/league.html.</p>",
+        "<h1>League page missing</h1><p>Expected Static/league.html or Next.js frontend.</p>",
         status_code=500,
     )
 

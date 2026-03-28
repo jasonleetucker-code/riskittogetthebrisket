@@ -17,7 +17,7 @@ A **dynasty fantasy football trade calculator and league management tool** built
 /
 ├── server.py                  # FastAPI server (2550 lines) — main process
 ├── Dynasty Scraper.py         # Async scraper (11,489 lines) — run by server
-├── Static/                    # Legacy vanilla JS frontend (production default)
+├── Static/                    # Legacy vanilla JS frontend (archived — use FRONTEND_RUNTIME=static to revert)
 │   ├── index.html             # Main app (~10k lines)
 │   ├── landing.html           # Entry router / login
 │   ├── league.html            # Public draft capital page
@@ -29,7 +29,7 @@ A **dynasty fantasy football trade calculator and league management tool** built
 │       ├── 35-draft-capital.js
 │       ├── 40-runtime-features.js  # Server integration, player popup, LAM
 │       └── 50-bootstrap.js    # Startup sequence
-├── frontend/                  # Next.js 15 / React 19 (in-progress migration)
+├── frontend/                  # Next.js 15 / React 19 (primary frontend)
 │   ├── app/
 │   │   ├── page.jsx           # Home dashboard
 │   │   ├── rankings/page.jsx  # Rankings table
@@ -78,7 +78,7 @@ A **dynasty fantasy football trade calculator and league management tool** built
 └─────────────────────────────────────────────┘
          │                        │
          ▼                        ▼
-   Static/ (default)       frontend/ (opt-in)
+   Static/ (archived)      frontend/ (default)
    Vanilla JS SPA          Next.js React
 ```
 
@@ -100,7 +100,7 @@ A **dynasty fantasy football trade calculator and league management tool** built
 | `SLEEPER_LEAGUE_ID` | `1312006700437352448` | Primary league for roster/picks/trades |
 | `BASELINE_LEAGUE_ID` | — | Test league for LAM baseline scoring |
 | `CANONICAL_DATA_MODE` | `off` | `off` / `shadow` / `primary` — pipeline integration |
-| `FRONTEND_RUNTIME` | `static` | `static` / `next` / `auto` |
+| `FRONTEND_RUNTIME` | `next` | `next` / `static` / `auto` |
 | `FRONTEND_URL` | `http://127.0.0.1:3000` | Next.js dev server URL |
 | `SCRAPE_INTERVAL_HOURS` | `2` | How often to auto-scrape |
 | `SCRAPE_RUN_TIMEOUT_SECONDS` | `7200` | Max scrape wall time |
@@ -264,8 +264,8 @@ idle → lock acquired → import scraper → run with timeout
 
 ### Dual Runtime
 `FRONTEND_RUNTIME` controls which frontend is served:
-- `static` (default): Serves `Static/index.html` — full-featured vanilla JS app
-- `next`: Proxies to Next.js dev server on :3000
+- `next` (default): Proxies to Next.js on :3000 — primary UI
+- `static`: Reverts to legacy `Static/index.html` (archived, all features still functional)
 - `auto`: Tries Next proxy, falls back to static on error
 
 ### Static App Features
@@ -281,18 +281,20 @@ idle → lock acquired → import scraper → run with timeout
 | Settings (site weights, anchors) | ✅ |
 | Mobile UI | ✅ |
 
-### Next.js App (Partial Migration)
+### Next.js App (Primary Frontend)
 | Feature | Status |
 |---|---|
 | Trade Calculator | ✅ |
 | Rankings | ✅ |
-| Trade History | ❌ not migrated |
-| League Edge | ❌ not migrated |
-| Roster Dashboard | ❌ not migrated |
-| Draft Capital | ❌ not migrated |
-| Settings Panel | ❌ not migrated |
+| Home Dashboard | ✅ |
+| Login | ✅ (demo-only — no backend validation yet) |
+| Trade History | ❌ not yet migrated |
+| League Edge | ❌ not yet migrated |
+| Roster Dashboard | ❌ not yet migrated |
+| Draft Capital | ❌ not yet migrated |
+| Settings Panel | ❌ not yet migrated |
 
-Next.js login (`login/page.jsx`) is **demo-only** — no backend validation. Use landing.html for real auth.
+> **Note**: Unmigrated features are still available via `FRONTEND_RUNTIME=static`.
 
 ### Data Loading (Static)
 ```
@@ -376,7 +378,7 @@ Proxy: Caddy (Caddyfile in repo root)
 8. **DynastyNerds requires credentials** — without `DN_EMAIL`/`DN_PASS` or a valid `dynastynerds_session.json`, falls back to public top-10 only.
 
 ### Frontend
-9. **Next.js migration is incomplete** — League Edge, Roster Dashboard, Trade History, Draft Capital not yet ported.
+9. **Some features not yet in Next.js** — League Edge, Roster Dashboard, Trade History, Draft Capital, Settings still in legacy `Static/` only. Use `FRONTEND_RUNTIME=static` to access them.
 10. **Next.js login is demo-only** — does not call backend. Don't use as real auth.
 
 ### Pipeline

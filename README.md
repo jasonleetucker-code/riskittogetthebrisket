@@ -2,8 +2,8 @@
 
 Private repo for your dynasty trade calculator stack:
 - Python scraper + API server
-- Legacy static dashboard
-- New React + Next.js frontend (`frontend/`)
+- Next.js frontend (`frontend/`) — primary UI
+- Legacy static dashboard (`Static/`) — archived, use `FRONTEND_RUNTIME=static` to revert
 
 ## Production Bootstrap
 
@@ -39,7 +39,7 @@ Frontend:
 
 ## Regression Harness (Desktop + Mobile)
 
-Automated parity/smoke suite targets the live runtime (`server.py` + `Static/index.html`) across:
+Automated parity/smoke suite targets the live runtime (`server.py` + Next.js frontend) across:
 - desktop `1366x768`
 - mobile `390x844`
 - mobile large `430x932`
@@ -71,12 +71,12 @@ This repo is now wired so both sides can work together:
 
 2. **Python server runtime is explicit (`FRONTEND_RUNTIME`)**
    - `server.py`
-   - `FRONTEND_RUNTIME=static` (default): serves legacy static app intentionally
-   - `FRONTEND_RUNTIME=next`: proxies Next intentionally (no silent static fallback)
-   - `FRONTEND_RUNTIME=auto`: tries Next first, then explicit static fallback
+   - `FRONTEND_RUNTIME=next` (default): proxies to Next.js frontend on :3000
+   - `FRONTEND_RUNTIME=static`: reverts to legacy static app in `Static/`
+   - `FRONTEND_RUNTIME=auto`: tries Next first, falls back to static
 
 ### Optional env vars
-- `FRONTEND_RUNTIME=static|next|auto` (default `static`)
+- `FRONTEND_RUNTIME=next|static|auto` (default `next`)
 - `FRONTEND_URL=http://127.0.0.1:3000`
 - `ENABLE_NEXT_FRONTEND_PROXY=true|false` (legacy/deprecated)
 - `BACKEND_API_URL=http://127.0.0.1:8000/api/data` (for Next route)
