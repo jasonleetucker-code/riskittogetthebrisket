@@ -64,7 +64,12 @@ function computeConsensusRanks(rows) {
   }
   // Only use sites with at least 20 players to avoid sparse-data noise
   const activeSites = Object.keys(siteCounts).filter((k) => siteCounts[k] >= 20);
-  if (activeSites.length === 0) return;
+  if (activeSites.length === 0) {
+    if (typeof window !== "undefined") {
+      console.warn("[ConsensusRank] No active sites found.", "siteCounts:", JSON.stringify(siteCounts));
+    }
+    return;
+  }
 
   // For each site, sort rows and assign ranks
   const siteRanks = {}; // siteRanks[siteName] = Map<rowName, rank>
@@ -113,6 +118,11 @@ function computeConsensusRanks(rows) {
 
     // Blend: 70% median, 30% weighted mean
     row.computedConsensusRank = Math.round((0.7 * median + 0.3 * wMean) * 10) / 10;
+  }
+  if (typeof window !== "undefined") {
+    const set = rows.filter((r) => r.computedConsensusRank != null);
+    const decimals = set.filter((r) => r.computedConsensusRank % 1 !== 0);
+    console.log(`[ConsensusRank] ${activeSites.length} sites, ${set.length}/${rows.length} ranked, ${decimals.length} with decimals`);
   }
 }
 

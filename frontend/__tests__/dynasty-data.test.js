@@ -319,6 +319,38 @@ describe("buildRows", () => {
     expect(rows.every((r) => r.assetClass === "pick")).toBe(true);
   });
 
+  it("computes decimal consensus ranks from site values", () => {
+    // Generate 25 players with varying site values across 2 sites
+    const players = [];
+    for (let i = 0; i < 25; i++) {
+      players.push({
+        displayName: `Player ${i}`,
+        position: "QB",
+        values: { finalAdjusted: 9000 - i * 100, rawComposite: 9000 - i * 100, overall: 9000 - i * 100 },
+        canonicalSiteValues: {
+          ktc: 9000 - i * 100,            // same order as full value
+          fantasyCalc: 9000 - (24 - i) * 100,  // reversed order
+        },
+      });
+    }
+    const rows = buildRows({ playersArray: players });
+    expect(rows.length).toBe(25);
+
+    // Player 0 is rank 1 at ktc but rank 25 at fantasyCalc
+    const p0 = rows.find((r) => r.name === "Player 0");
+    expect(p0.computedConsensusRank).toBeDefined();
+    expect(p0.computedConsensusRank).not.toBe(1); // should NOT be clean integer 1
+
+    // Player 12 is rank 13 at both sites, so consensus should be 13
+    const p12 = rows.find((r) => r.name === "Player 12");
+    expect(p12.computedConsensusRank).toBeDefined();
+    expect(p12.computedConsensusRank).toBe(13);
+
+    // At least some players should have non-integer ranks
+    const nonIntegers = rows.filter((r) => r.computedConsensusRank != null && r.computedConsensusRank % 1 !== 0);
+    expect(nonIntegers.length).toBeGreaterThan(0);
+  });
+
   it("returns empty array for empty data", () => {
     expect(buildRows({})).toEqual([]);
     expect(buildRows({ players: {} })).toEqual([]);
