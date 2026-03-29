@@ -1,0 +1,19 @@
+{
+  "source": "DYNASTYNERDS",
+  "snapshot_id": "dynastynerds_2026_20260329T231008Z",
+  "pulled_at_utc": "2026-03-29T23:10:09.124290+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty superflex TEP (DynastyNerds rank signal, paywalled)",
+  "universe": "offense_vet",
+  "ingest_method": "scraper_bridge",
+  "ingest_type": "scraper_export",
+  "source_url": "https://www.dynastynerds.com/",
+  "format_key": "dynasty_sf",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/exports/latest/site_raw/dynastyNerds.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/dynastynerds/2026/dynastynerds_2026_20260329T231008Z",
+  "record_count": 167,
+  "hash": "75a9f3dadd1947ea16d29b3e7cbcc2ab37ec613444777b6121954b8f341610fd",
+  "notes": "DynastyNerds ranks. In legacy scraper _tep_sites \u2014 TEP natively included. Paywalled, unreliable.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
