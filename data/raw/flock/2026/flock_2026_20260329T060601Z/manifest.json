@@ -1,0 +1,19 @@
+{
+  "source": "FLOCK",
+  "snapshot_id": "flock_2026_20260329T060601Z",
+  "pulled_at_utc": "2026-03-29T06:06:01.389486+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty superflex (Flock value signal, no TEP, session-dependent)",
+  "universe": "offense_vet",
+  "ingest_method": "scraper_bridge",
+  "ingest_type": "scraper_export",
+  "source_url": "https://flock.com/",
+  "format_key": "dynasty_sf",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/exports/latest/site_raw/flock.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/flock/2026/flock_2026_20260329T060601Z",
+  "record_count": 0,
+  "hash": "",
+  "notes": "Flock values. NOT in legacy scraper _tep_sites \u2014 TEP NOT included. Session expires frequently.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
