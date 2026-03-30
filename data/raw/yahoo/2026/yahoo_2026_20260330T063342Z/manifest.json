@@ -1,0 +1,19 @@
+{
+  "source": "YAHOO",
+  "snapshot_id": "yahoo_2026_20260330T063342Z",
+  "pulled_at_utc": "2026-03-30T06:33:42.296579+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty superflex TEP (Yahoo article-based values)",
+  "universe": "offense_vet",
+  "ingest_method": "scraper_bridge",
+  "ingest_type": "scraper_export",
+  "source_url": "https://sports.yahoo.com/",
+  "format_key": "dynasty_sf",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/exports/latest/site_raw/yahoo.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/yahoo/2026/yahoo_2026_20260330T063342Z",
+  "record_count": 470,
+  "hash": "09d09b90eb8bf938421a00937bf85268b95a1cc05aa46cc5a9902deff1ee43a2",
+  "notes": "Yahoo article-based values. In legacy scraper _tep_sites \u2014 TEP natively included. Do NOT re-apply.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
