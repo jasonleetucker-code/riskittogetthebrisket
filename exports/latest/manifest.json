@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-03-30T23:29:30.909909",
-  "date": "2026-03-30",
+  "generatedAt": "2026-03-31T06:13:17.668366",
+  "date": "2026-03-31",
   "files": [
     "dlf_idp.csv",
     "dlf_rookie_idp.csv",
     "dlf_rookie_superflex.csv",
     "dlf_superflex.csv",
     "dynasty_data.js",
-    "dynasty_data_2026-03-30.json",
+    "dynasty_data_2026-03-31.json",
     "dynasty_full.csv",
     "dynasty_values.csv",
     "site_raw"
