@@ -1,0 +1,19 @@
+{
+  "source": "DRAFTSHARKS_IDP",
+  "snapshot_id": "draftsharks_idp_2026_20260331T102156Z",
+  "pulled_at_utc": "2026-03-31T10:21:56.812603+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty IDP (DraftSharks IDP rank signal)",
+  "universe": "idp_vet",
+  "ingest_method": "scraper_bridge",
+  "ingest_type": "scraper_export",
+  "source_url": "https://www.draftsharks.com/",
+  "format_key": "dynasty_idp",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/exports/latest/site_raw/draftSharksIdp.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/draftsharks_idp/2026/draftsharks_idp_2026_20260331T102156Z",
+  "record_count": 700,
+  "hash": "e932b854453f9c1e4fed254be8391236478aa2ef3d7bf91429d5ee498a3214e0",
+  "notes": "DraftSharks IDP ranks (lower=better, rank-order from dsValue). IDP-only universe, SF/TEP not applicable.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
