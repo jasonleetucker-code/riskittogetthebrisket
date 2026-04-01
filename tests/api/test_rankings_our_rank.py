@@ -380,3 +380,100 @@ class TestFrontendRankPrecedence:
         assert "r.canonicalConsensusRank ?? r.computedConsensusRank" not in src, (
             "modelRankMap should use resolvedRank(), not inline ??"
         )
+
+
+class TestStaticRankingsUnresolvedPositionGuard:
+    """Verify the static rankings pipeline rejects unresolved-position players."""
+
+    RANKINGS_JS = Path(__file__).resolve().parents[2] / "Static" / "js" / "runtime" / "10-rankings-and-picks.js"
+
+    def test_valid_player_pos_set_defined(self):
+        """_VALID_PLAYER_POS set must be defined for position validation."""
+        src = self.RANKINGS_JS.read_text()
+        assert "_VALID_PLAYER_POS" in src, (
+            "Should define _VALID_PLAYER_POS set for position validation"
+        )
+
+    def test_valid_pos_includes_all_offense(self):
+        """_VALID_PLAYER_POS must include QB, RB, WR, TE."""
+        src = self.RANKINGS_JS.read_text()
+        match = re.search(r"_VALID_PLAYER_POS\s*=\s*new Set\(\[([^\]]+)\]", src)
+        assert match is not None, "_VALID_PLAYER_POS Set not found"
+        content = match.group(1)
+        for pos in ["QB", "RB", "WR", "TE"]:
+            assert f"'{pos}'" in content, f"{pos} missing from _VALID_PLAYER_POS"
+
+    def test_valid_pos_includes_all_idp(self):
+        """_VALID_PLAYER_POS must include DL, DE, DT, LB, DB, CB, S, EDGE."""
+        src = self.RANKINGS_JS.read_text()
+        match = re.search(r"_VALID_PLAYER_POS\s*=\s*new Set\(\[([^\]]+)\]", src)
+        assert match is not None
+        content = match.group(1)
+        for pos in ["DL", "DE", "DT", "LB", "DB", "CB", "S", "EDGE"]:
+            assert f"'{pos}'" in content, f"{pos} missing from _VALID_PLAYER_POS"
+
+    def test_valid_pos_excludes_pick(self):
+        """_VALID_PLAYER_POS must NOT include PICK (picks have their own path)."""
+        src = self.RANKINGS_JS.read_text()
+        match = re.search(r"_VALID_PLAYER_POS\s*=\s*new Set\(\[([^\]]+)\]", src)
+        assert match is not None
+        assert "'PICK'" not in match.group(1), "PICK must not be in _VALID_PLAYER_POS"
+
+    def test_base_rows_filter_unresolved_pos(self):
+        """getOrBuildRankingsBaseRows must reject rows with unresolved positions."""
+        src = self.RANKINGS_JS.read_text()
+        fn_start = src.find("function getOrBuildRankingsBaseRows")
+        assert fn_start > 0
+        fn_body = src[fn_start:fn_start + 2000]
+        assert "_VALID_PLAYER_POS.has(pos)" in fn_body, (
+            "getOrBuildRankingsBaseRows must check _VALID_PLAYER_POS"
+        )
+
+    def test_no_value_sort_fallback_rank(self):
+        """modelRankMap must NOT assign fallback ranks from value sort."""
+        src = self.RANKINGS_JS.read_text()
+        fn_start = src.find("function buildFullRankings")
+        assert fn_start > 0
+        fn_body = src[fn_start:fn_start + 5000]
+        # The old bug: _valSorted.forEach((r, i) => { if (!modelRankMap.has(r.name)) modelRankMap.set(r.name, i + 1); });
+        assert "if (!modelRankMap.has(r.name)) modelRankMap.set(r.name, i + 1)" not in fn_body, (
+            "Must not assign fallback ranks from value sort — "
+            "this lets unranked rows displace properly ranked players"
+        )
+
+    def test_unranked_rows_get_infinity(self):
+        """Rows without consensus rank must get overallModelRank = Infinity."""
+        src = self.RANKINGS_JS.read_text()
+        fn_start = src.find("function buildFullRankings")
+        assert fn_start > 0
+        fn_body = src[fn_start:fn_start + 10000]
+        assert "Infinity" in fn_body, (
+            "Unranked rows should get overallModelRank = Infinity"
+        )
+        assert "_hasValidRank" in fn_body, (
+            "Rows should carry _hasValidRank flag for sort logic"
+        )
+
+    def test_rank_first_sort_for_default_basis(self):
+        """Default sort (sortBasis === 'full') must sort by rank, not value."""
+        src = self.RANKINGS_JS.read_text()
+        fn_start = src.find("function buildFullRankings")
+        assert fn_start > 0
+        fn_body = src[fn_start:fn_start + 10000]
+        assert "sortBasis === 'full'" in fn_body, (
+            "Default sort should check for 'full' basis to enable rank-first sort"
+        )
+        assert "a.overallModelRank - b.overallModelRank" in fn_body, (
+            "Rank-first sort should compare overallModelRank directly"
+        )
+
+    def test_unranked_sort_to_bottom(self):
+        """Unranked rows must sort after all ranked rows."""
+        src = self.RANKINGS_JS.read_text()
+        fn_start = src.find("function buildFullRankings")
+        assert fn_start > 0
+        fn_body = src[fn_start:fn_start + 10000]
+        # The sort comparator must check _hasValidRank to push unranked down
+        assert "a._hasValidRank && !b._hasValidRank" in fn_body, (
+            "Sort must push unranked rows (no _hasValidRank) below ranked rows"
+        )

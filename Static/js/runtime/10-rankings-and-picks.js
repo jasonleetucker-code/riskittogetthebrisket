@@ -18,6 +18,11 @@
   const _OFF_ONLY_SITES = new Set(['dlfSf', 'dlfRsf']);
   const _IDP_POS = new Set(['DL', 'DE', 'DT', 'LB', 'DB', 'CB', 'S', 'EDGE']);
 
+  // Valid resolved positions for ranked players (excludes PICK — handled separately).
+  const _VALID_PLAYER_POS = new Set(['QB', 'RB', 'WR', 'TE', 'DL', 'DE', 'DT', 'LB', 'DB', 'CB', 'S', 'EDGE']);
+  // Minimum consensus-rank sources required for a player to receive a competitive rank.
+  const _MIN_RANK_SOURCES = 1;
+
   // Rank-to-value curve (mirrors src/canonical/player_valuation.py)
   const _CURVE_A = 10000, _CURVE_B = 1.5, _CURVE_C = 0.72, _CLIFF_BASE = 120;
   const _DISPLAY_ANCHOR = _CURVE_A / Math.pow(1 + _CURVE_B, _CURVE_C) + _CLIFF_BASE;
@@ -293,6 +298,10 @@
         pos = (posMap[name] || '').toUpperCase();
         if (!pos) pos = getRookiePosHint(name);
         if (isKickerPosition(pos)) continue;
+        // Hard guard: exclude players with unresolved/unknown positions.
+        // These are rows where canonical identity mapping failed — they must
+        // not compete with properly resolved players in rankings.
+        if (!_VALID_PLAYER_POS.has(pos)) continue;
         isRookie = isRookiePlayerName(name, pData);
       }
 
@@ -581,18 +590,41 @@
         modelRankMap.set(r.name, Math.round((0.7 * median + 0.3 * wMean) * 10) / 10);
       }
     }
-    // Integer fallback for players without enough site data
-    const _valSorted = [...baseRows].sort((a, b) => b.adjustedComposite - a.adjustedComposite);
-    _valSorted.forEach((r, i) => { if (!modelRankMap.has(r.name)) modelRankMap.set(r.name, i + 1); });
+    // Rows without a computed consensus rank do NOT receive a competitive
+    // fallback rank.  They are marked as unranked (Infinity) so they sort
+    // to the bottom and never displace properly ranked players.
 
-    let ranked = baseRows.map(r => ({
-      ...r,
-      sortValue: getValueByRankingMode(r.adjustment, sortBasis),
-      overallModelRank: modelRankMap.get(r.name) || 0,
-      rankDerivedValue: _rankToValue(modelRankMap.get(r.name) || 0),
-    }));
+    let ranked = baseRows.map(r => {
+      const hasRank = modelRankMap.has(r.name);
+      return {
+        ...r,
+        sortValue: getValueByRankingMode(r.adjustment, sortBasis),
+        overallModelRank: hasRank ? modelRankMap.get(r.name) : Infinity,
+        rankDerivedValue: hasRank ? _rankToValue(modelRankMap.get(r.name)) : 0,
+        _hasValidRank: hasRank,
+      };
+    });
     ranked = dedupeRankingsRowsByName(ranked);
-    ranked.sort((a, b) => rankingsSortAsc ? a.sortValue - b.sortValue : b.sortValue - a.sortValue);
+
+    // Rank-first sort: rows with a valid consensus rank sort by rank
+    // ascending (best rank first).  Rows without a valid rank sort to the
+    // bottom in value-descending order so they never displace ranked players.
+    // When the user explicitly picks a non-default value basis (raw/scoring/
+    // scarcity), we honour value sort but still push unranked rows to the end.
+    if (sortBasis === 'full') {
+      ranked.sort((a, b) => {
+        if (a._hasValidRank && !b._hasValidRank) return -1;
+        if (!a._hasValidRank && b._hasValidRank) return 1;
+        if (a._hasValidRank && b._hasValidRank) return a.overallModelRank - b.overallModelRank;
+        return b.sortValue - a.sortValue;
+      });
+    } else {
+      ranked.sort((a, b) => {
+        if (a._hasValidRank && !b._hasValidRank) return -1;
+        if (!a._hasValidRank && b._hasValidRank) return 1;
+        return rankingsSortAsc ? a.sortValue - b.sortValue : b.sortValue - a.sortValue;
+      });
+    }
 
     // Apply filters before display capping so focused views (like rookies-only)
     // are not truncated by the global top-N list.
@@ -654,9 +686,23 @@
           displaySet.add(name);
         }
       });
-      ranked = displayRows
-        .sort((a, b) => rankingsSortAsc ? a.sortValue - b.sortValue : b.sortValue - a.sortValue)
-        .slice(0, DISPLAY_CAP);
+      // Re-sort after backfilling KTC baseline players — must use the same
+      // rank-first sort used above to keep unranked rows at the bottom.
+      if (sortBasis === 'full') {
+        displayRows.sort((a, b) => {
+          if (a._hasValidRank && !b._hasValidRank) return -1;
+          if (!a._hasValidRank && b._hasValidRank) return 1;
+          if (a._hasValidRank && b._hasValidRank) return a.overallModelRank - b.overallModelRank;
+          return b.sortValue - a.sortValue;
+        });
+      } else {
+        displayRows.sort((a, b) => {
+          if (a._hasValidRank && !b._hasValidRank) return -1;
+          if (!a._hasValidRank && b._hasValidRank) return 1;
+          return rankingsSortAsc ? a.sortValue - b.sortValue : b.sortValue - a.sortValue;
+        });
+      }
+      ranked = displayRows.slice(0, DISPLAY_CAP);
     }
 
     // Safety guard: keep only one true canonical ceiling value in the active view.
@@ -927,7 +973,7 @@
       const pill = getFreshnessPillForAsset(name, r.sourceData || (loadedData?.players?.[name] || {}));
       const escaped = String(name).replace(/'/g, "\\'");
       const rankLabel = `#${idx + 1}`;
-      const modelRankDisplay = r.overallModelRank ? _formatRank(r.overallModelRank) : '';
+      const modelRankDisplay = (r._hasValidRank && Number.isFinite(r.overallModelRank)) ? _formatRank(r.overallModelRank) : '';
       const modelRankLabel = modelRankDisplay ? `Our Rank ${modelRankDisplay}` : '';
       let sourceBlock = '';
       if (showSourceCols) {
