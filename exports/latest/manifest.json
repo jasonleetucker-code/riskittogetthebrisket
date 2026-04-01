@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-01T10:24:33.304689",
+  "generatedAt": "2026-04-01T16:21:48.246686",
   "date": "2026-04-01",
   "files": [
     "dlf_idp.csv",
@@ -21,14 +21,15 @@
     "draftSharks.csv",
     "draftSharksIdp.csv",
     "dynastyDaddy.csv",
-    "dynastyNerds.csv",
     "fantasyCalc.csv",
     "fantasyPros.csv",
     "fantasyProsIdp.csv",
-    "idpTradeCalc.csv",
     "ktc.csv",
     "pffIdp.csv",
     "yahoo.csv"
   ],
-  "siteRawPreserved": []
+  "siteRawPreserved": [
+    "dynastyNerds.csv",
+    "idpTradeCalc.csv"
+  ]
 }
