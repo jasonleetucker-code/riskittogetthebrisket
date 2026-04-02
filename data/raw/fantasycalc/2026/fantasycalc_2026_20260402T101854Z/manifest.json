@@ -1,0 +1,19 @@
+{
+  "source": "FANTASYCALC",
+  "snapshot_id": "fantasycalc_2026_20260402T101854Z",
+  "pulled_at_utc": "2026-04-02T10:18:54.621810+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty superflex TEP (FantasyCalc value signal)",
+  "universe": "offense_vet",
+  "ingest_method": "scraper_bridge",
+  "ingest_type": "scraper_export",
+  "source_url": "https://api.fantasycalc.com/",
+  "format_key": "dynasty_sf",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/exports/latest/site_raw/fantasyCalc.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/fantasycalc/2026/fantasycalc_2026_20260402T101854Z",
+  "record_count": 458,
+  "hash": "b04497b801b508b4a007b42f6a196cae66e011c632001ed4054064404b07f8b6",
+  "notes": "FantasyCalc crowd values natively include SF and TEP. Do NOT re-apply adjustments.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
