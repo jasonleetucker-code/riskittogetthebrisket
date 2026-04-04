@@ -1,0 +1,19 @@
+{
+  "source": "IDPTRADECALC",
+  "snapshot_id": "idptradecalc_2026_20260404T171143Z",
+  "pulled_at_utc": "2026-04-04T17:11:43.810186+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty IDP TEP (IDPTradeCalc combined offense+IDP values)",
+  "universe": "idp_vet",
+  "ingest_method": "scraper_bridge",
+  "ingest_type": "scraper_export",
+  "source_url": "https://idptradecalc.com/",
+  "format_key": "dynasty_sf",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/exports/latest/site_raw/idpTradeCalc.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/idptradecalc/2026/idptradecalc_2026_20260404T171143Z",
+  "record_count": 384,
+  "hash": "855a51dbda600ec3a587404f884b1b16c5ca11c8d37a0eee9f31a32be2eb268b",
+  "notes": "IDPTradeCalc values. In legacy scraper _tep_sites \u2014 TEP natively included for offensive players in this source.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
