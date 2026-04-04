@@ -1,0 +1,19 @@
+{
+  "source": "FANTASYPROS",
+  "snapshot_id": "fantasypros_2026_20260404T054335Z",
+  "pulled_at_utc": "2026-04-04T05:43:35.725155+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty superflex TEP (FantasyPros value signal)",
+  "universe": "offense_vet",
+  "ingest_method": "scraper_bridge",
+  "ingest_type": "scraper_export",
+  "source_url": "https://www.fantasypros.com/",
+  "format_key": "dynasty_sf",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/exports/latest/site_raw/fantasyPros.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/fantasypros/2026/fantasypros_2026_20260404T054335Z",
+  "record_count": 303,
+  "hash": "5d2169fef9821f0d5935ecef79c9b0de819a1e5b52455d80552776e9d5c39325",
+  "notes": "FantasyPros values. In legacy scraper _tep_sites \u2014 TEP natively included. Do NOT re-apply.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
