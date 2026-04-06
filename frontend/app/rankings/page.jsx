@@ -3,11 +3,11 @@
 import { useMemo, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 
-// ── KTC-ONLY RANKINGS PAGE ────────────────────────────────────────────
-// Data source: KTC trade value → ordinal KTC rank (integer, 1 = best)
-// Value:       Our rank-to-value formula applied to that exact KTC rank
-// Columns:     Our Rank | Player | Pos | Our Value  — nothing else
-// Sort:        KTC rank ascending only (no multi-source consensus, no blending)
+// ── FULL-BOARD RANKINGS PAGE ──────────────────────────────────────────
+// Data source: normalized contract rows from useDynastyData/buildRows
+// Value:       rankDerivedValue when KTC-ranked, else canonical full value
+// Columns:     Our Rank | Player | Pos | Our Value
+// Sort:        precomputed row rank (ranked KTC first, then remaining board)
 
 const FILTERS = [
   { key: "all", label: "All" },
@@ -21,10 +21,10 @@ export default function RankingsPage() {
   const [assetFilter, setAssetFilter] = useState("all");
   const [copyStatus, setCopyStatus] = useState("");
 
-  // Only show KTC-ranked players (ktcRank > 0, position resolved, no picks)
+  // Show the full board (including unranked-by-KTC IDP pools).
   const ranked = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let list = rows.filter((r) => r.ktcRank > 0);
+    let list = rows.filter((r) => r.pos && r.pos !== "?" && r.pos !== "PICK");
 
     if (assetFilter !== "all") {
       list = list.filter((r) => r.assetClass === assetFilter);
@@ -33,14 +33,14 @@ export default function RankingsPage() {
       list = list.filter((r) => r.name.toLowerCase().includes(q));
     }
 
-    // Sort strictly by KTC rank ascending — no other sort basis
-    return [...list].sort((a, b) => a.ktcRank - b.ktcRank);
+    // rows are already pre-ranked in buildRows(), but keep deterministic sort.
+    return [...list].sort((a, b) => (a.rank || Number.MAX_SAFE_INTEGER) - (b.rank || Number.MAX_SAFE_INTEGER));
   }, [rows, assetFilter, query]);
 
   async function copyValues() {
     const lines = ["Our Rank\tPlayer\tPos\tOur Value"];
     ranked.forEach((row) => {
-      lines.push(`${row.ktcRank}\t${row.name}\t${row.pos}\t${Math.round(row.rankDerivedValue || row.values.full)}`);
+      lines.push(`${row.rank}\t${row.name}\t${row.pos}\t${Math.round(row.rankDerivedValue || row.values.full)}`);
     });
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
@@ -58,7 +58,7 @@ export default function RankingsPage() {
         <div>
           <h1 style={{ margin: 0 }}>Rankings</h1>
           <p className="muted" style={{ marginTop: 4, marginBottom: 0 }}>
-            KTC-only · {ranked.length.toLocaleString()} shown · Source: {source || "unknown"}
+            Full board · {ranked.length.toLocaleString()} shown · Source: {source || "unknown"}
           </p>
         </div>
       </div>
@@ -93,17 +93,17 @@ export default function RankingsPage() {
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: 64, textAlign: "center" }} title="KTC rank — 1 is best">Our Rank</th>
+                  <th style={{ width: 64, textAlign: "center" }} title="Overall board rank — 1 is best">Our Rank</th>
                   <th>Player</th>
                   <th>Pos</th>
-                  <th title="Our formula value derived from KTC rank">Our Value</th>
+                  <th title="Our board value (KTC-derived where available)">Our Value</th>
                 </tr>
               </thead>
               <tbody>
                 {ranked.map((row) => (
                   <tr key={row.name}>
                     <td style={{ textAlign: "center", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)" }}>
-                      {row.ktcRank}
+                      {row.rank}
                     </td>
                     <td style={{ fontWeight: 600 }}>{row.name}</td>
                     <td><span className="badge">{row.pos}</span></td>

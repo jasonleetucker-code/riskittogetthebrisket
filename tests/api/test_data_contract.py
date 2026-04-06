@@ -549,5 +549,114 @@ class TestComputeKtcRankings(unittest.TestCase):
         self.assertEqual(contract["players"]["Josh Allen"]["ktcRank"], 1)
 
 
+class TestIdpIntegrityGuardrails(unittest.TestCase):
+    def test_prefers_explicit_player_offense_position_over_conflicting_sleeper_idp_map(self):
+        raw = {
+            "players": {
+                "DJ Moore": {
+                    "_composite": 8000,
+                    "_rawComposite": 8000,
+                    "_finalAdjusted": 7900,
+                    "_canonicalSiteValues": {"ktc": 7700, "fantasyCalc": 7600},
+                    "position": "WR",
+                },
+            },
+            "sites": [{"key": "ktc"}, {"key": "fantasyCalc"}],
+            "maxValues": {"ktc": 9999},
+            "sleeper": {"positions": {"DJ Moore": "DB"}},
+        }
+        contract = build_api_data_contract(raw)
+        row = contract["playersArray"][0]
+        self.assertEqual(row["position"], "WR")
+        self.assertEqual(row["assetClass"], "offense")
+
+    def test_validation_flags_offense_signal_player_tagged_as_idp(self):
+        payload = _minimal_raw_payload()
+        payload["players"] = {
+            "Elijah Mitchell": {
+                "_composite": 5000,
+                "_rawComposite": 5000,
+                "_finalAdjusted": 5000,
+                "_canonicalSiteValues": {"ktc": 5000},
+                "position": "DB",
+            },
+        }
+        payload["sites"] = [{"key": "ktc"}]
+        contract = build_api_data_contract(payload)
+        report = validate_api_data_contract(contract)
+        self.assertFalse(report["ok"])
+        self.assertTrue(any("offense→IDP mismatch" in e for e in report["errors"]))
+
+    def test_validation_flags_implausibly_tiny_idp_pool(self):
+        players = {}
+        for i in range(300):
+            players[f"Player {i}"] = {
+                "_composite": 4000 - i,
+                "_rawComposite": 4000 - i,
+                "_finalAdjusted": 4000 - i,
+                "_canonicalSiteValues": {"ktc": 3000},
+                "position": "WR",
+            }
+        players["Bobby Brown"] = {
+            "_composite": 2500,
+            "_rawComposite": 2500,
+            "_finalAdjusted": 2500,
+            "_canonicalSiteValues": {"pffIdp": 8000},
+            "position": "DL",
+        }
+        raw = {
+            "players": players,
+            "sites": [{"key": "ktc"}, {"key": "pffIdp"}],
+            "maxValues": {"ktc": 9999},
+            "sleeper": {"positions": {}},
+        }
+        contract = build_api_data_contract(raw)
+        report = validate_api_data_contract(contract)
+        self.assertFalse(report["ok"])
+        self.assertTrue(any("implausibly small IDP pool" in e for e in report["errors"]))
+
+    def test_validation_flags_offense_idp_duplicate_name_collision(self):
+        payload = build_api_data_contract(_minimal_raw_payload())
+        payload["playersArray"].append({
+            "playerId": None,
+            "canonicalName": "DJ Moore",
+            "displayName": "DJ Moore",
+            "position": "WR",
+            "team": "CHI",
+            "rookie": False,
+            "values": {
+                "overall": 100,
+                "rawComposite": 100,
+                "scoringAdjusted": 100,
+                "scarcityAdjusted": 100,
+                "finalAdjusted": 100,
+                "displayValue": 100,
+            },
+            "canonicalSiteValues": {"ktc": 100},
+            "sourceCount": 1,
+        })
+        payload["playersArray"].append({
+            "playerId": None,
+            "canonicalName": "D.J. Moore",
+            "displayName": "D.J. Moore",
+            "position": "DB",
+            "team": "CHI",
+            "rookie": False,
+            "values": {
+                "overall": 1,
+                "rawComposite": 1,
+                "scoringAdjusted": 1,
+                "scarcityAdjusted": 1,
+                "finalAdjusted": 1,
+                "displayValue": 1,
+            },
+            "canonicalSiteValues": {"pffIdp": 1},
+            "sourceCount": 1,
+        })
+        report = validate_api_data_contract(payload)
+        self.assertFalse(report["ok"])
+        self.assertTrue(any("name collision" in e for e in report["errors"]))
+
+
 if __name__ == "__main__":
     unittest.main()
