@@ -1,1285 +1,1101 @@
 Player,Composite,Sites
-2026 Early 1st,5898,4
-2026 Early 2nd,3852,4
-2026 Early 3rd,3304,4
-2026 Early 4th,2629,4
-2026 Early 5th,2446,1
-2026 Early 6th,2049,1
-2026 Late 1st,4232,4
-2026 Late 2nd,3480,4
-2026 Late 3rd,2824,4
-2026 Late 4th,2513,4
-2026 Late 5th,2145,1
-2026 Late 6th,1843,1
-2026 Mid 1st,4751,4
-2026 Mid 2nd,3628,4
-2026 Mid 3rd,3088,4
-2026 Mid 4th,2572,4
-2026 Mid 5th,2268,1
-2026 Mid 6th,1946,1
-2026 Pick 1.01,7425,4
-2026 Pick 1.02,5631,4
-2026 Pick 1.03,5383,4
-2026 Pick 1.04,5151,4
-2026 Pick 1.05,5092,4
-2026 Pick 1.06,4801,4
-2026 Pick 1.07,4709,4
-2026 Pick 1.08,4403,4
-2026 Pick 1.09,4363,4
-2026 Pick 1.10,4320,4
-2026 Pick 1.11,4149,4
-2026 Pick 1.12,4096,4
-2026 Pick 2.01,3916,4
-2026 Pick 2.02,3916,4
-2026 Pick 2.03,3791,4
-2026 Pick 2.04,3785,4
-2026 Pick 2.05,3757,4
-2026 Pick 2.06,3634,4
-2026 Pick 2.07,3575,4
-2026 Pick 2.08,3545,4
-2026 Pick 2.09,3528,4
-2026 Pick 2.10,3483,4
-2026 Pick 2.11,3470,4
-2026 Pick 2.12,3437,4
-2026 Pick 3.01,3382,4
-2026 Pick 3.02,3343,4
-2026 Pick 3.03,3323,4
-2026 Pick 3.04,3166,4
-2026 Pick 3.05,3156,4
-2026 Pick 3.06,3102,4
-2026 Pick 3.07,3049,4
-2026 Pick 3.08,3045,4
-2026 Pick 3.09,2950,4
-2026 Pick 3.10,2845,4
-2026 Pick 3.11,2790,4
-2026 Pick 3.12,2710,4
-2026 Pick 4.01,2652,4
-2026 Pick 4.02,2638,4
-2026 Pick 4.03,2619,4
-2026 Pick 4.04,2608,4
-2026 Pick 4.05,2600,4
-2026 Pick 4.06,2573,4
-2026 Pick 4.07,2564,4
-2026 Pick 4.08,2553,4
-2026 Pick 4.09,2547,4
-2026 Pick 4.10,2518,4
-2026 Pick 4.11,2496,4
-2026 Pick 4.12,2491,4
-2026 Pick 5.01,2458,1
-2026 Pick 5.02,2458,1
-2026 Pick 5.03,2438,1
-2026 Pick 5.04,2431,1
-2026 Pick 5.05,2357,1
-2026 Pick 5.06,2290,1
-2026 Pick 5.07,2240,1
-2026 Pick 5.08,2184,1
-2026 Pick 5.09,2172,1
-2026 Pick 5.10,2164,1
-2026 Pick 5.11,2137,1
-2026 Pick 5.12,2108,1
-2026 Pick 6.01,2097,1
-2026 Pick 6.02,2038,1
-2026 Pick 6.03,2032,1
-2026 Pick 6.04,2029,1
-2026 Pick 6.05,1992,1
-2026 Pick 6.06,1944,1
-2026 Pick 6.07,1935,1
-2026 Pick 6.08,1911,1
-2026 Pick 6.09,1900,1
-2026 Pick 6.10,1846,1
-2026 Pick 6.11,1820,1
-2026 Pick 6.12,1805,1
-2027 Early 1st,4123,4
-2027 Early 2nd,2136,4
-2027 Early 3rd,1513,4
-2027 Early 4th,1132,4
-2027 Early 5th,1468,1
-2027 Early 6th,1229,1
-2027 Late 1st,2612,4
-2027 Late 2nd,1713,4
-2027 Late 3rd,1274,4
-2027 Late 4th,1039,4
-2027 Late 5th,1287,1
-2027 Late 6th,1106,1
-2027 Mid 1st,3151,4
-2027 Mid 2nd,1916,4
-2027 Mid 3rd,1408,4
-2027 Mid 4th,1094,4
-2027 Mid 5th,1361,1
-2027 Mid 6th,1167,1
-2028 Early 1st,3372,4
-2028 Early 2nd,1814,4
-2028 Early 3rd,1254,4
-2028 Early 4th,949,4
-2028 Early 5th,1101,1
-2028 Early 6th,922,1
-2028 Late 1st,2229,4
-2028 Late 2nd,1504,4
-2028 Late 3rd,1069,4
-2028 Late 4th,831,4
-2028 Late 5th,965,1
-2028 Late 6th,829,1
-2028 Mid 1st,2550,4
-2028 Mid 2nd,1614,4
-2028 Mid 3rd,1164,4
-2028 Mid 4th,908,4
-2028 Mid 5th,1020,1
-2028 Mid 6th,875,1
-A'Shawn Robinson,1195,2
-A.J. Brown,4783,9
+2026 Early 1st,4882,1
+2026 Early 2nd,3168,1
+2026 Early 3rd,2294,1
+2026 Early 4th,1704,1
+2026 Early 5th,976,1
+2026 Early 6th,528,1
+2026 Late 1st,3426,1
+2026 Late 2nd,2564,1
+2026 Late 3rd,1966,1
+2026 Late 4th,1055,1
+2026 Late 5th,677,1
+2026 Late 6th,322,1
+2026 Mid 1st,3851,1
+2026 Mid 2nd,3006,1
+2026 Mid 3rd,2112,1
+2026 Mid 4th,1280,1
+2026 Mid 5th,858,1
+2026 Mid 6th,412,1
+2026 Pick 1.01,6067,1
+2026 Pick 1.02,4739,1
+2026 Pick 1.03,4384,1
+2026 Pick 1.04,4340,1
+2026 Pick 1.05,4125,1
+2026 Pick 1.06,3953,1
+2026 Pick 1.07,3800,1
+2026 Pick 1.08,3527,1
+2026 Pick 1.09,3526,1
+2026 Pick 1.10,3412,1
+2026 Pick 1.11,3388,1
+2026 Pick 1.12,3377,1
+2026 Pick 2.01,3201,1
+2026 Pick 2.02,3187,1
+2026 Pick 2.03,3149,1
+2026 Pick 2.04,3137,1
+2026 Pick 2.05,3115,1
+2026 Pick 2.06,3074,1
+2026 Pick 2.07,3009,1
+2026 Pick 2.08,2824,1
+2026 Pick 2.09,2776,1
+2026 Pick 2.10,2602,1
+2026 Pick 2.11,2508,1
+2026 Pick 2.12,2368,1
+2026 Pick 3.01,2357,1
+2026 Pick 3.02,2282,1
+2026 Pick 3.03,2275,1
+2026 Pick 3.04,2263,1
+2026 Pick 3.05,2164,1
+2026 Pick 3.06,2145,1
+2026 Pick 3.07,2094,1
+2026 Pick 3.08,2047,1
+2026 Pick 3.09,2038,1
+2026 Pick 3.10,1968,1
+2026 Pick 3.11,1967,1
+2026 Pick 3.12,1893,1
+2026 Pick 4.01,1863,1
+2026 Pick 4.02,1755,1
+2026 Pick 4.03,1741,1
+2026 Pick 4.04,1455,1
+2026 Pick 4.05,1367,1
+2026 Pick 4.06,1310,1
+2026 Pick 4.07,1224,1
+2026 Pick 4.08,1219,1
+2026 Pick 4.09,1130,1
+2026 Pick 4.10,1047,1
+2026 Pick 4.11,1041,1
+2026 Pick 4.12,1002,1
+2026 Pick 5.01,1002,1
+2026 Pick 5.02,996,1
+2026 Pick 5.03,967,1
+2026 Pick 5.04,940,1
+2026 Pick 5.05,916,1
+2026 Pick 5.06,891,1
+2026 Pick 5.07,838,1
+2026 Pick 5.08,788,1
+2026 Pick 5.09,741,1
+2026 Pick 5.10,697,1
+2026 Pick 5.11,655,1
+2026 Pick 5.12,616,1
+2026 Pick 6.01,579,1
+2026 Pick 6.02,544,1
+2026 Pick 6.03,511,1
+2026 Pick 6.04,480,1
+2026 Pick 6.05,451,1
+2026 Pick 6.06,424,1
+2026 Pick 6.07,399,1
+2026 Pick 6.08,375,1
+2026 Pick 6.09,352,1
+2026 Pick 6.10,331,1
+2026 Pick 6.11,311,1
+2026 Pick 6.12,292,1
+2027 Early 1st,6312,1
+2027 Early 2nd,3570,1
+2027 Early 3rd,2416,1
+2027 Early 4th,1762,1
+2027 Early 5th,927,1
+2027 Early 6th,502,1
+2027 Late 1st,4399,1
+2027 Late 2nd,2908,1
+2027 Late 3rd,2096,1
+2027 Late 4th,1438,1
+2027 Late 5th,643,1
+2027 Late 6th,305,1
+2027 Mid 1st,5145,1
+2027 Mid 2nd,3270,1
+2027 Mid 3rd,2258,1
+2027 Mid 4th,1577,1
+2027 Mid 5th,815,1
+2027 Mid 6th,392,1
+2028 Early 1st,4811,1
+2028 Early 2nd,3012,1
+2028 Early 3rd,2094,1
+2028 Early 4th,1564,1
+2028 Early 5th,830,1
+2028 Early 6th,449,1
+2028 Late 1st,3647,1
+2028 Late 2nd,2598,1
+2028 Late 3rd,1854,1
+2028 Late 4th,1163,1
+2028 Late 5th,576,1
+2028 Late 6th,273,1
+2028 Mid 1st,4223,1
+2028 Mid 2nd,2829,1
+2028 Mid 3rd,2001,1
+2028 Mid 4th,1380,1
+2028 Mid 5th,730,1
+2028 Mid 6th,350,1
+A'Shawn Robinson,1367,1
+A.J. Brown,4783,2
 A.J. Epenesa,1398,1
-A.J. Haulcy,2600,1
-A.J. Terrell,1780,1
-AJ Barner,3313,10
+A.J. Haulcy,16,1
+AJ Barner,3320,2
 AJ Dillon,812,1
-Aaron Anderson,1672,4
-Aaron Jones,2831,10
-Aaron Rodgers,2500,9
-Abdul Carter,5489,4
-Adam Butler,2155,1
-Adam Randall,1935,7
-Adam Thielen,803,1
+Aaron Anderson,544,1
+Aaron Jones,2114,2
+Aaron Rodgers,1874,2
+Abdul Carter,4899,1
+Adam Randall,1967,1
+Adam Thielen,748,1
 Adam Trautman,698,1
 Adisa Isaac,1370,1
-Adonai Mitchell,3014,10
-Adrian Phillips,2813,2
-Aidan Hutchinson,5709,5
-Aidan O'Connell,981,3
+Adonai Mitchell,2741,2
+Aidan Hutchinson,5091,1
+Aidan O'Connell,981,1
 Ainias Smith,835,1
-Akeem Davis-Gaither,1544,3
-Akheem Mesidor,5383,2
-Alec Pierce,4216,9
-Alex Anzalone,1955,3
-Alex Highsmith,3385,4
-Alex Singleton,2064,5
-Alex Wright,1424,2
-Alexander Mattison,819,2
-Alfred Collins,1850,1
-Alim McNeill,1428,2
-Alohi Gilman,1916,2
-Alontae Taylor,1844,3
-Alvin Kamara,2712,10
-Amani Hooker,1891,2
-Ameer Abdullah,1469,1
-Amon-Ra St. Brown,7765,9
-Andrei Iosivas,1728,6
-Andrew Gardner,1967,1
-Andrew Mukuba,1877,4
-Andrew Van Ginkel,3413,4
+Akeem Davis-Gaither,1389,1
+Akheem Mesidor,20,1
+Alec Pierce,4347,2
+Alex Anzalone,1746,1
+Alex Highsmith,3025,1
+Alex Singleton,1860,1
+Alex Wright,1365,1
+Alexander Mattison,819,1
+Alim McNeill,1368,1
+Alohi Gilman,1722,1
+Alontae Taylor,1716,1
+Alvin Kamara,2137,2
+Amani Hooker,1729,1
+Amon-Ra St. Brown,7722,2
+Andrei Iosivas,1728,2
+Andrew Mukuba,1721,1
+Andrew Van Ginkel,3036,1
 Andrew Wingard,1436,1
-Andy Borregales,2297,2
-Andy Dalton,87,2
 Anfernee Jennings,1396,1
-Anthony Gould,1319,1
-Anthony Hill,2491,3
-Anthony Nelson,2167,1
-Anthony Richardson,2748,9
-Antoine Winfield,2505,5
-Antonio Gibson,779,4
-Antonio Johnson,2131,1
-Antonio Williams,2638,8
+Anthony Hill,2282,1
+Anthony Richardson,2549,2
+Antoine Winfield,2244,1
+Antonio Gibson,779,1
+Antonio Williams,1310,1
 Arden Key,1387,1
-Arian Smith,1059,3
-Arik Armstead,1862,1
-Arnold Ebiketie,1197,2
-Arvell Reese,4403,3
+Arian Smith,1059,1
+Arnold Ebiketie,1364,1
+Arvell Reese,3953,1
 Ashton Gillotte,2237,1
-Ashton Jeanty,7494,9
+Ashton Jeanty,7477,2
 Ashtyn Davis,1359,1
-Audric Estime,1637,5
-Austin Booker,2440,3
-Austin Ekeler,1685,3
-Avieon Terrell,4364,1
-Azeez Al-Shaair,2520,5
+Audric Estime,1637,1
+Austin Booker,2237,1
+Austin Ekeler,748,1
+Azeez Al-Shaair,2257,1
 Azeez Ojulari,1393,1
-B.J. Hill,2159,1
-BJ Ojulari,1587,1
-Baker Mayfield,4838,9
-Barika Kpeenu,1556,1
-Barion Brown,2608,1
-Baron Browning,1874,2
-Barrett Carter,2497,4
-Barry Kpeenu,1461,1
-Bauer Sharp,1056,1
-Behren Morton,1603,1
-Ben Sinnott,2123,9
-Benjamin Morrison,2247,1
-Bhayshul Tuten,4081,9
-Bijan Robinson,9058,9
-Billy Bowman,1927,2
-Blake Cashman,3397,5
-Blake Corum,3515,10
+Baker Mayfield,4782,2
+Barika Kpeenu,32,1
+Barion Brown,1455,1
+Baron Browning,1717,1
+Barrett Carter,2263,1
+Ben Sinnott,2265,2
+Bhayshul Tuten,3939,2
+Bijan Robinson,9999,2
+Billy Bowman,1764,1
+Blake Cashman,3014,1
+Blake Corum,3258,2
 Bo Melton,1102,1
-Bo Nix,6406,9
-Bobby Brown,1434,2
-Bobby Okereke,2052,5
-Bobby Wagner,1920,4
-Boye Mafe,2291,4
-Braden Fiske,2495,3
-Bradley Chubb,1921,4
-Braelon Allen,3254,10
+Bo Nix,6254,2
+Bobby Brown,1087,1
+Bobby Okereke,1833,1
+Bobby Wagner,1738,1
+Boye Mafe,2287,1
+Braden Fiske,2238,1
+Bradley Chubb,1725,1
+Braelon Allen,2740,2
 Bralen Trice,1371,1
-Brandin Cooks,1519,1
-Brandon Aiyuk,3345,10
-Brandon Aubrey,3912,2
-Brandon Dorlus,1506,2
-Brandon Jones,1883,4
-Brandon Knight,1443,2
-Brandon McManus,3424,2
-Brandon Stephens,2026,1
-Brashard Smith,2360,10
-Breece Hall,5531,9
+Brandon Aiyuk,2579,2
+Brandon Aubrey,370,1
+Brandon Dorlus,1447,1
+Brandon Jones,1721,1
+Brandon Knight,1443,1
+Brashard Smith,2168,2
+Breece Hall,5383,2
 Brenden Rice,839,1
-Brenen Thompson,2184,6
-Brenton Strange,3511,9
+Brenen Thompson,1310,1
+Brenton Strange,3511,2
 Brevin Jordan,1043,1
-Brian Branch,3941,5
-Brian Burns,3947,5
-Brian Robinson,2865,10
-Brian Thomas,4789,9
-Brock Bowers,8101,9
-Brock Purdy,6296,9
+Brian Branch,3517,1
+Brian Burns,3525,1
+Brian Robinson,2301,2
+Brian Thomas,4929,2
+Brock Bowers,8556,2
+Brock Purdy,5968,2
 Brock Wright,992,1
-Bryan Bresee,1871,4
-Bryan Cook,1942,2
-Bryce Boettcher,1677,1
+Bryan Bresee,1716,1
+Bryan Cook,1768,1
 Bryce Huff,1358,1
-Bryce Lance,2573,6
-Bryce Young,4267,10
-Bub Means,907,4
-Bucky Irving,5241,9
-Budda Baker,2503,4
-Byron Murphy,3422,4
-Byron Young,3453,5
-C.J. Gardner-Johnson,1611,3
-C.J. Stroud,5171,9
-CJ Allen,3545,3
-CJ Daniels,1631,4
-CJ Dippre,1218,1
-CJ Donaldson,857,2
-Cade Klubnik,1683,5
-Cade Otton,2918,10
-Cade Stover,1858,4
-Cairo Santos,2203,2
-Calais Campbell,705,1
-Caleb Banks,1246,1
-Caleb Douglas,112,3
-Caleb Downs,3916,3
-Caleb Williams,7881,9
-Calen Bullock,1582,3
-Calijah Kancey,2675,4
-Calvin Austin,1996,9
-Calvin Ridley,2459,10
-Cam Akers,961,3
-Cam Bynum,1916,4
-Cam Hart,1794,1
-Cam Little,5059,2
-Cam Skattebo,4526,9
+Bryce Lance,1219,1
+Bryce Young,4536,2
+Bub Means,907,2
+Bucky Irving,5096,2
+Budda Baker,2246,1
+Byron Murphy,3080,1
+Byron Young,3088,1
+C.J. Gardner-Johnson,1471,1
+C.J. Stroud,4794,2
+CJ Allen,3201,1
+CJ Daniels,916,1
+CJ Donaldson,139,1
+Cade Klubnik,1002,1
+Cade Otton,2926,2
+Cade Stover,1858,2
+Calais Campbell,614,1
+Caleb Banks,18,1
+Caleb Douglas,788,1
+Caleb Downs,3526,1
+Caleb Williams,7756,2
+Calen Bullock,1468,1
+Calijah Kancey,2379,1
+Calvin Austin,1684,2
+Calvin Ridley,1885,2
+Cam Akers,961,1
+Cam Bynum,1720,1
+Cam Little,370,1
+Cam Skattebo,4525,2
 Cam Taylor-Britt,1479,1
-Cam Ward,5295,8
-Cameron Dicker,4179,2
-Cameron Heyward,1871,4
-Cameron Jordan,705,1
-Carl Granderson,2477,4
-Carlton Davis,1776,1
-Carnell Tate,5151,8
-Carrington Valentine,1647,1
-Carson Beck,1546,6
-Carson Schwesinger,5244,5
-Carson Wentz,747,2
-Cashius Howell,4709,2
-Caullin Lacy,1992,1
-Cedric Gray,3520,5
-Cedric Tillman,2349,10
-CeeDee Lamb,7501,9
-Chamarri Conner,1932,4
-Charles Omenihu,1752,1
-Charlie Kolar,1037,4
-Charlie Smyth,2154,2
-Charvarius Ward,1457,3
-Chase Brown,5317,9
-Chase McLaughlin,4344,2
-Chase Roberts,1552,1
-Chase Young,2547,5
-Chidobe Awuzie,1694,1
-Chig Okonkwo,3799,9
-Chimere Dike,2752,10
-Chip Trayanum,1648,1
-Chop Robinson,2534,4
-Chris Bell,2845,9
-Chris Boswell,3237,2
+Cam Ward,5150,2
+Cameron Dicker,370,1
+Cameron Heyward,1716,1
+Cameron Jordan,614,1
+Carl Granderson,2248,1
+Carnell Tate,4384,1
+Carson Beck,102,1
+Carson Schwesinger,5079,1
+Carson Wentz,747,1
+Cashius Howell,22,1
+Caullin Lacy,451,1
+Cedric Gray,3127,1
+Cedric Tillman,2136,2
+CeeDee Lamb,7377,2
+Chamarri Conner,1754,1
+Charlie Kolar,1037,1
+Charvarius Ward,1364,1
+Chase Brown,4977,2
+Chase McLaughlin,370,1
+Chase Young,2289,1
+Chig Okonkwo,2642,1
+Chimere Dike,2733,2
+Chip Trayanum,75,1
+Chop Robinson,2292,1
+Chris Bell,1968,1
+Chris Boswell,370,1
 Chris Braswell,1400,1
-Chris Brazzell,2710,9
-Chris Brooks,1111,4
-Chris Godwin,3662,9
-Chris Hilton,1572,1
-Chris Jones,2510,4
-Chris Lacy,1424,1
-Chris Olave,5828,9
-Chris Rodriguez,2302,9
-Christian Barmore,1586,4
-Christian Benford,1584,2
+Chris Brazzell,2145,1
+Chris Brooks,1111,1
+Chris Godwin,2894,2
+Chris Hilton,131,1
+Chris Jones,2236,1
+Chris Olave,5699,2
+Chris Rodriguez,2302,2
+Christian Barmore,1464,1
+Christian Benford,1486,1
 Christian Elliss,1716,1
-Christian Gonzalez,1869,2
+Christian Gonzalez,1718,1
 Christian Harris,2238,1
 Christian Izien,1362,1
-Christian Kirk,2528,9
-Christian McCaffrey,5532,9
-Christian Rozeboom,1888,3
-Christian Watson,4020,9
-Chuba Hubbard,3760,9
-Clelin Ferrell,705,1
-Coby Bryant,1875,2
-Cody Barton,1896,4
+Christian Kirk,2100,2
+Christian McCaffrey,5133,2
+Christian Rozeboom,1808,1
+Christian Watson,3660,2
+Chuba Hubbard,3416,2
+Clelin Ferrell,614,1
+Coby Bryant,1716,1
+Cody Barton,1737,1
 Cody Lindenberg,1358,1
-Cody Simon,2466,4
-Colbie Young,1631,1
-Colby Parkinson,2566,9
-Cole Bishop,2469,4
-Cole Kmet,2442,10
-Cole Payton,1805,6
-Colston Loveland,6546,9
-Colton Hood,1108,1
-Cooper DeJean,3439,4
-Cooper Kupp,2364,9
+Cody Simon,2238,1
+Colbie Young,80,1
+Colby Parkinson,2566,2
+Cole Bishop,2241,1
+Cole Kmet,2447,2
+Colston Loveland,6658,2
+Cooper DeJean,3056,1
+Cooper Kupp,1865,2
 Cooper McDonald,1374,1
-Cor'Dale Flott,1888,1
-Courtland Sutton,3742,9
-Craig Woodson,1563,3
+Courtland Sutton,3185,2
+Craig Woodson,1438,1
 Curtis Samuel,776,2
-Cyrus Allen,1610,2
-D'Andre Swift,3951,9
-D.J. Jones,1750,1
-D.J. Reed,1999,1
-DJ Giddens,2313,9
-DJ Moore,4135,8
-DJ Rogers,1537,1
-DJ Turner,1808,1
-DJ Wonnum,1547,2
-DK Metcalf,4053,9
-Da'Shawn Hand,1738,1
-DaRon Bland,2778,2
-DaVon Hamilton,1873,1
-Dadrion Taylor-Demerson,2237,3
-Dae'Quan Wright,1026,1
-Daiyan Henley,2651,5
-Dak Prescott,5578,9
-Dallas Goedert,3436,10
-Dallas Turner,4433,3
-Dalton Kincaid,4021,9
-Dalton Schultz,3230,10
-Dalvin Tomlinson,1758,1
-Dameon Pierce,1131,2
-Damien Martinez,1198,3
-Dan Bailey,1284,1
-Dan Villari,925,1
-Dane Belton,1405,1
-Dane Key,658,1
-Dani Dennis-Sutton,2943,1
-Daniel Bellinger,1572,4
-Daniel Jones,4324,10
-Danielle Hunter,3429,4
-Danny Stutsman,2378,4
+Cyrus Allen,38,1
+D'Andre Swift,3576,2
+DJ Giddens,2111,2
+DJ Moore,3459,1
+DJ Rogers,85,1
+DJ Turner,601,1
+DJ Wonnum,1455,1
+DK Metcalf,3638,2
+DaRon Bland,601,1
+Dadrion Taylor-Demerson,2241,1
+Daiyan Henley,2372,1
+Dak Prescott,5061,2
+Dallas Goedert,3052,2
+Dallas Turner,3956,1
+Dalton Kincaid,3804,2
+Dalton Schultz,2693,2
+Dameon Pierce,1131,1
+Damien Martinez,1198,1
+Dan Bailey,370,1
+Dane Belton,601,1
+Dani Dennis-Sutton,8,1
+Daniel Bellinger,1572,1
+Daniel Jones,4288,2
+Danielle Hunter,3071,1
+Danny Stutsman,2387,1
 Dante Fowler,1363,1
-Dante Trader,1585,2
-Darien Porter,1480,2
+Dante Trader,1427,1
+Darien Porter,1359,1
 Darius Muasau,1371,1
-Darius Robinson,1891,3
-Darius Slayton,1590,6
-Darnell Mooney,2459,10
-Darnell Washington,2192,8
-Daron Payne,1516,2
-Darrell Baker,1650,1
-Darren Waller,1909,6
-Davante Adams,4022,9
-David Bailey,3757,3
-David Montgomery,3889,9
-David Njoku,3361,10
-David Walker,1495,2
-Davis Allen,1062,2
-Davis Mills,1599,5
-Davon Godchaux,1875,1
-Dawson Knox,2132,5
-Dax Hill,1909,3
-Dayo Odeyingbo,1873,2
-De'Von Achane,6888,9
-De'Zhaun Stribling,1503,2
-DeAndre Hopkins,1571,5
-DeForest Buckner,2507,4
-DeMarcus Lawrence,1505,3
-DeMario Douglas,2438,9
-DeMarvion Overshown,2631,5
-DeShon Elliott,1899,5
-DeVonta Smith,4816,9
-DeWayne Carter,1829,1
-Dean Connors,311,1
-Dee Alford,630,1
-Dee Winters,1885,4
-Deebo Samuel,2927,10
-Deion Burks,2108,6
-Demarcus Robinson,926,3
-Demario Davis,1875,4
-Demetrius Knight,2504,4
-Demond Claiborne,2240,9
-Denzel Boston,3382,8
-Denzel Perryman,1396,1
-Denzel Ward,1774,1
-Deommodore Lenoir,1547,3
+Darius Robinson,1716,1
+Darius Slayton,1590,2
+Darnell Mooney,2118,2
+Darnell Washington,2317,2
+Daron Payne,1431,1
+Darren Waller,1554,2
+Davante Adams,3550,2
+David Bailey,3388,1
+David Montgomery,3499,2
+David Njoku,3123,2
+David Walker,1377,1
+Davis Allen,1062,1
+Davis Mills,1599,2
+Dawson Knox,2132,2
+Dax Hill,1722,1
+Dayo Odeyingbo,1717,1
+De'Von Achane,6835,2
+De'Zhaun Stribling,616,1
+DeAndre Hopkins,870,2
+DeForest Buckner,2252,1
+DeMarcus Lawrence,1375,1
+DeMario Douglas,2158,2
+DeMarvion Overshown,2331,1
+DeShon Elliott,1716,1
+DeVonta Smith,4919,2
+Dee Alford,601,1
+Dee Winters,1728,1
+Deebo Samuel,2517,2
+Deion Burks,940,1
+Demarcus Robinson,926,1
+Demario Davis,1719,1
+Demetrius Knight,2273,1
+Demond Claiborne,1130,1
+Denzel Boston,3074,1
+Deommodore Lenoir,1417,1
 Deone Walker,1368,1
-Deontae Lawson,1111,1
+Deontae Lawson,8,1
 Derek Barnett,1359,1
-Derek Carr,1469,1
-Derek Stingley,1569,2
-Derick Hall,1870,2
-Derius Davis,687,2
-Derrick Barnes,1928,2
-Derrick Brown,1986,4
-Derrick Harmon,2499,4
-Derrick Henry,4143,9
-Derwin James,3440,5
-Deshaun Watson,1354,7
-Desmond Reid,350,3
+Derek Stingley,1475,1
+Derick Hall,1719,1
+Derius Davis,687,1
+Derrick Barnes,1732,1
+Derrick Brown,1787,1
+Derrick Harmon,2240,1
+Derrick Henry,3795,2
+Derwin James,3064,1
+Deshaun Watson,1354,2
+Desmond Reid,228,1
 Deuce Vaughn,958,1
-Devaughn Vele,2050,8
-Devin Bush,3214,4
-Devin Culp,1074,1
-Devin Duvernay,803,1
-Devin Lloyd,3664,4
-Devin Neal,2504,10
-Devin Singletary,2003,5
-Devin Voisin,1372,1
-Devin White,1887,3
-Devon Witherspoon,3404,5
-Devonte Wyatt,1882,3
-Devontez Walker,1450,5
-Dexter Lawrence,1875,4
-Diego Pavia,1778,3
-Dillon Gabriel,2033,9
-Dillon Thieneman,3483,3
-Divine Deablo,2519,5
-Dominic Lovett,1327,1
-Donaven McCulley,1556,1
+Devaughn Vele,1742,2
+Devin Bush,3248,1
+Devin Duvernay,748,1
+Devin Lloyd,3265,1
+Devin Neal,2314,2
+Devin Singletary,1460,2
+Devin White,1739,1
+Devon Witherspoon,3049,1
+Devonte Wyatt,1722,1
+Devontez Walker,1450,2
+Dexter Lawrence,1718,1
+Dillon Gabriel,1622,2
+Dillon Thieneman,3149,1
+Divine Deablo,2249,1
 Dondrea Tillman,1362,1
 Donovan Edwards,1071,1
-Donovan Ezeiruaku,2588,4
+Donovan Ezeiruaku,2309,1
 Donovan Wilson,1365,1
-Donoven McCulley,1606,1
-Dont'e Thornton,2367,9
-Dontayvion Wicks,2510,10
-Donte Jackson,1690,1
-Dorance Armstrong,1870,3
-Dorian Williams,1691,2
-Drake London,7003,9
-Drake Maye,9277,9
-Drake Thomas,1985,4
-Dre Greenlaw,1947,5
-Dre'Mont Jones,2322,1
-Drew Allar,1683,5
-Drew Lock,1035,2
+Donoven McCulley,62,1
+Dont'e Thornton,2194,2
+Dontayvion Wicks,2363,2
+Dorance Armstrong,1717,1
+Dorian Williams,1716,1
+Drake London,6947,2
+Drake Maye,9398,2
+Drake Thomas,1759,1
+Dre Greenlaw,1727,1
+Drew Allar,58,1
+Drew Lock,1035,1
 Drew Sanders,1385,1
 Dru Phillips,1725,1
-Drue Tranquill,1907,4
-Dwight Bentley,1660,2
-Dyami Brown,1689,6
-Dylan Devezin,489,1
-Dylan Laube,1469,1
-Dylan Sampson,2908,10
+Drue Tranquill,1716,1
+Dyami Brown,1436,1
+Dylan Sampson,2734,2
 E.J. Speed,1371,1
-Ed Oliver,1975,4
-Edgerrin Cooper,3932,5
-Efton Chism,1497,5
-Eli Heidenreich,1641,3
-Eli Raridon,1690,3
-Eli Stowers,3166,9
-Elic Ayomanor,2920,10
-Elijah Arroyo,3026,10
+Ed Oliver,1771,1
+Edgerrin Cooper,3517,1
+Efton Chism,1497,2
+Eli Heidenreich,148,1
+Eli Raridon,34,1
+Eli Stowers,2508,1
+Elic Ayomanor,2814,2
+Elijah Arroyo,2956,2
 Elijah Higgins,1564,2
 Elijah Mitchell,975,1
-Elijah Molden,1524,2
-Elijah Moore,1641,3
+Elijah Molden,1412,1
+Elijah Moore,1214,1
 Elijah Roberts,1359,1
-Elijah Sarratt,3102,9
-Emanuel Wilson,2511,10
-Emari Demercado,1867,7
-Emeka Egbuka,5953,9
-Emmanuel Forbes,1941,1
-Emmanuel Henderson,1548,1
-Emmanuel McNeil-Warren,3470,3
-Emmett Johnson,2790,9
-Ennis Rakestraw,1637,1
+Elijah Sarratt,2357,1
+Emanuel Wilson,2216,2
+Emari Demercado,1231,2
+Emeka Egbuka,6017,2
+Emmanuel Henderson,55,1
+Emmanuel McNeil-Warren,3137,1
+Emmett Johnson,2164,1
 Eric Kendricks,1363,1
-Eric McAlister,2137,5
-Eric Murray,1698,1
-Eric Rivers,1535,3
-Eric Stokes,1662,1
-Eric Wilson,1524,4
-Erick All,1232,3
-Ernest Jones,3951,5
-Evan Engram,2479,10
-Evan McPherson,4845,2
-Evan Williams,1455,3
-Felix Anudike-Uzomah,1744,1
-Fernando Mendoza,5631,8
-Foyesade Oluokun,2709,5
+Eric McAlister,1002,1
+Eric Rivers,189,1
+Eric Wilson,1384,1
+Erick All,1232,1
+Ernest Jones,3520,1
+Evan Engram,2218,2
+Evan McPherson,370,1
+Evan Williams,1376,1
+Fernando Mendoza,4739,1
+Foyesade Oluokun,2412,1
 Frank Gore,930,1
-Frankie Luvu,2502,4
-Fred Warner,5087,5
-Gabe Davis,803,1
-Gabe Jacas,,
-Gardner Minshew,1253,4
-Garrett Nussmeier,2458,8
-Garrett Williams,1791,1
-Garrett Wilson,5827,9
-Genesis Smith,1522,1
-Geno Smith,3461,10
-Geno Stone,1460,3
-George Holani,1314,5
-George Karlaftis,2581,4
-George Kittle,3984,9
-George Pickens,6188,9
+Frankie Luvu,2254,1
+Fred Warner,4895,1
+Gabe Davis,748,1
+Gardner Minshew,1253,1
+Garrett Nussmeier,2047,1
+Garrett Wilson,5777,2
+Geno Smith,2154,2
+Geno Stone,1365,1
+George Holani,1314,1
+George Karlaftis,2313,1
+George Kittle,3732,2
+George Pickens,6070,2
 Geremy Davis,1186,1
-Germaine Pratt,1911,4
-Germie Bernard,2619,9
-Gervon Dexter,1880,4
-Grady Jarrett,1836,1
-Graham Gano,1716,2
-Grant Calcaterra,879,2
-Grant Delpit,1890,4
-Greg Dortch,1200,3
-Greg Dulcich,1965,8
-Greg Newsome,1463,2
-Greg Rousseau,2584,4
-Grover Stewart,2164,1
-Gunnar Helm,3031,10
-Haason Reddick,1861,2
-Harold Fannin,5420,9
-Harold Landry,2020,4
-Harold Perkins,1109,1
+Germaine Pratt,1716,1
+Germie Bernard,1741,1
+Gervon Dexter,1723,1
+Grant Calcaterra,879,1
+Grant Delpit,1732,1
+Greg Dortch,1200,1
+Greg Dulcich,1965,2
+Greg Newsome,1361,1
+Greg Rousseau,2326,1
+Gunnar Helm,2977,2
+Haason Reddick,1716,1
+Harold Fannin,5531,2
+Harold Landry,1846,1
+Harold Perkins,9,1
 Harrison Bryant,686,1
-Harrison Butker,4369,2
-Harrison Mevis,1878,2
-Harrison Phillips,2169,1
-Harrison Wallace,2029,2
+Harrison Butker,370,1
+Harrison Wallace,1002,1
 Hassan Haskins,1022,2
-Haynes King,1639,1
-Henry To'oTo'o,1912,3
-Hollywood Brown,1770,1
-Hollywood Smothers,396,1
-Hunter Henry,3246,10
+Henry To'oTo'o,1716,1
+Hunter Henry,2747,2
 Ifeatu Melifonwu,1360,1
-Isaac Guerendo,1850,7
-Isaac TeSlaa,2953,10
-Isaiah Bond,2329,9
-Isaiah Davis,2140,10
+Isaac Guerendo,1728,1
+Isaac TeSlaa,2897,2
+Isaiah Bond,2290,2
+Isaiah Davis,1919,2
 Isaiah Hodgins,1021,1
-Isaiah Likely,3800,10
-Isaiah McDuffie,1474,2
+Isaiah Likely,3980,2
+Isaiah McDuffie,1378,1
 Isaiah McGuire,1719,1
-Isaiah Pola-Mao,2211,1
-Isaiah Rodgers,1449,2
-Isaiah Williams,803,1
-Isiah Pacheco,2899,10
+Isaiah Pola-Mao,601,1
+Isaiah Rodgers,1360,1
+Isaiah Williams,748,1
+Isiah Pacheco,2396,2
 Israel Abanikanda,979,1
-Ivan Pace,2390,2
-J'Mari Taylor,1724,6
-J. Michael Sturdivant,1615,1
-J.J. McCarthy,3423,10
-J.K. Dobbins,3616,9
-JD Bertrand,1040,1
-JT Tuimoloau,2482,3
-Ja'Corey Brooks,1356,1
-Ja'Kobi Lane,2652,8
-Ja'Lynn Polk,1613,6
-Ja'Marr Chase,9052,9
-Ja'Quan McMillian,1440,2
-Ja'Tavion Sanders,2296,9
-Jack Bech,2649,10
-Jack Campbell,5282,5
-Jack Endries,1911,5
-Jack Gibbens,2309,1
-Jack Jones,630,1
-Jack Kiser,1947,2
-Jack Sanborn,1720,2
-Jack Sawyer,2051,3
-Jackson Hawes,1749,2
-Jacob Cowing,1093,3
-Jacob Martin,2198,1
-Jacob Parrish,1976,3
-Jacob Rodriguez,3785,3
-Jacoby Brissett,2784,9
-Jacory Croskey-Merritt,3321,10
-Jadarian Price,3156,8
-Jaden Hicks,1382,2
-Jadeveon Clowney,705,1
-Jaelan Phillips,2560,4
-Jahan Dotson,1839,7
-Jahdae Barron,2008,3
-Jahdae Walker,80,2
-Jahmyr Gibbs,8883,9
-Jaishawn Barham,1109,1
-Jake Bates,4025,2
+Ivan Pace,2264,1
+J'Mari Taylor,996,1
+J. Michael Sturdivant,123,1
+J.J. McCarthy,2903,2
+J.K. Dobbins,3057,2
+JT Tuimoloau,2239,1
+Ja'Kobi Lane,1755,1
+Ja'Lynn Polk,1613,2
+Ja'Marr Chase,9904,2
+Ja'Quan McMillian,1366,1
+Ja'Tavion Sanders,2521,2
+Jack Bech,2406,2
+Jack Campbell,5068,1
+Jack Endries,891,1
+Jack Gibbens,619,1
+Jack Jones,601,1
+Jack Kiser,1760,1
+Jack Sanborn,1724,1
+Jack Sawyer,1853,1
+Jacob Cowing,1093,1
+Jacob Parrish,1803,1
+Jacob Rodriguez,3412,1
+Jacoby Brissett,2784,2
+Jacory Croskey-Merritt,2848,2
+Jadarian Price,2776,1
+Jaden Hicks,1368,1
+Jadeveon Clowney,614,1
+Jaelan Phillips,2321,1
+Jahan Dotson,1839,2
+Jahdae Barron,1812,1
+Jahdae Walker,748,1
+Jahmyr Gibbs,9645,2
+Jake Bates,370,1
 Jake Bobo,1194,1
-Jake Briningstool,1275,1
-Jake Browning,818,2
-Jake Elliott,4354,2
-Jake Ferguson,3889,9
-Jake Golday,3323,3
-Jake Tonges,2749,6
-Jakobi Meyers,3587,10
-Jaleel McLaughlin,1497,4
-Jalen Carter,3539,4
-Jalen Coker,3488,10
-Jalen Hurts,6987,9
-Jalen McMillan,3267,10
-Jalen Milroe,2465,8
-Jalen Nailor,2377,7
-Jalen Pitre,2532,4
-Jalen Ramsey,1909,3
-Jalen Redmond,1875,3
-Jalen Royals,2324,8
-Jalen Thompson,1629,3
-Jalen Tolbert,1873,6
-Jalen Walthall,1557,1
-Jalin Hyatt,1270,4
-Jalon Daniels,1992,2
-Jalon Kilgore,,
-Jalon Walker,3746,4
-Jalyx Hunt,2511,4
-Jam Miller,1641,5
-Jamal Haynes,1598,1
-Jamari Thrash,945,2
-Jamarion Miller,2496,1
-Jameis Winston,1850,7
-Jamel Dean,1947,1
-James Conner,2801,10
-James Cook,6207,9
-James Pearce,1931,4
-Jameson Williams,4169,9
-Jamien Sherwood,3389,5
-Jaquan Brisker,1921,5
-Jared Goff,4724,9
-Jared Verse,3925,4
-Jared Wiley,1046,3
-Jaren Kanak,1007,1
-Jaret Patterson,1469,1
-Jarquez Hunter,1940,10
-Jarran Reed,1830,1
-Jarrett Stidham,48,2
-Jarvis Brownlee,1972,1
-Jason Myers,3330,2
+Jake Browning,818,1
+Jake Elliott,370,1
+Jake Ferguson,3818,2
+Jake Golday,3009,1
+Jake Tonges,2807,2
+Jakobi Meyers,3388,2
+Jaleel McLaughlin,1497,2
+Jalen Carter,3161,1
+Jalen Coker,3065,2
+Jalen Hurts,6338,2
+Jalen McMillan,3144,2
+Jalen Milroe,2460,2
+Jalen Nailor,2377,2
+Jalen Pitre,2247,1
+Jalen Ramsey,1716,1
+Jalen Redmond,1743,1
+Jalen Royals,1867,2
+Jalen Thompson,1490,1
+Jalen Tolbert,1717,1
+Jalen Walthall,116,1
+Jalin Hyatt,1270,1
+Jalon Walker,3365,1
+Jalyx Hunt,2238,1
+Jam Miller,1002,1
+Jamal Haynes,157,1
+Jamari Thrash,945,1
+Jamarion Miller,1041,1
+Jameis Winston,1556,2
+Jamel Dean,601,1
+James Conner,2138,2
+James Cook,5990,2
+James Pearce,1735,1
+Jameson Williams,3692,2
+Jamien Sherwood,3030,1
+Jaquan Brisker,1735,1
+Jared Goff,4709,2
+Jared Verse,3523,1
+Jared Wiley,1046,1
+Jarquez Hunter,1730,2
+Jarrett Stidham,892,1
+Jason Myers,370,1
 Jason Pinnock,1360,1
-Jason Sanders,2341,2
-Jauan Jennings,3308,10
-Javon Baker,1109,2
-Javon Bullard,1553,3
-Javon Hargrave,1447,3
-Javon Kinlaw,2173,1
+Jauan Jennings,2823,2
+Javon Baker,1109,1
+Javon Bullard,1441,1
+Javon Hargrave,1369,1
 Javon Solomon,1394,1
-Javonte Williams,4537,9
-Jawhar Jordan,970,4
-Jaxon Smith-Njigba,8989,9
-Jaxson Dart,6857,9
-Jaycee Horn,1888,2
-Jayden Daniels,8276,9
-Jayden Higgins,3905,9
-Jayden Reed,3751,9
-Jaydn Ott,1546,3
-Jaydon Blue,2446,10
-Jaylen Waddle,4707,9
-Jaylen Warren,3712,9
-Jaylen Watson,630,1
-Jaylen Wright,2579,10
-Jaylin Lane,2085,7
-Jaylin Noel,2921,10
-Jaylinn Hawkins,1785,1
-Jaylon Carlies,1604,2
-Jaylon Johnson,1773,1
+Javonte Williams,4576,2
+Jawhar Jordan,970,2
+Jaxon Smith-Njigba,9815,2
+Jaxson Dart,6685,2
+Jaycee Horn,1716,1
+Jayden Daniels,7754,2
+Jayden Higgins,3590,2
+Jayden Reed,3307,2
+Jaydn Ott,292,1
+Jaydon Blue,2021,2
+Jaylen Waddle,4897,2
+Jaylen Warren,3236,2
+Jaylen Watson,601,1
+Jaylen Wright,2369,2
+Jaylin Lane,1886,2
+Jaylin Noel,2805,2
+Jaylon Carlies,1458,1
 Jaylon Jones,1358,1
-Jeff Caldwell,1567,5
-Jeffery Simmons,3602,4
+Jeff Caldwell,311,1
+Jeffery Simmons,3216,1
 Jeffrey Bassa,1383,1
-Jer'Zhan Newton,3103,3
-Jeremiah Owusu-Koramoah,1067,1
 Jeremiah Trotter,1392,1
-Jeremiyah Love,7425,8
-Jeremy Chinn,2494,5
-Jeremy McNichols,871,2
-Jeremy Ruckert,898,2
+Jeremiyah Love,6067,1
+Jeremy Chinn,2243,1
+Jeremy McNichols,871,1
+Jeremy Ruckert,898,1
 Jermaine Burton,686,1
-Jermaine Johnson,1982,4
-Jermod McCoy,1113,1
+Jermaine Johnson,1783,1
 Jerome Baker,1362,1
-Jerome Ford,2067,7
-Jerry Jeudy,3092,9
-Jessie Bates,2492,5
-Jevon Holland,1635,4
-Ji'Ayir Brown,2463,2
-Jihaad Campbell,3945,5
-Jimmy Garoppolo,1469,1
-Jimmy Horn,1667,5
+Jerome Ford,1615,2
+Jerry Jeudy,2748,2
+Jessie Bates,2241,1
+Jevon Holland,1507,1
+Jihaad Campbell,3519,1
+Jimmy Horn,1667,2
 Joe Bachie,1373,1
-Joe Burrow,7825,9
-Joe Fagnano,591,2
-Joe Flacco,2031,6
-Joe Milton,1814,5
-Joe Mixon,2369,9
-Joe Royer,2172,2
-Joey Bosa,1467,3
-Joey Porter,1483,2
-John Franklin-Myers,1443,2
-John Metchie,1780,6
-John Michael Gyllenborg,353,2
+Joe Burrow,7379,2
+Joe Flacco,1111,2
+Joe Milton,1814,1
+Joe Mixon,1320,2
+Joe Royer,214,1
+Joey Bosa,1387,1
+Joey Porter,1396,1
+John Franklin-Myers,1374,1
+John Metchie,1780,2
+John Michael Gyllenborg,52,1
 Johnny Wilson,829,1
-Jonah Coleman,3049,8
-Jonah Elliss,1914,2
-Jonah Laulu,1579,2
-Jonas Sanker,1859,3
-Jonathan Allen,1544,3
-Jonathan Greenard,2563,4
-Jonathan Mingo,1131,2
-Jonathan Taylor,6323,9
-Jonathon Brooks,3301,10
-Jonathon Cooper,2525,4
-Jonnu Smith,2275,8
-Jordan Addison,4191,9
-Jordan Battle,1988,5
-Jordan Burch,1913,2
-Jordan Davis,3975,2
-Jordan Hudson,1683,2
-Jordan James,2404,10
-Jordan Love,5951,9
-Jordan Magee,1486,2
-Jordan Mason,3204,10
-Jordan Miller,1922,2
-Jordan Watkins,1109,3
-Jordan Whittington,1897,4
-Jordyn Brooks,3404,5
-Jordyn Tyson,4801,8
-Josaiah Stewart,1897,3
-Joseph Ossai,1891,3
+Jonah Coleman,2602,1
+Jonah Elliss,1751,1
+Jonah Laulu,1449,1
+Jonas Sanker,1729,1
+Jonathan Allen,1429,1
+Jonathan Greenard,2305,1
+Jonathan Mingo,1131,1
+Jonathan Taylor,5987,2
+Jonathon Brooks,2939,2
+Jonathon Cooper,2271,1
+Jonnu Smith,1805,2
+Jordan Addison,3941,2
+Jordan Battle,1795,1
+Jordan Burch,1749,1
+Jordan Davis,614,1
+Jordan Hudson,331,1
+Jordan James,1975,2
+Jordan Love,5704,2
+Jordan Magee,1386,1
+Jordan Mason,2714,2
+Jordan Watkins,1109,1
+Jordan Whittington,1603,1
+Jordyn Brooks,3042,1
+Jordyn Tyson,4125,1
+Josaiah Stewart,1748,1
+Joseph Ossai,1757,1
 Josey Jewell,1363,1
-Josh Allen,9385,9
-Josh Cameron,2032,3
-Josh Cuevas,1765,3
-Josh Downs,3770,9
-Josh Hines-Allen,3943,4
-Josh Jacobs,4661,9
-Josh Johnson,1469,1
+Josh Allen,9998,2
+Josh Cameron,1367,1
+Josh Cuevas,66,1
+Josh Downs,3354,2
+Josh Hines-Allen,3515,1
+Josh Jacobs,4614,2
 Josh Newton,2239,1
 Josh Oliver,735,1
-Josh Sweat,2505,4
-Joshua Dobbs,1469,1
-Joshua Josephs,2627,1
-Joshua Metellus,2032,5
-Joshua Palmer,2038,7
-Joshua Williams,1631,1
-Josiah Trotter,2496,3
-Jourdan Lewis,2423,2
+Josh Sweat,2269,1
+Joshua Metellus,1817,1
+Joshua Palmer,1583,2
+Josiah Trotter,2275,1
 JuJu Smith-Schuster,827,2
-Julian Blackmon,1664,1
-Julian Love,2523,5
+Julian Love,2244,1
 Julius Chestnut,754,1
-Junior Colson,1862,3
-Justice Hill,1315,7
-Justin Eboigbe,1741,1
-Justin Fields,3369,10
-Justin Herbert,7300,9
-Justin Jefferson,7675,9
-Justin Joly,1685,6
-Justin Madubuike,1867,2
-Justin Reid,1639,3
-Justin Strnad,1478,2
-Juwan Johnson,3352,10
-K'Lavon Chaisson,1971,2
-K.J. Osborn,1363,1
-KC Concepcion,3791,8
-Ka'imi Fairbairn,4077,2
-KaVontae Turpin,1256,5
-Kaden Elliss,2720,5
-Kaden Wetjen,1606,1
-Kaelon Black,1631,4
+Junior Colson,1716,1
+Justice Hill,1315,1
+Justin Fields,2318,2
+Justin Herbert,6921,2
+Justin Jefferson,7685,2
+Justin Joly,579,1
+Justin Madubuike,1227,1
+Justin Reid,1495,1
+Justin Strnad,1365,1
+Juwan Johnson,2845,2
+K'Lavon Chaisson,1777,1
+KC Concepcion,3377,1
+Ka'imi Fairbairn,370,1
+KaVontae Turpin,1256,2
+Kaden Elliss,2421,1
+Kaden Wetjen,352,1
+Kaelon Black,49,1
 Kain Medrano,1382,1
-Kaleb Johnson,2766,10
-Kalel Mullings,1174,3
-Kam Curl,1984,5
-Kamari Lassiter,1901,3
-Kamari Ramsey,1105,1
+Kaleb Johnson,2388,2
+Kalel Mullings,1174,2
+Kam Curl,1791,1
+Kamari Lassiter,1766,1
+Kamari Ramsey,15,1
 Kameron Johnson,1177,1
-Kamren Kinchens,1580,3
-Kareem Hunt,1747,6
-Karl Brooks,2188,1
-Kayshon Boutte,2989,10
-Kaytron Allen,2458,8
-Kayvon Thibodeaux,2645,4
-KeAndre Lambert-Smith,1945,7
-Keaton Mitchell,3018,10
-Keeanu Benton,1893,2
-Keenan Allen,2338,9
+Kamren Kinchens,1452,1
+Kareem Hunt,1140,2
+Kayshon Boutte,2918,2
+Kaytron Allen,1863,1
+Kayvon Thibodeaux,2365,1
+KeAndre Lambert-Smith,1655,2
+Keaton Mitchell,2548,2
+Keeanu Benton,1740,1
+Keenan Allen,1749,2
 Keion White,1400,1
-Keisean Nixon,1872,2
-Kejon Owens,1591,1
-Keldric Faulk,4149,2
+Keisean Nixon,1718,1
+Keldric Faulk,3527,1
 Kendall Milton,856,1
-Kendre Miller,2458,9
-Kendrick Bourne,1877,3
-Kendrick Law,1820,1
-Kenneth Gainwell,3310,10
-Kenneth Grant,1877,2
-Kenneth Murray,1539,2
-Kenneth Walker,5801,9
-Kenny Clark,2153,1
-Kenny McIntosh,850,3
-Kenny Moore,1924,3
-Kenny Pickett,1535,4
-Kentrel Bullock,1584,1
-Kenyon Sadiq,4363,8
-Keon Coleman,2856,10
-Kerby Joseph,1884,4
-Kevin Byard,1481,3
-Kevin Coleman,1944,6
-Kevin Winston,2611,3
-Keyshaun Elliott,3634,2
-Khalil Dinkins,993,1
-Khalil Herbert,838,2
-Khalil Mack,1906,3
-Khalil Shakir,3447,9
-Kiko Mauigoa,1438,2
-Kimani Vidal,2517,10
-Kirk Cousins,2604,9
-Kobie Turner,2494,4
-Konata Mumpfield,1530,5
-Kool-Aid McKinstry,1547,2
+Kendre Miller,1992,2
+Kendrick Bourne,1516,1
+Kendrick Law,201,1
+Kenneth Gainwell,2927,2
+Kenneth Grant,1720,1
+Kenneth Murray,1461,1
+Kenneth Walker,5765,2
+Kenny McIntosh,850,1
+Kenny Moore,1723,1
+Kenny Pickett,1187,1
+Kentrel Bullock,43,1
+Kenyon Sadiq,3800,1
+Keon Coleman,2552,2
+Kerby Joseph,1716,1
+Kevin Byard,1377,1
+Kevin Coleman,1219,1
+Kevin Winston,2352,1
+Keyshaun Elliott,14,1
+Khalil Herbert,838,1
+Khalil Mack,1726,1
+Khalil Shakir,3037,2
+Kiko Mauigoa,1360,1
+Kimani Vidal,2510,2
+Kirk Cousins,1793,2
+Kobie Turner,2237,1
+Konata Mumpfield,1530,2
+Kool-Aid McKinstry,1482,1
 Kris Jenkins,1364,1
-Kristian Fulton,1667,1
-Kurtis Rourke,1469,1
-Kwity Paye,2013,4
-Kyle Dugger,1935,2
-Kyle Hamilton,4365,5
-Kyle Louis,3575,2
+Kwity Paye,1839,1
+Kyle Dugger,601,1
+Kyle Hamilton,3949,1
+Kyle Louis,21,1
 Kyle McCord,749,1
-Kyle Monangai,3847,9
-Kyle Pitts,4726,9
+Kyle Monangai,3559,2
+Kyle Pitts,5085,2
 Kyle Van Noy,1374,1
-Kyle Williams,2802,10
-Kyler Gordon,1925,3
-Kyler Murray,4596,9
-Kyren Williams,4746,9
-Kyzir White,778,1
-L'Jarius Sneed,1577,2
-LT Overton,1007,1
+Kyle Williams,2698,2
+Kyler Gordon,1716,1
+Kyler Murray,4427,2
+Kyren Williams,4845,2
+L'Jarius Sneed,1422,1
+LT Overton,11,1
 LaJohntay Wester,724,1
-Ladd McConkey,5508,9
-Laiatu Latu,3938,5
-Lake McRee,1214,1
-Lamar Jackson,8209,9
-Lander Barton,637,1
+Ladd McConkey,5439,2
+Laiatu Latu,3522,1
+Lake McRee,109,1
+Lamar Jackson,7679,2
+Lander Barton,8,1
 Landon Jackson,1731,1
-Lathan Ransom,1873,2
-Lavonte David,1405,2
-Le'Veon Moss,1556,8
-LeQuint Allen,2304,10
-Lee Hunter,2290,1
-Leo Chenal,3109,3
-Leonard Williams,2514,4
-Levi Onwuzurike,1748,1
-Lewis Bond,1379,1
-Lil'Jordan Humphrey,1087,2
-Logan Hall,2185,1
-Logan Wilson,1906,3
-Lukas Van Ness,1904,4
-Luke Altmyer,1702,1
-Luke McCaffrey,1996,7
-Luke Musgrave,2172,7
-Luke Schoonmaker,1245,3
-Luther Burden,5054,9
-Mac Jones,2686,10
-Mack Hollins,1205,4
-Mack Wilson,1869,3
-Makai Lemon,5092,8
-Malachi Corley,1238,3
-Malachi Fields,2547,9
-Malachi Lawrence,3343,2
-Malachi Moore,2687,3
-Malaki Starks,2493,4
-Malcolm Koonce,1737,2
-Maliek Collins,2163,1
-Malik Benson,346,2
-Malik Davis,1427,3
-Malik Harrison,1678,1
+Lathan Ransom,1722,1
+Lavonte David,1358,1
+Le'Veon Moss,1047,1
+LeQuint Allen,2154,2
+Leo Chenal,3106,1
+Leonard Williams,2236,1
+Lil'Jordan Humphrey,1087,1
+Logan Wilson,1718,1
+Lukas Van Ness,1745,1
+Luke McCaffrey,1799,2
+Luke Musgrave,2287,2
+Luke Schoonmaker,1245,1
+Luther Burden,5409,2
+Mac Jones,2921,2
+Mack Hollins,1205,1
+Mack Wilson,1726,1
+Makai Lemon,4340,1
+Malachi Corley,1238,1
+Malachi Fields,1893,1
+Malachi Moore,601,1
+Malaki Starks,2242,1
+Malcolm Koonce,1716,1
+Malik Benson,70,1
+Malik Davis,1427,1
 Malik Heath,715,1
-Malik Hooker,1697,1
-Malik Jackson,2193,1
-Malik Mustapha,1941,3
-Malik Nabers,7729,9
-Malik Washington,2476,10
-Malik Willis,4052,10
-Mansoor Delane,4778,1
-MarShawn Lloyd,2117,9
-Marcus Davenport,1316,1
-Marcus Epps,1662,1
-Marcus Jones,2050,3
-Marcus Mariota,1541,7
+Malik Mustapha,1752,1
+Malik Nabers,7754,2
+Malik Washington,2474,2
+Malik Willis,4145,2
+MarShawn Lloyd,1811,2
+Marcus Jones,1868,1
+Marcus Mariota,1541,2
 Marist Liufau,1372,1
-Mark Andrews,3524,10
-Mark Fletcher,229,1
-Marlin Klein,755,2
-Marlon Humphrey,1468,3
+Mark Andrews,3155,2
+Marlin Klein,511,1
+Marlon Humphrey,1361,1
 Marlowe Wax,1371,1
-Marques Sigle,1452,1
-Marquise Brown,2417,7
-Martin Emerson,1658,1
-Marvin Harrison,4874,9
-Marvin Mims,2527,9
-Mason Graham,2505,4
-Mason Rudolph,947,2
-Mason Taylor,3599,9
-Mason Tipton,1006,2
-Matayo Uiagalelei,993,1
-Matt Milano,1513,2
-Matthew Golden,3907,9
-Matthew Hibner,1147,1
+Marquise Brown,1920,2
+Marvin Harrison,4999,2
+Marvin Mims,2413,2
+Mason Graham,2236,1
+Mason Rudolph,947,1
+Mason Taylor,3352,2
+Mason Tipton,1006,1
+Matayo Uiagalelei,10,1
+Matt Milano,1381,1
+Matthew Golden,3557,2
+Matthew Hibner,30,1
 Matthew Judon,1368,1
-Matthew Stafford,3894,10
-Max Bredeson,807,1
-Max Klare,2357,9
-Max Melton,1453,2
-Maxwell Hairston,2236,1
-Maxx Crosby,3954,5
+Matthew Stafford,3747,2
+Max Klare,1367,1
+Max Melton,1362,1
+Maxx Crosby,3529,1
 Mecole Hardman,745,1
-Micah McFadden,1768,2
-Micah Parsons,5484,5
-Michael Carter,1904,6
-Michael Mayer,2624,10
-Michael Penix,3498,10
-Michael Pittman,3937,9
-Michael Taaffe,591,1
-Michael Trigg,2097,9
-Michael Wilson,4006,9
-Mikail Kamara,658,1
-Mike Evans,3855,10
-Mike Gesicki,2021,7
-Mike Green,2599,4
+Micah McFadden,1734,1
+Micah Parsons,4891,1
+Michael Carter,1409,2
+Michael Mayer,2717,2
+Michael Penix,3113,2
+Michael Pittman,3535,2
+Michael Taaffe,8,1
+Michael Trigg,1224,1
+Michael Wilson,3740,2
+Mikail Kamara,8,1
+Mike Evans,3356,2
+Mike Gesicki,1786,2
+Mike Green,2347,1
 Mike Hall,1406,1
-Mike Hughes,1669,1
-Mike Jackson,630,1
-Mike Sainristil,2522,3
-Mike Washington,2950,9
-Mike Williams,3094,1
-Miles Kitselman,953,1
-Miles Sanders,865,2
-Milton Williams,2505,4
-Minkah Fitzpatrick,1901,3
-Mitch Tinsley,1469,1
-Mitchell Evans,1098,5
-Mitchell Trubisky,1469,1
-Montaric Brown,1652,1
-Montez Sweat,2543,4
-Moro Ojomo,2263,1
-Mykel Williams,2531,4
-Myles Garrett,5497,5
-Myles Murphy,2506,3
+Mike Jackson,601,1
+Mike Sainristil,2238,1
+Mike Washington,2263,1
+Miles Sanders,865,1
+Milton Williams,2240,1
+Minkah Fitzpatrick,1716,1
+Mitchell Evans,1098,1
+Montez Sweat,2253,1
+Mykel Williams,2250,1
+Myles Garrett,4903,1
+Myles Murphy,2238,1
 Nahshon Wright,1362,1
-Najee Harris,2458,9
-Nakobe Dean,3716,5
-Nate Boerkircher,1742,2
+Najee Harris,1851,2
+Nakobe Dean,3322,1
+Nate Boerkircher,46,1
 Nate Hobbs,1405,1
-Nate Landman,3647,5
-Nate Wiggins,1476,2
-Nathan Carter,26,2
-Nathaniel Dell,6626,2
-Nic Scourton,2510,4
-Nicholas Singleton,2608,8
-Nick Bolton,3742,5
-Nick Bosa,3847,4
-Nick Chubb,2161,6
-Nick Cross,2510,4
-Nick Emmanwori,4458,5
-Nick Herbig,3497,3
-Nick Martin,2473,2
-Nick Mullens,1469,1
-Nick Scott,1660,1
-Nick Westbrook-Ikhine,943,2
-Nico Collins,6166,9
-Nik Bonitto,3952,5
-Nnamdi Madubuike,2954,2
+Nate Landman,3232,1
+Nate Wiggins,1421,1
+Nic Scourton,2277,1
+Nicholas Singleton,2368,1
+Nick Bolton,3343,1
+Nick Bosa,3438,1
+Nick Chubb,925,2
+Nick Cross,2242,1
+Nick Emmanwori,4887,1
+Nick Herbig,3174,1
+Nick Martin,2260,1
+Nick Westbrook-Ikhine,943,1
+Nico Collins,5772,2
+Nik Bonitto,3524,1
 Noah Brown,737,1
-Noah Fant,1962,7
-Noah Gray,2102,6
+Noah Fant,1895,2
+Noah Gray,2102,2
 Noah Sewell,2238,1
-Noah Thomas,715,2
-Noah Whittington,2164,2
-Nohl Williams,1624,1
-Nolan Smith,2557,4
-Odafe Oweh,2538,4
-Olamide Zaccheaus,1431,3
-Ollie Gordon,2701,10
-Oluwafemi Oladejo,1934,2
-Omar Cooper,3437,8
-Omar Speights,1540,4
-Omarion Hampton,6815,9
+Noah Whittington,424,1
+Nolan Smith,2317,1
+Odafe Oweh,2302,1
+Olamide Zaccheaus,1431,1
+Ollie Gordon,2529,2
+Oluwafemi Oladejo,1741,1
+Omar Cooper,3115,1
+Omar Speights,1390,1
+Omarion Hampton,6764,2
 Omarr Norman-Lott,1720,1
-Oronde Gadsden,4280,9
-Osa Odighizuwa,1424,2
-Oscar Delp,878,3
-Parker Washington,3728,10
-Pat Bryant,3281,10
-Pat Freiermuth,2873,10
-Pat Surtain,1461,2
+Oronde Gadsden,4351,2
+Osa Odighizuwa,1365,1
+Oscar Delp,243,1
+Parker Washington,3605,2
+Pat Bryant,2790,2
+Pat Freiermuth,2597,2
+Pat Surtain,1377,1
 Patrick Jones,1716,1
-Patrick Mahomes,7278,9
-Patrick Queen,2603,4
-Paulson Adebo,1899,3
-Payton Wilson,3463,4
-Pete Werner,1897,4
-Peter Woods,4096,2
-Phil Mafah,1283,4
-Philip Rivers,711,1
-Poona Ford,1871,1
-Princely Umanmielen,1885,2
-Puka Nacua,8779,9
+Patrick Mahomes,6811,2
+Patrick Queen,2341,1
+Paulson Adebo,1716,1
+Payton Wilson,3097,1
+Pete Werner,1719,1
+Peter Woods,17,1
+Phil Mafah,1283,1
+Philip Rivers,892,1
+Princely Umanmielen,1716,1
+Puka Nacua,9249,2
 Quan Martin,1503,1
-Quay Walker,3485,5
-Quentin Johnston,3756,9
-Quentin Lake,2496,4
-Quincy Riley,1770,1
-Quincy Williams,2517,5
-Quinn Ewers,1999,8
-Quinnen Williams,2520,4
-Quinshon Judkins,5451,9
-Quinyon Mitchell,1497,2
-R Mason Thomas,2761,1
-RJ Harvey,4211,9
-RJ Maryland,1703,2
-Rachaad White,3126,10
-Raheem Mostert,3525,2
-Raheim Sanders,1446,5
-Rahsul Faison,253,3
-Rashan Gary,2482,4
-Rashee Rice,5273,9
-Rasheen Ali,1227,3
-Rashid Shaheed,3340,10
-Rashod Bateman,2523,9
-Ray Davis,2384,10
-Reddy Steward,1594,1
-Reed Blankenship,1618,3
-Reggie Virgil,1481,5
-Renardo Green,1977,1
-Rhamondre Stevenson,3425,10
-Ricky Pearsall,3960,9
-Rico Dowdle,3789,9
-Riley Leonard,1826,7
-Riley Moss,1844,3
-Riley Nowakowski,1105,1
-Rob Henry,1935,1
-Robert Henry,1470,3
-Robert Spillane,2549,5
-Rod Moore,489,1
-Roman Hemby,1578,4
-Roman Wilson,2056,6
-Rome Odunze,5048,9
-Romello Brinson,1749,2
-Romello Height,755,1
-Romeo Doubs,3784,10
-Ronnie Hickman,3479,2
-Roquan Smith,3949,5
-Roschon Johnson,1943,5
-Rueben Bain,3528,3
-Ruke Orhorhoro,1434,2
-Russell Wilson,2102,2
-Ryan Fitzgerald,1417,2
-Ryan Flournoy,1912,8
+Quay Walker,3116,1
+Quentin Johnston,3356,2
+Quentin Lake,2244,1
+Quincy Williams,2255,1
+Quinn Ewers,1944,2
+Quinnen Williams,2266,1
+Quinshon Judkins,5421,2
+Quinyon Mitchell,1402,1
+R Mason Thomas,13,1
+RJ Harvey,3769,2
+RJ Maryland,40,1
+Rachaad White,2708,2
+Raheim Sanders,1446,2
+Rahsul Faison,741,1
+Rashan Gary,2251,1
+Rashee Rice,4828,2
+Rasheen Ali,1227,1
+Rashid Shaheed,3058,2
+Rashod Bateman,2111,2
+Ray Davis,1984,2
+Reed Blankenship,1498,1
+Reggie Virgil,916,1
+Rhamondre Stevenson,2995,2
+Ricky Pearsall,3614,2
+Rico Dowdle,3345,2
+Riley Leonard,1826,2
+Riley Moss,1716,1
+Riley Nowakowski,96,1
+Rob Henry,399,1
+Robert Spillane,2258,1
+Rod Moore,8,1
+Roman Hemby,697,1
+Roman Wilson,1717,1
+Rome Odunze,5542,2
+Romello Brinson,36,1
+Romello Height,8,1
+Romeo Doubs,3688,2
+Roquan Smith,3520,1
+Roschon Johnson,1516,1
+Rueben Bain,3187,1
+Ruke Orhorhoro,1366,1
+Ryan Flournoy,1912,2
 Sai'vion Jones,1359,1
-Sam Darnold,4683,9
-Sam Howell,1132,3
-Sam LaPorta,4892,9
-Sam Okuayinonu,2181,1
-Sam Roush,637,5
-Samaje Perine,926,4
-Saquon Barkley,5273,9
+Sam Darnold,4768,2
+Sam Howell,1132,1
+Sam LaPorta,5095,2
+Sam Roush,838,1
+Samaje Perine,926,2
+Saquon Barkley,4950,2
 Sauce Gardner,1408,1
-Savion Williams,1953,5
-Sawyer Robertson,1618,1
-Sean Tucker,2560,10
-Seth McGowan,1794,6
-Seydou Traore,837,1
+Savion Williams,1609,1
+Sean Tucker,2494,2
+Seth McGowan,967,1
 Shaun Dolac,1717,1
-Shavon Revel,1405,2
-Shedeur Sanders,3478,10
-Sheldon Rankins,1760,1
-Shemar James,1624,2
-Shemar Stewart,1911,3
-Shemar Turner,1731,1
-Sione Vaki,1068,2
-SirVocea Dennis,2042,5
-Skyler Bell,2431,8
+Shavon Revel,1358,1
+Shedeur Sanders,2865,2
+Shemar James,1717,1
+Shemar Stewart,1774,1
+Sione Vaki,1068,1
+SirVocea Dennis,1822,1
+Skyler Bell,1455,1
 Skyy Moore,1038,1
 Smael Mondon,1369,1
-Sonny Styles,3916,3
-Spencer Rattler,2146,6
-Spencer Shrader,1410,2
-Stefon Diggs,3131,10
+Sonny Styles,3527,1
+Spencer Rattler,1811,2
+Stefon Diggs,2246,2
 Sterling Shepard,693,1
-Suntarine Perkins,878,1
-T'Vondre Sweat,2309,1
-T.J. Edwards,2537,5
-T.J. Hockenson,3780,9
-T.J. Sanders,2158,1
-T.J. Watt,3653,4
-TJ Parker,2518,3
-Tahj Brooks,2046,7
+Suntarine Perkins,8,1
+T.J. Edwards,2256,1
+T.J. Hockenson,3207,2
+T.J. Watt,3283,1
+TJ Parker,1967,1
+Tahj Brooks,1734,2
 Tahj Washington,1354,1
-Tai Felton,1352,4
-Talanoa Hufanga,2497,5
-Tank Bigsby,2727,10
-Tank Dell,2876,8
-Tanner Koziol,1900,4
-Tanner McKee,1326,6
-Tarheeb Still,1517,3
-Tariq Woolen,1807,1
-Taron Johnson,1915,3
-Tatum Bethune,1858,3
-Taurean York,1113,1
-Taylen Green,1846,6
+Tai Felton,1352,1
+Talanoa Hufanga,2245,1
+Tank Bigsby,2529,2
+Tank Dell,2511,2
+Tanner Koziol,655,1
+Tanner McKee,1326,2
+Tarheeb Still,1413,1
+Taron Johnson,1716,1
+Tatum Bethune,1719,1
+Taurean York,8,1
 Taylor Rapp,1409,1
-Taysom Hill,1433,2
-Teagan Quitoriano,553,1
-Teair Tart,2149,1
-Ted Hurst,2553,9
-Teddy Bridgewater,1469,1
-Teddye Buchanan,1922,4
-Tee Higgins,4842,9
-Terrance Ferguson,3474,10
-Terrel Bernard,2597,4
+Ted Hurst,1041,1
+Teddye Buchanan,1727,1
+Tee Higgins,4931,2
+Terrance Ferguson,3285,2
+Terrel Bernard,2336,1
 Terrell Jennings,898,1
-Terrion Arnold,1469,2
-Terry McLaurin,3968,9
+Terrion Arnold,1415,1
+Terry McLaurin,3435,2
 Tershawn Wharton,1367,1
-Tetairoa McMillan,6506,9
-Tez Johnson,2265,10
-Theo Jackson,1463,2
-Theo Johnson,2861,10
-Theo Wease,1469,1
-Tip Reiman,1290,1
+Tetairoa McMillan,6645,2
+Tez Johnson,2276,2
+Theo Jackson,1360,1
+Theo Johnson,2850,2
+Theo Wease,748,1
 Tommy Eichenberg,1391,1
-Tommy Togiai,2483,1
-Tommy Tremble,1872,3
-Tony Adams,1649,1
-Tony Pollard,3245,10
-Tory Horton,2920,10
-Travis Etienne,4618,9
-Travis Hunter,3886,9
-Travis Jones,1654,1
-Travis Kelce,3503,10
-Travon Walker,2527,4
-Tre Stewart,1669,1
-Tre Tucker,2739,10
-Tre' Harris,3268,9
-Tre'von Moehrig,2498,5
-TreVeyon Henderson,5731,9
-Trebor Pena,373,1
-Tremaine Edmunds,2677,4
-Trent McDuffie,1975,3
+Tommy Tremble,1872,2
+Tony Pollard,2685,2
+Tory Horton,2747,2
+Travis Etienne,4697,2
+Travis Hunter,5515,2
+Travis Kelce,2864,2
+Travon Walker,2267,1
+Tre Tucker,2460,2
+Tre' Harris,2704,1
+Tre'von Moehrig,2246,1
+TreVeyon Henderson,5474,2
+Tremaine Edmunds,2394,1
+Trent McDuffie,1780,1
 Trenton Simpson,1381,1
-Trevin Wallace,2047,4
-Trevor Etienne,2521,8
-Trevor Lawrence,6594,9
-Trey Amos,1460,2
-Trey Benson,3448,9
-Trey Hendrickson,3375,4
-Trey Lance,1293,5
-Trey McBride,8061,9
+Trevin Wallace,1828,1
+Trevor Etienne,2139,2
+Trevor Lawrence,6284,2
+Trey Amos,1361,1
+Trey Benson,2717,2
+Trey Hendrickson,3019,1
+Trey Lance,1293,2
+Trey McBride,8420,2
 Trey Palmer,1241,1
-Treydan Stukes,2438,1
-Treylon Burks,1587,6
+Treylon Burks,1587,2
 Trinidad Chambliss,2038,1
 Troy Andersen,1380,1
 Troy Dye,1716,1
-Troy Franklin,2940,10
-Tua Tagovailoa,3382,10
-Tucker Kraft,5417,9
-Tuli Tuipulotu,3698,4
-Tutu Atwell,1624,5
-Ty Chandler,936,2
-Ty Johnson,1261,5
-Ty Montgomery,1504,2
+Troy Franklin,2862,2
+Tua Tagovailoa,2748,2
+Tucker Kraft,5352,2
+Tuli Tuipulotu,3302,1
+Tutu Atwell,1624,1
+Ty Chandler,936,1
+Ty Johnson,1261,2
 Ty Okada,1434,1
-Ty Simpson,3045,9
+Ty Simpson,2824,1
 Ty'Ron Hopper,1444,1
-Tyjae Spears,3182,10
-Tykee Smith,2636,5
+Tyjae Spears,2675,2
+Tykee Smith,2358,1
 Tylan Wallace,766,1
-Tyler Allgeier,3627,10
-Tyler Badie,1044,3
-Tyler Bass,3044,2
-Tyler Conklin,1118,3
-Tyler Goodson,1186,2
-Tyler Higbee,1731,5
-Tyler Huntley,1279,3
-Tyler Johnson,1189,2
-Tyler Lockett,3337,1
-Tyler Loop,4862,2
-Tyler Nubin,2521,5
+Tyler Allgeier,3573,2
+Tyler Badie,1044,1
+Tyler Conklin,1118,2
+Tyler Goodson,1186,1
+Tyler Higbee,1731,2
+Tyler Huntley,1279,1
+Tyler Johnson,955,1
+Tyler Lockett,748,1
+Tyler Loop,370,1
+Tyler Nubin,2237,1
 Tyler Scott,923,1
-Tyler Shough,4408,10
-Tyler Warren,6132,9
-Tyquan Thornton,2026,7
-Tyree Wilson,1456,2
-Tyreek Hill,3002,10
-Tyrel Dodson,2586,5
+Tyler Shough,4632,2
+Tyler Warren,6402,2
+Tyquan Thornton,1881,2
+Tyree Wilson,1719,1
+Tyreek Hill,2305,2
+Tyrel Dodson,2284,1
 Tyrell Shavers,1158,1
-Tyren Montgomery,1794,1
-Tyrice Knight,1910,2
-Tyrique Stevenson,1455,2
-Tyrod Taylor,702,2
-Tyrone Tracy,2922,10
-Tyson Bagent,1525,3
-Tyson Campbell,1504,2
-Uchenna Nwosu,1918,4
-Upton Stout,2832,2
+Tyren Montgomery,274,1
+Tyrice Knight,1724,1
+Tyrique Stevenson,1361,1
+Tyrod Taylor,702,1
+Tyrone Tracy,2599,2
+Tyson Bagent,1525,1
+Tyson Campbell,1425,1
+Uchenna Nwosu,1718,1
+Upton Stout,601,1
 Van Jefferson,752,1
-Ventrell Miller,1990,2
-Vinny Anthony,1688,1
-Vita Vea,2176,1
-Walter Nolen,2536,4
-Wan'Dale Robinson,3952,9
-Whit Weeks,837,1
-Wil Lutz,5033,2
-Will Anderson,5963,5
-Will Harris,1429,1
-Will Howard,2100,7
-Will Johnson,1477,2
-Will Kacmarek,1008,1
-Will Levis,1437,5
-Will McDonald,2572,4
-Will Pauling,1293,1
-Will Reichard,5061,2
-Will Shipley,2025,8
+Ventrell Miller,1798,1
+Vinny Anthony,167,1
+Walter Nolen,2241,1
+Wan'Dale Robinson,3723,2
+Whit Weeks,8,1
+Wil Lutz,370,1
+Will Anderson,5316,1
+Will Howard,2100,2
+Will Johnson,1403,1
+Will Kacmarek,28,1
+Will Levis,1437,1
+Will McDonald,2295,1
+Will Shipley,1667,2
 Willie Gay,1379,1
-Woody Marks,3218,10
+Woody Marks,2815,2
 Xavier Gipson,946,1
-Xavier Hutchinson,1849,5
-Xavier Legette,2262,10
-Xavier McKinney,1929,4
-Xavier Restrepo,1507,4
-Xavier Watts,2500,5
-Xavier Worthy,3826,9
-Yaya Diaby,2534,4
-Zach Allen,2695,4
-Zach Charbonnet,3951,9
-Zach Ertz,1726,6
-Zach Harrison,1866,2
-Zach Sieler,1924,4
-Zach Wilson,1175,2
-Zachariah Branch,2564,9
-Zack Baun,3877,5
-Zaire Franklin,2544,5
-Zakee Wheatley,,
-Zamir White,722,2
-Zaven Collins,1868,2
-Zavier Scott,857,2
-Zavion Thomas,1561,1
-Zay Flowers,4734,9
+Xavier Hutchinson,1849,2
+Xavier Legette,2143,2
+Xavier McKinney,1730,1
+Xavier Restrepo,1507,2
+Xavier Watts,2248,1
+Xavier Worthy,3390,2
+Yaya Diaby,2298,1
+Zach Allen,2403,1
+Zach Charbonnet,3725,2
+Zach Ertz,1404,2
+Zach Harrison,1717,1
+Zach Sieler,1716,1
+Zach Wilson,1175,1
+Zachariah Branch,2094,1
+Zack Baun,3465,1
+Zaire Franklin,2261,1
+Zamir White,722,1
+Zaven Collins,1719,1
+Zavier Scott,857,1
+Zavion Thomas,90,1
+Zay Flowers,4718,2
 Zay Jones,756,1
-Zion Young,4320,2
-Zonovan Knight,28,1
-Zyon McCollum,1437,2
+Zion Young,12,1
+Zonovan Knight,748,1
+Zyon McCollum,1362,1
