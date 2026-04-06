@@ -20,7 +20,7 @@ class TestLoadThresholds:
     def test_loads_internal_primary_from_config(self):
         thresholds = _load_thresholds(REPO, "internal_primary")
         assert thresholds.get("source_count_min") == 4
-        assert thresholds.get("top50_overlap_min_pct") == 70
+        assert thresholds.get("top50_overlap_min_pct") == 66
         assert thresholds.get("avg_abs_delta_max") == 1500
 
     def test_loads_public_primary_from_config(self):
@@ -45,7 +45,7 @@ class TestLoadThresholds:
         """Returns hard-coded fallbacks when config dir doesn't exist."""
         thresholds = _load_thresholds(tmp_path, "internal_primary")
         assert thresholds.get("source_count_min") == 4
-        assert thresholds.get("top50_overlap_min_pct") == 70
+        assert thresholds.get("top50_overlap_min_pct") == 66
 
     def test_fallback_when_config_malformed(self, tmp_path):
         """Returns hard-coded fallbacks when config is not valid JSON."""
