@@ -427,7 +427,7 @@
     buildRisingFallingSection();
 
     if (!loadedData || !loadedData.players) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--subtext);padding:24px;">Refresh values first to see rankings</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--subtext);padding:24px;">Refresh values first to see rankings</td></tr>';
       const mobileList = document.getElementById('rankingsMobileList');
       if (mobileList) {
         mobileList.innerHTML = '<div class="mobile-row-card"><div class="mobile-row-name">Update values first to see rankings.</div></div>';
@@ -442,8 +442,8 @@
     const titleEl = document.getElementById('rankingsTitle');
     if (titleEl) titleEl.textContent = `${dataModeLabel} Rankings`;
     if (dataMode !== 'dynasty') {
-      hdr.innerHTML = '<th style="width:40px">Our Rank</th><th>Player Name</th><th>Player Position</th><th>Our Value</th>';
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--subtext);padding:24px;">${dataModeLabel} mode is isolated from dynasty values. Load a dedicated ${dataModeLabel} dataset to enable these rankings.</td></tr>`;
+      hdr.innerHTML = '<th style="width:40px">Our Rank</th><th>Player Name</th><th>Pos</th><th>KTC</th><th>IDPTradeCalc</th><th>Our Value</th>';
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--subtext);padding:24px;">${dataModeLabel} mode is isolated from dynasty values. Load a dedicated ${dataModeLabel} dataset to enable these rankings.</td></tr>`;
       const mobileList = document.getElementById('rankingsMobileList');
       if (mobileList) {
         mobileList.innerHTML = `<div class="mobile-row-card"><div class="mobile-row-name">${dataModeLabel} mode needs a dedicated dataset.</div></div>`;
@@ -460,7 +460,9 @@
     hdr.innerHTML =
       '<th style="width:52px;text-align:center;" title="KTC-derived rank — 1 is best">Our Rank</th>' +
       '<th title="Player name">Player Name</th>' +
-      '<th title="Resolved player position">Player Position</th>' +
+      '<th title="Resolved player position">Pos</th>' +
+      '<th style="min-width:80px;" title="Raw KTC trade value">KTC</th>' +
+      '<th style="min-width:80px;" title="Raw IDPTradeCalc trade value">IDPTradeCalc</th>' +
       '<th style="min-width:90px;" title="Our formula value derived from KTC rank (A=10000, B=1.5, C=0.72)">Our Value</th>';
 
     const posMap = loadedData.sleeper?.positions || {};
@@ -476,7 +478,7 @@
       if (myTeam) myTeam.players.forEach(p => myRosterSet.add(p.toLowerCase()));
     }
     if (myRosterOnly && myRosterSet.size === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:30px;color:var(--subtext);">Select your team in the Rosters tab first, then check "My roster only".</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--subtext);">Select your team in the Rosters tab first, then check "My roster only".</td></tr>';
       return;
     }
 
@@ -574,7 +576,7 @@
         tierNum++;
         const sepTr = document.createElement('tr');
         sepTr.className = 'tier-separator';
-        sepTr.innerHTML = `<td colspan="4"><span class="tier-label">\u2500\u2500 Tier ${tierNum} \u2500\u2500</span></td>`;
+        sepTr.innerHTML = `<td colspan="6"><span class="tier-label">\u2500\u2500 Tier ${tierNum} \u2500\u2500</span></td>`;
         tbody.appendChild(sepTr);
       }
 
@@ -591,6 +593,8 @@
         <td style="text-align:center;font-family:var(--mono);font-size:0.82rem;font-weight:700;color:var(--cyan);">${r.ktcRank}</td>
         <td style="font-weight:600;font-size:0.8rem;"><a href="#" onclick="event.preventDefault();openPlayerPopup('${escapedName}');return false;" style="color:var(--text);text-decoration:none;border-bottom:1px dotted var(--border);" onmouseover="this.style.color='var(--cyan)'" onmouseout="this.style.color='var(--text)'">${r.name}</a>${rookieBadge}</td>
         <td><span class="ac-pos" style="${posStyle}">${r.pos}</span></td>
+        <td style="font-family:var(--mono);font-size:0.78rem;color:var(--subtext);">${r.pdata.ktc || '—'}</td>
+        <td style="font-family:var(--mono);font-size:0.78rem;color:var(--subtext);">${r.pdata.idpTradeCalc || '—'}</td>
         <td style="font-family:var(--mono);font-weight:700;color:var(--cyan);position:relative;">
           <div style="position:absolute;left:0;top:0;bottom:0;width:${barPct}%;background:var(--cyan-soft);border-radius:3px;"></div>
           <span style="position:relative;z-index:1;">${r.ourValue.toLocaleString()}</span>

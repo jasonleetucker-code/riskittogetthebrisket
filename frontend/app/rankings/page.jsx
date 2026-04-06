@@ -96,6 +96,8 @@ export default function RankingsPage() {
                   <th style={{ width: 64, textAlign: "center" }} title="KTC rank — 1 is best">Our Rank</th>
                   <th>Player</th>
                   <th>Pos</th>
+                  <th title="Raw KTC trade value">KTC</th>
+                  <th title="Raw IDPTradeCalc trade value">IDPTradeCalc</th>
                   <th title="Our formula value derived from KTC rank">Our Value</th>
                 </tr>
               </thead>
@@ -107,6 +109,12 @@ export default function RankingsPage() {
                     </td>
                     <td style={{ fontWeight: 600 }}>{row.name}</td>
                     <td><span className="badge">{row.pos}</span></td>
+                    <td style={{ fontFamily: "var(--mono, monospace)", fontSize: "0.78rem", color: "var(--subtext)" }}>
+                      {row.raw?.ktc || '—'}
+                    </td>
+                    <td style={{ fontFamily: "var(--mono, monospace)", fontSize: "0.78rem", color: "var(--subtext)" }}>
+                      {row.raw?.idpTradeCalc || '—'}
+                    </td>
                     <td style={{ fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)" }}>
                       {Math.round(row.rankDerivedValue || row.values.full).toLocaleString()}
                     </td>

@@ -9079,6 +9079,23 @@ async def run(progress_callback=None):
     _player_id_map = dict(SLEEPER_ROSTER_DATA.get("playerIds", {}))
     _id_to_player = dict(SLEEPER_ROSTER_DATA.get("idToPlayer", {}))
 
+    # Track the "dynasty value score" used when a canonical name's position was last
+    # set, so that duplicate-name collisions (e.g. two "DJ Moore" players — WR and CB)
+    # resolve to the higher-value player.  Offensive positions get a bonus to ensure
+    # skill-position players beat low-value defenders with the same name.
+    _OFF_POS_BONUS = 5000  # added to offensive players' score; ensures WR beats DB
+    _pos_map_value_score: dict[str, float] = {}
+
+    def _pos_value_score(pos: str, idptradecalc_val: float) -> float:
+        """Compute a tiebreak score for a (pos, value) pair.
+
+        Higher score = should win the position slot.
+        Offensive positions receive a bonus so that an equally-valued WR always
+        beats a defensive player with the same canonical name.
+        """
+        bonus = _OFF_POS_BONUS if str(pos or "").upper() in _OFF_POSITIONS else 0
+        return float(idptradecalc_val or 0) + bonus
+
     def _get_pos(name):
         """Get position from Sleeper data (case-insensitive lookup)."""
         if name in _pos_map:
@@ -9140,10 +9157,28 @@ async def run(progress_callback=None):
             entry["_sleeperId"] = sid
             _player_id_map[canonical] = sid
             _id_to_player[sid] = canonical
-            if player_pos and canonical not in _pos_map:
+            if player_pos:
+                # Tiebreak: when two players share a canonical name (e.g. WR "DJ Moore"
+                # and CB "DJ Moore"), keep the position belonging to the higher-value
+                # player.  Offensive positions receive a bonus so skill-position players
+                # always beat low-value defenders with the same name.
+                _idptc_val = float(
+                    (FULL_DATA.get("IDPTradeCalc") or {}).get(clean_name(name), 0) or 0
+                )
+                _new_score = _pos_value_score(player_pos, _idptc_val)
+                _old_score = _pos_map_value_score.get(canonical, -1.0)
+                if canonical not in _pos_map or _new_score > _old_score:
+                    _pos_map[canonical] = player_pos
+                    _pos_map_value_score[canonical] = _new_score
+        elif player_pos:
+            _idptc_val = float(
+                (FULL_DATA.get("IDPTradeCalc") or {}).get(clean_name(name), 0) or 0
+            )
+            _new_score = _pos_value_score(player_pos, _idptc_val)
+            _old_score = _pos_map_value_score.get(canonical, -1.0)
+            if canonical not in _pos_map or _new_score > _old_score:
                 _pos_map[canonical] = player_pos
-        elif player_pos and canonical not in _pos_map:
-            _pos_map[canonical] = player_pos
+                _pos_map_value_score[canonical] = _new_score
 
         players_json[canonical] = entry
 
