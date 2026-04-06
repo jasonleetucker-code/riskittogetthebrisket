@@ -330,6 +330,40 @@ describe("buildRows", () => {
     expect(rows[0].assetClass).toBe("other");
   });
 
+  it("backfills missing positionsById from legacy name map when sleeper ids match", () => {
+    const data = {
+      players: {
+        "Player One": {
+          _sleeperId: "1",
+          _composite: 9000,
+          _rawComposite: 9000,
+          _finalAdjusted: 9000,
+          _sites: 3,
+          position: "",
+        },
+        "Player Two": {
+          _sleeperId: "2",
+          _composite: 8500,
+          _rawComposite: 8500,
+          _finalAdjusted: 8500,
+          _sites: 3,
+          position: "",
+        },
+      },
+      sleeper: {
+        positionsById: { "1": "QB" }, // partial map from backend
+        positions: { "Player One": "QB", "Player Two": "WR" },
+        playerIds: { "Player One": "1", "Player Two": "2" },
+      },
+    };
+    const rows = buildRows(data);
+    expect(rows.length).toBe(2);
+    const one = rows.find((r) => r.name === "Player One");
+    const two = rows.find((r) => r.name === "Player Two");
+    expect(one.pos).toBe("QB");
+    expect(two.pos).toBe("WR");
+  });
+
   it("recomputes assetClass from normalized position in playersArray", () => {
     const data = {
       playersArray: [

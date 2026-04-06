@@ -145,9 +145,9 @@ def _is_unknown_pos(pos: Any) -> bool:
 def _build_sleeper_positions_by_id(sleeper: dict[str, Any]) -> dict[str, str]:
     """Build a stable Sleeper-ID keyed position map.
 
-    Primary source is ``sleeper.positionsById``. Legacy fallback derives from
-    ``sleeper.positions`` + ``sleeper.playerIds`` and only keeps unambiguous ID
-    mappings.
+    Primary source is ``sleeper.positionsById`` (preferred, but may be partial).
+    Legacy fallback derives from ``sleeper.positions`` + ``sleeper.playerIds``
+    and only backfills IDs missing from explicit map.
     """
     out: dict[str, str] = {}
     explicit = sleeper.get("positionsById")
@@ -157,29 +157,30 @@ def _build_sleeper_positions_by_id(sleeper: dict[str, Any]) -> dict[str, str]:
             pos = _normalize_pos(raw_pos)
             if sid_s and not _is_unknown_pos(pos):
                 out[sid_s] = pos
-        if out:
-            return out
 
     by_name = sleeper.get("positions")
     player_ids = sleeper.get("playerIds")
     if not isinstance(by_name, dict) or not isinstance(player_ids, dict):
         return out
 
+    legacy_candidates: dict[str, str] = {}
     conflicts: set[str] = set()
     for name, sid_raw in player_ids.items():
         sid = str(sid_raw or "").strip()
-        if not sid:
+        if not sid or sid in out:
             continue
         pos = _normalize_pos(by_name.get(name))
         if _is_unknown_pos(pos):
             continue
-        if sid in out and out[sid] != pos:
+        existing = legacy_candidates.get(sid)
+        if existing and existing != pos:
             conflicts.add(sid)
             continue
-        out[sid] = pos
+        legacy_candidates[sid] = pos
 
     for sid in conflicts:
-        out.pop(sid, None)
+        legacy_candidates.pop(sid, None)
+    out.update(legacy_candidates)
     return out
 
 

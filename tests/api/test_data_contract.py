@@ -405,6 +405,39 @@ class TestContractWithCanonicalComparison(unittest.TestCase):
 
 
 class TestPositionSafetyAndIdpIntegrity(unittest.TestCase):
+    def test_partial_positions_by_id_is_backfilled_from_legacy_id_map(self):
+        raw = {
+            "players": {
+                "Player A": {
+                    "_sleeperId": "1",
+                    "_composite": 7000,
+                    "_rawComposite": 7000,
+                    "_finalAdjusted": 7000,
+                    "_canonicalSiteValues": {"ktc": 7000},
+                    "position": "",
+                },
+                "Player B": {
+                    "_sleeperId": "2",
+                    "_composite": 6800,
+                    "_rawComposite": 6800,
+                    "_finalAdjusted": 6800,
+                    "_canonicalSiteValues": {"ktc": 6800},
+                    "position": "",
+                },
+            },
+            "sites": [{"key": "ktc"}],
+            "sleeper": {
+                "positionsById": {"1": "QB"},
+                "positions": {"Player A": "QB", "Player B": "WR"},
+                "playerIds": {"Player A": "1", "Player B": "2"},
+            },
+        }
+        payload = build_api_data_contract(raw)
+        pos_by_name = {r["canonicalName"]: r["position"] for r in payload["playersArray"]}
+        self.assertEqual(pos_by_name["Player A"], "QB")  # explicit positionsById
+        self.assertEqual(pos_by_name["Player B"], "WR")  # backfilled from legacy map
+        self.assertEqual(payload["sleeper"]["positionsById"]["2"], "WR")
+
     def test_canonical_offense_position_wins_over_name_based_idp_map(self):
         raw = {
             "players": {
@@ -427,6 +460,38 @@ class TestPositionSafetyAndIdpIntegrity(unittest.TestCase):
         allen = payload["playersArray"][0]
         self.assertEqual(allen["position"], "QB")
         self.assertEqual(allen["assetClass"], "offense")
+
+    def test_rankings_pool_not_shrunk_by_partial_positions_by_id(self):
+        raw = {
+            "players": {
+                "QB One": {
+                    "_sleeperId": "11",
+                    "_composite": 9000,
+                    "_rawComposite": 9000,
+                    "_finalAdjusted": 9000,
+                    "_canonicalSiteValues": {"ktc": 9000},
+                    "position": "",
+                },
+                "WR Two": {
+                    "_sleeperId": "22",
+                    "_composite": 8500,
+                    "_rawComposite": 8500,
+                    "_finalAdjusted": 8500,
+                    "_canonicalSiteValues": {"ktc": 8500},
+                    "position": "",
+                },
+            },
+            "sites": [{"key": "ktc"}],
+            "sleeper": {
+                "positionsById": {"11": "QB"},  # partial on purpose
+                "positions": {"QB One": "QB", "WR Two": "WR"},
+                "playerIds": {"QB One": "11", "WR Two": "22"},
+            },
+        }
+        payload = build_api_data_contract(raw)
+        ranked = [r for r in payload["playersArray"] if r.get("ktcRank")]
+        self.assertEqual(len(ranked), 2)
+        self.assertEqual({r["canonicalName"] for r in ranked}, {"QB One", "WR Two"})
 
     def test_fallback_position_requires_stable_id_match(self):
         raw = {
@@ -512,6 +577,44 @@ class TestPositionSafetyAndIdpIntegrity(unittest.TestCase):
             any("offense players emitted in IDP buckets" in err for err in report["errors"]),
             report["errors"],
         )
+
+    def test_name_collision_cannot_reclassify_offense_with_backfill(self):
+        raw = {
+            "players": {
+                "Alex Smith": {
+                    "_sleeperId": "off-1",
+                    "_composite": 7000,
+                    "_rawComposite": 7000,
+                    "_finalAdjusted": 7000,
+                    "_canonicalSiteValues": {"ktc": 7000},
+                    "position": "QB",
+                },
+                "Alex Smith IDP": {
+                    "_sleeperId": "def-2",
+                    "_composite": 4200,
+                    "_rawComposite": 4200,
+                    "_finalAdjusted": 4200,
+                    "_canonicalSiteValues": {"ktc": 4200},
+                    "position": "",
+                },
+            },
+            "sites": [{"key": "ktc"}],
+            "sleeper": {
+                "positionsById": {"def-2": "LB"},  # offense id intentionally missing
+                "positions": {
+                    "Alex Smith": "LB",       # unsafe name map entry (defender)
+                    "Alex Smith IDP": "LB",
+                },
+                "playerIds": {
+                    "Alex Smith": "def-2",    # points to defender ID, not offense ID
+                    "Alex Smith IDP": "def-2",
+                },
+            },
+        }
+        payload = build_api_data_contract(raw)
+        by_name = {r["canonicalName"]: r for r in payload["playersArray"]}
+        self.assertEqual(by_name["Alex Smith"]["position"], "QB")
+        self.assertEqual(by_name["Alex Smith"]["assetClass"], "offense")
 
 
 class TestComputeKtcRankings(unittest.TestCase):
