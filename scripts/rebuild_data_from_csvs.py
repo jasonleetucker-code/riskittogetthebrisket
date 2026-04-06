@@ -1,10 +1,11 @@
-"""Rebuild dynasty_data_YYYY-MM-DD.json from preserved site_raw CSVs.
+"""Rebuild dynasty_data_YYYY-MM-DD.json from KTC CSV + IDPTradeCalc JSON.
 
-This script recovers from a partial scrape (e.g., IDPTradeCalc-only run that
-overwrote the main JSON) by re-populating FULL_DATA from the per-site CSVs in
-exports/latest/site_raw/, then re-running the scraper pipeline in no-scrape
-mode so it rebuilds composites, picks, and the full JSON output.
+This script rebuilds the main JSON using only KTC and IDPTradeCalc as active
+sources — one source at a time, per the incremental source-addition workflow.
+To add more sources later, copy the relevant load block and add the source key
+to FULL_DATA before calling run().
 
+KTC values come from exports/latest/site_raw/ktc.csv (dollar trade values).
 IDPTradeCalc raw values are recovered from the existing dynasty JSON (not from
 idpTradeCalc.csv, which stores ordinal ranks, not dollar values).
 
@@ -22,25 +23,6 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 SITE_RAW_DIR = REPO / "exports" / "latest" / "site_raw"
-
-# ── CSV file → scraper FULL_DATA key mapping ────────────────────────────────
-CSV_TO_SCRAPER_KEY = {
-    "ktc.csv":             "KTC",
-    "fantasyCalc.csv":     "FantasyCalc",
-    "dynastyDaddy.csv":    "DynastyDaddy",
-    "fantasyPros.csv":     "FantasyPros",
-    "draftSharks.csv":     "DraftSharks",
-    "yahoo.csv":           "Yahoo",
-    "dynastyNerds.csv":    "DynastyNerds",
-    "dlfSf.csv":           "DLF_SF",
-    "dlfIdp.csv":          "DLF_IDP",
-    "dlfRsf.csv":          "DLF_RSF",
-    "dlfRidp.csv":         "DLF_RIDP",
-    "pffIdp.csv":          "PFF_IDP",
-    "draftSharksIdp.csv":  "DraftSharks_IDP",
-    "fantasyProsIdp.csv":  "FantasyPros_IDP",
-    # idpTradeCalc.csv stores ordinal ranks, not dollar values — handled separately
-}
 
 # ── Chromium path patching (same as scrape_idptradecalc_only.py) ─────────────
 _CHROMIUM_CANDIDATES = [
@@ -107,8 +89,8 @@ def _patch_chromium_launch(mod):
     print(f"[rebuild] Patched chromium executable_path → {_PLAYWRIGHT_EXEC}")
 
 
-def _load_csv_values(csv_path: Path, clean_name_fn) -> dict[str, float]:
-    """Read a name,value CSV and return {cleaned_name: float(value)}."""
+def _load_ktc(csv_path: Path, clean_name_fn) -> dict[str, float]:
+    """Read ktc.csv and return {cleaned_name: float(value)}."""
     result: dict[str, float] = {}
     with open(csv_path, newline="", encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
@@ -170,21 +152,20 @@ def main():
     mod = _load_scraper()
 
     clean = mod.clean_name  # name normalisation function
-
-    # ── Load per-site CSVs into FULL_DATA ────────────────────────────────────
     loaded_summary: list[tuple[str, int]] = []
 
-    for csv_filename, scraper_key in CSV_TO_SCRAPER_KEY.items():
-        csv_path = SITE_RAW_DIR / csv_filename
-        if not csv_path.exists():
-            print(f"[rebuild] SKIP {csv_filename} — file not found")
-            continue
-        values = _load_csv_values(csv_path, clean)
-        mod.FULL_DATA[scraper_key] = values
-        loaded_summary.append((scraper_key, len(values)))
-        print(f"[rebuild] Loaded {len(values):>4} players  ← {csv_filename} → FULL_DATA['{scraper_key}']")
+    # ── Source 1: KTC (from ktc.csv) ─────────────────────────────────────────
+    ktc_csv = SITE_RAW_DIR / "ktc.csv"
+    if ktc_csv.exists():
+        ktc_values = _load_ktc(ktc_csv, clean)
+        mod.FULL_DATA["KTC"] = ktc_values
+        loaded_summary.append(("KTC", len(ktc_values)))
+        print(f"[rebuild] Loaded {len(ktc_values):>4} players  ← ktc.csv → FULL_DATA['KTC']")
+    else:
+        print(f"[rebuild] WARNING: ktc.csv not found at {ktc_csv}")
 
-    # ── Load IDPTradeCalc from existing dynasty JSON (not from CSV) ───────────
+    # ── Source 2: IDPTradeCalc (raw dollar values from dynasty JSON) ──────────
+    # idpTradeCalc.csv stores ordinal ranks, not raw values — must use the JSON.
     dynasty_json = _find_dynasty_json(REPO)
     if dynasty_json:
         print(f"[rebuild] Loading IDPTradeCalc raw values from {dynasty_json.name}...")
