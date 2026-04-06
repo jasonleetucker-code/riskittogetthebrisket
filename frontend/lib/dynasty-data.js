@@ -53,9 +53,22 @@ export function getSiteKeys(data) {
   return sites.map((s) => String(s?.key || "")).filter(Boolean);
 }
 
-// ── Rank-to-value curve ───────────────────────────────────────────────
-// Hill-style formula: rank 1 always = 9999.
-// value = max(1, min(9999, round(1 + 9998 / (1 + ((rank-1)/45)^1.10))))
+// ── Rank-to-value curve (OFFLINE FALLBACK ONLY) ───────────────────────
+// PRIMARY authority: src/api/data_contract.py (_compute_ktc_rankings) stamps
+// ktcRank + rankDerivedValue onto the API response using rank_to_value() in
+// src/canonical/player_valuation.py.  This function is only invoked when the
+// backend fields are absent (stale data, offline mode, unit tests).
+//
+// MUST stay byte-for-byte identical to _rankToValue() in:
+//   Static/js/runtime/10-rankings-and-picks.js (~line 407)
+//
+// Formula: value = max(1, min(9999, round(1 + 9998 / (1 + ((rank-1)/45)^1.10))))
+//   • rank 1  → 9999 (exact; denominator = 1)
+//   • midpoint (rank 45) → ~5000
+//   • Hill-style: flatter at top, longer tail than inverse-power
+//
+// Tests enforcing body-equality: tests/api/test_rankings_our_rank.py
+//   TestFormulaAgreement::test_fallback_formula_bodies_are_identical
 export function rankToValue(rank) {
   if (!rank || rank <= 0) return 0;
   return Math.max(1, Math.min(9999, Math.round(1 + 9998 / (1 + Math.pow((rank - 1) / 45, 1.10)))));
@@ -135,6 +148,9 @@ export function buildRows(data) {
           scarcity: Math.round(values.scarcity),
           full: Math.round(values.full),
         },
+        // siteCount: intentionally preserved — used by trade calculator and
+        // other non-rankings views.  Rankings pages hide this column, but the
+        // field must remain on the row contract.  Do NOT remove it.
         siteCount: Number(player.sourceCount || 0),
         confidence: Number(player.marketConfidence ?? 0),
         marketLabel: "",
@@ -175,6 +191,9 @@ export function buildRows(data) {
       pos: pos || "?",
       assetClass: classifyPos(pos || "?"),
       values,
+      // siteCount: intentionally preserved — used by trade calculator and
+      // other non-rankings views.  Rankings pages hide this column, but the
+      // field must remain on the row contract.  Do NOT remove it.
       siteCount: Number(player._sites || 0),
       confidence: Number(player._marketReliabilityScore ?? 0),
       marketLabel: String(player._marketReliabilityLabel || ""),

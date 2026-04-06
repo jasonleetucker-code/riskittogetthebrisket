@@ -399,10 +399,22 @@
     }
   }
 
-  // ── KTC-ONLY RANKINGS ──────────────────────────────────────────────────────
-  // Rank-to-value curve: Hill-style, rank 1 is always exactly 9999.
-  // value = 1 + 9998 / (1 + ((rank-1)/45)^1.10)
-  // Flatter at the top, smoother decay, no post-hoc rescaling.
+  // ── KTC-ONLY RANKINGS — rank-to-value curve (OFFLINE FALLBACK ONLY) ─────────
+  // PRIMARY authority: src/api/data_contract.py (_compute_ktc_rankings) stamps
+  // ktcRank + rankDerivedValue onto the API response using rank_to_value() in
+  // src/canonical/player_valuation.py.  _rankToValue() is only invoked when
+  // the backend fields are absent (stale data, offline mode, no playersArray).
+  //
+  // MUST stay byte-for-byte identical to rankToValue() in:
+  //   frontend/lib/dynasty-data.js (~line 59)
+  //
+  // Formula: value = max(1, min(9999, round(1 + 9998 / (1 + ((rank-1)/45)^1.10))))
+  //   • rank 1  → 9999 (exact; denominator = 1)
+  //   • midpoint (rank 45) → ~5000
+  //   • Hill-style: flatter at top, longer tail than inverse-power
+  //
+  // Tests enforcing body-equality: tests/api/test_rankings_our_rank.py
+  //   TestFormulaAgreement::test_fallback_formula_bodies_are_identical
   function _rankToValue(rank) {
     if (!rank || rank <= 0) return 0;
     return Math.max(1, Math.min(9999, Math.round(1 + 9998 / (1 + Math.pow((rank - 1) / 45, 1.10)))));

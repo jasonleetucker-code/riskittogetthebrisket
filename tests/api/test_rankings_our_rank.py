@@ -318,6 +318,37 @@ class TestFormulaAgreement:
             f"Next KTC_RANK_LIMIT={next_match.group(1)}"
         )
 
+    def _extract_formula_body(self, src: str, fn_name: str) -> str:
+        """Extract the single return statement from a named rank-to-value function."""
+        pat = re.compile(
+            r"function\s+" + re.escape(fn_name) + r"\s*\([^)]*\)\s*\{([^}]+)\}",
+            re.DOTALL,
+        )
+        m = pat.search(src)
+        assert m is not None, f"Could not find function {fn_name} in source"
+        # Normalise whitespace so cosmetic differences don't fail the test
+        return re.sub(r"\s+", " ", m.group(1).strip())
+
+    def test_fallback_formula_bodies_are_identical(self):
+        """_rankToValue (Static) and rankToValue (Next.js) must have the same body.
+
+        Both are offline-fallback-only copies of the formula that normally lives
+        in src/canonical/player_valuation.py.  If someone changes one without
+        changing the other, this test catches it.
+
+        To fix: update BOTH functions and their inline comments at the same time.
+        Banner comments in each file point to the parallel location.
+        """
+        static_body = self._extract_formula_body(_src(STATIC_JS), "_rankToValue")
+        next_body   = self._extract_formula_body(_src(NEXT_JS),   "rankToValue")
+        assert static_body == next_body, (
+            "Fallback formula bodies diverged between Static JS and Next.js lib.\n"
+            f"  Static (_rankToValue): {static_body}\n"
+            f"  Next   (rankToValue):  {next_body}\n"
+            "Update BOTH functions to match.  "
+            "See banner comments in each file for the parallel location."
+        )
+
 
 # ── Backend pre-computed rank preference ─────────────────────────────────────
 
