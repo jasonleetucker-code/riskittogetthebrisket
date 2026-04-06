@@ -1,20 +1,15 @@
-"""Rebuild dynasty_data JSON using only KTC and IDPTradeCalc as active sources.
+"""Rebuild dynasty_data_YYYY-MM-DD.json from preserved site_raw CSVs.
 
-Recovers from a partial scrape by pre-populating FULL_DATA with:
-  - KTC          from exports/latest/site_raw/ktc.csv (name,value)
-  - IDPTradeCalc raw trade values from the existing dynasty_data_*.json
-    (idpTradeCalc.csv stores ordinal ranks, not dollar values, so we
-    read the dollar values back from the JSON's players[name]["idpTradeCalc"])
+This script recovers from a partial scrape (e.g., IDPTradeCalc-only run that
+overwrote the main JSON) by re-populating FULL_DATA from the per-site CSVs in
+exports/latest/site_raw/, then re-running the scraper pipeline in no-scrape
+mode so it rebuilds composites, picks, and the full JSON output.
 
-All other sources are intentionally excluded (adding one source at a time).
+IDPTradeCalc raw values are recovered from the existing dynasty JSON (not from
+idpTradeCalc.csv, which stores ordinal ranks, not dollar values).
 
 Usage:
     python scripts/rebuild_data_from_csvs.py
-
-Outputs:
-    dynasty_data_YYYY-MM-DD.json  — rebuilt with KTC + IDPTradeCalc
-    dynasty_data.js               — same
-    exports/latest/...            — refreshed bundle
 """
 from __future__ import annotations
 
@@ -28,6 +23,26 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 SITE_RAW_DIR = REPO / "exports" / "latest" / "site_raw"
 
+# ── CSV file → scraper FULL_DATA key mapping ────────────────────────────────
+CSV_TO_SCRAPER_KEY = {
+    "ktc.csv":             "KTC",
+    "fantasyCalc.csv":     "FantasyCalc",
+    "dynastyDaddy.csv":    "DynastyDaddy",
+    "fantasyPros.csv":     "FantasyPros",
+    "draftSharks.csv":     "DraftSharks",
+    "yahoo.csv":           "Yahoo",
+    "dynastyNerds.csv":    "DynastyNerds",
+    "dlfSf.csv":           "DLF_SF",
+    "dlfIdp.csv":          "DLF_IDP",
+    "dlfRsf.csv":          "DLF_RSF",
+    "dlfRidp.csv":         "DLF_RIDP",
+    "pffIdp.csv":          "PFF_IDP",
+    "draftSharksIdp.csv":  "DraftSharks_IDP",
+    "fantasyProsIdp.csv":  "FantasyPros_IDP",
+    # idpTradeCalc.csv stores ordinal ranks, not dollar values — handled separately
+}
+
+# ── Chromium path patching (same as scrape_idptradecalc_only.py) ─────────────
 _CHROMIUM_CANDIDATES = [
     "/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
 ]
@@ -46,70 +61,87 @@ def _load_scraper():
 
 
 def _patch_chromium_launch(mod):
+    """Monkey-patch pw.chromium.launch() to inject executable_path."""
     if not _PLAYWRIGHT_EXEC:
         return
+
     import playwright.async_api as _pw_api
-    _orig = _pw_api.async_playwright
+    _orig_async_playwright = _pw_api.async_playwright
 
-    class _BT:
-        def __init__(self, r): self._r = r
-        async def launch(self, **kw):
-            kw.setdefault("executable_path", _PLAYWRIGHT_EXEC)
-            return await self._r.launch(**kw)
-        def __getattr__(self, n): return getattr(self._r, n)
+    class _PatchedBrowserType:
+        def __init__(self, real):
+            self._real = real
 
-    class _PW:
-        def __init__(self, r):
-            self._r = r
-            self.chromium = _BT(r.chromium)
-        def __getattr__(self, n): return getattr(self._r, n)
+        async def launch(self, **kwargs):
+            if "executable_path" not in kwargs:
+                kwargs["executable_path"] = _PLAYWRIGHT_EXEC
+            return await self._real.launch(**kwargs)
 
-    class _CM:
-        def __init__(self, cm): self._cm = cm
-        async def __aenter__(self): return _PW(await self._cm.__aenter__())
-        async def __aexit__(self, *a): return await self._cm.__aexit__(*a)
+        def __getattr__(self, name):
+            return getattr(self._real, name)
 
-    def _patched(): return _CM(_orig())
-    mod.async_playwright = _patched
-    _pw_api.async_playwright = _patched
-    print(f"[rebuild] Chromium → {_PLAYWRIGHT_EXEC}")
+    class _PatchedPlaywright:
+        def __init__(self, real):
+            self._real = real
+            self.chromium = _PatchedBrowserType(real.chromium)
+
+        def __getattr__(self, name):
+            return getattr(self._real, name)
+
+    class _PatchedAsyncContextManager:
+        def __init__(self, real_cm):
+            self._real_cm = real_cm
+
+        async def __aenter__(self):
+            real = await self._real_cm.__aenter__()
+            return _PatchedPlaywright(real)
+
+        async def __aexit__(self, *args):
+            return await self._real_cm.__aexit__(*args)
+
+    def _patched_async_playwright():
+        return _PatchedAsyncContextManager(_orig_async_playwright())
+
+    mod.async_playwright = _patched_async_playwright
+    _pw_api.async_playwright = _patched_async_playwright
+    print(f"[rebuild] Patched chromium executable_path → {_PLAYWRIGHT_EXEC}")
 
 
-def _load_ktc(clean_fn) -> dict[str, float]:
-    path = SITE_RAW_DIR / "ktc.csv"
-    if not path.exists():
-        print(f"[rebuild] WARNING: ktc.csv not found at {path}")
-        return {}
-    result = {}
-    with open(path, newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            name = (row.get("name") or "").strip()
-            raw = row.get("value") or row.get("rank")
-            if not name or raw is None:
+def _load_csv_values(csv_path: Path, clean_name_fn) -> dict[str, float]:
+    """Read a name,value CSV and return {cleaned_name: float(value)}."""
+    result: dict[str, float] = {}
+    with open(csv_path, newline="", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        for row in reader:
+            name = row.get("name", "").strip()
+            raw_val = row.get("value") or row.get("rank")
+            if not name or raw_val is None:
                 continue
             try:
-                val = float(raw)
+                val = float(raw_val)
             except (ValueError, TypeError):
                 continue
-            cn = clean_fn(name)
-            if cn:
-                result[cn] = val
-    print(f"[rebuild] KTC: {len(result)} players loaded from ktc.csv")
+            cleaned = clean_name_fn(name)
+            if cleaned:
+                result[cleaned] = val
     return result
 
 
-def _load_idptradecalc(clean_fn) -> dict[str, float]:
-    """Read IDPTradeCalc dollar values from the existing dynasty JSON."""
-    candidates = sorted(REPO.glob("dynasty_data_*.json"), reverse=True)
-    if not candidates:
-        print("[rebuild] WARNING: no dynasty_data_*.json found — IDPTradeCalc will be empty")
+def _load_idptradecalc_from_json(json_path: Path, clean_name_fn) -> dict[str, float]:
+    """Extract IDPTradeCalc raw values from an existing dynasty JSON output.
+
+    The idpTradeCalc.csv stores ordinal RANKS (lower=better), not dollar values.
+    The actual raw trade values are in dynasty_data JSON: players[name]["idpTradeCalc"].
+    """
+    if not json_path.exists():
+        print(f"[rebuild] WARNING: {json_path} not found — IDPTradeCalc will be empty")
         return {}
-    json_path = candidates[0]
-    print(f"[rebuild] IDPTradeCalc: reading raw values from {json_path.name}")
-    with open(json_path, encoding="utf-8") as f:
-        data = json.load(f)
+
+    with open(json_path, encoding="utf-8") as fh:
+        data = json.load(fh)
+
     players = data.get("players", {})
-    result = {}
+    result: dict[str, float] = {}
     for name, pdata in players.items():
         if not isinstance(pdata, dict):
             continue
@@ -121,33 +153,67 @@ def _load_idptradecalc(clean_fn) -> dict[str, float]:
         except (ValueError, TypeError):
             continue
         if fval > 0:
-            cn = clean_fn(name)
-            if cn:
-                result[cn] = fval
-    print(f"[rebuild] IDPTradeCalc: {len(result)} players loaded from JSON")
+            cleaned = clean_name_fn(name)
+            if cleaned:
+                result[cleaned] = fval
     return result
 
 
+def _find_dynasty_json(repo: Path) -> Path | None:
+    """Find the most recent dynasty_data_*.json in the repo root."""
+    candidates = sorted(repo.glob("dynasty_data_*.json"), reverse=True)
+    return candidates[0] if candidates else None
+
+
 def main():
-    print("[rebuild] Loading Dynasty Scraper...")
+    print("[rebuild] Loading Dynasty Scraper module...")
     mod = _load_scraper()
 
-    # Only KTC + IDPTradeCalc — adding sources one at a time
-    ktc_data = _load_ktc(mod.clean_name)
-    idptc_data = _load_idptradecalc(mod.clean_name)
+    clean = mod.clean_name  # name normalisation function
 
-    mod.FULL_DATA["KTC"] = ktc_data
-    mod.FULL_DATA["IDPTradeCalc"] = idptc_data
+    # ── Load per-site CSVs into FULL_DATA ────────────────────────────────────
+    loaded_summary: list[tuple[str, int]] = []
 
-    # Disable all live scraping
+    for csv_filename, scraper_key in CSV_TO_SCRAPER_KEY.items():
+        csv_path = SITE_RAW_DIR / csv_filename
+        if not csv_path.exists():
+            print(f"[rebuild] SKIP {csv_filename} — file not found")
+            continue
+        values = _load_csv_values(csv_path, clean)
+        mod.FULL_DATA[scraper_key] = values
+        loaded_summary.append((scraper_key, len(values)))
+        print(f"[rebuild] Loaded {len(values):>4} players  ← {csv_filename} → FULL_DATA['{scraper_key}']")
+
+    # ── Load IDPTradeCalc from existing dynasty JSON (not from CSV) ───────────
+    dynasty_json = _find_dynasty_json(REPO)
+    if dynasty_json:
+        print(f"[rebuild] Loading IDPTradeCalc raw values from {dynasty_json.name}...")
+        idp_values = _load_idptradecalc_from_json(dynasty_json, clean)
+        mod.FULL_DATA["IDPTradeCalc"] = idp_values
+        loaded_summary.append(("IDPTradeCalc", len(idp_values)))
+        print(f"[rebuild] Loaded {len(idp_values):>4} players  ← {dynasty_json.name} → FULL_DATA['IDPTradeCalc']")
+    else:
+        print("[rebuild] WARNING: No dynasty JSON found — IDPTradeCalc will be empty")
+
+    # ── Disable all live scraping ─────────────────────────────────────────────
     for k in mod.SITES:
         mod.SITES[k] = False
-    print(f"[rebuild] All SITES disabled — using pre-loaded FULL_DATA only")
-    print(f"[rebuild] Active sources: KTC ({len(ktc_data)}), IDPTradeCalc ({len(idptc_data)})")
+    print(f"[rebuild] All SITES disabled (no live scraping): {list(mod.SITES.keys())}")
 
+    # ── Apply chromium patch (needed even with no scraping, for Playwright init) ─
     _patch_chromium_launch(mod)
 
-    print("[rebuild] Running pipeline (no live scraping)...")
+    # ── Summary ──────────────────────────────────────────────────────────────
+    print("\n[rebuild] Source load summary:")
+    print(f"  {'Source':<20} {'Players':>7}")
+    print(f"  {'-'*20} {'-'*7}")
+    for key, count in loaded_summary:
+        print(f"  {key:<20} {count:>7}")
+    total_unique = len({n for m in mod.FULL_DATA.values() for n in m})
+    print(f"  {'TOTAL UNIQUE NAMES':<20} {total_unique:>7}")
+
+    # ── Run the scraper pipeline (no-scrape mode: uses pre-populated FULL_DATA) ─
+    print("\n[rebuild] Running scraper pipeline (data assembly only)...")
     asyncio.run(mod.run())
     print("[rebuild] Done.")
 

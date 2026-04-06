@@ -79,8 +79,8 @@ class TestTestSeeds:
         ))
         ktc_rows = list(csv.DictReader((seed_dir / "ktc.csv").open()))
 
-        fc_vals = {r["name"]: int(r["value"]) for r in fc_rows if r.get("value")}
-        ktc_vals = {r["name"]: int(r["value"]) for r in ktc_rows if r.get("value")}
+        fc_vals = {r["name"]: int(float(r["value"])) for r in fc_rows if r.get("value")}
+        ktc_vals = {r["name"]: int(float(r["value"])) for r in ktc_rows if r.get("value")}
 
         # Find common players
         common = set(fc_vals.keys()) & set(ktc_vals.keys())
