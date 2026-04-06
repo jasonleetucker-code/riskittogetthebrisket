@@ -62,15 +62,6 @@ jobs:
           python scripts/canonical_build.py
           python scripts/run_comparison_batch.py
 
-
-      - name: Generate comparison artifact for promotion-readiness test
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          python scripts/source_pull.py
-          python scripts/canonical_build.py
-          python scripts/run_comparison_batch.py
-
       - name: Run unit tests
         shell: bash
         run: |

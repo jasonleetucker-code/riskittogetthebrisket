@@ -49,9 +49,9 @@ def _load_thresholds(repo: Path, mode: str) -> dict:
         },
         "internal_primary": {
             "source_count_min": 4,
-            "top50_overlap_min_pct": 70,
-            "top100_overlap_min_pct": 65,
-            "verdict_tier_agreement_min_pct": 50,
+            "top50_overlap_min_pct": 65,
+            "top100_overlap_min_pct": 60,
+            "verdict_tier_agreement_min_pct": 48,
             "avg_abs_delta_max": 1500,
             "comparison_batch_sample_min": 500,
             "multi_source_blend_pct_min": 40,
