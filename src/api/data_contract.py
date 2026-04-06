@@ -10,6 +10,67 @@ from src.data_models.contracts import utc_now_iso
 
 CONTRACT_VERSION = "2026-03-10.v2"
 
+# ── KTC-only rankings: single source of truth ─────────────────────────────────
+# rank_to_value() is imported from src.canonical.player_valuation — that module
+# is the ONE authoritative formula implementation.
+#
+# KTC_RANK_LIMIT is the hard player cap.  It must match both JS frontends:
+#   • frontend/lib/dynasty-data.js           → KTC_RANK_LIMIT = 500
+#   • Static/js/runtime/10-rankings-and-picks.js → KTC_LIMIT = 500
+#
+# _compute_ktc_rankings() stamps ktcRank + rankDerivedValue onto every
+# playersArray entry (and the legacy players dict) so both frontends can
+# consume pre-computed values and only fall back to client-side computation
+# when these fields are absent (e.g. stale offline data without this field).
+# ─────────────────────────────────────────────────────────────────────────────
+KTC_RANK_LIMIT: int = 500
+_KICKER_POSITIONS = {"K", "PK"}
+
+
+def _compute_ktc_rankings(
+    players_array: list[dict[str, Any]],
+    players_by_name: dict[str, Any],
+) -> None:
+    """Stamp ktcRank and rankDerivedValue onto each eligible playersArray entry.
+
+    Eligibility (matches both JS frontends exactly):
+      • position must be non-empty, not "?", not "PICK", not a kicker
+      • canonicalSiteValues.ktc must be a finite positive number
+
+    Ranks are integers 1..KTC_RANK_LIMIT (top 500 by KTC value descending).
+    rank_to_value() is the authoritative formula — no duplication here.
+
+    Also writes ktcRank / rankDerivedValue back into the legacy players dict so
+    the Static frontend can read them as pdata.ktcRank / pdata.rankDerivedValue.
+    """
+    from src.canonical.player_valuation import rank_to_value  # noqa: PLC0415
+
+    eligible: list[tuple[float, dict[str, Any]]] = []
+    for row in players_array:
+        pos = str(row.get("position") or "").strip().upper()
+        if not pos or pos in {"?", "PICK"} or pos in _KICKER_POSITIONS:
+            continue
+        ktc_raw = (row.get("canonicalSiteValues") or {}).get("ktc")
+        ktc_val = _safe_num(ktc_raw)
+        if ktc_val is None or ktc_val <= 0:
+            continue
+        eligible.append((ktc_val, row))
+
+    eligible.sort(key=lambda t: -t[0])
+
+    for i, (_, row) in enumerate(eligible[:KTC_RANK_LIMIT]):
+        rank = i + 1
+        derived = int(rank_to_value(rank))
+        row["ktcRank"] = rank
+        row["rankDerivedValue"] = derived
+        # Mirror into legacy players dict so Static runtime reads consistent values.
+        legacy_ref = row.get("legacyRef")
+        if legacy_ref and legacy_ref in players_by_name:
+            pdata = players_by_name[legacy_ref]
+            if isinstance(pdata, dict):
+                pdata["ktcRank"] = rank
+                pdata["rankDerivedValue"] = derived
+
 REQUIRED_TOP_LEVEL_KEYS = {
     "contractVersion",
     "generatedAt",
@@ -251,6 +312,11 @@ def build_api_data_contract(
         if not isinstance(p_data, dict):
             continue
         players_array.append(_derive_player_row(str(name), p_data, pos_map, site_keys))
+
+    # Compute KTC-only integer ranks and rank-derived values.
+    # This is the single source of truth for ktcRank / rankDerivedValue.
+    # Both JS frontends prefer these fields over client-side computation.
+    _compute_ktc_rankings(players_array, players_by_name)
 
     data_source = data_source or {}
     contract_payload: dict[str, Any] = {

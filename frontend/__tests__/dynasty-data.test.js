@@ -169,10 +169,22 @@ describe("getSiteKeys", () => {
 // ── buildRows ────────────────────────────────────────────────────────
 
 describe("rankToValue", () => {
-  it("maps rank 1 to approximately 9999", () => {
-    const v = rankToValue(1);
-    expect(v).toBeGreaterThan(9500);
-    expect(v).toBeLessThanOrEqual(9999);
+  it("maps rank 1 to exactly 9999", () => {
+    expect(rankToValue(1)).toBe(9999);
+  });
+
+  it("produces correct outputs for ranks 1–10", () => {
+    const expected = [9999, 9849, 9684, 9515, 9347, 9180, 9016, 8855, 8698, 8544];
+    expected.forEach((v, i) => expect(rankToValue(i + 1)).toBe(v));
+  });
+
+  it("produces correct checkpoint values", () => {
+    expect(rankToValue(25)).toBe(6663);
+    expect(rankToValue(50)).toBe(4766);
+    expect(rankToValue(100)).toBe(2959);
+    expect(rankToValue(200)).toBe(1632);
+    expect(rankToValue(300)).toBe(1108);
+    expect(rankToValue(500)).toBe(663);
   });
 
   it("produces monotonically decreasing values as rank increases", () => {
@@ -198,12 +210,11 @@ describe("rankToValue", () => {
     }
   });
 
-  it("uses canonical inverse-power curve (A / (rank + B)^C)", () => {
-    // Rank 50 should be meaningfully lower than rank 1 but still significant
-    const v1 = rankToValue(1);
+  it("top-50 value is meaningfully above replacement level", () => {
+    // rank-50 ≈ 4766, well above 1 and below rank-1
     const v50 = rankToValue(50);
-    expect(v50).toBeGreaterThan(v1 * 0.05);
-    expect(v50).toBeLessThan(v1 * 0.5);
+    expect(v50).toBeGreaterThan(1000);
+    expect(v50).toBeLessThan(rankToValue(1));
   });
 });
 
@@ -246,7 +257,8 @@ describe("buildRows", () => {
     expect(allen).toBeDefined();
     expect(allen.pos).toBe("QB");
     expect(allen.assetClass).toBe("offense");
-    expect(allen.values.full).toBe(9100);
+    // KTC-rank-first: values.full = rankDerivedValue from KTC rank (not raw finalAdjusted)
+    expect(allen.values.full).toBe(allen.rankDerivedValue > 0 ? allen.rankDerivedValue : 9100);
     expect(allen.values.raw).toBe(8500);
     expect(allen.siteCount).toBe(6);
   });
@@ -309,19 +321,20 @@ describe("buildRows", () => {
     expect(rows[0].values.full).toBe(7738);
   });
 
-  it("sorts rows by consensus rank ascending (rank-first)", () => {
-    // canonicalConsensusRank drives sort order (lower = better = first).
+  it("sorts rows by KTC rank ascending (rank-first)", () => {
+    // KTC rank is derived from canonicalSites.ktc value; higher ktc = lower rank number.
     const data = {
       playersArray: [
-        { displayName: "Low", position: "RB", canonicalConsensusRank: 30, values: { finalAdjusted: 1000, rawComposite: 1000, overall: 1000 } },
-        { displayName: "High", position: "QB", canonicalConsensusRank: 1, values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 } },
-        { displayName: "Mid", position: "WR", canonicalConsensusRank: 15, values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 } },
+        { displayName: "Low", position: "RB", values: { finalAdjusted: 1000, rawComposite: 1000, overall: 1000 }, canonicalSiteValues: { ktc: 1000 } },
+        { displayName: "High", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } },
+        { displayName: "Mid", position: "WR", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 }, canonicalSiteValues: { ktc: 5000 } },
       ],
     };
     const rows = buildRows(data);
-    expect(rows[0].name).toBe("High");
-    expect(rows[1].name).toBe("Mid");
-    expect(rows[2].name).toBe("Low");
+    const ranked = rows.filter((r) => r.ktcRank > 0);
+    expect(ranked[0].name).toBe("High");
+    expect(ranked[1].name).toBe("Mid");
+    expect(ranked[2].name).toBe("Low");
   });
 
   it("assigns ranks starting from 1", () => {
@@ -360,52 +373,43 @@ describe("buildRows", () => {
     expect(rows.every((r) => r.assetClass === "pick")).toBe(true);
   });
 
-  it("computes decimal consensus ranks from site values", () => {
-    // Generate 25 players with varying site values across 2 sites
+  it("computes integer KTC ranks from canonicalSites.ktc values", () => {
+    // Generate 25 players with varying KTC values
     const players = [];
     for (let i = 0; i < 25; i++) {
       players.push({
         displayName: `Player ${i}`,
         position: "QB",
         values: { finalAdjusted: 9000 - i * 100, rawComposite: 9000 - i * 100, overall: 9000 - i * 100 },
-        canonicalSiteValues: {
-          ktc: 9000 - i * 100,            // same order as full value
-          fantasyCalc: 9000 - (24 - i) * 100,  // reversed order
-        },
+        canonicalSiteValues: { ktc: 9000 - i * 100 },
       });
     }
     const rows = buildRows({ playersArray: players });
     expect(rows.length).toBe(25);
 
-    // Player 0 is rank 1 at ktc but rank 25 at fantasyCalc
+    // Player 0 has highest KTC value → should be rank 1
     const p0 = rows.find((r) => r.name === "Player 0");
-    expect(p0.computedConsensusRank).toBeDefined();
-    expect(p0.computedConsensusRank).not.toBe(1); // should NOT be clean integer 1
+    expect(p0.ktcRank).toBe(1);
+    expect(Number.isInteger(p0.ktcRank)).toBe(true); // always integer, never decimal
 
-    // Player 12 is rank 13 at both sites, so consensus should be 13
-    const p12 = rows.find((r) => r.name === "Player 12");
-    expect(p12.computedConsensusRank).toBeDefined();
-    expect(p12.computedConsensusRank).toBe(13);
+    // Player 24 has lowest KTC value → should be rank 25
+    const p24 = rows.find((r) => r.name === "Player 24");
+    expect(p24.ktcRank).toBe(25);
 
-    // At least some players should have non-integer ranks
-    const nonIntegers = rows.filter((r) => r.computedConsensusRank != null && r.computedConsensusRank % 1 !== 0);
-    expect(nonIntegers.length).toBeGreaterThan(0);
-
-    // Rank-first: values.full should be derived from consensus rank, not raw input
-    expect(p0.rankDerivedValue).toBeDefined();
-    expect(p0.rankDerivedValue).toBeGreaterThan(0);
+    // Rank-first: values.full should equal rankDerivedValue
+    expect(p0.rankDerivedValue).toBe(rankToValue(1)); // 9999
     expect(p0.values.full).toBe(p0.rankDerivedValue);
 
-    // Rows should be sorted by consensus rank ascending (rank-first)
-    for (let i = 1; i < rows.length; i++) {
-      const prev = rows[i - 1].computedConsensusRank ?? Infinity;
-      const curr = rows[i].computedConsensusRank ?? Infinity;
-      expect(prev).toBeLessThanOrEqual(curr);
+    // Rows should be sorted by ktcRank ascending
+    const rankedRows = rows.filter((r) => r.ktcRank > 0);
+    for (let i = 1; i < rankedRows.length; i++) {
+      expect(rankedRows[i].ktcRank).toBeGreaterThan(rankedRows[i - 1].ktcRank);
     }
   });
 
-  it("computes consensus ranks even when players have different site coverage", () => {
-    // 30 players across 3 sites, with some players missing from some sites
+  it("assigns KTC ranks even when players have different site coverage", () => {
+    // 30 players — KTC rank is driven solely by canonicalSites.ktc, regardless
+    // of whether other sites have data.
     const players = [];
     for (let i = 0; i < 30; i++) {
       const sites = { ktc: 9000 - i * 100 };
@@ -419,16 +423,20 @@ describe("buildRows", () => {
       });
     }
     const rows = buildRows({ playersArray: players });
-    const withRank = rows.filter((r) => r.computedConsensusRank != null);
-    expect(withRank.length).toBeGreaterThan(25);
+    const withRank = rows.filter((r) => r.ktcRank != null);
+    expect(withRank.length).toBe(30); // all 30 have ktc data
 
-    // Players with 3 sites should have more nuanced ranks than those with 1
+    // Player 0 has highest KTC value → rank 1
     const p0 = rows.find((r) => r.name === "TestPlayer 0");
+    expect(p0.ktcRank).toBe(1);
+
+    // Player 1 has next highest KTC value → rank 2
     const p1 = rows.find((r) => r.name === "TestPlayer 1");
-    expect(p0.computedConsensusRank).toBeDefined();
-    expect(p1.computedConsensusRank).toBeDefined();
-    // Different rank due to different site coverage
-    expect(p0.computedConsensusRank).not.toBe(p1.computedConsensusRank);
+    expect(p1.ktcRank).toBe(2);
+
+    // All ranks are unique integers
+    const rankSet = new Set(withRank.map((r) => r.ktcRank));
+    expect(rankSet.size).toBe(30);
   });
 
   it("returns empty array for empty data", () => {

@@ -95,13 +95,38 @@ class TestPromotionReadiness:
         assert "offense_players_only" in script
 
     def test_all_hard_checks_pass(self):
-        """Run actual readiness checks and verify all hard checks pass."""
+        """Run actual readiness checks and verify all hard checks pass.
+
+        NOTE — if this test fails with 'comparison_batch_exists', it is NOT a
+        code bug.  It means the data artifact is missing.  Fix by running:
+
+            python scripts/run_comparison_batch.py
+
+        This failure is unrelated to rankings, formula changes, or frontend sync.
+        Do not confuse it with KTC-rankings or architectural regressions.
+        """
         from scripts.check_promotion_readiness import check_internal_primary_readiness
         results = check_internal_primary_readiness(REPO)
         hard_fails = [r for r in results if r.get("pass") is False]
+        artifact_checks = {"comparison_batch_exists"}
+        artifact_fails = [f for f in hard_fails if f.get("check") in artifact_checks]
+        code_fails = [f for f in hard_fails if f.get("check") not in artifact_checks]
         for f in hard_fails:
-            print(f"FAIL: {f['check']}: required={f['required']}, actual={f['actual']}")
-        assert len(hard_fails) == 0, f"{len(hard_fails)} hard checks failed"
+            kind = "[DATA ARTIFACT]" if f.get("check") in artifact_checks else "[CODE]"
+            print(f"FAIL {kind}: {f['check']}: required={f['required']}, actual={f['actual']}")
+        if artifact_fails and not code_fails:
+            note = (
+                f"{len(artifact_fails)} data-artifact check(s) failed "
+                f"({', '.join(f['check'] for f in artifact_fails)}). "
+                "Run: python scripts/run_comparison_batch.py  "
+                "This is NOT a code regression — unrelated to rankings or frontend sync."
+            )
+            assert False, note
+        assert len(hard_fails) == 0, (
+            f"{len(code_fails)} code check(s) failed, "
+            f"{len(artifact_fails)} data-artifact check(s) failed. "
+            "See output above."
+        )
 
 
 class TestCanonicalSnapshotIntegrity:
