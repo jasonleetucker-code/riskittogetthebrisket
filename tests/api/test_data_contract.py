@@ -404,6 +404,116 @@ class TestContractWithCanonicalComparison(unittest.TestCase):
         self.assertIn("canonicalComparison", runtime)
 
 
+class TestPositionSafetyAndIdpIntegrity(unittest.TestCase):
+    def test_canonical_offense_position_wins_over_name_based_idp_map(self):
+        raw = {
+            "players": {
+                "Josh Allen": {
+                    "_sleeperId": "111",
+                    "_composite": 9000,
+                    "_rawComposite": 9000,
+                    "_finalAdjusted": 9000,
+                    "_canonicalSiteValues": {"ktc": 9000},
+                    "position": "QB",
+                },
+            },
+            "sites": [{"key": "ktc"}],
+            "sleeper": {
+                "positions": {"Josh Allen": "LB"},
+                "playerIds": {"Josh Allen": "111"},
+            },
+        }
+        payload = build_api_data_contract(raw)
+        allen = payload["playersArray"][0]
+        self.assertEqual(allen["position"], "QB")
+        self.assertEqual(allen["assetClass"], "offense")
+
+    def test_fallback_position_requires_stable_id_match(self):
+        raw = {
+            "players": {
+                "Alex Carter (OFF)": {
+                    "_sleeperId": "1001",
+                    "_composite": 5000,
+                    "_rawComposite": 5000,
+                    "_finalAdjusted": 5000,
+                    "_canonicalSiteValues": {"ktc": 5000},
+                    "position": "",
+                },
+            },
+            "sites": [{"key": "ktc"}],
+            "sleeper": {
+                "positions": {"Alex Carter (OFF)": "LB"},
+                "playerIds": {"Alex Carter (OFF)": "2002"},
+                "positionsById": {"2002": "LB"},
+            },
+        }
+        payload = build_api_data_contract(raw)
+        row = payload["playersArray"][0]
+        # No stable-ID match -> keep canonical unknown instead of guessing from name.
+        self.assertIsNone(row["position"])
+
+    def test_idp_pool_validation_fails_when_idp_data_present_but_output_tiny(self):
+        raw = {
+            "players": {
+                f"LB Player {i}": {
+                    "_sleeperId": str(i),
+                    "_composite": 4000 + i,
+                    "_rawComposite": 4000 + i,
+                    "_finalAdjusted": 4000 + i,
+                    "_canonicalSiteValues": {"ktc": 4000 + i},
+                    "position": "LB",
+                }
+                for i in range(4)
+            },
+            "sites": [{"key": "ktc"}],
+            "sleeper": {"positionsById": {str(i): "LB" for i in range(4)}},
+        }
+        payload = build_api_data_contract(raw)
+        report = validate_api_data_contract(payload)
+        self.assertFalse(report["ok"])
+        self.assertTrue(
+            any("implausibly tiny IDP pool" in err for err in report["errors"]),
+            report["errors"],
+        )
+
+    def test_idp_pool_validation_passes_with_plausible_defensive_pool(self):
+        players = {}
+        for i in range(10):
+            players[f"Defender {i}"] = {
+                "_sleeperId": f"d{i}",
+                "_composite": 3500 + i,
+                "_rawComposite": 3500 + i,
+                "_finalAdjusted": 3500 + i,
+                "_canonicalSiteValues": {"ktc": 3500 + i},
+                "position": "LB" if i % 2 == 0 else "DL",
+            }
+        players["Offense Anchor"] = {
+            "_sleeperId": "o1",
+            "_composite": 9000,
+            "_rawComposite": 9000,
+            "_finalAdjusted": 9000,
+            "_canonicalSiteValues": {"ktc": 9000},
+            "position": "QB",
+        }
+        payload = build_api_data_contract({
+            "players": players,
+            "sites": [{"key": "ktc"}],
+            "sleeper": {"positionsById": {f"d{i}": ("LB" if i % 2 == 0 else "DL") for i in range(10)}},
+        })
+        report = validate_api_data_contract(payload)
+        self.assertTrue(report["ok"], report["errors"])
+
+    def test_validation_fails_if_offense_player_emitted_as_idp(self):
+        payload = build_api_data_contract(_minimal_raw_payload())
+        payload["playersArray"][0]["position"] = "LB"
+        report = validate_api_data_contract(payload)
+        self.assertFalse(report["ok"])
+        self.assertTrue(
+            any("offense players emitted in IDP buckets" in err for err in report["errors"]),
+            report["errors"],
+        )
+
+
 class TestComputeKtcRankings(unittest.TestCase):
     """Tests for _compute_ktc_rankings — the backend single source of truth.
 

@@ -282,6 +282,71 @@ describe("buildRows", () => {
     expect(rows[0].values.raw).toBe(8500);
   });
 
+  it("does not let name-based sleeper position override canonical offense", () => {
+    const data = {
+      players: {
+        "Josh Allen": {
+          _sleeperId: "111",
+          _composite: 8500,
+          _rawComposite: 8500,
+          _finalAdjusted: 9100,
+          _sites: 6,
+          position: "QB",
+        },
+      },
+      sleeper: {
+        positions: { "Josh Allen": "LB" },
+        playerIds: { "Josh Allen": "111" },
+        positionsById: { "111": "LB" },
+      },
+    };
+    const rows = buildRows(data);
+    expect(rows.length).toBe(1);
+    expect(rows[0].pos).toBe("QB");
+    expect(rows[0].assetClass).toBe("offense");
+  });
+
+  it("requires stable sleeper id before using legacy name-based fallback", () => {
+    const data = {
+      players: {
+        "Alex Carter": {
+          _sleeperId: "OFF-1",
+          _composite: 5000,
+          _rawComposite: 5000,
+          _finalAdjusted: 5000,
+          _sites: 3,
+          position: "",
+        },
+      },
+      sleeper: {
+        positions: { "Alex Carter": "LB" },
+        playerIds: { "Alex Carter": "DEF-2" },
+        positionsById: { "DEF-2": "LB" },
+      },
+    };
+    const rows = buildRows(data);
+    expect(rows.length).toBe(1);
+    expect(rows[0].pos).toBe("?");
+    expect(rows[0].assetClass).toBe("other");
+  });
+
+  it("recomputes assetClass from normalized position in playersArray", () => {
+    const data = {
+      playersArray: [
+        {
+          displayName: "Roquan Smith",
+          position: "LB",
+          assetClass: "offense",
+          values: { finalAdjusted: 5300, rawComposite: 5300, overall: 5300 },
+          canonicalSiteValues: { ktc: 5300 },
+        },
+      ],
+    };
+    const rows = buildRows(data);
+    expect(rows.length).toBe(1);
+    expect(rows[0].assetClass).toBe("idp");
+  });
+
   it("prefers displayValue for full in contract format", () => {
     const data = {
       playersArray: [

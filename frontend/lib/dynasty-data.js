@@ -108,8 +108,30 @@ function computeKtcRanks(rows) {
 export function buildRows(data) {
   const players = data?.players || {};
   const playersArray = Array.isArray(data?.playersArray) ? data.playersArray : [];
-  const posMap = data?.sleeper?.positions || {};
+  const sleeper = data?.sleeper || {};
+  const posMap = sleeper?.positions || {};
+  const posById = sleeper?.positionsById || {};
+  const playerIds = sleeper?.playerIds || {};
   const rows = [];
+
+  function resolveLegacyPlayerPos(name, player) {
+    const canonical = normalizePos(player?.position || "");
+    if (canonical && canonical !== "?" && canonical !== "UNKNOWN") return canonical;
+
+    const sleeperId = String(player?._sleeperId || "").trim();
+    if (sleeperId) {
+      const byId = normalizePos(posById[sleeperId] || "");
+      if (byId && byId !== "?" && byId !== "UNKNOWN") return byId;
+    }
+
+    // Legacy name map fallback is allowed only when linked to a stable Sleeper ID.
+    const mappedId = String(playerIds?.[name] || "").trim();
+    if (sleeperId && mappedId && sleeperId === mappedId) {
+      const byName = normalizePos(posMap[name] || "");
+      if (byName && byName !== "?" && byName !== "UNKNOWN") return byName;
+    }
+    return canonical;
+  }
 
   if (playersArray.length) {
     for (const player of playersArray) {
@@ -141,7 +163,7 @@ export function buildRows(data) {
       rows.push({
         name,
         pos: pos || "?",
-        assetClass: String(player.assetClass || classifyPos(pos || "?")),
+        assetClass: classifyPos(pos || "?"),
         values: {
           raw: Math.round(values.raw),
           scoring: Math.round(values.scoring),
@@ -180,7 +202,7 @@ export function buildRows(data) {
   for (const [name, player] of Object.entries(players)) {
     if (!player || typeof player !== "object") continue;
     const isPick = /\b(20\d{2})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th|6th|round|r\d|pick)/i.test(name) || /^20\d{2}\s+pick/i.test(name);
-    const pos = isPick ? "PICK" : normalizePos(posMap[name] || player.position || "");
+    const pos = isPick ? "PICK" : resolveLegacyPlayerPos(name, player);
     if (pos === "K") continue;
 
     const values = inferValueBundle(player);

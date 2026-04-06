@@ -719,6 +719,7 @@ def fetch_sleeper_rosters(league_id):
 
     all_names = []
     position_map = {}
+    position_by_id = {}
     player_id_map = {}
     id_to_player = {}
     teams = []
@@ -935,6 +936,8 @@ def fetch_sleeper_rosters(league_id):
                     # Multi-positional IDP rule: prefer non-LB for dual-position players
                     # Sleeper stores a single position; we override known edge cases
                     position_map[cn] = pos
+                if pos and sid:
+                    position_by_id[sid] = pos
 
         teams.append({
             "name": team_name,
@@ -961,6 +964,9 @@ def fetch_sleeper_rosters(league_id):
         cn = clean_name(name)
         if cn in position_map:
             position_map[cn] = override_pos
+        sid = player_id_map.get(cn)
+        if sid and sid in position_by_id:
+            position_by_id[sid] = override_pos
 
 
     teams.sort(key=lambda t: t["name"])
@@ -970,6 +976,7 @@ def fetch_sleeper_rosters(league_id):
         "leagueName": league_name,
         "teams": teams,
         "positions": position_map,
+        "positionsById": position_by_id,
         "playerIds": player_id_map,
         "idToPlayer": id_to_player,
         "scoringSettings": scoring_settings,

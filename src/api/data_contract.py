@@ -8,7 +8,7 @@ from typing import Any
 from src.data_models.contracts import utc_now_iso
 
 
-CONTRACT_VERSION = "2026-03-10.v2"
+CONTRACT_VERSION = "2026-04-06.v1"
 
 # ── KTC-only rankings: single source of truth ─────────────────────────────────
 # rank_to_value() is imported from src.canonical.player_valuation — that module
@@ -25,6 +25,9 @@ CONTRACT_VERSION = "2026-03-10.v2"
 # ─────────────────────────────────────────────────────────────────────────────
 KTC_RANK_LIMIT: int = 500
 _KICKER_POSITIONS = {"K", "PK"}
+_OFFENSE_POSITIONS = {"QB", "RB", "WR", "TE"}
+_IDP_POSITIONS = {"DL", "DE", "DT", "LB", "DB", "CB", "S", "EDGE"}
+_UNKNOWN_POSITIONS = {"", "?", "UNKNOWN", "N/A", "NA"}
 
 
 def _compute_ktc_rankings(
@@ -135,6 +138,51 @@ def _normalize_pos(pos: Any) -> str:
     return POSITION_ALIASES.get(p, p)
 
 
+def _is_unknown_pos(pos: Any) -> bool:
+    return _normalize_pos(pos) in _UNKNOWN_POSITIONS
+
+
+def _build_sleeper_positions_by_id(sleeper: dict[str, Any]) -> dict[str, str]:
+    """Build a stable Sleeper-ID keyed position map.
+
+    Primary source is ``sleeper.positionsById``. Legacy fallback derives from
+    ``sleeper.positions`` + ``sleeper.playerIds`` and only keeps unambiguous ID
+    mappings.
+    """
+    out: dict[str, str] = {}
+    explicit = sleeper.get("positionsById")
+    if isinstance(explicit, dict):
+        for sid, raw_pos in explicit.items():
+            sid_s = str(sid or "").strip()
+            pos = _normalize_pos(raw_pos)
+            if sid_s and not _is_unknown_pos(pos):
+                out[sid_s] = pos
+        if out:
+            return out
+
+    by_name = sleeper.get("positions")
+    player_ids = sleeper.get("playerIds")
+    if not isinstance(by_name, dict) or not isinstance(player_ids, dict):
+        return out
+
+    conflicts: set[str] = set()
+    for name, sid_raw in player_ids.items():
+        sid = str(sid_raw or "").strip()
+        if not sid:
+            continue
+        pos = _normalize_pos(by_name.get(name))
+        if _is_unknown_pos(pos):
+            continue
+        if sid in out and out[sid] != pos:
+            conflicts.add(sid)
+            continue
+        out[sid] = pos
+
+    for sid in conflicts:
+        out.pop(sid, None)
+    return out
+
+
 def _is_pick_name(name: str) -> bool:
     n = str(name or "").strip()
     if not n:
@@ -200,11 +248,19 @@ def _player_value_bundle(p_data: dict[str, Any]) -> dict[str, int | None]:
 def _derive_player_row(
     name: str,
     p_data: dict[str, Any],
-    pos_map: dict[str, Any],
+    sleeper_positions_by_id: dict[str, Any],
     site_keys: list[str],
 ) -> dict[str, Any]:
     canonical_name = str(name or "").strip()
-    pos = _normalize_pos(pos_map.get(canonical_name) or p_data.get("position"))
+    player_id = str(p_data.get("_sleeperId") or "").strip() or None
+    canonical_pos = _normalize_pos(p_data.get("position"))
+    fallback_pos = _normalize_pos(sleeper_positions_by_id.get(player_id)) if player_id else ""
+    pos = canonical_pos
+    if _is_unknown_pos(pos) and not _is_unknown_pos(fallback_pos):
+        pos = fallback_pos
+    elif pos in _OFFENSE_POSITIONS and fallback_pos in _IDP_POSITIONS:
+        # Hard guard: never allow IDP fallback to overwrite canonical offense.
+        pos = canonical_pos
     is_pick = _is_pick_name(canonical_name)
     if is_pick:
         pos = "PICK"
@@ -214,7 +270,7 @@ def _derive_player_row(
     source_count = _source_count(p_data, canonical_sites)
 
     return {
-        "playerId": str(p_data.get("_sleeperId") or "").strip() or None,
+        "playerId": player_id,
         "canonicalName": canonical_name,
         "displayName": canonical_name,
         "position": pos or None,
@@ -300,10 +356,11 @@ def build_api_data_contract(
         sleeper = {}
         base["sleeper"] = sleeper
 
-    pos_map = sleeper.get("positions")
-    if not isinstance(pos_map, dict):
-        pos_map = {}
-        sleeper["positions"] = pos_map
+    if not isinstance(sleeper.get("positions"), dict):
+        sleeper["positions"] = {}
+    sleeper_positions_by_id = _build_sleeper_positions_by_id(sleeper)
+    if sleeper_positions_by_id:
+        sleeper["positionsById"] = sleeper_positions_by_id
 
     site_keys = [str(s.get("key")) for s in sites if isinstance(s, dict) and s.get("key")]
     players_array: list[dict[str, Any]] = []
@@ -311,7 +368,9 @@ def build_api_data_contract(
         p_data = players_by_name.get(name)
         if not isinstance(p_data, dict):
             continue
-        players_array.append(_derive_player_row(str(name), p_data, pos_map, site_keys))
+        players_array.append(
+            _derive_player_row(str(name), p_data, sleeper_positions_by_id, site_keys)
+        )
 
     # Compute KTC-only integer ranks and rank-derived values.
     # This is the single source of truth for ktcRank / rankDerivedValue.
@@ -741,6 +800,49 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         warnings.append("playersArray is empty")
     if not site_keys:
         warnings.append("sites is empty or missing keys")
+
+    idp_count = 0
+    offense_misclassified: list[str] = []
+    players_lookup = players_map if isinstance(players_map, dict) else {}
+    idp_expected_from_canonical = False
+    for pdata in players_lookup.values():
+        if not isinstance(pdata, dict):
+            continue
+        if _normalize_pos(pdata.get("position")) in _IDP_POSITIONS:
+            idp_expected_from_canonical = True
+            break
+
+    sleeper = payload.get("sleeper")
+    if isinstance(sleeper, dict):
+        positions_by_id = sleeper.get("positionsById")
+        if isinstance(positions_by_id, dict):
+            for raw_pos in positions_by_id.values():
+                if _normalize_pos(raw_pos) in _IDP_POSITIONS:
+                    idp_expected_from_canonical = True
+                    break
+
+    for row in players_array:
+        if not isinstance(row, dict):
+            continue
+        row_pos = _normalize_pos(row.get("position"))
+        if row_pos in _IDP_POSITIONS:
+            idp_count += 1
+        legacy_ref = str(row.get("legacyRef") or "").strip()
+        p_data = players_lookup.get(legacy_ref)
+        canonical_pos = _normalize_pos(p_data.get("position")) if isinstance(p_data, dict) else ""
+        if canonical_pos in _OFFENSE_POSITIONS and row_pos in _IDP_POSITIONS:
+            offense_misclassified.append(legacy_ref or str(row.get("canonicalName") or ""))
+
+    if offense_misclassified:
+        sample = ", ".join(offense_misclassified[:5])
+        errors.append(
+            f"offense players emitted in IDP buckets: {sample}"
+        )
+
+    if idp_expected_from_canonical and idp_count < 8:
+        errors.append(
+            f"implausibly tiny IDP pool: {idp_count} IDP players emitted while IDP data is present"
+        )
 
     # Optional: canonicalComparison (shadow mode comparison block).
     canonical_cmp = payload.get("canonicalComparison")
