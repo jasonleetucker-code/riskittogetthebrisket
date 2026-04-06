@@ -25,6 +25,15 @@ CONTRACT_VERSION = "2026-03-10.v2"
 # ─────────────────────────────────────────────────────────────────────────────
 KTC_RANK_LIMIT: int = 500
 _KICKER_POSITIONS = {"K", "PK"}
+_OFFENSE_POSITIONS = {"QB", "RB", "WR", "TE"}
+_IDP_POSITIONS = {"DL", "LB", "DB"}
+_OFFENSE_SIGNAL_KEYS = {
+    "ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros", "draftSharks",
+    "yahoo", "dynastyNerds", "dlfSf", "dlfRsf", "flock",
+}
+_IDP_SIGNAL_KEYS = {
+    "pffIdp", "fantasyProsIdp", "draftSharksIdp", "dlfIdp", "dlfRidp",
+}
 
 
 def _compute_ktc_rankings(
@@ -204,12 +213,36 @@ def _derive_player_row(
     site_keys: list[str],
 ) -> dict[str, Any]:
     canonical_name = str(name or "").strip()
-    pos = _normalize_pos(pos_map.get(canonical_name) or p_data.get("position"))
+    pos_from_player = _normalize_pos(p_data.get("position"))
+    pos_from_sleeper = _normalize_pos(pos_map.get(canonical_name))
+    canonical_sites = _canonical_site_values(p_data, site_keys)
+
+    has_off_signal = any(
+        _to_int_or_none(canonical_sites.get(k)) not in (None, 0)
+        for k in _OFFENSE_SIGNAL_KEYS
+    )
+    has_idp_signal = any(
+        _to_int_or_none(canonical_sites.get(k)) not in (None, 0)
+        for k in _IDP_SIGNAL_KEYS
+    )
+
+    pos = pos_from_sleeper or pos_from_player
+    # Guardrail: never let a sleeper map collision override an explicit offensive
+    # source profile into an IDP position (or vice versa).
+    if pos_from_player and pos_from_sleeper:
+        player_is_off = pos_from_player in _OFFENSE_POSITIONS
+        player_is_idp = pos_from_player in _IDP_POSITIONS
+        sleeper_is_off = pos_from_sleeper in _OFFENSE_POSITIONS
+        sleeper_is_idp = pos_from_sleeper in _IDP_POSITIONS
+        if player_is_off and sleeper_is_idp and has_off_signal and not has_idp_signal:
+            pos = pos_from_player
+        elif player_is_idp and sleeper_is_off and has_idp_signal and not has_off_signal:
+            pos = pos_from_player
+
     is_pick = _is_pick_name(canonical_name)
     if is_pick:
         pos = "PICK"
 
-    canonical_sites = _canonical_site_values(p_data, site_keys)
     values = _player_value_bundle(p_data)
     source_count = _source_count(p_data, canonical_sites)
 
@@ -736,6 +769,46 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
                 warnings.append(
                     f"playersArray[{idx}] canonicalSiteValues missing keys: {', '.join(missing_keys[:6])}"
                 )
+
+    idp_count = 0
+    normalized_pos_by_name: dict[str, set[str]] = {}
+    for row in players_array:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("canonicalName") or row.get("displayName") or "").strip()
+        pos = str(row.get("position") or "").strip().upper()
+        if pos in _IDP_POSITIONS:
+            idp_count += 1
+
+        canonical_sites = row.get("canonicalSiteValues") or {}
+        has_off_signal = isinstance(canonical_sites, dict) and any(
+            _to_int_or_none(canonical_sites.get(k)) not in (None, 0) for k in _OFFENSE_SIGNAL_KEYS
+        )
+        has_idp_signal = isinstance(canonical_sites, dict) and any(
+            _to_int_or_none(canonical_sites.get(k)) not in (None, 0) for k in _IDP_SIGNAL_KEYS
+        )
+        if pos in _IDP_POSITIONS and has_off_signal and not has_idp_signal:
+            errors.append(
+                f"playersArray offense→IDP mismatch: {name or '<unknown>'} tagged {pos} "
+                "with offensive-only source signal(s)"
+            )
+
+        if name:
+            norm = re.sub(r"[^a-z0-9]+", "", str(name).lower())
+            normalized_pos_by_name.setdefault(norm, set()).add(pos or "?")
+
+    for norm_name, poses in normalized_pos_by_name.items():
+        cleaned = {p for p in poses if p and p != "?"}
+        has_off = bool(cleaned & _OFFENSE_POSITIONS)
+        has_idp = bool(cleaned & _IDP_POSITIONS)
+        if has_off and has_idp:
+            errors.append(f"possible offense/IDP name collision detected for normalized name '{norm_name}'")
+
+    if len(players_array) >= 250 and idp_count < 25:
+        errors.append(
+            f"implausibly small IDP pool in playersArray: {idp_count}/{len(players_array)} "
+            "(expected at least 25 when full board is present)"
+        )
 
     if not players_array:
         warnings.append("playersArray is empty")
