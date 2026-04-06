@@ -47,24 +47,17 @@ const SITE_WEIGHTS = {
   pffIdp: 0.7, fantasyProsIdp: 0.7, draftSharksIdp: 0.7,
 };
 
-// ── Rank-to-value curve (mirrors src/canonical/player_valuation.py) ──
-// Formula: base = A / (rank + B)^C
-const CURVE_A = 10000.0;
-const CURVE_B = 1.5;
-const CURVE_C = 0.72;
-const CLIFF_BASE = 120.0;
-// Display anchor: theoretical max raw value (rank-1 base + one cliff).
-// Computed from hyperparameters only, so it's stable across data refreshes.
-const DISPLAY_ANCHOR = CURVE_A / Math.pow(1 + CURVE_B, CURVE_C) + CLIFF_BASE;
+// ── Rank-to-value curve: Hill-style, rank 1 is always exactly 9999 ──
+// value = 1 + 9998 / (1 + ((rank-1)/45)^1.10)
+// Flatter at the top than the old inverse-power curve, smoother mid-decay.
 
 /**
- * Convert a consensus rank to a display value (1–9999 scale).
- * Uses the same inverse-power curve as the canonical backend pipeline.
+ * Convert a rank to a display value (1–9999 scale).
+ * Hill-style curve: rank 1 → 9999, rank 50 → ~4766, rank 500 → ~663.
  */
 export function rankToValue(rank) {
   if (rank == null || !Number.isFinite(rank) || rank <= 0) return 0;
-  const base = CURVE_A / Math.pow(rank + CURVE_B, CURVE_C);
-  return Math.max(1, Math.min(9999, Math.round((base / DISPLAY_ANCHOR) * 9999)));
+  return Math.max(1, Math.min(9999, Math.round(1 + 9998 / (1 + Math.pow((rank - 1) / 45, 1.10)))));
 }
 
 /**

@@ -385,14 +385,12 @@
   }
 
   // ── KTC-ONLY RANKINGS ──────────────────────────────────────────────────────
-  // Rank-to-value curve (mirrors src/canonical/player_valuation.py constants).
-  // A=10000, B=1.5, C=0.72, cliff_base=120. Anchored so rank-1 maps to 9999.
-  const _CURVE_A = 10000, _CURVE_B = 1.5, _CURVE_C = 0.72, _CLIFF_BASE = 120;
-  const _DISPLAY_ANCHOR = _CURVE_A / Math.pow(1 + _CURVE_B, _CURVE_C) + _CLIFF_BASE;
+  // Rank-to-value curve: Hill-style, rank 1 is always exactly 9999.
+  // value = 1 + 9998 / (1 + ((rank-1)/45)^1.10)
+  // Flatter at the top, smoother decay, no post-hoc rescaling.
   function _rankToValue(rank) {
     if (!rank || rank <= 0) return 0;
-    const base = _CURVE_A / Math.pow(rank + _CURVE_B, _CURVE_C);
-    return Math.max(1, Math.min(9999, Math.round((base / _DISPLAY_ANCHOR) * 9999)));
+    return Math.max(1, Math.min(9999, Math.round(1 + 9998 / (1 + Math.pow((rank - 1) / 45, 1.10)))));
   }
 
   function buildFullRankings() {
