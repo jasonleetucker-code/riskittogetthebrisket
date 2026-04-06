@@ -39,7 +39,8 @@ export function getSiteKeys(data) {
 }
 
 // Site weights for consensus rank (mirrors scraper SITE_WEIGHTS).
-const SITE_WEIGHTS = {
+// Kept for reference; not used in KTC-only rankings mode.
+const _LEGACY_SITE_WEIGHTS = {
   ktc: 1.3, fantasyCalc: 1.0, dynastyDaddy: 1.0,
   draftSharks: 0.9, fantasyPros: 0.8, yahoo: 0.8,
   dynastyNerds: 0.8, idpTradeCalc: 1.0, flock: 0.8,
@@ -47,100 +48,37 @@ const SITE_WEIGHTS = {
   pffIdp: 0.7, fantasyProsIdp: 0.7, draftSharksIdp: 0.7,
 };
 
-// ── Rank-to-value curve: Hill-style, rank 1 is always exactly 9999 ──
-// value = 1 + 9998 / (1 + ((rank-1)/45)^1.10)
-// Flatter at the top than the old inverse-power curve, smoother mid-decay.
-
-/**
- * Convert a rank to a display value (1–9999 scale).
- * Hill-style curve: rank 1 → 9999, rank 50 → ~4766, rank 500 → ~663.
- */
+// ── Rank-to-value curve ───────────────────────────────────────────────
+// Hill-style formula: rank 1 always = 9999.
+// value = max(1, min(9999, round(1 + 9998 / (1 + ((rank-1)/45)^1.10))))
 export function rankToValue(rank) {
-  if (rank == null || !Number.isFinite(rank) || rank <= 0) return 0;
+  if (!rank || rank <= 0) return 0;
   return Math.max(1, Math.min(9999, Math.round(1 + 9998 / (1 + Math.pow((rank - 1) / 45, 1.10)))));
 }
 
-/**
- * Compute a decimal consensus rank for each row from per-site values.
- *
- * Pipeline:
- *   1. For each source site, convert site values → site-internal ordinal ranks
- *   2. Aggregate per-site ranks → consensus rank (70% median + 30% weighted mean)
- *   3. Convert consensus rank → canonical value via rankToValue()
- *
- * Sets on each row:
- *   - computedConsensusRank  (decimal, e.g. 15.7)
- *   - rankSourceCount        (how many sites contributed)
- *   - rankMedian / rankMean  (diagnostic)
- *   - rankDerivedValue       (value from rank-to-value curve)
- */
-function computeConsensusRanks(rows) {
-  // Collect all site keys that have meaningful data
-  const siteCounts = {};
-  for (const row of rows) {
-    for (const [key, val] of Object.entries(row.canonicalSites || {})) {
-      if (Number.isFinite(Number(val)) && Number(val) > 0) {
-        siteCounts[key] = (siteCounts[key] || 0) + 1;
-      }
-    }
-  }
-  // Only use sites with at least 20 players to avoid sparse-data noise
-  const activeSites = Object.keys(siteCounts).filter((k) => siteCounts[k] >= 20);
-  if (activeSites.length === 0) return;
+// ── KTC-only rank assignment ──────────────────────────────────────────
+// Assigns integer ktcRank to the top KTC_RANK_LIMIT players sorted by
+// KTC trade value descending.  Only players with:
+//   • a valid positive canonicalSites.ktc value
+//   • a resolved, non-"?" position (picks excluded)
+// are eligible.  Players outside the limit get ktcRank = null.
+const KTC_RANK_LIMIT = 500;
 
-  // For each site, sort rows and assign ranks
-  const siteRanks = {}; // siteRanks[siteName] = Map<rowName, rank>
-  for (const site of activeSites) {
-    const withVal = rows
-      .filter((r) => {
-        const v = Number(r.canonicalSites?.[site]);
-        return Number.isFinite(v) && v > 0;
-      })
-      .sort((a, b) => Number(b.canonicalSites[site]) - Number(a.canonicalSites[site]));
+function computeKtcRanks(rows) {
+  const eligible = rows.filter((r) => {
+    if (!r.pos || r.pos === "?" || r.pos === "PICK") return false;
+    const ktcVal = Number(r.canonicalSites?.ktc);
+    return Number.isFinite(ktcVal) && ktcVal > 0;
+  });
 
-    const rankMap = new Map();
-    for (let i = 0; i < withVal.length; i++) {
-      rankMap.set(withVal[i].name, i + 1);
-    }
-    siteRanks[site] = rankMap;
-  }
+  // Sort by KTC value descending (highest value = rank 1)
+  eligible.sort((a, b) => Number(b.canonicalSites.ktc) - Number(a.canonicalSites.ktc));
 
-  // For each row, compute consensus rank from per-site ranks
-  for (const row of rows) {
-    const ranks = [];
-    const weights = [];
-    for (const site of activeSites) {
-      const rank = siteRanks[site]?.get(row.name);
-      if (rank != null) {
-        ranks.push(rank);
-        weights.push(SITE_WEIGHTS[site] || 0.8);
-      }
-    }
-    if (ranks.length < 1) continue;
-
-    // Weighted mean
-    let wSum = 0, wTotal = 0;
-    for (let i = 0; i < ranks.length; i++) {
-      wSum += ranks[i] * weights[i];
-      wTotal += weights[i];
-    }
-    const wMean = wSum / wTotal;
-
-    // Median
-    const sorted = [...ranks].sort((a, b) => a - b);
-    const mid = Math.floor(sorted.length / 2);
-    const median = sorted.length % 2 === 0
-      ? (sorted[mid - 1] + sorted[mid]) / 2
-      : sorted[mid];
-
-    // Blend: 70% median, 30% weighted mean
-    const consensus = Math.round((0.7 * median + 0.3 * wMean) * 10) / 10;
-    row.computedConsensusRank = consensus;
-    row.rankSourceCount = ranks.length;
-    row.rankMedian = Math.round(median * 10) / 10;
-    row.rankMean = Math.round(wMean * 10) / 10;
-    row.rankDerivedValue = rankToValue(consensus);
-  }
+  // Assign integer rank and compute our value for top N
+  eligible.slice(0, KTC_RANK_LIMIT).forEach((r, i) => {
+    r.ktcRank = i + 1;
+    r.rankDerivedValue = rankToValue(i + 1);
+  });
 }
 
 export function buildRows(data) {
@@ -196,15 +134,17 @@ export function buildRows(data) {
       });
     }
 
-    computeConsensusRanks(rows);
-    // Rank-first: override full value with rank-derived value for ranked rows.
+    computeKtcRanks(rows);
+    // KTC-rank-first: override full value with rank-derived value for ranked rows.
     for (const r of rows) {
       if (r.rankDerivedValue > 0) r.values.full = r.rankDerivedValue;
     }
+    // Sort: KTC-ranked players first (by ktcRank ascending), then unranked by value.
     rows.sort((a, b) => {
-      // Primary: consensus rank ascending (lower = better).
-      const ra = r => r.computedConsensusRank ?? r.canonicalConsensusRank ?? Infinity;
-      return ra(a) - ra(b);
+      const ra = a.ktcRank ?? Infinity;
+      const rb = b.ktcRank ?? Infinity;
+      if (ra !== rb) return ra - rb;
+      return (b.values.full || 0) - (a.values.full || 0);
     });
     rows.forEach((r, i) => { r.rank = i + 1; });
     return rows;
@@ -234,13 +174,15 @@ export function buildRows(data) {
     });
   }
 
-  computeConsensusRanks(rows);
+  computeKtcRanks(rows);
   for (const r of rows) {
     if (r.rankDerivedValue > 0) r.values.full = r.rankDerivedValue;
   }
   rows.sort((a, b) => {
-    const ra = r => r.computedConsensusRank ?? r.canonicalConsensusRank ?? Infinity;
-    return ra(a) - ra(b);
+    const ra = a.ktcRank ?? Infinity;
+    const rb = b.ktcRank ?? Infinity;
+    if (ra !== rb) return ra - rb;
+    return (b.values.full || 0) - (a.values.full || 0);
   });
   rows.forEach((r, i) => { r.rank = i + 1; });
   return rows;
