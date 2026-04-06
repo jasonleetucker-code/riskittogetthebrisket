@@ -1,7 +1,21 @@
 """Run only the IDPTradeCalc scraper, skipping all other sources.
 
+IDPTradeCalc requires the autocomplete search path to capture offensive
+players (QB/RB/WR/TE).  The API endpoint alone returns ~384 IDP-only
+players.  IDP_AUTOCOMPLETE_ENABLE defaults to true in Dynasty Scraper.py
+so the correct combined offense+IDP scrape runs automatically.
+
 Usage:
     python scripts/scrape_idptradecalc_only.py
+
+Outputs:
+    exports/latest/site_raw/idpTradeCalc.csv  — ordinal ranks (top 700)
+    data/reports/idptradecalc/unmatched_latest.json  — unmatched player report
+    data/reports/idptradecalc/unmatched_latest.csv   — same, spreadsheet-friendly
+    data/reports/idptradecalc/unmatched_YYYYMMDD_HHMMSS.json  — timestamped archive
+
+To force IDP-only mode (no offense, intentional):
+    IDP_AUTOCOMPLETE_ENABLE=false python scripts/scrape_idptradecalc_only.py
 """
 from __future__ import annotations
 

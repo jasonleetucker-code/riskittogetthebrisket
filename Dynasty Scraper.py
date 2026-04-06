@@ -127,7 +127,12 @@ SITE_CAP_DEFENSE = _env_int("SITE_CAP_DEFENSE", 425)
 SITE_CAP_COMBINED = _env_int("SITE_CAP_COMBINED", 900)
 SITE_CAP_DRAFTSHARKS = _env_int("SITE_CAP_DRAFTSHARKS", 900)
 IDP_AUTOCOMPLETE_MAX = _env_int("IDP_AUTOCOMPLETE_MAX", 500)
-IDP_AUTOCOMPLETE_ENABLE = _env_str("IDP_AUTOCOMPLETE_ENABLE", "false").strip().lower() in {"1", "true", "yes", "on"}
+# IDPTradeCalc's API endpoint only returns ~384 IDP defensive players.
+# Offensive players (QB/RB/WR/TE) are absent from the API and require
+# the interactive autocomplete search path to be captured.
+# Running with IDP_AUTOCOMPLETE_ENABLE=false produces an IDP-only snapshot
+# that CORRUPTS combined offense+IDP rankings — only disable intentionally.
+IDP_AUTOCOMPLETE_ENABLE = _env_str("IDP_AUTOCOMPLETE_ENABLE", "true").strip().lower() in {"1", "true", "yes", "on"}
 TOP_OFF_COVERAGE_AUDIT_N = _env_int("TOP_OFF_COVERAGE_AUDIT_N", 300)
 TOP_IDP_COVERAGE_AUDIT_N = _env_int("TOP_IDP_COVERAGE_AUDIT_N", 250)
 TOP_OFF_MIN_SOURCES = _env_int("TOP_OFF_MIN_SOURCES", 8)
@@ -6497,11 +6502,16 @@ async def scrape_idptradecalc(page, players):
         api_count = len(name_map)
         MAX_AUTOCOMPLETE = IDP_AUTOCOMPLETE_MAX
         if not IDP_AUTOCOMPLETE_ENABLE:
-            if DEBUG:
-                print(
-                    f"  [IDPTradeCalc] Autocomplete fallback disabled "
-                    f"(IDP_AUTOCOMPLETE_ENABLE=false). Keeping API-only values: {api_count}"
-                )
+            # This is a production-safety warning, always emitted (not gated by DEBUG).
+            # The API endpoint only returns ~384 IDP defensive players. Offensive players
+            # are absent and require the autocomplete search path. Using IDP-only data
+            # as a combined offense+IDP rank source corrupts cross-source rank averaging.
+            print(
+                f"\n  *** [IDPTradeCalc] WARNING: IDP_AUTOCOMPLETE_ENABLE=false ***\n"
+                f"  *** API returned {api_count} players — all IDP defensive, NO offense. ***\n"
+                f"  *** QB/RB/WR/TE values require autocomplete and are MISSING.       ***\n"
+                f"  *** Set IDP_AUTOCOMPLETE_ENABLE=true for correct combined rankings. ***\n"
+            )
             return results
         _rank_signal_sites = {"DynastyNerds", "PFF_IDP", "FantasyPros_IDP", "DraftSharks_IDP", "DraftSharks"}
         _candidates = {}
@@ -6569,6 +6579,8 @@ async def scrape_idptradecalc(page, players):
                     break
 
         missing = [cn for cn, _, _ in picked[:MAX_AUTOCOMPLETE]]
+        # Players in scored but above MAX_AUTOCOMPLETE cutoff — not searched at all.
+        not_in_queue_names = [cn for cn, _, _ in scored if cn not in set(missing) and cn not in name_map]
 
         if DEBUG:
             rostered_in_queue = sum(1 for cn in missing if _candidates.get(cn, {}).get("rostered"))
@@ -6577,6 +6589,45 @@ async def scrape_idptradecalc(page, players):
                 f"Searching {len(missing)} candidates "
                 f"({rostered_in_queue} rostered, {len(missing) - rostered_in_queue} external)."
             )
+
+        # Build a name→{pos,team} lookup for the unmatched report.
+        # SLEEPER_ALL_NFL is keyed by Sleeper player_id; invert to name→meta.
+        _name_to_meta: dict[str, dict] = {}
+        for _pid, _pmeta in (SLEEPER_ALL_NFL or {}).items():
+            _fn = clean_name(
+                _pmeta.get("full_name")
+                or f"{_pmeta.get('first_name', '')} {_pmeta.get('last_name', '')}".strip()
+            )
+            if _fn and _fn not in _name_to_meta:
+                _name_to_meta[_fn] = {
+                    "position": _pmeta.get("position", ""),
+                    "team": _pmeta.get("team", ""),
+                }
+
+        # Track unmatched players with structured reasons for the diagnostic report.
+        # Reason codes:
+        #   no_match         — searched, found nothing matching the site's value pattern
+        #   box_unavailable  — autocomplete input box not found (UI issue); loop aborted
+        #   search_error     — unhandled exception during search
+        #   not_in_queue     — candidate scored but above MAX_AUTOCOMPLETE cutoff
+        _unfound_records: list[dict] = []
+        _run_ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+        def _unfound_entry(name, reason, search_query="", candidates_considered=None):
+            meta = _name_to_meta.get(name) or _name_to_meta.get(clean_name(name)) or {}
+            return {
+                "name": name,
+                "canonical_name": clean_name(name),
+                "position": meta.get("position", ""),
+                "team": meta.get("team", ""),
+                "source": "IDPTradeCalculator",
+                "reason": reason,
+                "search_query": search_query or name,
+                "candidates_considered": candidates_considered or [],
+                "autocomplete_enabled": True,
+                "run_ts": _run_ts,
+            }
+
         if missing and ok:
             if DEBUG:
                 print(f"  [IDPTradeCalc] {len(missing)} players missing — batch searching via autocomplete")
@@ -6603,6 +6654,10 @@ async def scrape_idptradecalc(page, players):
                     if not input_box:
                         if DEBUG:
                             print(f"  [IDPTradeCalc] No input box found for search")
+                        # Box gone — remaining players can't be searched.
+                        _unfound_records.append(_unfound_entry(player, "box_unavailable"))
+                        for rem in missing[pi + 1:]:
+                            _unfound_records.append(_unfound_entry(rem, "box_unavailable"))
                         break
 
                     await input_box.evaluate("el => { el.focus(); el.click(); }")
@@ -6618,6 +6673,31 @@ async def scrape_idptradecalc(page, players):
                         re.IGNORECASE
                     )
                     match = pattern.search(body_text)
+
+                    # Fallback 1: generational suffix in site display but stripped from
+                    # our canonical name.  E.g., we search "Brian Thomas" but the site
+                    # body shows "Thomas Jr. (5000) - WR".
+                    if not match:
+                        suffix_pat = re.compile(
+                            rf'{re.escape(last_name)}\s+'
+                            rf'(?:Jr\.?|Sr\.?|I{{2,3}}|IV|V|VI)\s*'
+                            rf'\((\d+)\)\s*-\s*\w+',
+                            re.IGNORECASE
+                        )
+                        match = suffix_pat.search(body_text)
+
+                    # Fallback 2: hyphenated last names — try the final component
+                    # after the hyphen if it is distinctive (≥4 chars).
+                    # E.g., "Smith-Njigba" → try "Njigba" if no match on full form.
+                    if not match and '-' in last_name:
+                        last_part = last_name.split('-')[-1]
+                        if len(last_part) >= 4:
+                            fallback_pat = re.compile(
+                                rf'{re.escape(last_part)}\s*\((\d+)\)\s*-\s*\w+',
+                                re.IGNORECASE
+                            )
+                            match = fallback_pat.search(body_text)
+
                     if match:
                         val = float(match.group(1))
                         if player in players:
@@ -6630,6 +6710,8 @@ async def scrape_idptradecalc(page, players):
                         found_count += 1
                         if DEBUG and player in players:
                             print(f"  [IDPTradeCalc] {player} = {val}")
+                    else:
+                        _unfound_records.append(_unfound_entry(player, "no_match", search_query=player))
 
                     await input_box.evaluate("el => el.value = ''")
                     await page.keyboard.press("Escape")
@@ -6638,8 +6720,84 @@ async def scrape_idptradecalc(page, players):
                 except Exception as e:
                     if DEBUG:
                         print(f"  [IDPTradeCalc] Search box error for {player}: {e}")
+                    _unfound_records.append(_unfound_entry(player, "search_error", search_query=player))
 
-            print(f"  [IDPTradeCalc] Batch search complete: {found_count}/{len(missing)} found")
+            print(
+                f"  [IDPTradeCalc] Batch search complete: {found_count}/{len(missing)} found, "
+                f"{len(missing) - found_count} unfound"
+            )
+
+        elif missing and not ok:
+            # Page failed to load — all candidates are unmatched.
+            for nm in missing:
+                _unfound_records.append(_unfound_entry(nm, "page_load_failed"))
+
+        # Players that scored above the MAX_AUTOCOMPLETE cutoff were never searched.
+        for nm in not_in_queue_names:
+            meta = _name_to_meta.get(nm) or {}
+            _unfound_records.append({
+                "name": nm,
+                "canonical_name": clean_name(nm),
+                "position": meta.get("position", ""),
+                "team": meta.get("team", ""),
+                "source": "IDPTradeCalculator",
+                "reason": "not_in_queue",
+                "search_query": "",
+                "candidates_considered": [],
+                "autocomplete_enabled": True,
+                "run_ts": _run_ts,
+            })
+
+        # ── Write unmatched-player diagnostic report ──────────────────────────
+        # Saved to data/reports/idptradecalc/ for manual cleanup / tracking.
+        # Latest symlink: data/reports/idptradecalc/unmatched_latest.json
+        # Timestamped archive: data/reports/idptradecalc/unmatched_YYYYMMDD_HHMMSS.json
+        # Regenerate: IDP_AUTOCOMPLETE_ENABLE=true python scripts/scrape_idptradecalc_only.py
+        if _unfound_records or True:  # always write so "zero unmatched" is also recorded
+            try:
+                _report_dir = os.path.join(SCRIPT_DIR, "data", "reports", "idptradecalc")
+                os.makedirs(_report_dir, exist_ok=True)
+                _run_stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                _report = {
+                    "run_ts": _run_ts,
+                    "source": "IDPTradeCalculator",
+                    "autocomplete_enabled": True,
+                    "total_scraped": len(name_map),
+                    "total_candidates_searched": len(missing) if (missing and ok) else 0,
+                    "total_found_via_autocomplete": found_count if (missing and ok) else 0,
+                    "total_unmatched": len([r for r in _unfound_records if r["reason"] != "not_in_queue"]),
+                    "total_not_in_queue": len([r for r in _unfound_records if r["reason"] == "not_in_queue"]),
+                    "unmatched": _unfound_records,
+                }
+                _ts_path = os.path.join(_report_dir, f"unmatched_{_run_stamp}.json")
+                _latest_path = os.path.join(_report_dir, "unmatched_latest.json")
+                _report_json = json.dumps(_report, indent=2, ensure_ascii=False)
+                with open(_ts_path, "w", encoding="utf-8") as _f:
+                    _f.write(_report_json)
+                with open(_latest_path, "w", encoding="utf-8") as _f:
+                    _f.write(_report_json)
+                # Also write a flat CSV for easy spreadsheet review.
+                _csv_path = os.path.join(_report_dir, "unmatched_latest.csv")
+                with open(_csv_path, "w", newline="", encoding="utf-8") as _cf:
+                    _w = csv.DictWriter(_cf, fieldnames=[
+                        "name", "canonical_name", "position", "team",
+                        "source", "reason", "search_query",
+                        "autocomplete_enabled", "run_ts",
+                    ])
+                    _w.writeheader()
+                    for _rec in _unfound_records:
+                        _w.writerow({k: _rec.get(k, "") for k in _w.fieldnames})
+                unmatched_only = [r for r in _unfound_records if r["reason"] != "not_in_queue"]
+                print(
+                    f"  [IDPTradeCalc] Unmatched report: {len(unmatched_only)} unmatched "
+                    f"({len([r for r in unmatched_only if r['reason']=='no_match'])} no_match, "
+                    f"{len([r for r in unmatched_only if r['reason']=='search_error'])} search_error, "
+                    f"{len([r for r in unmatched_only if r['reason']=='box_unavailable'])} box_unavailable, "
+                    f"{len([r for r in unmatched_only if r['reason']=='page_load_failed'])} page_load_failed)"
+                )
+                print(f"  [IDPTradeCalc] Report saved → {_latest_path}")
+            except Exception as _re:
+                print(f"  [IDPTradeCalc] Failed to write unmatched report: {_re}")
 
             try:
                 clear_btn = await page.query_selector("text=Clear")
