@@ -42,61 +42,20 @@
     const tbody = document.getElementById('rookieBody');
     if (!tbody) return;
 
-    const sortBasis = getRankingsSortBasis();
-    const showAdjCols = showRankingsLAMColumns();
-    const modeLabel = (
-      sortBasis === 'raw' ? 'Raw Market' :
-      sortBasis === 'scoring' ? 'Scoring Adjusted' :
-      sortBasis === 'scarcity' ? 'Scarcity Adjusted' :
-      'Our Value'
-    );
-    const lines = showAdjCols
-      ? ['Rank\tPlayer\tPos\tValue\tRaw\tScoring Mult\tAdjusted\tDelta']
-      : [`Rank\tPlayer\tPos\t${modeLabel}`];
-
+    // KTC-only mode: simplified 4-column copy (Our Rank, Player Name, Player Position, Our Value)
+    const lines = ['Our Rank\tPlayer Name\tPlayer Position\tOur Value'];
     let rank = 0;
     tbody.querySelectorAll('tr').forEach(row => {
       if (row.style.display === 'none' || row.classList.contains('tier-separator')) return;
       const cells = row.querySelectorAll('td');
       if (cells.length < 4) return;
       rank++;
+      const ktcRank = (row.dataset.ktcRank || row.dataset.overallModelRank || String(rank)).trim();
       const name = (cells[1]?.textContent || '').trim();
       const pos = (cells[2]?.textContent || '').trim();
+      const value = Number(row.dataset.ourValue || row.dataset.sortValue || 0);
       if (!name) return;
-
-      const raw = Number(row.dataset.rawComposite || 0);
-      const scoring = Number(row.dataset.scoringComposite || raw);
-      const adjusted = Number(row.dataset.adjustedComposite || 0);
-      const value = Number(
-        row.dataset.sortValue ||
-        (
-          sortBasis === 'raw' ? raw :
-          sortBasis === 'scoring' ? scoring :
-          sortBasis === 'scarcity' ? Number(row.dataset.scarcityComposite || scoring) :
-          adjusted
-        ) ||
-        0
-      );
-
-      if (!showAdjCols) {
-        lines.push(`${rank}\t${name}\t${pos}\t${Math.round(value)}`);
-        return;
-      }
-
-      let scoringDebug = null;
-      try { scoringDebug = JSON.parse(row.dataset.lamDebug || '{}'); } catch(_) { scoringDebug = null; }
-      const scoringMult = Number(scoringDebug?.effectiveMultiplier ?? 1);
-      const delta = Math.round(adjusted - raw);
-      lines.push([
-        rank,
-        name,
-        pos,
-        Math.round(value),
-        Math.round(raw),
-        scoringMult.toFixed(3),
-        Math.round(adjusted),
-        delta,
-      ].join('\t'));
+      lines.push(`${ktcRank}\t${name}\t${pos}\t${Math.round(value)}`);
     });
 
     const text = lines.join('\n');
@@ -425,6 +384,17 @@
     }
   }
 
+  // ── KTC-ONLY RANKINGS ──────────────────────────────────────────────────────
+  // Rank-to-value curve (mirrors src/canonical/player_valuation.py constants).
+  // A=10000, B=1.5, C=0.72, cliff_base=120. Anchored so rank-1 maps to 9999.
+  const _CURVE_A = 10000, _CURVE_B = 1.5, _CURVE_C = 0.72, _CLIFF_BASE = 120;
+  const _DISPLAY_ANCHOR = _CURVE_A / Math.pow(1 + _CURVE_B, _CURVE_C) + _CLIFF_BASE;
+  function _rankToValue(rank) {
+    if (!rank || rank <= 0) return 0;
+    const base = _CURVE_A / Math.pow(rank + _CURVE_B, _CURVE_C);
+    return Math.max(1, Math.min(9999, Math.round((base / _DISPLAY_ANCHOR) * 9999)));
+  }
+
   function buildFullRankings() {
     const tbody = document.getElementById('rookieBody');
     if (!tbody) return;
@@ -432,7 +402,7 @@
     buildRisingFallingSection();
 
     if (!loadedData || !loadedData.players) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--subtext);padding:24px;">Refresh values first to see rankings</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--subtext);padding:24px;">Refresh values first to see rankings</td></tr>';
       const mobileList = document.getElementById('rankingsMobileList');
       if (mobileList) {
         mobileList.innerHTML = '<div class="mobile-row-card"><div class="mobile-row-name">Update values first to see rankings.</div></div>';
@@ -441,14 +411,13 @@
       return;
     }
 
-    const cfg = getSiteConfig().filter(s => s.include);
     const hdr = document.getElementById('rookieHeader');
     const dataMode = getRankingsDataMode();
     const dataModeLabel = RANKINGS_DATA_MODE_LABELS[dataMode] || 'Dynasty';
     const titleEl = document.getElementById('rankingsTitle');
     if (titleEl) titleEl.textContent = `${dataModeLabel} Rankings`;
     if (dataMode !== 'dynasty') {
-      hdr.innerHTML = '<th style="width:40px">#</th><th>Player</th><th>Pos</th><th>Value</th>';
+      hdr.innerHTML = '<th style="width:40px">Our Rank</th><th>Player Name</th><th>Player Position</th><th>Our Value</th>';
       tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--subtext);padding:24px;">${dataModeLabel} mode is isolated from dynasty values. Load a dedicated ${dataModeLabel} dataset to enable these rankings.</td></tr>`;
       const mobileList = document.getElementById('rankingsMobileList');
       if (mobileList) {
@@ -458,38 +427,22 @@
       return;
     }
 
-    const sortArrow = rankingsSortAsc ? '\u2191' : '\u2193';
-    const sortBasis = getRankingsSortBasis();
-    const showAdjCols = showRankingsLAMColumns();
-    const showSourceCols = showRankingsSourceColumns();
-    const valueColLabel = (
-      sortBasis === 'raw' ? 'Raw' :
-      sortBasis === 'scoring' ? 'Scoring' :
-      sortBasis === 'scarcity' ? 'Scarcity' :
-      'Our Value'
-    );
-    hdr.innerHTML = '<th style="width:40px" title="Row number in current view">#</th><th style="width:60px" title="Decimal consensus rank aggregated from per-source ranks (stable across filters)">Our Rank</th><th title="Player or pick name">Player</th><th title="Position">Pos</th>' +
-      `<th style="min-width:85px;cursor:pointer;" title="Click to change sort mode" onclick="toggleRankingsSort()">${valueColLabel} ${sortArrow}</th>` +
-      (showAdjCols ? `
-        <th style="min-width:78px;" title="Raw market value before scoring and scarcity adjustments">Raw Market</th>
-        <th style="min-width:88px;" title="How much your league's scoring format changes this player's value (1.00 = no change)">Scoring Adj</th>
-        <th style="min-width:90px;" title="Final value after all league adjustments">Final Value</th>
-        <th style="min-width:70px;" title="How much league adjustments changed the value (Final minus Raw)">Change</th>
-      ` : '') +
-      (showSourceCols ? cfg.map(s => {
-        const site = sites.find(x => x.key === s.key);
-        const label = site ? site.label : s.key;
-        return `<th style="font-size:0.62rem;" title="Value from ${label}">${label}</th>`;
-      }).join('') : '') +
-      '<th title="Number of sources with data for this player (more sources = higher confidence)">Sources</th>';
+    // ── KTC-ONLY RANKINGS ──────────────────────────────────────────────
+    // Data source: KTC value (pdata.ktc) used to derive ordinal KTC rank.
+    // Only players with a valid KTC value AND a resolved, non-? position
+    // are eligible. No multi-source consensus blending, no fallback rank
+    // from value sort, no junk rows from other sources.
+    hdr.innerHTML =
+      '<th style="width:52px;text-align:center;" title="KTC-derived rank — 1 is best">Our Rank</th>' +
+      '<th title="Player name">Player Name</th>' +
+      '<th title="Resolved player position">Player Position</th>' +
+      '<th style="min-width:90px;" title="Our formula value derived from KTC rank (A=10000, B=1.5, C=0.72)">Our Value</th>';
 
     const posMap = loadedData.sleeper?.positions || {};
-    const canonicalCtx = getCanonicalValueContext();
     const search = (document.getElementById('rankingsSearch')?.value || '').trim().toLowerCase();
     const rookieOnly = document.getElementById('rankingsRookieToggle')?.checked;
     const myRosterOnly = document.getElementById('rankingsMyRosterToggle')?.checked;
 
-    // Get my team roster — check dropdown first, then localStorage
     let myTeamName = document.getElementById('rosterMyTeam')?.value || '';
     if (!myTeamName) myTeamName = localStorage.getItem('dynasty_my_team') || '';
     const myRosterSet = new Set();
@@ -497,108 +450,61 @@
       const myTeam = sleeperTeams.find(t => t.name === myTeamName);
       if (myTeam) myTeam.players.forEach(p => myRosterSet.add(p.toLowerCase()));
     }
-    // If checkbox is on but no team selected and no roster found, show hint
     if (myRosterOnly && myRosterSet.size === 0) {
-      const body = document.getElementById('rookieBody');
-      if (body) body.innerHTML = '<tr><td colspan="20" style="text-align:center;padding:30px;color:var(--subtext);">Select your team in the Rosters tab first, then check "My roster only".</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:30px;color:var(--subtext);">Select your team in the Rosters tab first, then check "My roster only".</td></tr>';
       return;
     }
 
-    // Build once + reuse: heavy per-player canonicalization/adjustment stays cached
-    // unless data/settings/source-config changed.
-    const baseRows = getOrBuildRankingsBaseRows(cfg, canonicalCtx, posMap);
-
-    // ── Compute consensus rank from per-site values ────────────────────
-    // For each source site, convert values to ordinal ranks within that
-    // site, then aggregate via 70% median + 30% weighted mean.
-    // This produces a decimal consensus rank (e.g. 15.7) that is the
-    // primary ranking truth — NOT derived from value sorting.
-    const _SITE_WEIGHTS = {
-      ktc: 1.3, fantasyCalc: 1.0, dynastyDaddy: 1.0,
-      draftSharks: 0.9, fantasyPros: 0.8, yahoo: 0.8,
-      dynastyNerds: 0.8, idpTradeCalc: 1.0, flock: 0.8,
-      dlfSf: 0.8, dlfIdp: 0.8, dlfRsf: 0.7, dlfRidp: 0.7,
-      pffIdp: 0.7, fantasyProsIdp: 0.7, draftSharksIdp: 0.7,
-    };
-    // Rank-to-value curve (mirrors src/canonical/player_valuation.py)
-    const _CURVE_A = 10000, _CURVE_B = 1.5, _CURVE_C = 0.72, _CLIFF_BASE = 120;
-    const _DISPLAY_ANCHOR = _CURVE_A / Math.pow(1 + _CURVE_B, _CURVE_C) + _CLIFF_BASE;
-    function _rankToValue(rank) {
-      if (!rank || rank <= 0) return 0;
-      const base = _CURVE_A / Math.pow(rank + _CURVE_B, _CURVE_C);
-      return Math.max(1, Math.min(9999, Math.round((base / _DISPLAY_ANCHOR) * 9999)));
-    }
-    function _formatRank(rank) {
-      if (rank == null || !isFinite(rank)) return '—';
-      return rank % 1 !== 0 ? rank.toFixed(1) : String(Math.round(rank));
+    // ── Step 1: Build KTC-ranked player list (top 500, players only) ───
+    // Hard eligibility rules — a player must pass ALL of these to appear:
+    //   1. Not a pick token
+    //   2. Has a valid positive KTC value (pdata.ktc)
+    //   3. Has a resolved, non-empty, non-"?" position
+    //   4. Not a kicker
+    const KTC_LIMIT = 500;
+    const ktcRows = [];
+    for (const [name, pdata] of Object.entries(loadedData.players)) {
+      if (parsePickToken(name)) continue;
+      const ktcVal = Number(pdata?.ktc);
+      if (!isFinite(ktcVal) || ktcVal <= 0) continue;
+      let pos = (posMap[name] || '').toUpperCase();
+      if (!pos) pos = (getRookiePosHint(name) || '').toUpperCase();
+      // Hard guard: exclude unresolved / unknown positions
+      if (!pos || pos === '?' || pos === 'UNKNOWN') continue;
+      if (isKickerPosition(pos)) continue;
+      ktcRows.push({ name, pos, ktcVal, isRookie: isRookiePlayerName(name, pdata), pdata });
     }
 
-    // Step 1: collect site counts
-    const _siteCounts = {};
-    for (const r of baseRows) {
-      const sites = r.pData || {};
-      for (const [key, val] of Object.entries(sites)) {
-        if (key === '__canonical') continue;
-        if (isFinite(val) && val > 0) _siteCounts[key] = (_siteCounts[key] || 0) + 1;
-      }
-    }
-    const _activeSites = Object.keys(_siteCounts).filter(k => _siteCounts[k] >= 20);
+    // Sort descending by KTC value — highest value = rank 1
+    ktcRows.sort((a, b) => b.ktcVal - a.ktcVal);
 
-    // Step 2: per-site ordinal ranks
-    const _siteRanks = {};
-    for (const site of _activeSites) {
-      const withVal = baseRows
-        .filter(r => { const v = Number(r.pData?.[site]); return isFinite(v) && v > 0; })
-        .sort((a, b) => Number(b.pData[site]) - Number(a.pData[site]));
-      const rm = new Map();
-      withVal.forEach((r, i) => rm.set(r.name, i + 1));
-      _siteRanks[site] = rm;
-    }
-
-    // Step 3: consensus rank per player
-    const modelRankMap = new Map();
-    for (const r of baseRows) {
-      const ranks = [], weights = [];
-      for (const site of _activeSites) {
-        const rank = _siteRanks[site]?.get(r.name);
-        if (rank != null) { ranks.push(rank); weights.push(_SITE_WEIGHTS[site] || 0.8); }
-      }
-      if (ranks.length < 1) continue;
-      let wSum = 0, wTotal = 0;
-      for (let i = 0; i < ranks.length; i++) { wSum += ranks[i] * weights[i]; wTotal += weights[i]; }
-      const wMean = wSum / wTotal;
-      const sorted = [...ranks].sort((a, b) => a - b);
-      const mid = Math.floor(sorted.length / 2);
-      const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
-      const consensus = Math.round((0.7 * median + 0.3 * wMean) * 10) / 10;
-      modelRankMap.set(r.name, consensus);
-    }
-    // Fallback for players without enough site data: assign integer rank by value
-    const _valSorted = [...baseRows].sort((a, b) => b.adjustedComposite - a.adjustedComposite);
-    _valSorted.forEach((r, i) => { if (!modelRankMap.has(r.name)) modelRankMap.set(r.name, i + 1); });
-
-    let ranked = baseRows.map(r => ({
-      ...r,
-      sortValue: getValueByRankingMode(r.adjustment, sortBasis),
-      overallModelRank: modelRankMap.get(r.name) || 0,
-      rankDerivedValue: _rankToValue(modelRankMap.get(r.name) || 0),
+    // Assign KTC rank (1-based) and compute Our Value from rank curve
+    let ranked = ktcRows.slice(0, KTC_LIMIT).map((r, i) => ({
+      name: r.name,
+      pos: r.pos,
+      ktcRank: i + 1,
+      ourValue: _rankToValue(i + 1),
+      isRookie: r.isRookie,
+      pdata: r.pdata,
+      // Compatibility fields for mobile cards and copy function
+      sortValue: _rankToValue(i + 1),
+      overallModelRank: i + 1,
     }));
-    ranked = dedupeRankingsRowsByName(ranked);
-    ranked.sort((a, b) => rankingsSortAsc ? a.sortValue - b.sortValue : b.sortValue - a.sortValue);
 
-    // Apply filters before display capping so focused views (like rookies-only)
-    // are not truncated by the global top-N list.
+    // ── Step 2: Apply filters ──────────────────────────────────────────
     if (currentRankingsFilter !== 'ALL') {
       if (currentRankingsFilter === 'OFF') {
         ranked = ranked.filter(r => OFFENSE_POSITIONS.has(r.pos));
       } else if (currentRankingsFilter === 'IDP') {
         ranked = ranked.filter(r => IDP_POSITIONS.has(r.pos));
       } else if (currentRankingsFilter === 'PICKS') {
-        ranked = ranked.filter(r => r.pos === 'PICK');
+        ranked = []; // No picks in KTC-only player rankings
       } else {
-        ranked = ranked.filter(r => r.pos === currentRankingsFilter ||
+        ranked = ranked.filter(r =>
+          r.pos === currentRankingsFilter ||
           (currentRankingsFilter === 'DL' && ['DL','DE','DT','EDGE'].includes(r.pos)) ||
-          (currentRankingsFilter === 'DB' && ['DB','CB','S'].includes(r.pos)));
+          (currentRankingsFilter === 'DB' && ['DB','CB','S'].includes(r.pos))
+        );
       }
     }
     if (rookieOnly) ranked = ranked.filter(r => r.isRookie);
@@ -608,173 +514,63 @@
     const useExtraMobileFilters = isMobileViewport();
     if (useExtraMobileFilters) {
       if (rankingsExtraFilters.picksOnly) {
-        ranked = ranked.filter(r => r.pos === 'PICK');
+        ranked = []; // No picks in KTC-only player rankings
       }
       if (rankingsExtraFilters.trendingOnly) {
         ranked = ranked.filter(r => Math.abs((window.playerTrends && window.playerTrends[r.name]) || 0) >= 2);
       }
       if (rankingsExtraFilters.ageBucket && rankingsExtraFilters.ageBucket !== 'ALL') {
         ranked = ranked.filter(r => {
-          const pdata = loadedData?.players?.[r.name] || {};
-          return getPlayerAgeBucket(r.name, pdata) === rankingsExtraFilters.ageBucket;
+          const pd = loadedData?.players?.[r.name] || {};
+          return getPlayerAgeBucket(r.name, pd) === rankingsExtraFilters.ageBucket;
         });
       }
     }
     if (search) ranked = ranked.filter(r => r.name.toLowerCase().includes(search));
 
-    const shouldApplyDisplayCap = (
-      currentRankingsFilter === 'ALL'
-      && !rookieOnly
-      && !myRosterOnly
-      && (!useExtraMobileFilters || !rankingsExtraFilters.picksOnly)
-      && (!useExtraMobileFilters || !rankingsExtraFilters.trendingOnly)
-      && (!useExtraMobileFilters || !rankingsExtraFilters.ageBucket || rankingsExtraFilters.ageBucket === 'ALL')
-      && !search
-    );
-    if (shouldApplyDisplayCap) {
-      const DISPLAY_MIN = 640;
-      const DISPLAY_CAP = 750;
-      const KTC_BASELINE_COUNT = 400;
-      const topKtcNames = getTopKtcBaselineNames(KTC_BASELINE_COUNT);
-      const rankedByName = new Map(ranked.map(r => [r.name, r]));
-      const displayRows = ranked.slice(0, Math.min(DISPLAY_MIN, ranked.length));
-      const displaySet = new Set(displayRows.map(r => r.name));
-      topKtcNames.forEach(name => {
-        if (displayRows.length >= DISPLAY_CAP) return;
-        if (!displaySet.has(name) && rankedByName.has(name)) {
-          displayRows.push(rankedByName.get(name));
-          displaySet.add(name);
-        }
-      });
-      ranked = displayRows
-        .sort((a, b) => rankingsSortAsc ? a.sortValue - b.sortValue : b.sortValue - a.sortValue)
-        .slice(0, DISPLAY_CAP);
-    }
-
-    // Safety guard: keep only one true canonical ceiling value in the active view.
-    ranked = enforceSingleCanonicalTop(ranked, sortBasis);
-
-    // Detect tier breaks using dynamic cliff detection on the active sort column.
+    // ── Step 3: Tier breaks and render ────────────────────────────────
     const tierBreaks = computeTierBreakIndexesFromOrderedValues(
-      ranked.map(r => Number(r?.sortValue))
+      ranked.map(r => Number(r.ourValue))
     );
     let tierNum = 1;
 
-    let displayRank = 0;
     ranked.forEach((r, idx) => {
       if (tierBreaks.has(idx)) {
         tierNum++;
         const sepTr = document.createElement('tr');
         sepTr.className = 'tier-separator';
-        const colSpan = (5 + (showAdjCols ? 4 : 0)) + (showSourceCols ? cfg.length : 0) + 1;
-        sepTr.innerHTML = `<td colspan="${colSpan}"><span class="tier-label">\u2500\u2500 Tier ${tierNum} \u2500\u2500</span></td>`;
+        sepTr.innerHTML = `<td colspan="4"><span class="tier-label">\u2500\u2500 Tier ${tierNum} \u2500\u2500</span></td>`;
         tbody.appendChild(sepTr);
       }
 
-      displayRank++;
       const tr = document.createElement('tr');
-      const maxDisplayValue = Math.max(1, ranked[0]?.sortValue || 1);
-      const barPct = Math.round((r.sortValue / maxDisplayValue) * 100);
-
-      const rookieBadge = r.isRookie ? '<span style="font-size:0.55rem;background:var(--amber);color:#000;padding:1px 4px;border-radius:3px;margin-left:4px;font-weight:700;">R</span>' : '';
       const posStyle = getPosStyle(r.pos);
-      const adjustment = r.adjustment || getPrecomputedAdjustmentBundle(r.sourceData, r.rawComposite, r.pos, r.name) || computeFinalAdjustedValue(r.rawComposite, r.pos, r.name);
-      const scoring = adjustment.scoring;
-      const scarcity = adjustment.scarcity;
+      const rookieBadge = r.isRookie
+        ? '<span style="font-size:0.55rem;background:var(--amber);color:#000;padding:1px 4px;border-radius:3px;margin-left:4px;font-weight:700;">R</span>'
+        : '';
+      const maxVal = Math.max(1, ranked[0]?.ourValue || 1);
+      const barPct = Math.round((r.ourValue / maxVal) * 100);
+      const escapedName = r.name.replace(/'/g, "\\'");
 
-      let cells = `
-        <td style="text-align:center;font-family:var(--mono);font-size:0.72rem;color:var(--subtext);">${displayRank}</td>
-        <td style="text-align:center;font-family:var(--mono);font-size:0.72rem;font-weight:700;color:var(--cyan);">${_formatRank(r.overallModelRank)}</td>
-        <td style="font-weight:600;font-size:0.8rem;"><a href="#" onclick="event.preventDefault();openPlayerPopup('${r.name.replace(/'/g,"\\'")}');return false;" style="color:var(--text);text-decoration:none;border-bottom:1px dotted var(--border);" onmouseover="this.style.color='var(--cyan)'" onmouseout="this.style.color='var(--text)'">${r.name}</a>${rookieBadge}</td>
-        <td><span class="ac-pos" style="${posStyle}">${r.pos || '?'}</span></td>
+      tr.innerHTML = `
+        <td style="text-align:center;font-family:var(--mono);font-size:0.82rem;font-weight:700;color:var(--cyan);">${r.ktcRank}</td>
+        <td style="font-weight:600;font-size:0.8rem;"><a href="#" onclick="event.preventDefault();openPlayerPopup('${escapedName}');return false;" style="color:var(--text);text-decoration:none;border-bottom:1px dotted var(--border);" onmouseover="this.style.color='var(--cyan)'" onmouseout="this.style.color='var(--text)'">${r.name}</a>${rookieBadge}</td>
+        <td><span class="ac-pos" style="${posStyle}">${r.pos}</span></td>
         <td style="font-family:var(--mono);font-weight:700;color:var(--cyan);position:relative;">
           <div style="position:absolute;left:0;top:0;bottom:0;width:${barPct}%;background:var(--cyan-soft);border-radius:3px;"></div>
-          <span style="position:relative;z-index:1;">${Math.round(r.sortValue).toLocaleString()}</span>
+          <span style="position:relative;z-index:1;">${r.ourValue.toLocaleString()}</span>
         </td>
       `;
-      if (showAdjCols) {
-        const diff = adjustment.valueDelta;
-        const diffColor = diff > 0 ? 'var(--green)' : diff < 0 ? 'var(--red)' : 'var(--subtext)';
-        const diffSign = diff > 0 ? '+' : '';
-        cells += `
-          <td style="font-family:var(--mono);text-align:right;">${Math.round(r.rawComposite).toLocaleString()}</td>
-          <td style="font-family:var(--mono);text-align:center;" title="raw ${Number(scoring.rawLeagueMultiplier || 1).toFixed(3)} · shrunk ${Number(scoring.shrunkLeagueMultiplier || 1).toFixed(3)} · strength ${Number(scoring.adjustmentStrength || 0).toFixed(2)}">${Number(scoring.effectiveMultiplier || 1).toFixed(3)}</td>
-          <td style="font-family:var(--mono);font-weight:700;text-align:right;color:var(--green);">${Math.round(r.adjustedComposite).toLocaleString()}</td>
-          <td style="font-family:var(--mono);text-align:right;color:${diffColor};">${diffSign}${diff.toLocaleString()}</td>
-        `;
-      }
-
-      if (showSourceCols) {
-        cfg.forEach(sc => {
-          const val = Number((r.pData || {})[sc.key]);
-          cells += `<td style="font-family:var(--mono);font-size:0.68rem;text-align:center;color:${val != null && Number.isFinite(val) ? 'var(--text)' : 'var(--border)'};">${val != null && Number.isFinite(val) ? Math.round(val).toLocaleString() : '\u2014'}</td>`;
-        });
-      }
-
-      const sc_ = Number(r.siteCount) || 0;
-      const scColor = sc_ >= 5 ? 'var(--green)' : sc_ >= 3 ? 'var(--text)' : sc_ >= 1 ? 'var(--amber)' : 'var(--subtext)';
-      const scTip = sc_ >= 5 ? 'Strong coverage' : sc_ >= 3 ? 'Good coverage' : sc_ >= 1 ? 'Limited coverage' : 'No sources';
-      cells += `<td style="text-align:center;font-family:var(--mono);font-size:0.72rem;color:${scColor};" title="${scTip}: ${sc_} source${sc_ !== 1 ? 's' : ''}">${sc_}</td>`;
-
-      tr.innerHTML = cells;
-      tr.dataset.overallModelRank = String(r.overallModelRank);
-      tr.dataset.rawComposite = String(Math.round(r.rawComposite));
-      tr.dataset.scoringComposite = String(Math.round(r.scoringComposite));
-      tr.dataset.scarcityComposite = String(Math.round(r.scarcityComposite));
-      tr.dataset.adjustedComposite = String(Math.round(r.adjustedComposite));
-      tr.dataset.sortValue = String(Math.round(r.sortValue));
-      tr.dataset.lamBucket = String(scoring.baselineBucket || '');
-      tr.dataset.lamDebug = JSON.stringify({
-        baselineBucket: scoring.baselineBucket,
-        rawCompositeValue: scoring.rawCompositeValue,
-        rawLeagueMultiplier: Number(scoring.rawLeagueMultiplier),
-        shrunkLeagueMultiplier: Number(scoring.shrunkLeagueMultiplier),
-        adjustmentStrength: Number(scoring.adjustmentStrength),
-        effectiveMultiplier: Number(scoring.effectiveMultiplier),
-        formatFitSource: scoring.formatFitSource || '',
-        formatFitConfidence: Number(scoring.formatFitConfidence ?? 0),
-        formatFitRaw: Number(scoring.formatFitRaw ?? 0),
-        formatFitShrunk: Number(scoring.formatFitShrunk ?? 0),
-        formatFitFinal: Number(scoring.formatFitFinal ?? 0),
-        formatFitPPGTest: Number(scoring.formatFitPPGTest ?? 0),
-        formatFitPPGCustom: Number(scoring.formatFitPPGCustom ?? 0),
-        formatFitProductionShare: Number(scoring.formatFitProductionShare ?? 0),
-        finalAdjustedValue: Number(adjustment.scoringAdjustedValue),
-        valueDelta: Number(adjustment.scoringAdjustedValue - adjustment.rawMarketValue),
-      });
-      tr.dataset.scarcityDebug = JSON.stringify({
-        scarcityBucket: scarcity.scarcityBucket,
-        scarcityMultiplierRaw: Number(scarcity.scarcityMultiplierRaw),
-        scarcityMultiplierEffective: Number(scarcity.scarcityMultiplierEffective),
-        scarcityStrength: Number(scarcity.scarcityStrength),
-        replacementRank: Number(scarcity.replacementRank),
-        replacementValue: Number(scarcity.replacementValue),
-        valueAboveReplacement: Number(scarcity.valueAboveReplacement),
-        finalScarcityAdjustedValue: Number(adjustment.scarcityAdjustedValue),
-        scarcityDelta: Number(adjustment.scarcityAdjustedValue - adjustment.rawMarketValue),
-      });
-      tr.dataset.adjustmentDebug = JSON.stringify({
-        rawMarketValue: Number(adjustment.rawMarketValue),
-        marketReliabilityScore: Number(adjustment.marketReliability?.score ?? 0),
-        marketReliabilityLabel: String(adjustment.marketReliability?.label || ''),
-        scoringMultiplierEffective: Number(scoring.effectiveMultiplier),
-        scoringAdjustedValue: Number(adjustment.scoringAdjustedValue),
-        scarcityAdjustedValue: Number(adjustment.scarcityAdjustedValue),
-        guardrailMin: Number(adjustment.topEndGuardrail?.minValue ?? 0),
-        guardrailMax: Number(adjustment.topEndGuardrail?.maxValue ?? 0),
-        guardrailApplied: !!adjustment.topEndGuardrail?.applied,
-        finalAdjustedValue: Number(adjustment.finalAdjustedValue),
-        valueDelta: Number(adjustment.valueDelta),
-      });
+      tr.dataset.overallModelRank = String(r.ktcRank);
+      tr.dataset.ktcRank = String(r.ktcRank);
+      tr.dataset.ourValue = String(r.ourValue);
+      tr.dataset.sortValue = String(r.ourValue);
       tbody.appendChild(tr);
     });
 
     const total = ranked.length;
-    const offCount = ranked.filter(r => OFFENSE_POSITIONS.has(r.pos)).length;
-    const idpCount = ranked.filter(r => IDP_POSITIONS.has(r.pos)).length;
-    const rookieCount = ranked.filter(r => r.isRookie).length;
     const title = document.getElementById('rankingsTitle');
-    if (title) title.textContent = `${dataModeLabel} Rankings \u2014 ${total} players (${offCount} OFF, ${idpCount} IDP, ${rookieCount} rookies) · sort=${sortBasis}`;
+    if (title) title.textContent = `${dataModeLabel} Rankings \u2014 ${total} players \u00b7 KTC-only top ${KTC_LIMIT}`;
     renderRankingsMobileCards(ranked);
     updateRankingsActiveChips();
   }
@@ -912,40 +708,21 @@
     const quickSide = getRankingsQuickTradeSide();
     const cards = top.map((r, idx) => {
       const name = r.name;
+      // pos is always resolved (unresolved rows are excluded upstream)
       const pos = r.pos || '?';
-      const val = Math.round(r.sortValue || 0);
+      // ourValue is the rank-curve value; sortValue is kept as alias
+      const val = Math.round(r.ourValue || r.sortValue || 0);
+      const ktcRank = r.ktcRank || r.overallModelRank || (idx + 1);
       const trend = (window.playerTrends && window.playerTrends[name]) || 0;
       const trendText = trend ? `${trend > 0 ? '+' : ''}${trend.toFixed(1)}%` : '—';
-      const pill = getFreshnessPillForAsset(name, r.sourceData || (loadedData?.players?.[name] || {}));
+      const pill = getFreshnessPillForAsset(name, r.pdata || r.sourceData || (loadedData?.players?.[name] || {}));
       const escaped = String(name).replace(/'/g, "\\'");
-      const rankLabel = `#${idx + 1}`;
-      const modelRankLabel = r.overallModelRank ? `Our Rank ${_formatRank(r.overallModelRank)}` : '';
-      let sourceBlock = '';
-      if (showSourceCols) {
-        const sourceCells = sourceCfg.map(sc => {
-          const raw = Number((r.pData || {})[sc.key]);
-          const hasVal = Number.isFinite(raw) && raw > 0;
-          const label = sourceLabelMap.get(sc.key) || sc.key;
-          const value = hasVal ? Math.round(raw).toLocaleString() : '—';
-          return `
-            <div class="mobile-rank-source-cell">
-              <span class="mobile-rank-source-label">${label}</span>
-              <span class="mobile-rank-source-value ${hasVal ? '' : 'empty'}">${value}</span>
-            </div>
-          `;
-        }).join('');
-        sourceBlock = `
-          <div class="mobile-rank-sources">
-            <div class="mobile-rank-source-grid">${sourceCells}</div>
-          </div>
-        `;
-      }
       return `
         <div class="mobile-row-card">
           <div class="mobile-row-head">
             <div>
               <div class="mobile-row-name">${name}</div>
-              <div class="mobile-row-sub">${rankLabel}${modelRankLabel ? ` · ${modelRankLabel}` : ''} · ${pos} · trend ${trendText}</div>
+              <div class="mobile-row-sub">Our Rank ${ktcRank} · ${pos} · trend ${trendText}</div>
             </div>
             <div class="mobile-row-value">${val > 0 ? val.toLocaleString() : '—'}</div>
           </div>
@@ -954,7 +731,6 @@
             <button class="mobile-chip-btn primary" onclick="addAssetToTrade('${quickSide}','${escaped}')">+${quickSide}</button>
             <button class="mobile-chip-btn" onclick="openPlayerPopup('${escaped}')">Open</button>
           </div>
-          ${sourceBlock}
         </div>
       `;
     }).join('');
