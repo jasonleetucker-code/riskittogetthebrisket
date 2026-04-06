@@ -11567,17 +11567,40 @@ async def run(progress_callback=None):
                     pass
 
         # Export raw per-site maps to CSV for easier external sharing/audit.
+        _IDPTC_RANK_CAP = 700  # top N players to include as ordinal ranks
         _fresh_site_raw: set[str] = set()
         for scraper_name, full_map in FULL_DATA.items():
             dash_key = site_key_map.get(scraper_name, scraper_name)
             out_csv = os.path.join(site_raw_dir, f"{dash_key}.csv")
             try:
-                with open(out_csv, "w", newline="", encoding="utf-8") as f:
-                    w = csv.writer(f)
-                    w.writerow(["name", "value"])
-                    for n, v in sorted(full_map.items(), key=lambda x: x[0].lower()):
-                        w.writerow([n, v])
-                _fresh_site_raw.add(f"{dash_key}.csv")
+                if scraper_name == "IDPTradeCalc":
+                    # Convert raw trade values → ordinal ranks so the canonical
+                    # pipeline treats this as a rank source (not a value blend).
+                    # Sort: descending value, alphabetical tie-break (deterministic).
+                    # Cap at top _IDPTC_RANK_CAP players.
+                    ranked_items = sorted(
+                        full_map.items(),
+                        key=lambda x: (-float(x[1]) if x[1] is not None else float("inf"), x[0].lower()),
+                    )[:_IDPTC_RANK_CAP]
+                    idptc_matched = len(ranked_items)
+                    with open(out_csv, "w", newline="", encoding="utf-8") as f:
+                        w = csv.writer(f)
+                        w.writerow(["name", "rank"])
+                        for rank_idx, (n, _v) in enumerate(ranked_items, start=1):
+                            w.writerow([n, rank_idx])
+                    _fresh_site_raw.add(f"{dash_key}.csv")
+                    total_scraped = len(full_map)
+                    print(
+                        f"  [IDPTradeCalc] Exported {idptc_matched} ordinal ranks "
+                        f"(of {total_scraped} scraped) to {dash_key}.csv"
+                    )
+                else:
+                    with open(out_csv, "w", newline="", encoding="utf-8") as f:
+                        w = csv.writer(f)
+                        w.writerow(["name", "value"])
+                        for n, v in sorted(full_map.items(), key=lambda x: x[0].lower()):
+                            w.writerow([n, v])
+                    _fresh_site_raw.add(f"{dash_key}.csv")
             except Exception:
                 continue
 

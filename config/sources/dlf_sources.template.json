@@ -257,8 +257,8 @@
       "includes_sf": true,
       "includes_tep": true,
       "file": "exports/latest/site_raw/idpTradeCalc.csv",
-      "signal_type": "value",
-      "notes": "IDPTradeCalc values. In legacy scraper _tep_sites — TEP natively included for offensive players in this source."
+      "signal_type": "rank",
+      "notes": "IDPTradeCalc ordinal ranks (top 700, derived from raw trade values; highest value = rank 1). TEP+SF natively included."
     },
     {
       "enabled": true,

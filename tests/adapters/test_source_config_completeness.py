@@ -27,7 +27,7 @@ EXPECTED_SCRAPER_EXPORTS = {
     "fantasyProsIdp.csv",
 }
 
-RANK_BASED_EXPORTS = {"draftSharks.csv", "draftSharksIdp.csv", "dynastyNerds.csv", "pffIdp.csv", "fantasyProsIdp.csv"}
+RANK_BASED_EXPORTS = {"draftSharks.csv", "draftSharksIdp.csv", "dynastyNerds.csv", "pffIdp.csv", "fantasyProsIdp.csv", "idpTradeCalc.csv"}
 
 
 @pytest.fixture
