@@ -200,6 +200,15 @@ def main():
         mod.SITES[k] = False
     print(f"[rebuild] All SITES disabled (no live scraping): {list(mod.SITES.keys())}")
 
+    # ── Clear stale Sleeper positions so run() resolves them fresh ─────────────
+    # The existing SLEEPER_ROSTER_DATA["positions"] may have wrong positions from
+    # a previous partial run (e.g. "Josh Allen" → "G" instead of "QB").  Clearing
+    # it forces _resolve_sleeper_identity() to pick the best candidate from
+    # SLEEPER_ALL_NFL using search_rank, which correctly prefers the QB.
+    if isinstance(mod.SLEEPER_ROSTER_DATA.get("positions"), dict):
+        mod.SLEEPER_ROSTER_DATA["positions"].clear()
+        print("[rebuild] Cleared stale SLEEPER_ROSTER_DATA['positions'] — will resolve fresh")
+
     # ── Apply chromium patch (needed even with no scraping, for Playwright init) ─
     _patch_chromium_launch(mod)
 

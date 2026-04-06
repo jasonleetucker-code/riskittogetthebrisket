@@ -110,10 +110,10 @@ export default function RankingsPage() {
                     <td style={{ fontWeight: 600 }}>{row.name}</td>
                     <td><span className="badge">{row.pos}</span></td>
                     <td style={{ fontFamily: "var(--mono, monospace)", fontSize: "0.78rem", color: "var(--subtext)" }}>
-                      {row.raw?.ktc || '—'}
+                      {row.canonicalSites?.ktc ?? row.raw?.ktc ?? '—'}
                     </td>
                     <td style={{ fontFamily: "var(--mono, monospace)", fontSize: "0.78rem", color: "var(--subtext)" }}>
-                      {row.raw?.idpTradeCalc || '—'}
+                      {row.canonicalSites?.idpTradeCalc ?? row.raw?.idpTradeCalc ?? '—'}
                     </td>
                     <td style={{ fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)" }}>
                       {Math.round(row.rankDerivedValue || row.values.full).toLocaleString()}

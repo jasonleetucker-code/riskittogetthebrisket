@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-06T15:27:13.831577",
+  "generatedAt": "2026-04-06T15:45:01.311325",
   "date": "2026-04-06",
   "files": [
     "dlf_idp.csv",
@@ -14,10 +14,6 @@
   ],
   "siteRawCount": 15,
   "siteRawFresh": [
-    "idpTradeCalc.csv",
-    "ktc.csv"
-  ],
-  "siteRawPreserved": [
     "dlfIdp.csv",
     "dlfRidp.csv",
     "dlfRsf.csv",
@@ -29,7 +25,10 @@
     "fantasyCalc.csv",
     "fantasyPros.csv",
     "fantasyProsIdp.csv",
+    "idpTradeCalc.csv",
+    "ktc.csv",
     "pffIdp.csv",
     "yahoo.csv"
-  ]
+  ],
+  "siteRawPreserved": []
 }

@@ -939,7 +939,17 @@ def fetch_sleeper_rosters(league_id):
                 if pos and cn:
                     # Multi-positional IDP rule: prefer non-LB for dual-position players
                     # Sleeper stores a single position; we override known edge cases
-                    position_map[cn] = pos
+                    # Collision rule: prefer offensive skill positions (QB/RB/WR/TE) over
+                    # non-skill positions (OL, G, T, etc.) so that e.g. Josh Allen QB
+                    # always beats Josh Allen G when both are rostered in the league.
+                    _SKILL_POSITIONS = {"QB", "RB", "WR", "TE"}
+                    old_pos = position_map.get(cn, "")
+                    if (
+                        not old_pos
+                        or pos in _SKILL_POSITIONS
+                        or (old_pos not in _SKILL_POSITIONS and pos in {"LB", "DL", "DE", "DT", "CB", "S", "DB"})
+                    ):
+                        position_map[cn] = pos
 
         teams.append({
             "name": team_name,
@@ -9011,7 +9021,12 @@ async def run(progress_callback=None):
             score += 1000.0
         if cand.get("team"):
             score += 20.0
-        score += cand.get("search_rank", 0.0) * 0.01
+        # Sleeper uses 9999999 as a sentinel for unranked / inactive players.
+        # Treat any search_rank ≥ 9_000_000 as 0 so it does not overwhelm the
+        # active-player bonus and cause name collisions (e.g. G Josh Allen beating
+        # QB Josh Allen because the guard is listed as search_rank=9999999).
+        raw_sr = float(cand.get("search_rank", 0.0) or 0.0)
+        score += (raw_sr if raw_sr < 9_000_000 else 0.0) * 0.01
         score += cand.get("years_exp", 0) * 2.0
         if preferred_pos:
             if _pos_family(cand.get("pos")) == _pos_family(preferred_pos):
