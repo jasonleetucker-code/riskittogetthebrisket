@@ -1,0 +1,19 @@
+{
+  "source": "DLF_RIDP",
+  "snapshot_id": "dlf_ridp_2026_20260406T210815Z",
+  "pulled_at_utc": "2026-04-06T21:08:15.453563+00:00",
+  "season": "2026",
+  "scoring_context": "rookie idp",
+  "universe": "idp_rookie",
+  "ingest_method": "manual_csv",
+  "ingest_type": "manual_csv",
+  "source_url": "https://dynastyleaguefootball.com/dynasty-rookie-idp-rankings/",
+  "format_key": "dynasty_idp",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/dlf_rookie_idp.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/dlf_ridp/2026/dlf_ridp_2026_20260406T210815Z",
+  "record_count": 30,
+  "hash": "c6dab0bf71b1aaf60fd2eaf5941045476d76d4c9383dabb92eef5f406e5af8cc",
+  "notes": "DLF Rookie IDP rankings. IDP-only, SF/TEP not applicable.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
