@@ -1,3 +1,18 @@
+// ── RANKINGS SINGLE SOURCE OF TRUTH ──────────────────────────────────────────
+// This file (frontend/lib/dynasty-data.js) is the canonical home for:
+//   • rankToValue()     — Hill-style rank-to-value formula
+//   • computeKtcRanks() — KTC-only rank assignment (top 500, integer ranks)
+//   • KTC_RANK_LIMIT    — hard cap (500)
+//
+// The Static legacy frontend has a parallel implementation in:
+//   Static/js/runtime/10-rankings-and-picks.js (_rankToValue, KTC_LIMIT, buildFullRankings)
+//
+// !! When changing ranking logic, formula constants, or eligibility rules !!
+// !! you MUST update BOTH files and BOTH test suites to stay in sync.     !!
+//   • JS tests:     frontend/__tests__/dynasty-data.test.js
+//   • Python tests: tests/api/test_rankings_our_rank.py (cross-checks both files)
+// ─────────────────────────────────────────────────────────────────────────────
+
 const OFFENSE = new Set(["QB", "RB", "WR", "TE"]);
 const IDP = new Set(["DL", "DE", "DT", "LB", "DB", "CB", "S", "EDGE"]);
 
@@ -37,16 +52,6 @@ export function getSiteKeys(data) {
   const sites = Array.isArray(data?.sites) ? data.sites : [];
   return sites.map((s) => String(s?.key || "")).filter(Boolean);
 }
-
-// Site weights for consensus rank (mirrors scraper SITE_WEIGHTS).
-// Kept for reference; not used in KTC-only rankings mode.
-const _LEGACY_SITE_WEIGHTS = {
-  ktc: 1.3, fantasyCalc: 1.0, dynastyDaddy: 1.0,
-  draftSharks: 0.9, fantasyPros: 0.8, yahoo: 0.8,
-  dynastyNerds: 0.8, idpTradeCalc: 1.0, flock: 0.8,
-  dlfSf: 0.8, dlfIdp: 0.8, dlfRsf: 0.7, dlfRidp: 0.7,
-  pffIdp: 0.7, fantasyProsIdp: 0.7, draftSharksIdp: 0.7,
-};
 
 // ── Rank-to-value curve ───────────────────────────────────────────────
 // Hill-style formula: rank 1 always = 9999.

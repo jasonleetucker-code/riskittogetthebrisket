@@ -2,6 +2,21 @@
  * Runtime Module: 10-rankings-and-picks.js
  * Rankings pipeline and pick normalization/value helpers.
  * Extracted from legacy monolithic inline runtime to keep live behavior intact.
+ *
+ * ── RANKINGS SINGLE SOURCE OF TRUTH ────────────────────────────────────────
+ * This file owns the Static-frontend copy of:
+ *   _rankToValue(rank)  — Hill-style rank-to-value formula  (see ~line 391)
+ *   KTC_LIMIT           — hard cap (500)                    (see ~line 462)
+ *   buildFullRankings() — KTC-only rank assignment          (see ~line 396)
+ *
+ * The Next.js frontend has a parallel implementation in:
+ *   frontend/lib/dynasty-data.js (rankToValue, KTC_RANK_LIMIT, computeKtcRanks)
+ *
+ * !! When changing ranking logic, formula constants, or eligibility rules !!
+ * !! you MUST update BOTH files and BOTH test suites to stay in sync.     !!
+ *   • JS tests:     frontend/__tests__/dynasty-data.test.js
+ *   • Python tests: tests/api/test_rankings_our_rank.py (cross-checks both files)
+ * ────────────────────────────────────────────────────────────────────────────
  */
 
   // ── RANKINGS TAB ──
