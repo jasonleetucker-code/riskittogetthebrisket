@@ -1,0 +1,19 @@
+{
+  "source": "PFF_IDP",
+  "snapshot_id": "pff_idp_2026_20260406T182202Z",
+  "pulled_at_utc": "2026-04-06T18:22:02.487524+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty IDP (PFF IDP rank signal)",
+  "universe": "idp_vet",
+  "ingest_method": "scraper_bridge",
+  "ingest_type": "scraper_export",
+  "source_url": "https://www.pff.com/",
+  "format_key": "dynasty_idp",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/exports/latest/site_raw/pffIdp.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/pff_idp/2026/pff_idp_2026_20260406T182202Z",
+  "record_count": 249,
+  "hash": "ec8bd527c0e123d8b4302b9db134fafa24efe4d60885fe263b77fe7c1fe1848e",
+  "notes": "PFF IDP ranks. IDP-only universe, SF/TEP not applicable.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
