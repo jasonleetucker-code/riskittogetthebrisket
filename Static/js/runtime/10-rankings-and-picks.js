@@ -491,18 +491,28 @@
     // Sort descending by KTC value — highest value = rank 1
     ktcRows.sort((a, b) => b.ktcVal - a.ktcVal);
 
-    // Assign KTC rank (1-based) and compute Our Value from rank curve
-    let ranked = ktcRows.slice(0, KTC_LIMIT).map((r, i) => ({
+    // Assign KTC rank (1-based) and compute Our Value from rank curve.
+    // Prefer backend-computed ktcRank / rankDerivedValue when present in pdata
+    // (set by _compute_ktc_rankings in src/api/data_contract.py — the single
+    // source of truth for the formula).  Fall back to _rankToValue() only when
+    // the backend fields are absent (stale data, offline fallback).
+    let ranked = ktcRows.slice(0, KTC_LIMIT).map((r, i) => {
+      const backendRank  = Number(r.pdata?.ktcRank);
+      const backendValue = Number(r.pdata?.rankDerivedValue);
+      const ktcRank  = (Number.isInteger(backendRank)  && backendRank  > 0) ? backendRank  : (i + 1);
+      const ourValue = (Number.isFinite(backendValue) && backendValue > 0) ? backendValue : _rankToValue(ktcRank);
+      return {
       name: r.name,
       pos: r.pos,
-      ktcRank: i + 1,
-      ourValue: _rankToValue(i + 1),
+      ktcRank,
+      ourValue,
       isRookie: r.isRookie,
       pdata: r.pdata,
       // Compatibility fields for mobile cards and copy function
-      sortValue: _rankToValue(i + 1),
-      overallModelRank: i + 1,
-    }));
+      sortValue: ourValue,
+      overallModelRank: ktcRank,
+      }; // end return object
+    }); // end map
 
     // ── Step 2: Apply filters ──────────────────────────────────────────
     if (currentRankingsFilter !== 'ALL') {

@@ -1,11 +1,14 @@
 import unittest
 
 from src.api.data_contract import (
+    KTC_RANK_LIMIT,
+    _compute_ktc_rankings,
     build_api_data_contract,
     build_api_startup_payload,
     build_canonical_comparison_block,
     validate_api_data_contract,
 )
+from src.canonical.player_valuation import rank_to_value
 
 
 def _minimal_raw_payload():
@@ -399,6 +402,151 @@ class TestContractWithCanonicalComparison(unittest.TestCase):
         runtime.pop("playersArray", None)
         runtime["payloadView"] = "runtime"
         self.assertIn("canonicalComparison", runtime)
+
+
+class TestComputeKtcRankings(unittest.TestCase):
+    """Tests for _compute_ktc_rankings — the backend single source of truth.
+
+    This function stamps ktcRank + rankDerivedValue onto playersArray entries
+    and mirrors them back to the legacy players dict.  Both JS frontends then
+    consume these pre-computed values instead of recomputing independently.
+    """
+
+    def _make_player_row(self, name: str, pos: str, ktc: int) -> dict:
+        """Minimal playersArray-shaped row with a KTC site value."""
+        return {
+            "canonicalName": name,
+            "displayName": name,
+            "legacyRef": name,
+            "position": pos,
+            "assetClass": "offense",
+            "values": {"overall": ktc, "rawComposite": ktc, "scoringAdjusted": None,
+                       "scarcityAdjusted": None, "finalAdjusted": ktc, "displayValue": None},
+            "canonicalSiteValues": {"ktc": ktc},
+            "sourceCount": 1,
+        }
+
+    def test_top_player_gets_rank_1(self):
+        rows = [
+            self._make_player_row("Alpha", "QB", 9000),
+            self._make_player_row("Beta",  "WR", 7000),
+        ]
+        _compute_ktc_rankings(rows, {})
+        alpha = next(r for r in rows if r["canonicalName"] == "Alpha")
+        self.assertEqual(alpha["ktcRank"], 1)
+
+    def test_rank_order_follows_ktc_value_descending(self):
+        rows = [
+            self._make_player_row("Low",  "RB", 3000),
+            self._make_player_row("High", "QB", 9000),
+            self._make_player_row("Mid",  "WR", 6000),
+        ]
+        _compute_ktc_rankings(rows, {})
+        by_rank = sorted(
+            (r for r in rows if "ktcRank" in r),
+            key=lambda r: r["ktcRank"],
+        )
+        self.assertEqual([r["canonicalName"] for r in by_rank], ["High", "Mid", "Low"])
+
+    def test_rank_derived_value_uses_hill_formula(self):
+        rows = [self._make_player_row("Solo", "QB", 9999)]
+        _compute_ktc_rankings(rows, {})
+        self.assertEqual(rows[0]["ktcRank"], 1)
+        expected = int(rank_to_value(1))
+        self.assertEqual(rows[0]["rankDerivedValue"], expected)
+        self.assertEqual(rows[0]["rankDerivedValue"], 9999)
+
+    def test_rank_50_value_matches_hill_formula(self):
+        rows = [self._make_player_row(f"P{i}", "WR", 9999 - i * 10) for i in range(60)]
+        _compute_ktc_rankings(rows, {})
+        rank_50_row = next(r for r in rows if r.get("ktcRank") == 50)
+        expected = int(rank_to_value(50))
+        self.assertEqual(rank_50_row["rankDerivedValue"], expected)
+
+    def test_picks_excluded(self):
+        rows = [
+            self._make_player_row("2026 Early 1st", "PICK", 8000),
+            self._make_player_row("Real Player",    "QB",   7000),
+        ]
+        rows[0]["assetClass"] = "pick"
+        _compute_ktc_rankings(rows, {})
+        pick = next(r for r in rows if r["canonicalName"] == "2026 Early 1st")
+        self.assertNotIn("ktcRank", pick)
+        real = next(r for r in rows if r["canonicalName"] == "Real Player")
+        self.assertEqual(real["ktcRank"], 1)
+
+    def test_unresolved_position_excluded(self):
+        rows = [
+            self._make_player_row("UnknownGuy", "?",  8000),
+            self._make_player_row("KnownGuy",   "QB", 7000),
+        ]
+        _compute_ktc_rankings(rows, {})
+        unknown = next(r for r in rows if r["canonicalName"] == "UnknownGuy")
+        self.assertNotIn("ktcRank", unknown)
+
+    def test_zero_ktc_excluded(self):
+        rows = [
+            self._make_player_row("NoKtc", "WR", 0),
+            self._make_player_row("HasKtc", "WR", 5000),
+        ]
+        _compute_ktc_rankings(rows, {})
+        no_ktc = next(r for r in rows if r["canonicalName"] == "NoKtc")
+        self.assertNotIn("ktcRank", no_ktc)
+
+    def test_respects_rank_limit(self):
+        rows = [self._make_player_row(f"P{i}", "RB", 9000 - i) for i in range(600)]
+        _compute_ktc_rankings(rows, {})
+        ranked = [r for r in rows if "ktcRank" in r]
+        self.assertEqual(len(ranked), KTC_RANK_LIMIT)
+
+    def test_mirrors_to_legacy_players_dict(self):
+        rows = [self._make_player_row("Josh Allen", "QB", 9000)]
+        legacy = {"Josh Allen": {"ktc": 9000, "_finalAdjusted": 9000}}
+        _compute_ktc_rankings(rows, legacy)
+        self.assertEqual(legacy["Josh Allen"]["ktcRank"], 1)
+        self.assertEqual(legacy["Josh Allen"]["rankDerivedValue"], int(rank_to_value(1)))
+
+    def test_build_api_data_contract_stamps_ktc_rank(self):
+        """The full contract builder must include ktcRank in playersArray."""
+        raw = {
+            "players": {
+                "Josh Allen": {
+                    "_composite": 9000, "_rawComposite": 9000, "_finalAdjusted": 9000,
+                    "_canonicalSiteValues": {"ktc": 9000}, "position": "QB",
+                },
+                "Ja'Marr Chase": {
+                    "_composite": 8500, "_rawComposite": 8500, "_finalAdjusted": 8500,
+                    "_canonicalSiteValues": {"ktc": 8500}, "position": "WR",
+                },
+            },
+            "sites": [{"key": "ktc"}],
+            "maxValues": {"ktc": 9999},
+            "sleeper": {"positions": {}},
+        }
+        contract = build_api_data_contract(raw)
+        ranked_rows = [r for r in contract["playersArray"] if "ktcRank" in r]
+        self.assertEqual(len(ranked_rows), 2)
+        names_by_rank = {r["ktcRank"]: r["canonicalName"] for r in ranked_rows}
+        self.assertEqual(names_by_rank[1], "Josh Allen")
+        self.assertEqual(names_by_rank[2], "Ja'Marr Chase")
+
+    def test_build_api_data_contract_stamps_legacy_players_dict(self):
+        """Contract builder must also write ktcRank into legacy players dict."""
+        raw = {
+            "players": {
+                "Josh Allen": {
+                    "_composite": 9000, "_rawComposite": 9000, "_finalAdjusted": 9000,
+                    "_canonicalSiteValues": {"ktc": 9000}, "position": "QB",
+                },
+            },
+            "sites": [{"key": "ktc"}],
+            "maxValues": {},
+            "sleeper": {"positions": {}},
+        }
+        contract = build_api_data_contract(raw)
+        # The legacy players dict in the contract payload must have ktcRank
+        self.assertIn("ktcRank", contract["players"]["Josh Allen"])
+        self.assertEqual(contract["players"]["Josh Allen"]["ktcRank"], 1)
 
 
 if __name__ == "__main__":

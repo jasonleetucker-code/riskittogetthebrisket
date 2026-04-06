@@ -148,14 +148,12 @@ class TestOutputSchema:
 
     def test_static_uses_integer_ktc_rank(self):
         src = _src(STATIC_JS)
-        # ktcRank assigned as i + 1 (integer)
-        assert "ktcRank: i + 1" in src or "ktcRank:" in src, \
-            "Static JS must assign integer ktcRank"
+        # ktcRank is the backend-supplied integer or the i+1 fallback
+        assert "ktcRank" in src, "Static JS must assign ktcRank to each ranked row"
 
     def test_next_uses_integer_ktc_rank(self):
         src = _src(NEXT_JS)
-        assert "r.ktcRank = i + 1" in src or "ktcRank = i + 1" in src, \
-            "Next.js lib must assign integer ktcRank"
+        assert "r.ktcRank" in src, "Next.js lib must assign r.ktcRank to each ranked row"
 
     def test_static_rank_derived_value_field(self):
         src = _src(STATIC_JS)
@@ -318,4 +316,82 @@ class TestFormulaAgreement:
             f"Rank limit mismatch: "
             f"Static KTC_LIMIT={static_match.group(1)} "
             f"Next KTC_RANK_LIMIT={next_match.group(1)}"
+        )
+
+
+# ── Backend pre-computed rank preference ─────────────────────────────────────
+
+class TestBackendPreComputedRanks:
+    """Both JS frontends must prefer backend-computed ktcRank / rankDerivedValue
+    over client-side computation.
+
+    This is the primary sync guardrail: the backend contract builder
+    (src/api/data_contract.py) is the single source of truth for the formula.
+    If either frontend hard-codes formula values instead of using backend fields,
+    formula changes will silently diverge again.
+    """
+
+    def test_static_reads_backend_ktc_rank(self):
+        """Static JS must read pdata.ktcRank from the API response."""
+        src = _src(STATIC_JS)
+        assert "pdata?.ktcRank" in src or "pdata.ktcRank" in src, (
+            "Static JS must read backend-computed pdata.ktcRank "
+            "(from _compute_ktc_rankings in data_contract.py)"
+        )
+
+    def test_static_reads_backend_rank_derived_value(self):
+        """Static JS must read pdata.rankDerivedValue from the API response."""
+        src = _src(STATIC_JS)
+        assert "pdata?.rankDerivedValue" in src or "pdata.rankDerivedValue" in src, (
+            "Static JS must read backend-computed pdata.rankDerivedValue "
+            "(from _compute_ktc_rankings in data_contract.py)"
+        )
+
+    def test_next_reads_backend_ktc_rank(self):
+        """Next.js lib must read r.raw.ktcRank from the playersArray entry."""
+        src = _src(NEXT_JS)
+        assert "r.raw?.ktcRank" in src or "r.raw.ktcRank" in src, (
+            "Next.js lib must read backend-computed r.raw.ktcRank "
+            "(from _compute_ktc_rankings in data_contract.py)"
+        )
+
+    def test_next_reads_backend_rank_derived_value(self):
+        """Next.js lib must read r.raw.rankDerivedValue from the playersArray entry."""
+        src = _src(NEXT_JS)
+        assert "r.raw?.rankDerivedValue" in src or "r.raw.rankDerivedValue" in src, (
+            "Next.js lib must read backend-computed r.raw.rankDerivedValue "
+            "(from _compute_ktc_rankings in data_contract.py)"
+        )
+
+    def test_static_has_backend_first_fallback_pattern(self):
+        """Static JS must use backend value when present, formula as fallback."""
+        src = _src(STATIC_JS)
+        # Must reference _rankToValue as a FALLBACK, not the primary path
+        assert "_rankToValue" in src, "Static JS must retain _rankToValue as fallback"
+        assert "backendRank" in src or "pdata?.ktcRank" in src, (
+            "Static JS must check for backend rank before calling _rankToValue"
+        )
+
+    def test_next_has_backend_first_fallback_pattern(self):
+        """Next.js lib must use backend value when present, formula as fallback."""
+        src = _src(NEXT_JS)
+        assert "rankToValue" in src, "Next.js lib must retain rankToValue as fallback"
+        assert "backendRank" in src or "r.raw?.ktcRank" in src, (
+            "Next.js lib must check for backend rank before calling rankToValue"
+        )
+
+    def test_backend_constant_matches_js_limit(self):
+        """KTC_RANK_LIMIT in data_contract.py must match both JS files."""
+        from src.api.data_contract import KTC_RANK_LIMIT
+        static_match = re.search(r"KTC_LIMIT\s*=\s*(\d+)", _src(STATIC_JS))
+        next_match = re.search(r"KTC_RANK_LIMIT\s*=\s*(\d+)", _src(NEXT_JS))
+        assert static_match is not None, "Could not find KTC_LIMIT in Static JS"
+        assert next_match is not None, "Could not find KTC_RANK_LIMIT in Next.js lib"
+        assert int(static_match.group(1)) == KTC_RANK_LIMIT, (
+            f"Static KTC_LIMIT ({static_match.group(1)}) != "
+            f"Python KTC_RANK_LIMIT ({KTC_RANK_LIMIT})"
+        )
+        assert int(next_match.group(1)) == KTC_RANK_LIMIT, (
+            f"Next.js KTC_RANK_LIMIT ({next_match.group(1)}) != "
+            f"Python KTC_RANK_LIMIT ({KTC_RANK_LIMIT})"
         )

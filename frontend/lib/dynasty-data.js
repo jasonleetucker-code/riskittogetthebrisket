@@ -79,10 +79,16 @@ function computeKtcRanks(rows) {
   // Sort by KTC value descending (highest value = rank 1)
   eligible.sort((a, b) => Number(b.canonicalSites.ktc) - Number(a.canonicalSites.ktc));
 
-  // Assign integer rank and compute our value for top N
+  // Assign integer rank and compute our value for top N.
+  // Prefer backend-computed ktcRank / rankDerivedValue when present in r.raw
+  // (set by _compute_ktc_rankings in src/api/data_contract.py — the single
+  // source of truth for the formula).  Fall back to rankToValue() only when
+  // the backend fields are absent (stale data, offline fallback).
   eligible.slice(0, KTC_RANK_LIMIT).forEach((r, i) => {
-    r.ktcRank = i + 1;
-    r.rankDerivedValue = rankToValue(i + 1);
+    const backendRank  = Number(r.raw?.ktcRank);
+    const backendValue = Number(r.raw?.rankDerivedValue);
+    r.ktcRank = (Number.isInteger(backendRank) && backendRank > 0) ? backendRank : (i + 1);
+    r.rankDerivedValue = (Number.isFinite(backendValue) && backendValue > 0) ? backendValue : rankToValue(r.ktcRank);
   });
 }
 
