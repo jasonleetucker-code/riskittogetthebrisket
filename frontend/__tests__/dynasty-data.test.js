@@ -169,10 +169,22 @@ describe("getSiteKeys", () => {
 // ── buildRows ────────────────────────────────────────────────────────
 
 describe("rankToValue", () => {
-  it("maps rank 1 to approximately 9999", () => {
-    const v = rankToValue(1);
-    expect(v).toBeGreaterThan(9500);
-    expect(v).toBeLessThanOrEqual(9999);
+  it("maps rank 1 to exactly 9999", () => {
+    expect(rankToValue(1)).toBe(9999);
+  });
+
+  it("produces correct outputs for ranks 1–10", () => {
+    const expected = [9999, 9849, 9684, 9515, 9347, 9180, 9016, 8855, 8698, 8544];
+    expected.forEach((v, i) => expect(rankToValue(i + 1)).toBe(v));
+  });
+
+  it("produces correct checkpoint values", () => {
+    expect(rankToValue(25)).toBe(6663);
+    expect(rankToValue(50)).toBe(4766);
+    expect(rankToValue(100)).toBe(2959);
+    expect(rankToValue(200)).toBe(1632);
+    expect(rankToValue(300)).toBe(1108);
+    expect(rankToValue(500)).toBe(663);
   });
 
   it("produces monotonically decreasing values as rank increases", () => {
@@ -198,12 +210,11 @@ describe("rankToValue", () => {
     }
   });
 
-  it("uses canonical inverse-power curve (A / (rank + B)^C)", () => {
-    // Rank 50 should be meaningfully lower than rank 1 but still significant
-    const v1 = rankToValue(1);
+  it("top-50 value is meaningfully above replacement level", () => {
+    // rank-50 ≈ 4766, well above 1 and below rank-1
     const v50 = rankToValue(50);
-    expect(v50).toBeGreaterThan(v1 * 0.05);
-    expect(v50).toBeLessThan(v1 * 0.5);
+    expect(v50).toBeGreaterThan(1000);
+    expect(v50).toBeLessThan(rankToValue(1));
   });
 });
 

@@ -41,10 +41,11 @@ TIER_GAP_WINDOW: int = 7           # rolling-median window (each side)
 TIER_GAP_THRESHOLD: float = 2.0    # gap_score above this triggers a break
 TIER_MIN_SIZE: int = 3             # minimum players in a tier before allowing split
 
-# Step 3: Base value curve  —  base_value = A / (consensus_rank + B)^C
-CURVE_A: float = 10_000.0          # scale (controls max value magnitude)
-CURVE_B: float = 1.5               # shift (softens rank-1 singularity)
-CURVE_C: float = 0.72              # decay (steepness of drop-off)
+# Step 3: Base value curve — Hill-style, rank 1 always = 9999
+# value = 1 + 9998 / (1 + ((rank - 1) / 45)^1.10)
+# Mirrors the JS _rankToValue in Static/js/runtime/10-rankings-and-picks.js
+HILL_MIDPOINT: float = 45.0        # rank at which value ≈ 5000
+HILL_SLOPE: float = 1.10           # controls steepness of decay
 
 # Step 4: Tier cliff injection
 CLIFF_BASE_POINTS: float = 120.0   # base cliff size in value units
@@ -250,24 +251,37 @@ def detect_tiers(
 # STEP 3 — BASE VALUE CURVE
 # ══════════════════════════════════════════════════════════════════════
 
-def base_value_curve(
-    consensus_rank: float,
+def rank_to_value(
+    rank: float,
     *,
-    A: float = CURVE_A,
-    B: float = CURVE_B,
-    C: float = CURVE_C,
-) -> float:
-    """Map consensus rank to a base value using an inverse-power curve.
+    midpoint: float = HILL_MIDPOINT,
+    slope: float = HILL_SLOPE,
+) -> int:
+    """Convert a rank to a display value on the 1–9999 scale.
 
-    Formula:  base = A / (consensus_rank + B)^C
+    Hill-style formula: value = 1 + 9998 / (1 + ((rank - 1) / midpoint)^slope)
 
     Properties:
-        - Monotonically decreasing
-        - Very steep near rank 1 (elite premium)
-        - Moderate slope through mid-ranks (starter range)
-        - Flattened tail (replacement-level compression)
+        - Rank 1 always returns exactly 9999 (denominator = 1 when rank = 1)
+        - Flatter at the elite top than the old inverse-power curve
+        - Smoother decay through the mid-ranks
+        - Long tail preserved at low end
+        - No post-hoc anchor/scaling that could drift between runs
     """
-    return A / ((consensus_rank + B) ** C)
+    if rank is None or rank <= 0:
+        return 0
+    # Clamp to >= 1: consensus ranks below 1 map to 9999 (above "1st place").
+    # Also prevents negative base in fractional-exponent computation.
+    effective_rank = max(1.0, float(rank))
+    raw = 1.0 + 9998.0 / (1.0 + ((effective_rank - 1.0) / midpoint) ** slope)
+    return max(DISPLAY_SCALE_MIN, min(DISPLAY_SCALE_MAX, round(raw)))
+
+
+# Keep the old name as an alias for callers that imported base_value_curve
+# from this module; they should migrate to rank_to_value.
+def base_value_curve(consensus_rank: float, **_kwargs: object) -> float:  # type: ignore[return]
+    """Deprecated alias — use rank_to_value() instead."""
+    return float(rank_to_value(consensus_rank))
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -374,38 +388,22 @@ def compute_volatility_adjustments(
 # STEP 6 — FULL PIPELINE
 # ══════════════════════════════════════════════════════════════════════
 
-def compute_display_anchor(
-    *,
-    curve_a: float = CURVE_A,
-    curve_b: float = CURVE_B,
-    curve_c: float = CURVE_C,
-    cliff_base: float = CLIFF_BASE_POINTS,
-) -> float:
-    """Compute a stable display-scale anchor from curve hyperparameters.
+def compute_display_anchor(**_kwargs: object) -> float:
+    """Deprecated — rank_to_value() no longer needs a display anchor.
 
-    The anchor is the theoretical maximum raw value: the base-curve value
-    at rank 1 plus one full cliff bonus.  Because it depends only on
-    hyperparameters (not on player data), it is stable across daily data
-    refreshes and only changes when the model is deliberately retuned.
-
-    This prevents the display scale from drifting when the top player's
-    consensus rank or tier structure shifts between runs.
+    The Hill-style formula produces values directly on the 1–9999 scale
+    with rank 1 = 9999 by construction.  Retained for compatibility with
+    any callers that imported this name.
     """
-    return base_value_curve(1.0, A=curve_a, B=curve_b, C=curve_c) + cliff_base
+    return float(DISPLAY_SCALE_MAX)
 
 
-def _to_display(value: float, anchor: float) -> int:
-    """Map a raw final value onto the 1–9999 display scale.
+def _to_display(rank: float, _anchor: float = 0.0) -> int:
+    """Deprecated — delegates to rank_to_value().
 
-    Args:
-        value: Raw final value from the pipeline.
-        anchor: Stable display anchor (from compute_display_anchor).
-                Values above the anchor are clamped to DISPLAY_SCALE_MAX.
+    Retained for compatibility; new code should call rank_to_value() directly.
     """
-    if anchor <= 0:
-        return DISPLAY_SCALE_MIN
-    scaled = value / anchor * DISPLAY_SCALE_MAX
-    return max(DISPLAY_SCALE_MIN, min(DISPLAY_SCALE_MAX, round(scaled)))
+    return rank_to_value(rank)
 
 
 @dataclass
@@ -427,10 +425,9 @@ def run_valuation(
     gap_window: int = TIER_GAP_WINDOW,
     gap_threshold: float = TIER_GAP_THRESHOLD,
     min_tier_size: int = TIER_MIN_SIZE,
-    # Step 3
-    curve_a: float = CURVE_A,
-    curve_b: float = CURVE_B,
-    curve_c: float = CURVE_C,
+    # Step 3 — Hill-style rank-to-value (curve_a/b/c no longer used)
+    hill_midpoint: float = HILL_MIDPOINT,
+    hill_slope: float = HILL_SLOPE,
     # Step 4
     cliff_base: float = CLIFF_BASE_POINTS,
     cliff_decay: float = CLIFF_RANK_DECAY,
@@ -453,7 +450,14 @@ def run_valuation(
             tier_boundaries=[],
             tier_count=0,
             monotonic_clamp_count=0,
-            hyperparameters=_collect_hyperparams(locals()),
+            hyperparameters=_collect_hyperparams({
+                "w_median": w_median, "w_mean": w_mean,
+                "gap_window": gap_window, "gap_threshold": gap_threshold,
+                "min_tier_size": min_tier_size,
+                "hill_midpoint": hill_midpoint, "hill_slope": hill_slope,
+                "cliff_base": cliff_base, "cliff_decay": cliff_decay,
+                "vol_strength": vol_strength, "vol_floor": vol_floor,
+            }),
         )
 
     # ── Step 1: Consensus rank ──
@@ -481,9 +485,9 @@ def run_valuation(
     # Build set of players that start a new tier (first player below a break)
     tier_start_players = {b.player_below for b in boundaries}
 
-    # ── Step 3: Base value curve ──
+    # ── Step 3: Base value curve (Hill-style) ──
     base_values = [
-        base_value_curve(cr, A=curve_a, B=curve_b, C=curve_c)
+        float(rank_to_value(cr, midpoint=hill_midpoint, slope=hill_slope))
         for cr in sorted_ranks
     ]
 
@@ -516,12 +520,10 @@ def run_valuation(
             raw_finals[i] = raw_finals[i - 1] - 0.01
             clamped_indices.add(i)
 
-    # ── Step 6: Display scale mapping ──
-    display_anchor = compute_display_anchor(
-        curve_a=curve_a, curve_b=curve_b, curve_c=curve_c,
-        cliff_base=cliff_base,
-    )
-
+    # ── Step 6: Display value — apply Hill formula to consensus rank ──
+    # The Hill formula produces 1–9999 directly from consensus rank with
+    # rank 1 = 9999 by construction.  Tier/vol diagnostics are preserved
+    # in the PlayerValuation struct but do not alter the display_value.
     results: list[PlayerValuation] = []
     for i, (p, cr, med, avg, vol) in enumerate(consensus_data):
         pv = PlayerValuation(
@@ -541,7 +543,7 @@ def run_valuation(
             volatility_adjustment=vol_adjustments[i],
             final_value=raw_finals[i],
             monotonic_clamp_applied=i in clamped_indices,
-            display_value=_to_display(raw_finals[i], display_anchor),
+            display_value=rank_to_value(cr, midpoint=hill_midpoint, slope=hill_slope),
             metadata=dict(p.metadata),
         )
         results.append(pv)
@@ -555,7 +557,7 @@ def run_valuation(
             "w_median": w_median, "w_mean": w_mean,
             "gap_window": gap_window, "gap_threshold": gap_threshold,
             "min_tier_size": min_tier_size,
-            "curve_a": curve_a, "curve_b": curve_b, "curve_c": curve_c,
+            "hill_midpoint": hill_midpoint, "hill_slope": hill_slope,
             "cliff_base": cliff_base, "cliff_decay": cliff_decay,
             "vol_strength": vol_strength, "vol_floor": vol_floor,
         }),
