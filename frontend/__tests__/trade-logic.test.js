@@ -11,6 +11,10 @@ import {
   colorFromGap,
   sideTotal,
   tradeGap,
+  linearGap,
+  powerWeightedTotal,
+  effectiveValue,
+  pickYearDiscount,
   addAssetToSide,
   removeAssetFromSide,
   isAssetInTrade,
@@ -18,6 +22,13 @@ import {
   deserializeWorkspace,
   addRecent,
   filterPickerRows,
+  getPlayerEdge,
+  parsePickToken,
+  findBalancers,
+  verdictBarPosition,
+  lamMultiplier,
+  scarcityMultiplier,
+  buildScarcityModel,
 } from "@/lib/trade-logic";
 
 // ── Test fixtures ────────────────────────────────────────────────────
@@ -132,18 +143,30 @@ describe("sideTotal", () => {
 
 // ── tradeGap ─────────────────────────────────────────────────────────
 
-describe("tradeGap", () => {
-  it("computes difference A - B", () => {
+describe("tradeGap (power-weighted)", () => {
+  it("single-asset sides equal linear gap", () => {
+    // With one asset per side, power-weighted = linear
     expect(tradeGap([ALLEN], [CHASE], "full")).toBe(500);
     expect(tradeGap([CHASE], [ALLEN], "full")).toBe(-500);
   });
 
-  it("handles multi-asset sides", () => {
-    expect(tradeGap([ALLEN], [CHASE, PICK_2026], "full")).toBe(9000 - (8500 + 7000));
+  it("multi-asset sides are power-weighted (less than linear sum)", () => {
+    const gap = tradeGap([ALLEN], [CHASE, PICK_2026], "full");
+    const linGapVal = linearGap([ALLEN], [CHASE, PICK_2026], "full");
+    // Power-weighted sum of B < linear sum, so gap magnitude is smaller
+    expect(linGapVal).toBe(9000 - (8500 + 7000));
+    expect(Math.abs(gap)).toBeLessThan(Math.abs(linGapVal));
+    expect(gap).toBeLessThan(0); // B still wins
   });
 
   it("returns 0 for empty vs empty", () => {
     expect(tradeGap([], [], "full")).toBe(0);
+  });
+});
+
+describe("linearGap", () => {
+  it("computes simple difference", () => {
+    expect(linearGap([ALLEN], [CHASE, PICK_2026], "full")).toBe(9000 - (8500 + 7000));
   });
 });
 
@@ -370,25 +393,29 @@ describe("full trade scenario", () => {
     // Compute
     const totalA = sideTotal(sideA, "full"); // 9000 + 8500 = 17500
     const totalB = sideTotal(sideB, "full"); // 8800 + 7000 = 15800
-    const gap = tradeGap(sideA, sideB, "full"); // 1700
+    const gap = tradeGap(sideA, sideB, "full"); // power-weighted
 
     expect(totalA).toBe(17500);
     expect(totalB).toBe(15800);
-    expect(gap).toBe(1700);
+    // Power-weighted gap is smaller than linear (1700) due to diminishing returns
+    expect(gap).toBeGreaterThan(0); // A still wins
+    expect(gap).toBeLessThan(1700); // But less than linear
     expect(verdictFromGap(gap)).toBe("Major gap");
     expect(colorFromGap(gap)).toBe("green"); // Side A wins
 
     // Swap sides
     const [newA, newB] = [sideB, sideA];
     const swappedGap = tradeGap(newA, newB, "full");
-    expect(swappedGap).toBe(-1700);
+    expect(swappedGap).toBeLessThan(0);
     expect(verdictFromGap(swappedGap)).toBe("Major gap");
     expect(colorFromGap(swappedGap)).toBe("red"); // Now Side B wins
 
     // Remove an asset
     const trimmedB = removeAssetFromSide(newB, "Ja'Marr Chase");
     const newGap = tradeGap(newA, trimmedB, "full");
-    expect(newGap).toBe(15800 - 9000); // 6800
+    // Power-weighted: B (8800+7000) vs A (9000). Gap is positive (B side wins after swap)
+    expect(newGap).toBeGreaterThan(0);
+    expect(newGap).toBeLessThan(15800 - 9000); // less than linear 6800
 
     // Serialize and restore
     const serialized = serializeWorkspace(newA, trimmedB, "full", "A");
@@ -402,5 +429,267 @@ describe("full trade scenario", () => {
     expect(restored.sideA.length).toBe(2);
     expect(restored.sideB.length).toBe(1);
     expect(tradeGap(restored.sideA, restored.sideB, "full")).toBe(newGap);
+  });
+});
+
+// ── New features: power-weighted, edge, pick parsing, LAM, scarcity ──
+
+describe("powerWeightedTotal", () => {
+  it("single asset approximately equals its value", () => {
+    expect(powerWeightedTotal([ALLEN], "full")).toBeCloseTo(9000, 0);
+  });
+
+  it("multiple assets yield less than linear sum", () => {
+    const pw = powerWeightedTotal([ALLEN, CHASE], "full");
+    const linear = 9000 + 8500;
+    expect(pw).toBeLessThan(linear);
+    expect(pw).toBeGreaterThan(9000); // more than single best
+  });
+
+  it("empty array returns 0", () => {
+    expect(powerWeightedTotal([], "full")).toBe(0);
+  });
+});
+
+describe("verdictBarPosition", () => {
+  it("returns 50 for even trade", () => {
+    expect(verdictBarPosition(0)).toBe(50);
+  });
+
+  it("returns > 50 when A ahead", () => {
+    expect(verdictBarPosition(2000)).toBeGreaterThan(50);
+  });
+
+  it("returns < 50 when B ahead", () => {
+    expect(verdictBarPosition(-2000)).toBeLessThan(50);
+  });
+});
+
+describe("getPlayerEdge", () => {
+  it("returns no signal when no canonical sites", () => {
+    const result = getPlayerEdge({ values: { full: 5000 } });
+    expect(result.signal).toBeNull();
+  });
+
+  it("returns BUY when our value is below external average", () => {
+    const row = {
+      values: { full: 5000 },
+      canonicalSites: { ktc: 7000, fantasyCalc: 7500 },
+    };
+    const result = getPlayerEdge(row);
+    expect(result.signal).toBe("BUY");
+    expect(result.edgePct).toBeGreaterThan(0);
+  });
+
+  it("returns SELL when our value is above external average", () => {
+    const row = {
+      values: { full: 9000 },
+      canonicalSites: { ktc: 6000, fantasyCalc: 6000 },
+    };
+    const result = getPlayerEdge(row);
+    expect(result.signal).toBe("SELL");
+  });
+});
+
+describe("parsePickToken", () => {
+  it("parses slot format", () => {
+    const p = parsePickToken("2026 1.06");
+    expect(p.year).toBe("2026");
+    expect(p.round).toBe("1st");
+    expect(p.tier).toBe("mid");
+    expect(p.slot).toBe(6);
+  });
+
+  it("parses label format", () => {
+    const p = parsePickToken("2026 early 2nd");
+    expect(p.year).toBe("2026");
+    expect(p.round).toBe("2nd");
+    expect(p.tier).toBe("early");
+  });
+
+  it("returns null for invalid", () => {
+    expect(parsePickToken("not a pick")).toBeNull();
+  });
+});
+
+describe("lamMultiplier", () => {
+  it("returns 1 at strength 0", () => {
+    expect(lamMultiplier("QB", 0, "superflex")).toBe(1);
+  });
+
+  it("QB gets premium in superflex", () => {
+    expect(lamMultiplier("QB", 1, "superflex")).toBeGreaterThan(1);
+  });
+
+  it("QB gets discount in standard", () => {
+    expect(lamMultiplier("QB", 1, "standard")).toBeLessThan(1);
+  });
+});
+
+describe("buildScarcityModel", () => {
+  it("builds model with pressure values", () => {
+    const rows = Array.from({ length: 50 }, (_, i) => ({
+      pos: i < 10 ? "QB" : i < 30 ? "RB" : "WR",
+      values: { full: 9000 - i * 100 },
+    }));
+    const model = buildScarcityModel(rows);
+    expect(model.QB).toBeDefined();
+    expect(model.QB.poolSize).toBe(10);
+    expect(model.RB.poolSize).toBe(20);
+  });
+});
+
+describe("findBalancers", () => {
+  it("returns players that could fill the gap", () => {
+    const rosterRows = [
+      { name: "P1", pos: "WR", values: { full: 500 } },
+      { name: "P2", pos: "RB", values: { full: 1000 } },
+      { name: "P3", pos: "QB", values: { full: 2000 } },
+    ];
+    const result = findBalancers(1000, rosterRows, "full");
+    expect(result.length).toBeGreaterThan(0);
+    expect(result[0].name).toBe("P2"); // closest to gap of 1000
+  });
+
+  it("returns empty for small gap", () => {
+    expect(findBalancers(100, [], "full")).toEqual([]);
+  });
+});
+
+// ── effectiveValue + settings-aware totals ───────────────────────────
+
+describe("effectiveValue", () => {
+  it("returns raw value when no settings provided", () => {
+    expect(effectiveValue(ALLEN, "full")).toBe(9000);
+    expect(effectiveValue(ALLEN, "full", null)).toBe(9000);
+  });
+
+  it("applies LAM multiplier from settings", () => {
+    const sfSettings = { lamStrength: 1.0, leagueFormat: "superflex" };
+    // QB in superflex gets 1.15x
+    const val = effectiveValue(ALLEN, "full", sfSettings);
+    expect(val).toBeCloseTo(9000 * 1.15, 0);
+  });
+
+  it("QB gets discount in standard format", () => {
+    const stdSettings = { lamStrength: 1.0, leagueFormat: "standard" };
+    // QB in standard gets 0.85x
+    const val = effectiveValue(ALLEN, "full", stdSettings);
+    expect(val).toBeCloseTo(9000 * 0.85, 0);
+  });
+
+  it("WR is unaffected by LAM in both formats", () => {
+    const sfSettings = { lamStrength: 1.0, leagueFormat: "superflex" };
+    // WR multiplier is 1.0 in superflex
+    expect(effectiveValue(CHASE, "full", sfSettings)).toBeCloseTo(8500, 0);
+  });
+
+  it("strength 0 means no adjustment", () => {
+    const settings = { lamStrength: 0, leagueFormat: "superflex" };
+    expect(effectiveValue(ALLEN, "full", settings)).toBe(9000);
+  });
+
+  it("half strength interpolates", () => {
+    const settings = { lamStrength: 0.5, leagueFormat: "superflex" };
+    // QB superflex raw=1.15, at strength 0.5: 1 + (1.15-1)*0.5 = 1.075
+    const val = effectiveValue(ALLEN, "full", settings);
+    expect(val).toBeCloseTo(9000 * 1.075, 0);
+  });
+});
+
+describe("settings-aware powerWeightedTotal", () => {
+  it("applies LAM when settings provided", () => {
+    const sfSettings = { lamStrength: 1.0, leagueFormat: "superflex" };
+    const withSettings = powerWeightedTotal([ALLEN], "full", undefined, sfSettings);
+    const without = powerWeightedTotal([ALLEN], "full");
+    // QB in superflex gets premium, so with settings > without
+    expect(withSettings).toBeGreaterThan(without);
+  });
+
+  it("settings=null behaves like no settings", () => {
+    const a = powerWeightedTotal([ALLEN, CHASE], "full");
+    const b = powerWeightedTotal([ALLEN, CHASE], "full", undefined, null);
+    expect(a).toBe(b);
+  });
+});
+
+describe("settings-aware sideTotal", () => {
+  it("applies LAM when settings provided", () => {
+    const sfSettings = { lamStrength: 1.0, leagueFormat: "superflex" };
+    const withSettings = sideTotal([ALLEN], "full", sfSettings);
+    expect(withSettings).toBeCloseTo(9000 * 1.15, 0);
+  });
+
+  it("mixed positions get different adjustments", () => {
+    const sfSettings = { lamStrength: 1.0, leagueFormat: "superflex" };
+    const total = sideTotal([ALLEN, CHASE], "full", sfSettings);
+    // Allen: 9000 * 1.15 = 10350, Chase: 8500 * 1.0 = 8500
+    expect(total).toBeCloseTo(10350 + 8500, 0);
+  });
+});
+
+// ── Pick year discount ──────────────────────────────────────────────
+
+describe("pickYearDiscount", () => {
+  it("current year gets 1.0", () => {
+    expect(pickYearDiscount("2026 Early 1st", 2026)).toBe(1.0);
+  });
+
+  it("year+1 gets 0.85", () => {
+    expect(pickYearDiscount("2027 Mid 2nd", 2026)).toBe(0.85);
+  });
+
+  it("year+2 gets 0.72", () => {
+    expect(pickYearDiscount("2028 Late 1st", 2026)).toBe(0.72);
+  });
+
+  it("year+3 gets 0.60", () => {
+    expect(pickYearDiscount("2029 Early 1st", 2026)).toBe(0.60);
+  });
+
+  it("non-pick returns 1.0", () => {
+    expect(pickYearDiscount("Josh Allen", 2026)).toBe(1.0);
+  });
+});
+
+// ── TEP in effectiveValue ───────────────────────────────────────────
+
+describe("effectiveValue with TEP", () => {
+  const TE_ROW = makeRow("Mark Andrews", 4000, "TE");
+
+  it("TE gets tepMultiplier boost", () => {
+    const settings = { lamStrength: 0, leagueFormat: "superflex", tepMultiplier: 1.15 };
+    const val = effectiveValue(TE_ROW, "full", settings);
+    expect(val).toBeCloseTo(4000 * 1.15, 0);
+  });
+
+  it("TE gets no boost when tepMultiplier is 1.0", () => {
+    const settings = { lamStrength: 0, leagueFormat: "superflex", tepMultiplier: 1.0 };
+    const val = effectiveValue(TE_ROW, "full", settings);
+    expect(val).toBe(4000);
+  });
+
+  it("non-TE is unaffected by tepMultiplier", () => {
+    const settings = { lamStrength: 0, leagueFormat: "superflex", tepMultiplier: 1.15 };
+    const val = effectiveValue(CHASE, "full", settings);
+    expect(val).toBe(8500);
+  });
+});
+
+// ── Pick year discount in effectiveValue ────────────────────────────
+
+describe("effectiveValue with pick discount", () => {
+  const PICK_2027 = makeRow("2027 Early 1st", 7000, "PICK", "pick");
+
+  it("future pick gets discounted", () => {
+    const settings = { lamStrength: 0, leagueFormat: "superflex", pickCurrentYear: 2026 };
+    const val = effectiveValue(PICK_2027, "full", settings);
+    expect(val).toBeCloseTo(7000 * 0.85, 0);
+  });
+
+  it("current year pick is not discounted", () => {
+    const settings = { lamStrength: 0, leagueFormat: "superflex", pickCurrentYear: 2027 };
+    const val = effectiveValue(PICK_2027, "full", settings);
+    expect(val).toBe(7000);
   });
 });

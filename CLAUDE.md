@@ -105,11 +105,13 @@ python scripts/canonical_build.py --repo . --engine canonical
 
 ## Architecture Concepts
 
-### Dual Runtime Frontend
-Controlled by `FRONTEND_RUNTIME` env var:
-- **static** (default): Serves `Static/index.html` directly from FastAPI
-- **next**: Proxies to Next.js dev server at port 3000
-- **auto**: Tries Next, falls back to static
+### Frontend Runtime
+Next.js is the sole production frontend. Controlled by `FRONTEND_RUNTIME` env var:
+- **next** (default): Proxies to Next.js at port 3000. Returns 503 if Next is down — no silent fallback.
+- **static**: Legacy mode — serves `Static/index.html` directly from FastAPI. Retains 30+ features not yet ported to Next.js.
+- **auto**: Tries Next, falls back to static with status reporting.
+
+Production deployment requires both `dynasty.service` (backend) and `dynasty-frontend.service` (Next.js) running.
 
 ### Multi-Universe Value Pipeline
 Separate canonical value chains for: offense vet, offense rookie, IDP vet, IDP rookie, picks. Each has independent source blending, percentile transforms, and calibration.
@@ -189,7 +191,7 @@ Key variables (see `.env.example` for full list):
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `FRONTEND_RUNTIME` | `static\|next\|auto` | `static` |
+| `FRONTEND_RUNTIME` | `next\|static\|auto` | `next` |
 | `FRONTEND_URL` | Next.js dev server URL | `http://127.0.0.1:3000` |
 | `CANONICAL_DATA_MODE` | Canonical rollout mode | `off` |
 | `SLEEPER_LEAGUE_ID` | Primary Sleeper league | -- |

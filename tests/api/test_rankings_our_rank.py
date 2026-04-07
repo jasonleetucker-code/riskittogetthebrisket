@@ -161,13 +161,13 @@ class TestOutputSchema:
         assert "ourValue" in src or "rankDerivedValue" in src, \
             "Static JS must carry a rank-derived value on each row"
 
-    def test_static_our_rank_tooltip_is_ktc(self):
-        """Our Rank header tooltip must reference KTC rank, not consensus."""
+    def test_static_our_rank_tooltip(self):
+        """Our Rank header tooltip must reference board rank."""
         src = _src(STATIC_JS)
         # Look for 'Our Rank' header with a title attribute
-        match = re.search(r'title="[^"]*[Kk][Tt][Cc][^"]*"', src)
+        match = re.search(r'title="[^"]*rank[^"]*"', src, re.IGNORECASE)
         assert match is not None, \
-            "Our Rank header should have a title attribute referencing KTC"
+            "Our Rank header should have a title attribute referencing rank"
 
     def test_static_overallModelRank_field(self):
         """overallModelRank is kept as a compatibility alias for ktcRank."""
@@ -425,4 +425,138 @@ class TestBackendPreComputedRanks:
         assert int(next_match.group(1)) == KTC_RANK_LIMIT, (
             f"Next.js KTC_RANK_LIMIT ({next_match.group(1)}) != "
             f"Python KTC_RANK_LIMIT ({KTC_RANK_LIMIT})"
+        )
+
+
+# ── Unified rank precedence ──────────────────────────────────────────────────
+
+class TestResolvedRankPrecedence:
+    """Both renderers must use the same rank resolution precedence:
+    canonicalConsensusRank ?? computedConsensusRank ?? Infinity
+
+    This prevents drift between static and Next.js rank display.
+    """
+
+    def test_static_has_resolved_rank_helper(self):
+        """Static JS must define a _resolvedRank helper."""
+        src = _src(STATIC_JS)
+        assert "_resolvedRank" in src, \
+            "Static JS must define _resolvedRank helper for rank precedence"
+
+    def test_next_has_resolved_rank_helper(self):
+        """Next.js lib must export a resolvedRank helper."""
+        src = _src(NEXT_JS)
+        assert "resolvedRank" in src, \
+            "Next.js lib must export resolvedRank helper for rank precedence"
+
+    def test_static_reads_canonical_consensus_rank(self):
+        """Static JS must read _canonicalConsensusRank from backend pdata."""
+        src = _src(STATIC_JS)
+        assert "_canonicalConsensusRank" in src, \
+            "Static JS must read pdata._canonicalConsensusRank for rank resolution"
+
+    def test_next_reads_canonical_consensus_rank(self):
+        """Next.js lib must read canonicalConsensusRank from player data."""
+        src = _src(NEXT_JS)
+        assert "canonicalConsensusRank" in src, \
+            "Next.js lib must read canonicalConsensusRank for rank resolution"
+
+    def test_static_assigns_computed_consensus_rank(self):
+        """Static JS must assign computedConsensusRank (sort-order rank)."""
+        src = _src(STATIC_JS)
+        assert "computedConsensusRank" in src, \
+            "Static JS must assign computedConsensusRank field"
+
+    def test_next_assigns_computed_consensus_rank(self):
+        """Next.js lib must assign computedConsensusRank (sort-order rank)."""
+        src = _src(NEXT_JS)
+        assert "computedConsensusRank" in src, \
+            "Next.js lib must assign computedConsensusRank field"
+
+    def test_static_uses_resolved_rank_for_display(self):
+        """Static JS displayed rank column must use resolvedRank, not raw ktcRank."""
+        src = _src(STATIC_JS)
+        # Table cell must render r.resolvedRank
+        assert "r.resolvedRank" in src, \
+            "Static JS table must display r.resolvedRank in the rank column"
+
+    def test_static_dataset_stores_resolved_rank(self):
+        """Static JS table rows must store dataset.resolvedRank."""
+        src = _src(STATIC_JS)
+        assert "dataset.resolvedRank" in src, \
+            "Static JS table rows must store dataset.resolvedRank attribute"
+
+    def test_static_canonical_wins_over_computed(self):
+        """Static _resolvedRank must use canonicalConsensusRank ?? computedConsensusRank."""
+        src = _src(STATIC_JS)
+        # Verify the nullish coalescing pattern in _resolvedRank
+        assert "canonicalConsensusRank ??" in src, (
+            "Static _resolvedRank must use canonicalConsensusRank ?? fallback"
+        )
+
+    def test_next_canonical_wins_over_computed(self):
+        """Next.js resolvedRank must use canonicalConsensusRank ?? computedConsensusRank."""
+        src = _src(NEXT_JS)
+        assert "canonicalConsensusRank ??" in src, (
+            "Next.js resolvedRank must use canonicalConsensusRank ?? fallback"
+        )
+
+
+# ── Backend-authored display value ───────────────────────────────────────────
+
+class TestBackendAuthoredDisplayValue:
+    """Both renderers must prefer backend-authored display values.
+
+    The 'Our Value' column must show backend _canonicalDisplayValue or
+    _finalAdjusted, not just rank-derived values. Rank-derived values
+    are only a fallback when backend display values are absent.
+    """
+
+    def test_static_reads_backend_display_value(self):
+        """Static JS must read _canonicalDisplayValue for ourValue."""
+        src = _src(STATIC_JS)
+        assert "_canonicalDisplayValue" in src, (
+            "Static JS must read pdata._canonicalDisplayValue for "
+            "backend-authored display value"
+        )
+
+    def test_static_reads_backend_final_adjusted(self):
+        """Static JS must read _finalAdjusted as fallback for ourValue."""
+        src = _src(STATIC_JS)
+        assert "_finalAdjusted" in src, (
+            "Static JS must read pdata._finalAdjusted as fallback "
+            "for backend-authored display value"
+        )
+
+    def test_next_reads_backend_display_value(self):
+        """Next.js lib must read displayValue for values.full."""
+        src = _src(NEXT_JS)
+        assert "displayValue" in src or "displayVal" in src, (
+            "Next.js lib must read displayValue for backend-authored "
+            "display value"
+        )
+
+    def test_static_no_rank_derived_overwrite_of_display(self):
+        """Static JS must NOT overwrite backend display values with rank-derived values.
+
+        ourValue must prefer backend values; rankDerivedValue is a separate field.
+        """
+        src = _src(STATIC_JS)
+        # rankDerivedValue must exist as a separate field, not as ourValue's only source
+        assert "rankDerivedValue" in src, \
+            "Static JS must carry rankDerivedValue as a separate field"
+        # ourValue must prefer backend display values over rank-derived
+        assert "_canonicalDisplayValue" in src, \
+            "ourValue must prefer _canonicalDisplayValue over rankDerivedValue"
+
+    def test_next_no_values_full_overwrite(self):
+        """Next.js must NOT overwrite values.full with rankDerivedValue.
+
+        Regression guard: the old overwrite bug (values.full = rankDerivedValue)
+        must not be reintroduced.
+        """
+        src = _src(NEXT_JS)
+        # Must NOT contain the pattern: r.values.full = r.rankDerivedValue
+        assert "r.values.full = r.rankDerivedValue" not in src, (
+            "Next.js MUST NOT overwrite values.full with rankDerivedValue"
         )

@@ -125,6 +125,16 @@ main() {
       exit 1
     fi
     log "Service is active: ${SERVICE_NAME}"
+    # Check frontend service (Next.js)
+    local frontend_name="${SERVICE_NAME}-frontend"
+    if sudo -n "${systemctl_bin}" cat "${frontend_name}" >/dev/null 2>&1; then
+      if ! sudo -n "${systemctl_bin}" is-active --quiet "${frontend_name}"; then
+        warn "Frontend service is not active: ${frontend_name}"
+        sudo -n "${journalctl_bin}" -u "${frontend_name}" -n 60 --no-pager || true
+      else
+        log "Frontend service is active: ${frontend_name}"
+      fi
+    fi
   fi
 
   if ! probe_with_retries "${status_url}" "${VERIFY_MAX_ATTEMPTS}" "${VERIFY_SLEEP_SECONDS}" "${VERIFY_CURL_TIMEOUT}" "${status_body}"; then

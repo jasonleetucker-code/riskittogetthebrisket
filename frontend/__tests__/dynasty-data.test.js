@@ -609,4 +609,48 @@ describe("computedConsensusRank", () => {
     // Without canonicalConsensusRank, rank equals computedConsensusRank
     expect(computed.rank).toBe(computed.computedConsensusRank);
   });
+
+  it("IDP players get idpRank and canonicalConsensusRank after offense", () => {
+    const data = {
+      playersArray: [
+        // Offense player with KTC value
+        { displayName: "QB Star", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } },
+        // IDP player with IDP sources
+        { displayName: "DL Star", position: "DL", values: { finalAdjusted: 6000, rawComposite: 6000, overall: 6000 }, canonicalSiteValues: { pffIdp: 5800, dlfIdp: 9900 } },
+        // Another IDP player
+        { displayName: "LB Star", position: "LB", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 }, canonicalSiteValues: { pffIdp: 4000, dlfIdp: 8000 } },
+      ],
+    };
+    const rows = buildRows(data);
+    const qb = rows.find(r => r.name === "QB Star");
+    const dl = rows.find(r => r.name === "DL Star");
+    const lb = rows.find(r => r.name === "LB Star");
+
+    // Offense player gets ktcRank
+    expect(qb.ktcRank).toBe(1);
+    // IDP players get idpRank
+    expect(dl.idpRank).toBe(1); // higher mean IDP value
+    expect(lb.idpRank).toBe(2);
+    // IDP canonicalConsensusRank offsets after offense count
+    expect(dl.canonicalConsensusRank).toBe(2); // 1 offense + idpRank 1
+    expect(lb.canonicalConsensusRank).toBe(3); // 1 offense + idpRank 2
+    // IDP players have rankDerivedValue
+    expect(dl.rankDerivedValue).toBeGreaterThan(0);
+    expect(lb.rankDerivedValue).toBeGreaterThan(0);
+    // Sort order: offense first, then IDP
+    expect(rows[0].name).toBe("QB Star");
+    expect(rows[1].name).toBe("DL Star");
+    expect(rows[2].name).toBe("LB Star");
+  });
+
+  it("IDP players without IDP sources remain unranked", () => {
+    const data = {
+      playersArray: [
+        { displayName: "Mystery DL", position: "DL", values: { finalAdjusted: 100, rawComposite: 100, overall: 100 }, canonicalSiteValues: {} },
+      ],
+    };
+    const rows = buildRows(data);
+    expect(rows[0].idpRank).toBeUndefined();
+    expect(rows[0].rankDerivedValue).toBeUndefined();
+  });
 });

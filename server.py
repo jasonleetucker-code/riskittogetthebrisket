@@ -84,8 +84,9 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:3000").rstrip("/")
 _legacy_next_proxy_enabled = _env_bool("ENABLE_NEXT_FRONTEND_PROXY", True)
 FRONTEND_RUNTIME = (os.getenv("FRONTEND_RUNTIME") or "").strip().lower()
 if FRONTEND_RUNTIME not in {"static", "next", "auto"}:
-    # Explicit production default: static unless user intentionally overrides.
-    FRONTEND_RUNTIME = "static"
+    # Production default: Next.js is the sole authoritative frontend.
+    # If Next.js is not running, server returns 503 — no silent static fallback.
+    FRONTEND_RUNTIME = "next"
 
 ALERT_ENABLED = _env_bool("ALERT_ENABLED", False)
 ALERT_TO = os.getenv("ALERT_TO", "")
@@ -926,6 +927,76 @@ else:
     _set_frontend_runtime_status("auto", "configured_auto_mode_pending_probe")
 
 
+# ── ADAM IDP DATA INTEGRATION ─────────────────────────────────────────
+def _merge_adamidp_values(data: dict) -> int:
+    """Merge adamidp_normalized.json values into player data.
+
+    Converts overallRank (1-385) to a numeric value using rank_to_value()
+    and injects it as an 'adamIdp' key in each player's _canonicalSiteValues.
+    Returns the count of players enriched.
+    """
+    adamidp_path = DATA_DIR / "adamidp_normalized.json"
+    if not adamidp_path.exists():
+        return 0
+    try:
+        with adamidp_path.open("r", encoding="utf-8") as f:
+            adamidp = json.load(f)
+    except Exception as e:
+        log.warning(f"Failed to load adamidp_normalized.json: {e}")
+        return 0
+
+    rows = adamidp.get("rows")
+    if not isinstance(rows, list) or not rows:
+        return 0
+
+    from src.canonical.player_valuation import rank_to_value
+
+    players = data.get("players")
+    if not isinstance(players, dict):
+        return 0
+
+    # Build name lookup (case-insensitive)
+    player_lower = {k.lower(): k for k in players}
+    enriched = 0
+
+    for row in rows:
+        name = row.get("playerName")
+        rank = row.get("overallRank")
+        if not name or not rank:
+            continue
+        # Convert rank to value (same formula as KTC rank-to-value)
+        value = int(rank_to_value(rank))
+
+        # Find matching player by name
+        key = player_lower.get(name.strip().lower())
+        if key is None:
+            continue
+
+        pdata = players[key]
+        if not isinstance(pdata, dict):
+            continue
+
+        # Inject adamIdp value into _canonicalSiteValues
+        csv = pdata.get("_canonicalSiteValues")
+        if not isinstance(csv, dict):
+            csv = {}
+            pdata["_canonicalSiteValues"] = csv
+        csv["adamIdp"] = value
+
+        # Also register as site for the sites array
+        enriched += 1
+
+    # Add adamIdp to the sites list if not already present
+    sites = data.get("sites")
+    if isinstance(sites, list):
+        if not any(s.get("key") == "adamIdp" for s in sites if isinstance(s, dict)):
+            sites.append({"key": "adamIdp", "label": "Adam IDP", "max": 10000})
+
+    if enriched > 0:
+        log.info(f"Merged adamIdp values for {enriched} IDP players from adamidp_normalized.json")
+    return enriched
+
+
 # ── SCRAPER INTEGRATION ────────────────────────────────────────────────
 def _prime_latest_payload(data: dict | None) -> None:
     """Pre-serialize latest payload once so /api/data returns instantly."""
@@ -948,6 +1019,8 @@ def _prime_latest_payload(data: dict | None) -> None:
     if not data:
         return
     try:
+        # Merge supplemental IDP data before building the contract
+        _merge_adamidp_values(data)
         contract_payload = build_api_data_contract(data, data_source=latest_data_source)
         contract_report = validate_api_data_contract(contract_payload)
         contract_payload["contractHealth"] = {
@@ -1117,6 +1190,22 @@ def _apply_canonical_primary_overlay(contract: dict) -> int:
     # Build name-normalized lookup from canonical assets
     import re
     assets = canonical_data.get("assets", [])
+
+    # If the snapshot lacks canonical_consensus_rank (legacy engine), compute
+    # a rank from calibrated_value descending.  This ensures the overlay always
+    # has a real multi-source rank to stamp, regardless of which engine built it.
+    has_ccr = any(a.get("canonical_consensus_rank") is not None for a in assets[:20])
+    computed_ranks: dict[str, int] = {}
+    if not has_ccr:
+        ranked_assets = sorted(
+            [(str(a.get("display_name", "")).strip(), int(a.get("calibrated_value", 0)))
+             for a in assets if a.get("calibrated_value") is not None],
+            key=lambda x: x[1], reverse=True,
+        )
+        for i, (aname, _) in enumerate(ranked_assets, 1):
+            if aname and aname not in computed_ranks:
+                computed_ranks[aname] = i
+
     canonical_lookup: dict[str, dict] = {}
     for asset in assets:
         name = str(asset.get("display_name", "")).strip()
@@ -1127,12 +1216,18 @@ def _apply_canonical_primary_overlay(contract: dict) -> int:
         existing = canonical_lookup.get(name)
         if existing is not None and existing["calibrated_value"] >= int(cal_val):
             continue
+        # Prefer pipeline-produced rank; fall back to value-sorted rank
+        ccr = asset.get("canonical_consensus_rank")
+        if ccr is None:
+            ccr = computed_ranks.get(name)
         canonical_lookup[name] = {
             "calibrated_value": int(cal_val),
             "display_value": asset.get("display_value"),
             "blended_value": asset.get("blended_value"),
             "source_count": len(asset.get("source_values", {})),
             "universe": asset.get("universe", ""),
+            "canonical_consensus_rank": ccr,
+            "canonical_tier_id": asset.get("canonical_tier_id"),
         }
 
     # Normalize helper
@@ -1170,7 +1265,34 @@ def _apply_canonical_primary_overlay(contract: dict) -> int:
         # Display-scale value (1–9999) for public-facing use
         if canon.get("display_value") is not None:
             pdata["_canonicalDisplayValue"] = canon["display_value"]
+        # Multi-source canonical consensus rank (from real pipeline, not KTC-only)
+        ccr = canon.get("canonical_consensus_rank")
+        if ccr is not None:
+            pdata["_canonicalConsensusRank"] = int(round(ccr))
+        ctid = canon.get("canonical_tier_id")
+        if ctid is not None:
+            pdata["_canonicalTierId"] = ctid
         overlay_count += 1
+
+    # Also overlay canonical consensus rank onto playersArray entries
+    # so the frontend gets the real multi-source rank, not just KTC-derived.
+    pa = contract.get("playersArray")
+    if isinstance(pa, list):
+        for row in pa:
+            cname = str(row.get("canonicalName") or row.get("displayName") or "").strip()
+            if not cname:
+                continue
+            norm = _norm(cname)
+            match = canonical_norm.get(norm)
+            if match is None:
+                continue
+            _, canon = match
+            ccr = canon.get("canonical_consensus_rank")
+            if ccr is not None:
+                row["canonicalConsensusRank"] = int(round(ccr))
+            ctid = canon.get("canonical_tier_id")
+            if ctid is not None:
+                row["canonicalTierId"] = ctid
 
     # Mark the contract as canonical-authoritative
     contract["valueAuthority"] = "canonical"
@@ -2903,6 +3025,30 @@ async def serve_trade(request: Request):
     return await _serve_app_shell("/trade")
 
 
+@app.get("/settings", response_class=HTMLResponse)
+async def serve_settings(request: Request):
+    redirect = _require_auth_or_redirect(request, "/settings")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/settings")
+
+
+@app.get("/edge", response_class=HTMLResponse)
+async def serve_edge(request: Request):
+    redirect = _require_auth_or_redirect(request, "/edge")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/edge")
+
+
+@app.get("/finder", response_class=HTMLResponse)
+async def serve_finder(request: Request):
+    redirect = _require_auth_or_redirect(request, "/finder")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/finder")
+
+
 @app.get("/login", response_class=HTMLResponse)
 async def serve_login(request: Request):
     redirect = _require_auth_or_redirect(request, "/login")
@@ -2943,13 +3089,14 @@ async def serve_favicon():
     return Response(status_code=404)
 
 
-# Serve any other static files (CSS, JS, images, etc.)
+# Static file mounts — these serve assets for /league, landing.html, and legacy
+# supplementary pages. They do NOT serve the primary app shell (that is Next.js).
+# Static/index.html is no longer the production renderer.
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 if LEGACY_STATIC_DIR.exists():
     app.mount("/Static", StaticFiles(directory=str(LEGACY_STATIC_DIR)), name="legacy-static")
 if RUNTIME_JS_DIR.exists():
-    # Expose extracted runtime modules for root-served index.html (`src="js/runtime/*"`).
     app.mount("/js", StaticFiles(directory=str(RUNTIME_JS_DIR)), name="runtime-js")
 
 

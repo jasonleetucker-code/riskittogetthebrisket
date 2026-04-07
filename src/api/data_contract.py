@@ -33,6 +33,7 @@ _OFFENSE_SIGNAL_KEYS = {
 }
 _IDP_SIGNAL_KEYS = {
     "pffIdp", "fantasyProsIdp", "draftSharksIdp", "dlfIdp", "dlfRidp",
+    "idpTradeCalc", "adamIdp",
 }
 
 
@@ -40,7 +41,7 @@ def _compute_ktc_rankings(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
 ) -> None:
-    """Stamp ktcRank and rankDerivedValue onto each eligible playersArray entry.
+    """Stamp ktcRank, rankDerivedValue, and canonicalConsensusRank onto each eligible entry.
 
     Eligibility (matches both JS frontends exactly):
       • position must be non-empty, not "?", not "PICK", not a kicker
@@ -48,9 +49,10 @@ def _compute_ktc_rankings(
 
     Ranks are integers 1..KTC_RANK_LIMIT (top 500 by KTC value descending).
     rank_to_value() is the authoritative formula — no duplication here.
+    canonicalConsensusRank is the backend-authoritative rank that frontends
+    should use directly instead of recomputing their own sort order.
 
-    Also writes ktcRank / rankDerivedValue back into the legacy players dict so
-    the Static frontend can read them as pdata.ktcRank / pdata.rankDerivedValue.
+    Also mirrors values into the legacy players dict for the Static runtime.
     """
     from src.canonical.player_valuation import rank_to_value  # noqa: PLC0415
 
@@ -72,6 +74,9 @@ def _compute_ktc_rankings(
         derived = int(rank_to_value(rank))
         row["ktcRank"] = rank
         row["rankDerivedValue"] = derived
+        # Backend-authoritative consensus rank — frontends use this directly
+        # instead of recomputing their own sort order.
+        row["canonicalConsensusRank"] = rank
         # Mirror into legacy players dict so Static runtime reads consistent values.
         legacy_ref = row.get("legacyRef")
         if legacy_ref and legacy_ref in players_by_name:
@@ -79,6 +84,64 @@ def _compute_ktc_rankings(
             if isinstance(pdata, dict):
                 pdata["ktcRank"] = rank
                 pdata["rankDerivedValue"] = derived
+                pdata["_canonicalConsensusRank"] = rank
+
+
+IDP_RANK_LIMIT: int = 300
+
+
+def _compute_idp_rankings(
+    players_array: list[dict[str, Any]],
+    players_by_name: dict[str, Any],
+    offense_ranked_count: int,
+) -> None:
+    """Stamp idpRank, rankDerivedValue, and canonicalConsensusRank onto IDP players.
+
+    IDP players have pffIdp / idpTradeCalc / fantasyProsIdp / dlfIdp / dlfRidp
+    values but no KTC value, so _compute_ktc_rankings skips them entirely.
+    This function ranks IDP players by the mean of their available IDP source
+    values (descending), assigns idpRank 1..IDP_RANK_LIMIT, and sets
+    canonicalConsensusRank = offense_ranked_count + idpRank so they sort after
+    offense in a unified board but still have proper ranks.
+    """
+    from src.canonical.player_valuation import rank_to_value  # noqa: PLC0415
+
+    eligible: list[tuple[float, dict[str, Any]]] = []
+    for row in players_array:
+        pos = str(row.get("position") or "").strip().upper()
+        if pos not in _IDP_POSITIONS:
+            continue
+        # Already ranked by KTC? Skip (shouldn't happen, but guard)
+        if row.get("ktcRank") is not None:
+            continue
+
+        csv = row.get("canonicalSiteValues") or {}
+        idp_vals = [
+            v for k in _IDP_SIGNAL_KEYS
+            if (v := _safe_num(csv.get(k))) is not None and v > 0
+        ]
+        if not idp_vals:
+            continue
+        composite = sum(idp_vals) / len(idp_vals)
+        eligible.append((composite, row))
+
+    eligible.sort(key=lambda t: -t[0])
+
+    for i, (_, row) in enumerate(eligible[:IDP_RANK_LIMIT]):
+        idp_rank = i + 1
+        global_rank = offense_ranked_count + idp_rank
+        derived = int(rank_to_value(idp_rank))
+        row["idpRank"] = idp_rank
+        row["rankDerivedValue"] = derived
+        row["canonicalConsensusRank"] = global_rank
+        legacy_ref = row.get("legacyRef")
+        if legacy_ref and legacy_ref in players_by_name:
+            pdata = players_by_name[legacy_ref]
+            if isinstance(pdata, dict):
+                pdata["idpRank"] = idp_rank
+                pdata["rankDerivedValue"] = derived
+                pdata["_canonicalConsensusRank"] = global_rank
+
 
 REQUIRED_TOP_LEVEL_KEYS = {
     "contractVersion",
@@ -350,6 +413,11 @@ def build_api_data_contract(
     # This is the single source of truth for ktcRank / rankDerivedValue.
     # Both JS frontends prefer these fields over client-side computation.
     _compute_ktc_rankings(players_array, players_by_name)
+
+    # Compute IDP rankings using IDP source values (pffIdp, idpTradeCalc, etc.)
+    # Global rank offsets from the offense count so unified board sorts correctly.
+    offense_ranked = sum(1 for r in players_array if r.get("ktcRank") is not None)
+    _compute_idp_rankings(players_array, players_by_name, offense_ranked)
 
     data_source = data_source or {}
     contract_payload: dict[str, Any] = {

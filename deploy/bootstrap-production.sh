@@ -159,6 +159,20 @@ main() {
     sudo "${VENV_DIR}/bin/python" -m playwright install-deps "${PLAYWRIGHT_BROWSER}"
   fi
 
+  # Build frontend (Next.js) so dynasty-frontend service can start
+  if [[ -f "${APP_DIR}/frontend/package.json" ]]; then
+    require_command npm
+    log "Building frontend in ${APP_DIR}/frontend"
+    if [[ -f "${APP_DIR}/frontend/package-lock.json" ]]; then
+      npm ci --prefix "${APP_DIR}/frontend"
+    else
+      npm install --prefix "${APP_DIR}/frontend"
+    fi
+    npm run --prefix "${APP_DIR}/frontend" build
+  else
+    warn "frontend/package.json not found; skipping frontend build."
+  fi
+
   local installer_script
   installer_script="${APP_DIR}/deploy/install-systemd-service.sh"
   [[ -f "${installer_script}" ]] || { error "Missing systemd installer script: ${installer_script}"; exit 1; }

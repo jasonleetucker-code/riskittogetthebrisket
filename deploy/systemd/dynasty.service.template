@@ -1,6 +1,7 @@
 [Unit]
 Description=Dynasty Trade Calculator (__SERVICE_NAME__)
-After=network.target
+After=network.target __SERVICE_NAME__-frontend.service
+Wants=__SERVICE_NAME__-frontend.service
 
 [Service]
 Type=simple
