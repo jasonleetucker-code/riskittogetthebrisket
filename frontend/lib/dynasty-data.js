@@ -56,9 +56,9 @@ export function getSiteKeys(data) {
 // ── Rank precedence helper ────────────────────────────────────────────
 // Single source of truth for rank resolution across all frontend surfaces.
 // canonicalConsensusRank (backend-authored) wins when present; otherwise
-// falls back to computedConsensusRank (frontend row.rank from sort order).
+// falls back to computedConsensusRank (sort-order rank assigned in buildRows).
 export function resolvedRank(row) {
-  return row?.canonicalConsensusRank ?? row?.rank ?? Infinity;
+  return row?.canonicalConsensusRank ?? row?.computedConsensusRank ?? Infinity;
 }
 
 // ── Rank-to-value curve (OFFLINE FALLBACK ONLY) ───────────────────────
@@ -179,7 +179,12 @@ export function buildRows(data) {
       if (ra !== rb) return ra - rb;
       return (b.values.full || 0) - (a.values.full || 0);
     });
-    rows.forEach((r, i) => { r.rank = i + 1; });
+    // Assign computedConsensusRank (sort-order rank) and unified resolvedRank.
+    // resolvedRank: canonicalConsensusRank wins when present, else computedConsensusRank.
+    rows.forEach((r, i) => {
+      r.computedConsensusRank = i + 1;
+      r.rank = r.canonicalConsensusRank ?? r.computedConsensusRank;
+    });
     return rows;
   }
 
@@ -219,7 +224,11 @@ export function buildRows(data) {
     if (ra !== rb) return ra - rb;
     return (b.values.full || 0) - (a.values.full || 0);
   });
-  rows.forEach((r, i) => { r.rank = i + 1; });
+  // Assign computedConsensusRank (sort-order rank) and unified resolvedRank.
+  rows.forEach((r, i) => {
+    r.computedConsensusRank = i + 1;
+    r.rank = r.canonicalConsensusRank ?? r.computedConsensusRank;
+  });
   return rows;
 }
 

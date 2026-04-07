@@ -308,3 +308,108 @@ class TestAuditReport:
         d = report.to_dict()
         json_str = json.dumps(d)
         assert "sleeper_count" in json_str
+
+
+# ── Integration: Adamidp IDP players survive downstream ──
+
+class TestAdamidpIntegration:
+    """Integration tests: IDP players from Adamidp survive through pool builder."""
+
+    def test_adamidp_idp_players_survive_in_pool(self):
+        """Real IDP names from the Adamidp list appear in the canonical pool."""
+        sleeper = _sleeper_data({"Josh Allen": "QB"})
+        ktc = _ktc_data([("Josh Allen", 9000)])
+        adamidp_rows = [
+            AdamidpRow(overall_rank=1, player_name="Travis Hunter", position="DB"),
+            AdamidpRow(overall_rank=2, player_name="Will Anderson", position="DL"),
+            AdamidpRow(overall_rank=3, player_name="Aidan Hutchinson", position="DL"),
+            AdamidpRow(overall_rank=4, player_name="Carson Schwesinger", position="LB"),
+            AdamidpRow(overall_rank=41, player_name="Rueben Bain Jr.", position="DL"),
+        ]
+        rows, report = build_canonical_pool(
+            sleeper_roster_data=sleeper,
+            full_data_ktc=ktc,
+            adamidp_rows=adamidp_rows,
+        )
+        names = {r.canonical_name for r in rows}
+        # All Adamidp IDP players should be in the pool
+        for expected in ["Travis Hunter", "Will Anderson", "Aidan Hutchinson",
+                         "Carson Schwesinger"]:
+            assert expected in names, f"{expected} missing from pool"
+        # Rueben Bain Jr. should match after suffix stripping
+        assert any("Rueben Bain" in n for n in names), "Rueben Bain Jr. missing from pool"
+
+    def test_adamidp_idp_positions_preserved(self):
+        """IDP positions from Adamidp are preserved in the pool."""
+        sleeper = _sleeper_data({})
+        ktc = _ktc_data([])
+        adamidp_rows = [
+            AdamidpRow(overall_rank=1, player_name="Travis Hunter", position="DB"),
+            AdamidpRow(overall_rank=2, player_name="Will Anderson", position="DL"),
+            AdamidpRow(overall_rank=4, player_name="Fred Warner", position="LB"),
+        ]
+        rows, _ = build_canonical_pool(
+            sleeper_roster_data=sleeper,
+            full_data_ktc=ktc,
+            adamidp_rows=adamidp_rows,
+        )
+        hunter = next(r for r in rows if r.canonical_name == "Travis Hunter")
+        anderson = next(r for r in rows if r.canonical_name == "Will Anderson")
+        warner = next(r for r in rows if r.canonical_name == "Fred Warner")
+        assert hunter.position == "DB"
+        assert anderson.position == "DL"
+        assert warner.position == "LB"
+
+    def test_offense_players_not_emitted_as_idp(self):
+        """DJ Moore and Elijah Mitchell cannot be reclassified as IDP."""
+        sleeper = _sleeper_data({
+            "DJ Moore": "WR",
+            "Elijah Mitchell": "RB",
+        })
+        ktc = _ktc_data([("DJ Moore", 5000), ("Elijah Mitchell", 3000)])
+        # Even if somehow an Adamidp row matches these offense players,
+        # position safety prevents reclassification.
+        adamidp_rows = [
+            AdamidpRow(overall_rank=99, player_name="DJ Moore", position="DB"),  # wrong pos
+        ]
+        rows, _ = build_canonical_pool(
+            sleeper_roster_data=sleeper,
+            full_data_ktc=ktc,
+            adamidp_rows=adamidp_rows,
+        )
+        moore = next(r for r in rows if "moore" in r.canonical_name.lower())
+        mitchell = next(r for r in rows if "mitchell" in r.canonical_name.lower())
+        assert moore.position == "WR", f"DJ Moore wrongly classified as {moore.position}"
+        assert mitchell.position == "RB", f"Elijah Mitchell wrongly classified as {mitchell.position}"
+
+    def test_adamidp_artifact_reads_correctly(self):
+        """The artifact file format is correctly parsed."""
+        artifact_path = Path(__file__).resolve().parents[2] / "data" / "adamidp_normalized.json"
+        if not artifact_path.exists():
+            pytest.skip("adamidp artifact not present")
+        rows = extract_adamidp_from_artifact(artifact_path)
+        assert len(rows) > 300, f"Expected 300+ rows, got {len(rows)}"
+        # First row should be Travis Hunter
+        assert rows[0].player_name == "Travis Hunter"
+        assert rows[0].position == "DB"
+        assert rows[0].overall_rank == 1
+        # All positions should be normalized IDP
+        for r in rows:
+            assert r.position in {"DL", "LB", "DB"}, f"{r.player_name} has position {r.position}"
+
+    def test_pool_audit_counts_with_adamidp(self):
+        """Pool audit includes Adamidp counts."""
+        sleeper = _sleeper_data({"Josh Allen": "QB"})
+        ktc = _ktc_data([("Josh Allen", 9000)])
+        adamidp_rows = [
+            AdamidpRow(overall_rank=i, player_name=f"IDP Player {i}", position="LB")
+            for i in range(1, 11)
+        ]
+        _, report = build_canonical_pool(
+            sleeper_roster_data=sleeper,
+            full_data_ktc=ktc,
+            adamidp_rows=adamidp_rows,
+        )
+        assert report.adamidp_extracted_raw_count == 10
+        assert report.adamidp_unique_count == 10
+        assert report.final_union_count == 11  # 1 KTC/Sleeper + 10 Adamidp

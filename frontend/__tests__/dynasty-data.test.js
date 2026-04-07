@@ -534,12 +534,12 @@ describe("displayValue preservation", () => {
 
 describe("resolvedRank", () => {
   it("canonicalConsensusRank wins when present", () => {
-    const row = { canonicalConsensusRank: 5, rank: 10 };
+    const row = { canonicalConsensusRank: 5, computedConsensusRank: 10 };
     expect(resolvedRank(row)).toBe(5);
   });
 
-  it("falls back to row.rank when canonicalConsensusRank is null", () => {
-    const row = { canonicalConsensusRank: null, rank: 10 };
+  it("falls back to computedConsensusRank when canonicalConsensusRank is null", () => {
+    const row = { canonicalConsensusRank: null, computedConsensusRank: 10 };
     expect(resolvedRank(row)).toBe(10);
   });
 
@@ -551,5 +551,62 @@ describe("resolvedRank", () => {
   it("handles undefined row gracefully", () => {
     expect(resolvedRank(null)).toBe(Infinity);
     expect(resolvedRank(undefined)).toBe(Infinity);
+  });
+});
+
+// ── computedConsensusRank field ──────────────────────────────────────
+
+describe("computedConsensusRank", () => {
+  it("is assigned as explicit field on every row from playersArray path", () => {
+    const data = {
+      playersArray: [
+        { displayName: "A", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } },
+        { displayName: "B", position: "RB", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 }, canonicalSiteValues: { ktc: 5000 } },
+      ],
+    };
+    const rows = buildRows(data);
+    expect(rows[0].computedConsensusRank).toBe(1);
+    expect(rows[1].computedConsensusRank).toBe(2);
+  });
+
+  it("is assigned as explicit field on every row from legacy path", () => {
+    const data = {
+      players: {
+        "A": { _rawComposite: 9000, _finalAdjusted: 9000, _sites: 3, _canonicalSiteValues: { ktc: 9000 }, position: "QB" },
+        "B": { _rawComposite: 5000, _finalAdjusted: 5000, _sites: 2, _canonicalSiteValues: { ktc: 5000 }, position: "RB" },
+      },
+      sleeper: { positions: { "A": "QB", "B": "RB" } },
+    };
+    const rows = buildRows(data);
+    expect(rows[0].computedConsensusRank).toBe(1);
+    expect(rows[1].computedConsensusRank).toBe(2);
+  });
+
+  it("row.rank uses canonicalConsensusRank when present, else computedConsensusRank", () => {
+    const data = {
+      playersArray: [
+        {
+          displayName: "Canonical",
+          position: "QB",
+          canonicalConsensusRank: 42,
+          values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 },
+          canonicalSiteValues: { ktc: 9000 },
+        },
+        {
+          displayName: "Computed",
+          position: "RB",
+          values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 },
+          canonicalSiteValues: { ktc: 5000 },
+        },
+      ],
+    };
+    const rows = buildRows(data);
+    const canonical = rows.find(r => r.name === "Canonical");
+    const computed = rows.find(r => r.name === "Computed");
+    // canonicalConsensusRank (42) wins over computedConsensusRank (1)
+    expect(canonical.rank).toBe(42);
+    expect(canonical.computedConsensusRank).toBe(1);
+    // Without canonicalConsensusRank, rank equals computedConsensusRank
+    expect(computed.rank).toBe(computed.computedConsensusRank);
   });
 });
