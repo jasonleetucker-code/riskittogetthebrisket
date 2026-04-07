@@ -37,7 +37,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, BackgroundTasks, Request
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response, RedirectResponse
-from fastapi.staticfiles import StaticFiles
 
 from src.api.data_contract import (
     CONTRACT_VERSION as API_DATA_CONTRACT_VERSION,
@@ -157,13 +156,8 @@ def send_alert(subject: str, body: str):
 # ── PATHS ───────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent.resolve()
 DATA_DIR = BASE_DIR / "data"
-STATIC_DIR = BASE_DIR / "static"
-LEGACY_STATIC_DIR = BASE_DIR / "Static"
 SCRAPER_PATH = BASE_DIR / "Dynasty Scraper.py"
-RUNTIME_JS_DIR = (LEGACY_STATIC_DIR / "js") if (LEGACY_STATIC_DIR / "js").exists() else (STATIC_DIR / "js")
-
 DATA_DIR.mkdir(exist_ok=True)
-STATIC_DIR.mkdir(exist_ok=True)
 
 # ── LOGGING ─────────────────────────────────────────────────────────────
 # R-8: Structured JSON logging when LOG_FORMAT=json (for log aggregation).
@@ -2958,16 +2952,6 @@ async def serve_landing(request: Request):
     return await _serve_app_shell("/")
 
 
-@app.get("/league", response_class=HTMLResponse)
-async def serve_league_entry():
-    league_path = LEGACY_STATIC_DIR / "league.html"
-    if league_path.exists():
-        return FileResponse(league_path, media_type="text/html")
-    return HTMLResponse(
-        "<h1>League page missing</h1><p>Expected Static/league.html.</p>",
-        status_code=500,
-    )
-
 
 def _require_auth_or_redirect(request: Request, default_next: str = "/app") -> RedirectResponse | None:
     if _is_authenticated(request):
@@ -3038,17 +3022,6 @@ async def serve_login(request: Request):
     return await _serve_app_shell("/login")
 
 
-@app.get("/index.html", response_class=HTMLResponse)
-async def serve_index_alias(request: Request):
-    """Legacy alias — redirect to root."""
-    return RedirectResponse(url="/", status_code=301)
-
-
-@app.get("/Static/index.html", response_class=HTMLResponse)
-async def serve_legacy_index_alias(request: Request):
-    """Legacy alias — redirect to root."""
-    return RedirectResponse(url="/", status_code=301)
-
 
 @app.get("/_next/{full_path:path}")
 async def serve_next_assets(full_path: str):
@@ -3066,15 +3039,6 @@ async def serve_favicon():
     return Response(status_code=404)
 
 
-# Static file mounts — these serve assets for /league, landing.html, and legacy
-# supplementary pages. They do NOT serve the primary app shell (that is Next.js).
-# Static/index.html is no longer the production renderer.
-if STATIC_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-if LEGACY_STATIC_DIR.exists():
-    app.mount("/Static", StaticFiles(directory=str(LEGACY_STATIC_DIR)), name="legacy-static")
-if RUNTIME_JS_DIR.exists():
-    app.mount("/js", StaticFiles(directory=str(RUNTIME_JS_DIR)), name="runtime-js")
 
 
 # ── MAIN ────────────────────────────────────────────────────────────────
