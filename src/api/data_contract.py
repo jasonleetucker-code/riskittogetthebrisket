@@ -40,7 +40,7 @@ def _compute_ktc_rankings(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
 ) -> None:
-    """Stamp ktcRank and rankDerivedValue onto each eligible playersArray entry.
+    """Stamp ktcRank, rankDerivedValue, and canonicalConsensusRank onto each eligible entry.
 
     Eligibility (matches both JS frontends exactly):
       • position must be non-empty, not "?", not "PICK", not a kicker
@@ -48,9 +48,10 @@ def _compute_ktc_rankings(
 
     Ranks are integers 1..KTC_RANK_LIMIT (top 500 by KTC value descending).
     rank_to_value() is the authoritative formula — no duplication here.
+    canonicalConsensusRank is the backend-authoritative rank that frontends
+    should use directly instead of recomputing their own sort order.
 
-    Also writes ktcRank / rankDerivedValue back into the legacy players dict so
-    the Static frontend can read them as pdata.ktcRank / pdata.rankDerivedValue.
+    Also mirrors values into the legacy players dict for the Static runtime.
     """
     from src.canonical.player_valuation import rank_to_value  # noqa: PLC0415
 
@@ -72,6 +73,9 @@ def _compute_ktc_rankings(
         derived = int(rank_to_value(rank))
         row["ktcRank"] = rank
         row["rankDerivedValue"] = derived
+        # Backend-authoritative consensus rank — frontends use this directly
+        # instead of recomputing their own sort order.
+        row["canonicalConsensusRank"] = rank
         # Mirror into legacy players dict so Static runtime reads consistent values.
         legacy_ref = row.get("legacyRef")
         if legacy_ref and legacy_ref in players_by_name:
@@ -79,6 +83,7 @@ def _compute_ktc_rankings(
             if isinstance(pdata, dict):
                 pdata["ktcRank"] = rank
                 pdata["rankDerivedValue"] = derived
+                pdata["_canonicalConsensusRank"] = rank
 
 REQUIRED_TOP_LEVEL_KEYS = {
     "contractVersion",

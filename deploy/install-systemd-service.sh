@@ -104,9 +104,35 @@ main() {
     "${SERVICE_TEMPLATE_PATH}" > "${tmp_unit}"
 
   sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_unit}" "${unit_path}"
+  log "Installed ${SERVICE_NAME}.service"
+
+  # ── Frontend service (Next.js) ──────────────────────────────────────────
+  local frontend_template="${APP_DIR}/deploy/systemd/dynasty-frontend.service.template"
+  local frontend_name="${SERVICE_NAME}-frontend"
+  local frontend_unit_path="/etc/systemd/system/${frontend_name}.service"
+
+  if [[ -f "${frontend_template}" ]]; then
+    local tmp_frontend
+    tmp_frontend="$(mktemp)"
+    sed \
+      -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+      -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+      -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+      -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+      "${frontend_template}" > "${tmp_frontend}"
+    sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_frontend}" "${frontend_unit_path}"
+    rm -f "${tmp_frontend}"
+    log "Installed ${frontend_name}.service"
+  else
+    log "Frontend service template not found; skipping ${frontend_name}.service"
+  fi
+
   sudo -n "${SYSTEMCTL_BIN}" daemon-reload
   sudo -n "${SYSTEMCTL_BIN}" enable "${SERVICE_NAME}"
-  log "Installed and enabled ${SERVICE_NAME}.service"
+  if [[ -f "${frontend_template}" ]]; then
+    sudo -n "${SYSTEMCTL_BIN}" enable "${frontend_name}"
+  fi
+  log "Enabled ${SERVICE_NAME}.service (and frontend if available)"
 }
 
 main "$@"

@@ -1,0 +1,18 @@
+[Unit]
+Description=Dynasty Frontend – Next.js (__SERVICE_NAME__-frontend)
+After=network.target
+
+[Service]
+Type=simple
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__/frontend
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3000
+EnvironmentFile=-__APP_DIR__/.env
+
+[Install]
+WantedBy=multi-user.target

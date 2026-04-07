@@ -549,6 +549,62 @@ class TestComputeKtcRankings(unittest.TestCase):
         self.assertEqual(contract["players"]["Josh Allen"]["ktcRank"], 1)
 
 
+class TestCanonicalConsensusRank(unittest.TestCase):
+    """Backend must stamp canonicalConsensusRank — the authoritative rank
+    that frontends use directly instead of recomputing their own sort order."""
+
+    def _make_player_row(self, name: str, pos: str, ktc: int) -> dict:
+        return {
+            "canonicalName": name,
+            "displayName": name,
+            "legacyRef": name,
+            "position": pos,
+            "assetClass": "offense",
+            "values": {"overall": ktc, "rawComposite": ktc, "scoringAdjusted": None,
+                       "scarcityAdjusted": None, "finalAdjusted": ktc, "displayValue": None},
+            "canonicalSiteValues": {"ktc": ktc},
+            "sourceCount": 1,
+        }
+
+    def test_canonical_consensus_rank_stamped_on_ranked_players(self):
+        rows = [
+            self._make_player_row("Alpha", "QB", 9000),
+            self._make_player_row("Beta",  "WR", 7000),
+        ]
+        _compute_ktc_rankings(rows, {})
+        alpha = next(r for r in rows if r["canonicalName"] == "Alpha")
+        beta = next(r for r in rows if r["canonicalName"] == "Beta")
+        self.assertEqual(alpha["canonicalConsensusRank"], 1)
+        self.assertEqual(beta["canonicalConsensusRank"], 2)
+
+    def test_canonical_consensus_rank_equals_ktc_rank(self):
+        rows = [self._make_player_row(f"P{i}", "WR", 9000 - i * 10) for i in range(10)]
+        _compute_ktc_rankings(rows, {})
+        for r in rows:
+            self.assertEqual(r["canonicalConsensusRank"], r["ktcRank"])
+
+    def test_canonical_consensus_rank_not_on_excluded_players(self):
+        rows = [
+            self._make_player_row("Pick", "PICK", 8000),
+            self._make_player_row("NoKtc", "WR", 0),
+        ]
+        _compute_ktc_rankings(rows, {})
+        for r in rows:
+            self.assertNotIn("canonicalConsensusRank", r)
+
+    def test_canonical_consensus_rank_mirrored_to_legacy_dict(self):
+        rows = [self._make_player_row("Josh Allen", "QB", 9000)]
+        legacy = {"Josh Allen": {"ktc": 9000}}
+        _compute_ktc_rankings(rows, legacy)
+        self.assertEqual(legacy["Josh Allen"]["_canonicalConsensusRank"], 1)
+
+    def test_canonical_consensus_rank_respects_limit(self):
+        rows = [self._make_player_row(f"P{i}", "RB", 9000 - i) for i in range(600)]
+        _compute_ktc_rankings(rows, {})
+        ranked = [r for r in rows if "canonicalConsensusRank" in r]
+        self.assertEqual(len(ranked), KTC_RANK_LIMIT)
+
+
 class TestIdpIntegrityGuardrails(unittest.TestCase):
     def test_prefers_explicit_player_offense_position_over_conflicting_sleeper_idp_map(self):
         raw = {

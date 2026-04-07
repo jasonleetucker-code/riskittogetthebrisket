@@ -84,8 +84,9 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:3000").rstrip("/")
 _legacy_next_proxy_enabled = _env_bool("ENABLE_NEXT_FRONTEND_PROXY", True)
 FRONTEND_RUNTIME = (os.getenv("FRONTEND_RUNTIME") or "").strip().lower()
 if FRONTEND_RUNTIME not in {"static", "next", "auto"}:
-    # Explicit production default: static unless user intentionally overrides.
-    FRONTEND_RUNTIME = "static"
+    # Production default: Next.js is the sole authoritative frontend.
+    # If Next.js is not running, server returns 503 — no silent static fallback.
+    FRONTEND_RUNTIME = "next"
 
 ALERT_ENABLED = _env_bool("ALERT_ENABLED", False)
 ALERT_TO = os.getenv("ALERT_TO", "")

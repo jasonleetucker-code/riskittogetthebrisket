@@ -4,41 +4,26 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-const SESSION_KEY = "next_auth_session_v1";
-
-function isValidEmail(value) {
-  return /\S+@\S+\.\S+/.test(value);
-}
-
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [redirectPath, setRedirectPath] = useState("/");
+  const [redirectPath, setRedirectPath] = useState("/app");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const next = params.get("next") || "/";
-    setRedirectPath(next.startsWith("/") ? next : "/");
+    const next = params.get("next") || "/app";
+    setRedirectPath(next.startsWith("/") ? next : "/app");
   }, []);
 
   async function handleSubmit(event) {
     event.preventDefault();
-    const trimmedEmail = email.trim();
+    const trimmedUser = username.trim();
 
-    if (!trimmedEmail || !password) {
-      setError("Enter both email and password.");
-      return;
-    }
-    if (!isValidEmail(trimmedEmail)) {
-      setError("Enter a valid email address.");
-      return;
-    }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (!trimmedUser || !password) {
+      setError("Enter both username and password.");
       return;
     }
 
@@ -46,17 +31,27 @@ export default function LoginPage() {
     setSubmitting(true);
 
     try {
-      localStorage.setItem(
-        SESSION_KEY,
-        JSON.stringify({
-          email: trimmedEmail,
-          remember,
-          loggedInAt: new Date().toISOString(),
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: trimmedUser,
+          password,
+          next: redirectPath,
         }),
-      );
-      router.push(redirectPath);
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.ok) {
+        // Server sets the session cookie; redirect to the target path
+        router.push(data.redirect || redirectPath);
+      } else {
+        setError(data.error || "Invalid username or password.");
+        setSubmitting(false);
+      }
     } catch {
-      setError("Unable to save login session. Please try again.");
+      setError("Login request failed. Please try again.");
       setSubmitting(false);
     }
   }
@@ -71,17 +66,17 @@ export default function LoginPage() {
         </p>
 
         <form className="login-form" onSubmit={handleSubmit}>
-          <label className="login-label" htmlFor="email">
-            Email
+          <label className="login-label" htmlFor="username">
+            Username
           </label>
           <input
-            id="email"
+            id="username"
             className="input login-input"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
+            type="text"
+            autoComplete="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Enter username"
           />
 
           <label className="login-label" htmlFor="password">
@@ -97,15 +92,6 @@ export default function LoginPage() {
             placeholder="Enter password"
           />
 
-          <label className="login-check">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(e) => setRemember(e.target.checked)}
-            />
-            <span>Remember me on this browser</span>
-          </label>
-
           {error ? <p className="login-error">{error}</p> : null}
 
           <button className="button login-button" type="submit" disabled={submitting}>
@@ -114,7 +100,7 @@ export default function LoginPage() {
         </form>
 
         <p className="muted" style={{ marginBottom: 0, fontSize: "0.76rem" }}>
-          Demo login only for UI flow. Need an account? <Link href="/">Go to Home</Link>
+          Need help? <Link href="/">Go to Home</Link>
         </p>
       </div>
     </section>
