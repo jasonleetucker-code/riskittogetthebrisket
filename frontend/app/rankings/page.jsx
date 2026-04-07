@@ -87,7 +87,11 @@ export default function RankingsPage() {
       {loading && <p style={{ marginTop: 16 }}>Loading rankings...</p>}
       {!!error && <p style={{ color: "var(--red)", marginTop: 16 }}>{error}</p>}
 
-      {!loading && !error && (
+      {!loading && !error && rows.length === 0 && (
+        <p className="muted" style={{ marginTop: 16 }}>No player data available. The backend may still be initializing.</p>
+      )}
+
+      {!loading && !error && rows.length > 0 && (
         <>
           <div className="row" style={{ marginTop: 14 }}>
             <input

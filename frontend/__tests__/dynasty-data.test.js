@@ -2,7 +2,7 @@
  * Tests for lib/dynasty-data.js — the data normalization layer
  * that feeds the trade page, rankings, and all other surfaces.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   normalizePos,
   classifyPos,
@@ -11,6 +11,7 @@ import {
   resolvedRank,
   buildRows,
   getSiteKeys,
+  fetchDynastyData,
 } from "@/lib/dynasty-data";
 
 // ── normalizePos ─────────────────────────────────────────────────────
@@ -652,5 +653,91 @@ describe("computedConsensusRank", () => {
     const rows = buildRows(data);
     expect(rows[0].idpRank).toBeUndefined();
     expect(rows[0].rankDerivedValue).toBeUndefined();
+  });
+});
+
+// ── fetchDynastyData response normalization (production regression) ──
+
+describe("fetchDynastyData", () => {
+  afterEach(() => {
+    globalThis.fetch = undefined;
+  });
+
+  it("normalizes unwrapped Python backend contract to { ok, source, data }", async () => {
+    // Simulate Python backend returning raw contract (no { ok, source, data } wrapper)
+    const rawContract = {
+      version: 4,
+      date: "2026-04-07",
+      scrapeTimestamp: "2026-04-07T21:14:51",
+      players: { "Josh Allen": { _composite: 8500, _sites: 6 } },
+      playersArray: [{ displayName: "Josh Allen", position: "QB", values: { overall: 8500 } }],
+      playerCount: 1,
+      dataSource: { type: "scrape", path: "/data/latest", loadedAt: "2026-04-07T21:15:00Z" },
+    };
+    globalThis.fetch = async () => ({ ok: true, json: async () => rawContract });
+
+    const result = await fetchDynastyData();
+    expect(result.ok).toBe(true);
+    expect(result.source).toBe("backend:scrape");
+    expect(result.data).toBe(rawContract);
+    expect(result.data.players).toBeDefined();
+    expect(result.data.playersArray).toBeDefined();
+  });
+
+  it("passes through already-wrapped Next.js route response", async () => {
+    const wrapped = {
+      ok: true,
+      source: "backend:http://127.0.0.1:8000/api/data?view=app",
+      data: {
+        players: { "Josh Allen": { _composite: 8500 } },
+        version: 4,
+      },
+    };
+    globalThis.fetch = async () => ({ ok: true, json: async () => wrapped });
+
+    const result = await fetchDynastyData();
+    expect(result.ok).toBe(true);
+    expect(result.source).toBe("backend:http://127.0.0.1:8000/api/data?view=app");
+    expect(result.data.players).toBeDefined();
+  });
+
+  it("normalizes unwrapped contract without dataSource to date-based source", async () => {
+    const rawContract = {
+      version: 4,
+      date: "2026-04-07",
+      players: { "Josh Allen": { _composite: 8500 } },
+    };
+    globalThis.fetch = async () => ({ ok: true, json: async () => rawContract });
+
+    const result = await fetchDynastyData();
+    expect(result.ok).toBe(true);
+    expect(result.source).toBe("contract:2026-04-07");
+    expect(result.data).toBe(rawContract);
+  });
+
+  it("buildRows produces rows from unwrapped backend contract (production regression)", () => {
+    // Simulates the exact data shape the Python backend returns via /api/dynasty-data
+    // Before the fix, payload.data was undefined, causing buildRows({}) → []
+    const rawContract = {
+      version: 4,
+      date: "2026-04-07",
+      players: {
+        "Josh Allen": {
+          _composite: 8500,
+          _rawComposite: 8500,
+          _finalAdjusted: 9100,
+          _sites: 6,
+          _canonicalSiteValues: { ktc: 8500 },
+        },
+      },
+      sleeper: { positions: { "Josh Allen": "QB" } },
+    };
+
+    // This is what buildRows receives after fetchDynastyData normalizes:
+    const rows = buildRows(rawContract);
+    expect(rows.length).toBe(1);
+    expect(rows[0].name).toBe("Josh Allen");
+    expect(rows[0].pos).toBe("QB");
+    expect(rows[0].values.full).toBe(9100);
   });
 });

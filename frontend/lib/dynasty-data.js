@@ -283,5 +283,22 @@ export async function fetchDynastyData() {
     const txt = await res.text();
     throw new Error(`Failed to load dynasty data: ${res.status} ${txt}`);
   }
-  return res.json();
+  const json = await res.json();
+
+  // The Next.js API route wraps the payload: { ok, source, data: <contract> }
+  // The Python backend alias returns the raw contract: { players, playersArray, version, ... }
+  // Normalize both shapes to { ok, source, data }.
+  if (json && typeof json === "object" && !json.data && (json.players || json.playersArray)) {
+    return {
+      ok: true,
+      source: json.dataSource?.type
+        ? `backend:${json.dataSource.type}`
+        : json.date
+          ? `contract:${json.date}`
+          : "backend",
+      data: json,
+    };
+  }
+
+  return json;
 }
