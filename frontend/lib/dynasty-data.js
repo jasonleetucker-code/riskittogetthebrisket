@@ -53,6 +53,14 @@ export function getSiteKeys(data) {
   return sites.map((s) => String(s?.key || "")).filter(Boolean);
 }
 
+// ── Rank precedence helper ────────────────────────────────────────────
+// Single source of truth for rank resolution across all frontend surfaces.
+// canonicalConsensusRank (backend-authored) wins when present; otherwise
+// falls back to computedConsensusRank (frontend row.rank from sort order).
+export function resolvedRank(row) {
+  return row?.canonicalConsensusRank ?? row?.rank ?? Infinity;
+}
+
 // ── Rank-to-value curve (OFFLINE FALLBACK ONLY) ───────────────────────
 // PRIMARY authority: src/api/data_contract.py (_compute_ktc_rankings) stamps
 // ktcRank + rankDerivedValue onto the API response using rank_to_value() in
@@ -162,11 +170,9 @@ export function buildRows(data) {
     }
 
     computeKtcRanks(rows);
-    // KTC-rank-first: override full value with rank-derived value for ranked rows.
-    for (const r of rows) {
-      if (r.rankDerivedValue > 0) r.values.full = r.rankDerivedValue;
-    }
-    // Sort: KTC-ranked players first (by ktcRank ascending), then unranked by value.
+    // Sort: KTC-ranked players first (by ktcRank ascending), then unranked by backend value.
+    // values.full is NOT overwritten by rankDerivedValue — backend display values stay authoritative.
+    // rankDerivedValue remains available on the row for rankings "Our Value" display.
     rows.sort((a, b) => {
       const ra = a.ktcRank ?? Infinity;
       const rb = b.ktcRank ?? Infinity;
@@ -205,9 +211,8 @@ export function buildRows(data) {
   }
 
   computeKtcRanks(rows);
-  for (const r of rows) {
-    if (r.rankDerivedValue > 0) r.values.full = r.rankDerivedValue;
-  }
+  // Sort: KTC-ranked players first (by ktcRank ascending), then unranked by backend value.
+  // values.full is NOT overwritten — backend display values stay authoritative.
   rows.sort((a, b) => {
     const ra = a.ktcRank ?? Infinity;
     const rb = b.ktcRank ?? Infinity;

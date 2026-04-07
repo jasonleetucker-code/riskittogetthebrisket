@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
+import { resolvedRank } from "@/lib/dynasty-data";
 
 // ── FULL-BOARD RANKINGS PAGE ──────────────────────────────────────────
 // Data source: normalized contract rows from useDynastyData/buildRows
@@ -33,8 +34,9 @@ export default function RankingsPage() {
       list = list.filter((r) => r.name.toLowerCase().includes(q));
     }
 
-    // rows are already pre-ranked in buildRows(), but keep deterministic sort.
-    return [...list].sort((a, b) => (a.rank || Number.MAX_SAFE_INTEGER) - (b.rank || Number.MAX_SAFE_INTEGER));
+    // Unified rank precedence: canonicalConsensusRank wins when present,
+    // falls back to computed row.rank from buildRows() sort order.
+    return [...list].sort((a, b) => resolvedRank(a) - resolvedRank(b));
   }, [rows, assetFilter, query]);
 
   async function copyValues() {
