@@ -55,16 +55,26 @@ require_command() {
 }
 
 resolve_node_toolchain() {
-  if command -v npm >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
+  if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
     return 0
   fi
 
-  if [[ -z "${NVM_DIR:-}" ]]; then
-    if [[ -d "/home/${APP_USER}/.nvm" ]]; then
-      export NVM_DIR="/home/${APP_USER}/.nvm"
-    elif [[ -d "${HOME}/.nvm" ]]; then
-      export NVM_DIR="${HOME}/.nvm"
+  local home_candidates=(
+    "/home/${APP_USER}"
+    "${HOME:-}"
+  )
+
+  local home_dir=""
+  local candidate=""
+  for candidate in "${home_candidates[@]}"; do
+    if [[ -n "${candidate}" && -d "${candidate}" ]]; then
+      home_dir="${candidate}"
+      break
     fi
+  done
+
+  if [[ -z "${NVM_DIR:-}" && -n "${home_dir}" && -d "${home_dir}/.nvm" ]]; then
+    export NVM_DIR="${home_dir}/.nvm"
   fi
 
   if [[ -n "${NVM_DIR:-}" && -s "${NVM_DIR}/nvm.sh" ]]; then
@@ -72,17 +82,27 @@ resolve_node_toolchain() {
     . "${NVM_DIR}/nvm.sh"
   fi
 
-  if command -v npm >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
+  if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
     return 0
   fi
 
-  local candidate_bin=""
-  candidate_bin="$(find "/home/${APP_USER}/.nvm/versions/node" -maxdepth 3 -type f -name npm 2>/dev/null | sed -n '1p' || true)"
-  if [[ -n "${candidate_bin}" ]]; then
-    export PATH="$(dirname "${candidate_bin}"):${PATH}"
+  local node_bin=""
+  if [[ -n "${NVM_DIR:-}" && -d "${NVM_DIR}/versions/node" ]]; then
+    node_bin="$(
+      find "${NVM_DIR}/versions/node" -mindepth 2 -maxdepth 2 -type d -name bin 2>/dev/null \
+      | sort -V \
+      | tail -n 1
+    )"
+    if [[ -n "${node_bin}" && -d "${node_bin}" ]]; then
+      export PATH="${node_bin}:${PATH}"
+    fi
   fi
 
-  command -v npm >/dev/null 2>&1 && command -v node >/dev/null 2>&1
+  if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+    return 0
+  fi
+
+  return 1
 }
 
 require_non_empty() {
@@ -206,7 +226,7 @@ maybe_build_frontend() {
 
   if ! resolve_node_toolchain; then
     error "Required command not found: npm"
-    error "Tried PATH and NVM lookup under /home/${APP_USER}/.nvm"
+    error "Checked PATH plus NVM locations under /home/${APP_USER}/.nvm and \$HOME/.nvm"
     exit 1
   fi
 
