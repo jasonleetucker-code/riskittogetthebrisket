@@ -2951,8 +2951,10 @@ async def auth_logout_redirect(request: Request):
 
 
 @app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
-async def serve_landing():
-    """Root route — proxy to Next.js."""
+async def serve_landing(request: Request):
+    redirect = _require_auth_or_redirect(request, "/")
+    if redirect is not None:
+        return redirect
     return await _serve_app_shell("/")
 
 
