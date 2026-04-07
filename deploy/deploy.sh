@@ -46,7 +46,13 @@ lower() {
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
 }
 
-require_command()
+require_command() {
+  local cmd="$1"
+  command -v "${cmd}" >/dev/null 2>&1 || {
+    error "Required command not found: ${cmd}"
+    exit 1
+  }
+}
 
 resolve_node_toolchain() {
   if command -v npm >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
@@ -77,16 +83,6 @@ resolve_node_toolchain() {
   fi
 
   command -v npm >/dev/null 2>&1 && command -v node >/dev/null 2>&1
-}
-
-
-
-{
-  local cmd="$1"
-  command -v "${cmd}" >/dev/null 2>&1 || {
-    error "Required command not found: ${cmd}"
-    exit 1
-  }
 }
 
 require_non_empty() {
@@ -253,7 +249,6 @@ ensure_systemd_service() {
 
 restart_service() {
   require_command systemctl
-  # Restart frontend service first (Next.js) since backend depends on it
   local frontend_name="${SERVICE_NAME}-frontend"
   if sudo -n "${SYSTEMCTL_BIN}" cat "${frontend_name}" >/dev/null 2>&1; then
     log "Restarting frontend service: ${frontend_name}"
@@ -265,6 +260,7 @@ restart_service() {
       log "Frontend service ${frontend_name} is active."
     fi
   fi
+
   log "Restarting systemd service: ${SERVICE_NAME}"
   sudo -n "${SYSTEMCTL_BIN}" restart "${SERVICE_NAME}"
   if ! sudo -n "${SYSTEMCTL_BIN}" is-active --quiet "${SERVICE_NAME}"; then
@@ -387,21 +383,16 @@ main() {
 
   git config --global --add safe.directory "${APP_DIR}" >/dev/null 2>&1 || true
 
-  # ── Handle tracked file drift ──────────────────────────────────────────
-  # Production servers should never have tracked file modifications.  When
-  # they do (operator edits, Claude Code sessions, script side-effects) we
-  # auto-stash instead of hard-failing, so deploys stay unblocked while the
-  # diff is preserved for post-mortem.
   local tracked_changes
   tracked_changes="$(git status --porcelain --untracked-files=no)"
   if [[ -n "${tracked_changes}" ]]; then
     if [[ "${ALLOW_DIRTY_DEPLOY}" == "true" ]]; then
-      warn "Tracked changes detected but ALLOW_DIRTY_DEPLOY=true — proceeding without stash."
+      warn "Tracked changes detected but ALLOW_DIRTY_DEPLOY=true, proceeding without stash."
     else
       warn "Tracked git changes detected in ${APP_DIR}:"
       git diff --stat || true
       local stash_name="deploy-auto-stash-$(date -u +%Y%m%dT%H%M%SZ)"
-      log "Auto-stashing tracked changes as '${stash_name}' (inspect later with: git stash show -p 'stash@{0}')."
+      log "Auto-stashing tracked changes as '${stash_name}' (inspect later with: git stash list)."
       git stash push -m "${stash_name}" --include-untracked=false
     fi
   fi
@@ -424,6 +415,7 @@ main() {
     fi
     warn "Falling back to DEPLOY_BRANCH '${DEPLOY_BRANCH}' because DEPLOY_REF '${DEPLOY_REF}' was not resolvable."
   fi
+
   target_short="$(git rev-parse --short "${TARGET_REV}")"
   log "Resolved target revision: ${TARGET_REV} (${target_short})"
 
