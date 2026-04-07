@@ -14,6 +14,7 @@ import {
   linearGap,
   powerWeightedTotal,
   effectiveValue,
+  pickYearDiscount,
   addAssetToSide,
   removeAssetFromSide,
   isAssetInTrade,
@@ -624,5 +625,71 @@ describe("settings-aware sideTotal", () => {
     const total = sideTotal([ALLEN, CHASE], "full", sfSettings);
     // Allen: 9000 * 1.15 = 10350, Chase: 8500 * 1.0 = 8500
     expect(total).toBeCloseTo(10350 + 8500, 0);
+  });
+});
+
+// ── Pick year discount ──────────────────────────────────────────────
+
+describe("pickYearDiscount", () => {
+  it("current year gets 1.0", () => {
+    expect(pickYearDiscount("2026 Early 1st", 2026)).toBe(1.0);
+  });
+
+  it("year+1 gets 0.85", () => {
+    expect(pickYearDiscount("2027 Mid 2nd", 2026)).toBe(0.85);
+  });
+
+  it("year+2 gets 0.72", () => {
+    expect(pickYearDiscount("2028 Late 1st", 2026)).toBe(0.72);
+  });
+
+  it("year+3 gets 0.60", () => {
+    expect(pickYearDiscount("2029 Early 1st", 2026)).toBe(0.60);
+  });
+
+  it("non-pick returns 1.0", () => {
+    expect(pickYearDiscount("Josh Allen", 2026)).toBe(1.0);
+  });
+});
+
+// ── TEP in effectiveValue ───────────────────────────────────────────
+
+describe("effectiveValue with TEP", () => {
+  const TE_ROW = makeRow("Mark Andrews", 4000, "TE");
+
+  it("TE gets tepMultiplier boost", () => {
+    const settings = { lamStrength: 0, leagueFormat: "superflex", tepMultiplier: 1.15 };
+    const val = effectiveValue(TE_ROW, "full", settings);
+    expect(val).toBeCloseTo(4000 * 1.15, 0);
+  });
+
+  it("TE gets no boost when tepMultiplier is 1.0", () => {
+    const settings = { lamStrength: 0, leagueFormat: "superflex", tepMultiplier: 1.0 };
+    const val = effectiveValue(TE_ROW, "full", settings);
+    expect(val).toBe(4000);
+  });
+
+  it("non-TE is unaffected by tepMultiplier", () => {
+    const settings = { lamStrength: 0, leagueFormat: "superflex", tepMultiplier: 1.15 };
+    const val = effectiveValue(CHASE, "full", settings);
+    expect(val).toBe(8500);
+  });
+});
+
+// ── Pick year discount in effectiveValue ────────────────────────────
+
+describe("effectiveValue with pick discount", () => {
+  const PICK_2027 = makeRow("2027 Early 1st", 7000, "PICK", "pick");
+
+  it("future pick gets discounted", () => {
+    const settings = { lamStrength: 0, leagueFormat: "superflex", pickCurrentYear: 2026 };
+    const val = effectiveValue(PICK_2027, "full", settings);
+    expect(val).toBeCloseTo(7000 * 0.85, 0);
+  });
+
+  it("current year pick is not discounted", () => {
+    const settings = { lamStrength: 0, leagueFormat: "superflex", pickCurrentYear: 2027 };
+    const val = effectiveValue(PICK_2027, "full", settings);
+    expect(val).toBe(7000);
   });
 });

@@ -16,6 +16,7 @@ import {
   findBalancers,
 } from "@/lib/trade-logic";
 import { useSettings } from "@/components/useSettings";
+import { useApp } from "@/components/AppShell";
 
 const ROSTER_KEY = "next_trade_roster_v1";
 const TEAM_KEY = "next_trade_team_v1";
@@ -55,6 +56,7 @@ function edgeBadge(edge) {
 export default function TradePage() {
   const { loading, error, rows, rawData } = useDynastyData();
   const { settings } = useSettings();
+  const { openPlayerPopup, registerAddToTrade } = useApp();
   const [valueMode, setValueMode] = useState("full");
   const [sideA, setSideA] = useState([]);
   const [sideB, setSideB] = useState([]);
@@ -180,6 +182,12 @@ export default function TradePage() {
   }
 
   function addToActiveSide(row) { addToSide(row, activeSide); }
+
+  // Register add-to-trade callback so popup/search can add players
+  useEffect(() => {
+    registerAddToTrade?.(addToActiveSide);
+    return () => registerAddToTrade?.(null);
+  }, [registerAddToTrade, activeSide]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function removeFromSide(name, side) {
     if (side === "A") setSideA((prev) => prev.filter((r) => r.name !== name));
@@ -318,7 +326,7 @@ export default function TradePage() {
                     <div className="asset-row" key={`A-${r.name}`}>
                       <div>
                         <div className="asset-name">
-                          {r.name}
+                          <span style={{ cursor: "pointer", textDecoration: "underline dotted" }} onClick={() => openPlayerPopup?.(r)}>{r.name}</span>
                           {edge.signal && (
                             <span className="badge" style={{ marginLeft: 6, fontSize: "0.6rem", padding: "1px 4px",
                               color: edge.signal === "BUY" ? "var(--green)" : "var(--red)",
@@ -368,7 +376,7 @@ export default function TradePage() {
                     <div className="asset-row" key={`B-${r.name}`}>
                       <div>
                         <div className="asset-name">
-                          {r.name}
+                          <span style={{ cursor: "pointer", textDecoration: "underline dotted" }} onClick={() => openPlayerPopup?.(r)}>{r.name}</span>
                           {edge.signal && (
                             <span className="badge" style={{ marginLeft: 6, fontSize: "0.6rem", padding: "1px 4px",
                               color: edge.signal === "BUY" ? "var(--green)" : "var(--red)",
@@ -752,7 +760,7 @@ export default function TradePage() {
                     <button key={`pick-${r.name}`} className="asset-row button-reset" onClick={() => addToActiveSide(r)}>
                       <div>
                         <div className="asset-name">{r.name}</div>
-                        <div className="asset-meta">{r.pos} · {r.values[valueMode].toLocaleString()}</div>
+                        <div className="asset-meta">{r.pos} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
                       </div>
                       <span className="badge">Add</span>
                     </button>

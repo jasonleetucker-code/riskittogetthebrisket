@@ -55,6 +55,51 @@ class TestLoginPageUsesServerAuth(unittest.TestCase):
         self.assertIn("data.error", text)
 
 
+class TestSettingsRoute(unittest.TestCase):
+    """Server must have an auth-gated /settings route for the Next.js settings page."""
+
+    def test_server_has_settings_route(self):
+        server_py = REPO_ROOT / "server.py"
+        text = server_py.read_text()
+        self.assertIn('"/settings"', text)
+        self.assertIn("serve_settings", text)
+
+
+class TestCanonicalOverlayRankComputation(unittest.TestCase):
+    """When canonical snapshots lack canonical_consensus_rank (legacy engine),
+    the overlay must compute ranks from calibrated_value sorting."""
+
+    def test_overlay_computes_rank_from_calibrated_value(self):
+        """_apply_canonical_primary_overlay should compute rank for legacy snapshots."""
+        server_py = REPO_ROOT / "server.py"
+        text = server_py.read_text()
+        # Must have the computed_ranks fallback logic
+        self.assertIn("computed_ranks", text)
+        self.assertIn("has_ccr", text)
+
+    def test_settings_wired_to_trade_logic(self):
+        """useSettings hook must exist and be imported by trade page."""
+        hook_file = REPO_ROOT / "frontend" / "components" / "useSettings.js"
+        self.assertTrue(hook_file.exists())
+        trade_page = REPO_ROOT / "frontend" / "app" / "trade" / "page.jsx"
+        text = trade_page.read_text()
+        self.assertIn("useSettings", text)
+
+    def test_trade_logic_has_pick_year_discount(self):
+        """trade-logic.js must have pickYearDiscount function."""
+        trade_logic = REPO_ROOT / "frontend" / "lib" / "trade-logic.js"
+        text = trade_logic.read_text()
+        self.assertIn("pickYearDiscount", text)
+        self.assertIn("PICK_YEAR_DISCOUNTS", text)
+
+    def test_effective_value_applies_tep(self):
+        """effectiveValue must apply tepMultiplier for TEs."""
+        trade_logic = REPO_ROOT / "frontend" / "lib" / "trade-logic.js"
+        text = trade_logic.read_text()
+        self.assertIn("tepMultiplier", text)
+        self.assertIn('pos === "TE"', text)
+
+
 class TestDeployConfig(unittest.TestCase):
     """Production deployment must include both backend and frontend services."""
 

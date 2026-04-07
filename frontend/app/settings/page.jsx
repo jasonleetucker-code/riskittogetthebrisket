@@ -274,7 +274,8 @@ export default function SettingsPage() {
           />
         </div>
         <p className="muted" style={{ fontSize: "0.72rem" }}>
-          Picks from future years are automatically discounted relative to this year.
+          Picks from future years are automatically discounted in trade calculations:
+          current year = 100%, +1 year = 85%, +2 years = 72%, +3+ years = 60%.
         </p>
       </Section>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import PlayerPopup from "@/components/PlayerPopup";
 import GlobalSearch from "@/components/GlobalSearch";
@@ -14,6 +14,7 @@ const AppContext = createContext({
   error: "",
   openPlayerPopup: () => {},
   openSearch: () => {},
+  registerAddToTrade: () => {},
 });
 
 export function useApp() {
@@ -32,6 +33,13 @@ export default function AppShell({ children }) {
 
   // Global search state
   const [searchOpen, setSearchOpen] = useState(false);
+
+  // Add-to-trade callback (registered by trade page when mounted)
+  const addToTradeRef = useRef(null);
+  const registerAddToTrade = useCallback((fn) => { addToTradeRef.current = fn; }, []);
+  const handleAddToTrade = useCallback((row) => {
+    if (addToTradeRef.current) addToTradeRef.current(row);
+  }, []);
 
   const openPlayerPopup = useCallback((row) => {
     if (typeof row === "string") {
@@ -61,7 +69,7 @@ export default function AppShell({ children }) {
   }, []);
 
   return (
-    <AppContext.Provider value={{ rows, siteKeys, rawData, loading, error, openPlayerPopup, openSearch }}>
+    <AppContext.Provider value={{ rows, siteKeys, rawData, loading, error, openPlayerPopup, openSearch, registerAddToTrade }}>
       {children}
 
       {/* Player popup (app-wide) */}
@@ -69,7 +77,7 @@ export default function AppShell({ children }) {
         row={popupRow}
         siteKeys={siteKeys}
         onClose={() => setPopupRow(null)}
-        onAddToTrade={null}
+        onAddToTrade={addToTradeRef.current ? handleAddToTrade : null}
       />
 
       {/* Global search (app-wide) */}

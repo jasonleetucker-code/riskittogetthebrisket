@@ -5,6 +5,7 @@ import { useDynastyData } from "@/components/useDynastyData";
 import { resolvedRank } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { lamMultiplier } from "@/lib/trade-logic";
+import { useApp } from "@/components/AppShell";
 
 // ── FULL-BOARD RANKINGS PAGE ──────────────────────────────────────────
 // Data source: normalized contract rows from useDynastyData/buildRows
@@ -21,6 +22,7 @@ const FILTERS = [
 export default function RankingsPage() {
   const { loading, error, source, rows, siteKeys } = useDynastyData();
   const { settings } = useSettings();
+  const { openPlayerPopup } = useApp();
   const [query, setQuery] = useState("");
   const [assetFilter, setAssetFilter] = useState("all");
   const [copyStatus, setCopyStatus] = useState("");
@@ -124,7 +126,7 @@ export default function RankingsPage() {
                     <td style={{ textAlign: "center", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)" }}>
                       {row.rank}
                     </td>
-                    <td style={{ fontWeight: 600 }}>{row.name}</td>
+                    <td style={{ fontWeight: 600, cursor: "pointer" }} onClick={() => openPlayerPopup?.(row)}>{row.name}</td>
                     <td><span className="badge">{row.pos}</span></td>
                     <td style={{ fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)" }}>
                       {Math.round(row.rankDerivedValue || row.values.full).toLocaleString()}

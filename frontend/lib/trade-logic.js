@@ -29,8 +29,27 @@ const VERDICT_STRONG_LEAN = 1538;
 // worth more than two mid-tier pieces.  Matches static calculator exactly.
 export const TRADE_ALPHA = 1.075;
 
+// ── Pick Year Discount ──────────────────────────────────────────────────
+// Future-year picks are worth less than current-year picks.
+// Matches static: year+1 → 0.85, year+2 → 0.72, year+3+ → 0.60
+const PICK_YEAR_DISCOUNTS = [1.0, 0.85, 0.72, 0.60];
+
 /**
- * Get the effective value for a row, optionally adjusted by LAM settings.
+ * Pick year discount multiplier.
+ * @param {string} pickName - Pick name (e.g. "2027 Early 1st")
+ * @param {number} currentYear - Current draft year from settings
+ * @returns {number} Multiplier (1.0 for current year, <1 for future)
+ */
+export function pickYearDiscount(pickName, currentYear) {
+  const m = String(pickName || "").match(/^(20\d{2})/);
+  if (!m) return 1.0;
+  const pickYear = parseInt(m[1], 10);
+  const delta = Math.max(0, pickYear - currentYear);
+  return PICK_YEAR_DISCOUNTS[Math.min(delta, PICK_YEAR_DISCOUNTS.length - 1)];
+}
+
+/**
+ * Get the effective value for a row, adjusted by LAM, TEP, and pick year discount.
  * @param {object} row - Player row
  * @param {string} valueMode - Value mode key
  * @param {object} [settings] - User settings (from useSettings)
@@ -40,8 +59,23 @@ export function effectiveValue(row, valueMode, settings) {
   const raw = Number(row.values?.[valueMode] || 0);
   if (!settings || raw <= 0) return raw;
   const pos = row.pos || "WR";
+  let val = raw;
+
+  // LAM adjustment
   const lam = lamMultiplier(pos, settings.lamStrength ?? 1.0, settings.leagueFormat ?? "superflex");
-  return raw * lam;
+  val *= lam;
+
+  // TEP adjustment for TEs (applies tepMultiplier when > 1)
+  if (pos === "TE" && (settings.tepMultiplier ?? 1.0) > 1.0) {
+    val *= settings.tepMultiplier;
+  }
+
+  // Pick year discount for future picks
+  if (pos === "PICK" && settings.pickCurrentYear) {
+    val *= pickYearDiscount(row.name, settings.pickCurrentYear);
+  }
+
+  return val;
 }
 
 /**

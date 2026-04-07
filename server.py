@@ -1118,6 +1118,22 @@ def _apply_canonical_primary_overlay(contract: dict) -> int:
     # Build name-normalized lookup from canonical assets
     import re
     assets = canonical_data.get("assets", [])
+
+    # If the snapshot lacks canonical_consensus_rank (legacy engine), compute
+    # a rank from calibrated_value descending.  This ensures the overlay always
+    # has a real multi-source rank to stamp, regardless of which engine built it.
+    has_ccr = any(a.get("canonical_consensus_rank") is not None for a in assets[:20])
+    computed_ranks: dict[str, int] = {}
+    if not has_ccr:
+        ranked_assets = sorted(
+            [(str(a.get("display_name", "")).strip(), int(a.get("calibrated_value", 0)))
+             for a in assets if a.get("calibrated_value") is not None],
+            key=lambda x: x[1], reverse=True,
+        )
+        for i, (aname, _) in enumerate(ranked_assets, 1):
+            if aname and aname not in computed_ranks:
+                computed_ranks[aname] = i
+
     canonical_lookup: dict[str, dict] = {}
     for asset in assets:
         name = str(asset.get("display_name", "")).strip()
@@ -1128,13 +1144,17 @@ def _apply_canonical_primary_overlay(contract: dict) -> int:
         existing = canonical_lookup.get(name)
         if existing is not None and existing["calibrated_value"] >= int(cal_val):
             continue
+        # Prefer pipeline-produced rank; fall back to value-sorted rank
+        ccr = asset.get("canonical_consensus_rank")
+        if ccr is None:
+            ccr = computed_ranks.get(name)
         canonical_lookup[name] = {
             "calibrated_value": int(cal_val),
             "display_value": asset.get("display_value"),
             "blended_value": asset.get("blended_value"),
             "source_count": len(asset.get("source_values", {})),
             "universe": asset.get("universe", ""),
-            "canonical_consensus_rank": asset.get("canonical_consensus_rank"),
+            "canonical_consensus_rank": ccr,
             "canonical_tier_id": asset.get("canonical_tier_id"),
         }
 
@@ -2931,6 +2951,14 @@ async def serve_trade(request: Request):
     if redirect is not None:
         return redirect
     return await _serve_app_shell("/trade")
+
+
+@app.get("/settings", response_class=HTMLResponse)
+async def serve_settings(request: Request):
+    redirect = _require_auth_or_redirect(request, "/settings")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/settings")
 
 
 @app.get("/login", response_class=HTMLResponse)
