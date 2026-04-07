@@ -160,8 +160,7 @@ main() {
   fi
 
   # Build frontend (Next.js) so dynasty-frontend service can start
-  if [[ -f "${APP_DIR}/frontend/package.json" ]]; then
-    require_command npm
+  if [[ -f "${APP_DIR}/frontend/package.json" ]] && command -v npm >/dev/null 2>&1; then
     log "Building frontend in ${APP_DIR}/frontend"
     if [[ -f "${APP_DIR}/frontend/package-lock.json" ]]; then
       npm ci --prefix "${APP_DIR}/frontend"
@@ -170,7 +169,7 @@ main() {
     fi
     npm run --prefix "${APP_DIR}/frontend" build
   else
-    warn "frontend/package.json not found; skipping frontend build."
+    warn "frontend/package.json not found or npm not installed; skipping frontend build."
   fi
 
   local installer_script

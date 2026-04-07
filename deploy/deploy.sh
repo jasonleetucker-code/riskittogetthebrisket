@@ -173,7 +173,10 @@ maybe_build_frontend() {
     return 0
   fi
 
-  require_command npm
+  if ! command -v npm >/dev/null 2>&1; then
+    warn "npm not found; skipping frontend build. Install Node.js/npm to enable frontend builds."
+    return 0
+  fi
   log "Running frontend production build in ${APP_DIR}/frontend"
   if [[ -f "${APP_DIR}/frontend/package-lock.json" ]]; then
     npm ci --prefix "${APP_DIR}/frontend"
