@@ -369,7 +369,7 @@ def _auth_redirect_response(request: Request, default_next: str = "/app") -> Red
         next_path = f"{next_path}?{request.url.query}"
     safe_next = _sanitize_next_path(next_path, default_next)
     encoded_next = urllib.parse.quote(safe_next, safe="/?=&")
-    return RedirectResponse(url=f"/?next={encoded_next}&jason=1", status_code=302)
+    return RedirectResponse(url=f"/login?next={encoded_next}", status_code=302)
 
 
 def _parse_iso(ts: str | None) -> datetime | None:
@@ -2952,13 +2952,8 @@ async def auth_logout_redirect(request: Request):
 
 @app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def serve_landing():
-    for path in [LEGACY_STATIC_DIR / "landing.html", STATIC_DIR / "landing.html"]:
-        if path.exists():
-            return FileResponse(path, media_type="text/html")
-    return HTMLResponse(
-        "<h1>Landing page missing</h1><p>Expected Static/landing.html.</p>",
-        status_code=500,
-    )
+    """Root route — proxy to Next.js."""
+    return await _serve_app_shell("/")
 
 
 @app.get("/league", response_class=HTMLResponse)
@@ -2979,25 +2974,11 @@ def _require_auth_or_redirect(request: Request, default_next: str = "/app") -> R
 
 
 async def _serve_app_shell(frontend_path: str) -> Response:
+    """Proxy the request to Next.js. No static index.html fallback."""
     routed = _resolve_frontend_path(frontend_path)
     if routed is not None:
-        if isinstance(routed, Response) and routed.status_code == 503:
-            return routed
-        if FRONTEND_RUNTIME in {"next", "auto"} and frontend_runtime_status.get("active") == "next":
-            return routed
-
-    if FRONTEND_RUNTIME == "next":
-        return routed if routed is not None else HTMLResponse("Next frontend unavailable", status_code=503)
-
-    for path in [STATIC_DIR / "index.html", LEGACY_STATIC_DIR / "index.html", BASE_DIR / "index.html"]:
-        if path.exists():
-            _set_frontend_runtime_status("static", "serving_static_index")
-            return FileResponse(path, media_type="text/html")
-    return HTMLResponse(
-        "<h1>Dashboard not found</h1>"
-        "<p>Place index.html in the static/ directory or project root.</p>",
-        status_code=404,
-    )
+        return routed
+    return HTMLResponse("Next frontend unavailable", status_code=503)
 
 
 # ── DASHBOARD ROUTES (AUTH REQUIRED) ────────────────────────────────────
@@ -3051,26 +3032,20 @@ async def serve_finder(request: Request):
 
 @app.get("/login", response_class=HTMLResponse)
 async def serve_login(request: Request):
-    redirect = _require_auth_or_redirect(request, "/login")
-    if redirect is not None:
-        return redirect
+    """Login page — no auth required (avoids redirect loop)."""
     return await _serve_app_shell("/login")
 
 
 @app.get("/index.html", response_class=HTMLResponse)
 async def serve_index_alias(request: Request):
-    redirect = _require_auth_or_redirect(request, "/app")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/")
+    """Legacy alias — redirect to root."""
+    return RedirectResponse(url="/", status_code=301)
 
 
 @app.get("/Static/index.html", response_class=HTMLResponse)
 async def serve_legacy_index_alias(request: Request):
-    redirect = _require_auth_or_redirect(request, "/app")
-    if redirect is not None:
-        return redirect
-    return await _serve_app_shell("/")
+    """Legacy alias — redirect to root."""
+    return RedirectResponse(url="/", status_code=301)
 
 
 @app.get("/_next/{full_path:path}")
