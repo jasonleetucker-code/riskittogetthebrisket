@@ -1,0 +1,2712 @@
+{
+  "source": "adamidp_manual_2026",
+  "extractedAt": "2026-04-07T00:00:00Z",
+  "sourcePdfs": [
+    "adamidp_vet_idp.pdf",
+    "adamidp_rookie_idp.pdf",
+    "adamidp_vet_overall.pdf",
+    "adamidp_rookie_overall.pdf"
+  ],
+  "extractionAudit": {
+    "rawRowCount": 385,
+    "dedupedUniqueCount": 385,
+    "ambiguousRows": []
+  },
+  "rows": [
+    {
+      "overallRank": 1,
+      "playerName": "Travis Hunter",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 1"
+    },
+    {
+      "overallRank": 2,
+      "playerName": "Will Anderson",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 1"
+    },
+    {
+      "overallRank": 3,
+      "playerName": "Aidan Hutchinson",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 1"
+    },
+    {
+      "overallRank": 4,
+      "playerName": "Carson Schwesinger",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 1"
+    },
+    {
+      "overallRank": 5,
+      "playerName": "Jack Campbell",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 1"
+    },
+    {
+      "overallRank": 6,
+      "playerName": "Myles Garrett",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 1"
+    },
+    {
+      "overallRank": 7,
+      "playerName": "Abdul Carter",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 1"
+    },
+    {
+      "overallRank": 8,
+      "playerName": "Fred Warner",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 1"
+    },
+    {
+      "overallRank": 9,
+      "playerName": "Micah Parsons",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 1"
+    },
+    {
+      "overallRank": 10,
+      "playerName": "Nick Emmanwori",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 1"
+    },
+    {
+      "overallRank": 11,
+      "playerName": "Dallas Turner",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 12,
+      "playerName": "Arvell Reese",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 13,
+      "playerName": "Kyle Hamilton",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 14,
+      "playerName": "Maxx Crosby",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 15,
+      "playerName": "Sonny Styles",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 16,
+      "playerName": "Caleb Downs",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 17,
+      "playerName": "Brian Burns",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 18,
+      "playerName": "Nik Bonitto",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 19,
+      "playerName": "Jared Verse",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 20,
+      "playerName": "Laiatu Latu",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 21,
+      "playerName": "Roquan Smith",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 22,
+      "playerName": "Ernest Jones",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 23,
+      "playerName": "Zack Baun",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 24,
+      "playerName": "Jihaad Campbell",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 25,
+      "playerName": "Brian Branch",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 26,
+      "playerName": "Edgerrin Cooper",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 27,
+      "playerName": "Josh Hines-Allen",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 28,
+      "playerName": "Nick Bosa",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 29,
+      "playerName": "David Bailey",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 30,
+      "playerName": "Jalon Walker",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 2"
+    },
+    {
+      "overallRank": 31,
+      "playerName": "Nick Bolton",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 32,
+      "playerName": "Nakobe Dean",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 33,
+      "playerName": "Tuli Tuipulotu",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 34,
+      "playerName": "T.J. Watt",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 35,
+      "playerName": "Nate Landman",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 36,
+      "playerName": "Jeffery Simmons",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 37,
+      "playerName": "Devin Lloyd",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 38,
+      "playerName": "Devin Bush",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 39,
+      "playerName": "Jacob Rodriguez",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 40,
+      "playerName": "C.J. Allen",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 41,
+      "playerName": "Rueben Bain Jr.",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 42,
+      "playerName": "Nick Herbig",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 43,
+      "playerName": "Jalen Carter",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 44,
+      "playerName": "Dillon Thieneman",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 45,
+      "playerName": "Emmanuel McNeil-Warren",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 46,
+      "playerName": "Cedric Gray",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 47,
+      "playerName": "Quay Walker",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 48,
+      "playerName": "Leo Chenal",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 49,
+      "playerName": "Payton Wilson",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 50,
+      "playerName": "Byron Young",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 51,
+      "playerName": "Byron Murphy II",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 52,
+      "playerName": "Danielle Hunter",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 53,
+      "playerName": "Derwin James",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 54,
+      "playerName": "Cooper DeJean",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 55,
+      "playerName": "Devon Witherspoon",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 56,
+      "playerName": "Jordyn Brooks",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 57,
+      "playerName": "Andrew Van Ginkel",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 58,
+      "playerName": "Jamien Sherwood",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 59,
+      "playerName": "Alex Highsmith",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 60,
+      "playerName": "Trey Hendrickson",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 3"
+    },
+    {
+      "overallRank": 61,
+      "playerName": "Blake Cashman",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 62,
+      "playerName": "Jake Golday",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 63,
+      "playerName": "Kaden Elliss",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 64,
+      "playerName": "Foye Oluokun",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 65,
+      "playerName": "Zach Allen",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 66,
+      "playerName": "Tremaine Edmunds",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 67,
+      "playerName": "Danny Stutsman",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 68,
+      "playerName": "Calijah Kancey",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 69,
+      "playerName": "Daiyan Henley",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 70,
+      "playerName": "Kayvon Thibodeaux",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 71,
+      "playerName": "Tykee Smith",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 72,
+      "playerName": "Kevin Winston Jr.",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 73,
+      "playerName": "Mike Green",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 74,
+      "playerName": "Patrick Queen",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 75,
+      "playerName": "Terrel Bernard",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 76,
+      "playerName": "Demarvion Overshown",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 77,
+      "playerName": "Greg Rousseau",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 78,
+      "playerName": "Jaelan Phillips",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 79,
+      "playerName": "Nolan Smith",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 80,
+      "playerName": "George Karlaftis",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 81,
+      "playerName": "Donovan Ezeiruaku",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 82,
+      "playerName": "Jonathan Greenard",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 83,
+      "playerName": "Odafe Oweh",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 84,
+      "playerName": "YaYa Diaby",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 85,
+      "playerName": "Will McDonald",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 86,
+      "playerName": "Chop Robinson",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 87,
+      "playerName": "Chase Young",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 88,
+      "playerName": "Boye Mafe",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 89,
+      "playerName": "Tyrel Dodson",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 90,
+      "playerName": "Anthony Hill Jr.",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 91,
+      "playerName": "T.J. Parker",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 92,
+      "playerName": "Nic Scourton",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 93,
+      "playerName": "Josiah Trotter",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 94,
+      "playerName": "Demetrius Knight",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 95,
+      "playerName": "Jonathon Cooper",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 96,
+      "playerName": "Josh Sweat",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 97,
+      "playerName": "Travon Walker",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 98,
+      "playerName": "Quinnen Williams",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 99,
+      "playerName": "Ivan Pace Jr.",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 100,
+      "playerName": "Barrett Carter",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 4"
+    },
+    {
+      "overallRank": 101,
+      "playerName": "Zaire Franklin",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 102,
+      "playerName": "Nikolas Martin",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 103,
+      "playerName": "Robert Spillane",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 104,
+      "playerName": "Azeez Al-Shaair",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 105,
+      "playerName": "T.J. Edwards",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 106,
+      "playerName": "Quincy Williams",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 107,
+      "playerName": "Frankie Luvu",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 108,
+      "playerName": "Montez Sweat",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 109,
+      "playerName": "DeForest Buckner",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 110,
+      "playerName": "Rashan Gary",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 111,
+      "playerName": "Mykel Williams",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 112,
+      "playerName": "Divine Deablo",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 113,
+      "playerName": "Carl Granderson",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 114,
+      "playerName": "Xaiver Watts",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 115,
+      "playerName": "Jalen Pitre",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 116,
+      "playerName": "Budda Baker",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 117,
+      "playerName": "Trevon Moehrig",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 118,
+      "playerName": "Talanoa Hufanga",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 119,
+      "playerName": "Antoine Winfield Jr.",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 120,
+      "playerName": "Quentin Lake",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 121,
+      "playerName": "Julian Love",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 122,
+      "playerName": "Jeremy Chinn",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 123,
+      "playerName": "Malaki Starks",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 124,
+      "playerName": "Nick Cross",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 125,
+      "playerName": "Dadrion Taylor-Demerson",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 126,
+      "playerName": "Cole Bishop",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 127,
+      "playerName": "Jessie Bates III",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 128,
+      "playerName": "Walter Nolen",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 129,
+      "playerName": "Derrick Harmon",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 130,
+      "playerName": "Milton Williams",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 131,
+      "playerName": "J.T. Tuimoloau",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 132,
+      "playerName": "Johnny Newton",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 133,
+      "playerName": "Myles Murphy",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 134,
+      "playerName": "Christian Harris",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 135,
+      "playerName": "Cody Simon",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 136,
+      "playerName": "Noah Sewell",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 137,
+      "playerName": "Mike Sainristil",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 138,
+      "playerName": "Jalyx Hunt",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 139,
+      "playerName": "Braden Fiske",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 140,
+      "playerName": "Kobie Turner",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 141,
+      "playerName": "Austin Booker",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 142,
+      "playerName": "Tyler Nubin",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 143,
+      "playerName": "Ashton Gillotte",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 144,
+      "playerName": "Mason Graham",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 145,
+      "playerName": "Leonard Williams",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 146,
+      "playerName": "Chris Jones",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 147,
+      "playerName": "Marcus Jones",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 148,
+      "playerName": "Alex Singleton",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 149,
+      "playerName": "Jack Sawyer",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 150,
+      "playerName": "Harold Landry",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 5"
+    },
+    {
+      "overallRank": 151,
+      "playerName": "Kwity Paye",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 152,
+      "playerName": "Bobby Okereke",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 153,
+      "playerName": "Trevin Wallace",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 154,
+      "playerName": "SirVocea Dennis",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 155,
+      "playerName": "Josh Metellus",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 156,
+      "playerName": "Jahdae Barron",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 157,
+      "playerName": "Christian Rozeboom",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 158,
+      "playerName": "Jacob Parrish",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 159,
+      "playerName": "Ventrell Miller",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 160,
+      "playerName": "Jordan Battle",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 161,
+      "playerName": "Kamren Curl",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 162,
+      "playerName": "Derrick Brown",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 163,
+      "playerName": "Jermaine Johnson",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 164,
+      "playerName": "Trent McDuffie",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 165,
+      "playerName": "K'Lavon Chaisson",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 166,
+      "playerName": "Shemar Stewart",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 167,
+      "playerName": "Ed Oliver",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 168,
+      "playerName": "Bryan Cook",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 169,
+      "playerName": "Kamari Lassiter",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 170,
+      "playerName": "Billy Bowman",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 171,
+      "playerName": "Jack Kiser",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 172,
+      "playerName": "Drake Thomas",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 173,
+      "playerName": "Joseph Ossai",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 174,
+      "playerName": "Chamarri Conner",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 175,
+      "playerName": "Malik Mustapha",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 176,
+      "playerName": "Jonah Elliss",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 177,
+      "playerName": "Jordan Burch",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 178,
+      "playerName": "Josaiah Stewart",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 179,
+      "playerName": "Alex Anzalone",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 180,
+      "playerName": "Lukas Van Ness",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 181,
+      "playerName": "Jalen Redmond",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 182,
+      "playerName": "Oluwafemi Oladejo",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 183,
+      "playerName": "Keeanu Benton",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 184,
+      "playerName": "Devin White",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 185,
+      "playerName": "Bobby Wagner",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 186,
+      "playerName": "Cody Barton",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 187,
+      "playerName": "James Pearce Jr.",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 188,
+      "playerName": "Jaquan Brisker",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 189,
+      "playerName": "Micah McFadden",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 190,
+      "playerName": "Derrick Barnes",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 191,
+      "playerName": "Grant Delpit",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 192,
+      "playerName": "Landon Jackson",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 193,
+      "playerName": "Xavier McKinney",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 194,
+      "playerName": "Amani Hooker",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 195,
+      "playerName": "Jonas Sanker",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 196,
+      "playerName": "Dee Winters",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 197,
+      "playerName": "Teddye Buchanan",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 198,
+      "playerName": "Dre Greenlaw",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 199,
+      "playerName": "Mack Wilson",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 200,
+      "playerName": "Khalil Mack",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 6"
+    },
+    {
+      "overallRank": 201,
+      "playerName": "Bradley Chubb",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 202,
+      "playerName": "Andru Phillips",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 203,
+      "playerName": "Jack Sanborn",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 204,
+      "playerName": "Tyrice Knight",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 205,
+      "playerName": "Kenny Moore II",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 206,
+      "playerName": "Gervon Dexter Sr.",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 207,
+      "playerName": "Devonte Wyatt",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 208,
+      "playerName": "Lathan Ransom",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 209,
+      "playerName": "Alohi Gilman",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 210,
+      "playerName": "Daxton Hill",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 211,
+      "playerName": "Andrew Mukuba",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 212,
+      "playerName": "Brandon Jones",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 213,
+      "playerName": "Camryn Bynum",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 214,
+      "playerName": "Omarr Norman-Lott",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 215,
+      "playerName": "Kenneth Grant",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 216,
+      "playerName": "Derick Hall",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 217,
+      "playerName": "Tyree Wilson",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 218,
+      "playerName": "Tatum Bethune",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 219,
+      "playerName": "Pete Werner",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 220,
+      "playerName": "Zaven Collins",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 221,
+      "playerName": "Demario Davis",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 222,
+      "playerName": "Isaiah McGuire",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 223,
+      "playerName": "Logan Wilson",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 224,
+      "playerName": "Christian Gonzalez",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 225,
+      "playerName": "Keisean Nixon",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 226,
+      "playerName": "Uchenna Nwosu",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 227,
+      "playerName": "Dexter Lawrence",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 228,
+      "playerName": "Justin Madubuike",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 229,
+      "playerName": "Dorance Armstrong",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 230,
+      "playerName": "Shemar James",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 231,
+      "playerName": "Shaun Dolac",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 232,
+      "playerName": "Baron Browning",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 233,
+      "playerName": "Dayo Odeyingbo",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 234,
+      "playerName": "Zach Harrison",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 235,
+      "playerName": "Zach Sieler",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 236,
+      "playerName": "Malcolm Koonce",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 237,
+      "playerName": "Christian Elliss",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 238,
+      "playerName": "Kyler Gordon",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 239,
+      "playerName": "Taron Johnson",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 240,
+      "playerName": "Junior Colson",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 241,
+      "playerName": "Dorian Williams",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 242,
+      "playerName": "Henry To'oTo'o",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 243,
+      "playerName": "Troy Dye",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 244,
+      "playerName": "Minkah Fitzpatrick",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 245,
+      "playerName": "DeShon Elliott",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 246,
+      "playerName": "Princely Umanmielen",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 247,
+      "playerName": "Drue Tranquill",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 248,
+      "playerName": "Jaycee Horn",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 249,
+      "playerName": "Germaine Pratt",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 250,
+      "playerName": "Patrick Jones",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 7"
+    },
+    {
+      "overallRank": 251,
+      "playerName": "Kerby Joseph",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 252,
+      "playerName": "Darius Robinson",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 253,
+      "playerName": "Bryan Bresee",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 254,
+      "playerName": "Cameron Heyward",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 255,
+      "playerName": "Jalen Ramsey",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 256,
+      "playerName": "Alontae Taylor",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 257,
+      "playerName": "Paulson Adebo",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 258,
+      "playerName": "Coby Bryant",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 259,
+      "playerName": "Riley Moss",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 260,
+      "playerName": "Haason Reddick",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 261,
+      "playerName": "Jevon Holland",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 262,
+      "playerName": "Quan Martin",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 263,
+      "playerName": "Reed Blankenship",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 264,
+      "playerName": "Justin Reid",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 265,
+      "playerName": "Jalen Thompson",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 266,
+      "playerName": "Christian Benford",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 267,
+      "playerName": "Kool-Aid McKinstry",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 268,
+      "playerName": "Cam Taylor-Britt",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 269,
+      "playerName": "Derek Stingley Jr.",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 270,
+      "playerName": "C.J. Gardner-Johnson",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 271,
+      "playerName": "Calen Bullock",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 272,
+      "playerName": "Christian Barmore",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 273,
+      "playerName": "Kenneth Murray",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 274,
+      "playerName": "Jaylon Carlies",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 275,
+      "playerName": "D.J. Wonnum",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 276,
+      "playerName": "Kamren Kinchens",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 277,
+      "playerName": "Jonah Laulu",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 278,
+      "playerName": "Brandon Dorlus",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 279,
+      "playerName": "Ty'Ron Hopper",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 280,
+      "playerName": "Javon Bullard",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 281,
+      "playerName": "Craig Woodson",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 282,
+      "playerName": "Andrew Wingard",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 283,
+      "playerName": "T.Y. Okada",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 284,
+      "playerName": "Daron Payne",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 285,
+      "playerName": "Jonathan Allen",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 286,
+      "playerName": "Dante Trader Jr.",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 287,
+      "playerName": "Tyson Campbell",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 288,
+      "playerName": "L'Jarius Sneed",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 289,
+      "playerName": "Nate Wiggins",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 290,
+      "playerName": "Byron Murphy",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 291,
+      "playerName": "Deommodore Lenoir",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 292,
+      "playerName": "Terrion Arnold",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 293,
+      "playerName": "Tarheeb Still",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 294,
+      "playerName": "Elijah Molden",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 295,
+      "playerName": "Taylor Rapp",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 296,
+      "playerName": "Sauce Gardner",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 297,
+      "playerName": "Michael Hall Jr.",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 298,
+      "playerName": "Nate Hobbs",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 299,
+      "playerName": "Will Johnson",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 300,
+      "playerName": "Quinyon Mitchell",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 8"
+    },
+    {
+      "overallRank": 301,
+      "playerName": "Keion White",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 302,
+      "playerName": "Chris Braswell",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 303,
+      "playerName": "A.J. Epenesa",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 304,
+      "playerName": "Joey Porter Jr.",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 305,
+      "playerName": "Anfernee Jennings",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 306,
+      "playerName": "Javon Solomon",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 307,
+      "playerName": "Azeez Ojulari",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 308,
+      "playerName": "Jeremiah Trotter Jr.",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 309,
+      "playerName": "Tommy Eichenberg",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 310,
+      "playerName": "Omar Speights",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 311,
+      "playerName": "Akeem Davis-Gaither",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 312,
+      "playerName": "Arden Key",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 313,
+      "playerName": "Joey Bosa",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 314,
+      "playerName": "Jordan Magee",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 315,
+      "playerName": "Drew Sanders",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 316,
+      "playerName": "Eric Wilson",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 317,
+      "playerName": "Jeffrey Bassa",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 318,
+      "playerName": "Kain Medrano",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 319,
+      "playerName": "Trenton Simpson",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 320,
+      "playerName": "Matt Milano",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 321,
+      "playerName": "Troy Andersen",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 322,
+      "playerName": "Willie Gay",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 323,
+      "playerName": "Isaiah McDuffie",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 324,
+      "playerName": "David Walker",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 325,
+      "playerName": "Patrick Surtain II",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 326,
+      "playerName": "Kevin Byard",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 327,
+      "playerName": "Evan Williams",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 328,
+      "playerName": "Demarcus Lawrence",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 329,
+      "playerName": "John Franklin-Myers",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 330,
+      "playerName": "Kyle Van Noy",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 331,
+      "playerName": "Cooper McDonald",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 332,
+      "playerName": "Joe Bachie",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 333,
+      "playerName": "Marist Liufau",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 334,
+      "playerName": "Darius Muasau",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 335,
+      "playerName": "Marlowe Wax",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 336,
+      "playerName": "E.J. Speed",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 337,
+      "playerName": "Bralen Trice",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 338,
+      "playerName": "Adisa Isaac",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 339,
+      "playerName": "Javon Hargrave",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 340,
+      "playerName": "Samuel Mondon Jr.",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 341,
+      "playerName": "Deone Walker",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 342,
+      "playerName": "Jaden Hicks",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 343,
+      "playerName": "Matt Judon",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 344,
+      "playerName": "Alim McNeill",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 345,
+      "playerName": "Tershawn Wharton",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 346,
+      "playerName": "A'Shawn Robinson",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 347,
+      "playerName": "Ruke Orhorhoro",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 348,
+      "playerName": "Ja'Quan McMillian",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 349,
+      "playerName": "Alex Wright",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 350,
+      "playerName": "Justin Strnad",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 351,
+      "playerName": "Donovan Wilson",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 352,
+      "playerName": "Geno Stone",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 353,
+      "playerName": "Osa Odighizuwa",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 354,
+      "playerName": "Charvarius Ward",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 355,
+      "playerName": "Arnold Ebiketie",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 356,
+      "playerName": "Kris Jenkins",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 357,
+      "playerName": "Dante Fowler Jr.",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 358,
+      "playerName": "Eric Kendricks",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 359,
+      "playerName": "Josey Jewell",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 360,
+      "playerName": "Jerome Baker",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 361,
+      "playerName": "Christian Izien",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 362,
+      "playerName": "James Williams",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 363,
+      "playerName": "Dondrea Tillman",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 364,
+      "playerName": "Nahshon Wright",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 365,
+      "playerName": "Zyon McCollum",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 366,
+      "playerName": "Max Melton",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 367,
+      "playerName": "Tyrique Stevenson",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 368,
+      "playerName": "Trey Amos",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 369,
+      "playerName": "Marlon Humphrey",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 370,
+      "playerName": "Greg Newsome II",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 371,
+      "playerName": "Isaiah Rodgers",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 372,
+      "playerName": "Theo Jackson",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 373,
+      "playerName": "Jason Pinnock",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 374,
+      "playerName": "Kiko Mauigoa",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 375,
+      "playerName": "Ifeatu Melifonwu",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 376,
+      "playerName": "Ashtyn Davis",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 377,
+      "playerName": "Sai'vion Jones",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 378,
+      "playerName": "Derek Barnett",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 379,
+      "playerName": "Elijah Roberts",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 380,
+      "playerName": "Darien Porter",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 381,
+      "playerName": "Shavon Revel Jr.",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 382,
+      "playerName": "Cody Lindenberg",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 383,
+      "playerName": "Jaylon Jones",
+      "position": "DB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 384,
+      "playerName": "Bryce Huff",
+      "position": "DL",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    },
+    {
+      "overallRank": 385,
+      "playerName": "Lavonte David",
+      "position": "LB",
+      "positionRank": null,
+      "tradeValueText": "Tier 9"
+    }
+  ]
+}
