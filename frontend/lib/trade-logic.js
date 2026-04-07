@@ -1,23 +1,64 @@
 /**
- * Pure trade calculator logic — extracted from app/trade/page.jsx
- * for testability. No React dependencies.
+ * Trade calculator logic — the authoritative implementation for Next.js.
+ * Covers: value modes, power-weighted totals, LAM, scarcity, edge detection,
+ * pick valuation, verdict calculation, persistence.
+ *
+ * No React dependencies — pure functions + constants.
  */
 
+// ── Value Modes ──────────────────────────────────────────────────────────
 export const VALUE_MODES = [
   { key: "full", label: "Our Value" },
   { key: "raw", label: "Raw" },
-  { key: "scoring", label: "Scoring" },
-  { key: "scarcity", label: "Scarcity" },
+  { key: "scoring", label: "Scoring Adj." },
+  { key: "scarcity", label: "Scarcity Adj." },
 ];
 
+// ── Persistence Keys ─────────────────────────────────────────────────────
 export const STORAGE_KEY = "next_trade_workspace_v1";
 export const RECENT_KEY = "next_trade_recent_assets_v1";
+export const SETTINGS_KEY = "next_settings_v1";
 
-// Verdict thresholds on the 1–9999 display scale (proportional to prior 200/600/1200 on 0–7800)
+// ── Verdict Thresholds (1–9999 scale) ────────────────────────────────────
 const VERDICT_NEAR_EVEN = 256;
 const VERDICT_LEAN = 769;
 const VERDICT_STRONG_LEAN = 1538;
 
+// ── Power-Weighted Calculation ───────────────────────────────────────────
+// Alpha exponent concentrates value at the top — a star + role player is
+// worth more than two mid-tier pieces.  Matches static calculator exactly.
+export const TRADE_ALPHA = 1.075;
+
+/**
+ * Power-weighted side total.
+ * Each asset's value is raised to `alpha`, summed, then root-alpha'd back.
+ * This penalizes quantity over quality.
+ */
+export function powerWeightedTotal(side, valueMode, alpha = TRADE_ALPHA) {
+  if (!side.length) return 0;
+  const sum = side.reduce((acc, r) => {
+    const v = Number(r.values?.[valueMode] || 0);
+    return acc + Math.pow(Math.max(v, 0), alpha);
+  }, 0);
+  return Math.pow(sum, 1 / alpha);
+}
+
+/** Simple linear total (sum of values). */
+export function sideTotal(side, valueMode) {
+  return side.reduce((sum, r) => sum + Number(r.values?.[valueMode] || 0), 0);
+}
+
+/** Gap = Side A power-weighted total − Side B power-weighted total. */
+export function tradeGap(sideA, sideB, valueMode) {
+  return powerWeightedTotal(sideA, valueMode) - powerWeightedTotal(sideB, valueMode);
+}
+
+/** Linear gap (for display alongside power-weighted). */
+export function linearGap(sideA, sideB, valueMode) {
+  return sideTotal(sideA, valueMode) - sideTotal(sideB, valueMode);
+}
+
+// ── Verdict ──────────────────────────────────────────────────────────────
 export function verdictFromGap(gap) {
   const abs = Math.abs(gap);
   if (abs < VERDICT_NEAR_EVEN) return "Near even";
@@ -31,14 +72,181 @@ export function colorFromGap(gap) {
   return gap > 0 ? "green" : "red";
 }
 
-export function sideTotal(side, valueMode) {
-  return side.reduce((sum, r) => sum + Number(r.values?.[valueMode] || 0), 0);
+/**
+ * Verdict bar position (0 = Side B wins, 50 = even, 100 = Side A wins).
+ * Clamped so the marker never fully touches either edge.
+ */
+export function verdictBarPosition(gap, maxGap = 4000) {
+  const clamped = Math.max(-maxGap, Math.min(maxGap, gap));
+  return 50 + (clamped / maxGap) * 50;
 }
 
-export function tradeGap(sideA, sideB, valueMode) {
-  return sideTotal(sideA, valueMode) - sideTotal(sideB, valueMode);
+// ── LAM (League Adjustment Multiplier) ───────────────────────────────────
+// Buckets map: position → multiplier at a given LAM strength.
+// The multiplier skews values based on league scoring format.
+// In superflex leagues, QBs are worth more; in standard, RBs dominate.
+const LAM_BUCKETS = {
+  QB:  { superflex: 1.15, standard: 0.85 },
+  RB:  { superflex: 0.95, standard: 1.10 },
+  WR:  { superflex: 1.00, standard: 1.00 },
+  TE:  { superflex: 0.90, standard: 0.92 },
+  DL:  { superflex: 0.70, standard: 0.70 },
+  LB:  { superflex: 0.75, standard: 0.75 },
+  DB:  { superflex: 0.72, standard: 0.72 },
+  PICK:{ superflex: 1.00, standard: 1.00 },
+};
+
+/**
+ * Compute LAM multiplier for a position at a given strength.
+ * @param {string} pos - Normalized position (QB, RB, WR, TE, DL, LB, DB, PICK)
+ * @param {number} strength - 0 (no adjustment) to 1 (full adjustment)
+ * @param {string} format - "superflex" or "standard"
+ * @returns {number} Multiplier to apply to raw value
+ */
+export function lamMultiplier(pos, strength = 0.5, format = "superflex") {
+  const bucket = LAM_BUCKETS[pos] || LAM_BUCKETS.WR;
+  const mult = bucket[format] ?? bucket.superflex ?? 1.0;
+  // Interpolate between 1.0 (no effect) and full multiplier
+  return 1 + (mult - 1) * strength;
 }
 
+// ── Scarcity Model ───────────────────────────────────────────────────────
+// Position scarcity adjusts values based on replacement-level depth.
+// Positions with fewer quality starters relative to league demand get a premium.
+const SCARCITY_DEFAULTS = {
+  // { startersPerTeam, totalTeams, poolMultiplier }
+  QB:  { starters: 1, teams: 12, poolMult: 1.0 },
+  RB:  { starters: 2, teams: 12, poolMult: 1.2 },
+  WR:  { starters: 3, teams: 12, poolMult: 1.0 },
+  TE:  { starters: 1, teams: 12, poolMult: 0.8 },
+  DL:  { starters: 2, teams: 12, poolMult: 0.6 },
+  LB:  { starters: 2, teams: 12, poolMult: 0.65 },
+  DB:  { starters: 2, teams: 12, poolMult: 0.6 },
+};
+
+/**
+ * Build scarcity model from current rows.
+ * Returns per-position: replacementRank, replacementValue, pressure.
+ */
+export function buildScarcityModel(rows) {
+  const byPos = {};
+  for (const r of rows) {
+    if (!r.pos || r.pos === "?" || r.pos === "PICK") continue;
+    if (!byPos[r.pos]) byPos[r.pos] = [];
+    byPos[r.pos].push(r.values?.full || 0);
+  }
+
+  const model = {};
+  for (const [pos, cfg] of Object.entries(SCARCITY_DEFAULTS)) {
+    const vals = (byPos[pos] || []).sort((a, b) => b - a);
+    const poolSize = vals.length;
+    const replacementRank = Math.ceil(cfg.starters * cfg.teams);
+    const replacementValue = vals[Math.min(replacementRank - 1, vals.length - 1)] || 0;
+    const topValue = vals[0] || 0;
+    const span = topValue - replacementValue;
+    const pressure = poolSize > 0 ? Math.min(1.5, (cfg.starters * cfg.teams) / poolSize) : 1.0;
+    model[pos] = { poolSize, replacementRank, replacementValue, topValue, span, pressure };
+  }
+  return model;
+}
+
+/**
+ * Scarcity multiplier for a single player.
+ * Players well above replacement get less adjustment; those near it get more.
+ * @param {number} value - Player's current value
+ * @param {string} pos - Position
+ * @param {object} scarcityModel - From buildScarcityModel()
+ * @param {number} strength - 0 to 1
+ * @returns {number} Multiplier
+ */
+export function scarcityMultiplier(value, pos, scarcityModel, strength = 0.35) {
+  const entry = scarcityModel?.[pos];
+  if (!entry || entry.span <= 0) return 1.0;
+  // Players above replacement: pressure scales up
+  // Players at/below replacement: minimal adjustment
+  const aboveReplacement = Math.max(0, value - entry.replacementValue) / entry.span;
+  const adj = 1 + (entry.pressure - 1) * aboveReplacement * 0.5;
+  return 1 + (adj - 1) * strength;
+}
+
+// ── Edge Detection ───────────────────────────────────────────────────────
+const MIN_EDGE_PCT = 3; // minimum % gap to signal
+
+/**
+ * Compute edge signal for a player row.
+ * Compares the player's consensus value against external source values.
+ * @param {object} row - Player row with canonicalSites and values
+ * @returns {{ signal: 'BUY'|'SELL'|null, edgePct: number, sources: string[] }}
+ */
+export function getPlayerEdge(row) {
+  if (!row?.canonicalSites || !row?.values?.full) return { signal: null, edgePct: 0, sources: [] };
+
+  const ourValue = row.values.full;
+  if (ourValue <= 0) return { signal: null, edgePct: 0, sources: [] };
+
+  // Compare against external sources
+  const externalKeys = ["ktc", "fantasyCalc", "dynastyDaddy"];
+  const externals = [];
+  for (const key of externalKeys) {
+    const v = Number(row.canonicalSites[key]);
+    if (Number.isFinite(v) && v > 0) externals.push({ key, value: v });
+  }
+
+  if (externals.length === 0) return { signal: null, edgePct: 0, sources: [] };
+
+  const avgExternal = externals.reduce((s, e) => s + e.value, 0) / externals.length;
+  const pctDiff = ((ourValue - avgExternal) / avgExternal) * 100;
+
+  if (Math.abs(pctDiff) < MIN_EDGE_PCT) return { signal: null, edgePct: 0, sources: externals.map((e) => e.key) };
+
+  return {
+    signal: pctDiff < 0 ? "BUY" : "SELL",
+    edgePct: Math.round(Math.abs(pctDiff)),
+    sources: externals.map((e) => e.key),
+  };
+}
+
+// ── Pick Token Parsing ───────────────────────────────────────────────────
+const ROUND_LABELS = { "1": "1st", "2": "2nd", "3": "3rd", "4": "4th", "5": "5th" };
+
+/**
+ * Parse a pick token string into structured parts.
+ * Handles: "2026 1.06", "2026 early 1st", "2026 1st", "2026 mid 2nd"
+ * @returns {{ year: string, round: string, tier: string|null, slot: number|null }}
+ */
+export function parsePickToken(token) {
+  const s = String(token || "").trim();
+
+  // "2026 1.06" format
+  const slotMatch = s.match(/^(\d{4})\s+(\d)\.(\d{2})/);
+  if (slotMatch) {
+    const round = ROUND_LABELS[slotMatch[2]] || `${slotMatch[2]}th`;
+    const slot = parseInt(slotMatch[3], 10);
+    const tier = slot <= 4 ? "early" : slot <= 8 ? "mid" : "late";
+    return { year: slotMatch[1], round, tier, slot };
+  }
+
+  // "2026 early 1st" or "2026 1st" format
+  const labelMatch = s.match(/^(\d{4})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th)/i);
+  if (labelMatch) {
+    return { year: labelMatch[1], round: labelMatch[3].toLowerCase(), tier: (labelMatch[2] || "").toLowerCase() || null, slot: null };
+  }
+
+  return null;
+}
+
+/**
+ * Normalize a pick token to canonical lookup label.
+ * "2026 1.06" → "2026 Mid 1st", "2026 early 2nd" → "2026 Early 2nd"
+ */
+export function normalizePickLabel(token) {
+  const parsed = parsePickToken(token);
+  if (!parsed) return token;
+  const tier = parsed.tier ? parsed.tier.charAt(0).toUpperCase() + parsed.tier.slice(1) : "Mid";
+  return `${parsed.year} ${tier} ${parsed.round}`;
+}
+
+// ── Trade Side Helpers ───────────────────────────────────────────────────
 export function addAssetToSide(side, row) {
   if (!row) return side;
   if (side.some((r) => r.name === row.name)) return side;
@@ -53,6 +261,27 @@ export function isAssetInTrade(sideA, sideB, name) {
   return sideA.some((r) => r.name === name) || sideB.some((r) => r.name === name);
 }
 
+// ── Balancing Suggestions ────────────────────────────────────────────────
+/**
+ * Find players from a roster that could balance a trade gap.
+ * @param {number} gap - Current trade gap (positive = Side A ahead)
+ * @param {object[]} rosterRows - Available rows from the behind team's roster
+ * @param {string} valueMode - Current value mode
+ * @param {number} maxResults - Max suggestions to return
+ * @returns {object[]} Sorted array of { name, pos, value } that best fill the gap
+ */
+export function findBalancers(gap, rosterRows, valueMode, maxResults = 5) {
+  const target = Math.abs(gap);
+  if (target < VERDICT_NEAR_EVEN) return [];
+
+  return rosterRows
+    .map((r) => ({ name: r.name, pos: r.pos, value: Number(r.values?.[valueMode] || 0) }))
+    .filter((r) => r.value > 0 && r.value <= target * 1.3)
+    .sort((a, b) => Math.abs(a.value - target) - Math.abs(b.value - target))
+    .slice(0, maxResults);
+}
+
+// ── Workspace Serialization ──────────────────────────────────────────────
 export function serializeWorkspace(sideA, sideB, valueMode, activeSide) {
   return {
     valueMode,
@@ -64,16 +293,10 @@ export function serializeWorkspace(sideA, sideB, valueMode, activeSide) {
 
 export function deserializeWorkspace(parsed, rowByName) {
   if (!parsed || typeof parsed !== "object") return null;
-  const valueMode = VALUE_MODES.some((m) => m.key === parsed.valueMode)
-    ? parsed.valueMode
-    : "full";
+  const valueMode = VALUE_MODES.some((m) => m.key === parsed.valueMode) ? parsed.valueMode : "full";
   const activeSide = parsed.activeSide === "B" ? "B" : "A";
-  const sideA = Array.isArray(parsed.sideA)
-    ? parsed.sideA.map((n) => rowByName.get(n)).filter(Boolean)
-    : [];
-  const sideB = Array.isArray(parsed.sideB)
-    ? parsed.sideB.map((n) => rowByName.get(n)).filter(Boolean)
-    : [];
+  const sideA = Array.isArray(parsed.sideA) ? parsed.sideA.map((n) => rowByName.get(n)).filter(Boolean) : [];
+  const sideB = Array.isArray(parsed.sideB) ? parsed.sideB.map((n) => rowByName.get(n)).filter(Boolean) : [];
   return { valueMode, activeSide, sideA, sideB };
 }
 

@@ -11,6 +11,8 @@ import {
   colorFromGap,
   sideTotal,
   tradeGap,
+  linearGap,
+  powerWeightedTotal,
   addAssetToSide,
   removeAssetFromSide,
   isAssetInTrade,
@@ -18,6 +20,13 @@ import {
   deserializeWorkspace,
   addRecent,
   filterPickerRows,
+  getPlayerEdge,
+  parsePickToken,
+  findBalancers,
+  verdictBarPosition,
+  lamMultiplier,
+  scarcityMultiplier,
+  buildScarcityModel,
 } from "@/lib/trade-logic";
 
 // ── Test fixtures ────────────────────────────────────────────────────
@@ -132,18 +141,30 @@ describe("sideTotal", () => {
 
 // ── tradeGap ─────────────────────────────────────────────────────────
 
-describe("tradeGap", () => {
-  it("computes difference A - B", () => {
+describe("tradeGap (power-weighted)", () => {
+  it("single-asset sides equal linear gap", () => {
+    // With one asset per side, power-weighted = linear
     expect(tradeGap([ALLEN], [CHASE], "full")).toBe(500);
     expect(tradeGap([CHASE], [ALLEN], "full")).toBe(-500);
   });
 
-  it("handles multi-asset sides", () => {
-    expect(tradeGap([ALLEN], [CHASE, PICK_2026], "full")).toBe(9000 - (8500 + 7000));
+  it("multi-asset sides are power-weighted (less than linear sum)", () => {
+    const gap = tradeGap([ALLEN], [CHASE, PICK_2026], "full");
+    const linGapVal = linearGap([ALLEN], [CHASE, PICK_2026], "full");
+    // Power-weighted sum of B < linear sum, so gap magnitude is smaller
+    expect(linGapVal).toBe(9000 - (8500 + 7000));
+    expect(Math.abs(gap)).toBeLessThan(Math.abs(linGapVal));
+    expect(gap).toBeLessThan(0); // B still wins
   });
 
   it("returns 0 for empty vs empty", () => {
     expect(tradeGap([], [], "full")).toBe(0);
+  });
+});
+
+describe("linearGap", () => {
+  it("computes simple difference", () => {
+    expect(linearGap([ALLEN], [CHASE, PICK_2026], "full")).toBe(9000 - (8500 + 7000));
   });
 });
 
@@ -370,25 +391,29 @@ describe("full trade scenario", () => {
     // Compute
     const totalA = sideTotal(sideA, "full"); // 9000 + 8500 = 17500
     const totalB = sideTotal(sideB, "full"); // 8800 + 7000 = 15800
-    const gap = tradeGap(sideA, sideB, "full"); // 1700
+    const gap = tradeGap(sideA, sideB, "full"); // power-weighted
 
     expect(totalA).toBe(17500);
     expect(totalB).toBe(15800);
-    expect(gap).toBe(1700);
+    // Power-weighted gap is smaller than linear (1700) due to diminishing returns
+    expect(gap).toBeGreaterThan(0); // A still wins
+    expect(gap).toBeLessThan(1700); // But less than linear
     expect(verdictFromGap(gap)).toBe("Major gap");
     expect(colorFromGap(gap)).toBe("green"); // Side A wins
 
     // Swap sides
     const [newA, newB] = [sideB, sideA];
     const swappedGap = tradeGap(newA, newB, "full");
-    expect(swappedGap).toBe(-1700);
+    expect(swappedGap).toBeLessThan(0);
     expect(verdictFromGap(swappedGap)).toBe("Major gap");
     expect(colorFromGap(swappedGap)).toBe("red"); // Now Side B wins
 
     // Remove an asset
     const trimmedB = removeAssetFromSide(newB, "Ja'Marr Chase");
     const newGap = tradeGap(newA, trimmedB, "full");
-    expect(newGap).toBe(15800 - 9000); // 6800
+    // Power-weighted: B (8800+7000) vs A (9000). Gap is positive (B side wins after swap)
+    expect(newGap).toBeGreaterThan(0);
+    expect(newGap).toBeLessThan(15800 - 9000); // less than linear 6800
 
     // Serialize and restore
     const serialized = serializeWorkspace(newA, trimmedB, "full", "A");
@@ -402,5 +427,129 @@ describe("full trade scenario", () => {
     expect(restored.sideA.length).toBe(2);
     expect(restored.sideB.length).toBe(1);
     expect(tradeGap(restored.sideA, restored.sideB, "full")).toBe(newGap);
+  });
+});
+
+// ── New features: power-weighted, edge, pick parsing, LAM, scarcity ──
+
+describe("powerWeightedTotal", () => {
+  it("single asset approximately equals its value", () => {
+    expect(powerWeightedTotal([ALLEN], "full")).toBeCloseTo(9000, 0);
+  });
+
+  it("multiple assets yield less than linear sum", () => {
+    const pw = powerWeightedTotal([ALLEN, CHASE], "full");
+    const linear = 9000 + 8500;
+    expect(pw).toBeLessThan(linear);
+    expect(pw).toBeGreaterThan(9000); // more than single best
+  });
+
+  it("empty array returns 0", () => {
+    expect(powerWeightedTotal([], "full")).toBe(0);
+  });
+});
+
+describe("verdictBarPosition", () => {
+  it("returns 50 for even trade", () => {
+    expect(verdictBarPosition(0)).toBe(50);
+  });
+
+  it("returns > 50 when A ahead", () => {
+    expect(verdictBarPosition(2000)).toBeGreaterThan(50);
+  });
+
+  it("returns < 50 when B ahead", () => {
+    expect(verdictBarPosition(-2000)).toBeLessThan(50);
+  });
+});
+
+describe("getPlayerEdge", () => {
+  it("returns no signal when no canonical sites", () => {
+    const result = getPlayerEdge({ values: { full: 5000 } });
+    expect(result.signal).toBeNull();
+  });
+
+  it("returns BUY when our value is below external average", () => {
+    const row = {
+      values: { full: 5000 },
+      canonicalSites: { ktc: 7000, fantasyCalc: 7500 },
+    };
+    const result = getPlayerEdge(row);
+    expect(result.signal).toBe("BUY");
+    expect(result.edgePct).toBeGreaterThan(0);
+  });
+
+  it("returns SELL when our value is above external average", () => {
+    const row = {
+      values: { full: 9000 },
+      canonicalSites: { ktc: 6000, fantasyCalc: 6000 },
+    };
+    const result = getPlayerEdge(row);
+    expect(result.signal).toBe("SELL");
+  });
+});
+
+describe("parsePickToken", () => {
+  it("parses slot format", () => {
+    const p = parsePickToken("2026 1.06");
+    expect(p.year).toBe("2026");
+    expect(p.round).toBe("1st");
+    expect(p.tier).toBe("mid");
+    expect(p.slot).toBe(6);
+  });
+
+  it("parses label format", () => {
+    const p = parsePickToken("2026 early 2nd");
+    expect(p.year).toBe("2026");
+    expect(p.round).toBe("2nd");
+    expect(p.tier).toBe("early");
+  });
+
+  it("returns null for invalid", () => {
+    expect(parsePickToken("not a pick")).toBeNull();
+  });
+});
+
+describe("lamMultiplier", () => {
+  it("returns 1 at strength 0", () => {
+    expect(lamMultiplier("QB", 0, "superflex")).toBe(1);
+  });
+
+  it("QB gets premium in superflex", () => {
+    expect(lamMultiplier("QB", 1, "superflex")).toBeGreaterThan(1);
+  });
+
+  it("QB gets discount in standard", () => {
+    expect(lamMultiplier("QB", 1, "standard")).toBeLessThan(1);
+  });
+});
+
+describe("buildScarcityModel", () => {
+  it("builds model with pressure values", () => {
+    const rows = Array.from({ length: 50 }, (_, i) => ({
+      pos: i < 10 ? "QB" : i < 30 ? "RB" : "WR",
+      values: { full: 9000 - i * 100 },
+    }));
+    const model = buildScarcityModel(rows);
+    expect(model.QB).toBeDefined();
+    expect(model.QB.poolSize).toBe(10);
+    expect(model.RB.poolSize).toBe(20);
+  });
+});
+
+describe("findBalancers", () => {
+  it("returns players that could fill the gap", () => {
+    const rosterRows = [
+      { name: "P1", pos: "WR", values: { full: 500 } },
+      { name: "P2", pos: "RB", values: { full: 1000 } },
+      { name: "P3", pos: "QB", values: { full: 2000 } },
+    ];
+    const result = findBalancers(1000, rosterRows, "full");
+    expect(result.length).toBeGreaterThan(0);
+    expect(result[0].name).toBe("P2"); // closest to gap of 1000
+  });
+
+  it("returns empty for small gap", () => {
+    expect(findBalancers(100, [], "full")).toEqual([]);
   });
 });

@@ -1134,6 +1134,8 @@ def _apply_canonical_primary_overlay(contract: dict) -> int:
             "blended_value": asset.get("blended_value"),
             "source_count": len(asset.get("source_values", {})),
             "universe": asset.get("universe", ""),
+            "canonical_consensus_rank": asset.get("canonical_consensus_rank"),
+            "canonical_tier_id": asset.get("canonical_tier_id"),
         }
 
     # Normalize helper
@@ -1171,7 +1173,34 @@ def _apply_canonical_primary_overlay(contract: dict) -> int:
         # Display-scale value (1–9999) for public-facing use
         if canon.get("display_value") is not None:
             pdata["_canonicalDisplayValue"] = canon["display_value"]
+        # Multi-source canonical consensus rank (from real pipeline, not KTC-only)
+        ccr = canon.get("canonical_consensus_rank")
+        if ccr is not None:
+            pdata["_canonicalConsensusRank"] = int(round(ccr))
+        ctid = canon.get("canonical_tier_id")
+        if ctid is not None:
+            pdata["_canonicalTierId"] = ctid
         overlay_count += 1
+
+    # Also overlay canonical consensus rank onto playersArray entries
+    # so the frontend gets the real multi-source rank, not just KTC-derived.
+    pa = contract.get("playersArray")
+    if isinstance(pa, list):
+        for row in pa:
+            cname = str(row.get("canonicalName") or row.get("displayName") or "").strip()
+            if not cname:
+                continue
+            norm = _norm(cname)
+            match = canonical_norm.get(norm)
+            if match is None:
+                continue
+            _, canon = match
+            ccr = canon.get("canonical_consensus_rank")
+            if ccr is not None:
+                row["canonicalConsensusRank"] = int(round(ccr))
+            ctid = canon.get("canonical_tier_id")
+            if ctid is not None:
+                row["canonicalTierId"] = ctid
 
     # Mark the contract as canonical-authoritative
     contract["valueAuthority"] = "canonical"
@@ -2944,13 +2973,14 @@ async def serve_favicon():
     return Response(status_code=404)
 
 
-# Serve any other static files (CSS, JS, images, etc.)
+# Static file mounts — these serve assets for /league, landing.html, and legacy
+# supplementary pages. They do NOT serve the primary app shell (that is Next.js).
+# Static/index.html is no longer the production renderer.
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 if LEGACY_STATIC_DIR.exists():
     app.mount("/Static", StaticFiles(directory=str(LEGACY_STATIC_DIR)), name="legacy-static")
 if RUNTIME_JS_DIR.exists():
-    # Expose extracted runtime modules for root-served index.html (`src="js/runtime/*"`).
     app.mount("/js", StaticFiles(directory=str(RUNTIME_JS_DIR)), name="runtime-js")
 
 

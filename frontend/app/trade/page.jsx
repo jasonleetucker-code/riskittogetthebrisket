@@ -8,6 +8,11 @@ import {
   RECENT_KEY,
   verdictFromGap,
   colorFromGap,
+  verdictBarPosition,
+  powerWeightedTotal,
+  sideTotal,
+  getPlayerEdge,
+  findBalancers,
 } from "@/lib/trade-logic";
 
 const ROSTER_KEY = "next_trade_roster_v1";
@@ -129,9 +134,20 @@ export default function TradePage() {
     if (pickerOpen && pickerInputRef.current) pickerInputRef.current.focus();
   }, [pickerOpen]);
 
-  const totalA = useMemo(() => sideA.reduce((sum, r) => sum + Number(r.values?.[valueMode] || 0), 0), [sideA, valueMode]);
-  const totalB = useMemo(() => sideB.reduce((sum, r) => sum + Number(r.values?.[valueMode] || 0), 0), [sideB, valueMode]);
-  const gap = totalA - totalB;
+  const pwTotalA = useMemo(() => powerWeightedTotal(sideA, valueMode), [sideA, valueMode]);
+  const pwTotalB = useMemo(() => powerWeightedTotal(sideB, valueMode), [sideB, valueMode]);
+  const linTotalA = useMemo(() => sideTotal(sideA, valueMode), [sideA, valueMode]);
+  const linTotalB = useMemo(() => sideTotal(sideB, valueMode), [sideB, valueMode]);
+  const pwGap = pwTotalA - pwTotalB;
+  const linGap = linTotalA - linTotalB;
+  // Percentage gap for proportional verdict
+  const pctGap = Math.max(pwTotalA, pwTotalB) > 0 ? Math.round(Math.abs(pwGap) / Math.max(pwTotalA, pwTotalB) * 100) : 0;
+  // Balancing suggestions for the losing side
+  const balancers = useMemo(() => {
+    if (Math.abs(pwGap) < 256) return [];
+    const losingRows = pwGap > 0 ? rows.filter((r) => !sideA.some((a) => a.name === r.name) && !sideB.some((b) => b.name === r.name)) : rows.filter((r) => !sideA.some((a) => a.name === r.name) && !sideB.some((b) => b.name === r.name));
+    return findBalancers(pwGap, losingRows, valueMode);
+  }, [pwGap, rows, sideA, sideB, valueMode]);
 
   const pickerRows = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase();
@@ -285,22 +301,49 @@ export default function TradePage() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <h3 style={{ margin: 0 }}>Side A</h3>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div className="value">{Math.round(totalA).toLocaleString()}</div>
+                  <div>
+                    <div className="value">{Math.round(pwTotalA).toLocaleString()}</div>
+                    <div className="muted" style={{ fontSize: "0.64rem" }}>Linear: {Math.round(linTotalA).toLocaleString()}</div>
+                  </div>
                   <button className="button" onClick={() => openPickerFor("A")}>+ Add</button>
                 </div>
               </div>
               <div className="list" style={{ marginTop: 10 }}>
-                {sideA.map((r) => (
-                  <div className="asset-row" key={`A-${r.name}`}>
-                    <div>
-                      <div className="asset-name">{r.name}</div>
-                      <div className="asset-meta">{r.pos} · {r.values[valueMode].toLocaleString()}</div>
+                {sideA.map((r) => {
+                  const edge = getPlayerEdge(r);
+                  return (
+                    <div className="asset-row" key={`A-${r.name}`}>
+                      <div>
+                        <div className="asset-name">
+                          {r.name}
+                          {edge.signal && (
+                            <span className="badge" style={{ marginLeft: 6, fontSize: "0.6rem", padding: "1px 4px",
+                              color: edge.signal === "BUY" ? "var(--green)" : "var(--red)",
+                              borderColor: edge.signal === "BUY" ? "var(--green)" : "var(--red)" }}>
+                              {edge.signal} {edge.edgePct}%
+                            </span>
+                          )}
+                        </div>
+                        <div className="asset-meta">{r.pos} · {r.values[valueMode].toLocaleString()}</div>
+                      </div>
+                      <button className="button" onClick={() => removeFromSide(r.name, "A")}>Remove</button>
                     </div>
-                    <button className="button" onClick={() => removeFromSide(r.name, "A")}>Remove</button>
-                  </div>
-                ))}
+                  );
+                })}
                 {sideA.length === 0 && <div className="muted">No assets yet.</div>}
               </div>
+              {/* Balancers for Side A (shown when B is ahead) */}
+              {pwGap < -256 && balancers.length > 0 && (
+                <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(86,214,255,0.06)", borderRadius: 6 }}>
+                  <div className="label" style={{ fontSize: "0.68rem", marginBottom: 4 }}>To balance, consider adding:</div>
+                  {balancers.map((b) => (
+                    <button key={b.name} className="button-reset muted" style={{ display: "block", fontSize: "0.72rem", cursor: "pointer" }}
+                      onClick={() => { const row = rowByName.get(b.name); if (row) addToSide(row, "A"); }}>
+                      {b.name} ({b.pos}) · {b.value.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Side B */}
@@ -308,22 +351,49 @@ export default function TradePage() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <h3 style={{ margin: 0 }}>Side B</h3>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div className="value">{Math.round(totalB).toLocaleString()}</div>
+                  <div>
+                    <div className="value">{Math.round(pwTotalB).toLocaleString()}</div>
+                    <div className="muted" style={{ fontSize: "0.64rem" }}>Linear: {Math.round(linTotalB).toLocaleString()}</div>
+                  </div>
                   <button className="button" onClick={() => openPickerFor("B")}>+ Add</button>
                 </div>
               </div>
               <div className="list" style={{ marginTop: 10 }}>
-                {sideB.map((r) => (
-                  <div className="asset-row" key={`B-${r.name}`}>
-                    <div>
-                      <div className="asset-name">{r.name}</div>
-                      <div className="asset-meta">{r.pos} · {r.values[valueMode].toLocaleString()}</div>
+                {sideB.map((r) => {
+                  const edge = getPlayerEdge(r);
+                  return (
+                    <div className="asset-row" key={`B-${r.name}`}>
+                      <div>
+                        <div className="asset-name">
+                          {r.name}
+                          {edge.signal && (
+                            <span className="badge" style={{ marginLeft: 6, fontSize: "0.6rem", padding: "1px 4px",
+                              color: edge.signal === "BUY" ? "var(--green)" : "var(--red)",
+                              borderColor: edge.signal === "BUY" ? "var(--green)" : "var(--red)" }}>
+                              {edge.signal} {edge.edgePct}%
+                            </span>
+                          )}
+                        </div>
+                        <div className="asset-meta">{r.pos} · {r.values[valueMode].toLocaleString()}</div>
+                      </div>
+                      <button className="button" onClick={() => removeFromSide(r.name, "B")}>Remove</button>
                     </div>
-                    <button className="button" onClick={() => removeFromSide(r.name, "B")}>Remove</button>
-                  </div>
-                ))}
+                  );
+                })}
                 {sideB.length === 0 && <div className="muted">No assets yet.</div>}
               </div>
+              {/* Balancers for Side B (shown when A is ahead) */}
+              {pwGap > 256 && balancers.length > 0 && (
+                <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(86,214,255,0.06)", borderRadius: 6 }}>
+                  <div className="label" style={{ fontSize: "0.68rem", marginBottom: 4 }}>To balance, consider adding:</div>
+                  {balancers.map((b) => (
+                    <button key={b.name} className="button-reset muted" style={{ display: "block", fontSize: "0.72rem", cursor: "pointer" }}
+                      onClick={() => { const row = rowByName.get(b.name); if (row) addToSide(row, "B"); }}>
+                      {b.name} ({b.pos}) · {b.value.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -605,16 +675,28 @@ export default function TradePage() {
             <div className="trade-tray-main">
               <div>
                 <div className="label">Side A</div>
-                <div className="value" style={{ fontSize: "1.0rem" }}>{Math.round(totalA).toLocaleString()}</div>
+                <div className="value" style={{ fontSize: "1.0rem" }}>{Math.round(pwTotalA).toLocaleString()}</div>
+              </div>
+              <div style={{ flex: 1, minWidth: 140, maxWidth: 220 }}>
+                {/* Verdict bar */}
+                <div style={{ position: "relative", height: 10, background: "var(--border)", borderRadius: 5, overflow: "hidden", margin: "6px 0" }}>
+                  <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, var(--green), transparent 40%, transparent 60%, var(--red))", opacity: 0.3, borderRadius: 5 }} />
+                  <div style={{
+                    position: "absolute", top: -1, width: 12, height: 12, borderRadius: "50%",
+                    background: colorFromGap(pwGap) === "green" ? "var(--green)" : colorFromGap(pwGap) === "red" ? "var(--red)" : "var(--cyan)",
+                    border: "2px solid var(--bg)", left: `calc(${verdictBarPosition(pwGap)}% - 6px)`, transition: "left 0.3s",
+                  }} />
+                </div>
+                <div className={`verdict ${colorFromGap(pwGap)}`} style={{ textAlign: "center", fontSize: "0.82rem" }}>
+                  {verdictFromGap(pwGap)}{pctGap > 0 ? ` (${pctGap}%)` : ""}
+                </div>
+                <div className="muted" style={{ fontSize: "0.66rem", textAlign: "center" }}>
+                  Gap {Math.round(pwGap).toLocaleString()}
+                </div>
               </div>
               <div>
                 <div className="label">Side B</div>
-                <div className="value" style={{ fontSize: "1.0rem" }}>{Math.round(totalB).toLocaleString()}</div>
-              </div>
-              <div style={{ minWidth: 130 }}>
-                <div className="label">Verdict</div>
-                <div className={`verdict ${colorFromGap(gap)}`}>{verdictFromGap(gap)}</div>
-                <div className="muted" style={{ fontSize: "0.72rem" }}>Gap {Math.round(gap).toLocaleString()}</div>
+                <div className="value" style={{ fontSize: "1.0rem" }}>{Math.round(pwTotalB).toLocaleString()}</div>
               </div>
             </div>
           </div>
