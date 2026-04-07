@@ -33,6 +33,7 @@ _OFFENSE_SIGNAL_KEYS = {
 }
 _IDP_SIGNAL_KEYS = {
     "pffIdp", "fantasyProsIdp", "draftSharksIdp", "dlfIdp", "dlfRidp",
+    "idpTradeCalc", "adamIdp",
 }
 
 

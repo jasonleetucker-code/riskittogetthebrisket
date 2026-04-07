@@ -48,15 +48,20 @@ export default function RankingsPage() {
       list = list.filter((r) => r.name.toLowerCase().includes(q));
     }
 
-    // Unified rank precedence: canonicalConsensusRank wins when present,
-    // falls back to computed row.rank from buildRows() sort order.
+    // When filtering to IDP, sort by idpRank (class-relative rank).
+    // Otherwise use unified rank precedence.
+    if (assetFilter === "idp") {
+      return [...list].sort((a, b) => (a.idpRank ?? Infinity) - (b.idpRank ?? Infinity));
+    }
     return [...list].sort((a, b) => resolvedRank(a) - resolvedRank(b));
   }, [rows, assetFilter, query]);
 
   async function copyValues() {
-    const lines = ["Our Rank\tPlayer\tPos\tOur Value"];
+    const rankLabel = assetFilter === "idp" ? "IDP Rank" : "Our Rank";
+    const lines = [`${rankLabel}\tPlayer\tPos\tOur Value`];
     ranked.forEach((row) => {
-      lines.push(`${row.rank}\t${row.name}\t${row.pos}\t${Math.round(row.rankDerivedValue || row.values.full)}`);
+      const displayRank = assetFilter === "idp" ? (row.idpRank ?? "—") : row.rank;
+      lines.push(`${displayRank}\t${row.name}\t${row.pos}\t${Math.round(row.rankDerivedValue || row.values.full)}`);
     });
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
@@ -109,7 +114,9 @@ export default function RankingsPage() {
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: 64, textAlign: "center" }} title="Overall board rank — 1 is best">Our Rank</th>
+                  <th style={{ width: 64, textAlign: "center" }} title={assetFilter === "idp" ? "IDP rank — 1 is best" : "Overall board rank — 1 is best"}>
+                    {assetFilter === "idp" ? "IDP Rank" : "Our Rank"}
+                  </th>
                   <th>Player</th>
                   <th>Pos</th>
                   <th title="Our board value (KTC-derived where available)">Our Value</th>
@@ -124,7 +131,7 @@ export default function RankingsPage() {
                 {ranked.map((row) => (
                   <tr key={row.name}>
                     <td style={{ textAlign: "center", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)" }}>
-                      {row.rank}
+                      {assetFilter === "idp" ? (row.idpRank ?? "—") : row.rank}
                     </td>
                     <td style={{ fontWeight: 600, cursor: "pointer" }} onClick={() => openPlayerPopup?.(row)}>{row.name}</td>
                     <td><span className="badge">{row.pos}</span></td>

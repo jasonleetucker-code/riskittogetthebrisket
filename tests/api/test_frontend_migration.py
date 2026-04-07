@@ -151,6 +151,62 @@ class TestIdpRankings(unittest.TestCase):
         self.assertIn("IDP_SIGNAL_KEYS", text)
 
 
+class TestEdgeAndFinderRoutes(unittest.TestCase):
+    """Server must have auth-gated routes for Edge and Finder pages."""
+
+    def test_server_has_edge_route(self):
+        server_py = REPO_ROOT / "server.py"
+        text = server_py.read_text()
+        self.assertIn('"/edge"', text)
+        self.assertIn("serve_edge", text)
+
+    def test_server_has_finder_route(self):
+        server_py = REPO_ROOT / "server.py"
+        text = server_py.read_text()
+        self.assertIn('"/finder"', text)
+        self.assertIn("serve_finder", text)
+
+    def test_edge_page_exists(self):
+        page = REPO_ROOT / "frontend" / "app" / "edge" / "page.jsx"
+        self.assertTrue(page.exists())
+        text = page.read_text()
+        self.assertIn("buildEdgeProjection", text)
+
+    def test_finder_page_exists(self):
+        page = REPO_ROOT / "frontend" / "app" / "finder" / "page.jsx"
+        self.assertTrue(page.exists())
+        text = page.read_text()
+        self.assertIn("/api/trade/finder", text)
+
+    def test_edge_lib_exists(self):
+        lib = REPO_ROOT / "frontend" / "lib" / "edge-detection.js"
+        self.assertTrue(lib.exists())
+        text = lib.read_text()
+        self.assertIn("buildEdgeProjection", text)
+        self.assertIn("projectPercentileToCurve", text)
+
+    def test_nav_includes_edge_and_finder(self):
+        wrapper = REPO_ROOT / "frontend" / "app" / "AppShellWrapper.jsx"
+        text = wrapper.read_text()
+        self.assertIn("/edge", text)
+        self.assertIn("/finder", text)
+
+
+class TestDeployFrontendRestart(unittest.TestCase):
+    """Deploy scripts must handle frontend service lifecycle."""
+
+    def test_deploy_restarts_frontend_service(self):
+        deploy_sh = REPO_ROOT / "deploy" / "deploy.sh"
+        text = deploy_sh.read_text()
+        self.assertIn("frontend_name", text)
+        self.assertIn("restart", text)
+
+    def test_verify_checks_frontend_service(self):
+        verify_sh = REPO_ROOT / "deploy" / "verify-deploy.sh"
+        text = verify_sh.read_text()
+        self.assertIn("frontend_name", text)
+
+
 class TestDeployConfig(unittest.TestCase):
     """Production deployment must include both backend and frontend services."""
 

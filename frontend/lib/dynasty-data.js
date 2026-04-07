@@ -119,7 +119,7 @@ function computeKtcRanks(rows) {
 // 1..IDP_RANK_LIMIT and canonicalConsensusRank offset by offenseCount.
 // Only runs when backend hasn't already stamped idpRank (fallback).
 const IDP_RANK_LIMIT = 300;
-const IDP_SIGNAL_KEYS = ["pffIdp", "fantasyProsIdp", "draftSharksIdp", "dlfIdp", "dlfRidp"];
+const IDP_SIGNAL_KEYS = ["pffIdp", "fantasyProsIdp", "draftSharksIdp", "dlfIdp", "dlfRidp", "idpTradeCalc", "adamIdp"];
 
 function computeIdpRanks(rows, offenseRankedCount) {
   const eligible = rows.filter((r) => {

@@ -24,6 +24,7 @@ const IDP_SITE_DEFAULTS = {
   draftSharksIdp: { label: "DS IDP",         include: true, weight: 0.8, max: 5000, tep: false },
   dlfIdp:         { label: "DLF IDP",        include: true, weight: 1.0, max: 5000, tep: false },
   dlfRidp:        { label: "DLF Rookie IDP", include: true, weight: 1.0, max: 5000, tep: false },
+  adamIdp:        { label: "Adam IDP",      include: true, weight: 1.0, max: 10000, tep: false },
 };
 
 

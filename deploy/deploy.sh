@@ -211,6 +211,18 @@ ensure_systemd_service() {
 
 restart_service() {
   require_command systemctl
+  # Restart frontend service first (Next.js) since backend depends on it
+  local frontend_name="${SERVICE_NAME}-frontend"
+  if sudo -n "${SYSTEMCTL_BIN}" cat "${frontend_name}" >/dev/null 2>&1; then
+    log "Restarting frontend service: ${frontend_name}"
+    sudo -n "${SYSTEMCTL_BIN}" restart "${frontend_name}"
+    if ! sudo -n "${SYSTEMCTL_BIN}" is-active --quiet "${frontend_name}"; then
+      warn "Frontend service ${frontend_name} failed to become active after restart."
+      sudo -n "${JOURNALCTL_BIN}" -u "${frontend_name}" -n 60 --no-pager || true
+    else
+      log "Frontend service ${frontend_name} is active."
+    fi
+  fi
   log "Restarting systemd service: ${SERVICE_NAME}"
   sudo -n "${SYSTEMCTL_BIN}" restart "${SERVICE_NAME}"
   if ! sudo -n "${SYSTEMCTL_BIN}" is-active --quiet "${SERVICE_NAME}"; then

@@ -8,6 +8,8 @@ const nav = [
   { href: "/", label: "Home" },
   { href: "/rankings", label: "Rankings" },
   { href: "/trade", label: "Trade" },
+  { href: "/edge", label: "Edge" },
+  { href: "/finder", label: "Finder" },
   { href: "/settings", label: "Settings" },
   { href: "/login", label: "Login" },
 ];
