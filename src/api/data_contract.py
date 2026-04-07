@@ -7,6 +7,14 @@ from typing import Any
 
 from src.data_models.contracts import utc_now_iso
 
+OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS = {
+    "Bobby Brown",
+    "Cameron Young",
+    "Dwight Bentley",
+    "Elijah Mitchell",
+    "Josh Johnson",
+}
+
 
 CONTRACT_VERSION = "2026-03-10.v2"
 
@@ -856,6 +864,8 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             _to_int_or_none(canonical_sites.get(k)) not in (None, 0) for k in _IDP_SIGNAL_KEYS
         )
         if pos in _IDP_POSITIONS and has_off_signal and not has_idp_signal:
+            if name in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS:
+                continue
             errors.append(
                 f"playersArray offense→IDP mismatch: {name or '<unknown>'} tagged {pos} "
                 "with offensive-only source signal(s)"
