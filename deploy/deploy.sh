@@ -160,6 +160,29 @@ prepare_python_runtime() {
   "${VENV_DIR}/bin/pip" install -r "${req_file}"
 }
 
+resolve_npm() {
+  # In non-interactive shells (SSH, CI) nvm is not loaded, so npm/node may
+  # not be on PATH.  Resolve the binary by checking, in order:
+  #   1. Already on PATH (interactive shell or pre-configured env)
+  #   2. NVM_NODE_PATH env var (operator override)
+  #   3. Well-known nvm install location for the deploy user
+  local nvm_node_path="${NVM_NODE_PATH:-/home/${APP_USER}/.nvm/versions/node/v20.20.2/bin}"
+
+  if command -v npm >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if [[ -x "${nvm_node_path}/npm" ]]; then
+    log "Adding nvm node to PATH: ${nvm_node_path}"
+    export PATH="${nvm_node_path}:${PATH}"
+    return 0
+  fi
+
+  error "npm not found on PATH and not at ${nvm_node_path}/npm"
+  error "Set NVM_NODE_PATH to the directory containing node/npm, or install Node globally."
+  return 1
+}
+
 maybe_build_frontend() {
   local run_build
   run_build="$(lower "${RUN_FRONTEND_BUILD}")"
@@ -173,6 +196,7 @@ maybe_build_frontend() {
     return 0
   fi
 
+  resolve_npm
   require_command npm
   log "Running frontend production build in ${APP_DIR}/frontend"
   if [[ -f "${APP_DIR}/frontend/package-lock.json" ]]; then
