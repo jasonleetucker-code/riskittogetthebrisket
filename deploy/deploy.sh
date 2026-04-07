@@ -46,7 +46,42 @@ lower() {
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
 }
 
-require_command() {
+require_command()
+
+resolve_node_toolchain() {
+  if command -v npm >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if [[ -z "${NVM_DIR:-}" ]]; then
+    if [[ -d "/home/${APP_USER}/.nvm" ]]; then
+      export NVM_DIR="/home/${APP_USER}/.nvm"
+    elif [[ -d "${HOME}/.nvm" ]]; then
+      export NVM_DIR="${HOME}/.nvm"
+    fi
+  fi
+
+  if [[ -n "${NVM_DIR:-}" && -s "${NVM_DIR}/nvm.sh" ]]; then
+    # shellcheck disable=SC1090
+    . "${NVM_DIR}/nvm.sh"
+  fi
+
+  if command -v npm >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local candidate_bin=""
+  candidate_bin="$(find "/home/${APP_USER}/.nvm/versions/node" -maxdepth 3 -type f -name npm 2>/dev/null | sed -n '1p' || true)"
+  if [[ -n "${candidate_bin}" ]]; then
+    export PATH="$(dirname "${candidate_bin}"):${PATH}"
+  fi
+
+  command -v npm >/dev/null 2>&1 && command -v node >/dev/null 2>&1
+}
+
+
+
+{
   local cmd="$1"
   command -v "${cmd}" >/dev/null 2>&1 || {
     error "Required command not found: ${cmd}"
@@ -173,7 +208,14 @@ maybe_build_frontend() {
     return 0
   fi
 
-  require_command npm
+  if ! resolve_node_toolchain; then
+    error "Required command not found: npm"
+    error "Tried PATH and NVM lookup under /home/${APP_USER}/.nvm"
+    exit 1
+  fi
+
+  log "Using node=$(command -v node)"
+  log "Using npm=$(command -v npm)"
   log "Running frontend production build in ${APP_DIR}/frontend"
   if [[ -f "${APP_DIR}/frontend/package-lock.json" ]]; then
     npm ci --prefix "${APP_DIR}/frontend"
