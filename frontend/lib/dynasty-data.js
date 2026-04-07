@@ -113,6 +113,46 @@ function computeKtcRanks(rows) {
   });
 }
 
+// ── IDP rank assignment ──────────────────────────────────────────────
+// Ranks IDP players by mean of their IDP source values (pffIdp,
+// fantasyProsIdp, draftSharksIdp, dlfIdp, dlfRidp).  Assigns idpRank
+// 1..IDP_RANK_LIMIT and canonicalConsensusRank offset by offenseCount.
+// Only runs when backend hasn't already stamped idpRank (fallback).
+const IDP_RANK_LIMIT = 300;
+const IDP_SIGNAL_KEYS = ["pffIdp", "fantasyProsIdp", "draftSharksIdp", "dlfIdp", "dlfRidp"];
+
+function computeIdpRanks(rows, offenseRankedCount) {
+  const eligible = rows.filter((r) => {
+    if (!IDP.has(normalizePos(r.pos))) return false;
+    if (r.ktcRank != null) return false;  // already ranked by KTC
+    const vals = IDP_SIGNAL_KEYS
+      .map((k) => Number(r.canonicalSites?.[k]))
+      .filter((v) => Number.isFinite(v) && v > 0);
+    return vals.length > 0;
+  });
+
+  // Sort by mean IDP value descending
+  eligible.sort((a, b) => {
+    const aVals = IDP_SIGNAL_KEYS.map((k) => Number(a.canonicalSites?.[k])).filter((v) => Number.isFinite(v) && v > 0);
+    const bVals = IDP_SIGNAL_KEYS.map((k) => Number(b.canonicalSites?.[k])).filter((v) => Number.isFinite(v) && v > 0);
+    const aMean = aVals.reduce((s, v) => s + v, 0) / aVals.length;
+    const bMean = bVals.reduce((s, v) => s + v, 0) / bVals.length;
+    return bMean - aMean;
+  });
+
+  eligible.slice(0, IDP_RANK_LIMIT).forEach((r, i) => {
+    const idpRank = i + 1;
+    const backendIdpRank = Number(r.raw?.idpRank);
+    const backendValue = Number(r.raw?.rankDerivedValue);
+    r.idpRank = (Number.isInteger(backendIdpRank) && backendIdpRank > 0) ? backendIdpRank : idpRank;
+    r.rankDerivedValue = (Number.isFinite(backendValue) && backendValue > 0) ? backendValue : rankToValue(r.idpRank);
+    // Global rank: offset by offense count so IDP sorts after offense in unified board
+    if (!r.canonicalConsensusRank) {
+      r.canonicalConsensusRank = offenseRankedCount + r.idpRank;
+    }
+  });
+}
+
 export function buildRows(data) {
   const players = data?.players || {};
   const playersArray = Array.isArray(data?.playersArray) ? data.playersArray : [];
@@ -170,12 +210,15 @@ export function buildRows(data) {
     }
 
     computeKtcRanks(rows);
-    // Sort: KTC-ranked players first (by ktcRank ascending), then unranked by backend value.
+    const offenseRanked = rows.filter((r) => r.ktcRank != null).length;
+    computeIdpRanks(rows, offenseRanked);
+    // Sort: ranked players first (offense by ktcRank, IDP by idpRank after offense),
+    // then unranked by backend value.
     // values.full is NOT overwritten by rankDerivedValue — backend display values stay authoritative.
     // rankDerivedValue remains available on the row for rankings "Our Value" display.
     rows.sort((a, b) => {
-      const ra = a.ktcRank ?? Infinity;
-      const rb = b.ktcRank ?? Infinity;
+      const ra = a.ktcRank ?? a.canonicalConsensusRank ?? Infinity;
+      const rb = b.ktcRank ?? b.canonicalConsensusRank ?? Infinity;
       if (ra !== rb) return ra - rb;
       return (b.values.full || 0) - (a.values.full || 0);
     });
@@ -216,11 +259,13 @@ export function buildRows(data) {
   }
 
   computeKtcRanks(rows);
-  // Sort: KTC-ranked players first (by ktcRank ascending), then unranked by backend value.
-  // values.full is NOT overwritten — backend display values stay authoritative.
+  const offenseRanked = rows.filter((r) => r.ktcRank != null).length;
+  computeIdpRanks(rows, offenseRanked);
+  // Sort: ranked players first (offense by ktcRank, IDP by idpRank after offense),
+  // then unranked by backend value.
   rows.sort((a, b) => {
-    const ra = a.ktcRank ?? Infinity;
-    const rb = b.ktcRank ?? Infinity;
+    const ra = a.canonicalConsensusRank ?? a.ktcRank ?? Infinity;
+    const rb = b.canonicalConsensusRank ?? b.ktcRank ?? Infinity;
     if (ra !== rb) return ra - rb;
     return (b.values.full || 0) - (a.values.full || 0);
   });

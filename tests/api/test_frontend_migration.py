@@ -100,6 +100,57 @@ class TestCanonicalOverlayRankComputation(unittest.TestCase):
         self.assertIn('pos === "TE"', text)
 
 
+class TestIdpRankings(unittest.TestCase):
+    """IDP players must get ranked by their IDP source values."""
+
+    def test_idp_ranking_function_exists(self):
+        """data_contract.py must have _compute_idp_rankings."""
+        dc = REPO_ROOT / "src" / "api" / "data_contract.py"
+        text = dc.read_text()
+        self.assertIn("_compute_idp_rankings", text)
+        self.assertIn("IDP_RANK_LIMIT", text)
+
+    def test_idp_players_get_ranked(self):
+        """IDP players with IDP source values must receive idpRank and canonicalConsensusRank."""
+        import sys
+        sys.path.insert(0, str(REPO_ROOT))
+        from src.api.data_contract import build_api_data_contract
+
+        payload = {
+            "players": {
+                "Test QB": {"_composite": 9000, "_canonicalSiteValues": {"ktc": 9000}, "position": "QB"},
+                "Test DL": {"_composite": 6000, "_canonicalSiteValues": {"pffIdp": 5800, "dlfIdp": 9900}},
+                "Test LB": {"_composite": 5000, "_canonicalSiteValues": {"pffIdp": 4000, "dlfIdp": 8000}},
+            },
+            "sites": [{"key": "ktc"}, {"key": "pffIdp"}, {"key": "dlfIdp"}],
+            "sleeper": {"positions": {"Test QB": "QB", "Test DL": "DL", "Test LB": "LB"}},
+        }
+        contract = build_api_data_contract(payload)
+        pa = contract["playersArray"]
+        dl = next(p for p in pa if p["displayName"] == "Test DL")
+        lb = next(p for p in pa if p["displayName"] == "Test LB")
+        qb = next(p for p in pa if p["displayName"] == "Test QB")
+
+        # Offense player gets KTC rank
+        self.assertEqual(qb["ktcRank"], 1)
+        # IDP players get idpRank
+        self.assertEqual(dl["idpRank"], 1)
+        self.assertEqual(lb["idpRank"], 2)
+        # IDP canonicalConsensusRank offsets after offense
+        self.assertEqual(dl["canonicalConsensusRank"], 2)  # 1 offense + 1
+        self.assertEqual(lb["canonicalConsensusRank"], 3)  # 1 offense + 2
+        # IDP players have rankDerivedValue
+        self.assertGreater(dl["rankDerivedValue"], 0)
+
+    def test_frontend_idp_ranking_exists(self):
+        """dynasty-data.js must have computeIdpRanks function."""
+        dd = REPO_ROOT / "frontend" / "lib" / "dynasty-data.js"
+        text = dd.read_text()
+        self.assertIn("computeIdpRanks", text)
+        self.assertIn("IDP_RANK_LIMIT", text)
+        self.assertIn("IDP_SIGNAL_KEYS", text)
+
+
 class TestDeployConfig(unittest.TestCase):
     """Production deployment must include both backend and frontend services."""
 
