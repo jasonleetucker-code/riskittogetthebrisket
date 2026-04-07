@@ -864,7 +864,7 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             _to_int_or_none(canonical_sites.get(k)) not in (None, 0) for k in _IDP_SIGNAL_KEYS
         )
         if pos in _IDP_POSITIONS and has_off_signal and not has_idp_signal:
-            if name in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS:
+            if len(players_array) >= 250 and name in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS:
                 continue
             errors.append(
                 f"playersArray offense→IDP mismatch: {name or '<unknown>'} tagged {pos} "
