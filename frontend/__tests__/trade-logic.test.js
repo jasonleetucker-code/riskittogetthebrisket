@@ -13,6 +13,7 @@ import {
   tradeGap,
   linearGap,
   powerWeightedTotal,
+  effectiveValue,
   addAssetToSide,
   removeAssetFromSide,
   isAssetInTrade,
@@ -551,5 +552,77 @@ describe("findBalancers", () => {
 
   it("returns empty for small gap", () => {
     expect(findBalancers(100, [], "full")).toEqual([]);
+  });
+});
+
+// ── effectiveValue + settings-aware totals ───────────────────────────
+
+describe("effectiveValue", () => {
+  it("returns raw value when no settings provided", () => {
+    expect(effectiveValue(ALLEN, "full")).toBe(9000);
+    expect(effectiveValue(ALLEN, "full", null)).toBe(9000);
+  });
+
+  it("applies LAM multiplier from settings", () => {
+    const sfSettings = { lamStrength: 1.0, leagueFormat: "superflex" };
+    // QB in superflex gets 1.15x
+    const val = effectiveValue(ALLEN, "full", sfSettings);
+    expect(val).toBeCloseTo(9000 * 1.15, 0);
+  });
+
+  it("QB gets discount in standard format", () => {
+    const stdSettings = { lamStrength: 1.0, leagueFormat: "standard" };
+    // QB in standard gets 0.85x
+    const val = effectiveValue(ALLEN, "full", stdSettings);
+    expect(val).toBeCloseTo(9000 * 0.85, 0);
+  });
+
+  it("WR is unaffected by LAM in both formats", () => {
+    const sfSettings = { lamStrength: 1.0, leagueFormat: "superflex" };
+    // WR multiplier is 1.0 in superflex
+    expect(effectiveValue(CHASE, "full", sfSettings)).toBeCloseTo(8500, 0);
+  });
+
+  it("strength 0 means no adjustment", () => {
+    const settings = { lamStrength: 0, leagueFormat: "superflex" };
+    expect(effectiveValue(ALLEN, "full", settings)).toBe(9000);
+  });
+
+  it("half strength interpolates", () => {
+    const settings = { lamStrength: 0.5, leagueFormat: "superflex" };
+    // QB superflex raw=1.15, at strength 0.5: 1 + (1.15-1)*0.5 = 1.075
+    const val = effectiveValue(ALLEN, "full", settings);
+    expect(val).toBeCloseTo(9000 * 1.075, 0);
+  });
+});
+
+describe("settings-aware powerWeightedTotal", () => {
+  it("applies LAM when settings provided", () => {
+    const sfSettings = { lamStrength: 1.0, leagueFormat: "superflex" };
+    const withSettings = powerWeightedTotal([ALLEN], "full", undefined, sfSettings);
+    const without = powerWeightedTotal([ALLEN], "full");
+    // QB in superflex gets premium, so with settings > without
+    expect(withSettings).toBeGreaterThan(without);
+  });
+
+  it("settings=null behaves like no settings", () => {
+    const a = powerWeightedTotal([ALLEN, CHASE], "full");
+    const b = powerWeightedTotal([ALLEN, CHASE], "full", undefined, null);
+    expect(a).toBe(b);
+  });
+});
+
+describe("settings-aware sideTotal", () => {
+  it("applies LAM when settings provided", () => {
+    const sfSettings = { lamStrength: 1.0, leagueFormat: "superflex" };
+    const withSettings = sideTotal([ALLEN], "full", sfSettings);
+    expect(withSettings).toBeCloseTo(9000 * 1.15, 0);
+  });
+
+  it("mixed positions get different adjustments", () => {
+    const sfSettings = { lamStrength: 1.0, leagueFormat: "superflex" };
+    const total = sideTotal([ALLEN, CHASE], "full", sfSettings);
+    // Allen: 9000 * 1.15 = 10350, Chase: 8500 * 1.0 = 8500
+    expect(total).toBeCloseTo(10350 + 8500, 0);
   });
 });

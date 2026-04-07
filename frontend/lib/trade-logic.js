@@ -30,22 +30,41 @@ const VERDICT_STRONG_LEAN = 1538;
 export const TRADE_ALPHA = 1.075;
 
 /**
+ * Get the effective value for a row, optionally adjusted by LAM settings.
+ * @param {object} row - Player row
+ * @param {string} valueMode - Value mode key
+ * @param {object} [settings] - User settings (from useSettings)
+ * @returns {number}
+ */
+export function effectiveValue(row, valueMode, settings) {
+  const raw = Number(row.values?.[valueMode] || 0);
+  if (!settings || raw <= 0) return raw;
+  const pos = row.pos || "WR";
+  const lam = lamMultiplier(pos, settings.lamStrength ?? 1.0, settings.leagueFormat ?? "superflex");
+  return raw * lam;
+}
+
+/**
  * Power-weighted side total.
  * Each asset's value is raised to `alpha`, summed, then root-alpha'd back.
  * This penalizes quantity over quality.
+ * @param {object[]} side - Array of player rows
+ * @param {string} valueMode - Value mode key
+ * @param {number} [alpha] - Power exponent
+ * @param {object} [settings] - User settings (from useSettings) for LAM adjustment
  */
-export function powerWeightedTotal(side, valueMode, alpha = TRADE_ALPHA) {
+export function powerWeightedTotal(side, valueMode, alpha = TRADE_ALPHA, settings = null) {
   if (!side.length) return 0;
   const sum = side.reduce((acc, r) => {
-    const v = Number(r.values?.[valueMode] || 0);
+    const v = effectiveValue(r, valueMode, settings);
     return acc + Math.pow(Math.max(v, 0), alpha);
   }, 0);
   return Math.pow(sum, 1 / alpha);
 }
 
-/** Simple linear total (sum of values). */
-export function sideTotal(side, valueMode) {
-  return side.reduce((sum, r) => sum + Number(r.values?.[valueMode] || 0), 0);
+/** Simple linear total (sum of values), optionally LAM-adjusted. */
+export function sideTotal(side, valueMode, settings = null) {
+  return side.reduce((sum, r) => sum + effectiveValue(r, valueMode, settings), 0);
 }
 
 /** Gap = Side A power-weighted total − Side B power-weighted total. */

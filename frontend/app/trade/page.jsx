@@ -11,9 +11,11 @@ import {
   verdictBarPosition,
   powerWeightedTotal,
   sideTotal,
+  effectiveValue,
   getPlayerEdge,
   findBalancers,
 } from "@/lib/trade-logic";
+import { useSettings } from "@/components/useSettings";
 
 const ROSTER_KEY = "next_trade_roster_v1";
 const TEAM_KEY = "next_trade_team_v1";
@@ -52,6 +54,7 @@ function edgeBadge(edge) {
 
 export default function TradePage() {
   const { loading, error, rows, rawData } = useDynastyData();
+  const { settings } = useSettings();
   const [valueMode, setValueMode] = useState("full");
   const [sideA, setSideA] = useState([]);
   const [sideB, setSideB] = useState([]);
@@ -134,10 +137,10 @@ export default function TradePage() {
     if (pickerOpen && pickerInputRef.current) pickerInputRef.current.focus();
   }, [pickerOpen]);
 
-  const pwTotalA = useMemo(() => powerWeightedTotal(sideA, valueMode), [sideA, valueMode]);
-  const pwTotalB = useMemo(() => powerWeightedTotal(sideB, valueMode), [sideB, valueMode]);
-  const linTotalA = useMemo(() => sideTotal(sideA, valueMode), [sideA, valueMode]);
-  const linTotalB = useMemo(() => sideTotal(sideB, valueMode), [sideB, valueMode]);
+  const pwTotalA = useMemo(() => powerWeightedTotal(sideA, valueMode, undefined, settings), [sideA, valueMode, settings]);
+  const pwTotalB = useMemo(() => powerWeightedTotal(sideB, valueMode, undefined, settings), [sideB, valueMode, settings]);
+  const linTotalA = useMemo(() => sideTotal(sideA, valueMode, settings), [sideA, valueMode, settings]);
+  const linTotalB = useMemo(() => sideTotal(sideB, valueMode, settings), [sideB, valueMode, settings]);
   const pwGap = pwTotalA - pwTotalB;
   const linGap = linTotalA - linTotalB;
   // Percentage gap for proportional verdict
@@ -324,7 +327,7 @@ export default function TradePage() {
                             </span>
                           )}
                         </div>
-                        <div className="asset-meta">{r.pos} · {r.values[valueMode].toLocaleString()}</div>
+                        <div className="asset-meta">{r.pos} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
                       </div>
                       <button className="button" onClick={() => removeFromSide(r.name, "A")}>Remove</button>
                     </div>
@@ -374,7 +377,7 @@ export default function TradePage() {
                             </span>
                           )}
                         </div>
-                        <div className="asset-meta">{r.pos} · {r.values[valueMode].toLocaleString()}</div>
+                        <div className="asset-meta">{r.pos} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
                       </div>
                       <button className="button" onClick={() => removeFromSide(r.name, "B")}>Remove</button>
                     </div>
@@ -736,7 +739,7 @@ export default function TradePage() {
                         <button key={`recent-${r.name}`} className="asset-row button-reset" onClick={() => addToActiveSide(r)}>
                           <div>
                             <div className="asset-name">{r.name}</div>
-                            <div className="asset-meta">{r.pos} · {r.values[valueMode].toLocaleString()}</div>
+                            <div className="asset-meta">{r.pos} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
                           </div>
                           <span className="badge">Add</span>
                         </button>

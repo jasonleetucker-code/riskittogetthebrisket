@@ -1,25 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
-import { SETTINGS_KEY } from "@/lib/trade-logic";
-
-// ── Default Settings ─────────────────────────────────────────────────────
-const DEFAULTS = {
-  // Trade calculation
-  lamStrength: 1.0,
-  scarcityStrength: 0.35,
-  leagueFormat: "superflex",
-  tepMultiplier: 1.15,
-  // Rankings display
-  rankingsSortBasis: "full",
-  showLamCols: false,
-  showSiteCols: false,
-  // Pick settings
-  pickCurrentYear: 2026,
-  // Site weights (key → { include, weight, max, tep })
-  siteWeights: {},
-};
+import { useSettings, SETTINGS_DEFAULTS as DEFAULTS } from "@/components/useSettings";
 
 // Known sites with their default configurations
 const SITE_DEFAULTS = {
@@ -43,22 +26,6 @@ const IDP_SITE_DEFAULTS = {
   dlfRidp:        { label: "DLF Rookie IDP", include: true, weight: 1.0, max: 5000, tep: false },
 };
 
-function loadSettings() {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return { ...DEFAULTS, ...parsed };
-    }
-  } catch { /* ignore */ }
-  return { ...DEFAULTS };
-}
-
-function saveSettings(settings) {
-  try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  } catch { /* ignore */ }
-}
 
 function Section({ title, defaultOpen = true, children }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -109,34 +76,8 @@ function ToggleRow({ label, checked, onChange, hint }) {
 
 export default function SettingsPage() {
   const { loading, error, siteKeys } = useDynastyData();
-  const [settings, setSettings] = useState(DEFAULTS);
-  const [hydrated, setHydrated] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    setSettings(loadSettings());
-    setHydrated(true);
-  }, []);
-
-  const update = useCallback((key, value) => {
-    setSettings((prev) => {
-      const next = { ...prev, [key]: value };
-      saveSettings(next);
-      return next;
-    });
-    setSaved(false);
-  }, []);
-
-  const updateSiteWeight = useCallback((siteKey, field, value) => {
-    setSettings((prev) => {
-      const weights = { ...prev.siteWeights };
-      weights[siteKey] = { ...(weights[siteKey] || {}), [field]: value };
-      const next = { ...prev, siteWeights: weights };
-      saveSettings(next);
-      return next;
-    });
-    setSaved(false);
-  }, []);
+  const { settings, update, updateSiteWeight, reset } = useSettings();
+  const [hydrated, setHydrated] = useState(true);
 
   function getSiteConfig(siteKey) {
     const defaults = SITE_DEFAULTS[siteKey] || IDP_SITE_DEFAULTS[siteKey] || { include: true, weight: 1.0, max: 9999, tep: true };
@@ -144,9 +85,7 @@ export default function SettingsPage() {
   }
 
   function resetToDefaults() {
-    setSettings({ ...DEFAULTS });
-    saveSettings(DEFAULTS);
-    setSaved(false);
+    reset();
   }
 
   // Determine which sites are present in actual data

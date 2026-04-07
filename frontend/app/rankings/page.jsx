@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { resolvedRank } from "@/lib/dynasty-data";
+import { useSettings } from "@/components/useSettings";
+import { lamMultiplier } from "@/lib/trade-logic";
 
 // ── FULL-BOARD RANKINGS PAGE ──────────────────────────────────────────
 // Data source: normalized contract rows from useDynastyData/buildRows
@@ -17,10 +19,20 @@ const FILTERS = [
 ];
 
 export default function RankingsPage() {
-  const { loading, error, source, rows } = useDynastyData();
+  const { loading, error, source, rows, siteKeys } = useDynastyData();
+  const { settings } = useSettings();
   const [query, setQuery] = useState("");
   const [assetFilter, setAssetFilter] = useState("all");
   const [copyStatus, setCopyStatus] = useState("");
+
+  const sortBasis = settings.rankingsSortBasis || "full";
+
+  // Compute LAM-adjusted value for a row
+  function lamAdjustedValue(row) {
+    const base = row.values?.[sortBasis] ?? row.values?.full ?? 0;
+    const lam = lamMultiplier(row.pos || "WR", settings.lamStrength ?? 1.0, settings.leagueFormat ?? "superflex");
+    return Math.round(base * lam);
+  }
 
   // Show the full board (including unranked-by-KTC IDP pools).
   const ranked = useMemo(() => {
@@ -99,6 +111,11 @@ export default function RankingsPage() {
                   <th>Player</th>
                   <th>Pos</th>
                   <th title="Our board value (KTC-derived where available)">Our Value</th>
+                  {settings.showLamCols && <th title="Value after LAM adjustment">LAM Adj.</th>}
+                  {settings.showLamCols && <th title="LAM multiplier for this position">LAM x</th>}
+                  {settings.showSiteCols && siteKeys.map((sk) => (
+                    <th key={sk} title={`Value from ${sk}`} style={{ fontSize: "0.72rem" }}>{sk}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -112,6 +129,21 @@ export default function RankingsPage() {
                     <td style={{ fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)" }}>
                       {Math.round(row.rankDerivedValue || row.values.full).toLocaleString()}
                     </td>
+                    {settings.showLamCols && (
+                      <td style={{ fontFamily: "var(--mono, monospace)", color: "var(--green)" }}>
+                        {lamAdjustedValue(row).toLocaleString()}
+                      </td>
+                    )}
+                    {settings.showLamCols && (
+                      <td className="muted" style={{ fontFamily: "var(--mono, monospace)", fontSize: "0.76rem" }}>
+                        {lamMultiplier(row.pos || "WR", settings.lamStrength ?? 1.0, settings.leagueFormat ?? "superflex").toFixed(2)}
+                      </td>
+                    )}
+                    {settings.showSiteCols && siteKeys.map((sk) => (
+                      <td key={sk} style={{ fontFamily: "var(--mono, monospace)", fontSize: "0.76rem" }}>
+                        {row.canonicalSites?.[sk] != null ? Math.round(Number(row.canonicalSites[sk])).toLocaleString() : "—"}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
