@@ -8751,6 +8751,40 @@ async def run(progress_callback=None):
     for full_map in FULL_DATA.values():
         all_names.update(full_map.keys())
 
+    # ── Canonical pool builder: authoritative universe membership ──
+    # The pool builder defines the authoritative player universe from three
+    # membership sources (Sleeper, KTC top 525, Adamidp PDFs) and enriches
+    # with IDPTradeCalc as a crosswalk.  Its output is merged into all_names
+    # so downstream valuation logic still processes every member.
+    _pool_audit = None
+    try:
+        from src.pool.builder import build_canonical_pool, PoolAuditReport
+        _ktc_full_for_pool = FULL_DATA.get("KTC", {}) if isinstance(FULL_DATA.get("KTC"), dict) else {}
+        _idp_tc_for_pool = FULL_DATA.get("IDPTradeCalc", {}) if isinstance(FULL_DATA.get("IDPTradeCalc"), dict) else {}
+        _adamidp_artifact = os.path.join(SCRIPT_DIR, "data", "adamidp_normalized.json")
+        _pool_rows, _pool_audit = build_canonical_pool(
+            sleeper_roster_data=SLEEPER_ROSTER_DATA,
+            full_data_ktc=_ktc_full_for_pool,
+            adamidp_artifact_path=_adamidp_artifact if os.path.exists(_adamidp_artifact) else None,
+            idp_trade_calc_data=_idp_tc_for_pool,
+            sleeper_all_nfl=SLEEPER_ALL_NFL,
+        )
+        # Merge pool members into all_names so downstream valuation covers them
+        for _pr in _pool_rows:
+            if _pr.canonical_name:
+                all_names.add(_pr.canonical_name)
+        print(f"  [Pool Builder] Union: {_pool_audit.final_union_count} players "
+              f"(sleeper={_pool_audit.sleeper_count}, ktc525={_pool_audit.ktc_top525_count}, "
+              f"adamidp={_pool_audit.adamidp_unique_count})")
+        print(f"  [Pool Builder] IDPTradeCalc crosswalk: "
+              f"queried={_pool_audit.idp_trade_calc_queried_count}, "
+              f"matched={_pool_audit.idp_trade_calc_matched_count}, "
+              f"unmatched={_pool_audit.idp_trade_calc_unmatched_count}")
+    except Exception as _pool_err:
+        print(f"  [Pool Builder] Error building canonical pool: {_pool_err}")
+        import traceback
+        traceback.print_exc()
+
     # ── Build canonical name resolution map ──
     # Maps variant names (e.g. "A. St. Brown" from DynastyNerds) → Sleeper canonical name.
     _canonical_map = {}  # variant_cleaned → canonical_name
@@ -9838,11 +9872,17 @@ async def run(progress_callback=None):
     SINGLE_SOURCE_DISCOUNT = 0.85  # 15% discount for players on only 1 site
     COMPOSITE_SCALE = 9999
     OUTLIER_TRIM_GAP = 0.18       # Trim only true outliers, not legitimate elite values
-    ELITE_NORM_THRESHOLD = 0.91   # Start elite expansion only at stronger consensus
-    ELITE_BOOST_MAX = 0.045       # Cap elite expansion at +4.5%
+    # Elite ceiling expansion: allows top-consensus players to approach 9999.
+    # Phase 3 fix: raised from 0.045 → 0.09 and lowered threshold from 0.91 → 0.88
+    # so Josh Allen (highest ranked) gets closer to true top-of-market ceiling.
+    ELITE_NORM_THRESHOLD = 0.88   # Start elite expansion at moderate consensus
+    ELITE_BOOST_MAX = 0.09        # Cap elite expansion at +9%
     IDP_VALUE_HEADROOM_FRACTION = 0.18  # controlled IDP lift above value-site cap
-    SINGLE_SOURCE_DISCOUNT_MIN = 0.70
-    SINGLE_SOURCE_DISCOUNT_MAX = 0.88
+    # Single-source suppression: Phase 3 fix — lowered min from 0.70 → 0.55
+    # so fragile one-source veterans (Tyler Lockett etc.) get much stronger
+    # low-liquidity penalty, making their values materially less reliable.
+    SINGLE_SOURCE_DISCOUNT_MIN = 0.55
+    SINGLE_SOURCE_DISCOUNT_MAX = 0.82
 
     # IDP rank sites get their own rank→value curve anchored at IDP_ANCHOR_TOP
     _idp_rank_sites = {"pffIdp", "fantasyProsIdp"}
@@ -10355,13 +10395,15 @@ async def run(progress_callback=None):
         if cap_limit > 0 and composite > cap_limit:
             composite = cap_limit
 
-        # Extra top-end guardrail: do not allow synthetic transforms to run far above
-        # value-site consensus when market confidence is weak.
+        # Top-end guardrail: synthetic transforms cannot exceed value-site consensus
+        # by more than a confidence-gated margin.
+        # Phase 3 fix: widened from 4% → 8% for offense so elite players can
+        # approach the 9999 ceiling when market confidence is high.
         if cap_limit > 0:
             if _is_this_idp:
-                elite_cap = cap_limit * (1.0 + (0.025 * market_conf))
+                elite_cap = cap_limit * (1.0 + (0.03 * market_conf))
             else:
-                elite_cap = cap_limit * (1.0 + (0.04 * market_conf))
+                elite_cap = cap_limit * (1.0 + (0.08 * market_conf))
             composite = min(composite, elite_cap)
 
         # Safety rule: rookie-only DLF IDP signals cannot create elevated normal-dynasty values
@@ -11440,6 +11482,7 @@ async def run(progress_callback=None):
         "pickAnchors": pick_anchors,
         "pickAnchorsRaw": pick_anchors_raw,
         "coverageAudit": coverage_audit,
+        "poolAudit": _pool_audit.to_dict() if _pool_audit else None,
         "players": players_json,
     }
 

@@ -8,6 +8,7 @@ import {
   classifyPos,
   inferValueBundle,
   rankToValue,
+  resolvedRank,
   buildRows,
   getSiteKeys,
 } from "@/lib/dynasty-data";
@@ -257,8 +258,11 @@ describe("buildRows", () => {
     expect(allen).toBeDefined();
     expect(allen.pos).toBe("QB");
     expect(allen.assetClass).toBe("offense");
-    // KTC-rank-first: values.full = rankDerivedValue from KTC rank (not raw finalAdjusted)
-    expect(allen.values.full).toBe(allen.rankDerivedValue > 0 ? allen.rankDerivedValue : 9100);
+    // Backend display value is preserved — NOT overwritten by rankDerivedValue.
+    // values.full comes from backend finalAdjusted (9100), not from rank curve.
+    expect(allen.values.full).toBe(9100);
+    // rankDerivedValue is still computed and available for rankings "Our Value" display.
+    expect(allen.rankDerivedValue).toBe(rankToValue(1));
     expect(allen.values.raw).toBe(8500);
     expect(allen.siteCount).toBe(6);
   });
@@ -396,9 +400,10 @@ describe("buildRows", () => {
     const p24 = rows.find((r) => r.name === "Player 24");
     expect(p24.ktcRank).toBe(25);
 
-    // Rank-first: values.full should equal rankDerivedValue
+    // rankDerivedValue is computed but does NOT overwrite values.full.
+    // values.full preserves backend finalAdjusted (9000); rankDerivedValue is separate.
     expect(p0.rankDerivedValue).toBe(rankToValue(1)); // 9999
-    expect(p0.values.full).toBe(p0.rankDerivedValue);
+    expect(p0.values.full).toBe(9000); // backend value preserved
 
     // Rows should be sorted by ktcRank ascending
     const rankedRows = rows.filter((r) => r.ktcRank > 0);
@@ -453,5 +458,98 @@ describe("buildRows", () => {
     };
     const rows = buildRows(data);
     expect(rows.length).toBe(1);
+  });
+});
+
+// ── Backend displayValue preservation (regression) ──────────────────
+
+describe("displayValue preservation", () => {
+  it("backend displayValue is preserved as values.full (not overwritten by rankDerivedValue)", () => {
+    const data = {
+      playersArray: [
+        {
+          displayName: "Josh Allen",
+          position: "QB",
+          values: { rawComposite: 8500, finalAdjusted: 9100, overall: 9100, displayValue: 9500 },
+          canonicalSiteValues: { ktc: 8500 },
+        },
+      ],
+    };
+    const rows = buildRows(data);
+    const allen = rows[0];
+    // displayValue (9500) wins over finalAdjusted (9100)
+    expect(allen.values.full).toBe(9500);
+    // rankDerivedValue is still computed
+    expect(allen.rankDerivedValue).toBeGreaterThan(0);
+    // But values.full was NOT overwritten
+    expect(allen.values.full).not.toBe(allen.rankDerivedValue);
+  });
+
+  it("computedConsensusRank (row.rank) is still assigned after sort", () => {
+    const data = {
+      playersArray: [
+        { displayName: "A", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } },
+        { displayName: "B", position: "RB", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 }, canonicalSiteValues: { ktc: 5000 } },
+      ],
+    };
+    const rows = buildRows(data);
+    expect(rows[0].rank).toBe(1);
+    expect(rows[1].rank).toBe(2);
+  });
+
+  it("rankDerivedValue is still computed for KTC-ranked players", () => {
+    const data = {
+      playersArray: [
+        { displayName: "A", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } },
+      ],
+    };
+    const rows = buildRows(data);
+    expect(rows[0].rankDerivedValue).toBe(rankToValue(1));
+  });
+
+  it("values.full is NOT overwritten by rankDerivedValue in legacy path", () => {
+    const data = {
+      players: {
+        "Josh Allen": {
+          _composite: 8500,
+          _rawComposite: 8500,
+          _finalAdjusted: 9100,
+          _sites: 6,
+          _canonicalSiteValues: { ktc: 8500 },
+          position: "QB",
+        },
+      },
+      sleeper: { positions: { "Josh Allen": "QB" } },
+      sites: [{ key: "ktc" }],
+    };
+    const rows = buildRows(data);
+    // values.full should be finalAdjusted (9100), not rankDerivedValue
+    expect(rows[0].values.full).toBe(9100);
+    expect(rows[0].rankDerivedValue).toBeGreaterThan(0);
+    expect(rows[0].values.full).not.toBe(rows[0].rankDerivedValue);
+  });
+});
+
+// ── Rank precedence (resolvedRank) ──────────────────────────────────
+
+describe("resolvedRank", () => {
+  it("canonicalConsensusRank wins when present", () => {
+    const row = { canonicalConsensusRank: 5, rank: 10 };
+    expect(resolvedRank(row)).toBe(5);
+  });
+
+  it("falls back to row.rank when canonicalConsensusRank is null", () => {
+    const row = { canonicalConsensusRank: null, rank: 10 };
+    expect(resolvedRank(row)).toBe(10);
+  });
+
+  it("falls back to Infinity when both are null/missing", () => {
+    expect(resolvedRank({})).toBe(Infinity);
+    expect(resolvedRank({ canonicalConsensusRank: null })).toBe(Infinity);
+  });
+
+  it("handles undefined row gracefully", () => {
+    expect(resolvedRank(null)).toBe(Infinity);
+    expect(resolvedRank(undefined)).toBe(Infinity);
   });
 });
