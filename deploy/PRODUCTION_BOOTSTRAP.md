@@ -70,15 +70,25 @@ cd /home/dynasty/trade-calculator
 sudo /home/dynasty/.venvs/trade-calculator/bin/python -m playwright install-deps chromium
 ```
 
-## 3) Reverse proxy and TLS assumptions
+## 3) Reverse proxy and TLS
 
-Repo deploy scripts do **not** manage live nginx/certbot state.
+The nginx site config is maintained in `deploy/nginx/riskittogetthebrisket.org.conf`.
 
-Expected production edge assumptions:
+Install or update:
+
+```bash
+sudo cp deploy/nginx/riskittogetthebrisket.org.conf /etc/nginx/sites-available/riskittogetthebrisket.org
+sudo ln -sf /etc/nginx/sites-available/riskittogetthebrisket.org /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Routing:
 1. `riskittogetthebrisket.org` terminates TLS at nginx.
 2. HTTP (`:80`) redirects to HTTPS (`:443`).
-3. nginx proxies app traffic to `http://127.0.0.1:8000`.
-4. `/api/health` remains reachable externally over HTTPS for smoke checks.
+3. `/api/*` → Python backend (`127.0.0.1:8000`).
+4. `/_next/*` → Next.js frontend (`127.0.0.1:3000`) — static assets.
+5. `/*` (all other paths) → Next.js frontend (`127.0.0.1:3000`) — pages.
+6. `/api/health` remains reachable externally over HTTPS for smoke checks.
 
 ## 4) Post-bootstrap verification
 
