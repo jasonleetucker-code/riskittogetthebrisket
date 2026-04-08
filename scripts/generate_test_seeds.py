@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Generate test seed CSVs for KTC using FantasyCalc as reference data.
+"""Generate test seed CSVs for KTC using the real KTC export as reference data.
 
-Creates realistic but synthetic CSVs for KTC. These seeds allow the pipeline
-to be tested end-to-end before the legacy scraper produces real exports.
+Creates realistic but synthetic CSVs for KTC by adding controlled noise to
+the real KTC values. These seeds allow the pipeline to be tested end-to-end.
 
 The seeds are placed in data/test_seeds/ (NOT exports/latest/site_raw/) to avoid
-being confused with real production data. Tests can copy them to the expected
-location for pipeline validation.
+being confused with real production data.
 
 Usage:
     python scripts/generate_test_seeds.py
@@ -27,13 +26,13 @@ if str(_REPO) not in sys.path:
 from scripts._shared import _repo_root
 
 
-def load_fantasycalc_players(repo: Path) -> list[tuple[str, int]]:
-    """Load real FantasyCalc players as a reference."""
-    fc_path = repo / "exports" / "latest" / "site_raw" / "fantasyCalc.csv"
-    if not fc_path.exists():
+def load_ktc_players(repo: Path) -> list[tuple[str, int]]:
+    """Load real KTC players as a reference."""
+    ktc_path = repo / "exports" / "latest" / "site_raw" / "ktc.csv"
+    if not ktc_path.exists():
         return []
     players = []
-    with fc_path.open("r", encoding="utf-8-sig") as f:
+    with ktc_path.open("r", encoding="utf-8-sig") as f:
         for row in csv.DictReader(f):
             name = str(row.get("name", "")).strip()
             val = str(row.get("value", "")).strip()
@@ -50,17 +49,16 @@ def load_fantasycalc_players(repo: Path) -> list[tuple[str, int]]:
 
 
 def generate_ktc_seed(players: list[tuple[str, int]], seed: int = 42) -> list[tuple[str, int]]:
-    """Generate KTC-like values from FantasyCalc reference with realistic variation.
+    """Generate KTC-like values with controlled noise for testing.
 
-    KTC values are crowdsourced and tend to be correlated with but not identical
-    to FantasyCalc. We add controlled noise to simulate this.
+    Adds +-12-15% noise to simulate variation between scrape runs.
     """
     rng = random.Random(seed)
     out = []
-    for name, fc_val in players:
+    for name, val in players:
         noise_pct = rng.uniform(-0.12, 0.15)
-        ktc_val = max(100, int(round(fc_val * (1.0 + noise_pct))))
-        out.append((name, ktc_val))
+        noisy_val = max(100, int(round(val * (1.0 + noise_pct))))
+        out.append((name, noisy_val))
     return out
 
 
@@ -75,12 +73,12 @@ def write_csv(path: Path, rows: list[tuple[str, int]]) -> None:
 
 def main() -> int:
     repo = _repo_root()
-    players = load_fantasycalc_players(repo)
+    players = load_ktc_players(repo)
     if not players:
-        print("[generate_test_seeds] No FantasyCalc data to derive from.")
+        print("[generate_test_seeds] No KTC data to derive from.")
         return 1
 
-    print(f"[generate_test_seeds] Reference: {len(players)} FantasyCalc players")
+    print(f"[generate_test_seeds] Reference: {len(players)} KTC players")
 
     seed_dir = repo / "data" / "test_seeds"
 
@@ -94,7 +92,7 @@ def main() -> int:
     meta = {
         "generated_by": "scripts/generate_test_seeds.py",
         "purpose": "Test seed data for pipeline validation. NOT production data.",
-        "reference_source": "FantasyCalc player values with controlled noise",
+        "reference_source": "KTC player values with controlled noise",
         "player_count": len(players),
         "seeds": {
             "ktc": {"file": str(ktc_path), "rows": len(ktc), "random_seed": 42},
