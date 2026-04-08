@@ -6,25 +6,11 @@ import { useSettings, SETTINGS_DEFAULTS as DEFAULTS } from "@/components/useSett
 
 // Known sites with their default configurations
 const SITE_DEFAULTS = {
-  ktc:           { label: "KeepTradeCut",   include: true,  weight: 1.3,  max: 9999,  tep: true  },
-  fantasyCalc:   { label: "FantasyCalc",    include: true,  weight: 1.0,  max: 10535, tep: true  },
-  dynastyDaddy:  { label: "Dynasty Daddy",  include: true,  weight: 1.0,  max: 16000, tep: false },
-  fantasyPros:   { label: "FantasyPros",    include: true,  weight: 1.0,  max: 9999,  tep: true  },
-  draftSharks:   { label: "DraftSharks",    include: true,  weight: 0.8,  max: 10000, tep: true  },
-  yahoo:         { label: "Yahoo",          include: true,  weight: 0.8,  max: 10000, tep: true  },
-  dynastyNerds:  { label: "DynastyNerds",   include: true,  weight: 1.0,  max: 10000, tep: true  },
-  dlfSf:         { label: "DLF SF",         include: true,  weight: 1.0,  max: 10000, tep: true  },
-  dlfRsf:        { label: "DLF Rookie SF",  include: true,  weight: 1.0,  max: 10000, tep: true  },
-  flock:         { label: "Flock (DN)",     include: true,  weight: 1.0,  max: 10000, tep: true  },
+  ktc:           { label: "KeepTradeCut",   include: true,  weight: 1.2,  max: 9999,  tep: true  },
 };
 
 const IDP_SITE_DEFAULTS = {
-  pffIdp:         { label: "PFF IDP",        include: true, weight: 1.0, max: 5000, tep: false },
-  fantasyProsIdp: { label: "FP IDP",         include: true, weight: 1.0, max: 5000, tep: false },
-  draftSharksIdp: { label: "DS IDP",         include: true, weight: 0.8, max: 5000, tep: false },
-  dlfIdp:         { label: "DLF IDP",        include: true, weight: 1.0, max: 5000, tep: false },
-  dlfRidp:        { label: "DLF Rookie IDP", include: true, weight: 1.0, max: 5000, tep: false },
-  adamIdp:        { label: "Adam IDP",      include: true, weight: 1.0, max: 10000, tep: false },
+  idpTradeCalc:  { label: "IDP Trade Calc", include: true, weight: 1.0, max: 9998, tep: true },
 };
 
 

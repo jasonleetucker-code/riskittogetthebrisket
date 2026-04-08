@@ -420,7 +420,7 @@ def build_api_data_contract(
     # Both JS frontends prefer these fields over client-side computation.
     _compute_ktc_rankings(players_array, players_by_name)
 
-    # Compute IDP rankings using IDP source values (pffIdp, idpTradeCalc, etc.)
+    # Compute IDP rankings using IDP source values (idpTradeCalc).
     # Global rank offsets from the offense count so unified board sorts correctly.
     offense_ranked = sum(1 for r in players_array if r.get("ktcRank") is not None)
     _compute_idp_rankings(players_array, players_by_name, offense_ranked)

@@ -4,7 +4,7 @@ Uses multiple strategies to fill missing position metadata:
 1. Legacy player map lookup (normalized name matching)
 2. Nickname expansion (Cam→Cameron, TJ→T.J., etc.)
 3. Universe-based inference (IDP universe assets from IDP-only sources)
-4. Source-based inference (IDPTradeCalc, PFF_IDP → IDP positions)
+4. Source-based inference (IDPTradeCalc → IDP positions)
 
 Position provenance is tracked: each enriched asset records whether its position
 came from source data ("adapter"), legacy lookup ("legacy_enrichment"),
@@ -21,7 +21,7 @@ from src.utils.name_clean import POSITION_ALIASES as LEGACY_POS_MAP  # noqa: F40
 from src.utils.name_clean import NICKNAME_MAP  # noqa: F401
 
 # Sources known to only contain IDP players
-IDP_ONLY_SOURCES = {"IDPTRADECALC", "PFF_IDP", "FANTASYPROS_IDP"}
+IDP_ONLY_SOURCES = {"IDPTRADECALC"}
 
 # Default IDP position when we know a player is IDP but not which specific position
 # LB is the most common IDP position and replacement baselines are similar across IDP

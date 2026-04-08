@@ -252,7 +252,7 @@ build_player_base <- function(source_df, meta_df, rookie_name_set) {
     source_values[[nm]] <- ifelse(is.na(source_values[[nm]]), NA_real_, as.numeric(source_values[[nm]]))
   }
 
-  idp_cols <- intersect(c("idpTradeCalc", "pffIdp", "fantasyProsIdp"), names(source_values))
+  idp_cols <- intersect(c("idpTradeCalc"), names(source_values))
   idp_source_count <- if (length(idp_cols) > 0) rowSums(as.data.frame(lapply(source_values[idp_cols], function(v) is.finite(v) & v > 0))) else rep(0, nrow(source_df))
   source_count <- rowSums(as.data.frame(lapply(source_values, function(v) is.finite(v) & v > 0)))
   source_spread <- compute_source_spread(as.matrix(source_values))
