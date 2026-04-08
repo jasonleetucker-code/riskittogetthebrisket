@@ -56,7 +56,7 @@ def main() -> int:
     repo = Path(args.repo).resolve()
     _bootstrap_path(repo)
 
-    from src.adapters import DlfCsvAdapter, KtcStubAdapter, ManualCsvAdapter, ScraperBridgeAdapter
+    from src.adapters import ScraperBridgeAdapter
     from src.data_models import RawAssetRecord, RawSourceSnapshot, SourceManifest, utc_now_iso
     from src.identity import build_identity_resolution
     from src.utils import load_json, normalize_player_name
@@ -124,18 +124,12 @@ def main() -> int:
         else:
             parse_warnings.append(f"Raw input file missing: {raw_input_path if raw_input_path else '<not provided>'}")
 
-        if adapter_kind in {"dlf_csv", "dlf"}:
-            adapter = DlfCsvAdapter(source_id=source, source_bucket=universe, format_key=format_key)
-        elif adapter_kind in {"ktc_stub", "ktc"}:
-            adapter = KtcStubAdapter(source_id=source, source_bucket=universe, format_key=format_key)
-        elif adapter_kind in {"scraper_bridge", "bridge"}:
+        if adapter_kind in {"scraper_bridge", "bridge"}:
             signal_type = str(src_cfg.get("signal_type", "value")).strip().lower()
             adapter = ScraperBridgeAdapter(
                 source_id=source, source_bucket=universe,
                 format_key=format_key, signal_type=signal_type,
             )
-        elif adapter_kind in {"manual_csv", "manual"}:
-            adapter = ManualCsvAdapter(source_id=source, source_bucket=universe)
         else:
             run_payload["warnings"].append(f"Unknown adapter '{adapter_kind}' for source {source}")
             continue

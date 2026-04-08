@@ -48,9 +48,6 @@ jobs:
         if: ${{ inputs.skip_scrape != true }}
         shell: bash
         timeout-minutes: 15
-        env:
-          DN_EMAIL: ${{ secrets.DN_EMAIL }}
-          DN_PASS: ${{ secrets.DN_PASS }}
         run: |
           set -Eeuo pipefail
           echo "::group::Scraper output"

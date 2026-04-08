@@ -111,22 +111,13 @@ class TestSourceTypeHandling:
         from src.pool.builder import SOURCE_TYPES
         assert "ktc" in SOURCE_TYPES
         assert "idpTradeCalc" in SOURCE_TYPES
-        assert "pffIdp" in SOURCE_TYPES
-        assert "dlfRsf" in SOURCE_TYPES
-        assert "dlfRidp" in SOURCE_TYPES
 
     def test_source_type_categories(self):
         from src.pool.builder import SOURCE_TYPES
         types = set(SOURCE_TYPES.values())
         expected = {
             "full_mixed_value",
-            "offense_only_value",
-            "offense_only_rank",
             "mixed_offense_idp_bridge",
-            "idp_only_rank",
-            "idp_only_value",
-            "rookie_only_offense",
-            "rookie_only_idp",
         }
         assert types == expected, f"Missing source types: {expected - types}"
 

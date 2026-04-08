@@ -927,76 +927,6 @@ else:
     _set_frontend_runtime_status("auto", "configured_auto_mode_pending_probe")
 
 
-# ── ADAM IDP DATA INTEGRATION ─────────────────────────────────────────
-def _merge_adamidp_values(data: dict) -> int:
-    """Merge adamidp_normalized.json values into player data.
-
-    Converts overallRank (1-385) to a numeric value using rank_to_value()
-    and injects it as an 'adamIdp' key in each player's _canonicalSiteValues.
-    Returns the count of players enriched.
-    """
-    adamidp_path = DATA_DIR / "adamidp_normalized.json"
-    if not adamidp_path.exists():
-        return 0
-    try:
-        with adamidp_path.open("r", encoding="utf-8") as f:
-            adamidp = json.load(f)
-    except Exception as e:
-        log.warning(f"Failed to load adamidp_normalized.json: {e}")
-        return 0
-
-    rows = adamidp.get("rows")
-    if not isinstance(rows, list) or not rows:
-        return 0
-
-    from src.canonical.player_valuation import rank_to_value
-
-    players = data.get("players")
-    if not isinstance(players, dict):
-        return 0
-
-    # Build name lookup (case-insensitive)
-    player_lower = {k.lower(): k for k in players}
-    enriched = 0
-
-    for row in rows:
-        name = row.get("playerName")
-        rank = row.get("overallRank")
-        if not name or not rank:
-            continue
-        # Convert rank to value (same formula as KTC rank-to-value)
-        value = int(rank_to_value(rank))
-
-        # Find matching player by name
-        key = player_lower.get(name.strip().lower())
-        if key is None:
-            continue
-
-        pdata = players[key]
-        if not isinstance(pdata, dict):
-            continue
-
-        # Inject adamIdp value into _canonicalSiteValues
-        csv = pdata.get("_canonicalSiteValues")
-        if not isinstance(csv, dict):
-            csv = {}
-            pdata["_canonicalSiteValues"] = csv
-        csv["adamIdp"] = value
-
-        # Also register as site for the sites array
-        enriched += 1
-
-    # Add adamIdp to the sites list if not already present
-    sites = data.get("sites")
-    if isinstance(sites, list):
-        if not any(s.get("key") == "adamIdp" for s in sites if isinstance(s, dict)):
-            sites.append({"key": "adamIdp", "label": "Adam IDP", "max": 10000})
-
-    if enriched > 0:
-        log.info(f"Merged adamIdp values for {enriched} IDP players from adamidp_normalized.json")
-    return enriched
-
-
 # ── SCRAPER INTEGRATION ────────────────────────────────────────────────
 def _prime_latest_payload(data: dict | None) -> None:
     """Pre-serialize latest payload once so /api/data returns instantly."""
@@ -1019,8 +949,6 @@ def _prime_latest_payload(data: dict | None) -> None:
     if not data:
         return
     try:
-        # Merge supplemental IDP data before building the contract
-        _merge_adamidp_values(data)
         contract_payload = build_api_data_contract(data, data_source=latest_data_source)
         contract_report = validate_api_data_contract(contract_payload)
         contract_payload["contractHealth"] = {

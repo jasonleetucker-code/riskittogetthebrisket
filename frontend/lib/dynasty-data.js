@@ -114,12 +114,12 @@ function computeKtcRanks(rows) {
 }
 
 // ── IDP rank assignment ──────────────────────────────────────────────
-// Ranks IDP players by mean of their IDP source values (pffIdp,
-// fantasyProsIdp, draftSharksIdp, dlfIdp, dlfRidp).  Assigns idpRank
-// 1..IDP_RANK_LIMIT and canonicalConsensusRank offset by offenseCount.
-// Only runs when backend hasn't already stamped idpRank (fallback).
+// Ranks IDP players by their IDP Trade Calculator value.  Assigns
+// idpRank 1..IDP_RANK_LIMIT and canonicalConsensusRank offset by
+// offenseCount.  Only runs when backend hasn't already stamped idpRank
+// (fallback).
 const IDP_RANK_LIMIT = 300;
-const IDP_SIGNAL_KEYS = ["pffIdp", "fantasyProsIdp", "draftSharksIdp", "dlfIdp", "dlfRidp", "idpTradeCalc", "adamIdp"];
+const IDP_SIGNAL_KEYS = ["idpTradeCalc"];
 
 function computeIdpRanks(rows, offenseRankedCount) {
   const eligible = rows.filter((r) => {

@@ -7,21 +7,8 @@
 
   // ── SITES ──
   const sites = [
-    { key:'ktc',          label:'KTC',           defaultMax:9999,  defaultInclude:true,  defaultWeight:1.3, mode:'value',   tep:true },
-    { key:'fantasyCalc',  label:'FantasyCalc',   defaultMax:10535, defaultInclude:true,  defaultWeight:1.0, mode:'value',   tep:true },
-    { key:'dynastyDaddy', label:'Dyn. Daddy',    defaultMax:10200, defaultInclude:true,  defaultWeight:1.0, mode:'value',   tep:false },
-    { key:'fantasyPros',  label:'Fantasy Pros',  defaultMax:103,   defaultInclude:true,  defaultWeight:0.8, mode:'value',   tep:true },
-    { key:'draftSharks',  label:'Draft Sharks',  defaultMax:9999,  defaultInclude:true,  defaultWeight:0.9, mode:'rank',    tep:true },
-    { key:'yahoo',        label:'Yahoo',         defaultMax:129,   defaultInclude:true,  defaultWeight:0.8, mode:'value',   tep:true },
-    { key:'dynastyNerds', label:'Dyn. Nerds',    defaultMax:9999,  defaultInclude:true,  defaultWeight:0.8, mode:'rank',    tep:true },
-    { key:'dlfSf',        label:'DLF SF',        defaultMax:9999,  defaultInclude:true,  defaultWeight:0.8, mode:'value',   tep:false },
-    { key:'dlfIdp',       label:'DLF IDP',       defaultMax:9999,  defaultInclude:true,  defaultWeight:0.8, mode:'value',   tep:false },
-    { key:'dlfRsf',       label:'DLF R SF',      defaultMax:9999,  defaultInclude:false, defaultWeight:0.7, mode:'value',   tep:false },
-    { key:'dlfRidp',      label:'DLF R IDP',     defaultMax:9999,  defaultInclude:false, defaultWeight:0.7, mode:'value',   tep:false },
+    { key:'ktc',          label:'KTC',           defaultMax:9999,  defaultInclude:true,  defaultWeight:1.2, mode:'value',   tep:true },
     { key:'idpTradeCalc', label:'IDP Trade',     defaultMax:9998,  defaultInclude:true,  defaultWeight:1.0, mode:'value',   tep:true },
-    // IDP-specific sites
-    { key:'pffIdp',         label:'PFF IDP',           defaultMax:6250,  defaultInclude:true,  defaultWeight:0.7, mode:'idpRank',  tep:false },
-    { key:'fantasyProsIdp', label:'FantasyPros IDP',   defaultMax:6250,  defaultInclude:true,  defaultWeight:0.7, mode:'idpRank',  tep:false },
   ];
 
   // ── NAMED CONSTANTS ──
@@ -56,8 +43,8 @@
   const DEFAULT_ALPHA = 1.678;           // star player bonus exponent
   const DEFAULT_TOLERANCE = 0.05;        // 5% trade tolerance
   const DEFAULT_TEAM_NAME = 'Draft Daddies';
-  const NATIVE_CANONICAL_VALUE_SITES = new Set(['ktc', 'idpTradeCalc', 'dlfSf', 'dlfIdp']);
-  const ROOKIE_ONLY_DLF_SITE_KEYS = new Set(['dlfRsf', 'dlfRidp']);
+  const NATIVE_CANONICAL_VALUE_SITES = new Set(['ktc', 'idpTradeCalc']);
+  const ROOKIE_ONLY_DLF_SITE_KEYS = new Set();
   const STORAGE_KEY = 'dynastyCalcV5';
   const RECENT_PLAYERS_KEY = 'dynasty_recent_players_v1';
   const RECENT_SEARCHES_KEY = 'dynasty_recent_searches_v1';

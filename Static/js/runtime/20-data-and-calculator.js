@@ -107,13 +107,12 @@
       const wt  = parseFloat((document.getElementById('weight_'+s.key)||{}).value);
       const inc = document.getElementById('include_'+s.key);
       const tep = document.getElementById('tep_'+s.key);
-      const forceNonTep = s.key === 'dynastyDaddy';
       return {
         key: s.key, label: s.label,
         max: (isFinite(max)&&max>0)?max:s.defaultMax,
         include: inc?inc.checked:s.defaultInclude,
         weight: (isFinite(wt)&&wt>0)?wt:1.0,
-        tep: forceNonTep ? false : (tep ? tep.checked : (s.tep!==false))
+        tep: tep ? tep.checked : (s.tep!==false)
       };
     });
     __siteConfigDirty = false;
@@ -242,7 +241,7 @@
         d.siteConfig.forEach(s => {
           const inc=document.getElementById('include_'+s.key), max=document.getElementById('max_'+s.key), wt=document.getElementById('weight_'+s.key), tep=document.getElementById('tep_'+s.key);
           if (inc) inc.checked=!!s.include; if (max&&s.max!=null) max.value=s.max; if (wt&&s.weight!=null) wt.value=s.weight;
-          if (tep&&s.tep!=null) tep.checked=(s.key === 'dynastyDaddy') ? false : !!s.tep;
+          if (tep&&s.tep!=null) tep.checked=!!s.tep;
         });
       }
       if (d.pickSettings) {
@@ -278,13 +277,12 @@
     sites.forEach(s => {
       const tr = document.createElement('tr');
       tr.dataset.siteKey = s.key;
-      const lockNonTep = s.key === 'dynastyDaddy';
       tr.innerHTML = `
         <td><input type="checkbox" id="include_${s.key}" ${s.defaultInclude?'checked':''}></td>
         <td style="font-weight:600;font-family:var(--mono);font-size:0.75rem;">${s.label}</td>
         <td><input type="number" step="0.01" value="${s.defaultMax}" id="max_${s.key}" style="width:110px"></td>
         <td><input type="number" step="0.1" value="${s.defaultWeight}" id="weight_${s.key}" style="width:80px"></td>
-        <td style="text-align:center;"><input type="checkbox" id="tep_${s.key}" ${s.tep!==false?'checked':''} ${lockNonTep ? 'disabled title="Dynasty Daddy treated as non-TEP (TE multiplier applied)."' : ''}></td>
+        <td style="text-align:center;"><input type="checkbox" id="tep_${s.key}" ${s.tep!==false?'checked':''}></td>
       `;
       tbody.appendChild(tr);
     });
@@ -3227,10 +3225,9 @@
   }
 
   // Keep top freshness summary + detailed source card wording in one place.
-  function buildSourceFreshnessSummaryText(okCount, totalCount, scrapeAgeText = '', dlfCsvStale = false) {
+  function buildSourceFreshnessSummaryText(okCount, totalCount, scrapeAgeText = '') {
     const parts = [`Sources ${okCount}/${totalCount}`];
     if (scrapeAgeText) parts.push(scrapeAgeText);
-    if (dlfCsvStale) parts.push('DLF stale');
     return parts.join(' · ');
   }
 
@@ -3326,10 +3323,7 @@
         if (scraperAnchor && scraperAnchor > 0) {
           anchorEl.value = scraperAnchor;
           // Also update max for IDP rank sites to match anchor
-          const pffMaxEl = document.getElementById('max_pffIdp');
-          const fpIdpMaxEl = document.getElementById('max_fantasyProsIdp');
-          if (pffMaxEl) pffMaxEl.value = scraperAnchor;
-          if (fpIdpMaxEl) fpIdpMaxEl.value = scraperAnchor;
+          // Removed: PFF IDP and FantasyPros IDP max element updates (sources removed)
         }
       }
     }
@@ -3348,40 +3342,12 @@
     });
     // Keep source table aligned to what's actually in loaded data.
     syncSiteConfigToLoadedData(data);
-    // DynastyNerds is part of the default market stack; stale session settings should not
-    // hide its column when valid data exists in the current dataset.
-    const dynastyNerdsHasData = (
-      (Array.isArray(data.sites) && data.sites.some(s => s?.key === 'dynastyNerds' && Number(s.playerCount) > 0)) ||
-      (Number(data.maxValues?.dynastyNerds) > 0) ||
-      Object.values(data.players || {}).some(p => Number(p?.dynastyNerds) > 0)
-    );
-    const dynastyNerdsInclude = document.getElementById('include_dynastyNerds');
-    if (dynastyNerdsInclude && dynastyNerdsHasData) {
-      dynastyNerdsInclude.disabled = false;
-      dynastyNerdsInclude.checked = true;
-    }
-    const dlfKeys = ['dlfSf', 'dlfIdp', 'dlfRsf', 'dlfRidp'];
-    const dlfImport = (data.settings && data.settings.dlfImport && typeof data.settings.dlfImport === 'object')
-      ? data.settings.dlfImport
-      : {};
-    const dlfImportRows = Object.values(dlfImport).filter(v => v && typeof v === 'object');
-    const dlfLoadedRows = dlfImportRows.filter(v => !!v.loaded);
-    const dlfHasFreshCsv = dlfLoadedRows.some(v => !(v.stale === true || Number(v.ageDays) > 7));
-    const dlfCsvStale = dlfLoadedRows.length > 0 && !dlfHasFreshCsv;
-    const dlfHasData = (
-      (Array.isArray(data.sites) && data.sites.some(s => dlfKeys.includes(s?.key) && Number(s.playerCount) > 0)) ||
-      dlfKeys.some(k => Number(data.maxValues?.[k]) > 0) ||
-      Object.values(data.players || {}).some(p => dlfKeys.some(k => Number(p?.[k]) > 0))
-    );
 
     const st = document.getElementById('dataStatus');
     const count = Object.keys(data.players).length;
     const siteCount = data.sites ? data.sites.filter(s => {
       const n = Number(s?.playerCount || 0);
-      if (n > 0) return true;
-      if (s?.key === 'dynastyNerds') return dynastyNerdsHasData;
-      if (s?.key === 'DLF') return dlfHasData && !dlfCsvStale;
-      return false;
+      return n > 0;
     }).length : 0;
     const leagueInfo = data.sleeper ? ` · ${data.sleeper.leagueName}` : '';
     const dateInfo = data.date ? ` · updated ${data.date}` : '';
@@ -3391,13 +3357,7 @@
     // Data freshness: compact summary + expandable site pills
     const freshnessEl = document.getElementById('dataFreshness');
     if (freshnessEl && data.sites) {
-      const siteLabels = {ktc:'KTC', fantasyCalc:'FC', dynastyDaddy:'DD', fantasyPros:'FP',
-                          draftSharks:'DS', yahoo:'Yahoo', dynastyNerds:'DN',
-                          DLF:'DLF',
-                          dlfSf:'DLF SF', dlfIdp:'DLF IDP', dlfRsf:'DLF R SF', dlfRidp:'DLF R IDP',
-                          idpTradeCalc:'IDP TC', pffIdp:'PFF', fantasyProsIdp:'FP IDP'};
-      const siteCountMap = new Map((data.sites || []).map(s => [String(s?.key || ''), Number(s?.playerCount || 0)]));
-      const dlfSubCount = dlfKeys.reduce((sum, k) => sum + Math.max(0, Number(siteCountMap.get(k) || 0)), 0);
+      const siteLabels = {ktc:'KTC', idpTradeCalc:'IDP TC'};
       let html = '';
       let okCount = 0;
       let totalCount = 0;
@@ -3406,23 +3366,12 @@
         const label = siteLabels[s.key] || s.key;
         let displayCount = Number(s?.playerCount || 0);
         let ok = displayCount > 0;
-        if (!ok && s.key === 'dynastyNerds' && dynastyNerdsHasData) {
-          ok = true;
-          displayCount = Math.max(displayCount, 1);
-        }
-        if (!ok && s.key === 'DLF' && dlfHasData) {
-          ok = !dlfCsvStale;
-          displayCount = Math.max(displayCount, dlfSubCount, 1);
-        }
-        if (ok && dlfCsvStale && (s.key === 'DLF' || dlfKeys.includes(s.key))) ok = false;
         if (ok) okCount++;
         const color = ok ? 'var(--green)' : 'var(--red)';
         const bg = ok ? 'rgba(0,200,100,0.1)' : 'rgba(255,80,80,0.1)';
-        let titleExtra = '';
-        if ((s.key === 'DLF' || dlfKeys.includes(s.key)) && dlfCsvStale) titleExtra = ' (csv >7d old)';
-        html += `<span style="display:inline-block;padding:2px 6px;margin:2px;border-radius:4px;font-size:0.62rem;font-family:var(--mono);color:${color};background:${bg};border:1px solid ${color}22;" title="${s.key}: ${displayCount} players${titleExtra}">${label} ${ok ? displayCount : '✗'}</span>`;
+        html += `<span style="display:inline-block;padding:2px 6px;margin:2px;border-radius:4px;font-size:0.62rem;font-family:var(--mono);color:${color};background:${bg};border:1px solid ${color}22;" title="${s.key}: ${displayCount} players">${label} ${ok ? displayCount : '✗'}</span>`;
       }
-      const sourceSummaryText = buildSourceFreshnessSummaryText(okCount, totalCount, scrapeAgeText, dlfCsvStale);
+      const sourceSummaryText = buildSourceFreshnessSummaryText(okCount, totalCount, scrapeAgeText);
       freshnessEl.innerHTML = `
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-ghost btn-sm" type="button" onclick="toggleDataFreshnessDetails()">
@@ -3437,7 +3386,7 @@
       `;
       freshnessEl.style.display = '';
       setTopFreshnessSummary(sourceSummaryText, {
-        stale: scrapeAgeStale || dlfCsvStale,
+        stale: scrapeAgeStale,
       });
     }
     const qc = document.getElementById('quickUseCard');
@@ -3967,7 +3916,7 @@
       const market = edgeMarketSource(assetClass);
       const actualExternalRaw = Number((pData || {})[market.key]);
       const actualExternal = isFinite(actualExternalRaw) && actualExternalRaw > 0 ? actualExternalRaw : null;
-      const idpSiteCount = ['idpTradeCalc', 'pffIdp', 'fantasyProsIdp']
+      const idpSiteCount = ['idpTradeCalc']
         .reduce((n, k) => {
           const v = Number((pData || {})[k]);
           return n + ((isFinite(v) && v > 0) ? 1 : 0);

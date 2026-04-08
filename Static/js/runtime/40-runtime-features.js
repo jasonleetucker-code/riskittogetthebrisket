@@ -731,7 +731,7 @@
       0,
       Number(context.siteCount ?? pData?._sites ?? pData?._marketSourceCount ?? 0) || 0
     );
-    const idpSourceKeys = ['idpTradeCalc', 'pffIdp', 'fantasyProsIdp'];
+    const idpSourceKeys = ['idpTradeCalc'];
     const idpSiteCount = idpSourceKeys.reduce((n, k) => {
       const v = Number((context.siteDetails || {})[k] ?? pData?.[k]);
       return n + ((Number.isFinite(v) && v > 0) ? 1 : 0);

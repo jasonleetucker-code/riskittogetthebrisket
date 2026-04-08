@@ -82,7 +82,7 @@ class TestIsIdpAsset:
 
     def test_idp_only_sources(self):
         assert _is_idp_asset({"universe": "offense_vet", "source_values": {"IDPTRADECALC": 100}}) is True
-        assert _is_idp_asset({"universe": "offense_vet", "source_values": {"PFF_IDP": 50}}) is True
+        assert _is_idp_asset({"universe": "offense_vet", "source_values": {"IDPTRADECALC": 50}}) is True
 
     def test_not_idp(self):
         assert _is_idp_asset({"universe": "offense_vet", "source_values": {"KTC": 100}}) is False

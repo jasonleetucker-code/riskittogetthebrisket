@@ -1,37 +1,18 @@
 {
-  "version": 4,
-  "description": "Source weights for 14-source canonical blend (retuned 2026-03-22). Founder-adjustable.",
+  "version": 5,
+  "description": "Source weights for 2-source canonical blend (KTC + IDPTradeCalc only).",
   "weight_rationale": {
-    "tier_1_primary": "KTC (1.2) and FantasyCalc (1.0) are the highest-signal crowdsourced market sources with the largest player pools.",
-    "tier_2_expert": "DLF sources (1.0) are expert-curated rank-based signals. Only source with native position data.",
-    "tier_3_secondary_market": "DynastyDaddy (0.8) is a secondary market/API source with good coverage.",
-    "tier_4_supplemental": "Yahoo (0.7), FantasyPros (0.7) are supplemental crowd sources. DraftSharks (0.5) lowered: rank-only with many unmatched newcomers. DynastyNerds (0.6) and Flock (0.6) have limited coverage.",
-    "tier_idp": "IDPTradeCalc (1.0) is the primary non-DLF IDP source. PFF IDP (0.7) provides expert ranking depth. Others supplemental."
+    "KTC": "Primary crowdsourced offense market source with the largest player pool.",
+    "IDPTRADECALC": "Primary IDP value source covering both offense and IDP players."
   },
-  "how_to_tune": "Edit the 'sources' values below. Higher = more influence. Set to 0 to exclude. Re-run: python scripts/source_pull.py && python scripts/canonical_build.py && python scripts/run_comparison_batch.py",
+  "how_to_tune": "Edit the 'sources' values below. Higher = more influence. Set to 0 to exclude. Re-run: python scripts/source_pull.py && python scripts/canonical_build.py",
   "universe_defaults": {
     "offense_vet": 1.0,
-    "offense_rookie": 1.0,
     "idp_vet": 1.0,
-    "idp_rookie": 1.0,
     "picks": 1.0
   },
   "sources": {
-    "DLF_SF": 1.0,
-    "DLF_IDP": 1.0,
-    "DLF_RSF": 1.0,
-    "DLF_RIDP": 1.0,
     "KTC": 1.2,
-    "FANTASYCALC": 1.0,
-    "DYNASTYDADDY": 0.8,
-    "YAHOO": 0.7,
-    "FANTASYPROS": 0.7,
-    "DRAFTSHARKS": 0.5,
-    "DYNASTYNERDS": 0.6,
-    "FLOCK": 0.6,
-    "IDPTRADECALC": 1.0,
-    "PFF_IDP": 0.7,
-    "DRAFTSHARKS_IDP": 0.6,
-    "FANTASYPROS_IDP": 0.6
+    "IDPTRADECALC": 1.0
   }
 }

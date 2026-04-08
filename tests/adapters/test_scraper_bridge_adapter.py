@@ -13,7 +13,7 @@ from src.adapters.scraper_bridge_adapter import ScraperBridgeAdapter
 @pytest.fixture
 def value_adapter():
     return ScraperBridgeAdapter(
-        source_id="FANTASYCALC",
+        source_id="KTC",
         source_bucket="offense_vet",
         signal_type="value",
     )
@@ -22,8 +22,8 @@ def value_adapter():
 @pytest.fixture
 def rank_adapter():
     return ScraperBridgeAdapter(
-        source_id="DYNASTYNERDS",
-        source_bucket="offense_vet",
+        source_id="IDPTRADECALC",
+        source_bucket="idp_vet",
         signal_type="rank",
     )
 
@@ -38,7 +38,7 @@ def value_csv(tmp_path):
         Patrick Mahomes,8500
         2026 Early 1st,7000
     """)
-    path = tmp_path / "fantasyCalc.csv"
+    path = tmp_path / "ktc.csv"
     path.write_text(content)
     return path
 
@@ -52,7 +52,7 @@ def rank_csv(tmp_path):
         Lamar Jackson,2
         Ja'Marr Chase,3
     """)
-    path = tmp_path / "dynastyNerds.csv"
+    path = tmp_path / "idpTradeCalc.csv"
     path.write_text(content)
     return path
 
@@ -86,7 +86,7 @@ class TestValueSignal:
     def test_record_fields(self, value_adapter, value_csv):
         result = value_adapter.load(value_csv)
         rec = result.records[0]
-        assert rec.source == "FANTASYCALC"
+        assert rec.source == "KTC"
         assert rec.display_name == "Josh Allen"
         assert rec.name_normalized_guess == "josh allen"
         assert rec.asset_key == "player::josh allen"
@@ -106,7 +106,7 @@ class TestValueSignal:
         meta = result.records[0].metadata_json
         assert meta["adapter"] == "scraper_bridge"
         assert meta["signal_type"] == "value"
-        assert "fantasyCalc.csv" in meta["profile_source"]
+        assert "ktc.csv" in meta["profile_source"]
 
 
 # ── Rank-based loading ────────────────────────────────────────────────
@@ -124,7 +124,7 @@ class TestRankSignal:
 
     def test_source_id_propagated(self, rank_adapter, rank_csv):
         result = rank_adapter.load(rank_csv)
-        assert all(r.source == "DYNASTYNERDS" for r in result.records)
+        assert all(r.source == "IDPTRADECALC" for r in result.records)
 
 
 # ── Edge cases ────────────────────────────────────────────────────────
@@ -166,7 +166,7 @@ class TestEdgeCases:
         assert len(result.records) == 1
 
     def test_idp_bucket_detection(self, tmp_path):
-        adapter = ScraperBridgeAdapter("IDP_SRC", "idp_vet")
+        adapter = ScraperBridgeAdapter("IDPTRADECALC", "idp_vet")
         content = "name,value\nMicah Parsons,5000\n"
         path = tmp_path / "test.csv"
         path.write_text(content)
@@ -183,22 +183,22 @@ class TestEdgeCases:
 
     def test_result_metadata(self, value_adapter, value_csv):
         result = value_adapter.load(value_csv)
-        assert result.source_id == "FANTASYCALC"
+        assert result.source_id == "KTC"
         assert result.source_bucket == "offense_vet"
         assert str(value_csv) in result.file_path
 
 
-# ── Real FantasyCalc export ───────────────────────────────────────────
+# ── Real KTC export ──────────────────────────────────────────────────
 
-class TestRealFantasyCalcExport:
-    """Test against the actual FantasyCalc CSV from the legacy scraper."""
+class TestRealKtcExport:
+    """Test against the actual KTC CSV from the legacy scraper."""
 
     @pytest.fixture
     def real_csv(self):
         from pathlib import Path
-        p = Path(__file__).resolve().parent.parent.parent / "exports" / "latest" / "site_raw" / "fantasyCalc.csv"
+        p = Path(__file__).resolve().parent.parent.parent / "exports" / "latest" / "site_raw" / "ktc.csv"
         if not p.exists():
-            pytest.skip("FantasyCalc export not available")
+            pytest.skip("KTC export not available")
         return p
 
     def test_loads_real_export(self, value_adapter, real_csv):
