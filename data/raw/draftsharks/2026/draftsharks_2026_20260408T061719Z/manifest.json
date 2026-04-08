@@ -1,0 +1,19 @@
+{
+  "source": "DRAFTSHARKS",
+  "snapshot_id": "draftsharks_2026_20260408T061719Z",
+  "pulled_at_utc": "2026-04-08T06:17:20.064933+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty superflex TEP (DraftSharks rank signal)",
+  "universe": "offense_vet",
+  "ingest_method": "scraper_bridge",
+  "ingest_type": "scraper_export",
+  "source_url": "https://www.draftsharks.com/",
+  "format_key": "dynasty_sf",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/exports/latest/site_raw/draftSharks.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/draftsharks/2026/draftsharks_2026_20260408T061719Z",
+  "record_count": 485,
+  "hash": "3f05a2230d7519d70971616ba467fb68dbc09f5884bffd5c163b2ee619b4b8d6",
+  "notes": "DraftSharks ranks. In legacy scraper _tep_sites \u2014 TEP natively included in rank order. Do NOT re-apply.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
