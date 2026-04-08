@@ -1,67 +1,129 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { resolvedRank } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { lamMultiplier } from "@/lib/trade-logic";
 import { useApp } from "@/components/AppShell";
 
-// ── FULL-BOARD RANKINGS PAGE ──────────────────────────────────────────
-// Data source: normalized contract rows from useDynastyData/buildRows
-// Value:       rankDerivedValue when KTC-ranked, else canonical full value
-// Columns:     Our Rank | Player | Pos | Our Value
-// Sort:        precomputed row rank (ranked KTC first, then remaining board)
+// ── UNIFIED RANKINGS PAGE ────────────────────────────────────────────
+// One blended board: offense + IDP sorted by unified rank.
+// Source columns show which source(s) contributed each player's value.
+// All columns are sortable (click header to toggle asc/desc).
 
-const FILTERS = [
+const POS_FILTERS = [
   { key: "all", label: "All" },
   { key: "offense", label: "OFF" },
   { key: "idp", label: "IDP" },
+  { key: "QB", label: "QB" },
+  { key: "RB", label: "RB" },
+  { key: "WR", label: "WR" },
+  { key: "TE", label: "TE" },
+  { key: "DL", label: "DL" },
+  { key: "LB", label: "LB" },
+  { key: "DB", label: "DB" },
 ];
 
+function posMatchesFilter(pos, assetClass, filter) {
+  if (filter === "all") return true;
+  if (filter === "offense") return assetClass === "offense";
+  if (filter === "idp") return assetClass === "idp";
+  return pos === filter;
+}
+
 export default function RankingsPage() {
-  const { loading, error, source, rows, siteKeys } = useDynastyData();
+  const { loading, error, source, rows } = useDynastyData();
   const { settings } = useSettings();
   const { openPlayerPopup } = useApp();
   const [query, setQuery] = useState("");
-  const [assetFilter, setAssetFilter] = useState("all");
+  const [posFilter, setPosFilter] = useState("all");
+  const [sortCol, setSortCol] = useState("rank");
+  const [sortAsc, setSortAsc] = useState(true);
   const [copyStatus, setCopyStatus] = useState("");
 
-  const sortBasis = settings.rankingsSortBasis || "full";
+  const handleSort = useCallback((col) => {
+    if (sortCol === col) {
+      setSortAsc((prev) => !prev);
+    } else {
+      setSortCol(col);
+      // Default direction: ascending for rank/player/pos, descending for values
+      setSortAsc(["rank", "name", "pos"].includes(col));
+    }
+  }, [sortCol]);
 
-  // Compute LAM-adjusted value for a row
-  function lamAdjustedValue(row) {
-    const base = row.values?.[sortBasis] ?? row.values?.full ?? 0;
-    const lam = lamMultiplier(row.pos || "WR", settings.lamStrength ?? 1.0, settings.leagueFormat ?? "superflex");
-    return Math.round(base * lam);
-  }
-
-  // Show the full board (including unranked-by-KTC IDP pools).
   const ranked = useMemo(() => {
     const q = query.trim().toLowerCase();
     let list = rows.filter((r) => r.pos && r.pos !== "?" && r.pos !== "PICK");
 
-    if (assetFilter !== "all") {
-      list = list.filter((r) => r.assetClass === assetFilter);
+    if (posFilter !== "all") {
+      list = list.filter((r) => posMatchesFilter(r.pos, r.assetClass, posFilter));
     }
     if (q) {
       list = list.filter((r) => r.name.toLowerCase().includes(q));
     }
 
-    // When filtering to IDP, sort by idpRank (class-relative rank).
-    // Otherwise use unified rank precedence.
-    if (assetFilter === "idp") {
-      return [...list].sort((a, b) => (a.idpRank ?? Infinity) - (b.idpRank ?? Infinity));
-    }
-    return [...list].sort((a, b) => resolvedRank(a) - resolvedRank(b));
-  }, [rows, assetFilter, query]);
+    // Sort by selected column
+    const sorted = [...list];
+    const dir = sortAsc ? 1 : -1;
+    sorted.sort((a, b) => {
+      let va, vb;
+      switch (sortCol) {
+        case "rank":
+          va = resolvedRank(a);
+          vb = resolvedRank(b);
+          return (va - vb) * dir;
+        case "name":
+          return a.name.localeCompare(b.name) * dir;
+        case "pos":
+          return a.pos.localeCompare(b.pos) * dir || resolvedRank(a) - resolvedRank(b);
+        case "value":
+          va = a.rankDerivedValue || a.values?.full || 0;
+          vb = b.rankDerivedValue || b.values?.full || 0;
+          return (va - vb) * dir;
+        case "ktc":
+          va = Number(a.canonicalSites?.ktc) || 0;
+          vb = Number(b.canonicalSites?.ktc) || 0;
+          return (va - vb) * dir;
+        case "idpTradeCalc":
+          va = Number(a.canonicalSites?.idpTradeCalc) || 0;
+          vb = Number(b.canonicalSites?.idpTradeCalc) || 0;
+          return (va - vb) * dir;
+        case "ktcRank":
+          va = a.ktcRank ?? Infinity;
+          vb = b.ktcRank ?? Infinity;
+          return (va - vb) * dir;
+        case "idpRank":
+          va = a.idpRank ?? Infinity;
+          vb = b.idpRank ?? Infinity;
+          return (va - vb) * dir;
+        default:
+          return resolvedRank(a) - resolvedRank(b);
+      }
+    });
+    return sorted;
+  }, [rows, posFilter, query, sortCol, sortAsc]);
+
+  function SortHeader({ col, children, style }) {
+    const active = sortCol === col;
+    const arrow = active ? (sortAsc ? " \u25B2" : " \u25BC") : "";
+    return (
+      <th
+        style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", ...style }}
+        onClick={() => handleSort(col)}
+        title={`Sort by ${children}${active ? (sortAsc ? " (ascending)" : " (descending)") : ""}`}
+      >
+        {children}{arrow}
+      </th>
+    );
+  }
 
   async function copyValues() {
-    const rankLabel = assetFilter === "idp" ? "IDP Rank" : "Our Rank";
-    const lines = [`${rankLabel}\tPlayer\tPos\tOur Value`];
+    const lines = ["Rank\tPlayer\tPos\tOur Value\tKTC Value\tKTC Rank\tIDPTC Value\tIDPTC Rank"];
     ranked.forEach((row) => {
-      const displayRank = assetFilter === "idp" ? (row.idpRank ?? "—") : row.rank;
-      lines.push(`${displayRank}\t${row.name}\t${row.pos}\t${Math.round(row.rankDerivedValue || row.values.full)}`);
+      const ktcVal = row.canonicalSites?.ktc != null ? Math.round(Number(row.canonicalSites.ktc)) : "";
+      const idpVal = row.canonicalSites?.idpTradeCalc != null ? Math.round(Number(row.canonicalSites.idpTradeCalc)) : "";
+      lines.push(`${row.rank}\t${row.name}\t${row.pos}\t${Math.round(row.rankDerivedValue || row.values.full)}\t${ktcVal}\t${row.ktcRank || ""}\t${idpVal}\t${row.idpRank || ""}`);
     });
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
@@ -79,7 +141,7 @@ export default function RankingsPage() {
         <div>
           <h1 style={{ margin: 0 }}>Rankings</h1>
           <p className="muted" style={{ marginTop: 4, marginBottom: 0 }}>
-            Full board · {ranked.length.toLocaleString()} shown · Source: {source || "unknown"}
+            Unified board · {ranked.length.toLocaleString()} shown · Blended from KTC + IDP Trade Calculator
           </p>
         </div>
       </div>
@@ -93,23 +155,23 @@ export default function RankingsPage() {
 
       {!loading && !error && rows.length > 0 && (
         <>
-          <div className="row" style={{ marginTop: 14 }}>
+          <div className="row" style={{ marginTop: 14, gap: 8, flexWrap: "wrap" }}>
             <input
               className="input"
               placeholder="Search player"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              style={{ minWidth: 220 }}
+              style={{ minWidth: 180 }}
             />
 
-            <select className="select" value={assetFilter} onChange={(e) => setAssetFilter(e.target.value)}>
-              {FILTERS.map((f) => (
+            <select className="select" value={posFilter} onChange={(e) => setPosFilter(e.target.value)}>
+              {POS_FILTERS.map((f) => (
                 <option key={f.key} value={f.key}>{f.label}</option>
               ))}
             </select>
 
             <button className="button" onClick={copyValues}>
-              Copy Values
+              Copy
             </button>
             {copyStatus ? <span className="muted" style={{ fontSize: "0.78rem", alignSelf: "center" }}>{copyStatus}</span> : null}
           </div>
@@ -118,45 +180,39 @@ export default function RankingsPage() {
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: 64, textAlign: "center" }} title={assetFilter === "idp" ? "IDP rank — 1 is best" : "Overall board rank — 1 is best"}>
-                    {assetFilter === "idp" ? "IDP Rank" : "Our Rank"}
-                  </th>
-                  <th>Player</th>
-                  <th>Pos</th>
-                  <th title="Our board value (KTC-derived where available)">Our Value</th>
-                  {settings.showLamCols && <th title="Value after LAM adjustment">LAM Adj.</th>}
-                  {settings.showLamCols && <th title="LAM multiplier for this position">LAM x</th>}
-                  {settings.showSiteCols && siteKeys.map((sk) => (
-                    <th key={sk} title={`Value from ${sk}`} style={{ fontSize: "0.72rem" }}>{sk}</th>
-                  ))}
+                  <SortHeader col="rank" style={{ width: 56, textAlign: "center" }}>Our Rank</SortHeader>
+                  <SortHeader col="name">Player</SortHeader>
+                  <SortHeader col="pos">Pos</SortHeader>
+                  <SortHeader col="value" style={{ textAlign: "right" }}>Our Value</SortHeader>
+                  <SortHeader col="ktc" style={{ textAlign: "right", fontSize: "0.72rem" }}>KTC</SortHeader>
+                  <SortHeader col="ktcRank" style={{ textAlign: "center", fontSize: "0.72rem" }}>KTC Rank</SortHeader>
+                  <SortHeader col="idpTradeCalc" style={{ textAlign: "right", fontSize: "0.72rem" }}>IDPTC</SortHeader>
+                  <SortHeader col="idpRank" style={{ textAlign: "center", fontSize: "0.72rem" }}>IDPTC Rank</SortHeader>
                 </tr>
               </thead>
               <tbody>
                 {ranked.map((row) => (
                   <tr key={row.name}>
                     <td style={{ textAlign: "center", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)" }}>
-                      {assetFilter === "idp" ? (row.idpRank ?? "—") : row.rank}
+                      {row.rank}
                     </td>
                     <td style={{ fontWeight: 600, cursor: "pointer" }} onClick={() => openPlayerPopup?.(row)}>{row.name}</td>
                     <td><span className="badge">{row.pos}</span></td>
-                    <td style={{ fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)" }}>
+                    <td style={{ textAlign: "right", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)" }}>
                       {Math.round(row.rankDerivedValue || row.values.full).toLocaleString()}
                     </td>
-                    {settings.showLamCols && (
-                      <td style={{ fontFamily: "var(--mono, monospace)", color: "var(--green)" }}>
-                        {lamAdjustedValue(row).toLocaleString()}
-                      </td>
-                    )}
-                    {settings.showLamCols && (
-                      <td className="muted" style={{ fontFamily: "var(--mono, monospace)", fontSize: "0.76rem" }}>
-                        {lamMultiplier(row.pos || "WR", settings.lamStrength ?? 1.0, settings.leagueFormat ?? "superflex").toFixed(2)}
-                      </td>
-                    )}
-                    {settings.showSiteCols && siteKeys.map((sk) => (
-                      <td key={sk} style={{ fontFamily: "var(--mono, monospace)", fontSize: "0.76rem" }}>
-                        {row.canonicalSites?.[sk] != null ? Math.round(Number(row.canonicalSites[sk])).toLocaleString() : "—"}
-                      </td>
-                    ))}
+                    <td style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem" }}>
+                      {row.canonicalSites?.ktc != null ? Math.round(Number(row.canonicalSites.ktc)).toLocaleString() : "—"}
+                    </td>
+                    <td style={{ textAlign: "center", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem", color: "var(--subtext)" }}>
+                      {row.ktcRank ?? "—"}
+                    </td>
+                    <td style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem" }}>
+                      {row.canonicalSites?.idpTradeCalc != null ? Math.round(Number(row.canonicalSites.idpTradeCalc)).toLocaleString() : "—"}
+                    </td>
+                    <td style={{ textAlign: "center", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem", color: "var(--subtext)" }}>
+                      {row.idpRank ?? "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>

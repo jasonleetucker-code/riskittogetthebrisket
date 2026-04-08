@@ -103,12 +103,12 @@ class TestCanonicalOverlayRankComputation(unittest.TestCase):
 class TestIdpRankings(unittest.TestCase):
     """IDP players must get ranked by their IDP source values."""
 
-    def test_idp_ranking_function_exists(self):
-        """data_contract.py must have _compute_idp_rankings."""
+    def test_unified_ranking_function_exists(self):
+        """data_contract.py must have _compute_unified_rankings."""
         dc = REPO_ROOT / "src" / "api" / "data_contract.py"
         text = dc.read_text()
-        self.assertIn("_compute_idp_rankings", text)
-        self.assertIn("IDP_RANK_LIMIT", text)
+        self.assertIn("_compute_unified_rankings", text)
+        self.assertIn("OVERALL_RANK_LIMIT", text)
 
     def test_idp_players_get_ranked(self):
         """IDP players with IDP source values must receive idpRank and canonicalConsensusRank."""
@@ -131,24 +131,23 @@ class TestIdpRankings(unittest.TestCase):
         lb = next(p for p in pa if p["displayName"] == "Test LB")
         qb = next(p for p in pa if p["displayName"] == "Test QB")
 
-        # Offense player gets KTC rank
+        # All players get unified canonicalConsensusRank on one board
         self.assertEqual(qb["ktcRank"], 1)
-        # IDP players get idpRank
         self.assertEqual(dl["idpRank"], 1)
         self.assertEqual(lb["idpRank"], 2)
-        # IDP canonicalConsensusRank offsets after offense
-        self.assertEqual(dl["canonicalConsensusRank"], 2)  # 1 offense + 1
-        self.assertEqual(lb["canonicalConsensusRank"], 3)  # 1 offense + 2
+        # Unified board: all three get canonicalConsensusRank (1, 2, or 3)
+        ranks = sorted([qb["canonicalConsensusRank"], dl["canonicalConsensusRank"], lb["canonicalConsensusRank"]])
+        self.assertEqual(ranks, [1, 2, 3])
         # IDP players have rankDerivedValue
         self.assertGreater(dl["rankDerivedValue"], 0)
 
-    def test_frontend_idp_ranking_exists(self):
-        """dynasty-data.js must have computeIdpRanks function."""
+    def test_frontend_unified_ranking_exists(self):
+        """dynasty-data.js must have computeUnifiedRanks function."""
         dd = REPO_ROOT / "frontend" / "lib" / "dynasty-data.js"
         text = dd.read_text()
-        self.assertIn("computeIdpRanks", text)
-        self.assertIn("IDP_RANK_LIMIT", text)
-        self.assertIn("IDP_SIGNAL_KEYS", text)
+        self.assertIn("computeUnifiedRanks", text)
+        self.assertIn("OVERALL_RANK_LIMIT", text)
+        self.assertIn("SOURCE_KEYS", text)
 
 
 class TestEdgeAndFinderRoutes(unittest.TestCase):

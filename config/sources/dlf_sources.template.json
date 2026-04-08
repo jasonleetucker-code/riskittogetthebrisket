@@ -37,12 +37,12 @@
       "ingest_type": "scraper_export",
       "ingest_method": "scraper_bridge",
       "source_url": "https://idptradecalc.com/",
-      "scoring_context": "dynasty IDP TEP (IDPTradeCalc combined offense+IDP values)",
+      "scoring_context": "dynasty IDP TEP (IDPTradeCalc IDP-only values)",
       "includes_sf": true,
       "includes_tep": true,
       "file": "exports/latest/site_raw/idpTradeCalc.csv",
       "signal_type": "value",
-      "notes": "IDPTradeCalc values. In legacy scraper _tep_sites -- TEP natively included for offensive players in this source."
+      "notes": "IDPTradeCalc values. IDP-only source (DL/LB/DB). No offensive players from this site."
     }
   ]
 }
