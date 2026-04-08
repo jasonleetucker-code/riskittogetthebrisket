@@ -49,6 +49,75 @@ _IDP_SIGNAL_KEYS = {
 # All source signal keys — used to detect which source(s) a player has
 _ALL_SIGNAL_KEYS = _OFFENSE_SIGNAL_KEYS | _IDP_SIGNAL_KEYS
 
+# CSV export paths for source enrichment (relative to repo root)
+_SOURCE_CSV_PATHS = {
+    "ktc": "exports/latest/site_raw/ktc.csv",
+    "idpTradeCalc": "exports/latest/site_raw/idpTradeCalc.csv",
+}
+
+
+def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
+    """Fill missing canonicalSiteValues from source CSV exports.
+
+    When the scraper's dashboard payload is missing values for a source
+    (e.g. KTC scrape failed but the CSV persists from a prior run), load
+    the CSV and inject values into canonicalSiteValues so the ranking
+    function can use them.
+    """
+    import csv
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[2]
+
+    for source_key, csv_rel in _SOURCE_CSV_PATHS.items():
+        csv_path = repo / csv_rel
+        if not csv_path.exists():
+            continue
+
+        # Check if we actually need enrichment for this source.
+        # Only count real players (not picks) to avoid skipping enrichment
+        # when the scraper got pick values but missed player values.
+        has_count = sum(
+            1 for row in players_array
+            if str(row.get("position") or "").strip().upper() not in {"PICK", ""}
+            and _safe_num((row.get("canonicalSiteValues") or {}).get(source_key)) is not None
+            and _safe_num((row.get("canonicalSiteValues") or {}).get(source_key)) > 0
+        )
+        if has_count > 50:
+            continue
+
+        # Load CSV
+        csv_lookup: dict[str, int] = {}
+        try:
+            with csv_path.open("r", encoding="utf-8-sig") as f:
+                for csvrow in csv.DictReader(f):
+                    name = str(csvrow.get("name", "")).strip()
+                    val = csvrow.get("value", "")
+                    if not name or not val:
+                        continue
+                    try:
+                        csv_lookup[name.lower()] = int(float(val))
+                    except (ValueError, TypeError):
+                        continue
+        except Exception:
+            continue
+
+        if not csv_lookup:
+            continue
+
+        # Enrich missing values
+        for row in players_array:
+            csv_vals = row.get("canonicalSiteValues")
+            if not isinstance(csv_vals, dict):
+                continue
+            existing = _safe_num(csv_vals.get(source_key))
+            if existing is not None and existing > 0:
+                continue
+            canon_name = str(row.get("canonicalName") or row.get("displayName") or "").strip().lower()
+            csv_val = csv_lookup.get(canon_name)
+            if csv_val is not None and csv_val > 0:
+                csv_vals[source_key] = csv_val
+
 
 def _compute_unified_rankings(
     players_array: list[dict[str, Any]],
@@ -224,7 +293,11 @@ def _canonical_site_values(
     explicit = p_data.get("_canonicalSiteValues")
     if isinstance(explicit, dict):
         for key in site_keys:
-            out[key] = _to_int_or_none(explicit.get(key))
+            val = _to_int_or_none(explicit.get(key))
+            # Fall back to direct player dict if the enrichment dict is missing this key
+            if val is None:
+                val = _to_int_or_none(p_data.get(key))
+            out[key] = val
         for key, val in explicit.items():
             if key not in out:
                 out[str(key)] = _to_int_or_none(val)
@@ -404,6 +477,10 @@ def build_api_data_contract(
         if not isinstance(p_data, dict):
             continue
         players_array.append(_derive_player_row(str(name), p_data, pos_map, site_keys))
+
+    # Enrich players with source CSV values that may be missing from the
+    # legacy scraper payload (e.g. KTC scrape failed but CSV exists).
+    _enrich_from_source_csvs(players_array)
 
     # Compute unified rankings: all sources, all positions, one board.
     # This is the single source of truth for canonicalConsensusRank / rankDerivedValue.
