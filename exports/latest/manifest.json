@@ -1,35 +1,17 @@
 {
-  "generatedAt": "2026-04-08T10:40:21.302224",
+  "generatedAt": "2026-04-08T14:17:48.254005",
   "date": "2026-04-08",
   "files": [
-    "dlf_idp.csv",
-    "dlf_rookie_idp.csv",
-    "dlf_rookie_superflex.csv",
-    "dlf_superflex.csv",
     "dynasty_data.js",
     "dynasty_data_2026-04-08.json",
     "dynasty_full.csv",
     "dynasty_values.csv",
     "site_raw"
   ],
-  "siteRawCount": 15,
+  "siteRawCount": 2,
   "siteRawFresh": [
     "idpTradeCalc.csv",
     "ktc.csv"
   ],
-  "siteRawPreserved": [
-    "dlfIdp.csv",
-    "dlfRidp.csv",
-    "dlfRsf.csv",
-    "dlfSf.csv",
-    "draftSharks.csv",
-    "draftSharksIdp.csv",
-    "dynastyDaddy.csv",
-    "dynastyNerds.csv",
-    "fantasyCalc.csv",
-    "fantasyPros.csv",
-    "fantasyProsIdp.csv",
-    "pffIdp.csv",
-    "yahoo.csv"
-  ]
+  "siteRawPreserved": []
 }
