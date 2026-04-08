@@ -32,7 +32,7 @@ def _minimal_raw_payload():
                 "team": "CIN",
             },
         },
-        "sites": [{"key": "ktc"}, {"key": "fantasyCalc"}],
+        "sites": [{"key": "ktc"}, {"key": "idpTradeCalc"}],
         "maxValues": {"ktc": 9999},
         "sleeper": {"positions": {"Josh Allen": "QB", "Ja'Marr Chase": "WR"}},
     }
@@ -49,21 +49,21 @@ def _minimal_canonical_snapshot():
                 "display_name": "Josh Allen",
                 "blended_value": 8200,
                 "universe": "offense_vet",
-                "sources_used": ["dlf_superflex"],
+                "sources_used": ["ktc"],
             },
             {
                 "asset_key": "jamarr_chase",
                 "display_name": "Ja'Marr Chase",
                 "blended_value": 8900,
                 "universe": "offense_vet",
-                "sources_used": ["dlf_superflex"],
+                "sources_used": ["ktc"],
             },
             {
                 "asset_key": "2026_early_1st",
                 "display_name": "2026 Early 1st",
                 "blended_value": 7500,
                 "universe": "picks",
-                "sources_used": ["dlf_superflex", "dlf_rookie_superflex"],
+                "sources_used": ["ktc"],
             },
         ],
     }
@@ -80,8 +80,8 @@ def _pipeline_format_snapshot():
                 "display_name": "Josh Allen",
                 "blended_value": 8200,
                 "universe": "offense_vet",
-                "source_values": {"DLF_SF": 8500, "KTC_STUB": 7900},
-                "source_weights_used": {"DLF_SF": 1.0, "KTC_STUB": 1.0},
+                "source_values": {"KTC": 8500, "IDPTRADECALC": 7900},
+                "source_weights_used": {"KTC": 1.2, "IDPTRADECALC": 1.0},
                 "metadata": {},
             },
             {
@@ -89,8 +89,8 @@ def _pipeline_format_snapshot():
                 "display_name": "Ja'Marr Chase",
                 "blended_value": 8900,
                 "universe": "offense_vet",
-                "source_values": {"DLF_SF": 8900},
-                "source_weights_used": {"DLF_SF": 1.0},
+                "source_values": {"KTC": 8900},
+                "source_weights_used": {"KTC": 1.2},
                 "metadata": {},
             },
         ],
@@ -211,18 +211,18 @@ class TestPipelineFormatSnapshot(unittest.TestCase):
         """Pipeline outputs source_values as dict — should be counted as source count."""
         block = build_canonical_comparison_block(_pipeline_format_snapshot())
         allen = block["assets"]["Josh Allen"]
-        self.assertEqual(allen["sourcesUsed"], 2)  # DLF_SF + KTC_STUB
+        self.assertEqual(allen["sourcesUsed"], 2)  # KTC + IDPTRADECALC
 
         chase = block["assets"]["Ja'Marr Chase"]
-        self.assertEqual(chase["sourcesUsed"], 1)  # DLF_SF only
+        self.assertEqual(chase["sourcesUsed"], 1)  # KTC only
 
     def test_source_breakdown_included(self):
         """Per-source canonical scores should appear in sourceBreakdown."""
         block = build_canonical_comparison_block(_pipeline_format_snapshot())
         allen = block["assets"]["Josh Allen"]
         self.assertIn("sourceBreakdown", allen)
-        self.assertEqual(allen["sourceBreakdown"]["DLF_SF"], 8500)
-        self.assertEqual(allen["sourceBreakdown"]["KTC_STUB"], 7900)
+        self.assertEqual(allen["sourceBreakdown"]["KTC"], 8500)
+        self.assertEqual(allen["sourceBreakdown"]["IDPTRADECALC"], 7900)
 
     def test_source_breakdown_absent_for_legacy_format(self):
         """Legacy sources_used (list) should not produce sourceBreakdown."""
@@ -613,11 +613,11 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
                     "_composite": 8000,
                     "_rawComposite": 8000,
                     "_finalAdjusted": 7900,
-                    "_canonicalSiteValues": {"ktc": 7700, "fantasyCalc": 7600},
+                    "_canonicalSiteValues": {"ktc": 7700},
                     "position": "WR",
                 },
             },
-            "sites": [{"key": "ktc"}, {"key": "fantasyCalc"}],
+            "sites": [{"key": "ktc"}, {"key": "idpTradeCalc"}],
             "maxValues": {"ktc": 9999},
             "sleeper": {"positions": {"DJ Moore": "DB"}},
         }
@@ -657,12 +657,12 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
             "_composite": 2500,
             "_rawComposite": 2500,
             "_finalAdjusted": 2500,
-            "_canonicalSiteValues": {"pffIdp": 8000},
+            "_canonicalSiteValues": {"idpTradeCalc": 8000},
             "position": "DL",
         }
         raw = {
             "players": players,
-            "sites": [{"key": "ktc"}, {"key": "pffIdp"}],
+            "sites": [{"key": "ktc"}, {"key": "idpTradeCalc"}],
             "maxValues": {"ktc": 9999},
             "sleeper": {"positions": {}},
         }
@@ -706,7 +706,7 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
                 "finalAdjusted": 1,
                 "displayValue": 1,
             },
-            "canonicalSiteValues": {"pffIdp": 1},
+            "canonicalSiteValues": {"idpTradeCalc": 1},
             "sourceCount": 1,
         })
         report = validate_api_data_contract(payload)

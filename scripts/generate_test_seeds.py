@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Generate test seed CSVs for sources that lack real scraper exports.
+"""Generate test seed CSVs for KTC using FantasyCalc as reference data.
 
-Creates realistic but synthetic CSVs for KTC and DynastyDaddy using FantasyCalc
-player data as a reference. These seeds allow the pipeline to be tested end-to-end
-with multi-source blending before the legacy scraper produces real exports.
+Creates realistic but synthetic CSVs for KTC. These seeds allow the pipeline
+to be tested end-to-end before the legacy scraper produces real exports.
 
 The seeds are placed in data/test_seeds/ (NOT exports/latest/site_raw/) to avoid
 being confused with real production data. Tests can copy them to the expected
@@ -54,31 +53,14 @@ def generate_ktc_seed(players: list[tuple[str, int]], seed: int = 42) -> list[tu
     """Generate KTC-like values from FantasyCalc reference with realistic variation.
 
     KTC values are crowdsourced and tend to be correlated with but not identical
-    to FantasyCalc. We add controlled noise (±5-15%) to simulate this.
+    to FantasyCalc. We add controlled noise to simulate this.
     """
     rng = random.Random(seed)
     out = []
     for name, fc_val in players:
-        # KTC tends to slightly inflate elite QBs and value young WRs more
         noise_pct = rng.uniform(-0.12, 0.15)
         ktc_val = max(100, int(round(fc_val * (1.0 + noise_pct))))
         out.append((name, ktc_val))
-    return out
-
-
-def generate_dynastydaddy_seed(players: list[tuple[str, int]], seed: int = 123) -> list[tuple[str, int]]:
-    """Generate DynastyDaddy-like values from FantasyCalc reference.
-
-    DynastyDaddy is API-based and tends to have broader coverage but slightly
-    different top-end valuations. We use moderate noise (±8-18%).
-    """
-    rng = random.Random(seed)
-    out = []
-    # DynastyDaddy typically has broader player coverage
-    for name, fc_val in players:
-        noise_pct = rng.uniform(-0.15, 0.12)
-        dd_val = max(50, int(round(fc_val * (1.0 + noise_pct))))
-        out.append((name, dd_val))
     return out
 
 
@@ -106,13 +88,7 @@ def main() -> int:
     ktc = generate_ktc_seed(players)
     ktc_path = seed_dir / "ktc.csv"
     write_csv(ktc_path, ktc)
-    print(f"[generate_test_seeds] KTC seed: {len(ktc)} players → {ktc_path}")
-
-    # DynastyDaddy seed
-    dd = generate_dynastydaddy_seed(players)
-    dd_path = seed_dir / "dynastyDaddy.csv"
-    write_csv(dd_path, dd)
-    print(f"[generate_test_seeds] DynastyDaddy seed: {len(dd)} players → {dd_path}")
+    print(f"[generate_test_seeds] KTC seed: {len(ktc)} players -> {ktc_path}")
 
     # Metadata
     meta = {
@@ -122,7 +98,6 @@ def main() -> int:
         "player_count": len(players),
         "seeds": {
             "ktc": {"file": str(ktc_path), "rows": len(ktc), "random_seed": 42},
-            "dynastyDaddy": {"file": str(dd_path), "rows": len(dd), "random_seed": 123},
         },
     }
     meta_path = seed_dir / "README.json"

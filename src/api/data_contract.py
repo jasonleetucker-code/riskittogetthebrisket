@@ -36,12 +36,10 @@ _KICKER_POSITIONS = {"K", "PK"}
 _OFFENSE_POSITIONS = {"QB", "RB", "WR", "TE"}
 _IDP_POSITIONS = {"DL", "LB", "DB"}
 _OFFENSE_SIGNAL_KEYS = {
-    "ktc", "fantasyCalc", "dynastyDaddy", "fantasyPros", "draftSharks",
-    "yahoo", "dynastyNerds", "dlfSf", "dlfRsf", "flock",
+    "ktc",
 }
 _IDP_SIGNAL_KEYS = {
-    "pffIdp", "fantasyProsIdp", "draftSharksIdp", "dlfIdp", "dlfRidp",
-    "idpTradeCalc", "adamIdp",
+    "idpTradeCalc",
 }
 
 
@@ -105,12 +103,12 @@ def _compute_idp_rankings(
 ) -> None:
     """Stamp idpRank, rankDerivedValue, and canonicalConsensusRank onto IDP players.
 
-    IDP players have pffIdp / idpTradeCalc / fantasyProsIdp / dlfIdp / dlfRidp
-    values but no KTC value, so _compute_ktc_rankings skips them entirely.
-    This function ranks IDP players by the mean of their available IDP source
-    values (descending), assigns idpRank 1..IDP_RANK_LIMIT, and sets
-    canonicalConsensusRank = offense_ranked_count + idpRank so they sort after
-    offense in a unified board but still have proper ranks.
+    IDP players have idpTradeCalc values but no KTC value, so
+    _compute_ktc_rankings skips them entirely.  This function ranks IDP
+    players by their available IDP source values (descending), assigns
+    idpRank 1..IDP_RANK_LIMIT, and sets canonicalConsensusRank =
+    offense_ranked_count + idpRank so they sort after offense in a
+    unified board but still have proper ranks.
     """
     from src.canonical.player_valuation import rank_to_value  # noqa: PLC0415
 

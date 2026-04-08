@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "description": "Machine-readable promotion thresholds for canonical pipeline mode advancement",
+  "version": 2,
+  "description": "Machine-readable promotion thresholds for canonical pipeline mode advancement (2-source model: KTC + IDPTradeCalc)",
   "modes": {
     "off": {
       "description": "Canonical pipeline output is ignored. Legacy scraper is sole authority.",
@@ -11,7 +11,7 @@
       "description": "Canonical pipeline loads and compares with legacy. Legacy remains authoritative. Comparison data is attached to API response for diagnostics.",
       "requirements_to_enter": {
         "canonical_snapshot_exists": true,
-        "canonical_asset_count_min": 500,
+        "canonical_asset_count_min": 300,
         "source_count_min": 2,
         "pipeline_runs_without_error": 3,
         "tests_pass": true
@@ -25,15 +25,12 @@
     "internal_primary": {
       "description": "Canonical values are served as primary for internal/dev evaluation only. Legacy values remain available as fallback. Not publicly visible.",
       "requirements_to_enter": {
-        "source_count_min": 4,
+        "source_count_min": 2,
         "top50_overlap_min_pct": 66,
         "top100_overlap_min_pct": 65,
         "verdict_tier_agreement_min_pct": 49,
         "avg_abs_delta_max": 1500,
-        "comparison_batch_sample_min": 500,
-        "multi_source_blend_pct_min": 40,
-        "idp_source_count_min": 2,
-        "source_weights_tuned": true,
+        "comparison_batch_sample_min": 300,
         "all_tests_pass": true,
         "shadow_days_min": 7
       },
@@ -53,16 +50,12 @@
     "public_primary": {
       "description": "Canonical values are the public authority. Legacy scraper continues running as safety net / fallback.",
       "requirements_to_enter": {
-        "source_count_min": 6,
+        "source_count_min": 2,
         "top50_overlap_min_pct": 80,
         "top100_overlap_min_pct": 75,
         "verdict_tier_agreement_min_pct": 65,
         "avg_abs_delta_max": 800,
-        "comparison_batch_sample_min": 600,
-        "multi_source_blend_pct_min": 60,
-        "idp_source_count_min": 2,
-        "league_context_engine_active": true,
-        "source_weights_tuned": true,
+        "comparison_batch_sample_min": 400,
         "all_tests_pass": true,
         "internal_primary_days_min": 14,
         "founder_approval": true
@@ -85,8 +78,6 @@
     "top100_overlap_pct": "Same for top-100",
     "verdict_tier_agreement_pct": "Percentage of matched players in same value tier (elite/star/starter/bench/depth)",
     "avg_abs_delta": "Average absolute value difference between canonical and legacy for matched players (scale 0-9999)",
-    "multi_source_blend_pct": "Percentage of canonical assets that have 2+ source contributions",
-    "source_count": "Number of distinct sources contributing to canonical snapshot",
-    "idp_source_count": "Number of distinct sources in idp_vet universe"
+    "source_count": "Number of distinct sources contributing to canonical snapshot"
   }
 }

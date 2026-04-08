@@ -24,7 +24,7 @@ def _asset(name, value, universe="offense_vet", sources=None):
         "display_name": name,
         "blended_value": value,
         "universe": universe,
-        "source_values": sources or {"DLF_SF": value},
+        "source_values": sources or {"KTC": value},
     }
 
 
@@ -192,7 +192,7 @@ class TestFinalValueUsed(unittest.TestCase):
             "scarcity_adjusted_value": 7000,
             "calibrated_value": 8000,
             "universe": "offense_vet",
-            "source_values": {"DLF_SF": 5000},
+            "source_values": {"KTC": 5000},
         }
         legacy = _legacy("Josh Allen", 8500)
         report = build_shadow_comparison_report(_snapshot([asset]), legacy)
@@ -208,14 +208,14 @@ class TestFinalValueUsed(unittest.TestCase):
             "blended_value": 3000,
             "scarcity_adjusted_value": 4000,
             "universe": "offense_vet",
-            "source_values": {"DLF_SF": 3000},
+            "source_values": {"KTC": 3000},
         }
         # No calibrated or scarcity, only blended
         asset_raw = {
             "display_name": "Player B",
             "blended_value": 2000,
             "universe": "offense_vet",
-            "source_values": {"DLF_SF": 2000},
+            "source_values": {"KTC": 2000},
         }
         legacy = {**_legacy("Player A", 5000), **_legacy("Player B", 5000)}
         report = build_shadow_comparison_report(_snapshot([asset_scar, asset_raw]), legacy)

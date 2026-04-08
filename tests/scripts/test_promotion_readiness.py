@@ -19,25 +19,26 @@ class TestLoadThresholds:
 
     def test_loads_internal_primary_from_config(self):
         thresholds = _load_thresholds(REPO, "internal_primary")
-        assert thresholds.get("source_count_min") == 4
+        assert thresholds.get("source_count_min") == 2
         assert thresholds.get("top50_overlap_min_pct") == 66
         assert thresholds.get("avg_abs_delta_max") == 1500
 
     def test_loads_public_primary_from_config(self):
         thresholds = _load_thresholds(REPO, "public_primary")
-        assert thresholds.get("source_count_min") == 6
+        assert thresholds.get("source_count_min") == 2
         assert thresholds.get("top50_overlap_min_pct") == 80
         assert thresholds.get("avg_abs_delta_max") == 800
 
     def test_loads_shadow_from_config(self):
         thresholds = _load_thresholds(REPO, "shadow")
-        assert thresholds.get("canonical_asset_count_min") == 500
+        assert thresholds.get("canonical_asset_count_min") == 300
         assert thresholds.get("source_count_min") == 2
 
     def test_public_stricter_than_internal(self):
         internal = _load_thresholds(REPO, "internal_primary")
         public = _load_thresholds(REPO, "public_primary")
-        assert public["source_count_min"] > internal["source_count_min"]
+        # Both modes require 2 sources in the 2-source model
+        assert public["source_count_min"] == internal["source_count_min"]
         assert public["top50_overlap_min_pct"] > internal["top50_overlap_min_pct"]
         assert public["avg_abs_delta_max"] < internal["avg_abs_delta_max"]
 

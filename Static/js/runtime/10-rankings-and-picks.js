@@ -503,7 +503,7 @@
     //   4. Not a kicker
     const KTC_LIMIT = 500;
     const IDP_LIMIT = 300;
-    const IDP_SIGNAL_KEYS = ['pffIdp', 'fantasyProsIdp', 'draftSharksIdp', 'dlfIdp', 'dlfRidp', 'idpTradeCalc', 'adamIdp'];
+    const IDP_SIGNAL_KEYS = ['idpTradeCalc'];
     const ktcRows = [];
     const idpCandidates = [];
     const ktcNames = new Set();

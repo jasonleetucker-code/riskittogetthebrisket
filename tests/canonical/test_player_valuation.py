@@ -745,7 +745,7 @@ class TestBuildPlayerInputs:
             {"asset_key": "mahomes", "display_name": "Patrick Mahomes",
              "source": "KTC", "rank_raw": 1.0, "position_normalized_guess": "QB"},
             {"asset_key": "mahomes", "display_name": "Patrick Mahomes",
-             "source": "DLF", "rank_raw": 2.0, "position_normalized_guess": "QB"},
+             "source": "IDPTRADECALC", "rank_raw": 2.0, "position_normalized_guess": "QB"},
             {"asset_key": "chase", "display_name": "Ja'Marr Chase",
              "source": "KTC", "rank_raw": 3.0, "position_normalized_guess": "WR"},
         ]
@@ -819,7 +819,7 @@ class TestBuildPlayerInputsFromRecordObjects:
                         team_normalized_guess="KC", team_raw="KC",
                         universe="offense_vet"),
             _FakeRecord(asset_key="mahomes", display_name="Patrick Mahomes",
-                        source="DLF", rank_raw=2.0,
+                        source="IDPTRADECALC", rank_raw=2.0,
                         position_normalized_guess="QB", position_raw="QB",
                         team_normalized_guess="KC", team_raw="KC",
                         universe="offense_vet"),
@@ -828,7 +828,7 @@ class TestBuildPlayerInputsFromRecordObjects:
         assert len(inputs) == 1
         assert inputs[0].source_ranks == [1.0, 2.0]
         assert inputs[0].metadata["position"] == "QB"
-        assert inputs[0].metadata["_source_names"] == ["KTC", "DLF"]
+        assert inputs[0].metadata["_source_names"] == ["KTC", "IDPTRADECALC"]
 
     def test_excluded_sources(self):
         records = [

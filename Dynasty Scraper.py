@@ -2868,19 +2868,19 @@ if ROOKIE_MUST_HAVE_NAMES:
 
 SITES = {
     "KTC":          True,
-    "FantasyCalc":  True,
-    "DynastyDaddy": True,
-    "FantasyPros":  True,
-    "DraftSharks":  True,
-    "Yahoo":        True,
-    "DynastyNerds": True,
-    "DLF":          True,
+    "FantasyCalc":  False,
+    "DynastyDaddy": False,
+    "FantasyPros":  False,
+    "DraftSharks":  False,
+    "Yahoo":        False,
+    "DynastyNerds": False,
+    "DLF":          False,
     "IDPTradeCalc": True,
     "Flock":        False,
-    # IDP-specific sites
-    "PFF_IDP":          True,
-    "DraftSharks_IDP":  True,   # Separate IDP scraper — uses shared DraftSharks session
-    "FantasyPros_IDP":  True,
+    # IDP-specific sites — disabled in scope reduction
+    "PFF_IDP":          False,
+    "DraftSharks_IDP":  False,
+    "FantasyPros_IDP":  False,
 }
 
 SUPERFLEX = True

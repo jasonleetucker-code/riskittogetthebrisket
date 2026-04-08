@@ -24,21 +24,7 @@ KTC_UNIVERSE_LIMIT = 525
 # Source type classification for the valuation pipeline
 SOURCE_TYPES = {
     "ktc": "full_mixed_value",
-    "fantasyCalc": "full_mixed_value",
-    "dynastyDaddy": "full_mixed_value",
-    "yahoo": "offense_only_value",
-    "dlfSf": "offense_only_value",
-    "draftSharks": "offense_only_rank",
-    "dynastyNerds": "offense_only_rank",
-    "fantasyPros": "offense_only_value",
     "idpTradeCalc": "mixed_offense_idp_bridge",
-    "pffIdp": "idp_only_rank",
-    "fantasyProsIdp": "idp_only_rank",
-    "draftSharksIdp": "idp_only_rank",
-    "dlfIdp": "idp_only_value",
-    "dlfRsf": "rookie_only_offense",
-    "dlfRidp": "rookie_only_idp",
-    "flock": "offense_only_rank",
 }
 
 
