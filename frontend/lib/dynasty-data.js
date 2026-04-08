@@ -82,74 +82,60 @@ export function rankToValue(rank) {
   return Math.max(1, Math.min(9999, Math.round(1 + 9998 / (1 + Math.pow((rank - 1) / 45, 1.10)))));
 }
 
-// ── KTC-only rank assignment ──────────────────────────────────────────
-// Assigns integer ktcRank to the top KTC_RANK_LIMIT players sorted by
-// KTC trade value descending.  Only players with:
-//   • a valid positive canonicalSites.ktc value
-//   • a resolved, non-"?" position (picks excluded)
-// are eligible.  Players outside the limit get ktcRank = null.
-const KTC_RANK_LIMIT = 500;
+// ── Unified ranking (frontend fallback) ──────────────────────────────
+// The backend (_compute_unified_rankings in data_contract.py) is the
+// authoritative source for canonicalConsensusRank and rankDerivedValue.
+// This function is only invoked as a fallback when backend fields are
+// absent (stale data, offline mode).
+//
+// It mirrors the backend logic: rank each player within their source,
+// convert to normalized value via rankToValue(), then sort all players
+// into one unified board by that normalized value.
+const OVERALL_RANK_LIMIT = 800;
+const SOURCE_KEYS = ["ktc", "idpTradeCalc"];
 
-function computeKtcRanks(rows) {
-  const eligible = rows.filter((r) => {
-    if (!r.pos || r.pos === "?" || r.pos === "PICK") return false;
-    const ktcVal = Number(r.canonicalSites?.ktc);
-    return Number.isFinite(ktcVal) && ktcVal > 0;
-  });
+function computeUnifiedRanks(rows) {
+  // Per-source ordinal ranking
+  const sourceRanks = new Map(); // row index -> { sourceKey: ordinalRank }
 
-  // Sort by KTC value descending (highest value = rank 1)
-  eligible.sort((a, b) => Number(b.canonicalSites.ktc) - Number(a.canonicalSites.ktc));
+  for (const sourceKey of SOURCE_KEYS) {
+    const eligible = [];
+    rows.forEach((r, idx) => {
+      if (!r.pos || r.pos === "?" || r.pos === "PICK" || r.pos === "K") return;
+      const val = Number(r.canonicalSites?.[sourceKey]);
+      if (Number.isFinite(val) && val > 0) eligible.push({ idx, val });
+    });
+    eligible.sort((a, b) => b.val - a.val);
+    eligible.forEach((e, rank) => {
+      if (!sourceRanks.has(e.idx)) sourceRanks.set(e.idx, {});
+      sourceRanks.get(e.idx)[sourceKey] = rank + 1;
+    });
+  }
 
-  // Assign integer rank and compute our value for top N.
-  // Prefer backend-computed ktcRank / rankDerivedValue when present in r.raw
-  // (set by _compute_ktc_rankings in src/api/data_contract.py — the single
-  // source of truth for the formula).  Fall back to rankToValue() only when
-  // the backend fields are absent (stale data, offline fallback).
-  eligible.slice(0, KTC_RANK_LIMIT).forEach((r, i) => {
-    const backendRank  = Number(r.raw?.ktcRank);
+  // Compute normalized value and collect for unified sort
+  const ranked = [];
+  for (const [idx, ranks] of sourceRanks) {
+    const normValues = Object.values(ranks).map((r) => rankToValue(r));
+    const blended = normValues.reduce((s, v) => s + v, 0) / normValues.length;
+    ranked.push({ idx, blended, ranks });
+  }
+  ranked.sort((a, b) => b.blended - a.blended || rows[a.idx].name.localeCompare(rows[b.idx].name));
+
+  // Assign unified ranks — prefer backend values when present
+  ranked.slice(0, OVERALL_RANK_LIMIT).forEach((entry, i) => {
+    const r = rows[entry.idx];
+    const backendRank = Number(r.raw?.canonicalConsensusRank || r.canonicalConsensusRank);
     const backendValue = Number(r.raw?.rankDerivedValue);
-    r.ktcRank = (Number.isInteger(backendRank) && backendRank > 0) ? backendRank : (i + 1);
-    r.rankDerivedValue = (Number.isFinite(backendValue) && backendValue > 0) ? backendValue : rankToValue(r.ktcRank);
-  });
-}
 
-// ── IDP rank assignment ──────────────────────────────────────────────
-// Ranks IDP players by their IDP Trade Calculator value.  Assigns
-// idpRank 1..IDP_RANK_LIMIT and canonicalConsensusRank offset by
-// offenseCount.  Only runs when backend hasn't already stamped idpRank
-// (fallback).
-const IDP_RANK_LIMIT = 300;
-const IDP_SIGNAL_KEYS = ["idpTradeCalc"];
+    r.canonicalConsensusRank = (Number.isInteger(backendRank) && backendRank > 0)
+      ? backendRank : (i + 1);
+    r.rankDerivedValue = (Number.isFinite(backendValue) && backendValue > 0)
+      ? backendValue : Math.round(entry.blended);
+    r.sourceRanks = entry.ranks;
 
-function computeIdpRanks(rows, offenseRankedCount) {
-  const eligible = rows.filter((r) => {
-    if (!IDP.has(normalizePos(r.pos))) return false;
-    if (r.ktcRank != null) return false;  // already ranked by KTC
-    const vals = IDP_SIGNAL_KEYS
-      .map((k) => Number(r.canonicalSites?.[k]))
-      .filter((v) => Number.isFinite(v) && v > 0);
-    return vals.length > 0;
-  });
-
-  // Sort by mean IDP value descending
-  eligible.sort((a, b) => {
-    const aVals = IDP_SIGNAL_KEYS.map((k) => Number(a.canonicalSites?.[k])).filter((v) => Number.isFinite(v) && v > 0);
-    const bVals = IDP_SIGNAL_KEYS.map((k) => Number(b.canonicalSites?.[k])).filter((v) => Number.isFinite(v) && v > 0);
-    const aMean = aVals.reduce((s, v) => s + v, 0) / aVals.length;
-    const bMean = bVals.reduce((s, v) => s + v, 0) / bVals.length;
-    return bMean - aMean;
-  });
-
-  eligible.slice(0, IDP_RANK_LIMIT).forEach((r, i) => {
-    const idpRank = i + 1;
-    const backendIdpRank = Number(r.raw?.idpRank);
-    const backendValue = Number(r.raw?.rankDerivedValue);
-    r.idpRank = (Number.isInteger(backendIdpRank) && backendIdpRank > 0) ? backendIdpRank : idpRank;
-    r.rankDerivedValue = (Number.isFinite(backendValue) && backendValue > 0) ? backendValue : rankToValue(r.idpRank);
-    // Global rank: offset by offense count so IDP sorts after offense in unified board
-    if (!r.canonicalConsensusRank) {
-      r.canonicalConsensusRank = offenseRankedCount + r.idpRank;
-    }
+    // Backward compat
+    if (entry.ranks.ktc) r.ktcRank = entry.ranks.ktc;
+    if (entry.ranks.idpTradeCalc) r.idpRank = entry.ranks.idpTradeCalc;
   });
 }
 
@@ -209,21 +195,14 @@ export function buildRows(data) {
       });
     }
 
-    computeKtcRanks(rows);
-    const offenseRanked = rows.filter((r) => r.ktcRank != null).length;
-    computeIdpRanks(rows, offenseRanked);
-    // Sort: ranked players first (offense by ktcRank, IDP by idpRank after offense),
-    // then unranked by backend value.
-    // values.full is NOT overwritten by rankDerivedValue — backend display values stay authoritative.
-    // rankDerivedValue remains available on the row for rankings "Our Value" display.
+    computeUnifiedRanks(rows);
+    // Sort by unified canonicalConsensusRank (backend-authoritative when present).
     rows.sort((a, b) => {
-      const ra = a.ktcRank ?? a.canonicalConsensusRank ?? Infinity;
-      const rb = b.ktcRank ?? b.canonicalConsensusRank ?? Infinity;
+      const ra = a.canonicalConsensusRank ?? Infinity;
+      const rb = b.canonicalConsensusRank ?? Infinity;
       if (ra !== rb) return ra - rb;
       return (b.values.full || 0) - (a.values.full || 0);
     });
-    // Assign computedConsensusRank (sort-order rank) and unified resolvedRank.
-    // resolvedRank: canonicalConsensusRank wins when present, else computedConsensusRank.
     rows.forEach((r, i) => {
       r.computedConsensusRank = i + 1;
       r.rank = r.canonicalConsensusRank ?? r.computedConsensusRank;
@@ -258,18 +237,13 @@ export function buildRows(data) {
     });
   }
 
-  computeKtcRanks(rows);
-  const offenseRanked = rows.filter((r) => r.ktcRank != null).length;
-  computeIdpRanks(rows, offenseRanked);
-  // Sort: ranked players first (offense by ktcRank, IDP by idpRank after offense),
-  // then unranked by backend value.
+  computeUnifiedRanks(rows);
   rows.sort((a, b) => {
-    const ra = a.canonicalConsensusRank ?? a.ktcRank ?? Infinity;
-    const rb = b.canonicalConsensusRank ?? b.ktcRank ?? Infinity;
+    const ra = a.canonicalConsensusRank ?? Infinity;
+    const rb = b.canonicalConsensusRank ?? Infinity;
     if (ra !== rb) return ra - rb;
     return (b.values.full || 0) - (a.values.full || 0);
   });
-  // Assign computedConsensusRank (sort-order rank) and unified resolvedRank.
   rows.forEach((r, i) => {
     r.computedConsensusRank = i + 1;
     r.rank = r.canonicalConsensusRank ?? r.computedConsensusRank;

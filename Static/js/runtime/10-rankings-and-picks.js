@@ -495,18 +495,15 @@
       return;
     }
 
-    // ── Step 1a: Build KTC-ranked player list (top 500, players only) ──
-    // Hard eligibility rules — a player must pass ALL of these to appear:
-    //   1. Not a pick token
-    //   2. Has a valid positive KTC value (pdata.ktc)
-    //   3. Has a resolved, non-empty, non-"?" position
-    //   4. Not a kicker
-    const KTC_LIMIT = 500;
-    const IDP_LIMIT = 300;
-    const IDP_SIGNAL_KEYS = ['idpTradeCalc'];
-    const ktcRows = [];
-    const idpCandidates = [];
-    const ktcNames = new Set();
+    // ── Step 1: Unified ranking — all sources, all positions, one board ──
+    // Rank players within each source by value descending, convert to
+    // normalized value via _rankToValue(), then sort all players by
+    // normalized value for one unified overall ranking.
+    const OVERALL_LIMIT = 800;
+    const SOURCE_KEYS = ['ktc', 'idpTradeCalc'];
+
+    // Collect all eligible players with their source values
+    const allPlayers = [];
     for (const [name, pdata] of Object.entries(loadedData.players)) {
       if (parsePickToken(name)) continue;
       let pos = (posMap[name] || '').toUpperCase();
@@ -514,113 +511,78 @@
       if (!pos || pos === '?' || pos === 'UNKNOWN') continue;
       if (isKickerPosition(pos)) continue;
 
-      const ktcVal = Number(pdata?.ktc);
-      if (isFinite(ktcVal) && ktcVal > 0) {
-        ktcRows.push({ name, pos, ktcVal, isRookie: isRookiePlayerName(name, pdata), pdata });
-        ktcNames.add(name);
-      } else if (IDP_POSITIONS.has(pos)) {
-        // IDP player without KTC — check for IDP source values
-        const csv = pdata?._canonicalSiteValues || pdata || {};
-        const idpVals = IDP_SIGNAL_KEYS
-          .map(k => Number(csv[k]))
-          .filter(v => isFinite(v) && v > 0);
-        if (idpVals.length > 0) {
-          const mean = idpVals.reduce((s, v) => s + v, 0) / idpVals.length;
-          idpCandidates.push({ name, pos, idpMean: mean, isRookie: isRookiePlayerName(name, pdata), pdata });
-        }
+      const sourceVals = {};
+      const csv = pdata?._canonicalSiteValues || pdata || {};
+      for (const key of SOURCE_KEYS) {
+        const v = Number(csv[key] ?? pdata?.[key]);
+        if (isFinite(v) && v > 0) sourceVals[key] = v;
       }
+      if (Object.keys(sourceVals).length === 0) continue;
+      allPlayers.push({ name, pos, sourceVals, isRookie: isRookiePlayerName(name, pdata), pdata });
     }
 
-    // Sort descending by KTC value — highest value = rank 1
-    ktcRows.sort((a, b) => b.ktcVal - a.ktcVal);
+    // Per-source ordinal ranking
+    const sourceRanks = new Map(); // name -> { sourceKey: ordinalRank }
+    for (const key of SOURCE_KEYS) {
+      const eligible = allPlayers
+        .filter(p => p.sourceVals[key] != null)
+        .sort((a, b) => b.sourceVals[key] - a.sourceVals[key]);
+      eligible.forEach((p, idx) => {
+        if (!sourceRanks.has(p.name)) sourceRanks.set(p.name, {});
+        sourceRanks.get(p.name)[key] = idx + 1;
+      });
+    }
 
-    // Assign KTC rank (1-based) and compute Our Value from rank curve.
-    // Prefer backend-computed ktcRank / rankDerivedValue when present in pdata
-    // (set by _compute_ktc_rankings in src/api/data_contract.py — the single
-    // source of truth for the formula).  Fall back to _rankToValue() only when
-    // the backend fields are absent (stale data, offline fallback).
-    //
-    // Rank resolution uses the same precedence as frontend/lib/dynasty-data.js:
-    //   canonicalConsensusRank ?? computedConsensusRank ?? Infinity
-    // canonicalConsensusRank is read from pdata._canonicalConsensusRank (backend).
-    // computedConsensusRank is the 1-based sort-order rank assigned here.
-    //
-    // Display value uses backend-authored value when available:
-    //   pdata._canonicalDisplayValue ?? pdata._finalAdjusted ?? rankDerivedValue
-    // This keeps the rankings "Our Value" column consistent with trade values.
-    // ── Step 1b: Build IDP-ranked rows (top IDP_LIMIT by mean IDP value) ──
-    idpCandidates.sort((a, b) => b.idpMean - a.idpMean);
-    const offenseRankedCount = Math.min(ktcRows.length, KTC_LIMIT);
-    const idpRanked = idpCandidates.slice(0, IDP_LIMIT).map((r, i) => {
-      const idpRank = i + 1;
-      const backendIdpRank  = Number(r.pdata?.idpRank);
-      const backendValue = Number(r.pdata?.rankDerivedValue);
-      const resolvedIdpRank = (Number.isInteger(backendIdpRank) && backendIdpRank > 0) ? backendIdpRank : idpRank;
-      const rankDerivedValue = (Number.isFinite(backendValue) && backendValue > 0) ? backendValue : _rankToValue(resolvedIdpRank);
-      const backendDisplayVal = Number(r.pdata?._canonicalDisplayValue);
-      const backendFinalVal   = Number(r.pdata?._finalAdjusted);
-      const backendComposite  = Number(r.pdata?._composite);
-      const ourValue = (Number.isFinite(backendDisplayVal) && backendDisplayVal > 0) ? backendDisplayVal
-                     : (Number.isFinite(backendFinalVal)   && backendFinalVal   > 0) ? backendFinalVal
-                     : (Number.isFinite(backendComposite)  && backendComposite  > 0) ? backendComposite
+    // Compute normalized value (Hill curve) and build unified rows
+    const unifiedRows = allPlayers.map(p => {
+      const ranks = sourceRanks.get(p.name) || {};
+      const normValues = Object.values(ranks).map(r => _rankToValue(r));
+      const blendedValue = normValues.length > 0
+        ? Math.round(normValues.reduce((s, v) => s + v, 0) / normValues.length)
+        : 0;
+
+      // Prefer backend-authored values when present
+      const backendRank = Number(p.pdata?._canonicalConsensusRank);
+      const backendValue = Number(p.pdata?.rankDerivedValue);
+      const backendDisplayVal = Number(p.pdata?._canonicalDisplayValue);
+      const backendFinalVal = Number(p.pdata?._finalAdjusted);
+
+      const rankDerivedValue = (isFinite(backendValue) && backendValue > 0) ? backendValue : blendedValue;
+      const ourValue = (isFinite(backendDisplayVal) && backendDisplayVal > 0) ? backendDisplayVal
+                     : (isFinite(backendFinalVal)   && backendFinalVal   > 0) ? backendFinalVal
                      : rankDerivedValue;
-      const globalRank = offenseRankedCount + resolvedIdpRank;
-      const canonicalRank = Number(r.pdata?._canonicalConsensusRank);
-      const canonicalConsensusRank = (Number.isInteger(canonicalRank) && canonicalRank > 0) ? canonicalRank : null;
+
       return {
-        name: r.name,
-        pos: r.pos,
-        ktcRank: null,
-        idpRank: resolvedIdpRank,
+        name: p.name,
+        pos: p.pos,
+        ktcRank: ranks.ktc || null,
+        idpRank: ranks.idpTradeCalc || null,
+        sourceRanks: ranks,
         ourValue,
         rankDerivedValue,
-        resolvedRank: canonicalConsensusRank ?? globalRank,
-        canonicalConsensusRank,
-        computedConsensusRank: globalRank,
-        isRookie: r.isRookie,
-        pdata: r.pdata,
+        blendedValue,
+        isRookie: p.isRookie,
+        pdata: p.pdata,
         sortValue: ourValue,
-        overallModelRank: canonicalConsensusRank ?? globalRank,
+        // Will be assigned after sorting
+        resolvedRank: null,
+        canonicalConsensusRank: (Number.isInteger(backendRank) && backendRank > 0) ? backendRank : null,
+        computedConsensusRank: null,
+        overallModelRank: null,
       };
     });
 
-    let ranked = ktcRows.slice(0, KTC_LIMIT).map((r, i) => {
-      const backendRank  = Number(r.pdata?.ktcRank);
-      const backendValue = Number(r.pdata?.rankDerivedValue);
-      const ktcRank  = (Number.isInteger(backendRank)  && backendRank  > 0) ? backendRank  : (i + 1);
-      const rankDerivedValue = (Number.isFinite(backendValue) && backendValue > 0) ? backendValue : _rankToValue(ktcRank);
-      // Backend-authored display value: preferred for "Our Value" column.
-      // Falls back to rank-derived value when backend display value is absent.
-      const backendDisplayVal = Number(r.pdata?._canonicalDisplayValue);
-      const backendFinalVal   = Number(r.pdata?._finalAdjusted);
-      const ourValue = (Number.isFinite(backendDisplayVal) && backendDisplayVal > 0) ? backendDisplayVal
-                     : (Number.isFinite(backendFinalVal)   && backendFinalVal   > 0) ? backendFinalVal
-                     : rankDerivedValue;
-      // Rank resolution: canonicalConsensusRank (backend) ?? computedConsensusRank (sort order)
-      const canonicalRank = Number(r.pdata?._canonicalConsensusRank);
-      const canonicalConsensusRank = (Number.isInteger(canonicalRank) && canonicalRank > 0) ? canonicalRank : null;
-      const computedConsensusRank = i + 1;  // 1-based sort-order rank
-      const resolvedRank = canonicalConsensusRank ?? computedConsensusRank;
-      return {
-      name: r.name,
-      pos: r.pos,
-      ktcRank,
-      idpRank: null,
-      ourValue,
-      rankDerivedValue,
-      resolvedRank,
-      canonicalConsensusRank,
-      computedConsensusRank,
-      isRookie: r.isRookie,
-      pdata: r.pdata,
-      // Compatibility fields for mobile cards and copy function
-      sortValue: ourValue,
-      overallModelRank: resolvedRank,
-      }; // end return object
-    }); // end map
+    // Sort by blended value descending for unified board
+    unifiedRows.sort((a, b) => b.blendedValue - a.blendedValue || a.name.localeCompare(b.name));
 
-    // Append IDP-ranked rows after offense
-    ranked = ranked.concat(idpRanked);
+    // Assign overall ranks
+    let ranked = unifiedRows.slice(0, OVERALL_LIMIT);
+    ranked.forEach((r, i) => {
+      const overallRank = i + 1;
+      r.computedConsensusRank = overallRank;
+      r.resolvedRank = r.canonicalConsensusRank ?? overallRank;
+      r.overallModelRank = r.resolvedRank;
+    });
 
     // ── Step 2: Apply filters ──────────────────────────────────────────
     if (currentRankingsFilter !== 'ALL') {
@@ -683,7 +645,7 @@
       const barPct = Math.round((r.ourValue / maxVal) * 100);
       const escapedName = r.name.replace(/'/g, "\\'");
 
-      const displayRank = (currentRankingsFilter === 'IDP' && r.idpRank != null) ? r.idpRank : r.resolvedRank;
+      const displayRank = r.resolvedRank;
       tr.innerHTML = `
         <td style="text-align:center;font-family:var(--mono);font-size:0.82rem;font-weight:700;color:var(--cyan);">${displayRank}</td>
         <td style="font-weight:600;font-size:0.8rem;"><a href="#" onclick="event.preventDefault();openPlayerPopup('${escapedName}');return false;" style="color:var(--text);text-decoration:none;border-bottom:1px dotted var(--border);" onmouseover="this.style.color='var(--cyan)'" onmouseout="this.style.color='var(--text)'">${r.name}</a>${rookieBadge}</td>
@@ -703,8 +665,9 @@
 
     const total = ranked.length;
     const title = document.getElementById('rankingsTitle');
+    const offCount = ranked.filter(r => r.ktcRank != null).length;
     const idpCount = ranked.filter(r => r.idpRank != null).length;
-    const titleSuffix = idpCount > 0 ? `Top ${KTC_LIMIT} + ${idpCount} IDP` : `KTC-only top ${KTC_LIMIT}`;
+    const titleSuffix = `${offCount} OFF + ${idpCount} IDP — unified board`;
     if (title) title.textContent = `${dataModeLabel} Rankings \u2014 ${total} players \u00b7 ${titleSuffix}`;
     renderRankingsMobileCards(ranked);
     updateRankingsActiveChips();

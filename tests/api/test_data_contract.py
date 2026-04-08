@@ -1,8 +1,9 @@
 import unittest
 
 from src.api.data_contract import (
+    OVERALL_RANK_LIMIT,
     KTC_RANK_LIMIT,
-    _compute_ktc_rankings,
+    _compute_unified_rankings,
     build_api_data_contract,
     build_api_startup_payload,
     build_canonical_comparison_block,
@@ -405,7 +406,7 @@ class TestContractWithCanonicalComparison(unittest.TestCase):
 
 
 class TestComputeKtcRankings(unittest.TestCase):
-    """Tests for _compute_ktc_rankings — the backend single source of truth.
+    """Tests for _compute_unified_rankings — the backend single source of truth.
 
     This function stamps ktcRank + rankDerivedValue onto playersArray entries
     and mirrors them back to the legacy players dict.  Both JS frontends then
@@ -431,7 +432,7 @@ class TestComputeKtcRankings(unittest.TestCase):
             self._make_player_row("Alpha", "QB", 9000),
             self._make_player_row("Beta",  "WR", 7000),
         ]
-        _compute_ktc_rankings(rows, {})
+        _compute_unified_rankings(rows, {})
         alpha = next(r for r in rows if r["canonicalName"] == "Alpha")
         self.assertEqual(alpha["ktcRank"], 1)
 
@@ -441,7 +442,7 @@ class TestComputeKtcRankings(unittest.TestCase):
             self._make_player_row("High", "QB", 9000),
             self._make_player_row("Mid",  "WR", 6000),
         ]
-        _compute_ktc_rankings(rows, {})
+        _compute_unified_rankings(rows, {})
         by_rank = sorted(
             (r for r in rows if "ktcRank" in r),
             key=lambda r: r["ktcRank"],
@@ -450,7 +451,7 @@ class TestComputeKtcRankings(unittest.TestCase):
 
     def test_rank_derived_value_uses_hill_formula(self):
         rows = [self._make_player_row("Solo", "QB", 9999)]
-        _compute_ktc_rankings(rows, {})
+        _compute_unified_rankings(rows, {})
         self.assertEqual(rows[0]["ktcRank"], 1)
         expected = int(rank_to_value(1))
         self.assertEqual(rows[0]["rankDerivedValue"], expected)
@@ -458,7 +459,7 @@ class TestComputeKtcRankings(unittest.TestCase):
 
     def test_rank_50_value_matches_hill_formula(self):
         rows = [self._make_player_row(f"P{i}", "WR", 9999 - i * 10) for i in range(60)]
-        _compute_ktc_rankings(rows, {})
+        _compute_unified_rankings(rows, {})
         rank_50_row = next(r for r in rows if r.get("ktcRank") == 50)
         expected = int(rank_to_value(50))
         self.assertEqual(rank_50_row["rankDerivedValue"], expected)
@@ -469,7 +470,7 @@ class TestComputeKtcRankings(unittest.TestCase):
             self._make_player_row("Real Player",    "QB",   7000),
         ]
         rows[0]["assetClass"] = "pick"
-        _compute_ktc_rankings(rows, {})
+        _compute_unified_rankings(rows, {})
         pick = next(r for r in rows if r["canonicalName"] == "2026 Early 1st")
         self.assertNotIn("ktcRank", pick)
         real = next(r for r in rows if r["canonicalName"] == "Real Player")
@@ -480,7 +481,7 @@ class TestComputeKtcRankings(unittest.TestCase):
             self._make_player_row("UnknownGuy", "?",  8000),
             self._make_player_row("KnownGuy",   "QB", 7000),
         ]
-        _compute_ktc_rankings(rows, {})
+        _compute_unified_rankings(rows, {})
         unknown = next(r for r in rows if r["canonicalName"] == "UnknownGuy")
         self.assertNotIn("ktcRank", unknown)
 
@@ -489,20 +490,20 @@ class TestComputeKtcRankings(unittest.TestCase):
             self._make_player_row("NoKtc", "WR", 0),
             self._make_player_row("HasKtc", "WR", 5000),
         ]
-        _compute_ktc_rankings(rows, {})
+        _compute_unified_rankings(rows, {})
         no_ktc = next(r for r in rows if r["canonicalName"] == "NoKtc")
         self.assertNotIn("ktcRank", no_ktc)
 
     def test_respects_rank_limit(self):
-        rows = [self._make_player_row(f"P{i}", "RB", 9000 - i) for i in range(600)]
-        _compute_ktc_rankings(rows, {})
-        ranked = [r for r in rows if "ktcRank" in r]
-        self.assertEqual(len(ranked), KTC_RANK_LIMIT)
+        rows = [self._make_player_row(f"P{i}", "RB", 9000 - i) for i in range(900)]
+        _compute_unified_rankings(rows, {})
+        ranked = [r for r in rows if "canonicalConsensusRank" in r]
+        self.assertEqual(len(ranked), OVERALL_RANK_LIMIT)
 
     def test_mirrors_to_legacy_players_dict(self):
         rows = [self._make_player_row("Josh Allen", "QB", 9000)]
         legacy = {"Josh Allen": {"ktc": 9000, "_finalAdjusted": 9000}}
-        _compute_ktc_rankings(rows, legacy)
+        _compute_unified_rankings(rows, legacy)
         self.assertEqual(legacy["Josh Allen"]["ktcRank"], 1)
         self.assertEqual(legacy["Josh Allen"]["rankDerivedValue"], int(rank_to_value(1)))
 
@@ -571,7 +572,7 @@ class TestCanonicalConsensusRank(unittest.TestCase):
             self._make_player_row("Alpha", "QB", 9000),
             self._make_player_row("Beta",  "WR", 7000),
         ]
-        _compute_ktc_rankings(rows, {})
+        _compute_unified_rankings(rows, {})
         alpha = next(r for r in rows if r["canonicalName"] == "Alpha")
         beta = next(r for r in rows if r["canonicalName"] == "Beta")
         self.assertEqual(alpha["canonicalConsensusRank"], 1)
@@ -579,7 +580,7 @@ class TestCanonicalConsensusRank(unittest.TestCase):
 
     def test_canonical_consensus_rank_equals_ktc_rank(self):
         rows = [self._make_player_row(f"P{i}", "WR", 9000 - i * 10) for i in range(10)]
-        _compute_ktc_rankings(rows, {})
+        _compute_unified_rankings(rows, {})
         for r in rows:
             self.assertEqual(r["canonicalConsensusRank"], r["ktcRank"])
 
@@ -588,21 +589,21 @@ class TestCanonicalConsensusRank(unittest.TestCase):
             self._make_player_row("Pick", "PICK", 8000),
             self._make_player_row("NoKtc", "WR", 0),
         ]
-        _compute_ktc_rankings(rows, {})
+        _compute_unified_rankings(rows, {})
         for r in rows:
             self.assertNotIn("canonicalConsensusRank", r)
 
     def test_canonical_consensus_rank_mirrored_to_legacy_dict(self):
         rows = [self._make_player_row("Josh Allen", "QB", 9000)]
         legacy = {"Josh Allen": {"ktc": 9000}}
-        _compute_ktc_rankings(rows, legacy)
+        _compute_unified_rankings(rows, legacy)
         self.assertEqual(legacy["Josh Allen"]["_canonicalConsensusRank"], 1)
 
     def test_canonical_consensus_rank_respects_limit(self):
-        rows = [self._make_player_row(f"P{i}", "RB", 9000 - i) for i in range(600)]
-        _compute_ktc_rankings(rows, {})
+        rows = [self._make_player_row(f"P{i}", "RB", 9000 - i) for i in range(900)]
+        _compute_unified_rankings(rows, {})
         ranked = [r for r in rows if "canonicalConsensusRank" in r]
-        self.assertEqual(len(ranked), KTC_RANK_LIMIT)
+        self.assertEqual(len(ranked), OVERALL_RANK_LIMIT)
 
 
 class TestIdpIntegrityGuardrails(unittest.TestCase):
