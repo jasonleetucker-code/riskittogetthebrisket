@@ -100,7 +100,7 @@ export function buildEdgeProjection(rows) {
     const actualExternal = Number.isFinite(extRaw) && extRaw > 0 ? Math.round(extRaw) : null;
 
     // Count IDP sources for IDP players
-    const idpKeys = ["idpTradeCalc", "pffIdp", "fantasyProsIdp", "draftSharksIdp", "dlfIdp", "dlfRidp"];
+    const idpKeys = ["idpTradeCalc"];
     const idpSiteCount = assetClass === "idp"
       ? idpKeys.reduce((n, k) => {
           const v = Number(r.canonicalSites?.[k]);

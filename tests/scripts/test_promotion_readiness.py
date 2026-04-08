@@ -45,7 +45,7 @@ class TestLoadThresholds:
     def test_fallback_when_config_missing(self, tmp_path):
         """Returns hard-coded fallbacks when config dir doesn't exist."""
         thresholds = _load_thresholds(tmp_path, "internal_primary")
-        assert thresholds.get("source_count_min") == 4
+        assert thresholds.get("source_count_min") == 2
         assert thresholds.get("top50_overlap_min_pct") == 66
 
     def test_fallback_when_config_malformed(self, tmp_path):
@@ -54,7 +54,7 @@ class TestLoadThresholds:
         cfg_dir.mkdir(parents=True)
         (cfg_dir / "promotion_thresholds.json").write_text("not json")
         thresholds = _load_thresholds(tmp_path, "internal_primary")
-        assert thresholds.get("source_count_min") == 4
+        assert thresholds.get("source_count_min") == 2
 
     def test_unknown_mode_returns_empty(self):
         thresholds = _load_thresholds(REPO, "nonexistent_mode")

@@ -65,8 +65,8 @@ These are helper hints only. Identity resolution remains authoritative.
 
 ```json
 {
-  "source": "DLF_SF",
-  "snapshot_id": "dlf_sf_2026_20260309T113000Z",
+  "source": "KTC",
+  "snapshot_id": "ktc_2026_20260309T113000Z",
   "asset_type": "player",
   "external_asset_id": "",
   "external_name": "Josh Allen",

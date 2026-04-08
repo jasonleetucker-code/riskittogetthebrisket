@@ -153,8 +153,8 @@ describe("inferValueBundle", () => {
 
 describe("getSiteKeys", () => {
   it("extracts site keys from data", () => {
-    const data = { sites: [{ key: "ktc" }, { key: "fantasyCalc" }] };
-    expect(getSiteKeys(data)).toEqual(["ktc", "fantasyCalc"]);
+    const data = { sites: [{ key: "ktc" }, { key: "idpTradeCalc" }] };
+    expect(getSiteKeys(data)).toEqual(["ktc", "idpTradeCalc"]);
   });
 
   it("returns empty array for missing sites", () => {
@@ -419,8 +419,6 @@ describe("buildRows", () => {
     const players = [];
     for (let i = 0; i < 30; i++) {
       const sites = { ktc: 9000 - i * 100 };
-      if (i < 25) sites.fantasyCalc = 8000 - i * 80;
-      if (i % 2 === 0) sites.dynastyDaddy = 7500 - i * 90;
       players.push({
         displayName: `TestPlayer ${i}`,
         position: i < 20 ? "QB" : "RB",
@@ -617,9 +615,9 @@ describe("computedConsensusRank", () => {
         // Offense player with KTC value
         { displayName: "QB Star", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } },
         // IDP player with IDP sources
-        { displayName: "DL Star", position: "DL", values: { finalAdjusted: 6000, rawComposite: 6000, overall: 6000 }, canonicalSiteValues: { pffIdp: 5800, dlfIdp: 9900 } },
+        { displayName: "DL Star", position: "DL", values: { finalAdjusted: 6000, rawComposite: 6000, overall: 6000 }, canonicalSiteValues: { idpTradeCalc: 5800 } },
         // Another IDP player
-        { displayName: "LB Star", position: "LB", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 }, canonicalSiteValues: { pffIdp: 4000, dlfIdp: 8000 } },
+        { displayName: "LB Star", position: "LB", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 }, canonicalSiteValues: { idpTradeCalc: 4000 } },
       ],
     };
     const rows = buildRows(data);

@@ -31,6 +31,8 @@
         "verdict_tier_agreement_min_pct": 49,
         "avg_abs_delta_max": 1500,
         "comparison_batch_sample_min": 300,
+        "multi_source_blend_pct_min": 0,
+        "idp_source_count_min": 1,
         "all_tests_pass": true,
         "shadow_days_min": 7
       },
@@ -56,6 +58,8 @@
         "verdict_tier_agreement_min_pct": 65,
         "avg_abs_delta_max": 800,
         "comparison_batch_sample_min": 400,
+        "multi_source_blend_pct_min": 0,
+        "idp_source_count_min": 1,
         "all_tests_pass": true,
         "internal_primary_days_min": 14,
         "founder_approval": true

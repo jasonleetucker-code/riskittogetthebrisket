@@ -474,7 +474,7 @@ describe("getPlayerEdge", () => {
   it("returns BUY when our value is below external average", () => {
     const row = {
       values: { full: 5000 },
-      canonicalSites: { ktc: 7000, fantasyCalc: 7500 },
+      canonicalSites: { ktc: 7000 },
     };
     const result = getPlayerEdge(row);
     expect(result.signal).toBe("BUY");
@@ -484,7 +484,7 @@ describe("getPlayerEdge", () => {
   it("returns SELL when our value is above external average", () => {
     const row = {
       values: { full: 9000 },
-      canonicalSites: { ktc: 6000, fantasyCalc: 6000 },
+      canonicalSites: { ktc: 6000 },
     };
     const result = getPlayerEdge(row);
     expect(result.signal).toBe("SELL");

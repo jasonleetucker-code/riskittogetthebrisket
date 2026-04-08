@@ -238,7 +238,7 @@ export function getPlayerEdge(row) {
   if (ourValue <= 0) return { signal: null, edgePct: 0, sources: [] };
 
   // Compare against external sources
-  const externalKeys = ["ktc", "fantasyCalc", "dynastyDaddy"];
+  const externalKeys = ["ktc"];
   const externals = [];
   for (const key of externalKeys) {
     const v = Number(row.canonicalSites[key]);
