@@ -12,8 +12,8 @@ const SECTIONS = [
   {
     title: "Analysis",
     items: [
-      { href: "/edge", label: "Edge Detection", desc: "Buy-low / sell-high signals from model vs market" },
-      { href: "/finder", label: "Trade Finder", desc: "Arbitrage trades using board advantage" },
+      { href: "/edge", label: "Edge — Source Signals", desc: "Where ranking sources agree, disagree, and flag issues" },
+      { href: "/finder", label: "Finder — Player Discovery", desc: "Surface players by source signal patterns and opportunity type" },
     ],
   },
   {

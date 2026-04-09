@@ -1186,6 +1186,111 @@ tr:hover .sticky-name {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   EDGE PAGE — Source agreement dashboard
+   ══════════════════════════════════════════════════════════════════════════ */
+.edge-stat-bar {
+  display: flex;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.edge-stat {
+  text-align: center;
+  min-width: 60px;
+}
+
+.edge-stat-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: var(--mono);
+  display: block;
+  line-height: 1.2;
+}
+
+.edge-stat-label {
+  font-size: 0.68rem;
+  color: var(--subtext);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.edge-page-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.edge-section {
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-md);
+  background: var(--bg-soft);
+}
+
+.edge-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+
+.edge-section-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.edge-section-count {
+  font-size: 0.68rem;
+  color: var(--subtext);
+}
+
+.edge-section-desc {
+  font-size: 0.74rem;
+  color: var(--subtext);
+  margin: 0 0 10px;
+  line-height: 1.45;
+}
+
+/* Compact tables inside edge sections */
+.edge-section .table-wrap {
+  border: none;
+  border-radius: 0;
+}
+
+.edge-section table {
+  font-size: 0.78rem;
+}
+
+.edge-section th {
+  font-size: 0.62rem;
+  padding: 4px 8px;
+  background: transparent;
+}
+
+.edge-section td {
+  padding: 5px 8px;
+}
+
+@media (max-width: 768px) {
+  .edge-page-grid {
+    grid-template-columns: 1fr;
+  }
+  .edge-stat-bar {
+    gap: var(--space-md);
+  }
+  .edge-stat {
+    min-width: 50px;
+  }
+  .edge-stat-value {
+    font-size: 0.92rem;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    TEXT UTILITIES
    ══════════════════════════════════════════════════════════════════════════ */
 .truncate {
