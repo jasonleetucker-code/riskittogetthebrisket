@@ -1,5 +1,4 @@
 // ── Edge Detection Engine ────────────────────────────────────────────
-// Ported from Static/js/runtime/20-data-and-calculator.js
 // Computes buy/sell/hold signals by comparing each player's composite
 // model rank percentile against an external market curve.
 

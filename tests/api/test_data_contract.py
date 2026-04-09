@@ -393,7 +393,7 @@ class TestContractWithCanonicalComparison(unittest.TestCase):
             self.assertEqual(pw["values"], pwo["values"])
 
     def test_runtime_view_keeps_comparison(self):
-        """Runtime view (used by Static app) should keep canonicalComparison."""
+        """Runtime view should keep canonicalComparison."""
         payload = build_api_data_contract(_minimal_raw_payload())
         payload["canonicalComparison"] = build_canonical_comparison_block(
             _minimal_canonical_snapshot()
