@@ -39,6 +39,9 @@ IDP_RANK_LIMIT: int = OVERALL_RANK_LIMIT
 _KICKER_POSITIONS = {"K", "PK"}
 _OFFENSE_POSITIONS = {"QB", "RB", "WR", "TE"}
 _IDP_POSITIONS = {"DL", "LB", "DB"}
+# Positions eligible for per-source ranking.  Only offense + IDP players
+# participate; picks, kickers, and unsupported positions are excluded.
+_RANKABLE_POSITIONS = _OFFENSE_POSITIONS | _IDP_POSITIONS
 _OFFENSE_SIGNAL_KEYS = {
     "ktc",
 }
@@ -602,7 +605,7 @@ def _compute_unified_rankings(
         eligible: list[tuple[float, int]] = []  # (value, row_index)
         for idx, row in enumerate(players_array):
             pos = str(row.get("position") or "").strip().upper()
-            if not pos or pos in {"?", "PICK"} or pos in _KICKER_POSITIONS:
+            if pos not in _RANKABLE_POSITIONS:
                 continue
             val = value_fn(row)
             if val is None or val <= 0:

@@ -387,16 +387,17 @@ class TestPayloadLevelBlocks(unittest.TestCase):
 
     def test_anomaly_summary_counts_flagged_players(self):
         """Build a payload with a player that triggers an anomaly, verify count."""
-        # OL player will trigger ol_contamination
+        # OL player is excluded from ranking, gets unsupported_position flag
         payload = _payload_with_players(
             _make_player("Good QB", "QB", ktc=9000),
             _make_player("OL Guy", "OL", ktc=5000),
         )
         contract = build_api_data_contract(payload)
         summary = contract["anomalySummary"]
-        # OL Guy should be flagged
+        # OL Guy should be flagged with unsupported_position (not ol_contamination,
+        # because OL is now excluded from per-source ranking entirely)
         self.assertGreaterEqual(summary["totalFlagged"], 1)
-        self.assertIn("ol_contamination", summary["flagCounts"])
+        self.assertIn("unsupported_position", summary["flagCounts"])
 
 
 # ── Integration: REQUIRED_PLAYER_KEYS includes new fields ───────────────────
@@ -434,17 +435,18 @@ class TestQuarantineFields(unittest.TestCase):
         self.assertIn("unsupported_position", row["anomalyFlags"])
 
     def test_quarantine_degrades_confidence(self):
-        """Quarantined players should have confidence degraded to low."""
-        # Build two players so we can have a quarantined one
+        """Quarantined players should have confidence degraded.
+        OL players are excluded from ranking, so they keep the default
+        'none' confidence bucket — quarantine does not promote to 'low'."""
         payload = _payload_with_players(
             _make_player("Normal WR", "WR", ktc=8000),
             _make_player("OL Leak", "OL", ktc=6000),
         )
         row = _build_and_find(payload, "OL Leak")
         self.assertTrue(row["quarantined"])
-        # Confidence must be "low" — either already low from single-source
-        # or degraded by the quarantine pass
-        self.assertEqual(row["confidenceBucket"], "low")
+        # OL is excluded from ranking → stays at default "none" confidence.
+        # Quarantine degrades high/medium → low, but "none" is already lowest.
+        self.assertEqual(row["confidenceBucket"], "none")
 
 
 class TestIdentityConfidence(unittest.TestCase):
@@ -632,6 +634,94 @@ class TestTrustMirrorToLegacy(unittest.TestCase):
         # With equal values across two sources, spread=0 → high confidence
         self.assertEqual(legacy_entry["confidenceBucket"], "high")
         self.assertFalse(legacy_entry["isSingleSource"])
+
+
+class TestUnsupportedPositionRankingExclusion(unittest.TestCase):
+    """Unsupported positions (OL, OT, OG, C, G, T, LS) must never receive
+    a canonicalConsensusRank or rankDerivedValue, even when they have
+    source values."""
+
+    UNSUPPORTED = ["OL", "OT", "OG", "C", "G", "T", "LS"]
+
+    def _make_unsupported(self, name, position, ktc_val=7000):
+        """Build a player dict with an unsupported position but valid KTC."""
+        return {
+            name: {
+                "_composite": ktc_val,
+                "_rawComposite": ktc_val,
+                "_finalAdjusted": ktc_val,
+                "_sites": 1,
+                "position": position,
+                "team": "TST",
+                "_canonicalSiteValues": {"ktc": ktc_val},
+            }
+        }
+
+    def test_ol_not_ranked(self):
+        """OL player with KTC value must not receive a rank."""
+        payload = _payload_with_players(
+            self._make_unsupported("Nick Martin", "C", ktc_val=5000),
+            _make_player("Real QB", "QB", ktc=9000),
+        )
+        row = _build_and_find(payload, "Nick Martin")
+        self.assertIsNotNone(row)
+        # Must not have a rank or derived value from the ranking pass
+        self.assertIn("unsupported_position", row.get("anomalyFlags", []))
+        self.assertTrue(row["quarantined"])
+        # canonicalConsensusRank should be None (not ranked)
+        rank = row.get("canonicalConsensusRank")
+        self.assertTrue(
+            rank is None or rank == 0,
+            f"OL player got rank {rank} — should be unranked",
+        )
+
+    def test_all_unsupported_positions_excluded(self):
+        """Every unsupported position must be excluded from ranking."""
+        for pos in self.UNSUPPORTED:
+            players = [
+                self._make_unsupported(f"Test {pos}", pos, ktc_val=8000),
+                _make_player("Anchor QB", "QB", ktc=9500),
+            ]
+            payload = _payload_with_players(*players)
+            row = _build_and_find(payload, f"Test {pos}")
+            self.assertIsNotNone(row, f"Row missing for position {pos}")
+            rank = row.get("canonicalConsensusRank")
+            self.assertTrue(
+                rank is None or rank == 0,
+                f"Position {pos} got rank {rank} — should be unranked",
+            )
+
+    def test_supported_positions_still_ranked(self):
+        """Supported positions must still receive ranks normally."""
+        payload = _payload_with_players(
+            _make_player("Ranked QB", "QB", ktc=9000),
+            _make_player("Ranked LB", "LB", idp=8000),
+        )
+        qb = _build_and_find(payload, "Ranked QB")
+        lb = _build_and_find(payload, "Ranked LB")
+        self.assertIsNotNone(qb)
+        self.assertIsNotNone(lb)
+        self.assertIsNotNone(qb.get("canonicalConsensusRank"))
+        self.assertGreater(qb["canonicalConsensusRank"], 0)
+        self.assertIsNotNone(lb.get("canonicalConsensusRank"))
+        self.assertGreater(lb["canonicalConsensusRank"], 0)
+
+    def test_unsupported_does_not_displace_supported(self):
+        """An unsupported-position player must not take a rank slot
+        away from a supported-position player."""
+        payload = _payload_with_players(
+            self._make_unsupported("OL Guy", "OL", ktc_val=9999),
+            _make_player("Real WR", "WR", ktc=5000),
+        )
+        wr = _build_and_find(payload, "Real WR")
+        ol = _build_and_find(payload, "OL Guy")
+        self.assertIsNotNone(wr)
+        self.assertIsNotNone(ol)
+        # WR must be ranked
+        self.assertGreater(wr["canonicalConsensusRank"], 0)
+        # OL must NOT be ranked (no rank displacement)
+        ol_rank = ol.get("canonicalConsensusRank")
+        self.assertTrue(ol_rank is None or ol_rank == 0)
 
 
 if __name__ == "__main__":
