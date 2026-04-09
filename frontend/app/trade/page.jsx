@@ -58,6 +58,8 @@ export default function TradePage() {
   const { settings } = useSettings();
   const { openPlayerPopup, registerAddToTrade } = useApp();
   const [valueMode, setValueMode] = useState("full");
+  const [pickerSortCol, setPickerSortCol] = useState("rank");
+  const [pickerSortAsc, setPickerSortAsc] = useState(true);
   const [sideA, setSideA] = useState([]);
   const [sideB, setSideB] = useState([]);
   const [activeSide, setActiveSide] = useState("A");
@@ -160,8 +162,34 @@ export default function TradePage() {
     let list = rows.filter((r) => !isInTrade.has(r.name));
     if (pickerFilter !== "all") list = list.filter((r) => r.assetClass === pickerFilter);
     if (q) list = list.filter((r) => r.name.toLowerCase().includes(q));
-    return list.slice(0, 80);
-  }, [rows, sideA, sideB, pickerQuery, pickerFilter]);
+    // Sort by selected column
+    const dir = pickerSortAsc ? 1 : -1;
+    list = [...list].sort((a, b) => {
+      let va, vb;
+      switch (pickerSortCol) {
+        case "rank":
+          va = a.blendedSourceRank ?? Infinity; vb = b.blendedSourceRank ?? Infinity;
+          return (va - vb) * dir;
+        case "name":
+          return a.name.localeCompare(b.name) * dir;
+        case "pos":
+          return (a.pos || "").localeCompare(b.pos || "") * dir;
+        case "value":
+          va = a.rankDerivedValue || a.values?.full || 0; vb = b.rankDerivedValue || b.values?.full || 0;
+          return (va - vb) * dir;
+        case "ktc":
+          va = Number(a.canonicalSites?.ktc) || 0; vb = Number(b.canonicalSites?.ktc) || 0;
+          return (va - vb) * dir;
+        case "idpTradeCalc":
+          va = Number(a.canonicalSites?.idpTradeCalc) || 0; vb = Number(b.canonicalSites?.idpTradeCalc) || 0;
+          return (va - vb) * dir;
+        default:
+          va = a.blendedSourceRank ?? Infinity; vb = b.blendedSourceRank ?? Infinity;
+          return (va - vb) * dir;
+      }
+    });
+    return list.slice(0, 100);
+  }, [rows, sideA, sideB, pickerQuery, pickerFilter, pickerSortCol, pickerSortAsc]);
 
   const recentRows = useMemo(() => recentNames.map((n) => rowByName.get(n)).filter(Boolean), [recentNames, rowByName]);
 
@@ -335,7 +363,7 @@ export default function TradePage() {
                             </span>
                           )}
                         </div>
-                        <div className="asset-meta">{r.pos} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
+                        <div className="asset-meta">{r.pos} · Rank {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
                       </div>
                       <button className="button" onClick={() => removeFromSide(r.name, "A")}>Remove</button>
                     </div>
@@ -385,7 +413,7 @@ export default function TradePage() {
                             </span>
                           )}
                         </div>
-                        <div className="asset-meta">{r.pos} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
+                        <div className="asset-meta">{r.pos} · Rank {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
                       </div>
                       <button className="button" onClick={() => removeFromSide(r.name, "B")}>Remove</button>
                     </div>
@@ -747,7 +775,7 @@ export default function TradePage() {
                         <button key={`recent-${r.name}`} className="asset-row button-reset" onClick={() => addToActiveSide(r)}>
                           <div>
                             <div className="asset-name">{r.name}</div>
-                            <div className="asset-meta">{r.pos} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
+                            <div className="asset-meta">{r.pos} · Rank {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
                           </div>
                           <span className="badge">Add</span>
                         </button>
@@ -755,17 +783,52 @@ export default function TradePage() {
                     </div>
                   </div>
                 )}
-                <div className="list" style={{ marginTop: 10, maxHeight: "52vh", overflow: "auto", paddingRight: 4 }}>
-                  {pickerRows.map((r) => (
-                    <button key={`pick-${r.name}`} className="asset-row button-reset" onClick={() => addToActiveSide(r)}>
-                      <div>
-                        <div className="asset-name">{r.name}</div>
-                        <div className="asset-meta">{r.pos} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
-                      </div>
-                      <span className="badge">Add</span>
-                    </button>
-                  ))}
-                  {pickerRows.length === 0 && <div className="muted">No assets match.</div>}
+                <div className="table-wrap" style={{ marginTop: 10, maxHeight: "52vh", overflow: "auto" }}>
+                  <table style={{ width: "100%", fontSize: "0.78rem" }}>
+                    <thead>
+                      <tr>
+                        {[
+                          { col: "rank", label: "Our Rank", style: { width: 70, textAlign: "center" } },
+                          { col: "name", label: "Player" },
+                          { col: "pos", label: "Pos", style: { width: 50 } },
+                          { col: "value", label: "Our Value", style: { width: 80, textAlign: "right" } },
+                          { col: "ktc", label: "KTC", style: { width: 65, textAlign: "right" } },
+                          { col: "idpTradeCalc", label: "IDPTC", style: { width: 65, textAlign: "right" } },
+                        ].map(({ col, label, style }) => (
+                          <th key={col} style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", ...style }}
+                            onClick={() => {
+                              if (pickerSortCol === col) setPickerSortAsc((p) => !p);
+                              else { setPickerSortCol(col); setPickerSortAsc(["rank", "name", "pos"].includes(col)); }
+                            }}>
+                            {label}{pickerSortCol === col ? (pickerSortAsc ? " ▲" : " ▼") : ""}
+                          </th>
+                        ))}
+                        <th style={{ width: 40 }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pickerRows.map((r) => (
+                        <tr key={`pick-${r.name}`} style={{ cursor: "pointer" }} onClick={() => addToActiveSide(r)}>
+                          <td style={{ textAlign: "center", fontFamily: "var(--mono, monospace)", fontWeight: 600, color: "var(--cyan)" }}>
+                            {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"}
+                          </td>
+                          <td style={{ fontWeight: 600 }}>{r.name}</td>
+                          <td><span className="badge">{r.pos}</span></td>
+                          <td style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontWeight: 600 }}>
+                            {Math.round(r.rankDerivedValue || r.values?.full || 0).toLocaleString()}
+                          </td>
+                          <td style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.74rem" }}>
+                            {r.canonicalSites?.ktc != null ? Math.round(Number(r.canonicalSites.ktc)).toLocaleString() : "—"}
+                          </td>
+                          <td style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.74rem" }}>
+                            {r.canonicalSites?.idpTradeCalc != null ? Math.round(Number(r.canonicalSites.idpTradeCalc)).toLocaleString() : "—"}
+                          </td>
+                          <td><span className="badge" style={{ fontSize: "0.6rem" }}>Add</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {pickerRows.length === 0 && <div className="muted" style={{ padding: 8 }}>No assets match.</div>}
                 </div>
               </div>
             </div>

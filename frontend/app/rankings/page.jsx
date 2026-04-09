@@ -70,8 +70,8 @@ export default function RankingsPage() {
       let va, vb;
       switch (sortCol) {
         case "rank":
-          va = resolvedRank(a);
-          vb = resolvedRank(b);
+          va = a.blendedSourceRank ?? Infinity;
+          vb = b.blendedSourceRank ?? Infinity;
           return (va - vb) * dir;
         case "name":
           return a.name.localeCompare(b.name) * dir;
@@ -197,7 +197,7 @@ export default function RankingsPage() {
                 {ranked.map((row) => (
                   <tr key={row.name}>
                     <td style={{ textAlign: "center", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)" }}>
-                      {row.rank}
+                      {row.blendedSourceRank != null ? row.blendedSourceRank.toFixed(1) : row.rank}
                     </td>
                     <td style={{ fontWeight: 600, cursor: "pointer" }} onClick={() => openPlayerPopup?.(row)}>{row.name}</td>
                     <td><span className="badge">{row.pos}</span></td>
