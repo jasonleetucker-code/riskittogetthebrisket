@@ -88,7 +88,7 @@ export function buildRowLookup(rows) {
 // ── Resolve Trade Item → Row Value ──────────────────────────────────────
 /**
  * Resolve a trade item name to a value using the rows from useDynastyData.
- * This is the Next.js equivalent of Static's getTradeItemValue.
+ * Resolve a trade item name to a value using the rows from useDynastyData.
  */
 export function resolveTradeItemValue(itemName, rowLookup, posMap) {
   if (!itemName) return { name: itemName, value: 0, pos: "", isPick: false };

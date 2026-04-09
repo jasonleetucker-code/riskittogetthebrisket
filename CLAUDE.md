@@ -7,7 +7,7 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 ## Tech Stack
 
 - **Backend**: Python 3, FastAPI, Uvicorn (port 8000)
-- **Frontend**: Next.js 15 + React 19 (port 3000), with static HTML fallback (`Static/`)
+- **Frontend**: Next.js 15 + React 19 (port 3000)
 - **Scraping**: Playwright (browser automation), legacy Selenium/requests (`Dynasty Scraper.py`)
 - **CI/CD**: GitHub Actions (`.github/workflows/`)
 - **Testing**: pytest (unit/integration), Playwright E2E regression
@@ -48,7 +48,6 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 ├── tests/                     # pytest unit/integration + Playwright E2E
 ├── data/                      # Generated pipeline outputs (not committed)
 ├── exports/                   # Release artifacts (latest/ + archive/)
-├── Static/                    # Legacy static HTML fallback dashboard
 └── docs/                      # Architecture blueprints, status docs
 ```
 
@@ -106,10 +105,7 @@ python scripts/canonical_build.py --repo . --engine canonical
 ## Architecture Concepts
 
 ### Frontend Runtime
-Next.js is the sole production frontend. Controlled by `FRONTEND_RUNTIME` env var:
-- **next** (default): Proxies to Next.js at port 3000. Returns 503 if Next is down — no silent fallback.
-- **static**: Legacy mode — serves `Static/index.html` directly from FastAPI. Retains 30+ features not yet ported to Next.js.
-- **auto**: Tries Next, falls back to static with status reporting.
+Next.js is the sole production frontend. `FRONTEND_RUNTIME` is hardcoded to `next` in server.py — all page routes proxy to Next.js at port 3000. Returns 503 if Next is down; there is no Static fallback.
 
 Production deployment requires both `dynasty.service` (backend) and `dynasty-frontend.service` (Next.js) running.
 
@@ -191,7 +187,7 @@ Key variables (see `.env.example` for full list):
 
 | Variable | Purpose | Default |
 |---|---|---|
-| `FRONTEND_RUNTIME` | `next\|static\|auto` | `next` |
+| `FRONTEND_RUNTIME` | `next` (hardcoded) | `next` |
 | `FRONTEND_URL` | Next.js dev server URL | `http://127.0.0.1:3000` |
 | `CANONICAL_DATA_MODE` | Canonical rollout mode | `off` |
 | `SLEEPER_LEAGUE_ID` | Primary Sleeper league | -- |

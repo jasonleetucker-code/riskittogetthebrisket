@@ -221,7 +221,7 @@ REQUIRED_PLAYER_KEYS = {
 }
 
 # Fields that are useful for deeper diagnostics/explanations but are not required
-# for initial first-paint startup rendering in the Static runtime.
+# for initial first-paint startup rendering in the frontend.
 STARTUP_HEAVY_PLAYER_FIELD_PREFIXES = ("_formatFit",)
 STARTUP_HEAVY_PLAYER_FIELDS = {
     "_scoringAdjustment",
@@ -814,7 +814,7 @@ def build_api_startup_payload(contract_payload: dict[str, Any]) -> dict[str, Any
     """
     Build a startup-slim payload for first paint / early interaction.
 
-    Keeps the same top-level contract shape expected by the live Static app,
+    Keeps the same top-level contract shape expected by the frontend,
     but strips heavyweight per-player debug fields and non-critical secondary
     top-level blobs so startup transfer/parse cost is lower.
     """

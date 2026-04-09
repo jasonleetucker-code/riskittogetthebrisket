@@ -17,7 +17,7 @@ const PRIMARY_NAV = [
   { href: "/settings", label: "Settings" },
 ];
 
-// Mobile bottom nav — 4-tab model matching Static's proven mobile IA
+// Mobile bottom nav — 4-tab model
 const MOBILE_NAV = [
   { href: "/rankings", label: "Ranks", icon: "R" },
   { href: "/trade", label: "Trade", icon: "T" },

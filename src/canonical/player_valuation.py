@@ -43,7 +43,7 @@ TIER_MIN_SIZE: int = 3             # minimum players in a tier before allowing s
 
 # Step 3: Base value curve — Hill-style, rank 1 always = 9999
 # value = 1 + 9998 / (1 + ((rank - 1) / 45)^1.10)
-# Mirrors the JS _rankToValue in Static/js/runtime/10-rankings-and-picks.js
+# Mirrors the JS rankToValue in frontend/lib/dynasty-data.js
 HILL_MIDPOINT: float = 45.0        # rank at which value ≈ 5000
 HILL_SLOPE: float = 1.10           # controls steepness of decay
 
