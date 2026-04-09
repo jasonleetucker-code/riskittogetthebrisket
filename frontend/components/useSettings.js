@@ -17,10 +17,6 @@ export const SETTINGS_DEFAULTS = {
 
   // Trade calculator
   alpha: 1.678,                      // star player bonus exponent (1.4..1.9)
-  tolerance: 0.05,                   // trade tolerance threshold
-  zScoreEnabled: true,               // advanced value blending toggle
-  zFloor: -2.0,                      // z-score floor
-  zCeiling: 4.0,                     // z-score ceiling
 
   // Rankings display
   rankingsSortBasis: "full",         // "full" | "raw" | "scoring" | "scarcity"
@@ -29,26 +25,9 @@ export const SETTINGS_DEFAULTS = {
 
   // Pick settings
   pickCurrentYear: 2026,
-  pickYearDisc1: 0.85,               // +1 year discount
-  pickYearDisc2: 0.72,               // +2 year discount
-
-  // Ranking conversion (advanced)
-  rankOffset: 27,
-  rankDivisor: 28,
-  rankExponent: -0.66,
-
-  // IDP ranking conversion (advanced)
-  idpAnchor: 6250,
-  idpRankOffset: 15,
-  idpRankDivisor: 16,
-  idpRankExponent: -0.72,
 
   // Site weights — per-site { include, weight, max, tep }
   siteWeights: {},
-
-  // UI preferences
-  compactMode: false,                // compact table view
-  mobilePowerMode: true,             // full desktop workflows on mobile
 
   // Trade history
   tradeHistoryWindowDays: 120,       // rolling window for trade analysis

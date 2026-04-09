@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useSettings, SETTINGS_DEFAULTS as DEFAULTS } from "@/components/useSettings";
-
 // Known sites with their default configurations
 const SITE_DEFAULTS = {
   ktc:           { label: "KeepTradeCut",   include: true,  weight: 1.2,  max: 9999,  tep: true  },
@@ -12,6 +11,12 @@ const SITE_DEFAULTS = {
 const IDP_SITE_DEFAULTS = {
   idpTradeCalc:  { label: "IDP Trade Calc", include: true, weight: 1.0, max: 9998, tep: true },
 };
+
+const ALPHA_PRESETS = [
+  { label: "Balanced", value: 1.40 },
+  { label: "Standard", value: 1.678 },
+  { label: "Star-heavy", value: 1.90 },
+];
 
 
 function Section({ title, defaultOpen = true, children }) {
@@ -132,6 +137,50 @@ export default function SettingsPage() {
           min={1.0} max={1.5} step={0.05}
           onChange={(v) => update("tepMultiplier", v)}
           hint="TE boost for non-TEP sites"
+        />
+      </Section>
+
+      <Section title="Trade Calculation" defaultOpen>
+        <div style={{ marginBottom: 10 }}>
+          <label style={{ fontSize: "0.82rem", display: "block", marginBottom: 4 }}>
+            Alpha (Star Player Bonus)
+          </label>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <input
+              type="range" min={1.0} max={2.0} step={0.001}
+              value={settings.alpha}
+              onChange={(e) => update("alpha", parseFloat(e.target.value))}
+              style={{ flex: 1 }}
+            />
+            <span className="badge" style={{ minWidth: 52, textAlign: "center" }}>{settings.alpha}</span>
+          </div>
+          <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+            {ALPHA_PRESETS.map((p) => (
+              <button
+                key={p.label}
+                className="button"
+                onClick={() => update("alpha", p.value)}
+                style={{
+                  fontSize: "0.68rem",
+                  padding: "2px 8px",
+                  opacity: settings.alpha === p.value ? 1 : 0.6,
+                  fontWeight: settings.alpha === p.value ? 700 : 400,
+                }}
+              >
+                {p.label} ({p.value})
+              </button>
+            ))}
+          </div>
+          <div className="muted" style={{ fontSize: "0.66rem", marginTop: 4 }}>
+            Higher = elite players worth exponentially more. 1.0 = linear, 1.678 = standard.
+          </div>
+        </div>
+        <SliderRow
+          label="Trade History Window"
+          value={settings.tradeHistoryWindowDays}
+          min={30} max={730} step={30}
+          onChange={(v) => update("tradeHistoryWindowDays", v)}
+          hint={`${settings.tradeHistoryWindowDays} days`}
         />
       </Section>
 
@@ -266,9 +315,109 @@ export default function SettingsPage() {
         </p>
       </Section>
 
+      <Section title="Data & Admin" defaultOpen={false}>
+        <ServerStatusPanel />
+      </Section>
+
       <div className="muted" style={{ fontSize: "0.72rem", marginTop: 12, padding: "8px 0", borderTop: "1px solid var(--border)" }}>
         Settings are saved automatically to your browser. They affect trade calculations, rankings display, and value composites.
       </div>
     </section>
+  );
+}
+
+function ServerStatusPanel() {
+  const [status, setStatus] = useState(null);
+  const [scraping, setScraping] = useState(false);
+  const [scrapeMsg, setScrapeMsg] = useState("");
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/status");
+      if (res.ok) setStatus(await res.json());
+      else setStatus({ error: `HTTP ${res.status}` });
+    } catch {
+      setStatus({ error: "Backend unreachable" });
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 30000);
+    return () => clearInterval(interval);
+  }, [fetchStatus]);
+
+  async function triggerScrape() {
+    setScraping(true);
+    setScrapeMsg("");
+    try {
+      const res = await fetch("/api/scrape", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      setScrapeMsg(data.error ? `Error: ${data.error}` : "Refresh triggered. Data will update shortly.");
+      setTimeout(fetchStatus, 5000);
+    } catch {
+      setScrapeMsg("Failed to reach backend.");
+    } finally {
+      setScraping(false);
+    }
+  }
+
+  const connected = status && !status.error;
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        <span
+          style={{
+            width: 8, height: 8, borderRadius: "50%",
+            background: connected ? "var(--green)" : "var(--red)",
+            display: "inline-block",
+          }}
+        />
+        <span style={{ fontSize: "0.82rem", fontWeight: 600 }}>
+          {connected ? "Backend Connected" : "Backend Offline"}
+        </span>
+      </div>
+
+      {connected && (
+        <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
+          {status.playerCount != null && <div>Players: {status.playerCount}</div>}
+          {status.lastUpdate && <div>Last update: {status.lastUpdate}</div>}
+          {status.nextUpdate && <div>Next update: {status.nextUpdate}</div>}
+          {status.version && <div>Version: {status.version}</div>}
+          {status.uptime && <div>Uptime: {status.uptime}</div>}
+        </div>
+      )}
+
+      {status?.error && (
+        <div style={{ fontSize: "0.72rem", color: "var(--red)", marginBottom: 10 }}>
+          {status.error}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <button
+          className="button"
+          onClick={triggerScrape}
+          disabled={scraping}
+          style={{ fontSize: "0.76rem" }}
+        >
+          {scraping ? "Refreshing..." : "Refresh Values"}
+        </button>
+        <button
+          className="button"
+          onClick={fetchStatus}
+          style={{ fontSize: "0.76rem" }}
+        >
+          Check Status
+        </button>
+      </div>
+
+      {scrapeMsg && (
+        <div style={{ fontSize: "0.72rem", marginTop: 6, color: scrapeMsg.startsWith("Error") ? "var(--red)" : "var(--green)" }}>
+          {scrapeMsg}
+        </div>
+      )}
+    </div>
   );
 }
