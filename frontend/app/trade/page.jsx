@@ -334,9 +334,9 @@ export default function TradePage() {
             <button className="button" onClick={clearTrade}>Clear Trade</button>
           </div>
 
-          <div className="row" style={{ alignItems: "stretch", paddingBottom: 78 }}>
+          <div className="row mobile-stack" style={{ alignItems: "stretch", paddingBottom: 78 }}>
             {/* Side A */}
-            <div className="card" style={{ flex: 1, minWidth: 280 }}>
+            <div className="card" style={{ flex: 1 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <h3 style={{ margin: 0 }}>Side A</h3>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -386,7 +386,7 @@ export default function TradePage() {
             </div>
 
             {/* Side B */}
-            <div className="card" style={{ flex: 1, minWidth: 280 }}>
+            <div className="card" style={{ flex: 1 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <h3 style={{ margin: 0 }}>Side B</h3>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -716,7 +716,7 @@ export default function TradePage() {
                 <div className="label">Side A</div>
                 <div className="value" style={{ fontSize: "1.0rem" }}>{Math.round(pwTotalA).toLocaleString()}</div>
               </div>
-              <div style={{ flex: 1, minWidth: 140, maxWidth: 220 }}>
+              <div style={{ flex: 1, maxWidth: 220 }}>
                 {/* Verdict bar */}
                 <div style={{ position: "relative", height: 10, background: "var(--border)", borderRadius: 5, overflow: "hidden", margin: "6px 0" }}>
                   <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, var(--green), transparent 40%, transparent 60%, var(--red))", opacity: 0.3, borderRadius: 5 }} />
@@ -758,7 +758,7 @@ export default function TradePage() {
                     placeholder="Search player or pick"
                     value={pickerQuery}
                     onChange={(e) => setPickerQuery(e.target.value)}
-                    style={{ minWidth: 220, flex: 1 }}
+                    style={{ flex: 1 }}
                   />
                   <select className="select" value={pickerFilter} onChange={(e) => setPickerFilter(e.target.value)}>
                     <option value="all">All</option>

@@ -854,6 +854,28 @@ tr:hover .sticky-name {
   /* Sub-nav scrolls horizontally */
   .sub-nav { gap: 0; }
   .sub-nav-btn { font-size: 0.7rem; padding: 7px 12px; }
+
+  /* Responsive grid: stack to 1 column on mobile */
+  .grid-responsive { grid-template-columns: 1fr !important; }
+
+  /* Inline controls stack vertically */
+  .mobile-stack {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .mobile-stack > * { min-width: 0 !important; }
+
+  /* Remove all minWidth overflows on mobile */
+  .filter-bar > * { min-width: 0 !important; }
+
+  /* Trade tray: compact layout */
+  .trade-tray-main {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* Bigger touch targets on mobile */
+  .button, .select, .input { min-height: 40px; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -866,4 +888,17 @@ tr:hover .sticky-name {
   .filter-bar .input,
   .filter-bar .select { min-width: 0; flex: 1; }
   .sub-nav-btn { font-size: 0.66rem; padding: 6px 8px; }
+
+  /* Compact tables: reduce padding further */
+  th, td { padding: 4px 6px; font-size: 0.7rem; }
+  .sticky-name { min-width: 110px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   TEXT UTILITIES
+   ══════════════════════════════════════════════════════════════════════════ */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

@@ -329,17 +329,17 @@ function TeamComparison({ rows, rawData, sleeperTeams }) {
 
   return (
     <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-        <select className="input" value={teamA} onChange={(e) => setTeamA(e.target.value)} style={{ minWidth: 150 }}>
+      <div className="filter-bar" style={{ marginBottom: 14, marginTop: 0 }}>
+        <select className="input" value={teamA} onChange={(e) => setTeamA(e.target.value)} style={{ flex: 1 }}>
           {sleeperTeams.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
         </select>
-        <span style={{ alignSelf: "center", fontWeight: 700, color: "var(--subtext)" }}>vs</span>
-        <select className="input" value={teamB} onChange={(e) => setTeamB(e.target.value)} style={{ minWidth: 150 }}>
+        <span style={{ fontWeight: 700, color: "var(--subtext)" }}>vs</span>
+        <select className="input" value={teamB} onChange={(e) => setTeamB(e.target.value)} style={{ flex: 1 }}>
           {sleeperTeams.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
         </select>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         {[
           { name: teamA, d: dA, color: "rgba(100,180,220,0.8)" },
           { name: teamB, d: dB, color: "rgba(220,100,120,0.8)" },

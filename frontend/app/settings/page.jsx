@@ -42,7 +42,7 @@ function Section({ title, defaultOpen = true, children }) {
 function SliderRow({ label, value, min, max, step, onChange, hint }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-      <label style={{ minWidth: 140, fontSize: "0.82rem" }}>{label}</label>
+      <label style={{ minWidth: 100, fontSize: "0.82rem" }}>{label}</label>
       <input
         type="range" min={min} max={max} step={step} value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}

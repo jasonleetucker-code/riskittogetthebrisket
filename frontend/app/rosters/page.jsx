@@ -107,7 +107,7 @@ export default function RostersPage() {
                 className="input"
                 value={myTeam}
                 onChange={(e) => update("selectedTeam", e.target.value)}
-                style={{ minWidth: 140 }}
+                style={{ flex: 1, minWidth: 0 }}
               >
                 <option value="">My team...</option>
                 {sleeperTeams.map((t) => (
@@ -118,7 +118,7 @@ export default function RostersPage() {
                 className="input"
                 value={valueMode}
                 onChange={(e) => setValueMode(e.target.value)}
-                style={{ minWidth: 130 }}
+                style={{ flex: 1, minWidth: 0 }}
               >
                 {VALUE_MODES.map((m) => (
                   <option key={m.key} value={m.key}>{m.label}</option>
@@ -426,7 +426,7 @@ function LeagueEdgeCard({ edges }) {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-              <span style={{ fontWeight: 600, minWidth: 130, fontSize: "0.73rem" }}>
+              <span style={{ fontWeight: 600, minWidth: 90, fontSize: "0.73rem" }} className="truncate">
                 {t.name}{t.isMe ? " \u2B50" : ""}
               </span>
               <div style={{ flex: 1, display: "flex", gap: 4, alignItems: "center" }}>
@@ -459,7 +459,7 @@ function LeagueEdgeCard({ edges }) {
               </div>
             </div>
             {(t.topSells.length > 0 || t.topBuys.length > 0) && (
-              <div style={{ fontSize: "0.62rem", color: "var(--subtext)", paddingLeft: 140 }}>
+              <div style={{ fontSize: "0.62rem", color: "var(--subtext)", paddingLeft: 100 }}>
                 {t.topSells.length > 0 && (
                   <span style={{ color: "var(--red)" }}>
                     Overvalued: {t.topSells.map((p) => `${p.name} +${p.pct}%`).join(", ")}

@@ -74,14 +74,14 @@ function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds
           return (
             <div key={team.team}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ minWidth: 110, fontSize: "0.78rem", fontWeight: 600, whiteSpace: "nowrap" }}>{team.team}</span>
+                <span className="truncate" style={{ minWidth: 70, maxWidth: 110, fontSize: "0.78rem", fontWeight: 600 }}>{team.team}</span>
                 <div style={{ flex: 1, background: "var(--bg-soft)", borderRadius: 4, height: 24, position: "relative", overflow: "hidden" }}>
                   <div style={{ width: `${pct}%`, height: "100%", background: "var(--cyan)", borderRadius: 4, transition: "width 0.3s" }} />
                 </div>
                 <span style={{ minWidth: 40, textAlign: "right", fontFamily: "var(--mono)", fontSize: "0.78rem", fontWeight: 700 }}>${team.auctionDollars}</span>
                 <span style={{ minWidth: 30, textAlign: "right", fontFamily: "var(--mono)", fontSize: "0.68rem", color: "var(--subtext)" }}>{teamPicks.length}pk</span>
               </div>
-              <div style={{ fontSize: "0.62rem", color: "var(--muted)", marginLeft: 120, marginTop: -4 }}>{pickLabels}</div>
+              <div style={{ fontSize: "0.62rem", color: "var(--muted)", marginLeft: 80, marginTop: -4 }}>{pickLabels}</div>
             </div>
           );
         })}

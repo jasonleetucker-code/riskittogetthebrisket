@@ -124,7 +124,7 @@ function TeamScoresCard({ teamScores, alpha }) {
       <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 10 }}>
         Trade Winners & Losers
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
         {sorted.map(([teamName, s]) => {
           const netVal = Math.round(Math.pow(Math.abs(s.totalGain), 1 / alpha));
           const netSign = s.totalGain >= 0 ? "+" : "-";
@@ -225,7 +225,7 @@ function TradeCard({ analysis: a }) {
       </div>
 
       {/* Sides */}
-      <div style={{ display: "grid", gridTemplateColumns: a.sides.length > 2 ? "1fr 1fr 1fr" : "1fr 1fr", gap: 12 }}>
+      <div className="grid-responsive" style={{ display: "grid", gridTemplateColumns: a.sides.length > 2 ? "1fr 1fr 1fr" : "1fr 1fr", gap: 12 }}>
         {a.sides.map((side, i) => {
           const isWinner = side === a.winner && a.pctGap >= 3;
           const isLoser = side === a.loser && a.pctGap >= 3;
