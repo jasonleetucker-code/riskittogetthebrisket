@@ -104,11 +104,12 @@ export default function RankingsPage() {
     return sorted;
   }, [rows, posFilter, query, sortCol, sortAsc]);
 
-  function SortHeader({ col, children, style }) {
+  function SortHeader({ col, children, style, className }) {
     const active = sortCol === col;
     const arrow = active ? (sortAsc ? " \u25B2" : " \u25BC") : "";
     return (
       <th
+        className={className}
         style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", ...style }}
         onClick={() => handleSort(col)}
         title={`Sort by ${children}${active ? (sortAsc ? " (ascending)" : " (descending)") : ""}`}
@@ -164,7 +165,7 @@ export default function RankingsPage() {
               placeholder="Search player"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              style={{ minWidth: 180 }}
+              style={{ flex: 1, minWidth: 0 }}
             />
 
             <select className="select" value={posFilter} onChange={(e) => setPosFilter(e.target.value)}>
@@ -188,9 +189,9 @@ export default function RankingsPage() {
                   <SortHeader col="pos">Pos</SortHeader>
                   <SortHeader col="value" style={{ textAlign: "right" }}>Our Value</SortHeader>
                   <SortHeader col="ktc" style={{ textAlign: "right", fontSize: "0.72rem" }}>KTC</SortHeader>
-                  <SortHeader col="ktcRank" style={{ textAlign: "center", fontSize: "0.72rem" }}>KTC Rank</SortHeader>
-                  <SortHeader col="idpTradeCalc" style={{ textAlign: "right", fontSize: "0.72rem" }}>IDPTC</SortHeader>
-                  <SortHeader col="idpRank" style={{ textAlign: "center", fontSize: "0.72rem" }}>IDPTC Rank</SortHeader>
+                  <SortHeader col="ktcRank" style={{ textAlign: "center", fontSize: "0.72rem" }} className="hide-mobile">KTC Rank</SortHeader>
+                  <SortHeader col="idpTradeCalc" style={{ textAlign: "right", fontSize: "0.72rem" }} className="hide-mobile">IDPTC</SortHeader>
+                  <SortHeader col="idpRank" style={{ textAlign: "center", fontSize: "0.72rem" }} className="hide-mobile">IDPTC Rank</SortHeader>
                 </tr>
               </thead>
               <tbody>
@@ -207,13 +208,13 @@ export default function RankingsPage() {
                     <td style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem" }}>
                       {row.canonicalSites?.ktc != null ? Math.round(Number(row.canonicalSites.ktc)).toLocaleString() : "—"}
                     </td>
-                    <td style={{ textAlign: "center", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem", color: "var(--subtext)" }}>
+                    <td className="hide-mobile" style={{ textAlign: "center", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem", color: "var(--subtext)" }}>
                       {row.ktcRank ?? "—"}
                     </td>
-                    <td style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem" }}>
+                    <td className="hide-mobile" style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem" }}>
                       {row.canonicalSites?.idpTradeCalc != null ? Math.round(Number(row.canonicalSites.idpTradeCalc)).toLocaleString() : "—"}
                     </td>
-                    <td style={{ textAlign: "center", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem", color: "var(--subtext)" }}>
+                    <td className="hide-mobile" style={{ textAlign: "center", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem", color: "var(--subtext)" }}>
                       {row.idpRank ?? "—"}
                     </td>
                   </tr>

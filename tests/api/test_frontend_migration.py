@@ -10,21 +10,16 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 class TestFrontendRuntimeDefault(unittest.TestCase):
-    """FRONTEND_RUNTIME must default to 'next', not 'static'."""
+    """FRONTEND_RUNTIME must be hardcoded to 'next' (Static removed)."""
 
-    def test_server_py_defaults_to_next(self):
-        """The fallback FRONTEND_RUNTIME in server.py must be 'next'."""
+    def test_server_py_uses_next(self):
+        """server.py must set FRONTEND_RUNTIME to 'next'."""
         server_py = REPO_ROOT / "server.py"
         text = server_py.read_text()
-        # The line that sets the default when the env var is unset/invalid
         self.assertIn('FRONTEND_RUNTIME = "next"', text)
-        # Must NOT default to static
+        # Static mode must not exist
         self.assertNotIn('FRONTEND_RUNTIME = "static"', text)
-
-    def test_env_example_shows_next_as_default(self):
-        env_example = REPO_ROOT / ".env.example"
-        text = env_example.read_text()
-        self.assertIn("FRONTEND_RUNTIME=next", text)
+        self.assertNotIn("LEGACY_STATIC_DIR", text)
 
 
 class TestLoginPageUsesServerAuth(unittest.TestCase):

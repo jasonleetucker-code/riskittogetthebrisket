@@ -81,12 +81,7 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:3000").rstrip("/")
-_legacy_next_proxy_enabled = _env_bool("ENABLE_NEXT_FRONTEND_PROXY", True)
-FRONTEND_RUNTIME = (os.getenv("FRONTEND_RUNTIME") or "").strip().lower()
-if FRONTEND_RUNTIME not in {"static", "next", "auto"}:
-    # Production default: Next.js is the sole authoritative frontend.
-    # If Next.js is not running, server returns 503 — no silent static fallback.
-    FRONTEND_RUNTIME = "next"
+FRONTEND_RUNTIME = "next"
 
 ALERT_ENABLED = _env_bool("ALERT_ENABLED", False)
 ALERT_TO = os.getenv("ALERT_TO", "")
@@ -158,9 +153,7 @@ def send_alert(subject: str, body: str):
 BASE_DIR = Path(__file__).parent.resolve()
 DATA_DIR = BASE_DIR / "data"
 STATIC_DIR = BASE_DIR / "static"
-LEGACY_STATIC_DIR = BASE_DIR / "Static"
 SCRAPER_PATH = BASE_DIR / "Dynasty Scraper.py"
-RUNTIME_JS_DIR = (LEGACY_STATIC_DIR / "js") if (LEGACY_STATIC_DIR / "js").exists() else (STATIC_DIR / "js")
 
 DATA_DIR.mkdir(exist_ok=True)
 STATIC_DIR.mkdir(exist_ok=True)
@@ -202,7 +195,7 @@ latest_contract_data: dict | None = None
 latest_data_bytes: bytes | None = None
 latest_data_gzip_bytes: bytes | None = None
 latest_data_etag: str | None = None
-# Lean runtime payload (drops heavy contract-only arrays not needed by Static app startup).
+# Lean runtime payload (drops heavy contract-only arrays not needed by frontend startup).
 latest_runtime_data: dict | None = None
 latest_runtime_data_bytes: bytes | None = None
 latest_runtime_data_gzip_bytes: bytes | None = None
@@ -284,9 +277,9 @@ uptime_status = {
     "consecutive_failures": 0,
 }
 frontend_runtime_status = {
-    "configured": FRONTEND_RUNTIME,
-    "active": "static",
-    "reason": "configured_static_default",
+    "configured": "next",
+    "active": "next",
+    "reason": "next_only",
     "fallbackFrom": None,
     "lastChecked": None,
 }
@@ -861,70 +854,6 @@ def _build_source_health_snapshot(data: dict | None) -> dict:
     }
 
 
-def _set_frontend_runtime_status(active: str, reason: str, fallback_from: str | None = None) -> None:
-    prev = (
-        frontend_runtime_status.get("active"),
-        frontend_runtime_status.get("reason"),
-        frontend_runtime_status.get("fallbackFrom"),
-    )
-    frontend_runtime_status.update(
-        {
-            "configured": FRONTEND_RUNTIME,
-            "active": active,
-            "reason": reason,
-            "fallbackFrom": fallback_from,
-            "lastChecked": _utc_now_iso(),
-        }
-    )
-    current = (active, reason, fallback_from)
-    if current != prev:
-        log.info(
-            "[Frontend Runtime] configured=%s active=%s reason=%s fallback_from=%s",
-            FRONTEND_RUNTIME,
-            active,
-            reason,
-            fallback_from,
-        )
-
-
-def _resolve_frontend_path(path: str) -> Response | None:
-    mode = FRONTEND_RUNTIME
-
-    if mode == "static":
-        _set_frontend_runtime_status("static", "configured_static_mode")
-        return None
-
-    proxied, err = _proxy_next(path)
-
-    if mode == "next":
-        if proxied is not None:
-            _set_frontend_runtime_status("next", "configured_next_mode")
-            return proxied
-        _set_frontend_runtime_status("next-unavailable", "configured_next_mode_but_unreachable")
-        return HTMLResponse(
-            (
-                "<h1>Next frontend unavailable</h1>"
-                f"<p>FRONTEND_RUNTIME is set to <code>next</code> but proxy failed: {err or 'unknown error'}</p>"
-                "<p>Start Next on FRONTEND_URL or set FRONTEND_RUNTIME=static/auto.</p>"
-            ),
-            status_code=503,
-        )
-
-    # auto mode
-    if proxied is not None:
-        _set_frontend_runtime_status("next", "auto_mode_next_available")
-        return proxied
-    _set_frontend_runtime_status("static", "auto_mode_fallback_to_static", fallback_from="next")
-    return None
-
-
-# Initialize runtime status at process boot.
-if FRONTEND_RUNTIME == "static":
-    _set_frontend_runtime_status("static", "configured_static_mode")
-elif FRONTEND_RUNTIME == "next":
-    _set_frontend_runtime_status("next", "configured_next_mode_pending_probe")
-else:
-    _set_frontend_runtime_status("auto", "configured_auto_mode_pending_probe")
 
 
 # ── SCRAPER INTEGRATION ────────────────────────────────────────────────
@@ -1003,7 +932,7 @@ def _prime_latest_payload(data: dict | None) -> None:
         latest_data_gzip_bytes = gzip.compress(raw, compresslevel=5)
         latest_data_etag = hashlib.sha1(raw).hexdigest()
 
-        # Static runtime payload: keep canonical top-level data shape used by the live UI,
+        # Runtime payload: keep canonical top-level data shape used by the live UI,
         # but remove heavyweight contract array duplication to reduce parse/transfer cost.
         runtime_payload = dict(contract_payload)
         runtime_payload.pop("playersArray", None)
@@ -1593,12 +1522,7 @@ async def lifespan(app: FastAPI):
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
 
     log.info(f"Server started — scraping every {SCRAPE_INTERVAL_HOURS}h")
-    if os.getenv("FRONTEND_RUNTIME") is None and _legacy_next_proxy_enabled:
-        log.info(
-            "FRONTEND_RUNTIME not set; defaulting to static. "
-            "Set FRONTEND_RUNTIME=auto|next to proxy Next intentionally."
-        )
-    log.info("Frontend runtime configured: %s (frontend_url=%s)", FRONTEND_RUNTIME, FRONTEND_URL)
+    log.info("Frontend: Next.js at %s", FRONTEND_URL)
     log.info(f"Dashboard: http://localhost:{PORT}")
 
     yield  # app is running
@@ -2887,14 +2811,11 @@ async def serve_landing(request: Request):
 
 
 @app.get("/league", response_class=HTMLResponse)
-async def serve_league_entry():
-    league_path = LEGACY_STATIC_DIR / "league.html"
-    if league_path.exists():
-        return FileResponse(league_path, media_type="text/html")
-    return HTMLResponse(
-        "<h1>League page missing</h1><p>Expected Static/league.html.</p>",
-        status_code=500,
-    )
+async def serve_league_entry(request: Request):
+    redirect = _require_auth_or_redirect(request, "/league")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/league")
 
 
 def _require_auth_or_redirect(request: Request, default_next: str = "/app") -> RedirectResponse | None:
@@ -2904,11 +2825,14 @@ def _require_auth_or_redirect(request: Request, default_next: str = "/app") -> R
 
 
 async def _serve_app_shell(frontend_path: str) -> Response:
-    """Proxy the request to Next.js. No static index.html fallback."""
-    routed = _resolve_frontend_path(frontend_path)
-    if routed is not None:
-        return routed
-    return HTMLResponse("Next frontend unavailable", status_code=503)
+    """Proxy the request to the Next.js frontend."""
+    proxied, err = _proxy_next(frontend_path)
+    if proxied is not None:
+        return proxied
+    return HTMLResponse(
+        f"<h1>Next frontend unavailable</h1><p>{err or 'unknown error'}</p>",
+        status_code=503,
+    )
 
 
 # ── DASHBOARD ROUTES (AUTH REQUIRED) ────────────────────────────────────
@@ -2960,6 +2884,38 @@ async def serve_finder(request: Request):
     return await _serve_app_shell("/finder")
 
 
+@app.get("/trades", response_class=HTMLResponse)
+async def serve_trades(request: Request):
+    redirect = _require_auth_or_redirect(request, "/trades")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/trades")
+
+
+@app.get("/rosters", response_class=HTMLResponse)
+async def serve_rosters(request: Request):
+    redirect = _require_auth_or_redirect(request, "/rosters")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/rosters")
+
+
+@app.get("/draft-capital", response_class=HTMLResponse)
+async def serve_draft_capital(request: Request):
+    redirect = _require_auth_or_redirect(request, "/draft-capital")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/draft-capital")
+
+
+@app.get("/more", response_class=HTMLResponse)
+async def serve_more(request: Request):
+    redirect = _require_auth_or_redirect(request, "/more")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/more")
+
+
 @app.get("/login", response_class=HTMLResponse)
 async def serve_login(request: Request):
     """Login page — no auth required (avoids redirect loop)."""
@@ -2972,37 +2928,25 @@ async def serve_index_alias(request: Request):
     return RedirectResponse(url="/", status_code=301)
 
 
-@app.get("/Static/index.html", response_class=HTMLResponse)
-async def serve_legacy_index_alias(request: Request):
-    """Legacy alias — redirect to root."""
-    return RedirectResponse(url="/", status_code=301)
-
-
 @app.get("/_next/{full_path:path}")
 async def serve_next_assets(full_path: str):
-    routed = _resolve_frontend_path(f"/_next/{full_path}")
-    if routed is not None:
-        return routed
+    proxied, _ = _proxy_next(f"/_next/{full_path}")
+    if proxied is not None:
+        return proxied
     return Response(status_code=404)
 
 
 @app.get("/favicon.ico")
 async def serve_favicon():
-    routed = _resolve_frontend_path("/favicon.ico")
-    if routed is not None:
-        return routed
+    proxied, _ = _proxy_next("/favicon.ico")
+    if proxied is not None:
+        return proxied
     return Response(status_code=404)
 
 
-# Static file mounts — these serve assets for /league, landing.html, and legacy
-# supplementary pages. They do NOT serve the primary app shell (that is Next.js).
-# Static/index.html is no longer the production renderer.
+# Static file mount for backend-generated assets (CSS, images if any).
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-if LEGACY_STATIC_DIR.exists():
-    app.mount("/Static", StaticFiles(directory=str(LEGACY_STATIC_DIR)), name="legacy-static")
-if RUNTIME_JS_DIR.exists():
-    app.mount("/js", StaticFiles(directory=str(RUNTIME_JS_DIR)), name="runtime-js")
 
 
 # ── MAIN ────────────────────────────────────────────────────────────────

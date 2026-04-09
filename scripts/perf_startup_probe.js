@@ -201,7 +201,7 @@ async function measureViewport({ name, contextOptions = {} }) {
 async function main() {
   const env = {
     ...process.env,
-    FRONTEND_RUNTIME: process.env.FRONTEND_RUNTIME || 'static',
+    FRONTEND_RUNTIME: process.env.FRONTEND_RUNTIME || 'next',
     UPTIME_CHECK_ENABLED: 'false',
     PYTHONIOENCODING: 'utf-8',
     PYTHONUTF8: '1',

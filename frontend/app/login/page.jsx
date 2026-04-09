@@ -3,19 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAuthContext } from "@/app/AppShellWrapper";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { onLoginSuccess } = useAuthContext();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [redirectPath, setRedirectPath] = useState("/app");
+  const [redirectPath, setRedirectPath] = useState("/rankings");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const next = params.get("next") || "/app";
-    setRedirectPath(next.startsWith("/") ? next : "/app");
+    const next = params.get("next") || "/rankings";
+    setRedirectPath(next.startsWith("/") ? next : "/rankings");
   }, []);
 
   async function handleSubmit(event) {
@@ -44,7 +46,8 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.ok && data.ok) {
-        // Server sets the session cookie; redirect to the target path
+        // Server sets the session cookie; update auth state and redirect
+        onLoginSuccess?.();
         router.push(data.redirect || redirectPath);
       } else {
         setError(data.error || "Invalid username or password.");

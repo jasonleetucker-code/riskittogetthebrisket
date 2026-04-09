@@ -5,13 +5,11 @@
 //   • OVERALL_RANK_LIMIT    — overall board cap (800)
 //
 // The backend authority is src/api/data_contract.py (_compute_unified_rankings).
-// The Static legacy frontend has a parallel implementation in:
-//   Static/js/runtime/10-rankings-and-picks.js (_rankToValue, buildFullRankings)
 //
 // !! When changing ranking logic, formula constants, or eligibility rules !!
 // !! you MUST update BOTH files and BOTH test suites to stay in sync.     !!
 //   • JS tests:     frontend/__tests__/dynasty-data.test.js
-//   • Python tests: tests/api/test_rankings_our_rank.py (cross-checks both files)
+//   • Python tests: tests/api/test_rankings_our_rank.py
 // ─────────────────────────────────────────────────────────────────────────────
 
 const OFFENSE = new Set(["QB", "RB", "WR", "TE"]);
@@ -69,16 +67,12 @@ export function resolvedRank(row) {
 // function is only invoked when backend fields are absent (stale data,
 // offline mode, unit tests).
 //
-// MUST stay byte-for-byte identical to _rankToValue() in:
-//   Static/js/runtime/10-rankings-and-picks.js (~line 407)
-//
 // Formula: value = max(1, min(9999, round(1 + 9998 / (1 + ((rank-1)/45)^1.10))))
 //   • rank 1  → 9999 (exact; denominator = 1)
 //   • midpoint (rank 45) → ~5000
 //   • Hill-style: flatter at top, longer tail than inverse-power
 //
-// Tests enforcing body-equality: tests/api/test_rankings_our_rank.py
-//   TestFormulaAgreement::test_fallback_formula_bodies_are_identical
+// Tests: tests/api/test_rankings_our_rank.py
 export function rankToValue(rank) {
   if (!rank || rank <= 0) return 0;
   return Math.max(1, Math.min(9999, Math.round(1 + 9998 / (1 + Math.pow((rank - 1) / 45, 1.10)))));

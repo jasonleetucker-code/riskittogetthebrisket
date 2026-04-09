@@ -116,7 +116,7 @@ export default function FinderPage() {
                   className="select"
                   value={myTeam}
                   onChange={(e) => setMyTeam(e.target.value)}
-                  style={{ minWidth: 200 }}
+                  style={{ flex: 1, minWidth: 0 }}
                 >
                   <option value="">Select your team...</option>
                   {sleeperTeams.map((t) => (
@@ -174,7 +174,7 @@ export default function FinderPage() {
                         </div>
 
                         {/* Give / Receive */}
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                        <div className="grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                           <div>
                             <div className="muted" style={{ fontSize: "0.72rem", marginBottom: 4 }}>You Give</div>
                             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>

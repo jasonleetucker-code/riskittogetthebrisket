@@ -100,7 +100,7 @@ A **dynasty fantasy football trade calculator and league management tool** built
 | `SLEEPER_LEAGUE_ID` | `1312006700437352448` | Primary league for roster/picks/trades |
 | `BASELINE_LEAGUE_ID` | — | Test league for LAM baseline scoring |
 | `CANONICAL_DATA_MODE` | `off` | `off` / `shadow` / `primary` — pipeline integration |
-| `FRONTEND_RUNTIME` | `static` | `static` / `next` / `auto` |
+| `FRONTEND_RUNTIME` | `next` | Hardcoded — Next.js is sole frontend |
 | `FRONTEND_URL` | `http://127.0.0.1:3000` | Next.js dev server URL |
 | `SCRAPE_INTERVAL_HOURS` | `2` | How often to auto-scrape |
 | `SCRAPE_RUN_TIMEOUT_SECONDS` | `7200` | Max scrape wall time |

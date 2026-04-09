@@ -28,8 +28,8 @@ module.exports = defineConfig({
     : {
         cwd: "../..",
         command: isWin
-          ? "set FRONTEND_RUNTIME=static&& set UPTIME_CHECK_ENABLED=false&& python server.py"
-          : "FRONTEND_RUNTIME=static UPTIME_CHECK_ENABLED=false python server.py",
+          ? "set UPTIME_CHECK_ENABLED=false&& python server.py"
+          : "UPTIME_CHECK_ENABLED=false python server.py",
         url: "http://127.0.0.1:8000/api/health",
         timeout: 240_000,
         reuseExistingServer: true,

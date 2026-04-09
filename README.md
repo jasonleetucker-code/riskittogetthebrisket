@@ -69,14 +69,12 @@ This repo is now wired so both sides can work together:
    - Tries backend `http://127.0.0.1:8000/api/data` first
    - Falls back to local `dynasty_data_YYYY-MM-DD.json` / `dynasty_data.js`
 
-2. **Python server runtime is explicit (`FRONTEND_RUNTIME`)**
+2. **Python server runtime proxies to Next.js**
    - `server.py`
-   - `FRONTEND_RUNTIME=static` (default): serves legacy static app intentionally
-   - `FRONTEND_RUNTIME=next`: proxies Next intentionally (no silent static fallback)
-   - `FRONTEND_RUNTIME=auto`: tries Next first, then explicit static fallback
+   - `FRONTEND_RUNTIME` is hardcoded to `next` — all page routes proxy to the Next.js frontend
+   - No legacy Static fallback exists
 
 ### Optional env vars
-- `FRONTEND_RUNTIME=static|next|auto` (default `static`)
 - `FRONTEND_URL=http://127.0.0.1:3000`
 - `ENABLE_NEXT_FRONTEND_PROXY=true|false` (legacy/deprecated)
 - `BACKEND_API_URL=http://127.0.0.1:8000/api/data` (for Next route)
@@ -85,7 +83,7 @@ This repo is now wired so both sides can work together:
 
 ### `/api/data` contract
 - `/api/data` is now versioned (`contractVersion=2026-03-09.v1`)
-- Preserves legacy Static compatibility fields (`players` map, `maxValues`, etc.)
+- Preserves legacy compatibility fields (`players` map, `maxValues`, etc.)
 - Adds normalized stable fields (`playersArray`, `dataSource`, `contractHealth`)
 - Runtime + CI validation:
   - runtime surfaced in `GET /api/status`
