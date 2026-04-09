@@ -126,8 +126,11 @@ SITE_CAP_OFFENSE = _env_int("SITE_CAP_OFFENSE", 550)
 SITE_CAP_DEFENSE = _env_int("SITE_CAP_DEFENSE", 425)
 SITE_CAP_COMBINED = _env_int("SITE_CAP_COMBINED", 900)
 SITE_CAP_DRAFTSHARKS = _env_int("SITE_CAP_DRAFTSHARKS", 900)
+# IDPTradeCalc autocomplete: search for players the API intercept misses.
+# The site's API only returns IDP players, but the search box finds offense too.
+# Enable by default so KTC offense players get looked up on IDPTradeCalc.
 IDP_AUTOCOMPLETE_MAX = _env_int("IDP_AUTOCOMPLETE_MAX", 500)
-IDP_AUTOCOMPLETE_ENABLE = _env_str("IDP_AUTOCOMPLETE_ENABLE", "false").strip().lower() in {"1", "true", "yes", "on"}
+IDP_AUTOCOMPLETE_ENABLE = _env_str("IDP_AUTOCOMPLETE_ENABLE", "true").strip().lower() in {"1", "true", "yes", "on"}
 TOP_OFF_COVERAGE_AUDIT_N = _env_int("TOP_OFF_COVERAGE_AUDIT_N", 300)
 TOP_IDP_COVERAGE_AUDIT_N = _env_int("TOP_IDP_COVERAGE_AUDIT_N", 250)
 TOP_OFF_MIN_SOURCES = _env_int("TOP_OFF_MIN_SOURCES", 1)
@@ -4300,7 +4303,7 @@ async def scrape_idptradecalc(page, players):
                     f"(IDP_AUTOCOMPLETE_ENABLE=false). Keeping API-only values: {api_count}"
                 )
             return results
-        _rank_signal_sites = {"DynastyNerds", "PFF_IDP", "FantasyPros_IDP", "DraftSharks_IDP", "DraftSharks"}
+        _rank_signal_sites = set()  # No rank-based sites in the two-source model
         _candidates = {}
 
         def _upsert_missing_candidate(raw_name, rostered=False, site_name="", raw_val=None):

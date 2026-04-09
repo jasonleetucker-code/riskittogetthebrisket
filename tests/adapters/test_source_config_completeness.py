@@ -71,13 +71,13 @@ class TestSourceConfigCompleteness:
             f"Duplicate source IDs: {[s for s in enabled if enabled.count(s) > 1]}"
         )
 
-    def test_idp_source_has_idp_universe(self, config):
+    def test_idptradecalc_covers_all_positions(self, config):
         for src in config["sources"]:
             if not src.get("enabled"):
                 continue
             if src["source"] == "IDPTRADECALC":
-                assert "idp" in src.get("universe", "").lower(), (
-                    f"IDP source {src['source']} should have an IDP universe, got {src.get('universe')}"
+                assert src.get("universe") == "all", (
+                    f"IDPTRADECALC covers offense+IDP via autocomplete, universe should be 'all', got {src.get('universe')}"
                 )
 
     def test_weights_only_contain_allowed_sources(self, weights):
