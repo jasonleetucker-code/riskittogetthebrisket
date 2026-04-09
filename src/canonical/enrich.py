@@ -102,8 +102,7 @@ def build_legacy_position_lookup(legacy_path: Path) -> dict[str, str]:
     for name, pdata in players.items():
         if not isinstance(pdata, dict):
             continue
-        # Legacy data may store position under "POS" or the old "_lamBucket" key
-        raw_pos = str(pdata.get("position", pdata.get("POS", pdata.get("_lamBucket", "")))).strip().upper()
+        raw_pos = str(pdata.get("position", pdata.get("POS", ""))).strip().upper()
         if not raw_pos or raw_pos == "PICK":
             continue
         canonical_pos = LEGACY_POS_MAP.get(raw_pos)

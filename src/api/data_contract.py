@@ -241,10 +241,6 @@ STARTUP_DROP_TOP_LEVEL_KEYS = {
 # removed from the codebase.  Older data files may still contain these fields.
 # They are stripped from ALL API responses so no legacy LAM/scarcity data is
 # ever served publicly.
-#
-# Note: internal pipeline code (enrich.py, calibration.py) may still read
-# _lamBucket as a position-extraction fallback from legacy data files — that
-# is acceptable because it is strictly internal and never served publicly.
 _LEGACY_LAM_PLAYER_PREFIXES = ("_lam", "_rawLeague", "_shrunkLeague")
 _LEGACY_LAM_PLAYER_FIELDS = {
     "_leagueAdjusted",
