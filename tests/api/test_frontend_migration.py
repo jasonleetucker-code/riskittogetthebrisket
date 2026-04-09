@@ -174,13 +174,6 @@ class TestEdgeAndFinderRoutes(unittest.TestCase):
         self.assertIn("useDynastyData", text)
         self.assertIn("WORKFLOWS", text)
 
-    def test_edge_lib_exists(self):
-        lib = REPO_ROOT / "frontend" / "lib" / "edge-detection.js"
-        self.assertTrue(lib.exists())
-        text = lib.read_text()
-        self.assertIn("buildEdgeProjection", text)
-        self.assertIn("projectPercentileToCurve", text)
-
     def test_nav_includes_edge_and_finder(self):
         wrapper = REPO_ROOT / "frontend" / "app" / "AppShellWrapper.jsx"
         text = wrapper.read_text()

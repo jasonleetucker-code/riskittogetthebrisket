@@ -4,7 +4,8 @@ import { useMemo } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useApp } from "@/components/AppShell";
 import { actionLabel, cautionLabels } from "@/lib/edge-helpers";
-import { posBadgeClass, confBadgeClass, confBadgeLabel as confLabel } from "@/lib/display-helpers";
+import { posBadgeClass, confBadgeClass, confBadgeLabel as confLabel, isEligibleForAnalysis } from "@/lib/display-helpers";
+import { EDGE_SECTION_LIMIT, EDGE_PREMIUM_LIMIT, EDGE_CAUTION_RANK_LIMIT, PREMIUM_SUMMARY_SPREAD } from "@/lib/thresholds";
 
 // ── Edge Page ─────────────────────────────────────────────────────────────
 // Source-agreement analysis dashboard. Every signal on this page traces to
@@ -180,7 +181,7 @@ export default function EdgePage() {
 
   // Eligible: non-pick, ranked players
   const eligible = useMemo(
-    () => rows.filter((r) => r.pos && r.pos !== "?" && r.pos !== "PICK" && r.rank),
+    () => rows.filter(isEligibleForAnalysis),
     [rows],
   );
 
@@ -191,52 +192,52 @@ export default function EdgePage() {
       eligible
         .filter((r) => r.confidenceBucket === "high" && (r.sourceCount ?? 0) >= 2 && !r.quarantined)
         .sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity))
-        .slice(0, 15),
+        .slice(0, EDGE_SECTION_LIMIT),
     [eligible],
   );
 
   const disagreements = useMemo(
     () =>
       eligible
-        .filter((r) => (r.sourceRankSpread ?? 0) > 20 && (r.sourceCount ?? 0) >= 2 && !r.quarantined)
+        .filter((r) => (r.sourceRankSpread ?? 0) > PREMIUM_SUMMARY_SPREAD && (r.sourceCount ?? 0) >= 2 && !r.quarantined)
         .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
-        .slice(0, 15),
+        .slice(0, EDGE_SECTION_LIMIT),
     [eligible],
   );
 
   const ktcPremium = useMemo(
     () =>
       eligible
-        .filter((r) => r.marketGapDirection === "ktc_higher" && (r.sourceRankSpread ?? 0) >= 20 && !r.quarantined)
+        .filter((r) => r.marketGapDirection === "ktc_higher" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
         .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
-        .slice(0, 10),
+        .slice(0, EDGE_PREMIUM_LIMIT),
     [eligible],
   );
 
   const idptcPremium = useMemo(
     () =>
       eligible
-        .filter((r) => r.marketGapDirection === "idptc_higher" && (r.sourceRankSpread ?? 0) >= 20 && !r.quarantined)
+        .filter((r) => r.marketGapDirection === "idptc_higher" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
         .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
-        .slice(0, 10),
+        .slice(0, EDGE_PREMIUM_LIMIT),
     [eligible],
   );
 
   const flagged = useMemo(
     () =>
       eligible
-        .filter((r) => (r.anomalyFlags || []).length > 0 && (r.rank ?? Infinity) <= 300)
+        .filter((r) => (r.anomalyFlags || []).length > 0 && (r.rank ?? Infinity) <= EDGE_CAUTION_RANK_LIMIT)
         .sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity))
-        .slice(0, 15),
+        .slice(0, EDGE_SECTION_LIMIT),
     [eligible],
   );
 
   const singleSource = useMemo(
     () =>
       eligible
-        .filter((r) => r.isSingleSource && (r.rank ?? Infinity) <= 300)
+        .filter((r) => r.isSingleSource && (r.rank ?? Infinity) <= EDGE_CAUTION_RANK_LIMIT)
         .sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity))
-        .slice(0, 15),
+        .slice(0, EDGE_SECTION_LIMIT),
     [eligible],
   );
 
@@ -245,7 +246,7 @@ export default function EdgePage() {
     total: eligible.length,
     multiSource: eligible.filter((r) => (r.sourceCount ?? 0) >= 2).length,
     highConf: eligible.filter((r) => r.confidenceBucket === "high").length,
-    disagreementCount: eligible.filter((r) => (r.sourceRankSpread ?? 0) > 20 && (r.sourceCount ?? 0) >= 2).length,
+    disagreementCount: eligible.filter((r) => (r.sourceRankSpread ?? 0) > PREMIUM_SUMMARY_SPREAD && (r.sourceCount ?? 0) >= 2).length,
     flaggedCount: eligible.filter((r) => (r.anomalyFlags || []).length > 0).length,
     singleCount: eligible.filter((r) => r.isSingleSource).length,
   }), [eligible]);

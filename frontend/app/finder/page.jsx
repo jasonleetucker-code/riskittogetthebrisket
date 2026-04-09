@@ -4,7 +4,9 @@ import { useMemo, useState, useCallback } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useApp } from "@/components/AppShell";
 import { actionLabel, cautionLabels } from "@/lib/edge-helpers";
-import { posBadgeClass, confBadgeClass, confBadgeLabel as confLabel } from "@/lib/display-helpers";
+import { posBadgeClass, confBadgeClass, confBadgeLabel as confLabel, isEligibleForAnalysis } from "@/lib/display-helpers";
+import { rowChips } from "@/lib/rankings-helpers";
+import { FINDER_ROW_LIMIT, CONFIDENCE_SPREAD_HIGH } from "@/lib/thresholds";
 
 // ── Finder Page ────────────────────────────────────────────────────────────
 // Filter-driven player discovery tool. Each workflow surfaces a specific type
@@ -103,7 +105,7 @@ function posMatches(row, filter) {
   return row.pos === filter;
 }
 
-const ROW_LIMIT = 100;
+const ROW_LIMIT = FINDER_ROW_LIMIT;
 
 // ── Main component ────────────────────────────────────────────────────────
 
@@ -127,7 +129,7 @@ export default function FinderPage() {
 
   // Eligible: non-pick, ranked players
   const eligible = useMemo(
-    () => rows.filter((r) => r.pos && r.pos !== "?" && r.pos !== "PICK" && r.rank),
+    () => rows.filter(isEligibleForAnalysis),
     [rows],
   );
 
@@ -258,6 +260,7 @@ export default function FinderPage() {
                       const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
                       const action = actionLabel(row);
                       const cautions = cautionLabels(row);
+                      const chips = rowChips(row);
                       return (
                         <tr key={row.name} className={row.quarantined ? "rankings-row-quarantined" : undefined}>
                           <td style={{ textAlign: "center", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono)" }}>
@@ -275,8 +278,12 @@ export default function FinderPage() {
                                 {row.team || ""}{row.age ? `, ${row.age}` : ""}
                               </span>
                             )}
-                            {row.rookie && (
-                              <span className="badge badge-green" style={{ marginLeft: 4, fontSize: "0.6rem" }}>R</span>
+                            {chips.length > 0 && (
+                              <span className="rankings-chips">
+                                {chips.map((c) => (
+                                  <span key={c.label} className={`badge ${c.css} rankings-chip`} title={c.title} style={{ fontSize: "0.6rem" }}>{c.label}</span>
+                                ))}
+                              </span>
                             )}
                           </td>
                           <td>
@@ -288,7 +295,7 @@ export default function FinderPage() {
                           {workflow.showSpread && (
                             <td style={{ textAlign: "center", fontFamily: "var(--mono)" }}>
                               {row.sourceRankSpread != null ? (
-                                <span style={{ color: (row.sourceRankSpread ?? 0) > 30 ? "var(--amber)" : "inherit" }}>
+                                <span style={{ color: (row.sourceRankSpread ?? 0) > CONFIDENCE_SPREAD_HIGH ? "var(--amber)" : "inherit" }}>
                                   {`\u00B1${row.sourceRankSpread}`}
                                 </span>
                               ) : "\u2014"}

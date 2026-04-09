@@ -172,7 +172,7 @@ for p in data.get('playersArray', []):
 ## Intentionally Deferred
 
 1. **League-specific trade finder** — old Finder used Sleeper rosters + `/api/trade/finder` API. Deferred until league sync is built.
-2. **Percentile projection engine** — `frontend/lib/edge-detection.js` still exists but is no longer imported by any page. Kept for potential future use; migration test still asserts its existence.
+2. **Percentile projection engine** — `frontend/lib/edge-detection.js` was removed (dead code, no imports). Can be rebuilt from git history if needed.
 3. **Per-section filtering on Edge page** — sections show fixed top-N lists. Could add interactive filtering later.
 4. **Export/copy on Edge and Finder** — available on Rankings page only.
 5. **Age field population** — scaffolded in contract (`age` field) but null for most players since the scraper bridge does not supply age.

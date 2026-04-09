@@ -21,9 +21,11 @@ import {
   computeEdgeSummary,
 } from "@/lib/edge-helpers";
 import {
+  posBadgeClass,
   confBadgeClass as confidenceBadgeClass,
   confBadgeLabel as confidenceBadgeLabel,
   marketGapLabel,
+  isEligibleForBoard,
 } from "@/lib/display-helpers";
 
 // ── UNIFIED RANKINGS PAGE ────────────────────────────────────────────
@@ -80,7 +82,7 @@ function MethodologySection() {
         <li><strong>Blended ranking</strong> — Multi-source players get averaged normalized values. Single-source players keep their one value.</li>
         <li><strong>Unified sort</strong> — All players sorted by blended value into one board. Top 800 get a consensus rank.</li>
         <li><strong>Tier detection</strong> — Natural value clusters detected via gap analysis. Tier breaks appear where adjacent players have unusually large value gaps.</li>
-        <li><strong>Confidence scoring</strong> — High = 2+ sources, spread {"<"} 30. Medium = 2+ sources, spread {"<"} 80. Low = single source or wide disagreement.</li>
+        <li><strong>Confidence scoring</strong> — High = 2+ sources, spread &le; 30. Medium = 2+ sources, spread &le; 80. Low = single source or spread &gt; 80.</li>
         <li><strong>Identity validation</strong> — Post-ranking pass checks for entity resolution problems. Flagged rows are quarantined (confidence degraded, not removed).</li>
       </ol>
       <p style={{ margin: "8px 0 0", fontSize: "0.72rem", color: "var(--muted)", fontFamily: "var(--mono)" }}>
@@ -212,7 +214,7 @@ export default function RankingsPage() {
 
   // ── Base eligible list ──────────────────────────────────────────
   const eligible = useMemo(() => {
-    return rows.filter((r) => r.pos && r.pos !== "?" && r.pos !== "PICK");
+    return rows.filter(isEligibleForBoard);
   }, [rows]);
 
   // ── Trust summary stats ──────────────────────────────────────────
@@ -572,7 +574,7 @@ export default function RankingsPage() {
 
                         {/* Position */}
                         <td>
-                          <span className={`badge ${row.assetClass === "offense" ? "badge-cyan" : row.assetClass === "idp" ? "badge-amber" : ""}`}>
+                          <span className={posBadgeClass(row)}>
                             {row.pos}
                           </span>
                         </td>
