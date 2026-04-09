@@ -533,7 +533,7 @@ describe("effectiveValue", () => {
     expect(effectiveValue(ALLEN, "full", null)).toBe(9000);
   });
 
-  it("returns raw value with settings (no LAM)", () => {
+  it("returns raw value with settings (no adjustment)", () => {
     const settings = { leagueFormat: "superflex" };
     expect(effectiveValue(ALLEN, "full", settings)).toBe(9000);
   });
