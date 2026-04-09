@@ -218,6 +218,10 @@ export function buildRows(data) {
         sourceRankSpread: player.sourceRankSpread ?? null,
         marketGapDirection: String(player.marketGapDirection || "none"),
         marketGapMagnitude: player.marketGapMagnitude ?? null,
+        // Identity quality fields — backend-authoritative
+        identityConfidence: Number(player.identityConfidence ?? 0.7),
+        identityMethod: String(player.identityMethod || "name_only"),
+        quarantined: Boolean(player.quarantined),
         raw: player,
       });
     }
@@ -271,6 +275,9 @@ export function buildRows(data) {
       sourceRankSpread: null,
       marketGapDirection: "none",
       marketGapMagnitude: null,
+      identityConfidence: 0.7,
+      identityMethod: "name_only",
+      quarantined: false,
       raw: player,
     });
   }

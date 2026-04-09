@@ -81,6 +81,33 @@ _RETIRED_INVALID_PATTERNS = re.compile(
 )
 _OL_POSITIONS = {"OL", "OT", "OG", "C", "G", "T"}
 
+# ── Identity validation constants ────────────────────────────────────────────
+# Supported positions: only these may appear on the public board.  Anything
+# else is either a data-entry error or position contamination.
+_SUPPORTED_BOARD_POSITIONS = _OFFENSE_POSITIONS | _IDP_POSITIONS | {"PICK"}
+
+# Near-name collision: two players sharing a last name where one is offense
+# and the other is IDP, with wildly different rank-derived values, suggest
+# entity-resolution confusion (e.g. "James Williams" WR ≠ "James Williams" LB).
+_NEAR_NAME_VALUE_RATIO_THRESHOLD = 3.0  # flag if max/min value ratio > 3x
+
+# Quarantine flags added by the identity validation pass.  These are appended
+# to anomalyFlags[] and also cause confidenceBucket degradation.
+#   "name_collision_cross_universe" — same normalized name in offense + IDP
+#   "position_source_contradiction" — position family disagrees with source evidence
+#   "near_name_value_mismatch"     — same last name, wildly different values
+#   "unsupported_position"         — position not in _SUPPORTED_BOARD_POSITIONS
+#   "no_valid_source_values"       — no source values > 0 but has derived value
+#   "orphan_csv_graft"             — value came from CSV enrichment for wrong entity
+_QUARANTINE_FLAGS = {
+    "name_collision_cross_universe",
+    "position_source_contradiction",
+    "near_name_value_mismatch",
+    "unsupported_position",
+    "no_valid_source_values",
+    "orphan_csv_graft",
+}
+
 # CSV export paths for source enrichment (relative to repo root)
 _SOURCE_CSV_PATHS = {
     "ktc": "exports/latest/site_raw/ktc.csv",
@@ -190,6 +217,247 @@ def _compute_market_gap(
             return "idptc_higher", float(abs(diff))
         return "none", 0.0
     return "none", None
+
+
+def _normalize_for_collision(name: str) -> str:
+    """Reduce a display name to a collision-detection key.
+
+    Strips suffixes, lowercases, removes non-alpha.  Used to detect when
+    two different display names (e.g. "Jameson Williams" and "James Williams")
+    would collide in the identity pipeline.
+    """
+    from src.utils.name_clean import normalize_player_name  # noqa: PLC0415
+    return normalize_player_name(name)
+
+
+def _extract_last_name(name: str) -> str:
+    """Extract the last whitespace-delimited token as a surname proxy."""
+    parts = str(name or "").strip().split()
+    return parts[-1].lower() if parts else ""
+
+
+def _compute_identity_confidence(
+    row: dict[str, Any],
+) -> tuple[float, str]:
+    """Score how confident we are that this row represents the right entity.
+
+    Returns (score 0.0-1.0, method_string).
+
+    Rules:
+      1.00 — has a non-empty playerId (Sleeper ID or external key)
+      0.95 — position matches source evidence AND name is unambiguous
+      0.85 — position or source evidence is present but doesn't fully agree
+      0.70 — name-only with no corroborating metadata
+    """
+    has_id = bool((row.get("playerId") or "").strip())
+    pos = str(row.get("position") or "").strip().upper()
+    asset_class = row.get("assetClass") or ""
+    canonical_sites = row.get("canonicalSiteValues") or {}
+
+    has_off_val = any(
+        (_to_int_or_none(canonical_sites.get(k)) or 0) > 0
+        for k in _OFFENSE_SIGNAL_KEYS
+    )
+    has_idp_val = any(
+        (_to_int_or_none(canonical_sites.get(k)) or 0) > 0
+        for k in _IDP_SIGNAL_KEYS
+    )
+
+    if has_id:
+        return 1.00, "canonical_id"
+
+    pos_matches_source = (
+        (asset_class == "offense" and has_off_val and not has_idp_val)
+        or (asset_class == "idp" and has_idp_val and not has_off_val)
+        or (asset_class == "pick")
+    )
+    if pos and pos_matches_source:
+        return 0.95, "position_source_aligned"
+
+    if pos and (has_off_val or has_idp_val):
+        return 0.85, "partial_evidence"
+
+    return 0.70, "name_only"
+
+
+def _validate_and_quarantine_rows(
+    players_array: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Run identity and data-quality validation on all player rows.
+
+    This is a post-ranking, pre-output pass.  It does NOT remove rows — it
+    appends quarantine flags to anomalyFlags[] and degrades confidenceBucket
+    for rows that look suspicious.  This is the safer approach: auditors can
+    see what was flagged and why, and the UI can choose to hide or highlight
+    flagged rows.
+
+    Checks performed:
+      1. Cross-universe name collision (same normalized name in offense + IDP)
+      2. Position-source contradiction (offense player with only IDP evidence)
+      3. Near-name value mismatch (same last name, different universes, wild value gap)
+      4. Unsupported position on the public board
+      5. No valid source values despite having a derived value
+      6. Identity confidence scoring
+
+    Returns a validation summary dict for payload-level reporting.
+    """
+    # ── Build indexes for collision detection ──
+    norm_name_to_rows: dict[str, list[int]] = {}
+    last_name_to_rows: dict[str, list[int]] = {}
+
+    for idx, row in enumerate(players_array):
+        name = row.get("canonicalName") or row.get("displayName") or ""
+        norm = _normalize_for_collision(name)
+        if norm:
+            norm_name_to_rows.setdefault(norm, []).append(idx)
+        last = _extract_last_name(name)
+        if last and len(last) > 2:  # skip very short surnames
+            last_name_to_rows.setdefault(last, []).append(idx)
+
+    quarantine_count = 0
+    collision_pairs: list[dict[str, Any]] = []
+    near_name_pairs: list[dict[str, Any]] = []
+
+    # ── Check 1: Cross-universe name collisions ──
+    for norm, indices in norm_name_to_rows.items():
+        if len(indices) < 2:
+            continue
+        asset_classes = {players_array[i].get("assetClass") for i in indices}
+        # Flag if the same normalized name appears in both offense and IDP
+        if "offense" in asset_classes and "idp" in asset_classes:
+            names_involved = [players_array[i].get("canonicalName") for i in indices]
+            collision_pairs.append({
+                "normalizedName": norm,
+                "names": names_involved,
+                "assetClasses": list(asset_classes),
+            })
+            for i in indices:
+                row = players_array[i]
+                flags = row.get("anomalyFlags") or []
+                if "name_collision_cross_universe" not in flags:
+                    flags.append("name_collision_cross_universe")
+                    row["anomalyFlags"] = flags
+
+    # ── Check 2: Position-source contradiction ──
+    for idx, row in enumerate(players_array):
+        pos = str(row.get("position") or "").strip().upper()
+        asset_class = row.get("assetClass") or ""
+        canonical_sites = row.get("canonicalSiteValues") or {}
+
+        has_off_val = any(
+            (_to_int_or_none(canonical_sites.get(k)) or 0) > 0
+            for k in _OFFENSE_SIGNAL_KEYS
+        )
+        has_idp_val = any(
+            (_to_int_or_none(canonical_sites.get(k)) or 0) > 0
+            for k in _IDP_SIGNAL_KEYS
+        )
+
+        # Offense position but only IDP values (and not an allowed exception)
+        name = row.get("canonicalName") or ""
+        if pos in _OFFENSE_POSITIONS and has_idp_val and not has_off_val:
+            if name not in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS:
+                flags = row.get("anomalyFlags") or []
+                if "position_source_contradiction" not in flags:
+                    flags.append("position_source_contradiction")
+                    row["anomalyFlags"] = flags
+
+        # IDP position but only offense values
+        if pos in _IDP_POSITIONS and has_off_val and not has_idp_val:
+            if name not in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS:
+                flags = row.get("anomalyFlags") or []
+                if "position_source_contradiction" not in flags:
+                    flags.append("position_source_contradiction")
+                    row["anomalyFlags"] = flags
+
+    # ── Check 3: Near-name value mismatch across universes ──
+    for last, indices in last_name_to_rows.items():
+        if len(indices) < 2:
+            continue
+        # Only check pairs that span offense + IDP
+        off_indices = [i for i in indices if players_array[i].get("assetClass") == "offense"]
+        idp_indices = [i for i in indices if players_array[i].get("assetClass") == "idp"]
+        if not off_indices or not idp_indices:
+            continue
+
+        for oi in off_indices:
+            for ii in idp_indices:
+                off_row = players_array[oi]
+                idp_row = players_array[ii]
+                off_val = off_row.get("rankDerivedValue") or 0
+                idp_val = idp_row.get("rankDerivedValue") or 0
+                if off_val <= 0 or idp_val <= 0:
+                    continue
+                ratio = max(off_val, idp_val) / max(min(off_val, idp_val), 1)
+                if ratio > _NEAR_NAME_VALUE_RATIO_THRESHOLD:
+                    near_name_pairs.append({
+                        "lastName": last,
+                        "offenseName": off_row.get("canonicalName"),
+                        "idpName": idp_row.get("canonicalName"),
+                        "offenseValue": off_val,
+                        "idpValue": idp_val,
+                        "ratio": round(ratio, 1),
+                    })
+                    # Flag the lower-valued row as suspicious
+                    suspect_idx = oi if off_val < idp_val else ii
+                    suspect = players_array[suspect_idx]
+                    flags = suspect.get("anomalyFlags") or []
+                    if "near_name_value_mismatch" not in flags:
+                        flags.append("near_name_value_mismatch")
+                        suspect["anomalyFlags"] = flags
+
+    # ── Check 4: Unsupported position ──
+    for idx, row in enumerate(players_array):
+        pos = str(row.get("position") or "").strip().upper()
+        if pos and pos not in _SUPPORTED_BOARD_POSITIONS and pos not in _KICKER_POSITIONS:
+            flags = row.get("anomalyFlags") or []
+            if "unsupported_position" not in flags:
+                flags.append("unsupported_position")
+                row["anomalyFlags"] = flags
+
+    # ── Check 5: No valid source values but has derived value ──
+    for idx, row in enumerate(players_array):
+        canonical_sites = row.get("canonicalSiteValues") or {}
+        has_any_source = any(
+            (_to_int_or_none(v) or 0) > 0
+            for v in canonical_sites.values()
+        )
+        rdv = row.get("rankDerivedValue")
+        if not has_any_source and rdv is not None and rdv > 0:
+            flags = row.get("anomalyFlags") or []
+            if "no_valid_source_values" not in flags:
+                flags.append("no_valid_source_values")
+                row["anomalyFlags"] = flags
+
+    # ── Check 6: Identity confidence + quarantine degradation ──
+    for idx, row in enumerate(players_array):
+        ic_score, ic_method = _compute_identity_confidence(row)
+        row["identityConfidence"] = ic_score
+        row["identityMethod"] = ic_method
+
+        # Quarantine: degrade confidence for rows with quarantine-level flags
+        flags = row.get("anomalyFlags") or []
+        has_quarantine_flag = bool(set(flags) & _QUARANTINE_FLAGS)
+        if has_quarantine_flag:
+            row["quarantined"] = True
+            quarantine_count += 1
+            # Degrade confidence bucket — never promote, only degrade
+            current_bucket = row.get("confidenceBucket") or "none"
+            if current_bucket in ("high", "medium"):
+                row["confidenceBucket"] = "low"
+                row["confidenceLabel"] = (
+                    "Low — quarantined due to identity/data-quality flags"
+                )
+        else:
+            row["quarantined"] = False
+
+    return {
+        "quarantineCount": quarantine_count,
+        "crossUniverseCollisions": collision_pairs,
+        "nearNameMismatches": near_name_pairs,
+        "crossUniverseCollisionCount": len(collision_pairs),
+        "nearNameMismatchCount": len(near_name_pairs),
+    }
 
 
 def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
@@ -597,6 +865,10 @@ def _derive_player_row(
         "sourceRankSpread": None,
         "marketGapDirection": "none",
         "marketGapMagnitude": None,
+        # Identity quality — overwritten by _validate_and_quarantine_rows
+        "identityConfidence": 0.70,
+        "identityMethod": "name_only",
+        "quarantined": False,
     }
 
 
@@ -730,6 +1002,12 @@ def build_api_data_contract(
                 vals["finalAdjusted"] = rdv
                 vals["displayValue"] = rdv
 
+    # ── Identity validation and quarantine pass ──
+    # Runs AFTER rankings are computed so anomalyFlags and confidence can be
+    # degraded for suspicious rows.  Does NOT remove rows — quarantined rows
+    # remain in the array with quarantined=True and degraded confidenceBucket.
+    validation_summary = _validate_and_quarantine_rows(players_array)
+
     data_source = data_source or {}
     generated_at = utc_now_iso()
 
@@ -789,6 +1067,12 @@ def build_api_data_contract(
             "suspicious_disagreement",
             "missing_source_distortion",
             "impossible_value",
+            "name_collision_cross_universe",
+            "position_source_contradiction",
+            "near_name_value_mismatch",
+            "unsupported_position",
+            "no_valid_source_values",
+            "orphan_csv_graft",
         ],
         "overallRankLimit": OVERALL_RANK_LIMIT,
     }
@@ -821,6 +1105,7 @@ def build_api_data_contract(
             "totalFlagged": total_flagged,
             "flagCounts": anomaly_counts,
         },
+        "validationSummary": validation_summary,
     }
     return contract_payload
 
