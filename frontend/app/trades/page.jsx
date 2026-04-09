@@ -7,6 +7,7 @@ import { PageHeader, LoadingState, EmptyState } from "@/components/ui";
 import { TRADE_ALPHA } from "@/lib/trade-logic";
 import {
   analyzeSleeperTradeHistory,
+  analyzeTradeTendencies,
   POS_GROUP_COLORS,
 } from "@/lib/league-analysis";
 
@@ -42,6 +43,11 @@ export default function TradesPage() {
       a.sides.some((s) => s.team === teamFilter),
     );
   }, [analysis, teamFilter]);
+
+  const tendencies = useMemo(
+    () => analyzeTradeTendencies(rawData, rows),
+    [rawData, rows],
+  );
 
   if (loading) return <LoadingState message="Loading trade data..." />;
   if (error) return <div className="card"><EmptyState title="Error" message={error} /></div>;
@@ -83,6 +89,9 @@ export default function TradesPage() {
 
       {/* Winners & Losers stats card */}
       {hasTrades && <TeamScoresCard teamScores={analysis.teamScores} alpha={alpha} />}
+
+      {/* Trade tendencies */}
+      {hasTrades && tendencies.length > 0 && <TradeTendenciesCard tendencies={tendencies} />}
 
       {/* Trade list */}
       {filtered.length > 0 && (
@@ -142,6 +151,48 @@ function TeamScoresCard({ teamScores, alpha }) {
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function TradeTendenciesCard({ tendencies }) {
+  return (
+    <div className="card" style={{ marginTop: "var(--space-md)" }}>
+      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 10 }}>
+        Trade Tendencies
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Manager</th>
+              <th style={{ textAlign: "right" }}>Trades</th>
+              <th style={{ textAlign: "right" }}>Avg Given</th>
+              <th style={{ textAlign: "right" }}>Avg Got</th>
+              <th style={{ textAlign: "right" }}>Net</th>
+              <th>Tendency</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tendencies.map((t) => {
+              const netColor = t.net >= 0 ? "var(--green)" : "var(--red)";
+              const netSign = t.net >= 0 ? "+" : "";
+              return (
+                <tr key={t.manager}>
+                  <td style={{ fontWeight: 600 }}>{t.manager}</td>
+                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{t.trades}</td>
+                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{t.avgGiven.toLocaleString()}</td>
+                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{t.avgGot.toLocaleString()}</td>
+                  <td style={{ textAlign: "right", fontFamily: "var(--mono)", fontWeight: 700, color: netColor }}>
+                    {netSign}{t.net.toLocaleString()}
+                  </td>
+                  <td style={{ fontSize: "0.72rem", color: "var(--subtext)" }}>{t.tendency}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );

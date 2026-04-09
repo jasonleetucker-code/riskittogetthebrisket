@@ -13,6 +13,8 @@ import {
   buildAllTeamSummaries,
   computeGroupAverages,
   findWaiverWireGems,
+  buildLeagueEdgeMap,
+  scoreTeamTiers,
   ordinal,
 } from "@/lib/league-analysis";
 
@@ -60,6 +62,16 @@ export default function RostersPage() {
   const waiverGems = useMemo(
     () => findWaiverWireGems(rows, sleeperTeams),
     [rows, sleeperTeams],
+  );
+
+  const leagueEdge = useMemo(
+    () => buildLeagueEdgeMap(rows, sleeperTeams, myTeam),
+    [rows, sleeperTeams, myTeam],
+  );
+
+  const teamTiers = useMemo(
+    () => scoreTeamTiers(sleeperTeams, playerMeta, rows),
+    [sleeperTeams, playerMeta, rows],
   );
 
   function toggleGroup(g) {
@@ -205,6 +217,12 @@ export default function RostersPage() {
         </div>
       </div>
 
+      {/* Contender / Rebuilder Tiers */}
+      {teamTiers.length > 0 && <TeamTiersCard tiers={teamTiers} myTeam={myTeam} />}
+
+      {/* League Edge Map */}
+      {leagueEdge.length > 0 && <LeagueEdgeCard edges={leagueEdge} />}
+
       {/* Trade Targets */}
       {myTeam && <TradeTargetsCard myTeam={myTeam} teams={sortedTeams} groupAvg={groupAvg} />}
 
@@ -332,6 +350,132 @@ function TradeTargetsCard({ myTeam, teams, groupAvg }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function TeamTiersCard({ tiers, myTeam }) {
+  const TIER_COLORS = { contender: "var(--green)", middle: "var(--amber)", rebuilder: "var(--red)" };
+  const TIER_BG = { contender: "rgba(39,174,96,0.08)", middle: "transparent", rebuilder: "rgba(231,76,60,0.06)" };
+
+  return (
+    <div className="card" style={{ marginTop: "var(--space-md)" }}>
+      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 10 }}>Contender / Rebuilder Tiers</div>
+      <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginBottom: 10 }}>
+        Teams scored by starter quality (70%), roster depth (20%), and pick surplus penalty (-10%).
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
+        {tiers.map((t) => {
+          const isMe = t.name === myTeam;
+          return (
+            <div
+              key={t.name}
+              style={{
+                border: "1px solid var(--border)",
+                borderLeft: `3px solid ${TIER_COLORS[t.tier]}`,
+                borderRadius: 6,
+                padding: "10px 14px",
+                background: isMe ? "rgba(200,56,3,0.06)" : TIER_BG[t.tier],
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontWeight: 700, fontSize: "0.78rem" }}>
+                  {isMe ? <span style={{ color: "var(--cyan)" }}>{t.name}</span> : t.name}
+                </span>
+                <span style={{ fontFamily: "var(--mono)", fontSize: "0.62rem", color: "var(--subtext)" }}>#{t.rank}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                <span style={{ fontSize: "0.68rem", fontWeight: 700, color: TIER_COLORS[t.tier] }}>{t.tierLabel}</span>
+                <span style={{ fontFamily: "var(--mono)", fontSize: "0.66rem", color: "var(--subtext)" }}>
+                  {Math.round(t.totalValue).toLocaleString()} total
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 10, marginTop: 4, fontSize: "0.6rem", color: "var(--subtext)" }}>
+                <span>Starters: {Math.round(t.starterValue).toLocaleString()}</span>
+                <span>Depth: {Math.round(t.depthValue).toLocaleString()}</span>
+                {t.pickValue > 0 && <span>Picks: {Math.round(t.pickValue).toLocaleString()}</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function LeagueEdgeCard({ edges }) {
+  const maxEdge = Math.max(1, ...edges.map((t) => Math.max(t.sellEdge, t.buyEdge)));
+
+  return (
+    <div className="card" style={{ marginTop: "var(--space-md)" }}>
+      <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 6 }}>League Edge Map</div>
+      <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginBottom: 10 }}>
+        Market vs. model edge per team. Sell = market overvalues their players. Buy = market undervalues.
+      </div>
+      {edges.map((t) => {
+        const sellPct = Math.round((t.sellEdge / maxEdge) * 100);
+        const buyPct = Math.round((t.buyEdge / maxEdge) * 100);
+        return (
+          <div
+            key={t.name}
+            style={{
+              padding: "8px 10px",
+              borderBottom: "1px solid var(--border-dim)",
+              background: t.isMe ? "rgba(200,56,3,0.08)" : "",
+              borderLeft: t.isMe ? "3px solid var(--cyan)" : "3px solid transparent",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+              <span style={{ fontWeight: 600, minWidth: 130, fontSize: "0.73rem" }}>
+                {t.name}{t.isMe ? " \u2B50" : ""}
+              </span>
+              <div style={{ flex: 1, display: "flex", gap: 4, alignItems: "center" }}>
+                <div
+                  style={{
+                    width: `${sellPct}%`,
+                    height: 10,
+                    background: "var(--red)",
+                    borderRadius: 2,
+                    minWidth: t.sellEdge > 0 ? 2 : 0,
+                  }}
+                  title={`Market overvalues ${t.sellCount} of their players`}
+                />
+                <span style={{ fontSize: "0.6rem", color: "var(--red)", fontFamily: "var(--mono)", minWidth: 40 }}>
+                  {t.sellCount} sell
+                </span>
+                <div
+                  style={{
+                    width: `${buyPct}%`,
+                    height: 10,
+                    background: "var(--green)",
+                    borderRadius: 2,
+                    minWidth: t.buyEdge > 0 ? 2 : 0,
+                  }}
+                  title={`Market undervalues ${t.buyCount} of their players`}
+                />
+                <span style={{ fontSize: "0.6rem", color: "var(--green)", fontFamily: "var(--mono)" }}>
+                  {t.buyCount} buy
+                </span>
+              </div>
+            </div>
+            {(t.topSells.length > 0 || t.topBuys.length > 0) && (
+              <div style={{ fontSize: "0.62rem", color: "var(--subtext)", paddingLeft: 140 }}>
+                {t.topSells.length > 0 && (
+                  <span style={{ color: "var(--red)" }}>
+                    Overvalued: {t.topSells.map((p) => `${p.name} +${p.pct}%`).join(", ")}
+                  </span>
+                )}
+                {t.topSells.length > 0 && t.topBuys.length > 0 && " \u00B7 "}
+                {t.topBuys.length > 0 && (
+                  <span style={{ color: "var(--green)" }}>
+                    Undervalued: {t.topBuys.map((p) => `${p.name} -${p.pct}%`).join(", ")}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

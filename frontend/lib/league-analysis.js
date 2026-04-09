@@ -3,7 +3,7 @@
  * Pure functions, no React dependencies.
  */
 
-import { effectiveValue, powerWeightedTotal, TRADE_ALPHA, parsePickToken } from "@/lib/trade-logic";
+import { effectiveValue, powerWeightedTotal, TRADE_ALPHA, parsePickToken, getPlayerEdge } from "@/lib/trade-logic";
 import { normalizePos } from "@/lib/dynasty-data";
 
 // ── Position Group Helpers ──────────────────────────────────────────────
@@ -402,4 +402,182 @@ export function findWaiverWireGems(rows, sleeperTeams) {
 
   gems.sort((a, b) => b.value - a.value);
   return gems.slice(0, 25);
+}
+
+// ── League Edge Map ─────────────────────────────────────────────────────
+const MIN_EDGE_PCT = 3;
+
+/**
+ * Build league-wide edge analysis — per-team market overvalue/undervalue signals.
+ * Uses getPlayerEdge from trade-logic.js for individual player edge signals.
+ */
+export function buildLeagueEdgeMap(rows, sleeperTeams, myTeamName = "") {
+  const rowLookup = buildRowLookup(rows);
+  const teamEdges = [];
+
+  for (const team of sleeperTeams || []) {
+    let totalSellEdge = 0;
+    let totalBuyEdge = 0;
+    let sellCount = 0;
+    let buyCount = 0;
+    const topSells = [];
+    const topBuys = [];
+
+    for (const pName of team.players || []) {
+      if (parsePickToken(pName)) continue;
+      const row = rowLookup.get(pName.toLowerCase());
+      if (!row) continue;
+      const edge = getPlayerEdge(row);
+      if (!edge || !edge.signal) continue;
+
+      if (edge.signal === "SELL") {
+        totalSellEdge += edge.edgePct;
+        sellCount++;
+        topSells.push({ name: pName, pct: edge.edgePct });
+      } else if (edge.signal === "BUY") {
+        totalBuyEdge += edge.edgePct;
+        buyCount++;
+        topBuys.push({ name: pName, pct: edge.edgePct });
+      }
+    }
+
+    topSells.sort((a, b) => b.pct - a.pct);
+    topBuys.sort((a, b) => b.pct - a.pct);
+
+    teamEdges.push({
+      name: team.name,
+      isMe: team.name === myTeamName,
+      sellEdge: Math.round(totalSellEdge),
+      buyEdge: Math.round(totalBuyEdge),
+      sellCount,
+      buyCount,
+      topSells: topSells.slice(0, 3),
+      topBuys: topBuys.slice(0, 3),
+    });
+  }
+
+  // Sort by most exploitable (highest sell edge)
+  teamEdges.sort((a, b) => b.sellEdge - a.sellEdge);
+  return teamEdges;
+}
+
+// ── Trade Tendencies ────────────────────────────────────────────────────
+/**
+ * Analyze per-manager trading patterns: avg given/got, net, position bias.
+ * @param {object} rawData - the rawData from useDynastyData
+ * @param {object[]} rows - all player rows
+ * @returns {object[]} Sorted array of { manager, trades, avgGiven, avgGot, net, tendency }
+ */
+export function analyzeTradeTendencies(rawData, rows) {
+  const trades = rawData?.sleeper?.trades;
+  if (!Array.isArray(trades) || !trades.length) return [];
+
+  const rowLookup = buildRowLookup(rows);
+  const posMap = rawData?.sleeper?.positions || {};
+  const managerStats = {};
+
+  for (const trade of trades) {
+    if (!trade.sides || trade.sides.length < 2) continue;
+    for (const side of trade.sides) {
+      const mgr = side.team || "Unknown";
+      if (!managerStats[mgr]) {
+        managerStats[mgr] = { trades: 0, totalGiven: 0, totalGot: 0, posBias: {} };
+      }
+      const stats = managerStats[mgr];
+      stats.trades++;
+
+      let gotTotal = 0;
+      let gaveTotal = 0;
+      for (const name of side.got || []) {
+        const row = rowLookup.get((name || "").toLowerCase());
+        if (row) gotTotal += row.values?.full || 0;
+      }
+      for (const name of side.gave || []) {
+        const row = rowLookup.get((name || "").toLowerCase());
+        if (row) gaveTotal += row.values?.full || 0;
+      }
+      stats.totalGot += gotTotal;
+      stats.totalGiven += gaveTotal;
+
+      // Track position bias in acquisitions
+      for (const name of side.got || []) {
+        let pos = (posMap[name] || "").toUpperCase();
+        if (!pos) continue;
+        if (["LB", "DL", "DE", "DT", "CB", "S", "DB", "EDGE"].includes(pos)) pos = "IDP";
+        stats.posBias[pos] = (stats.posBias[pos] || 0) + 1;
+      }
+    }
+  }
+
+  return Object.entries(managerStats)
+    .map(([manager, s]) => {
+      const avgGiven = Math.round(s.totalGiven / Math.max(s.trades, 1));
+      const avgGot = Math.round(s.totalGot / Math.max(s.trades, 1));
+      const net = avgGot - avgGiven;
+      const topPos = Object.entries(s.posBias).sort((a, b) => b[1] - a[1])[0];
+      const tendency = topPos ? `Targets ${topPos[0]}s` : "\u2014";
+      return { manager, trades: s.trades, avgGiven, avgGot, net, tendency };
+    })
+    .sort((a, b) => b.trades - a.trades);
+}
+
+// ── Contender / Rebuilder Tiers ─────────────────────────────────────────
+/**
+ * Score and tier all teams: contender / mid-tier / rebuilder.
+ * Starter value = top 10 offensive players, weighted 70%.
+ * Depth = total minus starters, weighted 20%.
+ * Pick surplus penalized at -10% (rebuild signal).
+ */
+export function scoreTeamTiers(sleeperTeams, playerMeta, rows) {
+  const rowLookup = buildRowLookup(rows);
+
+  const scored = (sleeperTeams || []).map((team) => {
+    let totalValue = 0;
+    const topPlayers = [];
+    let pickValue = 0;
+
+    for (const pName of team.players || []) {
+      if (parsePickToken(pName)) continue;
+      const pm = playerMeta[(pName || "").toLowerCase()];
+      if (!pm) continue;
+      totalValue += pm.meta;
+      if (OFFENSE_GROUPS.includes(pm.group)) {
+        topPlayers.push(pm.meta);
+      }
+    }
+
+    // Picks
+    for (const pickName of team.picks || []) {
+      const row = rowLookup.get((pickName || "").toLowerCase());
+      const val = row ? (row.values?.full || 0) : 0;
+      totalValue += val;
+      pickValue += val;
+    }
+
+    topPlayers.sort((a, b) => b - a);
+    const starterValue = topPlayers.slice(0, 10).reduce((s, v) => s + v, 0);
+    const depthValue = totalValue - starterValue;
+    const score = starterValue * 0.7 + depthValue * 0.2 + (pickValue > 0 ? -pickValue * 0.1 : 0);
+
+    return {
+      name: team.name,
+      score,
+      totalValue,
+      starterValue,
+      depthValue,
+      pickValue,
+    };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const n = scored.length;
+  const top = Math.ceil(n / 3);
+  const bot = n - top;
+
+  return scored.map((t, i) => ({
+    ...t,
+    tier: i < top ? "contender" : i >= bot ? "rebuilder" : "middle",
+    tierLabel: i < top ? "Contender" : i >= bot ? "Rebuilder" : "Mid-Tier",
+    rank: i + 1,
+  }));
 }
