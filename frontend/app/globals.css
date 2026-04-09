@@ -888,6 +888,10 @@ tr:hover .sticky-name {
     flex-direction: column;
     gap: var(--space-sm);
   }
+  .rankings-player-cell { gap: 4px; }
+  .rankings-player-meta { font-size: 0.62rem; }
+  .rankings-value { font-size: 0.74rem; }
+  .rankings-value-band { font-size: 0.52rem; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -958,6 +962,14 @@ tr:hover .sticky-name {
   margin-bottom: var(--space-md);
 }
 
+/* ── Player cell layout (name + team/age + chips on one line) ──────── */
+.rankings-player-cell {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .rankings-player-name {
   font-weight: 600;
   cursor: pointer;
@@ -968,25 +980,78 @@ tr:hover .sticky-name {
   color: var(--cyan);
 }
 
-.rankings-flag-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--amber);
-  margin-left: 6px;
-  vertical-align: middle;
+.rankings-player-meta {
+  font-size: 0.68rem;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
-.rankings-q-badge {
-  margin-left: 6px;
-  font-size: 0.58rem;
+.rankings-chips {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.rankings-chip {
+  font-size: 0.56rem;
+  padding: 1px 5px;
 }
 
 .rankings-row-quarantined td {
   opacity: 0.55;
 }
 
+/* ── Tier separators ──────────────────────────────────────────────── */
+.rankings-tier-separator td {
+  padding: 6px 10px 4px;
+  border-bottom: 1px solid var(--border-bright);
+  background: rgba(8, 19, 44, 0.6);
+}
+
+.rankings-tier-separator-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cyan);
+}
+
+/* ── Tier badge in row ────────────────────────────────────────────── */
+.rankings-tier-badge {
+  font-size: 0.62rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--subtext);
+}
+
+/* ── Value display (number + band label stacked) ──────────────────── */
+.rankings-value {
+  display: block;
+  font-weight: 700;
+  color: var(--cyan);
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  text-align: right;
+}
+
+.rankings-value-band {
+  display: block;
+  font-size: 0.56rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: right;
+  color: var(--subtext);
+}
+
+/* Value-band color accents */
+.vb-elite { color: var(--cyan); }
+.vb-bluechip { color: var(--green); }
+.vb-starter { color: var(--text); }
+.vb-depth { color: var(--muted); }
+.vb-fringe { color: var(--muted); opacity: 0.7; }
+
+/* ── Market gap ───────────────────────────────────────────────────── */
 .rankings-gap-label {
   font-family: var(--mono);
   font-size: 0.68rem;

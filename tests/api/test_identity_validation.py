@@ -462,5 +462,28 @@ class TestNormalizeForCollision(unittest.TestCase):
         )
 
 
+# ── Age field scaffolding ──────────────────────────────────────────────────
+
+class TestAgeFieldScaffolding(unittest.TestCase):
+
+    def test_age_null_when_not_provided(self):
+        payload = _payload_with_players(
+            _make_player("Zzz No Age Player", "QB", ktc=8000),
+        )
+        row, _ = _build_and_find(payload, "Zzz No Age Player")
+        self.assertIsNotNone(row)
+        self.assertIn("age", row)
+        self.assertIsNone(row["age"])
+
+    def test_age_present_when_provided(self):
+        """When raw player data includes age, it should appear on the row."""
+        players = _make_player("Zzz Aged Player", "QB", ktc=7000)
+        players["Zzz Aged Player"]["age"] = 26
+        payload = _payload_with_players(players)
+        row, _ = _build_and_find(payload, "Zzz Aged Player")
+        self.assertIsNotNone(row)
+        self.assertEqual(row["age"], 26)
+
+
 if __name__ == "__main__":
     unittest.main()

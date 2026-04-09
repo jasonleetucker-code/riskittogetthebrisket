@@ -1,14 +1,28 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { Fragment, useMemo, useState, useCallback } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { resolvedRank } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
+import {
+  tierLabel,
+  effectiveTierId,
+  valueBand,
+  rowChips,
+  DEFAULT_ROW_LIMIT,
+} from "@/lib/rankings-helpers";
 
 // ── UNIFIED RANKINGS PAGE ────────────────────────────────────────────
 // Trust-forward blended board: offense + IDP sorted by unified rank.
-// Shows confidence, source coverage, anomaly flags, and market gaps.
+// Shows tiers, player context, confidence, value bands, and fast-scan chips.
+//
+// Default experience decisions (see item 5 in spec):
+//   • Sort: by rank ascending (the most intentional view)
+//   • Rows shown: 200 initially (covers starters + depth in 12-team)
+//   • Tier grouping: ON by default (visual hierarchy is the point)
+//   • Flagged rows: shown inline (not hidden) — flags make them visible
+//   • Quarantined rows: shown but dimmed — transparency over hiding
 
 const POS_FILTERS = [
   { key: "all", label: "All" },
@@ -43,7 +57,7 @@ function posMatchesFilter(pos, assetClass, filter) {
   return pos === filter;
 }
 
-// ── Badge helpers ────────────────────────────────────────────────────
+// ── Inline badge helpers ─────────────────────────────────────────────
 
 function confidenceBadgeClass(bucket) {
   switch (bucket) {
@@ -63,20 +77,6 @@ function confidenceBadgeLabel(bucket) {
   }
 }
 
-function sourceLabel(row) {
-  const count = row.sourceCount || 0;
-  if (count >= 2) return "2-src";
-  if (count === 1) return "1-src";
-  return "\u2014";
-}
-
-function sourceBadgeClass(row) {
-  const count = row.sourceCount || 0;
-  if (count >= 2) return "badge badge-green";
-  if (count === 1) return "badge badge-amber";
-  return "badge";
-}
-
 function marketGapLabel(row) {
   if (!row.sourceRanks) return null;
   const ktcRank = row.sourceRanks.ktc;
@@ -88,18 +88,6 @@ function marketGapLabel(row) {
     return `${higher} +${diff}`;
   }
   return null;
-}
-
-// ── Source disagreement label (legible) ──────────────────────────────
-
-function sourceAgreementLabel(row) {
-  const count = row.sourceCount || 0;
-  if (count < 2) return row.isSingleSource ? "single-source" : null;
-  const spread = row.sourceRankSpread;
-  if (spread == null) return "consensus";
-  if (spread <= 30) return "consensus";
-  if (spread <= 80) return "moderate spread";
-  return "wide disagreement";
 }
 
 // ── Methodology content ──────────────────────────────────────────────
@@ -114,8 +102,9 @@ function MethodologySection() {
         <li><strong>Rank normalization</strong> — Per-source ranks converted to 1–9,999 values via Hill-curve formula so sources are comparable.</li>
         <li><strong>Blended ranking</strong> — Multi-source players get averaged normalized values. Single-source players keep their one value.</li>
         <li><strong>Unified sort</strong> — All players sorted by blended value into one board. Top 800 get a consensus rank.</li>
+        <li><strong>Tier detection</strong> — Natural value clusters are detected via gap analysis. Tier breaks appear where adjacent players have unusually large value gaps.</li>
         <li><strong>Confidence scoring</strong> — High = 2+ sources, spread {"<"} 30. Medium = 2+ sources, spread {"<"} 80. Low = single source or wide disagreement.</li>
-        <li><strong>Identity validation</strong> — Post-ranking pass checks for entity resolution problems: cross-universe name collisions, position-source contradictions, near-name mismatches. Flagged rows are quarantined (confidence degraded, not removed).</li>
+        <li><strong>Identity validation</strong> — Post-ranking pass checks for entity resolution problems. Flagged rows are quarantined (confidence degraded, not removed).</li>
       </ol>
       <p style={{ margin: "8px 0 0", fontSize: "0.72rem", color: "var(--muted)", fontFamily: "var(--mono)" }}>
         value = max(1, min(9999, round(1 + 9998 / (1 + ((rank-1)/45)^1.10))))
@@ -133,6 +122,8 @@ export default function RankingsPage() {
   const [confFilter, setConfFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [showAnomalies, setShowAnomalies] = useState(false);
+  const [showTiers, setShowTiers] = useState(true);
+  const [rowLimit, setRowLimit] = useState(DEFAULT_ROW_LIMIT);
   const [sortCol, setSortCol] = useState("rank");
   const [sortAsc, setSortAsc] = useState(true);
   const [copyStatus, setCopyStatus] = useState("");
@@ -159,6 +150,7 @@ export default function RankingsPage() {
     return { total: eligible.length, high, medium, low, quarantined, multiSource, withAnomalies };
   }, [rows]);
 
+  // ── Filtered + sorted list ──────────────────────────────────────
   const ranked = useMemo(() => {
     const q = query.trim().toLowerCase();
     let list = rows.filter((r) => r.pos && r.pos !== "?" && r.pos !== "PICK");
@@ -201,14 +193,6 @@ export default function RankingsPage() {
           va = a.rankDerivedValue || a.values?.full || 0;
           vb = b.rankDerivedValue || b.values?.full || 0;
           return (va - vb) * dir;
-        case "ktc":
-          va = Number(a.canonicalSites?.ktc) || 0;
-          vb = Number(b.canonicalSites?.ktc) || 0;
-          return (va - vb) * dir;
-        case "idpTradeCalc":
-          va = Number(a.canonicalSites?.idpTradeCalc) || 0;
-          vb = Number(b.canonicalSites?.idpTradeCalc) || 0;
-          return (va - vb) * dir;
         case "confidence": {
           const order = { high: 0, medium: 1, low: 2, none: 3 };
           va = order[a.confidenceBucket] ?? 3;
@@ -221,6 +205,11 @@ export default function RankingsPage() {
     });
     return sorted;
   }, [rows, posFilter, confFilter, sourceFilter, showAnomalies, query, sortCol, sortAsc]);
+
+  // Apply row limit — search/filter bypasses the limit so results aren't hidden
+  const hasActiveFilter = query || posFilter !== "all" || confFilter !== "all" || sourceFilter !== "all" || showAnomalies;
+  const displayRows = hasActiveFilter ? ranked : ranked.slice(0, rowLimit);
+  const hasMore = !hasActiveFilter && ranked.length > rowLimit;
 
   function SortHeader({ col, children, style, className }) {
     const active = sortCol === col;
@@ -237,21 +226,24 @@ export default function RankingsPage() {
     );
   }
 
+  // ── Copy/Export (includes tier, team, value band, confidence) ───
   async function copyValues() {
-    const lines = ["Rank\tPlayer\tPos\tValue\tConfidence\tSources\tKTC\tKTC Rank\tIDPTC\tIDPTC Rank"];
-    ranked.forEach((row) => {
+    const lines = ["Rank\tPlayer\tPos\tTeam\tTier\tValue\tValue Band\tConfidence\tSources\tKTC\tKTC Rank\tIDPTC\tIDPTC Rank"];
+    displayRows.forEach((row) => {
       const ktcVal = row.canonicalSites?.ktc != null ? Math.round(Number(row.canonicalSites.ktc)) : "";
       const idpVal = row.canonicalSites?.idpTradeCalc != null ? Math.round(Number(row.canonicalSites.idpTradeCalc)) : "";
+      const val = Math.round(row.rankDerivedValue || row.values.full);
+      const band = valueBand(val);
       lines.push(
-        `${row.rank}\t${row.name}\t${row.pos}\t` +
-        `${Math.round(row.rankDerivedValue || row.values.full)}\t` +
+        `${row.rank}\t${row.name}\t${row.pos}\t${row.team || ""}\t` +
+        `${tierLabel(row)}\t${val}\t${band.label}\t` +
         `${row.confidenceBucket || ""}\t${row.sourceCount || 0}\t` +
         `${ktcVal}\t${row.ktcRank || ""}\t${idpVal}\t${row.idpRank || ""}`
       );
     });
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
-      setCopyStatus(`Copied ${ranked.length.toLocaleString()} rows`);
+      setCopyStatus(`Copied ${displayRows.length.toLocaleString()} rows`);
       setTimeout(() => setCopyStatus(""), 1800);
     } catch {
       setCopyStatus("Copy failed");
@@ -263,6 +255,12 @@ export default function RankingsPage() {
   const freshness = rawData?.dataFreshness;
   const timestamp = freshness?.generatedAt || rawData?.date || null;
 
+  // ── Tier separator logic ───────────────────────────────────────────
+  // When tier grouping is on and sort is by rank ascending, inject
+  // visual tier breaks between rows with different effective tier IDs.
+  const tierGroupingActive = showTiers && sortCol === "rank" && sortAsc && !hasActiveFilter;
+
+  // ── Render ─────────────────────────────────────────────────────────
   return (
     <section className="card">
       {/* ── Header ──────────────────────────────────────────────────── */}
@@ -368,6 +366,13 @@ export default function RankingsPage() {
                 <option key={f.key} value={f.key}>{f.label}</option>
               ))}
             </select>
+            <button
+              className={`button hide-mobile ${showTiers ? "button-primary" : ""}`}
+              onClick={() => setShowTiers((v) => !v)}
+              title="Toggle tier grouping"
+            >
+              Tiers
+            </button>
             {trustStats.withAnomalies > 0 && (
               <button
                 className={`button ${showAnomalies ? "button-primary" : ""}`}
@@ -380,10 +385,11 @@ export default function RankingsPage() {
           </div>
 
           <p className="muted text-xs" style={{ margin: "6px 0 0" }}>
-            {ranked.length.toLocaleString()} shown
+            {displayRows.length.toLocaleString()}{hasMore ? ` of ${ranked.length.toLocaleString()}` : ""} shown
             {confFilter !== "all" && ` \u00B7 ${confFilter} confidence`}
             {sourceFilter !== "all" && ` \u00B7 ${sourceFilter === "multi" ? "multi-source" : "single-source"}`}
             {showAnomalies && " \u00B7 flagged only"}
+            {tierGroupingActive && " \u00B7 grouped by tier"}
           </p>
 
           {/* ── Table ───────────────────────────────────────────────── */}
@@ -392,104 +398,125 @@ export default function RankingsPage() {
               <thead>
                 <tr>
                   <SortHeader col="rank" style={{ width: 50, textAlign: "center" }}>Rank</SortHeader>
+                  <th className="hide-mobile" style={{ width: 90 }}>Tier</th>
                   <SortHeader col="name">Player</SortHeader>
                   <SortHeader col="pos" style={{ width: 54 }}>Pos</SortHeader>
                   <SortHeader col="value" style={{ textAlign: "right" }}>Value</SortHeader>
                   <SortHeader col="confidence" style={{ textAlign: "center" }} className="hide-mobile">Conf</SortHeader>
-                  <th className="hide-mobile" style={{ textAlign: "center", width: 72 }}>Sources</th>
-                  <SortHeader col="ktc" style={{ textAlign: "right", fontSize: "0.72rem" }} className="hide-mobile">KTC</SortHeader>
-                  <SortHeader col="idpTradeCalc" style={{ textAlign: "right", fontSize: "0.72rem" }} className="hide-mobile">IDPTC</SortHeader>
                   <th className="hide-mobile" style={{ textAlign: "center", width: 90 }}>Gap</th>
                 </tr>
               </thead>
               <tbody>
-                {ranked.map((row) => {
+                {displayRows.map((row, idx) => {
                   const flags = row.anomalyFlags || [];
                   const isQuarantined = row.quarantined;
                   const gap = marketGapLabel(row);
+                  const chips = rowChips(row);
+                  const val = Math.round(row.rankDerivedValue || row.values.full);
+                  const band = valueBand(val);
+                  const tier = tierLabel(row);
+                  const tierId = effectiveTierId(row);
+
+                  // Tier separator: insert when tier changes between adjacent rows
+                  const prevTierId = idx > 0 ? effectiveTierId(displayRows[idx - 1]) : null;
+                  const showTierBreak = tierGroupingActive && idx > 0 && tierId !== prevTierId && tierId != null;
 
                   return (
-                    <tr
-                      key={row.name}
-                      className={isQuarantined ? "rankings-row-quarantined" : undefined}
-                    >
-                      {/* Rank — integer, canonical */}
-                      <td style={{ textAlign: "center", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono)" }}>
-                        {row.rank || "\u2014"}
-                      </td>
+                    <Fragment key={row.name}>
+                      {showTierBreak && (
+                        <tr className="rankings-tier-separator">
+                          <td colSpan={7}>
+                            <span className="rankings-tier-separator-label">{tier}</span>
+                          </td>
+                        </tr>
+                      )}
+                      <tr className={isQuarantined ? "rankings-row-quarantined" : undefined}>
+                        {/* Rank */}
+                        <td style={{ textAlign: "center", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono)" }}>
+                          {row.rank || "\u2014"}
+                        </td>
 
-                      {/* Player name + anomaly dot + quarantine badge */}
-                      <td>
-                        <span
-                          className="rankings-player-name"
-                          onClick={() => openPlayerPopup?.(row)}
-                        >
-                          {row.name}
-                        </span>
-                        {flags.length > 0 && (
-                          <span className="rankings-flag-dot" title={flags.join(", ")} />
-                        )}
-                        {isQuarantined && (
-                          <span className="badge badge-red rankings-q-badge">Q</span>
-                        )}
-                      </td>
+                        {/* Tier label */}
+                        <td className="hide-mobile">
+                          <span className={`rankings-tier-badge ${band.css}`}>{tier}</span>
+                        </td>
 
-                      {/* Position — colored by universe */}
-                      <td>
-                        <span className={`badge ${row.assetClass === "offense" ? "badge-cyan" : row.assetClass === "idp" ? "badge-amber" : ""}`}>
-                          {row.pos}
-                        </span>
-                      </td>
+                        {/* Player: name, team, age, chips */}
+                        <td>
+                          <div className="rankings-player-cell">
+                            <span
+                              className="rankings-player-name"
+                              onClick={() => openPlayerPopup?.(row)}
+                            >
+                              {row.name}
+                            </span>
+                            {/* Context: team + age inline */}
+                            {(row.team || row.age) && (
+                              <span className="rankings-player-meta">
+                                {row.team || ""}{row.age ? `, ${row.age}` : ""}
+                              </span>
+                            )}
+                            {/* Fast-scan chips */}
+                            {chips.length > 0 && (
+                              <span className="rankings-chips">
+                                {chips.map((c) => (
+                                  <span key={c.label} className={`badge ${c.css} rankings-chip`} title={c.title}>{c.label}</span>
+                                ))}
+                              </span>
+                            )}
+                          </div>
+                        </td>
 
-                      {/* Value */}
-                      <td style={{ textAlign: "right", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono)" }}>
-                        {Math.round(row.rankDerivedValue || row.values.full).toLocaleString()}
-                      </td>
+                        {/* Position */}
+                        <td>
+                          <span className={`badge ${row.assetClass === "offense" ? "badge-cyan" : row.assetClass === "idp" ? "badge-amber" : ""}`}>
+                            {row.pos}
+                          </span>
+                        </td>
 
-                      {/* Confidence badge */}
-                      <td className="hide-mobile" style={{ textAlign: "center" }}>
-                        <span className={confidenceBadgeClass(row.confidenceBucket)}>
-                          {confidenceBadgeLabel(row.confidenceBucket)}
-                        </span>
-                      </td>
+                        {/* Value + value-band label */}
+                        <td style={{ textAlign: "right" }}>
+                          <span className="rankings-value">{val.toLocaleString()}</span>
+                          <span className={`rankings-value-band ${band.css}`}>{band.label}</span>
+                        </td>
 
-                      {/* Source count badge */}
-                      <td className="hide-mobile" style={{ textAlign: "center" }}>
-                        <span className={sourceBadgeClass(row)}>
-                          {sourceLabel(row)}
-                        </span>
-                      </td>
+                        {/* Confidence */}
+                        <td className="hide-mobile" style={{ textAlign: "center" }}>
+                          <span className={confidenceBadgeClass(row.confidenceBucket)}>
+                            {confidenceBadgeLabel(row.confidenceBucket)}
+                          </span>
+                        </td>
 
-                      {/* KTC value */}
-                      <td className="hide-mobile" style={{ textAlign: "right", fontFamily: "var(--mono)", fontSize: "0.78rem" }}>
-                        {row.canonicalSites?.ktc != null
-                          ? Math.round(Number(row.canonicalSites.ktc)).toLocaleString()
-                          : "\u2014"}
-                      </td>
-
-                      {/* IDPTC value */}
-                      <td className="hide-mobile" style={{ textAlign: "right", fontFamily: "var(--mono)", fontSize: "0.78rem" }}>
-                        {row.canonicalSites?.idpTradeCalc != null
-                          ? Math.round(Number(row.canonicalSites.idpTradeCalc)).toLocaleString()
-                          : "\u2014"}
-                      </td>
-
-                      {/* Market gap */}
-                      <td className="hide-mobile" style={{ textAlign: "center" }}>
-                        {gap ? (
-                          <span className="rankings-gap-label">{gap}</span>
-                        ) : (
-                          <span className="muted">\u2014</span>
-                        )}
-                      </td>
-                    </tr>
+                        {/* Market gap */}
+                        <td className="hide-mobile" style={{ textAlign: "center" }}>
+                          {gap ? (
+                            <span className="rankings-gap-label">{gap}</span>
+                          ) : (
+                            <span className="muted">\u2014</span>
+                          )}
+                        </td>
+                      </tr>
+                    </Fragment>
                   );
                 })}
               </tbody>
             </table>
           </div>
+
+          {/* ── Show more / show all ────────────────────────────────── */}
+          {hasMore && (
+            <div style={{ textAlign: "center", marginTop: 12 }}>
+              <button className="button" onClick={() => setRowLimit((l) => l + 200)}>
+                Show more ({(ranked.length - rowLimit).toLocaleString()} remaining)
+              </button>
+              <button className="button" onClick={() => setRowLimit(Infinity)} style={{ marginLeft: 8 }}>
+                Show all
+              </button>
+            </div>
+          )}
         </>
       )}
     </section>
   );
 }
+

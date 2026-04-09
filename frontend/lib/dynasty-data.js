@@ -193,6 +193,9 @@ export function buildRows(data) {
       rows.push({
         name,
         pos: pos || "?",
+        team: String(player.team || ""),
+        age: Number(player.age) || null,
+        rookie: Boolean(player.rookie),
         assetClass: String(player.assetClass || classifyPos(pos || "?")),
         values: {
           raw: Math.round(values.raw),
@@ -253,6 +256,9 @@ export function buildRows(data) {
     rows.push({
       name,
       pos: pos || "?",
+      team: String(player.team || ""),
+      age: Number(player.age) || null,
+      rookie: Boolean(player._formatFitRookie),
       assetClass: classifyPos(pos || "?"),
       values,
       // siteCount: intentionally preserved — used by trade calculator and

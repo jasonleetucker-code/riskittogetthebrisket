@@ -673,6 +673,7 @@ REQUIRED_PLAYER_KEYS = {
     "displayName",
     "position",
     "team",
+    "age",
     "rookie",
     "values",
     "canonicalSiteValues",
@@ -845,6 +846,10 @@ def _derive_player_row(
         "displayName": canonical_name,
         "position": pos or None,
         "team": p_data.get("team") if isinstance(p_data.get("team"), str) else None,
+        # Age: scaffolded for future use.  Populated when source data includes
+        # age_raw (e.g. DLF CSV adapter).  Currently null for most players
+        # because the scraper bridge does not supply age.
+        "age": _to_int_or_none(p_data.get("age")) or _to_int_or_none(p_data.get("age_raw")),
         "rookie": bool(p_data.get("_formatFitRookie", False)),
         "assetClass": "pick" if is_pick else ("idp" if pos in {"DL", "LB", "DB"} else "offense"),
         "values": values,
