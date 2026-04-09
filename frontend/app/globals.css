@@ -876,6 +876,18 @@ tr:hover .sticky-name {
 
   /* Bigger touch targets on mobile */
   .button, .select, .input { min-height: 40px; }
+
+  /* Rankings page mobile */
+  .rankings-trust-bar {
+    gap: var(--space-sm);
+    padding: var(--space-xs) var(--space-sm);
+  }
+  .rankings-trust-value { font-size: 0.78rem; }
+  .rankings-trust-label { font-size: 0.56rem; }
+  .rankings-header {
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -892,6 +904,93 @@ tr:hover .sticky-name {
   /* Compact tables: reduce padding further */
   th, td { padding: 4px 6px; font-size: 0.7rem; }
   .sticky-name { min-width: 110px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   RANKINGS PAGE
+   ══════════════════════════════════════════════════════════════════════════ */
+.rankings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-sm);
+}
+
+.rankings-trust-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(8, 19, 44, 0.5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.rankings-trust-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.rankings-trust-value {
+  font-family: var(--mono);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.rankings-trust-label {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.rankings-methodology-body {
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(8, 19, 44, 0.4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-md);
+}
+
+.rankings-player-name {
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.1s;
+}
+
+.rankings-player-name:hover {
+  color: var(--cyan);
+}
+
+.rankings-flag-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--amber);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.rankings-q-badge {
+  margin-left: 6px;
+  font-size: 0.58rem;
+}
+
+.rankings-row-quarantined td {
+  opacity: 0.55;
+}
+
+.rankings-gap-label {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--amber);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
