@@ -164,13 +164,15 @@ class TestEdgeAndFinderRoutes(unittest.TestCase):
         page = REPO_ROOT / "frontend" / "app" / "edge" / "page.jsx"
         self.assertTrue(page.exists())
         text = page.read_text()
-        self.assertIn("buildEdgeProjection", text)
+        self.assertIn("useDynastyData", text)
+        self.assertIn("edge-helpers", text)
 
     def test_finder_page_exists(self):
         page = REPO_ROOT / "frontend" / "app" / "finder" / "page.jsx"
         self.assertTrue(page.exists())
         text = page.read_text()
-        self.assertIn("/api/trade/finder", text)
+        self.assertIn("useDynastyData", text)
+        self.assertIn("WORKFLOWS", text)
 
     def test_edge_lib_exists(self):
         lib = REPO_ROOT / "frontend" / "lib" / "edge-detection.js"

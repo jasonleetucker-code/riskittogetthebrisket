@@ -1,212 +1,407 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
-import { buildEdgeProjection } from "@/lib/edge-detection";
 import { useApp } from "@/components/AppShell";
+import { actionLabel, cautionLabels } from "@/lib/edge-helpers";
+import { posBadgeClass, confBadgeClass, confBadgeLabel as confLabel } from "@/lib/display-helpers";
 
-const SIGNAL_FILTERS = [
-  { key: "all", label: "All" },
-  { key: "BUY", label: "BUY" },
-  { key: "SELL", label: "SELL" },
-  { key: "HOLD", label: "HOLD" },
-];
+// ── Edge Page ─────────────────────────────────────────────────────────────
+// Source-agreement analysis dashboard. Every signal on this page traces to
+// measurable properties of the ranking sources — nothing is predicted.
 
-const CLASS_FILTERS = [
-  { key: "all", label: "All" },
-  { key: "offense", label: "OFF" },
-  { key: "idp", label: "IDP" },
-  { key: "pick", label: "Picks" },
-];
+// ── Section component ─────────────────────────────────────────────────────
 
-const SORT_COLS = [
-  { key: "edgePct", label: "Edge %" },
-  { key: "valueEdge", label: "Value Edge" },
-  { key: "modelValue", label: "Our Value" },
-  { key: "actualExternal", label: "Market" },
-  { key: "name", label: "Name" },
-];
+function EdgeSection({ title, description, count, accent, children }) {
+  const accentMap = {
+    green: "rgba(52, 211, 153, 0.12)",
+    amber: "rgba(251, 191, 36, 0.10)",
+    red: "rgba(248, 113, 113, 0.10)",
+    cyan: "rgba(86, 214, 255, 0.08)",
+  };
+  const borderMap = {
+    green: "rgba(52, 211, 153, 0.25)",
+    amber: "rgba(251, 191, 36, 0.20)",
+    red: "rgba(248, 113, 113, 0.20)",
+    cyan: "rgba(86, 214, 255, 0.18)",
+  };
+
+  return (
+    <div
+      className="edge-section"
+      style={{
+        borderTopColor: borderMap[accent] || "var(--border)",
+        background: accentMap[accent] || undefined,
+      }}
+    >
+      <div className="edge-section-header">
+        <h3 className="edge-section-title">{title}</h3>
+        {count != null && <span className="edge-section-count">{count}</span>}
+      </div>
+      <p className="edge-section-desc">{description}</p>
+      {children}
+    </div>
+  );
+}
+
+// ── Compact table for section rows ────────────────────────────────────────
+
+function SectionTable({ rows, columns, onPlayerClick, emptyText }) {
+  if (rows.length === 0) {
+    return <p className="muted text-sm" style={{ margin: "8px 0 0" }}>{emptyText || "No matching players."}</p>;
+  }
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            {columns.map((c) => (
+              <th key={c.key} style={c.thStyle}>{c.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.name}>
+              {columns.map((c) => (
+                <td key={c.key} style={c.tdStyle}>{c.render(row, onPlayerClick)}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── Column definitions ────────────────────────────────────────────────────
+
+const COL_RANK = {
+  key: "rank",
+  label: "#",
+  thStyle: { width: 40, textAlign: "center" },
+  tdStyle: { textAlign: "center", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono)" },
+  render: (r) => r.rank || "\u2014",
+};
+
+const COL_PLAYER = {
+  key: "name",
+  label: "Player",
+  thStyle: {},
+  tdStyle: { fontWeight: 600 },
+  render: (r, onClick) => (
+    <span style={{ cursor: "pointer" }} onClick={() => onClick?.(r)}>
+      {r.name}
+      {r.team && <span className="muted text-xs" style={{ marginLeft: 4 }}>{r.team}</span>}
+    </span>
+  ),
+};
+
+const COL_POS = {
+  key: "pos",
+  label: "Pos",
+  thStyle: { width: 54 },
+  tdStyle: {},
+  render: (r) => <span className={posBadgeClass(r)}>{r.pos}</span>,
+};
+
+const COL_VALUE = {
+  key: "value",
+  label: "Value",
+  thStyle: { textAlign: "right", width: 70 },
+  tdStyle: { textAlign: "right", fontFamily: "var(--mono)" },
+  render: (r) => {
+    const val = Math.round(r.rankDerivedValue || r.values?.full || 0);
+    return val > 0 ? val.toLocaleString() : "\u2014";
+  },
+};
+
+const COL_SPREAD = {
+  key: "spread",
+  label: "Spread",
+  thStyle: { textAlign: "center", width: 60 },
+  tdStyle: { textAlign: "center", fontFamily: "var(--mono)" },
+  render: (r) => (r.sourceRankSpread != null ? `\u00B1${r.sourceRankSpread}` : "\u2014"),
+};
+
+const COL_GAP_DIR = {
+  key: "gap",
+  label: "Higher",
+  thStyle: { width: 70 },
+  tdStyle: { fontSize: "0.78rem" },
+  render: (r) => {
+    if (r.marketGapDirection === "ktc_higher") return <span className="text-cyan">KTC</span>;
+    if (r.marketGapDirection === "idptc_higher") return <span className="text-amber">IDPTC</span>;
+    return <span className="muted">\u2014</span>;
+  },
+};
+
+const COL_CONF = {
+  key: "conf",
+  label: "Conf",
+  thStyle: { textAlign: "center", width: 55 },
+  tdStyle: { textAlign: "center" },
+  render: (r) => <span className={confBadgeClass(r.confidenceBucket)}>{confLabel(r.confidenceBucket)}</span>,
+};
+
+const COL_FLAGS = {
+  key: "flags",
+  label: "Flags",
+  thStyle: { width: 150 },
+  tdStyle: { fontSize: "0.76rem", color: "var(--amber)" },
+  render: (r) => (r.anomalyFlags || []).slice(0, 2).join(", ") || "\u2014",
+};
+
+const COL_SIGNAL = {
+  key: "signal",
+  label: "Signal",
+  thStyle: { width: 160 },
+  tdStyle: {},
+  render: (r) => {
+    const action = actionLabel(r);
+    const cautions = cautionLabels(r);
+    if (!action && cautions.length === 0) return <span className="muted">\u2014</span>;
+    return (
+      <>
+        {action && <span className={`action-label ${action.css}`} title={action.title}>{action.label}</span>}
+        {cautions.map((c) => (
+          <span key={c.label} className={`action-label ${c.css}`} title={c.title}>{c.label}</span>
+        ))}
+      </>
+    );
+  },
+};
+
+// ── Main component ────────────────────────────────────────────────────────
 
 export default function EdgePage() {
   const { loading, error, rows } = useDynastyData();
   const { openPlayerPopup } = useApp();
-  const [signalFilter, setSignalFilter] = useState("all");
-  const [classFilter, setClassFilter] = useState("all");
-  const [query, setQuery] = useState("");
-  const [sortCol, setSortCol] = useState("edgePct");
-  const [sortDir, setSortDir] = useState("desc");
 
-  const edgeRows = useMemo(() => {
-    if (!rows.length) return [];
-    return buildEdgeProjection(rows);
-  }, [rows]);
+  // Eligible: non-pick, ranked players
+  const eligible = useMemo(
+    () => rows.filter((r) => r.pos && r.pos !== "?" && r.pos !== "PICK" && r.rank),
+    [rows],
+  );
 
-  const filtered = useMemo(() => {
-    let list = edgeRows;
-    if (signalFilter !== "all") list = list.filter((r) => r.signal === signalFilter);
-    if (classFilter !== "all") list = list.filter((r) => r.assetClass === classFilter);
-    if (query.trim()) {
-      const q = query.trim().toLowerCase();
-      list = list.filter((r) => r.name.toLowerCase().includes(q));
-    }
-    // Sort
-    const dir = sortDir === "asc" ? 1 : -1;
-    list = [...list].sort((a, b) => {
-      if (sortCol === "name") return dir * a.name.localeCompare(b.name);
-      const va = Number(a[sortCol]) || 0;
-      const vb = Number(b[sortCol]) || 0;
-      return dir * (va - vb) || a.name.localeCompare(b.name);
-    });
-    return list;
-  }, [edgeRows, signalFilter, classFilter, query, sortCol, sortDir]);
+  // ── Section data ────────────────────────────────────────────────────
 
-  // Summary counts
-  const summary = useMemo(() => {
-    const buys = edgeRows.filter((r) => r.signal === "BUY").length;
-    const sells = edgeRows.filter((r) => r.signal === "SELL").length;
-    const comparable = edgeRows.filter((r) => r.comparable).length;
-    return { buys, sells, comparable, total: edgeRows.length };
-  }, [edgeRows]);
+  const consensus = useMemo(
+    () =>
+      eligible
+        .filter((r) => r.confidenceBucket === "high" && (r.sourceCount ?? 0) >= 2 && !r.quarantined)
+        .sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity))
+        .slice(0, 15),
+    [eligible],
+  );
 
-  function handleSort(col) {
-    if (sortCol === col) {
-      setSortDir(sortDir === "desc" ? "asc" : "desc");
-    } else {
-      setSortCol(col);
-      setSortDir("desc");
-    }
-  }
+  const disagreements = useMemo(
+    () =>
+      eligible
+        .filter((r) => (r.sourceRankSpread ?? 0) > 20 && (r.sourceCount ?? 0) >= 2 && !r.quarantined)
+        .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
+        .slice(0, 15),
+    [eligible],
+  );
 
-  function signalBadge(signal) {
-    if (signal === "BUY") return <span className="badge" style={{ background: "rgba(39,174,96,0.2)", color: "var(--green)", fontWeight: 700 }}>BUY</span>;
-    if (signal === "SELL") return <span className="badge" style={{ background: "rgba(231,76,60,0.2)", color: "var(--red)", fontWeight: 700 }}>SELL</span>;
-    return <span className="badge" style={{ opacity: 0.4 }}>HOLD</span>;
-  }
+  const ktcPremium = useMemo(
+    () =>
+      eligible
+        .filter((r) => r.marketGapDirection === "ktc_higher" && (r.sourceRankSpread ?? 0) >= 20 && !r.quarantined)
+        .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
+        .slice(0, 10),
+    [eligible],
+  );
 
-  function confBadge(label) {
-    const color = label === "HIGH" ? "var(--green)" : label === "MED" ? "var(--amber, orange)" : "var(--subtext, gray)";
-    return <span style={{ color, fontWeight: 600, fontSize: "0.76rem" }}>{label}</span>;
-  }
+  const idptcPremium = useMemo(
+    () =>
+      eligible
+        .filter((r) => r.marketGapDirection === "idptc_higher" && (r.sourceRankSpread ?? 0) >= 20 && !r.quarantined)
+        .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
+        .slice(0, 10),
+    [eligible],
+  );
+
+  const flagged = useMemo(
+    () =>
+      eligible
+        .filter((r) => (r.anomalyFlags || []).length > 0 && (r.rank ?? Infinity) <= 300)
+        .sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity))
+        .slice(0, 15),
+    [eligible],
+  );
+
+  const singleSource = useMemo(
+    () =>
+      eligible
+        .filter((r) => r.isSingleSource && (r.rank ?? Infinity) <= 300)
+        .sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity))
+        .slice(0, 15),
+    [eligible],
+  );
+
+  // ── Summary stats ────────────────────────────────────────────────────
+  const stats = useMemo(() => ({
+    total: eligible.length,
+    multiSource: eligible.filter((r) => (r.sourceCount ?? 0) >= 2).length,
+    highConf: eligible.filter((r) => r.confidenceBucket === "high").length,
+    disagreementCount: eligible.filter((r) => (r.sourceRankSpread ?? 0) > 20 && (r.sourceCount ?? 0) >= 2).length,
+    flaggedCount: eligible.filter((r) => (r.anomalyFlags || []).length > 0).length,
+    singleCount: eligible.filter((r) => r.isSingleSource).length,
+  }), [eligible]);
 
   return (
-    <section className="card">
-      <h1 style={{ margin: 0 }}>Edge Detection</h1>
-      <p className="muted" style={{ marginTop: 4 }}>
-        Identifies buy-low and sell-high opportunities by comparing our composite model rank against external market curves.
-      </p>
+    <section>
+      {/* ── Header ──────────────────────────────────────────────────── */}
+      <div className="card">
+        <h1 className="page-title">Edge</h1>
+        <p className="page-subtitle muted" style={{ marginTop: 4 }}>
+          Source agreement signals &mdash; where ranking sources agree, disagree, and flag issues
+        </p>
+        <p className="text-xs muted" style={{ marginTop: 6, lineHeight: 1.5, maxWidth: 680 }}>
+          Every signal on this page is derived from measurable properties of the ranking data:
+          how many sources cover a player, how closely they agree, and where they diverge.
+          Nothing is predicted or editorialized.
+        </p>
+      </div>
 
-      {loading && <p style={{ marginTop: 16 }}>Loading...</p>}
-      {!!error && <p style={{ color: "var(--red)", marginTop: 16 }}>{error}</p>}
+      {loading && (
+        <div className="card loading-state">
+          <div className="loading-spinner" />
+          <span className="muted text-sm">Loading edge data&hellip;</span>
+        </div>
+      )}
+      {!!error && <div className="card"><p className="text-red">{error}</p></div>}
 
-      {!loading && !error && (
+      {!loading && !error && rows.length === 0 && (
+        <div className="card empty-state">
+          <p className="empty-state-title">No player data available</p>
+          <p className="muted text-sm">The backend may still be initializing.</p>
+        </div>
+      )}
+
+      {!loading && !error && eligible.length > 0 && (
         <>
-          {/* Summary bar */}
-          <div className="row" style={{ marginTop: 12, gap: 16 }}>
-            <span className="muted" style={{ fontSize: "0.82rem" }}>
-              {summary.comparable.toLocaleString()} comparable ·{" "}
-              <span style={{ color: "var(--green)", fontWeight: 700 }}>{summary.buys} BUY</span> ·{" "}
-              <span style={{ color: "var(--red)", fontWeight: 700 }}>{summary.sells} SELL</span> ·{" "}
-              {summary.total.toLocaleString()} total
-            </span>
+          {/* ── Summary stats ─────────────────────────────────────── */}
+          <div className="card edge-stat-bar">
+            <div className="edge-stat">
+              <span className="edge-stat-value">{stats.total.toLocaleString()}</span>
+              <span className="edge-stat-label">Analyzed</span>
+            </div>
+            <div className="edge-stat">
+              <span className="edge-stat-value text-green">{stats.highConf.toLocaleString()}</span>
+              <span className="edge-stat-label">High conf</span>
+            </div>
+            <div className="edge-stat">
+              <span className="edge-stat-value text-green">{stats.multiSource.toLocaleString()}</span>
+              <span className="edge-stat-label">Multi-src</span>
+            </div>
+            <div className="edge-stat">
+              <span className="edge-stat-value text-amber">{stats.disagreementCount.toLocaleString()}</span>
+              <span className="edge-stat-label">Disagree</span>
+            </div>
+            <div className="edge-stat">
+              <span className="edge-stat-value text-amber">{stats.flaggedCount.toLocaleString()}</span>
+              <span className="edge-stat-label">Flagged</span>
+            </div>
+            <div className="edge-stat">
+              <span className="edge-stat-value">{stats.singleCount.toLocaleString()}</span>
+              <span className="edge-stat-label">1-source</span>
+            </div>
           </div>
 
-          {/* Filters */}
-          <div className="row" style={{ marginTop: 10, gap: 8, flexWrap: "wrap" }}>
-            <input
-              className="input"
-              placeholder="Search player"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              style={{ minWidth: 200 }}
-            />
-            <select className="select" value={signalFilter} onChange={(e) => setSignalFilter(e.target.value)}>
-              {SIGNAL_FILTERS.map((f) => (
-                <option key={f.key} value={f.key}>{f.label}</option>
-              ))}
-            </select>
-            <select className="select" value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
-              {CLASS_FILTERS.map((f) => (
-                <option key={f.key} value={f.key}>{f.label}</option>
-              ))}
-            </select>
-          </div>
+          {/* ── Main grid ─────────────────────────────────────────── */}
+          <div className="edge-page-grid">
+            {/* Consensus Assets */}
+            <EdgeSection
+              title="Consensus Assets"
+              description="Highest-confidence players where both sources agree closely. These are the safest trade anchors."
+              count={`${consensus.length} shown`}
+              accent="green"
+            >
+              <SectionTable
+                rows={consensus}
+                onPlayerClick={openPlayerPopup}
+                emptyText="No high-confidence consensus assets found."
+                columns={[COL_RANK, COL_PLAYER, COL_POS, COL_VALUE, COL_SPREAD, COL_CONF]}
+              />
+            </EdgeSection>
 
-          {/* Table */}
-          <div className="table-wrap" style={{ marginTop: 12 }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Player</th>
-                  <th>Pos</th>
-                  <th>Source</th>
-                  <th style={{ cursor: "pointer" }} onClick={() => handleSort("actualExternal")}>
-                    Market Val {sortCol === "actualExternal" ? (sortDir === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th style={{ cursor: "pointer" }} onClick={() => handleSort("projected")}>
-                    Projected {sortCol === "projected" ? (sortDir === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th style={{ cursor: "pointer" }} onClick={() => handleSort("modelValue")}>
-                    Our Value {sortCol === "modelValue" ? (sortDir === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th style={{ cursor: "pointer" }} onClick={() => handleSort("valueEdge")}>
-                    Value Edge {sortCol === "valueEdge" ? (sortDir === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th style={{ cursor: "pointer" }} onClick={() => handleSort("edgePct")}>
-                    Edge % {sortCol === "edgePct" ? (sortDir === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th>Conf</th>
-                  <th>Signal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.slice(0, 250).map((r) => {
-                  const valueEdge = Number(r.valueEdge || 0);
-                  const edgePct = Number(r.edgePct || 0);
-                  const edgeColor = valueEdge > 0 ? "var(--green)" : valueEdge < 0 ? "var(--red)" : "inherit";
-                  const pctColor = edgePct > 0 ? "var(--green)" : edgePct < 0 ? "var(--red)" : "inherit";
-                  return (
-                    <tr key={r.name}>
-                      <td style={{ fontWeight: 600, cursor: "pointer" }} onClick={() => openPlayerPopup?.(r.row)}>
-                        {r.name}
-                      </td>
-                      <td><span className="badge">{r.pos}</span></td>
-                      <td className="muted" style={{ fontSize: "0.76rem" }}>{r.marketLabel}</td>
-                      <td style={{ fontFamily: "var(--mono, monospace)", fontSize: "0.82rem" }}>
-                        {r.actualExternal != null ? r.actualExternal.toLocaleString() : "---"}
-                      </td>
-                      <td style={{ fontFamily: "var(--mono, monospace)", fontSize: "0.82rem" }}>
-                        {r.projected != null ? r.projected.toLocaleString() : "---"}
-                      </td>
-                      <td style={{ fontFamily: "var(--mono, monospace)", fontSize: "0.82rem" }}>
-                        {r.modelValue.toLocaleString()}
-                      </td>
-                      <td style={{ fontFamily: "var(--mono, monospace)", fontSize: "0.82rem", color: edgeColor, fontWeight: 600 }}>
-                        {r.comparable ? `${valueEdge > 0 ? "+" : ""}${Math.round(valueEdge).toLocaleString()}` : "---"}
-                      </td>
-                      <td style={{ fontFamily: "var(--mono, monospace)", fontSize: "0.82rem", color: pctColor, fontWeight: 600 }}>
-                        {r.comparable ? `${edgePct > 0 ? "+" : ""}${edgePct.toFixed(1)}%` : "---"}
-                      </td>
-                      <td>{r.comparable ? confBadge(r.confidenceLabel) : <span className="muted">---</span>}</td>
-                      <td>{signalBadge(r.signal)}</td>
-                    </tr>
-                  );
-                })}
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="muted" style={{ textAlign: "center", padding: 20 }}>
-                      No players match current filters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+            {/* Biggest Disagreements */}
+            <EdgeSection
+              title="Biggest Disagreements"
+              description="Players where ranking sources diverge most. One market may be wrong — which creates opportunity."
+              count={`${disagreements.length} shown`}
+              accent="amber"
+            >
+              <SectionTable
+                rows={disagreements}
+                onPlayerClick={openPlayerPopup}
+                emptyText="No significant source disagreements."
+                columns={[COL_RANK, COL_PLAYER, COL_POS, COL_SPREAD, COL_GAP_DIR, COL_SIGNAL]}
+              />
+            </EdgeSection>
 
-          {filtered.length > 250 && (
-            <p className="muted" style={{ marginTop: 8, fontSize: "0.76rem" }}>
-              Showing 250 of {filtered.length.toLocaleString()} results. Use filters to narrow.
-            </p>
-          )}
+            {/* KTC Premium */}
+            <EdgeSection
+              title="KTC Premium"
+              description="Players KTC values much higher than IDP Trade Calculator. The offense market sees value the IDP market doesn't."
+              count={`${ktcPremium.length} shown`}
+              accent="cyan"
+            >
+              <SectionTable
+                rows={ktcPremium}
+                onPlayerClick={openPlayerPopup}
+                emptyText="No significant KTC premiums."
+                columns={[COL_RANK, COL_PLAYER, COL_POS, COL_SPREAD, COL_VALUE]}
+              />
+            </EdgeSection>
+
+            {/* IDPTC Premium */}
+            <EdgeSection
+              title="IDPTC Premium"
+              description="Players IDP Trade Calculator values much higher than KTC. The IDP market sees value the offense market doesn't."
+              count={`${idptcPremium.length} shown`}
+              accent="cyan"
+            >
+              <SectionTable
+                rows={idptcPremium}
+                onPlayerClick={openPlayerPopup}
+                emptyText="No significant IDPTC premiums."
+                columns={[COL_RANK, COL_PLAYER, COL_POS, COL_SPREAD, COL_VALUE]}
+              />
+            </EdgeSection>
+
+            {/* Flagged Anomalies */}
+            <EdgeSection
+              title="Flagged Anomalies"
+              description="Ranked players with data quality flags. Not necessarily bad — but worth knowing before trading."
+              count={`${flagged.length} shown`}
+              accent="red"
+            >
+              <SectionTable
+                rows={flagged}
+                onPlayerClick={openPlayerPopup}
+                emptyText="No flagged players in top 300."
+                columns={[COL_RANK, COL_PLAYER, COL_POS, COL_FLAGS, COL_CONF]}
+              />
+            </EdgeSection>
+
+            {/* Single-Source Caution */}
+            <EdgeSection
+              title="Single-Source Players"
+              description="Valued by only one ranking source. Confidence is lower and rank could shift significantly if another source adds coverage."
+              count={`${singleSource.length} shown`}
+              accent="amber"
+            >
+              <SectionTable
+                rows={singleSource}
+                onPlayerClick={openPlayerPopup}
+                emptyText="No single-source players in top 300."
+                columns={[COL_RANK, COL_PLAYER, COL_POS, COL_VALUE, COL_SIGNAL]}
+              />
+            </EdgeSection>
+          </div>
         </>
       )}
     </section>

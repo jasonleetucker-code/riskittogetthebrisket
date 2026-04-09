@@ -1,0 +1,252 @@
+// ── Edge helpers ─────────────────────────────────────────────────────────────
+// Shared logic for actionable lenses, edge summaries, and per-row action labels.
+// Pure functions — no React dependencies, fully testable.
+// Designed for reuse by /rankings, future /edge, and /finder pages.
+//
+// All signals are derived from existing trust + source fields on the row object:
+//   sourceRankSpread, confidenceBucket, isSingleSource, hasSourceDisagreement,
+//   anomalyFlags, sourceRanks, marketGapDirection, quarantined, rank, sourceCount
+//
+// Nothing is predicted or editorialized.  Every label traces to a measurable
+// property of the source data.
+//
+// Tests: frontend/__tests__/edge-helpers.test.js
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Action-frame labels ──────────────────────────────────────────────────────
+// Each row gets at most one primary action label + optional caution labels.
+// Rules are evaluated top-to-bottom; first match wins for primary.
+// Caution labels can stack.
+
+/**
+ * Compute the primary action-frame label for a row.
+ * Returns { label, css, title } or null.
+ *
+ * Priority:
+ *   1. Market premium (source gap >= 30 ranks in a meaningful direction)
+ *   2. Consensus asset (multi-source, high confidence, spread <= 30)
+ *   3. null (no primary label — row is ordinary)
+ */
+export function actionLabel(row) {
+  if (!row || row.quarantined) return null;
+
+  // Market premium: one source ranks the player much higher than the other
+  const spread = row.sourceRankSpread;
+  const dir = row.marketGapDirection;
+  if (spread != null && spread >= 30 && dir && dir !== "none") {
+    const source = dir === "ktc_higher" ? "KTC" : "IDPTC";
+    return {
+      label: `Market premium: ${source}`,
+      css: "action-premium",
+      title: `${source} ranks this player ${spread} positions higher than the other source`,
+    };
+  }
+
+  // Consensus asset: tight multi-source agreement
+  if (
+    row.confidenceBucket === "high" &&
+    (row.sourceCount || 0) >= 2 &&
+    (spread == null || spread <= 30)
+  ) {
+    return {
+      label: "Consensus asset",
+      css: "action-consensus",
+      title: "Multiple sources agree closely on this player's value",
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Compute caution labels for a row.  Can return 0-N labels.
+ * Each is { label, css, title }.
+ */
+export function cautionLabels(row) {
+  const labels = [];
+  if (!row) return labels;
+
+  if (row.isSingleSource) {
+    labels.push({
+      label: "Caution: single source",
+      css: "caution-single",
+      title: "Only one source contributed a value — confidence is lower",
+    });
+  }
+  if ((row.anomalyFlags || []).length > 0 && !row.quarantined) {
+    labels.push({
+      label: "Caution: flagged",
+      css: "caution-flagged",
+      title: `Data quality flags: ${(row.anomalyFlags || []).join(", ")}`,
+    });
+  }
+  if (row.hasSourceDisagreement) {
+    labels.push({
+      label: "Caution: wide disagreement",
+      css: "caution-disagree",
+      title: "Sources disagree by more than 80 rank positions",
+    });
+  }
+  return labels;
+}
+
+// ── Board lenses ─────────────────────────────────────────────────────────────
+// Each lens is a { key, label, description, filter, sort } descriptor.
+// filter(row) → boolean, sort(a,b) → number.
+// The rankings page applies these to produce different board views.
+
+/**
+ * Lens definitions.  Each lens filters and sorts the ranked player list
+ * to surface a specific type of signal.
+ *
+ * "consensus" is the default lens — shows all rows sorted by rank.
+ */
+export const LENSES = [
+  {
+    key: "consensus",
+    label: "Consensus",
+    description: "Standard board — all players sorted by unified rank.",
+    filter: () => true,
+    sort: null, // use default rank sort
+  },
+  {
+    key: "disagreements",
+    label: "Disagreements",
+    description: "Players where sources disagree most. Spread > 40 ranks between sources — potential mispricings or data issues.",
+    filter: (row) => (row.sourceRankSpread ?? 0) > 40,
+    sort: (a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0),
+  },
+  {
+    key: "inefficiencies",
+    label: "Inefficiencies",
+    description: "Ranked players (top 200) with high source disagreement — where one market may be wrong. These are potential trade targets.",
+    filter: (row) => (row.rank ?? Infinity) <= 200 && (row.sourceRankSpread ?? 0) > 30,
+    sort: (a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0),
+  },
+  {
+    key: "safest",
+    label: "Safest",
+    description: "High-confidence, multi-source assets with tight agreement. Lowest risk for trades — both markets agree on value.",
+    filter: (row) => row.confidenceBucket === "high" && (row.sourceCount ?? 0) >= 2,
+    sort: (a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity),
+  },
+  {
+    key: "fragile",
+    label: "Fragile",
+    description: "Single-source, low-confidence, or flagged assets. Higher risk — value is based on thinner evidence.",
+    filter: (row) =>
+      row.isSingleSource ||
+      row.confidenceBucket === "low" ||
+      (row.anomalyFlags || []).length > 0,
+    sort: (a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity),
+  },
+];
+
+/**
+ * Look up a lens by key.
+ */
+export function getLens(key) {
+  return LENSES.find((l) => l.key === key) || LENSES[0];
+}
+
+/**
+ * Apply a lens to a list of rows.
+ * Returns filtered + sorted array (does not mutate input).
+ */
+export function applyLens(rows, lensKey) {
+  const lens = getLens(lensKey);
+  const filtered = rows.filter(lens.filter);
+  if (lens.sort) {
+    return [...filtered].sort(lens.sort);
+  }
+  return filtered;
+}
+
+// ── Edge summary computation ─────────────────────────────────────────────────
+// Computes compact summary lists for the Edge rail.
+// Each function returns an array of { name, pos, rank, detail } objects,
+// capped at `limit` entries.
+
+/**
+ * Top players where KTC ranks them much higher than IDPTC.
+ * These are players the offense market values more than the IDP market.
+ */
+export function topKtcPremium(rows, limit = 5) {
+  return rows
+    .filter((r) => r.marketGapDirection === "ktc_higher" && (r.sourceRankSpread ?? 0) >= 20 && !r.quarantined)
+    .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
+    .slice(0, limit)
+    .map((r) => ({
+      name: r.name,
+      pos: r.pos,
+      rank: r.rank,
+      detail: `KTC +${r.sourceRankSpread} ranks`,
+      row: r,
+    }));
+}
+
+/**
+ * Top players where IDPTC ranks them much higher than KTC.
+ */
+export function topIdptcPremium(rows, limit = 5) {
+  return rows
+    .filter((r) => r.marketGapDirection === "idptc_higher" && (r.sourceRankSpread ?? 0) >= 20 && !r.quarantined)
+    .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
+    .slice(0, limit)
+    .map((r) => ({
+      name: r.name,
+      pos: r.pos,
+      rank: r.rank,
+      detail: `IDPTC +${r.sourceRankSpread} ranks`,
+      row: r,
+    }));
+}
+
+/**
+ * Top flagged players needing caution (anomaly flags, by rank).
+ */
+export function topFlaggedCautions(rows, limit = 5) {
+  return rows
+    .filter((r) => (r.anomalyFlags || []).length > 0 && (r.rank ?? Infinity) <= 300)
+    .sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity))
+    .slice(0, limit)
+    .map((r) => ({
+      name: r.name,
+      pos: r.pos,
+      rank: r.rank,
+      detail: (r.anomalyFlags || []).slice(0, 2).join(", "),
+      row: r,
+    }));
+}
+
+/**
+ * Top high-confidence consensus assets (multi-source, tight agreement, best rank).
+ */
+export function topConsensusAssets(rows, limit = 5) {
+  return rows
+    .filter((r) => r.confidenceBucket === "high" && (r.sourceCount ?? 0) >= 2 && !r.quarantined)
+    .sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity))
+    .slice(0, limit)
+    .map((r) => ({
+      name: r.name,
+      pos: r.pos,
+      rank: r.rank,
+      detail: `spread ${r.sourceRankSpread ?? 0}`,
+      row: r,
+    }));
+}
+
+/**
+ * Compute all edge summary sections at once.
+ * Returns an object with arrays for each section.
+ */
+export function computeEdgeSummary(rows) {
+  // Pre-filter to ranked non-pick players
+  const eligible = rows.filter((r) => r.pos && r.pos !== "?" && r.pos !== "PICK" && r.rank);
+  return {
+    ktcPremium: topKtcPremium(eligible),
+    idptcPremium: topIdptcPremium(eligible),
+    flaggedCautions: topFlaggedCautions(eligible),
+    consensusAssets: topConsensusAssets(eligible),
+  };
+}

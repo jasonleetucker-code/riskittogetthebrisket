@@ -131,6 +131,30 @@ function computeUnifiedRanks(rows) {
     r.blendedSourceRank = blendedSourceRank;
     r.sourceCount = sourceRankValues.length;
 
+    // Trust/transparency fields — prefer backend values; compute fallback
+    const spread = sourceRankValues.length >= 2
+      ? Math.max(...sourceRankValues) - Math.min(...sourceRankValues)
+      : null;
+    r.sourceRankSpread = r.raw?.sourceRankSpread ?? spread;
+    r.isSingleSource = r.raw?.isSingleSource ?? (sourceRankValues.length === 1);
+    r.hasSourceDisagreement = r.raw?.hasSourceDisagreement ?? (spread !== null && spread > 80);
+    r.marketGapDirection = r.raw?.marketGapDirection ?? "none";
+    r.marketGapMagnitude = r.raw?.marketGapMagnitude ?? null;
+
+    // Confidence bucket fallback (mirrors backend logic)
+    if (r.raw?.confidenceBucket) {
+      r.confidenceBucket = r.raw.confidenceBucket;
+      r.confidenceLabel = r.raw.confidenceLabel || "";
+    } else if (sourceRankValues.length >= 2 && spread !== null) {
+      if (spread <= 30) { r.confidenceBucket = "high"; r.confidenceLabel = "High — multi-source, tight agreement"; }
+      else if (spread <= 80) { r.confidenceBucket = "medium"; r.confidenceLabel = "Medium — multi-source, moderate spread"; }
+      else { r.confidenceBucket = "low"; r.confidenceLabel = "Low — single source or wide disagreement"; }
+    } else {
+      r.confidenceBucket = "low";
+      r.confidenceLabel = "Low — single source or wide disagreement";
+    }
+    r.anomalyFlags = Array.isArray(r.raw?.anomalyFlags) ? r.raw.anomalyFlags : [];
+
     // Backward compat
     if (entry.ranks.ktc) r.ktcRank = entry.ranks.ktc;
     if (entry.ranks.idpTradeCalc) r.idpRank = entry.ranks.idpTradeCalc;
@@ -169,6 +193,9 @@ export function buildRows(data) {
       rows.push({
         name,
         pos: pos || "?",
+        team: String(player.team || ""),
+        age: Number(player.age) || null,
+        rookie: Boolean(player.rookie),
         assetClass: String(player.assetClass || classifyPos(pos || "?")),
         values: {
           raw: Math.round(values.raw),
@@ -183,6 +210,21 @@ export function buildRows(data) {
         canonicalSites,
         canonicalConsensusRank: Number(player.canonicalConsensusRank) || null,
         canonicalTierId: Number(player.canonicalTierId) || null,
+        // Trust/transparency fields — pass through from backend contract.
+        // These are backend-authoritative; the frontend preserves them as-is.
+        confidenceBucket: String(player.confidenceBucket || "none"),
+        confidenceLabel: String(player.confidenceLabel || ""),
+        anomalyFlags: Array.isArray(player.anomalyFlags) ? player.anomalyFlags : [],
+        isSingleSource: Boolean(player.isSingleSource),
+        hasSourceDisagreement: Boolean(player.hasSourceDisagreement),
+        blendedSourceRank: player.blendedSourceRank ?? null,
+        sourceRankSpread: player.sourceRankSpread ?? null,
+        marketGapDirection: String(player.marketGapDirection || "none"),
+        marketGapMagnitude: player.marketGapMagnitude ?? null,
+        // Identity quality fields — backend-authoritative
+        identityConfidence: Number(player.identityConfidence ?? 0.7),
+        identityMethod: String(player.identityMethod || "name_only"),
+        quarantined: Boolean(player.quarantined),
         raw: player,
       });
     }
@@ -214,6 +256,9 @@ export function buildRows(data) {
     rows.push({
       name,
       pos: pos || "?",
+      team: String(player.team || ""),
+      age: Number(player.age) || null,
+      rookie: Boolean(player._formatFitRookie),
       assetClass: classifyPos(pos || "?"),
       values,
       // siteCount: intentionally preserved — used by trade calculator and
@@ -225,6 +270,20 @@ export function buildRows(data) {
       canonicalSites,
       canonicalConsensusRank: Number(player._canonicalConsensusRank) || null,
       canonicalTierId: Number(player._canonicalTierId) || null,
+      // Trust/transparency defaults for legacy path — will be overwritten
+      // by computeUnifiedRanks() for ranked players.
+      confidenceBucket: "none",
+      confidenceLabel: "",
+      anomalyFlags: [],
+      isSingleSource: false,
+      hasSourceDisagreement: false,
+      blendedSourceRank: null,
+      sourceRankSpread: null,
+      marketGapDirection: "none",
+      marketGapMagnitude: null,
+      identityConfidence: 0.7,
+      identityMethod: "name_only",
+      quarantined: false,
       raw: player,
     });
   }

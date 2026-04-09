@@ -1,15 +1,44 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { Fragment, useMemo, useState, useCallback } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { resolvedRank } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
+import {
+  tierLabel,
+  effectiveTierId,
+  valueBand,
+  rowChips,
+  DEFAULT_ROW_LIMIT,
+} from "@/lib/rankings-helpers";
+import {
+  LENSES,
+  getLens,
+  applyLens,
+  actionLabel,
+  cautionLabels,
+  computeEdgeSummary,
+} from "@/lib/edge-helpers";
+import {
+  confBadgeClass as confidenceBadgeClass,
+  confBadgeLabel as confidenceBadgeLabel,
+  marketGapLabel,
+} from "@/lib/display-helpers";
 
 // ── UNIFIED RANKINGS PAGE ────────────────────────────────────────────
-// One blended board: offense + IDP sorted by unified rank.
-// Source columns show which source(s) contributed each player's value.
-// All columns are sortable (click header to toggle asc/desc).
+// Trust-forward blended board: offense + IDP sorted by unified rank.
+// Shows tiers, player context, confidence, value bands, fast-scan chips,
+// actionable lenses, and an edge summary rail.
+//
+// Default experience decisions:
+//   • Lens: "consensus" (standard rank view)
+//   • Sort: by rank ascending (most intentional view)
+//   • Rows shown: 200 initially (starters + depth in 12-team)
+//   • Tier grouping: ON by default
+//   • Edge rail: visible by default (quick-scan signal)
+//   • Flagged rows: shown inline (not hidden)
+//   • Quarantined rows: shown but dimmed
 
 const POS_FILTERS = [
   { key: "all", label: "All" },
@@ -24,6 +53,13 @@ const POS_FILTERS = [
   { key: "DB", label: "DB" },
 ];
 
+const CONFIDENCE_FILTERS = [
+  { key: "all", label: "Any confidence" },
+  { key: "high", label: "High" },
+  { key: "medium", label: "Medium" },
+  { key: "low", label: "Low" },
+];
+
 function posMatchesFilter(pos, assetClass, filter) {
   if (filter === "all") return true;
   if (filter === "offense") return assetClass === "offense";
@@ -31,46 +67,204 @@ function posMatchesFilter(pos, assetClass, filter) {
   return pos === filter;
 }
 
+// ── Methodology content ──────────────────────────────────────────────
+
+function MethodologySection() {
+  return (
+    <div className="rankings-methodology-body">
+      <h3 style={{ margin: "0 0 8px", fontSize: "0.88rem" }}>How rankings work</h3>
+      <ol style={{ margin: 0, paddingLeft: 18, fontSize: "0.78rem", lineHeight: 1.7, color: "var(--subtext)" }}>
+        <li><strong>Source ingestion</strong> — Raw values from Keep Trade Cut (offense) and IDP Trade Calculator (IDP).</li>
+        <li><strong>Per-source ranking</strong> — Each player ranked within each source by raw value (highest = rank 1).</li>
+        <li><strong>Rank normalization</strong> — Per-source ranks converted to 1–9,999 values via Hill-curve formula so sources are comparable.</li>
+        <li><strong>Blended ranking</strong> — Multi-source players get averaged normalized values. Single-source players keep their one value.</li>
+        <li><strong>Unified sort</strong> — All players sorted by blended value into one board. Top 800 get a consensus rank.</li>
+        <li><strong>Tier detection</strong> — Natural value clusters detected via gap analysis. Tier breaks appear where adjacent players have unusually large value gaps.</li>
+        <li><strong>Confidence scoring</strong> — High = 2+ sources, spread {"<"} 30. Medium = 2+ sources, spread {"<"} 80. Low = single source or wide disagreement.</li>
+        <li><strong>Identity validation</strong> — Post-ranking pass checks for entity resolution problems. Flagged rows are quarantined (confidence degraded, not removed).</li>
+      </ol>
+      <p style={{ margin: "8px 0 0", fontSize: "0.72rem", color: "var(--muted)", fontFamily: "var(--mono)" }}>
+        value = max(1, min(9999, round(1 + 9998 / (1 + ((rank-1)/45)^1.10))))
+      </p>
+    </div>
+  );
+}
+
+// ── Edge rail section ────────────────────────────────────────────────
+
+function EdgeRailSection({ label, items, emptyText, onPlayerClick }) {
+  return (
+    <div className="edge-rail-section">
+      <h4 className="edge-rail-section-title">{label}</h4>
+      {items.length === 0 ? (
+        <p className="muted text-xs">{emptyText}</p>
+      ) : (
+        <ul className="edge-rail-list">
+          {items.map((item) => (
+            <li key={item.name} className="edge-rail-item">
+              <span
+                className="edge-rail-name"
+                onClick={() => onPlayerClick?.(item.row)}
+              >
+                #{item.rank} {item.name}
+              </span>
+              <span className="edge-rail-pos badge">{item.pos}</span>
+              <span className="edge-rail-detail">{item.detail}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function EdgeRail({ summary, onPlayerClick }) {
+  const hasSomething =
+    summary.ktcPremium.length > 0 ||
+    summary.idptcPremium.length > 0 ||
+    summary.flaggedCautions.length > 0 ||
+    summary.consensusAssets.length > 0;
+
+  if (!hasSomething) return null;
+
+  return (
+    <div className="edge-rail">
+      <div className="edge-rail-header">
+        <h3 className="edge-rail-title">Edge Summary</h3>
+        <span className="muted text-xs">Derived from source agreement data — not predictions</span>
+      </div>
+      <div className="edge-rail-grid">
+        <EdgeRailSection
+          label="KTC Premium"
+          items={summary.ktcPremium}
+          emptyText="No significant KTC premiums"
+          onPlayerClick={onPlayerClick}
+        />
+        <EdgeRailSection
+          label="IDPTC Premium"
+          items={summary.idptcPremium}
+          emptyText="No significant IDPTC premiums"
+          onPlayerClick={onPlayerClick}
+        />
+        <EdgeRailSection
+          label="Consensus Assets"
+          items={summary.consensusAssets}
+          emptyText="No high-confidence consensus assets"
+          onPlayerClick={onPlayerClick}
+        />
+        <EdgeRailSection
+          label="Flagged — Needs Caution"
+          items={summary.flaggedCautions}
+          emptyText="No flagged players in top 300"
+          onPlayerClick={onPlayerClick}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Main component ───────────────────────────────────────────────────
+
 export default function RankingsPage() {
-  const { loading, error, source, rows } = useDynastyData();
+  const { loading, error, source, rows, rawData } = useDynastyData();
   const { settings } = useSettings();
   const { openPlayerPopup } = useApp();
   const [query, setQuery] = useState("");
   const [posFilter, setPosFilter] = useState("all");
+  const [confFilter, setConfFilter] = useState("all");
+  const [activeLens, setActiveLens] = useState("consensus");
+  const [showTiers, setShowTiers] = useState(true);
+  const [showEdgeRail, setShowEdgeRail] = useState(true);
+  const [rowLimit, setRowLimit] = useState(DEFAULT_ROW_LIMIT);
   const [sortCol, setSortCol] = useState("rank");
   const [sortAsc, setSortAsc] = useState(true);
   const [copyStatus, setCopyStatus] = useState("");
+  const [showMethodology, setShowMethodology] = useState(false);
 
   const handleSort = useCallback((col) => {
     if (sortCol === col) {
       setSortAsc((prev) => !prev);
     } else {
       setSortCol(col);
-      // Default direction: ascending for rank/player/pos, descending for values
       setSortAsc(["rank", "name", "pos"].includes(col));
     }
   }, [sortCol]);
 
+  // Switch lens: reset sort to default, expand row limit
+  const handleLensChange = useCallback((key) => {
+    setActiveLens(key);
+    const lens = getLens(key);
+    if (lens.sort) {
+      // Non-consensus lenses have their own sort — disable manual sort
+      setSortCol("lens");
+      setSortAsc(true);
+    } else {
+      setSortCol("rank");
+      setSortAsc(true);
+    }
+    // Expand limit for filtered lenses since they show fewer rows
+    if (key !== "consensus") {
+      setRowLimit(Infinity);
+    } else {
+      setRowLimit(DEFAULT_ROW_LIMIT);
+    }
+  }, []);
+
+  // ── Base eligible list ──────────────────────────────────────────
+  const eligible = useMemo(() => {
+    return rows.filter((r) => r.pos && r.pos !== "?" && r.pos !== "PICK");
+  }, [rows]);
+
+  // ── Trust summary stats ──────────────────────────────────────────
+  const trustStats = useMemo(() => {
+    const high = eligible.filter((r) => r.confidenceBucket === "high").length;
+    const medium = eligible.filter((r) => r.confidenceBucket === "medium").length;
+    const low = eligible.filter((r) => r.confidenceBucket === "low" || r.confidenceBucket === "none").length;
+    const quarantined = eligible.filter((r) => r.quarantined).length;
+    const multiSource = eligible.filter((r) => (r.sourceCount || 0) >= 2).length;
+    const withAnomalies = eligible.filter((r) => (r.anomalyFlags || []).length > 0).length;
+    return { total: eligible.length, high, medium, low, quarantined, multiSource, withAnomalies };
+  }, [eligible]);
+
+  // ── Edge summary ─────────────────────────────────────────────────
+  const edgeSummary = useMemo(() => computeEdgeSummary(eligible), [eligible]);
+
+  // ── Filtered + sorted list ──────────────────────────────────────
   const ranked = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let list = rows.filter((r) => r.pos && r.pos !== "?" && r.pos !== "PICK");
 
+    // Start with lens-filtered list
+    let list = applyLens(eligible, activeLens);
+
+    // Additional filters layer on top of lens
     if (posFilter !== "all") {
       list = list.filter((r) => posMatchesFilter(r.pos, r.assetClass, posFilter));
+    }
+    if (confFilter !== "all") {
+      list = list.filter((r) => {
+        if (confFilter === "low") return r.confidenceBucket === "low" || r.confidenceBucket === "none";
+        return r.confidenceBucket === confFilter;
+      });
     }
     if (q) {
       list = list.filter((r) => r.name.toLowerCase().includes(q));
     }
 
-    // Sort by selected column
+    // If lens provides its own sort and user hasn't overridden, use it
+    const lens = getLens(activeLens);
+    if (sortCol === "lens" && lens.sort) {
+      return list; // already sorted by applyLens
+    }
+
+    // Manual sort
     const sorted = [...list];
     const dir = sortAsc ? 1 : -1;
     sorted.sort((a, b) => {
       let va, vb;
       switch (sortCol) {
         case "rank":
-          va = a.blendedSourceRank ?? Infinity;
-          vb = b.blendedSourceRank ?? Infinity;
+          va = resolvedRank(a);
+          vb = resolvedRank(b);
           return (va - vb) * dir;
         case "name":
           return a.name.localeCompare(b.name) * dir;
@@ -80,28 +274,23 @@ export default function RankingsPage() {
           va = a.rankDerivedValue || a.values?.full || 0;
           vb = b.rankDerivedValue || b.values?.full || 0;
           return (va - vb) * dir;
-        case "ktc":
-          va = Number(a.canonicalSites?.ktc) || 0;
-          vb = Number(b.canonicalSites?.ktc) || 0;
+        case "confidence": {
+          const order = { high: 0, medium: 1, low: 2, none: 3 };
+          va = order[a.confidenceBucket] ?? 3;
+          vb = order[b.confidenceBucket] ?? 3;
           return (va - vb) * dir;
-        case "idpTradeCalc":
-          va = Number(a.canonicalSites?.idpTradeCalc) || 0;
-          vb = Number(b.canonicalSites?.idpTradeCalc) || 0;
-          return (va - vb) * dir;
-        case "ktcRank":
-          va = a.ktcRank ?? Infinity;
-          vb = b.ktcRank ?? Infinity;
-          return (va - vb) * dir;
-        case "idpRank":
-          va = a.idpRank ?? Infinity;
-          vb = b.idpRank ?? Infinity;
-          return (va - vb) * dir;
+        }
         default:
           return resolvedRank(a) - resolvedRank(b);
       }
     });
     return sorted;
-  }, [rows, posFilter, query, sortCol, sortAsc]);
+  }, [eligible, activeLens, posFilter, confFilter, query, sortCol, sortAsc]);
+
+  // Apply row limit — search/filter bypasses the limit
+  const hasActiveFilter = query || posFilter !== "all" || confFilter !== "all" || activeLens !== "consensus";
+  const displayRows = hasActiveFilter ? ranked : ranked.slice(0, rowLimit);
+  const hasMore = !hasActiveFilter && ranked.length > rowLimit;
 
   function SortHeader({ col, children, style, className }) {
     const active = sortCol === col;
@@ -118,16 +307,27 @@ export default function RankingsPage() {
     );
   }
 
+  // ── Copy/Export ────────────────────────────────────────────────────
   async function copyValues() {
-    const lines = ["Rank\tPlayer\tPos\tOur Value\tKTC Value\tKTC Rank\tIDPTC Value\tIDPTC Rank"];
-    ranked.forEach((row) => {
+    const lines = ["Rank\tPlayer\tPos\tTeam\tTier\tValue\tValue Band\tConfidence\tAction\tSources\tKTC\tKTC Rank\tIDPTC\tIDPTC Rank"];
+    displayRows.forEach((row) => {
       const ktcVal = row.canonicalSites?.ktc != null ? Math.round(Number(row.canonicalSites.ktc)) : "";
       const idpVal = row.canonicalSites?.idpTradeCalc != null ? Math.round(Number(row.canonicalSites.idpTradeCalc)) : "";
-      lines.push(`${row.rank}\t${row.name}\t${row.pos}\t${Math.round(row.rankDerivedValue || row.values.full)}\t${ktcVal}\t${row.ktcRank || ""}\t${idpVal}\t${row.idpRank || ""}`);
+      const val = Math.round(row.rankDerivedValue || row.values.full);
+      const band = valueBand(val);
+      const action = actionLabel(row);
+      const cautions = cautionLabels(row);
+      const actionStr = [action?.label, ...cautions.map((c) => c.label)].filter(Boolean).join("; ");
+      lines.push(
+        `${row.rank}\t${row.name}\t${row.pos}\t${row.team || ""}\t` +
+        `${tierLabel(row)}\t${val}\t${band.label}\t` +
+        `${row.confidenceBucket || ""}\t${actionStr}\t${row.sourceCount || 0}\t` +
+        `${ktcVal}\t${row.ktcRank || ""}\t${idpVal}\t${row.idpRank || ""}`
+      );
     });
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
-      setCopyStatus(`Copied ${ranked.length.toLocaleString()} rows`);
+      setCopyStatus(`Copied ${displayRows.length.toLocaleString()} rows`);
       setTimeout(() => setCopyStatus(""), 1800);
     } catch {
       setCopyStatus("Copy failed");
@@ -135,92 +335,305 @@ export default function RankingsPage() {
     }
   }
 
+  // ── Freshness timestamp ────────────────────────────────────────────
+  const freshness = rawData?.dataFreshness;
+  const timestamp = freshness?.generatedAt || rawData?.date || null;
+
+  // ── Tier separator logic ───────────────────────────────────────────
+  const tierGroupingActive = showTiers && sortCol === "rank" && sortAsc && activeLens === "consensus" && !query;
+
+  // ── Active lens descriptor ─────────────────────────────────────────
+  const currentLens = getLens(activeLens);
+
+  // ── Render ─────────────────────────────────────────────────────────
   return (
     <section className="card">
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+      {/* ── Header ──────────────────────────────────────────────────── */}
+      <div className="rankings-header">
         <div>
-          <h1 style={{ margin: 0 }}>Rankings</h1>
-          <p className="muted" style={{ marginTop: 4, marginBottom: 0 }}>
-            Unified overall board · {ranked.length.toLocaleString()} shown · Offense ranked from KTC + IDP Trade Calculator, IDP from IDP Trade Calculator
+          <h1 className="page-title">Rankings</h1>
+          <p className="page-subtitle muted" style={{ marginTop: 4 }}>
+            Unified dynasty board &mdash; offense + IDP blended by consensus rank
           </p>
-          <p className="muted" style={{ marginTop: 2, marginBottom: 0, fontSize: "0.7rem" }}>
-            — means this source does not cover this player. Players with two sources use a blended average rank.
-          </p>
+        </div>
+        <div className="page-header-actions">
+          <button
+            className={`button ${showEdgeRail ? "button-primary" : ""}`}
+            onClick={() => setShowEdgeRail((v) => !v)}
+          >
+            {showEdgeRail ? "Hide edge" : "Show edge"}
+          </button>
+          <button
+            className={`button ${showMethodology ? "button-primary" : ""}`}
+            onClick={() => setShowMethodology((v) => !v)}
+          >
+            {showMethodology ? "Hide methodology" : "How this works"}
+          </button>
+          <button className="button" onClick={copyValues}>
+            Copy
+          </button>
+          {copyStatus && <span className="muted text-sm">{copyStatus}</span>}
         </div>
       </div>
 
-      {loading && <p style={{ marginTop: 16 }}>Loading rankings...</p>}
-      {!!error && <p style={{ color: "var(--red)", marginTop: 16 }}>{error}</p>}
-
-      {!loading && !error && rows.length === 0 && (
-        <p className="muted" style={{ marginTop: 16 }}>No player data available. The backend may still be initializing.</p>
+      {/* ── Trust bar ───────────────────────────────────────────────── */}
+      {!loading && !error && rows.length > 0 && (
+        <div className="rankings-trust-bar">
+          <div className="rankings-trust-stat">
+            <span className="rankings-trust-value">{trustStats.total.toLocaleString()}</span>
+            <span className="rankings-trust-label">Players</span>
+          </div>
+          <div className="rankings-trust-stat">
+            <span className="rankings-trust-value text-green">{trustStats.high.toLocaleString()}</span>
+            <span className="rankings-trust-label">High conf</span>
+          </div>
+          <div className="rankings-trust-stat">
+            <span className="rankings-trust-value text-amber">{trustStats.medium.toLocaleString()}</span>
+            <span className="rankings-trust-label">Medium</span>
+          </div>
+          <div className="rankings-trust-stat">
+            <span className="rankings-trust-value">{trustStats.low.toLocaleString()}</span>
+            <span className="rankings-trust-label">Low</span>
+          </div>
+          <div className="rankings-trust-stat">
+            <span className="rankings-trust-value text-green">{trustStats.multiSource.toLocaleString()}</span>
+            <span className="rankings-trust-label">Multi-src</span>
+          </div>
+          {trustStats.quarantined > 0 && (
+            <div className="rankings-trust-stat">
+              <span className="rankings-trust-value text-red">{trustStats.quarantined}</span>
+              <span className="rankings-trust-label">Quarantined</span>
+            </div>
+          )}
+          {timestamp && (
+            <div className="rankings-trust-stat" style={{ marginLeft: "auto" }}>
+              <span className="rankings-trust-label">Updated {timestamp}</span>
+            </div>
+          )}
+        </div>
       )}
 
+      {/* ── Methodology (expandable) ────────────────────────────────── */}
+      {showMethodology && <MethodologySection />}
+
+      {/* ── Edge rail (expandable) ──────────────────────────────────── */}
+      {!loading && !error && showEdgeRail && rows.length > 0 && (
+        <EdgeRail summary={edgeSummary} onPlayerClick={openPlayerPopup} />
+      )}
+
+      {/* ── Loading / error / empty states ──────────────────────────── */}
+      {loading && (
+        <div className="loading-state">
+          <div className="loading-spinner" />
+          <span className="muted text-sm">Loading rankings&hellip;</span>
+        </div>
+      )}
+      {!!error && <p className="error-state-message" style={{ marginTop: 16 }}>{error}</p>}
+      {!loading && !error && rows.length === 0 && (
+        <div className="empty-state">
+          <p className="empty-state-title">No player data available</p>
+          <p className="muted text-sm">The backend may still be initializing.</p>
+        </div>
+      )}
+
+      {/* ── Lens selector + controls ────────────────────────────────── */}
       {!loading && !error && rows.length > 0 && (
         <>
-          <div className="row" style={{ marginTop: 14, gap: 8, flexWrap: "wrap" }}>
+          {/* Lens tabs */}
+          <div className="sub-nav" style={{ marginTop: "var(--space-sm)" }}>
+            {LENSES.map((lens) => (
+              <button
+                key={lens.key}
+                className={`sub-nav-btn ${activeLens === lens.key ? "active" : ""}`}
+                onClick={() => handleLensChange(lens.key)}
+                title={lens.description}
+              >
+                {lens.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Lens description */}
+          {activeLens !== "consensus" && (
+            <p className="muted text-xs" style={{ margin: "4px 0 8px", lineHeight: 1.4 }}>
+              {currentLens.description}
+            </p>
+          )}
+
+          {/* Filters */}
+          <div className="filter-bar">
             <input
               className="input"
-              placeholder="Search player"
+              placeholder="Search player..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              style={{ flex: 1, minWidth: 0 }}
+              style={{ flex: 1, minWidth: 140 }}
             />
-
             <select className="select" value={posFilter} onChange={(e) => setPosFilter(e.target.value)}>
               {POS_FILTERS.map((f) => (
                 <option key={f.key} value={f.key}>{f.label}</option>
               ))}
             </select>
-
-            <button className="button" onClick={copyValues}>
-              Copy
+            <select className="select hide-mobile" value={confFilter} onChange={(e) => setConfFilter(e.target.value)}>
+              {CONFIDENCE_FILTERS.map((f) => (
+                <option key={f.key} value={f.key}>{f.label}</option>
+              ))}
+            </select>
+            <button
+              className={`button hide-mobile ${showTiers ? "button-primary" : ""}`}
+              onClick={() => setShowTiers((v) => !v)}
+              title="Toggle tier grouping"
+            >
+              Tiers
             </button>
-            {copyStatus ? <span className="muted" style={{ fontSize: "0.78rem", alignSelf: "center" }}>{copyStatus}</span> : null}
           </div>
 
-          <div className="table-wrap" style={{ marginTop: 12 }}>
+          <p className="muted text-xs" style={{ margin: "6px 0 0" }}>
+            {displayRows.length.toLocaleString()}{hasMore ? ` of ${ranked.length.toLocaleString()}` : ""} shown
+            {activeLens !== "consensus" && ` \u00B7 ${currentLens.label} lens`}
+            {confFilter !== "all" && ` \u00B7 ${confFilter} confidence`}
+            {tierGroupingActive && " \u00B7 grouped by tier"}
+          </p>
+
+          {/* ── Table ───────────────────────────────────────────────── */}
+          <div className="table-wrap" style={{ marginTop: 10 }}>
             <table>
               <thead>
                 <tr>
-                  <SortHeader col="rank" style={{ width: 56, textAlign: "center" }}>Our Rank</SortHeader>
+                  <SortHeader col="rank" style={{ width: 50, textAlign: "center" }}>Rank</SortHeader>
+                  <th className="hide-mobile" style={{ width: 90 }}>Tier</th>
                   <SortHeader col="name">Player</SortHeader>
-                  <SortHeader col="pos">Pos</SortHeader>
-                  <SortHeader col="value" style={{ textAlign: "right" }}>Our Value</SortHeader>
-                  <SortHeader col="ktc" style={{ textAlign: "right", fontSize: "0.72rem" }}>KTC</SortHeader>
-                  <SortHeader col="ktcRank" style={{ textAlign: "center", fontSize: "0.72rem" }} className="hide-mobile">KTC Rank</SortHeader>
-                  <SortHeader col="idpTradeCalc" style={{ textAlign: "right", fontSize: "0.72rem" }} className="hide-mobile">IDPTC</SortHeader>
-                  <SortHeader col="idpRank" style={{ textAlign: "center", fontSize: "0.72rem" }} className="hide-mobile">IDPTC Rank</SortHeader>
+                  <SortHeader col="pos" style={{ width: 54 }}>Pos</SortHeader>
+                  <SortHeader col="value" style={{ textAlign: "right" }}>Value</SortHeader>
+                  <SortHeader col="confidence" style={{ textAlign: "center" }} className="hide-mobile">Conf</SortHeader>
+                  <th className="hide-mobile" style={{ textAlign: "center", width: 90 }}>Gap</th>
+                  <th className="hide-mobile" style={{ width: 170 }}>Signal</th>
                 </tr>
               </thead>
               <tbody>
-                {ranked.map((row) => (
-                  <tr key={row.name}>
-                    <td style={{ textAlign: "center", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)" }}>
-                      {row.blendedSourceRank != null ? row.blendedSourceRank.toFixed(1) : row.rank}
-                    </td>
-                    <td style={{ fontWeight: 600, cursor: "pointer" }} onClick={() => openPlayerPopup?.(row)}>{row.name}</td>
-                    <td><span className="badge">{row.pos}</span></td>
-                    <td style={{ textAlign: "right", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)" }}>
-                      {Math.round(row.rankDerivedValue || row.values.full).toLocaleString()}
-                    </td>
-                    <td style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem" }}>
-                      {row.canonicalSites?.ktc != null ? Math.round(Number(row.canonicalSites.ktc)).toLocaleString() : "—"}
-                    </td>
-                    <td className="hide-mobile" style={{ textAlign: "center", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem", color: "var(--subtext)" }}>
-                      {row.ktcRank ?? "—"}
-                    </td>
-                    <td className="hide-mobile" style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem" }}>
-                      {row.canonicalSites?.idpTradeCalc != null ? Math.round(Number(row.canonicalSites.idpTradeCalc)).toLocaleString() : "—"}
-                    </td>
-                    <td className="hide-mobile" style={{ textAlign: "center", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem", color: "var(--subtext)" }}>
-                      {row.idpRank ?? "—"}
-                    </td>
-                  </tr>
-                ))}
+                {displayRows.map((row, idx) => {
+                  const chips = rowChips(row);
+                  const val = Math.round(row.rankDerivedValue || row.values.full);
+                  const band = valueBand(val);
+                  const tier = tierLabel(row);
+                  const tierId = effectiveTierId(row);
+                  const gap = marketGapLabel(row);
+                  const isQuarantined = row.quarantined;
+                  const action = actionLabel(row);
+                  const cautions = cautionLabels(row);
+
+                  // Tier separator
+                  const prevTierId = idx > 0 ? effectiveTierId(displayRows[idx - 1]) : null;
+                  const showTierBreak = tierGroupingActive && idx > 0 && tierId !== prevTierId && tierId != null;
+
+                  return (
+                    <Fragment key={row.name}>
+                      {showTierBreak && (
+                        <tr className="rankings-tier-separator">
+                          <td colSpan={8}>
+                            <span className="rankings-tier-separator-label">{tier}</span>
+                          </td>
+                        </tr>
+                      )}
+                      <tr className={isQuarantined ? "rankings-row-quarantined" : undefined}>
+                        {/* Rank */}
+                        <td style={{ textAlign: "center", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono)" }}>
+                          {row.rank || "\u2014"}
+                        </td>
+
+                        {/* Tier label */}
+                        <td className="hide-mobile">
+                          <span className={`rankings-tier-badge ${band.css}`}>{tier}</span>
+                        </td>
+
+                        {/* Player: name, context, chips */}
+                        <td>
+                          <div className="rankings-player-cell">
+                            <span
+                              className="rankings-player-name"
+                              onClick={() => openPlayerPopup?.(row)}
+                            >
+                              {row.name}
+                            </span>
+                            {(row.team || row.age) && (
+                              <span className="rankings-player-meta">
+                                {row.team || ""}{row.age ? `, ${row.age}` : ""}
+                              </span>
+                            )}
+                            {chips.length > 0 && (
+                              <span className="rankings-chips">
+                                {chips.map((c) => (
+                                  <span key={c.label} className={`badge ${c.css} rankings-chip`} title={c.title}>{c.label}</span>
+                                ))}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Position */}
+                        <td>
+                          <span className={`badge ${row.assetClass === "offense" ? "badge-cyan" : row.assetClass === "idp" ? "badge-amber" : ""}`}>
+                            {row.pos}
+                          </span>
+                        </td>
+
+                        {/* Value + value-band */}
+                        <td style={{ textAlign: "right" }}>
+                          <span className="rankings-value">{val.toLocaleString()}</span>
+                          <span className={`rankings-value-band ${band.css}`}>{band.label}</span>
+                        </td>
+
+                        {/* Confidence */}
+                        <td className="hide-mobile" style={{ textAlign: "center" }}>
+                          <span className={confidenceBadgeClass(row.confidenceBucket)}>
+                            {confidenceBadgeLabel(row.confidenceBucket)}
+                          </span>
+                        </td>
+
+                        {/* Market gap */}
+                        <td className="hide-mobile" style={{ textAlign: "center" }}>
+                          {gap ? (
+                            <span className="rankings-gap-label">{gap}</span>
+                          ) : (
+                            <span className="muted">\u2014</span>
+                          )}
+                        </td>
+
+                        {/* Signal: action label + caution labels */}
+                        <td className="hide-mobile">
+                          {action && (
+                            <span className={`action-label ${action.css}`} title={action.title}>
+                              {action.label}
+                            </span>
+                          )}
+                          {cautions.map((c) => (
+                            <span key={c.label} className={`action-label ${c.css}`} title={c.title}>
+                              {c.label}
+                            </span>
+                          ))}
+                          {!action && cautions.length === 0 && (
+                            <span className="muted">\u2014</span>
+                          )}
+                        </td>
+                      </tr>
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+
+          {/* ── Show more / show all ────────────────────────────────── */}
+          {hasMore && (
+            <div style={{ textAlign: "center", marginTop: 12 }}>
+              <button className="button" onClick={() => setRowLimit((l) => l + 200)}>
+                Show more ({(ranked.length - rowLimit).toLocaleString()} remaining)
+              </button>
+              <button className="button" onClick={() => setRowLimit(Infinity)} style={{ marginLeft: 8 }}>
+                Show all
+              </button>
+            </div>
+          )}
         </>
       )}
     </section>
