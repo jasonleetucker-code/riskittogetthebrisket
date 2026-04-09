@@ -141,7 +141,10 @@ export default function RankingsPage() {
         <div>
           <h1 style={{ margin: 0 }}>Rankings</h1>
           <p className="muted" style={{ marginTop: 4, marginBottom: 0 }}>
-            Unified board · {ranked.length.toLocaleString()} shown · Blended from KTC + IDP Trade Calculator
+            Unified overall board · {ranked.length.toLocaleString()} shown · Ranked by normalized source value (KTC for offense, IDP Trade Calculator for IDP)
+          </p>
+          <p className="muted" style={{ marginTop: 2, marginBottom: 0, fontSize: "0.7rem" }}>
+            — in a source column means that source does not cover this player. Each player is currently ranked from one source.
           </p>
         </div>
       </div>
