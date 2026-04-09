@@ -4336,39 +4336,18 @@ async def scrape_idptradecalc(page, players):
             for pname, val in site_map.items():
                 _upsert_missing_candidate(pname, site_name=site_name, raw_val=val)
 
+        # Score candidates by source value (highest-value players first).
+        # This ensures the most important offensive players from KTC are
+        # searched first, maximizing coverage within the timeout budget.
         scored = []
         for cn, meta in _candidates.items():
-            score = 0.0
+            score = float(meta.get("signal", 0.0))
             if meta.get("rostered"):
-                score += 1500.0
-            score += 140.0 * len(meta.get("hits", ()))
-            score += float(meta.get("signal", 0.0))
-            if cn in players:
-                score += 120.0
-            scored.append((cn, score, bool(meta.get("rostered"))))
+                score += 500.0  # modest boost for rostered players
+            scored.append((cn, score))
 
         scored.sort(key=lambda x: (-x[1], x[0]))
-        rostered_scored = [row for row in scored if row[2]]
-        external_scored = [row for row in scored if not row[2]]
-
-        # Always reserve part of the queue for non-rostered fringe players.
-        max_rostered = int(MAX_AUTOCOMPLETE * 0.60)
-        max_external = MAX_AUTOCOMPLETE - max_rostered
-
-        picked = []
-        picked.extend(rostered_scored[:max_rostered])
-        picked.extend(external_scored[:max_external])
-
-        if len(picked) < MAX_AUTOCOMPLETE:
-            picked_names = {cn for cn, _, _ in picked}
-            for row in scored:
-                if row[0] in picked_names:
-                    continue
-                picked.append(row)
-                if len(picked) >= MAX_AUTOCOMPLETE:
-                    break
-
-        missing = [cn for cn, _, _ in picked[:MAX_AUTOCOMPLETE]]
+        missing = [cn for cn, _ in scored[:MAX_AUTOCOMPLETE]]
 
         if DEBUG:
             rostered_in_queue = sum(1 for cn in missing if _candidates.get(cn, {}).get("rostered"))
@@ -4408,8 +4387,8 @@ async def scrape_idptradecalc(page, players):
                     await input_box.evaluate("el => { el.focus(); el.click(); }")
                     await input_box.evaluate("el => el.value = ''")
                     await page.wait_for_timeout(100)
-                    await page.keyboard.type(player, delay=20)
-                    await page.wait_for_timeout(500)
+                    await page.keyboard.type(player, delay=15)
+                    await page.wait_for_timeout(350)
 
                     body_text = await page.inner_text("body")
                     last_name = player.split()[-1]
@@ -4433,7 +4412,7 @@ async def scrape_idptradecalc(page, players):
 
                     await input_box.evaluate("el => el.value = ''")
                     await page.keyboard.press("Escape")
-                    await page.wait_for_timeout(150)
+                    await page.wait_for_timeout(100)
 
                 except Exception as e:
                     if DEBUG:
@@ -4775,6 +4754,17 @@ async def run(progress_callback=None):
                             meta={"valueCount": value_count},
                         )
                     except asyncio.TimeoutError:
+                        # Recover partial results from FULL_DATA (autocomplete
+                        # writes directly there even when the outer timeout fires)
+                        if "IDPTradeCalc" in FULL_DATA:
+                            recovered = 0
+                            for p, v in FULL_DATA["IDPTradeCalc"].items():
+                                if p in all_results and v is not None:
+                                    all_results[p]["IDPTradeCalc"] = v
+                                    recovered += 1
+                            print(f"  [IDPTradeCalc] Timeout after {source_timeouts.get(site, source_timeout_default)}s — recovered {recovered} values from partial autocomplete")
+                        else:
+                            print(f"  [IDPTradeCalc] Timeout after {source_timeouts.get(site, source_timeout_default)}s")
                         await _emit_progress(
                             step="source_failed",
                             source=site,
@@ -4784,7 +4774,6 @@ async def run(progress_callback=None):
                             level="error",
                             message=f"{site} timed out after {source_timeouts.get(site, source_timeout_default)}s",
                         )
-                        print(f"  [{site}] Timeout after {source_timeouts.get(site, source_timeout_default)}s")
                     except Exception as e:
                         await _emit_progress(
                             step="source_failed",
