@@ -11,6 +11,8 @@ import {
   verdictBarPosition,
   powerWeightedTotal,
   sideTotal,
+  tradeGap,
+  linearGap,
   effectiveValue,
   getPlayerEdge,
   findBalancers,
@@ -141,12 +143,12 @@ export default function TradePage() {
     if (pickerOpen && pickerInputRef.current) pickerInputRef.current.focus();
   }, [pickerOpen]);
 
-  const pwTotalA = useMemo(() => powerWeightedTotal(sideA, valueMode, undefined, settings), [sideA, valueMode, settings]);
-  const pwTotalB = useMemo(() => powerWeightedTotal(sideB, valueMode, undefined, settings), [sideB, valueMode, settings]);
+  const pwTotalA = useMemo(() => powerWeightedTotal(sideA, valueMode, settings?.alpha, settings), [sideA, valueMode, settings]);
+  const pwTotalB = useMemo(() => powerWeightedTotal(sideB, valueMode, settings?.alpha, settings), [sideB, valueMode, settings]);
   const linTotalA = useMemo(() => sideTotal(sideA, valueMode, settings), [sideA, valueMode, settings]);
   const linTotalB = useMemo(() => sideTotal(sideB, valueMode, settings), [sideB, valueMode, settings]);
-  const pwGap = pwTotalA - pwTotalB;
-  const linGap = linTotalA - linTotalB;
+  const pwGap = useMemo(() => tradeGap(sideA, sideB, valueMode, settings), [sideA, sideB, valueMode, settings]);
+  const linGapVal = linTotalA - linTotalB;
   // Percentage gap for proportional verdict
   const pctGap = Math.max(pwTotalA, pwTotalB) > 0 ? Math.round(Math.abs(pwGap) / Math.max(pwTotalA, pwTotalB) * 100) : 0;
   // Balancing suggestions for the losing side

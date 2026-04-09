@@ -7,12 +7,18 @@ import {
   VALUE_MODES,
   STORAGE_KEY,
   RECENT_KEY,
+  TRADE_ALPHA,
+  TRADE_BETA,
   verdictFromGap,
   colorFromGap,
   sideTotal,
   tradeGap,
   linearGap,
   powerWeightedTotal,
+  assignPackageRanks,
+  studWeightedValue,
+  weightedSideTotal,
+  inverseGapAdjustment,
   effectiveValue,
   pickYearDiscount,
   addAssetToSide,
@@ -143,20 +149,83 @@ describe("sideTotal", () => {
 
 // ── tradeGap ─────────────────────────────────────────────────────────
 
-describe("tradeGap (power-weighted)", () => {
-  it("single-asset sides equal linear gap", () => {
-    // With one asset per side, power-weighted = linear
-    expect(tradeGap([ALLEN], [CHASE], "full")).toBe(500);
-    expect(tradeGap([CHASE], [ALLEN], "full")).toBe(-500);
+// ── Stud-Exponent Package Helpers ────────────────────────────────
+
+describe("assignPackageRanks", () => {
+  it("ranks assets by value descending", () => {
+    const ranked = assignPackageRanks([CHASE, ALLEN, PARSONS], "full");
+    expect(ranked[0].row.name).toBe("Josh Allen");
+    expect(ranked[0].packageRank).toBe(1);
+    expect(ranked[1].row.name).toBe("Ja'Marr Chase");
+    expect(ranked[1].packageRank).toBe(2);
+    expect(ranked[2].row.name).toBe("Micah Parsons");
+    expect(ranked[2].packageRank).toBe(3);
   });
 
-  it("multi-asset sides are power-weighted (less than linear sum)", () => {
+  it("returns empty array for empty side", () => {
+    expect(assignPackageRanks([], "full")).toEqual([]);
+  });
+});
+
+describe("studWeightedValue", () => {
+  it("rank 1 has no package discount", () => {
+    const val = studWeightedValue(9000, 1, 1.678, 0.15);
+    expect(val).toBe(Math.pow(9000, 1.678));
+  });
+
+  it("rank 2 gets discounted by beta", () => {
+    const rank1 = studWeightedValue(9000, 1, 1.678, 0.15);
+    const rank2 = studWeightedValue(9000, 2, 1.678, 0.15);
+    expect(rank2).toBeCloseTo(rank1 / 1.15, 0);
+    expect(rank2).toBeLessThan(rank1);
+  });
+
+  it("returns 0 for zero or negative value", () => {
+    expect(studWeightedValue(0, 1)).toBe(0);
+    expect(studWeightedValue(-100, 1)).toBe(0);
+  });
+
+  it("beta=0 means no package discount", () => {
+    const rank1 = studWeightedValue(9000, 1, 1.5, 0);
+    const rank3 = studWeightedValue(9000, 3, 1.5, 0);
+    expect(rank1).toBe(rank3);
+  });
+});
+
+describe("inverseGapAdjustment", () => {
+  it("converts weighted gap back to display scale", () => {
+    const alpha = 1.678;
+    const weighted = Math.pow(9000, alpha) - Math.pow(8500, alpha);
+    const adj = inverseGapAdjustment(weighted, alpha);
+    expect(adj).toBeGreaterThan(0);
+    expect(adj).toBeLessThan(10000);
+  });
+
+  it("preserves sign", () => {
+    expect(inverseGapAdjustment(-1000, 1.5)).toBeLessThan(0);
+    expect(inverseGapAdjustment(1000, 1.5)).toBeGreaterThan(0);
+  });
+
+  it("returns 0 for zero gap", () => {
+    expect(inverseGapAdjustment(0)).toBe(0);
+  });
+});
+
+describe("tradeGap (stud-exponent)", () => {
+  it("single-asset sides: stud exponent amplifies gap for high values", () => {
+    const gap = tradeGap([ALLEN], [CHASE], "full");
+    const linGapVal = linearGap([ALLEN], [CHASE], "full");
+    expect(gap).toBeGreaterThan(0); // Allen wins
+    expect(linGapVal).toBe(500);
+  });
+
+  it("multi-asset sides penalize packages via rank discount", () => {
     const gap = tradeGap([ALLEN], [CHASE, PICK_2026], "full");
     const linGapVal = linearGap([ALLEN], [CHASE, PICK_2026], "full");
-    // Power-weighted sum of B < linear sum, so gap magnitude is smaller
     expect(linGapVal).toBe(9000 - (8500 + 7000));
-    expect(Math.abs(gap)).toBeLessThan(Math.abs(linGapVal));
     expect(gap).toBeLessThan(0); // B still wins
+    // But by less than linear because B's 2nd piece gets discounted
+    expect(Math.abs(gap)).toBeLessThan(Math.abs(linGapVal));
   });
 
   it("returns 0 for empty vs empty", () => {
@@ -397,9 +466,9 @@ describe("full trade scenario", () => {
 
     expect(totalA).toBe(17500);
     expect(totalB).toBe(15800);
-    // Power-weighted gap is smaller than linear (1700) due to diminishing returns
-    expect(gap).toBeGreaterThan(0); // A still wins
-    expect(gap).toBeLessThan(1700); // But less than linear
+    // Stud-exponent gap: A wins because Allen+Chase outranks Mahomes+Pick
+    // The gap is on display scale via inverseGapAdjustment
+    expect(gap).toBeGreaterThan(0); // A wins
     expect(verdictFromGap(gap)).toBe("Major gap");
     expect(colorFromGap(gap)).toBe("green"); // Side A wins
 
@@ -413,9 +482,9 @@ describe("full trade scenario", () => {
     // Remove an asset
     const trimmedB = removeAssetFromSide(newB, "Ja'Marr Chase");
     const newGap = tradeGap(newA, trimmedB, "full");
-    // Power-weighted: B (8800+7000) vs A (9000). Gap is positive (B side wins after swap)
+    // Stud-exponent: B (8800+7000) vs A (9000). Gap is positive (B side wins after swap)
+    // The 2nd piece (7000 at rank 2) is discounted, so the gap is reduced vs linear
     expect(newGap).toBeGreaterThan(0);
-    expect(newGap).toBeLessThan(15800 - 9000); // less than linear 6800
 
     // Serialize and restore
     const serialized = serializeWorkspace(newA, trimmedB, "full", "A");

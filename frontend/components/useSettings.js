@@ -15,8 +15,9 @@ export const SETTINGS_DEFAULTS = {
   scarcityStrength: 0.35,            // 0..1 — position scarcity premium
   tepMultiplier: 1.15,               // 1.0..1.5 — TE premium boost for non-TEP sites
 
-  // Trade calculator
-  alpha: 1.678,                      // star player bonus exponent (1.4..1.9)
+  // Trade calculator — stud-exponent package model
+  alpha: 1.678,                      // stud exponent (1.0..2.0) — top-end value concentration
+  beta: 0.15,                        // package-rank discount (0..0.5) — 2nd/3rd pieces worth less
 
   // Rankings display
   rankingsSortBasis: "full",         // "full" | "raw" | "scoring" | "scarcity"

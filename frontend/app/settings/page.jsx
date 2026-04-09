@@ -176,6 +176,16 @@ export default function SettingsPage() {
           </div>
         </div>
         <SliderRow
+          label="Beta (Pkg Discount)"
+          value={settings.beta}
+          min={0} max={0.5} step={0.01}
+          onChange={(v) => update("beta", v)}
+          hint="Discount for 2nd/3rd pieces in a package"
+        />
+        <div className="muted" style={{ fontSize: "0.66rem", marginTop: -4, marginBottom: 10 }}>
+          Higher = 2nd/3rd assets in a package worth less. 0 = no discount, 0.15 = standard.
+        </div>
+        <SliderRow
           label="Trade History Window"
           value={settings.tradeHistoryWindowDays}
           min={30} max={730} step={30}

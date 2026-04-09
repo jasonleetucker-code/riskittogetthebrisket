@@ -1,7 +1,19 @@
 /**
  * Trade calculator logic — the authoritative implementation for Next.js.
- * Covers: value modes, power-weighted totals, LAM, scarcity, edge detection,
- * pick valuation, verdict calculation, persistence.
+ * Covers: stud-exponent package weighting, value modes, LAM, scarcity,
+ * edge detection, pick valuation, verdict calculation, persistence.
+ *
+ * ── Stud-Exponent Trade Model ──
+ * For each side of a trade:
+ *   1. Rank assets by effective value within that side (highest = rank 1)
+ *   2. Compute weighted value per asset:
+ *        weighted = (value ^ alpha) / (1 + beta * (packageRank - 1))
+ *   3. Sum all weighted values for the side total
+ * Compare side totals; convert gap back to display scale:
+ *        adjustment = |sideA_total - sideB_total| ^ (1 / alpha)
+ *
+ * alpha: stud exponent — top-end players are disproportionately valuable
+ * beta:  package-rank discount — 2nd/3rd/4th pieces in a package are worth less
  *
  * No React dependencies — pure functions + constants.
  */
@@ -24,10 +36,14 @@ const VERDICT_NEAR_EVEN = 256;
 const VERDICT_LEAN = 769;
 const VERDICT_STRONG_LEAN = 1538;
 
-// ── Power-Weighted Calculation ───────────────────────────────────────────
-// Alpha exponent concentrates value at the top — a star + role player is
-// worth more than two mid-tier pieces.  Matches static calculator exactly.
-export const TRADE_ALPHA = 1.075;
+// ── Stud-Exponent Parameters ────────────────────────────────────────────
+// Default alpha: concentrates value at the top — a star + role player is
+// worth more than two mid-tier pieces.
+export const TRADE_ALPHA = 1.678;
+
+// Default beta: package-rank discount — 2nd asset in a package is worth
+// less than if it were traded alone.
+export const TRADE_BETA = 0.15;
 
 // ── Pick Year Discount ──────────────────────────────────────────────────
 // Future-year picks are worth less than current-year picks.
@@ -78,22 +94,82 @@ export function effectiveValue(row, valueMode, settings) {
   return val;
 }
 
+// ── Stud-Exponent Package Helpers ────────────────────────────────────────
+// These are the canonical trade math functions.  The frontend trade page
+// calls these directly — there is no separate backend trade calculator.
+
 /**
- * Power-weighted side total.
- * Each asset's value is raised to `alpha`, summed, then root-alpha'd back.
- * This penalizes quantity over quality.
+ * Assign package ranks within one side of a trade.
+ * Returns an array of { row, value, packageRank } sorted by value descending.
+ * Highest value = package rank 1.
+ */
+export function assignPackageRanks(side, valueMode, settings = null) {
+  const items = side.map((r) => ({
+    row: r,
+    value: effectiveValue(r, valueMode, settings),
+  }));
+  items.sort((a, b) => b.value - a.value);
+  return items.map((item, i) => ({
+    ...item,
+    packageRank: i + 1,
+  }));
+}
+
+/**
+ * Stud-exponent weighted value for a single asset.
+ *   weighted = (value ^ alpha) / (1 + beta * (packageRank - 1))
+ *
+ * @param {number} value - Asset's effective value
+ * @param {number} packageRank - Rank within its trade side (1 = best)
+ * @param {number} alpha - Stud exponent (> 1 rewards top-end)
+ * @param {number} beta - Package-rank discount (0 = no discount)
+ */
+export function studWeightedValue(value, packageRank, alpha = TRADE_ALPHA, beta = TRADE_BETA) {
+  if (value <= 0) return 0;
+  return Math.pow(value, alpha) / (1 + beta * (packageRank - 1));
+}
+
+/**
+ * Weighted side total using the stud-exponent package model.
+ * Ranks assets within the side, applies exponent + rank discount, sums.
+ *
  * @param {object[]} side - Array of player rows
  * @param {string} valueMode - Value mode key
- * @param {number} [alpha] - Power exponent
- * @param {object} [settings] - User settings (from useSettings) for LAM adjustment
+ * @param {number} alpha - Stud exponent
+ * @param {number} beta - Package-rank discount factor
+ * @param {object} [settings] - User settings for LAM/TEP/pick adjustments
  */
-export function powerWeightedTotal(side, valueMode, alpha = TRADE_ALPHA, settings = null) {
+export function weightedSideTotal(side, valueMode, alpha = TRADE_ALPHA, beta = TRADE_BETA, settings = null) {
   if (!side.length) return 0;
-  const sum = side.reduce((acc, r) => {
-    const v = effectiveValue(r, valueMode, settings);
-    return acc + Math.pow(Math.max(v, 0), alpha);
+  const ranked = assignPackageRanks(side, valueMode, settings);
+  return ranked.reduce((sum, item) => {
+    return sum + studWeightedValue(item.value, item.packageRank, alpha, beta);
   }, 0);
-  return Math.pow(sum, 1 / alpha);
+}
+
+/**
+ * Convert a weighted gap back to the display-value scale via inverse exponent.
+ *   adjustment = |weightedGap| ^ (1 / alpha)
+ * Sign is preserved to indicate which side wins.
+ */
+export function inverseGapAdjustment(weightedGap, alpha = TRADE_ALPHA) {
+  if (weightedGap === 0) return 0;
+  const sign = weightedGap > 0 ? 1 : -1;
+  return sign * Math.pow(Math.abs(weightedGap), 1 / alpha);
+}
+
+/**
+ * Backward-compatible power-weighted total.
+ * Now delegates to the stud-exponent model (weightedSideTotal + inverse gap).
+ * The returned value is on the display-value scale (1-9999).
+ */
+export function powerWeightedTotal(side, valueMode, alpha, settings = null) {
+  const a = alpha ?? settings?.alpha ?? TRADE_ALPHA;
+  const b = settings?.beta ?? TRADE_BETA;
+  if (!side.length) return 0;
+  const weighted = weightedSideTotal(side, valueMode, a, b, settings);
+  // Convert back to display scale so verdict thresholds still work
+  return Math.pow(Math.max(weighted, 0), 1 / a);
 }
 
 /** Simple linear total (sum of values), optionally LAM-adjusted. */
@@ -101,14 +177,18 @@ export function sideTotal(side, valueMode, settings = null) {
   return side.reduce((sum, r) => sum + effectiveValue(r, valueMode, settings), 0);
 }
 
-/** Gap = Side A power-weighted total − Side B power-weighted total. */
-export function tradeGap(sideA, sideB, valueMode) {
-  return powerWeightedTotal(sideA, valueMode) - powerWeightedTotal(sideB, valueMode);
+/** Gap = Side A stud-weighted total − Side B stud-weighted total (display scale). */
+export function tradeGap(sideA, sideB, valueMode, settings = null) {
+  const a = settings?.alpha ?? TRADE_ALPHA;
+  const b = settings?.beta ?? TRADE_BETA;
+  const wA = weightedSideTotal(sideA, valueMode, a, b, settings);
+  const wB = weightedSideTotal(sideB, valueMode, a, b, settings);
+  return inverseGapAdjustment(wA - wB, a);
 }
 
-/** Linear gap (for display alongside power-weighted). */
-export function linearGap(sideA, sideB, valueMode) {
-  return sideTotal(sideA, valueMode) - sideTotal(sideB, valueMode);
+/** Linear gap (for display alongside stud-weighted). */
+export function linearGap(sideA, sideB, valueMode, settings = null) {
+  return sideTotal(sideA, valueMode, settings) - sideTotal(sideB, valueMode, settings);
 }
 
 // ── Verdict ──────────────────────────────────────────────────────────────
