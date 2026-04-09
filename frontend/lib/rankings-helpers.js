@@ -138,7 +138,7 @@ export function valueBand(value) {
 export function rowChips(row) {
   const chips = [];
   if (row?.rookie) {
-    chips.push({ label: "R", css: "badge-cyan", title: "Rookie" });
+    chips.push({ label: "R", css: "badge-green", title: "Rookie" });
   }
   if (row?.isSingleSource) {
     chips.push({ label: "1-src", css: "badge-amber", title: "Single source — lower confidence" });
@@ -154,6 +154,5 @@ export function rowChips(row) {
 }
 
 // ── Default row limit ────────────────────────────────────────────────────────
-// Show a curated default rather than dumping 800 rows.  Users can expand.
-// 200 covers all starters + meaningful depth in a 12-team dynasty league.
-export const DEFAULT_ROW_LIMIT = 200;
+// Re-exported from thresholds for backward compatibility.
+export { RANKINGS_DEFAULT_ROW_LIMIT as DEFAULT_ROW_LIMIT } from "./thresholds.js";

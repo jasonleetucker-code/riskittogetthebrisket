@@ -149,7 +149,7 @@ describe("rowChips", () => {
     const chips = rowChips({ rookie: true, anomalyFlags: [] });
     expect(chips).toHaveLength(1);
     expect(chips[0].label).toBe("R");
-    expect(chips[0].css).toBe("badge-cyan");
+    expect(chips[0].css).toBe("badge-green");
   });
 
   it("returns 1-src chip for single-source players", () => {

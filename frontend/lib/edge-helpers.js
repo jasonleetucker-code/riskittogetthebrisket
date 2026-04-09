@@ -1,7 +1,7 @@
 // ── Edge helpers ─────────────────────────────────────────────────────────────
 // Shared logic for actionable lenses, edge summaries, and per-row action labels.
 // Pure functions — no React dependencies, fully testable.
-// Designed for reuse by /rankings, future /edge, and /finder pages.
+// Designed for reuse by /rankings, /edge, and /finder pages.
 //
 // All signals are derived from existing trust + source fields on the row object:
 //   sourceRankSpread, confidenceBucket, isSingleSource, hasSourceDisagreement,
@@ -12,6 +12,18 @@
 //
 // Tests: frontend/__tests__/edge-helpers.test.js
 // ─────────────────────────────────────────────────────────────────────────────
+
+import {
+  MARKET_PREMIUM_SPREAD,
+  CONFIDENCE_SPREAD_HIGH,
+  CONFIDENCE_SPREAD_MEDIUM,
+  PREMIUM_SUMMARY_SPREAD,
+  LENS_DISAGREEMENT_SPREAD,
+  LENS_INEFFICIENCY_SPREAD,
+  LENS_INEFFICIENCY_RANK,
+  EDGE_CAUTION_RANK_LIMIT,
+} from "./thresholds.js";
+import { isEligibleForAnalysis } from "./display-helpers.js";
 
 // ── Action-frame labels ──────────────────────────────────────────────────────
 // Each row gets at most one primary action label + optional caution labels.
@@ -33,7 +45,7 @@ export function actionLabel(row) {
   // Market premium: one source ranks the player much higher than the other
   const spread = row.sourceRankSpread;
   const dir = row.marketGapDirection;
-  if (spread != null && spread >= 30 && dir && dir !== "none") {
+  if (spread != null && spread >= MARKET_PREMIUM_SPREAD && dir && dir !== "none") {
     const source = dir === "ktc_higher" ? "KTC" : "IDPTC";
     return {
       label: `Market premium: ${source}`,
@@ -46,7 +58,7 @@ export function actionLabel(row) {
   if (
     row.confidenceBucket === "high" &&
     (row.sourceCount || 0) >= 2 &&
-    (spread == null || spread <= 30)
+    (spread == null || spread <= CONFIDENCE_SPREAD_HIGH)
   ) {
     return {
       label: "Consensus asset",
@@ -84,7 +96,7 @@ export function cautionLabels(row) {
     labels.push({
       label: "Caution: wide disagreement",
       css: "caution-disagree",
-      title: "Sources disagree by more than 80 rank positions",
+      title: `Sources disagree by more than ${CONFIDENCE_SPREAD_MEDIUM} rank positions`,
     });
   }
   return labels;
@@ -112,15 +124,15 @@ export const LENSES = [
   {
     key: "disagreements",
     label: "Disagreements",
-    description: "Players where sources disagree most. Spread > 40 ranks between sources — potential mispricings or data issues.",
-    filter: (row) => (row.sourceRankSpread ?? 0) > 40,
+    description: `Players where sources disagree most. Spread > ${LENS_DISAGREEMENT_SPREAD} ranks between sources — potential mispricings or data issues.`,
+    filter: (row) => (row.sourceRankSpread ?? 0) > LENS_DISAGREEMENT_SPREAD,
     sort: (a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0),
   },
   {
     key: "inefficiencies",
     label: "Inefficiencies",
-    description: "Ranked players (top 200) with high source disagreement — where one market may be wrong. These are potential trade targets.",
-    filter: (row) => (row.rank ?? Infinity) <= 200 && (row.sourceRankSpread ?? 0) > 30,
+    description: `Ranked players (top ${LENS_INEFFICIENCY_RANK}) with high source disagreement — where one market may be wrong. These are potential trade targets.`,
+    filter: (row) => (row.rank ?? Infinity) <= LENS_INEFFICIENCY_RANK && (row.sourceRankSpread ?? 0) > LENS_INEFFICIENCY_SPREAD,
     sort: (a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0),
   },
   {
@@ -173,7 +185,7 @@ export function applyLens(rows, lensKey) {
  */
 export function topKtcPremium(rows, limit = 5) {
   return rows
-    .filter((r) => r.marketGapDirection === "ktc_higher" && (r.sourceRankSpread ?? 0) >= 20 && !r.quarantined)
+    .filter((r) => r.marketGapDirection === "ktc_higher" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
     .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
     .slice(0, limit)
     .map((r) => ({
@@ -190,7 +202,7 @@ export function topKtcPremium(rows, limit = 5) {
  */
 export function topIdptcPremium(rows, limit = 5) {
   return rows
-    .filter((r) => r.marketGapDirection === "idptc_higher" && (r.sourceRankSpread ?? 0) >= 20 && !r.quarantined)
+    .filter((r) => r.marketGapDirection === "idptc_higher" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
     .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
     .slice(0, limit)
     .map((r) => ({
@@ -207,7 +219,7 @@ export function topIdptcPremium(rows, limit = 5) {
  */
 export function topFlaggedCautions(rows, limit = 5) {
   return rows
-    .filter((r) => (r.anomalyFlags || []).length > 0 && (r.rank ?? Infinity) <= 300)
+    .filter((r) => (r.anomalyFlags || []).length > 0 && (r.rank ?? Infinity) <= EDGE_CAUTION_RANK_LIMIT)
     .sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity))
     .slice(0, limit)
     .map((r) => ({
@@ -242,7 +254,7 @@ export function topConsensusAssets(rows, limit = 5) {
  */
 export function computeEdgeSummary(rows) {
   // Pre-filter to ranked non-pick players
-  const eligible = rows.filter((r) => r.pos && r.pos !== "?" && r.pos !== "PICK" && r.rank);
+  const eligible = rows.filter(isEligibleForAnalysis);
   return {
     ktcPremium: topKtcPremium(eligible),
     idptcPremium: topIdptcPremium(eligible),

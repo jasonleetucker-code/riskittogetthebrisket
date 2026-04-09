@@ -12,12 +12,6 @@ const IDP_SITE_DEFAULTS = {
   idpTradeCalc:  { label: "IDP Trade Calc", include: true, weight: 1.0, max: 9998, tep: true },
 };
 
-const ALPHA_PRESETS = [
-  { label: "Low stud premium", value: 1.20 },
-  { label: "Standard", value: 1.45 },
-  { label: "Star-heavy", value: 1.75 },
-];
-
 
 function Section({ title, defaultOpen = true, children }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -127,40 +121,6 @@ export default function SettingsPage() {
       </Section>
 
       <Section title="Trade Calculation" defaultOpen>
-        <div style={{ marginBottom: 10 }}>
-          <label style={{ fontSize: "0.82rem", display: "block", marginBottom: 4 }}>
-            Alpha (Star Player Bonus)
-          </label>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <input
-              type="range" min={1.0} max={2.0} step={0.001}
-              value={settings.alpha}
-              onChange={(e) => update("alpha", parseFloat(e.target.value))}
-              style={{ flex: 1 }}
-            />
-            <span className="badge" style={{ minWidth: 52, textAlign: "center" }}>{settings.alpha}</span>
-          </div>
-          <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-            {ALPHA_PRESETS.map((p) => (
-              <button
-                key={p.label}
-                className="button"
-                onClick={() => update("alpha", p.value)}
-                style={{
-                  fontSize: "0.68rem",
-                  padding: "2px 8px",
-                  opacity: settings.alpha === p.value ? 1 : 0.6,
-                  fontWeight: settings.alpha === p.value ? 700 : 400,
-                }}
-              >
-                {p.label} ({p.value})
-              </button>
-            ))}
-          </div>
-          <div className="muted" style={{ fontSize: "0.66rem", marginTop: 4 }}>
-            Higher = elite players worth exponentially more. 1.0 = linear, 1.45 = standard.
-          </div>
-        </div>
         <SliderRow
           label="Trade History Window"
           value={settings.tradeHistoryWindowDays}

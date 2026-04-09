@@ -14,12 +14,15 @@
 
 const OFFENSE = new Set(["QB", "RB", "WR", "TE"]);
 const IDP = new Set(["DL", "DE", "DT", "LB", "DB", "CB", "S", "EDGE"]);
+// Positions that may never enter the ranked board or user-facing surfaces.
+const UNSUPPORTED = new Set(["OL", "OT", "OG", "C", "G", "T", "LS"]);
 
 export function normalizePos(pos) {
   const p = String(pos || "").toUpperCase();
   if (["DE", "DT", "EDGE", "NT"].includes(p)) return "DL";
   if (["CB", "S", "FS", "SS"].includes(p)) return "DB";
   if (["OLB", "ILB"].includes(p)) return "LB";
+  if (p === "P") return "K";
   return p;
 }
 
@@ -28,8 +31,12 @@ export function classifyPos(pos) {
   if (OFFENSE.has(p)) return "offense";
   if (IDP.has(p)) return "idp";
   if (p === "PICK") return "pick";
+  if (p === "K" || UNSUPPORTED.has(p)) return "excluded";
   return "other";
 }
+
+// Positions eligible for per-source ranking (offense + IDP only).
+const RANKABLE = new Set(["QB", "RB", "WR", "TE", "DL", "LB", "DB"]);
 
 export function inferValueBundle(player = {}) {
   const raw = Number(player._rawComposite ?? player._rawMarketValue ?? player._composite ?? 0) || 0;
@@ -93,7 +100,7 @@ function computeUnifiedRanks(rows) {
   for (const sourceKey of SOURCE_KEYS) {
     const eligible = [];
     rows.forEach((r, idx) => {
-      if (!r.pos || r.pos === "?" || r.pos === "PICK" || r.pos === "K") return;
+      if (!RANKABLE.has(r.pos)) return;
       const val = Number(r.canonicalSites?.[sourceKey]);
       if (Number.isFinite(val) && val > 0) eligible.push({ idx, val });
     });
@@ -173,7 +180,8 @@ export function buildRows(data) {
       const name = String(player.displayName || player.canonicalName || "").trim();
       if (!name) continue;
       const pos = normalizePos(player.position || "");
-      if (pos === "K") continue;
+      const cls = classifyPos(pos);
+      if (cls === "excluded") continue;
 
       // Prefer 1–9999 display value; fall back to internal calibrated value
       const displayVal = Number(player?.values?.displayValue ?? 0) || 0;
@@ -248,7 +256,7 @@ export function buildRows(data) {
     if (!player || typeof player !== "object") continue;
     const isPick = /\b(20\d{2})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th|6th|round|r\d|pick)/i.test(name) || /^20\d{2}\s+pick/i.test(name);
     const pos = isPick ? "PICK" : normalizePos(posMap[name] || player.position || "");
-    if (pos === "K") continue;
+    if (classifyPos(pos) === "excluded") continue;
 
     const values = inferValueBundle(player);
     const canonicalSites = player._canonicalSiteValues && typeof player._canonicalSiteValues === "object" ? player._canonicalSiteValues : {};
@@ -270,20 +278,21 @@ export function buildRows(data) {
       canonicalSites,
       canonicalConsensusRank: Number(player._canonicalConsensusRank) || null,
       canonicalTierId: Number(player._canonicalTierId) || null,
-      // Trust/transparency defaults for legacy path — will be overwritten
-      // by computeUnifiedRanks() for ranked players.
-      confidenceBucket: "none",
-      confidenceLabel: "",
-      anomalyFlags: [],
-      isSingleSource: false,
-      hasSourceDisagreement: false,
-      blendedSourceRank: null,
-      sourceRankSpread: null,
-      marketGapDirection: "none",
-      marketGapMagnitude: null,
-      identityConfidence: 0.7,
-      identityMethod: "name_only",
-      quarantined: false,
+      // Trust/transparency fields — prefer backend-mirrored values from
+      // the legacy dict; fall back to safe defaults.  computeUnifiedRanks()
+      // may further overwrite these for ranked players.
+      confidenceBucket: String(player.confidenceBucket || "none"),
+      confidenceLabel: String(player.confidenceLabel || ""),
+      anomalyFlags: Array.isArray(player.anomalyFlags) ? player.anomalyFlags : [],
+      isSingleSource: Boolean(player.isSingleSource),
+      hasSourceDisagreement: Boolean(player.hasSourceDisagreement),
+      blendedSourceRank: player.blendedSourceRank ?? null,
+      sourceRankSpread: player.sourceRankSpread ?? null,
+      marketGapDirection: String(player.marketGapDirection || "none"),
+      marketGapMagnitude: player.marketGapMagnitude ?? null,
+      identityConfidence: Number(player.identityConfidence ?? 0.7),
+      identityMethod: String(player.identityMethod || "name_only"),
+      quarantined: Boolean(player.quarantined),
       raw: player,
     });
   }

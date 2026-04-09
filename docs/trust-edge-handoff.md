@@ -167,14 +167,36 @@ for p in data.get('playersArray', []):
 
 ## Known Pre-existing Issues
 
-- 2 JS test failures in `dynasty-data.test.js` (`computedConsensusRank` tests) — pre-existing before this work, related to IDP rank offset calculation in the test fixture, not in production code.
+- 2 JS test failures in `dynasty-data.test.js` (`computedConsensusRank` tests) — pre-existing before trust/edge work, related to IDP rank offset calculation in the test fixture, not in production code.
+
+## Known Data Quality Issues (current as of 2026-04-09)
+
+### Fixed
+
+- **Elijah Mitchell (DB)** — IDP DB with only KTC (offense) data. Was incorrectly excepted from `position_source_contradiction` quarantine via `OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS`. Removed from exception set so Check 2 now quarantines him correctly.
+- **Bobby Brown (DL)** — IDP DL with only KTC data. Already quarantined via `near_name_value_mismatch` (Check 3). Also in `OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS` but quarantine fires through another path.
+- **Unsupported positions (OL/OT/OG/C/G/T/P/LS)** — blocked from ranking pipeline via `_RANKABLE_POSITIONS` allowlist. Frontend excludes via `classifyPos("excluded")`. Players like Nick Martin (OL) and Brandon Knight (OT) are correctly quarantined and unranked.
+
+### Accepted / Working as Intended
+
+- **All IDP players are single-source / low confidence** — expected since only one IDP source (IDPTradeCalc) currently feeds the pipeline. Will self-correct when a second IDP source is added.
+- **Will Anderson (DL, rank ~38)** — single-source IDP with high value. Correct behavior: ranked from IDPTC, low confidence since only one source.
+- **Travis Hunter (WR, rank ~52)** — spread=69, medium confidence, IDPTC ranks higher. Correct behavior: shows "Market premium: IDPTC" signal. Market gap label is accurate.
+- **~36 empty-position rows** — players with no position string. Not in any rankable set, receive no unified rank, invisible on all frontend surfaces (Rankings, Edge, Finder). Harmless.
+- **126 picks** — all clean, no anomaly flags. Correctly excluded from ranking board (PICK not in `_RANKABLE_POSITIONS`) but present in data for trade calculator.
+
+### Requires Later Data/Modeling Pass
+
+- **`OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS` set** — 4 remaining names (Bobby Brown, Cameron Young, Dwight Bentley, Josh Johnson). Only Bobby Brown exists in current data; others are phantom entries. The exception set should ideally be conditional: only apply when both universe versions of a player exist. Currently it's a static name list that may mask future contamination.
+- **Cross-universe name collisions** — when both an offense and IDP player share the same name (e.g., "James Williams"), Check 1 flags both. The scraper's name-based matching cannot distinguish them. Needs canonical player IDs (Sleeper ID, etc.) to resolve.
+- **Age field** — scaffolded in contract but null for most players. Requires scraper bridge to supply age.
+- **Single-source value stability** — single-source players have no spread/agreement signal. Their rank position is entirely determined by one market. No mitigation possible until a second source covers the same pool.
 
 ## Intentionally Deferred
 
 1. **League-specific trade finder** — old Finder used Sleeper rosters + `/api/trade/finder` API. Deferred until league sync is built.
-2. **Percentile projection engine** — `frontend/lib/edge-detection.js` still exists but is no longer imported by any page. Kept for potential future use; migration test still asserts its existence.
+2. **Percentile projection engine** — `frontend/lib/edge-detection.js` was removed (dead code, no imports). Can be rebuilt from git history if needed.
 3. **Per-section filtering on Edge page** — sections show fixed top-N lists. Could add interactive filtering later.
 4. **Export/copy on Edge and Finder** — available on Rankings page only.
-5. **Age field population** — scaffolded in contract (`age` field) but null for most players since the scraper bridge does not supply age.
-6. **Canonical engine mode** — `CANONICAL_DATA_MODE` env var exists for gradual rollout but the canonical 6-step pipeline (`--engine canonical`) is not the default engine.
-7. **Multi-source overlap** — current sources (KTC + IDPTC) cover non-overlapping pools. When overlap occurs, blended averaging is ready but untested in production.
+5. **Canonical engine mode** — `CANONICAL_DATA_MODE` env var exists for gradual rollout but the canonical 6-step pipeline (`--engine canonical`) is not the default engine.
+6. **Multi-source overlap** — current sources (KTC + IDPTC) cover non-overlapping pools. When overlap occurs, blended averaging is ready but untested in production.

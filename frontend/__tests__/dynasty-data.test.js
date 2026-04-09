@@ -77,9 +77,19 @@ describe("classifyPos", () => {
     expect(classifyPos("PICK")).toBe("pick");
   });
 
-  it("classifies unknown as other", () => {
-    expect(classifyPos("K")).toBe("other");
-    expect(classifyPos("P")).toBe("other");
+  it("classifies kickers and punters as excluded", () => {
+    expect(classifyPos("K")).toBe("excluded");
+    expect(classifyPos("P")).toBe("excluded");
+  });
+
+  it("classifies unsupported positions as excluded", () => {
+    expect(classifyPos("OL")).toBe("excluded");
+    expect(classifyPos("OT")).toBe("excluded");
+    expect(classifyPos("OG")).toBe("excluded");
+    expect(classifyPos("C")).toBe("excluded");
+    expect(classifyPos("G")).toBe("excluded");
+    expect(classifyPos("T")).toBe("excluded");
+    expect(classifyPos("LS")).toBe("excluded");
   });
 });
 
@@ -736,5 +746,129 @@ describe("fetchDynastyData", () => {
     expect(rows[0].name).toBe("Josh Allen");
     expect(rows[0].pos).toBe("QB");
     expect(rows[0].values.full).toBe(9100);
+  });
+});
+
+// ── Unsupported position exclusion ──────────────────────────────────
+
+describe("unsupported positions excluded from buildRows", () => {
+  const UNSUPPORTED = ["OL", "OT", "OG", "C", "G", "T", "LS", "K", "P"];
+
+  it("excludes all unsupported positions from legacy path", () => {
+    const players = {};
+    const positions = {};
+    for (const pos of UNSUPPORTED) {
+      const name = `Test ${pos}`;
+      players[name] = {
+        _composite: 7000,
+        _rawComposite: 7000,
+        _finalAdjusted: 7000,
+        _sites: 1,
+        position: pos,
+        _canonicalSiteValues: { ktc: 7000 },
+      };
+      positions[name] = pos;
+    }
+    // Add one supported player as anchor
+    players["Real QB"] = {
+      _composite: 9000,
+      _rawComposite: 9000,
+      _finalAdjusted: 9000,
+      _sites: 1,
+      position: "QB",
+      _canonicalSiteValues: { ktc: 9000 },
+    };
+    positions["Real QB"] = "QB";
+
+    const rows = buildRows({ players, sleeper: { positions } });
+    const names = rows.map((r) => r.name);
+    expect(names).toContain("Real QB");
+    for (const pos of UNSUPPORTED) {
+      expect(names).not.toContain(`Test ${pos}`);
+    }
+  });
+
+  it("excludes unsupported positions from playersArray path", () => {
+    const playersArray = [
+      {
+        displayName: "OL Guy",
+        position: "OL",
+        assetClass: "offense",
+        sourceCount: 1,
+        values: { rawComposite: 7000, finalAdjusted: 7000, overall: 7000 },
+        canonicalSiteValues: { ktc: 7000 },
+        canonicalConsensusRank: null,
+      },
+      {
+        displayName: "Real WR",
+        position: "WR",
+        assetClass: "offense",
+        sourceCount: 1,
+        values: { rawComposite: 8000, finalAdjusted: 8000, overall: 8000 },
+        canonicalSiteValues: { ktc: 8000 },
+        canonicalConsensusRank: 1,
+      },
+    ];
+    const rows = buildRows({ playersArray });
+    expect(rows.length).toBe(1);
+    expect(rows[0].name).toBe("Real WR");
+  });
+
+  it("supported positions still rank correctly", () => {
+    const supported = ["QB", "RB", "WR", "TE", "DL", "LB", "DB"];
+    const playersArray = supported.map((pos, i) => ({
+      displayName: `Player ${pos}`,
+      position: pos,
+      assetClass: pos === "DL" || pos === "LB" || pos === "DB" ? "idp" : "offense",
+      sourceCount: 1,
+      values: { rawComposite: 9000 - i * 100, finalAdjusted: 9000 - i * 100, overall: 9000 - i * 100 },
+      canonicalSiteValues: { ktc: 9000 - i * 100 },
+      canonicalConsensusRank: i + 1,
+    }));
+    const rows = buildRows({ playersArray });
+    expect(rows.length).toBe(supported.length);
+    for (const pos of supported) {
+      expect(rows.find((r) => r.pos === pos)).toBeDefined();
+    }
+  });
+
+  it("unsupported positions do not enter computeUnifiedRanks", () => {
+    // An OL with higher KTC than a QB should not displace the QB's rank
+    const players = {
+      "OL Star": {
+        _composite: 9999,
+        _rawComposite: 9999,
+        _finalAdjusted: 9999,
+        _sites: 1,
+        position: "OL",
+        _canonicalSiteValues: { ktc: 9999 },
+      },
+      "Real QB": {
+        _composite: 5000,
+        _rawComposite: 5000,
+        _finalAdjusted: 5000,
+        _sites: 1,
+        position: "QB",
+        _canonicalSiteValues: { ktc: 5000 },
+      },
+    };
+    const rows = buildRows({
+      players,
+      sleeper: { positions: { "OL Star": "OL", "Real QB": "QB" } },
+    });
+    // OL excluded entirely from rows
+    expect(rows.find((r) => r.name === "OL Star")).toBeUndefined();
+    // QB should be rank 1
+    const qb = rows.find((r) => r.name === "Real QB");
+    expect(qb).toBeDefined();
+    expect(qb.canonicalConsensusRank).toBe(1);
+  });
+});
+
+// ── normalizePos punter mapping ─────────────────────────────────────
+
+describe("normalizePos punter mapping", () => {
+  it("maps P → K", () => {
+    expect(normalizePos("P")).toBe("K");
   });
 });

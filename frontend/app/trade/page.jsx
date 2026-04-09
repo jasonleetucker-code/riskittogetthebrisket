@@ -141,8 +141,8 @@ export default function TradePage() {
     if (pickerOpen && pickerInputRef.current) pickerInputRef.current.focus();
   }, [pickerOpen]);
 
-  const pwTotalA = useMemo(() => powerWeightedTotal(sideA, valueMode, settings?.alpha, settings), [sideA, valueMode, settings]);
-  const pwTotalB = useMemo(() => powerWeightedTotal(sideB, valueMode, settings?.alpha, settings), [sideB, valueMode, settings]);
+  const pwTotalA = useMemo(() => powerWeightedTotal(sideA, valueMode, undefined, settings), [sideA, valueMode, settings]);
+  const pwTotalB = useMemo(() => powerWeightedTotal(sideB, valueMode, undefined, settings), [sideB, valueMode, settings]);
   const linTotalA = useMemo(() => sideTotal(sideA, valueMode, settings), [sideA, valueMode, settings]);
   const linTotalB = useMemo(() => sideTotal(sideB, valueMode, settings), [sideB, valueMode, settings]);
   const pwGap = pwTotalA - pwTotalB;

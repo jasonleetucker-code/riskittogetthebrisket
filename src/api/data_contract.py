@@ -11,7 +11,6 @@ OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS = {
     "Bobby Brown",
     "Cameron Young",
     "Dwight Bentley",
-    "Elijah Mitchell",
     "Josh Johnson",
 }
 
@@ -39,6 +38,9 @@ IDP_RANK_LIMIT: int = OVERALL_RANK_LIMIT
 _KICKER_POSITIONS = {"K", "PK"}
 _OFFENSE_POSITIONS = {"QB", "RB", "WR", "TE"}
 _IDP_POSITIONS = {"DL", "LB", "DB"}
+# Positions eligible for per-source ranking.  Only offense + IDP players
+# participate; picks, kickers, and unsupported positions are excluded.
+_RANKABLE_POSITIONS = _OFFENSE_POSITIONS | _IDP_POSITIONS
 _OFFENSE_SIGNAL_KEYS = {
     "ktc",
 }
@@ -460,6 +462,50 @@ def _validate_and_quarantine_rows(
     }
 
 
+# ── Trust field mirroring ───────────────────────────────────────────────
+# The runtime view (`server.py`) strips `playersArray` to keep the payload
+# small.  The frontend falls back to the legacy `players` dict and reads
+# trust fields via `r.raw?.field`.  This function copies all trust fields
+# from the authoritative playersArray entries back into the legacy dict so
+# they survive the runtime view.
+#
+# Must be called AFTER both `_compute_unified_rankings` (which stamps
+# confidence/source fields) AND `_validate_and_quarantine_rows` (which may
+# degrade confidenceBucket and add anomalyFlags).
+
+_TRUST_MIRROR_FIELDS = (
+    "confidenceBucket",
+    "confidenceLabel",
+    "anomalyFlags",
+    "isSingleSource",
+    "hasSourceDisagreement",
+    "blendedSourceRank",
+    "sourceRankSpread",
+    "marketGapDirection",
+    "marketGapMagnitude",
+    "identityConfidence",
+    "identityMethod",
+    "quarantined",
+)
+
+
+def _mirror_trust_to_legacy(
+    players_array: list[dict[str, Any]],
+    players_by_name: dict[str, Any],
+) -> None:
+    """Copy post-quarantine trust fields from playersArray → legacy dict."""
+    for row in players_array:
+        legacy_ref = row.get("legacyRef")
+        if not legacy_ref or legacy_ref not in players_by_name:
+            continue
+        pdata = players_by_name[legacy_ref]
+        if not isinstance(pdata, dict):
+            continue
+        for field in _TRUST_MIRROR_FIELDS:
+            if field in row:
+                pdata[field] = row[field]
+
+
 def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
     """Fill missing canonicalSiteValues from source CSV exports.
 
@@ -558,7 +604,7 @@ def _compute_unified_rankings(
         eligible: list[tuple[float, int]] = []  # (value, row_index)
         for idx, row in enumerate(players_array):
             pos = str(row.get("position") or "").strip().upper()
-            if not pos or pos in {"?", "PICK"} or pos in _KICKER_POSITIONS:
+            if pos not in _RANKABLE_POSITIONS:
                 continue
             val = value_fn(row)
             if val is None or val <= 0:
@@ -1012,6 +1058,13 @@ def build_api_data_contract(
     # degraded for suspicious rows.  Does NOT remove rows — quarantined rows
     # remain in the array with quarantined=True and degraded confidenceBucket.
     validation_summary = _validate_and_quarantine_rows(players_array)
+
+    # ── Mirror trust fields to legacy players dict ──
+    # The runtime view strips playersArray for payload size.  The frontend
+    # falls back to the legacy `players` dict and reads trust fields via
+    # `r.raw?.field`.  This pass copies all post-quarantine trust fields
+    # so they survive the runtime view.
+    _mirror_trust_to_legacy(players_array, players_by_name)
 
     data_source = data_source or {}
     generated_at = utc_now_iso()

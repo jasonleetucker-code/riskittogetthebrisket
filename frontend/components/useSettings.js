@@ -13,9 +13,6 @@ export const SETTINGS_DEFAULTS = {
   // Value adjustment strengths
   tepMultiplier: 1.15,               // 1.0..1.5 — TE premium boost for non-TEP sites
 
-  // Trade calculator
-  alpha: 1.45,                       // star player bonus exponent (1.0..2.0)
-
   // Rankings display
   rankingsSortBasis: "full",         // "full" | "raw"
   showSiteCols: false,               // show per-site value columns in rankings

@@ -4,6 +4,8 @@ import {
   confBadgeClass,
   confBadgeLabel,
   marketGapLabel,
+  isEligibleForBoard,
+  isEligibleForAnalysis,
 } from "../lib/display-helpers.js";
 
 describe("posBadgeClass", () => {
@@ -69,5 +71,45 @@ describe("marketGapLabel", () => {
   });
   it("returns null for null row", () => {
     expect(marketGapLabel(null)).toBeNull();
+  });
+});
+
+// ── isEligibleForBoard ──────────────────────────────────────────────
+
+describe("isEligibleForBoard", () => {
+  it("includes offense positions", () => {
+    expect(isEligibleForBoard({ pos: "QB" })).toBe(true);
+    expect(isEligibleForBoard({ pos: "WR" })).toBe(true);
+  });
+  it("includes IDP positions", () => {
+    expect(isEligibleForBoard({ pos: "DL" })).toBe(true);
+    expect(isEligibleForBoard({ pos: "LB" })).toBe(true);
+  });
+  it("excludes PICK", () => {
+    expect(isEligibleForBoard({ pos: "PICK" })).toBe(false);
+  });
+  it("excludes unknown position", () => {
+    expect(isEligibleForBoard({ pos: "?" })).toBe(false);
+  });
+  it("excludes missing position", () => {
+    expect(isEligibleForBoard({ pos: "" })).toBe(false);
+    expect(isEligibleForBoard({})).toBe(false);
+    expect(isEligibleForBoard(null)).toBe(false);
+  });
+});
+
+// ── isEligibleForAnalysis ───────────────────────────────────────────
+
+describe("isEligibleForAnalysis", () => {
+  it("requires rank in addition to board eligibility", () => {
+    expect(isEligibleForAnalysis({ pos: "QB", rank: 1 })).toBe(true);
+    expect(isEligibleForAnalysis({ pos: "QB" })).toBe(false);
+    expect(isEligibleForAnalysis({ pos: "QB", rank: 0 })).toBe(false);
+  });
+  it("excludes PICK even with rank", () => {
+    expect(isEligibleForAnalysis({ pos: "PICK", rank: 1 })).toBe(false);
+  });
+  it("handles null", () => {
+    expect(isEligibleForAnalysis(null)).toBe(false);
   });
 });
