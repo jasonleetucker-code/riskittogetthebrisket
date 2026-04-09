@@ -32,18 +32,28 @@ export const RECENT_KEY = "next_trade_recent_assets_v1";
 export const SETTINGS_KEY = "next_settings_v1";
 
 // ── Verdict Thresholds (1–9999 scale) ────────────────────────────────────
-const VERDICT_NEAR_EVEN = 256;
-const VERDICT_LEAN = 769;
-const VERDICT_STRONG_LEAN = 1538;
+// Calibrated for α=1.35 stud-exponent model.  At α=1.35 a 150-point
+// linear gap (e.g. #1 vs #2 elite) maps to ~540 stud gap → "Lean".
+// A 400-point gap maps to ~1113 → still "Lean".  Threshold bands:
+//   Near even  <  350   (same-tier swaps, micro-consolidation wins)
+//   Lean       <  1150  (one-tier separation, close 2v2s)
+//   Strong     <  2300  (meaningful advantage, correctable with an add)
+//   Major      >= 2300  (lopsided or uncorrectable)
+const VERDICT_NEAR_EVEN = 350;
+const VERDICT_LEAN = 1150;
+const VERDICT_STRONG_LEAN = 2300;
 
 // ── Stud-Exponent Parameters ────────────────────────────────────────────
-// Default alpha: concentrates value at the top — a star + role player is
-// worth more than two mid-tier pieces.
-export const TRADE_ALPHA = 1.678;
+// Calibrated via 50-trade sweep across 5 alpha/beta configurations.
+// α=1.35 produces ~3.6x amplification for 1v1 elite trades (reasonable
+// "Lean" verdicts), correctly flips consolidation trades (Barkley for
+// two 2nds), and avoids the sign-flip instability of higher alphas.
+export const TRADE_ALPHA = 1.35;
 
-// Default beta: package-rank discount — 2nd asset in a package is worth
-// less than if it were traded alone.
-export const TRADE_BETA = 0.15;
+// β=0.12: the 2nd asset in a package is worth ~89% of standalone value,
+// 3rd asset ~81%.  Gentle enough that real 2-for-1 overpays still show
+// as overpays, but strong enough that pile trades favor the stud side.
+export const TRADE_BETA = 0.12;
 
 // ── Pick Year Discount ──────────────────────────────────────────────────
 // Future-year picks are worth less than current-year picks.

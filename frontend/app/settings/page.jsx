@@ -13,9 +13,9 @@ const IDP_SITE_DEFAULTS = {
 };
 
 const ALPHA_PRESETS = [
-  { label: "Balanced", value: 1.40 },
-  { label: "Standard", value: 1.678 },
-  { label: "Star-heavy", value: 1.90 },
+  { label: "Conservative", value: 1.20 },
+  { label: "Standard", value: 1.35 },
+  { label: "Star-heavy", value: 1.60 },
 ];
 
 
@@ -172,7 +172,7 @@ export default function SettingsPage() {
             ))}
           </div>
           <div className="muted" style={{ fontSize: "0.66rem", marginTop: 4 }}>
-            Higher = elite players worth exponentially more. 1.0 = linear, 1.678 = standard.
+            Higher = elite players worth exponentially more. 1.0 = linear, 1.35 = standard.
           </div>
         </div>
         <SliderRow
@@ -183,7 +183,7 @@ export default function SettingsPage() {
           hint="Discount for 2nd/3rd pieces in a package"
         />
         <div className="muted" style={{ fontSize: "0.66rem", marginTop: -4, marginBottom: 10 }}>
-          Higher = 2nd/3rd assets in a package worth less. 0 = no discount, 0.15 = standard.
+          Higher = 2nd/3rd assets in a package worth less. 0 = no discount, 0.12 = standard.
         </div>
         <SliderRow
           label="Trade History Window"

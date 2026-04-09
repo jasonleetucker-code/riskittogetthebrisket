@@ -16,8 +16,8 @@ export const SETTINGS_DEFAULTS = {
   tepMultiplier: 1.15,               // 1.0..1.5 — TE premium boost for non-TEP sites
 
   // Trade calculator — stud-exponent package model
-  alpha: 1.678,                      // stud exponent (1.0..2.0) — top-end value concentration
-  beta: 0.15,                        // package-rank discount (0..0.5) — 2nd/3rd pieces worth less
+  alpha: 1.35,                       // stud exponent (1.0..2.0) — top-end value concentration
+  beta: 0.12,                        // package-rank discount (0..0.5) — 2nd/3rd pieces worth less
 
   // Rankings display
   rankingsSortBasis: "full",         // "full" | "raw" | "scoring" | "scarcity"
