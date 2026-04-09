@@ -236,6 +236,24 @@ STARTUP_DROP_TOP_LEVEL_KEYS = {
     "canonicalComparison",
 }
 
+# ── Legacy LAM/scarcity field stripping ──────────────────────────────────
+# LAM (League Adjustment Multiplier) and positional scarcity have been fully
+# removed from the codebase.  Older data files may still contain these fields.
+# They are stripped from ALL API responses so no legacy LAM/scarcity data is
+# ever served publicly.
+#
+# Note: internal pipeline code (enrich.py, calibration.py) may still read
+# _lamBucket as a position-extraction fallback from legacy data files — that
+# is acceptable because it is strictly internal and never served publicly.
+_LEGACY_LAM_PLAYER_PREFIXES = ("_lam", "_rawLeague", "_shrunkLeague")
+_LEGACY_LAM_PLAYER_FIELDS = {
+    "_leagueAdjusted",
+    "_effectiveMultiplier",
+}
+_LEGACY_LAM_TOP_LEVEL_KEYS = {
+    "empiricalLAM",
+}
+
 
 def _safe_num(v: Any) -> float | None:
     if isinstance(v, bool):
@@ -425,6 +443,30 @@ def _build_value_authority_summary(players_array: list[dict[str, Any]]) -> dict[
     }
 
 
+def _strip_legacy_lam_fields(base: dict[str, Any], players_by_name: dict[str, Any]) -> None:
+    """Remove legacy LAM/scarcity fields from the contract payload in-place.
+
+    Strips player-level LAM fields from every player dict and top-level
+    LAM blobs from the base payload.  This ensures the API never serves
+    removed LAM/scarcity data, even when loading older data files.
+    """
+    # Strip top-level LAM blobs
+    for key in _LEGACY_LAM_TOP_LEVEL_KEYS:
+        base.pop(key, None)
+
+    # Strip player-level LAM fields
+    for pdata in players_by_name.values():
+        if not isinstance(pdata, dict):
+            continue
+        keys_to_remove = [
+            k for k in pdata
+            if k in _LEGACY_LAM_PLAYER_FIELDS
+            or any(k.startswith(prefix) for prefix in _LEGACY_LAM_PLAYER_PREFIXES)
+        ]
+        for k in keys_to_remove:
+            del pdata[k]
+
+
 def build_api_data_contract(
     raw_payload: dict[str, Any],
     *,
@@ -435,6 +477,9 @@ def build_api_data_contract(
     if not isinstance(players_by_name, dict):
         players_by_name = {}
         base["players"] = players_by_name
+
+    # Strip legacy LAM/scarcity fields before building the contract.
+    _strip_legacy_lam_fields(base, players_by_name)
 
     sites = base.get("sites")
     if not isinstance(sites, list):
