@@ -892,6 +892,9 @@ tr:hover .sticky-name {
   .rankings-player-meta { font-size: 0.62rem; }
   .rankings-value { font-size: 0.74rem; }
   .rankings-value-band { font-size: 0.52rem; }
+  .edge-rail-grid { grid-template-columns: 1fr 1fr; }
+  .edge-rail-name { max-width: 120px; }
+  .edge-rail-item { font-size: 0.66rem; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -1056,6 +1059,130 @@ tr:hover .sticky-name {
   font-family: var(--mono);
   font-size: 0.68rem;
   color: var(--amber);
+}
+
+/* ── Action-frame labels (Signal column) ─────────────────────────── */
+.action-label {
+  display: inline-block;
+  font-size: 0.58rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-right: 4px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+}
+
+.action-premium {
+  color: var(--amber);
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+.action-consensus {
+  color: var(--green);
+  background: rgba(52, 211, 153, 0.08);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+}
+
+.caution-single,
+.caution-flagged,
+.caution-disagree {
+  color: var(--muted);
+  background: rgba(153, 166, 200, 0.06);
+  border: 1px solid rgba(153, 166, 200, 0.18);
+}
+
+.caution-flagged {
+  color: var(--red);
+  background: rgba(248, 113, 113, 0.06);
+  border: 1px solid rgba(248, 113, 113, 0.18);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EDGE RAIL
+   ══════════════════════════════════════════════════════════════════════════ */
+.edge-rail {
+  background: rgba(8, 19, 44, 0.4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.edge-rail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.edge-rail-title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.edge-rail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-sm);
+}
+
+.edge-rail-section {
+  min-width: 0;
+}
+
+.edge-rail-section-title {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cyan);
+}
+
+.edge-rail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.edge-rail-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: 0.72rem;
+}
+
+.edge-rail-name {
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.1s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.edge-rail-name:hover {
+  color: var(--cyan);
+}
+
+.edge-rail-pos {
+  font-size: 0.56rem;
+  flex-shrink: 0;
+}
+
+.edge-rail-detail {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--muted);
+  white-space: nowrap;
+  margin-left: auto;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

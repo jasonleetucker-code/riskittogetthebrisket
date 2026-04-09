@@ -12,17 +12,28 @@ import {
   rowChips,
   DEFAULT_ROW_LIMIT,
 } from "@/lib/rankings-helpers";
+import {
+  LENSES,
+  getLens,
+  applyLens,
+  actionLabel,
+  cautionLabels,
+  computeEdgeSummary,
+} from "@/lib/edge-helpers";
 
 // ── UNIFIED RANKINGS PAGE ────────────────────────────────────────────
 // Trust-forward blended board: offense + IDP sorted by unified rank.
-// Shows tiers, player context, confidence, value bands, and fast-scan chips.
+// Shows tiers, player context, confidence, value bands, fast-scan chips,
+// actionable lenses, and an edge summary rail.
 //
-// Default experience decisions (see item 5 in spec):
-//   • Sort: by rank ascending (the most intentional view)
-//   • Rows shown: 200 initially (covers starters + depth in 12-team)
-//   • Tier grouping: ON by default (visual hierarchy is the point)
-//   • Flagged rows: shown inline (not hidden) — flags make them visible
-//   • Quarantined rows: shown but dimmed — transparency over hiding
+// Default experience decisions:
+//   • Lens: "consensus" (standard rank view)
+//   • Sort: by rank ascending (most intentional view)
+//   • Rows shown: 200 initially (starters + depth in 12-team)
+//   • Tier grouping: ON by default
+//   • Edge rail: visible by default (quick-scan signal)
+//   • Flagged rows: shown inline (not hidden)
+//   • Quarantined rows: shown but dimmed
 
 const POS_FILTERS = [
   { key: "all", label: "All" },
@@ -42,12 +53,6 @@ const CONFIDENCE_FILTERS = [
   { key: "high", label: "High" },
   { key: "medium", label: "Medium" },
   { key: "low", label: "Low" },
-];
-
-const SOURCE_FILTERS = [
-  { key: "all", label: "Any sources" },
-  { key: "multi", label: "2+ sources" },
-  { key: "single", label: "Single source" },
 ];
 
 function posMatchesFilter(pos, assetClass, filter) {
@@ -102,7 +107,7 @@ function MethodologySection() {
         <li><strong>Rank normalization</strong> — Per-source ranks converted to 1–9,999 values via Hill-curve formula so sources are comparable.</li>
         <li><strong>Blended ranking</strong> — Multi-source players get averaged normalized values. Single-source players keep their one value.</li>
         <li><strong>Unified sort</strong> — All players sorted by blended value into one board. Top 800 get a consensus rank.</li>
-        <li><strong>Tier detection</strong> — Natural value clusters are detected via gap analysis. Tier breaks appear where adjacent players have unusually large value gaps.</li>
+        <li><strong>Tier detection</strong> — Natural value clusters detected via gap analysis. Tier breaks appear where adjacent players have unusually large value gaps.</li>
         <li><strong>Confidence scoring</strong> — High = 2+ sources, spread {"<"} 30. Medium = 2+ sources, spread {"<"} 80. Low = single source or wide disagreement.</li>
         <li><strong>Identity validation</strong> — Post-ranking pass checks for entity resolution problems. Flagged rows are quarantined (confidence degraded, not removed).</li>
       </ol>
@@ -113,6 +118,81 @@ function MethodologySection() {
   );
 }
 
+// ── Edge rail section ────────────────────────────────────────────────
+
+function EdgeRailSection({ label, items, emptyText, onPlayerClick }) {
+  return (
+    <div className="edge-rail-section">
+      <h4 className="edge-rail-section-title">{label}</h4>
+      {items.length === 0 ? (
+        <p className="muted text-xs">{emptyText}</p>
+      ) : (
+        <ul className="edge-rail-list">
+          {items.map((item) => (
+            <li key={item.name} className="edge-rail-item">
+              <span
+                className="edge-rail-name"
+                onClick={() => onPlayerClick?.(item.row)}
+              >
+                #{item.rank} {item.name}
+              </span>
+              <span className="edge-rail-pos badge">{item.pos}</span>
+              <span className="edge-rail-detail">{item.detail}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function EdgeRail({ summary, onPlayerClick }) {
+  const hasSomething =
+    summary.ktcPremium.length > 0 ||
+    summary.idptcPremium.length > 0 ||
+    summary.flaggedCautions.length > 0 ||
+    summary.consensusAssets.length > 0;
+
+  if (!hasSomething) return null;
+
+  return (
+    <div className="edge-rail">
+      <div className="edge-rail-header">
+        <h3 className="edge-rail-title">Edge Summary</h3>
+        <span className="muted text-xs">Derived from source agreement data — not predictions</span>
+      </div>
+      <div className="edge-rail-grid">
+        <EdgeRailSection
+          label="KTC Premium"
+          items={summary.ktcPremium}
+          emptyText="No significant KTC premiums"
+          onPlayerClick={onPlayerClick}
+        />
+        <EdgeRailSection
+          label="IDPTC Premium"
+          items={summary.idptcPremium}
+          emptyText="No significant IDPTC premiums"
+          onPlayerClick={onPlayerClick}
+        />
+        <EdgeRailSection
+          label="Consensus Assets"
+          items={summary.consensusAssets}
+          emptyText="No high-confidence consensus assets"
+          onPlayerClick={onPlayerClick}
+        />
+        <EdgeRailSection
+          label="Flagged — Needs Caution"
+          items={summary.flaggedCautions}
+          emptyText="No flagged players in top 300"
+          onPlayerClick={onPlayerClick}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Main component ───────────────────────────────────────────────────
+
 export default function RankingsPage() {
   const { loading, error, source, rows, rawData } = useDynastyData();
   const { settings } = useSettings();
@@ -120,9 +200,9 @@ export default function RankingsPage() {
   const [query, setQuery] = useState("");
   const [posFilter, setPosFilter] = useState("all");
   const [confFilter, setConfFilter] = useState("all");
-  const [sourceFilter, setSourceFilter] = useState("all");
-  const [showAnomalies, setShowAnomalies] = useState(false);
+  const [activeLens, setActiveLens] = useState("consensus");
   const [showTiers, setShowTiers] = useState(true);
+  const [showEdgeRail, setShowEdgeRail] = useState(true);
   const [rowLimit, setRowLimit] = useState(DEFAULT_ROW_LIMIT);
   const [sortCol, setSortCol] = useState("rank");
   const [sortAsc, setSortAsc] = useState(true);
@@ -138,9 +218,33 @@ export default function RankingsPage() {
     }
   }, [sortCol]);
 
+  // Switch lens: reset sort to default, expand row limit
+  const handleLensChange = useCallback((key) => {
+    setActiveLens(key);
+    const lens = getLens(key);
+    if (lens.sort) {
+      // Non-consensus lenses have their own sort — disable manual sort
+      setSortCol("lens");
+      setSortAsc(true);
+    } else {
+      setSortCol("rank");
+      setSortAsc(true);
+    }
+    // Expand limit for filtered lenses since they show fewer rows
+    if (key !== "consensus") {
+      setRowLimit(Infinity);
+    } else {
+      setRowLimit(DEFAULT_ROW_LIMIT);
+    }
+  }, []);
+
+  // ── Base eligible list ──────────────────────────────────────────
+  const eligible = useMemo(() => {
+    return rows.filter((r) => r.pos && r.pos !== "?" && r.pos !== "PICK");
+  }, [rows]);
+
   // ── Trust summary stats ──────────────────────────────────────────
   const trustStats = useMemo(() => {
-    const eligible = rows.filter((r) => r.pos && r.pos !== "?" && r.pos !== "PICK");
     const high = eligible.filter((r) => r.confidenceBucket === "high").length;
     const medium = eligible.filter((r) => r.confidenceBucket === "medium").length;
     const low = eligible.filter((r) => r.confidenceBucket === "low" || r.confidenceBucket === "none").length;
@@ -148,13 +252,19 @@ export default function RankingsPage() {
     const multiSource = eligible.filter((r) => (r.sourceCount || 0) >= 2).length;
     const withAnomalies = eligible.filter((r) => (r.anomalyFlags || []).length > 0).length;
     return { total: eligible.length, high, medium, low, quarantined, multiSource, withAnomalies };
-  }, [rows]);
+  }, [eligible]);
+
+  // ── Edge summary ─────────────────────────────────────────────────
+  const edgeSummary = useMemo(() => computeEdgeSummary(eligible), [eligible]);
 
   // ── Filtered + sorted list ──────────────────────────────────────
   const ranked = useMemo(() => {
     const q = query.trim().toLowerCase();
-    let list = rows.filter((r) => r.pos && r.pos !== "?" && r.pos !== "PICK");
 
+    // Start with lens-filtered list
+    let list = applyLens(eligible, activeLens);
+
+    // Additional filters layer on top of lens
     if (posFilter !== "all") {
       list = list.filter((r) => posMatchesFilter(r.pos, r.assetClass, posFilter));
     }
@@ -164,18 +274,17 @@ export default function RankingsPage() {
         return r.confidenceBucket === confFilter;
       });
     }
-    if (sourceFilter === "multi") {
-      list = list.filter((r) => (r.sourceCount || 0) >= 2);
-    } else if (sourceFilter === "single") {
-      list = list.filter((r) => (r.sourceCount || 0) <= 1);
-    }
-    if (showAnomalies) {
-      list = list.filter((r) => (r.anomalyFlags || []).length > 0);
-    }
     if (q) {
       list = list.filter((r) => r.name.toLowerCase().includes(q));
     }
 
+    // If lens provides its own sort and user hasn't overridden, use it
+    const lens = getLens(activeLens);
+    if (sortCol === "lens" && lens.sort) {
+      return list; // already sorted by applyLens
+    }
+
+    // Manual sort
     const sorted = [...list];
     const dir = sortAsc ? 1 : -1;
     sorted.sort((a, b) => {
@@ -204,10 +313,10 @@ export default function RankingsPage() {
       }
     });
     return sorted;
-  }, [rows, posFilter, confFilter, sourceFilter, showAnomalies, query, sortCol, sortAsc]);
+  }, [eligible, activeLens, posFilter, confFilter, query, sortCol, sortAsc]);
 
-  // Apply row limit — search/filter bypasses the limit so results aren't hidden
-  const hasActiveFilter = query || posFilter !== "all" || confFilter !== "all" || sourceFilter !== "all" || showAnomalies;
+  // Apply row limit — search/filter bypasses the limit
+  const hasActiveFilter = query || posFilter !== "all" || confFilter !== "all" || activeLens !== "consensus";
   const displayRows = hasActiveFilter ? ranked : ranked.slice(0, rowLimit);
   const hasMore = !hasActiveFilter && ranked.length > rowLimit;
 
@@ -226,18 +335,21 @@ export default function RankingsPage() {
     );
   }
 
-  // ── Copy/Export (includes tier, team, value band, confidence) ───
+  // ── Copy/Export ────────────────────────────────────────────────────
   async function copyValues() {
-    const lines = ["Rank\tPlayer\tPos\tTeam\tTier\tValue\tValue Band\tConfidence\tSources\tKTC\tKTC Rank\tIDPTC\tIDPTC Rank"];
+    const lines = ["Rank\tPlayer\tPos\tTeam\tTier\tValue\tValue Band\tConfidence\tAction\tSources\tKTC\tKTC Rank\tIDPTC\tIDPTC Rank"];
     displayRows.forEach((row) => {
       const ktcVal = row.canonicalSites?.ktc != null ? Math.round(Number(row.canonicalSites.ktc)) : "";
       const idpVal = row.canonicalSites?.idpTradeCalc != null ? Math.round(Number(row.canonicalSites.idpTradeCalc)) : "";
       const val = Math.round(row.rankDerivedValue || row.values.full);
       const band = valueBand(val);
+      const action = actionLabel(row);
+      const cautions = cautionLabels(row);
+      const actionStr = [action?.label, ...cautions.map((c) => c.label)].filter(Boolean).join("; ");
       lines.push(
         `${row.rank}\t${row.name}\t${row.pos}\t${row.team || ""}\t` +
         `${tierLabel(row)}\t${val}\t${band.label}\t` +
-        `${row.confidenceBucket || ""}\t${row.sourceCount || 0}\t` +
+        `${row.confidenceBucket || ""}\t${actionStr}\t${row.sourceCount || 0}\t` +
         `${ktcVal}\t${row.ktcRank || ""}\t${idpVal}\t${row.idpRank || ""}`
       );
     });
@@ -256,9 +368,10 @@ export default function RankingsPage() {
   const timestamp = freshness?.generatedAt || rawData?.date || null;
 
   // ── Tier separator logic ───────────────────────────────────────────
-  // When tier grouping is on and sort is by rank ascending, inject
-  // visual tier breaks between rows with different effective tier IDs.
-  const tierGroupingActive = showTiers && sortCol === "rank" && sortAsc && !hasActiveFilter;
+  const tierGroupingActive = showTiers && sortCol === "rank" && sortAsc && activeLens === "consensus" && !query;
+
+  // ── Active lens descriptor ─────────────────────────────────────────
+  const currentLens = getLens(activeLens);
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
@@ -272,6 +385,12 @@ export default function RankingsPage() {
           </p>
         </div>
         <div className="page-header-actions">
+          <button
+            className={`button ${showEdgeRail ? "button-primary" : ""}`}
+            onClick={() => setShowEdgeRail((v) => !v)}
+          >
+            {showEdgeRail ? "Hide edge" : "Show edge"}
+          </button>
           <button
             className={`button ${showMethodology ? "button-primary" : ""}`}
             onClick={() => setShowMethodology((v) => !v)}
@@ -325,6 +444,11 @@ export default function RankingsPage() {
       {/* ── Methodology (expandable) ────────────────────────────────── */}
       {showMethodology && <MethodologySection />}
 
+      {/* ── Edge rail (expandable) ──────────────────────────────────── */}
+      {!loading && !error && showEdgeRail && rows.length > 0 && (
+        <EdgeRail summary={edgeSummary} onPlayerClick={openPlayerPopup} />
+      )}
+
       {/* ── Loading / error / empty states ──────────────────────────── */}
       {loading && (
         <div className="loading-state">
@@ -340,9 +464,31 @@ export default function RankingsPage() {
         </div>
       )}
 
-      {/* ── Controls ────────────────────────────────────────────────── */}
+      {/* ── Lens selector + controls ────────────────────────────────── */}
       {!loading && !error && rows.length > 0 && (
         <>
+          {/* Lens tabs */}
+          <div className="sub-nav" style={{ marginTop: "var(--space-sm)" }}>
+            {LENSES.map((lens) => (
+              <button
+                key={lens.key}
+                className={`sub-nav-btn ${activeLens === lens.key ? "active" : ""}`}
+                onClick={() => handleLensChange(lens.key)}
+                title={lens.description}
+              >
+                {lens.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Lens description */}
+          {activeLens !== "consensus" && (
+            <p className="muted text-xs" style={{ margin: "4px 0 8px", lineHeight: 1.4 }}>
+              {currentLens.description}
+            </p>
+          )}
+
+          {/* Filters */}
           <div className="filter-bar">
             <input
               className="input"
@@ -361,11 +507,6 @@ export default function RankingsPage() {
                 <option key={f.key} value={f.key}>{f.label}</option>
               ))}
             </select>
-            <select className="select hide-mobile" value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
-              {SOURCE_FILTERS.map((f) => (
-                <option key={f.key} value={f.key}>{f.label}</option>
-              ))}
-            </select>
             <button
               className={`button hide-mobile ${showTiers ? "button-primary" : ""}`}
               onClick={() => setShowTiers((v) => !v)}
@@ -373,22 +514,12 @@ export default function RankingsPage() {
             >
               Tiers
             </button>
-            {trustStats.withAnomalies > 0 && (
-              <button
-                className={`button ${showAnomalies ? "button-primary" : ""}`}
-                onClick={() => setShowAnomalies((v) => !v)}
-                title="Show only rows with anomaly flags"
-              >
-                Flagged ({trustStats.withAnomalies})
-              </button>
-            )}
           </div>
 
           <p className="muted text-xs" style={{ margin: "6px 0 0" }}>
             {displayRows.length.toLocaleString()}{hasMore ? ` of ${ranked.length.toLocaleString()}` : ""} shown
+            {activeLens !== "consensus" && ` \u00B7 ${currentLens.label} lens`}
             {confFilter !== "all" && ` \u00B7 ${confFilter} confidence`}
-            {sourceFilter !== "all" && ` \u00B7 ${sourceFilter === "multi" ? "multi-source" : "single-source"}`}
-            {showAnomalies && " \u00B7 flagged only"}
             {tierGroupingActive && " \u00B7 grouped by tier"}
           </p>
 
@@ -404,20 +535,22 @@ export default function RankingsPage() {
                   <SortHeader col="value" style={{ textAlign: "right" }}>Value</SortHeader>
                   <SortHeader col="confidence" style={{ textAlign: "center" }} className="hide-mobile">Conf</SortHeader>
                   <th className="hide-mobile" style={{ textAlign: "center", width: 90 }}>Gap</th>
+                  <th className="hide-mobile" style={{ width: 170 }}>Signal</th>
                 </tr>
               </thead>
               <tbody>
                 {displayRows.map((row, idx) => {
-                  const flags = row.anomalyFlags || [];
-                  const isQuarantined = row.quarantined;
-                  const gap = marketGapLabel(row);
                   const chips = rowChips(row);
                   const val = Math.round(row.rankDerivedValue || row.values.full);
                   const band = valueBand(val);
                   const tier = tierLabel(row);
                   const tierId = effectiveTierId(row);
+                  const gap = marketGapLabel(row);
+                  const isQuarantined = row.quarantined;
+                  const action = actionLabel(row);
+                  const cautions = cautionLabels(row);
 
-                  // Tier separator: insert when tier changes between adjacent rows
+                  // Tier separator
                   const prevTierId = idx > 0 ? effectiveTierId(displayRows[idx - 1]) : null;
                   const showTierBreak = tierGroupingActive && idx > 0 && tierId !== prevTierId && tierId != null;
 
@@ -425,7 +558,7 @@ export default function RankingsPage() {
                     <Fragment key={row.name}>
                       {showTierBreak && (
                         <tr className="rankings-tier-separator">
-                          <td colSpan={7}>
+                          <td colSpan={8}>
                             <span className="rankings-tier-separator-label">{tier}</span>
                           </td>
                         </tr>
@@ -441,7 +574,7 @@ export default function RankingsPage() {
                           <span className={`rankings-tier-badge ${band.css}`}>{tier}</span>
                         </td>
 
-                        {/* Player: name, team, age, chips */}
+                        {/* Player: name, context, chips */}
                         <td>
                           <div className="rankings-player-cell">
                             <span
@@ -450,13 +583,11 @@ export default function RankingsPage() {
                             >
                               {row.name}
                             </span>
-                            {/* Context: team + age inline */}
                             {(row.team || row.age) && (
                               <span className="rankings-player-meta">
                                 {row.team || ""}{row.age ? `, ${row.age}` : ""}
                               </span>
                             )}
-                            {/* Fast-scan chips */}
                             {chips.length > 0 && (
                               <span className="rankings-chips">
                                 {chips.map((c) => (
@@ -474,7 +605,7 @@ export default function RankingsPage() {
                           </span>
                         </td>
 
-                        {/* Value + value-band label */}
+                        {/* Value + value-band */}
                         <td style={{ textAlign: "right" }}>
                           <span className="rankings-value">{val.toLocaleString()}</span>
                           <span className={`rankings-value-band ${band.css}`}>{band.label}</span>
@@ -492,6 +623,23 @@ export default function RankingsPage() {
                           {gap ? (
                             <span className="rankings-gap-label">{gap}</span>
                           ) : (
+                            <span className="muted">\u2014</span>
+                          )}
+                        </td>
+
+                        {/* Signal: action label + caution labels */}
+                        <td className="hide-mobile">
+                          {action && (
+                            <span className={`action-label ${action.css}`} title={action.title}>
+                              {action.label}
+                            </span>
+                          )}
+                          {cautions.map((c) => (
+                            <span key={c.label} className={`action-label ${c.css}`} title={c.title}>
+                              {c.label}
+                            </span>
+                          ))}
+                          {!action && cautions.length === 0 && (
                             <span className="muted">\u2014</span>
                           )}
                         </td>
@@ -519,4 +667,3 @@ export default function RankingsPage() {
     </section>
   );
 }
-
