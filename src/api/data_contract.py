@@ -58,12 +58,13 @@ _SOURCE_CSV_PATHS = {
 
 
 def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
-    """Fill missing canonicalSiteValues from source CSV exports.
+    """Correct and fill canonicalSiteValues from source CSV exports.
 
-    When the scraper's dashboard payload is missing values for a source
-    (e.g. KTC scrape failed but the CSV persists from a prior run), load
-    the CSV and inject values into canonicalSiteValues so the ranking
-    function can use them.
+    The CSV is matched by exact canonical name, which is higher fidelity
+    than the scraper's fuzzy name matching.  When the CSV has a value for
+    a player's exact canonical name, it always wins — this corrects name-
+    mismatch contamination (e.g. "James Williams" scraped onto "Jameson
+    Williams") while also backfilling values the scraper missed.
     """
     import csv
     from pathlib import Path
@@ -96,13 +97,10 @@ def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
         if not csv_lookup:
             continue
 
-        # Enrich missing values
+        # Correct and fill values — CSV exact-name match wins over scraper
         for row in players_array:
             csv_vals = row.get("canonicalSiteValues")
             if not isinstance(csv_vals, dict):
-                continue
-            existing = _safe_num(csv_vals.get(source_key))
-            if existing is not None and existing > 0:
                 continue
             canon_name = str(row.get("canonicalName") or row.get("displayName") or "").strip().lower()
             csv_val = csv_lookup.get(canon_name)
