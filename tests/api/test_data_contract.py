@@ -421,8 +421,8 @@ class TestComputeKtcRankings(unittest.TestCase):
             "legacyRef": name,
             "position": pos,
             "assetClass": "offense",
-            "values": {"overall": ktc, "rawComposite": ktc, "scoringAdjusted": None,
-                       "scarcityAdjusted": None, "finalAdjusted": ktc, "displayValue": None},
+            "values": {"overall": ktc, "rawComposite": ktc,
+                       "finalAdjusted": ktc, "displayValue": None},
             "canonicalSiteValues": {"ktc": ktc},
             "sourceCount": 1,
         }
@@ -561,8 +561,8 @@ class TestCanonicalConsensusRank(unittest.TestCase):
             "legacyRef": name,
             "position": pos,
             "assetClass": "offense",
-            "values": {"overall": ktc, "rawComposite": ktc, "scoringAdjusted": None,
-                       "scarcityAdjusted": None, "finalAdjusted": ktc, "displayValue": None},
+            "values": {"overall": ktc, "rawComposite": ktc,
+                       "finalAdjusted": ktc, "displayValue": None},
             "canonicalSiteValues": {"ktc": ktc},
             "sourceCount": 1,
         }
@@ -684,8 +684,6 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
             "values": {
                 "overall": 100,
                 "rawComposite": 100,
-                "scoringAdjusted": 100,
-                "scarcityAdjusted": 100,
                 "finalAdjusted": 100,
                 "displayValue": 100,
             },
@@ -702,8 +700,6 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
             "values": {
                 "overall": 1,
                 "rawComposite": 1,
-                "scoringAdjusted": 1,
-                "scarcityAdjusted": 1,
                 "finalAdjusted": 1,
                 "displayValue": 1,
             },

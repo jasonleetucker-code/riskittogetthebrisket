@@ -12,7 +12,7 @@ player values, overlaid onto the legacy contract structure. Legacy metadata
 **What doesn't change:** Legacy scraper still runs and provides the contract
 skeleton, site-specific raw values, picks, and metadata. Canonical overlay
 replaces only the value fields the frontend reads (`_finalAdjusted`,
-`_leagueAdjusted`, `_composite`).
+`_composite`, `_rawComposite`).
 
 **Scale note:** Canonical uses a 0-7800 scale (offense) vs legacy's 0-~10000.
 Rankings are 92% identical in top-50, but absolute displayed values will be

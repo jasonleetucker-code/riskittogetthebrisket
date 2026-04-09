@@ -198,7 +198,7 @@ load_optional_player_meta <- function(project_root) {
     rows[[i]] <- data.frame(
       player_name = player_name,
       player_norm = normalize_name(player_name),
-      position = toupper(as.character(p$`_lamBucket` %||% "")),
+      position = toupper(as.character(p$position %||% p$POS %||% "")),
       years_exp = safe_numeric(p$`_yearsExp`, NA_real_),
       format_ppg_test = safe_numeric(p$`_formatFitPPGTest`, NA_real_),
       format_ppg_custom = safe_numeric(p$`_formatFitPPGCustom`, NA_real_),

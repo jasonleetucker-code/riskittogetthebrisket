@@ -13,9 +13,9 @@ const IDP_SITE_DEFAULTS = {
 };
 
 const ALPHA_PRESETS = [
-  { label: "Balanced", value: 1.40 },
-  { label: "Standard", value: 1.678 },
-  { label: "Star-heavy", value: 1.90 },
+  { label: "Low stud premium", value: 1.20 },
+  { label: "Standard", value: 1.45 },
+  { label: "Star-heavy", value: 1.75 },
 ];
 
 
@@ -118,20 +118,6 @@ export default function SettingsPage() {
           </select>
         </div>
         <SliderRow
-          label="LAM Strength"
-          value={settings.lamStrength}
-          min={0} max={1} step={0.05}
-          onChange={(v) => update("lamStrength", v)}
-          hint="League scoring adjustment intensity"
-        />
-        <SliderRow
-          label="Scarcity Strength"
-          value={settings.scarcityStrength}
-          min={0} max={1} step={0.05}
-          onChange={(v) => update("scarcityStrength", v)}
-          hint="Position scarcity premium"
-        />
-        <SliderRow
           label="TE Premium"
           value={settings.tepMultiplier}
           min={1.0} max={1.5} step={0.05}
@@ -172,7 +158,7 @@ export default function SettingsPage() {
             ))}
           </div>
           <div className="muted" style={{ fontSize: "0.66rem", marginTop: 4 }}>
-            Higher = elite players worth exponentially more. 1.0 = linear, 1.678 = standard.
+            Higher = elite players worth exponentially more. 1.0 = linear, 1.45 = standard.
           </div>
         </div>
         <SliderRow
@@ -194,16 +180,8 @@ export default function SettingsPage() {
           >
             <option value="full">Our Value</option>
             <option value="raw">Raw Composite</option>
-            <option value="scoring">Scoring Adjusted</option>
-            <option value="scarcity">Scarcity Adjusted</option>
           </select>
         </div>
-        <ToggleRow
-          label="Show LAM detail columns"
-          checked={settings.showLamCols}
-          onChange={(v) => update("showLamCols", v)}
-          hint="Raw, Scoring, Final, Delta"
-        />
         <ToggleRow
           label="Show source site columns"
           checked={settings.showSiteCols}

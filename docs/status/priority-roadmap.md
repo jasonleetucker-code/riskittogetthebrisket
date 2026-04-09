@@ -40,19 +40,19 @@ Work is ordered by **dependency chain** and **product impact**. The canonical en
 
 ---
 
-## Phase C: League Context Engine (The critical missing piece)
+## Phase C: League Context Engine (Simplified — scarcity/replacement removed)
 
-**Goal**: Implement `src/league/` so canonical values have league-specific adjustments.
+**Goal**: Implement remaining league-level adjustments. Replacement baselines, scarcity multipliers, and LAM have been fully removed from the system (`scarcity.py`, `replacement.py`, `settings.py` deleted). `src/league/` is now a placeholder.
 
 | # | Task | Ref | Est. Complexity | Depends On |
 |---|------|-----|----------------|------------|
-| C1 | Resolve founder decisions: replacement math, rookie optimism, contender heuristics | CB-3 | Decision | Founder input |
-| C2 | Implement replacement baseline calculator | CB-2 | High | C1 |
-| C3 | Implement scarcity multiplier engine | CB-2 | High | C2 |
+| C1 | Resolve founder decisions: rookie optimism, contender heuristics | CB-3 | Decision | Founder input |
+| ~~C2~~ | ~~Implement replacement baseline calculator~~ | ~~CB-2~~ | — | Removed (scarcity/replacement deleted) |
+| ~~C3~~ | ~~Implement scarcity multiplier engine~~ | ~~CB-2~~ | — | Removed (scarcity/replacement deleted) |
 | C4 | Implement pick curve + time discount application | CB-2 | Medium | C1 |
 | C5 | Implement rookie optimism dial | CB-2 | Low | C1 |
-| C6 | Replace `scripts/league_refresh.py` stub with real implementation | TD-5 | Medium | C2-C5 |
-| C7 | Write unit tests for league engine | — | Medium | C2-C5 |
+| C6 | Replace `scripts/league_refresh.py` stub with real implementation | TD-5 | Medium | C4-C5 |
+| C7 | Write unit tests for league engine | — | Medium | C4-C5 |
 
 ---
 
@@ -110,7 +110,7 @@ Work is ordered by **dependency chain** and **product impact**. The canonical en
 | G1 | Dynasty Nerds adapter | M-1 | Medium | Phase B patterns |
 | G2 | Yahoo values adapter | M-2 | Medium | Phase B patterns |
 | G3 | IDPTradeCalc adapter | M-3 | Medium | Phase B patterns |
-| G4 | IDP-specific scarcity/replacement in league engine | M-4 | Medium | Phase C |
+| ~~G4~~ | ~~IDP-specific scarcity/replacement in league engine~~ | ~~M-4~~ | — | Removed (scarcity/replacement deleted from system) |
 | G5 | IDP filtering in Next.js rankings | — | Low | G4 |
 
 ---
@@ -133,7 +133,7 @@ Phase A (tests, security)  ← can start immediately
      ↓
 Phase B (2nd source)       ← needs founder decision on weights
      ↓
-Phase C (league engine)    ← needs founder decisions; CRITICAL PATH
+Phase C (league engine)    ← simplified (scarcity/replacement removed); pick curves + rookie optimism remain
      ↓
 Phase D (canonical wiring) ← needs league engine
      ↓

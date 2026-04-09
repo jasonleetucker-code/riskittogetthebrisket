@@ -8,7 +8,6 @@ _Updated: 2026-04-08 (scope reduction to 2 sources: KTC + IDP Trade Calculator)_
 2 Source CSVs -> ScraperBridge Adapter -> Identity Resolution
   -> Canonical Blend (KTC=1.2, IDPTRADECALC=1.0)
   -> Position Enrichment
-  -> Scarcity Adjustment
   -> Calibration
   -> Canonical Snapshot
 ```

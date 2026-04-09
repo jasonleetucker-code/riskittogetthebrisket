@@ -27,7 +27,7 @@ A **dynasty fantasy football trade calculator and league management tool** built
 │       ├── 20-data-and-calculator.js
 │       ├── 30-more-surfaces.js  # League analytics dashboards
 │       ├── 35-draft-capital.js
-│       ├── 40-runtime-features.js  # Server integration, player popup, LAM
+│       ├── 40-runtime-features.js  # Server integration, player popup
 │       └── 50-bootstrap.js    # Startup sequence
 ├── frontend/                  # Next.js 15 / React 19 (in-progress migration)
 │   ├── app/
@@ -44,7 +44,8 @@ A **dynasty fantasy football trade calculator and league management tool** built
 │   ├── canonical/             # Pipeline orchestration + value transform
 │   ├── data_models/contracts.py
 │   ├── identity/              # Player identity resolution
-│   ├── scoring/               # LAM scoring system
+│   ├── league/                # Placeholder (scarcity/replacement/settings deleted)
+│   ├── scoring/               # Scoring adjustments, archetypes, backtesting
 │   └── utils/
 ├── data/                      # Runtime data files (dynasty_data_*.json)
 ├── exports/                   # Scraper output bundles
@@ -85,8 +86,7 @@ A **dynasty fantasy football trade calculator and league management tool** built
 ### Data Flow
 1. **Scraper** fetches values from KTC, FantasyCalc, DynastyDaddy, DynastyNerds, DraftSharks, FantasyPros, Yahoo, IDPTradeCalc, PFF IDP, Flock, DLF
 2. Blends into per-player composite (Z-score weighted average)
-3. Applies **LAM** (League Adjustment Multiplier) for custom scoring
-4. Writes `dynasty_data_YYYY-MM-DD_HHMMSS.json` to `data/`
+3. Writes `dynasty_data_YYYY-MM-DD_HHMMSS.json` to `data/`
 5. **Server** loads it, builds API contract payload, pre-serializes 3 views (full / runtime / startup)
 6. **Frontend** fetches `/api/data?view=app` and renders
 
@@ -98,7 +98,7 @@ A **dynasty fantasy football trade calculator and league management tool** built
 |---|---|---|
 | `JASON_LOGIN_PASSWORD` | `Elliott21!` ⚠️ | App password — **change this, default is hardcoded** |
 | `SLEEPER_LEAGUE_ID` | `1312006700437352448` | Primary league for roster/picks/trades |
-| `BASELINE_LEAGUE_ID` | — | Test league for LAM baseline scoring |
+| `BASELINE_LEAGUE_ID` | — | Baseline comparison league |
 | `CANONICAL_DATA_MODE` | `off` | `off` / `shadow` / `primary` — pipeline integration |
 | `FRONTEND_RUNTIME` | `next` | Hardcoded — Next.js is sole frontend |
 | `FRONTEND_URL` | `http://127.0.0.1:3000` | Next.js dev server URL |
@@ -322,6 +322,7 @@ These are an **in-progress canonical pipeline** — not yet in production flow. 
 | `canonical/pipeline.py` | Orchestrate value computation | ✅ Complete |
 | `canonical/transform.py` | Z-score blending, universe split | ✅ Complete |
 | `identity/matcher.py` | Player identity resolution | ✅ Complete |
+| `league/` | Placeholder (scarcity/replacement/settings removed) | ⬜ Gutted |
 | `scoring/player_adjustment.py` | Scoring multiplier computation | ✅ Complete |
 | `scoring/sleeper_ingest.py` | Fetch + normalize Sleeper config | ✅ Complete |
 | `api/data_contract.py` | API payload builder + validator | ✅ Complete |
@@ -390,7 +391,7 @@ Proxy: Caddy (Caddyfile in repo root)
 | Term | Meaning |
 |---|---|
 | **Composite** | Blended trade value (0–9999 scale) from all active sites |
-| **LAM** | League Adjustment Multiplier — adjusts player values for custom scoring rules |
+| **LAM** | League Adjustment Multiplier — fully removed from the system (was a position-based value multiplier; deleted along with positional scarcity) |
 | **SF / Superflex** | Superflex format (can start 2 QBs) |
 | **TEP** | Tight End Premium — extra points for TE receptions |
 | **KTC** | KeepTradeCut — primary dynasty value site |

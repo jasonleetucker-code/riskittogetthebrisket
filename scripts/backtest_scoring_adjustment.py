@@ -52,11 +52,11 @@ def main() -> int:
         sid = str(pdata.get("_sleeperId") or pdata.get("_id") or name).strip()
         fit = {
             "name": name,
-            "bucket": str(pdata.get("_lamBucket") or ""),
+            "bucket": str(pdata.get("position") or ""),
             "ppgTest": float(pdata.get("_formatFitPPGTest") or 0.0),
             "ppgCustom": float(pdata.get("_formatFitPPGCustom") or 0.0),
             "fitFinal": float(pdata.get("_formatFitFinal") or 1.0),
-            "productionMultiplier": float(pdata.get("_formatFitProductionMultiplier") or pdata.get("_effectiveMultiplier") or 1.0),
+            "productionMultiplier": float(pdata.get("_formatFitProductionMultiplier") or 1.0),
             "confidence": float(pdata.get("_formatFitConfidence") or 0.0),
         }
         fits[sid] = fit
@@ -64,14 +64,12 @@ def main() -> int:
         ppg_custom = fit["ppgCustom"]
         if ppg_test > 0 or ppg_custom > 0:
             target_ratio = ppg_custom / max(ppg_test, 1.0)
-            new_mult = float(pdata.get("_formatFitProductionMultiplier") or fit["multiplier"] or 1.0)
-            legacy_mult = float(pdata.get("_effectiveMultiplier") or 1.0)
+            new_mult = float(pdata.get("_formatFitProductionMultiplier") or 1.0)
             naive_mult = max(0.70, min(1.40, target_ratio))
             comparator_rows.append(
                 {
                     "target_ratio": target_ratio,
                     "new_mult": new_mult,
-                    "legacy_mult": legacy_mult,
                     "naive_mult": naive_mult,
                 }
             )
@@ -85,7 +83,6 @@ def main() -> int:
         report["modelComparisons"] = {
             "n": len(comparator_rows),
             "mae_new_multiplier_vs_raw_ratio": round(_mae("new_mult"), 6),
-            "mae_legacy_multiplier_vs_raw_ratio": round(_mae("legacy_mult"), 6),
             "mae_naive_rescore_vs_raw_ratio": round(_mae("naive_mult"), 6),
         }
 

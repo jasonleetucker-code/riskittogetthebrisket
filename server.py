@@ -1030,7 +1030,7 @@ def _apply_canonical_primary_overlay(contract: dict) -> int:
     """R-6 primary mode: overlay canonical calibrated values onto the public contract.
 
     For each player in the canonical snapshot that matches a player in the contract,
-    replace the value fields the frontend reads (_finalAdjusted, _leagueAdjusted,
+    replace the value fields the frontend reads (_finalAdjusted,
     _composite) with the canonical calibrated_value.  This makes canonical the
     authoritative value source while preserving all other player metadata
     (position, team, format-fit, scoring, etc.) from the legacy scraper.
@@ -1114,7 +1114,6 @@ def _apply_canonical_primary_overlay(contract: dict) -> int:
 
         # Overlay the value fields the frontend reads
         pdata["_finalAdjusted"] = cal_val
-        pdata["_leagueAdjusted"] = cal_val
         pdata["_composite"] = cal_val
         pdata["_rawComposite"] = cal_val
         pdata["_valueAuthority"] = "canonical"
@@ -1886,7 +1885,7 @@ async def get_scaffold_canonical():
     """Return canonical pipeline data.
 
     In internal_primary mode: serves a curated player-values response with
-    calibrated values, scarcity adjustments, and enrichment metadata — suitable
+    calibrated values and enrichment metadata — suitable
     for evaluation without affecting the public /api/data path.
 
     In other modes: serves the raw canonical snapshot JSON (debug view).
@@ -1903,7 +1902,6 @@ async def get_scaffold_canonical():
                 "calibrated_value": a.get("calibrated_value"),
                 "display_value": a.get("display_value"),
                 "blended_value": a.get("blended_value"),
-                "scarcity_adjusted_value": a.get("scarcity_adjusted_value"),
                 "universe": a.get("universe", ""),
                 "source_count": len(a.get("source_values", {})),
                 "position": (a.get("metadata") or {}).get("position"),
@@ -1916,7 +1914,6 @@ async def get_scaffold_canonical():
             "run_id": canonical_data.get("run_id", ""),
             "calibration": canonical_data.get("calibration"),
             "enrichment_summary": canonical_data.get("enrichment_summary"),
-            "scarcity_summary": canonical_data.get("scarcity_summary"),
             "player_count": len(player_values),
             "players": player_values,
             "_note": "This is internal-primary data for evaluation only. Public API at /api/data still serves legacy values.",

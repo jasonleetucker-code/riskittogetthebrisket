@@ -33,16 +33,12 @@ export function classifyPos(pos) {
 
 export function inferValueBundle(player = {}) {
   const raw = Number(player._rawComposite ?? player._rawMarketValue ?? player._composite ?? 0) || 0;
-  const scoring = Number(player._scoringAdjusted ?? raw) || raw;
-  const scarcity = Number(player._scarcityAdjusted ?? scoring) || scoring;
   // Prefer 1–9999 display value; fall back to internal calibrated value
   const display = Number(player._canonicalDisplayValue ?? 0) || 0;
-  const internal = Number(player._finalAdjusted ?? player._leagueAdjusted ?? scarcity) || scarcity;
+  const internal = Number(player._finalAdjusted ?? player._composite ?? raw) || raw;
   const full = display || internal;
   return {
     raw: Math.round(raw),
-    scoring: Math.round(scoring),
-    scarcity: Math.round(scarcity),
     full: Math.round(full),
   };
 }
@@ -158,14 +154,10 @@ export function buildRows(data) {
       // Prefer 1–9999 display value; fall back to internal calibrated value
       const displayVal = Number(player?.values?.displayValue ?? 0) || 0;
       const internalVal = Number(
-        player?.values?.finalAdjusted ?? player?.values?.overall ?? player?.values?.scarcityAdjusted ?? 0
+        player?.values?.finalAdjusted ?? player?.values?.overall ?? 0
       ) || 0;
       const values = {
         raw: Number(player?.values?.rawComposite ?? 0) || 0,
-        scoring: Number(player?.values?.scoringAdjusted ?? player?.values?.rawComposite ?? 0) || 0,
-        scarcity: Number(
-          player?.values?.scarcityAdjusted ?? player?.values?.scoringAdjusted ?? player?.values?.rawComposite ?? 0
-        ) || 0,
         full: displayVal || internalVal,
       };
 
@@ -180,8 +172,6 @@ export function buildRows(data) {
         assetClass: String(player.assetClass || classifyPos(pos || "?")),
         values: {
           raw: Math.round(values.raw),
-          scoring: Math.round(values.scoring),
-          scarcity: Math.round(values.scarcity),
           full: Math.round(values.full),
         },
         // siteCount: intentionally preserved — used by trade calculator and

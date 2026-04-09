@@ -25,9 +25,8 @@ def main() -> int:
     parser.add_argument("--repo", default=".", help="Repo root")
     args = parser.parse_args()
 
-    print("[league_refresh] WARNING: This is a scaffold. Full league adjustment math "
-          "(scarcity, replacement baselines, pick curves) is NOT implemented. "
-          "Output contains only pass-through canonical counts, not league-adjusted values.")
+    print("[league_refresh] WARNING: This is a scaffold. "
+          "Output contains only pass-through canonical counts.")
 
     repo = Path(args.repo).resolve()
     _bootstrap_path(repo)
@@ -55,7 +54,7 @@ def main() -> int:
         "created_at": now.isoformat(),
         "input_canonical_snapshot": canonical_file.name,
         "league_profile": league_cfg.get("league_name", "unknown"),
-        "note": "Scaffold output only. Full league adjustment math remains in legacy pipeline for now.",
+        "note": "Scaffold output only. League context module is a placeholder.",
         "asset_count": canonical.get("asset_count", 0),
     }
     save_json(out_file, payload)

@@ -79,7 +79,7 @@ This repo is now wired so both sides can work together:
 - `ENABLE_NEXT_FRONTEND_PROXY=true|false` (legacy/deprecated)
 - `BACKEND_API_URL=http://127.0.0.1:8000/api/data` (for Next route)
 - `SLEEPER_LEAGUE_ID=1312006700437352448` (canonical main league ID for backend scraper)
-- `BASELINE_LEAGUE_ID=1328545898812170240` (canonical baseline league for scoring/LAM comparison)
+- `BASELINE_LEAGUE_ID=1328545898812170240` (canonical baseline league for comparison)
 
 ### `/api/data` contract
 - `/api/data` is now versioned (`contractVersion=2026-03-09.v1`)

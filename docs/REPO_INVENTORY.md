@@ -36,7 +36,7 @@ src/
   adapters/          # source importers (DLF CSV, KTC scraper, etc.)
   identity/          # master player/pick mapping utilities
   canonical/         # percentile/curve/blending logic
-  league/            # scoring + scarcity + replacement engine
+  league/            # placeholder (scarcity + replacement removed)
   api/               # new FastAPI service exposing calculator + rankings
   data_models/       # Pydantic models / schemas
   utils/

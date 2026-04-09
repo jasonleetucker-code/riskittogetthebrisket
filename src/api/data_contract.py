@@ -236,6 +236,20 @@ STARTUP_DROP_TOP_LEVEL_KEYS = {
     "canonicalComparison",
 }
 
+# ── Legacy LAM/scarcity field stripping ──────────────────────────────────
+# LAM (League Adjustment Multiplier) and positional scarcity have been fully
+# removed from the codebase.  Older data files may still contain these fields.
+# They are stripped from ALL API responses so no legacy LAM/scarcity data is
+# ever served publicly.
+_LEGACY_LAM_PLAYER_PREFIXES = ("_lam", "_rawLeague", "_shrunkLeague")
+_LEGACY_LAM_PLAYER_FIELDS = {
+    "_leagueAdjusted",
+    "_effectiveMultiplier",
+}
+_LEGACY_LAM_TOP_LEVEL_KEYS = {
+    "empiricalLAM",
+}
+
 
 def _safe_num(v: Any) -> float | None:
     if isinstance(v, bool):
@@ -309,10 +323,8 @@ def _player_value_bundle(p_data: dict[str, Any]) -> dict[str, int | None]:
     raw = _to_int_or_none(
         p_data.get("_rawComposite", p_data.get("_rawMarketValue", p_data.get("_composite")))
     )
-    scoring = _to_int_or_none(p_data.get("_scoringAdjusted", p_data.get("_leagueAdjusted")))
-    scarcity = _to_int_or_none(p_data.get("_scarcityAdjusted"))
     final = _to_int_or_none(
-        p_data.get("_finalAdjusted", p_data.get("_leagueAdjusted", p_data.get("_composite")))
+        p_data.get("_finalAdjusted", p_data.get("_composite"))
     )
     if final is None:
         final = raw
@@ -321,8 +333,6 @@ def _player_value_bundle(p_data: dict[str, Any]) -> dict[str, int | None]:
     return {
         "overall": overall,
         "rawComposite": raw,
-        "scoringAdjusted": scoring,
-        "scarcityAdjusted": scarcity,
         "finalAdjusted": final,
         "displayValue": display,
     }
@@ -429,6 +439,30 @@ def _build_value_authority_summary(players_array: list[dict[str, Any]]) -> dict[
     }
 
 
+def _strip_legacy_lam_fields(base: dict[str, Any], players_by_name: dict[str, Any]) -> None:
+    """Remove legacy LAM/scarcity fields from the contract payload in-place.
+
+    Strips player-level LAM fields from every player dict and top-level
+    LAM blobs from the base payload.  This ensures the API never serves
+    removed LAM/scarcity data, even when loading older data files.
+    """
+    # Strip top-level LAM blobs
+    for key in _LEGACY_LAM_TOP_LEVEL_KEYS:
+        base.pop(key, None)
+
+    # Strip player-level LAM fields
+    for pdata in players_by_name.values():
+        if not isinstance(pdata, dict):
+            continue
+        keys_to_remove = [
+            k for k in pdata
+            if k in _LEGACY_LAM_PLAYER_FIELDS
+            or any(k.startswith(prefix) for prefix in _LEGACY_LAM_PLAYER_PREFIXES)
+        ]
+        for k in keys_to_remove:
+            del pdata[k]
+
+
 def build_api_data_contract(
     raw_payload: dict[str, Any],
     *,
@@ -439,6 +473,9 @@ def build_api_data_contract(
     if not isinstance(players_by_name, dict):
         players_by_name = {}
         base["players"] = players_by_name
+
+    # Strip legacy LAM/scarcity fields before building the contract.
+    _strip_legacy_lam_fields(base, players_by_name)
 
     sites = base.get("sites")
     if not isinstance(sites, list):
@@ -533,10 +570,9 @@ def _extract_source_count(asset: dict[str, Any]) -> int | None:
 def _canonical_final_value(asset: dict[str, Any]) -> float | None:
     """Return the best available final canonical value for an asset.
 
-    Preference order: calibrated_value > scarcity_adjusted_value > blended_value.
-    This ensures shadow comparisons use the same value a consumer would see.
+    Preference order: calibrated_value > blended_value.
     """
-    for key in ("calibrated_value", "scarcity_adjusted_value", "blended_value"):
+    for key in ("calibrated_value", "blended_value"):
         v = _safe_num(asset.get(key))
         if v is not None:
             return v
@@ -602,7 +638,6 @@ def build_canonical_comparison_block(
             if isinstance(legacy_data, dict):
                 legacy_val = _to_int_or_none(
                     legacy_data.get("_finalAdjusted")
-                    or legacy_data.get("_leagueAdjusted")
                     or legacy_data.get("_composite")
                 )
                 entry["legacyValue"] = legacy_val
@@ -692,7 +727,6 @@ def build_shadow_comparison_report(
             continue
         val = _to_int_or_none(
             pdata.get("_finalAdjusted")
-            or pdata.get("_leagueAdjusted")
             or pdata.get("_composite")
         )
         if val is not None and val > 0:
@@ -894,7 +928,7 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(values, dict):
             errors.append(f"playersArray[{idx}].values must be object")
         else:
-            for k in ("overall", "rawComposite", "scoringAdjusted", "scarcityAdjusted", "finalAdjusted"):
+            for k in ("overall", "rawComposite", "finalAdjusted"):
                 if k not in values:
                     errors.append(f"playersArray[{idx}].values missing key: {k}")
 

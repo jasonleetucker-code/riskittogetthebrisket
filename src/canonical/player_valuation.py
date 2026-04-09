@@ -7,8 +7,8 @@ ranking data using three core principles:
     2. Gaps determine tier truth          (rank-gap tier detection)
     3. Curves determine value truth        (non-linear value mapping)
 
-No league-specific adjustments, positional scarcity multipliers, or
-external normalization factors are applied.  The output is a standalone
+No league-specific adjustments or external normalization factors are
+applied.  The output is a standalone
 canonical value layer that can be consumed directly or optionally
 modified downstream.
 
@@ -642,7 +642,7 @@ def valuation_result_to_asset_dicts(
 ) -> list[dict[str, Any]]:
     """Convert ValuationResult players into canonical asset dicts.
 
-    Produces dicts compatible with the existing pipeline (enrich, scarcity,
+    Produces dicts compatible with the existing pipeline (enrich,
     server overlay).  The key mapping:
 
         display_value  → blended_value (0–9999 scale, used by calibration/overlay)

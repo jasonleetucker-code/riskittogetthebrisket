@@ -1,7 +1,7 @@
 {
   "_description": "Supplemental position data for well-known NFL players not present in legacy data. Each entry is verified against public NFL roster information. Only players appearing in 2+ independent dynasty value sources are included.",
   "_created": "2026-03-22",
-  "_criteria": "Multi-source confirmed players with known NFL positions that are missing from legacy _lamBucket data",
+  "_criteria": "Multi-source confirmed players with known NFL positions that are missing from legacy data",
   "players": {
     "Chigoziem Okonkwo": "TE",
     "Bryce Lance": "QB",

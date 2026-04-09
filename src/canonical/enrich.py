@@ -24,7 +24,7 @@ from src.utils.name_clean import NICKNAME_MAP  # noqa: F401
 IDP_ONLY_SOURCES = {"IDPTRADECALC"}
 
 # Default IDP position when we know a player is IDP but not which specific position
-# LB is the most common IDP position and replacement baselines are similar across IDP
+# LB is the most common IDP position; used as safe default when specific position unknown
 DEFAULT_IDP_POSITION = "LB"
 
 
@@ -102,7 +102,7 @@ def build_legacy_position_lookup(legacy_path: Path) -> dict[str, str]:
     for name, pdata in players.items():
         if not isinstance(pdata, dict):
             continue
-        raw_pos = str(pdata.get("_lamBucket", "")).strip().upper()
+        raw_pos = str(pdata.get("position", pdata.get("POS", ""))).strip().upper()
         if not raw_pos or raw_pos == "PICK":
             continue
         canonical_pos = LEGACY_POS_MAP.get(raw_pos)

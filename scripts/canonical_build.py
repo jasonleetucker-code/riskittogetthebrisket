@@ -188,29 +188,6 @@ def main() -> int:
         except Exception as e:
             print(f"[canonical_build] enrichment skipped: {e}")
 
-    # Scarcity adjustment via league context engine
-    league_cfg_path = repo / "config" / "leagues" / "default_superflex_idp.template.json"
-    scarcity_summary = None
-    if league_cfg_path.exists():
-        try:
-            from src.league import LeagueSettings, ReplacementCalculator
-            from src.league.scarcity import compute_scarcity_adjusted_values, build_scarcity_summary
-
-            settings = LeagueSettings.from_json(league_cfg_path)
-            calc = ReplacementCalculator(settings)
-            baselines = calc.compute_baselines(asset_dicts)
-            enriched = compute_scarcity_adjusted_values(asset_dicts, baselines)
-            scarcity_summary = build_scarcity_summary(enriched, baselines)
-
-            # Replace asset dicts with enriched versions
-            asset_dicts = enriched
-            print(
-                f"[canonical_build] scarcity: {scarcity_summary['with_position']} assets adjusted, "
-                f"{scarcity_summary['without_position']} without position"
-            )
-        except Exception as e:
-            print(f"[canonical_build] scarcity adjustment skipped: {e}")
-
     # Distribution calibration: remap values to match legacy-like distribution
     # Skipped when using the canonical engine — values are already display-scaled.
     calibration_params = None
@@ -250,7 +227,6 @@ def main() -> int:
         } if not use_canonical_engine else {},
         "assets": asset_dicts,
         "enrichment_summary": enrichment_summary,
-        "scarcity_summary": scarcity_summary,
         "calibration": calibration_params,
         "valuation_summaries": valuation_summaries,
     }

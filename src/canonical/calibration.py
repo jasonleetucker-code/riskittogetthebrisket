@@ -210,7 +210,8 @@ def _build_legacy_pick_lookup(legacy_path: Path | None) -> dict[str, int]:
     for name, pdata in players.items():
         if not isinstance(pdata, dict):
             continue
-        if pdata.get("_lamBucket") != "PICK":
+        pos = str(pdata.get("position", pdata.get("POS", ""))).strip().upper()
+        if pos != "PICK":
             continue
         val = pdata.get("_composite", 0)
         if val > 0:
@@ -265,7 +266,7 @@ def calibrate_canonical_values(
         picks = [a for a in group if _is_pick(a)]
 
         # Calibrate players with piecewise power curve (knee varies per universe)
-        sort_key = "scarcity_adjusted_value" if players and players[0].get("scarcity_adjusted_value") is not None else "blended_value"
+        sort_key = "blended_value"
         players.sort(key=lambda a: -(a.get(sort_key) or 0))
 
         for rank_idx, asset in enumerate(players):

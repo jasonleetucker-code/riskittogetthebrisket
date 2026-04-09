@@ -42,7 +42,7 @@ def recalibrate_assets(assets: list[dict], exponent: float, universe_scales: dic
     for universe, group in by_universe.items():
         scale = universe_scales.get(universe, 8500)
         players = [a for a in group if not _is_pick(a)]
-        sort_key = "scarcity_adjusted_value" if players and players[0].get("scarcity_adjusted_value") is not None else "blended_value"
+        sort_key = "blended_value"
         players.sort(key=lambda a: -(a.get(sort_key) or 0))
         for rank_idx, asset in enumerate(players):
             depth = len(players)
@@ -81,7 +81,7 @@ def run_comparison(canonical_assets: list[dict], legacy: dict[str, dict]) -> dic
     can_lookup = {}
     for a in canonical_assets:
         name = str(a.get("display_name", "")).strip()
-        val = a.get("calibrated_value") or a.get("scarcity_adjusted_value") or a.get("blended_value")
+        val = a.get("calibrated_value") or a.get("blended_value")
         if not name or val is None:
             continue
         existing = can_lookup.get(name)
@@ -197,10 +197,10 @@ def main():
     for name, pdata in legacy_data.get("players", {}).items():
         if not isinstance(pdata, dict):
             continue
-        val = pdata.get("_finalAdjusted") or pdata.get("_leagueAdjusted") or pdata.get("_composite")
+        val = pdata.get("_finalAdjusted") or pdata.get("_composite")
         if val is None or int(val) <= 0:
             continue
-        pos = str(pdata.get("_lamBucket") or pdata.get("POS") or "").upper()
+        pos = str(pdata.get("position") or pdata.get("POS") or "").upper()
         legacy[name] = {"value": int(val), "pos": pos}
 
     universe_scales = {"offense_vet": 8500, "offense_rookie": 8500,

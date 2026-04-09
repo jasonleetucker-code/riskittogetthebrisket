@@ -35,7 +35,6 @@ def load_legacy(path: Path) -> dict[str, dict]:
             continue
         val = (
             pdata.get("_finalAdjusted")
-            or pdata.get("_leagueAdjusted")
             or pdata.get("_composite")
         )
         if val is None:
@@ -43,7 +42,7 @@ def load_legacy(path: Path) -> dict[str, dict]:
         val = int(val)
         if val <= 0:
             continue
-        pos = str(pdata.get("_lamBucket") or pdata.get("POS") or pdata.get("pos") or "").upper()
+        pos = str(pdata.get("position") or pdata.get("POS") or pdata.get("pos") or "").upper()
         out[name] = {"value": val, "pos": pos, "name": name}
     return out
 
@@ -51,8 +50,7 @@ def load_legacy(path: Path) -> dict[str, dict]:
 def load_canonical(path: Path) -> dict[str, dict]:
     """Load canonical snapshot and extract per-asset values.
 
-    Uses scarcity_adjusted_value when available (from league context engine),
-    falling back to raw blended_value.
+    Falls back to raw blended_value when calibrated_value is unavailable.
     """
     data = json.loads(path.read_text())
     assets = data.get("assets", [])
@@ -61,10 +59,9 @@ def load_canonical(path: Path) -> dict[str, dict]:
         name = str(asset.get("display_name", asset.get("asset_key", ""))).strip()
         if not name:
             continue
-        # Prefer calibrated > scarcity-adjusted > raw blended
+        # Prefer calibrated > raw blended
         value = (
             asset.get("calibrated_value")
-            or asset.get("scarcity_adjusted_value")
             or asset.get("blended_value")
         )
         if value is None:
