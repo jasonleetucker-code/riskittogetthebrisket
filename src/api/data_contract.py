@@ -108,6 +108,157 @@ def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
                 csv_vals[source_key] = csv_val
 
 
+# ── Source-match quality diagnostics ──────────────────────────────────────────
+# Detects suspicious source matches that may indicate name-matching errors,
+# duplicate CSV entries, or cross-source contamination.  Run after CSV
+# enrichment and before ranking so the diagnostics reflect the final values.
+#
+# Match-confidence model:
+#   TRUSTED       — exact CSV canonical-name match (highest fidelity)
+#   HIGH          — both KTC and IDPTC agree within 2x rank ratio
+#   MEDIUM        — single source only, no cross-check possible
+#   SUSPICIOUS    — cross-source rank ratio > 5x, possible name mismatch
+#   REJECTED      — value overwritten by higher-fidelity CSV match
+#
+# The diagnostics dict is stamped onto the contract under "sourceQualityAudit".
+
+_CROSS_SOURCE_DIVERGENCE_THRESHOLD = 5.0  # rank ratio above which a match is flagged
+
+
+def _diagnose_source_quality(
+    players_array: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Audit source-match quality and return diagnostics.
+
+    Returns a dict with:
+      - csv_duplicates: duplicate names found in source CSVs
+      - cross_source_divergent: players with wildly inconsistent source values
+      - single_source_only: count of players rankable from only one source
+      - multi_source_agreed: count of players where sources agree (ratio < threshold)
+      - match_confidence_summary: {trusted, high, medium, suspicious} counts
+    """
+    import csv as csv_mod
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[2]
+    diag: dict[str, Any] = {
+        "csv_duplicates": [],
+        "cross_source_divergent": [],
+        "single_source_only": 0,
+        "multi_source_agreed": 0,
+        "match_confidence_summary": {"trusted": 0, "high": 0, "medium": 0, "suspicious": 0},
+        "player_flags": {},  # name -> list of flag strings
+    }
+
+    # ── 1. Duplicate detection in source CSVs ──
+    for source_key, csv_rel in _SOURCE_CSV_PATHS.items():
+        csv_path = repo / csv_rel
+        if not csv_path.exists():
+            continue
+        seen: dict[str, tuple[str, str]] = {}  # lower_name -> (original_name, value)
+        try:
+            with csv_path.open("r", encoding="utf-8-sig") as f:
+                for csvrow in csv_mod.DictReader(f):
+                    name = str(csvrow.get("name", "")).strip()
+                    val = str(csvrow.get("value", "")).strip()
+                    if not name or not val:
+                        continue
+                    lower = name.lower()
+                    if lower in seen:
+                        diag["csv_duplicates"].append({
+                            "source": source_key,
+                            "name_a": seen[lower][0],
+                            "value_a": seen[lower][1],
+                            "name_b": name,
+                            "value_b": val,
+                        })
+                    else:
+                        seen[lower] = (name, val)
+        except Exception:
+            continue
+
+    # ── 2. Cross-source divergence detection ──
+    # After CSV enrichment, check each player's source values for wild inconsistencies.
+    # Also build per-source ordinal ranks for comparison.
+    source_ordinals: dict[str, list[tuple[float, int]]] = {}  # source -> [(value, idx)]
+    for source_key in _SOURCE_CSV_PATHS:
+        eligible = []
+        for idx, row in enumerate(players_array):
+            pos = str(row.get("position") or "").strip().upper()
+            if not pos or pos in {"?", "PICK"} or pos in _KICKER_POSITIONS:
+                continue
+            csv_vals = row.get("canonicalSiteValues") or {}
+            val = _safe_num(csv_vals.get(source_key))
+            if val is not None and val > 0:
+                eligible.append((val, idx))
+        eligible.sort(key=lambda t: -t[0])
+        source_ordinals[source_key] = eligible
+
+    # Build ordinal rank lookup: player_idx -> {source: rank}
+    ordinal_ranks: dict[int, dict[str, int]] = {}
+    for source_key, eligible in source_ordinals.items():
+        for rank_idx, (_, row_idx) in enumerate(eligible):
+            ordinal_ranks.setdefault(row_idx, {})[source_key] = rank_idx + 1
+
+    # Check multi-source players for divergence
+    for idx, ranks in ordinal_ranks.items():
+        if len(ranks) < 2:
+            diag["single_source_only"] += 1
+            diag["match_confidence_summary"]["medium"] += 1
+            continue
+        rank_vals = list(ranks.values())
+        best_rank = min(rank_vals)
+        worst_rank = max(rank_vals)
+        ratio = worst_rank / max(best_rank, 1)
+        name = (players_array[idx].get("displayName")
+                or players_array[idx].get("canonicalName") or "")
+        pos = players_array[idx].get("position", "?")
+        if ratio > _CROSS_SOURCE_DIVERGENCE_THRESHOLD:
+            csv_vals = players_array[idx].get("canonicalSiteValues") or {}
+            diag["cross_source_divergent"].append({
+                "name": name,
+                "position": pos,
+                "source_ranks": dict(ranks),
+                "source_values": {k: csv_vals.get(k) for k in ranks},
+                "ratio": round(ratio, 1),
+            })
+            diag["match_confidence_summary"]["suspicious"] += 1
+            flags = diag["player_flags"].setdefault(name, [])
+            flags.append(f"cross-source rank ratio {ratio:.1f}x ({ranks})")
+            # Stamp a flag on the player row for frontend visibility
+            players_array[idx]["_sourceMatchFlag"] = (
+                f"suspicious: cross-source rank ratio {ratio:.1f}x"
+            )
+        else:
+            diag["multi_source_agreed"] += 1
+            diag["match_confidence_summary"]["high"] += 1
+
+    # Count trusted (any player enriched from CSV = exact name match)
+    # We can't distinguish here, but all players that went through CSV enrichment
+    # with a match are trusted.  Approximate by counting players in CSVs.
+    for source_key, csv_rel in _SOURCE_CSV_PATHS.items():
+        csv_path = repo / csv_rel
+        if not csv_path.exists():
+            continue
+        try:
+            csv_names: set[str] = set()
+            with csv_path.open("r", encoding="utf-8-sig") as f:
+                for csvrow in csv_mod.DictReader(f):
+                    name = str(csvrow.get("name", "")).strip().lower()
+                    if name:
+                        csv_names.add(name)
+            for row in players_array:
+                canon = str(row.get("canonicalName") or row.get("displayName") or "").strip().lower()
+                if canon in csv_names:
+                    csv_vals = row.get("canonicalSiteValues") or {}
+                    if _safe_num(csv_vals.get(source_key)):
+                        diag["match_confidence_summary"]["trusted"] += 1
+        except Exception:
+            continue
+
+    return diag
+
+
 def _compute_unified_rankings(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
@@ -473,6 +624,10 @@ def build_api_data_contract(
     # legacy scraper payload (e.g. KTC scrape failed but CSV exists).
     _enrich_from_source_csvs(players_array)
 
+    # Audit source-match quality before ranking — detect name mismatches,
+    # duplicates, and cross-source divergence.
+    source_quality_audit = _diagnose_source_quality(players_array)
+
     # Compute unified rankings: all sources, all positions, one board.
     # This is the single source of truth for canonicalConsensusRank / rankDerivedValue.
     _compute_unified_rankings(players_array, players_by_name)
@@ -498,6 +653,7 @@ def build_api_data_contract(
         "playersArray": players_array,
         "playerCount": len(players_array),
         "valueAuthority": _build_value_authority_summary(players_array),
+        "sourceQualityAudit": source_quality_audit,
         "dataSource": {
             "type": str(data_source.get("type") or ""),
             "path": str(data_source.get("path") or ""),
