@@ -5859,7 +5859,7 @@ async def run(progress_callback=None):
     if DEBUG:
         print(f"  [Rookies] Tagged years_exp for {_years_exp_tagged} players; rookie-flagged {_rookie_tagged}")
 
-    # Set _rawComposite and _finalAdjusted directly from _composite (no LAM adjustment).
+    # Set _rawComposite and _finalAdjusted directly from _composite.
     for name, pdata in players_json.items():
         if not isinstance(pdata, dict):
             continue

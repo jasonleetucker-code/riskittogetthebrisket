@@ -210,6 +210,7 @@ def _build_legacy_pick_lookup(legacy_path: Path | None) -> dict[str, int]:
     for name, pdata in players.items():
         if not isinstance(pdata, dict):
             continue
+        # Legacy data may store position under "POS" or the old "_lamBucket" key
         pos = str(pdata.get("position", pdata.get("POS", pdata.get("_lamBucket", "")))).strip().upper()
         if pos != "PICK":
             continue

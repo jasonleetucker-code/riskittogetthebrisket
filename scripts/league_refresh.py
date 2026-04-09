@@ -54,7 +54,7 @@ def main() -> int:
         "created_at": now.isoformat(),
         "input_canonical_snapshot": canonical_file.name,
         "league_profile": league_cfg.get("league_name", "unknown"),
-        "note": "Scaffold output only. Full league adjustment math remains in legacy pipeline for now.",
+        "note": "Scaffold output only. League context module is a placeholder.",
         "asset_count": canonical.get("asset_count", 0),
     }
     save_json(out_file, payload)
