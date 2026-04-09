@@ -33,7 +33,7 @@
       "adapter_version": "1.0.0",
       "season": "2026",
       "format_key": "dynasty_sf",
-      "universe": "all",
+      "universe": "idp_vet",
       "ingest_type": "scraper_export",
       "ingest_method": "scraper_bridge",
       "source_url": "https://idptradecalc.com/",

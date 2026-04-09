@@ -630,7 +630,7 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
     def test_validation_flags_offense_signal_player_tagged_as_idp(self):
         payload = _minimal_raw_payload()
         payload["players"] = {
-            "Elijah Mitchell": {
+            "Test Offense Player X": {
                 "_composite": 5000,
                 "_rawComposite": 5000,
                 "_finalAdjusted": 5000,

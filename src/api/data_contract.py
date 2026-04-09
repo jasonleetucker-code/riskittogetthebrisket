@@ -74,19 +74,9 @@ def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
         if not csv_path.exists():
             continue
 
-        # Check if we actually need enrichment for this source.
-        # Only count real players (not picks) to avoid skipping enrichment
-        # when the scraper got pick values but missed player values.
-        has_count = sum(
-            1 for row in players_array
-            if str(row.get("position") or "").strip().upper() not in {"PICK", ""}
-            and _safe_num((row.get("canonicalSiteValues") or {}).get(source_key)) is not None
-            and _safe_num((row.get("canonicalSiteValues") or {}).get(source_key)) > 0
-        )
-        if has_count > 50:
-            continue
-
-        # Load CSV
+        # Load CSV — always load and enrich missing values.
+        # The per-row check below skips players that already have values,
+        # so loading the CSV is safe even when most players are populated.
         csv_lookup: dict[str, int] = {}
         try:
             with csv_path.open("r", encoding="utf-8-sig") as f:

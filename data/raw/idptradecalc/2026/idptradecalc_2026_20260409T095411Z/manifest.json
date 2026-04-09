@@ -1,0 +1,19 @@
+{
+  "source": "IDPTRADECALC",
+  "snapshot_id": "idptradecalc_2026_20260409T095411Z",
+  "pulled_at_utc": "2026-04-09T09:54:11.679180+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty SF TEP (IDPTradeCalc offense+IDP values via API+autocomplete)",
+  "universe": "all",
+  "ingest_method": "scraper_bridge",
+  "ingest_type": "scraper_export",
+  "source_url": "https://idptradecalc.com/",
+  "format_key": "dynasty_sf",
+  "raw_file_path": "/home/user/riskittogetthebrisket/exports/latest/site_raw/idpTradeCalc.csv",
+  "raw_storage_path": "/home/user/riskittogetthebrisket/data/raw/idptradecalc/2026/idptradecalc_2026_20260409T095411Z",
+  "record_count": 884,
+  "hash": "9951741b0c088633c78011fa6c091cb027648bd8bf444ba39f81e91eb91a3466",
+  "notes": "IDPTradeCalc values. API returns IDP players (DL/LB/DB). Offensive players (QB/RB/WR/TE) are obtained via autocomplete search using the KTC player pool as the target list. Both offense and IDP values are exported to the CSV.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
