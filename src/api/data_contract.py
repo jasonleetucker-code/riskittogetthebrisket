@@ -309,10 +309,8 @@ def _player_value_bundle(p_data: dict[str, Any]) -> dict[str, int | None]:
     raw = _to_int_or_none(
         p_data.get("_rawComposite", p_data.get("_rawMarketValue", p_data.get("_composite")))
     )
-    scoring = _to_int_or_none(p_data.get("_scoringAdjusted", p_data.get("_leagueAdjusted")))
-    scarcity = _to_int_or_none(p_data.get("_scarcityAdjusted"))
     final = _to_int_or_none(
-        p_data.get("_finalAdjusted", p_data.get("_leagueAdjusted", p_data.get("_composite")))
+        p_data.get("_finalAdjusted", p_data.get("_composite"))
     )
     if final is None:
         final = raw
@@ -321,8 +319,6 @@ def _player_value_bundle(p_data: dict[str, Any]) -> dict[str, int | None]:
     return {
         "overall": overall,
         "rawComposite": raw,
-        "scoringAdjusted": scoring,
-        "scarcityAdjusted": scarcity,
         "finalAdjusted": final,
         "displayValue": display,
     }
@@ -533,10 +529,9 @@ def _extract_source_count(asset: dict[str, Any]) -> int | None:
 def _canonical_final_value(asset: dict[str, Any]) -> float | None:
     """Return the best available final canonical value for an asset.
 
-    Preference order: calibrated_value > scarcity_adjusted_value > blended_value.
-    This ensures shadow comparisons use the same value a consumer would see.
+    Preference order: calibrated_value > blended_value.
     """
-    for key in ("calibrated_value", "scarcity_adjusted_value", "blended_value"):
+    for key in ("calibrated_value", "blended_value"):
         v = _safe_num(asset.get(key))
         if v is not None:
             return v
@@ -602,7 +597,6 @@ def build_canonical_comparison_block(
             if isinstance(legacy_data, dict):
                 legacy_val = _to_int_or_none(
                     legacy_data.get("_finalAdjusted")
-                    or legacy_data.get("_leagueAdjusted")
                     or legacy_data.get("_composite")
                 )
                 entry["legacyValue"] = legacy_val
@@ -692,7 +686,6 @@ def build_shadow_comparison_report(
             continue
         val = _to_int_or_none(
             pdata.get("_finalAdjusted")
-            or pdata.get("_leagueAdjusted")
             or pdata.get("_composite")
         )
         if val is not None and val > 0:
@@ -894,7 +887,7 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(values, dict):
             errors.append(f"playersArray[{idx}].values must be object")
         else:
-            for k in ("overall", "rawComposite", "scoringAdjusted", "scarcityAdjusted", "finalAdjusted"):
+            for k in ("overall", "rawComposite", "finalAdjusted"):
                 if k not in values:
                     errors.append(f"playersArray[{idx}].values missing key: {k}")
 

@@ -4,7 +4,6 @@ import { useMemo, useState, useCallback } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { resolvedRank } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
-import { lamMultiplier } from "@/lib/trade-logic";
 import { useApp } from "@/components/AppShell";
 
 // ── UNIFIED RANKINGS PAGE ────────────────────────────────────────────

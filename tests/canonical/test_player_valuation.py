@@ -911,8 +911,8 @@ class TestValuationResultToAssetDicts:
         """calibrated_value must always be set to prevent fallback chain drift.
 
         The data_contract._canonical_final_value() uses preference order:
-        calibrated_value > scarcity_adjusted_value > blended_value.
-        If calibrated_value were missing, scarcity could silently become
+        calibrated_value > blended_value.
+        If calibrated_value were missing, blended_value would silently become
         the authoritative value. This test guards against that.
         """
         _, dicts = self._run_and_convert()
@@ -921,16 +921,6 @@ class TestValuationResultToAssetDicts:
             assert d["calibrated_value"] > 0
             assert d["calibrated_value"] == d["display_value"]
 
-    def test_scarcity_does_not_overwrite_canonical(self):
-        """Scarcity adjustment should not modify calibrated_value or blended_value."""
-        _, dicts = self._run_and_convert()
-        # Simulate what scarcity does: adds scarcity_adjusted_value
-        for d in dicts:
-            d["scarcity_adjusted_value"] = d["blended_value"] - 100
-        # calibrated_value should be untouched
-        for d in dicts:
-            assert d["calibrated_value"] == d["display_value"]
-            assert "scarcity_adjusted_value" in d
 
 
 # ─────────────────────────────────────────────────────────────

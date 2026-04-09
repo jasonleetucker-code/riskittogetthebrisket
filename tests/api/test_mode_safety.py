@@ -158,13 +158,6 @@ class TestCanonicalSnapshotIntegrity:
             f"Only {len(with_src)}/{len(assets)} assets have source_values"
         )
 
-    def test_has_scarcity_adjusted_values(self):
-        assets = self.snapshot.get("assets", [])
-        with_scar = [a for a in assets if a.get("scarcity_adjusted_value") is not None]
-        assert len(with_scar) >= 100, (
-            f"Only {len(with_scar)} assets have scarcity_adjusted_value"
-        )
-
     def test_snapshot_metadata(self):
         assert "run_id" in self.snapshot
         assert "source_count" in self.snapshot

@@ -11,7 +11,7 @@ Design principles:
 - Deterministic: same inputs → same outputs
 - Roster-aware: understands positional surplus and need
 - Value-aware: uses canonical display values for fairness
-- League-aware: uses replacement baselines for scarcity
+- League-aware: understands league format context
 - Signal-honest: only flags edges when supported by data
 
 The engine does NOT modify any internal canonical values or calibration.

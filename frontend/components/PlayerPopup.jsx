@@ -100,18 +100,6 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
               <div className="value">{Math.round(values.raw).toLocaleString()}</div>
             </div>
           )}
-          {values.scoring > 0 && values.scoring !== values.raw && (
-            <div>
-              <div className="label">Scoring</div>
-              <div className="value">{Math.round(values.scoring).toLocaleString()}</div>
-            </div>
-          )}
-          {values.scarcity > 0 && values.scarcity !== values.scoring && (
-            <div>
-              <div className="label">Scarcity</div>
-              <div className="value">{Math.round(values.scarcity).toLocaleString()}</div>
-            </div>
-          )}
           {values.full !== values.raw && (
             <div>
               <div className="label">Delta</div>

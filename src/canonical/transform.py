@@ -164,8 +164,7 @@ def _collect_asset_metadata(records: list[RawAssetRecord]) -> dict[str, dict]:
     prefer the first non-empty value found.
 
     Also tracks per-source TEP/SF inclusion flags so downstream code
-    (league adjustments, scarcity) knows which adjustments are already
-    baked into the blended value and which still need to be applied.
+    knows which adjustments are already baked into the blended value.
     """
     meta: dict[str, dict] = {}
     for rec in records:

@@ -118,20 +118,6 @@ export default function SettingsPage() {
           </select>
         </div>
         <SliderRow
-          label="LAM Strength"
-          value={settings.lamStrength}
-          min={0} max={1} step={0.05}
-          onChange={(v) => update("lamStrength", v)}
-          hint="League scoring adjustment intensity"
-        />
-        <SliderRow
-          label="Scarcity Strength"
-          value={settings.scarcityStrength}
-          min={0} max={1} step={0.05}
-          onChange={(v) => update("scarcityStrength", v)}
-          hint="Position scarcity premium"
-        />
-        <SliderRow
           label="TE Premium"
           value={settings.tepMultiplier}
           min={1.0} max={1.5} step={0.05}
@@ -194,16 +180,8 @@ export default function SettingsPage() {
           >
             <option value="full">Our Value</option>
             <option value="raw">Raw Composite</option>
-            <option value="scoring">Scoring Adjusted</option>
-            <option value="scarcity">Scarcity Adjusted</option>
           </select>
         </div>
-        <ToggleRow
-          label="Show LAM detail columns"
-          checked={settings.showLamCols}
-          onChange={(v) => update("showLamCols", v)}
-          hint="Raw, Scoring, Final, Delta"
-        />
         <ToggleRow
           label="Show source site columns"
           checked={settings.showSiteCols}

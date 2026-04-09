@@ -56,7 +56,7 @@ class Asset:
     name: str
     position: str
     team: str
-    model_value: int        # Our board's value (league-adjusted with single-source discount)
+    model_value: int        # Our board's value (with single-source discount)
     ktc_value: int | None   # KTC value (None = no KTC coverage)
     is_pick: bool = False
     source_count: int = 0   # Number of valuation sources
@@ -189,13 +189,8 @@ def build_asset_pool(
     for name, pdata in players.items():
         if not isinstance(pdata, dict):
             continue
-        # Model value: prefer _finalAdjusted, then _leagueAdjusted (LAM-adjusted),
-        # then _rawComposite, then _composite.  The scraper almost never sets
-        # _finalAdjusted but always sets _leagueAdjusted, so this chain ensures
-        # Trade Finder uses league-context values like the frontend does.
+        # Model value: prefer _finalAdjusted, then _rawComposite, then _composite.
         model = _int_or_none(pdata.get("_finalAdjusted"))
-        if model is None:
-            model = _int_or_none(pdata.get("_leagueAdjusted"))
         if model is None:
             model = _int_or_none(pdata.get("_rawComposite"))
         if model is None:

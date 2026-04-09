@@ -642,7 +642,7 @@ def valuation_result_to_asset_dicts(
 ) -> list[dict[str, Any]]:
     """Convert ValuationResult players into canonical asset dicts.
 
-    Produces dicts compatible with the existing pipeline (enrich, scarcity,
+    Produces dicts compatible with the existing pipeline (enrich,
     server overlay).  The key mapping:
 
         display_value  → blended_value (0–9999 scale, used by calibration/overlay)

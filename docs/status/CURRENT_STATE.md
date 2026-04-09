@@ -57,7 +57,7 @@ The "canonical pipeline" (`src/`) is the replacement value engine. Here's what's
 1. **More sources flowing** — KTC and DynastyDaddy CSVs need to appear from the scraper
 2. **Source weight tuning** — founder decision on relative source weights
 3. **Top-50 overlap above 70%** — currently 62%, needs more sources
-4. **League context engine** — `src/league/` is empty. No scarcity or replacement math.
+4. **League context engine** — `src/league/` is a placeholder. Scarcity and replacement math have been intentionally removed from the system (LAM and positional scarcity fully deleted).
 
 **Promotion readiness checks show 6 failures for internal-primary.** The specific blockers are measured and documented in `docs/status/promotion-readiness.md`.
 
@@ -76,10 +76,11 @@ The "canonical pipeline" (`src/`) is the replacement value engine. Here's what's
 - Currently all 1.0 — needs relative weighting (e.g., KTC > FantasyPros?)
 - Required for internal-primary promotion
 
-**3. Build the league context engine** (`src/league/`)
-- Scarcity multipliers, replacement baselines, pick curves
-- Required for public-primary promotion
-- Biggest engineering task remaining
+**3. ~~Build the league context engine~~** (`src/league/`)
+- Scarcity multipliers and replacement baselines have been removed from the system
+- LAM (League Adjustment Multiplier) and positional scarcity fully deleted
+- Pick curves and TEP remain as the active league-level adjustments
+- `src/league/` is now a gutted placeholder (`scarcity.py`, `replacement.py`, `settings.py` deleted)
 
 ---
 

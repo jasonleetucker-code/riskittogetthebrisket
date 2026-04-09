@@ -7,14 +7,14 @@ Build a **private dynasty + IDP valuation platform** that:
 - Ingests multiple external rankings/value sources (KTC, DLF, Dynasty Nerds, etc.).
 - Resolves every asset (players, picks) to a single internal ID.
 - Normalizes each source into a shared 0–9999 canonical scale.
-- Applies **league-specific scarcity + scoring adjustments** (offense + IDP).
+- Applies **scoring adjustments** (TEP, pick year discount).
 - Powers a decision layer (trade calculator, rankings, roster/league dashboard).
 
 This is a five-system stack:
 1. **Source ingestion system** — adapters + raw snapshots.
 2. **Identity mapping system** — master player/pick IDs.
 3. **Canonical value engine** — per-universe normalization + blending.
-4. **League context engine** — scoring, scarcity, replacement, pick logic.
+4. **League context engine** — scoring, pick logic (scarcity and replacement removed).
 5. **Decision UI / API** — calculator, rankings, roster intelligence.
 
 Everything downstream depends on getting those layers right and versioned.
@@ -33,7 +33,7 @@ Everything downstream depends on getting those layers right and versioned.
 - No giant cross-league trade DB yet.
 - No podcast/news layer.
 
-MVP = Source ingest → Canonical values → League adjustments → Trade calc → Rankings/Roster UI.
+MVP = Source ingest → Canonical values → Calibration → Trade calc → Rankings/Roster UI.
 
 ---
 
@@ -60,12 +60,12 @@ MVP = Source ingest → Canonical values → League adjustments → Trade calc �
 ### 3.4 League Context Engine
 - **League tables**: `leagues`, `league_settings`, `league_rosters`, `roster_assets`.
 - Inputs: team count, lineup reqs, bench/taxi, superflex, TE premium, IDP structure, scoring per event, pick format.
-- Outputs: replacement baselines, scarcity multipliers, package compression rules, pick discounts.
+- Outputs: package compression rules, pick discounts. (Replacement baselines and scarcity multipliers have been removed from the system.)
 
 ### 3.5 Decision Layer
 - Services: trade calc API, rankings API, roster/team view API.
 - Surfaces: calculator, rankings table, team/league dashboards, player detail, settings.
-- Display base values, league-adjusted values, trade liquidity values.
+- Display base values, calibrated values, trade liquidity values.
 
 ---
 
@@ -87,22 +87,21 @@ Every canonical run is versioned. Trend charts must reference snapshot IDs.
 1. **Percentile transform** per source/universe.
 2. **Curve** (power/logistic) to widen elite tier, compress bottom.
 3. **Blend** sources with weights that reflect coverage + stability.
-4. **League adjustments**: apply scarcity multipliers, position factors, rookie optimism dial, contender vs rebuilder dial.
+4. **League adjustments**: apply TEP, pick year discount, rookie optimism dial, contender vs rebuilder dial. (Scarcity multipliers and position factors / LAM removed.)
 5. **Trade liquidity**: add package compression (premium for fewer/better assets) + pick time discount.
 
 ---
 
 ## 6. League Context & Pick Engine
-- Replacement level = (teams × starters) + injury buffer.
-- Scarcity multiplier per position = f(start demand, replacement dropoff).
 - Pick model: tiered curve by slot (1.01 elite, 1.04–1.06 strong, etc.), adjustable class strength + future discount.
 - Support early/mid/late buckets when slot unknown.
+- _Note: Replacement baselines and scarcity multipliers were previously planned here but have been removed from the system._
 
 ---
 
 ## 7. Trade Engine Contract
 For each proposed deal:
-1. Raw totals per side (base + league-adjusted values).
+1. Raw totals per side (base + calibrated values).
 2. Package adjustment / consolidation premium.
 3. Lineup impact (who becomes starter/bench, positional needs).
 4. Fairness band verdict + balancing suggestion (“add late 2nd or DB2-tier”).
@@ -159,8 +158,8 @@ For each proposed deal:
 
 ### Phase 4 – League context
 - [ ] League settings schema + YAML/JSON import.
-- [ ] Starter demand + replacement math (offense + IDP positions).
-- [ ] Scarcity multipliers + rookie optimism dial.
+- [x] ~~Starter demand + replacement math~~ — removed (scarcity/replacement eliminated from pipeline).
+- [x] ~~Scarcity multipliers~~ — removed from system. Rookie optimism dial remains TBD.
 - [ ] Pick curve + time discount module.
 
 ### Phase 5 – Trade API + calculator

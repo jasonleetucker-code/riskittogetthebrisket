@@ -11,16 +11,13 @@ export const SETTINGS_DEFAULTS = {
   leagueFormat: "superflex",         // "superflex" | "standard"
 
   // Value adjustment strengths
-  lamStrength: 1.0,                  // 0..1 — league adjustment multiplier intensity
-  scarcityStrength: 0.35,            // 0..1 — position scarcity premium
   tepMultiplier: 1.15,               // 1.0..1.5 — TE premium boost for non-TEP sites
 
   // Trade calculator
   alpha: 1.678,                      // star player bonus exponent (1.4..1.9)
 
   // Rankings display
-  rankingsSortBasis: "full",         // "full" | "raw" | "scoring" | "scarcity"
-  showLamCols: false,                // show LAM detail columns in rankings
+  rankingsSortBasis: "full",         // "full" | "raw"
   showSiteCols: false,               // show per-site value columns in rankings
 
   // Pick settings

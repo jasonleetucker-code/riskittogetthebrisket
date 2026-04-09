@@ -189,7 +189,6 @@ class TestFinalValueUsed(unittest.TestCase):
         asset = {
             "display_name": "Josh Allen",
             "blended_value": 5000,
-            "scarcity_adjusted_value": 7000,
             "calibrated_value": 8000,
             "universe": "offense_vet",
             "source_values": {"KTC": 5000},
@@ -201,26 +200,17 @@ class TestFinalValueUsed(unittest.TestCase):
         self.assertEqual(match["canonicalValue"], 8000)
         self.assertEqual(match["delta"], -500)  # 8000 - 8500
 
-    def test_falls_back_to_scarcity_then_blended(self):
-        # No calibrated_value, has scarcity_adjusted_value
-        asset_scar = {
-            "display_name": "Player A",
-            "blended_value": 3000,
-            "scarcity_adjusted_value": 4000,
-            "universe": "offense_vet",
-            "source_values": {"KTC": 3000},
-        }
-        # No calibrated or scarcity, only blended
+    def test_falls_back_to_blended(self):
+        # No calibrated_value, only blended
         asset_raw = {
             "display_name": "Player B",
             "blended_value": 2000,
             "universe": "offense_vet",
             "source_values": {"KTC": 2000},
         }
-        legacy = {**_legacy("Player A", 5000), **_legacy("Player B", 5000)}
-        report = build_shadow_comparison_report(_snapshot([asset_scar, asset_raw]), legacy)
+        legacy = {**_legacy("Player B", 5000)}
+        report = build_shadow_comparison_report(_snapshot([asset_raw]), legacy)
         by_name = {m["name"]: m for m in report["biggestMismatches"]}
-        self.assertEqual(by_name["Player A"]["canonicalValue"], 4000)
         self.assertEqual(by_name["Player B"]["canonicalValue"], 2000)
 
 

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Dynasty fantasy football valuation and trade calculator platform. Ingests external rankings sources (DLF, KTC, FantasyCalc, DynastyDaddy, etc.), normalizes them to a canonical scale, applies league-specific adjustments, and serves a web UI for trade analysis and rankings.
+Dynasty fantasy football valuation and trade calculator platform. Ingests external rankings sources (DLF, KTC, FantasyCalc, DynastyDaddy, etc.), normalizes them to a canonical scale, and serves a web UI for trade analysis and rankings.
 
 ## Tech Stack
 
@@ -32,7 +32,7 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 │   ├── canonical/             # Core valuation pipeline + player_valuation.py
 │   ├── identity/              # Player/pick master identity mapping
 │   ├── scoring/               # Scoring adjustments, archetypes, backtesting
-│   ├── league/                # League context: replacement baselines, scarcity
+│   ├── league/                # League context (placeholder — scarcity/replacement removed)
 │   ├── trade/                 # Trade engines: suggestions + KTC arbitrage finder
 │   ├── data_models/           # Dataclass contracts
 │   └── utils/                 # Config loading, name/position normalization

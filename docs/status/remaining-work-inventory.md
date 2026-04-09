@@ -14,11 +14,11 @@ These items block the transition from legacy-only to canonical-engine-fed produc
 - **Depends on**: CB-2 (league refresh must produce real adjustments for canonical values to be competitive with legacy).
 - **Files**: `server.py` (data loading path), `src/api/data_contract.py` (may need canonical-aware contract building).
 
-### CB-2: Implement league context engine (`src/league/`)
-- **What**: `src/league/` is empty. Needs: replacement baselines, scarcity multipliers, position-demand math, pick curve application.
-- **Why critical**: Without league context, canonical values are raw blended rankings — not league-adjusted. The trade calculator and rankings need scarcity/replacement to be useful.
-- **Depends on**: Founder decisions on replacement math parameters.
-- **Files**: `src/league/` (new), `config/leagues/default_superflex_idp.template.json` (input), `scripts/league_refresh.py` (currently scaffold).
+### CB-2: ~~Implement league context engine (`src/league/`)~~ — SCOPE REDUCED
+- **What**: Replacement baselines, scarcity multipliers, and LAM have been fully removed from the system. `src/league/scarcity.py`, `replacement.py`, and `settings.py` were deleted. `src/league/__init__.py` is now a placeholder.
+- **Remaining work**: Pick curve application and rookie optimism dial are still needed. These are lower complexity than the original scope.
+- **No longer critical path**: Without scarcity/replacement, the league context engine is no longer a blocking dependency for canonical values to be production-ready.
+- **Files**: `src/league/` (placeholder), `config/leagues/default_superflex_idp.template.json` (input), `scripts/league_refresh.py` (currently scaffold).
 
 ### CB-3: Resolve founder decisions (blueprint §11)
 - **What**: Source weights, package tax multiplier, rookie optimism setting, contender vs rebuilder heuristics, Market mirror vs My board default.
@@ -74,8 +74,8 @@ These items block the transition from legacy-only to canonical-engine-fed produc
 - Implied by IDP emphasis. Would strengthen IDP value coverage.
 
 ### M-4: IDP-specific pipeline differentiation
-- **What**: IDP assets pass through the pipeline with `is_idp=true` flag but receive no IDP-specific processing (no IDP scarcity, no IDP replacement baselines, no IDP-only UI filtering in Next.js).
-- **Depends on**: CB-2 (league engine with IDP positions).
+- **What**: IDP assets pass through the pipeline with `is_idp=true` flag but receive no IDP-specific processing (no IDP-only UI filtering in Next.js). Scarcity and replacement baselines have been removed from the system entirely (both offense and IDP).
+- **Depends on**: IDP adapter implementation.
 
 ### M-5: Value history / trend tracking
 - **What**: Blueprint promises trend charts. Currently canonical snapshots are written but not compared across time.

@@ -57,10 +57,10 @@ This document maps every major workstream identified from the blueprint, repo st
 |-------|-------|
 | **Blueprint Phase** | Phase 4 |
 | **Source Docs** | `docs/BLUEPRINT_EXECUTION.md` §3.4, §6, §10 Phase 4 |
-| **Stated Goals** | League settings schema + import, starter demand + replacement math (offense + IDP), scarcity multipliers, rookie optimism dial, pick curve + time discount |
-| **Implementation Evidence** | `src/league/` contains only `.gitkeep` — **empty module**. `config/leagues/default_superflex_idp.template.json` exists. `scripts/league_refresh.py` exists. |
-| **Doc Currency** | **Current** (accurately shows this as not started in blueprint Phase 4, though checkboxes format makes this ambiguous) |
-| **Key Gap** | **Entire module not implemented.** This is a critical dependency for trade calculator and rankings to use canonical values. Template config exists but no engine code. |
+| **Stated Goals** | ~~League settings schema + import, starter demand + replacement math (offense + IDP), scarcity multipliers~~ (removed). Remaining: rookie optimism dial, pick curve + time discount |
+| **Implementation Evidence** | `src/league/` is a gutted placeholder — `scarcity.py`, `replacement.py`, and `settings.py` have been deleted. Only `__init__.py` (placeholder) remains. `config/leagues/default_superflex_idp.template.json` exists. `scripts/league_refresh.py` exists. |
+| **Doc Currency** | **Current** — Scarcity, replacement baselines, and LAM fully removed from the system. Module intentionally stripped. |
+| **Key Gap** | Pick curve + time discount and rookie optimism dial still need implementation. No longer a critical-path blocker since scarcity/replacement were removed. |
 
 ---
 
@@ -70,7 +70,7 @@ This document maps every major workstream identified from the blueprint, repo st
 |-------|-------|
 | **Blueprint Phase** | Cross-cutting (supplements Phase 4 league context) |
 | **Source Docs** | `docs/scoring_adjustment_audit_2026-03-09.md`; `docs/scoring_adjustment_migration_notes_2026-03-09.md`; `docs/scoring_config_schema.md`; `docs/scoring_refactor_task_checklist_2026-03-09.md` |
-| **Stated Goals** | Modular scoring under `src/scoring/`, empirical LAM refactor, baseline vs custom config, feature engineering, archetype model, backtesting |
+| **Stated Goals** | Modular scoring under `src/scoring/`, baseline vs custom config, feature engineering, archetype model, backtesting. (LAM refactor removed — LAM fully deleted from system.) |
 | **Implementation Evidence** | `src/scoring/` — 11 files, 1,016 total lines. `tests/scoring/test_scoring_modules.py` exists. All 15 checklist items marked Done. |
 | **Doc Currency** | **Current** — Best-documented workstream. Audit, migration notes, schema, and checklist are all consistent and up to date. |
 | **Key Gap** | Scoring module integrates with legacy `server.py` / `Dynasty Scraper.py` path. Not yet wired to new canonical engine. |
@@ -122,10 +122,10 @@ This document maps every major workstream identified from the blueprint, repo st
 |-------|-------|
 | **Blueprint Phase** | Cross-cutting (mentioned in Phases 1, 3, 4, 6) |
 | **Source Docs** | `docs/BLUEPRINT_EXECUTION.md` §1, §2, §3.3, §6 |
-| **Stated Goals** | IDP assets in same canonical economy as offense, IDP-specific scarcity/replacement, IDP rankings |
+| **Stated Goals** | IDP assets in same canonical economy as offense, IDP rankings. (IDP-specific scarcity/replacement removed from system along with all scarcity/replacement.) |
 | **Implementation Evidence** | `dlf_idp.csv` and `dlf_rookie_idp.csv` seed data exist. `config/leagues/default_superflex_idp.template.json` includes IDP positions. Adapter contract includes `is_idp` flag. |
 | **Doc Currency** | **Aspirational** — Blueprint describes IDP as first-class but no IDP-specific implementation exists beyond seed data and config template. |
-| **Key Gap** | IDP data exists as CSV seeds only. No IDP adapter, no IDP-specific canonical processing, no IDP scarcity math, no IDP UI filtering. |
+| **Key Gap** | IDP data exists as CSV seeds only. No IDP adapter, no IDP-specific canonical processing, no IDP UI filtering. |
 
 ---
 
@@ -227,7 +227,7 @@ This document maps every major workstream identified from the blueprint, repo st
 | 1 | Source Ingestion / Adapters | Phase 1 | Stale | Scaffold + partial |
 | 2 | Identity Resolution | Phase 2 | Stale | Scaffold + partial |
 | 3 | Canonical Value Pipeline | Phase 3 | Stale | Scaffold (thin) |
-| 4 | League Context Engine | Phase 4 | Ambiguous | **Empty** |
+| 4 | League Context Engine | Phase 4 | Current | **Gutted** (scarcity/LAM removed) |
 | 5 | Scoring Adjustment | Cross-cutting | Current | **Implemented** |
 | 6 | Trade Calculator | Phase 5 | Aspirational | Legacy only |
 | 7 | Rankings | Phase 6 | Aspirational | Legacy only |

@@ -52,7 +52,7 @@ def main() -> int:
         sid = str(pdata.get("_sleeperId") or pdata.get("_id") or name).strip()
         fit = {
             "name": name,
-            "bucket": str(pdata.get("_lamBucket") or ""),
+            "bucket": str(pdata.get("position") or ""),
             "ppgTest": float(pdata.get("_formatFitPPGTest") or 0.0),
             "ppgCustom": float(pdata.get("_formatFitPPGCustom") or 0.0),
             "fitFinal": float(pdata.get("_formatFitFinal") or 1.0),

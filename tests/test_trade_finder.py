@@ -51,7 +51,6 @@ def _make_player_data(model, ktc=None, pos="WR", team="NYJ", sites=5):
     """Build a raw player data dict matching the live payload shape."""
     d = {
         "_finalAdjusted": model,
-        "_leagueAdjusted": model,
         "_rawComposite": model,
         "_composite": model,
         "_sites": sites,
@@ -575,13 +574,13 @@ class TestFindTrades:
 # ── Source robustness and fire-sale guard regression tests ───────────────
 
 class TestSourceRobustness:
-    """Test single-source discount and league-adjusted value usage."""
+    """Test single-source discount and value fallback robustness."""
 
     def test_single_source_discount_applied(self):
         """Single-source players get 12% haircut matching frontend SINGLE_SOURCE_DISCOUNT."""
         players = {
             "Single Source": {
-                "_leagueAdjusted": 5000,
+                "_finalAdjusted": 5000,
                 "_rawComposite": 5000,
                 "_sites": 1,
                 "_canonicalSiteValues": {"ktc": 4500},
@@ -598,7 +597,7 @@ class TestSourceRobustness:
         """Multi-source players get no discount."""
         players = {
             "Multi Source": {
-                "_leagueAdjusted": 5000,
+                "_finalAdjusted": 5000,
                 "_rawComposite": 5000,
                 "_sites": 5,
                 "_canonicalSiteValues": {"ktc": 4500},
@@ -609,26 +608,11 @@ class TestSourceRobustness:
         assert pool[0].model_value == 5000
         assert pool[0].source_count == 5
 
-    def test_league_adjusted_preferred_over_raw(self):
-        """_leagueAdjusted is used when _finalAdjusted is absent."""
-        players = {
-            "LAM Player": {
-                "_leagueAdjusted": 5200,
-                "_rawComposite": 5000,
-                "_sites": 5,
-                "_canonicalSiteValues": {"ktc": 4800},
-                "position": "WR",
-            },
-        }
-        pool = build_asset_pool(players)
-        assert pool[0].model_value == 5200  # Uses _leagueAdjusted, not _rawComposite
-
-    def test_final_adjusted_preferred_over_league(self):
-        """_finalAdjusted takes precedence when present."""
+    def test_final_adjusted_preferred_over_raw(self):
+        """_finalAdjusted takes precedence over _rawComposite."""
         players = {
             "Final Player": {
                 "_finalAdjusted": 5500,
-                "_leagueAdjusted": 5200,
                 "_rawComposite": 5000,
                 "_sites": 5,
                 "_canonicalSiteValues": {"ktc": 4800},

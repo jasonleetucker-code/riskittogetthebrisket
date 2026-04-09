@@ -26,9 +26,6 @@ import {
   parsePickToken,
   findBalancers,
   verdictBarPosition,
-  lamMultiplier,
-  scarcityMultiplier,
-  buildScarcityModel,
 } from "@/lib/trade-logic";
 
 // ── Test fixtures ────────────────────────────────────────────────────
@@ -38,7 +35,7 @@ function makeRow(name, fullValue, pos = "QB", assetClass = "offense") {
     name,
     pos,
     assetClass,
-    values: { full: fullValue, raw: fullValue, scoring: fullValue, scarcity: fullValue },
+    values: { full: fullValue, raw: fullValue },
   };
 }
 
@@ -51,9 +48,9 @@ const PICK_2026 = makeRow("2026 Early 1st", 7000, "PICK", "pick");
 // ── Constants ────────────────────────────────────────────────────────
 
 describe("constants", () => {
-  it("VALUE_MODES has 4 modes", () => {
-    expect(VALUE_MODES.length).toBe(4);
-    expect(VALUE_MODES.map((m) => m.key)).toEqual(["full", "raw", "scoring", "scarcity"]);
+  it("VALUE_MODES has 2 modes", () => {
+    expect(VALUE_MODES.length).toBe(2);
+    expect(VALUE_MODES.map((m) => m.key)).toEqual(["full", "raw"]);
   });
 
   it("storage keys are stable strings", () => {
@@ -133,11 +130,10 @@ describe("sideTotal", () => {
   it("uses different modes", () => {
     const row = {
       name: "Test",
-      values: { full: 9000, raw: 7000, scoring: 8000, scarcity: 8500 },
+      values: { full: 9000, raw: 7000 },
     };
     expect(sideTotal([row], "raw")).toBe(7000);
-    expect(sideTotal([row], "scoring")).toBe(8000);
-    expect(sideTotal([row], "scarcity")).toBe(8500);
+    expect(sideTotal([row], "full")).toBe(9000);
   });
 });
 
@@ -432,7 +428,7 @@ describe("full trade scenario", () => {
   });
 });
 
-// ── New features: power-weighted, edge, pick parsing, LAM, scarcity ──
+// ── New features: power-weighted, edge, pick parsing ──
 
 describe("powerWeightedTotal", () => {
   it("single asset approximately equals its value", () => {
@@ -512,33 +508,6 @@ describe("parsePickToken", () => {
   });
 });
 
-describe("lamMultiplier", () => {
-  it("returns 1 at strength 0", () => {
-    expect(lamMultiplier("QB", 0, "superflex")).toBe(1);
-  });
-
-  it("QB gets premium in superflex", () => {
-    expect(lamMultiplier("QB", 1, "superflex")).toBeGreaterThan(1);
-  });
-
-  it("QB gets discount in standard", () => {
-    expect(lamMultiplier("QB", 1, "standard")).toBeLessThan(1);
-  });
-});
-
-describe("buildScarcityModel", () => {
-  it("builds model with pressure values", () => {
-    const rows = Array.from({ length: 50 }, (_, i) => ({
-      pos: i < 10 ? "QB" : i < 30 ? "RB" : "WR",
-      values: { full: 9000 - i * 100 },
-    }));
-    const model = buildScarcityModel(rows);
-    expect(model.QB).toBeDefined();
-    expect(model.QB.poolSize).toBe(10);
-    expect(model.RB.poolSize).toBe(20);
-  });
-});
-
 describe("findBalancers", () => {
   it("returns players that could fill the gap", () => {
     const rosterRows = [
@@ -564,48 +533,13 @@ describe("effectiveValue", () => {
     expect(effectiveValue(ALLEN, "full", null)).toBe(9000);
   });
 
-  it("applies LAM multiplier from settings", () => {
-    const sfSettings = { lamStrength: 1.0, leagueFormat: "superflex" };
-    // QB in superflex gets 1.15x
-    const val = effectiveValue(ALLEN, "full", sfSettings);
-    expect(val).toBeCloseTo(9000 * 1.15, 0);
-  });
-
-  it("QB gets discount in standard format", () => {
-    const stdSettings = { lamStrength: 1.0, leagueFormat: "standard" };
-    // QB in standard gets 0.85x
-    const val = effectiveValue(ALLEN, "full", stdSettings);
-    expect(val).toBeCloseTo(9000 * 0.85, 0);
-  });
-
-  it("WR is unaffected by LAM in both formats", () => {
-    const sfSettings = { lamStrength: 1.0, leagueFormat: "superflex" };
-    // WR multiplier is 1.0 in superflex
-    expect(effectiveValue(CHASE, "full", sfSettings)).toBeCloseTo(8500, 0);
-  });
-
-  it("strength 0 means no adjustment", () => {
-    const settings = { lamStrength: 0, leagueFormat: "superflex" };
+  it("returns raw value with settings (no LAM)", () => {
+    const settings = { leagueFormat: "superflex" };
     expect(effectiveValue(ALLEN, "full", settings)).toBe(9000);
-  });
-
-  it("half strength interpolates", () => {
-    const settings = { lamStrength: 0.5, leagueFormat: "superflex" };
-    // QB superflex raw=1.15, at strength 0.5: 1 + (1.15-1)*0.5 = 1.075
-    const val = effectiveValue(ALLEN, "full", settings);
-    expect(val).toBeCloseTo(9000 * 1.075, 0);
   });
 });
 
 describe("settings-aware powerWeightedTotal", () => {
-  it("applies LAM when settings provided", () => {
-    const sfSettings = { lamStrength: 1.0, leagueFormat: "superflex" };
-    const withSettings = powerWeightedTotal([ALLEN], "full", undefined, sfSettings);
-    const without = powerWeightedTotal([ALLEN], "full");
-    // QB in superflex gets premium, so with settings > without
-    expect(withSettings).toBeGreaterThan(without);
-  });
-
   it("settings=null behaves like no settings", () => {
     const a = powerWeightedTotal([ALLEN, CHASE], "full");
     const b = powerWeightedTotal([ALLEN, CHASE], "full", undefined, null);
@@ -614,17 +548,10 @@ describe("settings-aware powerWeightedTotal", () => {
 });
 
 describe("settings-aware sideTotal", () => {
-  it("applies LAM when settings provided", () => {
-    const sfSettings = { lamStrength: 1.0, leagueFormat: "superflex" };
-    const withSettings = sideTotal([ALLEN], "full", sfSettings);
-    expect(withSettings).toBeCloseTo(9000 * 1.15, 0);
-  });
-
-  it("mixed positions get different adjustments", () => {
-    const sfSettings = { lamStrength: 1.0, leagueFormat: "superflex" };
-    const total = sideTotal([ALLEN, CHASE], "full", sfSettings);
-    // Allen: 9000 * 1.15 = 10350, Chase: 8500 * 1.0 = 8500
-    expect(total).toBeCloseTo(10350 + 8500, 0);
+  it("returns sum without adjustment", () => {
+    const settings = { leagueFormat: "superflex" };
+    const total = sideTotal([ALLEN, CHASE], "full", settings);
+    expect(total).toBe(9000 + 8500);
   });
 });
 
@@ -658,19 +585,19 @@ describe("effectiveValue with TEP", () => {
   const TE_ROW = makeRow("Mark Andrews", 4000, "TE");
 
   it("TE gets tepMultiplier boost", () => {
-    const settings = { lamStrength: 0, leagueFormat: "superflex", tepMultiplier: 1.15 };
+    const settings = { leagueFormat: "superflex", tepMultiplier: 1.15 };
     const val = effectiveValue(TE_ROW, "full", settings);
     expect(val).toBeCloseTo(4000 * 1.15, 0);
   });
 
   it("TE gets no boost when tepMultiplier is 1.0", () => {
-    const settings = { lamStrength: 0, leagueFormat: "superflex", tepMultiplier: 1.0 };
+    const settings = { leagueFormat: "superflex", tepMultiplier: 1.0 };
     const val = effectiveValue(TE_ROW, "full", settings);
     expect(val).toBe(4000);
   });
 
   it("non-TE is unaffected by tepMultiplier", () => {
-    const settings = { lamStrength: 0, leagueFormat: "superflex", tepMultiplier: 1.15 };
+    const settings = { leagueFormat: "superflex", tepMultiplier: 1.15 };
     const val = effectiveValue(CHASE, "full", settings);
     expect(val).toBe(8500);
   });
@@ -682,13 +609,13 @@ describe("effectiveValue with pick discount", () => {
   const PICK_2027 = makeRow("2027 Early 1st", 7000, "PICK", "pick");
 
   it("future pick gets discounted", () => {
-    const settings = { lamStrength: 0, leagueFormat: "superflex", pickCurrentYear: 2026 };
+    const settings = { leagueFormat: "superflex", pickCurrentYear: 2026 };
     const val = effectiveValue(PICK_2027, "full", settings);
     expect(val).toBeCloseTo(7000 * 0.85, 0);
   });
 
   it("current year pick is not discounted", () => {
-    const settings = { lamStrength: 0, leagueFormat: "superflex", pickCurrentYear: 2027 };
+    const settings = { leagueFormat: "superflex", pickCurrentYear: 2027 };
     const val = effectiveValue(PICK_2027, "full", settings);
     expect(val).toBe(7000);
   });

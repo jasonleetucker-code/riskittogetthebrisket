@@ -86,17 +86,13 @@ describe("classifyPos", () => {
 // ── inferValueBundle ─────────────────────────────────────────────────
 
 describe("inferValueBundle", () => {
-  it("extracts all four value tiers from a full player", () => {
+  it("extracts value tiers from a full player", () => {
     const player = {
       _rawComposite: 8500,
-      _scoringAdjusted: 8700,
-      _scarcityAdjusted: 8900,
       _finalAdjusted: 9100,
     };
     const v = inferValueBundle(player);
     expect(v.raw).toBe(8500);
-    expect(v.scoring).toBe(8700);
-    expect(v.scarcity).toBe(8900);
     expect(v.full).toBe(9100);
   });
 
@@ -104,8 +100,6 @@ describe("inferValueBundle", () => {
     const player = { _composite: 5000 };
     const v = inferValueBundle(player);
     expect(v.raw).toBe(5000);
-    expect(v.scoring).toBe(5000);
-    expect(v.scarcity).toBe(5000);
     expect(v.full).toBe(5000);
   });
 
@@ -118,8 +112,6 @@ describe("inferValueBundle", () => {
   it("prefers _canonicalDisplayValue for full when available", () => {
     const player = {
       _rawComposite: 7738,
-      _scoringAdjusted: 7738,
-      _scarcityAdjusted: 7738,
       _finalAdjusted: 7738,
       _canonicalDisplayValue: 9920,
     };
@@ -231,8 +223,6 @@ describe("buildRows", () => {
           sourceCount: 6,
           values: {
             rawComposite: 8500,
-            scoringAdjusted: 8700,
-            scarcityAdjusted: null,
             finalAdjusted: 9100,
             overall: 9100,
           },
@@ -297,8 +287,6 @@ describe("buildRows", () => {
           sourceCount: 6,
           values: {
             rawComposite: 7738,
-            scoringAdjusted: 7738,
-            scarcityAdjusted: 7738,
             finalAdjusted: 7738,
             overall: 7738,
             displayValue: 9920,

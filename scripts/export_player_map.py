@@ -5,7 +5,7 @@ Produces a stable JSON artifact at data/player_map/player_position_map.json
 that the canonical pipeline uses for position enrichment.
 
 Sources of position data (in priority order):
-1. _lamBucket from legacy player data (855 players)
+1. position field from legacy player data
 2. Sleeper ID cross-reference for future enrichment
 3. Universe-based inference for IDP-only sources
 
@@ -54,7 +54,7 @@ def build_player_map(legacy_path: Path) -> dict:
         if not isinstance(pdata, dict):
             continue
 
-        raw_pos = str(pdata.get("_lamBucket", "")).strip().upper()
+        raw_pos = str(pdata.get("position", pdata.get("POS", ""))).strip().upper()
         if not raw_pos or raw_pos == "PICK":
             continue
 
