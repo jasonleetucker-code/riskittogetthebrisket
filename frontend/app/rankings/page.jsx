@@ -70,8 +70,8 @@ export default function RankingsPage() {
       let va, vb;
       switch (sortCol) {
         case "rank":
-          va = a.blendedSourceRank ?? Infinity;
-          vb = b.blendedSourceRank ?? Infinity;
+          va = resolvedRank(a);
+          vb = resolvedRank(b);
           return (va - vb) * dir;
         case "name":
           return a.name.localeCompare(b.name) * dir;
@@ -124,7 +124,8 @@ export default function RankingsPage() {
     ranked.forEach((row) => {
       const ktcVal = row.canonicalSites?.ktc != null ? Math.round(Number(row.canonicalSites.ktc)) : "";
       const idpVal = row.canonicalSites?.idpTradeCalc != null ? Math.round(Number(row.canonicalSites.idpTradeCalc)) : "";
-      lines.push(`${row.rank}\t${row.name}\t${row.pos}\t${Math.round(row.rankDerivedValue || row.values.full)}\t${ktcVal}\t${row.ktcRank || ""}\t${idpVal}\t${row.idpRank || ""}`);
+      const rk = resolvedRank(row);
+      lines.push(`${rk !== Infinity ? rk : ""}\t${row.name}\t${row.pos}\t${Math.round(row.rankDerivedValue || row.values.full)}\t${ktcVal}\t${row.ktcRank || ""}\t${idpVal}\t${row.idpRank || ""}`);
     });
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
@@ -198,7 +199,7 @@ export default function RankingsPage() {
                 {ranked.map((row) => (
                   <tr key={row.name}>
                     <td style={{ textAlign: "center", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono, monospace)" }}>
-                      {row.blendedSourceRank != null ? row.blendedSourceRank.toFixed(1) : row.rank}
+                      {resolvedRank(row) !== Infinity ? resolvedRank(row) : "—"}
                     </td>
                     <td style={{ fontWeight: 600, cursor: "pointer" }} onClick={() => openPlayerPopup?.(row)}>{row.name}</td>
                     <td><span className="badge">{row.pos}</span></td>

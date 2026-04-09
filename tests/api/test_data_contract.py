@@ -494,11 +494,12 @@ class TestComputeKtcRankings(unittest.TestCase):
         no_ktc = next(r for r in rows if r["canonicalName"] == "NoKtc")
         self.assertNotIn("ktcRank", no_ktc)
 
-    def test_respects_rank_limit(self):
+    def test_ranks_all_eligible_players(self):
+        """All eligible players should receive a rank (no artificial cap)."""
         rows = [self._make_player_row(f"P{i}", "RB", 9000 - i) for i in range(900)]
         _compute_unified_rankings(rows, {})
         ranked = [r for r in rows if "canonicalConsensusRank" in r]
-        self.assertEqual(len(ranked), OVERALL_RANK_LIMIT)
+        self.assertEqual(len(ranked), 900)
 
     def test_mirrors_to_legacy_players_dict(self):
         rows = [self._make_player_row("Josh Allen", "QB", 9000)]
@@ -599,11 +600,12 @@ class TestCanonicalConsensusRank(unittest.TestCase):
         _compute_unified_rankings(rows, legacy)
         self.assertEqual(legacy["Josh Allen"]["_canonicalConsensusRank"], 1)
 
-    def test_canonical_consensus_rank_respects_limit(self):
+    def test_canonical_consensus_rank_covers_all_eligible(self):
+        """All eligible players get a canonicalConsensusRank (no artificial cap)."""
         rows = [self._make_player_row(f"P{i}", "RB", 9000 - i) for i in range(900)]
         _compute_unified_rankings(rows, {})
         ranked = [r for r in rows if "canonicalConsensusRank" in r]
-        self.assertEqual(len(ranked), OVERALL_RANK_LIMIT)
+        self.assertEqual(len(ranked), 900)
 
 
 class TestIdpIntegrityGuardrails(unittest.TestCase):

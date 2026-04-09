@@ -87,17 +87,27 @@ export function rankToValue(rank) {
 // It mirrors the backend logic: rank each player within their source,
 // convert to normalized value via rankToValue(), then sort all players
 // into one unified board by that normalized value.
-const OVERALL_RANK_LIMIT = 800;
+// All eligible players are ranked (no artificial cap).
+const OVERALL_RANK_LIMIT = 10000;
 const SOURCE_KEYS = ["ktc", "idpTradeCalc"];
 
+// Position-affinity: offense players rank in KTC only, IDP in IDPTC only.
+const SOURCE_POS_AFFINITY = {
+  ktc: OFFENSE,
+  idpTradeCalc: IDP,
+};
+
 function computeUnifiedRanks(rows) {
-  // Per-source ordinal ranking
+  // Per-source ordinal ranking (position-affinity filtered)
   const sourceRanks = new Map(); // row index -> { sourceKey: ordinalRank }
 
   for (const sourceKey of SOURCE_KEYS) {
+    const allowed = SOURCE_POS_AFFINITY[sourceKey];
     const eligible = [];
     rows.forEach((r, idx) => {
       if (!r.pos || r.pos === "?" || r.pos === "PICK" || r.pos === "K") return;
+      // Only rank players whose position matches this source's domain
+      if (allowed && !allowed.has(r.pos)) return;
       const val = Number(r.canonicalSites?.[sourceKey]);
       if (Number.isFinite(val) && val > 0) eligible.push({ idx, val });
     });
@@ -138,6 +148,30 @@ function computeUnifiedRanks(rows) {
     // Backward compat
     if (entry.ranks.ktc) r.ktcRank = entry.ranks.ktc;
     if (entry.ranks.idpTradeCalc) r.idpRank = entry.ranks.idpTradeCalc;
+  });
+}
+
+// Assign computedConsensusRank and rank based only on ranked-eligible rows.
+// Rows with no canonicalConsensusRank or blendedSourceRank (e.g. picks, unknowns,
+// or players not covered by any source) get Infinity-rank so they sort last.
+function _assignFinalRanks(rows) {
+  // Sort ranked players first (by backend rank), then unranked by value
+  rows.sort((a, b) => {
+    const ra = a.canonicalConsensusRank ?? Infinity;
+    const rb = b.canonicalConsensusRank ?? Infinity;
+    if (ra !== rb) return ra - rb;
+    return (b.values.full || 0) - (a.values.full || 0);
+  });
+  // Assign sequential computedConsensusRank only to rows that were ranked
+  let seq = 0;
+  rows.forEach((r) => {
+    if (r.canonicalConsensusRank != null || r.blendedSourceRank != null) {
+      seq++;
+      r.computedConsensusRank = seq;
+    } else {
+      r.computedConsensusRank = null;
+    }
+    r.rank = r.canonicalConsensusRank ?? r.computedConsensusRank;
   });
 }
 
@@ -198,17 +232,7 @@ export function buildRows(data) {
     }
 
     computeUnifiedRanks(rows);
-    // Sort by unified canonicalConsensusRank (backend-authoritative when present).
-    rows.sort((a, b) => {
-      const ra = a.canonicalConsensusRank ?? Infinity;
-      const rb = b.canonicalConsensusRank ?? Infinity;
-      if (ra !== rb) return ra - rb;
-      return (b.values.full || 0) - (a.values.full || 0);
-    });
-    rows.forEach((r, i) => {
-      r.computedConsensusRank = i + 1;
-      r.rank = r.canonicalConsensusRank ?? r.computedConsensusRank;
-    });
+    _assignFinalRanks(rows);
     return rows;
   }
 
@@ -240,16 +264,7 @@ export function buildRows(data) {
   }
 
   computeUnifiedRanks(rows);
-  rows.sort((a, b) => {
-    const ra = a.canonicalConsensusRank ?? Infinity;
-    const rb = b.canonicalConsensusRank ?? Infinity;
-    if (ra !== rb) return ra - rb;
-    return (b.values.full || 0) - (a.values.full || 0);
-  });
-  rows.forEach((r, i) => {
-    r.computedConsensusRank = i + 1;
-    r.rank = r.canonicalConsensusRank ?? r.computedConsensusRank;
-  });
+  _assignFinalRanks(rows);
   return rows;
 }
 

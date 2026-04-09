@@ -22,17 +22,16 @@ CONTRACT_VERSION = "2026-03-10.v2"
 # rank_to_value() is imported from src.canonical.player_valuation — that module
 # is the ONE authoritative formula implementation.
 #
-# The two active sources (KTC and IDPTradeCalc) cover non-overlapping player
-# pools: KTC has offense (QB/RB/WR/TE + picks), IDPTC has IDP (DL/LB/DB).
-# Each player is ranked within their source first (source-specific ordinal
-# rank), then their rank-derived value is computed via rank_to_value().
-# All players are then sorted by that normalized value into one unified board
-# and assigned a single overall canonicalConsensusRank.
-#
-# Source coverage rule: every player has exactly one source.  When both sources
-# expand to overlap in the future, blended averaging will apply.
+# Position-affinity ranking: offense players (QB/RB/WR/TE) rank via KTC,
+# IDP players (DL/LB/DB) rank via IDPTradeCalc.  Each player is ranked
+# within their affinity source first (source-specific ordinal rank), then
+# their rank-derived value is computed via rank_to_value().  All players are
+# sorted by that normalized value into one unified board and assigned a
+# single overall canonicalConsensusRank.
 # ─────────────────────────────────────────────────────────────────────────────
-OVERALL_RANK_LIMIT: int = 800
+# All eligible players are ranked (no artificial cap).  The limit is set
+# high enough that it never truncates.
+OVERALL_RANK_LIMIT: int = 10000
 # Backward compatibility alias — old tests and cross-checks reference this
 KTC_RANK_LIMIT: int = OVERALL_RANK_LIMIT
 IDP_RANK_LIMIT: int = OVERALL_RANK_LIMIT
@@ -133,6 +132,14 @@ def _compute_unified_rankings(
     from src.canonical.player_valuation import rank_to_value  # noqa: PLC0415
 
     # ── Step 1: Per-source ordinal ranking ──
+    # Position-affinity: offense players rank in KTC only, IDP players in
+    # IDPTC only.  This prevents cross-source contamination where e.g. a
+    # WR with a trace IDPTC value gets a bad blended rank.
+    _SOURCE_POSITION_AFFINITY: dict[str, set[str]] = {
+        "ktc": _OFFENSE_POSITIONS,
+        "idpTradeCalc": _IDP_POSITIONS,
+    }
+
     source_configs = [
         ("ktc", lambda row: _safe_num((row.get("canonicalSiteValues") or {}).get("ktc"))),
         ("idpTradeCalc", lambda row: _safe_num((row.get("canonicalSiteValues") or {}).get("idpTradeCalc"))),
@@ -143,9 +150,13 @@ def _compute_unified_rankings(
 
     for source_key, value_fn in source_configs:
         eligible: list[tuple[float, int]] = []  # (value, row_index)
+        allowed_positions = _SOURCE_POSITION_AFFINITY.get(source_key)
         for idx, row in enumerate(players_array):
             pos = str(row.get("position") or "").strip().upper()
             if not pos or pos in {"?", "PICK"} or pos in _KICKER_POSITIONS:
+                continue
+            # Only rank players whose position matches this source's domain
+            if allowed_positions and pos not in allowed_positions:
                 continue
             val = value_fn(row)
             if val is None or val <= 0:
