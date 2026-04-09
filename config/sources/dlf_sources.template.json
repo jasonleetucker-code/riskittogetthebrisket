@@ -37,12 +37,12 @@
       "ingest_type": "scraper_export",
       "ingest_method": "scraper_bridge",
       "source_url": "https://idptradecalc.com/",
-      "scoring_context": "dynasty IDP TEP (IDPTradeCalc IDP-only values)",
+      "scoring_context": "dynasty SF TEP (IDPTradeCalc offense+IDP values via API+autocomplete)",
       "includes_sf": true,
       "includes_tep": true,
       "file": "exports/latest/site_raw/idpTradeCalc.csv",
       "signal_type": "value",
-      "notes": "IDPTradeCalc values. IDP-only source (DL/LB/DB). No offensive players from this site."
+      "notes": "IDPTradeCalc values. API returns IDP players (DL/LB/DB). Offensive players (QB/RB/WR/TE) are obtained via autocomplete search using the KTC player pool as the target list. Both offense and IDP values are exported to the CSV."
     }
   ]
 }

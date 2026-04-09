@@ -71,13 +71,17 @@ class TestSourceConfigCompleteness:
             f"Duplicate source IDs: {[s for s in enabled if enabled.count(s) > 1]}"
         )
 
-    def test_idp_source_has_idp_universe(self, config):
+    def test_idptradecalc_has_idp_universe(self, config):
+        """IDPTRADECALC canonical pipeline universe is idp_vet.
+        The source covers offense via autocomplete, but the canonical pipeline
+        uses idp_vet for record bucketing. The unified ranking model handles
+        cross-universe sorting independently via canonicalSiteValues."""
         for src in config["sources"]:
             if not src.get("enabled"):
                 continue
             if src["source"] == "IDPTRADECALC":
                 assert "idp" in src.get("universe", "").lower(), (
-                    f"IDP source {src['source']} should have an IDP universe, got {src.get('universe')}"
+                    f"IDPTRADECALC universe should contain 'idp', got {src.get('universe')}"
                 )
 
     def test_weights_only_contain_allowed_sources(self, weights):

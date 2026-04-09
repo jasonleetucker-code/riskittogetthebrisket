@@ -107,15 +107,10 @@ jobs:
             echo "No data changes to commit"
           else
             git commit -m "chore: automated data refresh $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git pull --rebase origin main
             git push
           fi
 
-      - name: Trigger deploy
-        if: success()
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
       - name: Trigger deploy
         if: success()
         shell: bash
@@ -127,10 +122,6 @@ jobs:
           # data-only pushes will NOT auto-trigger a deploy. Dispatch manually.
           if git log -1 --pretty=%B | grep -q "automated data refresh"; then
             echo "Data updated, dispatching deploy workflow explicitly"
-            gh workflow run deploy.yml --ref main
-          else
-            echo "No data changes, skipping deploy trigger"
-          fi
             gh workflow run deploy.yml --ref main
           else
             echo "No data changes, skipping deploy trigger"

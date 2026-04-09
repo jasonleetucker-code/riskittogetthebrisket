@@ -1,11 +1,12 @@
-// ── RANKINGS SINGLE SOURCE OF TRUTH ──────────────────────────────────────────
-// This file (frontend/lib/dynasty-data.js) is the canonical home for:
-//   • rankToValue()     — Hill-style rank-to-value formula
-//   • computeKtcRanks() — KTC-only rank assignment (top 500, integer ranks)
-//   • KTC_RANK_LIMIT    — hard cap (500)
+// ── RANKINGS — UNIFIED BOARD ─────────────────────────────────────────────────
+// This file (frontend/lib/dynasty-data.js) is the canonical frontend home for:
+//   • rankToValue()         — Hill-style rank-to-value formula (offline fallback)
+//   • computeUnifiedRanks() — per-source rank → normalize → unified overall sort
+//   • OVERALL_RANK_LIMIT    — overall board cap (800)
 //
+// The backend authority is src/api/data_contract.py (_compute_unified_rankings).
 // The Static legacy frontend has a parallel implementation in:
-//   Static/js/runtime/10-rankings-and-picks.js (_rankToValue, KTC_LIMIT, buildFullRankings)
+//   Static/js/runtime/10-rankings-and-picks.js (_rankToValue, buildFullRankings)
 //
 // !! When changing ranking logic, formula constants, or eligibility rules !!
 // !! you MUST update BOTH files and BOTH test suites to stay in sync.     !!
@@ -62,10 +63,11 @@ export function resolvedRank(row) {
 }
 
 // ── Rank-to-value curve (OFFLINE FALLBACK ONLY) ───────────────────────
-// PRIMARY authority: src/api/data_contract.py (_compute_ktc_rankings) stamps
-// ktcRank + rankDerivedValue onto the API response using rank_to_value() in
-// src/canonical/player_valuation.py.  This function is only invoked when the
-// backend fields are absent (stale data, offline mode, unit tests).
+// PRIMARY authority: src/api/data_contract.py (_compute_unified_rankings)
+// stamps canonicalConsensusRank + rankDerivedValue onto the API response
+// using rank_to_value() in src/canonical/player_valuation.py.  This
+// function is only invoked when backend fields are absent (stale data,
+// offline mode, unit tests).
 //
 // MUST stay byte-for-byte identical to _rankToValue() in:
 //   Static/js/runtime/10-rankings-and-picks.js (~line 407)

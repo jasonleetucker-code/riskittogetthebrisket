@@ -3,14 +3,14 @@
  * Rankings pipeline and pick normalization/value helpers.
  * Extracted from legacy monolithic inline runtime to keep live behavior intact.
  *
- * ── RANKINGS SINGLE SOURCE OF TRUTH ────────────────────────────────────────
+ * ── RANKINGS — UNIFIED BOARD ──────────────────────────────────────────────
  * This file owns the Static-frontend copy of:
- *   _rankToValue(rank)  — Hill-style rank-to-value formula  (see ~line 391)
- *   KTC_LIMIT           — hard cap (500)                    (see ~line 462)
- *   buildFullRankings() — KTC-only rank assignment          (see ~line 396)
+ *   _rankToValue(rank)    — Hill-style rank-to-value formula
+ *   OVERALL_LIMIT         — overall board cap (800)
+ *   buildFullRankings()   — unified per-source rank → normalize → overall sort
  *
  * The Next.js frontend has a parallel implementation in:
- *   frontend/lib/dynasty-data.js (rankToValue, KTC_RANK_LIMIT, computeKtcRanks)
+ *   frontend/lib/dynasty-data.js (rankToValue, OVERALL_RANK_LIMIT, computeUnifiedRanks)
  *
  * !! When changing ranking logic, formula constants, or eligibility rules !!
  * !! you MUST update BOTH files and BOTH test suites to stay in sync.     !!
@@ -57,7 +57,7 @@
     const tbody = document.getElementById('rookieBody');
     if (!tbody) return;
 
-    // KTC-only mode: simplified 4-column copy (Our Rank, Player Name, Player Position, Our Value)
+    // Unified board: simplified 4-column copy (Our Rank, Player Name, Player Position, Our Value)
     const lines = ['Our Rank\tPlayer Name\tPlayer Position\tOur Value'];
     let rank = 0;
     tbody.querySelectorAll('tr').forEach(row => {
@@ -399,11 +399,12 @@
     }
   }
 
-  // ── KTC-ONLY RANKINGS — rank-to-value curve (OFFLINE FALLBACK ONLY) ─────────
-  // PRIMARY authority: src/api/data_contract.py (_compute_ktc_rankings) stamps
-  // ktcRank + rankDerivedValue onto the API response using rank_to_value() in
-  // src/canonical/player_valuation.py.  _rankToValue() is only invoked when
-  // the backend fields are absent (stale data, offline mode, no playersArray).
+  // ── Rank-to-value curve (OFFLINE FALLBACK ONLY) ─────────────────────────────
+  // PRIMARY authority: src/api/data_contract.py (_compute_unified_rankings)
+  // stamps canonicalConsensusRank + rankDerivedValue onto the API response
+  // using rank_to_value() in src/canonical/player_valuation.py.
+  // _rankToValue() is only invoked when backend fields are absent
+  // (stale data, offline mode, no playersArray).
   //
   // MUST stay byte-for-byte identical to rankToValue() in:
   //   frontend/lib/dynasty-data.js (~line 59)
@@ -467,11 +468,10 @@
       return;
     }
 
-    // ── KTC-ONLY RANKINGS ──────────────────────────────────────────────
-    // Data source: KTC value (pdata.ktc) used to derive ordinal KTC rank.
-    // Only players with a valid KTC value AND a resolved, non-? position
-    // are eligible. No multi-source consensus blending, no fallback rank
-    // from value sort, no junk rows from other sources.
+    // ── UNIFIED RANKINGS ───────────────────────────────────────────────
+    // Per-source ordinal rank → Hill-curve normalization → unified sort.
+    // Players with a valid source value AND a resolved, non-? position
+    // are eligible. Currently KTC covers offense, IDPTC covers IDP.
     hdr.innerHTML =
       '<th style="width:52px;text-align:center;" title="Overall board rank — 1 is best">Our Rank</th>' +
       '<th title="Player name">Player Name</th>' +
@@ -591,7 +591,7 @@
       } else if (currentRankingsFilter === 'IDP') {
         ranked = ranked.filter(r => IDP_POSITIONS.has(r.pos));
       } else if (currentRankingsFilter === 'PICKS') {
-        ranked = []; // No picks in KTC-only player rankings
+        ranked = []; // No picks in player rankings
       } else {
         ranked = ranked.filter(r =>
           r.pos === currentRankingsFilter ||
@@ -607,7 +607,7 @@
     const useExtraMobileFilters = isMobileViewport();
     if (useExtraMobileFilters) {
       if (rankingsExtraFilters.picksOnly) {
-        ranked = []; // No picks in KTC-only player rankings
+        ranked = []; // No picks in player rankings
       }
       if (rankingsExtraFilters.trendingOnly) {
         ranked = ranked.filter(r => Math.abs((window.playerTrends && window.playerTrends[r.name]) || 0) >= 2);

@@ -413,7 +413,7 @@ main() {
       git diff --stat || true
       local stash_name="deploy-auto-stash-$(date -u +%Y%m%dT%H%M%SZ)"
       log "Auto-stashing tracked changes as '${stash_name}' (inspect later with: git stash list)."
-      git stash push -m "${stash_name}" --include-untracked=false
+      git stash push -m "${stash_name}"
     fi
   fi
 

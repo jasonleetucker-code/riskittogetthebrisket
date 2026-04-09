@@ -141,7 +141,10 @@ export default function RankingsPage() {
         <div>
           <h1 style={{ margin: 0 }}>Rankings</h1>
           <p className="muted" style={{ marginTop: 4, marginBottom: 0 }}>
-            Unified board · {ranked.length.toLocaleString()} shown · Blended from KTC + IDP Trade Calculator
+            Unified overall board · {ranked.length.toLocaleString()} shown · Offense ranked from KTC + IDP Trade Calculator, IDP from IDP Trade Calculator
+          </p>
+          <p className="muted" style={{ marginTop: 2, marginBottom: 0, fontSize: "0.7rem" }}>
+            — means this source does not cover this player. Players with two sources use a blended average rank.
           </p>
         </div>
       </div>
