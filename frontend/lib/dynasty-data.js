@@ -84,30 +84,22 @@ export function rankToValue(rank) {
 // This function is only invoked as a fallback when backend fields are
 // absent (stale data, offline mode).
 //
-// It mirrors the backend logic: rank each player within their source,
-// convert to normalized value via rankToValue(), then sort all players
-// into one unified board by that normalized value.
+// It mirrors the backend logic: every player is ranked within every
+// source where they have a valid value (no position-class restriction).
+// Each source rank is converted to a normalized value via rankToValue(),
+// then averaged across participating sources with equal weight.
 // All eligible players are ranked (no artificial cap).
 const OVERALL_RANK_LIMIT = 10000;
 const SOURCE_KEYS = ["ktc", "idpTradeCalc"];
 
-// Position-affinity: offense players rank in KTC only, IDP in IDPTC only.
-const SOURCE_POS_AFFINITY = {
-  ktc: OFFENSE,
-  idpTradeCalc: IDP,
-};
-
 function computeUnifiedRanks(rows) {
-  // Per-source ordinal ranking (position-affinity filtered)
+  // Per-source ordinal ranking — every source ranks every eligible player
   const sourceRanks = new Map(); // row index -> { sourceKey: ordinalRank }
 
   for (const sourceKey of SOURCE_KEYS) {
-    const allowed = SOURCE_POS_AFFINITY[sourceKey];
     const eligible = [];
     rows.forEach((r, idx) => {
       if (!r.pos || r.pos === "?" || r.pos === "PICK" || r.pos === "K") return;
-      // Only rank players whose position matches this source's domain
-      if (allowed && !allowed.has(r.pos)) return;
       const val = Number(r.canonicalSites?.[sourceKey]);
       if (Number.isFinite(val) && val > 0) eligible.push({ idx, val });
     });

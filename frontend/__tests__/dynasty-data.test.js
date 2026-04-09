@@ -345,8 +345,8 @@ describe("buildRows", () => {
   it("assigns ranks starting from 1", () => {
     const data = {
       playersArray: [
-        { displayName: "A", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 } },
-        { displayName: "B", position: "RB", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 } },
+        { displayName: "A", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } },
+        { displayName: "B", position: "RB", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 }, canonicalSiteValues: { ktc: 5000 } },
       ],
     };
     const rows = buildRows(data);
@@ -602,14 +602,19 @@ describe("computedConsensusRank", () => {
     const rows = buildRows(data);
     const canonical = rows.find(r => r.name === "Canonical");
     const computed = rows.find(r => r.name === "Computed");
-    // canonicalConsensusRank (42) wins over computedConsensusRank (1)
+    // canonicalConsensusRank (42) wins over computedConsensusRank
     expect(canonical.rank).toBe(42);
-    expect(canonical.computedConsensusRank).toBe(1);
-    // Without canonicalConsensusRank, rank equals computedConsensusRank
-    expect(computed.rank).toBe(computed.computedConsensusRank);
+    // Computed (rank 2 from unified sort) sorts before Canonical (rank 42)
+    // in _assignFinalRanks, so computedConsensusRank: Computed=1, Canonical=2
+    expect(canonical.computedConsensusRank).toBe(2);
+    // computeUnifiedRanks assigns canonicalConsensusRank=2 to Computed (since
+    // no backend rank), so rank = canonicalConsensusRank = 2
+    expect(computed.canonicalConsensusRank).toBe(2);
+    expect(computed.rank).toBe(2);
+    expect(computed.computedConsensusRank).toBe(1);
   });
 
-  it("IDP players get idpRank and canonicalConsensusRank after offense", () => {
+  it("IDP players get idpRank and canonicalConsensusRank in unified order", () => {
     const data = {
       playersArray: [
         // Offense player with KTC value
@@ -630,15 +635,17 @@ describe("computedConsensusRank", () => {
     // IDP players get idpRank
     expect(dl.idpRank).toBe(1); // higher mean IDP value
     expect(lb.idpRank).toBe(2);
-    // IDP canonicalConsensusRank offsets after offense count
-    expect(dl.canonicalConsensusRank).toBe(2); // 1 offense + idpRank 1
-    expect(lb.canonicalConsensusRank).toBe(3); // 1 offense + idpRank 2
+    // Unified ranking: QB and DL both have rank-1 → value 9999, alpha tiebreak
+    // "DL Star" < "QB Star" alphabetically, so DL ranks first
+    expect(dl.canonicalConsensusRank).toBe(1);
+    expect(qb.canonicalConsensusRank).toBe(2);
+    expect(lb.canonicalConsensusRank).toBe(3);
     // IDP players have rankDerivedValue
     expect(dl.rankDerivedValue).toBeGreaterThan(0);
     expect(lb.rankDerivedValue).toBeGreaterThan(0);
-    // Sort order: offense first, then IDP
-    expect(rows[0].name).toBe("QB Star");
-    expect(rows[1].name).toBe("DL Star");
+    // Sort order: by unified rank (DL first due to alpha tiebreak)
+    expect(rows[0].name).toBe("DL Star");
+    expect(rows[1].name).toBe("QB Star");
     expect(rows[2].name).toBe("LB Star");
   });
 
