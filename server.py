@@ -195,7 +195,7 @@ latest_contract_data: dict | None = None
 latest_data_bytes: bytes | None = None
 latest_data_gzip_bytes: bytes | None = None
 latest_data_etag: str | None = None
-# Lean runtime payload (drops heavy contract-only arrays not needed by Static app startup).
+# Lean runtime payload (drops heavy contract-only arrays not needed by frontend startup).
 latest_runtime_data: dict | None = None
 latest_runtime_data_bytes: bytes | None = None
 latest_runtime_data_gzip_bytes: bytes | None = None
@@ -932,7 +932,7 @@ def _prime_latest_payload(data: dict | None) -> None:
         latest_data_gzip_bytes = gzip.compress(raw, compresslevel=5)
         latest_data_etag = hashlib.sha1(raw).hexdigest()
 
-        # Static runtime payload: keep canonical top-level data shape used by the live UI,
+        # Runtime payload: keep canonical top-level data shape used by the live UI,
         # but remove heavyweight contract array duplication to reduce parse/transfer cost.
         runtime_payload = dict(contract_payload)
         runtime_payload.pop("playersArray", None)
