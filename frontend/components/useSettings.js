@@ -1,19 +1,60 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { SETTINGS_KEY } from "@/lib/trade-logic";
 
 // ── Default Settings (single source of truth) ──────────────────────────
+// Covers all tuning parameters needed by every surface:
+// trade calculator, rankings, edge, roster dashboard, league, settings page.
 export const SETTINGS_DEFAULTS = {
-  lamStrength: 1.0,
-  scarcityStrength: 0.35,
-  leagueFormat: "superflex",
-  tepMultiplier: 1.15,
-  rankingsSortBasis: "full",
-  showLamCols: false,
-  showSiteCols: false,
+  // League format
+  leagueFormat: "superflex",         // "superflex" | "standard"
+
+  // Value adjustment strengths
+  lamStrength: 1.0,                  // 0..1 — league adjustment multiplier intensity
+  scarcityStrength: 0.35,            // 0..1 — position scarcity premium
+  tepMultiplier: 1.15,               // 1.0..1.5 — TE premium boost for non-TEP sites
+
+  // Trade calculator
+  alpha: 1.678,                      // star player bonus exponent (1.4..1.9)
+  tolerance: 0.05,                   // trade tolerance threshold
+  zScoreEnabled: true,               // advanced value blending toggle
+  zFloor: -2.0,                      // z-score floor
+  zCeiling: 4.0,                     // z-score ceiling
+
+  // Rankings display
+  rankingsSortBasis: "full",         // "full" | "raw" | "scoring" | "scarcity"
+  showLamCols: false,                // show LAM detail columns in rankings
+  showSiteCols: false,               // show per-site value columns in rankings
+
+  // Pick settings
   pickCurrentYear: 2026,
+  pickYearDisc1: 0.85,               // +1 year discount
+  pickYearDisc2: 0.72,               // +2 year discount
+
+  // Ranking conversion (advanced)
+  rankOffset: 27,
+  rankDivisor: 28,
+  rankExponent: -0.66,
+
+  // IDP ranking conversion (advanced)
+  idpAnchor: 6250,
+  idpRankOffset: 15,
+  idpRankDivisor: 16,
+  idpRankExponent: -0.72,
+
+  // Site weights — per-site { include, weight, max, tep }
   siteWeights: {},
+
+  // UI preferences
+  compactMode: false,                // compact table view
+  mobilePowerMode: true,             // full desktop workflows on mobile
+
+  // Trade history
+  tradeHistoryWindowDays: 120,       // rolling window for trade analysis
+
+  // Selected team (global)
+  selectedTeam: "",                  // Sleeper team name selection
 };
 
 // ── localStorage helpers ────────────────────────────────────────────────
