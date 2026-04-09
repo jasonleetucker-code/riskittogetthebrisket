@@ -456,6 +456,51 @@ def similarity(a, b):
     return base + adjustment
 
 
+# ── Position-family normalization for cross-source matching ──────────────
+_POS_FAMILY_MAP = {
+    "DE": "DL", "DT": "DL", "EDGE": "DL", "NT": "DL", "DL": "DL",
+    "CB": "DB", "S": "DB", "FS": "DB", "SS": "DB", "DB": "DB",
+    "OLB": "LB", "ILB": "LB", "MLB": "LB", "LB": "LB",
+    "QB": "QB", "RB": "RB", "WR": "WR", "TE": "TE", "K": "K",
+}
+
+def _pos_family(pos_raw):
+    """Normalize a position to its family (DL, DB, LB, QB, RB, WR, TE)."""
+    if not pos_raw:
+        return ""
+    return _POS_FAMILY_MAP.get(pos_raw.strip().upper(), pos_raw.strip().upper())
+
+def _get_sleeper_pos(name):
+    """Look up a player's position from SLEEPER_ROSTER_DATA (if available)."""
+    pos_map = SLEEPER_ROSTER_DATA.get("positions", {})
+    if not pos_map:
+        return ""
+    # Exact match
+    pos = pos_map.get(name, "")
+    if pos:
+        return _pos_family(pos)
+    # Case-insensitive fallback
+    nl = name.lower()
+    for k, v in pos_map.items():
+        if k.lower() == nl:
+            return _pos_family(v)
+    return ""
+
+def _positions_compatible(name_a, name_b):
+    """Check whether two player names have compatible positions.
+
+    Returns True if:
+    - either player has no known position (can't reject)
+    - both have the same position family
+    Returns False if both have known but different position families.
+    """
+    pos_a = _get_sleeper_pos(name_a)
+    pos_b = _get_sleeper_pos(name_b)
+    if not pos_a or not pos_b:
+        return True  # Can't reject without position data
+    return pos_a == pos_b
+
+
 def best_match(target, candidates, threshold=0.78, match_guard=None):
     """Find the best fuzzy match for target among candidates.
 
@@ -493,7 +538,16 @@ def _first_name_compatible(a_first, b_first):
 
 
 def _is_safe_name_merge(src_name, dst_name):
-    """Guard fuzzy canonicalization so unrelated players are not merged."""
+    """Guard fuzzy canonicalization so unrelated players are not merged.
+
+    Checks both name structure AND position compatibility. Two players
+    with known but different position families (e.g. WR vs DB) are never
+    merged, even if their names are similar.
+    """
+    # Position gate: reject if both players have known incompatible positions
+    if not _positions_compatible(src_name, dst_name):
+        return False
+
     src = _name_tokens(src_name)
     dst = _name_tokens(dst_name)
     if len(src) < 2 or len(dst) < 2:
@@ -579,10 +633,11 @@ def match_all(players, name_map, results, site_key=None):
             ikey = (p_initial, p_remaining)
             if ikey in initial_index:
                 orig_key = initial_index[ikey]
-                results[player] = name_map[orig_key]
-                if DEBUG:
-                    print(f"    ✓ '{player}' → initial match '{orig_key}' ({name_map[orig_key]})")
-                continue
+                if _positions_compatible(player, orig_key):
+                    results[player] = name_map[orig_key]
+                    if DEBUG:
+                        print(f"    ✓ '{player}' → initial match '{orig_key}' ({name_map[orig_key]})")
+                    continue
             # Looser initial+last fallback for names with middle tokens.
             ikey_last = (p_initial, p_parts[-1])
             if ikey_last in initial_last_index:
