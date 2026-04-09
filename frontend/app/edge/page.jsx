@@ -4,29 +4,11 @@ import { useMemo } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useApp } from "@/components/AppShell";
 import { actionLabel, cautionLabels } from "@/lib/edge-helpers";
-import { valueBand } from "@/lib/rankings-helpers";
+import { posBadgeClass, confBadgeClass, confBadgeLabel as confLabel } from "@/lib/display-helpers";
 
 // ── Edge Page ─────────────────────────────────────────────────────────────
 // Source-agreement analysis dashboard. Every signal on this page traces to
 // measurable properties of the ranking sources — nothing is predicted.
-
-function posBadgeClass(row) {
-  if (row.assetClass === "offense") return "badge badge-cyan";
-  if (row.assetClass === "idp") return "badge badge-amber";
-  return "badge";
-}
-
-function confBadgeClass(bucket) {
-  if (bucket === "high") return "badge badge-green";
-  if (bucket === "medium") return "badge badge-amber";
-  return "badge badge-red";
-}
-
-function confLabel(bucket) {
-  if (bucket === "high") return "High";
-  if (bucket === "medium") return "Med";
-  return "Low";
-}
 
 // ── Section component ─────────────────────────────────────────────────────
 

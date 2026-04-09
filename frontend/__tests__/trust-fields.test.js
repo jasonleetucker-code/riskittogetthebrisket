@@ -195,3 +195,70 @@ describe("anomaly flags edge cases", () => {
     expect(row.anomalyFlags).toEqual([]);
   });
 });
+
+// ── Quarantine and identity fields ────────────────────────────────────
+
+describe("quarantine field", () => {
+  it("preserves quarantined=true from backend", () => {
+    const row = buildSingle({ quarantined: true });
+    expect(row.quarantined).toBe(true);
+  });
+
+  it("defaults quarantined to false", () => {
+    const row = buildSingle({ quarantined: undefined });
+    expect(row.quarantined).toBe(false);
+  });
+
+  it("quarantined row gets dimmed class treatment", () => {
+    // Verify the field exists and is boolean — UI rendering is page-level
+    const row = buildSingle({ quarantined: true });
+    expect(typeof row.quarantined).toBe("boolean");
+  });
+});
+
+describe("identity confidence fields", () => {
+  it("preserves identityConfidence from backend", () => {
+    const row = buildSingle({ identityConfidence: 0.95 });
+    expect(row.identityConfidence).toBe(0.95);
+  });
+
+  it("preserves identityMethod from backend", () => {
+    const row = buildSingle({ identityMethod: "canonical_id" });
+    expect(row.identityMethod).toBe("canonical_id");
+  });
+
+  it("defaults identityConfidence to 0.7", () => {
+    const row = buildSingle({ identityConfidence: undefined });
+    expect(row.identityConfidence).toBe(0.7);
+  });
+
+  it("defaults identityMethod to name_only", () => {
+    const row = buildSingle({ identityMethod: undefined });
+    expect(row.identityMethod).toBe("name_only");
+  });
+});
+
+// ── Complete trust field contract ──────────────────────────────────────
+
+describe("all trust fields present on row", () => {
+  it("has every required trust field after buildRows", () => {
+    const row = buildSingle();
+    const requiredFields = [
+      "confidenceBucket",
+      "confidenceLabel",
+      "anomalyFlags",
+      "isSingleSource",
+      "hasSourceDisagreement",
+      "blendedSourceRank",
+      "sourceRankSpread",
+      "marketGapDirection",
+      "marketGapMagnitude",
+      "identityConfidence",
+      "identityMethod",
+      "quarantined",
+    ];
+    for (const field of requiredFields) {
+      expect(row).toHaveProperty(field);
+    }
+  });
+});

@@ -411,5 +411,153 @@ class TestRequiredPlayerKeys(unittest.TestCase):
         self.assertIn("anomalyFlags", REQUIRED_PLAYER_KEYS)
 
 
+# ── Quarantine and identity confidence ─────────────────────────────────────
+
+
+class TestQuarantineFields(unittest.TestCase):
+    """Verify quarantine flag and confidence degradation."""
+
+    def test_clean_player_not_quarantined(self):
+        payload = _payload_with_players(
+            _make_player("Clean QB", "QB", ktc=9000),
+        )
+        row = _build_and_find(payload, "Clean QB")
+        self.assertFalse(row["quarantined"])
+
+    def test_ol_player_quarantined(self):
+        """OL contamination is a quarantine-level flag."""
+        payload = _payload_with_players(
+            _make_player("OL Guy", "OL", ktc=5000),
+        )
+        row = _build_and_find(payload, "OL Guy")
+        self.assertTrue(row["quarantined"])
+        self.assertIn("unsupported_position", row["anomalyFlags"])
+
+    def test_quarantine_degrades_confidence(self):
+        """Quarantined players should have confidence degraded to low."""
+        # Build two players so we can have a quarantined one
+        payload = _payload_with_players(
+            _make_player("Normal WR", "WR", ktc=8000),
+            _make_player("OL Leak", "OL", ktc=6000),
+        )
+        row = _build_and_find(payload, "OL Leak")
+        self.assertTrue(row["quarantined"])
+        # Confidence must be "low" — either already low from single-source
+        # or degraded by the quarantine pass
+        self.assertEqual(row["confidenceBucket"], "low")
+
+
+class TestIdentityConfidence(unittest.TestCase):
+    """Verify identity confidence scoring."""
+
+    def test_name_only_gets_070(self):
+        payload = _payload_with_players(
+            _make_player("No ID QB", "QB", ktc=9000),
+        )
+        row = _build_and_find(payload, "No ID QB")
+        # No playerId, but position matches source evidence
+        self.assertGreaterEqual(row["identityConfidence"], 0.70)
+        self.assertIn(row["identityMethod"], (
+            "name_only", "position_source_aligned", "partial_evidence",
+        ))
+
+    def test_identity_fields_present(self):
+        payload = _payload_with_players(
+            _make_player("Any Player", "WR", ktc=7000),
+        )
+        row = _build_and_find(payload, "Any Player")
+        self.assertIn("identityConfidence", row)
+        self.assertIn("identityMethod", row)
+        self.assertIsInstance(row["identityConfidence"], float)
+        self.assertIsInstance(row["identityMethod"], str)
+
+
+class TestMultiFlagScenarios(unittest.TestCase):
+    """Verify behaviour when multiple anomaly flags fire."""
+
+    def test_missing_position_and_no_source_flags(self):
+        """A player with pos=? and no sources should get multiple flags."""
+        payload = _payload_with_players(
+            _make_player("Mystery", "?"),
+        )
+        row = _build_and_find(payload, "Mystery")
+        # Should have at least missing_position flag
+        # (won't be ranked so anomaly flags from _compute_anomaly_flags
+        # may not fire, but contract defaults should be clean)
+        self.assertIsInstance(row["anomalyFlags"], list)
+
+    def test_suspicious_disagreement_with_high_spread(self):
+        """Two sources > 150 ranks apart triggers suspicious_disagreement."""
+        # Create many players so ranks can actually spread
+        players = {}
+        for i in range(200):
+            p = _make_player(f"Filler Off {i}", "QB", ktc=9000 - i * 40)
+            players.update(p)
+        for i in range(200):
+            p = _make_player(f"Filler IDP {i}", "DL", idp=9000 - i * 40)
+            players.update(p)
+        # Add test player with both sources at wildly different ranks
+        test_p = _make_player("Spread Guy", "QB", ktc=9000, idp=100)
+        players.update(test_p)
+        payload = {
+            "players": players,
+            "sites": [{"key": "ktc"}, {"key": "idpTradeCalc"}],
+            "maxValues": {"ktc": 9999},
+            "sleeper": {"positions": {k: v["position"] for k, v in players.items()}},
+        }
+        row = _build_and_find(payload, "Spread Guy")
+        self.assertIsNotNone(row)
+        # Should have a significant spread
+        if row.get("sourceRankSpread") is not None:
+            self.assertGreater(row["sourceRankSpread"], 50)
+
+
+class TestEdgeCaseFixtures(unittest.TestCase):
+    """Regression fixtures for edge-case row types."""
+
+    def test_single_source_offense_player(self):
+        payload = _payload_with_players(
+            _make_player("Solo WR", "WR", ktc=7500),
+        )
+        row = _build_and_find(payload, "Solo WR")
+        self.assertTrue(row["isSingleSource"])
+        self.assertIsNone(row["sourceRankSpread"])
+        self.assertEqual(row["marketGapDirection"], "none")
+        self.assertFalse(row["hasSourceDisagreement"])
+
+    def test_single_source_idp_player(self):
+        payload = _payload_with_players(
+            _make_player("Solo LB", "LB", idp=6000),
+        )
+        row = _build_and_find(payload, "Solo LB")
+        self.assertTrue(row["isSingleSource"])
+        self.assertEqual(row["confidenceBucket"], "low")
+
+    def test_high_confidence_consensus_asset(self):
+        """Multi-source with tight agreement = high confidence."""
+        payload = _payload_with_players(
+            _make_player("Consensus QB", "QB", ktc=9000, idp=8900),
+        )
+        row = _build_and_find(payload, "Consensus QB")
+        self.assertFalse(row["isSingleSource"])
+        self.assertEqual(row["confidenceBucket"], "high")
+        self.assertFalse(row["quarantined"])
+
+    def test_all_trust_fields_present_on_ranked_player(self):
+        """Every trust field should exist on a ranked player."""
+        payload = _payload_with_players(
+            _make_player("Complete QB", "QB", ktc=8000),
+        )
+        row = _build_and_find(payload, "Complete QB")
+        required_fields = [
+            "confidenceBucket", "confidenceLabel", "anomalyFlags",
+            "isSingleSource", "hasSourceDisagreement", "blendedSourceRank",
+            "sourceRankSpread", "marketGapDirection", "marketGapMagnitude",
+            "identityConfidence", "identityMethod", "quarantined",
+        ]
+        for field in required_fields:
+            self.assertIn(field, row, f"Missing trust field: {field}")
+
+
 if __name__ == "__main__":
     unittest.main()

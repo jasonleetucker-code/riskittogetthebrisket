@@ -20,6 +20,11 @@ import {
   cautionLabels,
   computeEdgeSummary,
 } from "@/lib/edge-helpers";
+import {
+  confBadgeClass as confidenceBadgeClass,
+  confBadgeLabel as confidenceBadgeLabel,
+  marketGapLabel,
+} from "@/lib/display-helpers";
 
 // ── UNIFIED RANKINGS PAGE ────────────────────────────────────────────
 // Trust-forward blended board: offense + IDP sorted by unified rank.
@@ -60,39 +65,6 @@ function posMatchesFilter(pos, assetClass, filter) {
   if (filter === "offense") return assetClass === "offense";
   if (filter === "idp") return assetClass === "idp";
   return pos === filter;
-}
-
-// ── Inline badge helpers ─────────────────────────────────────────────
-
-function confidenceBadgeClass(bucket) {
-  switch (bucket) {
-    case "high": return "badge badge-green";
-    case "medium": return "badge badge-amber";
-    case "low": return "badge badge-red";
-    default: return "badge";
-  }
-}
-
-function confidenceBadgeLabel(bucket) {
-  switch (bucket) {
-    case "high": return "High";
-    case "medium": return "Med";
-    case "low": return "Low";
-    default: return "\u2014";
-  }
-}
-
-function marketGapLabel(row) {
-  if (!row.sourceRanks) return null;
-  const ktcRank = row.sourceRanks.ktc;
-  const idpRank = row.sourceRanks.idpTradeCalc;
-  if (ktcRank && idpRank) {
-    const diff = Math.abs(ktcRank - idpRank);
-    if (diff < 10) return null;
-    const higher = ktcRank < idpRank ? "KTC" : "IDPTC";
-    return `${higher} +${diff}`;
-  }
-  return null;
 }
 
 // ── Methodology content ──────────────────────────────────────────────

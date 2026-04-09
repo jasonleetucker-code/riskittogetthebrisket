@@ -4,7 +4,7 @@ import { useMemo, useState, useCallback } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useApp } from "@/components/AppShell";
 import { actionLabel, cautionLabels } from "@/lib/edge-helpers";
-import { valueBand } from "@/lib/rankings-helpers";
+import { posBadgeClass, confBadgeClass, confBadgeLabel as confLabel } from "@/lib/display-helpers";
 
 // ── Finder Page ────────────────────────────────────────────────────────────
 // Filter-driven player discovery tool. Each workflow surfaces a specific type
@@ -101,24 +101,6 @@ function posMatches(row, filter) {
   if (filter === "offense") return row.assetClass === "offense";
   if (filter === "idp") return row.assetClass === "idp";
   return row.pos === filter;
-}
-
-function posBadgeClass(row) {
-  if (row.assetClass === "offense") return "badge badge-cyan";
-  if (row.assetClass === "idp") return "badge badge-amber";
-  return "badge";
-}
-
-function confBadgeClass(bucket) {
-  if (bucket === "high") return "badge badge-green";
-  if (bucket === "medium") return "badge badge-amber";
-  return "badge badge-red";
-}
-
-function confLabel(bucket) {
-  if (bucket === "high") return "High";
-  if (bucket === "medium") return "Med";
-  return "Low";
 }
 
 const ROW_LIMIT = 100;

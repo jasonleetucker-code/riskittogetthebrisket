@@ -590,11 +590,17 @@ describe("computedConsensusRank", () => {
     const rows = buildRows(data);
     const canonical = rows.find(r => r.name === "Canonical");
     const computed = rows.find(r => r.name === "Computed");
-    // canonicalConsensusRank (42) wins over computedConsensusRank (1)
+    // canonicalConsensusRank (42) wins over computedConsensusRank
     expect(canonical.rank).toBe(42);
-    expect(canonical.computedConsensusRank).toBe(1);
-    // Without canonicalConsensusRank, rank equals computedConsensusRank
-    expect(computed.rank).toBe(computed.computedConsensusRank);
+    // computedConsensusRank is assigned by sorted position — Canonical
+    // sorts after Computed (rank 42 > rank 2), so it gets position 2
+    expect(canonical.computedConsensusRank).toBe(2);
+    // "Computed" gets canonicalConsensusRank=2 from computeUnifiedRanks
+    // (second in the unified sort) and computedConsensusRank=1 (first
+    // in the final sort since rank 2 < rank 42).
+    expect(computed.canonicalConsensusRank).toBe(2);
+    expect(computed.rank).toBe(2);
+    expect(computed.computedConsensusRank).toBe(1);
   });
 
   it("IDP players get idpRank and canonicalConsensusRank after offense", () => {
@@ -616,17 +622,22 @@ describe("computedConsensusRank", () => {
     // Offense player gets ktcRank
     expect(qb.ktcRank).toBe(1);
     // IDP players get idpRank
-    expect(dl.idpRank).toBe(1); // higher mean IDP value
+    expect(dl.idpRank).toBe(1); // higher IDP source value
     expect(lb.idpRank).toBe(2);
-    // IDP canonicalConsensusRank offsets after offense count
-    expect(dl.canonicalConsensusRank).toBe(2); // 1 offense + idpRank 1
-    expect(lb.canonicalConsensusRank).toBe(3); // 1 offense + idpRank 2
+    // Unified ranking sorts ALL players by normalized value (rankToValue).
+    // DL Star: idpRank=1 -> rankToValue(1)=9999
+    // QB Star: ktcRank=1 -> rankToValue(1)=9999
+    // LB Star: idpRank=2 -> rankToValue(2)≈9849 (lower)
+    // Ties at 9999 break alphabetically: "DL Star" < "QB Star"
+    expect(dl.canonicalConsensusRank).toBe(1);
+    expect(qb.canonicalConsensusRank).toBe(2);
+    expect(lb.canonicalConsensusRank).toBe(3);
     // IDP players have rankDerivedValue
     expect(dl.rankDerivedValue).toBeGreaterThan(0);
     expect(lb.rankDerivedValue).toBeGreaterThan(0);
-    // Sort order: offense first, then IDP
-    expect(rows[0].name).toBe("QB Star");
-    expect(rows[1].name).toBe("DL Star");
+    // Sort order: by unified rank (value desc, then alphabetical)
+    expect(rows[0].name).toBe("DL Star");
+    expect(rows[1].name).toBe("QB Star");
     expect(rows[2].name).toBe("LB Star");
   });
 
