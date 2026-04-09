@@ -349,6 +349,14 @@ jobs:
             fi
           fi
 
+          # Always refresh deploy.sh from the target ref before running it.
+          # This prevents stale deploy scripts on the production server from
+          # blocking deployments that include deploy-script fixes.
+          git -C "\${APP_DIR}" fetch --prune origin 2>/dev/null || true
+          if git -C "\${APP_DIR}" rev-parse --verify --quiet "\${DEPLOY_REF}^{commit}" >/dev/null 2>&1; then
+            git -C "\${APP_DIR}" show "\${DEPLOY_REF}:deploy/deploy.sh" > "\${APP_DIR}/deploy/deploy.sh" 2>/dev/null || true
+          fi
+
           [[ -f "\${APP_DIR}/deploy/deploy.sh" ]] || { echo "[remote] Missing deploy script after bootstrap: \${APP_DIR}/deploy/deploy.sh" >&2; exit 23; }
           bash "\${APP_DIR}/deploy/deploy.sh"
           EOF
