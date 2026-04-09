@@ -129,11 +129,17 @@ function computeUnifiedRanks(rows) {
     const backendRank = Number(r.raw?.canonicalConsensusRank || r.canonicalConsensusRank);
     const backendValue = Number(r.raw?.rankDerivedValue);
 
+    // Blended source rank: mean of the per-source ordinal ranks (with decimals)
+    const sourceRankValues = Object.values(entry.ranks);
+    const blendedSourceRank = sourceRankValues.reduce((s, v) => s + v, 0) / sourceRankValues.length;
+
     r.canonicalConsensusRank = (Number.isInteger(backendRank) && backendRank > 0)
       ? backendRank : (i + 1);
     r.rankDerivedValue = (Number.isFinite(backendValue) && backendValue > 0)
       ? backendValue : Math.round(entry.blended);
     r.sourceRanks = entry.ranks;
+    r.blendedSourceRank = blendedSourceRank;
+    r.sourceCount = sourceRankValues.length;
 
     // Backward compat
     if (entry.ranks.ktc) r.ktcRank = entry.ranks.ktc;

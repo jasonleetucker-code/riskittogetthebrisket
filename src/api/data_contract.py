@@ -476,6 +476,19 @@ def build_api_data_contract(
     # This is the single source of truth for canonicalConsensusRank / rankDerivedValue.
     _compute_unified_rankings(players_array, players_by_name)
 
+    # Stamp rankDerivedValue into the values bundle so every page uses the
+    # same number.  The legacy composite (values.overall / values.finalAdjusted)
+    # comes from the old multi-source scraper and may differ.  The unified
+    # ranking model's rankDerivedValue is the authoritative display value.
+    for row in players_array:
+        rdv = row.get("rankDerivedValue")
+        if rdv is not None and rdv > 0:
+            vals = row.get("values")
+            if isinstance(vals, dict):
+                vals["overall"] = rdv
+                vals["finalAdjusted"] = rdv
+                vals["displayValue"] = rdv
+
     data_source = data_source or {}
     contract_payload: dict[str, Any] = {
         **base,
