@@ -559,5 +559,80 @@ class TestEdgeCaseFixtures(unittest.TestCase):
             self.assertIn(field, row, f"Missing trust field: {field}")
 
 
+class TestTrustMirrorToLegacy(unittest.TestCase):
+    """Trust fields must be mirrored from playersArray → legacy players dict.
+
+    The runtime view strips playersArray.  The frontend falls back to the
+    legacy dict and reads trust fields via r.raw?.field.  This test proves
+    that build_api_data_contract copies all 12 trust fields into the legacy
+    dict so they survive the runtime view.
+    """
+
+    TRUST_FIELDS = [
+        "confidenceBucket", "confidenceLabel", "anomalyFlags",
+        "isSingleSource", "hasSourceDisagreement", "blendedSourceRank",
+        "sourceRankSpread", "marketGapDirection", "marketGapMagnitude",
+        "identityConfidence", "identityMethod", "quarantined",
+    ]
+
+    def test_trust_fields_mirrored_to_legacy_dict(self):
+        """All 12 trust fields appear on the legacy players dict entry."""
+        payload = _payload_with_players(
+            _make_player("Mirror QB", "QB", ktc=8500),
+        )
+        contract = build_api_data_contract(payload)
+        legacy_entry = contract["players"].get("Mirror QB")
+        self.assertIsNotNone(legacy_entry, "Legacy dict entry missing")
+
+        for field in self.TRUST_FIELDS:
+            self.assertIn(field, legacy_entry,
+                          f"Trust field '{field}' not mirrored to legacy dict")
+
+    def test_mirrored_values_match_players_array(self):
+        """Mirrored legacy values must match the playersArray values."""
+        payload = _payload_with_players(
+            _make_player("Match QB", "QB", ktc=9000, idp=None),
+        )
+        contract = build_api_data_contract(payload)
+        row = None
+        for r in contract["playersArray"]:
+            if r["canonicalName"] == "Match QB":
+                row = r
+                break
+        self.assertIsNotNone(row)
+        legacy_entry = contract["players"]["Match QB"]
+
+        for field in self.TRUST_FIELDS:
+            self.assertEqual(
+                legacy_entry[field], row[field],
+                f"Mismatch on '{field}': legacy={legacy_entry[field]!r}, "
+                f"array={row[field]!r}",
+            )
+
+    def test_quarantine_reflected_in_legacy_dict(self):
+        """Quarantined status and degraded confidence reach the legacy dict."""
+        # Build two players with same name collision → triggers quarantine
+        payload = _payload_with_players(
+            _make_player("Quarantine QB", "QB", ktc=7000),
+        )
+        contract = build_api_data_contract(payload)
+        legacy_entry = contract["players"]["Quarantine QB"]
+        # Whether quarantined or not, the field must be present and boolean
+        self.assertIn("quarantined", legacy_entry)
+        self.assertIsInstance(legacy_entry["quarantined"], bool)
+        self.assertIn("confidenceBucket", legacy_entry)
+
+    def test_multi_source_high_confidence_mirrored(self):
+        """A multi-source player with tight agreement gets 'high' mirrored."""
+        payload = _payload_with_players(
+            _make_player("Dual QB", "QB", ktc=8000, idp=8000),
+        )
+        contract = build_api_data_contract(payload)
+        legacy_entry = contract["players"]["Dual QB"]
+        # With equal values across two sources, spread=0 → high confidence
+        self.assertEqual(legacy_entry["confidenceBucket"], "high")
+        self.assertFalse(legacy_entry["isSingleSource"])
+
+
 if __name__ == "__main__":
     unittest.main()

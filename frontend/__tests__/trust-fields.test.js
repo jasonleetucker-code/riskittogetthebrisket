@@ -262,3 +262,110 @@ describe("all trust fields present on row", () => {
     }
   });
 });
+
+// ── Legacy path reads backend-mirrored trust fields ───────────────────
+
+describe("legacy path picks up mirrored trust fields", () => {
+  it("reads confidenceBucket from legacy player dict", () => {
+    const data = {
+      players: {
+        "Mirrored QB": {
+          _composite: 8000,
+          _rawComposite: 8000,
+          _finalAdjusted: 8000,
+          _sites: 2,
+          position: "QB",
+          _canonicalSiteValues: { ktc: 8000 },
+          // Backend-mirrored trust fields
+          confidenceBucket: "high",
+          confidenceLabel: "High — multi-source, tight agreement",
+          anomalyFlags: ["ol_contamination"],
+          isSingleSource: false,
+          hasSourceDisagreement: false,
+          blendedSourceRank: 5.0,
+          sourceRankSpread: 10,
+          marketGapDirection: "ktc_higher",
+          marketGapMagnitude: 25,
+          identityConfidence: 0.95,
+          identityMethod: "canonical_id",
+          quarantined: false,
+        },
+      },
+      sleeper: { positions: { "Mirrored QB": "QB" } },
+    };
+    const rows = buildRows(data);
+    const row = rows.find((r) => r.name === "Mirrored QB");
+    expect(row).toBeDefined();
+
+    // The row should pick up the backend-mirrored values, not defaults
+    expect(row.confidenceBucket).toBe("high");
+    expect(row.confidenceLabel).toBe(
+      "High — multi-source, tight agreement"
+    );
+    expect(row.anomalyFlags).toEqual(["ol_contamination"]);
+    expect(row.isSingleSource).toBe(false);
+    expect(row.hasSourceDisagreement).toBe(false);
+    expect(row.sourceRankSpread).toBe(10);
+    expect(row.marketGapDirection).toBe("ktc_higher");
+    expect(row.marketGapMagnitude).toBe(25);
+    expect(row.identityConfidence).toBe(0.95);
+    expect(row.identityMethod).toBe("canonical_id");
+    expect(row.quarantined).toBe(false);
+  });
+
+  it("falls back to safe defaults when legacy dict has no trust fields", () => {
+    const data = {
+      players: {
+        "Plain QB": {
+          _composite: 7000,
+          _rawComposite: 7000,
+          _finalAdjusted: 7000,
+          _sites: 1,
+          position: "QB",
+          _canonicalSiteValues: { ktc: 7000 },
+        },
+      },
+      sleeper: { positions: { "Plain QB": "QB" } },
+    };
+    const rows = buildRows(data);
+    const row = rows.find((r) => r.name === "Plain QB");
+    expect(row).toBeDefined();
+
+    // Without mirrored fields, should use safe defaults
+    expect(["high", "medium", "low", "none"]).toContain(row.confidenceBucket);
+    expect(Array.isArray(row.anomalyFlags)).toBe(true);
+    expect(typeof row.quarantined).toBe("boolean");
+    expect(typeof row.identityConfidence).toBe("number");
+    expect(typeof row.identityMethod).toBe("string");
+  });
+
+  it("quarantined=true from legacy dict is preserved", () => {
+    const data = {
+      players: {
+        "Quarantined WR": {
+          _composite: 6000,
+          _rawComposite: 6000,
+          _finalAdjusted: 6000,
+          _sites: 1,
+          position: "WR",
+          _canonicalSiteValues: { ktc: 6000 },
+          quarantined: true,
+          confidenceBucket: "low",
+          confidenceLabel: "Low — quarantined due to identity/data-quality flags",
+          anomalyFlags: ["name_collision_cross_universe"],
+          identityConfidence: 0.4,
+          identityMethod: "fuzzy_match",
+        },
+      },
+      sleeper: { positions: { "Quarantined WR": "WR" } },
+    };
+    const rows = buildRows(data);
+    const row = rows.find((r) => r.name === "Quarantined WR");
+    expect(row).toBeDefined();
+    expect(row.quarantined).toBe(true);
+    expect(row.confidenceBucket).toBe("low");
+    expect(row.anomalyFlags).toEqual(["name_collision_cross_universe"]);
+    expect(row.identityConfidence).toBe(0.4);
+    expect(row.identityMethod).toBe("fuzzy_match");
+  });
+});

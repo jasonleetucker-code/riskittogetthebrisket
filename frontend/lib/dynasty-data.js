@@ -270,20 +270,21 @@ export function buildRows(data) {
       canonicalSites,
       canonicalConsensusRank: Number(player._canonicalConsensusRank) || null,
       canonicalTierId: Number(player._canonicalTierId) || null,
-      // Trust/transparency defaults for legacy path — will be overwritten
-      // by computeUnifiedRanks() for ranked players.
-      confidenceBucket: "none",
-      confidenceLabel: "",
-      anomalyFlags: [],
-      isSingleSource: false,
-      hasSourceDisagreement: false,
-      blendedSourceRank: null,
-      sourceRankSpread: null,
-      marketGapDirection: "none",
-      marketGapMagnitude: null,
-      identityConfidence: 0.7,
-      identityMethod: "name_only",
-      quarantined: false,
+      // Trust/transparency fields — prefer backend-mirrored values from
+      // the legacy dict; fall back to safe defaults.  computeUnifiedRanks()
+      // may further overwrite these for ranked players.
+      confidenceBucket: String(player.confidenceBucket || "none"),
+      confidenceLabel: String(player.confidenceLabel || ""),
+      anomalyFlags: Array.isArray(player.anomalyFlags) ? player.anomalyFlags : [],
+      isSingleSource: Boolean(player.isSingleSource),
+      hasSourceDisagreement: Boolean(player.hasSourceDisagreement),
+      blendedSourceRank: player.blendedSourceRank ?? null,
+      sourceRankSpread: player.sourceRankSpread ?? null,
+      marketGapDirection: String(player.marketGapDirection || "none"),
+      marketGapMagnitude: player.marketGapMagnitude ?? null,
+      identityConfidence: Number(player.identityConfidence ?? 0.7),
+      identityMethod: String(player.identityMethod || "name_only"),
+      quarantined: Boolean(player.quarantined),
       raw: player,
     });
   }
