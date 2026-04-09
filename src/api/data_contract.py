@@ -49,11 +49,147 @@ _IDP_SIGNAL_KEYS = {
 # All source signal keys — used to detect which source(s) a player has
 _ALL_SIGNAL_KEYS = _OFFENSE_SIGNAL_KEYS | _IDP_SIGNAL_KEYS
 
+# ── Confidence bucket thresholds ────────────────────────────────────────────
+# Buckets describe how much trust a consumer should place in a player's
+# unified rank.  Determined by source count, source agreement, and whether
+# the player is inside the rank limit.
+#
+# Rules (evaluated top-to-bottom, first match wins):
+#   "high"   — 2+ sources AND sourceRankSpread <= 30
+#   "medium" — 2+ sources AND sourceRankSpread <= 80
+#   "low"    — single source OR sourceRankSpread > 80
+#   "none"   — player did not receive a unified rank
+_CONFIDENCE_SPREAD_HIGH = 30
+_CONFIDENCE_SPREAD_MEDIUM = 80
+
+# ── Anomaly flag rule constants ──────────────────────────────────────────────
+# Each rule produces a machine-readable string if triggered.  Multiple flags
+# can coexist on one player.
+#
+# Flag catalogue:
+#   "offense_as_idp"           — offense player only has IDP source values
+#   "idp_as_offense"           — IDP player only has offense source values
+#   "missing_position"         — position is None, empty, or "?"
+#   "retired_or_invalid_name"  — name matches common invalid patterns
+#   "ol_contamination"         — OL/OT/OG/C position leaked into rankings
+#   "suspicious_disagreement"  — 2+ sources disagree by > 150 ordinal ranks
+#   "missing_source_distortion"— only 1 source present when 2 are expected
+#   "impossible_value"         — rankDerivedValue <= 0 despite having a rank
+_SUSPICIOUS_DISAGREEMENT_THRESHOLD = 150
+_RETIRED_INVALID_PATTERNS = re.compile(
+    r"(?i)\b(retired|invalid|test|unknown|placeholder)\b"
+)
+_OL_POSITIONS = {"OL", "OT", "OG", "C", "G", "T"}
+
 # CSV export paths for source enrichment (relative to repo root)
 _SOURCE_CSV_PATHS = {
     "ktc": "exports/latest/site_raw/ktc.csv",
     "idpTradeCalc": "exports/latest/site_raw/idpTradeCalc.csv",
 }
+
+
+def _compute_confidence_bucket(
+    source_count: int,
+    source_rank_spread: float | None,
+) -> tuple[str, str]:
+    """Return (confidenceBucket, confidenceLabel) for a ranked player.
+
+    See threshold constants above for the decision rules.
+    """
+    if source_count >= 2 and source_rank_spread is not None:
+        if source_rank_spread <= _CONFIDENCE_SPREAD_HIGH:
+            return "high", "High — multi-source, tight agreement"
+        if source_rank_spread <= _CONFIDENCE_SPREAD_MEDIUM:
+            return "medium", "Medium — multi-source, moderate spread"
+    # Single source or wide disagreement
+    if source_count >= 1:
+        return "low", "Low — single source or wide disagreement"
+    return "none", "None — unranked"
+
+
+def _compute_anomaly_flags(
+    *,
+    name: str,
+    position: str | None,
+    asset_class: str,
+    source_ranks: dict[str, int],
+    rank_derived_value: int | None,
+    canonical_sites: dict[str, int | None],
+) -> list[str]:
+    """Return a list of machine-readable anomaly flag strings for a player.
+
+    Each flag signals a data-quality issue that a UI or audit script can
+    surface.  An empty list means no anomalies detected.
+    """
+    flags: list[str] = []
+    pos = (position or "").strip().upper()
+
+    # 1. Offense player with only IDP source values
+    has_off_source = any(k in source_ranks for k in _OFFENSE_SIGNAL_KEYS)
+    has_idp_source = any(k in source_ranks for k in _IDP_SIGNAL_KEYS)
+    if asset_class == "offense" and has_idp_source and not has_off_source:
+        flags.append("offense_as_idp")
+
+    # 2. IDP player with only offense source values
+    if asset_class == "idp" and has_off_source and not has_idp_source:
+        flags.append("idp_as_offense")
+
+    # 3. Missing position
+    if not pos or pos == "?":
+        flags.append("missing_position")
+
+    # 4. Retired / invalid name patterns
+    if _RETIRED_INVALID_PATTERNS.search(name):
+        flags.append("retired_or_invalid_name")
+
+    # 5. OL contamination
+    if pos in _OL_POSITIONS:
+        flags.append("ol_contamination")
+
+    # 6. Suspicious disagreement between sources (> 150 ordinal ranks apart)
+    rank_values = list(source_ranks.values())
+    if len(rank_values) >= 2:
+        spread = max(rank_values) - min(rank_values)
+        if spread > _SUSPICIOUS_DISAGREEMENT_THRESHOLD:
+            flags.append("suspicious_disagreement")
+
+    # 7. Missing-source distortion — only 1 source present for a player that
+    #    could reasonably appear in 2+ sources.  Currently only flags if the
+    #    player has a single source but the OTHER source has a non-null value
+    #    in canonicalSites (suggesting the source should have ranked them).
+    off_site_vals = [canonical_sites.get(k) for k in _OFFENSE_SIGNAL_KEYS]
+    idp_site_vals = [canonical_sites.get(k) for k in _IDP_SIGNAL_KEYS]
+    has_off_val = any(v is not None and v > 0 for v in off_site_vals)
+    has_idp_val = any(v is not None and v > 0 for v in idp_site_vals)
+    if len(source_ranks) == 1 and has_off_val and has_idp_val:
+        flags.append("missing_source_distortion")
+
+    # 8. Impossible value state — has a rank but rankDerivedValue <= 0
+    if source_ranks and (rank_derived_value is None or rank_derived_value <= 0):
+        flags.append("impossible_value")
+
+    return flags
+
+
+def _compute_market_gap(
+    source_ranks: dict[str, int],
+) -> tuple[str, float | None]:
+    """Determine which source ranks a player higher and by how much.
+
+    Returns (direction, magnitude) where direction is one of:
+      "ktc_higher", "idptc_higher", "none"
+    and magnitude is the absolute ordinal rank difference (None if < 2 sources).
+    """
+    ktc_rank = source_ranks.get("ktc")
+    idp_rank = source_ranks.get("idpTradeCalc")
+    if ktc_rank is not None and idp_rank is not None:
+        diff = idp_rank - ktc_rank  # positive means KTC ranks higher (lower number)
+        if diff > 0:
+            return "ktc_higher", float(abs(diff))
+        elif diff < 0:
+            return "idptc_higher", float(abs(diff))
+        return "none", 0.0
+    return "none", None
 
 
 def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
@@ -128,6 +264,15 @@ def _compute_unified_rankings(
       - sourceRanks: dict of {sourceKey: ordinalRank}
       - rankDerivedValue: the normalized 1-9999 value from rank_to_value()
       - canonicalConsensusRank: the unified overall rank (1 = best)
+      - blendedSourceRank: mean of per-source ordinal ranks (float, 2dp)
+      - sourceRankSpread: max - min source rank (None if < 2 sources)
+      - isSingleSource: True when exactly one source contributed
+      - hasSourceDisagreement: True when spread exceeds medium threshold
+      - marketGapDirection: "ktc_higher" | "idptc_higher" | "none"
+      - marketGapMagnitude: absolute ordinal rank difference (None if < 2)
+      - confidenceBucket: "high" | "medium" | "low" | "none"
+      - confidenceLabel: human-readable explanation of the bucket
+      - anomalyFlags: list[str] of machine-readable anomaly identifiers
       - ktcRank / idpRank: preserved for backward compatibility
     """
     from src.canonical.player_valuation import rank_to_value  # noqa: PLC0415
@@ -173,11 +318,57 @@ def _compute_unified_rankings(
         overall_rank = overall_idx + 1
         derived = int(norm_val)
         source_ranks = row_source_ranks.get(row_idx, {})
+        rank_values = list(source_ranks.values())
 
+        # ── Core ranking fields (existing) ──
         row["sourceRanks"] = source_ranks
         row["rankDerivedValue"] = derived
         row["canonicalConsensusRank"] = overall_rank
         row["sourceCount"] = len(source_ranks)
+
+        # ── New trust/transparency fields ──
+        # Blended source rank: mean of per-source ordinal ranks
+        blended_source_rank = (
+            sum(rank_values) / len(rank_values) if rank_values else None
+        )
+        row["blendedSourceRank"] = (
+            round(blended_source_rank, 2) if blended_source_rank is not None else None
+        )
+
+        # Source rank spread: max - min across sources (None if < 2 sources)
+        source_rank_spread: float | None = None
+        if len(rank_values) >= 2:
+            source_rank_spread = float(max(rank_values) - min(rank_values))
+        row["sourceRankSpread"] = source_rank_spread
+
+        # Single-source flag
+        row["isSingleSource"] = len(source_ranks) == 1
+
+        # Source disagreement flag (True when spread exceeds medium threshold)
+        row["hasSourceDisagreement"] = (
+            source_rank_spread is not None
+            and source_rank_spread > _CONFIDENCE_SPREAD_MEDIUM
+        )
+
+        # Market gap: which source ranks the player higher
+        gap_dir, gap_mag = _compute_market_gap(source_ranks)
+        row["marketGapDirection"] = gap_dir
+        row["marketGapMagnitude"] = gap_mag
+
+        # Confidence bucket
+        bucket, label = _compute_confidence_bucket(len(source_ranks), source_rank_spread)
+        row["confidenceBucket"] = bucket
+        row["confidenceLabel"] = label
+
+        # Anomaly flags
+        row["anomalyFlags"] = _compute_anomaly_flags(
+            name=row.get("canonicalName") or row.get("displayName") or "",
+            position=row.get("position"),
+            asset_class=row.get("assetClass") or "",
+            source_ranks=source_ranks,
+            rank_derived_value=derived,
+            canonical_sites=row.get("canonicalSiteValues") or {},
+        )
 
         # Backward compatibility: set ktcRank / idpRank if applicable
         if "ktc" in source_ranks:
@@ -218,6 +409,8 @@ REQUIRED_PLAYER_KEYS = {
     "values",
     "canonicalSiteValues",
     "sourceCount",
+    "confidenceBucket",
+    "anomalyFlags",
 }
 
 # Fields that are useful for deeper diagnostics/explanations but are not required
@@ -393,6 +586,17 @@ def _derive_player_row(
         "marketConfidence": _safe_num(p_data.get("_marketConfidence")),
         "marketDispersionCV": _safe_num(p_data.get("_marketDispersionCV")),
         "legacyRef": canonical_name,
+        # Trust/transparency defaults — overwritten by _compute_unified_rankings
+        # for players that receive a unified rank.
+        "confidenceBucket": "none",
+        "confidenceLabel": "None — unranked",
+        "anomalyFlags": [],
+        "isSingleSource": False,
+        "hasSourceDisagreement": False,
+        "blendedSourceRank": None,
+        "sourceRankSpread": None,
+        "marketGapDirection": "none",
+        "marketGapMagnitude": None,
     }
 
 
@@ -527,10 +731,82 @@ def build_api_data_contract(
                 vals["displayValue"] = rdv
 
     data_source = data_source or {}
+    generated_at = utc_now_iso()
+
+    # ── Payload-level dataFreshness ──
+    data_freshness: dict[str, Any] = {
+        "generatedAt": generated_at,
+        "sourceTimestamps": {
+            "ktc": str(data_source.get("ktcTimestamp") or ""),
+            "idpTradeCalc": str(data_source.get("idpTradeCalcTimestamp") or ""),
+        },
+        "staleness": "unknown",  # Downstream can compare timestamps to now()
+    }
+
+    # ── Payload-level methodology summary ──
+    methodology: dict[str, Any] = {
+        "version": CONTRACT_VERSION,
+        "description": (
+            "Unified dynasty + IDP rankings board. Each player is ranked "
+            "within their source(s) by raw source value descending, then "
+            "converted to a 1-9999 normalized value via a Hill-curve formula. "
+            "Players with multiple sources have their normalized values "
+            "averaged. All players are sorted by normalized value into one "
+            "unified board capped at {limit} entries."
+        ).format(limit=OVERALL_RANK_LIMIT),
+        "sources": [
+            {
+                "key": "ktc",
+                "name": "KeepTradeCut",
+                "covers": "Offense (QB, RB, WR, TE) + draft picks",
+            },
+            {
+                "key": "idpTradeCalc",
+                "name": "IDP Trade Calculator",
+                "covers": "IDP (DL, LB, DB)",
+            },
+        ],
+        "formula": {
+            "name": "Hill curve",
+            "expression": "value = max(1, min(9999, round(1 + 9998 / (1 + ((rank-1)/45)^1.10))))",
+            "midpoint": 45,
+            "slope": 1.10,
+            "scaleMin": 1,
+            "scaleMax": 9999,
+        },
+        "confidenceBuckets": {
+            "high": "2+ sources, sourceRankSpread <= 30",
+            "medium": "2+ sources, sourceRankSpread <= 80",
+            "low": "single source or sourceRankSpread > 80",
+            "none": "player did not receive a unified rank",
+        },
+        "anomalyFlags": [
+            "offense_as_idp",
+            "idp_as_offense",
+            "missing_position",
+            "retired_or_invalid_name",
+            "ol_contamination",
+            "suspicious_disagreement",
+            "missing_source_distortion",
+            "impossible_value",
+        ],
+        "overallRankLimit": OVERALL_RANK_LIMIT,
+    }
+
+    # ── Anomaly summary (payload-level aggregation) ──
+    anomaly_counts: dict[str, int] = {}
+    total_flagged = 0
+    for row in players_array:
+        flags = row.get("anomalyFlags") or []
+        if flags:
+            total_flagged += 1
+        for flag in flags:
+            anomaly_counts[flag] = anomaly_counts.get(flag, 0) + 1
+
     contract_payload: dict[str, Any] = {
         **base,
         "contractVersion": CONTRACT_VERSION,
-        "generatedAt": utc_now_iso(),
+        "generatedAt": generated_at,
         "playersArray": players_array,
         "playerCount": len(players_array),
         "valueAuthority": _build_value_authority_summary(players_array),
@@ -538,6 +814,12 @@ def build_api_data_contract(
             "type": str(data_source.get("type") or ""),
             "path": str(data_source.get("path") or ""),
             "loadedAt": str(data_source.get("loadedAt") or ""),
+        },
+        "dataFreshness": data_freshness,
+        "methodology": methodology,
+        "anomalySummary": {
+            "totalFlagged": total_flagged,
+            "flagCounts": anomaly_counts,
         },
     }
     return contract_payload
