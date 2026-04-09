@@ -462,6 +462,51 @@ class TestNormalizeForCollision(unittest.TestCase):
         )
 
 
+# ── Exception-set gap: IDP with only offense source ───────────────────────
+
+class TestExceptionSetCoverage(unittest.TestCase):
+    """IDP players with only offense source data should be quarantined unless
+    explicitly in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS."""
+
+    def test_idp_db_with_only_ktc_gets_quarantined(self):
+        """Regression: Elijah Mitchell (DB) had only KTC data — was
+        incorrectly excepted from quarantine."""
+        payload = _payload_with_players(
+            _make_player("Zzz Fake DB Only KTC", "DB", ktc=963),
+        )
+        row, _ = _build_and_find(payload, "Zzz Fake DB Only KTC")
+        self.assertIsNotNone(row)
+        flags = row.get("anomalyFlags") or []
+        self.assertIn("position_source_contradiction", flags)
+        self.assertTrue(row.get("quarantined"))
+
+    def test_excepted_name_not_quarantined_by_check2(self):
+        """Names in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS bypass Check 2."""
+        from src.api.data_contract import OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS
+        # Use a name from the exception set
+        if not OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS:
+            self.skipTest("Exception set is empty")
+        exc_name = next(iter(sorted(OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS)))
+        rows = [
+            {
+                "canonicalName": exc_name,
+                "displayName": exc_name,
+                "position": "DL",
+                "assetClass": "idp",
+                "playerId": None,
+                "canonicalSiteValues": {"ktc": 685},
+                "anomalyFlags": [],
+                "confidenceBucket": "low",
+                "confidenceLabel": "",
+                "rankDerivedValue": 500,
+            },
+        ]
+        _validate_and_quarantine_rows(rows)
+        flags = rows[0].get("anomalyFlags") or []
+        # Exception set blocks position_source_contradiction specifically
+        self.assertNotIn("position_source_contradiction", flags)
+
+
 # ── Age field scaffolding ──────────────────────────────────────────────────
 
 class TestAgeFieldScaffolding(unittest.TestCase):

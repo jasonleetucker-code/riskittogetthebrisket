@@ -11,7 +11,6 @@ OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS = {
     "Bobby Brown",
     "Cameron Young",
     "Dwight Bentley",
-    "Elijah Mitchell",
     "Josh Johnson",
 }
 
