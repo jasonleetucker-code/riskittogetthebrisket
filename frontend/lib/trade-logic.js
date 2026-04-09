@@ -18,14 +18,14 @@ export const RECENT_KEY = "next_trade_recent_assets_v1";
 export const SETTINGS_KEY = "next_settings_v1";
 
 // ── Verdict Thresholds (1–9999 scale) ────────────────────────────────────
-const VERDICT_NEAR_EVEN = 256;
-const VERDICT_LEAN = 769;
-const VERDICT_STRONG_LEAN = 1538;
+const VERDICT_NEAR_EVEN = 350;
+const VERDICT_LEAN = 900;
+const VERDICT_STRONG_LEAN = 1800;
 
 // ── Power-Weighted Calculation ───────────────────────────────────────────
 // Alpha exponent concentrates value at the top — a star + role player is
 // worth more than two mid-tier pieces.  Matches static calculator exactly.
-export const TRADE_ALPHA = 1.075;
+export const TRADE_ALPHA = 1.45;
 
 // ── Pick Year Discount ──────────────────────────────────────────────────
 // Future-year picks are worth less than current-year picks.

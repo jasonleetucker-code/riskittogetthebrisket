@@ -62,27 +62,27 @@ describe("constants", () => {
 // ── verdictFromGap ───────────────────────────────────────────────────
 
 describe("verdictFromGap", () => {
-  // Thresholds on 1–9999 display scale: 256, 769, 1538
-  it("returns 'Near even' for gaps under 256", () => {
+  // Thresholds on 1–9999 display scale: 350, 900, 1800
+  it("returns 'Near even' for gaps under 350", () => {
     expect(verdictFromGap(0)).toBe("Near even");
-    expect(verdictFromGap(255)).toBe("Near even");
-    expect(verdictFromGap(-255)).toBe("Near even");
+    expect(verdictFromGap(349)).toBe("Near even");
+    expect(verdictFromGap(-349)).toBe("Near even");
   });
 
-  it("returns 'Lean' for gaps 256-768", () => {
-    expect(verdictFromGap(256)).toBe("Lean");
-    expect(verdictFromGap(768)).toBe("Lean");
-    expect(verdictFromGap(-400)).toBe("Lean");
+  it("returns 'Lean' for gaps 350-899", () => {
+    expect(verdictFromGap(350)).toBe("Lean");
+    expect(verdictFromGap(899)).toBe("Lean");
+    expect(verdictFromGap(-500)).toBe("Lean");
   });
 
-  it("returns 'Strong lean' for gaps 769-1537", () => {
-    expect(verdictFromGap(769)).toBe("Strong lean");
-    expect(verdictFromGap(1537)).toBe("Strong lean");
-    expect(verdictFromGap(-1000)).toBe("Strong lean");
+  it("returns 'Strong lean' for gaps 900-1799", () => {
+    expect(verdictFromGap(900)).toBe("Strong lean");
+    expect(verdictFromGap(1799)).toBe("Strong lean");
+    expect(verdictFromGap(-1200)).toBe("Strong lean");
   });
 
-  it("returns 'Major gap' for gaps >= 1538", () => {
-    expect(verdictFromGap(1538)).toBe("Major gap");
+  it("returns 'Major gap' for gaps >= 1800", () => {
+    expect(verdictFromGap(1800)).toBe("Major gap");
     expect(verdictFromGap(5000)).toBe("Major gap");
     expect(verdictFromGap(-2000)).toBe("Major gap");
   });
@@ -396,14 +396,14 @@ describe("full trade scenario", () => {
     // Power-weighted gap is smaller than linear (1700) due to diminishing returns
     expect(gap).toBeGreaterThan(0); // A still wins
     expect(gap).toBeLessThan(1700); // But less than linear
-    expect(verdictFromGap(gap)).toBe("Major gap");
+    expect(verdictFromGap(gap)).toBe("Strong lean");
     expect(colorFromGap(gap)).toBe("green"); // Side A wins
 
     // Swap sides
     const [newA, newB] = [sideB, sideA];
     const swappedGap = tradeGap(newA, newB, "full");
     expect(swappedGap).toBeLessThan(0);
-    expect(verdictFromGap(swappedGap)).toBe("Major gap");
+    expect(verdictFromGap(swappedGap)).toBe("Strong lean");
     expect(colorFromGap(swappedGap)).toBe("red"); // Now Side B wins
 
     // Remove an asset

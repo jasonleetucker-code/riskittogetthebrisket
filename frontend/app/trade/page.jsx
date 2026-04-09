@@ -141,8 +141,8 @@ export default function TradePage() {
     if (pickerOpen && pickerInputRef.current) pickerInputRef.current.focus();
   }, [pickerOpen]);
 
-  const pwTotalA = useMemo(() => powerWeightedTotal(sideA, valueMode, undefined, settings), [sideA, valueMode, settings]);
-  const pwTotalB = useMemo(() => powerWeightedTotal(sideB, valueMode, undefined, settings), [sideB, valueMode, settings]);
+  const pwTotalA = useMemo(() => powerWeightedTotal(sideA, valueMode, settings?.alpha, settings), [sideA, valueMode, settings]);
+  const pwTotalB = useMemo(() => powerWeightedTotal(sideB, valueMode, settings?.alpha, settings), [sideB, valueMode, settings]);
   const linTotalA = useMemo(() => sideTotal(sideA, valueMode, settings), [sideA, valueMode, settings]);
   const linTotalB = useMemo(() => sideTotal(sideB, valueMode, settings), [sideB, valueMode, settings]);
   const pwGap = pwTotalA - pwTotalB;
@@ -151,7 +151,7 @@ export default function TradePage() {
   const pctGap = Math.max(pwTotalA, pwTotalB) > 0 ? Math.round(Math.abs(pwGap) / Math.max(pwTotalA, pwTotalB) * 100) : 0;
   // Balancing suggestions for the losing side
   const balancers = useMemo(() => {
-    if (Math.abs(pwGap) < 256) return [];
+    if (Math.abs(pwGap) < 350) return [];
     const losingRows = pwGap > 0 ? rows.filter((r) => !sideA.some((a) => a.name === r.name) && !sideB.some((b) => b.name === r.name)) : rows.filter((r) => !sideA.some((a) => a.name === r.name) && !sideB.some((b) => b.name === r.name));
     return findBalancers(pwGap, losingRows, valueMode);
   }, [pwGap, rows, sideA, sideB, valueMode]);
@@ -372,7 +372,7 @@ export default function TradePage() {
                 {sideA.length === 0 && <div className="muted">No assets yet.</div>}
               </div>
               {/* Balancers for Side A (shown when B is ahead) */}
-              {pwGap < -256 && balancers.length > 0 && (
+              {pwGap < -350 && balancers.length > 0 && (
                 <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(86,214,255,0.06)", borderRadius: 6 }}>
                   <div className="label" style={{ fontSize: "0.68rem", marginBottom: 4 }}>To balance, consider adding:</div>
                   {balancers.map((b) => (
@@ -422,7 +422,7 @@ export default function TradePage() {
                 {sideB.length === 0 && <div className="muted">No assets yet.</div>}
               </div>
               {/* Balancers for Side B (shown when A is ahead) */}
-              {pwGap > 256 && balancers.length > 0 && (
+              {pwGap > 350 && balancers.length > 0 && (
                 <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(86,214,255,0.06)", borderRadius: 6 }}>
                   <div className="label" style={{ fontSize: "0.68rem", marginBottom: 4 }}>To balance, consider adding:</div>
                   {balancers.map((b) => (

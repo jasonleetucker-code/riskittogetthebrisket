@@ -13,9 +13,9 @@ const IDP_SITE_DEFAULTS = {
 };
 
 const ALPHA_PRESETS = [
-  { label: "Balanced", value: 1.40 },
-  { label: "Standard", value: 1.678 },
-  { label: "Star-heavy", value: 1.90 },
+  { label: "Low stud premium", value: 1.20 },
+  { label: "Standard", value: 1.45 },
+  { label: "Star-heavy", value: 1.75 },
 ];
 
 
@@ -158,7 +158,7 @@ export default function SettingsPage() {
             ))}
           </div>
           <div className="muted" style={{ fontSize: "0.66rem", marginTop: 4 }}>
-            Higher = elite players worth exponentially more. 1.0 = linear, 1.678 = standard.
+            Higher = elite players worth exponentially more. 1.0 = linear, 1.45 = standard.
           </div>
         </div>
         <SliderRow
