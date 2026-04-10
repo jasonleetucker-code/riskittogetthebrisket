@@ -273,9 +273,12 @@ restart_service() {
   if sudo -n "${SYSTEMCTL_BIN}" cat "${frontend_name}" >/dev/null 2>&1; then
     log "Restarting frontend service: ${frontend_name}"
     sudo -n "${SYSTEMCTL_BIN}" restart "${frontend_name}"
+    # Wait briefly for the process to stabilize before checking
+    sleep 2
     if ! sudo -n "${SYSTEMCTL_BIN}" is-active --quiet "${frontend_name}"; then
-      warn "Frontend service ${frontend_name} failed to become active after restart."
+      error "Frontend service ${frontend_name} failed to become active after restart."
       sudo -n "${JOURNALCTL_BIN}" -u "${frontend_name}" -n 60 --no-pager || true
+      exit 1
     else
       log "Frontend service ${frontend_name} is active."
     fi
