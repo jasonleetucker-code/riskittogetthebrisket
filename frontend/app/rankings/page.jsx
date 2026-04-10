@@ -315,7 +315,7 @@ export default function RankingsPage() {
     displayRows.forEach((row) => {
       const ktcVal = row.canonicalSites?.ktc != null ? Math.round(Number(row.canonicalSites.ktc)) : "";
       const idpVal = row.canonicalSites?.idpTradeCalc != null ? Math.round(Number(row.canonicalSites.idpTradeCalc)) : "";
-      const val = Math.round(row.rankDerivedValue || row.values.full);
+      const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
       const band = valueBand(val);
       const action = actionLabel(row);
       const cautions = cautionLabels(row);
@@ -515,7 +515,7 @@ export default function RankingsPage() {
               <tbody>
                 {displayRows.map((row, idx) => {
                   const chips = rowChips(row);
-                  const val = Math.round(row.rankDerivedValue || row.values.full);
+                  const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
                   const band = valueBand(val);
                   const tier = tierLabel(row);
                   const tierId = effectiveTierId(row);

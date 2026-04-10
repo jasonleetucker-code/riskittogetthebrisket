@@ -45,8 +45,22 @@ export function useDynastyData() {
     };
   }, []);
 
-  const rows = useMemo(() => buildRows(rawData || {}), [rawData]);
-  const siteKeys = useMemo(() => getSiteKeys(rawData || {}), [rawData]);
+  const rows = useMemo(() => {
+    try {
+      return buildRows(rawData || {});
+    } catch (e) {
+      console.error("[useDynastyData] buildRows crashed:", e);
+      return [];
+    }
+  }, [rawData]);
+  const siteKeys = useMemo(() => {
+    try {
+      return getSiteKeys(rawData || {});
+    } catch (e) {
+      console.error("[useDynastyData] getSiteKeys crashed:", e);
+      return [];
+    }
+  }, [rawData]);
 
   return {
     loading,
