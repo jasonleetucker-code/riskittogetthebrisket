@@ -1,0 +1,19 @@
+{
+  "source": "KTC",
+  "snapshot_id": "ktc_2026_20260410T082012Z",
+  "pulled_at_utc": "2026-04-10T08:20:12.295436+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty superflex TEP (KTC crowdsourced values)",
+  "universe": "offense_vet",
+  "ingest_method": "scraper_bridge",
+  "ingest_type": "scraper_export",
+  "source_url": "https://keeptradecut.com/",
+  "format_key": "dynasty_sf",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/exports/latest/site_raw/ktc.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/ktc/2026/ktc_2026_20260410T082012Z",
+  "record_count": 500,
+  "hash": "a2259256be08810c72fb1f02fc2f706f3a9e666abf85e19e6007c43d49fc3349",
+  "notes": "KTC scraped in SF+TEP mode (?sf=1&tep=1). Crowd values natively include both. Do NOT re-apply.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
