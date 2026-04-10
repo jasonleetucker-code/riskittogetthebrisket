@@ -436,11 +436,18 @@ def similarity(a, b):
             elif first_a[0] == first_b[0] and (len(first_a) <= 2 or len(first_b) <= 2):
                 adjustment = 0.10
             else:
-                first_sim = SequenceMatcher(None, first_a, first_b).ratio()
-                if first_sim < 0.5:
-                    adjustment = -0.15
+                # Prefix-subset penalty: one first name is a strict prefix
+                # of the other with 2+ extra chars → distinct people.
+                # e.g. "james"/"jameson", "chris"/"christian"
+                shorter_f, longer_f = (first_a, first_b) if len(first_a) <= len(first_b) else (first_b, first_a)
+                if longer_f.startswith(shorter_f) and (len(longer_f) - len(shorter_f)) >= 2:
+                    adjustment = -0.20
                 else:
-                    adjustment = -0.05
+                    first_sim = SequenceMatcher(None, first_a, first_b).ratio()
+                    if first_sim < 0.5:
+                        adjustment = -0.15
+                    else:
+                        adjustment = -0.05
         elif last_a != last_b:
             if first_a == first_b and len(first_a) > 2:
                 pass  # Same first name, different last — no special adjustment
@@ -522,7 +529,13 @@ def _name_tokens(name):
 
 
 def _first_name_compatible(a_first, b_first):
-    """Allow exact, initial, and near-typo first-name matches."""
+    """Allow exact, initial, and near-typo first-name matches.
+
+    Rejects prefix-subset names where one is a strict prefix of the other
+    with 2+ extra characters (e.g. "james" vs "jameson", "chris" vs
+    "christian").  These are almost always distinct people even though
+    SequenceMatcher rates them highly similar.
+    """
     if not a_first or not b_first:
         return False
     if a_first == b_first:
@@ -531,6 +544,12 @@ def _first_name_compatible(a_first, b_first):
         return True
     if len(b_first) == 1 and b_first == a_first[:1]:
         return True
+    # Reject when one name is a strict prefix of the other with 2+ extra
+    # chars — these are distinct names, not typos.
+    # e.g. "james"/"jameson", "chris"/"christian", "mark"/"marquez"
+    shorter, longer = (a_first, b_first) if len(a_first) <= len(b_first) else (b_first, a_first)
+    if longer.startswith(shorter) and (len(longer) - len(shorter)) >= 2:
+        return False
     return SequenceMatcher(None, a_first, b_first).ratio() >= 0.72
 
 
