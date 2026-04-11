@@ -32,12 +32,33 @@ class TestNormalizeName:
     def test_strips_jr(self):
         assert _normalize_name("Marvin Harrison Jr.") == "marvin harrison"
 
+    def test_strips_jr_no_period(self):
+        assert _normalize_name("Marvin Harrison Jr") == "marvin harrison"
+        assert _normalize_name("Brian Thomas Jr") == "brian thomas"
+        assert _normalize_name("Omar Cooper Jr") == "omar cooper"
+        assert _normalize_name("Michael Penix Jr") == "michael penix"
+
     def test_strips_dots_and_apostrophes(self):
         assert _normalize_name("A.J. Brown") == "aj brown"
         assert _normalize_name("Ja'Marr Chase") == "jamarr chase"
 
     def test_strips_suffix_ii(self):
         assert _normalize_name("Mark Andrews II") == "mark andrews"
+
+    def test_strips_suffix_iii(self):
+        assert _normalize_name("Kenneth Walker III") == "kenneth walker"
+
+    def test_suffix_variants_normalize_identically(self):
+        """Jr/Jr./III variants must produce the same key as the base name."""
+        assert _normalize_name("Kenneth Walker III") == _normalize_name("Kenneth Walker")
+        assert _normalize_name("Marvin Harrison Jr.") == _normalize_name("Marvin Harrison")
+        assert _normalize_name("Marvin Harrison Jr") == _normalize_name("Marvin Harrison")
+        assert _normalize_name("Brian Thomas Jr.") == _normalize_name("Brian Thomas")
+        assert _normalize_name("Brian Thomas Jr") == _normalize_name("Brian Thomas")
+        assert _normalize_name("Omar Cooper Jr.") == _normalize_name("Omar Cooper")
+        assert _normalize_name("Omar Cooper Jr") == _normalize_name("Omar Cooper")
+        assert _normalize_name("Michael Penix Jr.") == _normalize_name("Michael Penix")
+        assert _normalize_name("Michael Penix Jr") == _normalize_name("Michael Penix")
 
 
 class TestIsPickAsset:

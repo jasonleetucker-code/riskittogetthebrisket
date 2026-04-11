@@ -506,6 +506,15 @@ def _mirror_trust_to_legacy(
                 pdata[field] = row[field]
 
 
+def _strip_name_suffix(name: str) -> str:
+    """Strip generational suffixes (Jr, Sr, II-VI) for resilient matching."""
+    n = name.strip()
+    for sfx in (" Jr.", " Jr", " Sr.", " Sr", " II", " III", " IV", " V", " VI"):
+        if n.endswith(sfx):
+            n = n[: -len(sfx)].strip()
+    return n
+
+
 def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
     """Fill missing canonicalSiteValues from source CSV exports.
 
@@ -536,7 +545,7 @@ def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
                     if not name or not val:
                         continue
                     try:
-                        csv_lookup[name.lower()] = int(float(val))
+                        csv_lookup[_strip_name_suffix(name).lower()] = int(float(val))
                     except (ValueError, TypeError):
                         continue
         except Exception:
@@ -553,7 +562,9 @@ def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
             existing = _safe_num(csv_vals.get(source_key))
             if existing is not None and existing > 0:
                 continue
-            canon_name = str(row.get("canonicalName") or row.get("displayName") or "").strip().lower()
+            canon_name = _strip_name_suffix(
+                str(row.get("canonicalName") or row.get("displayName") or "")
+            ).lower()
             csv_val = csv_lookup.get(canon_name)
             if csv_val is not None and csv_val > 0:
                 csv_vals[source_key] = csv_val

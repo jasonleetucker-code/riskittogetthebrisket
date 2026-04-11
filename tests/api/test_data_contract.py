@@ -711,5 +711,35 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
         self.assertTrue(any("name collision" in e for e in report["errors"]))
 
 
+class TestStripNameSuffix(unittest.TestCase):
+    """Ensure _strip_name_suffix handles all generational suffix variants."""
+
+    def test_jr_with_period(self):
+        from src.api.data_contract import _strip_name_suffix
+        self.assertEqual(_strip_name_suffix("Marvin Harrison Jr."), "Marvin Harrison")
+
+    def test_jr_without_period(self):
+        from src.api.data_contract import _strip_name_suffix
+        self.assertEqual(_strip_name_suffix("Brian Thomas Jr"), "Brian Thomas")
+        self.assertEqual(_strip_name_suffix("Omar Cooper Jr"), "Omar Cooper")
+        self.assertEqual(_strip_name_suffix("Michael Penix Jr"), "Michael Penix")
+
+    def test_iii_suffix(self):
+        from src.api.data_contract import _strip_name_suffix
+        self.assertEqual(_strip_name_suffix("Kenneth Walker III"), "Kenneth Walker")
+
+    def test_suffix_variants_match_base(self):
+        from src.api.data_contract import _strip_name_suffix
+        self.assertEqual(_strip_name_suffix("Kenneth Walker III"), _strip_name_suffix("Kenneth Walker"))
+        self.assertEqual(_strip_name_suffix("Marvin Harrison Jr."), _strip_name_suffix("Marvin Harrison"))
+        self.assertEqual(_strip_name_suffix("Brian Thomas Jr"), _strip_name_suffix("Brian Thomas"))
+        self.assertEqual(_strip_name_suffix("Omar Cooper Jr"), _strip_name_suffix("Omar Cooper"))
+        self.assertEqual(_strip_name_suffix("Michael Penix Jr"), _strip_name_suffix("Michael Penix"))
+
+    def test_no_suffix_unchanged(self):
+        from src.api.data_contract import _strip_name_suffix
+        self.assertEqual(_strip_name_suffix("Patrick Mahomes"), "Patrick Mahomes")
+
+
 if __name__ == "__main__":
     unittest.main()
