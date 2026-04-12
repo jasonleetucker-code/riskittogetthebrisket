@@ -42,15 +42,18 @@ import { isEligibleForAnalysis } from "./display-helpers.js";
 export function actionLabel(row) {
   if (!row || row.quarantined) return null;
 
-  // Market premium: one source ranks the player much higher than the other
+  // Market premium: KTC (retail) disagrees materially with expert
+  // consensus (IDPTC + DLF + any other non-KTC source averaged).
+  // "KTC premium" = retail values the player more than consensus does;
+  // "Consensus premium" = the reverse.
   const spread = row.sourceRankSpread;
   const dir = row.marketGapDirection;
   if (spread != null && spread >= MARKET_PREMIUM_SPREAD && dir && dir !== "none") {
-    const source = dir === "ktc_higher" ? "KTC" : "IDPTC";
+    const side = dir === "ktc_premium" ? "KTC" : "Consensus";
     return {
-      label: `Market premium: ${source}`,
+      label: `Market premium: ${side}`,
       css: "action-premium",
-      title: `${source} ranks this player ${spread} positions higher than the other source`,
+      title: `${side} ranks this player ${spread} positions higher than the other side of the market`,
     };
   }
 
@@ -180,12 +183,13 @@ export function applyLens(rows, lensKey) {
 // capped at `limit` entries.
 
 /**
- * Top players where KTC ranks them much higher than IDPTC.
- * These are players the offense market values more than the IDP market.
+ * Top players where KTC (retail offense market) ranks them much higher
+ * than the expert consensus (IDPTC + DLF + any other non-KTC source).
+ * These are players the retail market values more than the experts do.
  */
 export function topKtcPremium(rows, limit = 5) {
   return rows
-    .filter((r) => r.marketGapDirection === "ktc_higher" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
+    .filter((r) => r.marketGapDirection === "ktc_premium" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
     .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
     .slice(0, limit)
     .map((r) => ({
@@ -198,18 +202,21 @@ export function topKtcPremium(rows, limit = 5) {
 }
 
 /**
- * Top players where IDPTC ranks them much higher than KTC.
+ * Top players where the expert consensus ranks them much higher than
+ * KTC.  These are players the experts value more than the retail
+ * offense market does — potential "buy low" targets from KTC-first
+ * trade partners.
  */
-export function topIdptcPremium(rows, limit = 5) {
+export function topConsensusPremium(rows, limit = 5) {
   return rows
-    .filter((r) => r.marketGapDirection === "idptc_higher" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
+    .filter((r) => r.marketGapDirection === "consensus_premium" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
     .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
     .slice(0, limit)
     .map((r) => ({
       name: r.name,
       pos: r.pos,
       rank: r.rank,
-      detail: `IDPTC +${r.sourceRankSpread} ranks`,
+      detail: `Consensus +${r.sourceRankSpread} ranks`,
       row: r,
     }));
 }
@@ -257,7 +264,7 @@ export function computeEdgeSummary(rows) {
   const eligible = rows.filter(isEligibleForAnalysis);
   return {
     ktcPremium: topKtcPremium(eligible),
-    idptcPremium: topIdptcPremium(eligible),
+    consensusPremium: topConsensusPremium(eligible),
     flaggedCautions: topFlaggedCautions(eligible),
     consensusAssets: topConsensusAssets(eligible),
   };

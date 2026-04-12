@@ -55,16 +55,27 @@ export function isEligibleForAnalysis(row) {
 
 /**
  * Return a short market-gap label string, or null if insignificant.
+ *
+ * "Market gap" is KTC (the retail offense market) vs the mean rank of
+ * every other registered ranking source (the expert consensus — IDPTC,
+ * DLF, etc.).  A KTC premium means the offense market values the
+ * player more than the consensus does; a consensus premium is the
+ * opposite.
  */
 export function marketGapLabel(row) {
   if (!row?.sourceRanks) return null;
   const ktcRank = row.sourceRanks.ktc;
-  const idpRank = row.sourceRanks.idpTradeCalc;
-  if (ktcRank && idpRank) {
-    const diff = Math.abs(ktcRank - idpRank);
-    if (diff < MARKET_GAP_MIN_DIFF) return null;
-    const higher = ktcRank < idpRank ? "KTC" : "IDPTC";
-    return `${higher} +${diff}`;
-  }
-  return null;
+  if (!ktcRank) return null;
+
+  const otherRanks = Object.entries(row.sourceRanks)
+    .filter(([key, rank]) => key !== "ktc" && rank != null)
+    .map(([, rank]) => Number(rank))
+    .filter((n) => Number.isFinite(n));
+  if (otherRanks.length === 0) return null;
+
+  const consensusRank = otherRanks.reduce((s, v) => s + v, 0) / otherRanks.length;
+  const diff = Math.round(Math.abs(consensusRank - ktcRank));
+  if (diff < MARKET_GAP_MIN_DIFF) return null;
+  const higher = ktcRank < consensusRank ? "KTC" : "Consensus";
+  return `${higher} +${diff}`;
 }

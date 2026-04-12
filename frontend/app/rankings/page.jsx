@@ -124,7 +124,7 @@ function EdgeRailSection({ label, items, emptyText, onPlayerClick }) {
 function EdgeRail({ summary, onPlayerClick }) {
   const hasSomething =
     summary.ktcPremium.length > 0 ||
-    summary.idptcPremium.length > 0 ||
+    summary.consensusPremium.length > 0 ||
     summary.flaggedCautions.length > 0 ||
     summary.consensusAssets.length > 0;
 
@@ -144,9 +144,9 @@ function EdgeRail({ summary, onPlayerClick }) {
           onPlayerClick={onPlayerClick}
         />
         <EdgeRailSection
-          label="IDPTC Premium"
-          items={summary.idptcPremium}
-          emptyText="No significant IDPTC premiums"
+          label="Consensus Premium"
+          items={summary.consensusPremium}
+          emptyText="No significant consensus premiums"
           onPlayerClick={onPlayerClick}
         />
         <EdgeRailSection

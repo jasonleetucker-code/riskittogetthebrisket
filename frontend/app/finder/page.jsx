@@ -303,10 +303,10 @@ export default function FinderPage() {
                           )}
                           {workflow.showGap && (
                             <td style={{ fontSize: "0.78rem" }}>
-                              {row.marketGapDirection === "ktc_higher" ? (
+                              {row.marketGapDirection === "ktc_premium" ? (
                                 <span className="text-cyan">KTC</span>
-                              ) : row.marketGapDirection === "idptc_higher" ? (
-                                <span className="text-amber">IDPTC</span>
+                              ) : row.marketGapDirection === "consensus_premium" ? (
+                                <span className="text-amber">Consensus</span>
                               ) : (
                                 <span className="muted">\u2014</span>
                               )}

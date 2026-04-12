@@ -54,16 +54,27 @@ describe("confBadgeLabel", () => {
 });
 
 describe("marketGapLabel", () => {
-  it("returns KTC label when KTC ranks higher", () => {
+  it("returns KTC label when KTC ranks higher than consensus mean", () => {
+    // KTC 5 vs mean(IDPTC 50) = 50 → KTC premium 45
     expect(marketGapLabel({ sourceRanks: { ktc: 5, idpTradeCalc: 50 } })).toBe("KTC +45");
   });
-  it("returns IDPTC label when IDPTC ranks higher", () => {
-    expect(marketGapLabel({ sourceRanks: { ktc: 80, idpTradeCalc: 10 } })).toBe("IDPTC +70");
+  it("returns Consensus label when consensus mean ranks higher than KTC", () => {
+    // KTC 80 vs mean(IDPTC 10) = 10 → Consensus premium 70
+    expect(marketGapLabel({ sourceRanks: { ktc: 80, idpTradeCalc: 10 } })).toBe("Consensus +70");
+  });
+  it("averages multiple consensus sources", () => {
+    // KTC 10 vs mean(IDPTC 50, DLF 70) = 60 → KTC premium 50
+    expect(
+      marketGapLabel({ sourceRanks: { ktc: 10, idpTradeCalc: 50, dlfIdp: 70 } })
+    ).toBe("KTC +50");
   });
   it("returns null for small differences", () => {
     expect(marketGapLabel({ sourceRanks: { ktc: 10, idpTradeCalc: 15 } })).toBeNull();
   });
-  it("returns null when missing sources", () => {
+  it("returns null when KTC is missing", () => {
+    expect(marketGapLabel({ sourceRanks: { idpTradeCalc: 20, dlfIdp: 30 } })).toBeNull();
+  });
+  it("returns null when only KTC is present", () => {
     expect(marketGapLabel({ sourceRanks: { ktc: 10 } })).toBeNull();
   });
   it("returns null for no sourceRanks", () => {

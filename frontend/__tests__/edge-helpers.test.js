@@ -6,7 +6,7 @@ import {
   getLens,
   applyLens,
   topKtcPremium,
-  topIdptcPremium,
+  topConsensusPremium,
   topFlaggedCautions,
   topConsensusAssets,
   computeEdgeSummary,
@@ -40,7 +40,7 @@ describe("actionLabel", () => {
 
   it("returns market premium when KTC ranks higher with large spread", () => {
     const label = actionLabel(makeRow({
-      marketGapDirection: "ktc_higher",
+      marketGapDirection: "ktc_premium",
       sourceRankSpread: 45,
     }));
     expect(label).not.toBeNull();
@@ -48,12 +48,12 @@ describe("actionLabel", () => {
     expect(label.css).toBe("action-premium");
   });
 
-  it("returns market premium for IDPTC direction", () => {
+  it("returns market premium for consensus direction", () => {
     const label = actionLabel(makeRow({
-      marketGapDirection: "idptc_higher",
+      marketGapDirection: "consensus_premium",
       sourceRankSpread: 50,
     }));
-    expect(label.label).toBe("Market premium: IDPTC");
+    expect(label.label).toBe("Market premium: Consensus");
   });
 
   it("returns consensus asset for high-confidence tight agreement", () => {
@@ -73,7 +73,7 @@ describe("actionLabel", () => {
       confidenceBucket: "high",
       sourceCount: 2,
       sourceRankSpread: 40,
-      marketGapDirection: "ktc_higher",
+      marketGapDirection: "ktc_premium",
     }));
     expect(label.label).toBe("Market premium: KTC");
   });
@@ -214,10 +214,10 @@ describe("applyLens", () => {
 describe("topKtcPremium", () => {
   it("returns rows sorted by spread where KTC ranks higher", () => {
     const rows = [
-      makeRow({ name: "A", marketGapDirection: "ktc_higher", sourceRankSpread: 50, rank: 10 }),
-      makeRow({ name: "B", marketGapDirection: "ktc_higher", sourceRankSpread: 80, rank: 20 }),
-      makeRow({ name: "C", marketGapDirection: "idptc_higher", sourceRankSpread: 90, rank: 5 }),
-      makeRow({ name: "D", marketGapDirection: "ktc_higher", sourceRankSpread: 10, rank: 30 }), // below 20 threshold
+      makeRow({ name: "A", marketGapDirection: "ktc_premium", sourceRankSpread: 50, rank: 10 }),
+      makeRow({ name: "B", marketGapDirection: "ktc_premium", sourceRankSpread: 80, rank: 20 }),
+      makeRow({ name: "C", marketGapDirection: "consensus_premium", sourceRankSpread: 90, rank: 5 }),
+      makeRow({ name: "D", marketGapDirection: "ktc_premium", sourceRankSpread: 10, rank: 30 }), // below 20 threshold
     ];
     const result = topKtcPremium(rows, 3);
     expect(result).toHaveLength(2); // A and B (D is below threshold)
@@ -227,20 +227,20 @@ describe("topKtcPremium", () => {
 
   it("excludes quarantined rows", () => {
     const rows = [
-      makeRow({ name: "Q", marketGapDirection: "ktc_higher", sourceRankSpread: 60, quarantined: true }),
+      makeRow({ name: "Q", marketGapDirection: "ktc_premium", sourceRankSpread: 60, quarantined: true }),
     ];
     expect(topKtcPremium(rows)).toHaveLength(0);
   });
 });
 
-describe("topIdptcPremium", () => {
-  it("returns rows where IDPTC ranks higher", () => {
+describe("topConsensusPremium", () => {
+  it("returns rows where consensus ranks higher than KTC", () => {
     const rows = [
-      makeRow({ name: "X", marketGapDirection: "idptc_higher", sourceRankSpread: 40, rank: 15 }),
+      makeRow({ name: "X", marketGapDirection: "consensus_premium", sourceRankSpread: 40, rank: 15 }),
     ];
-    const result = topIdptcPremium(rows);
+    const result = topConsensusPremium(rows);
     expect(result).toHaveLength(1);
-    expect(result[0].detail).toBe("IDPTC +40 ranks");
+    expect(result[0].detail).toBe("Consensus +40 ranks");
   });
 });
 
@@ -279,7 +279,7 @@ describe("computeEdgeSummary", () => {
     ];
     const summary = computeEdgeSummary(rows);
     expect(summary).toHaveProperty("ktcPremium");
-    expect(summary).toHaveProperty("idptcPremium");
+    expect(summary).toHaveProperty("consensusPremium");
     expect(summary).toHaveProperty("flaggedCautions");
     expect(summary).toHaveProperty("consensusAssets");
   });

@@ -325,22 +325,45 @@ def _compute_anomaly_flags(
 def _compute_market_gap(
     source_ranks: dict[str, int],
 ) -> tuple[str, float | None]:
-    """Determine which source ranks a player higher and by how much.
+    """Quantify the disagreement between KTC and the expert consensus.
+
+    "Market gap" frames KTC (the retail offense market) against the mean
+    rank of every other registered source (IDPTC + DLF + any future
+    expert source).  A positive diff means KTC ranks the player higher
+    than consensus (a "KTC premium"); a negative diff means consensus
+    ranks the player higher than KTC (a "consensus premium").
 
     Returns (direction, magnitude) where direction is one of:
-      "ktc_higher", "idptc_higher", "none"
-    and magnitude is the absolute ordinal rank difference (None if < 2 sources).
+      "ktc_premium"        — KTC rank is lower number (better) than consensus mean
+      "consensus_premium"  — consensus mean rank is lower number than KTC
+      "none"               — tie, or KTC has no rank, or no consensus sources
+
+    magnitude is the absolute ordinal rank difference as a float, or
+    None when the comparison cannot be made (KTC missing or no consensus
+    sources present).  Magnitude is 0.0 on a tie.
     """
     ktc_rank = source_ranks.get("ktc")
-    idp_rank = source_ranks.get("idpTradeCalc")
-    if ktc_rank is not None and idp_rank is not None:
-        diff = idp_rank - ktc_rank  # positive means KTC ranks higher (lower number)
-        if diff > 0:
-            return "ktc_higher", float(abs(diff))
-        elif diff < 0:
-            return "idptc_higher", float(abs(diff))
-        return "none", 0.0
-    return "none", None
+    if ktc_rank is None:
+        return "none", None
+
+    # Consensus = mean of every source rank other than KTC that is
+    # actually present on this row.  Using a mean (not median) keeps the
+    # signal smooth when only one non-KTC source covers the player.
+    other_ranks = [
+        rank
+        for key, rank in source_ranks.items()
+        if key != "ktc" and rank is not None
+    ]
+    if not other_ranks:
+        return "none", None
+
+    consensus_rank = sum(other_ranks) / len(other_ranks)
+    diff = consensus_rank - ktc_rank  # positive → KTC ranks higher (lower number)
+    if diff > 0:
+        return "ktc_premium", float(abs(diff))
+    if diff < 0:
+        return "consensus_premium", float(abs(diff))
+    return "none", 0.0
 
 
 def _normalize_for_collision(name: str) -> str:

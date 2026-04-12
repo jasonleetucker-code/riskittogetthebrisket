@@ -287,14 +287,16 @@ class TestAnomalyFlags(unittest.TestCase):
 
 class TestMarketGap(unittest.TestCase):
 
-    def test_ktc_higher(self):
+    def test_ktc_premium_vs_single_consensus_source(self):
+        # KTC rank 10, IDPTC rank 50 → consensus mean = 50 →
+        # KTC ranks the player 40 positions higher → ktc_premium.
         direction, magnitude = _compute_market_gap({"ktc": 10, "idpTradeCalc": 50})
-        self.assertEqual(direction, "ktc_higher")
+        self.assertEqual(direction, "ktc_premium")
         self.assertEqual(magnitude, 40.0)
 
-    def test_idptc_higher(self):
+    def test_consensus_premium_vs_single_consensus_source(self):
         direction, magnitude = _compute_market_gap({"ktc": 80, "idpTradeCalc": 20})
-        self.assertEqual(direction, "idptc_higher")
+        self.assertEqual(direction, "consensus_premium")
         self.assertEqual(magnitude, 60.0)
 
     def test_equal_ranks(self):
@@ -302,10 +304,33 @@ class TestMarketGap(unittest.TestCase):
         self.assertEqual(direction, "none")
         self.assertEqual(magnitude, 0.0)
 
-    def test_single_source_none(self):
+    def test_ktc_alone_returns_none(self):
+        # No consensus sources present → cannot compute a gap.
         direction, magnitude = _compute_market_gap({"ktc": 10})
         self.assertEqual(direction, "none")
         self.assertIsNone(magnitude)
+
+    def test_no_ktc_returns_none(self):
+        # KTC absent → IDP-only players cannot have a KTC-vs-consensus gap.
+        direction, magnitude = _compute_market_gap({"idpTradeCalc": 10, "dlfIdp": 20})
+        self.assertEqual(direction, "none")
+        self.assertIsNone(magnitude)
+
+    def test_ktc_vs_averaged_multi_source_consensus(self):
+        # KTC 10 vs mean(IDPTC 50, DLF 70) = 60 → ktc_premium of 50.
+        direction, magnitude = _compute_market_gap(
+            {"ktc": 10, "idpTradeCalc": 50, "dlfIdp": 70}
+        )
+        self.assertEqual(direction, "ktc_premium")
+        self.assertEqual(magnitude, 50.0)
+
+    def test_consensus_premium_with_multi_source_consensus(self):
+        # KTC 100 vs mean(IDPTC 30, DLF 40) = 35 → consensus_premium of 65.
+        direction, magnitude = _compute_market_gap(
+            {"ktc": 100, "idpTradeCalc": 30, "dlfIdp": 40}
+        )
+        self.assertEqual(direction, "consensus_premium")
+        self.assertEqual(magnitude, 65.0)
 
 
 # ── Integration: single-source player row ────────────────────────────────────

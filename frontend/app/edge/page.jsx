@@ -131,8 +131,8 @@ const COL_GAP_DIR = {
   thStyle: { width: 70 },
   tdStyle: { fontSize: "0.78rem" },
   render: (r) => {
-    if (r.marketGapDirection === "ktc_higher") return <span className="text-cyan">KTC</span>;
-    if (r.marketGapDirection === "idptc_higher") return <span className="text-amber">IDPTC</span>;
+    if (r.marketGapDirection === "ktc_premium") return <span className="text-cyan">KTC</span>;
+    if (r.marketGapDirection === "consensus_premium") return <span className="text-amber">Consensus</span>;
     return <span className="muted">\u2014</span>;
   },
 };
@@ -208,16 +208,16 @@ export default function EdgePage() {
   const ktcPremium = useMemo(
     () =>
       eligible
-        .filter((r) => r.marketGapDirection === "ktc_higher" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
+        .filter((r) => r.marketGapDirection === "ktc_premium" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
         .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
         .slice(0, EDGE_PREMIUM_LIMIT),
     [eligible],
   );
 
-  const idptcPremium = useMemo(
+  const consensusPremium = useMemo(
     () =>
       eligible
-        .filter((r) => r.marketGapDirection === "idptc_higher" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
+        .filter((r) => r.marketGapDirection === "consensus_premium" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
         .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
         .slice(0, EDGE_PREMIUM_LIMIT),
     [eligible],
@@ -346,7 +346,7 @@ export default function EdgePage() {
             {/* KTC Premium */}
             <EdgeSection
               title="KTC Premium"
-              description="Players KTC values much higher than IDP Trade Calculator. The offense market sees value the IDP market doesn't."
+              description="Players KTC (retail market) values much higher than the expert consensus. Potential sells to KTC-first trade partners."
               count={`${ktcPremium.length} shown`}
               accent="cyan"
             >
@@ -358,17 +358,17 @@ export default function EdgePage() {
               />
             </EdgeSection>
 
-            {/* IDPTC Premium */}
+            {/* Consensus Premium */}
             <EdgeSection
-              title="IDPTC Premium"
-              description="Players IDP Trade Calculator values much higher than KTC. The IDP market sees value the offense market doesn't."
-              count={`${idptcPremium.length} shown`}
+              title="Consensus Premium"
+              description="Players the expert consensus values much higher than KTC. Potential buys from KTC-first trade partners."
+              count={`${consensusPremium.length} shown`}
               accent="cyan"
             >
               <SectionTable
-                rows={idptcPremium}
+                rows={consensusPremium}
                 onPlayerClick={openPlayerPopup}
-                emptyText="No significant IDPTC premiums."
+                emptyText="No significant consensus premiums."
                 columns={[COL_RANK, COL_PLAYER, COL_POS, COL_SPREAD, COL_VALUE]}
               />
             </EdgeSection>
