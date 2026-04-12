@@ -35,8 +35,135 @@ export function classifyPos(pos) {
   return "other";
 }
 
-// Positions eligible for per-source ranking (offense + IDP only).
-const RANKABLE = new Set(["QB", "RB", "WR", "TE", "DL", "LB", "DB"]);
+// Positions eligible for the unified board.  Mirrors
+// `_RANKABLE_POSITIONS` in src/api/data_contract.py.  PICK is included
+// here because KTC prices rookie picks natively and the overall_offense
+// scope admits them.
+const RANKABLE = new Set(["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PICK"]);
+
+// ── Source scope tokens (mirror src/canonical/idp_backbone.py) ──────
+// See src/canonical/idp_backbone.py for the authoritative definitions.
+// These MUST stay in sync with VALID_SOURCE_SCOPES on the backend.
+export const SOURCE_SCOPE_OVERALL_OFFENSE = "overall_offense";
+export const SOURCE_SCOPE_OVERALL_IDP = "overall_idp";
+export const SOURCE_SCOPE_POSITION_IDP = "position_idp";
+
+// Translation method tokens — also mirror the Python constants.
+export const TRANSLATION_DIRECT = "direct";
+export const TRANSLATION_EXACT = "exact";
+export const TRANSLATION_INTERPOLATED = "interpolated";
+export const TRANSLATION_EXTRAPOLATED = "extrapolated";
+export const TRANSLATION_FALLBACK = "fallback";
+
+const IDP_POSITION_GROUPS = ["DL", "LB", "DB"];
+const OFFENSE_POSITIONS = new Set(["QB", "RB", "WR", "TE"]);
+const IDP_POSITIONS_SET = new Set(IDP_POSITION_GROUPS);
+
+// Scope eligibility predicate — mirrors _scope_eligible() in
+// src/api/data_contract.py.  A row only receives a rank from a source
+// if its position falls within the source's scope.
+function scopeEligible(pos, scope, positionGroup) {
+  const p = String(pos || "").toUpperCase();
+  if (scope === SOURCE_SCOPE_OVERALL_OFFENSE) {
+    return OFFENSE_POSITIONS.has(p) || p === "PICK";
+  }
+  if (scope === SOURCE_SCOPE_OVERALL_IDP) {
+    return IDP_POSITIONS_SET.has(p);
+  }
+  if (scope === SOURCE_SCOPE_POSITION_IDP) {
+    return Boolean(positionGroup) && p === String(positionGroup).toUpperCase();
+  }
+  return false;
+}
+
+// ── IDP backbone construction ───────────────────────────────────────
+// Mirrors build_backbone_from_rows() in src/canonical/idp_backbone.py.
+// Walks every row, keeps IDP entries with a positive value in the
+// backbone source, sorts descending, and records per-position-group
+// ladders of overall-IDP ranks.
+function buildIdpBackbone(rows, sourceKey) {
+  const ladders = {};
+  for (const pg of IDP_POSITION_GROUPS) ladders[pg] = [];
+  if (!sourceKey) return { ladders, depth: 0 };
+
+  const eligible = [];
+  rows.forEach((r) => {
+    const pos = String(r?.pos || "").toUpperCase();
+    if (!IDP_POSITIONS_SET.has(pos)) return;
+    const val = Number(r?.canonicalSites?.[sourceKey]);
+    if (!Number.isFinite(val) || val <= 0) return;
+    eligible.push({ val, pos, name: String(r?.name || "") });
+  });
+  eligible.sort((a, b) => b.val - a.val || a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+
+  let depth = 0;
+  eligible.forEach((e, i) => {
+    const overall = i + 1;
+    if (ladders[e.pos]) ladders[e.pos].push(overall);
+    depth = overall;
+  });
+  return { ladders, depth };
+}
+
+// ── Position-rank translation ───────────────────────────────────────
+// Mirrors translate_position_rank() in src/canonical/idp_backbone.py.
+// Translates a within-position rank (e.g. DL4) into a synthetic
+// overall-IDP rank using the backbone ladder.  Integer ranks inside
+// the ladder are exact anchors; fractional ranks interpolate linearly;
+// ranks past the tail extrapolate with the average of the last few
+// steps; empty ladders fall back to a pass-through.
+function translatePositionRank(positionRank, ladder) {
+  if (!Array.isArray(ladder) || ladder.length === 0) {
+    const safe = Math.max(1, Math.round(Math.max(1, Number(positionRank) || 1)));
+    return { rank: safe, method: TRANSLATION_FALLBACK };
+  }
+
+  let pr = Number(positionRank);
+  if (!Number.isFinite(pr) || pr < 1) pr = 1;
+
+  const n = ladder.length;
+  // Integer exact anchor
+  if (pr === Math.floor(pr) && pr >= 1 && pr <= n) {
+    return { rank: Math.max(1, ladder[pr - 1]), method: TRANSLATION_EXACT };
+  }
+  // Interpolation inside the ladder
+  if (pr >= 1 && pr <= n) {
+    const lowIdx = Math.floor(pr) - 1;
+    const frac = pr - Math.floor(pr);
+    const low = ladder[lowIdx];
+    const high = ladder[Math.min(lowIdx + 1, n - 1)];
+    const synthetic = low + (high - low) * frac;
+    return { rank: Math.max(1, Math.round(synthetic)), method: TRANSLATION_INTERPOLATED };
+  }
+  // Extrapolation past the tail
+  let step;
+  if (n === 1) {
+    step = Math.max(1, ladder[0]);
+  } else {
+    const tail = Math.min(5, n - 1);
+    let sum = 0;
+    for (let i = 1; i <= tail; i++) sum += ladder[n - i] - ladder[n - i - 1];
+    step = Math.max(1, sum / tail);
+  }
+  const overshoot = pr - n;
+  let synthetic = Math.round(ladder[n - 1] + step * overshoot);
+  if (synthetic <= ladder[n - 1]) synthetic = ladder[n - 1] + 1;
+  return { rank: Math.max(1, synthetic), method: TRANSLATION_EXTRAPOLATED };
+}
+
+// Coverage-aware blend weight — mirrors coverage_weight() in
+// src/canonical/idp_backbone.py.  Shallow positional lists get scaled
+// down linearly; full-board sources keep their declared weight.
+const MIN_FULL_COVERAGE_DEPTH = 60;
+function coverageWeight(declaredWeight, depth) {
+  const w = Math.max(0, Number(declaredWeight) || 0);
+  if (depth === null || depth === undefined) return w;
+  const d = Number(depth);
+  if (!Number.isFinite(d)) return w;
+  if (d <= 0) return 0;
+  const factor = Math.min(1, d / Math.max(1, MIN_FULL_COVERAGE_DEPTH));
+  return w * factor;
+}
 
 export function inferValueBundle(player = {}) {
   const raw = Number(player._rawComposite ?? player._rawMarketValue ?? player._composite ?? 0) || 0;
@@ -87,82 +214,199 @@ export function rankToValue(rank) {
 // This function is only invoked as a fallback when backend fields are
 // absent (stale data, offline mode).
 //
-// It mirrors the backend logic: rank each player within their source,
-// convert to normalized value via rankToValue(), then sort all players
-// into one unified board by that normalized value.
+// The logic mirrors the backend scope-aware pipeline end-to-end:
+//   1. Build the IDP backbone ladder from the designated backbone
+//      source (the first overall_idp source with isBackbone=true).
+//   2. For each registered source, rank only rows eligible under its
+//      scope (overall_offense / overall_idp / position_idp).  Position-
+//      only sources translate their raw rank into a synthetic overall-
+//      IDP rank via the backbone ladder.
+//   3. Convert each effective rank through rankToValue(), then blend
+//      sources using a coverage-aware weighted mean so shallow lists
+//      never overpower deep boards.
+//   4. Sort the unified board and stamp canonicalConsensusRank plus
+//      transparency metadata (sourceRanks, sourceRankMeta, confidence,
+//      market gap, anomaly flags, backward-compat ktcRank/idpRank).
+//
+// Source registry — keep in sync with `_RANKING_SOURCES` in
+// src/api/data_contract.py.  Adding a new position-only source is a
+// purely declarative change (add an entry here and on the backend).
 const OVERALL_RANK_LIMIT = 800;
-const SOURCE_KEYS = ["ktc", "idpTradeCalc"];
+const RANKING_SOURCES = [
+  {
+    key: "ktc",
+    displayName: "KeepTradeCut",
+    scope: SOURCE_SCOPE_OVERALL_OFFENSE,
+    positionGroup: null,
+    depth: null,
+    weight: 1.0,
+    isBackbone: false,
+  },
+  {
+    key: "idpTradeCalc",
+    displayName: "IDP Trade Calculator",
+    scope: SOURCE_SCOPE_OVERALL_IDP,
+    positionGroup: null,
+    depth: null,
+    weight: 1.0,
+    isBackbone: true,
+  },
+];
+
+// Legacy export retained for any consumer that previously imported
+// the flat source-key list.  New callers should use RANKING_SOURCES.
+const SOURCE_KEYS = RANKING_SOURCES.map((s) => s.key);
 
 function computeUnifiedRanks(rows) {
-  // Per-source ordinal ranking
-  const sourceRanks = new Map(); // row index -> { sourceKey: ordinalRank }
+  // ── Phase 0: Build the IDP backbone from the designated source ──
+  const backboneSrc = RANKING_SOURCES.find(
+    (s) => s.scope === SOURCE_SCOPE_OVERALL_IDP && s.isBackbone
+  );
+  const backbone = backboneSrc
+    ? buildIdpBackbone(rows, backboneSrc.key)
+    : { ladders: { DL: [], LB: [], DB: [] }, depth: 0 };
 
-  for (const sourceKey of SOURCE_KEYS) {
+  // ── Phase 1: Per-source ordinal ranking within scope ──
+  const sourceRanksByRow = new Map(); // row idx -> { sourceKey: effectiveRank }
+  const sourceMetaByRow = new Map();  // row idx -> { sourceKey: metaDict }
+
+  for (const src of RANKING_SOURCES) {
     const eligible = [];
     rows.forEach((r, idx) => {
       if (!RANKABLE.has(r.pos)) return;
-      const val = Number(r.canonicalSites?.[sourceKey]);
-      if (Number.isFinite(val) && val > 0) eligible.push({ idx, val });
+      if (!scopeEligible(r.pos, src.scope, src.positionGroup)) return;
+      const val = Number(r.canonicalSites?.[src.key]);
+      if (!Number.isFinite(val) || val <= 0) return;
+      eligible.push({ idx, val });
     });
     eligible.sort((a, b) => b.val - a.val);
+
     eligible.forEach((e, rank) => {
-      if (!sourceRanks.has(e.idx)) sourceRanks.set(e.idx, {});
-      sourceRanks.get(e.idx)[sourceKey] = rank + 1;
+      const rawRank = rank + 1;
+      let effectiveRank = rawRank;
+      let method = TRANSLATION_DIRECT;
+
+      if (src.scope === SOURCE_SCOPE_POSITION_IDP && src.positionGroup) {
+        const ladder = backbone.ladders[String(src.positionGroup).toUpperCase()] || [];
+        const translated = translatePositionRank(rawRank, ladder);
+        effectiveRank = translated.rank;
+        method = translated.method;
+      }
+
+      if (!sourceRanksByRow.has(e.idx)) sourceRanksByRow.set(e.idx, {});
+      if (!sourceMetaByRow.has(e.idx)) sourceMetaByRow.set(e.idx, {});
+      sourceRanksByRow.get(e.idx)[src.key] = effectiveRank;
+      sourceMetaByRow.get(e.idx)[src.key] = {
+        scope: src.scope,
+        positionGroup: src.positionGroup || null,
+        rawRank,
+        effectiveRank,
+        method,
+        ladderDepth:
+          src.scope === SOURCE_SCOPE_POSITION_IDP && src.positionGroup
+            ? (backbone.ladders[String(src.positionGroup).toUpperCase()] || []).length
+            : null,
+        backboneDepth: src.scope === SOURCE_SCOPE_POSITION_IDP ? backbone.depth : null,
+        depth: src.depth ?? null,
+        weight: Number(src.weight) || 0,
+      };
     });
   }
 
-  // Compute normalized value and collect for unified sort
+  // ── Phase 2-3: Coverage-aware weighted Hill-curve blend ──
+  const srcByKey = new Map(RANKING_SOURCES.map((s) => [s.key, s]));
   const ranked = [];
-  for (const [idx, ranks] of sourceRanks) {
-    const normValues = Object.values(ranks).map((r) => rankToValue(r));
-    const blended = normValues.reduce((s, v) => s + v, 0) / normValues.length;
-    ranked.push({ idx, blended, ranks });
+  for (const [idx, ranks] of sourceRanksByRow) {
+    const meta = sourceMetaByRow.get(idx) || {};
+    let weightedSum = 0;
+    let weightTotal = 0;
+    for (const [sourceKey, effRank] of Object.entries(ranks)) {
+      const srcDef = srcByKey.get(sourceKey) || {};
+      const declaredWeight = Number(srcDef.weight ?? 1);
+      const effectiveWeight = coverageWeight(declaredWeight, srcDef.depth ?? null);
+      const value = rankToValue(effRank);
+      weightedSum += value * effectiveWeight;
+      weightTotal += effectiveWeight;
+      if (meta[sourceKey]) {
+        meta[sourceKey].valueContribution = Math.round(value);
+        meta[sourceKey].effectiveWeight = Math.round(effectiveWeight * 10000) / 10000;
+      }
+    }
+    let blended;
+    if (weightTotal > 0) {
+      blended = weightedSum / weightTotal;
+    } else {
+      const vals = Object.values(ranks).map((r) => rankToValue(r));
+      blended = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
+    }
+    ranked.push({ idx, blended, ranks, meta });
   }
-  ranked.sort((a, b) => b.blended - a.blended || rows[a.idx].name.localeCompare(rows[b.idx].name));
 
-  // Assign unified ranks — prefer backend values when present
+  // ── Phase 4: Unified sort + stamp ──
+  ranked.sort(
+    (a, b) =>
+      b.blended - a.blended ||
+      String(rows[a.idx].name || "").localeCompare(String(rows[b.idx].name || ""))
+  );
+
   ranked.slice(0, OVERALL_RANK_LIMIT).forEach((entry, i) => {
     const r = rows[entry.idx];
     const backendRank = Number(r.raw?.canonicalConsensusRank || r.canonicalConsensusRank);
     const backendValue = Number(r.raw?.rankDerivedValue);
 
-    // Blended source rank: mean of the per-source ordinal ranks (with decimals)
     const sourceRankValues = Object.values(entry.ranks);
-    const blendedSourceRank = sourceRankValues.reduce((s, v) => s + v, 0) / sourceRankValues.length;
+    const blendedSourceRank =
+      sourceRankValues.reduce((s, v) => s + v, 0) / sourceRankValues.length;
 
-    r.canonicalConsensusRank = (Number.isInteger(backendRank) && backendRank > 0)
-      ? backendRank : (i + 1);
-    r.rankDerivedValue = (Number.isFinite(backendValue) && backendValue > 0)
-      ? backendValue : Math.round(entry.blended);
+    r.canonicalConsensusRank =
+      Number.isInteger(backendRank) && backendRank > 0 ? backendRank : i + 1;
+    r.rankDerivedValue =
+      Number.isFinite(backendValue) && backendValue > 0
+        ? backendValue
+        : Math.round(entry.blended);
     r.sourceRanks = entry.ranks;
+    r.sourceRankMeta = entry.meta;
     r.blendedSourceRank = blendedSourceRank;
     r.sourceCount = sourceRankValues.length;
 
-    // Trust/transparency fields — prefer backend values; compute fallback
-    const spread = sourceRankValues.length >= 2
-      ? Math.max(...sourceRankValues) - Math.min(...sourceRankValues)
-      : null;
+    // Backbone fallback caution: any position_idp source that had to
+    // translate with an empty ladder marks the whole row.
+    r.idpBackboneFallback = Object.values(entry.meta).some(
+      (m) => m && m.method === TRANSLATION_FALLBACK
+    );
+
+    const spread =
+      sourceRankValues.length >= 2
+        ? Math.max(...sourceRankValues) - Math.min(...sourceRankValues)
+        : null;
     r.sourceRankSpread = r.raw?.sourceRankSpread ?? spread;
-    r.isSingleSource = r.raw?.isSingleSource ?? (sourceRankValues.length === 1);
-    r.hasSourceDisagreement = r.raw?.hasSourceDisagreement ?? (spread !== null && spread > 80);
+    r.isSingleSource = r.raw?.isSingleSource ?? sourceRankValues.length === 1;
+    r.hasSourceDisagreement =
+      r.raw?.hasSourceDisagreement ?? (spread !== null && spread > 80);
     r.marketGapDirection = r.raw?.marketGapDirection ?? "none";
     r.marketGapMagnitude = r.raw?.marketGapMagnitude ?? null;
 
-    // Confidence bucket fallback (mirrors backend logic)
     if (r.raw?.confidenceBucket) {
       r.confidenceBucket = r.raw.confidenceBucket;
       r.confidenceLabel = r.raw.confidenceLabel || "";
     } else if (sourceRankValues.length >= 2 && spread !== null) {
-      if (spread <= 30) { r.confidenceBucket = "high"; r.confidenceLabel = "High — multi-source, tight agreement"; }
-      else if (spread <= 80) { r.confidenceBucket = "medium"; r.confidenceLabel = "Medium — multi-source, moderate spread"; }
-      else { r.confidenceBucket = "low"; r.confidenceLabel = "Low — single source or wide disagreement"; }
+      if (spread <= 30) {
+        r.confidenceBucket = "high";
+        r.confidenceLabel = "High — multi-source, tight agreement";
+      } else if (spread <= 80) {
+        r.confidenceBucket = "medium";
+        r.confidenceLabel = "Medium — multi-source, moderate spread";
+      } else {
+        r.confidenceBucket = "low";
+        r.confidenceLabel = "Low — single source or wide disagreement";
+      }
     } else {
       r.confidenceBucket = "low";
       r.confidenceLabel = "Low — single source or wide disagreement";
     }
     r.anomalyFlags = Array.isArray(r.raw?.anomalyFlags) ? r.raw.anomalyFlags : [];
 
-    // Backward compat
+    // Backward compat: consumers still read ktcRank / idpRank directly.
     if (entry.ranks.ktc) r.ktcRank = entry.ranks.ktc;
     if (entry.ranks.idpTradeCalc) r.idpRank = entry.ranks.idpTradeCalc;
   });

@@ -11,6 +11,7 @@
     {
       "enabled": true,
       "source": "KTC",
+      "contract_key": "ktc",
       "adapter": "scraper_bridge",
       "adapter_version": "1.0.0",
       "season": "2026",
@@ -24,11 +25,16 @@
       "includes_tep": true,
       "file": "exports/latest/site_raw/ktc.csv",
       "signal_type": "value",
+      "scope": {
+        "kind": "overall_offense",
+        "depth": null
+      },
       "notes": "KTC scraped in SF+TEP mode (?sf=1&tep=1). Crowd values natively include both. Do NOT re-apply."
     },
     {
       "enabled": true,
       "source": "IDPTRADECALC",
+      "contract_key": "idpTradeCalc",
       "adapter": "scraper_bridge",
       "adapter_version": "1.0.0",
       "season": "2026",
@@ -42,7 +48,12 @@
       "includes_tep": true,
       "file": "exports/latest/site_raw/idpTradeCalc.csv",
       "signal_type": "value",
-      "notes": "IDPTradeCalc values. API returns IDP players (DL/LB/DB). Offensive players (QB/RB/WR/TE) are obtained via autocomplete search using the KTC player pool as the target list. Both offense and IDP values are exported to the CSV."
+      "scope": {
+        "kind": "overall_idp",
+        "depth": null,
+        "is_backbone": true
+      },
+      "notes": "IDPTradeCalc values. API returns IDP players (DL/LB/DB). Offensive players (QB/RB/WR/TE) are obtained via autocomplete search using the KTC player pool as the target list. Both offense and IDP values are exported to the CSV. Acts as the default IDP backbone for translating position-only sources."
     }
   ]
 }

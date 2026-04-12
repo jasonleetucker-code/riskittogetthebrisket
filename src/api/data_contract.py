@@ -116,6 +116,74 @@ _SOURCE_CSV_PATHS = {
     "idpTradeCalc": "exports/latest/site_raw/idpTradeCalc.csv",
 }
 
+# ── Ranking source registry ──────────────────────────────────────────────
+# Declarative metadata describing each source that feeds the unified
+# ranking.  Keeping this in one list makes it trivial to add a new
+# position-only IDP source (e.g. a scouted "DL top 20"): append an entry
+# with scope="position_idp", position_group="DL", depth=20 and the
+# translation pipeline picks it up automatically.
+#
+# Fields:
+#   key           — the contract-side source key used in canonicalSiteValues
+#   display_name  — human label for methodology docs
+#   scope         — one of:
+#                     SOURCE_SCOPE_OVERALL_OFFENSE: ranks offense + picks
+#                     SOURCE_SCOPE_OVERALL_IDP:     ranks DL/LB/DB together
+#                     SOURCE_SCOPE_POSITION_IDP:    ranks a single IDP family
+#   position_group — for position_idp: "DL" | "LB" | "DB" (None otherwise)
+#   depth         — declared list depth (None means "full board").  Used to
+#                   scale the blend weight for shallow lists.
+#   weight        — declared relative weight; source weights in the
+#                   config/weights file can override this, but equal
+#                   weights is the current project default.
+#   is_backbone   — the first enabled overall_idp source with this flag is
+#                   used to build the translation backbone.
+from src.canonical.idp_backbone import (
+    SOURCE_SCOPE_OVERALL_IDP,
+    SOURCE_SCOPE_OVERALL_OFFENSE,
+    SOURCE_SCOPE_POSITION_IDP,
+    IdpBackbone,
+    build_backbone_from_rows,
+    coverage_weight,
+    translate_position_rank,
+    TRANSLATION_DIRECT,
+    TRANSLATION_FALLBACK,
+)
+
+_RANKING_SOURCES: list[dict[str, Any]] = [
+    {
+        "key": "ktc",
+        "display_name": "KeepTradeCut",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": None,
+        "weight": 1.0,
+        "is_backbone": False,
+    },
+    {
+        "key": "idpTradeCalc",
+        "display_name": "IDP Trade Calculator",
+        "scope": SOURCE_SCOPE_OVERALL_IDP,
+        "position_group": None,
+        "depth": None,
+        "weight": 1.0,
+        "is_backbone": True,
+    },
+]
+
+
+def _scope_eligible(pos: str, scope: str, position_group: str | None) -> bool:
+    """Return True if `pos` is eligible to receive a rank from a source
+    declaring the given scope.
+    """
+    if scope == SOURCE_SCOPE_OVERALL_OFFENSE:
+        return pos in _OFFENSE_POSITIONS or pos == "PICK"
+    if scope == SOURCE_SCOPE_OVERALL_IDP:
+        return pos in _IDP_POSITIONS
+    if scope == SOURCE_SCOPE_POSITION_IDP:
+        return bool(position_group) and pos == position_group
+    return False
+
 
 def _compute_confidence_bucket(
     source_count: int,
@@ -576,83 +644,185 @@ def _compute_unified_rankings(
 ) -> None:
     """Compute a single unified ranking across all sources and positions.
 
-    Step 1: For each source, rank eligible players by that source's value
-            descending to produce a source-specific ordinal rank.
-    Step 2: Convert each source rank to a normalized 1-9999 value via
-            rank_to_value() (Hill curve).
-    Step 3: For players with multiple sources (future), average the
-            normalized values.  Currently each player has exactly one source.
-    Step 4: Sort all players by their normalized value descending and assign
-            canonicalConsensusRank 1..N as the overall board position.
+    Architecture
+    ────────────
+    Ranking is scope-aware.  Each registered source in ``_RANKING_SOURCES``
+    declares one of three scopes:
+
+      * overall_offense — ranks across QB/RB/WR/TE + picks
+      * overall_idp     — ranks across DL/LB/DB together
+      * position_idp    — ranks within a single IDP family (DL, LB, or DB)
+
+    For ``position_idp`` sources, the raw positional rank is translated
+    through an IDP backbone (built from the best available overall_idp
+    source) into a synthetic overall-IDP rank.  That synthetic rank is
+    what actually feeds the shared Hill curve, so shallow top-20 lists
+    cannot pretend to be top-20 overall.
+
+    Per-source blending uses a coverage-aware weighted mean: shallow
+    sources with small declared depth contribute less than deep full-board
+    sources with identical declared weight.
 
     Stamps onto each row:
-      - sourceRanks: dict of {sourceKey: ordinalRank}
-      - rankDerivedValue: the normalized 1-9999 value from rank_to_value()
-      - canonicalConsensusRank: the unified overall rank (1 = best)
-      - blendedSourceRank: mean of per-source ordinal ranks (float, 2dp)
-      - sourceRankSpread: max - min source rank (None if < 2 sources)
-      - isSingleSource: True when exactly one source contributed
-      - hasSourceDisagreement: True when spread exceeds medium threshold
-      - marketGapDirection: "ktc_higher" | "idptc_higher" | "none"
-      - marketGapMagnitude: absolute ordinal rank difference (None if < 2)
-      - confidenceBucket: "high" | "medium" | "low" | "none"
-      - confidenceLabel: human-readable explanation of the bucket
-      - anomalyFlags: list[str] of machine-readable anomaly identifiers
-      - ktcRank / idpRank: preserved for backward compatibility
+      - sourceRanks:  dict[str, int] — effective rank per source (the
+                      integer fed into the Hill curve).  For position_idp
+                      sources this is the *synthetic* overall IDP rank.
+      - sourceRankMeta: dict[str, dict] — per-source transparency block:
+            { scope, positionGroup, rawRank, effectiveRank, method,
+              ladderDepth, weight, valueContribution }
+      - rankDerivedValue: int — blended Hill-curve value (1..9999)
+      - canonicalConsensusRank: int — unified overall rank (1 = best)
+      - blendedSourceRank: float — mean of effective per-source ranks
+      - sourceRankSpread: float | None — max-min of effective ranks
+      - isSingleSource, hasSourceDisagreement
+      - marketGapDirection / marketGapMagnitude
+      - confidenceBucket / confidenceLabel
+      - anomalyFlags
+      - ktcRank / idpRank — preserved for backward compatibility
     """
     from src.canonical.player_valuation import rank_to_value  # noqa: PLC0415
 
-    # ── Step 1: Per-source ordinal ranking ──
-    source_configs = [
-        ("ktc", lambda row: _safe_num((row.get("canonicalSiteValues") or {}).get("ktc"))),
-        ("idpTradeCalc", lambda row: _safe_num((row.get("canonicalSiteValues") or {}).get("idpTradeCalc"))),
-    ]
+    # ── Phase 0: Build IDP backbone from the designated backbone source ──
+    # The first enabled source with scope=overall_idp and is_backbone=True
+    # wins.  If no backbone source is present, position_idp sources fall
+    # back to treating their raw rank as a synthetic overall rank and get
+    # a caution flag on the per-source meta.
+    backbone_source_key: str | None = None
+    for src in _RANKING_SOURCES:
+        if src["scope"] == SOURCE_SCOPE_OVERALL_IDP and src.get("is_backbone"):
+            backbone_source_key = src["key"]
+            break
+    if backbone_source_key:
+        backbone = build_backbone_from_rows(
+            players_array,
+            source_key=backbone_source_key,
+            idp_positions=_IDP_POSITIONS,
+        )
+    else:
+        backbone = IdpBackbone()
 
-    # Track per-source rank for each row index
+    # ── Phase 1: Per-source ordinal ranking within scope ──
+    # row_source_ranks[row_idx][source_key] = effective rank (int)
+    # row_source_meta[row_idx][source_key] = transparency dict
     row_source_ranks: dict[int, dict[str, int]] = {}
+    row_source_meta: dict[int, dict[str, dict[str, Any]]] = {}
+    # For backbone assertion: remember the actual ladder depth used
+    backbone_depth = backbone.depth
 
-    for source_key, value_fn in source_configs:
-        eligible: list[tuple[float, int]] = []  # (value, row_index)
+    for src in _RANKING_SOURCES:
+        source_key: str = src["key"]
+        scope: str = src["scope"]
+        position_group: str | None = src.get("position_group")
+
+        # Gather eligible (value, row_idx) tuples under this source's scope.
+        eligible: list[tuple[float, int]] = []
         for idx, row in enumerate(players_array):
             pos = str(row.get("position") or "").strip().upper()
             if pos not in _RANKABLE_POSITIONS:
                 continue
-            val = value_fn(row)
+            if not _scope_eligible(pos, scope, position_group):
+                continue
+            sites = row.get("canonicalSiteValues") or {}
+            val = _safe_num(sites.get(source_key))
             if val is None or val <= 0:
                 continue
             eligible.append((val, idx))
 
         eligible.sort(key=lambda t: -t[0])
-        for rank_idx, (_, row_idx) in enumerate(eligible):
-            ordinal_rank = rank_idx + 1
-            row_source_ranks.setdefault(row_idx, {})[source_key] = ordinal_rank
 
-    # ── Step 2-3: Normalized value (Hill curve) and blend ──
-    row_normalized: list[tuple[float, int]] = []  # (normalized_value, row_index)
+        for rank_idx, (_, row_idx) in enumerate(eligible):
+            raw_rank = rank_idx + 1
+
+            # Translate to effective overall-style rank based on scope.
+            if scope == SOURCE_SCOPE_POSITION_IDP and position_group:
+                ladder = backbone.ladder_for(position_group)
+                effective_rank, method = translate_position_rank(
+                    raw_rank, ladder
+                )
+            else:
+                effective_rank = raw_rank
+                method = TRANSLATION_DIRECT
+
+            row_source_ranks.setdefault(row_idx, {})[source_key] = effective_rank
+            row_source_meta.setdefault(row_idx, {})[source_key] = {
+                "scope": scope,
+                "positionGroup": position_group,
+                "rawRank": raw_rank,
+                "effectiveRank": effective_rank,
+                "method": method,
+                "ladderDepth": (
+                    len(backbone.ladder_for(position_group))
+                    if scope == SOURCE_SCOPE_POSITION_IDP and position_group
+                    else None
+                ),
+                "backboneDepth": (
+                    backbone_depth
+                    if scope == SOURCE_SCOPE_POSITION_IDP
+                    else None
+                ),
+                "depth": src.get("depth"),
+                "weight": float(src.get("weight") or 0.0),
+            }
+
+    # ── Phase 2-3: Normalized value (Hill curve) + coverage-aware blend ──
+    # Look up each source's weight / depth once.
+    src_by_key: dict[str, dict[str, Any]] = {s["key"]: s for s in _RANKING_SOURCES}
+
+    row_normalized: list[tuple[float, int]] = []  # (blended_value, row_idx)
     for row_idx, source_ranks in row_source_ranks.items():
-        # Convert each source rank to normalized value, then average
-        normalized_values = [rank_to_value(r) for r in source_ranks.values()]
-        blended_value = sum(normalized_values) / len(normalized_values)
+        weighted_sum = 0.0
+        weight_total = 0.0
+        for source_key, eff_rank in source_ranks.items():
+            src_def = src_by_key.get(source_key, {})
+            declared_weight = float(src_def.get("weight") or 1.0)
+            effective_weight = coverage_weight(declared_weight, src_def.get("depth"))
+            value = float(rank_to_value(eff_rank))
+            weighted_sum += value * effective_weight
+            weight_total += effective_weight
+            # Stamp value contribution onto per-source meta (for debugging)
+            meta = row_source_meta[row_idx].get(source_key, {})
+            meta["valueContribution"] = int(round(value))
+            meta["effectiveWeight"] = round(effective_weight, 4)
+
+        if weight_total > 0:
+            blended_value = weighted_sum / weight_total
+        else:
+            # Defensive: a row with sources but zero effective weight
+            # (e.g. all sources had depth 0) still needs a value so it
+            # doesn't silently drop off the board.
+            values = [float(rank_to_value(r)) for r in source_ranks.values()]
+            blended_value = sum(values) / len(values) if values else 0.0
         row_normalized.append((blended_value, row_idx))
 
-    # ── Step 4: Unified sort and overall rank assignment ──
-    row_normalized.sort(key=lambda t: (-t[0], players_array[t[1]].get("canonicalName", "").lower()))
+    # ── Phase 4: Unified sort and overall rank assignment ──
+    row_normalized.sort(
+        key=lambda t: (-t[0], players_array[t[1]].get("canonicalName", "").lower())
+    )
 
-    for overall_idx, (norm_val, row_idx) in enumerate(row_normalized[:OVERALL_RANK_LIMIT]):
+    for overall_idx, (norm_val, row_idx) in enumerate(
+        row_normalized[:OVERALL_RANK_LIMIT]
+    ):
         row = players_array[row_idx]
         overall_rank = overall_idx + 1
         derived = int(norm_val)
         source_ranks = row_source_ranks.get(row_idx, {})
+        source_meta = row_source_meta.get(row_idx, {})
         rank_values = list(source_ranks.values())
 
-        # ── Core ranking fields (existing) ──
+        # ── Core ranking fields ──
         row["sourceRanks"] = source_ranks
+        row["sourceRankMeta"] = source_meta
         row["rankDerivedValue"] = derived
         row["canonicalConsensusRank"] = overall_rank
         row["sourceCount"] = len(source_ranks)
 
-        # ── New trust/transparency fields ──
-        # Blended source rank: mean of per-source ordinal ranks
+        # Caution flag when any IDP source required fallback translation
+        used_fallback = any(
+            m.get("method") == TRANSLATION_FALLBACK for m in source_meta.values()
+        )
+        row["idpBackboneFallback"] = used_fallback
+
+        # ── Trust/transparency fields (effective rank space) ──
         blended_source_rank = (
             sum(rank_values) / len(rank_values) if rank_values else None
         )
@@ -660,32 +830,25 @@ def _compute_unified_rankings(
             round(blended_source_rank, 2) if blended_source_rank is not None else None
         )
 
-        # Source rank spread: max - min across sources (None if < 2 sources)
         source_rank_spread: float | None = None
         if len(rank_values) >= 2:
             source_rank_spread = float(max(rank_values) - min(rank_values))
         row["sourceRankSpread"] = source_rank_spread
 
-        # Single-source flag
         row["isSingleSource"] = len(source_ranks) == 1
-
-        # Source disagreement flag (True when spread exceeds medium threshold)
         row["hasSourceDisagreement"] = (
             source_rank_spread is not None
             and source_rank_spread > _CONFIDENCE_SPREAD_MEDIUM
         )
 
-        # Market gap: which source ranks the player higher
         gap_dir, gap_mag = _compute_market_gap(source_ranks)
         row["marketGapDirection"] = gap_dir
         row["marketGapMagnitude"] = gap_mag
 
-        # Confidence bucket
         bucket, label = _compute_confidence_bucket(len(source_ranks), source_rank_spread)
         row["confidenceBucket"] = bucket
         row["confidenceLabel"] = label
 
-        # Anomaly flags
         row["anomalyFlags"] = _compute_anomaly_flags(
             name=row.get("canonicalName") or row.get("displayName") or "",
             position=row.get("position"),
@@ -695,7 +858,10 @@ def _compute_unified_rankings(
             canonical_sites=row.get("canonicalSiteValues") or {},
         )
 
-        # Backward compatibility: set ktcRank / idpRank if applicable
+        # Backward compatibility: set ktcRank / idpRank if applicable.
+        # ktcRank and idpRank carry the *effective* rank consumers are used
+        # to; for the backbone source (overall_idp) that's identical to the
+        # raw ordinal rank, so semantics are unchanged for idpTradeCalc.
         if "ktc" in source_ranks:
             row["ktcRank"] = source_ranks["ktc"]
         if "idpTradeCalc" in source_ranks:
@@ -1094,24 +1260,38 @@ def build_api_data_contract(
     methodology: dict[str, Any] = {
         "version": CONTRACT_VERSION,
         "description": (
-            "Unified dynasty + IDP rankings board. Each player is ranked "
-            "within their source(s) by raw source value descending, then "
-            "converted to a 1-9999 normalized value via a Hill-curve formula. "
-            "Players with multiple sources have their normalized values "
-            "averaged. All players are sorted by normalized value into one "
-            "unified board capped at {limit} entries."
-        ).format(limit=OVERALL_RANK_LIMIT),
+            "Scope-aware unified dynasty + IDP rankings board. Each registered "
+            "source declares a scope (overall_offense, overall_idp, or "
+            "position_idp) and is ranked only over eligible players. For "
+            "position_idp sources (e.g. a top-20 DL list) the raw positional "
+            "rank is translated through an IDP backbone ladder — built from the "
+            "first overall_idp source flagged is_backbone — into a synthetic "
+            "overall-IDP rank, so shallow position-only lists cannot pretend to "
+            "be full-board rankings. Each effective rank is then converted to a "
+            "1-9999 value via the shared Hill curve and blended across sources "
+            "with a coverage-aware weighted mean: declared weight is scaled by "
+            "min(1, depth / {min_depth}) so shallow lists contribute less than "
+            "deep full-board sources. All players are sorted by blended value "
+            "into one unified board capped at {limit} entries."
+        ).format(limit=OVERALL_RANK_LIMIT, min_depth=60),
         "sources": [
             {
-                "key": "ktc",
-                "name": "KeepTradeCut",
-                "covers": "Offense (QB, RB, WR, TE) + draft picks",
-            },
-            {
-                "key": "idpTradeCalc",
-                "name": "IDP Trade Calculator",
-                "covers": "IDP (DL, LB, DB)",
-            },
+                "key": src["key"],
+                "name": src["display_name"],
+                "scope": src["scope"],
+                "positionGroup": src.get("position_group"),
+                "depth": src.get("depth"),
+                "weight": src.get("weight"),
+                "isBackbone": bool(src.get("is_backbone")),
+                "covers": (
+                    "Offense (QB, RB, WR, TE) + draft picks"
+                    if src["scope"] == SOURCE_SCOPE_OVERALL_OFFENSE
+                    else "IDP full board (DL, LB, DB)"
+                    if src["scope"] == SOURCE_SCOPE_OVERALL_IDP
+                    else f"IDP position group: {src.get('position_group')}"
+                ),
+            }
+            for src in _RANKING_SOURCES
         ],
         "formula": {
             "name": "Hill curve",
@@ -1120,6 +1300,30 @@ def build_api_data_contract(
             "slope": 1.10,
             "scaleMin": 1,
             "scaleMax": 9999,
+        },
+        "idpTranslation": {
+            "description": (
+                "position_idp sources are translated into synthetic overall-IDP "
+                "ranks using an anchor ladder built from the backbone source. "
+                "Integer ranks inside the ladder are exact anchors; fractional "
+                "ranks interpolate linearly; ranks past the tail extrapolate "
+                "using the average spacing of the last five anchors; empty "
+                "ladders fall back to a pass-through and the row is flagged "
+                "idpBackboneFallback=true."
+            ),
+            "methods": [
+                "direct",
+                "exact",
+                "interpolated",
+                "extrapolated",
+                "fallback",
+            ],
+            "coverageWeight": {
+                "description": (
+                    "effective_weight = declared_weight * min(1, depth / min_full_depth)"
+                ),
+                "minFullDepth": 60,
+            },
         },
         "confidenceBuckets": {
             "high": "2+ sources, sourceRankSpread <= 30",
