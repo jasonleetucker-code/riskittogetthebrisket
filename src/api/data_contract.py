@@ -861,7 +861,7 @@ def _compute_unified_rankings(
     else:
         backbone = IdpBackbone()
 
-    # ── Phase 1: Per-source ordinal ranking within scope ──
+    # ── Phase 1: Combined-pass ordinal ranking per source ──
     # row_source_ranks[row_idx][source_key] = effective rank (int)
     # row_source_meta[row_idx][source_key] = transparency dict
     row_source_ranks: dict[int, dict[str, int]] = {}
@@ -872,65 +872,85 @@ def _compute_unified_rankings(
     for src in _RANKING_SOURCES:
         source_key: str = src["key"]
         position_group: str | None = src.get("position_group")
+        primary_scope: str = src["scope"]
         # A source may contribute to multiple scopes (e.g. IDPTradeCalc
-        # lists both offense and IDP players in one value pool).  Each
-        # scope runs its own eligibility + ordinal ranking pass.  Offense
-        # and IDP position sets are disjoint, so sourceRanks[source_key]
-        # is written at most once per row across the passes.
-        scopes_to_rank: list[str] = [src["scope"]] + list(
+        # lists both offense and IDP players in one value pool on a shared
+        # 0-9999 scale).  Earlier revisions ran a separate ordinal pass per
+        # scope, which restarted at rank 1 in each scope and destroyed the
+        # cross-universe ordering encoded in the source's raw values — the
+        # #1 IDP and the #1 offense player both got rank 1 → value 9999.
+        #
+        # Instead, gather every row eligible under ANY of this source's
+        # declared scopes into ONE pool and rank them together.  For
+        # single-scope sources this is equivalent to the old per-scope
+        # pass.  For dual-scope IDPTradeCalc it preserves the combined
+        # offense+IDP ordering: Will Anderson's raw IDPTC value 5963 lands
+        # at overall rank ~40 alongside the full offense ladder, not rank
+        # 1 of a restarted IDP-only pass.
+        all_scopes: list[str] = [primary_scope] + list(
             src.get("extra_scopes") or []
         )
-        for scope in scopes_to_rank:
 
-            # Gather eligible (value, row_idx) tuples under this source's scope.
-            eligible: list[tuple[float, int]] = []
-            for idx, row in enumerate(players_array):
-                pos = str(row.get("position") or "").strip().upper()
-                if pos not in _RANKABLE_POSITIONS:
-                    continue
-                if not _scope_eligible(pos, scope, position_group):
-                    continue
-                sites = row.get("canonicalSiteValues") or {}
-                val = _safe_num(sites.get(source_key))
-                if val is None or val <= 0:
-                    continue
-                eligible.append((val, idx))
+        # Gather eligible (value, row_idx, scope_for_row) tuples.  A row is
+        # eligible if any of the source's declared scopes accept its
+        # position.  Offense and IDP position sets are disjoint, so each
+        # row belongs to exactly one scope for a given source.
+        eligible: list[tuple[float, int, str]] = []
+        for idx, row in enumerate(players_array):
+            pos = str(row.get("position") or "").strip().upper()
+            if pos not in _RANKABLE_POSITIONS:
+                continue
+            row_scope: str | None = None
+            for s in all_scopes:
+                if _scope_eligible(pos, s, position_group):
+                    row_scope = s
+                    break
+            if row_scope is None:
+                continue
+            sites = row.get("canonicalSiteValues") or {}
+            val = _safe_num(sites.get(source_key))
+            if val is None or val <= 0:
+                continue
+            eligible.append((val, idx, row_scope))
 
-            eligible.sort(key=lambda t: -t[0])
+        eligible.sort(key=lambda t: -t[0])
 
-            for rank_idx, (_, row_idx) in enumerate(eligible):
-                raw_rank = rank_idx + 1
+        for rank_idx, (_, row_idx, row_scope) in enumerate(eligible):
+            raw_rank = rank_idx + 1
 
-                # Translate to effective overall-style rank based on scope.
-                if scope == SOURCE_SCOPE_POSITION_IDP and position_group:
-                    ladder = backbone.ladder_for(position_group)
-                    effective_rank, method = translate_position_rank(
-                        raw_rank, ladder
-                    )
-                else:
-                    effective_rank = raw_rank
-                    method = TRANSLATION_DIRECT
+            # Translate to effective overall-style rank based on scope.
+            # position_idp sources (shallow positional lists like DL-only)
+            # still get backbone translation.  overall_* scopes — including
+            # the cross-universe combined pool — pass through directly.
+            if row_scope == SOURCE_SCOPE_POSITION_IDP and position_group:
+                ladder = backbone.ladder_for(position_group)
+                effective_rank, method = translate_position_rank(
+                    raw_rank, ladder
+                )
+            else:
+                effective_rank = raw_rank
+                method = TRANSLATION_DIRECT
 
-                row_source_ranks.setdefault(row_idx, {})[source_key] = effective_rank
-                row_source_meta.setdefault(row_idx, {})[source_key] = {
-                    "scope": scope,
-                    "positionGroup": position_group,
-                    "rawRank": raw_rank,
-                    "effectiveRank": effective_rank,
-                    "method": method,
-                    "ladderDepth": (
-                        len(backbone.ladder_for(position_group))
-                        if scope == SOURCE_SCOPE_POSITION_IDP and position_group
-                        else None
-                    ),
-                    "backboneDepth": (
-                        backbone_depth
-                        if scope == SOURCE_SCOPE_POSITION_IDP
-                        else None
-                    ),
-                    "depth": src.get("depth"),
-                    "weight": float(src.get("weight") or 0.0),
-                }
+            row_source_ranks.setdefault(row_idx, {})[source_key] = effective_rank
+            row_source_meta.setdefault(row_idx, {})[source_key] = {
+                "scope": row_scope,
+                "positionGroup": position_group,
+                "rawRank": raw_rank,
+                "effectiveRank": effective_rank,
+                "method": method,
+                "ladderDepth": (
+                    len(backbone.ladder_for(position_group))
+                    if row_scope == SOURCE_SCOPE_POSITION_IDP and position_group
+                    else None
+                ),
+                "backboneDepth": (
+                    backbone_depth
+                    if row_scope == SOURCE_SCOPE_POSITION_IDP
+                    else None
+                ),
+                "depth": src.get("depth"),
+                "weight": float(src.get("weight") or 0.0),
+            }
 
     # ── Phase 2-3: Normalized value (Hill curve) + coverage-aware blend ──
     # Look up each source's weight / depth once.

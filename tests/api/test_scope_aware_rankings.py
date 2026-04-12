@@ -499,6 +499,119 @@ class TestGDualScopeIdpTradeCalc(unittest.TestCase):
         self.assertEqual(both["sourceRanks"]["idpTradeCalc"], 1)
 
 
+class TestHCrossUniverseRanking(unittest.TestCase):
+    """H. Cross-universe ranking for dual-scope sources.
+
+    IDPTradeCalc prices both offense and IDP players on a shared 0-9999
+    scale.  Earlier revisions ran a separate ordinal pass per scope,
+    which restarted at rank 1 in each scope and lost the cross-universe
+    ordering encoded in the raw values — the top offense and top IDP
+    player both received IDPTC rank 1 → Hill value 9999.
+
+    These tests lock the combined-pass behaviour: a single ordinal
+    ranking is computed across the union of rows eligible under ANY of
+    the source's declared scopes.  An IDP player with an IDPTC raw value
+    of 5963 that sits behind ~38 offense players must receive IDPTC
+    rank 39 (or thereabouts), not rank 1.
+    """
+
+    def test_idp_player_ranks_behind_offense_with_higher_raw_value(self):
+        """Top offense players outrank the top IDP under IDPTC's shared
+        value pool, even though the IDP is the #1 IDP-only entry.
+        """
+        rows = [
+            # Four offense players, raw IDPTC values higher than the top IDP.
+            _row("qb_elite", "QB", ktc=9999, idp=9987),
+            _row("wr_elite", "WR", ktc=9800, idp=9500),
+            _row("rb_elite", "RB", ktc=9600, idp=9200),
+            _row("te_elite", "TE", ktc=9400, idp=8800),
+            # Top IDP with a big raw IDPTC value but still below the
+            # offense starters.
+            _row("dl_top", "DL", idp=5963),
+            _row("lb_top", "LB", idp=5400),
+        ]
+        _compute_unified_rankings(rows, {})
+
+        dl = next(r for r in rows if r["canonicalName"] == "dl_top")
+        lb = next(r for r in rows if r["canonicalName"] == "lb_top")
+        qb = next(r for r in rows if r["canonicalName"] == "qb_elite")
+
+        # IDPTC ranks come from the combined pool: 4 offense players
+        # sit above dl_top (all with higher raw values).
+        self.assertEqual(qb["sourceRanks"]["idpTradeCalc"], 1)
+        self.assertEqual(dl["sourceRanks"]["idpTradeCalc"], 5)
+        self.assertEqual(lb["sourceRanks"]["idpTradeCalc"], 6)
+
+    def test_top_idp_does_not_get_rank_one_when_offense_outvalues(self):
+        """Regression guard for the previous per-scope restart bug: the
+        top IDP used to be rank 1 of the IDP scope → Hill value 9999,
+        even though offense players had higher raw values.
+        """
+        # Build a 40-player offense ladder whose raw IDPTC values all sit
+        # above the top IDP, mirroring the production distribution where
+        # ~40 offense stars outvalue the #1 DL on IDPTC's combined pool.
+        rows = [
+            _row(f"off{i}", "QB" if i % 2 == 0 else "WR",
+                 ktc=9999 - i * 10, idp=9900 - i * 80)
+            for i in range(40)
+        ]
+        rows.append(_row("dl_top", "DL", idp=5963))
+        _compute_unified_rankings(rows, {})
+
+        dl = next(r for r in rows if r["canonicalName"] == "dl_top")
+        # All 40 offense players have IDPTC raw value > 5963 (the lowest
+        # offense value is 9900 - 39*80 = 6780 > 5963), so dl_top lands
+        # at combined rank 41.  Under the old buggy per-scope pass, his
+        # IDP scope would have restarted at rank 1 and assigned him 9999.
+        self.assertEqual(dl["sourceRanks"]["idpTradeCalc"], 41)
+        # Rank 41 in the combined pool maps to a Hill value meaningfully
+        # below 9999 — the exact number is an implementation detail, but
+        # it must be well below the offense leaders.
+        self.assertLess(dl["rankDerivedValue"], 8000)
+
+    def test_combined_pass_preserves_tags_per_row_scope(self):
+        """Each row's IDPTradeCalc meta still reflects whichever scope
+        its position falls under, even though the ordinal ranking is
+        combined.  Offense rows → overall_offense, IDP rows → overall_idp.
+        """
+        rows = [
+            _row("qb1", "QB", ktc=9000, idp=9000),
+            _row("dl1", "DL", idp=5000),
+        ]
+        _compute_unified_rankings(rows, {})
+        qb1 = next(r for r in rows if r["canonicalName"] == "qb1")
+        dl1 = next(r for r in rows if r["canonicalName"] == "dl1")
+        self.assertEqual(
+            qb1["sourceRankMeta"]["idpTradeCalc"]["scope"],
+            SOURCE_SCOPE_OVERALL_OFFENSE,
+        )
+        self.assertEqual(
+            dl1["sourceRankMeta"]["idpTradeCalc"]["scope"],
+            SOURCE_SCOPE_OVERALL_IDP,
+        )
+        # Raw rank is the combined-pool rank for both rows.
+        self.assertEqual(qb1["sourceRankMeta"]["idpTradeCalc"]["rawRank"], 1)
+        self.assertEqual(dl1["sourceRankMeta"]["idpTradeCalc"]["rawRank"], 2)
+
+    def test_single_scope_source_unchanged_by_combined_pass(self):
+        """KTC declares only overall_offense with no extra_scopes, so the
+        combined pass reduces to the single-scope pass.  Offense-only
+        ordinal ranking must remain unchanged.
+        """
+        rows = [
+            _row("wr1", "WR", ktc=9500),
+            _row("wr2", "WR", ktc=9000),
+            _row("wr3", "WR", ktc=8000),
+            _row("dl1", "DL", idp=9999),  # IDP should not appear in KTC ranks
+        ]
+        _compute_unified_rankings(rows, {})
+        self.assertEqual(rows[0]["sourceRanks"]["ktc"], 1)
+        self.assertEqual(rows[1]["sourceRanks"]["ktc"], 2)
+        self.assertEqual(rows[2]["sourceRanks"]["ktc"], 3)
+        dl1 = next(r for r in rows if r["canonicalName"] == "dl1")
+        self.assertNotIn("ktc", dl1["sourceRanks"])
+
+
 class TestFEdgeCases(unittest.TestCase):
     """F. Edge cases: missing backbone, zero values, empty input."""
 

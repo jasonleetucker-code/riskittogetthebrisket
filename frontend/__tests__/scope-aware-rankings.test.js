@@ -260,6 +260,74 @@ describe("Dual-scope IDPTradeCalc: offense + IDP contribution", () => {
   });
 });
 
+// ── H. Cross-universe ranking for dual-scope sources ────────────────
+// Frontend mirror of TestHCrossUniverseRanking in the backend.
+//
+// IDPTradeCalc prices both offense and IDP players on a shared 0-9999
+// scale, so its ordinal rank must be computed over the UNION of offense
+// and IDP rows, not per-scope.  Earlier revisions re-ranked each scope
+// from 1, which mapped the top IDP player to Hill value 9999 even when
+// dozens of offense players had higher raw IDPTC values.
+describe("H. Cross-universe IDPTradeCalc ranking", () => {
+  it("ranks a top IDP behind offense starters with higher raw values", () => {
+    const rows = buildRows({
+      playersArray: [
+        row("qb_elite", "QB", { ktc: 9999, idp: 9987 }),
+        row("wr_elite", "WR", { ktc: 9800, idp: 9500 }),
+        row("rb_elite", "RB", { ktc: 9600, idp: 9200 }),
+        row("te_elite", "TE", { ktc: 9400, idp: 8800 }),
+        row("dl_top", "DL", { idp: 5963 }),
+        row("lb_top", "LB", { idp: 5400 }),
+      ],
+    });
+    const qb = rows.find((r) => r.name === "qb_elite");
+    const dl = rows.find((r) => r.name === "dl_top");
+    const lb = rows.find((r) => r.name === "lb_top");
+
+    // Combined pool: qb=9987, wr=9500, rb=9200, te=8800, dl=5963, lb=5400
+    expect(qb.sourceRanks.idpTradeCalc).toBe(1);
+    expect(dl.sourceRanks.idpTradeCalc).toBe(5);
+    expect(lb.sourceRanks.idpTradeCalc).toBe(6);
+  });
+
+  it("does not award rank 1 to the top IDP when offense outvalues it", () => {
+    // Mirrors the backend regression guard: a 40-player offense ladder
+    // whose raw IDPTC values all sit above the top IDP.
+    const playersArray = [];
+    for (let i = 0; i < 40; i++) {
+      playersArray.push(
+        row(`off${i}`, i % 2 === 0 ? "QB" : "WR", {
+          ktc: 9999 - i * 10,
+          idp: 9900 - i * 80,
+        })
+      );
+    }
+    playersArray.push(row("dl_top", "DL", { idp: 5963 }));
+    const rows = buildRows({ playersArray });
+    const dl = rows.find((r) => r.name === "dl_top");
+    // Lowest offense IDPTC value is 9900 - 39*80 = 6780 > 5963, so
+    // dl_top lands at combined rank 41.
+    expect(dl.sourceRanks.idpTradeCalc).toBe(41);
+    expect(dl.rankDerivedValue).toBeLessThan(8000);
+  });
+
+  it("tags row scope per position even though ranking is combined", () => {
+    const rows = buildRows({
+      playersArray: [
+        row("qb1", "QB", { ktc: 9000, idp: 9000 }),
+        row("dl1", "DL", { idp: 5000 }),
+      ],
+    });
+    const qb1 = rows.find((r) => r.name === "qb1");
+    const dl1 = rows.find((r) => r.name === "dl1");
+    expect(qb1.sourceRankMeta.idpTradeCalc.scope).toBe("overall_offense");
+    expect(dl1.sourceRankMeta.idpTradeCalc.scope).toBe("overall_idp");
+    // rawRank is the combined-pool rank for both rows.
+    expect(qb1.sourceRankMeta.idpTradeCalc.rawRank).toBe(1);
+    expect(dl1.sourceRankMeta.idpTradeCalc.rawRank).toBe(2);
+  });
+});
+
 // ── G. DLF (Dynasty League Football) IDP source parity ──────────────
 // DLF is registered as a second overall_idp source alongside the
 // IDPTradeCalc backbone.  Both are full-board (no depth penalty), both
