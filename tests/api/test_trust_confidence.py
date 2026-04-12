@@ -9,34 +9,82 @@ Covers:
 """
 from __future__ import annotations
 
+import copy
 import unittest
 
 from src.api.data_contract import (
     OVERALL_RANK_LIMIT,
+    _RANKING_SOURCES,
     _compute_confidence_bucket,
     _compute_anomaly_flags,
     _compute_market_gap,
     _compute_unified_rankings,
     build_api_data_contract,
 )
+from src.canonical.idp_backbone import SOURCE_SCOPE_OVERALL_OFFENSE
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def _make_player(name, position, *, ktc=None, idp=None, team="TST"):
-    """Build a minimal raw player dict for contract builder tests."""
+class _SecondOffenseSourceMixin:
+    """Mixin that temporarily registers a second `overall_offense` source.
+
+    Under the scope-aware ranking pipeline a QB can only be ranked by
+    overall_offense sources, so exercising any "multi-source" confidence
+    path on an offense player requires two sources sharing that scope.
+    Tests that relied on the old position-agnostic ranking used KTC+IDP
+    on a QB — that's not possible (and not correct) under scope gating.
+    This mixin installs a synthetic sibling source for the duration of
+    one test so the two-source path is testable without faking anything.
+    """
+
+    _SIBLING_KEY = "ktcMirror"
+
+    def setUp(self) -> None:  # noqa: D401 - unittest signature
+        self._saved_registry = copy.deepcopy(_RANKING_SOURCES)
+        _RANKING_SOURCES.append(
+            {
+                "key": self._SIBLING_KEY,
+                "display_name": "KTC Mirror (test)",
+                "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+                "position_group": None,
+                "depth": None,
+                "weight": 1.0,
+                "is_backbone": False,
+            }
+        )
+
+    def tearDown(self) -> None:  # noqa: D401 - unittest signature
+        _RANKING_SOURCES.clear()
+        _RANKING_SOURCES.extend(self._saved_registry)
+
+
+def _make_player(name, position, *, ktc=None, idp=None, team="TST", sibling=None):
+    """Build a minimal raw player dict for contract builder tests.
+
+    `sibling` attaches a value under the test-only `ktcMirror` key that
+    `_SecondOffenseSourceMixin` temporarily registers as a second
+    overall_offense source.
+    """
     sites = {}
     if ktc is not None:
         sites["ktc"] = ktc
     if idp is not None:
         sites["idpTradeCalc"] = idp
+    if sibling is not None:
+        sites["ktcMirror"] = sibling
+    composite_max = max(ktc or 0, idp or 0, sibling or 0)
     return {
         name: {
-            "_composite": max(ktc or 0, idp or 0),
-            "_rawComposite": max(ktc or 0, idp or 0),
-            "_finalAdjusted": max(ktc or 0, idp or 0),
-            "_sites": (1 if ktc else 0) + (1 if idp else 0),
+            "_composite": composite_max,
+            "_rawComposite": composite_max,
+            "_finalAdjusted": composite_max,
+            "_sites": (
+                (1 if ktc else 0)
+                + (1 if idp else 0)
+                + (1 if sibling else 0)
+            ),
             "position": position,
             "team": team,
             "_canonicalSiteValues": sites,
@@ -293,20 +341,24 @@ class TestSingleSourceRow(unittest.TestCase):
 # ── Integration: two-source player row ───────────────────────────────────────
 
 
-class TestTwoSourceRow(unittest.TestCase):
+class TestTwoSourceRow(_SecondOffenseSourceMixin, unittest.TestCase):
 
     def test_two_source_player_tight_agreement(self):
-        """Two sources with similar values → high confidence, no disagreement."""
+        """Two offense sources with similar values → high confidence,
+        no disagreement.  Uses the test-only ktcMirror sibling source
+        registered by the mixin, because KTC and idpTradeCalc have
+        disjoint scopes and can never both rank the same player.
+        """
         payload = _payload_with_players(
-            _make_player("Two Source Guy", "QB", ktc=9000, idp=8800),
+            _make_player("Two Source Guy", "QB", ktc=9000, sibling=8800),
         )
         row = _build_and_find(payload, "Two Source Guy")
         self.assertIsNotNone(row)
         self.assertFalse(row["isSingleSource"])
         self.assertIsNotNone(row["sourceRankSpread"])
-        # Both sources exist
+        # Both offense sources exist
         self.assertIn("ktc", row.get("sourceRanks", {}))
-        self.assertIn("idpTradeCalc", row.get("sourceRanks", {}))
+        self.assertIn("ktcMirror", row.get("sourceRanks", {}))
         # blendedSourceRank should be a number
         self.assertIsNotNone(row["blendedSourceRank"])
         self.assertIsInstance(row["blendedSourceRank"], float)
@@ -514,8 +566,13 @@ class TestMultiFlagScenarios(unittest.TestCase):
             self.assertGreater(row["sourceRankSpread"], 50)
 
 
-class TestEdgeCaseFixtures(unittest.TestCase):
-    """Regression fixtures for edge-case row types."""
+class TestEdgeCaseFixtures(_SecondOffenseSourceMixin, unittest.TestCase):
+    """Regression fixtures for edge-case row types.
+
+    Uses the _SecondOffenseSourceMixin so the multi-source consensus
+    test below can attach a second overall_offense source (ktcMirror)
+    alongside KTC.
+    """
 
     def test_single_source_offense_player(self):
         payload = _payload_with_players(
@@ -536,9 +593,14 @@ class TestEdgeCaseFixtures(unittest.TestCase):
         self.assertEqual(row["confidenceBucket"], "low")
 
     def test_high_confidence_consensus_asset(self):
-        """Multi-source with tight agreement = high confidence."""
+        """Multi-source with tight agreement = high confidence.
+
+        Uses two overall_offense sources (ktc + ktcMirror) because KTC
+        and idpTradeCalc have disjoint scopes under the scope-aware
+        ranking pipeline.
+        """
         payload = _payload_with_players(
-            _make_player("Consensus QB", "QB", ktc=9000, idp=8900),
+            _make_player("Consensus QB", "QB", ktc=9000, sibling=8900),
         )
         row = _build_and_find(payload, "Consensus QB")
         self.assertFalse(row["isSingleSource"])
@@ -561,7 +623,7 @@ class TestEdgeCaseFixtures(unittest.TestCase):
             self.assertIn(field, row, f"Missing trust field: {field}")
 
 
-class TestTrustMirrorToLegacy(unittest.TestCase):
+class TestTrustMirrorToLegacy(_SecondOffenseSourceMixin, unittest.TestCase):
     """Trust fields must be mirrored from playersArray → legacy players dict.
 
     The runtime view strips playersArray.  The frontend falls back to the
@@ -625,9 +687,14 @@ class TestTrustMirrorToLegacy(unittest.TestCase):
         self.assertIn("confidenceBucket", legacy_entry)
 
     def test_multi_source_high_confidence_mirrored(self):
-        """A multi-source player with tight agreement gets 'high' mirrored."""
+        """A multi-source player with tight agreement gets 'high' mirrored.
+
+        Uses two overall_offense sources (ktc + ktcMirror) via the mixin
+        because KTC and idpTradeCalc have disjoint scopes and cannot
+        both rank a QB under the scope-aware pipeline.
+        """
         payload = _payload_with_players(
-            _make_player("Dual QB", "QB", ktc=8000, idp=8000),
+            _make_player("Dual QB", "QB", ktc=8000, sibling=8000),
         )
         contract = build_api_data_contract(payload)
         legacy_entry = contract["players"]["Dual QB"]

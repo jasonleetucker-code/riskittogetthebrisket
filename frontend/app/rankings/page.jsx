@@ -276,6 +276,14 @@ export default function RankingsPage() {
           va = a.rankDerivedValue || a.values?.full || 0;
           vb = b.rankDerivedValue || b.values?.full || 0;
           return (va - vb) * dir;
+        case "ktc":
+          va = Number(a.canonicalSites?.ktc) || 0;
+          vb = Number(b.canonicalSites?.ktc) || 0;
+          return (va - vb) * dir;
+        case "idp":
+          va = Number(a.canonicalSites?.idpTradeCalc) || 0;
+          vb = Number(b.canonicalSites?.idpTradeCalc) || 0;
+          return (va - vb) * dir;
         case "confidence": {
           const order = { high: 0, medium: 1, low: 2, none: 3 };
           va = order[a.confidenceBucket] ?? 3;
@@ -507,6 +515,8 @@ export default function RankingsPage() {
                   <SortHeader col="name">Player</SortHeader>
                   <SortHeader col="pos" style={{ width: 54 }}>Pos</SortHeader>
                   <SortHeader col="value" style={{ textAlign: "right" }}>Value</SortHeader>
+                  <SortHeader col="ktc" style={{ textAlign: "right", width: 80 }} className="hide-mobile">KTC</SortHeader>
+                  <SortHeader col="idp" style={{ textAlign: "right", width: 80 }} className="hide-mobile">IDPTC</SortHeader>
                   <SortHeader col="confidence" style={{ textAlign: "center" }} className="hide-mobile">Conf</SortHeader>
                   <th className="hide-mobile" style={{ textAlign: "center", width: 90 }}>Gap</th>
                   <th className="hide-mobile" style={{ width: 170 }}>Signal</th>
@@ -532,7 +542,7 @@ export default function RankingsPage() {
                     <Fragment key={row.name}>
                       {showTierBreak && (
                         <tr className="rankings-tier-separator">
-                          <td colSpan={8}>
+                          <td colSpan={10}>
                             <span className="rankings-tier-separator-label">{tier}</span>
                           </td>
                         </tr>
@@ -583,6 +593,34 @@ export default function RankingsPage() {
                         <td style={{ textAlign: "right" }}>
                           <span className="rankings-value">{val.toLocaleString()}</span>
                           <span className={`rankings-value-band ${band.css}`}>{band.label}</span>
+                        </td>
+
+                        {/* KTC source value + rank */}
+                        <td className="hide-mobile" style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem" }}>
+                          {row.canonicalSites?.ktc != null ? (
+                            <>
+                              <div>{Math.round(Number(row.canonicalSites.ktc)).toLocaleString()}</div>
+                              {row.ktcRank != null && (
+                                <div className="muted" style={{ fontSize: "0.68rem" }}>#{row.ktcRank}</div>
+                              )}
+                            </>
+                          ) : (
+                            <span className="muted">&mdash;</span>
+                          )}
+                        </td>
+
+                        {/* IDPTradeCalc source value + rank */}
+                        <td className="hide-mobile" style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem" }}>
+                          {row.canonicalSites?.idpTradeCalc != null ? (
+                            <>
+                              <div>{Math.round(Number(row.canonicalSites.idpTradeCalc)).toLocaleString()}</div>
+                              {row.idpRank != null && (
+                                <div className="muted" style={{ fontSize: "0.68rem" }}>#{row.idpRank}</div>
+                              )}
+                            </>
+                          ) : (
+                            <span className="muted">&mdash;</span>
+                          )}
                         </td>
 
                         {/* Confidence */}

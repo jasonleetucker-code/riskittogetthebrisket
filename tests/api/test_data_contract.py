@@ -464,7 +464,8 @@ class TestComputeKtcRankings(unittest.TestCase):
         expected = int(rank_to_value(50))
         self.assertEqual(rank_50_row["rankDerivedValue"], expected)
 
-    def test_picks_excluded(self):
+    def test_picks_included(self):
+        """Picks with source values participate in the unified ranking."""
         rows = [
             self._make_player_row("2026 Early 1st", "PICK", 8000),
             self._make_player_row("Real Player",    "QB",   7000),
@@ -472,9 +473,9 @@ class TestComputeKtcRankings(unittest.TestCase):
         rows[0]["assetClass"] = "pick"
         _compute_unified_rankings(rows, {})
         pick = next(r for r in rows if r["canonicalName"] == "2026 Early 1st")
-        self.assertNotIn("ktcRank", pick)
+        self.assertEqual(pick["ktcRank"], 1)
         real = next(r for r in rows if r["canonicalName"] == "Real Player")
-        self.assertEqual(real["ktcRank"], 1)
+        self.assertEqual(real["ktcRank"], 2)
 
     def test_unresolved_position_excluded(self):
         rows = [
@@ -585,8 +586,10 @@ class TestCanonicalConsensusRank(unittest.TestCase):
             self.assertEqual(r["canonicalConsensusRank"], r["ktcRank"])
 
     def test_canonical_consensus_rank_not_on_excluded_players(self):
+        """Only rows without any source value or with unsupported positions
+        are excluded from canonicalConsensusRank.  Picks ARE now included."""
         rows = [
-            self._make_player_row("Pick", "PICK", 8000),
+            self._make_player_row("Unknown", "?", 8000),
             self._make_player_row("NoKtc", "WR", 0),
         ]
         _compute_unified_rankings(rows, {})
@@ -709,6 +712,36 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
         report = validate_api_data_contract(payload)
         self.assertFalse(report["ok"])
         self.assertTrue(any("name collision" in e for e in report["errors"]))
+
+
+class TestStripNameSuffix(unittest.TestCase):
+    """Ensure _strip_name_suffix handles all generational suffix variants."""
+
+    def test_jr_with_period(self):
+        from src.api.data_contract import _strip_name_suffix
+        self.assertEqual(_strip_name_suffix("Marvin Harrison Jr."), "Marvin Harrison")
+
+    def test_jr_without_period(self):
+        from src.api.data_contract import _strip_name_suffix
+        self.assertEqual(_strip_name_suffix("Brian Thomas Jr"), "Brian Thomas")
+        self.assertEqual(_strip_name_suffix("Omar Cooper Jr"), "Omar Cooper")
+        self.assertEqual(_strip_name_suffix("Michael Penix Jr"), "Michael Penix")
+
+    def test_iii_suffix(self):
+        from src.api.data_contract import _strip_name_suffix
+        self.assertEqual(_strip_name_suffix("Kenneth Walker III"), "Kenneth Walker")
+
+    def test_suffix_variants_match_base(self):
+        from src.api.data_contract import _strip_name_suffix
+        self.assertEqual(_strip_name_suffix("Kenneth Walker III"), _strip_name_suffix("Kenneth Walker"))
+        self.assertEqual(_strip_name_suffix("Marvin Harrison Jr."), _strip_name_suffix("Marvin Harrison"))
+        self.assertEqual(_strip_name_suffix("Brian Thomas Jr"), _strip_name_suffix("Brian Thomas"))
+        self.assertEqual(_strip_name_suffix("Omar Cooper Jr"), _strip_name_suffix("Omar Cooper"))
+        self.assertEqual(_strip_name_suffix("Michael Penix Jr"), _strip_name_suffix("Michael Penix"))
+
+    def test_no_suffix_unchanged(self):
+        from src.api.data_contract import _strip_name_suffix
+        self.assertEqual(_strip_name_suffix("Patrick Mahomes"), "Patrick Mahomes")
 
 
 if __name__ == "__main__":

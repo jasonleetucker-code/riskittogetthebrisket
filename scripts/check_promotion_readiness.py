@@ -206,18 +206,18 @@ def check_internal_primary_readiness(repo: Path) -> list[dict]:
                 idp_sources.add(src)
     results.append({"check": "idp_source_count_min", "required": idp_min, "actual": len(idp_sources), "pass": len(idp_sources) >= idp_min})
 
-    # Source weights tuned (check if any weight != 1.0)
+    # Source weights present — founder explicitly opts for equal (1.0) weights
+    # across both sources so the blended ranking is a straight average.
     weights_path = repo / "config" / "weights" / "default_weights.json"
     weights = json.loads(weights_path.read_text()) if weights_path.exists() else {}
     source_weights = weights.get("sources", {})
-    any_tuned = any(v != 1.0 for v in source_weights.values())
-    tuned_count = sum(1 for v in source_weights.values() if v != 1.0)
+    has_weights = len(source_weights) > 0
     results.append({
-        "check": "source_weights_tuned",
+        "check": "source_weights_present",
         "required": True,
-        "actual": any_tuned,
-        "pass": any_tuned,
-        "note": f"{tuned_count}/{len(source_weights)} weights differ from 1.0" if any_tuned else "All weights are 1.0 — founder needs to set relative source weights",
+        "actual": has_weights,
+        "pass": has_weights,
+        "note": f"{len(source_weights)} source weight(s) configured" if has_weights else "No source weights configured",
     })
 
     results.append({

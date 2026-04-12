@@ -31,7 +31,7 @@ DEFAULT_IDP_POSITION = "LB"
 def _normalize_name(name: str) -> str:
     """Normalize name for matching — same logic as comparison batch."""
     n = name.strip()
-    for sfx in (" Jr.", " Sr.", " II", " III", " IV", " V"):
+    for sfx in (" Jr.", " Jr", " Sr.", " Sr", " II", " III", " IV", " V", " VI"):
         if n.endswith(sfx):
             n = n[: -len(sfx)].strip()
     return n.lower().replace(".", "").replace("'", "").replace("\u2019", "")

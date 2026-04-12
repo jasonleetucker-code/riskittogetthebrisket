@@ -24,6 +24,18 @@ class TestNormalizePlayerName:
         assert normalize_player_name("Kenneth Walker III") == "kenneth walker"
         assert normalize_player_name("Player Name II") == "player name"
 
+    def test_known_suffix_players_all_normalize_identically(self):
+        """Players with Jr/Sr/III suffixes must all collapse to the same key."""
+        assert normalize_player_name("Kenneth Walker III") == normalize_player_name("Kenneth Walker")
+        assert normalize_player_name("Marvin Harrison Jr.") == normalize_player_name("Marvin Harrison")
+        assert normalize_player_name("Marvin Harrison Jr") == normalize_player_name("Marvin Harrison")
+        assert normalize_player_name("Brian Thomas Jr.") == normalize_player_name("Brian Thomas")
+        assert normalize_player_name("Brian Thomas Jr") == normalize_player_name("Brian Thomas")
+        assert normalize_player_name("Omar Cooper Jr.") == normalize_player_name("Omar Cooper")
+        assert normalize_player_name("Omar Cooper Jr") == normalize_player_name("Omar Cooper")
+        assert normalize_player_name("Michael Penix Jr.") == normalize_player_name("Michael Penix")
+        assert normalize_player_name("Michael Penix Jr") == normalize_player_name("Michael Penix")
+
     def test_ascii_folds_accents(self):
         # Jérémy -> jeremy
         assert normalize_player_name("Jérémy Chinn") == "jeremy chinn"

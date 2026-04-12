@@ -27,6 +27,22 @@ class TestNormalizeName:
     def test_suffix_stripping(self):
         assert _normalize_name("Marvin Harrison Jr.") == "marvin harrison"
 
+    def test_suffix_stripping_no_period(self):
+        assert _normalize_name("Marvin Harrison Jr") == "marvin harrison"
+        assert _normalize_name("Brian Thomas Jr") == "brian thomas"
+        assert _normalize_name("Omar Cooper Jr") == "omar cooper"
+        assert _normalize_name("Michael Penix Jr") == "michael penix"
+
+    def test_suffix_stripping_iii(self):
+        assert _normalize_name("Kenneth Walker III") == "kenneth walker"
+
+    def test_suffix_variants_normalize_identically(self):
+        assert _normalize_name("Kenneth Walker III") == _normalize_name("Kenneth Walker")
+        assert _normalize_name("Marvin Harrison Jr") == _normalize_name("Marvin Harrison")
+        assert _normalize_name("Brian Thomas Jr.") == _normalize_name("Brian Thomas")
+        assert _normalize_name("Omar Cooper Jr.") == _normalize_name("Omar Cooper")
+        assert _normalize_name("Michael Penix Jr") == _normalize_name("Michael Penix")
+
     def test_period_stripping(self):
         assert _normalize_name("A.J. Brown") == "aj brown"
 
