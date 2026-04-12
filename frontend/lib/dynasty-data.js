@@ -251,6 +251,18 @@ const RANKING_SOURCES = [
     weight: 1.0,
     isBackbone: true,
   },
+  {
+    // DLF (Dynasty League Football) full-board IDP rankings.  Mirrors
+    // the backend `_RANKING_SOURCES` entry in src/api/data_contract.py.
+    // 185-player expert consensus; overall_idp scope; not a backbone.
+    key: "dlfIdp",
+    displayName: "Dynasty League Football IDP",
+    scope: SOURCE_SCOPE_OVERALL_IDP,
+    positionGroup: null,
+    depth: null,
+    weight: 1.0,
+    isBackbone: false,
+  },
 ];
 
 // Legacy export retained for any consumer that previously imported

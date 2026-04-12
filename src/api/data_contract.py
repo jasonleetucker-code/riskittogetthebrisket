@@ -46,6 +46,7 @@ _OFFENSE_SIGNAL_KEYS = {
 }
 _IDP_SIGNAL_KEYS = {
     "idpTradeCalc",
+    "dlfIdp",
 }
 
 # All source signal keys — used to detect which source(s) a player has
@@ -110,11 +111,29 @@ _QUARANTINE_FLAGS = {
     "orphan_csv_graft",
 }
 
-# CSV export paths for source enrichment (relative to repo root)
-_SOURCE_CSV_PATHS = {
+# CSV export paths for source enrichment (relative to repo root).
+#
+# Each entry is either:
+#   * a plain string path — legacy "name,value" CSV, higher is better
+#   * a dict { path, signal } — "value" for name,value CSVs, "rank" for
+#     name,rank CSVs (lower is better, stamped as a synthetic monotonic
+#     value via _RANK_TO_SYNTHETIC_VALUE so the downstream descending
+#     sort in _compute_unified_rankings produces the correct ordinal)
+_SOURCE_CSV_PATHS: dict[str, Any] = {
     "ktc": "exports/latest/site_raw/ktc.csv",
     "idpTradeCalc": "exports/latest/site_raw/idpTradeCalc.csv",
+    "dlfIdp": {
+        "path": "exports/latest/site_raw/dlfIdp.csv",
+        "signal": "rank",
+    },
 }
+
+# Rank -> synthetic value transform used when a CSV declares signal=rank.
+# The absolute number is irrelevant to the downstream pipeline (it only
+# cares about the *ordering* of eligible rows within the source), but we
+# keep it above zero and bounded so the stamped value looks sensible to
+# the trust/confidence + anomaly checks that read canonicalSiteValues.
+_RANK_TO_SYNTHETIC_VALUE_OFFSET = 10000
 
 # ── Ranking source registry ──────────────────────────────────────────────
 # Declarative metadata describing each source that feeds the unified
@@ -168,6 +187,22 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "depth": None,
         "weight": 1.0,
         "is_backbone": True,
+    },
+    {
+        # DLF (Dynasty League Football) full-board IDP rankings.  The raw
+        # export (`dlf_idp.csv` → `exports/latest/site_raw/dlfIdp.csv`) is
+        # a 185-player expert consensus covering DL/LB/DB together, so it
+        # lives in the overall_idp scope alongside IDPTradeCalc.  It is
+        # NOT a backbone source — IDPTradeCalc remains authoritative for
+        # ladder translation — but it contributes equally-weighted signal
+        # to the coverage-aware blend.
+        "key": "dlfIdp",
+        "display_name": "Dynasty League Football IDP",
+        "scope": SOURCE_SCOPE_OVERALL_IDP,
+        "position_group": None,
+        "depth": None,
+        "weight": 1.0,
+        "is_backbone": False,
     },
 ]
 
@@ -590,13 +625,32 @@ def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
     (e.g. KTC scrape failed but the CSV persists from a prior run), load
     the CSV and inject values into canonicalSiteValues so the ranking
     function can use them.
+
+    Supports two signal types per source:
+
+      * ``value`` (default)  — ``name,value`` CSVs.  Stamped as-is.
+      * ``rank``             — ``name,rank`` CSVs.  The rank column is
+        converted to a monotonically descending synthetic value so the
+        downstream descending sort in ``_compute_unified_rankings`` still
+        produces the correct ordinal.  Only the ordering matters to the
+        ranking pipeline; the absolute number is a bookkeeping artefact.
     """
     import csv
     from pathlib import Path
 
     repo = Path(__file__).resolve().parents[2]
 
-    for source_key, csv_rel in _SOURCE_CSV_PATHS.items():
+    for source_key, cfg in _SOURCE_CSV_PATHS.items():
+        if isinstance(cfg, str):
+            csv_rel = cfg
+            signal = "value"
+        elif isinstance(cfg, dict):
+            csv_rel = str(cfg.get("path") or "")
+            signal = str(cfg.get("signal") or "value").lower()
+        else:
+            continue
+        if not csv_rel:
+            continue
         csv_path = repo / csv_rel
         if not csv_path.exists():
             continue
@@ -609,13 +663,40 @@ def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
             with csv_path.open("r", encoding="utf-8-sig") as f:
                 for csvrow in csv.DictReader(f):
                     name = str(csvrow.get("name", "")).strip()
-                    val = csvrow.get("value", "")
-                    if not name or not val:
+                    if not name:
                         continue
-                    try:
-                        csv_lookup[_strip_name_suffix(name).lower()] = int(float(val))
-                    except (ValueError, TypeError):
-                        continue
+                    if signal == "rank":
+                        raw = csvrow.get("rank", "")
+                        if raw == "" or raw is None:
+                            continue
+                        try:
+                            rank_val = float(str(raw).strip())
+                        except (TypeError, ValueError):
+                            continue
+                        if rank_val <= 0:
+                            continue
+                        # Monotonic descending transform: smaller rank →
+                        # bigger value so the overall_idp sort orders
+                        # the list the same way DLF does.  Multiply by
+                        # 100 first so fractional Avg ranks (e.g. 5.67)
+                        # stay ordered after the int() truncation.
+                        synthetic = int(
+                            round(
+                                (_RANK_TO_SYNTHETIC_VALUE_OFFSET * 100)
+                                - (rank_val * 100)
+                            )
+                        )
+                        if synthetic <= 0:
+                            continue
+                        csv_lookup[_strip_name_suffix(name).lower()] = synthetic
+                    else:
+                        val = csvrow.get("value", "")
+                        if not val:
+                            continue
+                        try:
+                            csv_lookup[_strip_name_suffix(name).lower()] = int(float(val))
+                        except (ValueError, TypeError):
+                            continue
         except Exception:
             continue
 

@@ -1,5 +1,5 @@
-"""Tests that the source config covers the two allowed sources (KTC + IDPTradeCalc)
-and that missing CSVs are handled gracefully."""
+"""Tests that the source config covers the allowed sources (KTC +
+IDPTradeCalc + DLF IDP) and that missing CSVs are handled gracefully."""
 from __future__ import annotations
 
 import json
@@ -11,13 +11,21 @@ REPO = Path(__file__).resolve().parents[2]
 CONFIG_PATH = REPO / "config" / "sources" / "dlf_sources.template.json"
 WEIGHTS_PATH = REPO / "config" / "weights" / "default_weights.json"
 
-# The only two sources allowed after scope reduction
-ALLOWED_SOURCES = {"KTC", "IDPTRADECALC"}
+# The sources allowed after scope reduction.  KTC + IDPTradeCalc are the
+# value-based market sources; DLF_IDP is a rank-based expert panel added
+# as a second opinion on the overall_idp scope.
+ALLOWED_SOURCES = {"KTC", "IDPTRADECALC", "DLF_IDP"}
 
 EXPECTED_SCRAPER_EXPORTS = {
     "ktc.csv",
     "idpTradeCalc.csv",
+    "dlfIdp.csv",
 }
+
+# Sources whose scraper_bridge export is a ``name,value`` CSV (signal=value).
+# DLF_IDP is the one rank-signal exception.
+VALUE_SIGNAL_SOURCES = {"KTC", "IDPTRADECALC"}
+RANK_SIGNAL_SOURCES = {"DLF_IDP"}
 
 
 @pytest.fixture
@@ -49,11 +57,22 @@ class TestSourceConfigCompleteness:
         missing = EXPECTED_SCRAPER_EXPORTS - bridge_files
         assert not missing, f"Missing config entries for scraper exports: {missing}"
 
-    def test_both_sources_are_value_signal(self, config):
+    def test_every_source_declares_expected_signal_type(self, config):
         for src in _enabled_bridge_sources(config):
-            assert src.get("signal_type") == "value", (
-                f"{src['source']} should be signal_type=value"
-            )
+            source_id = src["source"]
+            signal = src.get("signal_type")
+            if source_id in VALUE_SIGNAL_SOURCES:
+                assert signal == "value", (
+                    f"{source_id} should be signal_type=value, got {signal!r}"
+                )
+            elif source_id in RANK_SIGNAL_SOURCES:
+                assert signal == "rank", (
+                    f"{source_id} should be signal_type=rank, got {signal!r}"
+                )
+            else:
+                raise AssertionError(
+                    f"Unknown source {source_id!r} in enabled bridge sources"
+                )
 
     def test_every_enabled_source_has_a_weight(self, config, weights):
         source_weights = weights.get("sources", {})
@@ -89,6 +108,18 @@ class TestSourceConfigCompleteness:
         assert source_weights == ALLOWED_SOURCES, (
             f"Weights should only contain {ALLOWED_SOURCES}, got {source_weights}"
         )
+
+    def test_dlf_idp_has_idp_universe(self, config):
+        """DLF_IDP is a full-board IDP source; its canonical universe is
+        idp_vet so its records get bucketed alongside IDPTradeCalc in the
+        canonical pipeline."""
+        for src in config["sources"]:
+            if not src.get("enabled"):
+                continue
+            if src["source"] == "DLF_IDP":
+                assert "idp" in src.get("universe", "").lower(), (
+                    f"DLF_IDP universe should contain 'idp', got {src.get('universe')}"
+                )
 
 
 class TestTepSfFlags:
