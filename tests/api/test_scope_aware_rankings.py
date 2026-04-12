@@ -670,6 +670,181 @@ class TestFEdgeCases(unittest.TestCase):
             _RANKING_SOURCES.clear()
             _RANKING_SOURCES.extend(saved)
 
+    # ── Declaration-error / bad-data edge cases ────────────────────────
+
+    def test_position_idp_source_with_none_position_group_ranks_nobody(self):
+        """A position_idp source that ships with position_group=None is a
+        declaration error: _scope_eligible() requires a non-empty group,
+        so the source simply contributes no ranks to any row.  The row
+        still gets its normal backbone-driven ranking — the broken source
+        is silently absent from sourceRanks rather than corrupting them.
+        """
+        saved = copy.deepcopy(_RANKING_SOURCES)
+        _RANKING_SOURCES.append(
+            {
+                "key": "posNone",
+                "display_name": "Broken position source",
+                "scope": SOURCE_SCOPE_POSITION_IDP,
+                "position_group": None,  # ← the declaration bug
+                "depth": 20,
+                "weight": 1.0,
+                "is_backbone": False,
+            }
+        )
+        try:
+            rows = [
+                _row("dl1", "DL", idp=900, extra={"posNone": 100}),
+                _row("dl2", "DL", idp=800, extra={"posNone": 90}),
+            ]
+            _compute_unified_rankings(rows, {})
+            for r in rows:
+                # Broken source did not stamp a rank on anyone.
+                self.assertNotIn("posNone", r["sourceRanks"])
+                self.assertNotIn("posNone", r["sourceRankMeta"])
+                # But backbone ranking is untouched.
+                self.assertIn("idpTradeCalc", r["sourceRanks"])
+        finally:
+            _RANKING_SOURCES.clear()
+            _RANKING_SOURCES.extend(saved)
+
+    def test_unsupported_idp_alias_is_filtered_from_rankable_set(self):
+        """Positions outside the frozen allowlist (QB/RB/WR/TE/DL/LB/DB/PICK)
+        never enter the unified board.  Real data occasionally emits "S"
+        (safety), "EDGE", "NT", etc.  The ranking pipeline must skip these
+        rows entirely — no sourceRanks stamp, no canonicalConsensusRank,
+        no crash.
+        """
+        rows = [
+            _row("safety_s", "S", idp=900),
+            _row("edge_r", "EDGE", idp=850),
+            _row("nose_tackle", "NT", idp=800),
+            _row("dl_real", "DL", idp=750),
+        ]
+        _compute_unified_rankings(rows, {})
+        for name in ("safety_s", "edge_r", "nose_tackle"):
+            r = next(r for r in rows if r["canonicalName"] == name)
+            self.assertNotIn("sourceRanks", r)
+            self.assertNotIn("canonicalConsensusRank", r)
+        # The legitimate DL row is untouched.
+        dl = next(r for r in rows if r["canonicalName"] == "dl_real")
+        self.assertEqual(dl["sourceRanks"]["idpTradeCalc"], 1)
+        self.assertEqual(dl["canonicalConsensusRank"], 1)
+
+    def test_duplicate_player_across_position_families_ranks_independently(self):
+        """Bad scraper data sometimes emits the same canonical name as two
+        rows with different positions (e.g. a DL and LB with the same
+        name).  The pipeline treats them as independent rows — both get
+        ranked by their own per-row data without crashing.  This pins
+        the behaviour so a future dedup step is an explicit change.
+        """
+        rows = [
+            _row("twin", "DL", idp=900),
+            _row("twin", "LB", idp=800),
+            _row("other", "DB", idp=700),
+        ]
+        _compute_unified_rankings(rows, {})
+        twins = [r for r in rows if r["canonicalName"] == "twin"]
+        self.assertEqual(len(twins), 2)
+        # Each duplicate gets a distinct rank based on its own IDPTC value.
+        ranks = sorted(r["idpRank"] for r in twins)
+        self.assertEqual(ranks, [1, 2])
+        # Both still have well-formed trust fields (not crashed mid-stamp).
+        for r in twins:
+            self.assertIn("confidenceBucket", r)
+            self.assertIn("anomalyFlags", r)
+
+    def test_shallow_backbone_extrapolates_deeper_position_list_monotonically(self):
+        """A backbone that only has a single DL anchor (e.g. a near-empty
+        IDPTC day where only one DL was priced) must still translate a
+        deeper DL-top-5 list's ranks into a monotonic synthetic series.
+        DL1 hits the exact anchor; DL2..DL5 extrapolate past the tail
+        with the single-anchor defensive step.
+        """
+        saved = copy.deepcopy(_RANKING_SOURCES)
+        _RANKING_SOURCES.append(
+            {
+                "key": "dlTop5",
+                "display_name": "DL Top-5",
+                "scope": SOURCE_SCOPE_POSITION_IDP,
+                "position_group": "DL",
+                "depth": 5,
+                "weight": 1.0,
+                "is_backbone": False,
+            }
+        )
+        try:
+            # Backbone only sees dl_only (1-entry DL ladder) + an LB anchor
+            # for completeness.  dl2..dl5 live ONLY in dlTop5 so the
+            # translator has to extrapolate all four.
+            rows = [
+                _row("dl_only", "DL", idp=900, extra={"dlTop5": 100}),
+                _row("dl2", "DL", extra={"dlTop5": 90}),
+                _row("dl3", "DL", extra={"dlTop5": 80}),
+                _row("dl4", "DL", extra={"dlTop5": 70}),
+                _row("dl5", "DL", extra={"dlTop5": 60}),
+                _row("lb_anchor", "LB", idp=800),
+            ]
+            _compute_unified_rankings(rows, {})
+
+            eff = {
+                r["canonicalName"]: r["sourceRankMeta"]["dlTop5"]["effectiveRank"]
+                for r in rows
+                if "dlTop5" in r.get("sourceRankMeta", {})
+            }
+            method = {
+                r["canonicalName"]: r["sourceRankMeta"]["dlTop5"]["method"]
+                for r in rows
+                if "dlTop5" in r.get("sourceRankMeta", {})
+            }
+
+            # DL1 is the exact anchor from the 1-entry ladder.
+            self.assertEqual(method["dl_only"], TRANSLATION_EXACT)
+            # DL2..DL5 extrapolate.
+            for name in ("dl2", "dl3", "dl4", "dl5"):
+                self.assertEqual(method[name], TRANSLATION_EXTRAPOLATED)
+            # Monotonic: each extrapolated rank is strictly greater than
+            # the previous one.
+            seq = [eff["dl_only"], eff["dl2"], eff["dl3"], eff["dl4"], eff["dl5"]]
+            self.assertEqual(seq, sorted(seq))
+            self.assertEqual(len(set(seq)), len(seq))
+        finally:
+            _RANKING_SOURCES.clear()
+            _RANKING_SOURCES.extend(saved)
+
+    def test_tied_source_values_rank_deterministically(self):
+        """Ties in raw source values — from rounding, duplicate exports,
+        or genuinely equal market pricing — must resolve to distinct
+        ordinal ranks with a stable name-based tiebreaker.  Three tied
+        DLs should receive ranks {1, 2, 3} in alphabetical order, and
+        shuffling the input must not change the final assignment (the
+        playersArray iteration order can drift between runs, so
+        input-order stability is not enough).
+        """
+        rows_a = [
+            _row("alpha", "DL", idp=800),
+            _row("bravo", "DL", idp=800),
+            _row("charlie", "DL", idp=800),
+        ]
+        _compute_unified_rankings(rows_a, {})
+        ranks_a = {r["canonicalName"]: r["idpRank"] for r in rows_a}
+        self.assertEqual(sorted(ranks_a.values()), [1, 2, 3])
+        # Name-based tiebreaker → alphabetical order.
+        self.assertEqual(ranks_a, {"alpha": 1, "bravo": 2, "charlie": 3})
+        for r in rows_a:
+            self.assertIn("rankDerivedValue", r)
+            self.assertGreater(r["rankDerivedValue"], 0)
+
+        # Shuffling the input order must not change the final rank
+        # assignment.
+        rows_b = [
+            _row("charlie", "DL", idp=800),
+            _row("alpha", "DL", idp=800),
+            _row("bravo", "DL", idp=800),
+        ]
+        _compute_unified_rankings(rows_b, {})
+        ranks_b = {r["canonicalName"]: r["idpRank"] for r in rows_b}
+        self.assertEqual(ranks_a, ranks_b)
+
 
 if __name__ == "__main__":
     unittest.main()

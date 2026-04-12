@@ -360,9 +360,16 @@ function computeUnifiedRanks(rows) {
       if (!rowScope) return;
       const val = Number(r.canonicalSites?.[src.key]);
       if (!Number.isFinite(val) || val <= 0) return;
-      eligible.push({ idx, val, scope: rowScope });
+      const tiebreakName = String(r.name || "").toLowerCase();
+      eligible.push({ idx, val, scope: rowScope, tiebreakName });
     });
-    eligible.sort((a, b) => b.val - a.val);
+    // Secondary sort by lowercased name mirrors the backend Phase 1
+    // tiebreaker in _compute_unified_rankings and the backbone builder,
+    // so tied raw values produce the same ordinal ranks regardless of
+    // input order.
+    eligible.sort(
+      (a, b) => b.val - a.val || a.tiebreakName.localeCompare(b.tiebreakName)
+    );
 
     eligible.forEach((e, rank) => {
       const rawRank = rank + 1;

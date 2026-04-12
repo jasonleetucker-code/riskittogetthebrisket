@@ -891,11 +891,11 @@ def _compute_unified_rankings(
             src.get("extra_scopes") or []
         )
 
-        # Gather eligible (value, row_idx, scope_for_row) tuples.  A row is
-        # eligible if any of the source's declared scopes accept its
-        # position.  Offense and IDP position sets are disjoint, so each
-        # row belongs to exactly one scope for a given source.
-        eligible: list[tuple[float, int, str]] = []
+        # Gather eligible (value, row_idx, scope_for_row, tiebreak_name) tuples.
+        # A row is eligible if any of the source's declared scopes accept
+        # its position.  Offense and IDP position sets are disjoint, so
+        # each row belongs to exactly one scope for a given source.
+        eligible: list[tuple[float, int, str, str]] = []
         for idx, row in enumerate(players_array):
             pos = str(row.get("position") or "").strip().upper()
             if pos not in _RANKABLE_POSITIONS:
@@ -911,11 +911,21 @@ def _compute_unified_rankings(
             val = _safe_num(sites.get(source_key))
             if val is None or val <= 0:
                 continue
-            eligible.append((val, idx, row_scope))
+            tiebreak_name = str(
+                row.get("canonicalName") or row.get("displayName") or ""
+            ).lower()
+            eligible.append((val, idx, row_scope, tiebreak_name))
 
-        eligible.sort(key=lambda t: -t[0])
+        # Sort descending by value with a name-based secondary tiebreaker,
+        # mirroring the backbone builder in src/canonical/idp_backbone.py
+        # and the final unified sort in Phase 4.  This guarantees that
+        # tied raw values (duplicate exports, rounding, genuinely equal
+        # pricing) produce the same ordinal ranks regardless of input
+        # order — important because the playersArray comes from a dict
+        # whose iteration order can drift between runs.
+        eligible.sort(key=lambda t: (-t[0], t[3]))
 
-        for rank_idx, (_, row_idx, row_scope) in enumerate(eligible):
+        for rank_idx, (_, row_idx, row_scope, _name) in enumerate(eligible):
             raw_rank = rank_idx + 1
 
             # Translate to effective overall-style rank based on scope.
