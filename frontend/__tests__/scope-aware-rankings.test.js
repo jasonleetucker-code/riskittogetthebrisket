@@ -28,10 +28,11 @@ import {
 
 // Shared row-builder used by the parity tests.  Matches the Python
 // `_row` helper in tests/api/test_scope_aware_rankings.py.
-function row(name, pos, { ktc, idp } = {}) {
+function row(name, pos, { ktc, idp, dlf } = {}) {
   const sites = {};
   if (ktc !== undefined) sites.ktc = ktc;
   if (idp !== undefined) sites.idpTradeCalc = idp;
+  if (dlf !== undefined) sites.dlfIdp = dlf;
   return {
     displayName: name,
     canonicalName: name,
@@ -187,6 +188,61 @@ describe("F. Edge cases", () => {
     expect(qb).toBeDefined();
     // OL player is classified "excluded" by buildRows and never enters the row list.
     expect(rows.find((r) => r.name === "OL1")).toBeUndefined();
+  });
+});
+
+// ── G. DLF (Dynasty League Football) IDP source parity ──────────────
+// DLF is registered as a second overall_idp source alongside the
+// IDPTradeCalc backbone.  Both are full-board (no depth penalty), both
+// carry weight 1.0, and IDPTradeCalc remains the only backbone.  The
+// frontend registry in lib/dynasty-data.js must mirror the backend
+// `_RANKING_SOURCES` entry in src/api/data_contract.py exactly; if it
+// drifts, these assertions fail.
+describe("G. DLF IDP source parity", () => {
+  it("ranks DLF alongside IDPTradeCalc under the overall_idp scope", () => {
+    const rows = buildRows({
+      playersArray: [
+        row("dl_hero", "DL", { idp: 900, dlf: 9995 }),
+        row("lb_hero", "LB", { idp: 800, dlf: 9990 }),
+        row("db_hero", "DB", { idp: 700, dlf: 9985 }),
+      ],
+    });
+
+    const dl = rows.find((r) => r.name === "dl_hero");
+    const lb = rows.find((r) => r.name === "lb_hero");
+    const db = rows.find((r) => r.name === "db_hero");
+
+    // Both sources agree on the order dl > lb > db.
+    expect(dl.sourceRanks.idpTradeCalc).toBe(1);
+    expect(lb.sourceRanks.idpTradeCalc).toBe(2);
+    expect(db.sourceRanks.idpTradeCalc).toBe(3);
+    expect(dl.sourceRanks.dlfIdp).toBe(1);
+    expect(lb.sourceRanks.dlfIdp).toBe(2);
+    expect(db.sourceRanks.dlfIdp).toBe(3);
+
+    // DLF's meta entry should be present, direct (overall_idp is a
+    // pass-through scope), and pin the same scope token the backend uses.
+    expect(dl.sourceRankMeta.dlfIdp.scope).toBe("overall_idp");
+    expect(dl.sourceRankMeta.dlfIdp.method).toBe(TRANSLATION_DIRECT);
+    expect(dl.sourceRankMeta.dlfIdp.rawRank).toBe(1);
+    expect(dl.sourceRankMeta.dlfIdp.effectiveRank).toBe(1);
+    expect(dl.sourceRankMeta.dlfIdp.positionGroup).toBeNull();
+  });
+
+  it("picks up DLF-only players even when IDPTradeCalc has no value", () => {
+    const rows = buildRows({
+      playersArray: [
+        row("idp_anchor", "DL", { idp: 900 }),
+        row("dlf_only", "DL", { dlf: 9950 }),
+      ],
+    });
+    const dlfOnly = rows.find((r) => r.name === "dlf_only");
+    expect(dlfOnly.sourceRanks.dlfIdp).toBeDefined();
+    expect(dlfOnly.sourceRanks.idpTradeCalc).toBeUndefined();
+    // Still gets a unified rank because dlfIdp is overall_idp scope.
+    expect(dlfOnly.canonicalConsensusRank).toBeGreaterThan(0);
+    expect(dlfOnly.isSingleSource).toBe(true);
+    expect(dlfOnly.idpBackboneFallback).toBe(false);
   });
 });
 

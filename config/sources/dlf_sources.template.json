@@ -54,6 +54,30 @@
         "is_backbone": true
       },
       "notes": "IDPTradeCalc values. API returns IDP players (DL/LB/DB). Offensive players (QB/RB/WR/TE) are obtained via autocomplete search using the KTC player pool as the target list. Both offense and IDP values are exported to the CSV. Acts as the default IDP backbone for translating position-only sources."
+    },
+    {
+      "enabled": true,
+      "source": "DLF_IDP",
+      "contract_key": "dlfIdp",
+      "adapter": "scraper_bridge",
+      "adapter_version": "1.0.0",
+      "season": "2026",
+      "format_key": "dynasty_sf",
+      "universe": "idp_vet",
+      "ingest_type": "scraper_export",
+      "ingest_method": "scraper_bridge",
+      "source_url": "https://dynastyleaguefootball.com/",
+      "scoring_context": "dynasty superflex IDP (DLF expert consensus, full-board DL/LB/DB)",
+      "includes_sf": true,
+      "includes_tep": true,
+      "file": "exports/latest/site_raw/dlfIdp.csv",
+      "signal_type": "rank",
+      "scope": {
+        "kind": "overall_idp",
+        "depth": null,
+        "is_backbone": false
+      },
+      "notes": "DLF full-board IDP rankings (185 players). Ranks are the average of three expert rankers (FrankG, Jason K, Justin T). Ingested as a rank signal via the scraper bridge; the contract loader inverts rank to a synthetic value so the ordinal sort matches DLF's published order. Not a backbone source — IDPTradeCalc remains authoritative."
     }
   ]
 }
