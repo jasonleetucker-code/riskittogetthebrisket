@@ -40,7 +40,7 @@ _OFFENSE_POSITIONS = {"QB", "RB", "WR", "TE"}
 _IDP_POSITIONS = {"DL", "LB", "DB"}
 # Positions eligible for per-source ranking.  Only offense + IDP players
 # participate; picks, kickers, and unsupported positions are excluded.
-_RANKABLE_POSITIONS = _OFFENSE_POSITIONS | _IDP_POSITIONS
+_RANKABLE_POSITIONS = _OFFENSE_POSITIONS | _IDP_POSITIONS | {"PICK"}
 _OFFENSE_SIGNAL_KEYS = {
     "ktc",
 }

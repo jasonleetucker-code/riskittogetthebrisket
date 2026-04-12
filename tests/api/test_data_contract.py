@@ -464,7 +464,8 @@ class TestComputeKtcRankings(unittest.TestCase):
         expected = int(rank_to_value(50))
         self.assertEqual(rank_50_row["rankDerivedValue"], expected)
 
-    def test_picks_excluded(self):
+    def test_picks_included(self):
+        """Picks with source values participate in the unified ranking."""
         rows = [
             self._make_player_row("2026 Early 1st", "PICK", 8000),
             self._make_player_row("Real Player",    "QB",   7000),
@@ -472,9 +473,9 @@ class TestComputeKtcRankings(unittest.TestCase):
         rows[0]["assetClass"] = "pick"
         _compute_unified_rankings(rows, {})
         pick = next(r for r in rows if r["canonicalName"] == "2026 Early 1st")
-        self.assertNotIn("ktcRank", pick)
+        self.assertEqual(pick["ktcRank"], 1)
         real = next(r for r in rows if r["canonicalName"] == "Real Player")
-        self.assertEqual(real["ktcRank"], 1)
+        self.assertEqual(real["ktcRank"], 2)
 
     def test_unresolved_position_excluded(self):
         rows = [
@@ -585,8 +586,10 @@ class TestCanonicalConsensusRank(unittest.TestCase):
             self.assertEqual(r["canonicalConsensusRank"], r["ktcRank"])
 
     def test_canonical_consensus_rank_not_on_excluded_players(self):
+        """Only rows without any source value or with unsupported positions
+        are excluded from canonicalConsensusRank.  Picks ARE now included."""
         rows = [
-            self._make_player_row("Pick", "PICK", 8000),
+            self._make_player_row("Unknown", "?", 8000),
             self._make_player_row("NoKtc", "WR", 0),
         ]
         _compute_unified_rankings(rows, {})
