@@ -545,15 +545,27 @@ class TestMultiFlagScenarios(unittest.TestCase):
 
     def test_suspicious_disagreement_with_high_spread(self):
         """Two sources > 150 ranks apart triggers suspicious_disagreement."""
-        # Create many players so ranks can actually spread
+        # Create many players so ranks can actually spread.  IDPTradeCalc
+        # now contributes to both the offense and IDP scopes, so the
+        # filler QBs carry IDPTC values too (mirroring production where
+        # IDPTC's autocomplete covers every offense star).  Without a
+        # full offense IDPTC pool the test player would be the only QB
+        # ranked by IDPTC and the spread would collapse to zero.
         players = {}
         for i in range(200):
-            p = _make_player(f"Filler Off {i}", "QB", ktc=9000 - i * 40)
+            p = _make_player(
+                f"Filler Off {i}",
+                "QB",
+                ktc=9000 - i * 40,
+                idp=9000 - i * 40,
+            )
             players.update(p)
         for i in range(200):
             p = _make_player(f"Filler IDP {i}", "DL", idp=9000 - i * 40)
             players.update(p)
-        # Add test player with both sources at wildly different ranks
+        # Add test player with both sources at wildly different ranks.
+        # ktc=9000 puts him near the top of the KTC offense ladder, while
+        # idp=100 puts him near the bottom of the IDPTC offense ladder.
         test_p = _make_player("Spread Guy", "QB", ktc=9000, idp=100)
         players.update(test_p)
         payload = {
