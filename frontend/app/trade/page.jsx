@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
+import { RANKING_SOURCES } from "@/lib/dynasty-data";
 import {
   VALUE_MODES,
   STORAGE_KEY,
@@ -177,15 +178,19 @@ export default function TradePage() {
         case "value":
           va = a.rankDerivedValue || a.values?.full || 0; vb = b.rankDerivedValue || b.values?.full || 0;
           return (va - vb) * dir;
-        case "ktc":
-          va = Number(a.canonicalSites?.ktc) || 0; vb = Number(b.canonicalSites?.ktc) || 0;
-          return (va - vb) * dir;
-        case "idpTradeCalc":
-          va = Number(a.canonicalSites?.idpTradeCalc) || 0; vb = Number(b.canonicalSites?.idpTradeCalc) || 0;
-          return (va - vb) * dir;
-        default:
+        default: {
+          // Dynamic per-source sort column: "src:<sourceKey>".  Keeps
+          // the picker column set self-describing so newly registered
+          // sources appear automatically.
+          if (typeof pickerSortCol === "string" && pickerSortCol.startsWith("src:")) {
+            const key = pickerSortCol.slice(4);
+            va = Number(a.canonicalSites?.[key]) || 0;
+            vb = Number(b.canonicalSites?.[key]) || 0;
+            return (va - vb) * dir;
+          }
           va = a.blendedSourceRank ?? Infinity; vb = b.blendedSourceRank ?? Infinity;
           return (va - vb) * dir;
+        }
       }
     });
     return list.slice(0, 100);
@@ -792,8 +797,15 @@ export default function TradePage() {
                           { col: "name", label: "Player" },
                           { col: "pos", label: "Pos", style: { width: 50 } },
                           { col: "value", label: "Our Value", style: { width: 80, textAlign: "right" } },
-                          { col: "ktc", label: "KTC", style: { width: 65, textAlign: "right" } },
-                          { col: "idpTradeCalc", label: "IDPTC", style: { width: 65, textAlign: "right" } },
+                          // One sortable column per registered ranking source,
+                          // enumerated from the shared RANKING_SOURCES registry
+                          // so newly-added sources (DLF, etc.) surface here
+                          // without touching this component.
+                          ...RANKING_SOURCES.map((src) => ({
+                            col: `src:${src.key}`,
+                            label: src.columnLabel,
+                            style: { width: 65, textAlign: "right" },
+                          })),
                         ].map(({ col, label, style }) => (
                           <th key={col} style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", ...style }}
                             onClick={() => {
@@ -817,12 +829,15 @@ export default function TradePage() {
                           <td style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontWeight: 600 }}>
                             {Math.round(r.rankDerivedValue || r.values?.full || 0).toLocaleString()}
                           </td>
-                          <td style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.74rem" }}>
-                            {r.canonicalSites?.ktc != null ? Math.round(Number(r.canonicalSites.ktc)).toLocaleString() : "—"}
-                          </td>
-                          <td style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.74rem" }}>
-                            {r.canonicalSites?.idpTradeCalc != null ? Math.round(Number(r.canonicalSites.idpTradeCalc)).toLocaleString() : "—"}
-                          </td>
+                          {RANKING_SOURCES.map((src) => {
+                            const raw = r.canonicalSites?.[src.key];
+                            const hasVal = raw != null && Number.isFinite(Number(raw));
+                            return (
+                              <td key={src.key} style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.74rem" }}>
+                                {hasVal ? Math.round(Number(raw)).toLocaleString() : "—"}
+                              </td>
+                            );
+                          })}
                           <td><span className="badge" style={{ fontSize: "0.6rem" }}>Add</span></td>
                         </tr>
                       ))}
