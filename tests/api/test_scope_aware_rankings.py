@@ -28,6 +28,7 @@ from src.api.data_contract import (
 )
 from src.canonical.idp_backbone import (
     SOURCE_SCOPE_OVERALL_IDP,
+    SOURCE_SCOPE_OVERALL_OFFENSE,
     SOURCE_SCOPE_POSITION_IDP,
     TRANSLATION_DIRECT,
     TRANSLATION_EXACT,
@@ -380,6 +381,122 @@ class TestETransparencyFields(unittest.TestCase):
         dl = next(r for r in rows if r["canonicalName"] == "dl1")
         self.assertEqual(qb["ktcRank"], qb["sourceRanks"]["ktc"])
         self.assertEqual(dl["idpRank"], dl["sourceRanks"]["idpTradeCalc"])
+
+
+class TestGDualScopeIdpTradeCalc(unittest.TestCase):
+    """G. IDP Trade Calculator registers under two scopes.
+
+    IDPTradeCalc's public value pool covers both offensive and IDP
+    players on the same 0-9999 scale, so the source contributes to the
+    overall_offense blend (alongside KTC) AND to the overall_idp blend
+    (as the backbone).  These tests lock that behaviour so nobody
+    accidentally re-narrows it to IDP-only.
+    """
+
+    def test_registry_declares_extra_offense_scope(self):
+        idptc = next(s for s in _RANKING_SOURCES if s["key"] == "idpTradeCalc")
+        self.assertEqual(idptc["scope"], SOURCE_SCOPE_OVERALL_IDP)
+        self.assertIn(SOURCE_SCOPE_OVERALL_OFFENSE, idptc.get("extra_scopes") or [])
+        # Backbone status is determined by the primary scope only.
+        self.assertTrue(idptc["is_backbone"])
+
+    def test_offense_players_get_ktc_and_idptc_ranks(self):
+        rows = [
+            _row("qb1", "QB", ktc=9500, idp=9600),
+            _row("wr1", "WR", ktc=9000, idp=9200),
+            _row("rb1", "RB", ktc=8500, idp=8400),
+        ]
+        _compute_unified_rankings(rows, {})
+
+        qb1 = next(r for r in rows if r["canonicalName"] == "qb1")
+        wr1 = next(r for r in rows if r["canonicalName"] == "wr1")
+        rb1 = next(r for r in rows if r["canonicalName"] == "rb1")
+
+        # Both sources stamp an offense rank on every row.
+        for r in (qb1, wr1, rb1):
+            self.assertIn("ktc", r["sourceRanks"])
+            self.assertIn("idpTradeCalc", r["sourceRanks"])
+            # IDPTradeCalc's meta for this row is tagged overall_offense,
+            # not overall_idp — they're being ranked in the offense pool.
+            self.assertEqual(
+                r["sourceRankMeta"]["idpTradeCalc"]["scope"],
+                SOURCE_SCOPE_OVERALL_OFFENSE,
+            )
+
+        # KTC order: qb1(9500) > wr1(9000) > rb1(8500)
+        self.assertEqual(qb1["sourceRanks"]["ktc"], 1)
+        self.assertEqual(wr1["sourceRanks"]["ktc"], 2)
+        self.assertEqual(rb1["sourceRanks"]["ktc"], 3)
+        # IDPTC order: wr1(9200) > qb1(9600 wait that's higher) — recompute
+        # idp values:  qb1=9600, wr1=9200, rb1=8400  →  qb1 > wr1 > rb1
+        self.assertEqual(qb1["sourceRanks"]["idpTradeCalc"], 1)
+        self.assertEqual(wr1["sourceRanks"]["idpTradeCalc"], 2)
+        self.assertEqual(rb1["sourceRanks"]["idpTradeCalc"], 3)
+
+        # Offense players are no longer single-source.
+        self.assertFalse(qb1["isSingleSource"])
+        self.assertEqual(qb1["sourceCount"], 2)
+
+    def test_offense_idptc_rank_fed_into_blend(self):
+        """When KTC and IDPTradeCalc disagree on an offense player, the
+        blended rankDerivedValue sits between the two per-source Hill
+        values instead of equalling either one.
+        """
+        rows = [
+            # Identical KTC order for wr1 > wr2 but IDPTC flips them.
+            _row("wr1", "WR", ktc=9500, idp=8000),
+            _row("wr2", "WR", ktc=9000, idp=9500),
+        ]
+        _compute_unified_rankings(rows, {})
+
+        wr1 = next(r for r in rows if r["canonicalName"] == "wr1")
+        wr2 = next(r for r in rows if r["canonicalName"] == "wr2")
+
+        # KTC: wr1=1, wr2=2.  IDPTC: wr2=1, wr1=2.
+        self.assertEqual(wr1["sourceRanks"]["ktc"], 1)
+        self.assertEqual(wr1["sourceRanks"]["idpTradeCalc"], 2)
+        self.assertEqual(wr2["sourceRanks"]["ktc"], 2)
+        self.assertEqual(wr2["sourceRanks"]["idpTradeCalc"], 1)
+        # Each carries a spread of 1 between the two sources.
+        self.assertEqual(wr1["sourceRankSpread"], 1.0)
+        self.assertEqual(wr2["sourceRankSpread"], 1.0)
+
+    def test_idp_players_unaffected_by_extra_offense_scope(self):
+        """Adding overall_offense as an extra IDPTC scope must NOT change
+        how IDP players are ranked — they still only flow through the
+        overall_idp pass.
+        """
+        rows = [
+            _row("dl1", "DL", idp=900),
+            _row("lb1", "LB", idp=800),
+            _row("db1", "DB", idp=700),
+        ]
+        _compute_unified_rankings(rows, {})
+        for r in rows:
+            meta = r["sourceRankMeta"]["idpTradeCalc"]
+            self.assertEqual(meta["scope"], SOURCE_SCOPE_OVERALL_IDP)
+            # Offense scope didn't leak onto IDP rows (they have no 'ktc'
+            # entry because they're not eligible under overall_offense).
+            self.assertNotIn("ktc", r["sourceRanks"])
+        self.assertEqual(rows[0]["sourceRanks"]["idpTradeCalc"], 1)
+        self.assertEqual(rows[1]["sourceRanks"]["idpTradeCalc"], 2)
+        self.assertEqual(rows[2]["sourceRanks"]["idpTradeCalc"], 3)
+
+    def test_offense_player_without_idptc_value_still_ranks_via_ktc(self):
+        """Regression guard: an offense player with only a KTC value must
+        still land on the unified board even though IDPTradeCalc is now
+        a registered overall_offense source."""
+        rows = [
+            _row("qb_solo", "QB", ktc=8000),  # no IDPTC value
+            _row("qb_both", "QB", ktc=9000, idp=9000),
+        ]
+        _compute_unified_rankings(rows, {})
+        solo = next(r for r in rows if r["canonicalName"] == "qb_solo")
+        both = next(r for r in rows if r["canonicalName"] == "qb_both")
+        self.assertEqual(solo["sourceRanks"], {"ktc": 2})
+        self.assertTrue(solo["isSingleSource"])
+        self.assertEqual(both["sourceRanks"]["ktc"], 1)
+        self.assertEqual(both["sourceRanks"]["idpTradeCalc"], 1)
 
 
 class TestFEdgeCases(unittest.TestCase):

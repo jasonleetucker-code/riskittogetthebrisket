@@ -287,14 +287,17 @@ class TestAnomalyFlags(unittest.TestCase):
 
 class TestMarketGap(unittest.TestCase):
 
-    def test_ktc_higher(self):
+    def test_retail_premium_vs_single_consensus_source(self):
+        # KTC (retail) rank 10, IDPTC (consensus) rank 50 → retail mean 10
+        # vs consensus mean 50 → retail ranks the player 40 positions
+        # higher → retail_premium.
         direction, magnitude = _compute_market_gap({"ktc": 10, "idpTradeCalc": 50})
-        self.assertEqual(direction, "ktc_higher")
+        self.assertEqual(direction, "retail_premium")
         self.assertEqual(magnitude, 40.0)
 
-    def test_idptc_higher(self):
+    def test_consensus_premium_vs_single_consensus_source(self):
         direction, magnitude = _compute_market_gap({"ktc": 80, "idpTradeCalc": 20})
-        self.assertEqual(direction, "idptc_higher")
+        self.assertEqual(direction, "consensus_premium")
         self.assertEqual(magnitude, 60.0)
 
     def test_equal_ranks(self):
@@ -302,10 +305,57 @@ class TestMarketGap(unittest.TestCase):
         self.assertEqual(direction, "none")
         self.assertEqual(magnitude, 0.0)
 
-    def test_single_source_none(self):
+    def test_retail_alone_returns_none(self):
+        # Retail side has a rank, consensus side is empty → no gap.
         direction, magnitude = _compute_market_gap({"ktc": 10})
         self.assertEqual(direction, "none")
         self.assertIsNone(magnitude)
+
+    def test_no_retail_returns_none(self):
+        # IDP-only players have no retail rank (KTC is offense-only) →
+        # retail side is empty → no gap.
+        direction, magnitude = _compute_market_gap({"idpTradeCalc": 10, "dlfIdp": 20})
+        self.assertEqual(direction, "none")
+        self.assertIsNone(magnitude)
+
+    def test_retail_vs_averaged_multi_source_consensus(self):
+        # KTC 10 vs mean(IDPTC 50, DLF 70) = 60 → retail_premium of 50.
+        direction, magnitude = _compute_market_gap(
+            {"ktc": 10, "idpTradeCalc": 50, "dlfIdp": 70}
+        )
+        self.assertEqual(direction, "retail_premium")
+        self.assertEqual(magnitude, 50.0)
+
+    def test_consensus_premium_with_multi_source_consensus(self):
+        # KTC 100 vs mean(IDPTC 30, DLF 40) = 35 → consensus_premium of 65.
+        direction, magnitude = _compute_market_gap(
+            {"ktc": 100, "idpTradeCalc": 30, "dlfIdp": 40}
+        )
+        self.assertEqual(direction, "consensus_premium")
+        self.assertEqual(magnitude, 65.0)
+
+    def test_multi_retail_sources_are_averaged(self):
+        # Hypothetical two-retail-source world (e.g. KTC + Sleeper trade
+        # values both flagged is_retail).  Retail mean = (10 + 30)/2 = 20;
+        # consensus mean = 60.  Retail ranks the player 40 higher →
+        # retail_premium.  Verified via explicit retail_keys override so
+        # we don't need to mutate the real registry.
+        direction, magnitude = _compute_market_gap(
+            {"ktc": 10, "sleeperTrade": 30, "idpTradeCalc": 50, "dlfIdp": 70},
+            retail_keys=frozenset({"ktc", "sleeperTrade"}),
+        )
+        self.assertEqual(direction, "retail_premium")
+        self.assertEqual(magnitude, 40.0)
+
+    def test_multi_retail_consensus_premium(self):
+        # Symmetric two-retail test: retail mean = (80+90)/2 = 85;
+        # consensus mean = (20+40)/2 = 30; consensus ranks 55 higher.
+        direction, magnitude = _compute_market_gap(
+            {"ktc": 80, "sleeperTrade": 90, "idpTradeCalc": 20, "dlfIdp": 40},
+            retail_keys=frozenset({"ktc", "sleeperTrade"}),
+        )
+        self.assertEqual(direction, "consensus_premium")
+        self.assertEqual(magnitude, 55.0)
 
 
 # ── Integration: single-source player row ────────────────────────────────────
@@ -545,15 +595,27 @@ class TestMultiFlagScenarios(unittest.TestCase):
 
     def test_suspicious_disagreement_with_high_spread(self):
         """Two sources > 150 ranks apart triggers suspicious_disagreement."""
-        # Create many players so ranks can actually spread
+        # Create many players so ranks can actually spread.  IDPTradeCalc
+        # now contributes to both the offense and IDP scopes, so the
+        # filler QBs carry IDPTC values too (mirroring production where
+        # IDPTC's autocomplete covers every offense star).  Without a
+        # full offense IDPTC pool the test player would be the only QB
+        # ranked by IDPTC and the spread would collapse to zero.
         players = {}
         for i in range(200):
-            p = _make_player(f"Filler Off {i}", "QB", ktc=9000 - i * 40)
+            p = _make_player(
+                f"Filler Off {i}",
+                "QB",
+                ktc=9000 - i * 40,
+                idp=9000 - i * 40,
+            )
             players.update(p)
         for i in range(200):
             p = _make_player(f"Filler IDP {i}", "DL", idp=9000 - i * 40)
             players.update(p)
-        # Add test player with both sources at wildly different ranks
+        # Add test player with both sources at wildly different ranks.
+        # ktc=9000 puts him near the top of the KTC offense ladder, while
+        # idp=100 puts him near the bottom of the IDPTC offense ladder.
         test_p = _make_player("Spread Guy", "QB", ktc=9000, idp=100)
         players.update(test_p)
         payload = {

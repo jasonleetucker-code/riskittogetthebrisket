@@ -191,6 +191,75 @@ describe("F. Edge cases", () => {
   });
 });
 
+// ── Dual-scope IDPTradeCalc parity ──────────────────────────────────
+// IDPTradeCalc registers under BOTH overall_idp (as the backbone) and
+// overall_offense (as a second opinion alongside KTC).  Mirrors the
+// backend TestGDualScopeIdpTradeCalc cases in
+// tests/api/test_scope_aware_rankings.py.
+describe("Dual-scope IDPTradeCalc: offense + IDP contribution", () => {
+  it("ranks offense players through both KTC and IDPTradeCalc", () => {
+    const rows = buildRows({
+      playersArray: [
+        row("qb1", "QB", { ktc: 9500, idp: 9600 }),
+        row("wr1", "WR", { ktc: 9000, idp: 9200 }),
+        row("rb1", "RB", { ktc: 8500, idp: 8400 }),
+      ],
+    });
+    const qb = rows.find((r) => r.name === "qb1");
+    const wr = rows.find((r) => r.name === "wr1");
+    const rb = rows.find((r) => r.name === "rb1");
+
+    for (const r of [qb, wr, rb]) {
+      expect(r.sourceRanks.ktc).toBeDefined();
+      expect(r.sourceRanks.idpTradeCalc).toBeDefined();
+      // Offense players receive the idpTradeCalc rank under the
+      // overall_offense scope, not overall_idp.
+      expect(r.sourceRankMeta.idpTradeCalc.scope).toBe("overall_offense");
+      expect(r.isSingleSource).toBe(false);
+      expect(r.sourceCount).toBe(2);
+    }
+
+    // KTC ordering: qb > wr > rb
+    expect(qb.sourceRanks.ktc).toBe(1);
+    expect(wr.sourceRanks.ktc).toBe(2);
+    expect(rb.sourceRanks.ktc).toBe(3);
+    // IDPTC ordering: qb > wr > rb (9600 > 9200 > 8400)
+    expect(qb.sourceRanks.idpTradeCalc).toBe(1);
+    expect(wr.sourceRanks.idpTradeCalc).toBe(2);
+    expect(rb.sourceRanks.idpTradeCalc).toBe(3);
+  });
+
+  it("captures per-source spread when KTC and IDPTC disagree", () => {
+    const rows = buildRows({
+      playersArray: [
+        row("wr1", "WR", { ktc: 9500, idp: 8000 }),
+        row("wr2", "WR", { ktc: 9000, idp: 9500 }),
+      ],
+    });
+    const wr1 = rows.find((r) => r.name === "wr1");
+    const wr2 = rows.find((r) => r.name === "wr2");
+    expect(wr1.sourceRanks.ktc).toBe(1);
+    expect(wr1.sourceRanks.idpTradeCalc).toBe(2);
+    expect(wr2.sourceRanks.ktc).toBe(2);
+    expect(wr2.sourceRanks.idpTradeCalc).toBe(1);
+    expect(wr1.sourceRankSpread).toBe(1);
+    expect(wr2.sourceRankSpread).toBe(1);
+  });
+
+  it("does not leak offense scope onto IDP rows", () => {
+    const rows = buildRows({
+      playersArray: [
+        row("dl1", "DL", { idp: 900 }),
+        row("lb1", "LB", { idp: 800 }),
+      ],
+    });
+    for (const r of rows) {
+      expect(r.sourceRanks.ktc).toBeUndefined();
+      expect(r.sourceRankMeta.idpTradeCalc.scope).toBe("overall_idp");
+    }
+  });
+});
+
 // ── G. DLF (Dynasty League Football) IDP source parity ──────────────
 // DLF is registered as a second overall_idp source alongside the
 // IDPTradeCalc backbone.  Both are full-board (no depth penalty), both

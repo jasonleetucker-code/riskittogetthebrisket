@@ -25,8 +25,8 @@ Frontend consumer: `frontend/lib/dynasty-data.js` (`buildRows` + `computeUnified
 | `hasSourceDisagreement` | boolean | Sources diverge by >80 ordinal ranks |
 | `sourceRankSpread` | number \| null | Max minus min source rank (null if 1 source) |
 | `blendedSourceRank` | number \| null | Mean of per-source ordinal ranks |
-| `marketGapDirection` | `"ktc_higher"` \| `"idptc_higher"` \| `"none"` | Which source ranks the player higher |
-| `marketGapMagnitude` | number \| null | Absolute ordinal rank difference |
+| `marketGapDirection` | `"retail_premium"` \| `"consensus_premium"` \| `"none"` | Retail (sources flagged `is_retail` in the registry — today just KTC) vs mean rank of non-retail sources (expert consensus). Adding a second retail source is a pure registry change. |
+| `marketGapMagnitude` | number \| null | Absolute ordinal rank difference between KTC and consensus mean |
 | `identityConfidence` | float 0.0-1.0 | How confident we are this is the right entity |
 | `identityMethod` | string | Method used: `canonical_id`, `position_source_aligned`, `partial_evidence`, `name_only` |
 | `quarantined` | boolean | Row flagged by identity/data-quality validation |
@@ -74,7 +74,7 @@ Any flag in `_QUARANTINE_FLAGS` set triggers `quarantined = true` and degrades `
 
 - **Trust bar**: aggregate stats (high/medium/low confidence, multi-source count, quarantine count)
 - **Lens system**: 5 views (Consensus, Disagreements, Inefficiencies, Safest, Fragile)
-- **Edge rail**: collapsible summary with top KTC/IDPTC premiums, consensus assets, flagged players
+- **Edge rail**: collapsible summary with top KTC/Consensus premiums, consensus assets, flagged players
 - **Signal column**: per-row action labels (Market premium, Consensus asset) and stackable caution labels
 - **Tier grouping**: backend canonical tiers with rank-based fallback
 - **Fast-scan chips**: R (rookie), 1-src, ! (flagged), ~ (disagreement)
@@ -85,8 +85,8 @@ Any flag in `_QUARANTINE_FLAGS` set triggers `quarantined = true` and degrades `
 Source agreement dashboard. 6 sections in a 2-column grid:
 1. Consensus Assets — high confidence, multi-source, tight agreement
 2. Biggest Disagreements — highest source rank spread
-3. KTC Premium — players KTC values much higher
-4. IDPTC Premium — players IDPTC values much higher
+3. Retail Premium (today shown as "KTC Premium") — players the retail market values much higher than the expert consensus. Section title is resolved dynamically from `getRetailLabel()` in `frontend/lib/dynasty-data.js`; adding a second `isRetail` source flips the title to "Retail Premium" automatically.
+4. Consensus Premium — players the expert consensus values much higher than the retail market (inverse of #3)
 5. Flagged Anomalies — data quality flags in top 300
 6. Single-Source Players — valued by only one source
 
@@ -181,7 +181,7 @@ for p in data.get('playersArray', []):
 
 - **All IDP players are single-source / low confidence** — expected since only one IDP source (IDPTradeCalc) currently feeds the pipeline. Will self-correct when a second IDP source is added.
 - **Will Anderson (DL, rank ~38)** — single-source IDP with high value. Correct behavior: ranked from IDPTC, low confidence since only one source.
-- **Travis Hunter (WR, rank ~52)** — spread=69, medium confidence, IDPTC ranks higher. Correct behavior: shows "Market premium: IDPTC" signal. Market gap label is accurate.
+- **Travis Hunter (WR, rank ~52)** — spread=69, medium confidence, expert consensus ranks higher than KTC. Correct behavior: shows "Market premium: Consensus" signal. Market gap label is accurate.
 - **~36 empty-position rows** — players with no position string. Not in any rankable set, receive no unified rank, invisible on all frontend surfaces (Rankings, Edge, Finder). Harmless.
 - **126 picks** — all clean, no anomaly flags. Correctly excluded from ranking board (PICK not in `_RANKABLE_POSITIONS`) but present in data for trade calculator.
 

@@ -97,7 +97,7 @@ describe("threshold consistency with helpers", () => {
     const { actionLabel } = await import("@/lib/edge-helpers");
     const row = {
       sourceRankSpread: MARKET_PREMIUM_SPREAD,
-      marketGapDirection: "ktc_higher",
+      marketGapDirection: "retail_premium",
       quarantined: false,
     };
     const result = actionLabel(row);
@@ -109,7 +109,7 @@ describe("threshold consistency with helpers", () => {
     const { actionLabel } = await import("@/lib/edge-helpers");
     const row = {
       sourceRankSpread: MARKET_PREMIUM_SPREAD - 1,
-      marketGapDirection: "ktc_higher",
+      marketGapDirection: "retail_premium",
       quarantined: false,
     };
     const result = actionLabel(row);

@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState, useCallback } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
-import { resolvedRank } from "@/lib/dynasty-data";
+import { resolvedRank, RANKING_SOURCES, getRetailLabel } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
 import {
@@ -72,11 +72,12 @@ function posMatchesFilter(pos, assetClass, filter) {
 // ── Methodology content ──────────────────────────────────────────────
 
 function MethodologySection() {
+  const sourceNames = RANKING_SOURCES.map((s) => s.displayName).join(", ");
   return (
     <div className="rankings-methodology-body">
       <h3 style={{ margin: "0 0 8px", fontSize: "0.88rem" }}>How rankings work</h3>
       <ol style={{ margin: 0, paddingLeft: 18, fontSize: "0.78rem", lineHeight: 1.7, color: "var(--subtext)" }}>
-        <li><strong>Source ingestion</strong> — Raw values from Keep Trade Cut (offense) and IDP Trade Calculator (IDP).</li>
+        <li><strong>Source ingestion</strong> — Raw values from {sourceNames}.</li>
         <li><strong>Per-source ranking</strong> — Each player ranked within each source by raw value (highest = rank 1).</li>
         <li><strong>Rank normalization</strong> — Per-source ranks converted to 1–9,999 values via Hill-curve formula so sources are comparable.</li>
         <li><strong>Blended ranking</strong> — Multi-source players get averaged normalized values. Single-source players keep their one value.</li>
@@ -122,12 +123,14 @@ function EdgeRailSection({ label, items, emptyText, onPlayerClick }) {
 
 function EdgeRail({ summary, onPlayerClick }) {
   const hasSomething =
-    summary.ktcPremium.length > 0 ||
-    summary.idptcPremium.length > 0 ||
+    summary.retailPremium.length > 0 ||
+    summary.consensusPremium.length > 0 ||
     summary.flaggedCautions.length > 0 ||
     summary.consensusAssets.length > 0;
 
   if (!hasSomething) return null;
+
+  const retailLabel = getRetailLabel();
 
   return (
     <div className="edge-rail">
@@ -137,15 +140,15 @@ function EdgeRail({ summary, onPlayerClick }) {
       </div>
       <div className="edge-rail-grid">
         <EdgeRailSection
-          label="KTC Premium"
-          items={summary.ktcPremium}
-          emptyText="No significant KTC premiums"
+          label={`${retailLabel} Premium`}
+          items={summary.retailPremium}
+          emptyText={`No significant ${retailLabel} premiums`}
           onPlayerClick={onPlayerClick}
         />
         <EdgeRailSection
-          label="IDPTC Premium"
-          items={summary.idptcPremium}
-          emptyText="No significant IDPTC premiums"
+          label="Consensus Premium"
+          items={summary.consensusPremium}
+          emptyText="No significant consensus premiums"
           onPlayerClick={onPlayerClick}
         />
         <EdgeRailSection
@@ -276,22 +279,25 @@ export default function RankingsPage() {
           va = a.rankDerivedValue || a.values?.full || 0;
           vb = b.rankDerivedValue || b.values?.full || 0;
           return (va - vb) * dir;
-        case "ktc":
-          va = Number(a.canonicalSites?.ktc) || 0;
-          vb = Number(b.canonicalSites?.ktc) || 0;
-          return (va - vb) * dir;
-        case "idp":
-          va = Number(a.canonicalSites?.idpTradeCalc) || 0;
-          vb = Number(b.canonicalSites?.idpTradeCalc) || 0;
-          return (va - vb) * dir;
         case "confidence": {
           const order = { high: 0, medium: 1, low: 2, none: 3 };
           va = order[a.confidenceBucket] ?? 3;
           vb = order[b.confidenceBucket] ?? 3;
           return (va - vb) * dir;
         }
-        default:
+        default: {
+          // Dynamic source-column sort: col === `src:${sourceKey}`.
+          // Keeps the rankings table self-describing so any source
+          // registered in RANKING_SOURCES gets a sortable column
+          // automatically.
+          if (typeof sortCol === "string" && sortCol.startsWith("src:")) {
+            const key = sortCol.slice(4);
+            va = Number(a.canonicalSites?.[key]) || 0;
+            vb = Number(b.canonicalSites?.[key]) || 0;
+            return (va - vb) * dir;
+          }
           return resolvedRank(a) - resolvedRank(b);
+        }
       }
     });
     return sorted;
@@ -319,20 +325,39 @@ export default function RankingsPage() {
 
   // ── Copy/Export ────────────────────────────────────────────────────
   async function copyValues() {
-    const lines = ["Rank\tPlayer\tPos\tTeam\tTier\tValue\tValue Band\tConfidence\tAction\tSources\tKTC\tKTC Rank\tIDPTC\tIDPTC Rank"];
+    // Header: fixed columns, then one pair (value + rank) per registered source.
+    const sourceHeaders = RANKING_SOURCES.flatMap((src) => [
+      src.columnLabel,
+      `${src.columnLabel} Rank`,
+    ]);
+    const lines = [
+      [
+        "Rank", "Player", "Pos", "Team", "Tier", "Value", "Value Band",
+        "Confidence", "Action", "Sources",
+        ...sourceHeaders,
+      ].join("\t"),
+    ];
     displayRows.forEach((row) => {
-      const ktcVal = row.canonicalSites?.ktc != null ? Math.round(Number(row.canonicalSites.ktc)) : "";
-      const idpVal = row.canonicalSites?.idpTradeCalc != null ? Math.round(Number(row.canonicalSites.idpTradeCalc)) : "";
       const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
       const band = valueBand(val);
       const action = actionLabel(row);
       const cautions = cautionLabels(row);
       const actionStr = [action?.label, ...cautions.map((c) => c.label)].filter(Boolean).join("; ");
+      const sourceCells = RANKING_SOURCES.flatMap((src) => {
+        const raw = row.canonicalSites?.[src.key];
+        const valCell = raw != null && Number.isFinite(Number(raw))
+          ? Math.round(Number(raw))
+          : "";
+        const rankCell = row.sourceRanks?.[src.key] ?? "";
+        return [valCell, rankCell];
+      });
       lines.push(
-        `${row.rank}\t${row.name}\t${row.pos}\t${row.team || ""}\t` +
-        `${tierLabel(row)}\t${val}\t${band.label}\t` +
-        `${row.confidenceBucket || ""}\t${actionStr}\t${row.sourceCount || 0}\t` +
-        `${ktcVal}\t${row.ktcRank || ""}\t${idpVal}\t${row.idpRank || ""}`
+        [
+          row.rank, row.name, row.pos, row.team || "",
+          tierLabel(row), val, band.label,
+          row.confidenceBucket || "", actionStr, row.sourceCount || 0,
+          ...sourceCells,
+        ].join("\t")
       );
     });
     try {
@@ -515,8 +540,16 @@ export default function RankingsPage() {
                   <SortHeader col="name">Player</SortHeader>
                   <SortHeader col="pos" style={{ width: 54 }}>Pos</SortHeader>
                   <SortHeader col="value" style={{ textAlign: "right" }}>Value</SortHeader>
-                  <SortHeader col="ktc" style={{ textAlign: "right", width: 80 }} className="hide-mobile">KTC</SortHeader>
-                  <SortHeader col="idp" style={{ textAlign: "right", width: 80 }} className="hide-mobile">IDPTC</SortHeader>
+                  {RANKING_SOURCES.map((src) => (
+                    <SortHeader
+                      key={src.key}
+                      col={`src:${src.key}`}
+                      style={{ textAlign: "right", width: 80 }}
+                      className="hide-mobile"
+                    >
+                      {src.columnLabel}
+                    </SortHeader>
+                  ))}
                   <SortHeader col="confidence" style={{ textAlign: "center" }} className="hide-mobile">Conf</SortHeader>
                   <th className="hide-mobile" style={{ textAlign: "center", width: 90 }}>Gap</th>
                   <th className="hide-mobile" style={{ width: 170 }}>Signal</th>
@@ -542,7 +575,7 @@ export default function RankingsPage() {
                     <Fragment key={row.name}>
                       {showTierBreak && (
                         <tr className="rankings-tier-separator">
-                          <td colSpan={10}>
+                          <td colSpan={8 + RANKING_SOURCES.length}>
                             <span className="rankings-tier-separator-label">{tier}</span>
                           </td>
                         </tr>
@@ -595,33 +628,30 @@ export default function RankingsPage() {
                           <span className={`rankings-value-band ${band.css}`}>{band.label}</span>
                         </td>
 
-                        {/* KTC source value + rank */}
-                        <td className="hide-mobile" style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem" }}>
-                          {row.canonicalSites?.ktc != null ? (
-                            <>
-                              <div>{Math.round(Number(row.canonicalSites.ktc)).toLocaleString()}</div>
-                              {row.ktcRank != null && (
-                                <div className="muted" style={{ fontSize: "0.68rem" }}>#{row.ktcRank}</div>
+                        {/* Per-source value + rank columns (enumerated from RANKING_SOURCES) */}
+                        {RANKING_SOURCES.map((src) => {
+                          const rawVal = row.canonicalSites?.[src.key];
+                          const hasVal = rawVal != null && Number.isFinite(Number(rawVal));
+                          const rank = row.sourceRanks?.[src.key];
+                          return (
+                            <td
+                              key={src.key}
+                              className="hide-mobile"
+                              style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem" }}
+                            >
+                              {hasVal ? (
+                                <>
+                                  <div>{Math.round(Number(rawVal)).toLocaleString()}</div>
+                                  {rank != null && (
+                                    <div className="muted" style={{ fontSize: "0.68rem" }}>#{rank}</div>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="muted">&mdash;</span>
                               )}
-                            </>
-                          ) : (
-                            <span className="muted">&mdash;</span>
-                          )}
-                        </td>
-
-                        {/* IDPTradeCalc source value + rank */}
-                        <td className="hide-mobile" style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem" }}>
-                          {row.canonicalSites?.idpTradeCalc != null ? (
-                            <>
-                              <div>{Math.round(Number(row.canonicalSites.idpTradeCalc)).toLocaleString()}</div>
-                              {row.idpRank != null && (
-                                <div className="muted" style={{ fontSize: "0.68rem" }}>#{row.idpRank}</div>
-                              )}
-                            </>
-                          ) : (
-                            <span className="muted">&mdash;</span>
-                          )}
-                        </td>
+                            </td>
+                          );
+                        })}
 
                         {/* Confidence */}
                         <td className="hide-mobile" style={{ textAlign: "center" }}>

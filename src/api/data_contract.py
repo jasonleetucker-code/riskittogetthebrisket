@@ -145,10 +145,19 @@ _RANK_TO_SYNTHETIC_VALUE_OFFSET = 10000
 # Fields:
 #   key           — the contract-side source key used in canonicalSiteValues
 #   display_name  — human label for methodology docs
-#   scope         — one of:
+#   scope         — the *primary* scope for this source, one of:
 #                     SOURCE_SCOPE_OVERALL_OFFENSE: ranks offense + picks
 #                     SOURCE_SCOPE_OVERALL_IDP:     ranks DL/LB/DB together
 #                     SOURCE_SCOPE_POSITION_IDP:    ranks a single IDP family
+#   extra_scopes  — optional list of additional scopes this source also
+#                   contributes to.  Used when a single market source
+#                   (e.g. IDP Trade Calculator) lists BOTH offense and IDP
+#                   players in the same value pool, and we want it to
+#                   feed the offense blend as a second opinion as well as
+#                   serving as the IDP backbone.  Because offense and IDP
+#                   position sets are disjoint, each row only ever lands
+#                   in one scope's eligible list, so sourceRanks never
+#                   collides across scopes for the same source key.
 #   position_group — for position_idp: "DL" | "LB" | "DB" (None otherwise)
 #   depth         — declared list depth (None means "full board").  Used to
 #                   scale the blend weight for shallow lists.
@@ -156,7 +165,17 @@ _RANK_TO_SYNTHETIC_VALUE_OFFSET = 10000
 #                   config/weights file can override this, but equal
 #                   weights is the current project default.
 #   is_backbone   — the first enabled overall_idp source with this flag is
-#                   used to build the translation backbone.
+#                   used to build the translation backbone.  Backbone
+#                   status is determined by the *primary* scope only.
+#   is_retail     — marks a source as a retail/market signal (what casual
+#                   trade partners anchor on) rather than an expert board.
+#                   Used by `_compute_market_gap` to compute the "Retail
+#                   vs Consensus" mispricing signal: retail sources are
+#                   averaged on one side, every other (non-retail) source
+#                   on the other, and the gap between the two sides is
+#                   the marketGapMagnitude.  Adding a second retail
+#                   source (e.g. Sleeper's public trade values) is a
+#                   pure registry change — the gap logic generalizes.
 from src.canonical.idp_backbone import (
     SOURCE_SCOPE_OVERALL_IDP,
     SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -171,6 +190,11 @@ from src.canonical.idp_backbone import (
 
 _RANKING_SOURCES: list[dict[str, Any]] = [
     {
+        # KeepTradeCut is the retail offense market — community trade
+        # values scraped from a public-facing trade calculator.  This
+        # is what casual trade partners see and anchor on, so it's
+        # flagged `is_retail` and fed into the market-gap signal as
+        # the "retail" side against every other (expert) source.
         "key": "ktc",
         "display_name": "KeepTradeCut",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -178,11 +202,21 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "depth": None,
         "weight": 1.0,
         "is_backbone": False,
+        "is_retail": True,
     },
     {
+        # IDP Trade Calculator's public value pool covers both offense
+        # players (via autocomplete, same 0-9999 scale) and the full IDP
+        # board.  Register it under the overall_idp scope as the IDP
+        # backbone *and* under overall_offense as a secondary offense
+        # source so offensive players get blended ranks from KTC and
+        # IDPTradeCalc together.  The two scope passes act on disjoint
+        # row sets (offense vs IDP positions), so sourceRanks["idpTradeCalc"]
+        # is written exactly once per row.
         "key": "idpTradeCalc",
         "display_name": "IDP Trade Calculator",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
+        "extra_scopes": [SOURCE_SCOPE_OVERALL_OFFENSE],
         "position_group": None,
         "depth": None,
         "weight": 1.0,
@@ -303,25 +337,70 @@ def _compute_anomaly_flags(
     return flags
 
 
+def _retail_source_keys() -> frozenset[str]:
+    """Return the set of ranking source keys marked `is_retail` in the registry.
+
+    Derived from `_RANKING_SOURCES` on every call so tests (or future
+    config reloads) that mutate the registry see updated membership
+    without a module reimport.
+    """
+    return frozenset(s["key"] for s in _RANKING_SOURCES if s.get("is_retail"))
+
+
 def _compute_market_gap(
     source_ranks: dict[str, int],
+    retail_keys: set[str] | frozenset[str] | None = None,
 ) -> tuple[str, float | None]:
-    """Determine which source ranks a player higher and by how much.
+    """Quantify the disagreement between retail and expert consensus.
+
+    "Market gap" frames the retail market (sources flagged `is_retail`
+    in the registry — today just KTC) against every other registered
+    source (the expert consensus — IDPTC, DLF, and any future non-retail
+    source).  Both sides are averaged, and the gap is the ordinal rank
+    difference between the two means.
+
+    A retail premium means retail ranks the player higher (lower rank
+    number) than consensus — i.e. the retail market is pricing the
+    player above where the experts have them.  A consensus premium is
+    the reverse: the experts value the player more than retail does,
+    making them a potential "buy low" from a retail-first trade partner.
 
     Returns (direction, magnitude) where direction is one of:
-      "ktc_higher", "idptc_higher", "none"
-    and magnitude is the absolute ordinal rank difference (None if < 2 sources).
+      "retail_premium"     — retail mean rank is lower number than consensus mean
+      "consensus_premium"  — consensus mean rank is lower number than retail mean
+      "none"               — tie, or either side has zero sources present
+
+    magnitude is the absolute ordinal rank difference between the two
+    means as a float, or None when the comparison cannot be made (one
+    side has no source ranks on this row).  Magnitude is 0.0 on a tie.
+
+    `retail_keys` is an optional override for tests; when None the set is
+    derived from `_RANKING_SOURCES` via `_retail_source_keys()`.
     """
-    ktc_rank = source_ranks.get("ktc")
-    idp_rank = source_ranks.get("idpTradeCalc")
-    if ktc_rank is not None and idp_rank is not None:
-        diff = idp_rank - ktc_rank  # positive means KTC ranks higher (lower number)
-        if diff > 0:
-            return "ktc_higher", float(abs(diff))
-        elif diff < 0:
-            return "idptc_higher", float(abs(diff))
-        return "none", 0.0
-    return "none", None
+    if retail_keys is None:
+        retail_keys = _retail_source_keys()
+
+    retail_ranks = [
+        rank
+        for key, rank in source_ranks.items()
+        if key in retail_keys and rank is not None
+    ]
+    consensus_ranks = [
+        rank
+        for key, rank in source_ranks.items()
+        if key not in retail_keys and rank is not None
+    ]
+    if not retail_ranks or not consensus_ranks:
+        return "none", None
+
+    retail_mean = sum(retail_ranks) / len(retail_ranks)
+    consensus_mean = sum(consensus_ranks) / len(consensus_ranks)
+    diff = consensus_mean - retail_mean  # positive → retail ranks higher
+    if diff > 0:
+        return "retail_premium", float(abs(diff))
+    if diff < 0:
+        return "consensus_premium", float(abs(diff))
+    return "none", 0.0
 
 
 def _normalize_for_collision(name: str) -> str:
@@ -792,58 +871,66 @@ def _compute_unified_rankings(
 
     for src in _RANKING_SOURCES:
         source_key: str = src["key"]
-        scope: str = src["scope"]
         position_group: str | None = src.get("position_group")
+        # A source may contribute to multiple scopes (e.g. IDPTradeCalc
+        # lists both offense and IDP players in one value pool).  Each
+        # scope runs its own eligibility + ordinal ranking pass.  Offense
+        # and IDP position sets are disjoint, so sourceRanks[source_key]
+        # is written at most once per row across the passes.
+        scopes_to_rank: list[str] = [src["scope"]] + list(
+            src.get("extra_scopes") or []
+        )
+        for scope in scopes_to_rank:
 
-        # Gather eligible (value, row_idx) tuples under this source's scope.
-        eligible: list[tuple[float, int]] = []
-        for idx, row in enumerate(players_array):
-            pos = str(row.get("position") or "").strip().upper()
-            if pos not in _RANKABLE_POSITIONS:
-                continue
-            if not _scope_eligible(pos, scope, position_group):
-                continue
-            sites = row.get("canonicalSiteValues") or {}
-            val = _safe_num(sites.get(source_key))
-            if val is None or val <= 0:
-                continue
-            eligible.append((val, idx))
+            # Gather eligible (value, row_idx) tuples under this source's scope.
+            eligible: list[tuple[float, int]] = []
+            for idx, row in enumerate(players_array):
+                pos = str(row.get("position") or "").strip().upper()
+                if pos not in _RANKABLE_POSITIONS:
+                    continue
+                if not _scope_eligible(pos, scope, position_group):
+                    continue
+                sites = row.get("canonicalSiteValues") or {}
+                val = _safe_num(sites.get(source_key))
+                if val is None or val <= 0:
+                    continue
+                eligible.append((val, idx))
 
-        eligible.sort(key=lambda t: -t[0])
+            eligible.sort(key=lambda t: -t[0])
 
-        for rank_idx, (_, row_idx) in enumerate(eligible):
-            raw_rank = rank_idx + 1
+            for rank_idx, (_, row_idx) in enumerate(eligible):
+                raw_rank = rank_idx + 1
 
-            # Translate to effective overall-style rank based on scope.
-            if scope == SOURCE_SCOPE_POSITION_IDP and position_group:
-                ladder = backbone.ladder_for(position_group)
-                effective_rank, method = translate_position_rank(
-                    raw_rank, ladder
-                )
-            else:
-                effective_rank = raw_rank
-                method = TRANSLATION_DIRECT
+                # Translate to effective overall-style rank based on scope.
+                if scope == SOURCE_SCOPE_POSITION_IDP and position_group:
+                    ladder = backbone.ladder_for(position_group)
+                    effective_rank, method = translate_position_rank(
+                        raw_rank, ladder
+                    )
+                else:
+                    effective_rank = raw_rank
+                    method = TRANSLATION_DIRECT
 
-            row_source_ranks.setdefault(row_idx, {})[source_key] = effective_rank
-            row_source_meta.setdefault(row_idx, {})[source_key] = {
-                "scope": scope,
-                "positionGroup": position_group,
-                "rawRank": raw_rank,
-                "effectiveRank": effective_rank,
-                "method": method,
-                "ladderDepth": (
-                    len(backbone.ladder_for(position_group))
-                    if scope == SOURCE_SCOPE_POSITION_IDP and position_group
-                    else None
-                ),
-                "backboneDepth": (
-                    backbone_depth
-                    if scope == SOURCE_SCOPE_POSITION_IDP
-                    else None
-                ),
-                "depth": src.get("depth"),
-                "weight": float(src.get("weight") or 0.0),
-            }
+                row_source_ranks.setdefault(row_idx, {})[source_key] = effective_rank
+                row_source_meta.setdefault(row_idx, {})[source_key] = {
+                    "scope": scope,
+                    "positionGroup": position_group,
+                    "rawRank": raw_rank,
+                    "effectiveRank": effective_rank,
+                    "method": method,
+                    "ladderDepth": (
+                        len(backbone.ladder_for(position_group))
+                        if scope == SOURCE_SCOPE_POSITION_IDP and position_group
+                        else None
+                    ),
+                    "backboneDepth": (
+                        backbone_depth
+                        if scope == SOURCE_SCOPE_POSITION_IDP
+                        else None
+                    ),
+                    "depth": src.get("depth"),
+                    "weight": float(src.get("weight") or 0.0),
+                }
 
     # ── Phase 2-3: Normalized value (Hill curve) + coverage-aware blend ──
     # Look up each source's weight / depth once.
@@ -1360,16 +1447,21 @@ def build_api_data_contract(
                 "key": src["key"],
                 "name": src["display_name"],
                 "scope": src["scope"],
+                "extraScopes": list(src.get("extra_scopes") or []),
                 "positionGroup": src.get("position_group"),
                 "depth": src.get("depth"),
                 "weight": src.get("weight"),
                 "isBackbone": bool(src.get("is_backbone")),
-                "covers": (
-                    "Offense (QB, RB, WR, TE) + draft picks"
-                    if src["scope"] == SOURCE_SCOPE_OVERALL_OFFENSE
-                    else "IDP full board (DL, LB, DB)"
-                    if src["scope"] == SOURCE_SCOPE_OVERALL_IDP
-                    else f"IDP position group: {src.get('position_group')}"
+                "isRetail": bool(src.get("is_retail")),
+                "covers": " + ".join(
+                    (
+                        "Offense (QB, RB, WR, TE) + draft picks"
+                        if s == SOURCE_SCOPE_OVERALL_OFFENSE
+                        else "IDP full board (DL, LB, DB)"
+                        if s == SOURCE_SCOPE_OVERALL_IDP
+                        else f"IDP position group: {src.get('position_group')}"
+                    )
+                    for s in ([src["scope"]] + list(src.get("extra_scopes") or []))
                 ),
             }
             for src in _RANKING_SOURCES

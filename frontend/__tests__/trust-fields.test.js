@@ -87,8 +87,8 @@ describe("trust fields from playersArray", () => {
   });
 
   it("preserves marketGapDirection", () => {
-    const row = buildSingle({ marketGapDirection: "ktc_higher" });
-    expect(row.marketGapDirection).toBe("ktc_higher");
+    const row = buildSingle({ marketGapDirection: "retail_premium" });
+    expect(row.marketGapDirection).toBe("retail_premium");
   });
 
   it("preserves marketGapMagnitude", () => {
@@ -284,7 +284,7 @@ describe("legacy path picks up mirrored trust fields", () => {
           hasSourceDisagreement: false,
           blendedSourceRank: 5.0,
           sourceRankSpread: 10,
-          marketGapDirection: "ktc_higher",
+          marketGapDirection: "retail_premium",
           marketGapMagnitude: 25,
           identityConfidence: 0.95,
           identityMethod: "canonical_id",
@@ -306,7 +306,7 @@ describe("legacy path picks up mirrored trust fields", () => {
     expect(row.isSingleSource).toBe(false);
     expect(row.hasSourceDisagreement).toBe(false);
     expect(row.sourceRankSpread).toBe(10);
-    expect(row.marketGapDirection).toBe("ktc_higher");
+    expect(row.marketGapDirection).toBe("retail_premium");
     expect(row.marketGapMagnitude).toBe(25);
     expect(row.identityConfidence).toBe(0.95);
     expect(row.identityMethod).toBe("canonical_id");
