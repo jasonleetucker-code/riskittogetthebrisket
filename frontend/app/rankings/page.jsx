@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState, useCallback } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
-import { resolvedRank, RANKING_SOURCES } from "@/lib/dynasty-data";
+import { resolvedRank, RANKING_SOURCES, getRetailLabel } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
 import {
@@ -123,12 +123,14 @@ function EdgeRailSection({ label, items, emptyText, onPlayerClick }) {
 
 function EdgeRail({ summary, onPlayerClick }) {
   const hasSomething =
-    summary.ktcPremium.length > 0 ||
+    summary.retailPremium.length > 0 ||
     summary.consensusPremium.length > 0 ||
     summary.flaggedCautions.length > 0 ||
     summary.consensusAssets.length > 0;
 
   if (!hasSomething) return null;
+
+  const retailLabel = getRetailLabel();
 
   return (
     <div className="edge-rail">
@@ -138,9 +140,9 @@ function EdgeRail({ summary, onPlayerClick }) {
       </div>
       <div className="edge-rail-grid">
         <EdgeRailSection
-          label="KTC Premium"
-          items={summary.ktcPremium}
-          emptyText="No significant KTC premiums"
+          label={`${retailLabel} Premium`}
+          items={summary.retailPremium}
+          emptyText={`No significant ${retailLabel} premiums`}
           onPlayerClick={onPlayerClick}
         />
         <EdgeRailSection

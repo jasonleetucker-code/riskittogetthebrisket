@@ -5,7 +5,7 @@ import {
   LENSES,
   getLens,
   applyLens,
-  topKtcPremium,
+  topRetailPremium,
   topConsensusPremium,
   topFlaggedCautions,
   topConsensusAssets,
@@ -38,12 +38,14 @@ describe("actionLabel", () => {
     expect(actionLabel(makeRow({ quarantined: true }))).toBeNull();
   });
 
-  it("returns market premium when KTC ranks higher with large spread", () => {
+  it("returns market premium when retail ranks higher with large spread", () => {
     const label = actionLabel(makeRow({
-      marketGapDirection: "ktc_premium",
+      marketGapDirection: "retail_premium",
       sourceRankSpread: 45,
     }));
     expect(label).not.toBeNull();
+    // Retail label is resolved from the registry via getRetailLabel();
+    // today the only retail source is KTC so the label ends in "KTC".
     expect(label.label).toBe("Market premium: KTC");
     expect(label.css).toBe("action-premium");
   });
@@ -73,7 +75,7 @@ describe("actionLabel", () => {
       confidenceBucket: "high",
       sourceCount: 2,
       sourceRankSpread: 40,
-      marketGapDirection: "ktc_premium",
+      marketGapDirection: "retail_premium",
     }));
     expect(label.label).toBe("Market premium: KTC");
   });
@@ -211,25 +213,26 @@ describe("applyLens", () => {
 
 // ── Edge summary functions ───────────────────────────────────────────
 
-describe("topKtcPremium", () => {
-  it("returns rows sorted by spread where KTC ranks higher", () => {
+describe("topRetailPremium", () => {
+  it("returns rows sorted by spread where retail ranks higher", () => {
     const rows = [
-      makeRow({ name: "A", marketGapDirection: "ktc_premium", sourceRankSpread: 50, rank: 10 }),
-      makeRow({ name: "B", marketGapDirection: "ktc_premium", sourceRankSpread: 80, rank: 20 }),
+      makeRow({ name: "A", marketGapDirection: "retail_premium", sourceRankSpread: 50, rank: 10 }),
+      makeRow({ name: "B", marketGapDirection: "retail_premium", sourceRankSpread: 80, rank: 20 }),
       makeRow({ name: "C", marketGapDirection: "consensus_premium", sourceRankSpread: 90, rank: 5 }),
-      makeRow({ name: "D", marketGapDirection: "ktc_premium", sourceRankSpread: 10, rank: 30 }), // below 20 threshold
+      makeRow({ name: "D", marketGapDirection: "retail_premium", sourceRankSpread: 10, rank: 30 }), // below 20 threshold
     ];
-    const result = topKtcPremium(rows, 3);
+    const result = topRetailPremium(rows, 3);
     expect(result).toHaveLength(2); // A and B (D is below threshold)
     expect(result[0].name).toBe("B"); // 80 > 50
+    // Retail label is dynamic — today "KTC" since KTC is the only retail source.
     expect(result[0].detail).toBe("KTC +80 ranks");
   });
 
   it("excludes quarantined rows", () => {
     const rows = [
-      makeRow({ name: "Q", marketGapDirection: "ktc_premium", sourceRankSpread: 60, quarantined: true }),
+      makeRow({ name: "Q", marketGapDirection: "retail_premium", sourceRankSpread: 60, quarantined: true }),
     ];
-    expect(topKtcPremium(rows)).toHaveLength(0);
+    expect(topRetailPremium(rows)).toHaveLength(0);
   });
 });
 
@@ -278,7 +281,7 @@ describe("computeEdgeSummary", () => {
       makeRow({ name: "P1", pos: "QB", rank: 1, confidenceBucket: "high", sourceCount: 2 }),
     ];
     const summary = computeEdgeSummary(rows);
-    expect(summary).toHaveProperty("ktcPremium");
+    expect(summary).toHaveProperty("retailPremium");
     expect(summary).toHaveProperty("consensusPremium");
     expect(summary).toHaveProperty("flaggedCautions");
     expect(summary).toHaveProperty("consensusAssets");

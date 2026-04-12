@@ -167,6 +167,15 @@ _RANK_TO_SYNTHETIC_VALUE_OFFSET = 10000
 #   is_backbone   — the first enabled overall_idp source with this flag is
 #                   used to build the translation backbone.  Backbone
 #                   status is determined by the *primary* scope only.
+#   is_retail     — marks a source as a retail/market signal (what casual
+#                   trade partners anchor on) rather than an expert board.
+#                   Used by `_compute_market_gap` to compute the "Retail
+#                   vs Consensus" mispricing signal: retail sources are
+#                   averaged on one side, every other (non-retail) source
+#                   on the other, and the gap between the two sides is
+#                   the marketGapMagnitude.  Adding a second retail
+#                   source (e.g. Sleeper's public trade values) is a
+#                   pure registry change — the gap logic generalizes.
 from src.canonical.idp_backbone import (
     SOURCE_SCOPE_OVERALL_IDP,
     SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -181,6 +190,11 @@ from src.canonical.idp_backbone import (
 
 _RANKING_SOURCES: list[dict[str, Any]] = [
     {
+        # KeepTradeCut is the retail offense market — community trade
+        # values scraped from a public-facing trade calculator.  This
+        # is what casual trade partners see and anchor on, so it's
+        # flagged `is_retail` and fed into the market-gap signal as
+        # the "retail" side against every other (expert) source.
         "key": "ktc",
         "display_name": "KeepTradeCut",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -188,6 +202,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "depth": None,
         "weight": 1.0,
         "is_backbone": False,
+        "is_retail": True,
     },
     {
         # IDP Trade Calculator's public value pool covers both offense
@@ -322,45 +337,67 @@ def _compute_anomaly_flags(
     return flags
 
 
+def _retail_source_keys() -> frozenset[str]:
+    """Return the set of ranking source keys marked `is_retail` in the registry.
+
+    Derived from `_RANKING_SOURCES` on every call so tests (or future
+    config reloads) that mutate the registry see updated membership
+    without a module reimport.
+    """
+    return frozenset(s["key"] for s in _RANKING_SOURCES if s.get("is_retail"))
+
+
 def _compute_market_gap(
     source_ranks: dict[str, int],
+    retail_keys: set[str] | frozenset[str] | None = None,
 ) -> tuple[str, float | None]:
-    """Quantify the disagreement between KTC and the expert consensus.
+    """Quantify the disagreement between retail and expert consensus.
 
-    "Market gap" frames KTC (the retail offense market) against the mean
-    rank of every other registered source (IDPTC + DLF + any future
-    expert source).  A positive diff means KTC ranks the player higher
-    than consensus (a "KTC premium"); a negative diff means consensus
-    ranks the player higher than KTC (a "consensus premium").
+    "Market gap" frames the retail market (sources flagged `is_retail`
+    in the registry — today just KTC) against every other registered
+    source (the expert consensus — IDPTC, DLF, and any future non-retail
+    source).  Both sides are averaged, and the gap is the ordinal rank
+    difference between the two means.
+
+    A retail premium means retail ranks the player higher (lower rank
+    number) than consensus — i.e. the retail market is pricing the
+    player above where the experts have them.  A consensus premium is
+    the reverse: the experts value the player more than retail does,
+    making them a potential "buy low" from a retail-first trade partner.
 
     Returns (direction, magnitude) where direction is one of:
-      "ktc_premium"        — KTC rank is lower number (better) than consensus mean
-      "consensus_premium"  — consensus mean rank is lower number than KTC
-      "none"               — tie, or KTC has no rank, or no consensus sources
+      "retail_premium"     — retail mean rank is lower number than consensus mean
+      "consensus_premium"  — consensus mean rank is lower number than retail mean
+      "none"               — tie, or either side has zero sources present
 
-    magnitude is the absolute ordinal rank difference as a float, or
-    None when the comparison cannot be made (KTC missing or no consensus
-    sources present).  Magnitude is 0.0 on a tie.
+    magnitude is the absolute ordinal rank difference between the two
+    means as a float, or None when the comparison cannot be made (one
+    side has no source ranks on this row).  Magnitude is 0.0 on a tie.
+
+    `retail_keys` is an optional override for tests; when None the set is
+    derived from `_RANKING_SOURCES` via `_retail_source_keys()`.
     """
-    ktc_rank = source_ranks.get("ktc")
-    if ktc_rank is None:
-        return "none", None
+    if retail_keys is None:
+        retail_keys = _retail_source_keys()
 
-    # Consensus = mean of every source rank other than KTC that is
-    # actually present on this row.  Using a mean (not median) keeps the
-    # signal smooth when only one non-KTC source covers the player.
-    other_ranks = [
+    retail_ranks = [
         rank
         for key, rank in source_ranks.items()
-        if key != "ktc" and rank is not None
+        if key in retail_keys and rank is not None
     ]
-    if not other_ranks:
+    consensus_ranks = [
+        rank
+        for key, rank in source_ranks.items()
+        if key not in retail_keys and rank is not None
+    ]
+    if not retail_ranks or not consensus_ranks:
         return "none", None
 
-    consensus_rank = sum(other_ranks) / len(other_ranks)
-    diff = consensus_rank - ktc_rank  # positive → KTC ranks higher (lower number)
+    retail_mean = sum(retail_ranks) / len(retail_ranks)
+    consensus_mean = sum(consensus_ranks) / len(consensus_ranks)
+    diff = consensus_mean - retail_mean  # positive → retail ranks higher
     if diff > 0:
-        return "ktc_premium", float(abs(diff))
+        return "retail_premium", float(abs(diff))
     if diff < 0:
         return "consensus_premium", float(abs(diff))
     return "none", 0.0
@@ -1415,6 +1452,7 @@ def build_api_data_contract(
                 "depth": src.get("depth"),
                 "weight": src.get("weight"),
                 "isBackbone": bool(src.get("is_backbone")),
+                "isRetail": bool(src.get("is_retail")),
                 "covers": " + ".join(
                     (
                         "Offense (QB, RB, WR, TE) + draft picks"

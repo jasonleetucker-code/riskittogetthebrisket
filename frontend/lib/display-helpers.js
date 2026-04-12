@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { MARKET_GAP_MIN_DIFF } from "./thresholds.js";
+import { getRetailSourceKeys, getRetailLabel } from "./dynasty-data.js";
 
 /**
  * Return the CSS class for a position badge based on asset class.
@@ -56,26 +57,39 @@ export function isEligibleForAnalysis(row) {
 /**
  * Return a short market-gap label string, or null if insignificant.
  *
- * "Market gap" is KTC (the retail offense market) vs the mean rank of
- * every other registered ranking source (the expert consensus — IDPTC,
- * DLF, etc.).  A KTC premium means the offense market values the
- * player more than the consensus does; a consensus premium is the
- * opposite.
+ * "Market gap" frames the retail market (sources flagged `isRetail` in
+ * the registry — today just KTC) against every other registered
+ * source (the expert consensus — IDPTC, DLF, etc.).  Both sides are
+ * averaged and the label shows the side that ranks the player higher
+ * and by how many ordinal ranks.  A "KTC +N" label means retail values
+ * the player more than the consensus does; a "Consensus +N" label is
+ * the reverse.
+ *
+ * The retail side label is resolved dynamically from the registry via
+ * `getRetailLabel()`, so adding a second retail source flips the label
+ * to the generic "Retail" with no code edits here.
  */
 export function marketGapLabel(row) {
   if (!row?.sourceRanks) return null;
-  const ktcRank = row.sourceRanks.ktc;
-  if (!ktcRank) return null;
+  const retailKeys = new Set(getRetailSourceKeys());
 
-  const otherRanks = Object.entries(row.sourceRanks)
-    .filter(([key, rank]) => key !== "ktc" && rank != null)
+  const retailRanks = Object.entries(row.sourceRanks)
+    .filter(([key, rank]) => retailKeys.has(key) && rank != null)
     .map(([, rank]) => Number(rank))
     .filter((n) => Number.isFinite(n));
-  if (otherRanks.length === 0) return null;
+  if (retailRanks.length === 0) return null;
 
-  const consensusRank = otherRanks.reduce((s, v) => s + v, 0) / otherRanks.length;
-  const diff = Math.round(Math.abs(consensusRank - ktcRank));
+  const consensusRanks = Object.entries(row.sourceRanks)
+    .filter(([key, rank]) => !retailKeys.has(key) && rank != null)
+    .map(([, rank]) => Number(rank))
+    .filter((n) => Number.isFinite(n));
+  if (consensusRanks.length === 0) return null;
+
+  const retailMean = retailRanks.reduce((s, v) => s + v, 0) / retailRanks.length;
+  const consensusMean =
+    consensusRanks.reduce((s, v) => s + v, 0) / consensusRanks.length;
+  const diff = Math.round(Math.abs(consensusMean - retailMean));
   if (diff < MARKET_GAP_MIN_DIFF) return null;
-  const higher = ktcRank < consensusRank ? "KTC" : "Consensus";
+  const higher = retailMean < consensusMean ? getRetailLabel() : "Consensus";
   return `${higher} +${diff}`;
 }

@@ -234,6 +234,12 @@ export function rankToValue(rank) {
 const OVERALL_RANK_LIMIT = 800;
 export const RANKING_SOURCES = [
   {
+    // KeepTradeCut is the retail offense market — community trade values
+    // scraped from a public-facing trade calculator.  This is what casual
+    // trade partners see and anchor on, so it's flagged `isRetail: true`
+    // and fed into the market-gap signal as the "retail" side against
+    // every other (expert) source.  Mirrors the `is_retail: True` flag
+    // on the backend `_RANKING_SOURCES` entry in src/api/data_contract.py.
     key: "ktc",
     displayName: "KeepTradeCut",
     columnLabel: "KTC",
@@ -242,6 +248,7 @@ export const RANKING_SOURCES = [
     depth: null,
     weight: 1.0,
     isBackbone: false,
+    isRetail: true,
   },
   {
     // IDP Trade Calculator's value pool covers both offense (via the
@@ -279,6 +286,37 @@ export const RANKING_SOURCES = [
 // Legacy export retained for any consumer that previously imported
 // the flat source-key list.  New callers should use RANKING_SOURCES.
 const SOURCE_KEYS = RANKING_SOURCES.map((s) => s.key);
+
+// ── Retail source registry helpers ───────────────────────────────────
+// Mirrors `_retail_source_keys()` on the backend.  "Retail" sources are
+// flagged in the registry with `isRetail: true` and represent the
+// casual/market side of the market-gap signal (today just KTC).  Every
+// non-retail registered source forms the "consensus" side.  Adding a
+// second retail source (e.g. a future Sleeper trade-values feed) is a
+// pure registry change — gap-label rendering, edge-summary filters,
+// and page-level display all read from these helpers, so no call sites
+// need to be edited when a new retail source is registered.
+
+/**
+ * Return an array of ranking source keys flagged as retail.
+ * Derived from RANKING_SOURCES on every call so tests that mutate the
+ * registry (or future runtime config reloads) see updated membership.
+ */
+export function getRetailSourceKeys() {
+  return RANKING_SOURCES.filter((s) => s.isRetail).map((s) => s.key);
+}
+
+/**
+ * Return the label to use for the retail side of the market-gap signal.
+ * When exactly one source is flagged retail, its column label is used
+ * directly (today: "KTC").  When multiple sources are flagged retail,
+ * the generic label "Retail" is used instead.
+ */
+export function getRetailLabel() {
+  const retail = RANKING_SOURCES.filter((s) => s.isRetail);
+  if (retail.length === 1) return retail[0].columnLabel;
+  return "Retail";
+}
 
 function computeUnifiedRanks(rows) {
   // ── Phase 0: Build the IDP backbone from the designated source ──

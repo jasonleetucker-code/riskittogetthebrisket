@@ -287,11 +287,12 @@ class TestAnomalyFlags(unittest.TestCase):
 
 class TestMarketGap(unittest.TestCase):
 
-    def test_ktc_premium_vs_single_consensus_source(self):
-        # KTC rank 10, IDPTC rank 50 → consensus mean = 50 →
-        # KTC ranks the player 40 positions higher → ktc_premium.
+    def test_retail_premium_vs_single_consensus_source(self):
+        # KTC (retail) rank 10, IDPTC (consensus) rank 50 → retail mean 10
+        # vs consensus mean 50 → retail ranks the player 40 positions
+        # higher → retail_premium.
         direction, magnitude = _compute_market_gap({"ktc": 10, "idpTradeCalc": 50})
-        self.assertEqual(direction, "ktc_premium")
+        self.assertEqual(direction, "retail_premium")
         self.assertEqual(magnitude, 40.0)
 
     def test_consensus_premium_vs_single_consensus_source(self):
@@ -304,24 +305,25 @@ class TestMarketGap(unittest.TestCase):
         self.assertEqual(direction, "none")
         self.assertEqual(magnitude, 0.0)
 
-    def test_ktc_alone_returns_none(self):
-        # No consensus sources present → cannot compute a gap.
+    def test_retail_alone_returns_none(self):
+        # Retail side has a rank, consensus side is empty → no gap.
         direction, magnitude = _compute_market_gap({"ktc": 10})
         self.assertEqual(direction, "none")
         self.assertIsNone(magnitude)
 
-    def test_no_ktc_returns_none(self):
-        # KTC absent → IDP-only players cannot have a KTC-vs-consensus gap.
+    def test_no_retail_returns_none(self):
+        # IDP-only players have no retail rank (KTC is offense-only) →
+        # retail side is empty → no gap.
         direction, magnitude = _compute_market_gap({"idpTradeCalc": 10, "dlfIdp": 20})
         self.assertEqual(direction, "none")
         self.assertIsNone(magnitude)
 
-    def test_ktc_vs_averaged_multi_source_consensus(self):
-        # KTC 10 vs mean(IDPTC 50, DLF 70) = 60 → ktc_premium of 50.
+    def test_retail_vs_averaged_multi_source_consensus(self):
+        # KTC 10 vs mean(IDPTC 50, DLF 70) = 60 → retail_premium of 50.
         direction, magnitude = _compute_market_gap(
             {"ktc": 10, "idpTradeCalc": 50, "dlfIdp": 70}
         )
-        self.assertEqual(direction, "ktc_premium")
+        self.assertEqual(direction, "retail_premium")
         self.assertEqual(magnitude, 50.0)
 
     def test_consensus_premium_with_multi_source_consensus(self):
@@ -331,6 +333,29 @@ class TestMarketGap(unittest.TestCase):
         )
         self.assertEqual(direction, "consensus_premium")
         self.assertEqual(magnitude, 65.0)
+
+    def test_multi_retail_sources_are_averaged(self):
+        # Hypothetical two-retail-source world (e.g. KTC + Sleeper trade
+        # values both flagged is_retail).  Retail mean = (10 + 30)/2 = 20;
+        # consensus mean = 60.  Retail ranks the player 40 higher →
+        # retail_premium.  Verified via explicit retail_keys override so
+        # we don't need to mutate the real registry.
+        direction, magnitude = _compute_market_gap(
+            {"ktc": 10, "sleeperTrade": 30, "idpTradeCalc": 50, "dlfIdp": 70},
+            retail_keys=frozenset({"ktc", "sleeperTrade"}),
+        )
+        self.assertEqual(direction, "retail_premium")
+        self.assertEqual(magnitude, 40.0)
+
+    def test_multi_retail_consensus_premium(self):
+        # Symmetric two-retail test: retail mean = (80+90)/2 = 85;
+        # consensus mean = (20+40)/2 = 30; consensus ranks 55 higher.
+        direction, magnitude = _compute_market_gap(
+            {"ktc": 80, "sleeperTrade": 90, "idpTradeCalc": 20, "dlfIdp": 40},
+            retail_keys=frozenset({"ktc", "sleeperTrade"}),
+        )
+        self.assertEqual(direction, "consensus_premium")
+        self.assertEqual(magnitude, 55.0)
 
 
 # ── Integration: single-source player row ────────────────────────────────────

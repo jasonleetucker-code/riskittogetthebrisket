@@ -7,6 +7,7 @@ import { actionLabel, cautionLabels } from "@/lib/edge-helpers";
 import { posBadgeClass, confBadgeClass, confBadgeLabel as confLabel, isEligibleForAnalysis } from "@/lib/display-helpers";
 import { rowChips } from "@/lib/rankings-helpers";
 import { FINDER_ROW_LIMIT, CONFIDENCE_SPREAD_HIGH } from "@/lib/thresholds";
+import { getRetailLabel } from "@/lib/dynasty-data";
 
 // ── Finder Page ────────────────────────────────────────────────────────────
 // Filter-driven player discovery tool. Each workflow surfaces a specific type
@@ -303,8 +304,8 @@ export default function FinderPage() {
                           )}
                           {workflow.showGap && (
                             <td style={{ fontSize: "0.78rem" }}>
-                              {row.marketGapDirection === "ktc_premium" ? (
-                                <span className="text-cyan">KTC</span>
+                              {row.marketGapDirection === "retail_premium" ? (
+                                <span className="text-cyan">{getRetailLabel()}</span>
                               ) : row.marketGapDirection === "consensus_premium" ? (
                                 <span className="text-amber">Consensus</span>
                               ) : (

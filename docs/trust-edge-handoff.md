@@ -25,7 +25,7 @@ Frontend consumer: `frontend/lib/dynasty-data.js` (`buildRows` + `computeUnified
 | `hasSourceDisagreement` | boolean | Sources diverge by >80 ordinal ranks |
 | `sourceRankSpread` | number \| null | Max minus min source rank (null if 1 source) |
 | `blendedSourceRank` | number \| null | Mean of per-source ordinal ranks |
-| `marketGapDirection` | `"ktc_premium"` \| `"consensus_premium"` \| `"none"` | KTC (retail) vs mean rank of other sources (expert consensus) |
+| `marketGapDirection` | `"retail_premium"` \| `"consensus_premium"` \| `"none"` | Retail (sources flagged `is_retail` in the registry — today just KTC) vs mean rank of non-retail sources (expert consensus). Adding a second retail source is a pure registry change. |
 | `marketGapMagnitude` | number \| null | Absolute ordinal rank difference between KTC and consensus mean |
 | `identityConfidence` | float 0.0-1.0 | How confident we are this is the right entity |
 | `identityMethod` | string | Method used: `canonical_id`, `position_source_aligned`, `partial_evidence`, `name_only` |
@@ -85,8 +85,8 @@ Any flag in `_QUARANTINE_FLAGS` set triggers `quarantined = true` and degrades `
 Source agreement dashboard. 6 sections in a 2-column grid:
 1. Consensus Assets — high confidence, multi-source, tight agreement
 2. Biggest Disagreements — highest source rank spread
-3. KTC Premium — players KTC (retail market) values much higher than the expert consensus
-4. Consensus Premium — players the expert consensus values much higher than KTC
+3. Retail Premium (today shown as "KTC Premium") — players the retail market values much higher than the expert consensus. Section title is resolved dynamically from `getRetailLabel()` in `frontend/lib/dynasty-data.js`; adding a second `isRetail` source flips the title to "Retail Premium" automatically.
+4. Consensus Premium — players the expert consensus values much higher than the retail market (inverse of #3)
 5. Flagged Anomalies — data quality flags in top 300
 6. Single-Source Players — valued by only one source
 

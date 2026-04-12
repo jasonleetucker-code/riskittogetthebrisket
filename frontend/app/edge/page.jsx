@@ -6,6 +6,7 @@ import { useApp } from "@/components/AppShell";
 import { actionLabel, cautionLabels } from "@/lib/edge-helpers";
 import { posBadgeClass, confBadgeClass, confBadgeLabel as confLabel, isEligibleForAnalysis } from "@/lib/display-helpers";
 import { EDGE_SECTION_LIMIT, EDGE_PREMIUM_LIMIT, EDGE_CAUTION_RANK_LIMIT, PREMIUM_SUMMARY_SPREAD } from "@/lib/thresholds";
+import { getRetailLabel } from "@/lib/dynasty-data";
 
 // ── Edge Page ─────────────────────────────────────────────────────────────
 // Source-agreement analysis dashboard. Every signal on this page traces to
@@ -131,7 +132,7 @@ const COL_GAP_DIR = {
   thStyle: { width: 70 },
   tdStyle: { fontSize: "0.78rem" },
   render: (r) => {
-    if (r.marketGapDirection === "ktc_premium") return <span className="text-cyan">KTC</span>;
+    if (r.marketGapDirection === "retail_premium") return <span className="text-cyan">{getRetailLabel()}</span>;
     if (r.marketGapDirection === "consensus_premium") return <span className="text-amber">Consensus</span>;
     return <span className="muted">\u2014</span>;
   },
@@ -205,10 +206,10 @@ export default function EdgePage() {
     [eligible],
   );
 
-  const ktcPremium = useMemo(
+  const retailPremium = useMemo(
     () =>
       eligible
-        .filter((r) => r.marketGapDirection === "ktc_premium" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
+        .filter((r) => r.marketGapDirection === "retail_premium" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
         .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
         .slice(0, EDGE_PREMIUM_LIMIT),
     [eligible],
@@ -343,17 +344,17 @@ export default function EdgePage() {
               />
             </EdgeSection>
 
-            {/* KTC Premium */}
+            {/* Retail Premium (today: KTC) */}
             <EdgeSection
-              title="KTC Premium"
-              description="Players KTC (retail market) values much higher than the expert consensus. Potential sells to KTC-first trade partners."
-              count={`${ktcPremium.length} shown`}
+              title={`${getRetailLabel()} Premium`}
+              description={`Players the retail market (${getRetailLabel()}) values much higher than the expert consensus. Potential sells to retail-first trade partners.`}
+              count={`${retailPremium.length} shown`}
               accent="cyan"
             >
               <SectionTable
-                rows={ktcPremium}
+                rows={retailPremium}
                 onPlayerClick={openPlayerPopup}
-                emptyText="No significant KTC premiums."
+                emptyText={`No significant ${getRetailLabel()} premiums.`}
                 columns={[COL_RANK, COL_PLAYER, COL_POS, COL_SPREAD, COL_VALUE]}
               />
             </EdgeSection>
@@ -361,7 +362,7 @@ export default function EdgePage() {
             {/* Consensus Premium */}
             <EdgeSection
               title="Consensus Premium"
-              description="Players the expert consensus values much higher than KTC. Potential buys from KTC-first trade partners."
+              description={`Players the expert consensus values much higher than ${getRetailLabel()}. Potential buys from retail-first trade partners.`}
               count={`${consensusPremium.length} shown`}
               accent="cyan"
             >
