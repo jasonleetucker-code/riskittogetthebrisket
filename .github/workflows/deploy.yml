@@ -332,6 +332,14 @@ jobs:
           export APP_PORT="${APP_PORT}"
           export STRICT_LOCAL_HEALTH="${STRICT_LOCAL_HEALTH}"
           export PUBLIC_URL="${PUBLIC_URL}"
+          # Force the frontend rebuild on every deploy.  The production
+          # server's login environment had RUN_FRONTEND_BUILD set to a
+          # non-true value, which short-circuited maybe_build_frontend
+          # and caused deploys to silently ship stale .next/ assets
+          # (the ChunkLoadError outage).  Exporting it here guarantees
+          # the remote shell inherits "true" regardless of any profile,
+          # /etc/environment, or systemd-user default.
+          export RUN_FRONTEND_BUILD="true"
 
           [[ -n "\${APP_DIR}" ]] || { echo "[remote] APP_DIR is empty" >&2; exit 20; }
           [[ -d "\${APP_DIR}/.git" ]] || { echo "[remote] APP_DIR is not a git repo: \${APP_DIR}" >&2; exit 21; }
@@ -402,32 +410,46 @@ jobs:
           check_endpoint "/api/data" 200
           check_endpoint "/" 200
 
-          # Extract a /_next/static/* reference from the landing page
-          # HTML and verify the server actually serves it.  This is the
+          # Extract EVERY /_next/static/* reference from the landing
+          # page HTML (and a sample of other key routes) and verify
+          # the server actually serves all of them.  This is the
           # guardrail for the ChunkLoadError failure mode: if the HTML
           # references a chunk hash the Next.js process no longer has
           # on disk (the exact symptom the prior production outage
           # showed), this check fails and the deploy is marked red
           # instead of silently shipping a broken client.
-          HTML_BODY_FILE="$(mktemp)"
-          if curl --silent --show-error --max-time 15 --output "${HTML_BODY_FILE}" "${URL}/"; then
-            # Prefer chunk files because that is the family that broke
-            # in prod.  Character class excludes the characters that
-            # could appear as attribute delimiters or whitespace.
-            NEXT_ASSET="$(grep -oE '/_next/static/chunks/[^"[:space:]<>]+\.js' "${HTML_BODY_FILE}" | head -n 1 || true)"
-            if [[ -z "${NEXT_ASSET}" ]]; then
-              NEXT_ASSET="$(grep -oE '/_next/static/[^"[:space:]<>]+\.(js|css)' "${HTML_BODY_FILE}" | head -n 1 || true)"
+          #
+          # The previous implementation probed ONLY the first match
+          # from `head -n 1`, which was always the webpack runtime
+          # chunk and always returned 200 — so a broken async chunk
+          # (like 448-*.js) silently shipped.  This implementation
+          # probes every distinct reference and fails the deploy if
+          # any single one returns non-200.
+          HTML_ROUTES=( "/" "/rankings" "/trade" "/edge" "/finder" )
+          declare -A SEEN_ASSETS=()
+          for route in "${HTML_ROUTES[@]}"; do
+            body_file="$(mktemp)"
+            if ! curl --silent --show-error --max-time 15 --output "${body_file}" "${URL}${route}"; then
+              echo "WARN: unable to fetch ${route} HTML for _next asset extraction"
+              rm -f "${body_file}"
+              continue
             fi
-            if [[ -n "${NEXT_ASSET}" ]]; then
-              check_endpoint "${NEXT_ASSET}" 200
-            else
-              echo "::warning title=No _next asset found::Could not extract a /_next/static/* reference from HTML; skipping chunk probe."
-            fi
-          else
-            echo "FAIL: unable to fetch / HTML for _next asset extraction"
+            while IFS= read -r asset; do
+              [[ -z "${asset}" ]] && continue
+              SEEN_ASSETS["${asset}"]=1
+            done < <(grep -oE '/_next/static/[^"'"'"'[:space:]<>]+\.(js|css)' "${body_file}" | sort -u)
+            rm -f "${body_file}"
+          done
+
+          if [[ "${#SEEN_ASSETS[@]}" -eq 0 ]]; then
+            echo "::error title=No _next assets found::HTML for routes ${HTML_ROUTES[*]} contained no /_next/static/* references."
             FAIL=$((FAIL + 1))
+          else
+            echo "Probing ${#SEEN_ASSETS[@]} distinct /_next/static/* references from HTML."
+            for asset in "${!SEEN_ASSETS[@]}"; do
+              check_endpoint "${asset}" 200
+            done
           fi
-          rm -f "${HTML_BODY_FILE}"
 
           echo ""
           echo "Results: ${PASS} passed, ${FAIL} failed"

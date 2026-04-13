@@ -370,13 +370,20 @@ deploy_frontend_atomic() {
   run_build="$(lower "${RUN_FRONTEND_BUILD}")"
 
   if [[ "${run_build}" != "true" && "${run_build}" != "1" && "${run_build}" != "yes" ]]; then
-    log "Frontend build disabled; skipping atomic swap."
+    log "Frontend build disabled (RUN_FRONTEND_BUILD=${RUN_FRONTEND_BUILD}); skipping atomic swap."
     return 0
   fi
 
+  # HARD FAIL instead of warn/return.  If RUN_FRONTEND_BUILD is true but
+  # no staging directory exists, maybe_build_frontend did not actually
+  # build — either npm failed silently, or the build was short-circuited
+  # somewhere.  Continuing past this point would leave the live .next/
+  # in whatever state it was before, which is exactly how the
+  # ChunkLoadError failure mode hides inside a "successful" deploy.
   if [[ ! -d "${staging_dir}" ]]; then
-    warn "No staging dir at ${staging_dir}; skipping atomic swap."
-    return 0
+    error "Expected frontend staging dir missing at ${staging_dir}."
+    error "maybe_build_frontend did not produce a build output — aborting deploy."
+    exit 1
   fi
 
   local frontend_name="${SERVICE_NAME}-frontend"
@@ -423,10 +430,13 @@ deploy_frontend_atomic() {
   fi
 }
 
-# Probe a small sample of static chunks referenced by the live build
-# manifest.  Each URL must return 200 from the running Next.js process
-# on the loopback interface.  Retries a bounded number of times while
-# the server warms up.
+# Probe every /_next/static/* asset referenced by both the build
+# manifests AND the prerendered SSG HTML output in .next/server/app/
+# against the running Next.js process on loopback.  The prerendered
+# HTML scan is the critical piece: Next.js bakes <script src> tags for
+# async chunks (like the 448-*.js error chunk) that do not appear in
+# build-manifest.json, so a manifest-only walk silently missed the
+# exact failure mode that shipped the production ChunkLoadError.
 probe_frontend_next_assets() {
   local live_dir="$1"
   local manifest="${live_dir}/build-manifest.json"
@@ -436,13 +446,18 @@ probe_frontend_next_assets() {
   fi
 
   local probe_list
-  probe_list="$(python3 - "${manifest}" <<'PY'
+  probe_list="$(python3 - "${live_dir}" <<'PY'
 import json
+import os
+import re
 import sys
 
-manifest_path = sys.argv[1]
-with open(manifest_path) as fh:
-    manifest = json.load(fh)
+live_dir = sys.argv[1]
+manifests = [
+    "build-manifest.json",
+    "app-build-manifest.json",
+    "react-loadable-manifest.json",
+]
 
 assets = set()
 
@@ -459,23 +474,42 @@ def walk(obj):
             walk(value)
 
 
-walk(manifest)
-# Sample a handful of chunk assets.  Always include anything that
-# starts with static/chunks/ because that is the family the live
-# ChunkLoadError hit.
-chunks = sorted(a for a in assets if a.startswith("static/chunks/"))
-picked = []
-for asset in chunks[:2]:
-    picked.append(asset)
-if chunks:
-    picked.append(chunks[-1])
-for asset in picked:
+for name in manifests:
+    p = os.path.join(live_dir, name)
+    if not os.path.exists(p):
+        continue
+    try:
+        with open(p) as fh:
+            walk(json.load(fh))
+    except Exception:
+        pass
+
+# Also walk every prerendered HTML file under .next/server/app and
+# .next/server/pages and collect every /_next/static/* reference.  This
+# is what catches the async-chunk failure mode.
+html_asset_re = re.compile(r"/_next/(static/[^\"\s<>?]+\.(?:js|css))")
+for root in ("server/app", "server/pages"):
+    root_path = os.path.join(live_dir, root)
+    if not os.path.isdir(root_path):
+        continue
+    for dirpath, _dirnames, filenames in os.walk(root_path):
+        for fname in filenames:
+            if not fname.endswith(".html"):
+                continue
+            try:
+                with open(os.path.join(dirpath, fname), encoding="utf-8") as fh:
+                    for match in html_asset_re.finditer(fh.read()):
+                        assets.add(match.group(1))
+            except Exception:
+                pass
+
+for asset in sorted(assets):
     print(asset)
 PY
   )"
 
   if [[ -z "${probe_list}" ]]; then
-    warn "Build manifest lists no static chunks; skipping _next probe."
+    warn "Manifests and prerendered HTML list no static chunks; skipping _next probe."
     return 0
   fi
 
