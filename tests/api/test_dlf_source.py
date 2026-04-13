@@ -32,6 +32,8 @@ from src.api.data_contract import (
 from src.canonical.idp_backbone import (
     SOURCE_SCOPE_OVERALL_IDP,
     TRANSLATION_DIRECT,
+    TRANSLATION_EXACT,
+    TRANSLATION_EXTRAPOLATED,
 )
 
 
@@ -277,7 +279,18 @@ class TestDlfParticipatesInUnifiedRankings(unittest.TestCase):
             self.assertIn("dlfIdp", meta)
             self.assertIn("idpTradeCalc", meta)
             self.assertEqual(meta["dlfIdp"]["scope"], SOURCE_SCOPE_OVERALL_IDP)
-            self.assertEqual(meta["dlfIdp"]["method"], TRANSLATION_DIRECT)
+            # DLF is an IDP-only expert board, so its raw rank is
+            # translated through the shared-market IDP ladder built
+            # from IDPTradeCalc's combined offense+IDP pool.  In this
+            # fixture there are no offense rows, so the ladder is
+            # ``[1, 2, 3]`` and the crosswalk becomes a no-op in terms
+            # of effective rank, but the method token flips from DIRECT
+            # to EXACT because the row lands on a ladder anchor.
+            self.assertEqual(meta["dlfIdp"]["method"], TRANSLATION_EXACT)
+            self.assertTrue(meta["dlfIdp"]["sharedMarketTranslated"])
+            # idpTradeCalc is still the backbone — no crosswalk on it.
+            self.assertEqual(meta["idpTradeCalc"]["method"], TRANSLATION_DIRECT)
+            self.assertFalse(meta["idpTradeCalc"]["sharedMarketTranslated"])
 
         # dl1 is rank 1 in both sources
         dl1 = rows[0]
@@ -287,6 +300,59 @@ class TestDlfParticipatesInUnifiedRankings(unittest.TestCase):
         db1 = rows[2]
         self.assertEqual(db1["sourceRanks"]["idpTradeCalc"], 3)
         self.assertEqual(db1["sourceRanks"]["dlfIdp"], 3)
+
+    def test_dlf_rank_is_mapped_through_shared_market_when_offense_present(self):
+        """The real regression: when offense rows dominate the backbone
+        source's combined pool, DLF's IDP rank 1 must NOT be fed to the
+        Hill curve as overall rank 1.  It should be translated through
+        the shared-market IDP ladder to the combined-pool rank of the
+        best IDP in the backbone."""
+        # 10 offense rows all price higher in IDPTradeCalc than any IDP,
+        # so the combined-pool rank of the top IDP in IDPTC is 11.
+        rows = [
+            _row(f"off{i}", "QB" if i % 2 else "WR", idp=9999 - i * 10)
+            for i in range(10)
+        ]
+        rows += [
+            _row("dl1", "DL", idp=5500, dlf=9995),
+            _row("lb1", "LB", idp=5000, dlf=9990),
+            _row("db1", "DB", idp=4500, dlf=9985),
+        ]
+        _compute_unified_rankings(rows, {})
+
+        dl1 = next(r for r in rows if r["canonicalName"] == "dl1")
+        lb1 = next(r for r in rows if r["canonicalName"] == "lb1")
+        db1 = next(r for r in rows if r["canonicalName"] == "db1")
+
+        # IDPTradeCalc combined-pool ranks: 11, 12, 13 for the three IDPs
+        # (ten offense rows precede them in value order).
+        self.assertEqual(dl1["sourceRanks"]["idpTradeCalc"], 11)
+        self.assertEqual(lb1["sourceRanks"]["idpTradeCalc"], 12)
+        self.assertEqual(db1["sourceRanks"]["idpTradeCalc"], 13)
+
+        # DLF raw rank 1 (dl1) must be translated through the
+        # shared-market ladder to combined-pool rank 11, not left as 1.
+        dl_meta = dl1["sourceRankMeta"]["dlfIdp"]
+        self.assertEqual(dl_meta["rawRank"], 1)
+        self.assertEqual(dl_meta["effectiveRank"], 11)
+        self.assertEqual(dl_meta["method"], TRANSLATION_EXACT)
+        self.assertTrue(dl_meta["sharedMarketTranslated"])
+        # And the sourceRanks entry reflects the translated value.
+        self.assertEqual(dl1["sourceRanks"]["dlfIdp"], 11)
+
+        # The key regression assertion: the blended Hill value for an
+        # elite IDP must now be materially lower than the top-of-curve
+        # 9999, because DLF is no longer injecting its rank 1 as if it
+        # were shared-market rank 1.
+        self.assertLess(dl1["rankDerivedValue"], 9999)
+        # And the unified board agrees: the best offense player still
+        # outranks the best IDP.
+        top_off = next(
+            r for r in rows if r["canonicalName"] == "off0"
+        )
+        self.assertLess(
+            top_off["canonicalConsensusRank"], dl1["canonicalConsensusRank"]
+        )
 
     def test_dlf_disagreement_with_idptradecalc_blends_not_overrides(self):
         # IDPTradeCalc says dl1 > dl2; DLF disagrees and puts dl2 first.

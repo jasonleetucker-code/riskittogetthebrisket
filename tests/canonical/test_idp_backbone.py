@@ -156,6 +156,111 @@ class TestTranslatePositionRank(unittest.TestCase):
         self.assertEqual(method, TRANSLATION_EXTRAPOLATED)
 
 
+class TestSharedMarketIdpLadder(unittest.TestCase):
+    """The shared-market IDP ladder is the crosswalk that keeps
+    IDP-only expert boards (e.g. DLF) from pretending their rank 1 is
+    the overall rank 1 of the shared offense+IDP market.
+
+    The ladder is built from the backbone source's combined
+    offense+IDP value pool: the i-th entry holds the combined-pool
+    rank of the i-th best IDP in the backbone.  These tests pin the
+    builder math that ``src/api/data_contract.py`` relies on to
+    translate DLF's raw IDP rank through
+    ``translate_position_rank(raw_rank, shared_market_idp_ladder)``.
+    """
+
+    def test_empty_when_offense_positions_not_supplied(self):
+        rows = [
+            {"canonicalName": "dl1", "position": "DL",
+             "canonicalSiteValues": {"idpTC": 90}},
+            {"canonicalName": "qb1", "position": "QB",
+             "canonicalSiteValues": {"idpTC": 95}},
+        ]
+        bb = build_backbone_from_rows(rows, source_key="idpTC")
+        self.assertEqual(bb.shared_market_idp_ladder, [])
+        self.assertEqual(bb.shared_market_depth, 0)
+        self.assertEqual(bb.shared_idp_ladder(), [])
+
+    def test_shared_ladder_reflects_combined_pool_ordering(self):
+        # IDPTC combined-pool order: qb(95) > dl1(90) > wr1(85) > lb1(80) > db1(70)
+        rows = [
+            {"canonicalName": "qb1", "position": "QB",
+             "canonicalSiteValues": {"idpTC": 95}},
+            {"canonicalName": "dl1", "position": "DL",
+             "canonicalSiteValues": {"idpTC": 90}},
+            {"canonicalName": "wr1", "position": "WR",
+             "canonicalSiteValues": {"idpTC": 85}},
+            {"canonicalName": "lb1", "position": "LB",
+             "canonicalSiteValues": {"idpTC": 80}},
+            {"canonicalName": "db1", "position": "DB",
+             "canonicalSiteValues": {"idpTC": 70}},
+        ]
+        bb = build_backbone_from_rows(
+            rows,
+            source_key="idpTC",
+            offense_positions={"QB", "RB", "WR", "TE", "PICK"},
+        )
+        # Combined pool has 5 entries, IDPs sit at ranks 2, 4, 5.
+        self.assertEqual(bb.shared_market_depth, 5)
+        self.assertEqual(bb.shared_market_idp_ladder, [2, 4, 5])
+        # The position ladders are also rebuilt but these are built
+        # from the IDP-only sort (1..N in IDP order), unchanged.
+        self.assertEqual(bb.ladder_for("DL"), [1])
+        self.assertEqual(bb.ladder_for("LB"), [2])
+        self.assertEqual(bb.ladder_for("DB"), [3])
+        self.assertEqual(bb.depth, 3)
+
+    def test_shared_ladder_crosswalks_through_translate_position_rank(self):
+        # With the shared-market ladder = [2, 4, 5], translating DLF's
+        # raw IDP ranks 1/2/3 must yield 2/4/5 respectively.
+        rows = [
+            {"canonicalName": "qb1", "position": "QB",
+             "canonicalSiteValues": {"idpTC": 95}},
+            {"canonicalName": "dl1", "position": "DL",
+             "canonicalSiteValues": {"idpTC": 90}},
+            {"canonicalName": "wr1", "position": "WR",
+             "canonicalSiteValues": {"idpTC": 85}},
+            {"canonicalName": "lb1", "position": "LB",
+             "canonicalSiteValues": {"idpTC": 80}},
+            {"canonicalName": "db1", "position": "DB",
+             "canonicalSiteValues": {"idpTC": 70}},
+        ]
+        bb = build_backbone_from_rows(
+            rows,
+            source_key="idpTC",
+            offense_positions={"QB", "WR"},
+        )
+        ladder = bb.shared_idp_ladder()
+        self.assertEqual(translate_position_rank(1, ladder),
+                         (2, TRANSLATION_EXACT))
+        self.assertEqual(translate_position_rank(2, ladder),
+                         (4, TRANSLATION_EXACT))
+        self.assertEqual(translate_position_rank(3, ladder),
+                         (5, TRANSLATION_EXACT))
+        # Past the ladder extrapolates monotonically.
+        syn, method = translate_position_rank(4, ladder)
+        self.assertEqual(method, TRANSLATION_EXTRAPOLATED)
+        self.assertGreater(syn, 5)
+
+    def test_shared_ladder_is_empty_without_offense_rows(self):
+        # Only IDP rows supplied, offense_positions still provided —
+        # the combined-pool collapses to the IDP pool, so the ladder
+        # is [1,2,3,...].
+        rows = [
+            {"canonicalName": "dl1", "position": "DL",
+             "canonicalSiteValues": {"idpTC": 90}},
+            {"canonicalName": "lb1", "position": "LB",
+             "canonicalSiteValues": {"idpTC": 80}},
+        ]
+        bb = build_backbone_from_rows(
+            rows,
+            source_key="idpTC",
+            offense_positions={"QB"},
+        )
+        self.assertEqual(bb.shared_market_idp_ladder, [1, 2])
+        self.assertEqual(bb.shared_market_depth, 2)
+
+
 class TestCoverageWeight(unittest.TestCase):
     def test_none_depth_returns_declared_weight_unchanged(self):
         self.assertEqual(coverage_weight(1.0, None), 1.0)

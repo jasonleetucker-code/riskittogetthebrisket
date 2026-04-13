@@ -12,7 +12,73 @@ import {
   buildRows,
   getSiteKeys,
   fetchDynastyData,
+  normalizePlayerName,
 } from "@/lib/dynasty-data";
+
+// ── normalizePlayerName ──────────────────────────────────────────────
+//
+// Frontend mirror of src/utils/name_clean.py::normalize_player_name.
+// The canonical match key is what every name join across the app falls
+// back on when backend-authored keys drift between snapshots.  The
+// backend uses the same normaliser inside _enrich_from_source_csvs,
+// so any divergence here re-introduces the T.J. Watt class of silent
+// join-miss bugs.
+
+describe("normalizePlayerName", () => {
+  it("collapses adjacent single-letter initials across punctuation", () => {
+    expect(normalizePlayerName("T.J. Watt")).toBe("tj watt");
+    expect(normalizePlayerName("TJ Watt")).toBe("tj watt");
+    expect(normalizePlayerName("t j watt")).toBe("tj watt");
+    expect(normalizePlayerName("T.J. Watt")).toBe(normalizePlayerName("TJ Watt"));
+  });
+
+  it("handles C.J. Stroud and D.J. Moore punctuation variants", () => {
+    expect(normalizePlayerName("C.J. Stroud")).toBe(
+      normalizePlayerName("CJ Stroud")
+    );
+    expect(normalizePlayerName("D.J. Moore")).toBe(
+      normalizePlayerName("DJ Moore")
+    );
+    expect(normalizePlayerName("A.J. Brown")).toBe(
+      normalizePlayerName("AJ Brown")
+    );
+  });
+
+  it("strips generational suffixes consistently", () => {
+    expect(normalizePlayerName("Marvin Harrison Jr.")).toBe(
+      normalizePlayerName("Marvin Harrison")
+    );
+    expect(normalizePlayerName("Kenneth Walker III")).toBe(
+      normalizePlayerName("Kenneth Walker")
+    );
+    expect(normalizePlayerName("Brian Thomas Jr")).toBe(
+      normalizePlayerName("Brian Thomas")
+    );
+  });
+
+  it("folds diacritics to ASCII", () => {
+    expect(normalizePlayerName("Juanyéh Thomas")).toBe(
+      normalizePlayerName("Juanyeh Thomas")
+    );
+    // Apostrophes are collapsed to whitespace by the non-alnum rule,
+    // matching the Python normalise_player_name helper exactly.  The
+    // important parity property is that both spellings collide on the
+    // SAME key whether or not the apostrophe is present.
+    expect(normalizePlayerName("Ja'Marr Chase")).toBe(
+      normalizePlayerName("Ja Marr Chase")
+    );
+  });
+
+  it("returns empty string for empty or null input", () => {
+    expect(normalizePlayerName("")).toBe("");
+    expect(normalizePlayerName(null)).toBe("");
+    expect(normalizePlayerName(undefined)).toBe("");
+  });
+
+  it("lowercases and trims whitespace", () => {
+    expect(normalizePlayerName("  T.J.  WATT  ")).toBe("tj watt");
+  });
+});
 
 // ── normalizePos ─────────────────────────────────────────────────────
 

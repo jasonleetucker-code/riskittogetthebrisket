@@ -1,12 +1,22 @@
 # Trust & Edge Layer — Implementation Handoff
 
-Last updated: 2026-04-09
+Last updated: 2026-04-13
 
 ## Overview
 
 The rankings board now exposes trust diagnostics, confidence signals, anomaly detection, identity validation, and actionable edge analysis across three surfaces: Rankings, Edge, and Finder.
 
 Every signal traces to measurable properties of the ranking data. Nothing is predicted or editorialized.
+
+Two IDP sources contribute today: **IDP Trade Calculator** (the shared-market
+backbone — prices offense + IDP on one 0-9999 scale) and **Dynasty League
+Football IDP** (a 185-player expert consensus that covers DL/LB/DB in an IDP-
+only pool). The ranking pipeline treats them very differently: IDPTC pass-
+through feeds the Hill curve directly, while DLF is *crosswalked* through the
+shared-market IDP ladder before feeding the Hill curve. This prevents DLF
+rank 1 from behaving like shared-market rank 1 (and being mapped to Hill
+value 9999 as if it beat every offense player) — see "IDP Shared-Market
+Crosswalk" below.
 
 ---
 
@@ -65,6 +75,79 @@ Identity-validation flags (trigger quarantine):
 ### Quarantine
 
 Any flag in `_QUARANTINE_FLAGS` set triggers `quarantined = true` and degrades `confidenceBucket` to `"low"`. Quarantined rows remain in the dataset — they are dimmed in the UI, not removed.
+
+### `OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS`
+
+A narrow override list for verified cross-universe name collisions where
+the same display name legitimately refers to two different people across
+the offense and IDP universes (e.g. "Josh Johnson" — retired QB vs draftable
+DB prospect).
+
+**The exception is conditional**: it only suppresses
+`position_source_contradiction` on a row that has *also* tripped
+`name_collision_cross_universe` in Check 1. A false-positive contradiction
+on a non-colliding name will still fire as before — the exception list
+cannot mask genuine data-quality errors anymore. Before adding a new
+entry, verify the contradiction survives a full rebuild with the
+normalised `_canonical_match_key` join in place: historical
+contradictions were almost entirely punctuation join artefacts
+(`T.J. Watt` vs `TJ Watt`) and do not reproduce after the hygiene fix.
+
+### IDP Shared-Market Crosswalk
+
+IDPTradeCalc prices offense + IDP on a single 0-9999 scale, so its
+ordinal rank is computed over the full combined pool. Its #1 IDP might
+sit at combined-pool rank ~40 because 39 offense players out-price it
+in the backbone source. That's the correct behaviour — feeding that 40
+into the Hill curve gives the right relative value for the best IDP on
+the shared offense+IDP economy.
+
+DLF, in contrast, only ranks IDPs. Its raw board ordinal says "best IDP
+= rank 1", which — fed directly to the Hill curve — would produce value
+9999 as if the best IDP were also the best asset in the whole dynasty
+market. That's the bug the crosswalk fixes.
+
+The crosswalk is built in `src/canonical/idp_backbone.py` as a
+`shared_market_idp_ladder`: the i-th entry is the combined-pool rank of
+the i-th best IDP in the backbone source. The builder activates the
+ladder only when the caller supplies `offense_positions` to
+`build_backbone_from_rows`, which the contract builder does automatically
+when the backbone source declares `overall_offense` in its `extra_scopes`.
+
+Any source flagged `needs_shared_market_translation=True` in
+`_RANKING_SOURCES` (today: `dlfIdp`) has its raw IDP ordinal rank
+translated through this ladder via `translate_position_rank(raw_rank,
+shared_market_ladder)`. DLF rank 1 becomes the combined-pool rank of the
+best IDP in IDPTC (~44 in live data), which is what actually gets fed
+to the Hill curve.
+
+- Backbone source (`idpTradeCalc`): pass-through, `method=direct`,
+  `sharedMarketTranslated=false`.
+- DLF (`dlfIdp`): crosswalked, `method=exact` (or
+  `extrapolated` past the ladder tail), `sharedMarketTranslated=true`.
+- Frontend mirror: `buildIdpBackbone(rows, sourceKey, includeSharedMarket)`
+  and the `sharedMarketTranslated` meta field in
+  `frontend/lib/dynasty-data.js` keep the browser-side fallback in lock
+  step with the backend.
+
+### Name join normalisation
+
+All cross-source name joins go through `_canonical_match_key` which
+wraps `src/utils/name_clean.py::normalize_player_name`. The normaliser
+ASCII-folds diacritics, lowercases, strips generational suffixes
+(Jr/Sr/II-VI), collapses non-alphanumerics to whitespace, and collapses
+adjacent single-letter initials. The result is a single key that
+treats `T.J. Watt` and `TJ Watt` as the same player, `D.J. Moore` and
+`DJ Moore` as the same player, and `Marvin Harrison Jr.` and
+`Marvin Harrison` as the same player.
+
+Before this fix, `_enrich_from_source_csvs` used a suffix-strip-only
+key and silently lost every player whose spelling drifted between the
+scraper payload and the committed CSVs — T.J. Watt was the canonical
+example (present in both DLF and IDPTC, but landed on the board as a
+1-src ghost because the join failed on the period). The frontend
+mirror `normalizePlayerName` in `frontend/lib/dynasty-data.js` uses the
+same rules so offline fallbacks reproduce the backend join semantics.
 
 ---
 
@@ -169,28 +252,80 @@ for p in data.get('playersArray', []):
 
 - 2 JS test failures in `dynasty-data.test.js` (`computedConsensusRank` tests) — pre-existing before trust/edge work, related to IDP rank offset calculation in the test fixture, not in production code.
 
-## Known Data Quality Issues (current as of 2026-04-09)
+## Known Data Quality Issues (current as of 2026-04-13)
 
 ### Fixed
 
+- **T.J. Watt / T.J. Edwards / D.J. Moore / C.J. Stroud et al.** — every
+  player whose scraper payload spelling differed in punctuation from the
+  CSV exports was previously dropped by the enrichment join. T.J. Watt
+  was the headline case: he appeared in both `exports/latest/site_raw/dlfIdp.csv`
+  and `exports/latest/site_raw/idpTradeCalc.csv` as `TJ Watt`, but the
+  scraper payload key was `T.J. Watt`, so the legacy
+  `_strip_name_suffix(name).lower()` join produced `t.j. watt` vs
+  `tj watt` and the match failed silently. Fixed by routing every join
+  through `_canonical_match_key` (wrapping `normalize_player_name`),
+  which collapses periods and initials consistently with the
+  identity and adapter layers. The frontend mirror is
+  `normalizePlayerName` in `frontend/lib/dynasty-data.js`. Regression
+  tests live in `tests/api/test_name_join_hygiene.py`.
+- **DLF IDP overweighting** — DLF was registered as `overall_idp`,
+  which passed its raw IDP ordinal rank directly to the Hill curve as
+  if it were a combined offense+IDP rank. DLF rank 1 → value 9999 inflated
+  every elite IDP. Fixed by building a
+  `shared_market_idp_ladder` in `src/canonical/idp_backbone.py` from the
+  backbone source's combined offense+IDP ordering and translating any
+  source flagged `needs_shared_market_translation` (today: DLF) through
+  it via `translate_position_rank`. Top IDPs now land at consensus rank
+  ~44 and below — behind offense starters who out-price them on the
+  retail market — while still occupying the same top-tier value band they
+  deserve within the IDP pool. Regression tests:
+  `tests/canonical/test_idp_backbone.py::TestSharedMarketIdpLadder` and
+  `tests/api/test_dlf_source.py::TestDlfParticipatesInUnifiedRankings::test_dlf_rank_is_mapped_through_shared_market_when_offense_present`.
+- **Stale `sourceCount` on out-of-limit rows** — rows that used to land
+  inside the top-800 cap and carried their (enriched) sourceCount only
+  because Phase 4 stamped it. Rows past the cap retained the stale
+  pre-enrichment count from `_derive_player_row`. Fixed by splitting
+  Phase 4 into two sub-phases: 4a refreshes `sourceCount`,
+  `isSingleSource`, and `sourcePresence` for *every* ranked row (so the
+  counts always reflect post-enrichment reality), and 4b still caps the
+  `canonicalConsensusRank` / value stamping at `OVERALL_RANK_LIMIT`.
+- **`OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS` is now conditional** — the
+  set only overrides `position_source_contradiction` on rows that also
+  carry `name_collision_cross_universe` from Check 1. A false-positive
+  contradiction on a non-colliding name (the old class of join
+  artefact) will now fire as before. The set has been pruned to the
+  single verified case (Josh Johnson: QB vs S).
 - **Elijah Mitchell (DB)** — IDP DB with only KTC (offense) data. Was incorrectly excepted from `position_source_contradiction` quarantine via `OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS`. Removed from exception set so Check 2 now quarantines him correctly.
-- **Bobby Brown (DL)** — IDP DL with only KTC data. Already quarantined via `near_name_value_mismatch` (Check 3). Also in `OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS` but quarantine fires through another path.
+- **Bobby Brown (DL)** — IDP DL with only KTC data. Already quarantined via `near_name_value_mismatch` (Check 3).
 - **Unsupported positions (OL/OT/OG/C/G/T/P/LS)** — blocked from ranking pipeline via `_RANKABLE_POSITIONS` allowlist. Frontend excludes via `classifyPos("excluded")`. Players like Nick Martin (OL) and Brandon Knight (OT) are correctly quarantined and unranked.
 
 ### Accepted / Working as Intended
 
-- **All IDP players are single-source / low confidence** — expected since only one IDP source (IDPTradeCalc) currently feeds the pipeline. Will self-correct when a second IDP source is added.
-- **Will Anderson (DL, rank ~38)** — single-source IDP with high value. Correct behavior: ranked from IDPTC, low confidence since only one source.
+- **IDP players with DLF + IDPTC both present** now carry `sourceCount=2` and
+  medium/high confidence. Rows where DLF recognised a player but IDPTC did not
+  remain single-source by design.
+- **Will Anderson (DL)** and other elite IDPs sit around consensus rank 44 on
+  the unified board — behind the top offense starters but still at a high
+  Hill value (~5100). Correct behaviour: DLF rank 1 is crosswalked to the
+  combined-pool rank of the best IDP, not treated as overall rank 1.
 - **Travis Hunter (WR, rank ~52)** — spread=69, medium confidence, expert consensus ranks higher than KTC. Correct behavior: shows "Market premium: Consensus" signal. Market gap label is accurate.
 - **~36 empty-position rows** — players with no position string. Not in any rankable set, receive no unified rank, invisible on all frontend surfaces (Rankings, Edge, Finder). Harmless.
 - **126 picks** — all clean, no anomaly flags. Correctly excluded from ranking board (PICK not in `_RANKABLE_POSITIONS`) but present in data for trade calculator.
 
 ### Requires Later Data/Modeling Pass
 
-- **`OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS` set** — 4 remaining names (Bobby Brown, Cameron Young, Dwight Bentley, Josh Johnson). Only Bobby Brown exists in current data; others are phantom entries. The exception set should ideally be conditional: only apply when both universe versions of a player exist. Currently it's a static name list that may mask future contamination.
 - **Cross-universe name collisions** — when both an offense and IDP player share the same name (e.g., "James Williams"), Check 1 flags both. The scraper's name-based matching cannot distinguish them. Needs canonical player IDs (Sleeper ID, etc.) to resolve.
 - **Age field** — scaffolded in contract but null for most players. Requires scraper bridge to supply age.
-- **Single-source value stability** — single-source players have no spread/agreement signal. Their rank position is entirely determined by one market. No mitigation possible until a second source covers the same pool.
+- **Single-source IDPs outside DLF's 185-entry board** — DLF's top-185 cap
+  means any IDP deeper than DLF rank 185 is crosswalked via
+  `TRANSLATION_EXTRAPOLATED`. This is safer than the old DIRECT pass-
+  through but extrapolated ranks carry less confidence than exact-anchor
+  ranks. A deeper DLF board would tighten this.
+- **Bryan Bresee-style players with `pos=None` in the scraper** — their
+  position is currently backfilled from the Sleeper positions map. When
+  the scraper misses a row, we rely on the name-based Sleeper join
+  remaining stable across releases.
 
 ## Intentionally Deferred
 
