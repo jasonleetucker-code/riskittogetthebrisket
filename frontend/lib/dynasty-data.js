@@ -327,59 +327,83 @@ function computeUnifiedRanks(rows) {
     ? buildIdpBackbone(rows, backboneSrc.key)
     : { ladders: { DL: [], LB: [], DB: [] }, depth: 0 };
 
-  // ── Phase 1: Per-source ordinal ranking within scope ──
+  // ── Phase 1: Combined-pass ordinal ranking per source ──
   const sourceRanksByRow = new Map(); // row idx -> { sourceKey: effectiveRank }
   const sourceMetaByRow = new Map();  // row idx -> { sourceKey: metaDict }
 
   for (const src of RANKING_SOURCES) {
     // A source may contribute to multiple scopes (e.g. IDPTradeCalc
-    // lists both offense and IDP players in one value pool).  Each
-    // scope runs an independent eligibility + ordinal ranking pass.
-    // Offense and IDP position sets are disjoint, so sourceRanks[src.key]
-    // is written at most once per row across the passes.
-    const scopesToRank = [src.scope, ...(src.extraScopes || [])];
-    for (const scope of scopesToRank) {
-      const eligible = [];
-      rows.forEach((r, idx) => {
-        if (!RANKABLE.has(r.pos)) return;
-        if (!scopeEligible(r.pos, scope, src.positionGroup)) return;
-        const val = Number(r.canonicalSites?.[src.key]);
-        if (!Number.isFinite(val) || val <= 0) return;
-        eligible.push({ idx, val });
-      });
-      eligible.sort((a, b) => b.val - a.val);
-
-      eligible.forEach((e, rank) => {
-        const rawRank = rank + 1;
-        let effectiveRank = rawRank;
-        let method = TRANSLATION_DIRECT;
-
-        if (scope === SOURCE_SCOPE_POSITION_IDP && src.positionGroup) {
-          const ladder = backbone.ladders[String(src.positionGroup).toUpperCase()] || [];
-          const translated = translatePositionRank(rawRank, ladder);
-          effectiveRank = translated.rank;
-          method = translated.method;
+    // lists both offense and IDP players in one value pool on a shared
+    // 0-9999 scale).  Earlier revisions ran a separate ordinal pass per
+    // scope, which restarted at rank 1 in each scope and destroyed the
+    // cross-universe ordering encoded in the raw values — the #1 IDP
+    // and the #1 offense player both got rank 1 → value 9999.
+    //
+    // Instead, gather every row eligible under ANY of this source's
+    // declared scopes into ONE pool and rank them together.  For
+    // single-scope sources this is equivalent to the old per-scope pass.
+    // For dual-scope IDPTradeCalc it preserves combined offense+IDP
+    // ordering: Will Anderson's raw IDPTC value 5963 lands at overall
+    // rank ~40 alongside the full offense ladder, not rank 1 of a
+    // restarted IDP-only pass.
+    const allScopes = [src.scope, ...(src.extraScopes || [])];
+    const eligible = [];
+    rows.forEach((r, idx) => {
+      if (!RANKABLE.has(r.pos)) return;
+      let rowScope = null;
+      for (const s of allScopes) {
+        if (scopeEligible(r.pos, s, src.positionGroup)) {
+          rowScope = s;
+          break;
         }
+      }
+      if (!rowScope) return;
+      const val = Number(r.canonicalSites?.[src.key]);
+      if (!Number.isFinite(val) || val <= 0) return;
+      const tiebreakName = String(r.name || "").toLowerCase();
+      eligible.push({ idx, val, scope: rowScope, tiebreakName });
+    });
+    // Secondary sort by lowercased name mirrors the backend Phase 1
+    // tiebreaker in _compute_unified_rankings and the backbone builder,
+    // so tied raw values produce the same ordinal ranks regardless of
+    // input order.
+    eligible.sort(
+      (a, b) => b.val - a.val || a.tiebreakName.localeCompare(b.tiebreakName)
+    );
 
-        if (!sourceRanksByRow.has(e.idx)) sourceRanksByRow.set(e.idx, {});
-        if (!sourceMetaByRow.has(e.idx)) sourceMetaByRow.set(e.idx, {});
-        sourceRanksByRow.get(e.idx)[src.key] = effectiveRank;
-        sourceMetaByRow.get(e.idx)[src.key] = {
-          scope,
-          positionGroup: src.positionGroup || null,
-          rawRank,
-          effectiveRank,
-          method,
-          ladderDepth:
-            scope === SOURCE_SCOPE_POSITION_IDP && src.positionGroup
-              ? (backbone.ladders[String(src.positionGroup).toUpperCase()] || []).length
-              : null,
-          backboneDepth: scope === SOURCE_SCOPE_POSITION_IDP ? backbone.depth : null,
-          depth: src.depth ?? null,
-          weight: Number(src.weight) || 0,
-        };
-      });
-    }
+    eligible.forEach((e, rank) => {
+      const rawRank = rank + 1;
+      let effectiveRank = rawRank;
+      let method = TRANSLATION_DIRECT;
+
+      // position_idp sources (shallow positional lists like DL-only)
+      // still get backbone translation.  overall_* scopes — including
+      // the cross-universe combined pool — pass through directly.
+      if (e.scope === SOURCE_SCOPE_POSITION_IDP && src.positionGroup) {
+        const ladder = backbone.ladders[String(src.positionGroup).toUpperCase()] || [];
+        const translated = translatePositionRank(rawRank, ladder);
+        effectiveRank = translated.rank;
+        method = translated.method;
+      }
+
+      if (!sourceRanksByRow.has(e.idx)) sourceRanksByRow.set(e.idx, {});
+      if (!sourceMetaByRow.has(e.idx)) sourceMetaByRow.set(e.idx, {});
+      sourceRanksByRow.get(e.idx)[src.key] = effectiveRank;
+      sourceMetaByRow.get(e.idx)[src.key] = {
+        scope: e.scope,
+        positionGroup: src.positionGroup || null,
+        rawRank,
+        effectiveRank,
+        method,
+        ladderDepth:
+          e.scope === SOURCE_SCOPE_POSITION_IDP && src.positionGroup
+            ? (backbone.ladders[String(src.positionGroup).toUpperCase()] || []).length
+            : null,
+        backboneDepth: e.scope === SOURCE_SCOPE_POSITION_IDP ? backbone.depth : null,
+        depth: src.depth ?? null,
+        weight: Number(src.weight) || 0,
+      };
+    });
   }
 
   // ── Phase 2-3: Coverage-aware weighted Hill-curve blend ──

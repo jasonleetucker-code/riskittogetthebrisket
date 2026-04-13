@@ -22,8 +22,13 @@ import { describe, expect, it } from "vitest";
 import {
   buildRows,
   rankToValue,
+  RANKING_SOURCES,
+  SOURCE_SCOPE_OVERALL_IDP,
+  SOURCE_SCOPE_POSITION_IDP,
   TRANSLATION_DIRECT,
   TRANSLATION_EXACT,
+  TRANSLATION_EXTRAPOLATED,
+  TRANSLATION_FALLBACK,
 } from "@/lib/dynasty-data";
 
 // Shared row-builder used by the parity tests.  Matches the Python
@@ -189,6 +194,199 @@ describe("F. Edge cases", () => {
     // OL player is classified "excluded" by buildRows and never enters the row list.
     expect(rows.find((r) => r.name === "OL1")).toBeUndefined();
   });
+
+  // ── Declaration-error / bad-data edge cases ─────────────────────────
+  // Mirror the Python `TestFEdgeCases` additions in
+  // tests/api/test_scope_aware_rankings.py.  These pin the frontend
+  // fallback's behaviour on the same fixtures as the backend.
+
+  it("a position_idp source with null positionGroup ranks nobody", () => {
+    // Broken declaration: scope=position_idp but no positionGroup.  The
+    // scope predicate rejects every row so the source contributes no
+    // ranks, but the backbone-driven ranking is untouched.
+    const saved = RANKING_SOURCES.slice();
+    RANKING_SOURCES.push({
+      key: "posNone",
+      displayName: "Broken position source",
+      columnLabel: "POS?",
+      scope: SOURCE_SCOPE_POSITION_IDP,
+      positionGroup: null,
+      depth: 20,
+      weight: 1.0,
+      isBackbone: false,
+    });
+    try {
+      const rows = buildRows({
+        playersArray: [
+          row("dl1", "DL", { idp: 900 }),
+          row("dl2", "DL", { idp: 800 }),
+        ].map((r, i) => ({
+          ...r,
+          canonicalSiteValues: {
+            ...r.canonicalSiteValues,
+            posNone: 100 - i,
+          },
+        })),
+      });
+      for (const r of rows) {
+        // Broken source never stamped a rank on anyone.
+        expect(r.sourceRanks.posNone).toBeUndefined();
+        expect(r.sourceRankMeta.posNone).toBeUndefined();
+        // Backbone ranking still present.
+        expect(r.sourceRanks.idpTradeCalc).toBeDefined();
+      }
+    } finally {
+      RANKING_SOURCES.length = 0;
+      RANKING_SOURCES.push(...saved);
+    }
+  });
+
+  it("unsupported IDP aliases normalise into DL/LB/DB before ranking", () => {
+    // "S", "EDGE", "NT" are real positional strings the scraper emits.
+    // The frontend fallback normalises them at buildRows() via
+    // normalizePos(): S→DB, EDGE→DL, NT→DL.  After normalisation each
+    // row enters the unified board under a valid IDP group, so the
+    // ranking pipeline never sees the raw alias.  The backend uses a
+    // different code path — it filters raw positions against the frozen
+    // _RANKABLE_POSITIONS allowlist and thus skips these aliases
+    // entirely — but the end-user guarantee is the same: the pipeline
+    // never sees "S", "EDGE", or "NT" tokens downstream of its
+    // position-classification layer.
+    const rows = buildRows({
+      playersArray: [
+        row("safety_s", "S", { idp: 900 }),
+        row("edge_r", "EDGE", { idp: 850 }),
+        row("nose_tackle", "NT", { idp: 800 }),
+        row("dl_real", "DL", { idp: 750 }),
+      ],
+    });
+    // Every surviving row carries a valid IDP group token.
+    for (const r of rows) {
+      expect(["DL", "LB", "DB"]).toContain(r.pos);
+      // And the pipeline never stamps the raw alias on any row.
+      expect(["S", "EDGE", "NT"]).not.toContain(r.pos);
+    }
+    // Post-normalisation, the idpTradeCalc backbone still ranks by raw
+    // value desc so the legitimate DL lands in the expected slot.
+    const dl = rows.find((r) => r.name === "dl_real");
+    expect(dl).toBeDefined();
+    expect(dl.sourceRanks.idpTradeCalc).toBeDefined();
+  });
+
+  it("duplicate player names across position families rank independently", () => {
+    // Bad scraper data: same canonical name, two rows, different
+    // positions.  Both should be ranked independently by their own
+    // per-row data.
+    const rows = buildRows({
+      playersArray: [
+        row("twin", "DL", { idp: 900 }),
+        row("twin", "LB", { idp: 800 }),
+        row("other", "DB", { idp: 700 }),
+      ],
+    });
+    const twins = rows.filter((r) => r.name === "twin");
+    expect(twins.length).toBe(2);
+    const ranks = twins.map((r) => r.idpRank).sort();
+    expect(ranks).toEqual([1, 2]);
+  });
+
+  it("shallow backbone extrapolates a deeper position list monotonically", () => {
+    // 1-entry DL ladder + 5-deep dlTop5 source → DL1 lands on the exact
+    // anchor, DL2..DL5 extrapolate past the tail with strict monotonicity.
+    const saved = RANKING_SOURCES.slice();
+    RANKING_SOURCES.push({
+      key: "dlTop5",
+      displayName: "DL Top-5",
+      columnLabel: "DLT5",
+      scope: SOURCE_SCOPE_POSITION_IDP,
+      positionGroup: "DL",
+      depth: 5,
+      weight: 1.0,
+      isBackbone: false,
+    });
+    try {
+      const rows = buildRows({
+        playersArray: [
+          // dl_only is the single backbone DL anchor with its own dlTop5 entry.
+          {
+            ...row("dl_only", "DL", { idp: 900 }),
+            canonicalSiteValues: { idpTradeCalc: 900, dlTop5: 100 },
+          },
+          // dl2..dl5 live ONLY in dlTop5 so the translator must
+          // extrapolate all four.
+          {
+            ...row("dl2", "DL"),
+            canonicalSiteValues: { dlTop5: 90 },
+          },
+          {
+            ...row("dl3", "DL"),
+            canonicalSiteValues: { dlTop5: 80 },
+          },
+          {
+            ...row("dl4", "DL"),
+            canonicalSiteValues: { dlTop5: 70 },
+          },
+          {
+            ...row("dl5", "DL"),
+            canonicalSiteValues: { dlTop5: 60 },
+          },
+          row("lb_anchor", "LB", { idp: 800 }),
+        ],
+      });
+
+      const meta = Object.fromEntries(
+        rows
+          .filter((r) => r.sourceRankMeta?.dlTop5)
+          .map((r) => [r.name, r.sourceRankMeta.dlTop5])
+      );
+      // dl_only is the exact anchor from the 1-entry ladder.
+      expect(meta.dl_only.method).toBe(TRANSLATION_EXACT);
+      // dl2..dl5 extrapolate.
+      for (const name of ["dl2", "dl3", "dl4", "dl5"]) {
+        expect(meta[name].method).toBe(TRANSLATION_EXTRAPOLATED);
+      }
+      // Strict monotonicity of the translated effective ranks.
+      const seq = [
+        meta.dl_only.effectiveRank,
+        meta.dl2.effectiveRank,
+        meta.dl3.effectiveRank,
+        meta.dl4.effectiveRank,
+        meta.dl5.effectiveRank,
+      ];
+      for (let i = 1; i < seq.length; i++) {
+        expect(seq[i]).toBeGreaterThan(seq[i - 1]);
+      }
+    } finally {
+      RANKING_SOURCES.length = 0;
+      RANKING_SOURCES.push(...saved);
+    }
+  });
+
+  it("tied source values resolve to alphabetical ordinal ranks deterministically", () => {
+    // Name-based tiebreaker mirrors the backend Phase 1 sort and the
+    // backbone builder in src/canonical/idp_backbone.py.
+    const rowsA = buildRows({
+      playersArray: [
+        row("alpha", "DL", { idp: 800 }),
+        row("bravo", "DL", { idp: 800 }),
+        row("charlie", "DL", { idp: 800 }),
+      ],
+    });
+    const ranksA = Object.fromEntries(rowsA.map((r) => [r.name, r.idpRank]));
+    expect(Object.values(ranksA).sort()).toEqual([1, 2, 3]);
+    expect(ranksA).toEqual({ alpha: 1, bravo: 2, charlie: 3 });
+
+    // Shuffled input must produce the same final assignment.
+    const rowsB = buildRows({
+      playersArray: [
+        row("charlie", "DL", { idp: 800 }),
+        row("alpha", "DL", { idp: 800 }),
+        row("bravo", "DL", { idp: 800 }),
+      ],
+    });
+    const ranksB = Object.fromEntries(rowsB.map((r) => [r.name, r.idpRank]));
+    expect(ranksB).toEqual(ranksA);
+  });
 });
 
 // ── Dual-scope IDPTradeCalc parity ──────────────────────────────────
@@ -257,6 +455,74 @@ describe("Dual-scope IDPTradeCalc: offense + IDP contribution", () => {
       expect(r.sourceRanks.ktc).toBeUndefined();
       expect(r.sourceRankMeta.idpTradeCalc.scope).toBe("overall_idp");
     }
+  });
+});
+
+// ── H. Cross-universe ranking for dual-scope sources ────────────────
+// Frontend mirror of TestHCrossUniverseRanking in the backend.
+//
+// IDPTradeCalc prices both offense and IDP players on a shared 0-9999
+// scale, so its ordinal rank must be computed over the UNION of offense
+// and IDP rows, not per-scope.  Earlier revisions re-ranked each scope
+// from 1, which mapped the top IDP player to Hill value 9999 even when
+// dozens of offense players had higher raw IDPTC values.
+describe("H. Cross-universe IDPTradeCalc ranking", () => {
+  it("ranks a top IDP behind offense starters with higher raw values", () => {
+    const rows = buildRows({
+      playersArray: [
+        row("qb_elite", "QB", { ktc: 9999, idp: 9987 }),
+        row("wr_elite", "WR", { ktc: 9800, idp: 9500 }),
+        row("rb_elite", "RB", { ktc: 9600, idp: 9200 }),
+        row("te_elite", "TE", { ktc: 9400, idp: 8800 }),
+        row("dl_top", "DL", { idp: 5963 }),
+        row("lb_top", "LB", { idp: 5400 }),
+      ],
+    });
+    const qb = rows.find((r) => r.name === "qb_elite");
+    const dl = rows.find((r) => r.name === "dl_top");
+    const lb = rows.find((r) => r.name === "lb_top");
+
+    // Combined pool: qb=9987, wr=9500, rb=9200, te=8800, dl=5963, lb=5400
+    expect(qb.sourceRanks.idpTradeCalc).toBe(1);
+    expect(dl.sourceRanks.idpTradeCalc).toBe(5);
+    expect(lb.sourceRanks.idpTradeCalc).toBe(6);
+  });
+
+  it("does not award rank 1 to the top IDP when offense outvalues it", () => {
+    // Mirrors the backend regression guard: a 40-player offense ladder
+    // whose raw IDPTC values all sit above the top IDP.
+    const playersArray = [];
+    for (let i = 0; i < 40; i++) {
+      playersArray.push(
+        row(`off${i}`, i % 2 === 0 ? "QB" : "WR", {
+          ktc: 9999 - i * 10,
+          idp: 9900 - i * 80,
+        })
+      );
+    }
+    playersArray.push(row("dl_top", "DL", { idp: 5963 }));
+    const rows = buildRows({ playersArray });
+    const dl = rows.find((r) => r.name === "dl_top");
+    // Lowest offense IDPTC value is 9900 - 39*80 = 6780 > 5963, so
+    // dl_top lands at combined rank 41.
+    expect(dl.sourceRanks.idpTradeCalc).toBe(41);
+    expect(dl.rankDerivedValue).toBeLessThan(8000);
+  });
+
+  it("tags row scope per position even though ranking is combined", () => {
+    const rows = buildRows({
+      playersArray: [
+        row("qb1", "QB", { ktc: 9000, idp: 9000 }),
+        row("dl1", "DL", { idp: 5000 }),
+      ],
+    });
+    const qb1 = rows.find((r) => r.name === "qb1");
+    const dl1 = rows.find((r) => r.name === "dl1");
+    expect(qb1.sourceRankMeta.idpTradeCalc.scope).toBe("overall_offense");
+    expect(dl1.sourceRankMeta.idpTradeCalc.scope).toBe("overall_idp");
+    // rawRank is the combined-pool rank for both rows.
+    expect(qb1.sourceRankMeta.idpTradeCalc.rawRank).toBe(1);
+    expect(dl1.sourceRankMeta.idpTradeCalc.rawRank).toBe(2);
   });
 });
 

@@ -499,6 +499,119 @@ class TestGDualScopeIdpTradeCalc(unittest.TestCase):
         self.assertEqual(both["sourceRanks"]["idpTradeCalc"], 1)
 
 
+class TestHCrossUniverseRanking(unittest.TestCase):
+    """H. Cross-universe ranking for dual-scope sources.
+
+    IDPTradeCalc prices both offense and IDP players on a shared 0-9999
+    scale.  Earlier revisions ran a separate ordinal pass per scope,
+    which restarted at rank 1 in each scope and lost the cross-universe
+    ordering encoded in the raw values — the top offense and top IDP
+    player both received IDPTC rank 1 → Hill value 9999.
+
+    These tests lock the combined-pass behaviour: a single ordinal
+    ranking is computed across the union of rows eligible under ANY of
+    the source's declared scopes.  An IDP player with an IDPTC raw value
+    of 5963 that sits behind ~38 offense players must receive IDPTC
+    rank 39 (or thereabouts), not rank 1.
+    """
+
+    def test_idp_player_ranks_behind_offense_with_higher_raw_value(self):
+        """Top offense players outrank the top IDP under IDPTC's shared
+        value pool, even though the IDP is the #1 IDP-only entry.
+        """
+        rows = [
+            # Four offense players, raw IDPTC values higher than the top IDP.
+            _row("qb_elite", "QB", ktc=9999, idp=9987),
+            _row("wr_elite", "WR", ktc=9800, idp=9500),
+            _row("rb_elite", "RB", ktc=9600, idp=9200),
+            _row("te_elite", "TE", ktc=9400, idp=8800),
+            # Top IDP with a big raw IDPTC value but still below the
+            # offense starters.
+            _row("dl_top", "DL", idp=5963),
+            _row("lb_top", "LB", idp=5400),
+        ]
+        _compute_unified_rankings(rows, {})
+
+        dl = next(r for r in rows if r["canonicalName"] == "dl_top")
+        lb = next(r for r in rows if r["canonicalName"] == "lb_top")
+        qb = next(r for r in rows if r["canonicalName"] == "qb_elite")
+
+        # IDPTC ranks come from the combined pool: 4 offense players
+        # sit above dl_top (all with higher raw values).
+        self.assertEqual(qb["sourceRanks"]["idpTradeCalc"], 1)
+        self.assertEqual(dl["sourceRanks"]["idpTradeCalc"], 5)
+        self.assertEqual(lb["sourceRanks"]["idpTradeCalc"], 6)
+
+    def test_top_idp_does_not_get_rank_one_when_offense_outvalues(self):
+        """Regression guard for the previous per-scope restart bug: the
+        top IDP used to be rank 1 of the IDP scope → Hill value 9999,
+        even though offense players had higher raw values.
+        """
+        # Build a 40-player offense ladder whose raw IDPTC values all sit
+        # above the top IDP, mirroring the production distribution where
+        # ~40 offense stars outvalue the #1 DL on IDPTC's combined pool.
+        rows = [
+            _row(f"off{i}", "QB" if i % 2 == 0 else "WR",
+                 ktc=9999 - i * 10, idp=9900 - i * 80)
+            for i in range(40)
+        ]
+        rows.append(_row("dl_top", "DL", idp=5963))
+        _compute_unified_rankings(rows, {})
+
+        dl = next(r for r in rows if r["canonicalName"] == "dl_top")
+        # All 40 offense players have IDPTC raw value > 5963 (the lowest
+        # offense value is 9900 - 39*80 = 6780 > 5963), so dl_top lands
+        # at combined rank 41.  Under the old buggy per-scope pass, his
+        # IDP scope would have restarted at rank 1 and assigned him 9999.
+        self.assertEqual(dl["sourceRanks"]["idpTradeCalc"], 41)
+        # Rank 41 in the combined pool maps to a Hill value meaningfully
+        # below 9999 — the exact number is an implementation detail, but
+        # it must be well below the offense leaders.
+        self.assertLess(dl["rankDerivedValue"], 8000)
+
+    def test_combined_pass_preserves_tags_per_row_scope(self):
+        """Each row's IDPTradeCalc meta still reflects whichever scope
+        its position falls under, even though the ordinal ranking is
+        combined.  Offense rows → overall_offense, IDP rows → overall_idp.
+        """
+        rows = [
+            _row("qb1", "QB", ktc=9000, idp=9000),
+            _row("dl1", "DL", idp=5000),
+        ]
+        _compute_unified_rankings(rows, {})
+        qb1 = next(r for r in rows if r["canonicalName"] == "qb1")
+        dl1 = next(r for r in rows if r["canonicalName"] == "dl1")
+        self.assertEqual(
+            qb1["sourceRankMeta"]["idpTradeCalc"]["scope"],
+            SOURCE_SCOPE_OVERALL_OFFENSE,
+        )
+        self.assertEqual(
+            dl1["sourceRankMeta"]["idpTradeCalc"]["scope"],
+            SOURCE_SCOPE_OVERALL_IDP,
+        )
+        # Raw rank is the combined-pool rank for both rows.
+        self.assertEqual(qb1["sourceRankMeta"]["idpTradeCalc"]["rawRank"], 1)
+        self.assertEqual(dl1["sourceRankMeta"]["idpTradeCalc"]["rawRank"], 2)
+
+    def test_single_scope_source_unchanged_by_combined_pass(self):
+        """KTC declares only overall_offense with no extra_scopes, so the
+        combined pass reduces to the single-scope pass.  Offense-only
+        ordinal ranking must remain unchanged.
+        """
+        rows = [
+            _row("wr1", "WR", ktc=9500),
+            _row("wr2", "WR", ktc=9000),
+            _row("wr3", "WR", ktc=8000),
+            _row("dl1", "DL", idp=9999),  # IDP should not appear in KTC ranks
+        ]
+        _compute_unified_rankings(rows, {})
+        self.assertEqual(rows[0]["sourceRanks"]["ktc"], 1)
+        self.assertEqual(rows[1]["sourceRanks"]["ktc"], 2)
+        self.assertEqual(rows[2]["sourceRanks"]["ktc"], 3)
+        dl1 = next(r for r in rows if r["canonicalName"] == "dl1")
+        self.assertNotIn("ktc", dl1["sourceRanks"])
+
+
 class TestFEdgeCases(unittest.TestCase):
     """F. Edge cases: missing backbone, zero values, empty input."""
 
@@ -556,6 +669,181 @@ class TestFEdgeCases(unittest.TestCase):
         finally:
             _RANKING_SOURCES.clear()
             _RANKING_SOURCES.extend(saved)
+
+    # ── Declaration-error / bad-data edge cases ────────────────────────
+
+    def test_position_idp_source_with_none_position_group_ranks_nobody(self):
+        """A position_idp source that ships with position_group=None is a
+        declaration error: _scope_eligible() requires a non-empty group,
+        so the source simply contributes no ranks to any row.  The row
+        still gets its normal backbone-driven ranking — the broken source
+        is silently absent from sourceRanks rather than corrupting them.
+        """
+        saved = copy.deepcopy(_RANKING_SOURCES)
+        _RANKING_SOURCES.append(
+            {
+                "key": "posNone",
+                "display_name": "Broken position source",
+                "scope": SOURCE_SCOPE_POSITION_IDP,
+                "position_group": None,  # ← the declaration bug
+                "depth": 20,
+                "weight": 1.0,
+                "is_backbone": False,
+            }
+        )
+        try:
+            rows = [
+                _row("dl1", "DL", idp=900, extra={"posNone": 100}),
+                _row("dl2", "DL", idp=800, extra={"posNone": 90}),
+            ]
+            _compute_unified_rankings(rows, {})
+            for r in rows:
+                # Broken source did not stamp a rank on anyone.
+                self.assertNotIn("posNone", r["sourceRanks"])
+                self.assertNotIn("posNone", r["sourceRankMeta"])
+                # But backbone ranking is untouched.
+                self.assertIn("idpTradeCalc", r["sourceRanks"])
+        finally:
+            _RANKING_SOURCES.clear()
+            _RANKING_SOURCES.extend(saved)
+
+    def test_unsupported_idp_alias_is_filtered_from_rankable_set(self):
+        """Positions outside the frozen allowlist (QB/RB/WR/TE/DL/LB/DB/PICK)
+        never enter the unified board.  Real data occasionally emits "S"
+        (safety), "EDGE", "NT", etc.  The ranking pipeline must skip these
+        rows entirely — no sourceRanks stamp, no canonicalConsensusRank,
+        no crash.
+        """
+        rows = [
+            _row("safety_s", "S", idp=900),
+            _row("edge_r", "EDGE", idp=850),
+            _row("nose_tackle", "NT", idp=800),
+            _row("dl_real", "DL", idp=750),
+        ]
+        _compute_unified_rankings(rows, {})
+        for name in ("safety_s", "edge_r", "nose_tackle"):
+            r = next(r for r in rows if r["canonicalName"] == name)
+            self.assertNotIn("sourceRanks", r)
+            self.assertNotIn("canonicalConsensusRank", r)
+        # The legitimate DL row is untouched.
+        dl = next(r for r in rows if r["canonicalName"] == "dl_real")
+        self.assertEqual(dl["sourceRanks"]["idpTradeCalc"], 1)
+        self.assertEqual(dl["canonicalConsensusRank"], 1)
+
+    def test_duplicate_player_across_position_families_ranks_independently(self):
+        """Bad scraper data sometimes emits the same canonical name as two
+        rows with different positions (e.g. a DL and LB with the same
+        name).  The pipeline treats them as independent rows — both get
+        ranked by their own per-row data without crashing.  This pins
+        the behaviour so a future dedup step is an explicit change.
+        """
+        rows = [
+            _row("twin", "DL", idp=900),
+            _row("twin", "LB", idp=800),
+            _row("other", "DB", idp=700),
+        ]
+        _compute_unified_rankings(rows, {})
+        twins = [r for r in rows if r["canonicalName"] == "twin"]
+        self.assertEqual(len(twins), 2)
+        # Each duplicate gets a distinct rank based on its own IDPTC value.
+        ranks = sorted(r["idpRank"] for r in twins)
+        self.assertEqual(ranks, [1, 2])
+        # Both still have well-formed trust fields (not crashed mid-stamp).
+        for r in twins:
+            self.assertIn("confidenceBucket", r)
+            self.assertIn("anomalyFlags", r)
+
+    def test_shallow_backbone_extrapolates_deeper_position_list_monotonically(self):
+        """A backbone that only has a single DL anchor (e.g. a near-empty
+        IDPTC day where only one DL was priced) must still translate a
+        deeper DL-top-5 list's ranks into a monotonic synthetic series.
+        DL1 hits the exact anchor; DL2..DL5 extrapolate past the tail
+        with the single-anchor defensive step.
+        """
+        saved = copy.deepcopy(_RANKING_SOURCES)
+        _RANKING_SOURCES.append(
+            {
+                "key": "dlTop5",
+                "display_name": "DL Top-5",
+                "scope": SOURCE_SCOPE_POSITION_IDP,
+                "position_group": "DL",
+                "depth": 5,
+                "weight": 1.0,
+                "is_backbone": False,
+            }
+        )
+        try:
+            # Backbone only sees dl_only (1-entry DL ladder) + an LB anchor
+            # for completeness.  dl2..dl5 live ONLY in dlTop5 so the
+            # translator has to extrapolate all four.
+            rows = [
+                _row("dl_only", "DL", idp=900, extra={"dlTop5": 100}),
+                _row("dl2", "DL", extra={"dlTop5": 90}),
+                _row("dl3", "DL", extra={"dlTop5": 80}),
+                _row("dl4", "DL", extra={"dlTop5": 70}),
+                _row("dl5", "DL", extra={"dlTop5": 60}),
+                _row("lb_anchor", "LB", idp=800),
+            ]
+            _compute_unified_rankings(rows, {})
+
+            eff = {
+                r["canonicalName"]: r["sourceRankMeta"]["dlTop5"]["effectiveRank"]
+                for r in rows
+                if "dlTop5" in r.get("sourceRankMeta", {})
+            }
+            method = {
+                r["canonicalName"]: r["sourceRankMeta"]["dlTop5"]["method"]
+                for r in rows
+                if "dlTop5" in r.get("sourceRankMeta", {})
+            }
+
+            # DL1 is the exact anchor from the 1-entry ladder.
+            self.assertEqual(method["dl_only"], TRANSLATION_EXACT)
+            # DL2..DL5 extrapolate.
+            for name in ("dl2", "dl3", "dl4", "dl5"):
+                self.assertEqual(method[name], TRANSLATION_EXTRAPOLATED)
+            # Monotonic: each extrapolated rank is strictly greater than
+            # the previous one.
+            seq = [eff["dl_only"], eff["dl2"], eff["dl3"], eff["dl4"], eff["dl5"]]
+            self.assertEqual(seq, sorted(seq))
+            self.assertEqual(len(set(seq)), len(seq))
+        finally:
+            _RANKING_SOURCES.clear()
+            _RANKING_SOURCES.extend(saved)
+
+    def test_tied_source_values_rank_deterministically(self):
+        """Ties in raw source values — from rounding, duplicate exports,
+        or genuinely equal market pricing — must resolve to distinct
+        ordinal ranks with a stable name-based tiebreaker.  Three tied
+        DLs should receive ranks {1, 2, 3} in alphabetical order, and
+        shuffling the input must not change the final assignment (the
+        playersArray iteration order can drift between runs, so
+        input-order stability is not enough).
+        """
+        rows_a = [
+            _row("alpha", "DL", idp=800),
+            _row("bravo", "DL", idp=800),
+            _row("charlie", "DL", idp=800),
+        ]
+        _compute_unified_rankings(rows_a, {})
+        ranks_a = {r["canonicalName"]: r["idpRank"] for r in rows_a}
+        self.assertEqual(sorted(ranks_a.values()), [1, 2, 3])
+        # Name-based tiebreaker → alphabetical order.
+        self.assertEqual(ranks_a, {"alpha": 1, "bravo": 2, "charlie": 3})
+        for r in rows_a:
+            self.assertIn("rankDerivedValue", r)
+            self.assertGreater(r["rankDerivedValue"], 0)
+
+        # Shuffling the input order must not change the final rank
+        # assignment.
+        rows_b = [
+            _row("charlie", "DL", idp=800),
+            _row("alpha", "DL", idp=800),
+            _row("bravo", "DL", idp=800),
+        ]
+        _compute_unified_rankings(rows_b, {})
+        ranks_b = {r["canonicalName"]: r["idpRank"] for r in rows_b}
+        self.assertEqual(ranks_a, ranks_b)
 
 
 if __name__ == "__main__":
