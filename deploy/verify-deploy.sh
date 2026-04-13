@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_APP_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
 APP_HOST="${APP_HOST:-127.0.0.1}"
 APP_PORT="${APP_PORT:-8000}"
+APP_DIR="${APP_DIR:-${DEFAULT_APP_DIR}}"
+FRONTEND_HOST="${FRONTEND_HOST:-127.0.0.1}"
+FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+FRONTEND_BUILD_DIR="${FRONTEND_BUILD_DIR:-${APP_DIR}/frontend/.next}"
 SERVICE_NAME="${SERVICE_NAME:-dynasty}"
 PUBLIC_URL="${PUBLIC_URL:-}"
 VERIFY_MAX_ATTEMPTS="${VERIFY_MAX_ATTEMPTS:-20}"
@@ -10,6 +17,7 @@ VERIFY_SLEEP_SECONDS="${VERIFY_SLEEP_SECONDS:-2}"
 VERIFY_CURL_TIMEOUT="${VERIFY_CURL_TIMEOUT:-8}"
 STRICT_LOCAL_HEALTH="${STRICT_LOCAL_HEALTH:-true}"
 STRICT_PUBLIC_HEALTH="${STRICT_PUBLIC_HEALTH:-false}"
+STRICT_FRONTEND_ASSETS="${STRICT_FRONTEND_ASSETS:-true}"
 
 log() {
   printf '[verify] %s\n' "$*"
@@ -67,6 +75,74 @@ dump_service_diagnostics() {
   warn "Collecting service diagnostics for ${SERVICE_NAME}"
   sudo -n "${systemctl_bin}" status "${SERVICE_NAME}" --no-pager || true
   sudo -n "${journalctl_bin}" -u "${SERVICE_NAME}" -n 160 --no-pager || true
+}
+
+# Probe a sample of static chunks referenced by the live
+# build-manifest.json.  Each URL must return HTTP 200 from the running
+# Next.js process on the loopback interface.  This catches the case
+# where HTML references a chunk hash the server no longer has on disk
+# (the live ChunkLoadError bug) and fails the deploy *before* we mark
+# it successful.
+probe_frontend_next_assets() {
+  local build_dir="$1"
+  local manifest="${build_dir}/build-manifest.json"
+  if [[ ! -f "${manifest}" ]]; then
+    error "Frontend build manifest missing: ${manifest}"
+    return 1
+  fi
+
+  local probe_list
+  probe_list="$(python3 - "${manifest}" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1]) as fh:
+    manifest = json.load(fh)
+
+assets = set()
+
+
+def walk(obj):
+    if isinstance(obj, str):
+        if obj.startswith("static/") and (obj.endswith(".js") or obj.endswith(".css")):
+            assets.add(obj)
+    elif isinstance(obj, list):
+        for item in obj:
+            walk(item)
+    elif isinstance(obj, dict):
+        for value in obj.values():
+            walk(value)
+
+
+walk(manifest)
+chunks = sorted(a for a in assets if a.startswith("static/chunks/"))
+picked = []
+for asset in chunks[:2]:
+    picked.append(asset)
+if chunks:
+    picked.append(chunks[-1])
+for asset in picked:
+    print(asset)
+PY
+  )"
+
+  if [[ -z "${probe_list}" ]]; then
+    warn "Build manifest lists no static chunks; skipping _next probe."
+    return 0
+  fi
+
+  local asset url code
+  while IFS= read -r asset; do
+    [[ -z "${asset}" ]] && continue
+    url="http://${FRONTEND_HOST}:${FRONTEND_PORT}/_next/${asset}"
+    code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time "${VERIFY_CURL_TIMEOUT}" "${url}" || echo 000)"
+    if [[ "${code}" != "200" ]]; then
+      error "Frontend _next asset probe failed: ${url} -> HTTP ${code}"
+      return 1
+    fi
+    log "Frontend _next asset probe OK: ${asset}"
+  done <<< "${probe_list}"
+  return 0
 }
 
 probe_with_retries() {
@@ -129,12 +205,35 @@ main() {
     local frontend_name="${SERVICE_NAME}-frontend"
     if sudo -n "${systemctl_bin}" cat "${frontend_name}" >/dev/null 2>&1; then
       if ! sudo -n "${systemctl_bin}" is-active --quiet "${frontend_name}"; then
+        if [[ "${STRICT_FRONTEND_ASSETS}" == "true" || "${STRICT_FRONTEND_ASSETS}" == "1" || "${STRICT_FRONTEND_ASSETS}" == "yes" ]]; then
+          error "Frontend service is not active: ${frontend_name}"
+          sudo -n "${journalctl_bin}" -u "${frontend_name}" -n 120 --no-pager || true
+          exit 1
+        fi
         warn "Frontend service is not active: ${frontend_name}"
         sudo -n "${journalctl_bin}" -u "${frontend_name}" -n 60 --no-pager || true
       else
         log "Frontend service is active: ${frontend_name}"
       fi
     fi
+  fi
+
+  # Verify the running Next.js server actually serves the /_next/static
+  # chunk hashes referenced by the live build-manifest.json on disk.
+  # This is the guardrail for the ChunkLoadError failure mode: if HTML
+  # and assets diverge, the deploy fails here instead of silently
+  # succeeding with a broken UI.
+  if [[ -d "${FRONTEND_BUILD_DIR}" ]]; then
+    if ! probe_frontend_next_assets "${FRONTEND_BUILD_DIR}"; then
+      if [[ "${STRICT_FRONTEND_ASSETS}" == "true" || "${STRICT_FRONTEND_ASSETS}" == "1" || "${STRICT_FRONTEND_ASSETS}" == "yes" ]]; then
+        dump_service_diagnostics "${systemctl_bin:-}" "${journalctl_bin:-}"
+        exit 1
+      else
+        warn "Frontend _next asset probe failed (STRICT_FRONTEND_ASSETS=${STRICT_FRONTEND_ASSETS}); continuing."
+      fi
+    fi
+  else
+    warn "Frontend build dir not found at ${FRONTEND_BUILD_DIR}; skipping _next asset probe."
   fi
 
   if ! probe_with_retries "${status_url}" "${VERIFY_MAX_ATTEMPTS}" "${VERIFY_SLEEP_SECONDS}" "${VERIFY_CURL_TIMEOUT}" "${status_body}"; then

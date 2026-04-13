@@ -16,10 +16,18 @@ LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE="${LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE:-${DEPL
 AUTO_ROLLBACK="${AUTO_ROLLBACK:-true}"
 APP_HOST="${APP_HOST:-127.0.0.1}"
 APP_PORT="${APP_PORT:-8000}"
+FRONTEND_HOST="${FRONTEND_HOST:-127.0.0.1}"
+FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 PUBLIC_URL="${PUBLIC_URL:-}"
 RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-true}"
 STRICT_LOCAL_HEALTH="${STRICT_LOCAL_HEALTH:-true}"
 ALLOW_DIRTY_DEPLOY="${ALLOW_DIRTY_DEPLOY:-false}"
+# Where next build stages its output before the atomic swap.  Relative
+# to frontend/ so it lives on the same filesystem as the live .next (a
+# requirement for an atomic rename).  See deploy_frontend_atomic().
+FRONTEND_STAGING_DIR_NAME="${FRONTEND_STAGING_DIR_NAME:-.next.new}"
+FRONTEND_PROBE_MAX_ATTEMPTS="${FRONTEND_PROBE_MAX_ATTEMPTS:-15}"
+FRONTEND_PROBE_SLEEP_SECONDS="${FRONTEND_PROBE_SLEEP_SECONDS:-2}"
 
 STATE_DIR=""
 PRE_DEPLOY_REV=""
@@ -232,13 +240,267 @@ maybe_build_frontend() {
 
   log "Using node=$(command -v node)"
   log "Using npm=$(command -v npm)"
-  log "Running frontend production build in ${APP_DIR}/frontend"
-  if [[ -f "${APP_DIR}/frontend/package-lock.json" ]]; then
-    npm ci --prefix "${APP_DIR}/frontend"
-  else
-    npm install --prefix "${APP_DIR}/frontend"
+
+  local frontend_dir="${APP_DIR}/frontend"
+  local staging_dir="${frontend_dir}/${FRONTEND_STAGING_DIR_NAME}"
+
+  # Remove any leftover staging dir from a prior failed deploy so we
+  # start from a known-empty state.
+  if [[ -d "${staging_dir}" ]]; then
+    log "Removing stale frontend staging dir: ${staging_dir}"
+    rm -rf "${staging_dir}"
   fi
-  npm run --prefix "${APP_DIR}/frontend" build
+
+  log "Installing frontend dependencies in ${frontend_dir}"
+  if [[ -f "${frontend_dir}/package-lock.json" ]]; then
+    npm ci --prefix "${frontend_dir}"
+  else
+    npm install --prefix "${frontend_dir}"
+  fi
+
+  # Build into the staging directory.  The next.config.mjs honors
+  # NEXT_DIST_DIR so this does not touch the live .next/ directory at
+  # all — the running dynasty-frontend process keeps serving chunks
+  # from the current build until we do the atomic swap below.
+  log "Building frontend production bundle into staging dir: ${staging_dir}"
+  (
+    cd "${frontend_dir}"
+    NEXT_DIST_DIR="${FRONTEND_STAGING_DIR_NAME}" npm run build
+  )
+
+  verify_frontend_build_manifest "${staging_dir}"
+}
+
+# Parse the Next.js build manifests in the given dist directory and
+# verify every chunk/asset they reference actually exists on disk.
+# This catches partial builds, disk-full truncation, and any case where
+# the manifest references a hash webpack has already deleted.
+verify_frontend_build_manifest() {
+  local dist_dir="$1"
+  if [[ ! -d "${dist_dir}" ]]; then
+    error "Frontend build dir does not exist: ${dist_dir}"
+    exit 1
+  fi
+
+  local build_manifest="${dist_dir}/build-manifest.json"
+  if [[ ! -f "${build_manifest}" ]]; then
+    error "Missing build-manifest.json at ${build_manifest}"
+    exit 1
+  fi
+
+  log "Verifying frontend build manifest references: ${dist_dir}"
+  python3 - "${dist_dir}" <<'PY' || {
+import json
+import os
+import sys
+
+dist_dir = sys.argv[1]
+manifests = [
+    "build-manifest.json",
+    "app-build-manifest.json",
+    "react-loadable-manifest.json",
+]
+
+missing = []
+seen = 0
+
+
+def walk(obj):
+    global seen
+    if isinstance(obj, str):
+        if obj.endswith(".js") or obj.endswith(".css"):
+            seen += 1
+            full = os.path.join(dist_dir, obj)
+            if not os.path.exists(full):
+                missing.append(obj)
+    elif isinstance(obj, list):
+        for item in obj:
+            walk(item)
+    elif isinstance(obj, dict):
+        for value in obj.values():
+            walk(value)
+
+
+for name in manifests:
+    path = os.path.join(dist_dir, name)
+    if not os.path.exists(path):
+        continue
+    try:
+        with open(path) as fh:
+            data = json.load(fh)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[verify-build] Unable to parse {name}: {exc}", file=sys.stderr)
+        sys.exit(1)
+    walk(data)
+
+if missing:
+    print(
+        f"[verify-build] {len(missing)} referenced asset(s) missing from {dist_dir}",
+        file=sys.stderr,
+    )
+    for entry in missing[:20]:
+        print(f"  - {entry}", file=sys.stderr)
+    if len(missing) > 20:
+        print(f"  ... and {len(missing) - 20} more", file=sys.stderr)
+    sys.exit(1)
+
+print(f"[verify-build] OK: {seen} manifest-referenced asset(s) present in {dist_dir}")
+PY
+    error "Frontend build verification failed for ${dist_dir}."
+    exit 1
+  }
+}
+
+# Atomic frontend swap:
+#   1. Stop the dynasty-frontend service so no process is holding file
+#      descriptors into the old .next/.
+#   2. Move the old .next to .next.old (for emergency rollback) and
+#      rename the staging .next.new into place.
+#   3. Start the frontend service, which will read the fresh .next/.
+#   4. Probe a few /_next/static/* assets over localhost to confirm
+#      the running process actually serves the chunks referenced by
+#      the new build-manifest.json.
+#   5. Remove the .next.old archive in the background.
+deploy_frontend_atomic() {
+  local frontend_dir="${APP_DIR}/frontend"
+  local staging_dir="${frontend_dir}/${FRONTEND_STAGING_DIR_NAME}"
+  local live_dir="${frontend_dir}/.next"
+  local old_dir="${frontend_dir}/.next.old"
+  local run_build
+  run_build="$(lower "${RUN_FRONTEND_BUILD}")"
+
+  if [[ "${run_build}" != "true" && "${run_build}" != "1" && "${run_build}" != "yes" ]]; then
+    log "Frontend build disabled; skipping atomic swap."
+    return 0
+  fi
+
+  if [[ ! -d "${staging_dir}" ]]; then
+    warn "No staging dir at ${staging_dir}; skipping atomic swap."
+    return 0
+  fi
+
+  local frontend_name="${SERVICE_NAME}-frontend"
+  if sudo -n "${SYSTEMCTL_BIN}" cat "${frontend_name}" >/dev/null 2>&1; then
+    log "Stopping frontend service for atomic swap: ${frontend_name}"
+    sudo -n "${SYSTEMCTL_BIN}" stop "${frontend_name}" || true
+  else
+    warn "Frontend systemd unit ${frontend_name} not installed; swap will only touch disk."
+  fi
+
+  # Clear any leftover .next.old from a previous interrupted deploy.
+  if [[ -d "${old_dir}" ]]; then
+    rm -rf "${old_dir}"
+  fi
+
+  if [[ -d "${live_dir}" ]]; then
+    mv "${live_dir}" "${old_dir}"
+  fi
+  mv "${staging_dir}" "${live_dir}"
+  log "Frontend build swapped into place: ${live_dir}"
+
+  if sudo -n "${SYSTEMCTL_BIN}" cat "${frontend_name}" >/dev/null 2>&1; then
+    log "Starting frontend service after swap: ${frontend_name}"
+    sudo -n "${SYSTEMCTL_BIN}" start "${frontend_name}"
+    sleep 2
+    if ! sudo -n "${SYSTEMCTL_BIN}" is-active --quiet "${frontend_name}"; then
+      error "Frontend service ${frontend_name} failed to start after swap."
+      sudo -n "${JOURNALCTL_BIN}" -u "${frontend_name}" -n 80 --no-pager || true
+      exit 1
+    fi
+    log "Frontend service ${frontend_name} is active."
+
+    if ! probe_frontend_next_assets "${live_dir}"; then
+      error "Post-swap /_next/static/* asset probe failed; aborting deploy."
+      exit 1
+    fi
+  else
+    log "Skipping post-swap _next probe (frontend service not managed by systemd)."
+  fi
+
+  # Background-delete the old build so the critical path stays short.
+  if [[ -d "${old_dir}" ]]; then
+    ( rm -rf "${old_dir}" ) >/dev/null 2>&1 &
+  fi
+}
+
+# Probe a small sample of static chunks referenced by the live build
+# manifest.  Each URL must return 200 from the running Next.js process
+# on the loopback interface.  Retries a bounded number of times while
+# the server warms up.
+probe_frontend_next_assets() {
+  local live_dir="$1"
+  local manifest="${live_dir}/build-manifest.json"
+  if [[ ! -f "${manifest}" ]]; then
+    error "Missing build-manifest.json at ${manifest}; cannot probe frontend."
+    return 1
+  fi
+
+  local probe_list
+  probe_list="$(python3 - "${manifest}" <<'PY'
+import json
+import sys
+
+manifest_path = sys.argv[1]
+with open(manifest_path) as fh:
+    manifest = json.load(fh)
+
+assets = set()
+
+
+def walk(obj):
+    if isinstance(obj, str):
+        if obj.startswith("static/") and (obj.endswith(".js") or obj.endswith(".css")):
+            assets.add(obj)
+    elif isinstance(obj, list):
+        for item in obj:
+            walk(item)
+    elif isinstance(obj, dict):
+        for value in obj.values():
+            walk(value)
+
+
+walk(manifest)
+# Sample a handful of chunk assets.  Always include anything that
+# starts with static/chunks/ because that is the family the live
+# ChunkLoadError hit.
+chunks = sorted(a for a in assets if a.startswith("static/chunks/"))
+picked = []
+for asset in chunks[:2]:
+    picked.append(asset)
+if chunks:
+    picked.append(chunks[-1])
+for asset in picked:
+    print(asset)
+PY
+  )"
+
+  if [[ -z "${probe_list}" ]]; then
+    warn "Build manifest lists no static chunks; skipping _next probe."
+    return 0
+  fi
+
+  local asset url code attempts
+  while IFS= read -r asset; do
+    [[ -z "${asset}" ]] && continue
+    url="http://${FRONTEND_HOST}:${FRONTEND_PORT}/_next/${asset}"
+    attempts=0
+    code=""
+    while (( attempts < FRONTEND_PROBE_MAX_ATTEMPTS )); do
+      code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 10 "${url}" || echo 000)"
+      if [[ "${code}" == "200" ]]; then
+        log "Frontend _next probe OK: ${asset}"
+        break
+      fi
+      attempts=$((attempts + 1))
+      log "Frontend _next probe ${asset} returned HTTP ${code} (attempt ${attempts}/${FRONTEND_PROBE_MAX_ATTEMPTS}); retrying in ${FRONTEND_PROBE_SLEEP_SECONDS}s."
+      sleep "${FRONTEND_PROBE_SLEEP_SECONDS}"
+    done
+    if [[ "${code}" != "200" ]]; then
+      error "Frontend _next probe failed after ${attempts} attempts: ${url} -> HTTP ${code}"
+      return 1
+    fi
+  done <<< "${probe_list}"
+  return 0
 }
 
 ensure_systemd_service() {
@@ -269,21 +531,11 @@ ensure_systemd_service() {
 
 restart_service() {
   require_command systemctl
-  local frontend_name="${SERVICE_NAME}-frontend"
-  if sudo -n "${SYSTEMCTL_BIN}" cat "${frontend_name}" >/dev/null 2>&1; then
-    log "Restarting frontend service: ${frontend_name}"
-    sudo -n "${SYSTEMCTL_BIN}" restart "${frontend_name}"
-    # Wait briefly for the process to stabilize before checking
-    sleep 2
-    if ! sudo -n "${SYSTEMCTL_BIN}" is-active --quiet "${frontend_name}"; then
-      error "Frontend service ${frontend_name} failed to become active after restart."
-      sudo -n "${JOURNALCTL_BIN}" -u "${frontend_name}" -n 60 --no-pager || true
-      exit 1
-    else
-      log "Frontend service ${frontend_name} is active."
-    fi
-  fi
-
+  # NOTE: the frontend (dynasty-frontend) is restarted by
+  # deploy_frontend_atomic() as part of the build-swap sequence, not
+  # here.  This function only touches the backend so that a frontend
+  # chunk-manifest failure short-circuits the deploy BEFORE we cycle
+  # the backend.
   log "Restarting systemd service: ${SERVICE_NAME}"
   sudo -n "${SYSTEMCTL_BIN}" restart "${SERVICE_NAME}"
   if ! sudo -n "${SYSTEMCTL_BIN}" is-active --quiet "${SERVICE_NAME}"; then
@@ -299,6 +551,10 @@ verify_deploy() {
     log "Running deploy verification script."
     APP_HOST="${APP_HOST}" \
     APP_PORT="${APP_PORT}" \
+    APP_DIR="${APP_DIR}" \
+    FRONTEND_HOST="${FRONTEND_HOST}" \
+    FRONTEND_PORT="${FRONTEND_PORT}" \
+    FRONTEND_BUILD_DIR="${APP_DIR}/frontend/.next" \
     SERVICE_NAME="${SERVICE_NAME}" \
     PUBLIC_URL="${PUBLIC_URL}" \
     STRICT_LOCAL_HEALTH="${STRICT_LOCAL_HEALTH}" \
@@ -453,6 +709,7 @@ main() {
   prepare_python_runtime
   maybe_build_frontend
   ensure_systemd_service
+  deploy_frontend_atomic
   restart_service
   verify_deploy
   record_success_state

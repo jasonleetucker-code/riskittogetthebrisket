@@ -402,6 +402,45 @@ jobs:
           check_endpoint "/api/data" 200
           check_endpoint "/" 200
 
+          # Extract a /_next/static/* reference from the landing page
+          # HTML and verify the server actually serves it.  This is the
+          # guardrail for the ChunkLoadError failure mode: if the HTML
+          # references a chunk hash the Next.js process no longer has
+          # on disk (the exact symptom the prior production outage
+          # showed), this check fails and the deploy is marked red
+          # instead of silently shipping a broken client.
+          HTML_BODY_FILE="$(mktemp)"
+          trap 'rm -f "${HTML_BODY_FILE}"' EXIT
+          if curl --silent --show-error --max-time 15 --output "${HTML_BODY_FILE}" "${URL}/"; then
+            NEXT_ASSET="$(python3 - "${HTML_BODY_FILE}" <<'PY'
+import re
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8", errors="replace") as fh:
+    html = fh.read()
+
+# Prefer chunk files because that is the family that broke in prod.
+patterns = [
+    r'/_next/static/chunks/[^"\'\s<>]+?\.js',
+    r'/_next/static/[^"\'\s<>]+?\.(?:js|css)',
+]
+for pat in patterns:
+    matches = re.findall(pat, html)
+    if matches:
+        print(matches[0])
+        break
+PY
+            )"
+            if [[ -n "${NEXT_ASSET}" ]]; then
+              check_endpoint "${NEXT_ASSET}" 200
+            else
+              echo "::warning title=No _next asset found::Could not extract a /_next/static/* reference from HTML; skipping chunk probe."
+            fi
+          else
+            echo "FAIL: unable to fetch / HTML for _next asset extraction"
+            FAIL=$((FAIL + 1))
+          fi
+
           echo ""
           echo "Results: ${PASS} passed, ${FAIL} failed"
 
