@@ -380,11 +380,29 @@ deploy_frontend_atomic() {
   fi
 
   local frontend_name="${SERVICE_NAME}-frontend"
-  if sudo -n "${SYSTEMCTL_BIN}" cat "${frontend_name}" >/dev/null 2>&1; then
-    log "Stopping frontend service for atomic swap: ${frontend_name}"
-    sudo -n "${SYSTEMCTL_BIN}" stop "${frontend_name}" || true
-  else
-    warn "Frontend systemd unit ${frontend_name} not installed; swap will only touch disk."
+  # HARD FAIL: the frontend MUST be managed by systemd.  The previous
+  # WARN-and-continue branch is exactly the silent-failure path that
+  # shipped the ChunkLoadError outage — we swapped .next/ on disk but
+  # the unmanaged Next.js process (pm2/nohup/tmux) kept serving stale
+  # chunks because nothing restarted it.  ensure_systemd_service must
+  # install the unit before we reach this point.
+  if ! sudo -n "${SYSTEMCTL_BIN}" cat "${frontend_name}" >/dev/null 2>&1; then
+    error "Frontend systemd unit ${frontend_name} is not installed."
+    error "ensure_systemd_service should have installed it before this point."
+    exit 1
+  fi
+
+  log "Stopping frontend service for atomic swap: ${frontend_name}"
+  sudo -n "${SYSTEMCTL_BIN}" stop "${frontend_name}" || true
+
+  # Best-effort cleanup of any legacy process still holding the port.
+  # One-shot migration step: on a box that was previously running
+  # Next.js via pm2 / nohup / tmux (outside systemd), `systemctl stop`
+  # is a no-op.  We need to kill the unmanaged process or the next
+  # `systemctl start` below will fail with EADDRINUSE on port 3000.
+  if ! ensure_port_free "${FRONTEND_PORT}"; then
+    error "Could not free port ${FRONTEND_PORT} before frontend swap."
+    exit 1
   fi
 
   # Clear any leftover .next.old from a previous interrupted deploy.
@@ -398,29 +416,84 @@ deploy_frontend_atomic() {
   mv "${staging_dir}" "${live_dir}"
   log "Frontend build swapped into place: ${live_dir}"
 
-  if sudo -n "${SYSTEMCTL_BIN}" cat "${frontend_name}" >/dev/null 2>&1; then
-    log "Starting frontend service after swap: ${frontend_name}"
-    sudo -n "${SYSTEMCTL_BIN}" start "${frontend_name}"
-    sleep 2
-    if ! sudo -n "${SYSTEMCTL_BIN}" is-active --quiet "${frontend_name}"; then
-      error "Frontend service ${frontend_name} failed to start after swap."
-      sudo -n "${JOURNALCTL_BIN}" -u "${frontend_name}" -n 80 --no-pager || true
-      exit 1
-    fi
-    log "Frontend service ${frontend_name} is active."
+  log "Starting frontend service after swap: ${frontend_name}"
+  sudo -n "${SYSTEMCTL_BIN}" start "${frontend_name}"
+  sleep 2
+  if ! sudo -n "${SYSTEMCTL_BIN}" is-active --quiet "${frontend_name}"; then
+    error "Frontend service ${frontend_name} failed to start after swap."
+    sudo -n "${JOURNALCTL_BIN}" -u "${frontend_name}" -n 80 --no-pager || true
+    exit 1
+  fi
+  log "Frontend service ${frontend_name} is active."
 
-    if ! probe_frontend_next_assets "${live_dir}"; then
-      error "Post-swap /_next/static/* asset probe failed; aborting deploy."
-      exit 1
-    fi
-  else
-    log "Skipping post-swap _next probe (frontend service not managed by systemd)."
+  if ! probe_frontend_next_assets "${live_dir}"; then
+    error "Post-swap /_next/static/* asset probe failed; aborting deploy."
+    exit 1
   fi
 
   # Background-delete the old build so the critical path stays short.
   if [[ -d "${old_dir}" ]]; then
     ( rm -rf "${old_dir}" ) >/dev/null 2>&1 &
   fi
+}
+
+# Return 0 if the TCP port is currently accepting connections (in use),
+# 1 if it is free.  Uses bash's built-in /dev/tcp virtual filesystem so
+# no extra tools are required.
+port_in_use() {
+  local port="$1"
+  if (: < "/dev/tcp/127.0.0.1/${port}") >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
+# Best-effort: kill any process holding the given TCP port and wait for
+# the port to become free.  Returns 0 if the port is free within the
+# timeout, 1 otherwise.  Used to migrate off an unmanaged Next.js
+# process before handing control to the dynasty-frontend systemd unit.
+ensure_port_free() {
+  local port="$1"
+  local max_wait_seconds="${ENSURE_PORT_FREE_TIMEOUT:-15}"
+  local waited=0
+
+  if ! port_in_use "${port}"; then
+    return 0
+  fi
+
+  log "Port ${port} is still in use after systemctl stop; killing legacy listener(s)."
+
+  # Prefer fuser (kills by TCP port, respects ownership).
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -k -n tcp "${port}" 2>/dev/null || true
+  fi
+
+  # Fall back to lsof + kill for anything fuser didn't catch.
+  if command -v lsof >/dev/null 2>&1; then
+    local pids
+    pids="$(lsof -ti:"${port}" 2>/dev/null || true)"
+    if [[ -n "${pids}" ]]; then
+      log "Killing pids holding port ${port}: ${pids}"
+      # shellcheck disable=SC2086
+      kill -9 ${pids} 2>/dev/null || true
+    fi
+  fi
+
+  # Final fallback: pkill any next start / next-server for current user.
+  pkill -9 -u "$(id -u)" -f 'next start' 2>/dev/null || true
+  pkill -9 -u "$(id -u)" -f 'next-server' 2>/dev/null || true
+
+  while (( waited < max_wait_seconds )); do
+    if ! port_in_use "${port}"; then
+      log "Port ${port} is free after ${waited}s."
+      return 0
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+
+  error "Port ${port} is still in use after ${max_wait_seconds}s cleanup."
+  return 1
 }
 
 # Probe every /_next/static/* asset referenced by both the build
@@ -532,13 +605,24 @@ PY
 
 ensure_systemd_service() {
   require_command systemctl
+  local frontend_name="${SERVICE_NAME}-frontend"
+  local backend_present=false
+  local frontend_present=false
+
   if sudo -n "${SYSTEMCTL_BIN}" cat "${SERVICE_NAME}" >/dev/null 2>&1; then
+    backend_present=true
+  fi
+  if sudo -n "${SYSTEMCTL_BIN}" cat "${frontend_name}" >/dev/null 2>&1; then
+    frontend_present=true
+  fi
+
+  if [[ "${backend_present}" == "true" && "${frontend_present}" == "true" ]]; then
     return 0
   fi
 
   local installer_script
   installer_script="${APP_DIR}/deploy/install-systemd-service.sh"
-  warn "Systemd service ${SERVICE_NAME} not found. Attempting bootstrap install."
+  warn "Systemd units missing (backend=${backend_present}, frontend=${frontend_present}). Running bootstrap installer."
   if [[ ! -f "${installer_script}" ]]; then
     error "Missing bootstrap installer script: ${installer_script}"
     exit 1
@@ -551,7 +635,12 @@ ensure_systemd_service() {
   bash "${installer_script}"
 
   if ! sudo -n "${SYSTEMCTL_BIN}" cat "${SERVICE_NAME}" >/dev/null 2>&1; then
-    error "Systemd service ${SERVICE_NAME} is still unavailable after bootstrap install."
+    error "Backend systemd unit ${SERVICE_NAME} is still unavailable after bootstrap install."
+    exit 1
+  fi
+  if ! sudo -n "${SYSTEMCTL_BIN}" cat "${frontend_name}" >/dev/null 2>&1; then
+    error "Frontend systemd unit ${frontend_name} is still unavailable after bootstrap install."
+    error "deploy_frontend_atomic requires the frontend unit to be installed before the swap."
     exit 1
   fi
 }

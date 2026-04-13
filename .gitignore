@@ -8,7 +8,11 @@ __pycache__/
 node_modules/
 frontend/node_modules/
 .next/
+.next.new/
+.next.old/
 frontend/.next/
+frontend/.next.new/
+frontend/.next.old/
 tests/e2e/playwright-report/
 tests/e2e/test-results/
 tests/e2e/tests/
