@@ -1,0 +1,19 @@
+{
+  "source": "DLF_IDP",
+  "snapshot_id": "dlf_idp_2026_20260413T165522Z",
+  "pulled_at_utc": "2026-04-13T16:55:22.113829+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty superflex IDP (DLF expert consensus, full-board DL/LB/DB)",
+  "universe": "idp_vet",
+  "ingest_method": "scraper_bridge",
+  "ingest_type": "scraper_export",
+  "source_url": "https://dynastyleaguefootball.com/",
+  "format_key": "dynasty_sf",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/exports/latest/site_raw/dlfIdp.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/dlf_idp/2026/dlf_idp_2026_20260413T165522Z",
+  "record_count": 185,
+  "hash": "0478788a14438016d876978f245403033727efad1d9b9bfb0ba48a1ecd1210c1",
+  "notes": "DLF full-board IDP rankings (185 players). Ranks are the average of three expert rankers (FrankG, Jason K, Justin T). Ingested as a rank signal via the scraper bridge; the contract loader inverts rank to a synthetic value so the ordinal sort matches DLF's published order. Not a backbone source \u2014 IDPTradeCalc remains authoritative.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
