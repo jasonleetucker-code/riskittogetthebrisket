@@ -206,7 +206,13 @@ class TestDeployConfig(unittest.TestCase):
     def test_frontend_service_runs_npm_start(self):
         template = REPO_ROOT / "deploy" / "systemd" / "dynasty-frontend.service.template"
         text = template.read_text()
-        self.assertIn("npm start", text)
+        # ExecStart must invoke `npm start` via the __NPM_BIN__
+        # placeholder, which install-systemd-service.sh substitutes at
+        # install time with an absolute path to npm (system-wide or
+        # nvm-managed).  See deploy/install-systemd-service.sh
+        # resolve_npm_bin_for_systemd().
+        self.assertIn("ExecStart=__NPM_BIN__ start", text)
+        self.assertIn("__NODE_BIN_DIR__", text)
         self.assertIn("PORT=3000", text)
 
     def test_backend_service_depends_on_frontend(self):
