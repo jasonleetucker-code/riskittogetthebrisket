@@ -220,16 +220,17 @@ prepare_python_runtime() {
 }
 
 maybe_build_frontend() {
-  local run_build
-  run_build="$(lower "${RUN_FRONTEND_BUILD}")"
-  if [[ "${run_build}" != "true" && "${run_build}" != "1" && "${run_build}" != "yes" ]]; then
-    log "Frontend build disabled (RUN_FRONTEND_BUILD=${RUN_FRONTEND_BUILD})."
-    return 0
-  fi
+  # RUN_FRONTEND_BUILD used to be an opt-out via env var, but the
+  # production server had it set to a non-true value in its login
+  # environment, which silently short-circuited every frontend rebuild
+  # and shipped stale /_next/ chunks.  We now IGNORE the variable
+  # entirely and always run the frontend build.  If the frontend
+  # directory is missing, that's a deploy-fatal error.
+  log "Frontend build requested (RUN_FRONTEND_BUILD=${RUN_FRONTEND_BUILD:-unset}, build is always forced)."
 
   if [[ ! -f "${APP_DIR}/frontend/package.json" ]]; then
-    warn "RUN_FRONTEND_BUILD enabled but frontend/package.json not found; skipping frontend build."
-    return 0
+    error "frontend/package.json missing at ${APP_DIR}/frontend/package.json; cannot build frontend."
+    exit 1
   fi
 
   if ! resolve_node_toolchain; then
@@ -366,20 +367,12 @@ deploy_frontend_atomic() {
   local staging_dir="${frontend_dir}/${FRONTEND_STAGING_DIR_NAME}"
   local live_dir="${frontend_dir}/.next"
   local old_dir="${frontend_dir}/.next.old"
-  local run_build
-  run_build="$(lower "${RUN_FRONTEND_BUILD}")"
 
-  if [[ "${run_build}" != "true" && "${run_build}" != "1" && "${run_build}" != "yes" ]]; then
-    log "Frontend build disabled (RUN_FRONTEND_BUILD=${RUN_FRONTEND_BUILD}); skipping atomic swap."
-    return 0
-  fi
-
-  # HARD FAIL instead of warn/return.  If RUN_FRONTEND_BUILD is true but
-  # no staging directory exists, maybe_build_frontend did not actually
-  # build — either npm failed silently, or the build was short-circuited
-  # somewhere.  Continuing past this point would leave the live .next/
-  # in whatever state it was before, which is exactly how the
-  # ChunkLoadError failure mode hides inside a "successful" deploy.
+  # Atomic swap always runs.  maybe_build_frontend is guaranteed to
+  # have produced a staging dir (or exited fatally).  If the staging
+  # dir is still missing here, something is seriously wrong and we
+  # refuse to continue, because the previous skip-and-return behavior
+  # is exactly what silently shipped broken /_next/ chunks.
   if [[ ! -d "${staging_dir}" ]]; then
     error "Expected frontend staging dir missing at ${staging_dir}."
     error "maybe_build_frontend did not produce a build output — aborting deploy."

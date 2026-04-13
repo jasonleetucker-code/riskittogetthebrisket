@@ -77,27 +77,36 @@ dump_service_diagnostics() {
   sudo -n "${journalctl_bin}" -u "${SERVICE_NAME}" -n 160 --no-pager || true
 }
 
-# Probe a sample of static chunks referenced by the live
-# build-manifest.json.  Each URL must return HTTP 200 from the running
-# Next.js process on the loopback interface.  This catches the case
-# where HTML references a chunk hash the server no longer has on disk
-# (the live ChunkLoadError bug) and fails the deploy *before* we mark
-# it successful.
+# Probe EVERY static chunk referenced by both the live build
+# manifests AND the prerendered SSG HTML output in .next/server/app/
+# and .next/server/pages/.  Each URL must return HTTP 200 from the
+# running Next.js process on the loopback interface.
+#
+# The prerendered HTML walk is what catches the ChunkLoadError failure
+# mode: Next.js bakes <script src> tags for async chunks (like the
+# 448-*.js outage chunk) that do NOT appear in build-manifest.json.
+# A manifest-only probe silently missed the exact failure mode that
+# shipped the production outage.
 probe_frontend_next_assets() {
   local build_dir="$1"
-  local manifest="${build_dir}/build-manifest.json"
-  if [[ ! -f "${manifest}" ]]; then
-    error "Frontend build manifest missing: ${manifest}"
+  if [[ ! -d "${build_dir}" ]]; then
+    error "Frontend build dir missing: ${build_dir}"
     return 1
   fi
 
   local probe_list
-  probe_list="$(python3 - "${manifest}" <<'PY'
+  probe_list="$(python3 - "${build_dir}" <<'PY'
 import json
+import os
+import re
 import sys
 
-with open(sys.argv[1]) as fh:
-    manifest = json.load(fh)
+live_dir = sys.argv[1]
+manifests = [
+    "build-manifest.json",
+    "app-build-manifest.json",
+    "react-loadable-manifest.json",
+]
 
 assets = set()
 
@@ -114,34 +123,57 @@ def walk(obj):
             walk(value)
 
 
-walk(manifest)
-chunks = sorted(a for a in assets if a.startswith("static/chunks/"))
-picked = []
-for asset in chunks[:2]:
-    picked.append(asset)
-if chunks:
-    picked.append(chunks[-1])
-for asset in picked:
+for name in manifests:
+    path = os.path.join(live_dir, name)
+    if not os.path.exists(path):
+        continue
+    try:
+        with open(path) as fh:
+            walk(json.load(fh))
+    except Exception:
+        pass
+
+html_asset_re = re.compile(r"/_next/(static/[^\"\s<>?]+\.(?:js|css))")
+for root in ("server/app", "server/pages"):
+    root_path = os.path.join(live_dir, root)
+    if not os.path.isdir(root_path):
+        continue
+    for dirpath, _dirnames, filenames in os.walk(root_path):
+        for fname in filenames:
+            if not fname.endswith(".html"):
+                continue
+            try:
+                with open(os.path.join(dirpath, fname), encoding="utf-8") as fh:
+                    for match in html_asset_re.finditer(fh.read()):
+                        assets.add(match.group(1))
+            except Exception:
+                pass
+
+for asset in sorted(assets):
     print(asset)
 PY
   )"
 
   if [[ -z "${probe_list}" ]]; then
-    warn "Build manifest lists no static chunks; skipping _next probe."
+    warn "Manifests and prerendered HTML list no static chunks; skipping _next probe."
     return 0
   fi
 
   local asset url code
+  local total=0
+  local ok=0
   while IFS= read -r asset; do
     [[ -z "${asset}" ]] && continue
+    total=$((total + 1))
     url="http://${FRONTEND_HOST}:${FRONTEND_PORT}/_next/${asset}"
     code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time "${VERIFY_CURL_TIMEOUT}" "${url}" || echo 000)"
     if [[ "${code}" != "200" ]]; then
       error "Frontend _next asset probe failed: ${url} -> HTTP ${code}"
       return 1
     fi
-    log "Frontend _next asset probe OK: ${asset}"
+    ok=$((ok + 1))
   done <<< "${probe_list}"
+  log "Frontend _next asset probe OK: ${ok}/${total} chunks served by live Next.js process."
   return 0
 }
 
