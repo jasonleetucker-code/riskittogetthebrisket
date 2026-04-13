@@ -67,7 +67,10 @@ escape_sed_replacement() {
 }
 
 main() {
-  local force_install unit_path tmp_unit
+  local force_install force_install_on unit_path tmp_unit
+  local frontend_template frontend_name frontend_unit_path tmp_frontend
+  local backend_needs_install=false
+  local frontend_needs_install=false
 
   require_command sudo
   require_command install
@@ -83,36 +86,71 @@ main() {
   [[ -f "${SERVICE_TEMPLATE_PATH}" ]] || { error "Service template not found: ${SERVICE_TEMPLATE_PATH}"; exit 1; }
 
   force_install="$(lower "${FORCE_SERVICE_INSTALL}")"
-  unit_path="/etc/systemd/system/${SERVICE_NAME}.service"
-  if sudo -n "${SYSTEMCTL_BIN}" cat "${SERVICE_NAME}" >/dev/null 2>&1; then
-    if [[ "${force_install}" != "true" && "${force_install}" != "1" && "${force_install}" != "yes" ]]; then
-      log "Service ${SERVICE_NAME} already exists; skipping bootstrap install."
-      exit 0
-    fi
-    log "FORCE_SERVICE_INSTALL enabled; rewriting ${unit_path}."
-  else
-    log "Installing missing systemd unit ${unit_path}."
+  force_install_on=false
+  if [[ "${force_install}" == "true" || "${force_install}" == "1" || "${force_install}" == "yes" ]]; then
+    force_install_on=true
   fi
 
-  tmp_unit="$(mktemp)"
-  trap 'rm -f "${tmp_unit}"' EXIT
-  sed \
-    -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-    -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
-    -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
-    -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
-    "${SERVICE_TEMPLATE_PATH}" > "${tmp_unit}"
+  tmp_unit=""
+  tmp_frontend=""
+  trap 'rm -f "${tmp_unit:-}" "${tmp_frontend:-}"' EXIT
 
-  sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_unit}" "${unit_path}"
-  log "Installed ${SERVICE_NAME}.service"
+  # ── Backend service (FastAPI) ───────────────────────────────────────────
+  # Deliberately do NOT `exit 0` early when the backend unit already
+  # exists: we still need to check whether the frontend unit is
+  # installed.  A previous version of this script exited here, which
+  # meant production (where the backend was already installed) never
+  # got the frontend systemd unit and silently ran Next.js under some
+  # unmanaged process manager, so deploy.sh could not restart it.
+  unit_path="/etc/systemd/system/${SERVICE_NAME}.service"
+  if sudo -n "${SYSTEMCTL_BIN}" cat "${SERVICE_NAME}" >/dev/null 2>&1; then
+    if [[ "${force_install_on}" == "true" ]]; then
+      log "FORCE_SERVICE_INSTALL enabled; rewriting ${unit_path}."
+      backend_needs_install=true
+    else
+      log "Backend service ${SERVICE_NAME} already installed; skipping."
+    fi
+  else
+    log "Installing missing backend systemd unit ${unit_path}."
+    backend_needs_install=true
+  fi
+
+  if [[ "${backend_needs_install}" == "true" ]]; then
+    tmp_unit="$(mktemp)"
+    sed \
+      -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+      -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+      -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+      -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+      "${SERVICE_TEMPLATE_PATH}" > "${tmp_unit}"
+    sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_unit}" "${unit_path}"
+    log "Installed ${SERVICE_NAME}.service"
+  fi
 
   # ── Frontend service (Next.js) ──────────────────────────────────────────
-  local frontend_template="${APP_DIR}/deploy/systemd/dynasty-frontend.service.template"
-  local frontend_name="${SERVICE_NAME}-frontend"
-  local frontend_unit_path="/etc/systemd/system/${frontend_name}.service"
+  frontend_template="${APP_DIR}/deploy/systemd/dynasty-frontend.service.template"
+  frontend_name="${SERVICE_NAME}-frontend"
+  frontend_unit_path="/etc/systemd/system/${frontend_name}.service"
 
-  if [[ -f "${frontend_template}" ]]; then
-    local tmp_frontend
+  if [[ ! -f "${frontend_template}" ]]; then
+    error "Frontend service template not found at ${frontend_template}."
+    error "The Next.js process must be managed by systemd; aborting bootstrap."
+    exit 1
+  fi
+
+  if sudo -n "${SYSTEMCTL_BIN}" cat "${frontend_name}" >/dev/null 2>&1; then
+    if [[ "${force_install_on}" == "true" ]]; then
+      log "FORCE_SERVICE_INSTALL enabled; rewriting ${frontend_unit_path}."
+      frontend_needs_install=true
+    else
+      log "Frontend service ${frontend_name} already installed; skipping."
+    fi
+  else
+    log "Installing missing frontend systemd unit ${frontend_unit_path}."
+    frontend_needs_install=true
+  fi
+
+  if [[ "${frontend_needs_install}" == "true" ]]; then
     tmp_frontend="$(mktemp)"
     sed \
       -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
@@ -121,18 +159,23 @@ main() {
       -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
       "${frontend_template}" > "${tmp_frontend}"
     sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_frontend}" "${frontend_unit_path}"
-    rm -f "${tmp_frontend}"
     log "Installed ${frontend_name}.service"
-  else
-    log "Frontend service template not found; skipping ${frontend_name}.service"
   fi
 
-  sudo -n "${SYSTEMCTL_BIN}" daemon-reload
-  sudo -n "${SYSTEMCTL_BIN}" enable "${SERVICE_NAME}"
-  if [[ -f "${frontend_template}" ]]; then
-    sudo -n "${SYSTEMCTL_BIN}" enable "${frontend_name}"
+  # ── daemon-reload and enable ────────────────────────────────────────────
+  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" ]]; then
+    sudo -n "${SYSTEMCTL_BIN}" daemon-reload
+    log "Reloaded systemd unit files."
   fi
-  log "Enabled ${SERVICE_NAME}.service (and frontend if available)"
+
+  if [[ "${backend_needs_install}" == "true" ]]; then
+    sudo -n "${SYSTEMCTL_BIN}" enable "${SERVICE_NAME}"
+    log "Enabled ${SERVICE_NAME}.service"
+  fi
+  if [[ "${frontend_needs_install}" == "true" ]]; then
+    sudo -n "${SYSTEMCTL_BIN}" enable "${frontend_name}"
+    log "Enabled ${frontend_name}.service"
+  fi
 }
 
 main "$@"
