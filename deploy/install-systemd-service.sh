@@ -62,6 +62,77 @@ resolve_and_validate_sudo_binaries() {
   INSTALL_BIN="$(resolve_sudo_nopasswd_binary "install" /usr/bin/install /bin/install)"
 }
 
+# Locate an absolute path to the `npm` binary that the dynasty-frontend
+# systemd unit can use as ExecStart.  This mirrors deploy.sh's
+# resolve_node_toolchain but returns paths instead of relying on PATH
+# side-effects, because systemd runs with a minimal environment and
+# will not source nvm.sh on its own.
+#
+# Writes two values to NPM_BIN_PATH and NODE_BIN_DIR on success.
+# Returns 1 and logs an error if npm cannot be located.
+NPM_BIN_PATH=""
+NODE_BIN_DIR=""
+
+resolve_npm_bin_for_systemd() {
+  NPM_BIN_PATH=""
+  NODE_BIN_DIR=""
+
+  local candidate
+  # 1. System-wide install (Debian/Ubuntu package).
+  for candidate in /usr/bin/npm /usr/local/bin/npm; do
+    if [[ -x "${candidate}" ]]; then
+      NPM_BIN_PATH="${candidate}"
+      NODE_BIN_DIR="$(dirname "${candidate}")"
+      return 0
+    fi
+  done
+
+  # 2. Anything already on PATH (e.g. from operator shell profile).
+  if command -v npm >/dev/null 2>&1; then
+    NPM_BIN_PATH="$(command -v npm)"
+    NODE_BIN_DIR="$(dirname "${NPM_BIN_PATH}")"
+    return 0
+  fi
+
+  # 3. nvm-installed node under the service user's home dir.  This is
+  # the production case — the Hetzner VPS manages node via nvm and
+  # /usr/bin/npm does not exist.
+  local home_candidates=(
+    "/home/${APP_USER}"
+    "${HOME:-}"
+  )
+  local home_dir=""
+  for candidate in "${home_candidates[@]}"; do
+    if [[ -n "${candidate}" && -d "${candidate}" ]]; then
+      home_dir="${candidate}"
+      break
+    fi
+  done
+
+  local nvm_dir=""
+  if [[ -n "${home_dir}" && -d "${home_dir}/.nvm" ]]; then
+    nvm_dir="${home_dir}/.nvm"
+  fi
+
+  if [[ -n "${nvm_dir}" && -d "${nvm_dir}/versions/node" ]]; then
+    local node_bin
+    node_bin="$(
+      find "${nvm_dir}/versions/node" -mindepth 2 -maxdepth 2 -type d -name bin 2>/dev/null \
+      | sort -V \
+      | tail -n 1
+    )"
+    if [[ -n "${node_bin}" && -x "${node_bin}/npm" ]]; then
+      NPM_BIN_PATH="${node_bin}/npm"
+      NODE_BIN_DIR="${node_bin}"
+      return 0
+    fi
+  fi
+
+  error "Could not locate npm for dynasty-frontend systemd unit."
+  error "Checked: /usr/bin/npm, /usr/local/bin/npm, PATH, and ${nvm_dir:-<no nvm dir>}/versions/node/*/bin/npm"
+  return 1
+}
+
 escape_sed_replacement() {
   printf '%s' "$1" | sed -e 's/[\\/&]/\\&/g'
 }
@@ -151,12 +222,24 @@ main() {
   fi
 
   if [[ "${frontend_needs_install}" == "true" ]]; then
+    # Resolve npm absolute path now so the rendered unit file uses a
+    # path that actually exists under the service user's runtime.
+    # Systemd does NOT source ~/.bashrc or nvm.sh, so relying on PATH
+    # alone will fail on nvm-based production boxes.
+    if ! resolve_npm_bin_for_systemd; then
+      error "Cannot render dynasty-frontend unit without an absolute npm path."
+      exit 1
+    fi
+    log "Resolved npm for frontend unit: ${NPM_BIN_PATH} (PATH dir: ${NODE_BIN_DIR})"
+
     tmp_frontend="$(mktemp)"
     sed \
       -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
       -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
       -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
       -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+      -e "s/__NPM_BIN__/$(escape_sed_replacement "${NPM_BIN_PATH}")/g" \
+      -e "s/__NODE_BIN_DIR__/$(escape_sed_replacement "${NODE_BIN_DIR}")/g" \
       "${frontend_template}" > "${tmp_frontend}"
     sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_frontend}" "${frontend_unit_path}"
     log "Installed ${frontend_name}.service"

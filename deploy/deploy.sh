@@ -608,30 +608,57 @@ ensure_systemd_service() {
   local frontend_name="${SERVICE_NAME}-frontend"
   local backend_present=false
   local frontend_present=false
+  local frontend_execstart=""
+  local frontend_exec_bin=""
+  local force_reinstall=false
 
   if sudo -n "${SYSTEMCTL_BIN}" cat "${SERVICE_NAME}" >/dev/null 2>&1; then
     backend_present=true
   fi
   if sudo -n "${SYSTEMCTL_BIN}" cat "${frontend_name}" >/dev/null 2>&1; then
     frontend_present=true
+    # Validate the existing frontend unit's ExecStart actually points
+    # at an executable file.  An earlier version of the template
+    # hardcoded /usr/bin/npm, which does not exist on nvm-based boxes,
+    # so the unit got installed but systemctl start would never
+    # succeed.  Detect that case and force a reinstall.
+    frontend_execstart="$(sudo -n "${SYSTEMCTL_BIN}" cat "${frontend_name}" 2>/dev/null \
+      | awk -F= '/^ExecStart=/ {sub(/^ExecStart=/, ""); print; exit}')"
+    if [[ -n "${frontend_execstart}" ]]; then
+      frontend_exec_bin="${frontend_execstart%% *}"
+      if [[ -n "${frontend_exec_bin}" && ! -x "${frontend_exec_bin}" ]]; then
+        warn "Frontend unit ExecStart binary is not executable: ${frontend_exec_bin}. Forcing reinstall."
+        force_reinstall=true
+      fi
+    fi
   fi
 
-  if [[ "${backend_present}" == "true" && "${frontend_present}" == "true" ]]; then
+  if [[ "${backend_present}" == "true" && "${frontend_present}" == "true" && "${force_reinstall}" != "true" ]]; then
     return 0
   fi
 
   local installer_script
   installer_script="${APP_DIR}/deploy/install-systemd-service.sh"
-  warn "Systemd units missing (backend=${backend_present}, frontend=${frontend_present}). Running bootstrap installer."
+  if [[ "${force_reinstall}" == "true" ]]; then
+    warn "Reinstalling frontend systemd unit because its ExecStart binary (${frontend_exec_bin}) is not runnable."
+  else
+    warn "Systemd units missing (backend=${backend_present}, frontend=${frontend_present}). Running bootstrap installer."
+  fi
   if [[ ! -f "${installer_script}" ]]; then
     error "Missing bootstrap installer script: ${installer_script}"
     exit 1
+  fi
+
+  local force_install_value="${FORCE_SERVICE_INSTALL:-false}"
+  if [[ "${force_reinstall}" == "true" ]]; then
+    force_install_value=true
   fi
 
   APP_DIR="${APP_DIR}" \
   APP_USER="${APP_USER}" \
   VENV_DIR="${VENV_DIR}" \
   SERVICE_NAME="${SERVICE_NAME}" \
+  FORCE_SERVICE_INSTALL="${force_install_value}" \
   bash "${installer_script}"
 
   if ! sudo -n "${SYSTEMCTL_BIN}" cat "${SERVICE_NAME}" >/dev/null 2>&1; then
@@ -643,6 +670,16 @@ ensure_systemd_service() {
     error "deploy_frontend_atomic requires the frontend unit to be installed before the swap."
     exit 1
   fi
+
+  # Re-verify the reinstalled frontend unit's ExecStart is now runnable.
+  frontend_execstart="$(sudo -n "${SYSTEMCTL_BIN}" cat "${frontend_name}" 2>/dev/null \
+    | awk -F= '/^ExecStart=/ {sub(/^ExecStart=/, ""); print; exit}')"
+  frontend_exec_bin="${frontend_execstart%% *}"
+  if [[ -z "${frontend_exec_bin}" || ! -x "${frontend_exec_bin}" ]]; then
+    error "Frontend unit ExecStart binary is still not executable after reinstall: '${frontend_exec_bin}'"
+    exit 1
+  fi
+  log "Frontend systemd unit ExecStart binary resolved to: ${frontend_exec_bin}"
 }
 
 restart_service() {
