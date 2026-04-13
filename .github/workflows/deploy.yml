@@ -402,6 +402,33 @@ jobs:
           check_endpoint "/api/data" 200
           check_endpoint "/" 200
 
+          # Extract a /_next/static/* reference from the landing page
+          # HTML and verify the server actually serves it.  This is the
+          # guardrail for the ChunkLoadError failure mode: if the HTML
+          # references a chunk hash the Next.js process no longer has
+          # on disk (the exact symptom the prior production outage
+          # showed), this check fails and the deploy is marked red
+          # instead of silently shipping a broken client.
+          HTML_BODY_FILE="$(mktemp)"
+          if curl --silent --show-error --max-time 15 --output "${HTML_BODY_FILE}" "${URL}/"; then
+            # Prefer chunk files because that is the family that broke
+            # in prod.  Character class excludes the characters that
+            # could appear as attribute delimiters or whitespace.
+            NEXT_ASSET="$(grep -oE '/_next/static/chunks/[^"[:space:]<>]+\.js' "${HTML_BODY_FILE}" | head -n 1 || true)"
+            if [[ -z "${NEXT_ASSET}" ]]; then
+              NEXT_ASSET="$(grep -oE '/_next/static/[^"[:space:]<>]+\.(js|css)' "${HTML_BODY_FILE}" | head -n 1 || true)"
+            fi
+            if [[ -n "${NEXT_ASSET}" ]]; then
+              check_endpoint "${NEXT_ASSET}" 200
+            else
+              echo "::warning title=No _next asset found::Could not extract a /_next/static/* reference from HTML; skipping chunk probe."
+            fi
+          else
+            echo "FAIL: unable to fetch / HTML for _next asset extraction"
+            FAIL=$((FAIL + 1))
+          fi
+          rm -f "${HTML_BODY_FILE}"
+
           echo ""
           echo "Results: ${PASS} passed, ${FAIL} failed"
 
