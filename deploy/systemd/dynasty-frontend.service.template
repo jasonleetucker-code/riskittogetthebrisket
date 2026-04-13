@@ -7,11 +7,17 @@ Type=simple
 User=__APP_USER__
 Group=__APP_USER__
 WorkingDirectory=__APP_DIR__/frontend
-ExecStart=/usr/bin/npm start
+# __NPM_BIN__ and __NODE_BIN_DIR__ are resolved at install time by
+# deploy/install-systemd-service.sh, which locates npm under nvm if
+# /usr/bin/npm does not exist.  This avoids the outage where a
+# hardcoded /usr/bin/npm path caused systemctl start to fail on an
+# nvm-based production box.
+ExecStart=__NPM_BIN__ start
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
 Environment=PORT=3000
+Environment=PATH=__NODE_BIN_DIR__:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 EnvironmentFile=-__APP_DIR__/.env
 
 [Install]
