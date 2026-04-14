@@ -358,13 +358,24 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     # board still ranks.  These are genuinely single-source and the
     # expert opinion is the only signal available.
     "austin ekeler": "source_gap:ktc+idpTradeCalc — veteran RB dropped by both markets; DLF-SF expert board still ranks him",
-    # ── Offense: historical (7 suffix-named players) ──
-    # Kenneth Walker III, Marvin Harrison Jr., Brian Thomas Jr.,
-    # Michael Penix Jr., Omar Cooper Jr., Mike Washington Jr.,
-    # Chris Brazzell II were NOT missing — they live in IDPTradeCalc's
-    # Sheet3 payload which the scraper was ignoring.  Fixed in
+    # ── Offense: suffix-named rookies / depth receivers ──
+    # Kenneth Walker III, Marvin Harrison Jr., Brian Thomas Jr., and
+    # Michael Penix Jr. live in IDPTradeCalc's Sheet3 payload and join
+    # cleanly once the scraper reads Sheet1 + Sheet2 + Sheet3 (fixed in
     # Dynasty Scraper.py::_extract_idptc_name_map and the API-intercept
-    # handler to read Sheet1 + Sheet2 + Sheet3.  No allowlist needed.
+    # handler). They do not need allowlist entries.
+    #
+    # The three names below, however, are deeper board players that
+    # IDPTradeCalc's Sheet3 payload is not currently returning reliably
+    # (confirmed via live scrapes returning 813 rows instead of the ~901
+    # expected after Sheet3 recovery). They are genuine source gaps —
+    # KTC bulk-indexes deep rookies / practice-squad prospects that
+    # IDPTC and DLF have not yet added. Remove these entries once the
+    # IDPTC Sheet3 scrape stabilizes and these names appear in the
+    # snapshot.
+    "chris brazzell": "source_gap:ktc_only — deep KTC prospect not yet in IDPTC Sheet3 / DLF SF",
+    "mike washington": "source_gap:ktc_only — deep KTC prospect not yet in IDPTC Sheet3 / DLF SF",
+    "omar cooper": "source_gap:ktc_only — deep KTC prospect not yet in IDPTC Sheet3 / DLF SF",
     # ── IDP: IDPTradeCalc-only (DLF does not list these players) ──
     # DLF publishes a curated 185-player IDP veteran board.  Rookies and
     # players outside the top 185 are structurally excluded.
