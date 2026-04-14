@@ -104,13 +104,27 @@ class TestBuildMasterPlayers:
         players, _ = build_master_players([rec1, rec2])
         assert len(players) == 2
 
-    def test_position_conflict_detected(self):
+    def test_position_conflict_separates_distinct_entities(self):
+        """Same normalized name across position groups (offense vs IDP)
+        no longer collapses into one master player.
+
+        The old behavior was to merge them under ``player::josh allen``
+        and emit a position-conflict warning.  That meant the QB Josh
+        Allen and a hypothetical LB Josh Allen quietly shared one
+        canonical ID — and any cross-source rank join would graft the
+        wrong source's value onto the wrong row.  Position-aware
+        canonical keys (``player::josh allen::OFFENSE`` vs
+        ``player::josh allen::IDP``) give us two distinct master
+        records, which is the correct identity-resolution outcome
+        for two genuinely different people.
+        """
         rec1 = _make_record(name="Josh Allen", position="QB")
         rec2 = _make_record(name="Josh Allen", position="LB", source="ktc")
         players, conflicts = build_master_players([rec1, rec2])
-        assert len(players) == 1
-        assert len(conflicts) == 1
-        assert "multiple position families" in conflicts[0]
+        assert len(players) == 2
+        assert len(conflicts) == 0
+        assert "player::josh allen::OFFENSE" in players
+        assert "player::josh allen::IDP" in players
 
     def test_picks_ignored(self):
         rec = _make_record(asset_type="pick")

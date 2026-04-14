@@ -105,25 +105,33 @@ export function effectiveTierId(row) {
 // Bands are derived from the rank-to-value curve properties:
 //   rank 1  → 9999, rank 12 → ~5700, rank 45 → ~5000, rank 200 → ~1200
 //
-// These are descriptive only — they help users frame relative value.
-
+// These are *descriptive* — they help users frame relative value.
+//
+// IMPORTANT: the band labels are deliberately distinct from the tier
+// labels in :data:`TIER_LABELS` above.  An older revision used the
+// strings "Starter" and "Depth" here, which clashed with the section
+// header tiers ("Starter", "Solid Starter", etc.).  A row whose tier
+// header said "Starter" could simultaneously show a value-band label
+// of "Depth", giving the appearance that the tier and badge
+// disagreed.  Using "S+" / "S" / "D+" / "D" / "F" symbols keeps the
+// two layers visually distinct so the rendering bug cannot return.
 const VALUE_BANDS = [
-  { min: 8000, label: "Elite",     css: "vb-elite" },
-  { min: 6000, label: "Blue-Chip", css: "vb-bluechip" },
-  { min: 4000, label: "Starter",   css: "vb-starter" },
-  { min: 2000, label: "Depth",     css: "vb-depth" },
-  { min: 1,    label: "Fringe",    css: "vb-fringe" },
+  { min: 8000, label: "S+", css: "vb-elite",    title: "Elite value (8000+)" },
+  { min: 6000, label: "S",  css: "vb-bluechip", title: "Blue-chip value (6000-7999)" },
+  { min: 4000, label: "D+", css: "vb-starter",  title: "Starter value (4000-5999)" },
+  { min: 2000, label: "D",  css: "vb-depth",    title: "Depth value (2000-3999)" },
+  { min: 1,    label: "F",  css: "vb-fringe",   title: "Fringe value (1-1999)" },
 ];
 
 /**
- * Return a value-band object { label, css } for a given value (1-9999).
+ * Return a value-band object { label, css, title } for a given value (1-9999).
  */
 export function valueBand(value) {
   const v = Number(value) || 0;
   for (const band of VALUE_BANDS) {
     if (v >= band.min) return band;
   }
-  return { label: "—", css: "" };
+  return { label: "—", css: "", title: "" };
 }
 
 // ── Fast-scan chips ──────────────────────────────────────────────────────────
@@ -133,7 +141,29 @@ export function valueBand(value) {
 
 /**
  * Compute fast-scan chips for a player row.
- * Returns array of { label, css, title } objects.
+ *
+ * Chip semantics (deterministic, explicit):
+ *
+ * * ``R``  — rookie flag set on the row.
+ * * ``1-src``  — *semantic* single source: the player matched a
+ *   single source even though the structural eligibility set
+ *   contains more than one source for this position.  This
+ *   indicates a real matching failure on at least one source.  The
+ *   audit reason behind it is in ``row.sourceAudit.reason`` — a UI
+ *   tooltip can surface ``"matching_failure_other_sources_eligible"``
+ *   directly.
+ * * ``solo`` — structurally single source: only one source could
+ *   ever cover this player (e.g. a rookie in a config where the
+ *   second IDP source is a veteran-only board).  This is **not** a
+ *   matching failure and is rendered as a neutral info chip rather
+ *   than the amber warning.
+ * * ``!``  — at least one anomaly flag from
+ *   :data:`src.api.data_contract._compute_anomaly_flags`.
+ * * ``~``  — depth-aware percentile spread > 0.10; sources placed
+ *   the player in different relative tiers.
+ *
+ * Returns array of ``{ label, css, title }`` objects.  Empty array
+ * for clean rows.
  */
 export function rowChips(row) {
   const chips = [];
@@ -141,14 +171,25 @@ export function rowChips(row) {
     chips.push({ label: "R", css: "badge-green", title: "Rookie" });
   }
   if (row?.isSingleSource) {
-    chips.push({ label: "1-src", css: "badge-amber", title: "Single source — lower confidence" });
+    const reason = row?.sourceAudit?.reason || "single source";
+    chips.push({
+      label: "1-src",
+      css: "badge-amber",
+      title: `Single source — matching failure (${reason})`,
+    });
+  } else if (row?.isStructurallySingleSource) {
+    chips.push({
+      label: "solo",
+      css: "badge-blue",
+      title: "Only one source structurally covers this player (no matching failure)",
+    });
   }
   const flags = row?.anomalyFlags || [];
   if (flags.length > 0) {
     chips.push({ label: "!", css: "badge-red", title: `Flagged: ${flags.join(", ")}` });
   }
   if (row?.hasSourceDisagreement) {
-    chips.push({ label: "~", css: "badge-amber", title: "Sources disagree significantly" });
+    chips.push({ label: "~", css: "badge-amber", title: "Sources disagree significantly (percentile spread > 10%)" });
   }
   return chips;
 }

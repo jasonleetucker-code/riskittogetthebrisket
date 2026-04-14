@@ -567,9 +567,24 @@ export default function RankingsPage() {
                   const action = actionLabel(row);
                   const cautions = cautionLabels(row);
 
-                  // Tier separator
+                  // Tier separator.
+                  //
+                  // Both the separator and the row's own tier badge below
+                  // read from `tier` (the canonical tier label for this
+                  // row).  Render *both* off the same source so a tier
+                  // header can never disagree with the badge of the row
+                  // immediately beneath it.  The legacy bug ("STARTER
+                  // section header above rows still labeled DEPTH") was
+                  // caused by the badge rendering a value-band string
+                  // ("Depth") in the same visual slot as the tier label,
+                  // making it look like the badge contradicted the
+                  // header.  The badge is now driven by `tier` and a
+                  // tier-derived CSS class (`tier-{tierId}`) rather than
+                  // the value-band CSS, so the two layers are visually
+                  // unambiguous.
                   const prevTierId = idx > 0 ? effectiveTierId(displayRows[idx - 1]) : null;
                   const showTierBreak = tierGroupingActive && idx > 0 && tierId !== prevTierId && tierId != null;
+                  const tierCssClass = tierId != null ? `tier-${tierId}` : "tier-unknown";
 
                   return (
                     <Fragment key={row.name}>
@@ -586,9 +601,14 @@ export default function RankingsPage() {
                           {row.rank || "\u2014"}
                         </td>
 
-                        {/* Tier label */}
+                        {/* Tier label.
+                            Uses `tierCssClass` (derived from the row's
+                            effective tier id) instead of `band.css`
+                            (which is the value-band css).  Mixing the
+                            two was the root cause of the "STARTER
+                            header above DEPTH-labeled rows" bug. */}
                         <td className="hide-mobile">
-                          <span className={`rankings-tier-badge ${band.css}`}>{tier}</span>
+                          <span className={`rankings-tier-badge ${tierCssClass}`}>{tier}</span>
                         </td>
 
                         {/* Player: name, context, chips */}

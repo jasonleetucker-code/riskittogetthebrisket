@@ -5,9 +5,30 @@ from collections import defaultdict
 from src.data_models import RawAssetRecord, utc_now_iso
 from src.identity.models import PickAliasRow, PickRow, PlayerAliasRow, PlayerRow
 from src.identity.schema import MasterPlayer
-from src.utils import normalize_player_name
+from src.utils import (
+    canonical_player_key,
+    canonical_position_group,
+    normalize_player_name,
+    resolve_canonical_name,
+)
 
 MATCH_QUARANTINE_THRESHOLD = 0.90
+
+
+def _identity_canonical_key(rec: RawAssetRecord, norm: str) -> str:
+    """Return the position-aware canonical key for an identity record.
+
+    Uses the position group (OFFENSE / IDP / PICK / KICKER / OTHER)
+    derived from ``rec.position_normalized_guess`` (or ``rec.position_raw``
+    as a fallback) so that two players with the same normalized name
+    but different position groups never collide on the same player_id.
+    Without this, Quay Walker (LB) and Kenneth Walker (RB) would
+    quietly merge into one ``player::walker`` master record.
+    """
+    position = rec.position_normalized_guess or rec.position_raw
+    grp = canonical_position_group(position) if position else "OTHER"
+    canon = resolve_canonical_name(norm) or norm
+    return f"player::{canon}::{grp}"
 
 
 def _confidence_for_record(rec: RawAssetRecord) -> tuple[float, str]:
@@ -40,7 +61,7 @@ def build_master_players(records: list[RawAssetRecord]) -> tuple[dict[str, Maste
         norm = rec.name_normalized_guess or normalize_player_name(rec.display_name)
         if not norm:
             continue
-        pid = f"player::{norm}"
+        pid = _identity_canonical_key(rec, norm)
         if pid not in players:
             players[pid] = MasterPlayer(
                 player_id=pid,
@@ -101,7 +122,7 @@ def build_identity_resolution(
                 )
                 continue
 
-            player_id = f"player::{norm}"
+            player_id = _identity_canonical_key(rec, norm)
             confidence, method = _confidence_for_record(rec)
 
             if player_id not in players_rows:
@@ -210,7 +231,7 @@ def build_identity_resolution(
             continue
         norm = rec.name_normalized_guess or normalize_player_name(rec.display_name)
         if norm:
-            coverage[f"player::{norm}"].add(rec.source)
+            coverage[_identity_canonical_key(rec, norm)].add(rec.source)
 
     single_source = []
     multi_source = []

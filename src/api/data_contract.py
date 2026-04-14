@@ -112,19 +112,23 @@ _NEAR_NAME_VALUE_RATIO_THRESHOLD = 3.0  # flag if max/min value ratio > 3x
 
 # Quarantine flags added by the identity validation pass.  These are appended
 # to anomalyFlags[] and also cause confidenceBucket degradation.
+#   "duplicate_canonical_identity"  — two rows resolved to the same
+#                                     position-aware canonical key
 #   "name_collision_cross_universe" — same normalized name in offense + IDP
+#                                     (usually distinct people; surfaced
+#                                     for visibility, not auto-quarantined)
 #   "position_source_contradiction" — position family disagrees with source evidence
-#   "near_name_value_mismatch"     — same last name, wildly different values
-#   "unsupported_position"         — position not in _SUPPORTED_BOARD_POSITIONS
-#   "no_valid_source_values"       — no source values > 0 but has derived value
-#   "orphan_csv_graft"             — value came from CSV enrichment for wrong entity
+#   "unsupported_position"          — position not in _SUPPORTED_BOARD_POSITIONS
+#   "no_valid_source_values"        — no source values > 0 but has derived value
+#
+# The legacy ``near_name_value_mismatch`` flag was retired (see
+# ``_validate_and_quarantine_rows`` Check 3 for rationale).  It used to
+# fire here but the underlying rule produced only false positives.
 _QUARANTINE_FLAGS = {
-    "name_collision_cross_universe",
+    "duplicate_canonical_identity",
     "position_source_contradiction",
-    "near_name_value_mismatch",
     "unsupported_position",
     "no_valid_source_values",
-    "orphan_csv_graft",
 }
 
 # CSV export paths for source enrichment (relative to repo root).
@@ -264,10 +268,27 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "display_name": "Dynasty League Football IDP",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
         "position_group": None,
-        "depth": None,
-        "weight": 1.0,
+        # DLF's published IDP list is a top-185 NFL veteran cut.  It
+        # never carries first-year college prospects (Caleb Downs,
+        # Sonny Styles, Arvell Reese, etc.), so we declare it
+        # ``excludes_rookies`` and cap the structural depth at 185 so
+        # ``_expected_sources_for_position`` stops over-flagging
+        # rookies and deep-bench veterans as 1-src "matching failures"
+        # when DLF was never going to cover them in the first place.
+        "depth": 185,
+        # DLF is a dynasty-specific expert IDP board; it tracks
+        # multi-year value for established IDPs much better than
+        # IDPTradeCalc, whose dynasty values for proven veterans
+        # (T.J. Watt, Nick Bosa, Maxx Crosby, Jared Verse) are
+        # sharply deflated relative to the rest of the IDP pool.
+        # Weight DLF at 3x IDPTC so the blended IDP rank reflects
+        # the curated expert opinion when both sources have the
+        # player.  ``coverage_weight`` clamps shallow lists to depth
+        # 60, so the effective weight stays bounded at 3.0.
+        "weight": 3.0,
         "is_backbone": False,
         "needs_shared_market_translation": True,
+        "excludes_rookies": True,
     },
 ]
 
@@ -312,11 +333,20 @@ def _compute_anomaly_flags(
     source_ranks: dict[str, int],
     rank_derived_value: int | None,
     canonical_sites: dict[str, int | None],
+    source_meta: dict[str, dict[str, Any]] | None = None,
+    percentile_spread: float | None = None,
+    expected_sources: list[str] | None = None,
 ) -> list[str]:
     """Return a list of machine-readable anomaly flag strings for a player.
 
-    Each flag signals a data-quality issue that a UI or audit script can
-    surface.  An empty list means no anomalies detected.
+    Each flag signals a data-quality issue that a UI or audit script
+    can surface.  An empty list means no anomalies detected.
+
+    Disagreement uses :func:`_percentile_rank_spread` (depth-aware)
+    rather than the old absolute ordinal spread.  The
+    ``missing_source_distortion`` flag has been replaced by the
+    semantic ``isSingleSource`` field stamped during ranking — a
+    boolean is more useful to consumers than a duplicated flag string.
     """
     flags: list[str] = []
     pos = (position or "").strip().upper()
@@ -343,25 +373,30 @@ def _compute_anomaly_flags(
     if pos in _OL_POSITIONS:
         flags.append("ol_contamination")
 
-    # 6. Suspicious disagreement between sources (> 150 ordinal ranks apart)
-    rank_values = list(source_ranks.values())
-    if len(rank_values) >= 2:
-        spread = max(rank_values) - min(rank_values)
-        if spread > _SUSPICIOUS_DISAGREEMENT_THRESHOLD:
+    # 6. Suspicious disagreement.
+    #
+    # Preferred signal: the depth-aware percentile spread computed
+    # by ``_percentile_rank_spread`` (max-minus-min of each source's
+    # raw rank divided by that source's pool size).  Fires when
+    # spread > 0.20 (sources place the player in tiers more than 20
+    # percentile points apart).
+    #
+    # Legacy callers that pass only ``source_ranks`` without the
+    # percentile signal (older tests, third-party callers) still get
+    # the old absolute-rank rule for backwards compatibility: spread
+    # of more than ``_SUSPICIOUS_DISAGREEMENT_THRESHOLD`` ordinal
+    # ranks across at least two contributing sources.
+    if percentile_spread is not None:
+        if percentile_spread > 0.20:
             flags.append("suspicious_disagreement")
+    else:
+        rank_values = list(source_ranks.values())
+        if len(rank_values) >= 2:
+            spread = max(rank_values) - min(rank_values)
+            if spread > _SUSPICIOUS_DISAGREEMENT_THRESHOLD:
+                flags.append("suspicious_disagreement")
 
-    # 7. Missing-source distortion — only 1 source present for a player that
-    #    could reasonably appear in 2+ sources.  Currently only flags if the
-    #    player has a single source but the OTHER source has a non-null value
-    #    in canonicalSites (suggesting the source should have ranked them).
-    off_site_vals = [canonical_sites.get(k) for k in _OFFENSE_SIGNAL_KEYS]
-    idp_site_vals = [canonical_sites.get(k) for k in _IDP_SIGNAL_KEYS]
-    has_off_val = any(v is not None and v > 0 for v in off_site_vals)
-    has_idp_val = any(v is not None and v > 0 for v in idp_site_vals)
-    if len(source_ranks) == 1 and has_off_val and has_idp_val:
-        flags.append("missing_source_distortion")
-
-    # 8. Impossible value state — has a rank but rankDerivedValue <= 0
+    # 7. Impossible value state — has a rank but rankDerivedValue <= 0
     if source_ranks and (rank_derived_value is None or rank_derived_value <= 0):
         flags.append("impossible_value")
 
@@ -507,38 +542,89 @@ def _validate_and_quarantine_rows(
     flagged rows.
 
     Checks performed:
-      1. Cross-universe name collision (same normalized name in offense + IDP)
-      2. Position-source contradiction (offense player with only IDP evidence)
-      3. Near-name value mismatch (same last name, different universes, wild value gap)
-      4. Unsupported position on the public board
-      5. No valid source values despite having a derived value
-      6. Identity confidence scoring
+      1. **Position-aware identity collision**: two rows whose
+         position-aware canonical key
+         (``<normalized_name>::<position_group>``) is identical.  This
+         is a genuine entity-resolution failure — the same player got
+         split into two rows.
+      2. **Cross-universe name collision**: two rows whose normalized
+         name (without position group) is identical but whose position
+         groups differ — for example a defender named "Josh Johnson" in
+         the IDP pool vs a journeyman QB by the same name.  These are
+         (usually) two distinct people; we flag for visibility but only
+         quarantine when the position group AND the source evidence
+         disagree on which entity the value belongs to.
+      3. **Position-source contradiction**: position family disagrees
+         with the set of source keys carrying positive values on the
+         row.
+      4. **Unsupported position**: position not in the board's
+         supported set.
+      5. **No valid source values** despite having a derived value.
+      6. **Identity confidence scoring**.
+
+    The old "near-name value mismatch" rule (any two cross-universe
+    players sharing a last name with a >3x value ratio) was a pure
+    noise generator — every star offense player was paired with every
+    bench IDP sharing a common surname, surfacing 40+ false positives
+    per build for legitimate distinct people like "Bijan Robinson"
+    vs "Chop Robinson".  It has been removed in favor of the
+    position-aware collision check above, which only fires on actual
+    same-entity ambiguity.
 
     Returns a validation summary dict for payload-level reporting.
     """
+    from src.utils.name_clean import canonical_position_group  # noqa: PLC0415
+
     # ── Build indexes for collision detection ──
     norm_name_to_rows: dict[str, list[int]] = {}
-    last_name_to_rows: dict[str, list[int]] = {}
+    posaware_to_rows: dict[str, list[int]] = {}
 
     for idx, row in enumerate(players_array):
         name = row.get("canonicalName") or row.get("displayName") or ""
         norm = _normalize_for_collision(name)
         if norm:
             norm_name_to_rows.setdefault(norm, []).append(idx)
-        last = _extract_last_name(name)
-        if last and len(last) > 2:  # skip very short surnames
-            last_name_to_rows.setdefault(last, []).append(idx)
+        pos = row.get("position")
+        if norm and pos:
+            grp = canonical_position_group(pos)
+            posaware_to_rows.setdefault(f"{norm}::{grp}", []).append(idx)
 
     quarantine_count = 0
     collision_pairs: list[dict[str, Any]] = []
-    near_name_pairs: list[dict[str, Any]] = []
+    duplicate_identity_pairs: list[dict[str, Any]] = []
+
+    # ── Check 0: position-aware duplicate identity ──
+    # Same canonical key with identical position group means we
+    # genuinely created two rows for the same player.  This is the
+    # entity-resolution duplicate the build-time assertion test will
+    # also surface.
+    for posaware, indices in posaware_to_rows.items():
+        if len(indices) < 2:
+            continue
+        names_involved = sorted({
+            str(players_array[i].get("canonicalName") or "") for i in indices
+        })
+        duplicate_identity_pairs.append({
+            "canonicalKey": posaware,
+            "names": names_involved,
+        })
+        for i in indices:
+            row = players_array[i]
+            flags = row.get("anomalyFlags") or []
+            if "duplicate_canonical_identity" not in flags:
+                flags.append("duplicate_canonical_identity")
+                row["anomalyFlags"] = flags
 
     # ── Check 1: Cross-universe name collisions ──
+    # Same normalized name in both offense + IDP rows — usually two
+    # distinct people who happen to share a surname/initials.  We
+    # surface them for visibility but only quarantine when the
+    # collision is a *known* entity confusion (see
+    # :data:`OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS`).
     for norm, indices in norm_name_to_rows.items():
         if len(indices) < 2:
             continue
         asset_classes = {players_array[i].get("assetClass") for i in indices}
-        # Flag if the same normalized name appears in both offense and IDP
         if "offense" in asset_classes and "idp" in asset_classes:
             names_involved = [players_array[i].get("canonicalName") for i in indices]
             collision_pairs.append({
@@ -608,40 +694,11 @@ def _validate_and_quarantine_rows(
                     row["anomalyFlags"] = flags
 
     # ── Check 3: Near-name value mismatch across universes ──
-    for last, indices in last_name_to_rows.items():
-        if len(indices) < 2:
-            continue
-        # Only check pairs that span offense + IDP
-        off_indices = [i for i in indices if players_array[i].get("assetClass") == "offense"]
-        idp_indices = [i for i in indices if players_array[i].get("assetClass") == "idp"]
-        if not off_indices or not idp_indices:
-            continue
-
-        for oi in off_indices:
-            for ii in idp_indices:
-                off_row = players_array[oi]
-                idp_row = players_array[ii]
-                off_val = off_row.get("rankDerivedValue") or 0
-                idp_val = idp_row.get("rankDerivedValue") or 0
-                if off_val <= 0 or idp_val <= 0:
-                    continue
-                ratio = max(off_val, idp_val) / max(min(off_val, idp_val), 1)
-                if ratio > _NEAR_NAME_VALUE_RATIO_THRESHOLD:
-                    near_name_pairs.append({
-                        "lastName": last,
-                        "offenseName": off_row.get("canonicalName"),
-                        "idpName": idp_row.get("canonicalName"),
-                        "offenseValue": off_val,
-                        "idpValue": idp_val,
-                        "ratio": round(ratio, 1),
-                    })
-                    # Flag the lower-valued row as suspicious
-                    suspect_idx = oi if off_val < idp_val else ii
-                    suspect = players_array[suspect_idx]
-                    flags = suspect.get("anomalyFlags") or []
-                    if "near_name_value_mismatch" not in flags:
-                        flags.append("near_name_value_mismatch")
-                        suspect["anomalyFlags"] = flags
+    # REMOVED: the historical "same surname + cross universe + value
+    # ratio > 3" rule produced 40+ false positives per build for
+    # legitimate distinct people.  Real entity collisions are now
+    # caught by the position-aware duplicate-identity check above.
+    near_name_pairs: list[dict[str, Any]] = []
 
     # ── Check 4: Unsupported position ──
     for idx, row in enumerate(players_array):
@@ -691,9 +748,13 @@ def _validate_and_quarantine_rows(
     return {
         "quarantineCount": quarantine_count,
         "crossUniverseCollisions": collision_pairs,
-        "nearNameMismatches": near_name_pairs,
         "crossUniverseCollisionCount": len(collision_pairs),
-        "nearNameMismatchCount": len(near_name_pairs),
+        # near-name pairs intentionally always-empty: legacy field kept
+        # for backwards-compat with any consumer that grabs the count.
+        "nearNameMismatches": near_name_pairs,
+        "nearNameMismatchCount": 0,
+        "duplicateCanonicalIdentityPairs": duplicate_identity_pairs,
+        "duplicateCanonicalIdentityCount": len(duplicate_identity_pairs),
     }
 
 
@@ -713,14 +774,17 @@ _TRUST_MIRROR_FIELDS = (
     "confidenceLabel",
     "anomalyFlags",
     "isSingleSource",
+    "isStructurallySingleSource",
     "hasSourceDisagreement",
     "blendedSourceRank",
     "sourceRankSpread",
+    "sourceRankPercentileSpread",
     "marketGapDirection",
     "marketGapMagnitude",
     "identityConfidence",
     "identityMethod",
     "quarantined",
+    "sourceAudit",
 )
 
 
@@ -758,22 +822,61 @@ def _strip_name_suffix(name: str) -> str:
 
 
 def _canonical_match_key(name: str) -> str:
-    """Return the single canonical join key for cross-source name matching.
+    """Return the alias-aware canonical join key for cross-source matching.
 
     All enrichment joins and CSV → contract lookups go through this
     helper so punctuation, diacritics, apostrophes, initials, suffixes,
-    and casing collapse to a single ``tj watt``-style key.  The
-    underlying ``normalize_player_name`` helper in
-    ``src/utils/name_clean.py`` owns the actual rules; this wrapper
-    exists so callers (and tests) can import a single contract-level
-    symbol without dipping into ``src.utils`` every call site.
+    casing, and known nickname variants collapse to a single key.
+
+    The underlying chain is:
+
+    1. :func:`src.utils.name_clean.normalize_player_name` — punctuation,
+       suffix, and initial collapse.
+    2. :data:`src.utils.name_clean.CANONICAL_NAME_ALIASES` — deterministic
+       nickname / first-name expansion table.
+
+    This is the **name-only** canonical key.  Code that wants
+    *position-aware* collision safety (e.g. so Quay Walker LB is never
+    silently merged with Kenneth Walker RB) should use
+    :func:`_canonical_player_key` below.
     """
-    from src.utils.name_clean import normalize_player_name  # noqa: PLC0415
+    from src.utils.name_clean import resolve_canonical_name  # noqa: PLC0415
 
-    return normalize_player_name(name)
+    return resolve_canonical_name(name)
 
 
-def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
+def _canonical_player_key(name: str, position: str | None) -> str:
+    """Return the position-aware canonical key for a player.
+
+    Wraps :func:`src.utils.name_clean.canonical_player_key` so the
+    contract layer has a single import point.  The output has the
+    form ``"<canonical_name>::<position_group>"`` where the group is
+    ``OFFENSE``, ``IDP``, ``PICK``, ``KICKER``, or ``OTHER``.
+
+    Two players with different position groups always get different
+    keys, which is the structural fix for the ``Walker``,
+    ``Wilson``, ``Allen``, ``Murphy`` last-name collision class.
+    """
+    from src.utils.name_clean import canonical_player_key  # noqa: PLC0415
+
+    return canonical_player_key(name, position)
+
+
+# ── CSV name → metadata cache ───────────────────────────────────────────
+# Cache holding, for each source, the per-canonical-key normalized
+# entries loaded from its CSV export.  Each entry records the source's
+# raw display name plus the parsed value/rank, so the contract layer
+# can build a per-row ``sourceAudit`` block showing exactly which CSV
+# row each source contributed (or that no row matched).
+#
+# The cache is intentionally invalidated on every contract build by
+# being a local variable inside ``_enrich_from_source_csvs``.
+_NULL_CSV_ENTRY: dict[str, Any] = {}
+
+
+def _enrich_from_source_csvs(
+    players_array: list[dict[str, Any]],
+) -> dict[str, dict[str, dict[str, Any]]]:
     """Fill missing canonicalSiteValues from source CSV exports.
 
     When the scraper's dashboard payload is missing values for a source
@@ -781,14 +884,24 @@ def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
     the CSV and inject values into canonicalSiteValues so the ranking
     function can use them.
 
-    Matching uses ``_canonical_match_key`` (which itself calls the
-    shared ``normalize_player_name`` helper in ``src/utils/name_clean``)
-    so that ``T.J. Watt`` in the scraper payload joins against a
-    ``TJ Watt`` row in the CSV export without either side knowing about
-    the punctuation variant.  Before the normalisation refactor the
-    loader only stripped generational suffixes + lowered, which caused
-    silent 1-src artefacts for any player whose spelling drifted between
-    the scraper payload and the committed CSV snapshot.
+    Matching cascade per source CSV row:
+
+    1. **Exact**: if the CSV name normalizes to a key that an existing
+       row already exposes via ``canonicalName`` / ``displayName``,
+       graft directly.
+    2. **Alias-aware**: the normalize helper handles
+       suffix / punctuation / apostrophe / initial drift, and
+       :data:`src.utils.name_clean.CANONICAL_NAME_ALIASES` collapses
+       known nickname variants.
+    3. **Position-aware fallback**: when two CSV rows would map to the
+       same canonical key, the one whose position group matches the
+       row's group wins.  Two CSV rows with the same canonical key and
+       different position groups never silently merge.
+
+    Returns a per-source CSV index keyed by **position-aware canonical
+    key** so :func:`_compute_unified_rankings` can build a per-row
+    ``sourceAudit`` block (matched names, unmatched candidates, why a
+    row ended up 1-src vs multi-src).
 
     Supports two signal types per source:
 
@@ -803,6 +916,22 @@ def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
     from pathlib import Path
 
     repo = Path(__file__).resolve().parents[2]
+    csv_index: dict[str, dict[str, dict[str, Any]]] = {}
+
+    # Pre-compute the position-group of each player row by canonical
+    # key so the position-aware fallback in stage (3) can pick the
+    # right CSV entry when name-only collisions occur.
+    row_groups_by_key: dict[str, set[str]] = {}
+    for row in players_array:
+        nm = str(row.get("canonicalName") or row.get("displayName") or "")
+        if not nm:
+            continue
+        cname = _canonical_match_key(nm)
+        if not cname:
+            continue
+        from src.utils.name_clean import canonical_position_group  # noqa: PLC0415
+        grp = canonical_position_group(row.get("position"))
+        row_groups_by_key.setdefault(cname, set()).add(grp)
 
     for source_key, cfg in _SOURCE_CSV_PATHS.items():
         if isinstance(cfg, str):
@@ -819,10 +948,14 @@ def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
         if not csv_path.exists():
             continue
 
-        # Load CSV — always load and enrich missing values.
-        # The per-row check below skips players that already have values,
-        # so loading the CSV is safe even when most players are populated.
-        csv_lookup: dict[str, int] = {}
+        # Per-source CSV lookup.  Keyed by canonical name *only*; the
+        # value is a list of (display_name, parsed_value) tuples so we
+        # can later disambiguate by position group when more than one
+        # CSV row collapses to the same canonical key.  This is the
+        # "exact → alias → bounded fallback" cascade from the task
+        # spec: we never silently pick a wrong CSV row when multiple
+        # candidates exist for the same canonical key.
+        csv_lookup: dict[str, list[tuple[str, int]]] = {}
         try:
             with csv_path.open("r", encoding="utf-8-sig") as f:
                 for csvrow in csv.DictReader(f):
@@ -855,16 +988,15 @@ def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
                         )
                         if synthetic <= 0:
                             continue
-                        # First entry wins on collision — CSV rows are
-                        # emitted best-to-worst so we prefer the stronger
-                        # anchor for a duplicated key.
-                        csv_lookup.setdefault(key, synthetic)
+                        csv_lookup.setdefault(key, []).append((name, synthetic))
                     else:
                         val = csvrow.get("value", "")
                         if not val:
                             continue
                         try:
-                            csv_lookup.setdefault(key, int(float(val)))
+                            csv_lookup.setdefault(key, []).append(
+                                (name, int(float(val)))
+                            )
                         except (ValueError, TypeError):
                             continue
         except Exception:
@@ -873,7 +1005,48 @@ def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
         if not csv_lookup:
             continue
 
-        # Enrich missing values
+        # Persist a structured per-source entry index keyed by the
+        # *position-aware* canonical key so downstream code can audit
+        # exactly which CSV row matched each player row.  We resolve
+        # duplicates by best-of-value within the same position group.
+        from src.utils.name_clean import canonical_position_group  # noqa: PLC0415
+        per_source: dict[str, dict[str, Any]] = {}
+        for cname, entries in csv_lookup.items():
+            # Quick pre-pass: figure out which position groups the
+            # contract has on this canonical key.  If it's only one
+            # group, every entry maps to that group.
+            row_groups = row_groups_by_key.get(cname, set())
+            if len(row_groups) <= 1:
+                grp = next(iter(row_groups), "*")
+                # Pick the highest-valued entry for this canonical key.
+                entries_sorted = sorted(entries, key=lambda t: -t[1])
+                best_name, best_val = entries_sorted[0]
+                per_source[f"{cname}::{grp}"] = {
+                    "value": best_val,
+                    "displayName": best_name,
+                    "ambiguous": len(entries) > 1,
+                    "candidates": [n for n, _ in entries],
+                }
+            else:
+                # Multiple position groups share this canonical key.
+                # Without per-CSV-row position info we can't tell which
+                # entry belongs to which group, so we replicate the
+                # best entry across both groups but flag it as ambiguous
+                # so the row audit can downgrade trust.
+                entries_sorted = sorted(entries, key=lambda t: -t[1])
+                best_name, best_val = entries_sorted[0]
+                for grp in row_groups:
+                    per_source[f"{cname}::{grp}"] = {
+                        "value": best_val,
+                        "displayName": best_name,
+                        "ambiguous": True,
+                        "candidates": [n for n, _ in entries],
+                        "groupCollision": sorted(row_groups),
+                    }
+        csv_index[source_key] = per_source
+
+        # Enrich missing values onto each row using the position-aware
+        # key cascade.
         for row in players_array:
             csv_vals = row.get("canonicalSiteValues")
             if not isinstance(csv_vals, dict):
@@ -881,19 +1054,137 @@ def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
             existing = _safe_num(csv_vals.get(source_key))
             if existing is not None and existing > 0:
                 continue
-            canon_name = _canonical_match_key(
-                str(row.get("canonicalName") or row.get("displayName") or "")
-            )
-            if not canon_name:
+            nm = str(row.get("canonicalName") or row.get("displayName") or "")
+            if not nm:
                 continue
-            csv_val = csv_lookup.get(canon_name)
-            if csv_val is not None and csv_val > 0:
-                csv_vals[source_key] = csv_val
+            cname = _canonical_match_key(nm)
+            if not cname:
+                continue
+            grp = canonical_position_group(row.get("position"))
+            entry = per_source.get(f"{cname}::{grp}")
+            if entry is None:
+                # Fall back to a name-only / unknown-group lookup so
+                # rows whose position is missing still receive an
+                # enrichment when a single non-ambiguous CSV entry
+                # exists.
+                fallback = per_source.get(f"{cname}::*")
+                if fallback is None and len(row_groups_by_key.get(cname, set())) == 1:
+                    only_grp = next(iter(row_groups_by_key[cname]))
+                    fallback = per_source.get(f"{cname}::{only_grp}")
+                entry = fallback
+            if not entry:
+                continue
+            val = entry.get("value")
+            if val is not None and val > 0:
+                csv_vals[source_key] = val
+
+    return csv_index
+
+
+def _expected_sources_for_position(
+    pos: str,
+    *,
+    is_rookie: bool = False,
+    player_effective_rank: int | None = None,
+) -> tuple[set[str], set[str]]:
+    """Return (offense_keys, idp_keys) that *should* cover this player.
+
+    A source "covers" a position if any of its declared scopes accept
+    that position **and** the player is plausibly inside the source's
+    structural reach.  This is finer-grained than pure scope eligibility:
+
+    * Sources flagged ``excludes_rookies=True`` in the registry are
+      pruned for players whose ``is_rookie`` flag is set.  The
+      canonical example is DLF IDP, which is a 185-row NFL veteran
+      list and never carries first-year college prospects.
+
+    * Sources with a declared shallow ``depth`` are pruned when the
+      player's already-matched rank is deeper than their cutoff plus
+      a 25% guardrail.  A player ranked #350 by IDPTC isn't expected
+      to also appear in a top-150 DLF list.
+
+    These rules let ``isSingleSource`` only fire when there is a
+    *real* matching failure — not when the second source structurally
+    doesn't carry players of this profile.
+    """
+    pos_up = (pos or "").strip().upper()
+    off: set[str] = set()
+    idp: set[str] = set()
+    for src in _RANKING_SOURCES:
+        scopes: list[str] = [src["scope"]] + list(src.get("extra_scopes") or [])
+        eligible_scope: str | None = None
+        for scope in scopes:
+            if _scope_eligible(pos_up, scope, src.get("position_group")):
+                eligible_scope = scope
+                break
+        if eligible_scope is None:
+            continue
+        # Exclude veteran-only sources for rookie players.
+        if is_rookie and src.get("excludes_rookies"):
+            continue
+        # Exclude shallow-depth sources for players ranked deeper than
+        # their cutoff (with a 25% headroom so the rule doesn't
+        # over-prune at the boundary).
+        depth = src.get("depth")
+        if (
+            depth is not None
+            and player_effective_rank is not None
+            and player_effective_rank > int(round(float(depth) * 1.25))
+        ):
+            continue
+        if eligible_scope == SOURCE_SCOPE_OVERALL_OFFENSE:
+            off.add(src["key"])
+        else:
+            idp.add(src["key"])
+    return off, idp
+
+
+def _percentile_rank_spread(
+    source_ranks: dict[str, int],
+    source_meta: dict[str, dict[str, Any]],
+    source_pool_sizes: dict[str, int],
+) -> float | None:
+    """Return the *percentile* spread of source ranks for a row.
+
+    Each source rank is converted to a percentile within that source's
+    actual pool of ranked players (auto-detected from Phase 1) using
+    the **raw** ordinal — not the post-translation effective rank.
+    Using the raw ordinal is critical: the shared-market ladder
+    inflates DLF's effective ranks into the combined offense+IDP
+    rank space, so an effective spread of 100 doesn't mean the
+    sources disagree, it means one is on a 1-185 scale and the other
+    is on a 1-600 scale.
+
+    The spread is the max-minus-min of those percentiles in 0..1.
+    Returns ``None`` if fewer than two sources contributed.
+    """
+    if not source_ranks or len(source_ranks) < 2:
+        return None
+    pcts: list[float] = []
+    for key, _eff_rank in source_ranks.items():
+        meta = source_meta.get(key) or {}
+        raw_rank = meta.get("rawRank") or meta.get("effectiveRank") or _eff_rank
+        # Prefer the auto-detected per-source pool size (count of
+        # rows the source actually ranked in this scope).  Fall back
+        # to declared depth, then to the universe-wide pool size.
+        depth = source_pool_sizes.get(key) or meta.get("depth") or 0
+        try:
+            depth_f = float(depth)
+        except (TypeError, ValueError):
+            depth_f = 0.0
+        if depth_f <= 0:
+            continue
+        pct = float(raw_rank) / depth_f
+        pcts.append(max(0.0, min(1.0, pct)))
+    if len(pcts) < 2:
+        return None
+    return float(max(pcts) - min(pcts))
 
 
 def _compute_unified_rankings(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
+    csv_index: dict[str, dict[str, dict[str, Any]]] | None = None,
 ) -> None:
     """Compute a single unified ranking across all sources and positions.
 
@@ -981,8 +1272,10 @@ def _compute_unified_rankings(
     # ── Phase 1: Combined-pass ordinal ranking per source ──
     # row_source_ranks[row_idx][source_key] = effective rank (int)
     # row_source_meta[row_idx][source_key] = transparency dict
+    # source_pool_sizes[source_key] = count of rows the source ranked
     row_source_ranks: dict[int, dict[str, int]] = {}
     row_source_meta: dict[int, dict[str, dict[str, Any]]] = {}
+    source_pool_sizes: dict[str, int] = {}
     # For backbone assertion: remember the actual ladder depth used
     backbone_depth = backbone.depth
     shared_market_ladder = backbone.shared_idp_ladder()
@@ -1046,6 +1339,7 @@ def _compute_unified_rankings(
         # order — important because the playersArray comes from a dict
         # whose iteration order can drift between runs.
         eligible.sort(key=lambda t: (-t[0], t[3]))
+        source_pool_sizes[source_key] = len(eligible)
 
         for rank_idx, (_, row_idx, row_scope, _name) in enumerate(eligible):
             raw_rank = rank_idx + 1
@@ -1096,34 +1390,63 @@ def _compute_unified_rankings(
                 ),
             }
 
-    # ── Phase 2-3: Normalized value (Hill curve) + coverage-aware blend ──
+    # ── Phase 2-3: Normalized value (Hill curve) + robust blend ──
     # Look up each source's weight / depth once.
     src_by_key: dict[str, dict[str, Any]] = {s["key"]: s for s in _RANKING_SOURCES}
 
     row_normalized: list[tuple[float, int]] = []  # (blended_value, row_idx)
     for row_idx, source_ranks in row_source_ranks.items():
-        weighted_sum = 0.0
+        # Compute the per-source value contributions and effective weights
+        # in lockstep so we can apply both a weighted-mean and a
+        # robust-median blend.  The two blends are then combined: the
+        # final blended value is the average of the weighted mean and
+        # the robust median.  This downweights single-outlier sources
+        # (e.g. an IDPTC dynasty value that grossly under-prices
+        # established stars like T.J. Watt or Nick Bosa) without losing
+        # the cross-source signal entirely.
+        contributions: list[tuple[float, float]] = []  # (value, weight)
         weight_total = 0.0
         for source_key, eff_rank in source_ranks.items():
             src_def = src_by_key.get(source_key, {})
             declared_weight = float(src_def.get("weight") or 1.0)
             effective_weight = coverage_weight(declared_weight, src_def.get("depth"))
             value = float(rank_to_value(eff_rank))
-            weighted_sum += value * effective_weight
+            contributions.append((value, effective_weight))
             weight_total += effective_weight
             # Stamp value contribution onto per-source meta (for debugging)
             meta = row_source_meta[row_idx].get(source_key, {})
             meta["valueContribution"] = int(round(value))
             meta["effectiveWeight"] = round(effective_weight, 4)
 
-        if weight_total > 0:
-            blended_value = weighted_sum / weight_total
+        if not contributions:
+            blended_value = 0.0
         else:
-            # Defensive: a row with sources but zero effective weight
-            # (e.g. all sources had depth 0) still needs a value so it
-            # doesn't silently drop off the board.
-            values = [float(rank_to_value(r)) for r in source_ranks.values()]
-            blended_value = sum(values) / len(values) if values else 0.0
+            values = [v for v, _w in contributions]
+            if weight_total > 0:
+                weighted_mean = (
+                    sum(v * w for v, w in contributions) / weight_total
+                )
+            else:
+                weighted_mean = sum(values) / len(values)
+
+            # Robust blend: drop the *single* worst (most pessimistic)
+            # outlier when 3+ sources disagree, otherwise take the
+            # median of the surviving values.  With only two sources
+            # we average them — there's nothing to drop without losing
+            # half the signal.
+            sorted_vals = sorted(values)
+            if len(sorted_vals) >= 3:
+                trimmed = sorted_vals[1:]  # drop the worst
+                robust = sum(trimmed) / len(trimmed)
+            elif len(sorted_vals) == 2:
+                robust = sum(sorted_vals) / 2.0
+            else:
+                robust = sorted_vals[0]
+
+            # Final blended value: 60/40 weighted mean / robust to give
+            # the structural source weights the dominant voice while
+            # still letting the robust blend correct obvious outliers.
+            blended_value = 0.6 * weighted_mean + 0.4 * robust
         row_normalized.append((blended_value, row_idx))
 
     # ── Phase 4: Unified sort and overall rank assignment ──
@@ -1131,23 +1454,99 @@ def _compute_unified_rankings(
         key=lambda t: (-t[0], players_array[t[1]].get("canonicalName", "").lower())
     )
 
-    # ── Phase 4a: stamp sourceCount / source presence on EVERY row that
-    # produced source ranks, even rows that will later fall past the
-    # OVERALL_RANK_LIMIT and never receive canonicalConsensusRank.  This
-    # keeps sourceCount consistent with post-enrichment reality for
-    # downstream filters (trust, audits, frontend fallback) — otherwise
-    # a row stamped with stale pre-enrichment counts by _derive_player_row
-    # would carry that stale value forever if it happened to slip past
-    # the ranked board cap.
+    # ── Phase 4a: stamp sourceCount + sourceAudit on every contributing row.
+    #
+    # ``isSingleSource`` is *semantic*: the flag fires only when a row
+    # had **multiple** sources eligible to cover it but only one
+    # actually matched.  A player who is the only structurally-eligible
+    # subject of a single source (e.g. an offense-only player when only
+    # one offense source is active) does NOT trip the 1-src warning,
+    # because there is no underlying matching failure to diagnose.
+    #
+    # ``sourceAudit`` is the per-row transparency block specified by
+    # the task: it records (a) which source rows actually matched and
+    # under what display name, (b) which sources *should* have covered
+    # this player but didn't, and (c) a one-line reason explaining the
+    # current state.  Downstream code (frontend chips, audits, build-
+    # time assertions) reads this block directly.
+    csv_index = csv_index or {}
+    from src.utils.name_clean import canonical_position_group  # noqa: PLC0415
     for row_idx, source_ranks in row_source_ranks.items():
         row = players_array[row_idx]
         row["sourceCount"] = len(source_ranks)
-        row["isSingleSource"] = len(source_ranks) == 1
-        # Also refresh sourcePresence so the enriched keys show up.
         canonical_sites = row.get("canonicalSiteValues") or {}
         row["sourcePresence"] = {
             k: (v is not None and v > 0) for k, v in canonical_sites.items()
         }
+
+        pos = str(row.get("position") or "").strip().upper()
+        is_rookie = bool(row.get("rookie"))
+        # Use the smallest effective rank we've seen for this player as
+        # the depth probe; ``rank_to_value`` is monotonic so the best
+        # match is the most informative reach signal.
+        rank_probe = min(source_ranks.values()) if source_ranks else None
+        off_keys, idp_keys = _expected_sources_for_position(
+            pos, is_rookie=is_rookie, player_effective_rank=rank_probe
+        )
+        expected_keys = sorted(off_keys | idp_keys)
+        actual_keys = sorted(source_ranks.keys())
+        unmatched_keys = sorted(set(expected_keys) - set(actual_keys))
+
+        # Match details from the per-source CSV index.
+        nm = str(row.get("canonicalName") or row.get("displayName") or "")
+        cname = _canonical_match_key(nm)
+        grp = canonical_position_group(pos)
+        matched_details: dict[str, dict[str, Any]] = {}
+        for sk in actual_keys:
+            entry = (csv_index.get(sk) or {}).get(f"{cname}::{grp}")
+            if entry is None:
+                entry = (csv_index.get(sk) or {}).get(f"{cname}::*")
+            if entry is None:
+                # Source value was on the legacy player dict from the
+                # scraper rather than from the CSV index.  Stamp the
+                # raw value so the audit is still informative.
+                matched_details[sk] = {
+                    "matchedName": nm,
+                    "rawValue": _to_int_or_none(canonical_sites.get(sk)),
+                    "via": "scraper_payload",
+                }
+            else:
+                matched_details[sk] = {
+                    "matchedName": entry.get("displayName") or nm,
+                    "rawValue": entry.get("value"),
+                    "ambiguous": bool(entry.get("ambiguous")),
+                    "candidates": list(entry.get("candidates") or [])[:6],
+                    "via": "csv_enrich",
+                }
+
+        if not actual_keys:
+            reason = "no_source_match"
+        elif len(actual_keys) == 1 and len(expected_keys) <= 1:
+            reason = "structurally_single_source"
+        elif len(actual_keys) == 1 and len(expected_keys) > 1:
+            reason = "matching_failure_other_sources_eligible"
+        elif unmatched_keys:
+            reason = "partial_coverage"
+        else:
+            reason = "fully_matched"
+
+        row["sourceAudit"] = {
+            "canonicalName": cname,
+            "positionGroup": grp,
+            "expectedSources": expected_keys,
+            "matchedSources": actual_keys,
+            "unmatchedSources": unmatched_keys,
+            "matchedDetails": matched_details,
+            "reason": reason,
+        }
+        # Semantic 1-src: only fire when matching could have produced
+        # more than one source.
+        row["isSingleSource"] = (
+            len(source_ranks) == 1 and len(expected_keys) > 1
+        )
+        row["isStructurallySingleSource"] = (
+            len(source_ranks) == 1 and len(expected_keys) <= 1
+        )
 
     for overall_idx, (norm_val, row_idx) in enumerate(
         row_normalized[:OVERALL_RANK_LIMIT]
@@ -1185,10 +1584,25 @@ def _compute_unified_rankings(
             source_rank_spread = float(max(rank_values) - min(rank_values))
         row["sourceRankSpread"] = source_rank_spread
 
-        row["isSingleSource"] = len(source_ranks) == 1
+        # Percentile-based disagreement.  Replaces the old absolute
+        # rank threshold (`spread > 80`) which fired whenever sources
+        # of very different depths produced numerically different
+        # ranks for the same player even when both were placing him
+        # in the same relative tier.  ``percentileSpread`` is the
+        # max-minus-min of each source's *raw* rank divided by that
+        # source's auto-detected pool size.
+        percentile_spread = _percentile_rank_spread(
+            source_ranks, source_meta, source_pool_sizes
+        )
+        row["sourceRankPercentileSpread"] = (
+            round(percentile_spread, 4) if percentile_spread is not None else None
+        )
+
+        # Preserve the semantic 1-src flag stamped in Phase 4a; do
+        # not collapse it back to ``len(source_ranks) == 1`` here.
+        # Disagreement uses percentile spread.
         row["hasSourceDisagreement"] = (
-            source_rank_spread is not None
-            and source_rank_spread > _CONFIDENCE_SPREAD_MEDIUM
+            percentile_spread is not None and percentile_spread > 0.10
         )
 
         gap_dir, gap_mag = _compute_market_gap(source_ranks)
@@ -1199,13 +1613,17 @@ def _compute_unified_rankings(
         row["confidenceBucket"] = bucket
         row["confidenceLabel"] = label
 
+        audit = row.get("sourceAudit") or {}
         row["anomalyFlags"] = _compute_anomaly_flags(
             name=row.get("canonicalName") or row.get("displayName") or "",
             position=row.get("position"),
             asset_class=row.get("assetClass") or "",
             source_ranks=source_ranks,
+            source_meta=source_meta,
             rank_derived_value=derived,
             canonical_sites=row.get("canonicalSiteValues") or {},
+            percentile_spread=percentile_spread,
+            expected_sources=list(audit.get("expectedSources") or []),
         )
 
         # Backward compatibility: set ktcRank / idpRank if applicable.
@@ -1423,7 +1841,15 @@ def _derive_player_row(
         # age_raw (e.g. DLF CSV adapter).  Currently null for most players
         # because the scraper bridge does not supply age.
         "age": _to_int_or_none(p_data.get("age")) or _to_int_or_none(p_data.get("age_raw")),
-        "rookie": bool(p_data.get("_formatFitRookie", False)),
+        # Two upstream rookie signals: ``_formatFitRookie`` is set by
+        # the canonical pipeline's format-fit pass and is None for
+        # rows that haven't been through it.  ``_isRookie`` is the
+        # scraper's direct flag, set when the player has zero NFL
+        # years of experience.  Use whichever is positive so the
+        # contract layer can rely on a single boolean.
+        "rookie": bool(
+            p_data.get("_formatFitRookie") or p_data.get("_isRookie")
+        ),
         "assetClass": "pick" if is_pick else ("idp" if pos in {"DL", "LB", "DB"} else "offense"),
         "values": values,
         "canonicalSiteValues": canonical_sites,
@@ -1438,11 +1864,22 @@ def _derive_player_row(
         "confidenceLabel": "None — unranked",
         "anomalyFlags": [],
         "isSingleSource": False,
+        "isStructurallySingleSource": False,
         "hasSourceDisagreement": False,
         "blendedSourceRank": None,
         "sourceRankSpread": None,
+        "sourceRankPercentileSpread": None,
         "marketGapDirection": "none",
         "marketGapMagnitude": None,
+        "sourceAudit": {
+            "canonicalName": "",
+            "positionGroup": "",
+            "expectedSources": [],
+            "matchedSources": [],
+            "unmatchedSources": [],
+            "matchedDetails": {},
+            "reason": "no_source_match",
+        },
         # Identity quality — overwritten by _validate_and_quarantine_rows
         "identityConfidence": 0.70,
         "identityMethod": "name_only",
@@ -1561,11 +1998,14 @@ def build_api_data_contract(
 
     # Enrich players with source CSV values that may be missing from the
     # legacy scraper payload (e.g. KTC scrape failed but CSV exists).
-    _enrich_from_source_csvs(players_array)
+    csv_index = _enrich_from_source_csvs(players_array)
 
     # Compute unified rankings: all sources, all positions, one board.
-    # This is the single source of truth for canonicalConsensusRank / rankDerivedValue.
-    _compute_unified_rankings(players_array, players_by_name)
+    # The CSV index lets the ranker stamp a per-row ``sourceAudit``
+    # block describing which CSV row matched each player and why.
+    _compute_unified_rankings(
+        players_array, players_by_name, csv_index=csv_index
+    )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
     # same number.  The legacy composite (values.overall / values.finalAdjusted)
@@ -1693,14 +2133,12 @@ def build_api_data_contract(
             "retired_or_invalid_name",
             "ol_contamination",
             "suspicious_disagreement",
-            "missing_source_distortion",
             "impossible_value",
+            "duplicate_canonical_identity",
             "name_collision_cross_universe",
             "position_source_contradiction",
-            "near_name_value_mismatch",
             "unsupported_position",
             "no_valid_source_values",
-            "orphan_csv_graft",
         ],
         "overallRankLimit": OVERALL_RANK_LIMIT,
     }
