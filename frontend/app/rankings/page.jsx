@@ -185,6 +185,7 @@ export default function RankingsPage() {
   const [sortAsc, setSortAsc] = useState(true);
   const [copyStatus, setCopyStatus] = useState("");
   const [showMethodology, setShowMethodology] = useState(false);
+  const [expandedRow, setExpandedRow] = useState(null);
 
   const handleSort = useCallback((col) => {
     if (sortCol === col) {
@@ -275,6 +276,10 @@ export default function RankingsPage() {
           return a.name.localeCompare(b.name) * dir;
         case "pos":
           return a.pos.localeCompare(b.pos) * dir || resolvedRank(a) - resolvedRank(b);
+        case "score":
+          va = a.blendedSourceRank ?? Infinity;
+          vb = b.blendedSourceRank ?? Infinity;
+          return (va - vb) * dir;
         case "value":
           va = a.rankDerivedValue || a.values?.full || 0;
           vb = b.rankDerivedValue || b.values?.full || 0;
@@ -535,10 +540,11 @@ export default function RankingsPage() {
             <table>
               <thead>
                 <tr>
-                  <SortHeader col="rank" style={{ width: 50, textAlign: "center" }}>Rank</SortHeader>
+                  <SortHeader col="rank" style={{ width: 36, textAlign: "center" }}>#</SortHeader>
                   <th className="hide-mobile" style={{ width: 90 }}>Tier</th>
                   <SortHeader col="name">Player</SortHeader>
                   <SortHeader col="pos" style={{ width: 54 }}>Pos</SortHeader>
+                  <SortHeader col="score" style={{ textAlign: "right", width: 60 }} className="hide-mobile">Score</SortHeader>
                   <SortHeader col="value" style={{ textAlign: "right" }}>Value</SortHeader>
                   {RANKING_SOURCES.map((src) => (
                     <SortHeader
@@ -550,6 +556,7 @@ export default function RankingsPage() {
                       {src.columnLabel}
                     </SortHeader>
                   ))}
+                  <th className="hide-mobile" style={{ textAlign: "center", width: 50 }}>Src</th>
                   <SortHeader col="confidence" style={{ textAlign: "center" }} className="hide-mobile">Conf</SortHeader>
                   <th className="hide-mobile" style={{ textAlign: "center", width: 90 }}>Gap</th>
                   <th className="hide-mobile" style={{ width: 170 }}>Signal</th>
@@ -566,47 +573,48 @@ export default function RankingsPage() {
                   const isQuarantined = row.quarantined;
                   const action = actionLabel(row);
                   const cautions = cautionLabels(row);
+                  const isExpanded = expandedRow === row.name;
+                  const totalCols = 10 + RANKING_SOURCES.length;
 
-                  // Tier separator.
-                  //
-                  // Both the separator and the row's own tier badge below
-                  // read from `tier` (the canonical tier label for this
-                  // row).  Render *both* off the same source so a tier
-                  // header can never disagree with the badge of the row
-                  // immediately beneath it.  The legacy bug ("STARTER
-                  // section header above rows still labeled DEPTH") was
-                  // caused by the badge rendering a value-band string
-                  // ("Depth") in the same visual slot as the tier label,
-                  // making it look like the badge contradicted the
-                  // header.  The badge is now driven by `tier` and a
-                  // tier-derived CSS class (`tier-{tierId}`) rather than
-                  // the value-band CSS, so the two layers are visually
-                  // unambiguous.
                   const prevTierId = idx > 0 ? effectiveTierId(displayRows[idx - 1]) : null;
                   const showTierBreak = tierGroupingActive && idx > 0 && tierId !== prevTierId && tierId != null;
                   const tierCssClass = tierId != null ? `tier-${tierId}` : "tier-unknown";
+
+                  // Source audit data for the expanded panel
+                  const audit = row.sourceAudit || row.raw?.sourceAudit || {};
+                  const srcCount = row.sourceCount ?? Object.keys(row.sourceRanks || {}).length;
+
+                  // Explicit confidence explanation
+                  const confExplain = row.confidenceLabel || (
+                    row.confidenceBucket === "high" ? "2+ sources, tight agreement (spread \u226430)" :
+                    row.confidenceBucket === "medium" ? "2+ sources, moderate spread (30-80)" :
+                    row.confidenceBucket === "low" ? "Single source or wide disagreement (spread >80)" :
+                    "Unranked"
+                  );
 
                   return (
                     <Fragment key={row.name}>
                       {showTierBreak && (
                         <tr className="rankings-tier-separator">
-                          <td colSpan={8 + RANKING_SOURCES.length}>
+                          <td colSpan={totalCols}>
                             <span className="rankings-tier-separator-label">{tier}</span>
                           </td>
                         </tr>
                       )}
-                      <tr className={isQuarantined ? "rankings-row-quarantined" : undefined}>
+                      <tr
+                        className={[
+                          isQuarantined ? "rankings-row-quarantined" : "",
+                          isExpanded ? "rankings-row-expanded" : "",
+                          "rankings-row-clickable",
+                        ].filter(Boolean).join(" ")}
+                        onClick={() => setExpandedRow(isExpanded ? null : row.name)}
+                      >
                         {/* Rank */}
                         <td style={{ textAlign: "center", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono)" }}>
                           {row.rank || "\u2014"}
                         </td>
 
-                        {/* Tier label.
-                            Uses `tierCssClass` (derived from the row's
-                            effective tier id) instead of `band.css`
-                            (which is the value-band css).  Mixing the
-                            two was the root cause of the "STARTER
-                            header above DEPTH-labeled rows" bug. */}
+                        {/* Tier */}
                         <td className="hide-mobile">
                           <span className={`rankings-tier-badge ${tierCssClass}`}>{tier}</span>
                         </td>
@@ -616,7 +624,7 @@ export default function RankingsPage() {
                           <div className="rankings-player-cell">
                             <span
                               className="rankings-player-name"
-                              onClick={() => openPlayerPopup?.(row)}
+                              onClick={(e) => { e.stopPropagation(); openPlayerPopup?.(row); }}
                             >
                               {row.name}
                             </span>
@@ -642,17 +650,26 @@ export default function RankingsPage() {
                           </span>
                         </td>
 
-                        {/* Value + value-band */}
+                        {/* Score — blended consensus score (decimal) */}
+                        <td className="hide-mobile" style={{ textAlign: "right", fontFamily: "var(--mono)", fontSize: "0.82rem", color: "var(--cyan)" }}>
+                          {row.blendedSourceRank != null
+                            ? row.blendedSourceRank.toFixed(1)
+                            : "\u2014"}
+                        </td>
+
+                        {/* Value — Hill-curve dynasty value (integer, 1-9999) */}
                         <td style={{ textAlign: "right" }}>
                           <span className="rankings-value">{val.toLocaleString()}</span>
                           <span className={`rankings-value-band ${band.css}`}>{band.label}</span>
                         </td>
 
-                        {/* Per-source value + rank columns (enumerated from RANKING_SOURCES) */}
+                        {/* Per-source value + rank columns */}
                         {RANKING_SOURCES.map((src) => {
                           const rawVal = row.canonicalSites?.[src.key];
                           const hasVal = rawVal != null && Number.isFinite(Number(rawVal));
-                          const rank = row.sourceRanks?.[src.key];
+                          const effectiveRank = row.sourceRanks?.[src.key];
+                          const origRank = row.sourceOriginalRanks?.[src.key];
+                          const isRankSrc = src.isRankSignal;
                           return (
                             <td
                               key={src.key}
@@ -660,12 +677,21 @@ export default function RankingsPage() {
                               style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem" }}
                             >
                               {hasVal ? (
-                                <>
-                                  <div>{Math.round(Number(rawVal)).toLocaleString()}</div>
-                                  {rank != null && (
-                                    <div className="muted" style={{ fontSize: "0.68rem" }}>#{rank}</div>
-                                  )}
-                                </>
+                                isRankSrc ? (
+                                  <>
+                                    <div>#{origRank != null ? origRank : "\u2014"}</div>
+                                    {effectiveRank != null && (
+                                      <div className="muted" style={{ fontSize: "0.68rem" }}>eff #{effectiveRank}</div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    <div>{Math.round(Number(rawVal)).toLocaleString()}</div>
+                                    {effectiveRank != null && (
+                                      <div className="muted" style={{ fontSize: "0.68rem" }}>#{effectiveRank}</div>
+                                    )}
+                                  </>
+                                )
                               ) : (
                                 <span className="muted">&mdash;</span>
                               )}
@@ -673,9 +699,21 @@ export default function RankingsPage() {
                           );
                         })}
 
+                        {/* Source count */}
+                        <td className="hide-mobile" style={{ textAlign: "center", fontFamily: "var(--mono)", fontSize: "0.78rem" }}>
+                          <span className={srcCount >= 2 ? "rankings-src-count-multi" : "rankings-src-count-single"}>
+                            {srcCount}/{RANKING_SOURCES.filter((s) => {
+                              const pos = (row.pos || "").toUpperCase();
+                              if (s.scope === "overall_offense") return ["QB","RB","WR","TE","PICK"].includes(pos);
+                              if (s.scope === "overall_idp") return ["DL","LB","DB"].includes(pos);
+                              return false;
+                            }).length || RANKING_SOURCES.length}
+                          </span>
+                        </td>
+
                         {/* Confidence */}
                         <td className="hide-mobile" style={{ textAlign: "center" }}>
-                          <span className={confidenceBadgeClass(row.confidenceBucket)}>
+                          <span className={confidenceBadgeClass(row.confidenceBucket)} title={confExplain}>
                             {confidenceBadgeLabel(row.confidenceBucket)}
                           </span>
                         </td>
@@ -689,7 +727,7 @@ export default function RankingsPage() {
                           )}
                         </td>
 
-                        {/* Signal: action label + caution labels */}
+                        {/* Signal */}
                         <td className="hide-mobile">
                           {action && (
                             <span className={`action-label ${action.css}`} title={action.title}>
@@ -706,6 +744,132 @@ export default function RankingsPage() {
                           )}
                         </td>
                       </tr>
+
+                      {/* ── Expandable source audit panel ──────────── */}
+                      {isExpanded && (
+                        <tr className="rankings-audit-row">
+                          <td colSpan={totalCols}>
+                            <div className="source-audit-panel">
+                              <div className="source-audit-header">
+                                <strong>Source Audit: {row.name}</strong>
+                                <span className="muted" style={{ marginLeft: 12 }}>
+                                  {audit.reason === "fully_matched" ? "All expected sources matched" :
+                                   audit.reason === "structurally_single_source" ? "Only one source structurally covers this player" :
+                                   audit.reason === "matching_failure_other_sources_eligible" ? "Matching failure \u2014 expected source(s) did not match" :
+                                   audit.reason === "partial_coverage" ? "Some expected sources missing" :
+                                   audit.reason === "no_source_match" ? "No source matched" :
+                                   audit.reason || ""}
+                                </span>
+                                {audit.allowlistReason && (
+                                  <span className="source-audit-allowlist" title="Allowlisted reason">
+                                    {audit.allowlistReason}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Per-source detail grid */}
+                              <div className="source-audit-grid">
+                                {RANKING_SOURCES.map((src) => {
+                                  const siteVal = row.canonicalSites?.[src.key];
+                                  const hasVal = siteVal != null && Number.isFinite(Number(siteVal)) && Number(siteVal) > 0;
+                                  const eRank = row.sourceRanks?.[src.key];
+                                  const meta = (row.sourceRankMeta || row.raw?.sourceRankMeta || {})[src.key];
+                                  const origRk = (row.sourceOriginalRanks || {})[src.key];
+                                  const matchDetail = (audit.matchedDetails || {})[src.key];
+                                  const isExpected = (audit.expectedSources || []).includes(src.key);
+                                  const isMatched = (audit.matchedSources || []).includes(src.key);
+                                  const isUnmatched = (audit.unmatchedSources || []).includes(src.key);
+
+                                  return (
+                                    <div key={src.key} className={`source-audit-card ${hasVal ? "source-audit-card-active" : "source-audit-card-missing"}`}>
+                                      <div className="source-audit-card-header">
+                                        <strong>{src.columnLabel}</strong>
+                                        <span className={`badge ${isMatched ? "badge-green" : isUnmatched ? "badge-red" : isExpected ? "badge-amber" : "badge-muted"}`} style={{ fontSize: "0.6rem" }}>
+                                          {isMatched ? "matched" : isUnmatched ? "missing" : isExpected ? "expected" : "n/a"}
+                                        </span>
+                                      </div>
+                                      {hasVal ? (
+                                        <div className="source-audit-card-body">
+                                          <div className="source-audit-field">
+                                            <span className="source-audit-label">{src.isRankSignal ? "Rank" : "Value"}</span>
+                                            <span className="source-audit-val">
+                                              {src.isRankSignal
+                                                ? `#${origRk != null ? origRk : "\u2014"}`
+                                                : Math.round(Number(siteVal)).toLocaleString()
+                                              }
+                                            </span>
+                                          </div>
+                                          {eRank != null && (
+                                            <div className="source-audit-field">
+                                              <span className="source-audit-label">Eff. Rank</span>
+                                              <span className="source-audit-val">#{eRank}</span>
+                                            </div>
+                                          )}
+                                          {meta?.valueContribution != null && (
+                                            <div className="source-audit-field">
+                                              <span className="source-audit-label">Hill Value</span>
+                                              <span className="source-audit-val">{meta.valueContribution.toLocaleString()}</span>
+                                            </div>
+                                          )}
+                                          {meta?.effectiveWeight != null && (
+                                            <div className="source-audit-field">
+                                              <span className="source-audit-label">Weight</span>
+                                              <span className="source-audit-val">{meta.effectiveWeight}</span>
+                                            </div>
+                                          )}
+                                          {meta?.method && (
+                                            <div className="source-audit-field">
+                                              <span className="source-audit-label">Method</span>
+                                              <span className="source-audit-val">{meta.method}</span>
+                                            </div>
+                                          )}
+                                          {matchDetail?.matchedName && (
+                                            <div className="source-audit-field">
+                                              <span className="source-audit-label">Matched As</span>
+                                              <span className="source-audit-val">{matchDetail.matchedName}</span>
+                                            </div>
+                                          )}
+                                          {matchDetail?.via && (
+                                            <div className="source-audit-field">
+                                              <span className="source-audit-label">Via</span>
+                                              <span className="source-audit-val">{matchDetail.via}</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="source-audit-card-body source-audit-missing-body">
+                                          <span className="muted">
+                                            {isUnmatched ? "Expected but did not match" :
+                                             !isExpected ? "Not expected for this position" :
+                                             "No data"}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Summary row — uses consistent naming spec */}
+                              <div className="source-audit-summary">
+                                <span><strong>Rank:</strong> #{row.rank} (ordinal board position)</span>
+                                <span><strong>Score:</strong> {row.blendedSourceRank?.toFixed(1) ?? "\u2014"} (avg of per-source effective ranks)</span>
+                                <span><strong>Value:</strong> {val.toLocaleString()} (Hill curve, 1\u20139,999 scale)</span>
+                                <span><strong>Confidence:</strong> {confExplain}</span>
+                                {row.sourceRankSpread != null && (
+                                  <span><strong>Consensus Gap:</strong> {Math.round(row.sourceRankSpread)} ranks between sources</span>
+                                )}
+                                {row.sourceRankPercentileSpread != null && (
+                                  <span><strong>Spread:</strong> {(row.sourceRankPercentileSpread * 100).toFixed(1)}% (depth-adjusted)</span>
+                                )}
+                                {(row.anomalyFlags || []).length > 0 && (
+                                  <span><strong>Flags:</strong> {row.anomalyFlags.join(", ")}</span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                     </Fragment>
                   );
                 })}

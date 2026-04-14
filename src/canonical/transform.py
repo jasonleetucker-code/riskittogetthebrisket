@@ -19,6 +19,10 @@ def clamp(value: float, lo: float, hi: float) -> float:
 
 
 def percentile_from_rank(rank: float, depth: int) -> float:
+    """DEPRECATED: Legacy percentile calibration — not used by the
+    authoritative ranking pipeline.  The production pipeline uses
+    ``src.canonical.player_valuation.rank_to_value()`` (Hill curve)
+    instead.  Retained for legacy --engine=legacy builds and tests."""
     if depth <= 1:
         return 1.0
     r = clamp(rank, 1.0, float(depth))
@@ -26,12 +30,16 @@ def percentile_from_rank(rank: float, depth: int) -> float:
 
 
 def percentile_to_canonical(percentile: float, exponent: float = 0.65) -> int:
+    """DEPRECATED: Legacy percentile-to-canonical calibration.  See
+    ``percentile_from_rank`` for deprecation rationale."""
     p = clamp(percentile, 0.0, 1.0)
     score = int(round(CANONICAL_SCALE * (p**exponent)))
     return int(clamp(score, 0, CANONICAL_SCALE))
 
 
 def rank_to_canonical(rank: float, depth: int, exponent: float = 0.65) -> int:
+    """DEPRECATED: Legacy rank-to-canonical calibration.  See
+    ``percentile_from_rank`` for deprecation rationale."""
     return percentile_to_canonical(percentile_from_rank(rank, depth), exponent=exponent)
 
 

@@ -1027,16 +1027,19 @@ def _load_canonical_snapshot() -> dict | None:
 
 
 def _apply_canonical_primary_overlay(contract: dict) -> int:
-    """R-6 primary mode: overlay canonical calibrated values onto the public contract.
+    """DEPRECATED: R-6 primary mode overlay.
 
-    For each player in the canonical snapshot that matches a player in the contract,
-    replace the value fields the frontend reads (_finalAdjusted,
-    _composite) with the canonical calibrated_value.  This makes canonical the
-    authoritative value source while preserving all other player metadata
-    (position, team, format-fit, scoring, etc.) from the legacy scraper.
+    This function is DISABLED.  The authoritative ranking pipeline is
+    ``build_api_data_contract()`` in ``src/api/data_contract.py``.
+    Overlaying calibrated values after that pipeline runs would create
+    a parallel ranking system and cause rank/value/tier drift.
 
-    Returns the number of players overlaid.
+    Kept as a stub to avoid import errors from callers.  Always returns 0.
     """
+    log.warning("_apply_canonical_primary_overlay called but is DISABLED — returning 0")
+    return 0
+
+    # ── Original implementation below (dead code, retained for reference) ──
     if canonical_data is None:
         return 0
 

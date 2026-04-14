@@ -128,9 +128,14 @@ CANONICAL_NAME_ALIASES: dict[str, str] = {
     "jaylen wright": "jaylen wright",  # explicit identity anchor
     # Abbreviated → full middle/first
     "pj walker": "pj walker",  # explicit anchor for the QB
-    # Punctuation variants that normalize_player_name already collapses
-    # go here only if a specific upstream feed uses a fundamentally
-    # different spelling we want to lock to one canonical form.
+    # ── Cross-source first-name drift ──────────────────────────────────
+    # Verified by checking all three source CSVs (KTC, IDPTradeCalc,
+    # DLF) and the dynasty_data player pool.
+    "greg rousseau": "gregory rousseau",      # IDPTC "Greg" ↔ DLF "Gregory"
+    "foye oluokun": "foyesade oluokun",       # DLF/IDPTC "Foye" ↔ dynasty_data "Foyesade"
+    "josh metellus": "joshua metellus",       # DLF "Josh" ↔ dynasty_data "Joshua"
+    "kam curl": "kamren curl",                # dynasty_data "Kam" ↔ DLF/IDPTC "Kamren"
+    "kamren curl": "kamren curl",             # anchor the canonical form
 }
 
 

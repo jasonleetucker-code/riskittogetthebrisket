@@ -364,13 +364,17 @@ class TestMarketGap(unittest.TestCase):
 class TestSingleSourceRow(unittest.TestCase):
 
     def test_single_source_offense_player(self):
-        # Use a unique name that won't match CSV enrichment data on disk
+        # Use a unique name that won't match CSV enrichment data on disk.
+        # KTC is the only primary-scope offense source; IDPTradeCalc's
+        # offense coverage is via extra_scopes (opportunistic), so a
+        # KTC-only QB is structurally single-source, not a matching failure.
         payload = _payload_with_players(
             _make_player("Zzz Testonly Qb Alpha", "QB", ktc=9500),
         )
         row = _build_and_find(payload, "Zzz Testonly Qb Alpha")
         self.assertIsNotNone(row)
-        self.assertTrue(row["isSingleSource"])
+        self.assertFalse(row["isSingleSource"])
+        self.assertTrue(row["isStructurallySingleSource"])
         self.assertEqual(row["confidenceBucket"], "low")
         self.assertIsNone(row["sourceRankSpread"])
         self.assertEqual(row["marketGapDirection"], "none")
