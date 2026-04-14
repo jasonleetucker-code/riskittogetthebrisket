@@ -392,6 +392,24 @@ export const RANKING_SOURCES = [
     isRetail: false,
     isRankSignal: true,
   },
+  {
+    // Dynasty Nerds Superflex + TE Premium rankings — scraped inline
+    // from the DR_DATA JS constant on dynastynerds.com/dynasty-rankings/sf-tep/.
+    // Expert consensus (Rich / Matt / Garret / Jared + community),
+    // 294 non-zero players covering QB / RB / WR / TE including rookies.
+    // Conceptually mirrors DLF SF — weight 3.0, not retail, rank-signal.
+    // Mirrors the backend `_RANKING_SOURCES` entry in src/api/data_contract.py.
+    key: "dynastyNerdsSfTep",
+    displayName: "Dynasty Nerds SF-TEP",
+    columnLabel: "DN SF-TEP",
+    scope: SOURCE_SCOPE_OVERALL_OFFENSE,
+    positionGroup: null,
+    depth: 300,
+    weight: 3.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+  },
 ];
 
 // Legacy export retained for any consumer that previously imported

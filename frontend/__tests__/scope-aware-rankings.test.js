@@ -676,3 +676,65 @@ describe("Backend/frontend parity: shared fixture", () => {
     expect(lb.rankDerivedValue).toBe(rankToValue(2));
   });
 });
+
+// ── H. Dynasty Nerds SF-TEP source registration ─────────────────────
+// The 5th ranking source must be registered in the frontend registry
+// with the same shape as the backend _RANKING_SOURCES entry in
+// src/api/data_contract.py.  If the two drift, the live rankings
+// table silently drops the DN column even though the backend is
+// still stamping sourceRanks / canonicalSiteValues for it.
+describe("H. Dynasty Nerds SF-TEP source registration", () => {
+  it("includes dynastyNerdsSfTep in RANKING_SOURCES", () => {
+    const keys = RANKING_SOURCES.map((s) => s.key);
+    expect(keys).toContain("dynastyNerdsSfTep");
+  });
+
+  it("registers DN SF-TEP under overall_offense scope", () => {
+    const src = RANKING_SOURCES.find((s) => s.key === "dynastyNerdsSfTep");
+    expect(src).toBeDefined();
+    expect(src.scope).toBe("overall_offense");
+    expect(src.isRetail).toBe(false);
+    expect(src.isRankSignal).toBe(true);
+    expect(src.weight).toBe(3.0);
+  });
+
+  it("labels the DN column as DN SF-TEP", () => {
+    const src = RANKING_SOURCES.find((s) => s.key === "dynastyNerdsSfTep");
+    expect(src.columnLabel).toBe("DN SF-TEP");
+    expect(src.displayName).toContain("Dynasty Nerds");
+  });
+
+  it("produces DN-enriched rows through buildRows", () => {
+    const rows = buildRows({
+      playersArray: [
+        {
+          displayName: "Test QB A",
+          canonicalName: "Test QB A",
+          position: "QB",
+          values: { rawComposite: 0, finalAdjusted: 0, overall: 0 },
+          canonicalSiteValues: {
+            ktc: 9500,
+            dynastyNerdsSfTep: 950000,
+          },
+        },
+        {
+          displayName: "Test QB B",
+          canonicalName: "Test QB B",
+          position: "QB",
+          values: { rawComposite: 0, finalAdjusted: 0, overall: 0 },
+          canonicalSiteValues: {
+            ktc: 9000,
+            dynastyNerdsSfTep: 940000,
+          },
+        },
+      ],
+    });
+    const a = rows.find((r) => r.name === "Test QB A");
+    const b = rows.find((r) => r.name === "Test QB B");
+    expect(a.sourceRanks.dynastyNerdsSfTep).toBe(1);
+    expect(b.sourceRanks.dynastyNerdsSfTep).toBe(2);
+    expect(a.canonicalSites.dynastyNerdsSfTep).toBe(950000);
+    expect(a.canonicalConsensusRank).toBe(1);
+    expect(b.canonicalConsensusRank).toBe(2);
+  });
+});

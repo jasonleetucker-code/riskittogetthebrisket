@@ -458,10 +458,14 @@ class TestPayloadLevelBlocks(unittest.TestCase):
         self.assertIn("confidenceBuckets", meth)
         self.assertIn("anomalyFlags", meth)
         self.assertIsInstance(meth["sources"], list)
-        # ktc + idpTradeCalc + dlfIdp + dlfSf (four registered ranking sources)
-        self.assertEqual(len(meth["sources"]), 4)
+        # ktc + idpTradeCalc + dlfIdp + dlfSf + dynastyNerdsSfTep
+        # (five registered ranking sources)
+        self.assertEqual(len(meth["sources"]), 5)
         keys = {s.get("key") for s in meth["sources"]}
-        self.assertEqual(keys, {"ktc", "idpTradeCalc", "dlfIdp", "dlfSf"})
+        self.assertEqual(
+            keys,
+            {"ktc", "idpTradeCalc", "dlfIdp", "dlfSf", "dynastyNerdsSfTep"},
+        )
 
     def test_data_freshness_block_present(self):
         payload = _payload_with_players(

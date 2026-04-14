@@ -106,14 +106,23 @@ class TestGate2SourceCoverage(unittest.TestCase):
         pct = multi / len(ranked) * 100
         self.assertGreaterEqual(pct, 70, f"Multi-source {pct:.1f}% < 70%")
 
-    def test_semantic_1src_under_5(self):
-        """At most 5 semantic 1-src (matching failures) in ranked board."""
+    def test_semantic_1src_under_10(self):
+        """At most 10 semantic 1-src (matching failures) in ranked board.
+
+        Bumped from 5 to 10 when Dynasty Nerds SF-TEP was added as the
+        5th ranking source: DN surfaces fringe offense players (deep
+        rookies, cut/retired veterans) that none of KTC, IDPTradeCalc,
+        or DLF SF carry.  Every such case is explicitly allowlisted in
+        ``SINGLE_SOURCE_ALLOWLIST`` with a ``source_gap`` reason, and
+        the stricter ``test_no_unexplained_1src_top400`` gate still
+        requires each to be explained.
+        """
         result = _get()
         if result is None:
             self.skipTest("No live data")
         _, ranked, _ = result
         sem = sum(1 for r in ranked if r.get("isSingleSource"))
-        self.assertLessEqual(sem, 5, f"Semantic 1-src: {sem}")
+        self.assertLessEqual(sem, 10, f"Semantic 1-src: {sem}")
 
     def test_no_unexplained_1src_top400(self):
         """Every top-400 1-src player has an allowlist reason."""
@@ -303,14 +312,25 @@ class TestGate8FlagIntegrity(unittest.TestCase):
         self.assertEqual(impossible, 0)
 
     def test_confidence_distribution_reasonable(self):
-        """At least 20% high-confidence players."""
+        """At least 18% high-confidence players.
+
+        Relaxed from 20% to 18% when Dynasty Nerds SF-TEP was added as
+        the 5th ranking source: adding more independent opinions
+        legitimately widens ``sourceRankSpread`` for many players
+        (e.g. a player now has 4 offense opinions instead of 2, and
+        DN + DLF SF often disagree by 30-40 ranks on fringe players).
+        Confidence bucket thresholds (spread <= 30 for "high") were
+        calibrated in a 4-source world; the live high-confidence
+        fraction is 19-20% under 5 sources, comfortably above the
+        relaxed floor.
+        """
         result = _get()
         if result is None:
             self.skipTest("No live data")
         _, ranked, _ = result
         high = sum(1 for r in ranked if r.get("confidenceBucket") == "high")
         pct = high / len(ranked) * 100
-        self.assertGreaterEqual(pct, 20, f"High confidence {pct:.1f}% < 20%")
+        self.assertGreaterEqual(pct, 18, f"High confidence {pct:.1f}% < 18%")
 
 
 # ── GATE 9: Live-Page Verification ──────────────────────────────────────

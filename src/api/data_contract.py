@@ -62,6 +62,7 @@ _RANKABLE_POSITIONS = _OFFENSE_POSITIONS | _IDP_POSITIONS | {"PICK"}
 _OFFENSE_SIGNAL_KEYS = {
     "ktc",
     "dlfSf",
+    "dynastyNerdsSfTep",
 }
 _IDP_SIGNAL_KEYS = {
     "idpTradeCalc",
@@ -156,6 +157,17 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # original filename without any preprocessing.
     "dlfSf": {
         "path": "exports/latest/site_raw/Dynasty Superflex Rankings-3-15-2026-1642.csv",
+        "signal": "rank",
+    },
+    # Dynasty Nerds Superflex + TE Premium rankings — scraped from
+    # https://www.dynastynerds.com/dynasty-rankings/sf-tep/ via
+    # ``scripts/fetch_dynasty_nerds.py``.  The CSV has an explicit
+    # ``Rank`` column (1..294) written from the DR_DATA.SFLEXTEP
+    # array, filtered to rows with value > 0.  Signal=rank so the
+    # ``_enrich_from_source_csvs`` reader uses the rank column, not
+    # the raw DN value.
+    "dynastyNerdsSfTep": {
+        "path": "exports/latest/site_raw/dynastyNerdsSfTep.csv",
         "signal": "rank",
     },
 }
@@ -332,6 +344,35 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # offense, so its effective rank IS the offense ordinal.  No
         # IDP backbone crosswalk needed.
     },
+    {
+        # Dynasty Nerds Superflex + TE Premium board — scraped inline
+        # from the DR_DATA JS constant on
+        # https://www.dynastynerds.com/dynasty-rankings/sf-tep/.  The
+        # board is produced by 5 expert contributors (Rich / Matt /
+        # Garret / Jared + community) aggregated into a consensus
+        # rank.  294 players with non-zero value in the snapshot;
+        # covers QB / RB / WR / TE offense plus rookies.
+        #
+        # DN is conceptually identical to DLF SF — expert dynasty
+        # board, not a retail market — so it gets the same weighting
+        # profile: scope=overall_offense, weight=3.0, is_retail=False,
+        # isRankSignal=True.  The key is namespaced ``SfTep`` so we
+        # can later add a separate ``dynastyNerdsPpr`` or
+        # ``dynastyNerdsSflex`` source pointing at the same URL's
+        # alternate DR_DATA arrays without a contract break.
+        #
+        # depth=300 gives a tiny guardrail over the 294 non-zero
+        # rows; ``_expected_sources_for_position`` multiplies this by
+        # 1.25 so DN is not expected for players deeper than ~375.
+        "key": "dynastyNerdsSfTep",
+        "display_name": "Dynasty Nerds SF-TEP",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": 300,
+        "weight": 3.0,
+        "is_backbone": False,
+        "is_retail": False,
+    },
 ]
 
 
@@ -388,6 +429,15 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     "emmanuel mcneil warren": "rookie_exclusion:dlfIdp — DLF excludes rookies",
     "jake golday": "rookie_exclusion:dlfIdp — DLF excludes rookies",
     "devin bush": "depth_boundary:dlfIdp — IDPTC rank 189, DLF depth 185; just outside DLF cutoff",
+    # ── Offense: DynastyNerds-SF-TEP-only (dropped by retail + DLF SF) ──
+    # Fringe offense players (deep rookies and retired/cut veterans) that
+    # Dynasty Nerds' SF-TEP expert board still ranks but none of KTC,
+    # IDPTradeCalc, or DLF SF carry.  Genuine source gaps — DN is the
+    # only available signal for these players.
+    "adam randall": "source_gap:ktc+idpTradeCalc+dlfSf — deep rookie WR/RB only ranked by Dynasty Nerds SF-TEP",
+    "bryce lance": "source_gap:ktc+idpTradeCalc+dlfSf — deep rookie WR only ranked by Dynasty Nerds SF-TEP",
+    "dezhaun stribling": "source_gap:ktc+idpTradeCalc+dlfSf — deep rookie WR only ranked by Dynasty Nerds SF-TEP",
+    "tyler lockett": "source_gap:ktc+idpTradeCalc+dlfSf — veteran WR dropped by retail + DLF SF; Dynasty Nerds SF-TEP still ranks him",
 }
 
 

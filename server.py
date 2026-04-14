@@ -1325,6 +1325,20 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             except Exception as _mirror_err:
                 log.warning(f"Post-scrape CSV mirror failed: {_mirror_err}")
 
+            # Refresh Dynasty Nerds SF-TEP rankings.  The DN board is
+            # inlined in the page HTML as a ``window.DR_DATA`` JS
+            # constant — no Playwright required — so we run the plain
+            # ``scripts/fetch_dynasty_nerds.py`` helper inline on every
+            # scheduled scrape cycle.  Failure is logged and ignored so
+            # a transient network error cannot fail the entire scrape.
+            try:
+                from scripts import fetch_dynasty_nerds as _dn_fetch
+                rc = _dn_fetch.main(["--mirror-data-dir"])
+                if rc != 0:
+                    log.warning("Dynasty Nerds fetch returned non-zero exit")
+            except Exception as _dn_err:
+                log.warning(f"Dynasty Nerds fetch failed: {_dn_err}")
+
             _update_scrape_progress(
                 step="publish",
                 source="api_cache",
