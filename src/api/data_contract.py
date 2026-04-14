@@ -26,7 +26,9 @@ from src.data_models.contracts import utc_now_iso
 #: contradiction anymore.
 OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS: frozenset[str] = frozenset(
     {
-        "Josh Johnson",  # QB (retired journeyman) vs S (draftable prospect)
+        "Josh Johnson",     # QB (retired journeyman) vs S (draftable prospect)
+        "Elijah Mitchell",  # RB (HOU backup) vs DB (draftable prospect) — Sleeper pos
+                            # map resolves to the DB; scraper has only the RB's KTC value
     }
 )
 
@@ -59,6 +61,7 @@ _IDP_POSITIONS = {"DL", "LB", "DB"}
 _RANKABLE_POSITIONS = _OFFENSE_POSITIONS | _IDP_POSITIONS | {"PICK"}
 _OFFENSE_SIGNAL_KEYS = {
     "ktc",
+    "dlfSf",
 }
 _IDP_SIGNAL_KEYS = {
     "idpTradeCalc",
@@ -144,6 +147,15 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     "idpTradeCalc": "exports/latest/site_raw/idpTradeCalc.csv",
     "dlfIdp": {
         "path": "exports/latest/site_raw/dlfIdp.csv",
+        "signal": "rank",
+    },
+    # DLF Dynasty Superflex rankings — offense expert consensus.
+    # Raw CSV exported from DLF with capitalized Name/Rank columns
+    # plus several per-expert columns.  The `_enrich_from_source_csvs`
+    # reader uses column-name aliases so we can point directly at the
+    # original filename without any preprocessing.
+    "dlfSf": {
+        "path": "exports/latest/site_raw/Dynasty Superflex Rankings-3-15-2026-1642.csv",
         "signal": "rank",
     },
 }
@@ -290,7 +302,82 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "needs_shared_market_translation": True,
         "excludes_rookies": True,
     },
+    {
+        # DLF Dynasty Superflex rankings — the offense counterpart of
+        # DLF IDP.  Curated 6-expert consensus board with explicit
+        # ``Rank`` and ``Avg`` columns.  Includes rookies and picks'
+        # equivalents, spans 279 players, and is scoped purely to
+        # offense (QB/RB/WR/TE).
+        #
+        # KTC is the retail market and DLF is the expert consensus —
+        # mirroring DLF IDP, we weight DLF 3x so its opinion carries
+        # more signal than the raw retail price when both sources
+        # have the player.  ``coverage_weight`` scales shallow lists
+        # toward unity at ``min_expected_depth`` (60), so the effective
+        # weight for a 280-player list stays bounded at 3.0.
+        #
+        # depth=280 tells ``_expected_sources_for_position`` not to
+        # expect this source for players ranked deeper than ~350
+        # (depth * 1.25), preventing false 1-src flags on fringe
+        # offense players that DLF SF was never going to list.
+        "key": "dlfSf",
+        "display_name": "Dynasty League Football Superflex",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": 280,
+        "weight": 3.0,
+        "is_backbone": False,
+        "is_retail": False,
+        # Not a shared-market translation source — dlfSf is purely
+        # offense, so its effective rank IS the offense ordinal.  No
+        # IDP backbone crosswalk needed.
+    },
 ]
+
+
+# ── Legitimate single-source allowlist ──────────────────────────────────
+# Every top-400 player that remains single-source MUST have an entry here
+# explaining *why*.  The build check ``assert_no_unexplained_single_source``
+# fails if a top player is 1-src without an allowlist reason.
+#
+# Keys are ``_canonical_match_key(display_name)`` — the same key used by
+# the source join pipeline.  Values are human-readable reason strings.
+#
+# Categories:
+#   "source_gap:<source>"  — the player is genuinely absent from <source>'s
+#                            database/CSV export.  Not a name-matching issue;
+#                            the source simply doesn't list them.
+#   "depth_boundary:<source>" — the player's rank is just beyond <source>'s
+#                               declared depth.  Borderline, not a join failure.
+#   "rookie_exclusion:<source>" — the player is a rookie and the source
+#                                 excludes rookies.
+SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
+    # ── Offense: DLF-SF-only (dropped by retail + IDPTC) ──
+    # Veteran running backs / fringe players that both KTC and
+    # IDPTradeCalc have dropped from their databases but DLF's expert
+    # board still ranks.  These are genuinely single-source and the
+    # expert opinion is the only signal available.
+    "austin ekeler": "source_gap:ktc+idpTradeCalc — veteran RB dropped by both markets; DLF-SF expert board still ranks him",
+    # ── Offense: historical (7 suffix-named players) ──
+    # Kenneth Walker III, Marvin Harrison Jr., Brian Thomas Jr.,
+    # Michael Penix Jr., Omar Cooper Jr., Mike Washington Jr.,
+    # Chris Brazzell II were NOT missing — they live in IDPTradeCalc's
+    # Sheet3 payload which the scraper was ignoring.  Fixed in
+    # Dynasty Scraper.py::_extract_idptc_name_map and the API-intercept
+    # handler to read Sheet1 + Sheet2 + Sheet3.  No allowlist needed.
+    # ── IDP: IDPTradeCalc-only (DLF does not list these players) ──
+    # DLF publishes a curated 185-player IDP veteran board.  Rookies and
+    # players outside the top 185 are structurally excluded.
+    "arvell reese": "rookie_exclusion:dlfIdp — DLF excludes rookies",
+    "sonny styles": "rookie_exclusion:dlfIdp — DLF excludes rookies",
+    "caleb downs": "rookie_exclusion:dlfIdp — DLF excludes rookies",
+    "david bailey": "rookie_exclusion:dlfIdp — DLF excludes rookies",
+    "cj allen": "rookie_exclusion:dlfIdp — DLF excludes rookies",
+    "dillon thieneman": "rookie_exclusion:dlfIdp — DLF excludes rookies",
+    "emmanuel mcneil warren": "rookie_exclusion:dlfIdp — DLF excludes rookies",
+    "jake golday": "rookie_exclusion:dlfIdp — DLF excludes rookies",
+    "devin bush": "depth_boundary:dlfIdp — IDPTC rank 189, DLF depth 185; just outside DLF cutoff",
+}
 
 
 def _scope_eligible(pos: str, scope: str, position_group: str | None) -> bool:
@@ -401,6 +488,37 @@ def _compute_anomaly_flags(
         flags.append("impossible_value")
 
     return flags
+
+
+def _tier_id_from_rank(rank: int) -> int:
+    """Return a tier ID (1-10) from an overall rank.
+
+    Boundaries mirror the frontend's ``rankBasedTierId()`` in
+    ``frontend/lib/rankings-helpers.js`` — kept in sync so the
+    backend-stamped ``canonicalTierId`` and the frontend's fallback
+    derivation always agree.  Since the backend now stamps this field
+    authoritatively, the frontend fallback should never fire for
+    ranked players.
+    """
+    if rank <= 12:
+        return 1   # Elite
+    if rank <= 36:
+        return 2   # Blue-Chip
+    if rank <= 72:
+        return 3   # Premium Starter
+    if rank <= 120:
+        return 4   # Solid Starter
+    if rank <= 200:
+        return 5   # Starter
+    if rank <= 350:
+        return 6   # Flex / Depth
+    if rank <= 500:
+        return 7   # Bench Depth
+    if rank <= 650:
+        return 8   # Deep Stash
+    if rank <= 800:
+        return 9   # Roster Fringe
+    return 10       # Waiver Wire
 
 
 def _retail_source_keys() -> frozenset[str]:
@@ -785,6 +903,8 @@ _TRUST_MIRROR_FIELDS = (
     "identityMethod",
     "quarantined",
     "sourceAudit",
+    "sourceOriginalRanks",
+    "canonicalTierId",
 )
 
 
@@ -955,18 +1075,34 @@ def _enrich_from_source_csvs(
         # "exact → alias → bounded fallback" cascade from the task
         # spec: we never silently pick a wrong CSV row when multiple
         # candidates exist for the same canonical key.
-        csv_lookup: dict[str, list[tuple[str, int]]] = {}
+        csv_lookup: dict[str, list[tuple[str, int, float | None]]] = {}
+        # Column-name aliases.  Raw DLF exports use capitalized
+        # `Name` / `Rank` columns plus extra columns (Avg, Pos, Team,
+        # Age, individual expert columns, Value, Follow).  We accept a
+        # small set of aliases so a freshly-downloaded DLF CSV can be
+        # dropped into ``exports/latest/site_raw/`` without any
+        # preprocessing step.
+        _NAME_ALIASES = ("name", "Name", "player", "Player", "player_name", "PlayerName")
+        _RANK_ALIASES = ("rank", "Rank", "overall_rank", "OverallRank")
+        _VALUE_ALIASES = ("value", "Value", "trade_value", "TradeValue")
+
+        def _pick(csvrow: dict[str, Any], aliases: tuple[str, ...]) -> str:
+            for k in aliases:
+                if k in csvrow and csvrow[k] not in (None, ""):
+                    return str(csvrow[k])
+            return ""
+
         try:
             with csv_path.open("r", encoding="utf-8-sig") as f:
                 for csvrow in csv.DictReader(f):
-                    name = str(csvrow.get("name", "")).strip()
+                    name = _pick(csvrow, _NAME_ALIASES).strip()
                     if not name:
                         continue
                     key = _canonical_match_key(name)
                     if not key:
                         continue
                     if signal == "rank":
-                        raw = csvrow.get("rank", "")
+                        raw = _pick(csvrow, _RANK_ALIASES)
                         if raw == "" or raw is None:
                             continue
                         try:
@@ -988,14 +1124,14 @@ def _enrich_from_source_csvs(
                         )
                         if synthetic <= 0:
                             continue
-                        csv_lookup.setdefault(key, []).append((name, synthetic))
+                        csv_lookup.setdefault(key, []).append((name, synthetic, rank_val))
                     else:
-                        val = csvrow.get("value", "")
+                        val = _pick(csvrow, _VALUE_ALIASES)
                         if not val:
                             continue
                         try:
                             csv_lookup.setdefault(key, []).append(
-                                (name, int(float(val)))
+                                (name, int(float(val)), None)
                             )
                         except (ValueError, TypeError):
                             continue
@@ -1020,12 +1156,13 @@ def _enrich_from_source_csvs(
                 grp = next(iter(row_groups), "*")
                 # Pick the highest-valued entry for this canonical key.
                 entries_sorted = sorted(entries, key=lambda t: -t[1])
-                best_name, best_val = entries_sorted[0]
+                best_name, best_val, best_orig_rank = entries_sorted[0]
                 per_source[f"{cname}::{grp}"] = {
                     "value": best_val,
+                    "originalRank": best_orig_rank,
                     "displayName": best_name,
                     "ambiguous": len(entries) > 1,
-                    "candidates": [n for n, _ in entries],
+                    "candidates": [n for n, _, _ in entries],
                 }
             else:
                 # Multiple position groups share this canonical key.
@@ -1034,13 +1171,14 @@ def _enrich_from_source_csvs(
                 # best entry across both groups but flag it as ambiguous
                 # so the row audit can downgrade trust.
                 entries_sorted = sorted(entries, key=lambda t: -t[1])
-                best_name, best_val = entries_sorted[0]
+                best_name, best_val, best_orig_rank = entries_sorted[0]
                 for grp in row_groups:
                     per_source[f"{cname}::{grp}"] = {
                         "value": best_val,
+                        "originalRank": best_orig_rank,
                         "displayName": best_name,
                         "ambiguous": True,
-                        "candidates": [n for n, _ in entries],
+                        "candidates": [n for n, _, _ in entries],
                         "groupCollision": sorted(row_groups),
                     }
         csv_index[source_key] = per_source
@@ -1077,6 +1215,13 @@ def _enrich_from_source_csvs(
             val = entry.get("value")
             if val is not None and val > 0:
                 csv_vals[source_key] = val
+                # For rank-signal sources, preserve the original CSV rank
+                # so the frontend can display it instead of the meaningless
+                # synthetic value.
+                orig_rank = entry.get("originalRank")
+                if orig_rank is not None:
+                    orig_ranks = row.setdefault("sourceOriginalRanks", {})
+                    orig_ranks[source_key] = round(float(orig_rank), 2)
 
     return csv_index
 
@@ -1111,14 +1256,16 @@ def _expected_sources_for_position(
     off: set[str] = set()
     idp: set[str] = set()
     for src in _RANKING_SOURCES:
-        scopes: list[str] = [src["scope"]] + list(src.get("extra_scopes") or [])
-        eligible_scope: str | None = None
-        for scope in scopes:
-            if _scope_eligible(pos_up, scope, src.get("position_group")):
-                eligible_scope = scope
-                break
-        if eligible_scope is None:
+        # Only the primary scope determines expected coverage.
+        # Extra scopes (e.g. IDPTradeCalc's overall_offense) provide bonus
+        # signal when present but are NOT structurally expected — IDPTC's
+        # offense autocomplete is opportunistic, not a comprehensive board.
+        # Without this distinction, every offense player missing from IDPTC's
+        # partial offense pool is falsely flagged as a 1-src matching failure.
+        primary_scope: str = src["scope"]
+        if not _scope_eligible(pos_up, primary_scope, src.get("position_group")):
             continue
+        eligible_scope = primary_scope
         # Exclude veteran-only sources for rookie players.
         if is_rookie and src.get("excludes_rookies"):
             continue
@@ -1530,6 +1677,7 @@ def _compute_unified_rankings(
         else:
             reason = "fully_matched"
 
+        allowlist_reason = SINGLE_SOURCE_ALLOWLIST.get(cname)
         row["sourceAudit"] = {
             "canonicalName": cname,
             "positionGroup": grp,
@@ -1538,6 +1686,7 @@ def _compute_unified_rankings(
             "unmatchedSources": unmatched_keys,
             "matchedDetails": matched_details,
             "reason": reason,
+            "allowlistReason": allowlist_reason,
         }
         # Semantic 1-src: only fire when matching could have produced
         # more than one source.
@@ -1563,6 +1712,7 @@ def _compute_unified_rankings(
         row["sourceRankMeta"] = source_meta
         row["rankDerivedValue"] = derived
         row["canonicalConsensusRank"] = overall_rank
+        row["canonicalTierId"] = _tier_id_from_rank(overall_rank)
         row["sourceCount"] = len(source_ranks)
 
         # Caution flag when any IDP source required fallback translation
@@ -1635,13 +1785,32 @@ def _compute_unified_rankings(
         if "idpTradeCalc" in source_ranks:
             row["idpRank"] = source_ranks["idpTradeCalc"]
 
-        # Mirror into legacy players dict
+        # Mirror into legacy players dict so the runtime view
+        # (which strips playersArray) still has the authoritative
+        # per-row ranking data for the frontend's legacy-dict row builder.
         legacy_ref = row.get("legacyRef")
         if legacy_ref and legacy_ref in players_by_name:
             pdata = players_by_name[legacy_ref]
             if isinstance(pdata, dict):
                 pdata["rankDerivedValue"] = derived
                 pdata["_canonicalConsensusRank"] = overall_rank
+                pdata["sourceCount"] = len(source_ranks)
+                pdata["sourceRanks"] = dict(source_ranks)
+                pdata["sourceRankMeta"] = dict(source_meta)
+                # Mirror the enriched canonicalSiteValues back so the
+                # legacy dict sees DLF values that were grafted on by
+                # _enrich_from_source_csvs (the scraper's own
+                # _canonicalSiteValues doesn't include DLF).
+                csv_row = row.get("canonicalSiteValues")
+                if isinstance(csv_row, dict):
+                    legacy_csv = pdata.get("_canonicalSiteValues")
+                    if not isinstance(legacy_csv, dict):
+                        legacy_csv = {}
+                        pdata["_canonicalSiteValues"] = legacy_csv
+                    for k, v in csv_row.items():
+                        if v is not None and v > 0:
+                            legacy_csv[k] = v
+                            pdata[k] = v
                 if "ktc" in source_ranks:
                     pdata["ktcRank"] = source_ranks["ktc"]
                 if "idpTradeCalc" in source_ranks:
@@ -1880,6 +2049,8 @@ def _derive_player_row(
             "matchedDetails": {},
             "reason": "no_source_match",
         },
+        # Original CSV ranks for rank-signal sources (e.g. DLF).
+        "sourceOriginalRanks": {},
         # Identity quality — overwritten by _validate_and_quarantine_rows
         "identityConfidence": 0.70,
         "identityMethod": "name_only",
@@ -2502,6 +2673,126 @@ def build_api_startup_payload(contract_payload: dict[str, Any]) -> dict[str, Any
 
     base["payloadView"] = "startup"
     return base
+
+
+def assert_no_unexplained_single_source(
+    players_array: list[dict[str, Any]],
+    *,
+    rank_limit: int = 400,
+) -> list[dict[str, Any]]:
+    """Return a list of top-N players that are single-source without an
+    allowlist reason.
+
+    Each entry in the returned list is a dict with:
+      - canonicalName, position, rank, matchedSources, reason
+
+    An empty list means every 1-src player in the top N is either fixed
+    or explicitly justified in ``SINGLE_SOURCE_ALLOWLIST``.
+
+    This function is called by the build pipeline and regression tests
+    to prevent unexplained 1-src cases from shipping to production.
+    """
+    unexplained: list[dict[str, Any]] = []
+    for row in players_array:
+        rank = row.get("canonicalConsensusRank")
+        if rank is None or rank > rank_limit:
+            continue
+        is_1src = row.get("isSingleSource") or row.get("isStructurallySingleSource")
+        if not is_1src:
+            continue
+        audit = row.get("sourceAudit") or {}
+        if audit.get("allowlistReason"):
+            continue
+        unexplained.append({
+            "canonicalName": row.get("canonicalName"),
+            "position": row.get("position"),
+            "rank": rank,
+            "matchedSources": audit.get("matchedSources", []),
+            "reason": audit.get("reason"),
+        })
+    return unexplained
+
+
+def assert_ranking_coherence(
+    players_array: list[dict[str, Any]],
+) -> list[str]:
+    """Verify monotonic ordering, no duplicate ranks, tier alignment,
+    and rank-value coherence across the entire board.
+
+    Returns a list of error strings.  An empty list means the board
+    is coherent.  This function is the hard safety rail: the build
+    pipeline and regression tests should call it and fail on any error.
+
+    Checks:
+    1. Monotonic rank: rank strictly increases (1, 2, 3, ...).
+    2. No duplicate ranks for non-identical sort keys.
+    3. Value monotonically decreases with rank (higher rank = lower value).
+    4. Tier IDs are non-decreasing (tier N never appears after tier N+1).
+    5. Every ranked row has both rank and value stamped.
+    """
+    errors: list[str] = []
+    prev_rank: int | None = None
+    prev_value: int | None = None
+    prev_tier: int | None = None
+    prev_name: str = ""
+    seen_ranks: dict[int, str] = {}
+
+    for row in players_array:
+        rank = row.get("canonicalConsensusRank")
+        if rank is None:
+            continue
+        value = row.get("rankDerivedValue")
+        tier = row.get("canonicalTierId")
+        name = row.get("canonicalName") or ""
+
+        # Check 1: rank must be stamped alongside value
+        if value is None or value <= 0:
+            errors.append(
+                f"#{rank} {name}: has rank but no rankDerivedValue"
+            )
+
+        # Check 2: no duplicate ranks
+        if rank in seen_ranks:
+            errors.append(
+                f"#{rank} {name}: duplicate rank (also assigned to {seen_ranks[rank]})"
+            )
+        seen_ranks[rank] = name
+
+        # Check 3: monotonic rank (strictly increasing)
+        if prev_rank is not None and rank <= prev_rank:
+            errors.append(
+                f"#{rank} {name}: rank not strictly increasing (prev #{prev_rank} {prev_name})"
+            )
+
+        # Check 4: value monotonically decreasing with rank
+        if (
+            prev_value is not None
+            and value is not None
+            and prev_value > 0
+            and value > prev_value
+        ):
+            errors.append(
+                f"#{rank} {name}: value {value} > prev value {prev_value} "
+                f"(#{prev_rank} {prev_name}) — rank/value order divergence"
+            )
+
+        # Check 5: tier non-decreasing
+        if (
+            prev_tier is not None
+            and tier is not None
+            and tier < prev_tier
+        ):
+            errors.append(
+                f"#{rank} {name}: tier {tier} < prev tier {prev_tier} "
+                f"(#{prev_rank} {prev_name}) — tier boundary misalignment"
+            )
+
+        prev_rank = rank
+        prev_value = value
+        prev_tier = tier
+        prev_name = name
+
+    return errors
 
 
 def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:

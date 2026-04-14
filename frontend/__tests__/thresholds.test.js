@@ -93,27 +93,26 @@ describe("threshold consistency with helpers", () => {
     if (result) expect(result.label).not.toBe("Consensus asset");
   });
 
-  it("MARKET_PREMIUM_SPREAD triggers market premium label", async () => {
-    const { actionLabel } = await import("@/lib/edge-helpers");
-    const row = {
-      sourceRankSpread: MARKET_PREMIUM_SPREAD,
-      marketGapDirection: "retail_premium",
-      quarantined: false,
-    };
-    const result = actionLabel(row);
-    expect(result).not.toBeNull();
-    expect(result.label).toContain("Market premium");
+  // Note: "Market premium" is no longer an action label — the
+  // Market/Edge column in the main table shows the retail-vs-consensus
+  // gap directly ("KTC higher by N" / "Experts higher by N"), so
+  // rendering it in the Signal column too was redundant.  The old
+  // threshold MARKET_PREMIUM_SPREAD is kept for use in the Edge
+  // Summary rail / /edge page but no longer gates actionLabel().
+
+  it("MARKET_PREMIUM_SPREAD is still a valid threshold constant", () => {
+    expect(Number.isFinite(MARKET_PREMIUM_SPREAD)).toBe(true);
+    expect(MARKET_PREMIUM_SPREAD).toBeGreaterThan(0);
   });
 
-  it("spread below MARKET_PREMIUM_SPREAD does not trigger premium", async () => {
+  it("actionLabel never returns a Market premium label anymore", async () => {
     const { actionLabel } = await import("@/lib/edge-helpers");
     const row = {
-      sourceRankSpread: MARKET_PREMIUM_SPREAD - 1,
+      sourceRankSpread: MARKET_PREMIUM_SPREAD + 20,
       marketGapDirection: "retail_premium",
       quarantined: false,
     };
     const result = actionLabel(row);
-    // Should not get market premium (spread too small)
     if (result) expect(result.label).not.toContain("Market premium");
   });
 });

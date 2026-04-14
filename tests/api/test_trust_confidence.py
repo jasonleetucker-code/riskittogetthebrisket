@@ -364,13 +364,19 @@ class TestMarketGap(unittest.TestCase):
 class TestSingleSourceRow(unittest.TestCase):
 
     def test_single_source_offense_player(self):
-        # Use a unique name that won't match CSV enrichment data on disk
+        # Use a unique name that won't match CSV enrichment data on disk.
+        # With two primary-scope offense sources now registered (KTC +
+        # DLF Superflex), a KTC-only QB whose rank is within DLF's
+        # expected depth IS a real matching failure — DLF should have
+        # covered him and didn't.  The test fixture uses an unusual
+        # name so it won't match DLF's CSV on disk.
         payload = _payload_with_players(
             _make_player("Zzz Testonly Qb Alpha", "QB", ktc=9500),
         )
         row = _build_and_find(payload, "Zzz Testonly Qb Alpha")
         self.assertIsNotNone(row)
         self.assertTrue(row["isSingleSource"])
+        self.assertFalse(row["isStructurallySingleSource"])
         self.assertEqual(row["confidenceBucket"], "low")
         self.assertIsNone(row["sourceRankSpread"])
         self.assertEqual(row["marketGapDirection"], "none")
@@ -452,10 +458,10 @@ class TestPayloadLevelBlocks(unittest.TestCase):
         self.assertIn("confidenceBuckets", meth)
         self.assertIn("anomalyFlags", meth)
         self.assertIsInstance(meth["sources"], list)
-        # ktc + idpTradeCalc + dlfIdp (three registered ranking sources)
-        self.assertEqual(len(meth["sources"]), 3)
+        # ktc + idpTradeCalc + dlfIdp + dlfSf (four registered ranking sources)
+        self.assertEqual(len(meth["sources"]), 4)
         keys = {s.get("key") for s in meth["sources"]}
-        self.assertEqual(keys, {"ktc", "idpTradeCalc", "dlfIdp"})
+        self.assertEqual(keys, {"ktc", "idpTradeCalc", "dlfIdp", "dlfSf"})
 
     def test_data_freshness_block_present(self):
         payload = _payload_with_players(

@@ -69,6 +69,108 @@ export function isEligibleForAnalysis(row) {
  * `getRetailLabel()`, so adding a second retail source flips the label
  * to the generic "Retail" with no code edits here.
  */
+/**
+ * Compute the structured market-edge descriptor for a row.
+ *
+ * Returns an object so callers can show explicit wording instead of the
+ * legacy ambiguous dash.  The returned shape is always:
+ *
+ *   { label: string, css: string, title: string, kind: string }
+ *
+ * `kind` identifies the exact logic branch so UI code can render
+ * different styles without re-implementing the branching:
+ *   - "retail_higher"   retail prices player above consensus by >= threshold
+ *   - "consensus_higher" consensus prices player above retail by >= threshold
+ *   - "aligned"          both sides agree within threshold
+ *   - "retail_only"      only retail sources ranked this player
+ *   - "consensus_only"   only expert/consensus sources ranked this player
+ *   - "unranked"         no per-source ranks available at all
+ *
+ * The legacy `marketGapLabel` behavior (returning a raw string or null)
+ * is preserved in `marketGapLabelLegacy` for back-compat with tests.
+ */
+export function marketEdge(row) {
+  const retailLabel = getRetailLabel();
+  if (!row?.sourceRanks || Object.keys(row.sourceRanks).length === 0) {
+    return {
+      label: "unranked",
+      css: "edge-none",
+      kind: "unranked",
+      title: "This player has no per-source ranks available.",
+    };
+  }
+  const retailKeys = new Set(getRetailSourceKeys());
+
+  const retailRanks = Object.entries(row.sourceRanks)
+    .filter(([key, rank]) => retailKeys.has(key) && rank != null)
+    .map(([, rank]) => Number(rank))
+    .filter((n) => Number.isFinite(n));
+
+  const consensusRanks = Object.entries(row.sourceRanks)
+    .filter(([key, rank]) => !retailKeys.has(key) && rank != null)
+    .map(([, rank]) => Number(rank))
+    .filter((n) => Number.isFinite(n));
+
+  if (retailRanks.length === 0 && consensusRanks.length > 0) {
+    return {
+      label: "expert only",
+      css: "edge-none",
+      kind: "consensus_only",
+      title: `No ${retailLabel} rank for this player — only expert/consensus sources contributed.`,
+    };
+  }
+  if (consensusRanks.length === 0 && retailRanks.length > 0) {
+    return {
+      label: `${retailLabel} only`,
+      css: "edge-none",
+      kind: "retail_only",
+      title: `No expert/consensus rank for this player — only ${retailLabel} contributed.`,
+    };
+  }
+  if (retailRanks.length === 0 && consensusRanks.length === 0) {
+    return {
+      label: "unranked",
+      css: "edge-none",
+      kind: "unranked",
+      title: "This player has no per-source ranks available.",
+    };
+  }
+
+  const retailMean = retailRanks.reduce((s, v) => s + v, 0) / retailRanks.length;
+  const consensusMean =
+    consensusRanks.reduce((s, v) => s + v, 0) / consensusRanks.length;
+  const diff = Math.round(Math.abs(consensusMean - retailMean));
+
+  if (diff < MARKET_GAP_MIN_DIFF) {
+    return {
+      label: "aligned",
+      css: "edge-aligned",
+      kind: "aligned",
+      title: `${retailLabel} and expert consensus agree within ${MARKET_GAP_MIN_DIFF} ranks (actual difference: ${diff}).`,
+    };
+  }
+  if (retailMean < consensusMean) {
+    return {
+      label: `${retailLabel} higher by ${diff}`,
+      css: "edge-retail",
+      kind: "retail_higher",
+      title: `${retailLabel} ranks this player ~${diff} ordinal ranks above expert consensus.`,
+    };
+  }
+  return {
+    label: `Experts higher by ${diff}`,
+    css: "edge-consensus",
+    kind: "consensus_higher",
+    title: `Expert consensus ranks this player ~${diff} ordinal ranks above ${retailLabel}.`,
+  };
+}
+
+/**
+ * Legacy string-only market gap label.  Retained for tests and any
+ * consumer that still expects the old `"KTC +N"` / `"Consensus +N"` /
+ * `null` contract.  New code should prefer `marketEdge()` which
+ * returns an explicit structured object.
+ */
 export function marketGapLabel(row) {
   if (!row?.sourceRanks) return null;
   const retailKeys = new Set(getRetailSourceKeys());

@@ -43,29 +43,25 @@ import { getRetailLabel } from "./dynasty-data.js";
 export function actionLabel(row) {
   if (!row || row.quarantined) return null;
 
-  // Market premium: the retail market (sources flagged isRetail in the
-  // registry — today just KTC) disagrees materially with the expert
-  // consensus (every non-retail source averaged).  "Retail premium" =
-  // retail values the player more than consensus does; "Consensus
-  // premium" = the reverse.  The retail side label is resolved from the
-  // registry via getRetailLabel() so a second retail source flips the
-  // label to "Retail" automatically.
-  const spread = row.sourceRankSpread;
-  const dir = row.marketGapDirection;
-  if (spread != null && spread >= MARKET_PREMIUM_SPREAD && dir && dir !== "none") {
-    const side = dir === "retail_premium" ? getRetailLabel() : "Consensus";
-    return {
-      label: `Market premium: ${side}`,
-      css: "action-premium",
-      title: `${side} ranks this player ${spread} positions higher than the other side of the market`,
-    };
-  }
+  // NOTE: The former "Market premium: X" action label was removed.
+  // The Market/Edge column already renders this same information as
+  // "KTC higher by N" / "Experts higher by N".  Duplicating it here
+  // made every premium row carry two near-identical labels.
+  //
+  // The Signal column is now strictly: consensus asset (positive
+  // informational) + any number of caution labels.  If you want the
+  // retail-vs-expert gap, look at the Edge column.
 
-  // Consensus asset: tight multi-source agreement
+  // Consensus asset: tight multi-source agreement.
+  // Requires BOTH the ordinal-spread check AND the absence of the
+  // percentile-spread disagreement flag, so we never render
+  // "Consensus asset" and "Caution: wide disagreement" together.
+  const spread = row.sourceRankSpread;
   if (
     row.confidenceBucket === "high" &&
     (row.sourceCount || 0) >= 2 &&
-    (spread == null || spread <= CONFIDENCE_SPREAD_HIGH)
+    (spread == null || spread <= CONFIDENCE_SPREAD_HIGH) &&
+    !row.hasSourceDisagreement
   ) {
     return {
       label: "Consensus asset",

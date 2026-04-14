@@ -2355,7 +2355,18 @@ async def scrape_idptradecalc(page, players):
             extracted = {}
             items = []
             if isinstance(data_obj, dict):
-                for key in ["Sheet1", "players", "values", "data", "result"]:
+                # IDPTradeCalc's Apps Script API returns multiple sheets.
+                # Sheet1 = primary IDP board (~577 players)
+                # Sheet2 = picks (48)
+                # Sheet3 = secondary offense pool (~499 players including
+                #          suffix-named players like "Kenneth Walker III",
+                #          "Marvin Harrison Jr.", "Brian Thomas Jr.")
+                # We MUST read all sheets — dropping Sheet3 was the root
+                # cause of ~5 top-100 offense players showing as 1-src.
+                for key in [
+                    "Sheet1", "Sheet2", "Sheet3",
+                    "players", "values", "data", "result",
+                ]:
                     if isinstance(data_obj.get(key), list):
                         items.extend(data_obj.get(key) or [])
                 if not items:
@@ -2598,31 +2609,20 @@ async def scrape_idptradecalc(page, players):
                     except json.JSONDecodeError:
                         continue
 
-                items = []
-                if isinstance(data, dict) and "Sheet1" in data:
-                    items = data["Sheet1"]
-                elif isinstance(data, list):
-                    items = data
-                elif isinstance(data, dict):
-                    for key in ["players", "values", "data", "result"]:
-                        if key in data and isinstance(data[key], list):
-                            items = data[key]
-                            break
-                    if not items:
-                        for v in data.values():
-                            if isinstance(v, list) and len(v) > 10:
-                                items = v
-                                break
+                # Pass the full payload to _extract_idptc_name_map so it
+                # reads Sheet1 + Sheet2 + Sheet3 (see extractor comments).
+                # Earlier revisions only passed Sheet1, dropping the
+                # ~500-player Sheet3 offense pool that contains
+                # suffix-named players like "Kenneth Walker III".
+                parsed_map = _extract_idptc_name_map(data)
 
-                if not items:
+                if DEBUG and parsed_map:
+                    sample_name = next(iter(parsed_map))
+                    print(f"  [IDPTradeCalc] Parsed {len(parsed_map)} players (sample: {sample_name})")
+
+                if not parsed_map:
                     continue
-
-                if DEBUG and items:
-                    sample = items[0] if isinstance(items[0], dict) else {}
-                    print(f"  [IDPTradeCalc] Item keys: {list(sample.keys())[:10]}")
-                parsed_map = _extract_idptc_name_map(items)
-                if parsed_map:
-                    name_map.update(parsed_map)
+                name_map.update(parsed_map)
 
                 if name_map and DEBUG:
                     print(f"  [IDPTradeCalc] Parsed {len(name_map)} players from {url[:60]}")

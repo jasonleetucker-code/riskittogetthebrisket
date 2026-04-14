@@ -362,13 +362,35 @@ export const RANKING_SOURCES = [
     // the retail offense market.
     key: "dlfIdp",
     displayName: "Dynasty League Football IDP",
-    columnLabel: "DLF",
+    columnLabel: "DLF IDP",
     scope: SOURCE_SCOPE_OVERALL_IDP,
     positionGroup: null,
-    depth: null,
-    weight: 1.0,
+    depth: 185,
+    weight: 3.0,
     isBackbone: false,
     needsSharedMarketTranslation: true,
+    excludesRookies: true,
+    isRankSignal: true,
+  },
+  {
+    // DLF Dynasty Superflex rankings — offense expert consensus.
+    // Curated 6-expert board with Rank / Avg / Pos / Name columns.
+    // Includes rookies (unlike DLF IDP).  Mirrors the backend entry
+    // in src/api/data_contract.py::_RANKING_SOURCES.
+    //
+    // Rank-signal: CSV has an explicit Rank column.  The backend
+    // converts ranks to synthetic monotonic values for sort purposes;
+    // the UI must render sourceOriginalRanks.dlfSf, never the synthetic.
+    key: "dlfSf",
+    displayName: "Dynasty League Football Superflex",
+    columnLabel: "DLF SF",
+    scope: SOURCE_SCOPE_OVERALL_OFFENSE,
+    positionGroup: null,
+    depth: 280,
+    weight: 3.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
   },
 ];
 
@@ -407,6 +429,20 @@ export function getRetailLabel() {
   return "Retail";
 }
 
+// ── FALLBACK RANKING PIPELINE ────────────────────────────────────────
+// This function is a FALLBACK ONLY.  It mirrors the backend's
+// _compute_unified_rankings() logic for offline/stale-data scenarios
+// where the backend has not stamped authoritative fields.
+//
+// When the backend has stamped canonicalConsensusRank, rankDerivedValue,
+// and sourceRanks on the API response, this function preserves those
+// values and only fills in supplementary fields (blendedSourceRank,
+// idpBackboneFallback) that the backend may not have exposed.
+//
+// IMPORTANT: This function MUST NOT override backend-stamped fields.
+// Every assignment below is guarded by a backend-presence check.
+// If you need to change ranking logic, change it in
+// src/api/data_contract.py::_compute_unified_rankings() — NOT here.
 function computeUnifiedRanks(rows) {
   // ── Phase 0: Build the IDP backbone from the designated source ──
   // The builder seeds the shared-market IDP ladder only when the
@@ -576,16 +612,29 @@ function computeUnifiedRanks(rows) {
     const blendedSourceRank =
       sourceRankValues.reduce((s, v) => s + v, 0) / sourceRankValues.length;
 
+    // Prefer backend-stamped authoritative fields.  Only fall back to
+    // frontend-computed values when the backend fields are absent.
     r.canonicalConsensusRank =
       Number.isInteger(backendRank) && backendRank > 0 ? backendRank : i + 1;
     r.rankDerivedValue =
       Number.isFinite(backendValue) && backendValue > 0
         ? backendValue
         : Math.round(entry.blended);
-    r.sourceRanks = entry.ranks;
-    r.sourceRankMeta = entry.meta;
-    r.blendedSourceRank = blendedSourceRank;
-    r.sourceCount = sourceRankValues.length;
+    // sourceRanks: prefer backend when present (has richer per-source metadata)
+    const backendSourceRanks = r.raw?.sourceRanks;
+    r.sourceRanks = backendSourceRanks && typeof backendSourceRanks === "object" && Object.keys(backendSourceRanks).length > 0
+      ? backendSourceRanks : entry.ranks;
+    // sourceRankMeta: prefer backend
+    const backendMeta = r.raw?.sourceRankMeta;
+    r.sourceRankMeta = backendMeta && typeof backendMeta === "object" && Object.keys(backendMeta).length > 0
+      ? backendMeta : entry.meta;
+    // blendedSourceRank: prefer backend, fall back to frontend average
+    const backendBlended = Number(r.raw?.blendedSourceRank);
+    r.blendedSourceRank = Number.isFinite(backendBlended) ? backendBlended : blendedSourceRank;
+    // sourceCount: prefer backend
+    const backendSrcCount = Number(r.raw?.sourceCount);
+    r.sourceCount = Number.isInteger(backendSrcCount) && backendSrcCount > 0
+      ? backendSrcCount : sourceRankValues.length;
 
     // Backbone fallback caution: any position_idp source that had to
     // translate with an empty ladder marks the whole row.
@@ -692,6 +741,10 @@ export function buildRows(data) {
         marketGapDirection: String(player.marketGapDirection || "none"),
         marketGapMagnitude: player.marketGapMagnitude ?? null,
         // Identity quality fields — backend-authoritative
+        sourceOriginalRanks: player.sourceOriginalRanks && typeof player.sourceOriginalRanks === "object"
+          ? player.sourceOriginalRanks : {},
+        sourceRankMeta: player.sourceRankMeta && typeof player.sourceRankMeta === "object"
+          ? player.sourceRankMeta : {},
         identityConfidence: Number(player.identityConfidence ?? 0.7),
         identityMethod: String(player.identityMethod || "name_only"),
         quarantined: Boolean(player.quarantined),
@@ -757,6 +810,10 @@ export function buildRows(data) {
         : null,
       marketGapDirection: String(player.marketGapDirection || "none"),
       marketGapMagnitude: player.marketGapMagnitude ?? null,
+      sourceOriginalRanks: player.sourceOriginalRanks && typeof player.sourceOriginalRanks === "object"
+        ? player.sourceOriginalRanks : {},
+      sourceRankMeta: player.sourceRankMeta && typeof player.sourceRankMeta === "object"
+        ? player.sourceRankMeta : {},
       identityConfidence: Number(player.identityConfidence ?? 0.7),
       identityMethod: String(player.identityMethod || "name_only"),
       quarantined: Boolean(player.quarantined),
