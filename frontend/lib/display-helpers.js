@@ -10,10 +10,15 @@ import { getRetailSourceKeys, getRetailLabel } from "./dynasty-data.js";
 
 /**
  * Return the CSS class for a position badge based on asset class.
+ *
+ * Picks get a distinct green badge so users can spot draft picks inline
+ * alongside offense (cyan) and IDP (amber) rows on the rankings board
+ * and in the trade calculator picker.
  */
 export function posBadgeClass(row) {
   if (row?.assetClass === "offense") return "badge badge-cyan";
   if (row?.assetClass === "idp") return "badge badge-amber";
+  if (row?.assetClass === "pick") return "badge badge-green";
   return "badge";
 }
 
@@ -39,19 +44,26 @@ export function confBadgeLabel(bucket) {
 
 /**
  * Returns true if a row is eligible for the ranked board.
- * Used by Rankings (which shows all eligible including unranked) and
- * by Edge/Finder (which further require r.rank to be set).
+ * Used by Rankings (which shows all eligible including unranked).
+ *
+ * Draft picks (pos "PICK") are included: KTC and IDPTradeCalc both
+ * price picks on the same 0-9999 scale as players, so they get full
+ * unified ranks from the backend and render alongside players on the
+ * rankings board and in the trade calculator.
  */
 export function isEligibleForBoard(row) {
-  return !!row?.pos && row.pos !== "?" && row.pos !== "PICK";
+  return !!row?.pos && row.pos !== "?";
 }
 
 /**
  * Returns true if a row is eligible for Edge/Finder analysis surfaces.
- * Requires a rank in addition to board eligibility.
+ * Requires a rank in addition to board eligibility.  Excludes picks:
+ * the finder workflows (buy-low, sell-high, inefficiencies) are
+ * player-discovery surfaces; draft picks are surfaced on the rankings
+ * board and trade calculator, not the finder.
  */
 export function isEligibleForAnalysis(row) {
-  return isEligibleForBoard(row) && !!row.rank;
+  return isEligibleForBoard(row) && row.pos !== "PICK" && !!row.rank;
 }
 
 /**

@@ -15,8 +15,10 @@ describe("posBadgeClass", () => {
   it("returns amber for idp", () => {
     expect(posBadgeClass({ assetClass: "idp" })).toBe("badge badge-amber");
   });
-  it("returns plain badge for pick", () => {
-    expect(posBadgeClass({ assetClass: "pick" })).toBe("badge");
+  it("returns green badge for pick", () => {
+    // Picks get a distinct green badge so users can spot draft picks
+    // inline alongside offense (cyan) and IDP (amber) rows.
+    expect(posBadgeClass({ assetClass: "pick" })).toBe("badge badge-green");
   });
   it("handles null row", () => {
     expect(posBadgeClass(null)).toBe("badge");
@@ -96,8 +98,11 @@ describe("isEligibleForBoard", () => {
     expect(isEligibleForBoard({ pos: "DL" })).toBe(true);
     expect(isEligibleForBoard({ pos: "LB" })).toBe(true);
   });
-  it("excludes PICK", () => {
-    expect(isEligibleForBoard({ pos: "PICK" })).toBe(false);
+  it("includes draft picks", () => {
+    // Picks are priced by KTC and IDPTradeCalc on the same 0-9999
+    // scale as players, get full unified ranks from the backend, and
+    // must render alongside players on the rankings board.
+    expect(isEligibleForBoard({ pos: "PICK" })).toBe(true);
   });
   it("excludes unknown position", () => {
     expect(isEligibleForBoard({ pos: "?" })).toBe(false);

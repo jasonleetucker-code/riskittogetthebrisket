@@ -18,6 +18,7 @@ import {
 } from "@/lib/trade-logic";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
+import { posBadgeClass } from "@/lib/display-helpers";
 
 const ROSTER_KEY = "next_trade_roster_v1";
 const TEAM_KEY = "next_trade_team_v1";
@@ -825,7 +826,7 @@ export default function TradePage() {
                             {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"}
                           </td>
                           <td style={{ fontWeight: 600 }}>{r.name}</td>
-                          <td><span className="badge">{r.pos}</span></td>
+                          <td><span className={posBadgeClass(r)}>{r.pos}</span></td>
                           <td style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontWeight: 600 }}>
                             {Math.round(r.rankDerivedValue || r.values?.full || 0).toLocaleString()}
                           </td>

@@ -46,6 +46,7 @@ const POS_FILTERS = [
   { key: "all", label: "All" },
   { key: "offense", label: "OFF" },
   { key: "idp", label: "IDP" },
+  { key: "pick", label: "Picks" },
   { key: "QB", label: "QB" },
   { key: "RB", label: "RB" },
   { key: "WR", label: "WR" },
@@ -66,6 +67,7 @@ function posMatchesFilter(pos, assetClass, filter) {
   if (filter === "all") return true;
   if (filter === "offense") return assetClass === "offense";
   if (filter === "idp") return assetClass === "idp";
+  if (filter === "pick") return assetClass === "pick";
   return pos === filter;
 }
 
