@@ -44,8 +44,12 @@ class TestNormalizePlayerName:
         assert normalize_player_name("Bert & Ernie") == "bert and ernie"
 
     def test_strips_non_alphanumeric(self):
-        # Apostrophe becomes space, then collapses
-        assert normalize_player_name("D'Andre Swift") == "d andre swift"
+        # Apostrophes are dropped *without* inserting a space so
+        # "D'Andre" / "DAndre" / "D\u2019Andre" all collide on the
+        # same key.  Hyphens and periods continue to split tokens.
+        assert normalize_player_name("D'Andre Swift") == "dandre swift"
+        assert normalize_player_name("DAndre Swift") == "dandre swift"
+        assert normalize_player_name("D\u2019Andre Swift") == "dandre swift"
 
     def test_collapses_whitespace(self):
         assert normalize_player_name("  Travis    Kelce  ") == "travis kelce"
@@ -156,18 +160,16 @@ class TestDynastyNameEdgeCases:
         assert "j" in result
 
     def test_apostrophe_variants(self):
-        # Straight apostrophe: non-alnum regex replaces with space → "ja marr chase"
+        # Straight, curly, and modifier-letter apostrophes all collapse
+        # the token without inserting a space so "Ja'Marr Chase",
+        # "Ja\u2019Marr Chase", and "JaMarr Chase" all match.
         base = normalize_player_name("Ja'Marr Chase")
-        assert base == "ja marr chase"
-        # Backtick: also non-alnum → same result
-        assert normalize_player_name("Ja`Marr Chase") == base
-
-    def test_smart_apostrophe_folds_differently(self):
-        # Right single quote U+2019: ASCII folds to empty → "jamarr chase" (no space)
-        # This is a known inconsistency: smart quotes lose the separator.
-        # Documenting current behavior so future changes are intentional.
-        result = normalize_player_name("Ja\u2019Marr Chase")
-        assert result == "jamarr chase"
+        assert base == "jamarr chase"
+        assert normalize_player_name("Ja\u2019Marr Chase") == base
+        assert normalize_player_name("JaMarr Chase") == base
+        # Backtick is still non-alphanumeric and is treated as a
+        # separator (it's not an apostrophe).
+        assert normalize_player_name("Ja`Marr Chase") == "ja marr chase"
 
     def test_suffix_iv(self):
         assert normalize_player_name("Chris Olave IV") == "chris olave"

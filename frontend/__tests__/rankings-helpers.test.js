@@ -105,17 +105,22 @@ describe("effectiveTierId", () => {
 // ── valueBand ────────────────────────────────────────────────────────
 
 describe("valueBand", () => {
+  // Value-band labels are short symbols (S+ / S / D+ / D / F)
+  // intentionally distinct from the tier labels above so the row
+  // tier badge and the value-band column can never visually collide.
+  // The CSS class names are still vb-elite / vb-bluechip / etc. so
+  // any styling pinned to those classes still works.
   it("classifies values into correct bands", () => {
-    expect(valueBand(9999).label).toBe("Elite");
-    expect(valueBand(8000).label).toBe("Elite");
-    expect(valueBand(7999).label).toBe("Blue-Chip");
-    expect(valueBand(6000).label).toBe("Blue-Chip");
-    expect(valueBand(5999).label).toBe("Starter");
-    expect(valueBand(4000).label).toBe("Starter");
-    expect(valueBand(3999).label).toBe("Depth");
-    expect(valueBand(2000).label).toBe("Depth");
-    expect(valueBand(1999).label).toBe("Fringe");
-    expect(valueBand(1).label).toBe("Fringe");
+    expect(valueBand(9999).label).toBe("S+");
+    expect(valueBand(8000).label).toBe("S+");
+    expect(valueBand(7999).label).toBe("S");
+    expect(valueBand(6000).label).toBe("S");
+    expect(valueBand(5999).label).toBe("D+");
+    expect(valueBand(4000).label).toBe("D+");
+    expect(valueBand(3999).label).toBe("D");
+    expect(valueBand(2000).label).toBe("D");
+    expect(valueBand(1999).label).toBe("F");
+    expect(valueBand(1).label).toBe("F");
   });
 
   it("returns dash for zero/null", () => {
@@ -129,6 +134,21 @@ describe("valueBand", () => {
     expect(valueBand(4500).css).toBe("vb-starter");
     expect(valueBand(2500).css).toBe("vb-depth");
     expect(valueBand(500).css).toBe("vb-fringe");
+  });
+
+  it("never returns a label that overlaps with a tier label", () => {
+    // The bug: Starter (tier 5) and Depth (former value-band) both
+    // displayed as "Starter"/"Depth" on the same row, leading to
+    // "STARTER section header above DEPTH-labeled rows".  The new
+    // labels are short symbols that cannot collide.
+    const tierLabels = new Set([
+      "Elite", "Blue-Chip", "Premium Starter", "Solid Starter",
+      "Starter", "Flex / Depth", "Bench Depth", "Deep Stash",
+      "Roster Fringe", "Waiver Wire",
+    ]);
+    for (const v of [9000, 7000, 5000, 3000, 1000]) {
+      expect(tierLabels.has(valueBand(v).label)).toBe(false);
+    }
   });
 });
 
@@ -152,10 +172,26 @@ describe("rowChips", () => {
     expect(chips[0].css).toBe("badge-green");
   });
 
-  it("returns 1-src chip for single-source players", () => {
-    const chips = rowChips({ isSingleSource: true, anomalyFlags: [] });
+  it("returns 1-src chip for semantic single-source players", () => {
+    const chips = rowChips({
+      isSingleSource: true,
+      anomalyFlags: [],
+      sourceAudit: { reason: "matching_failure_other_sources_eligible" },
+    });
     expect(chips).toHaveLength(1);
     expect(chips[0].label).toBe("1-src");
+    expect(chips[0].title).toContain("matching_failure");
+  });
+
+  it("returns solo (not 1-src) chip for structurally single-source players", () => {
+    const chips = rowChips({
+      isSingleSource: false,
+      isStructurallySingleSource: true,
+      anomalyFlags: [],
+    });
+    expect(chips).toHaveLength(1);
+    expect(chips[0].label).toBe("solo");
+    expect(chips[0].css).toBe("badge-blue");
   });
 
   it("returns ! chip for flagged players", () => {

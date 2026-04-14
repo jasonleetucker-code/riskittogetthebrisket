@@ -139,7 +139,17 @@ class TestCrossUniverseCollision(unittest.TestCase):
         pass
 
     def test_collision_detection_via_validation_function(self):
-        """Directly test _validate_and_quarantine_rows with crafted rows."""
+        """Directly test _validate_and_quarantine_rows with crafted rows.
+
+        Two distinct people sharing a normalized name across the
+        offense/IDP universes are surfaced via
+        ``name_collision_cross_universe`` for visibility, but they are
+        NOT auto-quarantined — they are usually two genuinely different
+        people (e.g. a journeyman QB and a draft prospect S who happen
+        to share a name).  Auto-quarantine is reserved for the position-
+        aware ``duplicate_canonical_identity`` flag, which only fires
+        when both rows share the same ``<name>::<group>`` key.
+        """
         rows = [
             {
                 "canonicalName": "James Williams",
@@ -169,18 +179,72 @@ class TestCrossUniverseCollision(unittest.TestCase):
         summary = _validate_and_quarantine_rows(rows)
         self.assertGreaterEqual(summary["crossUniverseCollisionCount"], 1)
 
-        # Both rows should have the collision flag
+        # Both rows should carry the surfacing flag, but neither should
+        # be auto-quarantined since the position groups differ.
         for row in rows:
             self.assertIn("name_collision_cross_universe", row["anomalyFlags"])
+
+    def test_duplicate_canonical_identity_quarantines(self):
+        """Two rows sharing the same position-aware canonical key
+        means we genuinely created two rows for the same player —
+        the entity-resolution failure case the build-time assertion
+        also catches.  Both rows are flagged and quarantined.
+        """
+        rows = [
+            {
+                "canonicalName": "Patrick Mahomes",
+                "displayName": "Patrick Mahomes",
+                "position": "QB",
+                "assetClass": "offense",
+                "playerId": None,
+                "canonicalSiteValues": {"ktc": 9000},
+                "anomalyFlags": [],
+                "confidenceBucket": "high",
+                "confidenceLabel": "",
+                "rankDerivedValue": 9000,
+            },
+            {
+                "canonicalName": "Patrick Mahomes",
+                "displayName": "Patrick Mahomes",
+                "position": "QB",
+                "assetClass": "offense",
+                "playerId": None,
+                "canonicalSiteValues": {"idpTradeCalc": 6500},
+                "anomalyFlags": [],
+                "confidenceBucket": "high",
+                "confidenceLabel": "",
+                "rankDerivedValue": 6500,
+            },
+        ]
+        summary = _validate_and_quarantine_rows(rows)
+        self.assertGreaterEqual(summary["duplicateCanonicalIdentityCount"], 1)
+        for row in rows:
+            self.assertIn("duplicate_canonical_identity", row["anomalyFlags"])
             self.assertTrue(row["quarantined"])
 
 
-# ── Near-name value mismatch ────────────────────────────────────────────────
+# ── Near-name value mismatch (legacy) ───────────────────────────────────────
+#
+# The historical "same last name + cross universe + value ratio > 3"
+# rule was a noise generator: every star offense player got paired
+# with every bench IDP that happened to share a surname (Bijan Robinson
+# vs Chop Robinson, Josh Allen vs CJ Allen / Jonathan Allen / Zach
+# Allen, Caleb Williams vs Leonard Williams / Mykel Williams, …) for
+# 40+ false positives per build, all of them legitimate distinct
+# people.  The flag has been removed in favor of the position-aware
+# ``duplicate_canonical_identity`` check.  These tests pin the new
+# behavior so the noise can never come back without a deliberate
+# code change.
 
 class TestNearNameMismatch(unittest.TestCase):
-    """Same last name in offense + IDP with wild value gap should be flagged."""
+    """The legacy ``near_name_value_mismatch`` flag is permanently disabled.
 
-    def test_same_lastname_different_universe_wild_gap(self):
+    The rule produced only false positives; real entity collisions
+    are now caught by the position-aware duplicate-identity check
+    (``duplicate_canonical_identity``).
+    """
+
+    def test_same_lastname_different_universe_no_longer_fires(self):
         rows = [
             {
                 "canonicalName": "Jameson Williams",
@@ -208,12 +272,13 @@ class TestNearNameMismatch(unittest.TestCase):
             },
         ]
         summary = _validate_and_quarantine_rows(rows)
-        self.assertGreaterEqual(summary["nearNameMismatchCount"], 1)
-        # The lower-valued row should get flagged
-        lower_row = rows[1]  # Milton Williams (1500 < 8000)
-        self.assertIn("near_name_value_mismatch", lower_row["anomalyFlags"])
+        # Two genuinely distinct people sharing a surname must NOT
+        # trip any flag; they are not the same canonical entity.
+        self.assertEqual(summary["nearNameMismatchCount"], 0)
+        for row in rows:
+            self.assertNotIn("near_name_value_mismatch", row["anomalyFlags"])
 
-    def test_same_lastname_close_values_not_flagged(self):
+    def test_same_lastname_close_values_also_not_flagged(self):
         rows = [
             {
                 "canonicalName": "Josh Allen",
@@ -241,7 +306,6 @@ class TestNearNameMismatch(unittest.TestCase):
             },
         ]
         summary = _validate_and_quarantine_rows(rows)
-        # Ratio is 9000/5000 = 1.8 which is below 3.0 threshold
         self.assertEqual(summary["nearNameMismatchCount"], 0)
 
 

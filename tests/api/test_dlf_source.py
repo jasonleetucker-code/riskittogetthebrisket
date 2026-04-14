@@ -256,9 +256,17 @@ class TestDlfParticipatesInUnifiedRankings(unittest.TestCase):
         self.assertEqual(dlf["scope"], SOURCE_SCOPE_OVERALL_IDP)
         self.assertFalse(dlf["is_backbone"])
         self.assertIsNone(dlf["position_group"])
-        # Full board — no declared depth — so coverage weight is 1.0.
-        self.assertIsNone(dlf["depth"])
-        self.assertEqual(dlf["weight"], 1.0)
+        # DLF's published board is a top-185 NFL veteran cut and is
+        # registered with that depth so ``_expected_sources_for_position``
+        # can prune DLF from the structural-coverage set for college
+        # rookies and deep-bench veterans.  ``excludes_rookies`` is
+        # the second half of the same fix.
+        self.assertEqual(dlf["depth"], 185)
+        self.assertTrue(dlf.get("excludes_rookies"))
+        # DLF is the dynasty-aware IDP source, so it gets a higher
+        # declared blend weight than IDPTradeCalc to counterbalance
+        # IDPTC's chronically deflated values for established veterans.
+        self.assertEqual(dlf["weight"], 3.0)
 
     def test_idptradecalc_remains_the_only_backbone(self):
         backbones = [s for s in _RANKING_SOURCES if s.get("is_backbone")]

@@ -747,9 +747,14 @@ export function buildRows(data) {
       confidenceLabel: String(player.confidenceLabel || ""),
       anomalyFlags: Array.isArray(player.anomalyFlags) ? player.anomalyFlags : [],
       isSingleSource: Boolean(player.isSingleSource),
+      isStructurallySingleSource: Boolean(player.isStructurallySingleSource),
       hasSourceDisagreement: Boolean(player.hasSourceDisagreement),
       blendedSourceRank: player.blendedSourceRank ?? null,
       sourceRankSpread: player.sourceRankSpread ?? null,
+      sourceRankPercentileSpread: player.sourceRankPercentileSpread ?? null,
+      sourceAudit: player.sourceAudit && typeof player.sourceAudit === "object"
+        ? player.sourceAudit
+        : null,
       marketGapDirection: String(player.marketGapDirection || "none"),
       marketGapMagnitude: player.marketGapMagnitude ?? null,
       identityConfidence: Number(player.identityConfidence ?? 0.7),

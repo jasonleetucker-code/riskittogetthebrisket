@@ -99,7 +99,10 @@ class TestValueSignal:
     def test_apostrophe_name_normalized(self, value_adapter, value_csv):
         result = value_adapter.load(value_csv)
         chase = next(r for r in result.records if "Chase" in r.display_name)
-        assert chase.name_normalized_guess == "ja marr chase"
+        # Apostrophes are dropped without inserting whitespace so
+        # "Ja'Marr Chase" collides with "JaMarr Chase" on the same
+        # join key (see src/utils/name_clean.py::normalize_player_name).
+        assert chase.name_normalized_guess == "jamarr chase"
 
     def test_metadata_contains_adapter_info(self, value_adapter, value_csv):
         result = value_adapter.load(value_csv)
