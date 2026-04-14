@@ -544,7 +544,17 @@ export default function RankingsPage() {
                   <th className="hide-mobile" style={{ width: 90 }}>Tier</th>
                   <SortHeader col="name">Player</SortHeader>
                   <SortHeader col="pos" style={{ width: 54 }}>Pos</SortHeader>
-                  <SortHeader col="score" style={{ textAlign: "right", width: 60 }} className="hide-mobile">Score</SortHeader>
+                  {/* Score — decimal consensus score.  Visible on mobile
+                      because this IS the hero metric the user cares
+                      about; hiding it on phones defeats the whole
+                      point of adding it. */}
+                  <SortHeader
+                    col="score"
+                    style={{ textAlign: "right", width: 60 }}
+                    title="Consensus score: decimal average of per-source effective ranks. Lower = better."
+                  >
+                    Score
+                  </SortHeader>
                   <SortHeader col="value" style={{ textAlign: "right" }}>Value</SortHeader>
                   {RANKING_SOURCES.map((src) => (
                     <SortHeader
@@ -653,8 +663,10 @@ export default function RankingsPage() {
                           </span>
                         </td>
 
-                        {/* Score — blended consensus score (decimal) */}
-                        <td className="hide-mobile" style={{ textAlign: "right", fontFamily: "var(--mono)", fontSize: "0.82rem", color: "var(--cyan)" }}>
+                        {/* Score — blended consensus score (decimal).
+                            Visible on mobile (no hide-mobile class)
+                            because this is the hero metric. */}
+                        <td style={{ textAlign: "right", fontFamily: "var(--mono)", fontSize: "0.82rem", color: "var(--cyan)" }}>
                           {row.blendedSourceRank != null
                             ? row.blendedSourceRank.toFixed(1)
                             : "\u2014"}
@@ -852,17 +864,20 @@ export default function RankingsPage() {
                                 })}
                               </div>
 
-                              {/* Summary row — uses consistent naming spec */}
+                              {/* Summary row — uses consistent naming spec.
+                                  Mirrors the exact labels from the main table
+                                  header so the user can match row→column. */}
                               <div className="source-audit-summary">
                                 <span><strong>Rank:</strong> #{row.rank} (ordinal board position)</span>
                                 <span><strong>Score:</strong> {row.blendedSourceRank?.toFixed(1) ?? "\u2014"} (avg of per-source effective ranks)</span>
                                 <span><strong>Value:</strong> {val.toLocaleString()} (Hill curve, 1\u20139,999 scale)</span>
                                 <span><strong>Confidence:</strong> {confExplain}</span>
+                                <span><strong>Edge:</strong> {edge.label} \u2014 {edge.title}</span>
                                 {row.sourceRankSpread != null && (
-                                  <span><strong>Consensus Gap:</strong> {Math.round(row.sourceRankSpread)} ranks between sources</span>
+                                  <span><strong>Source spread:</strong> {Math.round(row.sourceRankSpread)} ordinal ranks between the highest and lowest source</span>
                                 )}
                                 {row.sourceRankPercentileSpread != null && (
-                                  <span><strong>Spread:</strong> {(row.sourceRankPercentileSpread * 100).toFixed(1)}% (depth-adjusted)</span>
+                                  <span><strong>Depth-adjusted spread:</strong> {(row.sourceRankPercentileSpread * 100).toFixed(1)}% (accounts for source pool sizes)</span>
                                 )}
                                 {(row.anomalyFlags || []).length > 0 && (
                                   <span><strong>Flags:</strong> {row.anomalyFlags.join(", ")}</span>

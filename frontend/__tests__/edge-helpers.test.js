@@ -38,24 +38,26 @@ describe("actionLabel", () => {
     expect(actionLabel(makeRow({ quarantined: true }))).toBeNull();
   });
 
-  it("returns market premium when retail ranks higher with large spread", () => {
+  // "Market premium: X" was previously an action label in the Signal
+  // column.  It's been removed because the Market/Edge column already
+  // renders the same information as "KTC higher by N" / "Experts
+  // higher by N", and rendering both was noisy duplication.  The
+  // Signal column is now strictly: Consensus asset + caution labels.
+
+  it("returns null for retail-premium row (Market column handles it)", () => {
     const label = actionLabel(makeRow({
       marketGapDirection: "retail_premium",
       sourceRankSpread: 45,
     }));
-    expect(label).not.toBeNull();
-    // Retail label is resolved from the registry via getRetailLabel();
-    // today the only retail source is KTC so the label ends in "KTC".
-    expect(label.label).toBe("Market premium: KTC");
-    expect(label.css).toBe("action-premium");
+    expect(label).toBeNull();
   });
 
-  it("returns market premium for consensus direction", () => {
+  it("returns null for consensus-premium row (Market column handles it)", () => {
     const label = actionLabel(makeRow({
       marketGapDirection: "consensus_premium",
       sourceRankSpread: 50,
     }));
-    expect(label.label).toBe("Market premium: Consensus");
+    expect(label).toBeNull();
   });
 
   it("returns consensus asset for high-confidence tight agreement", () => {
@@ -70,14 +72,17 @@ describe("actionLabel", () => {
     expect(label.css).toBe("action-consensus");
   });
 
-  it("prioritizes market premium over consensus", () => {
+  it("suppresses consensus asset when hasSourceDisagreement is true", () => {
+    // Fixes the old contradiction where a row could show both
+    // "Consensus asset" and "Caution: wide disagreement" at the same
+    // time because the two checks used different spread metrics.
     const label = actionLabel(makeRow({
       confidenceBucket: "high",
       sourceCount: 2,
-      sourceRankSpread: 40,
-      marketGapDirection: "retail_premium",
+      sourceRankSpread: 20,
+      hasSourceDisagreement: true,
     }));
-    expect(label.label).toBe("Market premium: KTC");
+    expect(label).toBeNull();
   });
 
   it("returns null for ordinary rows", () => {
