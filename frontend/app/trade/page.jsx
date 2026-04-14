@@ -368,7 +368,7 @@ export default function TradePage() {
                             </span>
                           )}
                         </div>
-                        <div className="asset-meta">{r.pos} · Rank {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
+                        <div className="asset-meta">{r.pos} · Consensus {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
                       </div>
                       <button className="button" onClick={() => removeFromSide(r.name, "A")}>Remove</button>
                     </div>
@@ -418,7 +418,7 @@ export default function TradePage() {
                             </span>
                           )}
                         </div>
-                        <div className="asset-meta">{r.pos} · Rank {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
+                        <div className="asset-meta">{r.pos} · Consensus {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
                       </div>
                       <button className="button" onClick={() => removeFromSide(r.name, "B")}>Remove</button>
                     </div>
@@ -780,7 +780,7 @@ export default function TradePage() {
                         <button key={`recent-${r.name}`} className="asset-row button-reset" onClick={() => addToActiveSide(r)}>
                           <div>
                             <div className="asset-name">{r.name}</div>
-                            <div className="asset-meta">{r.pos} · Rank {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
+                            <div className="asset-meta">{r.pos} · Consensus {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
                           </div>
                           <span className="badge">Add</span>
                         </button>

@@ -544,16 +544,19 @@ export default function RankingsPage() {
                   <th className="hide-mobile" style={{ width: 90 }}>Tier</th>
                   <SortHeader col="name">Player</SortHeader>
                   <SortHeader col="pos" style={{ width: 54 }}>Pos</SortHeader>
-                  {/* Score — decimal consensus score.  Visible on mobile
-                      because this IS the hero metric the user cares
-                      about; hiding it on phones defeats the whole
-                      point of adding it. */}
+                  {/* Consensus — decimal mean of per-source effective ranks.
+                      This is NOT the engine's final opinion (the # column is).
+                      It's an orthogonal transparency metric that shows where
+                      the sources on average place the player. Gaps between
+                      Consensus and # reveal where the blend penalized
+                      disagreement. Visible on mobile because it's the
+                      hero transparency signal. */}
                   <SortHeader
                     col="score"
-                    style={{ textAlign: "right", width: 60 }}
-                    title="Consensus score: decimal average of per-source effective ranks. Lower = better."
+                    style={{ textAlign: "right", width: 72 }}
+                    title="Consensus: decimal mean of each source's effective rank. Orthogonal to #. When Consensus and # disagree, the blend penalized source disagreement. Lower = better."
                   >
-                    Score
+                    Consensus
                   </SortHeader>
                   <SortHeader col="value" style={{ textAlign: "right" }}>Value</SortHeader>
                   {RANKING_SOURCES.map((src) => (
@@ -668,10 +671,15 @@ export default function RankingsPage() {
                           </span>
                         </td>
 
-                        {/* Score — blended consensus score (decimal).
-                            Visible on mobile (no hide-mobile class)
-                            because this is the hero metric. */}
-                        <td style={{ textAlign: "right", fontFamily: "var(--mono)", fontSize: "0.82rem", color: "var(--cyan)" }}>
+                        {/* Consensus — decimal mean of per-source effective
+                            ranks. Orthogonal to the final # — gaps between
+                            this value and the rank column reveal source
+                            disagreement that the blend arbitrated.
+                            Visible on mobile. */}
+                        <td
+                          style={{ textAlign: "right", fontFamily: "var(--mono)", fontSize: "0.82rem", color: "var(--cyan)" }}
+                          title={row.blendedSourceRank != null ? `Mean source rank ${row.blendedSourceRank.toFixed(2)}. Final rank is #${row.rank}. Gap = blend penalty/bonus for source disagreement.` : "No sources ranked this player"}
+                        >
                           {row.blendedSourceRank != null
                             ? row.blendedSourceRank.toFixed(1)
                             : "\u2014"}
@@ -880,8 +888,8 @@ export default function RankingsPage() {
                                   Mirrors the exact labels from the main table
                                   header so the user can match row→column. */}
                               <div className="source-audit-summary">
-                                <span><strong>Rank:</strong> #{row.rank} (ordinal board position)</span>
-                                <span><strong>Score:</strong> {row.blendedSourceRank?.toFixed(1) ?? "\u2014"} (avg of per-source effective ranks)</span>
+                                <span><strong>Rank:</strong> #{row.rank} (final ordinal — the engine's opinion)</span>
+                                <span><strong>Consensus:</strong> {row.blendedSourceRank?.toFixed(1) ?? "\u2014"} (mean of per-source effective ranks — orthogonal to Rank; gaps reveal blend arbitration)</span>
                                 <span><strong>Value:</strong> {val.toLocaleString()} (Hill curve, 1\u20139,999 scale)</span>
                                 <span><strong>Confidence:</strong> {confExplain}</span>
                                 <span><strong>Edge:</strong> {edge.label} \u2014 {edge.title}</span>
