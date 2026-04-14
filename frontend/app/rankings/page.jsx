@@ -562,12 +562,17 @@ export default function RankingsPage() {
                       col={`src:${src.key}`}
                       style={{ textAlign: "right", width: 80 }}
                       className="hide-mobile"
+                      title={`${src.displayName} — ${
+                        src.isRankSignal
+                          ? "expert rank source (lower = better). Column shows the source's original rank with its effective rank on the shared board beneath."
+                          : "value source. Column shows the source's raw trade value with its effective rank on the shared board beneath."
+                      }`}
                     >
                       {src.columnLabel}
                     </SortHeader>
                   ))}
-                  <th className="hide-mobile" style={{ textAlign: "center", width: 50 }} title="Matched sources / structurally eligible sources.">Src</th>
-                  <SortHeader col="confidence" style={{ textAlign: "center" }} className="hide-mobile" title="High/Medium/Low confidence based on number of sources and how tightly they agree.">Conf</SortHeader>
+                  <th className="hide-mobile" style={{ textAlign: "center", width: 72 }} title="Sources that matched this player / sources structurally eligible to cover the player's position.">Sources</th>
+                  <SortHeader col="confidence" style={{ textAlign: "center" }} className="hide-mobile" title="High / Medium / Low confidence based on how many sources matched and how tightly they agree.">Confidence</SortHeader>
                   <th className="hide-mobile" style={{ textAlign: "center", width: 140 }} title="Market edge: retail (KTC) vs expert consensus. Always rendered with an explicit state — never an ambiguous dash.">Edge</th>
                   <th className="hide-mobile" style={{ width: 170 }}>Signal</th>
                 </tr>
@@ -672,10 +677,17 @@ export default function RankingsPage() {
                             : "\u2014"}
                         </td>
 
-                        {/* Value — Hill-curve dynasty value (integer, 1-9999) */}
-                        <td style={{ textAlign: "right" }}>
+                        {/* Value — Hill-curve dynasty value (integer, 1-9999).
+                            Band badge (S+/S/D+/D/F) carries a tooltip so
+                            users can hover to see what the letter means. */}
+                        <td style={{ textAlign: "right" }} title={`Hill-curve value ${val.toLocaleString()} (scale 1\u20139,999)`}>
                           <span className="rankings-value">{val.toLocaleString()}</span>
-                          <span className={`rankings-value-band ${band.css}`}>{band.label}</span>
+                          <span
+                            className={`rankings-value-band ${band.css}`}
+                            title={band.title || "Value band"}
+                          >
+                            {band.label}
+                          </span>
                         </td>
 
                         {/* Per-source value + rank columns */}
