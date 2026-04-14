@@ -24,7 +24,7 @@ import {
   posBadgeClass,
   confBadgeClass as confidenceBadgeClass,
   confBadgeLabel as confidenceBadgeLabel,
-  marketGapLabel,
+  marketEdge,
   isEligibleForBoard,
 } from "@/lib/display-helpers";
 
@@ -556,9 +556,9 @@ export default function RankingsPage() {
                       {src.columnLabel}
                     </SortHeader>
                   ))}
-                  <th className="hide-mobile" style={{ textAlign: "center", width: 50 }}>Src</th>
-                  <SortHeader col="confidence" style={{ textAlign: "center" }} className="hide-mobile">Conf</SortHeader>
-                  <th className="hide-mobile" style={{ textAlign: "center", width: 90 }}>Gap</th>
+                  <th className="hide-mobile" style={{ textAlign: "center", width: 50 }} title="Matched sources / structurally eligible sources.">Src</th>
+                  <SortHeader col="confidence" style={{ textAlign: "center" }} className="hide-mobile" title="High/Medium/Low confidence based on number of sources and how tightly they agree.">Conf</SortHeader>
+                  <th className="hide-mobile" style={{ textAlign: "center", width: 140 }} title="Market edge: retail (KTC) vs expert consensus. Always rendered with an explicit state — never an ambiguous dash.">Edge</th>
                   <th className="hide-mobile" style={{ width: 170 }}>Signal</th>
                 </tr>
               </thead>
@@ -569,7 +569,10 @@ export default function RankingsPage() {
                   const band = valueBand(val);
                   const tier = tierLabel(row);
                   const tierId = effectiveTierId(row);
-                  const gap = marketGapLabel(row);
+                  // Structured market edge descriptor (never returns null).
+                  // Replaces the legacy marketGapLabel(row) string which
+                  // caused the Gap column to show an ambiguous dash.
+                  const edge = marketEdge(row);
                   const isQuarantined = row.quarantined;
                   const action = actionLabel(row);
                   const cautions = cautionLabels(row);
@@ -718,13 +721,12 @@ export default function RankingsPage() {
                           </span>
                         </td>
 
-                        {/* Market gap */}
+                        {/* Market edge — always rendered with an explicit
+                            state label.  No ambiguous dashes: the column
+                            always tells the user which side is higher and
+                            by how much, or why no comparison is possible. */}
                         <td className="hide-mobile" style={{ textAlign: "center" }}>
-                          {gap ? (
-                            <span className="rankings-gap-label">{gap}</span>
-                          ) : (
-                            <span className="muted">\u2014</span>
-                          )}
+                          <span className={`edge-label ${edge.css}`} title={edge.title}>{edge.label}</span>
                         </td>
 
                         {/* Signal */}
@@ -740,7 +742,7 @@ export default function RankingsPage() {
                             </span>
                           ))}
                           {!action && cautions.length === 0 && (
-                            <span className="muted">\u2014</span>
+                            <span className="muted">{"\u2014"}</span>
                           )}
                         </td>
                       </tr>
