@@ -1728,13 +1728,32 @@ def _compute_unified_rankings(
         if "idpTradeCalc" in source_ranks:
             row["idpRank"] = source_ranks["idpTradeCalc"]
 
-        # Mirror into legacy players dict
+        # Mirror into legacy players dict so the runtime view
+        # (which strips playersArray) still has the authoritative
+        # per-row ranking data for the frontend's legacy-dict row builder.
         legacy_ref = row.get("legacyRef")
         if legacy_ref and legacy_ref in players_by_name:
             pdata = players_by_name[legacy_ref]
             if isinstance(pdata, dict):
                 pdata["rankDerivedValue"] = derived
                 pdata["_canonicalConsensusRank"] = overall_rank
+                pdata["sourceCount"] = len(source_ranks)
+                pdata["sourceRanks"] = dict(source_ranks)
+                pdata["sourceRankMeta"] = dict(source_meta)
+                # Mirror the enriched canonicalSiteValues back so the
+                # legacy dict sees DLF values that were grafted on by
+                # _enrich_from_source_csvs (the scraper's own
+                # _canonicalSiteValues doesn't include DLF).
+                csv_row = row.get("canonicalSiteValues")
+                if isinstance(csv_row, dict):
+                    legacy_csv = pdata.get("_canonicalSiteValues")
+                    if not isinstance(legacy_csv, dict):
+                        legacy_csv = {}
+                        pdata["_canonicalSiteValues"] = legacy_csv
+                    for k, v in csv_row.items():
+                        if v is not None and v > 0:
+                            legacy_csv[k] = v
+                            pdata[k] = v
                 if "ktc" in source_ranks:
                     pdata["ktcRank"] = source_ranks["ktc"]
                 if "idpTradeCalc" in source_ranks:
