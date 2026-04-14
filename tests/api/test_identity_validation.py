@@ -480,10 +480,66 @@ class TestExceptionSetCoverage(unittest.TestCase):
         self.assertIn("position_source_contradiction", flags)
         self.assertTrue(row.get("quarantined"))
 
-    def test_excepted_name_not_quarantined_by_check2(self):
-        """Names in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS bypass Check 2."""
+    def test_excepted_name_bypasses_contradiction_when_collision_also_flagged(self):
+        """Names in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS only bypass
+        ``position_source_contradiction`` when they also trip the
+        upstream cross-universe collision flag.  This is the post-hygiene
+        behaviour: the exception set is a narrow override for verified
+        collisions only, not a blanket suppression of evidence errors.
+        """
         from src.api.data_contract import OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS
-        # Use a name from the exception set
+        if not OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS:
+            self.skipTest("Exception set is empty")
+        exc_name = next(iter(sorted(OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS)))
+        # Two rows that share the excepted name: one offense, one IDP.
+        # Check 1 stamps both with ``name_collision_cross_universe``,
+        # after which Check 2 is suppressed on the IDP row because it
+        # is a verified exception sitting on top of a live collision.
+        rows = [
+            {
+                "canonicalName": exc_name,
+                "displayName": exc_name,
+                "position": "QB",
+                "assetClass": "offense",
+                "playerId": None,
+                "canonicalSiteValues": {"ktc": 4200},
+                "anomalyFlags": [],
+                "confidenceBucket": "low",
+                "confidenceLabel": "",
+                "rankDerivedValue": 4200,
+            },
+            {
+                "canonicalName": exc_name,
+                "displayName": exc_name,
+                "position": "DL",
+                "assetClass": "idp",
+                "playerId": None,
+                "canonicalSiteValues": {"ktc": 685},
+                "anomalyFlags": [],
+                "confidenceBucket": "low",
+                "confidenceLabel": "",
+                "rankDerivedValue": 500,
+            },
+        ]
+        _validate_and_quarantine_rows(rows)
+        flags_qb = rows[0].get("anomalyFlags") or []
+        flags_dl = rows[1].get("anomalyFlags") or []
+        # Both rows carry the collision flag from Check 1.
+        self.assertIn("name_collision_cross_universe", flags_qb)
+        self.assertIn("name_collision_cross_universe", flags_dl)
+        # And Check 2 is suppressed on both sides — the collision flag
+        # alone is enough to quarantine; double-flagging is false-positive
+        # inflation.
+        self.assertNotIn("position_source_contradiction", flags_qb)
+        self.assertNotIn("position_source_contradiction", flags_dl)
+
+    def test_excepted_name_without_collision_still_fires_contradiction(self):
+        """Without a live cross-universe collision the exception list
+        does NOT blanket-suppress the contradiction flag.  A single IDP
+        row with only offense evidence (the pre-hygiene bug) is still a
+        data-quality error and must be quarantined.
+        """
+        from src.api.data_contract import OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS
         if not OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS:
             self.skipTest("Exception set is empty")
         exc_name = next(iter(sorted(OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS)))
@@ -503,8 +559,7 @@ class TestExceptionSetCoverage(unittest.TestCase):
         ]
         _validate_and_quarantine_rows(rows)
         flags = rows[0].get("anomalyFlags") or []
-        # Exception set blocks position_source_contradiction specifically
-        self.assertNotIn("position_source_contradiction", flags)
+        self.assertIn("position_source_contradiction", flags)
 
 
 # ── Age field scaffolding ──────────────────────────────────────────────────

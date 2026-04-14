@@ -87,13 +87,37 @@ class IdpBackbone:
     `depth` is the total number of overall-IDP entries the backbone was
     built from.  It's retained for transparency (to label "ladderDepth"
     on translation metadata).
+
+    ``shared_market_idp_ladder`` holds the combined offense+IDP ranks at
+    which IDP entries appear in the backbone source's shared market.
+    The i-th entry is the combined-pool rank of the (i+1)-th best IDP in
+    the backbone source.  This ladder is only populated when the caller
+    supplies ``offense_positions`` to ``build_backbone_from_rows``; it
+    powers the crosswalk that keeps IDP-only expert boards (e.g. DLF)
+    from pretending their rank 1 is the overall rank 1 of the shared
+    market.
+
+    ``shared_market_depth`` is the size of the combined offense+IDP pool
+    used to build ``shared_market_idp_ladder``.  Zero when no shared
+    market was supplied.
     """
 
     ladders: dict[str, list[int]] = field(default_factory=dict)
     depth: int = 0
+    shared_market_idp_ladder: list[int] = field(default_factory=list)
+    shared_market_depth: int = 0
 
     def ladder_for(self, position_group: str) -> list[int]:
         return self.ladders.get(str(position_group).upper(), [])
+
+    def shared_idp_ladder(self) -> list[int]:
+        """Return the combined offense+IDP ladder for IDP-only sources.
+
+        Used by `translate_position_rank` to translate a non-backbone
+        overall_idp source's raw rank into a synthetic combined-market
+        rank.  Empty when no shared market was supplied at build time.
+        """
+        return list(self.shared_market_idp_ladder)
 
     def is_empty(self) -> bool:
         return self.depth == 0 or not any(self.ladders.values())
@@ -127,6 +151,7 @@ def build_backbone_from_rows(
     *,
     source_key: str,
     idp_positions: Iterable[str] = IDP_POSITION_GROUPS,
+    offense_positions: Iterable[str] | None = None,
 ) -> IdpBackbone:
     """Convenience builder used by the contract pipeline.
 
@@ -134,12 +159,25 @@ def build_backbone_from_rows(
     is an IDP family, sorts them descending by the per-source value at
     `canonicalSiteValues[source_key]`, and constructs a backbone from the
     resulting order.
+
+    When ``offense_positions`` is supplied, the builder also computes the
+    *shared-market IDP ladder* — a list of combined offense+IDP ranks at
+    which IDP players appear in the same-source value pool.  This ladder
+    is the crosswalk backbone for non-backbone IDP-only expert boards
+    (e.g. DLF): their raw IDP-only rank gets translated through it into
+    a synthetic combined-pool rank, preventing DLF rank 1 from behaving
+    like a shared-market rank 1.
     """
     idp_set = {p.upper() for p in idp_positions}
+    offense_set = {p.upper() for p in (offense_positions or ())}
+
     eligible: list[tuple[float, str, str]] = []
+    combined: list[tuple[float, str, str, bool]] = []  # (val, pos, name, is_idp)
     for row in rows:
         pos = str(row.get("position") or "").strip().upper()
-        if pos not in idp_set:
+        is_idp = pos in idp_set
+        is_offense = pos in offense_set
+        if not (is_idp or is_offense):
             continue
         sites = row.get("canonicalSiteValues") or {}
         raw = sites.get(source_key)
@@ -150,10 +188,29 @@ def build_backbone_from_rows(
         if val is None or val <= 0:
             continue
         name = str(row.get("canonicalName") or row.get("displayName") or "")
-        eligible.append((val, pos, name))
+        if is_idp:
+            eligible.append((val, pos, name))
+        if offense_set:
+            combined.append((val, pos, name, is_idp))
     # Sort descending by value; secondary tiebreaker by name for stability.
     eligible.sort(key=lambda t: (-t[0], t[2].lower()))
-    return build_backbone_from_ranked_entries((pos, name) for _, pos, name in eligible)
+    base = build_backbone_from_ranked_entries((pos, name) for _, pos, name in eligible)
+
+    shared_market_idp_ladder: list[int] = []
+    shared_market_depth = 0
+    if combined:
+        combined.sort(key=lambda t: (-t[0], t[2].lower()))
+        shared_market_depth = len(combined)
+        for combined_rank, (_, _pos, _name, is_idp) in enumerate(combined, start=1):
+            if is_idp:
+                shared_market_idp_ladder.append(combined_rank)
+
+    return IdpBackbone(
+        ladders=base.ladders,
+        depth=base.depth,
+        shared_market_idp_ladder=shared_market_idp_ladder,
+        shared_market_depth=shared_market_depth,
+    )
 
 
 # ── Position-rank translation ────────────────────────────────────────────

@@ -7,12 +7,28 @@ from typing import Any
 
 from src.data_models.contracts import utc_now_iso
 
-OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS = {
-    "Bobby Brown",
-    "Cameron Young",
-    "Dwight Bentley",
-    "Josh Johnson",
-}
+#: Verified cross-universe name collisions — players whose display name
+#: exists in both the offense market (QB/RB/WR/TE) and the IDP market
+#: (DL/LB/DB) as two genuinely different people.  The
+#: ``position_source_contradiction`` check would otherwise fire on one
+#: side of every such collision because name-based join enrichment will
+#: graft the wrong source's value onto the wrong row.
+#:
+#: This list is intentionally small.  Before adding a new entry, verify
+#: that the contradiction survives a full rebuild with the normalised
+#: name join (``_canonical_match_key``) in place — most historical
+#: contradictions were join artefacts from punctuation drift (e.g.
+#: ``T.J. Watt`` vs ``TJ Watt``) and no longer reproduce.
+#:
+#: The exceptions only apply when a row ALSO has
+#: ``name_collision_cross_universe`` already flagged on it, so a false
+#: positive on a non-colliding name cannot silently suppress a legitimate
+#: contradiction anymore.
+OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS: frozenset[str] = frozenset(
+    {
+        "Josh Johnson",  # QB (retired journeyman) vs S (draftable prospect)
+    }
+)
 
 
 CONTRACT_VERSION = "2026-03-10.v2"
@@ -230,6 +246,20 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # NOT a backbone source — IDPTradeCalc remains authoritative for
         # ladder translation — but it contributes equally-weighted signal
         # to the coverage-aware blend.
+        #
+        # IDP-only sources (``needs_shared_market_translation=True``)
+        # have their raw IDP ordinal rank translated through a
+        # *shared-market IDP ladder* before feeding the Hill curve.  The
+        # ladder is built from the backbone source's combined
+        # offense+IDP value pool (see
+        # ``src/canonical/idp_backbone.IdpBackbone.shared_market_idp_ladder``):
+        # the i-th entry holds the combined-pool rank of the i-th best
+        # IDP in the backbone.  Without this translation, DLF rank 1
+        # would be fed to the Hill curve as an overall rank 1 → value
+        # 9999, as if DLF were ranking both offense and IDP together.
+        # With translation, DLF rank 1 becomes the combined-pool rank of
+        # the best IDP in the shared market (typically ~30-50), which
+        # correctly calibrates DLF against the retail offense market.
         "key": "dlfIdp",
         "display_name": "Dynasty League Football IDP",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
@@ -237,6 +267,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "depth": None,
         "weight": 1.0,
         "is_backbone": False,
+        "needs_shared_market_translation": True,
     },
 ]
 
@@ -523,6 +554,18 @@ def _validate_and_quarantine_rows(
                     row["anomalyFlags"] = flags
 
     # ── Check 2: Position-source contradiction ──
+    # A row gets flagged when the position family disagrees with the set
+    # of source keys carrying positive values on the row.  The flag is
+    # suppressed when:
+    #   (a) the row is a verified cross-universe name collision (see
+    #       OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS) AND the collision flag
+    #       has already been applied in Check 1 — in that case the
+    #       contradiction is an expected consequence of the grafted
+    #       join, and quarantining via two flags would inflate false
+    #       positives in downstream reports.
+    #   (b) the row already carries `name_collision_cross_universe`
+    #       from Check 1.  The collision flag is itself a quarantine
+    #       signal, so we don't need to pile contradictions on top.
     for idx, row in enumerate(players_array):
         pos = str(row.get("position") or "").strip().upper()
         asset_class = row.get("assetClass") or ""
@@ -537,19 +580,29 @@ def _validate_and_quarantine_rows(
             for k in _IDP_SIGNAL_KEYS
         )
 
-        # Offense position but only IDP values (and not an allowed exception)
+        current_flags = row.get("anomalyFlags") or []
+        has_collision = "name_collision_cross_universe" in current_flags
         name = row.get("canonicalName") or ""
+        is_known_collision = (
+            has_collision and name in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS
+        )
+
+        # Offense position but only IDP values.
         if pos in _OFFENSE_POSITIONS and has_idp_val and not has_off_val:
-            if name not in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS:
-                flags = row.get("anomalyFlags") or []
+            if has_collision or is_known_collision:
+                pass
+            else:
+                flags = current_flags
                 if "position_source_contradiction" not in flags:
                     flags.append("position_source_contradiction")
                     row["anomalyFlags"] = flags
 
-        # IDP position but only offense values
+        # IDP position but only offense values.
         if pos in _IDP_POSITIONS and has_off_val and not has_idp_val:
-            if name not in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS:
-                flags = row.get("anomalyFlags") or []
+            if has_collision or is_known_collision:
+                pass
+            else:
+                flags = current_flags
                 if "position_source_contradiction" not in flags:
                     flags.append("position_source_contradiction")
                     row["anomalyFlags"] = flags
@@ -689,12 +742,35 @@ def _mirror_trust_to_legacy(
 
 
 def _strip_name_suffix(name: str) -> str:
-    """Strip generational suffixes (Jr, Sr, II-VI) for resilient matching."""
+    """Strip generational suffixes (Jr, Sr, II-VI) for resilient matching.
+
+    Legacy helper retained for backwards-compat with callers/tests that
+    imported it directly.  For new matching code prefer
+    ``_canonical_match_key`` below, which also normalises punctuation,
+    apostrophes, casing, and collapses initials so ``T.J. Watt`` and
+    ``TJ Watt`` collide on the same key.
+    """
     n = name.strip()
     for sfx in (" Jr.", " Jr", " Sr.", " Sr", " II", " III", " IV", " V", " VI"):
         if n.endswith(sfx):
             n = n[: -len(sfx)].strip()
     return n
+
+
+def _canonical_match_key(name: str) -> str:
+    """Return the single canonical join key for cross-source name matching.
+
+    All enrichment joins and CSV → contract lookups go through this
+    helper so punctuation, diacritics, apostrophes, initials, suffixes,
+    and casing collapse to a single ``tj watt``-style key.  The
+    underlying ``normalize_player_name`` helper in
+    ``src/utils/name_clean.py`` owns the actual rules; this wrapper
+    exists so callers (and tests) can import a single contract-level
+    symbol without dipping into ``src.utils`` every call site.
+    """
+    from src.utils.name_clean import normalize_player_name  # noqa: PLC0415
+
+    return normalize_player_name(name)
 
 
 def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
@@ -704,6 +780,15 @@ def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
     (e.g. KTC scrape failed but the CSV persists from a prior run), load
     the CSV and inject values into canonicalSiteValues so the ranking
     function can use them.
+
+    Matching uses ``_canonical_match_key`` (which itself calls the
+    shared ``normalize_player_name`` helper in ``src/utils/name_clean``)
+    so that ``T.J. Watt`` in the scraper payload joins against a
+    ``TJ Watt`` row in the CSV export without either side knowing about
+    the punctuation variant.  Before the normalisation refactor the
+    loader only stripped generational suffixes + lowered, which caused
+    silent 1-src artefacts for any player whose spelling drifted between
+    the scraper payload and the committed CSV snapshot.
 
     Supports two signal types per source:
 
@@ -744,6 +829,9 @@ def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
                     name = str(csvrow.get("name", "")).strip()
                     if not name:
                         continue
+                    key = _canonical_match_key(name)
+                    if not key:
+                        continue
                     if signal == "rank":
                         raw = csvrow.get("rank", "")
                         if raw == "" or raw is None:
@@ -767,13 +855,16 @@ def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
                         )
                         if synthetic <= 0:
                             continue
-                        csv_lookup[_strip_name_suffix(name).lower()] = synthetic
+                        # First entry wins on collision — CSV rows are
+                        # emitted best-to-worst so we prefer the stronger
+                        # anchor for a duplicated key.
+                        csv_lookup.setdefault(key, synthetic)
                     else:
                         val = csvrow.get("value", "")
                         if not val:
                             continue
                         try:
-                            csv_lookup[_strip_name_suffix(name).lower()] = int(float(val))
+                            csv_lookup.setdefault(key, int(float(val)))
                         except (ValueError, TypeError):
                             continue
         except Exception:
@@ -790,9 +881,11 @@ def _enrich_from_source_csvs(players_array: list[dict[str, Any]]) -> None:
             existing = _safe_num(csv_vals.get(source_key))
             if existing is not None and existing > 0:
                 continue
-            canon_name = _strip_name_suffix(
+            canon_name = _canonical_match_key(
                 str(row.get("canonicalName") or row.get("displayName") or "")
-            ).lower()
+            )
+            if not canon_name:
+                continue
             csv_val = csv_lookup.get(canon_name)
             if csv_val is not None and csv_val > 0:
                 csv_vals[source_key] = csv_val
@@ -847,17 +940,41 @@ def _compute_unified_rankings(
     # wins.  If no backbone source is present, position_idp sources fall
     # back to treating their raw rank as a synthetic overall rank and get
     # a caution flag on the per-source meta.
+    #
+    # The backbone also carries a *shared-market IDP ladder* — the
+    # combined offense+IDP ranks at which IDP entries appear in the
+    # backbone source's value pool.  Non-backbone overall_idp sources
+    # flagged with ``needs_shared_market_translation`` (e.g. DLF) use
+    # this ladder as a crosswalk so their IDP-only rank 1 is translated
+    # to the combined-pool rank of the best IDP, not treated as if it
+    # were the overall rank 1 of the shared offense+IDP board.
     backbone_source_key: str | None = None
     for src in _RANKING_SOURCES:
         if src["scope"] == SOURCE_SCOPE_OVERALL_IDP and src.get("is_backbone"):
             backbone_source_key = src["key"]
             break
     if backbone_source_key:
-        backbone = build_backbone_from_rows(
-            players_array,
-            source_key=backbone_source_key,
-            idp_positions=_IDP_POSITIONS,
+        # Only seed the shared-market ladder when the backbone source
+        # actually prices both offense + IDP on a shared scale; this is
+        # detected by the registry declaring offense in extra_scopes.
+        backbone_src_def = next(
+            (s for s in _RANKING_SOURCES if s["key"] == backbone_source_key),
+            {},
         )
+        backbone_extra_scopes = list(backbone_src_def.get("extra_scopes") or [])
+        if SOURCE_SCOPE_OVERALL_OFFENSE in backbone_extra_scopes:
+            backbone = build_backbone_from_rows(
+                players_array,
+                source_key=backbone_source_key,
+                idp_positions=_IDP_POSITIONS,
+                offense_positions=_OFFENSE_POSITIONS | {"PICK"},
+            )
+        else:
+            backbone = build_backbone_from_rows(
+                players_array,
+                source_key=backbone_source_key,
+                idp_positions=_IDP_POSITIONS,
+            )
     else:
         backbone = IdpBackbone()
 
@@ -868,11 +985,16 @@ def _compute_unified_rankings(
     row_source_meta: dict[int, dict[str, dict[str, Any]]] = {}
     # For backbone assertion: remember the actual ladder depth used
     backbone_depth = backbone.depth
+    shared_market_ladder = backbone.shared_idp_ladder()
+    shared_market_depth = backbone.shared_market_depth
 
     for src in _RANKING_SOURCES:
         source_key: str = src["key"]
         position_group: str | None = src.get("position_group")
         primary_scope: str = src["scope"]
+        needs_shared_market = bool(
+            src.get("needs_shared_market_translation")
+        ) and not src.get("is_backbone")
         # A source may contribute to multiple scopes (e.g. IDPTradeCalc
         # lists both offense and IDP players in one value pool on a shared
         # 0-9999 scale).  Earlier revisions ran a separate ordinal pass per
@@ -931,12 +1053,28 @@ def _compute_unified_rankings(
             # Translate to effective overall-style rank based on scope.
             # position_idp sources (shallow positional lists like DL-only)
             # still get backbone translation.  overall_* scopes — including
-            # the cross-universe combined pool — pass through directly.
+            # the cross-universe combined pool — pass through directly
+            # unless the source is an IDP-only expert board that opts in
+            # to the shared-market crosswalk (e.g. DLF).
+            ladder_depth_meta: int | None = None
+            backbone_depth_meta: int | None = None
             if row_scope == SOURCE_SCOPE_POSITION_IDP and position_group:
                 ladder = backbone.ladder_for(position_group)
                 effective_rank, method = translate_position_rank(
                     raw_rank, ladder
                 )
+                ladder_depth_meta = len(ladder)
+                backbone_depth_meta = backbone_depth
+            elif needs_shared_market and row_scope == SOURCE_SCOPE_OVERALL_IDP:
+                # Crosswalk an IDP-only expert board's raw IDP ordinal
+                # into the backbone source's combined offense+IDP rank
+                # space.  This prevents DLF rank 1 from being fed to the
+                # Hill curve as if it were shared-market rank 1.
+                effective_rank, method = translate_position_rank(
+                    raw_rank, shared_market_ladder
+                )
+                ladder_depth_meta = len(shared_market_ladder)
+                backbone_depth_meta = shared_market_depth
             else:
                 effective_rank = raw_rank
                 method = TRANSLATION_DIRECT
@@ -948,18 +1086,14 @@ def _compute_unified_rankings(
                 "rawRank": raw_rank,
                 "effectiveRank": effective_rank,
                 "method": method,
-                "ladderDepth": (
-                    len(backbone.ladder_for(position_group))
-                    if row_scope == SOURCE_SCOPE_POSITION_IDP and position_group
-                    else None
-                ),
-                "backboneDepth": (
-                    backbone_depth
-                    if row_scope == SOURCE_SCOPE_POSITION_IDP
-                    else None
-                ),
+                "ladderDepth": ladder_depth_meta,
+                "backboneDepth": backbone_depth_meta,
                 "depth": src.get("depth"),
                 "weight": float(src.get("weight") or 0.0),
+                "sharedMarketTranslated": bool(
+                    needs_shared_market
+                    and row_scope == SOURCE_SCOPE_OVERALL_IDP
+                ),
             }
 
     # ── Phase 2-3: Normalized value (Hill curve) + coverage-aware blend ──
@@ -996,6 +1130,24 @@ def _compute_unified_rankings(
     row_normalized.sort(
         key=lambda t: (-t[0], players_array[t[1]].get("canonicalName", "").lower())
     )
+
+    # ── Phase 4a: stamp sourceCount / source presence on EVERY row that
+    # produced source ranks, even rows that will later fall past the
+    # OVERALL_RANK_LIMIT and never receive canonicalConsensusRank.  This
+    # keeps sourceCount consistent with post-enrichment reality for
+    # downstream filters (trust, audits, frontend fallback) — otherwise
+    # a row stamped with stale pre-enrichment counts by _derive_player_row
+    # would carry that stale value forever if it happened to slip past
+    # the ranked board cap.
+    for row_idx, source_ranks in row_source_ranks.items():
+        row = players_array[row_idx]
+        row["sourceCount"] = len(source_ranks)
+        row["isSingleSource"] = len(source_ranks) == 1
+        # Also refresh sourcePresence so the enriched keys show up.
+        canonical_sites = row.get("canonicalSiteValues") or {}
+        row["sourcePresence"] = {
+            k: (v is not None and v > 0) for k, v in canonical_sites.items()
+        }
 
     for overall_idx, (norm_val, row_idx) in enumerate(
         row_normalized[:OVERALL_RANK_LIMIT]
@@ -2003,15 +2155,27 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             _to_int_or_none(canonical_sites.get(k)) not in (None, 0) for k in _IDP_SIGNAL_KEYS
         )
         if pos in _IDP_POSITIONS and has_off_signal and not has_idp_signal:
-            if len(players_array) >= 250 and name in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS:
-                continue
-            errors.append(
-                f"playersArray offense→IDP mismatch: {name or '<unknown>'} tagged {pos} "
-                "with offensive-only source signal(s)"
+            # Skip the hard-fail for verified cross-universe collisions
+            # (Josh Johnson: QB ≠ S).  The exception only applies on a
+            # full-board payload so synthetic unit test fixtures still
+            # fail loudly when contamination is present.
+            current_flags = row.get("anomalyFlags") or []
+            has_collision = "name_collision_cross_universe" in current_flags
+            is_known_collision = (
+                name in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS
             )
+            if len(players_array) >= 250 and (has_collision or is_known_collision):
+                pass
+            else:
+                errors.append(
+                    f"playersArray offense→IDP mismatch: {name or '<unknown>'} tagged {pos} "
+                    "with offensive-only source signal(s)"
+                )
 
         if name:
-            norm = re.sub(r"[^a-z0-9]+", "", str(name).lower())
+            norm = _canonical_match_key(name) or re.sub(
+                r"[^a-z0-9]+", "", str(name).lower()
+            )
             normalized_pos_by_name.setdefault(norm, set()).add(pos or "?")
 
     for norm_name, poses in normalized_pos_by_name.items():

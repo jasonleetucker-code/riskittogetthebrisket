@@ -555,13 +555,65 @@ describe("G. DLF IDP source parity", () => {
     expect(lb.sourceRanks.dlfIdp).toBe(2);
     expect(db.sourceRanks.dlfIdp).toBe(3);
 
-    // DLF's meta entry should be present, direct (overall_idp is a
-    // pass-through scope), and pin the same scope token the backend uses.
+    // DLF is an IDP-only expert board, so its raw rank is translated
+    // through the shared-market IDP ladder built from IDPTradeCalc's
+    // combined offense+IDP pool.  In this fixture there are no offense
+    // rows, so the ladder is ``[1, 2, 3]`` and the crosswalk is a
+    // no-op in terms of effective rank — but the method token flips
+    // from DIRECT to EXACT because the row lands on a ladder anchor
+    // and ``sharedMarketTranslated`` is true.
     expect(dl.sourceRankMeta.dlfIdp.scope).toBe("overall_idp");
-    expect(dl.sourceRankMeta.dlfIdp.method).toBe(TRANSLATION_DIRECT);
+    expect(dl.sourceRankMeta.dlfIdp.method).toBe(TRANSLATION_EXACT);
     expect(dl.sourceRankMeta.dlfIdp.rawRank).toBe(1);
     expect(dl.sourceRankMeta.dlfIdp.effectiveRank).toBe(1);
     expect(dl.sourceRankMeta.dlfIdp.positionGroup).toBeNull();
+    expect(dl.sourceRankMeta.dlfIdp.sharedMarketTranslated).toBe(true);
+    // IDPTradeCalc stays pass-through because it IS the backbone.
+    expect(dl.sourceRankMeta.idpTradeCalc.method).toBe(TRANSLATION_DIRECT);
+    expect(dl.sourceRankMeta.idpTradeCalc.sharedMarketTranslated).toBe(false);
+  });
+
+  it("maps DLF rank 1 through the shared market when offense dominates", () => {
+    // 10 offense rows whose IDPTradeCalc values are all higher than
+    // the best IDP.  After the crosswalk, DLF's raw IDP rank 1 must
+    // be translated to IDPTradeCalc's combined-pool rank 11, not left
+    // as rank 1.
+    const playersArray = [];
+    for (let i = 0; i < 10; i++) {
+      playersArray.push(
+        row(`off${i}`, i % 2 === 0 ? "QB" : "WR", {
+          idp: 9999 - i * 10,
+        })
+      );
+    }
+    playersArray.push(row("dl1", "DL", { idp: 5500, dlf: 9995 }));
+    playersArray.push(row("lb1", "LB", { idp: 5000, dlf: 9990 }));
+
+    const rows = buildRows({ playersArray });
+    const dl1 = rows.find((r) => r.name === "dl1");
+    const lb1 = rows.find((r) => r.name === "lb1");
+
+    // Baseline: IDPTradeCalc's combined-pool rank for the top IDP is 11.
+    expect(dl1.sourceRanks.idpTradeCalc).toBe(11);
+    expect(lb1.sourceRanks.idpTradeCalc).toBe(12);
+
+    // Crosswalk: DLF's raw rank 1 is translated to combined-pool rank 11.
+    expect(dl1.sourceRankMeta.dlfIdp.rawRank).toBe(1);
+    expect(dl1.sourceRankMeta.dlfIdp.effectiveRank).toBe(11);
+    expect(dl1.sourceRankMeta.dlfIdp.method).toBe(TRANSLATION_EXACT);
+    expect(dl1.sourceRanks.dlfIdp).toBe(11);
+
+    // And the blended value is materially lower than 9999 — the sort
+    // no longer inflates the top IDP to "as good as the top offense
+    // player".
+    expect(dl1.rankDerivedValue).toBeLessThan(9999);
+
+    // The top offense player still outranks the top IDP on the unified
+    // board.
+    const topOff = rows.find((r) => r.name === "off0");
+    expect(topOff.canonicalConsensusRank).toBeLessThan(
+      dl1.canonicalConsensusRank
+    );
   });
 
   it("picks up DLF-only players even when IDPTradeCalc has no value", () => {

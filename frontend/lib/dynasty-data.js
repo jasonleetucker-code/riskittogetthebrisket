@@ -17,6 +17,50 @@ const IDP = new Set(["DL", "DE", "DT", "LB", "DB", "CB", "S", "EDGE"]);
 // Positions that may never enter the ranked board or user-facing surfaces.
 const UNSUPPORTED = new Set(["OL", "OT", "OG", "C", "G", "T", "LS"]);
 
+// ── Canonical name join key ──────────────────────────────────────────
+// Mirrors normalize_player_name() in src/utils/name_clean.py.  Collapses
+// punctuation, diacritics, apostrophes, casing, generational suffixes
+// (Jr / Sr / II-VI), and adjacent single-letter initials so
+// "T.J. Watt", "TJ Watt", and "t.j. watt" all produce "tj watt".
+// Exported for any consumer (tests, manual enrichment, dev-tools) that
+// needs to reproduce the backend join semantics.
+const _SUFFIX_RE = /\b(jr|sr|ii|iii|iv|v|dr)\b\.?/gi;
+const _NON_ALNUM_RE = /[^a-z0-9]+/g;
+
+export function normalizePlayerName(name) {
+  if (name === null || name === undefined) return "";
+  // NFKD-style ASCII fold.
+  const folded = String(name)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, " and ");
+  let s = folded.replace(_SUFFIX_RE, "");
+  s = s.replace(_NON_ALNUM_RE, " ").trim();
+  s = s.replace(/\s+/g, " ");
+  // Collapse adjacent single-letter initials so "t j watt" → "tj watt".
+  const parts = s.split(" ").filter(Boolean);
+  const collapsed = [];
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i].length === 1 && /[a-z]/.test(parts[i])) {
+      let initials = parts[i];
+      while (
+        i + 1 < parts.length &&
+        parts[i + 1].length === 1 &&
+        /[a-z]/.test(parts[i + 1])
+      ) {
+        i += 1;
+        initials += parts[i];
+      }
+      collapsed.push(initials);
+    } else {
+      collapsed.push(parts[i]);
+    }
+  }
+  return collapsed.join(" ");
+}
+
 export function normalizePos(pos) {
   const p = String(pos || "").toUpperCase();
   if (["DE", "DT", "EDGE", "NT"].includes(p)) return "DL";
@@ -81,18 +125,37 @@ function scopeEligible(pos, scope, positionGroup) {
 // Walks every row, keeps IDP entries with a positive value in the
 // backbone source, sorts descending, and records per-position-group
 // ladders of overall-IDP ranks.
-function buildIdpBackbone(rows, sourceKey) {
+//
+// When ``includeSharedMarket`` is true the builder also emits a
+// sharedMarketIdpLadder — combined offense+IDP ranks at which IDP
+// entries appear in the backbone source's value pool.  IDP-only
+// expert boards (DLF) crosswalk through this ladder so their raw IDP
+// rank 1 is translated into the combined-pool rank of the best IDP
+// instead of being fed to the Hill curve as shared-market rank 1.
+function buildIdpBackbone(rows, sourceKey, includeSharedMarket = false) {
   const ladders = {};
   for (const pg of IDP_POSITION_GROUPS) ladders[pg] = [];
-  if (!sourceKey) return { ladders, depth: 0 };
+  if (!sourceKey) {
+    return {
+      ladders,
+      depth: 0,
+      sharedMarketIdpLadder: [],
+      sharedMarketDepth: 0,
+    };
+  }
 
   const eligible = [];
+  const combined = [];
   rows.forEach((r) => {
     const pos = String(r?.pos || "").toUpperCase();
-    if (!IDP_POSITIONS_SET.has(pos)) return;
+    const isIdp = IDP_POSITIONS_SET.has(pos);
+    const isOffense = OFFENSE_POSITIONS.has(pos) || pos === "PICK";
+    if (!isIdp && !(includeSharedMarket && isOffense)) return;
     const val = Number(r?.canonicalSites?.[sourceKey]);
     if (!Number.isFinite(val) || val <= 0) return;
-    eligible.push({ val, pos, name: String(r?.name || "") });
+    const name = String(r?.name || "");
+    if (isIdp) eligible.push({ val, pos, name });
+    if (includeSharedMarket) combined.push({ val, pos, name, isIdp });
   });
   eligible.sort((a, b) => b.val - a.val || a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 
@@ -102,7 +165,22 @@ function buildIdpBackbone(rows, sourceKey) {
     if (ladders[e.pos]) ladders[e.pos].push(overall);
     depth = overall;
   });
-  return { ladders, depth };
+
+  const sharedMarketIdpLadder = [];
+  let sharedMarketDepth = 0;
+  if (includeSharedMarket && combined.length) {
+    combined.sort(
+      (a, b) =>
+        b.val - a.val ||
+        a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+    );
+    sharedMarketDepth = combined.length;
+    combined.forEach((e, i) => {
+      if (e.isIdp) sharedMarketIdpLadder.push(i + 1);
+    });
+  }
+
+  return { ladders, depth, sharedMarketIdpLadder, sharedMarketDepth };
 }
 
 // ── Position-rank translation ───────────────────────────────────────
@@ -272,6 +350,16 @@ export const RANKING_SOURCES = [
     // DLF (Dynasty League Football) full-board IDP rankings.  Mirrors
     // the backend `_RANKING_SOURCES` entry in src/api/data_contract.py.
     // 185-player expert consensus; overall_idp scope; not a backbone.
+    //
+    // IDP-only expert boards (needsSharedMarketTranslation=true) have
+    // their raw IDP ordinal rank translated through a *shared-market
+    // IDP ladder* built from the backbone source's combined
+    // offense+IDP value pool.  Without this translation DLF rank 1
+    // would hit the Hill curve as overall rank 1 → value 9999, as if
+    // DLF priced both offense and IDP together.  With translation, DLF
+    // rank 1 becomes the combined-pool rank of the best IDP in the
+    // backbone (typically ~30-50), correctly calibrating DLF against
+    // the retail offense market.
     key: "dlfIdp",
     displayName: "Dynasty League Football IDP",
     columnLabel: "DLF",
@@ -280,6 +368,7 @@ export const RANKING_SOURCES = [
     depth: null,
     weight: 1.0,
     isBackbone: false,
+    needsSharedMarketTranslation: true,
   },
 ];
 
@@ -320,12 +409,33 @@ export function getRetailLabel() {
 
 function computeUnifiedRanks(rows) {
   // ── Phase 0: Build the IDP backbone from the designated source ──
+  // The builder seeds the shared-market IDP ladder only when the
+  // backbone source declares overall_offense in its extraScopes (i.e.
+  // prices offense + IDP on a shared 0-9999 scale).  Non-backbone IDP
+  // sources flagged ``needsSharedMarketTranslation`` use that ladder
+  // as a crosswalk so their raw rank 1 is mapped to the combined-pool
+  // rank of the best IDP, not treated as overall rank 1.
   const backboneSrc = RANKING_SOURCES.find(
     (s) => s.scope === SOURCE_SCOPE_OVERALL_IDP && s.isBackbone
   );
+  const backboneExtraScopes = Array.isArray(backboneSrc?.extraScopes)
+    ? backboneSrc.extraScopes
+    : [];
+  const backboneHasSharedMarket = backboneExtraScopes.includes(
+    SOURCE_SCOPE_OVERALL_OFFENSE
+  );
   const backbone = backboneSrc
-    ? buildIdpBackbone(rows, backboneSrc.key)
-    : { ladders: { DL: [], LB: [], DB: [] }, depth: 0 };
+    ? buildIdpBackbone(rows, backboneSrc.key, backboneHasSharedMarket)
+    : {
+        ladders: { DL: [], LB: [], DB: [] },
+        depth: 0,
+        sharedMarketIdpLadder: [],
+        sharedMarketDepth: 0,
+      };
+  const sharedMarketLadder = Array.isArray(backbone.sharedMarketIdpLadder)
+    ? backbone.sharedMarketIdpLadder
+    : [];
+  const sharedMarketDepth = Number(backbone.sharedMarketDepth) || 0;
 
   // ── Phase 1: Combined-pass ordinal ranking per source ──
   const sourceRanksByRow = new Map(); // row idx -> { sourceKey: effectiveRank }
@@ -371,19 +481,36 @@ function computeUnifiedRanks(rows) {
       (a, b) => b.val - a.val || a.tiebreakName.localeCompare(b.tiebreakName)
     );
 
+    const needsSharedMarket =
+      Boolean(src.needsSharedMarketTranslation) && !src.isBackbone;
+
     eligible.forEach((e, rank) => {
       const rawRank = rank + 1;
       let effectiveRank = rawRank;
       let method = TRANSLATION_DIRECT;
+      let ladderDepthMeta = null;
+      let backboneDepthMeta = null;
+      let sharedMarketTranslated = false;
 
       // position_idp sources (shallow positional lists like DL-only)
       // still get backbone translation.  overall_* scopes — including
-      // the cross-universe combined pool — pass through directly.
+      // the cross-universe combined pool — pass through directly unless
+      // the source is an IDP-only expert board that opts in to the
+      // shared-market crosswalk (e.g. DLF).
       if (e.scope === SOURCE_SCOPE_POSITION_IDP && src.positionGroup) {
         const ladder = backbone.ladders[String(src.positionGroup).toUpperCase()] || [];
         const translated = translatePositionRank(rawRank, ladder);
         effectiveRank = translated.rank;
         method = translated.method;
+        ladderDepthMeta = ladder.length;
+        backboneDepthMeta = backbone.depth;
+      } else if (needsSharedMarket && e.scope === SOURCE_SCOPE_OVERALL_IDP) {
+        const translated = translatePositionRank(rawRank, sharedMarketLadder);
+        effectiveRank = translated.rank;
+        method = translated.method;
+        ladderDepthMeta = sharedMarketLadder.length;
+        backboneDepthMeta = sharedMarketDepth;
+        sharedMarketTranslated = true;
       }
 
       if (!sourceRanksByRow.has(e.idx)) sourceRanksByRow.set(e.idx, {});
@@ -395,13 +522,11 @@ function computeUnifiedRanks(rows) {
         rawRank,
         effectiveRank,
         method,
-        ladderDepth:
-          e.scope === SOURCE_SCOPE_POSITION_IDP && src.positionGroup
-            ? (backbone.ladders[String(src.positionGroup).toUpperCase()] || []).length
-            : null,
-        backboneDepth: e.scope === SOURCE_SCOPE_POSITION_IDP ? backbone.depth : null,
+        ladderDepth: ladderDepthMeta,
+        backboneDepth: backboneDepthMeta,
         depth: src.depth ?? null,
         weight: Number(src.weight) || 0,
+        sharedMarketTranslated,
       };
     });
   }
