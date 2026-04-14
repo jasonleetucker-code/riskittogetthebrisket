@@ -34,12 +34,14 @@ def _row(
     ktc: int | None = None,
     idp: int | None = None,
     dlf: int | None = None,
+    dlf_sf: int | None = None,
     rookie: bool = False,
 ) -> dict[str, Any]:
     sites: dict[str, int | None] = {
         "ktc": ktc,
         "idpTradeCalc": idp,
         "dlfIdp": dlf,
+        "dlfSf": dlf_sf,
     }
     return {
         "canonicalName": name,
@@ -139,23 +141,30 @@ class TestTopOffenseNotSemantic1Src(unittest.TestCase):
     """
 
     # These players are top-100 dynasty offense assets with KTC > 3000.
-    # If any of them becomes semantic 1-src, it means a name-join
-    # regression broke cross-source matching.
+    # Each one is also covered by DLF Superflex, so all three must
+    # resolve to multi-source (NOT isSingleSource) in the synthetic
+    # fixture.  If any becomes semantic 1-src in a fixture that
+    # provides both KTC and DLF SF, it means a name-join regression
+    # broke cross-source matching.
+    #
+    # Tuple format: (name, pos, ktc_value, dlf_sf_synthetic_value)
+    # dlf_sf values are synthetic rank transforms — the absolute
+    # number is irrelevant, only the ordering matters.
     MUST_NOT_BE_SEMANTIC_1SRC = [
-        ("Kenneth Walker", "RB", 8000),
-        ("Marvin Harrison", "WR", 5001),
-        ("Brian Thomas", "WR", 4930),
-        ("Michael Penix", "QB", 3144),
+        ("Kenneth Walker", "RB", 8000, 950000),
+        ("Marvin Harrison", "WR", 5001, 950000),
+        ("Brian Thomas", "WR", 4930, 950000),
+        ("Michael Penix", "QB", 3144, 950000),
     ]
 
     def test_each_is_not_semantic_1src(self):
         """Each listed player must not be isSingleSource after ranking."""
-        for name, pos, ktc_val in self.MUST_NOT_BE_SEMANTIC_1SRC:
+        for name, pos, ktc_val, dlf_sf_val in self.MUST_NOT_BE_SEMANTIC_1SRC:
             with self.subTest(player=name):
                 rows = [
-                    _row(name, pos, ktc=ktc_val),
+                    _row(name, pos, ktc=ktc_val, dlf_sf=dlf_sf_val),
                     # Provide another player so the source pool has > 1 entry
-                    _row("Zzz Anchor QB", "QB", ktc=9999, idp=9999),
+                    _row("Zzz Anchor QB", "QB", ktc=9999, idp=9999, dlf_sf=999999),
                     _row("Zzz Anchor LB", "LB", idp=8000, dlf=900000),
                 ]
                 _compute_unified_rankings(rows, {})

@@ -61,6 +61,7 @@ _IDP_POSITIONS = {"DL", "LB", "DB"}
 _RANKABLE_POSITIONS = _OFFENSE_POSITIONS | _IDP_POSITIONS | {"PICK"}
 _OFFENSE_SIGNAL_KEYS = {
     "ktc",
+    "dlfSf",
 }
 _IDP_SIGNAL_KEYS = {
     "idpTradeCalc",
@@ -146,6 +147,15 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     "idpTradeCalc": "exports/latest/site_raw/idpTradeCalc.csv",
     "dlfIdp": {
         "path": "exports/latest/site_raw/dlfIdp.csv",
+        "signal": "rank",
+    },
+    # DLF Dynasty Superflex rankings — offense expert consensus.
+    # Raw CSV exported from DLF with capitalized Name/Rank columns
+    # plus several per-expert columns.  The `_enrich_from_source_csvs`
+    # reader uses column-name aliases so we can point directly at the
+    # original filename without any preprocessing.
+    "dlfSf": {
+        "path": "exports/latest/site_raw/Dynasty Superflex Rankings-3-15-2026-1642.csv",
         "signal": "rank",
     },
 }
@@ -292,6 +302,36 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "needs_shared_market_translation": True,
         "excludes_rookies": True,
     },
+    {
+        # DLF Dynasty Superflex rankings — the offense counterpart of
+        # DLF IDP.  Curated 6-expert consensus board with explicit
+        # ``Rank`` and ``Avg`` columns.  Includes rookies and picks'
+        # equivalents, spans 279 players, and is scoped purely to
+        # offense (QB/RB/WR/TE).
+        #
+        # KTC is the retail market and DLF is the expert consensus —
+        # mirroring DLF IDP, we weight DLF 3x so its opinion carries
+        # more signal than the raw retail price when both sources
+        # have the player.  ``coverage_weight`` scales shallow lists
+        # toward unity at ``min_expected_depth`` (60), so the effective
+        # weight for a 280-player list stays bounded at 3.0.
+        #
+        # depth=280 tells ``_expected_sources_for_position`` not to
+        # expect this source for players ranked deeper than ~350
+        # (depth * 1.25), preventing false 1-src flags on fringe
+        # offense players that DLF SF was never going to list.
+        "key": "dlfSf",
+        "display_name": "Dynasty League Football Superflex",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": 280,
+        "weight": 3.0,
+        "is_backbone": False,
+        "is_retail": False,
+        # Not a shared-market translation source — dlfSf is purely
+        # offense, so its effective rank IS the offense ordinal.  No
+        # IDP backbone crosswalk needed.
+    },
 ]
 
 
@@ -312,16 +352,19 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
 #   "rookie_exclusion:<source>" — the player is a rookie and the source
 #                                 excludes rookies.
 SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
-    # ── Offense: KTC-only ──
-    # Entries here are for players genuinely absent from IDPTradeCalc.
-    # Note: the 7 suffix-named players previously listed here
-    # (Kenneth Walker III, Marvin Harrison Jr., Brian Thomas Jr.,
+    # ── Offense: DLF-SF-only (dropped by retail + IDPTC) ──
+    # Veteran running backs / fringe players that both KTC and
+    # IDPTradeCalc have dropped from their databases but DLF's expert
+    # board still ranks.  These are genuinely single-source and the
+    # expert opinion is the only signal available.
+    "austin ekeler": "source_gap:ktc+idpTradeCalc — veteran RB dropped by both markets; DLF-SF expert board still ranks him",
+    # ── Offense: historical (7 suffix-named players) ──
+    # Kenneth Walker III, Marvin Harrison Jr., Brian Thomas Jr.,
     # Michael Penix Jr., Omar Cooper Jr., Mike Washington Jr.,
-    # Chris Brazzell II) were NOT actually missing — they live in
-    # IDPTradeCalc's Sheet3 payload which the scraper was ignoring.
-    # Fixed in Dynasty Scraper.py::_extract_idptc_name_map and the
-    # API-intercept handler to read Sheet1 + Sheet2 + Sheet3.
-    # After the fix all 7 match normally and no allowlist needed.
+    # Chris Brazzell II were NOT missing — they live in IDPTradeCalc's
+    # Sheet3 payload which the scraper was ignoring.  Fixed in
+    # Dynasty Scraper.py::_extract_idptc_name_map and the API-intercept
+    # handler to read Sheet1 + Sheet2 + Sheet3.  No allowlist needed.
     # ── IDP: IDPTradeCalc-only (DLF does not list these players) ──
     # DLF publishes a curated 185-player IDP veteran board.  Rookies and
     # players outside the top 185 are structurally excluded.
@@ -1033,17 +1076,33 @@ def _enrich_from_source_csvs(
         # spec: we never silently pick a wrong CSV row when multiple
         # candidates exist for the same canonical key.
         csv_lookup: dict[str, list[tuple[str, int, float | None]]] = {}
+        # Column-name aliases.  Raw DLF exports use capitalized
+        # `Name` / `Rank` columns plus extra columns (Avg, Pos, Team,
+        # Age, individual expert columns, Value, Follow).  We accept a
+        # small set of aliases so a freshly-downloaded DLF CSV can be
+        # dropped into ``exports/latest/site_raw/`` without any
+        # preprocessing step.
+        _NAME_ALIASES = ("name", "Name", "player", "Player", "player_name", "PlayerName")
+        _RANK_ALIASES = ("rank", "Rank", "overall_rank", "OverallRank")
+        _VALUE_ALIASES = ("value", "Value", "trade_value", "TradeValue")
+
+        def _pick(csvrow: dict[str, Any], aliases: tuple[str, ...]) -> str:
+            for k in aliases:
+                if k in csvrow and csvrow[k] not in (None, ""):
+                    return str(csvrow[k])
+            return ""
+
         try:
             with csv_path.open("r", encoding="utf-8-sig") as f:
                 for csvrow in csv.DictReader(f):
-                    name = str(csvrow.get("name", "")).strip()
+                    name = _pick(csvrow, _NAME_ALIASES).strip()
                     if not name:
                         continue
                     key = _canonical_match_key(name)
                     if not key:
                         continue
                     if signal == "rank":
-                        raw = csvrow.get("rank", "")
+                        raw = _pick(csvrow, _RANK_ALIASES)
                         if raw == "" or raw is None:
                             continue
                         try:
@@ -1067,7 +1126,7 @@ def _enrich_from_source_csvs(
                             continue
                         csv_lookup.setdefault(key, []).append((name, synthetic, rank_val))
                     else:
-                        val = csvrow.get("value", "")
+                        val = _pick(csvrow, _VALUE_ALIASES)
                         if not val:
                             continue
                         try:

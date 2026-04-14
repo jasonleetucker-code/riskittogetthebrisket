@@ -362,7 +362,7 @@ export const RANKING_SOURCES = [
     // the retail offense market.
     key: "dlfIdp",
     displayName: "Dynasty League Football IDP",
-    columnLabel: "DLF",
+    columnLabel: "DLF IDP",
     scope: SOURCE_SCOPE_OVERALL_IDP,
     positionGroup: null,
     depth: 185,
@@ -370,6 +370,26 @@ export const RANKING_SOURCES = [
     isBackbone: false,
     needsSharedMarketTranslation: true,
     excludesRookies: true,
+    isRankSignal: true,
+  },
+  {
+    // DLF Dynasty Superflex rankings — offense expert consensus.
+    // Curated 6-expert board with Rank / Avg / Pos / Name columns.
+    // Includes rookies (unlike DLF IDP).  Mirrors the backend entry
+    // in src/api/data_contract.py::_RANKING_SOURCES.
+    //
+    // Rank-signal: CSV has an explicit Rank column.  The backend
+    // converts ranks to synthetic monotonic values for sort purposes;
+    // the UI must render sourceOriginalRanks.dlfSf, never the synthetic.
+    key: "dlfSf",
+    displayName: "Dynasty League Football Superflex",
+    columnLabel: "DLF SF",
+    scope: SOURCE_SCOPE_OVERALL_OFFENSE,
+    positionGroup: null,
+    depth: 280,
+    weight: 3.0,
+    isBackbone: false,
+    isRetail: false,
     isRankSignal: true,
   },
 ];

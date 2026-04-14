@@ -484,23 +484,29 @@ class TestGDualScopeIdpTradeCalc(unittest.TestCase):
 
     def test_offense_player_without_idptc_value_still_ranks_via_ktc(self):
         """Regression guard: an offense player with only a KTC value must
-        still land on the unified board even though IDPTradeCalc is now
-        a registered overall_offense source.
+        still land on the unified board.
 
-        Since IDPTradeCalc's offense coverage is via extra_scopes
-        (opportunistic, not structurally expected), a KTC-only offense
-        player is structurally single-source — NOT a matching failure.
+        With two primary-scope offense sources registered (KTC + DLF SF),
+        a KTC-only offense player IS a semantic single-source — both KTC
+        and DLF SF are structurally expected for offense players and DLF
+        did not match.  The guarantee this test protects is that the
+        player still RANKS (lands on the board); the 1-src flagging is
+        correct behavior.
         """
         rows = [
-            _row("qb_solo", "QB", ktc=8000),  # no IDPTC value
+            _row("qb_solo", "QB", ktc=8000),  # no IDPTC / DLF SF value
             _row("qb_both", "QB", ktc=9000, idp=9000),
         ]
         _compute_unified_rankings(rows, {})
         solo = next(r for r in rows if r["canonicalName"] == "qb_solo")
         both = next(r for r in rows if r["canonicalName"] == "qb_both")
+        # Player still lands on the board via KTC.
         self.assertEqual(solo["sourceRanks"], {"ktc": 2})
-        self.assertFalse(solo["isSingleSource"])
-        self.assertTrue(solo["isStructurallySingleSource"])
+        self.assertIn(solo["canonicalConsensusRank"], (1, 2))
+        # With two primary-scope offense sources, KTC-only is a real
+        # matching failure against DLF SF.
+        self.assertTrue(solo["isSingleSource"])
+        self.assertFalse(solo["isStructurallySingleSource"])
         self.assertEqual(both["sourceRanks"]["ktc"], 1)
         self.assertEqual(both["sourceRanks"]["idpTradeCalc"], 1)
 
