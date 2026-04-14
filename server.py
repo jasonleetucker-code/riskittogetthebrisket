@@ -1296,6 +1296,35 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             if not result or not result.get("players"):
                 raise RuntimeError("Scraper returned empty result")
 
+            # Mirror fresh site_raw CSVs from the scraper's DATA_DIR output
+            # path (data/exports/latest/site_raw/) back to the repo's
+            # tracked exports/latest/site_raw/ directory so that the CSV
+            # enrichment in data_contract.py (which reads relative to repo
+            # root) sees up-to-date values.  Without this, enrichment reads
+            # permanently-stale CSVs from git history.  Only copies KTC and
+            # IDPTradeCalc — DLF is a rank-signal file with a different
+            # format maintained separately.
+            try:
+                import shutil as _sh
+                src_raw = DATA_DIR / "exports" / "latest" / "site_raw"
+                dst_raw = BASE_DIR / "exports" / "latest" / "site_raw"
+                if src_raw.exists() and dst_raw.exists():
+                    for fname in ("ktc.csv", "idpTradeCalc.csv"):
+                        src_file = src_raw / fname
+                        dst_file = dst_raw / fname
+                        if src_file.exists():
+                            _sh.copy2(src_file, dst_file)
+                    # Also mirror the full dynasty_data JSON so other
+                    # consumers (tests, CLI tools) see the fresh file.
+                    date_str = str(result.get("date") or "")
+                    if date_str:
+                        src_json = DATA_DIR / "exports" / "latest" / f"dynasty_data_{date_str}.json"
+                        dst_json = BASE_DIR / "exports" / "latest" / f"dynasty_data_{date_str}.json"
+                        if src_json.exists():
+                            _sh.copy2(src_json, dst_json)
+            except Exception as _mirror_err:
+                log.warning(f"Post-scrape CSV mirror failed: {_mirror_err}")
+
             _update_scrape_progress(
                 step="publish",
                 source="api_cache",

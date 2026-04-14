@@ -221,16 +221,22 @@ class TestAllowlistCompleteness(unittest.TestCase):
 class TestBuildCheck(unittest.TestCase):
 
     def test_no_unexplained_1src_with_allowlist(self):
-        """Players on the allowlist should not appear as unexplained."""
+        """Players on the allowlist should not appear as unexplained.
+
+        Uses 'Arvell Reese' (IDP rookie) — an allowlisted player whose
+        reason is DLF rookie exclusion, which is a permanent structural
+        property of DLF rather than a scraper gap.
+        """
         rows = [
-            _row("Kenneth Walker", "RB", ktc=8000),
+            _row("Arvell Reese", "LB", idp=4000, rookie=True),
+            _row("Zzz Anchor LB", "LB", idp=8000, dlf=900000),
             _row("Zzz Anchor QB", "QB", ktc=9999, idp=9999),
         ]
         _compute_unified_rankings(rows, {})
         unexplained = assert_no_unexplained_single_source(rows, rank_limit=800)
-        # Kenneth Walker is on the allowlist
+        # Arvell Reese is on the allowlist (rookie exclusion)
         names = [u["canonicalName"] for u in unexplained]
-        self.assertNotIn("Kenneth Walker", names)
+        self.assertNotIn("Arvell Reese", names)
 
     def test_unexplained_1src_without_allowlist(self):
         """A 1-src player NOT on the allowlist should be flagged."""

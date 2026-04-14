@@ -312,18 +312,16 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
 #   "rookie_exclusion:<source>" — the player is a rookie and the source
 #                                 excludes rookies.
 SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
-    # ── Offense: KTC-only (IDPTradeCalc does not list these players) ──
-    # IDPTradeCalc's offense coverage comes from user autocomplete search.
-    # These players are genuinely absent from IDPTC's published value pool
-    # as of 2026-04-14.  Each was verified against the raw IDPTC CSV by
-    # searching for the player's last name, suffix variants, and team.
-    "kenneth walker": "source_gap:idpTradeCalc — absent from IDPTC offense autocomplete",
-    "marvin harrison": "source_gap:idpTradeCalc — absent from IDPTC offense autocomplete",
-    "brian thomas": "source_gap:idpTradeCalc — absent from IDPTC offense autocomplete",
-    "omar cooper": "source_gap:idpTradeCalc — absent from IDPTC offense autocomplete",
-    "michael penix": "source_gap:idpTradeCalc — absent from IDPTC offense autocomplete",
-    "mike washington": "source_gap:idpTradeCalc — absent from IDPTC; low-value fringe RB",
-    "chris brazzell": "source_gap:idpTradeCalc — absent from IDPTC; low-value fringe WR",
+    # ── Offense: KTC-only ──
+    # Entries here are for players genuinely absent from IDPTradeCalc.
+    # Note: the 7 suffix-named players previously listed here
+    # (Kenneth Walker III, Marvin Harrison Jr., Brian Thomas Jr.,
+    # Michael Penix Jr., Omar Cooper Jr., Mike Washington Jr.,
+    # Chris Brazzell II) were NOT actually missing — they live in
+    # IDPTradeCalc's Sheet3 payload which the scraper was ignoring.
+    # Fixed in Dynasty Scraper.py::_extract_idptc_name_map and the
+    # API-intercept handler to read Sheet1 + Sheet2 + Sheet3.
+    # After the fix all 7 match normally and no allowlist needed.
     # ── IDP: IDPTradeCalc-only (DLF does not list these players) ──
     # DLF publishes a curated 185-player IDP veteran board.  Rookies and
     # players outside the top 185 are structurally excluded.
