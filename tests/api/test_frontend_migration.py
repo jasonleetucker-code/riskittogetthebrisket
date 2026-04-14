@@ -61,16 +61,34 @@ class TestSettingsRoute(unittest.TestCase):
 
 
 class TestCanonicalOverlayRankComputation(unittest.TestCase):
-    """When canonical snapshots lack canonical_consensus_rank (legacy engine),
-    the overlay must compute ranks from calibrated_value sorting."""
+    """The canonical-engine overlay must NEVER produce its own rank.
 
-    def test_overlay_computes_rank_from_calibrated_value(self):
-        """_apply_canonical_primary_overlay should compute rank for legacy snapshots."""
+    Old behavior (deliberately removed): the overlay computed a per-
+    universe rank from ``calibrated_value`` sorting and stamped it
+    over the contract layer's unified rank.  Because the canonical
+    snapshot duplicates every offense star into both ``offense_vet``
+    and ``idp_vet``, that produced duplicate rank numbers and a
+    rank/value mismatch on the live board.
+
+    New behavior (pinned by these tests): the overlay only writes
+    value fields and immediately delegates rank renumbering to the
+    contract-layer ``resort_unified_board_by_value`` helper, which
+    sorts strictly by displayed value.
+    """
+
+    def test_overlay_does_not_compute_its_own_rank(self):
         server_py = REPO_ROOT / "server.py"
         text = server_py.read_text()
-        # Must have the computed_ranks fallback logic
-        self.assertIn("computed_ranks", text)
-        self.assertIn("has_ccr", text)
+        # The buggy fallback is gone — the overlay must never
+        # introduce its own rank-computation logic.
+        self.assertNotIn("computed_ranks", text)
+        self.assertNotIn("has_ccr", text)
+
+    def test_overlay_calls_resort_helper(self):
+        server_py = REPO_ROOT / "server.py"
+        text = server_py.read_text()
+        self.assertIn("resort_unified_board_by_value", text)
+        self.assertIn("assert_rank_value_invariants", text)
 
     def test_settings_wired_to_trade_logic(self):
         """useSettings hook must exist and be imported by trade page."""

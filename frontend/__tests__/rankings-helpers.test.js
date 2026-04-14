@@ -12,19 +12,19 @@ import {
 // ── tierLabel ────────────────────────────────────────────────────────
 
 describe("tierLabel", () => {
-  it("uses backend canonicalTierId when present", () => {
-    expect(tierLabel({ canonicalTierId: 1, rank: 5 })).toBe("Elite");
-    expect(tierLabel({ canonicalTierId: 2, rank: 20 })).toBe("Blue-Chip");
-    expect(tierLabel({ canonicalTierId: 5, rank: 150 })).toBe("Starter");
-  });
-
-  it("falls back to generic label for tier IDs > 10", () => {
-    expect(tierLabel({ canonicalTierId: 12, rank: 700 })).toBe("Tier 12");
-  });
-
-  it("falls back to rank-based when canonicalTierId is null", () => {
-    expect(tierLabel({ canonicalTierId: null, rank: 1 })).toBe("Elite");
-    expect(tierLabel({ rank: 50 })).toBe("Premium Starter");
+  // The backend `canonicalTierId` field is per-universe (offense vs
+  // IDP), and on a unified offense + IDP board it does not align with
+  // the displayed sort order — that misalignment was the root cause
+  // of the off-by-one tier headers (a "STARTER" boundary appearing
+  // *after* a player instead of before the full tier).  The label is
+  // now derived strictly from `row.rank`, which the backend
+  // (`resort_unified_board_by_value`) and the frontend (`buildRows`)
+  // both keep monotonic in displayed value.
+  it("derives label from row.rank, ignoring per-universe canonicalTierId", () => {
+    // Even with a stale canonicalTierId the rank wins.
+    expect(tierLabel({ canonicalTierId: 1, rank: 150 })).toBe("Starter");
+    expect(tierLabel({ canonicalTierId: 12, rank: 5 })).toBe("Elite");
+    expect(tierLabel({ canonicalTierId: null, rank: 50 })).toBe("Premium Starter");
     expect(tierLabel({ rank: 400 })).toBe("Bench Depth");
   });
 
@@ -92,11 +92,12 @@ describe("rankBasedTierId", () => {
 // ── effectiveTierId ──────────────────────────────────────────────────
 
 describe("effectiveTierId", () => {
-  it("prefers backend canonicalTierId", () => {
-    expect(effectiveTierId({ canonicalTierId: 3, rank: 1 })).toBe(3);
-  });
-
-  it("falls back to rank-based", () => {
+  // Always derives from row.rank for the same reason tierLabel does
+  // — per-universe canonicalTierId from the canonical engine
+  // disagrees with the unified offense + IDP sort and produces
+  // off-by-one section headers when used directly.
+  it("derives the tier id from row.rank, ignoring stale canonicalTierId", () => {
+    expect(effectiveTierId({ canonicalTierId: 3, rank: 1 })).toBe(1);
     expect(effectiveTierId({ canonicalTierId: null, rank: 50 })).toBe(3);
     expect(effectiveTierId({ rank: 200 })).toBe(5);
   });

@@ -452,10 +452,18 @@ class TestPayloadLevelBlocks(unittest.TestCase):
         self.assertIn("confidenceBuckets", meth)
         self.assertIn("anomalyFlags", meth)
         self.assertIsInstance(meth["sources"], list)
-        # ktc + idpTradeCalc + dlfIdp (three registered ranking sources)
-        self.assertEqual(len(meth["sources"]), 3)
+        # ktc + dlfSf + fantasyCalc + idpTradeCalc + dlfIdp
+        # (five registered ranking sources after the multi-source
+        # offense expansion that fixed the Kenneth Walker / Marvin
+        # Harrison / Brian Thomas 1-src bug — DLF SuperFlex and
+        # FantasyCalc cover the suffix-bearing offense players the
+        # IDPTradeCalc autocomplete fallback misses).
+        self.assertEqual(len(meth["sources"]), 5)
         keys = {s.get("key") for s in meth["sources"]}
-        self.assertEqual(keys, {"ktc", "idpTradeCalc", "dlfIdp"})
+        self.assertEqual(
+            keys,
+            {"ktc", "dlfSf", "fantasyCalc", "idpTradeCalc", "dlfIdp"},
+        )
 
     def test_data_freshness_block_present(self):
         payload = _payload_with_players(

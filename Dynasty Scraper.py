@@ -2852,8 +2852,20 @@ async def scrape_idptradecalc(page, players):
 
                     body_text = await page.inner_text("body")
                     last_name = player.split()[-1]
+                    # Allow an optional generational suffix between the
+                    # last name and the value parens.  Without this the
+                    # regex silently misses every player whose IDPTC
+                    # autocomplete entry shows the suffix
+                    # ("Kenneth Walker III (5700) - RB",
+                    #  "Marvin Harrison Jr (4900) - WR",
+                    #  "Brian Thomas Jr (4800) - WR") because the
+                    # `\s*\(` requires the parenthesis immediately
+                    # after the last name token.  This was the
+                    # root cause of the headline 1-src bug for the
+                    # suffix-bearing offense players.
+                    suffix_gap = r'(?:\s+(?:Jr\.?|Sr\.?|II|III|IV|V|VI))?'
                     pattern = re.compile(
-                        rf'{re.escape(last_name)}\s*\((\d+)\)\s*-\s*\w+',
+                        rf'{re.escape(last_name)}{suffix_gap}\s*\((\d+)\)\s*-\s*\w+',
                         re.IGNORECASE
                     )
                     match = pattern.search(body_text)

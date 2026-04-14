@@ -59,6 +59,8 @@ _IDP_POSITIONS = {"DL", "LB", "DB"}
 _RANKABLE_POSITIONS = _OFFENSE_POSITIONS | _IDP_POSITIONS | {"PICK"}
 _OFFENSE_SIGNAL_KEYS = {
     "ktc",
+    "dlfSf",
+    "fantasyCalc",
 }
 _IDP_SIGNAL_KEYS = {
     "idpTradeCalc",
@@ -146,6 +148,11 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "exports/latest/site_raw/dlfIdp.csv",
         "signal": "rank",
     },
+    "dlfSf": {
+        "path": "exports/latest/site_raw/dlfSf.csv",
+        "signal": "rank",
+    },
+    "fantasyCalc": "exports/latest/site_raw/fantasyCalc.csv",
 }
 
 # Rank -> synthetic value transform used when a CSV declares signal=rank.
@@ -220,6 +227,45 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
         "depth": None,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": True,
+    },
+    {
+        # DLF SuperFlex offense expert board.  ``dlf_superflex.csv``
+        # is published as ``Rank,Avg,Pos,Name,...`` — the same shape
+        # ``scripts/convert_dlf_csv.py`` already understands — and is
+        # written to ``exports/latest/site_raw/dlfSf.csv`` as a
+        # ``name,rank`` CSV during the local export bundle.
+        #
+        # 278-deep board covering QB/RB/WR/TE on a single ladder.
+        # Critically this list **includes generational-suffix names
+        # exactly as the consensus panel writes them** (Marvin
+        # Harrison Jr, Will Anderson Jr, Kenneth Walker), so the
+        # alias-aware contract join recovers the offense players
+        # that the IDPTradeCalc autocomplete fallback drops on the
+        # floor for suffix-bearing names.
+        "key": "dlfSf",
+        "display_name": "Dynasty League Football SuperFlex",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": 278,
+        # Curated dynasty board — weight 2x the retail KTC source so
+        # the blended offense rank reflects the expert panel when
+        # both sources cover a player.
+        "weight": 2.0,
+        "is_backbone": False,
+    },
+    {
+        # FantasyCalc public retail value pool.  ``name,value`` shape
+        # at ``exports/latest/site_raw/fantasyCalc.csv``, ~456 deep.
+        # Second-opinion retail source against KTC; weight 1.0 so the
+        # two retail boards together contribute ~ as much as DLF SF.
+        "key": "fantasyCalc",
+        "display_name": "FantasyCalc",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": 456,
         "weight": 1.0,
         "is_backbone": False,
         "is_retail": True,
@@ -375,20 +421,52 @@ def _compute_anomaly_flags(
 
     # 6. Suspicious disagreement.
     #
-    # Preferred signal: the depth-aware percentile spread computed
-    # by ``_percentile_rank_spread`` (max-minus-min of each source's
-    # raw rank divided by that source's pool size).  Fires when
-    # spread > 0.20 (sources place the player in tiers more than 20
-    # percentile points apart).
+    # Two conditions must BOTH be true for the flag to fire:
     #
-    # Legacy callers that pass only ``source_ranks`` without the
-    # percentile signal (older tests, third-party callers) still get
-    # the old absolute-rank rule for backwards compatibility: spread
-    # of more than ``_SUSPICIOUS_DISAGREEMENT_THRESHOLD`` ordinal
-    # ranks across at least two contributing sources.
+    # * The depth-aware **percentile** spread (computed by
+    #   :func:`_percentile_rank_spread`) is greater than 0.20.
+    # * The **raw** rank spread (max - min of effective ranks
+    #   across the contributing sources, with the most extreme
+    #   outlier dropped when 3+ sources are present) is greater
+    #   than 80 ordinal positions.
+    #
+    # Requiring both conditions avoids the false-positive cohort
+    # the percentile-only check produced — mid-tier WRs / TEs whose
+    # raw ranks agreed within ~50 positions but whose percentile
+    # representations diverged because the registered sources have
+    # very different pool sizes (DLF SF = 275, IDPTradeCalc = 800+).
+    # Players like Rashid Shaheed (raw 160-214 across 4 sources) no
+    # longer trip the flag, while genuine disagreements like
+    # Bobby Wagner (raw 81 vs 608 across 2 sources) and Nick
+    # Emmanwori (raw 63 vs 366) still do.
+    #
+    # Legacy callers that don't supply percentile_spread fall back
+    # to the original absolute-rank rule for backwards compatibility.
     if percentile_spread is not None:
-        if percentile_spread > 0.20:
-            flags.append("suspicious_disagreement")
+        rank_values = list(source_ranks.values())
+        if len(rank_values) >= 2:
+            # Apply the same drop-one-outlier rule the percentile
+            # spread uses so the two checks stay aligned.
+            ranks_for_spread = list(rank_values)
+            if len(ranks_for_spread) >= 3:
+                import statistics as _stats  # noqa: PLC0415
+                med = _stats.median(ranks_for_spread)
+                farthest = max(
+                    range(len(ranks_for_spread)),
+                    key=lambda i: abs(ranks_for_spread[i] - med),
+                )
+                ranks_for_spread = [
+                    r for i, r in enumerate(ranks_for_spread) if i != farthest
+                ]
+            raw_spread = (
+                max(ranks_for_spread) - min(ranks_for_spread)
+                if len(ranks_for_spread) >= 2 else 0
+            )
+            if (
+                percentile_spread > 0.20
+                and raw_spread > _SUSPICIOUS_DISAGREEMENT_THRESHOLD
+            ):
+                flags.append("suspicious_disagreement")
     else:
         rank_values = list(source_ranks.values())
         if len(rank_values) >= 2:
@@ -1081,6 +1159,125 @@ def _enrich_from_source_csvs(
     return csv_index
 
 
+def resort_unified_board_by_value(contract: dict[str, Any]) -> int:
+    """Renumber ``canonicalConsensusRank`` 1..N strictly by displayed value.
+
+    Pipeline-wide invariant: the rank shown next to a player must be
+    the position of that player in the displayed-value-descending sort.
+    Anything that mutates ``rankDerivedValue`` after the contract is
+    built (canonical overlay, scoring adjustments, custom sorts in
+    server.py) MUST call this helper so the rank field stays in sync.
+
+    The new rank is written onto:
+
+    * ``playersArray[*].canonicalConsensusRank`` (authoritative)
+    * ``players[name]._canonicalConsensusRank`` (legacy mirror used by
+      the runtime view that strips ``playersArray``)
+
+    Tie-breakers (in order): ``blendedSourceRank`` ascending then
+    ``canonicalName`` lower-case.
+
+    Returns the number of rows reranked.
+    """
+    pa = contract.get("playersArray")
+    if not isinstance(pa, list):
+        return 0
+
+    def _row_value(row: dict[str, Any]) -> float:
+        for key in ("rankDerivedValue",):
+            v = row.get(key)
+            if v is not None:
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    pass
+        values = row.get("values") or {}
+        for key in ("displayValue", "finalAdjusted", "overall"):
+            v = values.get(key)
+            if v is not None:
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    pass
+        return 0.0
+
+    eligible = [r for r in pa if r.get("canonicalConsensusRank") is not None]
+    eligible.sort(
+        key=lambda r: (
+            -_row_value(r),
+            r.get("blendedSourceRank") if r.get("blendedSourceRank") is not None else 1e9,
+            (r.get("canonicalName") or "").lower(),
+        )
+    )
+    for new_rank, row in enumerate(eligible, start=1):
+        row["canonicalConsensusRank"] = new_rank
+
+    players = contract.get("players")
+    if isinstance(players, dict):
+        for row in eligible:
+            ref = row.get("legacyRef") or row.get("canonicalName")
+            if not ref:
+                continue
+            pdata = players.get(ref)
+            if isinstance(pdata, dict):
+                pdata["_canonicalConsensusRank"] = row["canonicalConsensusRank"]
+
+    return len(eligible)
+
+
+def assert_rank_value_invariants(contract: dict[str, Any]) -> None:
+    """Raise if the public rank is not strictly aligned with the value.
+
+    Invariant 1 — *Uniqueness*: every populated
+    ``canonicalConsensusRank`` is distinct.
+
+    Invariant 2 — *Monotonicity*: for any two ranked rows A and B
+    where ``rank(A) < rank(B)``, ``displayed_value(A) >=
+    displayed_value(B)``.  The non-strict inequality permits genuine
+    value ties (same player tier, same Hill-curve output) while
+    still forbidding rank/value disagreement of the kind that
+    surfaced "Amon-Ra St. Brown ranked below Justin Jefferson with a
+    higher value" in production.
+
+    Called from build_api_data_contract after every rerank.  Designed
+    to fail loud rather than silently serve a broken board.
+    """
+    pa = contract.get("playersArray")
+    if not isinstance(pa, list):
+        return
+    by_rank: dict[int, dict[str, Any]] = {}
+    for row in pa:
+        ccr = row.get("canonicalConsensusRank")
+        if ccr is None:
+            continue
+        if ccr in by_rank:
+            other = by_rank[ccr]
+            raise AssertionError(
+                f"Duplicate canonicalConsensusRank {ccr}: "
+                f"{row.get('canonicalName')!r} vs {other.get('canonicalName')!r}"
+            )
+        by_rank[ccr] = row
+    sorted_rows = sorted(by_rank.items())
+    prev_value: float | None = None
+    prev_name: str | None = None
+    for rank, row in sorted_rows:
+        rdv = row.get("rankDerivedValue")
+        try:
+            value = float(rdv) if rdv is not None else None
+        except (TypeError, ValueError):
+            value = None
+        if value is None:
+            continue
+        if prev_value is not None and value > prev_value + 1e-9:
+            raise AssertionError(
+                f"Rank/value monotonicity broken at rank {rank}: "
+                f"{row.get('canonicalName')!r}={value} > "
+                f"{prev_name!r}={prev_value}"
+            )
+        prev_value = value
+        prev_name = row.get("canonicalName")
+
+
 def _expected_sources_for_position(
     pos: str,
     *,
@@ -1156,7 +1353,20 @@ def _percentile_rank_spread(
     is on a 1-600 scale.
 
     The spread is the max-minus-min of those percentiles in 0..1.
-    Returns ``None`` if fewer than two sources contributed.
+    With 4+ sources, the *most extreme* percentile (highest **or**
+    lowest, whichever is farther from the median) is dropped before
+    computing the spread.  This makes the metric robust to a single
+    outlier source — exactly the failure mode the dual-role player
+    Travis Hunter exhibits, where IDPTradeCalc rates him as an elite
+    CB while three offense sources rate him as a mid-tier WR.  The
+    drop is symmetric so it doesn't have a directional bias.
+
+    With 3 sources, we also drop the single farthest-from-median
+    percentile (one outlier at most) so a single bad opinion can't
+    light up the flag for an otherwise well-agreeing trio.
+
+    Returns ``None`` if fewer than two sources contributed after
+    pruning.
     """
     if not source_ranks or len(source_ranks) < 2:
         return None
@@ -1176,6 +1386,27 @@ def _percentile_rank_spread(
             continue
         pct = float(raw_rank) / depth_f
         pcts.append(max(0.0, min(1.0, pct)))
+    if len(pcts) < 2:
+        return None
+    if len(pcts) >= 3:
+        # Drop the single most extreme percentile (the value farthest
+        # from the *true* median).  With 3+ contributing sources, one
+        # outlier source must not be allowed to control the
+        # disagreement signal — the median still represents
+        # consensus and the remaining spread reflects honest variance.
+        #
+        # Using the *true* median (average of the two middle values
+        # for even-length lists) is critical: an upper-middle pick
+        # for a 4-element list silently biases the "farthest from
+        # median" computation toward the lower tail.  In production
+        # that bug fired ``suspicious_disagreement`` on offense
+        # players whose IDPTradeCalc rank actually *agreed* with
+        # KTC / FantasyCalc and whose DLF SuperFlex rank was the
+        # real outlier.
+        import statistics as _stats  # noqa: PLC0415
+        mid = _stats.median(pcts)
+        farthest_idx = max(range(len(pcts)), key=lambda i: abs(pcts[i] - mid))
+        pcts = [p for i, p in enumerate(pcts) if i != farthest_idx]
     if len(pcts) < 2:
         return None
     return float(max(pcts) - min(pcts))
@@ -2032,6 +2263,22 @@ def build_api_data_contract(
     # `r.raw?.field`.  This pass copies all post-quarantine trust fields
     # so they survive the runtime view.
     _mirror_trust_to_legacy(players_array, players_by_name)
+
+    # ── Final rank-by-displayed-value pass + invariant assertion ──
+    # ``_compute_unified_rankings`` already sorts by blended_value
+    # before assigning ``canonicalConsensusRank``, but every
+    # downstream pass (value bundle stamping above, quarantine,
+    # trust mirror) could in principle perturb the displayed value.
+    # Force a fresh rerank from the *post-pass* ``rankDerivedValue``
+    # and assert the invariants so a regression in any of those
+    # passes fails the build instead of silently serving a board
+    # whose rank disagrees with its value column.
+    contract_for_invariants = {
+        "playersArray": players_array,
+        "players": players_by_name,
+    }
+    resort_unified_board_by_value(contract_for_invariants)
+    assert_rank_value_invariants(contract_for_invariants)
 
     data_source = data_source or {}
     generated_at = utc_now_iso()

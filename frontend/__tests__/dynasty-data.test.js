@@ -645,18 +645,32 @@ describe("computedConsensusRank", () => {
     expect(rows[1].computedConsensusRank).toBe(2);
   });
 
-  it("row.rank uses canonicalConsensusRank when present, else computedConsensusRank", () => {
+  it("row.rank is the post-sort displayed-value position, not a stale backend rank", () => {
+    // The previous behaviour used ``row.rank = canonicalConsensusRank
+    // ?? computedConsensusRank``, which let a stale backend rank show
+    // up next to a row even when the row's displayed value placed it
+    // somewhere else in the table.  The canonical-overlay path in
+    // server.py used to feed that bug by stamping per-universe
+    // canonical_consensus_rank values that disagreed with the
+    // contract-layer unified rank.
+    //
+    // The contract is now: the displayed rank is the position of the
+    // row in the displayed-value-descending sort.  Backend
+    // canonicalConsensusRank is still consumed for tiebreaks, but
+    // row.rank is always the sorted index.
     const data = {
       playersArray: [
         {
-          displayName: "Canonical",
+          displayName: "HighValue",
           position: "QB",
+          // Stale backend rank that disagrees with the value:
+          // backend says rank 42, but value 9000 belongs at the top.
           canonicalConsensusRank: 42,
           values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 },
           canonicalSiteValues: { ktc: 9000 },
         },
         {
-          displayName: "Computed",
+          displayName: "LowValue",
           position: "RB",
           values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 },
           canonicalSiteValues: { ktc: 5000 },
@@ -664,29 +678,24 @@ describe("computedConsensusRank", () => {
       ],
     };
     const rows = buildRows(data);
-    const canonical = rows.find(r => r.name === "Canonical");
-    const computed = rows.find(r => r.name === "Computed");
-    // canonicalConsensusRank (42) wins over computedConsensusRank
-    expect(canonical.rank).toBe(42);
-    // computedConsensusRank is assigned by sorted position — Canonical
-    // sorts after Computed (rank 42 > rank 2), so it gets position 2
-    expect(canonical.computedConsensusRank).toBe(2);
-    // "Computed" gets canonicalConsensusRank=2 from computeUnifiedRanks
-    // (second in the unified sort) and computedConsensusRank=1 (first
-    // in the final sort since rank 2 < rank 42).
-    expect(computed.canonicalConsensusRank).toBe(2);
-    expect(computed.rank).toBe(2);
-    expect(computed.computedConsensusRank).toBe(1);
+    const high = rows.find(r => r.name === "HighValue");
+    const low = rows.find(r => r.name === "LowValue");
+    // HighValue (value 9000) MUST come first regardless of the
+    // stale backend rank claim of 42.
+    expect(high.rank).toBe(1);
+    expect(low.rank).toBe(2);
+    expect(rows[0].name).toBe("HighValue");
+    expect(rows[1].name).toBe("LowValue");
   });
 
-  it("IDP players get idpRank and canonicalConsensusRank after offense", () => {
+  it("IDP players get idpRank and unified rank ordered by displayed value", () => {
     const data = {
       playersArray: [
-        // Offense player with KTC value
+        // Offense player with KTC value (highest displayed value)
         { displayName: "QB Star", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } },
-        // IDP player with IDP sources
+        // IDP player with mid displayed value
         { displayName: "DL Star", position: "DL", values: { finalAdjusted: 6000, rawComposite: 6000, overall: 6000 }, canonicalSiteValues: { idpTradeCalc: 5800 } },
-        // Another IDP player
+        // Lower IDP player
         { displayName: "LB Star", position: "LB", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 }, canonicalSiteValues: { idpTradeCalc: 4000 } },
       ],
     };
@@ -695,25 +704,19 @@ describe("computedConsensusRank", () => {
     const dl = rows.find(r => r.name === "DL Star");
     const lb = rows.find(r => r.name === "LB Star");
 
-    // Offense player gets ktcRank
+    // Per-source rank fields still pin position-relative ranks.
     expect(qb.ktcRank).toBe(1);
-    // IDP players get idpRank
-    expect(dl.idpRank).toBe(1); // higher IDP source value
+    expect(dl.idpRank).toBe(1);
     expect(lb.idpRank).toBe(2);
-    // Unified ranking sorts ALL players by normalized value (rankToValue).
-    // DL Star: idpRank=1 -> rankToValue(1)=9999
-    // QB Star: ktcRank=1 -> rankToValue(1)=9999
-    // LB Star: idpRank=2 -> rankToValue(2)≈9849 (lower)
-    // Ties at 9999 break alphabetically: "DL Star" < "QB Star"
-    expect(dl.canonicalConsensusRank).toBe(1);
-    expect(qb.canonicalConsensusRank).toBe(2);
-    expect(lb.canonicalConsensusRank).toBe(3);
-    // IDP players have rankDerivedValue
+    // The unified displayed rank is the position in the
+    // displayed-value-descending sort — QB > DL > LB by value.
+    expect(qb.rank).toBe(1);
+    expect(dl.rank).toBe(2);
+    expect(lb.rank).toBe(3);
     expect(dl.rankDerivedValue).toBeGreaterThan(0);
     expect(lb.rankDerivedValue).toBeGreaterThan(0);
-    // Sort order: by unified rank (value desc, then alphabetical)
-    expect(rows[0].name).toBe("DL Star");
-    expect(rows[1].name).toBe("QB Star");
+    expect(rows[0].name).toBe("QB Star");
+    expect(rows[1].name).toBe("DL Star");
     expect(rows[2].name).toBe("LB Star");
   });
 

@@ -29,14 +29,24 @@ const TIER_LABELS = {
 
 /**
  * Return a human-readable tier label for a row.
- * Prefers backend canonicalTierId; falls back to rank-based derivation.
+ *
+ * Always derives the tier label from ``row.rank`` — the *displayed*
+ * rank position on the unified board.
+ *
+ * The previous behaviour preferred ``row.canonicalTierId`` from the
+ * canonical engine snapshot.  That field is **per-universe** (offense
+ * players are ranked / tiered against each other; IDP players have
+ * their own tier numbering), so on a unified offense + IDP board the
+ * canonical tier ID does not align with the displayed sort order.
+ * The off-by-one tier headers (a "STARTER" boundary inserted *after*
+ * a player instead of before the full tier) were caused by mixing
+ * per-universe tier IDs with the unified rank order.  Forcing the
+ * label off the rank — which the backend's
+ * ``resort_unified_board_by_value`` guarantees is monotonic in the
+ * displayed value — keeps the section header and the row badge in
+ * lockstep with the visible sort.
  */
 export function tierLabel(row) {
-  const tierId = row?.canonicalTierId;
-  if (tierId != null && tierId > 0) {
-    return TIER_LABELS[tierId] || `Tier ${tierId}`;
-  }
-  // Fallback: derive from rank position
   return rankBasedTierLabel(row?.rank);
 }
 
@@ -91,12 +101,13 @@ export function rankBasedTierId(rank) {
 }
 
 /**
- * Get the effective tier ID for a row (backend or rank-based fallback).
+ * Get the effective tier ID for a row.
+ *
+ * Always derived from ``row.rank`` — the displayed unified rank.
+ * See :func:`tierLabel` for the historical bug that motivated
+ * dropping the per-universe ``canonicalTierId`` source.
  */
 export function effectiveTierId(row) {
-  if (row?.canonicalTierId != null && row.canonicalTierId > 0) {
-    return row.canonicalTierId;
-  }
   return rankBasedTierId(row?.rank);
 }
 

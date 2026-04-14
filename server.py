@@ -1029,11 +1029,34 @@ def _load_canonical_snapshot() -> dict | None:
 def _apply_canonical_primary_overlay(contract: dict) -> int:
     """R-6 primary mode: overlay canonical calibrated values onto the public contract.
 
-    For each player in the canonical snapshot that matches a player in the contract,
-    replace the value fields the frontend reads (_finalAdjusted,
-    _composite) with the canonical calibrated_value.  This makes canonical the
-    authoritative value source while preserving all other player metadata
-    (position, team, format-fit, scoring, etc.) from the legacy scraper.
+    Overlays canonical-engine values onto each matched player and then
+    **re-sorts the unified board** so the displayed rank stays
+    perfectly monotonic in the displayed value.
+
+    Critical history (do NOT regress):
+
+    * The previous version stamped a per-universe ``canonical_consensus
+      _rank`` from the canonical snapshot directly onto the contract.
+      The snapshot carries ~420 duplicate player entries (one per
+      universe) because IDPTradeCalc's combined offense+IDP value pool
+      gets categorised into both ``offense_vet`` and ``idp_vet``.  When
+      the per-universe ranks were overlaid back onto the unified board
+      we ended up with **duplicate rank numbers across universes**
+      (e.g. Will Anderson and Ladd McConkey both at rank 46) and a
+      rank/value mismatch (Justin Jefferson ranked above Amon-Ra St.
+      Brown despite a lower displayed value, because the canonical
+      offense_vet calibration ordering disagreed with the contract
+      layer's blended ``rankDerivedValue``).
+    * The current version refuses to ever stamp a canonical-engine
+      rank.  After overlaying values it re-runs
+      :func:`_resort_unified_board_by_value`, which renumbers
+      ``canonicalConsensusRank`` 1..N strictly by displayed value
+      (descending) on the post-overlay rows.  This guarantees:
+        - exactly one rank per ranked player (no duplicates),
+        - rank order strictly monotonic in displayed value,
+        - the legacy ``_canonicalConsensusRank`` field on the dict
+          mirror agrees with the playersArray ranks,
+        - tier groupings derived from rank also stay aligned.
 
     Returns the number of players overlaid.
     """
@@ -1044,67 +1067,44 @@ def _apply_canonical_primary_overlay(contract: dict) -> int:
     if not players or not isinstance(players, dict):
         return 0
 
-    # Build name-normalized lookup from canonical assets
-    import re
     assets = canonical_data.get("assets", [])
 
-    # If the snapshot lacks canonical_consensus_rank (legacy engine), compute
-    # a rank from calibrated_value descending.  This ensures the overlay always
-    # has a real multi-source rank to stamp, regardless of which engine built it.
-    has_ccr = any(a.get("canonical_consensus_rank") is not None for a in assets[:20])
-    computed_ranks: dict[str, int] = {}
-    if not has_ccr:
-        ranked_assets = sorted(
-            [(str(a.get("display_name", "")).strip(), int(a.get("calibrated_value", 0)))
-             for a in assets if a.get("calibrated_value") is not None],
-            key=lambda x: x[1], reverse=True,
-        )
-        for i, (aname, _) in enumerate(ranked_assets, 1):
-            if aname and aname not in computed_ranks:
-                computed_ranks[aname] = i
-
+    # Build a per-canonical-key value lookup.  We *only* consume the
+    # value columns from the snapshot now — never the rank.
     canonical_lookup: dict[str, dict] = {}
     for asset in assets:
         name = str(asset.get("display_name", "")).strip()
         cal_val = asset.get("calibrated_value")
         if not name or cal_val is None:
             continue
-        # Keep the higher value if duplicate names exist
+        # Snapshot duplicates the same player across universes; keep
+        # the higher-value entry as authoritative.
         existing = canonical_lookup.get(name)
         if existing is not None and existing["calibrated_value"] >= int(cal_val):
             continue
-        # Prefer pipeline-produced rank; fall back to value-sorted rank
-        ccr = asset.get("canonical_consensus_rank")
-        if ccr is None:
-            ccr = computed_ranks.get(name)
         canonical_lookup[name] = {
             "calibrated_value": int(cal_val),
             "display_value": asset.get("display_value"),
             "blended_value": asset.get("blended_value"),
             "source_count": len(asset.get("source_values", {})),
             "universe": asset.get("universe", ""),
-            "canonical_consensus_rank": ccr,
-            "canonical_tier_id": asset.get("canonical_tier_id"),
         }
 
-    # Normalize helper
-    def _norm(n: str) -> str:
-        n = n.strip()
-        for sfx in (" Jr.", " Sr.", " II", " III", " IV", " V"):
-            if n.endswith(sfx):
-                n = n[: -len(sfx)].strip()
-        return n.lower().replace(".", "").replace("'", "").replace("\u2019", "")
-
-    # Build normalized lookup
+    # Normalize helper — defer to the contract-layer canonical key so
+    # the overlay never silently joins via a different rule than the
+    # rest of the pipeline.
+    from src.api.data_contract import _canonical_match_key  # noqa: PLC0415
     canonical_norm: dict[str, tuple[str, dict]] = {}
     for name, data in canonical_lookup.items():
-        canonical_norm[_norm(name)] = (name, data)
+        key = _canonical_match_key(name)
+        if key:
+            canonical_norm[key] = (name, data)
 
     overlay_count = 0
     for player_name, pdata in players.items():
         if not isinstance(pdata, dict):
             continue
-        norm = _norm(player_name)
+        norm = _canonical_match_key(player_name)
         match = canonical_norm.get(norm)
         if match is None:
             continue
@@ -1112,45 +1112,28 @@ def _apply_canonical_primary_overlay(contract: dict) -> int:
         _canon_name, canon = match
         cal_val = canon["calibrated_value"]
 
-        # Overlay the value fields the frontend reads
+        # Overlay the value fields the frontend reads.  Rank
+        # intentionally stays whatever the contract layer computed —
+        # see the docstring above.
         pdata["_finalAdjusted"] = cal_val
         pdata["_composite"] = cal_val
         pdata["_rawComposite"] = cal_val
         pdata["_valueAuthority"] = "canonical"
         pdata["_canonicalSourceCount"] = canon["source_count"]
-        # Display-scale value (1–9999) for public-facing use
         if canon.get("display_value") is not None:
             pdata["_canonicalDisplayValue"] = canon["display_value"]
-        # Multi-source canonical consensus rank (from real pipeline, not KTC-only)
-        ccr = canon.get("canonical_consensus_rank")
-        if ccr is not None:
-            pdata["_canonicalConsensusRank"] = int(round(ccr))
-        ctid = canon.get("canonical_tier_id")
-        if ctid is not None:
-            pdata["_canonicalTierId"] = ctid
         overlay_count += 1
 
-    # Also overlay canonical consensus rank onto playersArray entries
-    # so the frontend gets the real multi-source rank, not just KTC-derived.
-    pa = contract.get("playersArray")
-    if isinstance(pa, list):
-        for row in pa:
-            cname = str(row.get("canonicalName") or row.get("displayName") or "").strip()
-            if not cname:
-                continue
-            norm = _norm(cname)
-            match = canonical_norm.get(norm)
-            if match is None:
-                continue
-            _, canon = match
-            ccr = canon.get("canonical_consensus_rank")
-            if ccr is not None:
-                row["canonicalConsensusRank"] = int(round(ccr))
-            ctid = canon.get("canonical_tier_id")
-            if ctid is not None:
-                row["canonicalTierId"] = ctid
+    # Re-sort the unified board so rank stays monotonic in value.
+    # Defer to the contract-layer helper so server.py and the API
+    # contract speak the same dialect of "what counts as a rank".
+    from src.api.data_contract import (  # noqa: PLC0415
+        assert_rank_value_invariants,
+        resort_unified_board_by_value,
+    )
+    resort_unified_board_by_value(contract)
+    assert_rank_value_invariants(contract)
 
-    # Mark the contract as canonical-authoritative
     contract["valueAuthority"] = "canonical"
     contract["canonicalOverlayCount"] = overlay_count
     contract["canonicalAssetCount"] = len(canonical_lookup)

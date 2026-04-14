@@ -700,16 +700,30 @@ export function buildRows(data) {
     }
 
     computeUnifiedRanks(rows);
-    // Sort by unified canonicalConsensusRank (backend-authoritative when present).
+    // Sort strictly by *displayed value* (descending) and use the
+    // post-sort position as the displayed rank.  The backend now
+    // enforces the same invariant via
+    // ``resort_unified_board_by_value`` + ``assert_rank_value_invariants``
+    // in ``src/api/data_contract.py`` — sorting again here is a
+    // defense-in-depth check that protects the rendered table from
+    // any stale ``canonicalConsensusRank`` that might survive a
+    // legacy overlay path or an old payload cache.  The
+    // canonicalConsensusRank tiebreak below preserves the relative
+    // order the backend chose when two rows have identical values.
     rows.sort((a, b) => {
+      const va = Number(a?.values?.full ?? a?.values?.overall ?? 0) || 0;
+      const vb = Number(b?.values?.full ?? b?.values?.overall ?? 0) || 0;
+      if (vb !== va) return vb - va;
       const ra = a.canonicalConsensusRank ?? Infinity;
       const rb = b.canonicalConsensusRank ?? Infinity;
       if (ra !== rb) return ra - rb;
-      return (b.values.full || 0) - (a.values.full || 0);
+      return String(a.name || "").localeCompare(String(b.name || ""));
     });
     rows.forEach((r, i) => {
       r.computedConsensusRank = i + 1;
-      r.rank = r.canonicalConsensusRank ?? r.computedConsensusRank;
+      // ``r.rank`` is the *displayed* rank — derive it from the
+      // sorted index, never from a stale backend field.
+      r.rank = i + 1;
     });
     return rows;
   }
@@ -765,15 +779,24 @@ export function buildRows(data) {
   }
 
   computeUnifiedRanks(rows);
+  // Sort strictly by displayed value (desc) and use the post-sort
+  // index as the displayed rank.  See the parallel branch above for
+  // the full rationale — the backend now enforces the same invariant
+  // via ``resort_unified_board_by_value``, but sorting here is a
+  // belt-and-braces guarantee that the rendered table never ships
+  // a stale rank/value mismatch.
   rows.sort((a, b) => {
+    const va = Number(a?.values?.full ?? a?.values?.overall ?? 0) || 0;
+    const vb = Number(b?.values?.full ?? b?.values?.overall ?? 0) || 0;
+    if (vb !== va) return vb - va;
     const ra = a.canonicalConsensusRank ?? Infinity;
     const rb = b.canonicalConsensusRank ?? Infinity;
     if (ra !== rb) return ra - rb;
-    return (b.values.full || 0) - (a.values.full || 0);
+    return String(a.name || "").localeCompare(String(b.name || ""));
   });
   rows.forEach((r, i) => {
     r.computedConsensusRank = i + 1;
-    r.rank = r.canonicalConsensusRank ?? r.computedConsensusRank;
+    r.rank = i + 1;
   });
   return rows;
 }
