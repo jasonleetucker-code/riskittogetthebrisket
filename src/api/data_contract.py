@@ -2007,6 +2007,16 @@ def _derive_player_row(
     is_pick = _is_pick_name(canonical_name)
     if is_pick:
         pos = "PICK"
+        # NOTE (pick slot monotonicity): KTC internally tiers draft picks into
+        # early/mid/late buckets per round, so their raw per-slot valuations are
+        # not strictly monotonic within a round after blending (e.g. 2026 1.04
+        # can land below 2026 1.05 once KTC and IDPTradeCalc are combined).
+        # This is a source-level quirk of KTC's tier structure, not a pipeline
+        # bug — the global rank→value ordering across all assets is still
+        # monotonic, and the 5 representative targets (1.01/1.06/1.12/2.06/Mid
+        # 1st) all fall in the expected tier. Do not "fix" intra-round slot
+        # inversions by post-processing pickAnchors; that would desync the
+        # canonical rank ladder from the source evidence.
 
     values = _player_value_bundle(p_data)
     source_count = _source_count(p_data, canonical_sites)
