@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import json
+import logging
 import math
+import os
 import re
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from src.data_models.contracts import utc_now_iso
+
+_LOGGER = logging.getLogger(__name__)
 
 #: Verified cross-universe name collisions — players whose display name
 #: exists in both the offense market (QB/RB/WR/TE) and the IDP market
@@ -178,6 +185,124 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
 # keep it above zero and bounded so the stamped value looks sensible to
 # the trust/confidence + anomaly checks that read canonicalSiteValues.
 _RANK_TO_SYNTHETIC_VALUE_OFFSET = 10000
+
+# ── Source freshness windows ─────────────────────────────────────────────
+# Per-source staleness budget in hours.  A CSV whose mtime is older than
+# maxAgeHours is flagged as ``stale`` in dataFreshness.sourceTimestamps.
+# ktc/idpTradeCalc/dynastyNerdsSfTep refresh daily via the scheduled
+# scraper; DLF SF and DLF IDP are static-ish exports refreshed ~monthly
+# by hand.
+_SOURCE_MAX_AGE_HOURS: dict[str, int] = {
+    "ktc": 6,
+    "idpTradeCalc": 6,
+    "dynastyNerdsSfTep": 6,
+    "dlfIdp": 720,
+    "dlfSf": 720,
+}
+
+# ── Per-source row-count floors ───────────────────────────────────────────
+# Embedded defaults; overridable via ``config/weights/source_row_floors.json``.
+# Floors are set at ~80% of the current live baseline so a scrape
+# regression that drops a source below its floor trips a warning.  A
+# source with zero non-zero values is a hard error (``source_missing``).
+_DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
+    "ktc": 400,
+    "idpTradeCalc": 700,
+    "dlfIdp": 150,
+    "dlfSf": 240,
+    "dynastyNerdsSfTep": 230,
+}
+
+
+def _load_source_row_floors() -> dict[str, int]:
+    """Load per-source row-count floors from config with fallback defaults."""
+    repo_root = Path(__file__).resolve().parents[2]
+    cfg_path = repo_root / "config" / "weights" / "source_row_floors.json"
+    if cfg_path.exists():
+        try:
+            with cfg_path.open("r", encoding="utf-8") as fh:
+                cfg = json.load(fh)
+            floors = cfg.get("floors") if isinstance(cfg, dict) else None
+            if isinstance(floors, dict):
+                merged = dict(_DEFAULT_SOURCE_ROW_FLOORS)
+                for key, val in floors.items():
+                    try:
+                        merged[str(key)] = int(val)
+                    except (TypeError, ValueError):
+                        continue
+                return merged
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning(
+                "Failed to load source_row_floors.json (%s); using defaults", exc
+            )
+    return dict(_DEFAULT_SOURCE_ROW_FLOORS)
+
+
+# ── Partial-run cross-wire: tolerable partials allowlist ─────────────────
+# Sub-endpoints that are known to flip to partial without impacting the
+# primary ranking data.  KTC_TradeDB and KTC_WaiverDB are *sub-endpoints*
+# of the KTC source: KTC itself still returns its full 500-row board; the
+# partial flag refers to secondary trade-DB / waiver-DB endpoints that
+# only feed retail metadata, not ranks.  Treat as warnings rather than
+# errors.  Truly critical failures use the full source names (``KTC``,
+# ``IDPTradeCalc``, ``DLF``, ``DynastyNerds``) which bypass the allowlist.
+TOLERABLE_PARTIAL_SOURCES: frozenset[str] = frozenset(
+    {
+        "KTC_TradeDB",
+        "KTC_WaiverDB",
+    }
+)
+
+# Primary sources whose partial/failed state should flip contractHealth.
+_CRITICAL_PRIMARY_SOURCES: tuple[str, ...] = (
+    "KTC",
+    "IDPTradeCalc",
+    "DLF",
+    "DynastyNerds",
+)
+
+
+def _build_source_timestamps() -> dict[str, dict[str, Any]]:
+    """Return per-source freshness block with mtimes + staleness flags.
+
+    Iterates every entry in :data:`_SOURCE_CSV_PATHS`, stats the CSV, and
+    computes an ISO8601 mtime, an age in hours, and a ``fresh``/``stale``
+    flag based on :data:`_SOURCE_MAX_AGE_HOURS`.  Missing files return
+    ``None`` for mtime rather than the empty string the legacy code used,
+    so downstream can tell "no data yet" from "found it, here's when".
+    """
+    repo_root = Path(__file__).resolve().parents[2]
+    now = datetime.now(timezone.utc)
+    out: dict[str, dict[str, Any]] = {}
+    for source_key, cfg in _SOURCE_CSV_PATHS.items():
+        if isinstance(cfg, str):
+            csv_rel = cfg
+        elif isinstance(cfg, dict):
+            csv_rel = str(cfg.get("path") or "")
+        else:
+            csv_rel = ""
+        max_age = int(_SOURCE_MAX_AGE_HOURS.get(source_key, 6))
+        entry: dict[str, Any] = {
+            "mtime": None,
+            "ageHours": None,
+            "maxAgeHours": max_age,
+            "staleness": "unknown",
+            "path": csv_rel or None,
+        }
+        if csv_rel:
+            csv_path = repo_root / csv_rel
+            try:
+                st = os.stat(csv_path)
+            except (FileNotFoundError, OSError):
+                entry["staleness"] = "missing"
+            else:
+                mtime_dt = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc)
+                age_hours = (now - mtime_dt).total_seconds() / 3600.0
+                entry["mtime"] = mtime_dt.isoformat()
+                entry["ageHours"] = round(age_hours, 3)
+                entry["staleness"] = "fresh" if age_hours < max_age else "stale"
+        out[source_key] = entry
+    return out
 
 # ── Ranking source registry ──────────────────────────────────────────────
 # Declarative metadata describing each source that feeds the unified
@@ -1057,6 +1182,8 @@ _NULL_CSV_ENTRY: dict[str, Any] = {}
 
 def _enrich_from_source_csvs(
     players_array: list[dict[str, Any]],
+    *,
+    parse_errors: list[dict[str, str]] | None = None,
 ) -> dict[str, dict[str, dict[str, Any]]]:
     """Fill missing canonicalSiteValues from source CSV exports.
 
@@ -1127,6 +1254,17 @@ def _enrich_from_source_csvs(
             continue
         csv_path = repo / csv_rel
         if not csv_path.exists():
+            if parse_errors is not None:
+                parse_errors.append(
+                    {
+                        "source": source_key,
+                        "path": str(csv_rel),
+                        "error": "file_not_found",
+                    }
+                )
+                _LOGGER.warning(
+                    "Source CSV missing for %s: %s", source_key, csv_rel
+                )
             continue
 
         # Per-source CSV lookup.  Keyed by canonical name *only*; the
@@ -1196,7 +1334,20 @@ def _enrich_from_source_csvs(
                             )
                         except (ValueError, TypeError):
                             continue
-        except Exception:
+        except Exception as exc:  # noqa: BLE001
+            err_info = {
+                "source": source_key,
+                "path": str(csv_rel),
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+            if parse_errors is not None:
+                parse_errors.append(err_info)
+            _LOGGER.warning(
+                "Failed to parse source CSV %s (%s): %s",
+                source_key,
+                csv_rel,
+                exc,
+            )
             continue
 
         if not csv_lookup:
@@ -2767,7 +2918,10 @@ def build_api_data_contract(
 
     # Enrich players with source CSV values that may be missing from the
     # legacy scraper payload (e.g. KTC scrape failed but CSV exists).
-    csv_index = _enrich_from_source_csvs(players_array)
+    source_parse_errors: list[dict[str, str]] = []
+    csv_index = _enrich_from_source_csvs(
+        players_array, parse_errors=source_parse_errors
+    )
 
     # Compute unified rankings: all sources, all positions, one board.
     # The CSV index lets the ranker stamp a per-row ``sourceAudit``
@@ -2806,13 +2960,34 @@ def build_api_data_contract(
     generated_at = utc_now_iso()
 
     # ── Payload-level dataFreshness ──
+    # sourceTimestamps reads the on-disk mtime for every CSV in
+    # _SOURCE_CSV_PATHS and derives a per-source staleness flag from
+    # _SOURCE_MAX_AGE_HOURS.  The legacy single-entry shape
+    # {ktc: "", idpTradeCalc: ""} was reading dead fields on data_source
+    # that the scraper bridge never writes; this replaces it with real,
+    # source-by-source freshness data that covers all 5 active sources.
+    source_timestamps = _build_source_timestamps()
+    _fresh_counts = sum(
+        1 for v in source_timestamps.values() if v.get("staleness") == "fresh"
+    )
+    _stale_counts = sum(
+        1 for v in source_timestamps.values() if v.get("staleness") == "stale"
+    )
+    _missing_counts = sum(
+        1 for v in source_timestamps.values() if v.get("staleness") == "missing"
+    )
+    if _missing_counts > 0:
+        _overall_staleness = "missing"
+    elif _stale_counts > 0:
+        _overall_staleness = "stale"
+    elif _fresh_counts > 0:
+        _overall_staleness = "fresh"
+    else:
+        _overall_staleness = "unknown"
     data_freshness: dict[str, Any] = {
         "generatedAt": generated_at,
-        "sourceTimestamps": {
-            "ktc": str(data_source.get("ktcTimestamp") or ""),
-            "idpTradeCalc": str(data_source.get("idpTradeCalcTimestamp") or ""),
-        },
-        "staleness": "unknown",  # Downstream can compare timestamps to now()
+        "sourceTimestamps": source_timestamps,
+        "staleness": _overall_staleness,
     }
 
     # ── Payload-level methodology summary ──
@@ -2942,6 +3117,7 @@ def build_api_data_contract(
         },
         "validationSummary": validation_summary,
         "pickAliases": pick_aliases or {},
+        "sourceParseErrors": source_parse_errors,
     }
     return contract_payload
 
@@ -3397,6 +3573,9 @@ def assert_ranking_coherence(
 def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
+    degraded = False  # Soft-fail flag: non-fatal issues that still merit a degraded status
+    below_floor_count = 0
+    any_source_missing = False
 
     if not isinstance(payload, dict):
         return {
@@ -3519,6 +3698,88 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             "(expected at least 25 when full board is present)"
         )
 
+    # ── Per-source row-count floors ─────────────────────────────────────
+    # Count non-zero canonicalSiteValues per source and compare against a
+    # tunable floor loaded from config/weights/source_row_floors.json.
+    # A source at zero is a hard error (source_missing); below floor is a
+    # warning (source_below_floor).  If 2+ sources fall below floor OR any
+    # source is missing, we flip the overall status to degraded.
+    if len(players_array) >= 250:
+        row_floors = _load_source_row_floors()
+        source_nonzero_counts: dict[str, int] = {k: 0 for k in row_floors}
+        for row in players_array:
+            if not isinstance(row, dict):
+                continue
+            sites_map = row.get("canonicalSiteValues")
+            if not isinstance(sites_map, dict):
+                continue
+            for src_key in row_floors:
+                val = _to_int_or_none(sites_map.get(src_key))
+                if val is not None and val > 0:
+                    source_nonzero_counts[src_key] += 1
+
+        for src_key, threshold in row_floors.items():
+            count = source_nonzero_counts.get(src_key, 0)
+            if count == 0:
+                errors.append(f"source_missing:{src_key}")
+                any_source_missing = True
+            elif count < threshold:
+                warnings.append(
+                    f"source_below_floor:{src_key}:{count}:{threshold}"
+                )
+                below_floor_count += 1
+
+        if any_source_missing or below_floor_count >= 2:
+            degraded = True
+
+    # ── sourceParseErrors surfaced from _enrich_from_source_csvs ────────
+    parse_errors_list = payload.get("sourceParseErrors")
+    if isinstance(parse_errors_list, list) and parse_errors_list:
+        for perr in parse_errors_list[:50]:
+            if not isinstance(perr, dict):
+                continue
+            warnings.append(
+                "source_parse_error:"
+                f"{perr.get('source', '?')}:{perr.get('error', '?')}"
+            )
+        degraded = True
+
+    # ── Cross-wire sourceRunSummary.partialRun into contractHealth ──────
+    # The scraper reports partial/failed sources in
+    # settings.sourceRunSummary.  Historically those were invisible to the
+    # contract health check, so a prod build could have
+    # partialSources=['KTC_TradeDB'] while contractHealth said "healthy".
+    # We now promote critical partials to errors and leave tolerable
+    # partials (KTC_TradeDB / KTC_WaiverDB) as warnings.
+    settings_block = payload.get("settings") if isinstance(payload.get("settings"), dict) else {}
+    run_summary = settings_block.get("sourceRunSummary") if isinstance(settings_block, dict) else None
+    if isinstance(run_summary, dict):
+        overall_status = run_summary.get("overallStatus")
+        is_partial_run = bool(run_summary.get("partialRun")) or overall_status == "partial"
+        if is_partial_run:
+            partial_sources_list = run_summary.get("partialSources") or []
+            failed_sources_list = run_summary.get("failedSources") or []
+            timed_out_sources_list = run_summary.get("timedOutSources") or []
+            all_degraded_sources: list[str] = []
+            for lst in (partial_sources_list, failed_sources_list, timed_out_sources_list):
+                if isinstance(lst, list):
+                    all_degraded_sources.extend(str(s) for s in lst if s)
+
+            for src in all_degraded_sources:
+                if src in TOLERABLE_PARTIAL_SOURCES:
+                    warnings.append(f"partial_run_tolerable:{src}")
+                    continue
+                # Critical match: exact name of a primary source, or a
+                # prefix match for IDPTradeCalc's sub-endpoints.
+                is_critical = (
+                    src in _CRITICAL_PRIMARY_SOURCES
+                    or src.startswith("IDPTradeCalc")
+                )
+                if is_critical:
+                    errors.append(f"partial_run_critical:{src}")
+                else:
+                    warnings.append(f"partial_run_unknown:{src}")
+
     if not players_array:
         warnings.append("playersArray is empty")
     if not site_keys:
@@ -3540,7 +3801,12 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
                 warnings.append("canonicalComparison.summary should be an object when present")
 
     ok = len(errors) == 0
-    status = "healthy" if ok else "invalid"
+    if not ok:
+        status = "invalid"
+    elif degraded:
+        status = "degraded"
+    else:
+        status = "healthy"
     return {
         "ok": ok,
         "status": status,

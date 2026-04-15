@@ -1,0 +1,10 @@
+{
+  "description": "Per-source minimum row count floors used by validate_api_data_contract. Floors are set at roughly 80% of the current live baseline so a scrape regression that drops a source below its floor will trip a warning (or error if the count hits zero). Tunable without a code change.",
+  "floors": {
+    "ktc": 400,
+    "idpTradeCalc": 700,
+    "dlfIdp": 150,
+    "dlfSf": 240,
+    "dynastyNerdsSfTep": 230
+  }
+}
