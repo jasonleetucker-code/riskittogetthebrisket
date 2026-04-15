@@ -986,6 +986,12 @@ def fetch_sleeper_rosters(league_id):
         teams.append({
             "name": team_name,
             "roster_id": roster_id,
+            # Stable Sleeper user id for the current owner of this roster.
+            # The frontend uses ownerId (not roster_id) as the aggregation
+            # key for trade history so an orphaned roster that changes
+            # hands across seasons does not attribute the previous
+            # manager's trades to the new one.
+            "ownerId": str(owner_id) if owner_id else "",
             "players": sorted(team_players),
             "playerIds": sorted(team_player_ids),
             "picks": sorted(team_pick_assets.get(roster_id_int, []), key=_pick_sort_key),
@@ -1063,8 +1069,19 @@ def fetch_sleeper_rosters(league_id):
                 cur = str(prev_id).strip()
             return out
 
-        def _league_rid_to_name(target_league_id):
+        def _league_rid_lookup(target_league_id):
+            """Fetch per-league roster metadata for a historical league.
+
+            Returns (rid_to_name, rid_to_owner_id) so trade-side
+            construction can emit BOTH the display name at that point
+            in time AND the Sleeper user id that owned the roster at
+            that point.  The owner_id is the authoritative aggregation
+            key for trade history: it is stable for the same human
+            across league chains and correctly splits trades when an
+            orphaned roster changes hands.
+            """
             rid_to_name = {}
+            rid_to_owner_id = {}
             try:
                 l_rosters_resp = _req.get(
                     f"https://api.sleeper.app/v1/league/{target_league_id}/rosters",
@@ -1075,7 +1092,7 @@ def fetch_sleeper_rosters(league_id):
                     timeout=12
                 )
                 if l_rosters_resp.status_code != 200:
-                    return rid_to_name
+                    return rid_to_name, rid_to_owner_id
                 l_rosters_json = l_rosters_resp.json()
                 l_rosters = l_rosters_json if isinstance(l_rosters_json, list) else []
                 l_user_map = {}
@@ -1097,8 +1114,21 @@ def fetch_sleeper_rosters(league_id):
                     if isinstance(rid_int, int):
                         rid_to_name[rid_int] = tname
                         rid_to_name[str(rid_int)] = tname
+                    if oid:
+                        oid_str = str(oid)
+                        rid_to_owner_id[rid] = oid_str
+                        if isinstance(rid_int, int):
+                            rid_to_owner_id[rid_int] = oid_str
+                            rid_to_owner_id[str(rid_int)] = oid_str
             except Exception:
-                return rid_to_name
+                return rid_to_name, rid_to_owner_id
+            return rid_to_name, rid_to_owner_id
+
+        # Legacy single-return alias — kept in case any downstream
+        # helper still references the old shape.  New callers should
+        # use ``_league_rid_lookup`` directly.
+        def _league_rid_to_name(target_league_id):
+            rid_to_name, _ = _league_rid_lookup(target_league_id)
             return rid_to_name
 
         def _append_trade_side_item(side_map, rid, label):
@@ -1165,7 +1195,7 @@ def fetch_sleeper_rosters(league_id):
         week_range = range(0, 19)
 
         for target_league_id in league_ids:
-            rid_to_name = _league_rid_to_name(target_league_id)
+            rid_to_name, rid_to_owner_id = _league_rid_lookup(target_league_id)
             for week in week_range:
                 try:
                     tx_resp = _req.get(
@@ -1223,11 +1253,24 @@ def fetch_sleeper_rosters(league_id):
                         for rid in roster_ids:
                             rid_key = rid if rid in rid_to_name else _safe_int(rid)
                             team_name = rid_to_name.get(rid_key, rid_to_name.get(str(rid), f"Team {rid}"))
+                            # Resolve the historical owner_id for this
+                            # roster in the trade's source league so
+                            # aggregation can key by human identity,
+                            # not roster slot.  An orphaned roster
+                            # that changes hands will have a different
+                            # owner_id per league and stay split.
+                            owner_id_hist = (
+                                rid_to_owner_id.get(rid)
+                                or rid_to_owner_id.get(_safe_int(rid))
+                                or rid_to_owner_id.get(str(rid))
+                                or ""
+                            )
                             got = team_got.get(rid, [])
                             gave = team_gave.get(rid, [])
                             sides.append({
                                 "team": team_name,
                                 "rosterId": rid,
+                                "ownerId": owner_id_hist,
                                 "got": got,
                                 "gave": gave,
                             })

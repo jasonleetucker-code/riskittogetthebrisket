@@ -155,49 +155,90 @@ function getTradeSideItemLabels(items) {
   return items.map(normalizeTradeAssetLabel).filter(Boolean);
 }
 
-// ── Roster ID → current team name map ──────────────────────────────────
+// ── Owner / Roster → current team name map ─────────────────────────────
 /**
- * Build a map from Sleeper `roster_id` to the CURRENT team name.
+ * Build lookup maps from Sleeper identifiers to the CURRENT team name.
  *
- * Historical trades store the team name as it was at trade time.  When
- * a manager renames their team, aggregation keyed by that historical
- * name splits a single manager's record into two buckets (e.g. "Draft
- * Daddies" + "Russini Panini").  Keying aggregation by `rosterId` and
- * resolving the display name through this map unifies renamed teams
- * under their current name, since Sleeper `roster_id` is stable across
- * the league chain for continuing leagues.
+ * Returns `{ byOwner, byRoster }`.  Both are lowercase-keyed Maps.
+ * Callers should prefer owner_id (authoritative per-human) and fall
+ * back to roster_id only when ownerId is missing on the source.
+ *
+ * Why owner-first:
+ *   - Historical trades store the team name as it was at trade time.
+ *     Grouping by that name splits a single manager's record when
+ *     they rename their team (e.g. "Draft Daddies" → "Russini
+ *     Panini").  Aggregating by owner_id unifies those cleanly.
+ *   - Grouping by roster_id alone is WRONG for dynasty leagues that
+ *     have had orphaned rosters change hands across seasons — the
+ *     roster_id stays stable but the human behind it changed, so
+ *     historical trades from the previous manager would be
+ *     attributed to the new one.  Owner_id is stable per human
+ *     across the league chain and splits manager changes correctly.
  */
-export function buildRosterIdNameMap(sleeperTeams) {
-  const map = new Map();
+export function buildSleeperIdentityMaps(sleeperTeams) {
+  const byOwner = new Map();
+  const byRoster = new Map();
   for (const t of sleeperTeams || []) {
+    const name = String(t?.name || "");
+    const oid = t?.ownerId;
+    if (oid) byOwner.set(String(oid).toLowerCase(), name);
     const rid = t?.roster_id;
-    if (rid == null) continue;
-    map.set(String(rid), String(t.name || ""));
+    if (rid != null) byRoster.set(String(rid), name);
   }
-  return map;
+  return { byOwner, byRoster };
+}
+
+// Legacy export retained for any caller that still imports the old
+// rosterId-only map.  Internal call sites should use
+// ``buildSleeperIdentityMaps`` directly.
+export function buildRosterIdNameMap(sleeperTeams) {
+  return buildSleeperIdentityMaps(sleeperTeams).byRoster;
 }
 
 /**
- * Pick a stable aggregation key for a trade side: prefer `rosterId`
- * (stable across the league chain), fall back to team name for trades
- * from older scraper builds that didn't record rosterId.
+ * Pick a stable aggregation key for a trade side.
+ *
+ * Preference order: `ownerId` (per-human, splits orphan takeovers) →
+ * `rosterId` (per-roster, legacy fallback when the scraper did not
+ * emit ownerId) → team name (last-resort fallback when neither id is
+ * present on older scraper output).
  */
 function sideAggregationKey(side) {
   if (side == null) return "";
+  if (side.ownerId) return `oid:${String(side.ownerId).toLowerCase()}`;
   if (side.rosterId != null) return `rid:${side.rosterId}`;
   return `name:${side.team || ""}`;
 }
 
 /**
- * Resolve the display name for a trade side.  Current team name from
- * `rosterIdNameMap` wins when present; otherwise falls back to the
- * side's historical team name.
+ * Resolve the display name for a trade side.
+ *
+ * Resolution order:
+ *   1. If the side carries an ownerId and that owner still holds a
+ *      team in the current league, use the CURRENT team name.  This
+ *      unifies renamed teams under their current name.
+ *   2. If the side carries an ownerId that is NOT in the current
+ *      league (orphan takeover: this owner left and the roster was
+ *      handed off to someone else), fall back to the HISTORICAL team
+ *      name from the side — never to `byRoster`, because rosterId
+ *      now resolves to the new manager and would mis-attribute the
+ *      trade.
+ *   3. If the side has no ownerId at all (legacy scraper data), use
+ *      the rosterId map when present and finally the historical
+ *      team name.
  */
-function sideDisplayName(side, rosterIdNameMap) {
+function sideDisplayName(side, identityMaps) {
   if (side == null) return "";
-  const rid = side.rosterId;
-  if (rid != null && rosterIdNameMap) {
-    const current = rosterIdNameMap.get(String(rid));
+  if (side.ownerId) {
+    const current = identityMaps?.byOwner?.get(String(side.ownerId).toLowerCase());
+    if (current) return current;
+    // ownerId present but not in current league → orphan takeover.
+    // Keep the historical team name rather than leaking the new
+    // manager's name via rosterId.
+    return side.team || "";
+  }
+  if (side.rosterId != null && identityMaps?.byRoster) {
+    const current = identityMaps.byRoster.get(String(side.rosterId));
     if (current) return current;
   }
   return side.team || "";
@@ -208,9 +249,11 @@ function sideDisplayName(side, rosterIdNameMap) {
  * Analyze all Sleeper trades within the rolling window.
  * Returns { windowDays, analyzed, teamScores }.
  *
- * Aggregation is keyed by `rosterId` so trades from teams that later
- * renamed themselves roll up under the current team name rather than
- * splitting into two buckets.
+ * Aggregation is keyed by `ownerId` (Sleeper user id) so trades from
+ * managers who renamed their team roll up under the current team
+ * name, while trades from an orphaned roster that changed hands stay
+ * split across the two owners.  Falls back to rosterId and then team
+ * name for older scraper output that did not emit ownerId.
  */
 export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alpha = TRADE_ALPHA) {
   const trades = rawData?.sleeper?.trades;
@@ -224,7 +267,7 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
   const rowLookup = buildRowLookup(rows);
   const posMap = rawData?.sleeper?.positions || {};
   const pickAliases = rawData?.pickAliases || null;
-  const rosterIdNameMap = buildRosterIdNameMap(rawData?.sleeper?.teams);
+  const identityMaps = buildSleeperIdentityMaps(rawData?.sleeper?.teams);
   const teamScores = {};
   const analyzed = [];
 
@@ -251,10 +294,11 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
         });
       }
 
-      const displayTeam = sideDisplayName(side, rosterIdNameMap);
+      const displayTeam = sideDisplayName(side, identityMaps);
       sides.push({
         team: displayTeam,
         historicalTeam: side.team || "",
+        ownerId: side.ownerId || null,
         rosterId: side.rosterId ?? null,
         linear: linearTotal,
         weighted: weightedTotal,
@@ -274,12 +318,15 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
     const winnerGrade = gradeTradeHistorySide(pctGap, true);
     const loserGrade = loser ? gradeTradeHistorySide(pctGap, false) : null;
 
-    // Track team scores, keyed by rosterId so renamed teams roll up.
+    // Track team scores, keyed by ownerId (falls back to rosterId /
+    // name) so renamed teams roll up per human while orphan
+    // takeovers stay split.
     for (const s of sides) {
       const key = sideAggregationKey(s);
       if (!teamScores[key]) {
         teamScores[key] = {
           displayName: s.team,
+          ownerId: s.ownerId,
           rosterId: s.rosterId,
           won: 0,
           lost: 0,
@@ -569,7 +616,7 @@ export function analyzeTradeTendencies(rawData, rows) {
   const rowLookup = buildRowLookup(rows);
   const posMap = rawData?.sleeper?.positions || {};
   const pickAliases = rawData?.pickAliases || null;
-  const rosterIdNameMap = buildRosterIdNameMap(rawData?.sleeper?.teams);
+  const identityMaps = buildSleeperIdentityMaps(rawData?.sleeper?.teams);
   const managerStats = {};
 
   // Shared resolver that handles both players and pick labels, so trade
@@ -588,9 +635,11 @@ export function analyzeTradeTendencies(rawData, rows) {
   for (const trade of trades) {
     if (!trade.sides || trade.sides.length < 2) continue;
     for (const side of trade.sides) {
-      // Key by rosterId so renamed teams roll up into a single row.
+      // Key by ownerId (falls back to rosterId / team name) so
+      // renamed teams roll up into a single row per human while
+      // orphan takeovers stay split across owners.
       const key = sideAggregationKey(side);
-      const displayName = sideDisplayName(side, rosterIdNameMap) || "Unknown";
+      const displayName = sideDisplayName(side, identityMaps) || "Unknown";
       if (!managerStats[key]) {
         managerStats[key] = {
           manager: displayName,
