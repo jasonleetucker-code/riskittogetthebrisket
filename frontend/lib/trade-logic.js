@@ -166,7 +166,7 @@ export function getPlayerEdge(row) {
 }
 
 // ── Pick Token Parsing ───────────────────────────────────────────────────
-const ROUND_LABELS = { "1": "1st", "2": "2nd", "3": "3rd", "4": "4th", "5": "5th" };
+const ROUND_LABELS = { "1": "1st", "2": "2nd", "3": "3rd", "4": "4th", "5": "5th", "6": "6th" };
 
 /**
  * Parse a pick token string into structured parts.
@@ -186,7 +186,7 @@ export function parsePickToken(token) {
   }
 
   // "2026 early 1st" or "2026 1st" format
-  const labelMatch = s.match(/^(\d{4})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th)/i);
+  const labelMatch = s.match(/^(\d{4})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th|6th)/i);
   if (labelMatch) {
     return { year: labelMatch[1], round: labelMatch[3].toLowerCase(), tier: (labelMatch[2] || "").toLowerCase() || null, slot: null };
   }
@@ -203,6 +203,170 @@ export function normalizePickLabel(token) {
   if (!parsed) return token;
   const tier = parsed.tier ? parsed.tier.charAt(0).toUpperCase() + parsed.tier.slice(1) : "Mid";
   return `${parsed.year} ${tier} ${parsed.round}`;
+}
+
+// Tier-centre slot used to translate tier labels to slot-specific rows.
+// Matches backend _suppress_generic_pick_tiers_when_slots_exist() in
+// src/api/data_contract.py: Early=2, Mid=6, Late=10.
+const TIER_CENTRE_SLOT = { early: 2, mid: 6, late: 10 };
+
+// Round numeric digit ("1") for the round label ("1st").  Kept here so
+// both slot-based and tier-based candidates can be generated without
+// re-deriving the mapping at every call site.  Mirrors the backend
+// draft_rounds range in Dynasty Scraper.py (1..6).
+const ROUND_NUM = { "1st": 1, "2nd": 2, "3rd": 3, "4th": 4, "5th": 5, "6th": 6 };
+
+/**
+ * Given a raw pick label from any source (Sleeper roster, Sleeper trade
+ * history, rankings row), return a de-duplicated, lowercased list of
+ * candidate canonical row names to probe against `rowLookup`.
+ *
+ * Sleeper labels arrive as "2026 1.04 (from Team X)" or "2027 Mid 1st
+ * (own)" — the rankings pipeline stores the same asset as
+ * "2026 Pick 1.04" or "2027 Mid 1st".  Without candidate expansion the
+ * slot-based Sleeper label misses the rankings row and the pick is
+ * valued at 0 in trade history + roster breakdown (while the rankings
+ * page shows the correct value).
+ *
+ * Returns lowercased strings so callers can match rowLookup (which
+ * uses `r.name.toLowerCase()` as the key).
+ */
+export function buildPickLookupCandidates(rawLabel) {
+  if (!rawLabel) return [];
+  const raw = String(rawLabel).trim();
+  const candidates = [];
+  const push = (v) => {
+    if (!v) return;
+    const key = String(v).trim().toLowerCase();
+    if (key && !candidates.includes(key)) candidates.push(key);
+  };
+
+  // 1) Raw label exactly as provided.
+  push(raw);
+
+  // 2) Strip trailing "(...)" annotation like "(from Team X)" or "(own)".
+  const stripped = raw.replace(/\s*\([^)]*\)\s*$/, "").trim();
+  if (stripped && stripped !== raw) push(stripped);
+
+  // 3) Parse into {year, round, tier, slot} and enumerate every
+  //    canonical form the rankings pipeline might have used.
+  const parsed = parsePickToken(stripped || raw);
+  if (parsed) {
+    const { year, round, tier, slot } = parsed;
+    const roundDigit = ROUND_NUM[round];
+
+    if (slot && roundDigit) {
+      // "2026 Pick 1.04" (rankings canonical, slot-specific)
+      push(`${year} Pick ${roundDigit}.${String(slot).padStart(2, "0")}`);
+      // "2026 1.04" (already pushed as stripped, but guaranteed here)
+      push(`${year} ${roundDigit}.${String(slot).padStart(2, "0")}`);
+    }
+
+    if (tier) {
+      const cap = tier.charAt(0).toUpperCase() + tier.slice(1);
+      // "2027 Early 1st" (tier canonical — used for future years)
+      push(`${year} ${cap} ${round}`);
+      // If we only know the tier, generate the tier-centre slot form
+      // so years that DO have slot-specific rows still resolve.
+      if (roundDigit) {
+        const centreSlot = TIER_CENTRE_SLOT[tier] || 6;
+        push(`${year} Pick ${roundDigit}.${String(centreSlot).padStart(2, "0")}`);
+        push(`${year} ${roundDigit}.${String(centreSlot).padStart(2, "0")}`);
+      }
+    }
+
+    // 4) If we have a slot but no tier — derive the tier from the slot
+    //    (early 1-4, mid 5-8, late 9-12) and push tier-based candidates.
+    if (slot && !tier && roundDigit) {
+      const derivedTier = slot <= 4 ? "Early" : slot <= 8 ? "Mid" : "Late";
+      push(`${year} ${derivedTier} ${round}`);
+    }
+  }
+
+  return candidates;
+}
+
+/**
+ * True if a row is a suppressed generic-tier pick — one that the backend
+ * kept on the legacy board for name-search purposes but cleared of
+ * ranking fields because a slot-specific sibling exists (e.g. "2026 Mid
+ * 1st" when "2026 Pick 1.06" is the authoritative row).  These rows
+ * can still carry stale values from the legacy pipeline, so callers
+ * must treat them as non-authoritative and consult `pickAliases` or
+ * slot-specific candidates instead.
+ */
+function isSuppressedGenericPickRow(row) {
+  if (!row) return false;
+  return Boolean(row.pickGenericSuppressed || row.raw?.pickGenericSuppressed);
+}
+
+/**
+ * Resolve a pick label (raw or annotated) to a row using rowLookup and
+ * optional backend-authored pickAliases map.  Returns null if no
+ * candidate resolves.  Callers should NOT fall back to an untyped 0 —
+ * a null return means the pick genuinely has no known value.
+ *
+ * Resolution order is deliberate:
+ *   1. `pickAliases` lookup against the **input** label (raw or stripped
+ *      of its "(from X)" / "(own)" annotation).  The alias table only
+ *      contains entries for generic tier labels whose slot-specific
+ *      siblings exist on the board (e.g. "2026 Mid 1st" →
+ *      "2026 Pick 1.06").  Applying aliases to the input — not to the
+ *      synthesized derived candidates — prevents a slot input like
+ *      "2026 1.04" from being rewritten to the tier-centre slot via
+ *      its derived "2026 Early 1st" candidate.
+ *   2. Direct `rowLookup` walk over candidate names, skipping any
+ *      suppressed generic-tier row so the fallback chain continues to a
+ *      valid slot-specific sibling.  This keeps the resolver robust
+ *      even when `pickAliases` is missing (stale data, older contract).
+ *
+ * @param {string} rawLabel - raw pick label (any source)
+ * @param {Map<string, object>} rowLookup - lowercased name → row
+ * @param {object} [pickAliases] - optional backend alias map
+ *   ({ "2026 Mid 1st": "2026 Pick 1.06", ... })
+ */
+export function resolvePickRow(rawLabel, rowLookup, pickAliases) {
+  if (!rawLabel || !rowLookup) return null;
+
+  const raw = String(rawLabel).trim();
+  const stripped = raw.replace(/\s*\([^)]*\)\s*$/, "").trim();
+
+  // 1) Backend alias map — only applied to the input label (raw or
+  //    stripped), never to synthesized derived candidates.  This is
+  //    the critical distinction: the alias table redirects generic
+  //    tier labels to slot-specific canonical rows, so applying it to
+  //    derived tier candidates (e.g. the "2026 Early 1st" that
+  //    buildPickLookupCandidates synthesizes for a "2026 1.04" input)
+  //    would systematically misroute slot picks to the tier-centre
+  //    slot.  Only trust the alias map for labels the caller actually
+  //    provided.
+  if (pickAliases && typeof pickAliases === "object") {
+    const inputForms = new Set();
+    inputForms.add(raw.toLowerCase());
+    if (stripped) inputForms.add(stripped.toLowerCase());
+    for (const [k, v] of Object.entries(pickAliases)) {
+      if (typeof k !== "string" || typeof v !== "string") continue;
+      if (!inputForms.has(k.toLowerCase())) continue;
+      const row = rowLookup.get(v.toLowerCase());
+      if (row && !isSuppressedGenericPickRow(row)) return row;
+      // Alias target matched but row is absent or suppressed — fall
+      // through to direct lookup; don't keep iterating the alias map.
+      break;
+    }
+  }
+
+  // 2) Direct candidate lookup.  Skip suppressed generic-tier rows so a
+  //    later candidate (typically the slot-specific "Pick N.NN" form)
+  //    gets a chance to resolve even without a pickAliases map.
+  const candidates = buildPickLookupCandidates(raw);
+  for (const key of candidates) {
+    const row = rowLookup.get(key);
+    if (!row) continue;
+    if (isSuppressedGenericPickRow(row)) continue;
+    return row;
+  }
+
+  return null;
 }
 
 // ── Trade Side Helpers ───────────────────────────────────────────────────

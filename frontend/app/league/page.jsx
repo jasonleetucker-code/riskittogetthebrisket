@@ -70,9 +70,10 @@ export default function LeaguePage() {
 // ── Power Rankings Heatmap ──────────────────────────────────────────────
 function PowerRankingsHeatmap({ rows, rawData, sleeperTeams, settings, onSelectTeam }) {
   const playerMeta = useMemo(() => buildPlayerMetaMap(rows), [rows]);
+  const pickAliases = rawData?.pickAliases || null;
   const teams = useMemo(
-    () => buildAllTeamSummaries(sleeperTeams, playerMeta, rows, "full"),
-    [sleeperTeams, playerMeta, rows],
+    () => buildAllTeamSummaries(sleeperTeams, playerMeta, rows, "full", pickAliases),
+    [sleeperTeams, playerMeta, rows, pickAliases],
   );
   const posRanks = useMemo(() => computePositionRanks(teams), [teams]);
   const n = sleeperTeams.length;
@@ -145,9 +146,10 @@ function TeamBreakdown({ rows, rawData, sleeperTeams, settings, update }) {
   const [viewMode, setViewMode] = useState("grouped");
 
   const playerMeta = useMemo(() => buildPlayerMetaMap(rows), [rows]);
+  const pickAliases = rawData?.pickAliases || null;
   const allTeams = useMemo(
-    () => buildAllTeamSummaries(sleeperTeams, playerMeta, rows, "full"),
-    [sleeperTeams, playerMeta, rows],
+    () => buildAllTeamSummaries(sleeperTeams, playerMeta, rows, "full", pickAliases),
+    [sleeperTeams, playerMeta, rows, pickAliases],
   );
   const posRanks = useMemo(() => computePositionRanks(allTeams), [allTeams]);
 

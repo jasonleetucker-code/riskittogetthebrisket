@@ -3,7 +3,7 @@
  * Pure functions, no React dependencies.
  */
 
-import { effectiveValue, powerWeightedTotal, TRADE_ALPHA, parsePickToken, getPlayerEdge } from "@/lib/trade-logic";
+import { effectiveValue, powerWeightedTotal, TRADE_ALPHA, parsePickToken, getPlayerEdge, resolvePickRow } from "@/lib/trade-logic";
 import { normalizePos } from "@/lib/dynasty-data";
 
 // ── Position Group Helpers ──────────────────────────────────────────────
@@ -88,25 +88,44 @@ export function buildRowLookup(rows) {
 // ── Resolve Trade Item → Row Value ──────────────────────────────────────
 /**
  * Resolve a trade item name to a value using the rows from useDynastyData.
- * Resolve a trade item name to a value using the rows from useDynastyData.
+ *
+ * Picks need a multi-candidate lookup because Sleeper labels them as
+ * "2026 1.04 (from Team X)" or "2027 Mid 1st (own)" while rankings
+ * stores canonical rows as "2026 Pick 1.04" or "2027 Mid 1st".  The
+ * `resolvePickRow` helper walks parsed candidates + backend alias map
+ * so pick values surface correctly in trade history.
  */
-export function resolveTradeItemValue(itemName, rowLookup, posMap) {
+export function resolveTradeItemValue(itemName, rowLookup, posMap, pickAliases) {
   if (!itemName) return { name: itemName, value: 0, pos: "", isPick: false };
   const name = String(itemName).trim();
   const isPick = !!parsePickToken(name);
+
+  if (isPick) {
+    const row = resolvePickRow(name, rowLookup, pickAliases);
+    if (row) {
+      return {
+        name,
+        value: row.values?.full || 0,
+        pos: "PICK",
+        isPick: true,
+      };
+    }
+    // No match — fall through to empty pick result below.
+    return { name, value: 0, pos: "PICK", isPick: true };
+  }
+
   const key = name.toLowerCase();
   const row = rowLookup.get(key);
-
   if (row) {
     return {
       name,
       value: row.values?.full || 0,
-      pos: isPick ? "PICK" : (row.pos || ""),
-      isPick,
+      pos: row.pos || "",
+      isPick: false,
     };
   }
 
-  // Try without parenthetical (e.g. "2026 1st (from Team)")
+  // Try without parenthetical (e.g. "Jameson Williams (some annotation)")
   const stripped = name.replace(/\s*\([^)]*\)\s*$/, "").trim();
   if (stripped !== name) {
     const strippedRow = rowLookup.get(stripped.toLowerCase());
@@ -114,15 +133,15 @@ export function resolveTradeItemValue(itemName, rowLookup, posMap) {
       return {
         name,
         value: strippedRow.values?.full || 0,
-        pos: isPick ? "PICK" : (strippedRow.pos || ""),
-        isPick,
+        pos: strippedRow.pos || "",
+        isPick: false,
       };
     }
   }
 
   // Fallback — check position map
-  const pos = isPick ? "PICK" : (posMap?.[name] || "");
-  return { name, value: 0, pos, isPick };
+  const pos = posMap?.[name] || "";
+  return { name, value: 0, pos, isPick: false };
 }
 
 // ── Normalize Trade Asset Label ─────────────────────────────────────────
@@ -152,6 +171,7 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
 
   const rowLookup = buildRowLookup(rows);
   const posMap = rawData?.sleeper?.positions || {};
+  const pickAliases = rawData?.pickAliases || null;
   const teamScores = {};
   const analyzed = [];
 
@@ -166,7 +186,7 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
       const items = [];
 
       for (const rawItem of getTradeSideItemLabels(side?.got)) {
-        const resolved = resolveTradeItemValue(rawItem, rowLookup, posMap);
+        const resolved = resolveTradeItemValue(rawItem, rowLookup, posMap, pickAliases);
         const safeVal = Number.isFinite(resolved.value) ? Math.max(0, resolved.value) : 0;
         linearTotal += safeVal;
         weightedTotal += Math.pow(Math.max(safeVal, 1), alpha);
@@ -249,9 +269,10 @@ function sumTopN(values, n) {
  * @param {object} playerMeta - from buildPlayerMetaMap
  * @param {object[]} rows - all rows for pick value lookup
  * @param {string} valueMode - "full" | "players" | "starters"
+ * @param {object} [pickAliases] - optional backend alias map
  * @returns {{ total, byGroup, playerDetails, pickDetails }}
  */
-export function buildTeamValueBreakdown(team, playerMeta, rows, valueMode = "full") {
+export function buildTeamValueBreakdown(team, playerMeta, rows, valueMode = "full", pickAliases = null) {
   const byGroup = {};
   POS_GROUPS.forEach((g) => { byGroup[g] = 0; });
   const playerDetails = [];
@@ -277,12 +298,14 @@ export function buildTeamValueBreakdown(team, playerMeta, rows, valueMode = "ful
     if (buckets[pm.group]) buckets[pm.group].push(pm.meta);
   }
 
-  // Resolve pick values
+  // Resolve pick values using multi-candidate lookup so Sleeper labels
+  // like "2026 1.04 (from Team X)" resolve against rankings rows stored
+  // as "2026 Pick 1.04".
   if (valueMode === "full") {
     const pickSources = teamPicks.length > 0 ? teamPicks : teamPlayers.filter((p) => parsePickToken(p));
     for (const pickName of pickSources) {
       if (!parsePickToken(pickName)) continue;
-      const row = rowLookup.get(pickName.toLowerCase());
+      const row = resolvePickRow(pickName, rowLookup, pickAliases);
       const val = row ? (row.values?.full || 0) : 0;
       pickValue += val;
       if (val > 0) {
@@ -308,9 +331,9 @@ export function buildTeamValueBreakdown(team, playerMeta, rows, valueMode = "ful
  * Build summary data for all teams in the league.
  * Returns sorted array of team objects with value breakdowns.
  */
-export function buildAllTeamSummaries(sleeperTeams, playerMeta, rows, valueMode = "full") {
+export function buildAllTeamSummaries(sleeperTeams, playerMeta, rows, valueMode = "full", pickAliases = null) {
   const teams = (sleeperTeams || []).map((team) => {
-    const breakdown = buildTeamValueBreakdown(team, playerMeta, rows, valueMode);
+    const breakdown = buildTeamValueBreakdown(team, playerMeta, rows, valueMode, pickAliases);
     return {
       name: team.name,
       roster_id: team.roster_id,
@@ -474,7 +497,21 @@ export function analyzeTradeTendencies(rawData, rows) {
 
   const rowLookup = buildRowLookup(rows);
   const posMap = rawData?.sleeper?.positions || {};
+  const pickAliases = rawData?.pickAliases || null;
   const managerStats = {};
+
+  // Shared resolver that handles both players and pick labels, so trade
+  // tendency totals include pick value rather than silently dropping
+  // picks that fail a direct rowLookup hit.
+  const resolveAssetValue = (name) => {
+    if (!name) return 0;
+    if (parsePickToken(name)) {
+      const row = resolvePickRow(name, rowLookup, pickAliases);
+      return row ? (row.values?.full || 0) : 0;
+    }
+    const row = rowLookup.get(String(name).toLowerCase());
+    return row ? (row.values?.full || 0) : 0;
+  };
 
   for (const trade of trades) {
     if (!trade.sides || trade.sides.length < 2) continue;
@@ -489,12 +526,10 @@ export function analyzeTradeTendencies(rawData, rows) {
       let gotTotal = 0;
       let gaveTotal = 0;
       for (const name of side.got || []) {
-        const row = rowLookup.get((name || "").toLowerCase());
-        if (row) gotTotal += row.values?.full || 0;
+        gotTotal += resolveAssetValue(name);
       }
       for (const name of side.gave || []) {
-        const row = rowLookup.get((name || "").toLowerCase());
-        if (row) gaveTotal += row.values?.full || 0;
+        gaveTotal += resolveAssetValue(name);
       }
       stats.totalGot += gotTotal;
       stats.totalGiven += gaveTotal;
@@ -528,7 +563,7 @@ export function analyzeTradeTendencies(rawData, rows) {
  * Depth = total minus starters, weighted 20%.
  * Pick surplus penalized at -10% (rebuild signal).
  */
-export function scoreTeamTiers(sleeperTeams, playerMeta, rows) {
+export function scoreTeamTiers(sleeperTeams, playerMeta, rows, pickAliases = null) {
   const rowLookup = buildRowLookup(rows);
 
   const scored = (sleeperTeams || []).map((team) => {
@@ -546,9 +581,10 @@ export function scoreTeamTiers(sleeperTeams, playerMeta, rows) {
       }
     }
 
-    // Picks
+    // Picks — use multi-candidate lookup so Sleeper labels resolve
+    // against canonical rankings rows.
     for (const pickName of team.picks || []) {
-      const row = rowLookup.get((pickName || "").toLowerCase());
+      const row = resolvePickRow(pickName, rowLookup, pickAliases);
       const val = row ? (row.values?.full || 0) : 0;
       totalValue += val;
       pickValue += val;

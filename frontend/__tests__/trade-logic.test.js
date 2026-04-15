@@ -24,6 +24,8 @@ import {
   filterPickerRows,
   getPlayerEdge,
   parsePickToken,
+  buildPickLookupCandidates,
+  resolvePickRow,
   findBalancers,
   verdictBarPosition,
 } from "@/lib/trade-logic";
@@ -505,6 +507,158 @@ describe("parsePickToken", () => {
 
   it("returns null for invalid", () => {
     expect(parsePickToken("not a pick")).toBeNull();
+  });
+});
+
+describe("buildPickLookupCandidates", () => {
+  it("emits 'Pick' canonical for Sleeper slot labels with (from X)", () => {
+    const c = buildPickLookupCandidates("2026 1.04 (from Chargers Team Doctor)");
+    expect(c).toContain("2026 pick 1.04");
+    expect(c).toContain("2026 1.04");
+    // Also emits tier fallback
+    expect(c).toContain("2026 early 1st");
+  });
+
+  it("handles (own) annotation", () => {
+    const c = buildPickLookupCandidates("2026 5.04 (own)");
+    expect(c).toContain("2026 pick 5.04");
+    expect(c).toContain("2026 5.04");
+  });
+
+  it("handles tier-based labels for future years", () => {
+    const c = buildPickLookupCandidates("2027 Mid 1st (own)");
+    expect(c).toContain("2027 mid 1st");
+    // Tier-centre slot fallback for years that DO have slot rows
+    expect(c).toContain("2027 pick 1.06");
+  });
+
+  it("returns an empty list for blank input", () => {
+    expect(buildPickLookupCandidates("")).toEqual([]);
+    expect(buildPickLookupCandidates(null)).toEqual([]);
+  });
+});
+
+describe("resolvePickRow", () => {
+  function mkLookup(entries) {
+    const m = new Map();
+    for (const [name, value] of entries) {
+      m.set(name.toLowerCase(), { name, pos: "PICK", values: { full: value } });
+    }
+    return m;
+  }
+
+  it("resolves Sleeper slot label against rankings 'Pick' row", () => {
+    const lookup = mkLookup([["2026 Pick 1.04", 9123]]);
+    const row = resolvePickRow("2026 1.04 (from Rage Against The Achane)", lookup);
+    expect(row).not.toBeNull();
+    expect(row.values.full).toBe(9123);
+  });
+
+  it("resolves tier label against tier-based rankings row", () => {
+    const lookup = mkLookup([["2027 Mid 1st", 6800]]);
+    const row = resolvePickRow("2027 Mid 1st (own)", lookup);
+    expect(row).not.toBeNull();
+    expect(row.values.full).toBe(6800);
+  });
+
+  it("uses pickAliases map when direct candidates miss", () => {
+    const lookup = mkLookup([["2026 Pick 1.06", 7700]]);
+    const aliases = { "2026 Mid 1st": "2026 Pick 1.06" };
+    const row = resolvePickRow("2026 Mid 1st (own)", lookup, aliases);
+    expect(row).not.toBeNull();
+    expect(row.values.full).toBe(7700);
+  });
+
+  it("prefers pickAliases over a suppressed generic-tier row", () => {
+    // Backend kept the suppressed generic-tier row on the board (with
+    // stale value 1) so name search still resolves it, but pickAliases
+    // authoritatively redirects to the slot-specific row (value 7700).
+    const m = new Map();
+    m.set("2026 mid 1st", {
+      name: "2026 Mid 1st",
+      pos: "PICK",
+      values: { full: 1 },
+      raw: { pickGenericSuppressed: true },
+    });
+    m.set("2026 pick 1.06", { name: "2026 Pick 1.06", pos: "PICK", values: { full: 7700 } });
+    const aliases = { "2026 Mid 1st": "2026 Pick 1.06" };
+    const row = resolvePickRow("2026 Mid 1st (own)", m, aliases);
+    expect(row).not.toBeNull();
+    expect(row.name).toBe("2026 Pick 1.06");
+    expect(row.values.full).toBe(7700);
+  });
+
+  it("skips suppressed generic-tier rows during direct lookup fallback", () => {
+    // No pickAliases available — resolver must still skip the
+    // suppressed row and continue to the slot-specific candidate that
+    // buildPickLookupCandidates derives from the tier-centre slot.
+    const m = new Map();
+    m.set("2026 mid 1st", {
+      name: "2026 Mid 1st",
+      pos: "PICK",
+      values: { full: 1 },
+      raw: { pickGenericSuppressed: true },
+    });
+    m.set("2026 pick 1.06", { name: "2026 Pick 1.06", pos: "PICK", values: { full: 7700 } });
+    const row = resolvePickRow("2026 Mid 1st (own)", m);
+    expect(row).not.toBeNull();
+    expect(row.name).toBe("2026 Pick 1.06");
+    expect(row.values.full).toBe(7700);
+  });
+
+  it("does not apply alias redirects to derived tier candidates for slot inputs", () => {
+    // Sleeper emits a slot label.  pickAliases contains generic-tier
+    // redirects that would point derived candidates at the WRONG slot
+    // (Early→1.02, Mid→1.06, Late→1.10).  The resolver must only
+    // apply aliases to the input label itself, not to synthesized
+    // derived candidates, or slot picks get rewritten to the
+    // tier-centre slot.
+    const m = new Map();
+    m.set("2026 pick 1.04", { name: "2026 Pick 1.04", pos: "PICK", values: { full: 9200 } });
+    m.set("2026 pick 1.02", { name: "2026 Pick 1.02", pos: "PICK", values: { full: 9500 } });
+    const aliases = { "2026 Early 1st": "2026 Pick 1.02" };
+    const row = resolvePickRow("2026 1.04 (from Team X)", m, aliases);
+    expect(row).not.toBeNull();
+    expect(row.name).toBe("2026 Pick 1.04");
+    expect(row.values.full).toBe(9200);
+  });
+
+  it("resolves round 6 slot picks", () => {
+    const lookup = mkLookup([["2026 Pick 6.04", 420]]);
+    const row = resolvePickRow("2026 6.04 (own)", lookup);
+    expect(row).not.toBeNull();
+    expect(row.name).toBe("2026 Pick 6.04");
+    expect(row.values.full).toBe(420);
+  });
+
+  it("resolves round 6 tier labels", () => {
+    const lookup = mkLookup([["2027 Mid 6th", 280]]);
+    const row = resolvePickRow("2027 Mid 6th (own)", lookup);
+    expect(row).not.toBeNull();
+    expect(row.values.full).toBe(280);
+  });
+
+  it("returns null when nothing matches", () => {
+    const lookup = mkLookup([["2026 Pick 1.04", 9000]]);
+    expect(resolvePickRow("2099 1.01", lookup)).toBeNull();
+  });
+});
+
+describe("parsePickToken round 6", () => {
+  it("parses slot format round 6", () => {
+    const p = parsePickToken("2026 6.04");
+    expect(p).not.toBeNull();
+    expect(p.year).toBe("2026");
+    expect(p.round).toBe("6th");
+    expect(p.slot).toBe(4);
+  });
+
+  it("parses tier label round 6", () => {
+    const p = parsePickToken("2027 Mid 6th");
+    expect(p).not.toBeNull();
+    expect(p.year).toBe("2027");
+    expect(p.round).toBe("6th");
+    expect(p.tier).toBe("mid");
   });
 });
 
