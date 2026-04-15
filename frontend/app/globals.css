@@ -898,7 +898,15 @@ tr:hover .sticky-name {
 
   /* Mobile per-source strip — renders beneath each player row when
      `showSiteCols` is on.  Flex-wraps so every registered source is
-     visible on mobile without horizontal scroll or hidden columns. */
+     visible on mobile without horizontal scroll or hidden columns.
+     Uses an explicit `display: table-row` override so the browser
+     treats the <tr> as a proper row participant in the table layout
+     (the page's global `.mobile-only` helper would otherwise set
+     `display: initial !important`, which resolves to `inline` for
+     <tr> and breaks row semantics). */
+  .rankings-mobile-source-row {
+    display: table-row !important;
+  }
   .rankings-mobile-source-row > td {
     padding: 4px 8px 8px;
     border-top: none;
@@ -947,6 +955,15 @@ tr:hover .sticky-name {
 .rankings-source-col .rankings-source-rank {
   color: var(--subtext, rgba(255, 255, 255, 0.55));
   font-size: 0.72rem;
+}
+
+/* The mobile source strip is hidden by default on desktop and
+   flipped to `display: table-row` inside the ≤768px media query
+   above.  Kept self-contained so it doesn't depend on the global
+   `.mobile-only` helper (which would resolve to `display: inline`
+   on a <tr> and break the table layout). */
+.rankings-mobile-source-row {
+  display: none;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

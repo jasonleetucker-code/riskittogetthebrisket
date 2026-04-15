@@ -857,9 +857,17 @@ export default function RankingsPage() {
                           below each player row so mobile users see the
                           same per-source value + rank they'd see on
                           desktop.  Gated on `showSiteCols` so the
-                          toggle has the same effect on both surfaces. */}
+                          toggle has the same effect on both surfaces.
+
+                          Uses a dedicated `.rankings-mobile-source-row`
+                          class (not the global `.mobile-only` helper)
+                          so we can set `display: table-row` on mobile
+                          — the global helper resolves to
+                          `display: initial !important`, which would
+                          force the <tr> to `inline` and break the
+                          table layout. */}
                       {settings.showSiteCols && (
-                        <tr className="mobile-only rankings-mobile-source-row">
+                        <tr className="rankings-mobile-source-row">
                           <td colSpan={totalCols}>
                             <div className="rankings-mobile-sources">
                               {RANKING_SOURCES.map((src) => {
