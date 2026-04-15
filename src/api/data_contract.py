@@ -487,6 +487,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "weight": 1.0,
         "is_backbone": False,
         "is_retail": True,
+        # KTC's default scraped view is a standard SF community trade
+        # calculator — it does not bake in TE premium.  The frontend
+        # `settings.tepMultiplier` boost applies to its contribution
+        # on the blended board.  See frontend/lib/dynasty-data.js for
+        # the mirrored flag.
+        "is_tep_premium": False,
     },
     {
         # IDP Trade Calculator's public value pool covers both offense
@@ -505,6 +511,9 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "depth": None,
         "weight": 1.0,
         "is_backbone": True,
+        # IDPTradeCalc's offense autocomplete is a standard SF board,
+        # not TE-premium.  The frontend TEP boost applies.
+        "is_tep_premium": False,
     },
     {
         # DLF (Dynasty League Football) full-board IDP rankings.  The raw
@@ -574,6 +583,13 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # Not a shared-market translation source — dlfSf is purely
         # offense, so its effective rank IS the offense ordinal.  No
         # IDP backbone crosswalk needed.
+        #
+        # DLF Superflex is a standard SF expert consensus board, not
+        # TE-premium.  The raw CSV columns (Rank / Avg / Pos / Name /
+        # 6 expert columns) carry no TEP indicator.  The frontend
+        # ``settings.tepMultiplier`` boost applies to its blended
+        # contribution.  Mirrored in frontend/lib/dynasty-data.js.
+        "is_tep_premium": False,
     },
     {
         # Dynasty Nerds Superflex + TE Premium board — scraped inline
@@ -601,6 +617,14 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "weight": 1.0,
         "is_backbone": False,
         "is_retail": False,
+        # Dynasty Nerds SF-TEP IS a TE-premium native board.  The URL
+        # slug is /dynasty-rankings/sf-tep/ and the inline DR_DATA
+        # carries the SFLEXTEP array which already bakes TE premium
+        # into each player's rank.  The frontend surfaces this flag
+        # as a "TEP NATIVE" badge so users know the global
+        # ``settings.tepMultiplier`` boost is compensating for the
+        # OTHER (non-TEP) sources in the blend, not this one.
+        "is_tep_premium": True,
     },
     {
         # FantasyPros Dynasty IDP expert consensus.  Scraped from
@@ -3317,6 +3341,7 @@ def build_api_data_contract(
                 "weight": src.get("weight"),
                 "isBackbone": bool(src.get("is_backbone")),
                 "isRetail": bool(src.get("is_retail")),
+                "isTepPremium": bool(src.get("is_tep_premium")),
                 "covers": " + ".join(
                     (
                         "Offense (QB, RB, WR, TE) + draft picks"

@@ -112,6 +112,7 @@ export default function SettingsPage() {
         userInclude,
         userWeight,
         defaultWeight: Number(src.weight ?? 1),
+        isTepPremium: src.isTepPremium === true,
       };
     };
     return {
@@ -159,8 +160,27 @@ export default function SettingsPage() {
           value={settings.tepMultiplier}
           min={1.0} max={1.5} step={0.05}
           onChange={(v) => update("tepMultiplier", v)}
-          hint="TE boost for non-TEP sites"
+          hint="Global TE value boost — compensates non-TEP sources"
         />
+        <p className="muted" style={{ fontSize: "0.68rem", marginTop: 4, marginBottom: 0 }}>
+          Applied to every TE&apos;s blended value. Sources already baking TE premium
+          into their raw ranks are tagged{" "}
+          <span
+            style={{
+              fontFamily: "var(--mono)",
+              fontSize: "0.62rem",
+              padding: "0 4px",
+              border: "1px solid var(--green, #4ade80)",
+              color: "var(--green, #4ade80)",
+              borderRadius: 3,
+            }}
+          >
+            TEP NATIVE
+          </span>{" "}
+          in the Ranking Sources table below. Set to 1.00 to disable the boost
+          entirely, or increase it if your non-TEP sources (DLF SF, KTC, etc.)
+          are under-valuing TEs for your league.
+        </p>
       </Section>
 
       <Section title="Trade Calculation" defaultOpen>
@@ -305,7 +325,27 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                   }}
                 >
                   <td style={{ padding: "6px 8px" }}>
-                    <div style={{ fontWeight: 600 }}>{src.displayName}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontWeight: 600 }}>{src.displayName}</span>
+                      {src.isTepPremium && (
+                        <span
+                          className="badge"
+                          title="This source's raw ranks already bake in TE premium, so the global TE Premium slider does not need to compensate for it."
+                          style={{
+                            fontSize: "0.58rem",
+                            padding: "1px 5px",
+                            background: "var(--green-dim, rgba(80,200,120,0.18))",
+                            color: "var(--green, #4ade80)",
+                            border: "1px solid var(--green, #4ade80)",
+                            borderRadius: 3,
+                            letterSpacing: 0.3,
+                            fontWeight: 700,
+                          }}
+                        >
+                          TEP NATIVE
+                        </span>
+                      )}
+                    </div>
                     <div
                       className="muted"
                       style={{ fontSize: "0.64rem", fontFamily: "var(--mono)" }}
@@ -439,11 +479,18 @@ function ServerStatusPanel() {
 
       {connected && (
         <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
-          {status.playerCount != null && <div>Players: {status.playerCount}</div>}
-          {status.lastUpdate && <div>Last update: {status.lastUpdate}</div>}
-          {status.nextUpdate && <div>Next update: {status.nextUpdate}</div>}
-          {status.version && <div>Version: {status.version}</div>}
-          {status.uptime && <div>Uptime: {status.uptime}</div>}
+          {status.player_count != null && <div>Players: {status.player_count}</div>}
+          {status.last_scrape && <div>Last update: {status.last_scrape}</div>}
+          {status.next_scrape && <div>Next update: {status.next_scrape}</div>}
+          {status?.contract?.version && <div>Contract: {status.contract.version}</div>}
+          {status?.uptime?.last_ok && (
+            <div>
+              Uptime monitor:{" "}
+              {status.uptime.consecutive_failures > 0
+                ? `${status.uptime.consecutive_failures} consecutive failures (last ok ${status.uptime.last_ok})`
+                : `healthy (last ok ${status.uptime.last_ok})`}
+            </div>
+          )}
         </div>
       )}
 

@@ -334,6 +334,11 @@ export const RANKING_SOURCES = [
     weight: 1.0,
     isBackbone: false,
     isRetail: true,
+    // KTC is a standard SF community trade calculator — the default
+    // scraped view does NOT bake in TE premium.  The per-row TE boost
+    // from `settings.tepMultiplier` (see trade-logic.js::effectiveValue)
+    // applies to KTC's contribution on the blended board.
+    isTepPremium: false,
   },
   {
     // IDP Trade Calculator's value pool covers both offense (via the
@@ -352,6 +357,9 @@ export const RANKING_SOURCES = [
     depth: null,
     weight: 1.0,
     isBackbone: true,
+    // IDPTradeCalc's offense board is a standard SF calculator — no
+    // TE premium baked in.
+    isTepPremium: false,
   },
   {
     // DLF (Dynasty League Football) full-board IDP rankings.  Mirrors
@@ -398,6 +406,13 @@ export const RANKING_SOURCES = [
     isBackbone: false,
     isRetail: false,
     isRankSignal: true,
+    // DLF's dynasty Superflex board is a standard SF consensus — no
+    // TE premium.  The CSV columns (Rank / Avg / Pos / Name / 6 expert
+    // columns) contain no TEP indicator.  Raw source:
+    // dynastyleaguefootball.com/dynasty-rankings/superflex.  The
+    // tepMultiplier applies to DLF SF's contribution on the blended
+    // board.
+    isTepPremium: false,
   },
   {
     // Dynasty Nerds Superflex + TE Premium rankings — scraped inline
@@ -417,6 +432,13 @@ export const RANKING_SOURCES = [
     isBackbone: false,
     isRetail: false,
     isRankSignal: true,
+    // Dynasty Nerds SF-TEP IS a TE-premium native board.  The URL
+    // slug is literally /dynasty-rankings/sf-tep/ and the DR_DATA
+    // inline JSON carries the SFLEXTEP array which already bakes
+    // TE premium into each player's rank.  Flagged so the settings
+    // UI can show users that this source does not need the
+    // tepMultiplier boost on top of its contribution.
+    isTepPremium: true,
   },
   {
     // FantasyPros Dynasty IDP expert consensus.  Combined IDP page
