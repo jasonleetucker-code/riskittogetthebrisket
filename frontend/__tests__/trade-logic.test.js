@@ -606,9 +606,59 @@ describe("resolvePickRow", () => {
     expect(row.values.full).toBe(7700);
   });
 
+  it("does not apply alias redirects to derived tier candidates for slot inputs", () => {
+    // Sleeper emits a slot label.  pickAliases contains generic-tier
+    // redirects that would point derived candidates at the WRONG slot
+    // (Early→1.02, Mid→1.06, Late→1.10).  The resolver must only
+    // apply aliases to the input label itself, not to synthesized
+    // derived candidates, or slot picks get rewritten to the
+    // tier-centre slot.
+    const m = new Map();
+    m.set("2026 pick 1.04", { name: "2026 Pick 1.04", pos: "PICK", values: { full: 9200 } });
+    m.set("2026 pick 1.02", { name: "2026 Pick 1.02", pos: "PICK", values: { full: 9500 } });
+    const aliases = { "2026 Early 1st": "2026 Pick 1.02" };
+    const row = resolvePickRow("2026 1.04 (from Team X)", m, aliases);
+    expect(row).not.toBeNull();
+    expect(row.name).toBe("2026 Pick 1.04");
+    expect(row.values.full).toBe(9200);
+  });
+
+  it("resolves round 6 slot picks", () => {
+    const lookup = mkLookup([["2026 Pick 6.04", 420]]);
+    const row = resolvePickRow("2026 6.04 (own)", lookup);
+    expect(row).not.toBeNull();
+    expect(row.name).toBe("2026 Pick 6.04");
+    expect(row.values.full).toBe(420);
+  });
+
+  it("resolves round 6 tier labels", () => {
+    const lookup = mkLookup([["2027 Mid 6th", 280]]);
+    const row = resolvePickRow("2027 Mid 6th (own)", lookup);
+    expect(row).not.toBeNull();
+    expect(row.values.full).toBe(280);
+  });
+
   it("returns null when nothing matches", () => {
     const lookup = mkLookup([["2026 Pick 1.04", 9000]]);
     expect(resolvePickRow("2099 1.01", lookup)).toBeNull();
+  });
+});
+
+describe("parsePickToken round 6", () => {
+  it("parses slot format round 6", () => {
+    const p = parsePickToken("2026 6.04");
+    expect(p).not.toBeNull();
+    expect(p.year).toBe("2026");
+    expect(p.round).toBe("6th");
+    expect(p.slot).toBe(4);
+  });
+
+  it("parses tier label round 6", () => {
+    const p = parsePickToken("2027 Mid 6th");
+    expect(p).not.toBeNull();
+    expect(p.year).toBe("2027");
+    expect(p.round).toBe("6th");
+    expect(p.tier).toBe("mid");
   });
 });
 

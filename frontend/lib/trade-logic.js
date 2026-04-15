@@ -166,7 +166,7 @@ export function getPlayerEdge(row) {
 }
 
 // ── Pick Token Parsing ───────────────────────────────────────────────────
-const ROUND_LABELS = { "1": "1st", "2": "2nd", "3": "3rd", "4": "4th", "5": "5th" };
+const ROUND_LABELS = { "1": "1st", "2": "2nd", "3": "3rd", "4": "4th", "5": "5th", "6": "6th" };
 
 /**
  * Parse a pick token string into structured parts.
@@ -186,7 +186,7 @@ export function parsePickToken(token) {
   }
 
   // "2026 early 1st" or "2026 1st" format
-  const labelMatch = s.match(/^(\d{4})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th)/i);
+  const labelMatch = s.match(/^(\d{4})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th|6th)/i);
   if (labelMatch) {
     return { year: labelMatch[1], round: labelMatch[3].toLowerCase(), tier: (labelMatch[2] || "").toLowerCase() || null, slot: null };
   }
@@ -212,8 +212,9 @@ const TIER_CENTRE_SLOT = { early: 2, mid: 6, late: 10 };
 
 // Round numeric digit ("1") for the round label ("1st").  Kept here so
 // both slot-based and tier-based candidates can be generated without
-// re-deriving the mapping at every call site.
-const ROUND_NUM = { "1st": 1, "2nd": 2, "3rd": 3, "4th": 4, "5th": 5 };
+// re-deriving the mapping at every call site.  Mirrors the backend
+// draft_rounds range in Dynasty Scraper.py (1..6).
+const ROUND_NUM = { "1st": 1, "2nd": 2, "3rd": 3, "4th": 4, "5th": 5, "6th": 6 };
 
 /**
  * Given a raw pick label from any source (Sleeper roster, Sleeper trade
@@ -306,9 +307,14 @@ function isSuppressedGenericPickRow(row) {
  * a null return means the pick genuinely has no known value.
  *
  * Resolution order is deliberate:
- *   1. `pickAliases` lookup (authoritative for suppressed generic tiers).
- *      Without this, step 2 could return a suppressed row with stale
- *      values before the alias-to-slot redirect is ever consulted.
+ *   1. `pickAliases` lookup against the **input** label (raw or stripped
+ *      of its "(from X)" / "(own)" annotation).  The alias table only
+ *      contains entries for generic tier labels whose slot-specific
+ *      siblings exist on the board (e.g. "2026 Mid 1st" →
+ *      "2026 Pick 1.06").  Applying aliases to the input — not to the
+ *      synthesized derived candidates — prevents a slot input like
+ *      "2026 1.04" from being rewritten to the tier-centre slot via
+ *      its derived "2026 Early 1st" candidate.
  *   2. Direct `rowLookup` walk over candidate names, skipping any
  *      suppressed generic-tier row so the fallback chain continues to a
  *      valid slot-specific sibling.  This keeps the resolver robust
@@ -322,30 +328,37 @@ function isSuppressedGenericPickRow(row) {
 export function resolvePickRow(rawLabel, rowLookup, pickAliases) {
   if (!rawLabel || !rowLookup) return null;
 
-  const candidates = buildPickLookupCandidates(rawLabel);
+  const raw = String(rawLabel).trim();
+  const stripped = raw.replace(/\s*\([^)]*\)\s*$/, "").trim();
 
-  // 1) Backend alias map first.  Walk every candidate through the alias
-  //    table so annotated/stripped/tier forms all redirect to the
-  //    slot-specific canonical row when the backend has flagged the
-  //    generic tier as suppressed.
+  // 1) Backend alias map — only applied to the input label (raw or
+  //    stripped), never to synthesized derived candidates.  This is
+  //    the critical distinction: the alias table redirects generic
+  //    tier labels to slot-specific canonical rows, so applying it to
+  //    derived tier candidates (e.g. the "2026 Early 1st" that
+  //    buildPickLookupCandidates synthesizes for a "2026 1.04" input)
+  //    would systematically misroute slot picks to the tier-centre
+  //    slot.  Only trust the alias map for labels the caller actually
+  //    provided.
   if (pickAliases && typeof pickAliases === "object") {
-    const aliasLower = new Map();
+    const inputForms = new Set();
+    inputForms.add(raw.toLowerCase());
+    if (stripped) inputForms.add(stripped.toLowerCase());
     for (const [k, v] of Object.entries(pickAliases)) {
-      if (typeof k === "string" && typeof v === "string") {
-        aliasLower.set(k.toLowerCase(), v.toLowerCase());
-      }
-    }
-    for (const key of candidates) {
-      const target = aliasLower.get(key);
-      if (!target) continue;
-      const row = rowLookup.get(target);
+      if (typeof k !== "string" || typeof v !== "string") continue;
+      if (!inputForms.has(k.toLowerCase())) continue;
+      const row = rowLookup.get(v.toLowerCase());
       if (row && !isSuppressedGenericPickRow(row)) return row;
+      // Alias target matched but row is absent or suppressed — fall
+      // through to direct lookup; don't keep iterating the alias map.
+      break;
     }
   }
 
   // 2) Direct candidate lookup.  Skip suppressed generic-tier rows so a
   //    later candidate (typically the slot-specific "Pick N.NN" form)
   //    gets a chance to resolve even without a pickAliases map.
+  const candidates = buildPickLookupCandidates(raw);
   for (const key of candidates) {
     const row = rowLookup.get(key);
     if (!row) continue;
