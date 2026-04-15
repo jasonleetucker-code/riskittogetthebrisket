@@ -1,0 +1,18 @@
+{
+  "baselineYear": 2026,
+  "discounts": {
+    "2026": 1.00,
+    "2027": 0.82,
+    "2028": 0.66,
+    "2029": 0.53
+  },
+  "method": "multiplicative",
+  "appliedTo": "rankDerivedValue",
+  "fallbackBase": 0.80,
+  "_notes": [
+    "Multiplicative future-year discount applied ONLY to picks (assetClass=='pick') in",
+    "_compute_unified_rankings() before the global value sort. baselineYear receives",
+    "1.00 (no discount). Years not listed fall back to fallbackBase ** (year - baselineYear).",
+    "This config is loaded by src/api/data_contract.py::_load_pick_year_discount."
+  ]
+}

@@ -1389,11 +1389,447 @@ def _percentile_rank_spread(
     return float(max(pcts) - min(pcts))
 
 
+# ── Pick refinement helpers (see audit @ 2026-04-14) ────────────────────────
+#
+# The blend produces three known pick-quality issues we have to correct
+# without rewriting the scraper or the blend:
+#
+#   1. KTC's per-slot synth (`_estimate_slot_from_tier`) inverts the
+#      curve at every slot 4↔5 and 8↔9 boundary, which bleeds through
+#      the blend and produces within-round inversions
+#      (e.g. 2026 1.04 ranking BEHIND 1.05).
+#
+#   2. There is no real future-year discount in the source data — KTC
+#      and IDPTC price 2027/2028 picks only marginally below 2026, so
+#      a 2028 Late 1st can land above a 2026 Late 1st.
+#
+#   3. The generic "2026 Mid 1st" tier rows coexist with specific
+#      1.06 / 1.07 / 1.08 slot rows as independent assets, which gives
+#      the same underlying trade asset two divergent values.
+#
+# Helpers below are gated to picks and run as POST-blend corrections in
+# ``_compute_unified_rankings``.  They never touch player rows.
+
+# Regex matching specific slot pick names like "2026 Pick 1.06" — used
+# by the slot reassignment pass to bucket picks by (year, round) and
+# extract the slot number for in-bucket sorting.
+_PICK_SLOT_RE = re.compile(r"^(20\d{2})\s+Pick\s+([1-6])\.(0?[1-9]|1[0-2])$", re.I)
+
+# Regex matching generic tier pick names like "2026 Early 1st" — used
+# by the generic-tier suppression pass to detect rows that should be
+# moved to ``pickAliases`` when slot-specific siblings exist.
+_PICK_TIER_RE = re.compile(
+    r"^(20\d{2})\s+(Early|Mid|Late)\s+([1-6])(st|nd|rd|th)$", re.I
+)
+
+# Pick year discount is loaded once per build from
+# config/weights/pick_year_discount.json.  See the file header for the
+# config schema.  Cached at module level so a build that processes
+# multiple snapshots only reads the file once.
+_PICK_YEAR_DISCOUNT_CACHE: dict[str, Any] | None = None
+
+
+def _load_pick_year_discount() -> dict[str, Any]:
+    """Load and cache the pick year discount config.
+
+    Returns a dict shaped like::
+
+        {
+            "baselineYear": 2026,
+            "discounts": {"2026": 1.0, "2027": 0.82, ...},
+            "fallbackBase": 0.80,
+        }
+
+    If the config file is missing or malformed, falls back to a built-in
+    default (baselineYear=2026, fallbackBase=0.80).  This keeps the
+    pipeline robust on stripped-down test environments while still
+    letting ops tune the discount via ``config/weights/``.
+    """
+    global _PICK_YEAR_DISCOUNT_CACHE
+    if _PICK_YEAR_DISCOUNT_CACHE is not None:
+        return _PICK_YEAR_DISCOUNT_CACHE
+
+    import json as _json
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[2]
+    cfg_path = repo / "config" / "weights" / "pick_year_discount.json"
+    cfg: dict[str, Any] = {
+        "baselineYear": 2026,
+        "discounts": {},
+        "fallbackBase": 0.80,
+    }
+    try:
+        with cfg_path.open("r", encoding="utf-8") as f:
+            loaded = _json.load(f)
+        if isinstance(loaded, dict):
+            cfg["baselineYear"] = int(loaded.get("baselineYear") or 2026)
+            raw_discounts = loaded.get("discounts") or {}
+            if isinstance(raw_discounts, dict):
+                cfg["discounts"] = {
+                    str(k): float(v) for k, v in raw_discounts.items()
+                }
+            cfg["fallbackBase"] = float(loaded.get("fallbackBase") or 0.80)
+    except (OSError, ValueError, TypeError):
+        # Stick with the built-in default — never block the build on
+        # a missing/malformed pick-discount config.
+        pass
+
+    _PICK_YEAR_DISCOUNT_CACHE = cfg
+    return cfg
+
+
+def _pick_year_from_name(name: str) -> int | None:
+    """Extract the 4-digit year from a pick canonical name, or None.
+
+    Handles all three pick name formats: ``2026 Pick 1.06``,
+    ``2026 Early 1st``, ``2026 Round 1``, etc.
+    """
+    if not name:
+        return None
+    m = re.search(r"\b(20\d{2})\b", str(name))
+    if not m:
+        return None
+    try:
+        return int(m.group(1))
+    except (TypeError, ValueError):
+        return None
+
+
+def _pick_year_discount_for(year: int | None, cfg: dict[str, Any]) -> float:
+    """Return the multiplicative discount for a pick year.
+
+    Picks in the baseline year get 1.0 (no discount).  Years explicitly
+    listed in ``cfg['discounts']`` use the configured multiplier.  Years
+    not listed fall back to ``fallbackBase ** (year - baselineYear)``.
+    """
+    if year is None:
+        return 1.0
+    baseline = int(cfg.get("baselineYear") or 2026)
+    discounts = cfg.get("discounts") or {}
+    fallback_base = float(cfg.get("fallbackBase") or 0.80)
+    if year <= baseline:
+        return 1.0
+    raw = discounts.get(str(year))
+    if raw is not None:
+        try:
+            return max(0.05, min(1.0, float(raw)))
+        except (TypeError, ValueError):
+            pass
+    return max(0.05, fallback_base ** (year - baseline))
+
+
+def _parse_pick_slot(name: str) -> tuple[int, int, int] | None:
+    """Return (year, round, slot) for a slot-specific pick name.
+
+    Returns None for tier-only rows like "2026 Early 1st".
+    """
+    if not name:
+        return None
+    m = _PICK_SLOT_RE.match(str(name).strip())
+    if not m:
+        return None
+    try:
+        return int(m.group(1)), int(m.group(2)), int(m.group(3))
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_pick_tier(name: str) -> tuple[int, str, int] | None:
+    """Return (year, tier, round) for a generic tier pick name.
+
+    Returns None for slot-specific rows like "2026 Pick 1.06".
+    """
+    if not name:
+        return None
+    m = _PICK_TIER_RE.match(str(name).strip())
+    if not m:
+        return None
+    try:
+        return int(m.group(1)), m.group(2).capitalize(), int(m.group(3))
+    except (TypeError, ValueError):
+        return None
+
+
+def _reassign_pick_slot_order(players_array: list[dict[str, Any]]) -> int:
+    """Reorder slot-specific picks within each year so slot order is
+    strictly monotonic across all rounds (1.01..1.12, 2.01..2.12, ...).
+
+    Operates AFTER the global Phase 4 sort has stamped
+    ``canonicalConsensusRank`` and ``rankDerivedValue`` on every row.
+    The mutation pattern is *in-place permutation*: we collect each
+    year's existing slot-pick (rank, value, tier) tuples, sort them
+    by rank (best first), sort the picks themselves by (round, slot),
+    and reassign tuples in order.  Each tuple stays at the same global
+    position in the ranked board — only the canonical name attached to
+    it changes.  This preserves global rank/value monotonicity by
+    construction (the assertion in ``assert_ranking_coherence`` walks
+    the same tuples in the same order, just with different names).
+
+    A single per-year pass (instead of one pass per (year, round)
+    bucket) ensures cross-round inversions like 2026 Pick 1.12 < 2.01
+    also get fixed: late-1st always outvalues early-2nd, etc.
+
+    Returns the count of picks whose (rank, value) actually changed.
+    """
+    # Group slot picks by year.  Within each year we sort by
+    # (round, slot) so the cross-round ordering is enforced too.
+    buckets: dict[int, list[dict[str, Any]]] = {}
+    for row in players_array:
+        if row.get("assetClass") != "pick":
+            continue
+        name = row.get("canonicalName") or ""
+        parsed = _parse_pick_slot(name)
+        if parsed is None:
+            continue
+        year, _rnd, _slot = parsed
+        # Skip picks that didn't get a rank (out of OVERALL_RANK_LIMIT).
+        # Reassigning across the cap would create rank/value mismatch.
+        if not row.get("canonicalConsensusRank"):
+            continue
+        buckets.setdefault(year, []).append(row)
+
+    changed = 0
+    for _year, picks in buckets.items():
+        if len(picks) < 2:
+            continue
+        # Snapshot of existing (rank, value, tier, blendedSourceRank,
+        # sourceRankSpread, percentileSpread) tuples for the bucket,
+        # sorted best-first.  Tier moves with rank since
+        # ``canonicalTierId`` is derived from rank.
+        tuples: list[tuple[int, int, int | None, Any, Any, Any]] = []
+        for p in picks:
+            tuples.append(
+                (
+                    int(p["canonicalConsensusRank"]),
+                    int(p.get("rankDerivedValue") or 0),
+                    p.get("canonicalTierId"),
+                    p.get("blendedSourceRank"),
+                    p.get("sourceRankSpread"),
+                    p.get("sourceRankPercentileSpread"),
+                )
+            )
+        tuples.sort(key=lambda t: t[0])  # ascending rank = descending value
+
+        # Sort picks by (round, slot) ascending — the highest 1.01 slot
+        # of the lowest round should get the best tuple.
+        def _round_slot(r: dict[str, Any]) -> tuple[int, int]:
+            parsed = _parse_pick_slot(r["canonicalName"])
+            assert parsed is not None  # already filtered above
+            _y, rnd, slot = parsed
+            return (rnd, slot)
+
+        picks_sorted = sorted(picks, key=_round_slot)
+
+        for new_tuple, pick_row in zip(tuples, picks_sorted):
+            old_rank = pick_row.get("canonicalConsensusRank")
+            old_val = pick_row.get("rankDerivedValue")
+            new_rank, new_val, new_tier, new_bsr, new_spread, new_pct = new_tuple
+            if old_rank != new_rank or old_val != new_val:
+                changed += 1
+            pick_row["canonicalConsensusRank"] = new_rank
+            pick_row["rankDerivedValue"] = new_val
+            if new_tier is not None:
+                pick_row["canonicalTierId"] = new_tier
+            else:
+                pick_row["canonicalTierId"] = _tier_id_from_rank(new_rank)
+            pick_row["blendedSourceRank"] = new_bsr
+            pick_row["sourceRankSpread"] = new_spread
+            pick_row["sourceRankPercentileSpread"] = new_pct
+            # Stamp a flag so consumers can see the slot was reassigned
+            # by the monotonization pass (mostly for debugging).
+            pick_row["pickSlotMonotonized"] = True
+
+    return changed
+
+
+def _suppress_generic_pick_tiers_when_slots_exist(
+    players_array: list[dict[str, Any]],
+) -> dict[str, str]:
+    """Remove generic tier pick rows (Early/Mid/Late XX) from the ranked
+    board for any (year, round) that already has slot-specific picks
+    1..12.  The removed rows are returned as a ``pickAliases`` map:
+    ``{"2026 Mid 1st": "2026 Pick 1.06"}``.
+
+    For the alias destination we pick the centre slot of each tier
+    range:  Early=2, Mid=6, Late=10.  These stay as searchable aliases
+    so a user typing "2026 mid 1st" still resolves to the closest
+    slot-specific row even though the generic tier has been removed
+    from the ranked board.
+
+    Years that have NO specific slots (e.g. 2027, 2028 where the
+    sources only publish tier values) are left alone.  Their generic
+    tier rows remain on the board as the only available representation.
+    """
+    # 1) Find years that have at least one slot-specific pick.
+    years_with_slots: set[int] = set()
+    for row in players_array:
+        if row.get("assetClass") != "pick":
+            continue
+        parsed = _parse_pick_slot(row.get("canonicalName") or "")
+        if parsed is not None:
+            years_with_slots.add(parsed[0])
+
+    if not years_with_slots:
+        return {}
+
+    aliases: dict[str, str] = {}
+    tier_centre_slot = {"Early": 2, "Mid": 6, "Late": 10}
+    rounds_with_slots: dict[tuple[int, int], bool] = {}
+    for row in players_array:
+        parsed = _parse_pick_slot(row.get("canonicalName") or "")
+        if parsed is not None:
+            rounds_with_slots[(parsed[0], parsed[1])] = True
+
+    # 2) Walk picks; for each generic tier row in a year+round with
+    # specific slots, build the alias and clear the row's ranking
+    # fields so it disappears from the ranked board (assert_ranking
+    # _coherence skips rows with no canonicalConsensusRank).
+    for row in players_array:
+        if row.get("assetClass") != "pick":
+            continue
+        name = row.get("canonicalName") or ""
+        parsed = _parse_pick_tier(name)
+        if parsed is None:
+            continue
+        year, tier, rnd = parsed
+        if year not in years_with_slots:
+            continue
+        if not rounds_with_slots.get((year, rnd)):
+            # Year has slots overall but not for this specific round.
+            continue
+        slot = tier_centre_slot.get(tier, 6)
+        alias_target = f"{year} Pick {rnd}.{slot:02d}"
+        aliases[name] = alias_target
+
+        # Clear the ranking fields so the row drops off the ranked
+        # board.  Keep the row itself in playersArray so any consumer
+        # that resolves a name lookup still finds it (search aliases),
+        # but mark it suppressed so the trust block reflects reality.
+        row["canonicalConsensusRank"] = None
+        row["rankDerivedValue"] = None
+        row["canonicalTierId"] = None
+        row["confidenceBucket"] = "none"
+        row["confidenceLabel"] = (
+            "None — generic tier suppressed in favor of slot-specific picks"
+        )
+        row["pickGenericSuppressed"] = True
+        # Drop quarantine / single-source flags so the suppressed row
+        # cannot accidentally trip the launch-readiness 1-src gate.
+        row["isSingleSource"] = False
+        row["isStructurallySingleSource"] = False
+        row["anomalyFlags"] = []
+        # Preserve the alias on the row itself for direct UI lookups.
+        row["pickAliasFor"] = alias_target
+
+    return aliases
+
+
+def _compute_pick_confidence(
+    canonical_sites: dict[str, Any],
+    is_slot_specific: bool,
+) -> tuple[str, str]:
+    """Compute (confidenceBucket, confidenceLabel) for a pick row.
+
+    Pick confidence is rank-spread agnostic: for picks the meaningful
+    signal is whether multiple raw source values agree on the pick's
+    dollar value, not whether the source ordinal ranks line up (rank
+    spread on picks is dominated by flat-value regions in R3-R6 and
+    misleads the player-centric bucketing).
+
+    Rules:
+      * Effective source count: count raw values > 0.  KTC slot values
+        on slot-specific picks are SYNTHESIZED by Dynasty Scraper's
+        ``_estimate_slot_from_tier`` from KTC's 14 tier rows — they
+        carry partial information so we count them at 0.5 instead of
+        1.0.  KTC tier-row picks (e.g. 2026 Early 1st) are real KTC
+        rows and count at 1.0.
+      * Coefficient of variation: cv = stdev(raw_values) / mean.
+      * Bucketing:
+          high   — effective count >= 1.5 AND cv <= 0.15
+          medium — effective count >= 1.0 AND cv <= 0.30
+          low    — otherwise
+    """
+    raw_values: list[tuple[str, float]] = []
+    for key in ("ktc", "idpTradeCalc", "dlfSf", "dynastyNerdsSfTep", "dlfIdp"):
+        v = canonical_sites.get(key)
+        if v is None:
+            continue
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            continue
+        if f > 0:
+            raw_values.append((key, f))
+
+    if not raw_values:
+        return "none", "None — no pick source values"
+
+    # KTC slot values on specific slots are partial evidence.
+    effective_count = 0.0
+    for key, _v in raw_values:
+        if key == "ktc" and is_slot_specific:
+            effective_count += 0.5
+        else:
+            effective_count += 1.0
+
+    values = [v for _k, v in raw_values]
+    mean = sum(values) / len(values)
+    if mean <= 0 or len(values) < 2:
+        cv = None
+    else:
+        var = sum((v - mean) ** 2 for v in values) / len(values)
+        cv = math.sqrt(var) / mean
+
+    if cv is None:
+        # Single-source pick — no agreement signal at all.
+        if effective_count >= 1.0:
+            return "low", "Low — single pick source"
+        return "low", "Low — limited pick sources"
+
+    if effective_count >= 1.5 and cv <= 0.15:
+        return "high", "High — picks agree within 15%"
+    if effective_count >= 1.0 and cv <= 0.30:
+        return "medium", "Medium — moderate pick source disagreement"
+    return "low", "Low — divergent pick sources"
+
+
+def _apply_pick_year_discount_to_blend(
+    row_normalized: list[tuple[float, int]],
+    players_array: list[dict[str, Any]],
+) -> tuple[list[tuple[float, int]], dict[int, float]]:
+    """Apply the pick year discount to the blended pre-sort values.
+
+    Picks in future years have their post-blend value multiplied by
+    the discount config; every other row is untouched.  Returns the
+    new ``row_normalized`` list and a per-row-idx map of the multiplier
+    actually applied (for debugging / audit).
+
+    Applied BEFORE the unified Phase 4 sort so future-year picks
+    naturally drift to lower positions in the global ladder.
+    """
+    cfg = _load_pick_year_discount()
+    discount_applied: dict[int, float] = {}
+    out: list[tuple[float, int]] = []
+    for value, row_idx in row_normalized:
+        row = players_array[row_idx]
+        if row.get("assetClass") == "pick":
+            year = _pick_year_from_name(row.get("canonicalName") or "")
+            mult = _pick_year_discount_for(year, cfg)
+            if mult != 1.0:
+                value = value * mult
+                discount_applied[row_idx] = mult
+                # Stamp on row for transparency
+                row["pickYearDiscount"] = round(mult, 4)
+        out.append((value, row_idx))
+    return out, discount_applied
+
+
 def _compute_unified_rankings(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
     csv_index: dict[str, dict[str, dict[str, Any]]] | None = None,
-) -> None:
+) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
     Architecture
@@ -1657,6 +2093,14 @@ def _compute_unified_rankings(
             blended_value = 0.6 * weighted_mean + 0.4 * robust
         row_normalized.append((blended_value, row_idx))
 
+    # ── Phase 3a: Pick year discount (gated to picks) ──
+    # Apply the multiplicative future-year discount BEFORE the global
+    # sort so 2027/2028 picks naturally drift to lower positions in
+    # the final ladder. Player rows are untouched.
+    row_normalized, _pick_year_discounts = _apply_pick_year_discount_to_blend(
+        row_normalized, players_array
+    )
+
     # ── Phase 4: Unified sort and overall rank assignment ──
     row_normalized.sort(
         key=lambda t: (-t[0], players_array[t[1]].get("canonicalName", "").lower())
@@ -1682,6 +2126,12 @@ def _compute_unified_rankings(
     for row_idx, source_ranks in row_source_ranks.items():
         row = players_array[row_idx]
         row["sourceCount"] = len(source_ranks)
+        # Stamp sourceRanks here (regardless of OVERALL_RANK_LIMIT) so
+        # rows that fall off the cap after the pick year discount still
+        # carry their per-source rank dict — consumers of the
+        # playersArray (audit tooling, the picks regression test) can
+        # then introspect every source-bearing row, ranked or not.
+        row["sourceRanks"] = source_ranks
         canonical_sites = row.get("canonicalSiteValues") or {}
         row["sourcePresence"] = {
             k: (v is not None and v > 0) for k, v in canonical_sites.items()
@@ -1820,7 +2270,21 @@ def _compute_unified_rankings(
         row["marketGapDirection"] = gap_dir
         row["marketGapMagnitude"] = gap_mag
 
-        bucket, label = _compute_confidence_bucket(len(source_ranks), source_rank_spread)
+        # Picks get their own confidence logic (CV-based on raw values),
+        # because rank-spread is dominated by flat-value regions in
+        # R3-R6 and KTC's per-slot synth bleeds in as fake agreement.
+        if row.get("assetClass") == "pick":
+            is_slot_specific = _parse_pick_slot(
+                row.get("canonicalName") or ""
+            ) is not None
+            bucket, label = _compute_pick_confidence(
+                row.get("canonicalSiteValues") or {},
+                is_slot_specific=is_slot_specific,
+            )
+        else:
+            bucket, label = _compute_confidence_bucket(
+                len(source_ranks), source_rank_spread
+            )
         row["confidenceBucket"] = bucket
         row["confidenceLabel"] = label
 
@@ -1876,6 +2340,69 @@ def _compute_unified_rankings(
                     pdata["ktcRank"] = source_ranks["ktc"]
                 if "idpTradeCalc" in source_ranks:
                     pdata["idpRank"] = source_ranks["idpTradeCalc"]
+
+    # ── Phase 5: Pick refinement passes (gated to picks) ──
+    # 1) Reassign (rank, value) tuples within each (year, round) bucket
+    #    so slot-specific picks 1.01..1.12 are strictly monotonic in
+    #    slot order.  This corrects KTC's _estimate_slot_from_tier
+    #    inversions without disturbing global rank/value monotonicity.
+    _reassign_pick_slot_order(players_array)
+
+    # 2) Suppress generic Early/Mid/Late tier rows for years that have
+    #    specific slots, returning a {generic_name: slot_alias} map.
+    pick_aliases = _suppress_generic_pick_tiers_when_slots_exist(players_array)
+
+    # 2a) Compact ranks after suppression so the ranked board is still
+    #     contiguous 1..N.  This walks the surviving ranked rows in
+    #     ascending-rank order and renumbers them 1..N.  Values stay
+    #     monotonic because we are only *removing* rows from a sequence
+    #     that was already monotonic.  Tier IDs are re-derived from the
+    #     new ranks.
+    ranked_rows = sorted(
+        [r for r in players_array if r.get("canonicalConsensusRank")],
+        key=lambda r: int(r["canonicalConsensusRank"]),
+    )
+    for new_rank, r in enumerate(ranked_rows, start=1):
+        old_rank = r.get("canonicalConsensusRank")
+        if old_rank != new_rank:
+            r["canonicalConsensusRank"] = new_rank
+        r["canonicalTierId"] = _tier_id_from_rank(new_rank)
+
+    # 3) Mirror the post-refinement rank/value back into the legacy
+    #    players_by_name dict so the runtime view stays in sync.
+    for row in players_array:
+        if row.get("assetClass") != "pick":
+            continue
+        legacy_ref = row.get("legacyRef")
+        if not legacy_ref or legacy_ref not in players_by_name:
+            continue
+        pdata = players_by_name[legacy_ref]
+        if not isinstance(pdata, dict):
+            continue
+        rdv = row.get("rankDerivedValue")
+        rk = row.get("canonicalConsensusRank")
+        if rdv is not None:
+            pdata["rankDerivedValue"] = rdv
+        if rk is not None:
+            pdata["_canonicalConsensusRank"] = rk
+        else:
+            # Suppressed generic tier — clear ranking on legacy too.
+            pdata["rankDerivedValue"] = None
+            pdata["_canonicalConsensusRank"] = None
+        # Mirror the new pick-specific confidence bucket as well.
+        if "confidenceBucket" in row:
+            pdata["confidenceBucket"] = row["confidenceBucket"]
+            pdata["confidenceLabel"] = row.get("confidenceLabel")
+        if row.get("pickSlotMonotonized"):
+            pdata["pickSlotMonotonized"] = True
+        if row.get("pickGenericSuppressed"):
+            pdata["pickGenericSuppressed"] = True
+        if row.get("pickAliasFor"):
+            pdata["pickAliasFor"] = row["pickAliasFor"]
+        if row.get("pickYearDiscount") is not None:
+            pdata["pickYearDiscount"] = row["pickYearDiscount"]
+
+    return pick_aliases
 
 
 REQUIRED_TOP_LEVEL_KEYS = {
@@ -2245,7 +2772,7 @@ def build_api_data_contract(
     # Compute unified rankings: all sources, all positions, one board.
     # The CSV index lets the ranker stamp a per-row ``sourceAudit``
     # block describing which CSV row matched each player and why.
-    _compute_unified_rankings(
+    pick_aliases = _compute_unified_rankings(
         players_array, players_by_name, csv_index=csv_index
     )
 
@@ -2414,6 +2941,7 @@ def build_api_data_contract(
             "flagCounts": anomaly_counts,
         },
         "validationSummary": validation_summary,
+        "pickAliases": pick_aliases or {},
     }
     return contract_payload
 
