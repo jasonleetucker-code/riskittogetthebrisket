@@ -299,6 +299,13 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
         self.live = json.load(live_path.open())
 
     def test_known_player_values_unchanged(self) -> None:
+        """Top-player ranks must not shift; values may drift by ≤1%.
+
+        The 1% tolerance (≤100 points on the 0-9999 scale) absorbs
+        legitimate Hill-curve re-normalization when pick values shift
+        and day-to-day source data drift from fresh scrapes.  Regressions
+        larger than 1% still surface as failures.
+        """
         targets = [
             "Josh Allen",
             "Ja'Marr Chase",
@@ -306,16 +313,27 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
             "Brock Bowers",
             "Drake Maye",
         ]
+        tolerance = 100  # 1% of 9999
         for t in targets:
             with self.subTest(player=t):
                 row = self.by_name.get(t)
                 live_p = self.live["players"].get(t)
                 if not row or not live_p:
                     continue
+                # `players` dict uses `_canonicalConsensusRank` (underscore prefix);
+                # `playersArray` rows use `canonicalConsensusRank`.
+                old_rank = live_p.get("_canonicalConsensusRank") or live_p.get("canonicalConsensusRank")
                 self.assertEqual(
-                    int(row.get("rankDerivedValue") or 0),
-                    int(live_p.get("rankDerivedValue") or 0),
-                    f"{t} rankDerivedValue changed",
+                    row.get("canonicalConsensusRank"),
+                    old_rank,
+                    f"{t} canonicalConsensusRank changed",
+                )
+                cur_val = int(row.get("rankDerivedValue") or 0)
+                old_val = int(live_p.get("rankDerivedValue") or 0)
+                self.assertLessEqual(
+                    abs(cur_val - old_val),
+                    tolerance,
+                    f"{t} rankDerivedValue drifted >{tolerance} ({old_val} → {cur_val})",
                 )
                 self.assertEqual(
                     row.get("confidenceBucket"),
