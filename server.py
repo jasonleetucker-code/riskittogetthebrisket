@@ -1361,6 +1361,40 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                     message=f"Dynasty Nerds fetch raised: {_dn_err}",
                 )
 
+            # Refresh FantasyPros Dynasty IDP rankings.  The combined
+            # + DL/LB/DB pages inline their rankings in a JS
+            # ``ecrData = {...}`` constant, so a plain ``requests.get``
+            # with a browser UA returns the full payload.  The fetch
+            # script derives per-player effective overall ranks via
+            # anchor curves fit on the combined/individual overlap
+            # and writes a rank-signal CSV.
+            try:
+                from scripts import fetch_fantasypros_idp as _fp_fetch
+                rc = _fp_fetch.main(["--mirror-data-dir"])
+                if rc == 2:
+                    _record_scrape_event(
+                        "fantasypros_idp_schema_regression",
+                        level="error",
+                        message=(
+                            "FantasyPros IDP fetch exit=2 "
+                            "(ecrData shape changed or rows below floor)"
+                        ),
+                        exit_code=rc,
+                    )
+                elif rc != 0:
+                    _record_scrape_event(
+                        "fantasypros_idp_fetch_failed",
+                        level="warning",
+                        message=f"FantasyPros IDP fetch returned exit={rc}",
+                        exit_code=rc,
+                    )
+            except Exception as _fp_err:
+                _record_scrape_event(
+                    "fantasypros_idp_fetch_exception",
+                    level="warning",
+                    message=f"FantasyPros IDP fetch raised: {_fp_err}",
+                )
+
             _update_scrape_progress(
                 step="publish",
                 source="api_cache",

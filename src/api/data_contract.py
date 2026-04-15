@@ -74,6 +74,7 @@ _OFFENSE_SIGNAL_KEYS = {
 _IDP_SIGNAL_KEYS = {
     "idpTradeCalc",
     "dlfIdp",
+    "fantasyProsIdp",
 }
 
 # All source signal keys — used to detect which source(s) a player has
@@ -177,6 +178,20 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "exports/latest/site_raw/dynastyNerdsSfTep.csv",
         "signal": "rank",
     },
+    # FantasyPros Dynasty IDP rankings — scraped from the four dynasty
+    # IDP pages (combined + DL + LB + DB) via
+    # ``scripts/fetch_fantasypros_idp.py``.  The combined IDP page is
+    # authoritative for overall cross-position ordering; individual
+    # DL/LB/DB pages are used only as depth extension via monotone
+    # piecewise-linear anchor curves fit from the overlap.  Final
+    # effective overall ranks are written to the CSV as
+    # ``effectiveRank``, and the fetch script aliases it to a ``Rank``
+    # column via the _RANK_ALIASES + _NAME_ALIASES handshake below so
+    # the standard rank-signal path picks it up.
+    "fantasyProsIdp": {
+        "path": "exports/latest/site_raw/fantasyProsIdp.csv",
+        "signal": "rank",
+    },
 }
 
 # Rank -> synthetic value transform used when a CSV declares signal=rank.
@@ -196,6 +211,7 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     "ktc": 6,
     "idpTradeCalc": 6,
     "dynastyNerdsSfTep": 6,
+    "fantasyProsIdp": 6,
     "dlfIdp": 720,
     "dlfSf": 720,
 }
@@ -211,6 +227,10 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     "dlfIdp": 150,
     "dlfSf": 240,
     "dynastyNerdsSfTep": 230,
+    # FantasyPros dynasty IDP: combined board + 3 individual boards
+    # yield ~100 total rows (70 combined + 30 extension).  Floor at
+    # ~75% of live baseline so a scrape regression trips a warning.
+    "fantasyProsIdp": 75,
 }
 
 
@@ -269,6 +289,10 @@ _DEFAULT_TOP50_COVERAGE_FLOORS: dict[str, dict[str, int]] = {
     "idp": {
         "idpTradeCalc": 48,
         "dlfIdp": 38,
+        # FantasyPros dynasty IDP only carries 70 combined + 30
+        # extension players so its top-50 coverage is bounded by the
+        # combined-board size.  Floor at 35 (70% of the 50-slot slice).
+        "fantasyProsIdp": 35,
     },
 }
 
@@ -579,6 +603,42 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_backbone": False,
         "is_retail": False,
     },
+    {
+        # FantasyPros Dynasty IDP expert consensus.  Scraped from
+        # https://www.fantasypros.com/nfl/rankings/dynasty-idp.php
+        # (combined IDP board = authoritative overall ordering) and
+        # extended via three individual family pages
+        # (dynasty-dl / dynasty-lb / dynasty-db) through monotone
+        # piecewise-linear anchor curves fit on the overlap.  See
+        # ``scripts/fetch_fantasypros_idp.py`` for the full derivation.
+        #
+        # Conceptually equivalent to DLF IDP — curated expert
+        # consensus, not a retail market — so it gets the same
+        # profile: scope=overall_idp, weight=3.0, is_retail=False,
+        # needs_shared_market_translation=True (IDP ranks are
+        # translated through the backbone ladder before feeding the
+        # Hill curve).  FantasyPros' dynasty IDP board is smaller
+        # than DLF's (~100 players vs 185) so ``depth=100`` tells
+        # ``_expected_sources_for_position`` not to expect this
+        # source for players ranked deeper than ~125 (depth * 1.25).
+        "key": "fantasyProsIdp",
+        "display_name": "FantasyPros Dynasty IDP",
+        "scope": SOURCE_SCOPE_OVERALL_IDP,
+        "position_group": None,
+        "depth": 100,
+        "weight": 3.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "needs_shared_market_translation": True,
+        # The FantasyPros dynasty IDP board is a curated veteran
+        # list — like DLF IDP, it does not list first-year college
+        # prospects (Caleb Downs, Sonny Styles, Arvell Reese, etc.).
+        # Declare ``excludes_rookies`` so
+        # ``_expected_sources_for_position`` stops counting FP as an
+        # expected source for rookies and the structural-1-src
+        # detection still fires for DLF+FP-excluded rookies.
+        "excludes_rookies": True,
+    },
 ]
 
 
@@ -644,6 +704,13 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     "bryce lance": "source_gap:ktc+idpTradeCalc+dlfSf — deep rookie WR only ranked by Dynasty Nerds SF-TEP",
     "dezhaun stribling": "source_gap:ktc+idpTradeCalc+dlfSf — deep rookie WR only ranked by Dynasty Nerds SF-TEP",
     "tyler lockett": "source_gap:ktc+idpTradeCalc+dlfSf — veteran WR dropped by retail + DLF SF; Dynasty Nerds SF-TEP still ranks him",
+    # ── IDP: FantasyPros-IDP-only (not listed by idpTradeCalc or DLF IDP) ──
+    # FantasyPros' curated dynasty IDP board includes several
+    # role/depth players that neither IDPTradeCalc nor DLF IDP
+    # currently rank.  They land inside the top-400 unified board
+    # via FP's combined-page rank alone.
+    "jack gibbens": "source_gap:idpTradeCalc+dlfIdp — LB only ranked by FantasyPros dynasty IDP",
+    "malachi moore": "source_gap:idpTradeCalc+dlfIdp — CB only ranked by FantasyPros dynasty IDP",
 }
 
 
@@ -1363,7 +1430,18 @@ def _enrich_from_source_csvs(
         # dropped into ``exports/latest/site_raw/`` without any
         # preprocessing step.
         _NAME_ALIASES = ("name", "Name", "player", "Player", "player_name", "PlayerName")
-        _RANK_ALIASES = ("rank", "Rank", "overall_rank", "OverallRank")
+        _RANK_ALIASES = (
+            "rank",
+            "Rank",
+            "overall_rank",
+            "OverallRank",
+            # FantasyPros IDP CSV writes a derived overall rank under
+            # ``effectiveRank`` (combined-board direct or anchored from
+            # individual) alongside a separate ``originalRank`` column.
+            # The enrichment path only cares about the effective value
+            # since that's what drives the downstream blend.
+            "effectiveRank",
+        )
         _VALUE_ALIASES = ("value", "Value", "trade_value", "TradeValue")
 
         def _pick(csvrow: dict[str, Any], aliases: tuple[str, ...]) -> str:
@@ -1380,7 +1458,7 @@ def _enrich_from_source_csvs(
         # is present.  If not, record a schema-mismatch parse error and
         # skip the source entirely — the row-count floor will then catch
         # the zero-coverage as ``source_missing:<source>`` downstream.
-        if source_key in ("dlfSf", "dlfIdp"):
+        if source_key in ("dlfSf", "dlfIdp", "fantasyProsIdp"):
             try:
                 with csv_path.open("r", encoding="utf-8-sig") as f_probe:
                     header_line = f_probe.readline().strip()
@@ -1393,6 +1471,17 @@ def _enrich_from_source_csvs(
                 )
             if source_key == "dlfSf":
                 expected_tokens = ("Rank", "Avg", "Name", "Player")
+            elif source_key == "fantasyProsIdp":
+                # FantasyPros IDP CSV header must carry ``effectiveRank``
+                # and ``name`` columns at a minimum; ``derivationMethod``
+                # and ``family`` are the diagnostic columns surfaced on
+                # enriched rows.
+                expected_tokens = (
+                    "effectiveRank",
+                    "derivationMethod",
+                    "family",
+                    "name",
+                )
             else:  # dlfIdp
                 expected_tokens = ("name", "Name", "Player", "rank", "Rank")
             # Case-sensitive token match is fine — we only need any one
@@ -1557,6 +1646,87 @@ def _enrich_from_source_csvs(
                 if orig_rank is not None:
                     orig_ranks = row.setdefault("sourceOriginalRanks", {})
                     orig_ranks[source_key] = round(float(orig_rank), 2)
+
+    # ── FantasyPros IDP metadata stamp ──────────────────────────────
+    # The generic rank-signal enrichment only stamps the effective
+    # rank into ``sourceOriginalRanks[fantasyProsIdp]``.  FantasyPros
+    # IDP rows carry additional per-player diagnostics — originalRank,
+    # derivationMethod, family, normalizedValue, matchedSourceName —
+    # that we store as flat ``fantasyProsIdp*`` fields on the row for
+    # audit + frontend display.  We re-read the CSV once here (a 100
+    # row file) so the metadata path is fully decoupled from the
+    # generic enrichment above and a future refactor of one cannot
+    # silently break the other.
+    fp_cfg = _SOURCE_CSV_PATHS.get("fantasyProsIdp")
+    fp_rel = (
+        fp_cfg.get("path") if isinstance(fp_cfg, dict) else (fp_cfg or "")
+    )
+    if fp_rel:
+        fp_path = repo / fp_rel
+        if fp_path.exists():
+            try:
+                fp_meta_lookup: dict[str, dict[str, Any]] = {}
+                with fp_path.open("r", encoding="utf-8-sig") as f:
+                    for row_csv in csv.DictReader(f):
+                        nm = str(row_csv.get("name") or "").strip()
+                        if not nm:
+                            continue
+                        key = _canonical_match_key(nm)
+                        if not key:
+                            continue
+                        try:
+                            orig_r = int(float(row_csv.get("originalRank") or 0))
+                        except (TypeError, ValueError):
+                            orig_r = 0
+                        try:
+                            eff_r = int(float(row_csv.get("effectiveRank") or 0))
+                        except (TypeError, ValueError):
+                            eff_r = 0
+                        try:
+                            norm_v = int(float(row_csv.get("normalizedValue") or 0))
+                        except (TypeError, ValueError):
+                            norm_v = 0
+                        fp_meta_lookup[key] = {
+                            "fantasyProsIdpOriginalRank": orig_r,
+                            "fantasyProsIdpEffectiveRank": eff_r,
+                            "fantasyProsIdpDerivationMethod": str(
+                                row_csv.get("derivationMethod") or ""
+                            ).strip(),
+                            "fantasyProsIdpFamily": str(
+                                row_csv.get("family") or ""
+                            ).strip(),
+                            "fantasyProsIdpNormalizedValue": norm_v,
+                            "fantasyProsIdpMatchedSourceName": str(
+                                row_csv.get("matchedSourceName") or nm
+                            ).strip(),
+                        }
+                for row in players_array:
+                    nm = str(
+                        row.get("canonicalName") or row.get("displayName") or ""
+                    )
+                    if not nm:
+                        continue
+                    key = _canonical_match_key(nm)
+                    if not key:
+                        continue
+                    meta = fp_meta_lookup.get(key)
+                    if meta is None:
+                        continue
+                    # Only stamp FP metadata on rows that actually
+                    # received a FantasyPros enrichment value — the
+                    # generic loop above already validated the
+                    # name/position match cascade.
+                    csv_vals = row.get("canonicalSiteValues")
+                    if not isinstance(csv_vals, dict):
+                        continue
+                    if not csv_vals.get("fantasyProsIdp"):
+                        continue
+                    for k, v in meta.items():
+                        row[k] = v
+            except Exception as exc:  # noqa: BLE001
+                _LOGGER.warning(
+                    "FantasyPros IDP metadata stamp failed: %s", exc
+                )
 
     return csv_index
 
@@ -2025,7 +2195,14 @@ def _compute_pick_confidence(
           low    — otherwise
     """
     raw_values: list[tuple[str, float]] = []
-    for key in ("ktc", "idpTradeCalc", "dlfSf", "dynastyNerdsSfTep", "dlfIdp"):
+    for key in (
+        "ktc",
+        "idpTradeCalc",
+        "dlfSf",
+        "dynastyNerdsSfTep",
+        "dlfIdp",
+        "fantasyProsIdp",
+    ):
         v = canonical_sites.get(key)
         if v is None:
             continue

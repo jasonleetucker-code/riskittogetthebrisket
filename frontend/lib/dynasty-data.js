@@ -410,6 +410,29 @@ export const RANKING_SOURCES = [
     isRetail: false,
     isRankSignal: true,
   },
+  {
+    // FantasyPros Dynasty IDP expert consensus.  Combined IDP page
+    // (dynasty-idp.php) is authoritative for cross-position ordering;
+    // individual DL/LB/DB pages are used only as depth extension via
+    // monotone piecewise-linear anchor curves fit from the overlap
+    // (see scripts/fetch_fantasypros_idp.py).  Conceptually mirrors
+    // DLF IDP — curated expert board, not retail — so it gets the
+    // same profile: weight 3.0, needs_shared_market_translation=true,
+    // excludes_rookies=true.  Mirrors the backend `_RANKING_SOURCES`
+    // entry in src/api/data_contract.py.
+    key: "fantasyProsIdp",
+    displayName: "FantasyPros Dynasty IDP",
+    columnLabel: "FP IDP",
+    scope: SOURCE_SCOPE_OVERALL_IDP,
+    positionGroup: null,
+    depth: 100,
+    weight: 3.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    needsSharedMarketTranslation: true,
+    excludesRookies: true,
+  },
 ];
 
 // Legacy export retained for any consumer that previously imported
