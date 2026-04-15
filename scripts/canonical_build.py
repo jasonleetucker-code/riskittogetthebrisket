@@ -52,11 +52,35 @@ def main() -> int:
 
     raw_file = _latest(repo / "data" / "raw_sources", "raw_source_snapshot_*.json")
     if raw_file is None:
-        print("[canonical_build] No raw source snapshot found. Run source_pull first.")
-        return 0
+        # CI used to eat this as a silent `return 0` which left the
+        # downstream "Verify canonical output" step to fail with a
+        # cryptic pipefail exit 2 from its `ls | head` call.  Fail
+        # loudly instead so the real root cause (source_pull produced
+        # nothing) shows up in the canonical-build step's log.
+        print(
+            "[canonical_build] ERROR: No raw source snapshot found in "
+            "data/raw_sources/.  Run `python scripts/source_pull.py` first "
+            "and make sure it wrote a `raw_source_snapshot_*.json` file.",
+            file=sys.stderr,
+        )
+        return 1
 
     raw_payload = load_json(raw_file, default={}) or {}
     snapshots = raw_payload.get("snapshots", [])
+
+    if not snapshots:
+        # Empty snapshots list = source_pull ran but every adapter
+        # returned zero records (scraper CSVs all missing/empty, or
+        # every adapter raised).  Surface this as a hard failure so
+        # the downstream "Verify canonical output" step reports the
+        # correct root cause instead of its generic exit-2 pipefail.
+        print(
+            f"[canonical_build] ERROR: raw source snapshot {raw_file.name} "
+            f"contains zero source snapshots.  source_pull produced no "
+            f"records — check the scraper output in exports/latest/site_raw/.",
+            file=sys.stderr,
+        )
+        return 1
 
     all_records: list[RawAssetRecord] = []
     for snap in snapshots:
@@ -91,6 +115,19 @@ def main() -> int:
                     asset_key=r.get("asset_key", ""),
                 )
             )
+
+    if not all_records:
+        # Every snapshot existed but contained no records — same
+        # silent-failure class as the empty `snapshots` list above.
+        # Report and exit 1 so the CI step blames the right component.
+        print(
+            f"[canonical_build] ERROR: raw source snapshot {raw_file.name} "
+            f"has {len(snapshots)} snapshot(s) but zero records across all "
+            f"sources.  Check scraper output — no canonical snapshot will "
+            f"be written.",
+            file=sys.stderr,
+        )
+        return 1
 
     weights_cfg = load_json(repo / "config" / "weights" / "default_weights.json", default={}) or {}
     source_weights = dict(weights_cfg.get("sources", {}))
