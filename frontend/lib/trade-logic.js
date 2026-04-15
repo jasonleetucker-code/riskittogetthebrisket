@@ -286,10 +286,33 @@ export function buildPickLookupCandidates(rawLabel) {
 }
 
 /**
+ * True if a row is a suppressed generic-tier pick — one that the backend
+ * kept on the legacy board for name-search purposes but cleared of
+ * ranking fields because a slot-specific sibling exists (e.g. "2026 Mid
+ * 1st" when "2026 Pick 1.06" is the authoritative row).  These rows
+ * can still carry stale values from the legacy pipeline, so callers
+ * must treat them as non-authoritative and consult `pickAliases` or
+ * slot-specific candidates instead.
+ */
+function isSuppressedGenericPickRow(row) {
+  if (!row) return false;
+  return Boolean(row.pickGenericSuppressed || row.raw?.pickGenericSuppressed);
+}
+
+/**
  * Resolve a pick label (raw or annotated) to a row using rowLookup and
  * optional backend-authored pickAliases map.  Returns null if no
  * candidate resolves.  Callers should NOT fall back to an untyped 0 —
  * a null return means the pick genuinely has no known value.
+ *
+ * Resolution order is deliberate:
+ *   1. `pickAliases` lookup (authoritative for suppressed generic tiers).
+ *      Without this, step 2 could return a suppressed row with stale
+ *      values before the alias-to-slot redirect is ever consulted.
+ *   2. Direct `rowLookup` walk over candidate names, skipping any
+ *      suppressed generic-tier row so the fallback chain continues to a
+ *      valid slot-specific sibling.  This keeps the resolver robust
+ *      even when `pickAliases` is missing (stale data, older contract).
  *
  * @param {string} rawLabel - raw pick label (any source)
  * @param {Map<string, object>} rowLookup - lowercased name → row
@@ -301,16 +324,10 @@ export function resolvePickRow(rawLabel, rowLookup, pickAliases) {
 
   const candidates = buildPickLookupCandidates(rawLabel);
 
-  // Direct candidate lookup.
-  for (const key of candidates) {
-    const row = rowLookup.get(key);
-    if (row) return row;
-  }
-
-  // Backend alias map (authoritative, case-sensitive map).  Walk each
-  // candidate through the alias and retry — covers the suppressed
-  // generic-tier case where rankings stored the row under the
-  // slot-specific canonical but kept the tier label as an alias.
+  // 1) Backend alias map first.  Walk every candidate through the alias
+  //    table so annotated/stripped/tier forms all redirect to the
+  //    slot-specific canonical row when the backend has flagged the
+  //    generic tier as suppressed.
   if (pickAliases && typeof pickAliases === "object") {
     const aliasLower = new Map();
     for (const [k, v] of Object.entries(pickAliases)) {
@@ -320,11 +337,20 @@ export function resolvePickRow(rawLabel, rowLookup, pickAliases) {
     }
     for (const key of candidates) {
       const target = aliasLower.get(key);
-      if (target) {
-        const row = rowLookup.get(target);
-        if (row) return row;
-      }
+      if (!target) continue;
+      const row = rowLookup.get(target);
+      if (row && !isSuppressedGenericPickRow(row)) return row;
     }
+  }
+
+  // 2) Direct candidate lookup.  Skip suppressed generic-tier rows so a
+  //    later candidate (typically the slot-specific "Pick N.NN" form)
+  //    gets a chance to resolve even without a pickAliases map.
+  for (const key of candidates) {
+    const row = rowLookup.get(key);
+    if (!row) continue;
+    if (isSuppressedGenericPickRow(row)) continue;
+    return row;
   }
 
   return null;

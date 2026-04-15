@@ -569,6 +569,43 @@ describe("resolvePickRow", () => {
     expect(row.values.full).toBe(7700);
   });
 
+  it("prefers pickAliases over a suppressed generic-tier row", () => {
+    // Backend kept the suppressed generic-tier row on the board (with
+    // stale value 1) so name search still resolves it, but pickAliases
+    // authoritatively redirects to the slot-specific row (value 7700).
+    const m = new Map();
+    m.set("2026 mid 1st", {
+      name: "2026 Mid 1st",
+      pos: "PICK",
+      values: { full: 1 },
+      raw: { pickGenericSuppressed: true },
+    });
+    m.set("2026 pick 1.06", { name: "2026 Pick 1.06", pos: "PICK", values: { full: 7700 } });
+    const aliases = { "2026 Mid 1st": "2026 Pick 1.06" };
+    const row = resolvePickRow("2026 Mid 1st (own)", m, aliases);
+    expect(row).not.toBeNull();
+    expect(row.name).toBe("2026 Pick 1.06");
+    expect(row.values.full).toBe(7700);
+  });
+
+  it("skips suppressed generic-tier rows during direct lookup fallback", () => {
+    // No pickAliases available — resolver must still skip the
+    // suppressed row and continue to the slot-specific candidate that
+    // buildPickLookupCandidates derives from the tier-centre slot.
+    const m = new Map();
+    m.set("2026 mid 1st", {
+      name: "2026 Mid 1st",
+      pos: "PICK",
+      values: { full: 1 },
+      raw: { pickGenericSuppressed: true },
+    });
+    m.set("2026 pick 1.06", { name: "2026 Pick 1.06", pos: "PICK", values: { full: 7700 } });
+    const row = resolvePickRow("2026 Mid 1st (own)", m);
+    expect(row).not.toBeNull();
+    expect(row.name).toBe("2026 Pick 1.06");
+    expect(row.values.full).toBe(7700);
+  });
+
   it("returns null when nothing matches", () => {
     const lookup = mkLookup([["2026 Pick 1.04", 9000]]);
     expect(resolvePickRow("2099 1.01", lookup)).toBeNull();
