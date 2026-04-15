@@ -695,7 +695,9 @@ describe("H. Dynasty Nerds SF-TEP source registration", () => {
     expect(src.scope).toBe("overall_offense");
     expect(src.isRetail).toBe(false);
     expect(src.isRankSignal).toBe(true);
-    expect(src.weight).toBe(3.0);
+    // Equal-weight policy — every registered source contributes
+    // equally to the blend.  See RANKING_SOURCES header in dynasty-data.js.
+    expect(src.weight).toBe(1.0);
   });
 
   it("labels the DN column as DN SF-TEP", () => {

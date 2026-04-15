@@ -3,15 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useSettings, SETTINGS_DEFAULTS as DEFAULTS } from "@/components/useSettings";
-// Known sites with their default configurations
-const SITE_DEFAULTS = {
-  ktc:           { label: "KeepTradeCut",   include: true,  weight: 1.2,  max: 9999,  tep: true  },
-};
+import { RANKING_SOURCES } from "@/lib/dynasty-data";
 
-const IDP_SITE_DEFAULTS = {
-  idpTradeCalc:  { label: "IDP Trade Calc", include: true, weight: 1.0, max: 9998, tep: true },
-};
-
+// The settings page enumerates the canonical ranking registry directly
+// so a newly registered source automatically shows up here without any
+// further editing.  No per-source overrides — every source contributes
+// at its declared weight (currently 1.0 across the board; see
+// `RANKING_SOURCES` in dynasty-data.js and `_RANKING_SOURCES` in
+// src/api/data_contract.py).  The registry is the single source of
+// truth for weight, scope, depth, and retail/expert classification.
 
 function Section({ title, defaultOpen = true, children }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -62,23 +62,35 @@ function ToggleRow({ label, checked, onChange, hint }) {
 
 export default function SettingsPage() {
   const { loading, error, siteKeys } = useDynastyData();
-  const { settings, update, updateSiteWeight, reset } = useSettings();
+  const { settings, update, reset } = useSettings();
   const [hydrated, setHydrated] = useState(true);
-
-  function getSiteConfig(siteKey) {
-    const defaults = SITE_DEFAULTS[siteKey] || IDP_SITE_DEFAULTS[siteKey] || { include: true, weight: 1.0, max: 9999, tep: true };
-    return { ...defaults, ...(settings.siteWeights[siteKey] || {}) };
-  }
 
   function resetToDefaults() {
     reset();
   }
 
-  // Determine which sites are present in actual data
-  const activeSites = useMemo(() => {
-    const offSites = siteKeys.filter((k) => SITE_DEFAULTS[k]);
-    const idpSites = siteKeys.filter((k) => IDP_SITE_DEFAULTS[k]);
-    return { offense: offSites.length > 0 ? offSites : Object.keys(SITE_DEFAULTS), idp: idpSites.length > 0 ? idpSites : Object.keys(IDP_SITE_DEFAULTS) };
+  // Split the canonical registry into offense / IDP groups by the
+  // declared scope field.  idpTradeCalc is listed under IDP (its
+  // primary backbone scope) even though its `extraScopes` also
+  // contribute to offense rankings — that's a calculation detail.
+  // A source is marked "live" when it actually appears in the
+  // current payload's sites array, so users can see at a glance
+  // whether a registered source is currently feeding data or is
+  // temporarily stale.
+  const sourcesByGroup = useMemo(() => {
+    const liveSet = new Set((siteKeys || []).map((k) => String(k)));
+    const decorate = (src) => ({
+      ...src,
+      live: liveSet.has(src.key),
+    });
+    return {
+      offense: RANKING_SOURCES
+        .filter((s) => s.scope === "overall_offense")
+        .map(decorate),
+      idp: RANKING_SOURCES
+        .filter((s) => s.scope === "overall_idp")
+        .map(decorate),
+    };
   }, [siteKeys]);
 
   if (!hydrated) return null;
@@ -150,91 +162,23 @@ export default function SettingsPage() {
         />
       </Section>
 
-      <Section title="Offense Value Sources" defaultOpen>
-        <div style={{ fontSize: "0.72rem", marginBottom: 8 }} className="muted">
-          Toggle sources on/off and adjust their weight in the composite calculation.
+      <Section title="Ranking Sources" defaultOpen>
+        <div style={{ fontSize: "0.72rem", marginBottom: 10 }} className="muted">
+          Every registered source contributes equally (weight 1.0) to the
+          blended consensus rank.  Sources are grouped by their primary scope;
+          the IDP Trade Calculator backbone also feeds offense blends via its
+          secondary scope.  Backend registry:{" "}
+          <code style={{ fontFamily: "var(--mono)" }}>src/api/data_contract.py</code>.
         </div>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem" }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid var(--border)" }}>
-              <th style={{ textAlign: "left", padding: "4px 8px" }}>Source</th>
-              <th style={{ textAlign: "center", padding: "4px 4px" }}>On</th>
-              <th style={{ textAlign: "center", padding: "4px 4px" }}>Weight</th>
-              <th style={{ textAlign: "center", padding: "4px 4px" }}>Max</th>
-              <th style={{ textAlign: "center", padding: "4px 4px" }}>TEP</th>
-            </tr>
-          </thead>
-          <tbody>
-            {activeSites.offense.map((key) => {
-              const cfg = getSiteConfig(key);
-              return (
-                <tr key={key} style={{ borderBottom: "1px solid var(--border)", opacity: cfg.include ? 1 : 0.4 }}>
-                  <td style={{ padding: "4px 8px" }}>{cfg.label || key}</td>
-                  <td style={{ textAlign: "center", padding: "4px 4px" }}>
-                    <input type="checkbox" checked={cfg.include} onChange={(e) => updateSiteWeight(key, "include", e.target.checked)} />
-                  </td>
-                  <td style={{ textAlign: "center", padding: "4px 4px" }}>
-                    <input
-                      type="number" min={0} max={3} step={0.1}
-                      value={cfg.weight} onChange={(e) => updateSiteWeight(key, "weight", parseFloat(e.target.value) || 0)}
-                      style={{ width: 56, textAlign: "center" }} className="input"
-                    />
-                  </td>
-                  <td style={{ textAlign: "center", padding: "4px 4px" }}>
-                    <input
-                      type="number" min={1000} max={20000} step={100}
-                      value={cfg.max} onChange={(e) => updateSiteWeight(key, "max", parseInt(e.target.value) || 9999)}
-                      style={{ width: 72, textAlign: "center" }} className="input"
-                    />
-                  </td>
-                  <td style={{ textAlign: "center", padding: "4px 4px" }}>
-                    <input type="checkbox" checked={cfg.tep} onChange={(e) => updateSiteWeight(key, "tep", e.target.checked)} />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </Section>
-
-      <Section title="IDP Value Sources" defaultOpen={false}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem" }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid var(--border)" }}>
-              <th style={{ textAlign: "left", padding: "4px 8px" }}>Source</th>
-              <th style={{ textAlign: "center", padding: "4px 4px" }}>On</th>
-              <th style={{ textAlign: "center", padding: "4px 4px" }}>Weight</th>
-              <th style={{ textAlign: "center", padding: "4px 4px" }}>Max</th>
-            </tr>
-          </thead>
-          <tbody>
-            {activeSites.idp.map((key) => {
-              const cfg = getSiteConfig(key);
-              return (
-                <tr key={key} style={{ borderBottom: "1px solid var(--border)", opacity: cfg.include ? 1 : 0.4 }}>
-                  <td style={{ padding: "4px 8px" }}>{cfg.label || key}</td>
-                  <td style={{ textAlign: "center", padding: "4px 4px" }}>
-                    <input type="checkbox" checked={cfg.include} onChange={(e) => updateSiteWeight(key, "include", e.target.checked)} />
-                  </td>
-                  <td style={{ textAlign: "center", padding: "4px 4px" }}>
-                    <input
-                      type="number" min={0} max={3} step={0.1}
-                      value={cfg.weight} onChange={(e) => updateSiteWeight(key, "weight", parseFloat(e.target.value) || 0)}
-                      style={{ width: 56, textAlign: "center" }} className="input"
-                    />
-                  </td>
-                  <td style={{ textAlign: "center", padding: "4px 4px" }}>
-                    <input
-                      type="number" min={500} max={10000} step={100}
-                      value={cfg.max} onChange={(e) => updateSiteWeight(key, "max", parseInt(e.target.value) || 5000)}
-                      style={{ width: 72, textAlign: "center" }} className="input"
-                    />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <SourceTable
+          title="Offense"
+          sources={sourcesByGroup.offense}
+        />
+        <div style={{ height: 12 }} />
+        <SourceTable
+          title="IDP"
+          sources={sourcesByGroup.idp}
+        />
       </Section>
 
       <Section title="Pick Settings" defaultOpen={false}>
@@ -261,6 +205,102 @@ export default function SettingsPage() {
         Settings are saved automatically to your browser. They affect trade calculations, rankings display, and value composites.
       </div>
     </section>
+  );
+}
+
+function SourceTable({ title, sources }) {
+  if (!sources || !sources.length) {
+    return (
+      <div className="muted" style={{ fontSize: "0.76rem" }}>
+        No {title.toLowerCase()} sources registered.
+      </div>
+    );
+  }
+  return (
+    <div>
+      <div style={{ fontWeight: 600, fontSize: "0.78rem", marginBottom: 6 }}>
+        {title}
+      </div>
+      <div className="table-wrap">
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: "0.76rem",
+          }}
+        >
+          <thead>
+            <tr style={{ borderBottom: "1px solid var(--border)" }}>
+              <th style={{ textAlign: "left", padding: "6px 8px" }}>Source</th>
+              <th style={{ textAlign: "left", padding: "6px 8px" }}>Role</th>
+              <th style={{ textAlign: "right", padding: "6px 8px" }}>Weight</th>
+              <th style={{ textAlign: "right", padding: "6px 8px" }}>Depth</th>
+              <th style={{ textAlign: "center", padding: "6px 8px" }}>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sources.map((src) => {
+              const role = src.isRetail
+                ? "Retail market"
+                : src.isBackbone
+                  ? "Backbone (IDP)"
+                  : "Expert consensus";
+              const statusLabel = src.live ? "Live" : "Idle";
+              const statusColor = src.live ? "var(--green)" : "var(--subtext)";
+              return (
+                <tr
+                  key={src.key}
+                  style={{ borderBottom: "1px solid var(--border-dim)" }}
+                >
+                  <td style={{ padding: "6px 8px" }}>
+                    <div style={{ fontWeight: 600 }}>{src.displayName}</div>
+                    <div
+                      className="muted"
+                      style={{ fontSize: "0.64rem", fontFamily: "var(--mono)" }}
+                    >
+                      {src.columnLabel} · {src.key}
+                    </div>
+                  </td>
+                  <td style={{ padding: "6px 8px", fontSize: "0.72rem" }}>
+                    {role}
+                  </td>
+                  <td
+                    style={{
+                      padding: "6px 8px",
+                      textAlign: "right",
+                      fontFamily: "var(--mono)",
+                    }}
+                  >
+                    {Number(src.weight).toFixed(1)}
+                  </td>
+                  <td
+                    style={{
+                      padding: "6px 8px",
+                      textAlign: "right",
+                      fontFamily: "var(--mono)",
+                      color: "var(--subtext)",
+                    }}
+                  >
+                    {src.depth ?? "—"}
+                  </td>
+                  <td
+                    style={{
+                      padding: "6px 8px",
+                      textAlign: "center",
+                      fontSize: "0.68rem",
+                      fontWeight: 700,
+                      color: statusColor,
+                    }}
+                  >
+                    {statusLabel}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 

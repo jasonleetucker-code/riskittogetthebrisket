@@ -15,12 +15,22 @@ export const SETTINGS_DEFAULTS = {
 
   // Rankings display
   rankingsSortBasis: "full",         // "full" | "raw"
-  showSiteCols: false,               // show per-site value columns in rankings
+  // Source-site columns are on by default on mobile AND desktop.  The
+  // rankings table always renders the per-source value + rank cells;
+  // this toggle lets power users hide them to focus on the consensus
+  // value column.  Historically this defaulted to false but we never
+  // wired the toggle to the table render, so the setting was dead and
+  // mobile hid the columns via CSS regardless.  Default ON is the
+  // canonical behavior — see rankings/page.jsx for the render gate.
+  showSiteCols: true,
 
   // Pick settings
   pickCurrentYear: 2026,
 
-  // Site weights — per-site { include, weight, max, tep }
+  // Legacy: per-site override map — no longer editable from the UI.
+  // Preserved so old localStorage payloads deserialize cleanly; the
+  // ranking engine ignores this map entirely.  Delete after a few
+  // releases once every user's cache has rolled over.
   siteWeights: {},
 
   // Trade history
@@ -90,19 +100,10 @@ export function useSettings() {
     notify(next);
   }, []);
 
-  const updateSiteWeight = useCallback((siteKey, field, value) => {
-    const prev = getSnapshot();
-    const weights = { ...prev.siteWeights };
-    weights[siteKey] = { ...(weights[siteKey] || {}), [field]: value };
-    const next = { ...prev, siteWeights: weights };
-    writeSettings(next);
-    notify(next);
-  }, []);
-
   const reset = useCallback(() => {
     writeSettings(SETTINGS_DEFAULTS);
     notify({ ...SETTINGS_DEFAULTS });
   }, []);
 
-  return { settings, update, updateSiteWeight, reset };
+  return { settings, update, reset };
 }

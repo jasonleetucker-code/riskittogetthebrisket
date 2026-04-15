@@ -462,6 +462,16 @@ from src.canonical.idp_backbone import (
     TRANSLATION_FALLBACK,
 )
 
+# ── Source weight policy ─────────────────────────────────────────────
+# Every registered source is declared with ``weight = 1.0``.  All six
+# sources (2 retail/backbone + 4 expert boards) contribute equally to
+# the coverage-aware Hill-curve blend.  Earlier revisions boosted the
+# four expert boards to ``weight = 3.0``, but that was a silent
+# override that never surfaced in the settings page and quietly tilted
+# every ranking toward expert consensus.  Keep the weights at 1.0 so
+# the settings page, frontend registry, and backend all agree on a
+# single canonical value.  Mirror any future change here in
+# ``frontend/lib/dynasty-data.js::RANKING_SOURCES``.
 _RANKING_SOURCES: list[dict[str, Any]] = [
     {
         # KeepTradeCut is the retail offense market — community trade
@@ -530,16 +540,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # rookies and deep-bench veterans as 1-src "matching failures"
         # when DLF was never going to cover them in the first place.
         "depth": 185,
-        # DLF is a dynasty-specific expert IDP board; it tracks
-        # multi-year value for established IDPs much better than
-        # IDPTradeCalc, whose dynasty values for proven veterans
-        # (T.J. Watt, Nick Bosa, Maxx Crosby, Jared Verse) are
-        # sharply deflated relative to the rest of the IDP pool.
-        # Weight DLF at 3x IDPTC so the blended IDP rank reflects
-        # the curated expert opinion when both sources have the
-        # player.  ``coverage_weight`` clamps shallow lists to depth
-        # 60, so the effective weight stays bounded at 3.0.
-        "weight": 3.0,
+        # Weight normalized to 1.0 so every registered source
+        # contributes equally to the blended rank.  The previous 3.0
+        # boost silently elevated expert IDP boards over the retail
+        # backbone without surfacing in settings; see the registry
+        # note at the top of this list.
+        "weight": 1.0,
         "is_backbone": False,
         "needs_shared_market_translation": True,
         "excludes_rookies": True,
@@ -551,23 +557,18 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # equivalents, spans 279 players, and is scoped purely to
         # offense (QB/RB/WR/TE).
         #
-        # KTC is the retail market and DLF is the expert consensus —
-        # mirroring DLF IDP, we weight DLF 3x so its opinion carries
-        # more signal than the raw retail price when both sources
-        # have the player.  ``coverage_weight`` scales shallow lists
-        # toward unity at ``min_expected_depth`` (60), so the effective
-        # weight for a 280-player list stays bounded at 3.0.
-        #
-        # depth=280 tells ``_expected_sources_for_position`` not to
-        # expect this source for players ranked deeper than ~350
-        # (depth * 1.25), preventing false 1-src flags on fringe
-        # offense players that DLF SF was never going to list.
+        # Weight normalized to 1.0 — see the registry note at the
+        # top of this list.  depth=280 still tells
+        # ``_expected_sources_for_position`` not to expect this
+        # source for players ranked deeper than ~350 (depth * 1.25),
+        # preventing false 1-src flags on fringe offense players
+        # that DLF SF was never going to list.
         "key": "dlfSf",
         "display_name": "Dynasty League Football Superflex",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
         "depth": 280,
-        "weight": 3.0,
+        "weight": 1.0,
         "is_backbone": False,
         "is_retail": False,
         # Not a shared-market translation source — dlfSf is purely
@@ -583,10 +584,8 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # rank.  294 players with non-zero value in the snapshot;
         # covers QB / RB / WR / TE offense plus rookies.
         #
-        # DN is conceptually identical to DLF SF — expert dynasty
-        # board, not a retail market — so it gets the same weighting
-        # profile: scope=overall_offense, weight=3.0, is_retail=False,
-        # isRankSignal=True.  The key is namespaced ``SfTep`` so we
+        # Weight normalized to 1.0 — see the registry note at the
+        # top of this list.  The key is namespaced ``SfTep`` so we
         # can later add a separate ``dynastyNerdsPpr`` or
         # ``dynastyNerdsSflex`` source pointing at the same URL's
         # alternate DR_DATA arrays without a contract break.
@@ -599,7 +598,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
         "depth": 300,
-        "weight": 3.0,
+        "weight": 1.0,
         "is_backbone": False,
         "is_retail": False,
     },
@@ -612,13 +611,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # piecewise-linear anchor curves fit on the overlap.  See
         # ``scripts/fetch_fantasypros_idp.py`` for the full derivation.
         #
-        # Conceptually equivalent to DLF IDP — curated expert
-        # consensus, not a retail market — so it gets the same
-        # profile: scope=overall_idp, weight=3.0, is_retail=False,
-        # needs_shared_market_translation=True (IDP ranks are
-        # translated through the backbone ladder before feeding the
-        # Hill curve).  FantasyPros' dynasty IDP board is smaller
-        # than DLF's (~100 players vs 185) so ``depth=100`` tells
+        # Weight normalized to 1.0 — see the registry note at the
+        # top of this list.  ``needs_shared_market_translation=True``
+        # still applies: IDP ranks are translated through the
+        # backbone ladder before feeding the Hill curve.
+        # FantasyPros' dynasty IDP board is smaller than DLF's
+        # (~100 players vs 185) so ``depth=100`` tells
         # ``_expected_sources_for_position`` not to expect this
         # source for players ranked deeper than ~125 (depth * 1.25).
         "key": "fantasyProsIdp",
@@ -626,7 +624,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "scope": SOURCE_SCOPE_OVERALL_IDP,
         "position_group": None,
         "depth": 100,
-        "weight": 3.0,
+        "weight": 1.0,
         "is_backbone": False,
         "is_retail": False,
         "needs_shared_market_translation": True,

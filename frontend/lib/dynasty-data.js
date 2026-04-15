@@ -310,6 +310,13 @@ export function rankToValue(rank) {
 // src/api/data_contract.py.  Adding a new position-only source is a
 // purely declarative change (add an entry here and on the backend).
 const OVERALL_RANK_LIMIT = 800;
+// ── Source weight policy ─────────────────────────────────────────────
+// Every registered source is declared with `weight: 1.0`.  All six
+// sources contribute equally to the coverage-aware Hill-curve blend.
+// Earlier revisions boosted the four expert boards to `weight: 3.0`,
+// but that was a silent override that never surfaced in the settings
+// page and quietly tilted every ranking toward expert consensus.
+// Mirror any future change in `src/api/data_contract.py::_RANKING_SOURCES`.
 export const RANKING_SOURCES = [
   {
     // KeepTradeCut is the retail offense market — community trade values
@@ -366,7 +373,7 @@ export const RANKING_SOURCES = [
     scope: SOURCE_SCOPE_OVERALL_IDP,
     positionGroup: null,
     depth: 185,
-    weight: 3.0,
+    weight: 1.0,
     isBackbone: false,
     needsSharedMarketTranslation: true,
     excludesRookies: true,
@@ -387,7 +394,7 @@ export const RANKING_SOURCES = [
     scope: SOURCE_SCOPE_OVERALL_OFFENSE,
     positionGroup: null,
     depth: 280,
-    weight: 3.0,
+    weight: 1.0,
     isBackbone: false,
     isRetail: false,
     isRankSignal: true,
@@ -397,15 +404,16 @@ export const RANKING_SOURCES = [
     // from the DR_DATA JS constant on dynastynerds.com/dynasty-rankings/sf-tep/.
     // Expert consensus (Rich / Matt / Garret / Jared + community),
     // 294 non-zero players covering QB / RB / WR / TE including rookies.
-    // Conceptually mirrors DLF SF — weight 3.0, not retail, rank-signal.
-    // Mirrors the backend `_RANKING_SOURCES` entry in src/api/data_contract.py.
+    // Conceptually mirrors DLF SF; weight normalized to 1.0 alongside
+    // every other registered source.  Mirrors the backend
+    // `_RANKING_SOURCES` entry in src/api/data_contract.py.
     key: "dynastyNerdsSfTep",
     displayName: "Dynasty Nerds SF-TEP",
     columnLabel: "DN SF-TEP",
     scope: SOURCE_SCOPE_OVERALL_OFFENSE,
     positionGroup: null,
     depth: 300,
-    weight: 3.0,
+    weight: 1.0,
     isBackbone: false,
     isRetail: false,
     isRankSignal: true,
@@ -416,9 +424,8 @@ export const RANKING_SOURCES = [
     // individual DL/LB/DB pages are used only as depth extension via
     // monotone piecewise-linear anchor curves fit from the overlap
     // (see scripts/fetch_fantasypros_idp.py).  Conceptually mirrors
-    // DLF IDP — curated expert board, not retail — so it gets the
-    // same profile: weight 3.0, needs_shared_market_translation=true,
-    // excludes_rookies=true.  Mirrors the backend `_RANKING_SOURCES`
+    // DLF IDP; weight normalized to 1.0 alongside every other
+    // registered source.  Mirrors the backend `_RANKING_SOURCES`
     // entry in src/api/data_contract.py.
     key: "fantasyProsIdp",
     displayName: "FantasyPros Dynasty IDP",
@@ -426,7 +433,7 @@ export const RANKING_SOURCES = [
     scope: SOURCE_SCOPE_OVERALL_IDP,
     positionGroup: null,
     depth: 100,
-    weight: 3.0,
+    weight: 1.0,
     isBackbone: false,
     isRetail: false,
     isRankSignal: true,

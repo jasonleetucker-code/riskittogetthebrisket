@@ -895,6 +895,58 @@ tr:hover .sticky-name {
   .edge-rail-grid { grid-template-columns: 1fr 1fr; }
   .edge-rail-name { max-width: 120px; }
   .edge-rail-item { font-size: 0.66rem; }
+
+  /* Mobile per-source strip — renders beneath each player row when
+     `showSiteCols` is on.  Flex-wraps so every registered source is
+     visible on mobile without horizontal scroll or hidden columns. */
+  .rankings-mobile-source-row > td {
+    padding: 4px 8px 8px;
+    border-top: none;
+    background: var(--bg-soft, rgba(255, 255, 255, 0.02));
+  }
+  .rankings-mobile-sources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    font-family: var(--mono, monospace);
+    font-size: 0.66rem;
+  }
+  .rankings-mobile-source-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--bg, rgba(255, 255, 255, 0.04));
+    border: 1px solid var(--border-dim, rgba(255, 255, 255, 0.08));
+    white-space: nowrap;
+  }
+  .rankings-mobile-source-chip.is-empty {
+    opacity: 0.35;
+  }
+  .rankings-mobile-source-label {
+    font-weight: 700;
+    color: var(--cyan, #4fc3f7);
+    font-size: 0.6rem;
+    letter-spacing: 0.02em;
+  }
+  .rankings-mobile-source-val {
+    color: var(--text, inherit);
+  }
+  .rankings-mobile-source-rank {
+    color: var(--subtext, rgba(255, 255, 255, 0.55));
+  }
+}
+
+/* Desktop styling for per-source column cells — the `value (#rank)`
+   format renders on one line.  The muted rank inherits the subtext
+   color so it reads as secondary but still visible. */
+.rankings-source-col .rankings-source-value {
+  color: var(--text, inherit);
+}
+.rankings-source-col .rankings-source-rank {
+  color: var(--subtext, rgba(255, 255, 255, 0.55));
+  font-size: 0.72rem;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
