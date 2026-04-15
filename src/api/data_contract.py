@@ -238,6 +238,87 @@ def _load_source_row_floors() -> dict[str, int]:
     return dict(_DEFAULT_SOURCE_ROW_FLOORS)
 
 
+# ── Pick-count floor ─────────────────────────────────────────────────────
+# Minimum draft-pick count on the board.  Live currently carries 126
+# (4 years × multiple slots each).  Floor set to 80% baseline so an
+# ingestion bug that silently drops half the picks trips an error.
+_PICK_COUNT_FLOOR: int = 100
+
+# ── Payload-size regression floor ───────────────────────────────────────
+# Minimum raw-JSON byte length of the contract payload.  The April 9
+# regression shipped a 770KB payload after a heavy-field pruning bug;
+# the live baseline is ~4.6MB.  Floor set to 2MB (under half baseline)
+# so deliberate optimizations still pass while catastrophic shrinks trip
+# a warning + degraded status.
+_PAYLOAD_SIZE_FLOOR_BYTES: int = 2_000_000
+
+# ── Top-50 per-source coverage floors ────────────────────────────────────
+# Embedded defaults; overridable via
+# ``config/weights/top50_coverage_floors.json``.  A source that drops
+# below its floor in the top-50 slice of its asset class (offense / idp)
+# trips a warning and marks the build as degraded.  This catches silent
+# regressions where a source still passes the row-count floor but loses
+# coverage on the premium tier specifically.
+_DEFAULT_TOP50_COVERAGE_FLOORS: dict[str, dict[str, int]] = {
+    "offense": {
+        "ktc": 48,
+        "idpTradeCalc": 48,
+        "dlfSf": 42,
+        "dynastyNerdsSfTep": 45,
+    },
+    "idp": {
+        "idpTradeCalc": 48,
+        "dlfIdp": 38,
+    },
+}
+
+
+def _load_top50_coverage_floors() -> dict[str, dict[str, int]]:
+    """Load top-50 per-source coverage floors from config with defaults."""
+    repo_root = Path(__file__).resolve().parents[2]
+    cfg_path = repo_root / "config" / "weights" / "top50_coverage_floors.json"
+    merged: dict[str, dict[str, int]] = {
+        k: dict(v) for k, v in _DEFAULT_TOP50_COVERAGE_FLOORS.items()
+    }
+    if cfg_path.exists():
+        try:
+            with cfg_path.open("r", encoding="utf-8") as fh:
+                cfg = json.load(fh)
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning(
+                "Failed to load top50_coverage_floors.json (%s); using defaults",
+                exc,
+            )
+            return merged
+        if isinstance(cfg, dict):
+            for bucket in ("offense", "idp"):
+                bucket_cfg = cfg.get(bucket)
+                if not isinstance(bucket_cfg, dict):
+                    continue
+                for src_key, val in bucket_cfg.items():
+                    try:
+                        merged[bucket][str(src_key)] = int(val)
+                    except (TypeError, ValueError):
+                        continue
+    return merged
+
+
+def assert_payload_size_floor(
+    contract_payload: dict[str, Any],
+    *,
+    floor_bytes: int = _PAYLOAD_SIZE_FLOOR_BYTES,
+) -> tuple[int, bool]:
+    """Serialize ``contract_payload`` and compare length against floor.
+
+    Returns ``(byte_length, passed)`` where ``passed`` is True when the
+    serialized payload is at least ``floor_bytes``.  Side-effect free —
+    callers decide whether to warn, log, or flip status.
+    """
+    raw = json.dumps(contract_payload, ensure_ascii=False, separators=(",", ":"))
+    size = len(raw.encode("utf-8"))
+    return size, size >= floor_bytes
+
+
 # ── Partial-run cross-wire: tolerable partials allowlist ─────────────────
 # Sub-endpoints that are known to flip to partial without impacting the
 # primary ranking data.  KTC_TradeDB and KTC_WaiverDB are *sub-endpoints*
@@ -1290,6 +1371,48 @@ def _enrich_from_source_csvs(
                 if k in csvrow and csvrow[k] not in (None, ""):
                     return str(csvrow[k])
             return ""
+
+        # ── Schema probe for DLF sources ───────────────────────────────
+        # DLF SF and DLF IDP CSVs occasionally have column renames when
+        # the upstream export template changes.  Before burning through
+        # rows with a DictReader that silently skips everything, peek at
+        # the first line and assert at least one expected header token
+        # is present.  If not, record a schema-mismatch parse error and
+        # skip the source entirely — the row-count floor will then catch
+        # the zero-coverage as ``source_missing:<source>`` downstream.
+        if source_key in ("dlfSf", "dlfIdp"):
+            try:
+                with csv_path.open("r", encoding="utf-8-sig") as f_probe:
+                    header_line = f_probe.readline().strip()
+            except Exception as exc:  # noqa: BLE001
+                header_line = ""
+                _LOGGER.warning(
+                    "Schema probe: failed to read header for %s: %s",
+                    source_key,
+                    exc,
+                )
+            if source_key == "dlfSf":
+                expected_tokens = ("Rank", "Avg", "Name", "Player")
+            else:  # dlfIdp
+                expected_tokens = ("name", "Name", "Player", "rank", "Rank")
+            # Case-sensitive token match is fine — we only need any one
+            # token to appear literally in the header line, matching
+            # the aliases the DictReader uses below.
+            if not any(tok in header_line for tok in expected_tokens):
+                err_info = {
+                    "source": source_key,
+                    "path": str(csv_rel),
+                    "error": "schema_mismatch",
+                    "header": header_line[:200],
+                }
+                if parse_errors is not None:
+                    parse_errors.append(err_info)
+                _LOGGER.warning(
+                    "Schema probe: %s header mismatch (%s); skipping rows",
+                    source_key,
+                    header_line[:120],
+                )
+                continue
 
         try:
             with csv_path.open("r", encoding="utf-8-sig") as f:
@@ -3731,6 +3854,93 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
 
         if any_source_missing or below_floor_count >= 2:
             degraded = True
+
+    # ── Pick-count floor ────────────────────────────────────────────────
+    # Count draft picks on the board and error if below floor.  Live
+    # carries ~126 picks; floor is 100 (≈80% baseline) per the audit
+    # recommendation.  Missing pickAnchors is also an error.
+    if len(players_array) >= 250:
+        pick_count = sum(
+            1
+            for row in players_array
+            if isinstance(row, dict) and row.get("assetClass") == "pick"
+        )
+        if pick_count < _PICK_COUNT_FLOOR:
+            errors.append(
+                f"pick_count_below_floor:{pick_count}:{_PICK_COUNT_FLOOR}"
+            )
+        pick_anchors = payload.get("pickAnchors")
+        if pick_anchors is None:
+            errors.append("pickAnchors missing from payload")
+        elif isinstance(pick_anchors, dict) and not pick_anchors:
+            errors.append("pickAnchors is empty")
+
+    # ── Top-50 per-source coverage floors ───────────────────────────────
+    # Sort each asset class (offense / idp) by values.overall desc and
+    # take the first 50 rows.  For each configured source + bucket,
+    # count non-zero canonicalSiteValues entries.  Below floor = warning
+    # + degraded; too few rows to even check = warning (but not
+    # degraded — the row-count floor already covers that).
+    if len(players_array) >= 250:
+        coverage_floors = _load_top50_coverage_floors()
+
+        def _overall_val(r: dict[str, Any]) -> float:
+            vals = r.get("values")
+            if not isinstance(vals, dict):
+                return 0.0
+            try:
+                return float(vals.get("overall") or 0)
+            except (TypeError, ValueError):
+                return 0.0
+
+        for bucket, src_floors in coverage_floors.items():
+            bucket_rows = [
+                r
+                for r in players_array
+                if isinstance(r, dict) and r.get("assetClass") == bucket
+            ]
+            if len(bucket_rows) < 50:
+                warnings.append(
+                    f"top50_coverage_insufficient_rows:{bucket}:{len(bucket_rows)}"
+                )
+                continue
+            bucket_rows.sort(key=lambda r: -_overall_val(r))
+            top_slice = bucket_rows[:50]
+            for src_key, floor in src_floors.items():
+                count = 0
+                for r in top_slice:
+                    sites_map = r.get("canonicalSiteValues")
+                    if not isinstance(sites_map, dict):
+                        continue
+                    val = _to_int_or_none(sites_map.get(src_key))
+                    if val is not None and val > 0:
+                        count += 1
+                if count < floor:
+                    warnings.append(
+                        f"top50_coverage_below_floor:{bucket}:{src_key}:{count}:{floor}"
+                    )
+                    degraded = True
+
+    # ── Payload-size regression floor ───────────────────────────────────
+    # Serialize the validated payload and compare against the 2MB floor.
+    # Below floor = warning + degraded.  Guards against the April 9
+    # 4.6MB → 770KB regression where a heavy-field pruning bug shipped
+    # a catastrophically small but otherwise valid contract.
+    #
+    # Gated by len(players_array) >= 250 so minimal-payload unit tests
+    # (with 1-10 synthetic players) don't trip the floor.  A 2MB floor
+    # only makes sense on a full production board.
+    if len(players_array) >= 250:
+        try:
+            size_bytes, size_ok = assert_payload_size_floor(payload)
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(f"payload_size_probe_failed:{type(exc).__name__}")
+        else:
+            if not size_ok:
+                warnings.append(
+                    f"payload_size_below_floor:{size_bytes}:{_PAYLOAD_SIZE_FLOOR_BYTES}"
+                )
+                degraded = True
 
     # ── sourceParseErrors surfaced from _enrich_from_source_csvs ────────
     parse_errors_list = payload.get("sourceParseErrors")

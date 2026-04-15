@@ -1334,10 +1334,32 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             try:
                 from scripts import fetch_dynasty_nerds as _dn_fetch
                 rc = _dn_fetch.main(["--mirror-data-dir"])
-                if rc != 0:
-                    log.warning("Dynasty Nerds fetch returned non-zero exit")
+                if rc == 2:
+                    # Schema / row-count regression — surface loudly as
+                    # a structured scrape event so /api/status shows the
+                    # failure instead of burying it as a log line.
+                    _record_scrape_event(
+                        "dynasty_nerds_schema_regression",
+                        level="error",
+                        message=(
+                            "Dynasty Nerds fetch exit=2 "
+                            "(DR_DATA shape changed or rows below floor)"
+                        ),
+                        exit_code=rc,
+                    )
+                elif rc != 0:
+                    _record_scrape_event(
+                        "dynasty_nerds_fetch_failed",
+                        level="warning",
+                        message=f"Dynasty Nerds fetch returned exit={rc}",
+                        exit_code=rc,
+                    )
             except Exception as _dn_err:
-                log.warning(f"Dynasty Nerds fetch failed: {_dn_err}")
+                _record_scrape_event(
+                    "dynasty_nerds_fetch_exception",
+                    level="warning",
+                    message=f"Dynasty Nerds fetch raised: {_dn_err}",
+                )
 
             _update_scrape_progress(
                 step="publish",

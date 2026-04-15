@@ -27,8 +27,15 @@ Run::
 
     python3 scripts/fetch_dynasty_nerds.py
 
-Exits 0 on success, 1 on failure.  Safe to call from the scraper's
-post-run hook or directly from cron.
+Exit codes:
+    0  — success, CSV written
+    1  — soft failure (fetch / parse error, or zero rows extracted)
+    2  — schema / shape regression:
+         * DR_DATA missing the SFLEXTEP key, or
+         * row count below :data:`_DN_ROW_COUNT_FLOOR`
+       The callsite in server.py distinguishes 2 from 1 so a schema
+       regression alerts loudly instead of getting buried as a generic
+       warning.
 """
 from __future__ import annotations
 
@@ -57,6 +64,15 @@ DEFAULT_DST = REPO_ROOT / "exports" / "latest" / "site_raw" / "dynastyNerdsSfTep
 # Mirror location — populated by the legacy scraper pipeline
 DATA_DIR_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "dynastyNerdsSfTep.csv"
 
+# Minimum row count.  DN SFLEXTEP currently publishes ~294 rows; the
+# row-count floor in src/api/data_contract.py demands ≥230.  Fail hard
+# (exit 2) if the parsed SFLEXTEP array shrinks below this.
+_DN_ROW_COUNT_FLOOR: int = 230
+
+
+class DynastyNerdsSchemaError(RuntimeError):
+    """Raised when DR_DATA is missing the expected SFLEXTEP key."""
+
 
 def _fetch_html(url: str = DN_URL, *, timeout: int = 30) -> str:
     headers = {
@@ -74,6 +90,10 @@ def _extract_dr_data(html: str) -> dict:
 
     Uses a balanced-brace walk because the JSON payload spans several
     MB and contains nested objects, so a lazy regex is not safe.
+
+    Raises :class:`DynastyNerdsSchemaError` if the parsed object is
+    missing the ``SFLEXTEP`` key — that would indicate an upstream page
+    restructure and the caller should exit 2, not 1.
     """
     marker = re.search(r"DR_DATA\s*=\s*(\{)", html)
     if not marker:
@@ -93,7 +113,17 @@ def _extract_dr_data(html: str) -> dict:
     if end is None:
         raise RuntimeError("DR_DATA payload had unbalanced braces")
     payload = html[start:end]
-    return json.loads(payload)
+    parsed = json.loads(payload)
+    if not isinstance(parsed, dict):
+        raise DynastyNerdsSchemaError(
+            f"DR_DATA expected dict, got {type(parsed).__name__}"
+        )
+    if "SFLEXTEP" not in parsed:
+        raise DynastyNerdsSchemaError(
+            "DR_DATA shape changed: missing SFLEXTEP key "
+            f"(available keys: {sorted(parsed.keys())[:10]})"
+        )
+    return parsed
 
 
 def _build_rows(data: dict, key: str = "SFLEXTEP") -> list[dict]:
@@ -177,6 +207,20 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         data = _extract_dr_data(html)
+    except DynastyNerdsSchemaError as exc:
+        # Shape regression: DR_DATA missing SFLEXTEP (or not a dict).
+        # Exit 2 so the server callsite can raise a distinct structured
+        # event rather than a generic warning.
+        print(
+            f"[fetch_dynasty_nerds] schema regression: {exc}",
+            file=sys.stderr,
+        )
+        return 2
+    except Exception as exc:
+        print(f"[fetch_dynasty_nerds] parse failed: {exc}", file=sys.stderr)
+        return 1
+
+    try:
         rows = _build_rows(data, "SFLEXTEP")
     except Exception as exc:
         print(f"[fetch_dynasty_nerds] parse failed: {exc}", file=sys.stderr)
@@ -185,6 +229,16 @@ def main(argv: list[str] | None = None) -> int:
     if not rows:
         print("[fetch_dynasty_nerds] no rows extracted", file=sys.stderr)
         return 1
+
+    if len(rows) < _DN_ROW_COUNT_FLOOR:
+        # Row count regression: parsed fewer rows than the floor.  Same
+        # treatment as schema error — exit 2 for structured surfacing.
+        print(
+            f"[fetch_dynasty_nerds] row count below floor: "
+            f"{len(rows)} < {_DN_ROW_COUNT_FLOOR}",
+            file=sys.stderr,
+        )
+        return 2
 
     _write_csv(args.dest, rows)
     print(f"[fetch_dynasty_nerds] wrote {len(rows)} rows -> {args.dest}")
