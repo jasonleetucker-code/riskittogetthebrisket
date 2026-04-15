@@ -15,12 +15,26 @@ export const SETTINGS_DEFAULTS = {
 
   // Rankings display
   rankingsSortBasis: "full",         // "full" | "raw"
-  showSiteCols: false,               // show per-site value columns in rankings
+  // Source-site columns are on by default on mobile AND desktop.  The
+  // rankings table always renders the per-source value + rank cells;
+  // this toggle lets power users hide them to focus on the consensus
+  // value column.  Historically this defaulted to false but we never
+  // wired the toggle to the table render, so the setting was dead and
+  // mobile hid the columns via CSS regardless.  Default ON is the
+  // canonical behavior — see rankings/page.jsx for the render gate.
+  showSiteCols: true,
 
   // Pick settings
   pickCurrentYear: 2026,
 
-  // Site weights — per-site { include, weight, max, tep }
+  // Per-user source override map.  Shape:
+  //   { [sourceKey]: { include?: boolean, weight?: number } }
+  // Read by `useDynastyData` → `buildRows` → `computeUnifiedRanks`.
+  // An empty map (default) means "inherit everything from the
+  // canonical RANKING_SOURCES registry" — every source enabled at
+  // weight 1.0.  Editing via `updateSiteWeight` flips the ranking
+  // pipeline into bypass mode so user knobs actually affect the
+  // displayed board.
   siteWeights: {},
 
   // Trade history
@@ -90,6 +104,12 @@ export function useSettings() {
     notify(next);
   }, []);
 
+  // Update a single per-source override field.  `field` is typically
+  // `"include"` (boolean) or `"weight"` (number).  Passing `value`
+  // equal to the source's registry default does NOT automatically
+  // delete the entry — users who want to reset a single source
+  // should use the "Reset" affordance in the settings UI, which
+  // calls `clearSiteWeight` below.
   const updateSiteWeight = useCallback((siteKey, field, value) => {
     const prev = getSnapshot();
     const weights = { ...prev.siteWeights };
@@ -99,10 +119,21 @@ export function useSettings() {
     notify(next);
   }, []);
 
+  // Delete every per-source override and fall back to registry
+  // defaults.  Keeps all OTHER settings intact (tepMultiplier,
+  // showSiteCols, etc.) so a weight reset doesn't blow away the
+  // rest of the user's preferences.
+  const resetSiteWeights = useCallback(() => {
+    const prev = getSnapshot();
+    const next = { ...prev, siteWeights: {} };
+    writeSettings(next);
+    notify(next);
+  }, []);
+
   const reset = useCallback(() => {
     writeSettings(SETTINGS_DEFAULTS);
     notify({ ...SETTINGS_DEFAULTS });
   }, []);
 
-  return { settings, update, updateSiteWeight, reset };
+  return { settings, update, updateSiteWeight, resetSiteWeights, reset };
 }

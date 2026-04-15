@@ -310,6 +310,13 @@ export function rankToValue(rank) {
 // src/api/data_contract.py.  Adding a new position-only source is a
 // purely declarative change (add an entry here and on the backend).
 const OVERALL_RANK_LIMIT = 800;
+// ── Source weight policy ─────────────────────────────────────────────
+// Every registered source is declared with `weight: 1.0`.  All six
+// sources contribute equally to the coverage-aware Hill-curve blend.
+// Earlier revisions boosted the four expert boards to `weight: 3.0`,
+// but that was a silent override that never surfaced in the settings
+// page and quietly tilted every ranking toward expert consensus.
+// Mirror any future change in `src/api/data_contract.py::_RANKING_SOURCES`.
 export const RANKING_SOURCES = [
   {
     // KeepTradeCut is the retail offense market — community trade values
@@ -366,7 +373,7 @@ export const RANKING_SOURCES = [
     scope: SOURCE_SCOPE_OVERALL_IDP,
     positionGroup: null,
     depth: 185,
-    weight: 3.0,
+    weight: 1.0,
     isBackbone: false,
     needsSharedMarketTranslation: true,
     excludesRookies: true,
@@ -387,7 +394,7 @@ export const RANKING_SOURCES = [
     scope: SOURCE_SCOPE_OVERALL_OFFENSE,
     positionGroup: null,
     depth: 280,
-    weight: 3.0,
+    weight: 1.0,
     isBackbone: false,
     isRetail: false,
     isRankSignal: true,
@@ -397,15 +404,16 @@ export const RANKING_SOURCES = [
     // from the DR_DATA JS constant on dynastynerds.com/dynasty-rankings/sf-tep/.
     // Expert consensus (Rich / Matt / Garret / Jared + community),
     // 294 non-zero players covering QB / RB / WR / TE including rookies.
-    // Conceptually mirrors DLF SF — weight 3.0, not retail, rank-signal.
-    // Mirrors the backend `_RANKING_SOURCES` entry in src/api/data_contract.py.
+    // Conceptually mirrors DLF SF; weight normalized to 1.0 alongside
+    // every other registered source.  Mirrors the backend
+    // `_RANKING_SOURCES` entry in src/api/data_contract.py.
     key: "dynastyNerdsSfTep",
     displayName: "Dynasty Nerds SF-TEP",
     columnLabel: "DN SF-TEP",
     scope: SOURCE_SCOPE_OVERALL_OFFENSE,
     positionGroup: null,
     depth: 300,
-    weight: 3.0,
+    weight: 1.0,
     isBackbone: false,
     isRetail: false,
     isRankSignal: true,
@@ -416,9 +424,8 @@ export const RANKING_SOURCES = [
     // individual DL/LB/DB pages are used only as depth extension via
     // monotone piecewise-linear anchor curves fit from the overlap
     // (see scripts/fetch_fantasypros_idp.py).  Conceptually mirrors
-    // DLF IDP — curated expert board, not retail — so it gets the
-    // same profile: weight 3.0, needs_shared_market_translation=true,
-    // excludes_rookies=true.  Mirrors the backend `_RANKING_SOURCES`
+    // DLF IDP; weight normalized to 1.0 alongside every other
+    // registered source.  Mirrors the backend `_RANKING_SOURCES`
     // entry in src/api/data_contract.py.
     key: "fantasyProsIdp",
     displayName: "FantasyPros Dynasty IDP",
@@ -426,7 +433,7 @@ export const RANKING_SOURCES = [
     scope: SOURCE_SCOPE_OVERALL_IDP,
     positionGroup: null,
     depth: 100,
-    weight: 3.0,
+    weight: 1.0,
     isBackbone: false,
     isRetail: false,
     isRankSignal: true,
@@ -470,21 +477,83 @@ export function getRetailLabel() {
   return "Retail";
 }
 
+// ── Source override helpers ──────────────────────────────────────────
+// `buildRows`/`computeUnifiedRanks` accept a `siteOverrides` map that
+// lets the settings page apply per-user include/weight knobs on top of
+// the canonical `RANKING_SOURCES` defaults.  The map shape is:
+//
+//   {
+//     ktc:     { include: true, weight: 1.0 },
+//     dlfSf:   { include: false },
+//     fantasyProsIdp: { weight: 0.5 },
+//     …
+//   }
+//
+// Any source not mentioned in the map inherits its registry defaults
+// (every registered source is enabled by default with its declared
+// weight of 1.0).  The two helpers below resolve overrides
+// consistently so the ranking pipeline, the settings inventory, and
+// any future consumer all agree on "active" vs "disabled" and on the
+// effective weight for a given source.
+function sourceOverride(siteOverrides, key) {
+  if (!siteOverrides || typeof siteOverrides !== "object") return null;
+  const ov = siteOverrides[key];
+  return ov && typeof ov === "object" ? ov : null;
+}
+
+function isSourceEnabled(siteOverrides, src) {
+  const ov = sourceOverride(siteOverrides, src.key);
+  if (ov && ov.include === false) return false;
+  return true;
+}
+
+function effectiveDeclaredWeight(siteOverrides, src) {
+  const ov = sourceOverride(siteOverrides, src.key);
+  if (ov && Number.isFinite(Number(ov.weight)) && Number(ov.weight) >= 0) {
+    return Number(ov.weight);
+  }
+  return Number(src.weight ?? 1);
+}
+
+// `siteOverrides` is considered "customized" if ANY registered source
+// has an include flag set to false OR a weight value that does not
+// match its registry default.  When customized, the frontend-computed
+// ranking values take precedence over backend-stamped values so user
+// knobs actually affect the displayed rankings.
+export function siteOverridesAreCustomized(siteOverrides) {
+  if (!siteOverrides || typeof siteOverrides !== "object") return false;
+  for (const src of RANKING_SOURCES) {
+    const ov = siteOverrides[src.key];
+    if (!ov || typeof ov !== "object") continue;
+    if (ov.include === false) return true;
+    if (Object.prototype.hasOwnProperty.call(ov, "weight")) {
+      const w = Number(ov.weight);
+      if (Number.isFinite(w) && w !== Number(src.weight ?? 1)) return true;
+    }
+  }
+  return false;
+}
+
 // ── FALLBACK RANKING PIPELINE ────────────────────────────────────────
-// This function is a FALLBACK ONLY.  It mirrors the backend's
-// _compute_unified_rankings() logic for offline/stale-data scenarios
-// where the backend has not stamped authoritative fields.
+// This function is primarily a FALLBACK for offline/stale-data
+// scenarios where the backend has not stamped authoritative fields.
+// It mirrors the backend's `_compute_unified_rankings()` logic so the
+// frontend can compute the same board independently.
 //
-// When the backend has stamped canonicalConsensusRank, rankDerivedValue,
-// and sourceRanks on the API response, this function preserves those
-// values and only fills in supplementary fields (blendedSourceRank,
-// idpBackboneFallback) that the backend may not have exposed.
+// When `opts.bypassBackendStamps` is true (automatically set by
+// `buildRows` whenever the user has customized `siteOverrides`), the
+// function's output becomes AUTHORITATIVE and overrides any
+// backend-stamped fields.  That is how the settings page's toggle
+// and weight sliders actually affect what the user sees: a
+// non-default override forces a full frontend recompute using the
+// user's configuration instead of trusting the server blend.
 //
-// IMPORTANT: This function MUST NOT override backend-stamped fields.
-// Every assignment below is guarded by a backend-presence check.
-// If you need to change ranking logic, change it in
-// src/api/data_contract.py::_compute_unified_rankings() — NOT here.
-function computeUnifiedRanks(rows) {
+// If you need to change canonical ranking logic (the unbiased
+// default), change it in `src/api/data_contract.py::_compute_unified_rankings`
+// and mirror it here — the two paths must stay aligned.
+function computeUnifiedRanks(rows, opts = {}) {
+  const siteOverrides = opts.siteOverrides || {};
+  const bypassBackend = Boolean(opts.bypassBackendStamps);
   // ── Phase 0: Build the IDP backbone from the designated source ──
   // The builder seeds the shared-market IDP ladder only when the
   // backbone source declares overall_offense in its extraScopes (i.e.
@@ -519,6 +588,12 @@ function computeUnifiedRanks(rows) {
   const sourceMetaByRow = new Map();  // row idx -> { sourceKey: metaDict }
 
   for (const src of RANKING_SOURCES) {
+    // Respect per-user include toggles: a source turned off in settings
+    // is skipped entirely here so it contributes zero signal to the
+    // blend.  This is the authoritative path — the Phase 2-3 loop below
+    // only iterates over sources that survived this filter.
+    if (!isSourceEnabled(siteOverrides, src)) continue;
+
     // A source may contribute to multiple scopes (e.g. IDPTradeCalc
     // lists both offense and IDP players in one value pool on a shared
     // 0-9999 scale).  Earlier revisions ran a separate ordinal pass per
@@ -602,7 +677,10 @@ function computeUnifiedRanks(rows) {
         ladderDepth: ladderDepthMeta,
         backboneDepth: backboneDepthMeta,
         depth: src.depth ?? null,
-        weight: Number(src.weight) || 0,
+        // Stamp the effective declared weight (registry default OR
+        // user override) onto the per-row meta so the rankings audit
+        // panel tells the truth about what weight was applied.
+        weight: effectiveDeclaredWeight(siteOverrides, src),
         sharedMarketTranslated,
       };
     });
@@ -617,7 +695,11 @@ function computeUnifiedRanks(rows) {
     let weightTotal = 0;
     for (const [sourceKey, effRank] of Object.entries(ranks)) {
       const srcDef = srcByKey.get(sourceKey) || {};
-      const declaredWeight = Number(srcDef.weight ?? 1);
+      // Apply user weight override on top of the registry default.
+      // `effectiveDeclaredWeight` resolves to the override when set,
+      // otherwise to the canonical `RANKING_SOURCES` weight (1.0 for
+      // every source in the current registry).
+      const declaredWeight = effectiveDeclaredWeight(siteOverrides, srcDef);
       const effectiveWeight = coverageWeight(declaredWeight, srcDef.depth ?? null);
       const value = rankToValue(effRank);
       weightedSum += value * effectiveWeight;
@@ -653,29 +735,42 @@ function computeUnifiedRanks(rows) {
     const blendedSourceRank =
       sourceRankValues.reduce((s, v) => s + v, 0) / sourceRankValues.length;
 
-    // Prefer backend-stamped authoritative fields.  Only fall back to
-    // frontend-computed values when the backend fields are absent.
-    r.canonicalConsensusRank =
-      Number.isInteger(backendRank) && backendRank > 0 ? backendRank : i + 1;
-    r.rankDerivedValue =
-      Number.isFinite(backendValue) && backendValue > 0
-        ? backendValue
-        : Math.round(entry.blended);
-    // sourceRanks: prefer backend when present (has richer per-source metadata)
-    const backendSourceRanks = r.raw?.sourceRanks;
-    r.sourceRanks = backendSourceRanks && typeof backendSourceRanks === "object" && Object.keys(backendSourceRanks).length > 0
-      ? backendSourceRanks : entry.ranks;
-    // sourceRankMeta: prefer backend
-    const backendMeta = r.raw?.sourceRankMeta;
-    r.sourceRankMeta = backendMeta && typeof backendMeta === "object" && Object.keys(backendMeta).length > 0
-      ? backendMeta : entry.meta;
-    // blendedSourceRank: prefer backend, fall back to frontend average
-    const backendBlended = Number(r.raw?.blendedSourceRank);
-    r.blendedSourceRank = Number.isFinite(backendBlended) ? backendBlended : blendedSourceRank;
-    // sourceCount: prefer backend
-    const backendSrcCount = Number(r.raw?.sourceCount);
-    r.sourceCount = Number.isInteger(backendSrcCount) && backendSrcCount > 0
-      ? backendSrcCount : sourceRankValues.length;
+    // Default path: prefer backend-stamped authoritative fields; fall
+    // back to frontend-computed values when backend fields are absent.
+    // Override path: when `bypassBackend` is true (user has customized
+    // siteOverrides), ignore backend stamps entirely and use the
+    // frontend recompute.  That is how toggle/weight controls
+    // materially affect the displayed rankings.
+    if (bypassBackend) {
+      r.canonicalConsensusRank = i + 1;
+      r.rankDerivedValue = Math.round(entry.blended);
+      r.sourceRanks = entry.ranks;
+      r.sourceRankMeta = entry.meta;
+      r.blendedSourceRank = blendedSourceRank;
+      r.sourceCount = sourceRankValues.length;
+    } else {
+      r.canonicalConsensusRank =
+        Number.isInteger(backendRank) && backendRank > 0 ? backendRank : i + 1;
+      r.rankDerivedValue =
+        Number.isFinite(backendValue) && backendValue > 0
+          ? backendValue
+          : Math.round(entry.blended);
+      // sourceRanks: prefer backend when present (has richer per-source metadata)
+      const backendSourceRanks = r.raw?.sourceRanks;
+      r.sourceRanks = backendSourceRanks && typeof backendSourceRanks === "object" && Object.keys(backendSourceRanks).length > 0
+        ? backendSourceRanks : entry.ranks;
+      // sourceRankMeta: prefer backend
+      const backendMeta = r.raw?.sourceRankMeta;
+      r.sourceRankMeta = backendMeta && typeof backendMeta === "object" && Object.keys(backendMeta).length > 0
+        ? backendMeta : entry.meta;
+      // blendedSourceRank: prefer backend, fall back to frontend average
+      const backendBlended = Number(r.raw?.blendedSourceRank);
+      r.blendedSourceRank = Number.isFinite(backendBlended) ? backendBlended : blendedSourceRank;
+      // sourceCount: prefer backend
+      const backendSrcCount = Number(r.raw?.sourceCount);
+      r.sourceCount = Number.isInteger(backendSrcCount) && backendSrcCount > 0
+        ? backendSrcCount : sourceRankValues.length;
+    }
 
     // Backbone fallback caution: any position_idp source that had to
     // translate with an empty ladder marks the whole row.
@@ -720,11 +815,24 @@ function computeUnifiedRanks(rows) {
   });
 }
 
-export function buildRows(data) {
+export function buildRows(data, opts = {}) {
   const players = data?.players || {};
   const playersArray = Array.isArray(data?.playersArray) ? data.playersArray : [];
   const posMap = data?.sleeper?.positions || {};
   const rows = [];
+
+  // Resolve user-level source overrides (from the settings page) into
+  // the `computeUnifiedRanks` opts bag.  When overrides diverge from
+  // the registry defaults, `bypassBackendStamps` flips on so the
+  // frontend fallback becomes authoritative — user knobs actually
+  // affect the displayed rank instead of being overwritten by the
+  // server's canonical blend.
+  const siteOverrides = opts.siteOverrides || {};
+  const customized = siteOverridesAreCustomized(siteOverrides);
+  const rankOpts = {
+    siteOverrides,
+    bypassBackendStamps: customized,
+  };
 
   if (playersArray.length) {
     for (const player of playersArray) {
@@ -793,7 +901,7 @@ export function buildRows(data) {
       });
     }
 
-    computeUnifiedRanks(rows);
+    computeUnifiedRanks(rows, rankOpts);
     // Sort by unified canonicalConsensusRank (backend-authoritative when present).
     rows.sort((a, b) => {
       const ra = a.canonicalConsensusRank ?? Infinity;
@@ -862,7 +970,7 @@ export function buildRows(data) {
     });
   }
 
-  computeUnifiedRanks(rows);
+  computeUnifiedRanks(rows, rankOpts);
   rows.sort((a, b) => {
     const ra = a.canonicalConsensusRank ?? Infinity;
     const rb = b.canonicalConsensusRank ?? Infinity;

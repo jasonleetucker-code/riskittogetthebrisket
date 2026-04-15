@@ -3,15 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useSettings, SETTINGS_DEFAULTS as DEFAULTS } from "@/components/useSettings";
-// Known sites with their default configurations
-const SITE_DEFAULTS = {
-  ktc:           { label: "KeepTradeCut",   include: true,  weight: 1.2,  max: 9999,  tep: true  },
-};
+import { RANKING_SOURCES } from "@/lib/dynasty-data";
 
-const IDP_SITE_DEFAULTS = {
-  idpTradeCalc:  { label: "IDP Trade Calc", include: true, weight: 1.0, max: 9998, tep: true },
-};
-
+// The settings page enumerates the canonical ranking registry directly
+// so a newly registered source automatically shows up here without any
+// further editing.  No per-source overrides — every source contributes
+// at its declared weight (currently 1.0 across the board; see
+// `RANKING_SOURCES` in dynasty-data.js and `_RANKING_SOURCES` in
+// src/api/data_contract.py).  The registry is the single source of
+// truth for weight, scope, depth, and retail/expert classification.
 
 function Section({ title, defaultOpen = true, children }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -61,25 +61,68 @@ function ToggleRow({ label, checked, onChange, hint }) {
 }
 
 export default function SettingsPage() {
-  const { loading, error, siteKeys } = useDynastyData();
-  const { settings, update, updateSiteWeight, reset } = useSettings();
+  const { loading, error, rows } = useDynastyData();
+  const { settings, update, updateSiteWeight, resetSiteWeights, reset } = useSettings();
   const [hydrated, setHydrated] = useState(true);
-
-  function getSiteConfig(siteKey) {
-    const defaults = SITE_DEFAULTS[siteKey] || IDP_SITE_DEFAULTS[siteKey] || { include: true, weight: 1.0, max: 9999, tep: true };
-    return { ...defaults, ...(settings.siteWeights[siteKey] || {}) };
-  }
 
   function resetToDefaults() {
     reset();
   }
 
-  // Determine which sites are present in actual data
-  const activeSites = useMemo(() => {
-    const offSites = siteKeys.filter((k) => SITE_DEFAULTS[k]);
-    const idpSites = siteKeys.filter((k) => IDP_SITE_DEFAULTS[k]);
-    return { offense: offSites.length > 0 ? offSites : Object.keys(SITE_DEFAULTS), idp: idpSites.length > 0 ? idpSites : Object.keys(IDP_SITE_DEFAULTS) };
-  }, [siteKeys]);
+  // Split the canonical registry into offense / IDP groups by the
+  // declared scope field.  idpTradeCalc is listed under IDP (its
+  // primary backbone scope) even though its `extraScopes` also
+  // contribute to offense rankings — that's a calculation detail.
+  //
+  // Live/Idle status is derived from ACTUAL ROW COVERAGE across
+  // `rows[*].canonicalSites`, NOT from the payload's `data.sites`
+  // array.  The scraper's `sites` array omits CSV-enriched sources
+  // (the backend's `_enrich_from_source_csvs` pass can populate
+  // `canonicalSiteValues.dlfSf` / `.dlfIdp` / etc. for players even
+  // when those keys are absent from `sites`), so a `sites`-based
+  // check would mark DLF/DN/FP as Idle even though they are
+  // actively contributing to the blended rankings.  Counting rows
+  // with a finite positive `canonicalSites[src.key]` entry is the
+  // honest status signal.
+  const sourcesByGroup = useMemo(() => {
+    const coverage = new Map();
+    for (const src of RANKING_SOURCES) coverage.set(src.key, 0);
+    for (const r of rows || []) {
+      const cs = r?.canonicalSites;
+      if (!cs || typeof cs !== "object") continue;
+      for (const src of RANKING_SOURCES) {
+        const v = Number(cs[src.key]);
+        if (Number.isFinite(v) && v > 0) {
+          coverage.set(src.key, (coverage.get(src.key) || 0) + 1);
+        }
+      }
+    }
+    const decorate = (src) => {
+      const covered = coverage.get(src.key) || 0;
+      const ov = (settings?.siteWeights || {})[src.key] || {};
+      const userInclude = ov.include === false ? false : true;
+      const userWeight =
+        Number.isFinite(Number(ov.weight)) && Number(ov.weight) >= 0
+          ? Number(ov.weight)
+          : Number(src.weight ?? 1);
+      return {
+        ...src,
+        covered,
+        live: covered > 0,
+        userInclude,
+        userWeight,
+        defaultWeight: Number(src.weight ?? 1),
+      };
+    };
+    return {
+      offense: RANKING_SOURCES
+        .filter((s) => s.scope === "overall_offense")
+        .map(decorate),
+      idp: RANKING_SOURCES
+        .filter((s) => s.scope === "overall_idp")
+        .map(decorate),
+    };
+  }, [rows, settings?.siteWeights]);
 
   if (!hydrated) return null;
 
@@ -150,91 +193,39 @@ export default function SettingsPage() {
         />
       </Section>
 
-      <Section title="Offense Value Sources" defaultOpen>
-        <div style={{ fontSize: "0.72rem", marginBottom: 8 }} className="muted">
-          Toggle sources on/off and adjust their weight in the composite calculation.
+      <Section title="Ranking Sources" defaultOpen>
+        <div style={{ fontSize: "0.72rem", marginBottom: 10 }} className="muted">
+          Every registered source contributes equally (default weight 1.0) to the
+          blended consensus rank.  Toggle a source off or adjust its weight to
+          recompute the board with your own mix.  Changing any knob flips the
+          rankings page into override mode so your settings materially affect
+          the displayed rank and value; clearing the overrides returns to the
+          canonical server blend.  IDP Trade Calculator is the IDP backbone and
+          also feeds offense via its secondary scope.  Backend registry:{" "}
+          <code style={{ fontFamily: "var(--mono)" }}>src/api/data_contract.py</code>.
         </div>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem" }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid var(--border)" }}>
-              <th style={{ textAlign: "left", padding: "4px 8px" }}>Source</th>
-              <th style={{ textAlign: "center", padding: "4px 4px" }}>On</th>
-              <th style={{ textAlign: "center", padding: "4px 4px" }}>Weight</th>
-              <th style={{ textAlign: "center", padding: "4px 4px" }}>Max</th>
-              <th style={{ textAlign: "center", padding: "4px 4px" }}>TEP</th>
-            </tr>
-          </thead>
-          <tbody>
-            {activeSites.offense.map((key) => {
-              const cfg = getSiteConfig(key);
-              return (
-                <tr key={key} style={{ borderBottom: "1px solid var(--border)", opacity: cfg.include ? 1 : 0.4 }}>
-                  <td style={{ padding: "4px 8px" }}>{cfg.label || key}</td>
-                  <td style={{ textAlign: "center", padding: "4px 4px" }}>
-                    <input type="checkbox" checked={cfg.include} onChange={(e) => updateSiteWeight(key, "include", e.target.checked)} />
-                  </td>
-                  <td style={{ textAlign: "center", padding: "4px 4px" }}>
-                    <input
-                      type="number" min={0} max={3} step={0.1}
-                      value={cfg.weight} onChange={(e) => updateSiteWeight(key, "weight", parseFloat(e.target.value) || 0)}
-                      style={{ width: 56, textAlign: "center" }} className="input"
-                    />
-                  </td>
-                  <td style={{ textAlign: "center", padding: "4px 4px" }}>
-                    <input
-                      type="number" min={1000} max={20000} step={100}
-                      value={cfg.max} onChange={(e) => updateSiteWeight(key, "max", parseInt(e.target.value) || 9999)}
-                      style={{ width: 72, textAlign: "center" }} className="input"
-                    />
-                  </td>
-                  <td style={{ textAlign: "center", padding: "4px 4px" }}>
-                    <input type="checkbox" checked={cfg.tep} onChange={(e) => updateSiteWeight(key, "tep", e.target.checked)} />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </Section>
-
-      <Section title="IDP Value Sources" defaultOpen={false}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.78rem" }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid var(--border)" }}>
-              <th style={{ textAlign: "left", padding: "4px 8px" }}>Source</th>
-              <th style={{ textAlign: "center", padding: "4px 4px" }}>On</th>
-              <th style={{ textAlign: "center", padding: "4px 4px" }}>Weight</th>
-              <th style={{ textAlign: "center", padding: "4px 4px" }}>Max</th>
-            </tr>
-          </thead>
-          <tbody>
-            {activeSites.idp.map((key) => {
-              const cfg = getSiteConfig(key);
-              return (
-                <tr key={key} style={{ borderBottom: "1px solid var(--border)", opacity: cfg.include ? 1 : 0.4 }}>
-                  <td style={{ padding: "4px 8px" }}>{cfg.label || key}</td>
-                  <td style={{ textAlign: "center", padding: "4px 4px" }}>
-                    <input type="checkbox" checked={cfg.include} onChange={(e) => updateSiteWeight(key, "include", e.target.checked)} />
-                  </td>
-                  <td style={{ textAlign: "center", padding: "4px 4px" }}>
-                    <input
-                      type="number" min={0} max={3} step={0.1}
-                      value={cfg.weight} onChange={(e) => updateSiteWeight(key, "weight", parseFloat(e.target.value) || 0)}
-                      style={{ width: 56, textAlign: "center" }} className="input"
-                    />
-                  </td>
-                  <td style={{ textAlign: "center", padding: "4px 4px" }}>
-                    <input
-                      type="number" min={500} max={10000} step={100}
-                      value={cfg.max} onChange={(e) => updateSiteWeight(key, "max", parseInt(e.target.value) || 5000)}
-                      style={{ width: 72, textAlign: "center" }} className="input"
-                    />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+          <button
+            className="button"
+            onClick={resetSiteWeights}
+            style={{ fontSize: "0.72rem" }}
+          >
+            Reset source weights
+          </button>
+        </div>
+        <SourceTable
+          title="Offense"
+          sources={sourcesByGroup.offense}
+          onToggle={(key, include) => updateSiteWeight(key, "include", include)}
+          onWeight={(key, weight) => updateSiteWeight(key, "weight", weight)}
+        />
+        <div style={{ height: 12 }} />
+        <SourceTable
+          title="IDP"
+          sources={sourcesByGroup.idp}
+          onToggle={(key, include) => updateSiteWeight(key, "include", include)}
+          onWeight={(key, weight) => updateSiteWeight(key, "weight", weight)}
+        />
       </Section>
 
       <Section title="Pick Settings" defaultOpen={false}>
@@ -261,6 +252,135 @@ export default function SettingsPage() {
         Settings are saved automatically to your browser. They affect trade calculations, rankings display, and value composites.
       </div>
     </section>
+  );
+}
+
+function SourceTable({ title, sources, onToggle, onWeight }) {
+  if (!sources || !sources.length) {
+    return (
+      <div className="muted" style={{ fontSize: "0.76rem" }}>
+        No {title.toLowerCase()} sources registered.
+      </div>
+    );
+  }
+  return (
+    <div>
+      <div style={{ fontWeight: 600, fontSize: "0.78rem", marginBottom: 6 }}>
+        {title}
+      </div>
+      <div className="table-wrap">
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: "0.76rem",
+          }}
+        >
+          <thead>
+            <tr style={{ borderBottom: "1px solid var(--border)" }}>
+              <th style={{ textAlign: "left", padding: "6px 8px" }}>Source</th>
+              <th style={{ textAlign: "left", padding: "6px 8px" }}>Role</th>
+              <th style={{ textAlign: "center", padding: "6px 8px" }} title="Include this source in rank blending">On</th>
+              <th style={{ textAlign: "right", padding: "6px 8px" }} title="Weight applied to this source in the blend. Default 1.0">Weight</th>
+              <th style={{ textAlign: "right", padding: "6px 8px" }}>Covered</th>
+              <th style={{ textAlign: "center", padding: "6px 8px" }}>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sources.map((src) => {
+              const role = src.isRetail
+                ? "Retail market"
+                : src.isBackbone
+                  ? "Backbone (IDP)"
+                  : "Expert consensus";
+              const statusLabel = src.live ? "Live" : "Idle";
+              const statusColor = src.live ? "var(--green)" : "var(--subtext)";
+              const enabled = src.userInclude !== false;
+              return (
+                <tr
+                  key={src.key}
+                  style={{
+                    borderBottom: "1px solid var(--border-dim)",
+                    opacity: enabled ? 1 : 0.45,
+                  }}
+                >
+                  <td style={{ padding: "6px 8px" }}>
+                    <div style={{ fontWeight: 600 }}>{src.displayName}</div>
+                    <div
+                      className="muted"
+                      style={{ fontSize: "0.64rem", fontFamily: "var(--mono)" }}
+                    >
+                      {src.columnLabel} · {src.key}
+                    </div>
+                  </td>
+                  <td style={{ padding: "6px 8px", fontSize: "0.72rem" }}>
+                    {role}
+                  </td>
+                  <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                    <input
+                      type="checkbox"
+                      checked={enabled}
+                      onChange={(e) => onToggle?.(src.key, e.target.checked)}
+                      aria-label={`Include ${src.displayName} in blend`}
+                      style={{ cursor: "pointer" }}
+                    />
+                  </td>
+                  <td
+                    style={{
+                      padding: "6px 8px",
+                      textAlign: "right",
+                      fontFamily: "var(--mono)",
+                    }}
+                  >
+                    <input
+                      type="number"
+                      min={0}
+                      max={5}
+                      step={0.1}
+                      value={Number(src.userWeight).toFixed(1)}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        if (Number.isFinite(v) && v >= 0) onWeight?.(src.key, v);
+                      }}
+                      disabled={!enabled}
+                      className="input"
+                      style={{
+                        width: 60,
+                        textAlign: "right",
+                        fontFamily: "var(--mono)",
+                        fontSize: "0.76rem",
+                      }}
+                      aria-label={`${src.displayName} weight`}
+                    />
+                  </td>
+                  <td
+                    style={{
+                      padding: "6px 8px",
+                      textAlign: "right",
+                      fontFamily: "var(--mono)",
+                      color: "var(--subtext)",
+                    }}
+                  >
+                    {src.covered}
+                  </td>
+                  <td
+                    style={{
+                      padding: "6px 8px",
+                      textAlign: "center",
+                      fontSize: "0.68rem",
+                      fontWeight: 700,
+                      color: statusColor,
+                    }}
+                  >
+                    {statusLabel}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 

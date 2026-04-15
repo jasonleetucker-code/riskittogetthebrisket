@@ -78,7 +78,10 @@ class TestFantasyProsIdpRegistry(unittest.TestCase):
 
     def test_source_weight_and_depth(self):
         src = next(s for s in _RANKING_SOURCES if s["key"] == "fantasyProsIdp")
-        self.assertEqual(src["weight"], 3.0)
+        # Every registered source is declared at weight 1.0 so the
+        # blend is an honest equal-weight consensus.  See the
+        # registry note in data_contract.py.
+        self.assertEqual(src["weight"], 1.0)
         self.assertGreaterEqual(src["depth"], 75)
 
     def test_source_in_idp_signal_keys(self):

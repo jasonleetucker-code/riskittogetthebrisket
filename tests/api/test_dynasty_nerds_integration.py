@@ -67,8 +67,10 @@ class TestDynastyNerdsRegistry(unittest.TestCase):
         src = next(
             s for s in _RANKING_SOURCES if s["key"] == "dynastyNerdsSfTep"
         )
-        # DN mirrors DLF SF: expert opinion, weight 3.0.
-        self.assertEqual(src["weight"], 3.0)
+        # Every registered source is declared at weight 1.0 so the
+        # blend is an honest equal-weight consensus.  See the
+        # registry note in data_contract.py.
+        self.assertEqual(src["weight"], 1.0)
         # Depth guardrail over the 294 non-zero rows in the snapshot.
         self.assertGreaterEqual(src["depth"], 290)
 

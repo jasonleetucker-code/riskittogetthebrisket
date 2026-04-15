@@ -263,10 +263,10 @@ class TestDlfParticipatesInUnifiedRankings(unittest.TestCase):
         # the second half of the same fix.
         self.assertEqual(dlf["depth"], 185)
         self.assertTrue(dlf.get("excludes_rookies"))
-        # DLF is the dynasty-aware IDP source, so it gets a higher
-        # declared blend weight than IDPTradeCalc to counterbalance
-        # IDPTC's chronically deflated values for established veterans.
-        self.assertEqual(dlf["weight"], 3.0)
+        # All registered sources are declared at weight 1.0 so the
+        # blend is an honest equal-weight consensus of every source
+        # with coverage.  See the registry note in data_contract.py.
+        self.assertEqual(dlf["weight"], 1.0)
 
     def test_idptradecalc_remains_the_only_backbone(self):
         backbones = [s for s in _RANKING_SOURCES if s.get("is_backbone")]

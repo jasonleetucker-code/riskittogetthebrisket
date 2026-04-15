@@ -73,6 +73,72 @@ function posMatchesFilter(pos, assetClass, filter) {
 
 // ── Methodology content ──────────────────────────────────────────────
 
+// ── Source cell formatter ────────────────────────────────────────────
+//
+// Unified formatting for every per-source cell the rankings table
+// renders — both the desktop column cells and the mobile chip strip
+// beneath each player row.  Returns:
+//
+//   hasVal    — true if the source contributed a value for this player
+//   primary   — the main label (raw value for value sources, `#rank`
+//               for rank-signal sources — per the rank-signal contract
+//               described on `RANKING_SOURCES` in dynasty-data.js,
+//               which requires UIs to render `sourceOriginalRanks`
+//               and never the synthetic value stamped for sort order).
+//   rankLabel — the effective rank on the shared board, wrapped with
+//               a `#` prefix and the `eff` prefix for rank-signal
+//               sources where "primary" is already a rank; this makes
+//               the distinction explicit in the cell output.
+//   title     — hover tooltip explaining the cell.
+//
+// Mirror the display format between desktop and mobile by always
+// using this helper so both surfaces show `value (#rank)` consistently.
+function formatSourceCell(row, src) {
+  const rawVal = row?.canonicalSites?.[src.key];
+  const hasVal = rawVal != null && Number.isFinite(Number(rawVal));
+  const effectiveRank = row?.sourceRanks?.[src.key];
+  const origRank = row?.sourceOriginalRanks?.[src.key];
+
+  if (!hasVal) {
+    return {
+      hasVal: false,
+      primary: "\u2014",
+      rankLabel: "\u2014",
+      title: `${src.displayName} did not list this player`,
+    };
+  }
+
+  if (src.isRankSignal) {
+    // Rank-signal sources (DLF SF, DLF IDP, DN SF-TEP, FP IDP) expose
+    // only ordinal rank, not a trade value.  Render the original rank
+    // as primary and the effective (shared-market-translated) rank
+    // in parentheses, prefixed with `eff` to disambiguate.
+    const primary = origRank != null ? `#${origRank}` : "\u2014";
+    const rankLabel =
+      effectiveRank != null ? `eff #${effectiveRank}` : "eff \u2014";
+    return {
+      hasVal: true,
+      primary,
+      rankLabel,
+      title: `${src.displayName}: original rank ${primary}, effective rank on blended board ${
+        effectiveRank != null ? `#${effectiveRank}` : "\u2014"
+      }`,
+    };
+  }
+
+  // Value source: raw value as primary, effective rank in parens.
+  const primary = Math.round(Number(rawVal)).toLocaleString();
+  const rankLabel = effectiveRank != null ? `#${effectiveRank}` : "\u2014";
+  return {
+    hasVal: true,
+    primary,
+    rankLabel,
+    title: `${src.displayName}: value ${primary}${
+      effectiveRank != null ? `, effective rank #${effectiveRank}` : ""
+    }`,
+  };
+}
+
 function MethodologySection() {
   const sourceNames = RANKING_SOURCES.map((s) => s.displayName).join(", ");
   return (
@@ -561,16 +627,16 @@ export default function RankingsPage() {
                     Consensus
                   </SortHeader>
                   <SortHeader col="value" style={{ textAlign: "right" }}>Value</SortHeader>
-                  {RANKING_SOURCES.map((src) => (
+                  {settings.showSiteCols && RANKING_SOURCES.map((src) => (
                     <SortHeader
                       key={src.key}
                       col={`src:${src.key}`}
-                      style={{ textAlign: "right", width: 80 }}
-                      className="hide-mobile"
+                      style={{ textAlign: "right", width: 90 }}
+                      className="hide-mobile rankings-source-col"
                       title={`${src.displayName} — ${
                         src.isRankSignal
-                          ? "expert rank source (lower = better). Column shows the source's original rank with its effective rank on the shared board beneath."
-                          : "value source. Column shows the source's raw trade value with its effective rank on the shared board beneath."
+                          ? "expert rank source (lower = better). Cell shows the source's original rank with its effective rank on the shared board in parentheses."
+                          : "value source. Cell shows the source's raw trade value with its effective rank on the shared board in parentheses."
                       }`}
                     >
                       {src.columnLabel}
@@ -597,7 +663,11 @@ export default function RankingsPage() {
                   const action = actionLabel(row);
                   const cautions = cautionLabels(row);
                   const isExpanded = expandedRow === row.name;
-                  const totalCols = 10 + RANKING_SOURCES.length;
+                  // Column count drives the tier-separator and audit-panel
+                  // colspans.  It tracks the render gate on
+                  // ``settings.showSiteCols`` so the separator stretches
+                  // cleanly whether or not per-source columns are visible.
+                  const totalCols = 10 + (settings.showSiteCols ? RANKING_SOURCES.length : 0);
 
                   const prevTierId = idx > 0 ? effectiveTierId(displayRows[idx - 1]) : null;
                   const showTierBreak = tierGroupingActive && idx > 0 && tierId !== prevTierId && tierId != null;
@@ -700,35 +770,32 @@ export default function RankingsPage() {
                           </span>
                         </td>
 
-                        {/* Per-source value + rank columns */}
-                        {RANKING_SOURCES.map((src) => {
-                          const rawVal = row.canonicalSites?.[src.key];
-                          const hasVal = rawVal != null && Number.isFinite(Number(rawVal));
-                          const effectiveRank = row.sourceRanks?.[src.key];
-                          const origRank = row.sourceOriginalRanks?.[src.key];
-                          const isRankSrc = src.isRankSignal;
+                        {/* Per-source value + rank columns.  Gated on
+                            `showSiteCols` so power users can collapse the
+                            source columns to focus on the Value column.
+                            Each cell shows the source's raw value (or
+                            original rank for rank-signal sources) with
+                            the effective rank on the shared board in
+                            parentheses — unified single-line format. */}
+                        {settings.showSiteCols && RANKING_SOURCES.map((src) => {
+                          const cell = formatSourceCell(row, src);
                           return (
                             <td
                               key={src.key}
-                              className="hide-mobile"
-                              style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.78rem" }}
+                              className="hide-mobile rankings-source-col"
+                              style={{
+                                textAlign: "right",
+                                fontFamily: "var(--mono, monospace)",
+                                fontSize: "0.78rem",
+                                whiteSpace: "nowrap",
+                              }}
+                              title={cell.title}
                             >
-                              {hasVal ? (
-                                isRankSrc ? (
-                                  <>
-                                    <div>#{origRank != null ? origRank : "\u2014"}</div>
-                                    {effectiveRank != null && (
-                                      <div className="muted" style={{ fontSize: "0.68rem" }}>eff #{effectiveRank}</div>
-                                    )}
-                                  </>
-                                ) : (
-                                  <>
-                                    <div>{Math.round(Number(rawVal)).toLocaleString()}</div>
-                                    {effectiveRank != null && (
-                                      <div className="muted" style={{ fontSize: "0.68rem" }}>#{effectiveRank}</div>
-                                    )}
-                                  </>
-                                )
+                              {cell.hasVal ? (
+                                <>
+                                  <span className="rankings-source-value">{cell.primary}</span>
+                                  <span className="rankings-source-rank"> ({cell.rankLabel})</span>
+                                </>
                               ) : (
                                 <span className="muted">&mdash;</span>
                               )}
@@ -780,6 +847,60 @@ export default function RankingsPage() {
                           )}
                         </td>
                       </tr>
+
+                      {/* ── Mobile source strip ───────────────────────
+                          The desktop table has one column per source,
+                          but at ≤768px those columns would overflow
+                          horizontally and get hidden via `hide-mobile`.
+                          Instead of dropping the data entirely, we
+                          render a compact flex strip of source chips
+                          below each player row so mobile users see the
+                          same per-source value + rank they'd see on
+                          desktop.  Gated on `showSiteCols` so the
+                          toggle has the same effect on both surfaces.
+
+                          Uses a dedicated `.rankings-mobile-source-row`
+                          class (not the global `.mobile-only` helper)
+                          so we can set `display: table-row` on mobile
+                          — the global helper resolves to
+                          `display: initial !important`, which would
+                          force the <tr> to `inline` and break the
+                          table layout. */}
+                      {settings.showSiteCols && (
+                        <tr className="rankings-mobile-source-row">
+                          <td colSpan={totalCols}>
+                            <div className="rankings-mobile-sources">
+                              {RANKING_SOURCES.map((src) => {
+                                const cell = formatSourceCell(row, src);
+                                return (
+                                  <span
+                                    key={src.key}
+                                    className={`rankings-mobile-source-chip${cell.hasVal ? "" : " is-empty"}`}
+                                    title={cell.title}
+                                  >
+                                    <span className="rankings-mobile-source-label">
+                                      {src.columnLabel}
+                                    </span>
+                                    <span className="rankings-mobile-source-val">
+                                      {cell.hasVal ? (
+                                        <>
+                                          {cell.primary}
+                                          <span className="rankings-mobile-source-rank">
+                                            {" "}
+                                            ({cell.rankLabel})
+                                          </span>
+                                        </>
+                                      ) : (
+                                        "\u2014"
+                                      )}
+                                    </span>
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
 
                       {/* ── Expandable source audit panel ──────────── */}
                       {isExpanded && (

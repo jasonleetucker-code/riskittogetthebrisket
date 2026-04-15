@@ -2,8 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { buildRows, fetchDynastyData, getSiteKeys } from "@/lib/dynasty-data";
+import { useSettings } from "@/components/useSettings";
 
 export function useDynastyData() {
+  // Read user-level source overrides from settings so per-source
+  // toggles and weight sliders actually affect the rendered board.
+  // `buildRows` forwards these to `computeUnifiedRanks`, which
+  // bypasses backend-stamped fields whenever the user's configuration
+  // diverges from the canonical registry defaults.
+  const { settings } = useSettings();
+  const siteOverrides = settings?.siteWeights || null;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [source, setSource] = useState("");
@@ -47,12 +55,15 @@ export function useDynastyData() {
 
   const rows = useMemo(() => {
     try {
-      return buildRows(rawData || {});
+      return buildRows(rawData || {}, { siteOverrides });
     } catch (e) {
       console.error("[useDynastyData] buildRows crashed:", e);
       return [];
     }
-  }, [rawData]);
+    // Recompute whenever the user's site override map changes so
+    // toggling a source or moving a weight slider immediately
+    // re-blends the rankings.
+  }, [rawData, siteOverrides]);
   const siteKeys = useMemo(() => {
     try {
       return getSiteKeys(rawData || {});

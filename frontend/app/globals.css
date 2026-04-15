@@ -895,6 +895,82 @@ tr:hover .sticky-name {
   .edge-rail-grid { grid-template-columns: 1fr 1fr; }
   .edge-rail-name { max-width: 120px; }
   .edge-rail-item { font-size: 0.66rem; }
+
+  /* Mobile per-source strip — renders beneath each player row when
+     `showSiteCols` is on.  Flex-wraps so every registered source is
+     visible on mobile without horizontal scroll or hidden columns.
+     Uses an explicit `display: table-row` override so the browser
+     treats the <tr> as a proper row participant in the table layout
+     (the page's global `.mobile-only` helper would otherwise set
+     `display: initial !important`, which resolves to `inline` for
+     <tr> and breaks row semantics). */
+  .rankings-mobile-source-row {
+    display: table-row !important;
+  }
+  .rankings-mobile-source-row > td {
+    padding: 4px 8px 8px;
+    border-top: none;
+    background: var(--bg-soft, rgba(255, 255, 255, 0.02));
+  }
+  .rankings-mobile-sources {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    font-family: var(--mono, monospace);
+    font-size: 0.66rem;
+    /* Cap the strip to the viewport (minus card/table-wrap padding)
+       so chips always wrap within the visible area instead of
+       extending into the parent table's horizontal scroll buffer.
+       The regular table can still scroll horizontally for the
+       main columns — only the source strip is viewport-anchored. */
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
+  }
+  .rankings-mobile-source-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--bg, rgba(255, 255, 255, 0.04));
+    border: 1px solid var(--border-dim, rgba(255, 255, 255, 0.08));
+    white-space: nowrap;
+  }
+  .rankings-mobile-source-chip.is-empty {
+    opacity: 0.35;
+  }
+  .rankings-mobile-source-label {
+    font-weight: 700;
+    color: var(--cyan, #4fc3f7);
+    font-size: 0.6rem;
+    letter-spacing: 0.02em;
+  }
+  .rankings-mobile-source-val {
+    color: var(--text, inherit);
+  }
+  .rankings-mobile-source-rank {
+    color: var(--subtext, rgba(255, 255, 255, 0.55));
+  }
+}
+
+/* Desktop styling for per-source column cells — the `value (#rank)`
+   format renders on one line.  The muted rank inherits the subtext
+   color so it reads as secondary but still visible. */
+.rankings-source-col .rankings-source-value {
+  color: var(--text, inherit);
+}
+.rankings-source-col .rankings-source-rank {
+  color: var(--subtext, rgba(255, 255, 255, 0.55));
+  font-size: 0.72rem;
+}
+
+/* The mobile source strip is hidden by default on desktop and
+   flipped to `display: table-row` inside the ≤768px media query
+   above.  Kept self-contained so it doesn't depend on the global
+   `.mobile-only` helper (which would resolve to `display: inline`
+   on a <tr> and break the table layout). */
+.rankings-mobile-source-row {
+  display: none;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -911,6 +987,18 @@ tr:hover .sticky-name {
   /* Compact tables: reduce padding further */
   th, td { padding: 4px 6px; font-size: 0.7rem; }
   .sticky-name { min-width: 110px; }
+
+  /* Tighten the mobile source strip so chips fit on 320w viewports
+     (iPhone SE / older devices).  Narrower strip + smaller chip
+     padding lets 3 chips fit per row at 288px instead of 2. */
+  .rankings-mobile-sources {
+    max-width: calc(100vw - 20px);
+    font-size: 0.6rem;
+    gap: 3px 5px;
+  }
+  .rankings-mobile-source-chip {
+    padding: 1px 4px;
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
