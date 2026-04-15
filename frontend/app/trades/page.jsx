@@ -112,8 +112,11 @@ export default function TradesPage() {
 }
 
 function TeamScoresCard({ teamScores, alpha }) {
+  // Iterate Object.entries so each card's React key matches the
+  // aggregation key (ownerId-first).  Using rosterId alone collides
+  // in the orphan-takeover case where two owners share a rosterId.
   const sorted = useMemo(
-    () => Object.values(teamScores).sort((a, b) => b.totalGain - a.totalGain),
+    () => Object.entries(teamScores).sort((a, b) => b[1].totalGain - a[1].totalGain),
     [teamScores],
   );
 
@@ -125,7 +128,7 @@ function TeamScoresCard({ teamScores, alpha }) {
         Trade Winners & Losers
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
-        {sorted.map((s) => {
+        {sorted.map(([key, s]) => {
           const teamName = s.displayName || "Unknown";
           const netVal = Math.round(Math.pow(Math.abs(s.totalGain), 1 / alpha));
           const netSign = s.totalGain >= 0 ? "+" : "-";
@@ -134,7 +137,7 @@ function TeamScoresCard({ teamScores, alpha }) {
 
           return (
             <div
-              key={s.rosterId != null ? `rid:${s.rosterId}` : `name:${teamName}`}
+              key={key}
               style={{
                 border: "1px solid var(--border)",
                 borderLeft: `3px solid ${borderColor}`,
@@ -180,7 +183,7 @@ function TradeTendenciesCard({ tendencies }) {
               const netColor = t.net >= 0 ? "var(--green)" : "var(--red)";
               const netSign = t.net >= 0 ? "+" : "";
               return (
-                <tr key={t.manager}>
+                <tr key={t.id || t.manager}>
                   <td style={{ fontWeight: 600 }}>{t.manager}</td>
                   <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{t.trades}</td>
                   <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{t.avgGiven.toLocaleString()}</td>

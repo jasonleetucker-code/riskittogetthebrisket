@@ -673,14 +673,17 @@ export function analyzeTradeTendencies(rawData, rows) {
     }
   }
 
-  return Object.values(managerStats)
-    .map((s) => {
+  return Object.entries(managerStats)
+    .map(([key, s]) => {
       const avgGiven = Math.round(s.totalGiven / Math.max(s.trades, 1));
       const avgGot = Math.round(s.totalGot / Math.max(s.trades, 1));
       const net = avgGot - avgGiven;
       const topPos = Object.entries(s.posBias).sort((a, b) => b[1] - a[1])[0];
       const tendency = topPos ? `Targets ${topPos[0]}s` : "\u2014";
-      return { manager: s.manager, trades: s.trades, avgGiven, avgGot, net, tendency };
+      // `id` is the ownerId-first aggregation key so the React table
+      // can key rows uniquely even when two managers happen to share
+      // a display name.
+      return { id: key, manager: s.manager, trades: s.trades, avgGiven, avgGot, net, tendency };
     })
     .sort((a, b) => b.trades - a.trades);
 }

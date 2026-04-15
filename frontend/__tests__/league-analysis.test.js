@@ -174,6 +174,46 @@ describe("analyzeSleeperTradeHistory — ownerId aggregation", () => {
   });
 });
 
+describe("analyzeSleeperTradeHistory — unique keys across orphan takeovers", () => {
+  it("keeps teamScores keys unique when two owners share a rosterId", () => {
+    // Reproduces the React key collision case: same rosterId (5)
+    // held by two different humans across seasons.  The aggregation
+    // keys must be distinct so the Winners/Losers card can safely
+    // use `Object.entries(teamScores)[i][0]` as the React key.
+    const rawData = {
+      sleeper: {
+        teams: [
+          { name: "New Manager", roster_id: 5, ownerId: "user-new" },
+          { name: "Opponent", roster_id: 6, ownerId: "user-opponent" },
+        ],
+        trades: [
+          mkTrade({
+            offsetDaysAgo: 90,
+            sides: [
+              { team: "Previous Manager", rosterId: 5, ownerId: "user-prev", got: ["Test Star"], gave: [] },
+              { team: "Opponent", rosterId: 6, ownerId: "user-opponent", got: ["Test Mid"], gave: [] },
+            ],
+          }),
+          mkTrade({
+            offsetDaysAgo: 5,
+            sides: [
+              { team: "New Manager", rosterId: 5, ownerId: "user-new", got: ["Test Mid"], gave: [] },
+              { team: "Opponent", rosterId: 6, ownerId: "user-opponent", got: ["Test Star"], gave: [] },
+            ],
+          }),
+        ],
+      },
+    };
+
+    const { teamScores } = analyzeSleeperTradeHistory(rawData, rows);
+    const keys = Object.keys(teamScores);
+    expect(new Set(keys).size).toBe(keys.length); // no dupes
+    expect(keys).toContain("oid:user-prev");
+    expect(keys).toContain("oid:user-new");
+    expect(keys).toContain("oid:user-opponent");
+  });
+});
+
 describe("analyzeTradeTendencies — ownerId aggregation", () => {
   it("splits orphan takeovers by owner", () => {
     const rawData = {
