@@ -27,10 +27,14 @@ export const SETTINGS_DEFAULTS = {
   // Pick settings
   pickCurrentYear: 2026,
 
-  // Legacy: per-site override map — no longer editable from the UI.
-  // Preserved so old localStorage payloads deserialize cleanly; the
-  // ranking engine ignores this map entirely.  Delete after a few
-  // releases once every user's cache has rolled over.
+  // Per-user source override map.  Shape:
+  //   { [sourceKey]: { include?: boolean, weight?: number } }
+  // Read by `useDynastyData` → `buildRows` → `computeUnifiedRanks`.
+  // An empty map (default) means "inherit everything from the
+  // canonical RANKING_SOURCES registry" — every source enabled at
+  // weight 1.0.  Editing via `updateSiteWeight` flips the ranking
+  // pipeline into bypass mode so user knobs actually affect the
+  // displayed board.
   siteWeights: {},
 
   // Trade history
@@ -100,10 +104,36 @@ export function useSettings() {
     notify(next);
   }, []);
 
+  // Update a single per-source override field.  `field` is typically
+  // `"include"` (boolean) or `"weight"` (number).  Passing `value`
+  // equal to the source's registry default does NOT automatically
+  // delete the entry — users who want to reset a single source
+  // should use the "Reset" affordance in the settings UI, which
+  // calls `clearSiteWeight` below.
+  const updateSiteWeight = useCallback((siteKey, field, value) => {
+    const prev = getSnapshot();
+    const weights = { ...prev.siteWeights };
+    weights[siteKey] = { ...(weights[siteKey] || {}), [field]: value };
+    const next = { ...prev, siteWeights: weights };
+    writeSettings(next);
+    notify(next);
+  }, []);
+
+  // Delete every per-source override and fall back to registry
+  // defaults.  Keeps all OTHER settings intact (tepMultiplier,
+  // showSiteCols, etc.) so a weight reset doesn't blow away the
+  // rest of the user's preferences.
+  const resetSiteWeights = useCallback(() => {
+    const prev = getSnapshot();
+    const next = { ...prev, siteWeights: {} };
+    writeSettings(next);
+    notify(next);
+  }, []);
+
   const reset = useCallback(() => {
     writeSettings(SETTINGS_DEFAULTS);
     notify({ ...SETTINGS_DEFAULTS });
   }, []);
 
-  return { settings, update, reset };
+  return { settings, update, updateSiteWeight, resetSiteWeights, reset };
 }

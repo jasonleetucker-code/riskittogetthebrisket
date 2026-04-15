@@ -61,8 +61,8 @@ function ToggleRow({ label, checked, onChange, hint }) {
 }
 
 export default function SettingsPage() {
-  const { loading, error, siteKeys } = useDynastyData();
-  const { settings, update, reset } = useSettings();
+  const { loading, error, rows } = useDynastyData();
+  const { settings, update, updateSiteWeight, resetSiteWeights, reset } = useSettings();
   const [hydrated, setHydrated] = useState(true);
 
   function resetToDefaults() {
@@ -73,16 +73,47 @@ export default function SettingsPage() {
   // declared scope field.  idpTradeCalc is listed under IDP (its
   // primary backbone scope) even though its `extraScopes` also
   // contribute to offense rankings — that's a calculation detail.
-  // A source is marked "live" when it actually appears in the
-  // current payload's sites array, so users can see at a glance
-  // whether a registered source is currently feeding data or is
-  // temporarily stale.
+  //
+  // Live/Idle status is derived from ACTUAL ROW COVERAGE across
+  // `rows[*].canonicalSites`, NOT from the payload's `data.sites`
+  // array.  The scraper's `sites` array omits CSV-enriched sources
+  // (the backend's `_enrich_from_source_csvs` pass can populate
+  // `canonicalSiteValues.dlfSf` / `.dlfIdp` / etc. for players even
+  // when those keys are absent from `sites`), so a `sites`-based
+  // check would mark DLF/DN/FP as Idle even though they are
+  // actively contributing to the blended rankings.  Counting rows
+  // with a finite positive `canonicalSites[src.key]` entry is the
+  // honest status signal.
   const sourcesByGroup = useMemo(() => {
-    const liveSet = new Set((siteKeys || []).map((k) => String(k)));
-    const decorate = (src) => ({
-      ...src,
-      live: liveSet.has(src.key),
-    });
+    const coverage = new Map();
+    for (const src of RANKING_SOURCES) coverage.set(src.key, 0);
+    for (const r of rows || []) {
+      const cs = r?.canonicalSites;
+      if (!cs || typeof cs !== "object") continue;
+      for (const src of RANKING_SOURCES) {
+        const v = Number(cs[src.key]);
+        if (Number.isFinite(v) && v > 0) {
+          coverage.set(src.key, (coverage.get(src.key) || 0) + 1);
+        }
+      }
+    }
+    const decorate = (src) => {
+      const covered = coverage.get(src.key) || 0;
+      const ov = (settings?.siteWeights || {})[src.key] || {};
+      const userInclude = ov.include === false ? false : true;
+      const userWeight =
+        Number.isFinite(Number(ov.weight)) && Number(ov.weight) >= 0
+          ? Number(ov.weight)
+          : Number(src.weight ?? 1);
+      return {
+        ...src,
+        covered,
+        live: covered > 0,
+        userInclude,
+        userWeight,
+        defaultWeight: Number(src.weight ?? 1),
+      };
+    };
     return {
       offense: RANKING_SOURCES
         .filter((s) => s.scope === "overall_offense")
@@ -91,7 +122,7 @@ export default function SettingsPage() {
         .filter((s) => s.scope === "overall_idp")
         .map(decorate),
     };
-  }, [siteKeys]);
+  }, [rows, settings?.siteWeights]);
 
   if (!hydrated) return null;
 
@@ -164,20 +195,36 @@ export default function SettingsPage() {
 
       <Section title="Ranking Sources" defaultOpen>
         <div style={{ fontSize: "0.72rem", marginBottom: 10 }} className="muted">
-          Every registered source contributes equally (weight 1.0) to the
-          blended consensus rank.  Sources are grouped by their primary scope;
-          the IDP Trade Calculator backbone also feeds offense blends via its
-          secondary scope.  Backend registry:{" "}
+          Every registered source contributes equally (default weight 1.0) to the
+          blended consensus rank.  Toggle a source off or adjust its weight to
+          recompute the board with your own mix.  Changing any knob flips the
+          rankings page into override mode so your settings materially affect
+          the displayed rank and value; clearing the overrides returns to the
+          canonical server blend.  IDP Trade Calculator is the IDP backbone and
+          also feeds offense via its secondary scope.  Backend registry:{" "}
           <code style={{ fontFamily: "var(--mono)" }}>src/api/data_contract.py</code>.
+        </div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+          <button
+            className="button"
+            onClick={resetSiteWeights}
+            style={{ fontSize: "0.72rem" }}
+          >
+            Reset source weights
+          </button>
         </div>
         <SourceTable
           title="Offense"
           sources={sourcesByGroup.offense}
+          onToggle={(key, include) => updateSiteWeight(key, "include", include)}
+          onWeight={(key, weight) => updateSiteWeight(key, "weight", weight)}
         />
         <div style={{ height: 12 }} />
         <SourceTable
           title="IDP"
           sources={sourcesByGroup.idp}
+          onToggle={(key, include) => updateSiteWeight(key, "include", include)}
+          onWeight={(key, weight) => updateSiteWeight(key, "weight", weight)}
         />
       </Section>
 
@@ -208,7 +255,7 @@ export default function SettingsPage() {
   );
 }
 
-function SourceTable({ title, sources }) {
+function SourceTable({ title, sources, onToggle, onWeight }) {
   if (!sources || !sources.length) {
     return (
       <div className="muted" style={{ fontSize: "0.76rem" }}>
@@ -233,8 +280,9 @@ function SourceTable({ title, sources }) {
             <tr style={{ borderBottom: "1px solid var(--border)" }}>
               <th style={{ textAlign: "left", padding: "6px 8px" }}>Source</th>
               <th style={{ textAlign: "left", padding: "6px 8px" }}>Role</th>
-              <th style={{ textAlign: "right", padding: "6px 8px" }}>Weight</th>
-              <th style={{ textAlign: "right", padding: "6px 8px" }}>Depth</th>
+              <th style={{ textAlign: "center", padding: "6px 8px" }} title="Include this source in rank blending">On</th>
+              <th style={{ textAlign: "right", padding: "6px 8px" }} title="Weight applied to this source in the blend. Default 1.0">Weight</th>
+              <th style={{ textAlign: "right", padding: "6px 8px" }}>Covered</th>
               <th style={{ textAlign: "center", padding: "6px 8px" }}>Status</th>
             </tr>
           </thead>
@@ -247,10 +295,14 @@ function SourceTable({ title, sources }) {
                   : "Expert consensus";
               const statusLabel = src.live ? "Live" : "Idle";
               const statusColor = src.live ? "var(--green)" : "var(--subtext)";
+              const enabled = src.userInclude !== false;
               return (
                 <tr
                   key={src.key}
-                  style={{ borderBottom: "1px solid var(--border-dim)" }}
+                  style={{
+                    borderBottom: "1px solid var(--border-dim)",
+                    opacity: enabled ? 1 : 0.45,
+                  }}
                 >
                   <td style={{ padding: "6px 8px" }}>
                     <div style={{ fontWeight: 600 }}>{src.displayName}</div>
@@ -264,6 +316,15 @@ function SourceTable({ title, sources }) {
                   <td style={{ padding: "6px 8px", fontSize: "0.72rem" }}>
                     {role}
                   </td>
+                  <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                    <input
+                      type="checkbox"
+                      checked={enabled}
+                      onChange={(e) => onToggle?.(src.key, e.target.checked)}
+                      aria-label={`Include ${src.displayName} in blend`}
+                      style={{ cursor: "pointer" }}
+                    />
+                  </td>
                   <td
                     style={{
                       padding: "6px 8px",
@@ -271,7 +332,26 @@ function SourceTable({ title, sources }) {
                       fontFamily: "var(--mono)",
                     }}
                   >
-                    {Number(src.weight).toFixed(1)}
+                    <input
+                      type="number"
+                      min={0}
+                      max={5}
+                      step={0.1}
+                      value={Number(src.userWeight).toFixed(1)}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        if (Number.isFinite(v) && v >= 0) onWeight?.(src.key, v);
+                      }}
+                      disabled={!enabled}
+                      className="input"
+                      style={{
+                        width: 60,
+                        textAlign: "right",
+                        fontFamily: "var(--mono)",
+                        fontSize: "0.76rem",
+                      }}
+                      aria-label={`${src.displayName} weight`}
+                    />
                   </td>
                   <td
                     style={{
@@ -281,7 +361,7 @@ function SourceTable({ title, sources }) {
                       color: "var(--subtext)",
                     }}
                   >
-                    {src.depth ?? "—"}
+                    {src.covered}
                   </td>
                   <td
                     style={{

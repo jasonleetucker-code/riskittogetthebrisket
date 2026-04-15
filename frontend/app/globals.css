@@ -918,6 +918,13 @@ tr:hover .sticky-name {
     gap: 4px 8px;
     font-family: var(--mono, monospace);
     font-size: 0.66rem;
+    /* Cap the strip to the viewport (minus card/table-wrap padding)
+       so chips always wrap within the visible area instead of
+       extending into the parent table's horizontal scroll buffer.
+       The regular table can still scroll horizontally for the
+       main columns — only the source strip is viewport-anchored. */
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
   }
   .rankings-mobile-source-chip {
     display: inline-flex;
@@ -980,6 +987,18 @@ tr:hover .sticky-name {
   /* Compact tables: reduce padding further */
   th, td { padding: 4px 6px; font-size: 0.7rem; }
   .sticky-name { min-width: 110px; }
+
+  /* Tighten the mobile source strip so chips fit on 320w viewports
+     (iPhone SE / older devices).  Narrower strip + smaller chip
+     padding lets 3 chips fit per row at 288px instead of 2. */
+  .rankings-mobile-sources {
+    max-width: calc(100vw - 20px);
+    font-size: 0.6rem;
+    gap: 3px 5px;
+  }
+  .rankings-mobile-source-chip {
+    padding: 1px 4px;
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
