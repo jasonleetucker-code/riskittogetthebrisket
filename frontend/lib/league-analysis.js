@@ -155,10 +155,62 @@ function getTradeSideItemLabels(items) {
   return items.map(normalizeTradeAssetLabel).filter(Boolean);
 }
 
+// ── Roster ID → current team name map ──────────────────────────────────
+/**
+ * Build a map from Sleeper `roster_id` to the CURRENT team name.
+ *
+ * Historical trades store the team name as it was at trade time.  When
+ * a manager renames their team, aggregation keyed by that historical
+ * name splits a single manager's record into two buckets (e.g. "Draft
+ * Daddies" + "Russini Panini").  Keying aggregation by `rosterId` and
+ * resolving the display name through this map unifies renamed teams
+ * under their current name, since Sleeper `roster_id` is stable across
+ * the league chain for continuing leagues.
+ */
+export function buildRosterIdNameMap(sleeperTeams) {
+  const map = new Map();
+  for (const t of sleeperTeams || []) {
+    const rid = t?.roster_id;
+    if (rid == null) continue;
+    map.set(String(rid), String(t.name || ""));
+  }
+  return map;
+}
+
+/**
+ * Pick a stable aggregation key for a trade side: prefer `rosterId`
+ * (stable across the league chain), fall back to team name for trades
+ * from older scraper builds that didn't record rosterId.
+ */
+function sideAggregationKey(side) {
+  if (side == null) return "";
+  if (side.rosterId != null) return `rid:${side.rosterId}`;
+  return `name:${side.team || ""}`;
+}
+
+/**
+ * Resolve the display name for a trade side.  Current team name from
+ * `rosterIdNameMap` wins when present; otherwise falls back to the
+ * side's historical team name.
+ */
+function sideDisplayName(side, rosterIdNameMap) {
+  if (side == null) return "";
+  const rid = side.rosterId;
+  if (rid != null && rosterIdNameMap) {
+    const current = rosterIdNameMap.get(String(rid));
+    if (current) return current;
+  }
+  return side.team || "";
+}
+
 // ── Analyze Sleeper Trade History ───────────────────────────────────────
 /**
  * Analyze all Sleeper trades within the rolling window.
  * Returns { windowDays, analyzed, teamScores }.
+ *
+ * Aggregation is keyed by `rosterId` so trades from teams that later
+ * renamed themselves roll up under the current team name rather than
+ * splitting into two buckets.
  */
 export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alpha = TRADE_ALPHA) {
   const trades = rawData?.sleeper?.trades;
@@ -172,6 +224,7 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
   const rowLookup = buildRowLookup(rows);
   const posMap = rawData?.sleeper?.positions || {};
   const pickAliases = rawData?.pickAliases || null;
+  const rosterIdNameMap = buildRosterIdNameMap(rawData?.sleeper?.teams);
   const teamScores = {};
   const analyzed = [];
 
@@ -198,7 +251,15 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
         });
       }
 
-      sides.push({ team: side.team, linear: linearTotal, weighted: weightedTotal, items });
+      const displayTeam = sideDisplayName(side, rosterIdNameMap);
+      sides.push({
+        team: displayTeam,
+        historicalTeam: side.team || "",
+        rosterId: side.rosterId ?? null,
+        linear: linearTotal,
+        weighted: weightedTotal,
+        items,
+      });
     }
 
     // Determine winner using stud-adjusted values
@@ -213,16 +274,26 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
     const winnerGrade = gradeTradeHistorySide(pctGap, true);
     const loserGrade = loser ? gradeTradeHistorySide(pctGap, false) : null;
 
-    // Track team scores
+    // Track team scores, keyed by rosterId so renamed teams roll up.
     for (const s of sides) {
-      if (!teamScores[s.team]) teamScores[s.team] = { won: 0, lost: 0, totalGain: 0, trades: 0 };
-      teamScores[s.team].trades++;
+      const key = sideAggregationKey(s);
+      if (!teamScores[key]) {
+        teamScores[key] = {
+          displayName: s.team,
+          rosterId: s.rosterId,
+          won: 0,
+          lost: 0,
+          totalGain: 0,
+          trades: 0,
+        };
+      }
+      teamScores[key].trades++;
       if (s === winner && pctGap >= 3) {
-        teamScores[s.team].won++;
-        teamScores[s.team].totalGain += winner.weighted - (loser ? loser.weighted : 0);
+        teamScores[key].won++;
+        teamScores[key].totalGain += winner.weighted - (loser ? loser.weighted : 0);
       } else if (s === loser && pctGap >= 3) {
-        teamScores[s.team].lost++;
-        teamScores[s.team].totalGain -= winner.weighted - loser.weighted;
+        teamScores[key].lost++;
+        teamScores[key].totalGain -= winner.weighted - loser.weighted;
       }
     }
 
@@ -498,6 +569,7 @@ export function analyzeTradeTendencies(rawData, rows) {
   const rowLookup = buildRowLookup(rows);
   const posMap = rawData?.sleeper?.positions || {};
   const pickAliases = rawData?.pickAliases || null;
+  const rosterIdNameMap = buildRosterIdNameMap(rawData?.sleeper?.teams);
   const managerStats = {};
 
   // Shared resolver that handles both players and pick labels, so trade
@@ -516,11 +588,19 @@ export function analyzeTradeTendencies(rawData, rows) {
   for (const trade of trades) {
     if (!trade.sides || trade.sides.length < 2) continue;
     for (const side of trade.sides) {
-      const mgr = side.team || "Unknown";
-      if (!managerStats[mgr]) {
-        managerStats[mgr] = { trades: 0, totalGiven: 0, totalGot: 0, posBias: {} };
+      // Key by rosterId so renamed teams roll up into a single row.
+      const key = sideAggregationKey(side);
+      const displayName = sideDisplayName(side, rosterIdNameMap) || "Unknown";
+      if (!managerStats[key]) {
+        managerStats[key] = {
+          manager: displayName,
+          trades: 0,
+          totalGiven: 0,
+          totalGot: 0,
+          posBias: {},
+        };
       }
-      const stats = managerStats[mgr];
+      const stats = managerStats[key];
       stats.trades++;
 
       let gotTotal = 0;
@@ -544,14 +624,14 @@ export function analyzeTradeTendencies(rawData, rows) {
     }
   }
 
-  return Object.entries(managerStats)
-    .map(([manager, s]) => {
+  return Object.values(managerStats)
+    .map((s) => {
       const avgGiven = Math.round(s.totalGiven / Math.max(s.trades, 1));
       const avgGot = Math.round(s.totalGot / Math.max(s.trades, 1));
       const net = avgGot - avgGiven;
       const topPos = Object.entries(s.posBias).sort((a, b) => b[1] - a[1])[0];
       const tendency = topPos ? `Targets ${topPos[0]}s` : "\u2014";
-      return { manager, trades: s.trades, avgGiven, avgGot, net, tendency };
+      return { manager: s.manager, trades: s.trades, avgGiven, avgGot, net, tendency };
     })
     .sort((a, b) => b.trades - a.trades);
 }

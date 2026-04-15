@@ -113,7 +113,7 @@ export default function TradesPage() {
 
 function TeamScoresCard({ teamScores, alpha }) {
   const sorted = useMemo(
-    () => Object.entries(teamScores).sort((a, b) => b[1].totalGain - a[1].totalGain),
+    () => Object.values(teamScores).sort((a, b) => b.totalGain - a.totalGain),
     [teamScores],
   );
 
@@ -125,7 +125,8 @@ function TeamScoresCard({ teamScores, alpha }) {
         Trade Winners & Losers
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
-        {sorted.map(([teamName, s]) => {
+        {sorted.map((s) => {
+          const teamName = s.displayName || "Unknown";
           const netVal = Math.round(Math.pow(Math.abs(s.totalGain), 1 / alpha));
           const netSign = s.totalGain >= 0 ? "+" : "-";
           const netColor = s.totalGain >= 0 ? "var(--green)" : "var(--red)";
@@ -133,7 +134,7 @@ function TeamScoresCard({ teamScores, alpha }) {
 
           return (
             <div
-              key={teamName}
+              key={s.rosterId != null ? `rid:${s.rosterId}` : `name:${teamName}`}
               style={{
                 border: "1px solid var(--border)",
                 borderLeft: `3px solid ${borderColor}`,
