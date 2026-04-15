@@ -33,13 +33,14 @@ export default function RostersPage() {
   );
 
   const sleeperTeams = rawData?.sleeper?.teams || [];
+  const pickAliases = rawData?.pickAliases || null;
   const myTeam = settings.selectedTeam || "";
 
   const playerMeta = useMemo(() => buildPlayerMetaMap(rows), [rows]);
 
   const teams = useMemo(
-    () => buildAllTeamSummaries(sleeperTeams, playerMeta, rows, valueMode),
-    [sleeperTeams, playerMeta, rows, valueMode],
+    () => buildAllTeamSummaries(sleeperTeams, playerMeta, rows, valueMode, pickAliases),
+    [sleeperTeams, playerMeta, rows, valueMode, pickAliases],
   );
 
   // Sort by active group totals
@@ -70,8 +71,8 @@ export default function RostersPage() {
   );
 
   const teamTiers = useMemo(
-    () => scoreTeamTiers(sleeperTeams, playerMeta, rows),
-    [sleeperTeams, playerMeta, rows],
+    () => scoreTeamTiers(sleeperTeams, playerMeta, rows, pickAliases),
+    [sleeperTeams, playerMeta, rows, pickAliases],
   );
 
   function toggleGroup(g) {

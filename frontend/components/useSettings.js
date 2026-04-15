@@ -24,7 +24,7 @@ export const SETTINGS_DEFAULTS = {
   siteWeights: {},
 
   // Trade history
-  tradeHistoryWindowDays: 120,       // rolling window for trade analysis
+  tradeHistoryWindowDays: 365,       // rolling 1-year window for trade analysis
 
   // Selected team (global)
   selectedTeam: "",                  // Sleeper team name selection

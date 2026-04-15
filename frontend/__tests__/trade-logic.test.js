@@ -24,6 +24,8 @@ import {
   filterPickerRows,
   getPlayerEdge,
   parsePickToken,
+  buildPickLookupCandidates,
+  resolvePickRow,
   findBalancers,
   verdictBarPosition,
 } from "@/lib/trade-logic";
@@ -505,6 +507,71 @@ describe("parsePickToken", () => {
 
   it("returns null for invalid", () => {
     expect(parsePickToken("not a pick")).toBeNull();
+  });
+});
+
+describe("buildPickLookupCandidates", () => {
+  it("emits 'Pick' canonical for Sleeper slot labels with (from X)", () => {
+    const c = buildPickLookupCandidates("2026 1.04 (from Chargers Team Doctor)");
+    expect(c).toContain("2026 pick 1.04");
+    expect(c).toContain("2026 1.04");
+    // Also emits tier fallback
+    expect(c).toContain("2026 early 1st");
+  });
+
+  it("handles (own) annotation", () => {
+    const c = buildPickLookupCandidates("2026 5.04 (own)");
+    expect(c).toContain("2026 pick 5.04");
+    expect(c).toContain("2026 5.04");
+  });
+
+  it("handles tier-based labels for future years", () => {
+    const c = buildPickLookupCandidates("2027 Mid 1st (own)");
+    expect(c).toContain("2027 mid 1st");
+    // Tier-centre slot fallback for years that DO have slot rows
+    expect(c).toContain("2027 pick 1.06");
+  });
+
+  it("returns an empty list for blank input", () => {
+    expect(buildPickLookupCandidates("")).toEqual([]);
+    expect(buildPickLookupCandidates(null)).toEqual([]);
+  });
+});
+
+describe("resolvePickRow", () => {
+  function mkLookup(entries) {
+    const m = new Map();
+    for (const [name, value] of entries) {
+      m.set(name.toLowerCase(), { name, pos: "PICK", values: { full: value } });
+    }
+    return m;
+  }
+
+  it("resolves Sleeper slot label against rankings 'Pick' row", () => {
+    const lookup = mkLookup([["2026 Pick 1.04", 9123]]);
+    const row = resolvePickRow("2026 1.04 (from Rage Against The Achane)", lookup);
+    expect(row).not.toBeNull();
+    expect(row.values.full).toBe(9123);
+  });
+
+  it("resolves tier label against tier-based rankings row", () => {
+    const lookup = mkLookup([["2027 Mid 1st", 6800]]);
+    const row = resolvePickRow("2027 Mid 1st (own)", lookup);
+    expect(row).not.toBeNull();
+    expect(row.values.full).toBe(6800);
+  });
+
+  it("uses pickAliases map when direct candidates miss", () => {
+    const lookup = mkLookup([["2026 Pick 1.06", 7700]]);
+    const aliases = { "2026 Mid 1st": "2026 Pick 1.06" };
+    const row = resolvePickRow("2026 Mid 1st (own)", lookup, aliases);
+    expect(row).not.toBeNull();
+    expect(row.values.full).toBe(7700);
+  });
+
+  it("returns null when nothing matches", () => {
+    const lookup = mkLookup([["2026 Pick 1.04", 9000]]);
+    expect(resolvePickRow("2099 1.01", lookup)).toBeNull();
   });
 });
 
