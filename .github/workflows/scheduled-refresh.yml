@@ -44,6 +44,52 @@ jobs:
           pip install playwright 2>/dev/null || true
           python -m playwright install chromium 2>/dev/null || true
 
+      - name: Sync Draft Data from Google Sheet
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # ── Google Sheet → repo sync ──────────────────────────────────
+          # The Draft Data workbook lives in Google Sheets and is shared
+          # via link ("anyone with the link can view").  We download it
+          # every refresh cycle so the app always has current values.
+          #
+          # Sheet ID extracted from the sharing URL.  If the sheet is
+          # ever made private, replace this with a service-account flow
+          # and store credentials in GitHub Secrets.
+          SHEET_ID="13w5JDLFHMk0aWVIPPnYngm2UvkdCdHDg"
+
+          echo "Downloading Draft Data workbook..."
+          HTTP_CODE=$(curl -sL -w "%{http_code}" \
+            "https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=xlsx" \
+            -o "CSVs/Draft Data.xlsx.tmp")
+
+          if [[ "$HTTP_CODE" != "200" ]]; then
+            echo "::warning title=Sheet sync failed::Google Sheets returned HTTP ${HTTP_CODE} — keeping existing workbook"
+            rm -f "CSVs/Draft Data.xlsx.tmp"
+          else
+            SIZE=$(stat -c%s "CSVs/Draft Data.xlsx.tmp" 2>/dev/null || echo 0)
+            if (( SIZE < 1000 )); then
+              echo "::warning title=Sheet sync suspicious::Downloaded file only ${SIZE} bytes — keeping existing workbook"
+              rm -f "CSVs/Draft Data.xlsx.tmp"
+            else
+              mv "CSVs/Draft Data.xlsx.tmp" "CSVs/Draft Data.xlsx"
+              echo "Workbook updated (${SIZE} bytes)"
+
+              # Also export the Draft Data tab as CSV for fallback consumers
+              python -c "
+          import openpyxl, csv
+          wb = openpyxl.load_workbook('CSVs/Draft Data.xlsx', data_only=True)
+          ws = wb['Draft Data']
+          with open('CSVs/draft_data.csv', 'w', newline='') as f:
+              writer = csv.writer(f)
+              for row in ws.iter_rows(values_only=True):
+                  writer.writerow(['' if v is None else v for v in row])
+          wb.close()
+          print(f'CSV exported: {ws.max_row} rows')
+          "
+            fi
+          fi
+
       - name: Run scraper
         if: ${{ inputs.skip_scrape != true }}
         shell: bash
