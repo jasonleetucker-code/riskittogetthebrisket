@@ -47,6 +47,11 @@ const POS_FILTERS = [
   { key: "offense", label: "OFF" },
   { key: "idp", label: "IDP" },
   { key: "pick", label: "Picks" },
+  { key: "rookie", label: "Rookies" },
+  { key: "rookie:QB", label: "R · QB" },
+  { key: "rookie:RB", label: "R · RB" },
+  { key: "rookie:WR", label: "R · WR" },
+  { key: "rookie:TE", label: "R · TE" },
   { key: "QB", label: "QB" },
   { key: "RB", label: "RB" },
   { key: "WR", label: "WR" },
@@ -63,11 +68,13 @@ const CONFIDENCE_FILTERS = [
   { key: "low", label: "Low" },
 ];
 
-function posMatchesFilter(pos, assetClass, filter) {
+function posMatchesFilter(pos, assetClass, filter, row) {
   if (filter === "all") return true;
   if (filter === "offense") return assetClass === "offense";
   if (filter === "idp") return assetClass === "idp";
   if (filter === "pick") return assetClass === "pick";
+  if (filter === "rookie") return !!row?.rookie;
+  if (filter.startsWith("rookie:")) return !!row?.rookie && pos === filter.split(":")[1];
   return pos === filter;
 }
 
@@ -405,7 +412,7 @@ export default function RankingsPage() {
 
     // Additional filters layer on top of lens
     if (posFilter !== "all") {
-      list = list.filter((r) => posMatchesFilter(r.pos, r.assetClass, posFilter));
+      list = list.filter((r) => posMatchesFilter(r.pos, r.assetClass, posFilter, r));
     }
     if (confFilter !== "all") {
       list = list.filter((r) => {
@@ -674,9 +681,26 @@ export default function RankingsPage() {
               style={{ flex: 1, minWidth: 140 }}
             />
             <select className="select" value={posFilter} onChange={(e) => setPosFilter(e.target.value)}>
-              {POS_FILTERS.map((f) => (
-                <option key={f.key} value={f.key}>{f.label}</option>
-              ))}
+              <option value="all">All</option>
+              <option value="offense">OFF</option>
+              <option value="idp">IDP</option>
+              <option value="pick">Picks</option>
+              <optgroup label="Rookies">
+                <option value="rookie">All Rookies</option>
+                <option value="rookie:QB">R · QB</option>
+                <option value="rookie:RB">R · RB</option>
+                <option value="rookie:WR">R · WR</option>
+                <option value="rookie:TE">R · TE</option>
+              </optgroup>
+              <optgroup label="Position">
+                <option value="QB">QB</option>
+                <option value="RB">RB</option>
+                <option value="WR">WR</option>
+                <option value="TE">TE</option>
+                <option value="DL">DL</option>
+                <option value="LB">LB</option>
+                <option value="DB">DB</option>
+              </optgroup>
             </select>
             <select className="select hide-mobile" value={confFilter} onChange={(e) => setConfFilter(e.target.value)}>
               {CONFIDENCE_FILTERS.map((f) => (
