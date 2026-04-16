@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { PageHeader, LoadingState, EmptyState } from "@/components/ui";
 
-/** Format a dollar value, showing one decimal only when fractional. */
+/** Format a dollar value as an integer. */
 function fmtDollar(v) {
   if (v == null) return "$0";
-  return `$${v % 1 ? v.toFixed(1) : v}`;
+  return `$${Math.round(v)}`;
 }
 
 /**

@@ -2657,25 +2657,28 @@ def _parse_draft_data():
     return pick_dollars, workbook_picks, slot_to_original, wb_totals, rookies
 
 
-def _expansion_avg(pick_dollars: list, rnd: int, num_teams: int) -> float:
-    """True-division average of the first two picks in a round.
+def _round_to_budget(values: list[float], budget: int = 1200) -> list[int]:
+    """Round a list of floats to integers that sum to exactly *budget*.
 
-    Preserves exact decimals (e.g. (134 + 105) / 2 = 119.5).
+    Uses largest-remainder rounding: floor each value, then distribute
+    the deficit to the values with the largest fractional parts.
     """
-    idx1 = (rnd - 1) * num_teams
-    idx2 = idx1 + 1
-    d1 = pick_dollars[idx1] if idx1 < len(pick_dollars) else 1.0
-    d2 = pick_dollars[idx2] if idx2 < len(pick_dollars) else 1.0
-    return (d1 + d2) / 2
+    import math
+    floors = [math.floor(v) for v in values]
+    remainders = [(v - math.floor(v), i) for i, v in enumerate(values)]
+    deficit = budget - sum(floors)
+    # Sort by fractional part descending; break ties by index
+    remainders.sort(key=lambda x: (-x[0], x[1]))
+    for k in range(int(deficit)):
+        floors[remainders[k][1]] += 1
+    return floors
 
 
 def _fetch_draft_capital():
     """Compute draft capital per team.
 
-    Primary path: workbook authority — uses the final calculated pick
-    assignments (value + owner) from the Draft Data sheet in the CSV.
-    Fallback path: Sleeper API for pick ownership when the workbook's
-    final section is missing.
+    Values: workbook Q45:Q116 (rounded to integers summing to 1200).
+    Ownership: Sleeper API (live traded-pick data).
     """
     pick_dollars, workbook_picks, slot_to_original, wb_team_totals, rookies = _parse_draft_data()
     if not pick_dollars:
@@ -2685,235 +2688,185 @@ def _fetch_draft_capital():
     num_teams = 12
     draft_rounds = max(1, len(pick_dollars) // num_teams) if pick_dollars else 6
 
-    all_picks: list[dict] = []
-    team_totals: dict[str, float] = {}
-    total_budget = 0.0
-
-    use_workbook = (
-        workbook_picks
-        and len(workbook_picks) == len(pick_dollars)
-    )
-
-    if use_workbook:
-        # ── Workbook authority path ──
-        # Per-pick values come from Q45:Q116 (the workbook's final
-        # calculated section).  These already include expansion
-        # averaging — picks 1 & 2 show the same value.
-        # Team totals come from U63:U74 (the workbook's SUMIFS over
-        # the underlying decimal formulas, which sum to exactly 1200
-        # even though the displayed per-pick integers don't).
-        for i, wp in enumerate(workbook_picks):
-            rnd = wp["round"]
-            pick_num = wp["pick"]
-            owner = wp["owner"]
-            raw_dollar = pick_dollars[i]  # col 11 (pre-averaging)
-            pick_value = wp["value"]      # Q45:Q116 (post-averaging)
-            pick_in_round = pick_num - 1  # 0-based
-
-            original_owner = slot_to_original.get(pick_num, owner)
-            is_traded = original_owner != owner
-
-            all_picks.append({
-                "pick": f"{rnd}.{str(pick_num).zfill(2)}",
-                "round": rnd,
-                "pickInRound": pick_num,
-                "overallPick": i + 1,
-                "dollarValue": raw_dollar,
-                "adjustedDollarValue": pick_value,
-                "originalOwner": original_owner,
-                "currentOwner": owner,
-                "isTraded": is_traded,
-                "isExpansion": pick_in_round < 2,
-                "rookieName": None,
-                "rookiePos": None,
-                "rookieKtcValue": None,
-            })
-
-        # Use workbook team totals (U63:U74) if available; they're
-        # computed from internal decimal formulas and match the
-        # spreadsheet display exactly.
-        if wb_team_totals:
-            team_totals = dict(wb_team_totals)
-            total_budget = sum(wb_team_totals.values())
-        else:
-            # Fallback: sum Q45:Q116 per-pick values by owner
-            for pick in all_picks:
-                team_totals.setdefault(pick["currentOwner"], 0.0)
-                team_totals[pick["currentOwner"]] += pick["adjustedDollarValue"]
-            total_budget = sum(team_totals.values())
-
-        num_teams = max(
-            num_teams,
-            max((wp["pick"] for wp in workbook_picks), default=12),
-        )
-        draft_rounds = max(wp["round"] for wp in workbook_picks)
+    # ── Per-pick dollar values from workbook (rounded to int, sum = 1200) ──
+    if workbook_picks and len(workbook_picks) == len(pick_dollars):
+        raw_values = [wp["value"] for wp in workbook_picks]
     else:
-        # ── Fallback: Sleeper API for pick ownership ──
-        roster_name_by_id = {}
-        roster_ids = []
-        owner_to_roster_id = {}
-        roster_id_set = set()
-        draft_slot_by_origin = {}
-        pick_owner = {}  # (round, origin_rid) -> owner_rid
+        raw_values = list(pick_dollars)
+    int_values = _round_to_budget(raw_values, DRAFT_TOTAL_BUDGET)
 
-        try:
-            rosters_resp = urllib.request.urlopen(
-                f"https://api.sleeper.app/v1/league/{SLEEPER_LEAGUE_ID_FOR_DRAFT}/rosters", timeout=15
-            )
-            rosters = json.loads(rosters_resp.read())
+    # ── Sleeper API: get team names + pick ownership ──
+    roster_name_by_id = {}
+    roster_ids = []
+    owner_to_roster_id = {}
+    roster_id_set = set()
+    draft_slot_by_origin = {}
+    pick_owner = {}  # (round, origin_rid) -> owner_rid
 
-            users_resp = urllib.request.urlopen(
-                f"https://api.sleeper.app/v1/league/{SLEEPER_LEAGUE_ID_FOR_DRAFT}/users", timeout=15
-            )
-            user_map = {}
-            for u in json.loads(users_resp.read()):
-                uid = u.get("user_id")
-                name = (u.get("metadata", {}).get("team_name")
-                        or u.get("display_name")
-                        or f"Team {uid}")
-                user_map[uid] = name
+    try:
+        rosters_resp = urllib.request.urlopen(
+            f"https://api.sleeper.app/v1/league/{SLEEPER_LEAGUE_ID_FOR_DRAFT}/rosters", timeout=15
+        )
+        rosters = json.loads(rosters_resp.read())
 
-            for r in rosters:
-                rid = r.get("roster_id")
-                if rid is not None:
-                    rid = int(rid)
-                    roster_ids.append(rid)
-                    oid = r.get("owner_id", "")
-                    if oid:
-                        owner_to_roster_id[str(oid)] = rid
-                    roster_name_by_id[rid] = user_map.get(oid, f"Team {rid}")
-            roster_id_set = set(roster_ids)
-            num_teams = len(roster_ids) or 12
-            draft_rounds = len(pick_dollars) // num_teams
+        users_resp = urllib.request.urlopen(
+            f"https://api.sleeper.app/v1/league/{SLEEPER_LEAGUE_ID_FOR_DRAFT}/users", timeout=15
+        )
+        user_map = {}
+        for u in json.loads(users_resp.read()):
+            uid = u.get("user_id")
+            name = (u.get("metadata", {}).get("team_name")
+                    or u.get("display_name")
+                    or f"Team {uid}")
+            user_map[uid] = name
 
-            drafts_resp = urllib.request.urlopen(
-                f"https://api.sleeper.app/v1/league/{SLEEPER_LEAGUE_ID_FOR_DRAFT}/drafts", timeout=15
-            )
-            for draft in json.loads(drafts_resp.read()):
-                try:
-                    season = int(draft.get("season"))
-                except (TypeError, ValueError):
-                    continue
-                draft_id = draft.get("draft_id")
-                if season != current_year or not draft_id:
-                    continue
-                try:
-                    detail_resp = urllib.request.urlopen(
-                        f"https://api.sleeper.app/v1/draft/{draft_id}", timeout=15
-                    )
-                    draft_detail = json.loads(detail_resp.read())
-                except Exception:
-                    draft_detail = {}
-                slot_to_roster = draft_detail.get("slot_to_roster_id") or draft.get("slot_to_roster_id") or {}
-                if isinstance(slot_to_roster, dict):
-                    for slot, rid_val in slot_to_roster.items():
+        for r in rosters:
+            rid = r.get("roster_id")
+            if rid is not None:
+                rid = int(rid)
+                roster_ids.append(rid)
+                oid = r.get("owner_id", "")
+                if oid:
+                    owner_to_roster_id[str(oid)] = rid
+                roster_name_by_id[rid] = user_map.get(oid, f"Team {rid}")
+        roster_id_set = set(roster_ids)
+        num_teams = len(roster_ids) or 12
+        draft_rounds = len(int_values) // num_teams
+
+        drafts_resp = urllib.request.urlopen(
+            f"https://api.sleeper.app/v1/league/{SLEEPER_LEAGUE_ID_FOR_DRAFT}/drafts", timeout=15
+        )
+        for draft in json.loads(drafts_resp.read()):
+            try:
+                season = int(draft.get("season"))
+            except (TypeError, ValueError):
+                continue
+            draft_id = draft.get("draft_id")
+            if season != current_year or not draft_id:
+                continue
+            try:
+                detail_resp = urllib.request.urlopen(
+                    f"https://api.sleeper.app/v1/draft/{draft_id}", timeout=15
+                )
+                draft_detail = json.loads(detail_resp.read())
+            except Exception:
+                draft_detail = {}
+            slot_to_roster = draft_detail.get("slot_to_roster_id") or draft.get("slot_to_roster_id") or {}
+            if isinstance(slot_to_roster, dict):
+                for slot, rid_val in slot_to_roster.items():
+                    try:
+                        s, r = int(slot), int(rid_val)
+                    except (TypeError, ValueError):
+                        continue
+                    if r in roster_id_set and s > 0:
+                        draft_slot_by_origin[r] = s
+            if not draft_slot_by_origin:
+                draft_order = draft_detail.get("draft_order") or draft.get("draft_order") or {}
+                if isinstance(draft_order, dict):
+                    for uid, slot in draft_order.items():
+                        rid = owner_to_roster_id.get(str(uid))
                         try:
-                            s, r = int(slot), int(rid_val)
+                            s = int(slot)
                         except (TypeError, ValueError):
                             continue
-                        if r in roster_id_set and s > 0:
-                            draft_slot_by_origin[r] = s
-                if not draft_slot_by_origin:
-                    draft_order = draft_detail.get("draft_order") or draft.get("draft_order") or {}
-                    if isinstance(draft_order, dict):
-                        for uid, slot in draft_order.items():
-                            rid = owner_to_roster_id.get(str(uid))
-                            try:
-                                s = int(slot)
-                            except (TypeError, ValueError):
-                                continue
-                            if rid in roster_id_set and s > 0:
-                                draft_slot_by_origin[rid] = s
+                        if rid in roster_id_set and s > 0:
+                            draft_slot_by_origin[rid] = s
 
-            if not draft_slot_by_origin:
-                for i, rid in enumerate(sorted(roster_ids), 1):
-                    draft_slot_by_origin[rid] = i
+        if not draft_slot_by_origin:
+            for i, rid in enumerate(sorted(roster_ids), 1):
+                draft_slot_by_origin[rid] = i
 
-            for rnd in range(1, draft_rounds + 1):
-                for rid in roster_ids:
-                    pick_owner[(rnd, rid)] = rid
+        for rnd in range(1, draft_rounds + 1):
+            for rid in roster_ids:
+                pick_owner[(rnd, rid)] = rid
 
-            tp_resp = urllib.request.urlopen(
-                f"https://api.sleeper.app/v1/league/{SLEEPER_LEAGUE_ID_FOR_DRAFT}/traded_picks", timeout=15
-            )
-            for tp in json.loads(tp_resp.read()):
-                try:
-                    season = int(tp.get("season"))
-                    rnd = int(tp.get("round"))
-                    origin_rid = int(tp.get("roster_id"))
-                    owner_rid = int(tp.get("owner_id"))
-                except (TypeError, ValueError):
-                    continue
-                if (season == current_year
-                        and 1 <= rnd <= draft_rounds
-                        and origin_rid in roster_id_set
-                        and owner_rid in roster_id_set):
-                    pick_owner[(rnd, origin_rid)] = owner_rid
+        tp_resp = urllib.request.urlopen(
+            f"https://api.sleeper.app/v1/league/{SLEEPER_LEAGUE_ID_FOR_DRAFT}/traded_picks", timeout=15
+        )
+        for tp in json.loads(tp_resp.read()):
+            try:
+                season = int(tp.get("season"))
+                rnd = int(tp.get("round"))
+                origin_rid = int(tp.get("roster_id"))
+                owner_rid = int(tp.get("owner_id"))
+            except (TypeError, ValueError):
+                continue
+            if (season == current_year
+                    and 1 <= rnd <= draft_rounds
+                    and origin_rid in roster_id_set
+                    and owner_rid in roster_id_set):
+                pick_owner[(rnd, origin_rid)] = owner_rid
 
-        except Exception as e:
-            logging.warning(f"Sleeper API failed for draft capital, using CSV-only: {e}")
-            roster_ids = []
+    except Exception as e:
+        logging.warning(f"Sleeper API failed for draft capital, using workbook owners: {e}")
+        roster_ids = []
 
-        if roster_ids:
-            for rnd in range(1, draft_rounds + 1):
-                round_picks = []
-                for origin_rid in roster_ids:
-                    slot = draft_slot_by_origin.get(origin_rid, 99)
-                    owner_rid = pick_owner.get((rnd, origin_rid), origin_rid)
-                    round_picks.append({"origin_rid": origin_rid, "owner_rid": owner_rid, "slot": slot})
-                round_picks.sort(key=lambda p: p["slot"])
+    # ── Build pick list ──
+    all_picks: list[dict] = []
+    team_totals: dict[str, int] = {}
+    total_budget = 0
 
-                expansion_avg = _expansion_avg(pick_dollars, rnd, num_teams)
+    if roster_ids:
+        # Sleeper ownership available — pair workbook values with live owners
+        for rnd in range(1, draft_rounds + 1):
+            round_picks = []
+            for origin_rid in roster_ids:
+                slot = draft_slot_by_origin.get(origin_rid, 99)
+                owner_rid = pick_owner.get((rnd, origin_rid), origin_rid)
+                round_picks.append({"origin_rid": origin_rid, "owner_rid": owner_rid, "slot": slot})
+            round_picks.sort(key=lambda p: p["slot"])
 
-                for pick_in_round, pi in enumerate(round_picks):
-                    overall = (rnd - 1) * num_teams + pick_in_round
-                    dollar = pick_dollars[overall] if overall < len(pick_dollars) else 1.0
-                    origin_name = roster_name_by_id.get(pi["origin_rid"], f"Team {pi['origin_rid']}")
-                    owner_name = roster_name_by_id.get(pi["owner_rid"], f"Team {pi['owner_rid']}")
-                    is_traded = pi["origin_rid"] != pi["owner_rid"]
-                    adjusted = expansion_avg if pick_in_round < 2 else dollar
-
-                    all_picks.append({
-                        "pick": f"{rnd}.{str(pi['slot']).zfill(2)}",
-                        "round": rnd,
-                        "pickInRound": pick_in_round + 1,
-                        "overallPick": overall + 1,
-                        "dollarValue": dollar,
-                        "adjustedDollarValue": adjusted,
-                        "originalOwner": origin_name,
-                        "currentOwner": owner_name,
-                        "isTraded": is_traded,
-                        "isExpansion": pick_in_round < 2,
-                        "rookieName": None,
-                        "rookiePos": None,
-                        "rookieKtcValue": None,
-                    })
-                    team_totals.setdefault(owner_name, 0.0)
-                    team_totals[owner_name] += adjusted
-                    total_budget += adjusted
-        else:
-            for i, dollar in enumerate(pick_dollars):
-                rnd = i // num_teams + 1
-                slot = i % num_teams + 1
-                pick_in_round = i % num_teams
-                adjusted = _expansion_avg(pick_dollars, rnd, num_teams) if pick_in_round < 2 else dollar
+            for pick_in_round, pi in enumerate(round_picks):
+                overall = (rnd - 1) * num_teams + pick_in_round
+                dollar = int_values[overall] if overall < len(int_values) else 1
+                origin_name = roster_name_by_id.get(pi["origin_rid"], f"Team {pi['origin_rid']}")
+                owner_name = roster_name_by_id.get(pi["owner_rid"], f"Team {pi['owner_rid']}")
+                is_traded = pi["origin_rid"] != pi["owner_rid"]
 
                 all_picks.append({
-                    "pick": f"{rnd}.{str(slot).zfill(2)}",
+                    "pick": f"{rnd}.{str(pi['slot']).zfill(2)}",
                     "round": rnd,
-                    "pickInRound": slot,
-                    "overallPick": i + 1,
+                    "pickInRound": pick_in_round + 1,
+                    "overallPick": overall + 1,
                     "dollarValue": dollar,
-                    "adjustedDollarValue": adjusted,
-                    "originalOwner": f"Pick {slot}",
-                    "currentOwner": f"Pick {slot}",
-                    "isTraded": False,
+                    "adjustedDollarValue": dollar,
+                    "originalOwner": origin_name,
+                    "currentOwner": owner_name,
+                    "isTraded": is_traded,
                     "isExpansion": pick_in_round < 2,
                     "rookieName": None,
                     "rookiePos": None,
                     "rookieKtcValue": None,
                 })
-                total_budget += adjusted
+                team_totals.setdefault(owner_name, 0)
+                team_totals[owner_name] += dollar
+                total_budget += dollar
+    else:
+        # No Sleeper data — use workbook owners as fallback
+        for i, dollar in enumerate(int_values):
+            rnd = i // num_teams + 1
+            slot = i % num_teams + 1
+            owner = workbook_picks[i]["owner"] if i < len(workbook_picks) else f"Pick {slot}"
+            orig = slot_to_original.get(slot, owner)
+
+            all_picks.append({
+                "pick": f"{rnd}.{str(slot).zfill(2)}",
+                "round": rnd,
+                "pickInRound": slot,
+                "overallPick": i + 1,
+                "dollarValue": dollar,
+                "adjustedDollarValue": dollar,
+                "originalOwner": orig,
+                "currentOwner": owner,
+                "isTraded": orig != owner,
+                "isExpansion": (i % num_teams) < 2,
+                "rookieName": None,
+                "rookiePos": None,
+                "rookieKtcValue": None,
+            })
+            team_totals.setdefault(owner, 0)
+            team_totals[owner] += dollar
+            total_budget += dollar
 
     # Fill rookie rankings (from KTC live or CSV fallback, extended via decay curve)
     for i, pick in enumerate(all_picks):
