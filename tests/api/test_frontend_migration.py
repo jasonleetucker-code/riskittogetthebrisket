@@ -60,17 +60,18 @@ class TestSettingsRoute(unittest.TestCase):
         self.assertIn("serve_settings", text)
 
 
-class TestCanonicalOverlayRankComputation(unittest.TestCase):
-    """When canonical snapshots lack canonical_consensus_rank (legacy engine),
-    the overlay must compute ranks from calibrated_value sorting."""
+class TestCanonicalOverlayRemoved(unittest.TestCase):
+    """The deprecated canonical overlay path has been fully removed from
+    server.py.  The authoritative ranking pipeline is build_api_data_contract
+    in src/api/data_contract.py; any re-introduction of a side pipeline should
+    trip this guard."""
 
-    def test_overlay_computes_rank_from_calibrated_value(self):
-        """_apply_canonical_primary_overlay should compute rank for legacy snapshots."""
+    def test_overlay_helper_is_absent(self):
+        """server.py must not define or call _apply_canonical_primary_overlay."""
         server_py = REPO_ROOT / "server.py"
         text = server_py.read_text()
-        # Must have the computed_ranks fallback logic
-        self.assertIn("computed_ranks", text)
-        self.assertIn("has_ccr", text)
+        self.assertNotIn("_apply_canonical_primary_overlay", text)
+        self.assertNotIn("canonical overlay applied", text.lower())
 
     def test_settings_wired_to_trade_logic(self):
         """useSettings hook must exist and be imported by trade page."""
