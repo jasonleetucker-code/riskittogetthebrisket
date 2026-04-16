@@ -2322,17 +2322,13 @@ def _ktc_decay_curve(known_rookies, total_picks=72):
 
 
 def _fetch_ktc_rookies_live():
-    """Fetch KTC rookie rankings with Superflex + TEP+ toggled.
+    """Try to scrape KTC rookie rankings from keeptradecut.com.
 
-    Extracts the ``var playersArray`` JSON blob embedded in the rookie
-    rankings HTML page.  Uses ``superflexValues.tepp.value`` for each
-    player (TEP+ = TE Premium Plus, the league's scoring format).
-    For non-TE players TEP+ equals the base SF value; for TEs it
-    applies the TE premium boost.
-
-    Returns list of {"name", "pos", "value"} sorted by value descending,
-    or None on failure.
+    Parses the HTML for player entries with class 'onePlayer'.
+    Returns list of {"name", "pos", "value"} or None on failure.
     """
+    import html.parser
+
     url = "https://keeptradecut.com/dynasty-rankings/rookie-rankings"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -2350,43 +2346,84 @@ def _fetch_ktc_rookies_live():
         logging.info(f"KTC live fetch failed: {e}")
         return None
 
-    # Extract the embedded playersArray JSON
-    match = re.search(r'var\s+playersArray\s*=\s*(\[.*?\]);\s*\n', page_html, re.DOTALL)
-    if not match:
-        logging.warning("KTC: playersArray not found in HTML")
-        return None
+    # Parse player data from HTML — KTC uses divs with class "onePlayer"
+    # Each player has: .player-name (a tag text), .position, .value
+    rookies = []
+
+    class KTCParser(html.parser.HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self._in_player = False
+            self._in_name = False
+            self._in_pos = False
+            self._in_value = False
+            self._current = {}
+
+        def handle_starttag(self, tag, attrs):
+            cls = dict(attrs).get("class", "")
+            if "onePlayer" in cls:
+                self._in_player = True
+                self._current = {}
+            elif self._in_player:
+                if "player-name" in cls:
+                    self._in_name = True
+                elif cls.strip() == "position":
+                    self._in_pos = True
+                elif cls.strip() == "value":
+                    self._in_value = True
+
+        def handle_data(self, data):
+            text = data.strip()
+            if not text:
+                return
+            if self._in_name:
+                self._current["name"] = self._current.get("name", "") + text
+            elif self._in_pos:
+                self._current["pos"] = text
+            elif self._in_value:
+                self._current["value_str"] = text
+
+        def handle_endtag(self, tag):
+            if self._in_name and tag == "a":
+                self._in_name = False
+            elif self._in_pos and tag in ("span", "div", "p"):
+                self._in_pos = False
+            elif self._in_value and tag in ("span", "div", "p"):
+                self._in_value = False
+            elif self._in_player and tag == "div":
+                # Try to finalize this player
+                name = self._current.get("name", "").strip()
+                pos = self._current.get("pos", "").strip()
+                val_str = self._current.get("value_str", "").strip().replace(",", "")
+                if name and val_str:
+                    # Clean team suffix from name (e.g. "Player NAMEnyj" -> "Player NAME")
+                    # KTC appends 2-3 letter team codes or "FA"/"RFA"/"R" suffix
+                    clean_name = re.sub(r'\s+(FA|RFA|R|[A-Z]{2,3})$', '', name)
+                    try:
+                        value = int(val_str)
+                        if value > 0:
+                            # Filter to fantasy-relevant positions
+                            pos_upper = pos.upper()
+                            if any(p in pos_upper for p in ("QB", "RB", "WR", "TE")):
+                                rookies.append({"name": clean_name or name, "pos": pos, "value": value})
+                    except ValueError:
+                        pass
+                self._in_player = False
 
     try:
-        players = json.loads(match.group(1))
-    except (json.JSONDecodeError, ValueError) as e:
-        logging.warning(f"KTC: playersArray JSON parse failed: {e}")
+        parser = KTCParser()
+        parser.feed(page_html)
+    except Exception as e:
+        logging.warning(f"KTC HTML parse failed: {e}")
         return None
-
-    rookies = []
-    for p in players:
-        name = p.get("playerName", "").strip()
-        pos = p.get("position", "").strip().upper()
-        if not name or pos not in ("QB", "RB", "WR", "TE"):
-            continue
-
-        # TEP+ value: superflexValues → tepp → value
-        # Falls back to SF base value if tepp is missing.
-        sf = p.get("superflexValues", {})
-        tepp = sf.get("tepp")
-        if isinstance(tepp, dict):
-            value = tepp.get("value", sf.get("value", 0))
-        else:
-            value = sf.get("value", 0)
-
-        if isinstance(value, (int, float)) and value > 0:
-            rookies.append({"name": name, "pos": pos, "value": int(value)})
 
     if len(rookies) < 5:
         logging.info(f"KTC parse returned only {len(rookies)} rookies, likely blocked")
         return None
 
+    # Sort by value descending (should already be, but ensure)
     rookies.sort(key=lambda r: -r["value"])
-    logging.info(f"KTC live: fetched {len(rookies)} rookies (SF+TEP+, top: {rookies[0]['name']} = {rookies[0]['value']})")
+    logging.info(f"KTC live: fetched {len(rookies)} rookies (top: {rookies[0]['name']} = {rookies[0]['value']})")
     return rookies
 
 
@@ -2651,40 +2688,12 @@ def _fetch_draft_capital():
     num_teams = 12
     draft_rounds = max(1, len(pick_dollars) // num_teams) if pick_dollars else 6
 
-    # ── Per-pick dollar values from KTC SF+TEP+ (scaled to 1200) ──
-    # Use live KTC values as the value curve source.  Scale the raw
-    # market values proportionally to a $1200 budget, average expansion
-    # picks (1 & 2 per round), then integerize to sum exactly 1200.
-    ktc_raw = [r["value"] for r in rookies[:_KTC_TOTAL_PICKS]]
-    if not ktc_raw:
-        # Fallback to workbook if KTC unavailable
-        ktc_raw = ([wp["value"] for wp in workbook_picks]
-                    if workbook_picks else list(pick_dollars))
-
-    ktc_total = sum(ktc_raw) or 1
-    scaled = [v * DRAFT_TOTAL_BUDGET / ktc_total for v in ktc_raw]
-
-    # Expansion averaging: picks 1 & 2 in each round share the same value
-    for rnd in range(len(scaled) // num_teams):
-        base = rnd * num_teams
-        if base + 1 < len(scaled):
-            avg = (scaled[base] + scaled[base + 1]) / 2
-            scaled[base] = avg
-            scaled[base + 1] = avg
-
-    int_values = _round_to_budget(scaled, DRAFT_TOTAL_BUDGET)
-
-    # Post-process: guarantee expansion picks stayed equal after rounding
-    for rnd in range(len(int_values) // num_teams):
-        base = rnd * num_teams
-        if base + 1 < len(int_values) and int_values[base] != int_values[base + 1]:
-            total_pair = int_values[base] + int_values[base + 1]
-            lo = total_pair // 2
-            int_values[base] = lo
-            int_values[base + 1] = lo
-            # Redistribute the lost dollar (if total_pair was odd) to pick 3
-            if total_pair % 2 != 0 and base + 2 < len(int_values):
-                int_values[base + 2] += 1
+    # ── Per-pick dollar values from workbook (rounded to int, sum = 1200) ──
+    if workbook_picks and len(workbook_picks) == len(pick_dollars):
+        raw_values = [wp["value"] for wp in workbook_picks]
+    else:
+        raw_values = list(pick_dollars)
+    int_values = _round_to_budget(raw_values, DRAFT_TOTAL_BUDGET)
 
     # ── Sleeper API: get team names + pick ownership ──
     roster_name_by_id = {}
