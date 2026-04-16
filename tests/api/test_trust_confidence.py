@@ -459,8 +459,8 @@ class TestPayloadLevelBlocks(unittest.TestCase):
         self.assertIn("anomalyFlags", meth)
         self.assertIsInstance(meth["sources"], list)
         # ktc + idpTradeCalc + dlfIdp + dlfSf + dynastyNerdsSfTep +
-        # fantasyProsSf + fantasyProsIdp (seven registered ranking sources)
-        self.assertEqual(len(meth["sources"]), 7)
+        # fantasyProsSf + dynastyDaddySf + fantasyProsIdp (eight registered ranking sources)
+        self.assertEqual(len(meth["sources"]), 8)
         keys = {s.get("key") for s in meth["sources"]}
         self.assertEqual(
             keys,
@@ -471,6 +471,7 @@ class TestPayloadLevelBlocks(unittest.TestCase):
                 "dlfSf",
                 "dynastyNerdsSfTep",
                 "fantasyProsSf",
+                "dynastyDaddySf",
                 "fantasyProsIdp",
             },
         )

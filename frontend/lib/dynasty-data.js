@@ -300,6 +300,33 @@ export const RANKING_SOURCES = [
     isTepPremium: false,
   },
   {
+    // Dynasty Daddy Superflex trade values — crowd-sourced community
+    // values fetched from the public JSON API at
+    // dynasty-daddy.com/api/v1/player/all/today?market=14 via
+    // scripts/fetch_dynasty_daddy.py.  Market 14 is the SF/dynasty
+    // format.  ~400+ offensive players (QB/RB/WR/TE) after filtering.
+    // Mirrors the backend `_RANKING_SOURCES` entry in
+    // src/api/data_contract.py.
+    //
+    // Dynasty Daddy's SF trade values are standard SF scoring — no
+    // TE premium baked in.  The frontend `settings.tepMultiplier`
+    // boost applies to its blended contribution.
+    key: "dynastyDaddySf",
+    displayName: "Dynasty Daddy Superflex",
+    columnLabel: "DD",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 320,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: false,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+  },
+  {
     // FantasyPros Dynasty IDP expert consensus.  Combined IDP page
     // (dynasty-idp.php) is authoritative for cross-position ordering;
     // individual DL/LB/DB pages are used only as depth extension via

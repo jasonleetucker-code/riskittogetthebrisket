@@ -202,6 +202,14 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/fantasyProsIdp.csv",
         "signal": "rank",
     },
+    # Dynasty Daddy Superflex trade values — fetched from
+    # https://dynasty-daddy.com/api/v1/player/all/today?market=14
+    # via ``scripts/fetch_dynasty_daddy.py``.  The API returns crowd-
+    # sourced SF trade values for ~641 players; we filter to offensive
+    # positions (QB/RB/WR/TE) and write ``name,value`` CSV.  Signal=value
+    # so the ``_enrich_from_source_csvs`` reader uses the value column
+    # directly, same as KTC.
+    "dynastyDaddySf": "CSVs/site_raw/dynastyDaddySf.csv",
 }
 
 # Rank -> synthetic value transform used when a CSV declares signal=rank.
@@ -222,6 +230,7 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     "idpTradeCalc": 6,
     "dynastyNerdsSfTep": 6,
     "fantasyProsIdp": 6,
+    "dynastyDaddySf": 6,
     "dlfIdp": 720,
     "dlfSf": 720,
 }
@@ -241,6 +250,7 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # yield ~100 total rows (70 combined + 30 extension).  Floor at
     # ~75% of live baseline so a scrape regression trips a warning.
     "fantasyProsIdp": 75,
+    "dynastyDaddySf": 250,
 }
 
 
@@ -665,6 +675,35 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_backbone": False,
         "is_retail": False,
         "is_tep_premium": False,
+    },
+    {
+        # Dynasty Daddy Superflex trade values — crowd-sourced community
+        # values fetched from the public JSON API at
+        # https://dynasty-daddy.com/api/v1/player/all/today?market=14
+        # via ``scripts/fetch_dynasty_daddy.py``.  Market 14 is the SF/
+        # dynasty format.  The API returns ~641 players; after filtering
+        # to offensive positions (QB/RB/WR/TE) ~400+ remain.
+        #
+        # Weight normalized to 1.0 — see the registry note at the top
+        # of this list.  depth=320 reflects the typical offensive-only
+        # count (~323 players with positive sf_trade_value);
+        # ``_expected_sources_for_position`` multiplies this by 1.25 so
+        # DD SF is not expected for players ranked deeper than ~400.
+        #
+        # Dynasty Daddy's SF trade values are standard SF scoring — no
+        # TE premium baked in.  The frontend ``settings.tepMultiplier``
+        # boost applies to its blended contribution.
+        "key": "dynastyDaddySf",
+        "display_name": "Dynasty Daddy Superflex",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": 320,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
     },
     {
         # FantasyPros Dynasty IDP expert consensus.  Scraped from

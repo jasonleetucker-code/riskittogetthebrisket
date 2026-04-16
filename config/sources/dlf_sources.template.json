@@ -102,6 +102,30 @@
         "is_backbone": false
       },
       "notes": "FantasyPros Dynasty Superflex expert consensus (~250 QB/RB/WR/TE players). Ingested as a rank signal; the contract loader inverts rank to a synthetic value. Standard SF board — no TE premium. Frontend tepMultiplier boost applies."
+    },
+    {
+      "enabled": true,
+      "source": "DYNASTY_DADDY_SF",
+      "contract_key": "dynastyDaddySf",
+      "adapter": "scraper_bridge",
+      "adapter_version": "1.0.0",
+      "season": "2026",
+      "format_key": "dynasty_sf",
+      "universe": "offense_vet",
+      "ingest_type": "api_fetch",
+      "ingest_method": "json_api",
+      "source_url": "https://dynasty-daddy.com/fantasy-rankings",
+      "scoring_context": "dynasty superflex (Dynasty Daddy SF values, community crowd-sourced)",
+      "includes_sf": true,
+      "includes_tep": false,
+      "file": "CSVs/site_raw/dynastyDaddySf.csv",
+      "signal_type": "value",
+      "scope": {
+        "kind": "overall_offense",
+        "depth": 320,
+        "is_backbone": false
+      },
+      "notes": "Dynasty Daddy SF trade values via JSON API (?market=14). Standard SF scoring — no TE premium. Values are crowd-sourced."
     }
   ]
 }

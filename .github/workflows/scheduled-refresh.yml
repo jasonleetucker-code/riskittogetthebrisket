@@ -108,6 +108,9 @@ jobs:
             cp -v exports/latest/site_raw/*.csv CSVs/site_raw/ 2>/dev/null || true
           fi
 
+          # Fetch Dynasty Daddy SF rankings
+          python scripts/fetch_dynasty_daddy.py --mirror-data-dir 2>/dev/null || echo "::warning title=Dynasty Daddy fetch failed::Non-fatal — continuing"
+
           # Verify at least KTC data was produced (primary source)
           if [[ -f "CSVs/site_raw/ktc.csv" ]]; then
             KTC_LINES=$(wc -l < "CSVs/site_raw/ktc.csv")

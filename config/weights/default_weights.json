@@ -1,11 +1,12 @@
 {
   "version": 6,
-  "description": "Source weights for the canonical blend (KTC + IDPTradeCalc + DLF IDP + DLF SF + Dynasty Nerds SF-TEP + FantasyPros SF + FantasyPros IDP).",
+  "description": "Source weights for the canonical blend (KTC + IDPTradeCalc + DLF IDP + DLF SF + Dynasty Nerds SF-TEP + FantasyPros SF + FantasyPros IDP + Dynasty Daddy SF).",
   "weight_rationale": {
     "KTC": "Primary crowdsourced offense market source with the largest player pool.",
     "IDPTRADECALC": "Primary IDP value source covering both offense and IDP players. Backbone for IDP ladder translation.",
     "DLF_IDP": "DLF Dynasty League Football full-board IDP expert consensus (185 players, DL/LB/DB together). Rank-based signal, blended via coverage-aware mean.",
-    "FANTASYPROS_SF": "FantasyPros Dynasty Superflex offense expert consensus. Rank-based signal (~250 QB/RB/WR/TE players)."
+    "FANTASYPROS_SF": "FantasyPros Dynasty Superflex offense expert consensus. Rank-based signal (~250 QB/RB/WR/TE players).",
+    "DYNASTY_DADDY_SF": "Dynasty Daddy Superflex crowd-sourced trade values via JSON API. Value-based signal (~320 QB/RB/WR/TE players). Standard SF — no TE premium."
   },
   "how_to_tune": "Edit the 'sources' values below. Higher = more influence. Set to 0 to exclude. Re-run: python scripts/source_pull.py && python scripts/canonical_build.py",
   "universe_defaults": {
@@ -17,6 +18,7 @@
     "KTC": 1.0,
     "IDPTRADECALC": 1.0,
     "DLF_IDP": 1.0,
-    "FANTASYPROS_SF": 1.0
+    "FANTASYPROS_SF": 1.0,
+    "DYNASTY_DADDY_SF": 1.0
   }
 }

@@ -15,18 +15,19 @@ WEIGHTS_PATH = REPO / "config" / "weights" / "default_weights.json"
 # value-based market sources; DLF_IDP is a rank-based expert panel added
 # as a second opinion on the overall_idp scope; FANTASYPROS_SF is a
 # rank-based offense expert consensus (dynasty superflex).
-ALLOWED_SOURCES = {"KTC", "IDPTRADECALC", "DLF_IDP", "FANTASYPROS_SF"}
+ALLOWED_SOURCES = {"KTC", "IDPTRADECALC", "DLF_IDP", "FANTASYPROS_SF", "DYNASTY_DADDY_SF"}
 
 EXPECTED_SCRAPER_EXPORTS = {
     "ktc.csv",
     "idpTradeCalc.csv",
     "dlfIdp.csv",
     "fantasyProsSf.csv",
+    "dynastyDaddySf.csv",
 }
 
 # Sources whose scraper_bridge export is a ``name,value`` CSV (signal=value).
 # DLF_IDP and FANTASYPROS_SF are the rank-signal exceptions.
-VALUE_SIGNAL_SOURCES = {"KTC", "IDPTRADECALC"}
+VALUE_SIGNAL_SOURCES = {"KTC", "IDPTRADECALC", "DYNASTY_DADDY_SF"}
 RANK_SIGNAL_SOURCES = {"DLF_IDP", "FANTASYPROS_SF"}
 
 
