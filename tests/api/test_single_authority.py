@@ -113,16 +113,18 @@ class TestSingleAuthority(unittest.TestCase):
         self.assertEqual(mismatches, [], f"Tier mismatches:\n" + "\n".join(mismatches[:10]))
 
 
-class TestOverlayDisabled(unittest.TestCase):
-    """The canonical overlay function in server.py must be disabled."""
+class TestOverlayRemoved(unittest.TestCase):
+    """The canonical overlay function in server.py must be fully removed."""
 
-    def test_overlay_returns_zero(self):
-        """_apply_canonical_primary_overlay must be a no-op."""
+    def test_overlay_function_is_absent(self):
+        """_apply_canonical_primary_overlay must not exist on the server module."""
         import importlib
         try:
             server = importlib.import_module("server")
-            result = server._apply_canonical_primary_overlay({})
-            self.assertEqual(result, 0, "Overlay function must return 0 (disabled)")
+            self.assertFalse(
+                hasattr(server, "_apply_canonical_primary_overlay"),
+                "Dead canonical-overlay stub must be removed, not left as a no-op",
+            )
         except (ImportError, ModuleNotFoundError):
             self.skipTest("server module not importable in test environment")
 
