@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader, LoadingState, EmptyState } from "@/components/ui";
 
 /**
@@ -47,51 +47,150 @@ export default function DraftCapitalPage() {
           title="Draft Capital"
           subtitle={`${data.season} draft · ${data.numTeams} teams · ${data.draftRounds} rounds · $${data.totalBudget} total budget`}
         />
-
-        {/* Team totals bar chart */}
         <TeamTotalsChart teamTotals={data.teamTotals} picks={data.picks} totalBudget={data.totalBudget} numTeams={data.numTeams} draftRounds={data.draftRounds} season={data.season} />
       </div>
 
-      {/* Picks by round */}
-      <div className="card" style={{ marginTop: "var(--space-md)" }}>
-        <PicksByRound picks={data.picks} draftRounds={data.draftRounds} />
-      </div>
+      <PicksByRound picks={data.picks} draftRounds={data.draftRounds} />
     </section>
   );
 }
+
+/* ── Team totals bar chart ─────────────────────────────────────────────── */
 
 function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds, season }) {
   const maxDollars = Math.max(...(teamTotals || []).map((t) => t.auctionDollars), 1);
 
   return (
-    <div>
-      <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-        {(teamTotals || []).map((team) => {
+    <div style={{ marginTop: "var(--space-md)" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-sm)" }}>
+        {(teamTotals || []).map((team, i) => {
           const pct = (team.auctionDollars / maxDollars) * 100;
           const teamPicks = (picks || []).filter((p) => p.currentOwner === team.team);
-          const pickLabels = teamPicks.map((p) => p.isTraded ? `${p.pick}*` : p.pick).join(", ");
+          const tradedCount = teamPicks.filter((p) => p.isTraded).length;
 
           return (
-            <div key={team.team}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span className="truncate" style={{ minWidth: 70, maxWidth: 110, fontSize: "0.78rem", fontWeight: 600 }}>{team.team}</span>
-                <div style={{ flex: 1, background: "var(--bg-soft)", borderRadius: 4, height: 24, position: "relative", overflow: "hidden" }}>
-                  <div style={{ width: `${pct}%`, height: "100%", background: "var(--cyan)", borderRadius: 4, transition: "width 0.3s" }} />
+            <div
+              key={team.team}
+              style={{
+                padding: "var(--space-sm) var(--space-md)",
+                borderRadius: "var(--radius-sm)",
+                background: i % 2 === 0 ? "rgba(255,255,255,0.02)" : "transparent",
+                transition: "background 0.15s",
+              }}
+            >
+              {/* Main row: rank, name, bar, dollar, pick count */}
+              <div style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)" }}>
+                <span
+                  className="font-mono"
+                  style={{
+                    width: 22,
+                    fontSize: "0.68rem",
+                    color: "var(--muted)",
+                    textAlign: "right",
+                    flexShrink: 0,
+                  }}
+                >
+                  {i + 1}
+                </span>
+
+                <span
+                  className="truncate"
+                  style={{
+                    minWidth: 100,
+                    maxWidth: 140,
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  {team.team}
+                </span>
+
+                <div
+                  style={{
+                    flex: 1,
+                    background: "var(--bg-soft)",
+                    borderRadius: "var(--radius-sm)",
+                    height: 20,
+                    overflow: "hidden",
+                    border: "1px solid rgba(255,255,255,0.04)",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${pct}%`,
+                      height: "100%",
+                      background: "linear-gradient(90deg, var(--cyan), rgba(86,214,255,0.6))",
+                      borderRadius: "var(--radius-sm)",
+                      transition: "width 0.4s ease-out",
+                      boxShadow: pct > 30 ? "0 0 12px rgba(86,214,255,0.15)" : "none",
+                    }}
+                  />
                 </div>
-                <span style={{ minWidth: 40, textAlign: "right", fontFamily: "var(--mono)", fontSize: "0.78rem", fontWeight: 700 }}>${team.auctionDollars}</span>
-                <span style={{ minWidth: 30, textAlign: "right", fontFamily: "var(--mono)", fontSize: "0.68rem", color: "var(--subtext)" }}>{teamPicks.length}pk</span>
+
+                <span
+                  className="font-mono"
+                  style={{
+                    minWidth: 48,
+                    textAlign: "right",
+                    fontSize: "0.82rem",
+                    fontWeight: 700,
+                    color: "var(--green)",
+                  }}
+                >
+                  ${team.auctionDollars}
+                </span>
+
+                <span className="badge badge-cyan" style={{ fontSize: "0.64rem", padding: "1px 6px" }}>
+                  {teamPicks.length}pk
+                </span>
               </div>
-              <div style={{ fontSize: "0.62rem", color: "var(--muted)", marginLeft: 80, marginTop: -4 }}>{pickLabels}</div>
+
+              {/* Pick labels row */}
+              <div
+                style={{
+                  marginTop: 3,
+                  marginLeft: 30,
+                  fontSize: "0.68rem",
+                  color: "var(--muted)",
+                  lineHeight: 1.6,
+                }}
+              >
+                {teamPicks.map((p, j) => (
+                  <span key={j}>
+                    {j > 0 && <span style={{ margin: "0 2px", opacity: 0.3 }}>·</span>}
+                    <span style={p.isTraded ? { color: "var(--amber)" } : undefined}>
+                      {p.pick}{p.isTraded ? "*" : ""}
+                    </span>
+                  </span>
+                ))}
+                {tradedCount > 0 && (
+                  <span style={{ marginLeft: 6, color: "var(--amber)", opacity: 0.7 }}>
+                    ({tradedCount} traded)
+                  </span>
+                )}
+              </div>
             </div>
           );
         })}
       </div>
-      <div style={{ marginTop: 12, fontSize: "0.68rem", color: "var(--subtext)" }}>
-        Total budget: ${totalBudget} across {numTeams} teams, {draftRounds} rounds ({season}). * = traded pick.
+
+      <div
+        style={{
+          marginTop: "var(--space-md)",
+          padding: "var(--space-sm) var(--space-md)",
+          fontSize: "0.72rem",
+          color: "var(--muted)",
+          borderTop: "1px solid var(--border)",
+        }}
+      >
+        ${totalBudget} total budget across {numTeams} teams, {draftRounds} rounds ({season}).{" "}
+        <span style={{ color: "var(--amber)" }}>*</span> = traded pick.
       </div>
     </div>
   );
 }
+
+/* ── Picks by round tables ─────────────────────────────────────────────── */
 
 function PicksByRound({ picks, draftRounds }) {
   const rounds = [];
@@ -102,36 +201,35 @@ function PicksByRound({ picks, draftRounds }) {
   }
 
   return (
-    <div>
+    <>
       {rounds.map(({ round, picks: roundPicks, total }) => (
-        <div key={round} style={{ marginBottom: 16 }}>
-          <div style={{ fontWeight: 700, fontSize: "0.78rem", marginBottom: 6 }}>
-            Round {round}{" "}
-            <span style={{ color: "var(--subtext)", fontWeight: 400 }}>
-              (${total})
-            </span>
+        <div key={round} className="card">
+          <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-sm)", marginBottom: "var(--space-sm)" }}>
+            <span style={{ fontWeight: 700, fontSize: "0.88rem" }}>Round {round}</span>
+            <span className="badge badge-green" style={{ fontSize: "0.64rem" }}>${total}</span>
+            <span className="text-xs muted">{roundPicks.length} picks</span>
           </div>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: 60 }}>Pick</th>
-                  <th style={{ width: 40 }}>$</th>
+                  <th style={{ width: 70 }}>Pick</th>
+                  <th style={{ width: 60 }}>Value</th>
                   <th>Owner</th>
-                  <th>From</th>
+                  <th>Original</th>
                 </tr>
               </thead>
               <tbody>
                 {roundPicks.map((pick, idx) => (
-                  <tr key={idx} style={pick.isTraded ? { background: "rgba(255,180,50,0.08)" } : undefined}>
-                    <td style={{ fontFamily: "var(--mono)", fontWeight: 600 }}>{pick.pick}</td>
-                    <td style={{ fontFamily: "var(--mono)", fontWeight: 700, color: "var(--green)" }}>${pick.dollarValue}</td>
+                  <tr key={idx}>
+                    <td className="font-mono font-bold">{pick.pick}</td>
+                    <td className="font-mono font-bold text-green">${pick.dollarValue}</td>
                     <td style={{ fontWeight: 600 }}>{pick.currentOwner}</td>
                     <td>
                       {pick.isTraded ? (
-                        <span style={{ color: "var(--amber)", fontWeight: 600 }}>{pick.originalOwner}</span>
+                        <span className="badge badge-amber" style={{ fontSize: "0.64rem" }}>{pick.originalOwner}</span>
                       ) : (
-                        <span style={{ color: "var(--muted)" }}>&mdash;</span>
+                        <span className="muted">&mdash;</span>
                       )}
                     </td>
                   </tr>
@@ -141,6 +239,6 @@ function PicksByRound({ picks, draftRounds }) {
           </div>
         </div>
       ))}
-    </div>
+    </>
   );
 }
