@@ -107,22 +107,21 @@ class TestGate2SourceCoverage(unittest.TestCase):
         self.assertGreaterEqual(pct, 70, f"Multi-source {pct:.1f}% < 70%")
 
     def test_semantic_1src_under_10(self):
-        """At most 10 semantic 1-src (matching failures) in ranked board.
+        """At most 20 semantic 1-src (matching failures) in ranked board.
 
-        Bumped from 5 to 10 when Dynasty Nerds SF-TEP was added as the
-        5th ranking source: DN surfaces fringe offense players (deep
-        rookies, cut/retired veterans) that none of KTC, IDPTradeCalc,
-        or DLF SF carry.  Every such case is explicitly allowlisted in
-        ``SINGLE_SOURCE_ALLOWLIST`` with a ``source_gap`` reason, and
-        the stricter ``test_no_unexplained_1src_top400`` gate still
-        requires each to be explained.
+        Bumped from 5 → 10 (Dynasty Nerds SF-TEP, 5th source) → 20
+        (FantasyPros dynasty superflex, 6th offense source).  Each new
+        source surfaces fringe players (deep rookies, cut/retired
+        veterans) that no other source carries.  Every top-400 case is
+        explicitly allowlisted in ``SINGLE_SOURCE_ALLOWLIST``; this
+        threshold is just a canary for unexpected regressions.
         """
         result = _get()
         if result is None:
             self.skipTest("No live data")
         _, ranked, _ = result
         sem = sum(1 for r in ranked if r.get("isSingleSource"))
-        self.assertLessEqual(sem, 10, f"Semantic 1-src: {sem}")
+        self.assertLessEqual(sem, 20, f"Semantic 1-src: {sem}")
 
     def test_no_unexplained_1src_top400(self):
         """Every top-400 1-src player has an allowlist reason."""
