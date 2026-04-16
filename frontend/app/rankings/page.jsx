@@ -208,15 +208,15 @@ function EdgeRail({ summary, onPlayerClick }) {
       </div>
       <div className="edge-rail-grid">
         <EdgeRailSection
-          label={`${retailLabel} Premium`}
+          label="Sell Signals"
           items={summary.retailPremium}
-          emptyText={`No significant ${retailLabel} premiums`}
+          emptyText="No sell signals"
           onPlayerClick={onPlayerClick}
         />
         <EdgeRailSection
-          label="Consensus Premium"
+          label="Buy Signals"
           items={summary.consensusPremium}
-          emptyText="No significant consensus premiums"
+          emptyText="No buy signals"
           onPlayerClick={onPlayerClick}
         />
         <EdgeRailSection

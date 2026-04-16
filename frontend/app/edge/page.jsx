@@ -138,8 +138,8 @@ const COL_GAP_DIR = {
   thStyle: { width: 70 },
   tdStyle: { fontSize: "0.78rem" },
   render: (r) => {
-    if (r.marketGapDirection === "retail_premium") return <span className="text-cyan">{getRetailLabel()}</span>;
-    if (r.marketGapDirection === "consensus_premium") return <span className="text-amber">Consensus</span>;
+    if (r.marketGapDirection === "retail_premium") return <span className="text-cyan">Sell</span>;
+    if (r.marketGapDirection === "consensus_premium") return <span className="text-amber">Buy</span>;
     return <span className="muted">\u2014</span>;
   },
 };
@@ -362,9 +362,9 @@ export default function EdgePage() {
               />
             </EdgeSection>
 
-            {/* Retail Premium (today: KTC) */}
+            {/* Sell Signals — retail (KTC) values higher than consensus */}
             <EdgeSection
-              title={`${getRetailLabel()} Premium`}
+              title="Sell Signals"
               description={`Players the retail market (${getRetailLabel()}) values much higher than the expert consensus. Limited to players inside the top ${EDGE_PREMIUM_RANK_LIMIT} by consensus or ${getRetailLabel()} rank so only trade-relevant gaps surface. Potential sells to retail-first trade partners.`}
               count={`${retailPremium.length} shown`}
               accent="cyan"
@@ -372,14 +372,14 @@ export default function EdgePage() {
               <SectionTable
                 rows={retailPremium}
                 onPlayerClick={openPlayerPopup}
-                emptyText={`No significant ${getRetailLabel()} premiums in the top ${EDGE_PREMIUM_RANK_LIMIT}.`}
+                emptyText={`No sell signals in the top ${EDGE_PREMIUM_RANK_LIMIT}.`}
                 columns={[COL_RANK, COL_PLAYER, COL_POS, COL_SPREAD, COL_VALUE]}
               />
             </EdgeSection>
 
-            {/* Consensus Premium */}
+            {/* Buy Signals — consensus values higher than retail */}
             <EdgeSection
-              title="Consensus Premium"
+              title="Buy Signals"
               description={`Players the expert consensus values much higher than ${getRetailLabel()}. Limited to players inside the top ${EDGE_PREMIUM_RANK_LIMIT} by consensus or ${getRetailLabel()} rank so only trade-relevant gaps surface. Potential buys from retail-first trade partners.`}
               count={`${consensusPremium.length} shown`}
               accent="cyan"
@@ -387,7 +387,7 @@ export default function EdgePage() {
               <SectionTable
                 rows={consensusPremium}
                 onPlayerClick={openPlayerPopup}
-                emptyText={`No significant consensus premiums in the top ${EDGE_PREMIUM_RANK_LIMIT}.`}
+                emptyText={`No buy signals in the top ${EDGE_PREMIUM_RANK_LIMIT}.`}
                 columns={[COL_RANK, COL_PLAYER, COL_POS, COL_SPREAD, COL_VALUE]}
               />
             </EdgeSection>
