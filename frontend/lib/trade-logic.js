@@ -412,6 +412,77 @@ export function findBalancers(gap, rosterRows, valueMode, maxResults = 5) {
     .slice(0, maxResults);
 }
 
+// ── Multi-Team Verdict Helpers ───────────────────────────────────────────
+
+/** Side labels: A through E */
+export const SIDE_LABELS = ["A", "B", "C", "D", "E"];
+export const MAX_SIDES = 5;
+export const MIN_SIDES = 2;
+
+/**
+ * Create a fresh empty side.
+ * @param {number} index - 0-based index
+ * @returns {{ id: number, label: string, assets: [] }}
+ */
+export function createSide(index) {
+  return { id: index, label: SIDE_LABELS[index] || String.fromCharCode(65 + index), assets: [] };
+}
+
+/**
+ * Compute the granular trade-meter verdict label from an absolute gap.
+ * More categories than verdictFromGap for the inline meter badge.
+ * @param {number} absGap - Absolute point gap
+ * @returns {{ label: string, level: 'fair'|'slight'|'unfair'|'lopsided' }}
+ */
+export function meterVerdict(absGap) {
+  if (absGap < 350) return { label: "FAIR", level: "fair" };
+  if (absGap < 900) return { label: "SLIGHT EDGE", level: "slight" };
+  if (absGap < 1800) return { label: "UNFAIR", level: "unfair" };
+  return { label: "LOPSIDED", level: "lopsided" };
+}
+
+/**
+ * Percentage gap for proportional display.
+ * Returns 0 when both sides are empty.
+ * @param {number} valA - Side A total
+ * @param {number} valB - Side B total
+ * @returns {number} Integer percentage 0-100
+ */
+export function percentageGap(valA, valB) {
+  const maxVal = Math.max(valA, valB);
+  if (maxVal <= 0) return 0;
+  return Math.round(Math.abs(valA - valB) / maxVal * 100);
+}
+
+/**
+ * For multi-team (3+), compute each side's share percentage and
+ * per-team verdict (over/under contributing).
+ * @param {number[]} totals - Array of side totals
+ * @returns {{ shares: number[], overall: string, perTeam: string[] }}
+ */
+export function multiTeamAnalysis(totals) {
+  const grandTotal = totals.reduce((a, b) => a + b, 0);
+  if (grandTotal <= 0) {
+    return {
+      shares: totals.map(() => 0),
+      overall: "Empty",
+      perTeam: totals.map(() => "No assets"),
+    };
+  }
+  const count = totals.length;
+  const equalShare = 100 / count;
+  const shares = totals.map((t) => Math.round((t / grandTotal) * 100));
+  const perTeam = shares.map((s, i) => {
+    const diff = s - equalShare;
+    if (Math.abs(diff) < 5) return "Fair share";
+    if (diff > 0) return "Overpaying";
+    return "Getting a deal";
+  });
+  const maxDiff = Math.max(...shares.map((s) => Math.abs(s - equalShare)));
+  const overall = maxDiff < 10 ? "Balanced" : "Imbalanced";
+  return { shares, overall, perTeam };
+}
+
 // ── Workspace Serialization ──────────────────────────────────────────────
 export function serializeWorkspace(sideA, sideB, valueMode, activeSide) {
   return {
@@ -422,6 +493,18 @@ export function serializeWorkspace(sideA, sideB, valueMode, activeSide) {
   };
 }
 
+/**
+ * Serialize multi-team workspace (sides array format).
+ */
+export function serializeWorkspaceMulti(sides, valueMode, activeSide) {
+  return {
+    version: 2,
+    valueMode,
+    activeSide,
+    sides: sides.map((s) => ({ label: s.label, assets: s.assets.map((r) => r.name) })),
+  };
+}
+
 export function deserializeWorkspace(parsed, rowByName) {
   if (!parsed || typeof parsed !== "object") return null;
   const valueMode = VALUE_MODES.some((m) => m.key === parsed.valueMode) ? parsed.valueMode : "full";
@@ -429,6 +512,43 @@ export function deserializeWorkspace(parsed, rowByName) {
   const sideA = Array.isArray(parsed.sideA) ? parsed.sideA.map((n) => rowByName.get(n)).filter(Boolean) : [];
   const sideB = Array.isArray(parsed.sideB) ? parsed.sideB.map((n) => rowByName.get(n)).filter(Boolean) : [];
   return { valueMode, activeSide, sideA, sideB };
+}
+
+/**
+ * Deserialize multi-team workspace, with migration from old 2-side format.
+ * @param {object} parsed - Raw localStorage object
+ * @param {Map} rowByName - name -> row lookup
+ * @returns {{ valueMode: string, activeSide: number, sides: object[] } | null}
+ */
+export function deserializeWorkspaceMulti(parsed, rowByName) {
+  if (!parsed || typeof parsed !== "object") return null;
+  const valueMode = VALUE_MODES.some((m) => m.key === parsed.valueMode) ? parsed.valueMode : "full";
+
+  // Version 2 (new multi-team format)
+  if (parsed.version === 2 && Array.isArray(parsed.sides)) {
+    const activeSide = typeof parsed.activeSide === "number" ? parsed.activeSide : 0;
+    const sides = parsed.sides.map((s, i) => ({
+      id: i,
+      label: s.label || SIDE_LABELS[i] || String.fromCharCode(65 + i),
+      assets: Array.isArray(s.assets) ? s.assets.map((n) => rowByName.get(n)).filter(Boolean) : [],
+    }));
+    // Ensure at least 2 sides
+    while (sides.length < MIN_SIDES) sides.push(createSide(sides.length));
+    return { valueMode, activeSide: Math.min(activeSide, sides.length - 1), sides };
+  }
+
+  // Legacy format (sideA/sideB arrays) — migrate
+  const activeSide = parsed.activeSide === "B" ? 1 : 0;
+  const sideA = Array.isArray(parsed.sideA) ? parsed.sideA.map((n) => rowByName.get(n)).filter(Boolean) : [];
+  const sideB = Array.isArray(parsed.sideB) ? parsed.sideB.map((n) => rowByName.get(n)).filter(Boolean) : [];
+  return {
+    valueMode,
+    activeSide,
+    sides: [
+      { id: 0, label: "A", assets: sideA },
+      { id: 1, label: "B", assets: sideB },
+    ],
+  };
 }
 
 export function addRecent(recentNames, name) {

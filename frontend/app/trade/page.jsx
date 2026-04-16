@@ -15,6 +15,15 @@ import {
   effectiveValue,
   getPlayerEdge,
   findBalancers,
+  meterVerdict,
+  percentageGap,
+  multiTeamAnalysis,
+  createSide,
+  serializeWorkspaceMulti,
+  deserializeWorkspaceMulti,
+  SIDE_LABELS,
+  MAX_SIDES,
+  MIN_SIDES,
 } from "@/lib/trade-logic";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
@@ -55,6 +64,148 @@ function edgeBadge(edge) {
   return null;
 }
 
+/* ── Trade Meter Component ───────────────────────────────────────────── */
+
+function TradeMeter({ sides, sideTotals, valueMode, settings }) {
+  const sideCount = sides.length;
+
+  if (sideCount === 2) {
+    return <TradeMeterTwoTeam sides={sides} sideTotals={sideTotals} />;
+  }
+  return <TradeMeterMultiTeam sides={sides} sideTotals={sideTotals} />;
+}
+
+function TradeMeterTwoTeam({ sides, sideTotals }) {
+  const pwA = sideTotals[0]?.pw || 0;
+  const pwB = sideTotals[1]?.pw || 0;
+  const gap = pwA - pwB;
+  const absGap = Math.abs(gap);
+  const pctGap = percentageGap(pwA, pwB);
+  const verdict = meterVerdict(absGap);
+  const maxVal = Math.max(pwA, pwB);
+  const total = pwA + pwB;
+
+  // Fill percentages for the bar
+  const shareA = total > 0 ? (pwA / total) * 100 : 50;
+  const shareB = total > 0 ? (pwB / total) * 100 : 50;
+
+  // Winner label
+  let winnerText = "Even";
+  if (pctGap >= 3) {
+    winnerText = gap > 0
+      ? `Side A wins by ${pctGap}%`
+      : `Side B wins by ${pctGap}%`;
+  }
+
+  return (
+    <div className="trade-meter">
+      {/* Value comparison */}
+      <div className="trade-meter-values">
+        <span className="trade-meter-side-val">{Math.round(pwA).toLocaleString()}</span>
+        <span className="trade-meter-vs">vs</span>
+        <span className="trade-meter-side-val">{Math.round(pwB).toLocaleString()}</span>
+        <span className="trade-meter-gap">Gap: {Math.round(absGap).toLocaleString()}</span>
+      </div>
+
+      {/* Horizontal balance bar */}
+      <div className="trade-meter-bar">
+        <div
+          className="trade-meter-fill trade-meter-fill-a"
+          style={{ width: `${shareA}%` }}
+        />
+        <div
+          className="trade-meter-fill trade-meter-fill-b"
+          style={{ width: `${shareB}%` }}
+        />
+        <div className="trade-meter-center" />
+      </div>
+      <div className="trade-meter-bar-labels">
+        <span className="muted" style={{ fontSize: "0.66rem" }}>Side A</span>
+        <span className="muted" style={{ fontSize: "0.66rem" }}>Side B</span>
+      </div>
+
+      {/* Verdict badge + percentage */}
+      <div className="trade-meter-bottom">
+        <span className={`trade-meter-verdict trade-meter-verdict-${verdict.level}`}>
+          {verdict.label}
+        </span>
+        <span className="trade-meter-pct">{winnerText}</span>
+      </div>
+    </div>
+  );
+}
+
+function TradeMeterMultiTeam({ sides, sideTotals }) {
+  const totals = sideTotals.map((t) => t.pw);
+  const analysis = multiTeamAnalysis(totals);
+  const grandTotal = totals.reduce((a, b) => a + b, 0);
+
+  // Color cycle for multi-team segments
+  const segColors = [
+    "var(--green)", "var(--cyan)", "var(--amber)", "var(--red)", "#a78bfa",
+  ];
+
+  return (
+    <div className="trade-meter">
+      {/* Value comparison row */}
+      <div className="trade-meter-multi-values">
+        {sides.map((s, i) => (
+          <div key={s.id} className="trade-meter-multi-val">
+            <span className="label">Side {s.label}</span>
+            <span className="trade-meter-side-val">{Math.round(totals[i]).toLocaleString()}</span>
+            <span className="muted" style={{ fontSize: "0.64rem" }}>
+              {analysis.shares[i]}% - {analysis.perTeam[i]}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Segmented bar */}
+      <div className="trade-meter-bar">
+        {sides.map((s, i) => {
+          const pct = grandTotal > 0 ? (totals[i] / grandTotal) * 100 : 100 / sides.length;
+          return (
+            <div
+              key={s.id}
+              className="trade-meter-fill"
+              style={{
+                width: `${pct}%`,
+                background: segColors[i % segColors.length],
+                opacity: 0.7,
+              }}
+              title={`Side ${s.label}: ${analysis.shares[i]}%`}
+            />
+          );
+        })}
+        {/* Equal-share markers */}
+        {sides.length > 2 && sides.slice(1).map((_, i) => (
+          <div
+            key={`marker-${i}`}
+            className="trade-meter-equal-marker"
+            style={{ left: `${((i + 1) / sides.length) * 100}%` }}
+          />
+        ))}
+      </div>
+      <div className="trade-meter-bar-labels">
+        {sides.map((s, i) => (
+          <span key={s.id} className="muted" style={{ fontSize: "0.62rem", flex: 1, textAlign: "center" }}>
+            {s.label}: {analysis.shares[i]}%
+          </span>
+        ))}
+      </div>
+
+      {/* Overall verdict */}
+      <div className="trade-meter-bottom">
+        <span className={`trade-meter-verdict ${analysis.overall === "Balanced" ? "trade-meter-verdict-fair" : "trade-meter-verdict-unfair"}`}>
+          {analysis.overall}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ── Main Trade Page ─────────────────────────────────────────────────── */
+
 export default function TradePage() {
   const { loading, error, rows, rawData } = useDynastyData();
   const { settings } = useSettings();
@@ -62,9 +213,13 @@ export default function TradePage() {
   const [valueMode, setValueMode] = useState("full");
   const [pickerSortCol, setPickerSortCol] = useState("rank");
   const [pickerSortAsc, setPickerSortAsc] = useState(true);
-  const [sideA, setSideA] = useState([]);
-  const [sideB, setSideB] = useState([]);
-  const [activeSide, setActiveSide] = useState("A");
+
+  // Multi-team state: array of { id, label, assets }
+  const [sides, setSides] = useState([
+    createSide(0),
+    createSide(1),
+  ]);
+  const [activeSide, setActiveSide] = useState(0); // index into sides
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
   const [pickerFilter, setPickerFilter] = useState("all");
@@ -114,54 +269,82 @@ export default function TradePage() {
     } catch { /* ignore */ }
   }, []);
 
+  // Hydrate trade workspace from localStorage (with migration)
   useEffect(() => {
     if (!rows.length || hydrated) return;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === "object") {
-          const nextMode = String(parsed.valueMode || "full");
+        const restored = deserializeWorkspaceMulti(parsed, rowByName);
+        if (restored) {
+          const nextMode = String(restored.valueMode || "full");
           if (VALUE_MODES.some((m) => m.key === nextMode)) setValueMode(nextMode);
-          setActiveSide(parsed.activeSide === "B" ? "B" : "A");
-          const a = Array.isArray(parsed.sideA) ? parsed.sideA.map((n) => rowByName.get(n)).filter(Boolean) : [];
-          const b = Array.isArray(parsed.sideB) ? parsed.sideB.map((n) => rowByName.get(n)).filter(Boolean) : [];
-          setSideA(a);
-          setSideB(b);
+          setActiveSide(restored.activeSide);
+          setSides(restored.sides);
         }
       }
     } catch { /* ignore */ } finally { setHydrated(true); }
   }, [rows, hydrated, rowByName]);
 
+  // Persist trade workspace to localStorage
   useEffect(() => {
     if (!hydrated) return;
-    const payload = { valueMode, activeSide, sideA: sideA.map((r) => r.name), sideB: sideB.map((r) => r.name) };
+    const payload = serializeWorkspaceMulti(sides, valueMode, activeSide);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  }, [hydrated, valueMode, activeSide, sideA, sideB]);
+  }, [hydrated, valueMode, activeSide, sides]);
 
   useEffect(() => {
     if (pickerOpen && pickerInputRef.current) pickerInputRef.current.focus();
   }, [pickerOpen]);
 
-  const pwTotalA = useMemo(() => powerWeightedTotal(sideA, valueMode, undefined, settings), [sideA, valueMode, settings]);
-  const pwTotalB = useMemo(() => powerWeightedTotal(sideB, valueMode, undefined, settings), [sideB, valueMode, settings]);
-  const linTotalA = useMemo(() => sideTotal(sideA, valueMode, settings), [sideA, valueMode, settings]);
-  const linTotalB = useMemo(() => sideTotal(sideB, valueMode, settings), [sideB, valueMode, settings]);
+  // ── Computed totals for all sides ────────────────────────────────────
+  const sideTotals = useMemo(() => {
+    return sides.map((s) => ({
+      pw: powerWeightedTotal(s.assets, valueMode, undefined, settings),
+      lin: sideTotal(s.assets, valueMode, settings),
+    }));
+  }, [sides, valueMode, settings]);
+
+  // Legacy 2-team gap computations (for sticky tray + 2-team balancers)
+  const pwTotalA = sideTotals[0]?.pw || 0;
+  const pwTotalB = sideTotals[1]?.pw || 0;
+  const linTotalA = sideTotals[0]?.lin || 0;
+  const linTotalB = sideTotals[1]?.lin || 0;
   const pwGap = pwTotalA - pwTotalB;
-  const linGap = linTotalA - linTotalB;
-  // Percentage gap for proportional verdict
   const pctGap = Math.max(pwTotalA, pwTotalB) > 0 ? Math.round(Math.abs(pwGap) / Math.max(pwTotalA, pwTotalB) * 100) : 0;
-  // Balancing suggestions for the losing side
+
+  // Balancing suggestions (2-team mode only)
   const balancers = useMemo(() => {
+    if (sides.length !== 2) return [];
     if (Math.abs(pwGap) < 350) return [];
-    const losingRows = pwGap > 0 ? rows.filter((r) => !sideA.some((a) => a.name === r.name) && !sideB.some((b) => b.name === r.name)) : rows.filter((r) => !sideA.some((a) => a.name === r.name) && !sideB.some((b) => b.name === r.name));
-    return findBalancers(pwGap, losingRows, valueMode);
-  }, [pwGap, rows, sideA, sideB, valueMode]);
+    const allInTrade = new Set(sides.flatMap((s) => s.assets.map((a) => a.name)));
+    const available = rows.filter((r) => !allInTrade.has(r.name));
+    return findBalancers(pwGap, available, valueMode);
+  }, [pwGap, rows, sides, valueMode]);
+
+  // For 3+ teams, find balancers for the team overpaying
+  const multiBalancers = useMemo(() => {
+    if (sides.length <= 2) return null;
+    const totals = sideTotals.map((t) => t.pw);
+    const maxIdx = totals.indexOf(Math.max(...totals));
+    const minIdx = totals.indexOf(Math.min(...totals));
+    const gap = totals[maxIdx] - totals[minIdx];
+    if (gap < 350) return null;
+    const allInTrade = new Set(sides.flatMap((s) => s.assets.map((a) => a.name)));
+    const available = rows.filter((r) => !allInTrade.has(r.name));
+    const suggestions = findBalancers(gap, available, valueMode);
+    return { overpayingIdx: maxIdx, underpayingIdx: minIdx, gap, suggestions };
+  }, [sides, sideTotals, rows, valueMode]);
+
+  // All assets currently in any side (for picker exclusion)
+  const allTradeNames = useMemo(() => {
+    return new Set(sides.flatMap((s) => s.assets.map((r) => r.name)));
+  }, [sides]);
 
   const pickerRows = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase();
-    const isInTrade = new Set([...sideA, ...sideB].map((r) => r.name));
-    let list = rows.filter((r) => !isInTrade.has(r.name));
+    let list = rows.filter((r) => !allTradeNames.has(r.name));
     if (pickerFilter !== "all") list = list.filter((r) => r.assetClass === pickerFilter);
     if (q) list = list.filter((r) => r.name.toLowerCase().includes(q));
     // Sort by selected column
@@ -180,9 +363,6 @@ export default function TradePage() {
           va = a.rankDerivedValue || a.values?.full || 0; vb = b.rankDerivedValue || b.values?.full || 0;
           return (va - vb) * dir;
         default: {
-          // Dynamic per-source sort column: "src:<sourceKey>".  Keeps
-          // the picker column set self-describing so newly registered
-          // sources appear automatically.
           if (typeof pickerSortCol === "string" && pickerSortCol.startsWith("src:")) {
             const key = pickerSortCol.slice(4);
             va = Number(a.canonicalSites?.[key]) || 0;
@@ -195,7 +375,7 @@ export default function TradePage() {
       }
     });
     return list.slice(0, 100);
-  }, [rows, sideA, sideB, pickerQuery, pickerFilter, pickerSortCol, pickerSortAsc]);
+  }, [rows, allTradeNames, pickerQuery, pickerFilter, pickerSortCol, pickerSortAsc]);
 
   const recentRows = useMemo(() => recentNames.map((n) => rowByName.get(n)).filter(Boolean), [recentNames, rowByName]);
 
@@ -207,11 +387,16 @@ export default function TradePage() {
     });
   }
 
-  function addToSide(row, side) {
+  // ── Side management ─────────────────────────────────────────────────
+  function addToSide(row, sideIdx) {
     if (!row) return;
-    if (sideA.some((r) => r.name === row.name) || sideB.some((r) => r.name === row.name)) return;
-    if (side === "A") setSideA((prev) => (prev.some((r) => r.name === row.name) ? prev : [...prev, row]));
-    else setSideB((prev) => (prev.some((r) => r.name === row.name) ? prev : [...prev, row]));
+    // Check all sides for duplicates
+    if (allTradeNames.has(row.name)) return;
+    setSides((prev) => prev.map((s, i) => {
+      if (i !== sideIdx) return s;
+      if (s.assets.some((r) => r.name === row.name)) return s;
+      return { ...s, assets: [...s.assets, row] };
+    }));
     addRecent(row.name);
   }
 
@@ -223,20 +408,58 @@ export default function TradePage() {
     return () => registerAddToTrade?.(null);
   }, [registerAddToTrade, activeSide]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function removeFromSide(name, side) {
-    if (side === "A") setSideA((prev) => prev.filter((r) => r.name !== name));
-    else setSideB((prev) => prev.filter((r) => r.name !== name));
+  function removeFromSide(name, sideIdx) {
+    setSides((prev) => prev.map((s, i) => {
+      if (i !== sideIdx) return s;
+      return { ...s, assets: s.assets.filter((r) => r.name !== name) };
+    }));
   }
 
-  function clearTrade() { setSideA([]); setSideB([]); }
+  function clearTrade() {
+    setSides((prev) => prev.map((s) => ({ ...s, assets: [] })));
+  }
 
   function swapSides() {
-    setSideA(sideB);
-    setSideB(sideA);
-    setActiveSide((s) => (s === "A" ? "B" : "A"));
+    if (sides.length === 2) {
+      setSides((prev) => [
+        { ...prev[1], id: 0, label: "A" },
+        { ...prev[0], id: 1, label: "B" },
+      ]);
+      setActiveSide((s) => s === 0 ? 1 : 0);
+    } else {
+      // Rotate: A->B, B->C, ..., last->A
+      setSides((prev) => {
+        const rotated = prev.map((s, i) => {
+          const newIdx = i === 0 ? prev.length - 1 : i - 1;
+          return { ...prev[newIdx === prev.length ? 0 : (newIdx + 1) % prev.length], id: i, label: SIDE_LABELS[i] };
+        });
+        // Actually rotate assets: each side gets the previous side's assets
+        return prev.map((s, i) => ({
+          id: i,
+          label: SIDE_LABELS[i],
+          assets: prev[(i + prev.length - 1) % prev.length].assets,
+        }));
+      });
+    }
   }
 
-  function openPickerFor(side) { setActiveSide(side); setPickerOpen(true); }
+  function addTeam() {
+    if (sides.length >= MAX_SIDES) return;
+    setSides((prev) => [...prev, createSide(prev.length)]);
+  }
+
+  function removeTeam(idx) {
+    if (sides.length <= MIN_SIDES) return;
+    setSides((prev) => {
+      const next = prev.filter((_, i) => i !== idx);
+      // Reletter remaining sides
+      return next.map((s, i) => ({ ...s, id: i, label: SIDE_LABELS[i] }));
+    });
+    // Fix activeSide if it's out of bounds
+    setActiveSide((prev) => Math.min(prev, sides.length - 2));
+  }
+
+  function openPickerFor(sideIdx) { setActiveSide(sideIdx); setPickerOpen(true); }
 
   // ── Suggestions logic ─────────────────────────────────────────────
   const parseRoster = useCallback(() => {
@@ -257,9 +480,7 @@ export default function TradePage() {
     }
 
     const team = sleeperTeams[i];
-    // Combine players + picks (picks stripped of provenance suffixes)
     const picks = (team.picks || []).map((p) => {
-      // "2026 1.06 (from Pop Trunk)" → "2026 1st" style normalization
       const m = p.match(/^(\d{4})\s+(\d)\./);
       if (m) {
         const round = { "1": "1st", "2": "2nd", "3": "3rd", "4": "4th" }[m[2]] || `${m[2]}th`;
@@ -267,13 +488,11 @@ export default function TradePage() {
       }
       return p.replace(/\s*\(.*\)/, "").trim();
     });
-    // Deduplicate picks (team may own multiple of the same round)
     const rosterNames = [...(team.players || []), ...picks];
     const newInput = rosterNames.join("\n");
     setRosterInput(newInput);
     localStorage.setItem(ROSTER_KEY, newInput);
 
-    // Build opponent rosters for opponent-aware suggestions
     const opponents = sleeperTeams
       .filter((_, oi) => oi !== i)
       .map((t) => ({ team_name: t.name, players: t.players || [] }));
@@ -312,8 +531,15 @@ export default function TradePage() {
   function applySuggestion(s) {
     const giveRows = s.give.map((p) => rowByName.get(p.name)).filter(Boolean);
     const recvRows = s.receive.map((p) => rowByName.get(p.name)).filter(Boolean);
-    setSideA(giveRows);
-    setSideB(recvRows);
+    // Apply to first two sides, reset others
+    setSides((prev) => {
+      const next = prev.map((side, i) => {
+        if (i === 0) return { ...side, assets: giveRows };
+        if (i === 1) return { ...side, assets: recvRows };
+        return { ...side, assets: [] };
+      });
+      return next;
+    });
   }
 
   // Count per category
@@ -322,124 +548,129 @@ export default function TradePage() {
     return Object.fromEntries(SUGG_TYPES.map((t) => [t.key, (suggestions[t.key] || []).length]));
   }, [suggestions]);
 
+  // Determine grid columns class for the sides container
+  const sidesGridClass = sides.length === 2
+    ? "trade-sides-grid trade-sides-2"
+    : sides.length === 3
+      ? "trade-sides-grid trade-sides-3"
+      : "trade-sides-grid trade-sides-multi";
+
   return (
     <section className="card">
       <h1 style={{ marginTop: 0 }}>Trade Builder</h1>
-      <p className="muted" style={{ marginTop: 4 }}>Persistent mobile workspace with live verdict and fast add/remove flow.</p>
+      <p className="muted" style={{ marginTop: 4 }}>Multi-team trade calculator with live fairness visualization.</p>
 
       {loading && <p>Loading player pool...</p>}
       {!!error && <p style={{ color: "var(--red)" }}>{error}</p>}
 
       {!loading && !error && (
         <>
-          <div className="row" style={{ marginBottom: 10 }}>
+          <div className="row" style={{ marginBottom: 10, flexWrap: "wrap" }}>
             <select className="select" value={valueMode} onChange={(e) => setValueMode(e.target.value)}>
               {VALUE_MODES.map((m) => (<option key={m.key} value={m.key}>{m.label}</option>))}
             </select>
-            <button className="button" onClick={swapSides}>Swap Sides</button>
+            <button className="button" onClick={swapSides}>
+              {sides.length === 2 ? "Swap Sides" : "Rotate Sides"}
+            </button>
             <button className="button" onClick={clearTrade}>Clear Trade</button>
+            {sides.length < MAX_SIDES && (
+              <button className="button" onClick={addTeam} style={{ borderColor: "var(--green)", color: "var(--green)" }}>
+                + Add Team
+              </button>
+            )}
           </div>
 
-          <div className="row mobile-stack" style={{ alignItems: "stretch", paddingBottom: 78 }}>
-            {/* Side A */}
-            <div className="card" style={{ flex: 1 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                <h3 style={{ margin: 0 }}>Side A</h3>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div>
-                    <div className="value">{Math.round(pwTotalA).toLocaleString()}</div>
-                    <div className="muted" style={{ fontSize: "0.64rem" }}>Linear: {Math.round(linTotalA).toLocaleString()}</div>
-                  </div>
-                  <button className="button" onClick={() => openPickerFor("A")}>+ Add</button>
-                </div>
-              </div>
-              <div className="list" style={{ marginTop: 10 }}>
-                {sideA.map((r) => {
-                  const edge = getPlayerEdge(r);
-                  return (
-                    <div className="asset-row" key={`A-${r.name}`}>
-                      <div>
-                        <div className="asset-name">
-                          <span style={{ cursor: "pointer", textDecoration: "underline dotted" }} onClick={() => openPlayerPopup?.(r)}>{r.name}</span>
-                          {edge.signal && (
-                            <span className="badge" style={{ marginLeft: 6, fontSize: "0.6rem", padding: "1px 4px",
-                              color: edge.signal === "BUY" ? "var(--green)" : "var(--red)",
-                              borderColor: edge.signal === "BUY" ? "var(--green)" : "var(--red)" }}>
-                              {edge.signal} {edge.edgePct}%
-                            </span>
-                          )}
-                        </div>
-                        <div className="asset-meta">{r.pos} · Consensus {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
-                      </div>
-                      <button className="button" onClick={() => removeFromSide(r.name, "A")}>Remove</button>
-                    </div>
-                  );
-                })}
-                {sideA.length === 0 && <div className="muted">No assets yet.</div>}
-              </div>
-              {/* Balancers for Side A (shown when B is ahead) */}
-              {pwGap < -350 && balancers.length > 0 && (
-                <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(86,214,255,0.06)", borderRadius: 6 }}>
-                  <div className="label" style={{ fontSize: "0.68rem", marginBottom: 4 }}>To balance, consider adding:</div>
-                  {balancers.map((b) => (
-                    <button key={b.name} className="button-reset muted" style={{ display: "block", fontSize: "0.72rem", cursor: "pointer" }}
-                      onClick={() => { const row = rowByName.get(b.name); if (row) addToSide(row, "A"); }}>
-                      {b.name} ({b.pos}) · {b.value.toLocaleString()}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+          {/* ── Trade Meter (inline fairness visualization) ──────── */}
+          <TradeMeter sides={sides} sideTotals={sideTotals} valueMode={valueMode} settings={settings} />
 
-            {/* Side B */}
-            <div className="card" style={{ flex: 1 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                <h3 style={{ margin: 0 }}>Side B</h3>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div>
-                    <div className="value">{Math.round(pwTotalB).toLocaleString()}</div>
-                    <div className="muted" style={{ fontSize: "0.64rem" }}>Linear: {Math.round(linTotalB).toLocaleString()}</div>
-                  </div>
-                  <button className="button" onClick={() => openPickerFor("B")}>+ Add</button>
-                </div>
-              </div>
-              <div className="list" style={{ marginTop: 10 }}>
-                {sideB.map((r) => {
-                  const edge = getPlayerEdge(r);
-                  return (
-                    <div className="asset-row" key={`B-${r.name}`}>
-                      <div>
-                        <div className="asset-name">
-                          <span style={{ cursor: "pointer", textDecoration: "underline dotted" }} onClick={() => openPlayerPopup?.(r)}>{r.name}</span>
-                          {edge.signal && (
-                            <span className="badge" style={{ marginLeft: 6, fontSize: "0.6rem", padding: "1px 4px",
-                              color: edge.signal === "BUY" ? "var(--green)" : "var(--red)",
-                              borderColor: edge.signal === "BUY" ? "var(--green)" : "var(--red)" }}>
-                              {edge.signal} {edge.edgePct}%
-                            </span>
-                          )}
-                        </div>
-                        <div className="asset-meta">{r.pos} · Consensus {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
-                      </div>
-                      <button className="button" onClick={() => removeFromSide(r.name, "B")}>Remove</button>
+          {/* ── Side Cards ──────────────────────────────────────── */}
+          <div className={sidesGridClass} style={{ paddingBottom: 78 }}>
+            {sides.map((side, sideIdx) => {
+              const total = sideTotals[sideIdx] || { pw: 0, lin: 0 };
+              const isOverpaying = sides.length === 2
+                ? (sideIdx === 0 ? pwGap > 350 : pwGap < -350)
+                : false;
+              const isUnderpaying = sides.length === 2
+                ? (sideIdx === 0 ? pwGap < -350 : pwGap > 350)
+                : false;
+
+              return (
+                <div className="card" key={side.id} style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <h3 style={{ margin: 0 }}>Side {side.label}</h3>
+                      {sides.length > MIN_SIDES && (
+                        <button
+                          className="button button-danger"
+                          style={{ fontSize: "0.66rem", padding: "2px 6px", minHeight: "unset" }}
+                          onClick={() => removeTeam(sideIdx)}
+                          title={`Remove Side ${side.label}`}
+                        >
+                          X
+                        </button>
+                      )}
                     </div>
-                  );
-                })}
-                {sideB.length === 0 && <div className="muted">No assets yet.</div>}
-              </div>
-              {/* Balancers for Side B (shown when A is ahead) */}
-              {pwGap > 350 && balancers.length > 0 && (
-                <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(86,214,255,0.06)", borderRadius: 6 }}>
-                  <div className="label" style={{ fontSize: "0.68rem", marginBottom: 4 }}>To balance, consider adding:</div>
-                  {balancers.map((b) => (
-                    <button key={b.name} className="button-reset muted" style={{ display: "block", fontSize: "0.72rem", cursor: "pointer" }}
-                      onClick={() => { const row = rowByName.get(b.name); if (row) addToSide(row, "B"); }}>
-                      {b.name} ({b.pos}) · {b.value.toLocaleString()}
-                    </button>
-                  ))}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div>
+                        <div className="value">{Math.round(total.pw).toLocaleString()}</div>
+                        <div className="muted" style={{ fontSize: "0.64rem" }}>Linear: {Math.round(total.lin).toLocaleString()}</div>
+                      </div>
+                      <button className="button" onClick={() => openPickerFor(sideIdx)}>+ Add</button>
+                    </div>
+                  </div>
+                  <div className="list" style={{ marginTop: 10 }}>
+                    {side.assets.map((r) => {
+                      const edge = getPlayerEdge(r);
+                      return (
+                        <div className="asset-row" key={`${side.label}-${r.name}`}>
+                          <div>
+                            <div className="asset-name">
+                              <span style={{ cursor: "pointer", textDecoration: "underline dotted" }} onClick={() => openPlayerPopup?.(r)}>{r.name}</span>
+                              {edge.signal && (
+                                <span className="badge" style={{ marginLeft: 6, fontSize: "0.6rem", padding: "1px 4px",
+                                  color: edge.signal === "BUY" ? "var(--green)" : "var(--red)",
+                                  borderColor: edge.signal === "BUY" ? "var(--green)" : "var(--red)" }}>
+                                  {edge.signal} {edge.edgePct}%
+                                </span>
+                              )}
+                            </div>
+                            <div className="asset-meta">{r.pos} · Consensus {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
+                          </div>
+                          <button className="button" onClick={() => removeFromSide(r.name, sideIdx)}>Remove</button>
+                        </div>
+                      );
+                    })}
+                    {side.assets.length === 0 && <div className="muted">No assets yet.</div>}
+                  </div>
+                  {/* Balancers (2-team mode only) */}
+                  {sides.length === 2 && isUnderpaying && balancers.length > 0 && (
+                    <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(86,214,255,0.06)", borderRadius: 6 }}>
+                      <div className="label" style={{ fontSize: "0.68rem", marginBottom: 4 }}>To balance, consider adding:</div>
+                      {balancers.map((b) => (
+                        <button key={b.name} className="button-reset muted" style={{ display: "block", fontSize: "0.72rem", cursor: "pointer" }}
+                          onClick={() => { const row = rowByName.get(b.name); if (row) addToSide(row, sideIdx); }}>
+                          {b.name} ({b.pos}) · {b.value.toLocaleString()}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {/* Balancers (3+ team mode) - show on the underpaying team */}
+                  {multiBalancers && sideIdx === multiBalancers.underpayingIdx && multiBalancers.suggestions.length > 0 && (
+                    <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(86,214,255,0.06)", borderRadius: 6 }}>
+                      <div className="label" style={{ fontSize: "0.68rem", marginBottom: 4 }}>
+                        To balance (Side {sides[multiBalancers.overpayingIdx]?.label} overpays by {Math.round(multiBalancers.gap).toLocaleString()}):
+                      </div>
+                      {multiBalancers.suggestions.map((b) => (
+                        <button key={b.name} className="button-reset muted" style={{ display: "block", fontSize: "0.72rem", cursor: "pointer" }}
+                          onClick={() => { const row = rowByName.get(b.name); if (row) addToSide(row, sideIdx); }}>
+                          {b.name} ({b.pos}) · {b.value.toLocaleString()}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })}
           </div>
 
           {/* ── Suggestions Panel ─────────────────────────────────── */}
@@ -715,36 +946,38 @@ export default function TradePage() {
             )}
           </div>
 
-          {/* Sticky verdict tray */}
-          <div className="trade-sticky-tray">
-            <div className="trade-tray-main">
-              <div>
-                <div className="label">Side A</div>
-                <div className="value" style={{ fontSize: "1.0rem" }}>{Math.round(pwTotalA).toLocaleString()}</div>
-              </div>
-              <div style={{ flex: 1, maxWidth: 220 }}>
-                {/* Verdict bar */}
-                <div style={{ position: "relative", height: 10, background: "var(--border)", borderRadius: 5, overflow: "hidden", margin: "6px 0" }}>
-                  <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, var(--green), transparent 40%, transparent 60%, var(--red))", opacity: 0.3, borderRadius: 5 }} />
-                  <div style={{
-                    position: "absolute", top: -1, width: 12, height: 12, borderRadius: "50%",
-                    background: colorFromGap(pwGap) === "green" ? "var(--green)" : colorFromGap(pwGap) === "red" ? "var(--red)" : "var(--cyan)",
-                    border: "2px solid var(--bg)", left: `calc(${verdictBarPosition(pwGap)}% - 6px)`, transition: "left 0.3s",
-                  }} />
+          {/* Sticky verdict tray (kept for scroll context, 2-team only) */}
+          {sides.length === 2 && (
+            <div className="trade-sticky-tray">
+              <div className="trade-tray-main">
+                <div>
+                  <div className="label">Side A</div>
+                  <div className="value" style={{ fontSize: "1.0rem" }}>{Math.round(pwTotalA).toLocaleString()}</div>
                 </div>
-                <div className={`verdict ${colorFromGap(pwGap)}`} style={{ textAlign: "center", fontSize: "0.82rem" }}>
-                  {verdictFromGap(pwGap)}{pctGap > 0 ? ` (${pctGap}%)` : ""}
+                <div style={{ flex: 1, maxWidth: 220 }}>
+                  {/* Verdict bar */}
+                  <div style={{ position: "relative", height: 10, background: "var(--border)", borderRadius: 5, overflow: "hidden", margin: "6px 0" }}>
+                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, var(--green), transparent 40%, transparent 60%, var(--red))", opacity: 0.3, borderRadius: 5 }} />
+                    <div style={{
+                      position: "absolute", top: -1, width: 12, height: 12, borderRadius: "50%",
+                      background: colorFromGap(pwGap) === "green" ? "var(--green)" : colorFromGap(pwGap) === "red" ? "var(--red)" : "var(--cyan)",
+                      border: "2px solid var(--bg)", left: `calc(${verdictBarPosition(pwGap)}% - 6px)`, transition: "left 0.3s",
+                    }} />
+                  </div>
+                  <div className={`verdict ${colorFromGap(pwGap)}`} style={{ textAlign: "center", fontSize: "0.82rem" }}>
+                    {verdictFromGap(pwGap)}{pctGap > 0 ? ` (${pctGap}%)` : ""}
+                  </div>
+                  <div className="muted" style={{ fontSize: "0.66rem", textAlign: "center" }}>
+                    Gap {Math.round(pwGap).toLocaleString()}
+                  </div>
                 </div>
-                <div className="muted" style={{ fontSize: "0.66rem", textAlign: "center" }}>
-                  Gap {Math.round(pwGap).toLocaleString()}
+                <div>
+                  <div className="label">Side B</div>
+                  <div className="value" style={{ fontSize: "1.0rem" }}>{Math.round(pwTotalB).toLocaleString()}</div>
                 </div>
-              </div>
-              <div>
-                <div className="label">Side B</div>
-                <div className="value" style={{ fontSize: "1.0rem" }}>{Math.round(pwTotalB).toLocaleString()}</div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Picker overlay */}
           {pickerOpen && (
@@ -752,7 +985,7 @@ export default function TradePage() {
               <div className="picker-sheet" onClick={(e) => e.stopPropagation()}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                   <div>
-                    <h3 style={{ margin: 0 }}>Add Asset to Side {activeSide}</h3>
+                    <h3 style={{ margin: 0 }}>Add Asset to Side {sides[activeSide]?.label || "?"}</h3>
                     <p className="muted" style={{ margin: "4px 0 0 0", fontSize: "0.76rem" }}>Tap a player/pick to add instantly.</p>
                   </div>
                   <button className="button" onClick={() => setPickerOpen(false)}>Close</button>
@@ -798,10 +1031,6 @@ export default function TradePage() {
                           { col: "name", label: "Player" },
                           { col: "pos", label: "Pos", style: { width: 50 } },
                           { col: "value", label: "Our Value", style: { width: 80, textAlign: "right" } },
-                          // One sortable column per registered ranking source,
-                          // enumerated from the shared RANKING_SOURCES registry
-                          // so newly-added sources (DLF, etc.) surface here
-                          // without touching this component.
                           ...RANKING_SOURCES.map((src) => ({
                             col: `src:${src.key}`,
                             label: src.columnLabel,
