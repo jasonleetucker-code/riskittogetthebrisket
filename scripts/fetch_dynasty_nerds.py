@@ -13,7 +13,7 @@ Premium) array, filters out rows whose ``value`` is 0 (deep rookies
 Dynasty Nerds lists but has not yet valued), and writes a CSV at the
 authoritative source-CSV location:
 
-    exports/latest/site_raw/dynastyNerdsSfTep.csv
+    CSVs/site_raw/dynastyNerdsSfTep.csv
 
 Columns: Name, Rank, Value, SleeperId
 
@@ -60,7 +60,7 @@ UA = (
 )
 REPO_ROOT = Path(__file__).resolve().parents[1]
 # Authoritative CSV location — read by src/api/data_contract.py
-DEFAULT_DST = REPO_ROOT / "exports" / "latest" / "site_raw" / "dynastyNerdsSfTep.csv"
+DEFAULT_DST = REPO_ROOT / "CSVs" / "site_raw" / "dynastyNerdsSfTep.csv"
 # Mirror location — populated by the legacy scraper pipeline
 DATA_DIR_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "dynastyNerdsSfTep.csv"
 
@@ -181,7 +181,7 @@ def main(argv: list[str] | None = None) -> int:
         "--dest",
         type=Path,
         default=DEFAULT_DST,
-        help="CSV path to write (default: exports/latest/site_raw/dynastyNerdsSfTep.csv).",
+        help="CSV path to write (default: CSVs/site_raw/dynastyNerdsSfTep.csv).",
     )
     parser.add_argument(
         "--mirror-data-dir",

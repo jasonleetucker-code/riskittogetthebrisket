@@ -23,7 +23,7 @@
       "scoring_context": "dynasty superflex TEP (KTC crowdsourced values)",
       "includes_sf": true,
       "includes_tep": true,
-      "file": "exports/latest/site_raw/ktc.csv",
+      "file": "CSVs/site_raw/ktc.csv",
       "signal_type": "value",
       "scope": {
         "kind": "overall_offense",
@@ -46,7 +46,7 @@
       "scoring_context": "dynasty SF TEP (IDPTradeCalc offense+IDP values via API+autocomplete)",
       "includes_sf": true,
       "includes_tep": true,
-      "file": "exports/latest/site_raw/idpTradeCalc.csv",
+      "file": "CSVs/site_raw/idpTradeCalc.csv",
       "signal_type": "value",
       "scope": {
         "kind": "overall_idp",
@@ -70,7 +70,7 @@
       "scoring_context": "dynasty superflex IDP (DLF expert consensus, full-board DL/LB/DB)",
       "includes_sf": true,
       "includes_tep": true,
-      "file": "exports/latest/site_raw/dlfIdp.csv",
+      "file": "CSVs/site_raw/dlfIdp.csv",
       "signal_type": "rank",
       "scope": {
         "kind": "overall_idp",
@@ -94,7 +94,7 @@
       "scoring_context": "dynasty superflex (FantasyPros expert consensus ECR, QB/RB/WR/TE)",
       "includes_sf": true,
       "includes_tep": false,
-      "file": "exports/latest/site_raw/fantasyProsSf.csv",
+      "file": "CSVs/site_raw/fantasyProsSf.csv",
       "signal_type": "rank",
       "scope": {
         "kind": "overall_offense",

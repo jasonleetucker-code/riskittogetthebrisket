@@ -38,7 +38,7 @@ from src.api.data_contract import (
 from src.canonical.idp_backbone import SOURCE_SCOPE_OVERALL_OFFENSE
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DN_CSV = REPO_ROOT / "exports" / "latest" / "site_raw" / "dynastyNerdsSfTep.csv"
+DN_CSV = REPO_ROOT / "CSVs" / "site_raw" / "dynastyNerdsSfTep.csv"
 
 
 def _dn_csv_rows() -> list[dict[str, str]]:

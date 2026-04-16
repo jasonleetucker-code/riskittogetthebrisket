@@ -83,7 +83,7 @@ ensure_directory <- function(path) {
 }
 
 list_files_by_patterns <- function(project_root, patterns) {
-  roots <- c(project_root, file.path(project_root, "data"))
+  roots <- c(project_root, file.path(project_root, "CSVs"), file.path(project_root, "data"))
   files <- character()
   for (d in roots) {
     if (!dir.exists(d)) next

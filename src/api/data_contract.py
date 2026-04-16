@@ -152,10 +152,10 @@ _QUARANTINE_FLAGS = {
 #     value via _RANK_TO_SYNTHETIC_VALUE so the downstream descending
 #     sort in _compute_unified_rankings produces the correct ordinal)
 _SOURCE_CSV_PATHS: dict[str, Any] = {
-    "ktc": "exports/latest/site_raw/ktc.csv",
-    "idpTradeCalc": "exports/latest/site_raw/idpTradeCalc.csv",
+    "ktc": "CSVs/site_raw/ktc.csv",
+    "idpTradeCalc": "CSVs/site_raw/idpTradeCalc.csv",
     "dlfIdp": {
-        "path": "exports/latest/site_raw/dlfIdp.csv",
+        "path": "CSVs/site_raw/dlfIdp.csv",
         "signal": "rank",
     },
     # DLF Dynasty Superflex rankings — offense expert consensus.
@@ -164,7 +164,7 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # reader uses column-name aliases so we can point directly at the
     # original filename without any preprocessing.
     "dlfSf": {
-        "path": "exports/latest/site_raw/Dynasty Superflex Rankings-3-15-2026-1642.csv",
+        "path": "CSVs/site_raw/Dynasty Superflex Rankings-3-15-2026-1642.csv",
         "signal": "rank",
     },
     # Dynasty Nerds Superflex + TE Premium rankings — scraped from
@@ -175,7 +175,7 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # ``_enrich_from_source_csvs`` reader uses the rank column, not
     # the raw DN value.
     "dynastyNerdsSfTep": {
-        "path": "exports/latest/site_raw/dynastyNerdsSfTep.csv",
+        "path": "CSVs/site_raw/dynastyNerdsSfTep.csv",
         "signal": "rank",
     },
     # FantasyPros Dynasty Superflex rankings — scraped from
@@ -185,7 +185,7 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # filtered to offensive positions (QB/RB/WR/TE).  Signal=rank so
     # the ``_enrich_from_source_csvs`` reader uses the rank column.
     "fantasyProsSf": {
-        "path": "exports/latest/site_raw/fantasyProsSf.csv",
+        "path": "CSVs/site_raw/fantasyProsSf.csv",
         "signal": "rank",
     },
     # FantasyPros Dynasty IDP rankings — scraped from the four dynasty
@@ -199,7 +199,7 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # column via the _RANK_ALIASES + _NAME_ALIASES handshake below so
     # the standard rank-signal path picks it up.
     "fantasyProsIdp": {
-        "path": "exports/latest/site_raw/fantasyProsIdp.csv",
+        "path": "CSVs/site_raw/fantasyProsIdp.csv",
         "signal": "rank",
     },
 }
@@ -527,7 +527,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
     },
     {
         # DLF (Dynasty League Football) full-board IDP rankings.  The raw
-        # export (`dlf_idp.csv` → `exports/latest/site_raw/dlfIdp.csv`) is
+        # export (`dlf_idp.csv` → `CSVs/site_raw/dlfIdp.csv`) is
         # a 185-player expert consensus covering DL/LB/DB together, so it
         # lives in the overall_idp scope alongside IDPTradeCalc.  It is
         # NOT a backbone source — IDPTradeCalc remains authoritative for
@@ -1928,7 +1928,7 @@ def _enrich_from_source_csvs(
         # `Name` / `Rank` columns plus extra columns (Avg, Pos, Team,
         # Age, individual expert columns, Value, Follow).  We accept a
         # small set of aliases so a freshly-downloaded DLF CSV can be
-        # dropped into ``exports/latest/site_raw/`` without any
+        # dropped into ``CSVs/site_raw/`` without any
         # preprocessing step.
         _NAME_ALIASES = ("name", "Name", "player", "Player", "player_name", "PlayerName")
         _RANK_ALIASES = (

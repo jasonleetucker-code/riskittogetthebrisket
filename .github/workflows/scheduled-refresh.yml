@@ -2,7 +2,7 @@ name: Scheduled Data Refresh
 
 # Runs the scraper + canonical rebuild every 3 hours.
 # This keeps the site data fresh without manual intervention.
-# The scraper itself is idempotent and overwrites exports/latest/site_raw/.
+# The scraper itself is idempotent and overwrites CSVs/site_raw/.
 
 on:
   schedule:
@@ -56,16 +56,22 @@ jobs:
           }
           echo "::endgroup::"
 
+          # Mirror scraper site_raw output to the tracked CSVs/ directory
+          if [[ -d "exports/latest/site_raw" ]]; then
+            mkdir -p CSVs/site_raw
+            cp -v exports/latest/site_raw/*.csv CSVs/site_raw/ 2>/dev/null || true
+          fi
+
           # Verify at least KTC data was produced (primary source)
-          if [[ -f "exports/latest/site_raw/ktc.csv" ]]; then
-            KTC_LINES=$(wc -l < "exports/latest/site_raw/ktc.csv")
+          if [[ -f "CSVs/site_raw/ktc.csv" ]]; then
+            KTC_LINES=$(wc -l < "CSVs/site_raw/ktc.csv")
             echo "KTC CSV: ${KTC_LINES} lines"
             if (( KTC_LINES < 100 )); then
               echo "::error title=KTC data too small::Only ${KTC_LINES} lines in KTC export"
               exit 1
             fi
           else
-            echo "::error title=KTC data missing::exports/latest/site_raw/ktc.csv not found"
+            echo "::error title=KTC data missing::CSVs/site_raw/ktc.csv not found"
             exit 1
           fi
 
@@ -108,7 +114,7 @@ jobs:
           set -Eeuo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/
+          git add -f CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/
           if git diff --cached --quiet; then
             echo "No data changes to commit"
           else
@@ -141,7 +147,7 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Source | Lines | Status |" >> "$GITHUB_STEP_SUMMARY"
           echo "|--------|-------|--------|" >> "$GITHUB_STEP_SUMMARY"
-          for csv in exports/latest/site_raw/*.csv; do
+          for csv in CSVs/site_raw/*.csv; do
             name=$(basename "$csv" .csv)
             lines=$(wc -l < "$csv" 2>/dev/null || echo "0")
             status="OK"

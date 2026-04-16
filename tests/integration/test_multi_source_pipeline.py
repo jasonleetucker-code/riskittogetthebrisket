@@ -19,7 +19,7 @@ if str(REPO) not in sys.path:
 class TestTwoSourceBlending:
     def test_scraper_bridge_loads_ktc(self):
         from src.adapters.scraper_bridge_adapter import ScraperBridgeAdapter
-        ktc_path = REPO / "exports" / "latest" / "site_raw" / "ktc.csv"
+        ktc_path = REPO / "CSVs" / "site_raw" / "ktc.csv"
         if not ktc_path.exists():
             pytest.skip("ktc.csv not present in exports")
         adapter = ScraperBridgeAdapter(
@@ -31,7 +31,7 @@ class TestTwoSourceBlending:
 
     def test_scraper_bridge_loads_idptradecalc(self):
         from src.adapters.scraper_bridge_adapter import ScraperBridgeAdapter
-        idp_path = REPO / "exports" / "latest" / "site_raw" / "idpTradeCalc.csv"
+        idp_path = REPO / "CSVs" / "site_raw" / "idpTradeCalc.csv"
         if not idp_path.exists():
             pytest.skip("idpTradeCalc.csv not present in exports")
         adapter = ScraperBridgeAdapter(
@@ -50,8 +50,8 @@ class TestTwoSourceBlending:
         )
         from src.data_models import RawAssetRecord
 
-        ktc_path = REPO / "exports" / "latest" / "site_raw" / "ktc.csv"
-        idp_path = REPO / "exports" / "latest" / "site_raw" / "idpTradeCalc.csv"
+        ktc_path = REPO / "CSVs" / "site_raw" / "ktc.csv"
+        idp_path = REPO / "CSVs" / "site_raw" / "idpTradeCalc.csv"
         if not ktc_path.exists() or not idp_path.exists():
             pytest.skip("Required CSV exports not present")
 
