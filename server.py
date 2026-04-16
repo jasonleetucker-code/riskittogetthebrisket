@@ -3131,9 +3131,7 @@ async def serve_rosters(request: Request):
 
 @app.get("/draft-capital", response_class=HTMLResponse)
 async def serve_draft_capital(request: Request):
-    redirect = _require_auth_or_redirect(request, "/draft-capital")
-    if redirect is not None:
-        return redirect
+    # Public page — no auth required
     return await _serve_app_shell("/draft-capital")
 
 
