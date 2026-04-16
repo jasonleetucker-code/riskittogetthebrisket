@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import { PageHeader, LoadingState, EmptyState } from "@/components/ui";
 
+/** Format a dollar value, showing one decimal only when fractional. */
+function fmtDollar(v) {
+  if (v == null) return "$0";
+  return `$${v % 1 ? v.toFixed(1) : v}`;
+}
+
 /**
  * Draft Capital — auction-dollar pick values from the dynasty draft curve.
  * Pick ownership from Sleeper. Public page (no auth required).
@@ -49,6 +55,8 @@ export default function DraftCapitalPage() {
         />
         <TeamTotalsChart teamTotals={data.teamTotals} picks={data.picks} totalBudget={data.totalBudget} numTeams={data.numTeams} draftRounds={data.draftRounds} season={data.season} />
       </div>
+
+      <PickValueGrid picks={data.picks} draftRounds={data.draftRounds} numTeams={data.numTeams} />
 
       <PicksByRound picks={data.picks} draftRounds={data.draftRounds} />
     </section>
@@ -137,7 +145,7 @@ function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds
                     color: "var(--green)",
                   }}
                 >
-                  ${team.auctionDollars}
+                  {fmtDollar(team.auctionDollars)}
                 </span>
 
                 <span className="badge badge-cyan" style={{ fontSize: "0.64rem", padding: "1px 6px" }}>
@@ -196,7 +204,7 @@ function PicksByRound({ picks, draftRounds }) {
   const rounds = [];
   for (let round = 1; round <= (draftRounds || 4); round++) {
     const roundPicks = (picks || []).filter((p) => p.round === round);
-    const roundTotal = roundPicks.reduce((s, p) => s + (p.adjustedDollarValue || p.dollarValue || 0), 0);
+    const roundTotal = roundPicks.reduce((s, p) => s + (p.adjustedDollarValue ?? p.dollarValue ?? 0), 0);
     rounds.push({ round, picks: roundPicks, total: roundTotal });
   }
 
@@ -206,7 +214,7 @@ function PicksByRound({ picks, draftRounds }) {
         <div key={round} className="card">
           <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-sm)", marginBottom: "var(--space-sm)" }}>
             <span style={{ fontWeight: 700, fontSize: "0.88rem" }}>Round {round}</span>
-            <span className="badge badge-green" style={{ fontSize: "0.64rem" }}>${total}</span>
+            <span className="badge badge-green" style={{ fontSize: "0.64rem" }}>{fmtDollar(total)}</span>
             <span className="text-xs muted">{roundPicks.length} picks</span>
           </div>
           <div className="table-wrap">
@@ -223,7 +231,7 @@ function PicksByRound({ picks, draftRounds }) {
                 {roundPicks.map((pick, idx) => (
                   <tr key={idx}>
                     <td className="font-mono font-bold">{pick.pick}</td>
-                    <td className="font-mono font-bold text-green">${pick.dollarValue}</td>
+                    <td className="font-mono font-bold text-green">{fmtDollar(pick.adjustedDollarValue ?? pick.dollarValue)}</td>
                     <td style={{ fontWeight: 600 }}>{pick.currentOwner}</td>
                     <td>
                       {pick.isTraded ? (
@@ -240,5 +248,64 @@ function PicksByRound({ picks, draftRounds }) {
         </div>
       ))}
     </>
+  );
+}
+
+/* ── Pick Value Reference Grid ────────────────────────────────────────── */
+
+function PickValueGrid({ picks, draftRounds, numTeams }) {
+  if (!picks || !picks.length) return null;
+
+  const rounds = [];
+  for (let r = 1; r <= (draftRounds || 6); r++) {
+    rounds.push((picks || []).filter((p) => p.round === r));
+  }
+
+  return (
+    <div className="card">
+      <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-sm)", marginBottom: "var(--space-sm)" }}>
+        <span style={{ fontWeight: 700, fontSize: "0.88rem" }}>Pick Values</span>
+        <span className="text-xs muted">Adjusted values used for team totals (expansion picks 1 &amp; 2 averaged)</span>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style={{ width: 70 }}>Round</th>
+              {Array.from({ length: numTeams || 12 }, (_, i) => (
+                <th key={i} style={{ textAlign: "right", fontSize: "0.72rem", minWidth: 44 }}>Pk {i + 1}</th>
+              ))}
+              <th style={{ textAlign: "right", fontWeight: 700, minWidth: 50 }}>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rounds.map((rp, ri) => {
+              const total = rp.reduce((s, p) => s + (p.adjustedDollarValue ?? p.dollarValue ?? 0), 0);
+              return (
+                <tr key={ri}>
+                  <td className="font-mono font-bold">R{ri + 1}</td>
+                  {rp.map((p, j) => (
+                    <td
+                      key={j}
+                      className="font-mono"
+                      style={{
+                        textAlign: "right",
+                        fontSize: "0.76rem",
+                        color: p.isExpansion ? "var(--amber)" : undefined,
+                      }}
+                    >
+                      {fmtDollar(p.adjustedDollarValue ?? p.dollarValue)}
+                    </td>
+                  ))}
+                  <td className="font-mono font-bold text-green" style={{ textAlign: "right" }}>
+                    {fmtDollar(total)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
