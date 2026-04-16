@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-16T14:27:56.773834",
+  "generatedAt": "2026-04-16T17:01:59.470388",
   "date": "2026-04-16",
   "files": [
     "dynasty_data.js",
@@ -8,17 +8,10 @@
     "dynasty_values.csv",
     "site_raw"
   ],
-  "siteRawCount": 8,
+  "siteRawCount": 2,
   "siteRawFresh": [
     "idpTradeCalc.csv",
     "ktc.csv"
   ],
-  "siteRawPreserved": [
-    "Dynasty IDP Rankings-3-13-2026-1154.csv",
-    "Dynasty Superflex Rankings-3-15-2026-1642.csv",
-    "dlfIdp.csv",
-    "dynastyNerdsSfTep.csv",
-    "fantasyProsIdp.csv",
-    "fantasyProsSf.csv"
-  ]
+  "siteRawPreserved": []
 }
