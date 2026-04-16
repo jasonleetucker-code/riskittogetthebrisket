@@ -35,8 +35,8 @@ test-results/
 # Generated scraper outputs
 dynasty_data.js
 dynasty_data_*.json
-dynasty_full.csv
-dynasty_values.csv
+CSVs/dynasty_full.csv
+CSVs/dynasty_values.csv
 data/
 exports/
 

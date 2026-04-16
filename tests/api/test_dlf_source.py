@@ -58,7 +58,7 @@ def _row(name: str, pos: str, *, idp=None, dlf=None, ktc=None) -> dict:
     }
 
 
-# ── Preprocessor: raw DLF export → exports/latest/site_raw/dlfIdp.csv ──
+# ── Preprocessor: raw DLF export → CSVs/site_raw/dlfIdp.csv ──
 
 
 class TestDlfCsvPreprocessor(unittest.TestCase):
@@ -137,7 +137,7 @@ class TestDlfCsvEnrichment(unittest.TestCase):
     ) -> None:
         """Rewrite _SOURCE_CSV_PATHS for the duration of the test so we
         can point dlfIdp at a temporary file without touching the real
-        exports/latest/site_raw tree.
+        CSVs/site_raw tree.
         """
         import tempfile
 

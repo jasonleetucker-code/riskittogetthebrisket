@@ -266,7 +266,7 @@ class TestIdpTradeCalcPicksSurviveEnrichment(unittest.TestCase):
         self.contract = _load_contract()
         if self.contract is None:
             self.skipTest("No live scraper export available")
-        csv_path = _REPO / "exports" / "latest" / "site_raw" / "idpTradeCalc.csv"
+        csv_path = _REPO / "CSVs" / "site_raw" / "idpTradeCalc.csv"
         if not csv_path.exists():
             self.skipTest("No idpTradeCalc.csv snapshot")
         self.csv_picks: list[str] = []

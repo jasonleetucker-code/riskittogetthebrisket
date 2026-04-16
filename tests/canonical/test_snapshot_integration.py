@@ -33,7 +33,7 @@ def _load_source_records() -> list[RawAssetRecord]:
     ]
     records: list[RawAssetRecord] = []
     for source_id, universe, filename in sources:
-        csv_path = REPO_ROOT / "exports" / "latest" / "site_raw" / filename
+        csv_path = REPO_ROOT / "CSVs" / "site_raw" / filename
         if not csv_path.exists():
             continue
         adapter = ScraperBridgeAdapter(
@@ -51,7 +51,7 @@ def _load_source_records() -> list[RawAssetRecord]:
 def source_records():
     records = _load_source_records()
     if not records:
-        pytest.skip("KTC/IDPTradeCalc CSVs not available in exports/latest/site_raw/")
+        pytest.skip("KTC/IDPTradeCalc CSVs not available in CSVs/site_raw/")
     return records
 
 

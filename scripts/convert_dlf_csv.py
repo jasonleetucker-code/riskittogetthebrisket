@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Convert a raw DLF (Dynasty League Football) export CSV into the
 `name,rank` shape that the scope-aware unified ranking pipeline expects
-under ``exports/latest/site_raw/``.
+under ``CSVs/site_raw/``.
 
 The raw DLF IDP file (e.g. ``dlf_idp.csv``) has columns:
 
@@ -30,7 +30,7 @@ Usage
 
     python scripts/convert_dlf_csv.py \\
         --in dlf_idp.csv \\
-        --out exports/latest/site_raw/dlfIdp.csv
+        --out CSVs/site_raw/dlfIdp.csv
 """
 from __future__ import annotations
 

@@ -77,7 +77,7 @@ def main() -> int:
         print(
             f"[canonical_build] ERROR: raw source snapshot {raw_file.name} "
             f"contains zero source snapshots.  source_pull produced no "
-            f"records — check the scraper output in exports/latest/site_raw/.",
+            f"records — check the scraper output in CSVs/site_raw/.",
             file=sys.stderr,
         )
         return 1

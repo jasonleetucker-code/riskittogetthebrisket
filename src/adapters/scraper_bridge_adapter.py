@@ -1,7 +1,7 @@
 """Adapter that reads per-site CSV exports from the legacy scraper.
 
 The legacy scraper (``Dynasty Scraper.py``) writes per-site raw data to
-``exports/latest/site_raw/{key}.csv`` in a uniform ``name,value`` format.
+``CSVs/site_raw/{key}.csv`` in a uniform ``name,value`` format.
 This adapter reads those CSVs and produces :class:`RawAssetRecord` objects
 suitable for the canonical pipeline, without performing any live scraping.
 
@@ -62,7 +62,7 @@ class ScraperBridgeAdapter:
         if not file_path or not file_path.is_file():
             result.warnings.append(
                 f"Scraper bridge: file not found — {file_path}. "
-                "Run the legacy scraper to produce exports/latest/site_raw/ CSVs."
+                "Run the legacy scraper to produce CSVs/site_raw/ CSVs."
             )
             return result
 

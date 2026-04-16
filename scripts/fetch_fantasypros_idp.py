@@ -51,7 +51,7 @@ This is the SAME formula used in
 Output CSV
 ----------
 
-Written to ``exports/latest/site_raw/fantasyProsIdp.csv`` with columns:
+Written to ``CSVs/site_raw/fantasyProsIdp.csv`` with columns:
 
     name, originalRank, effectiveRank, derivationMethod, family,
     normalizedValue, matchedSourceName, position, team
@@ -100,7 +100,7 @@ UA = (
     "(KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
 )
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DST = REPO_ROOT / "exports" / "latest" / "site_raw" / "fantasyProsIdp.csv"
+DEFAULT_DST = REPO_ROOT / "CSVs" / "site_raw" / "fantasyProsIdp.csv"
 DATA_DIR_DST = REPO_ROOT / "data" / "exports" / "latest" / "site_raw" / "fantasyProsIdp.csv"
 
 # Minimum row counts.  The dynasty IDP boards are small — combined
@@ -439,7 +439,7 @@ def main(argv: list[str] | None = None) -> int:
         "--dest",
         type=Path,
         default=DEFAULT_DST,
-        help="CSV path to write (default: exports/latest/site_raw/fantasyProsIdp.csv).",
+        help="CSV path to write (default: CSVs/site_raw/fantasyProsIdp.csv).",
     )
     parser.add_argument(
         "--mirror-data-dir",

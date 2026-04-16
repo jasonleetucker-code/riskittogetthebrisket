@@ -199,7 +199,7 @@ class TestRealKtcExport:
     @pytest.fixture
     def real_csv(self):
         from pathlib import Path
-        p = Path(__file__).resolve().parent.parent.parent / "exports" / "latest" / "site_raw" / "ktc.csv"
+        p = Path(__file__).resolve().parent.parent.parent / "CSVs" / "site_raw" / "ktc.csv"
         if not p.exists():
             pytest.skip("KTC export not available")
         return p

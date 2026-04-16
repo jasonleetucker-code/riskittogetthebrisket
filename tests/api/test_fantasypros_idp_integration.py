@@ -22,7 +22,7 @@ from src.api.data_contract import (
 from src.canonical.idp_backbone import SOURCE_SCOPE_OVERALL_IDP
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-FP_CSV = REPO_ROOT / "exports" / "latest" / "site_raw" / "fantasyProsIdp.csv"
+FP_CSV = REPO_ROOT / "CSVs" / "site_raw" / "fantasyProsIdp.csv"
 LIVE_API_JSON = REPO_ROOT / "tests" / "api" / "_live_api_fixture.json"
 
 

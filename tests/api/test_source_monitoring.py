@@ -163,7 +163,7 @@ class TestParseErrors(unittest.TestCase):
             self.skipTest("No live data")
 
         bogus_paths = dict(_SOURCE_CSV_PATHS)
-        bogus_paths["ktc"] = "exports/latest/site_raw/nonexistent-ktc.csv"
+        bogus_paths["ktc"] = "CSVs/site_raw/nonexistent-ktc.csv"
         with mock.patch(
             "src.api.data_contract._SOURCE_CSV_PATHS", bogus_paths
         ):

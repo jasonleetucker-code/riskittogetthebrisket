@@ -1158,7 +1158,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
 
             # Mirror fresh site_raw CSVs from the scraper's DATA_DIR output
             # path (data/exports/latest/site_raw/) back to the repo's
-            # tracked exports/latest/site_raw/ directory so that the CSV
+            # tracked CSVs/site_raw/ directory so that the CSV
             # enrichment in data_contract.py (which reads relative to repo
             # root) sees up-to-date values.  Without this, enrichment reads
             # permanently-stale CSVs from git history.  Only copies KTC and
@@ -1167,7 +1167,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             try:
                 import shutil as _sh
                 src_raw = DATA_DIR / "exports" / "latest" / "site_raw"
-                dst_raw = BASE_DIR / "exports" / "latest" / "site_raw"
+                dst_raw = BASE_DIR / "CSVs" / "site_raw"
                 if src_raw.exists() and dst_raw.exists():
                     for fname in ("ktc.csv", "idpTradeCalc.csv"):
                         src_file = src_raw / fname
@@ -2267,7 +2267,7 @@ async def get_scaffold_promotion():
 # ── DRAFT CAPITAL ──────────────────────────────────────────────────────
 # Pick dollar values from CSV, rookie rankings from KTC (live) or CSV (fallback).
 # Uses a decay curve to fill/extrapolate KTC values to all 72 picks.
-DRAFT_DATA_CSV = Path(__file__).parent / "Copy of Draft Data.xlsx - Draft Data.csv"
+DRAFT_DATA_CSV = Path(__file__).parent / "CSVs" / "draft_data.csv"
 SLEEPER_LEAGUE_ID_FOR_DRAFT = os.getenv("SLEEPER_LEAGUE_ID", "1312006700437352448")
 _KTC_TOTAL_PICKS = 72  # fill rookie data for all 6 rounds (12 teams × 6 rounds)
 DRAFT_TOTAL_BUDGET = 1200  # $100 × 12 teams

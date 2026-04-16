@@ -3513,7 +3513,7 @@ async def run(progress_callback=None):
 
     # ── Save CSV (all players with composites) ──
     # Keep spreadsheet outputs stable so each run overwrites the previous file.
-    fname = os.path.join(SCRIPT_DIR, "dynasty_values.csv")
+    fname = os.path.join(SCRIPT_DIR, "CSVs", "dynasty_values.csv")
     with open(fname, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["Player"] + active_sites)
@@ -6212,7 +6212,7 @@ async def run(progress_callback=None):
     check_value_alerts(dashboard_json)
 
     # ── Save FULL CSV (all players with per-site values and composite) ──
-    full_csv_fname = os.path.join(SCRIPT_DIR, "dynasty_full.csv")
+    full_csv_fname = os.path.join(SCRIPT_DIR, "CSVs", "dynasty_full.csv")
     try:
         site_keys = [site_key_map.get(s, s) for s in active_sites if s in site_key_map]
         with open(full_csv_fname, "w", newline="", encoding="utf-8") as f:
