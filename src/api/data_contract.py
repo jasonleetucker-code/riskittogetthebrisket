@@ -773,6 +773,12 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     # via FP's combined-page rank alone.
     "jack gibbens": "source_gap:idpTradeCalc+dlfIdp — LB only ranked by FantasyPros dynasty IDP",
     "malachi moore": "source_gap:idpTradeCalc+dlfIdp — CB only ranked by FantasyPros dynasty IDP",
+    # ── Offense: FantasyPros-SF-only (not listed by other offense sources) ──
+    # Deep-board prospects that FantasyPros dynasty superflex ranks but
+    # neither KTC, IDPTradeCalc, DLF SF, nor Dynasty Nerds carry.
+    "brenen thompson": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds — deep WR only ranked by FantasyPros dynasty SF",
+    "eric mcalister": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds — deep WR only ranked by FantasyPros dynasty SF",
+    "roman hemby": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds — deep RB only ranked by FantasyPros dynasty SF",
 }
 
 
