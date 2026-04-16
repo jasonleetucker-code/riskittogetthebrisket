@@ -565,7 +565,7 @@ export default function TradePage() {
 
       {!loading && !error && (
         <>
-          <div className="row" style={{ marginBottom: 10, flexWrap: "wrap" }}>
+          <div className="row trade-controls" style={{ marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
             <select className="select" value={valueMode} onChange={(e) => setValueMode(e.target.value)}>
               {VALUE_MODES.map((m) => (<option key={m.key} value={m.key}>{m.label}</option>))}
             </select>
@@ -615,7 +615,7 @@ export default function TradePage() {
                         <div className="value">{Math.round(total.pw).toLocaleString()}</div>
                         <div className="muted" style={{ fontSize: "0.64rem" }}>Linear: {Math.round(total.lin).toLocaleString()}</div>
                       </div>
-                      <button className="button" onClick={() => openPickerFor(sideIdx)}>+ Add</button>
+                      <button className="button trade-add-btn" onClick={() => openPickerFor(sideIdx)}>+ Add</button>
                     </div>
                   </div>
                   <div className="list" style={{ marginTop: 10 }}>
@@ -636,7 +636,7 @@ export default function TradePage() {
                             </div>
                             <div className="asset-meta">{r.pos} · Consensus {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
                           </div>
-                          <button className="button" onClick={() => removeFromSide(r.name, sideIdx)}>Remove</button>
+                          <button className="button trade-remove-btn" onClick={() => removeFromSide(r.name, sideIdx)}>Remove</button>
                         </div>
                       );
                     })}
@@ -983,18 +983,18 @@ export default function TradePage() {
           {pickerOpen && (
             <div className="picker-overlay" onClick={() => setPickerOpen(false)}>
               <div className="picker-sheet" onClick={(e) => e.stopPropagation()}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                  <div>
-                    <h3 style={{ margin: 0 }}>Add Asset to Side {sides[activeSide]?.label || "?"}</h3>
-                    <p className="muted" style={{ margin: "4px 0 0 0", fontSize: "0.76rem" }}>Tap a player/pick to add instantly.</p>
+                <div className="picker-header">
+                  <div style={{ minWidth: 0 }}>
+                    <h3 style={{ margin: 0 }}>Add to Side {sides[activeSide]?.label || "?"}</h3>
+                    <p className="muted picker-subtitle">Tap a player/pick to add instantly.</p>
                   </div>
-                  <button className="button" onClick={() => setPickerOpen(false)}>Close</button>
+                  <button className="picker-close" onClick={() => setPickerOpen(false)} aria-label="Close picker">&times;</button>
                 </div>
-                <div className="row" style={{ marginTop: 10 }}>
+                <div className="picker-search-row">
                   <input
                     ref={pickerInputRef}
                     className="input"
-                    placeholder="Search player or pick"
+                    placeholder="Search player or pick..."
                     value={pickerQuery}
                     onChange={(e) => setPickerQuery(e.target.value)}
                     style={{ flex: 1 }}
@@ -1007,14 +1007,14 @@ export default function TradePage() {
                   </select>
                 </div>
                 {!pickerQuery && recentRows.length > 0 && (
-                  <div style={{ marginTop: 10 }}>
+                  <div className="picker-recent">
                     <div className="label" style={{ marginBottom: 6 }}>Recent</div>
                     <div className="list">
                       {recentRows.slice(0, 8).map((r) => (
                         <button key={`recent-${r.name}`} className="asset-row button-reset" onClick={() => addToActiveSide(r)}>
                           <div>
                             <div className="asset-name">{r.name}</div>
-                            <div className="asset-meta">{r.pos} · Consensus {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
+                            <div className="asset-meta">{r.pos} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
                           </div>
                           <span className="badge">Add</span>
                         </button>
@@ -1022,37 +1022,38 @@ export default function TradePage() {
                     </div>
                   </div>
                 )}
-                <div className="table-wrap" style={{ marginTop: 10, maxHeight: "52vh", overflow: "auto" }}>
+                <div className="picker-table-wrap">
                   <table style={{ width: "100%", fontSize: "0.78rem" }}>
                     <thead>
                       <tr>
                         {[
-                          { col: "rank", label: "Our Rank", style: { width: 70, textAlign: "center" } },
+                          { col: "rank", label: "Rank", className: "picker-rank-col", style: { width: 55, textAlign: "center" } },
                           { col: "name", label: "Player" },
-                          { col: "pos", label: "Pos", style: { width: 50 } },
-                          { col: "value", label: "Our Value", style: { width: 80, textAlign: "right" } },
+                          { col: "pos", label: "Pos", style: { width: 46 } },
+                          { col: "value", label: "Value", style: { width: 70, textAlign: "right" } },
                           ...RANKING_SOURCES.map((src) => ({
                             col: `src:${src.key}`,
                             label: src.columnLabel,
+                            className: "picker-source-col",
                             style: { width: 65, textAlign: "right" },
                           })),
-                        ].map(({ col, label, style }) => (
-                          <th key={col} style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", ...style }}
+                        ].map(({ col, label, style, className }) => (
+                          <th key={col} className={className || undefined} style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", ...style }}
                             onClick={() => {
                               if (pickerSortCol === col) setPickerSortAsc((p) => !p);
                               else { setPickerSortCol(col); setPickerSortAsc(["rank", "name", "pos"].includes(col)); }
                             }}>
-                            {label}{pickerSortCol === col ? (pickerSortAsc ? " ▲" : " ▼") : ""}
+                            {label}{pickerSortCol === col ? (pickerSortAsc ? " \u25B2" : " \u25BC") : ""}
                           </th>
                         ))}
-                        <th style={{ width: 40 }}></th>
+                        <th className="picker-add-col" style={{ width: 40 }}></th>
                       </tr>
                     </thead>
                     <tbody>
                       {pickerRows.map((r) => (
-                        <tr key={`pick-${r.name}`} style={{ cursor: "pointer" }} onClick={() => addToActiveSide(r)}>
-                          <td style={{ textAlign: "center", fontFamily: "var(--mono, monospace)", fontWeight: 600, color: "var(--cyan)" }}>
-                            {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"}
+                        <tr key={`pick-${r.name}`} className="picker-row" onClick={() => addToActiveSide(r)}>
+                          <td className="picker-rank-col" style={{ textAlign: "center", fontFamily: "var(--mono, monospace)", fontWeight: 600, color: "var(--cyan)" }}>
+                            {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "\u2014"}
                           </td>
                           <td style={{ fontWeight: 600 }}>{r.name}</td>
                           <td><span className={posBadgeClass(r)}>{r.pos}</span></td>
@@ -1063,12 +1064,12 @@ export default function TradePage() {
                             const raw = r.canonicalSites?.[src.key];
                             const hasVal = raw != null && Number.isFinite(Number(raw));
                             return (
-                              <td key={src.key} style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.74rem" }}>
-                                {hasVal ? Math.round(Number(raw)).toLocaleString() : "—"}
+                              <td key={src.key} className="picker-source-col" style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.74rem" }}>
+                                {hasVal ? Math.round(Number(raw)).toLocaleString() : "\u2014"}
                               </td>
                             );
                           })}
-                          <td><span className="badge" style={{ fontSize: "0.6rem" }}>Add</span></td>
+                          <td className="picker-add-col"><span className="badge" style={{ fontSize: "0.6rem" }}>Add</span></td>
                         </tr>
                       ))}
                     </tbody>
