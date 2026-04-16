@@ -7,11 +7,23 @@ import { useSettings } from "@/components/useSettings";
 export function useDynastyData() {
   // Read user-level source overrides from settings so per-source
   // toggles and weight sliders actually affect the rendered board.
-  // `buildRows` forwards these to `computeUnifiedRanks`, which
-  // bypasses backend-stamped fields whenever the user's configuration
-  // diverges from the canonical registry defaults.
+  // When the user has customized anything, ``fetchDynastyData`` routes
+  // through the backend override endpoint (``POST
+  // /api/rankings/overrides?view=delta``) which re-runs the canonical
+  // ranking pipeline in ``src/api/data_contract.py`` with the
+  // overrides threaded in, then merges the compact delta onto the
+  // cached base contract.  ``buildRows`` is a pure materializer that
+  // reads the already-canonical rows off the merged contract; there
+  // is no client-side recompute.
   const { settings } = useSettings();
   const siteOverrides = settings?.siteWeights || null;
+  // Serialize the override map so the effect's dependency array
+  // fires on semantic changes, not reference churn, without forcing
+  // callers to memoize on their side.
+  const siteOverridesKey = useMemo(
+    () => (siteOverrides ? JSON.stringify(siteOverrides) : ""),
+    [siteOverrides],
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [source, setSource] = useState("");
@@ -23,7 +35,7 @@ export function useDynastyData() {
       try {
         setLoading(true);
         setError("");
-        const payload = await fetchDynastyData();
+        const payload = await fetchDynastyData({ siteOverrides });
         if (!active) return;
 
         const data = payload?.data || null;
@@ -51,19 +63,19 @@ export function useDynastyData() {
     return () => {
       active = false;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siteOverridesKey]);
 
   const rows = useMemo(() => {
     try {
-      return buildRows(rawData || {}, { siteOverrides });
+      return buildRows(rawData || {});
     } catch (e) {
       console.error("[useDynastyData] buildRows crashed:", e);
       return [];
     }
-    // Recompute whenever the user's site override map changes so
-    // toggling a source or moving a weight slider immediately
-    // re-blends the rankings.
-  }, [rawData, siteOverrides]);
+    // ``buildRows`` is a pure materializer — override effects are
+    // already baked into ``rawData`` by ``fetchDynastyData`` above.
+  }, [rawData]);
   const siteKeys = useMemo(() => {
     try {
       return getSiteKeys(rawData || {});

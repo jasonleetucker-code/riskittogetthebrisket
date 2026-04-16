@@ -65,6 +65,8 @@ export const EDGE_SECTION_LIMIT = 15;
 /** Items per premium section on Edge page. */
 export const EDGE_PREMIUM_LIMIT = 10;
 
-// ── Overall rank limit ──────────────────────────────────────────────────────
-// Must match backend OVERALL_RANK_LIMIT (800) and frontend dynasty-data.js.
-export const OVERALL_RANK_LIMIT = 800;
+// NOTE: The overall rank cap lives exclusively on the backend
+// (src/api/data_contract.py defines the cap constant).  The
+// frontend trusts the backend's cap and never imports or
+// re-declares it — this keeps a single source of truth and prevents
+// a parallel ranking engine from sneaking back in.

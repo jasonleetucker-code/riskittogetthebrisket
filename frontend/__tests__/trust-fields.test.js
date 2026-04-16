@@ -73,12 +73,11 @@ describe("trust fields from playersArray", () => {
     expect(row.hasSourceDisagreement).toBe(true);
   });
 
-  it("has blendedSourceRank after ranking", () => {
-    // blendedSourceRank is computed by computeUnifiedRanks (fallback),
-    // so it reflects the mean of per-source ordinal ranks, not the raw
-    // backend value (which may be overwritten by the fallback path).
+  it("preserves backend-supplied blendedSourceRank", () => {
+    // blendedSourceRank is stamped by the backend pipeline (mean of
+    // per-source ordinal ranks); the materializer forwards it as-is.
     const row = buildSingle({ blendedSourceRank: 12.5 });
-    expect(typeof row.blendedSourceRank).toBe("number");
+    expect(row.blendedSourceRank).toBe(12.5);
   });
 
   it("preserves sourceRankSpread", () => {
@@ -96,11 +95,12 @@ describe("trust fields from playersArray", () => {
     expect(row.marketGapMagnitude).toBe(30);
   });
 
-  it("computes confidenceBucket fallback when backend value missing", () => {
-    // When backend confidenceBucket is absent, computeUnifiedRanks
-    // computes it from source data.  A single-source player → "low".
+  it("defaults confidenceBucket to 'none' when backend value missing", () => {
+    // The materializer defaults confidenceBucket to "none" when the
+    // backend did not stamp one.  Previously the fallback path would
+    // compute a bucket from source spread, but the fallback is gone.
     const row = buildSingle({ confidenceBucket: undefined });
-    expect(["high", "medium", "low", "none"]).toContain(row.confidenceBucket);
+    expect(row.confidenceBucket).toBe("none");
   });
 
   it("defaults marketGapDirection to 'none' when missing", () => {
@@ -122,6 +122,8 @@ describe("trust fields from legacy players map", () => {
           _sites: 1,
           position: "QB",
           _canonicalSiteValues: { ktc: 7000 },
+          _canonicalConsensusRank: 15,
+          rankDerivedValue: 8200,
         },
       },
       sleeper: { positions: { "Legacy QB": "QB" } },
@@ -130,7 +132,8 @@ describe("trust fields from legacy players map", () => {
     expect(rows.length).toBe(1);
     const row = rows[0];
 
-    // After computeUnifiedRanks runs, the row should have trust fields
+    // After buildRows materializes the backend contract, the row
+    // should carry the trust fields verbatim from the backend.
     expect(row).toHaveProperty("confidenceBucket");
     expect(row).toHaveProperty("anomalyFlags");
     expect(row).toHaveProperty("isSingleSource");
@@ -276,6 +279,8 @@ describe("legacy path picks up mirrored trust fields", () => {
           _sites: 2,
           position: "QB",
           _canonicalSiteValues: { ktc: 8000 },
+          _canonicalConsensusRank: 5,
+          rankDerivedValue: 9200,
           // Backend-mirrored trust fields
           confidenceBucket: "high",
           confidenceLabel: "High — multi-source, tight agreement",
@@ -323,6 +328,8 @@ describe("legacy path picks up mirrored trust fields", () => {
           _sites: 1,
           position: "QB",
           _canonicalSiteValues: { ktc: 7000 },
+          _canonicalConsensusRank: 20,
+          rankDerivedValue: 7500,
         },
       },
       sleeper: { positions: { "Plain QB": "QB" } },
@@ -349,6 +356,8 @@ describe("legacy path picks up mirrored trust fields", () => {
           _sites: 1,
           position: "WR",
           _canonicalSiteValues: { ktc: 6000 },
+          _canonicalConsensusRank: 42,
+          rankDerivedValue: 7800,
           quarantined: true,
           confidenceBucket: "low",
           confidenceLabel: "Low — quarantined due to identity/data-quality flags",

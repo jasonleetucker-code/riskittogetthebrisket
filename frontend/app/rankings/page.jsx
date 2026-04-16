@@ -236,6 +236,99 @@ function EdgeRail({ summary, onPlayerClick }) {
   );
 }
 
+// ── Custom Mix badge ─────────────────────────────────────────────────
+// Renders next to the page title when the active rankings payload was
+// computed from a user-customized source configuration.  Clicking the
+// badge toggles a short description listing disabled sources and any
+// weights that differ from the registry defaults.  The data comes from
+// ``rawData.rankingsOverride`` which the backend stamps on both the
+// full-contract and delta-merged responses.
+//
+// The derivation logic is factored into ``describeCustomMix`` so unit
+// tests can pin the business rules without spinning up a DOM.
+export function describeCustomMix(rankingsOverride) {
+  if (!rankingsOverride || !rankingsOverride.isCustomized) {
+    return { active: false, disabled: [], reweighted: [], summary: "" };
+  }
+  const received = rankingsOverride.received || {};
+  const defaults = rankingsOverride.defaults || {};
+  const weights = rankingsOverride.weights || {};
+
+  const disabled = [];
+  const reweighted = [];
+  for (const src of RANKING_SOURCES) {
+    const ov = received[src.key];
+    if (ov && ov.include === false) {
+      disabled.push(src.columnLabel || src.displayName);
+      continue;
+    }
+    const active = Number(weights[src.key]);
+    const def = Number(defaults[src.key] ?? src.weight ?? 1);
+    if (Number.isFinite(active) && active !== def) {
+      reweighted.push(
+        `${src.columnLabel || src.displayName} ${def.toFixed(1)}→${active.toFixed(1)}`,
+      );
+    }
+  }
+
+  const parts = [];
+  if (disabled.length) parts.push(`${disabled.length} disabled`);
+  if (reweighted.length) parts.push(`${reweighted.length} reweighted`);
+  const summary = parts.length ? `(${parts.join(", ")})` : "";
+
+  return { active: true, disabled, reweighted, summary };
+}
+
+function CustomMixBadge({ rankingsOverride }) {
+  const [open, setOpen] = useState(false);
+  const { active, disabled, reweighted, summary } = describeCustomMix(rankingsOverride);
+  if (!active) return null;
+
+  return (
+    <span
+      className="custom-mix-badge-wrap"
+      aria-label="Custom source mix active"
+    >
+      <button
+        type="button"
+        className="badge badge-amber custom-mix-badge"
+        onClick={() => setOpen((v) => !v)}
+        title={
+          open
+            ? "Hide custom mix details"
+            : "Click to see which sources are customized"
+        }
+      >
+        Custom Mix {summary}
+      </button>
+      {open && (
+        <div className="custom-mix-popover" role="tooltip">
+          <p className="custom-mix-popover-title">Custom source configuration</p>
+          {disabled.length > 0 && (
+            <div className="custom-mix-popover-row">
+              <span className="custom-mix-popover-label">Disabled:</span>
+              <span className="custom-mix-popover-value">
+                {disabled.join(", ")}
+              </span>
+            </div>
+          )}
+          {reweighted.length > 0 && (
+            <div className="custom-mix-popover-row">
+              <span className="custom-mix-popover-label">Reweighted:</span>
+              <span className="custom-mix-popover-value">
+                {reweighted.join(", ")}
+              </span>
+            </div>
+          )}
+          <p className="custom-mix-popover-hint muted">
+            Change these on the Settings page.
+          </p>
+        </div>
+      )}
+    </span>
+  );
+}
+
 // ── Main component ───────────────────────────────────────────────────
 
 export default function RankingsPage() {
@@ -459,7 +552,10 @@ export default function RankingsPage() {
       {/* ── Header ──────────────────────────────────────────────────── */}
       <div className="rankings-header">
         <div>
-          <h1 className="page-title">Rankings</h1>
+          <div className="rankings-title-row">
+            <h1 className="page-title">Rankings</h1>
+            <CustomMixBadge rankingsOverride={rawData?.rankingsOverride} />
+          </div>
           <p className="page-subtitle muted" style={{ marginTop: 4 }}>
             Unified dynasty board &mdash; offense + IDP blended by consensus rank
           </p>

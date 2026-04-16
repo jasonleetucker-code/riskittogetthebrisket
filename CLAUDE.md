@@ -133,6 +133,36 @@ Both enforce a **KTC top-150 quality filter**: only players ranked inside the to
 ### Canonical Data Mode
 Controlled by `CANONICAL_DATA_MODE` env var (`off` | `shadow` | `internal_primary` | `primary`). Allows gradual rollout of canonical values alongside legacy scraper values.
 
+### Single Source of Truth: Rankings Override Path
+Custom source configurations (user-toggled sources or custom weights) flow through the **SAME** canonical pipeline as the default board. There is no frontend ranking engine, period — not even a fallback. `buildRows` is a pure materializer.
+
+Flow:
+1. User toggles a source or changes a weight on `/settings` (writes into `settings.siteWeights`).
+2. `useDynastyData` observes the change, calls `fetchDynastyData({siteOverrides})`.
+3. `fetchDynastyData` POSTs the override map to `POST /api/rankings/overrides?view=delta` and receives a compact delta payload (~70% smaller than the full contract — see Payload Size Optimization below).
+4. `fetchDynastyData` merges the delta onto the cached base `/api/dynasty-data` contract via `mergeRankingsDelta` and returns a fully-populated contract object.
+5. `server.py::post_rankings_overrides` invokes `build_rankings_delta_payload(raw_payload, source_overrides=...)` (or `build_api_data_contract` for legacy full-view consumers).
+6. `src/api/data_contract.py::_compute_unified_rankings` filters disabled sources and applies overridden weights — same Hill curve, same coverage-aware blend, same robust-median step.
+7. `buildRows` materializes the merged contract; it trusts backend stamps verbatim and never recomputes ranks.
+
+Registry lockstep:
+- Python registry: `src/api/data_contract.py::_RANKING_SOURCES`
+- Frontend mirror: `frontend/lib/dynasty-data.js::RANKING_SOURCES`
+- Runtime check: `GET /api/rankings/sources` returns the authoritative Python registry (proxied through `frontend/app/api/rankings/sources/route.js`)
+- Parity test: `tests/api/test_source_registry_parity.py` parses the frontend JS and diffs against the Python registry.
+
+**Fail-fast on missing stamps**: The prior `computeUnifiedRanks` fallback (~280 lines of coverage-aware blend code) has been **removed**. `buildRows` now fails fast when a non-empty payload has zero backend rank stamps: it logs an error and returns an empty rows array, letting the `useDynastyData` error state surface a "no players" banner. There is no silent recompute. If you see the fail-fast error in production logs, the scrape pipeline is not stamping — investigate upstream, do not add a client-side blend.
+
+### Rankings Override Payload Size Optimization
+The `POST /api/rankings/overrides` endpoint supports two response views:
+
+- `view=full` (default, backward-compat): returns the full canonical contract (~4 MB uncompressed, identical shape to `GET /api/data`).
+- `view=delta` (default for frontend): returns only the override-sensitive fields per player, keyed by `displayName`, dropping the legacy `players` dict, `sleeper`, `methodology`, `poolAudit`, and other override-invariant blocks. Production payload drops from ~4 MB to ~1.25 MB uncompressed, and to ~100 KB over the wire with FastAPI's `GZipMiddleware`. The frontend merges the delta onto its cached base `/api/data?view=app` payload.
+
+Regression test: `tests/api/test_source_overrides.py::TestBuildRankingsDeltaPayload` pins the delta shape, byte-size bounds, and the invariant that every field in `_DELTA_PLAYER_FIELDS` round-trips through a manual merge identically to the full-contract path.
+
+See `tests/api/test_source_overrides.py` for the full contract spec.
+
 ### Adapter Pattern
 Pluggable source adapters (`src/adapters/base.py` defines the frozen contract). All adapters emit `RawAssetRecord` dataclasses with normalized fields. Current adapters: DLF CSV, KTC stub, manual CSV, scraper bridge.
 

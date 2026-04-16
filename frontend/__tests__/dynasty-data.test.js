@@ -2,18 +2,32 @@
  * Tests for lib/dynasty-data.js — the data normalization layer
  * that feeds the trade page, rankings, and all other surfaces.
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   normalizePos,
   classifyPos,
   inferValueBundle,
-  rankToValue,
   resolvedRank,
   buildRows,
   getSiteKeys,
   fetchDynastyData,
   normalizePlayerName,
+  _resetBaseContractCache,
 } from "@/lib/dynasty-data";
+
+// Common test helper: every fixture row that wants to be ranked must
+// carry a backend stamp.  The backend pipeline stamps every rankable
+// row in production; the frontend is a pure materializer, so tests
+// must feed backend-stamped fixtures to exercise the ranking path.
+function withStamps(player, rank, value) {
+  return {
+    canonicalConsensusRank: rank,
+    rankDerivedValue: value,
+    sourceRanks: player.sourceRanks || (player.canonicalSiteValues?.ktc ? { ktc: rank } : {}),
+    sourceCount: player.sourceCount || 1,
+    ...player,
+  };
+}
 
 // ── normalizePlayerName ──────────────────────────────────────────────
 //
@@ -237,62 +251,19 @@ describe("getSiteKeys", () => {
 });
 
 // ── buildRows ────────────────────────────────────────────────────────
-
-describe("rankToValue", () => {
-  it("maps rank 1 to exactly 9999", () => {
-    expect(rankToValue(1)).toBe(9999);
-  });
-
-  it("produces correct outputs for ranks 1–10", () => {
-    const expected = [9999, 9849, 9684, 9515, 9347, 9180, 9016, 8855, 8698, 8544];
-    expected.forEach((v, i) => expect(rankToValue(i + 1)).toBe(v));
-  });
-
-  it("produces correct checkpoint values", () => {
-    expect(rankToValue(25)).toBe(6663);
-    expect(rankToValue(50)).toBe(4766);
-    expect(rankToValue(100)).toBe(2959);
-    expect(rankToValue(200)).toBe(1632);
-    expect(rankToValue(300)).toBe(1108);
-    expect(rankToValue(500)).toBe(663);
-  });
-
-  it("produces monotonically decreasing values as rank increases", () => {
-    const ranks = [1, 5, 10, 25, 50, 100, 200, 500];
-    const values = ranks.map(rankToValue);
-    for (let i = 1; i < values.length; i++) {
-      expect(values[i]).toBeLessThan(values[i - 1]);
-    }
-  });
-
-  it("returns 0 for invalid rank inputs", () => {
-    expect(rankToValue(0)).toBe(0);
-    expect(rankToValue(-1)).toBe(0);
-    expect(rankToValue(null)).toBe(0);
-    expect(rankToValue(undefined)).toBe(0);
-  });
-
-  it("returns values in 1–9999 range", () => {
-    for (const rank of [1, 10, 100, 500, 1000]) {
-      const v = rankToValue(rank);
-      expect(v).toBeGreaterThanOrEqual(1);
-      expect(v).toBeLessThanOrEqual(9999);
-    }
-  });
-
-  it("top-50 value is meaningfully above replacement level", () => {
-    // rank-50 ≈ 4766, well above 1 and below rank-1
-    const v50 = rankToValue(50);
-    expect(v50).toBeGreaterThan(1000);
-    expect(v50).toBeLessThan(rankToValue(1));
-  });
-});
+//
+// The frontend no longer ranks or computes values — the backend
+// pipeline stamps every rankable row with canonicalConsensusRank and
+// rankDerivedValue, and ``buildRows`` forwards those stamps verbatim.
+// Tests that used to feed raw site values and assert against a
+// frontend-computed Hill curve have been rewritten to feed
+// backend-stamped fixtures via the ``withStamps`` helper.
 
 describe("buildRows", () => {
   it("builds rows from playersArray (contract format)", () => {
     const data = {
       playersArray: [
-        {
+        withStamps({
           displayName: "Josh Allen",
           position: "QB",
           assetClass: "offense",
@@ -303,8 +274,8 @@ describe("buildRows", () => {
             overall: 9100,
           },
           canonicalSiteValues: { ktc: 8500 },
-        },
-        {
+        }, 1, 9999),
+        withStamps({
           displayName: "Micah Parsons",
           position: "LB",
           assetClass: "idp",
@@ -315,7 +286,7 @@ describe("buildRows", () => {
             overall: 5200,
           },
           canonicalSiteValues: {},
-        },
+        }, 2, 5200),
       ],
     };
     const rows = buildRows(data);
@@ -325,11 +296,10 @@ describe("buildRows", () => {
     expect(allen).toBeDefined();
     expect(allen.pos).toBe("QB");
     expect(allen.assetClass).toBe("offense");
-    // Backend display value is preserved — NOT overwritten by rankDerivedValue.
-    // values.full comes from backend finalAdjusted (9100), not from rank curve.
-    expect(allen.values.full).toBe(9100);
-    // rankDerivedValue is still computed and available for rankings "Our Value" display.
-    expect(allen.rankDerivedValue).toBe(rankToValue(1));
+    // Backend rankDerivedValue wins over legacy finalAdjusted as the
+    // displayed values.full (single-value pipe).
+    expect(allen.values.full).toBe(9999);
+    expect(allen.rankDerivedValue).toBe(9999);
     expect(allen.values.raw).toBe(8500);
     expect(allen.siteCount).toBe(6);
   });
@@ -343,6 +313,9 @@ describe("buildRows", () => {
           _finalAdjusted: 9100,
           _sites: 6,
           position: "QB",
+          // Without backend rankDerivedValue the materializer falls
+          // back to _finalAdjusted for values.full.
+          _canonicalConsensusRank: 1,
         },
       },
       sleeper: { positions: { "Josh Allen": "QB" } },
@@ -368,6 +341,8 @@ describe("buildRows", () => {
             displayValue: 9920,
           },
           canonicalSiteValues: {},
+          canonicalConsensusRank: 1,
+          // No rankDerivedValue so values.full comes from displayValue.
         },
       ],
     };
@@ -383,6 +358,7 @@ describe("buildRows", () => {
           displayName: "Josh Allen",
           position: "QB",
           values: { finalAdjusted: 7738, rawComposite: 7738, overall: 7738 },
+          canonicalConsensusRank: 1,
         },
       ],
     };
@@ -390,27 +366,27 @@ describe("buildRows", () => {
     expect(rows[0].values.full).toBe(7738);
   });
 
-  it("sorts rows by KTC rank ascending (rank-first)", () => {
-    // KTC rank is derived from canonicalSites.ktc value; higher ktc = lower rank number.
+  it("sorts rows by backend canonicalConsensusRank ascending", () => {
+    // The backend stamps canonicalConsensusRank on every rankable
+    // row; buildRows preserves that order as the primary sort key.
     const data = {
       playersArray: [
-        { displayName: "Low", position: "RB", values: { finalAdjusted: 1000, rawComposite: 1000, overall: 1000 }, canonicalSiteValues: { ktc: 1000 } },
-        { displayName: "High", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } },
-        { displayName: "Mid", position: "WR", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 }, canonicalSiteValues: { ktc: 5000 } },
+        withStamps({ displayName: "Low", position: "RB", values: { finalAdjusted: 1000, rawComposite: 1000, overall: 1000 }, canonicalSiteValues: { ktc: 1000 } }, 3, 1000),
+        withStamps({ displayName: "High", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } }, 1, 9999),
+        withStamps({ displayName: "Mid", position: "WR", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 }, canonicalSiteValues: { ktc: 5000 } }, 2, 5000),
       ],
     };
     const rows = buildRows(data);
-    const ranked = rows.filter((r) => r.ktcRank > 0);
-    expect(ranked[0].name).toBe("High");
-    expect(ranked[1].name).toBe("Mid");
-    expect(ranked[2].name).toBe("Low");
+    expect(rows[0].name).toBe("High");
+    expect(rows[1].name).toBe("Mid");
+    expect(rows[2].name).toBe("Low");
   });
 
-  it("assigns ranks starting from 1", () => {
+  it("assigns computed row.rank from backend stamps", () => {
     const data = {
       playersArray: [
-        { displayName: "A", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 } },
-        { displayName: "B", position: "RB", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 } },
+        withStamps({ displayName: "A", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 } }, 1, 9000),
+        withStamps({ displayName: "B", position: "RB", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 } }, 2, 5000),
       ],
     };
     const rows = buildRows(data);
@@ -421,8 +397,8 @@ describe("buildRows", () => {
   it("filters out kickers", () => {
     const data = {
       playersArray: [
-        { displayName: "Justin Tucker", position: "K", values: { finalAdjusted: 100, overall: 100, rawComposite: 100 } },
-        { displayName: "Josh Allen", position: "QB", values: { finalAdjusted: 9000, overall: 9000, rawComposite: 9000 } },
+        withStamps({ displayName: "Justin Tucker", position: "K", values: { finalAdjusted: 100, overall: 100, rawComposite: 100 } }, 500, 100),
+        withStamps({ displayName: "Josh Allen", position: "QB", values: { finalAdjusted: 9000, overall: 9000, rawComposite: 9000 } }, 1, 9000),
       ],
     };
     const rows = buildRows(data);
@@ -433,8 +409,18 @@ describe("buildRows", () => {
   it("detects picks from legacy name pattern", () => {
     const data = {
       players: {
-        "2026 Early 1st": { _composite: 7000, _finalAdjusted: 7000 },
-        "2026 Pick 1.01": { _composite: 6500, _finalAdjusted: 6500 },
+        "2026 Early 1st": {
+          _composite: 7000,
+          _finalAdjusted: 7000,
+          _canonicalConsensusRank: 25,
+          rankDerivedValue: 6800,
+        },
+        "2026 Pick 1.01": {
+          _composite: 6500,
+          _finalAdjusted: 6500,
+          _canonicalConsensusRank: 28,
+          rankDerivedValue: 6500,
+        },
       },
     };
     const rows = buildRows(data);
@@ -442,68 +428,72 @@ describe("buildRows", () => {
     expect(rows.every((r) => r.assetClass === "pick")).toBe(true);
   });
 
-  it("computes integer KTC ranks from canonicalSites.ktc values", () => {
-    // Generate 25 players with varying KTC values
+  it("preserves backend sourceRanks integer values per row", () => {
+    // Generate 25 players each with backend-stamped rank + value.
     const players = [];
     for (let i = 0; i < 25; i++) {
-      players.push({
-        displayName: `Player ${i}`,
-        position: "QB",
-        values: { finalAdjusted: 9000 - i * 100, rawComposite: 9000 - i * 100, overall: 9000 - i * 100 },
-        canonicalSiteValues: { ktc: 9000 - i * 100 },
-      });
+      players.push(
+        withStamps(
+          {
+            displayName: `Player ${i}`,
+            position: "QB",
+            values: { finalAdjusted: 9000 - i * 100, rawComposite: 9000 - i * 100, overall: 9000 - i * 100 },
+            canonicalSiteValues: { ktc: 9000 - i * 100 },
+          },
+          i + 1,
+          9000 - i * 100,
+        ),
+      );
     }
     const rows = buildRows({ playersArray: players });
     expect(rows.length).toBe(25);
 
-    // Player 0 has highest KTC value → should be rank 1
     const p0 = rows.find((r) => r.name === "Player 0");
-    expect(p0.ktcRank).toBe(1);
-    expect(Number.isInteger(p0.ktcRank)).toBe(true); // always integer, never decimal
+    expect(p0.canonicalConsensusRank).toBe(1);
+    expect(Number.isInteger(p0.canonicalConsensusRank)).toBe(true);
 
-    // Player 24 has lowest KTC value → should be rank 25
     const p24 = rows.find((r) => r.name === "Player 24");
-    expect(p24.ktcRank).toBe(25);
+    expect(p24.canonicalConsensusRank).toBe(25);
 
-    // rankDerivedValue is computed but does NOT overwrite values.full.
-    // values.full preserves backend finalAdjusted (9000); rankDerivedValue is separate.
-    expect(p0.rankDerivedValue).toBe(rankToValue(1)); // 9999
-    expect(p0.values.full).toBe(9000); // backend value preserved
+    expect(p0.values.full).toBe(9000);
 
-    // Rows should be sorted by ktcRank ascending
-    const rankedRows = rows.filter((r) => r.ktcRank > 0);
-    for (let i = 1; i < rankedRows.length; i++) {
-      expect(rankedRows[i].ktcRank).toBeGreaterThan(rankedRows[i - 1].ktcRank);
+    // Rows should be sorted by canonicalConsensusRank ascending.
+    const ordered = rows.filter((r) => r.canonicalConsensusRank > 0);
+    for (let i = 1; i < ordered.length; i++) {
+      expect(ordered[i].canonicalConsensusRank).toBeGreaterThan(
+        ordered[i - 1].canonicalConsensusRank,
+      );
     }
   });
 
-  it("assigns KTC ranks even when players have different site coverage", () => {
-    // 30 players — KTC rank is driven solely by canonicalSites.ktc, regardless
-    // of whether other sites have data.
+  it("forwards backend sourceRanks regardless of other site coverage", () => {
+    // Every row carries its own canonicalConsensusRank regardless of
+    // which sites contributed.  The backend handles scope-aware
+    // ranking; buildRows just materializes.
     const players = [];
     for (let i = 0; i < 30; i++) {
       const sites = { ktc: 9000 - i * 100 };
-      players.push({
-        displayName: `TestPlayer ${i}`,
-        position: i < 20 ? "QB" : "RB",
-        values: { finalAdjusted: 9000 - i * 100, rawComposite: 9000 - i * 100, overall: 9000 - i * 100 },
-        canonicalSiteValues: sites,
-      });
+      players.push(
+        withStamps(
+          {
+            displayName: `TestPlayer ${i}`,
+            position: i < 20 ? "QB" : "RB",
+            values: { finalAdjusted: 9000 - i * 100, rawComposite: 9000 - i * 100, overall: 9000 - i * 100 },
+            canonicalSiteValues: sites,
+          },
+          i + 1,
+          9000 - i * 100,
+        ),
+      );
     }
     const rows = buildRows({ playersArray: players });
-    const withRank = rows.filter((r) => r.ktcRank != null);
-    expect(withRank.length).toBe(30); // all 30 have ktc data
-
-    // Player 0 has highest KTC value → rank 1
+    const ranked = rows.filter((r) => r.canonicalConsensusRank != null);
+    expect(ranked.length).toBe(30);
     const p0 = rows.find((r) => r.name === "TestPlayer 0");
-    expect(p0.ktcRank).toBe(1);
-
-    // Player 1 has next highest KTC value → rank 2
+    expect(p0.canonicalConsensusRank).toBe(1);
     const p1 = rows.find((r) => r.name === "TestPlayer 1");
-    expect(p1.ktcRank).toBe(2);
-
-    // All ranks are unique integers
-    const rankSet = new Set(withRank.map((r) => r.ktcRank));
+    expect(p1.canonicalConsensusRank).toBe(2);
+    const rankSet = new Set(ranked.map((r) => r.canonicalConsensusRank));
     expect(rankSet.size).toBe(30);
   });
 
@@ -515,8 +505,8 @@ describe("buildRows", () => {
   it("skips players with no name", () => {
     const data = {
       playersArray: [
-        { displayName: "", position: "QB", values: { overall: 5000 } },
-        { displayName: "Josh Allen", position: "QB", values: { overall: 9000, finalAdjusted: 9000, rawComposite: 9000 } },
+        { displayName: "", position: "QB", values: { overall: 5000 }, canonicalConsensusRank: 999 },
+        { displayName: "Josh Allen", position: "QB", values: { overall: 9000, finalAdjusted: 9000, rawComposite: 9000 }, canonicalConsensusRank: 1 },
       ],
     };
     const rows = buildRows(data);
@@ -527,7 +517,10 @@ describe("buildRows", () => {
 // ── Backend displayValue preservation (regression) ──────────────────
 
 describe("displayValue preservation", () => {
-  it("backend displayValue is preserved as values.full (not overwritten by rankDerivedValue)", () => {
+  it("backend displayValue is preserved as values.full when no rankDerivedValue is stamped", () => {
+    // When the backend has NOT stamped a rankDerivedValue, the
+    // materializer falls back to displayValue / finalAdjusted for
+    // values.full.  This case exercises that fallback.
     const data = {
       playersArray: [
         {
@@ -535,24 +528,21 @@ describe("displayValue preservation", () => {
           position: "QB",
           values: { rawComposite: 8500, finalAdjusted: 9100, overall: 9100, displayValue: 9500 },
           canonicalSiteValues: { ktc: 8500 },
+          canonicalConsensusRank: 1,
         },
       ],
     };
     const rows = buildRows(data);
     const allen = rows[0];
-    // displayValue (9500) wins over finalAdjusted (9100)
+    // Backend rankDerivedValue missing → displayValue (9500) wins.
     expect(allen.values.full).toBe(9500);
-    // rankDerivedValue is still computed
-    expect(allen.rankDerivedValue).toBeGreaterThan(0);
-    // But values.full was NOT overwritten
-    expect(allen.values.full).not.toBe(allen.rankDerivedValue);
   });
 
-  it("computedConsensusRank (row.rank) is still assigned after sort", () => {
+  it("computedConsensusRank (row.rank) is assigned after sort", () => {
     const data = {
       playersArray: [
-        { displayName: "A", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } },
-        { displayName: "B", position: "RB", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 }, canonicalSiteValues: { ktc: 5000 } },
+        withStamps({ displayName: "A", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } }, 1, 9000),
+        withStamps({ displayName: "B", position: "RB", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 }, canonicalSiteValues: { ktc: 5000 } }, 2, 5000),
       ],
     };
     const rows = buildRows(data);
@@ -560,17 +550,20 @@ describe("displayValue preservation", () => {
     expect(rows[1].rank).toBe(2);
   });
 
-  it("rankDerivedValue is still computed for KTC-ranked players", () => {
+  it("rankDerivedValue pass-through forwards backend value verbatim", () => {
     const data = {
       playersArray: [
-        { displayName: "A", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } },
+        withStamps({ displayName: "A", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } }, 1, 9999),
       ],
     };
     const rows = buildRows(data);
-    expect(rows[0].rankDerivedValue).toBe(rankToValue(1));
+    expect(rows[0].rankDerivedValue).toBe(9999);
   });
 
-  it("values.full is NOT overwritten by rankDerivedValue in legacy path", () => {
+  it("legacy players dict is also materialized from backend-stamped fields", () => {
+    // Legacy-path fixture — the backend's ``_mirror_trust_to_legacy``
+    // pass copies rank stamps onto the legacy ``players`` dict as
+    // ``_canonicalConsensusRank`` / ``rankDerivedValue``.
     const data = {
       players: {
         "Josh Allen": {
@@ -579,6 +572,8 @@ describe("displayValue preservation", () => {
           _finalAdjusted: 9100,
           _sites: 6,
           _canonicalSiteValues: { ktc: 8500 },
+          _canonicalConsensusRank: 1,
+          rankDerivedValue: 9999,
           position: "QB",
         },
       },
@@ -586,10 +581,11 @@ describe("displayValue preservation", () => {
       sites: [{ key: "ktc" }],
     };
     const rows = buildRows(data);
-    // values.full should be finalAdjusted (9100), not rankDerivedValue
-    expect(rows[0].values.full).toBe(9100);
-    expect(rows[0].rankDerivedValue).toBeGreaterThan(0);
-    expect(rows[0].values.full).not.toBe(rows[0].rankDerivedValue);
+    // The materializer overwrites values.full with the backend
+    // rankDerivedValue (single-value pipe).
+    expect(rows[0].values.full).toBe(9999);
+    expect(rows[0].canonicalConsensusRank).toBe(1);
+    expect(rows[0].rankDerivedValue).toBe(9999);
   });
 });
 
@@ -623,8 +619,8 @@ describe("computedConsensusRank", () => {
   it("is assigned as explicit field on every row from playersArray path", () => {
     const data = {
       playersArray: [
-        { displayName: "A", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } },
-        { displayName: "B", position: "RB", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 }, canonicalSiteValues: { ktc: 5000 } },
+        withStamps({ displayName: "A", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } }, 1, 9000),
+        withStamps({ displayName: "B", position: "RB", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 }, canonicalSiteValues: { ktc: 5000 } }, 2, 5000),
       ],
     };
     const rows = buildRows(data);
@@ -635,8 +631,8 @@ describe("computedConsensusRank", () => {
   it("is assigned as explicit field on every row from legacy path", () => {
     const data = {
       players: {
-        "A": { _rawComposite: 9000, _finalAdjusted: 9000, _sites: 3, _canonicalSiteValues: { ktc: 9000 }, position: "QB" },
-        "B": { _rawComposite: 5000, _finalAdjusted: 5000, _sites: 2, _canonicalSiteValues: { ktc: 5000 }, position: "RB" },
+        "A": { _rawComposite: 9000, _finalAdjusted: 9000, _sites: 3, _canonicalSiteValues: { ktc: 9000 }, position: "QB", _canonicalConsensusRank: 1, rankDerivedValue: 9000 },
+        "B": { _rawComposite: 5000, _finalAdjusted: 5000, _sites: 2, _canonicalSiteValues: { ktc: 5000 }, position: "RB", _canonicalConsensusRank: 2, rankDerivedValue: 5000 },
       },
       sleeper: { positions: { "A": "QB", "B": "RB" } },
     };
@@ -652,12 +648,17 @@ describe("computedConsensusRank", () => {
           displayName: "Canonical",
           position: "QB",
           canonicalConsensusRank: 42,
+          rankDerivedValue: 5100,
+          sourceRanks: { ktc: 42 },
           values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 },
           canonicalSiteValues: { ktc: 9000 },
         },
         {
           displayName: "Computed",
           position: "RB",
+          canonicalConsensusRank: 2,
+          rankDerivedValue: 9800,
+          sourceRanks: { ktc: 2 },
           values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 },
           canonicalSiteValues: { ktc: 5000 },
         },
@@ -668,64 +669,55 @@ describe("computedConsensusRank", () => {
     const computed = rows.find(r => r.name === "Computed");
     // canonicalConsensusRank (42) wins over computedConsensusRank
     expect(canonical.rank).toBe(42);
-    // computedConsensusRank is assigned by sorted position — Canonical
-    // sorts after Computed (rank 42 > rank 2), so it gets position 2
+    // Sort order: Computed (rank 2) comes first; Canonical (rank 42) second.
     expect(canonical.computedConsensusRank).toBe(2);
-    // "Computed" gets canonicalConsensusRank=2 from computeUnifiedRanks
-    // (second in the unified sort) and computedConsensusRank=1 (first
-    // in the final sort since rank 2 < rank 42).
     expect(computed.canonicalConsensusRank).toBe(2);
     expect(computed.rank).toBe(2);
     expect(computed.computedConsensusRank).toBe(1);
   });
 
-  it("IDP players get idpRank and canonicalConsensusRank after offense", () => {
+  it("mixed offense + IDP rows sort by backend canonicalConsensusRank", () => {
+    // Backend already ranks offense + IDP together in the unified
+    // board.  The materializer preserves that order.
     const data = {
       playersArray: [
-        // Offense player with KTC value
-        { displayName: "QB Star", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } },
-        // IDP player with IDP sources
-        { displayName: "DL Star", position: "DL", values: { finalAdjusted: 6000, rawComposite: 6000, overall: 6000 }, canonicalSiteValues: { idpTradeCalc: 5800 } },
-        // Another IDP player
-        { displayName: "LB Star", position: "LB", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 }, canonicalSiteValues: { idpTradeCalc: 4000 } },
+        withStamps({ displayName: "QB Star", position: "QB", values: { finalAdjusted: 9000, rawComposite: 9000, overall: 9000 }, canonicalSiteValues: { ktc: 9000 } }, 2, 9900),
+        withStamps({ displayName: "DL Star", position: "DL", values: { finalAdjusted: 6000, rawComposite: 6000, overall: 6000 }, canonicalSiteValues: { idpTradeCalc: 5800 } }, 1, 9999),
+        withStamps({ displayName: "LB Star", position: "LB", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 }, canonicalSiteValues: { idpTradeCalc: 4000 } }, 3, 9000),
       ],
     };
     const rows = buildRows(data);
-    const qb = rows.find(r => r.name === "QB Star");
-    const dl = rows.find(r => r.name === "DL Star");
-    const lb = rows.find(r => r.name === "LB Star");
-
-    // Offense player gets ktcRank
-    expect(qb.ktcRank).toBe(1);
-    // IDP players get idpRank
-    expect(dl.idpRank).toBe(1); // higher IDP source value
-    expect(lb.idpRank).toBe(2);
-    // Unified ranking sorts ALL players by normalized value (rankToValue).
-    // DL Star: idpRank=1 -> rankToValue(1)=9999
-    // QB Star: ktcRank=1 -> rankToValue(1)=9999
-    // LB Star: idpRank=2 -> rankToValue(2)≈9849 (lower)
-    // Ties at 9999 break alphabetically: "DL Star" < "QB Star"
-    expect(dl.canonicalConsensusRank).toBe(1);
-    expect(qb.canonicalConsensusRank).toBe(2);
-    expect(lb.canonicalConsensusRank).toBe(3);
-    // IDP players have rankDerivedValue
-    expect(dl.rankDerivedValue).toBeGreaterThan(0);
-    expect(lb.rankDerivedValue).toBeGreaterThan(0);
-    // Sort order: by unified rank (value desc, then alphabetical)
     expect(rows[0].name).toBe("DL Star");
     expect(rows[1].name).toBe("QB Star");
     expect(rows[2].name).toBe("LB Star");
+    expect(rows[0].canonicalConsensusRank).toBe(1);
+    expect(rows[1].canonicalConsensusRank).toBe(2);
+    expect(rows[2].canonicalConsensusRank).toBe(3);
   });
 
-  it("IDP players without IDP sources remain unranked", () => {
+  it("IDP players without a backend rank land at the end with null rank", () => {
+    // An IDP row the backend could not rank (no source values at
+    // all) still materializes, but with canonicalConsensusRank=null.
+    // buildRows sorts null-rank rows to the end.
     const data = {
       playersArray: [
-        { displayName: "Mystery DL", position: "DL", values: { finalAdjusted: 100, rawComposite: 100, overall: 100 }, canonicalSiteValues: {} },
+        withStamps({ displayName: "Real DL", position: "DL", values: { finalAdjusted: 5000, rawComposite: 5000, overall: 5000 }, canonicalSiteValues: { idpTradeCalc: 5000 } }, 1, 9999),
+        {
+          displayName: "Mystery DL",
+          position: "DL",
+          values: { finalAdjusted: 100, rawComposite: 100, overall: 100 },
+          canonicalSiteValues: {},
+          canonicalConsensusRank: null,
+          rankDerivedValue: null,
+          sourceRanks: {},
+        },
       ],
     };
     const rows = buildRows(data);
-    expect(rows[0].idpRank).toBeUndefined();
-    expect(rows[0].rankDerivedValue).toBeUndefined();
+    expect(rows[0].name).toBe("Real DL");
+    expect(rows[1].name).toBe("Mystery DL");
+    expect(rows[1].canonicalConsensusRank).toBeNull();
+    expect(rows[1].rankDerivedValue).toBeFalsy();
   });
 });
 
@@ -734,6 +726,7 @@ describe("computedConsensusRank", () => {
 describe("fetchDynastyData", () => {
   afterEach(() => {
     globalThis.fetch = undefined;
+    _resetBaseContractCache();
   });
 
   it("normalizes unwrapped Python backend contract to { ok, source, data }", async () => {
@@ -789,8 +782,6 @@ describe("fetchDynastyData", () => {
   });
 
   it("buildRows produces rows from unwrapped backend contract (production regression)", () => {
-    // Simulates the exact data shape the Python backend returns via /api/dynasty-data
-    // Before the fix, payload.data was undefined, causing buildRows({}) → []
     const rawContract = {
       version: 4,
       date: "2026-04-07",
@@ -801,17 +792,18 @@ describe("fetchDynastyData", () => {
           _finalAdjusted: 9100,
           _sites: 6,
           _canonicalSiteValues: { ktc: 8500 },
+          _canonicalConsensusRank: 1,
+          rankDerivedValue: 9999,
         },
       },
       sleeper: { positions: { "Josh Allen": "QB" } },
     };
 
-    // This is what buildRows receives after fetchDynastyData normalizes:
     const rows = buildRows(rawContract);
     expect(rows.length).toBe(1);
     expect(rows[0].name).toBe("Josh Allen");
     expect(rows[0].pos).toBe("QB");
-    expect(rows[0].values.full).toBe(9100);
+    expect(rows[0].values.full).toBe(9999);
   });
 });
 
@@ -832,6 +824,8 @@ describe("unsupported positions excluded from buildRows", () => {
         _sites: 1,
         position: pos,
         _canonicalSiteValues: { ktc: 7000 },
+        _canonicalConsensusRank: 500,
+        rankDerivedValue: 500,
       };
       positions[name] = pos;
     }
@@ -843,6 +837,8 @@ describe("unsupported positions excluded from buildRows", () => {
       _sites: 1,
       position: "QB",
       _canonicalSiteValues: { ktc: 9000 },
+      _canonicalConsensusRank: 1,
+      rankDerivedValue: 9999,
     };
     positions["Real QB"] = "QB";
 
@@ -898,8 +894,9 @@ describe("unsupported positions excluded from buildRows", () => {
     }
   });
 
-  it("unsupported positions do not enter computeUnifiedRanks", () => {
-    // An OL with higher KTC than a QB should not displace the QB's rank
+  it("unsupported positions are dropped before materialization", () => {
+    // An OL row with a backend stamp should still be excluded — the
+    // frontend ``classifyPos`` filter runs before stamp checks.
     const players = {
       "OL Star": {
         _composite: 9999,
@@ -908,6 +905,8 @@ describe("unsupported positions excluded from buildRows", () => {
         _sites: 1,
         position: "OL",
         _canonicalSiteValues: { ktc: 9999 },
+        _canonicalConsensusRank: 500,
+        rankDerivedValue: 500,
       },
       "Real QB": {
         _composite: 5000,
@@ -916,6 +915,8 @@ describe("unsupported positions excluded from buildRows", () => {
         _sites: 1,
         position: "QB",
         _canonicalSiteValues: { ktc: 5000 },
+        _canonicalConsensusRank: 1,
+        rankDerivedValue: 9999,
       },
     };
     const rows = buildRows({

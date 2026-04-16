@@ -1,15 +1,40 @@
-// ── RANKINGS — UNIFIED BOARD ─────────────────────────────────────────────────
+// ── RANKINGS — UNIFIED BOARD (materialization only) ──────────────────────────
 // This file (frontend/lib/dynasty-data.js) is the canonical frontend home for:
-//   • rankToValue()         — Hill-style rank-to-value formula (offline fallback)
-//   • computeUnifiedRanks() — per-source rank → normalize → unified overall sort
-//   • OVERALL_RANK_LIMIT    — overall board cap (800)
+//   • RANKING_SOURCES       — read-only mirror of the backend source registry,
+//                             consumed by the rankings/settings/trade pages to
+//                             render sortable source columns and toggles.
+//   • buildRows()           — pure materialization pass from API contract to
+//                             the flat row shape every page renders.
+//   • mergeRankingsDelta()  — applies a compact delta payload onto a cached
+//                             base contract (see fetchDynastyData).
+//   • fetchDynastyData()    — entry point for useDynastyData.  Fetches the
+//                             base contract from /api/dynasty-data and, when
+//                             the user has customized source weights, POSTs
+//                             the override map to /api/rankings/overrides
+//                             to merge a delta onto the base.
 //
-// The backend authority is src/api/data_contract.py (_compute_unified_rankings).
+// !! There is NO frontend ranking engine anymore !!
 //
-// !! When changing ranking logic, formula constants, or eligibility rules !!
-// !! you MUST update BOTH files and BOTH test suites to stay in sync.     !!
-//   • JS tests:     frontend/__tests__/dynasty-data.test.js
-//   • Python tests: tests/api/test_rankings_our_rank.py
+// The backend canonical pipeline in ``src/api/data_contract.py`` is the
+// single source of truth for every ranking-related field on the row:
+// ``canonicalConsensusRank``, ``rankDerivedValue``, ``sourceRanks``,
+// ``sourceRankMeta``, ``blendedSourceRank``, ``sourceRankSpread``,
+// ``isSingleSource``, ``hasSourceDisagreement``, ``confidenceBucket``,
+// ``marketGapDirection``, ``marketGapMagnitude``, ``anomalyFlags``, and
+// the derived Hill-curve value.  The frontend reads those fields
+// verbatim from the API contract and renders them.  When the user
+// customizes source weights, the OVERRIDE endpoint re-runs the same
+// ``_compute_unified_rankings()`` on the backend and returns a compact
+// delta payload; the delta merge is the ONLY client-side modification
+// to ranking fields.
+//
+// Historically this file carried a JS-side ranking fallback that
+// duplicated the backend math as a safety net for stale offline
+// payloads.  That fallback was removed when the override path was
+// unified through the backend — it was dead code in normal operation
+// and a drift hazard.  If ``buildRows`` is ever handed a payload
+// with zero backend stamps, it now fails fast (logs an error and
+// returns an empty rows array) rather than silently re-computing.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const OFFENSE = new Set(["QB", "RB", "WR", "TE"]);
@@ -79,169 +104,11 @@ export function classifyPos(pos) {
   return "other";
 }
 
-// Positions eligible for the unified board.  Mirrors
-// `_RANKABLE_POSITIONS` in src/api/data_contract.py.  PICK is included
-// here because KTC prices rookie picks natively and the overall_offense
-// scope admits them.
-const RANKABLE = new Set(["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PICK"]);
-
-// ── Source scope tokens (mirror src/canonical/idp_backbone.py) ──────
-// See src/canonical/idp_backbone.py for the authoritative definitions.
-// These MUST stay in sync with VALID_SOURCE_SCOPES on the backend.
-export const SOURCE_SCOPE_OVERALL_OFFENSE = "overall_offense";
-export const SOURCE_SCOPE_OVERALL_IDP = "overall_idp";
-export const SOURCE_SCOPE_POSITION_IDP = "position_idp";
-
-// Translation method tokens — also mirror the Python constants.
-export const TRANSLATION_DIRECT = "direct";
-export const TRANSLATION_EXACT = "exact";
-export const TRANSLATION_INTERPOLATED = "interpolated";
-export const TRANSLATION_EXTRAPOLATED = "extrapolated";
-export const TRANSLATION_FALLBACK = "fallback";
-
-const IDP_POSITION_GROUPS = ["DL", "LB", "DB"];
-const OFFENSE_POSITIONS = new Set(["QB", "RB", "WR", "TE"]);
-const IDP_POSITIONS_SET = new Set(IDP_POSITION_GROUPS);
-
-// Scope eligibility predicate — mirrors _scope_eligible() in
-// src/api/data_contract.py.  A row only receives a rank from a source
-// if its position falls within the source's scope.
-function scopeEligible(pos, scope, positionGroup) {
-  const p = String(pos || "").toUpperCase();
-  if (scope === SOURCE_SCOPE_OVERALL_OFFENSE) {
-    return OFFENSE_POSITIONS.has(p) || p === "PICK";
-  }
-  if (scope === SOURCE_SCOPE_OVERALL_IDP) {
-    return IDP_POSITIONS_SET.has(p);
-  }
-  if (scope === SOURCE_SCOPE_POSITION_IDP) {
-    return Boolean(positionGroup) && p === String(positionGroup).toUpperCase();
-  }
-  return false;
-}
-
-// ── IDP backbone construction ───────────────────────────────────────
-// Mirrors build_backbone_from_rows() in src/canonical/idp_backbone.py.
-// Walks every row, keeps IDP entries with a positive value in the
-// backbone source, sorts descending, and records per-position-group
-// ladders of overall-IDP ranks.
-//
-// When ``includeSharedMarket`` is true the builder also emits a
-// sharedMarketIdpLadder — combined offense+IDP ranks at which IDP
-// entries appear in the backbone source's value pool.  IDP-only
-// expert boards (DLF) crosswalk through this ladder so their raw IDP
-// rank 1 is translated into the combined-pool rank of the best IDP
-// instead of being fed to the Hill curve as shared-market rank 1.
-function buildIdpBackbone(rows, sourceKey, includeSharedMarket = false) {
-  const ladders = {};
-  for (const pg of IDP_POSITION_GROUPS) ladders[pg] = [];
-  if (!sourceKey) {
-    return {
-      ladders,
-      depth: 0,
-      sharedMarketIdpLadder: [],
-      sharedMarketDepth: 0,
-    };
-  }
-
-  const eligible = [];
-  const combined = [];
-  rows.forEach((r) => {
-    const pos = String(r?.pos || "").toUpperCase();
-    const isIdp = IDP_POSITIONS_SET.has(pos);
-    const isOffense = OFFENSE_POSITIONS.has(pos) || pos === "PICK";
-    if (!isIdp && !(includeSharedMarket && isOffense)) return;
-    const val = Number(r?.canonicalSites?.[sourceKey]);
-    if (!Number.isFinite(val) || val <= 0) return;
-    const name = String(r?.name || "");
-    if (isIdp) eligible.push({ val, pos, name });
-    if (includeSharedMarket) combined.push({ val, pos, name, isIdp });
-  });
-  eligible.sort((a, b) => b.val - a.val || a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
-
-  let depth = 0;
-  eligible.forEach((e, i) => {
-    const overall = i + 1;
-    if (ladders[e.pos]) ladders[e.pos].push(overall);
-    depth = overall;
-  });
-
-  const sharedMarketIdpLadder = [];
-  let sharedMarketDepth = 0;
-  if (includeSharedMarket && combined.length) {
-    combined.sort(
-      (a, b) =>
-        b.val - a.val ||
-        a.name.toLowerCase().localeCompare(b.name.toLowerCase())
-    );
-    sharedMarketDepth = combined.length;
-    combined.forEach((e, i) => {
-      if (e.isIdp) sharedMarketIdpLadder.push(i + 1);
-    });
-  }
-
-  return { ladders, depth, sharedMarketIdpLadder, sharedMarketDepth };
-}
-
-// ── Position-rank translation ───────────────────────────────────────
-// Mirrors translate_position_rank() in src/canonical/idp_backbone.py.
-// Translates a within-position rank (e.g. DL4) into a synthetic
-// overall-IDP rank using the backbone ladder.  Integer ranks inside
-// the ladder are exact anchors; fractional ranks interpolate linearly;
-// ranks past the tail extrapolate with the average of the last few
-// steps; empty ladders fall back to a pass-through.
-function translatePositionRank(positionRank, ladder) {
-  if (!Array.isArray(ladder) || ladder.length === 0) {
-    const safe = Math.max(1, Math.round(Math.max(1, Number(positionRank) || 1)));
-    return { rank: safe, method: TRANSLATION_FALLBACK };
-  }
-
-  let pr = Number(positionRank);
-  if (!Number.isFinite(pr) || pr < 1) pr = 1;
-
-  const n = ladder.length;
-  // Integer exact anchor
-  if (pr === Math.floor(pr) && pr >= 1 && pr <= n) {
-    return { rank: Math.max(1, ladder[pr - 1]), method: TRANSLATION_EXACT };
-  }
-  // Interpolation inside the ladder
-  if (pr >= 1 && pr <= n) {
-    const lowIdx = Math.floor(pr) - 1;
-    const frac = pr - Math.floor(pr);
-    const low = ladder[lowIdx];
-    const high = ladder[Math.min(lowIdx + 1, n - 1)];
-    const synthetic = low + (high - low) * frac;
-    return { rank: Math.max(1, Math.round(synthetic)), method: TRANSLATION_INTERPOLATED };
-  }
-  // Extrapolation past the tail
-  let step;
-  if (n === 1) {
-    step = Math.max(1, ladder[0]);
-  } else {
-    const tail = Math.min(5, n - 1);
-    let sum = 0;
-    for (let i = 1; i <= tail; i++) sum += ladder[n - i] - ladder[n - i - 1];
-    step = Math.max(1, sum / tail);
-  }
-  const overshoot = pr - n;
-  let synthetic = Math.round(ladder[n - 1] + step * overshoot);
-  if (synthetic <= ladder[n - 1]) synthetic = ladder[n - 1] + 1;
-  return { rank: Math.max(1, synthetic), method: TRANSLATION_EXTRAPOLATED };
-}
-
-// Coverage-aware blend weight — mirrors coverage_weight() in
-// src/canonical/idp_backbone.py.  Shallow positional lists get scaled
-// down linearly; full-board sources keep their declared weight.
-const MIN_FULL_COVERAGE_DEPTH = 60;
-function coverageWeight(declaredWeight, depth) {
-  const w = Math.max(0, Number(declaredWeight) || 0);
-  if (depth === null || depth === undefined) return w;
-  const d = Number(depth);
-  if (!Number.isFinite(d)) return w;
-  if (d <= 0) return 0;
-  const factor = Math.min(1, d / Math.max(1, MIN_FULL_COVERAGE_DEPTH));
-  return w * factor;
-}
+// Note: The frontend no longer ranks any players.  Position
+// eligibility, IDP backbone construction, coverage-weighted blending,
+// and the Hill curve all live in ``src/api/data_contract.py``.  The
+// backend stamps every rankable row and the frontend materializes
+// those stamps verbatim.
 
 export function inferValueBundle(player = {}) {
   const raw = Number(player._rawComposite ?? player._rawMarketValue ?? player._composite ?? 0) || 0;
@@ -268,55 +135,22 @@ export function resolvedRank(row) {
   return row?.canonicalConsensusRank ?? row?.computedConsensusRank ?? Infinity;
 }
 
-// ── Rank-to-value curve (OFFLINE FALLBACK ONLY) ───────────────────────
-// PRIMARY authority: src/api/data_contract.py (_compute_unified_rankings)
-// stamps canonicalConsensusRank + rankDerivedValue onto the API response
-// using rank_to_value() in src/canonical/player_valuation.py.  This
-// function is only invoked when backend fields are absent (stale data,
-// offline mode, unit tests).
+// ── Source registry (read-only mirror) ──────────────────────────────
+// Mirrors ``_RANKING_SOURCES`` in ``src/api/data_contract.py`` —
+// pytest parity check ``tests/api/test_source_registry_parity.py``
+// diffs the two registries on every run.  Consumers (rankings page,
+// settings, trade page) read this list to enumerate sortable source
+// columns, render column labels, and drive per-source toggles.
 //
-// Formula: value = max(1, min(9999, round(1 + 9998 / (1 + ((rank-1)/45)^1.10))))
-//   • rank 1  → 9999 (exact; denominator = 1)
-//   • midpoint (rank 45) → ~5000
-//   • Hill-style: flatter at top, longer tail than inverse-power
+// Every registered source declares `weight: 1.0` so all sources
+// contribute equally to the backend's coverage-aware Hill-curve
+// blend.  Do NOT diverge the declared weight here from the Python
+// registry — the parity test will fail.
 //
-// Tests: tests/api/test_rankings_our_rank.py
-export function rankToValue(rank) {
-  if (!rank || rank <= 0) return 0;
-  return Math.max(1, Math.min(9999, Math.round(1 + 9998 / (1 + Math.pow((rank - 1) / 45, 1.10)))));
-}
-
-// ── Unified ranking (frontend fallback) ──────────────────────────────
-// The backend (_compute_unified_rankings in data_contract.py) is the
-// authoritative source for canonicalConsensusRank and rankDerivedValue.
-// This function is only invoked as a fallback when backend fields are
-// absent (stale data, offline mode).
-//
-// The logic mirrors the backend scope-aware pipeline end-to-end:
-//   1. Build the IDP backbone ladder from the designated backbone
-//      source (the first overall_idp source with isBackbone=true).
-//   2. For each registered source, rank only rows eligible under its
-//      scope (overall_offense / overall_idp / position_idp).  Position-
-//      only sources translate their raw rank into a synthetic overall-
-//      IDP rank via the backbone ladder.
-//   3. Convert each effective rank through rankToValue(), then blend
-//      sources using a coverage-aware weighted mean so shallow lists
-//      never overpower deep boards.
-//   4. Sort the unified board and stamp canonicalConsensusRank plus
-//      transparency metadata (sourceRanks, sourceRankMeta, confidence,
-//      market gap, anomaly flags, backward-compat ktcRank/idpRank).
-//
-// Source registry — keep in sync with `_RANKING_SOURCES` in
-// src/api/data_contract.py.  Adding a new position-only source is a
-// purely declarative change (add an entry here and on the backend).
-const OVERALL_RANK_LIMIT = 800;
-// ── Source weight policy ─────────────────────────────────────────────
-// Every registered source is declared with `weight: 1.0`.  All six
-// sources contribute equally to the coverage-aware Hill-curve blend.
-// Earlier revisions boosted the four expert boards to `weight: 3.0`,
-// but that was a silent override that never surfaced in the settings
-// page and quietly tilted every ranking toward expert consensus.
-// Mirror any future change in `src/api/data_contract.py::_RANKING_SOURCES`.
+// Source scope and translation method tokens are string literals
+// directly in the object, mirroring the backend constants exactly.
+// These are only metadata for UI rendering and display; the frontend
+// never acts on the scope — the backend computes every rank.
 export const RANKING_SOURCES = [
   {
     // KeepTradeCut is the retail offense market — community trade values
@@ -328,7 +162,7 @@ export const RANKING_SOURCES = [
     key: "ktc",
     displayName: "KeepTradeCut",
     columnLabel: "KTC",
-    scope: SOURCE_SCOPE_OVERALL_OFFENSE,
+    scope: "overall_offense",
     positionGroup: null,
     depth: null,
     weight: 1.0,
@@ -351,12 +185,13 @@ export const RANKING_SOURCES = [
     key: "idpTradeCalc",
     displayName: "IDP Trade Calculator",
     columnLabel: "IDPTC",
-    scope: SOURCE_SCOPE_OVERALL_IDP,
-    extraScopes: [SOURCE_SCOPE_OVERALL_OFFENSE],
+    scope: "overall_idp",
+    extraScopes: ["overall_offense"],
     positionGroup: null,
     depth: null,
     weight: 1.0,
     isBackbone: true,
+    isRetail: false,
     // IDPTradeCalc's offense board is a standard SF calculator — no
     // TE premium baked in.
     isTepPremium: false,
@@ -378,11 +213,13 @@ export const RANKING_SOURCES = [
     key: "dlfIdp",
     displayName: "Dynasty League Football IDP",
     columnLabel: "DLF IDP",
-    scope: SOURCE_SCOPE_OVERALL_IDP,
+    scope: "overall_idp",
     positionGroup: null,
     depth: 185,
     weight: 1.0,
     isBackbone: false,
+    isRetail: false,
+    isTepPremium: false,
     needsSharedMarketTranslation: true,
     excludesRookies: true,
     isRankSignal: true,
@@ -399,7 +236,7 @@ export const RANKING_SOURCES = [
     key: "dlfSf",
     displayName: "Dynasty League Football Superflex",
     columnLabel: "DLF SF",
-    scope: SOURCE_SCOPE_OVERALL_OFFENSE,
+    scope: "overall_offense",
     positionGroup: null,
     depth: 280,
     weight: 1.0,
@@ -425,7 +262,7 @@ export const RANKING_SOURCES = [
     key: "dynastyNerdsSfTep",
     displayName: "Dynasty Nerds SF-TEP",
     columnLabel: "DN SF-TEP",
-    scope: SOURCE_SCOPE_OVERALL_OFFENSE,
+    scope: "overall_offense",
     positionGroup: null,
     depth: 300,
     weight: 1.0,
@@ -452,21 +289,18 @@ export const RANKING_SOURCES = [
     key: "fantasyProsIdp",
     displayName: "FantasyPros Dynasty IDP",
     columnLabel: "FP IDP",
-    scope: SOURCE_SCOPE_OVERALL_IDP,
+    scope: "overall_idp",
     positionGroup: null,
     depth: 100,
     weight: 1.0,
     isBackbone: false,
     isRetail: false,
+    isTepPremium: false,
     isRankSignal: true,
     needsSharedMarketTranslation: true,
     excludesRookies: true,
   },
 ];
-
-// Legacy export retained for any consumer that previously imported
-// the flat source-key list.  New callers should use RANKING_SOURCES.
-const SOURCE_KEYS = RANKING_SOURCES.map((s) => s.key);
 
 // ── Retail source registry helpers ───────────────────────────────────
 // Mirrors `_retail_source_keys()` on the backend.  "Retail" sources are
@@ -500,9 +334,17 @@ export function getRetailLabel() {
 }
 
 // ── Source override helpers ──────────────────────────────────────────
-// `buildRows`/`computeUnifiedRanks` accept a `siteOverrides` map that
-// lets the settings page apply per-user include/weight knobs on top of
-// the canonical `RANKING_SOURCES` defaults.  The map shape is:
+// The settings page writes per-source include/weight knobs into
+// ``settings.siteWeights``.  Those maps flow through
+// ``useDynastyData`` → ``fetchDynastyData`` → the backend rankings
+// override endpoint, which re-runs the canonical pipeline with the
+// override threaded in.  There is no frontend ranking engine anymore,
+// so the only helper we need on the client is the "customized"
+// predicate below — it decides whether to hit the override endpoint.
+//
+// Any source not mentioned in the map inherits its registry defaults
+// (every registered source is enabled by default with its declared
+// weight of 1.0).  The map shape is:
 //
 //   {
 //     ktc:     { include: true, weight: 1.0 },
@@ -510,38 +352,14 @@ export function getRetailLabel() {
 //     fantasyProsIdp: { weight: 0.5 },
 //     …
 //   }
-//
-// Any source not mentioned in the map inherits its registry defaults
-// (every registered source is enabled by default with its declared
-// weight of 1.0).  The two helpers below resolve overrides
-// consistently so the ranking pipeline, the settings inventory, and
-// any future consumer all agree on "active" vs "disabled" and on the
-// effective weight for a given source.
-function sourceOverride(siteOverrides, key) {
-  if (!siteOverrides || typeof siteOverrides !== "object") return null;
-  const ov = siteOverrides[key];
-  return ov && typeof ov === "object" ? ov : null;
-}
 
-function isSourceEnabled(siteOverrides, src) {
-  const ov = sourceOverride(siteOverrides, src.key);
-  if (ov && ov.include === false) return false;
-  return true;
-}
-
-function effectiveDeclaredWeight(siteOverrides, src) {
-  const ov = sourceOverride(siteOverrides, src.key);
-  if (ov && Number.isFinite(Number(ov.weight)) && Number(ov.weight) >= 0) {
-    return Number(ov.weight);
-  }
-  return Number(src.weight ?? 1);
-}
-
-// `siteOverrides` is considered "customized" if ANY registered source
-// has an include flag set to false OR a weight value that does not
-// match its registry default.  When customized, the frontend-computed
-// ranking values take precedence over backend-stamped values so user
-// knobs actually affect the displayed rankings.
+/**
+ * A ``siteOverrides`` map is "customized" if ANY registered source has
+ * include set to false OR a weight value that differs from its
+ * registry default.  When customized, ``fetchDynastyData`` POSTs the
+ * map to the backend rankings override endpoint.  When not customized
+ * it just returns the base contract.
+ */
 export function siteOverridesAreCustomized(siteOverrides) {
   if (!siteOverrides || typeof siteOverrides !== "object") return false;
   for (const src of RANKING_SOURCES) {
@@ -556,443 +374,232 @@ export function siteOverridesAreCustomized(siteOverrides) {
   return false;
 }
 
-// ── FALLBACK RANKING PIPELINE ────────────────────────────────────────
-// This function is primarily a FALLBACK for offline/stale-data
-// scenarios where the backend has not stamped authoritative fields.
-// It mirrors the backend's `_compute_unified_rankings()` logic so the
-// frontend can compute the same board independently.
+// ── Row materialization ──────────────────────────────────────────────
+// ``buildRows`` materializes the backend contract (``playersArray``
+// or legacy ``players`` dict) into the flat row shape every frontend
+// surface consumes.  The ranking/value fields are pulled directly
+// from the backend contract — the backend canonical engine in
+// ``src/api/data_contract.py::_compute_unified_rankings`` is the
+// single source of truth for ``canonicalConsensusRank``,
+// ``rankDerivedValue``, ``sourceRanks``, ``sourceRankMeta``, and the
+// trust/audit fields.
 //
-// When `opts.bypassBackendStamps` is true (automatically set by
-// `buildRows` whenever the user has customized `siteOverrides`), the
-// function's output becomes AUTHORITATIVE and overrides any
-// backend-stamped fields.  That is how the settings page's toggle
-// and weight sliders actually affect what the user sees: a
-// non-default override forces a full frontend recompute using the
-// user's configuration instead of trusting the server blend.
+// Override handling: when the user customizes source weights via
+// settings, ``useDynastyData`` POSTs the override map to the backend
+// endpoint ``POST /api/rankings/overrides?view=delta`` which returns
+// a compact delta payload.  ``fetchDynastyData`` merges the delta
+// onto the cached base contract before calling ``buildRows``, so the
+// rows materialize with override-adjusted ranks.  ``buildRows``
+// itself is a pure materializer — it does not rank, blend,
+// translate, or mix anything on its own.
 //
-// If you need to change canonical ranking logic (the unbiased
-// default), change it in `src/api/data_contract.py::_compute_unified_rankings`
-// and mirror it here — the two paths must stay aligned.
-function computeUnifiedRanks(rows, opts = {}) {
-  const siteOverrides = opts.siteOverrides || {};
-  const bypassBackend = Boolean(opts.bypassBackendStamps);
-  // ── Phase 0: Build the IDP backbone from the designated source ──
-  // The builder seeds the shared-market IDP ladder only when the
-  // backbone source declares overall_offense in its extraScopes (i.e.
-  // prices offense + IDP on a shared 0-9999 scale).  Non-backbone IDP
-  // sources flagged ``needsSharedMarketTranslation`` use that ladder
-  // as a crosswalk so their raw rank 1 is mapped to the combined-pool
-  // rank of the best IDP, not treated as overall rank 1.
-  const backboneSrc = RANKING_SOURCES.find(
-    (s) => s.scope === SOURCE_SCOPE_OVERALL_IDP && s.isBackbone
-  );
-  const backboneExtraScopes = Array.isArray(backboneSrc?.extraScopes)
-    ? backboneSrc.extraScopes
-    : [];
-  const backboneHasSharedMarket = backboneExtraScopes.includes(
-    SOURCE_SCOPE_OVERALL_OFFENSE
-  );
-  const backbone = backboneSrc
-    ? buildIdpBackbone(rows, backboneSrc.key, backboneHasSharedMarket)
-    : {
-        ladders: { DL: [], LB: [], DB: [] },
-        depth: 0,
-        sharedMarketIdpLadder: [],
-        sharedMarketDepth: 0,
-      };
-  const sharedMarketLadder = Array.isArray(backbone.sharedMarketIdpLadder)
-    ? backbone.sharedMarketIdpLadder
-    : [];
-  const sharedMarketDepth = Number(backbone.sharedMarketDepth) || 0;
+// Fail-fast: if ``buildRows`` is called on a non-empty payload whose
+// rows carry zero backend rank stamps, it logs an error and returns
+// an empty array.  This path used to invoke a local fallback blend
+// (~280 lines of drift-prone JS code that duplicated the backend
+// math).  The fallback was removed once the override path was
+// unified through the backend — its silent presence in production
+// logs was a bug signal, not a safety net.  An empty-with-error
+// board is strictly better than a quietly-wrong one.
 
-  // ── Phase 1: Combined-pass ordinal ranking per source ──
-  const sourceRanksByRow = new Map(); // row idx -> { sourceKey: effectiveRank }
-  const sourceMetaByRow = new Map();  // row idx -> { sourceKey: metaDict }
+function _materializePlayerArrayRow(player) {
+  if (!player || typeof player !== "object") return null;
+  const name = String(player.displayName || player.canonicalName || "").trim();
+  if (!name) return null;
+  const pos = normalizePos(player.position || "");
+  const cls = classifyPos(pos);
+  if (cls === "excluded") return null;
 
-  for (const src of RANKING_SOURCES) {
-    // Respect per-user include toggles: a source turned off in settings
-    // is skipped entirely here so it contributes zero signal to the
-    // blend.  This is the authoritative path — the Phase 2-3 loop below
-    // only iterates over sources that survived this filter.
-    if (!isSourceEnabled(siteOverrides, src)) continue;
+  // Prefer 1–9999 display value; fall back to internal calibrated value
+  const displayVal = Number(player?.values?.displayValue ?? 0) || 0;
+  const internalVal = Number(
+    player?.values?.finalAdjusted ?? player?.values?.overall ?? 0
+  ) || 0;
+  const rawValues = {
+    raw: Number(player?.values?.rawComposite ?? 0) || 0,
+    full: displayVal || internalVal,
+  };
 
-    // A source may contribute to multiple scopes (e.g. IDPTradeCalc
-    // lists both offense and IDP players in one value pool on a shared
-    // 0-9999 scale).  Earlier revisions ran a separate ordinal pass per
-    // scope, which restarted at rank 1 in each scope and destroyed the
-    // cross-universe ordering encoded in the raw values — the #1 IDP
-    // and the #1 offense player both got rank 1 → value 9999.
-    //
-    // Instead, gather every row eligible under ANY of this source's
-    // declared scopes into ONE pool and rank them together.  For
-    // single-scope sources this is equivalent to the old per-scope pass.
-    // For dual-scope IDPTradeCalc it preserves combined offense+IDP
-    // ordering: Will Anderson's raw IDPTC value 5963 lands at overall
-    // rank ~40 alongside the full offense ladder, not rank 1 of a
-    // restarted IDP-only pass.
-    const allScopes = [src.scope, ...(src.extraScopes || [])];
-    const eligible = [];
-    rows.forEach((r, idx) => {
-      if (!RANKABLE.has(r.pos)) return;
-      let rowScope = null;
-      for (const s of allScopes) {
-        if (scopeEligible(r.pos, s, src.positionGroup)) {
-          rowScope = s;
-          break;
-        }
-      }
-      if (!rowScope) return;
-      const val = Number(r.canonicalSites?.[src.key]);
-      if (!Number.isFinite(val) || val <= 0) return;
-      const tiebreakName = String(r.name || "").toLowerCase();
-      eligible.push({ idx, val, scope: rowScope, tiebreakName });
-    });
-    // Secondary sort by lowercased name mirrors the backend Phase 1
-    // tiebreaker in _compute_unified_rankings and the backbone builder,
-    // so tied raw values produce the same ordinal ranks regardless of
-    // input order.
-    eligible.sort(
-      (a, b) => b.val - a.val || a.tiebreakName.localeCompare(b.tiebreakName)
-    );
+  const canonicalSites =
+    player.canonicalSiteValues && typeof player.canonicalSiteValues === "object"
+      ? player.canonicalSiteValues
+      : {};
 
-    const needsSharedMarket =
-      Boolean(src.needsSharedMarketTranslation) && !src.isBackbone;
+  // Backend-authoritative: these come straight from the contract's
+  // override-aware ranking pipeline.
+  const backendRank = Number(player.canonicalConsensusRank) || null;
+  const backendValue = Number(player.rankDerivedValue) || null;
+  const backendSourceRanks =
+    player.sourceRanks && typeof player.sourceRanks === "object"
+      ? player.sourceRanks
+      : {};
+  const backendSourceRankMeta =
+    player.sourceRankMeta && typeof player.sourceRankMeta === "object"
+      ? player.sourceRankMeta
+      : {};
+  const backendBlendedSourceRank =
+    player.blendedSourceRank != null ? Number(player.blendedSourceRank) : null;
+  const backendSourceCount = Number(player.sourceCount || 0);
 
-    eligible.forEach((e, rank) => {
-      const rawRank = rank + 1;
-      let effectiveRank = rawRank;
-      let method = TRANSLATION_DIRECT;
-      let ladderDepthMeta = null;
-      let backboneDepthMeta = null;
-      let sharedMarketTranslated = false;
-
-      // position_idp sources (shallow positional lists like DL-only)
-      // still get backbone translation.  overall_* scopes — including
-      // the cross-universe combined pool — pass through directly unless
-      // the source is an IDP-only expert board that opts in to the
-      // shared-market crosswalk (e.g. DLF).
-      if (e.scope === SOURCE_SCOPE_POSITION_IDP && src.positionGroup) {
-        const ladder = backbone.ladders[String(src.positionGroup).toUpperCase()] || [];
-        const translated = translatePositionRank(rawRank, ladder);
-        effectiveRank = translated.rank;
-        method = translated.method;
-        ladderDepthMeta = ladder.length;
-        backboneDepthMeta = backbone.depth;
-      } else if (needsSharedMarket && e.scope === SOURCE_SCOPE_OVERALL_IDP) {
-        const translated = translatePositionRank(rawRank, sharedMarketLadder);
-        effectiveRank = translated.rank;
-        method = translated.method;
-        ladderDepthMeta = sharedMarketLadder.length;
-        backboneDepthMeta = sharedMarketDepth;
-        sharedMarketTranslated = true;
-      }
-
-      if (!sourceRanksByRow.has(e.idx)) sourceRanksByRow.set(e.idx, {});
-      if (!sourceMetaByRow.has(e.idx)) sourceMetaByRow.set(e.idx, {});
-      sourceRanksByRow.get(e.idx)[src.key] = effectiveRank;
-      sourceMetaByRow.get(e.idx)[src.key] = {
-        scope: e.scope,
-        positionGroup: src.positionGroup || null,
-        rawRank,
-        effectiveRank,
-        method,
-        ladderDepth: ladderDepthMeta,
-        backboneDepth: backboneDepthMeta,
-        depth: src.depth ?? null,
-        // Stamp the effective declared weight (registry default OR
-        // user override) onto the per-row meta so the rankings audit
-        // panel tells the truth about what weight was applied.
-        weight: effectiveDeclaredWeight(siteOverrides, src),
-        sharedMarketTranslated,
-      };
-    });
-  }
-
-  // ── Phase 2-3: Coverage-aware weighted Hill-curve blend ──
-  const srcByKey = new Map(RANKING_SOURCES.map((s) => [s.key, s]));
-  const ranked = [];
-  for (const [idx, ranks] of sourceRanksByRow) {
-    const meta = sourceMetaByRow.get(idx) || {};
-    let weightedSum = 0;
-    let weightTotal = 0;
-    for (const [sourceKey, effRank] of Object.entries(ranks)) {
-      const srcDef = srcByKey.get(sourceKey) || {};
-      // Apply user weight override on top of the registry default.
-      // `effectiveDeclaredWeight` resolves to the override when set,
-      // otherwise to the canonical `RANKING_SOURCES` weight (1.0 for
-      // every source in the current registry).
-      const declaredWeight = effectiveDeclaredWeight(siteOverrides, srcDef);
-      const effectiveWeight = coverageWeight(declaredWeight, srcDef.depth ?? null);
-      const value = rankToValue(effRank);
-      weightedSum += value * effectiveWeight;
-      weightTotal += effectiveWeight;
-      if (meta[sourceKey]) {
-        meta[sourceKey].valueContribution = Math.round(value);
-        meta[sourceKey].effectiveWeight = Math.round(effectiveWeight * 10000) / 10000;
-      }
-    }
-    let blended;
-    if (weightTotal > 0) {
-      blended = weightedSum / weightTotal;
-    } else {
-      const vals = Object.values(ranks).map((r) => rankToValue(r));
-      blended = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
-    }
-    ranked.push({ idx, blended, ranks, meta });
-  }
-
-  // ── Phase 4: Unified sort + stamp ──
-  ranked.sort(
-    (a, b) =>
-      b.blended - a.blended ||
-      String(rows[a.idx].name || "").localeCompare(String(rows[b.idx].name || ""))
-  );
-
-  ranked.slice(0, OVERALL_RANK_LIMIT).forEach((entry, i) => {
-    const r = rows[entry.idx];
-    const backendRank = Number(r.raw?.canonicalConsensusRank || r.canonicalConsensusRank);
-    const backendValue = Number(r.raw?.rankDerivedValue);
-
-    const sourceRankValues = Object.values(entry.ranks);
-    const blendedSourceRank =
-      sourceRankValues.reduce((s, v) => s + v, 0) / sourceRankValues.length;
-
-    // Default path: prefer backend-stamped authoritative fields; fall
-    // back to frontend-computed values when backend fields are absent.
-    // Override path: when `bypassBackend` is true (user has customized
-    // siteOverrides), ignore backend stamps entirely and use the
-    // frontend recompute.  That is how toggle/weight controls
-    // materially affect the displayed rankings.
-    if (bypassBackend) {
-      r.canonicalConsensusRank = i + 1;
-      r.rankDerivedValue = Math.round(entry.blended);
-      r.sourceRanks = entry.ranks;
-      r.sourceRankMeta = entry.meta;
-      r.blendedSourceRank = blendedSourceRank;
-      r.sourceCount = sourceRankValues.length;
-    } else {
-      r.canonicalConsensusRank =
-        Number.isInteger(backendRank) && backendRank > 0 ? backendRank : i + 1;
-      r.rankDerivedValue =
-        Number.isFinite(backendValue) && backendValue > 0
-          ? backendValue
-          : Math.round(entry.blended);
-      // sourceRanks: prefer backend when present (has richer per-source metadata)
-      const backendSourceRanks = r.raw?.sourceRanks;
-      r.sourceRanks = backendSourceRanks && typeof backendSourceRanks === "object" && Object.keys(backendSourceRanks).length > 0
-        ? backendSourceRanks : entry.ranks;
-      // sourceRankMeta: prefer backend
-      const backendMeta = r.raw?.sourceRankMeta;
-      r.sourceRankMeta = backendMeta && typeof backendMeta === "object" && Object.keys(backendMeta).length > 0
-        ? backendMeta : entry.meta;
-      // blendedSourceRank: prefer backend, fall back to frontend average
-      const backendBlended = Number(r.raw?.blendedSourceRank);
-      r.blendedSourceRank = Number.isFinite(backendBlended) ? backendBlended : blendedSourceRank;
-      // sourceCount: prefer backend
-      const backendSrcCount = Number(r.raw?.sourceCount);
-      r.sourceCount = Number.isInteger(backendSrcCount) && backendSrcCount > 0
-        ? backendSrcCount : sourceRankValues.length;
-    }
-
-    // Backbone fallback caution: any position_idp source that had to
-    // translate with an empty ladder marks the whole row.
-    r.idpBackboneFallback = Object.values(entry.meta).some(
-      (m) => m && m.method === TRANSLATION_FALLBACK
-    );
-
-    const spread =
-      sourceRankValues.length >= 2
-        ? Math.max(...sourceRankValues) - Math.min(...sourceRankValues)
-        : null;
-    r.sourceRankSpread = r.raw?.sourceRankSpread ?? spread;
-    r.isSingleSource = r.raw?.isSingleSource ?? sourceRankValues.length === 1;
-    r.hasSourceDisagreement =
-      r.raw?.hasSourceDisagreement ?? (spread !== null && spread > 80);
-    r.marketGapDirection = r.raw?.marketGapDirection ?? "none";
-    r.marketGapMagnitude = r.raw?.marketGapMagnitude ?? null;
-
-    if (r.raw?.confidenceBucket) {
-      r.confidenceBucket = r.raw.confidenceBucket;
-      r.confidenceLabel = r.raw.confidenceLabel || "";
-    } else if (sourceRankValues.length >= 2 && spread !== null) {
-      if (spread <= 30) {
-        r.confidenceBucket = "high";
-        r.confidenceLabel = "High — multi-source, tight agreement";
-      } else if (spread <= 80) {
-        r.confidenceBucket = "medium";
-        r.confidenceLabel = "Medium — multi-source, moderate spread";
-      } else {
-        r.confidenceBucket = "low";
-        r.confidenceLabel = "Low — single source or wide disagreement";
-      }
-    } else {
-      r.confidenceBucket = "low";
-      r.confidenceLabel = "Low — single source or wide disagreement";
-    }
-    r.anomalyFlags = Array.isArray(r.raw?.anomalyFlags) ? r.raw.anomalyFlags : [];
-
-    // Backward compat: consumers still read ktcRank / idpRank directly.
-    if (entry.ranks.ktc) r.ktcRank = entry.ranks.ktc;
-    if (entry.ranks.idpTradeCalc) r.idpRank = entry.ranks.idpTradeCalc;
-  });
+  return {
+    name,
+    pos: pos || "?",
+    team: String(player.team || ""),
+    age: Number(player.age) || null,
+    rookie: Boolean(player.rookie),
+    assetClass: String(player.assetClass || classifyPos(pos || "?")),
+    values: {
+      raw: Math.round(rawValues.raw),
+      // When a backend override response has stamped a new
+      // ``rankDerivedValue``, prefer it over the scraper's
+      // ``displayValue`` so the user's settings shift the displayed
+      // Value column too.  This is the trade-calculator-feeds-
+      // rankings single-value pipe.
+      full: Math.round(backendValue || rawValues.full),
+    },
+    // siteCount: intentionally preserved — used by trade calculator and
+    // other non-rankings views.  Rankings pages hide this column, but the
+    // field must remain on the row contract.  Do NOT remove it.
+    siteCount: backendSourceCount,
+    confidence: Number(player.marketConfidence ?? 0),
+    marketLabel: "",
+    canonicalSites,
+    canonicalConsensusRank: backendRank,
+    rankDerivedValue: backendValue,
+    canonicalTierId: Number(player.canonicalTierId) || null,
+    sourceRanks: backendSourceRanks,
+    sourceRankMeta: backendSourceRankMeta,
+    blendedSourceRank: backendBlendedSourceRank,
+    sourceCount: backendSourceCount,
+    // Trust/transparency fields — pass through from backend contract.
+    confidenceBucket: String(player.confidenceBucket || "none"),
+    confidenceLabel: String(player.confidenceLabel || ""),
+    anomalyFlags: Array.isArray(player.anomalyFlags) ? player.anomalyFlags : [],
+    isSingleSource: Boolean(player.isSingleSource),
+    hasSourceDisagreement: Boolean(player.hasSourceDisagreement),
+    sourceRankSpread: player.sourceRankSpread ?? null,
+    marketGapDirection: String(player.marketGapDirection || "none"),
+    marketGapMagnitude: player.marketGapMagnitude ?? null,
+    sourceOriginalRanks: player.sourceOriginalRanks && typeof player.sourceOriginalRanks === "object"
+      ? player.sourceOriginalRanks : {},
+    identityConfidence: Number(player.identityConfidence ?? 0.7),
+    identityMethod: String(player.identityMethod || "name_only"),
+    quarantined: Boolean(player.quarantined),
+    raw: player,
+  };
 }
 
-export function buildRows(data, opts = {}) {
+function _materializeLegacyDictRow(name, player, posMap) {
+  if (!player || typeof player !== "object") return null;
+  const isPick = /\b(20\d{2})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th|6th|round|r\d|pick)/i.test(name) || /^20\d{2}\s+pick/i.test(name);
+  const pos = isPick ? "PICK" : normalizePos(posMap[name] || player.position || "");
+  if (classifyPos(pos) === "excluded") return null;
+
+  const rawValues = inferValueBundle(player);
+  const canonicalSites = player._canonicalSiteValues && typeof player._canonicalSiteValues === "object" ? player._canonicalSiteValues : {};
+  const backendRank = Number(player._canonicalConsensusRank) || null;
+  const backendValue = Number(player.rankDerivedValue) || null;
+  // Mirror the playersArray materializer's single-value pipe: when a
+  // backend ``rankDerivedValue`` is stamped, prefer it over the
+  // legacy ``_finalAdjusted`` as the displayed ``values.full``.
+  const values = {
+    raw: rawValues.raw,
+    full: backendValue || rawValues.full,
+  };
+
+  return {
+    name,
+    pos: pos || "?",
+    team: String(player.team || ""),
+    age: Number(player.age) || null,
+    rookie: Boolean(player._formatFitRookie),
+    assetClass: classifyPos(pos || "?"),
+    values,
+    siteCount: Number(player.sourceCount || player._sites || 0),
+    confidence: Number(player._marketReliabilityScore ?? 0),
+    marketLabel: String(player._marketReliabilityLabel || ""),
+    canonicalSites,
+    canonicalConsensusRank: backendRank,
+    rankDerivedValue: backendValue,
+    canonicalTierId: Number(player._canonicalTierId) || null,
+    sourceRanks: player.sourceRanks && typeof player.sourceRanks === "object" ? player.sourceRanks : {},
+    sourceRankMeta: player.sourceRankMeta && typeof player.sourceRankMeta === "object" ? player.sourceRankMeta : {},
+    blendedSourceRank: player.blendedSourceRank ?? null,
+    sourceCount: Number(player.sourceCount || 0),
+    confidenceBucket: String(player.confidenceBucket || "none"),
+    confidenceLabel: String(player.confidenceLabel || ""),
+    anomalyFlags: Array.isArray(player.anomalyFlags) ? player.anomalyFlags : [],
+    isSingleSource: Boolean(player.isSingleSource),
+    isStructurallySingleSource: Boolean(player.isStructurallySingleSource),
+    hasSourceDisagreement: Boolean(player.hasSourceDisagreement),
+    sourceRankSpread: player.sourceRankSpread ?? null,
+    sourceRankPercentileSpread: player.sourceRankPercentileSpread ?? null,
+    sourceAudit: player.sourceAudit && typeof player.sourceAudit === "object" ? player.sourceAudit : null,
+    marketGapDirection: String(player.marketGapDirection || "none"),
+    marketGapMagnitude: player.marketGapMagnitude ?? null,
+    sourceOriginalRanks: player.sourceOriginalRanks && typeof player.sourceOriginalRanks === "object"
+      ? player.sourceOriginalRanks : {},
+    identityConfidence: Number(player.identityConfidence ?? 0.7),
+    identityMethod: String(player.identityMethod || "name_only"),
+    quarantined: Boolean(player.quarantined),
+    raw: player,
+  };
+}
+
+/**
+ * Returns true if any row carries a positive integer
+ * ``canonicalConsensusRank`` stamp from the backend pipeline.  Checks
+ * "any" rather than "all" because the backend caps the board near
+ * the tail, so players past the cap legitimately have
+ * ``canonicalConsensusRank === null``.
+ */
+function _hasBackendRankStamps(rows) {
+  for (const r of rows) {
+    if (r && Number.isInteger(r.canonicalConsensusRank) && r.canonicalConsensusRank > 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function buildRows(data) {
   const players = data?.players || {};
   const playersArray = Array.isArray(data?.playersArray) ? data.playersArray : [];
   const posMap = data?.sleeper?.positions || {};
   const rows = [];
 
-  // Resolve user-level source overrides (from the settings page) into
-  // the `computeUnifiedRanks` opts bag.  When overrides diverge from
-  // the registry defaults, `bypassBackendStamps` flips on so the
-  // frontend fallback becomes authoritative — user knobs actually
-  // affect the displayed rank instead of being overwritten by the
-  // server's canonical blend.
-  const siteOverrides = opts.siteOverrides || {};
-  const customized = siteOverridesAreCustomized(siteOverrides);
-  const rankOpts = {
-    siteOverrides,
-    bypassBackendStamps: customized,
-  };
-
   if (playersArray.length) {
     for (const player of playersArray) {
-      if (!player || typeof player !== "object") continue;
-      const name = String(player.displayName || player.canonicalName || "").trim();
-      if (!name) continue;
-      const pos = normalizePos(player.position || "");
-      const cls = classifyPos(pos);
-      if (cls === "excluded") continue;
-
-      // Prefer 1–9999 display value; fall back to internal calibrated value
-      const displayVal = Number(player?.values?.displayValue ?? 0) || 0;
-      const internalVal = Number(
-        player?.values?.finalAdjusted ?? player?.values?.overall ?? 0
-      ) || 0;
-      const values = {
-        raw: Number(player?.values?.rawComposite ?? 0) || 0,
-        full: displayVal || internalVal,
-      };
-
-      const canonicalSites =
-        player.canonicalSiteValues && typeof player.canonicalSiteValues === "object"
-          ? player.canonicalSiteValues
-          : {};
-
-      rows.push({
-        name,
-        pos: pos || "?",
-        team: String(player.team || ""),
-        age: Number(player.age) || null,
-        rookie: Boolean(player.rookie),
-        assetClass: String(player.assetClass || classifyPos(pos || "?")),
-        values: {
-          raw: Math.round(values.raw),
-          full: Math.round(values.full),
-        },
-        // siteCount: intentionally preserved — used by trade calculator and
-        // other non-rankings views.  Rankings pages hide this column, but the
-        // field must remain on the row contract.  Do NOT remove it.
-        siteCount: Number(player.sourceCount || 0),
-        confidence: Number(player.marketConfidence ?? 0),
-        marketLabel: "",
-        canonicalSites,
-        canonicalConsensusRank: Number(player.canonicalConsensusRank) || null,
-        canonicalTierId: Number(player.canonicalTierId) || null,
-        // Trust/transparency fields — pass through from backend contract.
-        // These are backend-authoritative; the frontend preserves them as-is.
-        confidenceBucket: String(player.confidenceBucket || "none"),
-        confidenceLabel: String(player.confidenceLabel || ""),
-        anomalyFlags: Array.isArray(player.anomalyFlags) ? player.anomalyFlags : [],
-        isSingleSource: Boolean(player.isSingleSource),
-        hasSourceDisagreement: Boolean(player.hasSourceDisagreement),
-        blendedSourceRank: player.blendedSourceRank ?? null,
-        sourceRankSpread: player.sourceRankSpread ?? null,
-        marketGapDirection: String(player.marketGapDirection || "none"),
-        marketGapMagnitude: player.marketGapMagnitude ?? null,
-        // Identity quality fields — backend-authoritative
-        sourceOriginalRanks: player.sourceOriginalRanks && typeof player.sourceOriginalRanks === "object"
-          ? player.sourceOriginalRanks : {},
-        sourceRankMeta: player.sourceRankMeta && typeof player.sourceRankMeta === "object"
-          ? player.sourceRankMeta : {},
-        identityConfidence: Number(player.identityConfidence ?? 0.7),
-        identityMethod: String(player.identityMethod || "name_only"),
-        quarantined: Boolean(player.quarantined),
-        raw: player,
-      });
+      const row = _materializePlayerArrayRow(player);
+      if (row) rows.push(row);
     }
-
-    computeUnifiedRanks(rows, rankOpts);
-    // Sort by unified canonicalConsensusRank (backend-authoritative when present).
-    rows.sort((a, b) => {
-      const ra = a.canonicalConsensusRank ?? Infinity;
-      const rb = b.canonicalConsensusRank ?? Infinity;
-      if (ra !== rb) return ra - rb;
-      return (b.values.full || 0) - (a.values.full || 0);
-    });
-    rows.forEach((r, i) => {
-      r.computedConsensusRank = i + 1;
-      r.rank = r.canonicalConsensusRank ?? r.computedConsensusRank;
-    });
-    return rows;
+  } else {
+    for (const [name, player] of Object.entries(players)) {
+      const row = _materializeLegacyDictRow(name, player, posMap);
+      if (row) rows.push(row);
+    }
   }
 
-  for (const [name, player] of Object.entries(players)) {
-    if (!player || typeof player !== "object") continue;
-    const isPick = /\b(20\d{2})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th|6th|round|r\d|pick)/i.test(name) || /^20\d{2}\s+pick/i.test(name);
-    const pos = isPick ? "PICK" : normalizePos(posMap[name] || player.position || "");
-    if (classifyPos(pos) === "excluded") continue;
-
-    const values = inferValueBundle(player);
-    const canonicalSites = player._canonicalSiteValues && typeof player._canonicalSiteValues === "object" ? player._canonicalSiteValues : {};
-
-    rows.push({
-      name,
-      pos: pos || "?",
-      team: String(player.team || ""),
-      age: Number(player.age) || null,
-      rookie: Boolean(player._formatFitRookie),
-      assetClass: classifyPos(pos || "?"),
-      values,
-      // siteCount: intentionally preserved — used by trade calculator and
-      // other non-rankings views.  Rankings pages hide this column, but the
-      // field must remain on the row contract.  Do NOT remove it.
-      siteCount: Number(player._sites || 0),
-      confidence: Number(player._marketReliabilityScore ?? 0),
-      marketLabel: String(player._marketReliabilityLabel || ""),
-      canonicalSites,
-      canonicalConsensusRank: Number(player._canonicalConsensusRank) || null,
-      canonicalTierId: Number(player._canonicalTierId) || null,
-      // Trust/transparency fields — prefer backend-mirrored values from
-      // the legacy dict; fall back to safe defaults.  computeUnifiedRanks()
-      // may further overwrite these for ranked players.
-      confidenceBucket: String(player.confidenceBucket || "none"),
-      confidenceLabel: String(player.confidenceLabel || ""),
-      anomalyFlags: Array.isArray(player.anomalyFlags) ? player.anomalyFlags : [],
-      isSingleSource: Boolean(player.isSingleSource),
-      isStructurallySingleSource: Boolean(player.isStructurallySingleSource),
-      hasSourceDisagreement: Boolean(player.hasSourceDisagreement),
-      blendedSourceRank: player.blendedSourceRank ?? null,
-      sourceRankSpread: player.sourceRankSpread ?? null,
-      sourceRankPercentileSpread: player.sourceRankPercentileSpread ?? null,
-      sourceAudit: player.sourceAudit && typeof player.sourceAudit === "object"
-        ? player.sourceAudit
-        : null,
-      marketGapDirection: String(player.marketGapDirection || "none"),
-      marketGapMagnitude: player.marketGapMagnitude ?? null,
-      sourceOriginalRanks: player.sourceOriginalRanks && typeof player.sourceOriginalRanks === "object"
-        ? player.sourceOriginalRanks : {},
-      sourceRankMeta: player.sourceRankMeta && typeof player.sourceRankMeta === "object"
-        ? player.sourceRankMeta : {},
-      identityConfidence: Number(player.identityConfidence ?? 0.7),
-      identityMethod: String(player.identityMethod || "name_only"),
-      quarantined: Boolean(player.quarantined),
-      raw: player,
-    });
+  // Fail-fast: a non-empty payload with zero backend rank stamps is a
+  // hard bug signal (stale file, pipeline failure, upstream scrape
+  // down).  Log an error and return an empty rows array so the UI
+  // surface's existing "no players" error banner kicks in instead of
+  // silently recomputing a drift-prone local blend.
+  if (rows.length > 0 && !_hasBackendRankStamps(rows)) {
+    if (typeof console !== "undefined" && console.error) {
+      console.error(
+        "[dynasty-data] buildRows received a payload with zero backend rank stamps. " +
+          "This is a hard bug signal — the scrape pipeline is not stamping " +
+          "canonicalConsensusRank.  Returning empty rows; the UI will surface a " +
+          "'no players' error banner instead of rendering a silently-wrong board.",
+      );
+    }
+    return [];
   }
 
-  computeUnifiedRanks(rows, rankOpts);
+  // Stable sort by backend canonicalConsensusRank; tied rows fall back
+  // to raw values.full descending.  Backend already orders playersArray
+  // in rank order, so this is a no-op in the common path.
   rows.sort((a, b) => {
     const ra = a.canonicalConsensusRank ?? Infinity;
     const rb = b.canonicalConsensusRank ?? Infinity;
@@ -1006,8 +613,24 @@ export function buildRows(data, opts = {}) {
   return rows;
 }
 
-export async function fetchDynastyData() {
-  const res = await fetch("/api/dynasty-data", { cache: "no-store" });
+// ── Backend override endpoint URL ────────────────────────────────────
+const RANKINGS_OVERRIDES_URL = "/api/rankings/overrides";
+const DEFAULT_DATA_URL = "/api/dynasty-data";
+
+// ── Base contract cache ──────────────────────────────────────────────
+// The rankings-override delta path needs a base payload to merge the
+// delta onto.  We keep the last successfully loaded full contract in
+// module-level state so the second call with overrides does not have
+// to refetch the 2.5MB base payload.
+let _cachedBaseContract = null;
+
+/** Clear the in-memory base contract cache.  Useful for tests. */
+export function _resetBaseContractCache() {
+  _cachedBaseContract = null;
+}
+
+async function _fetchBaseContract() {
+  const res = await fetch(DEFAULT_DATA_URL, { cache: "no-store" });
   if (!res.ok) {
     const txt = await res.text();
     throw new Error(`Failed to load dynasty data: ${res.status} ${txt}`);
@@ -1015,10 +638,10 @@ export async function fetchDynastyData() {
   const json = await res.json();
 
   // The Next.js API route wraps the payload: { ok, source, data: <contract> }
-  // The Python backend alias returns the raw contract: { players, playersArray, version, ... }
-  // Normalize both shapes to { ok, source, data }.
+  // The Python backend alias returns the raw contract.  Normalize both.
+  let wrapped;
   if (json && typeof json === "object" && !json.data && (json.players || json.playersArray)) {
-    return {
+    wrapped = {
       ok: true,
       source: json.dataSource?.type
         ? `backend:${json.dataSource.type}`
@@ -1027,7 +650,214 @@ export async function fetchDynastyData() {
           : "backend",
       data: json,
     };
+  } else {
+    wrapped = json;
+  }
+  if (wrapped && wrapped.data) {
+    _cachedBaseContract = wrapped;
+  }
+  return wrapped;
+}
+
+// ── Rankings delta merge ──────────────────────────────────────────────
+// Applies a compact delta payload (from ``POST /api/rankings/overrides?view=delta``)
+// onto a cached base contract, producing a new contract object with
+// override-adjusted ranks and values.  The base contract is NOT
+// mutated — we shallow-copy the top-level object and deep-copy the
+// ``playersArray`` entries that are touched.  Unchanged players keep
+// their base identity, team, age, canonical sites, and identity
+// quality untouched.
+//
+// Runtime vs full payload:
+// ────────────────────────
+// The frontend's default data fetch hits ``/api/data?view=app`` on
+// the backend, which returns the "runtime" view that strips
+// ``playersArray`` to keep the first-paint payload small.  The
+// legacy ``players`` dict (keyed by displayName) is the only
+// per-player collection in that view.  When an override delta
+// arrives, we therefore synthesize a fresh ``playersArray`` from
+// the delta entries plus the legacy dict for identity fields —
+// delta provides the override-sensitive fields (ranks, values,
+// sourceRanks, confidence, gap) and the legacy dict + sleeper
+// position map provide the invariant identity fields (position,
+// team, age, rookie flag).  The merged contract always carries a
+// populated ``playersArray`` so ``buildRows`` uses the authoritative
+// playersArray materializer and never falls back to the legacy
+// dict path for override rows.
+//
+// When the base contract already carries a populated playersArray
+// (e.g. the ``/api/data`` full view, or test fixtures), we take
+// the simpler path of iterating basePlayersArray and deep-merging
+// delta fields onto each matched entry.
+export function mergeRankingsDelta(baseContract, delta) {
+  if (!baseContract || !delta) return baseContract;
+  const base = baseContract.data || baseContract;
+  const rankingsDelta = delta.rankingsDelta;
+  if (!rankingsDelta || !Array.isArray(rankingsDelta.players)) return baseContract;
+  const playerKey = rankingsDelta.playerKey || "displayName";
+  const deltaByKey = new Map();
+  for (const entry of rankingsDelta.players) {
+    if (!entry || !entry.id) continue;
+    deltaByKey.set(String(entry.id), entry);
+  }
+  const activeIds = new Set(
+    (rankingsDelta.activePlayerIds || []).map((s) => String(s)),
+  );
+
+  const mergedData = {
+    ...base,
+    rankingsOverride: delta.rankingsOverride || base.rankingsOverride,
+    date: delta.date || base.date,
+    generatedAt: delta.generatedAt || base.generatedAt,
+  };
+
+  const basePlayersArray = Array.isArray(base.playersArray) ? base.playersArray : [];
+
+  if (basePlayersArray.length > 0) {
+    // Fast path: base already has a fully-materialized playersArray,
+    // so we iterate it and apply delta-entry fields in place.
+    const mergedPlayersArray = new Array(basePlayersArray.length);
+    for (let i = 0; i < basePlayersArray.length; i++) {
+      const basePlayer = basePlayersArray[i];
+      if (!basePlayer) {
+        mergedPlayersArray[i] = basePlayer;
+        continue;
+      }
+      const id = String(
+        basePlayer[playerKey] || basePlayer.displayName || basePlayer.canonicalName || "",
+      );
+      const deltaEntry = deltaByKey.get(id);
+      if (!deltaEntry) {
+        mergedPlayersArray[i] = basePlayer;
+        continue;
+      }
+      const next = { ...basePlayer };
+      for (const field of Object.keys(deltaEntry)) {
+        if (field === "id") continue;
+        next[field] = deltaEntry[field];
+      }
+      if (!activeIds.has(id)) {
+        next.canonicalConsensusRank = null;
+      }
+      mergedPlayersArray[i] = next;
+    }
+    mergedData.playersArray = mergedPlayersArray;
+  } else {
+    // Runtime-view path: the base contract only has the legacy
+    // ``players`` dict (playersArray was stripped to minimize
+    // first-paint payload).  We synthesize one playersArray entry
+    // per delta player by reading identity fields from the legacy
+    // dict + ``sleeper.positions`` map.  This keeps ``buildRows``
+    // on its authoritative playersArray path and guarantees the
+    // override is actually reflected in the materialized rows.
+    const legacyPlayers =
+      base.players && typeof base.players === "object" ? base.players : {};
+    const posMap =
+      (base.sleeper && base.sleeper.positions) || {};
+    const PICK_RE = /\b(20\d{2})\s+(early|mid|late)?\s*(1st|2nd|3rd|4th|5th|6th|round|r\d|pick)/i;
+    const synthesizedArray = [];
+    for (const deltaEntry of rankingsDelta.players) {
+      if (!deltaEntry || !deltaEntry.id) continue;
+      const id = String(deltaEntry.id);
+      const legacy =
+        legacyPlayers[id] && typeof legacyPlayers[id] === "object"
+          ? legacyPlayers[id]
+          : {};
+      const isPick = PICK_RE.test(id) || /^20\d{2}\s+pick/i.test(id);
+      // Start with a minimal identity envelope.  Delta fields
+      // override anything override-sensitive (values, ranks,
+      // sourceRanks, confidence, gap, etc.), and the legacy dict
+      // supplies the identity / invariant fields the playersArray
+      // materializer reads on rows (position, team, age, etc.).
+      const row = {
+        displayName: id,
+        canonicalName: String(legacy.canonicalName || id),
+        position: isPick
+          ? "PICK"
+          : String(posMap[id] || legacy.position || ""),
+        team: legacy.team != null ? legacy.team : null,
+        age: legacy.age != null ? legacy.age : null,
+        rookie: Boolean(legacy._formatFitRookie || legacy.rookie),
+        assetClass: String(legacy.assetClass || ""),
+        identityConfidence: Number(legacy.identityConfidence ?? 0.7),
+        identityMethod: String(legacy.identityMethod || "name_only"),
+        // Carry forward the pre-override canonical site values so
+        // the retail-vs-consensus gap column can fall back when the
+        // delta dropped a source.
+        canonicalSiteValues:
+          legacy._canonicalSiteValues && typeof legacy._canonicalSiteValues === "object"
+            ? legacy._canonicalSiteValues
+            : {},
+      };
+      for (const field of Object.keys(deltaEntry)) {
+        if (field === "id") continue;
+        row[field] = deltaEntry[field];
+      }
+      if (!activeIds.has(id)) {
+        row.canonicalConsensusRank = null;
+      }
+      synthesizedArray.push(row);
+    }
+    mergedData.playersArray = synthesizedArray;
   }
 
-  return json;
+  return {
+    ...baseContract,
+    ok: true,
+    source: "backend:override:delta",
+    data: mergedData,
+  };
+}
+
+export async function fetchDynastyData(opts = {}) {
+  const siteOverrides = opts.siteOverrides || null;
+  const customized = siteOverridesAreCustomized(siteOverrides);
+
+  // Default path (no overrides): fetch + cache the base contract.
+  if (!customized) {
+    return _fetchBaseContract();
+  }
+
+  // Override path: POST the override map to the backend delta
+  // endpoint, then merge the delta onto the cached base contract.
+  const base = _cachedBaseContract || (await _fetchBaseContract());
+
+  try {
+    const overrideRes = await fetch(`${RANKINGS_OVERRIDES_URL}?view=delta`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(siteOverrides),
+      cache: "no-store",
+    });
+    if (overrideRes.ok) {
+      const deltaPayload = await overrideRes.json();
+      if (deltaPayload && deltaPayload.mode === "delta" && deltaPayload.rankingsDelta) {
+        return mergeRankingsDelta(base, deltaPayload);
+      }
+      // Full-contract fallback: the backend may have returned a full
+      // payload (e.g. proxy stripped view=delta).  Pass through.
+      if (deltaPayload && (deltaPayload.players || deltaPayload.playersArray)) {
+        return {
+          ok: true,
+          source: "backend:override",
+          data: deltaPayload,
+        };
+      }
+    } else if (typeof console !== "undefined" && console.warn) {
+      console.warn(
+        `[dynasty-data] /api/rankings/overrides returned ${overrideRes.status}; ` +
+          "falling through to base contract.",
+      );
+    }
+  } catch (err) {
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn(
+        "[dynasty-data] /api/rankings/overrides request failed:",
+        err?.message || err,
+      );
+    }
+  }
+
+  // Override endpoint failed — return the base contract unchanged.
+  return base;
 }
