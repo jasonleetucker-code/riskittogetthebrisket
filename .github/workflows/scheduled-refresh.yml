@@ -56,7 +56,7 @@ jobs:
           # Sheet ID extracted from the sharing URL.  If the sheet is
           # ever made private, replace this with a service-account flow
           # and store credentials in GitHub Secrets.
-          SHEET_ID="13w5JDLFHMk0aWVIPPnYngm2UvkdCdHDg"
+          SHEET_ID="17wa6qdZ1Y8ckb4TIVZ4_C71g0skvtk9UZy43zSFzRlA"
 
           echo "Downloading Draft Data workbook..."
           HTTP_CODE=$(curl -sL -w "%{http_code}" \
