@@ -2502,17 +2502,21 @@ def _parse_draft_csv():
     slot_to_original_owner : dict[int, str]
         Draft-order mapping: slot number → original owner name (from the
         Standings section).  Used to determine isTraded.
+    workbook_team_totals : dict[str, float]
+        Team totals from the workbook's U63:U74 section (cols 19-20).
+        These are the authoritative team totals computed from the
+        workbook's internal decimal formulas.
     rookies : list[dict]
         Rookie rankings (from KTC live or CSV fallback, extended via decay).
     """
     import csv
     if not DRAFT_DATA_CSV.exists():
-        return [], [], {}, []
+        return [], [], {}, {}, []
     try:
         with open(DRAFT_DATA_CSV, newline="", encoding="utf-8") as f:
             rows = list(csv.reader(f))
     except Exception:
-        return [], [], {}, []
+        return [], [], {}, {}, []
 
     # ── Pick dollar values from "Final Dollar Per Pick" column (index 11) ──
     pick_dollars_raw: list[float] = []
@@ -2594,11 +2598,34 @@ def _parse_draft_csv():
             except (ValueError, TypeError):
                 continue
 
+    # ── Workbook team totals (cols 19-20, "Team,Auction$" section) ──
+    # These are authoritative — computed from the workbook's internal
+    # decimal formulas, so they match the spreadsheet display even though
+    # the per-pick integers in Q45:Q116 don't sum to exactly 1200.
+    workbook_team_totals: dict[str, float] = {}
+    in_team_section = False
+    for row in rows:
+        if len(row) <= 20:
+            continue
+        c19 = (row[19].strip() if row[19] else "")
+        c20 = (row[20].strip() if row[20] else "")
+        if c19 == "Team" and c20.startswith("Auction"):
+            in_team_section = True
+            continue
+        if in_team_section:
+            if not c19 or not c20:
+                in_team_section = False
+                continue
+            try:
+                workbook_team_totals[c19] = float(c20)
+            except (ValueError, TypeError):
+                in_team_section = False
+
     # Get rookies from KTC (live) or CSV (fallback), then fill to 72 via decay curve
     rookies = _get_ktc_rookies()
     rookies = _ktc_decay_curve(rookies, _KTC_TOTAL_PICKS)
 
-    return pick_dollars, workbook_picks, slot_to_original_owner, rookies
+    return pick_dollars, workbook_picks, slot_to_original_owner, workbook_team_totals, rookies
 
 
 def _expansion_avg(pick_dollars: list, rnd: int, num_teams: int) -> float:
@@ -2621,7 +2648,7 @@ def _fetch_draft_capital():
     Fallback path: Sleeper API for pick ownership when the workbook's
     final section is missing.
     """
-    pick_dollars, workbook_picks, slot_to_original, rookies = _parse_draft_csv()
+    pick_dollars, workbook_picks, slot_to_original, wb_team_totals, rookies = _parse_draft_csv()
     if not pick_dollars:
         return {"error": "Draft data CSV not found or empty"}
 
@@ -2640,20 +2667,19 @@ def _fetch_draft_capital():
 
     if use_workbook:
         # ── Workbook authority path ──
-        # Values come from column 11 (raw curve) with true-division
-        # expansion averaging; ownership comes from the workbook's final
-        # pick assignment table.
+        # Per-pick values come from Q45:Q116 (the workbook's final
+        # calculated section).  These already include expansion
+        # averaging — picks 1 & 2 show the same value.
+        # Team totals come from U63:U74 (the workbook's SUMIFS over
+        # the underlying decimal formulas, which sum to exactly 1200
+        # even though the displayed per-pick integers don't).
         for i, wp in enumerate(workbook_picks):
             rnd = wp["round"]
             pick_num = wp["pick"]
             owner = wp["owner"]
-            raw_dollar = pick_dollars[i]
+            raw_dollar = pick_dollars[i]  # col 11 (pre-averaging)
+            pick_value = wp["value"]      # Q45:Q116 (post-averaging)
             pick_in_round = pick_num - 1  # 0-based
-
-            if pick_in_round < 2:
-                adjusted = _expansion_avg(pick_dollars, rnd, num_teams)
-            else:
-                adjusted = raw_dollar
 
             original_owner = slot_to_original.get(pick_num, owner)
             is_traded = original_owner != owner
@@ -2664,7 +2690,7 @@ def _fetch_draft_capital():
                 "pickInRound": pick_num,
                 "overallPick": i + 1,
                 "dollarValue": raw_dollar,
-                "adjustedDollarValue": adjusted,
+                "adjustedDollarValue": pick_value,
                 "originalOwner": original_owner,
                 "currentOwner": owner,
                 "isTraded": is_traded,
@@ -2673,9 +2699,19 @@ def _fetch_draft_capital():
                 "rookiePos": None,
                 "rookieKtcValue": None,
             })
-            team_totals.setdefault(owner, 0.0)
-            team_totals[owner] += adjusted
-            total_budget += adjusted
+
+        # Use workbook team totals (U63:U74) if available; they're
+        # computed from internal decimal formulas and match the
+        # spreadsheet display exactly.
+        if wb_team_totals:
+            team_totals = dict(wb_team_totals)
+            total_budget = sum(wb_team_totals.values())
+        else:
+            # Fallback: sum Q45:Q116 per-pick values by owner
+            for pick in all_picks:
+                team_totals.setdefault(pick["currentOwner"], 0.0)
+                team_totals[pick["currentOwner"]] += pick["adjustedDollarValue"]
+            total_budget = sum(team_totals.values())
 
         num_teams = max(
             num_teams,
