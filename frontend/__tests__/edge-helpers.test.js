@@ -10,6 +10,7 @@ import {
   topFlaggedCautions,
   topConsensusAssets,
   computeEdgeSummary,
+  isTopRankedForEdgePremium,
 } from "../lib/edge-helpers.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -311,5 +312,76 @@ describe("getLens", () => {
   it("returns correct lens by key", () => {
     expect(getLens("safest").key).toBe("safest");
     expect(getLens("fragile").key).toBe("fragile");
+  });
+});
+
+// ── isTopRankedForEdgePremium ────────────────────────────────────────
+//
+// The Edge page's Retail Premium / Consensus Premium sections are
+// pinned to the top 200 by consensus rank OR KTC rank so deep-bench
+// disagreements (which have no trade relevance) don't flood the
+// sections.  This block pins every eligibility branch.
+
+describe("isTopRankedForEdgePremium", () => {
+  it("returns false for null / undefined / missing row", () => {
+    expect(isTopRankedForEdgePremium(null)).toBe(false);
+    expect(isTopRankedForEdgePremium(undefined)).toBe(false);
+  });
+
+  it("admits rows whose consensus rank is inside the top 200", () => {
+    expect(isTopRankedForEdgePremium({ rank: 1 })).toBe(true);
+    expect(isTopRankedForEdgePremium({ rank: 50 })).toBe(true);
+    expect(isTopRankedForEdgePremium({ rank: 199 })).toBe(true);
+    expect(isTopRankedForEdgePremium({ rank: 200 })).toBe(true);
+  });
+
+  it("rejects rows whose consensus rank is past the top 200 with no KTC signal", () => {
+    expect(isTopRankedForEdgePremium({ rank: 201 })).toBe(false);
+    expect(isTopRankedForEdgePremium({ rank: 500 })).toBe(false);
+  });
+
+  it("admits rows with KTC rank <= 200 even when consensus rank is past 200", () => {
+    expect(
+      isTopRankedForEdgePremium({ rank: 500, sourceRanks: { ktc: 150 } }),
+    ).toBe(true);
+    expect(
+      isTopRankedForEdgePremium({ rank: 201, sourceRanks: { ktc: 200 } }),
+    ).toBe(true);
+  });
+
+  it("rejects rows where both ranks are past the top 200", () => {
+    expect(
+      isTopRankedForEdgePremium({ rank: 250, sourceRanks: { ktc: 300 } }),
+    ).toBe(false);
+    expect(
+      isTopRankedForEdgePremium({ rank: 500, sourceRanks: { ktc: 500 } }),
+    ).toBe(false);
+  });
+
+  it("treats a missing consensus rank as Infinity and defers to KTC", () => {
+    expect(
+      isTopRankedForEdgePremium({ sourceRanks: { ktc: 100 } }),
+    ).toBe(true);
+    expect(
+      isTopRankedForEdgePremium({ sourceRanks: { ktc: 300 } }),
+    ).toBe(false);
+  });
+
+  it("treats a missing sourceRanks.ktc as Infinity and defers to consensus", () => {
+    expect(isTopRankedForEdgePremium({ rank: 150 })).toBe(true);
+    expect(isTopRankedForEdgePremium({ rank: 150, sourceRanks: {} })).toBe(
+      true,
+    );
+    expect(isTopRankedForEdgePremium({ rank: 220, sourceRanks: {} })).toBe(
+      false,
+    );
+  });
+
+  it("returns false when both ranks are NaN / missing", () => {
+    expect(isTopRankedForEdgePremium({})).toBe(false);
+    expect(isTopRankedForEdgePremium({ rank: null })).toBe(false);
+    expect(
+      isTopRankedForEdgePremium({ rank: "garbage", sourceRanks: { ktc: null } }),
+    ).toBe(false);
   });
 });

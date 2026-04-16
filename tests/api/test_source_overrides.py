@@ -40,6 +40,7 @@ from src.api.data_contract import (
     get_ranking_source_keys,
     get_ranking_source_registry,
     normalize_source_overrides,
+    normalize_tep_multiplier,
 )
 
 
@@ -114,6 +115,21 @@ def _fixture_raw_payload() -> dict[str, Any]:
                 },
                 "_sites": 2,
             },
+            # TE covered by every offense source including the TEP-
+            # native one.  Used by TestTepMultiplier to verify that
+            # the TEP multiplier boosts non-TEP-native contributions
+            # but passes the TEP-native source through unchanged.
+            "Brock Bowers": {
+                "position": "TE",
+                "team": "LV",
+                "_canonicalSiteValues": {
+                    "ktc": 9400,
+                    "idpTradeCalc": 9300,
+                    "dlfSf": 9450,
+                    "dynastyNerdsSfTep": 9600,
+                },
+                "_sites": 4,
+            },
             # IDP players
             "Myles Garrett": {
                 "position": "DL",
@@ -163,6 +179,7 @@ def _fixture_raw_payload() -> dict[str, Any]:
                 "Trevor Lawrence": "QB",
                 "Rookie Wonder": "WR",
                 "Veteran TE": "TE",
+                "Brock Bowers": "TE",
                 "Myles Garrett": "DL",
                 "Roquan Smith": "LB",
                 "Kyle Hamilton": "DB",
@@ -740,6 +757,327 @@ class TestBuildRankingsDeltaPayload(unittest.TestCase):
                         full_row.get(field),
                         f"merge mismatch on {player_id}.{field}",
                     )
+
+
+class TestNormalizeTepMultiplier(unittest.TestCase):
+    """Input validation + clamping for the TE-premium multiplier."""
+
+    def test_missing_field_defaults_to_one(self) -> None:
+        self.assertEqual(normalize_tep_multiplier(None), 1.0)
+        self.assertEqual(normalize_tep_multiplier({}), 1.0)
+        self.assertEqual(normalize_tep_multiplier({"ktc": {"include": False}}), 1.0)
+
+    def test_snake_case_key_is_accepted(self) -> None:
+        self.assertEqual(normalize_tep_multiplier({"tep_multiplier": 1.15}), 1.15)
+
+    def test_camel_case_key_is_accepted(self) -> None:
+        self.assertEqual(normalize_tep_multiplier({"tepMultiplier": 1.2}), 1.2)
+
+    def test_snake_case_wins_over_camel_case(self) -> None:
+        # Both forms present: snake_case is the canonical spelling and
+        # should win if a caller mixes them.
+        result = normalize_tep_multiplier(
+            {"tep_multiplier": 1.15, "tepMultiplier": 1.5}
+        )
+        self.assertEqual(result, 1.15)
+
+    def test_out_of_range_values_clamp(self) -> None:
+        self.assertEqual(normalize_tep_multiplier({"tep_multiplier": 0.5}), 1.0)
+        self.assertEqual(normalize_tep_multiplier({"tep_multiplier": 3.0}), 2.0)
+        self.assertEqual(normalize_tep_multiplier({"tep_multiplier": -1}), 1.0)
+
+    def test_non_numeric_values_default_to_one(self) -> None:
+        self.assertEqual(normalize_tep_multiplier({"tep_multiplier": "nope"}), 1.0)
+        self.assertEqual(normalize_tep_multiplier({"tep_multiplier": None}), 1.0)
+        self.assertEqual(
+            normalize_tep_multiplier({"tep_multiplier": float("inf")}), 1.0
+        )
+        self.assertEqual(
+            normalize_tep_multiplier({"tep_multiplier": float("nan")}), 1.0
+        )
+
+    def test_non_dict_input_returns_default(self) -> None:
+        self.assertEqual(normalize_tep_multiplier("1.15"), 1.0)
+        self.assertEqual(normalize_tep_multiplier(1.15), 1.0)
+        self.assertEqual(normalize_tep_multiplier([1.15]), 1.0)
+
+    def test_tep_multiplier_with_source_overrides_is_accepted(self) -> None:
+        """The TEP field must not reject a body that has no per-source overrides.
+
+        The frontend default is tepMultiplier=1.15 with an empty
+        siteWeights map.  Posting just ``{"tep_multiplier": 1.15}``
+        must be a valid body.
+        """
+        overrides, warnings = normalize_source_overrides({"tep_multiplier": 1.15})
+        # No per-source overrides were provided — the source map
+        # should be empty and the TEP field must not appear as a
+        # warning.
+        self.assertEqual(overrides, {})
+        for w in warnings:
+            self.assertNotIn("tep_multiplier", w)
+        self.assertEqual(normalize_tep_multiplier({"tep_multiplier": 1.15}), 1.15)
+
+    def test_tep_multiplier_alongside_legacy_overrides(self) -> None:
+        body = {"tep_multiplier": 1.2, "ktc": {"include": False}}
+        overrides, warnings = normalize_source_overrides(body)
+        self.assertEqual(overrides, {"ktc": {"include": False}})
+        self.assertEqual(warnings, [])
+        self.assertEqual(normalize_tep_multiplier(body), 1.2)
+
+
+class TestTepMultiplier(unittest.TestCase):
+    """Backend-authoritative TE premium: value-level boost inside the blend."""
+
+    def setUp(self) -> None:
+        # Baseline board with TEP disabled (1.0 = no-op).  Every
+        # per-row comparison in this suite diffs against this fixture
+        # so any measurable TEP effect is attributable to the multiplier.
+        self.baseline = build_api_data_contract(
+            _fixture_raw_payload(), tep_multiplier=1.0
+        )
+        self.baseline_by_name = _by_name(self.baseline)
+
+    def test_default_tep_is_noop(self) -> None:
+        """tep_multiplier=1.0 produces byte-for-byte canonical rankings."""
+        implicit = build_api_data_contract(_fixture_raw_payload())
+        explicit = build_api_data_contract(
+            _fixture_raw_payload(), tep_multiplier=1.0
+        )
+        # Strip timestamps so we can diff the materialized rows.
+        for c in (implicit, explicit):
+            c.pop("generatedAt", None)
+        # Every row's rankDerivedValue and canonicalConsensusRank must
+        # agree at TEP=1.0 (the new default with no argument).
+        implicit_rows = _by_name(implicit)
+        explicit_rows = _by_name(explicit)
+        for name, row in implicit_rows.items():
+            other = explicit_rows.get(name)
+            self.assertIsNotNone(other)
+            self.assertEqual(
+                row.get("rankDerivedValue"), other.get("rankDerivedValue")
+            )
+            self.assertEqual(
+                row.get("canonicalConsensusRank"),
+                other.get("canonicalConsensusRank"),
+            )
+
+    def test_tep_boost_raises_te_values_monotonically(self) -> None:
+        """With TEP > 1.0, every TE's rankDerivedValue is >= its TEP=1.0 value."""
+        boosted = build_api_data_contract(
+            _fixture_raw_payload(), tep_multiplier=1.15
+        )
+        boosted_by_name = _by_name(boosted)
+        for name, baseline_row in self.baseline_by_name.items():
+            pos = str(baseline_row.get("position") or "").upper()
+            if pos != "TE":
+                continue
+            base_value = int(baseline_row.get("rankDerivedValue") or 0)
+            boost_value = int(boosted_by_name[name].get("rankDerivedValue") or 0)
+            self.assertGreaterEqual(
+                boost_value,
+                base_value,
+                f"TE {name} went DOWN with TEP boost: {base_value} -> {boost_value}",
+            )
+
+    def test_tep_boost_does_not_touch_non_te_values(self) -> None:
+        """Non-TE players must be unaffected by tep_multiplier."""
+        boosted = build_api_data_contract(
+            _fixture_raw_payload(), tep_multiplier=1.15
+        )
+        boosted_by_name = _by_name(boosted)
+        for name, baseline_row in self.baseline_by_name.items():
+            pos = str(baseline_row.get("position") or "").upper()
+            if pos in {"TE", "PICK"}:
+                continue
+            self.assertEqual(
+                baseline_row.get("rankDerivedValue"),
+                boosted_by_name[name].get("rankDerivedValue"),
+                f"Non-TE {name} ({pos}) changed under TEP boost",
+            )
+
+    def test_brock_bowers_mostly_proportional_boost(self) -> None:
+        """A top TE with mixed-TEP coverage gets a measurable but sub-15% boost.
+
+        Brock Bowers in the fixture has contributions from ktc
+        (non-TEP), idpTradeCalc (non-TEP), dlfSf (non-TEP), and
+        dynastyNerdsSfTep (TEP-native).  Three of four contributions
+        get multiplied by 1.15 and one passes through unchanged, so
+        the final blended value should be boosted by less than the
+        full 15% but meaningfully more than 0%.
+        """
+        boosted = build_api_data_contract(
+            _fixture_raw_payload(), tep_multiplier=1.15
+        )
+        boosted_by_name = _by_name(boosted)
+        base_value = int(
+            self.baseline_by_name["Brock Bowers"].get("rankDerivedValue") or 0
+        )
+        boost_value = int(
+            boosted_by_name["Brock Bowers"].get("rankDerivedValue") or 0
+        )
+        self.assertGreater(base_value, 0)
+        self.assertGreater(boost_value, base_value)
+        # Cap: the boost cannot exceed the raw 15% multiplier because
+        # at least one source (dynastyNerdsSfTep) passes through unchanged.
+        self.assertLess(boost_value, int(base_value * 1.15))
+        # Floor: the boost must be measurable (at least 1% on a 4-source
+        # blend where 3 of 4 contributions get multiplied by 1.15).
+        self.assertGreater(boost_value / base_value, 1.01)
+
+    def test_tep_native_only_coverage_is_not_boosted(self) -> None:
+        """When the only TE source is TEP-native, no boost is applied."""
+        override = {
+            "ktc": {"include": False},
+            "idpTradeCalc": {"include": False},
+            "dlfSf": {"include": False},
+        }
+        base = build_api_data_contract(
+            _fixture_raw_payload(),
+            source_overrides=override,
+            tep_multiplier=1.0,
+        )
+        boosted = build_api_data_contract(
+            _fixture_raw_payload(),
+            source_overrides=override,
+            tep_multiplier=1.15,
+        )
+        base_bowers = _by_name(base).get("Brock Bowers")
+        boost_bowers = _by_name(boosted).get("Brock Bowers")
+        self.assertIsNotNone(base_bowers)
+        self.assertIsNotNone(boost_bowers)
+        self.assertEqual(
+            base_bowers.get("rankDerivedValue"),
+            boost_bowers.get("rankDerivedValue"),
+            "TEP-native-only coverage should not be boosted by the global TEP slider",
+        )
+
+    def test_tep_native_disabled_full_non_native_boost(self) -> None:
+        """With only non-TEP sources active, the TEP boost should approach the raw multiplier.
+
+        Disabling dynastyNerdsSfTep removes the TEP-native contribution
+        entirely, so every remaining source gets multiplied by TEP,
+        and the blended value should be exactly ``baseline * TEP``
+        (within rounding).  No double-boost is possible because there
+        are no TEP-native sources left to pass through.
+        """
+        base = build_api_data_contract(
+            _fixture_raw_payload(),
+            source_overrides={"dynastyNerdsSfTep": {"include": False}},
+            tep_multiplier=1.0,
+        )
+        boosted = build_api_data_contract(
+            _fixture_raw_payload(),
+            source_overrides={"dynastyNerdsSfTep": {"include": False}},
+            tep_multiplier=1.15,
+        )
+        base_bowers = _by_name(base)["Brock Bowers"]
+        boost_bowers = _by_name(boosted)["Brock Bowers"]
+        base_value = int(base_bowers.get("rankDerivedValue") or 0)
+        boost_value = int(boost_bowers.get("rankDerivedValue") or 0)
+        self.assertGreater(base_value, 0)
+        expected = int(round(base_value * 1.15))
+        # Allow a 2-unit tolerance for rounding inside the weighted-mean /
+        # robust-median combine.
+        self.assertAlmostEqual(boost_value, expected, delta=2)
+
+    def test_tep_combines_with_source_overrides(self) -> None:
+        """TEP boost should compound correctly with source weight/include overrides."""
+        override = {"dlfSf": {"weight": 0.5}, "ktc": {"include": False}}
+        boosted = build_api_data_contract(
+            _fixture_raw_payload(),
+            source_overrides=override,
+            tep_multiplier=1.15,
+        )
+        baseline = build_api_data_contract(
+            _fixture_raw_payload(),
+            source_overrides=override,
+            tep_multiplier=1.0,
+        )
+        boosted_bowers = _by_name(boosted)["Brock Bowers"]
+        baseline_bowers = _by_name(baseline)["Brock Bowers"]
+        # KTC is disabled so it must not appear in sourceRanks on
+        # either response — this verifies the source override took
+        # effect under both TEP paths.
+        self.assertNotIn("ktc", boosted_bowers.get("sourceRanks", {}))
+        self.assertNotIn("ktc", baseline_bowers.get("sourceRanks", {}))
+        # With TEP>1, the boosted blended value must be strictly higher.
+        self.assertGreater(
+            int(boosted_bowers.get("rankDerivedValue") or 0),
+            int(baseline_bowers.get("rankDerivedValue") or 0),
+        )
+
+    def test_tep_with_tep_native_disabled_via_source_override(self) -> None:
+        """Disabling the TEP-native source + TEP=1.15 = every remaining source gets boosted, zero double-count."""
+        contract = build_api_data_contract(
+            _fixture_raw_payload(),
+            source_overrides={"dynastyNerdsSfTep": {"include": False}},
+            tep_multiplier=1.15,
+        )
+        by_name = _by_name(contract)
+        bowers = by_name.get("Brock Bowers")
+        self.assertIsNotNone(bowers)
+        # No dynastyNerdsSfTep contribution.
+        self.assertNotIn("dynastyNerdsSfTep", bowers.get("sourceRanks", {}))
+        # Every remaining source meta should show a tepBoostApplied flag
+        # on a TE row.
+        for key, meta in (bowers.get("sourceRankMeta") or {}).items():
+            self.assertTrue(
+                meta.get("tepBoostApplied"),
+                f"TE source {key} did not receive TEP boost stamp",
+            )
+            self.assertAlmostEqual(float(meta.get("tepMultiplier", 0)), 1.15)
+
+    def test_tep_summary_block_when_customized(self) -> None:
+        """rankingsOverride.tepMultiplier must reflect the applied value."""
+        contract = build_api_data_contract(
+            _fixture_raw_payload(), tep_multiplier=1.15
+        )
+        rov = contract.get("rankingsOverride") or {}
+        self.assertAlmostEqual(float(rov.get("tepMultiplier") or 0), 1.15)
+        self.assertEqual(float(rov.get("tepMultiplierDefault") or 0), 1.0)
+        self.assertTrue(rov.get("isCustomized"))
+
+    def test_tep_summary_block_at_default(self) -> None:
+        contract = build_api_data_contract(
+            _fixture_raw_payload(), tep_multiplier=1.0
+        )
+        rov = contract.get("rankingsOverride") or {}
+        self.assertEqual(float(rov.get("tepMultiplier") or 0), 1.0)
+        # At default, no source overrides and TEP=1.0, not customized.
+        self.assertFalse(rov.get("isCustomized"))
+
+    def test_tep_summary_block_out_of_range_clamps(self) -> None:
+        contract = build_api_data_contract(
+            _fixture_raw_payload(), tep_multiplier=3.0
+        )
+        rov = contract.get("rankingsOverride") or {}
+        self.assertEqual(float(rov.get("tepMultiplier") or 0), 2.0)
+
+    def test_delta_payload_reflects_tep_in_summary(self) -> None:
+        """build_rankings_delta_payload must carry tepMultiplier through."""
+        delta = build_rankings_delta_payload(
+            _fixture_raw_payload(), tep_multiplier=1.15
+        )
+        rov = delta.get("rankingsOverride") or {}
+        self.assertAlmostEqual(float(rov.get("tepMultiplier") or 0), 1.15)
+        # The delta entries for TE rows must carry the boosted value.
+        boost_value = None
+        for entry in delta.get("rankingsDelta", {}).get("players", []):
+            if entry.get("id") == "Brock Bowers":
+                boost_value = int(entry.get("rankDerivedValue") or 0)
+                break
+        self.assertIsNotNone(boost_value)
+        # Compare against a TEP=1.0 delta.
+        baseline = build_rankings_delta_payload(
+            _fixture_raw_payload(), tep_multiplier=1.0
+        )
+        base_value = None
+        for entry in baseline.get("rankingsDelta", {}).get("players", []):
+            if entry.get("id") == "Brock Bowers":
+                base_value = int(entry.get("rankDerivedValue") or 0)
+                break
+        self.assertIsNotNone(base_value)
+        self.assertGreater(boost_value, base_value)
 
 
 if __name__ == "__main__":
