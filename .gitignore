@@ -49,3 +49,4 @@ tmp_sync_*/
 .DS_Store
 Thumbs.db
 *.xlsx
+!CSVs/Draft Data.xlsx
