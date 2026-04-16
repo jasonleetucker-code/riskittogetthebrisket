@@ -178,6 +178,16 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "exports/latest/site_raw/dynastyNerdsSfTep.csv",
         "signal": "rank",
     },
+    # FantasyPros Dynasty Superflex rankings — scraped from
+    # https://www.fantasypros.com/nfl/rankings/dynasty-superflex.php
+    # via ``scripts/fetch_fantasypros_offense.py``.  The CSV has an
+    # explicit ``Rank`` column written from the ecrData players array,
+    # filtered to offensive positions (QB/RB/WR/TE).  Signal=rank so
+    # the ``_enrich_from_source_csvs`` reader uses the rank column.
+    "fantasyProsSf": {
+        "path": "exports/latest/site_raw/fantasyProsSf.csv",
+        "signal": "rank",
+    },
     # FantasyPros Dynasty IDP rankings — scraped from the four dynasty
     # IDP pages (combined + DL + LB + DB) via
     # ``scripts/fetch_fantasypros_idp.py``.  The combined IDP page is
@@ -625,6 +635,36 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # ``settings.tepMultiplier`` boost is compensating for the
         # OTHER (non-TEP) sources in the blend, not this one.
         "is_tep_premium": True,
+    },
+    {
+        # FantasyPros Dynasty Superflex rankings — offense expert
+        # consensus scraped from
+        # https://www.fantasypros.com/nfl/rankings/dynasty-superflex.php
+        # via ``scripts/fetch_fantasypros_offense.py``.  The page
+        # inlines an ``ecrData = {...}`` JS constant containing a flat
+        # ``players`` array with consensus ECR ranks covering QB/RB/WR/TE.
+        # No Playwright required — a plain ``requests.get`` with a
+        # browser UA returns the full payload.
+        #
+        # Weight normalized to 1.0 — see the registry note at the top
+        # of this list.  depth=250 reflects the typical board size
+        # (~250-300 offensive players); ``_expected_sources_for_position``
+        # multiplies this by 1.25 so FP SF is not expected for players
+        # ranked deeper than ~312.
+        #
+        # FantasyPros' dynasty superflex board is a standard SF
+        # consensus — no TE premium baked in.  The frontend
+        # ``settings.tepMultiplier`` boost applies to its blended
+        # contribution.
+        "key": "fantasyProsSf",
+        "display_name": "FantasyPros Dynasty Superflex",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": 250,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
     },
     {
         # FantasyPros Dynasty IDP expert consensus.  Scraped from
@@ -1919,7 +1959,7 @@ def _enrich_from_source_csvs(
         # is present.  If not, record a schema-mismatch parse error and
         # skip the source entirely — the row-count floor will then catch
         # the zero-coverage as ``source_missing:<source>`` downstream.
-        if source_key in ("dlfSf", "dlfIdp", "fantasyProsIdp"):
+        if source_key in ("dlfSf", "dlfIdp", "fantasyProsIdp", "fantasyProsSf"):
             try:
                 with csv_path.open("r", encoding="utf-8-sig") as f_probe:
                     header_line = f_probe.readline().strip()
@@ -1943,6 +1983,11 @@ def _enrich_from_source_csvs(
                     "family",
                     "name",
                 )
+            elif source_key == "fantasyProsSf":
+                # FantasyPros Superflex offense CSV header must carry
+                # ``Rank`` and ``name`` columns.  Written by
+                # ``scripts/fetch_fantasypros_offense.py``.
+                expected_tokens = ("Rank", "name", "position")
             else:  # dlfIdp
                 expected_tokens = ("name", "Name", "Player", "rank", "Rank")
             # Case-sensitive token match is fine — we only need any one

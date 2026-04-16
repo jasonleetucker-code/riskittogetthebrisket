@@ -930,6 +930,7 @@ class TestTepMultiplier(unittest.TestCase):
             "ktc": {"include": False},
             "idpTradeCalc": {"include": False},
             "dlfSf": {"include": False},
+            "fantasyProsSf": {"include": False},
         }
         base = build_api_data_contract(
             _fixture_raw_payload(),

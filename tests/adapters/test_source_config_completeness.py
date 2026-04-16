@@ -13,19 +13,21 @@ WEIGHTS_PATH = REPO / "config" / "weights" / "default_weights.json"
 
 # The sources allowed after scope reduction.  KTC + IDPTradeCalc are the
 # value-based market sources; DLF_IDP is a rank-based expert panel added
-# as a second opinion on the overall_idp scope.
-ALLOWED_SOURCES = {"KTC", "IDPTRADECALC", "DLF_IDP"}
+# as a second opinion on the overall_idp scope; FANTASYPROS_SF is a
+# rank-based offense expert consensus (dynasty superflex).
+ALLOWED_SOURCES = {"KTC", "IDPTRADECALC", "DLF_IDP", "FANTASYPROS_SF"}
 
 EXPECTED_SCRAPER_EXPORTS = {
     "ktc.csv",
     "idpTradeCalc.csv",
     "dlfIdp.csv",
+    "fantasyProsSf.csv",
 }
 
 # Sources whose scraper_bridge export is a ``name,value`` CSV (signal=value).
-# DLF_IDP is the one rank-signal exception.
+# DLF_IDP and FANTASYPROS_SF are the rank-signal exceptions.
 VALUE_SIGNAL_SOURCES = {"KTC", "IDPTRADECALC"}
-RANK_SIGNAL_SOURCES = {"DLF_IDP"}
+RANK_SIGNAL_SOURCES = {"DLF_IDP", "FANTASYPROS_SF"}
 
 
 @pytest.fixture
@@ -133,17 +135,24 @@ class TestTepSfFlags:
             assert "includes_tep" in src, f"{src['source']}: missing includes_tep flag"
             assert "includes_sf" in src, f"{src['source']}: missing includes_sf flag"
 
-    def test_both_sources_include_tep(self, config):
-        """Both KTC and IDPTRADECALC natively include TEP."""
+    def test_tep_native_sources_include_tep(self, config):
+        """KTC and IDPTRADECALC natively include TEP; FANTASYPROS_SF does not."""
+        tep_expected = {"KTC", "IDPTRADECALC", "DLF_IDP"}
         for src in config["sources"]:
             if not src.get("enabled"):
                 continue
-            assert src.get("includes_tep") is True, (
-                f"{src['source']}: should have includes_tep=true"
-            )
+            if src["source"] in tep_expected:
+                assert src.get("includes_tep") is True, (
+                    f"{src['source']}: should have includes_tep=true"
+                )
+            else:
+                # Sources that are NOT TEP-native must still declare the flag.
+                assert "includes_tep" in src, (
+                    f"{src['source']}: missing includes_tep flag"
+                )
 
-    def test_both_sources_include_sf(self, config):
-        """Both KTC and IDPTRADECALC natively include SF."""
+    def test_all_sources_include_sf(self, config):
+        """All enabled sources natively include SF pricing."""
         for src in config["sources"]:
             if not src.get("enabled"):
                 continue
