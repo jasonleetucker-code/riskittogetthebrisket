@@ -278,6 +278,28 @@ export const RANKING_SOURCES = [
     isTepPremium: true,
   },
   {
+    // FantasyPros Dynasty Superflex rankings — offense expert consensus
+    // scraped from fantasypros.com/nfl/rankings/dynasty-superflex.php
+    // via scripts/fetch_fantasypros_offense.py.  Single flat board
+    // covering QB/RB/WR/TE.  Mirrors the backend `_RANKING_SOURCES`
+    // entry in src/api/data_contract.py.
+    //
+    // FantasyPros' dynasty superflex board is a standard SF consensus —
+    // no TE premium baked in.  The frontend `settings.tepMultiplier`
+    // boost applies to its blended contribution.
+    key: "fantasyProsSf",
+    displayName: "FantasyPros Dynasty Superflex",
+    columnLabel: "FP SF",
+    scope: "overall_offense",
+    positionGroup: null,
+    depth: 250,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+  },
+  {
     // FantasyPros Dynasty IDP expert consensus.  Combined IDP page
     // (dynasty-idp.php) is authoritative for cross-position ordering;
     // individual DL/LB/DB pages are used only as depth extension via

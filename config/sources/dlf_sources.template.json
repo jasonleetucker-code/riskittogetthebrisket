@@ -78,6 +78,30 @@
         "is_backbone": false
       },
       "notes": "DLF full-board IDP rankings (185 players). Ranks are the average of three expert rankers (FrankG, Jason K, Justin T). Ingested as a rank signal via the scraper bridge; the contract loader inverts rank to a synthetic value so the ordinal sort matches DLF's published order. Not a backbone source — IDPTradeCalc remains authoritative."
+    },
+    {
+      "enabled": true,
+      "source": "FANTASYPROS_SF",
+      "contract_key": "fantasyProsSf",
+      "adapter": "scraper_bridge",
+      "adapter_version": "1.0.0",
+      "season": "2026",
+      "format_key": "dynasty_sf",
+      "universe": "offense_vet",
+      "ingest_type": "scraper_export",
+      "ingest_method": "scraper_bridge",
+      "source_url": "https://www.fantasypros.com/nfl/rankings/dynasty-superflex.php",
+      "scoring_context": "dynasty superflex (FantasyPros expert consensus ECR, QB/RB/WR/TE)",
+      "includes_sf": true,
+      "includes_tep": false,
+      "file": "exports/latest/site_raw/fantasyProsSf.csv",
+      "signal_type": "rank",
+      "scope": {
+        "kind": "overall_offense",
+        "depth": 250,
+        "is_backbone": false
+      },
+      "notes": "FantasyPros Dynasty Superflex expert consensus (~250 QB/RB/WR/TE players). Ingested as a rank signal; the contract loader inverts rank to a synthetic value. Standard SF board — no TE premium. Frontend tepMultiplier boost applies."
     }
   ]
 }

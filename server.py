@@ -1221,6 +1221,38 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                     message=f"Dynasty Nerds fetch raised: {_dn_err}",
                 )
 
+            # Refresh FantasyPros Dynasty Superflex (offense) rankings.
+            # The dynasty-superflex page inlines an ``ecrData = {...}``
+            # JS constant, so a plain ``requests.get`` with a browser
+            # UA returns the full payload.  The fetch script extracts
+            # QB/RB/WR/TE consensus ECR ranks and writes a rank-signal CSV.
+            try:
+                from scripts import fetch_fantasypros_offense as _fpoff_fetch
+                rc = _fpoff_fetch.main(["--mirror-data-dir"])
+                if rc == 2:
+                    _record_scrape_event(
+                        "fantasypros_offense_schema_regression",
+                        level="error",
+                        message=(
+                            "FantasyPros Offense fetch exit=2 "
+                            "(ecrData shape changed or rows below floor)"
+                        ),
+                        exit_code=rc,
+                    )
+                elif rc != 0:
+                    _record_scrape_event(
+                        "fantasypros_offense_fetch_failed",
+                        level="warning",
+                        message=f"FantasyPros Offense fetch returned exit={rc}",
+                        exit_code=rc,
+                    )
+            except Exception as _fpoff_err:
+                _record_scrape_event(
+                    "fantasypros_offense_fetch_exception",
+                    level="warning",
+                    message=f"FantasyPros Offense fetch raised: {_fpoff_err}",
+                )
+
             # Refresh FantasyPros Dynasty IDP rankings.  The combined
             # + DL/LB/DB pages inline their rankings in a JS
             # ``ecrData = {...}`` constant, so a plain ``requests.get``
