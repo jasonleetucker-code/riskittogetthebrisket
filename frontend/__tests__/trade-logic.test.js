@@ -733,27 +733,52 @@ describe("pickYearDiscount", () => {
   });
 });
 
-// ── TEP in effectiveValue ───────────────────────────────────────────
+// ── TEP is backend-authoritative — effectiveValue MUST NOT re-apply it ──
+//
+// The TE-premium multiplier is threaded through the backend rankings
+// override pipeline (see src/api/data_contract.py::_compute_unified_rankings
+// and frontend/lib/dynasty-data.js::fetchDynastyData).  By the time a
+// TE row reaches `effectiveValue`, its ``values.full`` already reflects
+// the TEP-adjusted blended value.  If we multiplied again here we'd
+// double-boost every TE whenever the slider is > 1.0 AND would miss
+// the TEP-native source carve-out.  These tests pin that behavior.
 
-describe("effectiveValue with TEP", () => {
+describe("effectiveValue leaves TEP alone (backend-authoritative)", () => {
   const TE_ROW = makeRow("Mark Andrews", 4000, "TE");
 
-  it("TE gets tepMultiplier boost", () => {
+  it("TE full value is returned verbatim even with tepMultiplier set", () => {
     const settings = { leagueFormat: "superflex", tepMultiplier: 1.15 };
     const val = effectiveValue(TE_ROW, "full", settings);
-    expect(val).toBeCloseTo(4000 * 1.15, 0);
+    // Backend already baked in the TEP boost — effectiveValue returns
+    // values.full untouched.  The input fixture has values.full=4000,
+    // which is what we get back.
+    expect(val).toBe(4000);
   });
 
-  it("TE gets no boost when tepMultiplier is 1.0", () => {
+  it("TE full value is returned verbatim when tepMultiplier is 1.0", () => {
     const settings = { leagueFormat: "superflex", tepMultiplier: 1.0 };
     const val = effectiveValue(TE_ROW, "full", settings);
     expect(val).toBe(4000);
   });
 
-  it("non-TE is unaffected by tepMultiplier", () => {
-    const settings = { leagueFormat: "superflex", tepMultiplier: 1.15 };
+  it("non-TE is also untouched regardless of tepMultiplier", () => {
+    const settings = { leagueFormat: "superflex", tepMultiplier: 1.5 };
     const val = effectiveValue(CHASE, "full", settings);
     expect(val).toBe(8500);
+  });
+
+  it("pick year discount still applies for future picks", () => {
+    // The pick year discount path is the only remaining adjustment
+    // inside effectiveValue.  Backend TEP lives elsewhere.
+    const FUTURE_PICK = makeRow("2028 Early 1st", 7000, "PICK", "pick");
+    const settings = {
+      leagueFormat: "superflex",
+      tepMultiplier: 1.15,
+      pickCurrentYear: 2026,
+    };
+    const val = effectiveValue(FUTURE_PICK, "full", settings);
+    // 2028 - 2026 = 2 year discount = 0.72 multiplier
+    expect(val).toBeCloseTo(7000 * 0.72, 0);
   });
 });
 

@@ -160,11 +160,12 @@ export default function SettingsPage() {
           value={settings.tepMultiplier}
           min={1.0} max={1.5} step={0.05}
           onChange={(v) => update("tepMultiplier", v)}
-          hint="Global TE value boost — compensates non-TEP sources"
+          hint="Backend TE boost — applied to non-TEP-native sources before blending"
         />
         <p className="muted" style={{ fontSize: "0.68rem", marginTop: 4, marginBottom: 0 }}>
-          Applied to every TE&apos;s blended value. Sources already baking TE premium
-          into their raw ranks are tagged{" "}
+          Applied on the backend to every TE&apos;s per-source contributions from
+          rankings sources that don&apos;t already bake TE premium into their ranks.
+          Sources tagged{" "}
           <span
             style={{
               fontFamily: "var(--mono)",
@@ -177,9 +178,12 @@ export default function SettingsPage() {
           >
             TEP NATIVE
           </span>{" "}
-          in the Ranking Sources table below. Set to 1.00 to disable the boost
-          entirely, or increase it if your non-TEP sources (DLF SF, KTC, etc.)
-          are under-valuing TEs for your league.
+          in the Ranking Sources table below pass through unchanged, so there is
+          no double-boost. Changing the slider re-runs the canonical ranking
+          pipeline with the new multiplier, so every page (rankings, trade
+          calculator, edge) sees the same TEP-adjusted values. Set to 1.00 to
+          disable the boost entirely, or raise it if your non-TEP sources
+          (DLF SF, KTC, etc.) are under-valuing TEs for your league.
         </p>
       </Section>
 

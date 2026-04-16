@@ -88,12 +88,31 @@ class TestCanonicalOverlayRemoved(unittest.TestCase):
         self.assertIn("pickYearDiscount", text)
         self.assertIn("PICK_YEAR_DISCOUNTS", text)
 
-    def test_effective_value_applies_tep(self):
-        """effectiveValue must apply tepMultiplier for TEs."""
+    def test_effective_value_does_not_apply_tep(self):
+        """effectiveValue must NOT multiply TE values by tepMultiplier.
+
+        TE premium is backend-authoritative as of 2026-04-15: the
+        backend canonical ranking pipeline
+        (``src/api/data_contract.py::_compute_unified_rankings``) bakes
+        the TEP boost into every TE row's ``rankDerivedValue`` stamp
+        before the contract reaches the frontend.  Multiplying again
+        on render would double-boost every TE whenever TEP > 1.0 and
+        would completely miss the TEP-native source carve-out
+        (dynastyNerdsSfTep).  This test pins that the frontend never
+        reintroduces a client-side TEP multiplication.
+        """
         trade_logic = REPO_ROOT / "frontend" / "lib" / "trade-logic.js"
         text = trade_logic.read_text()
-        self.assertIn("tepMultiplier", text)
-        self.assertIn('pos === "TE"', text)
+        # effectiveValue must NOT multiply by tepMultiplier.  The
+        # frontend may still MENTION tepMultiplier in doc comments
+        # (explaining that it's backend-authoritative), so we only
+        # guard against the literal multiplication pattern the old
+        # implementation used.
+        self.assertNotIn("val *= settings.tepMultiplier", text)
+        self.assertNotIn("*= tepMultiplier", text)
+        # Settings wiring still lives in useSettings + dynasty-data.
+        settings_hook = REPO_ROOT / "frontend" / "components" / "useSettings.js"
+        self.assertIn("tepMultiplier", settings_hook.read_text())
 
 
 class TestIdpRankings(unittest.TestCase):

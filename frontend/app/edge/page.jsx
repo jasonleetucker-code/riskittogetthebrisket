@@ -3,9 +3,15 @@
 import { useMemo } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useApp } from "@/components/AppShell";
-import { actionLabel, cautionLabels } from "@/lib/edge-helpers";
+import { actionLabel, cautionLabels, isTopRankedForEdgePremium } from "@/lib/edge-helpers";
 import { posBadgeClass, confBadgeClass, confBadgeLabel as confLabel, isEligibleForAnalysis } from "@/lib/display-helpers";
-import { EDGE_SECTION_LIMIT, EDGE_PREMIUM_LIMIT, EDGE_CAUTION_RANK_LIMIT, PREMIUM_SUMMARY_SPREAD } from "@/lib/thresholds";
+import {
+  EDGE_SECTION_LIMIT,
+  EDGE_PREMIUM_LIMIT,
+  EDGE_CAUTION_RANK_LIMIT,
+  EDGE_PREMIUM_RANK_LIMIT,
+  PREMIUM_SUMMARY_SPREAD,
+} from "@/lib/thresholds";
 import { getRetailLabel } from "@/lib/dynasty-data";
 
 // ── Edge Page ─────────────────────────────────────────────────────────────
@@ -209,7 +215,13 @@ export default function EdgePage() {
   const retailPremium = useMemo(
     () =>
       eligible
-        .filter((r) => r.marketGapDirection === "retail_premium" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
+        .filter(
+          (r) =>
+            r.marketGapDirection === "retail_premium" &&
+            (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD &&
+            !r.quarantined &&
+            isTopRankedForEdgePremium(r),
+        )
         .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
         .slice(0, EDGE_PREMIUM_LIMIT),
     [eligible],
@@ -218,7 +230,13 @@ export default function EdgePage() {
   const consensusPremium = useMemo(
     () =>
       eligible
-        .filter((r) => r.marketGapDirection === "consensus_premium" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
+        .filter(
+          (r) =>
+            r.marketGapDirection === "consensus_premium" &&
+            (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD &&
+            !r.quarantined &&
+            isTopRankedForEdgePremium(r),
+        )
         .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
         .slice(0, EDGE_PREMIUM_LIMIT),
     [eligible],
@@ -347,14 +365,14 @@ export default function EdgePage() {
             {/* Retail Premium (today: KTC) */}
             <EdgeSection
               title={`${getRetailLabel()} Premium`}
-              description={`Players the retail market (${getRetailLabel()}) values much higher than the expert consensus. Potential sells to retail-first trade partners.`}
+              description={`Players the retail market (${getRetailLabel()}) values much higher than the expert consensus. Limited to players inside the top ${EDGE_PREMIUM_RANK_LIMIT} by consensus or ${getRetailLabel()} rank so only trade-relevant gaps surface. Potential sells to retail-first trade partners.`}
               count={`${retailPremium.length} shown`}
               accent="cyan"
             >
               <SectionTable
                 rows={retailPremium}
                 onPlayerClick={openPlayerPopup}
-                emptyText={`No significant ${getRetailLabel()} premiums.`}
+                emptyText={`No significant ${getRetailLabel()} premiums in the top ${EDGE_PREMIUM_RANK_LIMIT}.`}
                 columns={[COL_RANK, COL_PLAYER, COL_POS, COL_SPREAD, COL_VALUE]}
               />
             </EdgeSection>
@@ -362,14 +380,14 @@ export default function EdgePage() {
             {/* Consensus Premium */}
             <EdgeSection
               title="Consensus Premium"
-              description={`Players the expert consensus values much higher than ${getRetailLabel()}. Potential buys from retail-first trade partners.`}
+              description={`Players the expert consensus values much higher than ${getRetailLabel()}. Limited to players inside the top ${EDGE_PREMIUM_RANK_LIMIT} by consensus or ${getRetailLabel()} rank so only trade-relevant gaps surface. Potential buys from retail-first trade partners.`}
               count={`${consensusPremium.length} shown`}
               accent="cyan"
             >
               <SectionTable
                 rows={consensusPremium}
                 onPlayerClick={openPlayerPopup}
-                emptyText="No significant consensus premiums."
+                emptyText={`No significant consensus premiums in the top ${EDGE_PREMIUM_RANK_LIMIT}.`}
                 columns={[COL_RANK, COL_PLAYER, COL_POS, COL_SPREAD, COL_VALUE]}
               />
             </EdgeSection>

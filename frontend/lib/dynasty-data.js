@@ -338,9 +338,10 @@ export function getRetailLabel() {
 // ``settings.siteWeights``.  Those maps flow through
 // ``useDynastyData`` → ``fetchDynastyData`` → the backend rankings
 // override endpoint, which re-runs the canonical pipeline with the
-// override threaded in.  There is no frontend ranking engine anymore,
-// so the only helper we need on the client is the "customized"
-// predicate below — it decides whether to hit the override endpoint.
+// override (and the TE-premium multiplier) threaded in.  There is no
+// frontend ranking engine anymore, so the only helper we need on the
+// client is the "customized" predicate below — it decides whether to
+// hit the override endpoint.
 //
 // Any source not mentioned in the map inherits its registry defaults
 // (every registered source is enabled by default with its declared
@@ -372,6 +373,19 @@ export function siteOverridesAreCustomized(siteOverrides) {
     }
   }
   return false;
+}
+
+/**
+ * A TE premium multiplier is "customized" when it differs from the
+ * canonical backend default (1.0 = no boost).  Any value strictly
+ * greater than 1.0 triggers the override fetch so the backend
+ * pipeline bakes TEP into every TE's ``rankDerivedValue`` stamp.
+ * Values at or below 1.0 pass through as the default blend.
+ */
+export function tepMultiplierIsCustomized(tepMultiplier) {
+  const n = Number(tepMultiplier);
+  if (!Number.isFinite(n)) return false;
+  return n > 1.0;
 }
 
 // ── Row materialization ──────────────────────────────────────────────
@@ -811,22 +825,39 @@ export function mergeRankingsDelta(baseContract, delta) {
 
 export async function fetchDynastyData(opts = {}) {
   const siteOverrides = opts.siteOverrides || null;
-  const customized = siteOverridesAreCustomized(siteOverrides);
+  const tepMultiplier = Number(opts.tepMultiplier ?? 1.0) || 1.0;
+  const sitesCustomized = siteOverridesAreCustomized(siteOverrides);
+  const tepCustomized = tepMultiplierIsCustomized(tepMultiplier);
+  const customized = sitesCustomized || tepCustomized;
 
   // Default path (no overrides): fetch + cache the base contract.
   if (!customized) {
     return _fetchBaseContract();
   }
 
-  // Override path: POST the override map to the backend delta
-  // endpoint, then merge the delta onto the cached base contract.
+  // Override path: POST the override map + TE premium multiplier to
+  // the backend delta endpoint, then merge the delta onto the
+  // cached base contract.  The backend bakes TEP into every TE's
+  // rankDerivedValue stamp before producing the delta, so the
+  // frontend never needs to multiply on render.
   const base = _cachedBaseContract || (await _fetchBaseContract());
+
+  // Build the POST body: start from the siteOverrides map (legacy
+  // shape) and stamp the tep_multiplier field on top.  Both shapes
+  // the backend accepts leave extra top-level keys alone, so an
+  // empty siteOverrides map with tepMultiplier > 1.0 produces
+  // ``{tep_multiplier: 1.15}`` which the backend routes purely
+  // through normalize_tep_multiplier().
+  const body = { ...(siteOverrides || {}) };
+  if (tepCustomized) {
+    body.tep_multiplier = tepMultiplier;
+  }
 
   try {
     const overrideRes = await fetch(`${RANKINGS_OVERRIDES_URL}?view=delta`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(siteOverrides),
+      body: JSON.stringify(body),
       cache: "no-store",
     });
     if (overrideRes.ok) {

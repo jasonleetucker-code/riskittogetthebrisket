@@ -940,6 +940,52 @@ def get_ranking_source_keys() -> list[str]:
     return [str(s.get("key") or "") for s in _RANKING_SOURCES]
 
 
+# Top-level keys in the override POST body that are NOT per-source
+# override entries.  These are routed to their own typed helpers
+# (e.g. ``normalize_tep_multiplier``) and must be skipped by the
+# per-source override parser so they don't emit "unknown source"
+# warnings.  Keep in lockstep with the server route and the frontend
+# POST body builders.
+_RESERVED_OVERRIDE_BODY_KEYS: frozenset[str] = frozenset(
+    {
+        "tep_multiplier",
+        "tepMultiplier",
+        "enabled_sources",
+        "enabledSources",
+        "weights",
+    }
+)
+
+
+def normalize_tep_multiplier(raw: Any) -> float:
+    """Extract + clamp a TEP multiplier from a POST override body.
+
+    Accepts a raw request body dict and returns a TEP multiplier in
+    the canonical range ``[1.0, 2.0]``.  Missing / invalid / out-of-
+    range values silently default to ``1.0`` (a no-op), matching the
+    permissive override-validation philosophy elsewhere in this
+    module.
+
+    The key lookup accepts both ``tep_multiplier`` (snake_case, the
+    canonical API spelling) and ``tepMultiplier`` (camelCase, the
+    JS-native spelling some callers may emit).
+    """
+    import math
+
+    if not isinstance(raw, dict):
+        return 1.0
+    for key in ("tep_multiplier", "tepMultiplier"):
+        if key in raw:
+            try:
+                v = float(raw[key])
+            except (TypeError, ValueError):
+                return 1.0
+            if not math.isfinite(v):
+                return 1.0
+            return max(1.0, min(2.0, v))
+    return 1.0
+
+
 def normalize_source_overrides(
     raw: Any,
 ) -> tuple[dict[str, dict[str, Any]], list[str]]:
@@ -952,6 +998,13 @@ def normalize_source_overrides(
       * explicit request body:
           ``{"enabled_sources": [...], "weights": {...}}``
           ``{"enabledSources": [...], "weights": {...}}``
+
+    Either shape may carry a top-level ``tep_multiplier`` /
+    ``tepMultiplier`` field alongside the source entries.  That field
+    is extracted separately by :func:`normalize_tep_multiplier` and
+    silently ignored by this function — having it present does NOT
+    cause the body to be rejected or warn, even when no source
+    overrides are present.
 
     Returns a tuple of ``(normalized_overrides, warnings)`` where:
 
@@ -1043,6 +1096,10 @@ def normalize_source_overrides(
     # ── Legacy siteWeights-style map ──
     for key, value in raw.items():
         k = str(key)
+        if k in _RESERVED_OVERRIDE_BODY_KEYS:
+            # Reserved top-level knobs (e.g. tep_multiplier) are
+            # routed to dedicated normalizers, not per-source entries.
+            continue
         if k not in valid_keys:
             warnings.append(f"Unknown source '{k}' (ignored)")
             continue
@@ -1081,12 +1138,15 @@ def normalize_source_overrides(
 
 def _summarize_source_overrides(
     source_overrides: dict[str, dict[str, Any]] | None,
+    *,
+    tep_multiplier: float = 1.0,
 ) -> dict[str, Any]:
     """Produce the ``rankingsOverride`` contract summary block.
 
     The block carries:
       * ``isCustomized`` — True when at least one override actually
-        diverges from the registry default.
+        diverges from the registry default, OR ``tep_multiplier``
+        differs from the canonical default of 1.0.
       * ``enabledSources`` — ordered list of source keys that were
         enabled in the effective configuration.
       * ``weights`` — dict mapping source key → effective declared
@@ -1096,6 +1156,9 @@ def _summarize_source_overrides(
         default 1.0" without re-fetching the registry.
       * ``received`` — the raw normalized override map the pipeline
         was given, for debugging.
+      * ``tepMultiplier`` — effective (clamped) TE-premium multiplier
+        that was applied during the blend.
+      * ``tepMultiplierDefault`` — canonical default (``1.0``).
     """
     import math
 
@@ -1131,12 +1194,26 @@ def _summarize_source_overrides(
                 effective_weights[key] = default_weight
         else:
             effective_weights[key] = default_weight
+
+    # Clamp the TEP multiplier identically to the blend path so the
+    # summary reflects what was actually applied, not what was sent.
+    try:
+        tep_eff = float(tep_multiplier)
+    except (TypeError, ValueError):
+        tep_eff = 1.0
+    if not math.isfinite(tep_eff):
+        tep_eff = 1.0
+    tep_eff = max(1.0, min(2.0, tep_eff))
+    if tep_eff != 1.0:
+        is_customized = True
     return {
         "isCustomized": is_customized,
         "enabledSources": enabled_sources,
         "weights": effective_weights,
         "defaults": default_weights,
         "received": dict(normalized),
+        "tepMultiplier": round(tep_eff, 4),
+        "tepMultiplierDefault": 1.0,
     }
 
 
@@ -2666,6 +2743,7 @@ def _compute_unified_rankings(
     csv_index: dict[str, dict[str, dict[str, Any]]] | None = None,
     *,
     source_overrides: dict[str, dict[str, Any]] | None = None,
+    tep_multiplier: float = 1.0,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -2697,6 +2775,23 @@ def _compute_unified_rankings(
     When None / empty the pipeline is byte-for-byte identical to the
     default canonical run.
 
+    TE Premium (``tep_multiplier``)
+    ───────────────────────────────
+    League-wide TE premium boost for tight ends.  Applied as a
+    value-level multiplier during the Phase 2-3 blend: for any row
+    with ``position == "TE"``, each per-source rank-derived value
+    from a source flagged ``is_tep_premium=False`` is multiplied
+    by ``tep_multiplier`` before it enters the weighted-mean /
+    robust-median combine.  TEP-native sources (currently just
+    ``dynastyNerdsSfTep``) pass through unchanged, so we never
+    double-boost a TE whose source already bakes in TE premium.
+    Non-TE positions are untouched.
+
+    Expected range is ``[1.0, 2.0]``; values outside that range are
+    clamped.  ``1.0`` is a no-op (byte-for-byte identical to the
+    pre-TEP behavior).  The canonical default is ``1.0``; the
+    frontend's ``settings.tepMultiplier`` defaults to ``1.15``.
+
     Stamps onto each row:
       - sourceRanks:  dict[str, int] — effective rank per source (the
                       integer fed into the Hill curve).  For position_idp
@@ -2715,6 +2810,19 @@ def _compute_unified_rankings(
       - ktcRank / idpRank — preserved for backward compatibility
     """
     from src.canonical.player_valuation import rank_to_value  # noqa: PLC0415
+
+    # Clamp TEP multiplier to a sane range.  1.0 is a no-op, 2.0 is
+    # a generous upper bound (the slider UI caps at 1.5 today).  The
+    # clamp is permissive so bad input silently degrades to the
+    # pre-TEP behavior rather than raising — matches the override
+    # validation philosophy elsewhere in this module.
+    try:
+        tep_multiplier_effective = float(tep_multiplier)
+    except (TypeError, ValueError):
+        tep_multiplier_effective = 1.0
+    if not math.isfinite(tep_multiplier_effective):
+        tep_multiplier_effective = 1.0
+    tep_multiplier_effective = max(1.0, min(2.0, tep_multiplier_effective))
 
     # Build the active source list honoring user-supplied overrides.
     # This is the only place ranks + weights are gated, so downstream
@@ -2890,6 +2998,17 @@ def _compute_unified_rankings(
     # Look up each source's weight / depth once.
     src_by_key: dict[str, dict[str, Any]] = {s["key"]: s for s in active_sources}
 
+    # Cache which source keys are NOT TEP-native, so TEs get a value-
+    # level boost from those sources while the TEP-native sources
+    # (today: dynastyNerdsSfTep) pass through unchanged.  Reading
+    # `is_tep_premium` off the registry once avoids per-player dict
+    # lookups in the hot blend loop.
+    tep_boosted_source_keys: set[str] = {
+        str(s.get("key") or "")
+        for s in active_sources
+        if not bool(s.get("is_tep_premium"))
+    }
+
     row_normalized: list[tuple[float, int]] = []  # (blended_value, row_idx)
     for row_idx, source_ranks in row_source_ranks.items():
         # Compute the per-source value contributions and effective weights
@@ -2902,17 +3021,33 @@ def _compute_unified_rankings(
         # the cross-source signal entirely.
         contributions: list[tuple[float, float]] = []  # (value, weight)
         weight_total = 0.0
+        # TE positions trigger the TEP boost.  Read once per row so
+        # the per-source inner loop does not keep re-checking the
+        # position string.
+        row_pos = str(players_array[row_idx].get("position") or "").strip().upper()
+        row_is_te = row_pos == "TE"
+        apply_tep = (
+            row_is_te
+            and tep_multiplier_effective > 1.0
+        )
         for source_key, eff_rank in source_ranks.items():
             src_def = src_by_key.get(source_key, {})
             declared_weight = float(src_def.get("weight") or 1.0)
             effective_weight = coverage_weight(declared_weight, src_def.get("depth"))
             value = float(rank_to_value(eff_rank))
+            tep_applied = False
+            if apply_tep and source_key in tep_boosted_source_keys:
+                value *= tep_multiplier_effective
+                tep_applied = True
             contributions.append((value, effective_weight))
             weight_total += effective_weight
             # Stamp value contribution onto per-source meta (for debugging)
             meta = row_source_meta[row_idx].get(source_key, {})
             meta["valueContribution"] = int(round(value))
             meta["effectiveWeight"] = round(effective_weight, 4)
+            if tep_applied:
+                meta["tepBoostApplied"] = True
+                meta["tepMultiplier"] = round(tep_multiplier_effective, 4)
 
         if not contributions:
             blended_value = 0.0
@@ -3580,6 +3715,7 @@ def build_api_data_contract(
     *,
     data_source: dict[str, Any] | None = None,
     source_overrides: dict[str, dict[str, Any]] | None = None,
+    tep_multiplier: float = 1.0,
 ) -> dict[str, Any]:
     """Build a full API data contract payload from a raw scraper bundle.
 
@@ -3590,6 +3726,13 @@ def build_api_data_contract(
     contract under the ``rankingsOverride`` key so downstream
     consumers can tell an override response from the baseline
     response without guessing.
+
+    ``tep_multiplier`` (optional, default ``1.0``) is the league-wide
+    TE premium boost.  It is applied value-level inside the
+    canonical blend — see ``_compute_unified_rankings`` docstring.
+    Passing ``1.0`` is a no-op and byte-for-byte identical to the
+    pre-TEP pipeline; any value > 1.0 boosts TE rows whose
+    contributions came from non-TEP-native sources.
     """
     base = deepcopy(raw_payload or {})
     players_by_name = base.get("players")
@@ -3640,12 +3783,16 @@ def build_api_data_contract(
     # block describing which CSV row matched each player and why.
     # ``source_overrides`` threads user settings (per-source include /
     # weight knobs) into the same canonical pipeline — there is no
-    # secondary ranker anywhere in the stack.
+    # secondary ranker anywhere in the stack.  ``tep_multiplier`` is
+    # threaded through the same path so TE premium is a
+    # backend-authoritative adjustment baked into every ``rankDerivedValue``
+    # stamp before the delta / full contract is materialized.
     pick_aliases = _compute_unified_rankings(
         players_array,
         players_by_name,
         csv_index=csv_index,
         source_overrides=source_overrides,
+        tep_multiplier=tep_multiplier,
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
@@ -3820,7 +3967,10 @@ def build_api_data_contract(
     # Always produced, even for the default (no-override) response,
     # so downstream consumers (frontend hooks, audit tooling, tests)
     # can hydrate a consistent shape without branching on presence.
-    rankings_override = _summarize_source_overrides(source_overrides)
+    rankings_override = _summarize_source_overrides(
+        source_overrides,
+        tep_multiplier=tep_multiplier,
+    )
 
     contract_payload: dict[str, Any] = {
         **base,
@@ -3891,6 +4041,7 @@ def build_rankings_delta_payload(
     *,
     data_source: dict[str, Any] | None = None,
     source_overrides: dict[str, dict[str, Any]] | None = None,
+    tep_multiplier: float = 1.0,
 ) -> dict[str, Any]:
     """Build a compact delta contract for the rankings-override endpoint.
 
@@ -3927,6 +4078,7 @@ def build_rankings_delta_payload(
         raw_payload,
         data_source=data_source,
         source_overrides=source_overrides,
+        tep_multiplier=tep_multiplier,
     )
 
     delta_players: list[dict[str, Any]] = []

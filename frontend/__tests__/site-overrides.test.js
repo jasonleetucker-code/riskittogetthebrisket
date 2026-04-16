@@ -44,6 +44,7 @@ import {
   fetchDynastyData,
   mergeRankingsDelta,
   siteOverridesAreCustomized,
+  tepMultiplierIsCustomized,
   _resetBaseContractCache,
 } from "@/lib/dynasty-data";
 
@@ -745,5 +746,261 @@ describe("fetchDynastyData — routes overrides to backend endpoint", () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
     expect(result.source).toMatch(/^backend/);
     warnSpy.mockRestore();
+  });
+});
+
+// ── TEP multiplier routing ───────────────────────────────────────────
+//
+// The TE-premium multiplier is backend-authoritative.  When the user
+// sets ``settings.tepMultiplier`` to anything above 1.0, the rankings
+// override endpoint must be hit with ``tep_multiplier`` in the POST
+// body so the backend ranking pipeline bakes TEP into every TE row's
+// ``rankDerivedValue`` stamp before the delta is materialized.
+// ``fetchDynastyData`` is responsible for:
+//   1. Detecting that the TEP slider is customized.
+//   2. Routing to the override endpoint (the same endpoint the
+//      siteOverrides path uses).
+//   3. Stamping ``tep_multiplier`` onto the POST body.
+//   4. Merging the returned delta onto the cached base contract.
+// This block pins every step.
+
+describe("tepMultiplierIsCustomized", () => {
+  it("returns false for 1.0 and sub-default values", () => {
+    expect(tepMultiplierIsCustomized(1.0)).toBe(false);
+    expect(tepMultiplierIsCustomized(0.5)).toBe(false);
+    expect(tepMultiplierIsCustomized(undefined)).toBe(false);
+    expect(tepMultiplierIsCustomized(null)).toBe(false);
+    expect(tepMultiplierIsCustomized("not a number")).toBe(false);
+  });
+
+  it("returns true for values > 1.0", () => {
+    expect(tepMultiplierIsCustomized(1.15)).toBe(true);
+    expect(tepMultiplierIsCustomized(1.2)).toBe(true);
+    expect(tepMultiplierIsCustomized(1.5)).toBe(true);
+  });
+});
+
+describe("fetchDynastyData — tepMultiplier routes overrides to backend", () => {
+  const realFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    globalThis.fetch = vi.fn();
+    _resetBaseContractCache();
+  });
+
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+    vi.restoreAllMocks();
+  });
+
+  function baseMock() {
+    return {
+      ok: true,
+      json: async () => ({
+        ok: true,
+        source: "backend",
+        data: {
+          playersArray: [
+            {
+              displayName: "TE One",
+              canonicalName: "TE One",
+              position: "TE",
+              team: "AAA",
+              values: { displayValue: 4000, finalAdjusted: 4000 },
+              canonicalConsensusRank: 20,
+              rankDerivedValue: 4000,
+              sourceRanks: { ktc: 20, idpTradeCalc: 20, dlfSf: 20 },
+            },
+          ],
+        },
+      }),
+    };
+  }
+
+  function deltaTepMock(boostedValue) {
+    return {
+      ok: true,
+      json: async () => ({
+        mode: "delta",
+        rankingsOverride: {
+          isCustomized: true,
+          enabledSources: ["ktc", "idpTradeCalc", "dlfSf", "dynastyNerdsSfTep"],
+          tepMultiplier: 1.15,
+          tepMultiplierDefault: 1.0,
+        },
+        rankingsDelta: {
+          playerKey: "displayName",
+          players: [
+            {
+              id: "TE One",
+              canonicalConsensusRank: 18,
+              rankDerivedValue: boostedValue,
+              sourceRanks: { ktc: 20, idpTradeCalc: 20, dlfSf: 20 },
+              values: {
+                displayValue: boostedValue,
+                finalAdjusted: boostedValue,
+                rawComposite: 4000,
+              },
+            },
+          ],
+          activePlayerIds: ["TE One"],
+        },
+      }),
+    };
+  }
+
+  it("does not hit override endpoint when tepMultiplier is 1.0 and no siteOverrides", async () => {
+    globalThis.fetch.mockResolvedValueOnce(baseMock());
+    await fetchDynastyData({ tepMultiplier: 1.0 });
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    const [url] = globalThis.fetch.mock.calls[0];
+    expect(String(url)).toMatch(/\/api\/dynasty-data/);
+  });
+
+  it("routes to override endpoint when only tepMultiplier is customized", async () => {
+    globalThis.fetch
+      .mockResolvedValueOnce(baseMock())
+      .mockResolvedValueOnce(deltaTepMock(4550));
+
+    const result = await fetchDynastyData({ tepMultiplier: 1.15 });
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    const [url2, opts2] = globalThis.fetch.mock.calls[1];
+    expect(String(url2)).toMatch(/\/api\/rankings\/overrides\?view=delta/);
+    expect(opts2.method).toBe("POST");
+    const body = JSON.parse(opts2.body);
+    expect(body.tep_multiplier).toBe(1.15);
+
+    // The merged delta should reflect the boosted value for TE One.
+    expect(result.source).toBe("backend:override:delta");
+    const te = result.data.playersArray.find((p) => p.displayName === "TE One");
+    expect(te.rankDerivedValue).toBe(4550);
+  });
+
+  it("routes to override endpoint with BOTH siteOverrides and tepMultiplier", async () => {
+    globalThis.fetch
+      .mockResolvedValueOnce(baseMock())
+      .mockResolvedValueOnce(deltaTepMock(4400));
+
+    await fetchDynastyData({
+      siteOverrides: { ktc: { include: false } },
+      tepMultiplier: 1.15,
+    });
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    const [, opts2] = globalThis.fetch.mock.calls[1];
+    const body = JSON.parse(opts2.body);
+    // siteOverrides map fields flow through
+    expect(body.ktc).toEqual({ include: false });
+    // tep_multiplier is stamped alongside
+    expect(body.tep_multiplier).toBe(1.15);
+  });
+
+  it("cache key: changing tepMultiplier between fetches re-issues the override request", async () => {
+    globalThis.fetch
+      .mockResolvedValueOnce(baseMock())
+      .mockResolvedValueOnce(deltaTepMock(4500))
+      .mockResolvedValueOnce(deltaTepMock(4600));
+
+    await fetchDynastyData({ tepMultiplier: 1.15 });
+    await fetchDynastyData({ tepMultiplier: 1.25 });
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+    // First override call (1.15)
+    const body1 = JSON.parse(globalThis.fetch.mock.calls[1][1].body);
+    expect(body1.tep_multiplier).toBe(1.15);
+    // Second override call (1.25)
+    const body2 = JSON.parse(globalThis.fetch.mock.calls[2][1].body);
+    expect(body2.tep_multiplier).toBe(1.25);
+  });
+});
+
+// ── mergeRankingsDelta: TEP-adjusted values flow through ─────────────
+//
+// The delta merge path must carry the backend's TEP-adjusted
+// rankDerivedValue onto the merged row without further mutation,
+// because the backend has already baked TEP into the stamp.
+
+describe("mergeRankingsDelta — TEP-adjusted delta values land on the merged row", () => {
+  function tepBase() {
+    return {
+      ok: true,
+      source: "backend",
+      data: {
+        date: "2026-04-15",
+        playersArray: [
+          {
+            displayName: "Brock Bowers",
+            canonicalName: "Brock Bowers",
+            position: "TE",
+            team: "LV",
+            age: 22,
+            rookie: false,
+            assetClass: "offense",
+            values: { displayValue: 9200, finalAdjusted: 9200, rawComposite: 9200 },
+            canonicalSiteValues: { ktc: 9400, dlfSf: 9450 },
+            canonicalConsensusRank: 15,
+            rankDerivedValue: 9200,
+            sourceRanks: { ktc: 15, idpTradeCalc: 15, dlfSf: 15, dynastyNerdsSfTep: 10 },
+            sourceRankMeta: {
+              ktc: { effectiveRank: 15, weight: 1.0 },
+              dynastyNerdsSfTep: { effectiveRank: 10, weight: 1.0 },
+            },
+            sourceCount: 4,
+            blendedSourceRank: 13.75,
+            confidenceBucket: "high",
+            identityConfidence: 0.95,
+            identityMethod: "name_only",
+          },
+        ],
+      },
+    };
+  }
+
+  function tepDelta() {
+    return {
+      mode: "delta",
+      rankingsOverride: {
+        isCustomized: true,
+        tepMultiplier: 1.15,
+        tepMultiplierDefault: 1.0,
+      },
+      rankingsDelta: {
+        playerKey: "displayName",
+        players: [
+          {
+            id: "Brock Bowers",
+            canonicalConsensusRank: 12,
+            rankDerivedValue: 9900,
+            sourceRanks: { ktc: 15, idpTradeCalc: 15, dlfSf: 15, dynastyNerdsSfTep: 10 },
+            sourceRankMeta: {
+              ktc: { effectiveRank: 15, weight: 1.0, tepBoostApplied: true, tepMultiplier: 1.15 },
+              dynastyNerdsSfTep: { effectiveRank: 10, weight: 1.0 },
+            },
+            sourceCount: 4,
+            blendedSourceRank: 13.75,
+            confidenceBucket: "high",
+            values: { displayValue: 9900, finalAdjusted: 9900, rawComposite: 9200 },
+          },
+        ],
+        activePlayerIds: ["Brock Bowers"],
+      },
+    };
+  }
+
+  it("applies TEP-boosted rankDerivedValue from the delta onto the merged row", () => {
+    const merged = mergeRankingsDelta(tepBase(), tepDelta());
+    const rows = buildRows(merged.data);
+    const bowers = rows.find((r) => r.name === "Brock Bowers");
+    expect(bowers).toBeDefined();
+    // TEP-adjusted: backend returned 9900 in the delta, the merged
+    // row must carry it verbatim.
+    expect(bowers.rankDerivedValue).toBe(9900);
+    expect(bowers.values.full).toBe(9900);
+  });
+
+  it("passes rankingsOverride.tepMultiplier through on the merged contract", () => {
+    const merged = mergeRankingsDelta(tepBase(), tepDelta());
+    expect(merged.data.rankingsOverride.tepMultiplier).toBe(1.15);
   });
 });

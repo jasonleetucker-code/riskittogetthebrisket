@@ -7,19 +7,24 @@ import { useSettings } from "@/components/useSettings";
 export function useDynastyData() {
   // Read user-level source overrides from settings so per-source
   // toggles and weight sliders actually affect the rendered board.
-  // When the user has customized anything, ``fetchDynastyData`` routes
-  // through the backend override endpoint (``POST
+  // When the user has customized anything (including a non-default
+  // TE premium multiplier), ``fetchDynastyData`` routes through the
+  // backend override endpoint (``POST
   // /api/rankings/overrides?view=delta``) which re-runs the canonical
   // ranking pipeline in ``src/api/data_contract.py`` with the
-  // overrides threaded in, then merges the compact delta onto the
-  // cached base contract.  ``buildRows`` is a pure materializer that
-  // reads the already-canonical rows off the merged contract; there
-  // is no client-side recompute.
+  // overrides + tep_multiplier threaded in, then merges the compact
+  // delta onto the cached base contract.  ``buildRows`` is a pure
+  // materializer that reads the already-canonical rows off the
+  // merged contract; there is no client-side recompute and no
+  // frontend TEP multiplication either.
   const { settings } = useSettings();
   const siteOverrides = settings?.siteWeights || null;
+  const tepMultiplier = Number(settings?.tepMultiplier ?? 1.0) || 1.0;
   // Serialize the override map so the effect's dependency array
   // fires on semantic changes, not reference churn, without forcing
-  // callers to memoize on their side.
+  // callers to memoize on their side.  The tepMultiplier is part of
+  // the cache key so a slider change re-fetches the delta without
+  // bundling a stale base blend.
   const siteOverridesKey = useMemo(
     () => (siteOverrides ? JSON.stringify(siteOverrides) : ""),
     [siteOverrides],
@@ -35,7 +40,10 @@ export function useDynastyData() {
       try {
         setLoading(true);
         setError("");
-        const payload = await fetchDynastyData({ siteOverrides });
+        const payload = await fetchDynastyData({
+          siteOverrides,
+          tepMultiplier,
+        });
         if (!active) return;
 
         const data = payload?.data || null;
@@ -64,7 +72,7 @@ export function useDynastyData() {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteOverridesKey]);
+  }, [siteOverridesKey, tepMultiplier]);
 
   const rows = useMemo(() => {
     try {

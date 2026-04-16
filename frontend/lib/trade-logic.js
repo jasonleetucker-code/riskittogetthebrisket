@@ -47,7 +47,20 @@ export function pickYearDiscount(pickName, currentYear) {
 }
 
 /**
- * Get the effective value for a row, adjusted by TEP and pick year discount.
+ * Get the effective value for a row, adjusted by pick year discount.
+ *
+ * NOTE: TE premium is NOT applied here.  ``settings.tepMultiplier``
+ * is threaded through the backend rankings override pipeline (see
+ * ``frontend/lib/dynasty-data.js::fetchDynastyData`` and
+ * ``src/api/data_contract.py::_compute_unified_rankings``), which
+ * bakes the boost into every TE row's ``rankDerivedValue`` stamp
+ * before the contract reaches the trade calculator.  Multiplying
+ * again on render would double-boost every TE whenever the TEP
+ * slider is > 1.0, and would completely miss the TEP-native source
+ * carve-out (dynastyNerdsSfTep).  The backend is now the single
+ * source of truth for TEP — do NOT reintroduce the multiplication
+ * here.
+ *
  * @param {object} row - Player row
  * @param {string} valueMode - Value mode key
  * @param {object} [settings] - User settings (from useSettings)
@@ -58,11 +71,6 @@ export function effectiveValue(row, valueMode, settings) {
   if (!settings || raw <= 0) return raw;
   const pos = row.pos || "WR";
   let val = raw;
-
-  // TEP adjustment for TEs (applies tepMultiplier when > 1)
-  if (pos === "TE" && (settings.tepMultiplier ?? 1.0) > 1.0) {
-    val *= settings.tepMultiplier;
-  }
 
   // Pick year discount for future picks
   if (pos === "PICK" && settings.pickCurrentYear) {
