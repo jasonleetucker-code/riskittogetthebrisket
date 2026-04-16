@@ -1628,6 +1628,233 @@ tr:hover .sticky-name {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   TRADE METER (inline fairness visualization)
+   ══════════════════════════════════════════════════════════════════════════ */
+.trade-meter {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(8, 19, 44, 0.5);
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.trade-meter-values {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.trade-meter-side-val {
+  font-family: var(--mono);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.trade-meter-vs {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.trade-meter-gap {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.trade-meter-bar {
+  position: relative;
+  height: 18px;
+  background: var(--border);
+  border-radius: 9px;
+  overflow: hidden;
+  display: flex;
+  margin: var(--space-sm) 0;
+}
+
+.trade-meter-fill {
+  height: 100%;
+  transition: width 0.4s ease;
+}
+
+.trade-meter-fill-a {
+  background: var(--green);
+  opacity: 0.7;
+  border-radius: 9px 0 0 9px;
+}
+
+.trade-meter-fill-b {
+  background: var(--red);
+  opacity: 0.5;
+  border-radius: 0 9px 9px 0;
+}
+
+.trade-meter-center {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 3px;
+  height: 22px;
+  background: var(--text);
+  opacity: 0.6;
+  border-radius: 2px;
+  z-index: 1;
+}
+
+.trade-meter-equal-marker {
+  position: absolute;
+  top: -2px;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 22px;
+  background: var(--text);
+  opacity: 0.3;
+  border-radius: 1px;
+  z-index: 1;
+}
+
+.trade-meter-bar-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-xs);
+}
+
+.trade-meter-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.trade-meter-verdict {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 14px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.trade-meter-verdict-fair {
+  color: var(--green);
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+}
+
+.trade-meter-verdict-slight {
+  color: var(--amber);
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.trade-meter-verdict-unfair {
+  color: #fb923c;
+  background: rgba(251, 146, 60, 0.12);
+  border: 1px solid rgba(251, 146, 60, 0.35);
+}
+
+.trade-meter-verdict-lopsided {
+  color: var(--red);
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.trade-meter-pct {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Multi-team meter values grid */
+.trade-meter-multi-values {
+  display: flex;
+  justify-content: space-around;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.trade-meter-multi-val {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 70px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   TRADE SIDES GRID (multi-team layout)
+   ══════════════════════════════════════════════════════════════════════════ */
+.trade-sides-grid {
+  display: grid;
+  gap: var(--space-md);
+  align-items: stretch;
+}
+
+.trade-sides-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.trade-sides-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.trade-sides-multi {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+@media (max-width: 768px) {
+  .trade-sides-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .trade-meter-side-val {
+    font-size: 0.95rem;
+  }
+
+  .trade-meter-bar {
+    height: 14px;
+  }
+
+  .trade-meter-center {
+    height: 18px;
+    top: -2px;
+  }
+
+  .trade-meter {
+    padding: var(--space-sm);
+  }
+
+  .trade-meter-multi-val {
+    min-width: 55px;
+  }
+}
+
+@media (max-width: 420px) {
+  .trade-meter-values {
+    gap: 6px;
+  }
+
+  .trade-meter-side-val {
+    font-size: 0.82rem;
+  }
+
+  .trade-meter-gap {
+    font-size: 0.64rem;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    TEXT UTILITIES
    ══════════════════════════════════════════════════════════════════════════ */
 .truncate {

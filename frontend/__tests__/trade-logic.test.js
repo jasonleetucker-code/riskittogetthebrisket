@@ -28,6 +28,15 @@ import {
   resolvePickRow,
   findBalancers,
   verdictBarPosition,
+  meterVerdict,
+  percentageGap,
+  multiTeamAnalysis,
+  createSide,
+  serializeWorkspaceMulti,
+  deserializeWorkspaceMulti,
+  SIDE_LABELS,
+  MAX_SIDES,
+  MIN_SIDES,
 } from "@/lib/trade-logic";
 
 // ── Test fixtures ────────────────────────────────────────────────────
@@ -797,5 +806,280 @@ describe("effectiveValue with pick discount", () => {
     const settings = { leagueFormat: "superflex", pickCurrentYear: 2027 };
     const val = effectiveValue(PICK_2027, "full", settings);
     expect(val).toBe(7000);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// NEW: Trade Meter + Multi-Team tests
+// ══════════════════════════════════════════════════════════════════════════
+
+// ── meterVerdict ────────────────────────────────────────────────────────
+
+describe("meterVerdict", () => {
+  it("returns FAIR for gap < 350", () => {
+    expect(meterVerdict(0)).toEqual({ label: "FAIR", level: "fair" });
+    expect(meterVerdict(349)).toEqual({ label: "FAIR", level: "fair" });
+  });
+
+  it("returns SLIGHT EDGE for gap 350-899", () => {
+    expect(meterVerdict(350)).toEqual({ label: "SLIGHT EDGE", level: "slight" });
+    expect(meterVerdict(899)).toEqual({ label: "SLIGHT EDGE", level: "slight" });
+  });
+
+  it("returns UNFAIR for gap 900-1799", () => {
+    expect(meterVerdict(900)).toEqual({ label: "UNFAIR", level: "unfair" });
+    expect(meterVerdict(1799)).toEqual({ label: "UNFAIR", level: "unfair" });
+  });
+
+  it("returns LOPSIDED for gap >= 1800", () => {
+    expect(meterVerdict(1800)).toEqual({ label: "LOPSIDED", level: "lopsided" });
+    expect(meterVerdict(5000)).toEqual({ label: "LOPSIDED", level: "lopsided" });
+  });
+});
+
+// ── percentageGap ───────────────────────────────────────────────────────
+
+describe("percentageGap", () => {
+  it("returns 0 when both sides are 0", () => {
+    expect(percentageGap(0, 0)).toBe(0);
+  });
+
+  it("returns 100% when one side is empty", () => {
+    expect(percentageGap(5000, 0)).toBe(100);
+    expect(percentageGap(0, 5000)).toBe(100);
+  });
+
+  it("returns correct percentage for unequal sides", () => {
+    // |5000 - 4000| / 5000 * 100 = 20%
+    expect(percentageGap(5000, 4000)).toBe(20);
+    expect(percentageGap(4000, 5000)).toBe(20);
+  });
+
+  it("returns 0 when sides are equal", () => {
+    expect(percentageGap(3000, 3000)).toBe(0);
+  });
+});
+
+// ── multiTeamAnalysis ───────────────────────────────────────────────────
+
+describe("multiTeamAnalysis", () => {
+  it("reports balanced for equal totals", () => {
+    const result = multiTeamAnalysis([1000, 1000, 1000]);
+    expect(result.overall).toBe("Balanced");
+    expect(result.shares).toEqual([33, 33, 33]);
+    result.perTeam.forEach((t) => expect(t).toBe("Fair share"));
+  });
+
+  it("reports imbalanced when one team overpays", () => {
+    const result = multiTeamAnalysis([5000, 1000, 1000]);
+    expect(result.overall).toBe("Imbalanced");
+    expect(result.perTeam[0]).toBe("Overpaying");
+    expect(result.perTeam[1]).toBe("Getting a deal");
+    expect(result.perTeam[2]).toBe("Getting a deal");
+  });
+
+  it("handles all-zero totals", () => {
+    const result = multiTeamAnalysis([0, 0, 0]);
+    expect(result.overall).toBe("Empty");
+    expect(result.shares).toEqual([0, 0, 0]);
+  });
+
+  it("works with 5 teams", () => {
+    const result = multiTeamAnalysis([2000, 2000, 2000, 2000, 2000]);
+    expect(result.overall).toBe("Balanced");
+    expect(result.shares.length).toBe(5);
+  });
+});
+
+// ── createSide ──────────────────────────────────────────────────────────
+
+describe("createSide", () => {
+  it("creates side with correct label", () => {
+    expect(createSide(0)).toEqual({ id: 0, label: "A", assets: [] });
+    expect(createSide(1)).toEqual({ id: 1, label: "B", assets: [] });
+    expect(createSide(4)).toEqual({ id: 4, label: "E", assets: [] });
+  });
+});
+
+// ── constants ───────────────────────────────────────────────────────────
+
+describe("multi-team constants", () => {
+  it("SIDE_LABELS has 5 labels", () => {
+    expect(SIDE_LABELS).toEqual(["A", "B", "C", "D", "E"]);
+  });
+
+  it("MAX_SIDES is 5, MIN_SIDES is 2", () => {
+    expect(MAX_SIDES).toBe(5);
+    expect(MIN_SIDES).toBe(2);
+  });
+});
+
+// ── serializeWorkspaceMulti / deserializeWorkspaceMulti ─────────────────
+
+describe("serializeWorkspaceMulti", () => {
+  it("serializes sides array with version 2", () => {
+    const sides = [
+      { id: 0, label: "A", assets: [ALLEN] },
+      { id: 1, label: "B", assets: [CHASE] },
+    ];
+    const result = serializeWorkspaceMulti(sides, "full", 0);
+    expect(result.version).toBe(2);
+    expect(result.sides.length).toBe(2);
+    expect(result.sides[0].assets).toEqual(["Josh Allen"]);
+    expect(result.sides[1].assets).toEqual(["Ja'Marr Chase"]);
+    expect(result.valueMode).toBe("full");
+    expect(result.activeSide).toBe(0);
+  });
+
+  it("handles 3+ sides", () => {
+    const sides = [
+      { id: 0, label: "A", assets: [ALLEN] },
+      { id: 1, label: "B", assets: [CHASE] },
+      { id: 2, label: "C", assets: [PARSONS] },
+    ];
+    const result = serializeWorkspaceMulti(sides, "raw", 2);
+    expect(result.sides.length).toBe(3);
+    expect(result.sides[2].label).toBe("C");
+    expect(result.activeSide).toBe(2);
+  });
+});
+
+describe("deserializeWorkspaceMulti", () => {
+  const rowByName = new Map([
+    ["Josh Allen", ALLEN],
+    ["Ja'Marr Chase", CHASE],
+    ["Patrick Mahomes", MAHOMES],
+    ["Micah Parsons", PARSONS],
+  ]);
+
+  it("restores version 2 format", () => {
+    const parsed = {
+      version: 2,
+      valueMode: "full",
+      activeSide: 1,
+      sides: [
+        { label: "A", assets: ["Josh Allen"] },
+        { label: "B", assets: ["Ja'Marr Chase"] },
+      ],
+    };
+    const result = deserializeWorkspaceMulti(parsed, rowByName);
+    expect(result.sides.length).toBe(2);
+    expect(result.sides[0].assets[0].name).toBe("Josh Allen");
+    expect(result.sides[1].assets[0].name).toBe("Ja'Marr Chase");
+    expect(result.activeSide).toBe(1);
+    expect(result.valueMode).toBe("full");
+  });
+
+  it("migrates legacy sideA/sideB format", () => {
+    const parsed = {
+      valueMode: "raw",
+      activeSide: "B",
+      sideA: ["Josh Allen"],
+      sideB: ["Ja'Marr Chase"],
+    };
+    const result = deserializeWorkspaceMulti(parsed, rowByName);
+    expect(result.sides.length).toBe(2);
+    expect(result.sides[0].label).toBe("A");
+    expect(result.sides[0].assets[0].name).toBe("Josh Allen");
+    expect(result.sides[1].label).toBe("B");
+    expect(result.sides[1].assets[0].name).toBe("Ja'Marr Chase");
+    expect(result.activeSide).toBe(1); // "B" → 1
+    expect(result.valueMode).toBe("raw");
+  });
+
+  it("migrates legacy format with activeSide A", () => {
+    const parsed = {
+      valueMode: "full",
+      activeSide: "A",
+      sideA: ["Patrick Mahomes"],
+      sideB: [],
+    };
+    const result = deserializeWorkspaceMulti(parsed, rowByName);
+    expect(result.activeSide).toBe(0); // "A" → 0
+    expect(result.sides[0].assets[0].name).toBe("Patrick Mahomes");
+    expect(result.sides[1].assets.length).toBe(0);
+  });
+
+  it("ensures at least 2 sides even if stored data has fewer", () => {
+    const parsed = {
+      version: 2,
+      valueMode: "full",
+      activeSide: 0,
+      sides: [{ label: "A", assets: [] }],
+    };
+    const result = deserializeWorkspaceMulti(parsed, rowByName);
+    expect(result.sides.length).toBe(2);
+  });
+
+  it("drops unknown player names during migration", () => {
+    const parsed = {
+      sideA: ["Josh Allen", "Unknown Player"],
+      sideB: [],
+    };
+    const result = deserializeWorkspaceMulti(parsed, rowByName);
+    expect(result.sides[0].assets.length).toBe(1);
+    expect(result.sides[0].assets[0].name).toBe("Josh Allen");
+  });
+
+  it("returns null for null/non-object input", () => {
+    expect(deserializeWorkspaceMulti(null, rowByName)).toBeNull();
+    expect(deserializeWorkspaceMulti("bad", rowByName)).toBeNull();
+  });
+
+  it("defaults to full mode for invalid valueMode", () => {
+    const parsed = { version: 2, valueMode: "invalid", activeSide: 0, sides: [] };
+    const result = deserializeWorkspaceMulti(parsed, rowByName);
+    expect(result.valueMode).toBe("full");
+  });
+
+  it("clamps activeSide to valid range", () => {
+    const parsed = {
+      version: 2,
+      valueMode: "full",
+      activeSide: 99,
+      sides: [
+        { label: "A", assets: [] },
+        { label: "B", assets: [] },
+      ],
+    };
+    const result = deserializeWorkspaceMulti(parsed, rowByName);
+    expect(result.activeSide).toBe(1); // clamped to sides.length - 1
+  });
+
+  it("restores 3+ sides in version 2 format", () => {
+    const parsed = {
+      version: 2,
+      valueMode: "full",
+      activeSide: 2,
+      sides: [
+        { label: "A", assets: ["Josh Allen"] },
+        { label: "B", assets: ["Ja'Marr Chase"] },
+        { label: "C", assets: ["Micah Parsons"] },
+      ],
+    };
+    const result = deserializeWorkspaceMulti(parsed, rowByName);
+    expect(result.sides.length).toBe(3);
+    expect(result.sides[2].assets[0].name).toBe("Micah Parsons");
+    expect(result.activeSide).toBe(2);
+  });
+});
+
+// ── Multi-team total calculations ──────────────────────────────────────
+
+describe("multi-team total calculations", () => {
+  it("powerWeightedTotal works for any side array", () => {
+    const sideAssets = [ALLEN, CHASE, PARSONS];
+    const total = powerWeightedTotal(sideAssets, "full");
+    expect(total).toBeGreaterThan(0);
+    expect(total).toBeLessThan(9000 + 8500 + 5000); // less than linear
+  });
+
+  it("sideTotal works for 3+ sides independently", () => {
+    const totals = [
+      sideTotal([ALLEN], "full"),
+      sideTotal([CHASE], "full"),
+      sideTotal([PARSONS], "full"),
+    ];
+    expect(totals).toEqual([9000, 8500, 5000]);
   });
 });
