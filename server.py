@@ -2802,9 +2802,10 @@ def _fetch_draft_capital():
         roster_ids = []
 
     # ── Build pick list ──
+    # Accumulate team totals from DECIMAL Q45:Q116 values so rounding
+    # happens at the team level (matching the workbook), not per-pick.
     all_picks: list[dict] = []
-    team_totals: dict[str, int] = {}
-    total_budget = 0
+    team_totals_decimal: dict[str, float] = {}
 
     if roster_ids:
         # Sleeper ownership available — pair workbook values with live owners
@@ -2823,6 +2824,9 @@ def _fetch_draft_capital():
                 owner_name = roster_name_by_id.get(pi["owner_rid"], f"Team {pi['owner_rid']}")
                 is_traded = pi["origin_rid"] != pi["owner_rid"]
 
+                # Use the decimal value from workbook for team total accumulation
+                decimal_val = raw_values[overall] if overall < len(raw_values) else 1.0
+
                 all_picks.append({
                     "pick": f"{rnd}.{str(pi['slot']).zfill(2)}",
                     "round": rnd,
@@ -2838,9 +2842,8 @@ def _fetch_draft_capital():
                     "rookiePos": None,
                     "rookieKtcValue": None,
                 })
-                team_totals.setdefault(owner_name, 0)
-                team_totals[owner_name] += dollar
-                total_budget += dollar
+                team_totals_decimal.setdefault(owner_name, 0.0)
+                team_totals_decimal[owner_name] += decimal_val
     else:
         # No Sleeper data — use workbook owners as fallback
         for i, dollar in enumerate(int_values):
@@ -2848,6 +2851,7 @@ def _fetch_draft_capital():
             slot = i % num_teams + 1
             owner = workbook_picks[i]["owner"] if i < len(workbook_picks) else f"Pick {slot}"
             orig = slot_to_original.get(slot, owner)
+            decimal_val = raw_values[i] if i < len(raw_values) else 1.0
 
             all_picks.append({
                 "pick": f"{rnd}.{str(slot).zfill(2)}",
@@ -2864,9 +2868,17 @@ def _fetch_draft_capital():
                 "rookiePos": None,
                 "rookieKtcValue": None,
             })
-            team_totals.setdefault(owner, 0)
-            team_totals[owner] += dollar
-            total_budget += dollar
+            team_totals_decimal.setdefault(owner, 0.0)
+            team_totals_decimal[owner] += decimal_val
+
+    # ── Round team totals to integers summing to 1200 ──
+    # Rounding at the team level (not per-pick) matches the workbook's
+    # SUMIF-over-decimals approach and avoids ±$1 drift.
+    team_names = sorted(team_totals_decimal, key=lambda t: -team_totals_decimal[t])
+    team_decimal_list = [team_totals_decimal[t] for t in team_names]
+    team_int_list = _round_to_budget(team_decimal_list, DRAFT_TOTAL_BUDGET)
+    team_totals = {t: v for t, v in zip(team_names, team_int_list)}
+    total_budget = sum(team_int_list)
 
     # Fill rookie rankings (from KTC live or CSV fallback, extended via decay curve)
     for i, pick in enumerate(all_picks):
