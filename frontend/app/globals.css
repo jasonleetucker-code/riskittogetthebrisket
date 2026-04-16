@@ -1053,6 +1053,90 @@ tr:hover .sticky-name {
   margin-bottom: var(--space-md);
 }
 
+/* ── Custom Mix badge (rankings page title row) ───────────────────── */
+.rankings-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.custom-mix-badge-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.custom-mix-badge {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  padding: 2px 10px;
+  text-transform: none;
+}
+
+.custom-mix-badge:hover {
+  filter: brightness(1.15);
+}
+
+.custom-mix-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 260px;
+  max-width: 340px;
+  padding: 10px 12px;
+  background: rgba(8, 19, 44, 0.98);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-sm);
+  z-index: 20;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+
+.custom-mix-popover-title {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--amber);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.custom-mix-popover-row {
+  margin: 4px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.custom-mix-popover-label {
+  color: var(--muted);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.custom-mix-popover-value {
+  color: var(--text);
+  font-family: var(--mono);
+  word-break: break-word;
+}
+
+.custom-mix-popover-hint {
+  margin: 8px 0 0;
+  font-size: 0.66rem;
+}
+
+@media (max-width: 640px) {
+  .custom-mix-popover {
+    min-width: 220px;
+    max-width: 280px;
+    left: auto;
+    right: 0;
+  }
+}
+
 /* ── Player cell layout (name + team/age + chips on one line) ──────── */
 .rankings-player-cell {
   display: flex;

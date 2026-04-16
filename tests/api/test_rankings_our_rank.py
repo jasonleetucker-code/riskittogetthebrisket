@@ -1,11 +1,22 @@
-"""Cross-check that ranking formula, limits, and eligibility rules agree
-between the two implementations:
+"""Cross-check that the Next.js frontend materializes backend-authored
+ranking fields without running its own ranking engine.
 
   1. Python backend: src/api/data_contract.py (_compute_unified_rankings)
-  2. Next.js frontend: frontend/lib/dynasty-data.js (computeUnifiedRanks, rankToValue)
+  2. Next.js frontend: frontend/lib/dynasty-data.js (buildRows — materializer only)
 
-These tests ensure formula constants, eligibility guards, and rank limits
-stay in sync across both implementations.
+Historically both implementations ran the same Hill-curve blend in
+parallel so drift between the two was a real risk; these tests
+originally pinned the formula constants, rank limits, and fallback
+path.  As of the 2026-04-15 fallback removal, the frontend is a pure
+materializer — there is no ``rankToValue``, no ``computeUnifiedRanks``,
+and no ``OVERALL_RANK_LIMIT`` in the JS bundle anymore.  The only
+ranking symbol the frontend exposes is ``canonicalConsensusRank``
+(which it reads from the backend contract) and ``resolvedRank`` (a
+pure accessor).
+
+The tests below now pin the INVERSE invariant: the frontend lib must
+NOT carry any of the removed symbols.  If someone reintroduces a
+client-side ranking engine these assertions fail loudly.
 """
 from __future__ import annotations
 
@@ -26,96 +37,92 @@ def _src(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-# ── Rank limit ────────────────────────────────────────────────────────────────
+def _strip_comments(src: str) -> str:
+    """Remove // line comments and /* ... */ block comments from a JS source.
 
-class TestRankLimit:
-    """Next.js implementation must define an overall rank limit."""
-
-    def test_next_overall_rank_limit(self):
-        src = _src(NEXT_JS)
-        assert "OVERALL_RANK_LIMIT" in src, \
-            "Next.js lib must define OVERALL_RANK_LIMIT"
-
-
-# ── Eligibility guards ───────────────────────────────────────────────────────
-
-class TestEligibilityGuards:
-    """Next.js implementation must exclude unresolved / invalid players."""
-
-    def test_next_excludes_question_mark_pos(self):
-        src = _src(NEXT_JS)
-        assert '"?"' in src or "'?'" in src, \
-            "Next.js lib must guard against '?' position"
-
-    def test_next_excludes_pick_assets(self):
-        src = _src(NEXT_JS)
-        assert '"PICK"' in src or "'PICK'" in src, \
-            "Next.js lib must exclude PICK positions from rankings"
-
-    def test_next_checks_source_values(self):
-        src = _src(NEXT_JS)
-        assert "canonicalSites" in src, \
-            "Next.js lib must check canonicalSites for ranking eligibility"
+    Used by the fallback-removal assertions below so a mention of a
+    removed identifier inside an explanatory comment is not treated
+    as a regression.  We only care about active code references.
+    """
+    # Block comments first (non-greedy).
+    src = re.sub(r"/\*[\s\S]*?\*/", "", src)
+    # Then line comments (up to end of line).
+    src = re.sub(r"//[^\n]*", "", src)
+    return src
 
 
-# ── Hill-curve formula agreement ──────────────────────────────────────────────
+# ── Fallback removal guarantee ────────────────────────────────────────────────
 
-class TestFormulaAgreement:
-    """The rank-to-value formula must be identical across implementations."""
+class TestFallbackRemoved:
+    """The frontend ranking fallback was removed; verify the symbols are gone.
 
-    _HILL_PATTERNS = {
-        "scale_numerator": re.compile(r"9998\s*[/÷]"),
-        "midpoint": re.compile(r"[\(/ ]45[.,)\s]"),
-        "slope": re.compile(r"1\.10|1\.1[^0-9]"),
-    }
+    These assertions strip comments before checking so an explanatory
+    mention of a removed identifier in a doc comment is NOT treated as
+    a regression — only active code references fail.
+    """
 
-    def _extract_hill_params(self, src: str) -> dict[str, str | None]:
-        out = {}
-        for name, pat in self._HILL_PATTERNS.items():
-            m = pat.search(src)
-            out[name] = m.group() if m else None
-        return out
+    def test_rank_to_value_is_not_exported(self):
+        src = _strip_comments(_src(NEXT_JS))
+        assert "export function rankToValue" not in src
+        assert "rankToValue(" not in src, (
+            "frontend/lib/dynasty-data.js must not invoke rankToValue — "
+            "the backend is the sole ranking engine"
+        )
 
-    def test_python_formula_matches_js(self):
-        from src.canonical.player_valuation import rank_to_value
-        assert rank_to_value(1) == 9999, "Rank 1 must produce 9999"
-        assert rank_to_value(0) == 0, "Rank 0 must produce 0"
-        mid = rank_to_value(45)
-        assert 4900 <= mid <= 5100, f"Rank 45 (midpoint) produced {mid}, expected ~5000"
+    def test_compute_unified_ranks_is_removed(self):
+        src = _strip_comments(_src(NEXT_JS))
+        assert "computeUnifiedRanks" not in src, (
+            "frontend/lib/dynasty-data.js must not define computeUnifiedRanks — "
+            "the fallback was removed"
+        )
 
-    def test_next_has_hill_params(self):
-        params = self._extract_hill_params(_src(NEXT_JS))
-        assert params["scale_numerator"] is not None, \
-            "Could not find 9998/ in Next.js lib formula"
+    def test_non_canonical_fallback_symbol_is_removed(self):
+        src = _strip_comments(_src(NEXT_JS))
+        assert "NON_CANONICAL_FALLBACK" not in src, (
+            "NON_CANONICAL_FALLBACK marker must not be present"
+        )
 
-    def test_rank_limit_matches_backend(self):
-        from src.api.data_contract import OVERALL_RANK_LIMIT
-        next_match = re.search(r"OVERALL_RANK_LIMIT\s*=\s*(\d+)", _src(NEXT_JS))
-        assert next_match is not None, "Could not find OVERALL_RANK_LIMIT in Next.js lib"
-        assert int(next_match.group(1)) == OVERALL_RANK_LIMIT
+    def test_overall_rank_limit_constant_is_removed(self):
+        src = _strip_comments(_src(NEXT_JS))
+        # The cap lives exclusively in the backend now; the frontend
+        # trusts the backend's enforcement and never imports it.
+        assert "OVERALL_RANK_LIMIT" not in src
 
 
-# ── Backend pre-computed rank preference ─────────────────────────────────────
+# ── Backend-authoritative row materialization ────────────────────────────────
 
-class TestBackendPreComputedRanks:
-    """Next.js frontend must prefer backend-computed canonicalConsensusRank
-    and rankDerivedValue over client-side computation."""
+class TestBackendAuthoritative:
+    """The frontend must read backend-stamped rank/value fields verbatim."""
 
-    def test_next_reads_backend_rank(self):
+    def test_reads_backend_canonical_consensus_rank(self):
         src = _src(NEXT_JS)
         assert "canonicalConsensusRank" in src, (
             "Next.js lib must read backend-computed canonicalConsensusRank"
         )
 
-    def test_next_reads_backend_rank_derived_value(self):
+    def test_reads_backend_rank_derived_value(self):
         src = _src(NEXT_JS)
         assert "rankDerivedValue" in src, (
             "Next.js lib must read backend-computed rankDerivedValue"
         )
 
-    def test_next_has_backend_first_fallback_pattern(self):
+    def test_build_rows_is_pure_materializer(self):
         src = _src(NEXT_JS)
-        assert "rankToValue" in src, "Next.js lib must retain rankToValue as fallback"
+        # ``buildRows`` must be defined and exported.
+        assert "export function buildRows" in src
+
+
+# ── Python Hill-curve spot check (backend-only) ──────────────────────────────
+
+class TestBackendFormulaIntact:
+    """The backend rank-to-value curve is the single source of truth."""
+
+    def test_python_hill_curve_anchors(self):
+        from src.canonical.player_valuation import rank_to_value
+        assert rank_to_value(1) == 9999, "Rank 1 must produce 9999"
+        assert rank_to_value(0) == 0, "Rank 0 must produce 0"
+        mid = rank_to_value(45)
+        assert 4900 <= mid <= 5100, f"Rank 45 (midpoint) produced {mid}, expected ~5000"
 
 
 # ── Unified rank precedence ──────────────────────────────────────────────────

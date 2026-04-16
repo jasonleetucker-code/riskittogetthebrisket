@@ -3,6 +3,7 @@
  * Verifies values match backend and internal consistency.
  */
 import { describe, expect, it } from "vitest";
+import * as thresholds from "@/lib/thresholds";
 import {
   CONFIDENCE_SPREAD_HIGH,
   CONFIDENCE_SPREAD_MEDIUM,
@@ -17,7 +18,6 @@ import {
   FINDER_ROW_LIMIT,
   EDGE_SECTION_LIMIT,
   EDGE_PREMIUM_LIMIT,
-  OVERALL_RANK_LIMIT,
 } from "@/lib/thresholds";
 
 describe("threshold constants exist and are sane", () => {
@@ -47,8 +47,11 @@ describe("threshold constants exist and are sane", () => {
     expect(EDGE_PREMIUM_LIMIT).toBeGreaterThan(0);
   });
 
-  it("overall rank limit matches backend", () => {
-    expect(OVERALL_RANK_LIMIT).toBe(800);
+  it("does not re-export OVERALL_RANK_LIMIT (backend-authoritative)", () => {
+    // The overall cap lives exclusively on the backend so the
+    // frontend cannot drift out of lockstep.  Any re-introduction
+    // of this constant would be a parallel-ranking-engine regression.
+    expect(thresholds).not.toHaveProperty("OVERALL_RANK_LIMIT");
   });
 
   it("market gap min diff is positive", () => {

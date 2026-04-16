@@ -136,13 +136,24 @@ class TestIdpRankings(unittest.TestCase):
         # IDP players have rankDerivedValue
         self.assertGreater(dl["rankDerivedValue"], 0)
 
-    def test_frontend_unified_ranking_exists(self):
-        """dynasty-data.js must have computeUnifiedRanks function."""
+    def test_frontend_is_backend_authoritative_materializer(self):
+        """dynasty-data.js must be a pure materializer over the backend
+        canonical contract — no JS-side ranking engine, no dead
+        ``computeUnifiedRanks`` / ``SOURCE_KEYS`` / ``OVERALL_RANK_LIMIT``
+        symbols (either active code or stale comment strings).  The
+        unified ranking function lives exclusively at
+        ``src/api/data_contract.py::_compute_unified_rankings``.
+        """
         dd = REPO_ROOT / "frontend" / "lib" / "dynasty-data.js"
         text = dd.read_text()
-        self.assertIn("computeUnifiedRanks", text)
-        self.assertIn("OVERALL_RANK_LIMIT", text)
-        self.assertIn("SOURCE_KEYS", text)
+        # Must read the backend-stamped fields verbatim
+        self.assertIn("canonicalConsensusRank", text)
+        self.assertIn("rankDerivedValue", text)
+        self.assertIn("export function buildRows", text)
+        # Must NOT re-introduce the removed frontend engine symbols
+        self.assertNotIn("computeUnifiedRanks", text)
+        self.assertNotIn("OVERALL_RANK_LIMIT", text)
+        self.assertNotIn("SOURCE_KEYS", text)
 
 
 class TestEdgeAndFinderRoutes(unittest.TestCase):

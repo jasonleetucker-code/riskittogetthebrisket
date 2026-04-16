@@ -887,6 +887,368 @@ def _retail_source_keys() -> frozenset[str]:
     return frozenset(s["key"] for s in _RANKING_SOURCES if s.get("is_retail"))
 
 
+# ── Public source registry surface ──────────────────────────────────────
+# These helpers expose the canonical ranking-source registry to
+# external callers (server.py, tests, scripts) so they never have to
+# reach into the private ``_RANKING_SOURCES`` list or duplicate its
+# shape.  The registry is the single source of truth for source
+# metadata (weight, scope, depth, retail/backbone flags, display
+# labels); anywhere else that needs that data should route through
+# ``get_ranking_source_registry()``.
+
+
+def get_ranking_source_registry() -> list[dict[str, Any]]:
+    """Return a deep copy of the canonical ranking source registry.
+
+    Shape is a list of dicts mirroring ``_RANKING_SOURCES`` with
+    camelCase field names matching the frontend JS registry in
+    ``frontend/lib/dynasty-data.js``.  Callers should treat the
+    returned structure as read-only — it's a deep copy of the
+    authoritative registry.  Mirrors the canonical frontend registry
+    in ``frontend/lib/dynasty-data.js::RANKING_SOURCES`` —
+    ``assert_ranking_source_registry_parity()`` keeps the two in
+    lockstep.
+    """
+    out: list[dict[str, Any]] = []
+    for src in _RANKING_SOURCES:
+        entry: dict[str, Any] = {
+            "key": str(src.get("key") or ""),
+            "displayName": str(src.get("display_name") or ""),
+            "columnLabel": str(
+                src.get("column_label") or src.get("display_name") or ""
+            ),
+            "scope": str(src.get("scope") or ""),
+            "extraScopes": list(src.get("extra_scopes") or []),
+            "positionGroup": src.get("position_group"),
+            "depth": src.get("depth"),
+            "weight": float(src.get("weight") or 0.0),
+            "isBackbone": bool(src.get("is_backbone")),
+            "isRetail": bool(src.get("is_retail")),
+            "isTepPremium": bool(src.get("is_tep_premium")),
+            "isRankSignal": bool(src.get("is_rank_signal")),
+            "needsSharedMarketTranslation": bool(
+                src.get("needs_shared_market_translation")
+            ),
+            "excludesRookies": bool(src.get("excludes_rookies")),
+        }
+        out.append(entry)
+    return out
+
+
+def get_ranking_source_keys() -> list[str]:
+    """Return the ordered list of registered ranking source keys."""
+    return [str(s.get("key") or "") for s in _RANKING_SOURCES]
+
+
+def normalize_source_overrides(
+    raw: Any,
+) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    """Normalize and validate a user-supplied source override payload.
+
+    Accepts the two shapes emitted by the frontend:
+
+      * legacy ``siteWeights``-style map:
+          ``{"ktc": {"include": True, "weight": 1.0}, ...}``
+      * explicit request body:
+          ``{"enabled_sources": [...], "weights": {...}}``
+          ``{"enabledSources": [...], "weights": {...}}``
+
+    Returns a tuple of ``(normalized_overrides, warnings)`` where:
+
+      * ``normalized_overrides`` is a dict keyed by registered source
+        key.  Unknown keys are dropped and recorded in warnings.
+        Each value is a dict with optional ``include`` (bool) and
+        ``weight`` (non-negative finite float).  Missing/invalid
+        fields are dropped so the override silently inherits the
+        registry default for that field.
+      * ``warnings`` is a list of human-readable strings describing
+        any invalid or ignored input.  The caller may surface these
+        in the API response under the ``warnings`` key.
+
+    The function never raises for malformed input — it silently drops
+    invalid entries and returns any valid portion so a partial
+    override payload still produces a deterministic response.
+    """
+    import math
+
+    warnings: list[str] = []
+    valid_keys = set(get_ranking_source_keys())
+    out: dict[str, dict[str, Any]] = {}
+
+    if raw is None:
+        return out, warnings
+    if not isinstance(raw, dict):
+        warnings.append(
+            f"Top-level overrides must be an object; got {type(raw).__name__}"
+        )
+        return out, warnings
+
+    # ── Explicit request body: {"enabled_sources": [...], "weights": {...}} ──
+    explicit_enabled = raw.get("enabled_sources")
+    if explicit_enabled is None:
+        explicit_enabled = raw.get("enabledSources")
+    explicit_weights = raw.get("weights")
+
+    if explicit_enabled is not None or isinstance(explicit_weights, dict):
+        if explicit_enabled is not None:
+            if not isinstance(explicit_enabled, (list, tuple, set)):
+                warnings.append(
+                    "enabled_sources must be a list of source keys; ignoring"
+                )
+                enabled_set: set[str] = valid_keys
+            else:
+                enabled_set = set()
+                for key in explicit_enabled:
+                    k = str(key)
+                    if k in valid_keys:
+                        enabled_set.add(k)
+                    else:
+                        warnings.append(
+                            f"enabled_sources: unknown source '{k}' (ignored)"
+                        )
+        else:
+            enabled_set = set(valid_keys)
+
+        for key in valid_keys:
+            entry: dict[str, Any] = {}
+            if key not in enabled_set:
+                entry["include"] = False
+            out[key] = entry
+
+        if isinstance(explicit_weights, dict):
+            for key, value in explicit_weights.items():
+                k = str(key)
+                if k not in valid_keys:
+                    warnings.append(
+                        f"weights: unknown source '{k}' (ignored)"
+                    )
+                    continue
+                try:
+                    w = float(value)
+                except (TypeError, ValueError):
+                    warnings.append(
+                        f"weights[{k}]: value '{value}' is not a number (ignored)"
+                    )
+                    continue
+                if not math.isfinite(w) or w < 0:
+                    warnings.append(
+                        f"weights[{k}]: value {w} is not non-negative finite (ignored)"
+                    )
+                    continue
+                out.setdefault(k, {})["weight"] = w
+
+        out = {k: v for k, v in out.items() if v}
+        return out, warnings
+
+    # ── Legacy siteWeights-style map ──
+    for key, value in raw.items():
+        k = str(key)
+        if k not in valid_keys:
+            warnings.append(f"Unknown source '{k}' (ignored)")
+            continue
+        if not isinstance(value, dict):
+            warnings.append(
+                f"Override for '{k}' must be an object; got {type(value).__name__}"
+            )
+            continue
+        entry = {}
+        if "include" in value:
+            include = value.get("include")
+            if isinstance(include, bool):
+                entry["include"] = include
+            else:
+                warnings.append(
+                    f"Override '{k}'.include must be boolean; got {type(include).__name__}"
+                )
+        if "weight" in value:
+            try:
+                w = float(value.get("weight"))
+            except (TypeError, ValueError):
+                warnings.append(
+                    f"Override '{k}'.weight must be a number (ignored)"
+                )
+            else:
+                if math.isfinite(w) and w >= 0:
+                    entry["weight"] = w
+                else:
+                    warnings.append(
+                        f"Override '{k}'.weight must be non-negative finite (ignored)"
+                    )
+        if entry:
+            out[k] = entry
+    return out, warnings
+
+
+def _summarize_source_overrides(
+    source_overrides: dict[str, dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """Produce the ``rankingsOverride`` contract summary block.
+
+    The block carries:
+      * ``isCustomized`` — True when at least one override actually
+        diverges from the registry default.
+      * ``enabledSources`` — ordered list of source keys that were
+        enabled in the effective configuration.
+      * ``weights`` — dict mapping source key → effective declared
+        weight (registry default OR override).
+      * ``defaults`` — dict mapping source key → registry default
+        weight, so the frontend can show "customized: 0.5 vs
+        default 1.0" without re-fetching the registry.
+      * ``received`` — the raw normalized override map the pipeline
+        was given, for debugging.
+    """
+    import math
+
+    normalized = source_overrides or {}
+    is_customized = False
+    enabled_sources: list[str] = []
+    effective_weights: dict[str, float] = {}
+    default_weights: dict[str, float] = {}
+    for src in _RANKING_SOURCES:
+        key = str(src.get("key") or "")
+        if not key:
+            continue
+        default_weight = float(src.get("weight") or 0.0)
+        default_weights[key] = default_weight
+        ov = normalized.get(key) or {}
+        include = ov.get("include")
+        enabled = include is not False
+        if enabled:
+            enabled_sources.append(key)
+        if include is False:
+            is_customized = True
+        weight_override = ov.get("weight")
+        if weight_override is not None:
+            try:
+                w = float(weight_override)
+            except (TypeError, ValueError):
+                w = default_weight
+            if math.isfinite(w) and w >= 0:
+                effective_weights[key] = w
+                if w != default_weight:
+                    is_customized = True
+            else:
+                effective_weights[key] = default_weight
+        else:
+            effective_weights[key] = default_weight
+    return {
+        "isCustomized": is_customized,
+        "enabledSources": enabled_sources,
+        "weights": effective_weights,
+        "defaults": default_weights,
+        "received": dict(normalized),
+    }
+
+
+def assert_ranking_source_registry_parity(
+    frontend_registry: list[dict[str, Any]],
+) -> list[str]:
+    """Verify the frontend JS registry matches the Python one.
+
+    Returns a list of human-readable mismatch descriptions.  An empty
+    list means the two registries are in full agreement on keys,
+    declared weights, scopes, retail/backbone/TEP flags, and ordering.
+    """
+    errors: list[str] = []
+    py_registry = get_ranking_source_registry()
+    py_keys = [s["key"] for s in py_registry]
+    js_keys = [str(s.get("key") or "") for s in (frontend_registry or [])]
+    if py_keys != js_keys:
+        errors.append(
+            "Registry key order/mismatch:\n"
+            f"  python: {py_keys}\n"
+            f"  frontend: {js_keys}"
+        )
+        return errors
+
+    for py, js in zip(py_registry, frontend_registry):
+        key = py["key"]
+        for field in (
+            "scope",
+            "extraScopes",
+            "positionGroup",
+            "depth",
+            "weight",
+            "isBackbone",
+            "isRetail",
+            "isTepPremium",
+        ):
+            py_val = py.get(field)
+            js_val = js.get(field)
+            if field == "extraScopes":
+                py_val = list(py_val or [])
+                js_val = list(js_val or [])
+            if field == "weight":
+                if float(py_val or 0) != float(js_val or 0):
+                    errors.append(
+                        f"{key}.weight: python={py_val} frontend={js_val}"
+                    )
+                continue
+            if py_val != js_val:
+                errors.append(f"{key}.{field}: python={py_val} frontend={js_val}")
+    return errors
+
+
+def _source_is_enabled(
+    src: dict[str, Any],
+    source_overrides: dict[str, dict[str, Any]] | None,
+) -> bool:
+    """True if a registered source is active under the override map."""
+    if not source_overrides:
+        return True
+    ov = source_overrides.get(src.get("key") or "") or {}
+    return ov.get("include") is not False
+
+
+def _effective_source_weight(
+    src: dict[str, Any],
+    source_overrides: dict[str, dict[str, Any]] | None,
+) -> float:
+    """Return the effective declared weight for a source under an override map."""
+    default = float(src.get("weight") or 0.0)
+    if not source_overrides:
+        return default
+    ov = source_overrides.get(src.get("key") or "") or {}
+    w = ov.get("weight")
+    if w is None:
+        return default
+    try:
+        w = float(w)
+    except (TypeError, ValueError):
+        return default
+    import math as _m
+    if not _m.isfinite(w) or w < 0:
+        return default
+    return w
+
+
+def _active_sources(
+    source_overrides: dict[str, dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    """Return a filtered list of _RANKING_SOURCES with overrides applied.
+
+    Disabled sources are dropped entirely.  Weight overrides produce a
+    shallow copy of the source dict with the ``weight`` field
+    replaced.  Sources that inherit their defaults are passed through
+    by reference so the hot path does not pay a copy tax when no
+    overrides are in play.
+    """
+    if not source_overrides:
+        return list(_RANKING_SOURCES)
+    out: list[dict[str, Any]] = []
+    for src in _RANKING_SOURCES:
+        if not _source_is_enabled(src, source_overrides):
+            continue
+        ov = source_overrides.get(src.get("key") or "") or {}
+        if "weight" in ov:
+            copy = dict(src)
+            copy["weight"] = _effective_source_weight(src, source_overrides)
+            out.append(copy)
+        else:
+            out.append(src)
+    return out
+
+
 def _compute_market_gap(
     source_ranks: dict[str, int],
     retail_keys: set[str] | frozenset[str] | None = None,
@@ -2302,6 +2664,8 @@ def _compute_unified_rankings(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
     csv_index: dict[str, dict[str, dict[str, Any]]] | None = None,
+    *,
+    source_overrides: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -2324,6 +2688,15 @@ def _compute_unified_rankings(
     sources with small declared depth contribute less than deep full-board
     sources with identical declared weight.
 
+    Source overrides
+    ────────────────
+    ``source_overrides`` (optional) is a dict of per-source user
+    settings: ``{key: {"include": bool, "weight": float}}``.  Disabled
+    sources are filtered out of every phase.  Overridden weights
+    replace the registry-declared weight in the coverage-aware blend.
+    When None / empty the pipeline is byte-for-byte identical to the
+    default canonical run.
+
     Stamps onto each row:
       - sourceRanks:  dict[str, int] — effective rank per source (the
                       integer fed into the Hill curve).  For position_idp
@@ -2343,6 +2716,12 @@ def _compute_unified_rankings(
     """
     from src.canonical.player_valuation import rank_to_value  # noqa: PLC0415
 
+    # Build the active source list honoring user-supplied overrides.
+    # This is the only place ranks + weights are gated, so downstream
+    # loops iterate `active_sources` instead of the raw registry.
+    active_sources = _active_sources(source_overrides)
+    active_keys = {str(s.get("key") or "") for s in active_sources}
+
     # ── Phase 0: Build IDP backbone from the designated backbone source ──
     # The first enabled source with scope=overall_idp and is_backbone=True
     # wins.  If no backbone source is present, position_idp sources fall
@@ -2357,7 +2736,7 @@ def _compute_unified_rankings(
     # to the combined-pool rank of the best IDP, not treated as if it
     # were the overall rank 1 of the shared offense+IDP board.
     backbone_source_key: str | None = None
-    for src in _RANKING_SOURCES:
+    for src in active_sources:
         if src["scope"] == SOURCE_SCOPE_OVERALL_IDP and src.get("is_backbone"):
             backbone_source_key = src["key"]
             break
@@ -2366,7 +2745,7 @@ def _compute_unified_rankings(
         # actually prices both offense + IDP on a shared scale; this is
         # detected by the registry declaring offense in extra_scopes.
         backbone_src_def = next(
-            (s for s in _RANKING_SOURCES if s["key"] == backbone_source_key),
+            (s for s in active_sources if s["key"] == backbone_source_key),
             {},
         )
         backbone_extra_scopes = list(backbone_src_def.get("extra_scopes") or [])
@@ -2398,7 +2777,7 @@ def _compute_unified_rankings(
     shared_market_ladder = backbone.shared_idp_ladder()
     shared_market_depth = backbone.shared_market_depth
 
-    for src in _RANKING_SOURCES:
+    for src in active_sources:
         source_key: str = src["key"]
         position_group: str | None = src.get("position_group")
         primary_scope: str = src["scope"]
@@ -2509,7 +2888,7 @@ def _compute_unified_rankings(
 
     # ── Phase 2-3: Normalized value (Hill curve) + robust blend ──
     # Look up each source's weight / depth once.
-    src_by_key: dict[str, dict[str, Any]] = {s["key"]: s for s in _RANKING_SOURCES}
+    src_by_key: dict[str, dict[str, Any]] = {s["key"]: s for s in active_sources}
 
     row_normalized: list[tuple[float, int]] = []  # (blended_value, row_idx)
     for row_idx, source_ranks in row_source_ranks.items():
@@ -3200,7 +3579,18 @@ def build_api_data_contract(
     raw_payload: dict[str, Any],
     *,
     data_source: dict[str, Any] | None = None,
+    source_overrides: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    """Build a full API data contract payload from a raw scraper bundle.
+
+    ``source_overrides`` (optional) is forwarded to
+    :func:`_compute_unified_rankings` to enable user-settings-driven
+    re-rankings.  When ``None``, the default canonical board is
+    built.  The presence of overrides is stamped onto the returned
+    contract under the ``rankingsOverride`` key so downstream
+    consumers can tell an override response from the baseline
+    response without guessing.
+    """
     base = deepcopy(raw_payload or {})
     players_by_name = base.get("players")
     if not isinstance(players_by_name, dict):
@@ -3248,8 +3638,14 @@ def build_api_data_contract(
     # Compute unified rankings: all sources, all positions, one board.
     # The CSV index lets the ranker stamp a per-row ``sourceAudit``
     # block describing which CSV row matched each player and why.
+    # ``source_overrides`` threads user settings (per-source include /
+    # weight knobs) into the same canonical pipeline — there is no
+    # secondary ranker anywhere in the stack.
     pick_aliases = _compute_unified_rankings(
-        players_array, players_by_name, csv_index=csv_index
+        players_array,
+        players_by_name,
+        csv_index=csv_index,
+        source_overrides=source_overrides,
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
@@ -3420,6 +3816,12 @@ def build_api_data_contract(
         for flag in flags:
             anomaly_counts[flag] = anomaly_counts.get(flag, 0) + 1
 
+    # ── Rankings override summary ──
+    # Always produced, even for the default (no-override) response,
+    # so downstream consumers (frontend hooks, audit tooling, tests)
+    # can hydrate a consistent shape without branching on presence.
+    rankings_override = _summarize_source_overrides(source_overrides)
+
     contract_payload: dict[str, Any] = {
         **base,
         "contractVersion": CONTRACT_VERSION,
@@ -3434,6 +3836,7 @@ def build_api_data_contract(
         },
         "dataFreshness": data_freshness,
         "methodology": methodology,
+        "rankingsOverride": rankings_override,
         "anomalySummary": {
             "totalFlagged": total_flagged,
             "flagCounts": anomaly_counts,
@@ -3443,6 +3846,126 @@ def build_api_data_contract(
         "sourceParseErrors": source_parse_errors,
     }
     return contract_payload
+
+
+# ── Rankings override delta contract ──────────────────────────────────
+# Fields on each `playersArray` row that respond to source overrides.
+# Anything an override change can mutate — the ranking, the blended
+# value, the per-source stamps, the confidence block, and the market
+# gap — is listed here.  Anything NOT listed (identity, team, age,
+# rookie flag, assetClass, raw site values, identity quality) is
+# invariant under an override change and already present on the
+# frontend's cached base payload, so the delta merge path can leave
+# those fields alone.
+_DELTA_PLAYER_FIELDS: tuple[str, ...] = (
+    "canonicalConsensusRank",
+    "rankDerivedValue",
+    "sourceRanks",
+    "sourceRankMeta",
+    "sourceOriginalRanks",
+    "blendedSourceRank",
+    "sourceCount",
+    "sourceRankSpread",
+    "sourceRankPercentileSpread",
+    "isSingleSource",
+    "isStructurallySingleSource",
+    "hasSourceDisagreement",
+    "confidenceBucket",
+    "confidenceLabel",
+    "marketGapDirection",
+    "marketGapMagnitude",
+    "anomalyFlags",
+    "canonicalTierId",
+    "marketConfidence",
+    "values",
+    "idpBackboneFallback",
+    "canonicalSiteValues",
+    "quarantined",
+    "ktcRank",
+    "idpRank",
+)
+
+
+def build_rankings_delta_payload(
+    raw_payload: dict[str, Any],
+    *,
+    data_source: dict[str, Any] | None = None,
+    source_overrides: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Build a compact delta contract for the rankings-override endpoint.
+
+    Runs the full pipeline via ``build_api_data_contract`` and then
+    extracts only the override-sensitive fields per player, keyed by
+    ``displayName``.  The frontend merges each delta entry onto its
+    cached base ``/api/data?view=app`` contract by that key.
+
+    The delta drops the legacy ``players`` dict, ``sleeper``,
+    ``methodology``, ``poolAudit``, and the full ``playersArray``,
+    shrinking the wire payload from ~4MB (full) to ~1.25MB
+    (uncompressed) / ~100KB (gzipped).  When gzip is available at the
+    transport layer the compounded savings are ~40x on this endpoint.
+
+    Shape:
+
+        {
+            "contractVersion": "...",
+            "generatedAt": "...",
+            "mode": "delta",
+            "rankingsOverride": {isCustomized, enabledSources, ...},
+            "rankingsDelta": {
+                "playerKey": "displayName",
+                "players": [
+                    {"id": "Josh Allen", "canonicalConsensusRank": 1, ...},
+                    ...
+                ],
+                "activePlayerIds": ["Josh Allen", ...],
+            },
+            ...
+        }
+    """
+    full = build_api_data_contract(
+        raw_payload,
+        data_source=data_source,
+        source_overrides=source_overrides,
+    )
+
+    delta_players: list[dict[str, Any]] = []
+    active_ids: list[str] = []
+    for row in full.get("playersArray") or []:
+        player_id = str(
+            row.get("displayName") or row.get("canonicalName") or ""
+        ).strip()
+        if not player_id:
+            continue
+        entry: dict[str, Any] = {"id": player_id}
+        for field in _DELTA_PLAYER_FIELDS:
+            if field in row:
+                entry[field] = row[field]
+        delta_players.append(entry)
+        if row.get("canonicalConsensusRank"):
+            active_ids.append(player_id)
+
+    payload: dict[str, Any] = {
+        "contractVersion": full.get("contractVersion"),
+        "generatedAt": full.get("generatedAt"),
+        "date": full.get("date"),
+        "scrapeTimestamp": full.get("scrapeTimestamp"),
+        "mode": "delta",
+        "rankingsOverride": full.get("rankingsOverride"),
+        "rankingsDelta": {
+            "playerKey": "displayName",
+            "players": delta_players,
+            "activePlayerIds": active_ids,
+        },
+        "anomalySummary": full.get("anomalySummary"),
+        "dataFreshness": full.get("dataFreshness"),
+        "dataSource": full.get("dataSource"),
+        "playerCount": full.get("playerCount"),
+    }
+    warnings = full.get("warnings")
+    if warnings:
+        payload["warnings"] = list(warnings)
+    return payload
 
 
 # ── Canonical comparison (shadow mode) ─────────────────────────────────

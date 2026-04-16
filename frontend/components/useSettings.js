@@ -29,12 +29,14 @@ export const SETTINGS_DEFAULTS = {
 
   // Per-user source override map.  Shape:
   //   { [sourceKey]: { include?: boolean, weight?: number } }
-  // Read by `useDynastyData` → `buildRows` → `computeUnifiedRanks`.
-  // An empty map (default) means "inherit everything from the
-  // canonical RANKING_SOURCES registry" — every source enabled at
-  // weight 1.0.  Editing via `updateSiteWeight` flips the ranking
-  // pipeline into bypass mode so user knobs actually affect the
-  // displayed board.
+  // Read by `useDynastyData` → `fetchDynastyData`, which POSTs the
+  // map to the backend override endpoint whenever it differs from
+  // the registry defaults.  The backend re-runs the canonical
+  // ranking pipeline with the overrides threaded in and returns a
+  // compact delta payload that the frontend merges onto its cached
+  // base contract.  An empty map (default) means "inherit everything
+  // from the canonical RANKING_SOURCES registry" — every source
+  // enabled at weight 1.0, no backend round-trip needed.
   siteWeights: {},
 
   // Trade history

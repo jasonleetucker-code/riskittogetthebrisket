@@ -44,7 +44,10 @@ from src.api.data_contract import (
     build_api_data_contract,
     build_api_startup_payload,
     build_canonical_comparison_block,
+    build_rankings_delta_payload,
     build_shadow_comparison_report,
+    get_ranking_source_registry,
+    normalize_source_overrides,
     validate_api_data_contract,
 )
 
@@ -1741,6 +1744,103 @@ async def get_data(request: Request):
 async def get_dynasty_data_alias(request: Request):
     """Compatibility alias for frontend consumers expecting /api/dynasty-data."""
     return await get_data(request)
+
+
+# ── Rankings override API ──────────────────────────────────────────
+# These endpoints are the single authoritative path for custom-source
+# configurations.  The frontend NEVER runs its own blended ranking
+# engine when a user customizes source weights — instead it POSTs
+# the override map here and receives either a full canonical
+# contract or a compact delta payload re-computed by
+# ``build_api_data_contract()`` / ``build_rankings_delta_payload()``
+# with the overrides threaded into ``_compute_unified_rankings()``.
+
+@app.get("/api/rankings/sources")
+async def get_rankings_sources():
+    """Return the canonical ranking-source registry.
+
+    The frontend mirrors this registry statically in
+    ``frontend/lib/dynasty-data.js::RANKING_SOURCES``; this endpoint
+    exists so runtime tools, tests, and future builds can fetch the
+    authoritative Python registry without reaching into module
+    internals.  The shape matches the frontend entry exactly —
+    ``assert_ranking_source_registry_parity()`` enforces that.
+    """
+    return JSONResponse(content={
+        "sources": get_ranking_source_registry(),
+        "contractVersion": API_DATA_CONTRACT_VERSION,
+    })
+
+
+@app.post("/api/rankings/overrides")
+async def post_rankings_overrides(request: Request):
+    """Rebuild the canonical rankings with user-supplied source overrides.
+
+    Accepts two equivalent body shapes:
+
+      * ``{"enabled_sources": [...], "weights": {key: float, ...}}``
+      * ``{"<source_key>": {"include": bool, "weight": float}, ...}``
+        (legacy ``siteWeights`` shape from the frontend settings store)
+
+    Response shape is controlled by the ``view`` query parameter:
+
+      * ``view=full`` (default) — returns the full canonical
+        contract (~4 MB uncompressed, identical shape to ``GET
+        /api/data``).
+      * ``view=delta`` (frontend default) — returns the compact
+        delta payload (~70% smaller) containing only the
+        override-sensitive fields per player.  The frontend merges
+        the delta onto its cached base contract.
+    """
+    if not latest_data or not isinstance(latest_data, dict):
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "No data available yet. First scrape may still be running.",
+            },
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+
+    overrides, warnings = normalize_source_overrides(body)
+
+    view = (request.query_params.get("view") or "").strip().lower()
+    delta_view = view in {"delta", "compact", "slim"}
+
+    try:
+        if delta_view:
+            contract_payload = build_rankings_delta_payload(
+                latest_data,
+                data_source=latest_data_source,
+                source_overrides=overrides if overrides else None,
+            )
+        else:
+            contract_payload = build_api_data_contract(
+                latest_data,
+                data_source=latest_data_source,
+                source_overrides=overrides if overrides else None,
+            )
+    except Exception as exc:
+        log.exception("Failed to rebuild contract with overrides: %s", exc)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": f"Failed to rebuild rankings with overrides: {exc}",
+                "warnings": warnings,
+            },
+        )
+
+    if warnings:
+        contract_payload.setdefault("warnings", []).extend(warnings)
+
+    headers = {
+        "Cache-Control": "no-store",
+        "X-Payload-View": "rankings-overrides-delta" if delta_view else "rankings-overrides",
+    }
+    return JSONResponse(content=contract_payload, headers=headers)
 
 
 @app.get("/api/status")
