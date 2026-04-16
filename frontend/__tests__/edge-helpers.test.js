@@ -230,8 +230,7 @@ describe("topRetailPremium", () => {
     const result = topRetailPremium(rows, 3);
     expect(result).toHaveLength(2); // A and B (D is below threshold)
     expect(result[0].name).toBe("B"); // 80 > 50
-    // Retail label is dynamic — today "KTC" since KTC is the only retail source.
-    expect(result[0].detail).toBe("KTC +80 ranks");
+    expect(result[0].detail).toBe("Sell +80 ranks");
   });
 
   it("excludes quarantined rows", () => {
@@ -249,7 +248,7 @@ describe("topConsensusPremium", () => {
     ];
     const result = topConsensusPremium(rows);
     expect(result).toHaveLength(1);
-    expect(result[0].detail).toBe("Consensus +40 ranks");
+    expect(result[0].detail).toBe("Buy +40 ranks");
   });
 });
 
@@ -317,8 +316,8 @@ describe("getLens", () => {
 
 // ── isTopRankedForEdgePremium ────────────────────────────────────────
 //
-// The Edge page's Retail Premium / Consensus Premium sections are
-// pinned to the top 200 by consensus rank OR KTC rank so deep-bench
+// The Edge page's Sell Signals / Buy Signals sections are pinned to
+// the top 200 by consensus rank OR KTC rank so deep-bench
 // disagreements (which have no trade relevance) don't flood the
 // sections.  This block pins every eligibility branch.
 

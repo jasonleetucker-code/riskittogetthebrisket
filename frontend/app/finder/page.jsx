@@ -305,9 +305,9 @@ export default function FinderPage() {
                           {workflow.showGap && (
                             <td style={{ fontSize: "0.78rem" }}>
                               {row.marketGapDirection === "retail_premium" ? (
-                                <span className="text-cyan">{getRetailLabel()}</span>
+                                <span className="text-cyan">Sell</span>
                               ) : row.marketGapDirection === "consensus_premium" ? (
-                                <span className="text-amber">Consensus</span>
+                                <span className="text-amber">Buy</span>
                               ) : (
                                 <span className="muted">\u2014</span>
                               )}

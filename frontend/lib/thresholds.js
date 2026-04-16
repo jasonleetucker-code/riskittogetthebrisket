@@ -52,11 +52,11 @@ export const EDGE_CAUTION_RANK_LIMIT = 300;
 
 /**
  * Maximum rank (by consensus OR retail/KTC) for players to appear in
- * the Edge page's Retail Premium / Consensus Premium sections.  Deep-
- * bench players can have huge source disagreements without any real
- * trade relevance, so we pin both premium sections to players inside
- * the top 200 of either scale.  A player qualifies when EITHER their
- * consensus rank is <= 200 OR their per-source KTC rank is <= 200.
+ * the Edge page's Sell Signals / Buy Signals sections.  Deep-bench
+ * players can have huge source disagreements without any real trade
+ * relevance, so we pin both sections to players inside the top 200 of
+ * either scale.  A player qualifies when EITHER their consensus rank
+ * is <= 200 OR their per-source KTC rank is <= 200.
  */
 export const EDGE_PREMIUM_RANK_LIMIT = 200;
 

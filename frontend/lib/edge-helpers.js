@@ -235,10 +235,8 @@ export function applyLens(rows, lensKey) {
  * expert consensus (every non-retail source averaged).  These are
  * players the retail market values more than the experts do.
  *
- * The detail label is resolved dynamically from the registry via
- * `getRetailLabel()`, so today it reads "KTC +N ranks" and a future
- * two-retail-source world would read "Retail +N ranks" with no code
- * edits here.
+ * Sell signals: players the retail market values much higher than the
+ * expert consensus — potential sells to retail-first trade partners.
  */
 export function topRetailPremium(rows, limit = 5) {
   const retailLabel = getRetailLabel();
@@ -250,16 +248,15 @@ export function topRetailPremium(rows, limit = 5) {
       name: r.name,
       pos: r.pos,
       rank: r.rank,
-      detail: `${retailLabel} +${r.sourceRankSpread} ranks`,
+      detail: `Sell +${r.sourceRankSpread} ranks`,
       row: r,
     }));
 }
 
 /**
- * Top players where the expert consensus (every non-retail source
- * averaged) ranks them much higher than the retail market.  These are
- * players the experts value more than retail does — potential "buy
- * low" targets from retail-first trade partners.
+ * Buy signals: players the expert consensus values much higher than
+ * the retail market — potential buy-low targets from retail-first
+ * trade partners.
  */
 export function topConsensusPremium(rows, limit = 5) {
   return rows
@@ -270,7 +267,7 @@ export function topConsensusPremium(rows, limit = 5) {
       name: r.name,
       pos: r.pos,
       rank: r.rank,
-      detail: `Consensus +${r.sourceRankSpread} ranks`,
+      detail: `Buy +${r.sourceRankSpread} ranks`,
       row: r,
     }));
 }
