@@ -563,10 +563,27 @@ tr:hover .sticky-name {
   padding: var(--space-sm);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+  min-width: 0;
+}
+.asset-row > div:first-child {
+  min-width: 0;
+  flex: 1;
 }
 
-.asset-name { font-weight: 600; font-size: 0.85rem; }
-.asset-meta { color: var(--muted); font-size: 0.73rem; }
+.asset-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asset-meta {
+  color: var(--muted);
+  font-size: 0.73rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .tier-label {
   display: inline-flex;
@@ -607,20 +624,84 @@ tr:hover .sticky-name {
 .picker-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.5);
   z-index: 42;
   display: flex;
   justify-content: center;
-  align-items: flex-end;
-  padding: 10px;
+  align-items: center;
+  padding: 16px;
 }
 
 .picker-sheet {
-  width: min(940px, 100%);
+  width: min(660px, 100%);
+  max-height: 80vh;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, rgba(20, 39, 79, 0.97) 0%, rgba(13, 29, 63, 0.98) 100%);
-  padding: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.picker-subtitle {
+  margin: 2px 0 0 0;
+  font-size: 0.72rem;
+}
+
+.picker-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(8, 19, 44, 0.7);
+  color: var(--text);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.12s;
+}
+.picker-close:hover { border-color: var(--cyan); }
+
+.picker-search-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-shrink: 0;
+}
+
+.picker-recent {
+  margin-top: 10px;
+  flex-shrink: 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.picker-table-wrap {
+  margin-top: 10px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.picker-row {
+  cursor: pointer;
+}
+.picker-row:active {
+  background: rgba(86, 214, 255, 0.08);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -834,12 +915,51 @@ tr:hover .sticky-name {
 
   .trade-tray-main .value { font-size: 0.9rem; }
 
-  .picker-overlay { padding: 0; }
+  .picker-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
   .picker-sheet {
-    max-height: 85vh;
+    width: 100%;
+    max-height: 75vh;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
+    padding: 12px 10px;
+  }
+  .picker-subtitle { display: none; }
+  .picker-search-row { margin-top: 8px; }
+  .picker-recent { margin-top: 8px; max-height: 150px; }
+  .picker-table-wrap { margin-top: 8px; }
+
+  /* Hide source columns and rank column in picker on mobile —
+     the picker is for quick selection, not detailed analysis.
+     Player name, position, and value are sufficient. */
+  .picker-source-col { display: none !important; }
+  .picker-rank-col { display: none !important; }
+  .picker-add-col { display: none !important; }
+
+  /* Picker table rows: bigger touch targets */
+  .picker-row td { padding: 10px 8px; }
+
+  /* Trade card buttons: prevent truncation */
+  .trade-remove-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    padding: 6px 8px;
+  }
+  .trade-add-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Trade controls: compact on mobile */
+  .trade-controls {
+    gap: 6px !important;
+  }
+  .trade-controls .button,
+  .trade-controls .select {
+    font-size: 0.74rem;
+    padding: 6px 8px;
   }
 
   .login-shell { min-height: auto; padding: var(--space-sm); }
@@ -987,6 +1107,19 @@ tr:hover .sticky-name {
   /* Compact tables: reduce padding further */
   th, td { padding: 4px 6px; font-size: 0.7rem; }
   .sticky-name { min-width: 110px; }
+
+  /* Picker: tighter on small phones */
+  .picker-sheet { padding: 10px 8px; max-height: 70vh; }
+  .picker-header h3 { font-size: 0.92rem; }
+  .picker-search-row { gap: 6px; }
+  .picker-recent { max-height: 120px; }
+
+  /* Trade cards: compact side header */
+  .trade-remove-btn {
+    font-size: 0.66rem;
+    padding: 4px 6px;
+    min-height: unset;
+  }
 
   /* Tighten the mobile source strip so chips fit on 320w viewports
      (iPhone SE / older devices).  Narrower strip + smaller chip
