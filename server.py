@@ -2924,6 +2924,123 @@ async def get_draft_capital(refresh: str = ""):
         )
 
 
+# ── PUBLIC LEAGUE ROUTES ───────────────────────────────────────────────
+# The /api/public/league* endpoints serve the public /league page.
+# They are intentionally fork-isolated from the private canonical
+# pipeline — no dependence on latest_data / latest_contract_data, no
+# private ranking / valuation signals.  The public contract is
+# assembled in src/public_league/public_contract.py and runs through
+# an allowlist guard before it is serialized.
+from src.public_league import (  # noqa: E402 — grouped after route block above
+    PUBLIC_SECTION_KEYS,
+    build_public_contract,
+    build_public_snapshot,
+    build_section_payload,
+)
+from src.public_league.public_contract import assert_public_payload_safe
+from src.public_league.sleeper_client import PUBLIC_MAX_SEASONS
+
+_PUBLIC_LEAGUE_CACHE_TTL_SECONDS = int(os.getenv("PUBLIC_LEAGUE_CACHE_TTL", "300"))
+_public_league_cache: dict = {
+    "snapshot": None,
+    "snapshot_league_id": None,
+    "fetched_at": 0.0,
+}
+
+
+def _public_league_id() -> str:
+    """Return the current public-facing league id.  Falls back to the
+    same env default used by the private draft-capital route."""
+    return os.getenv("SLEEPER_LEAGUE_ID", SLEEPER_LEAGUE_ID_FOR_DRAFT).strip()
+
+
+def _get_public_snapshot(force_refresh: bool = False):
+    """Return (possibly cached) public snapshot for the current league."""
+    league_id = _public_league_id()
+    now = time.time()
+    cached = _public_league_cache.get("snapshot")
+    cached_id = _public_league_cache.get("snapshot_league_id")
+    fetched_at = float(_public_league_cache.get("fetched_at") or 0.0)
+    fresh = (
+        cached is not None
+        and cached_id == league_id
+        and (now - fetched_at) < _PUBLIC_LEAGUE_CACHE_TTL_SECONDS
+    )
+    if fresh and not force_refresh:
+        return cached
+    snapshot = build_public_snapshot(league_id, max_seasons=PUBLIC_MAX_SEASONS)
+    _public_league_cache["snapshot"] = snapshot
+    _public_league_cache["snapshot_league_id"] = league_id
+    _public_league_cache["fetched_at"] = now
+    return snapshot
+
+
+@app.get("/api/public/league")
+async def get_public_league(refresh: str = ""):
+    """Full public league contract — every section + league header.
+
+    This endpoint is intentionally separate from /api/data.  It never
+    reads the private canonical pipeline, never exposes private
+    rankings / edge signals, and runs through an allowlist guard
+    before serialization.
+    """
+    try:
+        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
+        payload = build_public_contract(snapshot)
+        assert_public_payload_safe(payload)
+        return JSONResponse(content=payload)
+    except AssertionError as exc:
+        logging.error("Public league contract tripped safety assert: %s", exc)
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Public league contract safety violation."},
+        )
+    except Exception as exc:  # noqa: BLE001
+        logging.error("Public league contract build failed: %s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={"error": f"Public league data unavailable: {exc}"},
+        )
+
+
+@app.get("/api/public/league/{section}")
+async def get_public_league_section(section: str, owner: str = "", refresh: str = ""):
+    """Single public-league section payload.
+
+    ``section`` must be one of ``PUBLIC_SECTION_KEYS``.  When the
+    ``franchise`` section is requested with ``?owner=<owner_id>`` we
+    also include a narrowed ``franchiseDetail`` block so the frontend
+    can render a single franchise page without downloading every
+    franchise's detail dict.
+    """
+    if section not in PUBLIC_SECTION_KEYS:
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Unknown public league section: {section!r}",
+                     "availableSections": list(PUBLIC_SECTION_KEYS)},
+        )
+    try:
+        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
+        payload = build_section_payload(snapshot, section)
+        if section == "franchise" and owner:
+            detail_map = payload.get("data", {}).get("detail") or {}
+            payload["franchiseDetail"] = detail_map.get(str(owner).strip())
+        assert_public_payload_safe(payload)
+        return JSONResponse(content=payload)
+    except AssertionError as exc:
+        logging.error("Public section %s tripped safety assert: %s", section, exc)
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Public league contract safety violation."},
+        )
+    except Exception as exc:  # noqa: BLE001
+        logging.error("Public league section %s failed: %s", section, exc)
+        return JSONResponse(
+            status_code=503,
+            content={"error": f"Public league section unavailable: {exc}"},
+        )
+
+
 @app.post("/api/scrape")
 async def trigger_scrape(background_tasks: BackgroundTasks):
     """Manually trigger a scrape. Returns immediately; scrape runs in background."""
@@ -3041,9 +3158,9 @@ async def serve_landing(request: Request):
 
 @app.get("/league", response_class=HTMLResponse)
 async def serve_league_entry(request: Request):
-    redirect = _require_auth_or_redirect(request, "/league")
-    if redirect is not None:
-        return redirect
+    # Public page — no auth required.  The /league frontend hydrates
+    # exclusively from /api/public/league, never /api/data.  See
+    # src/public_league/ for the isolated pipeline powering this page.
     return await _serve_app_shell("/league")
 
 

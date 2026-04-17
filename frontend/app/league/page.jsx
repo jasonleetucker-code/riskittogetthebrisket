@@ -1,135 +1,248 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useApp } from "@/components/AppShell";
-import { useSettings } from "@/components/useSettings";
-import { SubNav, PageHeader, LoadingState, EmptyState } from "@/components/ui";
+// PUBLIC /league page.
+//
+// Critical isolation rules (enforced by AppShell.PUBLIC_ONLY_ROUTE_PREFIXES):
+//   * NO imports from @/components/AppShell.useApp — the public route
+//     runs inside PublicAppShell, which refuses to hydrate
+//     useDynastyData.  Calling useApp here would still return empty
+//     arrays, but importing the hook anywhere public makes it
+//     trivially easy to accidentally leak private state later.
+//   * NO imports from @/lib/league-analysis — that module operates on
+//     the private canonical contract.  Everything here fetches the
+//     public contract shape defined in src/public_league/public_contract.py.
+//   * NO imports from @/lib/dynasty-data, @/lib/trade-logic, @/lib/edge-helpers.
+//
+// Data source: /api/public/league → fetchPublicLeague().
+
+import { useEffect, useMemo, useState } from "react";
 import {
-  POS_GROUPS,
-  POS_GROUP_COLORS,
-  POS_GROUP_LABELS,
-  posGroup,
-  buildPlayerMetaMap,
-  buildAllTeamSummaries,
-  computePositionRanks,
-  heatmapColor,
-  heatmapTextColor,
-  ordinal,
-  buildRowLookup,
-} from "@/lib/league-analysis";
+  SubNav,
+  PageHeader,
+  LoadingState,
+  EmptyState,
+} from "@/components/ui";
+import {
+  PUBLIC_SECTION_KEYS,
+  fetchPublicLeague,
+} from "@/lib/public-league-data";
 
 const SUB_TABS = [
-  { key: "power", label: "Power Rankings" },
-  { key: "breakdown", label: "Team Breakdown" },
-  { key: "compare", label: "Comparison" },
-  { key: "tradeDb", label: "Trade DB" },
-  { key: "waiverDb", label: "Waiver DB" },
+  { key: "history", label: "History" },
+  { key: "rivalries", label: "Rivalries" },
+  { key: "awards", label: "Awards" },
+  { key: "records", label: "Records" },
+  { key: "franchise", label: "Franchises" },
+  { key: "activity", label: "Trades" },
+  { key: "draft", label: "Draft" },
+  { key: "weekly", label: "Weekly" },
+  { key: "superlatives", label: "Superlatives" },
+  { key: "archives", label: "Archives" },
 ];
 
 export default function LeaguePage() {
-  const { rows, rawData, loading, error } = useApp();
-  const { settings, update } = useSettings();
-  const [activeTab, setActiveTab] = useState("power");
+  const [activeTab, setActiveTab] = useState("history");
+  const [state, setState] = useState({ loading: true, error: "", contract: null });
 
-  const sleeperTeams = rawData?.sleeper?.teams || [];
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const contract = await fetchPublicLeague();
+        if (!active) return;
+        if (
+          !contract ||
+          typeof contract !== "object" ||
+          !contract.sections ||
+          !contract.league
+        ) {
+          setState({ loading: false, error: "Public contract missing required shape.", contract: null });
+          return;
+        }
+        setState({ loading: false, error: "", contract });
+      } catch (err) {
+        if (!active) return;
+        setState({ loading: false, error: err?.message || "Failed to load public league data", contract: null });
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const { loading, error, contract } = state;
+  const sections = contract?.sections || {};
+  const league = contract?.league || null;
 
   if (loading) return <LoadingState message="Loading league data..." />;
-  if (error) return <div className="card"><EmptyState title="Error" message={error} /></div>;
+  if (error) {
+    return (
+      <div className="card">
+        <EmptyState title="League data unavailable" message={error} />
+      </div>
+    );
+  }
+  if (!league) {
+    return (
+      <div className="card">
+        <EmptyState title="No public league data" message="Public contract empty." />
+      </div>
+    );
+  }
 
   return (
     <section>
       <div className="card">
         <PageHeader
-          title="League"
-          subtitle="League-wide analysis — power rankings, team breakdowns, and comparisons."
+          title={league.leagueName || "League"}
+          subtitle={
+            `Seasons: ${(league.seasonsCovered || []).join(", ") || "\u2014"} \u00B7 ` +
+            `${(league.managers || []).length} managers \u00B7 ` +
+            `Generated ${String(league.generatedAt || "").replace("T", " ").slice(0, 19)}`
+          }
         />
         <SubNav items={SUB_TABS} active={activeTab} onChange={setActiveTab} />
       </div>
 
-      {!sleeperTeams.length && (
-        <div className="card" style={{ marginTop: "var(--space-md)" }}>
-          <EmptyState title="No league data" message="Load dynasty data with a Sleeper league to see league analysis." />
-        </div>
-      )}
-
-      {sleeperTeams.length > 0 && activeTab === "power" && (
-        <PowerRankingsHeatmap rows={rows} rawData={rawData} sleeperTeams={sleeperTeams} settings={settings} onSelectTeam={(name) => { update("selectedTeam", name); setActiveTab("breakdown"); }} />
-      )}
-      {sleeperTeams.length > 0 && activeTab === "breakdown" && (
-        <TeamBreakdown rows={rows} rawData={rawData} sleeperTeams={sleeperTeams} settings={settings} update={update} />
-      )}
-      {sleeperTeams.length > 0 && activeTab === "compare" && (
-        <TeamComparison rows={rows} rawData={rawData} sleeperTeams={sleeperTeams} />
-      )}
-      {activeTab === "tradeDb" && <KtcTradesView rawData={rawData} rows={rows} />}
-      {activeTab === "waiverDb" && <KtcWaiversView rawData={rawData} rows={rows} />}
+      {activeTab === "history" && <HistorySection league={league} data={sections.history} />}
+      {activeTab === "rivalries" && <RivalriesSection league={league} data={sections.rivalries} />}
+      {activeTab === "awards" && <AwardsSection league={league} data={sections.awards} />}
+      {activeTab === "records" && <RecordsSection data={sections.records} />}
+      {activeTab === "franchise" && <FranchiseSection data={sections.franchise} />}
+      {activeTab === "activity" && <ActivitySection league={league} data={sections.activity} />}
+      {activeTab === "draft" && <DraftSection data={sections.draft} />}
+      {activeTab === "weekly" && <WeeklySection data={sections.weekly} />}
+      {activeTab === "superlatives" && <SuperlativesSection league={league} data={sections.superlatives} />}
+      {activeTab === "archives" && <ArchivesSection data={sections.archives} />}
     </section>
   );
 }
 
-// ── Power Rankings Heatmap ──────────────────────────────────────────────
-function PowerRankingsHeatmap({ rows, rawData, sleeperTeams, settings, onSelectTeam }) {
-  const playerMeta = useMemo(() => buildPlayerMetaMap(rows), [rows]);
-  const pickAliases = rawData?.pickAliases || null;
-  const teams = useMemo(
-    () => buildAllTeamSummaries(sleeperTeams, playerMeta, rows, "full", pickAliases),
-    [sleeperTeams, playerMeta, rows, pickAliases],
+// Helper: owner_id -> display name lookup from league header.
+function buildManagerLookup(league) {
+  const map = new Map();
+  for (const m of league?.managers || []) {
+    map.set(String(m.ownerId), m);
+  }
+  return map;
+}
+
+function nameFor(managers, ownerId) {
+  const mgr = managers.get(String(ownerId));
+  return mgr?.displayName || mgr?.currentTeamName || ownerId || "Unknown";
+}
+
+// ── Sections ─────────────────────────────────────────────────────────────
+function HistorySection({ league, data }) {
+  const managers = useMemo(() => buildManagerLookup(league), [league]);
+  const hof = data?.hallOfFame || [];
+  const seasons = data?.seasons || [];
+  if (!hof.length && !seasons.length) {
+    return <EmptyCard label="Hall of Fame" />;
+  }
+
+  return (
+    <>
+      <div className="card" style={{ marginTop: "var(--space-md)" }}>
+        <div style={{ fontWeight: 700, marginBottom: 10 }}>Hall of Fame</div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left" }}>Manager</th>
+                <th style={{ textAlign: "right" }}>Seasons</th>
+                <th style={{ textAlign: "right" }}>Record</th>
+                <th style={{ textAlign: "right" }}>Rings</th>
+                <th style={{ textAlign: "right" }}>Runner-Ups</th>
+                <th style={{ textAlign: "right" }}>Points For</th>
+              </tr>
+            </thead>
+            <tbody>
+              {hof.map((row) => (
+                <tr key={row.ownerId}>
+                  <td style={{ fontWeight: 600 }}>{row.displayName || row.currentTeamName || row.ownerId}</td>
+                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{row.seasonsPlayed}</td>
+                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>
+                    {row.wins}-{row.losses}{row.ties ? `-${row.ties}` : ""}
+                  </td>
+                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{row.championships}</td>
+                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{row.runnerUps}</td>
+                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{row.pointsFor.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {seasons.map((s) => (
+        <div className="card" style={{ marginTop: "var(--space-md)" }} key={s.leagueId}>
+          <div style={{ fontWeight: 700, marginBottom: 10 }}>
+            {s.season} season {s.champion ? `\u00B7 Champion: ${s.champion.teamName}` : ""}
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Team</th>
+                  <th style={{ textAlign: "right" }}>W-L-T</th>
+                  <th style={{ textAlign: "right" }}>PF</th>
+                  <th style={{ textAlign: "right" }}>PA</th>
+                  <th style={{ textAlign: "right" }}>Final</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(s.standings || []).map((row) => (
+                  <tr key={row.ownerId}>
+                    <td style={{ fontWeight: 600 }}>{row.teamName}</td>
+                    <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{row.wins}-{row.losses}-{row.ties}</td>
+                    <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{row.pointsFor.toLocaleString()}</td>
+                    <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{row.pointsAgainst.toLocaleString()}</td>
+                    <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{row.finalPlace ?? "\u2014"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </>
   );
-  const posRanks = useMemo(() => computePositionRanks(teams), [teams]);
-  const n = sleeperTeams.length;
-  const myTeam = settings.selectedTeam || "";
+}
+
+function RivalriesSection({ league, data }) {
+  const managers = useMemo(() => buildManagerLookup(league), [league]);
+  const rows = data?.rivalries || [];
+  if (!rows.length) return <EmptyCard label="Rivalries" />;
 
   return (
     <div className="card" style={{ marginTop: "var(--space-md)" }}>
+      <div style={{ fontWeight: 700, marginBottom: 10 }}>Head-to-Head</div>
       <div className="table-wrap">
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.74rem" }}>
+        <table>
           <thead>
             <tr>
-              <th style={{ textAlign: "left", padding: "8px 6px", fontSize: "0.62rem", color: "var(--subtext)", fontFamily: "var(--mono)" }}>#</th>
-              <th style={{ textAlign: "left", padding: "8px 6px", fontSize: "0.62rem", color: "var(--subtext)" }}>Team</th>
-              <th style={{ textAlign: "right", padding: "8px 6px", fontSize: "0.62rem", color: "var(--subtext)", fontFamily: "var(--mono)" }}>Total</th>
-              {POS_GROUPS.map((g) => (
-                <th key={g} style={{ textAlign: "center", padding: "8px 6px", fontSize: "0.62rem", color: POS_GROUP_COLORS[g], fontFamily: "var(--mono)" }}>{g}</th>
-              ))}
+              <th>Matchup</th>
+              <th style={{ textAlign: "right" }}>Games</th>
+              <th style={{ textAlign: "right" }}>Record</th>
+              <th style={{ textAlign: "right" }}>Points</th>
+              <th style={{ textAlign: "right" }}>Close Score</th>
             </tr>
           </thead>
           <tbody>
-            {teams.map((team, idx) => {
-              const rk = posRanks[team.name] || {};
-              const isMe = team.name === myTeam;
+            {rows.map((r, i) => {
+              const [a, b] = r.ownerIds;
               return (
-                <tr
-                  key={team.name}
-                  style={{ cursor: "pointer", borderBottom: "1px solid var(--border-dim)", ...(isMe ? { background: "rgba(200,56,3,0.06)" } : {}) }}
-                  onClick={() => onSelectTeam(team.name)}
-                >
-                  <td style={{ padding: 6, fontFamily: "var(--mono)", fontWeight: 700, color: "var(--subtext)" }}>{idx + 1}</td>
-                  <td style={{ padding: 6, fontWeight: 700, ...(isMe ? { color: "var(--cyan)" } : {}) }}>{team.name}</td>
-                  <td style={{ padding: 6, textAlign: "right", fontFamily: "var(--mono)", fontWeight: 600 }}>{Math.round(team.total).toLocaleString()}</td>
-                  {POS_GROUPS.map((g) => {
-                    const rank = rk[g] || n;
-                    const bg = heatmapColor(rank, n);
-                    const fg = heatmapTextColor(bg);
-                    return (
-                      <td key={g} style={{ padding: 6, textAlign: "center" }}>
-                        <span
-                          title={`${g}: ${Math.round(team.byGroup[g] || 0).toLocaleString()}`}
-                          style={{
-                            display: "inline-block",
-                            minWidth: 32,
-                            padding: "4px 8px",
-                            borderRadius: 4,
-                            background: bg,
-                            color: fg,
-                            fontFamily: "var(--mono)",
-                            fontWeight: 700,
-                          }}
-                        >
-                          {rank}
-                        </span>
-                      </td>
-                    );
-                  })}
+                <tr key={i}>
+                  <td style={{ fontWeight: 600 }}>
+                    {nameFor(managers, a)} vs {nameFor(managers, b)}
+                  </td>
+                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{r.games}</td>
+                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>
+                    {r.winsA}-{r.winsB}{r.ties ? `-${r.ties}` : ""}
+                  </td>
+                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>
+                    {r.pointsA.toFixed(0)} / {r.pointsB.toFixed(0)}
+                  </td>
+                  <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{r.competitivenessScore}</td>
                 </tr>
               );
             })}
@@ -140,251 +253,177 @@ function PowerRankingsHeatmap({ rows, rawData, sleeperTeams, settings, onSelectT
   );
 }
 
-// ── Team Breakdown ──────────────────────────────────────────────────────
-function TeamBreakdown({ rows, rawData, sleeperTeams, settings, update }) {
-  const [selectedTeam, setSelectedTeam] = useState(settings.selectedTeam || sleeperTeams[0]?.name || "");
-  const [viewMode, setViewMode] = useState("grouped");
-
-  const playerMeta = useMemo(() => buildPlayerMetaMap(rows), [rows]);
-  const pickAliases = rawData?.pickAliases || null;
-  const allTeams = useMemo(
-    () => buildAllTeamSummaries(sleeperTeams, playerMeta, rows, "full", pickAliases),
-    [sleeperTeams, playerMeta, rows, pickAliases],
-  );
-  const posRanks = useMemo(() => computePositionRanks(allTeams), [allTeams]);
-
-  const team = sleeperTeams.find((t) => t.name === selectedTeam);
-  const teamSummary = allTeams.find((t) => t.name === selectedTeam);
-  const overallRank = allTeams.findIndex((t) => t.name === selectedTeam) + 1;
-  const rk = posRanks[selectedTeam] || {};
-
-  // Build full asset list
-  const assets = useMemo(() => {
-    if (!team) return [];
-    const posMap = rawData?.sleeper?.positions || {};
-    const rowLookup = buildRowLookup(rows);
-    const players = [];
-
-    for (const pName of team.players || []) {
-      const key = pName.toLowerCase();
-      const pm = playerMeta[key];
-      if (pm) {
-        players.push(pm);
-      }
-    }
-
-    // Add picks
-    const picks = (teamSummary?.pickDetails || []);
-    const all = [...players, ...picks].sort((a, b) => b.meta - a.meta);
-    return all;
-  }, [team, playerMeta, teamSummary, rawData, rows]);
-
-  if (!team || !teamSummary) return null;
+function AwardsSection({ league, data }) {
+  const managers = useMemo(() => buildManagerLookup(league), [league]);
+  const seasons = data?.bySeason || [];
+  if (!seasons.length) return <EmptyCard label="Awards" />;
 
   return (
-    <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-        <select className="input" value={selectedTeam} onChange={(e) => setSelectedTeam(e.target.value)} style={{ minWidth: 160 }}>
-          {sleeperTeams.map((t) => (
-            <option key={t.name} value={t.name}>{t.name}</option>
-          ))}
-        </select>
-        <select className="input" value={viewMode} onChange={(e) => setViewMode(e.target.value)} style={{ minWidth: 120 }}>
-          <option value="grouped">By Position</option>
-          <option value="value">By Value</option>
-        </select>
-      </div>
-
-      {/* Rank badge + info */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
-        <div style={{
-          fontSize: "1.6rem", fontWeight: 800, color: "var(--cyan)",
-          width: 48, height: 48, display: "flex", alignItems: "center", justifyContent: "center",
-          border: "2px solid var(--cyan)", borderRadius: "var(--radius)", background: "rgba(0,180,216,0.08)",
-        }}>
-          {overallRank}
-        </div>
-        <div>
-          <div style={{ fontSize: "1.2rem", fontWeight: 700 }}>{selectedTeam}</div>
-          <div style={{ fontSize: "0.72rem", color: "var(--subtext)", fontFamily: "var(--mono)" }}>
-            {(team.players || []).length} players &middot; {teamSummary.pickCount} picks
-          </div>
-        </div>
-      </div>
-
-      {/* Position rank badges */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-        {POS_GROUPS.map((g) => {
-          const r = rk[g] || sleeperTeams.length;
-          const cl = POS_GROUP_COLORS[g];
-          return (
-            <span
-              key={g}
-              style={{
-                padding: "4px 12px",
-                borderRadius: 20,
-                fontSize: "0.68rem",
-                fontWeight: 700,
-                fontFamily: "var(--mono)",
-                color: cl,
-                border: `1px solid ${cl}44`,
-                background: r <= 3 ? `${cl}22` : "transparent",
-              }}
-            >
-              {g}: {ordinal(r)}
-            </span>
-          );
-        })}
-      </div>
-
-      {/* Asset list */}
-      {viewMode === "value" ? (
-        <div>
-          <div style={{ padding: "4px 8px", borderBottom: "1px solid var(--border)", fontWeight: 700, fontSize: "0.78rem" }}>
-            All Assets by Value
-          </div>
-          {assets.filter((p) => p.meta > 0).map((p, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", fontSize: "0.74rem", borderBottom: "1px solid var(--border-dim)" }}>
-              <span style={{ width: 22, color: "var(--subtext)", fontFamily: "var(--mono)", fontSize: "0.66rem" }}>{i + 1}</span>
-              <span style={{ flex: 1, fontWeight: 600 }}>{p.name}</span>
-              <span style={{ fontFamily: "var(--mono)", fontSize: "0.62rem", fontWeight: 700, color: POS_GROUP_COLORS[p.group] || "var(--subtext)", width: 48 }}>
-                {p.group === "PICKS" ? "PICK" : (p.pos || "?")}
-              </span>
-              <span style={{ fontFamily: "var(--mono)", fontWeight: 600, width: 70, textAlign: "right" }}>{Math.round(p.meta).toLocaleString()}</span>
+    <>
+      {seasons.map((s) => (
+        <div className="card" style={{ marginTop: "var(--space-md)" }} key={s.leagueId}>
+          <div style={{ fontWeight: 700, marginBottom: 10 }}>{s.season} awards</div>
+          {(s.awards || []).length === 0 ? (
+            <div style={{ color: "var(--subtext)", fontSize: "0.8rem" }}>
+              Season still in progress.
             </div>
-          ))}
-        </div>
-      ) : (
-        POS_GROUPS.map((g) => {
-          const gp = assets.filter((p) => p.group === g && p.meta > 0).sort((a, b) => b.meta - a.meta);
-          if (!gp.length) return null;
-          return (
-            <div key={g} style={{ marginBottom: 14 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 8px", borderBottom: "1px solid var(--border)" }}>
-                <span style={{ fontWeight: 700, color: POS_GROUP_COLORS[g], fontSize: "0.78rem" }}>{POS_GROUP_LABELS[g] || g}</span>
-                <span style={{ fontSize: "0.68rem", color: "var(--subtext)", fontFamily: "var(--mono)" }}>
-                  {ordinal(rk[g] || sleeperTeams.length)} / {sleeperTeams.length}
-                </span>
-              </div>
-              {gp.map((p, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", fontSize: "0.74rem", borderBottom: "1px solid var(--border-dim)" }}>
-                  <span style={{ width: 22, color: "var(--subtext)", fontFamily: "var(--mono)", fontSize: "0.66rem" }}>{i + 1}</span>
-                  <span style={{ flex: 1, fontWeight: 600 }}>{p.name}</span>
-                  <span style={{ fontFamily: "var(--mono)", fontSize: "0.62rem", fontWeight: 700, color: POS_GROUP_COLORS[g], width: 42 }}>
-                    {g === "PICKS" ? "PICK" : (p.pos || "?")}
-                  </span>
-                  <span style={{ fontFamily: "var(--mono)", fontWeight: 600, width: 70, textAlign: "right" }}>{Math.round(p.meta).toLocaleString()}</span>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
+              {(s.awards || []).map((a) => (
+                <div key={a.key} style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 10 }}>
+                  <div style={{ fontSize: "0.66rem", color: "var(--subtext)", textTransform: "uppercase" }}>{a.label}</div>
+                  <div style={{ fontWeight: 700 }}>{a.teamName}</div>
+                  <div style={{ fontSize: "0.68rem", color: "var(--subtext)" }}>{nameFor(managers, a.ownerId)}</div>
+                  {a.value && (
+                    <div style={{ fontFamily: "var(--mono)", fontSize: "0.7rem", marginTop: 4 }}>
+                      {JSON.stringify(a.value)}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
-          );
-        })
+          )}
+        </div>
+      ))}
+    </>
+  );
+}
+
+function RecordsSection({ data }) {
+  const high = data?.singleWeekHighest || [];
+  const low = data?.singleWeekLowest || [];
+  if (!high.length && !low.length) return <EmptyCard label="Records" />;
+
+  return (
+    <>
+      <RecordTable title="Highest Single-Week Scores" rows={high} />
+      <RecordTable title="Lowest Single-Week Scores" rows={low} />
+    </>
+  );
+}
+
+function RecordTable({ title, rows }) {
+  return (
+    <div className="card" style={{ marginTop: "var(--space-md)" }}>
+      <div style={{ fontWeight: 700, marginBottom: 10 }}>{title}</div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Team</th>
+              <th style={{ textAlign: "right" }}>Season</th>
+              <th style={{ textAlign: "right" }}>Week</th>
+              <th style={{ textAlign: "right" }}>Points</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                <td style={{ fontWeight: 600 }}>{r.teamName}</td>
+                <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{r.season}</td>
+                <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{r.week}</td>
+                <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{r.points.toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function FranchiseSection({ data }) {
+  const index = data?.index || [];
+  const detail = data?.detail || {};
+  const [selected, setSelected] = useState(index[0]?.ownerId || "");
+  if (!index.length) return <EmptyCard label="Franchises" />;
+  const fr = detail[selected] || null;
+
+  return (
+    <div className="card" style={{ marginTop: "var(--space-md)" }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+        <select
+          className="input"
+          value={selected}
+          onChange={(e) => setSelected(e.target.value)}
+          style={{ minWidth: 220 }}
+        >
+          {index.map((row) => (
+            <option key={row.ownerId} value={row.ownerId}>
+              {row.displayName} {row.championships ? `\u2b50\u00D7${row.championships}` : ""}
+            </option>
+          ))}
+        </select>
+      </div>
+      {fr && (
+        <div>
+          <div style={{ fontWeight: 700, fontSize: "1.1rem" }}>{fr.displayName}</div>
+          <div style={{ color: "var(--subtext)", fontSize: "0.74rem", marginBottom: 10 }}>
+            Current team: {fr.currentTeamName}
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Season</th>
+                  <th style={{ textAlign: "right" }}>W-L-T</th>
+                  <th style={{ textAlign: "right" }}>PF</th>
+                  <th style={{ textAlign: "right" }}>PA</th>
+                  <th style={{ textAlign: "right" }}>Final</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(fr.seasonResults || []).map((r, i) => (
+                  <tr key={i}>
+                    <td>{r.season}</td>
+                    <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{r.wins}-{r.losses}-{r.ties}</td>
+                    <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{r.pointsFor.toLocaleString()}</td>
+                    <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{r.pointsAgainst.toLocaleString()}</td>
+                    <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{r.finalPlace ?? "\u2014"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ marginTop: 10, fontSize: "0.72rem", color: "var(--subtext)" }}>
+            {`Trades: ${fr.tradeCount} \u00B7 Draft picks used: ${fr.draftPickCount}`}
+          </div>
+          {(fr.aliases || []).length > 1 && (
+            <div style={{ marginTop: 10, fontSize: "0.7rem", color: "var(--subtext)" }}>
+              Team-name history: {(fr.aliases || []).map((a) => `${a.teamName} (${a.season})`).join(" \u2192 ")}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
 }
 
-// ── Team Comparison ─────────────────────────────────────────────────────
-function TeamComparison({ rows, rawData, sleeperTeams }) {
-  const [teamA, setTeamA] = useState(sleeperTeams[0]?.name || "");
-  const [teamB, setTeamB] = useState(sleeperTeams[1]?.name || "");
-
-  const playerMeta = useMemo(() => buildPlayerMetaMap(rows), [rows]);
-
-  const getData = useCallback((name) => {
-    const team = sleeperTeams.find((t) => t.name === name);
-    if (!team) return { bg: {}, assets: [], total: 0 };
-    const posMap = rawData?.sleeper?.positions || {};
-
-    const bg = {};
-    POS_GROUPS.forEach((g) => { bg[g] = 0; });
-    const playerAssets = [];
-
-    for (const pn of team.players || []) {
-      const key = pn.toLowerCase();
-      const pm = playerMeta[key];
-      if (!pm) continue;
-      if (bg[pm.group] !== undefined) bg[pm.group] += pm.meta;
-      playerAssets.push(pm);
-    }
-    playerAssets.sort((a, b) => b.meta - a.meta);
-
-    // Picks
-    const rowLookup = buildRowLookup(rows);
-    const pickAssets = [];
-    for (const pickName of team.picks || []) {
-      const row = rowLookup.get(pickName.toLowerCase());
-      const val = row ? (row.values?.full || 0) : 0;
-      if (val > 0) {
-        bg.PICKS = (bg.PICKS || 0) + val;
-        pickAssets.push({ name: pickName, meta: val, pos: "PICK", group: "PICKS", isPick: true });
-      }
-    }
-    pickAssets.sort((a, b) => b.meta - a.meta);
-
-    const total = POS_GROUPS.reduce((s, g) => s + (bg[g] || 0), 0);
-    return { bg, playerAssets, pickAssets, total };
-  }, [sleeperTeams, playerMeta, rows, rawData]);
-
-  const dA = useMemo(() => getData(teamA), [getData, teamA]);
-  const dB = useMemo(() => getData(teamB), [getData, teamB]);
+function ActivitySection({ league, data }) {
+  const managers = useMemo(() => buildManagerLookup(league), [league]);
+  const feed = data?.feed || [];
+  if (!feed.length) return <EmptyCard label="Trade activity" />;
 
   return (
     <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div className="filter-bar" style={{ marginBottom: 14, marginTop: 0 }}>
-        <select className="input" value={teamA} onChange={(e) => setTeamA(e.target.value)} style={{ flex: 1 }}>
-          {sleeperTeams.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
-        </select>
-        <span style={{ fontWeight: 700, color: "var(--subtext)" }}>vs</span>
-        <select className="input" value={teamB} onChange={(e) => setTeamB(e.target.value)} style={{ flex: 1 }}>
-          {sleeperTeams.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
-        </select>
+      <div style={{ fontWeight: 700, marginBottom: 10 }}>
+        Recent Trades ({data.totalCount} total)
       </div>
-
-      <div className="grid-responsive" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-        {[
-          { name: teamA, d: dA, color: "rgba(100,180,220,0.8)" },
-          { name: teamB, d: dB, color: "rgba(220,100,120,0.8)" },
-        ].map((side) => (
-          <div key={side.name}>
-            <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 8, color: side.color }}>{side.name}</div>
-            <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginBottom: 6 }}>
-              Total: <span style={{ fontFamily: "var(--mono)", fontWeight: 700, color: "var(--text)" }}>{Math.round(side.d.total).toLocaleString()}</span>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {feed.map((t) => (
+          <div key={t.transactionId} style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 10 }}>
+            <div style={{ fontSize: "0.66rem", color: "var(--subtext)" }}>
+              {`${t.season} \u00B7 Week ${t.week ?? "\u2014"}`}
             </div>
-
-            {/* Position totals */}
-            {POS_GROUPS.map((g) => (
-              <div key={g} style={{ fontSize: "0.68rem", color: "var(--subtext)", marginBottom: 2 }}>
-                {g}: <span style={{ color: POS_GROUP_COLORS[g], fontWeight: 600 }}>{Math.round(side.d.bg[g] || 0).toLocaleString()}</span>
-              </div>
-            ))}
-
-            {/* Top Players */}
-            <div style={{ marginTop: 8 }}>
-              <div style={{ margin: "8px 0 4px", fontSize: "0.66rem", color: "var(--subtext)", fontWeight: 700 }}>Top Players</div>
-              {side.d.playerAssets.slice(0, 25).map((p, i) => (
-                <div key={i} style={{ display: "flex", gap: 6, alignItems: "center", padding: "3px 6px", fontSize: "0.72rem", borderBottom: "1px solid var(--border-dim)" }}>
-                  <span style={{ width: 18, color: "var(--subtext)", fontFamily: "var(--mono)", fontSize: "0.62rem" }}>{i + 1}</span>
-                  <span style={{ fontWeight: 600, flex: 1 }}>{p.name}</span>
-                  <span style={{ color: POS_GROUP_COLORS[p.group] || "#9b59b6", fontFamily: "var(--mono)", fontSize: "0.6rem", fontWeight: 700 }}>{p.pos || "?"}</span>
-                  <span style={{ fontFamily: "var(--mono)", fontWeight: 600, width: 64, textAlign: "right" }}>{Math.round(p.meta).toLocaleString()}</span>
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${t.sides.length}, 1fr)`, gap: 10, marginTop: 4 }}>
+              {t.sides.map((side, i) => (
+                <div key={i}>
+                  <div style={{ fontWeight: 700 }}>{nameFor(managers, side.ownerId) || side.teamName}</div>
+                  <div style={{ fontSize: "0.7rem", color: "var(--subtext)" }}>
+                    Received: {side.receivedPlayerIds.length} players, {side.receivedPicks.length} picks
+                  </div>
                 </div>
               ))}
-              {side.d.pickAssets.length > 0 && (
-                <>
-                  <div style={{ margin: "10px 0 4px", paddingTop: 6, borderTop: "1px solid var(--border)", fontSize: "0.66rem", color: POS_GROUP_COLORS.PICKS, fontWeight: 700 }}>
-                    Draft Picks ({side.d.pickAssets.length})
-                  </div>
-                  {side.d.pickAssets.map((p, i) => (
-                    <div key={i} style={{ display: "flex", gap: 6, alignItems: "center", padding: "3px 6px", fontSize: "0.72rem", borderBottom: "1px solid var(--border-dim)" }}>
-                      <span style={{ width: 18, color: "var(--subtext)", fontFamily: "var(--mono)", fontSize: "0.62rem" }}>{i + 1}</span>
-                      <span style={{ fontWeight: 600, flex: 1 }}>{p.name}</span>
-                      <span style={{ color: POS_GROUP_COLORS.PICKS, fontFamily: "var(--mono)", fontSize: "0.6rem", fontWeight: 700 }}>PICK</span>
-                      <span style={{ fontFamily: "var(--mono)", fontWeight: 600, width: 64, textAlign: "right" }}>{Math.round(p.meta).toLocaleString()}</span>
-                    </div>
-                  ))}
-                </>
-              )}
             </div>
           </div>
         ))}
@@ -393,202 +432,202 @@ function TeamComparison({ rows, rawData, sleeperTeams }) {
   );
 }
 
-// ── KTC Trade Database ──────────────────────────────────────────────────
-function KtcTradesView({ rawData, rows }) {
-  const [search, setSearch] = useState("");
-  const trades = rawData?.ktcCrowd?.trades || [];
-  const rowLookup = useMemo(() => buildRowLookup(rows), [rows]);
+function DraftSection({ data }) {
+  const drafts = data?.drafts || [];
+  if (!drafts.length) return <EmptyCard label="Drafts" />;
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return trades;
-    const q = search.toLowerCase().trim();
-    return trades.filter((t) =>
-      t.sides?.some((s) => s.players?.some((p) => p.toLowerCase().includes(q))),
-    );
-  }, [trades, search]);
+  return (
+    <>
+      {drafts.map((d) => (
+        <div className="card" style={{ marginTop: "var(--space-md)" }} key={d.draftId}>
+          <div style={{ fontWeight: 700, marginBottom: 10 }}>
+            {`${d.season} ${d.type || "draft"} \u00B7 ${d.status}`}
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: "right" }}>Pk</th>
+                  <th>Player</th>
+                  <th>Pos</th>
+                  <th>NFL</th>
+                  <th>Team</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.picks.slice(0, 48).map((p, i) => (
+                  <tr key={i}>
+                    <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{p.round}.{String(p.pickNo).padStart(2, "0")}</td>
+                    <td>{p.playerName || "\u2014"}</td>
+                    <td style={{ fontFamily: "var(--mono)" }}>{p.position || ""}</td>
+                    <td style={{ fontFamily: "var(--mono)" }}>{p.nflTeam || ""}</td>
+                    <td>{p.teamName}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
 
-  function quickVal(name) {
-    const row = rowLookup.get((name || "").toLowerCase());
-    return row ? Math.round(row.values?.full || 0) : 0;
-  }
-
-  if (!trades.length) {
-    return (
-      <div className="card" style={{ marginTop: "var(--space-md)" }}>
-        <EmptyState title="No KTC trade data" message="Run scraper with KTC enabled to populate the trade database." />
-      </div>
-    );
-  }
+function WeeklySection({ data }) {
+  const weeks = data?.weeks || [];
+  const [selected, setSelected] = useState(weeks[0] ? `${weeks[0].season}:${weeks[0].week}` : "");
+  if (!weeks.length) return <EmptyCard label="Weekly recap" />;
+  const active = weeks.find((w) => `${w.season}:${w.week}` === selected) || weeks[0];
 
   return (
     <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ marginBottom: 10 }}>
-        <input
-          className="input"
-          placeholder="Search by player name..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ maxWidth: 300 }}
-        />
-      </div>
-      <div style={{ fontSize: "0.66rem", color: "var(--subtext)", marginBottom: 8 }}>
-        {filtered.length.toLocaleString()} trades
-      </div>
+      <select
+        className="input"
+        value={`${active.season}:${active.week}`}
+        onChange={(e) => setSelected(e.target.value)}
+        style={{ minWidth: 220, marginBottom: 10 }}
+      >
+        {weeks.map((w) => (
+          <option key={`${w.season}:${w.week}`} value={`${w.season}:${w.week}`}>
+            {w.season} Week {w.week}
+          </option>
+        ))}
+      </select>
       <div className="table-wrap">
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.74rem" }}>
+        <table>
           <thead>
             <tr>
-              <th style={{ textAlign: "left", padding: 6, fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Date</th>
-              <th style={{ textAlign: "left", padding: 6, fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Side A</th>
-              <th style={{ textAlign: "right", padding: 6, fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.06em" }}>A Value</th>
-              <th style={{ textAlign: "left", padding: 6, fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Side B</th>
-              <th style={{ textAlign: "right", padding: 6, fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.06em" }}>B Value</th>
-              <th style={{ textAlign: "left", padding: 6, fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Format</th>
+              <th>Home</th>
+              <th style={{ textAlign: "right" }}>Score</th>
+              <th style={{ textAlign: "right" }}>Margin</th>
+              <th style={{ textAlign: "right" }}>Score</th>
+              <th>Away</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.slice(0, 50).map((t, idx) => {
-              if (!t.sides || t.sides.length < 2) return null;
-              const sideA = t.sides[0]?.players || [];
-              const sideB = t.sides[1]?.players || [];
-              const sideAVal = sideA.reduce((sum, p) => sum + quickVal(p), 0);
-              const sideBVal = sideB.reduce((sum, p) => sum + quickVal(p), 0);
-              const s = t.settings || {};
-              const parts = [];
-              if (s.teams) parts.push(`${s.teams} Teams`);
-              if (s.sf) parts.push("SF");
-              if (s.tep) parts.push("TE+");
-              const fmt = parts.join(" \u00B7 ") || "\u2014";
-              const dt = String(t.date || "").slice(0, 10) || "\u2014";
-
-              return (
-                <tr key={idx} style={{ borderBottom: "1px solid var(--border-dim)" }}>
-                  <td style={{ padding: 6, fontFamily: "var(--mono)", color: "var(--subtext)", whiteSpace: "nowrap" }}>{dt}</td>
-                  <td style={{ padding: 6, minWidth: 200 }}>
-                    {sideA.map((p, i) => {
-                      const v = quickVal(p);
-                      return (
-                        <div key={i}>
-                          <span style={{ fontWeight: 600 }}>{p}</span>
-                          {v > 0 && <span style={{ fontFamily: "var(--mono)", fontSize: "0.64rem", color: "var(--subtext)" }}> {v.toLocaleString()}</span>}
-                        </div>
-                      );
-                    })}
-                  </td>
-                  <td style={{ padding: 6, textAlign: "right", fontFamily: "var(--mono)", fontWeight: 600 }}>{sideAVal > 0 ? sideAVal.toLocaleString() : "\u2014"}</td>
-                  <td style={{ padding: 6, minWidth: 200 }}>
-                    {sideB.map((p, i) => {
-                      const v = quickVal(p);
-                      return (
-                        <div key={i}>
-                          <span style={{ fontWeight: 600 }}>{p}</span>
-                          {v > 0 && <span style={{ fontFamily: "var(--mono)", fontSize: "0.64rem", color: "var(--subtext)" }}> {v.toLocaleString()}</span>}
-                        </div>
-                      );
-                    })}
-                  </td>
-                  <td style={{ padding: 6, textAlign: "right", fontFamily: "var(--mono)", fontWeight: 600 }}>{sideBVal > 0 ? sideBVal.toLocaleString() : "\u2014"}</td>
-                  <td style={{ padding: 6, fontSize: "0.66rem", color: "var(--muted)", fontFamily: "var(--mono)", whiteSpace: "nowrap" }}>{fmt}</td>
-                </tr>
-              );
-            })}
+            {active.matchups.map((m, i) => (
+              <tr key={i}>
+                <td style={{ fontWeight: 600 }}>{m.home.teamName}</td>
+                <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{m.home.points}</td>
+                <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: "var(--subtext)" }}>{m.margin}</td>
+                <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{m.away.points}</td>
+                <td style={{ fontWeight: 600 }}>{m.away.teamName}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
-      {filtered.length > 50 && (
-        <div style={{ textAlign: "center", padding: 10, color: "var(--subtext)", fontSize: "0.72rem" }}>
-          Showing 50 of {filtered.length}
-        </div>
-      )}
     </div>
   );
 }
 
-// ── KTC Waiver Database ─────────────────────────────────────────────────
-function KtcWaiversView({ rawData, rows }) {
-  const [search, setSearch] = useState("");
-  const waivers = rawData?.ktcCrowd?.waivers || [];
-  const rowLookup = useMemo(() => buildRowLookup(rows), [rows]);
+function SuperlativesSection({ league, data }) {
+  const managers = useMemo(() => buildManagerLookup(league), [league]);
+  if (!data) return <EmptyCard label="Superlatives" />;
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return waivers;
-    const q = search.toLowerCase().trim();
-    return waivers.filter(
-      (w) => (w.added || "").toLowerCase().includes(q) || (w.dropped || "").toLowerCase().includes(q),
-    );
-  }, [waivers, search]);
-
-  function quickVal(name) {
-    const row = rowLookup.get((name || "").toLowerCase());
-    return row ? Math.round(row.values?.full || 0) : 0;
-  }
-
-  if (!waivers.length) {
-    return (
-      <div className="card" style={{ marginTop: "var(--space-md)" }}>
-        <EmptyState title="No KTC waiver data" message="Run scraper with KTC enabled to populate the waiver database." />
-      </div>
-    );
-  }
+  const blocks = [
+    { key: "hardLuck", label: "Hard-Luck Manager (high PF, low wins)" },
+    { key: "luckyDuck", label: "Lucky Duck (high wins, low PF)" },
+    { key: "tradeMachine", label: "Trade Machine" },
+    { key: "mostImproved", label: "Most Improved" },
+    { key: "couchCoach", label: "Couch Coach (lowest avg PF)" },
+  ];
 
   return (
     <div className="card" style={{ marginTop: "var(--space-md)" }}>
-      <div style={{ marginBottom: 10 }}>
-        <input
-          className="input"
-          placeholder="Search by player name..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ maxWidth: 300 }}
-        />
-      </div>
-      <div style={{ fontSize: "0.66rem", color: "var(--subtext)", marginBottom: 8 }}>
-        {filtered.length.toLocaleString()} waivers
-      </div>
-      <div className="table-wrap">
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.74rem" }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: "left", padding: 6, fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Date</th>
-              <th style={{ textAlign: "left", padding: 6, fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Added</th>
-              <th style={{ textAlign: "right", padding: 6, fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Bid</th>
-              <th style={{ textAlign: "left", padding: 6, fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Dropped</th>
-              <th style={{ textAlign: "left", padding: 6, fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Format</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.slice(0, 50).map((w, idx) => {
-              const av = quickVal(w.added || "");
-              const bidDisplay = w.bidPct ? w.bidPct : w.bid ? `$${w.bid}` : "\u2014";
-              const dt = String(w.date || "").slice(0, 10) || "\u2014";
-              const s = w.settings || {};
-              const parts = [];
-              if (s.teams) parts.push(`${s.teams} Teams`);
-              if (s.sf) parts.push("SF");
-              if (s.tep) parts.push("TE+");
-              const fmt = parts.join(" \u00B7 ") || "\u2014";
-
-              return (
-                <tr key={idx} style={{ borderBottom: "1px solid var(--border-dim)" }}>
-                  <td style={{ padding: 6, fontFamily: "var(--mono)", color: "var(--subtext)", whiteSpace: "nowrap" }}>{dt}</td>
-                  <td style={{ padding: 6, fontWeight: 700 }}>
-                    {w.added || "\u2014"}
-                    {av > 0 && <span style={{ fontFamily: "var(--mono)", fontSize: "0.62rem", color: "var(--subtext)" }}> {av.toLocaleString()}</span>}
-                  </td>
-                  <td style={{ padding: 6, textAlign: "right", fontFamily: "var(--mono)", color: "var(--green)", fontWeight: 600, whiteSpace: "nowrap" }}>{bidDisplay}</td>
-                  <td style={{ padding: 6, color: "var(--subtext)" }}>{w.dropped || "\u2014"}</td>
-                  <td style={{ padding: 6, fontSize: "0.66rem", color: "var(--muted)", fontFamily: "var(--mono)", whiteSpace: "nowrap" }}>{fmt}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      {filtered.length > 50 && (
-        <div style={{ textAlign: "center", padding: 10, color: "var(--subtext)", fontSize: "0.72rem" }}>
-          Showing 50 of {filtered.length}
+      {blocks.map((b) => (
+        <div key={b.key} style={{ marginBottom: 14 }}>
+          <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: 6 }}>{b.label}</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {(data[b.key] || []).map((row, i) => (
+              <div
+                key={i}
+                style={{ border: "1px solid var(--border)", padding: "6px 10px", borderRadius: 6, fontSize: "0.72rem" }}
+              >
+                <div style={{ fontWeight: 600 }}>{nameFor(managers, row.ownerId)}</div>
+                <div style={{ fontFamily: "var(--mono)", fontSize: "0.66rem", color: "var(--subtext)" }}>
+                  {JSON.stringify(
+                    Object.fromEntries(Object.entries(row).filter(([k]) => k !== "ownerId")),
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      )}
+      ))}
     </div>
   );
 }
+
+function ArchivesSection({ data }) {
+  const [query, setQuery] = useState("");
+  if (!data) return <EmptyCard label="Archives" />;
+
+  const allRows = useMemo(() => {
+    const rows = [];
+    (data.managers || []).forEach((m) => rows.push({ kind: m.kind, label: m.displayName, sub: (m.aliases || []).join(" / "), season: "" }));
+    (data.trades || []).forEach((t) => rows.push({ kind: t.kind, label: `Trade ${t.transactionId.slice(0, 8)}`, sub: (t.ownerIds || []).join(" \u2194 "), season: t.season }));
+    (data.draftPicks || []).forEach((p) => rows.push({ kind: p.kind, label: `${p.playerName} (${p.position})`, sub: `${p.teamName} \u00B7 ${p.round}.${String(p.pickNo).padStart(2, "0")}`, season: p.season }));
+    (data.weekScores || []).forEach((w) => rows.push({ kind: w.kind, label: `${w.teamName} \u00B7 ${w.points}`, sub: `W${w.week}`, season: w.season }));
+    return rows;
+  }, [data]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return allRows.slice(0, 200);
+    return allRows.filter(
+      (r) => r.label.toLowerCase().includes(q) || r.sub.toLowerCase().includes(q) || String(r.season).toLowerCase().includes(q),
+    ).slice(0, 200);
+  }, [allRows, query]);
+
+  return (
+    <div className="card" style={{ marginTop: "var(--space-md)" }}>
+      <input
+        className="input"
+        placeholder="Search managers, trades, drafts, weeks..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        style={{ maxWidth: 340, marginBottom: 10 }}
+      />
+      <div style={{ fontSize: "0.7rem", color: "var(--subtext)", marginBottom: 6 }}>
+        Showing {filtered.length} of {allRows.length} indexed records.
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Kind</th>
+              <th>Label</th>
+              <th>Details</th>
+              <th>Season</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((r, i) => (
+              <tr key={i}>
+                <td style={{ fontFamily: "var(--mono)", fontSize: "0.66rem", color: "var(--subtext)" }}>{r.kind}</td>
+                <td style={{ fontWeight: 600 }}>{r.label}</td>
+                <td style={{ fontSize: "0.72rem", color: "var(--subtext)" }}>{r.sub}</td>
+                <td style={{ fontFamily: "var(--mono)" }}>{r.season}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function EmptyCard({ label }) {
+  return (
+    <div className="card" style={{ marginTop: "var(--space-md)" }}>
+      <EmptyState
+        title={`${label} coming online`}
+        message="Sleeper fetch returned nothing for this section yet. Sections hydrate as soon as the league has completed games / trades / drafts."
+      />
+    </div>
+  );
+}
+
+// Expose available section keys for external consumers / tests.
+export const LEAGUE_PAGE_SECTIONS = PUBLIC_SECTION_KEYS;
