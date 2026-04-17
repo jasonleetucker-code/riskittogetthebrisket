@@ -289,11 +289,14 @@ class ActivityGradingTests(unittest.TestCase):
 
     def test_activity_grades_all_sides_fair_when_every_value_is_zero(self) -> None:
         # When the private contract has no value for any asset in the
-        # trade, grading must still emit a neutral "Fair trade" badge
-        # on every side.  Silently dropping grade blocks here would
-        # inconsistently hide badges on trades full of unranked
-        # assets — the private /trades page treats zero-gap trades
-        # as fair, so this path mirrors that behavior.
+        # trade, grading must still emit badges on every side.  With
+        # the floor-1 contribution that mirrors private grading, a
+        # symmetric trade (both sides got the same asset count) ends
+        # up with identical floor totals → "Fair trade" on every
+        # side.  We pin against the 2025 fixture trade which is
+        # symmetric (1 player + 1 pick per side); the 2024 fixture
+        # is asymmetric and legitimately grades lopsided when the
+        # loser side received nothing.
         def _valuation(_asset):
             return 0.0
 
@@ -301,11 +304,10 @@ class ActivityGradingTests(unittest.TestCase):
             self.snapshot, activity_valuation=_valuation,
         )
         feed = contract["sections"]["activity"]["feed"]
-        self.assertGreater(len(feed), 0)
-        for trade in feed:
-            for side in trade.get("sides") or []:
-                self.assertEqual(side["grade"]["grade"], "A")
-                self.assertEqual(side["grade"]["label"], "Fair trade")
+        trade_2025 = next(t for t in feed if t["transactionId"] == "tx-2025-a")
+        for side in trade_2025["sides"]:
+            self.assertEqual(side["grade"]["grade"], "A")
+            self.assertEqual(side["grade"]["label"], "Fair trade")
 
     def test_activity_grades_mark_only_top_and_bottom_in_multi_team(self) -> None:
         # Simulate a 3-team lopsided trade by valuing the winner's

@@ -96,8 +96,15 @@ def _apply_trade_grades(
                     val = float(valuation(asset) or 0.0)
                 except (TypeError, ValueError):
                     val = 0.0
-                if val > 0:
-                    total += pow(max(val, 1.0), _GRADE_ALPHA)
+                # Floor each asset at 1 before raising to alpha so
+                # unranked / unknown assets still contribute the same
+                # ``1**alpha`` floor as the private ``/trades`` grading
+                # path (``analyzeSleeperTradeHistory`` in
+                # ``frontend/lib/league-analysis.js``).  Without this
+                # floor, public grading diverges from private on any
+                # trade containing assets the canonical pipeline can
+                # not value (older seasons, dropped players, etc).
+                total += pow(max(val, 1.0), _GRADE_ALPHA)
             weighted.append(total)
         max_w = max(weighted)
         min_w = min(weighted)
