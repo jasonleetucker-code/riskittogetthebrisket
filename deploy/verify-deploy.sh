@@ -166,7 +166,9 @@ PY
     [[ -z "${asset}" ]] && continue
     total=$((total + 1))
     url="http://${FRONTEND_HOST}:${FRONTEND_PORT}/_next/${asset}"
-    code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time "${VERIFY_CURL_TIMEOUT}" "${url}" || echo 000)"
+    # --globoff: literal [ and ] in Next.js dynamic-route chunk names
+    # must not be interpreted as curl glob/range syntax.
+    code="$(curl --silent --show-error --globoff --output /dev/null --write-out '%{http_code}' --max-time "${VERIFY_CURL_TIMEOUT}" "${url}" || echo 000)"
     if [[ "${code}" != "200" ]]; then
       error "Frontend _next asset probe failed: ${url} -> HTTP ${code}"
       return 1
@@ -187,7 +189,7 @@ probe_with_retries() {
   local n=1
 
   while (( n <= attempts )); do
-    code="$(curl --silent --show-error --output "${body_file}" --write-out '%{http_code}' --max-time "${timeout_seconds}" "${url}" || true)"
+    code="$(curl --silent --show-error --globoff --output "${body_file}" --write-out '%{http_code}' --max-time "${timeout_seconds}" "${url}" || true)"
     if [[ "${code}" == "200" ]]; then
       return 0
     fi

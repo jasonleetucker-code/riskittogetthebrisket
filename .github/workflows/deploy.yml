@@ -391,7 +391,11 @@ jobs:
             local expect_code="${2:-200}"
             local full_url="${URL}${path}"
             local code
-            code=$(curl --silent --show-error --output /dev/null \
+            # --globoff stops curl from treating literal [ and ] in URLs
+            # as glob ranges — required for Next.js dynamic-route chunk
+            # filenames like "app/api/public/league/[section]/route-*.js"
+            # which preserve the brackets on disk.
+            code=$(curl --silent --show-error --globoff --output /dev/null \
               --write-out '%{http_code}' --max-time 15 "${full_url}" || echo "000")
             if [[ "${code}" == "${expect_code}" ]]; then
               echo "PASS: ${path} -> ${code}"
@@ -409,6 +413,8 @@ jobs:
           check_endpoint "/api/status" 200
           check_endpoint "/api/data" 200
           check_endpoint "/" 200
+          check_endpoint "/league" 200
+          check_endpoint "/api/public/league" 200
 
           # Extract EVERY /_next/static/* reference from the landing
           # page HTML (and a sample of other key routes) and verify
@@ -425,11 +431,11 @@ jobs:
           # (like 448-*.js) silently shipped.  This implementation
           # probes every distinct reference and fails the deploy if
           # any single one returns non-200.
-          HTML_ROUTES=( "/" "/rankings" "/trade" "/edge" "/finder" )
+          HTML_ROUTES=( "/" "/rankings" "/trade" "/edge" "/finder" "/league" )
           declare -A SEEN_ASSETS=()
           for route in "${HTML_ROUTES[@]}"; do
             body_file="$(mktemp)"
-            if ! curl --silent --show-error --max-time 15 --output "${body_file}" "${URL}${route}"; then
+            if ! curl --silent --show-error --globoff --max-time 15 --output "${body_file}" "${URL}${route}"; then
               echo "WARN: unable to fetch ${route} HTML for _next asset extraction"
               rm -f "${body_file}"
               continue
