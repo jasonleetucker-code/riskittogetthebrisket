@@ -172,14 +172,41 @@ def _build_overview(snapshot: PublicLeagueSnapshot, sections: dict[str, Any]) ->
     )
 
 
-def build_section_payload(snapshot: PublicLeagueSnapshot, section: str) -> dict[str, Any]:
+def _build_activity_section(
+    snapshot: PublicLeagueSnapshot,
+    activity_valuation: Callable[[dict[str, Any]], float] | None,
+) -> dict[str, Any]:
+    if activity_valuation is None:
+        return activity.build_section(snapshot)
+    return activity.build_section(snapshot, valuation=activity_valuation)
+
+
+def build_section_payload(
+    snapshot: PublicLeagueSnapshot,
+    section: str,
+    *,
+    activity_valuation: Callable[[dict[str, Any]], float] | None = None,
+) -> dict[str, Any]:
     """Build a single public-section payload, wrapped in the standard header.
+
+    ``activity_valuation`` (optional) enables server-side trade-grade
+    computation on the activity feed.  When supplied it must be a
+    callable that takes a received-asset dict and returns a numeric
+    value; only the derived grade letter/label is emitted — raw
+    values never leave the backend.
 
     Raises ``KeyError`` if ``section`` is unknown.
     """
     if section == OVERVIEW_SECTION:
-        sections = {key: builder(snapshot) for key, builder in _SECTION_BUILDERS.items()}
+        sections: dict[str, Any] = {}
+        for key, builder in _SECTION_BUILDERS.items():
+            if key == "activity":
+                sections[key] = _build_activity_section(snapshot, activity_valuation)
+            else:
+                sections[key] = builder(snapshot)
         section_body = _build_overview(snapshot, sections)
+    elif section == "activity":
+        section_body = _build_activity_section(snapshot, activity_valuation)
     elif section in _SECTION_BUILDERS:
         section_body = _SECTION_BUILDERS[section](snapshot)
     else:
@@ -195,12 +222,22 @@ def build_section_payload(snapshot: PublicLeagueSnapshot, section: str) -> dict[
     return payload
 
 
-def build_public_contract(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
-    """Assemble the full public contract: every section + header."""
+def build_public_contract(
+    snapshot: PublicLeagueSnapshot,
+    *,
+    activity_valuation: Callable[[dict[str, Any]], float] | None = None,
+) -> dict[str, Any]:
+    """Assemble the full public contract: every section + header.
+
+    See ``build_section_payload`` for the ``activity_valuation`` arg.
+    """
     header = _league_header(snapshot)
     sections: dict[str, Any] = {}
     for key, builder in _SECTION_BUILDERS.items():
-        sections[key] = builder(snapshot)
+        if key == "activity":
+            sections[key] = _build_activity_section(snapshot, activity_valuation)
+        else:
+            sections[key] = builder(snapshot)
     sections[OVERVIEW_SECTION] = _build_overview(snapshot, sections)
     payload = {
         "contractVersion": PUBLIC_CONTRACT_VERSION,

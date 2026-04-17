@@ -24,7 +24,7 @@ Blockbuster tiebreaks (prompt spec):
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from typing import Any
+from typing import Any, Callable
 
 from . import metrics
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
@@ -33,6 +33,108 @@ from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 OFFENSIVE_CORE = {"QB", "RB", "WR", "TE"}
 # Any position we consider "notable" enough for the tiebreak.
 NOTABLE_POSITIONS = OFFENSIVE_CORE | {"DL", "LB", "DB", "EDGE"}
+
+# ── Trade grading ────────────────────────────────────────────────────────
+# Mirrors ``gradeTradeHistorySide`` in
+# ``frontend/lib/league-analysis.js`` and ``TRADE_ALPHA`` in
+# ``frontend/lib/trade-logic.js`` so a trade graded on the private
+# ``/trades`` page lands in the same bucket on the public
+# ``/league`` activity timeline.  The grade is computed server-side
+# from a caller-supplied valuation callable; only the resulting
+# ``{grade, color, label}`` object is emitted on the public
+# payload — the raw values and per-side totals NEVER leave the
+# backend.
+_GRADE_ALPHA = 1.45
+_GRADE_PCT_FAIR = 3.0
+_GRADE_PCT_SLIGHT = 8.0
+_GRADE_PCT_GOOD = 15.0
+_GRADE_PCT_CLEAR = 25.0
+_GRADE_PCT_ROBBERY = 40.0
+
+
+def _grade_from_pct(pct: float, is_winner: bool) -> dict[str, str]:
+    if pct < _GRADE_PCT_FAIR:
+        return {"grade": "A", "color": "var(--green)", "label": "Fair trade"}
+    if is_winner:
+        if pct < _GRADE_PCT_SLIGHT:
+            return {"grade": "A", "color": "var(--green)", "label": "Slight win"}
+        if pct < _GRADE_PCT_GOOD:
+            return {"grade": "A-", "color": "var(--green)", "label": "Good win"}
+        if pct < _GRADE_PCT_CLEAR:
+            return {"grade": "B+", "color": "#2ecc71", "label": "Clear win"}
+        return {"grade": "A+", "color": "#00ff88", "label": "Big win"}
+    if pct < _GRADE_PCT_SLIGHT:
+        return {"grade": "B+", "color": "#2ecc71", "label": "Slight overpay"}
+    if pct < _GRADE_PCT_GOOD:
+        return {"grade": "B", "color": "var(--amber)", "label": "Overpay"}
+    if pct < _GRADE_PCT_CLEAR:
+        return {"grade": "C", "color": "#e67e22", "label": "Bad deal"}
+    if pct < _GRADE_PCT_ROBBERY:
+        return {"grade": "D", "color": "var(--red)", "label": "Robbery"}
+    return {"grade": "F", "color": "#ff4444", "label": "Fleeced"}
+
+
+def _apply_trade_grades(
+    feed: list[dict[str, Any]],
+    valuation: Callable[[dict[str, Any]], float],
+) -> None:
+    """Attach a ``grade`` block to each side of every trade in ``feed``.
+
+    Mutates the trade dicts in place.  The raw per-side weighted
+    totals are intentionally discarded after grading — the public
+    payload surfaces only the grade letter, label, and color.
+    """
+    for trade in feed:
+        sides = trade.get("sides") or []
+        if len(sides) < 2:
+            continue
+        weighted: list[float] = []
+        for side in sides:
+            total = 0.0
+            for asset in side.get("receivedAssets") or []:
+                try:
+                    val = float(valuation(asset) or 0.0)
+                except (TypeError, ValueError):
+                    val = 0.0
+                if val > 0:
+                    total += pow(max(val, 1.0), _GRADE_ALPHA)
+            weighted.append(total)
+        max_w = max(weighted)
+        min_w = min(weighted)
+        # All-zero case (no asset on any side resolved to a value):
+        # treat as a fair trade — private grading does the same, and
+        # silently omitting badges here would inconsistently hide the
+        # grade block on trades full of unranked assets.
+        if max_w <= 0:
+            fair = _grade_from_pct(0.0, True)
+            for side in sides:
+                side["grade"] = fair
+            continue
+        pct = ((max_w - min_w) / max_w) * 100.0
+        # Mirror the private /trades grading: only the top-weighted
+        # side can earn a "winner" grade and only the bottom-weighted
+        # side can earn a "loser" grade.  Middle sides in 3+ team
+        # trades get the neutral "Fair trade" badge so they are not
+        # mislabeled as overpayers.
+        if pct < _GRADE_PCT_FAIR:
+            fair = _grade_from_pct(pct, True)
+            for side in sides:
+                side["grade"] = fair
+            continue
+        winner_grade = _grade_from_pct(pct, True)
+        loser_grade = _grade_from_pct(pct, False)
+        fair_grade = _grade_from_pct(0.0, True)
+        winner_assigned = False
+        loser_assigned = False
+        for i, side in enumerate(sides):
+            if not winner_assigned and weighted[i] == max_w:
+                side["grade"] = winner_grade
+                winner_assigned = True
+            elif not loser_assigned and weighted[i] == min_w:
+                side["grade"] = loser_grade
+                loser_assigned = True
+            else:
+                side["grade"] = fair_grade
 
 
 def _pick_asset(pick: dict[str, Any], snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
@@ -215,7 +317,24 @@ def _timeline_by_week(feed: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
-def build_section(snapshot: PublicLeagueSnapshot, limit: int = 200) -> dict[str, Any]:
+def build_section(
+    snapshot: PublicLeagueSnapshot,
+    limit: int = 200,
+    *,
+    valuation: Callable[[dict[str, Any]], float] | None = None,
+) -> dict[str, Any]:
+    """Build the public activity section.
+
+    ``valuation`` is an optional callable that, given a trade-side
+    received-asset dict (``{kind: "player"|"pick", ...}``), returns a
+    numeric value.  When provided, per-side grade badges are attached
+    to every trade in the returned feed — mirroring the private
+    ``/trades`` page letter grades.  The raw values themselves are
+    never written to the output; only the derived ``{grade, color,
+    label}`` object leaves the backend.  When ``valuation`` is None,
+    the feed has no grade fields (keeps older contract consumers
+    unchanged when the private valuation pipeline is offline).
+    """
     feed: list[dict[str, Any]] = []
     per_season_counts: list[dict[str, Any]] = []
     picks_moved = 0
@@ -238,6 +357,8 @@ def build_section(snapshot: PublicLeagueSnapshot, limit: int = 200) -> dict[str,
         })
 
     feed.sort(key=lambda t: -int(t.get("createdAt") or 0))
+    if valuation is not None:
+        _apply_trade_grades(feed, valuation)
     by_manager = _by_manager_counts(feed)
     partner_pairs = _partner_pairs(feed)
     blockbusters = _biggest_blockbusters(feed)
