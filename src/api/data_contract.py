@@ -3035,8 +3035,12 @@ def _compute_unified_rankings(
         eligible.sort(key=lambda t: (-t[0], t[3]))
         source_pool_sizes[source_key] = len(eligible)
 
-        for rank_idx, (_, row_idx, row_scope, _name) in enumerate(eligible):
-            raw_rank = rank_idx + 1
+        for rank_idx, (val, row_idx, row_scope, _name) in enumerate(eligible):
+            # Dense ranking: tied values share the same rank.
+            # e.g. values [10200, 10200, 10200, 10200, 9500] → ranks [1, 1, 1, 1, 5]
+            if rank_idx == 0 or val != eligible[rank_idx - 1][0]:
+                current_dense_rank = rank_idx + 1
+            raw_rank = current_dense_rank
 
             # Translate to effective overall-style rank based on scope.
             # position_idp sources (shallow positional lists like DL-only)

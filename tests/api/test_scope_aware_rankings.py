@@ -825,12 +825,9 @@ class TestFEdgeCases(unittest.TestCase):
 
     def test_tied_source_values_rank_deterministically(self):
         """Ties in raw source values — from rounding, duplicate exports,
-        or genuinely equal market pricing — must resolve to distinct
-        ordinal ranks with a stable name-based tiebreaker.  Three tied
-        DLs should receive ranks {1, 2, 3} in alphabetical order, and
-        shuffling the input must not change the final assignment (the
-        playersArray iteration order can drift between runs, so
-        input-order stability is not enough).
+        or genuinely equal market pricing — must receive the same dense
+        rank.  Three tied DLs should all receive rank 1 (not 1, 2, 3),
+        and shuffling the input must not change the assignment.
         """
         rows_a = [
             _row("alpha", "DL", idp=800),
@@ -839,9 +836,8 @@ class TestFEdgeCases(unittest.TestCase):
         ]
         _compute_unified_rankings(rows_a, {})
         ranks_a = {r["canonicalName"]: r["idpRank"] for r in rows_a}
-        self.assertEqual(sorted(ranks_a.values()), [1, 2, 3])
-        # Name-based tiebreaker → alphabetical order.
-        self.assertEqual(ranks_a, {"alpha": 1, "bravo": 2, "charlie": 3})
+        # All tied at the same value → all share rank 1
+        self.assertEqual(ranks_a, {"alpha": 1, "bravo": 1, "charlie": 1})
         for r in rows_a:
             self.assertIn("rankDerivedValue", r)
             self.assertGreater(r["rankDerivedValue"], 0)
