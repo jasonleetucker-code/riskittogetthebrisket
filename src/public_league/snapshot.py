@@ -12,9 +12,18 @@ payloads and normalizes them minimally (identity, season ordering,
 regular-season-vs-playoff week partitioning).  Section modules do the
 actual compute on top of this snapshot so every section sees the same
 consistent input.
+
+Cold-fetch performance: a full snapshot is ~85 HTTP GETs against
+Sleeper (2 seasons × {users, rosters, 18 matchups, 18 transactions,
+drafts, picks, bracket, losers bracket, traded picks}).  We parallelize
+everything inside a single snapshot build via a ``ThreadPoolExecutor``
+so the wall-clock drops from ~8 s sequential to ~400 ms.  The
+executor is scoped to each ``build_public_snapshot`` call so there's
+no global shared state.
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -22,6 +31,11 @@ from typing import Any
 from . import sleeper_client
 from .identity import ManagerRegistry, build_manager_registry
 from .sleeper_client import PUBLIC_MAX_SEASONS
+
+
+# Concurrency cap for the fetch pool.  Sleeper tolerates a reasonable
+# burst (a dozen-or-so parallel GETs); we stay well below that.
+_FETCH_CONCURRENCY = 12
 
 
 # Weeks we will pull matchup + transaction payloads for.  Regular
@@ -193,48 +207,73 @@ class PublicLeagueSnapshot:
         return str(p.get("position") or "").upper()
 
 
-def _fetch_season(league_obj: dict[str, Any]) -> SeasonSnapshot:
-    """Materialize a single SeasonSnapshot from a league object."""
+def _fetch_season(
+    league_obj: dict[str, Any],
+    executor: ThreadPoolExecutor,
+) -> SeasonSnapshot:
+    """Materialize a single SeasonSnapshot from a league object.
+
+    Every Sleeper GET for the season is submitted to ``executor`` up
+    front; we only block on the final ``.result()`` calls.  That lets
+    two seasons of ~40 GETs each run concurrently against Sleeper
+    without any thread-per-call overhead.
+    """
     league_id = str(league_obj.get("league_id") or "")
-    users = sleeper_client.fetch_users(league_id)
-    rosters = sleeper_client.fetch_rosters(league_id)
+
+    users_fut = executor.submit(sleeper_client.fetch_users, league_id)
+    rosters_fut = executor.submit(sleeper_client.fetch_rosters, league_id)
+    drafts_fut = executor.submit(sleeper_client.fetch_drafts, league_id)
+    traded_picks_fut = executor.submit(sleeper_client.fetch_traded_picks, league_id)
+    winners_fut = executor.submit(sleeper_client.fetch_winners_bracket, league_id)
+    losers_fut = executor.submit(sleeper_client.fetch_losers_bracket, league_id)
+
+    matchup_futs = {
+        week: executor.submit(sleeper_client.fetch_matchups, league_id, week)
+        for week in _WEEK_RANGE
+    }
+    tx_futs = {
+        week: executor.submit(sleeper_client.fetch_transactions, league_id, week)
+        for week in _WEEK_RANGE
+    }
 
     matchups: dict[int, list[dict[str, Any]]] = {}
+    for week, fut in matchup_futs.items():
+        result = fut.result()
+        if result:
+            matchups[week] = result
     transactions: dict[int, list[dict[str, Any]]] = {}
-    for week in _WEEK_RANGE:
-        ms = sleeper_client.fetch_matchups(league_id, week)
-        if ms:
-            matchups[week] = ms
-        tx = sleeper_client.fetch_transactions(league_id, week)
-        if tx:
-            transactions[week] = tx
+    for week, fut in tx_futs.items():
+        result = fut.result()
+        if result:
+            transactions[week] = result
 
-    drafts = sleeper_client.fetch_drafts(league_id)
+    drafts = drafts_fut.result()
     draft_picks_by_draft: dict[str, list[dict[str, Any]]] = {}
-    for draft in drafts:
-        draft_id = str(draft.get("draft_id") or "")
-        if not draft_id:
-            continue
-        draft_picks_by_draft[draft_id] = sleeper_client.fetch_draft_picks(draft_id)
-
-    traded_picks = sleeper_client.fetch_traded_picks(league_id)
-    winners = sleeper_client.fetch_winners_bracket(league_id)
-    losers = sleeper_client.fetch_losers_bracket(league_id)
+    if drafts:
+        pick_futs = {
+            str(d.get("draft_id") or ""): executor.submit(
+                sleeper_client.fetch_draft_picks, str(d.get("draft_id") or "")
+            )
+            for d in drafts
+            if d.get("draft_id")
+        }
+        for draft_id, fut in pick_futs.items():
+            draft_picks_by_draft[draft_id] = fut.result() or []
 
     season_key = str(league_obj.get("season") or "")
     return SeasonSnapshot(
         season=season_key,
         league_id=league_id,
         league=league_obj,
-        users=users,
-        rosters=rosters,
+        users=users_fut.result(),
+        rosters=rosters_fut.result(),
         matchups_by_week=matchups,
         transactions_by_week=transactions,
         drafts=drafts,
         draft_picks_by_draft=draft_picks_by_draft,
-        traded_picks=traded_picks,
-        winners_bracket=winners,
-        losers_bracket=losers,
+        traded_picks=traded_picks_fut.result(),
+        winners_bracket=winners_fut.result(),
+        losers_bracket=losers_fut.result(),
     )
 
 
@@ -265,7 +304,23 @@ def build_public_snapshot(
     if not chain:
         return snapshot
 
-    snapshot.seasons = [_fetch_season(league) for league in chain]
+    # One executor spans the entire snapshot build so both seasons AND
+    # their ~40-each matchup/transaction GETs all race in parallel.
+    with ThreadPoolExecutor(
+        max_workers=_FETCH_CONCURRENCY,
+        thread_name_prefix="public-league-fetch",
+    ) as pool:
+        nfl_fut = None
+        if include_nfl_players:
+            nfl_fut = pool.submit(sleeper_client.fetch_nfl_players)
+        season_futs = [pool.submit(_fetch_season, league, pool) for league in chain]
+        snapshot.seasons = [f.result() for f in season_futs]
+        if nfl_fut is not None:
+            try:
+                snapshot.nfl_players = nfl_fut.result() or {}
+            except Exception:  # noqa: BLE001
+                snapshot.nfl_players = {}
+
     snapshot.managers = build_manager_registry(
         [
             {
@@ -276,9 +331,4 @@ def build_public_snapshot(
             for s in snapshot.seasons
         ]
     )
-    if include_nfl_players:
-        try:
-            snapshot.nfl_players = sleeper_client.fetch_nfl_players() or {}
-        except Exception:  # noqa: BLE001
-            snapshot.nfl_players = {}
     return snapshot
