@@ -3566,6 +3566,31 @@ def _compute_unified_rankings(
             r["canonicalConsensusRank"] = new_rank
         r["canonicalTierId"] = _tier_id_from_rank(new_rank)
 
+    # 2c) Mirror the post-anchor rank back into the legacy players_by_name
+    #     dict for every ranked row — not just picks.  The runtime view
+    #     (/api/data?view=app) strips playersArray, so the frontend reads
+    #     ``_canonicalConsensusRank`` from the legacy dict.  When the
+    #     compact-ranks pass above re-sorts by rankDerivedValue, non-pick
+    #     rows can shift (e.g. a rookie-anchored pick bubbles up past a
+    #     bench player, pushing the bench player's rank down by one).  The
+    #     pick-only mirror below handles pick-specific flags, so keep it
+    #     focused on picks; this pass syncs the ranked-row baseline.
+    for row in players_array:
+        if row.get("assetClass") == "pick":
+            continue
+        legacy_ref = row.get("legacyRef")
+        if not legacy_ref or legacy_ref not in players_by_name:
+            continue
+        pdata = players_by_name[legacy_ref]
+        if not isinstance(pdata, dict):
+            continue
+        rk = row.get("canonicalConsensusRank")
+        if rk is not None:
+            pdata["_canonicalConsensusRank"] = rk
+        tid = row.get("canonicalTierId")
+        if tid is not None:
+            pdata["canonicalTierId"] = tid
+
     # 3) Mirror the post-refinement rank/value back into the legacy
     #    players_by_name dict so the runtime view stays in sync.
     for row in players_array:

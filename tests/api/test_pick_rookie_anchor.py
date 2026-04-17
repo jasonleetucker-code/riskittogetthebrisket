@@ -228,6 +228,28 @@ class TestAnchorEndToEnd(unittest.TestCase):
         errors = assert_ranking_coherence(ranked)
         self.assertEqual(errors, [], "\n".join(errors[:5]))
 
+    def test_legacy_dict_mirror_matches_players_array(self) -> None:
+        # The runtime view strips playersArray and the frontend reads
+        # ``_canonicalConsensusRank`` from the legacy players dict.  When
+        # the compact-ranks pass re-sorts by rankDerivedValue after the
+        # anchor, non-pick rows can shift — the mirror must keep up or
+        # the rankings board shows stale / duplicate ranks.
+        legacy = self.contract.get("players") or {}
+        mismatches: list[str] = []
+        for row in self.contract["playersArray"]:
+            legacy_ref = row.get("legacyRef")
+            if not legacy_ref or legacy_ref not in legacy:
+                continue
+            arr_rank = row.get("canonicalConsensusRank")
+            leg_rank = legacy[legacy_ref].get("_canonicalConsensusRank")
+            if arr_rank != leg_rank:
+                mismatches.append(
+                    f"{row.get('canonicalName')}: array={arr_rank} legacy={leg_rank}"
+                )
+                if len(mismatches) >= 5:
+                    break
+        self.assertEqual(mismatches, [])
+
 
 if __name__ == "__main__":
     unittest.main()
