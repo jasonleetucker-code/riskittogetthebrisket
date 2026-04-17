@@ -3370,12 +3370,27 @@ async def get_public_league_metrics():
     NOTE: no private data — just aggregated counters for the cache.
     """
     snap = _public_league_metrics_snapshot()
+    # Diagnostic: is the valuation pipeline wired up right now?  This
+    # only surfaces the boolean — never any private values — and lets
+    # us answer "why are no grades showing on /league activity?" by
+    # hitting one URL.  ``valuationReady=False`` means the public
+    # activity feed will ship without grade badges (no asset value
+    # source available), which is the documented graceful degradation
+    # path; the page itself does not break.
+    valuation_ready = _build_public_activity_valuation() is not None
     return JSONResponse(
         content={
             "leagueId": _public_league_id(),
             "cacheTtlSeconds": _PUBLIC_LEAGUE_CACHE_TTL_SECONDS,
             "warmupEnabled": _PUBLIC_LEAGUE_WARMUP,
             "persistEnabled": _PUBLIC_LEAGUE_PERSIST,
+            "tradeGrading": {
+                "valuationReady": valuation_ready,
+                "privateContractLoaded": latest_contract_data is not None,
+                "privateContractPlayerCount": int(
+                    (latest_contract_data or {}).get("playerCount") or 0
+                ),
+            },
             "metrics": snap,
         },
         headers={"Cache-Control": "no-store"},
