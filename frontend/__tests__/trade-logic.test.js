@@ -10,9 +10,13 @@ import {
   verdictFromGap,
   colorFromGap,
   sideTotal,
-  tradeGap,
-  linearGap,
-  powerWeightedTotal,
+  computeValueAdjustment,
+  adjustedSideTotals,
+  tradeGapAdjusted,
+  VA_SCARCITY_SLOPE,
+  VA_SCARCITY_INTERCEPT,
+  VA_SCARCITY_CAP,
+  VA_POSITION_DECAY,
   effectiveValue,
   pickYearDiscount,
   addAssetToSide,
@@ -148,32 +152,153 @@ describe("sideTotal", () => {
   });
 });
 
-// ── tradeGap ─────────────────────────────────────────────────────────
+// ── tradeGapAdjusted ─────────────────────────────────────────────────
 
-describe("tradeGap (power-weighted)", () => {
-  it("single-asset sides equal linear gap", () => {
-    // With one asset per side, power-weighted = linear
-    expect(tradeGap([ALLEN], [CHASE], "full")).toBe(500);
-    expect(tradeGap([CHASE], [ALLEN], "full")).toBe(-500);
+describe("tradeGapAdjusted (KTC-style)", () => {
+  it("single vs single equals linear gap (no VA)", () => {
+    expect(tradeGapAdjusted([ALLEN], [CHASE], "full")).toBe(500);
+    expect(tradeGapAdjusted([CHASE], [ALLEN], "full")).toBe(-500);
   });
 
-  it("multi-asset sides are power-weighted (less than linear sum)", () => {
-    const gap = tradeGap([ALLEN], [CHASE, PICK_2026], "full");
-    const linGapVal = linearGap([ALLEN], [CHASE, PICK_2026], "full");
-    // Power-weighted sum of B < linear sum, so gap magnitude is smaller
-    expect(linGapVal).toBe(9000 - (8500 + 7000));
-    expect(Math.abs(gap)).toBeLessThan(Math.abs(linGapVal));
-    expect(gap).toBeLessThan(0); // B still wins
+  it("1-vs-2 with dominant single asset closes the linear gap", () => {
+    // Stud (9999) vs Mid (6000) + Pick (5000) — gapRatio is big enough to
+    // trigger a meaningful VA that narrows the raw gap.
+    const stud = mockRow(9999);
+    const mid = mockRow(6000);
+    const pick = mockRow(5000);
+    const rawGap = 9999 - (6000 + 5000);
+    const gap = tradeGapAdjusted([stud], [mid, pick], "full");
+    expect(rawGap).toBe(-1001);
+    expect(gap).toBeGreaterThan(rawGap); // VA added to single side → less negative
+  });
+
+  it("1-vs-2 with near-matching top assets produces no VA (clamped scarcity)", () => {
+    // When the small side's top is only marginally better than the multi's
+    // top, scarcity clamps to 0 and the adjusted gap equals the raw gap.
+    const gap = tradeGapAdjusted([ALLEN], [CHASE, PICK_2026], "full");
+    const rawGap = 9000 - (8500 + 7000);
+    expect(gap).toBe(rawGap);
   });
 
   it("returns 0 for empty vs empty", () => {
-    expect(tradeGap([], [], "full")).toBe(0);
+    expect(tradeGapAdjusted([], [], "full")).toBe(0);
   });
 });
 
-describe("linearGap", () => {
-  it("computes simple difference", () => {
-    expect(linearGap([ALLEN], [CHASE, PICK_2026], "full")).toBe(9000 - (8500 + 7000));
+// ── computeValueAdjustment ───────────────────────────────────────────
+
+function mockRow(value) {
+  return { name: `P${value}`, pos: "QB", assetClass: "offense", values: { full: value, raw: value } };
+}
+
+describe("computeValueAdjustment", () => {
+  it("returns zero adjustment when piece counts match", () => {
+    const result = computeValueAdjustment([ALLEN], [CHASE], "full");
+    expect(result).toEqual({ adjustment: 0, recipientIdx: null });
+    const result2 = computeValueAdjustment([ALLEN, CHASE], [MAHOMES, PICK_2026], "full");
+    expect(result2).toEqual({ adjustment: 0, recipientIdx: null });
+  });
+
+  it("returns zero when either side is empty", () => {
+    const r = computeValueAdjustment([], [CHASE, PICK_2026], "full");
+    expect(r).toEqual({ adjustment: 0, recipientIdx: null });
+  });
+
+  it("recipientIdx points at the smaller-piece side", () => {
+    const r1 = computeValueAdjustment([ALLEN], [CHASE, PICK_2026], "full");
+    expect(r1.recipientIdx).toBe(0);
+    const r2 = computeValueAdjustment([CHASE, PICK_2026], [ALLEN], "full");
+    expect(r2.recipientIdx).toBe(1);
+  });
+
+  it("applies zero VA when multi side has the better top asset", () => {
+    // single=CHASE (8500) vs multi=[ALLEN (9000), PICK_2026 (7000)]
+    // gapRatio = max(0, (8500-9000)/8500) = 0
+    // scarcity = max(0, slope*0 - intercept) = 0 → no VA
+    const r = computeValueAdjustment([CHASE], [ALLEN, PICK_2026], "full");
+    expect(r.adjustment).toBe(0);
+    expect(r.recipientIdx).toBe(0);
+  });
+
+  it("applies depth decay for multiple extra pieces", () => {
+    // single=9999 vs [7000, 5000, 3000] (2 extras: 5000 at p=0, 3000 at p=1)
+    const single = [mockRow(9999)];
+    const multi = [mockRow(7000), mockRow(5000), mockRow(3000)];
+    const r = computeValueAdjustment(single, multi, "full");
+    const gapRatio = (9999 - 7000) / 9999;
+    const scarcity = Math.min(
+      VA_SCARCITY_CAP,
+      Math.max(0, VA_SCARCITY_SLOPE * gapRatio - VA_SCARCITY_INTERCEPT),
+    );
+    const expected =
+      5000 * scarcity * Math.pow(VA_POSITION_DECAY, 0) +
+      3000 * scarcity * Math.pow(VA_POSITION_DECAY, 1);
+    expect(r.adjustment).toBeCloseTo(expected, 5);
+    expect(r.recipientIdx).toBe(0);
+  });
+
+  // Pinned KTC-observed data points — regression anchors for the fitted
+  // coefficients.  Tolerance is ±5% (or ±100, whichever is larger) to
+  // allow for small coefficient refinements without breaking every test.
+  describe("KTC-observed cases", () => {
+    const KTC_TOLERANCE = (ktcVA) => Math.max(100, Math.abs(ktcVA) * 0.05);
+
+    it("9999 vs 7846+5717 → ~3712", () => {
+      const r = computeValueAdjustment(
+        [mockRow(9999)],
+        [mockRow(7846), mockRow(5717)],
+        "full",
+      );
+      expect(r.recipientIdx).toBe(0);
+      expect(Math.abs(r.adjustment - 3712)).toBeLessThanOrEqual(KTC_TOLERANCE(3712));
+    });
+
+    it("7846 vs 5717+4829 → ~3034", () => {
+      const r = computeValueAdjustment(
+        [mockRow(7846)],
+        [mockRow(5717), mockRow(4829)],
+        "full",
+      );
+      expect(r.recipientIdx).toBe(0);
+      expect(Math.abs(r.adjustment - 3034)).toBeLessThanOrEqual(KTC_TOLERANCE(3034));
+    });
+
+    it("7846 vs 6949+5717 → ~1166 (small premium when top assets are close)", () => {
+      const r = computeValueAdjustment(
+        [mockRow(7846)],
+        [mockRow(6949), mockRow(5717)],
+        "full",
+      );
+      expect(r.recipientIdx).toBe(0);
+      expect(Math.abs(r.adjustment - 1166)).toBeLessThanOrEqual(KTC_TOLERANCE(1166));
+    });
+  });
+});
+
+// ── adjustedSideTotals ───────────────────────────────────────────────
+
+describe("adjustedSideTotals", () => {
+  it("both sides have raw/adjustment/adjusted with matching invariants", () => {
+    // Use a big enough concentration gap so the smaller side gets a VA.
+    const stud = mockRow(9999);
+    const mid = mockRow(6000);
+    const pick = mockRow(5000);
+    const [a, b] = adjustedSideTotals([stud], [mid, pick], "full");
+    expect(a.raw).toBe(9999);
+    expect(b.raw).toBe(6000 + 5000);
+    expect(a.adjusted).toBe(a.raw + a.adjustment);
+    expect(b.adjusted).toBe(b.raw + b.adjustment);
+    // Only the smaller side gets a bonus
+    expect(b.adjustment).toBe(0);
+    expect(a.adjustment).toBeGreaterThan(0);
+  });
+
+  it("equal piece counts produce zero adjustments on both sides", () => {
+    const [a, b] = adjustedSideTotals([ALLEN, CHASE], [MAHOMES, PICK_2026], "full");
+    expect(a.adjustment).toBe(0);
+    expect(b.adjustment).toBe(0);
+    expect(a.adjusted).toBe(a.raw);
+    expect(b.adjusted).toBe(b.raw);
   });
 });
 
@@ -400,29 +525,32 @@ describe("full trade scenario", () => {
     // Compute
     const totalA = sideTotal(sideA, "full"); // 9000 + 8500 = 17500
     const totalB = sideTotal(sideB, "full"); // 8800 + 7000 = 15800
-    const gap = tradeGap(sideA, sideB, "full"); // power-weighted
+    const gap = tradeGapAdjusted(sideA, sideB, "full");
 
     expect(totalA).toBe(17500);
     expect(totalB).toBe(15800);
-    // Power-weighted gap is smaller than linear (1700) due to diminishing returns
-    expect(gap).toBeGreaterThan(0); // A still wins
-    expect(gap).toBeLessThan(1700); // But less than linear
+    // Equal piece counts → no VA, gap equals linear difference (1700).
+    expect(gap).toBe(1700);
     expect(verdictFromGap(gap)).toBe("Strong lean");
     expect(colorFromGap(gap)).toBe("green"); // Side A wins
 
     // Swap sides
     const [newA, newB] = [sideB, sideA];
-    const swappedGap = tradeGap(newA, newB, "full");
-    expect(swappedGap).toBeLessThan(0);
+    const swappedGap = tradeGapAdjusted(newA, newB, "full");
+    expect(swappedGap).toBe(-1700);
     expect(verdictFromGap(swappedGap)).toBe("Strong lean");
     expect(colorFromGap(swappedGap)).toBe("red"); // Now Side B wins
 
-    // Remove an asset
+    // Remove an asset — newA now has 2 pieces (8800+7000), trimmedB has 1 (9000)
     const trimmedB = removeAssetFromSide(newB, "Ja'Marr Chase");
-    const newGap = tradeGap(newA, trimmedB, "full");
-    // Power-weighted: B (8800+7000) vs A (9000). Gap is positive (B side wins after swap)
-    expect(newGap).toBeGreaterThan(0);
-    expect(newGap).toBeLessThan(15800 - 9000); // less than linear 6800
+    const newGap = tradeGapAdjusted(newA, trimmedB, "full");
+    // trimmedB's top (9000) is only 2.2% better than newA's top (8800), so
+    // gapRatio is below the scarcity intercept and VA clamps to 0 — the
+    // adjusted gap equals the raw gap here.  The near-matching-tops test
+    // above pins this behavior explicitly.
+    const rawNewGap = (8800 + 7000) - 9000;
+    expect(rawNewGap).toBe(6800);
+    expect(newGap).toBe(rawNewGap);
 
     // Serialize and restore
     const serialized = serializeWorkspace(newA, trimmedB, "full", "A");
@@ -435,26 +563,7 @@ describe("full trade scenario", () => {
     const restored = deserializeWorkspace(serialized, rowByName);
     expect(restored.sideA.length).toBe(2);
     expect(restored.sideB.length).toBe(1);
-    expect(tradeGap(restored.sideA, restored.sideB, "full")).toBe(newGap);
-  });
-});
-
-// ── New features: power-weighted, edge, pick parsing ──
-
-describe("powerWeightedTotal", () => {
-  it("single asset approximately equals its value", () => {
-    expect(powerWeightedTotal([ALLEN], "full")).toBeCloseTo(9000, 0);
-  });
-
-  it("multiple assets yield less than linear sum", () => {
-    const pw = powerWeightedTotal([ALLEN, CHASE], "full");
-    const linear = 9000 + 8500;
-    expect(pw).toBeLessThan(linear);
-    expect(pw).toBeGreaterThan(9000); // more than single best
-  });
-
-  it("empty array returns 0", () => {
-    expect(powerWeightedTotal([], "full")).toBe(0);
+    expect(tradeGapAdjusted(restored.sideA, restored.sideB, "full")).toBe(newGap);
   });
 });
 
@@ -699,14 +808,6 @@ describe("effectiveValue", () => {
   it("returns raw value with settings (no adjustment)", () => {
     const settings = { leagueFormat: "superflex" };
     expect(effectiveValue(ALLEN, "full", settings)).toBe(9000);
-  });
-});
-
-describe("settings-aware powerWeightedTotal", () => {
-  it("settings=null behaves like no settings", () => {
-    const a = powerWeightedTotal([ALLEN, CHASE], "full");
-    const b = powerWeightedTotal([ALLEN, CHASE], "full", undefined, null);
-    expect(a).toBe(b);
   });
 });
 
@@ -1067,13 +1168,6 @@ describe("deserializeWorkspaceMulti", () => {
 // ── Multi-team total calculations ──────────────────────────────────────
 
 describe("multi-team total calculations", () => {
-  it("powerWeightedTotal works for any side array", () => {
-    const sideAssets = [ALLEN, CHASE, PARSONS];
-    const total = powerWeightedTotal(sideAssets, "full");
-    expect(total).toBeGreaterThan(0);
-    expect(total).toBeLessThan(9000 + 8500 + 5000); // less than linear
-  });
-
   it("sideTotal works for 3+ sides independently", () => {
     const totals = [
       sideTotal([ALLEN], "full"),
