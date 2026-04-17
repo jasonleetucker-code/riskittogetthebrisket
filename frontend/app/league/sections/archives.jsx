@@ -4,6 +4,7 @@
 // Extracted from page.jsx to keep the tab file lean.
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Card, EmptyCard, fmtNumber, fmtPoints } from "../shared.jsx";
 
 function ArchivesSection({ data }) {
@@ -266,6 +267,46 @@ function ArchiveTable({ kind, rows }) {
       </table>
     );
   }
+  if (kind === "players") {
+    return (
+      <table>
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th>Pos</th>
+            <th style={{ fontSize: "0.72rem", color: "var(--subtext)" }}>Player ID</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i}>
+              <td style={{ fontWeight: 600 }}>
+                <Link
+                  href={`/league/player/${encodeURIComponent(r.playerId)}`}
+                  style={{ color: "var(--cyan)" }}
+                >
+                  {r.playerName}
+                </Link>
+              </td>
+              <td style={{ fontFamily: "var(--mono)" }}>{r.position || ""}</td>
+              <td style={{ fontFamily: "var(--mono)", fontSize: "0.68rem", color: "var(--subtext)" }}>
+                {r.playerId}
+              </td>
+              <td style={{ textAlign: "right", fontSize: "0.7rem" }}>
+                <Link
+                  href={`/league/player/${encodeURIComponent(r.playerId)}`}
+                  style={{ color: "var(--cyan)" }}
+                >
+                  Journey →
+                </Link>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
   return null;
 }
 
@@ -292,6 +333,7 @@ const ARCHIVE_KINDS = [
   { key: "weeklyMatchups", label: "Matchups" },
   { key: "rookieDrafts", label: "Rookie drafts" },
   { key: "seasonResults", label: "Season results" },
+  { key: "players", label: "Players" },
   { key: "managers", label: "Managers" },
 ];
 

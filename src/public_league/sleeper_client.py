@@ -31,11 +31,18 @@ log = logging.getLogger(__name__)
 
 SLEEPER_BASE = "https://api.sleeper.app/v1"
 
-# Max dynasty seasons the public pipeline surfaces.  The prompt fixes
-# the horizon at "exactly the last 2 dynasty seasons for now" — bumping
-# this value will automatically widen every section module because they
-# iterate ``snapshot.seasons``.
-PUBLIC_MAX_SEASONS = 2
+# Max dynasty seasons the public pipeline surfaces.  Widened to 3
+# after the 2025 playoffs + 2026 offseason shipped — unlocks deeper
+# Hall of Fame + Best Rebuild signal.  Tunable via env override below
+# so ops can raise or lower without a code change.  Every section
+# module iterates ``snapshot.seasons`` so this constant is the single
+# knob that controls horizon.
+import os as _os
+
+try:
+    PUBLIC_MAX_SEASONS = max(1, int(_os.getenv("PUBLIC_MAX_SEASONS", "3")))
+except ValueError:
+    PUBLIC_MAX_SEASONS = 3
 
 _DEFAULT_TIMEOUT = 8.0
 

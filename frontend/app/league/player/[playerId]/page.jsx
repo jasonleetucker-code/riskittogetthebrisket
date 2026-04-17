@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Avatar, Card, Stat } from "../../shared-server.jsx";
 import { buildManagerLookup, fmtPoints } from "../../shared-helpers.js";
 import { EmptyState, PageHeader } from "@/components/ui";
+import ShareButton from "../../ShareButton.jsx";
 
 function _backend() {
   const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
@@ -95,6 +96,17 @@ export default async function PlayerJourneyPage({ params }) {
               : null,
           ].filter(Boolean).join(" · ")}
         />
+        <div>
+          <ShareButton
+            label="Share journey"
+            path={`/league/player/${encodeURIComponent(playerId)}`}
+            text={
+              p.totalsByOwner?.[0]
+                ? `${ident.playerName} scored ${p.totalsByOwner[0].pointsTotal} pts for ${p.totalsByOwner[0].displayName}`
+                : `${ident.playerName} league journey`
+            }
+          />
+        </div>
       </div>
 
       {p.draftOrigin && (
