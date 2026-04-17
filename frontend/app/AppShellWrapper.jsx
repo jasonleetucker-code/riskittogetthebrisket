@@ -15,6 +15,7 @@ const PRIMARY_NAV = [
   { href: "/finder", label: "Finder" },
   { href: "/league", label: "League" },
   { href: "/settings", label: "Settings" },
+  { href: "/more", label: "More" },
 ];
 
 // Mobile bottom nav — 4-tab model
