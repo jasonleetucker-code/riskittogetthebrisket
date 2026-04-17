@@ -2939,13 +2939,32 @@ from src.public_league import (  # noqa: E402 — grouped after route block abov
 )
 from src.public_league.public_contract import assert_public_payload_safe
 from src.public_league.sleeper_client import PUBLIC_MAX_SEASONS
+from src.public_league import snapshot_store as public_snapshot_store
 
 _PUBLIC_LEAGUE_CACHE_TTL_SECONDS = int(os.getenv("PUBLIC_LEAGUE_CACHE_TTL", "300"))
+_PUBLIC_LEAGUE_PERSIST = _env_bool("PUBLIC_LEAGUE_PERSIST_SNAPSHOT", True)
 _public_league_cache: dict = {
     "snapshot": None,
     "snapshot_league_id": None,
     "fetched_at": 0.0,
 }
+
+# Best-effort: load the most recent persisted snapshot at process
+# start so a cold-started server can still serve the public /league
+# page while the first Sleeper rebuild is running in the background.
+try:
+    _persisted = public_snapshot_store.load_snapshot()
+    if _persisted is not None and _persisted.seasons:
+        _public_league_cache["snapshot"] = _persisted
+        _public_league_cache["snapshot_league_id"] = _persisted.root_league_id
+        _public_league_cache["fetched_at"] = 0.0  # forces refresh on next hit
+        logging.info(
+            "Loaded persisted public_league snapshot for league %s (%d seasons)",
+            _persisted.root_league_id,
+            len(_persisted.seasons),
+        )
+except Exception as _exc:  # noqa: BLE001
+    logging.warning("Public league snapshot load at startup failed: %s", _exc)
 
 
 def _public_league_id() -> str:
@@ -2972,6 +2991,12 @@ def _get_public_snapshot(force_refresh: bool = False):
     _public_league_cache["snapshot"] = snapshot
     _public_league_cache["snapshot_league_id"] = league_id
     _public_league_cache["fetched_at"] = now
+    if _PUBLIC_LEAGUE_PERSIST and snapshot.seasons:
+        try:
+            contract = build_public_contract(snapshot)
+            public_snapshot_store.persist_snapshot(snapshot, contract=contract)
+        except Exception as exc:  # noqa: BLE001
+            logging.warning("Failed to persist public_league snapshot: %s", exc)
     return snapshot
 
 

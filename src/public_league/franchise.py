@@ -1,31 +1,115 @@
 """Section: Franchise Pages.
 
-Per-manager franchise summaries — team-name lineage, cumulative
-record, per-season results, trade counts, and draft counts.
-Attribution is by owner_id.
-
-The section emits both:
-    * ``index`` — compact rows for the franchise list
-    * ``detail`` — keyed-by-owner-id detailed pages
-
-The public contract will normally include both; consumers may request
-``?section=franchise&owner=<owner_id>`` to get just one detail page.
+Per-manager summaries within the 2-season window:
+    * current display name + team-name history (aliases)
+    * seasonsPlayed, cumulative wins/losses/ties, PF, PA
+    * titles, finals appearances, playoff appearances
+    * best / worst finish
+    * top rival (highest rivalryIndex from rivalries section)
+    * total trades, total waivers
+    * current draft capital summary (owned picks + weighted stockpile)
+    * award shelf placeholder (later prompt wires real awards)
 """
 from __future__ import annotations
 
 from typing import Any
 
-from .history import _final_standing_from_bracket, _regular_season_records
-from .snapshot import PublicLeagueSnapshot
+from . import metrics
+from .rivalries import build_section as build_rivalries
+from .draft import weighted_stockpile_for_owner
+from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
 
-def _franchise_base(snapshot: PublicLeagueSnapshot) -> dict[str, dict[str, Any]]:
-    """Initialize per-owner franchise skeletons."""
-    franchises: dict[str, dict[str, Any]] = {}
-    for owner_id, manager in snapshot.managers.by_owner_id.items():
-        franchises[owner_id] = {
-            **manager.to_public_dict(),
-            "cumulative": {
+def _roster_count_for(season: SeasonSnapshot, owner_id: str) -> dict[str, Any] | None:
+    """Return {rosterId, teamName, settings} for the owner this season."""
+    rid = None
+    for r in season.rosters:
+        if str(r.get("owner_id") or "") == owner_id:
+            try:
+                rid = int(r.get("roster_id"))
+            except (TypeError, ValueError):
+                rid = None
+            break
+    if rid is None:
+        return None
+    return {
+        "rosterId": rid,
+    }
+
+
+def _top_rival_for(owner_id: str, rivalries_section: dict[str, Any]) -> dict[str, Any] | None:
+    """Top rivalry for this owner, ranked by rivalryIndex."""
+    best: dict[str, Any] | None = None
+    for rec in rivalries_section.get("rivalries", []):
+        if owner_id not in rec["ownerIds"]:
+            continue
+        if best is None or rec["rivalryIndex"] > best["rivalryIndex"]:
+            best = rec
+    if not best:
+        return None
+    other_idx = 1 if best["ownerIds"][0] == owner_id else 0
+    return {
+        "ownerId": best["ownerIds"][other_idx],
+        "displayName": best["displayNames"][other_idx],
+        "rivalryIndex": best["rivalryIndex"],
+        "totalMeetings": best["totalMeetings"],
+        "playoffMeetings": best["playoffMeetings"],
+    }
+
+
+def _trade_waiver_counts(snapshot: PublicLeagueSnapshot) -> dict[str, dict[str, int]]:
+    counts: dict[str, dict[str, int]] = {}
+    for season in snapshot.seasons:
+        for tx in season.trades():
+            for rid in tx.get("roster_ids") or []:
+                owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+                if not owner_id:
+                    continue
+                counts.setdefault(owner_id, {"trades": 0, "waivers": 0})
+                counts[owner_id]["trades"] += 1
+        for tx in season.waivers():
+            for rid in tx.get("roster_ids") or []:
+                owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+                if not owner_id:
+                    continue
+                counts.setdefault(owner_id, {"trades": 0, "waivers": 0})
+                counts[owner_id]["waivers"] += 1
+    return counts
+
+
+def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+    rivalries_section = build_rivalries(snapshot)
+    trade_counts = _trade_waiver_counts(snapshot)
+
+    # Season-by-season per-owner aggregates.
+    per_owner_season: dict[str, list[dict[str, Any]]] = {}
+    cumulative: dict[str, dict[str, Any]] = {}
+
+    for season in snapshot.seasons:
+        standings = metrics.season_standings(season, snapshot.managers)
+        placement = metrics.playoff_placement(season.winners_bracket)
+        playoff_rids = set(metrics.playoff_teams(season.winners_bracket))
+
+        for row in standings:
+            owner_id = row["ownerId"]
+            final_place = placement.get(row["rosterId"])
+            made_playoffs = row["rosterId"] in playoff_rids
+            per_owner_season.setdefault(owner_id, []).append({
+                "season": season.season,
+                "leagueId": season.league_id,
+                "rosterId": row["rosterId"],
+                "teamName": metrics.team_name(snapshot, season.league_id, row["rosterId"]),
+                "wins": row["wins"],
+                "losses": row["losses"],
+                "ties": row["ties"],
+                "pointsFor": row["pointsFor"],
+                "pointsAgainst": row["pointsAgainst"],
+                "standing": row["standing"],
+                "finalPlace": final_place,
+                "madePlayoffs": made_playoffs,
+            })
+
+            cum = cumulative.setdefault(owner_id, {
                 "wins": 0,
                 "losses": 0,
                 "ties": 0,
@@ -33,101 +117,88 @@ def _franchise_base(snapshot: PublicLeagueSnapshot) -> dict[str, dict[str, Any]]
                 "pointsAgainst": 0.0,
                 "seasonsPlayed": 0,
                 "championships": 0,
-                "runnerUps": 0,
+                "finalsAppearances": 0,
                 "playoffAppearances": 0,
-            },
-            "seasonResults": [],
-            "tradeCount": 0,
-            "draftPickCount": 0,
-        }
-    return franchises
-
-
-def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
-    franchises = _franchise_base(snapshot)
-
-    for season in snapshot.seasons:
-        regular = _regular_season_records(season)
-        placement = _final_standing_from_bracket(season.winners_bracket)
-        for rid, rec in regular.items():
-            owner_id = snapshot.managers.owner_for_roster(season.league_id, rid)
-            if not owner_id or owner_id not in franchises:
-                continue
-            cum = franchises[owner_id]["cumulative"]
-            cum["wins"] += rec["wins"]
-            cum["losses"] += rec["losses"]
-            cum["ties"] += rec["ties"]
-            cum["pointsFor"] += rec["pointsFor"]
-            cum["pointsAgainst"] += rec["pointsAgainst"]
-            cum["seasonsPlayed"] += 1
-            final_place = placement.get(rid)
-            if final_place:
-                cum["playoffAppearances"] += 1
-                if final_place == 1:
-                    cum["championships"] += 1
-                elif final_place == 2:
-                    cum["runnerUps"] += 1
-            franchises[owner_id]["seasonResults"].append({
-                "season": season.season,
-                "leagueId": season.league_id,
-                "wins": rec["wins"],
-                "losses": rec["losses"],
-                "ties": rec["ties"],
-                "pointsFor": rec["pointsFor"],
-                "pointsAgainst": rec["pointsAgainst"],
-                "finalPlace": final_place,
+                "regularSeasonFirstPlace": 0,
+                "bestFinish": None,
+                "worstFinish": None,
             })
+            cum["wins"] += row["wins"]
+            cum["losses"] += row["losses"]
+            cum["ties"] += row["ties"]
+            cum["pointsFor"] += row["pointsFor"]
+            cum["pointsAgainst"] += row["pointsAgainst"]
+            cum["seasonsPlayed"] += 1
+            if made_playoffs:
+                cum["playoffAppearances"] += 1
+            if final_place == 1:
+                cum["championships"] += 1
+            if final_place in (1, 2):
+                cum["finalsAppearances"] += 1
+            if row["standing"] == 1:
+                cum["regularSeasonFirstPlace"] += 1
+            effective = final_place or row["standing"]
+            if cum["bestFinish"] is None or effective < cum["bestFinish"]:
+                cum["bestFinish"] = effective
+            if cum["worstFinish"] is None or effective > cum["worstFinish"]:
+                cum["worstFinish"] = effective
 
-    # Trade counts per owner_id.  A transaction with type "trade"
-    # credits every roster_id in its ``roster_ids`` list.
-    for season in snapshot.seasons:
-        for week_tx in season.transactions_by_week.values():
-            for tx in week_tx:
-                if str(tx.get("type") or "").lower() != "trade":
-                    continue
-                if str(tx.get("status") or "").lower() != "complete":
-                    continue
-                for rid in tx.get("roster_ids") or []:
-                    owner_id = snapshot.managers.owner_for_roster(season.league_id, rid)
-                    if owner_id and owner_id in franchises:
-                        franchises[owner_id]["tradeCount"] += 1
-
-    # Draft pick counts per owner_id.
-    for season in snapshot.seasons:
-        for picks in season.draft_picks_by_draft.values():
-            for pick in picks:
-                try:
-                    rid = int(pick.get("roster_id"))
-                except (TypeError, ValueError):
-                    continue
-                owner_id = snapshot.managers.owner_for_roster(season.league_id, rid)
-                if owner_id and owner_id in franchises:
-                    franchises[owner_id]["draftPickCount"] += 1
-
-    # Finalize numeric rounding + build index.
     detail: dict[str, dict[str, Any]] = {}
     index: list[dict[str, Any]] = []
-    for owner_id, fr in franchises.items():
-        cum = fr["cumulative"]
-        cum["pointsFor"] = round(cum["pointsFor"], 2)
-        cum["pointsAgainst"] = round(cum["pointsAgainst"], 2)
+
+    for owner_id, manager in snapshot.managers.by_owner_id.items():
+        cum = cumulative.get(owner_id, {})
+        capital = weighted_stockpile_for_owner(snapshot, owner_id)
+        fr = {
+            **manager.to_public_dict(),
+            "cumulative": {
+                "wins": cum.get("wins", 0),
+                "losses": cum.get("losses", 0),
+                "ties": cum.get("ties", 0),
+                "pointsFor": round(cum.get("pointsFor", 0.0), 2),
+                "pointsAgainst": round(cum.get("pointsAgainst", 0.0), 2),
+                "seasonsPlayed": cum.get("seasonsPlayed", 0),
+                "championships": cum.get("championships", 0),
+                "finalsAppearances": cum.get("finalsAppearances", 0),
+                "playoffAppearances": cum.get("playoffAppearances", 0),
+                "regularSeasonFirstPlace": cum.get("regularSeasonFirstPlace", 0),
+                "bestFinish": cum.get("bestFinish"),
+                "worstFinish": cum.get("worstFinish"),
+            },
+            "seasonResults": sorted(
+                per_owner_season.get(owner_id, []),
+                key=lambda r: (r["season"], r["rosterId"]),
+            ),
+            "topRival": _top_rival_for(owner_id, rivalries_section),
+            "tradeCount": trade_counts.get(owner_id, {}).get("trades", 0),
+            "waiverCount": trade_counts.get(owner_id, {}).get("waivers", 0),
+            "draftCapital": capital,
+            "awardShelf": [],
+        }
         detail[owner_id] = fr
         index.append({
             "ownerId": owner_id,
             "displayName": fr["displayName"],
             "currentTeamName": fr["currentTeamName"],
             "avatar": fr.get("avatar") or "",
-            "seasonsPlayed": cum["seasonsPlayed"],
-            "wins": cum["wins"],
-            "losses": cum["losses"],
-            "championships": cum["championships"],
+            "seasonsPlayed": fr["cumulative"]["seasonsPlayed"],
+            "wins": fr["cumulative"]["wins"],
+            "losses": fr["cumulative"]["losses"],
+            "championships": fr["cumulative"]["championships"],
+            "bestFinish": fr["cumulative"]["bestFinish"],
         })
-    index.sort(key=lambda r: (-r["championships"], -r["wins"], r["displayName"].lower()))
+
+    index.sort(
+        key=lambda r: (
+            -(r["championships"] or 0),
+            r["bestFinish"] or 999,
+            -(r["wins"] or 0),
+            r["displayName"].lower(),
+        )
+    )
     return {"index": index, "detail": detail}
 
 
 def build_franchise_detail(snapshot: PublicLeagueSnapshot, owner_id: str) -> dict[str, Any] | None:
-    """Return a single franchise detail page, or ``None`` if unknown."""
     section = build_section(snapshot)
-    detail = section.get("detail") or {}
-    return detail.get(str(owner_id or "")) or None
+    return (section.get("detail") or {}).get(str(owner_id or "")) or None

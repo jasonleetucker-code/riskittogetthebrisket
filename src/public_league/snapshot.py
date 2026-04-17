@@ -8,9 +8,10 @@ containing private rankings / edge signals.  The only inputs are the
 league id + the Sleeper public API (via ``sleeper_client``).
 
 The snapshot is intentionally "dumb": it pulls the raw Sleeper
-payloads and normalizes them minimally (identity, season ordering).
-Section modules do the actual compute on top of this snapshot so
-every section sees the same consistent input.
+payloads and normalizes them minimally (identity, season ordering,
+regular-season-vs-playoff week partitioning).  Section modules do the
+actual compute on top of this snapshot so every section sees the same
+consistent input.
 """
 from __future__ import annotations
 
@@ -27,7 +28,12 @@ from .sleeper_client import PUBLIC_MAX_SEASONS
 # season + full playoffs covers every dynasty scoring format Sleeper
 # supports today.  Weeks with no games return [] from Sleeper so the
 # over-fetch is cheap.
-_WEEK_RANGE = range(1, 19)
+MAX_WEEKS = 18
+_WEEK_RANGE = range(1, MAX_WEEKS + 1)
+
+# Default playoff start week used when Sleeper does not surface one.
+# 15 matches the most common dynasty / standard league format.
+DEFAULT_PLAYOFF_WEEK_START = 15
 
 
 @dataclass
@@ -63,6 +69,65 @@ class SeasonSnapshot:
             return total_rosters
         return len(self.rosters)
 
+    @property
+    def playoff_week_start(self) -> int:
+        """First playoff week.  Falls back to ``DEFAULT_PLAYOFF_WEEK_START``.
+
+        Sleeper stores this on the league ``settings`` block under
+        ``playoff_week_start``.  We accept an integer-ish string as well.
+        """
+        settings = self.league.get("settings") or {}
+        raw = settings.get("playoff_week_start")
+        try:
+            val = int(raw)
+            if val > 0:
+                return val
+        except (TypeError, ValueError):
+            pass
+        return DEFAULT_PLAYOFF_WEEK_START
+
+    @property
+    def regular_season_weeks(self) -> list[int]:
+        """Weeks that count toward regular-season standings."""
+        start_playoffs = self.playoff_week_start
+        return sorted(w for w in self.matchups_by_week if w < start_playoffs)
+
+    @property
+    def playoff_weeks(self) -> list[int]:
+        start_playoffs = self.playoff_week_start
+        return sorted(w for w in self.matchups_by_week if w >= start_playoffs)
+
+    @property
+    def all_weeks(self) -> list[int]:
+        return sorted(self.matchups_by_week.keys())
+
+    def trades(self) -> list[dict[str, Any]]:
+        """Flatten all completed trades across weeks (chronological)."""
+        out: list[dict[str, Any]] = []
+        for week in sorted(self.transactions_by_week.keys()):
+            for tx in self.transactions_by_week[week]:
+                if str(tx.get("type") or "").lower() != "trade":
+                    continue
+                if str(tx.get("status") or "").lower() != "complete":
+                    continue
+                out.append({**tx, "_leg": week})
+        out.sort(key=lambda tx: int(tx.get("created") or tx.get("status_updated") or 0))
+        return out
+
+    def waivers(self) -> list[dict[str, Any]]:
+        """Flatten all completed waiver / FA transactions across weeks."""
+        out: list[dict[str, Any]] = []
+        for week in sorted(self.transactions_by_week.keys()):
+            for tx in self.transactions_by_week[week]:
+                ttype = str(tx.get("type") or "").lower()
+                if ttype not in {"waiver", "free_agent"}:
+                    continue
+                if str(tx.get("status") or "").lower() != "complete":
+                    continue
+                out.append({**tx, "_leg": week})
+        out.sort(key=lambda tx: int(tx.get("created") or tx.get("status_updated") or 0))
+        return out
+
 
 @dataclass
 class PublicLeagueSnapshot:
@@ -71,6 +136,9 @@ class PublicLeagueSnapshot:
     generated_at: str
     seasons: list[SeasonSnapshot] = field(default_factory=list)
     managers: ManagerRegistry = field(default_factory=ManagerRegistry)
+    # Keyed by str(player_id) — Sleeper player dump.  May be empty if
+    # the NFL players endpoint was unreachable.
+    nfl_players: dict[str, Any] = field(default_factory=dict)
 
     @property
     def current_season(self) -> SeasonSnapshot | None:
@@ -94,6 +162,35 @@ class PublicLeagueSnapshot:
             if s.league_id == want:
                 return s
         return None
+
+    def season_by_year(self, season: str | int) -> SeasonSnapshot | None:
+        want = str(season)
+        for s in self.seasons:
+            if s.season == want:
+                return s
+        return None
+
+    def player_display(self, player_id: str | None) -> str:
+        """Return a human-readable name for a Sleeper player_id, or ``""``."""
+        if not player_id:
+            return ""
+        p = self.nfl_players.get(str(player_id))
+        if not isinstance(p, dict):
+            return ""
+        full = p.get("full_name")
+        if full:
+            return str(full)
+        first = str(p.get("first_name") or "").strip()
+        last = str(p.get("last_name") or "").strip()
+        return f"{first} {last}".strip() or str(player_id)
+
+    def player_position(self, player_id: str | None) -> str:
+        if not player_id:
+            return ""
+        p = self.nfl_players.get(str(player_id))
+        if not isinstance(p, dict):
+            return ""
+        return str(p.get("position") or "").upper()
 
 
 def _fetch_season(league_obj: dict[str, Any]) -> SeasonSnapshot:
@@ -144,6 +241,7 @@ def _fetch_season(league_obj: dict[str, Any]) -> SeasonSnapshot:
 def build_public_snapshot(
     root_league_id: str,
     max_seasons: int = PUBLIC_MAX_SEASONS,
+    include_nfl_players: bool = True,
 ) -> PublicLeagueSnapshot:
     """Build a PublicLeagueSnapshot for the last ``max_seasons`` dynasty
     seasons starting from ``root_league_id``.
@@ -152,6 +250,9 @@ def build_public_snapshot(
     the chain is shorter than ``max_seasons`` (e.g. league is in its
     first season), the snapshot simply has fewer entries — every
     section module handles the short case.
+
+    ``include_nfl_players`` controls whether we fetch the ~5 MB
+    players/nfl dump.  Tests pass ``False``; production fetches it.
     """
     snapshot = PublicLeagueSnapshot(
         root_league_id=str(root_league_id or "").strip(),
@@ -175,4 +276,9 @@ def build_public_snapshot(
             for s in snapshot.seasons
         ]
     )
+    if include_nfl_players:
+        try:
+            snapshot.nfl_players = sleeper_client.fetch_nfl_players() or {}
+        except Exception:  # noqa: BLE001
+            snapshot.nfl_players = {}
     return snapshot

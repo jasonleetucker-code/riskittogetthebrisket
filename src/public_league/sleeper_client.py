@@ -110,6 +110,33 @@ def fetch_losers_bracket(league_id: str) -> list[dict[str, Any]]:
     return data if isinstance(data, list) else []
 
 
+# Module-level cache for the (large) NFL players dump.  Fetched lazily
+# the first time a section needs player position data and shared across
+# every subsequent snapshot build.  ~5 MB from Sleeper — we cache it
+# for the life of the process.
+_nfl_players_cache: dict[str, Any] | None = None
+
+
+def fetch_nfl_players() -> dict[str, Any]:
+    """Return Sleeper's ``players/nfl`` dump keyed by player_id.
+
+    Graceful fallback: empty dict on any network or parse error so the
+    public pipeline can still render without position breakdowns.
+    """
+    global _nfl_players_cache
+    if _nfl_players_cache is not None:
+        return _nfl_players_cache
+    data = _request_json(f"{SLEEPER_BASE}/players/nfl", timeout=30.0)
+    _nfl_players_cache = data if isinstance(data, dict) else {}
+    return _nfl_players_cache
+
+
+def reset_nfl_players_cache() -> None:
+    """Test hook — clear the cached NFL players dump."""
+    global _nfl_players_cache
+    _nfl_players_cache = None
+
+
 def walk_league_chain(start_league_id: str, max_seasons: int = PUBLIC_MAX_SEASONS) -> list[dict[str, Any]]:
     """Follow ``previous_league_id`` links up to ``max_seasons`` hops.
 

@@ -171,13 +171,21 @@ class SectionCoverageTests(unittest.TestCase):
         s = self.contract["sections"]["activity"]
         self.assertIn("feed", s)
         self.assertIn("totalCount", s)
-        # Our fixture has one trade — it should survive.
-        self.assertEqual(s["totalCount"], 1)
+        # Our fixture has two completed trades (2025 wk3, 2024 wk5).
+        self.assertEqual(s["totalCount"], 2)
 
     def test_draft_drafts(self) -> None:
         s = self.contract["sections"]["draft"]
-        self.assertIn("drafts", s)
-        self.assertIn("remainingCapital", s)
+        for block in (
+            "drafts",
+            "pickOwnership",
+            "stockpileLeaderboard",
+            "mostPicksOwned",
+            "fewestPicksOwned",
+            "mostTradedPick",
+            "pickMovementTrail",
+        ):
+            self.assertIn(block, s)
 
     def test_weekly_weeks(self) -> None:
         s = self.contract["sections"]["weekly"]
@@ -185,12 +193,30 @@ class SectionCoverageTests(unittest.TestCase):
 
     def test_superlatives(self) -> None:
         s = self.contract["sections"]["superlatives"]
-        for block in ("hardLuck", "luckyDuck", "tradeMachine", "mostImproved", "couchCoach"):
+        for block in (
+            "mostQbHeavy",
+            "mostRbHeavy",
+            "mostWrHeavy",
+            "mostTeHeavy",
+            "mostIdpHeavy",
+            "mostPickHeavy",
+            "mostRookieHeavy",
+            "mostBalanced",
+            "mostActive",
+            "mostFutureFocused",
+        ):
             self.assertIn(block, s)
 
     def test_archives_indices(self) -> None:
         s = self.contract["sections"]["archives"]
-        for block in ("managers", "trades", "draftPicks", "weekScores"):
+        for block in (
+            "managers",
+            "trades",
+            "waivers",
+            "weeklyMatchups",
+            "rookieDrafts",
+            "seasonResults",
+        ):
             self.assertIn(block, s)
 
 
