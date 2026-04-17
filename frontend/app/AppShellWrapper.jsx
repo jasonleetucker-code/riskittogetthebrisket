@@ -53,7 +53,7 @@ function DesktopNav() {
           Risk It To Get The Brisket
         </Link>
         <nav className="nav">
-          {PRIMARY_NAV.map((item) => {
+          {PRIMARY_NAV.filter((item) => authenticated || PUBLIC_ROUTES.has(item.href)).map((item) => {
             const active = pathname === item.href || pathname?.startsWith(item.href + "/");
             return (
               <Link
@@ -91,11 +91,15 @@ function DesktopNav() {
 // ── Mobile bottom navigation bar ─────────────────────────────────────────
 function MobileNav() {
   const pathname = usePathname();
+  const { authenticated } = useContext(AuthContext);
+
+  const visibleItems = MOBILE_NAV.filter(
+    (item) => authenticated || PUBLIC_ROUTES.has(item.href),
+  );
 
   function isActive(href) {
     if (href === "/more") {
-      // "More" is active for routes not covered by other mobile tabs
-      const otherMobile = MOBILE_NAV.filter((n) => n.href !== "/more").map((n) => n.href);
+      const otherMobile = visibleItems.filter((n) => n.href !== "/more").map((n) => n.href);
       return !otherMobile.some(
         (h) => pathname === h || pathname?.startsWith(h + "/"),
       );
@@ -105,7 +109,7 @@ function MobileNav() {
 
   return (
     <nav className="mobile-bottom-nav mobile-only" aria-label="Mobile Navigation">
-      {MOBILE_NAV.map((item) => (
+      {visibleItems.map((item) => (
         <Link
           key={item.href}
           href={item.href}
