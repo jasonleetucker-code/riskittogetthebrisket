@@ -18,11 +18,13 @@ const PRIMARY_NAV = [
   { href: "/more", label: "More" },
 ];
 
-// Mobile bottom nav — 4-tab model
+// Mobile bottom nav — 3-tab model.  /league is intentionally NOT in
+// this bar.  Users reach it via the More menu + desktop top nav; the
+// league content (including Draft Capital) lives behind a single
+// entry instead of a redundant bottom-row tab.
 const MOBILE_NAV = [
   { href: "/rankings", label: "Ranks", icon: "R" },
   { href: "/trade", label: "Trade", icon: "T" },
-  { href: "/league", label: "League", icon: "L" },
   { href: "/more", label: "More", icon: "M" },
 ];
 
@@ -96,12 +98,9 @@ function MobileNav() {
   const pathname = usePathname();
   const { authenticated } = useContext(AuthContext);
 
-  const onLeagueRoute = pathname === "/league" || pathname?.startsWith("/league/");
-  const visibleItems = MOBILE_NAV.filter((item) => {
-    if (!(authenticated || PUBLIC_ROUTES.has(item.href))) return false;
-    if (item.href === "/league" && !onLeagueRoute) return false;
-    return true;
-  });
+  const visibleItems = MOBILE_NAV.filter((item) =>
+    authenticated || PUBLIC_ROUTES.has(item.href),
+  );
 
   function isActive(href) {
     if (href === "/more") {
