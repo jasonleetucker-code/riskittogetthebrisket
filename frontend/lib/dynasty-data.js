@@ -349,6 +349,24 @@ export const RANKING_SOURCES = [
     needsSharedMarketTranslation: true,
     excludesRookies: true,
   },
+  {
+    // Flock Fantasy Dynasty Superflex rankings — expert consensus.
+    // Standard SF — no TE premium.  tepMultiplier boost applies.
+    key: "flockFantasySf",
+    displayName: "Flock Fantasy Superflex",
+    columnLabel: "FF",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 370,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+  },
 ];
 
 // ── Retail source registry helpers ───────────────────────────────────

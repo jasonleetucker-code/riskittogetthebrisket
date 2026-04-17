@@ -111,6 +111,9 @@ jobs:
           # Fetch Dynasty Daddy SF rankings
           python scripts/fetch_dynasty_daddy.py --mirror-data-dir 2>/dev/null || echo "::warning title=Dynasty Daddy fetch failed::Non-fatal — continuing"
 
+          # Fetch Flock Fantasy SF rankings
+          python scripts/fetch_flock_fantasy.py --mirror-data-dir 2>/dev/null || echo "::warning title=Flock Fantasy fetch failed::Non-fatal — continuing"
+
           # Verify at least KTC data was produced (primary source)
           if [[ -f "CSVs/site_raw/ktc.csv" ]]; then
             KTC_LINES=$(wc -l < "CSVs/site_raw/ktc.csv")

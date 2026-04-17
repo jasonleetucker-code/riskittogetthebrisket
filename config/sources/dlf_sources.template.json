@@ -126,6 +126,30 @@
         "is_backbone": false
       },
       "notes": "Dynasty Daddy SF trade values via JSON API (?market=14). Standard SF scoring — no TE premium. Values are crowd-sourced."
+    },
+    {
+      "enabled": true,
+      "source": "FLOCK_FANTASY_SF",
+      "contract_key": "flockFantasySf",
+      "adapter": "scraper_bridge",
+      "adapter_version": "1.0.0",
+      "season": "2026",
+      "format_key": "dynasty_sf",
+      "universe": "offense_vet",
+      "ingest_type": "api_fetch",
+      "ingest_method": "json_api",
+      "source_url": "https://flockfantasy.com/rankings?format=superflex",
+      "scoring_context": "dynasty superflex (Flock Fantasy expert consensus, multi-expert averaged ranks)",
+      "includes_sf": true,
+      "includes_tep": false,
+      "file": "CSVs/site_raw/flockFantasySf.csv",
+      "signal_type": "rank",
+      "scope": {
+        "kind": "overall_offense",
+        "depth": 370,
+        "is_backbone": false
+      },
+      "notes": "Flock Fantasy SF dynasty rankings via JSON API (?format=superflex). Expert consensus averaged ranks. Standard SF — no TE premium."
     }
   ]
 }

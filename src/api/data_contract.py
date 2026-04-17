@@ -210,6 +210,15 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # so the ``_enrich_from_source_csvs`` reader uses the value column
     # directly, same as KTC.
     "dynastyDaddySf": "CSVs/site_raw/dynastyDaddySf.csv",
+    # Flock Fantasy Dynasty Superflex rankings — expert consensus from
+    # https://flockfantasy.com via JSON API (?format=superflex).
+    # Multi-expert averaged ranks (~368 offensive players after
+    # filtering).  Signal=rank so the ``_enrich_from_source_csvs``
+    # reader uses the rank column, not a value column.
+    "flockFantasySf": {
+        "path": "CSVs/site_raw/flockFantasySf.csv",
+        "signal": "rank",
+    },
 }
 
 # Rank -> synthetic value transform used when a CSV declares signal=rank.
@@ -231,6 +240,7 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     "dynastyNerdsSfTep": 6,
     "fantasyProsIdp": 6,
     "dynastyDaddySf": 6,
+    "flockFantasySf": 168,
     "dlfIdp": 720,
     "dlfSf": 720,
 }
@@ -251,6 +261,7 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # ~75% of live baseline so a scrape regression trips a warning.
     "fantasyProsIdp": 75,
     "dynastyDaddySf": 250,
+    "flockFantasySf": 250,
 }
 
 
@@ -740,6 +751,24 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # detection still fires for DLF+FP-excluded rookies.
         "excludes_rookies": True,
     },
+    {
+        # Flock Fantasy Dynasty Superflex rankings — expert consensus
+        # from https://flockfantasy.com.  Multi-expert averaged ranks.
+        # Standard SF — no TE premium baked in.  The frontend
+        # `settings.tepMultiplier` boost applies to its blended
+        # contribution for TE-position players.
+        "key": "flockFantasySf",
+        "display_name": "Flock Fantasy Superflex",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": 370,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+    },
 ]
 
 
@@ -818,6 +847,10 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     "brenen thompson": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds — deep WR only ranked by FantasyPros dynasty SF",
     "eric mcalister": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds — deep WR only ranked by FantasyPros dynasty SF",
     "roman hemby": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds — deep RB only ranked by FantasyPros dynasty SF",
+    # ── Offense: Flock-Fantasy-SF-only (not listed by other offense sources) ──
+    # Deep-board veterans that Flock Fantasy's expert consensus ranks but
+    # no other source currently carries.
+    "adam thielen": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds+fantasyPros — veteran WR only ranked by Flock Fantasy SF",
 }
 
 
