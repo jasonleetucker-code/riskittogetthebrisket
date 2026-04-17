@@ -220,6 +220,95 @@ class SectionCoverageTests(unittest.TestCase):
             self.assertIn(block, s)
 
 
+class ActivityGradingTests(unittest.TestCase):
+    """Server-side trade grades on the public activity feed.
+
+    Grades mirror the private ``/trades`` page letter grades but the
+    raw values used to compute them never touch the payload — the
+    contract safety assert + blocklist still hold.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        install_stubs(build_stub_client())
+        cls.snapshot = build_public_snapshot("L2025", max_seasons=2)
+
+    def test_activity_feed_has_no_grades_without_valuation(self) -> None:
+        # Regression: default callers (no valuation) keep the pre-existing
+        # contract shape — grades are strictly opt-in.
+        contract = build_public_contract(self.snapshot)
+        feed = contract["sections"]["activity"]["feed"]
+        self.assertGreater(len(feed), 0)
+        for trade in feed:
+            for side in trade.get("sides") or []:
+                self.assertNotIn("grade", side)
+
+    def test_activity_feed_gains_grades_when_valuation_supplied(self) -> None:
+        # Value every "p-rb2" higher than "p-wr2" so the two-player
+        # swap in TRADE_2025_WK3 is lopsided enough to exit the
+        # Fair-trade bucket (pct >= 3).  Picks are valued low so the
+        # pick-swap does not wash out the player edge.
+        player_values = {
+            "p-rb2": 8000.0,
+            "p-wr2": 2000.0,
+            "p-wr3": 1500.0,
+        }
+
+        def _valuation(asset):
+            if not isinstance(asset, dict):
+                return 0.0
+            if asset.get("kind") == "player":
+                return player_values.get(str(asset.get("playerId") or ""), 0.0)
+            if asset.get("kind") == "pick":
+                return 200.0
+            return 0.0
+
+        contract = build_public_contract(
+            self.snapshot, activity_valuation=_valuation,
+        )
+        feed = contract["sections"]["activity"]["feed"]
+        graded_sides = [
+            side for trade in feed for side in (trade.get("sides") or [])
+            if "grade" in side
+        ]
+        # At least the 2025 two-player swap should be graded.
+        self.assertGreater(len(graded_sides), 0)
+        for side in graded_sides:
+            grade = side["grade"]
+            self.assertIn(grade["grade"], {"A", "A-", "A+", "B+", "B", "C", "D", "F"})
+            self.assertIn("label", grade)
+            self.assertIn("color", grade)
+            # Raw values MUST NOT accompany the grade block.
+            self.assertNotIn("weighted", side)
+            self.assertNotIn("totalValue", side)
+
+        # The full contract must still pass the public safety assert
+        # even with grades present — grade/label/color field names are
+        # not on the blocklist.
+        assert_public_payload_safe(contract)
+
+    def test_activity_section_payload_threads_valuation(self) -> None:
+        # The per-section endpoint (/api/public/league/activity) also
+        # honors the optional valuation kwarg.  Uniform player values
+        # + uniform pick values → the 2025 swap is balanced and both
+        # sides land in the "Fair trade" bucket.
+        def _valuation(asset):
+            if isinstance(asset, dict) and asset.get("kind") == "player":
+                return 1000.0
+            return 100.0
+
+        payload = build_section_payload(
+            self.snapshot, "activity", activity_valuation=_valuation,
+        )
+        feed = payload["data"]["feed"]
+        self.assertGreater(len(feed), 0)
+        trade_2025 = next(t for t in feed if t["transactionId"] == "tx-2025-a")
+        grades = [side["grade"]["grade"] for side in trade_2025["sides"]]
+        self.assertEqual(grades, ["A", "A"])
+        labels = {side["grade"]["label"] for side in trade_2025["sides"]}
+        self.assertEqual(labels, {"Fair trade"})
+
+
 class ImportSurfaceTests(unittest.TestCase):
     """Enforce the public pipeline never imports private internals."""
 

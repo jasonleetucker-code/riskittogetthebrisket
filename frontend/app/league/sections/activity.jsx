@@ -119,13 +119,23 @@ function TradeCard({ trade, managers, onNavigate }) {
         {(trade.sides || []).map((side, i) => (
           <div key={i} style={{ minWidth: 0 }}>
             <div
-              style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: "0.86rem" }}
+              style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: "0.86rem", flexWrap: "wrap" }}
               onClick={() => onNavigate && side.ownerId && onNavigate("franchise", { owner: side.ownerId })}
             >
               <Avatar managers={managers} ownerId={side.ownerId} size={20} />
               <span style={{ cursor: side.ownerId ? "pointer" : "default", color: side.ownerId ? "var(--cyan)" : "var(--text)" }}>
                 {side.displayName || side.teamName || nameFor(managers, side.ownerId)}
               </span>
+              {side.grade && (
+                <>
+                  <span style={{ fontSize: "0.78rem", fontWeight: 800, color: side.grade.color }}>
+                    {side.grade.grade}
+                  </span>
+                  <span style={{ fontSize: "0.58rem", color: "var(--subtext)", fontWeight: 500 }}>
+                    {side.grade.label}
+                  </span>
+                </>
+              )}
             </div>
             <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginTop: 2 }}>Received:</div>
             <ul style={{ paddingInlineStart: 16, margin: "4px 0 0", fontSize: "0.72rem" }}>

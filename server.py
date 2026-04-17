@@ -2957,6 +2957,105 @@ from src.public_league import player_journey as public_player_journey
 _PUBLIC_LEAGUE_CACHE_TTL_SECONDS = int(os.getenv("PUBLIC_LEAGUE_CACHE_TTL", "300"))
 _PUBLIC_LEAGUE_PERSIST = _env_bool("PUBLIC_LEAGUE_PERSIST_SNAPSHOT", True)
 _PUBLIC_LEAGUE_WARMUP = _env_bool("PUBLIC_LEAGUE_WARMUP_AT_STARTUP", True)
+
+
+# Round ordinals used when synthesizing canonical pick names from the
+# ``(season, round)`` the public activity feed carries.  Matches the
+# labels used in ``src/api/data_contract.py`` and the frontend
+# ``frontend/lib/trade-logic.js`` pick candidate builder.
+_PUBLIC_ACTIVITY_ROUND_LABELS = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th", 6: "6th"}
+
+
+def _build_public_activity_valuation():
+    """Build a valuation callable for the public activity trade feed.
+
+    Reads the cached private canonical contract (``latest_contract_data``)
+    and returns a callable ``(asset_dict) -> float``.  The public
+    activity section uses this callable server-side to compute trade
+    letter grades on the public timeline.  The raw values themselves
+    never leave the backend — only the derived ``{grade, color,
+    label}`` block is emitted on the public payload.
+
+    Returns ``None`` when the private contract is unavailable (fresh
+    server, scraper failure).  In that case the public activity feed
+    ships without grade annotations, which is the pre-existing
+    behavior.
+    """
+    contract = latest_contract_data
+    if not contract:
+        return None
+    players_array = contract.get("playersArray") or []
+    if not players_array:
+        return None
+
+    by_id: dict[str, float] = {}
+    by_name: dict[str, float] = {}
+    for row in players_array:
+        if not isinstance(row, dict):
+            continue
+        raw_val = (row.get("values") or {}).get("full")
+        try:
+            val = float(raw_val)
+        except (TypeError, ValueError):
+            continue
+        if val <= 0:
+            continue
+        pid = str(row.get("playerId") or "").strip()
+        if pid:
+            by_id[pid] = val
+        name = str(row.get("displayName") or row.get("canonicalName") or "").strip()
+        if name:
+            by_name[name.lower()] = val
+
+    if not by_id and not by_name:
+        return None
+
+    def _pick_value(season, round_) -> float:
+        try:
+            round_int = int(round_)
+        except (TypeError, ValueError):
+            return 0.0
+        label = _PUBLIC_ACTIVITY_ROUND_LABELS.get(round_int)
+        season_str = str(season or "").strip()
+        if not label or not season_str:
+            return 0.0
+        # The public feed carries only (season, round) — no slot — so
+        # we probe tier-center candidates first (Mid) and then Early
+        # / Late and finally slot-specific rows for years the
+        # canonical pipeline enumerates per-slot.
+        candidates = (
+            f"{season_str} Mid {label}",
+            f"{season_str} Early {label}",
+            f"{season_str} Late {label}",
+            f"{season_str} Pick {round_int}.06",
+            f"{season_str} Pick {round_int}.04",
+            f"{season_str} Pick {round_int}.08",
+        )
+        for cand in candidates:
+            hit = by_name.get(cand.lower())
+            if hit is not None:
+                return hit
+        return 0.0
+
+    def _valuation(asset) -> float:
+        if not isinstance(asset, dict):
+            return 0.0
+        kind = asset.get("kind")
+        if kind == "player":
+            pid = str(asset.get("playerId") or "").strip()
+            if pid:
+                v = by_id.get(pid)
+                if v is not None:
+                    return v
+            name = str(asset.get("playerName") or "").strip()
+            if name:
+                return by_name.get(name.lower(), 0.0)
+            return 0.0
+        if kind == "pick":
+            return _pick_value(asset.get("season"), asset.get("round"))
+        return 0.0
+
+    return _valuation
 _public_league_cache: dict = {
     "snapshot": None,
     "snapshot_league_id": None,
@@ -3104,7 +3203,10 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
         contract_bytes = None
         if _PUBLIC_LEAGUE_PERSIST and snapshot.seasons:
             try:
-                contract = build_public_contract(snapshot)
+                contract = build_public_contract(
+                    snapshot,
+                    activity_valuation=_build_public_activity_valuation(),
+                )
                 public_snapshot_store.persist_snapshot(snapshot, contract=contract)
                 contract_bytes = len(json.dumps(contract).encode("utf-8"))
                 _public_league_metrics["last_contract_bytes"] = contract_bytes
@@ -3257,7 +3359,10 @@ async def get_public_league(refresh: str = ""):
     """
     try:
         snapshot = _get_public_snapshot(force_refresh=bool(refresh))
-        payload = build_public_contract(snapshot)
+        payload = build_public_contract(
+            snapshot,
+            activity_valuation=_build_public_activity_valuation(),
+        )
         assert_public_payload_safe(payload)
         return JSONResponse(
             content=payload,
@@ -3530,7 +3635,11 @@ async def get_public_league_section(section: str, owner: str = "", refresh: str 
         )
     try:
         snapshot = _get_public_snapshot(force_refresh=bool(refresh))
-        payload = build_section_payload(snapshot, section)
+        payload = build_section_payload(
+            snapshot,
+            section,
+            activity_valuation=_build_public_activity_valuation(),
+        )
         if section == "franchise" and owner:
             detail_map = payload.get("data", {}).get("detail") or {}
             payload["franchiseDetail"] = detail_map.get(str(owner).strip())
