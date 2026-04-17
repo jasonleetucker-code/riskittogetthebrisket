@@ -25,7 +25,7 @@ const VERDICT_STRONG_LEAN = 1800;
 // ── Power-Weighted Calculation ───────────────────────────────────────────
 // Alpha exponent concentrates value at the top — a star + role player is
 // worth more than two mid-tier pieces.  Matches static calculator exactly.
-export const TRADE_ALPHA = 1.45;
+export const TRADE_ALPHA = 1.65;
 
 // ── Pick Year Discount ──────────────────────────────────────────────────
 // Future-year picks are worth less than current-year picks.
