@@ -287,6 +287,60 @@ class ActivityGradingTests(unittest.TestCase):
         # not on the blocklist.
         assert_public_payload_safe(contract)
 
+    def test_activity_grades_all_sides_fair_when_every_value_is_zero(self) -> None:
+        # When the private contract has no value for any asset in the
+        # trade, grading must still emit a neutral "Fair trade" badge
+        # on every side.  Silently dropping grade blocks here would
+        # inconsistently hide badges on trades full of unranked
+        # assets — the private /trades page treats zero-gap trades
+        # as fair, so this path mirrors that behavior.
+        def _valuation(_asset):
+            return 0.0
+
+        contract = build_public_contract(
+            self.snapshot, activity_valuation=_valuation,
+        )
+        feed = contract["sections"]["activity"]["feed"]
+        self.assertGreater(len(feed), 0)
+        for trade in feed:
+            for side in trade.get("sides") or []:
+                self.assertEqual(side["grade"]["grade"], "A")
+                self.assertEqual(side["grade"]["label"], "Fair trade")
+
+    def test_activity_grades_mark_only_top_and_bottom_in_multi_team(self) -> None:
+        # Simulate a 3-team lopsided trade by valuing the winner's
+        # received assets high, the loser's low, and the middle
+        # side exactly at the winner's total minus a hair so it is
+        # neither max nor min.  The private /trades grading only
+        # decorates the extremes — middle sides get "Fair trade".
+        #
+        # We synthesize this directly against the internal grading
+        # helper so the test doesn't depend on the stub trade feed
+        # having a 3-side transaction.
+        from src.public_league.activity import _apply_trade_grades
+
+        trade = {
+            "transactionId": "synthetic-3way",
+            "sides": [
+                {"receivedAssets": [{"kind": "player", "playerId": "top"}]},
+                {"receivedAssets": [{"kind": "player", "playerId": "mid"}]},
+                {"receivedAssets": [{"kind": "player", "playerId": "bot"}]},
+            ],
+        }
+        values = {"top": 10000.0, "mid": 5000.0, "bot": 100.0}
+
+        def _valuation(asset):
+            return values.get(str(asset.get("playerId") or ""), 0.0)
+
+        _apply_trade_grades([trade], _valuation)
+        grades = [s["grade"]["grade"] for s in trade["sides"]]
+        labels = [s["grade"]["label"] for s in trade["sides"]]
+        # Top-weighted side earns a winner grade (A/A-/A+), bottom
+        # earns a loser grade (B/C/D/F), middle is neutral Fair.
+        self.assertIn(grades[0], {"A", "A-", "A+", "B+"})
+        self.assertEqual(labels[1], "Fair trade")
+        self.assertIn(grades[2], {"B+", "B", "C", "D", "F"})
+
     def test_activity_section_payload_threads_valuation(self) -> None:
         # The per-section endpoint (/api/public/league/activity) also
         # honors the optional valuation kwarg.  Uniform player values

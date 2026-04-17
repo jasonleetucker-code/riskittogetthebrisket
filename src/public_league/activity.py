@@ -99,15 +99,42 @@ def _apply_trade_grades(
                 if val > 0:
                     total += pow(max(val, 1.0), _GRADE_ALPHA)
             weighted.append(total)
-        max_w = max(weighted) if weighted else 0.0
-        if max_w <= 0:
-            continue
+        max_w = max(weighted)
         min_w = min(weighted)
+        # All-zero case (no asset on any side resolved to a value):
+        # treat as a fair trade — private grading does the same, and
+        # silently omitting badges here would inconsistently hide the
+        # grade block on trades full of unranked assets.
+        if max_w <= 0:
+            fair = _grade_from_pct(0.0, True)
+            for side in sides:
+                side["grade"] = fair
+            continue
         pct = ((max_w - min_w) / max_w) * 100.0
-        fair_deal = pct < _GRADE_PCT_FAIR
+        # Mirror the private /trades grading: only the top-weighted
+        # side can earn a "winner" grade and only the bottom-weighted
+        # side can earn a "loser" grade.  Middle sides in 3+ team
+        # trades get the neutral "Fair trade" badge so they are not
+        # mislabeled as overpayers.
+        if pct < _GRADE_PCT_FAIR:
+            fair = _grade_from_pct(pct, True)
+            for side in sides:
+                side["grade"] = fair
+            continue
+        winner_grade = _grade_from_pct(pct, True)
+        loser_grade = _grade_from_pct(pct, False)
+        fair_grade = _grade_from_pct(0.0, True)
+        winner_assigned = False
+        loser_assigned = False
         for i, side in enumerate(sides):
-            is_winner = weighted[i] == max_w
-            side["grade"] = _grade_from_pct(pct, True if fair_deal else is_winner)
+            if not winner_assigned and weighted[i] == max_w:
+                side["grade"] = winner_grade
+                winner_assigned = True
+            elif not loser_assigned and weighted[i] == min_w:
+                side["grade"] = loser_grade
+                loser_assigned = True
+            else:
+                side["grade"] = fair_grade
 
 
 def _pick_asset(pick: dict[str, Any], snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
