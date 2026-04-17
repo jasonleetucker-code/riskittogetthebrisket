@@ -3115,9 +3115,7 @@ async def serve_finder(request: Request):
 
 @app.get("/trades", response_class=HTMLResponse)
 async def serve_trades(request: Request):
-    redirect = _require_auth_or_redirect(request, "/trades")
-    if redirect is not None:
-        return redirect
+    # Public page — no auth required
     return await _serve_app_shell("/trades")
 
 

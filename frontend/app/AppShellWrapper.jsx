@@ -26,7 +26,7 @@ const MOBILE_NAV = [
 ];
 
 // Routes that do NOT require auth (public pages)
-const PUBLIC_ROUTES = new Set(["/", "/login", "/draft-capital"]);
+const PUBLIC_ROUTES = new Set(["/", "/login", "/draft-capital", "/trades"]);
 
 // ── Auth context ─────────────────────────────────────────────────────────
 const AuthContext = createContext({
