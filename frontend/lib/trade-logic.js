@@ -22,10 +22,30 @@ const VERDICT_NEAR_EVEN = 350;
 const VERDICT_LEAN = 900;
 const VERDICT_STRONG_LEAN = 1800;
 
-// ── Power-Weighted Calculation ───────────────────────────────────────────
-// Alpha exponent concentrates value at the top — a star + role player is
-// worth more than two mid-tier pieces.  Matches static calculator exactly.
+// ── Legacy Power-Weighted Alpha (trade history only) ─────────────────────
+// The Trade Calculator no longer uses this; it has moved to the KTC-style
+// Value Adjustment model below.  `TRADE_ALPHA` is kept as a retrospective
+// grading exponent for past trades on the `/trades` history page, where a
+// consolidation premium can't be attributed after the fact.
 export const TRADE_ALPHA = 1.65;
+
+// ── KTC-Style Value Adjustment ───────────────────────────────────────────
+// Mirrors KeepTradeCut's "Value Adjustment" row: the side with fewer pieces
+// gets a consolidation / roster-spot bonus that scales with (1) how much
+// its top asset outclasses the multi-side's top asset and (2) the raw
+// value of the "extra" pieces on the multi side.  Coefficients were fit
+// to three observed KTC data points (predictions within ~3% of actuals):
+//
+//   single=9999 vs 7846+5717 → KTC VA 3712 (model 3613)
+//   single=7846 vs 5717+4829 → KTC VA 3034 (model 3091)
+//   single=7846 vs 6949+5717 → KTC VA 1166 (model 1143)
+//
+// Formula: scarcity = clamp(SLOPE · gapRatio − INTERCEPT, 0, CAP)
+//          VA = Σ extraᵢ · scarcity · POSITION_DECAYⁱ
+export const VA_SCARCITY_SLOPE = 4.27;
+export const VA_SCARCITY_INTERCEPT = 0.288;
+export const VA_SCARCITY_CAP = 0.64;
+export const VA_POSITION_DECAY = 0.70;
 
 // ── Pick Year Discount ──────────────────────────────────────────────────
 // Future-year picks are worth less than current-year picks.
@@ -80,37 +100,94 @@ export function effectiveValue(row, valueMode, settings) {
   return val;
 }
 
-/**
- * Power-weighted side total.
- * Each asset's value is raised to `alpha`, summed, then root-alpha'd back.
- * This penalizes quantity over quality.
- * @param {object[]} side - Array of player rows
- * @param {string} valueMode - Value mode key
- * @param {number} [alpha] - Power exponent
- * @param {object} [settings] - User settings (from useSettings)
- */
-export function powerWeightedTotal(side, valueMode, alpha = TRADE_ALPHA, settings = null) {
-  if (!side.length) return 0;
-  const sum = side.reduce((acc, r) => {
-    const v = effectiveValue(r, valueMode, settings);
-    return acc + Math.pow(Math.max(v, 0), alpha);
-  }, 0);
-  return Math.pow(sum, 1 / alpha);
-}
-
 /** Simple linear total (sum of values). */
 export function sideTotal(side, valueMode, settings = null) {
   return side.reduce((sum, r) => sum + effectiveValue(r, valueMode, settings), 0);
 }
 
-/** Gap = Side A power-weighted total − Side B power-weighted total. */
-export function tradeGap(sideA, sideB, valueMode) {
-  return powerWeightedTotal(sideA, valueMode) - powerWeightedTotal(sideB, valueMode);
+/** Descending-sorted effective values for a side. */
+function sortedSideValues(side, valueMode, settings) {
+  return side
+    .map((r) => Math.max(0, effectiveValue(r, valueMode, settings)))
+    .sort((a, b) => b - a);
 }
 
-/** Linear gap (for display alongside power-weighted). */
-export function linearGap(sideA, sideB, valueMode) {
-  return sideTotal(sideA, valueMode) - sideTotal(sideB, valueMode);
+/**
+ * Compute the KTC-style Value Adjustment between two sides.
+ *
+ * The side with fewer pieces receives a bonus representing the
+ * consolidation / roster-spot premium.  The bonus scales with:
+ *   (a) how much the smaller side's top asset outclasses the larger
+ *       side's top asset (gapRatio), and
+ *   (b) the raw value of each "extra" piece on the larger side
+ *       beyond parity, decayed by POSITION_DECAY per additional slot.
+ *
+ * Returns { adjustment, recipientIdx } where:
+ *   - adjustment: ≥ 0 bonus to apply to the receiving side's total
+ *   - recipientIdx: 0 for sideA, 1 for sideB, or null when counts tie
+ *
+ * @param {object[]} sideA
+ * @param {object[]} sideB
+ * @param {string} valueMode
+ * @param {object} [settings]
+ */
+export function computeValueAdjustment(sideA, sideB, valueMode, settings = null) {
+  const aValues = sortedSideValues(sideA, valueMode, settings);
+  const bValues = sortedSideValues(sideB, valueMode, settings);
+
+  if (aValues.length === bValues.length) {
+    return { adjustment: 0, recipientIdx: null };
+  }
+
+  const recipientIdx = aValues.length < bValues.length ? 0 : 1;
+  const small = recipientIdx === 0 ? aValues : bValues;
+  const large = recipientIdx === 0 ? bValues : aValues;
+
+  if (small.length === 0 || small[0] <= 0) {
+    return { adjustment: 0, recipientIdx: null };
+  }
+
+  const topSmall = small[0];
+  const topLarge = large[0] || 0;
+  const gapRatio = Math.max(0, (topSmall - topLarge) / topSmall);
+
+  const rawScarcity = VA_SCARCITY_SLOPE * gapRatio - VA_SCARCITY_INTERCEPT;
+  const scarcity = Math.max(0, Math.min(VA_SCARCITY_CAP, rawScarcity));
+
+  if (scarcity === 0) {
+    return { adjustment: 0, recipientIdx };
+  }
+
+  const extras = large.slice(small.length);
+  let adjustment = 0;
+  for (let p = 0; p < extras.length; p++) {
+    adjustment += extras[p] * scarcity * Math.pow(VA_POSITION_DECAY, p);
+  }
+
+  return { adjustment, recipientIdx };
+}
+
+/**
+ * Adjusted per-side totals for 2-team trade display.
+ * Each entry is { raw, adjustment, adjusted } where `adjusted = raw + adjustment`
+ * and only the recipient side has a non-zero adjustment.
+ */
+export function adjustedSideTotals(sideA, sideB, valueMode, settings = null) {
+  const rawA = sideTotal(sideA, valueMode, settings);
+  const rawB = sideTotal(sideB, valueMode, settings);
+  const { adjustment, recipientIdx } = computeValueAdjustment(sideA, sideB, valueMode, settings);
+  const adjA = recipientIdx === 0 ? adjustment : 0;
+  const adjB = recipientIdx === 1 ? adjustment : 0;
+  return [
+    { raw: rawA, adjustment: adjA, adjusted: rawA + adjA },
+    { raw: rawB, adjustment: adjB, adjusted: rawB + adjB },
+  ];
+}
+
+/** Gap = Side A adjusted total − Side B adjusted total (KTC-style). */
+export function tradeGapAdjusted(sideA, sideB, valueMode, settings = null) {
+  const totals = adjustedSideTotals(sideA, sideB, valueMode, settings);
+  return totals[0].adjusted - totals[1].adjusted;
 }
 
 // ── Verdict ──────────────────────────────────────────────────────────────

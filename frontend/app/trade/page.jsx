@@ -10,7 +10,8 @@ import {
   verdictFromGap,
   colorFromGap,
   verdictBarPosition,
-  powerWeightedTotal,
+  adjustedSideTotals,
+  tradeGapAdjusted,
   sideTotal,
   effectiveValue,
   getPlayerEdge,
@@ -76,8 +77,8 @@ function TradeMeter({ sides, sideTotals, valueMode, settings }) {
 }
 
 function TradeMeterTwoTeam({ sides, sideTotals }) {
-  const pwA = sideTotals[0]?.pw || 0;
-  const pwB = sideTotals[1]?.pw || 0;
+  const pwA = sideTotals[0]?.adjusted || 0;
+  const pwB = sideTotals[1]?.adjusted || 0;
   const gap = pwA - pwB;
   const absGap = Math.abs(gap);
   const pctGap = percentageGap(pwA, pwB);
@@ -136,7 +137,7 @@ function TradeMeterTwoTeam({ sides, sideTotals }) {
 }
 
 function TradeMeterMultiTeam({ sides, sideTotals }) {
-  const totals = sideTotals.map((t) => t.pw);
+  const totals = sideTotals.map((t) => t.adjusted);
   const analysis = multiTeamAnalysis(totals);
   const grandTotal = totals.reduce((a, b) => a + b, 0);
 
@@ -299,18 +300,25 @@ export default function TradePage() {
   }, [pickerOpen]);
 
   // ── Computed totals for all sides ────────────────────────────────────
+  // 2-team mode uses KTC-style Value Adjustment: the side with fewer pieces
+  // gets a consolidation premium (see trade-logic.js).  3+ teams fall back
+  // to raw linear totals until we design a multi-team VA extension.
   const sideTotals = useMemo(() => {
-    return sides.map((s) => ({
-      pw: powerWeightedTotal(s.assets, valueMode, undefined, settings),
-      lin: sideTotal(s.assets, valueMode, settings),
-    }));
+    if (sides.length === 2) {
+      const [a, b] = adjustedSideTotals(sides[0].assets, sides[1].assets, valueMode, settings);
+      return [a, b];
+    }
+    return sides.map((s) => {
+      const raw = sideTotal(s.assets, valueMode, settings);
+      return { raw, adjustment: 0, adjusted: raw };
+    });
   }, [sides, valueMode, settings]);
 
   // Legacy 2-team gap computations (for sticky tray + 2-team balancers)
-  const pwTotalA = sideTotals[0]?.pw || 0;
-  const pwTotalB = sideTotals[1]?.pw || 0;
-  const linTotalA = sideTotals[0]?.lin || 0;
-  const linTotalB = sideTotals[1]?.lin || 0;
+  const pwTotalA = sideTotals[0]?.adjusted || 0;
+  const pwTotalB = sideTotals[1]?.adjusted || 0;
+  const linTotalA = sideTotals[0]?.raw || 0;
+  const linTotalB = sideTotals[1]?.raw || 0;
   const pwGap = pwTotalA - pwTotalB;
   const pctGap = Math.max(pwTotalA, pwTotalB) > 0 ? Math.round(Math.abs(pwGap) / Math.max(pwTotalA, pwTotalB) * 100) : 0;
 
@@ -326,7 +334,7 @@ export default function TradePage() {
   // For 3+ teams, find balancers for the team overpaying
   const multiBalancers = useMemo(() => {
     if (sides.length <= 2) return null;
-    const totals = sideTotals.map((t) => t.pw);
+    const totals = sideTotals.map((t) => t.adjusted);
     const maxIdx = totals.indexOf(Math.max(...totals));
     const minIdx = totals.indexOf(Math.min(...totals));
     const gap = totals[maxIdx] - totals[minIdx];
@@ -586,7 +594,7 @@ export default function TradePage() {
           {/* ── Side Cards ──────────────────────────────────────── */}
           <div className={sidesGridClass} style={{ paddingBottom: 78 }}>
             {sides.map((side, sideIdx) => {
-              const total = sideTotals[sideIdx] || { pw: 0, lin: 0 };
+              const total = sideTotals[sideIdx] || { raw: 0, adjustment: 0, adjusted: 0 };
               const isOverpaying = sides.length === 2
                 ? (sideIdx === 0 ? pwGap > 350 : pwGap < -350)
                 : false;
@@ -611,9 +619,19 @@ export default function TradePage() {
                       )}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div>
-                        <div className="value">{Math.round(total.pw).toLocaleString()}</div>
-                        <div className="muted" style={{ fontSize: "0.64rem" }}>Linear: {Math.round(total.lin).toLocaleString()}</div>
+                      <div style={{ textAlign: "right" }}>
+                        <div className="value">{Math.round(total.adjusted).toLocaleString()}</div>
+                        {total.adjustment > 0 ? (
+                          <div
+                            className="muted"
+                            style={{ fontSize: "0.64rem", color: "var(--cyan)" }}
+                            title="Consolidation / roster-spot premium: the side with fewer pieces frees up a roster spot, so KTC-style math adds this bonus on top of the raw total."
+                          >
+                            Raw {Math.round(total.raw).toLocaleString()} + VA {Math.round(total.adjustment).toLocaleString()}
+                          </div>
+                        ) : (
+                          <div className="muted" style={{ fontSize: "0.64rem" }}>Raw: {Math.round(total.raw).toLocaleString()}</div>
+                        )}
                       </div>
                       <button className="button trade-add-btn" onClick={() => openPickerFor(sideIdx)}>+ Add</button>
                     </div>

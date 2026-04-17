@@ -3,7 +3,7 @@
  * Pure functions, no React dependencies.
  */
 
-import { effectiveValue, powerWeightedTotal, TRADE_ALPHA, parsePickToken, getPlayerEdge, resolvePickRow } from "@/lib/trade-logic";
+import { effectiveValue, TRADE_ALPHA, parsePickToken, getPlayerEdge, resolvePickRow } from "@/lib/trade-logic";
 import { normalizePos } from "@/lib/dynasty-data";
 
 // ── Position Group Helpers ──────────────────────────────────────────────
