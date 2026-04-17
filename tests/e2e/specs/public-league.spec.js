@@ -66,9 +66,17 @@ test.describe("public /league page", () => {
       waitForText: "At a glance",
     });
 
+    // On mobile (≤768px) the tab row is hidden and sections are selected
+    // via a <select> dropdown; on desktop, each tab is a <button>.  Detect
+    // which control is currently visible and drive it accordingly.
+    const mobileSelect = page.getByLabel("Select league section");
+    const useMobile = await mobileSelect.isVisible().catch(() => false);
     for (const label of TABS) {
-      const btn = page.getByRole("button", { name: label, exact: true }).first();
-      await btn.click();
+      if (useMobile) {
+        await mobileSelect.selectOption({ label });
+      } else {
+        await page.getByRole("button", { name: label, exact: true }).first().click();
+      }
       await page.waitForTimeout(150);
     }
 

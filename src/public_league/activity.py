@@ -45,7 +45,7 @@ NOTABLE_POSITIONS = OFFENSIVE_CORE | {"DL", "LB", "DB", "EDGE"}
 # ``{grade, color, label}`` object is emitted on the public
 # payload — the raw values and per-side totals NEVER leave the
 # backend.
-_GRADE_ALPHA = 1.45
+_GRADE_ALPHA = 1.65
 _GRADE_PCT_FAIR = 3.0
 _GRADE_PCT_SLIGHT = 8.0
 _GRADE_PCT_GOOD = 15.0
