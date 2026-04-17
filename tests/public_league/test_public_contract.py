@@ -309,6 +309,40 @@ class ActivityGradingTests(unittest.TestCase):
             self.assertEqual(side["grade"]["grade"], "A")
             self.assertEqual(side["grade"]["label"], "Fair trade")
 
+    def test_activity_grades_sanitize_non_finite_valuation(self) -> None:
+        # A valuation that returns NaN for some assets must not
+        # poison the per-side total — without sanitization NaN
+        # propagates through max/min/pct and grades land on the
+        # extreme winner/loser badges instead of the intended
+        # floor-1 fair behavior.
+        from src.public_league.activity import _apply_trade_grades
+
+        trade = {
+            "transactionId": "synthetic-nan",
+            "sides": [
+                {"receivedAssets": [
+                    {"kind": "player", "playerId": "a"},
+                    {"kind": "player", "playerId": "nan-1"},
+                ]},
+                {"receivedAssets": [
+                    {"kind": "player", "playerId": "b"},
+                    {"kind": "player", "playerId": "nan-2"},
+                ]},
+            ],
+        }
+
+        def _valuation(asset):
+            pid = str(asset.get("playerId") or "")
+            if pid in {"a", "b"}:
+                return 1000.0
+            return float("nan")
+
+        _apply_trade_grades([trade], _valuation)
+        grades = [s["grade"]["grade"] for s in trade["sides"]]
+        labels = [s["grade"]["label"] for s in trade["sides"]]
+        self.assertEqual(grades, ["A", "A"])
+        self.assertEqual(labels, ["Fair trade", "Fair trade"])
+
     def test_activity_grades_mark_only_top_and_bottom_in_multi_team(self) -> None:
         # Simulate a 3-team lopsided trade by valuing the winner's
         # received assets high, the loser's low, and the middle
