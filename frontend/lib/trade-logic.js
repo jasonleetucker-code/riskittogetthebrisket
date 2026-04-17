@@ -15,7 +15,7 @@ export const VALUE_MODES = [
 // ── Persistence Keys ─────────────────────────────────────────────────────
 export const STORAGE_KEY = "next_trade_workspace_v1";
 export const RECENT_KEY = "next_trade_recent_assets_v1";
-export const SETTINGS_KEY = "next_settings_v1";
+export const SETTINGS_KEY = "next_settings_v2";
 
 // ── Verdict Thresholds (1–9999 scale) ────────────────────────────────────
 const VERDICT_NEAR_EVEN = 350;
