@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useApp } from "@/components/AppShell";
+import { useSettings } from "@/components/useSettings";
 import { actionLabel, cautionLabels, isTopRankedForEdgePremium } from "@/lib/edge-helpers";
 import { posBadgeClass, confBadgeClass, confBadgeLabel as confLabel, isEligibleForAnalysis } from "@/lib/display-helpers";
 import {
@@ -183,14 +184,33 @@ const COL_SIGNAL = {
 // ── Main component ────────────────────────────────────────────────────────
 
 export default function EdgePage() {
-  const { loading, error, rows } = useDynastyData();
+  const { loading, error, rows, rawData } = useDynastyData();
   const { openPlayerPopup } = useApp();
+  const { settings, update } = useSettings();
 
-  // Eligible: non-pick, ranked players
-  const eligible = useMemo(
-    () => rows.filter(isEligibleForAnalysis),
-    [rows],
-  );
+  const sleeperTeams = rawData?.sleeper?.teams || [];
+  const [teamFilter, setTeamFilter] = useState("");
+
+  // Build a Set of player names on the selected team's roster
+  const rosterNames = useMemo(() => {
+    if (!teamFilter) return null;
+    const team = sleeperTeams.find((t) => t.name === teamFilter);
+    if (!team) return null;
+    const names = new Set();
+    for (const p of team.players || []) {
+      names.add(p?.toLowerCase());
+    }
+    return names;
+  }, [teamFilter, sleeperTeams]);
+
+  // Eligible: non-pick, ranked players — optionally filtered to a team
+  const eligible = useMemo(() => {
+    let list = rows.filter(isEligibleForAnalysis);
+    if (rosterNames) {
+      list = list.filter((r) => rosterNames.has(r.name?.toLowerCase()));
+    }
+    return list;
+  }, [rows, rosterNames]);
 
   // ── Section data ────────────────────────────────────────────────────
 
@@ -283,6 +303,28 @@ export default function EdgePage() {
           how many sources cover a player, how closely they agree, and where they diverge.
           Nothing is predicted or editorialized.
         </p>
+
+        {sleeperTeams.length > 0 && (
+          <div style={{ marginTop: "var(--space-md)", display: "flex", alignItems: "center", gap: "var(--space-sm)" }}>
+            <label className="text-sm" style={{ fontWeight: 600 }}>Team</label>
+            <select
+              className="select"
+              value={teamFilter}
+              onChange={(e) => setTeamFilter(e.target.value)}
+              style={{ minWidth: 180 }}
+            >
+              <option value="">All teams (league-wide)</option>
+              {sleeperTeams.map((t) => (
+                <option key={t.name} value={t.name}>{t.name}</option>
+              ))}
+            </select>
+            {teamFilter && (
+              <span className="badge badge-cyan" style={{ fontSize: "0.72rem" }}>
+                {eligible.length} players
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {loading && (
