@@ -21,8 +21,7 @@ const SECTIONS = [
     items: [
       { href: "/trades", label: "Trade History", desc: "Grade and analyze your league's trades" },
       { href: "/rosters", label: "Roster Dashboard", desc: "Team strength rankings with position breakdowns" },
-      { href: "/league", label: "League Hub", desc: "Power rankings, team comparison, draft capital" },
-      { href: "/draft-capital", label: "Draft Capital", desc: "Auction-dollar pick values and ownership" },
+      { href: "/league", label: "League Hub", desc: "Champions, rivalries, awards, records, draft capital, weekly recaps, and more" },
     ],
   },
   {

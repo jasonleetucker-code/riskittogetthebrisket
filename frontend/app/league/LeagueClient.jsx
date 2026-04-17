@@ -35,6 +35,7 @@ import {
 } from "@/lib/public-league-data";
 import { buildManagerLookup } from "./shared.jsx";
 
+import DraftCapitalSection from "./sections/draft-capital.jsx";
 import OverviewSection from "./sections/overview.jsx";
 import HistorySection from "./sections/history.jsx";
 import RivalriesSection from "./sections/rivalries.jsx";
@@ -47,7 +48,11 @@ import WeeklySection from "./sections/weekly.jsx";
 import SuperlativesSection from "./sections/superlatives.jsx";
 import ArchivesSection from "./sections/archives.jsx";
 
+// Tab order + labels for the /league section nav.
+// "Draft Capital" is first so it's the default landing on mobile,
+// which is what public (unauth) visitors most commonly arrive to see.
 const SUB_TABS = [
+  { key: "draft-capital", label: "Draft Capital" },
   { key: "overview", label: "Home" },
   { key: "history", label: "History" },
   { key: "rivalries", label: "Rivalries" },
@@ -62,8 +67,9 @@ const SUB_TABS = [
 ];
 
 const VALID_TABS = new Set(SUB_TABS.map((t) => t.key));
+const DEFAULT_TAB = "draft-capital";
 
-export default function LeagueClient({ initialContract = null, initialTab = "overview" }) {
+export default function LeagueClient({ initialContract = null, initialTab = DEFAULT_TAB }) {
   return (
     <Suspense fallback={<LoadingState message="Loading league data..." />}>
       <LeaguePage initialContract={initialContract} initialTab={initialTab} />
@@ -71,7 +77,7 @@ export default function LeagueClient({ initialContract = null, initialTab = "ove
   );
 }
 
-function LeaguePage({ initialContract = null, initialTab = "overview" }) {
+function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlTab = searchParams.get("tab");
@@ -81,7 +87,7 @@ function LeaguePage({ initialContract = null, initialTab = "overview" }) {
   const [activeTab, setActiveTabState] = useState(
     urlTab && VALID_TABS.has(urlTab)
       ? urlTab
-      : (initialTab && VALID_TABS.has(initialTab) ? initialTab : "overview"),
+      : (initialTab && VALID_TABS.has(initialTab) ? initialTab : DEFAULT_TAB),
   );
   const [state, setState] = useState(
     initialContract
@@ -98,7 +104,9 @@ function LeaguePage({ initialContract = null, initialTab = "overview" }) {
   const setActiveTab = useCallback((key, extraParams = {}) => {
     setActiveTabState(key);
     const params = new URLSearchParams(searchParams.toString());
-    if (key === "overview") {
+    // Omit ``?tab=`` from the URL when on the default tab for a
+    // cleaner shareable link.
+    if (key === DEFAULT_TAB) {
       params.delete("tab");
     } else {
       params.set("tab", key);
@@ -189,9 +197,41 @@ function LeaguePage({ initialContract = null, initialTab = "overview" }) {
             ` · Last ${(league.seasonsCovered || []).length || 2} dynasty season${(league.seasonsCovered || []).length === 1 ? "" : "s"}`
           }
         />
-        <SubNav items={SUB_TABS} active={activeTab} onChange={(key) => setActiveTab(key)} />
+        {/* Mobile: a dropdown selector so all 12 sections stay reachable
+            without needing a horizontally-scrolled tab row. */}
+        <div className="mobile-only" style={{ marginBottom: "var(--space-sm)" }}>
+          <label
+            style={{
+              display: "block",
+              fontSize: "0.66rem",
+              color: "var(--subtext)",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              marginBottom: 4,
+            }}
+          >
+            Section
+          </label>
+          <select
+            className="input"
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value)}
+            aria-label="Select league section"
+            style={{ width: "100%" }}
+          >
+            {SUB_TABS.map((t) => (
+              <option key={t.key} value={t.key}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="desktop-only">
+          <SubNav items={SUB_TABS} active={activeTab} onChange={(key) => setActiveTab(key)} />
+        </div>
       </div>
 
+      {activeTab === "draft-capital" && <DraftCapitalSection />}
       {activeTab === "overview" && (
         <OverviewSection managers={managers} data={overview} onNavigate={setActiveTab} />
       )}

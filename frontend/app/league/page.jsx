@@ -74,7 +74,10 @@ export async function generateMetadata() {
 
 export default async function LeagueRoute({ searchParams }) {
   const sp = (await searchParams) || {};
-  const rawTab = typeof sp.tab === "string" ? sp.tab : Array.isArray(sp.tab) ? sp.tab[0] : "overview";
+  // Default tab matches LeagueClient's DEFAULT_TAB ("draft-capital")
+  // — LeagueClient validates the key against VALID_TABS so an unknown
+  // ?tab= value falls back safely.
+  const rawTab = typeof sp.tab === "string" ? sp.tab : Array.isArray(sp.tab) ? sp.tab[0] : "draft-capital";
   const initialContract = await fetchContract();
   return (
     <LeagueClient initialContract={initialContract} initialTab={rawTab} />

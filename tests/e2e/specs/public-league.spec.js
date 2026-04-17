@@ -12,8 +12,11 @@ const { test, expect } = require("@playwright/test");
 // private contract) — that would mean the public isolation is
 // broken.  We attach a request listener to confirm.
 
-// Tab labels in the expected order.  The Home tab is the default.
+// Tab labels in render order.  The Draft Capital tab is the default
+// landing because /draft-capital was folded into /league — public
+// visitors arriving at /league see it first.
 const TABS = [
+  "Draft Capital",
   "Home",
   "History",
   "Rivalries",
@@ -55,13 +58,17 @@ async function visitLeague(page, path = "/league", { waitForText = null } = {}) 
 }
 
 test.describe("public /league page", () => {
-  test("renders overview, switches tabs, and never touches private endpoints", async ({ page }) => {
-    const privateHits = await visitLeague(page, "/league", { waitForText: "At a glance" });
+  test("renders league page, switches tabs, and never touches private endpoints", async ({ page }) => {
+    // Visit via ?tab=overview so we have a deterministic "waitForText"
+    // anchor (Draft Capital is the default tab but fetches client-side,
+    // which would require a different readiness signal).
+    const privateHits = await visitLeague(page, "/league?tab=overview", {
+      waitForText: "At a glance",
+    });
 
     for (const label of TABS) {
       const btn = page.getByRole("button", { name: label, exact: true }).first();
       await btn.click();
-      // Some labels are shared with section titles — settle then assert.
       await page.waitForTimeout(150);
     }
 
@@ -155,12 +162,21 @@ test.describe("public /league page", () => {
     expect(html).toMatch(/<meta property="og:description"/i);
   });
 
-  test("/league page renders without the client-loading flash (SSR)", async ({ request }) => {
-    // Server render path: the HTML should already contain tab labels
-    // and the overview headline, NOT just the fallback "Loading" text.
-    const res = await request.get("/league");
+  test("/league?tab=overview SSRs with overview content (no loading flash)", async ({ request }) => {
+    // Server-rendered /league?tab=overview hits the overview content
+    // directly — HTML should contain the overview headlines, not the
+    // fallback "Loading" text.
+    const res = await request.get("/league?tab=overview");
     const html = await res.text();
     expect(html).toMatch(/At a glance|Defending champion|Featured rivalry/);
+  });
+
+  test("/draft-capital redirects into the folded /league tab", async ({ request }) => {
+    const res = await request.get("/draft-capital", { maxRedirects: 0 });
+    expect(res.status()).toBeGreaterThanOrEqual(300);
+    expect(res.status()).toBeLessThan(400);
+    const location = res.headers().location || "";
+    expect(location).toMatch(/\/league\?tab=draft-capital/);
   });
 
   test("per-matchup recap route is reachable with real data", async ({ page, request }) => {
