@@ -179,6 +179,10 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 elif winner is right:
                     loser = left
                 margin = round(abs(left["points"] - right["points"]), 2)
+                try:
+                    mid = int(a.get("matchup_id"))
+                except (TypeError, ValueError):
+                    mid = None
                 row = {
                     "home": left,
                     "away": right,
@@ -186,6 +190,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                     "winner": winner,
                     "loser": loser,
                     "winnerOwnerId": winner["ownerId"] if winner else None,
+                    "matchupId": mid,
                 }
                 matchup_rows.append(row)
 
@@ -216,7 +221,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 "week": wk,
                 "isPlayoff": is_playoff,
                 "matchups": [
-                    {k: v for k, v in r.items() if k in {"home", "away", "margin", "winnerOwnerId"}}
+                    {k: v for k, v in r.items() if k in {"home", "away", "margin", "winnerOwnerId", "matchupId"}}
                     for r in matchup_rows
                 ],
                 "highlights": {
@@ -245,4 +250,4 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
 def _pack_highlight(row: dict[str, Any] | None) -> dict[str, Any] | None:
     if not row:
         return None
-    return {k: v for k, v in row.items() if k in {"home", "away", "margin", "winnerOwnerId"}}
+    return {k: v for k, v in row.items() if k in {"home", "away", "margin", "winnerOwnerId", "matchupId"}}

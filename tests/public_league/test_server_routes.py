@@ -93,6 +93,43 @@ class PublicLeagueRouteTests(unittest.TestCase):
         ):
             self.assertNotIn(name, blob, msg=f"Leaked private field: {name}")
 
+    def test_metrics_endpoint_exposes_counters(self) -> None:
+        # Prime the cache at least once so the counters move.
+        self.client.get("/api/public/league?refresh=1")
+        r = self.client.get("/api/public/league/metrics")
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertIn("leagueId", body)
+        self.assertIn("cacheTtlSeconds", body)
+        self.assertIn("metrics", body)
+        m = body["metrics"]
+        for key in (
+            "cache_hit",
+            "cache_stale_served",
+            "cache_miss_cold_rebuild",
+            "rebuild_count",
+            "rebuild_failures",
+            "total_served",
+            "cache_hit_ratio",
+        ):
+            self.assertIn(key, m)
+        # Refresh triggered at least one rebuild.
+        self.assertGreaterEqual(m["rebuild_count"], 1)
+        # Metrics endpoint should not be cached by clients.
+        self.assertEqual(r.headers.get("cache-control"), "no-store")
+
+    def test_metrics_endpoint_never_leaks_private_fields(self) -> None:
+        r = self.client.get("/api/public/league/metrics")
+        blob = r.text.lower()
+        for name in (
+            '"ourvalue":',
+            '"edgescore":',
+            '"tradefinder":',
+            '"siteweights":',
+            '"siteoverrides":',
+        ):
+            self.assertNotIn(name, blob)
+
 
 if __name__ == "__main__":
     unittest.main()

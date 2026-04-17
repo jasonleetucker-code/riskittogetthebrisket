@@ -1,41 +1,38 @@
-"use client";
-
-// Dedicated, deep-linkable /league/rivalry/[pair] route.
+// Server-rendered rivalry page with OG metadata.
 //
-// ``pair`` is an URL-encoded string of the form ``<ownerA>-vs-<ownerB>``.
-// We find the matching rivalry in the public rivalries section (which
-// already returns every pair) and render the same detail view the
-// tabbed page shows.
-//
-// No private imports — see isolation contract in page.jsx.
+// Slug format: ``<ownerA>-vs-<ownerB>`` (either ordering).  We fetch
+// the full rivalries section server-side and pick the pair — the
+// section payload is already small enough that this is cheap.
 
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
-import { LoadingState, EmptyState, PageHeader } from "@/components/ui";
-import { fetchPublicSection } from "@/lib/public-league-data";
-import {
-  Avatar,
-  Card,
-  MeetingCard,
-  Stat,
-  buildManagerLookup,
-  fmtPoints,
-  nameFor,
-} from "../../shared.jsx";
+import { Avatar, Card, MeetingCard, Stat } from "../../shared-server.jsx";
+import { buildManagerLookup, fmtPoints, nameFor } from "../../shared-helpers.js";
+import { EmptyState, PageHeader } from "@/components/ui";
 
-export default function RivalryPageRoute() {
-  return (
-    <Suspense fallback={<LoadingState message="Loading rivalry..." />}>
-      <RivalryPage />
-    </Suspense>
-  );
+function _backend() {
+  const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
+  try {
+    const u = new URL(base);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return "http://127.0.0.1:8000";
+  }
+}
+
+async function fetchRivalries() {
+  const url = `${_backend()}/api/public/league/rivalries`;
+  try {
+    const res = await fetch(url, { next: { revalidate: 60 } });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
 
 function parsePairSlug(slug) {
   if (!slug) return { a: "", b: "" };
   const decoded = decodeURIComponent(String(slug));
-  // Support either "a-vs-b" or "a:b" forms.
   const parts = decoded.includes("-vs-")
     ? decoded.split("-vs-")
     : decoded.includes(":")
@@ -44,71 +41,66 @@ function parsePairSlug(slug) {
   return { a: String(parts[0] || ""), b: String(parts[1] || "") };
 }
 
-function RivalryPage() {
-  const params = useParams();
-  const { a: ownerA, b: ownerB } = parsePairSlug(params?.pair);
-  const [state, setState] = useState({ loading: true, error: "", payload: null });
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const payload = await fetchPublicSection("rivalries");
-        if (!active) return;
-        setState({ loading: false, error: "", payload });
-      } catch (err) {
-        if (!active) return;
-        setState({
-          loading: false,
-          error: err?.message || "Failed to load rivalry data",
-          payload: null,
-        });
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  // Hooks must run on every render — compute managers before any early
-  // return branches below.
-  const { league, data } = state.payload || {};
-  const managers = useMemo(() => buildManagerLookup(league), [league]);
-  const rivalries = data?.rivalries || [];
-
-  if (state.loading) return <LoadingState message="Loading rivalry..." />;
-  if (state.error) {
-    return (
-      <div className="card">
-        <EmptyState title="Rivalry unavailable" message={state.error} />
-        <div style={{ marginTop: 10 }}>
-          <Link href="/league" style={{ color: "var(--cyan)" }}>← Back to league</Link>
-        </div>
-      </div>
-    );
-  }
-
-  // Find the pair regardless of ordering.
-  const detail = rivalries.find((r) => {
+function findDetail(payload, ownerA, ownerB) {
+  const rivalries = payload?.data?.rivalries || [];
+  return rivalries.find((r) => {
     const ids = new Set((r.ownerIds || []).map(String));
     return ids.has(ownerA) && ids.has(ownerB);
   });
+}
+
+export async function generateMetadata({ params }) {
+  const { pair } = await params;
+  const { a, b } = parsePairSlug(pair);
+  const data = await fetchRivalries();
+  const managers = buildManagerLookup(data?.league);
+  const detail = findDetail(data, a, b);
+  if (!detail) {
+    return {
+      title: "Rivalry · Brisket League",
+      description: "Public head-to-head record for two managers in the Brisket dynasty league.",
+    };
+  }
+  const [idA, idB] = detail.ownerIds;
+  const nameA = nameFor(managers, idA);
+  const nameB = nameFor(managers, idB);
+  const title = `${nameA} vs ${nameB} — Rivalry Index ${detail.rivalryIndex}`;
+  const record = `${detail.winsA}-${detail.winsB}${detail.ties ? `-${detail.ties}` : ""}`;
+  const description =
+    `${detail.totalMeetings} meetings · ${detail.playoffMeetings} playoff · ` +
+    `Series ${record} · Closest margin ${detail.closestGame?.margin ?? "—"}.`;
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: "article", siteName: "Risk It To Get The Brisket" },
+    twitter: { card: "summary", title, description },
+  };
+}
+
+export default async function RivalryPage({ params }) {
+  const { pair } = await params;
+  const { a, b } = parsePairSlug(pair);
+  const data = await fetchRivalries();
+  const managers = buildManagerLookup(data?.league);
+  const detail = findDetail(data, a, b);
 
   if (!detail) {
     return (
-      <div className="card">
-        <EmptyState
-          title="Rivalry not found"
-          message={
-            ownerA && ownerB
-              ? `No meetings between ${nameFor(managers, ownerA)} and ${nameFor(managers, ownerB)} in the last 2 seasons.`
-              : "Rivalry slug must be of the form owner-a-vs-owner-b."
-          }
-        />
-        <div style={{ marginTop: 10 }}>
-          <Link href="/league?tab=rivalries" style={{ color: "var(--cyan)" }}>← All rivalries</Link>
+      <section>
+        <div className="card">
+          <EmptyState
+            title="Rivalry not found"
+            message={
+              a && b
+                ? `No meetings between ${nameFor(managers, a)} and ${nameFor(managers, b)} in the last 2 seasons.`
+                : "Rivalry slug must be of the form owner-a-vs-owner-b."
+            }
+          />
+          <div style={{ marginTop: 10 }}>
+            <Link href="/league?tab=rivalries" style={{ color: "var(--cyan)" }}>← All rivalries</Link>
+          </div>
         </div>
-      </div>
+      </section>
     );
   }
 
@@ -127,12 +119,18 @@ function RivalryPage() {
           subtitle={`Rivalry Index ${detail.rivalryIndex} · Head-to-head detail`}
         />
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Link href={`/league/franchise/${encodeURIComponent(idA)}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--cyan)" }}>
+          <Link
+            href={`/league/franchise/${encodeURIComponent(idA)}`}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--cyan)" }}
+          >
             <Avatar managers={managers} ownerId={idA} size={36} />
             <span style={{ fontWeight: 700 }}>{nameFor(managers, idA)}</span>
           </Link>
           <span style={{ color: "var(--subtext)", fontWeight: 700 }}>vs</span>
-          <Link href={`/league/franchise/${encodeURIComponent(idB)}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--cyan)" }}>
+          <Link
+            href={`/league/franchise/${encodeURIComponent(idB)}`}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--cyan)" }}
+          >
             <Avatar managers={managers} ownerId={idB} size={36} />
             <span style={{ fontWeight: 700 }}>{nameFor(managers, idB)}</span>
           </Link>
@@ -148,7 +146,11 @@ function RivalryPage() {
             marginBottom: 14,
           }}
         >
-          <Stat label="Meetings" value={detail.totalMeetings} sub={`${detail.regularSeasonMeetings} reg · ${detail.playoffMeetings} playoff`} />
+          <Stat
+            label="Meetings"
+            value={detail.totalMeetings}
+            sub={`${detail.regularSeasonMeetings} reg · ${detail.playoffMeetings} playoff`}
+          />
           <Stat label="Series" value={`${detail.winsA}–${detail.winsB}${detail.ties ? `–${detail.ties}` : ""}`} />
           <Stat label="Points" value={`${fmtPoints(detail.pointsA)} / ${fmtPoints(detail.pointsB)}`} />
           <Stat label="Close (≤5 pts)" value={detail.gamesDecidedByFive} />

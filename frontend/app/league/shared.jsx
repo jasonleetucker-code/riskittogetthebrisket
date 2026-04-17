@@ -1,176 +1,192 @@
 "use client";
 
-// Shared UI helpers used by the tabbed /league page AND the dedicated
-// /league/franchise/[owner] + /league/rivalry/[pair] routes.  Keeping
-// formatters + Avatar + primitive cards in one place means the deep-
-// linked routes and the tab views render identically.
+// Client-only shared primitives for /league sections.
 //
-// No private imports: see frontend/app/league/page.jsx for the
-// isolation contract.  Only pulls from public-league-data.
+// Re-exports:
+//   * pure helpers — from ./shared-helpers.js (no "use client")
+//   * server-safe primitives (Avatar, Card, Stat, MeetingCard) — from
+//     ./shared-server.jsx (also no "use client")
+//
+// Adds client-only primitives that rely on onClick closures:
+//   ManagerInline, LinkButton, EmptyCard, MiniLeaderboard,
+//   HighlightCard, SingleHighlight, renderAwardValue
+//
+// Server components under /league/franchise, /league/rivalry,
+// /league/player, /league/weekly/[...] should import from
+// ``shared-server.jsx`` + ``shared-helpers.js`` directly rather than
+// from this file.
 
-export function buildManagerLookup(league) {
-  const map = new Map();
-  for (const m of league?.managers || []) {
-    map.set(String(m.ownerId), m);
-  }
-  return map;
-}
+import { EmptyState } from "@/components/ui";
 
-export function nameFor(managers, ownerId) {
-  const mgr = managers.get(String(ownerId));
-  return mgr?.displayName || mgr?.currentTeamName || ownerId || "Unknown";
-}
+export {
+  buildManagerLookup,
+  nameFor,
+  avatarUrlFor,
+  fmtNumber,
+  fmtPoints,
+  fmtPercent,
+} from "./shared-helpers.js";
+export {
+  Avatar,
+  Card,
+  Stat,
+  MeetingCard,
+} from "./shared-server.jsx";
 
-export function avatarUrlFor(managers, ownerId) {
-  const mgr = managers.get(String(ownerId));
-  if (!mgr || !mgr.avatar) return "";
-  const avatar = String(mgr.avatar);
-  if (avatar.startsWith("http")) return avatar;
-  return `https://sleepercdn.com/avatars/thumbs/${avatar}`;
-}
+import { nameFor, fmtPoints, fmtNumber, fmtPercent } from "./shared-helpers.js";
+import { Avatar, Card } from "./shared-server.jsx";
 
-export function fmtNumber(n, digits = 0) {
-  if (n === null || n === undefined || Number.isNaN(Number(n))) return "—";
-  return Number(n).toLocaleString(undefined, {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  });
-}
-
-export function fmtPoints(n) {
-  if (n === null || n === undefined || Number.isNaN(Number(n))) return "—";
-  return Number(n).toFixed(1);
-}
-
-export function fmtPercent(n) {
-  if (n === null || n === undefined || Number.isNaN(Number(n))) return "—";
-  return `${Math.round(Number(n) * 100)}%`;
-}
-
-export function Avatar({ managers, ownerId, size = 24, title }) {
-  const url = avatarUrlFor(managers, ownerId);
+export function ManagerInline({ managers, ownerId, onClick, compact = false }) {
   const name = nameFor(managers, ownerId);
-  const initials = name
-    .split(/\s+/)
-    .map((w) => w[0] || "")
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-  const style = {
-    width: size,
-    height: size,
-    borderRadius: "50%",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "var(--bg-soft)",
-    border: "1px solid var(--border)",
-    fontSize: Math.max(10, Math.floor(size * 0.42)),
-    fontWeight: 700,
-    overflow: "hidden",
-    flexShrink: 0,
-    verticalAlign: "middle",
-  };
-  if (url) {
-    return (
-      <img
-        src={url}
-        alt=""
-        loading="lazy"
-        width={size}
-        height={size}
-        style={{ ...style, background: "transparent" }}
-        title={title || name}
-      />
-    );
-  }
   return (
-    <span style={style} title={title || name} aria-hidden>
-      {initials || "?"}
+    <span
+      onClick={onClick}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        cursor: onClick ? "pointer" : "default",
+        color: onClick ? "var(--cyan)" : "inherit",
+      }}
+    >
+      <Avatar managers={managers} ownerId={ownerId} size={compact ? 18 : 22} />
+      <span>{name}</span>
     </span>
   );
 }
 
-export function Stat({ label, value, sub }) {
+export function LinkButton({ onClick, children }) {
   return (
-    <div
+    <button
+      type="button"
+      onClick={onClick}
       style={{
-        padding: "10px 12px",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius)",
-        background: "rgba(15, 28, 59, 0.45)",
+        background: "transparent",
+        border: "1px solid var(--border-bright)",
+        borderRadius: 6,
+        color: "var(--cyan)",
+        padding: "4px 10px",
+        fontSize: "0.7rem",
+        cursor: "pointer",
       }}
     >
-      <div
-        style={{
-          fontSize: "0.65rem",
-          color: "var(--subtext)",
-          textTransform: "uppercase",
-          letterSpacing: "0.04em",
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          fontSize: "1.05rem",
-          fontWeight: 700,
-          fontFamily: "var(--mono)",
-          marginTop: 2,
-        }}
-      >
-        {value}
-      </div>
-      {sub && (
-        <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginTop: 2 }}>
-          {sub}
-        </div>
-      )}
-    </div>
+      {children}
+    </button>
   );
 }
 
-export function Card({ title, subtitle, action, children, id }) {
+export function EmptyCard({ label, message }) {
   return (
-    <div className="card" id={id} style={{ marginTop: "var(--space-md)" }}>
-      {(title || action) && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            marginBottom: 10,
-            gap: 8,
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            {title && <div style={{ fontWeight: 700 }}>{title}</div>}
-            {subtitle && (
-              <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginTop: 2 }}>
-                {subtitle}
-              </div>
-            )}
+    <Card>
+      <EmptyState
+        title={`${label} coming online`}
+        message={
+          message ||
+          "Sleeper hasn't surfaced enough data for this section yet. It will fill in as games finish, trades complete, and drafts are held."
+        }
+      />
+    </Card>
+  );
+}
+
+export function MiniLeaderboard({ managers, title, rows, metric, onRowClick }) {
+  if (!rows || !rows.length) return null;
+  return (
+    <div className="card" style={{ flex: "1 1 260px" }}>
+      <div style={{ fontWeight: 700, marginBottom: 8 }}>{title}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {rows.slice(0, 5).map((r, i) => (
+          <div
+            key={r.ownerId || i}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              fontSize: "0.74rem",
+              cursor: onRowClick ? "pointer" : "default",
+            }}
+            onClick={() => onRowClick?.(r.ownerId)}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ color: "var(--subtext)", fontFamily: "var(--mono)", minWidth: 16 }}>{i + 1}.</span>
+              {managers ? <Avatar managers={managers} ownerId={r.ownerId} size={18} /> : null}
+              {r.displayName || r.currentTeamName || r.ownerId}
+            </span>
+            <span style={{ fontFamily: "var(--mono)", color: "var(--cyan)" }}>{metric(r)}</span>
           </div>
-          {action}
-        </div>
-      )}
-      <div>{children}</div>
+        ))}
+      </div>
     </div>
   );
 }
 
-export function MeetingCard({ label, meeting }) {
-  if (!meeting) return null;
+export function HighlightCard({ label, caption, teams }) {
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 10 }}>
       <div style={{ fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase" }}>{label}</div>
-      <div style={{ fontSize: "0.86rem", fontWeight: 700, marginTop: 2 }}>
-        {meeting.season} · Wk {meeting.week}{meeting.isPlayoff ? " (P)" : ""}
+      <div style={{ fontSize: "0.84rem", fontWeight: 700, marginTop: 2 }}>
+        {teams && teams[0] && teams[1]
+          ? `${teams[0].displayName} vs ${teams[1].displayName}`
+          : "—"}
       </div>
-      <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginTop: 2 }}>
-        Margin {fmtPoints(meeting.margin)} · {fmtPoints(meeting.pointsA)} / {fmtPoints(meeting.pointsB)}
-      </div>
+      <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginTop: 2 }}>{caption}</div>
     </div>
   );
+}
+
+export function SingleHighlight({ label, value, sub }) {
+  return (
+    <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 10 }}>
+      <div style={{ fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase" }}>{label}</div>
+      <div style={{ fontSize: "0.84rem", fontWeight: 700, marginTop: 2 }}>{value}</div>
+      {sub && <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+}
+
+export function renderAwardValue(key, value) {
+  if (!value) return "";
+  switch (key) {
+    case "champion":
+    case "runner_up":
+    case "toilet_bowl":
+      return "";
+    case "top_seed":
+      return `Win% ${fmtPercent(value.winPct)}`;
+    case "regular_season_crown":
+      return value.record || "";
+    case "points_king":
+      return `${fmtNumber(value.pointsFor, 1)} PF`;
+    case "points_black_hole":
+      return `${fmtNumber(value.pointsAgainst, 1)} PA`;
+    case "highest_single_week":
+    case "lowest_single_week":
+      return `Wk ${value.week} · ${fmtPoints(value.points)} pts`;
+    case "trader_of_the_year":
+      return `+${fmtPoints(value.pointsGained)} pts · ${value.trades} trades`;
+    case "best_trade_of_the_year":
+      return `+${fmtPoints(value.pointsGained)} pts · Wk ${value.week}`;
+    case "waiver_king":
+      return `+${fmtPoints(value.pointsGained)} pts · ${value.adds} adds`;
+    case "chaos_agent":
+      return `Score ${value.score} · ${value.trades} trades · ${value.partners} partners`;
+    case "most_active":
+      return `${value.total} moves`;
+    case "silent_assassin":
+      return `${fmtPercent(value.winPct)} in ${value.closeGames} close games`;
+    case "weekly_hammer":
+      return `${value.highScoreFinishes} high-score wks`;
+    case "playoff_mvp":
+      return `${fmtPoints(value.playoffPoints)} playoff pts`;
+    case "bad_beat":
+      return `${fmtPoints(value.points)} in loss · Wk ${value.week}`;
+    case "best_rebuild":
+      return `Composite ${value.compositeScore}`;
+    case "rivalry_of_the_year":
+      return `${value.displayNames[0]} vs ${value.displayNames[1]} · Index ${value.rivalryIndex}`;
+    case "pick_hoarder":
+      return `Weighted ${value.weightedScore} · ${value.totalPicks} picks`;
+    default:
+      return "";
+  }
 }

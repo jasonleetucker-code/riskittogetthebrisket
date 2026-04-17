@@ -115,34 +115,51 @@ describe("fetchPublicSection", () => {
 });
 
 // ── Import-surface guardrails for the page ─────────────────────────────────
+// The /league route is a server component (page.jsx) that wraps a client
+// component (LeagueClient.jsx).  Both must honor the isolation contract.
 const pageSource = fs.readFileSync(
   path.resolve(__dirname, "..", "app", "league", "page.jsx"),
   "utf8",
 );
+const clientSource = fs.readFileSync(
+  path.resolve(__dirname, "..", "app", "league", "LeagueClient.jsx"),
+  "utf8",
+);
+const combinedSource = pageSource + "\n" + clientSource;
 
 describe("public /league page isolation", () => {
   it("does not import useApp / AppShell", () => {
-    expect(pageSource).not.toMatch(/from\s+["']@\/components\/AppShell["']/);
-    expect(pageSource).not.toMatch(/import\s+\{[^}]*useApp[^}]*\}/);
+    expect(combinedSource).not.toMatch(/from\s+["']@\/components\/AppShell["']/);
+    expect(combinedSource).not.toMatch(/import\s+\{[^}]*useApp[^}]*\}/);
   });
 
   it("does not import useDynastyData", () => {
-    expect(pageSource).not.toMatch(/from\s+["']@\/components\/useDynastyData["']/);
+    expect(combinedSource).not.toMatch(/from\s+["']@\/components\/useDynastyData["']/);
   });
 
   it("does not import the private league-analysis module", () => {
-    expect(pageSource).not.toMatch(/from\s+["']@\/lib\/league-analysis["']/);
+    expect(combinedSource).not.toMatch(/from\s+["']@\/lib\/league-analysis["']/);
   });
 
   it("does not import private dynasty-data / trade-logic / edge-helpers", () => {
-    expect(pageSource).not.toMatch(/from\s+["']@\/lib\/dynasty-data["']/);
-    expect(pageSource).not.toMatch(/from\s+["']@\/lib\/trade-logic["']/);
-    expect(pageSource).not.toMatch(/from\s+["']@\/lib\/edge-helpers["']/);
+    expect(combinedSource).not.toMatch(/from\s+["']@\/lib\/dynasty-data["']/);
+    expect(combinedSource).not.toMatch(/from\s+["']@\/lib\/trade-logic["']/);
+    expect(combinedSource).not.toMatch(/from\s+["']@\/lib\/edge-helpers["']/);
   });
 
-  it("pulls data from the public contract fetcher", () => {
-    expect(pageSource).toMatch(/fetchPublicLeague/);
-    expect(pageSource).toMatch(/@\/lib\/public-league-data/);
+  it("pulls data from the public contract — either via server fetch of /api/public/league or via fetchPublicLeague on the client", () => {
+    const serverFetch = /\/api\/public\/league/.test(pageSource);
+    const clientFetch = /fetchPublicLeague/.test(clientSource)
+      && /@\/lib\/public-league-data/.test(clientSource);
+    expect(serverFetch || clientFetch).toBe(true);
+  });
+
+  it("page.jsx is a server component (does not declare \"use client\")", () => {
+    expect(pageSource.trim().startsWith('"use client"')).toBe(false);
+  });
+
+  it("LeagueClient.jsx is a client component", () => {
+    expect(clientSource.trim().startsWith('"use client"')).toBe(true);
   });
 });
 

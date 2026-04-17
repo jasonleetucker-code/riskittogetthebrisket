@@ -1,0 +1,104 @@
+name: Production E2E Smoke (public /league)
+
+# Runs the Playwright public-league spec against the real production
+# URL every 4 hours.  Catches issues the deploy-time smoke can't:
+# Sleeper outages, nginx config drift, DNS failures, expired certs,
+# regressions in the client bundle that only show up after a fresh
+# browser visit.
+#
+# Triggers:
+#   * cron — every 4 hours
+#   * workflow_dispatch — manual re-run
+#
+# Uses the SAME spec already under tests/e2e/specs/public-league.spec.js
+# — so this is effectively "run the pinned E2E suite against prod" at a
+# cadence that would catch a regression within hours instead of days.
+
+on:
+  schedule:
+    # Every 4 hours, offset 17 minutes to avoid stacking on the hour.
+    - cron: "17 */4 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: prod-e2e-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Resolve production URL
+        id: url
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          URL="${{ vars.PROD_PUBLIC_URL }}"
+          if [[ -z "${URL}" ]]; then
+            URL="https://riskittogetthebrisket.org"
+          fi
+          URL="${URL%/}"
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Probe prod is live before running browser
+        shell: bash
+        env:
+          URL: ${{ steps.url.outputs.url }}
+        run: |
+          set -Eeuo pipefail
+          code=$(curl --silent --show-error --max-time 15 \
+            --output /dev/null --write-out '%{http_code}' \
+            "${URL}/api/public/league" || echo 000)
+          if [[ "${code}" != "200" ]]; then
+            echo "::error title=Prod unreachable::${URL}/api/public/league returned HTTP ${code}"
+            exit 1
+          fi
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install root deps
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          npm install --no-audit --no-fund
+
+      - name: Install Playwright chromium
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          npx playwright install --with-deps chromium
+
+      - name: Run public /league spec against prod
+        shell: bash
+        env:
+          E2E_BASE_URL: ${{ steps.url.outputs.url }}
+        run: |
+          set -Eeuo pipefail
+          # Chromium desktop + mobile viewport.  We intentionally skip
+          # the webkit "mobile-390 / mobile-430" projects here — those
+          # require ``playwright install webkit`` and don't buy us
+          # anything over the chromium mobile viewport for the public
+          # /league layout coverage.
+          npx playwright test \
+            -c tests/e2e/playwright.config.js \
+            --project=desktop-1366 \
+            --project=mobile-chromium \
+            tests/e2e/specs/public-league.spec.js \
+            --reporter=line
+
+      - name: Upload Playwright trace artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-e2e-smoke-artifacts
+          path: |
+            tests/e2e/test-results/
+            tests/e2e/playwright-report/
+          retention-days: 7
