@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Avatar, Card, Stat } from "../../shared-server.jsx";
 import { buildManagerLookup, fmtNumber } from "../../shared-helpers.js";
 import { EmptyState, PageHeader } from "@/components/ui";
+import ShareButton from "../../ShareButton.jsx";
 
 function _backend() {
   const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
@@ -95,6 +96,13 @@ export default async function FranchisePage({ params }) {
           title={fr.displayName}
           subtitle={`Current team: ${fr.currentTeamName || "—"}`}
         />
+        <div style={{ marginBottom: 10 }}>
+          <ShareButton
+            label="Share franchise"
+            path={`/league/franchise/${encodeURIComponent(ownerId)}`}
+            text={`${fr.displayName} — ${fr.cumulative.wins}-${fr.cumulative.losses}${fr.cumulative.championships ? ` · ${fr.cumulative.championships}x champ` : ""}`}
+          />
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <Avatar managers={managers} ownerId={ownerId} size={64} />
           <div style={{ fontSize: "0.74rem", color: "var(--subtext)" }}>

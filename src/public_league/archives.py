@@ -24,6 +24,7 @@ from .activity import build_section as build_activity
 from .awards import build_section as build_awards
 from .draft import build_section as build_draft
 from .history import build_section as build_history
+from .player_journey import list_players_with_activity
 from .snapshot import PublicLeagueSnapshot
 
 
@@ -248,6 +249,16 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         tags = award_tags.get((trade["season"], ""), [])
         trade["tags"] = sorted(set(tags))
 
+    # Named players who appear in any roster/transaction — each row
+    # links to the player-journey page.  Only players with a resolved
+    # display name make the cut so we don't ship IDs for stale/orphan
+    # player records.
+    players_archive = [
+        {"kind": "player", **p}
+        for p in list_players_with_activity(snapshot)
+        if p.get("playerName")
+    ]
+
     return {
         "managers": _manager_index(snapshot),
         "trades": trades_archive,
@@ -255,5 +266,6 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         "weeklyMatchups": _weekly_matchup_archives(snapshot),
         "rookieDrafts": _rookie_draft_archives(snapshot, draft_section),
         "seasonResults": _season_result_archives(snapshot, history_section, award_tags),
+        "players": players_archive,
         "seasonsCovered": [s.season for s in snapshot.seasons],
     }

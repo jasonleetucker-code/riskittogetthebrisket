@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Avatar, Card, MeetingCard, Stat } from "../../shared-server.jsx";
 import { buildManagerLookup, fmtPoints, nameFor } from "../../shared-helpers.js";
 import { EmptyState, PageHeader } from "@/components/ui";
+import ShareButton from "../../ShareButton.jsx";
 
 function _backend() {
   const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
@@ -118,6 +119,16 @@ export default async function RivalryPage({ params }) {
           title={`${nameFor(managers, idA)} vs ${nameFor(managers, idB)}`}
           subtitle={`Rivalry Index ${detail.rivalryIndex} · Head-to-head detail`}
         />
+        <div style={{ marginBottom: 10 }}>
+          <ShareButton
+            label="Share rivalry"
+            path={`/league/rivalry/${encodeURIComponent(`${idA}-vs-${idB}`)}`}
+            text={
+              `${nameFor(managers, idA)} vs ${nameFor(managers, idB)} — ` +
+              `Rivalry Index ${detail.rivalryIndex} · ${detail.totalMeetings} meetings`
+            }
+          />
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Link
             href={`/league/franchise/${encodeURIComponent(idA)}`}

@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Avatar, Card, Stat } from "../../../../shared-server.jsx";
 import { buildManagerLookup, fmtPoints } from "../../../../shared-helpers.js";
 import { EmptyState, PageHeader } from "@/components/ui";
+import ShareButton from "../../../../ShareButton.jsx";
 
 function _backend() {
   const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
@@ -101,6 +102,13 @@ export default async function MatchupRecapPage({ params }) {
           title={`${season} · Week ${week}${m.isPlayoff ? " (playoffs)" : ""}`}
           subtitle={m.narrative}
         />
+        <div>
+          <ShareButton
+            label="Share recap"
+            path={`/league/weekly/${encodeURIComponent(season)}/${encodeURIComponent(week)}/${encodeURIComponent(matchup)}`}
+            text={m.narrative}
+          />
+        </div>
       </div>
 
       <div className="row" style={{ marginTop: "var(--space-md)", gap: 14 }}>

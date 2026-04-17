@@ -186,7 +186,7 @@ function LeaguePage({ initialContract = null, initialTab = "overview" }) {
           subtitle={
             `Seasons: ${seasonLabel}` +
             ` · ${(league.managers || []).length} managers` +
-            ` · Last 2 dynasty seasons`
+            ` · Last ${(league.seasonsCovered || []).length || 2} dynasty season${(league.seasonsCovered || []).length === 1 ? "" : "s"}`
           }
         />
         <SubNav items={SUB_TABS} active={activeTab} onChange={(key) => setActiveTab(key)} />
