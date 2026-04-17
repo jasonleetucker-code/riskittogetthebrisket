@@ -177,6 +177,23 @@ a { color: inherit; text-decoration: none; }
   cursor: pointer;
 }
 
+.mobile-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mobile-signout-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    MOBILE BOTTOM NAV
    ══════════════════════════════════════════════════════════════════════════ */
