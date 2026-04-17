@@ -1,83 +1,85 @@
-"use client";
-
-// Dedicated, deep-linkable /league/franchise/[owner] route.
+// Server-rendered franchise page with Open Graph metadata.
 //
-// Hits GET /api/public/league/franchise?owner=<ownerId> which returns
-// the index + detail map PLUS a narrowed ``franchiseDetail`` block so
-// we don't need to download every franchise's detail to render one.
-// Purely public data — see the isolation contract in page.jsx.
+// Fetches GET /api/public/league/franchise?owner=<ownerId> — which
+// includes a narrowed ``franchiseDetail`` block so we don't ship every
+// franchise's detail dict to a single-page visitor.
 
-import { Suspense, useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
-import { LoadingState, EmptyState, PageHeader } from "@/components/ui";
-import { fetchPublicSection } from "@/lib/public-league-data";
-import {
-  Avatar,
-  Card,
-  Stat,
-  buildManagerLookup,
-  fmtNumber,
-} from "../../shared.jsx";
+import { Avatar, Card, Stat } from "../../shared-server.jsx";
+import { buildManagerLookup, fmtNumber } from "../../shared-helpers.js";
+import { EmptyState, PageHeader } from "@/components/ui";
 
-export default function FranchisePageRoute() {
-  return (
-    <Suspense fallback={<LoadingState message="Loading franchise..." />}>
-      <FranchisePage />
-    </Suspense>
-  );
+function _backend() {
+  const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
+  try {
+    const u = new URL(base);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return "http://127.0.0.1:8000";
+  }
 }
 
-function FranchisePage() {
-  const params = useParams();
-  const ownerId = decodeURIComponent(String(params?.owner || ""));
-  const [state, setState] = useState({ loading: true, error: "", payload: null });
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const payload = await fetchPublicSection("franchise", { owner: ownerId });
-        if (!active) return;
-        setState({ loading: false, error: "", payload });
-      } catch (err) {
-        if (!active) return;
-        setState({
-          loading: false,
-          error: err?.message || "Failed to load franchise data",
-          payload: null,
-        });
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [ownerId]);
-
-  if (state.loading) return <LoadingState message="Loading franchise..." />;
-  if (state.error) {
-    return (
-      <div className="card">
-        <EmptyState title="Franchise unavailable" message={state.error} />
-        <div style={{ marginTop: 10 }}>
-          <Link href="/league" style={{ color: "var(--cyan)" }}>← Back to league</Link>
-        </div>
-      </div>
-    );
+async function fetchFranchise(ownerId) {
+  const url = `${_backend()}/api/public/league/franchise?owner=${encodeURIComponent(ownerId)}`;
+  try {
+    const res = await fetch(url, { next: { revalidate: 60 } });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
   }
+}
 
-  const { league, franchiseDetail } = state.payload || {};
-  const fr = franchiseDetail || state.payload?.data?.detail?.[ownerId] || null;
-  const managers = buildManagerLookup(league);
+export async function generateMetadata({ params }) {
+  const { owner } = await params;
+  const ownerId = decodeURIComponent(String(owner || ""));
+  const data = await fetchFranchise(ownerId);
+  const fr = data?.franchiseDetail || data?.data?.detail?.[ownerId];
+  if (!fr) {
+    return {
+      title: "Franchise · Brisket League",
+      description: "Public franchise record for the Risk It To Get The Brisket dynasty league.",
+    };
+  }
+  const cum = fr.cumulative || {};
+  const record = `${cum.wins}-${cum.losses}${cum.ties ? `-${cum.ties}` : ""}`;
+  const titleParts = [`${fr.displayName}`];
+  if (cum.championships) titleParts.push(`${cum.championships}× Champ`);
+  titleParts.push(`${record} across ${cum.seasonsPlayed || 0} seasons`);
+  const title = titleParts.join(" — ");
+  const descParts = [];
+  if (cum.playoffAppearances) descParts.push(`${cum.playoffAppearances} playoff appearances`);
+  if (cum.finalsAppearances) descParts.push(`${cum.finalsAppearances} finals`);
+  if (fr.tradeCount) descParts.push(`${fr.tradeCount} trades`);
+  if (fr.topRival) descParts.push(`Top rival: ${fr.topRival.displayName}`);
+  const description = descParts.length
+    ? descParts.join(" · ")
+    : `Public franchise record for ${fr.displayName}.`;
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: "profile", siteName: "Risk It To Get The Brisket" },
+    twitter: { card: "summary", title, description },
+  };
+}
+
+export default async function FranchisePage({ params }) {
+  const { owner } = await params;
+  const ownerId = decodeURIComponent(String(owner || ""));
+  const data = await fetchFranchise(ownerId);
+  const fr = data?.franchiseDetail || data?.data?.detail?.[ownerId] || null;
+  const managers = buildManagerLookup(data?.league);
 
   if (!fr) {
     return (
-      <div className="card">
-        <EmptyState title="Franchise not found" message={`No public franchise record for owner ${ownerId}.`} />
-        <div style={{ marginTop: 10 }}>
-          <Link href="/league" style={{ color: "var(--cyan)" }}>← Back to league</Link>
+      <section>
+        <div className="card">
+          <EmptyState title="Franchise not found" message={`No public franchise record for owner ${ownerId}.`} />
+          <div style={{ marginTop: 10 }}>
+            <Link href="/league" style={{ color: "var(--cyan)" }}>← Back to league</Link>
+          </div>
         </div>
-      </div>
+      </section>
     );
   }
 
@@ -99,10 +101,13 @@ function FranchisePage() {
             {fr.topRival && (
               <div>
                 Top rival:{" "}
-                <Link href={`/league/franchise/${encodeURIComponent(fr.topRival.ownerId)}`} style={{ color: "var(--cyan)" }}>
+                <Link
+                  href={`/league/franchise/${encodeURIComponent(fr.topRival.ownerId)}`}
+                  style={{ color: "var(--cyan)" }}
+                >
                   {fr.topRival.displayName}
-                </Link>
-                {" · Index "}{fr.topRival.rivalryIndex}
+                </Link>{" "}
+                · Index {fr.topRival.rivalryIndex}
               </div>
             )}
             <div>
@@ -113,13 +118,7 @@ function FranchisePage() {
       </div>
 
       <Card title="Cumulative">
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-            gap: 10,
-          }}
-        >
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
           <Stat label="Seasons" value={fr.cumulative.seasonsPlayed} />
           <Stat
             label="Record"

@@ -146,4 +146,60 @@ test.describe("public /league page", () => {
       expect(lower, `banned field ${banned} leaked into public contract`).not.toContain(banned);
     }
   });
+
+  test("/league page has an OG title (server-rendered metadata)", async ({ request }) => {
+    const res = await request.get("/league");
+    expect(res.status()).toBe(200);
+    const html = await res.text();
+    expect(html).toMatch(/<meta property="og:title"/i);
+    expect(html).toMatch(/<meta property="og:description"/i);
+  });
+
+  test("/league page renders without the client-loading flash (SSR)", async ({ request }) => {
+    // Server render path: the HTML should already contain tab labels
+    // and the overview headline, NOT just the fallback "Loading" text.
+    const res = await request.get("/league");
+    const html = await res.text();
+    expect(html).toMatch(/At a glance|Defending champion|Featured rivalry/);
+  });
+
+  test("per-matchup recap route is reachable with real data", async ({ page, request }) => {
+    const matchupsRes = await request.get("/api/public/league/matchups");
+    expect(matchupsRes.status()).toBe(200);
+    const body = await matchupsRes.json();
+    const first = (body.matchups || [])[0];
+    if (!first) test.skip(true, "no matchups available yet");
+    await page.goto(
+      `/league/weekly/${encodeURIComponent(first.season)}/${encodeURIComponent(first.week)}/${encodeURIComponent(first.matchupId)}`,
+      { waitUntil: "domcontentloaded" },
+    );
+    await expect(page.getByText("Game summary").first()).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("player-journey route is reachable with real data", async ({ page, request }) => {
+    const playersRes = await request.get("/api/public/league/players");
+    expect(playersRes.status()).toBe(200);
+    const players = (await playersRes.json()).players || [];
+    const pid = players.find((p) => p.playerName && p.position)?.playerId;
+    if (!pid) test.skip(true, "no named players available yet");
+    await page.goto(`/league/player/${encodeURIComponent(pid)}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.getByText("Impact by manager").first()).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("CSV export endpoint serves text/csv", async ({ request }) => {
+    const res = await request.get("/api/public/league/history.csv");
+    expect(res.status()).toBe(200);
+    expect(res.headers()["content-type"]).toMatch(/text\/csv/);
+  });
+
+  test("metrics endpoint exposes snapshot cache counters", async ({ request }) => {
+    const res = await request.get("/api/public/league/metrics");
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveProperty("metrics.rebuild_count");
+    expect(body).toHaveProperty("metrics.cache_hit");
+    expect(body).toHaveProperty("metrics.total_served");
+  });
 });

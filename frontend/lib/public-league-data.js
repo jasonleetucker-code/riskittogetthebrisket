@@ -68,3 +68,22 @@ export async function fetchPublicSection(section, { owner, refresh } = {}) {
   const qs = params.toString();
   return _getJson(`/api/public/league/${section}${qs ? `?${qs}` : ""}`);
 }
+
+export async function fetchPublicMatchup(season, week, matchupId, { refresh } = {}) {
+  const qs = refresh ? "?refresh=1" : "";
+  return _getJson(
+    `/api/public/league/matchup/${encodeURIComponent(season)}/${encodeURIComponent(week)}/${encodeURIComponent(matchupId)}${qs}`,
+  );
+}
+
+export async function fetchPublicPlayer(playerId, { refresh } = {}) {
+  const qs = refresh ? "?refresh=1" : "";
+  return _getJson(
+    `/api/public/league/player/${encodeURIComponent(playerId)}${qs}`,
+  );
+}
+
+export async function fetchPublicPlayersIndex({ refresh } = {}) {
+  const qs = refresh ? "?refresh=1" : "";
+  return _getJson(`/api/public/league/players${qs}`);
+}

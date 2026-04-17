@@ -1515,6 +1515,15 @@ async def lifespan(app: FastAPI):
     scheduler_task = asyncio.create_task(schedule_loop())
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
 
+    # Public league snapshot warmup — kicks a background rebuild if
+    # no persisted snapshot was loaded at boot.  Name is resolved at
+    # call time (Python late-binding), so the fact that the function
+    # is defined further down in the module is fine.
+    try:
+        _warmup_public_snapshot()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("public_league warmup failed at startup: %s", exc)
+
     log.info(f"Server started — scraping every {SCRAPE_INTERVAL_HOURS}h")
     log.info("Frontend: Next.js at %s", FRONTEND_URL)
     log.info(f"Dashboard: http://localhost:{PORT}")
@@ -2941,6 +2950,9 @@ from src.public_league import (  # noqa: E402 — grouped after route block abov
 from src.public_league.public_contract import assert_public_payload_safe
 from src.public_league.sleeper_client import PUBLIC_MAX_SEASONS
 from src.public_league import snapshot_store as public_snapshot_store
+from src.public_league import csv_export as public_csv_export
+from src.public_league import matchup_recap as public_matchup_recap
+from src.public_league import player_journey as public_player_journey
 
 _PUBLIC_LEAGUE_CACHE_TTL_SECONDS = int(os.getenv("PUBLIC_LEAGUE_CACHE_TTL", "300"))
 _PUBLIC_LEAGUE_PERSIST = _env_bool("PUBLIC_LEAGUE_PERSIST_SNAPSHOT", True)
@@ -2952,6 +2964,65 @@ _public_league_cache: dict = {
     "refreshing": False,
 }
 _public_league_refresh_lock = threading.Lock()
+
+# Observability counters for the public-league snapshot cache.  Logged
+# at every serve path via ``_log_public_league_event`` so the uptime
+# watchdog + log-scraping tooling can track cold-fetch regressions, the
+# cache hit ratio, and thundering-herd refresh suppression.
+_public_league_metrics: dict = {
+    "cache_hit": 0,
+    "cache_stale_served": 0,
+    "cache_miss_cold_rebuild": 0,
+    "force_refresh": 0,
+    "background_refresh_started": 0,
+    "background_refresh_suppressed": 0,
+    "rebuild_count": 0,
+    "rebuild_failures": 0,
+    "total_rebuild_seconds": 0.0,
+    "last_rebuild_seconds": None,
+    "last_rebuild_iso": None,
+    "last_contract_bytes": None,
+    "last_season_count": None,
+    "last_manager_count": None,
+}
+
+
+def _log_public_league_event(event: str, **fields) -> None:
+    """Emit a single structured log line for a public_league event.
+
+    Keeps the shape ``public_league_event=<name> key=value ...`` so a
+    log shipper can ingest it directly without regex-wrangling.  All
+    values are JSON-stringified for safety.
+    """
+    parts = [f"public_league_event={event}"]
+    for key, value in fields.items():
+        try:
+            rendered = json.dumps(value, default=str)
+        except (TypeError, ValueError):
+            rendered = json.dumps(str(value))
+        parts.append(f"{key}={rendered}")
+    logging.info(" ".join(parts))
+
+
+def _public_league_metrics_snapshot() -> dict:
+    """Copy of the metrics dict safe to ship out of the process."""
+    snap = dict(_public_league_metrics)
+    # Derived fields.
+    total = (
+        snap["cache_hit"]
+        + snap["cache_stale_served"]
+        + snap["cache_miss_cold_rebuild"]
+    )
+    snap["total_served"] = total
+    snap["cache_hit_ratio"] = (
+        round(snap["cache_hit"] / total, 4) if total else None
+    )
+    snap["avg_rebuild_seconds"] = (
+        round(snap["total_rebuild_seconds"] / snap["rebuild_count"], 4)
+        if snap["rebuild_count"]
+        else None
+    )
+    return snap
 
 # Best-effort: load the most recent persisted snapshot at process
 # start so a cold-started server can still serve the public /league
@@ -2977,7 +3048,7 @@ def _public_league_id() -> str:
     return os.getenv("SLEEPER_LEAGUE_ID", SLEEPER_LEAGUE_ID_FOR_DRAFT).strip()
 
 
-def _rebuild_public_snapshot(league_id: str):
+def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
     """Synchronously rebuild the public snapshot for ``league_id``.
 
     Guarded by ``_public_league_refresh_lock`` so a burst of requests
@@ -2995,33 +3066,80 @@ def _rebuild_public_snapshot(league_id: str):
             and cached_id == league_id
             and (now - fetched_at) < _PUBLIC_LEAGUE_CACHE_TTL_SECONDS
         ):
+            _log_public_league_event(
+                "refresh_deduped",
+                trigger=trigger,
+                league_id=league_id,
+            )
             return cached
+        started = time.time()
+        snapshot = None
+        error = None
         try:
             snapshot = build_public_snapshot(league_id, max_seasons=PUBLIC_MAX_SEASONS)
+        except Exception as exc:  # noqa: BLE001
+            error = exc
+            _public_league_metrics["rebuild_failures"] += 1
+            _log_public_league_event(
+                "rebuild_failed",
+                trigger=trigger,
+                league_id=league_id,
+                error=str(exc),
+            )
+            raise
         finally:
             _public_league_cache["refreshing"] = False
+
+        elapsed = round(time.time() - started, 4)
         _public_league_cache["snapshot"] = snapshot
         _public_league_cache["snapshot_league_id"] = league_id
         _public_league_cache["fetched_at"] = time.time()
+        _public_league_metrics["rebuild_count"] += 1
+        _public_league_metrics["total_rebuild_seconds"] += elapsed
+        _public_league_metrics["last_rebuild_seconds"] = elapsed
+        _public_league_metrics["last_rebuild_iso"] = _utc_now_iso()
+        _public_league_metrics["last_season_count"] = len(snapshot.seasons)
+        _public_league_metrics["last_manager_count"] = len(snapshot.managers.by_owner_id)
+
+        contract_bytes = None
         if _PUBLIC_LEAGUE_PERSIST and snapshot.seasons:
             try:
                 contract = build_public_contract(snapshot)
                 public_snapshot_store.persist_snapshot(snapshot, contract=contract)
+                contract_bytes = len(json.dumps(contract).encode("utf-8"))
+                _public_league_metrics["last_contract_bytes"] = contract_bytes
             except Exception as exc:  # noqa: BLE001
                 logging.warning("Failed to persist public_league snapshot: %s", exc)
+
+        _log_public_league_event(
+            "rebuild_complete",
+            trigger=trigger,
+            league_id=league_id,
+            elapsed_seconds=elapsed,
+            seasons=len(snapshot.seasons),
+            managers=len(snapshot.managers.by_owner_id),
+            contract_bytes=contract_bytes,
+        )
         return snapshot
 
 
-def _kick_background_refresh(league_id: str):
+def _kick_background_refresh(league_id: str, *, trigger: str = "stale-while-revalidate"):
     """Start a daemon thread that refreshes the public snapshot in the
     background.  No-op if another refresh is already running."""
     if _public_league_cache.get("refreshing"):
+        _public_league_metrics["background_refresh_suppressed"] += 1
         return
     _public_league_cache["refreshing"] = True
+    _public_league_metrics["background_refresh_started"] += 1
+    _log_public_league_event(
+        "background_refresh_started",
+        trigger=trigger,
+        league_id=league_id,
+    )
 
     def _worker():
         try:
-            _rebuild_public_snapshot(league_id)
+            _rebuild_public_snapshot(league_id, trigger=trigger)
         except Exception as exc:  # noqa: BLE001
             logging.warning("Background public_league refresh failed: %s", exc)
         finally:
@@ -3057,20 +3175,31 @@ def _get_public_snapshot(force_refresh: bool = False):
         and (now - fetched_at) < _PUBLIC_LEAGUE_CACHE_TTL_SECONDS
     )
     if fresh and not force_refresh:
+        _public_league_metrics["cache_hit"] += 1
         return cached
+    if force_refresh:
+        _public_league_metrics["force_refresh"] += 1
+        return _rebuild_public_snapshot(league_id, trigger="force-refresh")
     # Stale-but-serveable: return the cached payload and refresh in
     # the background so subsequent requests get fresh data.
-    if cached is not None and cached_id == league_id and not force_refresh:
+    if cached is not None and cached_id == league_id:
+        _public_league_metrics["cache_stale_served"] += 1
         _kick_background_refresh(league_id)
         return cached
-    # Cold start or forced refresh — block on a sync rebuild.
-    return _rebuild_public_snapshot(league_id)
+    # Cold start — block on a sync rebuild.
+    _public_league_metrics["cache_miss_cold_rebuild"] += 1
+    return _rebuild_public_snapshot(league_id, trigger="cold-start")
 
 
 def _warmup_public_snapshot():
     """Kick a background snapshot rebuild at startup when no warm cache
     was loaded from disk.  Bounded by the same lock as the request-path
-    refresher so the first request still benefits."""
+    refresher so the first request still benefits.
+
+    Invoked from the FastAPI ``lifespan`` contextmanager (see the
+    ``lifespan`` function earlier in this file); do not register it as
+    an ``@app.on_event`` handler — that API is deprecated.
+    """
     if not _PUBLIC_LEAGUE_WARMUP:
         return
     league_id = _public_league_id()
@@ -3085,17 +3214,36 @@ def _warmup_public_snapshot():
     )
     if not needs_refresh:
         return
-    _kick_background_refresh(league_id)
-
-
-@app.on_event("startup")
-def _public_league_startup_hook():
-    _warmup_public_snapshot()
+    _kick_background_refresh(league_id, trigger="startup-warmup")
 
 
 _PUBLIC_LEAGUE_CACHE_CONTROL = (
     f"public, max-age=60, stale-while-revalidate={_PUBLIC_LEAGUE_CACHE_TTL_SECONDS}"
 )
+
+
+@app.get("/api/public/league/metrics")
+async def get_public_league_metrics():
+    """Small, public-safe observability endpoint for the snapshot cache.
+
+    Exposes the counters that ``_log_public_league_event`` has been
+    emitting: cache hit ratio, rebuild wall-clock, contract byte-size,
+    last rebuild timestamp.  Useful for the uptime watchdog, for
+    external dashboards, and for smoke-testing cold-fetch regressions.
+
+    NOTE: no private data — just aggregated counters for the cache.
+    """
+    snap = _public_league_metrics_snapshot()
+    return JSONResponse(
+        content={
+            "leagueId": _public_league_id(),
+            "cacheTtlSeconds": _PUBLIC_LEAGUE_CACHE_TTL_SECONDS,
+            "warmupEnabled": _PUBLIC_LEAGUE_WARMUP,
+            "persistEnabled": _PUBLIC_LEAGUE_PERSIST,
+            "metrics": snap,
+        },
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/api/public/league")
@@ -3129,15 +3277,250 @@ async def get_public_league(refresh: str = ""):
         )
 
 
+@app.get("/api/public/league/matchup/{season}/{week}/{matchup_id}")
+async def get_public_league_matchup(
+    season: str,
+    week: int,
+    matchup_id: int,
+    refresh: str = "",
+):
+    """Per-matchup public recap — full lineups, scoring, pre-week standings.
+
+    ``season`` is the season year string (e.g. ``"2025"``).
+    Runs through the same safety allowlist as the rest of the contract.
+    """
+    try:
+        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
+        recap = public_matchup_recap.build_matchup_recap(
+            snapshot, season, int(week), int(matchup_id),
+        )
+        if recap is None:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "error": f"No matchup found at season={season} week={week} matchup_id={matchup_id}",
+                },
+            )
+        payload = {
+            "contractVersion": "public-league-matchup/2026-04-17.v1",
+            "league": {
+                "rootLeagueId": snapshot.root_league_id,
+                "currentLeagueId": snapshot.current_season.league_id if snapshot.current_season else "",
+                "leagueName": str((snapshot.current_season.league or {}).get("name") or "") if snapshot.current_season else "",
+                "managers": snapshot.managers.to_public_list(),
+                "seasonsCovered": snapshot.season_ids,
+                "generatedAt": snapshot.generated_at,
+            },
+            "matchup": recap,
+        }
+        assert_public_payload_safe(payload)
+        return JSONResponse(
+            content=payload,
+            headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
+        )
+    except AssertionError as exc:
+        logging.error("Matchup recap tripped safety assert: %s", exc)
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Public league contract safety violation."},
+        )
+    except Exception as exc:  # noqa: BLE001
+        logging.error("Matchup recap build failed: %s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={"error": f"Matchup recap unavailable: {exc}"},
+        )
+
+
+@app.get("/api/public/league/matchups")
+async def list_public_league_matchups(refresh: str = ""):
+    """Index endpoint — every (season, week, matchup_id) that has a
+    scored pair.  Useful for sitemap generation + the index landing."""
+    try:
+        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
+        payload = {
+            "seasonsCovered": snapshot.season_ids,
+            "matchups": public_matchup_recap.list_matchups(snapshot),
+            "generatedAt": snapshot.generated_at,
+        }
+        assert_public_payload_safe(payload)
+        return JSONResponse(
+            content=payload,
+            headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
+        )
+    except Exception as exc:  # noqa: BLE001
+        logging.error("Matchup index failed: %s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={"error": f"Matchup index unavailable: {exc}"},
+        )
+
+
+@app.get("/api/public/league/player/{player_id}")
+async def get_public_league_player(player_id: str, refresh: str = ""):
+    """Public player-journey view: every trade, waiver, weekly starter
+    slot, per-manager scoring summary for a given Sleeper player_id."""
+    try:
+        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
+        journey = public_player_journey.build_player_journey(snapshot, player_id)
+        if journey is None:
+            return JSONResponse(
+                status_code=404,
+                content={"error": f"No public journey data for player_id={player_id!r}"},
+            )
+        payload = {
+            "contractVersion": "public-league-player/2026-04-17.v1",
+            "league": {
+                "rootLeagueId": snapshot.root_league_id,
+                "leagueName": str((snapshot.current_season.league or {}).get("name") or "") if snapshot.current_season else "",
+                "managers": snapshot.managers.to_public_list(),
+                "seasonsCovered": snapshot.season_ids,
+                "generatedAt": snapshot.generated_at,
+            },
+            "player": journey,
+        }
+        assert_public_payload_safe(payload)
+        return JSONResponse(
+            content=payload,
+            headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
+        )
+    except AssertionError as exc:
+        logging.error("Player journey tripped safety assert: %s", exc)
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Public league contract safety violation."},
+        )
+    except Exception as exc:  # noqa: BLE001
+        logging.error("Player journey build failed: %s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={"error": f"Player journey unavailable: {exc}"},
+        )
+
+
+@app.get("/api/public/league/players")
+async def list_public_league_players(refresh: str = ""):
+    """Index endpoint — every player who appears on a roster or in a
+    transaction in the 2-season window.  Lightweight so the frontend
+    can build a player-autocomplete."""
+    try:
+        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
+        payload = {
+            "seasonsCovered": snapshot.season_ids,
+            "players": public_player_journey.list_players_with_activity(snapshot),
+            "generatedAt": snapshot.generated_at,
+        }
+        assert_public_payload_safe(payload)
+        return JSONResponse(
+            content=payload,
+            headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
+        )
+    except Exception as exc:  # noqa: BLE001
+        logging.error("Players index failed: %s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={"error": f"Players index unavailable: {exc}"},
+        )
+
+
+@app.get("/api/public/league/{section}.csv")
+async def get_public_league_section_csv(
+    section: str,
+    owner: str = "",
+    kind: str = "",
+    refresh: str = "",
+):
+    """CSV download for any public-league section.
+
+    Matches the JSON endpoint at ``/api/public/league/{section}`` but
+    serializes the underlying payload as CSV via ``csv_export``.
+    Supports the same ``owner`` qualifier for franchise and a ``kind``
+    qualifier for archives (``trades|waivers|weeklyMatchups|rookieDrafts|
+    seasonResults|managers``).
+
+    The CSV is generated from the same safety-checked JSON payload the
+    /api/public/league route serves, so no new leak surface is added.
+
+    Registered BEFORE the generic /{section} handler so FastAPI's path
+    matching resolves the ``.csv`` suffix first.
+    """
+    if section == "hall_of_fame":
+        # Hall of Fame is a derived projection of the history section.
+        try:
+            snapshot = _get_public_snapshot(force_refresh=bool(refresh))
+            history_payload = build_section_payload(snapshot, "history")
+            assert_public_payload_safe(history_payload)
+            filename, text = public_csv_export.export_hall_of_fame(history_payload["data"])
+            return Response(
+                content=text,
+                media_type="text/csv; charset=utf-8",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename}"',
+                    "Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL,
+                },
+            )
+        except Exception as exc:  # noqa: BLE001
+            logging.error("CSV export hall_of_fame failed: %s", exc)
+            return JSONResponse(
+                status_code=503,
+                content={"error": f"CSV export unavailable: {exc}"},
+            )
+
+    if section not in PUBLIC_SECTION_KEYS:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": f"Unknown public league section: {section!r}",
+                "availableSections": list(PUBLIC_SECTION_KEYS) + ["hall_of_fame"],
+            },
+        )
+    try:
+        snapshot = _get_public_snapshot(force_refresh=bool(refresh))
+        payload = build_section_payload(snapshot, section)
+        assert_public_payload_safe(payload)
+        kwargs = {}
+        if section == "franchise" and owner:
+            kwargs["owner_id"] = str(owner).strip()
+        if section == "archives" and kind:
+            kwargs["kind"] = str(kind).strip()
+        filename, text = public_csv_export.export_section(
+            section, payload["data"], **kwargs
+        )
+        return Response(
+            content=text,
+            media_type="text/csv; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL,
+            },
+        )
+    except AssertionError as exc:
+        logging.error("CSV export safety violation in section %s: %s", section, exc)
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Public league contract safety violation."},
+        )
+    except Exception as exc:  # noqa: BLE001
+        logging.error("CSV export for section %s failed: %s", section, exc)
+        return JSONResponse(
+            status_code=503,
+            content={"error": f"CSV export unavailable: {exc}"},
+        )
+
+
 @app.get("/api/public/league/{section}")
 async def get_public_league_section(section: str, owner: str = "", refresh: str = ""):
-    """Single public-league section payload.
+    """Single public-league section JSON payload.
 
     ``section`` must be one of ``PUBLIC_SECTION_KEYS``.  When the
     ``franchise`` section is requested with ``?owner=<owner_id>`` we
     also include a narrowed ``franchiseDetail`` block so the frontend
     can render a single franchise page without downloading every
     franchise's detail dict.
+
+    NOTE: the ``.csv`` variant above MUST remain registered before this
+    route — FastAPI otherwise matches ``/{section}`` against
+    ``history.csv`` with ``section="history.csv"``.
     """
     if section not in PUBLIC_SECTION_KEYS:
         return JSONResponse(

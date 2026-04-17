@@ -1,0 +1,96 @@
+name: Public League Warmup
+
+# Keeps the /api/public/league snapshot cache perpetually warm so no
+# user ever pays the cold-fetch latency.  Belt-and-suspenders with the
+# server's built-in stale-while-revalidate and startup warmup — if a
+# deploy or service restart clears in-memory state, this cron guarantees
+# a fresh snapshot is on disk within 20 minutes.
+#
+# Triggers:
+#   * cron — every 20 minutes
+#   * workflow_dispatch — for manual warmup after a restart
+#
+# This workflow is trivial: it hits the public endpoint with
+# ?refresh=1 and asserts the response shape.  It does NOT need SSH
+# access and runs on any GitHub runner.
+
+on:
+  schedule:
+    # Every 20 minutes.  Leaves 10 minutes of slack before the default
+    # 5-minute TTL window elapses three times in a row.
+    - cron: "*/20 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: public-league-warmup
+  cancel-in-progress: true
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Resolve target URL
+        id: url
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          URL="${{ vars.PROD_PUBLIC_URL }}"
+          if [[ -z "${URL}" ]]; then
+            URL="https://riskittogetthebrisket.org"
+          fi
+          URL="${URL%/}"
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Force snapshot refresh
+        shell: bash
+        env:
+          URL: ${{ steps.url.outputs.url }}
+        run: |
+          set -Eeuo pipefail
+          echo "Warming ${URL}/api/public/league?refresh=1"
+          body_file="$(mktemp)"
+          code="$(curl --silent --show-error --globoff --max-time 45 \
+            --output "${body_file}" --write-out '%{http_code}' \
+            "${URL}/api/public/league?refresh=1" || echo 000)"
+          size=$(wc -c < "${body_file}" 2>/dev/null || echo 0)
+          echo "status=${code} size=${size}"
+
+          if [[ "${code}" != "200" ]]; then
+            echo "::error title=Warmup failed::HTTP ${code} from ${URL}/api/public/league?refresh=1"
+            exit 1
+          fi
+
+          # Sanity-check response shape — guards against a silent
+          # 200-but-empty regression.
+          if ! python3 - "${body_file}" <<'PY'; then
+          import json, sys
+          p = sys.argv[1]
+          with open(p, 'r', encoding='utf-8') as f:
+              d = json.load(f)
+          if not isinstance(d, dict):
+              raise SystemExit("response not a dict")
+          keys = set(d.get("sectionKeys") or [])
+          required = {"overview", "history", "awards", "records", "archives"}
+          missing = required - keys
+          if missing:
+              raise SystemExit(f"missing sections: {sorted(missing)}")
+          if not (d.get("league") or {}).get("managers"):
+              raise SystemExit("no managers in league header")
+          print("OK contractVersion={} managers={}".format(
+              d.get("contractVersion"),
+              len(d["league"]["managers"]),
+          ))
+          PY
+              echo "::error title=Warmup shape check failed::See log above"
+              exit 1
+          fi
+
+      - name: Emit metrics snapshot
+        shell: bash
+        env:
+          URL: ${{ steps.url.outputs.url }}
+        run: |
+          set -Eeuo pipefail
+          curl --silent --show-error --globoff --max-time 10 \
+            "${URL}/api/public/league/metrics" | python3 -m json.tool | head -30 || true
