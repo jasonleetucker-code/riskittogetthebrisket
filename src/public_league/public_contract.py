@@ -19,6 +19,7 @@ from . import (
     draft,
     franchise,
     history,
+    overview,
     records,
     rivalries,
     superlatives,
@@ -26,12 +27,16 @@ from . import (
 )
 from .snapshot import PublicLeagueSnapshot
 
-PUBLIC_CONTRACT_VERSION = "public-league/2026-04-17.v1"
+PUBLIC_CONTRACT_VERSION = "public-league/2026-04-17.v2"
 
 
 # Sections exposed by the public contract.  Each entry maps the public
 # contract key to its section builder.  The order is the order each
 # endpoint walks when assembling the aggregate payload.
+#
+# ``overview`` is special — it's composed from the already-built
+# sections, so we don't place it in the straight builder dict.  The
+# assemble function below runs overview last.
 _SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] = {
     "history": history.build_section,
     "rivalries": rivalries.build_section,
@@ -45,7 +50,12 @@ _SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] =
     "archives": archives.build_section,
 }
 
-PUBLIC_SECTION_KEYS: tuple[str, ...] = tuple(_SECTION_BUILDERS.keys())
+# Derived overview is a first-class section key the UI can fetch just
+# like any other, but it composes over the other builders instead of
+# walking the snapshot directly.
+OVERVIEW_SECTION = "overview"
+
+PUBLIC_SECTION_KEYS: tuple[str, ...] = (OVERVIEW_SECTION,) + tuple(_SECTION_BUILDERS.keys())
 
 
 # Field name blocklist.  These substrings MUST NOT appear as dict keys
@@ -149,15 +159,32 @@ def _league_header(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     }
 
 
+def _build_overview(snapshot: PublicLeagueSnapshot, sections: dict[str, Any]) -> dict[str, Any]:
+    return overview.build_section(
+        snapshot,
+        history_section=sections.get("history") or {},
+        rivalries_section=sections.get("rivalries") or {},
+        records_section=sections.get("records") or {},
+        awards_section=sections.get("awards") or {},
+        activity_section=sections.get("activity") or {},
+        draft_section=sections.get("draft") or {},
+        weekly_section=sections.get("weekly") or {},
+    )
+
+
 def build_section_payload(snapshot: PublicLeagueSnapshot, section: str) -> dict[str, Any]:
     """Build a single public-section payload, wrapped in the standard header.
 
     Raises ``KeyError`` if ``section`` is unknown.
     """
-    if section not in _SECTION_BUILDERS:
+    if section == OVERVIEW_SECTION:
+        sections = {key: builder(snapshot) for key, builder in _SECTION_BUILDERS.items()}
+        section_body = _build_overview(snapshot, sections)
+    elif section in _SECTION_BUILDERS:
+        section_body = _SECTION_BUILDERS[section](snapshot)
+    else:
         raise KeyError(f"Unknown public-league section: {section!r}")
     header = _league_header(snapshot)
-    section_body = _SECTION_BUILDERS[section](snapshot)
     payload = {
         "contractVersion": PUBLIC_CONTRACT_VERSION,
         "league": header,
@@ -174,6 +201,7 @@ def build_public_contract(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     sections: dict[str, Any] = {}
     for key, builder in _SECTION_BUILDERS.items():
         sections[key] = builder(snapshot)
+    sections[OVERVIEW_SECTION] = _build_overview(snapshot, sections)
     payload = {
         "contractVersion": PUBLIC_CONTRACT_VERSION,
         "league": header,

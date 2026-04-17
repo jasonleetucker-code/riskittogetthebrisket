@@ -43,6 +43,19 @@ module.exports = defineConfig({
       },
     },
     {
+      // Chromium-based mobile viewport — equivalent layout coverage to
+      // mobile-390 / mobile-430 below, but without requiring webkit.
+      // Used for the public /league page suite which doesn't depend on
+      // Safari-specific behavior.
+      name: "mobile-chromium",
+      use: {
+        browserName: "chromium",
+        viewport: { width: 390, height: 844 },
+        hasTouch: true,
+        isMobile: true,
+      },
+    },
+    {
       name: "mobile-390",
       use: {
         ...devices["iPhone 13"],

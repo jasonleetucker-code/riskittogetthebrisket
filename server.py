@@ -17,6 +17,7 @@ import asyncio
 import json
 import os
 import sys
+import threading
 import time
 import logging
 import traceback
@@ -2943,11 +2944,14 @@ from src.public_league import snapshot_store as public_snapshot_store
 
 _PUBLIC_LEAGUE_CACHE_TTL_SECONDS = int(os.getenv("PUBLIC_LEAGUE_CACHE_TTL", "300"))
 _PUBLIC_LEAGUE_PERSIST = _env_bool("PUBLIC_LEAGUE_PERSIST_SNAPSHOT", True)
+_PUBLIC_LEAGUE_WARMUP = _env_bool("PUBLIC_LEAGUE_WARMUP_AT_STARTUP", True)
 _public_league_cache: dict = {
     "snapshot": None,
     "snapshot_league_id": None,
     "fetched_at": 0.0,
+    "refreshing": False,
 }
+_public_league_refresh_lock = threading.Lock()
 
 # Best-effort: load the most recent persisted snapshot at process
 # start so a cold-started server can still serve the public /league
@@ -2973,8 +2977,75 @@ def _public_league_id() -> str:
     return os.getenv("SLEEPER_LEAGUE_ID", SLEEPER_LEAGUE_ID_FOR_DRAFT).strip()
 
 
+def _rebuild_public_snapshot(league_id: str):
+    """Synchronously rebuild the public snapshot for ``league_id``.
+
+    Guarded by ``_public_league_refresh_lock`` so a burst of requests
+    while the background refresh is running doesn't multiply work.
+    """
+    with _public_league_refresh_lock:
+        now = time.time()
+        cached = _public_league_cache.get("snapshot")
+        cached_id = _public_league_cache.get("snapshot_league_id")
+        fetched_at = float(_public_league_cache.get("fetched_at") or 0.0)
+        # If another thread just refreshed while we were waiting on the
+        # lock, reuse that work.
+        if (
+            cached is not None
+            and cached_id == league_id
+            and (now - fetched_at) < _PUBLIC_LEAGUE_CACHE_TTL_SECONDS
+        ):
+            return cached
+        try:
+            snapshot = build_public_snapshot(league_id, max_seasons=PUBLIC_MAX_SEASONS)
+        finally:
+            _public_league_cache["refreshing"] = False
+        _public_league_cache["snapshot"] = snapshot
+        _public_league_cache["snapshot_league_id"] = league_id
+        _public_league_cache["fetched_at"] = time.time()
+        if _PUBLIC_LEAGUE_PERSIST and snapshot.seasons:
+            try:
+                contract = build_public_contract(snapshot)
+                public_snapshot_store.persist_snapshot(snapshot, contract=contract)
+            except Exception as exc:  # noqa: BLE001
+                logging.warning("Failed to persist public_league snapshot: %s", exc)
+        return snapshot
+
+
+def _kick_background_refresh(league_id: str):
+    """Start a daemon thread that refreshes the public snapshot in the
+    background.  No-op if another refresh is already running."""
+    if _public_league_cache.get("refreshing"):
+        return
+    _public_league_cache["refreshing"] = True
+
+    def _worker():
+        try:
+            _rebuild_public_snapshot(league_id)
+        except Exception as exc:  # noqa: BLE001
+            logging.warning("Background public_league refresh failed: %s", exc)
+        finally:
+            _public_league_cache["refreshing"] = False
+
+    threading.Thread(
+        target=_worker,
+        name="public-league-warmup",
+        daemon=True,
+    ).start()
+
+
 def _get_public_snapshot(force_refresh: bool = False):
-    """Return (possibly cached) public snapshot for the current league."""
+    """Return (possibly cached) public snapshot for the current league.
+
+    Stale-while-revalidate behavior: if a cached snapshot exists but
+    has passed TTL, we still return the stale payload immediately and
+    kick a background refresh.  The NEXT request gets the fresh data.
+    First-request latency is therefore bounded by whatever the client
+    already has on disk, not by the Sleeper fetch time.
+
+    ``force_refresh`` bypasses this and blocks on a fresh fetch —
+    used by the manual ``?refresh=1`` query and the warmup path.
+    """
     league_id = _public_league_id()
     now = time.time()
     cached = _public_league_cache.get("snapshot")
@@ -2987,17 +3058,44 @@ def _get_public_snapshot(force_refresh: bool = False):
     )
     if fresh and not force_refresh:
         return cached
-    snapshot = build_public_snapshot(league_id, max_seasons=PUBLIC_MAX_SEASONS)
-    _public_league_cache["snapshot"] = snapshot
-    _public_league_cache["snapshot_league_id"] = league_id
-    _public_league_cache["fetched_at"] = now
-    if _PUBLIC_LEAGUE_PERSIST and snapshot.seasons:
-        try:
-            contract = build_public_contract(snapshot)
-            public_snapshot_store.persist_snapshot(snapshot, contract=contract)
-        except Exception as exc:  # noqa: BLE001
-            logging.warning("Failed to persist public_league snapshot: %s", exc)
-    return snapshot
+    # Stale-but-serveable: return the cached payload and refresh in
+    # the background so subsequent requests get fresh data.
+    if cached is not None and cached_id == league_id and not force_refresh:
+        _kick_background_refresh(league_id)
+        return cached
+    # Cold start or forced refresh — block on a sync rebuild.
+    return _rebuild_public_snapshot(league_id)
+
+
+def _warmup_public_snapshot():
+    """Kick a background snapshot rebuild at startup when no warm cache
+    was loaded from disk.  Bounded by the same lock as the request-path
+    refresher so the first request still benefits."""
+    if not _PUBLIC_LEAGUE_WARMUP:
+        return
+    league_id = _public_league_id()
+    if not league_id:
+        return
+    cached = _public_league_cache.get("snapshot")
+    cached_id = _public_league_cache.get("snapshot_league_id")
+    needs_refresh = (
+        cached is None
+        or cached_id != league_id
+        or float(_public_league_cache.get("fetched_at") or 0.0) == 0.0
+    )
+    if not needs_refresh:
+        return
+    _kick_background_refresh(league_id)
+
+
+@app.on_event("startup")
+def _public_league_startup_hook():
+    _warmup_public_snapshot()
+
+
+_PUBLIC_LEAGUE_CACHE_CONTROL = (
+    f"public, max-age=60, stale-while-revalidate={_PUBLIC_LEAGUE_CACHE_TTL_SECONDS}"
+)
 
 
 @app.get("/api/public/league")
@@ -3013,7 +3111,10 @@ async def get_public_league(refresh: str = ""):
         snapshot = _get_public_snapshot(force_refresh=bool(refresh))
         payload = build_public_contract(snapshot)
         assert_public_payload_safe(payload)
-        return JSONResponse(content=payload)
+        return JSONResponse(
+            content=payload,
+            headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
+        )
     except AssertionError as exc:
         logging.error("Public league contract tripped safety assert: %s", exc)
         return JSONResponse(
@@ -3051,7 +3152,10 @@ async def get_public_league_section(section: str, owner: str = "", refresh: str 
             detail_map = payload.get("data", {}).get("detail") or {}
             payload["franchiseDetail"] = detail_map.get(str(owner).strip())
         assert_public_payload_safe(payload)
-        return JSONResponse(content=payload)
+        return JSONResponse(
+            content=payload,
+            headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
+        )
     except AssertionError as exc:
         logging.error("Public section %s tripped safety assert: %s", section, exc)
         return JSONResponse(
