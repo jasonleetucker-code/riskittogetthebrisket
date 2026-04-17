@@ -26,8 +26,11 @@ const MOBILE_NAV = [
   { href: "/more", label: "More", icon: "M" },
 ];
 
-// Routes that do NOT require auth (public pages)
-const PUBLIC_ROUTES = new Set(["/", "/login", "/draft-capital", "/trades"]);
+// Routes that do NOT require auth (public pages).  /league is backed
+// by the isolated public pipeline in src/public_league/ and fetches
+// only from /api/public/league — it never reads the private /api/data
+// contract.
+const PUBLIC_ROUTES = new Set(["/", "/login", "/draft-capital", "/trades", "/league"]);
 
 // ── Auth context ─────────────────────────────────────────────────────────
 const AuthContext = createContext({
