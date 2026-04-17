@@ -2959,11 +2959,9 @@ _PUBLIC_LEAGUE_PERSIST = _env_bool("PUBLIC_LEAGUE_PERSIST_SNAPSHOT", True)
 _PUBLIC_LEAGUE_WARMUP = _env_bool("PUBLIC_LEAGUE_WARMUP_AT_STARTUP", True)
 
 
-# Round ordinals used when synthesizing canonical pick names from the
-# ``(season, round)`` the public activity feed carries.  Matches the
-# labels used in ``src/api/data_contract.py`` and the frontend
-# ``frontend/lib/trade-logic.js`` pick candidate builder.
-_PUBLIC_ACTIVITY_ROUND_LABELS = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th", 6: "6th"}
+from src.api.public_activity_valuation import (
+    build_valuation_from_contract as _build_valuation_from_contract,
+)
 
 
 def _build_public_activity_valuation():
@@ -2978,118 +2976,13 @@ def _build_public_activity_valuation():
 
     Returns ``None`` when the private contract is unavailable (fresh
     server, scraper failure).  In that case the public activity feed
-    ships without grade annotations, which is the pre-existing
-    behavior.
+    ships without grade annotations.
+
+    The actual contract parsing lives in
+    ``src.api.public_activity_valuation.build_valuation_from_contract``
+    so it can be unit-tested without pulling in FastAPI.
     """
-    contract = latest_contract_data
-    if not contract:
-        return None
-    players_array = contract.get("playersArray") or []
-    if not players_array:
-        return None
-
-    # Alias map authored by the canonical pipeline — redirects generic
-    # tier labels ("2026 Mid 1st") to slot-specific siblings
-    # ("2026 Pick 1.06") when the latter exists.  Normalized to
-    # lowercase so lookups match our tier-candidate probes.
-    raw_aliases = contract.get("pickAliases") or {}
-    pick_aliases: dict[str, str] = {}
-    if isinstance(raw_aliases, dict):
-        for k, v in raw_aliases.items():
-            if isinstance(k, str) and isinstance(v, str):
-                pick_aliases[k.lower()] = v.lower()
-
-    by_id: dict[str, float] = {}
-    by_name: dict[str, float] = {}
-    for row in players_array:
-        if not isinstance(row, dict):
-            continue
-        raw_val = (row.get("values") or {}).get("full")
-        try:
-            val = float(raw_val)
-        except (TypeError, ValueError):
-            continue
-        if val <= 0:
-            continue
-        # Suppressed generic-tier pick rows keep a stale legacy value
-        # for name-search purposes but are NOT authoritative — the
-        # canonical pipeline aliases them to slot-specific siblings.
-        # Excluding them from ``by_name`` ensures our tier probes
-        # either hit the alias redirect or fall through to the real
-        # slot row instead of returning stale tier data.
-        suppressed = bool(row.get("pickGenericSuppressed"))
-        pid = str(row.get("playerId") or "").strip()
-        if pid and not suppressed:
-            by_id[pid] = val
-        name = str(row.get("displayName") or row.get("canonicalName") or "").strip()
-        if name and not suppressed:
-            by_name[name.lower()] = val
-
-    if not by_id and not by_name:
-        return None
-
-    # Tier-center slot mapping.  Matches the canonical pipeline's
-    # generic-tier suppression centers and the frontend's
-    # ``TIER_CENTRE_SLOT`` in ``frontend/lib/trade-logic.js``:
-    # Early=2, Mid=6, Late=10.  The public trade feed carries only
-    # ``(season, round)``, so we probe the Mid (tier-center-6) slot
-    # first and fall back to Early/Late centers.
-    _TIER_CENTER_SLOTS = (("Mid", 6), ("Early", 2), ("Late", 10))
-
-    def _resolve(name: str) -> float | None:
-        key = name.lower()
-        # Apply alias redirect first so generic tier labels hop to
-        # their slot-specific siblings before hitting ``by_name``.
-        aliased = pick_aliases.get(key)
-        if aliased is not None:
-            hit = by_name.get(aliased)
-            if hit is not None:
-                return hit
-        return by_name.get(key)
-
-    def _pick_value(season, round_) -> float:
-        try:
-            round_int = int(round_)
-        except (TypeError, ValueError):
-            return 0.0
-        label = _PUBLIC_ACTIVITY_ROUND_LABELS.get(round_int)
-        season_str = str(season or "").strip()
-        if not label or not season_str:
-            return 0.0
-        # Tier labels first (redirected via pickAliases when the
-        # canonical pipeline has a slot-specific sibling), then
-        # slot-specific rows at the canonical tier centers.
-        for tier, _slot in _TIER_CENTER_SLOTS:
-            hit = _resolve(f"{season_str} {tier} {label}")
-            if hit is not None:
-                return hit
-        for _tier, slot in _TIER_CENTER_SLOTS:
-            hit = _resolve(
-                f"{season_str} Pick {round_int}.{slot:02d}"
-            )
-            if hit is not None:
-                return hit
-        return 0.0
-
-    def _valuation(asset) -> float:
-        if not isinstance(asset, dict):
-            return 0.0
-        kind = asset.get("kind")
-        if kind == "player":
-            pid = str(asset.get("playerId") or "").strip()
-            if pid:
-                v = by_id.get(pid)
-                if v is not None:
-                    return v
-            name = str(asset.get("playerName") or "").strip()
-            if name:
-                return by_name.get(name.lower(), 0.0)
-            return 0.0
-        if kind == "pick":
-            return _pick_value(asset.get("season"), asset.get("round"))
-        return 0.0
-
-    return _valuation
+    return _build_valuation_from_contract(latest_contract_data)
 _public_league_cache: dict = {
     "snapshot": None,
     "snapshot_league_id": None,
