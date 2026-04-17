@@ -3000,6 +3000,11 @@ def _get_public_snapshot(force_refresh: bool = False):
     return snapshot
 
 
+_PUBLIC_LEAGUE_CACHE_CONTROL = (
+    f"public, max-age=60, stale-while-revalidate={_PUBLIC_LEAGUE_CACHE_TTL_SECONDS}"
+)
+
+
 @app.get("/api/public/league")
 async def get_public_league(refresh: str = ""):
     """Full public league contract — every section + league header.
@@ -3013,7 +3018,10 @@ async def get_public_league(refresh: str = ""):
         snapshot = _get_public_snapshot(force_refresh=bool(refresh))
         payload = build_public_contract(snapshot)
         assert_public_payload_safe(payload)
-        return JSONResponse(content=payload)
+        return JSONResponse(
+            content=payload,
+            headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
+        )
     except AssertionError as exc:
         logging.error("Public league contract tripped safety assert: %s", exc)
         return JSONResponse(
@@ -3051,7 +3059,10 @@ async def get_public_league_section(section: str, owner: str = "", refresh: str 
             detail_map = payload.get("data", {}).get("detail") or {}
             payload["franchiseDetail"] = detail_map.get(str(owner).strip())
         assert_public_payload_safe(payload)
-        return JSONResponse(content=payload)
+        return JSONResponse(
+            content=payload,
+            headers={"Cache-Control": _PUBLIC_LEAGUE_CACHE_CONTROL},
+        )
     except AssertionError as exc:
         logging.error("Public section %s tripped safety assert: %s", section, exc)
         return JSONResponse(

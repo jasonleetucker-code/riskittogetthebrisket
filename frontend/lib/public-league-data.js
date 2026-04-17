@@ -28,6 +28,7 @@
 // /league flow — the isolation is architectural, not just a comment.
 
 export const PUBLIC_SECTION_KEYS = Object.freeze([
+  "overview",
   "history",
   "rivalries",
   "awards",
