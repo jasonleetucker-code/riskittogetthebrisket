@@ -96,9 +96,12 @@ function MobileNav() {
   const pathname = usePathname();
   const { authenticated } = useContext(AuthContext);
 
-  const visibleItems = MOBILE_NAV.filter(
-    (item) => authenticated || PUBLIC_ROUTES.has(item.href),
-  );
+  const onLeagueRoute = pathname === "/league" || pathname?.startsWith("/league/");
+  const visibleItems = MOBILE_NAV.filter((item) => {
+    if (!(authenticated || PUBLIC_ROUTES.has(item.href))) return false;
+    if (item.href === "/league" && !onLeagueRoute) return false;
+    return true;
+  });
 
   function isActive(href) {
     if (href === "/more") {
