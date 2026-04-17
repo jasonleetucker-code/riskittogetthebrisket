@@ -11,7 +11,7 @@ export const SETTINGS_DEFAULTS = {
   leagueFormat: "superflex",         // "superflex" | "standard"
 
   // Value adjustment strengths
-  tepMultiplier: 1.15,               // 1.0..1.5 — TE premium boost for non-TEP sites
+  tepMultiplier: 1.25,               // 1.0..1.5 — TE premium+ boost for non-TEP sites
 
   // Rankings display
   rankingsSortBasis: "full",         // "full" | "raw"
