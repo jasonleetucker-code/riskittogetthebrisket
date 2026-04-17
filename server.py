@@ -2988,6 +2988,17 @@ def _build_public_activity_valuation():
     if not players_array:
         return None
 
+    # Alias map authored by the canonical pipeline — redirects generic
+    # tier labels ("2026 Mid 1st") to slot-specific siblings
+    # ("2026 Pick 1.06") when the latter exists.  Normalized to
+    # lowercase so lookups match our tier-candidate probes.
+    raw_aliases = contract.get("pickAliases") or {}
+    pick_aliases: dict[str, str] = {}
+    if isinstance(raw_aliases, dict):
+        for k, v in raw_aliases.items():
+            if isinstance(k, str) and isinstance(v, str):
+                pick_aliases[k.lower()] = v.lower()
+
     by_id: dict[str, float] = {}
     by_name: dict[str, float] = {}
     for row in players_array:
@@ -3000,15 +3011,41 @@ def _build_public_activity_valuation():
             continue
         if val <= 0:
             continue
+        # Suppressed generic-tier pick rows keep a stale legacy value
+        # for name-search purposes but are NOT authoritative — the
+        # canonical pipeline aliases them to slot-specific siblings.
+        # Excluding them from ``by_name`` ensures our tier probes
+        # either hit the alias redirect or fall through to the real
+        # slot row instead of returning stale tier data.
+        suppressed = bool(row.get("pickGenericSuppressed"))
         pid = str(row.get("playerId") or "").strip()
-        if pid:
+        if pid and not suppressed:
             by_id[pid] = val
         name = str(row.get("displayName") or row.get("canonicalName") or "").strip()
-        if name:
+        if name and not suppressed:
             by_name[name.lower()] = val
 
     if not by_id and not by_name:
         return None
+
+    # Tier-center slot mapping.  Matches the canonical pipeline's
+    # generic-tier suppression centers and the frontend's
+    # ``TIER_CENTRE_SLOT`` in ``frontend/lib/trade-logic.js``:
+    # Early=2, Mid=6, Late=10.  The public trade feed carries only
+    # ``(season, round)``, so we probe the Mid (tier-center-6) slot
+    # first and fall back to Early/Late centers.
+    _TIER_CENTER_SLOTS = (("Mid", 6), ("Early", 2), ("Late", 10))
+
+    def _resolve(name: str) -> float | None:
+        key = name.lower()
+        # Apply alias redirect first so generic tier labels hop to
+        # their slot-specific siblings before hitting ``by_name``.
+        aliased = pick_aliases.get(key)
+        if aliased is not None:
+            hit = by_name.get(aliased)
+            if hit is not None:
+                return hit
+        return by_name.get(key)
 
     def _pick_value(season, round_) -> float:
         try:
@@ -3019,20 +3056,17 @@ def _build_public_activity_valuation():
         season_str = str(season or "").strip()
         if not label or not season_str:
             return 0.0
-        # The public feed carries only (season, round) — no slot — so
-        # we probe tier-center candidates first (Mid) and then Early
-        # / Late and finally slot-specific rows for years the
-        # canonical pipeline enumerates per-slot.
-        candidates = (
-            f"{season_str} Mid {label}",
-            f"{season_str} Early {label}",
-            f"{season_str} Late {label}",
-            f"{season_str} Pick {round_int}.06",
-            f"{season_str} Pick {round_int}.04",
-            f"{season_str} Pick {round_int}.08",
-        )
-        for cand in candidates:
-            hit = by_name.get(cand.lower())
+        # Tier labels first (redirected via pickAliases when the
+        # canonical pipeline has a slot-specific sibling), then
+        # slot-specific rows at the canonical tier centers.
+        for tier, _slot in _TIER_CENTER_SLOTS:
+            hit = _resolve(f"{season_str} {tier} {label}")
+            if hit is not None:
+                return hit
+        for _tier, slot in _TIER_CENTER_SLOTS:
+            hit = _resolve(
+                f"{season_str} Pick {round_int}.{slot:02d}"
+            )
             if hit is not None:
                 return hit
         return 0.0
