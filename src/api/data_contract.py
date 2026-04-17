@@ -2753,6 +2753,79 @@ def _suppress_generic_pick_tiers_when_slots_exist(
     return aliases
 
 
+# Rookie anchor: slot-specific picks in the current rookie-draft year are
+# pinned to the top-N merged (offense + IDP) rookies so pick values in the
+# rankings and trade calculator match the rookies they will become.
+#
+# 12-team league assumption: pick (round, slot) → rookie rank = (round-1)*12 + slot.
+# Only affects rows consumed via /api/data (rankings + trade calculator).
+# /api/draft-capital is served by a separate code path (server.py::_fetch_draft_capital)
+# that reads from the draft spreadsheet and is untouched by this pass.
+_ROOKIE_ANCHOR_LEAGUE_SIZE = 12
+_ROOKIE_ANCHOR_ROUNDS = 6
+
+
+def _anchor_current_year_picks_to_rookies(
+    players_array: list[dict[str, Any]],
+    anchor_year: int,
+) -> int:
+    """Override ``rankDerivedValue`` on slot-specific picks in ``anchor_year``
+    so each pick inherits the value of its corresponding rookie.
+
+    Rookie ordering is a merged list of offense + IDP rookies sorted by
+    ``rankDerivedValue`` descending.  Pick (round, slot) maps 1-indexed to
+    rookie position = ``(round - 1) * 12 + slot`` in the merged list.
+
+    Returns the number of picks anchored.  Callers are responsible for
+    re-sorting the board by ``rankDerivedValue`` afterward so rank/value
+    monotonicity (``assert_ranking_coherence``) is preserved.
+    """
+    rookies = [
+        r
+        for r in players_array
+        if r.get("assetClass") != "pick"
+        and bool(r.get("rookie"))
+        and r.get("canonicalConsensusRank")
+        and (r.get("rankDerivedValue") or 0) > 0
+    ]
+    if not rookies:
+        return 0
+    rookies.sort(
+        key=lambda r: (
+            -int(r.get("rankDerivedValue") or 0),
+            int(r.get("canonicalConsensusRank") or 0),
+        )
+    )
+
+    anchored = 0
+    for row in players_array:
+        if row.get("assetClass") != "pick":
+            continue
+        parsed = _parse_pick_slot(row.get("canonicalName") or "")
+        if parsed is None:
+            continue
+        year, rnd, slot = parsed
+        if year != anchor_year:
+            continue
+        if not (1 <= rnd <= _ROOKIE_ANCHOR_ROUNDS):
+            continue
+        if not (1 <= slot <= _ROOKIE_ANCHOR_LEAGUE_SIZE):
+            continue
+        idx = (rnd - 1) * _ROOKIE_ANCHOR_LEAGUE_SIZE + (slot - 1)
+        if idx >= len(rookies):
+            continue
+        anchor = rookies[idx]
+        anchor_val = int(anchor.get("rankDerivedValue") or 0)
+        if anchor_val <= 0:
+            continue
+        if not row.get("canonicalConsensusRank"):
+            continue
+        row["rankDerivedValue"] = anchor_val
+        row["pickRookieAnchor"] = anchor.get("canonicalName")
+        anchored += 1
+    return anchored
+
+
 def _compute_pick_confidence(
     canonical_sites: dict[str, Any],
     is_slot_specific: bool,
@@ -3466,21 +3539,57 @@ def _compute_unified_rankings(
     #    specific slots, returning a {generic_name: slot_alias} map.
     pick_aliases = _suppress_generic_pick_tiers_when_slots_exist(players_array)
 
-    # 2a) Compact ranks after suppression so the ranked board is still
-    #     contiguous 1..N.  This walks the surviving ranked rows in
-    #     ascending-rank order and renumbers them 1..N.  Values stay
-    #     monotonic because we are only *removing* rows from a sequence
-    #     that was already monotonic.  Tier IDs are re-derived from the
-    #     new ranks.
+    # 2b) Anchor current-year slot picks to merged offense+IDP rookies.
+    #     Pick (round, slot) inherits the rankDerivedValue of the rookie
+    #     at position (round-1)*12 + slot in the merged rookie list.  The
+    #     compact-ranks pass below re-sorts by value so coherence holds.
+    _anchor_year = int(_load_pick_year_discount().get("baselineYear") or 2026)
+    _anchor_current_year_picks_to_rookies(players_array, _anchor_year)
+
+    # 2a) Compact ranks after suppression/anchor so the ranked board is
+    #     still contiguous 1..N and value-monotonic.  Sort primarily by
+    #     rankDerivedValue desc so anchored picks naturally bubble to the
+    #     neighborhood of their rookie target; fall back to the existing
+    #     canonicalConsensusRank to preserve the prior Phase-4 ordering
+    #     for all rows whose values were not mutated.  Tier IDs are
+    #     re-derived from the new ranks.
     ranked_rows = sorted(
         [r for r in players_array if r.get("canonicalConsensusRank")],
-        key=lambda r: int(r["canonicalConsensusRank"]),
+        key=lambda r: (
+            -int(r.get("rankDerivedValue") or 0),
+            int(r["canonicalConsensusRank"]),
+        ),
     )
     for new_rank, r in enumerate(ranked_rows, start=1):
         old_rank = r.get("canonicalConsensusRank")
         if old_rank != new_rank:
             r["canonicalConsensusRank"] = new_rank
         r["canonicalTierId"] = _tier_id_from_rank(new_rank)
+
+    # 2c) Mirror the post-anchor rank back into the legacy players_by_name
+    #     dict for every ranked row — not just picks.  The runtime view
+    #     (/api/data?view=app) strips playersArray, so the frontend reads
+    #     ``_canonicalConsensusRank`` from the legacy dict.  When the
+    #     compact-ranks pass above re-sorts by rankDerivedValue, non-pick
+    #     rows can shift (e.g. a rookie-anchored pick bubbles up past a
+    #     bench player, pushing the bench player's rank down by one).  The
+    #     pick-only mirror below handles pick-specific flags, so keep it
+    #     focused on picks; this pass syncs the ranked-row baseline.
+    for row in players_array:
+        if row.get("assetClass") == "pick":
+            continue
+        legacy_ref = row.get("legacyRef")
+        if not legacy_ref or legacy_ref not in players_by_name:
+            continue
+        pdata = players_by_name[legacy_ref]
+        if not isinstance(pdata, dict):
+            continue
+        rk = row.get("canonicalConsensusRank")
+        if rk is not None:
+            pdata["_canonicalConsensusRank"] = rk
+        tid = row.get("canonicalTierId")
+        if tid is not None:
+            pdata["canonicalTierId"] = tid
 
     # 3) Mirror the post-refinement rank/value back into the legacy
     #    players_by_name dict so the runtime view stays in sync.
@@ -3515,6 +3624,8 @@ def _compute_unified_rankings(
             pdata["pickAliasFor"] = row["pickAliasFor"]
         if row.get("pickYearDiscount") is not None:
             pdata["pickYearDiscount"] = row["pickYearDiscount"]
+        if row.get("pickRookieAnchor"):
+            pdata["pickRookieAnchor"] = row["pickRookieAnchor"]
 
     return pick_aliases
 
