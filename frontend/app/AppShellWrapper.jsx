@@ -127,6 +127,7 @@ function MobileNav() {
 function MobileTopBar() {
   const pathname = usePathname();
   const { openSearch } = useApp();
+  const { authenticated, logout } = useContext(AuthContext);
 
   // Derive page title from current route
   const pageTitle = (() => {
@@ -152,9 +153,21 @@ function MobileTopBar() {
     <header className="mobile-topbar mobile-only">
       <Link href="/" className="mobile-brand">Brisket</Link>
       <span className="mobile-page-title">{pageTitle}</span>
-      <button className="mobile-search-btn" onClick={openSearch} title="Search" aria-label="Search">
-        /
-      </button>
+      <div className="mobile-topbar-actions">
+        <button className="mobile-search-btn" onClick={openSearch} title="Search" aria-label="Search">
+          /
+        </button>
+        {authenticated && (
+          <button
+            className="mobile-signout-btn"
+            onClick={logout}
+            title="Sign out"
+            aria-label="Sign out"
+          >
+            Sign out
+          </button>
+        )}
+      </div>
     </header>
   );
 }
