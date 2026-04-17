@@ -44,16 +44,6 @@ function ActivitySection({ managers, data, onNavigate }) {
         </div>
       </Card>
 
-      {data.biggestBlockbusters && data.biggestBlockbusters.length > 0 && (
-        <Card title="Biggest blockbusters" subtitle="Sorted by total assets moved">
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
-            {data.biggestBlockbusters.map((t) => (
-              <TradeCard key={t.transactionId} trade={t} managers={managers} onNavigate={onNavigate} />
-            ))}
-          </div>
-        </Card>
-      )}
-
       {data.positionMixMoved && Object.keys(data.positionMixMoved).length > 0 && (
         <Card title="Position mix moved" subtitle="Players moved by position in completed trades">
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
