@@ -122,6 +122,16 @@ function SectionBuckets({ run }) {
                 universe={entry.universe_size} | adapter={entry.adapter}
               </span>
             </h3>
+            {(entry.test_rules_borrowed || entry.my_rules_borrowed) && (
+              <p className="muted text-sm idp-lab-borrow-note">
+                {entry.test_rules_borrowed && (
+                  <>Test-league rules borrowed from season {entry.test_rules_source_season}.{" "}</>
+                )}
+                {entry.my_rules_borrowed && (
+                  <>My-league rules borrowed from season {entry.my_rules_source_season}.</>
+                )}
+              </p>
+            )}
             {POSITIONS.map((pos) => {
               const buckets = entry.buckets?.[pos] || [];
               if (!buckets.length) return null;

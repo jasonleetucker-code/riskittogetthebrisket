@@ -295,6 +295,15 @@ def run_analysis(
     warnings.extend(test_chain.warnings)
     warnings.extend(my_chain.warnings)
 
+    # Most-recent resolved league from each chain — used as the scoring
+    # and lineup fallback for historical seasons the league did not
+    # exist in. Sleeper still has player stats for every season
+    # regardless of when the league was created, so we score those
+    # stats against each league's *current* rules and surface a
+    # warning noting which year's rules we borrowed.
+    test_fallback_league = test_chain.walk[0] if test_chain.walk else None
+    my_fallback_league = my_chain.walk[0] if my_chain.walk else None
+
     per_season_payload: dict[int, dict[str, Any]] = {}
     per_season_per_position_buckets: dict[str, dict[int, list[BucketResult]]] = {
         pos: {} for pos in POSITIONS
@@ -304,7 +313,20 @@ def run_analysis(
     for season in sorted({int(s) for s in settings.seasons}):
         test_res = test_chain.seasons.get(season)
         my_res = my_chain.seasons.get(season)
-        if not (test_res and test_res.resolved and my_res and my_res.resolved):
+
+        # Pick the league object to score against for this year.
+        # If the chain resolved natively for the year, use that.
+        # Otherwise fall back to the most recent resolved league
+        # from that chain so Sleeper player stats for older seasons
+        # still score against known rules.
+        test_league_obj = test_res.league if (test_res and test_res.resolved) else test_fallback_league
+        my_league_obj = my_res.league if (my_res and my_res.resolved) else my_fallback_league
+        test_borrowed = test_league_obj is not None and not (test_res and test_res.resolved)
+        my_borrowed = my_league_obj is not None and not (my_res and my_res.resolved)
+
+        if test_league_obj is None or my_league_obj is None:
+            # Truly no rules for one side (chain had no resolvable
+            # leagues at all). Record and move on.
             per_season_payload[season] = {
                 "season": season,
                 "resolved": False,
@@ -312,14 +334,25 @@ def run_analysis(
                     (test_res.reason if test_res else "")
                     + " | "
                     + (my_res.reason if my_res else "")
-                ).strip(" |"),
+                ).strip(" |") or f"No resolvable league found for {season}.",
             }
             continue
 
-        test_scoring = parse_scoring(test_res.league)
-        my_scoring = parse_scoring(my_res.league)
-        test_lineup = parse_lineup(test_res.league)
-        my_lineup = parse_lineup(my_res.league)
+        if test_borrowed:
+            warnings.append(
+                f"{season}: test-league scoring/lineup borrowed from "
+                f"{test_league_obj.get('season')} (league did not exist in {season})."
+            )
+        if my_borrowed:
+            warnings.append(
+                f"{season}: my-league scoring/lineup borrowed from "
+                f"{my_league_obj.get('season')} (league did not exist in {season})."
+            )
+
+        test_scoring = parse_scoring(test_league_obj)
+        my_scoring = parse_scoring(my_league_obj)
+        test_lineup = parse_lineup(test_league_obj)
+        my_lineup = parse_lineup(my_league_obj)
 
         adapter = stats_adapter_factory(season) if stats_adapter_factory else None
         universe, stats_warnings, adapter_name = _build_universe_for_season(
@@ -381,6 +414,10 @@ def run_analysis(
             "replacement_mine": replacement_to_dict(repl_mine_levels),
             "buckets": {pos: buckets_to_dict(b) for pos, b in position_buckets.items()},
             "sample_vor_rows": vor_rows_to_dict(vor_rows)[:120],
+            "test_rules_source_season": int(test_league_obj.get("season") or season),
+            "my_rules_source_season": int(my_league_obj.get("season") or season),
+            "test_rules_borrowed": test_borrowed,
+            "my_rules_borrowed": my_borrowed,
         }
         resolved_seasons.append(season)
 
