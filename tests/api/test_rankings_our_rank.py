@@ -118,11 +118,19 @@ class TestBackendFormulaIntact:
     """The backend rank-to-value curve is the single source of truth."""
 
     def test_python_hill_curve_anchors(self):
-        from src.canonical.player_valuation import rank_to_value
+        from src.canonical.player_valuation import (
+            HILL_MIDPOINT,
+            rank_to_value,
+        )
         assert rank_to_value(1) == 9999, "Rank 1 must produce 9999"
         assert rank_to_value(0) == 0, "Rank 0 must produce 0"
-        mid = rank_to_value(45)
-        assert 4900 <= mid <= 5100, f"Rank 45 (midpoint) produced {mid}, expected ~5000"
+        # Rank == midpoint+1 is the Hill curve's inflection point:
+        # v = 1 + 9998/(1 + 1^slope) = 5000 regardless of slope.
+        mid_rank = int(round(HILL_MIDPOINT)) + 1
+        mid = rank_to_value(mid_rank)
+        assert 4900 <= mid <= 5100, (
+            f"Rank {mid_rank} (midpoint+1) produced {mid}, expected ~5000"
+        )
 
 
 # ── Unified rank precedence ──────────────────────────────────────────────────
