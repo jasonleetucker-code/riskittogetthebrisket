@@ -48,6 +48,48 @@ IDP_STAT_KEYS: tuple[str, ...] = (
     "idp_tkl_5p",
 )
 
+# Canonical offense stat keys. The cross-family calibration layer
+# needs these so we can rescore QB/RB/WR/TE season stats under each
+# league's scoring rules and compute offense VOR. Every key here must
+# also appear on the RHS of src/scoring/sleeper_ingest.py::KEY_ALIASES.
+OFFENSE_STAT_KEYS: tuple[str, ...] = (
+    # Passing
+    "pass_yd",
+    "pass_td",
+    "pass_int",
+    "pass_cmp",
+    "pass_inc",
+    "pass_fd",
+    "bonus_pass_yd_300",
+    "bonus_pass_td_50+",
+    "bonus_fd_qb",
+    # Rushing
+    "rush_yd",
+    "rush_td",
+    "rush_fd",
+    "bonus_rush_yd_100",
+    "bonus_rush_td_40+",
+    "bonus_fd_rb",
+    # Receiving
+    "rec",
+    "rec_yd",
+    "rec_td",
+    "rec_fd",
+    "bonus_rec_rb",
+    "bonus_rec_wr",
+    "bonus_rec_te",
+    "bonus_rec_yd_100",
+    "bonus_rec_td_40+",
+    "bonus_fd_wr",
+    "bonus_fd_te",
+    # Turnovers (shared penalty)
+    "fum",
+    "fum_lost",
+    # Return TDs (rare)
+    "kick_ret_td",
+    "punt_ret_td",
+)
+
 
 @dataclass
 class LeagueScoring:
@@ -55,14 +97,14 @@ class LeagueScoring:
     season: int | None
     scoring_map: dict[str, float] = field(default_factory=dict)
     idp_weights: dict[str, float] = field(default_factory=dict)
+    offense_weights: dict[str, float] = field(default_factory=dict)
     unknown_keys: dict[str, float] = field(default_factory=dict)
 
     def summary(self) -> dict[str, Any]:
         present_idp = {k: v for k, v in self.idp_weights.items() if abs(v) > 0.0}
-        # Only surface IDP-ish unknown keys with a non-zero weight —
-        # a zero-weight unknown key is just noise (the league toggled
-        # the setting off) and doesn't need operator attention. If
-        # the set is empty the UI omits the warning entirely.
+        present_offense = {
+            k: v for k, v in self.offense_weights.items() if abs(v) > 0.0
+        }
         unknown_idp = {
             k: v
             for k, v in self.unknown_keys.items()
@@ -75,6 +117,7 @@ class LeagueScoring:
             "inactive_idp_stats": sorted(
                 k for k in IDP_STAT_KEYS if abs(self.idp_weights.get(k, 0.0)) < 1e-9
             ),
+            "active_offense_stats": present_offense,
             "unknown_key_count": len(self.unknown_keys),
             "unknown_idp_keys": unknown_idp,
         }
@@ -113,11 +156,13 @@ def parse_scoring(league: dict[str, Any] | None) -> LeagueScoring:
     except (TypeError, ValueError):
         season = None
     idp_weights = {k: float(scoring_map.get(k, 0.0)) for k in IDP_STAT_KEYS}
+    offense_weights = {k: float(scoring_map.get(k, 0.0)) for k in OFFENSE_STAT_KEYS}
     return LeagueScoring(
         league_id=str(league.get("league_id") or ""),
         season=season,
         scoring_map=scoring_map,
         idp_weights=idp_weights,
+        offense_weights=offense_weights,
         unknown_keys=unknown,
     )
 

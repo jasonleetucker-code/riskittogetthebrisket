@@ -101,6 +101,7 @@ def build_production_config(
         "active_mode": active_mode,
         "bucket_edges": list(settings.get("bucket_edges") or []),
         "multipliers": dict(artifact.get("multipliers") or {}),
+        "family_scale": dict(artifact.get("family_scale") or {}),
         "anchors": dict(artifact.get("anchors") or {}),
     }
 

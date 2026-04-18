@@ -189,11 +189,71 @@ function SectionBuckets({ run }) {
   );
 }
 
+function FamilyScaleBlock({ family }) {
+  if (!family) return null;
+  const { intrinsic, market, final, sample_size: samples = {} } = family;
+  if (intrinsic == null && market == null && final == null) return null;
+  const pct = Math.abs(((intrinsic ?? 1) - 1) * 100);
+  const direction = (intrinsic ?? 1) > 1 ? "higher" : "lower";
+  return (
+    <div className="idp-lab-mult-block idp-lab-family-scale">
+      <div className="idp-lab-subheading">
+        <strong>IDP family scale</strong>
+        <span className="muted">how this league values IDP vs offense as a class</span>
+      </div>
+      <div className="table-wrap">
+        <table className="table idp-lab-mult-table">
+          <thead>
+            <tr>
+              <th>Channel</th>
+              <th>Factor</th>
+              <th>Interpretation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Intrinsic</td>
+              <td>{n(intrinsic, 4)}×</td>
+              <td className="muted">
+                {intrinsic != null
+                  ? `${pct.toFixed(1)}% ${direction} than market baseline`
+                  : "—"}
+              </td>
+            </tr>
+            <tr>
+              <td>Market</td>
+              <td>{n(market, 4)}×</td>
+              <td className="muted">test-league baseline (1.0 by construction)</td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Final (active)</strong>
+              </td>
+              <td>
+                <strong>{n(final, 4)}×</strong>
+              </td>
+              <td className="muted">blended IDP-class lift/discount</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {samples && Object.keys(samples).length > 0 && (
+        <p className="muted text-sm">
+          Sample sizes — IDP (mine): {samples.idp_my ?? 0}, IDP (test):{" "}
+          {samples.idp_test ?? 0}, offense (mine): {samples.offense_my ?? 0},
+          offense (test): {samples.offense_test ?? 0}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function SectionMultipliers({ run }) {
   const multipliers = run.multipliers || {};
   return (
     <section className="card idp-lab-section">
       <h2>Multi-year calibration summary</h2>
+      <FamilyScaleBlock family={run.family_scale} />
       {POSITIONS.map((pos) => {
         const posBlock = multipliers[pos];
         if (!posBlock?.buckets?.length) {

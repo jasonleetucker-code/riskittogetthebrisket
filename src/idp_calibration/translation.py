@@ -237,6 +237,177 @@ def _clamp_series(values: list[float], floor: float) -> list[float]:
     return [max(floor, min(1.0, float(v))) for v in values]
 
 
+@dataclass
+class FamilyScale:
+    """Scalar that scales IDP values relative to offense.
+
+    * ``intrinsic`` — what my-league scoring + my-league lineup imply.
+    * ``market`` — same recipe under test-league scoring + lineup.
+    * ``final`` — blended via the same intrinsic/market weights used
+      for per-bucket multipliers.
+    * ``sample_size`` — number of above-replacement players across both
+      families used to compute the numbers, for transparency.
+
+    The scale is applied multiplicatively on top of per-bucket
+    multipliers in production:
+
+        final_value = rankDerivedValue × family_scale × bucket_multiplier
+
+    A value > 1.0 means my league values IDP as a class more than the
+    test/market baseline does; < 1.0 means less.
+    """
+
+    intrinsic: float = 1.0
+    market: float = 1.0
+    final: float = 1.0
+    intrinsic_my_ratio: float = 0.0
+    intrinsic_test_ratio: float = 0.0
+    sample_size: dict[str, int] = None  # type: ignore[assignment]
+
+    def __post_init__(self) -> None:
+        if self.sample_size is None:
+            self.sample_size = {}
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "intrinsic": round(self.intrinsic, 4),
+            "market": round(self.market, 4),
+            "final": round(self.final, 4),
+            "intrinsic_my_ratio": round(self.intrinsic_my_ratio, 4),
+            "intrinsic_test_ratio": round(self.intrinsic_test_ratio, 4),
+            "sample_size": dict(self.sample_size),
+        }
+
+
+def _sum_above_replacement(vor_values: list[float]) -> float:
+    """Sum the positive portion of a VOR list — i.e. the total starter
+    value produced by that cohort. Sub-replacement contributions are
+    dropped so a bench of below-average players doesn't inflate the
+    "class value" measure.
+    """
+    return sum(max(0.0, float(v)) for v in vor_values)
+
+
+def compute_family_scale(
+    *,
+    idp_vor_my: list[float],
+    idp_vor_test: list[float],
+    offense_vor_my: list[float],
+    offense_vor_test: list[float],
+    blend: dict[str, float] | None = None,
+    scale_min: float = 0.25,
+    scale_max: float = 4.0,
+) -> FamilyScale:
+    """Compute the IDP-family scaling factor for one time period.
+
+    Ratios:
+
+        my_ratio   = sum(IDP VOR, my) / sum(offense VOR, my)
+        test_ratio = sum(IDP VOR, test) / sum(offense VOR, test)
+
+        family_scale_intrinsic = my_ratio / test_ratio
+
+    Intuition: if my league's IDP starters produce 30% more
+    fantasy-point VOR per unit of offense VOR than the test league's,
+    then "IDP as a class" is worth 30% more in my league's economy
+    and every IDP trade value should lift by roughly the same factor.
+
+    The market channel is symmetric with my / test swapped — what would
+    today's test-league scoring produce if applied to an IDP-heavy
+    roster? (In practice it's always 1.0 by this definition, since
+    it's computing test_ratio / test_ratio; we emit it for
+    completeness and future use in a different blending scheme.)
+
+    ``scale_min`` / ``scale_max`` cap the output so pathological
+    replacement-level mismatches can't produce absurd scales.
+    """
+    blend = blend or DEFAULT_BLEND
+    idp_my = _sum_above_replacement(idp_vor_my)
+    idp_test = _sum_above_replacement(idp_vor_test)
+    off_my = _sum_above_replacement(offense_vor_my)
+    off_test = _sum_above_replacement(offense_vor_test)
+
+    # Guard against division-by-zero — either side having zero
+    # above-replacement VOR means we can't compute a meaningful ratio.
+    if off_my <= 0 or off_test <= 0 or idp_test <= 0:
+        return FamilyScale(
+            intrinsic=1.0,
+            market=1.0,
+            final=1.0,
+            intrinsic_my_ratio=0.0,
+            intrinsic_test_ratio=0.0,
+            sample_size={
+                "idp_my": sum(1 for v in idp_vor_my if v > 0),
+                "idp_test": sum(1 for v in idp_vor_test if v > 0),
+                "offense_my": sum(1 for v in offense_vor_my if v > 0),
+                "offense_test": sum(1 for v in offense_vor_test if v > 0),
+            },
+        )
+
+    my_ratio = idp_my / off_my
+    test_ratio = idp_test / off_test
+    raw_intrinsic = my_ratio / test_ratio
+    intrinsic = max(scale_min, min(scale_max, raw_intrinsic))
+    # Market channel: by construction this comparison is test-vs-test,
+    # which yields 1.0. We keep the field so the UI has the same
+    # three-channel shape as per-bucket multipliers, and so a future
+    # blending scheme can plug a different definition in.
+    market = 1.0
+    alpha = float(blend.get("intrinsic", 0.75))
+    beta = 1.0 - alpha
+    final = alpha * intrinsic + beta * market
+
+    return FamilyScale(
+        intrinsic=intrinsic,
+        market=market,
+        final=final,
+        intrinsic_my_ratio=my_ratio,
+        intrinsic_test_ratio=test_ratio,
+        sample_size={
+            "idp_my": sum(1 for v in idp_vor_my if v > 0),
+            "idp_test": sum(1 for v in idp_vor_test if v > 0),
+            "offense_my": sum(1 for v in offense_vor_my if v > 0),
+            "offense_test": sum(1 for v in offense_vor_test if v > 0),
+        },
+    )
+
+
+def combine_family_scales(
+    per_season: dict[int, FamilyScale],
+    year_weights: dict[int, float],
+) -> FamilyScale:
+    """Weighted multi-year aggregation of single-season family scales.
+
+    Each channel (intrinsic / market / final) is a weighted mean
+    across resolved seasons using the renormalised year weights.
+    Seasons with zero weight or a no-op (1.0/1.0/1.0) scale are
+    dropped from the mean so a bad season doesn't flatten the signal.
+    """
+    if not per_season:
+        return FamilyScale()
+    total_weight = 0.0
+    weighted = {"intrinsic": 0.0, "market": 0.0, "final": 0.0}
+    combined_sample: dict[str, int] = {}
+    for year, scale in per_season.items():
+        w = float(year_weights.get(int(year), 0.0))
+        if w <= 0:
+            continue
+        total_weight += w
+        weighted["intrinsic"] += w * scale.intrinsic
+        weighted["market"] += w * scale.market
+        weighted["final"] += w * scale.final
+        for k, v in (scale.sample_size or {}).items():
+            combined_sample[k] = combined_sample.get(k, 0) + int(v)
+    if total_weight <= 0:
+        return FamilyScale()
+    return FamilyScale(
+        intrinsic=weighted["intrinsic"] / total_weight,
+        market=weighted["market"] / total_weight,
+        final=weighted["final"] / total_weight,
+        sample_size=combined_sample,
+    )
+
+
 def build_multi_year_multipliers(
     per_season_per_position: dict[str, dict[int, list[BucketResult]]],
     *,
