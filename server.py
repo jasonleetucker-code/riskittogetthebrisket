@@ -2207,6 +2207,78 @@ async def post_trade_finder(request: Request):
     return JSONResponse(content=result)
 
 
+@app.post("/api/angle/find")
+async def post_angle_find(request: Request):
+    """Player-specific arbitrage: pick a player on your team, get
+    targets on other teams where your rankings say win but KTC says
+    fair-to-neutral (easy to pitch as "KTC says this is even").
+
+    Accepts JSON body:
+        {
+          "ownerId": "472206636534984704",       // your sleeper ownerId
+          "playerName": "Jayden Daniels",        // canonical name
+          "minMyGainPct": 5.0,                    // optional, default 5
+          "maxKtcGainPct": 5.0,                   // optional, default 5
+          "limit": 50                             // optional, default 50
+        }
+    """
+    if latest_contract_data is None:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "No data loaded. Angle requires live player data."},
+        )
+    players_array = (latest_contract_data or {}).get("playersArray")
+    sleeper = latest_contract_data.get("sleeper") or {}
+    sleeper_teams = sleeper.get("teams") or []
+    if not players_array or not sleeper_teams:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Player data or Sleeper rosters not available."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+
+    owner_id = str(body.get("ownerId") or "").strip()
+    player_name = str(body.get("playerName") or "").strip()
+    if not owner_id or not player_name:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Request body must include 'ownerId' and 'playerName'."},
+        )
+
+    try:
+        min_my = float(body.get("minMyGainPct", 5.0))
+        max_ktc = float(body.get("maxKtcGainPct", 5.0))
+        limit = int(body.get("limit", 50))
+    except (TypeError, ValueError):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "minMyGainPct, maxKtcGainPct, limit must be numeric."},
+        )
+
+    from src.trade.angle import find_angles
+
+    try:
+        result = find_angles(
+            players_array,
+            player_name,
+            owner_id,
+            sleeper_teams,
+            min_my_gain_pct=min_my,
+            max_ktc_gain_pct=max_ktc,
+            limit=limit,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.error(f"Angle find failed: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Angle find failed: {exc}"},
+        )
+    return JSONResponse(content=result)
+
+
 @app.get("/api/scaffold/validation")
 async def get_scaffold_validation():
     ingest_file = _latest_file(DATA_DIR / "validation", "ingest_validation_*.json")

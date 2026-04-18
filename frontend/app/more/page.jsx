@@ -14,6 +14,7 @@ const SECTIONS = [
     items: [
       { href: "/edge", label: "Edge — Source Signals", desc: "Where ranking sources agree, disagree, and flag issues" },
       { href: "/finder", label: "Finder — Player Discovery", desc: "Surface players by source signal patterns and opportunity type" },
+      { href: "/angle", label: "Angle — Trade Pitches", desc: "Pick a player on your team; get targets that win on your rankings but look fair-or-better on KTC" },
     ],
   },
   {
