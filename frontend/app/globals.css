@@ -2421,3 +2421,41 @@ tr:hover .sticky-name {
 .idp-lab-diff-all-table td:first-child {
   text-align: left;
 }
+
+/* ── Angle page ──────────────────────────────────────────────────── */
+.angle-page { display: flex; flex-direction: column; gap: var(--space-md); }
+.angle-controls-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--space-sm) var(--space-md);
+  align-items: end;
+}
+.angle-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; }
+.angle-field select, .angle-field input {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+.angle-field-hint { font-size: 0.72rem; opacity: 0.8; }
+.angle-go { align-self: end; white-space: nowrap; }
+.angle-selected-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: var(--space-md);
+  align-items: baseline;
+}
+.angle-player-head { display: flex; align-items: baseline; gap: var(--space-sm); }
+.angle-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+.angle-table th, .angle-table td { white-space: nowrap; }
+.angle-delta-pos { color: var(--status-positive, #4ade80); }
+.angle-delta-neutral { color: var(--text-muted); }
+.angle-warnings ul { margin: 4px 0 0 20px; padding: 0; }
