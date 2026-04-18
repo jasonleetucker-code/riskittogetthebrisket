@@ -375,8 +375,8 @@ def resolve_idp_position(*candidates: str | list[str] | tuple[str, ...] | None) 
         # ``fantasy_positions`` typically emit "DL,LB"; Sleeper's
         # own CSVs sometimes use "DL/LB"; DLF occasionally emits
         # "DL LB" space-delimited.
-        if any(sep in tok for sep in "/,|"):
-            for piece in re.split(r"[/,|]", tok):
+        if re.search(r"[/,|\s]", tok):
+            for piece in re.split(r"[/,|\s]+", tok):
                 _accept(piece)
             return
         # Strip trailing digits (e.g. "LB1" from DLF CSVs) and aliases.
@@ -424,10 +424,11 @@ def normalize_position_family(pos: str | None) -> str:
     # the DL > DB > LB priority so a dual-eligible player always
     # collapses the same way no matter which source supplied them.
     # Match every separator the resolver accepts — "/" (Sleeper CSV),
-    # "," (fantasy_positions column export), and "|" (some third-party
-    # dumps). Keeping the gate symmetric with the resolver is what
-    # prevents "LB,CB" from falling through to first-token handling.
-    _MULTI_SEP_RE = re.compile(r"[/,|]")
+    # "," (fantasy_positions column export), "|" (some third-party
+    # dumps), and ASCII whitespace (DLF "DL LB"). Keeping the gate
+    # symmetric with the resolver is what prevents "LB,CB" or
+    # "LB CB" from falling through to first-token handling.
+    _MULTI_SEP_RE = re.compile(r"[/,|\s]")
     if _MULTI_SEP_RE.search(p):
         idp_resolved = resolve_idp_position(p)
         if idp_resolved:

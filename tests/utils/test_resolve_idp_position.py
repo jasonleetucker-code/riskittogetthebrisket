@@ -177,3 +177,39 @@ class TestNormalizePositionFamily:
     )
     def test_comma_and_pipe_inputs_route_through_idp_priority(self, pos, expected):
         assert normalize_position_family(pos) == expected
+
+    @pytest.mark.parametrize(
+        "pos,expected",
+        [
+            # Whitespace-separated multi-positions must obey the same
+            # priority. DLF CSVs sometimes emit "DL LB" or "LB CB".
+            ("LB CB", "DB"),
+            ("CB LB", "DB"),
+            ("DL LB", "DL"),
+            ("LB DL", "DL"),
+            ("DL DB", "DL"),
+            ("LB WR", "WR"),         # exclusivity
+            ("WR LB", "WR"),
+            # Mixed separator + whitespace (e.g. "LB, CB").
+            ("LB, CB", "DB"),
+            ("LB , CB", "DB"),
+            ("LB|  CB", "DB"),
+        ],
+    )
+    def test_whitespace_and_mixed_separator_inputs_route_through_idp_priority(
+        self, pos, expected
+    ):
+        assert normalize_position_family(pos) == expected
+
+    @pytest.mark.parametrize(
+        "inputs,expected",
+        [
+            # resolve_idp_position itself must also split on whitespace.
+            ("DL LB", "DL"),
+            ("LB CB", "DB"),
+            ("LB WR", ""),       # LB exclusivity: non-IDP present → empty
+            ("DL WR", "DL"),     # DL wins regardless
+        ],
+    )
+    def test_resolve_idp_position_splits_whitespace(self, inputs, expected):
+        assert resolve_idp_position(inputs) == expected
