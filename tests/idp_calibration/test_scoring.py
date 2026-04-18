@@ -3,6 +3,87 @@ from __future__ import annotations
 from src.idp_calibration.scoring import IDP_STAT_KEYS, parse_scoring, score_line
 
 
+def test_expanded_sleeper_idp_keys_are_recognised():
+    # Snapshot of the IDP scoring in a real Sleeper "Standard" league.
+    # Each key below corresponds to a labelled line item in Sleeper's
+    # mobile Scoring Settings → IDP tab; the test asserts every one
+    # round-trips through the alias map onto a canonical weight.
+    # (This league does not score 10+ Tackle Bonus; that alias is
+    # still supported for leagues that do — see test_unknown… below.)
+    league = {
+        "league_id": "abc",
+        "season": 2025,
+        "scoring_settings": {
+            "idp_td": 6.15,           # IDP TD → idp_def_td
+            "idp_sack": 4.65,         # Sack
+            "idp_sack_yd": 0.13,      # Sack Yards (per yard)
+            "idp_qb_hit": 1.04,       # Hit on QB → idp_hit (canonical)
+            "idp_tkl_loss": 2.03,     # Tackle For Loss
+            "idp_blk_kick": 3.4,      # Blocked Punt, PAT or FG
+            "idp_int": 6.1,           # Interception
+            "idp_int_ret_yd": 0.10,   # INT Return Yards
+            "idp_fum_rec": 3.85,      # Fumble Recovery
+            "idp_fum_ret_yd": 0.10,   # Fumble Return Yards
+            "idp_ff": 3.85,           # Forced Fumble
+            "idp_safe": 4.88,         # Safety
+            "idp_tkl_ast": 0.75,      # Assisted Tackle
+            "idp_tkl_solo": 1.47,     # Solo Tackle
+            "idp_pd": 1.81,           # Pass Defended
+        },
+    }
+    scoring = parse_scoring(league)
+    active = scoring.summary()["active_idp_stats"]
+    expected = {
+        "idp_def_td": 6.15,
+        "idp_sack": 4.65,
+        "idp_sack_yd": 0.13,
+        "idp_hit": 1.04,
+        "idp_tkl_loss": 2.03,
+        "idp_blk_kick": 3.4,
+        "idp_int": 6.1,
+        "idp_int_ret_yd": 0.10,
+        "idp_fum_rec": 3.85,
+        "idp_fum_ret_yd": 0.10,
+        "idp_ff": 3.85,
+        "idp_safe": 4.88,
+        "idp_tkl_ast": 0.75,
+        "idp_tkl_solo": 1.47,
+        "idp_pd": 1.81,
+    }
+    for key, val in expected.items():
+        assert key in active, f"missing canonical key {key}"
+        assert abs(active[key] - val) < 1e-6
+    # Sanity: summary reports zero unmapped IDP keys for this payload.
+    assert scoring.summary()["unknown_idp_keys"] == {}
+
+
+def test_idp_qb_hit_alias_folds_into_canonical_idp_hit():
+    # Both Sleeper key variants must land on the same canonical
+    # ``idp_hit`` so baseline_config / scoring_delta (which compare
+    # leagues using the canonical key) don't see a spurious delta
+    # when one payload uses idp_hit and another uses idp_qb_hit.
+    for key in ("idp_hit", "idp_qb_hit"):
+        league = {"scoring_settings": {key: 1.0}}
+        summary = parse_scoring(league).summary()
+        assert summary["active_idp_stats"].get("idp_hit") == 1.0
+        assert "idp_qb_hit" not in summary["active_idp_stats"]
+
+
+def test_unknown_idp_keys_surface_in_summary():
+    # Exotic / future Sleeper IDP keys should round-trip through
+    # summary()["unknown_idp_keys"] so the UI can tell the operator
+    # exactly what to alias next time.
+    league = {
+        "scoring_settings": {
+            "idp_sack": 4.0,              # known
+            "idp_made_up_stat": 2.5,      # unknown IDP key
+            "pass_yd": 0.04,              # offense — should NOT surface
+        },
+    }
+    summary = parse_scoring(league).summary()
+    assert summary["unknown_idp_keys"] == {"idp_made_up_stat": 2.5}
+
+
 def test_parse_scoring_aliases_idp_keys():
     league = {
         "league_id": "abc",

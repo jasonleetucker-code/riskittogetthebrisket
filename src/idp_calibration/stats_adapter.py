@@ -153,31 +153,55 @@ class SleeperStatsAdapter(HistoricalStatsAdapter):
                 continue
             meta = players_map.get(str(pid)) or {}
             pos_raw = str(meta.get("position") or "").upper()
-            canonical = _canonical_position(pos_raw)
-            if canonical not in {"DL", "LB", "DB"}:
+            canonical_pos = _canonical_position(pos_raw)
+            if canonical_pos not in {"DL", "LB", "DB"}:
                 continue
             games = _coerce_int(stats.get("gp") or stats.get("games") or 0)
             scored: dict[str, float] = {}
-            for key in (
-                "idp_tkl_solo",
-                "idp_tkl_ast",
-                "idp_tkl_loss",
-                "idp_sack",
-                "idp_hit",
-                "idp_int",
-                "idp_pd",
-                "idp_ff",
-                "idp_fum_rec",
-                "idp_def_td",
-            ):
-                val = _coerce_float(stats.get(key))
-                if val is not None:
-                    scored[key] = val
+            # Mirror IDP_STAT_KEYS from src/idp_calibration/scoring.py
+            # and accept a couple of legacy Sleeper payload aliases.
+            # The loop collapses payload keys to canonical names so
+            # downstream weight × stat dot-products match regardless
+            # of whether the season aggregate uses the old or new
+            # Sleeper naming.
+            _STAT_KEY_MAP = {
+                # canonical → list of payload keys to sum (first match wins)
+                "idp_tkl_solo": ("idp_tkl_solo", "idp_solo"),
+                "idp_tkl_ast": ("idp_tkl_ast", "idp_ast"),
+                "idp_tkl": ("idp_tkl",),
+                "idp_tkl_loss": ("idp_tkl_loss", "idp_tfl"),
+                "idp_tkl_ast_loss": ("idp_tkl_ast_loss",),
+                "idp_sack": ("idp_sack",),
+                "idp_sack_yd": ("idp_sack_yd",),
+                # Canonical is idp_hit (kept stable for baseline_config /
+                # scoring_delta). idp_qb_hit is a payload alias Sleeper
+                # uses in some seasons.
+                "idp_hit": ("idp_hit", "idp_qb_hit"),
+                "idp_int": ("idp_int",),
+                "idp_int_ret_yd": ("idp_int_ret_yd",),
+                "idp_pd": ("idp_pd", "idp_pass_def"),
+                "idp_ff": ("idp_ff",),
+                "idp_fum_rec": ("idp_fum_rec", "idp_fr"),
+                "idp_fum_ret_yd": ("idp_fum_ret_yd",),
+                "idp_def_td": ("idp_def_td", "idp_td"),
+                "idp_safe": ("idp_safe",),
+                "idp_blk_kick": ("idp_blk_kick", "idp_blk_punt"),
+                "idp_def_pr_td": ("idp_def_pr_td",),
+                "idp_def_kr_td": ("idp_def_kr_td",),
+                "idp_tkl_10p": ("idp_tkl_10p",),
+                "idp_tkl_5p": ("idp_tkl_5p",),
+            }
+            for stat_canonical, payload_keys in _STAT_KEY_MAP.items():
+                for pk in payload_keys:
+                    val = _coerce_float(stats.get(pk))
+                    if val is not None:
+                        scored[stat_canonical] = val
+                        break
             out.append(
                 PlayerSeason(
                     player_id=str(pid),
                     name=str(meta.get("full_name") or meta.get("first_name") or pid),
-                    position=canonical,
+                    position=canonical_pos,
                     games=games,
                     stats=scored,
                 )
@@ -224,21 +248,38 @@ class LocalCSVStatsAdapter(HistoricalStatsAdapter):
                     if pos not in {"DL", "LB", "DB"}:
                         continue
                     stats: dict[str, float] = {}
-                    for key in (
-                        "idp_tkl_solo",
-                        "idp_tkl_ast",
-                        "idp_tkl_loss",
-                        "idp_sack",
-                        "idp_hit",
-                        "idp_int",
-                        "idp_pd",
-                        "idp_ff",
-                        "idp_fum_rec",
-                        "idp_def_td",
-                    ):
-                        val = _coerce_float(row.get(key))
-                        if val is not None:
-                            stats[key] = val
+                    # Accept every canonical IDP stat column plus a
+                    # couple of legacy column names. Extra columns are
+                    # ignored; missing columns are treated as zero.
+                    _CSV_STAT_MAP = {
+                        "idp_tkl_solo": ("idp_tkl_solo", "idp_solo"),
+                        "idp_tkl_ast": ("idp_tkl_ast", "idp_ast"),
+                        "idp_tkl": ("idp_tkl",),
+                        "idp_tkl_loss": ("idp_tkl_loss", "idp_tfl"),
+                        "idp_tkl_ast_loss": ("idp_tkl_ast_loss",),
+                        "idp_sack": ("idp_sack",),
+                        "idp_sack_yd": ("idp_sack_yd",),
+                        "idp_hit": ("idp_hit", "idp_qb_hit"),
+                        "idp_int": ("idp_int",),
+                        "idp_int_ret_yd": ("idp_int_ret_yd",),
+                        "idp_pd": ("idp_pd", "idp_pass_def"),
+                        "idp_ff": ("idp_ff",),
+                        "idp_fum_rec": ("idp_fum_rec", "idp_fr"),
+                        "idp_fum_ret_yd": ("idp_fum_ret_yd",),
+                        "idp_def_td": ("idp_def_td", "idp_td"),
+                        "idp_safe": ("idp_safe",),
+                        "idp_blk_kick": ("idp_blk_kick", "idp_blk_punt"),
+                        "idp_def_pr_td": ("idp_def_pr_td",),
+                        "idp_def_kr_td": ("idp_def_kr_td",),
+                        "idp_tkl_10p": ("idp_tkl_10p",),
+                        "idp_tkl_5p": ("idp_tkl_5p",),
+                    }
+                    for stat_canonical, column_names in _CSV_STAT_MAP.items():
+                        for col in column_names:
+                            val = _coerce_float(row.get(col))
+                            if val is not None:
+                                stats[stat_canonical] = val
+                                break
                     out.append(
                         PlayerSeason(
                             player_id=pid,
