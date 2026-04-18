@@ -24,22 +24,26 @@ class ScoredPlayer:
     points_mine: float
 
 
+IDP_FAMILY = ("DL", "LB", "DB")
+OFFENSE_FAMILY = ("QB", "RB", "WR", "TE")
+
+
 def build_universe(
     players: Iterable[PlayerSeason],
     *,
     min_games: int = 0,
+    positions: Iterable[str] = IDP_FAMILY,
 ) -> list[PlayerSeason]:
-    """Filter the raw season list into the calibration universe.
+    """Filter the raw season list into a calibration universe.
 
-    Default (``min_games=0``) keeps every valid DL/LB/DB with a
-    non-empty stat line. ``min_games`` is the advanced filter exposed
-    in the UI. Top-N per position cannot be applied here because we
-    don't yet know each player's fantasy points — that selection is
-    done in :func:`trim_to_top_n_per_position` after scoring.
+    ``positions`` defaults to the IDP family; the cross-family layer
+    calls this with ``OFFENSE_FAMILY`` to build a parallel offense
+    universe for computing offense VOR.
     """
+    allowed = {p.upper() for p in positions}
     valid: list[PlayerSeason] = []
     for p in players:
-        if p.position not in {"DL", "LB", "DB"}:
+        if p.position not in allowed:
             continue
         if not p.stats:
             continue
@@ -50,7 +54,10 @@ def build_universe(
 
 
 def trim_to_top_n_per_position(
-    scored: list["ScoredPlayer"], top_n: int | None
+    scored: list["ScoredPlayer"],
+    top_n: int | None,
+    *,
+    positions: Iterable[str] = IDP_FAMILY,
 ) -> list["ScoredPlayer"]:
     """Keep only the top ``top_n`` scored players per position.
 
@@ -63,7 +70,7 @@ def trim_to_top_n_per_position(
     """
     if not top_n or top_n <= 0:
         return list(scored)
-    by_pos: dict[str, list[ScoredPlayer]] = {"DL": [], "LB": [], "DB": []}
+    by_pos: dict[str, list[ScoredPlayer]] = {p.upper(): [] for p in positions}
     for s in scored:
         if s.position in by_pos:
             by_pos[s.position].append(s)
@@ -119,6 +126,8 @@ def compute_vor(
     scored: list[ScoredPlayer],
     replacement_test: dict[str, float],
     replacement_mine: dict[str, float],
+    *,
+    positions: Iterable[str] = IDP_FAMILY,
 ) -> list[VorRow]:
     """Compute VOR under both scoring systems and assign position ranks.
 
@@ -128,7 +137,7 @@ def compute_vor(
     between the two systems (that delta is the whole point of the
     calibration).
     """
-    by_pos: dict[str, list[ScoredPlayer]] = {"DL": [], "LB": [], "DB": []}
+    by_pos: dict[str, list[ScoredPlayer]] = {p.upper(): [] for p in positions}
     for s in scored:
         if s.position in by_pos:
             by_pos[s.position].append(s)

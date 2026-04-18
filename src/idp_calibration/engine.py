@@ -30,11 +30,16 @@ from .stats_adapter import (
 from .translation import (
     DEFAULT_BLEND,
     DEFAULT_YEAR_WEIGHTS,
+    FamilyScale,
     build_multi_year_multipliers,
+    combine_family_scales,
+    compute_family_scale,
     multipliers_to_dict,
     normalise_year_weights,
 )
 from .vor import (
+    IDP_FAMILY,
+    OFFENSE_FAMILY,
     ScoredPlayer,
     VorRow,
     build_universe,
@@ -45,6 +50,7 @@ from .vor import (
 )
 
 POSITIONS: tuple[str, ...] = ("DL", "LB", "DB")
+OFFENSE_POSITIONS: tuple[str, ...] = ("QB", "RB", "WR", "TE")
 
 
 def _safe_int(value: Any, default: int) -> int:
@@ -259,13 +265,59 @@ def _make_run_id(test_id: str, my_id: str, seasons: list[int]) -> str:
     return f"{ts}_{short}"
 
 
+def _compute_offense_replacement(
+    scored: list["ScoredPlayer"],
+    lineup: "LineupDemand",
+    settings: "ReplacementSettings",
+    *,
+    side: str,
+) -> dict[str, float]:
+    """Replacement points per offense position for a given scoring side.
+
+    ``side`` is either ``"mine"`` or ``"test"`` and picks which
+    scoring column (``points_mine`` vs ``points_test``) is used. Mirrors
+    :func:`src.idp_calibration.replacement.compute_replacement_levels`
+    but for the offense family since the existing helper hard-codes
+    DL/LB/DB.
+    """
+    points_key = "points_mine" if side == "mine" else "points_test"
+    from .replacement import POSITIONS as _IDP_POSITIONS_UNUSED  # noqa: F401 — keep import parity
+    settings = settings.normalized()
+    by_position: dict[str, list[float]] = {p: [] for p in OFFENSE_POSITIONS}
+    for player in scored:
+        if player.position in by_position:
+            by_position[player.position].append(getattr(player, points_key))
+    out: dict[str, float] = {}
+    for pos, points in by_position.items():
+        points_desc = sorted(points, reverse=True)
+        rank = lineup.replacement_rank(
+            pos,
+            settings.mode,
+            settings.buffer_pct,
+            settings.manual.get(pos),
+        )
+        if not points_desc:
+            out[pos] = 0.0
+        elif rank <= len(points_desc):
+            out[pos] = points_desc[rank - 1]
+        else:
+            out[pos] = points_desc[-1]
+    return out
+
+
 def _build_universe_for_season(
     season: int,
     *,
     adapter: HistoricalStatsAdapter | None = None,
     settings: AnalysisSettings,
-) -> tuple[list[PlayerSeason], list[str], str]:
-    """Return (universe, warnings, adapter_name) for a single season."""
+) -> tuple[list[PlayerSeason], list[PlayerSeason], list[str], str]:
+    """Return ``(idp_universe, offense_universe, warnings, adapter_name)``.
+
+    The stats adapter now returns both IDP and offense rows in one
+    fetch; we split them by position family so the VOR engine can
+    process each side independently. ``min_games`` applies to both
+    families.
+    """
     warnings: list[str] = []
     adapter_name = "none"
     if adapter is None:
@@ -283,8 +335,13 @@ def _build_universe_for_season(
     except AdapterUnavailable as exc:
         warnings.append(f"{season}: {exc}")
         raw = []
-    universe = build_universe(raw, min_games=settings.min_games)
-    return universe, warnings, adapter_name
+    idp_universe = build_universe(
+        raw, min_games=settings.min_games, positions=IDP_FAMILY
+    )
+    offense_universe = build_universe(
+        raw, min_games=settings.min_games, positions=OFFENSE_FAMILY
+    )
+    return idp_universe, offense_universe, warnings, adapter_name
 
 
 def run_analysis(
@@ -332,6 +389,7 @@ def run_analysis(
     per_season_per_position_buckets: dict[str, dict[int, list[BucketResult]]] = {
         pos: {} for pos in POSITIONS
     }
+    per_season_family_scales: dict[int, FamilyScale] = {}
     resolved_seasons: list[int] = []
 
     for season in sorted({int(s) for s in settings.seasons}):
@@ -431,23 +489,33 @@ def run_analysis(
         my_lineup = parse_lineup(my_league_obj)
 
         adapter = stats_adapter_factory(season) if stats_adapter_factory else None
-        universe, stats_warnings, adapter_name = _build_universe_for_season(
+        (
+            idp_universe,
+            offense_universe,
+            stats_warnings,
+            adapter_name,
+        ) = _build_universe_for_season(
             season, adapter=adapter, settings=settings
         )
         warnings.extend(stats_warnings)
 
-        if not universe:
+        if not idp_universe:
             per_season_payload[season] = {
                 "season": season,
                 "resolved": False,
-                "reason": f"No usable stats for {season} (adapter={adapter_name}).",
+                "reason": f"No usable IDP stats for {season} (adapter={adapter_name}).",
                 "adapter": adapter_name,
             }
             continue
 
-        scored = score_universe(universe, test_scoring.idp_weights, my_scoring.idp_weights)
+        # ── IDP side ──
+        scored = score_universe(
+            idp_universe, test_scoring.idp_weights, my_scoring.idp_weights
+        )
         if settings.top_n:
-            scored = trim_to_top_n_per_position(scored, settings.top_n)
+            scored = trim_to_top_n_per_position(
+                scored, settings.top_n, positions=IDP_FAMILY
+            )
         repl_test_levels = compute_replacement_levels(
             ({"position": p.position, "points": p.points_test} for p in scored),
             test_lineup,
@@ -466,6 +534,46 @@ def run_analysis(
         }
         vor_rows = compute_vor(scored, replacement_test, replacement_mine)
 
+        # ── Offense side — only needed for the family-scale calc ──
+        # We don't bucketize or surface offense bucket tables in the
+        # UI; offense VOR is used purely as the denominator in the
+        # IDP-vs-offense ratio that determines family_scale.
+        season_family_scale: FamilyScale | None = None
+        if offense_universe:
+            offense_scored = score_universe(
+                offense_universe,
+                test_scoring.offense_weights,
+                my_scoring.offense_weights,
+            )
+            offense_repl_my = _compute_offense_replacement(
+                offense_scored, my_lineup, settings.replacement, side="mine"
+            )
+            offense_repl_test = _compute_offense_replacement(
+                offense_scored, test_lineup, settings.replacement, side="test"
+            )
+            offense_vor_my = [
+                s.points_mine - offense_repl_my.get(s.position, 0.0)
+                for s in offense_scored
+            ]
+            offense_vor_test = [
+                s.points_test - offense_repl_test.get(s.position, 0.0)
+                for s in offense_scored
+            ]
+            idp_vor_my = [r.vor_mine for r in vor_rows]
+            idp_vor_test = [r.vor_test for r in vor_rows]
+            season_family_scale = compute_family_scale(
+                idp_vor_my=idp_vor_my,
+                idp_vor_test=idp_vor_test,
+                offense_vor_my=offense_vor_my,
+                offense_vor_test=offense_vor_test,
+                blend=settings.blend,
+            )
+        else:
+            warnings.append(
+                f"{season}: offense universe empty — family_scale for this "
+                f"season defaults to 1.0 (cannot compare IDP to offense)."
+            )
+
         position_buckets: dict[str, list[BucketResult]] = {}
         for pos in POSITIONS:
             buckets = bucketize(
@@ -477,11 +585,15 @@ def run_analysis(
             position_buckets[pos] = buckets
             per_season_per_position_buckets[pos][season] = buckets
 
+        if season_family_scale is not None:
+            per_season_family_scales[season] = season_family_scale
+
         per_season_payload[season] = {
             "season": season,
             "resolved": True,
             "adapter": adapter_name,
-            "universe_size": len(universe),
+            "universe_size": len(idp_universe),
+            "offense_universe_size": len(offense_universe),
             "test_scoring": test_scoring.summary(),
             "my_scoring": my_scoring.summary(),
             "test_lineup": test_lineup.to_dict(),
@@ -494,6 +606,9 @@ def run_analysis(
             "my_rules_source_season": int(my_league_obj.get("season") or season),
             "test_rules_borrowed": test_borrowed,
             "my_rules_borrowed": my_borrowed,
+            "family_scale": (
+                season_family_scale.to_dict() if season_family_scale else None
+            ),
         }
         resolved_seasons.append(season)
 
@@ -506,13 +621,16 @@ def run_analysis(
         blend=settings.blend,
         multiplier_floor=settings.anchor_floor,
     )
+    family_scale = combine_family_scales(
+        per_season_family_scales, normalised_weights
+    )
     anchors = build_all_anchors(
         multipliers,
         anchor_ranks=settings.anchor_ranks,
         floor=settings.anchor_floor,
     )
 
-    recommendation = _build_recommendation(multipliers, warnings)
+    recommendation = _build_recommendation(multipliers, warnings, family_scale)
 
     run_id = _make_run_id(test_league_id, my_league_id, settings.seasons)
 
@@ -533,6 +651,7 @@ def run_analysis(
         },
         "per_season": {str(k): v for k, v in per_season_payload.items()},
         "multipliers": multipliers_to_dict(multipliers),
+        "family_scale": family_scale.to_dict(),
         "anchors": anchors_to_dict(anchors),
         "recommendation": recommendation,
         "warnings": warnings,
@@ -541,17 +660,31 @@ def run_analysis(
 
 
 def _build_recommendation(
-    multipliers: dict[str, Any], warnings: list[str]
+    multipliers: dict[str, Any],
+    warnings: list[str],
+    family_scale: FamilyScale | None = None,
 ) -> dict[str, Any]:
     """Produce a plain-language summary block for the UI."""
     lines: list[str] = []
     notes: list[str] = []
     per_position: dict[str, dict[str, Any]] = {}
+
+    # Cross-family summary: if my league values IDP as a class more/less
+    # than the market, surface that at the top before the per-position
+    # within-family signals. This is the lever the user asked for.
+    if family_scale is not None and family_scale.intrinsic != 1.0:
+        pct = (family_scale.intrinsic - 1.0) * 100.0
+        direction = "higher" if pct > 0 else "lower"
+        lines.append(
+            f"IDP family scale: this league values IDP as a class "
+            f"{abs(pct):.1f}% {direction} than the market baseline "
+            f"(intrinsic {family_scale.intrinsic:.3f}x / final {family_scale.final:.3f}x)."
+        )
+
     for pos, pm in multipliers.items():
         if not pm.buckets:
             notes.append(f"No multiplier data available for {pos}.")
             continue
-        # Compare the mid-tier (3rd bucket if available, otherwise last)
         idx = min(2, len(pm.buckets) - 1)
         mid = pm.buckets[idx]
         direction = "neutral"
@@ -583,4 +716,5 @@ def _build_recommendation(
         "notes": notes,
         "per_position": per_position,
         "recommended_mode": "blended",
+        "family_scale": family_scale.to_dict() if family_scale else None,
     }

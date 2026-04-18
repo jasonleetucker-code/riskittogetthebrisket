@@ -38,6 +38,103 @@ from src.utils.name_clean import resolve_idp_position
 log = logging.getLogger(__name__)
 
 
+# ── Canonical-to-payload stat-key maps ──
+# Shared by SleeperStatsAdapter and LocalCSVStatsAdapter. First
+# payload key that hits wins. Mirror of IDP_STAT_KEYS / OFFENSE_STAT_KEYS
+# in scoring.py so every aliased canonical has a column pull.
+_IDP_STAT_KEY_MAP: dict[str, tuple[str, ...]] = {
+    "idp_tkl_solo": ("idp_tkl_solo", "idp_solo"),
+    "idp_tkl_ast": ("idp_tkl_ast", "idp_ast"),
+    "idp_tkl": ("idp_tkl",),
+    "idp_tkl_loss": ("idp_tkl_loss", "idp_tfl"),
+    "idp_tkl_ast_loss": ("idp_tkl_ast_loss",),
+    "idp_sack": ("idp_sack",),
+    "idp_sack_yd": ("idp_sack_yd",),
+    "idp_hit": ("idp_hit", "idp_qb_hit"),
+    "idp_int": ("idp_int",),
+    "idp_int_ret_yd": ("idp_int_ret_yd",),
+    "idp_pd": ("idp_pd", "idp_pass_def"),
+    "idp_pass_def_3p": ("idp_pass_def_3p",),
+    "idp_ff": ("idp_ff",),
+    "idp_fum_rec": ("idp_fum_rec", "idp_fr"),
+    "idp_fum_ret_yd": ("idp_fum_ret_yd",),
+    "idp_def_td": ("idp_def_td", "idp_td"),
+    "idp_safe": ("idp_safe",),
+    "idp_blk_kick": ("idp_blk_kick", "idp_blk_punt"),
+    "idp_def_pr_td": ("idp_def_pr_td",),
+    "idp_def_kr_td": ("idp_def_kr_td",),
+    "idp_tkl_10p": ("idp_tkl_10p",),
+    "idp_tkl_5p": ("idp_tkl_5p",),
+}
+
+_OFFENSE_STAT_KEY_MAP: dict[str, tuple[str, ...]] = {
+    # Passing
+    "pass_yd": ("pass_yd",),
+    "pass_td": ("pass_td",),
+    "pass_int": ("pass_int",),
+    "pass_cmp": ("pass_cmp",),
+    "pass_inc": ("pass_inc",),
+    "pass_fd": ("pass_fd", "pass_first_down"),
+    "bonus_pass_yd_300": ("bonus_pass_yd_300",),
+    "bonus_pass_td_50+": ("bonus_pass_td_50+", "bonus_pass_td_50p"),
+    "bonus_fd_qb": ("bonus_fd_qb",),
+    # Rushing
+    "rush_yd": ("rush_yd",),
+    "rush_td": ("rush_td",),
+    "rush_fd": ("rush_fd", "rush_first_down"),
+    "bonus_rush_yd_100": ("bonus_rush_yd_100",),
+    "bonus_rush_td_40+": ("bonus_rush_td_40+", "bonus_rush_td_40p"),
+    "bonus_fd_rb": ("bonus_fd_rb",),
+    # Receiving
+    "rec": ("rec",),
+    "rec_yd": ("rec_yd",),
+    "rec_td": ("rec_td",),
+    "rec_fd": ("rec_fd", "rec_first_down"),
+    "bonus_rec_rb": ("bonus_rec_rb",),
+    "bonus_rec_wr": ("bonus_rec_wr",),
+    "bonus_rec_te": ("bonus_rec_te",),
+    "bonus_rec_yd_100": ("bonus_rec_yd_100",),
+    "bonus_rec_td_40+": ("bonus_rec_td_40+", "bonus_rec_td_40p"),
+    "bonus_fd_wr": ("bonus_fd_wr",),
+    "bonus_fd_te": ("bonus_fd_te",),
+    # Turnover penalties
+    "fum": ("fum",),
+    "fum_lost": ("fum_lost",),
+    # Return TDs (rare, most leagues score 0)
+    "kick_ret_td": ("kick_ret_td",),
+    "punt_ret_td": ("punt_ret_td",),
+}
+
+
+def _resolve_offense_position(raw_pos: str | None, fantasy_positions: Any) -> str:
+    """Collapse a Sleeper player's position fields into QB/RB/WR/TE or ""."""
+    tokens: list[str] = []
+    if isinstance(fantasy_positions, (list, tuple)):
+        for item in fantasy_positions:
+            if isinstance(item, str) and item.strip():
+                tokens.append(item.strip().upper())
+    if isinstance(raw_pos, str) and raw_pos.strip():
+        tokens.append(raw_pos.strip().upper())
+    # Priority: QB > RB > WR > TE when a player lists multiple, which
+    # mirrors fantasy primary-use ordering.
+    for family in ("QB", "RB", "WR", "TE"):
+        if family in tokens:
+            return family
+    return ""
+
+
+def _pull_scored(stats: dict[str, Any], key_map: dict[str, tuple[str, ...]]) -> dict[str, float]:
+    """Walk ``key_map`` and collapse payload keys to canonical names."""
+    out: dict[str, float] = {}
+    for canonical, payload_keys in key_map.items():
+        for pk in payload_keys:
+            val = _coerce_float(stats.get(pk))
+            if val is not None:
+                out[canonical] = val
+                break
+    return out
+
+
 class AdapterUnavailable(RuntimeError):
     """Raised when an adapter cannot serve a given season."""
 
@@ -153,58 +250,26 @@ class SleeperStatsAdapter(HistoricalStatsAdapter):
             if not isinstance(stats, dict):
                 continue
             meta = players_map.get(str(pid)) or {}
-            # Prefer Sleeper's fantasy_positions array over the single
-            # NFL position so dual-eligible players (e.g. DL+LB) get
-            # collapsed to a single IDP family under the DL > DB > LB
-            # priority applied by resolve_idp_position.
-            canonical_pos = resolve_idp_position(
-                meta.get("fantasy_positions"),
-                meta.get("position"),
-            )
-            if canonical_pos not in {"DL", "LB", "DB"}:
-                continue
+            fantasy_positions = meta.get("fantasy_positions")
+            raw_position = meta.get("position")
+
+            # First try IDP (DL/LB/DB priority). If that doesn't match,
+            # try offense (QB/RB/WR/TE). The cross-family calibration
+            # layer needs both in the same universe so we can compute
+            # offense VOR to compare against IDP VOR.
+            idp_pos = resolve_idp_position(fantasy_positions, raw_position)
+            if idp_pos in {"DL", "LB", "DB"}:
+                canonical_pos = idp_pos
+                key_map = _IDP_STAT_KEY_MAP
+            else:
+                offense_pos = _resolve_offense_position(raw_position, fantasy_positions)
+                if offense_pos not in {"QB", "RB", "WR", "TE"}:
+                    continue
+                canonical_pos = offense_pos
+                key_map = _OFFENSE_STAT_KEY_MAP
+
             games = _coerce_int(stats.get("gp") or stats.get("games") or 0)
-            scored: dict[str, float] = {}
-            # Mirror IDP_STAT_KEYS from src/idp_calibration/scoring.py
-            # and accept a couple of legacy Sleeper payload aliases.
-            # The loop collapses payload keys to canonical names so
-            # downstream weight × stat dot-products match regardless
-            # of whether the season aggregate uses the old or new
-            # Sleeper naming.
-            _STAT_KEY_MAP = {
-                # canonical → list of payload keys to sum (first match wins)
-                "idp_tkl_solo": ("idp_tkl_solo", "idp_solo"),
-                "idp_tkl_ast": ("idp_tkl_ast", "idp_ast"),
-                "idp_tkl": ("idp_tkl",),
-                "idp_tkl_loss": ("idp_tkl_loss", "idp_tfl"),
-                "idp_tkl_ast_loss": ("idp_tkl_ast_loss",),
-                "idp_sack": ("idp_sack",),
-                "idp_sack_yd": ("idp_sack_yd",),
-                # Canonical is idp_hit (kept stable for baseline_config /
-                # scoring_delta). idp_qb_hit is a payload alias Sleeper
-                # uses in some seasons.
-                "idp_hit": ("idp_hit", "idp_qb_hit"),
-                "idp_int": ("idp_int",),
-                "idp_int_ret_yd": ("idp_int_ret_yd",),
-                "idp_pd": ("idp_pd", "idp_pass_def"),
-                "idp_pass_def_3p": ("idp_pass_def_3p",),
-                "idp_ff": ("idp_ff",),
-                "idp_fum_rec": ("idp_fum_rec", "idp_fr"),
-                "idp_fum_ret_yd": ("idp_fum_ret_yd",),
-                "idp_def_td": ("idp_def_td", "idp_td"),
-                "idp_safe": ("idp_safe",),
-                "idp_blk_kick": ("idp_blk_kick", "idp_blk_punt"),
-                "idp_def_pr_td": ("idp_def_pr_td",),
-                "idp_def_kr_td": ("idp_def_kr_td",),
-                "idp_tkl_10p": ("idp_tkl_10p",),
-                "idp_tkl_5p": ("idp_tkl_5p",),
-            }
-            for stat_canonical, payload_keys in _STAT_KEY_MAP.items():
-                for pk in payload_keys:
-                    val = _coerce_float(stats.get(pk))
-                    if val is not None:
-                        scored[stat_canonical] = val
-                        break
+            scored = _pull_scored(stats, key_map)
             out.append(
                 PlayerSeason(
                     player_id=str(pid),
@@ -216,7 +281,7 @@ class SleeperStatsAdapter(HistoricalStatsAdapter):
             )
         if not out:
             raise AdapterUnavailable(
-                f"Sleeper stats for {season} contained zero IDP rows."
+                f"Sleeper stats for {season} contained zero rows."
             )
         return out
 
@@ -252,54 +317,29 @@ class LocalCSVStatsAdapter(HistoricalStatsAdapter):
                     pid = str(row.get("player_id") or "").strip()
                     if not pid:
                         continue
-                    # CSV may carry either a single position or a
-                    # slash-joined pair (e.g. "DL/LB"). resolve_idp_position
-                    # applies the canonical DL > DB > LB priority.
-                    pos = resolve_idp_position(
-                        row.get("fantasy_positions"),
-                        row.get("position"),
-                    )
-                    if pos not in {"DL", "LB", "DB"}:
-                        continue
-                    stats: dict[str, float] = {}
-                    # Accept every canonical IDP stat column plus a
-                    # couple of legacy column names. Extra columns are
-                    # ignored; missing columns are treated as zero.
-                    _CSV_STAT_MAP = {
-                        "idp_tkl_solo": ("idp_tkl_solo", "idp_solo"),
-                        "idp_tkl_ast": ("idp_tkl_ast", "idp_ast"),
-                        "idp_tkl": ("idp_tkl",),
-                        "idp_tkl_loss": ("idp_tkl_loss", "idp_tfl"),
-                        "idp_tkl_ast_loss": ("idp_tkl_ast_loss",),
-                        "idp_sack": ("idp_sack",),
-                        "idp_sack_yd": ("idp_sack_yd",),
-                        "idp_hit": ("idp_hit", "idp_qb_hit"),
-                        "idp_int": ("idp_int",),
-                        "idp_int_ret_yd": ("idp_int_ret_yd",),
-                        "idp_pd": ("idp_pd", "idp_pass_def"),
-                        "idp_pass_def_3p": ("idp_pass_def_3p",),
-                        "idp_ff": ("idp_ff",),
-                        "idp_fum_rec": ("idp_fum_rec", "idp_fr"),
-                        "idp_fum_ret_yd": ("idp_fum_ret_yd",),
-                        "idp_def_td": ("idp_def_td", "idp_td"),
-                        "idp_safe": ("idp_safe",),
-                        "idp_blk_kick": ("idp_blk_kick", "idp_blk_punt"),
-                        "idp_def_pr_td": ("idp_def_pr_td",),
-                        "idp_def_kr_td": ("idp_def_kr_td",),
-                        "idp_tkl_10p": ("idp_tkl_10p",),
-                        "idp_tkl_5p": ("idp_tkl_5p",),
-                    }
-                    for stat_canonical, column_names in _CSV_STAT_MAP.items():
-                        for col in column_names:
-                            val = _coerce_float(row.get(col))
-                            if val is not None:
-                                stats[stat_canonical] = val
-                                break
+                    # IDP first (DL > DB > LB priority for multi-position
+                    # rows), offense second. Both families share the
+                    # stat-pull pattern via _pull_scored.
+                    fantasy_positions = row.get("fantasy_positions")
+                    raw_position = row.get("position")
+                    idp_pos = resolve_idp_position(fantasy_positions, raw_position)
+                    if idp_pos in {"DL", "LB", "DB"}:
+                        canonical_pos = idp_pos
+                        key_map = _IDP_STAT_KEY_MAP
+                    else:
+                        offense_pos = _resolve_offense_position(
+                            raw_position, fantasy_positions
+                        )
+                        if offense_pos not in {"QB", "RB", "WR", "TE"}:
+                            continue
+                        canonical_pos = offense_pos
+                        key_map = _OFFENSE_STAT_KEY_MAP
+                    stats = _pull_scored(row, key_map)
                     out.append(
                         PlayerSeason(
                             player_id=pid,
                             name=str(row.get("name") or pid),
-                            position=pos,
+                            position=canonical_pos,
                             games=_coerce_int(row.get("games") or 0),
                             stats=stats,
                         )
@@ -307,7 +347,9 @@ class LocalCSVStatsAdapter(HistoricalStatsAdapter):
         except OSError as exc:
             raise AdapterUnavailable(f"Failed reading {path}: {exc}") from exc
         if not out:
-            raise AdapterUnavailable(f"Local CSV at {path} contained no IDP rows.")
+            raise AdapterUnavailable(
+                f"Local CSV at {path} contained no rows in recognised families."
+            )
         return out
 
 

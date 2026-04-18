@@ -154,6 +154,38 @@ def _bucket_lookup_for(position: str, rank: int, config: dict[str, Any], mode: s
     return 1.0
 
 
+def _family_scale_for(config: dict[str, Any], mode: str) -> float:
+    """Return the cross-family IDP scale from the promoted config.
+
+    Applied multiplicatively on top of the within-position bucket
+    multiplier so the live pipeline produces:
+
+        final = rankDerivedValue × family_scale × bucket_multiplier
+
+    A family scale > 1.0 lifts every IDP row in lockstep (because my
+    league values IDP as a class more than the market); < 1.0 discounts
+    the class. Missing block → 1.0 (identity, backward compat with
+    pre-Family-Scale promoted configs).
+    """
+    fs = config.get("family_scale")
+    if not isinstance(fs, dict):
+        return 1.0
+    kind = {
+        "intrinsic_only": "intrinsic",
+        "market_only": "market",
+        "blended": "final",
+    }.get(mode, "final")
+    val = fs.get(kind)
+    try:
+        scale = float(val)
+    except (TypeError, ValueError):
+        return 1.0
+    # Hard sanity clamp to the same bounds the engine's
+    # compute_family_scale uses. Defends production against a
+    # hand-edited config with a nonsense value.
+    return max(0.25, min(4.0, scale))
+
+
 def get_idp_bucket_multiplier(
     position: str,
     rank: int,
@@ -171,6 +203,11 @@ def get_idp_bucket_multiplier(
 
     Returns ``1.0`` whenever no promoted config exists so this is a
     strict no-op for a freshly-cloned repo.
+
+    Combines the cross-family IDP scale (from ``config['family_scale']``)
+    with the within-position bucket multiplier. See
+    :func:`_family_scale_for` for the class-level lift/discount
+    semantics.
     """
     config = _load_if_stale(base)
     if not config:
@@ -179,7 +216,9 @@ def get_idp_bucket_multiplier(
     if effective_mode not in {"intrinsic_only", "market_only", "blended"}:
         effective_mode = "blended"
     try:
-        return float(_bucket_lookup_for(position, int(rank), config, effective_mode))
+        bucket = float(_bucket_lookup_for(position, int(rank), config, effective_mode))
+        family = _family_scale_for(config, effective_mode)
+        return bucket * family
     except Exception:
         return 1.0
 
