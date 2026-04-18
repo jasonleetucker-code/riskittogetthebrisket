@@ -101,8 +101,10 @@ def build_production_config(
         "active_mode": active_mode,
         "bucket_edges": list(settings.get("bucket_edges") or []),
         "multipliers": dict(artifact.get("multipliers") or {}),
+        "offense_multipliers": dict(artifact.get("offense_multipliers") or {}),
         "family_scale": dict(artifact.get("family_scale") or {}),
         "anchors": dict(artifact.get("anchors") or {}),
+        "offense_anchors": dict(artifact.get("offense_anchors") or {}),
     }
 
 

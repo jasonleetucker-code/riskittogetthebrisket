@@ -2233,6 +2233,20 @@ tr:hover .sticky-name {
   gap: var(--space-xs);
 }
 
+.idp-lab-family-heading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  padding-bottom: var(--space-xs);
+  border-bottom: 1px solid var(--border-soft);
+}
+.idp-lab-family-heading strong {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .idp-lab-bucket-table th,
 .idp-lab-mult-table th {
   font-size: 0.75rem;

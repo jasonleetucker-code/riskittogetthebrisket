@@ -136,3 +136,71 @@ def test_snapshot_populated_even_when_multiplier_is_identity(tmp_path, monkeypat
     _apply_idp_calibration_post_pass(rows, {})
     assert rows[0]["rankDerivedValue"] == 4000
     assert rows[0]["rankDerivedValueUncalibrated"] == 4000
+
+
+def test_offense_multipliers_scale_only_offense(tmp_path, monkeypatch):
+    """Promoted offense calibration multiplies QB/RB/WR/TE rows by the
+    per-bucket factor and leaves IDP rows untouched."""
+    from src.api.data_contract import _apply_offense_calibration_post_pass
+
+    cfg_path = tmp_path / "config" / "idp_calibration.json"
+    config = {
+        "version": 1,
+        "active_mode": "blended",
+        "multipliers": {},
+        "offense_multipliers": {
+            "final": {
+                "QB": {"1-6": 1.10, "7-12": 1.05},
+                "WR": {"1-6": 0.95},
+                "TE": {"1-6": 1.20},
+            },
+        },
+        "anchors": {},
+        "offense_anchors": {},
+    }
+    save_json(cfg_path, config)
+    monkeypatch.setattr(production, "production_config_path", lambda base=None: cfg_path)
+    production.reset_cache()
+
+    rows = [
+        {"position": "QB", "rankDerivedValue": 9000},
+        {"position": "QB", "rankDerivedValue": 8500},
+        {"position": "WR", "rankDerivedValue": 7000},
+        {"position": "TE", "rankDerivedValue": 6000},
+        {"position": "DL", "rankDerivedValue": 4000},
+    ]
+    _apply_offense_calibration_post_pass(rows, {})
+    # QB rank 1 is in 1-6 -> 1.10x; QB rank 2 is also in 1-6 -> 1.10x
+    assert rows[0]["rankDerivedValue"] == 9900  # 9000 * 1.10
+    assert rows[1]["rankDerivedValue"] == 9350  # 8500 * 1.10
+    # WR -> 0.95x, TE -> 1.20x
+    assert rows[2]["rankDerivedValue"] == 6650  # 7000 * 0.95
+    assert rows[3]["rankDerivedValue"] == 7200  # 6000 * 1.20
+    # IDP row untouched
+    assert rows[4]["rankDerivedValue"] == 4000
+    assert "rankDerivedValueUncalibrated" not in rows[4]
+    # Snapshots on offense rows
+    assert rows[0]["rankDerivedValueUncalibrated"] == 9000
+    assert rows[2]["rankDerivedValueUncalibrated"] == 7000
+    assert rows[3]["rankDerivedValueUncalibrated"] == 6000
+
+
+def test_offense_post_pass_noop_when_block_absent(tmp_path, monkeypatch):
+    """Pre-offense-calibration promoted configs (no offense_multipliers
+    block at all) must be a strict no-op — backward compat with runs
+    promoted before this feature shipped."""
+    from src.api.data_contract import _apply_offense_calibration_post_pass
+
+    cfg_path = tmp_path / "config" / "idp_calibration.json"
+    config = {
+        "active_mode": "blended",
+        "multipliers": {"final": {"DL": {"1-6": 0.5}}},
+        # no offense_multipliers key at all
+    }
+    save_json(cfg_path, config)
+    monkeypatch.setattr(production, "production_config_path", lambda base=None: cfg_path)
+    production.reset_cache()
+    rows = [{"position": "QB", "rankDerivedValue": 9000}]
+    _apply_offense_calibration_post_pass(rows, {})
+    assert rows[0]["rankDerivedValue"] == 9000
+    assert "rankDerivedValueUncalibrated" not in rows[0]

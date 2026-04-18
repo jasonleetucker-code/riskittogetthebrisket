@@ -2773,6 +2773,73 @@ def _apply_idp_calibration_post_pass(
                     pdata["idpCalibrationMultiplier"] = round(multiplier, 4)
 
 
+def _apply_offense_calibration_post_pass(
+    players_array: list[dict[str, Any]],
+    players_by_name: dict[str, Any],
+) -> None:
+    """Apply promoted per-position offense multipliers (QB/RB/WR/TE).
+
+    Mirror of :func:`_apply_idp_calibration_post_pass` but for offense
+    rows. Reads ``offense_multipliers`` from the promoted config and
+    scales each QB/RB/WR/TE row's ``rankDerivedValue`` by the looked-up
+    bucket value. Unlike IDP, there is no family_scale component on the
+    offense side — offense is the reference for the family ratio.
+
+    Snapshots the pre-calibration value into
+    ``rankDerivedValueUncalibrated`` on every offense row (even when
+    multiplier == 1.0) so the /rankings toggle can swap both families
+    uniformly.
+    """
+    config = _idp_production.load_production_config()
+    if not config:
+        return
+    # Backward-compat with pre-offense-calibration promoted configs —
+    # if the file has no offense_multipliers block, this pass is a
+    # strict no-op.
+    if not (config.get("offense_multipliers") or {}):
+        return
+    active_mode = str(config.get("active_mode") or "blended")
+
+    by_pos: dict[str, list[dict[str, Any]]] = {"QB": [], "RB": [], "WR": [], "TE": []}
+    for row in players_array:
+        pos = str(row.get("position") or "").upper()
+        if pos not in by_pos:
+            continue
+        try:
+            derived = int(row.get("rankDerivedValue") or 0)
+        except (TypeError, ValueError):
+            derived = 0
+        if derived <= 0:
+            continue
+        by_pos[pos].append(row)
+
+    for pos, rows in by_pos.items():
+        rows.sort(key=lambda r: -int(r.get("rankDerivedValue") or 0))
+        for idx, row in enumerate(rows, 1):
+            row["rankDerivedValueUncalibrated"] = int(row.get("rankDerivedValue") or 0)
+            try:
+                multiplier = float(
+                    _idp_production.get_offense_bucket_multiplier(
+                        pos, idx, mode=active_mode
+                    )
+                )
+            except Exception:  # noqa: BLE001
+                multiplier = 1.0
+            if abs(multiplier - 1.0) < 1e-9:
+                continue
+            old_val = int(row.get("rankDerivedValue") or 0)
+            new_val = max(1, int(round(old_val * multiplier)))
+            row["rankDerivedValue"] = new_val
+            row["offenseCalibrationMultiplier"] = round(multiplier, 4)
+            row["offenseCalibrationPositionRank"] = idx
+            legacy_ref = row.get("legacyRef")
+            if legacy_ref and legacy_ref in players_by_name:
+                pdata = players_by_name[legacy_ref]
+                if isinstance(pdata, dict):
+                    pdata["rankDerivedValue"] = new_val
+                    pdata["offenseCalibrationMultiplier"] = round(multiplier, 4)
+
+
 def _reassign_pick_slot_order(players_array: list[dict[str, Any]]) -> int:
     """Reorder slot-specific picks within each year so slot order is
     strictly monotonic across all rounds (1.01..1.12, 2.01..2.12, ...).
@@ -3728,6 +3795,7 @@ def _compute_unified_rankings(
     # absent — the calibration lab's Promote step is the only way to
     # activate this. See src/idp_calibration/production.py.
     _apply_idp_calibration_post_pass(players_array, players_by_name)
+    _apply_offense_calibration_post_pass(players_array, players_by_name)
 
     # ── Phase 5: Pick refinement passes (gated to picks) ──
     # 1) Reassign (rank, value) tuples within each (year, round) bucket
