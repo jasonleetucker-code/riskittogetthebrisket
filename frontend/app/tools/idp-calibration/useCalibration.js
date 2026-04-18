@@ -34,6 +34,7 @@ export function useCalibration() {
     promote: false,
     runDetail: false,
     deleteRun: false,
+    refreshBoard: false,
   });
   const [error, setError] = useState({});
   const mountedRef = useRef(true);
@@ -169,6 +170,21 @@ export function useCalibration() {
     return data;
   }, [refreshProduction, refreshStatus]);
 
+  const refreshBoard = useCallback(async () => {
+    setFlag("refreshBoard", true);
+    setErr("refreshBoard", null);
+    const { status: http, data } = await jfetch(
+      "/api/idp-calibration/refresh-board",
+      { method: "POST" },
+    );
+    if (!mountedRef.current) return data;
+    if (http >= 400 || data?.ok === false) {
+      setErr("refreshBoard", data?.error || `HTTP ${http}`);
+    }
+    setFlag("refreshBoard", false);
+    return data;
+  }, []);
+
   return {
     status,
     runs,
@@ -184,5 +200,6 @@ export function useCalibration() {
     loadRun,
     deleteRun,
     promote,
+    refreshBoard,
   };
 }

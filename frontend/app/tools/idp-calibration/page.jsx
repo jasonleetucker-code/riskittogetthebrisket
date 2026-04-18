@@ -41,6 +41,7 @@ export default function IdpCalibrationLabPage() {
     loadRun,
     deleteRun,
     promote,
+    refreshBoard,
   } = useCalibration();
 
   useEffect(() => {
@@ -162,6 +163,9 @@ export default function IdpCalibrationLabPage() {
         onPromote={promote}
         loading={loading.promote}
         error={error.promote}
+        onRefreshBoard={refreshBoard}
+        refreshing={loading.refreshBoard}
+        refreshError={error.refreshBoard}
       />
 
       <SavedRunsList

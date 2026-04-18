@@ -3800,6 +3800,54 @@ async def idp_calibration_status(request: Request):
     return _idp_json(_idp_api.status())
 
 
+@app.post("/api/idp-calibration/refresh-board")
+async def idp_calibration_refresh_board(request: Request):
+    """Force a rebuild of the cached live player contract.
+
+    After ``Promote to production`` writes ``config/idp_calibration.json``,
+    the live player board cached in memory (``latest_contract_data``,
+    plus its pre-serialised byte/gzip/etag variants) still reflects
+    the calibration applied at the last scrape time. This endpoint
+    re-runs ``_prime_latest_payload`` against the current raw scrape
+    (``latest_data``), which re-reads the promoted config and produces
+    a fresh contract — so the next ``/api/data`` / ``/rankings`` /
+    ``/trade`` request serves values computed under the newly-promoted
+    calibration, without waiting for the next scheduled scrape.
+
+    Returns 503 when no scrape data has been captured yet (cold start)
+    because there's nothing to rebuild from.
+    """
+    gate = _require_auth_json(request)
+    if gate is not None:
+        return gate
+    if not latest_data:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "ok": False,
+                "error": (
+                    "No scrape data available yet. Wait for the first "
+                    "scrape to complete before requesting a refresh."
+                ),
+            },
+        )
+    try:
+        _prime_latest_payload(latest_data)
+    except Exception as exc:  # noqa: BLE001 — user-facing surface
+        log.exception("idp-calibration refresh-board rebuild failed: %s", exc)
+        return JSONResponse(
+            status_code=500,
+            content={"ok": False, "error": f"Rebuild failed: {exc}"},
+        )
+    return JSONResponse(
+        content={
+            "ok": True,
+            "rebuilt_at": _utc_now_iso(),
+            "contract_ok": bool((contract_health or {}).get("ok")),
+        },
+    )
+
+
 @app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def serve_landing(request: Request):
     redirect = _require_auth_or_redirect(request, "/")
