@@ -2333,6 +2333,12 @@ tr:hover .sticky-name {
   padding-left: 1.2em;
 }
 
+.idp-lab-borrow-note {
+  border-left: 2px solid var(--amber);
+  padding-left: var(--space-sm);
+  margin: 0 0 var(--space-sm);
+}
+
 .idp-lab-runs-actions {
   display: flex;
   gap: var(--space-xs);
