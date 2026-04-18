@@ -141,6 +141,39 @@ def test_delete_run_removes_file_and_updates_latest(tmp_base):
     assert storage.delete_run(art1["run_id"], base=tmp_base) is False
 
 
+def test_delete_all_runs_clears_everything(tmp_base):
+    settings = engine.AnalysisSettings()
+    for seed in ("A", "C", "E"):
+        art = engine.run_analysis(
+            seed, seed + "-mine", settings,
+            stats_adapter_factory=lambda s: _StubAdapter(),
+        )
+        storage.save_run(art, base=tmp_base)
+    # Baseline: three runs saved plus a latest pointer.
+    assert len(storage.list_runs(base=tmp_base)) == 3
+    assert storage.get_latest(base=tmp_base) is not None
+
+    removed = storage.delete_all_runs(base=tmp_base)
+    assert removed == 3
+    assert storage.list_runs(base=tmp_base) == []
+    assert storage.get_latest(base=tmp_base) is None
+
+
+def test_delete_all_runs_on_empty_dir_is_zero(tmp_base):
+    assert storage.delete_all_runs(base=tmp_base) == 0
+
+
+def test_delete_all_runs_does_not_touch_promoted_config(tmp_base):
+    settings = engine.AnalysisSettings()
+    art = engine.run_analysis(
+        "A", "B", settings, stats_adapter_factory=lambda s: _StubAdapter()
+    )
+    storage.save_run(art, base=tmp_base)
+    promotion.promote_run(art["run_id"], active_mode="blended", base=tmp_base)
+    storage.delete_all_runs(base=tmp_base)
+    assert promotion.production_config_path(tmp_base).exists()
+
+
 def test_delete_run_does_not_touch_promoted_config(tmp_base):
     settings = engine.AnalysisSettings()
     art = engine.run_analysis(

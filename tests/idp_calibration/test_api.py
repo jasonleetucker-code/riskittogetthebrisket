@@ -126,6 +126,28 @@ def test_run_delete_requires_id(tmp_base):
     assert status == 422
 
 
+def test_runs_delete_all_clears_everything(tmp_base):
+    for seed in ("A", "C", "E"):
+        api.analyze(
+            {"test_league_id": seed, "my_league_id": seed + "-mine"},
+            base=tmp_base,
+        )
+    status, runs_before = api.runs_index(base=tmp_base)
+    assert status == 200
+    assert len(runs_before["runs"]) == 3
+    status, payload = api.runs_delete_all(base=tmp_base)
+    assert status == 200
+    assert payload["deleted"] == 3
+    status, runs_after = api.runs_index(base=tmp_base)
+    assert runs_after["runs"] == []
+
+
+def test_runs_delete_all_on_empty_store_returns_zero(tmp_base):
+    status, payload = api.runs_delete_all(base=tmp_base)
+    assert status == 200
+    assert payload["deleted"] == 0
+
+
 def test_promote_empty_run_returns_422(tmp_base):
     # Save an artifact with zero bucket counts by hand so we can attempt
     # a deliberately-unsafe promotion.

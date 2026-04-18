@@ -8,9 +8,11 @@ export default function SavedRunsList({
   promotedRunId,
   onOpen,
   onDelete,
+  onDeleteAll,
   deleting,
 }) {
   const [confirmRunId, setConfirmRunId] = useState(null);
+  const [confirmAll, setConfirmAll] = useState(false);
 
   function handleDeleteClick(runId) {
     if (confirmRunId !== runId) {
@@ -19,6 +21,15 @@ export default function SavedRunsList({
     }
     setConfirmRunId(null);
     onDelete?.(runId);
+  }
+
+  function handleDeleteAllClick() {
+    if (!confirmAll) {
+      setConfirmAll(true);
+      return;
+    }
+    setConfirmAll(false);
+    onDeleteAll?.();
   }
 
   if (!runs?.length) {
@@ -31,7 +42,32 @@ export default function SavedRunsList({
   }
   return (
     <div className="card idp-lab-section">
-      <h2>Saved runs</h2>
+      <div className="idp-lab-section-head">
+        <h2>Saved runs</h2>
+        {onDeleteAll && (
+          <div className="idp-lab-runs-bulk">
+            <button
+              className={`button ${confirmAll ? "button-danger" : ""}`}
+              onClick={handleDeleteAllClick}
+              disabled={Boolean(deleting)}
+              title="Delete every saved run. Promoted production config is NOT affected — the live board keeps running against the promoted values even if the source run artefact is wiped."
+            >
+              {confirmAll
+                ? `Confirm: delete all ${runs.length}`
+                : "Delete all runs"}
+            </button>
+            {confirmAll && (
+              <button
+                className="button"
+                onClick={() => setConfirmAll(false)}
+                disabled={Boolean(deleting)}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        )}
+      </div>
       <div className="table-wrap">
         <table className="table idp-lab-runs-table">
           <thead>

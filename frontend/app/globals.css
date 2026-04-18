@@ -2459,3 +2459,12 @@ tr:hover .sticky-name {
 .angle-delta-pos { color: var(--status-positive, #4ade80); }
 .angle-delta-neutral { color: var(--text-muted); }
 .angle-warnings ul { margin: 4px 0 0 20px; padding: 0; }
+
+.idp-lab-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xs);
+}
+.idp-lab-runs-bulk { display: flex; gap: var(--space-xs); }
