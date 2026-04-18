@@ -3711,6 +3711,95 @@ async def auth_logout_redirect(request: Request):
     return response
 
 
+# ── IDP CALIBRATION LAB (INTERNAL, AUTH-GATED) ──────────────────────────
+# Internal tooling: calibrate IDP multipliers from two Sleeper leagues.
+# The live valuation pipeline only reads the promoted output at
+# config/idp_calibration.json; these endpoints never mutate it without
+# an explicit POST /api/idp-calibration/promote.
+from src.idp_calibration import api as _idp_api  # noqa: E402
+
+
+def _idp_json(handler_result) -> JSONResponse:
+    status_code, payload = handler_result
+    return JSONResponse(status_code=status_code, content=payload)
+
+
+def _require_auth_json(request: Request) -> JSONResponse | None:
+    if _is_authenticated(request):
+        return None
+    return JSONResponse(
+        status_code=401,
+        content={"ok": False, "error": "Authentication required."},
+    )
+
+
+@app.post("/api/idp-calibration/analyze")
+async def idp_calibration_analyze(request: Request):
+    gate = _require_auth_json(request)
+    if gate is not None:
+        return gate
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    return _idp_json(_idp_api.analyze(body if isinstance(body, dict) else None))
+
+
+@app.get("/api/idp-calibration/runs")
+async def idp_calibration_runs_index(request: Request):
+    gate = _require_auth_json(request)
+    if gate is not None:
+        return gate
+    return _idp_json(_idp_api.runs_index())
+
+
+@app.get("/api/idp-calibration/runs/{run_id}")
+async def idp_calibration_run_detail(request: Request, run_id: str):
+    gate = _require_auth_json(request)
+    if gate is not None:
+        return gate
+    return _idp_json(_idp_api.run_detail(str(run_id or "").strip()))
+
+
+@app.delete("/api/idp-calibration/runs/{run_id}")
+async def idp_calibration_run_delete(request: Request, run_id: str):
+    gate = _require_auth_json(request)
+    if gate is not None:
+        return gate
+    return _idp_json(_idp_api.run_delete(str(run_id or "").strip()))
+
+
+@app.post("/api/idp-calibration/promote")
+async def idp_calibration_promote(request: Request):
+    gate = _require_auth_json(request)
+    if gate is not None:
+        return gate
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    session = _get_auth_session(request) or {}
+    if isinstance(body, dict):
+        body.setdefault("promoted_by", str(session.get("username") or "internal"))
+    return _idp_json(_idp_api.promote(body if isinstance(body, dict) else None))
+
+
+@app.get("/api/idp-calibration/production")
+async def idp_calibration_production(request: Request):
+    gate = _require_auth_json(request)
+    if gate is not None:
+        return gate
+    return _idp_json(_idp_api.production())
+
+
+@app.get("/api/idp-calibration/status")
+async def idp_calibration_status(request: Request):
+    gate = _require_auth_json(request)
+    if gate is not None:
+        return gate
+    return _idp_json(_idp_api.status())
+
+
 @app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def serve_landing(request: Request):
     redirect = _require_auth_or_redirect(request, "/")
@@ -3819,6 +3908,14 @@ async def serve_more(request: Request):
     if redirect is not None:
         return redirect
     return await _serve_app_shell("/more")
+
+
+@app.get("/tools/idp-calibration", response_class=HTMLResponse)
+async def serve_idp_calibration(request: Request):
+    redirect = _require_auth_or_redirect(request, "/tools/idp-calibration")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/tools/idp-calibration")
 
 
 @app.get("/login", response_class=HTMLResponse)
