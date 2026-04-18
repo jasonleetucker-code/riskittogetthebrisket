@@ -77,7 +77,8 @@ def _weekly_trades_for(
                     "ownerId": oid,
                     "displayName": metrics.display_name_for(snapshot, oid),
                 })
-        assets_moved = sum(len(d) for d in (tx.get("adds") or {}, {}).values() if isinstance(d, dict))
+        adds = tx.get("adds")
+        assets_moved = len(adds) if isinstance(adds, dict) else 0
         picks_moved = len(tx.get("draft_picks") or [])
         out.append({
             "transactionId": tx.get("transaction_id"),

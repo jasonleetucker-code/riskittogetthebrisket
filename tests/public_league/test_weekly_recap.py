@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import unittest
 
-from src.public_league.weekly_recap import build_section
+from src.public_league.weekly_recap import _weekly_trades_for, build_section
 from tests.public_league.fixtures import build_test_snapshot
 
 
@@ -80,6 +80,35 @@ class WeeklyRecapSectionTests(unittest.TestCase):
             for m in recap["matchups"]:
                 self.assertIsInstance(m["oneliner"], str)
                 self.assertTrue(m["oneliner"])
+
+    def test_weekly_trades_counts_assets_when_leg_matches_week(self) -> None:
+        # Regression: previously a `(adds or {}, {}).values()` typo raised
+        # AttributeError whenever a completed trade's leg matched a scored
+        # week.  The test fixture's trade legs don't overlap scored weeks,
+        # so the bug never surfaced in unit tests — only in production.
+        season = next(s for s in self.snapshot.seasons if s.season == "2025")
+        fake_tx = {
+            "transaction_id": "tx-regression",
+            "type": "trade",
+            "status": "complete",
+            "leg": 2,
+            "roster_ids": [1, 2],
+            "adds": {"p-rb2": 1, "p-wr2": 2},
+            "drops": {"p-rb2": 2, "p-wr2": 1},
+        }
+        original_trades = season.trades
+
+        def patched_trades() -> list:
+            return [*original_trades(), fake_tx]
+
+        season.trades = patched_trades  # type: ignore[method-assign]
+        try:
+            out = _weekly_trades_for(season, self.snapshot, 2)
+        finally:
+            season.trades = original_trades  # type: ignore[method-assign]
+        match = next((row for row in out if row["transactionId"] == "tx-regression"), None)
+        self.assertIsNotNone(match)
+        self.assertEqual(match["assetsMoved"], 2)
 
 
 if __name__ == "__main__":
