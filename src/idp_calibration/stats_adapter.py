@@ -60,11 +60,31 @@ class PlayerSeason:
 
 
 class HistoricalStatsAdapter:
-    """Abstract interface."""
+    """Abstract interface.
+
+    Subclasses override :meth:`_fetch_impl`. :meth:`fetch` wraps it
+    with a per-season memo so the adapter-selection probe
+    (:func:`get_stats_adapter` calls :meth:`available` which calls
+    :meth:`fetch`) does not cause a second full fetch when
+    :func:`run_analysis` later asks for the same season's data. For
+    a 4-season default run against ``SleeperStatsAdapter`` that's
+    4 network calls instead of 8.
+    """
 
     name = "abstract"
 
+    def __init__(self) -> None:
+        self._cache: dict[int, list[PlayerSeason]] = {}
+
     def fetch(self, season: int) -> list[PlayerSeason]:
+        key = int(season)
+        if key in self._cache:
+            return self._cache[key]
+        rows = self._fetch_impl(key)
+        self._cache[key] = rows
+        return rows
+
+    def _fetch_impl(self, season: int) -> list[PlayerSeason]:
         raise NotImplementedError
 
     def available(self, season: int) -> bool:
@@ -89,6 +109,7 @@ class SleeperStatsAdapter(HistoricalStatsAdapter):
     base_url = "https://api.sleeper.app/v1/stats/nfl/regular"
 
     def __init__(self, players_map: dict[str, Any] | None = None) -> None:
+        super().__init__()
         self._players_map = players_map
 
     def _resolve_players_map(self) -> dict[str, Any]:
@@ -103,7 +124,7 @@ class SleeperStatsAdapter(HistoricalStatsAdapter):
             self._players_map = {}
         return self._players_map
 
-    def fetch(self, season: int) -> list[PlayerSeason]:
+    def _fetch_impl(self, season: int) -> list[PlayerSeason]:
         try:
             import requests
         except ImportError as exc:
@@ -179,6 +200,7 @@ class LocalCSVStatsAdapter(HistoricalStatsAdapter):
     name = "local_csv"
 
     def __init__(self, base_dir: Path | None = None) -> None:
+        super().__init__()
         self._base_dir = base_dir or (
             repo_root() / "data" / "idp_calibration" / "stats"
         )
@@ -186,7 +208,7 @@ class LocalCSVStatsAdapter(HistoricalStatsAdapter):
     def _path(self, season: int) -> Path:
         return self._base_dir / f"{int(season)}.csv"
 
-    def fetch(self, season: int) -> list[PlayerSeason]:
+    def _fetch_impl(self, season: int) -> list[PlayerSeason]:
         path = self._path(season)
         if not path.exists():
             raise AdapterUnavailable(f"No local stats CSV at {path}")
@@ -244,9 +266,10 @@ class ManualFallbackAdapter(HistoricalStatsAdapter):
     name = "manual_fallback"
 
     def __init__(self, reason: str = "No stats adapter available.") -> None:
+        super().__init__()
         self.reason = reason
 
-    def fetch(self, season: int) -> list[PlayerSeason]:
+    def _fetch_impl(self, season: int) -> list[PlayerSeason]:
         return []
 
     def available(self, season: int) -> bool:

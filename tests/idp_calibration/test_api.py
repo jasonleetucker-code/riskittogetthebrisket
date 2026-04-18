@@ -108,6 +108,24 @@ def test_promote_and_production_flow(tmp_base):
     assert prod["config"]["source_run_id"] == run_id
 
 
+def test_run_delete_happy_and_missing(tmp_base):
+    _, payload = api.analyze(
+        {"test_league_id": "A", "my_league_id": "B"}, base=tmp_base
+    )
+    run_id = payload["run"]["run_id"]
+    status, resp = api.run_delete(run_id, base=tmp_base)
+    assert status == 200
+    assert resp["deleted"] is True
+    # Second delete returns 404.
+    status, resp = api.run_delete(run_id, base=tmp_base)
+    assert status == 404
+
+
+def test_run_delete_requires_id(tmp_base):
+    status, _ = api.run_delete("", base=tmp_base)
+    assert status == 422
+
+
 def test_status_reports_presence(tmp_base):
     status, payload = api.status(base=tmp_base)
     assert status == 200

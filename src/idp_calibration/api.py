@@ -14,7 +14,7 @@ from typing import Any
 from .engine import AnalysisSettings, run_analysis
 from .promotion import VALID_MODES, load_production, promote_run
 from .production import is_promoted
-from .storage import get_latest, list_runs, load_run, save_run
+from .storage import delete_run, get_latest, list_runs, load_run, save_run
 
 
 def _error(status: int, message: str, **extra: Any) -> tuple[int, dict[str, Any]]:
@@ -60,6 +60,15 @@ def run_detail(run_id: str, *, base: Path | None = None) -> tuple[int, dict[str,
     if not data:
         return _error(404, f"Run {run_id!r} not found.")
     return 200, {"ok": True, "run": data}
+
+
+def run_delete(run_id: str, *, base: Path | None = None) -> tuple[int, dict[str, Any]]:
+    if not run_id:
+        return _error(422, "run_id is required.")
+    removed = delete_run(run_id, base=base)
+    if not removed:
+        return _error(404, f"Run {run_id!r} not found.")
+    return 200, {"ok": True, "run_id": run_id, "deleted": True}
 
 
 def promote(body: dict[str, Any] | None, *, base: Path | None = None) -> tuple[int, dict[str, Any]]:

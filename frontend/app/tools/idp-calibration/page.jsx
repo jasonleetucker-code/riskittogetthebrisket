@@ -39,6 +39,7 @@ export default function IdpCalibrationLabPage() {
     refreshProduction,
     analyze,
     loadRun,
+    deleteRun,
     promote,
   } = useCalibration();
 
@@ -166,7 +167,10 @@ export default function IdpCalibrationLabPage() {
       <SavedRunsList
         runs={runs}
         currentRunId={currentRun?.run_id}
+        promotedRunId={production?.config?.source_run_id}
         onOpen={(runId) => loadRun(runId)}
+        onDelete={(runId) => deleteRun(runId)}
+        deleting={loading.deleteRun}
       />
     </div>
   );

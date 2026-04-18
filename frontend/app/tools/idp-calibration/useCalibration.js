@@ -33,6 +33,7 @@ export function useCalibration() {
     analyze: false,
     promote: false,
     runDetail: false,
+    deleteRun: false,
   });
   const [error, setError] = useState({});
   const mountedRef = useRef(true);
@@ -131,6 +132,25 @@ export function useCalibration() {
     return data;
   }, []);
 
+  const deleteRun = useCallback(async (runId) => {
+    if (!runId) return null;
+    setFlag("deleteRun", true);
+    setErr("deleteRun", null);
+    const { status: http, data } = await jfetch(
+      `/api/idp-calibration/runs/${encodeURIComponent(runId)}`,
+      { method: "DELETE" },
+    );
+    if (!mountedRef.current) return data;
+    if (http >= 400 || data?.ok === false) {
+      setErr("deleteRun", data?.error || `HTTP ${http}`);
+    } else {
+      await refreshRuns();
+      setCurrentRun((prev) => (prev && prev.run_id === runId ? null : prev));
+    }
+    setFlag("deleteRun", false);
+    return data;
+  }, [refreshRuns]);
+
   const promote = useCallback(async ({ runId, activeMode }) => {
     setFlag("promote", true);
     setErr("promote", null);
@@ -162,6 +182,7 @@ export function useCalibration() {
     refreshProduction,
     analyze,
     loadRun,
+    deleteRun,
     promote,
   };
 }

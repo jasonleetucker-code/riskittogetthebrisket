@@ -115,6 +115,46 @@ def test_promote_writes_config_and_backs_up_prior(tmp_base):
     assert refreshed["source_run_id"] == art2["run_id"]
 
 
+def test_delete_run_removes_file_and_updates_latest(tmp_base):
+    settings = engine.AnalysisSettings()
+    art1 = engine.run_analysis(
+        "A", "B", settings, stats_adapter_factory=lambda s: _StubAdapter()
+    )
+    storage.save_run(art1, base=tmp_base)
+    art2 = engine.run_analysis(
+        "C", "D", settings, stats_adapter_factory=lambda s: _StubAdapter()
+    )
+    storage.save_run(art2, base=tmp_base)
+    # latest should be art2 (the most recently saved).
+    assert storage.get_latest(base=tmp_base)["run_id"] == art2["run_id"]
+
+    # Deleting the latest must rewrite the pointer to the surviving run.
+    assert storage.delete_run(art2["run_id"], base=tmp_base) is True
+    assert storage.load_run(art2["run_id"], base=tmp_base) is None
+    assert storage.get_latest(base=tmp_base)["run_id"] == art1["run_id"]
+
+    # Deleting the last remaining run must clear the pointer.
+    assert storage.delete_run(art1["run_id"], base=tmp_base) is True
+    assert storage.get_latest(base=tmp_base) is None
+
+    # Deleting an already-gone run is a no-op that returns False.
+    assert storage.delete_run(art1["run_id"], base=tmp_base) is False
+
+
+def test_delete_run_does_not_touch_promoted_config(tmp_base):
+    settings = engine.AnalysisSettings()
+    art = engine.run_analysis(
+        "A", "B", settings, stats_adapter_factory=lambda s: _StubAdapter()
+    )
+    storage.save_run(art, base=tmp_base)
+    promotion.promote_run(art["run_id"], active_mode="blended", base=tmp_base)
+    assert promotion.production_config_path(tmp_base).exists()
+    storage.delete_run(art["run_id"], base=tmp_base)
+    # Production stays. Deleting a run never reverts prod automatically —
+    # that's an explicit action (delete the file on disk).
+    assert promotion.production_config_path(tmp_base).exists()
+
+
 def test_promote_unknown_run_raises(tmp_base):
     with pytest.raises(FileNotFoundError):
         promotion.promote_run("does-not-exist", base=tmp_base)

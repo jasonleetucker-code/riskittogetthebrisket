@@ -48,7 +48,14 @@ export default function AdvancedSettingsDrawer({
     if (initial.year_weights) setYearWeights(initial.year_weights);
     if (initial.min_bucket_size != null) setMinBucketSize(initial.min_bucket_size);
     if (initial.min_games != null) setMinGames(initial.min_games);
-    if (initial.top_n) setTopN(String(initial.top_n));
+    // Explicit clear when incoming settings carry no top_n — otherwise a
+    // value from a prior run would stick and silently re-enable the
+    // universe filter on the next Apply.
+    if (initial.top_n == null || initial.top_n === "" || initial.top_n === 0) {
+      setTopN("");
+    } else {
+      setTopN(String(initial.top_n));
+    }
     if (Array.isArray(initial.bucket_edges)) setBucketEdges(initial.bucket_edges);
   }, [initial]);
 

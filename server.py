@@ -3761,6 +3761,14 @@ async def idp_calibration_run_detail(request: Request, run_id: str):
     return _idp_json(_idp_api.run_detail(str(run_id or "").strip()))
 
 
+@app.delete("/api/idp-calibration/runs/{run_id}")
+async def idp_calibration_run_delete(request: Request, run_id: str):
+    gate = _require_auth_json(request)
+    if gate is not None:
+        return gate
+    return _idp_json(_idp_api.run_delete(str(run_id or "").strip()))
+
+
 @app.post("/api/idp-calibration/promote")
 async def idp_calibration_promote(request: Request):
     gate = _require_auth_json(request)

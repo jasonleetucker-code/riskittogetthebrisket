@@ -77,3 +77,42 @@ def get_latest(*, base: Path | None = None) -> dict[str, Any] | None:
     if not run_id:
         return None
     return load_run(run_id, base=base)
+
+
+def delete_run(run_id: str, *, base: Path | None = None) -> bool:
+    """Delete a saved run by id.
+
+    Returns ``True`` if a file was removed, ``False`` if none existed.
+    If the deleted run was the current ``latest.json`` target the
+    pointer is rewritten to reference the next most-recent surviving
+    run (or cleared if nothing else remains). The promoted production
+    config is never touched — deletion of a run that has already been
+    promoted leaves ``config/idp_calibration.json`` in place.
+    """
+    run_id = str(run_id or "").strip()
+    if not run_id:
+        return False
+    runs_dir = _runs_dir(base)
+    target = runs_dir / f"{run_id}.json"
+    if not target.exists():
+        return False
+    target.unlink()
+
+    latest_pointer = load_json(_latest_path(base))
+    if (
+        isinstance(latest_pointer, dict)
+        and str(latest_pointer.get("run_id") or "").strip() == run_id
+    ):
+        surviving = sorted(runs_dir.glob("*.json"), reverse=True)
+        if surviving:
+            new_latest = load_json(surviving[0]) or {}
+            save_json(
+                _latest_path(base),
+                {
+                    "run_id": new_latest.get("run_id"),
+                    "path": str(surviving[0]),
+                },
+            )
+        else:
+            _latest_path(base).unlink(missing_ok=True)
+    return True

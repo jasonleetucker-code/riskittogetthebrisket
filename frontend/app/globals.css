@@ -2332,3 +2332,60 @@ tr:hover .sticky-name {
   margin: 0;
   padding-left: 1.2em;
 }
+
+.idp-lab-runs-actions {
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.idp-lab-badge-promoted {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.4);
+  color: var(--green);
+  margin-left: var(--space-xs);
+}
+
+.idp-lab-diff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: rgba(86, 214, 255, 0.04);
+}
+
+.idp-lab-diff-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.idp-lab-diff-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.idp-lab-diff-up { color: var(--green); font-weight: 600; }
+.idp-lab-diff-down { color: var(--red); font-weight: 600; }
+.idp-lab-diff-new { color: var(--cyan); font-weight: 600; }
+.idp-lab-diff-flat { color: var(--muted); }
+
+.idp-lab-diff-details {
+  margin-top: var(--space-sm);
+}
+
+.idp-lab-diff-all-table th,
+.idp-lab-diff-all-table td {
+  text-align: right;
+  font-size: 0.78rem;
+}
+
+.idp-lab-diff-all-table th:first-child,
+.idp-lab-diff-all-table td:first-child {
+  text-align: left;
+}

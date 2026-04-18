@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import PromotionDiffPanel from "./PromotionDiffPanel";
 
 const VALID_MODES = ["blended", "intrinsic_only", "market_only"];
 
@@ -49,6 +50,14 @@ export default function ProductionConfigPanel({
           No production config promoted yet. The live trade calculator is
           operating in identity mode (all IDP multipliers = 1.0).
         </p>
+      )}
+
+      {currentRun && (
+        <PromotionDiffPanel
+          candidateRun={currentRun}
+          production={production}
+          activeMode={mode}
+        />
       )}
 
       <div className="idp-lab-promote-block">
