@@ -17,7 +17,7 @@ def test_expanded_sleeper_idp_keys_are_recognised():
             "idp_td": 6.15,           # IDP TD → idp_def_td
             "idp_sack": 4.65,         # Sack
             "idp_sack_yd": 0.13,      # Sack Yards (per yard)
-            "idp_qb_hit": 1.04,       # Hit on QB
+            "idp_qb_hit": 1.04,       # Hit on QB → idp_hit (canonical)
             "idp_tkl_loss": 2.03,     # Tackle For Loss
             "idp_blk_kick": 3.4,      # Blocked Punt, PAT or FG
             "idp_int": 6.1,           # Interception
@@ -37,7 +37,7 @@ def test_expanded_sleeper_idp_keys_are_recognised():
         "idp_def_td": 6.15,
         "idp_sack": 4.65,
         "idp_sack_yd": 0.13,
-        "idp_qb_hit": 1.04,
+        "idp_hit": 1.04,
         "idp_tkl_loss": 2.03,
         "idp_blk_kick": 3.4,
         "idp_int": 6.1,
@@ -57,13 +57,16 @@ def test_expanded_sleeper_idp_keys_are_recognised():
     assert scoring.summary()["unknown_idp_keys"] == {}
 
 
-def test_legacy_idp_hit_still_maps_to_qb_hit():
-    # Backward-compat — the older alias continues to land on the new
-    # canonical idp_qb_hit (so rescoring a saved league snapshot from
-    # before the rename still works).
-    league = {"scoring_settings": {"idp_hit": 1.0}}
-    scoring = parse_scoring(league)
-    assert scoring.summary()["active_idp_stats"].get("idp_qb_hit") == 1.0
+def test_idp_qb_hit_alias_folds_into_canonical_idp_hit():
+    # Both Sleeper key variants must land on the same canonical
+    # ``idp_hit`` so baseline_config / scoring_delta (which compare
+    # leagues using the canonical key) don't see a spurious delta
+    # when one payload uses idp_hit and another uses idp_qb_hit.
+    for key in ("idp_hit", "idp_qb_hit"):
+        league = {"scoring_settings": {key: 1.0}}
+        summary = parse_scoring(league).summary()
+        assert summary["active_idp_stats"].get("idp_hit") == 1.0
+        assert "idp_qb_hit" not in summary["active_idp_stats"]
 
 
 def test_unknown_idp_keys_surface_in_summary():

@@ -59,10 +59,13 @@ KEY_ALIASES: Dict[str, str] = {
     "idp_tkl_ast_loss": "idp_tkl_ast_loss",
     "idp_sack": "idp_sack",
     "idp_sack_yd": "idp_sack_yd",
-    # QB hit — Sleeper UIs label this "Hit on QB". Two key variants
-    # observed in the wild.
-    "idp_hit": "idp_qb_hit",
-    "idp_qb_hit": "idp_qb_hit",
+    # QB hit — Sleeper UIs label this "Hit on QB". Keep the canonical
+    # key as ``idp_hit`` so baseline_config / scoring_delta (which
+    # consume this normalized map) continue to find it unchanged;
+    # newer Sleeper payloads that use ``idp_qb_hit`` fold into the
+    # same canonical.
+    "idp_hit": "idp_hit",
+    "idp_qb_hit": "idp_hit",
     "idp_int": "idp_int",
     "idp_int_ret_yd": "idp_int_ret_yd",
     "idp_pd": "idp_pd",

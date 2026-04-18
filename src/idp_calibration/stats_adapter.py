@@ -173,7 +173,10 @@ class SleeperStatsAdapter(HistoricalStatsAdapter):
                 "idp_tkl_ast_loss": ("idp_tkl_ast_loss",),
                 "idp_sack": ("idp_sack",),
                 "idp_sack_yd": ("idp_sack_yd",),
-                "idp_qb_hit": ("idp_qb_hit", "idp_hit"),
+                # Canonical is idp_hit (kept stable for baseline_config /
+                # scoring_delta). idp_qb_hit is a payload alias Sleeper
+                # uses in some seasons.
+                "idp_hit": ("idp_hit", "idp_qb_hit"),
                 "idp_int": ("idp_int",),
                 "idp_int_ret_yd": ("idp_int_ret_yd",),
                 "idp_pd": ("idp_pd", "idp_pass_def"),
@@ -256,7 +259,7 @@ class LocalCSVStatsAdapter(HistoricalStatsAdapter):
                         "idp_tkl_ast_loss": ("idp_tkl_ast_loss",),
                         "idp_sack": ("idp_sack",),
                         "idp_sack_yd": ("idp_sack_yd",),
-                        "idp_qb_hit": ("idp_qb_hit", "idp_hit"),
+                        "idp_hit": ("idp_hit", "idp_qb_hit"),
                         "idp_int": ("idp_int",),
                         "idp_int_ret_yd": ("idp_int_ret_yd",),
                         "idp_pd": ("idp_pd", "idp_pass_def"),

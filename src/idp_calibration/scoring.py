@@ -28,7 +28,7 @@ IDP_STAT_KEYS: tuple[str, ...] = (
     # Pressure
     "idp_sack",
     "idp_sack_yd",
-    "idp_qb_hit",
+    "idp_hit",
     # Turnovers
     "idp_int",
     "idp_int_ret_yd",
