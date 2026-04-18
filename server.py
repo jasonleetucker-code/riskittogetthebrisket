@@ -3833,17 +3833,49 @@ async def idp_calibration_refresh_board(request: Request):
         )
     try:
         _prime_latest_payload(latest_data)
-    except Exception as exc:  # noqa: BLE001 — user-facing surface
-        log.exception("idp-calibration refresh-board rebuild failed: %s", exc)
+    except Exception as exc:  # noqa: BLE001 — defensive, shouldn't fire in
+        # practice because _prime_latest_payload catches internally, but we
+        # keep the outer guard in case that contract ever changes.
+        log.exception("idp-calibration refresh-board rebuild raised: %s", exc)
         return JSONResponse(
             status_code=500,
-            content={"ok": False, "error": f"Rebuild failed: {exc}"},
+            content={"ok": False, "error": f"Rebuild raised: {exc}"},
+        )
+    # _prime_latest_payload swallows its own exceptions and signals
+    # validation / build failures through contract_health + by leaving
+    # latest_contract_data unset. Both are necessary: contract_health can
+    # be ok=False on a validation warning while latest_contract_data is
+    # still populated, and conversely latest_contract_data can be None
+    # on a catastrophic JSON-serialise failure even though contract_health
+    # never updated. Require both to be healthy before reporting success.
+    health = contract_health or {}
+    if latest_contract_data is None or not health.get("ok"):
+        errors = (health.get("errors") or [])[:3]
+        detail = "; ".join(str(e) for e in errors) if errors else (
+            "latest_contract_data was not populated"
+            if latest_contract_data is None
+            else "contract validation reported errors"
+        )
+        log.error(
+            "idp-calibration refresh-board rebuild unhealthy: %s", detail
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "ok": False,
+                "error": (
+                    "Rebuild completed but the live contract is not healthy. "
+                    f"Details: {detail}"
+                ),
+                "contract_ok": bool(health.get("ok")),
+                "error_count": int(health.get("errorCount") or 0),
+            },
         )
     return JSONResponse(
         content={
             "ok": True,
             "rebuilt_at": _utc_now_iso(),
-            "contract_ok": bool((contract_health or {}).get("ok")),
+            "contract_ok": True,
         },
     )
 
