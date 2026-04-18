@@ -141,8 +141,21 @@ def compute_position_multipliers(
     *,
     year_weights: dict[int, float] | None = None,
     blend: dict[str, float] | None = None,
+    multiplier_floor: float = 0.05,
 ) -> PositionMultipliers:
-    """Combine per-season bucket tables into per-bucket multipliers."""
+    """Combine per-season bucket tables into per-bucket multipliers.
+
+    ``multiplier_floor`` (default ``0.05``) clamps every emitted
+    multiplier to a positive minimum. Without it, sub-replacement
+    buckets produce **negative** multipliers: VOR goes negative for
+    players below replacement, normalisation against the positive
+    top bucket yields a negative ratio, and the live pipeline would
+    multiply ``rankDerivedValue`` by a negative number — flipping a
+    player's value sign, which is nonsense (a bench depth player
+    still has positive trade value, just a small one). Flooring at
+    5% matches the anchor-curve floor so bucket and anchor lookups
+    don't disagree.
+    """
     year_weights = year_weights or DEFAULT_YEAR_WEIGHTS
     blend = blend or DEFAULT_BLEND
     labels = _bucket_labels(per_season)
@@ -163,12 +176,19 @@ def compute_position_multipliers(
                     total_count += int(b.count)
                     break
         counts.append(total_count)
-    intrinsic_norm = _enforce_descending(_normalise(intrinsic_raw))
-    market_norm = _enforce_descending(_normalise(market_raw))
+    intrinsic_norm = _clamp_series(
+        _enforce_descending(_normalise(intrinsic_raw)), multiplier_floor
+    )
+    market_norm = _clamp_series(
+        _enforce_descending(_normalise(market_raw)), multiplier_floor
+    )
     alpha = float(blend.get("intrinsic", 0.75))
     beta = 1.0 - alpha
-    final_norm = _enforce_descending(
-        [alpha * i + beta * m for i, m in zip(intrinsic_norm, market_norm)]
+    final_norm = _clamp_series(
+        _enforce_descending(
+            [alpha * i + beta * m for i, m in zip(intrinsic_norm, market_norm)]
+        ),
+        multiplier_floor,
     )
     buckets = [
         BucketMultipliers(
@@ -201,17 +221,44 @@ def _enforce_descending(values: list[float]) -> list[float]:
     return out
 
 
+def _clamp_series(values: list[float], floor: float) -> list[float]:
+    """Clamp every value into ``[floor, 1.0]`` while preserving non-increasing order.
+
+    Without this, ``_normalise`` divides every VOR center by the top
+    bucket's positive value — sub-replacement buckets (negative VOR)
+    therefore emit *negative* multipliers. Applied to a positive
+    ``rankDerivedValue`` in the live pipeline, a negative multiplier
+    would flip the player's value sign. We instead floor at
+    ``floor`` (default 5%) so sub-replacement buckets collapse to
+    the minimum positive multiplier and cap at 1.0 so calibration
+    noise can't inflate a deep bucket past the top bucket.
+    """
+    floor = max(0.0, float(floor))
+    return [max(floor, min(1.0, float(v))) for v in values]
+
+
 def build_multi_year_multipliers(
     per_season_per_position: dict[str, dict[int, list[BucketResult]]],
     *,
     year_weights: dict[int, float] | None = None,
     blend: dict[str, float] | None = None,
+    multiplier_floor: float = 0.05,
 ) -> dict[str, PositionMultipliers]:
-    """Produce intrinsic/market/final multiplier tables for DL/LB/DB."""
+    """Produce intrinsic/market/final multiplier tables for DL/LB/DB.
+
+    ``multiplier_floor`` flows through to
+    :func:`compute_position_multipliers` so every emitted multiplier
+    sits inside ``[floor, 1.0]``. See the per-position helper's
+    docstring for the rationale (sub-replacement VOR would otherwise
+    yield negative multipliers).
+    """
     out: dict[str, PositionMultipliers] = {}
     for position, per_season in per_season_per_position.items():
         result = compute_position_multipliers(
-            per_season, year_weights=year_weights, blend=blend
+            per_season,
+            year_weights=year_weights,
+            blend=blend,
+            multiplier_floor=multiplier_floor,
         )
         result.position = position
         out[position] = result

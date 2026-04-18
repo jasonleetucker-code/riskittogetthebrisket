@@ -120,3 +120,67 @@ def test_normalise_year_weights_empty_seasons_returns_empty():
     # Edge case — protect against ZeroDivisionError in the uniform
     # branch when nothing is selected.
     assert normalise_year_weights(DEFAULT_YEAR_WEIGHTS, seasons=[]) == {}
+
+
+def _series(*pairs, count=10):
+    """Build a single-season bucket series where each tuple is
+    (label, lo, hi, test_val, mine_val)."""
+    return [_bucket(lbl, lo, hi, tv, mv, count=count) for lbl, lo, hi, tv, mv in pairs]
+
+
+def test_sub_replacement_buckets_are_floored_not_negative():
+    # Reproduces the real-run case the user showed: DL buckets 37-60
+    # and 61-100 have negative VOR centers, which under raw
+    # normalisation produce negative multipliers. The clamp must
+    # floor each of intrinsic/market/final at 0.05 so the live
+    # pipeline never multiplies a positive rankDerivedValue by a
+    # negative number.
+    series = _series(
+        ("1-6", 1, 6, 100.0, 120.0),
+        ("7-12", 7, 12, 50.0, 60.0),
+        ("13-24", 13, 24, 20.0, 25.0),
+        ("25-36", 25, 36, 0.0, 5.0),
+        ("37-60", 37, 60, -30.0, -20.0),       # sub-replacement
+        ("61-100", 61, 100, -55.0, -45.0),     # deep sub-replacement
+    )
+    per_position = {"DL": {2025: series}}
+    multipliers = build_multi_year_multipliers(
+        per_position,
+        year_weights={2025: 1.0},
+        blend=DEFAULT_BLEND,
+    )
+    dl = multipliers["DL"].buckets
+    # Every emitted multiplier must be in [0.05, 1.0] on every
+    # channel (intrinsic, market, final). Previously 37-60 and
+    # 61-100 were negative on all three.
+    for b in dl:
+        for channel in ("intrinsic", "market", "final"):
+            val = getattr(b, channel)
+            assert 0.05 - 1e-9 <= val <= 1.0 + 1e-9, (
+                f"{b.label} {channel}={val} outside [0.05, 1.0]"
+            )
+    # Top bucket still equals 1.0 (normalisation anchor).
+    assert abs(dl[0].intrinsic - 1.0) < 1e-6
+    assert abs(dl[0].market - 1.0) < 1e-6
+    assert abs(dl[0].final - 1.0) < 1e-6
+    # Sub-replacement buckets are floored, not 0 and not negative.
+    for bucket in dl[-2:]:
+        assert abs(bucket.intrinsic - 0.05) < 1e-9
+        assert abs(bucket.market - 0.05) < 1e-9
+        assert abs(bucket.final - 0.05) < 1e-9
+
+
+def test_custom_multiplier_floor_propagates():
+    # If a caller raises the floor (say 0.10) the clamp applies at
+    # that level end-to-end.
+    series = _series(
+        ("1-6", 1, 6, 100.0, 120.0),
+        ("7-12", 7, 12, -50.0, -40.0),  # immediately sub-replacement
+    )
+    multipliers = build_multi_year_multipliers(
+        {"DL": {2025: series}},
+        year_weights={2025: 1.0},
+        blend=DEFAULT_BLEND,
+        multiplier_floor=0.10,
+    )
+    assert abs(multipliers["DL"].buckets[1].final - 0.10) < 1e-9

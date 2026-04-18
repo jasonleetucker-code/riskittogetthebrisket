@@ -504,6 +504,7 @@ def run_analysis(
         per_season_per_position_buckets,
         year_weights=normalised_weights,
         blend=settings.blend,
+        multiplier_floor=settings.anchor_floor,
     )
     anchors = build_all_anchors(
         multipliers,
