@@ -58,25 +58,24 @@ def test_promoted_multipliers_scale_only_idp(tmp_path, monkeypatch):
 
     rows = _rows()
     _apply_idp_calibration_post_pass(rows, {})
-    # QB untouched (no snapshot either — offense rows are never touched)
+    # QB untouched.
     assert rows[0]["rankDerivedValue"] == 9000
-    assert "rankDerivedValueUncalibrated" not in rows[0]
-    # DL rank 1 and rank 2 both in bucket 1-6 => 0.5x
+    # DL rank 1 and rank 2 both in bucket 1-6 => 0.5x multiplier. The
+    # post-pass mutates rankDerivedValue so the global re-sort (in
+    # build_api_data_contract) moves the row to a new merged rank.
+    # Phase 5b then recomputes the value from the Hill curve on the
+    # landed rank — snapshots are taken BEFORE the post-pass runs at
+    # the build_api_data_contract level, not here. So the tests only
+    # assert on the post-pass's multiplication output.
     dl_rows = [r for r in rows if r["position"] == "DL"]
     assert dl_rows[0]["rankDerivedValue"] == 2500  # 5000 * 0.5
     assert dl_rows[1]["rankDerivedValue"] == 1500  # 3000 * 0.5
-    # Pre-calibration snapshots preserved so the frontend toggle can
-    # swap the display instantly without refetching.
-    assert dl_rows[0]["rankDerivedValueUncalibrated"] == 5000
-    assert dl_rows[1]["rankDerivedValueUncalibrated"] == 3000
     # LB scaled up
     lb = next(r for r in rows if r["position"] == "LB")
     assert lb["rankDerivedValue"] == 6000
-    assert lb["rankDerivedValueUncalibrated"] == 4000
     # DB scaled up
     db = next(r for r in rows if r["position"] == "DB")
     assert db["rankDerivedValue"] == 4000
-    assert db["rankDerivedValueUncalibrated"] == 2000
 
 
 def test_empty_bucket_config_is_identity_not_anchor_floor(tmp_path, monkeypatch):
@@ -117,25 +116,79 @@ def test_position_alias_collapses_to_canonical(tmp_path, monkeypatch):
     rows = [{"position": "EDGE", "rankDerivedValue": 4000}]
     _apply_idp_calibration_post_pass(rows, {})
     assert rows[0]["rankDerivedValue"] == 2000  # EDGE -> DL -> 0.5x
-    assert rows[0]["rankDerivedValueUncalibrated"] == 4000
 
 
-def test_snapshot_populated_even_when_multiplier_is_identity(tmp_path, monkeypatch):
-    """IDP rows that happen to land in a 1.0 bucket still get a
-    pre-calibration snapshot so the frontend toggle works uniformly
-    across every IDP row regardless of bucket position."""
+def test_end_to_end_keeps_value_on_hill_curve_after_calibration(tmp_path, monkeypatch):
+    """Core invariant of the rank-shift calibration: after
+    ``build_api_data_contract`` runs, every ranked row's
+    ``rankDerivedValue`` equals ``rank_to_value(canonicalConsensusRank)``
+    — i.e. the value is always on the Hill curve at the player's final
+    rank. No orphan multiplied numbers, always on the 1-9999 scale.
+    """
+    from src.api.data_contract import build_api_data_contract
+    from src.canonical.player_valuation import rank_to_value
+
     cfg_path = tmp_path / "config" / "idp_calibration.json"
     config = {
+        "version": 1,
         "active_mode": "blended",
-        "multipliers": {"final": {"DL": {"1-6": 1.0}}},
+        # Meaningful IDP calibration — DL 1-6 scaled up, DL 7-12 down.
+        # Drives real rank reshuffles so we exercise the re-sort path.
+        "multipliers": {
+            "final": {
+                "DL": {"1-6": 1.5, "7-12": 0.5},
+            },
+        },
     }
     save_json(cfg_path, config)
     monkeypatch.setattr(production, "production_config_path", lambda base=None: cfg_path)
     production.reset_cache()
-    rows = [{"position": "DL", "rankDerivedValue": 4000}]
-    _apply_idp_calibration_post_pass(rows, {})
-    assert rows[0]["rankDerivedValue"] == 4000
-    assert rows[0]["rankDerivedValueUncalibrated"] == 4000
+
+    # Minimal payload with a mix of positions so re-sort is exercised.
+    players = {}
+    for i in range(1, 8):
+        players[f"Zzz DL {i:02d}"] = {
+            "_composite": 8000 - i * 500,
+            "_rawComposite": 8000 - i * 500,
+            "_finalAdjusted": 8000 - i * 500,
+            "_sites": 1,
+            "position": "DL",
+            "team": "TST",
+            "_canonicalSiteValues": {"idpTradeCalc": 8000 - i * 500},
+        }
+    for i in range(1, 8):
+        players[f"Zzz WR {i:02d}"] = {
+            "_composite": 9000 - i * 400,
+            "_rawComposite": 9000 - i * 400,
+            "_finalAdjusted": 9000 - i * 400,
+            "_sites": 1,
+            "position": "WR",
+            "team": "TST",
+            "_canonicalSiteValues": {"ktc": 9000 - i * 400},
+        }
+    payload = {
+        "players": players,
+        "sites": [{"key": "ktc"}, {"key": "idpTradeCalc"}],
+        "maxValues": {"ktc": 9999, "idpTradeCalc": 9999},
+        "sleeper": {"positions": {n: v["position"] for n, v in players.items()}},
+    }
+    contract = build_api_data_contract(payload)
+    ranked = [r for r in contract["playersArray"] if r.get("canonicalConsensusRank")]
+    # Invariant: every row's rankDerivedValue is exactly rank_to_value
+    # of its final canonicalConsensusRank. Calibration moves rows
+    # AROUND the board, but their landed value is always on the curve.
+    for row in ranked:
+        expected = int(rank_to_value(int(row["canonicalConsensusRank"])))
+        assert row["rankDerivedValue"] == expected, (
+            f"{row.get('canonicalName')!r} at rank "
+            f"{row['canonicalConsensusRank']} has value "
+            f"{row['rankDerivedValue']} but Hill curve says {expected}"
+        )
+    # And: snapshots exist on every ranked row so the /rankings toggle
+    # has both a pre-calibration rank AND value to swap to.
+    for row in ranked:
+        assert "canonicalConsensusRankUncalibrated" in row
+        assert "rankDerivedValueUncalibrated" in row
 
 
 def test_offense_multipliers_scale_only_offense(tmp_path, monkeypatch):
@@ -170,6 +223,10 @@ def test_offense_multipliers_scale_only_offense(tmp_path, monkeypatch):
         {"position": "DL", "rankDerivedValue": 4000},
     ]
     _apply_offense_calibration_post_pass(rows, {})
+    # Post-pass only multiplies rankDerivedValue to drive the global
+    # re-sort in build_api_data_contract; Phase 5b snaps the final
+    # value back onto the Hill curve. These assertions pin the
+    # intermediate multiplication step.
     # QB rank 1 is in 1-6 -> 1.10x; QB rank 2 is also in 1-6 -> 1.10x
     assert rows[0]["rankDerivedValue"] == 9900  # 9000 * 1.10
     assert rows[1]["rankDerivedValue"] == 9350  # 8500 * 1.10
@@ -178,11 +235,6 @@ def test_offense_multipliers_scale_only_offense(tmp_path, monkeypatch):
     assert rows[3]["rankDerivedValue"] == 7200  # 6000 * 1.20
     # IDP row untouched
     assert rows[4]["rankDerivedValue"] == 4000
-    assert "rankDerivedValueUncalibrated" not in rows[4]
-    # Snapshots on offense rows
-    assert rows[0]["rankDerivedValueUncalibrated"] == 9000
-    assert rows[2]["rankDerivedValueUncalibrated"] == 7000
-    assert rows[3]["rankDerivedValueUncalibrated"] == 6000
 
 
 def test_offense_post_pass_noop_when_block_absent(tmp_path, monkeypatch):
@@ -203,32 +255,26 @@ def test_offense_post_pass_noop_when_block_absent(tmp_path, monkeypatch):
     rows = [{"position": "QB", "rankDerivedValue": 9000}]
     _apply_offense_calibration_post_pass(rows, {})
     assert rows[0]["rankDerivedValue"] == 9000
-    assert "rankDerivedValueUncalibrated" not in rows[0]
 
 
-def test_live_pipeline_does_not_apply_offense_calibration(tmp_path, monkeypatch):
-    """Even with a fully-populated offense_multipliers block in the
-    promoted config, the live pipeline must leave offense values
-    untouched. Offense trade value is anchored to market-derived
-    rankings; VOR-based bucket multipliers would override a well-
-    calibrated market with a thin season-points-only signal. The lab
-    still surfaces the offense analysis for reference but the post-
-    pass call site is intentionally disabled.
+def test_live_pipeline_rank_shift_keeps_value_on_hill_curve_offense(tmp_path, monkeypatch):
+    """Offense calibration is applied as a rank SHIFT: the multiplier
+    nudges rankDerivedValue pre-re-sort so the row lands at a new
+    merged rank, then Phase 5b snaps the value back onto the Hill
+    curve at the landed rank. The final value is always coherent with
+    the rank on the 1-9999 scale — no orphan multiplied numbers.
     """
     from src.api.data_contract import build_api_data_contract
+    from src.canonical.player_valuation import rank_to_value
 
     cfg_path = tmp_path / "config" / "idp_calibration.json"
     config = {
         "version": 1,
         "active_mode": "blended",
-        "multipliers": {},  # no IDP multipliers either — isolate offense
+        "multipliers": {},
         "offense_multipliers": {
-            "QB": {
-                "position": "QB",
-                "buckets": [
-                    {"label": "1-6", "final": 1.0, "count": 6},
-                    {"label": "7-12", "final": 0.50, "count": 6},
-                ],
+            "final": {
+                "QB": {"1-6": 1.0, "7-12": 0.5},
             },
         },
     }
@@ -236,8 +282,9 @@ def test_live_pipeline_does_not_apply_offense_calibration(tmp_path, monkeypatch)
     monkeypatch.setattr(production, "production_config_path", lambda base=None: cfg_path)
     production.reset_cache()
 
-    # Build a minimal valid-shape payload with 7 QBs so QB7 would be
-    # in the 7-12 bucket and get 0.50x *if* the post-pass ran.
+    # 7 QBs — QB7 falls in 7-12 and gets 0.5x, which drops him down the
+    # merged board. His landed rank's Hill-curve value is what he ends
+    # up with.
     players = {}
     for i in range(1, 8):
         name = f"Zzz QB {i:02d}"
@@ -257,16 +304,18 @@ def test_live_pipeline_does_not_apply_offense_calibration(tmp_path, monkeypatch)
         "sleeper": {"positions": {name: "QB" for name in players}},
     }
     contract = build_api_data_contract(payload)
-    rows = sorted(
-        [r for r in contract["playersArray"] if r.get("position") == "QB"],
-        key=lambda r: -int(r.get("rankDerivedValue") or 0),
+    ranked = [r for r in contract["playersArray"] if r.get("canonicalConsensusRank")]
+    # Every ranked row's rankDerivedValue == rank_to_value(rank).
+    for row in ranked:
+        expected = int(rank_to_value(int(row["canonicalConsensusRank"])))
+        assert row["rankDerivedValue"] == expected
+    # QB7 carries the offense calibration stamp from the post-pass.
+    qb7 = next(
+        r for r in ranked
+        if r.get("canonicalName") == "Zzz QB 07"
     )
-    # QB7 should still be at its original rankDerivedValue range — not
-    # halved by the offense post-pass. We assert that no offense row
-    # has an ``offenseCalibrationMultiplier`` stamp (which the post-
-    # pass would set on rows it touched).
-    for row in rows:
-        assert "offenseCalibrationMultiplier" not in row, (
-            f"Offense calibration was applied to {row.get('canonicalName')!r} — "
-            "the post-pass call should be disabled."
-        )
+    assert qb7.get("offenseCalibrationMultiplier") == 0.5
+    # QB7's uncalibrated snapshot lets the toggle reconstruct the
+    # pre-calibration view instantly.
+    assert qb7.get("canonicalConsensusRankUncalibrated") is not None
+    assert qb7.get("rankDerivedValueUncalibrated") is not None
