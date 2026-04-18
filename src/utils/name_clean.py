@@ -314,20 +314,107 @@ def normalize_team(team: str | None) -> str:
     return _ascii_fold(team).upper().strip()
 
 
+# IDP position priority, highest first. When Sleeper (or any other
+# source) labels a player with multiple fantasy-eligible IDP positions
+# we collapse them to a single canonical family using this ordering:
+#
+#   DL > DB > LB
+#
+# Concretely:
+#   * DL + LB → DL
+#   * DB + LB → DB
+#   * DL + DB → DL   (per product decision; DL is the "heavier" role)
+#   * LB is only emitted when the player is exclusively LB-eligible.
+#
+# Every site in the codebase that reads a raw Sleeper position —
+# whether a single string, a slash-joined pair, or a
+# ``fantasy_positions`` list — should either call
+# :func:`resolve_idp_position` directly or go through
+# :func:`normalize_position_family` which delegates to it.
+IDP_PRIORITY: tuple[str, ...] = ("DL", "DB", "LB")
+
+
+def resolve_idp_position(*candidates: str | list[str] | tuple[str, ...] | None) -> str:
+    """Collapse a pile of raw Sleeper position candidates to one IDP family.
+
+    ``candidates`` accepts any mix of single strings (``"DE"``),
+    slash-joined pairs (``"DL/LB"``), and list/tuple values
+    (Sleeper's ``fantasy_positions``). Every token is normalised via
+    :data:`POSITION_ALIASES`; the first IDP family we see from
+    :data:`IDP_PRIORITY` wins. If no IDP family is found an empty
+    string is returned so callers can fall through to their existing
+    offense handling.
+
+    Examples
+    --------
+    >>> resolve_idp_position("DL", "LB")
+    'DL'
+    >>> resolve_idp_position("LB", "DB")
+    'DB'
+    >>> resolve_idp_position(["DE", "OLB"])    # DE maps to DL, OLB to LB → DL
+    'DL'
+    >>> resolve_idp_position("LB")              # exclusive LB-only
+    'LB'
+    >>> resolve_idp_position("CB")
+    'DB'
+    >>> resolve_idp_position("QB")              # non-IDP → empty
+    ''
+    """
+    collected: set[str] = set()
+
+    def _accept(token: str) -> None:
+        if not token:
+            return
+        tok = _ascii_fold(token).upper().strip()
+        if not tok:
+            return
+        # Slash / comma / pipe / whitespace-joined multi-position
+        # strings: split and recurse per piece. CSV exports of
+        # ``fantasy_positions`` typically emit "DL,LB"; Sleeper's
+        # own CSVs sometimes use "DL/LB"; DLF occasionally emits
+        # "DL LB" space-delimited.
+        if any(sep in tok for sep in "/,|"):
+            for piece in re.split(r"[/,|]", tok):
+                _accept(piece)
+            return
+        # Strip trailing digits (e.g. "LB1" from DLF CSVs) and aliases.
+        tok_base = re.sub(r"\d+$", "", tok) or tok
+        canonical = POSITION_ALIASES.get(tok_base)
+        if canonical in {"DL", "LB", "DB"}:
+            collected.add(canonical)
+
+    for cand in candidates:
+        if cand is None:
+            continue
+        if isinstance(cand, (list, tuple, set)):
+            for item in cand:
+                if isinstance(item, str):
+                    _accept(item)
+        elif isinstance(cand, str):
+            _accept(cand)
+
+    for family in IDP_PRIORITY:
+        if family in collected:
+            return family
+    return ""
+
+
 def normalize_position_family(pos: str | None) -> str:
     if not pos:
         return ""
     p = _ascii_fold(pos).upper().strip()
 
-    # Handle Sleeper-style dual positions (DL/LB, DB/LB) BEFORE splitting.
-    # Always prefer DL or DB over LB for IDP dual-eligible players.
+    # Handle Sleeper-style dual positions (DL/LB, DB/LB, DL/DB) BEFORE
+    # the tokenisation branches below. resolve_idp_position applies
+    # the DL > DB > LB priority so a dual-eligible player always
+    # collapses the same way no matter which source supplied them.
     if "/" in p:
-        parts = [s.strip() for s in p.split("/")]
-        for preferred in ("DL", "DE", "DT", "EDGE", "DB", "CB", "S", "SS", "FS"):
-            if preferred in parts:
-                return normalize_position_family(preferred)
-        # No preferred found — fall through with first part
-        p = parts[0]
+        idp_resolved = resolve_idp_position(p)
+        if idp_resolved:
+            return idp_resolved
+        # Non-IDP slash pair (e.g. "WR/KR") — fall through to first
+        # part for the existing offense handling.
+        p = p.split("/", 1)[0].strip()
 
     p = p.replace("(", " ").replace(")", " ")
     p = re.sub(r"[^A-Z0-9]+", " ", p).strip()

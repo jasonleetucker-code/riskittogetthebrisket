@@ -86,11 +86,54 @@ export function normalizePlayerName(name) {
   return collapsed.join(" ");
 }
 
+// IDP position priority. When a Sleeper player is multi-position
+// eligible (fantasy_positions array, slash-joined string like "DL/LB",
+// or an explicit array input) we collapse to a single canonical family
+// using DL > DB > LB. LB is emitted only when the player is
+// exclusively LB-eligible — this mirrors the Python helper
+// ``src/utils/name_clean.py::resolve_idp_position`` so the frontend
+// never disagrees with the backend on position assignment.
+export const IDP_PRIORITY = ["DL", "DB", "LB"];
+
+function _collectIdpFamilies(raw) {
+  const found = new Set();
+  const accept = (token) => {
+    if (!token) return;
+    const t = String(token).toUpperCase().trim();
+    if (!t) return;
+    if (t.includes("/")) {
+      t.split("/").forEach(accept);
+      return;
+    }
+    const stripped = t.replace(/\d+$/, "") || t;
+    if (["DL", "DE", "DT", "EDGE", "NT"].includes(stripped)) {
+      found.add("DL");
+    } else if (["DB", "CB", "S", "SS", "FS"].includes(stripped)) {
+      found.add("DB");
+    } else if (["LB", "ILB", "OLB", "MLB"].includes(stripped)) {
+      found.add("LB");
+    }
+  };
+  if (Array.isArray(raw)) raw.forEach(accept);
+  else accept(raw);
+  return found;
+}
+
+export function resolveIdpPosition(...candidates) {
+  const found = new Set();
+  for (const cand of candidates) {
+    for (const f of _collectIdpFamilies(cand)) found.add(f);
+  }
+  for (const fam of IDP_PRIORITY) {
+    if (found.has(fam)) return fam;
+  }
+  return "";
+}
+
 export function normalizePos(pos) {
+  const idp = resolveIdpPosition(pos);
+  if (idp) return idp;
   const p = String(pos || "").toUpperCase();
-  if (["DE", "DT", "EDGE", "NT"].includes(p)) return "DL";
-  if (["CB", "S", "FS", "SS"].includes(p)) return "DB";
-  if (["OLB", "ILB"].includes(p)) return "LB";
   if (p === "P") return "K";
   return p;
 }

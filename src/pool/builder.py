@@ -110,14 +110,16 @@ _IDP_POSITIONS_NORMALIZED = {"DL", "LB", "DB"}
 
 
 def normalize_position(pos: str) -> str:
-    p = str(pos or "").strip().upper()
-    if p in {"DE", "DT", "EDGE", "NT"}:
-        return "DL"
-    if p in {"CB", "S", "FS", "SS"}:
-        return "DB"
-    if p in {"OLB", "ILB"}:
-        return "LB"
-    return p
+    # Delegate to the shared helper so dual-position inputs
+    # (e.g. "DL/LB") collapse under the canonical DL > DB > LB
+    # priority. Non-IDP inputs fall through to the raw uppercased
+    # string to preserve offense/K/PICK handling downstream.
+    from src.utils.name_clean import resolve_idp_position
+
+    resolved = resolve_idp_position(pos)
+    if resolved:
+        return resolved
+    return str(pos or "").strip().upper()
 
 
 def is_offense(pos: str) -> bool:

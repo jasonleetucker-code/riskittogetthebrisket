@@ -1,6 +1,7 @@
 from .config_loader import load_json, repo_root, save_json
 from .name_clean import (
     CANONICAL_NAME_ALIASES,
+    IDP_PRIORITY,
     POSITION_GROUP_IDP,
     POSITION_GROUP_KICKER,
     POSITION_GROUP_OFFENSE,
@@ -12,10 +13,12 @@ from .name_clean import (
     normalize_position_family,
     normalize_team,
     resolve_canonical_name,
+    resolve_idp_position,
 )
 
 __all__ = [
     "CANONICAL_NAME_ALIASES",
+    "IDP_PRIORITY",
     "POSITION_GROUP_IDP",
     "POSITION_GROUP_KICKER",
     "POSITION_GROUP_OFFENSE",
@@ -28,6 +31,7 @@ __all__ = [
     "normalize_position_family",
     "normalize_team",
     "resolve_canonical_name",
+    "resolve_idp_position",
     "repo_root",
     "save_json",
 ]

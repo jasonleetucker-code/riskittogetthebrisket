@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from src.utils.config_loader import repo_root
+from src.utils.name_clean import resolve_idp_position
 
 log = logging.getLogger(__name__)
 
@@ -152,8 +153,14 @@ class SleeperStatsAdapter(HistoricalStatsAdapter):
             if not isinstance(stats, dict):
                 continue
             meta = players_map.get(str(pid)) or {}
-            pos_raw = str(meta.get("position") or "").upper()
-            canonical_pos = _canonical_position(pos_raw)
+            # Prefer Sleeper's fantasy_positions array over the single
+            # NFL position so dual-eligible players (e.g. DL+LB) get
+            # collapsed to a single IDP family under the DL > DB > LB
+            # priority applied by resolve_idp_position.
+            canonical_pos = resolve_idp_position(
+                meta.get("fantasy_positions"),
+                meta.get("position"),
+            )
             if canonical_pos not in {"DL", "LB", "DB"}:
                 continue
             games = _coerce_int(stats.get("gp") or stats.get("games") or 0)
@@ -244,7 +251,13 @@ class LocalCSVStatsAdapter(HistoricalStatsAdapter):
                     pid = str(row.get("player_id") or "").strip()
                     if not pid:
                         continue
-                    pos = _canonical_position(str(row.get("position") or "").upper())
+                    # CSV may carry either a single position or a
+                    # slash-joined pair (e.g. "DL/LB"). resolve_idp_position
+                    # applies the canonical DL > DB > LB priority.
+                    pos = resolve_idp_position(
+                        row.get("fantasy_positions"),
+                        row.get("position"),
+                    )
                     if pos not in {"DL", "LB", "DB"}:
                         continue
                     stats: dict[str, float] = {}
@@ -394,14 +407,16 @@ def get_stats_adapter(
 
 
 def _canonical_position(pos: str) -> str:
-    pos = (pos or "").strip().upper()
-    if pos in {"DE", "DT", "EDGE", "NT", "DL"}:
-        return "DL"
-    if pos in {"ILB", "OLB", "MLB", "LB"}:
-        return "LB"
-    if pos in {"CB", "S", "SS", "FS", "DB"}:
-        return "DB"
-    return pos
+    """Thin wrapper around :func:`resolve_idp_position`.
+
+    Preserves the legacy return of the raw input when the caller
+    passed something we don't recognise as an IDP family — some tests
+    depend on that behaviour for non-IDP positions.
+    """
+    resolved = resolve_idp_position(pos)
+    if resolved:
+        return resolved
+    return (pos or "").strip().upper()
 
 
 def _coerce_float(value: Any) -> float | None:

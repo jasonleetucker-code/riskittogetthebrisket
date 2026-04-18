@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from src.utils.name_clean import POSITION_ALIASES as LEGACY_POS_MAP  # noqa: F401
+from src.utils.name_clean import resolve_idp_position as _resolve_idp_position
 from src.utils.name_clean import NICKNAME_MAP  # noqa: F401
 
 # Sources known to only contain IDP players
@@ -105,7 +106,12 @@ def build_legacy_position_lookup(legacy_path: Path) -> dict[str, str]:
         raw_pos = str(pdata.get("position", pdata.get("POS", ""))).strip().upper()
         if not raw_pos or raw_pos == "PICK":
             continue
-        canonical_pos = LEGACY_POS_MAP.get(raw_pos)
+        # Apply DL > DB > LB priority first so a dual-position IDP
+        # (e.g. "DL/LB") resolves the same way every other reader does.
+        # Fall back to the legacy alias map for offense/kicker codes.
+        canonical_pos = _resolve_idp_position(
+            pdata.get("fantasy_positions"), raw_pos
+        ) or LEGACY_POS_MAP.get(raw_pos)
         if not canonical_pos or canonical_pos == "PICK":
             continue
 
