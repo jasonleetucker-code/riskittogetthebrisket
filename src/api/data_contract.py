@@ -3795,7 +3795,14 @@ def _compute_unified_rankings(
     # absent — the calibration lab's Promote step is the only way to
     # activate this. See src/idp_calibration/production.py.
     _apply_idp_calibration_post_pass(players_array, players_by_name)
-    _apply_offense_calibration_post_pass(players_array, players_by_name)
+    # Offense post-pass intentionally disabled: offense trade value
+    # should always track the market-derived rankings (KTC/DLF/
+    # FantasyCalc). VOR-based bucket multipliers override a
+    # well-calibrated market with a thin season-points-only signal and
+    # produce absurd values (e.g. QB7 Mahomes → 52% of QB1). The lab
+    # still computes offense_multipliers as an analytical reference
+    # but they are NOT applied to live values.
+    # _apply_offense_calibration_post_pass(players_array, players_by_name)
 
     # ── Phase 5: Pick refinement passes (gated to picks) ──
     # 1) Reassign (rank, value) tuples within each (year, round) bucket

@@ -204,3 +204,69 @@ def test_offense_post_pass_noop_when_block_absent(tmp_path, monkeypatch):
     _apply_offense_calibration_post_pass(rows, {})
     assert rows[0]["rankDerivedValue"] == 9000
     assert "rankDerivedValueUncalibrated" not in rows[0]
+
+
+def test_live_pipeline_does_not_apply_offense_calibration(tmp_path, monkeypatch):
+    """Even with a fully-populated offense_multipliers block in the
+    promoted config, the live pipeline must leave offense values
+    untouched. Offense trade value is anchored to market-derived
+    rankings; VOR-based bucket multipliers would override a well-
+    calibrated market with a thin season-points-only signal. The lab
+    still surfaces the offense analysis for reference but the post-
+    pass call site is intentionally disabled.
+    """
+    from src.api.data_contract import build_api_data_contract
+
+    cfg_path = tmp_path / "config" / "idp_calibration.json"
+    config = {
+        "version": 1,
+        "active_mode": "blended",
+        "multipliers": {},  # no IDP multipliers either — isolate offense
+        "offense_multipliers": {
+            "QB": {
+                "position": "QB",
+                "buckets": [
+                    {"label": "1-6", "final": 1.0, "count": 6},
+                    {"label": "7-12", "final": 0.50, "count": 6},
+                ],
+            },
+        },
+    }
+    save_json(cfg_path, config)
+    monkeypatch.setattr(production, "production_config_path", lambda base=None: cfg_path)
+    production.reset_cache()
+
+    # Build a minimal valid-shape payload with 7 QBs so QB7 would be
+    # in the 7-12 bucket and get 0.50x *if* the post-pass ran.
+    players = {}
+    for i in range(1, 8):
+        name = f"Zzz QB {i:02d}"
+        players[name] = {
+            "_composite": 10000 - i * 500,
+            "_rawComposite": 10000 - i * 500,
+            "_finalAdjusted": 10000 - i * 500,
+            "_sites": 1,
+            "position": "QB",
+            "team": "TST",
+            "_canonicalSiteValues": {"ktc": 10000 - i * 500},
+        }
+    payload = {
+        "players": players,
+        "sites": [{"key": "ktc"}],
+        "maxValues": {"ktc": 9999},
+        "sleeper": {"positions": {name: "QB" for name in players}},
+    }
+    contract = build_api_data_contract(payload)
+    rows = sorted(
+        [r for r in contract["playersArray"] if r.get("position") == "QB"],
+        key=lambda r: -int(r.get("rankDerivedValue") or 0),
+    )
+    # QB7 should still be at its original rankDerivedValue range — not
+    # halved by the offense post-pass. We assert that no offense row
+    # has an ``offenseCalibrationMultiplier`` stamp (which the post-
+    # pass would set on rows it touched).
+    for row in rows:
+        assert "offenseCalibrationMultiplier" not in row, (
+            f"Offense calibration was applied to {row.get('canonicalName')!r} — "
+            "the post-pass call should be disabled."
+        )

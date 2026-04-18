@@ -325,12 +325,15 @@ function SectionMultipliers({ run }) {
         <>
           <div className="idp-lab-family-heading">
             <strong>Offense</strong>
-            <span className="muted">within-position bucket curves (QB / RB / WR / TE)</span>
+            <span className="muted">
+              analytical view only — NOT applied to live values; offense
+              trade value stays tied to market rankings (KTC/DLF/etc.)
+            </span>
           </div>
           <PositionMultiplierBlocks
             positions={OFFENSE_POSITIONS}
             multipliers={offenseMultipliers}
-            label="per-bucket offense multipliers"
+            label="per-bucket offense VOR (reference only)"
           />
         </>
       )}
