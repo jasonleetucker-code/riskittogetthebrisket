@@ -116,3 +116,25 @@ def delete_run(run_id: str, *, base: Path | None = None) -> bool:
         else:
             _latest_path(base).unlink(missing_ok=True)
     return True
+
+
+def delete_all_runs(*, base: Path | None = None) -> int:
+    """Delete every saved run and clear the ``latest.json`` pointer.
+
+    Returns the number of run files that were removed. Leaves the
+    promoted production config (``config/idp_calibration.json``)
+    untouched — if the promoted source run is deleted, production
+    stays live but the "Source run" link in the UI will report the
+    run as gone.
+    """
+    runs_dir = _runs_dir(base)
+    removed = 0
+    if runs_dir.exists():
+        for path in runs_dir.glob("*.json"):
+            try:
+                path.unlink()
+                removed += 1
+            except OSError:
+                continue
+    _latest_path(base).unlink(missing_ok=True)
+    return removed

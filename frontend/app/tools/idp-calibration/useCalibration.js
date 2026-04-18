@@ -152,6 +152,23 @@ export function useCalibration() {
     return data;
   }, [refreshRuns]);
 
+  const deleteAllRuns = useCallback(async () => {
+    setFlag("deleteRun", true);
+    setErr("deleteRun", null);
+    const { status: http, data } = await jfetch("/api/idp-calibration/runs", {
+      method: "DELETE",
+    });
+    if (!mountedRef.current) return data;
+    if (http >= 400 || data?.ok === false) {
+      setErr("deleteRun", data?.error || `HTTP ${http}`);
+    } else {
+      await refreshRuns();
+      setCurrentRun(null);
+    }
+    setFlag("deleteRun", false);
+    return data;
+  }, [refreshRuns]);
+
   const promote = useCallback(async ({ runId, activeMode }) => {
     setFlag("promote", true);
     setErr("promote", null);
@@ -216,6 +233,7 @@ export function useCalibration() {
     analyze,
     loadRun,
     deleteRun,
+    deleteAllRuns,
     promote,
     refreshBoard,
   };

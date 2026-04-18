@@ -26,3 +26,26 @@ export async function GET(request) {
     clearTimeout(timer);
   }
 }
+
+export async function DELETE(request) {
+  const cookie = request.headers.get("cookie") || "";
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 10_000);
+  try {
+    const res = await fetch(`${BACKEND}/api/idp-calibration/runs`, {
+      method: "DELETE",
+      headers: { Cookie: cookie },
+      cache: "no-store",
+      signal: ctl.signal,
+    });
+    const data = await res.json().catch(() => ({}));
+    return NextResponse.json(data, { status: res.status });
+  } catch (err) {
+    return NextResponse.json(
+      { ok: false, error: "IDP calibration service unavailable", detail: err?.message },
+      { status: 503 },
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+}
