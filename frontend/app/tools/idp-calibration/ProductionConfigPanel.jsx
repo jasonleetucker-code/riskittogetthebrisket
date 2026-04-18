@@ -21,7 +21,12 @@ export default function ProductionConfigPanel({
   const promoted = production?.present ? production.config : null;
 
   const canPromote = Boolean(currentRun?.run_id) && !loading;
-  const canRefresh = Boolean(promoted) && !refreshing;
+  // Must also gate on `loading` (the promote flag). If the user clicks
+  // Refresh while a promote is in flight, the rebuild would read the
+  // OLD config from disk (promote hasn't written yet) but still report
+  // success — leaving a misleading "Last refresh" timestamp. Block the
+  // button until promote resolves.
+  const canRefresh = Boolean(promoted) && !refreshing && !loading;
 
   async function handleRefreshClick() {
     if (!canRefresh || !onRefreshBoard) return;
@@ -64,8 +69,12 @@ export default function ProductionConfigPanel({
               onClick={handleRefreshClick}
               disabled={!canRefresh}
               title={
-                !canRefresh
+                loading
+                  ? "Promotion in flight — wait until it finishes"
+                  : !promoted
                   ? "Nothing to refresh until a calibration is promoted"
+                  : refreshing
+                  ? "Refresh already running"
                   : "Force the live /rankings + /trade contracts to rebuild with the current promoted calibration"
               }
             >

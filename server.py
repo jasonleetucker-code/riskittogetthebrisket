@@ -3820,6 +3820,13 @@ async def idp_calibration_refresh_board(request: Request):
     gate = _require_auth_json(request)
     if gate is not None:
         return gate
+    global latest_contract_data, latest_data_bytes, latest_data_gzip_bytes
+    global latest_data_etag, latest_runtime_data, latest_runtime_data_bytes
+    global latest_runtime_data_gzip_bytes, latest_runtime_data_etag
+    global latest_startup_data, latest_startup_data_bytes
+    global latest_startup_data_gzip_bytes, latest_startup_data_etag
+    global contract_health
+
     if not latest_data:
         return JSONResponse(
             status_code=503,
@@ -3831,23 +3838,70 @@ async def idp_calibration_refresh_board(request: Request):
                 ),
             },
         )
+
+    # Snapshot every global _prime_latest_payload mutates BEFORE calling
+    # it. The helper clears all of these to None up-front and only
+    # re-populates them on a successful build — so if the rebuild fails
+    # the live board would otherwise go dark (/api/data serves 503).
+    # A failed manual refresh must never turn a healthy board into an
+    # outage: if the rebuild ends unhealthy, we restore the snapshot so
+    # the previously-cached contract keeps serving.
+    snapshot = (
+        latest_contract_data,
+        latest_data_bytes,
+        latest_data_gzip_bytes,
+        latest_data_etag,
+        latest_runtime_data,
+        latest_runtime_data_bytes,
+        latest_runtime_data_gzip_bytes,
+        latest_runtime_data_etag,
+        latest_startup_data,
+        latest_startup_data_bytes,
+        latest_startup_data_gzip_bytes,
+        latest_startup_data_etag,
+        contract_health,
+    )
+
+    def _restore_snapshot() -> None:
+        global latest_contract_data, latest_data_bytes, latest_data_gzip_bytes
+        global latest_data_etag, latest_runtime_data, latest_runtime_data_bytes
+        global latest_runtime_data_gzip_bytes, latest_runtime_data_etag
+        global latest_startup_data, latest_startup_data_bytes
+        global latest_startup_data_gzip_bytes, latest_startup_data_etag
+        global contract_health
+        (
+            latest_contract_data,
+            latest_data_bytes,
+            latest_data_gzip_bytes,
+            latest_data_etag,
+            latest_runtime_data,
+            latest_runtime_data_bytes,
+            latest_runtime_data_gzip_bytes,
+            latest_runtime_data_etag,
+            latest_startup_data,
+            latest_startup_data_bytes,
+            latest_startup_data_gzip_bytes,
+            latest_startup_data_etag,
+            contract_health,
+        ) = snapshot
+
     try:
         _prime_latest_payload(latest_data)
-    except Exception as exc:  # noqa: BLE001 — defensive, shouldn't fire in
-        # practice because _prime_latest_payload catches internally, but we
-        # keep the outer guard in case that contract ever changes.
+    except Exception as exc:  # noqa: BLE001 — defensive net; see P1 review.
         log.exception("idp-calibration refresh-board rebuild raised: %s", exc)
+        _restore_snapshot()
         return JSONResponse(
             status_code=500,
-            content={"ok": False, "error": f"Rebuild raised: {exc}"},
+            content={
+                "ok": False,
+                "error": f"Rebuild raised: {exc}. Previous live board preserved.",
+            },
         )
     # _prime_latest_payload swallows its own exceptions and signals
-    # validation / build failures through contract_health + by leaving
-    # latest_contract_data unset. Both are necessary: contract_health can
-    # be ok=False on a validation warning while latest_contract_data is
-    # still populated, and conversely latest_contract_data can be None
-    # on a catastrophic JSON-serialise failure even though contract_health
-    # never updated. Require both to be healthy before reporting success.
+    # failures through contract_health + by leaving latest_contract_data
+    # unset. Require both to be healthy before reporting success; on
+    # failure, roll the globals back to their pre-refresh snapshot so
+    # a failed manual refresh cannot take the live board down.
     health = contract_health or {}
     if latest_contract_data is None or not health.get("ok"):
         errors = (health.get("errors") or [])[:3]
@@ -3859,13 +3913,14 @@ async def idp_calibration_refresh_board(request: Request):
         log.error(
             "idp-calibration refresh-board rebuild unhealthy: %s", detail
         )
+        _restore_snapshot()
         return JSONResponse(
             status_code=500,
             content={
                 "ok": False,
                 "error": (
-                    "Rebuild completed but the live contract is not healthy. "
-                    f"Details: {detail}"
+                    "Rebuild completed but the live contract is not healthy; "
+                    f"restored previous board. Details: {detail}"
                 ),
                 "contract_ok": bool(health.get("ok")),
                 "error_count": int(health.get("errorCount") or 0),
