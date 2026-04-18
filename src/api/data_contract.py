@@ -2755,12 +2755,15 @@ def _apply_idp_calibration_post_pass(
                 multiplier = 1.0
             if abs(multiplier - 1.0) < 1e-9:
                 continue
-            # Multiplier shifts the row's *target value* so that the
-            # subsequent global re-sort moves the row to a new rank on
-            # the merged board. After the re-sort, Phase 5b recomputes
-            # rankDerivedValue from rank_to_value(canonicalConsensusRank)
-            # so the final value is coherent with the new rank on the
-            # Hill curve — not an orphaned multiplied number.
+            # Multiplier scales the row's value (on top of the
+            # weighted Hill-curve blend already encoded in
+            # rankDerivedValue). The subsequent global re-sort places
+            # the row at its new merged rank based on the multiplied
+            # value. We deliberately keep the multiplied value as the
+            # final rankDerivedValue — the tiered fractional-rank
+            # signal from the per-source Hill blend carries through
+            # the calibration so elite players don't get snapped to
+            # the integer-rank Hill value.
             old_val = int(row.get("rankDerivedValue") or 0)
             new_val = max(1, int(round(old_val * multiplier)))
             row["rankDerivedValue"] = new_val
@@ -2827,10 +2830,9 @@ def _apply_offense_calibration_post_pass(
                 multiplier = 1.0
             if abs(multiplier - 1.0) < 1e-9:
                 continue
-            # Same rank-shift semantics as IDP: multiplier adjusts the
-            # target value so the global re-sort moves the row to a new
-            # rank; Phase 5b then anchors the value back onto the Hill
-            # curve based on the new rank.
+            # Same semantics as IDP post-pass: multiplier scales the
+            # blended rankDerivedValue; the global re-sort then places
+            # the row at its new merged rank.
             old_val = int(row.get("rankDerivedValue") or 0)
             new_val = max(1, int(round(old_val * multiplier)))
             row["rankDerivedValue"] = new_val
@@ -3858,29 +3860,15 @@ def _compute_unified_rankings(
             r["canonicalConsensusRank"] = new_rank
         r["canonicalTierId"] = _tier_id_from_rank(new_rank)
 
-    # Phase 5b — rank-to-value coherence when calibration is active.
-    # Gated: only run when a promoted calibration config exists. In the
-    # uncalibrated baseline, existing pre-sort value adjustments (TEP
-    # premium, pick anchors, per-source blends) deliberately decouple
-    # value from a strict rank_to_value() — we preserve that behaviour
-    # when there's nothing to calibrate. Once calibration is promoted,
-    # the user's mental model takes priority: every row's final value
-    # equals ``rank_to_value(canonicalConsensusRank)`` so value and rank
-    # stay coupled on the Hill curve — no orphaned post-pass products,
-    # always on the 1–9999 scale.
-    if _idp_production.load_production_config():
-        from src.canonical.player_valuation import rank_to_value as _hill_value
-        for r in ranked_rows:
-            rank = r.get("canonicalConsensusRank")
-            if rank is None or int(rank) <= 0:
-                continue
-            coherent_value = int(_hill_value(int(rank)))
-            r["rankDerivedValue"] = coherent_value
-            legacy_ref = r.get("legacyRef")
-            if legacy_ref and legacy_ref in players_by_name:
-                pdata = players_by_name[legacy_ref]
-                if isinstance(pdata, dict):
-                    pdata["rankDerivedValue"] = coherent_value
+    # (Phase 5b — value re-flattening — intentionally removed.) The
+    # pre-sort ``rankDerivedValue`` is a weighted blend of per-source
+    # Hill-curve values plus any calibration multiplier, which
+    # encodes fractional-rank consensus (e.g. Josh Allen at source
+    # ranks [1,1,1,2,1] ⇒ blended ~9976 ≈ Hill(1.2)) rather than a
+    # raw integer-rank snap. Re-flattening to ``rank_to_value(int
+    # rank)`` threw that nuance away. Sort order is still enforced
+    # by the Phase 5 re-sort above, so values are monotonic with
+    # ranks even without the Hill-curve anchor here.
 
     # 2c) Mirror the post-anchor rank back into the legacy players_by_name
     #     dict for every ranked row — not just picks.  The runtime view
