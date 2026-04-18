@@ -47,6 +47,11 @@ import DraftSection from "./sections/draft.jsx";
 import WeeklySection from "./sections/weekly.jsx";
 import SuperlativesSection from "./sections/superlatives.jsx";
 import ArchivesSection from "./sections/archives.jsx";
+import LuckSection from "./sections/luck.jsx";
+import StreaksSection from "./sections/streaks.jsx";
+import PowerSection from "./sections/power.jsx";
+import MatchupPreviewSection from "./sections/matchup-preview.jsx";
+import WeeklyRecapSection from "./sections/weekly-recap.jsx";
 
 // Tab order + labels for the /league section nav.
 // "Draft Capital" is first so it's the default landing on mobile,
@@ -54,6 +59,11 @@ import ArchivesSection from "./sections/archives.jsx";
 const SUB_TABS = [
   { key: "draft-capital", label: "Draft Capital" },
   { key: "overview", label: "Home" },
+  { key: "matchupPreview", label: "This Week" },
+  { key: "power", label: "Power" },
+  { key: "luck", label: "Luck" },
+  { key: "streaks", label: "Streaks" },
+  { key: "weeklyRecap", label: "Recaps" },
   { key: "history", label: "History" },
   { key: "rivalries", label: "Rivalries" },
   { key: "awards", label: "Awards" },
@@ -281,6 +291,28 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
         <SuperlativesSection managers={managers} data={sections.superlatives} />
       )}
       {activeTab === "archives" && <ArchivesSection data={sections.archives} />}
+      {activeTab === "luck" && (
+        <LuckSection data={sections.luck} managers={managers} />
+      )}
+      {activeTab === "streaks" && (
+        <StreaksSection data={sections.streaks} managers={managers} />
+      )}
+      {activeTab === "power" && (
+        <PowerSection data={sections.power} managers={managers} />
+      )}
+      {activeTab === "matchupPreview" && (
+        <MatchupPreviewSection
+          data={sections.matchupPreview}
+          managers={managers}
+          onNavigate={setActiveTab}
+        />
+      )}
+      {activeTab === "weeklyRecap" && (
+        <WeeklyRecapSection
+          data={sections.weeklyRecap}
+          managers={managers}
+        />
+      )}
     </section>
   );
 }

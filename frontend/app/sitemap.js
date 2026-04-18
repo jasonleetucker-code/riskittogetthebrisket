@@ -46,6 +46,11 @@ export default async function sitemap() {
     "/trades",
     "/draft-capital",
     "/league",
+    "/league?tab=matchupPreview",
+    "/league?tab=power",
+    "/league?tab=luck",
+    "/league?tab=streaks",
+    "/league?tab=weeklyRecap",
     "/league?tab=history",
     "/league?tab=rivalries",
     "/league?tab=awards",
@@ -95,6 +100,22 @@ export default async function sitemap() {
     priority: 0.5,
   }));
 
+  // Weekly-recap entries — one per scored week across the snapshot.
+  // Dedupe by (season, week) since the matchup index repeats it.
+  const recapSeen = new Set();
+  const recapEntries = [];
+  for (const m of matchups) {
+    const key = `${m.season}:${m.week}`;
+    if (recapSeen.has(key)) continue;
+    recapSeen.add(key);
+    recapEntries.push({
+      url: `${origin}/league/week/${encodeURIComponent(m.season)}/${encodeURIComponent(m.week)}`,
+      lastModified: now,
+      changeFrequency: "yearly",
+      priority: 0.6,
+    });
+  }
+
   // Player-journey entries — one per player with activity.  Capped at
   // 2,000 to keep the sitemap under Google's 50k-URL / 50 MB limit.
   const playersPayload = await _fetchJson("/api/public/league/players");
@@ -111,6 +132,7 @@ export default async function sitemap() {
     ...franchiseEntries,
     ...rivalryEntries,
     ...matchupEntries,
+    ...recapEntries,
     ...playerEntries,
   ];
 }

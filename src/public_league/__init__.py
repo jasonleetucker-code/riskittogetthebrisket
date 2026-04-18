@@ -18,16 +18,21 @@ assembles them and applies a field allowlist before the payload
 leaves the backend.
 
 Section modules:
-    history        — League History / Hall of Fame
-    rivalries      — Rivalries
-    awards         — Awards
-    records        — Records
-    franchise      — Franchise Pages
-    activity       — Trade Activity Center
-    draft          — Draft Center
-    weekly         — Weekly Recap
-    superlatives   — League Superlatives
-    archives       — Public searchable archives / databases
+    history          — League History / Hall of Fame
+    rivalries        — Rivalries
+    awards           — Awards
+    records          — Records
+    franchise        — Franchise Pages
+    activity         — Trade Activity Center
+    draft            — Draft Center
+    weekly           — Weekly recap (per-week tiles)
+    superlatives     — League Superlatives
+    archives         — Public searchable archives / databases
+    luck             — Luck Score (actual vs expected wins)
+    streaks          — Active streaks + records-in-reach feed
+    power            — Weekly power ranking + time-series chart
+    matchup_preview  — Head-to-head preview / recap for the current week
+    weekly_recap     — Full-page weekly recap newsletter
 
 Infrastructure modules:
     identity        — Owner-id-keyed manager identity + team aliases

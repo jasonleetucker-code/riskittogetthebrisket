@@ -19,15 +19,20 @@ from . import (
     draft,
     franchise,
     history,
+    luck,
+    matchup_preview,
     overview,
+    power,
     records,
     rivalries,
+    streaks,
     superlatives,
     weekly,
+    weekly_recap,
 )
 from .snapshot import PublicLeagueSnapshot
 
-PUBLIC_CONTRACT_VERSION = "public-league/2026-04-17.v2"
+PUBLIC_CONTRACT_VERSION = "public-league/2026-04-18.v1"
 
 
 # Sections exposed by the public contract.  Each entry maps the public
@@ -48,6 +53,11 @@ _SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] =
     "weekly": weekly.build_section,
     "superlatives": superlatives.build_section,
     "archives": archives.build_section,
+    "luck": luck.build_section,
+    "streaks": streaks.build_section,
+    "power": power.build_section,
+    "matchupPreview": matchup_preview.build_section,
+    "weeklyRecap": weekly_recap.build_section,
 }
 
 # Derived overview is a first-class section key the UI can fetch just
