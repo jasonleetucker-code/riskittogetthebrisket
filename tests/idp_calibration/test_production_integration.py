@@ -118,22 +118,28 @@ def test_position_alias_collapses_to_canonical(tmp_path, monkeypatch):
     assert rows[0]["rankDerivedValue"] == 2000  # EDGE -> DL -> 0.5x
 
 
-def test_end_to_end_keeps_value_on_hill_curve_after_calibration(tmp_path, monkeypatch):
-    """Core invariant of the rank-shift calibration: after
-    ``build_api_data_contract`` runs, every ranked row's
-    ``rankDerivedValue`` equals ``rank_to_value(canonicalConsensusRank)``
-    — i.e. the value is always on the Hill curve at the player's final
-    rank. No orphan multiplied numbers, always on the 1-9999 scale.
+def test_end_to_end_values_are_monotonic_with_ranks_after_calibration(tmp_path, monkeypatch):
+    """With calibration active, ``rankDerivedValue`` is the weighted
+    Hill-curve blend from per-source ranks times the calibration
+    multiplier. It is NOT re-snapped to ``rank_to_value(int rank)`` —
+    that was the old Phase 5b behaviour, which threw away the
+    fractional-rank nuance (Josh Allen at source ranks [1,1,1,2,1]
+    gets a blended ~9976, not the integer-rank Hill(1)=9999).
+
+    What we lock in instead:
+      * ranks are a strict sort of ranked values (monotonic)
+      * each ranked row carries pre-calibration rank + value
+        snapshots so the /rankings toggle can swap coherently
+      * values past the offense top-tier bear the signature of
+        calibration (at least one IDP row has a non-unit multiplier
+        stamp when meaningful buckets are promoted)
     """
     from src.api.data_contract import build_api_data_contract
-    from src.canonical.player_valuation import rank_to_value
 
     cfg_path = tmp_path / "config" / "idp_calibration.json"
     config = {
         "version": 1,
         "active_mode": "blended",
-        # Meaningful IDP calibration — DL 1-6 scaled up, DL 7-12 down.
-        # Drives real rank reshuffles so we exercise the re-sort path.
         "multipliers": {
             "final": {
                 "DL": {"1-6": 1.5, "7-12": 0.5},
@@ -144,7 +150,6 @@ def test_end_to_end_keeps_value_on_hill_curve_after_calibration(tmp_path, monkey
     monkeypatch.setattr(production, "production_config_path", lambda base=None: cfg_path)
     production.reset_cache()
 
-    # Minimal payload with a mix of positions so re-sort is exercised.
     players = {}
     for i in range(1, 8):
         players[f"Zzz DL {i:02d}"] = {
@@ -173,22 +178,28 @@ def test_end_to_end_keeps_value_on_hill_curve_after_calibration(tmp_path, monkey
         "sleeper": {"positions": {n: v["position"] for n, v in players.items()}},
     }
     contract = build_api_data_contract(payload)
-    ranked = [r for r in contract["playersArray"] if r.get("canonicalConsensusRank")]
-    # Invariant: every row's rankDerivedValue is exactly rank_to_value
-    # of its final canonicalConsensusRank. Calibration moves rows
-    # AROUND the board, but their landed value is always on the curve.
-    for row in ranked:
-        expected = int(rank_to_value(int(row["canonicalConsensusRank"])))
-        assert row["rankDerivedValue"] == expected, (
-            f"{row.get('canonicalName')!r} at rank "
-            f"{row['canonicalConsensusRank']} has value "
-            f"{row['rankDerivedValue']} but Hill curve says {expected}"
+    ranked = sorted(
+        [r for r in contract["playersArray"] if r.get("canonicalConsensusRank")],
+        key=lambda r: int(r["canonicalConsensusRank"]),
+    )
+    # Invariant 1: values decrease (or tie) as rank increases.
+    for a, b in zip(ranked, ranked[1:]):
+        assert int(a["rankDerivedValue"]) >= int(b["rankDerivedValue"]), (
+            f"Value inversion: rank {a['canonicalConsensusRank']} "
+            f"({a['rankDerivedValue']}) < rank {b['canonicalConsensusRank']} "
+            f"({b['rankDerivedValue']})"
         )
-    # And: snapshots exist on every ranked row so the /rankings toggle
-    # has both a pre-calibration rank AND value to swap to.
+    # Invariant 2: every ranked row carries the pre-calibration
+    # snapshot so the /rankings toggle can reconstruct the
+    # uncalibrated board coherently.
     for row in ranked:
         assert "canonicalConsensusRankUncalibrated" in row
         assert "rankDerivedValueUncalibrated" in row
+    # Invariant 3: at least one DL row carries the calibration stamp
+    # — otherwise the test isn't actually exercising the multiplier
+    # path.
+    stamped = [r for r in ranked if r.get("idpCalibrationMultiplier")]
+    assert stamped, "No row was stamped with idpCalibrationMultiplier"
 
 
 def test_offense_multipliers_scale_only_offense(tmp_path, monkeypatch):
