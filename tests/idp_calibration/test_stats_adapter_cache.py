@@ -59,12 +59,24 @@ def test_get_stats_adapter_defaults_network_off_under_pytest(monkeypatch):
 def test_get_stats_adapter_env_var_forces_network_on(monkeypatch):
     from src.idp_calibration import stats_adapter
 
+    # Stub _fetch_impl so the adapter-selection probe doesn't perform
+    # a real HTTP call against api.sleeper.app. The assertion only
+    # cares which branch the factory takes, not whether the sleeper
+    # endpoint is reachable from the test runner — a real call would
+    # make this test flaky on no-egress or slow CI networks.
+    def _fail(self, season):
+        raise stats_adapter.AdapterUnavailable("stubbed: no network in tests")
+
+    monkeypatch.setattr(stats_adapter.SleeperStatsAdapter, "_fetch_impl", _fail)
     monkeypatch.setenv("IDP_CALIBRATION_ALLOW_NETWORK", "1")
+
     _, attempts = stats_adapter.get_stats_adapter(2025)
-    # With network opt-in the sleeper attempt is tried rather than
-    # being skipped outright. It may still return unavailable locally
-    # (no network in CI), but the marker is not "skipped".
+    # We forced network on, so the sleeper branch must NOT have been
+    # marked as skipped — it was attempted (and failed deterministically
+    # via our stub).
     assert not any("skipped (network disabled)" in a for a in attempts)
+    # The sleeper branch entry must appear in the attempt log.
+    assert any(a.startswith("sleeper:") for a in attempts)
 
 
 def test_get_stats_adapter_env_var_forces_network_off(monkeypatch):
