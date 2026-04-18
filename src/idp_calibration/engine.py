@@ -310,14 +310,23 @@ def run_analysis(
     warnings.extend(test_chain.warnings)
     warnings.extend(my_chain.warnings)
 
-    # Most-recent resolved league from each chain — used as the scoring
-    # and lineup fallback for historical seasons the league did not
-    # exist in. Sleeper still has player stats for every season
-    # regardless of when the league was created, so we score those
-    # stats against each league's *current* rules and surface a
-    # warning noting which year's rules we borrowed.
-    test_fallback_league = test_chain.walk[0] if test_chain.walk else None
-    my_fallback_league = my_chain.walk[0] if my_chain.walk else None
+    # Scoring/lineup source: we always use each chain's *current*
+    # league — i.e. the league object the user supplied (``walk[0]``,
+    # the newest league in the chain). Product decision: a
+    # calibration's job is "what would today's scoring rules say
+    # these historical players are worth?", so we never second-guess
+    # by dipping into an older per-year snapshot whose rules may have
+    # been different (or, as the Test League "Standard" 2025 case
+    # shows, may not have had IDP configured at all).
+    #
+    # The native per-year league (``test_res.league`` / ``my_res.league``)
+    # is still resolved via :func:`resolve_seasons` so we can surface
+    # a warning when it diverges — commissioners occasionally change
+    # settings year over year and we want the reviewer to know — but
+    # the actual scoring/lineup bound into the math is always the
+    # current input league.
+    test_current_league = test_chain.walk[0] if test_chain.walk else None
+    my_current_league = my_chain.walk[0] if my_chain.walk else None
 
     per_season_payload: dict[int, dict[str, Any]] = {}
     per_season_per_position_buckets: dict[str, dict[int, list[BucketResult]]] = {
@@ -331,47 +340,57 @@ def run_analysis(
         test_native = bool(test_res and test_res.resolved)
         my_native = bool(my_res and my_res.resolved)
 
-        # Start with a native match; fall back to the chain's most
-        # recent resolved league otherwise so Sleeper stats for older
-        # seasons can still be scored.
-        test_league_obj = test_res.league if test_native else test_fallback_league
-        my_league_obj = my_res.league if my_native else my_fallback_league
+        # Always use the current input league for scoring/lineup.
+        test_league_obj = test_current_league
+        my_league_obj = my_current_league
 
-        # Refuse *forward* borrows — scoring newer stats against older
-        # rules. A chain that only reaches 2024 being asked for 2025
-        # most likely means the user pasted a stale league ID, not a
-        # "league didn't exist yet" historical gap. Leave the season
-        # unresolved so the UI surfaces the misconfig rather than
-        # silently producing wrong output. Historical gaps
-        # (target_season < source_season) are the only valid borrow.
+        # Refuse *forward* borrows: if the user's input league is
+        # older than the target season, we'd be scoring newer stats
+        # against older rules. Most likely a stale league ID, so
+        # surface the misconfig and skip the year rather than
+        # silently producing wrong output.
         test_forward_borrow = False
         my_forward_borrow = False
-        if not test_native and test_league_obj is not None:
+        if test_league_obj is not None:
             src = _season_of(test_league_obj)
             if src is not None and src < season:
                 test_forward_borrow = True
                 test_league_obj = None
-        if not my_native and my_league_obj is not None:
+        if my_league_obj is not None:
             src = _season_of(my_league_obj)
             if src is not None and src < season:
                 my_forward_borrow = True
                 my_league_obj = None
 
-        test_borrowed = test_league_obj is not None and not test_native
-        my_borrowed = my_league_obj is not None and not my_native
+        # "Borrowed" here means "rules come from a year other than the
+        # target year" — true whenever the target isn't the user's
+        # input-league season. Under Option 1 that's basically always
+        # for historical years.
+        def _borrowed(current_league: dict | None, native: bool, season_: int) -> bool:
+            if current_league is None:
+                return False
+            src = _season_of(current_league)
+            if src is None:
+                return False
+            if native and src == season_:
+                return False
+            return True
+
+        test_borrowed = _borrowed(test_league_obj, test_native, season)
+        my_borrowed = _borrowed(my_league_obj, my_native, season)
 
         if test_league_obj is None or my_league_obj is None:
             reason_bits: list[str] = []
             if test_forward_borrow:
                 reason_bits.append(
                     f"Test-league chain only reaches "
-                    f"{_season_of(test_fallback_league)}; refusing "
+                    f"{_season_of(test_current_league)}; refusing "
                     f"forward-borrow (is the league ID stale?)."
                 )
             if my_forward_borrow:
                 reason_bits.append(
                     f"My-league chain only reaches "
-                    f"{_season_of(my_fallback_league)}; refusing "
+                    f"{_season_of(my_current_league)}; refusing "
                     f"forward-borrow (is the league ID stale?)."
                 )
             if not reason_bits:
@@ -384,8 +403,6 @@ def run_analysis(
                     or f"No resolvable league found for {season}."
                 )
             reason = " ".join(b for b in reason_bits if b)
-            # Echo into top-level warnings so the user sees it alongside
-            # the other chain diagnostics.
             if test_forward_borrow or my_forward_borrow:
                 warnings.append(f"{season}: {reason}")
             per_season_payload[season] = {
@@ -397,13 +414,15 @@ def run_analysis(
 
         if test_borrowed:
             warnings.append(
-                f"{season}: test-league scoring/lineup borrowed from "
-                f"{test_league_obj.get('season')} (league did not exist in {season})."
+                f"{season}: test-league rules taken from current input "
+                f"league (season {test_league_obj.get('season')}); "
+                f"historical {season} stats rescored under today's rules."
             )
         if my_borrowed:
             warnings.append(
-                f"{season}: my-league scoring/lineup borrowed from "
-                f"{my_league_obj.get('season')} (league did not exist in {season})."
+                f"{season}: my-league rules taken from current input "
+                f"league (season {my_league_obj.get('season')}); "
+                f"historical {season} stats rescored under today's rules."
             )
 
         test_scoring = parse_scoring(test_league_obj)

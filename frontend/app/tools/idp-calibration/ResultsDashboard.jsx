@@ -315,10 +315,13 @@ export default function ResultsDashboard({ run }) {
         {scoringEntry?.test_scoring && (
           <>
             <p className="muted text-sm">
-              Scoring and lineup summaries shown for season{" "}
+              Scoring and lineup are taken from each league&rsquo;s{" "}
+              <strong>current input season</strong> and applied to every
+              historical year&rsquo;s stats &mdash; so this calibration
+              answers &ldquo;what would these players be worth under
+              today&rsquo;s rules?&rdquo; Sampled from season{" "}
               <strong>{verificationSeason}</strong>
-              {scoringEntry.resolved === false && " (unresolved)"}
-              .
+              {scoringEntry.resolved === false && " (unresolved)"}.
             </p>
             <div className="idp-lab-scoring-grid">
               <ScoringSummary label="Test scoring" summary={scoringEntry.test_scoring} />
