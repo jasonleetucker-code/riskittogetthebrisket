@@ -57,19 +57,44 @@ def _load_contract() -> dict[str, Any] | None:
     return build_api_data_contract(raw)
 
 
+_DEEP_TIER_GENERIC_RE = re.compile(
+    r"^(20\d{2})\s+(Early|Mid|Late)\s+([1-6])(st|nd|rd|th)$", re.I
+)
+_DEEP_TIER_SLOT_RE = re.compile(
+    r"^(20\d{2})\s+Pick\s+([1-6])\.\d{1,2}$", re.I
+)
+
+
 def _is_deep_future_tier(name: str) -> bool:
-    """Return True if `name` is a deep (R4-R6) future-year (>=2027)
-    generic pick tier.  After the pick year discount these can fall
-    below the OVERALL_RANK_LIMIT cap and lose their rank, which is
-    intentional — the assets are very low value and no longer fit in
-    the displayed top-800 board.
+    """Return True if `name` is a deep (R4-R6) pick row that is
+    allowed to be unranked/unvalued.  Two categories qualify:
+
+    1. Future-year (>=2027) generic tier rows (e.g. "2028 Late 5th") —
+       after the pick-year discount these fall below OVERALL_RANK_LIMIT.
+    2. Any year's R5/R6 generic tier or slot-specific row (e.g.
+       "2026 Late 5th", "2026 Pick 6.03") — these are so deep on the
+       board (below the last offensive veteran and IDP rookie) that
+       they often fall off the bottom of the OVERALL_RANK_LIMIT cap.
+       With FootballGuys SF + IDP added, the ranked board grew by
+       ~750 matches and deep R5/R6 picks now routinely fall off.
     """
-    m = re.match(r"^(20\d{2})\s+(Early|Mid|Late)\s+([1-6])(st|nd|rd|th)$", str(name or ""), re.I)
-    if not m:
+    s = str(name or "")
+    # Generic tier rows ("Early 1st", "Mid 2nd", etc.).
+    m = _DEEP_TIER_GENERIC_RE.match(s)
+    if m:
+        year = int(m.group(1))
+        rnd = int(m.group(3))
+        if year >= 2027 and rnd >= 4:
+            return True
+        if rnd >= 5:  # any year's deep R5/R6 generic tier
+            return True
         return False
-    year = int(m.group(1))
-    rnd = int(m.group(3))
-    return year >= 2027 and rnd >= 4
+    # Slot-specific rows ("2026 Pick 5.11", "2026 Pick 6.03").
+    m = _DEEP_TIER_SLOT_RE.match(s)
+    if m:
+        rnd = int(m.group(2))
+        return rnd >= 5
+    return False
 
 
 def _pick_rows(contract: dict[str, Any]) -> list[dict[str, Any]]:

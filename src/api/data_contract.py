@@ -283,11 +283,14 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     "fantasyProsIdp": 75,
     "dynastyDaddySf": 250,
     "flockFantasySf": 250,
-    # FootballGuys SF/IDP: parsed from a single PDF of ~950 rows.
-    # After the offense/IDP split we see ~548 offense and ~406 IDP.
-    # Floor at ~80% of those baselines.
-    "footballGuysSf": 430,
-    "footballGuysIdp": 320,
+    # FootballGuys SF/IDP: after the PDF parse + offense/IDP split,
+    # raw rows are ~548 offense and ~406 IDP.  Actual canonical-name
+    # matches against the live Sleeper player pool are ~470 offense
+    # and ~291 IDP (many FBG-ranked deep veterans / prospects don't
+    # exist in the Sleeper database).  Floors set at ~80% of those
+    # match counts.
+    "footballGuysSf": 375,
+    "footballGuysIdp": 230,
 }
 
 
@@ -916,6 +919,11 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     # Deep-board veterans that Flock Fantasy's expert consensus ranks but
     # no other source currently carries.
     "adam thielen": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds+fantasyPros — veteran WR only ranked by Flock Fantasy SF",
+    # ── IDP: FootballGuys-IDP-only (not listed by other IDP sources) ──
+    # Veteran / free-agent LBs that FootballGuys' 3-expert IDP board
+    # ranks as deep dynasty holds even though IDPTradeCalc and the
+    # other IDP boards have dropped them.  Genuine source gaps.
+    "lavonte david": "source_gap:idpTradeCalc+dlfIdp+fantasyProsIdp — 36yo FA veteran LB only ranked by FootballGuys IDP",
 }
 
 

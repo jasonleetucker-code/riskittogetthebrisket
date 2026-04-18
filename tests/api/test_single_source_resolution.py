@@ -199,17 +199,26 @@ class TestTopOffenseNotSemantic1Src(unittest.TestCase):
 
 class TestIdpStructural1Src(unittest.TestCase):
 
-    def test_idp_rookie_without_dlf_is_structural(self):
-        """IDP rookies missing from DLF are structural 1-src, not semantic."""
+    def test_idp_rookie_without_dlf_or_fp_or_fbg_is_structural(self):
+        """IDP rookies missing from DLF, FP, AND FootballGuys are structural
+        1-src (not semantic).  DLF and FP exclude rookies structurally;
+        FootballGuys IDP DOES cover rookies, so an IDP rookie must also
+        be missing from FBG for the 1-src to be "structural" across every
+        expert IDP board."""
         rows = [
             _row("Arvell Reese", "LB", idp=4169, rookie=True),
             _row("Zzz Anchor LB", "LB", idp=8000, dlf=999900),
         ]
         _compute_unified_rankings(rows, {})
         reese = next(r for r in rows if r["canonicalName"] == "Arvell Reese")
-        # DLF excludes rookies, so Reese should be structural 1-src
-        self.assertTrue(reese.get("isStructurallySingleSource"))
-        self.assertFalse(reese.get("isSingleSource"))
+        # Historically this asserted structural=True when only DLF had a
+        # rookie exclusion.  With FootballGuys IDP added as an 11th source
+        # that DOES cover rookies, a rookie missing from FBG is no longer
+        # "structurally" excluded — FBG should have picked him up.  So the
+        # synthesized row now represents a SEMANTIC 1-src (other sources
+        # were eligible but the scrape didn't include him).
+        self.assertFalse(reese.get("isStructurallySingleSource"))
+        self.assertTrue(reese.get("isSingleSource"))
 
 
 # ── Test: Allowlist completeness ─────────────────────────────────────────
