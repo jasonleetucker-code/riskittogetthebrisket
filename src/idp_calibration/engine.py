@@ -10,6 +10,7 @@ directly.
 from __future__ import annotations
 
 import hashlib
+import math
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -49,29 +50,51 @@ POSITIONS: tuple[str, ...] = ("DL", "LB", "DB")
 def _safe_int(value: Any, default: int) -> int:
     """Coerce ``value`` to int; return ``default`` on any parse error.
 
-    Keeps malformed client payloads (e.g. ``"min_games": "abc"``) from
-    bubbling a ``ValueError`` out of :meth:`AnalysisSettings.from_payload`
-    as a 500 response. Callers should combine this with a value-level
-    clamp where a negative or zero fallback is not safe.
+    Guards against the full set of numeric-coercion failures:
+
+    * ``TypeError`` / ``ValueError`` — ``"abc"`` or ``None``.
+    * ``OverflowError`` — ``"1e309"`` turns into ``float("inf")`` which
+      then raises ``OverflowError`` on ``int(inf)``.
+    * Non-finite intermediates — ``"nan"`` parses to ``float("nan")``
+      which ``int()`` would happily accept but produces garbage values
+      and breaks every downstream math step.
     """
     if value is None or value == "":
         return default
     try:
         return int(value)
     except (TypeError, ValueError):
-        try:
-            return int(float(value))
-        except (TypeError, ValueError):
-            return default
+        pass
+    except OverflowError:
+        return default
+    try:
+        as_float = float(value)
+    except (TypeError, ValueError):
+        return default
+    if not math.isfinite(as_float):
+        return default
+    try:
+        return int(as_float)
+    except (TypeError, ValueError, OverflowError):
+        return default
 
 
 def _safe_float(value: Any, default: float) -> float:
+    """Coerce ``value`` to a finite float; return ``default`` otherwise.
+
+    Rejects ``inf`` / ``-inf`` / ``nan`` — these are not JSON-compliant
+    and propagate as NaN through the multiplier math and the response
+    encoder, which surfaces as a 500 downstream.
+    """
     if value is None or value == "":
         return default
     try:
-        return float(value)
+        result = float(value)
     except (TypeError, ValueError):
         return default
+    if not math.isfinite(result):
+        return default
+    return result
 
 
 def _as_dict(value: Any) -> dict[str, Any]:
@@ -152,9 +175,20 @@ class AnalysisSettings:
         year_weights: dict[int, float] = {}
         for k, v in year_weights_raw.items():
             try:
-                year_weights[int(k)] = float(v)
+                key = int(k)
             except (TypeError, ValueError):
                 continue
+            try:
+                parsed = float(v)
+            except (TypeError, ValueError):
+                continue
+            # Reject inf / nan so they don't silently propagate into
+            # normalise_year_weights and make the response path fail
+            # JSON encoding. Negative weights break the normalisation
+            # step, so drop those too.
+            if not math.isfinite(parsed) or parsed < 0:
+                continue
+            year_weights[key] = parsed
         if not year_weights:
             year_weights = dict(DEFAULT_YEAR_WEIGHTS)
         anchors = _as_list(payload.get("anchor_ranks")) or list(DEFAULT_ANCHOR_RANKS)

@@ -89,6 +89,54 @@ def test_from_payload_tolerates_non_dict_sub_fields():
     assert settings.seasons  # default seasons restored
 
 
+def test_overflow_and_non_finite_numeric_inputs_fall_back_to_defaults():
+    # "1e309" → float("inf") → int(inf) raises OverflowError. Previously
+    # escaped as a 500. Now falls back to the default.
+    settings = AnalysisSettings.from_payload({"min_games": "1e309"})
+    assert settings.min_games == 0
+
+    # "nan" and "inf" on anchor_floor / top_n / min_bucket_size must all
+    # fall back to defaults rather than propagate NaN through the math.
+    settings = AnalysisSettings.from_payload(
+        {
+            "anchor_floor": "nan",
+            "top_n": "inf",
+            "min_bucket_size": "-inf",
+        },
+    )
+    assert abs(settings.anchor_floor - 0.05) < 1e-9
+    assert settings.top_n is None
+    assert settings.min_bucket_size == 3
+
+
+def test_year_weights_reject_inf_nan_and_negative():
+    payload = {
+        "year_weights": {
+            "2025": "1e309",   # inf — reject
+            "2024": "nan",      # nan — reject
+            "2023": -0.5,       # negative — reject
+            "2022": 0.4,        # valid — keep
+        },
+    }
+    settings = AnalysisSettings.from_payload(payload)
+    assert 2025 not in settings.year_weights
+    assert 2024 not in settings.year_weights
+    assert 2023 not in settings.year_weights
+    assert settings.year_weights[2022] == 0.4
+
+
+def test_analyze_handler_survives_overflow_numeric_inputs():
+    # Previously a 500 via OverflowError in _safe_int.
+    status, _ = api.analyze(
+        {
+            "test_league_id": "A",
+            "my_league_id": "B",
+            "settings": {"min_games": "1e309", "anchor_floor": "nan"},
+        },
+    )
+    assert status != 500
+
+
 def test_analyze_handler_survives_malformed_settings_shape():
     # Was previously a 500 via AttributeError in from_payload.
     status, payload = api.analyze(
