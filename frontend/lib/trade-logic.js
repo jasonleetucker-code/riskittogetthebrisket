@@ -150,6 +150,47 @@ function sortedSideValues(side, valueMode, settings) {
 }
 
 /**
+ * Core V2 VA formula on pre-sorted value arrays.
+ *
+ * ``small`` and ``large`` must be sorted descending.  ``small`` is the
+ * side receiving the VA; ``large`` is the side with more pieces.
+ * Returns the scalar VA (always ≥ 0).  Caller is responsible for
+ * clamping when small.length ≥ large.length — this function assumes
+ * ``large`` is strictly longer than ``small``.
+ *
+ * Factored out so both the 2-side ``computeValueAdjustment`` path and
+ * the N-side ``computeMultiSideAdjustments`` path share exactly the
+ * same math — no divergence between how a 2-team trade is graded vs
+ * how the same shape is graded inside a 3-team trade.
+ */
+function _vaFromSortedSides(small, large) {
+  if (small.length === 0 || small[0] <= 0) return 0;
+  if (small.length >= large.length) return 0;
+
+  const topSmall = small[0];
+  const topLarge = large[0] || 0;
+  const topGap = Math.max(0, (topSmall - topLarge) / topSmall);
+  if (topGap === 0) return 0;
+
+  const rawScarcity = VA_SCARCITY_SLOPE * topGap - VA_SCARCITY_INTERCEPT;
+  const topScarcity = Math.max(0, Math.min(VA_SCARCITY_CAP, rawScarcity));
+
+  const extras = large.slice(small.length);
+  let adjustment = 0;
+  for (let p = 0; p < extras.length; p++) {
+    const extra = extras[p];
+    const extraGap = Math.max(0, (topSmall - extra) / topSmall);
+    const boostTerm = VA_PER_EXTRA_BOOST * Math.max(0, extraGap - topGap);
+    const effective = Math.max(
+      0,
+      Math.min(VA_EFFECTIVE_CAP, topScarcity + boostTerm),
+    );
+    adjustment += extra * effective * Math.pow(VA_POSITION_DECAY, p);
+  }
+  return adjustment;
+}
+
+/**
  * Compute the KTC-style Value Adjustment between two sides.
  *
  * The side with fewer pieces receives a bonus representing the
@@ -183,51 +224,49 @@ export function computeValueAdjustment(sideA, sideB, valueMode, settings = null)
     return { adjustment: 0, recipientIdx: null };
   }
 
-  const topSmall = small[0];
-  const topLarge = large[0] || 0;
-  const topGap = Math.max(0, (topSmall - topLarge) / topSmall);
-
-  // If the small side's top is no better than the large side's top,
-  // there's no consolidation upgrade to reward — return zero VA
-  // regardless of any throw-ins on the large side.  This preserves
-  // the V1 invariant; every KTC data point we've calibrated against
-  // has topSmall > topLarge (including case L at a 0.04 gap).
-  if (topGap === 0) {
-    return { adjustment: 0, recipientIdx };
-  }
-
-  const rawScarcity = VA_SCARCITY_SLOPE * topGap - VA_SCARCITY_INTERCEPT;
-  const topScarcity = Math.max(0, Math.min(VA_SCARCITY_CAP, rawScarcity));
-
-  const extras = large.slice(small.length);
-
-  // Per-extra effective weight with a "throw-in" boost.
-  //
-  // For each extra, compute its own gap ratio relative to the small
-  // side's top.  The further this extra's gap is below topGap, the
-  // smaller (more "filler") the extra is — and the higher its
-  // effective weight should climb (KTC rewards trading filler for
-  // consolidation).  When extra_gap ≈ topGap (the extra is as valuable
-  // as ``topLarge``), the boost goes to zero and we reduce back to the
-  // plain V1 behavior for that piece.
-  //
-  // If topScarcity is zero AND no extras beat the gap floor (only
-  // happens for near-even tops AND matched extras), VA stays zero.
-  let adjustment = 0;
-  for (let p = 0; p < extras.length; p++) {
-    const extra = extras[p];
-    const extraGap = topSmall > 0
-      ? Math.max(0, (topSmall - extra) / topSmall)
-      : 0;
-    const boostTerm = VA_PER_EXTRA_BOOST * Math.max(0, extraGap - topGap);
-    const effective = Math.max(
-      0,
-      Math.min(VA_EFFECTIVE_CAP, topScarcity + boostTerm),
-    );
-    adjustment += extra * effective * Math.pow(VA_POSITION_DECAY, p);
-  }
-
+  const adjustment = _vaFromSortedSides(small, large);
   return { adjustment, recipientIdx };
+}
+
+/**
+ * Compute per-side Value Adjustments for a multi-team trade (N ≥ 2).
+ *
+ * Each side's VA is computed as if that side is the "small" side in a
+ * 2-side trade, and the merged opposition is the flattened union of
+ * every OTHER side's received assets.  This generalization reduces to
+ * the 2-side ``computeValueAdjustment`` behavior when N = 2, and lets
+ * every side that consolidated relative to what they gave up earn an
+ * independent premium in 3+-team deals.
+ *
+ * Returns an array of numeric adjustments — one per side, in the same
+ * order as the input.  A side's adjustment is ≥ 0; sides without a
+ * piece-count advantage over the rest of the trade receive 0.
+ *
+ * Caveat: the V2 coefficients were calibrated against 2-side KTC
+ * observations.  Multi-side output is a structural extension of that
+ * calibration, NOT a separately fit formula.  If KTC's real multi-team
+ * VA diverges from this, we'll know when we have multi-team KTC data.
+ *
+ * @param {object[][]} sides  — array of asset arrays, one per side
+ * @param {string} valueMode
+ * @param {object} [settings]
+ * @returns {number[]}
+ */
+export function computeMultiSideAdjustments(sides, valueMode, settings = null) {
+  if (!Array.isArray(sides) || sides.length < 2) {
+    return (sides || []).map(() => 0);
+  }
+  const allValues = sides.map((side) =>
+    sortedSideValues(side, valueMode, settings),
+  );
+  return allValues.map((small, i) => {
+    const large = [];
+    for (let j = 0; j < allValues.length; j++) {
+      if (j !== i) large.push(...allValues[j]);
+    }
+    large.sort((a, b) => b - a);
+    return _vaFromSortedSides(small, large);
+  });
 }
 
 /**
@@ -245,6 +284,26 @@ export function adjustedSideTotals(sideA, sideB, valueMode, settings = null) {
     { raw: rawA, adjustment: adjA, adjusted: rawA + adjA },
     { raw: rawB, adjustment: adjB, adjusted: rawB + adjB },
   ];
+}
+
+/**
+ * Adjusted per-side totals for N-team trade display (N ≥ 2).
+ *
+ * Each entry is { raw, adjustment, adjusted }.  For N = 2 this matches
+ * ``adjustedSideTotals`` exactly.  For N ≥ 3 each side can earn its
+ * own consolidation premium — see ``computeMultiSideAdjustments``.
+ *
+ * @param {object[][]} sides  — array of asset arrays
+ * @param {string} valueMode
+ * @param {object} [settings]
+ */
+export function multiAdjustedSideTotals(sides, valueMode, settings = null) {
+  const adjustments = computeMultiSideAdjustments(sides, valueMode, settings);
+  return sides.map((side, i) => {
+    const raw = sideTotal(side, valueMode, settings);
+    const adjustment = adjustments[i] || 0;
+    return { raw, adjustment, adjusted: raw + adjustment };
+  });
 }
 
 /** Gap = Side A adjusted total − Side B adjusted total (KTC-style). */

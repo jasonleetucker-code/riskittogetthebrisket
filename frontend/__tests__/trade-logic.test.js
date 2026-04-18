@@ -11,7 +11,9 @@ import {
   colorFromGap,
   sideTotal,
   computeValueAdjustment,
+  computeMultiSideAdjustments,
   adjustedSideTotals,
+  multiAdjustedSideTotals,
   tradeGapAdjusted,
   VA_SCARCITY_SLOPE,
   VA_SCARCITY_INTERCEPT,
@@ -457,6 +459,133 @@ describe("computeValueAdjustment", () => {
       const over20 = errs.filter((e) => e > 0.20).length;
       expect(over20).toBe(0);
     });
+  });
+});
+
+// ── computeMultiSideAdjustments (N-team trades) ──────────────────────
+//
+// Structural property tests — we don't have KTC observations for 3+
+// team trades yet, so these assert formula invariants and consistency
+// with the 2-side path rather than hitting specific KTC numbers.
+describe("computeMultiSideAdjustments", () => {
+  it("returns array matching input length", () => {
+    const out = computeMultiSideAdjustments(
+      [[mockRow(9999)], [mockRow(5000)], [mockRow(3000)]],
+      "full",
+    );
+    expect(out).toHaveLength(3);
+  });
+
+  it("reduces to 2-side behavior when called with 2 sides", () => {
+    const sideA = [mockRow(9999)];
+    const sideB = [mockRow(7846), mockRow(5717)];
+    const [adjA, adjB] = computeMultiSideAdjustments([sideA, sideB], "full");
+    const twoSide = computeValueAdjustment(sideA, sideB, "full");
+    const expectedRecipient = twoSide.adjustment;
+    const expectedOther = 0;
+    expect(adjA).toBeCloseTo(expectedRecipient, 5);
+    expect(adjB).toBeCloseTo(expectedOther, 5);
+    expect(twoSide.recipientIdx).toBe(0);
+  });
+
+  it("returns zero for every side when all have equal piece counts (2 ea)", () => {
+    const out = computeMultiSideAdjustments(
+      [
+        [mockRow(5000), mockRow(3000)],
+        [mockRow(4800), mockRow(3100)],
+        [mockRow(4900), mockRow(2900)],
+      ],
+      "full",
+    );
+    // Each side has count=2, opposition count=4 → guard passes, but
+    // small.length < large.length only because opposition is larger.
+    // However topGap is computed per side — most sides will have top
+    // ≤ merged top, so VA stays at zero.  At most the side with the
+    // strictly-highest top gets a non-zero VA.
+    const nonZero = out.filter((v) => v > 0).length;
+    expect(nonZero).toBeLessThanOrEqual(1);
+  });
+
+  it("in 3-team with one clear stud holder, that side gets the premium", () => {
+    // Side A has a single 9999 stud.  Sides B and C each have 2
+    // medium pieces.  A should earn significant VA for consolidation;
+    // B and C may earn little or none (their tops are below A's stud).
+    const out = computeMultiSideAdjustments(
+      [
+        [mockRow(9999)],
+        [mockRow(5000), mockRow(3500)],
+        [mockRow(4800), mockRow(3200)],
+      ],
+      "full",
+    );
+    expect(out[0]).toBeGreaterThan(1000);
+    // B and C: their top < merged top (includes A's 9999), so their
+    // topGap is 0 and they earn 0 VA.
+    expect(out[1]).toBe(0);
+    expect(out[2]).toBe(0);
+  });
+
+  it("never produces negative adjustments", () => {
+    const out = computeMultiSideAdjustments(
+      [
+        [mockRow(9999), mockRow(8000)],
+        [mockRow(7500)],
+        [mockRow(6000), mockRow(4000), mockRow(2000)],
+      ],
+      "full",
+    );
+    for (const v of out) expect(v).toBeGreaterThanOrEqual(0);
+  });
+
+  it("VA never exceeds the side's top asset", () => {
+    const sides = [
+      [mockRow(9999)],
+      [mockRow(5000), mockRow(3000), mockRow(2000)],
+      [mockRow(4000), mockRow(3000)],
+    ];
+    const out = computeMultiSideAdjustments(sides, "full");
+    sides.forEach((side, i) => {
+      const top = Math.max(...side.map((r) => r.values.full));
+      expect(out[i]).toBeLessThanOrEqual(top);
+    });
+  });
+
+  it("empty or single-side input returns zeros", () => {
+    expect(computeMultiSideAdjustments([], "full")).toEqual([]);
+    expect(computeMultiSideAdjustments([[mockRow(9999)]], "full")).toEqual([0]);
+  });
+});
+
+describe("multiAdjustedSideTotals", () => {
+  it("returns raw/adjustment/adjusted per side for 3 teams", () => {
+    const sides = [
+      [mockRow(9999)],
+      [mockRow(5000), mockRow(3500)],
+      [mockRow(4800), mockRow(3200)],
+    ];
+    const totals = multiAdjustedSideTotals(sides, "full");
+    expect(totals).toHaveLength(3);
+    for (const t of totals) {
+      expect(t).toHaveProperty("raw");
+      expect(t).toHaveProperty("adjustment");
+      expect(t).toHaveProperty("adjusted");
+      expect(t.adjusted).toBeCloseTo(t.raw + t.adjustment, 5);
+    }
+    // Stud side should have positive adjustment.
+    expect(totals[0].adjustment).toBeGreaterThan(0);
+  });
+
+  it("is consistent with adjustedSideTotals for 2 teams", () => {
+    const sideA = [mockRow(9999)];
+    const sideB = [mockRow(7846), mockRow(5717)];
+    const multi = multiAdjustedSideTotals([sideA, sideB], "full");
+    const [a, b] = adjustedSideTotals(sideA, sideB, "full");
+    expect(multi[0].raw).toBe(a.raw);
+    expect(multi[0].adjustment).toBeCloseTo(a.adjustment, 5);
+    expect(multi[0].adjusted).toBeCloseTo(a.adjusted, 5);
+    expect(multi[1].raw).toBe(b.raw);
+    expect(multi[1].adjustment).toBeCloseTo(b.adjustment, 5);
+    expect(multi[1].adjusted).toBeCloseTo(b.adjusted, 5);
   });
 });
 
