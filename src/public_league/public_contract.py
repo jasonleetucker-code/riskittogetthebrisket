@@ -179,6 +179,11 @@ def _build_overview(snapshot: PublicLeagueSnapshot, sections: dict[str, Any]) ->
         activity_section=sections.get("activity") or {},
         draft_section=sections.get("draft") or {},
         weekly_section=sections.get("weekly") or {},
+        luck_section=sections.get("luck") or {},
+        streaks_section=sections.get("streaks") or {},
+        power_section=sections.get("power") or {},
+        matchup_preview_section=sections.get("matchupPreview") or {},
+        weekly_recap_section=sections.get("weeklyRecap") or {},
     )
 
 

@@ -5,6 +5,23 @@
 
 import { Avatar, Card, EmptyCard, LinkButton, ManagerInline, Stat, fmtPoints, nameFor } from "../shared.jsx";
 
+function streakTypeDescription(type, length) {
+  switch (type) {
+    case "winStreak":
+      return `${length} straight wins`;
+    case "lossStreak":
+      return `${length} straight losses`;
+    case "plus100Streak":
+      return `${length} weeks ≥ 100 pts`;
+    case "plus120Streak":
+      return `${length} weeks ≥ 120 pts`;
+    case "plus140Streak":
+      return `${length} weeks ≥ 140 pts`;
+    default:
+      return `${length} in a row`;
+  }
+}
+
 function OverviewSection({ managers, data, onNavigate }) {
   if (!data || Object.keys(data).length === 0) return <EmptyCard label="Overview" />;
 
@@ -19,6 +36,13 @@ function OverviewSection({ managers, data, onNavigate }) {
   const hottest = data.hottestRace;
   const vitals = data.leagueVitals || {};
   const hottestTrade = data.hottestTrade;
+  // v2 Home callouts (PR #87).
+  const powerLeader = data.currentPowerLeader;
+  const luckyUnlucky = data.luckyUnluckyCurrent;
+  const activeStreak = data.activeStreakHighlight;
+  const recordInReach = data.recordInReach;
+  const upcomingWeek = data.upcomingWeekPreview;
+  const latestFullRecap = data.latestFullRecap;
 
   return (
     <>
@@ -79,6 +103,165 @@ function OverviewSection({ managers, data, onNavigate }) {
           </div>
         )}
       </div>
+
+      {/* v2 Home rail: This Week + current Power + Luck + Active Streak */}
+      {(upcomingWeek || powerLeader || luckyUnlucky || activeStreak || recordInReach || latestFullRecap) && (
+        <div className="row" style={{ marginTop: "var(--space-md)", gap: 14 }}>
+          {upcomingWeek && (
+            <div className="card" style={{ flex: "1 1 300px", minWidth: 260 }}>
+              <div style={{ fontSize: "0.66rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                {upcomingWeek.mode === "preview"
+                  ? `This week · ${upcomingWeek.season} Wk ${upcomingWeek.week}`
+                  : `Most recent · ${upcomingWeek.season} Wk ${upcomingWeek.week}`}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                <Avatar managers={managers} ownerId={upcomingWeek.home?.ownerId} size={28} />
+                <span style={{ color: "var(--subtext)", fontWeight: 700 }}>
+                  {upcomingWeek.mode === "recap" ? "vs" : "@"}
+                </span>
+                <Avatar managers={managers} ownerId={upcomingWeek.away?.ownerId} size={28} />
+              </div>
+              <div style={{ fontSize: "0.98rem", fontWeight: 800, marginTop: 4 }}>
+                {upcomingWeek.home?.displayName} vs {upcomingWeek.away?.displayName}
+              </div>
+              {upcomingWeek.h2h?.narrative && (
+                <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginTop: 4 }}>
+                  {upcomingWeek.h2h.narrative}
+                </div>
+              )}
+              <div style={{ marginTop: 10 }}>
+                <LinkButton onClick={() => onNavigate("matchupPreview")}>Full H2H preview →</LinkButton>
+              </div>
+            </div>
+          )}
+          {powerLeader && (
+            <div className="card" style={{ flex: "1 1 240px", minWidth: 220 }}>
+              <div style={{ fontSize: "0.66rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Power rank #1
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+                <Avatar managers={managers} ownerId={powerLeader.ownerId} size={36} />
+                <div>
+                  <div style={{ fontSize: "1.05rem", fontWeight: 800 }}>{powerLeader.displayName}</div>
+                  <div style={{ fontSize: "0.7rem", color: "var(--subtext)" }}>{powerLeader.teamName}</div>
+                </div>
+              </div>
+              <div style={{ fontFamily: "var(--mono)", fontSize: "0.8rem", marginTop: 6 }}>
+                Power <strong style={{ color: "#2ecc71" }}>{fmtPoints(powerLeader.power)}</strong>
+                <span style={{ color: "var(--subtext)", marginLeft: 8 }}>{powerLeader.record}</span>
+                {powerLeader.weekRankDelta > 0 && (
+                  <span style={{ color: "#2ecc71", marginLeft: 8 }}>▲{powerLeader.weekRankDelta}</span>
+                )}
+                {powerLeader.weekRankDelta < 0 && (
+                  <span style={{ color: "#ff6b6b", marginLeft: 8 }}>▼{Math.abs(powerLeader.weekRankDelta)}</span>
+                )}
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <LinkButton onClick={() => onNavigate("power")}>Power rankings →</LinkButton>
+              </div>
+            </div>
+          )}
+          {luckyUnlucky && (
+            <div className="card" style={{ flex: "1 1 240px", minWidth: 220 }}>
+              <div style={{ fontSize: "0.66rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Luck Δ · {luckyUnlucky.season}
+              </div>
+              {luckyUnlucky.lucky && (
+                <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
+                  <Avatar managers={managers} ownerId={luckyUnlucky.lucky.ownerId} size={22} />
+                  <div style={{ flex: 1, fontSize: "0.78rem" }}>
+                    <strong>{luckyUnlucky.lucky.displayName}</strong>
+                    <span style={{ color: "#2ecc71", marginLeft: 6, fontFamily: "var(--mono)" }}>
+                      +{fmtPoints(luckyUnlucky.lucky.luckDelta)}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {luckyUnlucky.unlucky && (
+                <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
+                  <Avatar managers={managers} ownerId={luckyUnlucky.unlucky.ownerId} size={22} />
+                  <div style={{ flex: 1, fontSize: "0.78rem" }}>
+                    <strong>{luckyUnlucky.unlucky.displayName}</strong>
+                    <span style={{ color: "#ff6b6b", marginLeft: 6, fontFamily: "var(--mono)" }}>
+                      {fmtPoints(luckyUnlucky.unlucky.luckDelta)}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <div style={{ marginTop: 10 }}>
+                <LinkButton onClick={() => onNavigate("luck")}>Luck score →</LinkButton>
+              </div>
+            </div>
+          )}
+          {activeStreak && (
+            <div className="card" style={{ flex: "1 1 240px", minWidth: 220 }}>
+              <div style={{ fontSize: "0.66rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Longest active streak
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+                <Avatar managers={managers} ownerId={activeStreak.ownerId} size={32} />
+                <div>
+                  <div style={{ fontSize: "0.98rem", fontWeight: 800 }}>{activeStreak.displayName}</div>
+                  <div style={{ fontSize: "0.7rem", color: "var(--subtext)" }}>
+                    {streakTypeDescription(activeStreak.type, activeStreak.length)}
+                  </div>
+                </div>
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <LinkButton onClick={() => onNavigate("streaks")}>All streaks →</LinkButton>
+              </div>
+            </div>
+          )}
+          {recordInReach && (
+            <div
+              className="card"
+              style={{
+                flex: "1 1 240px",
+                minWidth: 220,
+                borderLeft: (recordInReach.chaser?.withinReach ? "3px solid var(--amber)" : undefined),
+              }}
+            >
+              <div style={{ fontSize: "0.66rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                {recordInReach.chaser?.withinReach ? "Record within reach" : "Record in the hunt"}
+              </div>
+              <div style={{ fontSize: "0.86rem", fontWeight: 700, marginTop: 4 }}>
+                {recordInReach.label}
+              </div>
+              {recordInReach.holder && (
+                <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginTop: 4 }}>
+                  Holder: <strong>{nameFor(managers, recordInReach.holder.ownerId) || recordInReach.holder.displayName}</strong>{" "}
+                  ({recordInReach.holder.valueLabel})
+                </div>
+              )}
+              {recordInReach.chaser && (
+                <div style={{ fontSize: "0.72rem", color: "var(--amber)", marginTop: 2 }}>
+                  Chaser: <strong>{nameFor(managers, recordInReach.chaser.ownerId) || recordInReach.chaser.displayName}</strong>{" "}
+                  ({recordInReach.chaser.valueLabel})
+                </div>
+              )}
+              <div style={{ marginTop: 10 }}>
+                <LinkButton onClick={() => onNavigate("streaks")}>See all →</LinkButton>
+              </div>
+            </div>
+          )}
+          {latestFullRecap && (
+            <div className="card" style={{ flex: "1 1 300px", minWidth: 260 }}>
+              <div style={{ fontSize: "0.66rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Week in review · {latestFullRecap.season} Wk {latestFullRecap.week}
+              </div>
+              <div style={{ fontSize: "0.98rem", fontWeight: 800, marginTop: 4, lineHeight: 1.3 }}>
+                {latestFullRecap.headline}
+              </div>
+              <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginTop: 4, lineHeight: 1.45 }}>
+                {latestFullRecap.summary}
+              </div>
+              <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+                <LinkButton onClick={() => onNavigate("weeklyRecap")}>All recaps →</LinkButton>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {records.length > 0 && (
         <Card title="Headline records" subtitle="Biggest numbers in the last 2 seasons">
