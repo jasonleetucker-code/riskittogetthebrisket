@@ -367,6 +367,45 @@ export const RANKING_SOURCES = [
     needsSharedMarketTranslation: false,
     excludesRookies: false,
   },
+  {
+    // FootballGuys Dynasty Rankings — offense half (QB/RB/WR/TE) of
+    // the user-managed PDF export.  6-expert consensus; dense within-
+    // universe rank produced by scripts/parse_footballguys_pdf.py.
+    // Standard SF — tepMultiplier boost applies on top of the blend.
+    key: "footballGuysSf",
+    displayName: "FootballGuys Dynasty SF",
+    columnLabel: "FBG SF",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 500,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+  },
+  {
+    // FootballGuys Dynasty Rankings — IDP half (DE/DT/LB/CB/S) of the
+    // same PDF export.  3-expert IDP consensus; translates through the
+    // shared-market IDP ladder.  Includes rookie IDP prospects.
+    key: "footballGuysIdp",
+    displayName: "FootballGuys Dynasty IDP",
+    columnLabel: "FBG IDP",
+    scope: "overall_idp",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 400,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: true,
+    excludesRookies: false,
+  },
 ];
 
 // ── Retail source registry helpers ───────────────────────────────────

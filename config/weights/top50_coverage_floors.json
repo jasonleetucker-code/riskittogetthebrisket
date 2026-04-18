@@ -4,11 +4,13 @@
     "ktc": 48,
     "idpTradeCalc": 48,
     "dlfSf": 42,
-    "dynastyNerdsSfTep": 45
+    "dynastyNerdsSfTep": 45,
+    "footballGuysSf": 45
   },
   "idp": {
     "idpTradeCalc": 48,
     "dlfIdp": 38,
-    "fantasyProsIdp": 35
+    "fantasyProsIdp": 35,
+    "footballGuysIdp": 40
   }
 }
