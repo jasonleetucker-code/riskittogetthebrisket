@@ -27,14 +27,15 @@ class ScoredPlayer:
 def build_universe(
     players: Iterable[PlayerSeason],
     *,
-    top_n: int | None = None,
     min_games: int = 0,
 ) -> list[PlayerSeason]:
     """Filter the raw season list into the calibration universe.
 
-    Default (``top_n=None, min_games=0``) keeps every valid DL/LB/DB
-    with a non-empty stat line. The advanced settings surface these
-    as optional knobs.
+    Default (``min_games=0``) keeps every valid DL/LB/DB with a
+    non-empty stat line. ``min_games`` is the advanced filter exposed
+    in the UI. Top-N per position cannot be applied here because we
+    don't yet know each player's fantasy points — that selection is
+    done in :func:`trim_to_top_n_per_position` after scoring.
     """
     valid: list[PlayerSeason] = []
     for p in players:
@@ -45,11 +46,36 @@ def build_universe(
         if min_games and p.games < int(min_games):
             continue
         valid.append(p)
-    if top_n:
-        # Top-N is applied later once we know scores. Here we just
-        # preserve insertion order and return everything valid.
-        return valid
     return valid
+
+
+def trim_to_top_n_per_position(
+    scored: list["ScoredPlayer"], top_n: int | None
+) -> list["ScoredPlayer"]:
+    """Keep only the top ``top_n`` scored players per position.
+
+    Selection criterion is ``max(points_test, points_mine)`` so a
+    player who scores high in either league survives the cut — this
+    preserves the apples-to-apples rescoring invariant (both leagues
+    see the same surviving universe).
+
+    Returns the input unchanged when ``top_n`` is falsy.
+    """
+    if not top_n or top_n <= 0:
+        return list(scored)
+    by_pos: dict[str, list[ScoredPlayer]] = {"DL": [], "LB": [], "DB": []}
+    for s in scored:
+        if s.position in by_pos:
+            by_pos[s.position].append(s)
+    keep_ids: set[str] = set()
+    for cohort in by_pos.values():
+        cohort.sort(
+            key=lambda x: max(x.points_test, x.points_mine),
+            reverse=True,
+        )
+        for s in cohort[: int(top_n)]:
+            keep_ids.add(s.player_id)
+    return [s for s in scored if s.player_id in keep_ids]
 
 
 def score_universe(

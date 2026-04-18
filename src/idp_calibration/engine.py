@@ -39,6 +39,7 @@ from .vor import (
     build_universe,
     compute_vor,
     score_universe,
+    trim_to_top_n_per_position,
     vor_rows_to_dict,
 )
 
@@ -182,7 +183,7 @@ def _build_universe_for_season(
     except AdapterUnavailable as exc:
         warnings.append(f"{season}: {exc}")
         raw = []
-    universe = build_universe(raw, top_n=settings.top_n, min_games=settings.min_games)
+    universe = build_universe(raw, min_games=settings.min_games)
     return universe, warnings, adapter_name
 
 
@@ -251,6 +252,8 @@ def run_analysis(
             continue
 
         scored = score_universe(universe, test_scoring.idp_weights, my_scoring.idp_weights)
+        if settings.top_n:
+            scored = trim_to_top_n_per_position(scored, settings.top_n)
         repl_test_levels = compute_replacement_levels(
             ({"position": p.position, "points": p.points_test} for p in scored),
             test_lineup,

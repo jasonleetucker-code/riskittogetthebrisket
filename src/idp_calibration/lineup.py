@@ -6,6 +6,7 @@ reviewer can see how much of the league's starting XI is defense.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
@@ -62,12 +63,17 @@ class LineupDemand:
             "DB": self.total_db_demand,
         }
         demand = demand_lookup.get(position.upper(), 0.0)
-        base = int(round(self.team_count * demand))
+        # Ceiling, not round — a fractional IDP-flex demand like 13.33 must
+        # produce 14 so the replacement player sits *past* every possible
+        # starter slot. Rounding down would understate the starter pool and
+        # inflate VOR (and downstream multipliers) in leagues where
+        # team_count * demand isn't integer.
+        base = int(math.ceil(self.team_count * demand))
         base = max(base, 1)
         if mode == "strict_starter":
             return base
-        # starter_plus_buffer (default)
-        buf = max(1, int(round(self.team_count * max(0.0, buffer_pct))))
+        # starter_plus_buffer (default) — buffer also ceils for symmetry.
+        buf = max(1, int(math.ceil(self.team_count * max(0.0, buffer_pct))))
         return base + buf
 
     def to_dict(self) -> dict[str, Any]:

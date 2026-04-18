@@ -52,6 +52,18 @@ def test_manual_mode_overrides_with_explicit_rank():
     assert levels["DL"].replacement_points == pts[9]
 
 
+def test_non_integer_demand_ceils_instead_of_rounding_down():
+    league = dict(LEAGUE)
+    league["total_rosters"] = 10  # 10 * 2.33 = 23.33 -> 24 after ceil
+    demand = parse_lineup(league)
+    settings = ReplacementSettings(mode="strict_starter")
+    pts = list(range(40, 0, -1))
+    levels = compute_replacement_levels(_scored(pts), demand, settings)
+    # Previously this path used round() which would have produced 23 and
+    # picked too-strong a replacement. Ceil keeps us honest.
+    assert levels["DL"].replacement_rank == 24
+
+
 def test_shortfall_falls_back_to_last_player_with_note():
     demand = parse_lineup(LEAGUE)
     settings = ReplacementSettings(mode="manual", manual={"DL": 99})

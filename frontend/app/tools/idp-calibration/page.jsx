@@ -16,6 +16,11 @@ import {
   downloadRunJson,
 } from "./exports";
 
+// Hard-coded defaults so the two working league IDs pre-fill on load.
+// The inputs remain editable for one-off experiments.
+const DEFAULT_TEST_LEAGUE_ID = "1328545898812170240";
+const DEFAULT_MY_LEAGUE_ID = "1312006700437352448";
+
 export default function IdpCalibrationLabPage() {
   const router = useRouter();
   const { authenticated, checking } = useAuthContext();
@@ -86,6 +91,8 @@ export default function IdpCalibrationLabPage() {
       />
 
       <LeagueInputForm
+        initialTestLeagueId={DEFAULT_TEST_LEAGUE_ID}
+        initialMyLeagueId={DEFAULT_MY_LEAGUE_ID}
         onAnalyze={({ testLeagueId, myLeagueId }) =>
           analyze({ testLeagueId, myLeagueId, settings })
         }

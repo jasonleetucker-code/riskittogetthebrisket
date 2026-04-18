@@ -23,6 +23,7 @@ export default function AdvancedSettingsDrawer({
   const [seasons, setSeasons] = useState(DEFAULT_SEASONS);
   const [replacementMode, setReplacementMode] = useState("starter_plus_buffer");
   const [bufferPct, setBufferPct] = useState(0.15);
+  const [manualRanks, setManualRanks] = useState({ DL: "", LB: "", DB: "" });
   const [blendIntrinsic, setBlendIntrinsic] = useState(0.75);
   const [yearWeights, setYearWeights] = useState(DEFAULT_YEAR_WEIGHTS);
   const [minBucketSize, setMinBucketSize] = useState(3);
@@ -35,6 +36,14 @@ export default function AdvancedSettingsDrawer({
     if (Array.isArray(initial.seasons)) setSeasons(initial.seasons);
     if (initial.replacement?.mode) setReplacementMode(initial.replacement.mode);
     if (initial.replacement?.buffer_pct != null) setBufferPct(initial.replacement.buffer_pct);
+    if (initial.replacement?.manual && typeof initial.replacement.manual === "object") {
+      setManualRanks((prev) => ({
+        ...prev,
+        ...Object.fromEntries(
+          Object.entries(initial.replacement.manual).map(([k, v]) => [k, v == null ? "" : String(v)]),
+        ),
+      }));
+    }
     if (initial.blend?.intrinsic != null) setBlendIntrinsic(initial.blend.intrinsic);
     if (initial.year_weights) setYearWeights(initial.year_weights);
     if (initial.min_bucket_size != null) setMinBucketSize(initial.min_bucket_size);
@@ -52,11 +61,20 @@ export default function AdvancedSettingsDrawer({
   }
 
   function handleSubmit() {
+    const manualPayload =
+      replacementMode === "manual"
+        ? Object.fromEntries(
+            Object.entries(manualRanks)
+              .map(([pos, raw]) => [pos, Number(raw)])
+              .filter(([, n]) => Number.isFinite(n) && n > 0),
+          )
+        : {};
     const parsed = {
       seasons: seasons.map((s) => Number(s)).filter((n) => Number.isFinite(n)),
       replacement: {
         mode: replacementMode,
         buffer_pct: Number(bufferPct) || 0,
+        manual: manualPayload,
       },
       blend: { intrinsic: Number(blendIntrinsic) || 0 },
       year_weights: yearWeights,
@@ -67,6 +85,10 @@ export default function AdvancedSettingsDrawer({
     };
     onSave?.(parsed);
     onClose?.();
+  }
+
+  function updateManualRank(position, value) {
+    setManualRanks((prev) => ({ ...prev, [position]: value }));
   }
 
   function addBucket() {
@@ -131,6 +153,29 @@ export default function AdvancedSettingsDrawer({
                 onChange={(e) => setBufferPct(e.target.value)}
               />
             </label>
+          )}
+          {replacementMode === "manual" && (
+            <>
+              <p className="muted text-sm">
+                Set the replacement rank per position. Leave blank to fall
+                back to auto-derived cutoffs for that position.
+              </p>
+              {["DL", "LB", "DB"].map((pos) => (
+                <label className="idp-lab-field" key={pos}>
+                  <span className="idp-lab-label">
+                    {pos} manual replacement rank
+                  </span>
+                  <input
+                    className="input"
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 36"
+                    value={manualRanks[pos] ?? ""}
+                    onChange={(e) => updateManualRank(pos, e.target.value)}
+                  />
+                </label>
+              ))}
+            </>
           )}
         </fieldset>
 

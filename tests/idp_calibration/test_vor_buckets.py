@@ -6,6 +6,7 @@ from src.idp_calibration.vor import (
     build_universe,
     compute_vor,
     score_universe,
+    trim_to_top_n_per_position,
 )
 
 
@@ -56,6 +57,45 @@ def test_bucketize_merges_small_buckets_and_reports_merge():
     merged_labels = [m for b in buckets for m in b.merged_from]
     # With 15 DLs and default buckets, later buckets should merge into earlier ones.
     assert any(merged_labels), "Expected at least one merge"
+
+
+def test_trim_to_top_n_keeps_only_top_n_per_position():
+    # Mix of DL/LB/DB so the per-position slice is non-trivial.
+    universe = []
+    for i in range(20):
+        universe.append(
+            PlayerSeason(
+                player_id=f"p{i}",
+                name=f"P{i}",
+                position=["DL", "LB", "DB"][i % 3],
+                games=16,
+                stats={"idp_tkl_solo": 50 - i},
+            )
+        )
+    weights = {"idp_tkl_solo": 1.0}
+    scored = score_universe(universe, weights, weights)
+    trimmed = trim_to_top_n_per_position(scored, 2)
+    # Each position should now have at most 2 survivors.
+    by_pos = {"DL": 0, "LB": 0, "DB": 0}
+    for s in trimmed:
+        by_pos[s.position] += 1
+    assert all(n <= 2 for n in by_pos.values())
+    # Survivors are the highest-scoring per position, not the tail.
+    for pos in ("DL", "LB", "DB"):
+        pos_scored = [s for s in scored if s.position == pos]
+        pos_trim = [s for s in trimmed if s.position == pos]
+        pos_scored.sort(key=lambda x: x.points_test, reverse=True)
+        assert {s.player_id for s in pos_trim} <= {
+            s.player_id for s in pos_scored[:2]
+        }
+
+
+def test_trim_to_top_n_is_noop_when_falsy():
+    universe = _universe()[:5]
+    weights = {"idp_tkl_solo": 1.0}
+    scored = score_universe(universe, weights, weights)
+    assert len(trim_to_top_n_per_position(scored, None)) == len(scored)
+    assert len(trim_to_top_n_per_position(scored, 0)) == len(scored)
 
 
 def test_bucketize_blended_center_equals_mean_plus_median_over_2():
