@@ -23,8 +23,9 @@ def _error(status: int, message: str, **extra: Any) -> tuple[int, dict[str, Any]
     return status, payload
 
 
-def analyze(body: dict[str, Any] | None, *, base: Path | None = None) -> tuple[int, dict[str, Any]]:
-    body = body or {}
+def analyze(body: Any, *, base: Path | None = None) -> tuple[int, dict[str, Any]]:
+    if not isinstance(body, dict):
+        body = {}
     test_id = str(body.get("test_league_id") or "").strip()
     my_id = str(body.get("my_league_id") or "").strip()
     if not test_id or not my_id:
@@ -32,8 +33,12 @@ def analyze(body: dict[str, Any] | None, *, base: Path | None = None) -> tuple[i
             422,
             "Both test_league_id and my_league_id are required.",
         )
-    settings = AnalysisSettings.from_payload(body.get("settings"))
     try:
+        # Pulled inside the try block as belt-and-braces: from_payload
+        # funnels every sub-field through _as_dict / _as_list and numeric
+        # helpers, but if a future caller invents a new shape we still
+        # want a structured error, not a 500.
+        settings = AnalysisSettings.from_payload(body.get("settings"))
         artifact = run_analysis(test_id, my_id, settings)
     except Exception as exc:  # noqa: BLE001 — surface as user-friendly 500
         return _error(500, f"Analysis failed: {exc}")

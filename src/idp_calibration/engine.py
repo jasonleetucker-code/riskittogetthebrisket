@@ -74,6 +74,21 @@ def _safe_float(value: Any, default: float) -> float:
         return default
 
 
+def _as_dict(value: Any) -> dict[str, Any]:
+    """Return ``value`` if it is a dict, otherwise an empty dict.
+
+    Clients can send malformed shapes like ``"settings": "oops"`` or
+    ``"settings": [1,2,3]`` which would otherwise raise ``AttributeError``
+    when :meth:`AnalysisSettings.from_payload` calls ``.get()``. We funnel
+    every sub-field through this so the handler never 500s on type drift.
+    """
+    return value if isinstance(value, dict) else {}
+
+
+def _as_list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
 @dataclass
 class AnalysisSettings:
     seasons: list[int] = field(default_factory=lambda: list(DEFAULT_SEASONS))
@@ -92,27 +107,29 @@ class AnalysisSettings:
     top_n: int | None = None
 
     @staticmethod
-    def from_payload(payload: dict[str, Any] | None) -> "AnalysisSettings":
-        payload = payload or {}
-        seasons_raw = payload.get("seasons") or DEFAULT_SEASONS
+    def from_payload(payload: Any) -> "AnalysisSettings":
+        # Tolerate any non-dict payload (string, list, None, scalar).
+        payload = _as_dict(payload)
+        seasons_raw = _as_list(payload.get("seasons")) or list(DEFAULT_SEASONS)
         try:
             seasons = [int(s) for s in seasons_raw]
         except (TypeError, ValueError):
             seasons = list(DEFAULT_SEASONS)
-        replacement_raw = payload.get("replacement") or {}
-        manual_raw = (replacement_raw or {}).get("manual") or {}
+        replacement_raw = _as_dict(payload.get("replacement"))
+        manual_raw = _as_dict(replacement_raw.get("manual"))
         manual_safe: dict[str, int] = {}
-        if isinstance(manual_raw, dict):
-            for k, v in manual_raw.items():
-                parsed = _safe_int(v, 0)
-                if parsed > 0:
-                    manual_safe[str(k)] = parsed
+        for k, v in manual_raw.items():
+            parsed = _safe_int(v, 0)
+            if parsed > 0:
+                manual_safe[str(k)] = parsed
         replacement = ReplacementSettings(
             mode=str(replacement_raw.get("mode") or "starter_plus_buffer"),
             buffer_pct=_safe_float(replacement_raw.get("buffer_pct"), 0.15),
             manual=manual_safe,
         )
-        bucket_edges_raw = payload.get("bucket_edges") or [list(e) for e in DEFAULT_BUCKETS]
+        bucket_edges_raw = _as_list(payload.get("bucket_edges")) or [
+            list(e) for e in DEFAULT_BUCKETS
+        ]
         bucket_edges: list[list[int]] = []
         for edge in bucket_edges_raw:
             try:
@@ -123,13 +140,15 @@ class AnalysisSettings:
                 continue
         if not bucket_edges:
             bucket_edges = [list(e) for e in DEFAULT_BUCKETS]
-        blend_raw = payload.get("blend") or DEFAULT_BLEND
+        blend_raw = _as_dict(payload.get("blend")) or dict(DEFAULT_BLEND)
         blend = {
             "intrinsic": max(0.0, min(1.0, _safe_float(blend_raw.get("intrinsic"), 0.75))),
             "market": 0.0,
         }
         blend["market"] = round(1.0 - blend["intrinsic"], 6)
-        year_weights_raw = payload.get("year_weights") or DEFAULT_YEAR_WEIGHTS
+        year_weights_raw = _as_dict(payload.get("year_weights"))
+        if not year_weights_raw:
+            year_weights_raw = dict(DEFAULT_YEAR_WEIGHTS)
         year_weights: dict[int, float] = {}
         for k, v in year_weights_raw.items():
             try:
@@ -138,7 +157,7 @@ class AnalysisSettings:
                 continue
         if not year_weights:
             year_weights = dict(DEFAULT_YEAR_WEIGHTS)
-        anchors = payload.get("anchor_ranks") or DEFAULT_ANCHOR_RANKS
+        anchors = _as_list(payload.get("anchor_ranks")) or list(DEFAULT_ANCHOR_RANKS)
         try:
             anchor_ranks = sorted({int(a) for a in anchors})
         except (TypeError, ValueError):
