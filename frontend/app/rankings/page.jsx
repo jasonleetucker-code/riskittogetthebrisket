@@ -391,7 +391,7 @@ export default function RankingsPage() {
   // canonicalConsensusRank reflects the identity-mode ordering. This
   // is a pure client-side view toggle — the promoted config stays
   // live, rankings elsewhere in the app are unaffected.
-  const displayRows = useMemo(() => {
+  const toggledRows = useMemo(() => {
     if (!showIdpUncalibrated) return rows;
     const swapped = rows.map((r) => {
       const uncal = Number(r.rankDerivedValueUncalibrated) || null;
@@ -402,7 +402,7 @@ export default function RankingsPage() {
         values: { ...(r.values || {}), full: uncal },
       };
     });
-    const ranked = [...swapped]
+    const sortedForRerank = [...swapped]
       .filter((r) => r.canonicalConsensusRank)
       .sort(
         (a, b) =>
@@ -412,7 +412,7 @@ export default function RankingsPage() {
             (Number(b.canonicalConsensusRank) || 0),
       );
     const reranked = new Map();
-    ranked.forEach((r, idx) => {
+    sortedForRerank.forEach((r, idx) => {
       reranked.set(r, idx + 1);
     });
     return swapped.map((r) =>
@@ -424,8 +424,8 @@ export default function RankingsPage() {
 
   // ── Base eligible list ──────────────────────────────────────────
   const eligible = useMemo(() => {
-    return displayRows.filter(isEligibleForBoard);
-  }, [displayRows]);
+    return toggledRows.filter(isEligibleForBoard);
+  }, [toggledRows]);
 
   // ── Trust summary stats ──────────────────────────────────────────
   const trustStats = useMemo(() => {
