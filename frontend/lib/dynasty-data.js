@@ -95,8 +95,11 @@ export function normalizePlayerName(name) {
 // never disagrees with the backend on position assignment.
 export const IDP_PRIORITY = ["DL", "DB", "LB"];
 
-function _collectIdpFamilies(raw) {
-  const found = new Set();
+const _NON_IDP_ALIASES = new Set([
+  "QB", "RB", "WR", "TE", "K", "P", "PICK",
+]);
+
+function _collectIdpFamilies(raw, state) {
   const accept = (token) => {
     if (!token) return;
     const t = String(token).toUpperCase().trim();
@@ -112,25 +115,32 @@ function _collectIdpFamilies(raw) {
     }
     const stripped = t.replace(/\d+$/, "") || t;
     if (["DL", "DE", "DT", "EDGE", "NT"].includes(stripped)) {
-      found.add("DL");
+      state.found.add("DL");
     } else if (["DB", "CB", "S", "SS", "FS"].includes(stripped)) {
-      found.add("DB");
+      state.found.add("DB");
     } else if (["LB", "ILB", "OLB", "MLB"].includes(stripped)) {
-      found.add("LB");
+      state.found.add("LB");
+    } else if (_NON_IDP_ALIASES.has(stripped)) {
+      state.sawNonIdp = true;
     }
   };
   if (Array.isArray(raw)) raw.forEach(accept);
   else accept(raw);
-  return found;
 }
 
 export function resolveIdpPosition(...candidates) {
-  const found = new Set();
+  const state = { found: new Set(), sawNonIdp: false };
   for (const cand of candidates) {
-    for (const f of _collectIdpFamilies(cand)) found.add(f);
+    _collectIdpFamilies(cand, state);
   }
   for (const fam of IDP_PRIORITY) {
-    if (found.has(fam)) return fam;
+    if (!state.found.has(fam)) continue;
+    if (fam === "LB" && state.sawNonIdp) {
+      // LB must be exclusive per the product rule; mixed non-IDP
+      // context means we refuse to emit LB. Match the Python helper.
+      return "";
+    }
+    return fam;
   }
   return "";
 }

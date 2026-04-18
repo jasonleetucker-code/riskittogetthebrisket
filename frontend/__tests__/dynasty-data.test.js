@@ -985,6 +985,21 @@ describe("resolveIdpPosition (IDP multi-position priority)", () => {
     expect(resolveIdpPosition([])).toBe("");
   });
 
+  it("refuses LB when any non-IDP token is mixed in", () => {
+    // Product rule: LB only when exclusively LB-eligible.
+    expect(resolveIdpPosition("QB", "LB")).toBe("");
+    expect(resolveIdpPosition(["QB", "LB"])).toBe("");
+    expect(resolveIdpPosition("QB/LB")).toBe("");
+    expect(resolveIdpPosition("LB,WR")).toBe("");
+    expect(resolveIdpPosition("LB|TE")).toBe("");
+  });
+
+  it("DL and DB still win even with non-IDP context", () => {
+    expect(resolveIdpPosition("QB", "DL")).toBe("DL");
+    expect(resolveIdpPosition("WR", "CB")).toBe("DB");
+    expect(resolveIdpPosition("TE", "EDGE")).toBe("DL");
+  });
+
   it("normalizePos routes IDP multi-positions through the priority", () => {
     expect(normalizePos("DL/LB")).toBe("DL");
     expect(normalizePos("LB/CB")).toBe("DB");

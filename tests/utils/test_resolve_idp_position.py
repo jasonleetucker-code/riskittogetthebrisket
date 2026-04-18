@@ -80,6 +80,40 @@ class TestResolveIdpPosition:
         assert resolve_idp_position([]) == ""
         assert resolve_idp_position(None, "", []) == ""
 
+    @pytest.mark.parametrize(
+        "inputs",
+        [
+            ("QB", "LB"),          # mixed offense + LB
+            ("LB", "QB"),          # reversed order
+            (["QB", "LB"],),       # list form
+            ("QB/LB",),            # slash form
+            ("LB,WR",),            # comma form
+            ("LB|TE",),            # pipe form
+            ("LB", ["RB"]),        # split across candidates
+            ("K", "LB"),           # kicker + LB
+        ],
+    )
+    def test_lb_is_refused_when_any_non_idp_is_present(self, inputs):
+        # Product rule: LB must be emitted only when the player is
+        # exclusively LB-eligible. Non-IDP context (QB/RB/WR/TE/K/PICK)
+        # disqualifies the LB fallback.
+        assert resolve_idp_position(*inputs) == ""
+
+    @pytest.mark.parametrize(
+        "inputs,expected",
+        [
+            # DL / DB still win even when offensive context is mixed in —
+            # those are unambiguous IDP signals and the product rule
+            # only requires exclusivity for LB.
+            (("QB", "DL"), "DL"),
+            (("WR", "CB"), "DB"),
+            (("TE", "EDGE"), "DL"),
+            (("RB", "S"), "DB"),
+        ],
+    )
+    def test_dl_and_db_win_even_with_non_idp_context(self, inputs, expected):
+        assert resolve_idp_position(*inputs) == expected
+
 
 class TestNormalizePositionFamily:
     def test_slash_pairs_route_through_idp_priority(self):

@@ -361,8 +361,10 @@ def resolve_idp_position(*candidates: str | list[str] | tuple[str, ...] | None) 
     ''
     """
     collected: set[str] = set()
+    saw_non_idp = False
 
     def _accept(token: str) -> None:
+        nonlocal saw_non_idp
         if not token:
             return
         tok = _ascii_fold(token).upper().strip()
@@ -382,6 +384,11 @@ def resolve_idp_position(*candidates: str | list[str] | tuple[str, ...] | None) 
         canonical = POSITION_ALIASES.get(tok_base)
         if canonical in {"DL", "LB", "DB"}:
             collected.add(canonical)
+        elif canonical:
+            # Known non-IDP (QB/RB/WR/TE/K/PICK). Note its presence so
+            # we can enforce LB exclusivity below; unknown tokens are
+            # ignored to stay lenient on misformatted inputs.
+            saw_non_idp = True
 
     for cand in candidates:
         if cand is None:
@@ -394,8 +401,16 @@ def resolve_idp_position(*candidates: str | list[str] | tuple[str, ...] | None) 
             _accept(cand)
 
     for family in IDP_PRIORITY:
-        if family in collected:
-            return family
+        if family not in collected:
+            continue
+        if family == "LB" and saw_non_idp:
+            # "LB only when the player is exclusively LB-eligible" —
+            # if any non-IDP family also appeared, the player is not
+            # a pure IDP and we refuse to emit LB. DL / DB already
+            # matched above (they win over non-IDP context because
+            # they are strong, unambiguous IDP signals).
+            return ""
+        return family
     return ""
 
 
