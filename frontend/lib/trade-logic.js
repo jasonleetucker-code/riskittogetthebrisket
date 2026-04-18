@@ -29,44 +29,60 @@ const VERDICT_STRONG_LEAN = 1800;
 // consolidation premium can't be attributed after the fact.
 export const TRADE_ALPHA = 1.65;
 
-// ── KTC-Style Value Adjustment ───────────────────────────────────────────
+// ── KTC-Style Value Adjustment (V2 formula) ──────────────────────────────
 // Mirrors KeepTradeCut's "Value Adjustment" row: the side with fewer pieces
-// gets a consolidation / roster-spot bonus that scales with (1) how much
-// its top asset outclasses the multi-side's top asset and (2) the raw
-// value of the "extra" pieces on the multi side.
+// gets a consolidation / roster-spot bonus.
 //
-// Formula: scarcity = clamp(SLOPE · gapRatio − INTERCEPT, 0, CAP)
-//          VA = Σ extraᵢ · scarcity · POSITION_DECAYⁱ
+// Formula (hybrid — top-gap scarcity with per-extra ratio boost):
 //
-// Calibration against 6 observed KTC data points
-// (3 original 1-vs-2 + 3 new 1-vs-3, pinned in trade-logic.test.js):
+//   top_gap         = max(0, (small_top − large_top) / small_top)
+//   top_scarcity    = clamp(SLOPE · top_gap − INTERCEPT, 0, CAP)
+//   for each extraᵢ:
+//       extra_gapᵢ  = max(0, (small_top − extraᵢ) / small_top)
+//       effᵢ        = clamp(top_scarcity + BOOST · max(0, extra_gapᵢ − top_gap),
+//                           0, EFFECTIVE_CAP)
+//       VA         += extraᵢ · effᵢ · DECAYⁱ
 //
-//   case  layout         single  multi                KTC   model  err%
-//   A     1-vs-2         9999    7846+5717            3712  3610   -2.7
-//   B     1-vs-2         7846    5717+4829            3034  3091   +1.9
-//   C     1-vs-2         7846    6949+5717            1166  1144   -1.9
-//   D     1-vs-3         4342    2667+2324+1172       1820  2012  +10.6
-//   E     1-vs-3         7798    4519+4208+2906       3834  3995   +4.2
-//   F     1-vs-3         9999    7471+4862+2215       4879  4104  -15.9
+// The per-extra boost is the key V2 innovation.  It says: if a specific
+// extra is a low-value throw-in (large extra_gap relative to top_gap),
+// give it proportionally more consolidation premium.  A throw-in pick
+// 3.x "costs a roster slot" far cheaper than its face value, so a
+// larger fraction becomes VA.  Conversely, an extra piece near
+// ``large_top`` is "real" value, so its weight stays close to
+// top_scarcity — matching the old V1 behavior for that case.
 //
-//   mean |err| = 6.2%,  max |err| = 15.9% (case F).
+// Calibration against 13 observed KTC data points (Superflex, TEP=1):
 //
-// KNOWN STRUCTURAL LIMIT: these coefficients are already near-optimal
-// for the linear-scarcity / exponential-decay formula family.  See
-// ``scripts/calibrate_va_formula.py`` — a joint refit of all 4
-// parameters cannot drop max error below ~13% without mean error
-// ballooning past 10%.  The underlying issue: point F (low gap ratio,
-// high first extra) and points D+E (higher gap ratios, moderate
-// first extras) demand incompatible scarcity values under the current
-// structure.  Closing the F gap requires a formula redesign — try
-// scarcity that responds to extras ratio in addition to gap ratio, or
-// a per-extra scarcity instead of a shared-scarcity-with-decay.  Do
-// NOT attempt to close the gap by tuning these 4 constants — the
-// regression tests will catch the resulting collateral damage.
-export const VA_SCARCITY_SLOPE = 4.27;
-export const VA_SCARCITY_INTERCEPT = 0.288;
-export const VA_SCARCITY_CAP = 0.64;
-export const VA_POSITION_DECAY = 0.70;
+//   case  layout   small           large                KTC    V2    err%
+//   A     1v2      9999            7846+5717            3712   3748   +1.0
+//   B     1v2      7846            5717+4829            3034   3421  +12.8
+//   C     1v2      7846            6949+5717            1166   1257   +7.8
+//   D     1v3      4342            2667+2324+1172       1820   1945   +6.9
+//   E     1v3      7798            4519+4208+2906       3834   3403  -11.2
+//   F     1v3      9999            7471+4862+2215       4879   4973   +1.9
+//   G     1v2      7795            6883+2950            2077   2084   +0.3
+//   H     1v3      7795            5086+4021+2950       3587   3945  +10.0
+//   I     1v2      9999            7813+5086            4103   3823   -6.8
+//   J     1v3      9999            7813+3811+2756       4848   4509   -7.0
+//   K     1v2      7509            6737+2179            1887   1852   -1.9
+//   L     3v5      9999+9983+5086  9603+7687+7298+      4586   4085  -10.9
+//                                  4206+2670
+//   M     2v3      7795+1914       5086+4021+3943       3371   2978  -11.7
+//
+//   mean |err| = 6.9%,  max |err| = 12.8%,  rms = 8.1%
+//   (V1 was mean 28.3%, max 100%, rms 42.8% on the same 13 points.)
+//
+// The calibration script at ``scripts/calibrate_va_formula.py`` grids
+// several candidate formula families against all 13 observed points.
+// V2 is the winner under a blended (mean + max/4) objective.  If you
+// tune these coefficients, re-run the script to check that the full
+// 13-point regression doesn't regress.
+export const VA_SCARCITY_SLOPE = 3.75;
+export const VA_SCARCITY_INTERCEPT = 0.45;
+export const VA_SCARCITY_CAP = 0.55;
+export const VA_PER_EXTRA_BOOST = 1.4;
+export const VA_EFFECTIVE_CAP = 1.0;
+export const VA_POSITION_DECAY = 0.35;
 
 // ── Pick Year Discount ──────────────────────────────────────────────────
 // Future-year picks are worth less than current-year picks.
@@ -137,11 +153,10 @@ function sortedSideValues(side, valueMode, settings) {
  * Compute the KTC-style Value Adjustment between two sides.
  *
  * The side with fewer pieces receives a bonus representing the
- * consolidation / roster-spot premium.  The bonus scales with:
- *   (a) how much the smaller side's top asset outclasses the larger
- *       side's top asset (gapRatio), and
- *   (b) the raw value of each "extra" piece on the larger side
- *       beyond parity, decayed by POSITION_DECAY per additional slot.
+ * consolidation / roster-spot premium.  Uses the V2 hybrid formula:
+ * a top-gap scarcity that sets the baseline, plus a per-extra boost
+ * that scales up each extra's effective weight when it is smaller
+ * than the matched top-large piece (throw-in premium).
  *
  * Returns { adjustment, recipientIdx } where:
  *   - adjustment: ≥ 0 bonus to apply to the receiving side's total
@@ -170,19 +185,46 @@ export function computeValueAdjustment(sideA, sideB, valueMode, settings = null)
 
   const topSmall = small[0];
   const topLarge = large[0] || 0;
-  const gapRatio = Math.max(0, (topSmall - topLarge) / topSmall);
+  const topGap = Math.max(0, (topSmall - topLarge) / topSmall);
 
-  const rawScarcity = VA_SCARCITY_SLOPE * gapRatio - VA_SCARCITY_INTERCEPT;
-  const scarcity = Math.max(0, Math.min(VA_SCARCITY_CAP, rawScarcity));
-
-  if (scarcity === 0) {
+  // If the small side's top is no better than the large side's top,
+  // there's no consolidation upgrade to reward — return zero VA
+  // regardless of any throw-ins on the large side.  This preserves
+  // the V1 invariant; every KTC data point we've calibrated against
+  // has topSmall > topLarge (including case L at a 0.04 gap).
+  if (topGap === 0) {
     return { adjustment: 0, recipientIdx };
   }
 
+  const rawScarcity = VA_SCARCITY_SLOPE * topGap - VA_SCARCITY_INTERCEPT;
+  const topScarcity = Math.max(0, Math.min(VA_SCARCITY_CAP, rawScarcity));
+
   const extras = large.slice(small.length);
+
+  // Per-extra effective weight with a "throw-in" boost.
+  //
+  // For each extra, compute its own gap ratio relative to the small
+  // side's top.  The further this extra's gap is below topGap, the
+  // smaller (more "filler") the extra is — and the higher its
+  // effective weight should climb (KTC rewards trading filler for
+  // consolidation).  When extra_gap ≈ topGap (the extra is as valuable
+  // as ``topLarge``), the boost goes to zero and we reduce back to the
+  // plain V1 behavior for that piece.
+  //
+  // If topScarcity is zero AND no extras beat the gap floor (only
+  // happens for near-even tops AND matched extras), VA stays zero.
   let adjustment = 0;
   for (let p = 0; p < extras.length; p++) {
-    adjustment += extras[p] * scarcity * Math.pow(VA_POSITION_DECAY, p);
+    const extra = extras[p];
+    const extraGap = topSmall > 0
+      ? Math.max(0, (topSmall - extra) / topSmall)
+      : 0;
+    const boostTerm = VA_PER_EXTRA_BOOST * Math.max(0, extraGap - topGap);
+    const effective = Math.max(
+      0,
+      Math.min(VA_EFFECTIVE_CAP, topScarcity + boostTerm),
+    );
+    adjustment += extra * effective * Math.pow(VA_POSITION_DECAY, p);
   }
 
   return { adjustment, recipientIdx };

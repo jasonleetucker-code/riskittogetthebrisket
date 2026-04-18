@@ -17,6 +17,8 @@ import {
   VA_SCARCITY_INTERCEPT,
   VA_SCARCITY_CAP,
   VA_POSITION_DECAY,
+  VA_PER_EXTRA_BOOST,
+  VA_EFFECTIVE_CAP,
   effectiveValue,
   pickYearDiscount,
   addAssetToSide,
@@ -172,12 +174,22 @@ describe("tradeGapAdjusted (KTC-style)", () => {
     expect(gap).toBeGreaterThan(rawGap); // VA added to single side → less negative
   });
 
-  it("1-vs-2 with near-matching top assets produces no VA (clamped scarcity)", () => {
-    // When the small side's top is only marginally better than the multi's
-    // top, scarcity clamps to 0 and the adjusted gap equals the raw gap.
+  it("1-vs-2 with near-matching top assets still awards throw-in VA (V2)", () => {
+    // ALLEN (9000) vs [CHASE (8500), PICK_2026 (7000)].  Top gap is
+    // small (~5.5%) so V1's shared scarcity would clamp to 0 and
+    // produce no VA.  V2's per-extra boost sees that PICK_2026 has
+    // a much larger gap-to-single than CHASE does, treats it as a
+    // throw-in, and awards a partial VA anyway.  The adjusted gap
+    // is therefore strictly less-negative than the raw linear gap.
     const gap = tradeGapAdjusted([ALLEN], [CHASE, PICK_2026], "full");
-    const rawGap = 9000 - (8500 + 7000);
-    expect(gap).toBe(rawGap);
+    const rawGap = 9000 - (8500 + 7000); // −6500
+    // Small side (ALLEN) is the recipient — their adjusted total is
+    // closer to parity, so gap (A − B) moves toward zero from −6500.
+    expect(gap).toBeGreaterThan(rawGap);
+    expect(gap).toBeLessThan(0);
+    // V2-exact: VA ≈ 7000 · 1.4 · (extraGap − topGap).  The throw-in
+    // gets a weight around 0.23, giving ~1600 VA → gap around −4870.
+    expect(gap).toBeCloseTo(-4866.67, 0);
   });
 
   it("returns 0 for empty vs empty", () => {
@@ -222,35 +234,49 @@ describe("computeValueAdjustment", () => {
 
   it("applies depth decay for multiple extra pieces", () => {
     // single=9999 vs [7000, 5000, 3000] (2 extras: 5000 at p=0, 3000 at p=1)
+    //
+    // Under V2 (hybrid top-gap scarcity + per-extra boost + depth
+    // decay), we assert the formula matches exactly — this is a
+    // self-consistency check on the implementation, not a KTC anchor.
     const single = [mockRow(9999)];
     const multi = [mockRow(7000), mockRow(5000), mockRow(3000)];
     const r = computeValueAdjustment(single, multi, "full");
-    const gapRatio = (9999 - 7000) / 9999;
-    const scarcity = Math.min(
+
+    const topSmall = 9999;
+    const topLarge = 7000;
+    const topGap = (topSmall - topLarge) / topSmall;
+    const topScarcity = Math.min(
       VA_SCARCITY_CAP,
-      Math.max(0, VA_SCARCITY_SLOPE * gapRatio - VA_SCARCITY_INTERCEPT),
+      Math.max(0, VA_SCARCITY_SLOPE * topGap - VA_SCARCITY_INTERCEPT),
     );
+    const effectiveFor = (extra) => {
+      const extraGap = Math.max(0, (topSmall - extra) / topSmall);
+      const boostTerm = VA_PER_EXTRA_BOOST * Math.max(0, extraGap - topGap);
+      return Math.max(0, Math.min(VA_EFFECTIVE_CAP, topScarcity + boostTerm));
+    };
     const expected =
-      5000 * scarcity * Math.pow(VA_POSITION_DECAY, 0) +
-      3000 * scarcity * Math.pow(VA_POSITION_DECAY, 1);
+      5000 * effectiveFor(5000) * Math.pow(VA_POSITION_DECAY, 0) +
+      3000 * effectiveFor(3000) * Math.pow(VA_POSITION_DECAY, 1);
     expect(r.adjustment).toBeCloseTo(expected, 5);
     expect(r.recipientIdx).toBe(0);
   });
 
-  // Pinned KTC-observed data points — regression anchors for the fitted
-  // coefficients.  Tolerances are per-case because the underlying formula
-  // (see ``VA_*`` constants in trade-logic.js) has a structural limit:
-  // the 1-vs-3 cases D/E/F cannot be fit simultaneously below ~16% max
-  // error.  Each test's tolerance reflects the empirical error under
-  // today's coefficients — if a future refit improves a case, tighten
-  // the tolerance here at the same time.  If a future refit regresses
-  // a case past its tolerance, the test fails and you reconsider.
+  // ── Pinned KTC data points (13 observations, V2 formula) ─────────────
+  // These are the regression anchors for the V2 hybrid formula in
+  // ``trade-logic.js``.  Per-case tolerances reflect the empirical
+  // residuals after calibration — see ``scripts/calibrate_va_formula.py``
+  // for the full fit.  The aggregate test at the bottom pins
+  // mean |err| < 8% and max |err| < 13% so silent drift from any
+  // future coefficient change is caught immediately.
   //
-  // See ``scripts/calibrate_va_formula.py`` for the refit evidence.
-  describe("KTC-observed cases", () => {
+  // Cases A–F: original calibration screenshots (PRs #82, #84).
+  // Cases G–M: follow-up screenshots adding 1-vs-2 throw-in cases,
+  // a 3-vs-5 consolidation, and a 2-vs-3 case to the calibration set.
+  // All taken at KTC Superflex / TEP=1.
+  describe("KTC-observed cases (V2 formula, 13 anchors)", () => {
     const pctTolerance = (ktcVA, pct) => Math.max(100, Math.abs(ktcVA) * pct);
 
-    // ── 1-vs-2 cases (original calibration set) ──────────────────────
+    // ── 1-vs-2 ────────────────────────────────────────────────────────
     it("[A] 9999 vs 7846+5717 → ~3712 (±5%)", () => {
       const r = computeValueAdjustment(
         [mockRow(9999)],
@@ -261,90 +287,175 @@ describe("computeValueAdjustment", () => {
       expect(Math.abs(r.adjustment - 3712)).toBeLessThanOrEqual(pctTolerance(3712, 0.05));
     });
 
-    it("[B] 7846 vs 5717+4829 → ~3034 (±5%)", () => {
+    it("[B] 7846 vs 5717+4829 → ~3034 (±15%)", () => {
       const r = computeValueAdjustment(
         [mockRow(7846)],
         [mockRow(5717), mockRow(4829)],
         "full",
       );
       expect(r.recipientIdx).toBe(0);
-      expect(Math.abs(r.adjustment - 3034)).toBeLessThanOrEqual(pctTolerance(3034, 0.05));
+      expect(Math.abs(r.adjustment - 3034)).toBeLessThanOrEqual(pctTolerance(3034, 0.15));
     });
 
-    it("[C] 7846 vs 6949+5717 → ~1166 when top assets are close (±5%)", () => {
+    it("[C] 7846 vs 6949+5717 → ~1166 (close tops, ±10%)", () => {
       const r = computeValueAdjustment(
         [mockRow(7846)],
         [mockRow(6949), mockRow(5717)],
         "full",
       );
       expect(r.recipientIdx).toBe(0);
-      expect(Math.abs(r.adjustment - 1166)).toBeLessThanOrEqual(pctTolerance(1166, 0.05));
+      expect(Math.abs(r.adjustment - 1166)).toBeLessThanOrEqual(pctTolerance(1166, 0.10));
     });
 
-    // ── 1-vs-3 cases (new calibration anchors) ───────────────────────
-    // Pin generously to reflect the known structural ~16% error on F.
-    // These tests guard against silent drift of the 1-vs-3 behavior
-    // when someone refits the 1-vs-2 coefficients.
-    it("[D] 4342 vs 2667+2324+1172 → ~1820 (±12%)", () => {
+    it("[G] 7795 vs 6883+2950 → ~2077 (throw-in pick, ±5%)", () => {
+      const r = computeValueAdjustment(
+        [mockRow(7795)],
+        [mockRow(6883), mockRow(2950)],
+        "full",
+      );
+      expect(r.recipientIdx).toBe(0);
+      expect(Math.abs(r.adjustment - 2077)).toBeLessThanOrEqual(pctTolerance(2077, 0.05));
+    });
+
+    it("[I] 9999 vs 7813+5086 → ~4103 (±10%)", () => {
+      const r = computeValueAdjustment(
+        [mockRow(9999)],
+        [mockRow(7813), mockRow(5086)],
+        "full",
+      );
+      expect(r.recipientIdx).toBe(0);
+      expect(Math.abs(r.adjustment - 4103)).toBeLessThanOrEqual(pctTolerance(4103, 0.10));
+    });
+
+    it("[K] 7509 vs 6737+2179 → ~1887 (low-value second piece, ±5%)", () => {
+      const r = computeValueAdjustment(
+        [mockRow(7509)],
+        [mockRow(6737), mockRow(2179)],
+        "full",
+      );
+      expect(r.recipientIdx).toBe(0);
+      expect(Math.abs(r.adjustment - 1887)).toBeLessThanOrEqual(pctTolerance(1887, 0.05));
+    });
+
+    // ── 1-vs-3 ────────────────────────────────────────────────────────
+    it("[D] 4342 vs 2667+2324+1172 → ~1820 (±10%)", () => {
       const r = computeValueAdjustment(
         [mockRow(4342)],
         [mockRow(2667), mockRow(2324), mockRow(1172)],
         "full",
       );
       expect(r.recipientIdx).toBe(0);
-      expect(Math.abs(r.adjustment - 1820)).toBeLessThanOrEqual(pctTolerance(1820, 0.12));
+      expect(Math.abs(r.adjustment - 1820)).toBeLessThanOrEqual(pctTolerance(1820, 0.10));
     });
 
-    it("[E] 7798 vs 4519+4208+2906 → ~3834 (±7%)", () => {
+    it("[E] 7798 vs 4519+4208+2906 → ~3834 (±13%)", () => {
       const r = computeValueAdjustment(
         [mockRow(7798)],
         [mockRow(4519), mockRow(4208), mockRow(2906)],
         "full",
       );
       expect(r.recipientIdx).toBe(0);
-      expect(Math.abs(r.adjustment - 3834)).toBeLessThanOrEqual(pctTolerance(3834, 0.07));
+      expect(Math.abs(r.adjustment - 3834)).toBeLessThanOrEqual(pctTolerance(3834, 0.13));
     });
 
-    it("[F] 9999 vs 7471+4862+2215 → ~4879 (±17%, structural limit)", () => {
-      // Known under-prediction: the linear-scarcity + exponential-decay
-      // formula can't hit F's high VA/single ratio (4879/9999 = 0.49)
-      // when its gap ratio (0.25) is low enough to demand a low scarcity
-      // that can't support so much extras-driven bonus.  See
-      // scripts/calibrate_va_formula.py for the proof this can't be
-      // closed without breaking A-E.
+    it("[F] 9999 vs 7471+4862+2215 → ~4879 (±5%)", () => {
       const r = computeValueAdjustment(
         [mockRow(9999)],
         [mockRow(7471), mockRow(4862), mockRow(2215)],
         "full",
       );
       expect(r.recipientIdx).toBe(0);
-      expect(Math.abs(r.adjustment - 4879)).toBeLessThanOrEqual(pctTolerance(4879, 0.17));
+      expect(Math.abs(r.adjustment - 4879)).toBeLessThanOrEqual(pctTolerance(4879, 0.05));
     });
 
-    // Aggregate mean-error invariant: the six pinned points collectively
-    // must stay under 8% mean |pct error|.  If a refit drives any
-    // individual case past its per-case tolerance above, that fails
-    // first; this is a belt-and-suspenders check that the overall fit
-    // didn't degrade even while staying within individual tolerances.
-    it("mean |error| across all 6 pinned points stays under 8%", () => {
+    it("[H] 7795 vs 5086+4021+2950 → ~3587 (±12%)", () => {
+      const r = computeValueAdjustment(
+        [mockRow(7795)],
+        [mockRow(5086), mockRow(4021), mockRow(2950)],
+        "full",
+      );
+      expect(r.recipientIdx).toBe(0);
+      expect(Math.abs(r.adjustment - 3587)).toBeLessThanOrEqual(pctTolerance(3587, 0.12));
+    });
+
+    it("[J] 9999 vs 7813+3811+2756 → ~4848 (±9%)", () => {
+      const r = computeValueAdjustment(
+        [mockRow(9999)],
+        [mockRow(7813), mockRow(3811), mockRow(2756)],
+        "full",
+      );
+      expect(r.recipientIdx).toBe(0);
+      expect(Math.abs(r.adjustment - 4848)).toBeLessThanOrEqual(pctTolerance(4848, 0.09));
+    });
+
+    // ── 3-vs-5 (many pieces, near-equal tops) ─────────────────────────
+    it("[L] 9999+9983+5086 vs 9603+7687+7298+4206+2670 → ~4586 (±13%)", () => {
+      const r = computeValueAdjustment(
+        [mockRow(9999), mockRow(9983), mockRow(5086)],
+        [mockRow(9603), mockRow(7687), mockRow(7298), mockRow(4206), mockRow(2670)],
+        "full",
+      );
+      expect(r.recipientIdx).toBe(0);
+      expect(Math.abs(r.adjustment - 4586)).toBeLessThanOrEqual(pctTolerance(4586, 0.13));
+    });
+
+    // ── 2-vs-3 (small has multiple pieces) ────────────────────────────
+    it("[M] 7795+1914 vs 5086+4021+3943 → ~3371 (±13%)", () => {
+      const r = computeValueAdjustment(
+        [mockRow(7795), mockRow(1914)],
+        [mockRow(5086), mockRow(4021), mockRow(3943)],
+        "full",
+      );
+      expect(r.recipientIdx).toBe(0);
+      expect(Math.abs(r.adjustment - 3371)).toBeLessThanOrEqual(pctTolerance(3371, 0.13));
+    });
+
+    // ── Aggregate invariants ──────────────────────────────────────────
+    // Belt-and-suspenders guards that catch a silent drift where every
+    // individual case passes its per-case tolerance yet the overall fit
+    // has degraded.  If these fail after a coefficient change, re-run
+    // ``scripts/calibrate_va_formula.py`` to find a better fit.
+    function _computeAllErrors() {
       const cases = [
-        { single: 9999, multi: [7846, 5717], ktc: 3712 },
-        { single: 7846, multi: [5717, 4829], ktc: 3034 },
-        { single: 7846, multi: [6949, 5717], ktc: 1166 },
-        { single: 4342, multi: [2667, 2324, 1172], ktc: 1820 },
-        { single: 7798, multi: [4519, 4208, 2906], ktc: 3834 },
-        { single: 9999, multi: [7471, 4862, 2215], ktc: 4879 },
+        { small: [9999], large: [7846, 5717], ktc: 3712 },
+        { small: [7846], large: [5717, 4829], ktc: 3034 },
+        { small: [7846], large: [6949, 5717], ktc: 1166 },
+        { small: [4342], large: [2667, 2324, 1172], ktc: 1820 },
+        { small: [7798], large: [4519, 4208, 2906], ktc: 3834 },
+        { small: [9999], large: [7471, 4862, 2215], ktc: 4879 },
+        { small: [7795], large: [6883, 2950], ktc: 2077 },
+        { small: [7795], large: [5086, 4021, 2950], ktc: 3587 },
+        { small: [9999], large: [7813, 5086], ktc: 4103 },
+        { small: [9999], large: [7813, 3811, 2756], ktc: 4848 },
+        { small: [7509], large: [6737, 2179], ktc: 1887 },
+        { small: [9999, 9983, 5086], large: [9603, 7687, 7298, 4206, 2670], ktc: 4586 },
+        { small: [7795, 1914], large: [5086, 4021, 3943], ktc: 3371 },
       ];
-      const pctErrors = cases.map((c) => {
+      return cases.map((c) => {
         const r = computeValueAdjustment(
-          [mockRow(c.single)],
-          c.multi.map((v) => mockRow(v)),
+          c.small.map((v) => mockRow(v)),
+          c.large.map((v) => mockRow(v)),
           "full",
         );
         return Math.abs((r.adjustment - c.ktc) / c.ktc);
       });
-      const mean = pctErrors.reduce((a, b) => a + b, 0) / pctErrors.length;
+    }
+
+    it("mean |error| across all 13 pinned points stays under 8%", () => {
+      const errs = _computeAllErrors();
+      const mean = errs.reduce((a, b) => a + b, 0) / errs.length;
       expect(mean).toBeLessThan(0.08);
+    });
+
+    it("max |error| across all 13 pinned points stays under 13%", () => {
+      const errs = _computeAllErrors();
+      expect(Math.max(...errs)).toBeLessThan(0.13);
+    });
+
+    it("zero cases exceed 20% error (no silent disasters)", () => {
+      const errs = _computeAllErrors();
+      const over20 = errs.filter((e) => e > 0.20).length;
+      expect(over20).toBe(0);
     });
   });
 });
@@ -618,13 +729,18 @@ describe("full trade scenario", () => {
     // Remove an asset — newA now has 2 pieces (8800+7000), trimmedB has 1 (9000)
     const trimmedB = removeAssetFromSide(newB, "Ja'Marr Chase");
     const newGap = tradeGapAdjusted(newA, trimmedB, "full");
-    // trimmedB's top (9000) is only 2.2% better than newA's top (8800), so
-    // gapRatio is below the scarcity intercept and VA clamps to 0 — the
-    // adjusted gap equals the raw gap here.  The near-matching-tops test
-    // above pins this behavior explicitly.
+    // V2 per-extra boost: trimmedB's top (9000) is only 2.2% better
+    // than newA's top (8800), but newA's PICK_2026 (7000) is a throw-in
+    // (gap-to-single ≈ 22%).  V2 awards trimmedB a partial VA on that
+    // throw-in even though the top-gap-based scarcity has clamped to 0.
+    // Under V1 this case returned raw gap 6800; under V2 it shrinks
+    // toward parity.
     const rawNewGap = (8800 + 7000) - 9000;
     expect(rawNewGap).toBe(6800);
-    expect(newGap).toBe(rawNewGap);
+    expect(newGap).toBeLessThan(rawNewGap);
+    expect(newGap).toBeGreaterThan(0);
+    // V2-exact: VA ≈ 7000 · 1.4 · (0.222 − 0.022) = ~1960, so newGap ≈ 4840.
+    expect(newGap).toBeCloseTo(4840, 0);
 
     // Serialize and restore
     const serialized = serializeWorkspace(newA, trimmedB, "full", "A");
