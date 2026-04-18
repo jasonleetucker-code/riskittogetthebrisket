@@ -238,6 +238,129 @@ def _most_chaotic_manager(awards_section: dict[str, Any]) -> dict[str, Any] | No
     return None
 
 
+# ── v2 home callouts (from specialized sections) ────────────────────────
+def _current_power_leader(power_section: dict[str, Any]) -> dict[str, Any] | None:
+    ranking = power_section.get("currentRanking") or []
+    if not ranking:
+        return None
+    head = ranking[0]
+    return {
+        "ownerId": head.get("ownerId"),
+        "displayName": head.get("displayName"),
+        "teamName": head.get("teamName"),
+        "power": head.get("power"),
+        "record": head.get("record"),
+        "weekRankDelta": head.get("weekRankDelta", 0),
+    }
+
+
+def _slim_luck_row(row: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not row:
+        return None
+    return {
+        "ownerId": row.get("ownerId"),
+        "displayName": row.get("displayName"),
+        "teamName": row.get("teamName"),
+        "luckDelta": row.get("luckDelta"),
+        "actualWins": row.get("actualWins"),
+        "expectedWins": row.get("expectedWins"),
+    }
+
+
+def _lucky_unlucky_current(luck_section: dict[str, Any]) -> dict[str, Any] | None:
+    lucky = luck_section.get("luckiestCurrent")
+    unlucky = luck_section.get("unluckiestCurrent")
+    if not lucky and not unlucky:
+        return None
+    return {
+        "season": luck_section.get("currentSeason"),
+        "lucky": _slim_luck_row(lucky),
+        "unlucky": _slim_luck_row(unlucky),
+    }
+
+
+def _active_streak_highlight(streaks_section: dict[str, Any]) -> dict[str, Any] | None:
+    """The single longest ongoing streak across all managers + all types."""
+    active = streaks_section.get("activeStreaks") or []
+    if not active:
+        return None
+    head = active[0]
+    return {
+        "type": head.get("type"),
+        "length": head.get("length"),
+        "ownerId": head.get("ownerId"),
+        "displayName": head.get("displayName"),
+        "start": head.get("start"),
+        "end": head.get("end"),
+    }
+
+
+def _slim_record(rec: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "category": rec.get("category"),
+        "label": rec.get("label"),
+        "holder": rec.get("holder"),
+        "chaser": rec.get("chaser"),
+    }
+
+
+def _record_in_reach(streaks_section: dict[str, Any]) -> dict[str, Any] | None:
+    """Preferred: first record with a ``withinReach`` chaser.  Fallback:
+    first record-in-reach row with any chaser.  Final fallback: None.
+    """
+    records = streaks_section.get("recordsInReach") or []
+    in_reach = [r for r in records if (r.get("chaser") or {}).get("withinReach")]
+    if in_reach:
+        return _slim_record(in_reach[0])
+    with_chaser = [r for r in records if r.get("chaser")]
+    if with_chaser:
+        return _slim_record(with_chaser[0])
+    return None
+
+
+def _upcoming_week_preview(matchup_preview_section: dict[str, Any]) -> dict[str, Any] | None:
+    """Headline matchup for This Week.  We rank by H2H total meetings so
+    the pair with the most history leads — usually the most narrative
+    heft.  Falls back to the first matchup if none have history.
+    """
+    matchups = matchup_preview_section.get("matchups") or []
+    if not matchups:
+        return None
+    ranked = sorted(matchups, key=lambda m: -(m.get("h2h") or {}).get("totalMeetings", 0))
+    head = ranked[0]
+    return {
+        "season": matchup_preview_section.get("currentSeason"),
+        "week": matchup_preview_section.get("currentWeek"),
+        "mode": matchup_preview_section.get("mode"),
+        "home": head.get("home"),
+        "away": head.get("away"),
+        "h2h": {
+            "totalMeetings": (head.get("h2h") or {}).get("totalMeetings"),
+            "homeWins": (head.get("h2h") or {}).get("homeWins"),
+            "awayWins": (head.get("h2h") or {}).get("awayWins"),
+            "narrative": (head.get("h2h") or {}).get("narrative"),
+        },
+    }
+
+
+def _latest_full_recap(weekly_recap_section: dict[str, Any]) -> dict[str, Any] | None:
+    latest = weekly_recap_section.get("latest")
+    if not latest:
+        return None
+    return {
+        "season": latest.get("season"),
+        "week": latest.get("week"),
+        "isPlayoff": latest.get("isPlayoff", False),
+        "headline": latest.get("headline"),
+        "summary": latest.get("summary"),
+        "mvp": latest.get("mvp"),
+        "blowout": latest.get("blowout"),
+        "nailBiter": latest.get("nailBiter"),
+        "badBeat": latest.get("badBeat"),
+        "tradesCount": len(latest.get("trades") or []),
+    }
+
+
 def _league_vitals(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     total_trades = 0
     total_waivers = 0
@@ -267,11 +390,26 @@ def build_section(
     activity_section: dict[str, Any],
     draft_section: dict[str, Any],
     weekly_section: dict[str, Any],
+    luck_section: dict[str, Any] | None = None,
+    streaks_section: dict[str, Any] | None = None,
+    power_section: dict[str, Any] | None = None,
+    matchup_preview_section: dict[str, Any] | None = None,
+    weekly_recap_section: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build the overview section.  All inputs are already-built
     section payloads from the rest of the public contract so we can
     compose headline views from trusted derived data.
+
+    The v2 section kwargs (luck, streaks, power, matchup_preview,
+    weekly_recap) are optional — when absent, the corresponding
+    home-tab callouts are emitted as ``None``.  Older contract
+    consumers pre-dating these sections still work.
     """
+    luck_section = luck_section or {}
+    streaks_section = streaks_section or {}
+    power_section = power_section or {}
+    matchup_preview_section = matchup_preview_section or {}
+    weekly_recap_section = weekly_recap_section or {}
     return {
         "seasonRangeLabel": _season_range_label(snapshot),
         "currentChampion": _current_champion(history_section),
@@ -285,4 +423,13 @@ def build_section(
         "hottestRace": awards_section.get("hottestRace"),
         "mostChaoticManager": _most_chaotic_manager(awards_section),
         "leagueVitals": _league_vitals(snapshot),
+        # v2 Home callouts — derived from the 5 specialized sections
+        # added in PR #83.  Each may be null when the source section
+        # has no data (e.g. no current-season games, no active streaks).
+        "currentPowerLeader": _current_power_leader(power_section),
+        "luckyUnluckyCurrent": _lucky_unlucky_current(luck_section),
+        "activeStreakHighlight": _active_streak_highlight(streaks_section),
+        "recordInReach": _record_in_reach(streaks_section),
+        "upcomingWeekPreview": _upcoming_week_preview(matchup_preview_section),
+        "latestFullRecap": _latest_full_recap(weekly_recap_section),
     }

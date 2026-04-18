@@ -81,6 +81,56 @@ class OverviewTests(unittest.TestCase):
         self.assertIn("season", recap)
         self.assertIn("week", recap)
 
+    # ── v2 Home callouts ─────────────────────────────────────────────
+    def test_current_power_leader_populated(self) -> None:
+        leader = self.overview["currentPowerLeader"]
+        self.assertIsNotNone(leader)
+        for key in ("ownerId", "displayName", "teamName", "power", "record"):
+            self.assertIn(key, leader)
+        self.assertGreaterEqual(leader["power"], 0)
+        self.assertLessEqual(leader["power"], 100)
+
+    def test_lucky_unlucky_current_populated(self) -> None:
+        lu = self.overview["luckyUnluckyCurrent"]
+        self.assertIsNotNone(lu)
+        self.assertEqual(lu["season"], "2025")
+        self.assertIsNotNone(lu["lucky"])
+        self.assertIsNotNone(lu["unlucky"])
+        # Lucky luck delta >= unlucky luck delta.
+        self.assertGreaterEqual(lu["lucky"]["luckDelta"], lu["unlucky"]["luckDelta"])
+
+    def test_active_streak_highlight_populated(self) -> None:
+        s = self.overview["activeStreakHighlight"]
+        self.assertIsNotNone(s)
+        self.assertIn("type", s)
+        self.assertIn("length", s)
+        self.assertGreater(s["length"], 0)
+
+    def test_record_in_reach_has_holder_and_maybe_chaser(self) -> None:
+        rec = self.overview["recordInReach"]
+        if rec is None:
+            # Fixture may not produce a chaser; skip.
+            return
+        self.assertIn("holder", rec)
+        self.assertIn("category", rec)
+
+    def test_upcoming_week_preview_populated(self) -> None:
+        preview = self.overview["upcomingWeekPreview"]
+        # Fixture's 2025 season is complete, so mode should be "recap".
+        self.assertIsNotNone(preview)
+        self.assertIn(preview["mode"], ("recap", "preview"))
+        self.assertIn("home", preview)
+        self.assertIn("away", preview)
+        self.assertIn("h2h", preview)
+
+    def test_latest_full_recap_populated(self) -> None:
+        recap = self.overview["latestFullRecap"]
+        self.assertIsNotNone(recap)
+        for key in ("season", "week", "headline", "summary"):
+            self.assertIn(key, recap)
+        self.assertTrue(recap["headline"])
+        self.assertTrue(recap["summary"])
+
 
 class OverviewSectionEndpointTests(unittest.TestCase):
     @classmethod
