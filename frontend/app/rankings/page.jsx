@@ -348,6 +348,7 @@ export default function RankingsPage() {
   const [activeLens, setActiveLens] = useState("consensus");
   const [showTiers, setShowTiers] = useState(true);
   const [showEdgeRail, setShowEdgeRail] = useState(true);
+  const [showIdpUncalibrated, setShowIdpUncalibrated] = useState(false);
   const [rowLimit, setRowLimit] = useState(DEFAULT_ROW_LIMIT);
   const [sortCol, setSortCol] = useState("rank");
   const [sortAsc, setSortAsc] = useState(true);
@@ -384,10 +385,47 @@ export default function RankingsPage() {
     }
   }, []);
 
+  // ── IDP calibration toggle ──────────────────────────────────────
+  // When on, swap each IDP row's rankDerivedValue with its
+  // pre-calibration snapshot and re-sort the full board by value so
+  // canonicalConsensusRank reflects the identity-mode ordering. This
+  // is a pure client-side view toggle — the promoted config stays
+  // live, rankings elsewhere in the app are unaffected.
+  const displayRows = useMemo(() => {
+    if (!showIdpUncalibrated) return rows;
+    const swapped = rows.map((r) => {
+      const uncal = Number(r.rankDerivedValueUncalibrated) || null;
+      if (!uncal || uncal === r.rankDerivedValue) return r;
+      return {
+        ...r,
+        rankDerivedValue: uncal,
+        values: { ...(r.values || {}), full: uncal },
+      };
+    });
+    const ranked = [...swapped]
+      .filter((r) => r.canonicalConsensusRank)
+      .sort(
+        (a, b) =>
+          (Number(b.rankDerivedValue) || 0) -
+            (Number(a.rankDerivedValue) || 0) ||
+          (Number(a.canonicalConsensusRank) || 0) -
+            (Number(b.canonicalConsensusRank) || 0),
+      );
+    const reranked = new Map();
+    ranked.forEach((r, idx) => {
+      reranked.set(r, idx + 1);
+    });
+    return swapped.map((r) =>
+      reranked.has(r)
+        ? { ...r, canonicalConsensusRank: reranked.get(r) }
+        : r,
+    );
+  }, [rows, showIdpUncalibrated]);
+
   // ── Base eligible list ──────────────────────────────────────────
   const eligible = useMemo(() => {
-    return rows.filter(isEligibleForBoard);
-  }, [rows]);
+    return displayRows.filter(isEligibleForBoard);
+  }, [displayRows]);
 
   // ── Trust summary stats ──────────────────────────────────────────
   const trustStats = useMemo(() => {
@@ -573,6 +611,13 @@ export default function RankingsPage() {
             onClick={() => setShowEdgeRail((v) => !v)}
           >
             {showEdgeRail ? "Hide edge" : "Show edge"}
+          </button>
+          <button
+            className={`button ${showIdpUncalibrated ? "button-primary" : ""}`}
+            onClick={() => setShowIdpUncalibrated((v) => !v)}
+            title="Toggle IDP calibration display. Swaps each IDP row to its pre-calibration value and re-sorts."
+          >
+            {showIdpUncalibrated ? "IDP: uncalibrated" : "IDP: calibrated"}
           </button>
           <button
             className={`button ${showMethodology ? "button-primary" : ""}`}
