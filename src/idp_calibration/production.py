@@ -223,5 +223,103 @@ def get_idp_bucket_multiplier(
         return 1.0
 
 
+def _offense_bucket_lookup_for(
+    position: str, rank: int, config: dict[str, Any], mode: str
+) -> float:
+    """Offense analog of :func:`_bucket_lookup_for`.
+
+    Reads from ``config['offense_multipliers']`` instead of
+    ``multipliers``, and falls back to ``config['offense_anchors']``
+    when the rank is past the last labelled bucket. Returns identity
+    whenever offense calibration is absent from the promoted config
+    (backward-compat with pre-offense-calibration promoted files).
+    """
+    position = position.upper()
+    if position not in {"QB", "RB", "WR", "TE"}:
+        return 1.0
+    multipliers = config.get("offense_multipliers") or {}
+    if not multipliers:
+        return 1.0
+
+    kind = {
+        "intrinsic_only": "intrinsic",
+        "market_only": "market",
+        "blended": "final",
+    }.get(mode, "final")
+
+    if kind in multipliers and isinstance(multipliers[kind], dict):
+        position_block = multipliers[kind].get(position)
+    else:
+        position_block = multipliers.get(position)
+    if not isinstance(position_block, dict):
+        position_block = None
+
+    if not _position_has_real_data(position_block):
+        return 1.0
+
+    if isinstance(position_block, dict):
+        buckets = position_block.get("buckets") if "buckets" in position_block else None
+        if isinstance(buckets, list):
+            for bucket in buckets:
+                try:
+                    lo, _, hi = str(bucket.get("label") or "").partition("-")
+                    if int(lo) <= int(rank) <= int(hi):
+                        val = bucket.get(kind)
+                        if val is None:
+                            val = bucket.get("final")
+                        return float(val) if val is not None else 1.0
+                except (TypeError, ValueError):
+                    continue
+        for label, value in position_block.items():
+            try:
+                lo, _, hi = str(label).partition("-")
+                if int(lo) <= int(rank) <= int(hi):
+                    return float(value)
+            except (TypeError, ValueError):
+                continue
+
+    anchors_block = (config.get("offense_anchors") or {}).get(kind, {}).get(position)
+    if isinstance(anchors_block, list):
+        best_val = 1.0
+        best_rank = -1
+        for point in anchors_block:
+            try:
+                ar = int(point.get("rank"))
+                if ar <= int(rank) and ar > best_rank:
+                    best_rank = ar
+                    best_val = float(point.get("value"))
+            except (TypeError, ValueError):
+                continue
+        return best_val
+    return 1.0
+
+
+def get_offense_bucket_multiplier(
+    position: str,
+    rank: int,
+    *,
+    mode: str | None = None,
+    base: Path | None = None,
+) -> float:
+    """Return the multiplier for a QB/RB/WR/TE row.
+
+    Unlike :func:`get_idp_bucket_multiplier` this does NOT apply the
+    family_scale — family_scale is IDP-vs-offense, and offense is the
+    reference. Offense calibration only reshapes the within-position
+    curve (e.g. "my league's tiered PPR values WR 13-24 8% higher than
+    market"). Identity when no offense calibration is promoted.
+    """
+    config = _load_if_stale(base)
+    if not config:
+        return 1.0
+    effective_mode = mode or str(config.get("active_mode") or "blended")
+    if effective_mode not in {"intrinsic_only", "market_only", "blended"}:
+        effective_mode = "blended"
+    try:
+        return float(_offense_bucket_lookup_for(position, int(rank), config, effective_mode))
+    except Exception:
+        return 1.0
+
+
 def is_promoted(base: Path | None = None) -> bool:
     return _load_if_stale(base) is not None

@@ -3,6 +3,7 @@
 import AnchorChart from "./AnchorChart";
 
 const POSITIONS = ["DL", "LB", "DB"];
+const OFFENSE_POSITIONS = ["QB", "RB", "WR", "TE"];
 
 function n(value, digits = 3) {
   if (value == null || !Number.isFinite(Number(value))) return "—";
@@ -248,56 +249,91 @@ function FamilyScaleBlock({ family }) {
   );
 }
 
-function SectionMultipliers({ run }) {
-  const multipliers = run.multipliers || {};
+function MultiplierTable({ posBlock }) {
   return (
-    <section className="card idp-lab-section">
-      <h2>Multi-year calibration summary</h2>
-      <FamilyScaleBlock family={run.family_scale} />
-      {POSITIONS.map((pos) => {
+    <div className="table-wrap">
+      <table className="table idp-lab-mult-table">
+        <thead>
+          <tr>
+            <th>Bucket</th>
+            <th>#</th>
+            <th>Intrinsic</th>
+            <th>Market</th>
+            <th>Final</th>
+          </tr>
+        </thead>
+        <tbody>
+          {posBlock.buckets.map((b, i) => (
+            <tr key={i}>
+              <td>{b.label}</td>
+              <td>{b.count}</td>
+              <td>{n(b.intrinsic, 4)}</td>
+              <td>{n(b.market, 4)}</td>
+              <td>
+                <strong>{n(b.final, 4)}</strong>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PositionMultiplierBlocks({ positions, multipliers, label }) {
+  return (
+    <>
+      {positions.map((pos) => {
         const posBlock = multipliers[pos];
         if (!posBlock?.buckets?.length) {
-          return (
-            <div key={pos} className="muted">
-              No multipliers generated for {pos}.
-            </div>
-          );
+          return null;
         }
         return (
           <div key={pos} className="idp-lab-mult-block">
             <div className="idp-lab-subheading">
               <strong>{pos}</strong>
-              <span className="muted">per-bucket multipliers</span>
+              <span className="muted">{label}</span>
             </div>
-            <div className="table-wrap">
-              <table className="table idp-lab-mult-table">
-                <thead>
-                  <tr>
-                    <th>Bucket</th>
-                    <th>#</th>
-                    <th>Intrinsic</th>
-                    <th>Market</th>
-                    <th>Final</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {posBlock.buckets.map((b, i) => (
-                    <tr key={i}>
-                      <td>{b.label}</td>
-                      <td>{b.count}</td>
-                      <td>{n(b.intrinsic, 4)}</td>
-                      <td>{n(b.market, 4)}</td>
-                      <td>
-                        <strong>{n(b.final, 4)}</strong>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <MultiplierTable posBlock={posBlock} />
           </div>
         );
       })}
+    </>
+  );
+}
+
+function SectionMultipliers({ run }) {
+  const multipliers = run.multipliers || {};
+  const offenseMultipliers = run.offense_multipliers || {};
+  const hasOffense = OFFENSE_POSITIONS.some(
+    (pos) => offenseMultipliers[pos]?.buckets?.length,
+  );
+  return (
+    <section className="card idp-lab-section">
+      <h2>Multi-year calibration summary</h2>
+      <FamilyScaleBlock family={run.family_scale} />
+      <div className="idp-lab-family-heading">
+        <strong>IDP</strong>
+        <span className="muted">within-position bucket curves (DL / LB / DB)</span>
+      </div>
+      <PositionMultiplierBlocks
+        positions={POSITIONS}
+        multipliers={multipliers}
+        label="per-bucket IDP multipliers"
+      />
+      {hasOffense && (
+        <>
+          <div className="idp-lab-family-heading">
+            <strong>Offense</strong>
+            <span className="muted">within-position bucket curves (QB / RB / WR / TE)</span>
+          </div>
+          <PositionMultiplierBlocks
+            positions={OFFENSE_POSITIONS}
+            multipliers={offenseMultipliers}
+            label="per-bucket offense multipliers"
+          />
+        </>
+      )}
     </section>
   );
 }

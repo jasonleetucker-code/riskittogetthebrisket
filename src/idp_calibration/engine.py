@@ -406,6 +406,9 @@ def run_analysis(
     per_season_per_position_buckets: dict[str, dict[int, list[BucketResult]]] = {
         pos: {} for pos in POSITIONS
     }
+    per_season_per_offense_position_buckets: dict[str, dict[int, list[BucketResult]]] = {
+        pos: {} for pos in OFFENSE_FAMILY
+    }
     per_season_family_scales: dict[int, FamilyScale] = {}
     resolved_seasons: list[int] = []
 
@@ -618,6 +621,39 @@ def run_analysis(
             position_buckets[pos] = buckets
             per_season_per_position_buckets[pos][season] = buckets
 
+        # ── Offense per-position bucketization ──
+        # Mirror the IDP bucketing for QB/RB/WR/TE so leagues with
+        # non-standard offense scoring (tiered PPR, completion/incomp
+        # points, sack penalties, first-down bonuses) get per-bucket
+        # calibration on the offense side too. The same VOR → bucket →
+        # center machinery is reused; offense_scored is already rescored
+        # under both leagues' rules at this point.
+        offense_position_buckets: dict[str, list[BucketResult]] = {}
+        if offense_universe:
+            offense_vor_rows = compute_vor(
+                offense_scored,
+                {
+                    pos: lv for pos, lv in offense_repl_test.items()
+                },
+                {
+                    pos: lv for pos, lv in offense_repl_my.items()
+                },
+                positions=OFFENSE_FAMILY,
+            )
+            for pos in OFFENSE_FAMILY:
+                if pos not in offense_repl_my or pos not in offense_repl_test:
+                    # Zero-demand position (e.g. TE in a 0-TE league);
+                    # skip so phantom buckets don't appear in the UI.
+                    continue
+                buckets = bucketize(
+                    offense_vor_rows,
+                    pos,
+                    buckets=[tuple(edge) for edge in settings.bucket_edges],
+                    min_bucket_size=settings.min_bucket_size,
+                )
+                offense_position_buckets[pos] = buckets
+                per_season_per_offense_position_buckets[pos][season] = buckets
+
         if season_family_scale is not None:
             per_season_family_scales[season] = season_family_scale
 
@@ -634,6 +670,9 @@ def run_analysis(
             "replacement_test": replacement_to_dict(repl_test_levels),
             "replacement_mine": replacement_to_dict(repl_mine_levels),
             "buckets": {pos: buckets_to_dict(b) for pos, b in position_buckets.items()},
+            "offense_buckets": {
+                pos: buckets_to_dict(b) for pos, b in offense_position_buckets.items()
+            },
             "sample_vor_rows": vor_rows_to_dict(vor_rows)[:120],
             "test_rules_source_season": int(test_league_obj.get("season") or season),
             "my_rules_source_season": int(my_league_obj.get("season") or season),
@@ -654,11 +693,31 @@ def run_analysis(
         blend=settings.blend,
         multiplier_floor=settings.anchor_floor,
     )
+    # Same aggregation for offense — drop positions where every
+    # resolved season had zero-demand (the engine skipped them
+    # upstream so per_season_per_offense_position_buckets[pos] is
+    # empty for those).
+    offense_buckets_present = {
+        pos: seasons
+        for pos, seasons in per_season_per_offense_position_buckets.items()
+        if any(seasons.values())
+    }
+    offense_multipliers = build_multi_year_multipliers(
+        offense_buckets_present,
+        year_weights=normalised_weights,
+        blend=settings.blend,
+        multiplier_floor=settings.anchor_floor,
+    )
     family_scale = combine_family_scales(
         per_season_family_scales, normalised_weights
     )
     anchors = build_all_anchors(
         multipliers,
+        anchor_ranks=settings.anchor_ranks,
+        floor=settings.anchor_floor,
+    )
+    offense_anchors = build_all_anchors(
+        offense_multipliers,
         anchor_ranks=settings.anchor_ranks,
         floor=settings.anchor_floor,
     )
@@ -684,8 +743,10 @@ def run_analysis(
         },
         "per_season": {str(k): v for k, v in per_season_payload.items()},
         "multipliers": multipliers_to_dict(multipliers),
+        "offense_multipliers": multipliers_to_dict(offense_multipliers),
         "family_scale": family_scale.to_dict(),
         "anchors": anchors_to_dict(anchors),
+        "offense_anchors": anchors_to_dict(offense_anchors),
         "recommendation": recommendation,
         "warnings": warnings,
     }
