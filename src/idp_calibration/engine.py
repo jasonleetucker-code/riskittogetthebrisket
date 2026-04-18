@@ -265,6 +265,14 @@ def _make_run_id(test_id: str, my_id: str, seasons: list[int]) -> str:
     return f"{ts}_{short}"
 
 
+_OFFENSE_DEMAND_ATTR: dict[str, str] = {
+    "QB": "total_qb_demand",
+    "RB": "total_rb_demand",
+    "WR": "total_wr_demand",
+    "TE": "total_te_demand",
+}
+
+
 def _compute_offense_replacement(
     scored: list["ScoredPlayer"],
     lineup: "LineupDemand",
@@ -275,13 +283,17 @@ def _compute_offense_replacement(
     """Replacement points per offense position for a given scoring side.
 
     ``side`` is either ``"mine"`` or ``"test"`` and picks which
-    scoring column (``points_mine`` vs ``points_test``) is used. Mirrors
-    :func:`src.idp_calibration.replacement.compute_replacement_levels`
-    but for the offense family since the existing helper hard-codes
-    DL/LB/DB.
+    scoring column (``points_mine`` vs ``points_test``) is used.
+
+    Positions with **zero starter demand** are skipped — e.g. TE in a
+    no-TE league with no TE-eligible flex. Without that guard,
+    ``replacement_rank`` would still floor at 1 (then add buffer),
+    causing every TE in the league's player pool to register positive
+    VOR and inflate the offense denominator that ``compute_family_scale``
+    divides by — biasing the class-level IDP scale downward for that
+    league format.
     """
     points_key = "points_mine" if side == "mine" else "points_test"
-    from .replacement import POSITIONS as _IDP_POSITIONS_UNUSED  # noqa: F401 — keep import parity
     settings = settings.normalized()
     by_position: dict[str, list[float]] = {p: [] for p in OFFENSE_POSITIONS}
     for player in scored:
@@ -289,6 +301,11 @@ def _compute_offense_replacement(
             by_position[player.position].append(getattr(player, points_key))
     out: dict[str, float] = {}
     for pos, points in by_position.items():
+        # Direct check on the per-team demand property before consulting
+        # replacement_rank (which floors at 1 and would mask a true zero).
+        demand = getattr(lineup, _OFFENSE_DEMAND_ATTR[pos], 0.0)
+        if demand <= 0:
+            continue
         points_desc = sorted(points, reverse=True)
         rank = lineup.replacement_rank(
             pos,
@@ -560,13 +577,20 @@ def run_analysis(
             offense_repl_test = _compute_offense_replacement(
                 offense_scored, test_lineup, settings.replacement, side="test"
             )
+            # _compute_offense_replacement omits zero-demand positions
+            # entirely; we exclude those players from the VOR list so
+            # they can't contribute phantom value to the offense
+            # denominator. ``s.position not in dict`` is the signal
+            # that the league has zero starter demand for that position.
             offense_vor_my = [
-                s.points_mine - offense_repl_my.get(s.position, 0.0)
+                s.points_mine - offense_repl_my[s.position]
                 for s in offense_scored
+                if s.position in offense_repl_my
             ]
             offense_vor_test = [
-                s.points_test - offense_repl_test.get(s.position, 0.0)
+                s.points_test - offense_repl_test[s.position]
                 for s in offense_scored
+                if s.position in offense_repl_test
             ]
             idp_vor_my = [r.vor_mine for r in vor_rows]
             idp_vor_test = [r.vor_test for r in vor_rows]

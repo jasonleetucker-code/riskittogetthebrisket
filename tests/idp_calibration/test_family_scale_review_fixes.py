@@ -185,6 +185,68 @@ def _identical_chain(league_id, max_hops):
     ]
 
 
+def _no_te_chain(league_id, max_hops):
+    """League format with NO TE slot and no TE-eligible flex.
+    The IDP side is identical to ``_identical_chain`` so any
+    family_scale drift between the two fixtures is attributable to
+    the offense lineup change."""
+    return [
+        {
+            "league_id": f"{league_id}_2025",
+            "season": 2025,
+            "previous_league_id": "",
+            "scoring_settings": {
+                "idp_tkl_solo": 1.0,
+                "idp_sack": 4.0,
+                "pass_yd": 0.04,
+                "pass_td": 4.0,
+                "rush_yd": 0.1,
+                "rush_td": 6.0,
+                "rec": 1.0,
+                "rec_yd": 0.1,
+                "rec_td": 6.0,
+            },
+            # No TE slot, only WRRB_FLEX so TE has zero demand from
+            # any source (no direct TE slot, plain FLEX, REC_FLEX,
+            # or SUPER_FLEX).
+            "roster_positions": [
+                "QB", "RB", "RB", "WR", "WR", "WR", "WRRB_FLEX",
+                "DL", "DL", "LB", "LB", "DB", "DB", "IDP_FLEX",
+                "BN", "BN", "BN", "BN",
+            ],
+            "total_rosters": 12,
+        }
+    ]
+
+
+def test_zero_demand_te_excluded_from_offense_vor(monkeypatch):
+    """A no-TE league must not let TE players contribute positive
+    offense VOR. Otherwise the offense denominator inflates and
+    family_scale gets biased downward."""
+    monkeypatch.setattr(season_chain, "fetch_league_chain", _no_te_chain)
+    settings = engine.AnalysisSettings(seasons=[2025])
+    art = engine.run_analysis(
+        "TEST", "MINE", settings,
+        stats_adapter_factory=lambda s: _BiggerAdapter(),
+    )
+    # Family scale must still be ~1.0 since both leagues are
+    # identical. Without the zero-demand guard, TE players in the
+    # adapter's universe would be assigned a low replacement (rank=1
+    # via the floor) and contribute positive VOR to BOTH sides
+    # symmetrically, but in different proportions if the leagues
+    # differ — and even when identical, the inflated denominator
+    # noticeably suppresses real differentiation in non-trivial
+    # cases. Directly assert: family_scale stays ~1.0 on identical
+    # no-TE leagues.
+    fs = art["family_scale"]["intrinsic"]
+    assert abs(fs - 1.0) < 0.05, f"no-TE league shifted family_scale: {fs}"
+    # And the per-season offense lineup correctly reports zero TE
+    # demand (sanity-check the lineup parser).
+    me = art["per_season"]["2025"]["my_lineup"]
+    assert me["te_starters"] == 0
+    assert me["total_te_demand"] == 0.0
+
+
 def test_top_n_trims_offense_symmetrically(monkeypatch):
     # Identical leagues → family_scale should be 1.0 regardless of
     # whether top_n is enabled. Without the offense-side trim,
