@@ -33,6 +33,7 @@ IDP_STAT_KEYS: tuple[str, ...] = (
     "idp_int",
     "idp_int_ret_yd",
     "idp_pd",
+    "idp_pass_def_3p",
     "idp_ff",
     "idp_fum_rec",
     "idp_fum_ret_yd",
@@ -58,11 +59,14 @@ class LeagueScoring:
 
     def summary(self) -> dict[str, Any]:
         present_idp = {k: v for k, v in self.idp_weights.items() if abs(v) > 0.0}
-        # Only surface IDP-ish unknown keys in the summary so the UI
-        # doesn't get flooded with offense keys that happen to be
-        # un-aliased. If the set is empty we omit it entirely.
+        # Only surface IDP-ish unknown keys with a non-zero weight —
+        # a zero-weight unknown key is just noise (the league toggled
+        # the setting off) and doesn't need operator attention. If
+        # the set is empty the UI omits the warning entirely.
         unknown_idp = {
-            k: v for k, v in self.unknown_keys.items() if k.lower().startswith("idp")
+            k: v
+            for k, v in self.unknown_keys.items()
+            if k.lower().startswith("idp") and abs(v) > 1e-9
         }
         return {
             "league_id": self.league_id,

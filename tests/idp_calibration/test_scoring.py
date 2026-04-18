@@ -69,6 +69,32 @@ def test_idp_qb_hit_alias_folds_into_canonical_idp_hit():
         assert "idp_qb_hit" not in summary["active_idp_stats"]
 
 
+def test_idp_pass_def_3p_is_recognised():
+    # Real Sleeper key that showed up in a user's league at weight 0.
+    # Now aliased so the UI no longer flags it as "unmapped".
+    league = {"scoring_settings": {"idp_pass_def_3p": 1.25}}
+    summary = parse_scoring(league).summary()
+    assert summary["active_idp_stats"].get("idp_pass_def_3p") == 1.25
+    assert "idp_pass_def_3p" not in summary["unknown_idp_keys"]
+
+
+def test_zero_weight_unknown_idp_keys_are_hidden():
+    # A league can ship with an exotic IDP key at weight 0 simply
+    # because the UI lets the commissioner toggle it and they didn't
+    # set a value. The operator doesn't need to alias that.
+    league = {
+        "scoring_settings": {
+            "idp_sack": 4.0,
+            "idp_some_zero_weight_toggle": 0,
+            "idp_active_exotic": 1.5,
+        },
+    }
+    summary = parse_scoring(league).summary()
+    # Only the active exotic surfaces as unmapped; the zero-weight
+    # toggle is silently dropped so it doesn't nag the reviewer.
+    assert summary["unknown_idp_keys"] == {"idp_active_exotic": 1.5}
+
+
 def test_unknown_idp_keys_surface_in_summary():
     # Exotic / future Sleeper IDP keys should round-trip through
     # summary()["unknown_idp_keys"] so the UI can tell the operator

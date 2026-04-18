@@ -70,6 +70,10 @@ KEY_ALIASES: Dict[str, str] = {
     "idp_int_ret_yd": "idp_int_ret_yd",
     "idp_pd": "idp_pd",
     "idp_pass_def": "idp_pd",
+    # "Pass Defended — 3+ players" variant; rare. Kept as its own
+    # canonical rather than folded into idp_pd so leagues that set
+    # distinct weights for each don't double-count.
+    "idp_pass_def_3p": "idp_pass_def_3p",
     "idp_ff": "idp_ff",
     "idp_fum_rec": "idp_fum_rec",
     "idp_fr": "idp_fum_rec",
