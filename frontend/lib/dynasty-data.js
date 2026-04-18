@@ -101,8 +101,13 @@ function _collectIdpFamilies(raw) {
     if (!token) return;
     const t = String(token).toUpperCase().trim();
     if (!t) return;
-    if (t.includes("/")) {
-      t.split("/").forEach(accept);
+    // Split on every separator a multi-position payload might use.
+    // Sleeper's fantasy_positions array arrives here already split
+    // (via the Array.isArray branch below), but CSV / delta payloads
+    // can carry "DL,LB", "DL/LB", or "DL|LB" as a single string.
+    // Keep parity with src/utils/name_clean.resolve_idp_position.
+    if (/[/,|]/.test(t)) {
+      t.split(/[/,|]/).forEach(accept);
       return;
     }
     const stripped = t.replace(/\d+$/, "") || t;

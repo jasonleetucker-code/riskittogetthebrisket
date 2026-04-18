@@ -2,7 +2,7 @@
  * Tests for lib/dynasty-data.js — the data normalization layer
  * that feeds the trade page, rankings, and all other surfaces.
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   normalizePos,
   classifyPos,
@@ -937,5 +937,60 @@ describe("unsupported positions excluded from buildRows", () => {
 describe("normalizePos punter mapping", () => {
   it("maps P → K", () => {
     expect(normalizePos("P")).toBe("K");
+  });
+});
+
+// ── IDP multi-position priority (DL > DB > LB) ─────────────────────
+
+describe("resolveIdpPosition (IDP multi-position priority)", () => {
+  // Import lazily so this block doesn't interfere with the shared
+  // fetch mock at the top of the file.
+  let resolveIdpPosition;
+  beforeAll(async () => {
+    ({ resolveIdpPosition } = await import("@/lib/dynasty-data"));
+  });
+
+  it("collapses DL+LB to DL no matter which side or notation", () => {
+    expect(resolveIdpPosition("DL", "LB")).toBe("DL");
+    expect(resolveIdpPosition("DL/LB")).toBe("DL");
+    expect(resolveIdpPosition(["DL", "LB"])).toBe("DL");
+    expect(resolveIdpPosition("LB,DL")).toBe("DL");
+    expect(resolveIdpPosition("LB|DL")).toBe("DL");
+  });
+
+  it("collapses LB+DB to DB", () => {
+    expect(resolveIdpPosition("LB", "DB")).toBe("DB");
+    expect(resolveIdpPosition("LB/CB")).toBe("DB");
+    expect(resolveIdpPosition(["OLB", "S"])).toBe("DB");
+    expect(resolveIdpPosition("LB,CB")).toBe("DB");
+    expect(resolveIdpPosition("LB|CB")).toBe("DB");
+  });
+
+  it("DL beats DB", () => {
+    expect(resolveIdpPosition("DL", "DB")).toBe("DL");
+    expect(resolveIdpPosition("DE", "CB")).toBe("DL");
+  });
+
+  it("exclusive LB stays LB", () => {
+    expect(resolveIdpPosition("LB")).toBe("LB");
+    expect(resolveIdpPosition("OLB")).toBe("LB");
+    expect(resolveIdpPosition(["LB"])).toBe("LB");
+  });
+
+  it("non-IDP inputs return empty string", () => {
+    expect(resolveIdpPosition("QB")).toBe("");
+    expect(resolveIdpPosition(["WR", "RB"])).toBe("");
+    expect(resolveIdpPosition(null)).toBe("");
+    expect(resolveIdpPosition("")).toBe("");
+    expect(resolveIdpPosition([])).toBe("");
+  });
+
+  it("normalizePos routes IDP multi-positions through the priority", () => {
+    expect(normalizePos("DL/LB")).toBe("DL");
+    expect(normalizePos("LB/CB")).toBe("DB");
+    expect(normalizePos("LB,CB")).toBe("DB");
+    expect(normalizePos("LB")).toBe("LB");
+    // Non-IDP multi-strings fall through to the single-token path.
+    expect(normalizePos("QB")).toBe("QB");
   });
 });
