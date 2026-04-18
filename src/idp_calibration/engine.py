@@ -112,6 +112,21 @@ def _as_list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
 
 
+def _season_of(league_obj: Any) -> int | None:
+    """Return the ``season`` field on a Sleeper league JSON, or ``None``.
+
+    Used by the scoring/lineup fallback to distinguish historical-gap
+    borrows (``source_season >= target_season``) from stale-ID
+    forward-borrows, which we refuse.
+    """
+    if not isinstance(league_obj, dict):
+        return None
+    try:
+        return int(str(league_obj.get("season") or "").strip())
+    except (TypeError, ValueError):
+        return None
+
+
 @dataclass
 class AnalysisSettings:
     seasons: list[int] = field(default_factory=lambda: list(DEFAULT_SEASONS))
@@ -313,28 +328,70 @@ def run_analysis(
     for season in sorted({int(s) for s in settings.seasons}):
         test_res = test_chain.seasons.get(season)
         my_res = my_chain.seasons.get(season)
+        test_native = bool(test_res and test_res.resolved)
+        my_native = bool(my_res and my_res.resolved)
 
-        # Pick the league object to score against for this year.
-        # If the chain resolved natively for the year, use that.
-        # Otherwise fall back to the most recent resolved league
-        # from that chain so Sleeper player stats for older seasons
-        # still score against known rules.
-        test_league_obj = test_res.league if (test_res and test_res.resolved) else test_fallback_league
-        my_league_obj = my_res.league if (my_res and my_res.resolved) else my_fallback_league
-        test_borrowed = test_league_obj is not None and not (test_res and test_res.resolved)
-        my_borrowed = my_league_obj is not None and not (my_res and my_res.resolved)
+        # Start with a native match; fall back to the chain's most
+        # recent resolved league otherwise so Sleeper stats for older
+        # seasons can still be scored.
+        test_league_obj = test_res.league if test_native else test_fallback_league
+        my_league_obj = my_res.league if my_native else my_fallback_league
+
+        # Refuse *forward* borrows — scoring newer stats against older
+        # rules. A chain that only reaches 2024 being asked for 2025
+        # most likely means the user pasted a stale league ID, not a
+        # "league didn't exist yet" historical gap. Leave the season
+        # unresolved so the UI surfaces the misconfig rather than
+        # silently producing wrong output. Historical gaps
+        # (target_season < source_season) are the only valid borrow.
+        test_forward_borrow = False
+        my_forward_borrow = False
+        if not test_native and test_league_obj is not None:
+            src = _season_of(test_league_obj)
+            if src is not None and src < season:
+                test_forward_borrow = True
+                test_league_obj = None
+        if not my_native and my_league_obj is not None:
+            src = _season_of(my_league_obj)
+            if src is not None and src < season:
+                my_forward_borrow = True
+                my_league_obj = None
+
+        test_borrowed = test_league_obj is not None and not test_native
+        my_borrowed = my_league_obj is not None and not my_native
 
         if test_league_obj is None or my_league_obj is None:
-            # Truly no rules for one side (chain had no resolvable
-            # leagues at all). Record and move on.
+            reason_bits: list[str] = []
+            if test_forward_borrow:
+                reason_bits.append(
+                    f"Test-league chain only reaches "
+                    f"{_season_of(test_fallback_league)}; refusing "
+                    f"forward-borrow (is the league ID stale?)."
+                )
+            if my_forward_borrow:
+                reason_bits.append(
+                    f"My-league chain only reaches "
+                    f"{_season_of(my_fallback_league)}; refusing "
+                    f"forward-borrow (is the league ID stale?)."
+                )
+            if not reason_bits:
+                reason_bits.append(
+                    (
+                        (test_res.reason if test_res else "")
+                        + " | "
+                        + (my_res.reason if my_res else "")
+                    ).strip(" |")
+                    or f"No resolvable league found for {season}."
+                )
+            reason = " ".join(b for b in reason_bits if b)
+            # Echo into top-level warnings so the user sees it alongside
+            # the other chain diagnostics.
+            if test_forward_borrow or my_forward_borrow:
+                warnings.append(f"{season}: {reason}")
             per_season_payload[season] = {
                 "season": season,
                 "resolved": False,
-                "reason": (
-                    (test_res.reason if test_res else "")
-                    + " | "
-                    + (my_res.reason if my_res else "")
-                ).strip(" |") or f"No resolvable league found for {season}.",
+                "reason": reason,
             }
             continue
 

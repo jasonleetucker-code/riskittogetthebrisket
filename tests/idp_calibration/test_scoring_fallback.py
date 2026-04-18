@@ -91,6 +91,33 @@ def test_refuses_when_chain_is_completely_empty(monkeypatch):
         assert art["per_season"][season_key]["resolved"] is False
 
 
+def test_refuses_forward_borrow_for_stale_league_id(monkeypatch):
+    """Chain only reaches 2023, user asks for 2022-2025. The 2024 and
+    2025 target seasons must NOT silently use 2023 rules — they stay
+    unresolved with a "is the league ID stale?" warning so the
+    misconfig is visible to the reviewer instead of producing wrong
+    calibration output."""
+    monkeypatch.setattr(
+        season_chain,
+        "fetch_league_chain",
+        _short_chain([2022, 2023]),
+    )
+    settings = engine.AnalysisSettings()
+    art = engine.run_analysis(
+        "A", "B", settings, stats_adapter_factory=lambda s: _StubAdapter()
+    )
+    # 2022 + 2023 resolve natively.
+    assert art["per_season"]["2022"]["resolved"] is True
+    assert art["per_season"]["2023"]["resolved"] is True
+    # 2024 + 2025 must stay unresolved — not forward-borrowed.
+    assert art["per_season"]["2024"]["resolved"] is False
+    assert art["per_season"]["2025"]["resolved"] is False
+    reason_2025 = art["per_season"]["2025"]["reason"]
+    assert "stale" in reason_2025.lower() or "forward-borrow" in reason_2025.lower()
+    # Warning must surface at the run-level too.
+    assert any("2025" in w and "stale" in w.lower() for w in art["warnings"])
+
+
 def test_one_chain_short_other_chain_full(monkeypatch):
     """My league reaches 2022-2025; test league only reaches 2024-2025.
     The 2022/2023 payloads borrow only on the test side."""
