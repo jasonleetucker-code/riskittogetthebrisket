@@ -649,5 +649,78 @@ class TestAgeFieldScaffolding(unittest.TestCase):
         self.assertEqual(row["age"], 26)
 
 
+# ── Name collision guardrail: sleeper map tagging conflicts source signals ──
+
+class TestSleeperMapCollisionGuardrail(unittest.TestCase):
+    """When the sleeper positions map is contaminated by a name collision
+    (e.g. DJ Turner WR and DJ Turner II CB clean to the same key), the
+    row's adapter data may have no position but the sleeper map tags it
+    with the wrong family. _derive_player_row must use source signals to
+    refuse the mismatched tag rather than silently emitting it.
+    """
+
+    def _build_row(self, *, sleeper_pos, sites):
+        """Build a payload with sleeper map saying sleeper_pos but player
+        row having position=None and canonical site values = sites."""
+        player_data = {
+            "_composite": max(sites.values()),
+            "_rawComposite": max(sites.values()),
+            "_finalAdjusted": max(sites.values()),
+            "_sites": len(sites),
+            "position": None,
+            "team": None,
+            "_canonicalSiteValues": dict(sites),
+        }
+        payload = {
+            "players": {"Zzz Name Collide": player_data},
+            "sites": [{"key": k} for k in sites],
+            "maxValues": {k: 9999 for k in sites},
+            "sleeper": {"positions": {"Zzz Name Collide": sleeper_pos}},
+        }
+        contract = build_api_data_contract(payload)
+        for row in contract["playersArray"]:
+            if row["canonicalName"] == "Zzz Name Collide":
+                return row, contract
+        return None, contract
+
+    def test_offense_signals_reject_sleeper_idp_tag(self):
+        """The DJ Turner case: sleeper map says DB (from II collision),
+        player row has only offensive source signals. Row must NOT come
+        out tagged DB."""
+        row, contract = self._build_row(
+            sleeper_pos="DB",
+            sites={"ktc": 3000},
+        )
+        self.assertIsNotNone(row)
+        self.assertNotIn(row.get("position"), {"DB", "DL", "LB"})
+        # And the contract validator must not flag the offense→IDP mismatch.
+        status = (contract.get("_meta") or {}).get("contract_status")
+        if status is None:
+            status = (contract.get("meta") or {}).get("contract_status")
+        self.assertNotEqual(status, "error")
+
+    def test_idp_signals_reject_sleeper_offense_tag(self):
+        """Symmetric: sleeper says WR (from an offensive collision) but
+        the row has only IDP source signals."""
+        row, _ = self._build_row(
+            sleeper_pos="WR",
+            sites={"idpTradeCalc": 3000},
+        )
+        self.assertIsNotNone(row)
+        self.assertNotIn(row.get("position"), {"QB", "RB", "WR", "TE"})
+
+    def test_signals_on_both_sides_keep_sleeper_position(self):
+        """When both offense AND IDP signals are present, we cannot tell
+        which is the real player — don't override; keep sleeper's tag so
+        downstream collision flagging fires correctly."""
+        row, _ = self._build_row(
+            sleeper_pos="DB",
+            sites={"ktc": 3000, "idpTradeCalc": 3000},
+        )
+        self.assertIsNotNone(row)
+        # Sleeper tag preserved — the collision flag elsewhere handles this.
+        self.assertEqual(row.get("position"), "DB")
+
+
 if __name__ == "__main__":
     unittest.main()
