@@ -1,0 +1,19 @@
+{
+  "source": "FANTASYPROS_SF",
+  "snapshot_id": "fantasypros_sf_2026_20260418T052952Z",
+  "pulled_at_utc": "2026-04-18T05:29:52.813985+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty superflex (FantasyPros expert consensus ECR, QB/RB/WR/TE)",
+  "universe": "offense_vet",
+  "ingest_method": "scraper_bridge",
+  "ingest_type": "scraper_export",
+  "source_url": "https://www.fantasypros.com/nfl/rankings/dynasty-superflex.php",
+  "format_key": "dynasty_sf",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/CSVs/site_raw/fantasyProsSf.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/fantasypros_sf/2026/fantasypros_sf_2026_20260418T052952Z",
+  "record_count": 0,
+  "hash": "d8cd72ebc24a31958b0ee582c8c1685f2d5dcc62aaba12a48d650469dfc4b753",
+  "notes": "FantasyPros Dynasty Superflex expert consensus (~250 QB/RB/WR/TE players). Ingested as a rank signal; the contract loader inverts rank to a synthetic value. Standard SF board \u2014 no TE premium. Frontend tepMultiplier boost applies.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}

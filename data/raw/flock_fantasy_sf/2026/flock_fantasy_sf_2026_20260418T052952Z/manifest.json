@@ -1,0 +1,19 @@
+{
+  "source": "FLOCK_FANTASY_SF",
+  "snapshot_id": "flock_fantasy_sf_2026_20260418T052952Z",
+  "pulled_at_utc": "2026-04-18T05:29:52.832436+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty superflex (Flock Fantasy expert consensus, multi-expert averaged ranks)",
+  "universe": "offense_vet",
+  "ingest_method": "json_api",
+  "ingest_type": "api_fetch",
+  "source_url": "https://flockfantasy.com/rankings?format=superflex",
+  "format_key": "dynasty_sf",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/CSVs/site_raw/flockFantasySf.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/flock_fantasy_sf/2026/flock_fantasy_sf_2026_20260418T052952Z",
+  "record_count": 0,
+  "hash": "f1315bddbca3bf8b6ad68da41aacd35c34ec1e7597e7e9859c00f38f361e253c",
+  "notes": "Flock Fantasy SF dynasty rankings via JSON API (?format=superflex). Expert consensus averaged ranks. Standard SF \u2014 no TE premium.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
