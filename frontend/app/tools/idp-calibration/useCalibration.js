@@ -34,6 +34,7 @@ export function useCalibration() {
     promote: false,
     runDetail: false,
     deleteRun: false,
+    refreshBoard: false,
   });
   const [error, setError] = useState({});
   const mountedRef = useRef(true);
@@ -169,6 +170,38 @@ export function useCalibration() {
     return data;
   }, [refreshProduction, refreshStatus]);
 
+  const refreshBoard = useCallback(async () => {
+    setFlag("refreshBoard", true);
+    setErr("refreshBoard", null);
+    try {
+      const { status: http, data } = await jfetch(
+        "/api/idp-calibration/refresh-board",
+        { method: "POST" },
+      );
+      if (!mountedRef.current) return data;
+      if (http >= 400 || data?.ok === false) {
+        setErr("refreshBoard", data?.error || `HTTP ${http}`);
+      }
+      return data;
+    } catch (err) {
+      // Network-layer rejection (browser offline, aborted navigation,
+      // backend unreachable). Without the try/finally the loading flag
+      // would stay true and the button would stick at "Refreshing…"
+      // until a full reload.
+      if (mountedRef.current) {
+        setErr(
+          "refreshBoard",
+          err?.message || "Network error. The live board may still be healthy.",
+        );
+      }
+      return { ok: false, error: err?.message || "Network error" };
+    } finally {
+      if (mountedRef.current) {
+        setFlag("refreshBoard", false);
+      }
+    }
+  }, []);
+
   return {
     status,
     runs,
@@ -184,5 +217,6 @@ export function useCalibration() {
     loadRun,
     deleteRun,
     promote,
+    refreshBoard,
   };
 }

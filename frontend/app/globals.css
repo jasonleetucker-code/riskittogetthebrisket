@@ -2328,6 +2328,18 @@ tr:hover .sticky-name {
   margin-top: var(--space-sm);
 }
 
+.idp-lab-refresh-block {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: var(--space-sm);
+}
+
+.idp-lab-refresh-hint {
+  margin-top: var(--space-xs);
+}
+
 .idp-lab-rec-list {
   margin: 0;
   padding-left: 1.2em;

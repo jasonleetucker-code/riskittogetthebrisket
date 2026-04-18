@@ -3800,6 +3800,141 @@ async def idp_calibration_status(request: Request):
     return _idp_json(_idp_api.status())
 
 
+@app.post("/api/idp-calibration/refresh-board")
+async def idp_calibration_refresh_board(request: Request):
+    """Force a rebuild of the cached live player contract.
+
+    After ``Promote to production`` writes ``config/idp_calibration.json``,
+    the live player board cached in memory (``latest_contract_data``,
+    plus its pre-serialised byte/gzip/etag variants) still reflects
+    the calibration applied at the last scrape time. This endpoint
+    re-runs ``_prime_latest_payload`` against the current raw scrape
+    (``latest_data``), which re-reads the promoted config and produces
+    a fresh contract — so the next ``/api/data`` / ``/rankings`` /
+    ``/trade`` request serves values computed under the newly-promoted
+    calibration, without waiting for the next scheduled scrape.
+
+    Returns 503 when no scrape data has been captured yet (cold start)
+    because there's nothing to rebuild from.
+    """
+    gate = _require_auth_json(request)
+    if gate is not None:
+        return gate
+    global latest_contract_data, latest_data_bytes, latest_data_gzip_bytes
+    global latest_data_etag, latest_runtime_data, latest_runtime_data_bytes
+    global latest_runtime_data_gzip_bytes, latest_runtime_data_etag
+    global latest_startup_data, latest_startup_data_bytes
+    global latest_startup_data_gzip_bytes, latest_startup_data_etag
+    global contract_health
+
+    if not latest_data:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "ok": False,
+                "error": (
+                    "No scrape data available yet. Wait for the first "
+                    "scrape to complete before requesting a refresh."
+                ),
+            },
+        )
+
+    # Snapshot every global _prime_latest_payload mutates BEFORE calling
+    # it. The helper clears all of these to None up-front and only
+    # re-populates them on a successful build — so if the rebuild fails
+    # the live board would otherwise go dark (/api/data serves 503).
+    # A failed manual refresh must never turn a healthy board into an
+    # outage: if the rebuild ends unhealthy, we restore the snapshot so
+    # the previously-cached contract keeps serving.
+    snapshot = (
+        latest_contract_data,
+        latest_data_bytes,
+        latest_data_gzip_bytes,
+        latest_data_etag,
+        latest_runtime_data,
+        latest_runtime_data_bytes,
+        latest_runtime_data_gzip_bytes,
+        latest_runtime_data_etag,
+        latest_startup_data,
+        latest_startup_data_bytes,
+        latest_startup_data_gzip_bytes,
+        latest_startup_data_etag,
+        contract_health,
+    )
+
+    def _restore_snapshot() -> None:
+        global latest_contract_data, latest_data_bytes, latest_data_gzip_bytes
+        global latest_data_etag, latest_runtime_data, latest_runtime_data_bytes
+        global latest_runtime_data_gzip_bytes, latest_runtime_data_etag
+        global latest_startup_data, latest_startup_data_bytes
+        global latest_startup_data_gzip_bytes, latest_startup_data_etag
+        global contract_health
+        (
+            latest_contract_data,
+            latest_data_bytes,
+            latest_data_gzip_bytes,
+            latest_data_etag,
+            latest_runtime_data,
+            latest_runtime_data_bytes,
+            latest_runtime_data_gzip_bytes,
+            latest_runtime_data_etag,
+            latest_startup_data,
+            latest_startup_data_bytes,
+            latest_startup_data_gzip_bytes,
+            latest_startup_data_etag,
+            contract_health,
+        ) = snapshot
+
+    try:
+        _prime_latest_payload(latest_data)
+    except Exception as exc:  # noqa: BLE001 — defensive net; see P1 review.
+        log.exception("idp-calibration refresh-board rebuild raised: %s", exc)
+        _restore_snapshot()
+        return JSONResponse(
+            status_code=500,
+            content={
+                "ok": False,
+                "error": f"Rebuild raised: {exc}. Previous live board preserved.",
+            },
+        )
+    # _prime_latest_payload swallows its own exceptions and signals
+    # failures through contract_health + by leaving latest_contract_data
+    # unset. Require both to be healthy before reporting success; on
+    # failure, roll the globals back to their pre-refresh snapshot so
+    # a failed manual refresh cannot take the live board down.
+    health = contract_health or {}
+    if latest_contract_data is None or not health.get("ok"):
+        errors = (health.get("errors") or [])[:3]
+        detail = "; ".join(str(e) for e in errors) if errors else (
+            "latest_contract_data was not populated"
+            if latest_contract_data is None
+            else "contract validation reported errors"
+        )
+        log.error(
+            "idp-calibration refresh-board rebuild unhealthy: %s", detail
+        )
+        _restore_snapshot()
+        return JSONResponse(
+            status_code=500,
+            content={
+                "ok": False,
+                "error": (
+                    "Rebuild completed but the live contract is not healthy; "
+                    f"restored previous board. Details: {detail}"
+                ),
+                "contract_ok": bool(health.get("ok")),
+                "error_count": int(health.get("errorCount") or 0),
+            },
+        )
+    return JSONResponse(
+        content={
+            "ok": True,
+            "rebuilt_at": _utc_now_iso(),
+            "contract_ok": True,
+        },
+    )
+
+
 @app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def serve_landing(request: Request):
     redirect = _require_auth_or_redirect(request, "/")
