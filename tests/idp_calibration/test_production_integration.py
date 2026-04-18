@@ -72,6 +72,32 @@ def test_promoted_multipliers_scale_only_idp(tmp_path, monkeypatch):
     assert db["rankDerivedValue"] == 4000
 
 
+def test_empty_bucket_config_is_identity_not_anchor_floor(tmp_path, monkeypatch):
+    """A promoted config with no real bucket data must be a no-op, NOT a
+    ~95% value cut via the anchor floor."""
+    cfg_path = tmp_path / "config" / "idp_calibration.json"
+    # Count = 0 on every bucket; anchors look convincing but are all 0.05.
+    config = {
+        "active_mode": "blended",
+        "multipliers": {
+            "DL": {"position": "DL", "buckets": [
+                {"label": "1-6", "intrinsic": 0.05, "market": 0.05, "final": 0.05, "count": 0},
+            ]},
+        },
+        "anchors": {
+            "final": {
+                "DL": [{"rank": 1, "value": 0.05}, {"rank": 100, "value": 0.05}],
+            },
+        },
+    }
+    save_json(cfg_path, config)
+    monkeypatch.setattr(production, "production_config_path", lambda base=None: cfg_path)
+    production.reset_cache()
+    # Must return identity, not 0.05.
+    assert production.get_idp_bucket_multiplier("DL", 1) == 1.0
+    assert production.get_idp_bucket_multiplier("DL", 50) == 1.0
+
+
 def test_position_alias_collapses_to_canonical(tmp_path, monkeypatch):
     cfg_path = tmp_path / "config" / "idp_calibration.json"
     config = {

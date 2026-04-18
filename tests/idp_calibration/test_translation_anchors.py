@@ -77,6 +77,25 @@ def test_anchors_are_non_increasing():
             assert b.value <= a.value + 1e-9, f"{kind} violates monotonicity"
 
 
+def test_bucket_labels_aggregate_across_seasons_not_just_first():
+    # Season A merged 13-24 away; season B kept it. The multiplier table
+    # must still include the 13-24 bucket in the aggregate.
+    season_a = [_bucket("1-6", 1, 6, 100, 110), _bucket("7-12", 7, 12, 60, 65)]
+    season_b = _three_bucket_series(100, 115)  # includes 13-24
+    per_position = {"DL": {2025: season_a, 2024: season_b}}
+    multipliers = build_multi_year_multipliers(
+        per_position,
+        year_weights={2025: 0.6, 2024: 0.4},
+        blend=DEFAULT_BLEND,
+    )
+    labels = [b.label for b in multipliers["DL"].buckets]
+    assert "1-6" in labels
+    assert "7-12" in labels
+    assert "13-24" in labels  # Previously silently dropped.
+    # Ordering must be by numeric low bound — 1-6 before 7-12 before 13-24.
+    assert labels.index("1-6") < labels.index("7-12") < labels.index("13-24")
+
+
 def test_normalise_year_weights_handles_missing_seasons():
     weights = normalise_year_weights(DEFAULT_YEAR_WEIGHTS, seasons=[2023, 2024])
     assert 2022 not in weights

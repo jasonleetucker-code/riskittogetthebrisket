@@ -126,6 +126,35 @@ def test_run_delete_requires_id(tmp_base):
     assert status == 422
 
 
+def test_promote_empty_run_returns_422(tmp_base):
+    # Save an artifact with zero bucket counts by hand so we can attempt
+    # a deliberately-unsafe promotion.
+    from src.idp_calibration import storage
+
+    empty = {
+        "run_id": "empty_api",
+        "generated_at": "2026-04-18T00:00:00Z",
+        "settings": {"blend": {"intrinsic": 0.75, "market": 0.25}},
+        "resolved_seasons": [],
+        "multipliers": {
+            "DL": {"position": "DL", "buckets": []},
+            "LB": {"position": "LB", "buckets": []},
+            "DB": {"position": "DB", "buckets": []},
+        },
+        "anchors": {},
+    }
+    storage.save_run(empty, base=tmp_base)
+    status, payload = api.promote(
+        {"run_id": "empty_api", "active_mode": "blended"}, base=tmp_base
+    )
+    assert status == 422
+    assert payload["ok"] is False
+    # And no production file was written.
+    from src.idp_calibration.promotion import production_config_path
+
+    assert not production_config_path(tmp_base).exists()
+
+
 def test_status_reports_presence(tmp_base):
     status, payload = api.status(base=tmp_base)
     assert status == 200

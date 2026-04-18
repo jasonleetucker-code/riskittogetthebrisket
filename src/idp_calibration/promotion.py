@@ -22,6 +22,17 @@ BACKUPS_DIR = "idp_calibration.backups"
 VALID_MODES: tuple[str, ...] = ("intrinsic_only", "market_only", "blended")
 
 
+class EmptyCalibrationError(ValueError):
+    """Raised when a run has no usable per-bucket multiplier data.
+
+    Promoting such a run would make :func:`production.get_idp_bucket_multiplier`
+    fall through to the anchor curve, which is floored at ``anchor_floor``
+    (default ``0.05``) and would silently cut every IDP value in the live
+    calculator by ~95%. The calibration lab must reject these promotions
+    at the gate rather than ship a quiet regression.
+    """
+
+
 def production_config_path(base: Path | None = None) -> Path:
     return (base or repo_root()) / "config" / CONFIG_FILENAME
 
@@ -38,6 +49,26 @@ def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _has_usable_bucket_data(artifact: dict[str, Any]) -> bool:
+    """Return ``True`` when at least one DL/LB/DB bucket has ``count > 0``.
+
+    Anchor curves alone are not enough — they can be produced from empty
+    bucket tables and default to the anchor floor, which is a dangerous
+    no-op. Bucket counts are the ground truth that real players backed
+    the multiplier.
+    """
+    multipliers = (artifact or {}).get("multipliers") or {}
+    for pos in ("DL", "LB", "DB"):
+        buckets = (multipliers.get(pos) or {}).get("buckets") or []
+        for bucket in buckets:
+            try:
+                if int(bucket.get("count") or 0) > 0:
+                    return True
+            except (TypeError, ValueError):
+                continue
+    return False
+
+
 def build_production_config(
     artifact: dict[str, Any],
     *,
@@ -47,6 +78,12 @@ def build_production_config(
     """Shape a saved run artifact into the production config schema."""
     if active_mode not in VALID_MODES:
         raise ValueError(f"active_mode must be one of {VALID_MODES}, got {active_mode!r}")
+    if not _has_usable_bucket_data(artifact):
+        raise EmptyCalibrationError(
+            "Run has no resolved seasons with per-bucket IDP data; refusing "
+            "to promote because the live pipeline would fall through to the "
+            "anchor floor and cut every IDP value by ~95%.",
+        )
     settings = artifact.get("settings") or {}
     inputs = artifact.get("inputs") or {}
     return {

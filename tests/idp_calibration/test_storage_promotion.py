@@ -160,6 +160,32 @@ def test_promote_unknown_run_raises(tmp_base):
         promotion.promote_run("does-not-exist", base=tmp_base)
 
 
+def test_promote_refuses_run_with_no_bucket_data(tmp_base):
+    # Build an artifact whose multipliers contain only zero-count buckets
+    # (the exact shape produced by a run where every season failed to
+    # resolve). Promoting would otherwise let the anchor floor (0.05)
+    # reach production and cut every IDP value by ~95%.
+    empty_artifact = {
+        "run_id": "empty_run",
+        "generated_at": "2026-04-18T00:00:00Z",
+        "settings": {"blend": {"intrinsic": 0.75, "market": 0.25}},
+        "resolved_seasons": [],
+        "multipliers": {
+            "DL": {"position": "DL", "buckets": [
+                {"label": "1-6", "intrinsic": 1.0, "market": 1.0, "final": 1.0, "count": 0},
+            ]},
+            "LB": {"position": "LB", "buckets": []},
+            "DB": {"position": "DB", "buckets": []},
+        },
+        "anchors": {},
+    }
+    storage.save_run(empty_artifact, base=tmp_base)
+    with pytest.raises(promotion.EmptyCalibrationError):
+        promotion.promote_run("empty_run", base=tmp_base)
+    # No config file should have been written.
+    assert not promotion.production_config_path(tmp_base).exists()
+
+
 def test_production_lookup_returns_multiplier_when_promoted(tmp_base):
     settings = engine.AnalysisSettings()
     art = engine.run_analysis(

@@ -116,9 +116,24 @@ def _collect_year_centers(
 
 
 def _bucket_labels(per_season: dict[int, list[BucketResult]]) -> list[str]:
+    """Return the union of bucket labels across every season.
+
+    Seasons can disagree on the label set when small buckets merge into
+    neighbours in one year but survive in another. Using only the first
+    season's labels (the previous behaviour) silently dropped valid
+    data. We now collect every label we've seen and sort by the
+    numeric low bound so the multiplier tables stay in rank order.
+    """
+    labels_with_lo: dict[str, int] = {}
     for buckets in per_season.values():
-        return [b.label for b in buckets]
-    return []
+        for b in buckets:
+            if b.label in labels_with_lo:
+                continue
+            try:
+                labels_with_lo[b.label] = int(b.label.split("-")[0])
+            except (TypeError, ValueError):
+                labels_with_lo[b.label] = 10**9
+    return sorted(labels_with_lo.keys(), key=lambda lbl: labels_with_lo[lbl])
 
 
 def compute_position_multipliers(

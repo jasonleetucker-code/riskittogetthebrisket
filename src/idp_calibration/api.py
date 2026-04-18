@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from .engine import AnalysisSettings, run_analysis
-from .promotion import VALID_MODES, load_production, promote_run
+from .promotion import EmptyCalibrationError, VALID_MODES, load_production, promote_run
 from .production import is_promoted
 from .storage import delete_run, get_latest, list_runs, load_run, save_run
 
@@ -89,6 +89,8 @@ def promote(body: dict[str, Any] | None, *, base: Path | None = None) -> tuple[i
         )
     except FileNotFoundError as exc:
         return _error(404, str(exc))
+    except EmptyCalibrationError as exc:
+        return _error(422, str(exc))
     except Exception as exc:  # noqa: BLE001
         return _error(500, f"Promotion failed: {exc}")
     return 200, result

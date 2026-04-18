@@ -52,12 +52,41 @@ def load_production_config(base: Path | None = None) -> dict[str, Any] | None:
     return _load_if_stale(base)
 
 
+def _position_has_real_data(position_block: Any) -> bool:
+    """Bucket data is "real" only when at least one bucket has count > 0.
+
+    A buckets list of only zero-count entries is produced by a run that
+    failed to resolve any seasons — treating it as valid would cause the
+    anchor-floor fallback to fire for every rank. Guard at read time so
+    even an accidentally-promoted empty config is a strict no-op instead
+    of a silent 95% value cut.
+    """
+    if not isinstance(position_block, dict):
+        return False
+    buckets = position_block.get("buckets")
+    if isinstance(buckets, list):
+        for bucket in buckets:
+            try:
+                if int(bucket.get("count") or 0) > 0:
+                    return True
+            except (TypeError, ValueError):
+                continue
+        return False
+    # Flat {label: value} shape carries no count, so trust its presence.
+    return any(isinstance(k, str) and "-" in k for k in position_block.keys())
+
+
 def _bucket_lookup_for(position: str, rank: int, config: dict[str, Any], mode: str) -> float:
     """Pick the right multiplier from the promoted config.
 
     Handles both of the shapes the storage layer emits: flat
     ``multipliers[position] = {label: value}`` and the richer
     ``multipliers[kind][position] = {...}``.
+
+    Returns ``1.0`` (identity) whenever the promoted config has no real
+    per-bucket data for ``position`` — this is the safety net that
+    prevents an empty-calibration promotion from cutting every IDP
+    value through the anchor floor.
     """
     position = position.upper()
     if position not in {"DL", "LB", "DB"}:
@@ -76,8 +105,13 @@ def _bucket_lookup_for(position: str, rank: int, config: dict[str, Any], mode: s
     else:
         position_block = multipliers.get(position)
     if not isinstance(position_block, dict):
-        # Some shapes embed {"buckets": [...]}. Fall through to anchor lookup.
         position_block = None
+
+    if not _position_has_real_data(position_block):
+        # No real bucket data for this position ⇒ identity multiplier.
+        # Do NOT fall through to anchors — empty runs produce anchor
+        # curves floored at 0.05 which would silently cut IDP values.
+        return 1.0
 
     if isinstance(position_block, dict):
         buckets = position_block.get("buckets") if "buckets" in position_block else None
@@ -101,7 +135,9 @@ def _bucket_lookup_for(position: str, rank: int, config: dict[str, Any], mode: s
             except (TypeError, ValueError):
                 continue
 
-    # Fall back to anchors if multipliers lookup failed.
+    # Past the last labelled bucket — use the anchor curve as a smooth
+    # tail now that we've confirmed real bucket data exists for this
+    # position upstream.
     anchors_block = (config.get("anchors") or {}).get(kind, {}).get(position)
     if isinstance(anchors_block, list):
         best_val = 1.0

@@ -46,6 +46,34 @@ from .vor import (
 POSITIONS: tuple[str, ...] = ("DL", "LB", "DB")
 
 
+def _safe_int(value: Any, default: int) -> int:
+    """Coerce ``value`` to int; return ``default`` on any parse error.
+
+    Keeps malformed client payloads (e.g. ``"min_games": "abc"``) from
+    bubbling a ``ValueError`` out of :meth:`AnalysisSettings.from_payload`
+    as a 500 response. Callers should combine this with a value-level
+    clamp where a negative or zero fallback is not safe.
+    """
+    if value is None or value == "":
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return default
+
+
+def _safe_float(value: Any, default: float) -> float:
+    if value is None or value == "":
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 @dataclass
 class AnalysisSettings:
     seasons: list[int] = field(default_factory=lambda: list(DEFAULT_SEASONS))
@@ -72,10 +100,17 @@ class AnalysisSettings:
         except (TypeError, ValueError):
             seasons = list(DEFAULT_SEASONS)
         replacement_raw = payload.get("replacement") or {}
+        manual_raw = (replacement_raw or {}).get("manual") or {}
+        manual_safe: dict[str, int] = {}
+        if isinstance(manual_raw, dict):
+            for k, v in manual_raw.items():
+                parsed = _safe_int(v, 0)
+                if parsed > 0:
+                    manual_safe[str(k)] = parsed
         replacement = ReplacementSettings(
             mode=str(replacement_raw.get("mode") or "starter_plus_buffer"),
-            buffer_pct=float(replacement_raw.get("buffer_pct") or 0.15),
-            manual={k: int(v) for k, v in (replacement_raw.get("manual") or {}).items()},
+            buffer_pct=_safe_float(replacement_raw.get("buffer_pct"), 0.15),
+            manual=manual_safe,
         )
         bucket_edges_raw = payload.get("bucket_edges") or [list(e) for e in DEFAULT_BUCKETS]
         bucket_edges: list[list[int]] = []
@@ -90,7 +125,7 @@ class AnalysisSettings:
             bucket_edges = [list(e) for e in DEFAULT_BUCKETS]
         blend_raw = payload.get("blend") or DEFAULT_BLEND
         blend = {
-            "intrinsic": max(0.0, min(1.0, float(blend_raw.get("intrinsic", 0.75)))),
+            "intrinsic": max(0.0, min(1.0, _safe_float(blend_raw.get("intrinsic"), 0.75))),
             "market": 0.0,
         }
         blend["market"] = round(1.0 - blend["intrinsic"], 6)
@@ -108,23 +143,20 @@ class AnalysisSettings:
             anchor_ranks = sorted({int(a) for a in anchors})
         except (TypeError, ValueError):
             anchor_ranks = list(DEFAULT_ANCHOR_RANKS)
-        min_games = int(payload.get("min_games") or 0)
-        top_n_raw = payload.get("top_n")
-        top_n = None
-        try:
-            if top_n_raw is not None and int(top_n_raw) > 0:
-                top_n = int(top_n_raw)
-        except (TypeError, ValueError):
-            top_n = None
+        min_games = max(0, _safe_int(payload.get("min_games"), 0))
+        top_n_raw = _safe_int(payload.get("top_n"), 0)
+        top_n = top_n_raw if top_n_raw > 0 else None
+        anchor_floor = max(0.0, min(1.0, _safe_float(payload.get("anchor_floor"), 0.05)))
+        min_bucket_size = max(1, _safe_int(payload.get("min_bucket_size"), 3))
         return AnalysisSettings(
             seasons=seasons,
             replacement=replacement,
             bucket_edges=bucket_edges,
-            min_bucket_size=int(payload.get("min_bucket_size") or 3),
+            min_bucket_size=min_bucket_size,
             blend=blend,
             year_weights=year_weights,
             anchor_ranks=anchor_ranks,
-            anchor_floor=float(payload.get("anchor_floor") or 0.05),
+            anchor_floor=anchor_floor,
             min_games=min_games,
             top_n=top_n,
         )
