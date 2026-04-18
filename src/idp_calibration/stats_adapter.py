@@ -153,8 +153,8 @@ class SleeperStatsAdapter(HistoricalStatsAdapter):
                 continue
             meta = players_map.get(str(pid)) or {}
             pos_raw = str(meta.get("position") or "").upper()
-            canonical = _canonical_position(pos_raw)
-            if canonical not in {"DL", "LB", "DB"}:
+            canonical_pos = _canonical_position(pos_raw)
+            if canonical_pos not in {"DL", "LB", "DB"}:
                 continue
             games = _coerce_int(stats.get("gp") or stats.get("games") or 0)
             scored: dict[str, float] = {}
@@ -188,17 +188,17 @@ class SleeperStatsAdapter(HistoricalStatsAdapter):
                 "idp_tkl_10p": ("idp_tkl_10p",),
                 "idp_tkl_5p": ("idp_tkl_5p",),
             }
-            for canonical, payload_keys in _STAT_KEY_MAP.items():
+            for stat_canonical, payload_keys in _STAT_KEY_MAP.items():
                 for pk in payload_keys:
                     val = _coerce_float(stats.get(pk))
                     if val is not None:
-                        scored[canonical] = val
+                        scored[stat_canonical] = val
                         break
             out.append(
                 PlayerSeason(
                     player_id=str(pid),
                     name=str(meta.get("full_name") or meta.get("first_name") or pid),
-                    position=canonical,
+                    position=canonical_pos,
                     games=games,
                     stats=scored,
                 )
@@ -271,11 +271,11 @@ class LocalCSVStatsAdapter(HistoricalStatsAdapter):
                         "idp_tkl_10p": ("idp_tkl_10p",),
                         "idp_tkl_5p": ("idp_tkl_5p",),
                     }
-                    for canonical, column_names in _CSV_STAT_MAP.items():
+                    for stat_canonical, column_names in _CSV_STAT_MAP.items():
                         for col in column_names:
                             val = _coerce_float(row.get(col))
                             if val is not None:
-                                stats[canonical] = val
+                                stats[stat_canonical] = val
                                 break
                     out.append(
                         PlayerSeason(
