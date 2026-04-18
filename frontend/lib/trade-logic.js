@@ -33,15 +33,36 @@ export const TRADE_ALPHA = 1.65;
 // Mirrors KeepTradeCut's "Value Adjustment" row: the side with fewer pieces
 // gets a consolidation / roster-spot bonus that scales with (1) how much
 // its top asset outclasses the multi-side's top asset and (2) the raw
-// value of the "extra" pieces on the multi side.  Coefficients were fit
-// to three observed KTC data points (predictions within ~3% of actuals):
-//
-//   single=9999 vs 7846+5717 → KTC VA 3712 (model 3613)
-//   single=7846 vs 5717+4829 → KTC VA 3034 (model 3091)
-//   single=7846 vs 6949+5717 → KTC VA 1166 (model 1143)
+// value of the "extra" pieces on the multi side.
 //
 // Formula: scarcity = clamp(SLOPE · gapRatio − INTERCEPT, 0, CAP)
 //          VA = Σ extraᵢ · scarcity · POSITION_DECAYⁱ
+//
+// Calibration against 6 observed KTC data points
+// (3 original 1-vs-2 + 3 new 1-vs-3, pinned in trade-logic.test.js):
+//
+//   case  layout         single  multi                KTC   model  err%
+//   A     1-vs-2         9999    7846+5717            3712  3610   -2.7
+//   B     1-vs-2         7846    5717+4829            3034  3091   +1.9
+//   C     1-vs-2         7846    6949+5717            1166  1144   -1.9
+//   D     1-vs-3         4342    2667+2324+1172       1820  2012  +10.6
+//   E     1-vs-3         7798    4519+4208+2906       3834  3995   +4.2
+//   F     1-vs-3         9999    7471+4862+2215       4879  4104  -15.9
+//
+//   mean |err| = 6.2%,  max |err| = 15.9% (case F).
+//
+// KNOWN STRUCTURAL LIMIT: these coefficients are already near-optimal
+// for the linear-scarcity / exponential-decay formula family.  See
+// ``scripts/calibrate_va_formula.py`` — a joint refit of all 4
+// parameters cannot drop max error below ~13% without mean error
+// ballooning past 10%.  The underlying issue: point F (low gap ratio,
+// high first extra) and points D+E (higher gap ratios, moderate
+// first extras) demand incompatible scarcity values under the current
+// structure.  Closing the F gap requires a formula redesign — try
+// scarcity that responds to extras ratio in addition to gap ratio, or
+// a per-extra scarcity instead of a shared-scarcity-with-decay.  Do
+// NOT attempt to close the gap by tuning these 4 constants — the
+// regression tests will catch the resulting collateral damage.
 export const VA_SCARCITY_SLOPE = 4.27;
 export const VA_SCARCITY_INTERCEPT = 0.288;
 export const VA_SCARCITY_CAP = 0.64;
