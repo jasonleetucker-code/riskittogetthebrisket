@@ -385,41 +385,29 @@ export default function RankingsPage() {
     }
   }, []);
 
-  // ── IDP calibration toggle ──────────────────────────────────────
-  // When on, swap each IDP row's rankDerivedValue with its
-  // pre-calibration snapshot and re-sort the full board by value so
-  // canonicalConsensusRank reflects the identity-mode ordering. This
-  // is a pure client-side view toggle — the promoted config stays
-  // live, rankings elsewhere in the app are unaffected.
+  // ── Calibration toggle ──────────────────────────────────────
+  // When on, swap each row's rank + value with the pre-calibration
+  // snapshots the backend already stamped. Because the backend anchors
+  // rankDerivedValue onto the Hill curve after every calibration pass,
+  // both snapshots are already Hill-curve coherent — this is a pure
+  // field swap, not a recomputation. Affects the /rankings view only;
+  // the promoted config stays live everywhere else in the app.
   const toggledRows = useMemo(() => {
     if (!showIdpUncalibrated) return rows;
-    const swapped = rows.map((r) => {
-      const uncal = Number(r.rankDerivedValueUncalibrated) || null;
-      if (!uncal || uncal === r.rankDerivedValue) return r;
-      return {
-        ...r,
-        rankDerivedValue: uncal,
-        values: { ...(r.values || {}), full: uncal },
-      };
+    return rows.map((r) => {
+      const uncalValue = Number(r.rankDerivedValueUncalibrated) || null;
+      const uncalRank = Number(r.canonicalConsensusRankUncalibrated) || null;
+      if (!uncalValue && !uncalRank) return r;
+      const next = { ...r };
+      if (uncalValue) {
+        next.rankDerivedValue = uncalValue;
+        next.values = { ...(r.values || {}), full: uncalValue };
+      }
+      if (uncalRank) {
+        next.canonicalConsensusRank = uncalRank;
+      }
+      return next;
     });
-    const sortedForRerank = [...swapped]
-      .filter((r) => r.canonicalConsensusRank)
-      .sort(
-        (a, b) =>
-          (Number(b.rankDerivedValue) || 0) -
-            (Number(a.rankDerivedValue) || 0) ||
-          (Number(a.canonicalConsensusRank) || 0) -
-            (Number(b.canonicalConsensusRank) || 0),
-      );
-    const reranked = new Map();
-    sortedForRerank.forEach((r, idx) => {
-      reranked.set(r, idx + 1);
-    });
-    return swapped.map((r) =>
-      reranked.has(r)
-        ? { ...r, canonicalConsensusRank: reranked.get(r) }
-        : r,
-    );
   }, [rows, showIdpUncalibrated]);
 
   // ── Base eligible list ──────────────────────────────────────────

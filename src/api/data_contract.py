@@ -2745,11 +2745,6 @@ def _apply_idp_calibration_post_pass(
     for pos, rows in by_pos.items():
         rows.sort(key=lambda r: -int(r.get("rankDerivedValue") or 0))
         for idx, row in enumerate(rows, 1):
-            # Snapshot the pre-calibration value on every IDP row so the
-            # frontend can swap back to "identity" display instantly
-            # without a refetch. Populated even when multiplier == 1.0
-            # so the toggle UX is uniform across rows.
-            row["rankDerivedValueUncalibrated"] = int(row.get("rankDerivedValue") or 0)
             try:
                 multiplier = float(
                     _idp_production.get_idp_bucket_multiplier(
@@ -2760,6 +2755,12 @@ def _apply_idp_calibration_post_pass(
                 multiplier = 1.0
             if abs(multiplier - 1.0) < 1e-9:
                 continue
+            # Multiplier shifts the row's *target value* so that the
+            # subsequent global re-sort moves the row to a new rank on
+            # the merged board. After the re-sort, Phase 5b recomputes
+            # rankDerivedValue from rank_to_value(canonicalConsensusRank)
+            # so the final value is coherent with the new rank on the
+            # Hill curve — not an orphaned multiplied number.
             old_val = int(row.get("rankDerivedValue") or 0)
             new_val = max(1, int(round(old_val * multiplier)))
             row["rankDerivedValue"] = new_val
@@ -2816,7 +2817,6 @@ def _apply_offense_calibration_post_pass(
     for pos, rows in by_pos.items():
         rows.sort(key=lambda r: -int(r.get("rankDerivedValue") or 0))
         for idx, row in enumerate(rows, 1):
-            row["rankDerivedValueUncalibrated"] = int(row.get("rankDerivedValue") or 0)
             try:
                 multiplier = float(
                     _idp_production.get_offense_bucket_multiplier(
@@ -2827,6 +2827,10 @@ def _apply_offense_calibration_post_pass(
                 multiplier = 1.0
             if abs(multiplier - 1.0) < 1e-9:
                 continue
+            # Same rank-shift semantics as IDP: multiplier adjusts the
+            # target value so the global re-sort moves the row to a new
+            # rank; Phase 5b then anchors the value back onto the Hill
+            # curve based on the new rank.
             old_val = int(row.get("rankDerivedValue") or 0)
             new_val = max(1, int(round(old_val * multiplier)))
             row["rankDerivedValue"] = new_val
@@ -3794,15 +3798,21 @@ def _compute_unified_rankings(
     # DL/LB/DB row. Strict no-op when config/idp_calibration.json is
     # absent — the calibration lab's Promote step is the only way to
     # activate this. See src/idp_calibration/production.py.
+    # Snapshot the pre-calibration rank and value on every ranked row so
+    # the /rankings toggle can reconstruct the uncalibrated board
+    # (rank + value) without a refetch. Runs BEFORE the calibration
+    # passes so offense rows get a snapshot too (they're re-ranked
+    # globally even though offense calibration's multipliers are all
+    # 1.0; the cross-family scale still reshuffles the merged board).
+    for row in players_array:
+        rank = row.get("canonicalConsensusRank")
+        if rank is None or rank <= 0:
+            continue
+        row["canonicalConsensusRankUncalibrated"] = int(rank)
+        row["rankDerivedValueUncalibrated"] = int(row.get("rankDerivedValue") or 0)
+
     _apply_idp_calibration_post_pass(players_array, players_by_name)
-    # Offense post-pass intentionally disabled: offense trade value
-    # should always track the market-derived rankings (KTC/DLF/
-    # FantasyCalc). VOR-based bucket multipliers override a
-    # well-calibrated market with a thin season-points-only signal and
-    # produce absurd values (e.g. QB7 Mahomes → 52% of QB1). The lab
-    # still computes offense_multipliers as an analytical reference
-    # but they are NOT applied to live values.
-    # _apply_offense_calibration_post_pass(players_array, players_by_name)
+    _apply_offense_calibration_post_pass(players_array, players_by_name)
 
     # ── Phase 5: Pick refinement passes (gated to picks) ──
     # 1) Reassign (rank, value) tuples within each (year, round) bucket
@@ -3841,6 +3851,30 @@ def _compute_unified_rankings(
         if old_rank != new_rank:
             r["canonicalConsensusRank"] = new_rank
         r["canonicalTierId"] = _tier_id_from_rank(new_rank)
+
+    # Phase 5b — rank-to-value coherence when calibration is active.
+    # Gated: only run when a promoted calibration config exists. In the
+    # uncalibrated baseline, existing pre-sort value adjustments (TEP
+    # premium, pick anchors, per-source blends) deliberately decouple
+    # value from a strict rank_to_value() — we preserve that behaviour
+    # when there's nothing to calibrate. Once calibration is promoted,
+    # the user's mental model takes priority: every row's final value
+    # equals ``rank_to_value(canonicalConsensusRank)`` so value and rank
+    # stay coupled on the Hill curve — no orphaned post-pass products,
+    # always on the 1–9999 scale.
+    if _idp_production.load_production_config():
+        from src.canonical.player_valuation import rank_to_value as _hill_value
+        for r in ranked_rows:
+            rank = r.get("canonicalConsensusRank")
+            if rank is None or int(rank) <= 0:
+                continue
+            coherent_value = int(_hill_value(int(rank)))
+            r["rankDerivedValue"] = coherent_value
+            legacy_ref = r.get("legacyRef")
+            if legacy_ref and legacy_ref in players_by_name:
+                pdata = players_by_name[legacy_ref]
+                if isinstance(pdata, dict):
+                    pdata["rankDerivedValue"] = coherent_value
 
     # 2c) Mirror the post-anchor rank back into the legacy players_by_name
     #     dict for every ranked row — not just picks.  The runtime view
