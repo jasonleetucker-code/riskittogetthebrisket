@@ -766,6 +766,7 @@ def fetch_sleeper_rosters(league_id):
 
     all_names = []
     position_map = {}
+    position_collisions: dict[str, set[str]] = {}
     player_id_map = {}
     id_to_player = {}
     teams = []
@@ -981,7 +982,17 @@ def fetch_sleeper_rosters(league_id):
                 if pos and cn:
                     # Multi-positional IDP rule: prefer non-LB for dual-position players
                     # Sleeper stores a single position; we override known edge cases
-                    position_map[cn] = pos
+                    existing = position_map.get(cn)
+                    if existing and existing != pos:
+                        # Name collision across universes (e.g. DJ Turner WR vs
+                        # DJ Turner II CB both clean to "DJ Turner"). Drop the
+                        # entry entirely — having no position is safer than
+                        # tagging the row with the wrong family, which breaks
+                        # the offense→IDP validator downstream.
+                        position_map.pop(cn, None)
+                        position_collisions.setdefault(cn, set()).update({existing, pos})
+                    elif cn not in position_collisions:
+                        position_map[cn] = pos
 
         teams.append({
             "name": team_name,
@@ -1014,6 +1025,15 @@ def fetch_sleeper_rosters(league_id):
         cn = clean_name(name)
         if cn in position_map:
             position_map[cn] = override_pos
+
+    if position_collisions:
+        preview = ", ".join(
+            f"{k} ({'/'.join(sorted(v))})"
+            for k, v in list(position_collisions.items())[:5]
+        )
+        print(
+            f"  [Sleeper] Dropped {len(position_collisions)} colliding position entries: {preview}"
+        )
 
 
     teams.sort(key=lambda t: t["name"])

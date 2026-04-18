@@ -3958,6 +3958,20 @@ def _derive_player_row(
             pos = pos_from_player
         elif player_is_idp and sleeper_is_off and has_idp_signal and not has_off_signal:
             pos = pos_from_player
+    elif not pos_from_player and pos_from_sleeper:
+        # Signal-based guardrail: when the player's adapter data has no position
+        # but the sleeper map contradicts the source signals, drop the
+        # sleeper-supplied position. This catches name collisions across
+        # universes (e.g. DJ Turner WR vs DJ Turner II CB both clean to the
+        # same key) where the sleeper map overwrote one with the other's
+        # position. Tagging the row with the wrong family would break the
+        # offense→IDP validator downstream.
+        sleeper_is_off = pos_from_sleeper in _OFFENSE_POSITIONS
+        sleeper_is_idp = pos_from_sleeper in _IDP_POSITIONS
+        if sleeper_is_idp and has_off_signal and not has_idp_signal:
+            pos = ""
+        elif sleeper_is_off and has_idp_signal and not has_off_signal:
+            pos = ""
 
     is_pick = _is_pick_name(canonical_name)
     if is_pick:
