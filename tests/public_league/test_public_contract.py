@@ -219,6 +219,42 @@ class SectionCoverageTests(unittest.TestCase):
         ):
             self.assertIn(block, s)
 
+    def test_luck_section(self) -> None:
+        s = self.contract["sections"]["luck"]
+        for block in (
+            "byOwnerCareer",
+            "byOwnerSeason",
+            "currentSeasonRanked",
+            "weeklyTrail",
+            "methodology",
+        ):
+            self.assertIn(block, s)
+
+    def test_streaks_section(self) -> None:
+        s = self.contract["sections"]["streaks"]
+        for block in (
+            "activeStreaks",
+            "activeStreaksByType",
+            "recordsInReach",
+            "notableThisWeek",
+        ):
+            self.assertIn(block, s)
+
+    def test_power_section(self) -> None:
+        s = self.contract["sections"]["power"]
+        for block in ("weeks", "seriesByOwner", "currentRanking", "methodology", "weights"):
+            self.assertIn(block, s)
+
+    def test_matchup_preview_section(self) -> None:
+        s = self.contract["sections"]["matchupPreview"]
+        for block in ("currentSeason", "currentWeek", "mode", "matchups"):
+            self.assertIn(block, s)
+
+    def test_weekly_recap_section(self) -> None:
+        s = self.contract["sections"]["weeklyRecap"]
+        for block in ("weeks", "byKey", "latest", "seasonsCovered"):
+            self.assertIn(block, s)
+
 
 class ActivityGradingTests(unittest.TestCase):
     """Server-side trade grades on the public activity feed.

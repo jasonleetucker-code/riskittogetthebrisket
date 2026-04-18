@@ -39,6 +39,11 @@ export const PUBLIC_SECTION_KEYS = Object.freeze([
   "weekly",
   "superlatives",
   "archives",
+  "luck",
+  "streaks",
+  "power",
+  "matchupPreview",
+  "weeklyRecap",
 ]);
 
 async function _getJson(url) {
