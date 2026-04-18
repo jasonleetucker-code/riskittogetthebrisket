@@ -157,3 +157,23 @@ class TestNormalizePositionFamily:
         # took the first part, so "LB/QB" normalised to LB while
         # "QB/LB" normalised to QB. Now both orderings agree.
         assert normalize_position_family(pos) == expected
+
+    @pytest.mark.parametrize(
+        "pos,expected",
+        [
+            # Priority must also apply to comma- and pipe-joined
+            # multi-position strings. Previously normalize_position_family
+            # only gated on "/", so these fell through to first-token
+            # handling and "LB,CB" ended up as LB.
+            ("LB,CB", "DB"),
+            ("CB,LB", "DB"),
+            ("LB|CB", "DB"),
+            ("CB|LB", "DB"),
+            ("DL,LB", "DL"),
+            ("LB|DL", "DL"),
+            ("LB,WR", "WR"),  # LB exclusivity rule
+            ("WR|LB", "WR"),
+        ],
+    )
+    def test_comma_and_pipe_inputs_route_through_idp_priority(self, pos, expected):
+        assert normalize_position_family(pos) == expected

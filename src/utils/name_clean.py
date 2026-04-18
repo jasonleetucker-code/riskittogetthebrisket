@@ -423,19 +423,21 @@ def normalize_position_family(pos: str | None) -> str:
     # the tokenisation branches below. resolve_idp_position applies
     # the DL > DB > LB priority so a dual-eligible player always
     # collapses the same way no matter which source supplied them.
-    if "/" in p:
+    # Match every separator the resolver accepts — "/" (Sleeper CSV),
+    # "," (fantasy_positions column export), and "|" (some third-party
+    # dumps). Keeping the gate symmetric with the resolver is what
+    # prevents "LB,CB" from falling through to first-token handling.
+    _MULTI_SEP_RE = re.compile(r"[/,|]")
+    if _MULTI_SEP_RE.search(p):
         idp_resolved = resolve_idp_position(p)
         if idp_resolved:
             return idp_resolved
         # Empty resolver result — either the pair has no IDP family
         # at all (e.g. "WR/KR") or it mixes LB with non-IDP
-        # (e.g. "LB/QB") and the exclusivity rule refused to emit
-        # LB. In both cases fall through to the *first non-IDP* part
-        # so the result is order-independent. If every part is IDP
-        # but the resolver still returned empty, that's the
-        # LB+something case — drop the LB portion by taking the
-        # second part.
-        parts = [piece.strip() for piece in p.split("/") if piece.strip()]
+        # (e.g. "LB/QB", "LB,WR") and the exclusivity rule refused
+        # to emit LB. In both cases fall through to the *first
+        # non-IDP* part so the result is order-independent.
+        parts = [piece.strip() for piece in _MULTI_SEP_RE.split(p) if piece.strip()]
 
         def _is_idp_part(piece: str) -> bool:
             base = re.sub(r"\d+$", "", piece) or piece
@@ -445,9 +447,8 @@ def normalize_position_family(pos: str | None) -> str:
         if non_idp:
             p = non_idp
         elif parts:
-            # All-IDP pair that still resolved empty shouldn't happen
-            # (LB/DL would emit DL; LB/CB would emit DB; LB alone is
-            # not a slash pair). Defensive fall-through to first part.
+            # All-IDP multi-string that still resolved empty shouldn't
+            # happen (LB/DL → DL; LB/CB → DB). Defensive fall-through.
             p = parts[0]
 
     p = p.replace("(", " ").replace(")", " ")
