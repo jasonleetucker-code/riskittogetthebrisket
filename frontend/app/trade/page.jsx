@@ -300,13 +300,17 @@ export default function TradePage() {
   }, [pickerOpen]);
 
   // ── Computed totals for all sides ────────────────────────────────────
-  // 2-team mode uses KTC-style Value Adjustment: the side with fewer pieces
-  // gets a consolidation premium (see trade-logic.js).  3+ teams fall back
-  // to raw linear totals until we design a multi-team VA extension.
+  // Both 2-team and N-team trades use the KTC-style Value Adjustment.
+  // For N ≥ 3, each side's VA is computed against the merged opposition
+  // (every other side's assets flattened) — see
+  // ``computeMultiSideAdjustments`` in trade-logic.js.
   const sideTotals = useMemo(() => {
     if (sides.length === 2) {
       const [a, b] = adjustedSideTotals(sides[0].assets, sides[1].assets, valueMode, settings);
       return [a, b];
+    }
+    if (sides.length > 2) {
+      return multiAdjustedSideTotals(sides.map((s) => s.assets), valueMode, settings);
     }
     return sides.map((s) => {
       const raw = sideTotal(s.assets, valueMode, settings);
