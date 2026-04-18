@@ -42,10 +42,17 @@ TIER_GAP_THRESHOLD: float = 2.0    # gap_score above this triggers a break
 TIER_MIN_SIZE: int = 3             # minimum players in a tier before allowing split
 
 # Step 3: Base value curve — Hill-style, rank 1 always = 9999
-# value = 1 + 9998 / (1 + ((rank - 1) / 45)^1.10)
-# Mirrors the JS rankToValue in frontend/lib/dynasty-data.js
-HILL_MIDPOINT: float = 45.0        # rank at which value ≈ 5000
-HILL_SLOPE: float = 1.10           # controls steepness of decay
+# value = 1 + 9998 / (1 + ((rank - 1) / midpoint)^slope)
+# Mirrors the JS rankToValue in frontend/lib/dynasty-data.js.
+#
+# Constants are the simple mean of per-source Hill-curve fits across
+# the four value-emitting market sources — KTC, IDPTradeCalc,
+# DynastyNerds (SF TEP), DynastyDaddy (SF) — each normalised so its
+# top player = 9999 before fitting. Re-run
+# ``scripts/fit_hill_curve_from_market.py`` when the community's
+# dropoff shape drifts from ours and update the constants here.
+HILL_MIDPOINT: float = 48.44       # rank at which value decay inflects
+HILL_SLOPE: float = 1.149          # controls steepness of decay
 
 # Step 4: Tier cliff injection
 CLIFF_BASE_POINTS: float = 120.0   # base cliff size in value units

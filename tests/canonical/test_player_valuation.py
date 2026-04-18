@@ -188,8 +188,12 @@ class TestBaseValueCurve:
         assert rank_to_value(1) == 9999
 
     def test_correct_spot_values(self):
-        expected = {1: 9999, 2: 9849, 3: 9684, 5: 9347, 10: 8544,
-                    25: 6663, 50: 4766, 100: 2959, 200: 1632, 500: 663}
+        # Hill curve fit to the simple mean of KTC / IDPTradeCalc /
+        # DynastyDaddy / DynastyNerds. Re-run
+        # ``scripts/fit_hill_curve_from_market.py`` to refresh the
+        # constants and update these expected values together.
+        expected = {1: 9999, 2: 9885, 3: 9749, 5: 9460, 10: 8736,
+                    25: 6914, 50: 4967, 100: 3055, 200: 1648, 500: 643}
         for rank, val in expected.items():
             assert rank_to_value(rank) == val, f"rank {rank}: got {rank_to_value(rank)}, expected {val}"
 
@@ -1039,12 +1043,21 @@ class TestParameterSweep:
     def test_hill_slope_sweep(self):
         """Varying hill_slope controls tail decay: higher slope → lower tail values.
 
-        The Hill formula crossover is at rank ≈ midpoint+1 (default 46).
-        For ranks well above the midpoint (tail), higher slope produces
-        larger denominators and thus lower display values.
+        The Hill formula crossover is at rank ≈ midpoint+1. For ranks
+        well above the midpoint (tail), higher slope produces larger
+        denominators and thus lower display values. We pick a rank
+        clearly past the midpoint so the direction of the relationship
+        is unambiguous regardless of small midpoint drift between
+        calibration refreshes.
         """
-        players = self._sweep_players()
-        # Use player at rank ~48 (tail, above midpoint=45) for the fraction test.
+        import random
+        random.seed(123)
+        # Generate a deeper sweep (150 players) so the tail probe lands
+        # well past the midpoint even if constants shift.
+        players = {
+            f"P{i}": [float(i), float(i) + random.uniform(-1, 1)]
+            for i in range(1, 151)
+        }
         tail_fractions = []
         for slope in [0.6, 1.10, 1.5, 2.0]:
             result = run_valuation(
@@ -1053,8 +1066,8 @@ class TestParameterSweep:
                 hill_slope=slope,
             )
             top_dv = result.players[0].display_value
-            # Index 47 ≈ rank 48, well into the tail above midpoint=45
-            tail_dv = result.players[min(47, len(result.players) - 1)].display_value
+            # Index 119 = rank 120, well past any plausible Hill midpoint.
+            tail_dv = result.players[min(119, len(result.players) - 1)].display_value
             tail_fractions.append(tail_dv / max(top_dv, 1))
 
         # Higher slope → steeper tail → tail player is a smaller fraction of #1
