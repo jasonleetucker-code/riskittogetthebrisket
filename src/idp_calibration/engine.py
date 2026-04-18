@@ -545,6 +545,15 @@ def run_analysis(
                 test_scoring.offense_weights,
                 my_scoring.offense_weights,
             )
+            # Mirror the IDP-side trim so the family_scale ratio stays
+            # symmetric. Without this, enabling top_n trims the
+            # numerator (IDP) while leaving the denominator (offense)
+            # at its full universe size, which would shift family_scale
+            # purely because of the trim — not because of league economics.
+            if settings.top_n:
+                offense_scored = trim_to_top_n_per_position(
+                    offense_scored, settings.top_n, positions=OFFENSE_FAMILY
+                )
             offense_repl_my = _compute_offense_replacement(
                 offense_scored, my_lineup, settings.replacement, side="mine"
             )

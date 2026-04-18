@@ -18,8 +18,16 @@ from typing import Any, Iterable
 # Sleeper slot tokens we recognise. Anything else lands in "other".
 OFFENSE_SLOTS = {"QB", "RB", "WR", "TE", "FLEX", "WRRB_FLEX", "REC_FLEX", "SUPER_FLEX"}
 OFFENSE_DIRECT_SLOTS = {"QB", "RB", "WR", "TE"}
-OFFENSE_FLEX_SLOTS = {"FLEX", "WRRB_FLEX", "REC_FLEX"}  # RB/WR/TE flex
-SUPER_FLEX_SLOTS = {"SUPER_FLEX", "QB_RB_WR_TE"}  # Adds QB to the flex
+# Plain FLEX is RB/WR/TE eligible (1/3 demand to each).
+OFFENSE_FLEX_SLOTS = {"FLEX"}
+# WRRB_FLEX is RB/WR only — TE is NOT eligible. Demand splits 50/50
+# between RB and WR.
+WRRB_FLEX_SLOTS = {"WRRB_FLEX", "RB_WR_FLEX", "RBWR_FLEX"}
+# REC_FLEX is WR/TE only — RB is NOT eligible. Demand splits 50/50
+# between WR and TE.
+REC_FLEX_SLOTS = {"REC_FLEX", "WR_TE_FLEX", "WRTE_FLEX"}
+# SUPER_FLEX adds QB to the RB/WR/TE pool — 25% demand to each.
+SUPER_FLEX_SLOTS = {"SUPER_FLEX", "QB_RB_WR_TE"}
 IDP_DIRECT_SLOTS = {"DL", "LB", "DB"}
 IDP_FLEX_SLOTS = {"IDP_FLEX", "DB_LB", "DL_LB", "DL_DB", "DEF_FLEX", "IDP"}
 BENCH_SLOTS = {"BN", "BENCH", "IR", "TAXI"}
@@ -45,8 +53,10 @@ class LineupDemand:
     rb_starters: int = 0
     wr_starters: int = 0
     te_starters: int = 0
-    offense_flex_starters: int = 0   # RB/WR/TE flex
-    super_flex_starters: int = 0     # Adds QB to the flex pool
+    offense_flex_starters: int = 0   # plain FLEX — RB/WR/TE eligible
+    wrrb_flex_starters: int = 0      # RB/WR only — no TE
+    rec_flex_starters: int = 0       # WR/TE only — no RB
+    super_flex_starters: int = 0     # adds QB to the flex pool
     offense_starters: int = 0        # Aggregate — kept for backward compat
     bench_slots: int = 0
 
@@ -64,10 +74,15 @@ class LineupDemand:
         return float(self.db_starters) + self.idp_flex_starters / 3.0
 
     # ── Offense demand (per-team fractional) ──
-    # RB/WR/TE each absorb one third of the plain flex; SUPER_FLEX is
-    # shared across QB and the RB/WR/TE pool (25% to each). Rough
-    # estimates that match common dynasty-league flex-usage patterns
-    # closely enough for replacement-level math.
+    # Each flex variant only contributes to the positions actually
+    # eligible inside it:
+    #   * Plain FLEX — RB/WR/TE eligible (1/3 each).
+    #   * WRRB_FLEX — RB/WR only (1/2 each, NO TE).
+    #   * REC_FLEX  — WR/TE only (1/2 each, NO RB).
+    #   * SUPER_FLEX — QB/RB/WR/TE eligible (1/4 each).
+    # Modelling restricted flexes as generic 3-way flex would distort
+    # offense replacement ranks (and thus the offense VOR denominator
+    # in family_scale).
     @property
     def total_qb_demand(self) -> float:
         return float(self.qb_starters) + self.super_flex_starters * 0.25
@@ -77,6 +92,7 @@ class LineupDemand:
         return (
             float(self.rb_starters)
             + self.offense_flex_starters / 3.0
+            + self.wrrb_flex_starters / 2.0
             + self.super_flex_starters * 0.25
         )
 
@@ -85,6 +101,8 @@ class LineupDemand:
         return (
             float(self.wr_starters)
             + self.offense_flex_starters / 3.0
+            + self.wrrb_flex_starters / 2.0
+            + self.rec_flex_starters / 2.0
             + self.super_flex_starters * 0.25
         )
 
@@ -93,6 +111,7 @@ class LineupDemand:
         return (
             float(self.te_starters)
             + self.offense_flex_starters / 3.0
+            + self.rec_flex_starters / 2.0
             + self.super_flex_starters * 0.25
         )
 
@@ -148,6 +167,8 @@ class LineupDemand:
             "wr_starters": self.wr_starters,
             "te_starters": self.te_starters,
             "offense_flex_starters": self.offense_flex_starters,
+            "wrrb_flex_starters": self.wrrb_flex_starters,
+            "rec_flex_starters": self.rec_flex_starters,
             "super_flex_starters": self.super_flex_starters,
             "offense_starters": self.offense_starters,
             "bench_slots": self.bench_slots,
@@ -186,7 +207,8 @@ def parse_lineup(league: dict[str, Any] | None) -> LineupDemand:
     slots: Iterable[str] = league.get("roster_positions") or []
     counts: dict[str, int] = {}
     dl = lb = db = idp_flex = 0
-    qb = rb = wr = te = off_flex = super_flex = 0
+    qb = rb = wr = te = 0
+    plain_flex = wrrb_flex = rec_flex = super_flex = 0
     offense_total = 0
     bench = 0
     for raw in slots:
@@ -222,8 +244,14 @@ def parse_lineup(league: dict[str, Any] | None) -> LineupDemand:
         elif slot in SUPER_FLEX_SLOTS:
             super_flex += 1
             offense_total += 1
+        elif slot in WRRB_FLEX_SLOTS:
+            wrrb_flex += 1
+            offense_total += 1
+        elif slot in REC_FLEX_SLOTS:
+            rec_flex += 1
+            offense_total += 1
         elif slot in OFFENSE_FLEX_SLOTS:
-            off_flex += 1
+            plain_flex += 1
             offense_total += 1
         elif slot in OFFENSE_SLOTS:
             offense_total += 1
@@ -240,7 +268,9 @@ def parse_lineup(league: dict[str, Any] | None) -> LineupDemand:
         rb_starters=rb,
         wr_starters=wr,
         te_starters=te,
-        offense_flex_starters=off_flex,
+        offense_flex_starters=plain_flex,
+        wrrb_flex_starters=wrrb_flex,
+        rec_flex_starters=rec_flex,
         super_flex_starters=super_flex,
         offense_starters=offense_total,
         bench_slots=bench,
