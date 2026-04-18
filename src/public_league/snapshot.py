@@ -204,6 +204,16 @@ class PublicLeagueSnapshot:
         p = self.nfl_players.get(str(player_id))
         if not isinstance(p, dict):
             return ""
+        # If the player is IDP-eligible via any route, collapse to the
+        # canonical DL > DB > LB family. Non-IDP players fall through
+        # to the raw position string (QB/RB/WR/TE/K).
+        from src.utils.name_clean import resolve_idp_position
+
+        idp = resolve_idp_position(
+            p.get("fantasy_positions"), p.get("position")
+        )
+        if idp:
+            return idp
         return str(p.get("position") or "").upper()
 
 

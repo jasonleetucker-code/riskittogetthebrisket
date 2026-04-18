@@ -86,11 +86,69 @@ export function normalizePlayerName(name) {
   return collapsed.join(" ");
 }
 
+// IDP position priority. When a Sleeper player is multi-position
+// eligible (fantasy_positions array, slash-joined string like "DL/LB",
+// or an explicit array input) we collapse to a single canonical family
+// using DL > DB > LB. LB is emitted only when the player is
+// exclusively LB-eligible — this mirrors the Python helper
+// ``src/utils/name_clean.py::resolve_idp_position`` so the frontend
+// never disagrees with the backend on position assignment.
+export const IDP_PRIORITY = ["DL", "DB", "LB"];
+
+const _NON_IDP_ALIASES = new Set([
+  "QB", "RB", "WR", "TE", "K", "P", "PICK",
+]);
+
+function _collectIdpFamilies(raw, state) {
+  const accept = (token) => {
+    if (!token) return;
+    const t = String(token).toUpperCase().trim();
+    if (!t) return;
+    // Split on every separator a multi-position payload might use.
+    // Sleeper's fantasy_positions array arrives here already split
+    // (via the Array.isArray branch below), but CSV / delta payloads
+    // can carry "DL,LB", "DL/LB", "DL|LB", or "DL LB" as a single
+    // string. Keep parity with src/utils/name_clean.resolve_idp_position.
+    if (/[/,|\s]/.test(t)) {
+      t.split(/[/,|\s]+/).forEach(accept);
+      return;
+    }
+    const stripped = t.replace(/\d+$/, "") || t;
+    if (["DL", "DE", "DT", "EDGE", "NT"].includes(stripped)) {
+      state.found.add("DL");
+    } else if (["DB", "CB", "S", "SS", "FS"].includes(stripped)) {
+      state.found.add("DB");
+    } else if (["LB", "ILB", "OLB", "MLB"].includes(stripped)) {
+      state.found.add("LB");
+    } else if (_NON_IDP_ALIASES.has(stripped)) {
+      state.sawNonIdp = true;
+    }
+  };
+  if (Array.isArray(raw)) raw.forEach(accept);
+  else accept(raw);
+}
+
+export function resolveIdpPosition(...candidates) {
+  const state = { found: new Set(), sawNonIdp: false };
+  for (const cand of candidates) {
+    _collectIdpFamilies(cand, state);
+  }
+  for (const fam of IDP_PRIORITY) {
+    if (!state.found.has(fam)) continue;
+    if (fam === "LB" && state.sawNonIdp) {
+      // LB must be exclusive per the product rule; mixed non-IDP
+      // context means we refuse to emit LB. Match the Python helper.
+      return "";
+    }
+    return fam;
+  }
+  return "";
+}
+
 export function normalizePos(pos) {
+  const idp = resolveIdpPosition(pos);
+  if (idp) return idp;
   const p = String(pos || "").toUpperCase();
-  if (["DE", "DT", "EDGE", "NT"].includes(p)) return "DL";
-  if (["CB", "S", "FS", "SS"].includes(p)) return "DB";
-  if (["OLB", "ILB"].includes(p)) return "LB";
   if (p === "P") return "K";
   return p;
 }
