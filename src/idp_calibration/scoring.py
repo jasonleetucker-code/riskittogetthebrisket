@@ -13,17 +13,38 @@ from typing import Any
 from src.scoring.sleeper_ingest import KEY_ALIASES
 
 # Canonical IDP stat keys the VOR engine knows how to score.
+# Must stay in lockstep with the right-hand-side values of
+# src/scoring/sleeper_ingest.py::KEY_ALIASES (the canonical names).
+# Every key added here should also be pulled from the player stat
+# payload in src/idp_calibration/stats_adapter.py so weighted scoring
+# has something to consume.
 IDP_STAT_KEYS: tuple[str, ...] = (
+    # Tackles
     "idp_tkl_solo",
     "idp_tkl_ast",
+    "idp_tkl",
     "idp_tkl_loss",
+    "idp_tkl_ast_loss",
+    # Pressure
     "idp_sack",
-    "idp_hit",
+    "idp_sack_yd",
+    "idp_qb_hit",
+    # Turnovers
     "idp_int",
+    "idp_int_ret_yd",
     "idp_pd",
     "idp_ff",
     "idp_fum_rec",
+    "idp_fum_ret_yd",
+    # Scoring
     "idp_def_td",
+    "idp_safe",
+    "idp_blk_kick",
+    "idp_def_pr_td",
+    "idp_def_kr_td",
+    # Volume bonuses
+    "idp_tkl_10p",
+    "idp_tkl_5p",
 )
 
 
@@ -37,6 +58,12 @@ class LeagueScoring:
 
     def summary(self) -> dict[str, Any]:
         present_idp = {k: v for k, v in self.idp_weights.items() if abs(v) > 0.0}
+        # Only surface IDP-ish unknown keys in the summary so the UI
+        # doesn't get flooded with offense keys that happen to be
+        # un-aliased. If the set is empty we omit it entirely.
+        unknown_idp = {
+            k: v for k, v in self.unknown_keys.items() if k.lower().startswith("idp")
+        }
         return {
             "league_id": self.league_id,
             "season": self.season,
@@ -45,6 +72,7 @@ class LeagueScoring:
                 k for k in IDP_STAT_KEYS if abs(self.idp_weights.get(k, 0.0)) < 1e-9
             ),
             "unknown_key_count": len(self.unknown_keys),
+            "unknown_idp_keys": unknown_idp,
         }
 
 

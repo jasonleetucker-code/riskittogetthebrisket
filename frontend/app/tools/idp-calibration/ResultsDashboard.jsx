@@ -12,6 +12,7 @@ function n(value, digits = 3) {
 function ScoringSummary({ label, summary }) {
   if (!summary) return null;
   const active = summary.active_idp_stats || {};
+  const unknown = summary.unknown_idp_keys || {};
   return (
     <div className="idp-lab-scoring">
       <span className="badge">{label}</span>
@@ -24,6 +25,14 @@ function ScoringSummary({ label, summary }) {
         ))}
         {!Object.keys(active).length && <li className="muted">No IDP stats scored.</li>}
       </ul>
+      {Object.keys(unknown).length > 0 && (
+        <p className="idp-lab-warning-list" style={{ margin: "var(--space-xs) 0 0" }}>
+          Unmapped IDP keys (add to KEY_ALIASES):{" "}
+          {Object.entries(unknown)
+            .map(([k, v]) => `${k} (${Number(v).toFixed(2)})`)
+            .join(", ")}
+        </p>
+      )}
     </div>
   );
 }

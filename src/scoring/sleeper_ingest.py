@@ -49,16 +49,40 @@ KEY_ALIASES: Dict[str, str] = {
     "idp_solo": "idp_tkl_solo",
     "idp_tkl_ast": "idp_tkl_ast",
     "idp_ast": "idp_tkl_ast",
+    # Combined tackle stat — some Sleeper leagues score "Tackle" as a
+    # single line item instead of splitting solo/assisted. Map to a
+    # dedicated canonical so the calibration layer can treat it as a
+    # blended stat rather than double-counting solo.
+    "idp_tkl": "idp_tkl",
     "idp_tkl_loss": "idp_tkl_loss",
     "idp_tfl": "idp_tkl_loss",
+    "idp_tkl_ast_loss": "idp_tkl_ast_loss",
     "idp_sack": "idp_sack",
-    "idp_hit": "idp_hit",
+    "idp_sack_yd": "idp_sack_yd",
+    # QB hit — Sleeper UIs label this "Hit on QB". Two key variants
+    # observed in the wild.
+    "idp_hit": "idp_qb_hit",
+    "idp_qb_hit": "idp_qb_hit",
     "idp_int": "idp_int",
+    "idp_int_ret_yd": "idp_int_ret_yd",
     "idp_pd": "idp_pd",
+    "idp_pass_def": "idp_pd",
     "idp_ff": "idp_ff",
     "idp_fum_rec": "idp_fum_rec",
     "idp_fr": "idp_fum_rec",
+    "idp_fum_ret_yd": "idp_fum_ret_yd",
+    # Defensive touchdowns — older Sleeper leagues use `idp_td`, newer
+    # ones `idp_def_td`. Both flow to the same canonical.
     "idp_def_td": "idp_def_td",
+    "idp_td": "idp_def_td",
+    "idp_safe": "idp_safe",
+    "idp_blk_kick": "idp_blk_kick",
+    "idp_blk_punt": "idp_blk_kick",
+    # Tackle volume bonuses (some leagues reward high-tackle performances).
+    "idp_tkl_10p": "idp_tkl_10p",
+    "idp_tkl_5p": "idp_tkl_5p",
+    "idp_def_pr_td": "idp_def_pr_td",
+    "idp_def_kr_td": "idp_def_kr_td",
 }
 
 
