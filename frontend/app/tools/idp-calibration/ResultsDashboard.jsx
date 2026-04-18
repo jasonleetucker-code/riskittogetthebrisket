@@ -272,8 +272,18 @@ function SectionRecommendation({ run }) {
 export default function ResultsDashboard({ run }) {
   if (!run) return null;
 
-  const firstSeason = Object.keys(run.per_season || {}).sort()[0];
-  const scoringEntry = run.per_season?.[firstSeason] || {};
+  // Pick the most recent *resolved* season for the scoring and lineup
+  // verification panels. Falling back to the raw-first season would
+  // hide both panels whenever the earliest season in the chain is
+  // missing (a common case when one league's chain doesn't reach the
+  // default 2022 back-stop).
+  const seasonKeysDesc = Object.keys(run.per_season || {}).sort(
+    (a, b) => Number(b) - Number(a),
+  );
+  const verificationSeason =
+    seasonKeysDesc.find((k) => run.per_season?.[k]?.resolved) ||
+    seasonKeysDesc[0];
+  const scoringEntry = run.per_season?.[verificationSeason] || {};
 
   return (
     <div className="idp-lab-dashboard">
@@ -284,10 +294,18 @@ export default function ResultsDashboard({ run }) {
           <ChainBlock label="My league" chain={run.chains?.mine} />
         </div>
         {scoringEntry?.test_scoring && (
-          <div className="idp-lab-scoring-grid">
-            <ScoringSummary label="Test scoring" summary={scoringEntry.test_scoring} />
-            <ScoringSummary label="My scoring" summary={scoringEntry.my_scoring} />
-          </div>
+          <>
+            <p className="muted text-sm">
+              Scoring and lineup summaries shown for season{" "}
+              <strong>{verificationSeason}</strong>
+              {scoringEntry.resolved === false && " (unresolved)"}
+              .
+            </p>
+            <div className="idp-lab-scoring-grid">
+              <ScoringSummary label="Test scoring" summary={scoringEntry.test_scoring} />
+              <ScoringSummary label="My scoring" summary={scoringEntry.my_scoring} />
+            </div>
+          </>
         )}
         {scoringEntry?.test_lineup && (
           <div className="idp-lab-lineup-grid">

@@ -100,3 +100,23 @@ def test_normalise_year_weights_handles_missing_seasons():
     weights = normalise_year_weights(DEFAULT_YEAR_WEIGHTS, seasons=[2023, 2024])
     assert 2022 not in weights
     assert abs(sum(weights.values()) - 1.0) < 1e-6
+
+
+def test_normalise_year_weights_uniform_fallback_for_custom_seasons():
+    # User picks seasons outside the default weight keys. Every year
+    # has weight 0 in the defaults. We must NOT return all zeros —
+    # that silently produces a no-op calibration downstream.
+    weights = normalise_year_weights(
+        DEFAULT_YEAR_WEIGHTS, seasons=[2021, 2020, 2019]
+    )
+    # Uniform fallback: each season gets 1/3.
+    assert set(weights.keys()) == {2021, 2020, 2019}
+    for v in weights.values():
+        assert abs(v - 1.0 / 3.0) < 1e-9
+    assert abs(sum(weights.values()) - 1.0) < 1e-6
+
+
+def test_normalise_year_weights_empty_seasons_returns_empty():
+    # Edge case — protect against ZeroDivisionError in the uniform
+    # branch when nothing is selected.
+    assert normalise_year_weights(DEFAULT_YEAR_WEIGHTS, seasons=[]) == {}

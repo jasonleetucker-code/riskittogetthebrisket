@@ -234,11 +234,21 @@ def normalise_year_weights(
     Used by the engine before calling into :func:`compute_position_multipliers`
     so a season that failed to resolve doesn't silently inflate the
     other years.
+
+    If every supplied season has zero/missing weight (e.g. the user
+    selected seasons outside the default weight keys like 2021 / 2020),
+    fall back to **uniform** weights across the supplied seasons. An
+    all-zero return here would collapse every bucket center to zero and
+    produce a silent no-op calibration — uniform is the honest choice.
     """
     if not weights:
         weights = DEFAULT_YEAR_WEIGHTS
     filt = {int(s): float(weights.get(int(s), 0.0)) for s in seasons}
+    if not filt:
+        return {}
     total = sum(v for v in filt.values() if v > 0)
     if total <= 0:
-        return {s: 0.0 for s in filt}
+        n = len(filt)
+        uniform = 1.0 / n
+        return {s: uniform for s in filt}
     return {s: w / total for s, w in filt.items()}
