@@ -58,18 +58,25 @@ def test_promoted_multipliers_scale_only_idp(tmp_path, monkeypatch):
 
     rows = _rows()
     _apply_idp_calibration_post_pass(rows, {})
-    # QB untouched
+    # QB untouched (no snapshot either — offense rows are never touched)
     assert rows[0]["rankDerivedValue"] == 9000
+    assert "rankDerivedValueUncalibrated" not in rows[0]
     # DL rank 1 and rank 2 both in bucket 1-6 => 0.5x
     dl_rows = [r for r in rows if r["position"] == "DL"]
     assert dl_rows[0]["rankDerivedValue"] == 2500  # 5000 * 0.5
     assert dl_rows[1]["rankDerivedValue"] == 1500  # 3000 * 0.5
+    # Pre-calibration snapshots preserved so the frontend toggle can
+    # swap the display instantly without refetching.
+    assert dl_rows[0]["rankDerivedValueUncalibrated"] == 5000
+    assert dl_rows[1]["rankDerivedValueUncalibrated"] == 3000
     # LB scaled up
     lb = next(r for r in rows if r["position"] == "LB")
     assert lb["rankDerivedValue"] == 6000
+    assert lb["rankDerivedValueUncalibrated"] == 4000
     # DB scaled up
     db = next(r for r in rows if r["position"] == "DB")
     assert db["rankDerivedValue"] == 4000
+    assert db["rankDerivedValueUncalibrated"] == 2000
 
 
 def test_empty_bucket_config_is_identity_not_anchor_floor(tmp_path, monkeypatch):
@@ -110,3 +117,22 @@ def test_position_alias_collapses_to_canonical(tmp_path, monkeypatch):
     rows = [{"position": "EDGE", "rankDerivedValue": 4000}]
     _apply_idp_calibration_post_pass(rows, {})
     assert rows[0]["rankDerivedValue"] == 2000  # EDGE -> DL -> 0.5x
+    assert rows[0]["rankDerivedValueUncalibrated"] == 4000
+
+
+def test_snapshot_populated_even_when_multiplier_is_identity(tmp_path, monkeypatch):
+    """IDP rows that happen to land in a 1.0 bucket still get a
+    pre-calibration snapshot so the frontend toggle works uniformly
+    across every IDP row regardless of bucket position."""
+    cfg_path = tmp_path / "config" / "idp_calibration.json"
+    config = {
+        "active_mode": "blended",
+        "multipliers": {"final": {"DL": {"1-6": 1.0}}},
+    }
+    save_json(cfg_path, config)
+    monkeypatch.setattr(production, "production_config_path", lambda base=None: cfg_path)
+    production.reset_cache()
+    rows = [{"position": "DL", "rankDerivedValue": 4000}]
+    _apply_idp_calibration_post_pass(rows, {})
+    assert rows[0]["rankDerivedValue"] == 4000
+    assert rows[0]["rankDerivedValueUncalibrated"] == 4000

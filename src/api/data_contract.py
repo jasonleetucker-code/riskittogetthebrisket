@@ -2745,6 +2745,11 @@ def _apply_idp_calibration_post_pass(
     for pos, rows in by_pos.items():
         rows.sort(key=lambda r: -int(r.get("rankDerivedValue") or 0))
         for idx, row in enumerate(rows, 1):
+            # Snapshot the pre-calibration value on every IDP row so the
+            # frontend can swap back to "identity" display instantly
+            # without a refetch. Populated even when multiplier == 1.0
+            # so the toggle UX is uniform across rows.
+            row["rankDerivedValueUncalibrated"] = int(row.get("rankDerivedValue") or 0)
             try:
                 multiplier = float(
                     _idp_production.get_idp_bucket_multiplier(

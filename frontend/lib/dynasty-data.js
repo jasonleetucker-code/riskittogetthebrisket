@@ -644,6 +644,8 @@ function _materializePlayerArrayRow(player) {
     canonicalSites,
     canonicalConsensusRank: backendRank,
     rankDerivedValue: backendValue,
+    rankDerivedValueUncalibrated:
+      Number(player.rankDerivedValueUncalibrated) || null,
     canonicalTierId: Number(player.canonicalTierId) || null,
     sourceRanks: backendSourceRanks,
     sourceRankMeta: backendSourceRankMeta,
@@ -699,6 +701,8 @@ function _materializeLegacyDictRow(name, player, posMap) {
     canonicalSites,
     canonicalConsensusRank: backendRank,
     rankDerivedValue: backendValue,
+    rankDerivedValueUncalibrated:
+      Number(player.rankDerivedValueUncalibrated) || null,
     canonicalTierId: Number(player._canonicalTierId) || null,
     sourceRanks: player.sourceRanks && typeof player.sourceRanks === "object" ? player.sourceRanks : {},
     sourceRankMeta: player.sourceRankMeta && typeof player.sourceRankMeta === "object" ? player.sourceRankMeta : {},
