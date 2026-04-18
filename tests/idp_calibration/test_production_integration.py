@@ -257,15 +257,84 @@ def test_offense_post_pass_noop_when_block_absent(tmp_path, monkeypatch):
     assert rows[0]["rankDerivedValue"] == 9000
 
 
-def test_live_pipeline_rank_shift_keeps_value_on_hill_curve_offense(tmp_path, monkeypatch):
-    """Offense calibration is applied as a rank SHIFT: the multiplier
-    nudges rankDerivedValue pre-re-sort so the row lands at a new
-    merged rank, then Phase 5b snaps the value back onto the Hill
-    curve at the landed rank. The final value is always coherent with
-    the rank on the 1-9999 scale — no orphan multiplied numbers.
+def test_idp_lookup_interpolates_anchor_curve_no_cliffs(tmp_path, monkeypatch):
+    """Consecutive ranks must never produce a cliff greater than the
+    neighbouring anchor-to-anchor slope. Pinning this guards against
+    someone accidentally re-introducing step-function bucket lookup
+    in production.py — the old behaviour produced 48-90% cliffs at
+    bucket boundaries (e.g. LB6 ≠ LB7 by 0.67).
+    """
+    cfg_path = tmp_path / "config" / "idp_calibration.json"
+    # Realistic-shape config with bucket-derived multipliers AND an
+    # anchor curve between them. Live runs always include both.
+    config = {
+        "version": 1,
+        "active_mode": "blended",
+        "multipliers": {
+            "LB": {
+                "position": "LB",
+                "buckets": [
+                    {"label": "1-6",   "final": 1.00, "count": 6},
+                    {"label": "7-12",  "final": 0.67, "count": 6},
+                    {"label": "13-24", "final": 0.40, "count": 12},
+                    {"label": "25-36", "final": 0.07, "count": 12},
+                    {"label": "37-60", "final": 0.05, "count": 24},
+                ],
+            },
+        },
+        "anchors": {
+            "final": {
+                "LB": [
+                    {"rank": 1, "value": 1.00},
+                    {"rank": 3, "value": 1.00},
+                    {"rank": 6, "value": 1.00},
+                    {"rank": 12, "value": 0.67},
+                    {"rank": 24, "value": 0.40},
+                    {"rank": 36, "value": 0.07},
+                    {"rank": 48, "value": 0.05},
+                    {"rank": 72, "value": 0.05},
+                    {"rank": 100, "value": 0.05},
+                ],
+            },
+        },
+    }
+    save_json(cfg_path, config)
+    monkeypatch.setattr(production, "production_config_path", lambda base=None: cfg_path)
+    production.reset_cache()
+
+    # Sample every rank from 1..48 and verify no adjacent cliff > 8%.
+    # 8% is a generous ceiling — piecewise-linear interpolation
+    # between anchor points should hold each step to the local anchor
+    # slope, which is at most a few percent per rank on this curve.
+    prev = production.get_idp_bucket_multiplier("LB", 1)
+    max_adjacent_drop = 0.0
+    for r in range(2, 49):
+        curr = production.get_idp_bucket_multiplier("LB", r)
+        drop = prev - curr
+        if drop > max_adjacent_drop:
+            max_adjacent_drop = drop
+        prev = curr
+    assert max_adjacent_drop < 0.08, (
+        f"Adjacent-rank cliff of {max_adjacent_drop:.3f} exceeds smoothness "
+        "budget — production.py probably regressed to step-function bucket lookup."
+    )
+    # Spot-check interpolation: rank 9 sits halfway between anchor 6
+    # (value 1.00) and anchor 12 (value 0.67), so interpolated value
+    # should be ~0.835 (halfway).
+    mid = production.get_idp_bucket_multiplier("LB", 9)
+    assert 0.82 < mid < 0.85, f"rank 9 interpolation off — got {mid}"
+
+
+def test_live_pipeline_does_not_apply_offense_calibration(tmp_path, monkeypatch):
+    """Offense calibration is deliberately NOT applied to live values
+    even when a promoted config has offense_multipliers populated. The
+    lab still computes the analysis, but offense trade value should
+    stay anchored to the market-derived rankings — VOR bucket
+    multipliers produce artefacts (QB cliffs, Mahomes-at-half-of-QB1)
+    that don't survive user review. Re-promoting offense from the lab
+    is a no-op on the live board.
     """
     from src.api.data_contract import build_api_data_contract
-    from src.canonical.player_valuation import rank_to_value
 
     cfg_path = tmp_path / "config" / "idp_calibration.json"
     config = {
@@ -282,9 +351,6 @@ def test_live_pipeline_rank_shift_keeps_value_on_hill_curve_offense(tmp_path, mo
     monkeypatch.setattr(production, "production_config_path", lambda base=None: cfg_path)
     production.reset_cache()
 
-    # 7 QBs — QB7 falls in 7-12 and gets 0.5x, which drops him down the
-    # merged board. His landed rank's Hill-curve value is what he ends
-    # up with.
     players = {}
     for i in range(1, 8):
         name = f"Zzz QB {i:02d}"
@@ -304,18 +370,9 @@ def test_live_pipeline_rank_shift_keeps_value_on_hill_curve_offense(tmp_path, mo
         "sleeper": {"positions": {name: "QB" for name in players}},
     }
     contract = build_api_data_contract(payload)
-    ranked = [r for r in contract["playersArray"] if r.get("canonicalConsensusRank")]
-    # Every ranked row's rankDerivedValue == rank_to_value(rank).
-    for row in ranked:
-        expected = int(rank_to_value(int(row["canonicalConsensusRank"])))
-        assert row["rankDerivedValue"] == expected
-    # QB7 carries the offense calibration stamp from the post-pass.
-    qb7 = next(
-        r for r in ranked
-        if r.get("canonicalName") == "Zzz QB 07"
-    )
-    assert qb7.get("offenseCalibrationMultiplier") == 0.5
-    # QB7's uncalibrated snapshot lets the toggle reconstruct the
-    # pre-calibration view instantly.
-    assert qb7.get("canonicalConsensusRankUncalibrated") is not None
-    assert qb7.get("rankDerivedValueUncalibrated") is not None
+    qbs = [r for r in contract["playersArray"] if r.get("position") == "QB"]
+    for row in qbs:
+        assert "offenseCalibrationMultiplier" not in row, (
+            f"Offense calibration was applied to {row.get('canonicalName')!r} — "
+            "post-pass should be disabled."
+        )

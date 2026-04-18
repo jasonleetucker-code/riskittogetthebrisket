@@ -76,17 +76,61 @@ def _position_has_real_data(position_block: Any) -> bool:
     return any(isinstance(k, str) and "-" in k for k in position_block.keys())
 
 
+def _interpolate_anchor_curve(anchors_block: list[Any], rank: int) -> float | None:
+    """Piecewise-linear interpolation between anchor points.
+
+    Returns ``None`` when the anchor list is empty or malformed. Falls
+    below the first anchor ⇒ returns the first anchor's value. Past
+    the last ⇒ returns the last anchor's value. This smooths the
+    step-function cliffs that per-bucket lookups produce at bucket
+    boundaries.
+    """
+    if not isinstance(anchors_block, list) or not anchors_block:
+        return None
+    points: list[tuple[int, float]] = []
+    for point in anchors_block:
+        try:
+            r = int(point.get("rank"))
+            v = float(point.get("value"))
+            points.append((r, v))
+        except (TypeError, ValueError, AttributeError):
+            continue
+    if not points:
+        return None
+    points.sort(key=lambda p: p[0])
+    r_target = int(rank)
+    if r_target <= points[0][0]:
+        return points[0][1]
+    if r_target >= points[-1][0]:
+        return points[-1][1]
+    # Find the two adjacent anchors that bracket the target rank.
+    for i in range(len(points) - 1):
+        r0, v0 = points[i]
+        r1, v1 = points[i + 1]
+        if r0 <= r_target <= r1:
+            if r1 == r0:
+                return v0
+            t = (r_target - r0) / (r1 - r0)
+            return v0 + t * (v1 - v0)
+    return points[-1][1]
+
+
 def _bucket_lookup_for(position: str, rank: int, config: dict[str, Any], mode: str) -> float:
-    """Pick the right multiplier from the promoted config.
+    """Smooth multiplier lookup for an IDP rank.
 
-    Handles both of the shapes the storage layer emits: flat
-    ``multipliers[position] = {label: value}`` and the richer
-    ``multipliers[kind][position] = {...}``.
+    Strategy: use the anchor curve as the PRIMARY source with
+    piecewise-linear interpolation between anchor ranks. This replaces
+    the old step-function bucket lookup so consecutive ranks never
+    face the ~90% cliffs that the bucket edges produced (e.g. DL12 →
+    DL13 jumping from 0.67 to 0.05). Buckets are still how the engine
+    *computes* robust centers; the anchor curve is how we *apply*
+    them smoothly.
 
-    Returns ``1.0`` (identity) whenever the promoted config has no real
-    per-bucket data for ``position`` — this is the safety net that
-    prevents an empty-calibration promotion from cutting every IDP
-    value through the anchor floor.
+    Falls back to bucket lookup if no anchor data is present (older
+    promoted configs). Returns ``1.0`` (identity) when the promoted
+    config has no real per-bucket data for the position — safety net
+    that prevents an empty-calibration promotion from cutting every
+    IDP value through the anchor floor.
     """
     position = position.upper()
     if position not in {"DL", "LB", "DB"}:
@@ -99,7 +143,6 @@ def _bucket_lookup_for(position: str, rank: int, config: dict[str, Any], mode: s
         "blended": "final",
     }.get(mode, "final")
 
-    # Shape A: kind-first — multipliers[kind][position] = {label: value}
     if kind in multipliers and isinstance(multipliers[kind], dict):
         position_block = multipliers[kind].get(position)
     else:
@@ -107,12 +150,20 @@ def _bucket_lookup_for(position: str, rank: int, config: dict[str, Any], mode: s
     if not isinstance(position_block, dict):
         position_block = None
 
+    # Safety: empty buckets ⇒ identity, never let the anchor floor
+    # silently cut every IDP value.
     if not _position_has_real_data(position_block):
-        # No real bucket data for this position ⇒ identity multiplier.
-        # Do NOT fall through to anchors — empty runs produce anchor
-        # curves floored at 0.05 which would silently cut IDP values.
         return 1.0
 
+    # PRIMARY: smooth anchor-curve interpolation.
+    anchors_block = (config.get("anchors") or {}).get(kind, {}).get(position)
+    anchor_value = _interpolate_anchor_curve(anchors_block, int(rank))
+    if anchor_value is not None:
+        return float(anchor_value)
+
+    # FALLBACK: bucket-lookup (legacy step-function behaviour) when a
+    # promoted config lacks anchor data. New runs always include
+    # anchors so this path only exercises against pre-anchor configs.
     if isinstance(position_block, dict):
         buckets = position_block.get("buckets") if "buckets" in position_block else None
         if isinstance(buckets, list):
@@ -126,7 +177,6 @@ def _bucket_lookup_for(position: str, rank: int, config: dict[str, Any], mode: s
                         return float(val) if val is not None else 1.0
                 except (TypeError, ValueError):
                     continue
-        # flat { "1-6": 1.05, ... }
         for label, value in position_block.items():
             try:
                 lo, _, hi = str(label).partition("-")
@@ -134,23 +184,6 @@ def _bucket_lookup_for(position: str, rank: int, config: dict[str, Any], mode: s
                     return float(value)
             except (TypeError, ValueError):
                 continue
-
-    # Past the last labelled bucket — use the anchor curve as a smooth
-    # tail now that we've confirmed real bucket data exists for this
-    # position upstream.
-    anchors_block = (config.get("anchors") or {}).get(kind, {}).get(position)
-    if isinstance(anchors_block, list):
-        best_val = 1.0
-        best_rank = -1
-        for point in anchors_block:
-            try:
-                ar = int(point.get("rank"))
-                if ar <= int(rank) and ar > best_rank:
-                    best_rank = ar
-                    best_val = float(point.get("value"))
-            except (TypeError, ValueError):
-                continue
-        return best_val
     return 1.0
 
 

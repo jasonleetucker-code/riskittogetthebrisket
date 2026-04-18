@@ -3812,7 +3812,13 @@ def _compute_unified_rankings(
         row["rankDerivedValueUncalibrated"] = int(row.get("rankDerivedValue") or 0)
 
     _apply_idp_calibration_post_pass(players_array, players_by_name)
-    _apply_offense_calibration_post_pass(players_array, players_by_name)
+    # Offense calibration deliberately not applied to live values.
+    # Offense trade value tracks the market-derived rankings (KTC/DLF/
+    # FantasyCalc/etc.); VOR bucket multipliers produced absurd
+    # artefacts (QB bucket cliffs, Mahomes-at-half-value-of-QB1). The
+    # lab still computes offense_multipliers as an analytical
+    # reference but they do NOT mutate rankDerivedValue.
+    # _apply_offense_calibration_post_pass(players_array, players_by_name)
 
     # ── Phase 5: Pick refinement passes (gated to picks) ──
     # 1) Reassign (rank, value) tuples within each (year, round) bucket
