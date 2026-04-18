@@ -933,6 +933,7 @@ class TestTepMultiplier(unittest.TestCase):
             "fantasyProsSf": {"include": False},
             "dynastyDaddySf": {"include": False},
             "flockFantasySf": {"include": False},
+            "footballGuysSf": {"include": False},
         }
         base = build_api_data_contract(
             _fixture_raw_payload(),

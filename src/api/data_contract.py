@@ -70,11 +70,13 @@ _OFFENSE_SIGNAL_KEYS = {
     "ktc",
     "dlfSf",
     "dynastyNerdsSfTep",
+    "footballGuysSf",
 }
 _IDP_SIGNAL_KEYS = {
     "idpTradeCalc",
     "dlfIdp",
     "fantasyProsIdp",
+    "footballGuysIdp",
 }
 
 # All source signal keys — used to detect which source(s) a player has
@@ -219,6 +221,21 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/flockFantasySf.csv",
         "signal": "rank",
     },
+    # FootballGuys dynasty rankings — 6-expert offense board and
+    # 3-expert IDP board, exported from FootballGuys as a PDF by the
+    # user and converted to CSV via
+    # ``scripts/parse_footballguys_pdf.py``.  The parser splits the
+    # mixed overall ranking by position family, then dense-ranks 1..N
+    # within each universe so downstream rank-signal conversion sees
+    # a contiguous within-universe ordering.  Signal=rank.
+    "footballGuysSf": {
+        "path": "CSVs/site_raw/footballGuysSf.csv",
+        "signal": "rank",
+    },
+    "footballGuysIdp": {
+        "path": "CSVs/site_raw/footballGuysIdp.csv",
+        "signal": "rank",
+    },
 }
 
 # Rank -> synthetic value transform used when a CSV declares signal=rank.
@@ -243,6 +260,10 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     "flockFantasySf": 168,
     "dlfIdp": 720,
     "dlfSf": 720,
+    # FootballGuys rankings are a user-managed PDF→CSV export; allow
+    # a generous 30-day staleness window before flagging.
+    "footballGuysSf": 720,
+    "footballGuysIdp": 720,
 }
 
 # ── Per-source row-count floors ───────────────────────────────────────────
@@ -262,6 +283,14 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     "fantasyProsIdp": 75,
     "dynastyDaddySf": 250,
     "flockFantasySf": 250,
+    # FootballGuys SF/IDP: after the PDF parse + offense/IDP split,
+    # raw rows are ~548 offense and ~406 IDP.  Actual canonical-name
+    # matches against the live Sleeper player pool are ~470 offense
+    # and ~291 IDP (many FBG-ranked deep veterans / prospects don't
+    # exist in the Sleeper database).  Floors set at ~80% of those
+    # match counts.
+    "footballGuysSf": 375,
+    "footballGuysIdp": 230,
 }
 
 
@@ -769,6 +798,45 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "needs_shared_market_translation": False,
         "excludes_rookies": False,
     },
+    {
+        # FootballGuys Dynasty Rankings — offense half (QB/RB/WR/TE).
+        # Parsed from the user-managed
+        # ``Fantasy Football Dynasty Rankings - Footballguys.pdf``
+        # via ``scripts/parse_footballguys_pdf.py``.  6-expert
+        # consensus.  Standard Superflex — the frontend TEP slider
+        # boosts its contribution on TE-position players.
+        "key": "footballGuysSf",
+        "display_name": "FootballGuys Dynasty SF",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        # Parser typically produces ~540 offensive rows; depth=500 so
+        # ``_expected_sources_for_position`` stops expecting FBG
+        # coverage past rank ~625 (depth * 1.25).
+        "depth": 500,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+    },
+    {
+        # FootballGuys Dynasty Rankings — IDP half (DE/DT/LB/CB/S).
+        # 3-expert IDP consensus; translates through the shared-market
+        # IDP ladder, same as dlfIdp / fantasyProsIdp.  Parser yields
+        # ~400 IDP rows — deeper than DLF IDP (185) or FP IDP (100).
+        # Includes rookie IDP prospects so ``excludes_rookies=False``.
+        "key": "footballGuysIdp",
+        "display_name": "FootballGuys Dynasty IDP",
+        "scope": SOURCE_SCOPE_OVERALL_IDP,
+        "position_group": None,
+        "depth": 400,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "needs_shared_market_translation": True,
+        "excludes_rookies": False,
+    },
 ]
 
 
@@ -851,6 +919,11 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     # Deep-board veterans that Flock Fantasy's expert consensus ranks but
     # no other source currently carries.
     "adam thielen": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds+fantasyPros — veteran WR only ranked by Flock Fantasy SF",
+    # ── IDP: FootballGuys-IDP-only (not listed by other IDP sources) ──
+    # Veteran / free-agent LBs that FootballGuys' 3-expert IDP board
+    # ranks as deep dynasty holds even though IDPTradeCalc and the
+    # other IDP boards have dropped them.  Genuine source gaps.
+    "lavonte david": "source_gap:idpTradeCalc+dlfIdp+fantasyProsIdp — 36yo FA veteran LB only ranked by FootballGuys IDP",
 }
 
 

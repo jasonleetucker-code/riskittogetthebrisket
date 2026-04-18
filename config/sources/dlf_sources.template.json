@@ -150,6 +150,54 @@
         "is_backbone": false
       },
       "notes": "Flock Fantasy SF dynasty rankings via JSON API (?format=superflex). Expert consensus averaged ranks. Standard SF — no TE premium."
+    },
+    {
+      "enabled": true,
+      "source": "FOOTBALLGUYS_SF",
+      "contract_key": "footballGuysSf",
+      "adapter": "scraper_bridge",
+      "adapter_version": "1.0.0",
+      "season": "2026",
+      "format_key": "dynasty_sf",
+      "universe": "offense_vet",
+      "ingest_type": "pdf_manual",
+      "ingest_method": "pdf_convert",
+      "source_url": "https://www.footballguys.com/rankings/dynasty",
+      "scoring_context": "dynasty superflex (FootballGuys 6-expert consensus, offense half of the mixed dynasty PDF)",
+      "includes_sf": true,
+      "includes_tep": false,
+      "file": "CSVs/site_raw/footballGuysSf.csv",
+      "signal_type": "rank",
+      "scope": {
+        "kind": "overall_offense",
+        "depth": 500,
+        "is_backbone": false
+      },
+      "notes": "FootballGuys dynasty rankings — offense half of the user-managed PDF export, parsed + split + dense-ranked by scripts/parse_footballguys_pdf.py.  6-expert consensus covering QB/RB/WR/TE."
+    },
+    {
+      "enabled": true,
+      "source": "FOOTBALLGUYS_IDP",
+      "contract_key": "footballGuysIdp",
+      "adapter": "scraper_bridge",
+      "adapter_version": "1.0.0",
+      "season": "2026",
+      "format_key": "dynasty_idp",
+      "universe": "idp_vet",
+      "ingest_type": "pdf_manual",
+      "ingest_method": "pdf_convert",
+      "source_url": "https://www.footballguys.com/rankings/dynasty",
+      "scoring_context": "dynasty IDP (FootballGuys 3-expert consensus, IDP half of the mixed dynasty PDF)",
+      "includes_sf": true,
+      "includes_tep": false,
+      "file": "CSVs/site_raw/footballGuysIdp.csv",
+      "signal_type": "rank",
+      "scope": {
+        "kind": "overall_idp",
+        "depth": 400,
+        "is_backbone": false
+      },
+      "notes": "FootballGuys dynasty rankings — IDP half of the same PDF export.  3-expert consensus covering DE/DT/LB/CB/S.  Translates through the shared-market IDP ladder."
     }
   ]
 }
