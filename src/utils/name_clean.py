@@ -427,9 +427,28 @@ def normalize_position_family(pos: str | None) -> str:
         idp_resolved = resolve_idp_position(p)
         if idp_resolved:
             return idp_resolved
-        # Non-IDP slash pair (e.g. "WR/KR") — fall through to first
-        # part for the existing offense handling.
-        p = p.split("/", 1)[0].strip()
+        # Empty resolver result — either the pair has no IDP family
+        # at all (e.g. "WR/KR") or it mixes LB with non-IDP
+        # (e.g. "LB/QB") and the exclusivity rule refused to emit
+        # LB. In both cases fall through to the *first non-IDP* part
+        # so the result is order-independent. If every part is IDP
+        # but the resolver still returned empty, that's the
+        # LB+something case — drop the LB portion by taking the
+        # second part.
+        parts = [piece.strip() for piece in p.split("/") if piece.strip()]
+
+        def _is_idp_part(piece: str) -> bool:
+            base = re.sub(r"\d+$", "", piece) or piece
+            return POSITION_ALIASES.get(base) in {"DL", "LB", "DB"}
+
+        non_idp = next((x for x in parts if not _is_idp_part(x)), "")
+        if non_idp:
+            p = non_idp
+        elif parts:
+            # All-IDP pair that still resolved empty shouldn't happen
+            # (LB/DL would emit DL; LB/CB would emit DB; LB alone is
+            # not a slash pair). Defensive fall-through to first part.
+            p = parts[0]
 
     p = p.replace("(", " ").replace(")", " ")
     p = re.sub(r"[^A-Z0-9]+", " ", p).strip()

@@ -135,3 +135,25 @@ class TestNormalizePositionFamily:
         # "WR/KR" — not an IDP pair, so the helper should fall back to
         # the offense handling (first part wins).
         assert normalize_position_family("WR/KR") == "WR"
+
+    @pytest.mark.parametrize(
+        "pos,expected",
+        [
+            # LB/QB must NOT emit "LB" — LB requires exclusivity.
+            # The fallback must pick the non-IDP part regardless of
+            # which side of the slash it is on.
+            ("LB/QB", "QB"),
+            ("QB/LB", "QB"),
+            ("LB/WR", "WR"),
+            ("WR/LB", "WR"),
+            ("LB/TE", "TE"),
+            ("TE/LB", "TE"),
+            ("LB/RB", "RB"),
+            ("RB/LB", "RB"),
+        ],
+    )
+    def test_lb_mixed_with_non_idp_falls_through_to_non_idp_part(self, pos, expected):
+        # Regression: previously the slash branch unconditionally
+        # took the first part, so "LB/QB" normalised to LB while
+        # "QB/LB" normalised to QB. Now both orderings agree.
+        assert normalize_position_family(pos) == expected
