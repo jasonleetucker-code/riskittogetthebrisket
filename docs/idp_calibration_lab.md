@@ -126,6 +126,29 @@ On promote:
 The promoted config is the **single** entry point. There is no parallel
 code path — if the file is deleted, every IDP multiplier is 1.0 again.
 
+## Enabling stats access in production
+
+By default the lab's network-probing adapter (`SleeperStatsAdapter`) is
+**disabled** — unit tests and local dev should never touch Sleeper's
+undocumented season-stats endpoint, and a fresh clone of the repo is
+intentionally a strict no-op until you opt in.
+
+To let the lab actually score historical stats in production:
+
+1. Add `IDP_CALIBRATION_ALLOW_NETWORK=1` to your production `.env`
+   (the systemd unit at `deploy/systemd/dynasty.service.template`
+   already loads `__APP_DIR__/.env` via `EnvironmentFile=-`).
+2. `sudo systemctl restart dynasty.service` (and `dynasty-frontend.service`
+   if a backend restart dropped the Next.js proxy).
+3. Re-run analysis. You should see `adapter=sleeper` on each resolved
+   season instead of `adapter=manual_fallback`.
+
+If the Sleeper endpoint is unreachable from your VPS, the adapter
+factory automatically falls through to `LocalCSVStatsAdapter` — drop
+CSVs at `data/idp_calibration/stats/{season}.csv` with the header
+documented above and the lab will use them in preference order
+`sleeper → local_csv → manual_fallback`.
+
 ## Known limitations
 
 - The Sleeper stats endpoint is undocumented. When it fails, the lab
