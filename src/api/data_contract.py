@@ -1981,6 +1981,49 @@ def _canonical_player_key(name: str, position: str | None) -> str:
 _NULL_CSV_ENTRY: dict[str, Any] = {}
 
 
+def _strip_mismatched_family_tags(players_array: list[dict[str, Any]]) -> None:
+    """Clear position tags set ONLY from the sleeper map when the final
+    canonicalSiteValues contradict the family.
+
+    Runs AFTER :func:`_enrich_from_source_csvs` so it sees the full set
+    of per-source signals that ended up attached to each row. Only
+    targets rows marked ``_positionFromSleeperOnly`` by
+    :func:`_derive_player_row` — rows whose position was supplied by an
+    adapter (explicit source-level tag) are left alone so the existing
+    contamination flaggers can raise ``position_source_contradiction``
+    for them. This narrow scope specifically unblocks the sleeper-map
+    name-collision case (DJ Turner WR vs DJ Turner II CB collapsing to
+    the same clean_name key) without masking real contamination.
+
+    Mutates rows in place. When a mismatch is detected, the position is
+    cleared — downstream validators treat unpositioned rows as offense,
+    which is safe for the "row has only offensive signals" case.
+    """
+    for row in players_array:
+        if not row.get("_positionFromSleeperOnly"):
+            continue
+        pos = str(row.get("position") or "").strip().upper()
+        if not pos:
+            continue
+        canonical_sites = row.get("canonicalSiteValues") or {}
+        if not isinstance(canonical_sites, dict):
+            continue
+        has_off = any(
+            _to_int_or_none(canonical_sites.get(k)) not in (None, 0)
+            for k in _OFFENSE_SIGNAL_KEYS
+        )
+        has_idp = any(
+            _to_int_or_none(canonical_sites.get(k)) not in (None, 0)
+            for k in _IDP_SIGNAL_KEYS
+        )
+        if pos in _IDP_POSITIONS and has_off and not has_idp:
+            row["position"] = None
+            row["assetClass"] = "offense"
+        elif pos in _OFFENSE_POSITIONS and has_idp and not has_off:
+            row["position"] = None
+            row["assetClass"] = "offense"
+
+
 def _enrich_from_source_csvs(
     players_array: list[dict[str, Any]],
     *,
@@ -3990,11 +4033,21 @@ def _derive_player_row(
     values = _player_value_bundle(p_data)
     source_count = _source_count(p_data, canonical_sites)
 
+    # Track when the final position was sourced ONLY from the sleeper map
+    # (no adapter-supplied position). This lets the post-enrichment
+    # guardrail distinguish sleeper-map name collisions (strip) from
+    # legitimate adapter-vs-signal contradictions (flag). Trimmed off
+    # the row before the contract is materialized externally.
+    position_from_sleeper_only = bool(
+        pos and not is_pick and not pos_from_player and pos_from_sleeper
+    )
+
     return {
         "playerId": str(p_data.get("_sleeperId") or "").strip() or None,
         "canonicalName": canonical_name,
         "displayName": canonical_name,
         "position": pos or None,
+        "_positionFromSleeperOnly": position_from_sleeper_only,
         "team": p_data.get("team") if isinstance(p_data.get("team"), str) else None,
         # Age: scaffolded for future use.  Populated when source data includes
         # age_raw (e.g. DLF CSV adapter).  Currently null for most players
@@ -4182,6 +4235,17 @@ def build_api_data_contract(
     csv_index = _enrich_from_source_csvs(
         players_array, parse_errors=source_parse_errors
     )
+
+    # Post-enrichment position guardrail: CSV enrichment happens AFTER
+    # _derive_player_row, so the in-row guardrail there runs against an
+    # empty canonicalSiteValues and can't detect offense/IDP mismatches
+    # driven by CSV signals. Re-check here with populated values and
+    # strip the wrong-family tag rather than letting the contract
+    # validator fail the whole rebuild. Typical case: DJ Turner (WR)
+    # inherits a DB tag from a sleeper-map name collision with DJ Turner
+    # II (CB), then the KTC/FootballGuys CSVs add offensive values to
+    # the DB-tagged row.
+    _strip_mismatched_family_tags(players_array)
 
     # Compute unified rankings: all sources, all positions, one board.
     # The CSV index lets the ranker stamp a per-row ``sourceAudit``
@@ -4400,6 +4464,10 @@ def build_api_data_contract(
         "pickAliases": pick_aliases or {},
         "sourceParseErrors": source_parse_errors,
     }
+    # Drop internal-only provenance markers before materializing the
+    # contract so they don't leak into the public payload.
+    for row in players_array:
+        row.pop("_positionFromSleeperOnly", None)
     return contract_payload
 
 

@@ -721,6 +721,77 @@ class TestSleeperMapCollisionGuardrail(unittest.TestCase):
         # Sleeper tag preserved — the collision flag elsewhere handles this.
         self.assertEqual(row.get("position"), "DB")
 
+    def test_post_enrichment_strip_when_signals_arrive_via_csv(self):
+        """Regression for the live-board failure: DJ Turner has no
+        _canonicalSiteValues in the scraper payload (legacy shape), gets
+        tagged DB from the sleeper-map name collision, and then
+        _enrich_from_source_csvs injects KTC/FootballGuys values on top.
+        The in-row guardrail in _derive_player_row can't see the
+        signals at derive-time, so the post-enrichment pass has to
+        clear the tag — but ONLY when the position came from the
+        sleeper map (not when an adapter set it explicitly).
+        """
+        from src.api.data_contract import _strip_mismatched_family_tags
+
+        rows = [
+            {
+                "canonicalName": "Zzz Post Enrich DB",
+                "displayName": "Zzz Post Enrich DB",
+                "position": "DB",
+                "assetClass": "idp",
+                "_positionFromSleeperOnly": True,
+                "canonicalSiteValues": {"ktc": 3000, "footballGuysSf": 2800},
+            },
+        ]
+        _strip_mismatched_family_tags(rows)
+        self.assertIsNone(rows[0]["position"])
+        self.assertEqual(rows[0]["assetClass"], "offense")
+
+    def test_post_enrichment_preserves_correctly_tagged_row(self):
+        from src.api.data_contract import _strip_mismatched_family_tags
+
+        rows = [
+            {
+                "canonicalName": "Zzz Valid DB",
+                "displayName": "Zzz Valid DB",
+                "position": "DB",
+                "assetClass": "idp",
+                "_positionFromSleeperOnly": True,
+                "canonicalSiteValues": {"idpTradeCalc": 2500},
+            },
+            {
+                "canonicalName": "Zzz Valid WR",
+                "displayName": "Zzz Valid WR",
+                "position": "WR",
+                "assetClass": "offense",
+                "_positionFromSleeperOnly": False,
+                "canonicalSiteValues": {"ktc": 4500},
+            },
+        ]
+        _strip_mismatched_family_tags(rows)
+        self.assertEqual(rows[0]["position"], "DB")
+        self.assertEqual(rows[1]["position"], "WR")
+
+    def test_post_enrichment_skips_adapter_sourced_position(self):
+        """Adapter-sourced position tags are NOT stripped even when the
+        site values contradict — those are legitimate contamination
+        signals for the downstream ``position_source_contradiction``
+        flagger to raise."""
+        from src.api.data_contract import _strip_mismatched_family_tags
+
+        rows = [
+            {
+                "canonicalName": "Zzz Adapter WR",
+                "displayName": "Zzz Adapter WR",
+                "position": "WR",
+                "assetClass": "offense",
+                "_positionFromSleeperOnly": False,
+                "canonicalSiteValues": {"idpTradeCalc": 5000},
+            },
+        ]
+        _strip_mismatched_family_tags(rows)
+        self.assertEqual(rows[0]["position"], "WR")
+
 
 if __name__ == "__main__":
     unittest.main()
