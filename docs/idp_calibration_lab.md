@@ -126,6 +126,31 @@ On promote:
 The promoted config is the **single** entry point. There is no parallel
 code path — if the file is deleted, every IDP multiplier is 1.0 again.
 
+## Stats network access
+
+`SleeperStatsAdapter` probes an undocumented Sleeper endpoint, so we
+keep its behaviour predictable:
+
+* **Production server (no pytest in `sys.modules`)** → network
+  **enabled by default**. The adapter factory tries Sleeper first,
+  falls through to `LocalCSVStatsAdapter`
+  (`data/idp_calibration/stats/{season}.csv`), then
+  `ManualFallbackAdapter`.
+* **pytest** → network **disabled by default** so the unit suite never
+  touches a live endpoint.
+
+No operator setup is required on a fresh deploy. If you want to
+override the default, set `IDP_CALIBRATION_ALLOW_NETWORK` in
+`__APP_DIR__/.env` and restart the service — `"1"` / `"true"` /
+`"yes"` / `"on"` enable, `"0"` / `"false"` / `"no"` / `"off"`
+disable. Explicit caller arguments to `get_stats_adapter()` always win
+over both.
+
+If the Sleeper endpoint is unreachable from your VPS even with network
+enabled, drop CSVs at `data/idp_calibration/stats/{season}.csv` with
+the header documented above — the factory uses them in preference
+order `sleeper → local_csv → manual_fallback`.
+
 ## Known limitations
 
 - The Sleeper stats endpoint is undocumented. When it fails, the lab

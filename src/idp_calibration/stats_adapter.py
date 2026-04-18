@@ -279,6 +279,24 @@ class ManualFallbackAdapter(HistoricalStatsAdapter):
 _ADAPTER_ORDER = ("sleeper", "local_csv", "manual_fallback")
 
 
+def _detect_test_context() -> bool:
+    """Heuristic: are we running under pytest?
+
+    Checking ``sys.modules`` is the cheapest reliable signal — pytest
+    always imports itself before any test collects, and production
+    server processes never import it. We use this to default network
+    *off* under tests while keeping it *on* in production so the live
+    lab works without operator env-var plumbing.
+    """
+    import sys as _sys
+
+    if "pytest" in _sys.modules:
+        return True
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        return True
+    return False
+
+
 def get_stats_adapter(
     season: int,
     *,
@@ -287,15 +305,25 @@ def get_stats_adapter(
 ) -> tuple[HistoricalStatsAdapter, list[str]]:
     """Return the first available adapter for ``season``.
 
-    ``allow_network`` defaults to the ``IDP_CALIBRATION_ALLOW_NETWORK``
-    environment variable (``"1"`` / ``"true"`` enables; anything else
-    disables). In test and CI environments network access is disabled
-    by default so ``SleeperStatsAdapter`` is skipped unless explicitly
-    allowed.
+    ``allow_network`` resolves in this order:
+
+    1. Explicit caller argument wins.
+    2. ``IDP_CALIBRATION_ALLOW_NETWORK`` env var — ``"1"`` / ``"true"``
+       / ``"yes"`` / ``"on"`` enables; ``"0"`` / ``"false"`` / ``"no"``
+       / ``"off"`` disables.
+    3. Otherwise, **default on in production, off under pytest**. This
+       lets a freshly-deployed production backend probe Sleeper without
+       requiring the operator to edit ``.env`` by hand, while keeping
+       the unit-test suite network-free by default.
     """
     if allow_network is None:
         env_val = str(os.getenv("IDP_CALIBRATION_ALLOW_NETWORK", "")).strip().lower()
-        allow_network = env_val in {"1", "true", "yes", "on"}
+        if env_val in {"1", "true", "yes", "on"}:
+            allow_network = True
+        elif env_val in {"0", "false", "no", "off"}:
+            allow_network = False
+        else:
+            allow_network = not _detect_test_context()
     attempted: list[str] = []
     for name in order or _ADAPTER_ORDER:
         if name == "sleeper":
