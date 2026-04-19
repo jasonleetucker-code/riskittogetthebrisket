@@ -87,14 +87,33 @@ _ALL_SIGNAL_KEYS = _OFFENSE_SIGNAL_KEYS | _IDP_SIGNAL_KEYS
 
 # ── Confidence bucket thresholds ────────────────────────────────────────────
 # Buckets describe how much trust a consumer should place in a player's
-# unified rank.  Determined by source count, source agreement, and whether
-# the player is inside the rank limit.
+# unified rank.  Determined by source count and source agreement.
+#
+# Agreement is measured in *percentile* space rather than absolute
+# ordinal ranks so IDP players aren't unfairly bucketed as "low" just
+# because IDP sources have smaller pools.  Example: an IDP with ranks
+# [52, 62, 148, 151, 1] across sources has an absolute spread of 150
+# (far above the legacy 80 threshold), but a percentile spread of
+# ~0.16 because each rank lives inside a much smaller pool — the
+# sources are actually in broad tier-agreement.  The offense-only
+# absolute thresholds used to fire "low" on well-covered IDP rows.
 #
 # Rules (evaluated top-to-bottom, first match wins):
-#   "high"   — 2+ sources AND sourceRankSpread <= 30
-#   "medium" — 2+ sources AND sourceRankSpread <= 80
-#   "low"    — single source OR sourceRankSpread > 80
+#   "high"   — 2+ sources AND percentileSpread <= 0.08   (within 8%)
+#   "medium" — 2+ sources AND percentileSpread <= 0.20   (within 20%)
+#   "low"    — single source, OR percentileSpread > 0.20, OR no
+#              percentile signal and absolute spread > 80
 #   "none"   — player did not receive a unified rank
+#
+# The 0.20 medium ceiling aligns with the
+# ``suspicious_disagreement`` flag threshold — anything worse than
+# 20% percentile spread is by definition widely-disagreed coverage,
+# which is exactly the "low" bucket.
+_CONFIDENCE_PERCENTILE_HIGH = 0.08
+_CONFIDENCE_PERCENTILE_MEDIUM = 0.20
+# Legacy absolute-ordinal fallback for callers that don't pass a
+# percentile spread (older tests, third-party consumers).  Kept at
+# the pre-fix thresholds so their existing expectations still hold.
 _CONFIDENCE_SPREAD_HIGH = 30
 _CONFIDENCE_SPREAD_MEDIUM = 80
 
@@ -1223,16 +1242,30 @@ def _scope_eligible(pos: str, scope: str, position_group: str | None) -> bool:
 def _compute_confidence_bucket(
     source_count: int,
     source_rank_spread: float | None,
+    percentile_spread: float | None = None,
 ) -> tuple[str, str]:
     """Return (confidenceBucket, confidenceLabel) for a ranked player.
 
+    When ``percentile_spread`` is supplied (the normal path via
+    :func:`_compute_unified_rankings`), buckets are decided off the
+    percentile signal so IDP players with small source pools are
+    judged on the same agreement scale as offense players with
+    large pools.  Falls back to the legacy absolute-ordinal spread
+    for callers that only have ``source_rank_spread`` handy.
+
     See threshold constants above for the decision rules.
     """
-    if source_count >= 2 and source_rank_spread is not None:
-        if source_rank_spread <= _CONFIDENCE_SPREAD_HIGH:
-            return "high", "High — multi-source, tight agreement"
-        if source_rank_spread <= _CONFIDENCE_SPREAD_MEDIUM:
-            return "medium", "Medium — multi-source, moderate spread"
+    if source_count >= 2:
+        if percentile_spread is not None:
+            if percentile_spread <= _CONFIDENCE_PERCENTILE_HIGH:
+                return "high", "High — multi-source, tight agreement"
+            if percentile_spread <= _CONFIDENCE_PERCENTILE_MEDIUM:
+                return "medium", "Medium — multi-source, moderate spread"
+        elif source_rank_spread is not None:
+            if source_rank_spread <= _CONFIDENCE_SPREAD_HIGH:
+                return "high", "High — multi-source, tight agreement"
+            if source_rank_spread <= _CONFIDENCE_SPREAD_MEDIUM:
+                return "medium", "Medium — multi-source, moderate spread"
     # Single source or wide disagreement
     if source_count >= 1:
         return "low", "Low — single source or wide disagreement"
@@ -4423,7 +4456,9 @@ def _compute_unified_rankings(
             )
         else:
             bucket, label = _compute_confidence_bucket(
-                len(source_ranks), source_rank_spread
+                len(source_ranks),
+                source_rank_spread,
+                percentile_spread=percentile_spread,
             )
         row["confidenceBucket"] = bucket
         row["confidenceLabel"] = label
