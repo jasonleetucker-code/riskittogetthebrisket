@@ -2584,3 +2584,50 @@ tr:hover .sticky-name {
 }
 .angle-package-players li { display: flex; gap: 6px; flex-wrap: wrap; }
 .angle-package-totals { font-size: 0.8rem; }
+
+/* Angle: counter-package filter card */
+.angle-filter-card { display: flex; flex-direction: column; gap: var(--space-sm); }
+.angle-filter-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+.angle-filter-row {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.2fr) minmax(220px, 1fr);
+  gap: var(--space-md);
+  align-items: start;
+}
+@media (max-width: 720px) {
+  .angle-filter-row { grid-template-columns: 1fr; }
+}
+.angle-filter-group { display: flex; flex-direction: column; gap: 6px; }
+.angle-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.angle-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  min-width: 42px;
+}
+.angle-pill:hover { background: var(--surface-hover, #1e293b); }
+.angle-pill-active {
+  background: var(--accent, #2563eb);
+  border-color: var(--accent, #2563eb);
+  color: #fff;
+}
+.angle-pill-clear { font-weight: 400; opacity: 0.8; }
+.angle-slider {
+  width: 100%;
+  max-width: 360px;
+  accent-color: var(--accent, #2563eb);
+}
