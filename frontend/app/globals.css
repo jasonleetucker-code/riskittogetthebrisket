@@ -3044,3 +3044,38 @@ tr:hover .sticky-name {
   border-color: rgba(248, 113, 113, 0.5);
 }
 .chat-stop:hover { border-color: var(--red); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PER-SOURCE TRADE BREAKDOWN TABLE
+   Rendered below the trade meter on /trade — one row per ranking source,
+   VA-adjusted totals, winner + margin.
+   ══════════════════════════════════════════════════════════════════════════ */
+.source-breakdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.source-breakdown-table thead th {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--subtext);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--card);
+  z-index: 1;
+}
+.source-breakdown-table tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(38, 58, 105, 0.4);
+  white-space: nowrap;
+}
+.source-breakdown-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.source-breakdown-table tbody tr:hover {
+  background: rgba(86, 214, 255, 0.04);
+}

@@ -2288,6 +2288,65 @@ async def post_trade_finder(request: Request):
     return JSONResponse(content=result)
 
 
+@app.post("/api/trade/import-ktc")
+async def post_trade_import_ktc(request: Request):
+    """Resolve a KeepTradeCut trade-calculator URL into ordered
+    player lists the frontend can load into its sides.
+
+    Body: ``{"url": "https://keeptradecut.com/trade-calculator?...&teamOne=1274&teamTwo=1555..."}``.
+
+    Returns ``{sideOne, sideTwo, unresolved, sourceUrl}`` — see
+    ``src/trade/ktc_import.py::resolve_trade_url`` for the shape.
+    Public endpoint (same as the other /api/trade/* endpoints) so
+    the drawer-less trade page works without re-authing.
+    """
+    from src.trade.ktc_import import resolve_trade_url  # noqa: PLC0415 — lazy import
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": "JSON body required."},
+        )
+    url = str(body.get("url") or "").strip()
+    if not url:
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": "Missing 'url' field."},
+        )
+    if "keeptradecut.com" not in url:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "ok": False,
+                "error": "URL must be a keeptradecut.com trade-calculator link.",
+            },
+        )
+
+    # KTC HTML fetch + regex is blocking — run in threadpool so we
+    # don't stall the event loop for other in-flight requests.
+    try:
+        result = await run_in_threadpool(resolve_trade_url, url)
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": str(exc)},
+        )
+    except Exception as exc:  # noqa: BLE001 — surface upstream failures
+        return JSONResponse(
+            status_code=502,
+            content={
+                "ok": False,
+                "error": "Failed to fetch KTC player map.",
+                "detail": f"{type(exc).__name__}: {exc}",
+            },
+        )
+    return JSONResponse(content={"ok": True, **result})
+
+
 @app.post("/api/angle/find")
 async def post_angle_find(request: Request):
     """Player-specific arbitrage: pick a player on your team, get
