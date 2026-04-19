@@ -496,6 +496,52 @@ export const RANKING_SOURCES = [
     needsSharedMarketTranslation: false,
     excludesRookies: false,
   },
+  {
+    // DLF Dynasty Rookie Superflex — 6-expert consensus covering the
+    // current rookie class only (QB/RB/WR/TE prospects).  The raw
+    // rookie-only rank is crosswalked at blend time through a rookie
+    // ladder built from KTC's current ranks on offensive rookies, so
+    // DLF's #1 rookie inherits KTC's rank-for-top-rookie scale while
+    // DLF's ORDERING remains intact.  Synthetic "2026 Pick R.SS" rows
+    // appended during CSV enrichment also nudge rookie pick values.
+    key: "dlfRookieSf",
+    displayName: "Dynasty League Football Rookie SF",
+    columnLabel: "DLF RK",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 50,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    needsRookieTranslation: true,
+    excludesRookies: false,
+  },
+  {
+    // DLF Dynasty Rookie IDP — rookie-only DL/LB/DB prospects.
+    // Translated against IDPTC's rookie ladder.  Does NOT stamp onto
+    // picks because rookie IDP ranks are not a strong signal for
+    // pick-slot value (most rookie drafts prioritize offensive
+    // prospects at the top).
+    key: "dlfRookieIdp",
+    displayName: "Dynasty League Football Rookie IDP",
+    columnLabel: "DLF RK-IDP",
+    scope: "overall_idp",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 50,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    needsRookieTranslation: true,
+    excludesRookies: false,
+  },
 ];
 
 // ── Retail source registry helpers ───────────────────────────────────

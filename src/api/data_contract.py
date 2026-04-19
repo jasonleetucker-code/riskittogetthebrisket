@@ -250,6 +250,29 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/yahooBoone.csv",
         "signal": "rank",
     },
+    # DLF Dynasty Rookie Superflex rankings — 6-expert consensus of the
+    # current rookie class only (no veterans).  Raw CSV exported from
+    # DLF with Rank, Avg, Pos, Name, Team, Age, expert columns.  Signal=
+    # rank (the ``Avg`` column wins over ``Rank`` via _RANK_ALIASES).
+    #
+    # The source's within-source rank 1 needs rookie-class translation
+    # (``needs_rookie_translation=True``) so DLF's #1 rookie doesn't
+    # get mapped to overall rank 1 → value 9999 at the Hill curve.
+    # Translation anchors each within-source rank to the corresponding
+    # rookie's position on KTC's ladder (offense) or IDPTC's ladder
+    # (IDP), preserving DLF's ORDERING while inheriting the reference
+    # source's SCALE.
+    "dlfRookieSf": {
+        "path": "CSVs/site_raw/Dynasty Rookie Superflex Rankings-3-20-2026-0955.csv",
+        "signal": "rank",
+    },
+    # DLF Dynasty Rookie IDP rankings — same shape as the SF rookie
+    # export but for DL/LB/DB prospects.  IDP rookie translation uses
+    # the IDPTC IDP ladder.
+    "dlfRookieIdp": {
+        "path": "CSVs/site_raw/Dynasty Rookie IDP Rankings-3-20-2026-0955.csv",
+        "signal": "rank",
+    },
 }
 
 # Rank -> synthetic value transform used when a CSV declares signal=rank.
@@ -929,6 +952,61 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_retail": False,
         "is_tep_premium": True,
         "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+    },
+    {
+        # DLF Dynasty Rookie Superflex — rookies-only offensive board
+        # (QB/RB/WR/TE).  DLF expert consensus ranks the current
+        # incoming class; ~50 prospects per export.  Declared as an
+        # ``overall_offense`` source but with
+        # ``needs_rookie_translation=True`` so the within-source rank
+        # is crosswalked through a *rookie ladder* before the Hill
+        # curve.  The ladder is built from KTC's current ranks on
+        # offense rookie rows: ladder[k] = KTC's rank for the (k+1)th
+        # rookie in KTC's order.  This means DLF rookie #1 gets the
+        # Hill-value KTC would give to its own top rookie, preserving
+        # DLF's ORDER while inheriting KTC's SCALE.  Pre-NFL-draft
+        # prospects not in KTC fall past the ladder's tail and
+        # extrapolate via the translation helper.
+        #
+        # depth=50 reflects the typical rookie-class size; coverage
+        # weight scales contribution down so the rookie board never
+        # overwhelms the veteran-rich retail/expert blend.
+        "key": "dlfRookieSf",
+        "display_name": "Dynasty League Football Rookie SF",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": 50,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "needs_rookie_translation": True,
+        # Rookie source BY DEFINITION contains only rookies, so
+        # ``excludes_rookies=False`` is correct — but even more:
+        # veteran rows will never match this source's CSV, so the
+        # source stamp is effectively rookie+pick-only.  The pick
+        # nudge is wired via synthetic "2026 Pick R.SS" rows that
+        # the conversion step appends to the CSV so the source's
+        # Hill value flows into pick rankDerivedValue directly.
+        "excludes_rookies": False,
+    },
+    {
+        # DLF Dynasty Rookie IDP — rookie-only defensive board
+        # (DE/DT/EDGE/LB/CB/S).  Analogous to dlfRookieSf but
+        # translated against IDPTC's ladder.  depth=50 matches the
+        # typical export size.
+        "key": "dlfRookieIdp",
+        "display_name": "Dynasty League Football Rookie IDP",
+        "scope": SOURCE_SCOPE_OVERALL_IDP,
+        "position_group": None,
+        "depth": 50,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "needs_shared_market_translation": False,
+        "needs_rookie_translation": True,
         "excludes_rookies": False,
     },
 ]
@@ -2184,7 +2262,15 @@ def _parse_source_csv_cached(
     schema_err: dict[str, str] | None = None
 
     _NAME_ALIASES = ("name", "Name", "player", "Player", "player_name", "PlayerName")
+    # DLF raw CSV exports carry both ``Rank`` (ordinal) and ``Avg``
+    # (expert-consensus average — fractional like 1.17, 2.83, 3.00).
+    # ``Avg`` preserves the underlying consensus fidelity (near-ties
+    # vs clear separation), so we prefer it when present.  Other
+    # sources without an ``Avg`` column fall through to ``rank`` /
+    # ``Rank`` as before.
     _RANK_ALIASES = (
+        "Avg",
+        "avg",
         "rank",
         "Rank",
         "overall_rank",
@@ -2444,6 +2530,40 @@ def _enrich_from_source_csvs(
 
         if not csv_lookup:
             continue
+
+        # ── Rookie source → synthetic pick-slot stamps ──
+        # dlfRookieSf ranks rookies; user-visible rookie picks
+        # (2026 1.01, 1.02, ..., 6.12) should inherit the rookie
+        # source's value at the matching ordinal so the blend pulls
+        # pick values toward the DLF rookie-class consensus.  We
+        # preserve the CSV's natural ordering by synthetic value
+        # (same as the blend's Phase 1 sort) and append pick
+        # entries into csv_lookup so the existing enrichment +
+        # rank-signal path handles them uniformly.  Only wired for
+        # dlfRookieSf because most rookie draft picks go to
+        # offensive prospects; IDP rookie rank is far less
+        # predictive of what a 1st-round pick lands on.
+        if source_key == "dlfRookieSf":
+            csv_lookup = {k: list(v) for k, v in csv_lookup.items()}
+            _flat = [
+                (disp, syn, rnk)
+                for entries in csv_lookup.values()
+                for (disp, syn, rnk) in entries
+            ]
+            _flat.sort(key=lambda t: (-t[1], str(t[0]).lower()))
+            for _rookie_idx, (_disp, _syn, _rnk) in enumerate(_flat):
+                rookie_rank = _rookie_idx + 1
+                if rookie_rank > _ROOKIE_ANCHOR_LEAGUE_SIZE * _ROOKIE_ANCHOR_ROUNDS:
+                    break
+                _rnd = (rookie_rank - 1) // _ROOKIE_ANCHOR_LEAGUE_SIZE + 1
+                _slot = (rookie_rank - 1) % _ROOKIE_ANCHOR_LEAGUE_SIZE + 1
+                _pick_name = f"2026 Pick {_rnd}.{_slot:02d}"
+                _pick_key = _canonical_match_key(_pick_name)
+                if not _pick_key:
+                    continue
+                csv_lookup.setdefault(_pick_key, []).append(
+                    (_pick_name, _syn, float(rookie_rank))
+                )
 
         # Persist a structured per-source entry index keyed by the
         # *position-aware* canonical key so downstream code can audit
@@ -3634,6 +3754,48 @@ def _compute_unified_rankings(
     shared_market_ladder = backbone.shared_idp_ladder()
     shared_market_depth = backbone.shared_market_depth
 
+    # ── Rookie-translation ladders (built lazily on demand) ──
+    # Sources flagged ``needs_rookie_translation=True`` (dlfRookieSf /
+    # dlfRookieIdp) rank the current rookie class only.  Their raw
+    # within-source rank 1 would otherwise be fed to the Hill curve
+    # as if the #1 rookie were the #1 overall player — inflating every
+    # rookie to value ~9999.  We crosswalk through a rookie ladder
+    # built from a reference source's existing rank on real rookie
+    # rows: ladder[k-1] = reference source's rank for the k-th best
+    # rookie in the reference source's ORDER.  DLF's ORDER is
+    # preserved via its own Phase 1 ordinal sort; only the SCALE
+    # comes from the reference ladder.  Offense rookies anchor to
+    # KTC; IDP rookies anchor to IDPTC (the IDP backbone).
+    rookie_ladder_cache: dict[str, list[int]] = {}
+
+    def _build_rookie_ladder(reference_src_key: str, idp: bool) -> list[int]:
+        cache_key = f"{reference_src_key}:{'idp' if idp else 'off'}"
+        cached = rookie_ladder_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        ref_ranks: list[tuple[int, int]] = []  # (ref_rank, row_idx)
+        for _ridx, _rec in row_source_ranks.items():
+            _rank = _rec.get(reference_src_key)
+            if _rank is None:
+                continue
+            _row = players_array[_ridx]
+            if not bool(_row.get("rookie")):
+                continue
+            if _row.get("assetClass") == "pick":
+                continue
+            _pos = str(_row.get("position") or "").strip().upper()
+            if idp:
+                if _pos not in _IDP_POSITIONS:
+                    continue
+            else:
+                if _pos not in _OFFENSE_POSITIONS:
+                    continue
+            ref_ranks.append((int(_rank), _ridx))
+        ref_ranks.sort(key=lambda t: t[0])
+        ladder = [r for r, _ in ref_ranks]
+        rookie_ladder_cache[cache_key] = ladder
+        return ladder
+
     for src in active_sources:
         source_key: str = src["key"]
         position_group: str | None = src.get("position_group")
@@ -3641,6 +3803,7 @@ def _compute_unified_rankings(
         needs_shared_market = bool(
             src.get("needs_shared_market_translation")
         ) and not src.get("is_backbone")
+        needs_rookie_xlate = bool(src.get("needs_rookie_translation"))
         # A source may contribute to multiple scopes (e.g. IDPTradeCalc
         # lists both offense and IDP players in one value pool on a shared
         # 0-9999 scale).  Earlier revisions ran a separate ordinal pass per
@@ -3726,6 +3889,31 @@ def _compute_unified_rankings(
                 )
                 ladder_depth_meta = len(shared_market_ladder)
                 backbone_depth_meta = shared_market_depth
+            elif needs_rookie_xlate:
+                # Rookie-class source — translate DLF's rookie rank
+                # through the reference source's rank on real rookie
+                # rows.  KTC anchors offense rookies; IDPTC anchors
+                # IDP rookies.  Falls back to TRANSLATION_DIRECT when
+                # the reference source has not populated the ladder
+                # yet (e.g. during a custom override that disables
+                # the anchor).
+                ref_key = (
+                    "idpTradeCalc"
+                    if row_scope == SOURCE_SCOPE_OVERALL_IDP
+                    else "ktc"
+                )
+                ladder = _build_rookie_ladder(
+                    ref_key,
+                    idp=(row_scope == SOURCE_SCOPE_OVERALL_IDP),
+                )
+                if ladder:
+                    effective_rank, method = translate_position_rank(
+                        raw_rank, ladder
+                    )
+                    ladder_depth_meta = len(ladder)
+                else:
+                    effective_rank = raw_rank
+                    method = TRANSLATION_FALLBACK
             else:
                 effective_rank = raw_rank
                 method = TRANSLATION_DIRECT
