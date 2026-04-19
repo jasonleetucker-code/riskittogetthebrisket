@@ -73,6 +73,12 @@ export default function AnglePage() {
   // Seed players keyed by ownerId — players that MUST appear in
   // every counter-package when a target team is selected.
   const [seedsByOwner, setSeedsByOwner] = useState({});
+  // "offer" (default): user picks players from their roster and we
+  // search opposing rosters for counter-packages.
+  // "acquire": user picks players on opposing rosters to acquire and
+  // we search their own roster for offer-side packages. Lets the
+  // user skip selecting their own players first.
+  const [mode, setMode] = useState("offer");
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -111,6 +117,13 @@ export default function AnglePage() {
     setResult(null);
     setErr(null);
   }, [ownerId]);
+
+  // Clear stale results and errors when flipping modes so the page
+  // doesn't render offer-mode candidates after switching to acquire.
+  useEffect(() => {
+    setResult(null);
+    setErr(null);
+  }, [mode]);
 
   const offerList = useMemo(() => Array.from(offer), [offer]);
 
@@ -180,29 +193,53 @@ export default function AnglePage() {
   }, [activeTargetOwnerIds, seedsByOwner]);
 
   async function findAngles() {
-    if (!ownerId || offerList.length === 0) {
-      setErr("Pick a team and check at least one player.");
+    if (!ownerId) {
+      setErr("Pick your team.");
+      return;
+    }
+    if (mode === "offer" && offerList.length === 0) {
+      setErr("Check at least one player from your roster to offer.");
+      return;
+    }
+    if (mode === "acquire" && activeSeedNames.length === 0) {
+      setErr(
+        "Pick a target team and check at least one player you want to acquire.",
+      );
       return;
     }
     setBusy(true);
     setErr(null);
     try {
+      const body =
+        mode === "acquire"
+          ? {
+              mode: "acquire",
+              ownerId,
+              acquirePlayerNames: activeSeedNames,
+              minMyGainPct: Number(minMyGainPct),
+              maxMarketGainPct: Number(maxMarketGainPct),
+              limit: Number(limit),
+              minPlayerMyValue: Number(minPlayerValue),
+              positions: Array.from(positionFilters),
+            }
+          : {
+              mode: "offer",
+              ownerId,
+              playerNames: offerList,
+              minMyGainPct: Number(minMyGainPct),
+              maxMarketGainPct: Number(maxMarketGainPct),
+              limit: Number(limit),
+              perTeamLimit: Number(perTeamLimit),
+              minPlayerMyValue: Number(minPlayerValue),
+              positions: Array.from(positionFilters),
+              targetTeamOwnerIds: activeTargetOwnerIds,
+              seedPlayerNames: activeSeedNames,
+            };
       const res = await fetch("/api/angle/packages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         cache: "no-store",
-        body: JSON.stringify({
-          ownerId,
-          playerNames: offerList,
-          minMyGainPct: Number(minMyGainPct),
-          maxMarketGainPct: Number(maxMarketGainPct),
-          limit: Number(limit),
-          perTeamLimit: Number(perTeamLimit),
-          minPlayerMyValue: Number(minPlayerValue),
-          positions: Array.from(positionFilters),
-          targetTeamOwnerIds: activeTargetOwnerIds,
-          seedPlayerNames: activeSeedNames,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.error) {
@@ -240,10 +277,30 @@ export default function AnglePage() {
         <div>
           <h1 className="page-title">Angle</h1>
           <p className="page-subtitle muted" style={{ marginTop: 4 }}>
-            Build an offer from your roster; get counter-packages
-            (±1 in size) that win on your rankings but look fair-or-better on
-            the market the counterparty consults (IDPTC for IDP, KTC otherwise).
+            {mode === "acquire"
+              ? "Pick players on another team you want to acquire; get back offer packages from your roster (±1 in size) that win on your rankings but look fair-or-better on the market the counterparty consults (IDPTC for IDP, KTC otherwise)."
+              : "Build an offer from your roster; get counter-packages (±1 in size) that win on your rankings but look fair-or-better on the market the counterparty consults (IDPTC for IDP, KTC otherwise)."}
           </p>
+          <div className="angle-pill-row" style={{ marginTop: 10 }}>
+            <button
+              type="button"
+              className={`angle-pill ${mode === "offer" ? "angle-pill-active" : ""}`}
+              onClick={() => setMode("offer")}
+              disabled={busy}
+              title="Build an offer from your roster and get counter-packages from other teams."
+            >
+              Build an offer
+            </button>
+            <button
+              type="button"
+              className={`angle-pill ${mode === "acquire" ? "angle-pill-active" : ""}`}
+              onClick={() => setMode("acquire")}
+              disabled={busy}
+              title="Pick players you want to acquire from another team; get offer packages from your roster."
+            >
+              Acquire players
+            </button>
+          </div>
         </div>
       </div>
 
@@ -294,20 +351,22 @@ export default function AnglePage() {
               disabled={busy}
             />
           </label>
-          <label className="angle-field">
-            <span className="muted">
-              Max per team{" "}
-              <span className="angle-field-hint">(top N from each opposing roster)</span>
-            </span>
-            <input
-              type="number"
-              value={perTeamLimit}
-              min="1"
-              max="50"
-              onChange={(e) => setPerTeamLimit(e.target.value)}
-              disabled={busy}
-            />
-          </label>
+          {mode === "offer" && (
+            <label className="angle-field">
+              <span className="muted">
+                Max per team{" "}
+                <span className="angle-field-hint">(top N from each opposing roster)</span>
+              </span>
+              <input
+                type="number"
+                value={perTeamLimit}
+                min="1"
+                max="50"
+                onChange={(e) => setPerTeamLimit(e.target.value)}
+                disabled={busy}
+              />
+            </label>
+          )}
           <label className="angle-field">
             <span className="muted">Total results</span>
             <input
@@ -323,9 +382,19 @@ export default function AnglePage() {
             type="button"
             className="button button-primary angle-go"
             onClick={findAngles}
-            disabled={busy || !ownerId || offerList.length === 0}
+            disabled={
+              busy ||
+              !ownerId ||
+              (mode === "offer"
+                ? offerList.length === 0
+                : activeSeedNames.length === 0)
+            }
           >
-            {busy ? "Searching…" : `Find counter-packages (${offerList.length})`}
+            {busy
+              ? "Searching…"
+              : mode === "acquire"
+                ? `Find offer packages (${activeSeedNames.length})`
+                : `Find counter-packages (${offerList.length})`}
           </button>
         </div>
         {err && (
@@ -337,9 +406,15 @@ export default function AnglePage() {
 
       <section className="card angle-filter-card">
         <div className="angle-filter-head">
-          <strong>Counter-package filters</strong>
+          <strong>
+            {mode === "acquire"
+              ? "Offer package filters"
+              : "Counter-package filters"}
+          </strong>
           <span className="muted">
-            Narrow the candidates the search considers from other teams.
+            {mode === "acquire"
+              ? "Narrow the offer-side candidates the search considers from your roster."
+              : "Narrow the candidates the search considers from other teams."}
           </span>
         </div>
         <div className="angle-filter-row">
@@ -407,12 +482,15 @@ export default function AnglePage() {
 
       <section className="card angle-targets-card">
         <div className="angle-filter-head">
-          <strong>Trade with specific teams (optional)</strong>
+          <strong>
+            {mode === "acquire"
+              ? "Players to acquire"
+              : "Trade with specific teams (optional)"}
+          </strong>
           <span className="muted">
-            Pick up to 2 opposing teams. Check off any "must-have" players
-            from their rosters and the search will build counter-packages
-            that include those seeds and fill the rest from the selected
-            teams' top players.
+            {mode === "acquire"
+              ? "Pick up to 2 opposing teams and check off the players you want to acquire. The search will build offer packages from your roster that land these players."
+              : "Pick up to 2 opposing teams. Check off any \"must-have\" players from their rosters and the search will build counter-packages that include those seeds and fill the rest from the selected teams' top players."}
           </span>
         </div>
         <div className="angle-targets-row">
@@ -502,6 +580,7 @@ export default function AnglePage() {
         </div>
       </section>
 
+      {mode === "offer" && (
       <section className="card angle-offer-bar">
         <div className="angle-offer-head">
           <strong>Your offer ({offerList.length} player{offerList.length === 1 ? "" : "s"})</strong>
@@ -592,6 +671,7 @@ export default function AnglePage() {
           )}
         </div>
       </section>
+      )}
 
       {result?.warnings?.length ? (
         <section className="card angle-warnings">
@@ -607,13 +687,30 @@ export default function AnglePage() {
       {result?.candidates?.length ? (
         <section className="card angle-results">
           <div className="angle-section-head">
-            <h2>Counter-packages ({result.candidates.length})</h2>
+            <h2>
+              {result?.mode === "acquire"
+                ? `Offer packages (${result.candidates.length})`
+                : `Counter-packages (${result.candidates.length})`}
+            </h2>
             <span className="muted">
-              Sorted by arbitrage score (my gain % − market gap %). Market is
-              IDPTC for IDP, KTC otherwise. Sizes allowed:{" "}
-              {(result.thresholds?.target_sizes || []).join(", ")}.
+              {result?.mode === "acquire"
+                ? `Sorted by arbitrage score (my gain % − market gap %). Each package is from your roster and lands the ${result.acquire?.size || "?"} player(s) above. Market is IDPTC for IDP, KTC otherwise. Sizes allowed: ${(result.thresholds?.target_sizes || []).join(", ")}.`
+                : `Sorted by arbitrage score (my gain % − market gap %). Market is IDPTC for IDP, KTC otherwise. Sizes allowed: ${(result.thresholds?.target_sizes || []).join(", ")}.`}
             </span>
           </div>
+          {result?.mode === "acquire" && result.acquire?.players?.length ? (
+            <div className="angle-acquire-summary muted" style={{ marginBottom: 12 }}>
+              <strong>Acquiring:</strong>{" "}
+              {result.acquire.players
+                .map(
+                  (p) =>
+                    `${p.name} (${p.position}, my ${Number(p.my_value).toLocaleString()} · ${marketLabelForSource(p.market_source)} ${Number(p.market_value).toLocaleString()})`,
+                )
+                .join(" + ")}{" "}
+              · my total <strong>{Number(result.acquire.my_total).toLocaleString()}</strong> · market total{" "}
+              <strong>{Number(result.acquire.market_total).toLocaleString()}</strong>
+            </div>
+          ) : null}
           <div className="angle-package-grid">
             {result.candidates.map((c, i) => (
               <div key={i} className="angle-package">
@@ -621,7 +718,9 @@ export default function AnglePage() {
                   <div>
                     <strong>#{i + 1}</strong>{" "}
                     <span className="muted">
-                      {c.team} · {c.size}-for-{result.offer?.size || "?"}
+                      {result?.mode === "acquire"
+                        ? `${result.acquire?.team || "You"} offer · ${c.size}-for-${result.acquire?.size || "?"}`
+                        : `${c.team} · ${c.size}-for-${result.offer?.size || "?"}`}
                     </span>
                   </div>
                   <div className="angle-package-scores">
@@ -669,10 +768,9 @@ export default function AnglePage() {
       ) : result && !busy ? (
         <section className="card">
           <p className="muted">
-            No counter-packages match. Loosen the thresholds (lower
-            "Min my-value gain %" or raise "Max market gap %"), pick
-            different offer players, or widen the candidate pool on
-            the backend.
+            {result?.mode === "acquire"
+              ? "No offer packages match. Loosen the thresholds (lower \"Min my-value gain %\" or raise \"Max market gap %\"), pick different acquisition targets, or raise the candidate pool cap."
+              : "No counter-packages match. Loosen the thresholds (lower \"Min my-value gain %\" or raise \"Max market gap %\"), pick different offer players, or widen the candidate pool on the backend."}
           </p>
         </section>
       ) : null}

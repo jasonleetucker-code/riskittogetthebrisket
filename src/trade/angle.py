@@ -604,3 +604,266 @@ def find_angle_packages(
         },
         "warnings": warnings,
     }
+
+
+def find_acquisition_packages(
+    players_array: list[dict[str, Any]],
+    desired_player_names: list[str],
+    selected_team_owner_id: str,
+    sleeper_teams: list[dict[str, Any]],
+    *,
+    min_my_gain_pct: float = 5.0,
+    max_market_gain_pct: float = 5.0,
+    limit: int = 50,
+    candidate_pool: int = 25,
+    positions: list[str] | None = None,
+    min_player_my_value: float = 0.0,
+) -> dict[str, Any]:
+    """Find offer-side packages from the user's roster that acquire a
+    fixed set of desired players from other teams.
+
+    Inverse of :func:`find_angle_packages`. The user picks players on
+    opposing rosters they want to acquire; this enumerates combinations
+    of their own roster (size within ±1 of the desired count) and
+    keeps those that (a) leave the user ahead on my-value by at least
+    ``min_my_gain_pct`` and (b) look fair-or-better to the counterparty
+    on the market the counterparty consults (IDPTC for IDP, KTC
+    otherwise), gap ≤ ``max_market_gain_pct``.
+
+    Parameters
+    ----------
+    desired_player_names
+        Canonical names of players the user wants to acquire. They
+        must each be owned by a team OTHER than ``selected_team_owner_id``.
+        Any missing or user-owned names are dropped with a warning.
+    candidate_pool
+        Top-N players (by ``rankDerivedValue``) from the user's own
+        roster to enumerate combinations from. Caps combinatorial
+        explosion.
+
+    Returns
+    -------
+    dict
+        ``{acquire: {...}, candidates: [{...}], thresholds, warnings}``
+        where each candidate is an offer-side package from the user's
+        roster satisfying the arbitrage constraints vs the fixed
+        desired package. Sorted by ``arb_score`` desc.
+    """
+    warnings: list[str] = []
+
+    by_name: dict[str, dict[str, Any]] = {}
+    for row in players_array:
+        name = str(row.get("canonicalName") or row.get("displayName") or "")
+        if name and name not in by_name:
+            by_name[name] = row
+
+    # Locate the user's team and build a reverse index so we can
+    # validate desired players are on opposing rosters.
+    my_team: dict[str, Any] | None = None
+    owner_by_player: dict[str, str] = {}
+    for team in sleeper_teams:
+        owner = str(team.get("ownerId") or "")
+        if owner == selected_team_owner_id:
+            my_team = team
+        for pname in team.get("players") or []:
+            owner_by_player[str(pname)] = owner
+
+    if my_team is None:
+        return {
+            "acquire": {
+                "players": [],
+                "size": 0,
+                "my_total": 0,
+                "market_total": 0,
+                "targets": [],
+            },
+            "candidates": [],
+            "warnings": [f"Owner {selected_team_owner_id!r} not found in sleeper rosters."],
+        }
+
+    # Resolve desired players. Drop unknowns, self-owned, and rows
+    # missing values — each with a warning.
+    desired_rows: list[dict[str, Any]] = []
+    desired_owners: dict[str, str] = {}
+    missing: list[str] = []
+    own_roster: list[str] = []
+    for name in desired_player_names:
+        name = str(name).strip()
+        if not name:
+            continue
+        row = by_name.get(name)
+        if not row:
+            missing.append(name)
+            continue
+        owner_of = owner_by_player.get(name)
+        if owner_of == selected_team_owner_id:
+            own_roster.append(name)
+            continue
+        pair = _value_pair(row)
+        if pair is None:
+            missing.append(name)
+            continue
+        desired_rows.append(row)
+        desired_owners[name] = owner_of or ""
+    if missing:
+        warnings.append(
+            f"Dropped {len(missing)} desired player(s) with missing data: "
+            f"{', '.join(missing[:5])}"
+            + (" …" if len(missing) > 5 else "")
+        )
+    if own_roster:
+        warnings.append(
+            f"Dropped {len(own_roster)} player(s) already on your roster: "
+            f"{', '.join(own_roster[:5])}"
+            + (" …" if len(own_roster) > 5 else "")
+        )
+    if not desired_rows:
+        return {
+            "acquire": {
+                "players": [],
+                "size": 0,
+                "my_total": 0,
+                "market_total": 0,
+                "targets": [],
+            },
+            "candidates": [],
+            "warnings": warnings or ["No valid desired-acquisition players."],
+        }
+
+    desired_my_total = sum(_value_pair(r)[0] for r in desired_rows)  # type: ignore[index]
+    desired_market_total = sum(_value_pair(r)[1] for r in desired_rows)  # type: ignore[index]
+    desired_size = len(desired_rows)
+
+    target_sizes = sorted({max(1, desired_size - 1), desired_size, desired_size + 1})
+
+    position_filter: set[str] | None = None
+    if positions:
+        position_filter = {str(p).strip().upper() for p in positions if str(p).strip()}
+        if not position_filter:
+            position_filter = None
+    min_my_value_floor = max(0.0, float(min_player_my_value or 0.0))
+
+    # Build offer-side pool from the user's own roster.
+    desired_name_set = {str(r.get("canonicalName") or "") for r in desired_rows}
+    pool: list[dict[str, Any]] = []
+    for pname in my_team.get("players") or []:
+        pname = str(pname)
+        if pname in desired_name_set:
+            continue  # not on user's roster anyway, but guard
+        row = by_name.get(pname)
+        if not row:
+            continue
+        pair = _value_pair(row)
+        if pair is None:
+            continue
+        my_v, market_v, market_source = pair
+        row_pos = str(row.get("position") or "").strip().upper()
+        if position_filter is not None and row_pos not in position_filter:
+            continue
+        if my_v < min_my_value_floor:
+            continue
+        pool.append(
+            {
+                "name": pname,
+                "position": str(row.get("position") or ""),
+                "my_value": my_v,
+                "market_value": market_v,
+                "market_source": market_source,
+            }
+        )
+    pool.sort(key=lambda p: -p["my_value"])
+    pool = pool[: max(1, int(candidate_pool))]
+
+    # Arbitrage math: user receives ``desired_*``, gives ``offer_*``.
+    # my_gain = (desired - offer) / offer ≥ min_my_gain_pct
+    #   → offer_my ≤ desired_my / (1 + min_my_gain_pct/100)
+    # market_gap = (desired - offer) / offer ≤ max_market_gain_pct
+    #   → offer_market ≥ desired_market / (1 + max_market_gain_pct/100)
+    max_offer_my = desired_my_total / (1.0 + min_my_gain_pct / 100.0)
+    min_offer_market = desired_market_total / (1.0 + max_market_gain_pct / 100.0)
+
+    def _make_candidate(combo: tuple[dict[str, Any], ...]) -> dict[str, Any] | None:
+        offer_my = sum(p["my_value"] for p in combo)
+        if offer_my <= 0 or offer_my > max_offer_my:
+            return None
+        offer_market = sum(p["market_value"] for p in combo)
+        if offer_market < min_offer_market:
+            return None
+        my_gain_pct = 100.0 * (desired_my_total - offer_my) / offer_my
+        market_gain_pct = 100.0 * (desired_market_total - offer_market) / offer_market
+        return {
+            "size": len(combo),
+            "players": [
+                {
+                    "name": p["name"],
+                    "position": p["position"],
+                    "my_value": int(p["my_value"]),
+                    "market_value": int(p["market_value"]),
+                    "market_source": p["market_source"],
+                }
+                for p in combo
+            ],
+            "my_total": int(round(offer_my)),
+            "market_total": int(round(offer_market)),
+            "my_gain_pct": round(my_gain_pct, 2),
+            "market_gain_pct": round(market_gain_pct, 2),
+            "arb_score": round(my_gain_pct - market_gain_pct, 2),
+        }
+
+    candidates: list[dict[str, Any]] = []
+    for size in target_sizes:
+        if len(pool) < size:
+            continue
+        for combo in combinations(pool, size):
+            cand = _make_candidate(combo)
+            if cand is not None:
+                candidates.append(cand)
+
+    candidates.sort(key=lambda c: c["arb_score"], reverse=True)
+    candidates = candidates[: max(1, int(limit))]
+
+    desired_players = []
+    for r in desired_rows:
+        pair = _value_pair(r)
+        dname = str(r.get("canonicalName") or "")
+        desired_players.append(
+            {
+                "name": dname,
+                "position": str(r.get("position") or ""),
+                "my_value": int(pair[0]) if pair else 0,
+                "market_value": int(pair[1]) if pair else 0,
+                "market_source": pair[2] if pair else _market_source_for(r.get("position")),
+                "owner_id": desired_owners.get(dname, ""),
+            }
+        )
+
+    # Deduplicated list of target teams the desired players come from.
+    targets: list[dict[str, Any]] = []
+    seen_owners: set[str] = set()
+    for team in sleeper_teams:
+        owner = str(team.get("ownerId") or "")
+        if owner in desired_owners.values() and owner not in seen_owners:
+            targets.append({"team": str(team.get("name") or ""), "owner_id": owner})
+            seen_owners.add(owner)
+
+    return {
+        "acquire": {
+            "team": my_team.get("name"),
+            "size": desired_size,
+            "players": desired_players,
+            "my_total": int(round(desired_my_total)),
+            "market_total": int(round(desired_market_total)),
+            "targets": targets,
+        },
+        "candidates": candidates,
+        "thresholds": {
+            "min_my_gain_pct": min_my_gain_pct,
+            "max_market_gain_pct": max_market_gain_pct,
+            "limit": limit,
+            "candidate_pool": candidate_pool,
+            "target_sizes": target_sizes,
+            "positions": sorted(position_filter) if position_filter else [],
+            "min_player_my_value": int(min_my_value_floor),
+        },
+        "warnings": warnings,
+    }

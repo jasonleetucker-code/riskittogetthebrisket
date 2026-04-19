@@ -3,7 +3,11 @@ from __future__ import annotations
 
 import pytest
 
-from src.trade.angle import find_angle_packages, find_angles
+from src.trade.angle import (
+    find_acquisition_packages,
+    find_angle_packages,
+    find_angles,
+)
 
 
 def _player(name, my_val, ktc_val, *, position="QB"):
@@ -622,6 +626,173 @@ def test_offense_players_still_compared_on_ktc():
     )
     cand = next(c for c in result2["candidates"] if c["name"] == "Other QB")
     assert cand["market_source"] == "ktc"
+
+
+# ─── find_acquisition_packages ───────────────────────────────────────
+
+
+def _acq_teams():
+    return [
+        {
+            "name": "Team A",
+            "ownerId": "owner-a",
+            "players": ["My QB1", "My WR1", "My WR2", "My Bench"],
+        },
+        {
+            "name": "Team B",
+            "ownerId": "owner-b",
+            "players": ["Target Star", "B Filler"],
+        },
+        {
+            "name": "Team C",
+            "ownerId": "owner-c",
+            "players": ["Target Gold"],
+        },
+    ]
+
+
+def _acq_players():
+    return [
+        # My roster: a couple of good offerables + deep bench.
+        _player("My QB1", my_val=5500, ktc_val=5200),
+        _player("My WR1", my_val=4800, ktc_val=4900),
+        _player("My WR2", my_val=4500, ktc_val=4600),
+        _player("My Bench", my_val=200, ktc_val=200),
+        # Acquisition targets on other teams.
+        _player("Target Star", my_val=6500, ktc_val=5200),  # nice arb
+        _player("B Filler", my_val=300, ktc_val=300),
+        _player("Target Gold", my_val=9000, ktc_val=8500),
+    ]
+
+
+def test_acquire_returns_offer_packages_from_user_roster():
+    result = find_acquisition_packages(
+        _acq_players(), ["Target Star"], "owner-a", _acq_teams(),
+    )
+    assert result["acquire"]["size"] == 1
+    # Every candidate player must come from the user's roster.
+    own_roster = {"My QB1", "My WR1", "My WR2", "My Bench"}
+    for c in result["candidates"]:
+        names = {p["name"] for p in c["players"]}
+        assert names <= own_roster, f"candidate leaks non-own players: {names}"
+
+
+def test_acquire_candidate_sizes_within_plus_minus_one():
+    result = find_acquisition_packages(
+        _acq_players(), ["Target Star", "B Filler"], "owner-a", _acq_teams(),
+    )
+    # Desired N=2 → sizes {1,2,3}
+    assert set(result["thresholds"]["target_sizes"]) == {1, 2, 3}
+    for c in result["candidates"]:
+        assert c["size"] in {1, 2, 3}
+
+
+def test_acquire_my_gain_threshold_enforced():
+    # Desired my_val = 6500. Lone offer "My QB1" has my_val 5500 →
+    # (6500-5500)/5500 = 18.2% my-gain. With min_my_gain_pct=25, no
+    # single-player combo qualifies and only multi-player combos that
+    # under-shoot enough on my-value remain.
+    result = find_acquisition_packages(
+        _acq_players(), ["Target Star"], "owner-a", _acq_teams(),
+        min_my_gain_pct=25.0,
+    )
+    for c in result["candidates"]:
+        assert c["my_gain_pct"] >= 25.0 - 1e-6
+
+
+def test_acquire_market_gap_threshold_enforced():
+    # Target Star KTC=5200. My QB1 KTC=5200 → gap 0%. With
+    # max_market_gain_pct=2, the single-player My QB1 offer is the
+    # tightest fit.
+    result = find_acquisition_packages(
+        _acq_players(), ["Target Star"], "owner-a", _acq_teams(),
+        min_my_gain_pct=5.0, max_market_gain_pct=2.0,
+    )
+    assert result["candidates"], "expected at least one qualifying offer"
+    for c in result["candidates"]:
+        assert c["market_gain_pct"] <= 2.0 + 1e-6
+
+
+def test_acquire_rejects_own_roster_targets_with_warning():
+    # "My QB1" is on owner-a's roster — can't "acquire" from yourself.
+    result = find_acquisition_packages(
+        _acq_players(), ["My QB1"], "owner-a", _acq_teams(),
+    )
+    assert result["acquire"]["size"] == 0
+    assert result["candidates"] == []
+    assert any("already on your roster" in w for w in result["warnings"])
+
+
+def test_acquire_unknown_targets_dropped_with_warning():
+    result = find_acquisition_packages(
+        _acq_players(), ["Ghost Player", "Target Star"], "owner-a", _acq_teams(),
+    )
+    assert result["acquire"]["size"] == 1
+    assert any("Ghost Player" in w for w in result["warnings"])
+
+
+def test_acquire_sorts_by_arb_score_desc():
+    result = find_acquisition_packages(
+        _acq_players(), ["Target Star"], "owner-a", _acq_teams(),
+    )
+    scores = [c["arb_score"] for c in result["candidates"]]
+    assert scores == sorted(scores, reverse=True)
+
+
+def test_acquire_target_team_list_in_response():
+    result = find_acquisition_packages(
+        _acq_players(), ["Target Star", "Target Gold"], "owner-a", _acq_teams(),
+    )
+    owner_ids = {t["owner_id"] for t in result["acquire"]["targets"]}
+    assert owner_ids == {"owner-b", "owner-c"}
+
+
+def test_acquire_unknown_owner_returns_warning():
+    result = find_acquisition_packages(
+        _acq_players(), ["Target Star"], "owner-missing", _acq_teams(),
+    )
+    assert result["candidates"] == []
+    assert any("not found" in w for w in result["warnings"])
+
+
+def test_acquire_respects_position_filter_on_own_roster():
+    result = find_acquisition_packages(
+        _acq_players(), ["Target Star"], "owner-a", _acq_teams(),
+        positions=["WR"],
+    )
+    for c in result["candidates"]:
+        for p in c["players"]:
+            assert p["position"] == "WR"
+
+
+def test_acquire_respects_min_player_value_on_own_roster():
+    # With floor 3000, "My Bench" (my_val=200) is excluded.
+    result = find_acquisition_packages(
+        _acq_players(), ["Target Star"], "owner-a", _acq_teams(),
+        min_player_my_value=3000,
+    )
+    names = {p["name"] for c in result["candidates"] for p in c["players"]}
+    assert "My Bench" not in names
+
+
+def test_acquire_idp_target_compares_on_idptc():
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["My DL"]},
+        {"name": "Team B", "ownerId": "owner-b", "players": ["Target DL"]},
+    ]
+    # IDPTC: 5000 vs 5100 (1% gap — fair on IDPTC). KTC: 5000 vs 7000
+    # (40% gap — would reject). Per-position rule uses IDPTC for DL.
+    players = [
+        _player_with_markets("My DL", 5000, 5000, 5000, position="DL"),
+        _player_with_markets("Target DL", 6000, 7000, 5100, position="DL"),
+    ]
+    result = find_acquisition_packages(
+        players, ["Target DL"], "owner-a", teams,
+        min_my_gain_pct=5.0, max_market_gain_pct=5.0,
+    )
+    assert result["candidates"], "IDP acquire should qualify on IDPTC"
+    # market source stamped on acquire and candidate rows.
+    assert result["acquire"]["players"][0]["market_source"] == "idpTradeCalc"
 
 
 def test_packages_player_rows_expose_per_position_market_source():

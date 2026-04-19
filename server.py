@@ -36,6 +36,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, BackgroundTasks, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -2357,15 +2358,33 @@ async def post_angle_find(request: Request):
 
 @app.post("/api/angle/packages")
 async def post_angle_packages(request: Request):
-    """Multi-player variant of Angle. Offer a list of your players,
-    get back counter-packages from other teams sized within ±1 of
-    your offer that still lean your way on my-value but look fair-or-
-    better to the counterparty on KTC.
+    """Multi-player variant of Angle. Two modes:
 
-    Body:
+    * ``mode: "offer"`` (default) — offer a list of your players, get
+      back counter-packages from other teams sized within ±1 of your
+      offer that lean your way on my-value but look fair-or-better to
+      the counterparty on market.
+    * ``mode: "acquire"`` — pick players on opposing rosters you want
+      to acquire; get back offer-side packages from YOUR OWN roster
+      (size within ±1 of the desired count) that satisfy the same
+      arbitrage math. Lets you skip picking your own players upfront.
+
+    Body (offer mode):
         {
+          "mode": "offer",                      // optional, default
           "ownerId": "472206636534984704",
-          "playerNames": ["Jayden Daniels", "CeeDee Lamb", ...],
+          "playerNames": ["Jayden Daniels", ...],
+          "minMyGainPct": 5.0,
+          "maxMarketGainPct": 5.0,
+          "limit": 50,
+          "candidatePoolPerTeam": 25
+        }
+
+    Body (acquire mode):
+        {
+          "mode": "acquire",
+          "ownerId": "472206636534984704",
+          "acquirePlayerNames": ["Ja'Marr Chase", "Bijan Robinson"],
           "minMyGainPct": 5.0,
           "maxMarketGainPct": 5.0,
           "limit": 50,
@@ -2395,11 +2414,33 @@ async def post_angle_packages(request: Request):
         return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
 
     owner_id = str(body.get("ownerId") or "").strip()
-    names = body.get("playerNames") or []
+    mode = str(body.get("mode") or "offer").strip().lower()
+    if mode not in ("offer", "acquire"):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "'mode' must be 'offer' or 'acquire'."},
+        )
+
+    # In offer mode the user builds an offer from their roster and the
+    # search returns counter-packages from other teams. In acquire
+    # mode the user picks players on opposing rosters they want to
+    # acquire and the search returns offer-side packages from their
+    # own roster.
+    if mode == "acquire":
+        names_key = "acquirePlayerNames"
+        names = body.get(names_key) or body.get("playerNames") or []
+    else:
+        names_key = "playerNames"
+        names = body.get(names_key) or []
     if not owner_id or not isinstance(names, list) or not names:
         return JSONResponse(
             status_code=400,
-            content={"error": "Request body must include 'ownerId' and a non-empty 'playerNames' list."},
+            content={
+                "error": (
+                    f"Request body must include 'ownerId' and a non-empty "
+                    f"{names_key!r} list."
+                )
+            },
         )
     player_names = [str(n).strip() for n in names if str(n).strip()]
 
@@ -2422,6 +2463,32 @@ async def post_angle_packages(request: Request):
     if not isinstance(positions_req, list):
         positions_req = []
     positions_req = [str(p).strip() for p in positions_req if str(p).strip()]
+
+    if mode == "acquire":
+        from src.trade.angle import find_acquisition_packages
+
+        try:
+            result = await run_in_threadpool(
+                find_acquisition_packages,
+                players_array,
+                player_names,
+                owner_id,
+                sleeper_teams,
+                min_my_gain_pct=min_my,
+                max_market_gain_pct=max_market,
+                limit=limit,
+                candidate_pool=pool,
+                positions=positions_req or None,
+                min_player_my_value=min_player,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.error(f"Angle acquire failed: {exc}")
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"Angle acquire failed: {exc}"},
+            )
+        result = {"mode": "acquire", **result}
+        return JSONResponse(content=result)
 
     target_teams_req = body.get("targetTeamOwnerIds") or []
     if not isinstance(target_teams_req, list):
@@ -2458,6 +2525,7 @@ async def post_angle_packages(request: Request):
             status_code=500,
             content={"error": f"Angle packages failed: {exc}"},
         )
+    result = {"mode": "offer", **result}
     return JSONResponse(content=result)
 
 
