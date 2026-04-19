@@ -168,11 +168,11 @@ class TestTierAlignment(unittest.TestCase):
 
     def test_tier_id_matches_rank_boundaries(self):
         """Verify _tier_id_from_rank matches the documented boundaries."""
-        self.assertEqual(_tier_id_from_rank(1), 1)    # Elite
-        self.assertEqual(_tier_id_from_rank(12), 1)   # Elite boundary
-        self.assertEqual(_tier_id_from_rank(13), 2)   # Blue-Chip start
-        self.assertEqual(_tier_id_from_rank(36), 2)   # Blue-Chip boundary
-        self.assertEqual(_tier_id_from_rank(37), 3)   # Premium Starter start
+        self.assertEqual(_tier_id_from_rank(1), 1)
+        self.assertEqual(_tier_id_from_rank(12), 1)
+        self.assertEqual(_tier_id_from_rank(13), 2)
+        self.assertEqual(_tier_id_from_rank(36), 2)
+        self.assertEqual(_tier_id_from_rank(37), 3)
         self.assertEqual(_tier_id_from_rank(72), 3)
         self.assertEqual(_tier_id_from_rank(73), 4)
         self.assertEqual(_tier_id_from_rank(120), 4)
