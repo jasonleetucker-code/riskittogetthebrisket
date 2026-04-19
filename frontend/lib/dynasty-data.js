@@ -464,6 +464,38 @@ export const RANKING_SOURCES = [
     needsSharedMarketTranslation: true,
     excludesRookies: false,
   },
+  {
+    // Yahoo / Justin Boone Dynasty Trade Value Charts — offense board
+    // (QB/RB/WR/TE) scraped monthly from sports.yahoo.com by
+    // scripts/fetch_yahoo_boone.py.  The scraper follows Yahoo's 308
+    // redirects from prior-month URLs to the newest live article, so
+    // the seed URLs auto-resolve to the latest version each run.
+    //
+    // TE-premium native: the scraper pulls Boone's 2QB column for QBs
+    // and his TE Prem. column for TEs, matching our Superflex + TEP
+    // league format.  Flagged `isTepPremium: true` so the frontend
+    // surfaces a "TEP NATIVE" badge and the global tepMultiplier
+    // boost does NOT compound on this source.
+    //
+    // Rank-signal: a single competition rank is computed across all
+    // four positions (ties share a rank, next rank is skipped).  The
+    // UI must render sourceOriginalRanks.yahooBoone, never the
+    // synthetic value produced by the rank-to-value inversion.
+    key: "yahooBoone",
+    displayName: "Yahoo / Justin Boone SF-TEP",
+    columnLabel: "Boone",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 500,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: true,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+  },
 ];
 
 // ── Retail source registry helpers ───────────────────────────────────

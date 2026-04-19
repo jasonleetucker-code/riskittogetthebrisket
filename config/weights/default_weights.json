@@ -1,6 +1,6 @@
 {
-  "version": 7,
-  "description": "Source weights for the canonical blend (KTC + IDPTradeCalc + DLF IDP + DLF SF + Dynasty Nerds SF-TEP + FantasyPros SF + FantasyPros IDP + Dynasty Daddy SF + Flock Fantasy SF + FootballGuys SF + FootballGuys IDP).",
+  "version": 8,
+  "description": "Source weights for the canonical blend (KTC + IDPTradeCalc + DLF IDP + DLF SF + Dynasty Nerds SF-TEP + FantasyPros SF + FantasyPros IDP + Dynasty Daddy SF + Flock Fantasy SF + FootballGuys SF + FootballGuys IDP + Yahoo / Justin Boone).",
   "weight_rationale": {
     "KTC": "Primary crowdsourced offense market source with the largest player pool.",
     "IDPTRADECALC": "Primary IDP value source covering both offense and IDP players. Backbone for IDP ladder translation.",
@@ -9,7 +9,8 @@
     "DYNASTY_DADDY_SF": "Dynasty Daddy Superflex crowd-sourced trade values via JSON API. Value-based signal (~320 QB/RB/WR/TE players). Standard SF — no TE premium.",
     "FLOCK_FANTASY_SF": "Flock Fantasy Superflex expert consensus averaged ranks via JSON API. Rank-based signal (~370 QB/RB/WR/TE players). Standard SF — no TE premium.",
     "FOOTBALLGUYS_SF": "FootballGuys Dynasty Rankings — offense half (QB/RB/WR/TE) of the user-managed PDF export, 6-expert consensus. Rank-based signal (~540 players).",
-    "FOOTBALLGUYS_IDP": "FootballGuys Dynasty Rankings — IDP half (DE/DT/LB/CB/S) of the same PDF export, 3-expert consensus. Rank-based signal (~400 players), translates through the shared-market IDP ladder."
+    "FOOTBALLGUYS_IDP": "FootballGuys Dynasty Rankings — IDP half (DE/DT/LB/CB/S) of the same PDF export, 3-expert consensus. Rank-based signal (~400 players), translates through the shared-market IDP ladder.",
+    "YAHOO_BOONE": "Justin Boone's monthly Yahoo dynasty trade value charts (QB/RB/WR/TE). Rank-based signal combining the 2QB QB column with the TE-premium TE column — natively sized to our Superflex + TEP league. ~500 players."
   },
   "how_to_tune": "Edit the 'sources' values below. Higher = more influence. Set to 0 to exclude. Re-run: python scripts/source_pull.py && python scripts/canonical_build.py",
   "universe_defaults": {
@@ -25,6 +26,7 @@
     "DYNASTY_DADDY_SF": 1.0,
     "FLOCK_FANTASY_SF": 1.0,
     "FOOTBALLGUYS_SF": 1.0,
-    "FOOTBALLGUYS_IDP": 1.0
+    "FOOTBALLGUYS_IDP": 1.0,
+    "YAHOO_BOONE": 1.0
   }
 }

@@ -879,6 +879,37 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "needs_shared_market_translation": True,
         "excludes_rookies": False,
     },
+    {
+        # Yahoo / Justin Boone Dynasty Trade Value Charts — monthly
+        # offense board covering QB/RB/WR/TE.  Fetched by
+        # ``scripts/fetch_yahoo_boone.py``, which hits a seed URL per
+        # position and follows Yahoo's 308 redirects to the newest live
+        # article in each series.  The scraper pulls the 2QB column for
+        # QBs and the TE-premium column for TEs, which matches our
+        # Superflex + TEP league scoring — so the source is declared
+        # ``is_tep_premium=True``.  Roughly 500 combined rows.
+        #
+        # Rank signal: the scraper emits a competition rank computed
+        # across all four positions (ties share a rank, next rank is
+        # skipped).  The contract loader inverts rank to a synthetic
+        # monotonic value for the blend; the UI must render
+        # sourceOriginalRanks.yahooBoone, never the synthetic.
+        #
+        # depth=500 mirrors the live row count; ``_expected_sources_for_position``
+        # multiplies this by 1.25 so YAHOO_BOONE is not expected for
+        # players ranked deeper than ~625.
+        "key": "yahooBoone",
+        "display_name": "Yahoo / Justin Boone SF-TEP",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": 500,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": True,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+    },
 ]
 
 

@@ -198,6 +198,30 @@
         "is_backbone": false
       },
       "notes": "FootballGuys dynasty rankings — IDP half of the same PDF export.  3-expert consensus covering DE/DT/LB/CB/S.  Translates through the shared-market IDP ladder."
+    },
+    {
+      "enabled": true,
+      "source": "YAHOO_BOONE",
+      "contract_key": "yahooBoone",
+      "adapter": "scraper_bridge",
+      "adapter_version": "1.0.0",
+      "season": "2026",
+      "format_key": "dynasty_sf",
+      "universe": "offense_vet",
+      "ingest_type": "html_scrape",
+      "ingest_method": "yahoo_boone_scraper",
+      "source_url": "https://sports.yahoo.com/fantasy/",
+      "scoring_context": "dynasty superflex TE-premium (Justin Boone Yahoo trade value charts — 2QB QB column, TE-Prem TE column)",
+      "includes_sf": true,
+      "includes_tep": true,
+      "file": "CSVs/site_raw/yahooBoone.csv",
+      "signal_type": "rank",
+      "scope": {
+        "kind": "overall_offense",
+        "depth": 500,
+        "is_backbone": false
+      },
+      "notes": "Justin Boone's monthly Yahoo dynasty trade value charts (QB/RB/WR/TE) combined into one cross-positional rank. Fetched by scripts/fetch_yahoo_boone.py, which follows Yahoo's 308 redirects from prior-month URLs to the newest article in each series. 2QB column used for QBs and TE Prem. column used for TEs — this is our Superflex + TEP league source."
     }
   ]
 }
