@@ -249,8 +249,21 @@ def _fetch_season(
     matchups: dict[int, list[dict[str, Any]]] = {}
     for week, fut in matchup_futs.items():
         result = fut.result()
-        if result:
-            matchups[week] = result
+        if not result:
+            continue
+        # Sleeper snapshots commonly include a trailing wk 18 (and
+        # occasionally wk 17 for leagues that stop earlier) with
+        # roster-level placeholder rows whose ``matchup_id`` is
+        # ``None`` — no real game was played, just residual scoring
+        # stamped by NFL stat ingestion.  Dropping these at the
+        # boundary keeps every downstream consumer (records,
+        # rivalries, playoff MVP, canonical awards, etc.) honest
+        # without each one having to add its own filter.  A week
+        # with at least one real ``matchup_id`` is preserved intact
+        # (partial byes + a real pairing still count).
+        if not any(m.get("matchup_id") is not None for m in result):
+            continue
+        matchups[week] = result
     transactions: dict[int, list[dict[str, Any]]] = {}
     for week, fut in tx_futs.items():
         result = fut.result()

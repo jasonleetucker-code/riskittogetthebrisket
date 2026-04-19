@@ -350,6 +350,122 @@ class CombinedWeeksRivalryTests(unittest.TestCase):
         self.assertEqual(ab["winsB"], 0)
 
 
+class SnapshotStripsEmptyWeeksTests(unittest.TestCase):
+    """Sleeper snapshots commonly emit a trailing wk 18 (or sometimes
+    17) with roster rows whose matchup_id is None — consolation /
+    leftover scoring, no actual fantasy game.  The snapshot build
+    must drop those at the boundary so no downstream consumer
+    (records, rivalries, MVP scoring, canonical awards) accidentally
+    counts wk 18 placeholder points.
+    """
+
+    def test_empty_matchup_id_only_week_is_dropped(self) -> None:
+        from concurrent.futures import ThreadPoolExecutor
+        from src.public_league import snapshot as snap_mod
+        from src.public_league import sleeper_client
+
+        # Stub the sleeper_client fetchers: weeks 1-17 have real
+        # matchup_ids, week 18 is all-None consolation rows.
+        matchups_by_week = {
+            1: [
+                {"matchup_id": 1, "roster_id": 1, "points": 100.0},
+                {"matchup_id": 1, "roster_id": 2, "points": 105.0},
+            ],
+            17: [
+                {"matchup_id": 1, "roster_id": 1, "points": 120.0},
+                {"matchup_id": 1, "roster_id": 2, "points": 130.0},
+            ],
+            18: [
+                {"matchup_id": None, "roster_id": 1, "points": 180.0},
+                {"matchup_id": None, "roster_id": 2, "points": 190.0},
+            ],
+        }
+
+        original = {
+            "fetch_users": sleeper_client.fetch_users,
+            "fetch_rosters": sleeper_client.fetch_rosters,
+            "fetch_drafts": sleeper_client.fetch_drafts,
+            "fetch_traded_picks": sleeper_client.fetch_traded_picks,
+            "fetch_winners_bracket": sleeper_client.fetch_winners_bracket,
+            "fetch_losers_bracket": sleeper_client.fetch_losers_bracket,
+            "fetch_matchups": sleeper_client.fetch_matchups,
+            "fetch_transactions": sleeper_client.fetch_transactions,
+        }
+        sleeper_client.fetch_users = lambda _lid: []
+        sleeper_client.fetch_rosters = lambda _lid: []
+        sleeper_client.fetch_drafts = lambda _lid: []
+        sleeper_client.fetch_traded_picks = lambda _lid: []
+        sleeper_client.fetch_winners_bracket = lambda _lid: []
+        sleeper_client.fetch_losers_bracket = lambda _lid: []
+        sleeper_client.fetch_matchups = lambda _lid, wk: matchups_by_week.get(wk) or []
+        sleeper_client.fetch_transactions = lambda _lid, _wk: []
+
+        try:
+            with ThreadPoolExecutor(max_workers=4) as ex:
+                season = snap_mod._fetch_season(
+                    {"league_id": "L-TEST", "season": "2025"},
+                    ex,
+                )
+        finally:
+            for k, fn in original.items():
+                setattr(sleeper_client, k, fn)
+
+        self.assertIn(1, season.matchups_by_week)
+        self.assertIn(17, season.matchups_by_week)
+        # Wk 18 had all matchup_id=None → stripped.
+        self.assertNotIn(18, season.matchups_by_week)
+
+    def test_week_with_at_least_one_real_matchup_is_preserved(self) -> None:
+        from concurrent.futures import ThreadPoolExecutor
+        from src.public_league import snapshot as snap_mod
+        from src.public_league import sleeper_client
+
+        # Week 18 legitimately has ONE real matchup plus byes — keep it.
+        matchups_by_week = {
+            18: [
+                {"matchup_id": 1, "roster_id": 1, "points": 120.0},
+                {"matchup_id": 1, "roster_id": 2, "points": 115.0},
+                {"matchup_id": None, "roster_id": 3, "points": 95.0},
+                {"matchup_id": None, "roster_id": 4, "points": 88.0},
+            ],
+        }
+
+        original = {
+            "fetch_users": sleeper_client.fetch_users,
+            "fetch_rosters": sleeper_client.fetch_rosters,
+            "fetch_drafts": sleeper_client.fetch_drafts,
+            "fetch_traded_picks": sleeper_client.fetch_traded_picks,
+            "fetch_winners_bracket": sleeper_client.fetch_winners_bracket,
+            "fetch_losers_bracket": sleeper_client.fetch_losers_bracket,
+            "fetch_matchups": sleeper_client.fetch_matchups,
+            "fetch_transactions": sleeper_client.fetch_transactions,
+        }
+        sleeper_client.fetch_users = lambda _lid: []
+        sleeper_client.fetch_rosters = lambda _lid: []
+        sleeper_client.fetch_drafts = lambda _lid: []
+        sleeper_client.fetch_traded_picks = lambda _lid: []
+        sleeper_client.fetch_winners_bracket = lambda _lid: []
+        sleeper_client.fetch_losers_bracket = lambda _lid: []
+        sleeper_client.fetch_matchups = lambda _lid, wk: matchups_by_week.get(wk) or []
+        sleeper_client.fetch_transactions = lambda _lid, _wk: []
+
+        try:
+            with ThreadPoolExecutor(max_workers=4) as ex:
+                season = snap_mod._fetch_season(
+                    {"league_id": "L-TEST", "season": "2025"},
+                    ex,
+                )
+        finally:
+            for k, fn in original.items():
+                setattr(sleeper_client, k, fn)
+
+        # Wk 18 preserved because it has a real matchup_id=1 pairing.
+        self.assertIn(18, season.matchups_by_week)
+        # All 4 entries (incl. the None-id byes) retained — filter is
+        # at the week level, not per-entry.
+        self.assertEqual(len(season.matchups_by_week[18]), 4)
+
+
 class CombinedWeeksRecordsTests(unittest.TestCase):
     """Record-book weekly rows must stamp combinedWeeks on a combined
     final so the UI can label it 'Weeks 16-17' instead of 'Week 16'."""
