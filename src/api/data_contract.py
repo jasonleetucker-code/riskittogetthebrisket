@@ -1157,6 +1157,8 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     # other IDP boards have dropped them.  Genuine source gaps.
     "lavonte david": "source_gap:idpTradeCalc+dlfIdp+fantasyProsIdp — 36yo FA veteran LB only ranked by FootballGuys IDP",
     "jordan davis": "source_gap:idpTradeCalc+dlfIdp+fantasyProsIdp — DL only ranked by FootballGuys IDP",
+    "marlon humphrey": "source_gap:idpTradeCalc+dlfIdp+fantasyProsIdp — DB veteran only ranked by FootballGuys IDP",
+    "mike jackson": "source_gap:idpTradeCalc+dlfIdp+fantasyProsIdp — DB veteran only ranked by FootballGuys IDP",
     # ── IDP: IDPTradeCalc-only (not listed by other IDP sources) ──
     # Depth IDP players that only IDPTradeCalc's combined pool lists;
     # DLF / FP / FBG expert boards haven't added them (yet).  After
