@@ -41,7 +41,7 @@ function FranchiseSection({ managers, data, onNavigate, initialOwner, setOwner }
                 borderRadius: "var(--radius)",
                 padding: 10,
                 cursor: "pointer",
-                background: selected === row.ownerId ? "rgba(86, 214, 255, 0.08)" : "transparent",
+                background: selected === row.ownerId ? "rgba(255, 198, 47, 0.08)" : "transparent",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

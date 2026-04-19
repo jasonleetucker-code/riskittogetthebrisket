@@ -70,7 +70,7 @@ export default async function RivalryOGImage({ params }) {
           flexDirection: "column",
           width: "100%",
           height: "100%",
-          background: "linear-gradient(135deg, #070f22 0%, #1a0f22 50%, #0f1c3b 100%)",
+          background: "linear-gradient(135deg, #0f0a1a 0%, #1a0f22 50%, #1a0f2e 100%)",
           color: "#eaf2ff",
           padding: "60px 80px",
           fontFamily: "Inter, ui-sans-serif, system-ui",
@@ -96,7 +96,7 @@ export default async function RivalryOGImage({ params }) {
         <div style={{ display: "flex", gap: 60, justifyContent: "center", fontSize: 34 }}>
           <Stat label="Rivalry Index" value={String(index)} color="#fbbf24" />
           <Stat label="Meetings" value={String(meetings)} color="#eaf2ff" />
-          <Stat label="Playoff" value={String(playoffMeetings)} color="#56d6ff" />
+          <Stat label="Playoff" value={String(playoffMeetings)} color="#FFC62F" />
           <Stat label="Series" value={record} color="#34d399" />
         </div>
 

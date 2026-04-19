@@ -43,7 +43,7 @@ function ArchivesSection({ data }) {
               fontSize: "0.74rem",
               border: "1px solid",
               borderColor: kind === k.key ? "var(--cyan)" : "var(--border)",
-              background: kind === k.key ? "rgba(86, 214, 255, 0.12)" : "transparent",
+              background: kind === k.key ? "rgba(255, 198, 47, 0.12)" : "transparent",
               borderRadius: 6,
               color: "var(--text)",
               cursor: "pointer",

@@ -4,20 +4,42 @@
    ══════════════════════════════════════════════════════════════════════════ */
 
 /* ── DESIGN TOKENS ─────────────────────────────────────────────────────── */
+/* Minnesota Vikings skin.  Official brand colors are purple #4F2683 and
+ * gold #FFC62F, plus white and black.  The palette below anchors on those:
+ *   - Backgrounds step from near-black with a purple tint up to the Vikings
+ *     primary purple (used for card hover + accent borders).
+ *   - The historic ``--cyan`` variable — used throughout the codebase as
+ *     "the accent color" (buttons, links, focus rings, trade-meter) — now
+ *     holds Vikings gold.  136 ``var(--cyan)`` usages pick this up for free;
+ *     the ~50 hardcoded ``#FFC62F`` / ``rgba(255, 198, 47, X)`` references
+ *     are search-replaced to the gold equivalent.
+ *   - ``--amber`` collapses to the same gold so the two accent flavors no
+ *     longer diverge.  The IDP position badge separately remaps to purple
+ *     so offense (gold) and IDP (purple) stay visually distinguishable.
+ *   - ``--green`` / ``--red`` stay for data semantics (wins/losses, high/low
+ *     confidence) — contrast vs the deep-purple bg is still AAA+.
+ *   - White text on any of the background tones hits WCAG AAA.  Gold text on
+ *     ``--card`` (#2a1550) is ~8:1 (AAA).  Gold on Vikings primary purple
+ *     (#4F2683) is ~5.6:1 — AA for normal, AAA for large/bold.
+ */
 :root {
-  --bg: #070f22;
-  --bg-soft: #0f1c3b;
-  --card: #102145;
-  --card-hover: #152a52;
-  --text: #eaf2ff;
-  --subtext: #99a6c8;
-  --muted: #99a6c8;
-  --cyan: #56d6ff;
+  --bg: #0f0a1a;
+  --bg-soft: #1a0f2e;
+  --card: #2a1550;
+  --card-hover: #3d1e6e;
+  --text: #ffffff;
+  --subtext: #c7b8dc;
+  --muted: #c7b8dc;
+  --cyan: #FFC62F;
   --green: #34d399;
   --red: #f87171;
-  --amber: #fbbf24;
-  --border: #263a69;
-  --border-bright: #3a5290;
+  --amber: #FFC62F;
+  --border: #4F2683;
+  --border-bright: #7a3fbf;
+  /* Explicit brand colors — reach for these when you want the raw Vikings
+   * hex without going through the semantic variable names. */
+  --vikings-purple: #4F2683;
+  --vikings-gold: #FFC62F;
 
   /* Spacing scale */
   --space-xs: 4px;
@@ -65,7 +87,7 @@ a { color: inherit; text-decoration: none; }
   top: 0;
   z-index: 40;
   backdrop-filter: blur(12px);
-  background: rgba(7, 15, 34, 0.88);
+  background: rgba(15, 10, 26, 0.88);
   border-bottom: 1px solid var(--border);
   height: var(--topbar-h);
 }
@@ -115,8 +137,8 @@ a { color: inherit; text-decoration: none; }
 
 .nav-link.nav-active {
   color: var(--cyan);
-  border-color: rgba(86, 214, 255, 0.25);
-  background: rgba(86, 214, 255, 0.06);
+  border-color: rgba(255, 198, 47, 0.25);
+  background: rgba(255, 198, 47, 0.06);
 }
 
 .nav-search-btn {
@@ -149,7 +171,7 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--space-md);
-  background: rgba(7, 15, 34, 0.92);
+  background: rgba(15, 10, 26, 0.92);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
 }
@@ -207,7 +229,7 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   align-items: center;
   justify-content: space-around;
-  background: rgba(7, 15, 34, 0.95);
+  background: rgba(15, 10, 26, 0.95);
   backdrop-filter: blur(12px);
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -400,13 +422,13 @@ a { color: inherit; text-decoration: none; }
 }
 
 .button-primary {
-  background: rgba(86, 214, 255, 0.12);
-  border-color: rgba(86, 214, 255, 0.35);
+  background: rgba(255, 198, 47, 0.12);
+  border-color: rgba(255, 198, 47, 0.35);
   color: var(--cyan);
 }
 
 .button-primary:hover {
-  background: rgba(86, 214, 255, 0.18);
+  background: rgba(255, 198, 47, 0.18);
 }
 
 .button-danger {
@@ -488,7 +510,7 @@ thead .sticky-name {
 }
 
 tr:hover .sticky-name {
-  background: #152a52;
+  background: #3d1e6e;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -507,8 +529,8 @@ tr:hover .sticky-name {
 
 .badge-cyan {
   color: var(--cyan);
-  border-color: rgba(86, 214, 255, 0.35);
-  background: rgba(86, 214, 255, 0.08);
+  border-color: rgba(255, 198, 47, 0.35);
+  background: rgba(255, 198, 47, 0.08);
 }
 
 .badge-green {
@@ -524,9 +546,16 @@ tr:hover .sticky-name {
 }
 
 .badge-amber {
-  color: var(--amber);
-  border-color: rgba(251, 191, 36, 0.35);
-  background: rgba(251, 191, 36, 0.08);
+  /* Under the Vikings skin this class holds our second brand color
+   * (purple) so IDP position badges — which share the class via
+   * posBadgeClass() — stay visually distinct from offense (now gold
+   * via .badge-cyan).  Medium-confidence rankings pick this up too;
+   * purple reads fine alongside green (high) and red (low) for that
+   * semantic as well.  The class name is legacy — kept to avoid
+   * touching every consumer of the old amber label. */
+  color: #c9a9ff;
+  border-color: rgba(122, 63, 191, 0.45);
+  background: rgba(79, 38, 131, 0.25);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -620,7 +649,7 @@ tr:hover .sticky-name {
   left: 0;
   right: 0;
   z-index: 35;
-  background: rgba(7, 15, 34, 0.95);
+  background: rgba(15, 10, 26, 0.95);
   border-top: 1px solid var(--border);
   backdrop-filter: blur(8px);
 }
@@ -718,7 +747,7 @@ tr:hover .sticky-name {
   cursor: pointer;
 }
 .picker-row:active {
-  background: rgba(86, 214, 255, 0.08);
+  background: rgba(255, 198, 47, 0.08);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -739,7 +768,7 @@ tr:hover .sticky-name {
   max-width: 600px;
   max-height: 85vh;
   overflow-y: auto;
-  background: linear-gradient(180deg, rgba(16, 33, 69, 0.98) 0%, rgba(10, 24, 54, 0.99) 100%);
+  background: linear-gradient(180deg, rgba(42, 21, 80, 0.98) 0%, rgba(26, 15, 46, 0.99) 100%);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: var(--space-md);
@@ -831,8 +860,8 @@ tr:hover .sticky-name {
 }
 
 .toast-info {
-  background: rgba(86, 214, 255, 0.18);
-  border: 1px solid rgba(86, 214, 255, 0.35);
+  background: rgba(255, 198, 47, 0.18);
+  border: 1px solid rgba(255, 198, 47, 0.35);
   color: var(--cyan);
 }
 
@@ -861,7 +890,7 @@ tr:hover .sticky-name {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at top left, rgba(86, 214, 255, 0.08), transparent 48%);
+  background: radial-gradient(circle at top left, rgba(255, 198, 47, 0.08), transparent 48%);
 }
 
 .login-panel {
@@ -872,7 +901,7 @@ tr:hover .sticky-name {
   padding: 18px;
 }
 
-.login-badge { color: var(--cyan); border-color: rgba(86, 214, 255, 0.35); background: rgba(86, 214, 255, 0.08); }
+.login-badge { color: var(--cyan); border-color: rgba(255, 198, 47, 0.35); background: rgba(255, 198, 47, 0.08); }
 .login-form { margin-top: var(--space-md); display: grid; gap: 10px; }
 .login-label { font-size: 0.78rem; font-weight: 700; color: var(--muted); }
 .login-input { width: 100%; }
@@ -2385,7 +2414,7 @@ tr:hover .sticky-name {
   padding: var(--space-sm);
   border: 1px dashed var(--border);
   border-radius: var(--radius);
-  background: rgba(86, 214, 255, 0.04);
+  background: rgba(255, 198, 47, 0.04);
 }
 
 .idp-lab-diff-header {
@@ -2685,20 +2714,20 @@ tr:hover .sticky-name {
   padding: 10px 16px;
   border-radius: 999px;
   border: 1px solid var(--border-bright);
-  background: linear-gradient(135deg, #1d3a7a 0%, #122a5a 100%);
+  background: linear-gradient(135deg, #4F2683 0%, #2a1550 100%);
   color: var(--text);
   font-family: var(--font);
   font-size: 0.82rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(86, 214, 255, 0.14);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(255, 198, 47, 0.14);
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
 }
 .chat-fab:hover {
   transform: translateY(-1px);
   border-color: var(--cyan);
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5), 0 2px 10px rgba(86, 214, 255, 0.3);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5), 0 2px 10px rgba(255, 198, 47, 0.3);
 }
 .chat-fab-glyph {
   display: inline-block;
@@ -2739,7 +2768,7 @@ tr:hover .sticky-name {
   height: 90vh;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, rgba(16, 33, 69, 0.98) 0%, rgba(10, 24, 54, 0.99) 100%);
+  background: linear-gradient(180deg, rgba(42, 21, 80, 0.98) 0%, rgba(26, 15, 46, 0.99) 100%);
   border-top: 1px solid var(--border-bright);
   border-top-left-radius: var(--radius-lg);
   border-top-right-radius: var(--radius-lg);
@@ -2843,7 +2872,7 @@ tr:hover .sticky-name {
   gap: 8px;
   padding: 8px;
   border-radius: var(--radius);
-  background: rgba(86, 214, 255, 0.04);
+  background: rgba(255, 198, 47, 0.04);
   border: 1px dashed var(--border);
 }
 .chat-suggestions-title {
@@ -2856,7 +2885,7 @@ tr:hover .sticky-name {
 }
 .chat-suggestion {
   text-align: left;
-  background: rgba(16, 33, 69, 0.6);
+  background: rgba(42, 21, 80, 0.6);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -2886,16 +2915,16 @@ tr:hover .sticky-name {
 }
 .chat-bubble-user {
   align-self: flex-end;
-  background: linear-gradient(135deg, #1f3d83 0%, #132d63 100%);
+  background: linear-gradient(135deg, #4F2683 0%, #2a1550 100%);
   border-color: var(--border-bright);
 }
 .chat-bubble-assistant {
   align-self: flex-start;
-  background: rgba(16, 33, 69, 0.72);
+  background: rgba(42, 21, 80, 0.72);
 }
 .chat-bubble-streaming {
   border-color: var(--cyan);
-  box-shadow: 0 0 0 1px rgba(86, 214, 255, 0.25);
+  box-shadow: 0 0 0 1px rgba(255, 198, 47, 0.25);
 }
 .chat-bubble-role {
   font-size: 0.66rem;
@@ -2918,14 +2947,14 @@ tr:hover .sticky-name {
   font-size: 0.78rem;
   padding: 1px 5px;
   border-radius: 4px;
-  background: rgba(7, 15, 34, 0.7);
+  background: rgba(15, 10, 26, 0.7);
   border: 1px solid var(--border);
 }
 .chat-bubble-body pre {
   margin: 6px 0;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
-  background: rgba(7, 15, 34, 0.8);
+  background: rgba(15, 10, 26, 0.8);
   border: 1px solid var(--border);
   overflow-x: auto;
   font-family: var(--mono);
@@ -2949,7 +2978,7 @@ tr:hover .sticky-name {
 .chat-bubble-body a {
   color: var(--cyan);
   text-decoration: underline;
-  text-decoration-color: rgba(86, 214, 255, 0.5);
+  text-decoration-color: rgba(255, 198, 47, 0.5);
 }
 .chat-bubble-body blockquote {
   margin: 4px 0;
@@ -2965,7 +2994,7 @@ tr:hover .sticky-name {
   padding: 10px 14px;
   align-self: flex-start;
   border-radius: var(--radius);
-  background: rgba(16, 33, 69, 0.5);
+  background: rgba(42, 21, 80, 0.5);
   border: 1px solid var(--border);
 }
 .chat-thinking-dot {
@@ -3000,7 +3029,7 @@ tr:hover .sticky-name {
   padding: 12px;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
-  background: rgba(7, 15, 34, 0.6);
+  background: rgba(15, 10, 26, 0.6);
 }
 .chat-input {
   flex: 1;
@@ -3017,7 +3046,7 @@ tr:hover .sticky-name {
 .chat-input::placeholder { color: var(--muted); }
 .chat-input:focus {
   border-color: var(--cyan);
-  box-shadow: 0 0 0 3px rgba(86, 214, 255, 0.12);
+  box-shadow: 0 0 0 3px rgba(255, 198, 47, 0.12);
 }
 .chat-input:disabled { opacity: 0.6; }
 
@@ -3025,7 +3054,7 @@ tr:hover .sticky-name {
   padding: 10px 18px;
   border: 1px solid var(--border-bright);
   border-radius: var(--radius);
-  background: linear-gradient(135deg, #1d3a7a 0%, #122a5a 100%);
+  background: linear-gradient(135deg, #4F2683 0%, #2a1550 100%);
   color: var(--text);
   font-family: var(--font);
   font-size: 0.82rem;
@@ -3077,5 +3106,5 @@ tr:hover .sticky-name {
   border-bottom: none;
 }
 .source-breakdown-table tbody tr:hover {
-  background: rgba(86, 214, 255, 0.04);
+  background: rgba(255, 198, 47, 0.04);
 }

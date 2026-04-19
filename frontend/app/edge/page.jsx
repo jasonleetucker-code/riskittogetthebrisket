@@ -26,13 +26,13 @@ function EdgeSection({ title, description, count, accent, children }) {
     green: "rgba(52, 211, 153, 0.12)",
     amber: "rgba(251, 191, 36, 0.10)",
     red: "rgba(248, 113, 113, 0.10)",
-    cyan: "rgba(86, 214, 255, 0.08)",
+    cyan: "rgba(255, 198, 47, 0.08)",
   };
   const borderMap = {
     green: "rgba(52, 211, 153, 0.25)",
     amber: "rgba(251, 191, 36, 0.20)",
     red: "rgba(248, 113, 113, 0.20)",
-    cyan: "rgba(86, 214, 255, 0.18)",
+    cyan: "rgba(255, 198, 47, 0.18)",
   };
 
   return (

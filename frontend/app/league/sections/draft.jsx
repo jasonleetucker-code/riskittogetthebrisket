@@ -45,7 +45,7 @@ function DraftSection({ data, initialOwner, setOwner }) {
                   onClick={() => selectOwner(row.ownerId)}
                   style={{
                     cursor: "pointer",
-                    background: selectedOwner === row.ownerId ? "rgba(86, 214, 255, 0.08)" : "transparent",
+                    background: selectedOwner === row.ownerId ? "rgba(255, 198, 47, 0.08)" : "transparent",
                   }}
                 >
                   <td style={{ fontWeight: 600 }}>
