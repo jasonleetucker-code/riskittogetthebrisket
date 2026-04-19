@@ -546,6 +546,29 @@ export const RANKING_SOURCES = [
     needsRookieTranslation: true,
     excludesRookies: false,
   },
+  {
+    // DraftSharks dynasty rankings — single cross-universe board
+    // (QB/RB/WR/TE + DL/LB/DB + K) sharing a 3D Value scale.
+    // Multi-scope source like IDPTC: primary ``overall_offense``,
+    // extra ``overall_idp`` so offense AND IDP rows both receive
+    // DraftSharks' contribution.  Value signal off the 3D Value +
+    // column; the blend normalises via Hill curve over within-
+    // source rank so the 0-100 absolute scale is irrelevant.
+    key: "draftSharks",
+    displayName: "Draft Sharks Dynasty",
+    columnLabel: "DS",
+    scope: "overall_offense",
+    extraScopes: ["overall_idp"],
+    positionGroup: null,
+    depth: 800,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: false,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+  },
 ];
 
 // ── Retail source registry helpers ───────────────────────────────────
