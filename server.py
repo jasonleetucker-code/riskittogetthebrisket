@@ -2261,7 +2261,8 @@ async def post_trade_finder(request: Request):
     from src.trade.finder import find_trades
 
     try:
-        result = find_trades(
+        result = await run_in_threadpool(
+            find_trades,
             players=players,
             my_team=my_team,
             opponent_teams=opponent_teams,
@@ -2335,7 +2336,8 @@ async def post_angle_find(request: Request):
     from src.trade.angle import find_angles
 
     try:
-        result = find_angles(
+        result = await run_in_threadpool(
+            find_angles,
             players_array,
             player_name,
             owner_id,
@@ -2434,7 +2436,8 @@ async def post_angle_packages(request: Request):
     from src.trade.angle import find_angle_packages
 
     try:
-        result = find_angle_packages(
+        result = await run_in_threadpool(
+            find_angle_packages,
             players_array,
             player_names,
             owner_id,
@@ -3993,7 +3996,13 @@ async def idp_calibration_analyze(request: Request):
         body = await request.json()
     except Exception:
         body = None
-    return _idp_json(_idp_api.analyze(body if isinstance(body, dict) else None))
+    # Analyze pulls roster + scoring from Sleeper and runs VOR — slow
+    # enough (multi-second) that blocking the event loop would stall
+    # every concurrent request on the same process.
+    result = await run_in_threadpool(
+        _idp_api.analyze, body if isinstance(body, dict) else None
+    )
+    return _idp_json(result)
 
 
 @app.get("/api/idp-calibration/runs")
@@ -4145,7 +4154,11 @@ async def idp_calibration_refresh_board(request: Request):
         ) = snapshot
 
     try:
-        _prime_latest_payload(latest_data)
+        # _prime_latest_payload rebuilds the full contract + runtime +
+        # startup payloads, serialises each and gzips each.  300-500ms
+        # of CPU; offload so the event loop keeps serving other
+        # requests during a promote → refresh cycle.
+        await run_in_threadpool(_prime_latest_payload, latest_data)
     except Exception as exc:  # noqa: BLE001 — defensive net; see P1 review.
         log.exception("idp-calibration refresh-board rebuild raised: %s", exc)
         _restore_snapshot()
