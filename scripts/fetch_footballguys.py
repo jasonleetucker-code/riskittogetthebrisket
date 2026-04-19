@@ -9,27 +9,19 @@ URLs this script hits use ``leagueid=16023`` which is the operator's
 "Risk It To Get The Brisket" FBG league — the ranks returned are the
 league-synced view, not the generic public board.
 
-Replaces the prior workflow of manually downloading PDF / CSV exports
-from FBG and running ``scripts/parse_footballguys_pdf.py``.  The PDF
-parser is kept alive as a fallback when session cookies expire.
-
 Authentication
 --------------
 
-Cookies are loaded from ``footballguys_session.json`` at the repo
-root (gitignored).  To refresh:
+Reads ``FOOTBALLGUYS_EMAIL`` + ``FOOTBALLGUYS_PASSWORD`` from
+``.env`` at the repo root (gitignored).  On each run we try the
+cached session cookies first (``footballguys_session.json``); if
+the authenticated rankings response looks logged-out we launch a
+headless Playwright login to mint fresh cookies, save them back to
+the session file, and retry the HTTP scrape — no manual cookie
+refresh required.
 
-1. Log in to https://www.footballguys.com/ in a browser.
-2. Ensure the correct league is selected in the League Settings
-   dropdown on the rankings page (``leagueid=16023`` for this repo).
-3. Open DevTools → Application → Cookies → ``https://www.footballguys.com``
-   and copy the values of:
-      * ``prodwww`` (HttpOnly session cookie, the big one)
-      * ``TN_token`` (HttpOnly persistent auth)
-      * ``League_selectedid``
-      * ``FBG_LeagueSelect_Type``
-4. Paste them into ``footballguys_session.json`` (same shape as the
-   existing file).  Keep domain = ``.footballguys.com``.
+The session file is still honoured as a pre-warmed cache so
+routine runs don't need to pay the Playwright cost.
 
 Run
 ---
@@ -43,8 +35,10 @@ Writes:
 from __future__ import annotations
 
 import argparse
+import asyncio
 import csv
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -53,8 +47,16 @@ import requests
 
 REPO = Path(__file__).resolve().parents[1]
 SESSION_PATH = REPO / "footballguys_session.json"
+ENV_PATH = REPO / ".env"
 OUT_SF = REPO / "CSVs" / "site_raw" / "footballGuysSf.csv"
 OUT_IDP = REPO / "CSVs" / "site_raw" / "footballGuysIdp.csv"
+
+LOGIN_URL = "https://www.footballguys.com/login"
+# The league-select cookie is set on login but defaults to the
+# operator's primary league.  We enforce ``leagueid=16023`` via URL
+# query and via a cookie override when persisting, so the scrape is
+# always pinned to "Risk It To Get The Brisket".
+LEAGUE_ID = "16023"
 
 OFFENSE_URL = (
     "https://www.footballguys.com/rankings/duration/dynasty"
@@ -102,14 +104,163 @@ _OFFENSE_POS: frozenset[str] = frozenset({"QB", "RB", "WR", "TE"})
 _IDP_POS: frozenset[str] = frozenset({"DL", "LB", "DB"})
 
 
+def _load_env_dotfile(path: Path) -> None:
+    """Parse ``.env`` and populate ``os.environ`` for any keys it
+    doesn't already set.  Minimal inline replacement for
+    ``python-dotenv`` so we don't add a runtime dependency."""
+    if not path.exists():
+        return
+    for raw in path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
 def _load_cookies() -> dict[str, str]:
     if not SESSION_PATH.exists():
+        return {}
+    try:
+        data = json.loads(SESSION_PATH.read_text())
+    except Exception:
+        return {}
+    return {
+        c["name"]: c["value"]
+        for c in data.get("cookies", [])
+        if isinstance(c, dict) and "name" in c and "value" in c
+    }
+
+
+def _save_cookies(cookies: list[dict]) -> None:
+    """Persist Playwright-captured cookies into the session file."""
+    payload = {
+        "_comment_": (
+            "FootballGuys cookies auto-refreshed by "
+            "scripts/fetch_footballguys.py using FOOTBALLGUYS_EMAIL / "
+            "FOOTBALLGUYS_PASSWORD.  Gitignored."
+        ),
+        "cookies": [
+            {
+                "name": c["name"],
+                "value": c["value"],
+                "domain": c.get("domain", ".footballguys.com"),
+                "path": c.get("path", "/"),
+                "httpOnly": bool(c.get("httpOnly", False)),
+                "secure": bool(c.get("secure", True)),
+                "sameSite": str(c.get("sameSite") or "Lax"),
+            }
+            for c in cookies
+            if isinstance(c, dict)
+            and "name" in c
+            and c.get("name") in {
+                "prodwww",
+                "TN_token",
+                "TN_tvid",
+                "FBG_LeagueSelect_Type",
+                "League_selectedid",
+            }
+        ],
+    }
+    SESSION_PATH.write_text(json.dumps(payload, indent=2) + "\n")
+    try:
+        SESSION_PATH.chmod(0o600)
+    except Exception:
+        pass
+
+
+def _response_is_authenticated(html: str) -> bool:
+    """FBG rankings are paywalled.  Unauthenticated responses render
+    exactly 15 "teaser" rows plus a nav "Log In" button wired to the
+    login modal via ``data-bs-target="#login_modal"``.  Authenticated
+    sessions never render that button.  The button marker is a more
+    reliable signal than row count because the teaser table still
+    carries ``data-playerid`` attributes."""
+    return 'data-bs-target="#login_modal"' not in html
+
+
+async def _playwright_login() -> list[dict]:
+    """Run the browser login flow and return Playwright cookie
+    dicts.  Invoked only when the cached cookies fail auth."""
+    try:
+        from playwright.async_api import async_playwright
+    except ImportError as exc:
         raise SystemExit(
-            f"Session file not found: {SESSION_PATH}\n"
-            "See this script's docstring for how to capture cookies."
+            "playwright is required for FG auto-login.  "
+            "Install with: pip install playwright && playwright install chromium."
+        ) from exc
+
+    email = os.environ.get("FOOTBALLGUYS_EMAIL", "").strip()
+    password = os.environ.get("FOOTBALLGUYS_PASSWORD", "").strip()
+    if not email or not password:
+        raise SystemExit(
+            "FOOTBALLGUYS_EMAIL / FOOTBALLGUYS_PASSWORD not set in .env; "
+            "cannot auto-refresh cookies.  Either add the credentials to "
+            "the server's .env or paste fresh cookies into "
+            "footballguys_session.json."
         )
-    data = json.loads(SESSION_PATH.read_text())
-    return {c["name"]: c["value"] for c in data.get("cookies", [])}
+
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=True)
+        try:
+            context = await browser.new_context(user_agent=_UA)
+            page = await context.new_page()
+            await page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=30_000)
+            await page.wait_for_timeout(1_200)
+            await page.fill('input[name="login"]', email)
+            await page.fill('input[name="password"]', password)
+            await page.click('button[type="submit"]')
+            await page.wait_for_timeout(6_000)
+            cookies = await context.cookies("https://www.footballguys.com")
+            if not any(c.get("name") == "TN_token" for c in cookies):
+                errors = await page.evaluate(
+                    "() => Array.from(document.querySelectorAll('.alert, .invalid-feedback, [role=alert]'))"
+                    ".map(e => e.textContent.trim()).filter(Boolean).slice(0, 3)"
+                )
+                raise RuntimeError(
+                    f"FG login failed — no TN_token issued.  Page errors: {errors}"
+                )
+            # Force the league cookie so server-side rendering is
+            # pinned to the operator's league regardless of the
+            # account's current default selection.
+            cookies.append({
+                "name": "League_selectedid",
+                "value": LEAGUE_ID,
+                "domain": ".footballguys.com",
+                "path": "/",
+                "httpOnly": False,
+                "secure": True,
+                "sameSite": "Lax",
+            })
+            cookies.append({
+                "name": "FBG_LeagueSelect_Type",
+                "value": "users",
+                "domain": ".footballguys.com",
+                "path": "/",
+                "httpOnly": False,
+                "secure": True,
+                "sameSite": "Lax",
+            })
+            return cookies
+        finally:
+            await browser.close()
+
+
+def _auto_refresh_session() -> dict[str, str]:
+    """Run the Playwright login flow and persist fresh cookies."""
+    print("[FBG] cached session rejected — logging in via Playwright …", flush=True)
+    new_cookies = asyncio.run(_playwright_login())
+    _save_cookies(new_cookies)
+    print(
+        f"[FBG] logged in; persisted {len(new_cookies)} cookie(s) to {SESSION_PATH.name}",
+        flush=True,
+    )
+    return _load_cookies()
 
 
 def _fetch(url: str, cookies: dict[str, str]) -> str:
@@ -120,12 +271,8 @@ def _fetch(url: str, cookies: dict[str, str]) -> str:
         timeout=30,
     )
     r.raise_for_status()
-    if "login_modal" in r.text and "logout" not in r.text.lower():
-        raise RuntimeError(
-            "FBG response looks unauthenticated (login_modal present, "
-            "no logout link).  Cookies likely expired — re-capture per "
-            "the docstring in this script."
-        )
+    if not _response_is_authenticated(r.text):
+        raise RuntimeError("unauthenticated_response")
     return r.text
 
 
@@ -228,6 +375,32 @@ def _write_csv(
     return len(selected)
 
 
+def _fetch_with_auto_login(
+    url: str,
+    cookies: dict[str, str],
+    *,
+    label: str,
+    allow_refresh: bool = True,
+) -> tuple[str, dict[str, str]]:
+    """Fetch ``url``; if the response looks logged-out, refresh the
+    session via Playwright and retry once.  Returns the HTML and the
+    (possibly refreshed) cookie dict so subsequent fetches reuse it.
+    """
+    try:
+        html = _fetch(url, cookies)
+        return html, cookies
+    except RuntimeError as exc:
+        if str(exc) != "unauthenticated_response" or not allow_refresh:
+            raise
+        print(
+            f"[FBG] {label}: session rejected — refreshing cookies …",
+            flush=True,
+        )
+        cookies = _auto_refresh_session()
+        html = _fetch(url, cookies)
+        return html, cookies
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -237,15 +410,23 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    _load_env_dotfile(ENV_PATH)
     cookies = _load_cookies()
 
     print("[FBG] fetching offense rankings …", flush=True)
-    off_html = _fetch(OFFENSE_URL, cookies)
+    off_html, cookies = _fetch_with_auto_login(
+        OFFENSE_URL, cookies, label="offense"
+    )
     off_rows = parse_rows(off_html)
     print(f"[FBG] offense rows parsed: {len(off_rows)}")
 
     print("[FBG] fetching IDP rankings …", flush=True)
-    idp_html = _fetch(IDP_URL, cookies)
+    # We already have a known-good session at this point — disable
+    # the second auto-refresh so a genuine IDP parse failure surfaces
+    # instead of quietly burning a second Playwright login.
+    idp_html, cookies = _fetch_with_auto_login(
+        IDP_URL, cookies, label="idp", allow_refresh=False
+    )
     # IDP page has no per-row position column — every row is an IDP
     # player; we pass default_family="IDP" so the rows get through
     # and the downstream pipeline's sleeper positions map assigns
