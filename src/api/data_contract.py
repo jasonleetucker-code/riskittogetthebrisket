@@ -72,6 +72,7 @@ _OFFENSE_SIGNAL_KEYS = {
     "dlfSf",
     "dynastyNerdsSfTep",
     "footballGuysSf",
+    "yahooBoone",
 }
 _IDP_SIGNAL_KEYS = {
     "idpTradeCalc",
@@ -237,6 +238,17 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/footballGuysIdp.csv",
         "signal": "rank",
     },
+    # Yahoo / Justin Boone dynasty trade value charts — scraped from
+    # sports.yahoo.com via ``scripts/fetch_yahoo_boone.py``.  The
+    # scraper combines Boone's QB (2QB column), RB, WR, and TE
+    # (TE-Prem. column) charts into one cross-positional competition
+    # rank and writes the ``rank`` column of the CSV.  Signal=rank so
+    # the ``_enrich_from_source_csvs`` reader picks up the rank column
+    # via ``_RANK_ALIASES``.
+    "yahooBoone": {
+        "path": "CSVs/site_raw/yahooBoone.csv",
+        "signal": "rank",
+    },
 }
 
 # Rank -> synthetic value transform used when a CSV declares signal=rank.
@@ -265,6 +277,10 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     # a generous 30-day staleness window before flagging.
     "footballGuysSf": 720,
     "footballGuysIdp": 720,
+    # Yahoo / Justin Boone trade value charts refresh ~monthly, so
+    # allow a 30-day window; the fetcher also emits its own stale-
+    # article warning if Yahoo's redirect chain ever stops resolving.
+    "yahooBoone": 720,
 }
 
 # ── Per-source row-count floors ───────────────────────────────────────────
@@ -292,6 +308,10 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # match counts.
     "footballGuysSf": 375,
     "footballGuysIdp": 230,
+    # Yahoo / Justin Boone charts: QB+RB+WR+TE combined = ~500 rows
+    # at the April 2026 baseline.  Floor at ~80% so a scrape regression
+    # trips a warning.
+    "yahooBoone": 400,
 }
 
 
@@ -877,6 +897,37 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_backbone": False,
         "is_retail": False,
         "needs_shared_market_translation": True,
+        "excludes_rookies": False,
+    },
+    {
+        # Yahoo / Justin Boone Dynasty Trade Value Charts — monthly
+        # offense board covering QB/RB/WR/TE.  Fetched by
+        # ``scripts/fetch_yahoo_boone.py``, which hits a seed URL per
+        # position and follows Yahoo's 308 redirects to the newest live
+        # article in each series.  The scraper pulls the 2QB column for
+        # QBs and the TE-premium column for TEs, which matches our
+        # Superflex + TEP league scoring — so the source is declared
+        # ``is_tep_premium=True``.  Roughly 500 combined rows.
+        #
+        # Rank signal: the scraper emits a competition rank computed
+        # across all four positions (ties share a rank, next rank is
+        # skipped).  The contract loader inverts rank to a synthetic
+        # monotonic value for the blend; the UI must render
+        # sourceOriginalRanks.yahooBoone, never the synthetic.
+        #
+        # depth=500 mirrors the live row count; ``_expected_sources_for_position``
+        # multiplies this by 1.25 so YAHOO_BOONE is not expected for
+        # players ranked deeper than ~625.
+        "key": "yahooBoone",
+        "display_name": "Yahoo / Justin Boone SF-TEP",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": 500,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": True,
+        "needs_shared_market_translation": False,
         "excludes_rookies": False,
     },
 ]

@@ -24,6 +24,7 @@ ALLOWED_SOURCES = {
     "FLOCK_FANTASY_SF",
     "FOOTBALLGUYS_SF",
     "FOOTBALLGUYS_IDP",
+    "YAHOO_BOONE",
 }
 
 EXPECTED_SCRAPER_EXPORTS = {
@@ -35,6 +36,7 @@ EXPECTED_SCRAPER_EXPORTS = {
     "flockFantasySf.csv",
     "footballGuysSf.csv",
     "footballGuysIdp.csv",
+    "yahooBoone.csv",
 }
 
 # Sources whose scraper_bridge export is a ``name,value`` CSV (signal=value).
@@ -46,6 +48,7 @@ RANK_SIGNAL_SOURCES = {
     "FLOCK_FANTASY_SF",
     "FOOTBALLGUYS_SF",
     "FOOTBALLGUYS_IDP",
+    "YAHOO_BOONE",
 }
 
 
@@ -155,8 +158,13 @@ class TestTepSfFlags:
             assert "includes_sf" in src, f"{src['source']}: missing includes_sf flag"
 
     def test_tep_native_sources_include_tep(self, config):
-        """KTC and IDPTRADECALC natively include TEP; FANTASYPROS_SF does not."""
-        tep_expected = {"KTC", "IDPTRADECALC", "DLF_IDP"}
+        """KTC and IDPTRADECALC natively include TEP; FANTASYPROS_SF does not.
+
+        YAHOO_BOONE is also TEP-native — the fetcher pulls Boone's TE
+        Prem. column for TEs (and 2QB for QBs), so the blended values
+        already bake in both the TE premium and the Superflex boost.
+        """
+        tep_expected = {"KTC", "IDPTRADECALC", "DLF_IDP", "YAHOO_BOONE"}
         for src in config["sources"]:
             if not src.get("enabled"):
                 continue
