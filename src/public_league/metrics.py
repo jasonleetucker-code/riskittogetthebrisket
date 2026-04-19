@@ -373,26 +373,44 @@ def walk_matchup_pairs(
                 idx[frozenset({rid_a, rid_b})] = (a, b)
             index_by_week[wk] = idx
 
-        # Identify the single candidate week pair that can combine:
-        # only the last two contiguous playoff weeks qualify.  Semis
-        # against the final — even if the same two teams appear —
-        # stay separate.
-        playoff_weeks = [w for w in weeks_sorted if w >= season.playoff_week_start]
-        combine_from_wk: int | None = None
-        combine_to_wk: int | None = None
-        if len(playoff_weeks) >= 2:
-            last = playoff_weeks[-1]
-            prev = playoff_weeks[-2]
-            if last == prev + 1:
-                combine_from_wk = prev
-                combine_to_wk = last
+        # Build per-pair combine plan.  Sleeper snapshots frequently
+        # include trailing "week 18" roster rows with ``matchup_id ==
+        # None`` that look like playoffs by week number but carry no
+        # real pairings — so a naive "last two playoff weeks" rule
+        # misses the real championship.  Instead, for each pair that
+        # actually yields a matchup pair in the playoff window, find
+        # the *latest* run of consecutive playoff weeks it appears in.
+        # If the run has length >= 2, the last two weeks of that run
+        # are the multi-week final and should be fused.  Runs are
+        # per-pair, so a 3-week semi+final same-rosters scenario
+        # combines only the last two (championship) weeks and leaves
+        # the earlier semifinal emit intact.
+        playoff_week_start = season.playoff_week_start
+        pair_playoff_weeks: dict[frozenset[int], list[int]] = {}
+        for wk in weeks_sorted:
+            if wk < playoff_week_start:
+                continue
+            for key in index_by_week[wk].keys():
+                pair_playoff_weeks.setdefault(key, []).append(wk)
+
+        # pair -> (combine_from_wk, combine_to_wk) for 2-week finals.
+        combine_plan: dict[frozenset[int], tuple[int, int]] = {}
+        for pair_key, pwks in pair_playoff_weeks.items():
+            pwks_sorted = sorted(pwks)
+            # Walk the list and keep the latest consecutive pair.
+            latest: tuple[int, int] | None = None
+            for i in range(len(pwks_sorted) - 1):
+                if pwks_sorted[i + 1] == pwks_sorted[i] + 1:
+                    latest = (pwks_sorted[i], pwks_sorted[i + 1])
+            if latest is not None:
+                combine_plan[pair_key] = latest
 
         # Track (week, pair_key) consumed as the second half of a
         # combined matchup so we don't emit the same pair twice.
         consumed: set[tuple[int, frozenset[int]]] = set()
 
         for wk in weeks_sorted:
-            is_playoff = wk >= season.playoff_week_start
+            is_playoff = wk >= playoff_week_start
             if is_playoff and not include_playoffs:
                 continue
             for a, b in pairs_by_week[wk]:
@@ -406,14 +424,12 @@ def walk_matchup_pairs(
                     continue
 
                 emit_a, emit_b = a, b
-                # Combine only if we're on the penultimate playoff
-                # week AND the same pair appears in the final week.
-                if (
-                    wk == combine_from_wk
-                    and combine_to_wk is not None
-                    and combine_to_wk in index_by_week
-                ):
-                    next_pair = index_by_week[combine_to_wk].get(pair_key)
+                # Combine only when this week is the first half of
+                # the planned 2-week final for *this* pair.
+                plan = combine_plan.get(pair_key)
+                if plan is not None and plan[0] == wk:
+                    combine_to_wk = plan[1]
+                    next_pair = index_by_week.get(combine_to_wk, {}).get(pair_key)
                     if next_pair is not None:
                         a2, b2 = next_pair
                         rid_a2 = roster_id_of(a2)

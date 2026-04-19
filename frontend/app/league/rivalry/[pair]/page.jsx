@@ -162,7 +162,19 @@ export default async function RivalryPage({ params }) {
             value={detail.totalMeetings}
             sub={`${detail.regularSeasonMeetings} reg · ${detail.playoffMeetings} playoff`}
           />
-          <Stat label="Series" value={`${detail.winsA}–${detail.winsB}${detail.ties ? `–${detail.ties}` : ""}`} />
+          <Stat
+            label="Series"
+            value={`${detail.winsA}–${detail.winsB}${detail.ties ? `–${detail.ties}` : ""}`}
+            sub={
+              detail.winsA > detail.winsB
+                ? `${nameFor(managers, idA)} leads`
+                : detail.winsB > detail.winsA
+                  ? `${nameFor(managers, idB)} leads`
+                  : detail.totalMeetings > 0
+                    ? "Tied"
+                    : undefined
+            }
+          />
           <Stat label="Points" value={`${fmtPoints(detail.pointsA)} / ${fmtPoints(detail.pointsB)}`} />
           <Stat label="Close (≤5 pts)" value={detail.gamesDecidedByFive} />
           <Stat label="Close (≤10 pts)" value={detail.gamesDecidedByTen} />

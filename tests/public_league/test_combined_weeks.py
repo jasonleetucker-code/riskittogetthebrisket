@@ -171,6 +171,57 @@ class CombinedWeeksIteratorTests(unittest.TestCase):
         # 2-week-final case where no semi exists.
         self.assertEqual(len(results), 1)
 
+    def test_trailing_empty_playoff_week_does_not_hide_final(self) -> None:
+        # Sleeper snapshots frequently include a trailing wk 18 with
+        # roster rows but no matchup_ids (consolation / leftover
+        # scoring).  The real 2-week championship is 16+17 and must
+        # still fuse even though 18 is technically the last "playoff
+        # week" by week number.
+        snap = _mk_snapshot(
+            {
+                14: [
+                    # Bye-ish: unpaired rows (no matchup_id).
+                    {"matchup_id": None, "roster_id": 1, "points": 100.0},
+                    {"matchup_id": None, "roster_id": 2, "points": 110.0},
+                ],
+                15: [
+                    # Semi with different bracket (rid 1 vs rid 2
+                    # happen to appear but as solo entries, no
+                    # matchup_id → not paired).
+                    {"matchup_id": None, "roster_id": 1, "points": 200.0},
+                    {"matchup_id": None, "roster_id": 2, "points": 210.0},
+                ],
+                16: [
+                    # Championship game 1.
+                    {"matchup_id": 1, "roster_id": 1, "points": 130.0},
+                    {"matchup_id": 1, "roster_id": 2, "points": 125.0},
+                ],
+                17: [
+                    # Championship game 2.
+                    {"matchup_id": 1, "roster_id": 1, "points": 115.0},
+                    {"matchup_id": 1, "roster_id": 2, "points": 140.0},
+                ],
+                18: [
+                    # Sleeper trailing empty week — roster rows
+                    # exist but no matchup_ids.
+                    {"matchup_id": None, "roster_id": 1, "points": 180.0},
+                    {"matchup_id": None, "roster_id": 2, "points": 195.0},
+                ],
+            }
+        )
+        results = list(walk_matchup_pairs(snap))
+        # Only the combined championship matchup emits (wks 14, 15,
+        # 18 have no real pairings; wks 16 + 17 fuse).
+        self.assertEqual(len(results), 1)
+        _, week, a, b, is_playoff = results[0]
+        self.assertEqual(week, 16)
+        self.assertTrue(is_playoff)
+        self.assertEqual(a["_combinedWeeks"], [16, 17])
+        # rid 1: 130 + 115 = 245; rid 2: 125 + 140 = 265.
+        pts_by_rid = {a["roster_id"]: a["points"], b["roster_id"]: b["points"]}
+        self.assertAlmostEqual(pts_by_rid[1], 245.0, places=2)
+        self.assertAlmostEqual(pts_by_rid[2], 265.0, places=2)
+
     def test_three_playoff_weeks_only_final_two_combine(self) -> None:
         # The real user scenario: wk15 semi (rosters 1 vs 2), wk16+17
         # championship between different rosters.  Set up a case
