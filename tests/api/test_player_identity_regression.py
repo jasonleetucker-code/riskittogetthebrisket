@@ -337,6 +337,15 @@ KNOWN_TOP_BOARD_SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     "Omar Cooper":     "Indiana WR (current college rookie) — not yet listed in IDPTradeCalc autocomplete",
     "Devin Bush":      "Veteran depth IDP — outside DLF top-185 cut",
     "David Bailey":    "Edge rookie IDP — only FantasyPros IDP covers him; moved into top-200 after 2026 slot picks were un-ranked",
+    # ── IDP top-board 1-src that surfaced after the IDP Hill curve
+    # was refit to IDPTC (midpoint 69.50 / slope 0.945).  The steeper
+    # top-of-curve elevation pulled these into the top 200 where they
+    # previously lived outside the allowlist's view.  All are
+    # legitimate source gaps — IDPTC and FBG haven't listed them so
+    # only one IDP board (FP or DLF Rookie) stamps a rank.
+    "Jack Gibbens":    "Veteran LB only ranked by FantasyPros IDP — IDPTC/DLF/FBG haven't picked him up",
+    "Malachi Moore":   "Veteran S only ranked by FantasyPros IDP — IDPTC/FBG haven't picked him up",
+    "Lavonte David":   "36yo FA veteran LB only ranked by FootballGuys IDP — IDPTC and others have dropped him",
 }
 
 

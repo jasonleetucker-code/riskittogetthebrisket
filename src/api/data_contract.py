@@ -1106,6 +1106,20 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     # ranks as deep dynasty holds even though IDPTradeCalc and the
     # other IDP boards have dropped them.  Genuine source gaps.
     "lavonte david": "source_gap:idpTradeCalc+dlfIdp+fantasyProsIdp — 36yo FA veteran LB only ranked by FootballGuys IDP",
+    "jordan davis": "source_gap:idpTradeCalc+dlfIdp+fantasyProsIdp — DL only ranked by FootballGuys IDP",
+    # ── IDP: IDPTradeCalc-only (not listed by other IDP sources) ──
+    # Depth IDP players that only IDPTradeCalc's combined pool lists;
+    # DLF / FP / FBG expert boards haven't added them (yet).  After
+    # the 2026 IDP Hill refit to IDPTC's curve, several of these
+    # elevated into the top 400.
+    "ashton gillotte": "source_gap:dlfIdp+fantasyProsIdp+footballGuysIdp — DL only ranked by IDPTradeCalc",
+    "christian harris": "source_gap:dlfIdp+fantasyProsIdp+footballGuysIdp — LB only ranked by IDPTradeCalc",
+    "josh newton": "source_gap:dlfIdp+fantasyProsIdp+footballGuysIdp — DB only ranked by IDPTradeCalc",
+    "noah sewell": "source_gap:dlfIdp+fantasyProsIdp+footballGuysIdp — LB only ranked by IDPTradeCalc",
+    # ── IDP: DLF-Rookie-IDP-only (rookie prospects only in DLF rookie board) ──
+    # Current-class IDP rookies that only DLF Rookie IDP has
+    # evaluated.  IDPTC and FBG haven't added them yet.
+    "aj haulcy": "rookie_source_gap:idpTradeCalc+footballGuysIdp — 2026 DB rookie only ranked by DLF Rookie IDP",
 }
 
 

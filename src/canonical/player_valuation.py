@@ -60,11 +60,16 @@ HILL_SLOPE: float = 1.149          # controls steepness of decay
 # roster IDP players are more fungible than the equivalent offensive
 # skill-position players).  Fit via
 # ``scripts/fit_hill_curve_from_market.py --universe idp`` against
-# FantasyPros IDP's published normalizedValue (expert consensus IDP
-# pricing on a 1-9999 scale).  Re-run the fit and update these
-# constants when the community IDP dropoff shape drifts.
-IDP_HILL_MIDPOINT: float = 47.50
-IDP_HILL_SLOPE: float = 1.005
+# IDPTradeCalc's raw IDP slice of its combined offense+IDP pool — the
+# retail IDP authority whose per-rank values the blend should
+# reproduce at the Hill step, BEFORE any per-position IDP calibration
+# multiplier is applied.  Previous fit anchored on FantasyPros IDP
+# ``normalizedValue`` which produced values ~600-1,000 below IDPTC
+# across the top-250 IDP rows; the new fit is RMSE ~170 across 376
+# IDP rows in the live snapshot.  Re-run the fit and update these
+# constants when the IDPTC dropoff shape drifts.
+IDP_HILL_MIDPOINT: float = 69.50
+IDP_HILL_SLOPE: float = 0.945
 
 # Step 4: Tier cliff injection
 CLIFF_BASE_POINTS: float = 120.0   # base cliff size in value units

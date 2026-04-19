@@ -235,7 +235,12 @@ class TestAllowlistCompleteness(unittest.TestCase):
 
     def test_all_allowlist_reasons_have_category(self):
         """Every allowlist reason must start with a recognized category."""
-        valid_prefixes = ("source_gap:", "depth_boundary:", "rookie_exclusion:")
+        valid_prefixes = (
+            "source_gap:",
+            "depth_boundary:",
+            "rookie_exclusion:",
+            "rookie_source_gap:",
+        )
         for key, reason in SINGLE_SOURCE_ALLOWLIST.items():
             self.assertTrue(
                 reason.startswith(valid_prefixes),
