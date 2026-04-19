@@ -1,36 +1,36 @@
 {
-  "capturedAt": "2026-04-19T21:08:04.452766+00:00",
+  "capturedAt": "2026-04-19T23:18:15.097153+00:00",
   "source": "dynasty_data_2026-04-19.json",
   "note": "Top-player baseline snapshot for tests/api/test_pick_refinement.py::TestPlayerRankingsUnchanged. Regenerate via tests/api/fixtures/regen_top_player_baseline.py whenever intentional pick-refinement or blend changes shift the captured rankings. Day-to-day scrape churn is absorbed by tolerances in the test itself, so routine scrape drift does NOT require a regen \u2014 only real invariant changes do.",
   "players": {
     "Bijan Robinson": {
       "canonicalConsensusRank": 4,
-      "rankDerivedValue": 9821,
+      "rankDerivedValue": 9699,
       "confidenceBucket": "high"
     },
     "Brock Bowers": {
       "canonicalConsensusRank": 14,
-      "rankDerivedValue": 8343,
+      "rankDerivedValue": 8182,
       "confidenceBucket": "high"
     },
     "Drake Maye": {
       "canonicalConsensusRank": 2,
-      "rankDerivedValue": 9998,
+      "rankDerivedValue": 9899,
       "confidenceBucket": "high"
     },
     "Ja'Marr Chase": {
       "canonicalConsensusRank": 3,
-      "rankDerivedValue": 9997,
+      "rankDerivedValue": 9799,
       "confidenceBucket": "high"
     },
     "Jahmyr Gibbs": {
       "canonicalConsensusRank": 6,
-      "rankDerivedValue": 9502,
+      "rankDerivedValue": 9499,
       "confidenceBucket": "high"
     },
     "Jayden Daniels": {
       "canonicalConsensusRank": 7,
-      "rankDerivedValue": 9451,
+      "rankDerivedValue": 9399,
       "confidenceBucket": "high"
     },
     "Josh Allen": {
@@ -45,12 +45,12 @@
     },
     "Patrick Mahomes": {
       "canonicalConsensusRank": 17,
-      "rankDerivedValue": 8239,
+      "rankDerivedValue": 7882,
       "confidenceBucket": "high"
     },
     "Puka Nacua": {
       "canonicalConsensusRank": 9,
-      "rankDerivedValue": 9308,
+      "rankDerivedValue": 9199,
       "confidenceBucket": "high"
     }
   }

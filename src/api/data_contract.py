@@ -3266,6 +3266,21 @@ _VOLATILITY_COMPRESSION_STRENGTH: float = 0.03
 _VOLATILITY_COMPRESSION_FLOOR: float = 0.92
 _VOLATILITY_COMPRESSION_CEIL: float = 1.08
 
+# Minimum step-down on the monotonicity-preserving boost clamp at
+# the top of the board.  When the natural boosted value would
+# overshoot ``_DISPLAY_SCALE_MAX`` (9999) for multiple top-of-board
+# rows in a row, enforcing "prior - 1" collapsed rank 1/2/3/4 to
+# 9999/9998/9997/9996 and erased the visible rank-consistency
+# signal the user expects (e.g. Josh Allen far and away the most
+# consistent #1 across sources).  Stepping down by 100 makes the
+# plateau legible as "each rank at the top is ~100 pts apart" —
+# a natural cliff shape even when every row's underlying boost
+# would have blown past the ceiling.  Rows whose natural boosted
+# value falls BELOW the capped ceiling use their natural value
+# (no cap applied), so mid-rank high-agreement players still get
+# their full multiplicative reward.
+_MONOTONICITY_MIN_STEP: int = 100
+
 _DISPLAY_SCALE_MAX: int = 9999
 
 
@@ -3393,16 +3408,22 @@ def _apply_volatility_compression_post_pass(
             boosted = max(1, int(round(value * (1.0 + frac))))
             # Monotonicity-preserving ceiling on boost: new_val is
             # the min of (raw-boosted, _DISPLAY_SCALE_MAX,
-            # prior_post_value - 1).  Together, the second and third
-            # terms prevent multiple high-agreement top-of-board
-            # players from collapsing onto a single 9999 plateau.
-            # The cap only tightens the ceiling when the prior row
-            # itself landed at or below 9999 — a compression-branch
-            # neighbour sitting at 10694 does not drag the boost
-            # ceiling above 9999.
+            # prior_post_value - _MONOTONICITY_MIN_STEP).  The
+            # second and third terms prevent multiple high-agreement
+            # top-of-board players from collapsing onto a single
+            # 9999 plateau when their natural boosts all overshoot
+            # the display max.  The step size is 100 (not 1) so the
+            # resulting cliff shape — 9999, 9899, 9799, 9699... —
+            # reflects the rank-consistency spread the user expects
+            # at the top of the board; rows whose natural boosted
+            # value falls below the capped ceiling use their natural
+            # value and are unaffected by the cap.  The cap only
+            # tightens when the prior row itself landed at or below
+            # 9999 — a compression-branch neighbour sitting at 10694
+            # does not drag the boost ceiling above 9999.
             ceiling = _DISPLAY_SCALE_MAX
             if prior_post_value is not None and prior_post_value <= _DISPLAY_SCALE_MAX:
-                ceiling = min(ceiling, prior_post_value - 1)
+                ceiling = min(ceiling, prior_post_value - _MONOTONICITY_MIN_STEP)
             new_val = max(1, min(boosted, ceiling))
             signed_frac = round(-frac, 4)
         else:
