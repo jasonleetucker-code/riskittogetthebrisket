@@ -65,17 +65,72 @@ function RivalriesSection({ managers, data, onNavigate }) {
         >
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 14 }}>
             <Stat label="Meetings" value={detail.totalMeetings} sub={`${detail.regularSeasonMeetings} reg · ${detail.playoffMeetings} playoff`} />
-            <Stat label="Series" value={`${detail.winsA}–${detail.winsB}${detail.ties ? `–${detail.ties}` : ""}`} />
-            <Stat label="Points" value={`${fmtPoints(detail.pointsA)} / ${fmtPoints(detail.pointsB)}`} />
-            <Stat label="Close (≤5 pts)" value={detail.gamesDecidedByFive} sub="most decisive closeness band" />
-            <Stat label="Close (≤10 pts)" value={detail.gamesDecidedByTen} />
+            <Stat
+              label="Series"
+              value={`${detail.winsA}–${detail.winsB}${detail.ties ? `–${detail.ties}` : ""}`}
+              sub={
+                detail.winsA > detail.winsB
+                  ? `${nameFor(managers, detail.ownerIds[0])} leads`
+                  : detail.winsB > detail.winsA
+                    ? `${nameFor(managers, detail.ownerIds[1])} leads`
+                    : detail.totalMeetings > 0
+                      ? "Tied"
+                      : undefined
+              }
+            />
+            <Stat
+              label="Points"
+              value={`${fmtPoints(detail.pointsA)} / ${fmtPoints(detail.pointsB)}`}
+              sub={
+                detail.pointsA > detail.pointsB
+                  ? `${nameFor(managers, detail.ownerIds[0])} +${fmtPoints(detail.pointsA - detail.pointsB)}`
+                  : detail.pointsB > detail.pointsA
+                    ? `${nameFor(managers, detail.ownerIds[1])} +${fmtPoints(detail.pointsB - detail.pointsA)}`
+                    : detail.totalMeetings > 0
+                      ? "Even"
+                      : undefined
+              }
+            />
+            <Stat
+              label="Close (≤5 pts)"
+              value={detail.gamesDecidedByFive}
+              sub={
+                detail.gamesDecidedByFive === 0 && detail.totalMeetings > 0
+                  ? "No nail-biters"
+                  : "most decisive closeness band"
+              }
+            />
+            <Stat
+              label="Close (≤10 pts)"
+              value={detail.gamesDecidedByTen}
+              sub={
+                detail.gamesDecidedByTen === 0 && detail.totalMeetings > 0
+                  ? "No close games"
+                  : undefined
+              }
+            />
           </div>
 
           <div style={{ fontWeight: 600, marginBottom: 6 }}>Memorable meetings</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
-            <MeetingCard label="Closest" meeting={detail.closestGame} />
-            <MeetingCard label="Biggest blowout" meeting={detail.biggestBlowout} />
-            <MeetingCard label="Last meeting" meeting={detail.lastMeeting} />
+            <MeetingCard
+              label="Closest"
+              meeting={detail.closestGame}
+              nameA={nameFor(managers, detail.ownerIds[0])}
+              nameB={nameFor(managers, detail.ownerIds[1])}
+            />
+            <MeetingCard
+              label="Biggest blowout"
+              meeting={detail.biggestBlowout}
+              nameA={nameFor(managers, detail.ownerIds[0])}
+              nameB={nameFor(managers, detail.ownerIds[1])}
+            />
+            <MeetingCard
+              label="Last meeting"
+              meeting={detail.lastMeeting}
+              nameA={nameFor(managers, detail.ownerIds[0])}
+              nameB={nameFor(managers, detail.ownerIds[1])}
+            />
           </div>
 
           {detail.seasonSplits && Object.keys(detail.seasonSplits).length > 0 && (
