@@ -703,6 +703,44 @@ def _set_latest_data_source(source_type: str, path: str | None = None) -> None:
     )
 
 
+# Identity-keyed cache for live rankDerivedValue lookups used by the
+# trade-suggestions overlay.  ``latest_contract_data`` is replaced
+# (never mutated) each time ``_prime_latest_payload`` runs, so the
+# cache invalidates automatically when a fresh payload arrives.
+_LIVE_BY_NAME_CACHE: dict = {"contract_id": None, "value": {}}
+
+
+def _live_by_name_from_contract(contract: dict | None) -> dict[str, int]:
+    """Return ``{displayName: rankDerivedValue}`` for the live contract.
+
+    Cached by ``id(contract)`` so repeat trade-suggestion requests
+    between scrapes skip the N-row walk.  Returns the cached dict by
+    reference; callers must not mutate it.
+    """
+    cid = id(contract) if contract is not None else None
+    if _LIVE_BY_NAME_CACHE["contract_id"] == cid and cid is not None:
+        return _LIVE_BY_NAME_CACHE["value"]
+    built: dict[str, int] = {}
+    try:
+        live_rows = (contract or {}).get("playersArray") or []
+    except Exception:  # noqa: BLE001
+        live_rows = []
+    for row in live_rows:
+        name = str(row.get("canonicalName") or row.get("displayName") or "").strip()
+        if not name:
+            continue
+        rdv = row.get("rankDerivedValue")
+        try:
+            v = int(rdv) if rdv is not None else None
+        except (TypeError, ValueError):
+            continue
+        if v is not None and v > 0:
+            built[name] = v
+    _LIVE_BY_NAME_CACHE["contract_id"] = cid
+    _LIVE_BY_NAME_CACHE["value"] = built
+    return built
+
+
 def _build_source_health_snapshot(data: dict | None) -> dict:
     payload = data or {}
     sites = payload.get("sites")
@@ -2142,22 +2180,7 @@ async def post_trade_suggestions(request: Request):
     # display_value and calibrated_value on the matching asset so
     # the suggestion engine sorts + fairness-checks on calibrated
     # numbers.
-    live_by_name: dict[str, int] = {}
-    try:
-        live_rows = (latest_contract_data or {}).get("playersArray") or []
-    except Exception:  # noqa: BLE001
-        live_rows = []
-    for row in live_rows:
-        name = str(row.get("canonicalName") or row.get("displayName") or "").strip()
-        if not name:
-            continue
-        rdv = row.get("rankDerivedValue")
-        try:
-            v = int(rdv) if rdv is not None else None
-        except (TypeError, ValueError):
-            continue
-        if v is not None and v > 0:
-            live_by_name[name] = v
+    live_by_name = _live_by_name_from_contract(latest_contract_data)
 
     if live_by_name:
         patched_assets = []

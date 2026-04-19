@@ -447,6 +447,11 @@ def find_angle_packages(
         target_teams: list[dict[str, Any]] = []
         combined_pool_by_name: dict[str, dict[str, Any]] = {}
         owner_by_pool_name: dict[str, str] = {}
+        # Seed ownership lookup: covers *all* players on target teams
+        # (not just ones that survived the filter cuts into ``pool``),
+        # so seed resolution is O(1) per seed instead of scanning every
+        # target team's roster for each requested seed name.
+        owner_by_all_player: dict[str, str] = {}
         target_team_names: list[str] = []
         target_team_owners: list[str] = []
         for team, pool in teams_pool:
@@ -459,6 +464,8 @@ def find_angle_packages(
             for entry in pool:
                 combined_pool_by_name[entry["name"]] = entry
                 owner_by_pool_name[entry["name"]] = owner
+            for pname in team.get("players") or []:
+                owner_by_all_player.setdefault(str(pname), owner)
 
         # Resolve seeds. Seeds must be owned by one of the target
         # teams and bypass the filter pool — they're mandatory.
@@ -470,12 +477,8 @@ def find_angle_packages(
             if not row:
                 missing_seeds.append(sname)
                 continue
-            # Find which team owns this seed.
-            owner_of_seed = None
-            for team in target_teams:
-                if sname in (team.get("players") or []):
-                    owner_of_seed = str(team.get("ownerId") or "")
-                    break
+            # O(1) ownership lookup against the precomputed roster map.
+            owner_of_seed = owner_by_all_player.get(sname)
             if owner_of_seed is None:
                 wrong_team_seeds.append(sname)
                 continue

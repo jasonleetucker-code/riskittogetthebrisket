@@ -416,13 +416,26 @@ export default function RankingsPage() {
   }, [toggledRows]);
 
   // ── Trust summary stats ──────────────────────────────────────────
+  // Single-pass aggregate — six filters would each walk the full
+  // eligible array (N = 1000-ish), and the memo re-runs on every
+  // lens/filter change. One pass keeps the summary O(N) total instead
+  // of O(6N).
   const trustStats = useMemo(() => {
-    const high = eligible.filter((r) => r.confidenceBucket === "high").length;
-    const medium = eligible.filter((r) => r.confidenceBucket === "medium").length;
-    const low = eligible.filter((r) => r.confidenceBucket === "low" || r.confidenceBucket === "none").length;
-    const quarantined = eligible.filter((r) => r.quarantined).length;
-    const multiSource = eligible.filter((r) => (r.sourceCount || 0) >= 2).length;
-    const withAnomalies = eligible.filter((r) => (r.anomalyFlags || []).length > 0).length;
+    let high = 0;
+    let medium = 0;
+    let low = 0;
+    let quarantined = 0;
+    let multiSource = 0;
+    let withAnomalies = 0;
+    for (const r of eligible) {
+      const bucket = r.confidenceBucket;
+      if (bucket === "high") high++;
+      else if (bucket === "medium") medium++;
+      else if (bucket === "low" || bucket === "none") low++;
+      if (r.quarantined) quarantined++;
+      if ((r.sourceCount || 0) >= 2) multiSource++;
+      if ((r.anomalyFlags || []).length > 0) withAnomalies++;
+    }
     return { total: eligible.length, high, medium, low, quarantined, multiSource, withAnomalies };
   }, [eligible]);
 
