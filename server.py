@@ -2340,6 +2340,16 @@ async def post_angle_packages(request: Request):
         positions_req = []
     positions_req = [str(p).strip() for p in positions_req if str(p).strip()]
 
+    target_teams_req = body.get("targetTeamOwnerIds") or []
+    if not isinstance(target_teams_req, list):
+        target_teams_req = []
+    target_teams_req = [str(t).strip() for t in target_teams_req if str(t).strip()]
+
+    seeds_req = body.get("seedPlayerNames") or []
+    if not isinstance(seeds_req, list):
+        seeds_req = []
+    seeds_req = [str(s).strip() for s in seeds_req if str(s).strip()]
+
     from src.trade.angle import find_angle_packages
 
     try:
@@ -2355,6 +2365,8 @@ async def post_angle_packages(request: Request):
             per_team_limit=per_team,
             positions=positions_req or None,
             min_player_my_value=min_player,
+            target_team_owner_ids=target_teams_req or None,
+            seed_player_names=seeds_req or None,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Angle packages failed: {exc}")

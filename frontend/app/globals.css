@@ -2631,3 +2631,39 @@ tr:hover .sticky-name {
   max-width: 360px;
   accent-color: var(--accent, #2563eb);
 }
+
+/* Angle: target-teams + per-team seed rosters */
+.angle-targets-card { display: flex; flex-direction: column; gap: var(--space-sm); }
+.angle-targets-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-md);
+}
+.angle-target-slot { display: flex; flex-direction: column; gap: var(--space-sm); }
+.angle-target-seeds {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.angle-target-seed-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--surface-base, rgba(0, 0, 0, 0.1));
+}
+/* Explicit option styling for the new dropdowns — same as the
+   existing team picker. */
+.angle-target-slot select option {
+  background: #11182a;
+  color: var(--text-primary);
+}
+.angle-target-slot select option:checked,
+.angle-target-slot select option:hover {
+  background: var(--accent, #2563eb);
+  color: #fff;
+}
