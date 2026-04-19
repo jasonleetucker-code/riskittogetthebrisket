@@ -2954,6 +2954,94 @@ def _apply_offense_calibration_post_pass(
                     pdata["offenseCalibrationMultiplier"] = round(multiplier, 4)
 
 
+# Volatility compression hyperparameters — mirror the canonical engine's
+# Step 5 defaults in ``src/canonical/player_valuation.py`` so the live
+# path and canonical-engine output stay conceptually aligned.  Kept
+# intentionally gentle: the floor caps worst-case compression at 8%, so
+# a high-disagreement top-tier player drops no more than 800 points on
+# the 1–9999 scale.  If this needs retuning, change it here and update
+# the matching constants in player_valuation.py.
+_VOLATILITY_COMPRESSION_STRENGTH: float = 0.03
+_VOLATILITY_COMPRESSION_FLOOR: float = 0.92
+
+
+def _apply_volatility_compression_post_pass(
+    players_array: list[dict[str, Any]],
+    players_by_name: dict[str, Any],
+) -> None:
+    """Dampen ``rankDerivedValue`` for high-disagreement players.
+
+    Mirrors Step 5 of the canonical engine (``compute_volatility_adjustments``
+    in ``src/canonical/player_valuation.py:349-391``) but feeds the
+    population-relative z-score with ``sourceRankPercentileSpread``
+    (stamped in Phase 4) rather than raw ``stdev(source_ranks)``.  The
+    percentile spread is coverage-corrected — it normalizes each
+    source's raw ordinal by that source's actual pool size — so a 50-
+    rank spread between DLF (pool 185) and FBG (pool 400) does not
+    masquerade as genuine disagreement.
+
+    Only rows with a non-None ``sourceRankPercentileSpread`` and a
+    positive ``rankDerivedValue`` participate.  Picks are skipped
+    because their post-``_anchor_current_year_picks_to_rookies`` value
+    is inherited from a rookie row and should reflect that rookie's
+    confidence, not the pick row's own source disagreement signal.
+    The Phase 5 compact resort handles any monotonicity breaks caused
+    by a compressed value crossing a neighbor.
+
+    Mirrors the updated value into the legacy ``players_by_name`` dict
+    so the runtime view stays in sync, matching the pattern in
+    ``_apply_idp_calibration_post_pass``.
+    """
+    from src.canonical.player_valuation import (  # noqa: PLC0415
+        compute_volatility_adjustments,
+    )
+
+    eligible: list[tuple[dict[str, Any], float, float]] = []
+    for row in players_array:
+        if row.get("canonicalConsensusRank") is None:
+            continue
+        if row.get("assetClass") == "pick":
+            continue
+        spread = row.get("sourceRankPercentileSpread")
+        if spread is None:
+            continue
+        try:
+            value = float(row.get("rankDerivedValue") or 0)
+        except (TypeError, ValueError):
+            continue
+        if value <= 0:
+            continue
+        eligible.append((row, value, float(spread)))
+
+    if len(eligible) < 2:
+        return
+
+    values = [v for _, v, _ in eligible]
+    spreads = [s for _, _, s in eligible]
+    adjustments = compute_volatility_adjustments(
+        values,
+        spreads,
+        strength=_VOLATILITY_COMPRESSION_STRENGTH,
+        floor=_VOLATILITY_COMPRESSION_FLOOR,
+    )
+
+    for (row, value, _spread), adj in zip(eligible, adjustments):
+        if adj >= 0.0:
+            continue
+        compression_frac = abs(adj) / value if value > 0 else 0.0
+        new_val = max(1, int(round(value + adj)))
+        row["rankDerivedValue"] = new_val
+        row["volatilityCompressionApplied"] = round(compression_frac, 4)
+        legacy_ref = row.get("legacyRef")
+        if legacy_ref and legacy_ref in players_by_name:
+            pdata = players_by_name[legacy_ref]
+            if isinstance(pdata, dict):
+                pdata["rankDerivedValue"] = new_val
+                pdata["volatilityCompressionApplied"] = round(
+                    compression_frac, 4
+                )
+
+
 def _reassign_pick_slot_order(players_array: list[dict[str, Any]]) -> int:
     """Reorder slot-specific picks within each year so slot order is
     strictly monotonic across all rounds (1.01..1.12, 2.01..2.12, ...).
@@ -3945,6 +4033,18 @@ def _compute_unified_rankings(
     # reference but they do NOT mutate rankDerivedValue.
     # _apply_offense_calibration_post_pass(players_array, players_by_name)
 
+    # ── Phase 4d: Volatility compression ──
+    # Port of Step 5 of the canonical engine
+    # (src/canonical/player_valuation.py:349-391) but driven by the
+    # coverage-corrected sourceRankPercentileSpread (stamped in
+    # Phase 4) rather than raw stdev(source_ranks).  The percentile
+    # spread normalizes for heterogeneous source depths (DLF IDP=185
+    # vs FBG IDP=400); raw stdev does not.  The compact resort in
+    # Phase 5 will naturally reshuffle any rows whose compressed
+    # value crosses a neighbor.  Runs after IDP calibration so the
+    # compression dampens the already-calibrated value.
+    _apply_volatility_compression_post_pass(players_array, players_by_name)
+
     # ── Phase 5: Pick refinement passes (gated to picks) ──
     # 1) Reassign (rank, value) tuples within each (year, round) bucket
     #    so slot-specific picks 1.01..1.12 are strictly monotonic in
@@ -4798,6 +4898,7 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "sourceRankSpread",
     "sourceRankPercentileSpread",
     "hillValueSpread",
+    "volatilityCompressionApplied",
     "isSingleSource",
     "isStructurallySingleSource",
     "hasSourceDisagreement",
