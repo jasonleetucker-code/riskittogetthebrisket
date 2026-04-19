@@ -3026,20 +3026,33 @@ def _apply_volatility_compression_post_pass(
     )
 
     for (row, value, _spread), adj in zip(eligible, adjustments):
+        legacy_ref = row.get("legacyRef")
+        pdata = (
+            players_by_name.get(legacy_ref)
+            if legacy_ref and legacy_ref in players_by_name
+            else None
+        )
         if adj >= 0.0:
+            # Emit an explicit ``None`` so the rankings-override delta
+            # entry always carries the current compression state. The
+            # frontend's ``mergeRankingsDelta`` overwrites only fields
+            # present in the delta; if we silently skip uncompressed
+            # rows, a player that was compressed in the base contract
+            # but uncompressed after an override keeps the stale
+            # fraction.
+            row["volatilityCompressionApplied"] = None
+            if isinstance(pdata, dict):
+                pdata["volatilityCompressionApplied"] = None
             continue
         compression_frac = abs(adj) / value if value > 0 else 0.0
         new_val = max(1, int(round(value + adj)))
         row["rankDerivedValue"] = new_val
         row["volatilityCompressionApplied"] = round(compression_frac, 4)
-        legacy_ref = row.get("legacyRef")
-        if legacy_ref and legacy_ref in players_by_name:
-            pdata = players_by_name[legacy_ref]
-            if isinstance(pdata, dict):
-                pdata["rankDerivedValue"] = new_val
-                pdata["volatilityCompressionApplied"] = round(
-                    compression_frac, 4
-                )
+        if isinstance(pdata, dict):
+            pdata["rankDerivedValue"] = new_val
+            pdata["volatilityCompressionApplied"] = round(
+                compression_frac, 4
+            )
 
 
 def _reassign_pick_slot_order(players_array: list[dict[str, Any]]) -> int:
@@ -4452,6 +4465,7 @@ def _derive_player_row(
         "sourceRankSpread": None,
         "sourceRankPercentileSpread": None,
         "hillValueSpread": None,
+        "volatilityCompressionApplied": None,
         "marketGapDirection": "none",
         "marketGapMagnitude": None,
         "sourceAudit": {
