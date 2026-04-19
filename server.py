@@ -38,8 +38,20 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, BackgroundTasks, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response, RedirectResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    Response,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
+
+try:
+    import anthropic
+except ImportError:  # pragma: no cover — optional dep; chat endpoint degrades gracefully
+    anthropic = None
 
 from src.api.data_contract import (
     CONTRACT_VERSION as API_DATA_CONTRACT_VERSION,
@@ -4086,6 +4098,84 @@ async def idp_calibration_analyze(request: Request):
         _idp_api.analyze, body if isinstance(body, dict) else None
     )
     return _idp_json(result)
+
+
+# ── Claude-powered chat over the live board ──────────────────────────
+# Private to the single authed owner.  The streaming Server-Sent
+# Events shape is documented in ``src/api/chat.py`` — the endpoint
+# here is a thin wrapper around the validated-input / build-snapshot
+# / stream-response flow.
+
+from src.api.chat import (  # noqa: E402 — defer import until after server wiring
+    build_data_snapshot as _chat_build_data_snapshot,
+    _get_client as _chat_get_client,
+    stream_chat_response as _chat_stream_response,
+    validate_messages as _chat_validate_messages,
+)
+
+
+@app.post("/api/chat")
+async def chat(request: Request):
+    gate = _require_auth_json(request)
+    if gate is not None:
+        return gate
+
+    client = _chat_get_client(anthropic)
+    if client is None:
+        reason = (
+            "anthropic SDK not installed"
+            if anthropic is None
+            else "ANTHROPIC_API_KEY not set"
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "ok": False,
+                "error": f"Chat disabled — {reason}.",
+            },
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": "Invalid JSON body."},
+        )
+
+    messages, err = _chat_validate_messages((body or {}).get("messages"))
+    if err is not None:
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": err},
+        )
+
+    # Pull the best available contract shape — ``latest_contract_data``
+    # is the serialised API contract (what ``/api/data`` serves); if
+    # the scrape pipeline hasn't primed it yet, fall back to the raw
+    # scrape payload so the chat still works.
+    board_source = (
+        latest_contract_data
+        if isinstance(latest_contract_data, dict) and latest_contract_data
+        else latest_data
+    )
+    data_snapshot = _chat_build_data_snapshot(board_source)
+
+    return StreamingResponse(
+        _chat_stream_response(
+            client=client,
+            messages=messages,
+            data_snapshot=data_snapshot,
+        ),
+        media_type="text/event-stream",
+        headers={
+            # ``no-store`` + nginx buffering off so tokens arrive at
+            # the browser in real time instead of arriving in one
+            # batch at the end of the response.
+            "Cache-Control": "no-store",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.get("/api/idp-calibration/runs")

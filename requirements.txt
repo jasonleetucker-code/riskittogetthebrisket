@@ -3,3 +3,4 @@ uvicorn
 requests
 playwright
 openpyxl
+anthropic

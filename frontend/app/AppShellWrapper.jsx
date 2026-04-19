@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, createContext, useContext } from "react";
 import AppShell, { useApp } from "@/components/AppShell";
 import { useAuth } from "@/components/useAuth";
+import ChatDrawer from "@/components/ChatDrawer";
 
 // ── Route definitions ────────────────────────────────────────────────────
 // Primary destinations shown in desktop top nav
@@ -192,6 +193,7 @@ export default function AppShellWrapper({ children }) {
         <MobileTopBar />
         <main className="main-shell">{children}</main>
         <MobileNav />
+        <ChatDrawer />
       </AppShell>
     </AuthContext.Provider>
   );
