@@ -4,6 +4,7 @@ from __future__ import annotations
 import pytest
 
 from src.trade.angle import (
+    _value_adjustment,
     find_acquisition_packages,
     find_angle_packages,
     find_angles,
@@ -786,9 +787,13 @@ def test_acquire_idp_target_compares_on_idptc():
         _player_with_markets("My DL", 5000, 5000, 5000, position="DL"),
         _player_with_markets("Target DL", 6000, 7000, 5100, position="DL"),
     ]
+    # include_idp must be True — the offer-side "My DL" would
+    # otherwise be filtered out of the candidate pool by the default
+    # IDP gate.
     result = find_acquisition_packages(
         players, ["Target DL"], "owner-a", teams,
         min_my_gain_pct=5.0, max_market_gain_pct=5.0,
+        include_idp=True,
     )
     assert result["candidates"], "IDP acquire should qualify on IDPTC"
     # market source stamped on acquire and candidate rows.
@@ -821,3 +826,256 @@ def test_packages_player_rows_expose_per_position_market_source():
             elif p["position"] == "WR":
                 assert p["market_source"] == "ktc"
                 assert p["market_value"] == 5100  # KTC value
+
+
+# ─── Value Adjustment (consolidation premium) ────────────────────────
+
+
+def test_value_adjustment_matches_js_calibration_point_case_a():
+    """Parity check against JS ``_vaFromSortedSides`` (Case A in the
+    trade-logic.js docstring: small=[9999], large=[7846,5717],
+    KTC-observed 3712, V2 predicted 3748). Keeps the Python port from
+    drifting away from the calibrated formula."""
+    va = _value_adjustment([9999], [7846, 5717])
+    assert round(va) == 3748
+
+
+def test_value_adjustment_zero_when_sizes_match():
+    # Same count on each side → no consolidation premium.
+    assert _value_adjustment([8000, 7000], [7500, 6800]) == 0.0
+
+
+def test_value_adjustment_positive_for_smaller_side_with_top_gap():
+    # 1v2 with a clear top-piece gap: small tops at 9999, large tops
+    # at 7846. Smaller side receives a positive VA.
+    va = _value_adjustment([9999], [7846, 5717])
+    assert va > 0.0
+
+
+def test_value_adjustment_grows_with_top_gap():
+    # A bigger gap between the consolidated star and the best piece
+    # on the longer side should produce a larger VA.
+    low_gap = _value_adjustment([8000], [7500, 5000])
+    high_gap = _value_adjustment([9999], [6000, 4000])
+    assert high_gap > low_gap
+
+
+def test_packages_consolidation_trade_is_filtered_by_va():
+    """Classic "4 filler for 1 stud" trade: raw totals match, but VA
+    should make the single stud side bigger under the adjusted math,
+    pushing the counterparty's perceived market gap past the cap."""
+    # Offer: 1 stud. Counter: 4 filler pieces whose KTC sum lines up
+    # with the stud but no single piece is close to the stud's value.
+    offer = ["Stud Star"]
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["Stud Star"]},
+        {
+            "name": "Team B",
+            "ownerId": "owner-b",
+            "players": ["Filler 1", "Filler 2", "Filler 3", "Filler 4"],
+        },
+    ]
+    # Stud: my=9500, ktc=9500.  Four fillers each ≈ 2400 → sum ≈ 9600.
+    # Raw math would accept this as +1% my-gain, +1% ktc-gap (both
+    # within threshold). VA on the consolidated side should flip the
+    # market gap past the 5% cap.
+    players = [
+        _player("Stud Star", 9500, 9500),
+        _player("Filler 1", 2400, 2400),
+        _player("Filler 2", 2400, 2400),
+        _player("Filler 3", 2400, 2400),
+        _player("Filler 4", 2400, 2400),
+    ]
+    result = find_angle_packages(
+        players, offer, "owner-a", teams,
+        min_my_gain_pct=0.0, max_market_gain_pct=5.0,
+    )
+    # Under raw arithmetic the 4-filler counter is within both
+    # thresholds. With VA applied to the smaller (stud) side, the
+    # market gap climbs well past 5% and the package is rejected.
+    four_filler = [c for c in result["candidates"] if c["size"] == 4]
+    assert four_filler == [], (
+        "4-filler counter should be rejected once VA is applied to the "
+        f"consolidated stud side; got {four_filler}"
+    )
+
+
+def test_packages_candidate_exposes_va_adjustment_fields():
+    """Successful candidates ship the adjusted totals so the UI can
+    show consolidation premiums."""
+    offer = ["Offer Star", "Offer Depth"]
+    teams = [
+        {
+            "name": "Team A", "ownerId": "owner-a",
+            "players": ["Offer Star", "Offer Depth"],
+        },
+        {"name": "Team B", "ownerId": "owner-b", "players": ["Target Star"]},
+    ]
+    # 2-for-1 — the single counter piece should receive VA.
+    players = [
+        _player("Offer Star", 5000, 5000),
+        _player("Offer Depth", 3000, 3000),
+        _player("Target Star", 9000, 8200),
+    ]
+    result = find_angle_packages(
+        players, offer, "owner-a", teams,
+        min_my_gain_pct=0.0, max_market_gain_pct=50.0,  # loose so sth qualifies
+    )
+    size_one = next((c for c in result["candidates"] if c["size"] == 1), None)
+    assert size_one is not None, "expected the single-player counter to qualify"
+    assert size_one["my_value_adjustment"] > 0
+    assert size_one["market_value_adjustment"] > 0
+    assert size_one["my_total_adjusted"] > size_one["my_total"]
+
+
+# ─── IDP filter default ──────────────────────────────────────────────
+
+
+def test_packages_idp_excluded_from_pool_by_default():
+    offer = ["My QB"]
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["My QB"]},
+        {
+            "name": "Team B", "ownerId": "owner-b",
+            "players": ["Opp DL", "Opp WR"],
+        },
+    ]
+    players = [
+        _player("My QB", 5000, 5000, position="QB"),
+        _player("Opp DL", 6000, 5000, position="DL"),
+        _player("Opp WR", 6000, 5000, position="WR"),
+    ]
+    result = find_angle_packages(
+        players, offer, "owner-a", teams,  # include_idp default False
+    )
+    names = {p["name"] for c in result["candidates"] for p in c["players"]}
+    assert "Opp DL" not in names
+    assert "Opp WR" in names
+
+
+def _idp_player(name, my_val, idptc_val, *, position="DL"):
+    return {
+        "canonicalName": name,
+        "displayName": name,
+        "position": position,
+        "rankDerivedValue": my_val,
+        "canonicalSiteValues": {"idpTradeCalc": idptc_val},
+    }
+
+
+def test_packages_idp_included_when_flag_set():
+    offer = ["My QB"]
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["My QB"]},
+        {"name": "Team B", "ownerId": "owner-b", "players": ["Opp DL"]},
+    ]
+    players = [
+        _player("My QB", 5000, 5000, position="QB"),
+        _idp_player("Opp DL", 6000, 5000, position="DL"),
+    ]
+    result = find_angle_packages(
+        players, offer, "owner-a", teams, include_idp=True,
+    )
+    names = {p["name"] for c in result["candidates"] for p in c["players"]}
+    assert "Opp DL" in names
+
+
+def test_packages_idp_filter_does_not_touch_seed_players():
+    """Seed players are user-selected — the IDP gate should let them
+    through even when include_idp is False."""
+    offer = ["My QB"]
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["My QB"]},
+        {
+            "name": "Team B", "ownerId": "owner-b",
+            "players": ["Opp Seed DL", "Opp WR"],
+        },
+    ]
+    players = [
+        _player("My QB", 5000, 5000, position="QB"),
+        _idp_player("Opp Seed DL", 6000, 5000, position="DL"),
+        _player("Opp WR", 6000, 5000, position="WR"),
+    ]
+    result = find_angle_packages(
+        players, offer, "owner-a", teams,
+        target_team_owner_ids=["owner-b"],
+        seed_player_names=["Opp Seed DL"],
+    )
+    # Every candidate must carry the IDP seed even though include_idp
+    # is False and the pool is otherwise IDP-stripped.
+    assert result["candidates"]
+    for c in result["candidates"]:
+        names = {p["name"] for p in c["players"]}
+        assert "Opp Seed DL" in names
+
+
+def test_acquire_idp_excluded_from_offer_pool_by_default():
+    """In acquire mode, the default IDP gate strips IDP players from
+    the user's own roster pool — so an IDP-only owner ends up with
+    zero offers."""
+    teams = [
+        {
+            "name": "Team A", "ownerId": "owner-a",
+            "players": ["My LB 1", "My LB 2"],
+        },
+        {"name": "Team B", "ownerId": "owner-b", "players": ["Target WR"]},
+    ]
+    players = [
+        _idp_player("My LB 1", 5500, 5200, position="LB"),
+        _idp_player("My LB 2", 5400, 5100, position="LB"),
+        _player("Target WR", 6000, 5000, position="WR"),
+    ]
+    result = find_acquisition_packages(
+        players, ["Target WR"], "owner-a", teams,  # include_idp default False
+    )
+    assert result["candidates"] == []
+    # Flip include_idp on and the offer packages appear.
+    result2 = find_acquisition_packages(
+        players, ["Target WR"], "owner-a", teams,
+        include_idp=True,
+    )
+    assert result2["candidates"], "LB offers should qualify once IDP is allowed"
+
+
+def test_acquire_idp_filter_does_not_drop_desired_player():
+    """The acquire-side (fixed) set is user-selected — it should
+    survive the IDP gate even when include_idp is False."""
+    teams = [
+        {
+            "name": "Team A", "ownerId": "owner-a",
+            "players": ["My WR 1", "My WR 2"],
+        },
+        {"name": "Team B", "ownerId": "owner-b", "players": ["Target DL"]},
+    ]
+    players = [
+        _player("My WR 1", 5500, 5500, position="WR"),
+        _player("My WR 2", 5400, 5400, position="WR"),
+        _idp_player("Target DL", 6000, 5500, position="DL"),
+    ]
+    result = find_acquisition_packages(
+        players, ["Target DL"], "owner-a", teams,  # default include_idp=False
+        min_my_gain_pct=0.0, max_market_gain_pct=50.0,
+    )
+    # Desired player survives the gate.
+    assert result["acquire"]["size"] == 1
+    assert result["acquire"]["players"][0]["name"] == "Target DL"
+    # And the offer pool (all-WR) can still produce candidates.
+    assert result["candidates"]
+
+
+def test_packages_include_idp_flag_surfaced_in_thresholds():
+    offer = ["My QB"]
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["My QB"]},
+        {"name": "Team B", "ownerId": "owner-b", "players": ["Opp WR"]},
+    ]
+    players = [
+        _player("My QB", 5000, 5000, position="QB"),
+        _player("Opp WR", 6000, 5000, position="WR"),
+    ]
+    result_off = find_angle_packages(players, offer, "owner-a", teams)
+    assert result_off["thresholds"]["include_idp"] is False
+    result_on = find_angle_packages(
+        players, offer, "owner-a", teams, include_idp=True,
+    )
+    assert result_on["thresholds"]["include_idp"] is True

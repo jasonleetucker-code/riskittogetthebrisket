@@ -28,11 +28,91 @@ players by your calibrated value so the search stays fast.
 from __future__ import annotations
 
 from itertools import combinations
-from typing import Any
+from typing import Any, Iterable, Sequence
 
 _IDP_POSITIONS: frozenset[str] = frozenset(
     {"DL", "DE", "DT", "EDGE", "NT", "LB", "ILB", "OLB", "MLB", "DB", "CB", "S", "SS", "FS"}
 )
+
+# KTC-style Value Adjustment (V2) — ports the frontend formula in
+# ``frontend/lib/trade-logic.js`` (``_vaFromSortedSides``) so the Angle
+# engine stops treating a package of 4 filler players as equivalent to
+# 3 studs whose raw totals happen to match. Coefficients are calibrated
+# against 13 observed KTC data points; see the JS module docstring.
+#
+# Arbitrage math was previously pure sum-of-raw-totals, which is wrong
+# for uneven sizes: 3 stars for 4 scrubs can look fair on market and a
+# big win on my-value in raw terms, yet no leaguemate would accept it.
+# VA injects the consolidation premium on the SMALLER side — so the
+# side receiving more studs sees its effective total climb, and the
+# thresholds get evaluated on the adjusted numbers.
+_VA_SCARCITY_SLOPE = 3.75
+_VA_SCARCITY_INTERCEPT = 0.45
+_VA_SCARCITY_CAP = 0.55
+_VA_PER_EXTRA_BOOST = 1.4
+_VA_EFFECTIVE_CAP = 1.0
+_VA_POSITION_DECAY = 0.35
+
+
+def _value_adjustment(small: Sequence[float], large: Sequence[float]) -> float:
+    """Compute the V2 consolidation premium the ``small`` side gets
+    when trading against the (longer) ``large`` side.
+
+    Both sequences must be sorted descending. Matches
+    ``_vaFromSortedSides`` in ``frontend/lib/trade-logic.js``. Returns
+    ``0.0`` when sizes tie (no consolidation), when small is empty, or
+    when small's top piece is not above large's top piece.
+    """
+    if not small or small[0] <= 0:
+        return 0.0
+    if len(small) >= len(large):
+        return 0.0
+
+    top_small = small[0]
+    top_large = large[0] if large else 0.0
+    top_gap = max(0.0, (top_small - top_large) / top_small)
+    if top_gap == 0.0:
+        return 0.0
+
+    raw_scarcity = _VA_SCARCITY_SLOPE * top_gap - _VA_SCARCITY_INTERCEPT
+    top_scarcity = max(0.0, min(_VA_SCARCITY_CAP, raw_scarcity))
+
+    extras = list(large[len(small):])
+    adjustment = 0.0
+    for p, extra in enumerate(extras):
+        extra_gap = max(0.0, (top_small - extra) / top_small)
+        boost_term = _VA_PER_EXTRA_BOOST * max(0.0, extra_gap - top_gap)
+        effective = max(0.0, min(_VA_EFFECTIVE_CAP, top_scarcity + boost_term))
+        adjustment += extra * effective * (_VA_POSITION_DECAY ** p)
+    return adjustment
+
+
+def _adjusted_pair_totals(
+    small_values: Iterable[float],
+    large_values: Iterable[float],
+) -> tuple[float, float, float, float]:
+    """Apply VA to the smaller of two value lists.
+
+    Returns ``(small_adjusted, large_adjusted, small_va, large_va)``.
+    The longer side never receives VA; the shorter side gets the full
+    consolidation premium. When sizes are equal or either side is
+    empty, both adjustments are zero.
+    """
+    small_sorted = sorted((float(v) for v in small_values), reverse=True)
+    large_sorted = sorted((float(v) for v in large_values), reverse=True)
+    small_sum = sum(small_sorted)
+    large_sum = sum(large_sorted)
+    if len(small_sorted) == len(large_sorted) or not small_sorted or not large_sorted:
+        return small_sum, large_sum, 0.0, 0.0
+    if len(small_sorted) < len(large_sorted):
+        va = _value_adjustment(small_sorted, large_sorted)
+        return small_sum + va, large_sum, va, 0.0
+    va = _value_adjustment(large_sorted, small_sorted)
+    return small_sum, large_sum + va, 0.0, va
+
+
+def _is_idp_position(position: Any) -> bool:
+    return str(position or "").strip().upper() in _IDP_POSITIONS
 
 
 def _market_source_for(position: str | None) -> str:
@@ -236,6 +316,7 @@ def find_angle_packages(
     min_player_my_value: float = 0.0,
     target_team_owner_ids: list[str] | None = None,
     seed_player_names: list[str] | None = None,
+    include_idp: bool = False,
 ) -> dict[str, Any]:
     """Find multi-player counter-packages for a user-built offer.
 
@@ -265,6 +346,15 @@ def find_angle_packages(
         Minimum ``rankDerivedValue`` a player must have to be
         considered in the candidate pool. Caller uses this to say
         "don't suggest filler-depth guys in my counter-package."
+    include_idp
+        When ``False`` (default) IDP positions (DL/LB/DB and their
+        sub-positions) are filtered OUT of the candidate pool entirely.
+        Most managers don't value IDP the way KTC/our-board scores
+        them, so the default keeps counter-packages offense+picks
+        only. Set ``True`` (or explicitly include an IDP player in
+        the offer / seeds) to allow IDP candidates. Offer-side and
+        user-selected seeds are never filtered — the user's explicit
+        choices always win.
 
     Returns
     -------
@@ -356,9 +446,15 @@ def find_angle_packages(
             if pair is None:
                 continue
             my_v, market_v, market_source = pair
-            # Per-player filters: position allow-list and my-value floor.
+            # Per-player filters: position allow-list, my-value floor,
+            # and the IDP gate. IDP players get filtered out of the
+            # candidate pool by default because most leaguemates don't
+            # gravitate toward them — setting include_idp=True (or an
+            # IDP position in ``positions``) re-admits them.
             row_pos = str(row.get("position") or "").strip().upper()
             if position_filter is not None and row_pos not in position_filter:
+                continue
+            if not include_idp and row_pos in _IDP_POSITIONS:
                 continue
             if my_v < min_my_value_floor:
                 continue
@@ -375,10 +471,14 @@ def find_angle_packages(
         pool = pool[:candidate_pool_per_team]
         teams_pool.append((team, pool))
 
-    # Pre-compute numeric thresholds in absolute-value terms so the
-    # inner loop uses only arithmetic, no division.
-    min_my_total = offer_my_total * (1.0 + min_my_gain_pct / 100.0)
-    max_market_total = offer_market_total * (1.0 + max_market_gain_pct / 100.0)
+    # Offer-side value lists (sorted descending) used by the VA path
+    # below. We keep raw totals available for display/back-compat.
+    offer_my_values = sorted(
+        (float(_value_pair(r)[0]) for r in offer_rows), reverse=True,  # type: ignore[index]
+    )
+    offer_market_values = sorted(
+        (float(_value_pair(r)[1]) for r in offer_rows), reverse=True,  # type: ignore[index]
+    )
 
     # Normalise target-team + seed inputs for constructed-package mode.
     target_ids: set[str] = {
@@ -409,14 +509,37 @@ def find_angle_packages(
         team_label: str,
         owner_id_label: str,
     ) -> dict[str, Any] | None:
-        my_sum = sum(p["my_value"] for p in combo)
-        if my_sum < min_my_total:
+        # Apply KTC-style Value Adjustment so consolidation packages
+        # (e.g. 3 studs vs 4 filler pieces whose raws happen to match)
+        # don't slip through the thresholds on pure sum-of-raws.
+        counter_my_values = [p["my_value"] for p in combo]
+        counter_market_values = [p["market_value"] for p in combo]
+        (
+            counter_my_adj,
+            offer_my_adj,
+            counter_my_va,
+            offer_my_va,
+        ) = _adjusted_pair_totals(counter_my_values, offer_my_values)
+        (
+            counter_market_adj,
+            offer_market_adj,
+            counter_market_va,
+            offer_market_va,
+        ) = _adjusted_pair_totals(counter_market_values, offer_market_values)
+
+        if offer_my_adj <= 0 or offer_market_adj <= 0:
             return None
-        market_sum = sum(p["market_value"] for p in combo)
-        if market_sum > max_market_total:
+        my_gain_pct = 100.0 * (counter_my_adj - offer_my_adj) / offer_my_adj
+        market_gain_pct = (
+            100.0 * (counter_market_adj - offer_market_adj) / offer_market_adj
+        )
+        if my_gain_pct < min_my_gain_pct:
             return None
-        my_gain_pct = 100.0 * (my_sum - offer_my_total) / offer_my_total
-        market_gain_pct = 100.0 * (market_sum - offer_market_total) / offer_market_total
+        if market_gain_pct > max_market_gain_pct:
+            return None
+
+        my_sum = sum(counter_my_values)
+        market_sum = sum(counter_market_values)
         return {
             "team": team_label,
             "owner_id": owner_id_label,
@@ -433,6 +556,14 @@ def find_angle_packages(
             ],
             "my_total": int(round(my_sum)),
             "market_total": int(round(market_sum)),
+            "my_total_adjusted": int(round(counter_my_adj)),
+            "market_total_adjusted": int(round(counter_market_adj)),
+            "my_value_adjustment": int(round(counter_my_va)),
+            "market_value_adjustment": int(round(counter_market_va)),
+            "offer_my_total_adjusted": int(round(offer_my_adj)),
+            "offer_market_total_adjusted": int(round(offer_market_adj)),
+            "offer_my_value_adjustment": int(round(offer_my_va)),
+            "offer_market_value_adjustment": int(round(offer_market_va)),
             "my_gain_pct": round(my_gain_pct, 2),
             "market_gain_pct": round(market_gain_pct, 2),
             "arb_score": round(my_gain_pct - market_gain_pct, 2),
@@ -601,6 +732,7 @@ def find_angle_packages(
             "min_player_my_value": int(min_my_value_floor),
             "target_team_owner_ids": sorted(target_ids) if target_ids else [],
             "seed_player_names": sorted(seed_names_set) if target_ids else [],
+            "include_idp": bool(include_idp),
         },
         "warnings": warnings,
     }
@@ -618,6 +750,7 @@ def find_acquisition_packages(
     candidate_pool: int = 25,
     positions: list[str] | None = None,
     min_player_my_value: float = 0.0,
+    include_idp: bool = False,
 ) -> dict[str, Any]:
     """Find offer-side packages from the user's roster that acquire a
     fixed set of desired players from other teams.
@@ -760,6 +893,11 @@ def find_acquisition_packages(
         row_pos = str(row.get("position") or "").strip().upper()
         if position_filter is not None and row_pos not in position_filter:
             continue
+        # IDP gate — see docstring on find_angle_packages. Fixed side
+        # (desired players) is never filtered; this only restricts the
+        # offer-side pool built from the user's own roster.
+        if not include_idp and row_pos in _IDP_POSITIONS:
+            continue
         if my_v < min_my_value_floor:
             continue
         pool.append(
@@ -774,23 +912,48 @@ def find_acquisition_packages(
     pool.sort(key=lambda p: -p["my_value"])
     pool = pool[: max(1, int(candidate_pool))]
 
-    # Arbitrage math: user receives ``desired_*``, gives ``offer_*``.
-    # my_gain = (desired - offer) / offer ≥ min_my_gain_pct
-    #   → offer_my ≤ desired_my / (1 + min_my_gain_pct/100)
-    # market_gap = (desired - offer) / offer ≤ max_market_gain_pct
-    #   → offer_market ≥ desired_market / (1 + max_market_gain_pct/100)
-    max_offer_my = desired_my_total / (1.0 + min_my_gain_pct / 100.0)
-    min_offer_market = desired_market_total / (1.0 + max_market_gain_pct / 100.0)
+    # Desired-side value lists (sorted descending) for the VA path.
+    desired_my_values = sorted(
+        (float(_value_pair(r)[0]) for r in desired_rows), reverse=True,  # type: ignore[index]
+    )
+    desired_market_values = sorted(
+        (float(_value_pair(r)[1]) for r in desired_rows), reverse=True,  # type: ignore[index]
+    )
 
     def _make_candidate(combo: tuple[dict[str, Any], ...]) -> dict[str, Any] | None:
-        offer_my = sum(p["my_value"] for p in combo)
-        if offer_my <= 0 or offer_my > max_offer_my:
+        # Arbitrage math: user receives ``desired_*``, gives up
+        # ``offer_*``. Apply KTC-style VA so consolidation (e.g. giving
+        # 4 filler to land 3 studs) isn't treated as a fair swap just
+        # because raw totals line up — the consolidated side carries a
+        # premium on both my-value and market-value.
+        offer_my_values = [p["my_value"] for p in combo]
+        offer_market_values = [p["market_value"] for p in combo]
+        (
+            desired_my_adj,
+            offer_my_adj,
+            desired_my_va,
+            offer_my_va,
+        ) = _adjusted_pair_totals(desired_my_values, offer_my_values)
+        (
+            desired_market_adj,
+            offer_market_adj,
+            desired_market_va,
+            offer_market_va,
+        ) = _adjusted_pair_totals(desired_market_values, offer_market_values)
+
+        if offer_my_adj <= 0 or offer_market_adj <= 0:
             return None
-        offer_market = sum(p["market_value"] for p in combo)
-        if offer_market < min_offer_market:
+        my_gain_pct = 100.0 * (desired_my_adj - offer_my_adj) / offer_my_adj
+        market_gain_pct = (
+            100.0 * (desired_market_adj - offer_market_adj) / offer_market_adj
+        )
+        if my_gain_pct < min_my_gain_pct:
             return None
-        my_gain_pct = 100.0 * (desired_my_total - offer_my) / offer_my
-        market_gain_pct = 100.0 * (desired_market_total - offer_market) / offer_market
+        if market_gain_pct > max_market_gain_pct:
+            return None
+
+        offer_my_sum = sum(offer_my_values)
+        offer_market_sum = sum(offer_market_values)
         return {
             "size": len(combo),
             "players": [
@@ -803,8 +966,16 @@ def find_acquisition_packages(
                 }
                 for p in combo
             ],
-            "my_total": int(round(offer_my)),
-            "market_total": int(round(offer_market)),
+            "my_total": int(round(offer_my_sum)),
+            "market_total": int(round(offer_market_sum)),
+            "my_total_adjusted": int(round(offer_my_adj)),
+            "market_total_adjusted": int(round(offer_market_adj)),
+            "my_value_adjustment": int(round(offer_my_va)),
+            "market_value_adjustment": int(round(offer_market_va)),
+            "acquire_my_total_adjusted": int(round(desired_my_adj)),
+            "acquire_market_total_adjusted": int(round(desired_market_adj)),
+            "acquire_my_value_adjustment": int(round(desired_my_va)),
+            "acquire_market_value_adjustment": int(round(desired_market_va)),
             "my_gain_pct": round(my_gain_pct, 2),
             "market_gain_pct": round(market_gain_pct, 2),
             "arb_score": round(my_gain_pct - market_gain_pct, 2),
@@ -864,6 +1035,7 @@ def find_acquisition_packages(
             "target_sizes": target_sizes,
             "positions": sorted(position_filter) if position_filter else [],
             "min_player_my_value": int(min_my_value_floor),
+            "include_idp": bool(include_idp),
         },
         "warnings": warnings,
     }
