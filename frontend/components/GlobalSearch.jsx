@@ -117,7 +117,7 @@ export default function GlobalSearch({ rows = [], isOpen, onClose, onSelect }) {
                   onClick={() => { onSelect?.(r); onClose?.(); }}
                   style={{
                     width: "100%", textAlign: "left", cursor: "pointer",
-                    background: isSelected ? "rgba(86,214,255,0.08)" : undefined,
+                    background: isSelected ? "rgba(255,198,47,0.08)" : undefined,
                     borderLeft: isSelected ? "2px solid var(--cyan)" : "2px solid transparent",
                     paddingLeft: 8,
                   }}

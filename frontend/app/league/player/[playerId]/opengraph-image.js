@@ -43,14 +43,14 @@ export default async function PlayerOGImage({ params }) {
           flexDirection: "column",
           width: "100%",
           height: "100%",
-          background: "linear-gradient(135deg, #070f22 0%, #0f1c3b 50%, #12264f 100%)",
+          background: "linear-gradient(135deg, #0f0a1a 0%, #1a0f2e 50%, #12264f 100%)",
           color: "#eaf2ff",
           padding: "60px 80px",
           fontFamily: "Inter, ui-sans-serif, system-ui",
           justifyContent: "space-between",
         }}
       >
-        <div style={{ display: "flex", gap: 16, color: "#56d6ff", fontSize: 28 }}>
+        <div style={{ display: "flex", gap: 16, color: "#FFC62F", fontSize: 28 }}>
           <span style={{ letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700 }}>
             Brisket League · Player Journey
           </span>
@@ -88,7 +88,7 @@ export default async function PlayerOGImage({ params }) {
             </div>
             <div style={{ display: "flex", gap: 40 }}>
               <Stat label="Total pts" value={`${top.pointsTotal}`} color="#34d399" />
-              <Stat label="Wks started" value={`${top.weeksStarted}`} color="#56d6ff" />
+              <Stat label="Wks started" value={`${top.weeksStarted}`} color="#FFC62F" />
               <Stat label="Wks rostered" value={`${top.weeksRostered}`} color="#eaf2ff" />
             </div>
           </div>

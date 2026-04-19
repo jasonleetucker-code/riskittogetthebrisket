@@ -53,14 +53,14 @@ export default async function MatchupOGImage({ params }) {
           flexDirection: "column",
           width: "100%",
           height: "100%",
-          background: "linear-gradient(135deg, #070f22 0%, #0f1c3b 50%, #12264f 100%)",
+          background: "linear-gradient(135deg, #0f0a1a 0%, #1a0f2e 50%, #12264f 100%)",
           color: "#eaf2ff",
           padding: "60px 80px",
           fontFamily: "Inter, ui-sans-serif, system-ui",
           justifyContent: "space-between",
         }}
       >
-        <div style={{ display: "flex", color: "#56d6ff", fontSize: 28, letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700 }}>
+        <div style={{ display: "flex", color: "#FFC62F", fontSize: 28, letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700 }}>
           {`Brisket League · ${season} Week ${week}${m?.isPlayoff ? " · Playoffs" : ""}`}
         </div>
 
@@ -98,7 +98,7 @@ function Side({ name, points, winner }) {
         gap: 12,
         padding: "24px 32px",
         borderRadius: 20,
-        border: `2px solid ${winner ? "#34d399" : "#263a69"}`,
+        border: `2px solid ${winner ? "#34d399" : "#4F2683"}`,
         background: winner ? "rgba(52,211,153,0.08)" : "transparent",
         minWidth: 360,
       }}

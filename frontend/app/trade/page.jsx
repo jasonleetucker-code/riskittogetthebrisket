@@ -54,7 +54,7 @@ function fairnessLabel(f) {
 
 function confidenceBadge(c) {
   if (c === "high") return { label: "High consensus", bg: "rgba(52,211,153,0.15)", border: "rgba(52,211,153,0.4)", color: "var(--green)" };
-  if (c === "medium") return { label: "Moderate consensus", bg: "rgba(86,214,255,0.12)", border: "rgba(86,214,255,0.35)", color: "var(--cyan)" };
+  if (c === "medium") return { label: "Moderate consensus", bg: "rgba(255,198,47,0.12)", border: "rgba(255,198,47,0.35)", color: "var(--cyan)" };
   return { label: "Low consensus", bg: "rgba(153,166,200,0.1)", border: "var(--border)", color: "var(--muted)" };
 }
 
@@ -909,7 +909,7 @@ export default function TradePage() {
                 marginBottom: 10,
                 padding: "10px 12px",
                 border: "1px solid var(--cyan)",
-                background: "rgba(86,214,255,0.04)",
+                background: "rgba(255,198,47,0.04)",
               }}
             >
               <div style={{ fontSize: "0.74rem", fontWeight: 700, letterSpacing: "0.04em", marginBottom: 6 }}>
@@ -1076,7 +1076,7 @@ export default function TradePage() {
                   </div>
                   {/* Balancers (2-team mode only) */}
                   {sides.length === 2 && isUnderpaying && balancers.length > 0 && (
-                    <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(86,214,255,0.06)", borderRadius: 6 }}>
+                    <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(255,198,47,0.06)", borderRadius: 6 }}>
                       <div className="label" style={{ fontSize: "0.68rem", marginBottom: 4 }}>To balance, consider adding:</div>
                       {balancers.map((b) => (
                         <button key={b.name} className="button-reset muted" style={{ display: "block", fontSize: "0.72rem", cursor: "pointer" }}
@@ -1088,7 +1088,7 @@ export default function TradePage() {
                   )}
                   {/* Balancers (3+ team mode) - show on the underpaying team */}
                   {multiBalancers && sideIdx === multiBalancers.underpayingIdx && multiBalancers.suggestions.length > 0 && (
-                    <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(86,214,255,0.06)", borderRadius: 6 }}>
+                    <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(255,198,47,0.06)", borderRadius: 6 }}>
                       <div className="label" style={{ fontSize: "0.68rem", marginBottom: 4 }}>
                         To balance (Side {sides[multiBalancers.overpayingIdx]?.label} overpays by {Math.round(multiBalancers.gap).toLocaleString()}):
                       </div>
@@ -1215,7 +1215,7 @@ export default function TradePage() {
                           padding: "5px 10px",
                           borderColor: isActive ? "var(--cyan)" : "var(--border)",
                           color: isActive ? "var(--cyan)" : isEmpty ? "var(--border)" : "var(--muted)",
-                          background: isActive ? "rgba(86,214,255,0.08)" : undefined,
+                          background: isActive ? "rgba(255,198,47,0.08)" : undefined,
                           opacity: isEmpty && !isActive ? 0.5 : 1,
                         }}
                       >
@@ -1238,7 +1238,7 @@ export default function TradePage() {
                         className="card"
                         style={{
                           padding: 10,
-                          borderColor: isTopPick ? "rgba(52,211,153,0.5)" : s.edge ? "rgba(86,214,255,0.3)" : undefined,
+                          borderColor: isTopPick ? "rgba(52,211,153,0.5)" : s.edge ? "rgba(255,198,47,0.3)" : undefined,
                           borderWidth: isTopPick ? 2 : undefined,
                         }}
                       >
