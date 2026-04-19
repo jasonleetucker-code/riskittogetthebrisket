@@ -427,6 +427,46 @@ class TestRepresentativePicks(unittest.TestCase):
             "Early 1st should have higher value than late 1st",
         )
 
+    def test_anchored_value_survives_legacy_dict_mirror(self) -> None:
+        """Anchored slot-pick values must reach the runtime view.
+
+        ``/api/data?view=app`` strips ``playersArray`` and reads from
+        the legacy ``players`` dict.  A previous regression had the
+        pick legacy-mirror clearing ``rankDerivedValue`` whenever the
+        rank was None — that fired on suppressed generic tiers (where
+        clearing is correct) AND on anchored slot picks (where it
+        silently dropped the rookie-anchored value).  This test pins
+        that the legacy dict carries the same anchored value the
+        ``playersArray`` row does for every 2026 slot-specific pick.
+        """
+        legacy = self.contract.get("players") or {}
+        pa = self.contract.get("playersArray") or []
+        mismatched: list[str] = []
+        for row in pa:
+            name = str(row.get("canonicalName") or "")
+            if not name.startswith("2026 Pick "):
+                continue
+            if row.get("assetClass") != "pick":
+                continue
+            pa_value = row.get("rankDerivedValue")
+            if pa_value is None or pa_value <= 0:
+                continue
+            legacy_ref = row.get("legacyRef") or name
+            legacy_row = legacy.get(legacy_ref)
+            if not isinstance(legacy_row, dict):
+                mismatched.append(f"{name}: missing legacy row")
+                continue
+            legacy_value = legacy_row.get("rankDerivedValue")
+            if legacy_value != pa_value:
+                mismatched.append(
+                    f"{name}: playersArray={pa_value} legacy={legacy_value}"
+                )
+        self.assertEqual(
+            mismatched, [],
+            f"Anchored slot picks lost value in legacy mirror:\n"
+            + "\n".join(mismatched[:10]),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

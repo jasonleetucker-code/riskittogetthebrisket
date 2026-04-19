@@ -4288,14 +4288,29 @@ def _compute_unified_rankings(
             continue
         rdv = row.get("rankDerivedValue")
         rk = row.get("canonicalConsensusRank")
-        if rdv is not None:
-            pdata["rankDerivedValue"] = rdv
-        if rk is not None:
-            pdata["_canonicalConsensusRank"] = rk
-        else:
-            # Suppressed generic tier — clear ranking on legacy too.
+        is_suppressed = bool(row.get("pickGenericSuppressed"))
+
+        if is_suppressed:
+            # Suppressed generic tier (e.g. "2026 Early 1st" hidden when
+            # slot-specific picks exist) — clear BOTH rank and value
+            # on the legacy mirror too.
             pdata["rankDerivedValue"] = None
             pdata["_canonicalConsensusRank"] = None
+        else:
+            # Mirror whatever value the pick row carries.  Anchored
+            # slot picks may have ``rankDerivedValue`` set even though
+            # ``canonicalConsensusRank`` is None (the Phase 5 compact
+            # pass clears slot-pick ranks; off-cap picks never had one
+            # to begin with).  Clearing the legacy value when the rank
+            # is None would silently drop the rookie-anchored value
+            # for clients reading from the runtime view, which strips
+            # playersArray and uses the legacy dict.
+            if rdv is not None:
+                pdata["rankDerivedValue"] = rdv
+            if rk is not None:
+                pdata["_canonicalConsensusRank"] = rk
+            else:
+                pdata["_canonicalConsensusRank"] = None
         # Mirror the new pick-specific confidence bucket as well.
         if "confidenceBucket" in row:
             pdata["confidenceBucket"] = row["confidenceBucket"]
