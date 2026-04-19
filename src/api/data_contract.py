@@ -1080,6 +1080,47 @@ def _compute_anomaly_flags(
     return flags
 
 
+_GAP_BASED_TIER_CAP: int = 10
+
+
+def _compute_value_based_tier_ids(
+    tiered_rows: list[dict[str, Any]],
+    *,
+    max_tiers: int = _GAP_BASED_TIER_CAP,
+) -> list[int]:
+    """Return gap-based tier IDs aligned with ``tiered_rows``.
+
+    Runs the canonical engine's ``detect_tiers`` (rolling-median gap
+    normalization, see ``src/canonical/player_valuation.py``) over the
+    compacted ``rankDerivedValue`` series.  Tier 1 is the best (top of
+    board); tier IDs increase as value decreases.
+
+    ``detect_tiers`` expects an ascending series whose adjacent
+    positive gaps correspond to "moving away from the best."  Values
+    are descending (best first), so we feed ``-value`` as the series;
+    gaps then come out as positive value drops from row i to row i+1,
+    which is exactly what the gap detector is designed for.
+
+    Caps at ``max_tiers`` to preserve the frontend's fixed tier label
+    vocabulary (Elite, Blue-Chip, …, Waiver Wire).  Gap-detected
+    tiers past the cap collapse into the final tier — the top-of-board
+    boundaries are the meaningful ones; long-tail micro-tiers just get
+    lumped into "Waiver Wire".
+    """
+    if not tiered_rows:
+        return []
+
+    from src.canonical.player_valuation import detect_tiers  # noqa: PLC0415
+
+    series = [-float(r.get("rankDerivedValue") or 0) for r in tiered_rows]
+    player_ids = [str(r.get("canonicalName") or "") for r in tiered_rows]
+    tier_ids, _gaps, _scores, _boundaries = detect_tiers(series, player_ids)
+
+    if max_tiers > 0:
+        tier_ids = [min(t, max_tiers) for t in tier_ids]
+    return tier_ids
+
+
 def _tier_id_from_rank(rank: int) -> int:
     """Return a tier ID (1-10) from an overall rank.
 
@@ -1089,6 +1130,12 @@ def _tier_id_from_rank(rank: int) -> int:
     derivation always agree.  Since the backend now stamps this field
     authoritatively, the frontend fallback should never fire for
     ranked players.
+
+    Retained for the Phase 4 initial stamp and as the frontend-fallback
+    mirror.  The authoritative tier assignment for ranked rows comes
+    from ``_compute_value_based_tier_ids`` in the Phase 5 compact
+    pass; this function is overwritten for every tiered row before the
+    contract is returned.
     """
     if rank <= 12:
         return 1   # Elite
@@ -3922,7 +3969,8 @@ def _compute_unified_rankings(
     #     neighborhood of their rookie target; fall back to the existing
     #     canonicalConsensusRank to preserve the prior Phase-4 ordering
     #     for all rows whose values were not mutated.  Tier IDs are
-    #     re-derived from the new ranks.
+    #     re-derived after compaction via gap-based detection on the
+    #     blended ``rankDerivedValue`` series (see below).
     ranked_rows = sorted(
         [r for r in players_array if r.get("canonicalConsensusRank")],
         key=lambda r: (
@@ -3938,6 +3986,11 @@ def _compute_unified_rankings(
     # down one rank. Only applies to slot-specific current-year picks
     # (e.g. "2026 Pick 1.06"); tier-generic picks ("2026 Early 1st")
     # still take ordinary rank slots.
+    #
+    # Collect the ranked rows that actually receive a tier ID so the
+    # gap-detection pass below sees only the compacted board (no
+    # None-ranked anchor slot picks in the middle of its gap series).
+    tiered_rows: list[dict[str, Any]] = []
     new_rank = 0
     for r in ranked_rows:
         is_anchor_slot_pick = False
@@ -3953,7 +4006,21 @@ def _compute_unified_rankings(
         old_rank = r.get("canonicalConsensusRank")
         if old_rank != new_rank:
             r["canonicalConsensusRank"] = new_rank
-        r["canonicalTierId"] = _tier_id_from_rank(new_rank)
+        tiered_rows.append(r)
+
+    # Gap-based tier detection on the blended value series.  Replaces
+    # the prior flat ``_tier_id_from_rank`` bucketing (1-12=Elite,
+    # 13-36=Blue-Chip, etc.) with real market-cliff detection: tiers
+    # land where the per-player value gap is unusually large relative
+    # to the local rolling-median gap.  A 400-point drop from rank
+    # 12→13 registers as a new tier boundary; a 3-point drop from
+    # 312→313 does not.  Caps at 10 tiers so the frontend's
+    # ``TIER_LABELS`` ("Elite" … "Waiver Wire") still maps cleanly;
+    # any gap-detected tiers past the cap collapse into tier 10.
+    for r, tier_id in zip(
+        tiered_rows, _compute_value_based_tier_ids(tiered_rows)
+    ):
+        r["canonicalTierId"] = tier_id
 
     # (Phase 5b — value re-flattening — intentionally removed.) The
     # pre-sort ``rankDerivedValue`` is a weighted blend of per-source
