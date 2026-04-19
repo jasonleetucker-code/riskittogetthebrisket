@@ -70,10 +70,15 @@ class TestCsvExports(unittest.TestCase):
         with IDP_CSV.open("r", encoding="utf-8") as f:
             idp_families = {_family(row["position"]) for row in csv.DictReader(f)}
         # SF should be offense-only; IDP should be defense-only.
+        # The HTTP-scraped FBG IDP page omits the positional ordinal
+        # (which the PDF parser used to produce), so every IDP row
+        # carries position="IDP" now.  The enrichment path resolves
+        # the real DL/LB/DB family via the sleeper positions map.
+        allowed_idp = {"DE", "DT", "LB", "CB", "S", "IDP"}
         self.assertTrue(sf_families <= {"QB", "RB", "WR", "TE"},
                         f"Non-offense families in SF: {sf_families - {'QB','RB','WR','TE'}}")
-        self.assertTrue(idp_families <= {"DE", "DT", "LB", "CB", "S"},
-                        f"Non-IDP families in IDP: {idp_families - {'DE','DT','LB','CB','S'}}")
+        self.assertTrue(idp_families <= allowed_idp,
+                        f"Non-IDP families in IDP: {idp_families - allowed_idp}")
 
 
 class TestRegistryWiring(unittest.TestCase):
