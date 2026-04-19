@@ -54,6 +54,11 @@ export default function AnglePage() {
   const [perTeamLimit, setPerTeamLimit] = useState(DEFAULT_PER_TEAM);
   const [positionFilters, setPositionFilters] = useState(() => new Set());
   const [minPlayerValue, setMinPlayerValue] = useState(DEFAULT_MIN_PLAYER_VALUE);
+  // Up to 2 opposing teams the user explicitly wants to trade with.
+  const [targetOwners, setTargetOwners] = useState(["", ""]);
+  // Seed players keyed by ownerId — players that MUST appear in
+  // every counter-package when a target team is selected.
+  const [seedsByOwner, setSeedsByOwner] = useState({});
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -126,6 +131,40 @@ export default function AnglePage() {
     });
   }
 
+  function setTargetOwnerAt(slot, value) {
+    setTargetOwners((prev) => {
+      const next = [...prev];
+      next[slot] = value;
+      return next;
+    });
+  }
+
+  function toggleSeed(ownerIdKey, playerName) {
+    setSeedsByOwner((prev) => {
+      const current = new Set(prev[ownerIdKey] || []);
+      if (current.has(playerName)) current.delete(playerName);
+      else current.add(playerName);
+      return { ...prev, [ownerIdKey]: current };
+    });
+  }
+
+  const activeTargetOwnerIds = useMemo(
+    () =>
+      targetOwners
+        .filter((id) => id && id !== ownerId)
+        // Deduplicate so selecting the same team twice doesn't double-count.
+        .reduce((acc, id) => (acc.includes(id) ? acc : [...acc, id]), []),
+    [targetOwners, ownerId],
+  );
+
+  const activeSeedNames = useMemo(() => {
+    const out = [];
+    for (const id of activeTargetOwnerIds) {
+      for (const name of seedsByOwner[id] || []) out.push(name);
+    }
+    return out;
+  }, [activeTargetOwnerIds, seedsByOwner]);
+
   async function findAngles() {
     if (!ownerId || offerList.length === 0) {
       setErr("Pick a team and check at least one player.");
@@ -147,6 +186,8 @@ export default function AnglePage() {
           perTeamLimit: Number(perTeamLimit),
           minPlayerMyValue: Number(minPlayerValue),
           positions: Array.from(positionFilters),
+          targetTeamOwnerIds: activeTargetOwnerIds,
+          seedPlayerNames: activeSeedNames,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -346,6 +387,102 @@ export default function AnglePage() {
               deep-bench filler.
             </span>
           </div>
+        </div>
+      </section>
+
+      <section className="card angle-targets-card">
+        <div className="angle-filter-head">
+          <strong>Trade with specific teams (optional)</strong>
+          <span className="muted">
+            Pick up to 2 opposing teams. Check off any "must-have" players
+            from their rosters and the search will build counter-packages
+            that include those seeds and fill the rest from the selected
+            teams' top players.
+          </span>
+        </div>
+        <div className="angle-targets-row">
+          {[0, 1].map((slot) => {
+            const selectedId = targetOwners[slot];
+            const otherId = targetOwners[1 - slot];
+            const team = teams.find(
+              (t) => String(t.ownerId || "") === selectedId,
+            );
+            const roster = team?.players || [];
+            const seedsForTeam = new Set(seedsByOwner[selectedId] || []);
+            return (
+              <div key={slot} className="angle-target-slot">
+                <label className="angle-field">
+                  <span className="muted">Team {slot + 1}</span>
+                  <select
+                    value={selectedId}
+                    onChange={(e) => setTargetOwnerAt(slot, e.target.value)}
+                    disabled={busy}
+                  >
+                    <option value="">(any team)</option>
+                    {teams
+                      .filter(
+                        (t) =>
+                          String(t.ownerId || "") !== ownerId &&
+                          String(t.ownerId || "") !== otherId,
+                      )
+                      .map((t) => (
+                        <option
+                          key={t.ownerId}
+                          value={String(t.ownerId || "")}
+                        >
+                          {t.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                {selectedId && (
+                  <div className="angle-target-seeds">
+                    <div className="muted">
+                      Seed players from <strong>{team?.name}</strong>{" "}
+                      <span className="angle-field-hint">
+                        (required in every counter-package)
+                      </span>
+                    </div>
+                    <div className="angle-target-seed-grid">
+                      {[...roster]
+                        .sort((a, b) => {
+                          const av = valueByName.get(a)?.my_value || 0;
+                          const bv = valueByName.get(b)?.my_value || 0;
+                          return bv - av || a.localeCompare(b);
+                        })
+                        .map((name) => {
+                          const info = valueByName.get(name);
+                          const checked = seedsForTeam.has(name);
+                          return (
+                            <label
+                              key={name}
+                              className={`angle-roster-row ${
+                                checked ? "angle-roster-checked" : ""
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleSeed(selectedId, name)}
+                                disabled={busy}
+                              />
+                              <span className="angle-roster-name">{name}</span>
+                              {info && (
+                                <span className="muted angle-roster-meta">
+                                  {info.position || "—"} · my{" "}
+                                  {info.my_value.toLocaleString()} / ktc{" "}
+                                  {info.ktc_value.toLocaleString()}
+                                </span>
+                              )}
+                            </label>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </section>
 

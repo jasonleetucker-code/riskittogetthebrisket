@@ -421,3 +421,131 @@ def test_packages_filters_surfaced_in_thresholds():
     th = result["thresholds"]
     assert th["positions"] == ["TE", "WR"]  # sorted
     assert th["min_player_my_value"] == 2500
+
+
+def test_packages_target_teams_restrict_candidates():
+    """When target_team_owner_ids is non-empty, candidates come only
+    from those teams (and the result package carries a combined
+    team label)."""
+    offer = ["Jayden Daniels"]
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["Jayden Daniels"]},
+        {"name": "Team B", "ownerId": "owner-b", "players": ["B Star"]},
+        {"name": "Team C", "ownerId": "owner-c", "players": ["C Star"]},
+    ]
+    players = [
+        _player("Jayden Daniels", 5000, 5000),
+        _player("B Star", 6000, 5000),
+        _player("C Star", 6000, 5000),
+    ]
+    result = find_angle_packages(
+        players, offer, "owner-a", teams,
+        target_team_owner_ids=["owner-b"],
+    )
+    # Every candidate has owner_id == "owner-b" (our single target).
+    assert all(c["owner_id"] == "owner-b" for c in result["candidates"])
+    names = {p["name"] for c in result["candidates"] for p in c["players"]}
+    assert "C Star" not in names  # Team C excluded by target filter
+
+
+def test_packages_seed_player_must_appear_in_every_candidate():
+    """Seeded players are required in every counter-package."""
+    offer = ["Jayden Daniels", "CeeDee Lamb"]  # N = 2
+    teams = [
+        {
+            "name": "Team A", "ownerId": "owner-a",
+            "players": ["Jayden Daniels", "CeeDee Lamb"],
+        },
+        {
+            "name": "Team B", "ownerId": "owner-b",
+            "players": ["B Star", "B Mid", "B Bench"],
+        },
+    ]
+    players = [
+        _player("Jayden Daniels", 5000, 5000),
+        _player("CeeDee Lamb", 5000, 5000),
+        _player("B Star", 6500, 5200),    # this is the seed
+        _player("B Mid", 5500, 4800),
+        _player("B Bench", 4500, 4500),
+    ]
+    result = find_angle_packages(
+        players, offer, "owner-a", teams,
+        target_team_owner_ids=["owner-b"],
+        seed_player_names=["B Star"],
+    )
+    assert result["candidates"], "Expected at least one candidate"
+    # Every candidate contains the seed.
+    for c in result["candidates"]:
+        names = {p["name"] for p in c["players"]}
+        assert "B Star" in names
+
+
+def test_packages_two_target_teams_draw_from_union():
+    """With 2 target teams selected, the counter-package candidate
+    pool is the union of both teams' top-N players."""
+    offer = ["Jayden Daniels", "CeeDee Lamb"]
+    teams = [
+        {
+            "name": "Team A", "ownerId": "owner-a",
+            "players": ["Jayden Daniels", "CeeDee Lamb"],
+        },
+        {"name": "Team B", "ownerId": "owner-b", "players": ["B Star"]},
+        {"name": "Team C", "ownerId": "owner-c", "players": ["C Star"]},
+    ]
+    players = [
+        _player("Jayden Daniels", 5000, 5000),
+        _player("CeeDee Lamb", 5000, 5000),
+        _player("B Star", 6000, 5000),
+        _player("C Star", 6000, 5000),
+    ]
+    result = find_angle_packages(
+        players, offer, "owner-a", teams,
+        target_team_owner_ids=["owner-b", "owner-c"],
+        seed_player_names=["B Star", "C Star"],
+    )
+    assert result["candidates"], "Expected 2-player counter with both seeds"
+    # Every candidate contains both seeds.
+    for c in result["candidates"]:
+        names = {p["name"] for p in c["players"]}
+        assert "B Star" in names and "C Star" in names
+    # Team label reflects multi-team nature.
+    assert "+" in result["candidates"][0]["team"]
+
+
+def test_packages_warning_for_seed_not_on_target_team():
+    offer = ["Jayden Daniels"]
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["Jayden Daniels"]},
+        {"name": "Team B", "ownerId": "owner-b", "players": ["B Star"]},
+        {"name": "Team C", "ownerId": "owner-c", "players": ["C Star"]},
+    ]
+    players = [
+        _player("Jayden Daniels", 5000, 5000),
+        _player("B Star", 6000, 5000),
+        _player("C Star", 6000, 5000),
+    ]
+    result = find_angle_packages(
+        players, offer, "owner-a", teams,
+        target_team_owner_ids=["owner-b"],
+        seed_player_names=["C Star"],  # not on Team B — should be ignored w/ warning
+    )
+    assert any("not on any selected target team" in w for w in result["warnings"])
+
+
+def test_packages_no_targets_uses_existing_per_team_mode():
+    """Existing per-team behaviour is preserved when no targets given."""
+    offer = ["Jayden Daniels"]
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["Jayden Daniels"]},
+        {"name": "Team B", "ownerId": "owner-b", "players": ["B Star"]},
+        {"name": "Team C", "ownerId": "owner-c", "players": ["C Star"]},
+    ]
+    players = [
+        _player("Jayden Daniels", 5000, 5000),
+        _player("B Star", 6000, 5000),
+        _player("C Star", 6000, 5000),
+    ]
+    result = find_angle_packages(players, offer, "owner-a", teams)
+    # Should see packages from both Team B and Team C independently.
+    owners = {c["owner_id"] for c in result["candidates"]}
+    assert owners == {"owner-b", "owner-c"}

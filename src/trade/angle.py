@@ -205,6 +205,8 @@ def find_angle_packages(
     per_team_limit: int = 4,
     positions: list[str] | None = None,
     min_player_my_value: float = 0.0,
+    target_team_owner_ids: list[str] | None = None,
+    seed_player_names: list[str] | None = None,
 ) -> dict[str, Any]:
     """Find multi-player counter-packages for a user-built offer.
 
@@ -344,41 +346,169 @@ def find_angle_packages(
     min_my_total = offer_my_total * (1.0 + min_my_gain_pct / 100.0)
     max_ktc_total = offer_ktc_total * (1.0 + max_ktc_gain_pct / 100.0)
 
+    # Normalise target-team + seed inputs for constructed-package mode.
+    target_ids: set[str] = {
+        str(t).strip() for t in (target_team_owner_ids or []) if str(t).strip()
+    }
+    seed_names_requested = [
+        str(n).strip() for n in (seed_player_names or []) if str(n).strip()
+    ]
+
     candidates: list[dict[str, Any]] = []
-    for team, pool in teams_pool:
-        for size in target_sizes:
-            if len(pool) < size:
+    seed_names_set: set[str] = set()
+
+    def _row_to_pool_entry(row: dict[str, Any]) -> dict[str, Any] | None:
+        pair = _value_pair(row)
+        if pair is None:
+            return None
+        my_v, ktc_v = pair
+        return {
+            "name": str(row.get("canonicalName") or row.get("displayName") or ""),
+            "position": str(row.get("position") or ""),
+            "my_value": my_v,
+            "ktc_value": ktc_v,
+        }
+
+    def _make_candidate(
+        combo: tuple[dict[str, Any], ...],
+        team_label: str,
+        owner_id_label: str,
+    ) -> dict[str, Any] | None:
+        my_sum = sum(p["my_value"] for p in combo)
+        if my_sum < min_my_total:
+            return None
+        ktc_sum = sum(p["ktc_value"] for p in combo)
+        if ktc_sum > max_ktc_total:
+            return None
+        my_gain_pct = 100.0 * (my_sum - offer_my_total) / offer_my_total
+        ktc_gain_pct = 100.0 * (ktc_sum - offer_ktc_total) / offer_ktc_total
+        return {
+            "team": team_label,
+            "owner_id": owner_id_label,
+            "size": len(combo),
+            "players": [
+                {
+                    "name": p["name"],
+                    "position": p["position"],
+                    "my_value": int(p["my_value"]),
+                    "ktc_value": int(p["ktc_value"]),
+                }
+                for p in combo
+            ],
+            "my_total": int(round(my_sum)),
+            "ktc_total": int(round(ktc_sum)),
+            "my_gain_pct": round(my_gain_pct, 2),
+            "ktc_gain_pct": round(ktc_gain_pct, 2),
+            "arb_score": round(my_gain_pct - ktc_gain_pct, 2),
+        }
+
+    if target_ids:
+        # ── Constructed-package mode ─────────────────────────────
+        # User picked 1 or 2 specific opposing teams. Pool is the
+        # union of those teams' candidates; all seed players are
+        # required in every result (seeds bypass position/value
+        # filters because the user explicitly asked for them).
+        target_teams: list[dict[str, Any]] = []
+        combined_pool_by_name: dict[str, dict[str, Any]] = {}
+        owner_by_pool_name: dict[str, str] = {}
+        target_team_names: list[str] = []
+        target_team_owners: list[str] = []
+        for team, pool in teams_pool:
+            owner = str(team.get("ownerId") or "")
+            if owner not in target_ids:
                 continue
-            for combo in combinations(pool, size):
-                my_sum = sum(p["my_value"] for p in combo)
-                if my_sum < min_my_total:
+            target_teams.append(team)
+            target_team_names.append(str(team.get("name") or ""))
+            target_team_owners.append(owner)
+            for entry in pool:
+                combined_pool_by_name[entry["name"]] = entry
+                owner_by_pool_name[entry["name"]] = owner
+
+        # Resolve seeds. Seeds must be owned by one of the target
+        # teams and bypass the filter pool — they're mandatory.
+        seed_entries: list[dict[str, Any]] = []
+        missing_seeds: list[str] = []
+        wrong_team_seeds: list[str] = []
+        for sname in seed_names_requested:
+            row = by_name.get(sname)
+            if not row:
+                missing_seeds.append(sname)
+                continue
+            # Find which team owns this seed.
+            owner_of_seed = None
+            for team in target_teams:
+                if sname in (team.get("players") or []):
+                    owner_of_seed = str(team.get("ownerId") or "")
+                    break
+            if owner_of_seed is None:
+                wrong_team_seeds.append(sname)
+                continue
+            entry = _row_to_pool_entry(row)
+            if entry is None:
+                missing_seeds.append(sname)
+                continue
+            seed_entries.append(entry)
+            # Ensure seeds are present in the combined pool so they
+            # can participate in filter-respecting combo selection
+            # (but seeds themselves bypass the filter cuts above).
+            combined_pool_by_name.setdefault(entry["name"], entry)
+            owner_by_pool_name.setdefault(entry["name"], owner_of_seed)
+        if missing_seeds:
+            warnings.append(
+                f"Dropped {len(missing_seeds)} seed player(s) with missing data: "
+                f"{', '.join(missing_seeds[:5])}"
+                + (" …" if len(missing_seeds) > 5 else "")
+            )
+        if wrong_team_seeds:
+            warnings.append(
+                f"Ignored {len(wrong_team_seeds)} seed player(s) not on any selected "
+                f"target team: {', '.join(wrong_team_seeds[:5])}"
+                + (" …" if len(wrong_team_seeds) > 5 else "")
+            )
+
+        seed_names_set = {e["name"] for e in seed_entries}
+        non_seed_pool = [
+            e for e in combined_pool_by_name.values() if e["name"] not in seed_names_set
+        ]
+        # Sort non-seed pool by my_value for deterministic order.
+        non_seed_pool.sort(key=lambda p: -p["my_value"])
+
+        team_label = " + ".join(target_team_names) or "(selected teams)"
+        owner_label = "+".join(target_team_owners) or ",".join(sorted(target_ids))
+
+        for size in target_sizes:
+            if size < len(seed_entries):
+                continue  # can't fit all required seeds
+            free_slots = size - len(seed_entries)
+            if free_slots == 0:
+                combo = tuple(seed_entries)
+                cand = _make_candidate(combo, team_label, owner_label)
+                if cand is not None:
+                    candidates.append(cand)
+                continue
+            if len(non_seed_pool) < free_slots:
+                continue
+            for fillers in combinations(non_seed_pool, free_slots):
+                combo = tuple(seed_entries) + fillers
+                cand = _make_candidate(combo, team_label, owner_label)
+                if cand is not None:
+                    candidates.append(cand)
+    else:
+        # ── Default mode: one team per candidate package ──
+        # This is the existing behaviour — each opposing team
+        # contributes its own packages independently.
+        for team, pool in teams_pool:
+            for size in target_sizes:
+                if len(pool) < size:
                     continue
-                ktc_sum = sum(p["ktc_value"] for p in combo)
-                if ktc_sum > max_ktc_total:
-                    continue
-                my_gain_pct = 100.0 * (my_sum - offer_my_total) / offer_my_total
-                ktc_gain_pct = 100.0 * (ktc_sum - offer_ktc_total) / offer_ktc_total
-                candidates.append(
-                    {
-                        "team": team.get("name"),
-                        "owner_id": str(team.get("ownerId") or ""),
-                        "size": size,
-                        "players": [
-                            {
-                                "name": p["name"],
-                                "position": p["position"],
-                                "my_value": int(p["my_value"]),
-                                "ktc_value": int(p["ktc_value"]),
-                            }
-                            for p in combo
-                        ],
-                        "my_total": int(round(my_sum)),
-                        "ktc_total": int(round(ktc_sum)),
-                        "my_gain_pct": round(my_gain_pct, 2),
-                        "ktc_gain_pct": round(ktc_gain_pct, 2),
-                        "arb_score": round(my_gain_pct - ktc_gain_pct, 2),
-                    }
-                )
+                for combo in combinations(pool, size):
+                    cand = _make_candidate(
+                        combo,
+                        str(team.get("name") or ""),
+                        str(team.get("ownerId") or ""),
+                    )
+                    if cand is not None:
+                        candidates.append(cand)
 
     # Per-team cap first — prevents a single opposing roster from
     # swamping the results with 50 near-identical variations of the
@@ -429,6 +559,8 @@ def find_angle_packages(
             "target_sizes": target_sizes,
             "positions": sorted(position_filter) if position_filter else [],
             "min_player_my_value": int(min_my_value_floor),
+            "target_team_owner_ids": sorted(target_ids) if target_ids else [],
+            "seed_player_names": sorted(seed_names_set) if target_ids else [],
         },
         "warnings": warnings,
     }
