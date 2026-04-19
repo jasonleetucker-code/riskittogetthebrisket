@@ -1,0 +1,9 @@
+{
+  "source": "FLOCK_FANTASY_SF",
+  "snapshot_id": "flock_fantasy_sf_2026_20260419T134945Z",
+  "adapter": "scraper_bridge",
+  "record_count": 0,
+  "warnings": [
+    "Scraper bridge: file loaded but produced no usable rows \u2014 flockFantasySf.csv"
+  ]
+}

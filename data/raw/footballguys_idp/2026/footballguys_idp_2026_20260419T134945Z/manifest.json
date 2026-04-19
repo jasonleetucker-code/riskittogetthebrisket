@@ -1,0 +1,19 @@
+{
+  "source": "FOOTBALLGUYS_IDP",
+  "snapshot_id": "footballguys_idp_2026_20260419T134945Z",
+  "pulled_at_utc": "2026-04-19T13:49:45.833929+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty IDP (FootballGuys 3-expert consensus, IDP half of the mixed dynasty PDF)",
+  "universe": "idp_vet",
+  "ingest_method": "pdf_convert",
+  "ingest_type": "pdf_manual",
+  "source_url": "https://www.footballguys.com/rankings/dynasty",
+  "format_key": "dynasty_idp",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/CSVs/site_raw/footballGuysIdp.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/footballguys_idp/2026/footballguys_idp_2026_20260419T134945Z",
+  "record_count": 406,
+  "hash": "9a0351d17e18c659e7f7174dc04a40d3888f28346a10acbbb351c571d823c8b8",
+  "notes": "FootballGuys dynasty rankings \u2014 IDP half of the same PDF export.  3-expert consensus covering DE/DT/LB/CB/S.  Translates through the shared-market IDP ladder.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
