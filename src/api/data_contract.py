@@ -72,6 +72,7 @@ _OFFENSE_SIGNAL_KEYS = {
     "dlfSf",
     "dynastyNerdsSfTep",
     "footballGuysSf",
+    "yahooBoone",
 }
 _IDP_SIGNAL_KEYS = {
     "idpTradeCalc",
@@ -237,6 +238,17 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/footballGuysIdp.csv",
         "signal": "rank",
     },
+    # Yahoo / Justin Boone dynasty trade value charts — scraped from
+    # sports.yahoo.com via ``scripts/fetch_yahoo_boone.py``.  The
+    # scraper combines Boone's QB (2QB column), RB, WR, and TE
+    # (TE-Prem. column) charts into one cross-positional competition
+    # rank and writes the ``rank`` column of the CSV.  Signal=rank so
+    # the ``_enrich_from_source_csvs`` reader picks up the rank column
+    # via ``_RANK_ALIASES``.
+    "yahooBoone": {
+        "path": "CSVs/site_raw/yahooBoone.csv",
+        "signal": "rank",
+    },
 }
 
 # Rank -> synthetic value transform used when a CSV declares signal=rank.
@@ -265,6 +277,10 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     # a generous 30-day staleness window before flagging.
     "footballGuysSf": 720,
     "footballGuysIdp": 720,
+    # Yahoo / Justin Boone trade value charts refresh ~monthly, so
+    # allow a 30-day window; the fetcher also emits its own stale-
+    # article warning if Yahoo's redirect chain ever stops resolving.
+    "yahooBoone": 720,
 }
 
 # ── Per-source row-count floors ───────────────────────────────────────────
@@ -292,6 +308,10 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # match counts.
     "footballGuysSf": 375,
     "footballGuysIdp": 230,
+    # Yahoo / Justin Boone charts: QB+RB+WR+TE combined = ~500 rows
+    # at the April 2026 baseline.  Floor at ~80% so a scrape regression
+    # trips a warning.
+    "yahooBoone": 400,
 }
 
 

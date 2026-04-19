@@ -41,15 +41,17 @@ Output CSV
 
 Written to ``CSVs/site_raw/yahooBoone.csv`` with columns::
 
-    name, pos, value, boone_value
+    name, pos, rank, boone_value
 
-``value`` holds the **competition rank** computed across all four
+``rank`` holds the **competition rank** computed across all four
 positions combined — ties share a rank and the next rank is skipped
-(1, 2, 3, 3, 5).  This matches ``ScraperBridgeAdapter`` which reads
-whatever lives in the ``value`` column and interprets it per the
-source's declared ``signal_type`` (``rank`` for YAHOO_BOONE).  The
-``boone_value`` column carries the original published chart number
-for human eyeballing and is ignored by the pipeline.
+(1, 2, 3, 3, 5).  Both canonical readers pick this column up: the
+legacy-payload enrichment in ``src/api/data_contract.py``
+(``_parse_source_csv_cached`` with ``signal=rank``) resolves via
+``_RANK_ALIASES``, and the modular pipeline's ``ScraperBridgeAdapter``
+falls back to the ``rank`` column when no ``value`` column is present.
+The ``boone_value`` column carries the original published chart
+number for human eyeballing and is ignored by both readers.
 
 Run::
 
@@ -275,10 +277,12 @@ def _assign_ranks(rows: list[YahooRow]) -> list[tuple[YahooRow, int]]:
 # ── CSV writer ────────────────────────────────────────────────────────
 def _write_csv(path: Path, ranked: list[tuple[YahooRow, int]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    # ``value`` = the pipeline signal (competition rank across all
-    # positions).  ``boone_value`` = the original Yahoo chart number,
-    # kept for human eyeballing; ScraperBridgeAdapter ignores it.
-    fields = ["name", "pos", "value", "boone_value"]
+    # ``rank`` is the pipeline signal (competition rank across all
+    # positions), named to match the _RANK_ALIASES alias list in
+    # src/api/data_contract.py so the legacy-payload enrichment reader
+    # picks it up.  ``boone_value`` preserves the original Yahoo chart
+    # number for human eyeballing; both readers ignore it.
+    fields = ["name", "pos", "rank", "boone_value"]
     with path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
@@ -287,7 +291,7 @@ def _write_csv(path: Path, ranked: list[tuple[YahooRow, int]]) -> None:
                 {
                     "name": row.name,
                     "pos": row.pos,
-                    "value": rank,
+                    "rank": rank,
                     "boone_value": row.value,
                 }
             )

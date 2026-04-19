@@ -958,20 +958,25 @@ class TestTepMultiplier(unittest.TestCase):
     def test_tep_native_disabled_full_non_native_boost(self) -> None:
         """With only non-TEP sources active, the TEP boost should approach the raw multiplier.
 
-        Disabling dynastyNerdsSfTep removes the TEP-native contribution
-        entirely, so every remaining source gets multiplied by TEP,
-        and the blended value should be exactly ``baseline * TEP``
-        (within rounding).  No double-boost is possible because there
-        are no TEP-native sources left to pass through.
+        Disabling every TEP-native source (dynastyNerdsSfTep and
+        yahooBoone) removes the TEP-native contribution entirely, so
+        every remaining source gets multiplied by TEP and the blended
+        value should be exactly ``baseline * TEP`` (within rounding).
+        No double-boost is possible because there are no TEP-native
+        sources left to pass through.
         """
+        _disable_tep_native = {
+            "dynastyNerdsSfTep": {"include": False},
+            "yahooBoone": {"include": False},
+        }
         base = build_api_data_contract(
             _fixture_raw_payload(),
-            source_overrides={"dynastyNerdsSfTep": {"include": False}},
+            source_overrides=_disable_tep_native,
             tep_multiplier=1.0,
         )
         boosted = build_api_data_contract(
             _fixture_raw_payload(),
-            source_overrides={"dynastyNerdsSfTep": {"include": False}},
+            source_overrides=_disable_tep_native,
             tep_multiplier=1.15,
         )
         base_bowers = _by_name(base)["Brock Bowers"]
@@ -1011,17 +1016,21 @@ class TestTepMultiplier(unittest.TestCase):
         )
 
     def test_tep_with_tep_native_disabled_via_source_override(self) -> None:
-        """Disabling the TEP-native source + TEP=1.15 = every remaining source gets boosted, zero double-count."""
+        """Disabling every TEP-native source + TEP=1.15 = every remaining source gets boosted, zero double-count."""
         contract = build_api_data_contract(
             _fixture_raw_payload(),
-            source_overrides={"dynastyNerdsSfTep": {"include": False}},
+            source_overrides={
+                "dynastyNerdsSfTep": {"include": False},
+                "yahooBoone": {"include": False},
+            },
             tep_multiplier=1.15,
         )
         by_name = _by_name(contract)
         bowers = by_name.get("Brock Bowers")
         self.assertIsNotNone(bowers)
-        # No dynastyNerdsSfTep contribution.
+        # No TEP-native contributions.
         self.assertNotIn("dynastyNerdsSfTep", bowers.get("sourceRanks", {}))
+        self.assertNotIn("yahooBoone", bowers.get("sourceRanks", {}))
         # Every remaining source meta should show a tepBoostApplied flag
         # on a TE row.
         for key, meta in (bowers.get("sourceRankMeta") or {}).items():

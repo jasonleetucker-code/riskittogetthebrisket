@@ -281,9 +281,10 @@ class TestFetchAll:
 # ── CSV writer ────────────────────────────────────────────────────────
 
 class TestCsvWriter:
-    def test_value_column_holds_rank_signal(self, yb_module, tmp_path):
-        """``value`` is the rank (signal for the pipeline).
-        ``boone_value`` preserves the published chart number for humans."""
+    def test_rank_column_holds_signal(self, yb_module, tmp_path):
+        """``rank`` is the pipeline signal (matches _RANK_ALIASES so
+        _parse_source_csv_cached picks it up).  ``boone_value`` preserves
+        the published chart number for humans."""
         Row = yb_module.YahooRow
         rows = [Row("Josh Allen", "QB", 141), Row("Trey McBride", "TE", 108)]
         ranked = yb_module._assign_ranks(rows)
@@ -294,9 +295,9 @@ class TestCsvWriter:
             data = list(csv.DictReader(f))
         assert data[0]["name"] == "Josh Allen"
         assert data[0]["pos"] == "QB"
-        assert data[0]["value"] == "1"           # rank (signal)
+        assert data[0]["rank"] == "1"           # signal
         assert data[0]["boone_value"] == "141"  # original chart number
-        assert data[1]["value"] == "2"
+        assert data[1]["rank"] == "2"
 
     def test_csv_is_readable_by_scraper_bridge(self, yb_module, tmp_path):
         """The resulting CSV must be loadable by ScraperBridgeAdapter
