@@ -3788,14 +3788,19 @@ def _compute_unified_rankings(
             else:
                 weighted_mean = sum(values) / len(values)
 
-            # Robust blend: drop the *single* worst (most pessimistic)
-            # outlier when 3+ sources disagree, otherwise take the
-            # median of the surviving values.  With only two sources
-            # we average them — there's nothing to drop without losing
-            # half the signal.
+            # Robust blend: when 5+ sources contribute, symmetrically
+            # trim both extremes — drop the most pessimistic AND the
+            # most optimistic value so a single bullish outlier gets
+            # the same discount as a single bearish one.  Only fires
+            # at 5+ because a 2-trim on 4 sources throws away half
+            # the signal.  3-4 sources keep the prior asymmetric
+            # behavior (drop only the worst).  2 = mean; 1 = use.
             sorted_vals = sorted(values)
-            if len(sorted_vals) >= 3:
-                trimmed = sorted_vals[1:]  # drop the worst
+            if len(sorted_vals) >= 5:
+                trimmed = sorted_vals[1:-1]
+                robust = sum(trimmed) / len(trimmed)
+            elif len(sorted_vals) >= 3:
+                trimmed = sorted_vals[1:]  # drop the worst only
                 robust = sum(trimmed) / len(trimmed)
             elif len(sorted_vals) == 2:
                 robust = sum(sorted_vals) / 2.0
