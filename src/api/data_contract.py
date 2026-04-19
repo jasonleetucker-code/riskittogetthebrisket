@@ -295,10 +295,26 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
 }
 
 
+_SOURCE_ROW_FLOORS_CACHE: dict[str, Any] = {"mtime": None, "value": None}
+
+
 def _load_source_row_floors() -> dict[str, int]:
     """Load per-source row-count floors from config with fallback defaults."""
     repo_root = Path(__file__).resolve().parents[2]
     cfg_path = repo_root / "config" / "weights" / "source_row_floors.json"
+    current_mtime: float | None = None
+    if cfg_path.exists():
+        try:
+            current_mtime = cfg_path.stat().st_mtime
+        except OSError:
+            current_mtime = None
+    cached_mtime = _SOURCE_ROW_FLOORS_CACHE.get("mtime")
+    cached_value = _SOURCE_ROW_FLOORS_CACHE.get("value")
+    if (
+        isinstance(cached_value, dict)
+        and cached_mtime == current_mtime
+    ):
+        return dict(cached_value)
     if cfg_path.exists():
         try:
             with cfg_path.open("r", encoding="utf-8") as fh:
@@ -311,12 +327,17 @@ def _load_source_row_floors() -> dict[str, int]:
                         merged[str(key)] = int(val)
                     except (TypeError, ValueError):
                         continue
-                return merged
+                _SOURCE_ROW_FLOORS_CACHE["mtime"] = current_mtime
+                _SOURCE_ROW_FLOORS_CACHE["value"] = merged
+                return dict(merged)
         except Exception as exc:  # noqa: BLE001
             _LOGGER.warning(
                 "Failed to load source_row_floors.json (%s); using defaults", exc
             )
-    return dict(_DEFAULT_SOURCE_ROW_FLOORS)
+    default = dict(_DEFAULT_SOURCE_ROW_FLOORS)
+    _SOURCE_ROW_FLOORS_CACHE["mtime"] = current_mtime
+    _SOURCE_ROW_FLOORS_CACHE["value"] = default
+    return dict(default)
 
 
 # ── Pick-count floor ─────────────────────────────────────────────────────
@@ -358,10 +379,26 @@ _DEFAULT_TOP50_COVERAGE_FLOORS: dict[str, dict[str, int]] = {
 }
 
 
+_TOP50_COVERAGE_FLOORS_CACHE: dict[str, Any] = {"mtime": None, "value": None}
+
+
 def _load_top50_coverage_floors() -> dict[str, dict[str, int]]:
     """Load top-50 per-source coverage floors from config with defaults."""
     repo_root = Path(__file__).resolve().parents[2]
     cfg_path = repo_root / "config" / "weights" / "top50_coverage_floors.json"
+    current_mtime: float | None = None
+    if cfg_path.exists():
+        try:
+            current_mtime = cfg_path.stat().st_mtime
+        except OSError:
+            current_mtime = None
+    cached_mtime = _TOP50_COVERAGE_FLOORS_CACHE.get("mtime")
+    cached_value = _TOP50_COVERAGE_FLOORS_CACHE.get("value")
+    if (
+        isinstance(cached_value, dict)
+        and cached_mtime == current_mtime
+    ):
+        return {k: dict(v) for k, v in cached_value.items()}
     merged: dict[str, dict[str, int]] = {
         k: dict(v) for k, v in _DEFAULT_TOP50_COVERAGE_FLOORS.items()
     }
@@ -374,7 +411,9 @@ def _load_top50_coverage_floors() -> dict[str, dict[str, int]]:
                 "Failed to load top50_coverage_floors.json (%s); using defaults",
                 exc,
             )
-            return merged
+            _TOP50_COVERAGE_FLOORS_CACHE["mtime"] = current_mtime
+            _TOP50_COVERAGE_FLOORS_CACHE["value"] = merged
+            return {k: dict(v) for k, v in merged.items()}
         if isinstance(cfg, dict):
             for bucket in ("offense", "idp"):
                 bucket_cfg = cfg.get(bucket)
@@ -385,7 +424,9 @@ def _load_top50_coverage_floors() -> dict[str, dict[str, int]]:
                         merged[bucket][str(src_key)] = int(val)
                     except (TypeError, ValueError):
                         continue
-    return merged
+    _TOP50_COVERAGE_FLOORS_CACHE["mtime"] = current_mtime
+    _TOP50_COVERAGE_FLOORS_CACHE["value"] = merged
+    return {k: dict(v) for k, v in merged.items()}
 
 
 def assert_payload_size_floor(
@@ -2024,6 +2065,204 @@ def _strip_mismatched_family_tags(players_array: list[dict[str, Any]]) -> None:
             row["assetClass"] = "offense"
 
 
+# mtime-keyed caches for source CSV parses.  The parsed lookups are pure
+# functions of file contents, so any rebuild that happens before the CSV
+# is re-scraped can skip the parse entirely.  Cache key is the absolute
+# csv path string; the value is a 3-tuple of (mtime, csv_lookup, schema_err).
+_SOURCE_CSV_PARSE_CACHE: dict[str, tuple[float, dict[str, list[tuple[str, int, float | None]]], dict[str, str] | None]] = {}
+_FP_META_CSV_CACHE: dict[str, tuple[float, dict[str, dict[str, Any]]]] = {}
+
+
+def _parse_source_csv_cached(
+    csv_path: Path,
+    source_key: str,
+    signal: str,
+    csv_rel: str,
+) -> tuple[dict[str, list[tuple[str, int, float | None]]], dict[str, str] | None]:
+    """Parse a source CSV with mtime-keyed caching.
+
+    Returns ``(csv_lookup, schema_error_dict_or_None)``.  The schema
+    error, when present, is a dict suitable for ``parse_errors.append``.
+    """
+    import csv as _csv  # noqa: PLC0415
+
+    try:
+        current_mtime = csv_path.stat().st_mtime
+    except OSError:
+        current_mtime = 0.0
+    cache_key = str(csv_path)
+    cached = _SOURCE_CSV_PARSE_CACHE.get(cache_key)
+    if cached and cached[0] == current_mtime:
+        return cached[1], cached[2]
+
+    csv_lookup: dict[str, list[tuple[str, int, float | None]]] = {}
+    schema_err: dict[str, str] | None = None
+
+    _NAME_ALIASES = ("name", "Name", "player", "Player", "player_name", "PlayerName")
+    _RANK_ALIASES = (
+        "rank",
+        "Rank",
+        "overall_rank",
+        "OverallRank",
+        "effectiveRank",
+    )
+    _VALUE_ALIASES = ("value", "Value", "trade_value", "TradeValue")
+
+    def _pick(csvrow: dict[str, Any], aliases: tuple[str, ...]) -> str:
+        for k in aliases:
+            if k in csvrow and csvrow[k] not in (None, ""):
+                return str(csvrow[k])
+        return ""
+
+    # ── Schema probe for DLF / FantasyPros sources ───────────────────
+    if source_key in ("dlfSf", "dlfIdp", "fantasyProsIdp", "fantasyProsSf"):
+        try:
+            with csv_path.open("r", encoding="utf-8-sig") as f_probe:
+                header_line = f_probe.readline().strip()
+        except Exception as exc:  # noqa: BLE001
+            header_line = ""
+            _LOGGER.warning(
+                "Schema probe: failed to read header for %s: %s",
+                source_key,
+                exc,
+            )
+        if source_key == "dlfSf":
+            expected_tokens = ("Rank", "Avg", "Name", "Player")
+        elif source_key == "fantasyProsIdp":
+            expected_tokens = (
+                "effectiveRank",
+                "derivationMethod",
+                "family",
+                "name",
+            )
+        elif source_key == "fantasyProsSf":
+            expected_tokens = ("Rank", "name", "position")
+        else:  # dlfIdp
+            expected_tokens = ("name", "Name", "Player", "rank", "Rank")
+        if not any(tok in header_line for tok in expected_tokens):
+            schema_err = {
+                "source": source_key,
+                "path": str(csv_rel),
+                "error": "schema_mismatch",
+                "header": header_line[:200],
+            }
+            _LOGGER.warning(
+                "Schema probe: %s header mismatch (%s); skipping rows",
+                source_key,
+                header_line[:120],
+            )
+            _SOURCE_CSV_PARSE_CACHE[cache_key] = (current_mtime, csv_lookup, schema_err)
+            return csv_lookup, schema_err
+
+    try:
+        with csv_path.open("r", encoding="utf-8-sig") as f:
+            for csvrow in _csv.DictReader(f):
+                name = _pick(csvrow, _NAME_ALIASES).strip()
+                if not name:
+                    continue
+                key = _canonical_match_key(name)
+                if not key:
+                    continue
+                if signal == "rank":
+                    raw = _pick(csvrow, _RANK_ALIASES)
+                    if raw == "" or raw is None:
+                        continue
+                    try:
+                        rank_val = float(str(raw).strip())
+                    except (TypeError, ValueError):
+                        continue
+                    if rank_val <= 0:
+                        continue
+                    synthetic = int(
+                        round(
+                            (_RANK_TO_SYNTHETIC_VALUE_OFFSET * 100)
+                            - (rank_val * 100)
+                        )
+                    )
+                    if synthetic <= 0:
+                        continue
+                    csv_lookup.setdefault(key, []).append((name, synthetic, rank_val))
+                else:
+                    val = _pick(csvrow, _VALUE_ALIASES)
+                    if not val:
+                        continue
+                    try:
+                        csv_lookup.setdefault(key, []).append(
+                            (name, int(float(val)), None)
+                        )
+                    except (ValueError, TypeError):
+                        continue
+    except Exception as exc:  # noqa: BLE001
+        schema_err = {
+            "source": source_key,
+            "path": str(csv_rel),
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+        _LOGGER.warning(
+            "Failed to parse source CSV %s (%s): %s",
+            source_key,
+            csv_rel,
+            exc,
+        )
+        # Don't cache parse failures — next rebuild retries.
+        return csv_lookup, schema_err
+
+    _SOURCE_CSV_PARSE_CACHE[cache_key] = (current_mtime, csv_lookup, schema_err)
+    return csv_lookup, schema_err
+
+
+def _parse_fp_meta_csv_cached(fp_path: Path) -> dict[str, dict[str, Any]]:
+    """Parse FantasyPros IDP metadata CSV with mtime-keyed caching."""
+    import csv as _csv  # noqa: PLC0415
+
+    try:
+        current_mtime = fp_path.stat().st_mtime
+    except OSError:
+        current_mtime = 0.0
+    cache_key = str(fp_path)
+    cached = _FP_META_CSV_CACHE.get(cache_key)
+    if cached and cached[0] == current_mtime:
+        return cached[1]
+
+    fp_meta_lookup: dict[str, dict[str, Any]] = {}
+    with fp_path.open("r", encoding="utf-8-sig") as f:
+        for row_csv in _csv.DictReader(f):
+            nm = str(row_csv.get("name") or "").strip()
+            if not nm:
+                continue
+            key = _canonical_match_key(nm)
+            if not key:
+                continue
+            try:
+                orig_r = int(float(row_csv.get("originalRank") or 0))
+            except (TypeError, ValueError):
+                orig_r = 0
+            try:
+                eff_r = int(float(row_csv.get("effectiveRank") or 0))
+            except (TypeError, ValueError):
+                eff_r = 0
+            try:
+                norm_v = int(float(row_csv.get("normalizedValue") or 0))
+            except (TypeError, ValueError):
+                norm_v = 0
+            fp_meta_lookup[key] = {
+                "fantasyProsIdpOriginalRank": orig_r,
+                "fantasyProsIdpEffectiveRank": eff_r,
+                "fantasyProsIdpDerivationMethod": str(
+                    row_csv.get("derivationMethod") or ""
+                ).strip(),
+                "fantasyProsIdpFamily": str(
+                    row_csv.get("family") or ""
+                ).strip(),
+                "fantasyProsIdpNormalizedValue": norm_v,
+                "fantasyProsIdpMatchedSourceName": str(
+                    row_csv.get("matchedSourceName") or nm
+                ).strip(),
+            }
+    _FP_META_CSV_CACHE[cache_key] = (current_mtime, fp_meta_lookup)
+    return fp_meta_lookup
+
+
 def _enrich_from_source_csvs(
     players_array: list[dict[str, Any]],
     *,
@@ -2064,7 +2303,6 @@ def _enrich_from_source_csvs(
         produces the correct ordinal.  Only the ordering matters to the
         ranking pipeline; the absolute number is a bookkeeping artefact.
     """
-    import csv
     from pathlib import Path
 
     repo = Path(__file__).resolve().parents[2]
@@ -2111,156 +2349,12 @@ def _enrich_from_source_csvs(
                 )
             continue
 
-        # Per-source CSV lookup.  Keyed by canonical name *only*; the
-        # value is a list of (display_name, parsed_value) tuples so we
-        # can later disambiguate by position group when more than one
-        # CSV row collapses to the same canonical key.  This is the
-        # "exact → alias → bounded fallback" cascade from the task
-        # spec: we never silently pick a wrong CSV row when multiple
-        # candidates exist for the same canonical key.
-        csv_lookup: dict[str, list[tuple[str, int, float | None]]] = {}
-        # Column-name aliases.  Raw DLF exports use capitalized
-        # `Name` / `Rank` columns plus extra columns (Avg, Pos, Team,
-        # Age, individual expert columns, Value, Follow).  We accept a
-        # small set of aliases so a freshly-downloaded DLF CSV can be
-        # dropped into ``CSVs/site_raw/`` without any
-        # preprocessing step.
-        _NAME_ALIASES = ("name", "Name", "player", "Player", "player_name", "PlayerName")
-        _RANK_ALIASES = (
-            "rank",
-            "Rank",
-            "overall_rank",
-            "OverallRank",
-            # FantasyPros IDP CSV writes a derived overall rank under
-            # ``effectiveRank`` (combined-board direct or anchored from
-            # individual) alongside a separate ``originalRank`` column.
-            # The enrichment path only cares about the effective value
-            # since that's what drives the downstream blend.
-            "effectiveRank",
+        csv_lookup, schema_err = _parse_source_csv_cached(
+            csv_path, source_key, signal, csv_rel
         )
-        _VALUE_ALIASES = ("value", "Value", "trade_value", "TradeValue")
-
-        def _pick(csvrow: dict[str, Any], aliases: tuple[str, ...]) -> str:
-            for k in aliases:
-                if k in csvrow and csvrow[k] not in (None, ""):
-                    return str(csvrow[k])
-            return ""
-
-        # ── Schema probe for DLF sources ───────────────────────────────
-        # DLF SF and DLF IDP CSVs occasionally have column renames when
-        # the upstream export template changes.  Before burning through
-        # rows with a DictReader that silently skips everything, peek at
-        # the first line and assert at least one expected header token
-        # is present.  If not, record a schema-mismatch parse error and
-        # skip the source entirely — the row-count floor will then catch
-        # the zero-coverage as ``source_missing:<source>`` downstream.
-        if source_key in ("dlfSf", "dlfIdp", "fantasyProsIdp", "fantasyProsSf"):
-            try:
-                with csv_path.open("r", encoding="utf-8-sig") as f_probe:
-                    header_line = f_probe.readline().strip()
-            except Exception as exc:  # noqa: BLE001
-                header_line = ""
-                _LOGGER.warning(
-                    "Schema probe: failed to read header for %s: %s",
-                    source_key,
-                    exc,
-                )
-            if source_key == "dlfSf":
-                expected_tokens = ("Rank", "Avg", "Name", "Player")
-            elif source_key == "fantasyProsIdp":
-                # FantasyPros IDP CSV header must carry ``effectiveRank``
-                # and ``name`` columns at a minimum; ``derivationMethod``
-                # and ``family`` are the diagnostic columns surfaced on
-                # enriched rows.
-                expected_tokens = (
-                    "effectiveRank",
-                    "derivationMethod",
-                    "family",
-                    "name",
-                )
-            elif source_key == "fantasyProsSf":
-                # FantasyPros Superflex offense CSV header must carry
-                # ``Rank`` and ``name`` columns.  Written by
-                # ``scripts/fetch_fantasypros_offense.py``.
-                expected_tokens = ("Rank", "name", "position")
-            else:  # dlfIdp
-                expected_tokens = ("name", "Name", "Player", "rank", "Rank")
-            # Case-sensitive token match is fine — we only need any one
-            # token to appear literally in the header line, matching
-            # the aliases the DictReader uses below.
-            if not any(tok in header_line for tok in expected_tokens):
-                err_info = {
-                    "source": source_key,
-                    "path": str(csv_rel),
-                    "error": "schema_mismatch",
-                    "header": header_line[:200],
-                }
-                if parse_errors is not None:
-                    parse_errors.append(err_info)
-                _LOGGER.warning(
-                    "Schema probe: %s header mismatch (%s); skipping rows",
-                    source_key,
-                    header_line[:120],
-                )
-                continue
-
-        try:
-            with csv_path.open("r", encoding="utf-8-sig") as f:
-                for csvrow in csv.DictReader(f):
-                    name = _pick(csvrow, _NAME_ALIASES).strip()
-                    if not name:
-                        continue
-                    key = _canonical_match_key(name)
-                    if not key:
-                        continue
-                    if signal == "rank":
-                        raw = _pick(csvrow, _RANK_ALIASES)
-                        if raw == "" or raw is None:
-                            continue
-                        try:
-                            rank_val = float(str(raw).strip())
-                        except (TypeError, ValueError):
-                            continue
-                        if rank_val <= 0:
-                            continue
-                        # Monotonic descending transform: smaller rank →
-                        # bigger value so the overall_idp sort orders
-                        # the list the same way DLF does.  Multiply by
-                        # 100 first so fractional Avg ranks (e.g. 5.67)
-                        # stay ordered after the int() truncation.
-                        synthetic = int(
-                            round(
-                                (_RANK_TO_SYNTHETIC_VALUE_OFFSET * 100)
-                                - (rank_val * 100)
-                            )
-                        )
-                        if synthetic <= 0:
-                            continue
-                        csv_lookup.setdefault(key, []).append((name, synthetic, rank_val))
-                    else:
-                        val = _pick(csvrow, _VALUE_ALIASES)
-                        if not val:
-                            continue
-                        try:
-                            csv_lookup.setdefault(key, []).append(
-                                (name, int(float(val)), None)
-                            )
-                        except (ValueError, TypeError):
-                            continue
-        except Exception as exc:  # noqa: BLE001
-            err_info = {
-                "source": source_key,
-                "path": str(csv_rel),
-                "error": f"{type(exc).__name__}: {exc}",
-            }
+        if schema_err is not None:
             if parse_errors is not None:
-                parse_errors.append(err_info)
-            _LOGGER.warning(
-                "Failed to parse source CSV %s (%s): %s",
-                source_key,
-                csv_rel,
-                exc,
-            )
+                parse_errors.append(schema_err)
             continue
 
         if not csv_lookup:
@@ -2366,41 +2460,7 @@ def _enrich_from_source_csvs(
         fp_path = repo / fp_rel
         if fp_path.exists():
             try:
-                fp_meta_lookup: dict[str, dict[str, Any]] = {}
-                with fp_path.open("r", encoding="utf-8-sig") as f:
-                    for row_csv in csv.DictReader(f):
-                        nm = str(row_csv.get("name") or "").strip()
-                        if not nm:
-                            continue
-                        key = _canonical_match_key(nm)
-                        if not key:
-                            continue
-                        try:
-                            orig_r = int(float(row_csv.get("originalRank") or 0))
-                        except (TypeError, ValueError):
-                            orig_r = 0
-                        try:
-                            eff_r = int(float(row_csv.get("effectiveRank") or 0))
-                        except (TypeError, ValueError):
-                            eff_r = 0
-                        try:
-                            norm_v = int(float(row_csv.get("normalizedValue") or 0))
-                        except (TypeError, ValueError):
-                            norm_v = 0
-                        fp_meta_lookup[key] = {
-                            "fantasyProsIdpOriginalRank": orig_r,
-                            "fantasyProsIdpEffectiveRank": eff_r,
-                            "fantasyProsIdpDerivationMethod": str(
-                                row_csv.get("derivationMethod") or ""
-                            ).strip(),
-                            "fantasyProsIdpFamily": str(
-                                row_csv.get("family") or ""
-                            ).strip(),
-                            "fantasyProsIdpNormalizedValue": norm_v,
-                            "fantasyProsIdpMatchedSourceName": str(
-                                row_csv.get("matchedSourceName") or nm
-                            ).strip(),
-                        }
+                fp_meta_lookup = _parse_fp_meta_csv_cached(fp_path)
                 for row in players_array:
                     nm = str(
                         row.get("canonicalName") or row.get("displayName") or ""
@@ -4301,6 +4361,7 @@ def build_api_data_contract(
     data_source: dict[str, Any] | None = None,
     source_overrides: dict[str, dict[str, Any]] | None = None,
     tep_multiplier: float = 1.0,
+    _for_delta: bool = False,
 ) -> dict[str, Any]:
     """Build a full API data contract payload from a raw scraper bundle.
 
@@ -4318,6 +4379,12 @@ def build_api_data_contract(
     Passing ``1.0`` is a no-op and byte-for-byte identical to the
     pre-TEP pipeline; any value > 1.0 boosts TE rows whose
     contributions came from non-TEP-native sources.
+
+    ``_for_delta`` (internal) skips work that only feeds fields the
+    delta payload discards (trust-mirror into legacy players dict,
+    valueAuthority summary).  ``build_rankings_delta_payload`` sets
+    this to ``True`` so overrides round-trips don't pay for output
+    blocks the wire shape drops.
     """
     base = deepcopy(raw_payload or {})
     players_by_name = base.get("players")
@@ -4414,8 +4481,10 @@ def build_api_data_contract(
     # The runtime view strips playersArray for payload size.  The frontend
     # falls back to the legacy `players` dict and reads trust fields via
     # `r.raw?.field`.  This pass copies all post-quarantine trust fields
-    # so they survive the runtime view.
-    _mirror_trust_to_legacy(players_array, players_by_name)
+    # so they survive the runtime view.  Skipped on the delta path — the
+    # delta payload drops the legacy ``players`` dict entirely.
+    if not _for_delta:
+        _mirror_trust_to_legacy(players_array, players_by_name)
 
     data_source = data_source or {}
     generated_at = utc_now_iso()
@@ -4574,7 +4643,9 @@ def build_api_data_contract(
         "generatedAt": generated_at,
         "playersArray": players_array,
         "playerCount": len(players_array),
-        "valueAuthority": _build_value_authority_summary(players_array),
+        "valueAuthority": (
+            None if _for_delta else _build_value_authority_summary(players_array)
+        ),
         "dataSource": {
             "type": str(data_source.get("type") or ""),
             "path": str(data_source.get("path") or ""),
@@ -4679,6 +4750,7 @@ def build_rankings_delta_payload(
         data_source=data_source,
         source_overrides=source_overrides,
         tep_multiplier=tep_multiplier,
+        _for_delta=True,
     )
 
     delta_players: list[dict[str, Any]] = []
