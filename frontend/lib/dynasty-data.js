@@ -547,20 +547,40 @@ export const RANKING_SOURCES = [
     excludesRookies: false,
   },
   {
-    // DraftSharks dynasty rankings — single cross-universe board
-    // (QB/RB/WR/TE + DL/LB/DB + K) sharing a 3D Value scale.
-    // Multi-scope source like IDPTC: primary ``overall_offense``,
-    // extra ``overall_idp`` so offense AND IDP rows both receive
-    // DraftSharks' contribution.  Value signal off the 3D Value +
-    // column; the blend normalises via Hill curve over within-
-    // source rank so the 0-100 absolute scale is irrelevant.
+    // DraftSharks offense dynasty board (QB/RB/WR/TE).  The
+    // ``fetch_draftsharks.py`` scraper splits DS's single
+    // offense-combined DOM by position family into two CSVs, so
+    // this is the SF slice only.  Value signal off the ``3D Value +``
+    // column; DraftSharks' scoring is standard dynasty (not TE-
+    // premium native), so the frontend ``tepMultiplier`` applies.
     key: "draftSharks",
     displayName: "Draft Sharks Dynasty",
     columnLabel: "DS",
     scope: "overall_offense",
-    extraScopes: ["overall_idp"],
+    extraScopes: [],
     positionGroup: null,
-    depth: 800,
+    depth: 500,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: false,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+  },
+  {
+    // DraftSharks IDP dynasty board (DL/LB/DB).  Mirror of the
+    // offense entry — same scraper writes the IDP CSV filtered by
+    // position family, with cross-universe ``3D Value +`` preserved
+    // (e.g. Carson Schwesinger = 44 as IDP rank 1, not the IDP-
+    // only-page rescaled 81).
+    key: "draftSharksIdp",
+    displayName: "Draft Sharks IDP Dynasty",
+    columnLabel: "DS IDP",
+    scope: "overall_idp",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 400,
     weight: 1.0,
     isBackbone: false,
     isRetail: false,

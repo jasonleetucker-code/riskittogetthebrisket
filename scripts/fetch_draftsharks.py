@@ -10,11 +10,22 @@ all players, waits for the worker to finish recomputing each row's
 ``3D Value +`` under the user's league scoring, then dumps the
 rendered DOM.
 
-Output: ``CSVs/site_raw/draftSharks.csv`` with the same header the
-manual DS export uses:
+The offense-combined rankings URL (``/dynasty-rankings/te-premium-superflex``)
+holds the full 874-row universe in a single DOM: QB/RB/WR/TE
+rows are visible, DL/LB/DB rows are rendered with ``display:none``
+when the page's default position filter hides them.  We extract
+ALL rows (including hidden ones) because the dsValue of every
+player is a cross-universe comparable number in that view — e.g.
+Carson Schwesinger shows value 44 at overall rank 36 among all
+positions.  The IDP-only URL uses a DIFFERENT scale (Schwesinger
+shows 81 rescaled to IDP-universe), so we deliberately do not
+scrape it — merging the two scales would produce ugly value
+collisions.
 
-    Rank,Team,Player,"Fantasy Position",ADP,Bye,Age,"1yr. Proj",
-    "3yr. Proj","5yr. Proj","10yr. Proj","DS Analysis","3D Value +"
+Output: TWO CSVs, same header as the manual DS export:
+
+    CSVs/site_raw/draftSharksSf.csv    (QB/RB/WR/TE)
+    CSVs/site_raw/draftSharksIdp.csv   (DL/LB/DB + aliases)
 
 Authentication
 --------------
@@ -51,13 +62,22 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 SESSION_PATH = REPO / "draftsharks_session.json"
 ENV_PATH = REPO / ".env"
-OUT_PATH = REPO / "CSVs" / "site_raw" / "draftSharks.csv"
+OUT_SF = REPO / "CSVs" / "site_raw" / "draftSharksSf.csv"
+OUT_IDP = REPO / "CSVs" / "site_raw" / "draftSharksIdp.csv"
 
 HOME_URL = "https://www.draftsharks.com/"
 LOGIN_URL = "https://www.draftsharks.com/login"
-OFFENSE_URL = "https://www.draftsharks.com/dynasty-rankings/te-premium-superflex"
-IDP_URL = "https://www.draftsharks.com/dynasty-rankings/idp/te-premium-superflex"
+RANKINGS_URL = "https://www.draftsharks.com/dynasty-rankings/te-premium-superflex"
 LEAGUE_ID = "995704"  # "Risk It To Get The Brisket"
+
+# Position-family classifier for the single combined DOM.  QB/RB/WR/TE
+# go to the SF CSV; DL/LB/DB (plus all common aliases) go to the IDP
+# CSV.  Rows with other or missing positions are dropped.
+_OFFENSE_FAMILIES: frozenset[str] = frozenset({"QB", "RB", "WR", "TE"})
+_IDP_FAMILIES: frozenset[str] = frozenset(
+    {"DL", "LB", "DB", "DE", "DT", "EDGE", "NT", "ILB", "OLB", "MLB",
+     "CB", "S", "SS", "FS"}
+)
 
 # Only these cookies matter for auth + league context.  Everything
 # else (analytics, consent, etc.) would bloat the session file and
@@ -209,21 +229,20 @@ async def _browser_login(context, page) -> None:
     )
 
 
-# Extraction JS — walks visible ``<tbody data-player-row>`` blocks
-# in DOM order.  Under league-synced view, the worker reorders the
-# DOM so DOM position == league-synced rank.  The ``.rank-index``
-# span isn't a reliable source once the worker runs, so we use DOM
-# order instead.  Hidden rows (x-show='false' under the current
-# filter) are skipped via the computed display check so the
-# returned list matches what the user sees on screen.
+# Extraction JS — walks every ``<tbody data-player-row>`` in the DOM,
+# including rows that the default position filter hides with
+# ``display:none``.  The offense-combined URL puts the entire 874-
+# player universe in one table; IDP rows are hidden but still carry
+# the correct cross-universe dsValue + rank-index from the
+# WebAssembly worker (e.g. Carson Schwesinger at value 44, rank 36
+# when the IDP filter is off).  We sort by DOM order so rank
+# ordering matches what DS would show if the user toggled the
+# position filter, and we tag each row with its raw family so
+# ``main`` can split the rows into the SF / IDP CSVs.
 _EXTRACT_JS = r"""() => {
     const rows = Array.from(document.querySelectorAll('tbody[data-player-row]'));
     const out = [];
     for (const tb of rows) {
-        // Skip hidden rows — DS hides non-matching rows via x-show
-        // when a position filter is active.  We only scrape the
-        // currently-visible universe.
-        if (tb.offsetParent === null) continue;
         const name = tb.getAttribute('data-player-name') || '';
         const pos = (tb.getAttribute('data-fantasy-position') || '').toUpperCase();
         if (!name) continue;
@@ -253,10 +272,18 @@ _EXTRACT_JS = r"""() => {
             }
         }
 
+        // ``.rank-index`` reflects DS's own cross-universe rank
+        // after the worker settles — more reliable than DOM order
+        // because hidden rows still carry the correct rank.
+        const rankEl = tb.querySelector('.rank-index');
+        const rankRaw = rankEl ? rankEl.textContent.trim() : '';
+        const rankNum = rankRaw ? parseInt(rankRaw, 10) : null;
+
         out.push({
             name,
             team,
             position: pos,
+            dsRank:  Number.isFinite(rankNum) ? rankNum : null,
             adp:     pick('adp'),
             bye:     pick('player.team.bye') || pick('bye'),
             age:     pick('player.age') || pick('age'),
@@ -268,24 +295,19 @@ _EXTRACT_JS = r"""() => {
             dsValue: pick('dsValue'),
         });
     }
-    // DOM order IS the ranking — DS's Alpine worker sorts the
-    // rendered list so the top row is the highest-valued under the
-    // active league's scoring.
     return out;
 }"""
 
 
-async def _scrape_one(
-    page,
-    url: str,
-    *,
-    label: str,
-    mahomes_threshold: float | None,
-) -> list[dict]:
-    """Load one DS rankings URL, activate the league, scroll to load
-    all rows, and return the extracted player rows."""
-    print(f"[DS] ({label}) navigating to {url}", flush=True)
-    await page.goto(url, wait_until="domcontentloaded", timeout=45_000)
+async def _scrape_one(page) -> list[dict]:
+    """Load the DS offense-combined rankings page, activate the
+    league so the WASM worker applies league scoring, scroll to
+    load the full ~874-row DOM, and return every row (hidden
+    included).  Rows carry their cross-universe dsValue and
+    DS-assigned ``.rank-index``, which the caller splits into
+    offense / IDP CSVs."""
+    print(f"[DS] navigating to {RANKINGS_URL}", flush=True)
+    await page.goto(RANKINGS_URL, wait_until="domcontentloaded", timeout=45_000)
     # Best-effort modal dismiss.
     for sel in [
         'button[aria-label="Close"]',
@@ -304,40 +326,35 @@ async def _scrape_one(
         # Sentinel string picked up by _scrape() to trigger auto-login.
         raise RuntimeError("unauthenticated_session")
 
-    print(f"[DS] ({label}) activating league {LEAGUE_ID} …", flush=True)
+    print(f"[DS] activating league {LEAGUE_ID} …", flush=True)
     try:
         await page.select_option(
             "#use-my-league-dropdown", value=LEAGUE_ID, timeout=5_000
         )
     except Exception as exc:
         raise RuntimeError(
-            f"Failed to select league {LEAGUE_ID} on {label}: {exc}"
+            f"Failed to select league {LEAGUE_ID}: {exc}"
         )
 
-    # Wait for the WASM worker to apply the league scoring.  We poll
-    # Mahomes (offense) or Schwesinger (IDP) for an expected
-    # league-synced uplift — a settling signal.  If the threshold
-    # probe isn't available on this page, just wait a fixed settle
-    # time.
-    if mahomes_threshold is not None:
-        async def _applied() -> bool:
-            val = await page.evaluate(r"""() => {
-                const rows = Array.from(document.querySelectorAll('tbody[data-player-row]'));
-                const probe = rows.find(r => {
-                    const n = r.getAttribute('data-player-name') || '';
-                    return n.includes('Mahomes') || n.includes('Schwesinger');
-                });
-                if (!probe) return null;
-                const el = probe.querySelector('[data-attribute="dsValue"]');
-                return el ? parseFloat(el.textContent.trim()) : null;
-            }""")
-            return val is not None and val >= mahomes_threshold
-        for _ in range(30):
-            if await _applied():
-                break
-            await page.wait_for_timeout(1_000)
+    # Wait for the WASM worker to apply the league scoring.  Mahomes
+    # public value is 74, league-synced ~81 in a TE-premium + IDP-
+    # heavy league; poll until his dsValue crosses 78 so we know the
+    # worker has finished reshuffling.
+    async def _applied() -> bool:
+        val = await page.evaluate(r"""() => {
+            const rows = Array.from(document.querySelectorAll('tbody[data-player-row]'));
+            const probe = rows.find(r => (r.getAttribute('data-player-name') || '').includes('Mahomes'));
+            if (!probe) return null;
+            const el = probe.querySelector('[data-attribute="dsValue"]');
+            return el ? parseFloat(el.textContent.trim()) : null;
+        }""")
+        return val is not None and val >= 78
+    for _ in range(30):
+        if await _applied():
+            break
+        await page.wait_for_timeout(1_000)
 
-    print(f"[DS] ({label}) scrolling to load all rows …", flush=True)
+    print("[DS] scrolling to load all rows …", flush=True)
     last_count = 0
     stable = 0
     for _ in range(60):
@@ -351,42 +368,30 @@ async def _scrape_one(
         last_count = count
         await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
         await page.wait_for_timeout(900)
-    print(f"[DS] ({label}) rows loaded: {last_count}", flush=True)
+    print(f"[DS] rows loaded: {last_count}", flush=True)
 
     # Extra settle time for Alpine re-render after worker messages.
     await page.wait_for_timeout(2_000)
 
     rows = await page.evaluate(_EXTRACT_JS)
-    print(f"[DS] ({label}) extracted visible rows: {len(rows)}", flush=True)
+    print(f"[DS] extracted rows (incl hidden): {len(rows)}", flush=True)
     return rows
 
 
-async def _scrape_with_autologin(
-    context,
-    page,
-    url: str,
-    *,
-    label: str,
-    mahomes_threshold: float | None,
-    allow_login: bool,
-) -> list[dict]:
+async def _scrape_with_autologin(context, page) -> list[dict]:
     """Wrapper around ``_scrape_one`` that catches the
     ``unauthenticated_session`` sentinel, runs the browser login
     once, then retries the scrape with the fresh cookies that
     Playwright now holds in-context."""
     try:
-        return await _scrape_one(
-            page, url, label=label, mahomes_threshold=mahomes_threshold
-        )
+        return await _scrape_one(page)
     except RuntimeError as exc:
-        if str(exc) != "unauthenticated_session" or not allow_login:
+        if str(exc) != "unauthenticated_session":
             raise
         await _browser_login(context, page)
         # After login the context already carries the fresh cookies,
         # so re-navigating the URL picks up the authenticated view.
-        return await _scrape_one(
-            page, url, label=label, mahomes_threshold=mahomes_threshold
-        )
+        return await _scrape_one(page)
 
 
 async def _scrape(*, headless: bool) -> list[dict]:
@@ -413,66 +418,46 @@ async def _scrape(*, headless: bool) -> list[dict]:
             if cookies:
                 await context.add_cookies(cookies)
             page = await context.new_page()
-
-            # Offense: load the default TEP-superflex page; Mahomes
-            # public value is 74, league-synced ~81 in a
-            # TE-premium + IDP-heavy league, so use 78 as settle
-            # threshold.
-            offense_rows = await _scrape_with_autologin(
-                context,
-                page,
-                OFFENSE_URL,
-                label="offense",
-                mahomes_threshold=78,
-                allow_login=True,
-            )
-
-            # IDP: load the IDP-only view.  Schwesinger public 44,
-            # league-synced still around 44; use 30 as a loose
-            # "something loaded" threshold.  We've already
-            # authenticated above so disallow a second login pass —
-            # an IDP-specific failure should surface instead of
-            # quietly burning another login.
-            idp_rows = await _scrape_with_autologin(
-                context,
-                page,
-                IDP_URL,
-                label="idp",
-                mahomes_threshold=30,
-                allow_login=False,
-            )
-
-            # Merge: offense first (higher scale values) then IDP.
-            # DS's 3D Value + scale is shared so the combined pool
-            # orders correctly by value desc.
-            def _val(r: dict) -> float:
-                try:
-                    return float(str(r.get("dsValue") or "0").replace(",", ""))
-                except (TypeError, ValueError):
-                    return 0.0
-            combined = offense_rows + idp_rows
-            combined.sort(key=_val, reverse=True)
-            # De-dupe on (name, position) in case of overlap.
-            seen: set[tuple[str, str]] = set()
-            deduped: list[dict] = []
-            for r in combined:
-                k = (r.get("name", ""), r.get("position", ""))
-                if k in seen:
-                    continue
-                seen.add(k)
-                deduped.append(r)
-            print(f"[DS] merged rows: {len(deduped)} (dedupe dropped {len(combined) - len(deduped)})")
-            return deduped
+            return await _scrape_with_autologin(context, page)
         finally:
             await browser.close()
 
 
-def _write_csv(rows: list[dict]) -> int:
-    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with OUT_PATH.open("w", newline="", encoding="utf-8") as f:
+def _value_of(row: dict) -> float:
+    try:
+        return float(str(row.get("dsValue") or "0").replace(",", ""))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _write_csv(
+    path: Path,
+    rows: list[dict],
+    *,
+    include_families: frozenset[str],
+) -> int:
+    """Filter rows by position family, dense-rank 1..N by DS value,
+    and write to ``path``.  Values preserved as DS rendered them
+    (cross-universe scale), so Schwesinger's IDP CSV row will show
+    the same value the user sees on the offense-combined page
+    (e.g. 44, not the IDP-only-page rescaled 81)."""
+    selected = [r for r in rows if r.get("position", "").upper() in include_families]
+    # Sort by DS value desc; ties broken by DS's own rank-index, then
+    # by name.  The DS worker may assign the same dsValue to multiple
+    # players; use rank-index to disambiguate ordering.
+    def _rank_sort_key(r: dict) -> tuple[float, int, str]:
+        return (
+            -_value_of(r),
+            int(r.get("dsRank") or 99999),
+            (r.get("name") or "").lower(),
+        )
+    selected.sort(key=_rank_sort_key)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(CSV_HEADER)
-        for i, r in enumerate(rows, 1):
+        for i, r in enumerate(selected, 1):
             w.writerow([
                 i,
                 r.get("team") or "",
@@ -488,7 +473,7 @@ def _write_csv(rows: list[dict]) -> int:
                 r.get("comment") or "",
                 r.get("dsValue") or "",
             ])
-    return len(rows)
+    return len(selected)
 
 
 def main() -> int:
@@ -510,10 +495,17 @@ def main() -> int:
         print("[DS] ERROR: no rows extracted", file=sys.stderr)
         return 1
 
-    # Family split sanity-check.
-    idp = {"DL", "LB", "DB", "DE", "DT", "EDGE", "CB", "S"}
-    off_count = sum(1 for r in rows if r.get("position") in {"QB", "RB", "WR", "TE"})
-    idp_count = sum(1 for r in rows if r.get("position") in idp)
+    # Family split sanity-check.  We deliberately scrape only the
+    # offense-combined page because its DOM carries the full
+    # cross-universe universe (QB + IDP on the same dsValue scale),
+    # so a missing IDP count here means the worker didn't settle
+    # or the position attribute normalization changed.
+    off_count = sum(
+        1 for r in rows if r.get("position", "").upper() in _OFFENSE_FAMILIES
+    )
+    idp_count = sum(
+        1 for r in rows if r.get("position", "").upper() in _IDP_FAMILIES
+    )
     print(f"[DS] family split: offense={off_count} idp={idp_count}")
     if idp_count == 0:
         print(
@@ -525,17 +517,43 @@ def main() -> int:
 
     if args.dry_run:
         print("[DS] dry-run — skipping CSV write")
-        print("Top 15:")
-        for i, r in enumerate(rows[:15], 1):
+        print("Top 10 offense:")
+        off_sorted = sorted(
+            (r for r in rows if r.get("position", "").upper() in _OFFENSE_FAMILIES),
+            key=lambda r: (-_value_of(r), int(r.get("dsRank") or 99999)),
+        )
+        for i, r in enumerate(off_sorted[:10], 1):
             print(
                 f"  #{i:>3} {(r.get('name') or ''):<28} "
                 f"[{(r.get('position') or ''):<3}] "
-                f"value={r.get('dsValue') or ''}"
+                f"value={r.get('dsValue') or ''} "
+                f"dsRank={r.get('dsRank')}"
+            )
+        print("Top 10 IDP:")
+        idp_sorted = sorted(
+            (r for r in rows if r.get("position", "").upper() in _IDP_FAMILIES),
+            key=lambda r: (-_value_of(r), int(r.get("dsRank") or 99999)),
+        )
+        for i, r in enumerate(idp_sorted[:10], 1):
+            print(
+                f"  #{i:>3} {(r.get('name') or ''):<28} "
+                f"[{(r.get('position') or ''):<3}] "
+                f"value={r.get('dsValue') or ''} "
+                f"dsRank={r.get('dsRank')}"
             )
         return 0
 
-    n = _write_csv(rows)
-    print(f"[DS] wrote {OUT_PATH} ({n} rows)")
+    off_written = _write_csv(OUT_SF, rows, include_families=_OFFENSE_FAMILIES)
+    print(f"[DS] wrote {OUT_SF} ({off_written} rows)")
+    idp_written = _write_csv(OUT_IDP, rows, include_families=_IDP_FAMILIES)
+    print(f"[DS] wrote {OUT_IDP} ({idp_written} rows)")
+    if off_written == 0 or idp_written == 0:
+        print(
+            "[DS] ERROR: zero rows written for one or both families — "
+            "check the family classifier or scrape step output",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 
