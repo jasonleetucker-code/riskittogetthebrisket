@@ -54,6 +54,18 @@ TIER_MIN_SIZE: int = 3             # minimum players in a tier before allowing s
 HILL_MIDPOINT: float = 48.44       # rank at which value decay inflects
 HILL_SLOPE: float = 1.149          # controls steepness of decay
 
+# IDP-specific Hill curve.  Dynasty IDP markets price differently from
+# offense: the #1 LB is nowhere near 2x the #2 the way the #1 QB is,
+# and values decay more slowly through the long tail (mid-/deep-
+# roster IDP players are more fungible than the equivalent offensive
+# skill-position players).  Fit via
+# ``scripts/fit_hill_curve_from_market.py --universe idp`` against
+# FantasyPros IDP's published normalizedValue (expert consensus IDP
+# pricing on a 1-9999 scale).  Re-run the fit and update these
+# constants when the community IDP dropoff shape drifts.
+IDP_HILL_MIDPOINT: float = 47.50
+IDP_HILL_SLOPE: float = 1.005
+
 # Step 4: Tier cliff injection
 CLIFF_BASE_POINTS: float = 120.0   # base cliff size in value units
 CLIFF_RANK_DECAY: float = 0.006    # cliff decays with rank (deeper = smaller cliff)

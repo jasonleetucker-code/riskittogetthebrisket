@@ -66,12 +66,16 @@ _DEEP_TIER_SLOT_RE = re.compile(
 
 
 def _is_deep_future_tier(name: str) -> bool:
-    """Return True if `name` is a deep (R4-R6) pick row that is
-    allowed to be unranked/unvalued.  Two categories qualify:
+    """Return True if `name` is a deep (R3-R6) pick row that is
+    allowed to be unranked/unvalued.  Three categories qualify:
 
     1. Future-year (>=2027) generic tier rows (e.g. "2028 Late 5th") —
        after the pick-year discount these fall below OVERALL_RANK_LIMIT.
-    2. Any year's R5/R6 generic tier or slot-specific row (e.g.
+    2. Future-future-year (>=2028) R3+ generic tier rows — when a
+       flatter-tail IDP Hill curve lifts deep IDP values slightly,
+       2028 R3 picks can fall off the bottom of the cap.  2026/2027
+       R3 picks are unaffected.
+    3. Any year's R5/R6 generic tier or slot-specific row (e.g.
        "2026 Late 5th", "2026 Pick 6.03") — these are so deep on the
        board (below the last offensive veteran and IDP rookie) that
        they often fall off the bottom of the OVERALL_RANK_LIMIT cap.
@@ -85,6 +89,8 @@ def _is_deep_future_tier(name: str) -> bool:
         year = int(m.group(1))
         rnd = int(m.group(3))
         if year >= 2027 and rnd >= 4:
+            return True
+        if year >= 2028 and rnd >= 3:
             return True
         if rnd >= 5:  # any year's deep R5/R6 generic tier
             return True
@@ -419,6 +425,46 @@ class TestRepresentativePicks(unittest.TestCase):
             int(early["rankDerivedValue"]),
             int(late["rankDerivedValue"]),
             "Early 1st should have higher value than late 1st",
+        )
+
+    def test_anchored_value_survives_legacy_dict_mirror(self) -> None:
+        """Anchored slot-pick values must reach the runtime view.
+
+        ``/api/data?view=app`` strips ``playersArray`` and reads from
+        the legacy ``players`` dict.  A previous regression had the
+        pick legacy-mirror clearing ``rankDerivedValue`` whenever the
+        rank was None — that fired on suppressed generic tiers (where
+        clearing is correct) AND on anchored slot picks (where it
+        silently dropped the rookie-anchored value).  This test pins
+        that the legacy dict carries the same anchored value the
+        ``playersArray`` row does for every 2026 slot-specific pick.
+        """
+        legacy = self.contract.get("players") or {}
+        pa = self.contract.get("playersArray") or []
+        mismatched: list[str] = []
+        for row in pa:
+            name = str(row.get("canonicalName") or "")
+            if not name.startswith("2026 Pick "):
+                continue
+            if row.get("assetClass") != "pick":
+                continue
+            pa_value = row.get("rankDerivedValue")
+            if pa_value is None or pa_value <= 0:
+                continue
+            legacy_ref = row.get("legacyRef") or name
+            legacy_row = legacy.get(legacy_ref)
+            if not isinstance(legacy_row, dict):
+                mismatched.append(f"{name}: missing legacy row")
+                continue
+            legacy_value = legacy_row.get("rankDerivedValue")
+            if legacy_value != pa_value:
+                mismatched.append(
+                    f"{name}: playersArray={pa_value} legacy={legacy_value}"
+                )
+        self.assertEqual(
+            mismatched, [],
+            f"Anchored slot picks lost value in legacy mirror:\n"
+            + "\n".join(mismatched[:10]),
         )
 
 

@@ -3014,39 +3014,45 @@ def _apply_offense_calibration_post_pass(
 # the matching constants in player_valuation.py.
 _VOLATILITY_COMPRESSION_STRENGTH: float = 0.03
 _VOLATILITY_COMPRESSION_FLOOR: float = 0.92
+_VOLATILITY_COMPRESSION_CEIL: float = 1.08
+
+_DISPLAY_SCALE_MAX: int = 9999
 
 
 def _apply_volatility_compression_post_pass(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
 ) -> None:
-    """Dampen ``rankDerivedValue`` for high-disagreement players.
+    """Adjust ``rankDerivedValue`` symmetrically by source disagreement.
 
-    Mirrors Step 5 of the canonical engine (``compute_volatility_adjustments``
-    in ``src/canonical/player_valuation.py:349-391``) but feeds the
-    population-relative z-score with ``sourceRankPercentileSpread``
-    (stamped in Phase 4) rather than raw ``stdev(source_ranks)``.  The
-    percentile spread is coverage-corrected — it normalizes each
-    source's raw ordinal by that source's actual pool size — so a 50-
-    rank spread between DLF (pool 185) and FBG (pool 400) does not
-    masquerade as genuine disagreement.
+    Extends Step 5 of the canonical engine
+    (``compute_volatility_adjustments`` in
+    ``src/canonical/player_valuation.py:349-391``) to be two-sided:
+    high-disagreement rows (z > 0) get compressed down to the FLOOR,
+    high-agreement rows (z < 0) get boosted up to the CEIL.  Driven
+    by the coverage-corrected ``sourceRankPercentileSpread`` stamped
+    in Phase 4 (not raw ``stdev(source_ranks)``) so heterogeneous
+    source depths (DLF IDP=185 vs FBG IDP=400) do not masquerade as
+    genuine disagreement.
 
     Only rows with a non-None ``sourceRankPercentileSpread`` and a
     positive ``rankDerivedValue`` participate.  Picks are skipped
-    because their post-``_anchor_current_year_picks_to_rookies`` value
-    is inherited from a rookie row and should reflect that rookie's
-    confidence, not the pick row's own source disagreement signal.
-    The Phase 5 compact resort handles any monotonicity breaks caused
-    by a compressed value crossing a neighbor.
+    because ``_anchor_current_year_picks_to_rookies`` overrides their
+    value from a rookie row — the pick row's own disagreement
+    signal is not a meaningful confidence signal for the anchored
+    value.
 
-    Mirrors the updated value into the legacy ``players_by_name`` dict
-    so the runtime view stays in sync, matching the pattern in
-    ``_apply_idp_calibration_post_pass``.
+    ``volatilityCompressionApplied`` is a signed fraction:
+        * positive = value compressed (high spread)
+        * negative = value boosted (high agreement)
+        * None     = no adjustment (fewer than 2 eligible, zero std,
+                     or picks/unranked rows)
+
+    Boost is clamped to ``DISPLAY_SCALE_MAX``.  The Phase 5 compact
+    resort handles monotonicity breaks from a boosted or compressed
+    value crossing a neighbor.  Mirrors the updated value into the
+    legacy ``players_by_name`` dict.
     """
-    from src.canonical.player_valuation import (  # noqa: PLC0415
-        compute_volatility_adjustments,
-    )
-
     eligible: list[tuple[dict[str, Any], float, float]] = []
     for row in players_array:
         if row.get("canonicalConsensusRank") is None:
@@ -3067,43 +3073,64 @@ def _apply_volatility_compression_post_pass(
     if len(eligible) < 2:
         return
 
-    values = [v for _, v, _ in eligible]
     spreads = [s for _, _, s in eligible]
-    adjustments = compute_volatility_adjustments(
-        values,
-        spreads,
-        strength=_VOLATILITY_COMPRESSION_STRENGTH,
-        floor=_VOLATILITY_COMPRESSION_FLOOR,
-    )
+    spread_mean = statistics.mean(spreads)
+    spread_std = statistics.stdev(spreads) if len(spreads) >= 2 else 0.0
+    if spread_std < 1e-9:
+        # Nothing to discriminate on — mark every eligible row as
+        # un-adjusted so delta merges clear prior state.
+        for row, _value, _spread in eligible:
+            row["volatilityCompressionApplied"] = None
+            legacy_ref = row.get("legacyRef")
+            if legacy_ref and legacy_ref in players_by_name:
+                pdata = players_by_name[legacy_ref]
+                if isinstance(pdata, dict):
+                    pdata["volatilityCompressionApplied"] = None
+        return
 
-    for (row, value, _spread), adj in zip(eligible, adjustments):
+    max_compress = 1.0 - _VOLATILITY_COMPRESSION_FLOOR
+    max_boost = _VOLATILITY_COMPRESSION_CEIL - 1.0
+    strength = _VOLATILITY_COMPRESSION_STRENGTH
+
+    for row, value, spread in eligible:
+        z = (spread - spread_mean) / spread_std
         legacy_ref = row.get("legacyRef")
         pdata = (
             players_by_name.get(legacy_ref)
             if legacy_ref and legacy_ref in players_by_name
             else None
         )
-        if adj >= 0.0:
-            # Emit an explicit ``None`` so the rankings-override delta
-            # entry always carries the current compression state. The
-            # frontend's ``mergeRankingsDelta`` overwrites only fields
-            # present in the delta; if we silently skip uncompressed
-            # rows, a player that was compressed in the base contract
-            # but uncompressed after an override keeps the stale
-            # fraction.
+
+        if z > 0:
+            frac = min(z * strength, max_compress)
+            new_val = max(1, int(round(value * (1.0 - frac))))
+            signed_frac = round(frac, 4)
+        elif z < 0:
+            frac = min(abs(z) * strength, max_boost)
+            new_val = min(
+                _DISPLAY_SCALE_MAX,
+                max(1, int(round(value * (1.0 + frac)))),
+            )
+            signed_frac = round(-frac, 4)
+        else:
+            new_val = int(value)
+            signed_frac = None
+
+        # When z is on either side but frac rounds to zero (very small
+        # |z|), skip the value mutation to avoid spurious 1-point
+        # drift but still emit an explicit None so delta merges clear
+        # prior state.
+        if signed_frac is None or abs(signed_frac) < 1e-9:
             row["volatilityCompressionApplied"] = None
             if isinstance(pdata, dict):
                 pdata["volatilityCompressionApplied"] = None
             continue
-        compression_frac = abs(adj) / value if value > 0 else 0.0
-        new_val = max(1, int(round(value + adj)))
+
         row["rankDerivedValue"] = new_val
-        row["volatilityCompressionApplied"] = round(compression_frac, 4)
+        row["volatilityCompressionApplied"] = signed_frac
         if isinstance(pdata, dict):
             pdata["rankDerivedValue"] = new_val
-            pdata["volatilityCompressionApplied"] = round(
-                compression_frac, 4
-            )
+            pdata["volatilityCompressionApplied"] = signed_frac
 
 
 def _reassign_pick_slot_order(players_array: list[dict[str, Any]]) -> int:
@@ -3345,8 +3372,15 @@ def _anchor_current_year_picks_to_rookies(
         anchor_val = int(anchor.get("rankDerivedValue") or 0)
         if anchor_val <= 0:
             continue
-        if not row.get("canonicalConsensusRank"):
-            continue
+        # Anchor regardless of whether the pick itself survived the
+        # Phase 4 OVERALL_RANK_LIMIT cap.  Picks lose their rank in
+        # the Phase 5 compact pass anyway (they're proxies for the
+        # corresponding rookie, not independent rank slots), so the
+        # meaningful question is "does a matching rookie exist?".
+        # Gating on the pick's own canonicalConsensusRank would leave
+        # tail R4 picks unvalued whenever the cap tightens — e.g. when
+        # an IDP Hill curve fit nudges a few deep IDP players up past
+        # the cutoff, squeezing tail R4 picks off the bottom.
         row["rankDerivedValue"] = anchor_val
         row["pickRookieAnchor"] = anchor.get("canonicalName")
         anchored += 1
@@ -3532,7 +3566,13 @@ def _compute_unified_rankings(
       - anomalyFlags
       - ktcRank / idpRank — preserved for backward compatibility
     """
-    from src.canonical.player_valuation import rank_to_value  # noqa: PLC0415
+    from src.canonical.player_valuation import (  # noqa: PLC0415
+        HILL_MIDPOINT,
+        HILL_SLOPE,
+        IDP_HILL_MIDPOINT,
+        IDP_HILL_SLOPE,
+        rank_to_value,
+    )
 
     # Clamp TEP multiplier to a sane range.  1.0 is a no-op, 2.0 is
     # a generous upper bound (the slider UI caps at 1.5 today).  The
@@ -3750,18 +3790,27 @@ def _compute_unified_rankings(
         weight_total = 0.0
         # TE positions trigger the TEP boost.  Read once per row so
         # the per-source inner loop does not keep re-checking the
-        # position string.
+        # position string.  IDP positions (DL/LB/DB) swap in the IDP-
+        # fit Hill curve — dynasty IDP markets have a flatter top and
+        # slower long-tail decay than offense.  Picks and offense
+        # positions share the offense curve.
         row_pos = str(players_array[row_idx].get("position") or "").strip().upper()
         row_is_te = row_pos == "TE"
         apply_tep = (
             row_is_te
             and tep_multiplier_effective > 1.0
         )
+        if row_pos in _IDP_POSITIONS:
+            hill_midpoint, hill_slope = IDP_HILL_MIDPOINT, IDP_HILL_SLOPE
+        else:
+            hill_midpoint, hill_slope = HILL_MIDPOINT, HILL_SLOPE
         for source_key, eff_rank in source_ranks.items():
             src_def = src_by_key.get(source_key, {})
             declared_weight = float(src_def.get("weight") or 1.0)
             effective_weight = coverage_weight(declared_weight, src_def.get("depth"))
-            value = float(rank_to_value(eff_rank))
+            value = float(
+                rank_to_value(eff_rank, midpoint=hill_midpoint, slope=hill_slope)
+            )
             tep_applied = False
             if apply_tep and source_key in tep_boosted_source_keys:
                 value *= tep_multiplier_effective
@@ -3788,14 +3837,19 @@ def _compute_unified_rankings(
             else:
                 weighted_mean = sum(values) / len(values)
 
-            # Robust blend: drop the *single* worst (most pessimistic)
-            # outlier when 3+ sources disagree, otherwise take the
-            # median of the surviving values.  With only two sources
-            # we average them — there's nothing to drop without losing
-            # half the signal.
+            # Robust blend: when 5+ sources contribute, symmetrically
+            # trim both extremes — drop the most pessimistic AND the
+            # most optimistic value so a single bullish outlier gets
+            # the same discount as a single bearish one.  Only fires
+            # at 5+ because a 2-trim on 4 sources throws away half
+            # the signal.  3-4 sources keep the prior asymmetric
+            # behavior (drop only the worst).  2 = mean; 1 = use.
             sorted_vals = sorted(values)
-            if len(sorted_vals) >= 3:
-                trimmed = sorted_vals[1:]  # drop the worst
+            if len(sorted_vals) >= 5:
+                trimmed = sorted_vals[1:-1]
+                robust = sum(trimmed) / len(trimmed)
+            elif len(sorted_vals) >= 3:
+                trimmed = sorted_vals[1:]  # drop the worst only
                 robust = sum(trimmed) / len(trimmed)
             elif len(sorted_vals) == 2:
                 robust = sum(sorted_vals) / 2.0
@@ -4234,14 +4288,29 @@ def _compute_unified_rankings(
             continue
         rdv = row.get("rankDerivedValue")
         rk = row.get("canonicalConsensusRank")
-        if rdv is not None:
-            pdata["rankDerivedValue"] = rdv
-        if rk is not None:
-            pdata["_canonicalConsensusRank"] = rk
-        else:
-            # Suppressed generic tier — clear ranking on legacy too.
+        is_suppressed = bool(row.get("pickGenericSuppressed"))
+
+        if is_suppressed:
+            # Suppressed generic tier (e.g. "2026 Early 1st" hidden when
+            # slot-specific picks exist) — clear BOTH rank and value
+            # on the legacy mirror too.
             pdata["rankDerivedValue"] = None
             pdata["_canonicalConsensusRank"] = None
+        else:
+            # Mirror whatever value the pick row carries.  Anchored
+            # slot picks may have ``rankDerivedValue`` set even though
+            # ``canonicalConsensusRank`` is None (the Phase 5 compact
+            # pass clears slot-pick ranks; off-cap picks never had one
+            # to begin with).  Clearing the legacy value when the rank
+            # is None would silently drop the rookie-anchored value
+            # for clients reading from the runtime view, which strips
+            # playersArray and uses the legacy dict.
+            if rdv is not None:
+                pdata["rankDerivedValue"] = rdv
+            if rk is not None:
+                pdata["_canonicalConsensusRank"] = rk
+            else:
+                pdata["_canonicalConsensusRank"] = None
         # Mirror the new pick-specific confidence bucket as well.
         if "confidenceBucket" in row:
             pdata["confidenceBucket"] = row["confidenceBucket"]

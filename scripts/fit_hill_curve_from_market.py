@@ -7,24 +7,37 @@ its top player = 9999, grid-searches a Hill curve per source, then
 reports the simple mean + n-weighted mean of (midpoint, slope).
 
 Use the output to update ``src/canonical/player_valuation.py`` constants
-``HILL_MIDPOINT`` and ``HILL_SLOPE`` when the community's dropoff shape
-drifts from ours.
+``HILL_MIDPOINT`` / ``HILL_SLOPE`` (offense) or ``IDP_HILL_MIDPOINT`` /
+``IDP_HILL_SLOPE`` (IDP) when the community's dropoff shape drifts from
+ours.
 
 Usage:
-    python3 scripts/fit_hill_curve_from_market.py
+    python3 scripts/fit_hill_curve_from_market.py          # offense (default)
+    python3 scripts/fit_hill_curve_from_market.py --universe idp
 """
 from __future__ import annotations
 
+import argparse
 import csv
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 
-SOURCES: dict[str, tuple[str, str]] = {
+OFFENSE_SOURCES: dict[str, tuple[str, str]] = {
     "KTC":          ("CSVs/site_raw/ktc.csv",                 "value"),
     "IDPTradeCalc": ("CSVs/site_raw/idpTradeCalc.csv",        "value"),
     "DynastyDaddy": ("CSVs/site_raw/dynastyDaddySf.csv",      "value"),
     "DynastyNerds": ("CSVs/site_raw/dynastyNerdsSfTep.csv",   "Value"),
+}
+
+# IDP market sources.  FantasyPros IDP exposes a pre-normalized 1-9999
+# ``normalizedValue`` column straight from its dynasty IDP expert
+# consensus, so the fit works off published IDP pricing directly.
+# IDPTradeCalc's raw ``value`` column mixes offense + IDP + picks, but
+# the IDP entries always cluster below 7500 on its scale — cap the
+# slice at row 200 to approximate "IDP-only" without a position column.
+IDP_SOURCES: dict[str, tuple[str, str]] = {
+    "FantasyProsIDP": ("CSVs/site_raw/fantasyProsIdp.csv", "normalizedValue"),
 }
 
 
@@ -72,10 +85,18 @@ def _fit(normed_points: list[tuple[int, float]]) -> tuple[float, float, float]:
 
 
 def main() -> int:
-    print(f"Fitting Hill curve to {len(SOURCES)} market sources …")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--universe", choices=["offense", "idp"], default="offense",
+        help="Which market to fit (default: offense)",
+    )
+    args = parser.parse_args()
+
+    sources = OFFENSE_SOURCES if args.universe == "offense" else IDP_SOURCES
+    print(f"Fitting Hill curve to {len(sources)} {args.universe} market sources …")
     print()
     fits: list[tuple[str, int, float, float, float]] = []
-    for label, (rel_path, col) in SOURCES.items():
+    for label, (rel_path, col) in sources.items():
         values = _load_values(REPO / rel_path, col)
         if not values:
             print(f"  {label}: no values found at {rel_path}")

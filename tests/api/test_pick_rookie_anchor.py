@@ -152,15 +152,25 @@ class TestAnchorPassCore(unittest.TestCase):
         self.assertEqual(anchored, 0)
         self.assertEqual([p["rankDerivedValue"] for p in picks], before)
 
-    def test_unranked_pick_skipped(self) -> None:
+    def test_unranked_pick_still_anchored(self) -> None:
+        """Picks that fell off the Phase 4 OVERALL_RANK_LIMIT cap still
+        get anchored when a corresponding rookie exists.
+
+        The anchor is a proxy value for the rookie regardless of
+        whether the pick row survived the global rank cap; the
+        Phase 5 compact pass would clear the pick's rank anyway.
+        Gating on ``canonicalConsensusRank`` left tail R4 picks
+        unvalued whenever a curve retune tightened the cap.
+        """
         rookies = [_make_rookie("R1", 1, 9000)]
         pick = _make_pick("2026 Pick 1.01", 0, 0)
         pick["canonicalConsensusRank"] = None
         players_array = rookies + [pick]
 
         anchored = _anchor_current_year_picks_to_rookies(players_array, 2026)
-        self.assertEqual(anchored, 0)
-        self.assertNotIn("pickRookieAnchor", pick)
+        self.assertEqual(anchored, 1)
+        self.assertEqual(pick.get("rankDerivedValue"), 9000)
+        self.assertEqual(pick.get("pickRookieAnchor"), "R1")
 
     def test_beyond_72_rookies_unused(self) -> None:
         # Only 60 rookies available; pick 6.01 (index 60) has no anchor.
