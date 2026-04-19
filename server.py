@@ -2262,9 +2262,13 @@ async def post_angle_find(request: Request):
           "ownerId": "472206636534984704",       // your sleeper ownerId
           "playerName": "Jayden Daniels",        // canonical name
           "minMyGainPct": 5.0,                    // optional, default 5
-          "maxKtcGainPct": 5.0,                   // optional, default 5
+          "maxMarketGainPct": 5.0,                // optional, default 5
           "limit": 50                             // optional, default 50
         }
+
+    Market value is per-position: IDPTradeCalc for IDP (DL/LB/DB),
+    KTC for everyone else. Legacy body key ``maxKtcGainPct`` is
+    still accepted for backward compatibility.
     """
     if latest_contract_data is None:
         return JSONResponse(
@@ -2294,12 +2298,15 @@ async def post_angle_find(request: Request):
 
     try:
         min_my = float(body.get("minMyGainPct", 5.0))
-        max_ktc = float(body.get("maxKtcGainPct", 5.0))
+        # Accept new key, fall back to legacy for pre-rename clients.
+        max_market = float(
+            body.get("maxMarketGainPct", body.get("maxKtcGainPct", 5.0))
+        )
         limit = int(body.get("limit", 50))
     except (TypeError, ValueError):
         return JSONResponse(
             status_code=400,
-            content={"error": "minMyGainPct, maxKtcGainPct, limit must be numeric."},
+            content={"error": "minMyGainPct, maxMarketGainPct, limit must be numeric."},
         )
 
     from src.trade.angle import find_angles
@@ -2311,7 +2318,7 @@ async def post_angle_find(request: Request):
             owner_id,
             sleeper_teams,
             min_my_gain_pct=min_my,
-            max_ktc_gain_pct=max_ktc,
+            max_market_gain_pct=max_market,
             limit=limit,
         )
     except Exception as exc:  # noqa: BLE001
@@ -2335,10 +2342,14 @@ async def post_angle_packages(request: Request):
           "ownerId": "472206636534984704",
           "playerNames": ["Jayden Daniels", "CeeDee Lamb", ...],
           "minMyGainPct": 5.0,
-          "maxKtcGainPct": 5.0,
+          "maxMarketGainPct": 5.0,
           "limit": 50,
           "candidatePoolPerTeam": 25
         }
+
+    Market value is per-position: IDPTradeCalc for IDP (DL/LB/DB),
+    KTC for everyone else. Legacy body key ``maxKtcGainPct`` is
+    still accepted.
     """
     if latest_contract_data is None:
         return JSONResponse(
@@ -2369,7 +2380,10 @@ async def post_angle_packages(request: Request):
 
     try:
         min_my = float(body.get("minMyGainPct", 5.0))
-        max_ktc = float(body.get("maxKtcGainPct", 5.0))
+        # Accept renamed key; fall back to legacy for pre-rename clients.
+        max_market = float(
+            body.get("maxMarketGainPct", body.get("maxKtcGainPct", 5.0))
+        )
         limit = int(body.get("limit", 50))
         pool = int(body.get("candidatePoolPerTeam", 25))
         per_team = int(body.get("perTeamLimit", 4))
@@ -2403,7 +2417,7 @@ async def post_angle_packages(request: Request):
             owner_id,
             sleeper_teams,
             min_my_gain_pct=min_my,
-            max_ktc_gain_pct=max_ktc,
+            max_market_gain_pct=max_market,
             limit=limit,
             candidate_pool_per_team=pool,
             per_team_limit=per_team,

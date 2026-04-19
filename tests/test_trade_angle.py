@@ -82,12 +82,12 @@ def test_respects_min_my_gain_threshold():
     assert result["candidates"] == []
 
 
-def test_respects_max_ktc_gain_threshold():
+def test_respects_max_market_gain_threshold():
     players = [
         _player("Jayden Daniels", 5000, 5000),
-        _player("Trade Target Good", 6000, 5600),  # +20% my, +12% KTC
+        _player("Trade Target Good", 6000, 5600),  # +20% my, +12% market
     ]
-    # Default max is 5%; 12% KTC gap too much.
+    # Default max is 5%; 12% gap too much.
     result = find_angles(players, "Jayden Daniels", "owner-a", _teams())
     names = [c["name"] for c in result["candidates"]]
     assert "Trade Target Good" not in names
@@ -97,7 +97,7 @@ def test_respects_max_ktc_gain_threshold():
         "Jayden Daniels",
         "owner-a",
         _teams(),
-        max_ktc_gain_pct=20.0,
+        max_market_gain_pct=20.0,
     )
     names2 = [c["name"] for c in result2["candidates"]]
     assert "Trade Target Good" in names2
@@ -111,19 +111,20 @@ def test_missing_selected_player_returns_warning():
     assert result["warnings"]
 
 
-def test_selected_missing_ktc_value_returns_warning():
+def test_selected_missing_market_value_returns_warning():
     players = [
         {
             "canonicalName": "Jayden Daniels",
             "displayName": "Jayden Daniels",
             "position": "QB",
             "rankDerivedValue": 5000,
-            "canonicalSiteValues": {},  # no KTC
+            "canonicalSiteValues": {},  # no market value
         },
     ]
     result = find_angles(players, "Jayden Daniels", "owner-a", _teams())
     assert result["candidates"] == []
-    assert any("KTC" in w for w in result["warnings"])
+    # Warning mentions the market source that's missing (ktc for QB).
+    assert any("ktc" in w for w in result["warnings"])
 
 
 def test_limit_caps_results():
@@ -218,18 +219,17 @@ def test_packages_excludes_same_team_players_from_candidates():
     assert "owner-a" not in owners  # never trade with yourself
 
 
-def test_packages_filters_on_ktc_gap_threshold():
+def test_packages_filters_on_market_gap_threshold():
     offer = ["Jayden Daniels", "CeeDee Lamb"]
-    # Default max_ktc_gain_pct = 5. Team B's Star+Mid1 is KTC 10000
-    # (fair). Team C's Overpriced is KTC 7500 alone which is -25%
-    # versus offer's 10000 ktc — passes; good single-player counter.
+    # Default max_market_gain_pct = 5. Every candidate must satisfy
+    # the market gap constraint vs the offer's market total (which
+    # for this all-offense offer happens to equal the KTC total).
     result = find_angle_packages(
         _pkg_players(), offer, "owner-a", _pkg_teams(),
     )
-    # Every candidate satisfies KTC gap constraint.
-    offer_ktc = 10000
+    offer_market = 10000
     for c in result["candidates"]:
-        assert (c["ktc_total"] - offer_ktc) / offer_ktc * 100.0 <= 5.001
+        assert (c["market_total"] - offer_market) / offer_market * 100.0 <= 5.001
 
 
 def test_packages_sorts_by_arb_score_desc():
@@ -247,7 +247,7 @@ def test_packages_offer_totals_are_correct():
         _pkg_players(), offer, "owner-a", _pkg_teams(),
     )
     assert result["offer"]["my_total"] == 10000
-    assert result["offer"]["ktc_total"] == 10000
+    assert result["offer"]["market_total"] == 10000
     assert result["offer"]["size"] == 2
 
 
@@ -549,3 +549,104 @@ def test_packages_no_targets_uses_existing_per_team_mode():
     # Should see packages from both Team B and Team C independently.
     owners = {c["owner_id"] for c in result["candidates"]}
     assert owners == {"owner-b", "owner-c"}
+
+
+# ── Per-position market source ─────────────────────────────────────
+
+
+def _player_with_markets(name, my_val, ktc, idptc, *, position="QB"):
+    """Build a row carrying BOTH site values so the helper can pick."""
+    return {
+        "canonicalName": name,
+        "displayName": name,
+        "position": position,
+        "rankDerivedValue": my_val,
+        "canonicalSiteValues": {"ktc": ktc, "idpTradeCalc": idptc},
+    }
+
+
+def test_idp_players_compared_on_idptc_not_ktc():
+    """An IDP counter is accepted/rejected based on IDPTC, not KTC —
+    even if KTC would place it out of range."""
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["My DL"]},
+        {"name": "Team B", "ownerId": "owner-b", "players": ["Better DL"]},
+    ]
+    # Offer: My DL with IDPTC 5000. Target: Better DL with IDPTC
+    # 5100 (+2% — fair on IDPTC) but KTC 7000 (+40% — way over on
+    # KTC). The per-position rule should compare on IDPTC and
+    # accept.
+    players = [
+        _player_with_markets("My DL", my_val=5000, ktc=5000, idptc=5000, position="DL"),
+        _player_with_markets(
+            "Better DL", my_val=6000, ktc=7000, idptc=5100, position="DL",
+        ),
+    ]
+    result = find_angles(
+        players, "My DL", "owner-a", teams,
+        min_my_gain_pct=5.0, max_market_gain_pct=5.0,
+    )
+    names = [c["name"] for c in result["candidates"]]
+    assert "Better DL" in names, (
+        "IDP counter should qualify on IDPTC (+2%) despite bad KTC (+40%) "
+        f"— got candidates {names}"
+    )
+    # And the market source stamped on the row reflects IDPTC.
+    cand = next(c for c in result["candidates"] if c["name"] == "Better DL")
+    assert cand["market_source"] == "idpTradeCalc"
+
+
+def test_offense_players_still_compared_on_ktc():
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["My QB"]},
+        {"name": "Team B", "ownerId": "owner-b", "players": ["Other QB"]},
+    ]
+    # Offense trade — should compare on KTC, not IDPTC. IDPTC fair
+    # (+1%) but KTC bad (+30%) → should reject.
+    players = [
+        _player_with_markets("My QB", my_val=5000, ktc=5000, idptc=5000, position="QB"),
+        _player_with_markets(
+            "Other QB", my_val=6000, ktc=6500, idptc=5050, position="QB",
+        ),
+    ]
+    result = find_angles(
+        players, "My QB", "owner-a", teams,
+        min_my_gain_pct=5.0, max_market_gain_pct=5.0,
+    )
+    names = [c["name"] for c in result["candidates"]]
+    assert "Other QB" not in names
+    # Raising the ceiling admits it.
+    result2 = find_angles(
+        players, "My QB", "owner-a", teams,
+        min_my_gain_pct=5.0, max_market_gain_pct=40.0,
+    )
+    cand = next(c for c in result2["candidates"] if c["name"] == "Other QB")
+    assert cand["market_source"] == "ktc"
+
+
+def test_packages_player_rows_expose_per_position_market_source():
+    offer = ["My QB"]
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["My QB"]},
+        {
+            "name": "Team B", "ownerId": "owner-b",
+            "players": ["IDP Target", "Off Target"],
+        },
+    ]
+    players = [
+        _player_with_markets("My QB", 5000, 5000, 5000, position="QB"),
+        _player_with_markets("IDP Target", 6000, 7000, 5100, position="DL"),
+        _player_with_markets("Off Target", 6000, 5100, 7000, position="WR"),
+    ]
+    result = find_angle_packages(
+        players, offer, "owner-a", teams,
+        min_my_gain_pct=5.0, max_market_gain_pct=5.0,
+    )
+    for c in result["candidates"]:
+        for p in c["players"]:
+            if p["position"] == "DL":
+                assert p["market_source"] == "idpTradeCalc"
+                assert p["market_value"] == 5100  # IDPTC value
+            elif p["position"] == "WR":
+                assert p["market_source"] == "ktc"
+                assert p["market_value"] == 5100  # KTC value

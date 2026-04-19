@@ -7,15 +7,25 @@ import { useDynastyData } from "@/components/useDynastyData";
 // Multi-player trade-target arbitrage.
 // Pick your team → check off any players you'd offer → get counter-
 // packages from other teams, sized within ±1 of your offer, where
-// your league's calibrated rankings say win but KTC sees fair-or-
-// better for the counterparty.
+// your league's calibrated rankings say win but the market the
+// counterparty consults says fair-or-better. "Market" is per-position:
+// IDP Trade Calculator for DL/LB/DB, KTC for everyone else.
 
 const DEFAULT_MIN_MY = 5;
-const DEFAULT_MAX_KTC = 5;
+const DEFAULT_MAX_MARKET = 5;
 const DEFAULT_LIMIT = 50;
 const DEFAULT_PER_TEAM = 4;
 const DEFAULT_MIN_PLAYER_VALUE = 3000;
 const POSITION_FILTERS = ["QB", "RB", "WR", "TE", "DL", "LB", "DB"];
+const IDP_POS_RE = /^(?:DL|DE|DT|EDGE|NT|LB|ILB|OLB|MLB|DB|CB|S|SS|FS)$/i;
+
+function marketSourceForPos(position) {
+  return IDP_POS_RE.test(String(position || "").trim()) ? "idpTradeCalc" : "ktc";
+}
+
+function marketLabelForSource(source) {
+  return source === "idpTradeCalc" ? "IDPTC" : "KTC";
+}
 
 export default function AnglePage() {
   const { loading: dataLoading, error: dataError, rawData, rows } = useDynastyData();
@@ -27,19 +37,23 @@ export default function AnglePage() {
     );
   }, [rawData]);
 
-  // Quick lookup: canonical name → { my_value, ktc_value, position }.
-  // Used to show per-player totals in the checklist and offer bar.
+  // Quick lookup: canonical name → { my_value, market_value, market_source, position }.
+  // "Market" source is IDPTC for IDP positions, KTC for everyone else
+  // — matches the per-position market anchor the backend uses.
   const valueByName = useMemo(() => {
     const m = new Map();
     for (const r of rows || []) {
       const name = r?.name || r?.canonicalName;
       if (!name) continue;
+      const pos = r?.pos || r?.position || "";
+      const source = marketSourceForPos(pos);
       const my_v = Number(r?.rankDerivedValue) || 0;
-      const ktc_v = Number(r?.canonicalSites?.ktc) || 0;
+      const market_v = Number(r?.canonicalSites?.[source]) || 0;
       m.set(name, {
         my_value: my_v,
-        ktc_value: ktc_v,
-        position: r?.pos || r?.position || "",
+        market_value: market_v,
+        market_source: source,
+        position: pos,
       });
     }
     return m;
@@ -49,7 +63,7 @@ export default function AnglePage() {
   const [rosterFilter, setRosterFilter] = useState("");
   const [offer, setOffer] = useState(() => new Set());
   const [minMyGainPct, setMinMyGainPct] = useState(DEFAULT_MIN_MY);
-  const [maxKtcGainPct, setMaxKtcGainPct] = useState(DEFAULT_MAX_KTC);
+  const [maxMarketGainPct, setMaxMarketGainPct] = useState(DEFAULT_MAX_MARKET);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [perTeamLimit, setPerTeamLimit] = useState(DEFAULT_PER_TEAM);
   const [positionFilters, setPositionFilters] = useState(() => new Set());
@@ -102,15 +116,15 @@ export default function AnglePage() {
 
   const offerTotals = useMemo(() => {
     let my = 0;
-    let ktc = 0;
+    let market = 0;
     for (const name of offerList) {
       const info = valueByName.get(name);
       if (info) {
         my += info.my_value || 0;
-        ktc += info.ktc_value || 0;
+        market += info.market_value || 0;
       }
     }
-    return { my, ktc };
+    return { my, market };
   }, [offerList, valueByName]);
 
   function toggleOffer(name) {
@@ -181,7 +195,7 @@ export default function AnglePage() {
           ownerId,
           playerNames: offerList,
           minMyGainPct: Number(minMyGainPct),
-          maxKtcGainPct: Number(maxKtcGainPct),
+          maxMarketGainPct: Number(maxMarketGainPct),
           limit: Number(limit),
           perTeamLimit: Number(perTeamLimit),
           minPlayerMyValue: Number(minPlayerValue),
@@ -227,7 +241,8 @@ export default function AnglePage() {
           <h1 className="page-title">Angle</h1>
           <p className="page-subtitle muted" style={{ marginTop: 4 }}>
             Build an offer from your roster; get counter-packages
-            (±1 in size) that win on your rankings but look fair-or-better on KTC.
+            (±1 in size) that win on your rankings but look fair-or-better on
+            the market the counterparty consults (IDPTC for IDP, KTC otherwise).
           </p>
         </div>
       </div>
@@ -268,14 +283,14 @@ export default function AnglePage() {
           </label>
           <label className="angle-field">
             <span className="muted">
-              Max KTC gap %{" "}
-              <span className="angle-field-hint">(counter KTC ≤ this above)</span>
+              Max market gap %{" "}
+              <span className="angle-field-hint">(IDPTC for IDP / KTC for offense)</span>
             </span>
             <input
               type="number"
-              value={maxKtcGainPct}
+              value={maxMarketGainPct}
               step="1"
-              onChange={(e) => setMaxKtcGainPct(e.target.value)}
+              onChange={(e) => setMaxMarketGainPct(e.target.value)}
               disabled={busy}
             />
           </label>
@@ -470,8 +485,9 @@ export default function AnglePage() {
                               {info && (
                                 <span className="muted angle-roster-meta">
                                   {info.position || "—"} · my{" "}
-                                  {info.my_value.toLocaleString()} / ktc{" "}
-                                  {info.ktc_value.toLocaleString()}
+                                  {info.my_value.toLocaleString()} ·{" "}
+                                  {marketLabelForSource(info.market_source)}{" "}
+                                  {info.market_value.toLocaleString()}
                                 </span>
                               )}
                             </label>
@@ -494,7 +510,9 @@ export default function AnglePage() {
               My total <strong>{offerTotals.my.toLocaleString()}</strong>
             </span>
             <span>
-              KTC total <strong>{offerTotals.ktc.toLocaleString()}</strong>
+              Market total{" "}
+              <strong>{offerTotals.market.toLocaleString()}</strong>
+              <span className="angle-field-hint"> (IDPTC for IDP, KTC otherwise)</span>
             </span>
             {offerList.length > 0 && (
               <button
@@ -521,8 +539,9 @@ export default function AnglePage() {
                   <strong>{name}</strong>
                   {info && (
                     <span className="muted">
-                      {info.position} · my {info.my_value.toLocaleString()} / ktc{" "}
-                      {info.ktc_value.toLocaleString()}
+                      {info.position} · my {info.my_value.toLocaleString()} ·{" "}
+                      {marketLabelForSource(info.market_source)}{" "}
+                      {info.market_value.toLocaleString()}
                     </span>
                   )}
                   <span className="angle-chip-x">×</span>
@@ -562,8 +581,9 @@ export default function AnglePage() {
                   {info && (
                     <span className="muted angle-roster-meta">
                       {info.position || "—"} · my{" "}
-                      {info.my_value.toLocaleString()} / ktc{" "}
-                      {info.ktc_value.toLocaleString()}
+                      {info.my_value.toLocaleString()} ·{" "}
+                      {marketLabelForSource(info.market_source)}{" "}
+                      {info.market_value.toLocaleString()}
                     </span>
                   )}
                 </label>
@@ -589,7 +609,8 @@ export default function AnglePage() {
           <div className="angle-section-head">
             <h2>Counter-packages ({result.candidates.length})</h2>
             <span className="muted">
-              Sorted by arbitrage score (my gain % − KTC gap %). Sizes allowed:{" "}
+              Sorted by arbitrage score (my gain % − market gap %). Market is
+              IDPTC for IDP, KTC otherwise. Sizes allowed:{" "}
               {(result.thresholds?.target_sizes || []).join(", ")}.
             </span>
           </div>
@@ -609,14 +630,14 @@ export default function AnglePage() {
                     </span>
                     <span
                       className={
-                        c.ktc_gain_pct <= 0
+                        c.market_gain_pct <= 0
                           ? "angle-delta-pos"
                           : "angle-delta-neutral"
                       }
-                      title="KTC gap %"
+                      title="Market gap % (IDPTC for IDP / KTC for offense)"
                     >
-                      {c.ktc_gain_pct > 0 ? "+" : ""}
-                      {c.ktc_gain_pct.toFixed(1)}% ktc
+                      {c.market_gain_pct > 0 ? "+" : ""}
+                      {c.market_gain_pct.toFixed(1)}% mkt
                     </span>
                     <span title="Arbitrage score">
                       <strong>+{c.arb_score.toFixed(1)}</strong>
@@ -629,15 +650,17 @@ export default function AnglePage() {
                       <strong>{p.name}</strong>{" "}
                       <span className="muted">{p.position}</span>{" "}
                       <span className="muted">
-                        my {p.my_value.toLocaleString()} / ktc{" "}
-                        {p.ktc_value.toLocaleString()}
+                        my {p.my_value.toLocaleString()} ·{" "}
+                        {marketLabelForSource(p.market_source)}{" "}
+                        {p.market_value.toLocaleString()}
                       </span>
                     </li>
                   ))}
                 </ul>
                 <div className="angle-package-totals muted">
                   my total <strong>{c.my_total.toLocaleString()}</strong>{" "}
-                  · ktc total <strong>{c.ktc_total.toLocaleString()}</strong>
+                  · market total{" "}
+                  <strong>{c.market_total.toLocaleString()}</strong>
                 </div>
               </div>
             ))}
@@ -647,7 +670,7 @@ export default function AnglePage() {
         <section className="card">
           <p className="muted">
             No counter-packages match. Loosen the thresholds (lower
-            "Min my-value gain %" or raise "Max KTC gap %"), pick
+            "Min my-value gain %" or raise "Max market gap %"), pick
             different offer players, or widen the candidate pool on
             the backend.
           </p>
