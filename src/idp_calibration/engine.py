@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -412,7 +413,33 @@ def run_analysis(
     per_season_family_scales: dict[int, FamilyScale] = {}
     resolved_seasons: list[int] = []
 
-    for season in sorted({int(s) for s in settings.seasons}):
+    # ── Prefetch per-season universes concurrently ──────────────────
+    # ``_build_universe_for_season`` makes a network call per season
+    # (adapter probe + stats pull).  Running 4 seasons serially was
+    # the single biggest chunk of lab wall-clock time; fan them out on
+    # a small thread pool so the lab analyse action finishes in ~1×
+    # fetch time instead of 4×.  A forward-borrow / unresolved season
+    # still gets a fetch here (the resolution branches inside the
+    # main loop below pick which one to actually use) but the wasted
+    # calls are bounded by the Sleeper rate limiter and don't
+    # lengthen wall time.
+    season_list = sorted({int(s) for s in settings.seasons})
+
+    def _fetch_one(season: int):
+        adapter = stats_adapter_factory(season) if stats_adapter_factory else None
+        return _build_universe_for_season(
+            season, adapter=adapter, settings=settings
+        )
+
+    universes_by_season: dict[int, tuple] = {}
+    if season_list:
+        max_workers = min(len(season_list), 4)
+        with ThreadPoolExecutor(max_workers=max_workers) as _ex:
+            universes_by_season = dict(
+                zip(season_list, _ex.map(_fetch_one, season_list))
+            )
+
+    for season in season_list:
         test_res = test_chain.seasons.get(season)
         my_res = my_chain.seasons.get(season)
         test_native = bool(test_res and test_res.resolved)
@@ -508,15 +535,12 @@ def run_analysis(
         test_lineup = parse_lineup(test_league_obj)
         my_lineup = parse_lineup(my_league_obj)
 
-        adapter = stats_adapter_factory(season) if stats_adapter_factory else None
         (
             idp_universe,
             offense_universe,
             stats_warnings,
             adapter_name,
-        ) = _build_universe_for_season(
-            season, adapter=adapter, settings=settings
-        )
+        ) = universes_by_season[season]
         warnings.extend(stats_warnings)
 
         if not idp_universe:
