@@ -2,10 +2,20 @@
 
 Given a user-owned player (or package of players), find players or
 player-packages on other teams where the trade leans in the user's
-favour under their own league's rankings but looks fair-or-worse to
-the counterparty on KTC. Lets the user pitch trades that their
-leaguemates will accept ("KTC says it's even") while actually gaining
+favour under their own league's calibrated rankings but looks
+fair-or-worse to the counterparty on the market index their position
+indexes. Lets the user pitch trades that their leaguemates will
+accept (the market they consult says "even") while actually gaining
 value in their league-specific calibrated board.
+
+Market anchor is per-position:
+  * Offense (QB/RB/WR/TE), picks, everything else → KTC
+  * IDP (DL/LB/DB) → IDP Trade Calculator
+
+IDP leaguemates evaluate IDP trades on IDPTC, not KTC. A trade
+between two DLs that looks 5% over-market on KTC is irrelevant — the
+counterparty looks at IDPTC. So each player's "market value" is
+drawn from the source their position indexes.
 
 ``find_angles`` handles the single-player pivot. ``find_angle_packages``
 extends to multi-player offers: give it a list of your players and it
@@ -20,20 +30,41 @@ from __future__ import annotations
 from itertools import combinations
 from typing import Any
 
+_IDP_POSITIONS: frozenset[str] = frozenset(
+    {"DL", "DE", "DT", "EDGE", "NT", "LB", "ILB", "OLB", "MLB", "DB", "CB", "S", "SS", "FS"}
+)
 
-def _value_pair(row: dict[str, Any]) -> tuple[float, float] | None:
-    """Return (my_value, ktc_value) for a row, or None if incomplete."""
+
+def _market_source_for(position: str | None) -> str:
+    """Return the canonicalSiteValues key the counterparty would
+    consult for this position. IDP positions compare on IDPTC;
+    everything else (offense, picks, kickers, etc.) compares on KTC.
+    """
+    pos = str(position or "").strip().upper()
+    if pos in _IDP_POSITIONS:
+        return "idpTradeCalc"
+    return "ktc"
+
+
+def _value_pair(row: dict[str, Any]) -> tuple[float, float, str] | None:
+    """Return (my_value, market_value, market_source_key) for a row.
+
+    ``market_source_key`` is the canonicalSiteValues key used —
+    ``"idpTradeCalc"`` for IDP rows, ``"ktc"`` otherwise. Returns
+    ``None`` when either value is missing or non-positive.
+    """
     my_val = row.get("rankDerivedValue")
     sites = row.get("canonicalSiteValues") or {}
-    ktc_val = sites.get("ktc") if isinstance(sites, dict) else None
+    source = _market_source_for(row.get("position"))
+    market_val = sites.get(source) if isinstance(sites, dict) else None
     try:
         my_num = float(my_val) if my_val is not None else 0.0
-        ktc_num = float(ktc_val) if ktc_val is not None else 0.0
+        market_num = float(market_val) if market_val is not None else 0.0
     except (TypeError, ValueError):
         return None
-    if my_num <= 0 or ktc_num <= 0:
+    if my_num <= 0 or market_num <= 0:
         return None
-    return my_num, ktc_num
+    return my_num, market_num, source
 
 
 def find_angles(
@@ -43,10 +74,16 @@ def find_angles(
     sleeper_teams: list[dict[str, Any]],
     *,
     min_my_gain_pct: float = 5.0,
-    max_ktc_gain_pct: float = 5.0,
+    max_market_gain_pct: float = 5.0,
     limit: int = 50,
 ) -> dict[str, Any]:
     """Find trade-target candidates that lean in the user's favour.
+
+    Each player's "market value" is drawn from the source that indexes
+    their position — IDP Trade Calculator for DL/LB/DB, KTC for
+    everyone else. The counterparty looks at the same market their
+    player is listed in, so the threshold check matches their
+    perspective.
 
     Parameters
     ----------
@@ -54,25 +91,11 @@ def find_angles(
         Canonical player rows (from build_api_data_contract's
         ``playersArray``). Each row must carry ``canonicalName``,
         ``rankDerivedValue`` (the calibrated my-league value), and
-        ``canonicalSiteValues.ktc`` (the market anchor).
-    selected_player_name
-        Canonical name of the player on the user's team to pivot on.
-    selected_team_owner_id
-        Sleeper ``ownerId`` identifying the user's roster. Used to
-        filter out same-team targets so Angle never suggests trading
-        with yourself.
-    sleeper_teams
-        List of team entries from ``sleeper.teams`` — each team has
-        ``name``, ``ownerId``, and ``players`` (canonical names).
-    min_my_gain_pct
-        Minimum my-league value gain for a target to qualify (as a
-        percentage of the selected player's my-league value). Default
-        5% — the trade has to visibly move the needle.
-    max_ktc_gain_pct
-        Maximum market (KTC) value gain on the target side for the
-        trade to still look "plausible" to the counterparty. Default
-        5% — anything beyond that and the counterparty would reject
-        purely on KTC grounds.
+        a market value at ``canonicalSiteValues.idpTradeCalc`` for
+        IDP or ``canonicalSiteValues.ktc`` for offense.
+    max_market_gain_pct
+        Maximum market value gain on the target side for the trade
+        to still look "plausible" to the counterparty. Default 5%.
     limit
         Cap on returned candidates (sorted by arbitrage score desc).
 
@@ -80,6 +103,8 @@ def find_angles(
     -------
     dict
         ``{selected: {...}, candidates: [{...}, ...], warnings: [...]}``
+        Market value is in ``market_value``; market source (``ktc``
+        vs ``idpTradeCalc``) is in ``market_source``.
     """
     warnings: list[str] = []
 
@@ -99,19 +124,21 @@ def find_angles(
 
     pair = _value_pair(selected_row)
     if pair is None:
+        sel_source = _market_source_for(selected_row.get("position"))
         return {
             "selected": {
                 "name": selected_player_name,
                 "my_value": selected_row.get("rankDerivedValue"),
-                "ktc_value": None,
+                "market_value": None,
+                "market_source": sel_source,
             },
             "candidates": [],
             "warnings": [
-                f"{selected_player_name!r} is missing a my-league or KTC value "
+                f"{selected_player_name!r} is missing a my-league or {sel_source} value "
                 "— Angle needs both to compute the arbitrage."
             ],
         }
-    my_val_selected, ktc_val_selected = pair
+    my_val_selected, market_val_selected, selected_market_source = pair
 
     # Build reverse index: canonical name -> owner's team dict.
     owner_by_player: dict[str, dict[str, Any]] = {}
@@ -143,16 +170,16 @@ def find_angles(
         target_pair = _value_pair(target_row)
         if target_pair is None:
             continue
-        my_val_target, ktc_val_target = target_pair
+        my_val_target, market_val_target, target_market_source = target_pair
 
         my_gain = my_val_target - my_val_selected
-        ktc_gain = ktc_val_target - ktc_val_selected
+        market_gain = market_val_target - market_val_selected
         my_gain_pct = 100.0 * my_gain / my_val_selected
-        ktc_gain_pct = 100.0 * ktc_gain / ktc_val_selected
+        market_gain_pct = 100.0 * market_gain / market_val_selected
 
         if my_gain_pct < min_my_gain_pct:
             continue
-        if ktc_gain_pct > max_ktc_gain_pct:
+        if market_gain_pct > max_market_gain_pct:
             continue
 
         candidates.append(
@@ -162,12 +189,13 @@ def find_angles(
                 "team": owner_team.get("name") if owner_team else "(free agent)",
                 "owner_id": str(owner_team.get("ownerId") or "") if owner_team else "",
                 "my_value": int(my_val_target),
-                "ktc_value": int(ktc_val_target),
+                "market_value": int(market_val_target),
+                "market_source": target_market_source,
                 "my_gain": int(round(my_gain)),
-                "ktc_gain": int(round(ktc_gain)),
+                "market_gain": int(round(market_gain)),
                 "my_gain_pct": round(my_gain_pct, 2),
-                "ktc_gain_pct": round(ktc_gain_pct, 2),
-                "arb_score": round(my_gain_pct - ktc_gain_pct, 2),
+                "market_gain_pct": round(market_gain_pct, 2),
+                "arb_score": round(my_gain_pct - market_gain_pct, 2),
             }
         )
 
@@ -180,12 +208,13 @@ def find_angles(
             "position": str(selected_row.get("position") or ""),
             "team": my_team_name,
             "my_value": int(my_val_selected),
-            "ktc_value": int(ktc_val_selected),
+            "market_value": int(market_val_selected),
+            "market_source": selected_market_source,
         },
         "candidates": candidates,
         "thresholds": {
             "min_my_gain_pct": min_my_gain_pct,
-            "max_ktc_gain_pct": max_ktc_gain_pct,
+            "max_market_gain_pct": max_market_gain_pct,
             "limit": limit,
         },
         "warnings": warnings,
@@ -199,7 +228,7 @@ def find_angle_packages(
     sleeper_teams: list[dict[str, Any]],
     *,
     min_my_gain_pct: float = 5.0,
-    max_ktc_gain_pct: float = 5.0,
+    max_market_gain_pct: float = 5.0,
     limit: int = 50,
     candidate_pool_per_team: int = 25,
     per_team_limit: int = 4,
@@ -242,8 +271,12 @@ def find_angle_packages(
     dict
         ``{offer, candidates, thresholds, warnings}`` where
         ``candidates`` is a list of package dicts, each with
-        ``{team, size, players, my_total, ktc_total, my_gain_pct,
-        ktc_gain_pct, arb_score}``. Sorted by ``arb_score`` desc.
+        ``{team, size, players, my_total, market_total, my_gain_pct,
+        market_gain_pct, arb_score}``. Sorted by ``arb_score`` desc.
+        Market value is per-position: IDPTC for DL/LB/DB, KTC for
+        offense/picks/other. Individual player rows carry
+        ``market_value`` and ``market_source`` so the UI can label
+        correctly.
 
     The counter-package size is constrained to ``{N-1, N, N+1}``
     where ``N`` is the offered-player count. Size ``0`` is skipped
@@ -273,12 +306,12 @@ def find_angle_packages(
     if missing:
         warnings.append(
             f"Dropped {len(missing)} player(s) from the offer that have no "
-            f"my-value or KTC value: {', '.join(missing[:5])}"
+            f"my-value or market value: {', '.join(missing[:5])}"
             + (" …" if len(missing) > 5 else "")
         )
     if not offer_rows:
         return {
-            "offer": {"players": [], "size": 0, "my_total": 0, "ktc_total": 0},
+            "offer": {"players": [], "size": 0, "my_total": 0, "market_total": 0},
             "candidates": [],
             "warnings": warnings or ["No valid offer-side players."],
         }
@@ -286,7 +319,7 @@ def find_angle_packages(
     offer_my_total = sum(
         _value_pair(r)[0] for r in offer_rows  # type: ignore[index]
     )
-    offer_ktc_total = sum(
+    offer_market_total = sum(
         _value_pair(r)[1] for r in offer_rows  # type: ignore[index]
     )
     offer_size = len(offer_rows)
@@ -322,7 +355,7 @@ def find_angle_packages(
             pair = _value_pair(row)
             if pair is None:
                 continue
-            my_v, ktc_v = pair
+            my_v, market_v, market_source = pair
             # Per-player filters: position allow-list and my-value floor.
             row_pos = str(row.get("position") or "").strip().upper()
             if position_filter is not None and row_pos not in position_filter:
@@ -334,7 +367,8 @@ def find_angle_packages(
                     "name": pname,
                     "position": str(row.get("position") or ""),
                     "my_value": my_v,
-                    "ktc_value": ktc_v,
+                    "market_value": market_v,
+                    "market_source": market_source,
                 }
             )
         pool.sort(key=lambda p: -p["my_value"])
@@ -344,7 +378,7 @@ def find_angle_packages(
     # Pre-compute numeric thresholds in absolute-value terms so the
     # inner loop uses only arithmetic, no division.
     min_my_total = offer_my_total * (1.0 + min_my_gain_pct / 100.0)
-    max_ktc_total = offer_ktc_total * (1.0 + max_ktc_gain_pct / 100.0)
+    max_market_total = offer_market_total * (1.0 + max_market_gain_pct / 100.0)
 
     # Normalise target-team + seed inputs for constructed-package mode.
     target_ids: set[str] = {
@@ -361,12 +395,13 @@ def find_angle_packages(
         pair = _value_pair(row)
         if pair is None:
             return None
-        my_v, ktc_v = pair
+        my_v, market_v, market_source = pair
         return {
             "name": str(row.get("canonicalName") or row.get("displayName") or ""),
             "position": str(row.get("position") or ""),
             "my_value": my_v,
-            "ktc_value": ktc_v,
+            "market_value": market_v,
+            "market_source": market_source,
         }
 
     def _make_candidate(
@@ -377,11 +412,11 @@ def find_angle_packages(
         my_sum = sum(p["my_value"] for p in combo)
         if my_sum < min_my_total:
             return None
-        ktc_sum = sum(p["ktc_value"] for p in combo)
-        if ktc_sum > max_ktc_total:
+        market_sum = sum(p["market_value"] for p in combo)
+        if market_sum > max_market_total:
             return None
         my_gain_pct = 100.0 * (my_sum - offer_my_total) / offer_my_total
-        ktc_gain_pct = 100.0 * (ktc_sum - offer_ktc_total) / offer_ktc_total
+        market_gain_pct = 100.0 * (market_sum - offer_market_total) / offer_market_total
         return {
             "team": team_label,
             "owner_id": owner_id_label,
@@ -391,15 +426,16 @@ def find_angle_packages(
                     "name": p["name"],
                     "position": p["position"],
                     "my_value": int(p["my_value"]),
-                    "ktc_value": int(p["ktc_value"]),
+                    "market_value": int(p["market_value"]),
+                    "market_source": p["market_source"],
                 }
                 for p in combo
             ],
             "my_total": int(round(my_sum)),
-            "ktc_total": int(round(ktc_sum)),
+            "market_total": int(round(market_sum)),
             "my_gain_pct": round(my_gain_pct, 2),
-            "ktc_gain_pct": round(ktc_gain_pct, 2),
-            "arb_score": round(my_gain_pct - ktc_gain_pct, 2),
+            "market_gain_pct": round(market_gain_pct, 2),
+            "arb_score": round(my_gain_pct - market_gain_pct, 2),
         }
 
     if target_ids:
@@ -537,7 +573,8 @@ def find_angle_packages(
                 "name": str(r.get("canonicalName") or ""),
                 "position": str(r.get("position") or ""),
                 "my_value": int(pair[0]) if pair else 0,
-                "ktc_value": int(pair[1]) if pair else 0,
+                "market_value": int(pair[1]) if pair else 0,
+                "market_source": pair[2] if pair else _market_source_for(r.get("position")),
             }
         )
 
@@ -547,12 +584,12 @@ def find_angle_packages(
             "size": offer_size,
             "players": offer_players,
             "my_total": int(round(offer_my_total)),
-            "ktc_total": int(round(offer_ktc_total)),
+            "market_total": int(round(offer_market_total)),
         },
         "candidates": candidates,
         "thresholds": {
             "min_my_gain_pct": min_my_gain_pct,
-            "max_ktc_gain_pct": max_ktc_gain_pct,
+            "max_market_gain_pct": max_market_gain_pct,
             "limit": limit,
             "candidate_pool_per_team": candidate_pool_per_team,
             "per_team_limit": per_team_limit,
