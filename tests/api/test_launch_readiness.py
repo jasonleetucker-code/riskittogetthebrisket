@@ -209,17 +209,15 @@ class TestGate5TierAlignment(unittest.TestCase):
         missing = [r["canonicalName"] for r in ranked if r.get("canonicalTierId") is None]
         self.assertEqual(missing, [])
 
-    def test_tier_ids_bounded_and_rank1_is_tier1(self):
-        """Tier IDs land in the frontend's 1..10 vocabulary, and the
-        top-of-board row is always in tier 1.
+    def test_tier_ids_positive_and_rank1_is_tier1(self):
+        """Tier IDs are positive integers, and the top-of-board row is
+        always in tier 1.
 
-        Tier assignment is now gap-based on ``rankDerivedValue`` (see
+        Tier assignment is gap-based on ``rankDerivedValue`` (see
         ``_compute_value_based_tier_ids`` in ``src/api/data_contract.py``)
-        rather than fixed rank buckets, so we no longer pin each row to
-        ``_tier_id_from_rank(rank)`` — the whole point of the change is
-        that tier boundaries land at real market cliffs, which shift
-        run-to-run as the source blend shifts.  Monotonicity is covered
-        by ``test_tiers_non_decreasing``.
+        rather than fixed rank buckets.  The frontend renders generic
+        "Tier N" labels, so there's no upper bound on tier count;
+        monotonicity is covered by ``test_tiers_non_decreasing``.
         """
         result = _get()
         if result is None:
@@ -228,7 +226,7 @@ class TestGate5TierAlignment(unittest.TestCase):
         out_of_range = [
             f"#{r['canonicalConsensusRank']}: tier={r.get('canonicalTierId')}"
             for r in ranked
-            if not (isinstance(r.get("canonicalTierId"), int) and 1 <= r["canonicalTierId"] <= 10)
+            if not (isinstance(r.get("canonicalTierId"), int) and r["canonicalTierId"] >= 1)
         ]
         self.assertEqual(out_of_range, [])
         if ranked:

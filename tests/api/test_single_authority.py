@@ -95,16 +95,14 @@ class TestSingleAuthority(unittest.TestCase):
         self.assertEqual(len(ranks), len(set(ranks)), "Duplicate ranks detected")
 
     def test_tier_bounded_and_monotonic(self):
-        """canonicalTierId lands in 1..10 and is non-decreasing with rank.
+        """canonicalTierId is a positive integer and non-decreasing with rank.
 
         Tier assignment is gap-based on ``rankDerivedValue`` (see
-        ``_compute_value_based_tier_ids``) rather than fixed rank
-        buckets, so the strict ``_tier_id_from_rank`` equality check
-        this test previously enforced no longer applies.  Instead we
-        pin the two invariants the frontend relies on: tier IDs stay in
-        the ``TIER_LABELS`` vocabulary (1..10), and higher-ranked rows
-        never land in a worse (higher-numbered) tier than lower-ranked
-        rows.
+        ``_compute_value_based_tier_ids``).  The frontend renders
+        generic "Tier N" labels, so there's no upper bound on the
+        number of math-detected tiers — we only pin that tier IDs are
+        positive integers and that higher-ranked rows never land in a
+        worse (higher-numbered) tier than lower-ranked rows.
         """
         contract = _load_live_contract()
         if contract is None:
@@ -119,12 +117,12 @@ class TestSingleAuthority(unittest.TestCase):
             for r in ranked
             if not (
                 isinstance(r.get("canonicalTierId"), int)
-                and 1 <= r["canonicalTierId"] <= 10
+                and r["canonicalTierId"] >= 1
             )
         ]
         self.assertEqual(
             out_of_range, [],
-            f"Tier IDs out of 1..10 range:\n" + "\n".join(out_of_range[:10]),
+            f"Tier IDs must be positive ints:\n" + "\n".join(out_of_range[:10]),
         )
         prev_tier = 0
         non_monotonic: list[str] = []

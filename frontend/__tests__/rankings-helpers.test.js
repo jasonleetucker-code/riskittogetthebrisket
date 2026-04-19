@@ -13,19 +13,16 @@ import {
 
 describe("tierLabel", () => {
   it("uses backend canonicalTierId when present", () => {
-    expect(tierLabel({ canonicalTierId: 1, rank: 5 })).toBe("Elite");
-    expect(tierLabel({ canonicalTierId: 2, rank: 20 })).toBe("Blue-Chip");
-    expect(tierLabel({ canonicalTierId: 5, rank: 150 })).toBe("Starter");
-  });
-
-  it("falls back to generic label for tier IDs > 10", () => {
+    expect(tierLabel({ canonicalTierId: 1, rank: 5 })).toBe("Tier 1");
+    expect(tierLabel({ canonicalTierId: 2, rank: 20 })).toBe("Tier 2");
+    expect(tierLabel({ canonicalTierId: 5, rank: 150 })).toBe("Tier 5");
     expect(tierLabel({ canonicalTierId: 12, rank: 700 })).toBe("Tier 12");
   });
 
   it("falls back to rank-based when canonicalTierId is null", () => {
-    expect(tierLabel({ canonicalTierId: null, rank: 1 })).toBe("Elite");
-    expect(tierLabel({ rank: 50 })).toBe("Premium Starter");
-    expect(tierLabel({ rank: 400 })).toBe("Bench Depth");
+    expect(tierLabel({ canonicalTierId: null, rank: 1 })).toBe("Tier 1");
+    expect(tierLabel({ rank: 50 })).toBe("Tier 3");
+    expect(tierLabel({ rank: 400 })).toBe("Tier 7");
   });
 
   it("returns Unranked for null/0 rank and no tierId", () => {
@@ -38,26 +35,19 @@ describe("tierLabel", () => {
 // ── rankBasedTierLabel ───────────────────────────────────────────────
 
 describe("rankBasedTierLabel", () => {
-  it("maps rank boundaries correctly", () => {
-    expect(rankBasedTierLabel(1)).toBe("Elite");
-    expect(rankBasedTierLabel(12)).toBe("Elite");
-    expect(rankBasedTierLabel(13)).toBe("Blue-Chip");
-    expect(rankBasedTierLabel(36)).toBe("Blue-Chip");
-    expect(rankBasedTierLabel(37)).toBe("Premium Starter");
-    expect(rankBasedTierLabel(72)).toBe("Premium Starter");
-    expect(rankBasedTierLabel(73)).toBe("Solid Starter");
-    expect(rankBasedTierLabel(120)).toBe("Solid Starter");
-    expect(rankBasedTierLabel(121)).toBe("Starter");
-    expect(rankBasedTierLabel(200)).toBe("Starter");
-    expect(rankBasedTierLabel(201)).toBe("Flex / Depth");
-    expect(rankBasedTierLabel(350)).toBe("Flex / Depth");
-    expect(rankBasedTierLabel(351)).toBe("Bench Depth");
-    expect(rankBasedTierLabel(500)).toBe("Bench Depth");
-    expect(rankBasedTierLabel(501)).toBe("Deep Stash");
-    expect(rankBasedTierLabel(650)).toBe("Deep Stash");
-    expect(rankBasedTierLabel(651)).toBe("Roster Fringe");
-    expect(rankBasedTierLabel(800)).toBe("Roster Fringe");
-    expect(rankBasedTierLabel(801)).toBe("Waiver Wire");
+  it("returns the numeric tier label mirroring rankBasedTierId", () => {
+    expect(rankBasedTierLabel(1)).toBe("Tier 1");
+    expect(rankBasedTierLabel(12)).toBe("Tier 1");
+    expect(rankBasedTierLabel(13)).toBe("Tier 2");
+    expect(rankBasedTierLabel(36)).toBe("Tier 2");
+    expect(rankBasedTierLabel(37)).toBe("Tier 3");
+    expect(rankBasedTierLabel(120)).toBe("Tier 4");
+    expect(rankBasedTierLabel(200)).toBe("Tier 5");
+    expect(rankBasedTierLabel(350)).toBe("Tier 6");
+    expect(rankBasedTierLabel(500)).toBe("Tier 7");
+    expect(rankBasedTierLabel(650)).toBe("Tier 8");
+    expect(rankBasedTierLabel(800)).toBe("Tier 9");
+    expect(rankBasedTierLabel(801)).toBe("Tier 10");
   });
 
   it("handles edge cases", () => {
@@ -136,18 +126,12 @@ describe("valueBand", () => {
     expect(valueBand(500).css).toBe("vb-fringe");
   });
 
-  it("never returns a label that overlaps with a tier label", () => {
-    // The bug: Starter (tier 5) and Depth (former value-band) both
-    // displayed as "Starter"/"Depth" on the same row, leading to
-    // "STARTER section header above DEPTH-labeled rows".  The new
-    // labels are short symbols that cannot collide.
-    const tierLabels = new Set([
-      "Elite", "Blue-Chip", "Premium Starter", "Solid Starter",
-      "Starter", "Flex / Depth", "Bench Depth", "Deep Stash",
-      "Roster Fringe", "Waiver Wire",
-    ]);
+  it("never returns a label that looks like a tier label", () => {
+    // Tier row headers render as "Tier N".  Value-band labels are
+    // short alpha symbols (S+/S/D+/D/F) so they cannot visually
+    // collide with the tier header on the same row.
     for (const v of [9000, 7000, 5000, 3000, 1000]) {
-      expect(tierLabels.has(valueBand(v).label)).toBe(false);
+      expect(valueBand(v).label).not.toMatch(/^Tier\s/);
     }
   });
 });

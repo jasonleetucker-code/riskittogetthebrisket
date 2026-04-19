@@ -7,69 +7,31 @@
 
 // ── Tier labels ──────────────────────────────────────────────────────────────
 // The backend assigns canonicalTierId (integer, 1-based) via gap-detection
-// in src/canonical/player_valuation.py.  These labels are a presentation
-// layer only — they map numeric tier IDs to human-readable names.
-//
-// When canonicalTierId is null (canonical pipeline not active), we fall back
-// to rank-based tiers derived from the unified rank position.
-
-/** Fixed tier label map for the first 10 backend-detected tiers. */
-const TIER_LABELS = {
-  1: "Elite",
-  2: "Blue-Chip",
-  3: "Premium Starter",
-  4: "Solid Starter",
-  5: "Starter",
-  6: "Flex / Depth",
-  7: "Bench Depth",
-  8: "Deep Stash",
-  9: "Roster Fringe",
-  10: "Waiver Wire",
-};
+// in src/canonical/player_valuation.py.  Tier 1 is the best; tier IDs
+// increase at each natural value cliff.  Labels are purely numeric —
+// "Tier 1", "Tier 2", … — so what the user sees matches the math.
 
 /**
  * Return a human-readable tier label for a row.
- * Prefers backend canonicalTierId; falls back to rank-based derivation.
+ * Prefers backend canonicalTierId; falls back to rank-based derivation
+ * when the canonical pipeline has not stamped the row.
  */
 export function tierLabel(row) {
   const tierId = row?.canonicalTierId;
   if (tierId != null && tierId > 0) {
-    return TIER_LABELS[tierId] || `Tier ${tierId}`;
+    return `Tier ${tierId}`;
   }
-  // Fallback: derive from rank position
   return rankBasedTierLabel(row?.rank);
 }
 
 /**
- * Derive a tier label purely from overall rank position.
- * Used when canonicalTierId is absent (canonical pipeline not active).
- *
- * Boundaries are intentionally generous — these are presentation labels,
- * not fantasy advice.  The cutoffs approximate natural dynasty value
- * clustering:
- *   1-12:   Elite (top-12 startup picks)
- *   13-36:  Blue-Chip (rounds 2-3)
- *   37-72:  Premium Starter (rounds 4-6)
- *   73-120: Solid Starter (rounds 7-10)
- *   121-200: Starter
- *   201-350: Flex / Depth
- *   351-500: Bench Depth
- *   501-650: Deep Stash
- *   651-800: Roster Fringe
- *   800+:   Waiver Wire
+ * Rank-based tier label fallback used only when canonicalTierId is
+ * absent (canonical pipeline not active).  Produces the same "Tier N"
+ * shape as the backend-stamped path.
  */
 export function rankBasedTierLabel(rank) {
-  if (rank == null || rank <= 0) return "Unranked";
-  if (rank <= 12) return "Elite";
-  if (rank <= 36) return "Blue-Chip";
-  if (rank <= 72) return "Premium Starter";
-  if (rank <= 120) return "Solid Starter";
-  if (rank <= 200) return "Starter";
-  if (rank <= 350) return "Flex / Depth";
-  if (rank <= 500) return "Bench Depth";
-  if (rank <= 650) return "Deep Stash";
-  if (rank <= 800) return "Roster Fringe";
-  return "Waiver Wire";
+  const tierId = rankBasedTierId(rank);
+  return tierId == null ? "Unranked" : `Tier ${tierId}`;
 }
 
 /**
@@ -107,14 +69,9 @@ export function effectiveTierId(row) {
 //
 // These are *descriptive* — they help users frame relative value.
 //
-// IMPORTANT: the band labels are deliberately distinct from the tier
-// labels in :data:`TIER_LABELS` above.  An older revision used the
-// strings "Starter" and "Depth" here, which clashed with the section
-// header tiers ("Starter", "Solid Starter", etc.).  A row whose tier
-// header said "Starter" could simultaneously show a value-band label
-// of "Depth", giving the appearance that the tier and badge
-// disagreed.  Using "S+" / "S" / "D+" / "D" / "F" symbols keeps the
-// two layers visually distinct so the rendering bug cannot return.
+// Short symbols ("S+" / "S" / "D+" / "D" / "F") keep the value-band
+// badge visually distinct from the numeric "Tier N" row header so the
+// two layers never look like they disagree.
 const VALUE_BANDS = [
   { min: 8000, label: "S+", css: "vb-elite",    title: "Elite value (8000+)" },
   { min: 6000, label: "S",  css: "vb-bluechip", title: "Blue-chip value (6000-7999)" },
