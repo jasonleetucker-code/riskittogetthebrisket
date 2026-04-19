@@ -17,7 +17,12 @@ const DEFAULT_LIMIT = 50;
 const DEFAULT_PER_TEAM = 4;
 const DEFAULT_MIN_PLAYER_VALUE = 3000;
 const POSITION_FILTERS = ["QB", "RB", "WR", "TE", "DL", "LB", "DB"];
+const IDP_POSITION_FILTERS = new Set(["DL", "LB", "DB"]);
 const IDP_POS_RE = /^(?:DL|DE|DT|EDGE|NT|LB|ILB|OLB|MLB|DB|CB|S|SS|FS)$/i;
+
+function isIdpPos(position) {
+  return IDP_POS_RE.test(String(position || "").trim());
+}
 
 function marketSourceForPos(position) {
   return IDP_POS_RE.test(String(position || "").trim()) ? "idpTradeCalc" : "ktc";
@@ -79,6 +84,13 @@ export default function AnglePage() {
   // we search their own roster for offer-side packages. Lets the
   // user skip selecting their own players first.
   const [mode, setMode] = useState("offer");
+  // IDP opt-in. Default OFF — most leaguemates don't value IDP the
+  // way KTC/our board do, so by default we exclude IDP from the
+  // candidate pool the search enumerates. Auto-flips to ON whenever
+  // the user picks an IDP position filter pill or explicitly selects
+  // an IDP player on the fixed side (offer in offer-mode, desired
+  // acquisition in acquire-mode).
+  const [includeIdp, setIncludeIdp] = useState(false);
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -192,6 +204,28 @@ export default function AnglePage() {
     return out;
   }, [activeTargetOwnerIds, seedsByOwner]);
 
+  // An IDP position pill is active → user is explicitly asking for
+  // IDP in the pool. An IDP player is on the fixed side (offer in
+  // offer-mode, acquisition list in acquire-mode) → user is already
+  // trading IDP, so the search should be allowed to counter with it.
+  // Either condition forces the effective IDP gate open regardless of
+  // the manual toggle — matches the user brief: "unless I specifically
+  // add IDP players […] it won't try to build the trades using any
+  // IDP players."
+  const idpInPositionFilters = useMemo(
+    () => Array.from(positionFilters).some((p) => IDP_POSITION_FILTERS.has(p)),
+    [positionFilters],
+  );
+  const idpOnFixedSide = useMemo(() => {
+    const names = mode === "acquire" ? activeSeedNames : offerList;
+    return names.some((n) => {
+      const info = valueByName.get(n);
+      return info && isIdpPos(info.position);
+    });
+  }, [mode, activeSeedNames, offerList, valueByName]);
+  const effectiveIncludeIdp =
+    includeIdp || idpInPositionFilters || idpOnFixedSide;
+
   async function findAngles() {
     if (!ownerId) {
       setErr("Pick your team.");
@@ -221,6 +255,7 @@ export default function AnglePage() {
               limit: Number(limit),
               minPlayerMyValue: Number(minPlayerValue),
               positions: Array.from(positionFilters),
+              includeIdp: effectiveIncludeIdp,
             }
           : {
               mode: "offer",
@@ -234,6 +269,7 @@ export default function AnglePage() {
               positions: Array.from(positionFilters),
               targetTeamOwnerIds: activeTargetOwnerIds,
               seedPlayerNames: activeSeedNames,
+              includeIdp: effectiveIncludeIdp,
             };
       const res = await fetch("/api/angle/packages", {
         method: "POST",
@@ -475,6 +511,34 @@ export default function AnglePage() {
               Each individual player in a counter-package must have a
               my-value at or above this. Default 3,000 filters out
               deep-bench filler.
+            </span>
+          </div>
+          <div className="angle-filter-group">
+            <span className="muted">IDP players</span>
+            <div className="angle-pill-row">
+              <button
+                type="button"
+                className={`angle-pill ${effectiveIncludeIdp ? "angle-pill-active" : ""}`}
+                onClick={() => setIncludeIdp((v) => !v)}
+                disabled={busy || idpInPositionFilters || idpOnFixedSide}
+                title={
+                  idpOnFixedSide
+                    ? "Forced ON — you've already put an IDP player on the trade."
+                    : idpInPositionFilters
+                      ? "Forced ON — an IDP position is in the pill filter."
+                      : effectiveIncludeIdp
+                        ? "IDP players can appear in counter-packages."
+                        : "IDP players excluded from counter-packages by default (toggle on to include)."
+                }
+              >
+                {effectiveIncludeIdp ? "Include IDP" : "Exclude IDP (default)"}
+              </button>
+            </div>
+            <span className="angle-field-hint">
+              Most managers don't value IDP the way our board does, so
+              the search excludes them from counter/offer packages
+              unless you toggle this on, put an IDP position pill
+              above, or explicitly add an IDP player to the trade.
             </span>
           </div>
         </div>
@@ -757,9 +821,31 @@ export default function AnglePage() {
                   ))}
                 </ul>
                 <div className="angle-package-totals muted">
-                  my total <strong>{c.my_total.toLocaleString()}</strong>{" "}
-                  · market total{" "}
+                  my total <strong>{c.my_total.toLocaleString()}</strong>
+                  {c.my_value_adjustment > 0 ? (
+                    <>
+                      {" "}
+                      <span
+                        title="KTC-style Value Adjustment (consolidation premium) applied to the smaller side"
+                      >
+                        (+{c.my_value_adjustment.toLocaleString()} VA ={" "}
+                        <strong>{c.my_total_adjusted.toLocaleString()}</strong>)
+                      </span>
+                    </>
+                  ) : null}
+                  {" "}· market total{" "}
                   <strong>{c.market_total.toLocaleString()}</strong>
+                  {c.market_value_adjustment > 0 ? (
+                    <>
+                      {" "}
+                      <span title="KTC-style Value Adjustment on the market side">
+                        (+{c.market_value_adjustment.toLocaleString()} VA ={" "}
+                        <strong>
+                          {c.market_total_adjusted.toLocaleString()}
+                        </strong>)
+                      </span>
+                    </>
+                  ) : null}
                 </div>
               </div>
             ))}

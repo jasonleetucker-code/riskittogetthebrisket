@@ -2464,6 +2464,19 @@ async def post_angle_packages(request: Request):
         positions_req = []
     positions_req = [str(p).strip() for p in positions_req if str(p).strip()]
 
+    include_idp_raw = body.get("includeIdp", False)
+    include_idp = bool(include_idp_raw) and include_idp_raw not in ("false", "0", "")
+    # Back-compat: if the caller explicitly requested an IDP position
+    # via ``positions`` but didn't set ``includeIdp`` (e.g. legacy
+    # scripts predating the toggle), treat that as an implicit opt-in.
+    # Otherwise ``positions=["DL"]`` alone would filter the pool down
+    # to zero candidates, which silently breaks those callers.
+    from src.trade.angle import _IDP_POSITIONS as _ANGLE_IDP_POSITIONS
+    if not include_idp and any(
+        str(p).strip().upper() in _ANGLE_IDP_POSITIONS for p in positions_req
+    ):
+        include_idp = True
+
     if mode == "acquire":
         from src.trade.angle import find_acquisition_packages
 
@@ -2480,6 +2493,7 @@ async def post_angle_packages(request: Request):
                 candidate_pool=pool,
                 positions=positions_req or None,
                 min_player_my_value=min_player,
+                include_idp=include_idp,
             )
         except Exception as exc:  # noqa: BLE001
             log.error(f"Angle acquire failed: {exc}")
@@ -2518,6 +2532,7 @@ async def post_angle_packages(request: Request):
             min_player_my_value=min_player,
             target_team_owner_ids=target_teams_req or None,
             seed_player_names=seeds_req or None,
+            include_idp=include_idp,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Angle packages failed: {exc}")
