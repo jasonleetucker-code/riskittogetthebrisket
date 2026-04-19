@@ -1066,6 +1066,39 @@ class TestTepMultiplier(unittest.TestCase):
         rov = contract.get("rankingsOverride") or {}
         self.assertEqual(float(rov.get("tepMultiplier") or 0), 2.0)
 
+    def test_volatility_compression_always_emitted_in_delta(self) -> None:
+        """Every ranked delta entry must carry an explicit ``volatilityCompressionApplied`` value.
+
+        Regression guard for the silent-skip bug: the compression pass
+        used to only stamp ``volatilityCompressionApplied`` when a
+        penalty was applied and silently omitted the field otherwise.
+        That broke override merges — a player compressed in the base
+        contract but uncompressed after an override would keep the
+        stale fraction because ``mergeRankingsDelta`` overwrites only
+        fields present in the delta.  Every ranked row must emit an
+        explicit value (a float fraction or ``None``) so the merge
+        path can clear stale state deterministically.
+        """
+        delta = build_rankings_delta_payload(
+            _fixture_raw_payload(),
+            source_overrides={"ktc": {"include": False}},
+        )
+        missing: list[str] = []
+        for entry in delta.get("rankingsDelta", {}).get("players", []):
+            # Only rows that actually received a rank participate in
+            # the compression pass; unranked rows legitimately never
+            # have the field set explicitly, but the _derive_player_row
+            # default covers those.
+            if entry.get("canonicalConsensusRank") is None:
+                continue
+            if "volatilityCompressionApplied" not in entry:
+                missing.append(entry.get("id", "<unknown>"))
+        self.assertEqual(
+            missing, [],
+            "Ranked rows missing explicit volatilityCompressionApplied "
+            f"in delta payload: {missing[:10]}",
+        )
+
     def test_delta_payload_reflects_tep_in_summary(self) -> None:
         """build_rankings_delta_payload must carry tepMultiplier through."""
         delta = build_rankings_delta_payload(

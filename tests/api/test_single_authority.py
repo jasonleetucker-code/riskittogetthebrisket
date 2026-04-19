@@ -94,23 +94,52 @@ class TestSingleAuthority(unittest.TestCase):
         ranks = [r["canonicalConsensusRank"] for r in pa if r.get("canonicalConsensusRank")]
         self.assertEqual(len(ranks), len(set(ranks)), "Duplicate ranks detected")
 
-    def test_tier_matches_rank(self):
-        """canonicalTierId must be consistent with rank boundaries."""
-        from src.api.data_contract import _tier_id_from_rank
+    def test_tier_bounded_and_monotonic(self):
+        """canonicalTierId lands in 1..10 and is non-decreasing with rank.
+
+        Tier assignment is gap-based on ``rankDerivedValue`` (see
+        ``_compute_value_based_tier_ids``) rather than fixed rank
+        buckets, so the strict ``_tier_id_from_rank`` equality check
+        this test previously enforced no longer applies.  Instead we
+        pin the two invariants the frontend relies on: tier IDs stay in
+        the ``TIER_LABELS`` vocabulary (1..10), and higher-ranked rows
+        never land in a worse (higher-numbered) tier than lower-ranked
+        rows.
+        """
         contract = _load_live_contract()
         if contract is None:
             self.skipTest("No live data")
         pa = contract.get("playersArray", [])
-        mismatches = []
-        for r in pa:
-            rank = r.get("canonicalConsensusRank")
-            tier = r.get("canonicalTierId")
-            if rank is None or tier is None:
-                continue
-            expected = _tier_id_from_rank(rank)
-            if tier != expected:
-                mismatches.append(f"#{rank}: tier={tier}, expected={expected}")
-        self.assertEqual(mismatches, [], f"Tier mismatches:\n" + "\n".join(mismatches[:10]))
+        ranked = sorted(
+            [r for r in pa if r.get("canonicalConsensusRank") is not None],
+            key=lambda r: int(r["canonicalConsensusRank"]),
+        )
+        out_of_range = [
+            f"#{r['canonicalConsensusRank']}: tier={r.get('canonicalTierId')}"
+            for r in ranked
+            if not (
+                isinstance(r.get("canonicalTierId"), int)
+                and 1 <= r["canonicalTierId"] <= 10
+            )
+        ]
+        self.assertEqual(
+            out_of_range, [],
+            f"Tier IDs out of 1..10 range:\n" + "\n".join(out_of_range[:10]),
+        )
+        prev_tier = 0
+        non_monotonic: list[str] = []
+        for r in ranked:
+            t = r.get("canonicalTierId") or 0
+            if t < prev_tier:
+                non_monotonic.append(
+                    f"#{r['canonicalConsensusRank']}: tier {t} after tier {prev_tier}"
+                )
+            prev_tier = t
+        self.assertEqual(
+            non_monotonic, [],
+            f"Tier IDs must be non-decreasing with rank:\n"
+            + "\n".join(non_monotonic[:10]),
+        )
 
 
 class TestOverlayRemoved(unittest.TestCase):
