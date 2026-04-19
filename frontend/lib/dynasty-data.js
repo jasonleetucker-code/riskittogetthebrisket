@@ -783,18 +783,35 @@ export function buildRows(data) {
     return [];
   }
 
-  // Stable sort by backend canonicalConsensusRank; tied rows fall back
-  // to raw values.full descending.  Backend already orders playersArray
-  // in rank order, so this is a no-op in the common path.
+  // Sort by rankDerivedValue desc so rows that intentionally carry
+  // null canonicalConsensusRank (e.g. anchor-year slot picks — 2026
+  // picks anchored to the matching rookie by value) still interleave
+  // with players at the right position instead of collapsing to the
+  // end of the table. For ranked rows this ordering matches the
+  // integer-rank order because the backend has already made value
+  // monotonic with rank; the change only affects null-rank rows.
   rows.sort((a, b) => {
+    const va = Number(a.rankDerivedValue) || 0;
+    const vb = Number(b.rankDerivedValue) || 0;
+    if (vb !== va) return vb - va;
+    // Tie-break: integer ranks first (so ties with null-rank picks
+    // place the ranked player "above" the pick deterministically).
     const ra = a.canonicalConsensusRank ?? Infinity;
     const rb = b.canonicalConsensusRank ?? Infinity;
-    if (ra !== rb) return ra - rb;
-    return (b.values.full || 0) - (a.values.full || 0);
+    return ra - rb;
   });
   rows.forEach((r, i) => {
     r.computedConsensusRank = i + 1;
-    r.rank = r.canonicalConsensusRank ?? r.computedConsensusRank;
+    // Preserve null rank on rows the backend explicitly un-ranked
+    // (anchor-year slot picks). Players still fall back to the
+    // local computed ordinal as before; picks show no rank number.
+    if (r.canonicalConsensusRank != null) {
+      r.rank = r.canonicalConsensusRank;
+    } else if (r.assetClass === "pick") {
+      r.rank = null;
+    } else {
+      r.rank = r.computedConsensusRank;
+    }
   });
   return rows;
 }

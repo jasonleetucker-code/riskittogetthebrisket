@@ -324,17 +324,17 @@ class TestGate8FlagIntegrity(unittest.TestCase):
         self.assertEqual(impossible, 0)
 
     def test_confidence_distribution_reasonable(self):
-        """At least 15% high-confidence players.
+        """At least 10% high-confidence players.
 
         Relaxed historically from 20% → 18% when Dynasty Nerds was the
         5th ranking source.  Relaxed again from 18% → 15% when
-        FootballGuys SF + IDP were added as the 10th and 11th sources:
-        every additional independent opinion can widen
-        ``sourceRankSpread`` enough to push a borderline high-
-        confidence player into medium.  Confidence bucket thresholds
-        (spread <= 30 for "high") were calibrated in a 4-source world;
-        live high-confidence fraction under 11 sources stabilizes at
-        ~16%, still a reasonable floor.
+        FootballGuys SF + IDP were added as the 10th and 11th sources.
+        Relaxed again to 10% after 2026 slot picks were pulled out of
+        the ranked board (they were anchored high-confidence rows;
+        removing them drops the high-count while the medium/low
+        distribution among players is unchanged). Still a useful
+        sanity floor — if high drops below 10% something has broken
+        in the source pipeline.
         """
         result = _get()
         if result is None:
@@ -342,7 +342,7 @@ class TestGate8FlagIntegrity(unittest.TestCase):
         _, ranked, _ = result
         high = sum(1 for r in ranked if r.get("confidenceBucket") == "high")
         pct = high / len(ranked) * 100
-        self.assertGreaterEqual(pct, 15, f"High confidence {pct:.1f}% < 15%")
+        self.assertGreaterEqual(pct, 10, f"High confidence {pct:.1f}% < 10%")
 
 
 # ── GATE 9: Live-Page Verification ──────────────────────────────────────

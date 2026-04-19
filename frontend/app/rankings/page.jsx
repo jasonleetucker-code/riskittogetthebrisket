@@ -903,7 +903,7 @@ export default function RankingsPage() {
                             Visible on mobile. */}
                         <td
                           style={{ textAlign: "right", fontFamily: "var(--mono)", fontSize: "0.82rem", color: "var(--cyan)" }}
-                          title={row.blendedSourceRank != null ? `Mean source rank ${row.blendedSourceRank.toFixed(2)}. Final rank is #${row.rank}. Gap = blend penalty/bonus for source disagreement.` : "No sources ranked this player"}
+                          title={row.blendedSourceRank != null ? `Mean source rank ${row.blendedSourceRank.toFixed(2)}. Final rank is ${row.rank ? `#${row.rank}` : "\u2014 (unranked)"}. Gap = blend penalty/bonus for source disagreement.` : "No sources ranked this player"}
                         >
                           {row.blendedSourceRank != null
                             ? row.blendedSourceRank.toFixed(1)
@@ -1164,7 +1164,7 @@ export default function RankingsPage() {
                                   Mirrors the exact labels from the main table
                                   header so the user can match row→column. */}
                               <div className="source-audit-summary">
-                                <span><strong>Rank:</strong> #{row.rank} (final ordinal — the engine's opinion)</span>
+                                <span><strong>Rank:</strong> {row.rank ? `#${row.rank}` : "\u2014 (unranked)"} (final ordinal — the engine's opinion)</span>
                                 <span><strong>Consensus:</strong> {row.blendedSourceRank?.toFixed(1) ?? "\u2014"} (mean of per-source effective ranks — orthogonal to Rank; gaps reveal blend arbitration)</span>
                                 <span><strong>Value:</strong> {val.toLocaleString()} (Hill curve, 1\u20139,999 scale)</span>
                                 <span><strong>Confidence:</strong> {confExplain}</span>

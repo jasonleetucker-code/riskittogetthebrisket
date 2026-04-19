@@ -97,6 +97,19 @@ def _is_deep_future_tier(name: str) -> bool:
     return False
 
 
+def _slot_pick_round(name: str) -> int | None:
+    """Extract round number from a slot-specific pick name like
+    '2026 Pick 3.06'. Returns None for non-slot-pick names."""
+    import re
+    m = re.match(r"^\d{4}\s+Pick\s+(\d+)\.\d+$", str(name or "").strip())
+    if m:
+        try:
+            return int(m.group(1))
+        except (TypeError, ValueError):
+            pass
+    return None
+
+
 def _pick_rows(contract: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         r
@@ -147,19 +160,24 @@ class TestPicksPresentInContract(unittest.TestCase):
 
     def test_every_pick_has_rank_and_value(self) -> None:
         # Picks that pass through the pick refinement passes can be
-        # legitimately *unranked* in two cases:
+        # legitimately *unranked* in three cases:
         #   1. Generic Early/Mid/Late tier rows that were suppressed
         #      because slot-specific siblings exist for the same year
         #      (see _suppress_generic_pick_tiers_when_slots_exist).
         #   2. Deep R5/R6 future-year tier rows (e.g. 2028 Mid 6th)
         #      that fall below OVERALL_RANK_LIMIT after the future-year
         #      discount is applied.
+        #   3. 2026 slot-specific picks (e.g. "2026 Pick 1.01") — these
+        #      are anchored to the corresponding rookie by value and
+        #      intentionally un-ranked so they don't consume merged-
+        #      board rank slots.
         # Every other pick must still carry rank + value.
         picks = _pick_rows(self.contract)
         missing = [
             p["canonicalName"]
             for p in picks
             if not p.get("pickGenericSuppressed")
+            and not str(p.get("canonicalName") or "").startswith("2026 Pick ")
             and (
                 not p.get("canonicalConsensusRank")
                 or not p.get("rankDerivedValue")
@@ -177,6 +195,26 @@ class TestPicksPresentInContract(unittest.TestCase):
             [],
             f"Picks missing rank/value (excluding deep-tier dropouts): "
             f"{unexpected[:10]}",
+        )
+        # 2026 slot picks in rounds 1-4 must have VALUE (anchored to
+        # the corresponding rookie). Later-round slot picks depend on
+        # rookie universe depth; if the rookie list runs out before
+        # round 5-6, some deep picks legitimately end up without an
+        # anchored value — this mirrors the pre-change behaviour where
+        # those picks had tier-value approximations only.
+        slot_2026_early = [
+            p for p in picks
+            if str(p.get("canonicalName") or "").startswith("2026 Pick ")
+            and _slot_pick_round(p.get("canonicalName") or "") in (1, 2, 3, 4)
+        ]
+        value_missing = [
+            p["canonicalName"] for p in slot_2026_early
+            if not p.get("rankDerivedValue")
+            or p.get("rankDerivedValue", 0) <= 0
+        ]
+        self.assertEqual(
+            value_missing, [],
+            f"2026 rounds 1-4 slot picks missing anchored value: {value_missing[:5]}",
         )
 
     def test_every_pick_has_source_ranks(self) -> None:
@@ -335,6 +373,10 @@ class TestRepresentativePicks(unittest.TestCase):
         }
 
     def test_targets_have_rank_and_value(self) -> None:
+        # 2026 slot-specific picks are intentionally un-ranked — they
+        # carry the rookie-anchored value only (``rankDerivedValue``)
+        # so they don't consume merged-board rank slots. Tier-generic
+        # picks and future-year picks still hold real ranks.
         for name in self.TARGETS:
             with self.subTest(pick=name):
                 row = self.by_name.get(name)
@@ -342,10 +384,17 @@ class TestRepresentativePicks(unittest.TestCase):
                     row, f"{name} missing from pick contract output"
                 )
                 assert row is not None
-                self.assertTrue(
-                    row.get("canonicalConsensusRank"),
-                    f"{name} has no canonicalConsensusRank",
-                )
+                is_2026_slot = name.startswith("2026 Pick ")
+                if is_2026_slot:
+                    self.assertIsNone(
+                        row.get("canonicalConsensusRank"),
+                        f"{name} should be un-ranked (anchored to rookie only)",
+                    )
+                else:
+                    self.assertTrue(
+                        row.get("canonicalConsensusRank"),
+                        f"{name} has no canonicalConsensusRank",
+                    )
                 self.assertGreater(
                     int(row.get("rankDerivedValue") or 0),
                     0,
@@ -359,16 +408,13 @@ class TestRepresentativePicks(unittest.TestCase):
                     f"{name} has no sourceRanks",
                 )
 
-    def test_early_first_outranks_late_first(self) -> None:
+    def test_early_first_has_higher_value_than_late_first(self) -> None:
+        """2026 slot picks no longer carry ranks — value is the only
+        comparison signal (anchored to the corresponding rookie)."""
         early = self.by_name.get("2026 Pick 1.01")
         late = self.by_name.get("2026 Pick 1.12")
         if not early or not late:
             self.skipTest("Slot-specific 1st not in snapshot")
-        self.assertLess(
-            int(early["canonicalConsensusRank"]),
-            int(late["canonicalConsensusRank"]),
-            "Early 1st should outrank late 1st",
-        )
         self.assertGreater(
             int(early["rankDerivedValue"]),
             int(late["rankDerivedValue"]),
