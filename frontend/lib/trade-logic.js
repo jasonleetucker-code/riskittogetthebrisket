@@ -270,6 +270,44 @@ export function computeMultiSideAdjustments(sides, valueMode, settings = null) {
 }
 
 /**
+ * Per-source VA helper: computes Value Adjustment given raw numeric
+ * value arrays (one per side) rather than player rows.
+ *
+ * Use this for the per-source trade breakdown, where each source
+ * provides its own per-player values and the blended ``effectiveValue``
+ * path doesn't apply.  Arrays may contain zeroes (players the source
+ * doesn't rank); those are dropped before the VA math so a missing
+ * source value doesn't erase an otherwise-present piece-count premium.
+ *
+ * Returns an array of adjustments matching the input order.  Exactly
+ * one element is populated for a 2-side trade; for N ≥ 3 each side
+ * that consolidated relative to the rest earns its own adjustment
+ * (mirrors ``computeMultiSideAdjustments``).
+ *
+ * @param {number[][]} sidesValues  — array of raw-value arrays, one per side
+ * @returns {number[]}
+ */
+export function valueAdjustmentFromSideArrays(sidesValues) {
+  if (!Array.isArray(sidesValues) || sidesValues.length < 2) {
+    return (sidesValues || []).map(() => 0);
+  }
+  const sorted = sidesValues.map((raw) =>
+    (Array.isArray(raw) ? raw : [])
+      .map((v) => Number(v) || 0)
+      .filter((v) => v > 0)
+      .sort((a, b) => b - a),
+  );
+  return sorted.map((small, i) => {
+    const large = [];
+    for (let j = 0; j < sorted.length; j++) {
+      if (j !== i) large.push(...sorted[j]);
+    }
+    large.sort((a, b) => b - a);
+    return _vaFromSortedSides(small, large);
+  });
+}
+
+/**
  * Adjusted per-side totals for 2-team trade display.
  * Each entry is { raw, adjustment, adjusted } where `adjusted = raw + adjustment`
  * and only the recipient side has a non-zero adjustment.

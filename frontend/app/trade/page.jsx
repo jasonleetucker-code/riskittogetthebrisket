@@ -22,6 +22,7 @@ import {
   createSide,
   serializeWorkspaceMulti,
   deserializeWorkspaceMulti,
+  valueAdjustmentFromSideArrays,
   SIDE_LABELS,
   MAX_SIDES,
   MIN_SIDES,
@@ -205,6 +206,185 @@ function TradeMeterMultiTeam({ sides, sideTotals }) {
   );
 }
 
+/* ── Per-source Trade Breakdown ──────────────────────────────────────── */
+
+/**
+ * Render a per-source winner table below the main trade meter.
+ *
+ * For every source in ``RANKING_SOURCES``, sum each side's per-player
+ * ``canonicalSites[sourceKey]`` into a raw total, compute Value
+ * Adjustment from those raw arrays (identical VA formula to the main
+ * meter — re-applied per source so the adjustment scales with each
+ * source's own value range), then declare the winner from the
+ * adjusted totals.  Sources with no coverage on either side are
+ * hidden so the table stays focused on the signal that actually
+ * changed.
+ */
+function TradeSourceBreakdown({ sides, settings }) {
+  const rows = useMemo(() => {
+    const assetsBySide = sides.map((s) => s.assets || []);
+    const hasAny = assetsBySide.some((a) => a.length > 0);
+    if (!hasAny) return [];
+
+    return RANKING_SOURCES
+      .map((src) => {
+        const key = src.key;
+        // Raw per-player values from this source per side.  Picks are
+        // excluded from non-KTC sources because only KTC values picks
+        // in the same 1-9999 space; other sources return 0/null for
+        // picks and would skew the piece-count math.  The KTC column
+        // keeps them because KTC is the canonical pick-valuation board.
+        const includePicks = key === "ktc";
+        const sideValues = assetsBySide.map((assets) =>
+          assets.map((row) => {
+            if (!includePicks && row.pos === "PICK") return 0;
+            const v = Number(row.canonicalSites?.[key]);
+            return Number.isFinite(v) && v > 0 ? v : 0;
+          }),
+        );
+        const rawTotals = sideValues.map((vs) =>
+          vs.reduce((sum, v) => sum + v, 0),
+        );
+        const coverage = sideValues.map((vs) => vs.filter((v) => v > 0).length);
+        // Skip sources that touch zero pieces across the whole trade.
+        if (coverage.reduce((a, b) => a + b, 0) === 0) return null;
+
+        const adjustments = valueAdjustmentFromSideArrays(sideValues);
+        const adjustedTotals = rawTotals.map((t, i) => t + (adjustments[i] || 0));
+
+        // Winner + margin.  For 2-team trades the margin is |A − B|.
+        // For N ≥ 3 the winner is whoever's adjusted total is biggest.
+        let winnerIdx = 0;
+        for (let i = 1; i < adjustedTotals.length; i++) {
+          if (adjustedTotals[i] > adjustedTotals[winnerIdx]) winnerIdx = i;
+        }
+        const runnerUp = adjustedTotals
+          .filter((_, i) => i !== winnerIdx)
+          .reduce((max, v) => Math.max(max, v), 0);
+        const margin = adjustedTotals[winnerIdx] - runnerUp;
+        const tied = margin < 1;
+
+        return {
+          key,
+          label: src.columnLabel || src.displayName || src.key,
+          displayName: src.displayName || src.key,
+          rawTotals,
+          adjustments,
+          adjustedTotals,
+          coverage,
+          winnerIdx: tied ? null : winnerIdx,
+          winnerLabel: tied ? "Even" : sides[winnerIdx]?.label || "?",
+          margin,
+        };
+      })
+      .filter(Boolean);
+  }, [sides, settings]);
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const sideLabels = sides.map((s) => s.label);
+
+  return (
+    <div className="card" style={{ marginTop: 14 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+        <h3 style={{ margin: 0, fontSize: "0.88rem" }}>Per-source winner</h3>
+        <span className="muted" style={{ fontSize: "0.72rem" }}>
+          VA-adjusted totals from each source's raw values. Hidden when a source has no coverage.
+        </span>
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table className="source-breakdown-table">
+          <thead>
+            <tr>
+              <th style={{ textAlign: "left" }}>Source</th>
+              {sideLabels.map((lbl, i) => (
+                <th key={`h-${i}`} style={{ textAlign: "right" }}>
+                  Side {lbl}
+                </th>
+              ))}
+              <th style={{ textAlign: "center" }}>Winner</th>
+              <th style={{ textAlign: "right" }}>Margin</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.key}>
+                <td
+                  style={{ textAlign: "left", whiteSpace: "nowrap" }}
+                  title={row.displayName}
+                >
+                  {row.label}
+                </td>
+                {row.adjustedTotals.map((total, i) => {
+                  const hasAdj = (row.adjustments[i] || 0) > 0;
+                  return (
+                    <td
+                      key={`v-${row.key}-${i}`}
+                      style={{
+                        textAlign: "right",
+                        fontFamily: "var(--mono)",
+                        opacity: row.coverage[i] === 0 ? 0.35 : 1,
+                        fontWeight: row.winnerIdx === i ? 700 : 400,
+                      }}
+                      title={
+                        hasAdj
+                          ? `raw ${Math.round(row.rawTotals[i]).toLocaleString()} + VA ${Math.round(row.adjustments[i]).toLocaleString()}`
+                          : `raw ${Math.round(row.rawTotals[i]).toLocaleString()}`
+                      }
+                    >
+                      {Math.round(total).toLocaleString()}
+                      {hasAdj && (
+                        <span
+                          style={{
+                            color: "var(--cyan)",
+                            fontSize: "0.68rem",
+                            marginLeft: 4,
+                          }}
+                        >
+                          +VA
+                        </span>
+                      )}
+                    </td>
+                  );
+                })}
+                <td
+                  style={{
+                    textAlign: "center",
+                    fontWeight: 700,
+                    color:
+                      row.winnerIdx === null
+                        ? "var(--muted)"
+                        : row.winnerIdx === 0
+                          ? "var(--green)"
+                          : row.winnerIdx === 1
+                            ? "var(--red)"
+                            : "var(--cyan)",
+                  }}
+                >
+                  {row.winnerIdx === null ? "Even" : `Side ${row.winnerLabel}`}
+                </td>
+                <td
+                  style={{
+                    textAlign: "right",
+                    fontFamily: "var(--mono)",
+                    color: row.winnerIdx === null ? "var(--muted)" : "var(--text)",
+                  }}
+                >
+                  {row.winnerIdx === null
+                    ? "—"
+                    : Math.round(row.margin).toLocaleString()}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 /* ── Main Trade Page ─────────────────────────────────────────────────── */
 
 export default function TradePage() {
@@ -238,6 +418,15 @@ export default function TradePage() {
   // Sleeper team selection state
   const [selectedTeamIdx, setSelectedTeamIdx] = useState(-1);
   const [leagueRosters, setLeagueRosters] = useState(null);
+
+  // KTC import panel state — toggles an inline url-paste row above
+  // the trade sides.  ``ktcImportStatus`` holds the post-submit
+  // summary message (success count + any unresolved ids).
+  const [ktcImportOpen, setKtcImportOpen] = useState(false);
+  const [ktcImportUrl, setKtcImportUrl] = useState("");
+  const [ktcImportBusy, setKtcImportBusy] = useState(false);
+  const [ktcImportError, setKtcImportError] = useState("");
+  const [ktcImportStatus, setKtcImportStatus] = useState("");
 
   // Extract Sleeper teams from dynasty data
   const sleeperTeams = useMemo(() => {
@@ -473,6 +662,116 @@ export default function TradePage() {
 
   function openPickerFor(sideIdx) { setActiveSide(sideIdx); setPickerOpen(true); }
 
+  // ── KTC trade-calculator URL import ───────────────────────────────
+  // Paste a https://keeptradecut.com/trade-calculator?teamOne=...&teamTwo=...
+  // URL, POST to the backend for name resolution, then replace Sides
+  // A and B with the resolved rows.  Any sides beyond B are kept
+  // untouched so a 3-team trade doesn't lose its 3rd slot just
+  // because a 2-side KTC URL was imported.  Unresolved KTC IDs
+  // surface as a warning in ``ktcImportStatus`` so the user knows
+  // one or more pieces were dropped.
+  const importKtcTradeUrl = useCallback(async () => {
+    const url = (ktcImportUrl || "").trim();
+    if (!url) {
+      setKtcImportError("Paste a KTC trade-calculator URL first.");
+      return;
+    }
+    if (!url.includes("keeptradecut.com")) {
+      setKtcImportError("URL must be from keeptradecut.com.");
+      return;
+    }
+
+    setKtcImportBusy(true);
+    setKtcImportError("");
+    setKtcImportStatus("");
+    try {
+      const res = await fetch("/api/trade/import-ktc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+        cache: "no-store",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.ok === false) {
+        setKtcImportError(data?.error || `HTTP ${res.status}`);
+        return;
+      }
+
+      const sideOneEntries = Array.isArray(data.sideOne) ? data.sideOne : [];
+      const sideTwoEntries = Array.isArray(data.sideTwo) ? data.sideTwo : [];
+      const unresolvedOne = data?.unresolved?.sideOne || [];
+      const unresolvedTwo = data?.unresolved?.sideTwo || [];
+
+      // Resolve each KTC-returned name → our canonical row.  Our
+      // board and KTC share pick-name shapes ("2026 Early 1st") and
+      // most player names verbatim, so a direct rowByName hit
+      // covers the common case.  For near-matches we punt and
+      // surface the entry as unmatched so the user knows to add it
+      // manually rather than silently dropping it.
+      const resolveBatch = (entries) => {
+        const found = [];
+        const missing = [];
+        for (const entry of entries) {
+          const row = rowByName.get(entry.name);
+          if (row) found.push(row);
+          else missing.push(entry.name);
+        }
+        return { found, missing };
+      };
+      const one = resolveBatch(sideOneEntries);
+      const two = resolveBatch(sideTwoEntries);
+
+      // Replace sides A and B in place, dedup per-side and across
+      // sides (addToSide normally does this — we mirror that guard
+      // here since we're bypassing it for a bulk set).
+      const seen = new Set();
+      const clean = (rowsIn) => {
+        const out = [];
+        for (const r of rowsIn) {
+          if (!r || seen.has(r.name)) continue;
+          seen.add(r.name);
+          out.push(r);
+        }
+        return out;
+      };
+      const cleanedOne = clean(one.found);
+      const cleanedTwo = clean(two.found);
+
+      setSides((prev) => prev.map((s, i) => {
+        if (i === 0) return { ...s, assets: cleanedOne };
+        if (i === 1) return { ...s, assets: cleanedTwo };
+        return s; // leave 3rd+ sides alone
+      }));
+
+      const warnings = [];
+      if (unresolvedOne.length) warnings.push(`unknown KTC id(s) on side A: ${unresolvedOne.join(", ")}`);
+      if (unresolvedTwo.length) warnings.push(`unknown KTC id(s) on side B: ${unresolvedTwo.join(", ")}`);
+      if (one.missing.length) warnings.push(`no board match for: ${one.missing.join(", ")}`);
+      if (two.missing.length) warnings.push(`no board match for: ${two.missing.join(", ")}`);
+      const totalLoaded = cleanedOne.length + cleanedTwo.length;
+      const totalExpected = sideOneEntries.length + sideTwoEntries.length;
+      if (totalLoaded === 0) {
+        setKtcImportError(
+          warnings.length
+            ? `Nothing loaded — ${warnings.join("; ")}`
+            : "Nothing loaded.",
+        );
+      } else {
+        const summary = `Loaded ${totalLoaded}/${totalExpected} players`;
+        setKtcImportStatus(
+          warnings.length ? `${summary} — ${warnings.join("; ")}` : summary,
+        );
+        // Collapse the import row on success so the user isn't
+        // staring at the URL field; leave status visible below.
+        setKtcImportOpen(false);
+      }
+    } catch (err) {
+      setKtcImportError(err?.message || "Import failed");
+    } finally {
+      setKtcImportBusy(false);
+    }
+  }, [ktcImportUrl, rowByName]);
+
   // ── Suggestions logic ─────────────────────────────────────────────
   const parseRoster = useCallback(() => {
     return rosterInput
@@ -590,10 +889,121 @@ export default function TradePage() {
                 + Add Team
               </button>
             )}
+            <button
+              className="button"
+              onClick={() => {
+                setKtcImportOpen((v) => !v);
+                setKtcImportError("");
+              }}
+              style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}
+              title="Paste a KeepTradeCut trade-calculator URL to load its players into sides A + B"
+            >
+              + Import KTC
+            </button>
           </div>
+
+          {ktcImportOpen && (
+            <div
+              className="card"
+              style={{
+                marginBottom: 10,
+                padding: "10px 12px",
+                border: "1px solid var(--cyan)",
+                background: "rgba(86,214,255,0.04)",
+              }}
+            >
+              <div style={{ fontSize: "0.74rem", fontWeight: 700, letterSpacing: "0.04em", marginBottom: 6 }}>
+                IMPORT FROM KEEPTRADECUT
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="https://keeptradecut.com/trade-calculator?teamOne=…&teamTwo=…"
+                  value={ktcImportUrl}
+                  onChange={(e) => setKtcImportUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !ktcImportBusy) importKtcTradeUrl();
+                    if (e.key === "Escape") {
+                      setKtcImportOpen(false);
+                      setKtcImportError("");
+                    }
+                  }}
+                  disabled={ktcImportBusy}
+                  style={{ flex: "1 1 360px", minWidth: 260 }}
+                  autoFocus
+                />
+                <button
+                  className="button"
+                  onClick={importKtcTradeUrl}
+                  disabled={ktcImportBusy || !ktcImportUrl.trim()}
+                  style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}
+                >
+                  {ktcImportBusy ? "Loading…" : "Load trade"}
+                </button>
+                <button
+                  className="button"
+                  onClick={() => {
+                    setKtcImportOpen(false);
+                    setKtcImportError("");
+                    setKtcImportUrl("");
+                  }}
+                  disabled={ktcImportBusy}
+                >
+                  Cancel
+                </button>
+              </div>
+              <div className="muted" style={{ fontSize: "0.72rem", marginTop: 6 }}>
+                Replaces sides A and B; extra sides (3+ team trades) are left untouched.
+                Unknown KTC IDs and players we can't match by name are reported below.
+              </div>
+              {ktcImportError && (
+                <div style={{ color: "var(--red)", fontSize: "0.76rem", marginTop: 6 }}>
+                  {ktcImportError}
+                </div>
+              )}
+            </div>
+          )}
+
+          {ktcImportStatus && !ktcImportOpen && (
+            <div
+              className="muted"
+              style={{
+                fontSize: "0.74rem",
+                marginBottom: 8,
+                paddingLeft: 2,
+              }}
+            >
+              <span style={{ color: "var(--cyan)" }}>KTC import:</span>{" "}
+              {ktcImportStatus}
+              <button
+                className="button"
+                style={{
+                  marginLeft: 8,
+                  padding: "1px 8px",
+                  fontSize: "0.66rem",
+                  minHeight: "unset",
+                }}
+                onClick={() => setKtcImportStatus("")}
+                title="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          )}
 
           {/* ── Trade Meter (inline fairness visualization) ──────── */}
           <TradeMeter sides={sides} sideTotals={sideTotals} valueMode={valueMode} settings={settings} />
+
+          {/* ── Per-source winner breakdown (below the fairness meter) ── */}
+          <TradeSourceBreakdown sides={sides} settings={settings} />
 
           {/* ── Side Cards ──────────────────────────────────────── */}
           <div className={sidesGridClass} style={{ paddingBottom: 78 }}>
