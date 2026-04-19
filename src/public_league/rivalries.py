@@ -119,6 +119,12 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         if margin_abs <= 10.0 + 1e-9:
             rec["gamesDecidedByTen"] += 1
 
+        # ``walk_matchup_pairs`` collapses multi-week playoff finals
+        # (e.g. a 2-week championship) into a single pair and stamps
+        # ``_combinedWeeks`` on each side.  Surface that here so the
+        # UI can render "Weeks 16-17 (Final)" instead of two separate
+        # meeting rows — records still count it as one win.
+        combined_weeks = a.get("_combinedWeeks") or b.get("_combinedWeeks")
         meeting = {
             "season": season.season,
             "leagueId": season.league_id,
@@ -129,6 +135,8 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             "pointsA": round(pts_left, 2),
             "pointsB": round(pts_right, 2),
         }
+        if combined_weeks and len(combined_weeks) > 1:
+            meeting["combinedWeeks"] = list(combined_weeks)
         if rec["closestGame"] is None or margin_abs < rec["closestGame"]["margin"]:
             rec["closestGame"] = meeting
         if rec["biggestBlowout"] is None or margin_abs > rec["biggestBlowout"]["margin"]:

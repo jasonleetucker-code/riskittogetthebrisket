@@ -122,11 +122,17 @@ export function Stat({ label, value, sub }) {
 
 export function MeetingCard({ label, meeting }) {
   if (!meeting) return null;
+  // Multi-week championship (e.g. 2-week final spanning wk16+17) —
+  // render as "Wk 16-17" so users see the combined scope instead of
+  // a misleading single week number.
+  const weekLabel = Array.isArray(meeting.combinedWeeks) && meeting.combinedWeeks.length > 1
+    ? `Wk ${meeting.combinedWeeks[0]}-${meeting.combinedWeeks[meeting.combinedWeeks.length - 1]}`
+    : `Wk ${meeting.week}`;
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 10 }}>
       <div style={{ fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase" }}>{label}</div>
       <div style={{ fontSize: "0.86rem", fontWeight: 700, marginTop: 2 }}>
-        {meeting.season} · Wk {meeting.week}{meeting.isPlayoff ? " (P)" : ""}
+        {meeting.season} · {weekLabel}{meeting.isPlayoff ? " (P)" : ""}
       </div>
       <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginTop: 2 }}>
         Margin {fmtPoints(meeting.margin)} · {fmtPoints(meeting.pointsA)} / {fmtPoints(meeting.pointsB)}

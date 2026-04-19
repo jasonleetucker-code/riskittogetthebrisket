@@ -23,6 +23,9 @@ def _weekly_side_rows(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
     """Return every paired, scored roster-week with its opposing score."""
     rows: list[dict[str, Any]] = []
     for season, week, a, b, is_playoff in metrics.walk_matchup_pairs(snapshot):
+        # Multi-week finals collapse to one pair; stamp the spanned
+        # weeks so record-book rows can label them correctly.
+        combined_weeks = a.get("_combinedWeeks") or b.get("_combinedWeeks")
         for me, foe in ((a, b), (b, a)):
             rid = metrics.roster_id_of(me)
             if rid is None:
@@ -36,7 +39,7 @@ def _weekly_side_rows(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
                 continue
             margin = my_pts - opp_pts
             result = "W" if margin > 0 else ("L" if margin < 0 else "T")
-            rows.append({
+            row: dict[str, Any] = {
                 "season": season.season,
                 "leagueId": season.league_id,
                 "week": week,
@@ -48,7 +51,10 @@ def _weekly_side_rows(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
                 "opponentPoints": round(opp_pts, 2),
                 "margin": round(margin, 2),
                 "result": result,
-            })
+            }
+            if combined_weeks and len(combined_weeks) > 1:
+                row["combinedWeeks"] = list(combined_weeks)
+            rows.append(row)
     return rows
 
 

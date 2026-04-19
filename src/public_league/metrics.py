@@ -334,16 +334,108 @@ def walk_matchup_pairs(
     snapshot: PublicLeagueSnapshot,
     include_playoffs: bool = True,
 ) -> Iterable[tuple[SeasonSnapshot, int, dict[str, Any], dict[str, Any], bool]]:
-    """Yield (season, week, a, b, is_playoff) for every scored pair."""
+    """Yield (season, week, a, b, is_playoff) for every scored pair.
+
+    Multi-week championship matchups (e.g. a 2-week final spanning
+    weeks 16 and 17) are detected and yielded as a single combined
+    entry: points are summed across both weeks, the yielded week is
+    the earlier of the two, and each side carries a
+    ``_combinedWeeks`` marker listing the spanned weeks so downstream
+    consumers can surface the combined nature in UI labels.
+
+    Detection rule, deliberately narrow to avoid fusing the semifinal
+    with the final when the same rosters happen to appear in both:
+    the *last two playoff weeks* of the season must be contiguous
+    (wk_last == wk_penultimate + 1) AND the same pair of roster_ids
+    must appear in both.  Earlier playoff weeks (semis, quarters) are
+    emitted individually even when a repeat pairing exists.
+
+    This matches how Sleeper's ``championship_week_length = 2``
+    leagues surface their final: the last two scheduled weeks carry
+    the same finalists and the winner is decided by combined score.
+    """
     for season in snapshot.seasons:
-        for wk in sorted(season.matchups_by_week.keys()):
+        weeks_sorted = sorted(season.matchups_by_week.keys())
+        # Pre-compute pairs per week so lookahead into wk+1 is cheap.
+        pairs_by_week: dict[int, list[tuple[dict[str, Any], dict[str, Any]]]] = {
+            wk: matchup_pairs(season.matchups_by_week[wk]) for wk in weeks_sorted
+        }
+        # Index each week's pairs by the frozenset of the two roster ids
+        # so the lookahead step can probe in O(1).
+        index_by_week: dict[int, dict[frozenset[int], tuple[dict[str, Any], dict[str, Any]]]] = {}
+        for wk in weeks_sorted:
+            idx: dict[frozenset[int], tuple[dict[str, Any], dict[str, Any]]] = {}
+            for a, b in pairs_by_week[wk]:
+                rid_a = roster_id_of(a)
+                rid_b = roster_id_of(b)
+                if rid_a is None or rid_b is None:
+                    continue
+                idx[frozenset({rid_a, rid_b})] = (a, b)
+            index_by_week[wk] = idx
+
+        # Identify the single candidate week pair that can combine:
+        # only the last two contiguous playoff weeks qualify.  Semis
+        # against the final — even if the same two teams appear —
+        # stay separate.
+        playoff_weeks = [w for w in weeks_sorted if w >= season.playoff_week_start]
+        combine_from_wk: int | None = None
+        combine_to_wk: int | None = None
+        if len(playoff_weeks) >= 2:
+            last = playoff_weeks[-1]
+            prev = playoff_weeks[-2]
+            if last == prev + 1:
+                combine_from_wk = prev
+                combine_to_wk = last
+
+        # Track (week, pair_key) consumed as the second half of a
+        # combined matchup so we don't emit the same pair twice.
+        consumed: set[tuple[int, frozenset[int]]] = set()
+
+        for wk in weeks_sorted:
             is_playoff = wk >= season.playoff_week_start
             if is_playoff and not include_playoffs:
                 continue
-            for a, b in matchup_pairs(season.matchups_by_week[wk]):
-                if not is_scored(a) and not is_scored(b):
+            for a, b in pairs_by_week[wk]:
+                rid_a = roster_id_of(a)
+                rid_b = roster_id_of(b)
+                if rid_a is None or rid_b is None:
                     continue
-                yield season, wk, a, b, is_playoff
+                pair_key = frozenset({rid_a, rid_b})
+
+                if (wk, pair_key) in consumed:
+                    continue
+
+                emit_a, emit_b = a, b
+                # Combine only if we're on the penultimate playoff
+                # week AND the same pair appears in the final week.
+                if (
+                    wk == combine_from_wk
+                    and combine_to_wk is not None
+                    and combine_to_wk in index_by_week
+                ):
+                    next_pair = index_by_week[combine_to_wk].get(pair_key)
+                    if next_pair is not None:
+                        a2, b2 = next_pair
+                        rid_a2 = roster_id_of(a2)
+                        # Align the two sides so emit_a tracks rid_a
+                        # and emit_b tracks rid_b across both weeks.
+                        side_a2, side_b2 = (a2, b2) if rid_a2 == rid_a else (b2, a2)
+                        combined_weeks = [wk, combine_to_wk]
+                        emit_a = {
+                            **a,
+                            "points": matchup_points(a) + matchup_points(side_a2),
+                            "_combinedWeeks": combined_weeks,
+                        }
+                        emit_b = {
+                            **b,
+                            "points": matchup_points(b) + matchup_points(side_b2),
+                            "_combinedWeeks": combined_weeks,
+                        }
+                        consumed.add((combine_to_wk, pair_key))
+
+                if not is_scored(emit_a) and not is_scored(emit_b):
+                    continue
+                yield season, wk, emit_a, emit_b, is_playoff
 
 
 # ── Shared team-name resolver ────────────────────────────────────────────
