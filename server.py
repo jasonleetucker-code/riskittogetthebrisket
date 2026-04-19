@@ -2328,10 +2328,11 @@ async def post_angle_packages(request: Request):
         max_ktc = float(body.get("maxKtcGainPct", 5.0))
         limit = int(body.get("limit", 50))
         pool = int(body.get("candidatePoolPerTeam", 25))
+        per_team = int(body.get("perTeamLimit", 4))
     except (TypeError, ValueError):
         return JSONResponse(
             status_code=400,
-            content={"error": "minMyGainPct, maxKtcGainPct, limit, candidatePoolPerTeam must be numeric."},
+            content={"error": "numeric params must be numeric."},
         )
 
     from src.trade.angle import find_angle_packages
@@ -2346,6 +2347,7 @@ async def post_angle_packages(request: Request):
             max_ktc_gain_pct=max_ktc,
             limit=limit,
             candidate_pool_per_team=pool,
+            per_team_limit=per_team,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Angle packages failed: {exc}")

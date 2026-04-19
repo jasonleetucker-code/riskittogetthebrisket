@@ -13,6 +13,7 @@ import { useDynastyData } from "@/components/useDynastyData";
 const DEFAULT_MIN_MY = 5;
 const DEFAULT_MAX_KTC = 5;
 const DEFAULT_LIMIT = 50;
+const DEFAULT_PER_TEAM = 4;
 
 export default function AnglePage() {
   const { loading: dataLoading, error: dataError, rawData, rows } = useDynastyData();
@@ -48,6 +49,7 @@ export default function AnglePage() {
   const [minMyGainPct, setMinMyGainPct] = useState(DEFAULT_MIN_MY);
   const [maxKtcGainPct, setMaxKtcGainPct] = useState(DEFAULT_MAX_KTC);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
+  const [perTeamLimit, setPerTeamLimit] = useState(DEFAULT_PER_TEAM);
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -71,8 +73,13 @@ export default function AnglePage() {
           !rosterFilter.trim() ||
           name.toLowerCase().includes(rosterFilter.trim().toLowerCase()),
       )
-      .sort((a, b) => a.localeCompare(b));
-  }, [selectedTeam, rosterFilter]);
+      .sort((a, b) => {
+        const av = valueByName.get(a)?.my_value || 0;
+        const bv = valueByName.get(b)?.my_value || 0;
+        if (bv !== av) return bv - av;  // high value first
+        return a.localeCompare(b);        // ties → alphabetical
+      });
+  }, [selectedTeam, rosterFilter, valueByName]);
 
   // Reset offer whenever the team changes — an offer on the old team
   // isn't coherent with the new roster.
@@ -124,6 +131,7 @@ export default function AnglePage() {
           minMyGainPct: Number(minMyGainPct),
           maxKtcGainPct: Number(maxKtcGainPct),
           limit: Number(limit),
+          perTeamLimit: Number(perTeamLimit),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -216,7 +224,21 @@ export default function AnglePage() {
             />
           </label>
           <label className="angle-field">
-            <span className="muted">Results limit</span>
+            <span className="muted">
+              Max per team{" "}
+              <span className="angle-field-hint">(top N from each opposing roster)</span>
+            </span>
+            <input
+              type="number"
+              value={perTeamLimit}
+              min="1"
+              max="50"
+              onChange={(e) => setPerTeamLimit(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+          <label className="angle-field">
+            <span className="muted">Total results</span>
             <input
               type="number"
               value={limit}
