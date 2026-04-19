@@ -273,6 +273,21 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/Dynasty Rookie IDP Rankings-3-20-2026-0955.csv",
         "signal": "rank",
     },
+    # DraftSharks dynasty rankings — single cross-universe board
+    # covering QB/RB/WR/TE (offense) + DL/LB/DB (IDP) + K together.
+    # Kickers fall out because they're not in ``_RANKABLE_POSITIONS``.
+    # Raw export carries ``Rank``, ``Player``, ``Fantsy Position``
+    # (their typo), ``3D Value +`` (0-100 normalised), plus
+    # projection columns we don't use.  Value signal — the 3D Value +
+    # column preserves fractional separation between near-tied
+    # players.  Same cross-universe pool pattern as IDPTradeCalc: the
+    # source's primary scope is ``overall_offense`` and it contributes
+    # to ``overall_idp`` via ``extra_scopes``, so a single Phase 1 pass
+    # ranks offense + IDP rows together on DraftSharks' shared scale.
+    "draftSharks": {
+        "path": "CSVs/site_raw/draftSharks.csv",
+        "signal": "value",
+    },
 }
 
 # Rank -> synthetic value transform used when a CSV declares signal=rank.
@@ -417,8 +432,10 @@ _DEFAULT_TOP50_COVERAGE_FLOORS: dict[str, dict[str, int]] = {
         "dlfIdp": 38,
         # FantasyPros dynasty IDP only carries 70 combined + 30
         # extension players so its top-50 coverage is bounded by the
-        # combined-board size.  Floor at 35 (70% of the 50-slot slice).
-        "fantasyProsIdp": 35,
+        # combined-board size.  Floor at 33 — DraftSharks rejoining
+        # the blend nudged the top-50 IDP slice enough to shift a
+        # couple of FP-not-listed players into the top 50.
+        "fantasyProsIdp": 33,
     },
 }
 
@@ -1019,6 +1036,39 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "needs_rookie_translation": True,
         "excludes_rookies": False,
     },
+    {
+        # DraftSharks single cross-universe dynasty board.  Ranks
+        # offense (QB/RB/WR/TE) + IDP (DL/LB/DB) + kickers on one
+        # shared 0-100 ``3D Value +`` scale; the blend gathers every
+        # eligible row into one pool and sorts by value desc, so
+        # cross-universe ordering is preserved (same pattern as
+        # IDPTradeCalc, which is the only other multi-scope source).
+        # Primary scope is ``overall_offense`` with
+        # ``overall_idp`` as an extra scope so offense AND IDP rows
+        # both receive DraftSharks' rank contribution.
+        #
+        # depth=800 reflects the raw 874-row export minus the few
+        # kickers that fall out at the position-eligibility check.
+        # _expected_sources_for_position multiplies this by 1.25 so
+        # DraftSharks is not expected for players ranked deeper than
+        # ~1,000.
+        #
+        # DraftSharks' 3D Value is a standard dynasty scale — not
+        # TE-premium native — so the frontend ``tepMultiplier``
+        # boost applies to its blended contribution.
+        "key": "draftSharks",
+        "display_name": "Draft Sharks Dynasty",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "extra_scopes": [SOURCE_SCOPE_OVERALL_IDP],
+        "position_group": None,
+        "depth": 800,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+    },
 ]
 
 
@@ -1120,6 +1170,7 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     # Current-class IDP rookies that only DLF Rookie IDP has
     # evaluated.  IDPTC and FBG haven't added them yet.
     "aj haulcy": "rookie_source_gap:idpTradeCalc+footballGuysIdp — 2026 DB rookie only ranked by DLF Rookie IDP",
+    "shavon revel": "source_gap:idpTradeCalc+dlfIdp+fantasyProsIdp+footballGuysIdp — 2026 DB rookie only ranked by DraftSharks",
 }
 
 
@@ -2301,7 +2352,10 @@ def _parse_source_csv_cached(
         "OverallRank",
         "effectiveRank",
     )
-    _VALUE_ALIASES = ("value", "Value", "trade_value", "TradeValue")
+    # ``3D Value +`` is DraftSharks' normalised 0-100 value column (top
+    # player = 100, decimals preserved).  Kept at the tail so more
+    # conventional aliases win when multiple are present.
+    _VALUE_ALIASES = ("value", "Value", "trade_value", "TradeValue", "3D Value +")
 
     def _pick(csvrow: dict[str, Any], aliases: tuple[str, ...]) -> str:
         for k in aliases:

@@ -461,8 +461,8 @@ class TestPayloadLevelBlocks(unittest.TestCase):
         # ktc + idpTradeCalc + dlfIdp + dlfSf + dynastyNerdsSfTep +
         # fantasyProsSf + dynastyDaddySf + fantasyProsIdp + flockFantasySf +
         # footballGuysSf + footballGuysIdp + yahooBoone + dlfRookieSf +
-        # dlfRookieIdp (fourteen registered ranking sources)
-        self.assertEqual(len(meth["sources"]), 14)
+        # dlfRookieIdp + draftSharks (fifteen registered ranking sources)
+        self.assertEqual(len(meth["sources"]), 15)
         keys = {s.get("key") for s in meth["sources"]}
         self.assertEqual(
             keys,
@@ -481,6 +481,7 @@ class TestPayloadLevelBlocks(unittest.TestCase):
                 "yahooBoone",
                 "dlfRookieSf",
                 "dlfRookieIdp",
+                "draftSharks",
             },
         )
 
