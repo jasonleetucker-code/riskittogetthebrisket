@@ -339,7 +339,7 @@ class TestGate8FlagIntegrity(unittest.TestCase):
         self.assertEqual(impossible, 0)
 
     def test_confidence_distribution_reasonable(self):
-        """At least 9% high-confidence players.
+        """At least 8% high-confidence players.
 
         Relaxed historically from 20% → 18% when Dynasty Nerds was the
         5th ranking source.  Relaxed again from 18% → 15% when
@@ -351,8 +351,12 @@ class TestGate8FlagIntegrity(unittest.TestCase):
         10% → 9% when Yahoo / Justin Boone became the 12th offense
         source — every additional source tends to widen rankSpread for
         some players, pushing them out of the ``spread <= 30`` high
-        bucket.  Still a useful sanity floor — if high drops much
-        below 9% something has broken in the source pipeline.
+        bucket.  Relaxed from 9% → 8% when DLF Rookie SF + IDP were
+        added as sources 13 + 14 — rookie-class sources have narrow
+        coverage and wide ladder-translation spreads that push some
+        rookies + picks out of the high bucket.  Still a useful sanity
+        floor — if high drops much below 8% something has broken in
+        the source pipeline.
         """
         result = _get()
         if result is None:
@@ -360,7 +364,7 @@ class TestGate8FlagIntegrity(unittest.TestCase):
         _, ranked, _ = result
         high = sum(1 for r in ranked if r.get("confidenceBucket") == "high")
         pct = high / len(ranked) * 100
-        self.assertGreaterEqual(pct, 9, f"High confidence {pct:.1f}% < 9%")
+        self.assertGreaterEqual(pct, 8, f"High confidence {pct:.1f}% < 8%")
 
 
 # ── GATE 9: Live-Page Verification ──────────────────────────────────────
