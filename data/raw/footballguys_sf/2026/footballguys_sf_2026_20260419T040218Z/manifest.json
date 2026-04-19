@@ -1,0 +1,19 @@
+{
+  "source": "FOOTBALLGUYS_SF",
+  "snapshot_id": "footballguys_sf_2026_20260419T040218Z",
+  "pulled_at_utc": "2026-04-19T04:02:18.126016+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty superflex (FootballGuys 6-expert consensus, offense half of the mixed dynasty PDF)",
+  "universe": "offense_vet",
+  "ingest_method": "pdf_convert",
+  "ingest_type": "pdf_manual",
+  "source_url": "https://www.footballguys.com/rankings/dynasty",
+  "format_key": "dynasty_sf",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/CSVs/site_raw/footballGuysSf.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/footballguys_sf/2026/footballguys_sf_2026_20260419T040218Z",
+  "record_count": 548,
+  "hash": "df421e3e148e779a3b879139a0961bd39293ac6a4724d456d013f941da70d8b9",
+  "notes": "FootballGuys dynasty rankings \u2014 offense half of the user-managed PDF export, parsed + split + dense-ranked by scripts/parse_footballguys_pdf.py.  6-expert consensus covering QB/RB/WR/TE.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
