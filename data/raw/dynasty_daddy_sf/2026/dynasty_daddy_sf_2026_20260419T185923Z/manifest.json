@@ -1,0 +1,19 @@
+{
+  "source": "DYNASTY_DADDY_SF",
+  "snapshot_id": "dynasty_daddy_sf_2026_20260419T185923Z",
+  "pulled_at_utc": "2026-04-19T18:59:23.640926+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty superflex (Dynasty Daddy SF values, community crowd-sourced)",
+  "universe": "offense_vet",
+  "ingest_method": "json_api",
+  "ingest_type": "api_fetch",
+  "source_url": "https://dynasty-daddy.com/fantasy-rankings",
+  "format_key": "dynasty_sf",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/CSVs/site_raw/dynastyDaddySf.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/dynasty_daddy_sf/2026/dynasty_daddy_sf_2026_20260419T185923Z",
+  "record_count": 322,
+  "hash": "40b2bc98fc9911be35b77dbf06ea7dd82b2b77beebedfbb0ab2d6a1ad4c788af",
+  "notes": "Dynasty Daddy SF trade values via JSON API (?market=14). Standard SF scoring \u2014 no TE premium. Values are crowd-sourced.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
