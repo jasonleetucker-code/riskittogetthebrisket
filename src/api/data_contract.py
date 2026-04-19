@@ -655,7 +655,17 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "extra_scopes": [SOURCE_SCOPE_OVERALL_OFFENSE],
         "position_group": None,
         "depth": None,
-        "weight": 1.0,
+        # IDPTC is the retail IDP authority and the backbone source.
+        # Weight bumped to 2.0 so the IDP blend leans toward IDPTC
+        # whenever it disagrees strongly with veteran-focused expert
+        # boards (DLF IDP, FantasyPros IDP, FootballGuys IDP).  The
+        # original 1.0 weight let DLF IDP drag down players IDPTC
+        # likes — particularly high-draft-capital edge rushers whose
+        # pass-rush projection (IDPTC) diverges from raw tackle
+        # production (DLF).  Mirrored in
+        # frontend/lib/dynasty-data.js so the settings page shows the
+        # correct default.
+        "weight": 2.0,
         "is_backbone": True,
         # IDPTradeCalc's offense autocomplete is a standard SF board,
         # not TE-premium.  The frontend TEP boost applies.
@@ -3863,6 +3873,29 @@ def _compute_unified_rankings(
             if rank_idx == 0 or val != eligible[rank_idx - 1][0]:
                 current_dense_rank = rank_idx + 1
             raw_rank = current_dense_rank
+
+            # ── Self-correcting rookie exclusion ──
+            # Sources flagged ``excludes_rookies=True`` (DLF IDP,
+            # FantasyPros IDP today) are veteran-focused boards whose
+            # rookie entries historically live at the deep tail of
+            # the pool — placeholder filler rather than real
+            # evaluations.  Stamping those placeholder ranks onto
+            # rookie rows drags the blend down even though the board
+            # doesn't really have an opinion.
+            #
+            # Rule (dynamic, not a hard flag): if the rookie's rank
+            # inside THIS source's pool is in the bottom 20% of the
+            # source's actual ranked depth, skip the contribution.
+            # If the source starts ranking the rookie in its top 80%
+            # (i.e. evaluating the player seriously), the stamp is
+            # trusted again automatically.  No code change required
+            # when DLF or FP start covering rookies properly — the
+            # gate lifts on its own.
+            row = players_array[row_idx]
+            if src.get("excludes_rookies") and bool(row.get("rookie")):
+                _pool_size = source_pool_sizes.get(source_key, 0)
+                if _pool_size > 0 and raw_rank > _pool_size * 0.80:
+                    continue
 
             # Translate to effective overall-style rank based on scope.
             # position_idp sources (shallow positional lists like DL-only)

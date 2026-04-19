@@ -240,6 +240,10 @@ export const RANKING_SOURCES = [
     // _RANKING_SOURCES entry in src/api/data_contract.py.  The two
     // scope passes act on disjoint row sets so sourceRanks never
     // collides for the same source key.
+    // Weight = 2.0 (not 1.0) because IDPTC is the retail IDP
+    // authority and the backbone source.  Keeps the IDP blend
+    // from being dragged down by DLF/FP veteran boards when they
+    // disagree strongly with IDPTC's projection-aware view.
     key: "idpTradeCalc",
     displayName: "IDP Trade Calculator",
     columnLabel: "IDPTC",
@@ -247,7 +251,7 @@ export const RANKING_SOURCES = [
     extraScopes: ["overall_offense"],
     positionGroup: null,
     depth: null,
-    weight: 1.0,
+    weight: 2.0,
     isBackbone: true,
     isRetail: false,
     // IDPTradeCalc's offense board is a standard SF calculator — no

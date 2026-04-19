@@ -264,26 +264,32 @@ class TestBackendFrontendRegistryParity(unittest.TestCase):
                 f"Frontend entry {entry.get('key')} missing columnLabel",
             )
 
-    def test_every_weight_is_1_0(self) -> None:
-        # This is a guardrail on the "no silent weight boosts" rule —
-        # if a weight ever drifts off 1.0, either the user asked for
-        # it via overrides (which this test does NOT exercise) or
-        # someone forgot to update the registry comment explaining
-        # why.  Run with a weight != 1.0 to fail loudly.
+    def test_default_weights_match_registry_policy(self) -> None:
+        # Guardrail on the "no silent weight boosts" rule — weights
+        # must match the explicit per-source policy documented in the
+        # registry comments.  The default is 1.0, but IDPTC carries
+        # 2.0 because it is the IDP backbone + retail IDP authority
+        # (see registry comment in src/api/data_contract.py).  Any
+        # other per-source override must be added here AND in the
+        # registry comment explaining why.
+        expected_weights: dict[str, float] = {"idpTradeCalc": 2.0}
         for entry in self.py_registry:
+            expected = expected_weights.get(str(entry["key"]), 1.0)
             self.assertEqual(
                 entry["weight"],
-                1.0,
-                f"Python registry default weight for {entry['key']} is "
-                f"{entry['weight']}; every source must default to 1.0 "
-                "(see registry note in src/api/data_contract.py)",
+                expected,
+                f"Python registry weight for {entry['key']} is "
+                f"{entry['weight']}; expected {expected} per registry "
+                "comment policy in src/api/data_contract.py",
             )
         for entry in self.js_registry:
+            expected = expected_weights.get(str(entry.get("key")), 1.0)
             self.assertEqual(
                 entry.get("weight"),
-                1,
-                f"Frontend registry default weight for {entry.get('key')} is "
-                f"{entry.get('weight')}; every source must default to 1.0",
+                expected,
+                f"Frontend registry weight for {entry.get('key')} is "
+                f"{entry.get('weight')}; expected {expected} per "
+                "registry policy (must mirror src/api/data_contract.py)",
             )
 
 
