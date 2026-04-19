@@ -30,15 +30,25 @@ OFFENSE_SOURCES: dict[str, tuple[str, str]] = {
     "DynastyNerds": ("CSVs/site_raw/dynastyNerdsSfTep.csv",   "Value"),
 }
 
-# IDP market sources.  FantasyPros IDP exposes a pre-normalized 1-9999
-# ``normalizedValue`` column straight from its dynasty IDP expert
-# consensus, so the fit works off published IDP pricing directly.
-# IDPTradeCalc's raw ``value`` column mixes offense + IDP + picks, but
-# the IDP entries always cluster below 7500 on its scale — cap the
-# slice at row 200 to approximate "IDP-only" without a position column.
+# IDP market sources.  IDPTradeCalc is the retail IDP authority and
+# the blend backbone — we want the IDP Hill curve to reproduce its
+# per-rank values directly, so our Hill(rank) output matches IDPTC
+# BEFORE any per-position IDP calibration multiplier is applied.
+# IDPTC's CSV is ``name,value`` for a combined offense+IDP+picks pool
+# with no position column, so the ``--universe idp`` path loads a
+# snapshot (``dynasty_data_*.json``) to filter to IDP-only rows and
+# reads their IDPTC combined-pool ranks directly.  See
+# ``_load_idptc_idp_pairs`` below.
 IDP_SOURCES: dict[str, tuple[str, str]] = {
-    "FantasyProsIDP": ("CSVs/site_raw/fantasyProsIdp.csv", "normalizedValue"),
+    "IDPTradeCalc-IDP": ("CSVs/site_raw/idpTradeCalc.csv", "value"),
 }
+
+# IDP positions recognised by the snapshot filter.  Mirrors
+# ``src.utils.name_clean`` — kept local to the script to avoid a
+# package import at fit time.
+_IDP_POSITIONS: frozenset[str] = frozenset(
+    {"DL", "DE", "DT", "EDGE", "NT", "LB", "ILB", "OLB", "MLB", "DB", "CB", "S", "SS", "FS"}
+)
 
 
 def _load_values(path: Path, col: str) -> list[float]:
@@ -54,6 +64,47 @@ def _load_values(path: Path, col: str) -> list[float]:
                 vs.append(v)
     vs.sort(reverse=True)
     return vs
+
+
+def _load_idptc_idp_pairs() -> list[tuple[int, float]]:
+    """Return (idptc_combined_pool_rank, idptc_value) for IDP players.
+
+    IDPTC's CSV has no position column, so we load the most recent
+    ``dynasty_data_*.json`` snapshot to borrow its sleeper positions
+    map.  Ranks are IDPTC's actual combined-pool positions (not
+    IDP-only ordinals) because that's what the blend feeds into the
+    Hill curve at runtime.
+    """
+    import json
+
+    snapshot_candidates = sorted(
+        REPO.glob("dynasty_data_*.json"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not snapshot_candidates:
+        return []
+    with snapshot_candidates[0].open() as f:
+        raw = json.load(f)
+    positions = (raw.get("sleeper") or {}).get("positions") or {}
+
+    all_rows: list[tuple[str, float]] = []
+    for name, p in (raw.get("players") or {}).items():
+        idptc_val = ((p or {}).get("_canonicalSiteValues") or {}).get("idpTradeCalc")
+        try:
+            v = float(idptc_val)
+        except (TypeError, ValueError):
+            continue
+        if v > 0:
+            all_rows.append((name, v))
+    all_rows.sort(key=lambda t: -t[1])
+
+    pairs: list[tuple[int, float]] = []
+    for rank, (name, v) in enumerate(all_rows, start=1):
+        pos = str(positions.get(name, "")).strip().upper()
+        if pos in _IDP_POSITIONS:
+            pairs.append((rank, v))
+    return pairs
 
 
 def _hill(rank: float, midpoint: float, slope: float) -> float:
@@ -97,6 +148,26 @@ def main() -> int:
     print()
     fits: list[tuple[str, int, float, float, float]] = []
     for label, (rel_path, col) in sources.items():
+        # IDP universe: fit against IDPTC's IDP slice using combined-
+        # pool ranks from the latest snapshot (no CSV-only position
+        # column).  Hill output then mirrors IDPTC's raw values at
+        # the same ranks the blend actually feeds in.
+        if args.universe == "idp" and label == "IDPTradeCalc-IDP":
+            pairs = _load_idptc_idp_pairs()
+            if not pairs:
+                print(f"  {label}: no snapshot found at dynasty_data_*.json")
+                continue
+            # Use raw IDPTC values (not normalised to 9999) — the top
+            # IDP in IDPTC is nowhere near 9999 by design, and the
+            # blend's Hill output should reproduce that shape.
+            normed = list(pairs)
+            m, s, mse = _fit(normed)
+            fits.append((label, len(pairs), m, s, mse))
+            print(
+                f"  {label:18s}  n={len(pairs):4d}  midpoint={m:6.2f}  "
+                f"slope={s:5.3f}  rmse={mse ** 0.5:.1f}"
+            )
+            continue
         values = _load_values(REPO / rel_path, col)
         if not values:
             print(f"  {label}: no values found at {rel_path}")
