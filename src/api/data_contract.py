@@ -6,6 +6,7 @@ import logging
 import math
 import os
 import re
+import statistics
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -3578,6 +3579,7 @@ def _compute_unified_rankings(
 
         if not contributions:
             blended_value = 0.0
+            hill_value_spread: float | None = None
         else:
             values = [v for v, _w in contributions]
             if weight_total > 0:
@@ -3605,6 +3607,20 @@ def _compute_unified_rankings(
             # the structural source weights the dominant voice while
             # still letting the robust blend correct obvious outliers.
             blended_value = 0.6 * weighted_mean + 0.4 * robust
+
+            # Separation diagnostic: stdev of per-source Hill-curve values
+            # before the blend.  Pairs with sourceRankPercentileSpread
+            # (agreement in rank space) to describe "how large is the
+            # value gap the sources are implying?".  None when fewer than
+            # two sources contributed — matches the percentile-spread
+            # convention.
+            hill_value_spread = (
+                statistics.stdev(values) if len(values) >= 2 else None
+            )
+
+        players_array[row_idx]["hillValueSpread"] = (
+            round(hill_value_spread, 2) if hill_value_spread is not None else None
+        )
         row_normalized.append((blended_value, row_idx))
 
     # ── Phase 3a: Pick year discount (gated to picks) ──
@@ -4268,6 +4284,7 @@ def _derive_player_row(
         "blendedSourceRank": None,
         "sourceRankSpread": None,
         "sourceRankPercentileSpread": None,
+        "hillValueSpread": None,
         "marketGapDirection": "none",
         "marketGapMagnitude": None,
         "sourceAudit": {
@@ -4713,6 +4730,7 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "sourceCount",
     "sourceRankSpread",
     "sourceRankPercentileSpread",
+    "hillValueSpread",
     "isSingleSource",
     "isStructurallySingleSource",
     "hasSourceDisagreement",
