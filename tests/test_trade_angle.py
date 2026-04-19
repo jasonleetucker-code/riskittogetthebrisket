@@ -1,9 +1,9 @@
-"""Unit tests for src.trade.angle.find_angles."""
+"""Unit tests for src.trade.angle.find_angles / find_angle_packages."""
 from __future__ import annotations
 
 import pytest
 
-from src.trade.angle import find_angles
+from src.trade.angle import find_angle_packages, find_angles
 
 
 def _player(name, my_val, ktc_val, *, position="QB"):
@@ -141,3 +141,128 @@ def test_limit_caps_results():
         players.append(_player(f"Target {i}", 6000 + i, 5000))
     result = find_angles(players, "Jayden Daniels", "owner-a", teams, limit=5)
     assert len(result["candidates"]) == 5
+
+
+# ─── find_angle_packages ─────────────────────────────────────────────
+
+
+def _pkg_teams():
+    return [
+        {
+            "name": "Team A",
+            "ownerId": "owner-a",
+            "players": ["Jayden Daniels", "CeeDee Lamb", "Bench Guy"],
+        },
+        {
+            "name": "Team B",
+            "ownerId": "owner-b",
+            "players": [
+                "B Star",
+                "B Mid 1",
+                "B Mid 2",
+                "B Filler",
+            ],
+        },
+        {
+            "name": "Team C",
+            "ownerId": "owner-c",
+            "players": ["C Overpriced", "C Filler 1", "C Filler 2"],
+        },
+    ]
+
+
+def _pkg_players():
+    return [
+        _player("Jayden Daniels", my_val=5000, ktc_val=5000),
+        _player("CeeDee Lamb", my_val=5000, ktc_val=5000),
+        _player("Bench Guy", my_val=200, ktc_val=200),
+        # Team B: B Star is great, Mids are good. A 2-star package
+        # (Star + Mid1) should beat the Daniels + Lamb offer.
+        _player("B Star", my_val=6000, ktc_val=5100),
+        _player("B Mid 1", my_val=5500, ktc_val=4900),
+        _player("B Mid 2", my_val=5400, ktc_val=4800),
+        _player("B Filler", my_val=100, ktc_val=100),
+        # Team C: only overpriced targets on KTC — should be filtered.
+        _player("C Overpriced", my_val=6500, ktc_val=7500),
+        _player("C Filler 1", my_val=200, ktc_val=200),
+        _player("C Filler 2", my_val=100, ktc_val=100),
+    ]
+
+
+def test_packages_returns_counter_offers_sized_within_plus_minus_one():
+    offer = ["Jayden Daniels", "CeeDee Lamb"]  # N = 2
+    result = find_angle_packages(
+        _pkg_players(), offer, "owner-a", _pkg_teams(),
+    )
+    # Target sizes must be {1, 2, 3} — no 4 or higher.
+    target_sizes = set(result["thresholds"]["target_sizes"])
+    assert target_sizes == {1, 2, 3}
+    for c in result["candidates"]:
+        assert c["size"] in target_sizes
+
+
+def test_packages_offer_of_one_allows_sizes_one_and_two():
+    offer = ["Jayden Daniels"]  # N = 1 — size 0 collapses to 1
+    result = find_angle_packages(
+        _pkg_players(), offer, "owner-a", _pkg_teams(),
+    )
+    assert set(result["thresholds"]["target_sizes"]) == {1, 2}
+
+
+def test_packages_excludes_same_team_players_from_candidates():
+    offer = ["Jayden Daniels"]
+    result = find_angle_packages(
+        _pkg_players(), offer, "owner-a", _pkg_teams(),
+    )
+    owners = {c["owner_id"] for c in result["candidates"]}
+    assert "owner-a" not in owners  # never trade with yourself
+
+
+def test_packages_filters_on_ktc_gap_threshold():
+    offer = ["Jayden Daniels", "CeeDee Lamb"]
+    # Default max_ktc_gain_pct = 5. Team B's Star+Mid1 is KTC 10000
+    # (fair). Team C's Overpriced is KTC 7500 alone which is -25%
+    # versus offer's 10000 ktc — passes; good single-player counter.
+    result = find_angle_packages(
+        _pkg_players(), offer, "owner-a", _pkg_teams(),
+    )
+    # Every candidate satisfies KTC gap constraint.
+    offer_ktc = 10000
+    for c in result["candidates"]:
+        assert (c["ktc_total"] - offer_ktc) / offer_ktc * 100.0 <= 5.001
+
+
+def test_packages_sorts_by_arb_score_desc():
+    offer = ["Jayden Daniels", "CeeDee Lamb"]
+    result = find_angle_packages(
+        _pkg_players(), offer, "owner-a", _pkg_teams(),
+    )
+    scores = [c["arb_score"] for c in result["candidates"]]
+    assert scores == sorted(scores, reverse=True)
+
+
+def test_packages_offer_totals_are_correct():
+    offer = ["Jayden Daniels", "CeeDee Lamb"]
+    result = find_angle_packages(
+        _pkg_players(), offer, "owner-a", _pkg_teams(),
+    )
+    assert result["offer"]["my_total"] == 10000
+    assert result["offer"]["ktc_total"] == 10000
+    assert result["offer"]["size"] == 2
+
+
+def test_packages_unknown_offer_players_dropped_with_warning():
+    result = find_angle_packages(
+        _pkg_players(),
+        ["Jayden Daniels", "Ghost Player"],
+        "owner-a",
+        _pkg_teams(),
+    )
+    assert result["offer"]["size"] == 1
+    assert any("Ghost Player" in w for w in result["warnings"])
+
+
+def test_packages_empty_offer_returns_empty_result():
+    result = find_angle_packages(_pkg_players(), [], "owner-a", _pkg_teams())
+    assert result["candidates"] == []
+    assert result["offer"]["size"] == 0

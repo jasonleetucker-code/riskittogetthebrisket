@@ -2279,6 +2279,83 @@ async def post_angle_find(request: Request):
     return JSONResponse(content=result)
 
 
+@app.post("/api/angle/packages")
+async def post_angle_packages(request: Request):
+    """Multi-player variant of Angle. Offer a list of your players,
+    get back counter-packages from other teams sized within ±1 of
+    your offer that still lean your way on my-value but look fair-or-
+    better to the counterparty on KTC.
+
+    Body:
+        {
+          "ownerId": "472206636534984704",
+          "playerNames": ["Jayden Daniels", "CeeDee Lamb", ...],
+          "minMyGainPct": 5.0,
+          "maxKtcGainPct": 5.0,
+          "limit": 50,
+          "candidatePoolPerTeam": 25
+        }
+    """
+    if latest_contract_data is None:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "No data loaded. Angle requires live player data."},
+        )
+    players_array = (latest_contract_data or {}).get("playersArray")
+    sleeper = latest_contract_data.get("sleeper") or {}
+    sleeper_teams = sleeper.get("teams") or []
+    if not players_array or not sleeper_teams:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Player data or Sleeper rosters not available."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+
+    owner_id = str(body.get("ownerId") or "").strip()
+    names = body.get("playerNames") or []
+    if not owner_id or not isinstance(names, list) or not names:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Request body must include 'ownerId' and a non-empty 'playerNames' list."},
+        )
+    player_names = [str(n).strip() for n in names if str(n).strip()]
+
+    try:
+        min_my = float(body.get("minMyGainPct", 5.0))
+        max_ktc = float(body.get("maxKtcGainPct", 5.0))
+        limit = int(body.get("limit", 50))
+        pool = int(body.get("candidatePoolPerTeam", 25))
+    except (TypeError, ValueError):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "minMyGainPct, maxKtcGainPct, limit, candidatePoolPerTeam must be numeric."},
+        )
+
+    from src.trade.angle import find_angle_packages
+
+    try:
+        result = find_angle_packages(
+            players_array,
+            player_names,
+            owner_id,
+            sleeper_teams,
+            min_my_gain_pct=min_my,
+            max_ktc_gain_pct=max_ktc,
+            limit=limit,
+            candidate_pool_per_team=pool,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.error(f"Angle packages failed: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Angle packages failed: {exc}"},
+        )
+    return JSONResponse(content=result)
+
+
 @app.get("/api/scaffold/validation")
 async def get_scaffold_validation():
     ingest_file = _latest_file(DATA_DIR / "validation", "ingest_validation_*.json")
