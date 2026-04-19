@@ -66,12 +66,16 @@ _DEEP_TIER_SLOT_RE = re.compile(
 
 
 def _is_deep_future_tier(name: str) -> bool:
-    """Return True if `name` is a deep (R4-R6) pick row that is
-    allowed to be unranked/unvalued.  Two categories qualify:
+    """Return True if `name` is a deep (R3-R6) pick row that is
+    allowed to be unranked/unvalued.  Three categories qualify:
 
     1. Future-year (>=2027) generic tier rows (e.g. "2028 Late 5th") —
        after the pick-year discount these fall below OVERALL_RANK_LIMIT.
-    2. Any year's R5/R6 generic tier or slot-specific row (e.g.
+    2. Future-future-year (>=2028) R3+ generic tier rows — when a
+       flatter-tail IDP Hill curve lifts deep IDP values slightly,
+       2028 R3 picks can fall off the bottom of the cap.  2026/2027
+       R3 picks are unaffected.
+    3. Any year's R5/R6 generic tier or slot-specific row (e.g.
        "2026 Late 5th", "2026 Pick 6.03") — these are so deep on the
        board (below the last offensive veteran and IDP rookie) that
        they often fall off the bottom of the OVERALL_RANK_LIMIT cap.
@@ -85,6 +89,8 @@ def _is_deep_future_tier(name: str) -> bool:
         year = int(m.group(1))
         rnd = int(m.group(3))
         if year >= 2027 and rnd >= 4:
+            return True
+        if year >= 2028 and rnd >= 3:
             return True
         if rnd >= 5:  # any year's deep R5/R6 generic tier
             return True

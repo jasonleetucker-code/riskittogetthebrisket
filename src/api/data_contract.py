@@ -3345,8 +3345,15 @@ def _anchor_current_year_picks_to_rookies(
         anchor_val = int(anchor.get("rankDerivedValue") or 0)
         if anchor_val <= 0:
             continue
-        if not row.get("canonicalConsensusRank"):
-            continue
+        # Anchor regardless of whether the pick itself survived the
+        # Phase 4 OVERALL_RANK_LIMIT cap.  Picks lose their rank in
+        # the Phase 5 compact pass anyway (they're proxies for the
+        # corresponding rookie, not independent rank slots), so the
+        # meaningful question is "does a matching rookie exist?".
+        # Gating on the pick's own canonicalConsensusRank would leave
+        # tail R4 picks unvalued whenever the cap tightens — e.g. when
+        # an IDP Hill curve fit nudges a few deep IDP players up past
+        # the cutoff, squeezing tail R4 picks off the bottom.
         row["rankDerivedValue"] = anchor_val
         row["pickRookieAnchor"] = anchor.get("canonicalName")
         anchored += 1
@@ -3532,7 +3539,13 @@ def _compute_unified_rankings(
       - anomalyFlags
       - ktcRank / idpRank — preserved for backward compatibility
     """
-    from src.canonical.player_valuation import rank_to_value  # noqa: PLC0415
+    from src.canonical.player_valuation import (  # noqa: PLC0415
+        HILL_MIDPOINT,
+        HILL_SLOPE,
+        IDP_HILL_MIDPOINT,
+        IDP_HILL_SLOPE,
+        rank_to_value,
+    )
 
     # Clamp TEP multiplier to a sane range.  1.0 is a no-op, 2.0 is
     # a generous upper bound (the slider UI caps at 1.5 today).  The
@@ -3750,18 +3763,27 @@ def _compute_unified_rankings(
         weight_total = 0.0
         # TE positions trigger the TEP boost.  Read once per row so
         # the per-source inner loop does not keep re-checking the
-        # position string.
+        # position string.  IDP positions (DL/LB/DB) swap in the IDP-
+        # fit Hill curve — dynasty IDP markets have a flatter top and
+        # slower long-tail decay than offense.  Picks and offense
+        # positions share the offense curve.
         row_pos = str(players_array[row_idx].get("position") or "").strip().upper()
         row_is_te = row_pos == "TE"
         apply_tep = (
             row_is_te
             and tep_multiplier_effective > 1.0
         )
+        if row_pos in _IDP_POSITIONS:
+            hill_midpoint, hill_slope = IDP_HILL_MIDPOINT, IDP_HILL_SLOPE
+        else:
+            hill_midpoint, hill_slope = HILL_MIDPOINT, HILL_SLOPE
         for source_key, eff_rank in source_ranks.items():
             src_def = src_by_key.get(source_key, {})
             declared_weight = float(src_def.get("weight") or 1.0)
             effective_weight = coverage_weight(declared_weight, src_def.get("depth"))
-            value = float(rank_to_value(eff_rank))
+            value = float(
+                rank_to_value(eff_rank, midpoint=hill_midpoint, slope=hill_slope)
+            )
             tep_applied = False
             if apply_tep and source_key in tep_boosted_source_keys:
                 value *= tep_multiplier_effective
