@@ -1,36 +1,36 @@
 {
-  "capturedAt": "2026-04-18T01:44:02.422035+00:00",
-  "source": "dynasty_data_2026-04-17.json",
+  "capturedAt": "2026-04-19T11:11:05.609327+00:00",
+  "source": "dynasty_data_2026-04-19.json",
   "note": "Top-player baseline snapshot for tests/api/test_pick_refinement.py::TestPlayerRankingsUnchanged. Regenerate via tests/api/fixtures/regen_top_player_baseline.py whenever intentional pick-refinement or blend changes shift the captured rankings. Day-to-day scrape churn is absorbed by tolerances in the test itself, so routine scrape drift does NOT require a regen \u2014 only real invariant changes do.",
   "players": {
     "Bijan Robinson": {
-      "canonicalConsensusRank": 5,
-      "rankDerivedValue": 9218,
+      "canonicalConsensusRank": 4,
+      "rankDerivedValue": 9699,
       "confidenceBucket": "high"
     },
     "Brock Bowers": {
       "canonicalConsensusRank": 15,
-      "rankDerivedValue": 7737,
+      "rankDerivedValue": 8304,
       "confidenceBucket": "medium"
     },
     "Drake Maye": {
-      "canonicalConsensusRank": 3,
-      "rankDerivedValue": 9533,
+      "canonicalConsensusRank": 2,
+      "rankDerivedValue": 9999,
       "confidenceBucket": "high"
     },
     "Ja'Marr Chase": {
-      "canonicalConsensusRank": 2,
-      "rankDerivedValue": 9596,
+      "canonicalConsensusRank": 3,
+      "rankDerivedValue": 9921,
       "confidenceBucket": "high"
     },
     "Jahmyr Gibbs": {
-      "canonicalConsensusRank": 7,
-      "rankDerivedValue": 8913,
+      "canonicalConsensusRank": 6,
+      "rankDerivedValue": 9471,
       "confidenceBucket": "high"
     },
     "Jayden Daniels": {
-      "canonicalConsensusRank": 9,
-      "rankDerivedValue": 8734,
+      "canonicalConsensusRank": 8,
+      "rankDerivedValue": 9445,
       "confidenceBucket": "high"
     },
     "Josh Allen": {
@@ -40,17 +40,17 @@
     },
     "Malik Nabers": {
       "canonicalConsensusRank": 12,
-      "rankDerivedValue": 8005,
+      "rankDerivedValue": 8489,
       "confidenceBucket": "high"
     },
     "Patrick Mahomes": {
-      "canonicalConsensusRank": 17,
-      "rankDerivedValue": 7499,
+      "canonicalConsensusRank": 18,
+      "rankDerivedValue": 8102,
       "confidenceBucket": "high"
     },
     "Puka Nacua": {
-      "canonicalConsensusRank": 6,
-      "rankDerivedValue": 8992,
+      "canonicalConsensusRank": 7,
+      "rankDerivedValue": 9461,
       "confidenceBucket": "high"
     }
   }

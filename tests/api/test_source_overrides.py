@@ -1099,6 +1099,52 @@ class TestTepMultiplier(unittest.TestCase):
             f"in delta payload: {missing[:10]}",
         )
 
+    def test_volatility_adjustment_is_symmetric(self) -> None:
+        """``volatilityCompressionApplied`` carries signed fractions.
+
+        Positive values indicate the row was compressed (high source
+        disagreement); negative values indicate it was boosted (high
+        source agreement).  At least one of each sign must appear on
+        a heterogeneous fixture to confirm the two-sided math works.
+        None means either fewer than 2 eligible rows or the row's
+        spread sat exactly at the population mean.
+        """
+        from src.api.data_contract import (  # noqa: PLC0415
+            _apply_volatility_compression_post_pass,
+        )
+
+        # Synthetic eligible rows spanning low to high spread.
+        rows = [
+            {
+                "canonicalConsensusRank": i + 1,
+                "rankDerivedValue": 9500 - i * 400,
+                "sourceRankPercentileSpread": spread,
+                "legacyRef": None,
+                "assetClass": "offense",
+                "canonicalName": f"row{i}",
+            }
+            for i, spread in enumerate([0.02, 0.05, 0.35, 0.10, 0.01, 0.50, 0.03])
+        ]
+        _apply_volatility_compression_post_pass(rows, {})
+        signs = [
+            r.get("volatilityCompressionApplied") for r in rows
+        ]
+        positive = [s for s in signs if s is not None and s > 0]
+        negative = [s for s in signs if s is not None and s < 0]
+        self.assertTrue(
+            positive,
+            "Expected at least one compressed row (positive signed_frac)",
+        )
+        self.assertTrue(
+            negative,
+            "Expected at least one boosted row (negative signed_frac)",
+        )
+        # All fractions are bounded by the 8% ceiling on either side.
+        self.assertTrue(
+            all(abs(s) <= 0.08 + 1e-6 for s in signs if s is not None),
+            f"signed_frac exceeded |0.08| cap: {signs}",
+        )
+
     def test_delta_payload_reflects_tep_in_summary(self) -> None:
         """build_rankings_delta_payload must carry tepMultiplier through."""
         delta = build_rankings_delta_payload(

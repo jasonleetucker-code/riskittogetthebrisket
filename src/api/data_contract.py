@@ -3014,39 +3014,45 @@ def _apply_offense_calibration_post_pass(
 # the matching constants in player_valuation.py.
 _VOLATILITY_COMPRESSION_STRENGTH: float = 0.03
 _VOLATILITY_COMPRESSION_FLOOR: float = 0.92
+_VOLATILITY_COMPRESSION_CEIL: float = 1.08
+
+_DISPLAY_SCALE_MAX: int = 9999
 
 
 def _apply_volatility_compression_post_pass(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
 ) -> None:
-    """Dampen ``rankDerivedValue`` for high-disagreement players.
+    """Adjust ``rankDerivedValue`` symmetrically by source disagreement.
 
-    Mirrors Step 5 of the canonical engine (``compute_volatility_adjustments``
-    in ``src/canonical/player_valuation.py:349-391``) but feeds the
-    population-relative z-score with ``sourceRankPercentileSpread``
-    (stamped in Phase 4) rather than raw ``stdev(source_ranks)``.  The
-    percentile spread is coverage-corrected — it normalizes each
-    source's raw ordinal by that source's actual pool size — so a 50-
-    rank spread between DLF (pool 185) and FBG (pool 400) does not
-    masquerade as genuine disagreement.
+    Extends Step 5 of the canonical engine
+    (``compute_volatility_adjustments`` in
+    ``src/canonical/player_valuation.py:349-391``) to be two-sided:
+    high-disagreement rows (z > 0) get compressed down to the FLOOR,
+    high-agreement rows (z < 0) get boosted up to the CEIL.  Driven
+    by the coverage-corrected ``sourceRankPercentileSpread`` stamped
+    in Phase 4 (not raw ``stdev(source_ranks)``) so heterogeneous
+    source depths (DLF IDP=185 vs FBG IDP=400) do not masquerade as
+    genuine disagreement.
 
     Only rows with a non-None ``sourceRankPercentileSpread`` and a
     positive ``rankDerivedValue`` participate.  Picks are skipped
-    because their post-``_anchor_current_year_picks_to_rookies`` value
-    is inherited from a rookie row and should reflect that rookie's
-    confidence, not the pick row's own source disagreement signal.
-    The Phase 5 compact resort handles any monotonicity breaks caused
-    by a compressed value crossing a neighbor.
+    because ``_anchor_current_year_picks_to_rookies`` overrides their
+    value from a rookie row — the pick row's own disagreement
+    signal is not a meaningful confidence signal for the anchored
+    value.
 
-    Mirrors the updated value into the legacy ``players_by_name`` dict
-    so the runtime view stays in sync, matching the pattern in
-    ``_apply_idp_calibration_post_pass``.
+    ``volatilityCompressionApplied`` is a signed fraction:
+        * positive = value compressed (high spread)
+        * negative = value boosted (high agreement)
+        * None     = no adjustment (fewer than 2 eligible, zero std,
+                     or picks/unranked rows)
+
+    Boost is clamped to ``DISPLAY_SCALE_MAX``.  The Phase 5 compact
+    resort handles monotonicity breaks from a boosted or compressed
+    value crossing a neighbor.  Mirrors the updated value into the
+    legacy ``players_by_name`` dict.
     """
-    from src.canonical.player_valuation import (  # noqa: PLC0415
-        compute_volatility_adjustments,
-    )
-
     eligible: list[tuple[dict[str, Any], float, float]] = []
     for row in players_array:
         if row.get("canonicalConsensusRank") is None:
@@ -3067,43 +3073,64 @@ def _apply_volatility_compression_post_pass(
     if len(eligible) < 2:
         return
 
-    values = [v for _, v, _ in eligible]
     spreads = [s for _, _, s in eligible]
-    adjustments = compute_volatility_adjustments(
-        values,
-        spreads,
-        strength=_VOLATILITY_COMPRESSION_STRENGTH,
-        floor=_VOLATILITY_COMPRESSION_FLOOR,
-    )
+    spread_mean = statistics.mean(spreads)
+    spread_std = statistics.stdev(spreads) if len(spreads) >= 2 else 0.0
+    if spread_std < 1e-9:
+        # Nothing to discriminate on — mark every eligible row as
+        # un-adjusted so delta merges clear prior state.
+        for row, _value, _spread in eligible:
+            row["volatilityCompressionApplied"] = None
+            legacy_ref = row.get("legacyRef")
+            if legacy_ref and legacy_ref in players_by_name:
+                pdata = players_by_name[legacy_ref]
+                if isinstance(pdata, dict):
+                    pdata["volatilityCompressionApplied"] = None
+        return
 
-    for (row, value, _spread), adj in zip(eligible, adjustments):
+    max_compress = 1.0 - _VOLATILITY_COMPRESSION_FLOOR
+    max_boost = _VOLATILITY_COMPRESSION_CEIL - 1.0
+    strength = _VOLATILITY_COMPRESSION_STRENGTH
+
+    for row, value, spread in eligible:
+        z = (spread - spread_mean) / spread_std
         legacy_ref = row.get("legacyRef")
         pdata = (
             players_by_name.get(legacy_ref)
             if legacy_ref and legacy_ref in players_by_name
             else None
         )
-        if adj >= 0.0:
-            # Emit an explicit ``None`` so the rankings-override delta
-            # entry always carries the current compression state. The
-            # frontend's ``mergeRankingsDelta`` overwrites only fields
-            # present in the delta; if we silently skip uncompressed
-            # rows, a player that was compressed in the base contract
-            # but uncompressed after an override keeps the stale
-            # fraction.
+
+        if z > 0:
+            frac = min(z * strength, max_compress)
+            new_val = max(1, int(round(value * (1.0 - frac))))
+            signed_frac = round(frac, 4)
+        elif z < 0:
+            frac = min(abs(z) * strength, max_boost)
+            new_val = min(
+                _DISPLAY_SCALE_MAX,
+                max(1, int(round(value * (1.0 + frac)))),
+            )
+            signed_frac = round(-frac, 4)
+        else:
+            new_val = int(value)
+            signed_frac = None
+
+        # When z is on either side but frac rounds to zero (very small
+        # |z|), skip the value mutation to avoid spurious 1-point
+        # drift but still emit an explicit None so delta merges clear
+        # prior state.
+        if signed_frac is None or abs(signed_frac) < 1e-9:
             row["volatilityCompressionApplied"] = None
             if isinstance(pdata, dict):
                 pdata["volatilityCompressionApplied"] = None
             continue
-        compression_frac = abs(adj) / value if value > 0 else 0.0
-        new_val = max(1, int(round(value + adj)))
+
         row["rankDerivedValue"] = new_val
-        row["volatilityCompressionApplied"] = round(compression_frac, 4)
+        row["volatilityCompressionApplied"] = signed_frac
         if isinstance(pdata, dict):
             pdata["rankDerivedValue"] = new_val
-            pdata["volatilityCompressionApplied"] = round(
-                compression_frac, 4
-            )
+            pdata["volatilityCompressionApplied"] = signed_frac
 
 
 def _reassign_pick_slot_order(players_array: list[dict[str, Any]]) -> int:
