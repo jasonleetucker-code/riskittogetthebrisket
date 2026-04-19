@@ -1,17 +1,23 @@
 """Angle finder — player-specific trade-target arbitrage.
 
-Given a user-owned player, find players on other teams where the trade
-leans in the user's favour under their own league's rankings but looks
-fair-or-worse to the counterparty on KTC. Lets the user pitch trades
-that their leaguemates will accept ("KTC says it's even") while
-actually gaining value in their league-specific calibrated board.
+Given a user-owned player (or package of players), find players or
+player-packages on other teams where the trade leans in the user's
+favour under their own league's rankings but looks fair-or-worse to
+the counterparty on KTC. Lets the user pitch trades that their
+leaguemates will accept ("KTC says it's even") while actually gaining
+value in their league-specific calibrated board.
 
-The user_value vs market_value comparison is the same mechanic the
-Finder arbitrage engine surfaces board-wide; Angle narrows it to a
-specific pivot player so a single trade proposal is easy to generate.
+``find_angles`` handles the single-player pivot. ``find_angle_packages``
+extends to multi-player offers: give it a list of your players and it
+returns multi-player counter-packages whose size is within ±1 of your
+offer (e.g. offering 4 players → returns 3-, 4-, and 5-player
+counter-offers). Same arbitrage math; combinations are evaluated per
+opposing team with the candidate pool clamped to each team's top-N
+players by your calibrated value so the search stays fast.
 """
 from __future__ import annotations
 
+from itertools import combinations
 from typing import Any
 
 
@@ -181,6 +187,199 @@ def find_angles(
             "min_my_gain_pct": min_my_gain_pct,
             "max_ktc_gain_pct": max_ktc_gain_pct,
             "limit": limit,
+        },
+        "warnings": warnings,
+    }
+
+
+def find_angle_packages(
+    players_array: list[dict[str, Any]],
+    selected_player_names: list[str],
+    selected_team_owner_id: str,
+    sleeper_teams: list[dict[str, Any]],
+    *,
+    min_my_gain_pct: float = 5.0,
+    max_ktc_gain_pct: float = 5.0,
+    limit: int = 50,
+    candidate_pool_per_team: int = 25,
+) -> dict[str, Any]:
+    """Find multi-player counter-packages for a user-built offer.
+
+    Parameters
+    ----------
+    selected_player_names
+        List of canonical player names on the user's roster that
+        constitute the OFFER side of the trade.
+    selected_team_owner_id
+        Sleeper ``ownerId`` identifying the user's team (excluded
+        from candidate pool).
+    candidate_pool_per_team
+        Top-N players (by ``rankDerivedValue``) considered per
+        opposing team when enumerating combinations. Caps the
+        combinatorial explosion; 25 × size-5 ≈ 53k combos per team
+        which completes comfortably inside a request.
+
+    Returns
+    -------
+    dict
+        ``{offer, candidates, thresholds, warnings}`` where
+        ``candidates`` is a list of package dicts, each with
+        ``{team, size, players, my_total, ktc_total, my_gain_pct,
+        ktc_gain_pct, arb_score}``. Sorted by ``arb_score`` desc.
+
+    The counter-package size is constrained to ``{N-1, N, N+1}``
+    where ``N`` is the offered-player count. Size ``0`` is skipped
+    when ``N == 1`` (that's what :func:`find_angles` is for).
+    """
+    warnings: list[str] = []
+
+    by_name: dict[str, dict[str, Any]] = {}
+    for row in players_array:
+        name = str(row.get("canonicalName") or row.get("displayName") or "")
+        if name and name not in by_name:
+            by_name[name] = row
+
+    # Resolve offer-side rows; drop any with missing values and warn.
+    offer_rows: list[dict[str, Any]] = []
+    missing: list[str] = []
+    for name in selected_player_names:
+        row = by_name.get(name)
+        if not row:
+            missing.append(name)
+            continue
+        pair = _value_pair(row)
+        if pair is None:
+            missing.append(name)
+            continue
+        offer_rows.append(row)
+    if missing:
+        warnings.append(
+            f"Dropped {len(missing)} player(s) from the offer that have no "
+            f"my-value or KTC value: {', '.join(missing[:5])}"
+            + (" …" if len(missing) > 5 else "")
+        )
+    if not offer_rows:
+        return {
+            "offer": {"players": [], "size": 0, "my_total": 0, "ktc_total": 0},
+            "candidates": [],
+            "warnings": warnings or ["No valid offer-side players."],
+        }
+
+    offer_my_total = sum(
+        _value_pair(r)[0] for r in offer_rows  # type: ignore[index]
+    )
+    offer_ktc_total = sum(
+        _value_pair(r)[1] for r in offer_rows  # type: ignore[index]
+    )
+    offer_size = len(offer_rows)
+
+    # Target sizes: N-1, N, N+1 — never less than 1.
+    target_sizes = sorted({max(1, offer_size - 1), offer_size, offer_size + 1})
+
+    # Build per-team candidate pool, filtered + capped.
+    my_team_name: str | None = None
+    teams_pool: list[tuple[dict[str, Any], list[dict[str, Any]]]] = []
+    offer_name_set = {str(r.get("canonicalName") or "") for r in offer_rows}
+    for team in sleeper_teams:
+        owner = str(team.get("ownerId") or "")
+        if owner == selected_team_owner_id:
+            my_team_name = team.get("name")
+            continue
+        pool: list[dict[str, Any]] = []
+        for pname in team.get("players") or []:
+            pname = str(pname)
+            if pname in offer_name_set:
+                continue  # never suggest trading for your own player
+            row = by_name.get(pname)
+            if not row:
+                continue
+            pair = _value_pair(row)
+            if pair is None:
+                continue
+            my_v, ktc_v = pair
+            pool.append(
+                {
+                    "name": pname,
+                    "position": str(row.get("position") or ""),
+                    "my_value": my_v,
+                    "ktc_value": ktc_v,
+                }
+            )
+        pool.sort(key=lambda p: -p["my_value"])
+        pool = pool[:candidate_pool_per_team]
+        teams_pool.append((team, pool))
+
+    # Pre-compute numeric thresholds in absolute-value terms so the
+    # inner loop uses only arithmetic, no division.
+    min_my_total = offer_my_total * (1.0 + min_my_gain_pct / 100.0)
+    max_ktc_total = offer_ktc_total * (1.0 + max_ktc_gain_pct / 100.0)
+
+    candidates: list[dict[str, Any]] = []
+    for team, pool in teams_pool:
+        for size in target_sizes:
+            if len(pool) < size:
+                continue
+            for combo in combinations(pool, size):
+                my_sum = sum(p["my_value"] for p in combo)
+                if my_sum < min_my_total:
+                    continue
+                ktc_sum = sum(p["ktc_value"] for p in combo)
+                if ktc_sum > max_ktc_total:
+                    continue
+                my_gain_pct = 100.0 * (my_sum - offer_my_total) / offer_my_total
+                ktc_gain_pct = 100.0 * (ktc_sum - offer_ktc_total) / offer_ktc_total
+                candidates.append(
+                    {
+                        "team": team.get("name"),
+                        "owner_id": str(team.get("ownerId") or ""),
+                        "size": size,
+                        "players": [
+                            {
+                                "name": p["name"],
+                                "position": p["position"],
+                                "my_value": int(p["my_value"]),
+                                "ktc_value": int(p["ktc_value"]),
+                            }
+                            for p in combo
+                        ],
+                        "my_total": int(round(my_sum)),
+                        "ktc_total": int(round(ktc_sum)),
+                        "my_gain_pct": round(my_gain_pct, 2),
+                        "ktc_gain_pct": round(ktc_gain_pct, 2),
+                        "arb_score": round(my_gain_pct - ktc_gain_pct, 2),
+                    }
+                )
+
+    candidates.sort(key=lambda c: c["arb_score"], reverse=True)
+    candidates = candidates[: max(1, int(limit))]
+
+    offer_players = []
+    for r in offer_rows:
+        pair = _value_pair(r)
+        offer_players.append(
+            {
+                "name": str(r.get("canonicalName") or ""),
+                "position": str(r.get("position") or ""),
+                "my_value": int(pair[0]) if pair else 0,
+                "ktc_value": int(pair[1]) if pair else 0,
+            }
+        )
+
+    return {
+        "offer": {
+            "team": my_team_name,
+            "size": offer_size,
+            "players": offer_players,
+            "my_total": int(round(offer_my_total)),
+            "ktc_total": int(round(offer_ktc_total)),
+        },
+        "candidates": candidates,
+        "thresholds": {
+            "min_my_gain_pct": min_my_gain_pct,
+            "max_ktc_gain_pct": max_ktc_gain_pct,
+            "limit": limit,
+            "candidate_pool_per_team": candidate_pool_per_team,
+            "target_sizes": target_sizes,
         },
         "warnings": warnings,
     }

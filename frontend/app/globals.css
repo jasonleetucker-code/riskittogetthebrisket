@@ -2439,6 +2439,17 @@ tr:hover .sticky-name {
   color: var(--text-primary);
   font-size: 0.9rem;
 }
+/* Explicit option styling — Chromium on dark OS themes inherits a
+   translucent default and dropdown options become unreadable. */
+.angle-field select option {
+  background: #11182a;
+  color: var(--text-primary);
+}
+.angle-field select option:checked,
+.angle-field select option:hover {
+  background: var(--accent, #2563eb);
+  color: #fff;
+}
 .angle-field-hint { font-size: 0.72rem; opacity: 0.8; }
 .angle-go { align-self: end; white-space: nowrap; }
 .angle-selected-grid {
@@ -2468,3 +2479,108 @@ tr:hover .sticky-name {
   margin-bottom: var(--space-xs);
 }
 .idp-lab-runs-bulk { display: flex; gap: var(--space-xs); }
+
+/* Angle: multi-select offer bar + roster grid + package cards */
+.angle-offer-bar { display: flex; flex-direction: column; gap: var(--space-sm); }
+.angle-offer-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+.angle-offer-totals {
+  display: flex;
+  gap: var(--space-md);
+  align-items: baseline;
+  font-size: 0.9rem;
+}
+.angle-offer-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.angle-offer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.angle-offer-chip:hover { background: var(--surface-hover, #1e293b); }
+.angle-chip-x { color: var(--text-muted); font-size: 1rem; line-height: 1; }
+.angle-search input {
+  width: 100%;
+  max-width: 360px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+}
+.angle-roster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 6px 12px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--surface-base, rgba(0, 0, 0, 0.1));
+}
+.angle-roster-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.angle-roster-row:hover { background: var(--surface-hover, rgba(255, 255, 255, 0.04)); }
+.angle-roster-checked { background: rgba(37, 99, 235, 0.15); }
+.angle-roster-name { font-weight: 500; }
+.angle-roster-meta { font-size: 0.75rem; text-align: right; white-space: nowrap; }
+.angle-package-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--space-sm);
+}
+.angle-package {
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: var(--surface-elevated);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.angle-package-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+.angle-package-scores {
+  display: flex;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+.angle-package-players {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.85rem;
+}
+.angle-package-players li { display: flex; gap: 6px; flex-wrap: wrap; }
+.angle-package-totals { font-size: 0.8rem; }
