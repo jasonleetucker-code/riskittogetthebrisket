@@ -266,3 +266,62 @@ def test_packages_empty_offer_returns_empty_result():
     result = find_angle_packages(_pkg_players(), [], "owner-a", _pkg_teams())
     assert result["candidates"] == []
     assert result["offer"]["size"] == 0
+
+
+def test_packages_per_team_limit_caps_results_per_team():
+    """One opposing team shouldn't fill the results with 50 slight
+    variations of the same trade. per_team_limit caps each team's
+    contribution before the global limit is applied."""
+    # Team A owns the offer. Team B has 10 good players — lots of
+    # combinations will qualify. Team C has 1 good player.
+    offer = ["Jayden Daniels"]
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["Jayden Daniels"]},
+        {
+            "name": "Team B",
+            "ownerId": "owner-b",
+            "players": [f"B {i}" for i in range(10)],
+        },
+        {
+            "name": "Team C",
+            "ownerId": "owner-c",
+            "players": ["C Star"],
+        },
+    ]
+    players = [_player("Jayden Daniels", my_val=5000, ktc_val=5000)]
+    for i in range(10):
+        # Each B player is +20% my-value, -0% KTC — all qualify.
+        players.append(_player(f"B {i}", my_val=6000 + i * 10, ktc_val=5000))
+    players.append(_player("C Star", my_val=6500, ktc_val=5000))
+
+    # Default per_team_limit = 4
+    result = find_angle_packages(players, offer, "owner-a", teams)
+    # Count how many from each team.
+    counts: dict[str, int] = {}
+    for c in result["candidates"]:
+        counts[c["owner_id"]] = counts.get(c["owner_id"], 0) + 1
+    # Team B should be capped at 4 despite having many qualifying
+    # combinations. Team C has only 1 player so its size-1 count is 1.
+    assert counts.get("owner-b", 0) <= 4
+    assert counts.get("owner-c", 0) <= 4
+
+
+def test_packages_per_team_limit_disabled_by_zero_or_negative():
+    offer = ["Jayden Daniels"]
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["Jayden Daniels"]},
+        {
+            "name": "Team B",
+            "ownerId": "owner-b",
+            "players": [f"B {i}" for i in range(10)],
+        },
+    ]
+    players = [_player("Jayden Daniels", my_val=5000, ktc_val=5000)]
+    for i in range(10):
+        players.append(_player(f"B {i}", my_val=6000 + i * 10, ktc_val=5000))
+    # per_team_limit=0 disables the cap — lots of Team B candidates.
+    result = find_angle_packages(
+        players, offer, "owner-a", teams, per_team_limit=0, limit=100,
+    )
+    team_b_count = sum(1 for c in result["candidates"] if c["owner_id"] == "owner-b")
+    assert team_b_count > 4

@@ -202,6 +202,7 @@ def find_angle_packages(
     max_ktc_gain_pct: float = 5.0,
     limit: int = 50,
     candidate_pool_per_team: int = 25,
+    per_team_limit: int = 4,
 ) -> dict[str, Any]:
     """Find multi-player counter-packages for a user-built offer.
 
@@ -218,6 +219,11 @@ def find_angle_packages(
         opposing team when enumerating combinations. Caps the
         combinatorial explosion; 25 × size-5 ≈ 53k combos per team
         which completes comfortably inside a request.
+    per_team_limit
+        Max packages kept per opposing team (by arb score desc)
+        before the global ``limit`` is applied. Default 4 — keeps
+        one team from swamping the results with 50 variations of
+        the same trade. Set to a large number to disable.
 
     Returns
     -------
@@ -350,7 +356,23 @@ def find_angle_packages(
                     }
                 )
 
+    # Per-team cap first — prevents a single opposing roster from
+    # swamping the results with 50 near-identical variations of the
+    # same trade. Sort each team's candidates by arb_score desc, keep
+    # the top ``per_team_limit``, then apply the global cap across
+    # what's left.
     candidates.sort(key=lambda c: c["arb_score"], reverse=True)
+    if per_team_limit and per_team_limit > 0:
+        kept: list[dict[str, Any]] = []
+        seen_per_team: dict[str, int] = {}
+        for c in candidates:
+            owner_id = c.get("owner_id") or c.get("team") or ""
+            count = seen_per_team.get(owner_id, 0)
+            if count >= per_team_limit:
+                continue
+            kept.append(c)
+            seen_per_team[owner_id] = count + 1
+        candidates = kept
     candidates = candidates[: max(1, int(limit))]
 
     offer_players = []
@@ -379,6 +401,7 @@ def find_angle_packages(
             "max_ktc_gain_pct": max_ktc_gain_pct,
             "limit": limit,
             "candidate_pool_per_team": candidate_pool_per_team,
+            "per_team_limit": per_team_limit,
             "target_sizes": target_sizes,
         },
         "warnings": warnings,
