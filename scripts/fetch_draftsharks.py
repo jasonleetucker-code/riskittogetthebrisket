@@ -19,13 +19,16 @@ manual DS export uses:
 Authentication
 --------------
 
-Cookies are loaded from ``draftsharks_session.json`` at the repo
-root (gitignored).  To refresh:
+Reads ``DRAFTSHARKS_EMAIL`` + ``DRAFTSHARKS_PASSWORD`` from ``.env``
+at the repo root (gitignored).  On each run we try the cached
+session cookies first (``draftsharks_session.json``); if the
+rankings page comes back without the operator's league name we
+run the in-browser DS login flow to mint fresh cookies, save them
+back to the session file, and continue the scrape — no manual
+cookie refresh required.
 
-1. Log in to https://www.draftsharks.com/ in a browser.
-2. Open DevTools → Application → Cookies → ``www.draftsharks.com``.
-3. Copy the values of ``PHPSESSID`` (HttpOnly), ``_identity``
-   (HttpOnly), and ``_frontendCSRF`` into the session file.
+The session file is honoured as a pre-warmed cache so routine
+runs don't re-log-in every time.
 
 Run
 ---
@@ -40,17 +43,28 @@ import argparse
 import asyncio
 import csv
 import json
+import os
 import re
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 SESSION_PATH = REPO / "draftsharks_session.json"
+ENV_PATH = REPO / ".env"
 OUT_PATH = REPO / "CSVs" / "site_raw" / "draftSharks.csv"
 
+HOME_URL = "https://www.draftsharks.com/"
+LOGIN_URL = "https://www.draftsharks.com/login"
 OFFENSE_URL = "https://www.draftsharks.com/dynasty-rankings/te-premium-superflex"
 IDP_URL = "https://www.draftsharks.com/dynasty-rankings/idp/te-premium-superflex"
 LEAGUE_ID = "995704"  # "Risk It To Get The Brisket"
+
+# Only these cookies matter for auth + league context.  Everything
+# else (analytics, consent, etc.) would bloat the session file and
+# cause needless churn on refresh.
+_AUTH_COOKIE_NAMES: frozenset[str] = frozenset(
+    {"PHPSESSID", "_identity", "_frontendCSRF", "_csrf-frontend"}
+)
 
 CSV_HEADER = [
     "Rank",
@@ -69,19 +83,35 @@ CSV_HEADER = [
 ]
 
 
+def _load_env_dotfile(path: Path) -> None:
+    """Parse ``.env`` and populate ``os.environ`` for any keys it
+    doesn't already set.  Minimal inline replacement for
+    ``python-dotenv`` so we don't add a runtime dependency."""
+    if not path.exists():
+        return
+    for raw in path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
 def _load_cookies() -> list[dict]:
+    """Return Playwright-shaped cookie dicts from the session file.
+    Returns ``[]`` (not ``SystemExit``) when the file is missing so
+    the caller can fall through to ``_browser_login``."""
     if not SESSION_PATH.exists():
-        raise SystemExit(
-            f"Session file not found: {SESSION_PATH}\n"
-            "See this script's docstring for how to capture cookies."
-        )
-    data = json.loads(SESSION_PATH.read_text())
-    # Playwright expects: name, value, domain, path, httpOnly, secure, sameSite.
+        return []
+    try:
+        data = json.loads(SESSION_PATH.read_text())
+    except Exception:
+        return []
     out: list[dict] = []
     for c in data.get("cookies", []):
-        if not isinstance(c, dict) or c.get("name", "").startswith("_"):
-            # Skip analytics cookies that Playwright rejects.
-            pass
         if not isinstance(c, dict) or "name" not in c or "value" not in c:
             continue
         if c["name"].startswith("_comment"):
@@ -96,6 +126,87 @@ def _load_cookies() -> list[dict]:
             "sameSite": str(c.get("sameSite") or "Lax").title(),
         })
     return out
+
+
+def _save_cookies(cookies: list[dict]) -> None:
+    """Persist Playwright-captured cookies into the session file.
+    Only the auth-relevant cookies are stored — analytics cookies
+    add churn without buying anything."""
+    payload = {
+        "_comment_": (
+            "DraftSharks cookies auto-refreshed by "
+            "scripts/fetch_draftsharks.py using DRAFTSHARKS_EMAIL / "
+            "DRAFTSHARKS_PASSWORD.  Gitignored."
+        ),
+        "cookies": [
+            {
+                "name": c["name"],
+                "value": c["value"],
+                "domain": c.get("domain", "www.draftsharks.com"),
+                "path": c.get("path", "/"),
+                "httpOnly": bool(c.get("httpOnly", True)),
+                "secure": bool(c.get("secure", True)),
+                "sameSite": str(c.get("sameSite") or "Lax").title(),
+            }
+            for c in cookies
+            if isinstance(c, dict)
+            and "name" in c
+            and c.get("name") in _AUTH_COOKIE_NAMES
+        ],
+    }
+    SESSION_PATH.write_text(json.dumps(payload, indent=2) + "\n")
+    try:
+        SESSION_PATH.chmod(0o600)
+    except Exception:
+        pass
+
+
+async def _browser_login(context, page) -> None:
+    """Run the DS login flow in the current browser context and
+    persist fresh cookies.  Caller must reload any rankings page
+    after this returns."""
+    email = os.environ.get("DRAFTSHARKS_EMAIL", "").strip()
+    password = os.environ.get("DRAFTSHARKS_PASSWORD", "").strip()
+    if not email or not password:
+        raise SystemExit(
+            "DRAFTSHARKS_EMAIL / DRAFTSHARKS_PASSWORD not set in .env; "
+            "cannot auto-refresh cookies.  Either add the credentials to "
+            "the server's .env or paste fresh cookies into "
+            "draftsharks_session.json."
+        )
+
+    print("[DS] cached session rejected — logging in via Playwright …", flush=True)
+    await page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=30_000)
+    await page.wait_for_timeout(1_200)
+    await page.fill('input[name="LoginForm[email]"]', email)
+    await page.fill('input[name="LoginForm[password]"]', password)
+    await page.click('button[name="login-button"]')
+    # Wait for the server to issue ``_identity`` (the "remember-me"
+    # cookie that survives across requests).  DS's login redirects
+    # to ``/`` on success so ``_identity`` appears within a couple
+    # of seconds.
+    authenticated = False
+    for _ in range(20):
+        await page.wait_for_timeout(500)
+        current_cookies = await context.cookies("https://www.draftsharks.com")
+        if any(c.get("name") == "_identity" for c in current_cookies):
+            authenticated = True
+            break
+    if not authenticated:
+        errors = await page.evaluate(
+            "() => Array.from(document.querySelectorAll('.alert, .help-block-error, [role=alert]'))"
+            ".map(e => e.textContent.trim()).filter(Boolean).slice(0, 3)"
+        )
+        raise RuntimeError(
+            f"DS login failed — no _identity cookie issued.  Page errors: {errors}"
+        )
+    fresh_cookies = await context.cookies("https://www.draftsharks.com")
+    _save_cookies(fresh_cookies)
+    count = sum(1 for c in fresh_cookies if c.get("name") in _AUTH_COOKIE_NAMES)
+    print(
+        f"[DS] logged in; persisted {count} cookie(s) to {SESSION_PATH.name}",
+        flush=True,
+    )
 
 
 # Extraction JS — walks visible ``<tbody data-player-row>`` blocks
@@ -190,10 +301,8 @@ async def _scrape_one(
 
     html_initial = await page.content()
     if "Risk It To Get The Brisket" not in html_initial:
-        raise RuntimeError(
-            f"League 'Risk It To Get The Brisket' not in {label} page HTML — "
-            "cookies likely stale; refresh draftsharks_session.json"
-        )
+        # Sentinel string picked up by _scrape() to trigger auto-login.
+        raise RuntimeError("unauthenticated_session")
 
     print(f"[DS] ({label}) activating league {LEAGUE_ID} …", flush=True)
     try:
@@ -252,6 +361,34 @@ async def _scrape_one(
     return rows
 
 
+async def _scrape_with_autologin(
+    context,
+    page,
+    url: str,
+    *,
+    label: str,
+    mahomes_threshold: float | None,
+    allow_login: bool,
+) -> list[dict]:
+    """Wrapper around ``_scrape_one`` that catches the
+    ``unauthenticated_session`` sentinel, runs the browser login
+    once, then retries the scrape with the fresh cookies that
+    Playwright now holds in-context."""
+    try:
+        return await _scrape_one(
+            page, url, label=label, mahomes_threshold=mahomes_threshold
+        )
+    except RuntimeError as exc:
+        if str(exc) != "unauthenticated_session" or not allow_login:
+            raise
+        await _browser_login(context, page)
+        # After login the context already carries the fresh cookies,
+        # so re-navigating the URL picks up the authenticated view.
+        return await _scrape_one(
+            page, url, label=label, mahomes_threshold=mahomes_threshold
+        )
+
+
 async def _scrape(*, headless: bool) -> list[dict]:
     try:
         from playwright.async_api import async_playwright
@@ -273,28 +410,36 @@ async def _scrape(*, headless: bool) -> list[dict]:
                 ),
                 viewport={"width": 1400, "height": 1100},
             )
-            await context.add_cookies(cookies)
+            if cookies:
+                await context.add_cookies(cookies)
             page = await context.new_page()
 
             # Offense: load the default TEP-superflex page; Mahomes
             # public value is 74, league-synced ~81 in a
             # TE-premium + IDP-heavy league, so use 78 as settle
             # threshold.
-            offense_rows = await _scrape_one(
+            offense_rows = await _scrape_with_autologin(
+                context,
                 page,
                 OFFENSE_URL,
                 label="offense",
                 mahomes_threshold=78,
+                allow_login=True,
             )
 
             # IDP: load the IDP-only view.  Schwesinger public 44,
             # league-synced still around 44; use 30 as a loose
-            # "something loaded" threshold.
-            idp_rows = await _scrape_one(
+            # "something loaded" threshold.  We've already
+            # authenticated above so disallow a second login pass —
+            # an IDP-specific failure should surface instead of
+            # quietly burning another login.
+            idp_rows = await _scrape_with_autologin(
+                context,
                 page,
                 IDP_URL,
                 label="idp",
                 mahomes_threshold=30,
+                allow_login=False,
             )
 
             # Merge: offense first (higher scale values) then IDP.
@@ -358,6 +503,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    _load_env_dotfile(ENV_PATH)
     rows = asyncio.run(_scrape(headless=not args.headful))
 
     if not rows:

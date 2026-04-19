@@ -94,6 +94,15 @@ jobs:
         if: ${{ inputs.skip_scrape != true }}
         shell: bash
         timeout-minutes: 15
+        env:
+          # Feed credentials to the FG + DS scrapers, which read them
+          # via os.environ.  If a secret is missing the scraper logs
+          # a warning and fails the fetch — handled as non-fatal by
+          # the `|| echo` fallback below.
+          FOOTBALLGUYS_EMAIL: ${{ secrets.FOOTBALLGUYS_EMAIL }}
+          FOOTBALLGUYS_PASSWORD: ${{ secrets.FOOTBALLGUYS_PASSWORD }}
+          DRAFTSHARKS_EMAIL: ${{ secrets.DRAFTSHARKS_EMAIL }}
+          DRAFTSHARKS_PASSWORD: ${{ secrets.DRAFTSHARKS_PASSWORD }}
         run: |
           set -Eeuo pipefail
           echo "::group::Scraper output"
@@ -113,6 +122,18 @@ jobs:
 
           # Fetch Flock Fantasy SF rankings
           python scripts/fetch_flock_fantasy.py --mirror-data-dir 2>/dev/null || echo "::warning title=Flock Fantasy fetch failed::Non-fatal — continuing"
+
+          # Fetch FootballGuys league-synced rankings (offense + IDP)
+          # The scraper auto-logs-in via Playwright on session refresh
+          # when cached cookies are rejected; non-fatal if the site is
+          # unreachable so the rest of the pipeline keeps running.
+          python scripts/fetch_footballguys.py 2>&1 || echo "::warning title=FootballGuys fetch failed::Non-fatal — continuing with stale CSV"
+
+          # Fetch DraftSharks league-synced rankings (offense + IDP).
+          # DS requires Playwright because league scoring is applied
+          # client-side by a WebAssembly worker; auto-login is wired
+          # into the scraper itself.
+          python scripts/fetch_draftsharks.py 2>&1 || echo "::warning title=DraftSharks fetch failed::Non-fatal — continuing with stale CSV"
 
           # Verify at least KTC data was produced (primary source)
           if [[ -f "CSVs/site_raw/ktc.csv" ]]; then
