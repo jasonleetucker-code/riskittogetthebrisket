@@ -175,9 +175,37 @@ export default async function RivalryPage({ params }) {
                     : undefined
             }
           />
-          <Stat label="Points" value={`${fmtPoints(detail.pointsA)} / ${fmtPoints(detail.pointsB)}`} />
-          <Stat label="Close (≤5 pts)" value={detail.gamesDecidedByFive} />
-          <Stat label="Close (≤10 pts)" value={detail.gamesDecidedByTen} />
+          <Stat
+            label="Points"
+            value={`${fmtPoints(detail.pointsA)} / ${fmtPoints(detail.pointsB)}`}
+            sub={
+              detail.pointsA > detail.pointsB
+                ? `${nameFor(managers, idA)} +${fmtPoints(detail.pointsA - detail.pointsB)}`
+                : detail.pointsB > detail.pointsA
+                  ? `${nameFor(managers, idB)} +${fmtPoints(detail.pointsB - detail.pointsA)}`
+                  : detail.totalMeetings > 0
+                    ? "Even"
+                    : undefined
+            }
+          />
+          <Stat
+            label="Close (≤5 pts)"
+            value={detail.gamesDecidedByFive}
+            sub={
+              detail.gamesDecidedByFive === 0 && detail.totalMeetings > 0
+                ? "No nail-biters"
+                : undefined
+            }
+          />
+          <Stat
+            label="Close (≤10 pts)"
+            value={detail.gamesDecidedByTen}
+            sub={
+              detail.gamesDecidedByTen === 0 && detail.totalMeetings > 0
+                ? "No close games"
+                : undefined
+            }
+          />
         </div>
 
         <div style={{ fontWeight: 600, marginBottom: 6 }}>Memorable meetings</div>
@@ -188,9 +216,24 @@ export default async function RivalryPage({ params }) {
             gap: 10,
           }}
         >
-          <MeetingCard label="Closest" meeting={detail.closestGame} />
-          <MeetingCard label="Biggest blowout" meeting={detail.biggestBlowout} />
-          <MeetingCard label="Last meeting" meeting={detail.lastMeeting} />
+          <MeetingCard
+            label="Closest"
+            meeting={detail.closestGame}
+            nameA={nameFor(managers, idA)}
+            nameB={nameFor(managers, idB)}
+          />
+          <MeetingCard
+            label="Biggest blowout"
+            meeting={detail.biggestBlowout}
+            nameA={nameFor(managers, idA)}
+            nameB={nameFor(managers, idB)}
+          />
+          <MeetingCard
+            label="Last meeting"
+            meeting={detail.lastMeeting}
+            nameA={nameFor(managers, idA)}
+            nameB={nameFor(managers, idB)}
+          />
         </div>
 
         {detail.seasonSplits && Object.keys(detail.seasonSplits).length > 0 && (
