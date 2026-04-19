@@ -880,7 +880,19 @@ class TestTepMultiplier(unittest.TestCase):
             )
 
     def test_tep_boost_does_not_touch_non_te_values(self) -> None:
-        """Non-TE players must be unaffected by tep_multiplier."""
+        """Non-TE players must be unaffected by tep_multiplier.
+
+        The volatility-compression pass includes a monotonicity-
+        preserving ceiling at the top of the board (rank 1 ≤ 9999,
+        rank 2 ≤ 9998, rank 3 ≤ 9997, ...) to prevent multiple
+        high-agreement boosted players from collapsing onto a
+        single 9999 plateau.  When the TEP slider moves a TE above
+        a QB in rank, the QB's ceiling can tighten by a handful of
+        points because its rank has shifted — the player's source
+        inputs are unchanged, but the ranking neighbourhood is.
+        We allow a small ±5 tolerance here for rows whose rank
+        shifted and strict equality otherwise.
+        """
         boosted = build_api_data_contract(
             _fixture_raw_payload(), tep_multiplier=1.15
         )
@@ -889,11 +901,26 @@ class TestTepMultiplier(unittest.TestCase):
             pos = str(baseline_row.get("position") or "").upper()
             if pos in {"TE", "PICK"}:
                 continue
-            self.assertEqual(
-                baseline_row.get("rankDerivedValue"),
-                boosted_by_name[name].get("rankDerivedValue"),
-                f"Non-TE {name} ({pos}) changed under TEP boost",
-            )
+            base_val = int(baseline_row.get("rankDerivedValue") or 0)
+            boost_val = int(boosted_by_name[name].get("rankDerivedValue") or 0)
+            base_rank = baseline_row.get("canonicalConsensusRank")
+            boost_rank = boosted_by_name[name].get("canonicalConsensusRank")
+            if base_rank != boost_rank:
+                # Rank shifted — monotonicity cap may tighten the
+                # ceiling by a few points as the neighbourhood moves.
+                self.assertAlmostEqual(
+                    base_val, boost_val, delta=5,
+                    msg=(
+                        f"Non-TE {name} ({pos}) drifted more than 5 pts "
+                        f"under TEP boost: {base_val} -> {boost_val}"
+                    ),
+                )
+            else:
+                self.assertEqual(
+                    base_val, boost_val,
+                    f"Non-TE {name} ({pos}) changed under TEP boost with "
+                    f"no rank shift: {base_val} -> {boost_val}",
+                )
 
     def test_brock_bowers_mostly_proportional_boost(self) -> None:
         """A top TE with mixed-TEP coverage gets a measurable but sub-15% boost.
@@ -925,7 +952,19 @@ class TestTepMultiplier(unittest.TestCase):
         self.assertGreater(boost_value / base_value, 1.01)
 
     def test_tep_native_only_coverage_is_not_boosted(self) -> None:
-        """When the only TE source is TEP-native, no boost is applied."""
+        """When the only TE source is TEP-native, no boost is applied.
+
+        Bowers gets synthetic ranks for sources that don't carry a
+        value for him in the fixture (e.g. the split-offense
+        ``draftSharks``), so the override must also disable those
+        non-TEP-native sources for the premise to hold.  Without
+        that disable, ``draftSharks`` would contribute a TEP-
+        boosted value and the post-volatility Bowers value would
+        shift between base and boost scenarios (previously hidden
+        by the volatility-compression clamp collapsing both to
+        9999; the clamp no longer collapses ranks after the
+        monotonicity cap was added).
+        """
         override = {
             "ktc": {"include": False},
             "idpTradeCalc": {"include": False},
@@ -934,6 +973,7 @@ class TestTepMultiplier(unittest.TestCase):
             "dynastyDaddySf": {"include": False},
             "flockFantasySf": {"include": False},
             "footballGuysSf": {"include": False},
+            "draftSharks": {"include": False},
         }
         base = build_api_data_contract(
             _fixture_raw_payload(),
@@ -956,14 +996,23 @@ class TestTepMultiplier(unittest.TestCase):
         )
 
     def test_tep_native_disabled_full_non_native_boost(self) -> None:
-        """With only non-TEP sources active, the TEP boost should approach the raw multiplier.
+        """With only non-TEP sources active, the TEP boost should lift
+        Brock Bowers toward the raw multiplier.
 
         Disabling every TEP-native source (dynastyNerdsSfTep and
         yahooBoone) removes the TEP-native contribution entirely, so
-        every remaining source gets multiplied by TEP and the blended
-        value should be exactly ``baseline * TEP`` (within rounding).
-        No double-boost is possible because there are no TEP-native
-        sources left to pass through.
+        every remaining source gets multiplied by TEP.  Pre-volatility,
+        the blended value is exactly ``baseline_blend * 1.15``.  After
+        the volatility pass plus the monotonicity-preserving clamp at
+        ``_DISPLAY_SCALE_MAX = 9999``, the post-volatility value may
+        plateau at 9999 when the boost would have pushed the row
+        further — so we assert a directional ratio instead of a strict
+        ``base * 1.15`` equality: the boost must raise Bowers and the
+        effective multiplier must land in ``(1.04, 1.15]``.  The lower
+        bound is generous enough to survive a modest volatility
+        compression on the boost side; the upper bound is the inline
+        TEP multiplier itself (no double-boost is possible because no
+        TEP-native sources remain).
         """
         _disable_tep_native = {
             "dynastyNerdsSfTep": {"include": False},
@@ -984,10 +1033,16 @@ class TestTepMultiplier(unittest.TestCase):
         base_value = int(base_bowers.get("rankDerivedValue") or 0)
         boost_value = int(boost_bowers.get("rankDerivedValue") or 0)
         self.assertGreater(base_value, 0)
-        expected = int(round(base_value * 1.15))
-        # Allow a 2-unit tolerance for rounding inside the weighted-mean /
-        # robust-median combine.
-        self.assertAlmostEqual(boost_value, expected, delta=2)
+        self.assertGreater(boost_value, base_value)
+        ratio = boost_value / base_value
+        self.assertGreater(
+            ratio, 1.04,
+            f"TEP boost too small: {base_value} -> {boost_value} (ratio {ratio:.3f})",
+        )
+        self.assertLessEqual(
+            ratio, 1.15 + 1e-6,
+            f"TEP boost exceeds raw multiplier: {base_value} -> {boost_value} (ratio {ratio:.3f})",
+        )
 
     def test_tep_combines_with_source_overrides(self) -> None:
         """TEP boost should compound correctly with source weight/include overrides."""

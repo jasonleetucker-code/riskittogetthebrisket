@@ -273,19 +273,22 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/Dynasty Rookie IDP Rankings-3-20-2026-0955.csv",
         "signal": "rank",
     },
-    # DraftSharks dynasty rankings — single cross-universe board
-    # covering QB/RB/WR/TE (offense) + DL/LB/DB (IDP) + K together.
-    # Kickers fall out because they're not in ``_RANKABLE_POSITIONS``.
-    # Raw export carries ``Rank``, ``Player``, ``Fantsy Position``
-    # (their typo), ``3D Value +`` (0-100 normalised), plus
-    # projection columns we don't use.  Value signal — the 3D Value +
-    # column preserves fractional separation between near-tied
-    # players.  Same cross-universe pool pattern as IDPTradeCalc: the
-    # source's primary scope is ``overall_offense`` and it contributes
-    # to ``overall_idp`` via ``extra_scopes``, so a single Phase 1 pass
-    # ranks offense + IDP rows together on DraftSharks' shared scale.
+    # DraftSharks dynasty rankings — split into offense + IDP CSVs
+    # by scripts/fetch_draftsharks.py.  The scraper reads the single
+    # offense-combined DOM (where every player has a cross-universe
+    # ``3D Value +`` on the same scale — e.g. Carson Schwesinger =
+    # 44 at overall rank 36 among all positions) and writes two
+    # files filtered by position family.  Both CSVs therefore share
+    # the same raw value scale but describe separate pools, which
+    # lets the blend treat DraftSharks as two independent sources
+    # (one offense, one IDP) instead of a single cross-scope source
+    # like IDPTradeCalc.
     "draftSharks": {
-        "path": "CSVs/site_raw/draftSharks.csv",
+        "path": "CSVs/site_raw/draftSharksSf.csv",
+        "signal": "value",
+    },
+    "draftSharksIdp": {
+        "path": "CSVs/site_raw/draftSharksIdp.csv",
         "signal": "value",
     },
 }
@@ -320,6 +323,11 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     # allow a 30-day window; the fetcher also emits its own stale-
     # article warning if Yahoo's redirect chain ever stops resolving.
     "yahooBoone": 720,
+    # DraftSharks SF + IDP CSVs are written by scripts/fetch_draftsharks.py
+    # on every scheduled-refresh tick (3-hour cadence), so the same
+    # 6-hour freshness budget as ktc / idpTradeCalc applies.
+    "draftSharks": 6,
+    "draftSharksIdp": 6,
 }
 
 # ── Per-source row-count floors ───────────────────────────────────────────
@@ -351,6 +359,15 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # at the April 2026 baseline.  Floor at ~80% so a scrape regression
     # trips a warning.
     "yahooBoone": 400,
+    # DraftSharks: the scraper ingests 461 offense / 389 IDP rows,
+    # but canonical-name matches against the Sleeper player pool
+    # yield a smaller count because DS's deeper rows are prospects
+    # not yet listed in Sleeper (e.g. rookies / deep practice-squad
+    # LBs).  Live match counts are ~237 offense and ~108 IDP at
+    # the April 2026 baseline.  Floors at ~80% of those match
+    # counts so scraper regressions trip a warning.
+    "draftSharks": 190,
+    "draftSharksIdp": 85,
 }
 
 
@@ -1037,31 +1054,45 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "excludes_rookies": False,
     },
     {
-        # DraftSharks single cross-universe dynasty board.  Ranks
-        # offense (QB/RB/WR/TE) + IDP (DL/LB/DB) + kickers on one
-        # shared 0-100 ``3D Value +`` scale; the blend gathers every
-        # eligible row into one pool and sorts by value desc, so
-        # cross-universe ordering is preserved (same pattern as
-        # IDPTradeCalc, which is the only other multi-scope source).
-        # Primary scope is ``overall_offense`` with
-        # ``overall_idp`` as an extra scope so offense AND IDP rows
-        # both receive DraftSharks' rank contribution.
-        #
-        # depth=800 reflects the raw 874-row export minus the few
-        # kickers that fall out at the position-eligibility check.
-        # _expected_sources_for_position multiplies this by 1.25 so
-        # DraftSharks is not expected for players ranked deeper than
-        # ~1,000.
-        #
-        # DraftSharks' 3D Value is a standard dynasty scale — not
-        # TE-premium native — so the frontend ``tepMultiplier``
-        # boost applies to its blended contribution.
+        # DraftSharks offense dynasty board (QB/RB/WR/TE).  The
+        # scraper splits DS's single offense-combined DOM by
+        # position family, so this source is the SF slice of the
+        # ~874-row universe.  461 rows at the April 2026 baseline
+        # (QB=39, RB=73, WR=103, TE=35 visible + hidden depth
+        # prospects below the default DS position-filter cutoff).
+        # Value signal off the ``3D Value +`` column; the blend
+        # normalises via Hill curve over within-source rank so the
+        # 0-100 absolute scale is irrelevant.  DraftSharks' scoring
+        # is standard dynasty (not TE-premium native), so the
+        # frontend ``tepMultiplier`` applies.
         "key": "draftSharks",
         "display_name": "Draft Sharks Dynasty",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
-        "extra_scopes": [SOURCE_SCOPE_OVERALL_IDP],
+        "extra_scopes": [],
         "position_group": None,
-        "depth": 800,
+        "depth": 500,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+    },
+    {
+        # DraftSharks IDP dynasty board (DL/LB/DB).  Mirror of the
+        # ``draftSharks`` offense entry — same scraper scrapes a
+        # single page and writes two CSVs; the IDP CSV carries
+        # every DL/LB/DB with their cross-universe ``3D Value +``
+        # (e.g. Carson Schwesinger at value 44 as IDP rank 1, NOT
+        # the IDP-only-page rescaled 81).  389 rows at the April
+        # 2026 baseline.  depth=400 because IDP depth in the DS
+        # export is smaller than offense.
+        "key": "draftSharksIdp",
+        "display_name": "Draft Sharks IDP Dynasty",
+        "scope": SOURCE_SCOPE_OVERALL_IDP,
+        "extra_scopes": [],
+        "position_group": None,
+        "depth": 400,
         "weight": 1.0,
         "is_backbone": False,
         "is_retail": False,
@@ -3278,6 +3309,31 @@ def _apply_volatility_compression_post_pass(
     max_boost = _VOLATILITY_COMPRESSION_CEIL - 1.0
     strength = _VOLATILITY_COMPRESSION_STRENGTH
 
+    # Process in canonical rank order so the monotonicity-preserving
+    # boost cap (see ``prior_post_value`` below) can reach back to
+    # the immediately-higher-ranked row.  Without this sort the raw
+    # ``eligible`` order is insertion order from the players_array
+    # walk above, which is already rank-desc for historical reasons,
+    # but making the sort explicit guards against future callers that
+    # might append rows out of order.
+    eligible.sort(
+        key=lambda triple: int(triple[0].get("canonicalConsensusRank") or 10**9)
+    )
+
+    # Tracks the post-adjustment ``rankDerivedValue`` of the row we
+    # just processed.  When a boost (``z < 0``) would raise the
+    # current row to or above ``prior_post_value``, we clamp it to
+    # ``prior_post_value - 1`` so rank 1 stays strictly above rank 2,
+    # rank 2 stays strictly above rank 3, etc.  Prevents the
+    # ``_DISPLAY_SCALE_MAX`` clamp from collapsing multiple
+    # high-agreement top players onto a single 9999 plateau (e.g.
+    # Josh Allen at rank 1 and Drake Maye at rank 2 both hitting
+    # 9999 because each raw-boosted value exceeds 9999 and clamps).
+    # Compression (``z > 0``) is NOT constrained here — any
+    # compression-induced inversion is fixed by the Phase 5 compact
+    # resort that runs after this pass.
+    prior_post_value: int | None = None
+
     for row, value, spread in eligible:
         z = (spread - spread_mean) / spread_std
         legacy_ref = row.get("legacyRef")
@@ -3289,18 +3345,42 @@ def _apply_volatility_compression_post_pass(
 
         if z > 0:
             frac = min(z * strength, max_compress)
+            # Compression moves values downward; no ceiling clamp
+            # needed and compression-branch values above 9999 are
+            # deliberately preserved.  The inline TEP multiplier can
+            # inflate the pre-volatility blend above the display
+            # scale (a Hill rank-1 value of 9999 × 1.15 = 11499),
+            # and a downstream Phase 5 resort is the right place to
+            # handle out-of-range display values rather than the
+            # volatility pass clamping mid-pipeline.
             new_val = max(1, int(round(value * (1.0 - frac))))
             signed_frac = round(frac, 4)
         elif z < 0:
             frac = min(abs(z) * strength, max_boost)
-            new_val = min(
-                _DISPLAY_SCALE_MAX,
-                max(1, int(round(value * (1.0 + frac)))),
-            )
+            boosted = max(1, int(round(value * (1.0 + frac))))
+            # Monotonicity-preserving ceiling on boost: new_val is
+            # the min of (raw-boosted, _DISPLAY_SCALE_MAX,
+            # prior_post_value - 1).  Together, the second and third
+            # terms prevent multiple high-agreement top-of-board
+            # players from collapsing onto a single 9999 plateau.
+            # The cap only tightens the ceiling when the prior row
+            # itself landed at or below 9999 — a compression-branch
+            # neighbour sitting at 10694 does not drag the boost
+            # ceiling above 9999.
+            ceiling = _DISPLAY_SCALE_MAX
+            if prior_post_value is not None and prior_post_value <= _DISPLAY_SCALE_MAX:
+                ceiling = min(ceiling, prior_post_value - 1)
+            new_val = max(1, min(boosted, ceiling))
             signed_frac = round(-frac, 4)
         else:
             new_val = int(value)
             signed_frac = None
+
+        # Track the ``min(new_val, _DISPLAY_SCALE_MAX)`` view of
+        # this row so a compression-branch value above 9999 can't
+        # lift the next row's boost ceiling above 9999.  Any row
+        # (boost, compress, no-op) can constrain the next boost.
+        prior_post_value = min(new_val, _DISPLAY_SCALE_MAX)
 
         # When z is on either side but frac rounds to zero (very small
         # |z|), skip the value mutation to avoid spurious 1-point
