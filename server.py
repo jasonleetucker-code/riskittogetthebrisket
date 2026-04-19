@@ -2131,10 +2131,54 @@ async def post_trade_suggestions(request: Request):
     if league_rosters is not None and not isinstance(league_rosters, list):
         league_rosters = None
 
+    # Overlay live calibrated values on top of the static canonical
+    # snapshot before handing it to the suggestion engine. The
+    # canonical snapshot is built offline by
+    # scripts/canonical_build.py; the IDP calibration post-pass that
+    # runs inside build_api_data_contract does NOT mutate that
+    # snapshot, so by default trade suggestions would be computed on
+    # pre-calibration values. Walk the live playersArray, grab each
+    # ranked row's rankDerivedValue (calibrated), and override both
+    # display_value and calibrated_value on the matching asset so
+    # the suggestion engine sorts + fairness-checks on calibrated
+    # numbers.
+    live_by_name: dict[str, int] = {}
+    try:
+        live_rows = (latest_contract_data or {}).get("playersArray") or []
+    except Exception:  # noqa: BLE001
+        live_rows = []
+    for row in live_rows:
+        name = str(row.get("canonicalName") or row.get("displayName") or "").strip()
+        if not name:
+            continue
+        rdv = row.get("rankDerivedValue")
+        try:
+            v = int(rdv) if rdv is not None else None
+        except (TypeError, ValueError):
+            continue
+        if v is not None and v > 0:
+            live_by_name[name] = v
+
+    if live_by_name:
+        patched_assets = []
+        for asset in (canonical_data.get("assets") or []):
+            asset_name = str(asset.get("display_name") or "").strip()
+            live_val = live_by_name.get(asset_name)
+            if live_val is None:
+                patched_assets.append(asset)
+                continue
+            patched = dict(asset)
+            patched["display_value"] = live_val
+            patched["calibrated_value"] = live_val
+            patched_assets.append(patched)
+        canonical_data_for_suggestions = {**canonical_data, "assets": patched_assets}
+    else:
+        canonical_data_for_suggestions = canonical_data
+
     try:
         result = generate_suggestions(
             roster_names=roster,
-            canonical_snapshot=canonical_data,
+            canonical_snapshot=canonical_data_for_suggestions,
             league_rosters=league_rosters,
         )
     except Exception as e:

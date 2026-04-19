@@ -3854,7 +3854,26 @@ def _compute_unified_rankings(
             int(r["canonicalConsensusRank"]),
         ),
     )
-    for new_rank, r in enumerate(ranked_rows, start=1):
+    # Compact ranks, skipping current-year slot picks so picks don't
+    # consume merged-board rank slots. Picks still appear (the row is
+    # kept in the array) but their ``canonicalConsensusRank`` is
+    # cleared — they're a proxy for the corresponding rookie, so the
+    # user sees the value without the pick pushing every other player
+    # down one rank. Only applies to slot-specific current-year picks
+    # (e.g. "2026 Pick 1.06"); tier-generic picks ("2026 Early 1st")
+    # still take ordinary rank slots.
+    new_rank = 0
+    for r in ranked_rows:
+        is_anchor_slot_pick = False
+        if r.get("assetClass") == "pick":
+            parsed = _parse_pick_slot(r.get("canonicalName") or "")
+            if parsed is not None and parsed[0] == _anchor_year:
+                is_anchor_slot_pick = True
+        if is_anchor_slot_pick:
+            r["canonicalConsensusRank"] = None
+            r["canonicalTierId"] = None
+            continue
+        new_rank += 1
         old_rank = r.get("canonicalConsensusRank")
         if old_rank != new_rank:
             r["canonicalConsensusRank"] = new_rank

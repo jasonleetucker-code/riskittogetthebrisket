@@ -336,6 +336,7 @@ KNOWN_TOP_BOARD_SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     "Michael Penix":   "IDPTradeCalc upstream feed has no entry under Michael Penix / Michael Penix Jr.",
     "Omar Cooper":     "Indiana WR (current college rookie) — not yet listed in IDPTradeCalc autocomplete",
     "Devin Bush":      "Veteran depth IDP — outside DLF top-185 cut",
+    "David Bailey":    "Edge rookie IDP — only FantasyPros IDP covers him; moved into top-200 after 2026 slot picks were un-ranked",
 }
 
 

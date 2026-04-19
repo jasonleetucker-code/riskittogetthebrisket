@@ -216,6 +216,62 @@ class TestAnchorEndToEnd(unittest.TestCase):
             pick_101.get("pickRookieAnchor"), rookies[0]["canonicalName"]
         )
 
+    def test_2026_slot_picks_have_null_canonical_rank(self) -> None:
+        """2026 slot picks are proxies for their anchor rookie; they
+        carry the rookie's rankDerivedValue but NOT a merged-board
+        rank so players aren't pushed down a slot by each pick row."""
+        rows = self.contract["playersArray"]
+        slot_picks = [
+            r for r in rows
+            if r.get("assetClass") == "pick"
+            and isinstance(r.get("canonicalName"), str)
+            and r["canonicalName"].startswith("2026 Pick ")
+        ]
+        if not slot_picks:
+            self.skipTest("No 2026 slot picks in contract")
+        for pick in slot_picks:
+            self.assertIsNone(
+                pick.get("canonicalConsensusRank"),
+                f"{pick.get('canonicalName')} still carries a rank "
+                f"(got {pick.get('canonicalConsensusRank')}) — 2026 slot picks "
+                "must be un-ranked so they don't push other rows down.",
+            )
+        # At least one pick should carry an anchored value — verifies
+        # that un-ranking happens AFTER the rookie anchor step, not
+        # instead of it. (Some deep rookie slots may have no rookie
+        # match; skipping to a pick that does is sufficient.)
+        anchored = [
+            p for p in slot_picks
+            if p.get("rankDerivedValue") and int(p.get("rankDerivedValue")) > 0
+        ]
+        self.assertTrue(
+            anchored,
+            "No 2026 slot pick carries a positive rankDerivedValue — "
+            "anchor step appears broken after the un-rank change.",
+        )
+
+    def test_no_2026_slot_pick_consumes_a_rank_slot(self) -> None:
+        """2026 slot picks should be ENTIRELY absent from the ranked
+        board — no pick like ``2026 Pick 1.01`` should hold a
+        canonicalConsensusRank. Other pick types (tier-generic
+        ``2026 Early 1st``, ``2027 Pick 1.01``) may still hold ranks
+        and are checked separately."""
+        ranked = [
+            r for r in self.contract["playersArray"]
+            if r.get("canonicalConsensusRank")
+        ]
+        offenders = [
+            r for r in ranked
+            if r.get("assetClass") == "pick"
+            and isinstance(r.get("canonicalName"), str)
+            and r["canonicalName"].startswith("2026 Pick ")
+        ]
+        self.assertEqual(
+            offenders, [],
+            f"2026 slot picks still hold ranks: "
+            f"{[r.get('canonicalName') for r in offenders[:3]]}",
+        )
+
     def test_coherence_preserved_after_anchor(self) -> None:
         ranked = sorted(
             [
