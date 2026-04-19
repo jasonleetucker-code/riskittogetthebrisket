@@ -14,6 +14,8 @@ const DEFAULT_MIN_MY = 5;
 const DEFAULT_MAX_KTC = 5;
 const DEFAULT_LIMIT = 50;
 const DEFAULT_PER_TEAM = 4;
+const DEFAULT_MIN_PLAYER_VALUE = 3000;
+const POSITION_FILTERS = ["QB", "RB", "WR", "TE", "DL", "LB", "DB"];
 
 export default function AnglePage() {
   const { loading: dataLoading, error: dataError, rawData, rows } = useDynastyData();
@@ -50,6 +52,8 @@ export default function AnglePage() {
   const [maxKtcGainPct, setMaxKtcGainPct] = useState(DEFAULT_MAX_KTC);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [perTeamLimit, setPerTeamLimit] = useState(DEFAULT_PER_TEAM);
+  const [positionFilters, setPositionFilters] = useState(() => new Set());
+  const [minPlayerValue, setMinPlayerValue] = useState(DEFAULT_MIN_PLAYER_VALUE);
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
@@ -113,6 +117,15 @@ export default function AnglePage() {
     });
   }
 
+  function togglePosition(pos) {
+    setPositionFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(pos)) next.delete(pos);
+      else next.add(pos);
+      return next;
+    });
+  }
+
   async function findAngles() {
     if (!ownerId || offerList.length === 0) {
       setErr("Pick a team and check at least one player.");
@@ -132,6 +145,8 @@ export default function AnglePage() {
           maxKtcGainPct: Number(maxKtcGainPct),
           limit: Number(limit),
           perTeamLimit: Number(perTeamLimit),
+          minPlayerMyValue: Number(minPlayerValue),
+          positions: Array.from(positionFilters),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -262,6 +277,76 @@ export default function AnglePage() {
             {err}
           </p>
         )}
+      </section>
+
+      <section className="card angle-filter-card">
+        <div className="angle-filter-head">
+          <strong>Counter-package filters</strong>
+          <span className="muted">
+            Narrow the candidates the search considers from other teams.
+          </span>
+        </div>
+        <div className="angle-filter-row">
+          <div className="angle-filter-group">
+            <span className="muted">Positions wanted</span>
+            <div className="angle-pill-row">
+              {POSITION_FILTERS.map((pos) => {
+                const active = positionFilters.has(pos);
+                return (
+                  <button
+                    key={pos}
+                    type="button"
+                    className={`angle-pill ${active ? "angle-pill-active" : ""}`}
+                    onClick={() => togglePosition(pos)}
+                    disabled={busy}
+                    title={
+                      active
+                        ? `Only include ${pos}s in counter-packages`
+                        : `Click to require ${pos}`
+                    }
+                  >
+                    {pos}
+                  </button>
+                );
+              })}
+              {positionFilters.size > 0 && (
+                <button
+                  type="button"
+                  className="angle-pill angle-pill-clear"
+                  onClick={() => setPositionFilters(new Set())}
+                  disabled={busy}
+                  title="Clear — accept all positions"
+                >
+                  × clear
+                </button>
+              )}
+            </div>
+            <span className="angle-field-hint">
+              Leave empty to allow any position.
+            </span>
+          </div>
+          <div className="angle-filter-group">
+            <span className="muted">
+              Minimum value per target player:{" "}
+              <strong>{Number(minPlayerValue).toLocaleString()}</strong>
+            </span>
+            <input
+              type="range"
+              min="0"
+              max="9999"
+              step="100"
+              value={minPlayerValue}
+              onChange={(e) => setMinPlayerValue(Number(e.target.value))}
+              disabled={busy}
+              className="angle-slider"
+            />
+            <span className="angle-field-hint">
+              Each individual player in a counter-package must have a
+              my-value at or above this. Default 3,000 filters out
+              deep-bench filler.
+            </span>
+          </div>
+        </div>
       </section>
 
       <section className="card angle-offer-bar">

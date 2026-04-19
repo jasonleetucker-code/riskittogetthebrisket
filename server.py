@@ -2329,11 +2329,16 @@ async def post_angle_packages(request: Request):
         limit = int(body.get("limit", 50))
         pool = int(body.get("candidatePoolPerTeam", 25))
         per_team = int(body.get("perTeamLimit", 4))
+        min_player = float(body.get("minPlayerMyValue", 0.0))
     except (TypeError, ValueError):
         return JSONResponse(
             status_code=400,
             content={"error": "numeric params must be numeric."},
         )
+    positions_req = body.get("positions") or []
+    if not isinstance(positions_req, list):
+        positions_req = []
+    positions_req = [str(p).strip() for p in positions_req if str(p).strip()]
 
     from src.trade.angle import find_angle_packages
 
@@ -2348,6 +2353,8 @@ async def post_angle_packages(request: Request):
             limit=limit,
             candidate_pool_per_team=pool,
             per_team_limit=per_team,
+            positions=positions_req or None,
+            min_player_my_value=min_player,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Angle packages failed: {exc}")

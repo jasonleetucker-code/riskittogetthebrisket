@@ -325,3 +325,99 @@ def test_packages_per_team_limit_disabled_by_zero_or_negative():
     )
     team_b_count = sum(1 for c in result["candidates"] if c["owner_id"] == "owner-b")
     assert team_b_count > 4
+
+
+def test_packages_position_filter_restricts_candidates():
+    """When ``positions`` is given, only players at those positions
+    can appear in counter-packages."""
+    offer = ["Jayden Daniels"]
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["Jayden Daniels"]},
+        {
+            "name": "Team B",
+            "ownerId": "owner-b",
+            "players": ["B WR", "B RB", "B TE"],
+        },
+    ]
+    players = [
+        _player("Jayden Daniels", my_val=5000, ktc_val=5000, position="QB"),
+        _player("B WR", my_val=6000, ktc_val=5000, position="WR"),
+        _player("B RB", my_val=6000, ktc_val=5000, position="RB"),
+        _player("B TE", my_val=6000, ktc_val=5000, position="TE"),
+    ]
+    # Only want WRs back.
+    result = find_angle_packages(
+        players, offer, "owner-a", teams, positions=["WR"],
+    )
+    pos_seen = {p["position"] for c in result["candidates"] for p in c["players"]}
+    assert pos_seen == {"WR"}
+    # Empty position filter = any position accepted.
+    result2 = find_angle_packages(
+        players, offer, "owner-a", teams, positions=[],
+    )
+    pos_seen2 = {p["position"] for c in result2["candidates"] for p in c["players"]}
+    assert pos_seen2 == {"WR", "RB", "TE"}
+
+
+def test_packages_position_filter_case_insensitive():
+    offer = ["Jayden Daniels"]
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["Jayden Daniels"]},
+        {"name": "Team B", "ownerId": "owner-b", "players": ["B WR"]},
+    ]
+    players = [
+        _player("Jayden Daniels", 5000, 5000, position="QB"),
+        _player("B WR", 6000, 5000, position="WR"),
+    ]
+    result = find_angle_packages(
+        players, offer, "owner-a", teams, positions=["wr"],
+    )
+    assert any(p["name"] == "B WR" for c in result["candidates"] for p in c["players"])
+
+
+def test_packages_min_player_my_value_filters_filler():
+    offer = ["Jayden Daniels"]
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["Jayden Daniels"]},
+        {
+            "name": "Team B",
+            "ownerId": "owner-b",
+            "players": ["B Star", "B Filler"],
+        },
+    ]
+    players = [
+        _player("Jayden Daniels", my_val=5000, ktc_val=5000),
+        _player("B Star", my_val=6000, ktc_val=5000),
+        _player("B Filler", my_val=500, ktc_val=500),
+    ]
+    # Default 3000 floor — B Filler's my_value=500 is excluded.
+    result = find_angle_packages(
+        players, offer, "owner-a", teams, min_player_my_value=3000,
+    )
+    names = {p["name"] for c in result["candidates"] for p in c["players"]}
+    assert "B Filler" not in names
+    # Zero floor — Filler can come along.
+    result2 = find_angle_packages(
+        players, offer, "owner-a", teams, min_player_my_value=0,
+    )
+    names2 = {p["name"] for c in result2["candidates"] for p in c["players"]}
+    assert "B Star" in names2  # at minimum
+
+
+def test_packages_filters_surfaced_in_thresholds():
+    offer = ["Jayden Daniels"]
+    teams = [
+        {"name": "Team A", "ownerId": "owner-a", "players": ["Jayden Daniels"]},
+        {"name": "Team B", "ownerId": "owner-b", "players": ["B WR"]},
+    ]
+    players = [
+        _player("Jayden Daniels", 5000, 5000, position="QB"),
+        _player("B WR", 6000, 5000, position="WR"),
+    ]
+    result = find_angle_packages(
+        players, offer, "owner-a", teams,
+        positions=["WR", "TE"], min_player_my_value=2500,
+    )
+    th = result["thresholds"]
+    assert th["positions"] == ["TE", "WR"]  # sorted
+    assert th["min_player_my_value"] == 2500

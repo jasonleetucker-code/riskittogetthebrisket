@@ -203,6 +203,8 @@ def find_angle_packages(
     limit: int = 50,
     candidate_pool_per_team: int = 25,
     per_team_limit: int = 4,
+    positions: list[str] | None = None,
+    min_player_my_value: float = 0.0,
 ) -> dict[str, Any]:
     """Find multi-player counter-packages for a user-built offer.
 
@@ -224,6 +226,14 @@ def find_angle_packages(
         before the global ``limit`` is applied. Default 4 — keeps
         one team from swamping the results with 50 variations of
         the same trade. Set to a large number to disable.
+    positions
+        When non-empty, restrict the candidate pool to players whose
+        ``position`` matches one of these tokens (case-insensitive).
+        ``None`` or empty list = any position.
+    min_player_my_value
+        Minimum ``rankDerivedValue`` a player must have to be
+        considered in the candidate pool. Caller uses this to say
+        "don't suggest filler-depth guys in my counter-package."
 
     Returns
     -------
@@ -282,6 +292,14 @@ def find_angle_packages(
     # Target sizes: N-1, N, N+1 — never less than 1.
     target_sizes = sorted({max(1, offer_size - 1), offer_size, offer_size + 1})
 
+    # Normalise position filter.
+    position_filter: set[str] | None = None
+    if positions:
+        position_filter = {str(p).strip().upper() for p in positions if str(p).strip()}
+        if not position_filter:
+            position_filter = None
+    min_my_value_floor = max(0.0, float(min_player_my_value or 0.0))
+
     # Build per-team candidate pool, filtered + capped.
     my_team_name: str | None = None
     teams_pool: list[tuple[dict[str, Any], list[dict[str, Any]]]] = []
@@ -303,6 +321,12 @@ def find_angle_packages(
             if pair is None:
                 continue
             my_v, ktc_v = pair
+            # Per-player filters: position allow-list and my-value floor.
+            row_pos = str(row.get("position") or "").strip().upper()
+            if position_filter is not None and row_pos not in position_filter:
+                continue
+            if my_v < min_my_value_floor:
+                continue
             pool.append(
                 {
                     "name": pname,
@@ -403,6 +427,8 @@ def find_angle_packages(
             "candidate_pool_per_team": candidate_pool_per_team,
             "per_team_limit": per_team_limit,
             "target_sizes": target_sizes,
+            "positions": sorted(position_filter) if position_filter else [],
+            "min_player_my_value": int(min_my_value_floor),
         },
         "warnings": warnings,
     }
