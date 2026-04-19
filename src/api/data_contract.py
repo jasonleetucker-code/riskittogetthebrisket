@@ -4386,11 +4386,36 @@ def build_api_data_contract(
     this to ``True`` so overrides round-trips don't pay for output
     blocks the wire shape drops.
     """
-    base = deepcopy(raw_payload or {})
-    players_by_name = base.get("players")
-    if not isinstance(players_by_name, dict):
+    # Two-level copy of raw_payload: shallow at the top, one-deep for
+    # the ``players`` dict so per-player mutations stay isolated.  Full
+    # ``deepcopy`` of a 3MB payload was 70+ms per call; this lands at
+    # ~20ms because we skip the fanout into ``sites``, ``sleeper``, and
+    # every site-per-player record (none of which this function ever
+    # mutates).  Documented mutation sites are scalar assignments on
+    # the player dict and one mutation on the nested
+    # ``_canonicalSiteValues`` dict — both isolated by shallow-copying
+    # each player's nested dicts/lists.
+    src_payload = raw_payload or {}
+    base: dict[str, Any] = dict(src_payload)
+    src_players = src_payload.get("players") if isinstance(src_payload, dict) else None
+    if not isinstance(src_players, dict):
         players_by_name = {}
-        base["players"] = players_by_name
+    else:
+        players_by_name = {}
+        for _name, _pdata in src_players.items():
+            if not isinstance(_pdata, dict):
+                players_by_name[_name] = _pdata
+                continue
+            _copy: dict[str, Any] = {}
+            for _k, _v in _pdata.items():
+                if isinstance(_v, dict):
+                    _copy[_k] = dict(_v)
+                elif isinstance(_v, list):
+                    _copy[_k] = list(_v)
+                else:
+                    _copy[_k] = _v
+            players_by_name[_name] = _copy
+    base["players"] = players_by_name
 
     # Strip legacy LAM/scarcity fields before building the contract.
     _strip_legacy_lam_fields(base, players_by_name)

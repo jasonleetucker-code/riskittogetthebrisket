@@ -550,6 +550,37 @@ class TestComputeKtcRankings(unittest.TestCase):
         self.assertIn("ktcRank", contract["players"]["Josh Allen"])
         self.assertEqual(contract["players"]["Josh Allen"]["ktcRank"], 1)
 
+    def test_build_api_data_contract_does_not_mutate_raw_payload(self):
+        """Two-level copy guards against mutations leaking back into the
+        caller's raw_payload. Scalar fields added to player dicts by the
+        ranker (rankDerivedValue, ktcRank, etc.) must NOT appear on the
+        source payload after the build.
+        """
+        raw = {
+            "players": {
+                "Josh Allen": {
+                    "_composite": 9000, "_rawComposite": 9000, "_finalAdjusted": 9000,
+                    "_canonicalSiteValues": {"ktc": 9000}, "position": "QB",
+                },
+            },
+            "sites": [{"key": "ktc"}],
+            "maxValues": {},
+            "sleeper": {"positions": {}},
+        }
+        orig_player_keys = set(raw["players"]["Josh Allen"].keys())
+        orig_csv_keys = set(raw["players"]["Josh Allen"]["_canonicalSiteValues"].keys())
+        build_api_data_contract(raw)
+        # Top-level keys of the source player dict must not have grown.
+        self.assertEqual(set(raw["players"]["Josh Allen"].keys()), orig_player_keys)
+        # Nested _canonicalSiteValues keys must not have grown either.
+        self.assertEqual(
+            set(raw["players"]["Josh Allen"]["_canonicalSiteValues"].keys()),
+            orig_csv_keys,
+        )
+        # Critical: the build must not stamp rankDerivedValue onto the caller's dict.
+        self.assertNotIn("rankDerivedValue", raw["players"]["Josh Allen"])
+        self.assertNotIn("ktcRank", raw["players"]["Josh Allen"])
+
 
 class TestCanonicalConsensusRank(unittest.TestCase):
     """Backend must stamp canonicalConsensusRank — the authoritative rank
