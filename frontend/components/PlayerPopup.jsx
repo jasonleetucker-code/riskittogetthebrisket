@@ -1,8 +1,125 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getPlayerEdge } from "@/lib/trade-logic";
 import { resolvedRank } from "@/lib/dynasty-data";
+
+/**
+ * Build the ordered value-chain stages from a player row.
+ *
+ * Pipeline order (from src/api/data_contract.py phases 4a → 5):
+ *   1. Blended Hill value (weighted-mean + robust-median) → stamped
+ *      as ``rankDerivedValueUncalibrated``.
+ *   2. IDP calibration pass (family_scale × bucket multiplier) —
+ *      IDP rows only; offense rows skip this stage.
+ *   3. Volatility compression / boost → stamped as
+ *      ``preVolatilityValue`` capture (the value at the start of the
+ *      volatility iteration) and the final ``rankDerivedValue``.
+ *      Monotonicity cap can pull the boosted value BELOW the input
+ *      when a higher-ranked neighbor landed at a low final value —
+ *      this is why Schwesinger (rank 78) ends up at 4062 despite
+ *      his calibrated pre-volatility being 6591.
+ *   4. Phase-5 compact resort / pick anchoring (rare) — shows up as
+ *      a catch-all delta when the final value doesn't match what
+ *      the volatility stage produced.
+ *
+ * Only stages with a meaningful delta are emitted so offense rows
+ * don't render zero-op "IDP calibration ×1.00" rows.
+ */
+function computeValueChain(row) {
+  if (!row) return [];
+
+  const stages = [];
+
+  // Stage 1 — blended value (output of 60/40 weighted-mean + robust-median).
+  const blended = Number(row.rankDerivedValueUncalibrated) || null;
+  if (blended !== null && blended > 0) {
+    stages.push({
+      key: "blend",
+      label: "Blended value",
+      description:
+        "Weighted-mean + robust-median across per-source Hill-curve values",
+      value: Math.round(blended),
+      delta: null,
+    });
+  }
+
+  // Stage 2 — IDP calibration (family_scale × bucket multiplier).
+  // Offense rows lack these fields and skip this stage.  Captured
+  // BEFORE the volatility pass by the ``preVolatilityValue`` snapshot.
+  const bucket =
+    typeof row.idpCalibrationMultiplier === "number"
+      ? row.idpCalibrationMultiplier
+      : null;
+  const family =
+    typeof row.idpFamilyScale === "number" ? row.idpFamilyScale : null;
+  const posRank =
+    typeof row.idpCalibrationPositionRank === "number"
+      ? row.idpCalibrationPositionRank
+      : null;
+  const calibrated = Number(row.preVolatilityValue) || null;
+  if (family !== null && bucket !== null && calibrated !== null) {
+    const combined = family * bucket;
+    const prior = stages.length ? stages[stages.length - 1].value : null;
+    const delta = prior !== null ? Math.round(calibrated) - prior : null;
+    // Skip if the calibration is a clean no-op AND there's no delta
+    // (some rows get the multiplier applied but still round-trip
+    // to the same integer).
+    if (!(Math.abs(combined - 1.0) < 1e-9 && (delta === null || delta === 0))) {
+      const posLabel =
+        posRank && row.pos ? ` (${row.pos}${posRank})` : "";
+      stages.push({
+        key: "idp-calibration",
+        label: `IDP calibration: ×${combined.toFixed(2)}`,
+        description: `Family scale ×${family.toFixed(2)} × bucket multiplier ×${bucket.toFixed(2)}${posLabel}`,
+        value: Math.round(calibrated),
+        delta,
+      });
+    }
+  }
+
+  // Stage 3 — volatility compression / boost / cap.  The
+  // ``volatilityCompressionApplied`` fraction captures the raw
+  // boost/compress signal from source agreement; the actual delta
+  // can be different because the monotonicity cap may bind.
+  const volFrac =
+    typeof row.volatilityCompressionApplied === "number"
+      ? row.volatilityCompressionApplied
+      : null;
+  const finalValue = Number(row.rankDerivedValue) || 0;
+  if (finalValue > 0) {
+    const prior = stages.length ? stages[stages.length - 1].value : null;
+    const delta = prior !== null ? Math.round(finalValue) - prior : null;
+    if (delta !== null && delta !== 0) {
+      let label;
+      let description;
+      if (volFrac === null || volFrac === 0) {
+        label = "Post-volatility adjustment";
+        description =
+          "Monotonicity cap or Phase-5 compact resort produced a value shift";
+      } else if (volFrac < 0) {
+        label = `Volatility: boost ${(Math.abs(volFrac) * 100).toFixed(1)}%`;
+        description =
+          delta < 0
+            ? "High source agreement (theoretical boost), but monotonicity cap pulled the value below a higher-ranked neighbour"
+            : "High source agreement → multiplicative lift (capped by display ceiling and monotonicity step)";
+      } else {
+        label = `Volatility: compress ${(volFrac * 100).toFixed(1)}%`;
+        description =
+          "Source disagreement → value pulled toward the mean to down-weight noisy players";
+      }
+      stages.push({
+        key: "volatility",
+        label,
+        description,
+        value: Math.round(finalValue),
+        delta,
+      });
+    }
+  }
+
+  return stages;
+}
 
 /**
  * Player detail popup — multi-source breakdown, value diagnostics, edge signal.
@@ -15,6 +132,8 @@ import { resolvedRank } from "@/lib/dynasty-data";
  *   onAddToTrade — Optional callback to add player to trade builder
  */
 export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade }) {
+  const [chainOpen, setChainOpen] = useState(false);
+
   // Close on Escape
   useEffect(() => {
     if (!row) return;
@@ -23,7 +142,15 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
     return () => document.removeEventListener("keydown", onKey);
   }, [row, onClose]);
 
+  // Reset the chain panel when switching players — the new row's
+  // transforms are different, so starting collapsed keeps the
+  // popup compact for casual lookups.
+  useEffect(() => {
+    setChainOpen(false);
+  }, [row?.name]);
+
   const edge = useMemo(() => (row ? getPlayerEdge(row) : null), [row]);
+  const valueChain = useMemo(() => computeValueChain(row), [row]);
 
   const siteDetails = useMemo(() => {
     if (!row?.canonicalSites) return [];
@@ -109,6 +236,119 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
             </div>
           )}
         </div>
+
+        {/* Value chain — how we arrived at Our Value */}
+        {valueChain.length > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <button
+              type="button"
+              onClick={() => setChainOpen((v) => !v)}
+              style={{
+                background: "transparent",
+                border: "1px dashed var(--border-bright)",
+                color: "var(--cyan)",
+                padding: "4px 10px",
+                borderRadius: 6,
+                fontSize: "0.72rem",
+                cursor: "pointer",
+                fontFamily: "var(--font)",
+                width: "100%",
+                textAlign: "left",
+              }}
+              title={
+                chainOpen
+                  ? "Hide the stage-by-stage value derivation"
+                  : "See how the blended value + volatility + calibration produced the final number"
+              }
+            >
+              {chainOpen ? "▼" : "▶"} Value chain — how we got {Math.round(values.full || 0).toLocaleString()}
+              {!chainOpen && (
+                <span className="muted" style={{ marginLeft: 8, fontSize: "0.68rem" }}>
+                  {valueChain.length} stage{valueChain.length !== 1 ? "s" : ""}
+                </span>
+              )}
+            </button>
+            {chainOpen && (
+              <div
+                style={{
+                  marginTop: 6,
+                  border: "1px solid var(--border)",
+                  borderRadius: 6,
+                  padding: "8px 10px",
+                  background: "rgba(79, 38, 131, 0.12)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                }}
+              >
+                {valueChain.map((stage, i) => (
+                  <div
+                    key={stage.key}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 10,
+                      paddingBottom: i === valueChain.length - 1 ? 0 : 6,
+                      borderBottom:
+                        i === valueChain.length - 1
+                          ? "none"
+                          : "1px dashed var(--border)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        minWidth: 22,
+                        textAlign: "center",
+                        color: "var(--cyan)",
+                        fontWeight: 700,
+                        fontSize: "0.72rem",
+                      }}
+                    >
+                      {i + 1}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: "0.78rem", fontWeight: 600 }}>
+                        {stage.label}
+                      </div>
+                      <div
+                        className="muted"
+                        style={{ fontSize: "0.68rem", marginTop: 2 }}
+                      >
+                        {stage.description}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        minWidth: 72,
+                        textAlign: "right",
+                        fontFamily: "var(--mono)",
+                        fontSize: "0.78rem",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {stage.value.toLocaleString()}
+                      {stage.delta !== null && stage.delta !== 0 && (
+                        <div
+                          style={{
+                            fontSize: "0.66rem",
+                            fontWeight: 500,
+                            color:
+                              stage.delta > 0
+                                ? "var(--green)"
+                                : "var(--red)",
+                          }}
+                        >
+                          {stage.delta > 0 ? "+" : ""}
+                          {stage.delta.toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Edge signal */}
         {edge?.signal && (
