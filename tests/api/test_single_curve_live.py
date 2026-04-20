@@ -727,3 +727,214 @@ class TestNoSecondHillCurve(unittest.TestCase):
             f"Rows above _DISPLAY_SCALE_MAX={_DISPLAY_SCALE_MAX}: "
             f"{offenders[:5]}",
         )
+
+
+class TestValueBasedSourceDirectVote(unittest.TestCase):
+    """Pin the Final Framework override (2026-04-20): value-based
+    sources feed their raw site values directly into the blend instead
+    of being re-modelled through the Hill / scope-master curve.
+
+    This is the implementation of requirement (A) in the overriding
+    prompt:
+
+        For sites that already provide values:
+          - normalize them into the common 0 to 9999 language
+          - preserve their relative shape as much as possible
+          - use those normalized values directly as live source votes
+          - do NOT send those live value-site votes back through the
+            Hill curve
+
+    The test walks the live contract and asserts:
+
+    1. Every row that has a ``canonicalSiteValues`` entry for a key in
+       ``_VALUE_BASED_SOURCES`` carries a ``valueContributionPath ==
+       'value_direct'`` stamp on the corresponding
+       ``sourceRankMeta`` entry.
+    2. Every row whose matched source is NOT in that set carries
+       ``valueContributionPath == 'rank_hill'`` instead.
+    3. The stamped ``valueContribution`` for a value-direct source
+       equals the raw ``canonicalSiteValues[key]`` scaled by the
+       site's max (within ±1 for integer rounding), proving no Hill
+       re-mapping occurred.
+    """
+
+    def setUp(self) -> None:
+        self.contract = _get()
+        if self.contract is None:
+            self.skipTest("No live data")
+        self.rows = _ranked_rows(self.contract)
+
+    def test_value_sources_use_value_direct_path(self) -> None:
+        from src.api.data_contract import _VALUE_BASED_SOURCES  # noqa: PLC0415
+
+        checked = 0
+        offenders: list[str] = []
+        for row in self.rows:
+            meta = row.get("sourceRankMeta") or {}
+            site_values = row.get("canonicalSiteValues") or {}
+            for src_key, m in meta.items():
+                if src_key not in _VALUE_BASED_SOURCES:
+                    continue
+                raw = site_values.get(src_key)
+                if raw is None:
+                    continue
+                path = m.get("valueContributionPath")
+                if path != "value_direct":
+                    offenders.append(
+                        f"{row.get('canonicalName')} [{src_key}]: "
+                        f"path={path!r} (raw={raw})"
+                    )
+                checked += 1
+        self.assertFalse(
+            offenders,
+            f"Value-based sources routed through the Hill curve "
+            f"(offenders first 5): {offenders[:5]}",
+        )
+        self.assertGreater(
+            checked, 100,
+            "expected many value-direct source contributions across the board",
+        )
+
+    def test_rank_only_sources_use_rank_hill_path(self) -> None:
+        from src.api.data_contract import _VALUE_BASED_SOURCES  # noqa: PLC0415
+
+        checked = 0
+        offenders: list[str] = []
+        for row in self.rows:
+            meta = row.get("sourceRankMeta") or {}
+            for src_key, m in meta.items():
+                if src_key in _VALUE_BASED_SOURCES:
+                    continue
+                path = m.get("valueContributionPath")
+                if path != "rank_hill":
+                    offenders.append(
+                        f"{row.get('canonicalName')} [{src_key}]: "
+                        f"path={path!r}"
+                    )
+                checked += 1
+        self.assertFalse(
+            offenders,
+            f"Rank-only sources NOT routed through Hill "
+            f"(offenders first 5): {offenders[:5]}",
+        )
+        self.assertGreater(checked, 100, "expected many rank-hill contributions")
+
+    def test_value_direct_contribution_matches_raw_normalized(self) -> None:
+        """For a value-direct source, ``valueContribution`` must equal
+        ``raw_value / site_max × 9999`` (within ±1 for integer rounding).
+
+        This pins that the live blend is reading the raw site value,
+        not a Hill-derived synthetic value for the player's rank.
+        """
+        from src.api.data_contract import _VALUE_BASED_SOURCES  # noqa: PLC0415
+
+        # Compute each value source's max observed raw across the
+        # live contract — same logic the blend uses.
+        site_max: dict[str, float] = {}
+        for row in self.contract.get("playersArray") or []:
+            sv = row.get("canonicalSiteValues") or {}
+            for key in _VALUE_BASED_SOURCES:
+                raw = sv.get(key)
+                try:
+                    raw_f = float(raw) if raw is not None else 0.0
+                except (TypeError, ValueError):
+                    continue
+                if raw_f > site_max.get(key, 0.0):
+                    site_max[key] = raw_f
+
+        checked = 0
+        for row in self.rows:
+            meta = row.get("sourceRankMeta") or {}
+            site_values = row.get("canonicalSiteValues") or {}
+            row_is_te = str(row.get("position") or "").upper() == "TE"
+            for src_key, m in meta.items():
+                if src_key not in _VALUE_BASED_SOURCES:
+                    continue
+                if m.get("valueContributionPath") != "value_direct":
+                    continue
+                raw = site_values.get(src_key)
+                if raw is None:
+                    continue
+                smax = site_max.get(src_key, 0.0)
+                if smax <= 0:
+                    continue
+                expected = float(raw) / smax * 9999.0
+                # TEP boost / TEP-native-correction may adjust the
+                # contribution on TE rows.  Skip those to keep this
+                # test focused on the normalization rule itself; the
+                # TEP path is covered by dedicated TEP tests.
+                if row_is_te and (
+                    m.get("tepBoostApplied") or m.get("tepNativeCorrectionApplied")
+                ):
+                    continue
+                actual = m.get("valueContribution")
+                self.assertAlmostEqual(
+                    float(actual), expected, delta=1.5,
+                    msg=(
+                        f"{row.get('canonicalName')} [{src_key}]: "
+                        f"valueContribution={actual} but raw={raw} "
+                        f"site_max={smax} → expected {expected:.1f}"
+                    ),
+                )
+                checked += 1
+        self.assertGreater(
+            checked, 50,
+            "expected many value-direct rows to cross-check against raw",
+        )
+
+
+class TestMADPenaltyNeutralized(unittest.TestCase):
+    """Pin the Final Framework override (2026-04-20): λ·MAD is no
+    longer applied to any live row.
+
+    The count-aware mean-median blend already damps offense rows via
+    trimming at n≥5.  The anchor + α-shrinkage path already damps IDP
+    + pick rows.  Adding λ·MAD on top stacked a second disagreement
+    penalty on the same signal.  λ is now pinned to 0; ``sourceMAD``
+    is still stamped as a diagnostic statistic but never deducted
+    from ``rankDerivedValue``.
+    """
+
+    def setUp(self) -> None:
+        self.contract = _get()
+        if self.contract is None:
+            self.skipTest("No live data")
+        self.rows = _ranked_rows(self.contract)
+
+    def test_lambda_is_zero(self) -> None:
+        from src.api.data_contract import _MAD_PENALTY_LAMBDA  # noqa: PLC0415
+
+        self.assertEqual(
+            _MAD_PENALTY_LAMBDA, 0.0,
+            "λ·MAD has been retired in favour of the count-aware + "
+            "anchor damping layers.  Reinstating λ > 0 needs a fresh "
+            "backtest proving the extra penalty is non-duplicative.",
+        )
+
+    def test_no_live_row_carries_mad_penalty_applied(self) -> None:
+        offenders: list[str] = []
+        for row in self.rows:
+            penalty = row.get("madPenaltyApplied")
+            if penalty is not None and float(penalty) > 0:
+                offenders.append(
+                    f"{row.get('canonicalName')}: madPenaltyApplied={penalty}"
+                )
+        self.assertFalse(
+            offenders,
+            f"Live rows carrying madPenaltyApplied > 0 despite λ=0 "
+            f"(offenders first 5): {offenders[:5]}",
+        )
+
+    def test_source_mad_still_stamped_as_diagnostic(self) -> None:
+        """``sourceMAD`` is retained as a diagnostic even though no
+        penalty is deducted.  Frontend value-chain panel still
+        displays it.
+        """
+        multi_source = [r for r in self.rows if (r.get("sourceCount") or 0) >= 2]
+        if not multi_source:
+            self.skipTest("no multi-source rows in live data")
+        stamped = sum(1 for r in multi_source if r.get("sourceMAD") is not None)
+        self.assertGreater(
+            stamped, 0,
+            "sourceMAD diagnostic is missing on every multi-source row",
+        )

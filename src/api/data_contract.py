@@ -3352,7 +3352,35 @@ _ALPHA_SHRINKAGE: float = 0.10
 # λ=0.10 is preferred because it imposes slightly more penalty on
 # high-disagreement players (the whole point of the MAD step)
 # without measurable stability cost.
-_MAD_PENALTY_LAMBDA: float = 0.10
+# **Retired 2026-04-20 (Final Framework override):** the count-aware
+# mean-median blend (drop max+min at n≥5, untrimmed at n=3-4) is
+# already a disagreement-damping mechanism on offense rows, and the
+# anchor + α-shrinkage hierarchical blend is already damping on IDP /
+# pick rows.  Keeping λ·MAD on top stacks two penalties on the same
+# signal (spread between sources) and hides the real movement when a
+# board shifts.  Setting λ=0 keeps the ``sourceMAD`` diagnostic stamp
+# (useful on the frontend value-chain panel) but applies zero penalty
+# to ``rankDerivedValue``.  If a new non-duplicative conservatism
+# layer is ever needed, reinstate it here with a fresh backtest.
+_MAD_PENALTY_LAMBDA: float = 0.0
+
+# Registry of sources whose raw per-player CSV value should be used
+# as a **direct normalized vote** in the Phase 2-3 blend, instead of
+# being re-modelled through the Hill/scope-master curve.  The user's
+# Final Framework override (2026-04-20) is: value-based sites feed
+# their real dollar-equivalent values straight into the aggregation;
+# rank-only sites continue through rank → percentile → Hill.  Sources
+# here correspond to the entries in ``_SOURCE_CSV_PATHS`` that carry
+# ``signal: value`` (explicit or default).  For a source's vote we
+# take ``canonicalSiteValues[key] / site_max × 9999`` so every site's
+# top player contributes 9999 and relative shape is preserved.
+_VALUE_BASED_SOURCES: frozenset[str] = frozenset({
+    "ktc",
+    "idpTradeCalc",
+    "dynastyDaddySf",
+    "draftSharks",
+    "draftSharksIdp",
+})
 
 # Final Framework step 9: soft fallback for unranked players.
 #
@@ -4430,6 +4458,29 @@ def _compute_unified_rankings(
             anchor_key = str(s.get("key") or "")
             break
 
+    # Final Framework override (2026-04-20): value-based sources vote
+    # with their raw site values, normalized so each site's top player
+    # contributes 9999.  Pre-compute each source's max observed value
+    # from ``canonicalSiteValues`` across the full player set so a
+    # single pass handles every row in the blend loop below.  We walk
+    # ``canonicalSiteValues`` (not ``maxValues``) because the top-level
+    # ``maxValues`` dict only tracks ktc + idpTradeCalc today; the other
+    # value-based sources (dynastyDaddySf, draftSharks, draftSharksIdp)
+    # carry their real values only inside the per-player dict.
+    value_source_max: dict[str, float] = {}
+    for row in players_array:
+        canonical_site_values = row.get("canonicalSiteValues") or {}
+        if not isinstance(canonical_site_values, dict):
+            continue
+        for key in _VALUE_BASED_SOURCES:
+            raw = canonical_site_values.get(key)
+            try:
+                raw_f = float(raw) if raw is not None else 0.0
+            except (TypeError, ValueError):
+                continue
+            if raw_f > value_source_max.get(key, 0.0):
+                value_source_max[key] = raw_f
+
     _trimmed_mean_median = count_aware_mean_median_blend
 
     row_normalized: list[tuple[float, int]] = []  # (blended_value, row_idx)
@@ -4455,25 +4506,58 @@ def _compute_unified_rankings(
         subgroup_values: list[float] = []
         all_values: list[float] = []  # full set for MAD
 
+        canonical_site_values = (
+            players_array[row_idx].get("canonicalSiteValues") or {}
+        )
+        if not isinstance(canonical_site_values, dict):
+            canonical_site_values = {}
+
         for source_key, eff_rank in source_ranks.items():
             src_def = src_by_key.get(source_key, {})
-            # Pick the SOURCE's scope master curve (not the row's
-            # position).  This is the updated-framework change —
-            # IDPTC's contribution to an offense player uses the
-            # GLOBAL master (IDPTC's native curve shape), not the
-            # OFFENSE master.
+            # Branch on source type:
+            #   - value-based sources (KTC, IDPTC, DD-SF, DraftSharks):
+            #     use the raw site value directly, normalized so that
+            #     each site's top player contributes 9999.  This is the
+            #     Final Framework override (2026-04-20) — real dollar-
+            #     equivalent values bypass the Hill curve entirely.
+            #   - rank-only sources: keep the rank → percentile → Hill
+            #     pipeline using the source's scope-master curve
+            #     (GLOBAL for the anchor, OFFENSE / IDP / ROOKIE for the
+            #     others; see ``_curve_for_source``).
+            #
+            # Hill + percentile fields in the per-source meta are still
+            # computed for diagnostic completeness even on the value-
+            # based branch.  ``valueContribution`` always reflects the
+            # value that actually enters aggregation.
             hill_c, hill_s = _curve_for_source(src_def)
-            # Percentile denominator picks by source:
-            #   rookie sources → native pool size N_j (framework #2)
-            #   everything else → _PERCENTILE_REFERENCE_N (combined
-            #                     pool coordinate, post-ladder)
             denom = _percentile_denom_for_source(src_def, source_key)
             if denom >= 2:
                 p = (float(eff_rank) - 1.0) / float(denom - 1)
             else:
                 p = 0.0
             p = max(0.0, min(1.0, p))
-            value = float(percentile_to_value(p, midpoint=hill_c, slope=hill_s))
+
+            if source_key in _VALUE_BASED_SOURCES:
+                raw_v = canonical_site_values.get(source_key)
+                try:
+                    raw_f = float(raw_v) if raw_v is not None else 0.0
+                except (TypeError, ValueError):
+                    raw_f = 0.0
+                site_max = value_source_max.get(source_key, 0.0)
+                if raw_f > 0.0 and site_max > 0.0:
+                    value = raw_f / site_max * 9999.0
+                else:
+                    # Fall back to the Hill path if the raw value is
+                    # missing/invalid — should be rare, but protects
+                    # against malformed site data dropping a source's
+                    # vote to zero silently.
+                    value = float(
+                        percentile_to_value(p, midpoint=hill_c, slope=hill_s)
+                    )
+            else:
+                value = float(
+                    percentile_to_value(p, midpoint=hill_c, slope=hill_s)
+                )
             tep_applied = False
             tep_native_corrected = False
             if apply_tep and source_key in tep_boosted_source_keys:
@@ -4496,6 +4580,11 @@ def _compute_unified_rankings(
             effective_weight = coverage_weight(declared_weight, src_def.get("depth"))
             meta["percentile"] = round(p, 6)
             meta["valueContribution"] = int(round(value))
+            meta["valueContributionPath"] = (
+                "value_direct"
+                if source_key in _VALUE_BASED_SOURCES and value_source_max.get(source_key, 0.0) > 0.0
+                else "rank_hill"
+            )
             meta["effectiveWeight"] = round(effective_weight, 4)
             meta["isAnchor"] = bool(source_key == anchor_key)
             if tep_applied:

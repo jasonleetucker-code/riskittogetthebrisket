@@ -82,27 +82,46 @@ class TestComputeKtcRankings(unittest.TestCase):
         )
         self.assertEqual([r["canonicalName"] for r in by_rank], ["High", "Mid", "Low"])
 
-    def test_rank_derived_value_uses_hill_formula(self):
+    def test_rank_derived_value_for_solo_top_player(self):
         rows = [self._make_player_row("Solo", "QB", 9999)]
         _compute_unified_rankings(rows, {})
         self.assertEqual(rows[0]["ktcRank"], 1)
-        # Under the Final Framework's percentile-input Hill, rank 1
-        # always maps to p=0 → V=9999 regardless of the fitted
-        # constants.  The rank-based alias ``rank_to_value(1)`` also
-        # returns 9999, so either curve agrees at rank 1.
+        # KTC is a value-based source under the Final Framework
+        # override — its raw 0-9999 value is fed directly into the
+        # blend.  The top player's KTC value (9999) is also the site's
+        # max, so the normalized vote is 9999/9999 × 9999 = 9999.
         self.assertEqual(rows[0]["rankDerivedValue"], 9999)
 
-    def test_rank_50_value_matches_hill_formula(self):
+    def test_value_based_source_uses_raw_value_directly(self):
+        """KTC is on the ``_VALUE_BASED_SOURCES`` allowlist, so its
+        per-player contribution to ``rankDerivedValue`` is the raw
+        ``canonicalSiteValues[ktc]`` normalized to 0-9999, NOT the
+        Hill-converted value for the player's rank.
+
+        This test constructs a single-source KTC pool where the raw
+        values descend linearly and asserts the blended value tracks
+        the raw value (scaled by the pool's max) rather than the
+        Hill curve's output at the percentile of the player's rank.
+        """
         rows = [self._make_player_row(f"P{i}", "WR", 9999 - i * 10) for i in range(60)]
         _compute_unified_rankings(rows, {})
         rank_50_row = next(r for r in rows if r.get("ktcRank") == 50)
-        # Final Framework percentile Hill: p = (50 − 1) / (REFERENCE_N − 1)
-        # with REFERENCE_N = 500 → p ≈ 0.098, V(p) per HILL_PERCENTILE_*
-        # constants.
+        raw_v = rank_50_row["canonicalSiteValues"]["ktc"]
+        # site_max comes from the same pool → P0's value 9999.
+        site_max = 9999
+        expected_direct = int(round(raw_v / site_max * 9999.0))
+        self.assertEqual(rank_50_row["rankDerivedValue"], expected_direct)
+        # And the value is NOT the Hill output at p=49/499 ≈ 0.098,
+        # which would yield a much lower value under HILL_PERCENTILE_*.
         from src.api.data_contract import _PERCENTILE_REFERENCE_N  # noqa: PLC0415
-        p = (50 - 1) / (_PERCENTILE_REFERENCE_N - 1)
-        expected = int(percentile_to_value(p))
-        self.assertEqual(rank_50_row["rankDerivedValue"], expected)
+        hill_p = (50 - 1) / (_PERCENTILE_REFERENCE_N - 1)
+        hill_value = int(percentile_to_value(hill_p))
+        self.assertNotEqual(
+            rank_50_row["rankDerivedValue"], hill_value,
+            "Value-based source should NOT be routed through the Hill "
+            "curve — ``rankDerivedValue`` must reflect the raw normalized "
+            "site value."
+        )
 
     def test_picks_included(self):
         """Picks with source values participate in the unified ranking."""
