@@ -138,14 +138,32 @@ TEP application on TE rows only:
 - `is_tep_premium=False` sources: `value *= tep_multiplier`
 - `is_tep_premium=True` sources: `value *= tep_native_correction`
 
-**Step 4 — Hierarchical anchor + subgroup (framework steps 5, 7, 8):**
+**Step 4a — Soft fallback (framework step 9):**
+For each active source whose scope admits this player's position but
+which DIDN'T rank them, synthesize a "just past the published list"
+contribution:
+```
+fallback_rank = pool_size + round(pool_size * _SOFT_FALLBACK_DISTANCE)
+fallback_V    = percentile_to_value(
+                    (fallback_rank - 1) / (_PERCENTILE_REFERENCE_N - 1),
+                    midpoint=hill_c, slope=hill_s
+                )
+```
+`_SOFT_FALLBACK_DISTANCE = 0.0` (fallback = pool + 1, the slot just
+past the source's list — 79% stability improvement over disabled per
+the backtest; see `reports/soft_fallback_backtest_full.md`).  Every
+fallback contribution enters the blend exactly like a real source
+contribution.  The per-row `softFallbackCount` stamp tells the
+frontend how many sources contributed via fallback.
+
+**Step 4b — Hierarchical anchor + subgroup (framework steps 5, 7, 8):**
 - **Anchor source**: the single source with `is_anchor=True` in
   `_RANKING_SOURCES` (currently IDPTC, because it prices both
   offense and IDP on a shared combined pool).
-  `anchor_value` = IDPTC's percentile-Hill value for the player, if
-  IDPTC ranks them; `None` otherwise.
+  `anchor_value` = IDPTC's value for the player (real rank if
+  covered, otherwise the soft-fallback value).
 - **Subgroup blend**: the unweighted trimmed mean-median (framework
-  step 5) of every non-anchor source's percentile-Hill value.
+  step 5) of every non-anchor source's value (real or fallback).
   - For ≥ 3 subgroup sources: drop highest + lowest, average
     `(trimmed_mean + trimmed_median) / 2`.
   - For 2: mean.
@@ -157,10 +175,6 @@ TEP application on TE rows only:
   `_ALPHA_SHRINKAGE = 0.3` (chosen via
   `scripts/backtest_alpha_shrinkage.py`; clean unimodal optimum on
   both unweighted and value-weighted rank stability).
-  - If anchor alone covers: `center = anchor_value`.
-  - If subgroup alone covers (no anchor): `center = subgroup_blend`
-    (effective α=1.0 for this row; the framework's soft fallback
-    for fully-unranked players arrives in a later PR).
 
 **Step 5 — MAD volatility penalty (framework step 6):**
 - `MAD = mean(|v − trimmed_mean| for v in trimmed)` across the full
