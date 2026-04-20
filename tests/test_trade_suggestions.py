@@ -1608,3 +1608,181 @@ class TestKtcTopNFilter:
         for c in candidates:
             assert c.ktc_rank is not None
             assert c.ktc_rank <= 50
+
+
+class TestBuildAssetPoolFromContract:
+    """The contract-native asset pool builder is the migration target
+    for ``/api/trade/suggestions`` — it removes the requirement that
+    ``scripts/canonical_build.py`` has produced an offline snapshot
+    before the suggestion engine can run.
+
+    These tests pin the field-mapping from ``playersArray`` rows to
+    ``PlayerAsset`` objects.  The suggestion engine is unchanged; as
+    long as the pool shape matches, every downstream assertion that
+    worked against the canonical snapshot continues to hold.
+    """
+
+    def _contract(self, rows, players_dict=None):
+        return {
+            "playersArray": rows,
+            "players": players_dict or {},
+        }
+
+    def _row(
+        self,
+        name,
+        pos,
+        value,
+        *,
+        rookie=False,
+        team="",
+        site_values=None,
+        asset_class="player",
+        legacy_ref=None,
+    ):
+        return {
+            "canonicalName": name,
+            "displayName": name,
+            "position": pos,
+            "team": team,
+            "rookie": rookie,
+            "assetClass": asset_class,
+            "rankDerivedValue": value,
+            "canonicalSiteValues": site_values or {"ktc": value, "idpTradeCalc": value - 50},
+            "legacyRef": legacy_ref or name,
+        }
+
+    def test_builds_expected_player_fields(self):
+        from src.trade.suggestions import build_asset_pool_from_contract
+        rows = [
+            self._row("Josh Allen", "QB", 9997, team="BUF"),
+            self._row("Bijan Robinson", "RB", 9604, team="ATL"),
+        ]
+        # Legacy dict carries the years-of-experience the suggestion
+        # engine uses for prime-age boosts.
+        players_dict = {
+            "Josh Allen": {"_yearsExp": 7},
+            "Bijan Robinson": {"_yearsExp": 2},
+        }
+        pool = build_asset_pool_from_contract(
+            self._contract(rows, players_dict), ktc_top_n=0
+        )
+        assert len(pool) == 2
+        allen = next(p for p in pool if p.name == "Josh Allen")
+        bijan = next(p for p in pool if p.name == "Bijan Robinson")
+        assert allen.position == "QB"
+        assert allen.calibrated_value == 9997
+        assert allen.display_value == 9997
+        assert allen.team == "BUF"
+        assert allen.years_exp == 7
+        assert allen.universe == "offense_vet"
+        assert bijan.universe == "offense_vet"
+        assert bijan.years_exp == 2
+        # source_count == number of site values > 0.
+        assert allen.source_count == 2
+
+    def test_universe_labels(self):
+        from src.trade.suggestions import build_asset_pool_from_contract
+        rows = [
+            self._row("Josh Allen", "QB", 9000),                     # offense_vet
+            self._row("Jeremiyah Love", "RB", 7000, rookie=True),    # offense_rookie
+            self._row("Will Anderson", "DL", 7000),                  # idp_vet
+            self._row("Arvell Reese", "LB", 5000, rookie=True),      # idp_rookie
+            self._row("2026 Pick 1.01", "PICK", 9000,
+                      asset_class="pick", site_values={"ktc": 9000}),
+        ]
+        pool = build_asset_pool_from_contract(self._contract(rows), ktc_top_n=0)
+        universes = {p.name: p.universe for p in pool}
+        assert universes["Josh Allen"] == "offense_vet"
+        assert universes["Jeremiyah Love"] == "offense_rookie"
+        assert universes["Will Anderson"] == "idp_vet"
+        assert universes["Arvell Reese"] == "idp_rookie"
+        assert universes["2026 Pick 1.01"] == "picks"
+
+    def test_skips_rows_without_value(self):
+        from src.trade.suggestions import build_asset_pool_from_contract
+        rows = [
+            self._row("Josh Allen", "QB", 9997),
+            # rankDerivedValue=0 → pool skip (mirrors canonical-snapshot
+            # filter that required calibrated_value to be present).
+            self._row("No Value Player", "WR", 0),
+            # rankDerivedValue=None → pool skip.
+            {**self._row("Missing Value", "WR", 1), "rankDerivedValue": None},
+        ]
+        pool = build_asset_pool_from_contract(self._contract(rows), ktc_top_n=0)
+        names = {p.name for p in pool}
+        assert names == {"Josh Allen"}
+
+    def test_dispersion_cv_uses_canonical_site_values(self):
+        from src.trade.suggestions import build_asset_pool_from_contract
+        # Site values with meaningful spread → dispersion_cv > 0.
+        rows = [
+            self._row("Spread Player", "WR", 8000,
+                      site_values={"ktc": 9000, "idpTradeCalc": 7000, "dlfSf": 8000}),
+            # Identical site values → dispersion_cv == 0.
+            self._row("Consensus Player", "WR", 8000,
+                      site_values={"ktc": 8000, "idpTradeCalc": 8000, "dlfSf": 8000}),
+        ]
+        pool = build_asset_pool_from_contract(self._contract(rows), ktc_top_n=0)
+        spread = next(p for p in pool if p.name == "Spread Player")
+        consensus = next(p for p in pool if p.name == "Consensus Player")
+        assert spread.dispersion_cv is not None and spread.dispersion_cv > 0
+        assert consensus.dispersion_cv == 0 or consensus.dispersion_cv is None
+
+    def test_pool_sorted_by_display_value_desc(self):
+        from src.trade.suggestions import build_asset_pool_from_contract
+        rows = [
+            self._row("Low Value", "WR", 3000),
+            self._row("High Value", "WR", 9000),
+            self._row("Mid Value", "WR", 6000),
+        ]
+        pool = build_asset_pool_from_contract(self._contract(rows), ktc_top_n=0)
+        assert [p.name for p in pool] == ["High Value", "Mid Value", "Low Value"]
+
+    def test_ktc_top_n_filter_applies(self):
+        from src.trade.suggestions import build_asset_pool_from_contract, KTC_TOP_N_FILTER
+        rows = [
+            self._row(f"Player {i:03d}", "WR", 9999 - i)
+            for i in range(KTC_TOP_N_FILTER + 50)
+        ]
+        pool = build_asset_pool_from_contract(self._contract(rows))
+        # Every asset in the pool must have a ktc_rank within the filter.
+        assert len(pool) <= KTC_TOP_N_FILTER
+        for p in pool:
+            assert p.ktc_rank is not None and p.ktc_rank <= KTC_TOP_N_FILTER
+
+    def test_suggestion_engine_accepts_contract_pool(self):
+        """End-to-end: a pool built from a synthetic contract feeds
+        ``generate_suggestions_from_pool`` without errors and produces
+        a well-formed response with the expected top-level keys.
+        """
+        from src.trade.suggestions import (
+            build_asset_pool_from_contract,
+            generate_suggestions_from_pool,
+        )
+        rows = []
+        # Enough players to survive the starter-needs check + KTC filter.
+        positions = [("QB", 10), ("RB", 12), ("WR", 15), ("TE", 8)]
+        value = 9500
+        for pos, n in positions:
+            for i in range(n):
+                rows.append(
+                    self._row(f"{pos}{i:02d}", pos, value, team="X")
+                )
+                value -= 25
+        pool = build_asset_pool_from_contract(
+            self._contract(rows), ktc_top_n=0
+        )
+        roster_names = ["QB00", "RB00", "WR00", "WR01", "TE00"]
+        result = generate_suggestions_from_pool(
+            roster_names=roster_names,
+            pool=pool,
+        )
+        # Response shape matches the canonical-snapshot path.
+        assert "rosterAnalysis" in result
+        assert "sellHigh" in result
+        assert "buyLow" in result
+        assert "consolidation" in result
+        assert "positionalUpgrades" in result
+        assert "metadata" in result
+        assert result["metadata"]["assetPoolSize"] == len(pool)

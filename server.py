@@ -2159,10 +2159,15 @@ async def post_trade_suggestions(request: Request):
     and categorized trade suggestions with market-edge signals
     and optional opponent-fit labels.
     """
-    if canonical_data is None:
+    # The suggestion engine now reads the live contract
+    # (``playersArray``) directly — no offline canonical snapshot
+    # required.  We only 503 if the live contract itself hasn't
+    # loaded, which indicates a server-bootstrap problem rather than
+    # a missing canonical build.
+    if not latest_contract_data or not latest_contract_data.get("playersArray"):
         return JSONResponse(
             status_code=503,
-            content={"error": "Canonical data not loaded. Trade suggestions require canonical values."},
+            content={"error": "Live contract not loaded yet. Retry in a moment."},
         )
     try:
         body = await request.json()
@@ -2176,45 +2181,28 @@ async def post_trade_suggestions(request: Request):
             content={"error": "Request body must include 'roster' as a non-empty array of player names."},
         )
 
-    from src.trade.suggestions import generate_suggestions
+    from src.trade.suggestions import (
+        build_asset_pool_from_contract,
+        generate_suggestions_from_pool,
+    )
 
     league_rosters = body.get("league_rosters")
     if league_rosters is not None and not isinstance(league_rosters, list):
         league_rosters = None
 
-    # Overlay live calibrated values on top of the static canonical
-    # snapshot before handing it to the suggestion engine. The
-    # canonical snapshot is built offline by
-    # scripts/canonical_build.py; the IDP calibration post-pass that
-    # runs inside build_api_data_contract does NOT mutate that
-    # snapshot, so by default trade suggestions would be computed on
-    # pre-calibration values. Walk the live playersArray, grab each
-    # ranked row's rankDerivedValue (calibrated), and override both
-    # display_value and calibrated_value on the matching asset so
-    # the suggestion engine sorts + fairness-checks on calibrated
-    # numbers.
-    live_by_name = _live_by_name_from_contract(latest_contract_data)
-
-    if live_by_name:
-        patched_assets = []
-        for asset in (canonical_data.get("assets") or []):
-            asset_name = str(asset.get("display_name") or "").strip()
-            live_val = live_by_name.get(asset_name)
-            if live_val is None:
-                patched_assets.append(asset)
-                continue
-            patched = dict(asset)
-            patched["display_value"] = live_val
-            patched["calibrated_value"] = live_val
-            patched_assets.append(patched)
-        canonical_data_for_suggestions = {**canonical_data, "assets": patched_assets}
-    else:
-        canonical_data_for_suggestions = canonical_data
+    # Build the asset pool directly from the live contract.  Every
+    # field the suggestion engine needs already lives on the
+    # ``playersArray`` rows (see ``build_asset_pool_from_contract``
+    # docstring for the field map).  This replaces the old two-step
+    # flow of (a) loading the offline canonical snapshot and
+    # (b) overlaying live values on top — with the contract-native
+    # path there's only one source of truth.
+    pool = build_asset_pool_from_contract(latest_contract_data)
 
     try:
-        result = generate_suggestions(
+        result = generate_suggestions_from_pool(
             roster_names=roster,
-            canonical_snapshot=canonical_data_for_suggestions,
+            pool=pool,
             league_rosters=league_rosters,
         )
     except Exception as e:
