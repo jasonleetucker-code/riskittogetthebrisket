@@ -3375,10 +3375,11 @@ _ALPHA_SHRINKAGE: float = 0.10
 # anchor + α-shrinkage hierarchical blend is already damping on IDP /
 # pick rows.  Keeping λ·MAD on top stacks two penalties on the same
 # signal (spread between sources) and hides the real movement when a
-# board shifts.  Setting λ=0 keeps the ``sourceMAD`` diagnostic stamp
-# (useful on the frontend value-chain panel) but applies zero penalty
-# to ``rankDerivedValue``.  If a new non-duplicative conservatism
-# layer is ever needed, reinstate it here with a fresh backtest.
+# board shifts.  Setting λ=0 keeps the ``sourceSpread`` diagnostic
+# stamp (useful on the frontend value-chain panel) but applies zero
+# penalty to ``rankDerivedValue``.  If a new non-duplicative
+# conservatism layer is ever needed, reinstate it here with a fresh
+# backtest.
 _MAD_PENALTY_LAMBDA: float = 0.0
 
 # Registry of sources whose raw per-player CSV value should be used
@@ -4823,9 +4824,19 @@ def _compute_unified_rankings(
             round(_ALPHA_SHRINKAGE, 4) if use_hierarchical_blend else 0.0
         )
 
-        # Stamp MAD diagnostics on the row so the value chain can
-        # surface "center value − λ·MAD = blended" transparently.
-        players_array[row_idx]["sourceMAD"] = (
+        # Stamp source-spread diagnostic on every row.  ``sourceSpread``
+        # is the mean absolute deviation of per-source value
+        # contributions around the (trimmed) center — a pure
+        # transparency metric that lets the frontend value-chain
+        # panel show how much the sources actually disagreed on this
+        # player.  It has been renamed from the old ``sourceMAD``
+        # field for clarity: with λ·MAD retired (2026-04-20) this
+        # number is a spread statistic, not a penalty input.
+        #
+        # ``madPenaltyApplied`` is kept stamped as ``None`` because
+        # frontend builds still read the key; once every frontend
+        # consumer drops the reference, this stamp can go too.
+        players_array[row_idx]["sourceSpread"] = (
             round(source_mad, 2) if source_mad is not None else None
         )
         players_array[row_idx]["madPenaltyApplied"] = (
@@ -5557,7 +5568,7 @@ def _derive_player_row(
         "sourceRankSpread": None,
         "sourceRankPercentileSpread": None,
         "hillValueSpread": None,
-        "sourceMAD": None,
+        "sourceSpread": None,
         "madPenaltyApplied": None,
         "anchorValue": None,
         "subgroupBlendValue": None,
@@ -6044,7 +6055,7 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "sourceRankSpread",
     "sourceRankPercentileSpread",
     "hillValueSpread",
-    "sourceMAD",
+    "sourceSpread",
     "madPenaltyApplied",
     "anchorValue",
     "subgroupBlendValue",

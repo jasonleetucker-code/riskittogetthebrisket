@@ -2,6 +2,17 @@
 
 Codified from the 2026-04-20 pipeline audit, Deliverable 3.
 
+> **Note (2026-04-20 forward).**  Several specific mechanisms cited
+> in the "What this framework looks like in production" section
+> below — λ·MAD, soft-fallback value injection, Hill re-mapping of
+> value-based sources' live votes — have since been overridden.  See
+> `docs/architecture/live-value-pipeline-trace.md` Phase 3 for the
+> authoritative live behaviour and
+> `docs/architecture/final-framework-transition.md` for the
+> "Post-framework overrides" summary.  The **optimization target**
+> ("market consensus fit" + the per-rank KTC tolerance bands) is
+> unchanged; only the machinery that pursues it has been simplified.
+
 ## The declared target
 
 **Market consensus fit.**  Our values should track KeepTradeCut and the

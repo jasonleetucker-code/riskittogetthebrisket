@@ -794,10 +794,13 @@ function _materializePlayerArrayRow(player) {
     blendedSourceRank: backendBlendedSourceRank,
     sourceCount: backendSourceCount,
     // Value-chain audit fields — exposed so the PlayerPopup can show
-    // each pipeline stage (anchor + subgroup → MAD → calibration) as
-    // a transparent sequence rather than a single opaque final number.
-    sourceMAD:
-      typeof player.sourceMAD === "number" ? player.sourceMAD : null,
+    // each pipeline stage (anchor + subgroup → calibration) as a
+    // transparent sequence rather than a single opaque final number.
+    // ``sourceSpread`` is a pure transparency metric (mean absolute
+    // deviation of per-source value contributions around the trimmed
+    // center); it is NOT a penalty — λ·MAD was retired 2026-04-20.
+    sourceSpread:
+      typeof player.sourceSpread === "number" ? player.sourceSpread : null,
     madPenaltyApplied:
       typeof player.madPenaltyApplied === "number"
         ? player.madPenaltyApplied
