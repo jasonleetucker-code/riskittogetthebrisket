@@ -287,11 +287,13 @@ def _write_config(path, *, family_scale_final, dl_bucket_final):
 
 def test_production_combines_family_scale_with_bucket(tmp_path, monkeypatch):
     cfg_path = tmp_path / "config" / "idp_calibration.json"
-    _write_config(cfg_path, family_scale_final=1.3, dl_bucket_final=0.5)
+    # Use 1.1 — within the [0.85, 1.15] production cap.  1.3 would
+    # be clamped to 1.15 and wouldn't exercise the pure combination.
+    _write_config(cfg_path, family_scale_final=1.1, dl_bucket_final=0.5)
     monkeypatch.setattr(production, "production_config_path", lambda base=None: cfg_path)
     production.reset_cache()
-    # Expected: 1.3 (family) × 0.5 (bucket) = 0.65.
-    assert abs(production.get_idp_bucket_multiplier("DL", 1) - 0.65) < 1e-9
+    # Expected: 1.1 (family) × 0.5 (bucket) = 0.55.
+    assert abs(production.get_idp_bucket_multiplier("DL", 1) - 0.55) < 1e-9
 
 
 def test_production_family_scale_missing_is_identity(tmp_path, monkeypatch):
@@ -331,15 +333,14 @@ def test_production_family_scale_missing_is_identity(tmp_path, monkeypatch):
 
 def test_production_family_scale_insane_value_clamped(tmp_path, monkeypatch):
     # Defend against a hand-edited config with a nonsense value.
-    # compute_family_scale bounds outputs at [0.25, 4.0]; production
-    # re-clamps at read time so even an operator-edited config with
-    # a bogus value can't corrupt the board.
+    # Production clamp is [0.85, 1.15] (market-sensibility cap), so
+    # any hand-edited mega-value saturates at 1.15.
     cfg_path = tmp_path / "config" / "idp_calibration.json"
     _write_config(cfg_path, family_scale_final=100.0, dl_bucket_final=0.5)
     monkeypatch.setattr(production, "production_config_path", lambda base=None: cfg_path)
     production.reset_cache()
-    # 100 clamped to 4.0, then × 0.5 = 2.0.
-    assert abs(production.get_idp_bucket_multiplier("DL", 1) - 2.0) < 1e-9
+    # 100 clamped to 1.15, then × 0.5 = 0.575.
+    assert abs(production.get_idp_bucket_multiplier("DL", 1) - 0.575) < 1e-9
 
 
 def test_promotion_persists_family_scale(tmp_path, monkeypatch):
