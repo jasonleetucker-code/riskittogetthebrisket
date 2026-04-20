@@ -120,12 +120,7 @@ jobs:
           )"
           git pull --rebase origin main
           git push
-
-      - name: Trigger deploy on refit
-        if: steps.refit.outputs.exit_code == '1' && inputs.dry_run != true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          gh workflow run deploy.yml --ref main
+          # deploy.yml auto-triggers on push to main (paths-ignore only
+          # skips data/** and exports/**, not src/**), so no explicit
+          # dispatch needed.  That also avoids needing actions:write on
+          # the GITHUB_TOKEN — which the default workflow token lacks.
