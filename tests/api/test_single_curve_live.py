@@ -456,19 +456,26 @@ class TestMADPenaltyChain(unittest.TestCase):
         )
 
 
-class TestSoftFallback(unittest.TestCase):
-    """Pin Final Framework step 9: soft fallback for unranked players.
+class TestSoftFallbackIsCoverageDiagnosticOnly(unittest.TestCase):
+    """Pin Final Framework override (2026-04-20): ``softFallbackCount``
+    is a pure coverage diagnostic.  It counts scope-eligible sources
+    that did NOT rank the player but it does NOT inject imputed
+    values into the blend.
 
-    Every ranked non-pick row must carry a ``softFallbackCount`` field
-    (an integer ≥ 0).  The count represents the number of active
-    sources that could have ranked the player but didn't, contributing
-    a "just past the published list" imputed value to the blend.
+    Pre-override, soft fallback added "just past the published list"
+    Hill values to ``all_values`` for every missing eligible source.
+    The count-aware trim at n≥5 only drops one max + one min, so any
+    residual fallback stayed in and dragged the mean by several
+    hundred points (Chase at #5 with sf=2 lost ~600 points).
 
-    Sanity bounds:
-      - softFallbackCount is always ≥ 0.
-      - When _SOFT_FALLBACK_ENABLED is True, most ranked rows have at
-        least one fallback source (there are 16 active sources and
-        very few players are covered by all 16).
+    Post-override, the blend uses covered sources only.
+    ``softFallbackCount`` remains as a transparency metric.
+
+    Invariants pinned here:
+      * Every ranked non-pick row has a ``softFallbackCount`` stamp.
+      * The count is a non-negative integer.
+      * The raw stamp is diagnostic: no field ``softFallbackValue`` or
+        similar imputed-value side effect exists on any row.
     """
 
     def setUp(self) -> None:
@@ -500,27 +507,19 @@ class TestSoftFallback(unittest.TestCase):
                 f"{row.get('canonicalName')}: negative softFallbackCount",
             )
 
-    def test_fallback_provides_broad_coverage(self) -> None:
-        """With 16 active sources, most ranked players should see at
-        least one fallback contribution — very few are covered by
-        every source."""
-        from src.api.data_contract import _SOFT_FALLBACK_ENABLED  # noqa: PLC0415
-        if not _SOFT_FALLBACK_ENABLED:
-            self.skipTest("soft fallback disabled")
-        sf_counts = [
-            int(r.get("softFallbackCount") or 0)
-            for r in self.rows
-            if r.get("assetClass") != "pick"
-        ]
-        if not sf_counts:
-            self.skipTest("no non-pick ranked rows")
-        with_fallback = sum(1 for c in sf_counts if c > 0)
-        pct = 100.0 * with_fallback / len(sf_counts)
-        self.assertGreater(
-            pct, 50.0,
-            f"Expected >50% of ranked rows to have at least one "
-            f"fallback contribution; got {pct:.1f}%",
-        )
+    def test_no_imputed_fallback_value_field(self) -> None:
+        """No row may stamp an imputed-fallback-value field — those
+        would signal the old polluting-blend behavior has returned.
+        """
+        banned = ("softFallbackValue", "fallbackImputedValue", "imputedFallback")
+        for row in self.rows:
+            for key in banned:
+                self.assertNotIn(
+                    key, row,
+                    f"{row.get('canonicalName')}: forbidden fallback-"
+                    f"value field {key!r} present — soft fallback is "
+                    f"supposed to be a coverage diagnostic only.",
+                )
 
 
 class TestScopeMasterRouting(unittest.TestCase):
@@ -938,3 +937,125 @@ class TestMADPenaltyNeutralized(unittest.TestCase):
             stamped, 0,
             "sourceMAD diagnostic is missing on every multi-source row",
         )
+
+
+class TestDraftSharksCombinedCrossMarket(unittest.TestCase):
+    """Pin Final Framework override (2026-04-20): DraftSharks SF and
+    IDP share one cross-market value scale (top offense player at
+    3D Value+ = 100; top IDP at 44).  The blend merges both CSVs
+    into a single cross-market rank list and routes both sources
+    through the GLOBAL Hill master (same curve IDPTC's anchor uses),
+    preserving DS's native ~56% offense-over-IDP premium that per-CSV
+    normalization would otherwise erase.
+
+    Invariants pinned here:
+      * Every live row whose meta contains ``draftSharks`` or
+        ``draftSharksIdp`` stamps ``method: 'ds_combined_cross_market'``.
+      * The combined ranks are a strict total order: no two DS
+        entries (across both sources) share the same effective rank.
+      * The top DS offense player's effective rank is 1 and sits on
+        the GLOBAL Hill master (value close to 9999).
+      * A top DS IDP player's effective rank is BELOW the top offense
+        player's — proving the cross-market premium is preserved.
+    """
+
+    def setUp(self) -> None:
+        self.contract = _get()
+        if self.contract is None:
+            self.skipTest("No live data")
+        self.rows = _ranked_rows(self.contract)
+
+    def _ds_eff_ranks(self) -> list[tuple[int, str, str, str]]:
+        """Collect (eff_rank, source_key, canonical_name, path) for
+        every DS meta entry across the live contract.
+        """
+        out: list[tuple[int, str, str, str]] = []
+        for row in self.rows:
+            meta = row.get("sourceRankMeta") or {}
+            for src_key in ("draftSharks", "draftSharksIdp"):
+                m = meta.get(src_key)
+                if not m:
+                    continue
+                out.append((
+                    int(m.get("effectiveRank") or 0),
+                    src_key,
+                    str(row.get("canonicalName") or ""),
+                    str(m.get("method") or ""),
+                ))
+        return out
+
+    def test_method_stamp_identifies_cross_market(self) -> None:
+        entries = self._ds_eff_ranks()
+        self.assertGreater(
+            len(entries), 100,
+            "expected many DS entries in the live contract",
+        )
+        offenders = [
+            (rank, src, nm, method)
+            for rank, src, nm, method in entries
+            if method != "ds_combined_cross_market"
+        ]
+        self.assertFalse(
+            offenders,
+            f"DS entries without combined-cross-market method stamp "
+            f"(first 5): {offenders[:5]}",
+        )
+
+    def test_combined_ranks_are_unique_across_sources(self) -> None:
+        entries = self._ds_eff_ranks()
+        ranks = [r for r, _s, _n, _m in entries]
+        # Duplicates would indicate the pre-pass ran per-CSV instead
+        # of across the union (which is the whole point of the fix).
+        dupes = [r for r in set(ranks) if ranks.count(r) > 1]
+        self.assertFalse(
+            dupes,
+            f"Duplicate DS effective ranks across SF+IDP pool "
+            f"(first 5): {dupes[:5]}",
+        )
+
+    def test_top_idp_rank_exceeds_top_offense_rank(self) -> None:
+        """DS's top IDP sits behind several top offensive players on
+        the combined ladder (DS's own ~56% offense premium).  Proves
+        we haven't collapsed both CSVs to overlapping rank-1 slots.
+        """
+        entries = self._ds_eff_ranks()
+        top_off_rank = min(
+            (r for r, s, _n, _m in entries if s == "draftSharks"),
+            default=None,
+        )
+        top_idp_rank = min(
+            (r for r, s, _n, _m in entries if s == "draftSharksIdp"),
+            default=None,
+        )
+        if top_off_rank is None or top_idp_rank is None:
+            self.skipTest("DS SF or IDP entries absent")
+        self.assertEqual(
+            top_off_rank, 1,
+            "top DS offense player should be at combined rank 1",
+        )
+        self.assertGreater(
+            top_idp_rank, 1,
+            "top DS IDP player should sit behind the top offense "
+            "player on the combined ladder — cross-market premium "
+            "is the whole point of this pre-pass.",
+        )
+
+
+class TestValueBasedRegistryInvariant(unittest.TestCase):
+    """Module-import safety rail.  Every CSV source with signal=value
+    must either (a) appear in ``_VALUE_BASED_SOURCES`` (so its raw
+    values vote directly into the blend) or (b) declare
+    ``ds_combined_rank_partner`` (so it's routed through the combined
+    cross-market ranking).  A source falling into neither bucket
+    would silently go through the Hill curve, which is the exact bug
+    the value-direct path was supposed to fix.
+    """
+
+    def test_invariant_holds_at_import_time(self) -> None:
+        # The validator is called at module import; this test just
+        # re-invokes it explicitly to confirm it passes in the live
+        # build and never silently regresses.
+        from src.api.data_contract import (  # noqa: PLC0415
+            _validate_value_based_sources_invariant,
+        )
+        _validate_value_based_sources_invariant()

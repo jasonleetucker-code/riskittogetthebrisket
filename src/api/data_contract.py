@@ -1105,6 +1105,18 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_tep_premium": False,
         "needs_shared_market_translation": False,
         "excludes_rookies": False,
+        # DraftSharks SF and IDP are split across two CSVs but share
+        # one cross-market value scale — DS's top offense player is
+        # at 3D Value+ 100 while the top IDP is 44, representing DS's
+        # own ~56% offense-vs-IDP premium.  ``ds_combined_rank_partner``
+        # tells the blend to merge this source's raw values with its
+        # partner's for ranking purposes and route both through the
+        # GLOBAL Hill master.  This preserves DS's native cross-market
+        # ratio, which would otherwise be erased by per-CSV
+        # normalization, and handles DS's negative values
+        # (roughly half the CSV) by sorting them to the tail of the
+        # combined ladder where the Hill tail produces low values.
+        "ds_combined_rank_partner": "draftSharksIdp",
     },
     {
         # DraftSharks IDP dynasty board (DL/LB/DB).  Mirror of the
@@ -1127,6 +1139,11 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_tep_premium": False,
         "needs_shared_market_translation": False,
         "excludes_rookies": False,
+        # See the ``draftSharks`` entry above for the combined-rank
+        # rationale — both sources merge their raw values into a
+        # single cross-market rank list that feeds the GLOBAL Hill
+        # master.
+        "ds_combined_rank_partner": "draftSharks",
     },
 ]
 
@@ -3369,50 +3386,72 @@ _MAD_PENALTY_LAMBDA: float = 0.0
 # being re-modelled through the Hill/scope-master curve.  The user's
 # Final Framework override (2026-04-20) is: value-based sites feed
 # their real dollar-equivalent values straight into the aggregation;
-# rank-only sites continue through rank → percentile → Hill.  Sources
-# here correspond to the entries in ``_SOURCE_CSV_PATHS`` that carry
-# ``signal: value`` (explicit or default).  For a source's vote we
-# take ``canonicalSiteValues[key] / site_max × 9999`` so every site's
-# top player contributes 9999 and relative shape is preserved.
+# rank-only sites continue through rank → percentile → Hill.
+#
+# For a source's direct vote we take
+# ``canonicalSiteValues[key] / site_max × 9999`` so every site's top
+# player contributes 9999 and relative shape is preserved.
+#
+# Excluded on purpose: ``draftSharks`` and ``draftSharksIdp``.  DS
+# publishes offense and IDP on one cross-market scale (top offense
+# player = 100 3D Value+; top IDP = 44), but the CSVs are split by
+# position family and the scale goes negative for ~50% of rows (211
+# SF, 252 IDP).  Direct per-CSV normalization would both erase DS's
+# native offense/IDP ratio and mis-handle negatives.  Instead, the
+# blend merges the two CSVs into one cross-market rank list (see
+# ``ds_combined_rank_partner`` in the registry) and routes that
+# combined rank through the GLOBAL Hill master — the same curve
+# IDPTC's anchor contribution uses.
 _VALUE_BASED_SOURCES: frozenset[str] = frozenset({
     "ktc",
     "idpTradeCalc",
     "dynastyDaddySf",
-    "draftSharks",
-    "draftSharksIdp",
 })
 
-# Final Framework step 9: soft fallback for unranked players.
-#
-# When an active source does NOT rank a player but the player's
-# position is scope-eligible for that source (i.e. the source could
-# have covered them but didn't), the framework says the player
-# should get a soft fallback rank "just below the published list"
-# rather than being treated as absolute dead last (or, equivalently
-# in the prior implementation, as contributing nothing from that
-# source).
-#
-# Implementation: fallback_rank = pool_size + round(pool_size * distance).
-# Larger ``_SOFT_FALLBACK_DISTANCE`` → softer penalty (rank further
-# below the list but not astronomically so).  Zero means the fallback
-# rank is exactly pool_size + 1 (the slot just past the published
-# list).
-#
-# When disabled (``_SOFT_FALLBACK_ENABLED=False``) the blend behaves
-# as before PR 4: only sources that actually ranked the player
-# contribute.
-#
-# Promoted value comes from ``scripts/backtest_soft_fallback.py``
-# against the 25 daily snapshots.
-_SOFT_FALLBACK_ENABLED: bool = True
-# Distance = 0.0 means fallback_rank = pool_size + 1 (the slot just
-# past the published list — the canonical "just below the list"
-# framework prescribes).  Chosen via
-# ``scripts/backtest_soft_fallback.py``; 25-day snapshot sweep
-# showed +78.67% improvement in value-weighted rank stability over
-# the disabled pre-PR-4 behavior, with distance=0.00 best on both
-# the unweighted and value-weighted metrics.
-_SOFT_FALLBACK_DISTANCE: float = 0.0
+
+def _validate_value_based_sources_invariant() -> None:
+    """Module-import safety rail: every source in the registry whose
+    CSV signal is ``value`` must either appear in
+    ``_VALUE_BASED_SOURCES`` OR declare ``ds_combined_rank_partner``
+    (the cross-market ranking carve-out).  This guards against a new
+    value source silently going through the Hill curve because
+    someone forgot to add it to ``_VALUE_BASED_SOURCES``.
+    """
+    value_signal_keys: set[str] = set()
+    for key, cfg in _SOURCE_CSV_PATHS.items():
+        if isinstance(cfg, str):
+            signal = "value"  # default for plain string entries
+        elif isinstance(cfg, dict):
+            signal = str(cfg.get("signal") or "value").lower()
+        else:
+            continue
+        if signal == "value":
+            value_signal_keys.add(key)
+
+    combined_rank_exempt: set[str] = {
+        src["key"]
+        for src in _RANKING_SOURCES
+        if src.get("ds_combined_rank_partner")
+    }
+
+    missing = value_signal_keys - _VALUE_BASED_SOURCES - combined_rank_exempt
+    if missing:
+        raise RuntimeError(
+            f"Source(s) {sorted(missing)} have CSV signal=value in "
+            f"_SOURCE_CSV_PATHS but are not in _VALUE_BASED_SOURCES "
+            f"and do not declare ds_combined_rank_partner.  This means "
+            f"they would silently go through the Hill curve instead of "
+            f"voting with their raw values.  Either add them to "
+            f"_VALUE_BASED_SOURCES or declare the cross-market "
+            f"partner flag; see the ``draftSharks`` registry entry "
+            f"for the carve-out pattern."
+        )
+
+
+# Fire the safety rail at import time — misconfigured registries
+# fail the server boot rather than silently routing a value source
+# through the Hill curve.
+_validate_value_based_sources_invariant()
 
 
 def _reassign_pick_slot_order(players_array: list[dict[str, Any]]) -> int:
@@ -4147,7 +4186,11 @@ def _compute_unified_rankings(
     #   scope=overall_idp                → IDP master
     #   everything else (offense, picks) → OFFENSE master
     def _curve_for_source(src_def: dict) -> tuple[float, float]:
-        if src_def.get("is_anchor"):
+        # The anchor (IDPTC) and DraftSharks' combined offense+IDP
+        # rank both price players on ONE cross-market scale, so both
+        # use the GLOBAL Hill master that was fit off IDPTC's native
+        # combined pool.
+        if src_def.get("is_anchor") or src_def.get("ds_combined_rank_partner"):
             return HILL_GLOBAL_PERCENTILE_C, HILL_GLOBAL_PERCENTILE_S
         if src_def.get("needs_rookie_translation"):
             return HILL_ROOKIE_PERCENTILE_C, HILL_ROOKIE_PERCENTILE_S
@@ -4424,6 +4467,57 @@ def _compute_unified_rankings(
                 ),
             }
 
+    # ── Phase 1b: DraftSharks cross-market combined ranking ──
+    # DS publishes offense and IDP on one cross-market scale (top
+    # offense = 100 3D Value+; top IDP = 44), but the CSVs are split
+    # by position family.  Per-CSV ranking treats DS as two separate
+    # sources, which erases DS's native ~56% offense premium.  We
+    # fix that here: gather the raw DS values from BOTH sources'
+    # players into one list, sort descending (negative values — ~50%
+    # of the CSV — sort to the tail where the Hill curve produces
+    # naturally low contributions), and overwrite each row's
+    # effective rank for both DS sources with the combined-pool
+    # rank.  Both sources then feed the GLOBAL Hill master via
+    # ``_curve_for_source`` (the ``ds_combined_rank_partner`` flag
+    # routes them there, same curve IDPTC's anchor contribution
+    # uses).
+    ds_partner_map: dict[str, str] = {
+        str(s.get("key") or ""): str(s.get("ds_combined_rank_partner") or "")
+        for s in active_sources
+        if s.get("ds_combined_rank_partner")
+    }
+    if ds_partner_map:
+        # Collect (raw_value, row_idx, source_key) for every covered
+        # DS source entry across both halves of the pool.
+        ds_pairs: list[tuple[float, int, str]] = []
+        for row_idx, row in enumerate(players_array):
+            csv_vals = row.get("canonicalSiteValues") or {}
+            if not isinstance(csv_vals, dict):
+                continue
+            for skey in ds_partner_map:
+                if skey not in row_source_ranks.get(row_idx, {}):
+                    # Source didn't cover this row — leave it alone;
+                    # it'll be counted via softFallbackCount.
+                    continue
+                raw = csv_vals.get(skey)
+                try:
+                    v = float(raw) if raw is not None else None
+                except (TypeError, ValueError):
+                    v = None
+                if v is None:
+                    continue
+                ds_pairs.append((v, row_idx, skey))
+        # Descending by raw value — top DS player (highest 3D Value+)
+        # gets combined rank 1; DS-negative-value players sort to the
+        # tail.  Stable tiebreak on (row_idx, skey) for determinism.
+        ds_pairs.sort(key=lambda t: (-t[0], t[1], t[2]))
+        for combined_rank, (_v, row_idx, skey) in enumerate(ds_pairs, start=1):
+            row_source_ranks[row_idx][skey] = combined_rank
+            meta = row_source_meta.setdefault(row_idx, {}).setdefault(skey, {})
+            meta["rawRank"] = meta.get("rawRank", combined_rank)
+            meta["effectiveRank"] = combined_rank
+            meta["method"] = "ds_combined_cross_market"
+
     # ── Phase 2-3: Normalized value (Hill curve) + robust blend ──
     # Look up each source's weight / depth once.
     src_by_key: dict[str, dict[str, Any]] = {s["key"]: s for s in active_sources}
@@ -4594,71 +4688,38 @@ def _compute_unified_rankings(
                 meta["tepNativeCorrectionApplied"] = True
                 meta["tepNativeCorrection"] = round(tep_native_correction, 4)
 
-        # Framework step 9: soft fallback for scope-eligible but
-        # unranked sources.  Each active source whose scope admits the
-        # player's position but which DIDN'T rank them contributes a
-        # "just below the published list" value — not zero (current
-        # default) and not dead-last (the naive clamp).
+        # Coverage diagnostic (2026-04-20 override): soft-fallback
+        # values used to be injected into the blend as "just past the
+        # published list" Hill values for every scope-eligible source
+        # that DIDN'T rank the player.  That polluted the count-aware
+        # trim — only one fallback got dropped at n≥5 and any
+        # remaining fallback dragged the mean down by several hundred
+        # points (Chase at rank #5 with sf=2 lost ~600 points).
+        #
+        # The blend now uses covered sources only; ``softFallbackCount``
+        # below is retained purely as a transparency metric so the
+        # frontend / audits can surface "how many eligible sources
+        # didn't rank this player" without that signal touching the
+        # math.
         fallback_count = 0
-        if _SOFT_FALLBACK_ENABLED:
-            for src in active_sources:
-                skey = str(src.get("key") or "")
-                if skey in source_ranks:
-                    continue  # source already covered this player
-                # Determine scope eligibility across all declared scopes.
-                src_scopes: list[str] = [src["scope"]] + list(
-                    src.get("extra_scopes") or []
+        for src in active_sources:
+            skey = str(src.get("key") or "")
+            if skey in source_ranks:
+                continue
+            src_scopes: list[str] = [src["scope"]] + list(
+                src.get("extra_scopes") or []
+            )
+            eligible = any(
+                _scope_eligible(
+                    row_pos, scope, src.get("position_group")
                 )
-                eligible = any(
-                    _scope_eligible(
-                        row_pos, scope, src.get("position_group")
-                    )
-                    for scope in src_scopes
-                )
-                if not eligible:
-                    continue
-                pool_n = source_pool_sizes.get(skey, 0)
-                if pool_n <= 0:
-                    continue
-                # Fallback rank: just past the source's published list
-                # with a soft-distance buffer.
-                fallback_rank = pool_n + int(
-                    round(pool_n * _SOFT_FALLBACK_DISTANCE)
-                )
-                # Use the source's own denominator rule so rookie
-                # sources stay in native-N space and offense/IDP/global
-                # sources stay in the combined-pool reference.
-                fb_denom = _percentile_denom_for_source(src, skey)
-                if fb_denom >= 2:
-                    p_fallback = (
-                        float(fallback_rank) - 1.0
-                    ) / float(fb_denom - 1)
-                else:
-                    p_fallback = 1.0
-                p_fallback = max(0.0, min(1.0, p_fallback))
-                # Soft fallback uses the SAME scope master as the
-                # covered path for this source (framework step 5-6).
-                fb_c, fb_s = _curve_for_source(src)
-                fallback_value = float(
-                    percentile_to_value(
-                        p_fallback, midpoint=fb_c, slope=fb_s
-                    )
-                )
-                # TEP boost on TE rows for non-native sources; correction
-                # for native sources.  Same rules as the covered path.
-                if apply_tep and skey in tep_boosted_source_keys:
-                    fallback_value *= tep_multiplier_effective
-                elif (
-                    apply_tep_native_correction
-                    and skey in tep_native_source_keys
-                ):
-                    fallback_value *= tep_native_correction
-                all_values.append(fallback_value)
-                if skey == anchor_key:
-                    anchor_value = fallback_value
-                else:
-                    subgroup_values.append(fallback_value)
-                fallback_count += 1
+                for scope in src_scopes
+            )
+            if not eligible:
+                continue
+            if source_pool_sizes.get(skey, 0) <= 0:
+                continue
+            fallback_count += 1
 
         players_array[row_idx]["softFallbackCount"] = fallback_count
 

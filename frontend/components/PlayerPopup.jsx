@@ -83,38 +83,21 @@ function computeValueChain(row) {
     });
   }
 
-  // Stage 3 — MAD volatility penalty (when applied).
+  // MAD-penalty stage retired 2026-04-20: λ is pinned to 0, so the
+  // previous "MAD penalty" chain row never fires.  ``sourceMAD`` is
+  // still stamped as a diagnostic so it's surfaced below the chain
+  // as a pure transparency metric, labelled "source spread".
   const blended = Number(row.rankDerivedValueUncalibrated) || null;
-  const madPenalty =
-    typeof row.madPenaltyApplied === "number" && row.madPenaltyApplied > 0
-      ? row.madPenaltyApplied
-      : null;
-  const sourceMad =
-    typeof row.sourceMAD === "number" ? row.sourceMAD : null;
-  if (
-    blended !== null &&
-    blended > 0 &&
-    madPenalty !== null &&
-    sourceMad !== null
-  ) {
-    const prior = stages.length ? stages[stages.length - 1].value : null;
-    if (prior !== null && Math.round(blended) !== prior) {
-      stages.push({
-        key: "mad-penalty",
-        label: `MAD penalty −${Math.round(madPenalty)}`,
-        description:
-          `Source disagreement (MAD = ${Math.round(sourceMad)}) shrunk ` +
-          `toward anchor; penalty capped at the center value`,
-        value: Math.round(blended),
-        delta: Math.round(blended) - prior,
-      });
-    }
-  } else if (blended !== null && blended > 0 && stages.length === 0) {
-    // Fallback — no anchor/subgroup stamps (e.g. legacy row).
+  if (blended !== null && blended > 0 && stages.length === 0) {
+    // Offense rows (no anchor/subgroup stamps) — surface the final
+    // uncalibrated blend value as a single "Blended value" chain row.
     stages.push({
       key: "blend",
       label: "Blended value",
-      description: "Per-source Hill-curve blend",
+      description:
+        "Count-aware mean-median over every source that ranked this " +
+        "player (value-based sources vote with their raw values; " +
+        "rank-only sources go through the Hill curve).",
       value: Math.round(blended),
       delta: null,
     });
