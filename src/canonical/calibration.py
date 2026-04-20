@@ -237,6 +237,13 @@ def calibrate_canonical_values(
     The knee can vary per universe (IDP uses a higher knee than offense).
     Picks are calibrated separately using the legacy pick value curve.
 
+    This function is for the LEGACY engine only.  The canonical 6-step
+    Hill-curve engine produces display-scaled values in a single pass
+    (see ``src/canonical/player_valuation.py``) and must not be
+    re-calibrated here — doing so would stack a second curve on top of
+    the Hill output.  Assets tagged by the canonical pipeline with
+    ``_pick_calibration_source == "canonical_pipeline"`` are rejected.
+
     Args:
         assets: List of canonical asset dicts.
         universe_scales: Optional override for per-universe max scales.
@@ -248,7 +255,26 @@ def calibrate_canonical_values(
 
     Returns:
         Same list with 'calibrated_value' added to each asset.
+
+    Raises:
+        RuntimeError: If any input asset was produced by the canonical
+            Hill-curve pipeline (would cause double-calibration).
     """
+    canonical_tagged = [
+        a for a in assets
+        if a.get("_pick_calibration_source") == "canonical_pipeline"
+    ]
+    if canonical_tagged:
+        sample = canonical_tagged[0].get("display_name", "<unknown>")
+        raise RuntimeError(
+            f"calibrate_canonical_values called on {len(canonical_tagged)} "
+            f"asset(s) already produced by the canonical Hill-curve pipeline "
+            f"(e.g. {sample!r}). The canonical engine emits display-scaled "
+            f"values in a single pass; re-calibrating them here would stack "
+            f"a second curve on top. Fix the caller to gate on the engine flag "
+            f"(see scripts/canonical_build.py::use_canonical_engine)."
+        )
+
     scales = universe_scales or UNIVERSE_SCALES
     knees = universe_knees or UNIVERSE_KNEES
     legacy_pick_lookup = _build_legacy_pick_lookup(legacy_path)
