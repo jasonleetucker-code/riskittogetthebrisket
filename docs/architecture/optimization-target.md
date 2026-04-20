@@ -97,11 +97,44 @@ says the system's outputs feel systematically off.
 
 A green CI run on:
 
-- `tests/canonical/test_ktc_reconciliation.py` (14 tests, tiered bands)
-- `tests/canonical/test_canonical_single_curve.py` (6 tests)
-- `tests/api/test_single_curve_live.py` (8 tests)
-- `tests/idp_calibration/test_family_scale_once_only.py` (2 tests)
+- `tests/canonical/test_ktc_reconciliation.py` (tiered bands)
+- `tests/canonical/test_canonical_single_curve.py`
+- `tests/api/test_single_curve_live.py` (chain identity + soft fallback)
+- `tests/idp_calibration/test_family_scale_once_only.py`
 - `tests/api/test_pick_refinement.py::TestPlayerRankingsUnchanged`
   (offense + IDP anchor bands)
 
 is the executable definition of "target met."
+
+## Update — 2026-04-20: Final Framework transition complete
+
+The value engine now matches the user-specified Final Framework end-to-end
+(see `docs/architecture/live-value-pipeline-trace.md` for the full chain).
+Four PRs delivered the transition:
+
+1. PR #158 — trimmed mean-median blend; removed 8 hand-tuned
+   volatility constants.
+2. PR #159 — MAD volatility penalty with backtested λ.
+3. PR #160 — percentile-input Hill + hierarchical anchor (IDPTC) + α.
+4. PR #161 — soft fallback for unranked (step 9).
+5. Follow-up — joint α × λ re-validation; promoted **α=0.10, λ=0.10**
+   (see `reports/alpha_lambda_joint_backtest_full.md`).
+
+### Important finding from the joint validation
+
+The stability-optimal point of the α × λ landscape is **α=0, λ=0** —
+i.e., "use IDPTC alone, ignore the 15 other sources."  This optimum is
+**product-degenerate**: it violates the market-consensus-fit target
+declared in this document because the board would reflect a single
+source's opinion, not multi-source consensus.
+
+The chosen operating point (α=0.10, λ=0.10) is the cheapest
+non-degenerate joint cell.  It sits ~2× worse on the VW rank-stability
+metric than the degenerate optimum, but preserves 10% subgroup voice
+so all 15 non-anchor sources still shape the final value through the
+α-shrunk delta.
+
+**This is the right product trade-off**: users trading against the
+retail market (KTC-anchored) benefit from a blend that sees every
+major source's opinion while still being anchored to a single shared
+scale.  α=0 would deliver IDPTC's board with a different logo.

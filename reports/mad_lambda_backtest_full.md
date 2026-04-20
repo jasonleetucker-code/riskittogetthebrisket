@@ -9,17 +9,17 @@
 
 | λ | mean abs rank change | Δ vs λ=0 | value-weighted rank change | Δ vs λ=0 |
 |---:|---:|---:|---:|---:|
-| 0.00 | 4.575 | +0.000 | 4.881 | +0.000 |
-| 0.05 | 4.600 | +0.025 | 4.760 | -0.121 |
-| 0.10 | 4.619 | +0.045 | 4.666 | -0.214 |
-| 0.20 | 4.251 | -0.324 | 4.304 | -0.577 |
-| 0.30 | 4.004 | -0.571 | 4.026 | -0.855 |
-| 0.50 | 3.419 | -1.156 | 3.654 ← best | -1.226 |
-| 0.70 | 3.403 ← best | -1.172 | 3.705 | -1.176 |
-| 1.00 | 3.626 | -0.949 | 4.001 | -0.879 |
-| 1.50 | 4.191 | -0.384 | 4.581 | -0.299 |
-| 2.00 | 4.479 | -0.096 | 4.762 | -0.119 |
+| 0.00 | 0.203 ← best | +0.000 | 0.149 ← best | +0.000 |
+| 0.05 | 0.284 | +0.081 | 0.207 | +0.057 |
+| 0.10 | 0.346 | +0.143 | 0.243 | +0.094 |
+| 0.20 | 0.495 | +0.293 | 0.340 | +0.191 |
+| 0.30 | 0.599 | +0.397 | 0.410 | +0.261 |
+| 0.50 | 1.007 | +0.805 | 0.660 | +0.511 |
+| 0.70 | 1.463 | +1.261 | 0.945 | +0.796 |
+| 1.00 | 1.861 | +1.658 | 1.229 | +1.079 |
+| 1.50 | 2.124 | +1.921 | 1.486 | +1.337 |
+| 2.00 | 2.117 | +1.915 | 1.511 | +1.361 |
 
 ## Recommendation
 
-**Promote λ = 0.50** (best on value-weighted metric, +25.13% vs λ=0).  Best on unweighted metric was λ = 0.70 (+25.62%).  If the two agree, the choice is obvious; if they disagree, prefer the value-weighted optimum because top-of-board stability matters more than long-tail rank jitter.
+**Keep λ = 0.0.**  MAD penalty does not improve stability on this snapshot range — the Final Framework step 6 is an identity no-op and can be removed.  Consider whether a different optimization target (e.g. KTC alignment) would favour a non-zero λ before committing to remove the feature.
