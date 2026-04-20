@@ -9,7 +9,11 @@ import { resolvedRank } from "@/lib/dynasty-data";
  *
  * Pipeline order (from src/api/data_contract.py Phase 3 → 4c):
  *   1. Blended Hill value — trimmed mean-median across per-source
- *      Hill-curve values → stamped as ``rankDerivedValueUncalibrated``.
+ *      Hill-curve values, minus λ·MAD volatility penalty for
+ *      multi-source non-pick rows → stamped as
+ *      ``rankDerivedValueUncalibrated``.  ``sourceMAD`` and
+ *      ``madPenaltyApplied`` surface the MAD components for
+ *      transparency.
  *   2. IDP calibration pass (family_scale × bucket multiplier) —
  *      IDP rows only; offense rows skip this stage.  Output is the
  *      final ``rankDerivedValue``.
@@ -26,14 +30,29 @@ function computeValueChain(row) {
   const stages = [];
 
   // Stage 1 — blended value (trimmed mean-median across Hill-curve
-  // values from every contributing source).
+  // values from every contributing source, minus any MAD volatility
+  // penalty).  We show this as the "uncalibrated" stamp, which
+  // already reflects the penalty.  When the penalty is non-zero we
+  // annotate the description so users see where it came from.
   const blended = Number(row.rankDerivedValueUncalibrated) || null;
+  const madPenalty =
+    typeof row.madPenaltyApplied === "number" && row.madPenaltyApplied > 0
+      ? row.madPenaltyApplied
+      : null;
+  const sourceMad =
+    typeof row.sourceMAD === "number" ? row.sourceMAD : null;
   if (blended !== null && blended > 0) {
+    let description =
+      "Trimmed mean-median across per-source Hill-curve values";
+    if (madPenalty !== null && sourceMad !== null) {
+      description +=
+        ` − λ·MAD penalty (${Math.round(madPenalty)} pts off ` +
+        `${Math.round(sourceMad)} MAD)`;
+    }
     stages.push({
       key: "blend",
       label: "Blended value",
-      description:
-        "Trimmed mean-median across per-source Hill-curve values",
+      description,
       value: Math.round(blended),
       delta: null,
     });
