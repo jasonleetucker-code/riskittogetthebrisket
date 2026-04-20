@@ -1,0 +1,130 @@
+name: Refit Hill Curves
+
+# Re-fits the four scope-level master Hill curves (GLOBAL/OFFENSE/IDP/ROOKIE)
+# from the latest value-based sources and commits new constants when the
+# drift exceeds the 50-RMSE-point threshold.  See
+# scripts/auto_refit_hill_curves.py for the drift metric and the exact
+# files rewritten (src/canonical/player_valuation.py + the pinned deltas
+# in tests/canonical/test_ktc_reconciliation.py).
+#
+# Behaviour by exit code from the driver:
+#   0 (no drift)  - no files changed, workflow ends green
+#   1 (applied)   - files rewritten, tests run, commit + push on success
+#   2 (error)     - workflow fails, human investigates
+
+on:
+  schedule:
+    # First of every month at 06:17 UTC (off the top-of-hour thundering herd).
+    - cron: "17 6 1 * *"
+  workflow_dispatch:
+    inputs:
+      threshold:
+        description: "Override RMSE drift threshold (default 50.0)"
+        required: false
+        type: string
+        default: ""
+      dry_run:
+        description: "Report drift but do not rewrite files"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: refit-hill-curves
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  refit:
+    name: Fit + Drift Check + Apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run auto-refit driver
+        id: refit
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ARGS=""
+          if [[ -n "${{ inputs.threshold }}" ]]; then
+            ARGS="${ARGS} --threshold ${{ inputs.threshold }}"
+          fi
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            ARGS="${ARGS} --dry-run"
+          fi
+          set +e
+          python scripts/auto_refit_hill_curves.py ${ARGS} | tee refit_report.txt
+          CODE=${PIPESTATUS[0]}
+          set -e
+          echo "exit_code=${CODE}" >> "$GITHUB_OUTPUT"
+          if (( CODE == 2 )); then
+            echo "::error title=Refit failed::auto_refit_hill_curves.py exited 2"
+            exit 1
+          fi
+
+      - name: Append drift report to job summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## Hill scope master drift report" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat refit_report.txt >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "(no report)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run test suite on refit
+        if: steps.refit.outputs.exit_code == '1' && inputs.dry_run != true
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pytest tests/ -q
+
+      - name: Commit and push refit
+        if: steps.refit.outputs.exit_code == '1' && inputs.dry_run != true
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/canonical/player_valuation.py tests/canonical/test_ktc_reconciliation.py
+          if git diff --cached --quiet; then
+            echo "Refit driver reported drift but staging diff is empty — skipping commit"
+            exit 0
+          fi
+          git commit -m "$(cat <<'EOF'
+          chore(calibration): auto-refit Hill scope masters
+
+          Drift exceeded the 50-RMSE-point threshold on at least one
+          scope — see the workflow summary for the per-scope report.
+          Rewrites the eight HILL_*_C/S constants in
+          src/canonical/player_valuation.py and rebaselines the pinned
+          deltas in tests/canonical/test_ktc_reconciliation.py.
+          EOF
+          )"
+          git pull --rebase origin main
+          git push
+
+      - name: Trigger deploy on refit
+        if: steps.refit.outputs.exit_code == '1' && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh workflow run deploy.yml --ref main
