@@ -1,4 +1,17 @@
-"""Empirical backtest for the MAD volatility-penalty weight (λ).
+"""RETIRED — archived 2026-04-20.  Do not run in CI or trust output.
+
+``_MAD_PENALTY_LAMBDA`` is pinned to 0.0 in production as of the
+Final Framework override 2026-04-20: the count-aware mean-median
+blend (offense) and anchor + α-shrinkage (IDP / picks) already damp
+disagreement; λ·MAD on top was a duplicate penalty and has been
+retired.  This script still runs, but any λ it recommends is no
+longer acted upon.  Kept for historical reference only; move back
+under ``scripts/`` and re-enable if a fresh, non-duplicative use
+for λ·MAD is identified.
+
+--- original header ---
+
+Empirical backtest for the MAD volatility-penalty weight (λ).
 
 Sweeps ``_MAD_PENALTY_LAMBDA`` (Final Framework step 6) against the
 daily snapshot archive and reports how much the choice of λ affects

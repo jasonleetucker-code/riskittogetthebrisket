@@ -24,10 +24,12 @@ src/api/data_contract.py::_compute_unified_rankings   ← core value engine
 ```
 
 The `src/canonical/*` modules are **NOT** on the live path except for
-three imports (`rank_to_value`, Hill constants, `detect_tiers`).  The
-full 6-step canonical engine runs only via
-`scripts/canonical_build.py --engine canonical` or the shadow
-comparison (`CANONICAL_DATA_MODE` != `off`, default `off`).
+three imports (`rank_to_value`, Hill constants, and the `run_valuation`
+engine used by the data contract).  The offline canonical-build
+pipeline (`scripts/canonical_build.py`, `src/canonical/transform.py`,
+`src/canonical/pipeline.py`) and the `CANONICAL_DATA_MODE` env var
+were retired in PR #173 (2026-04-20); trade suggestions read the live
+contract directly via `build_asset_pool_from_contract`.
 
 ## Data sources (live)
 
@@ -110,119 +112,113 @@ For each active source:
      IDPTC for IDP)
    - everything else → direct passthrough
 
-### Phase 3 — Percentile Hill + hierarchical anchor + MAD penalty
+### Phase 3 — Value-based direct votes + rank-only Hill + position-gated blend
 
-For each row with any per-source rank:
+For each row with any per-source rank, the blend branches on source
+type:
 
-**Step 2 — Per-source percentile (framework step 1):**
-```
-p = (effective_rank − 1) / (_PERCENTILE_REFERENCE_N − 1)
-```
-`_PERCENTILE_REFERENCE_N = 500` (KTC's native pool size, the retail
-market's natural scale).  Effective ranks are post-ladder, so every
-source contributes in the same combined-pool coordinate system.
+**Step 2 — Per-source contribution.**  Two paths depending on whether
+the source publishes real dollar-equivalent values or just ranks.
 
-**Step 3 — Percentile-to-value Hill (framework step 3):**
+*Value-based sources* — keys in `_VALUE_BASED_SOURCES` (currently
+``ktc``, ``idpTradeCalc``, ``dynastyDaddySf``).  These sources vote
+with their raw site value, normalized so each site's top player
+contributes 9999 exactly:
 ```
+value = raw / site_max × 9999
+```
+where ``site_max`` is this source's largest value across the full
+``playersArray`` (pre-computed once, not per-row).  Malformed /
+missing raw values fall back to the Hill path below as a safety net.
+Value votes bypass the Hill curve entirely — this is what the
+framework override calls "don't re-model live value-site votes
+through Hill."
+
+*Rank-only sources* — ranks mapped to a percentile and then to a
+value through the scope-appropriate Hill master:
+```
+p     = (effective_rank − 1) / denom_for(source)
 value = percentile_to_value(p, midpoint=c, slope=s)
       = 9999 / (1 + (p / c)^s)
 ```
-**Scope-level master curves (updated framework)**: each source's
-contribution uses its SCOPE-appropriate master, not the player's
-position family.  Four masters:
+Denominator is ``_PERCENTILE_REFERENCE_N = 500`` for non-rookie
+sources (KTC's native scale, the combined-pool coordinate) and the
+source's own native pool size N_j (~40-50) for rookie sources.
 
-| Scope | Routing | Constants | Fit source(s) |
-|---|---|---|---|
-| GLOBAL | anchor source (`is_anchor=True` — IDPTC) | `HILL_GLOBAL_PERCENTILE_C=0.1880`, `_S=0.780` | IDPTC's combined offense+IDP pool |
-| OFFENSE | non-anchor, non-rookie, offense scope | `HILL_PERCENTILE_C=0.1100`, `_S=1.210` | mean-of-curves from KTC + DynastyDaddy + DynastyNerds |
-| IDP | non-anchor, non-rookie, IDP scope | `IDP_HILL_PERCENTILE_C=0.1130`, `_S=0.850` | IDPTC's IDP slice |
-| ROOKIE | sources with `needs_rookie_translation=True` (DLF Rookie SF, DLF Rookie IDP) | `HILL_ROOKIE_PERCENTILE_C=0.1650`, `_S=0.905` | mean-of-curves from KTC rookie slice + IDPTC rookie slice |
+**Step 2a — DraftSharks combined cross-market rank (Phase 1b).**
+DS publishes offense and IDP on one cross-market scale (top offense =
+100 3D Value+; top IDP = 44) but splits the CSV by position family;
+~50% of rows also have negative values.  Before Phase 2-3, the blend
+merges both DS sources' raw values into one sorted list, assigns a
+combined rank 1..N (negatives naturally sort to the tail), and
+overwrites each row's ``effectiveRank`` for both sources.  Both DS
+sources then feed the **GLOBAL** Hill master via the
+``ds_combined_rank_partner`` flag in the registry — the same curve
+IDPTC's anchor contribution uses.  This preserves DS's native
+cross-market ratio and cleanly handles the negative-value tail.
 
-**Rookie sources skip the ladder translation** and use their
-**native pool size N_j** (~40-50 rookies) as the percentile
-denominator, not `_PERCENTILE_REFERENCE_N=500`.  The ROOKIE master's
-flatter shape encodes rookie-relative value decay (rookie #1 = 9999,
-rookie ~#25 ≈ mid-pack) directly, so no crosswalk is needed.
+**Step 2b — Scope-master routing for rank-only sources.**
 
-Fit methodology (see `scripts/fit_hill_curve_percentile.py`):
-1. Fit each value-based source's implied Hill curve individually.
-2. For each scope, combine the per-source curves via unweighted mean
-   of V_j(p) at every percentile p.
-3. Fit a single Hill against the resulting master (p, V*(p)) curve.
+| Scope | Routing | Constants |
+|---|---|---|
+| GLOBAL | `is_anchor=True` (IDPTC) OR `ds_combined_rank_partner` set (DraftSharks, DraftSharksIdp) | `HILL_GLOBAL_PERCENTILE_C / _S` |
+| ROOKIE | `needs_rookie_translation=True` (DLF Rookie SF, DLF Rookie IDP) | `HILL_ROOKIE_PERCENTILE_C / _S` |
+| IDP | non-anchor, non-rookie, ``scope=overall_idp`` | `IDP_HILL_PERCENTILE_C / _S` |
+| OFFENSE | everything else | `HILL_PERCENTILE_C / _S` |
 
-The per-source-then-combine methodology replaced the older pooled-fit
-(which weighted sources by their data-point count).  Under the updated
-framework, each source is the training set for its scope master.
+Constants auto-refit monthly by `.github/workflows/refit-hill-curves.yml`
+— see `scripts/auto_refit_hill_curves.py` for the drift threshold
+(50 RMSE points on the 0-9999 scale).
 
 TEP application on TE rows only:
-- `is_tep_premium=False` sources: `value *= tep_multiplier`
-- `is_tep_premium=True` sources: `value *= tep_native_correction`
+- ``is_tep_premium=False`` (most sources): ``value *= 1.15`` fixed boost
+- ``is_tep_premium=True`` (Dynasty Nerds SF-TEP, Yahoo Boone's TE-Prem
+  column): pass-through unchanged.
 
-**Step 4a — Soft fallback (framework step 9):**
-For each active source whose scope admits this player's position but
-which DIDN'T rank them, synthesize a "just past the published list"
-contribution:
-```
-fallback_rank = pool_size + round(pool_size * _SOFT_FALLBACK_DISTANCE)
-fallback_V    = percentile_to_value(
-                    (fallback_rank - 1) / (_PERCENTILE_REFERENCE_N - 1),
-                    midpoint=hill_c, slope=hill_s
-                )
-```
-`_SOFT_FALLBACK_DISTANCE = 0.0` (fallback = pool + 1, the slot just
-past the source's list — 79% stability improvement over disabled per
-the backtest; see `reports/soft_fallback_backtest_full.md`).  Every
-fallback contribution enters the blend exactly like a real source
-contribution.  The per-row `softFallbackCount` stamp tells the
-frontend how many sources contributed via fallback.
+**Step 3 — Soft-fallback coverage diagnostic (framework step 9,
+post-override).**  For each active source whose scope admits this
+player's position but which DIDN'T rank them, increment
+``softFallbackCount``.  Pre-override this block injected a
+"just-past-the-published-list" Hill value into the blend; that
+distorted count-aware trimming when a row had ≥ 2 fallbacks (the n≥5
+trim only removes one of them; the remaining fallback(s) dragged the
+mean down by several hundred points — Chase at rank #5 with sf=2
+lost ~600).  Post-override (2026-04-20) the blend uses covered
+sources only; the count is a pure transparency metric.
 
-**Step 4b — Hierarchical anchor + subgroup (framework steps 5, 7, 8):**
-- **Anchor source**: the single source with `is_anchor=True` in
-  `_RANKING_SOURCES` (currently IDPTC, because it prices both
-  offense and IDP on a shared combined pool).
-  `anchor_value` = IDPTC's value for the player (real rank if
-  covered, otherwise the soft-fallback value).
-- **Subgroup blend**: the **count-aware** mean-median blend
-  (framework step 9) of every non-anchor source's value (real or
-  fallback).  Shared helper is
-  `count_aware_mean_median_blend` at module scope.
-  - n=1: passthrough (the single value).
-  - n=2: mean; MAD = half-range.
-  - n=3-4: UNTRIMMED mean-median — `center = (mean + median) / 2`
-    over all n values.  MAD is the full-set mean absolute deviation.
-  - n≥5: trimmed (drop one max + one min) mean-median;
-    `center = (trimmed_mean + trimmed_median) / 2`.  MAD is computed
-    over the trimmed set.
+**Step 4 — Position-gated blend.**  Offense rows vs IDP rows vs pick
+rows split here:
 
-  The updated rule replaces a prior "always trim at n≥3" version
-  that collapsed sparse IDP / rookie groups (n=3 → single surviving
-  source; n=4 → middle two only).
-- **α-shrinkage combine** (framework step 8):
-  ```
-  center = anchor_value + α · (subgroup_blend − anchor_value)
-  ```
-  `_ALPHA_SHRINKAGE = 0.3` (chosen via
-  `scripts/backtest_alpha_shrinkage.py`; clean unimodal optimum on
-  both unweighted and value-weighted rank stability).
+- **Offense rows (QB/RB/WR/TE)**: flat count-aware mean-median over
+  every covered source (value-direct contributions and rank-Hill
+  contributions, equal weight).  No anchor, no α-shrinkage.
 
-**Step 5 — MAD volatility penalty (framework step 6):**
-- `MAD = mean(|v − trimmed_mean| for v in trimmed)` across the full
-  set of contributing per-source values (anchor + subgroup).
-- `penalty = min(center, λ · MAD)` — clamped so blended never goes
-  negative.
-- `final = center − penalty` (players), or `final = center` (picks —
-  exempt because pick-tier MAD is a structural artifact of KTC vs
-  IDPTC using different tier systems, not true source uncertainty).
-- `λ = _MAD_PENALTY_LAMBDA = 0.5`.
+- **IDP rows (DL/LB/DB) and pick rows**: hierarchical anchor + α
+  shrinkage.
+  - Anchor = IDPTC's value for this row (value-direct, GLOBAL-scope).
+  - Subgroup = count-aware mean-median of every non-anchor source's
+    value (covered sources only).
+  - Combined: ``center = anchor + α × (subgroup − anchor)`` with
+    ``_ALPHA_SHRINKAGE = 0.10``.  Shrinks the subgroup adjustment
+    toward the IDPTC cross-market baseline.
 
-Per-row diagnostics: `sourceMAD` and `madPenaltyApplied` are stamped
-on every multi-source non-pick row.  Per-source meta includes
-`percentile`, `valueContribution`, and `isAnchor` stamps so the
-frontend value-chain can show the hierarchy transparently.
+Count-aware blend (shared helper ``count_aware_mean_median_blend``):
+- n=1: passthrough.
+- n=2: mean.
+- n=3-4: untrimmed — ``center = (mean + median) / 2`` over all n.
+- n≥5: trimmed — drop 1 max + 1 min, then ``(trimmed_mean +
+  trimmed_median) / 2``.
 
-The previous `rank_to_value`-based blend has been retired from the
-live path.  The function remains in `src/canonical/player_valuation.py`
-for the canonical-engine alternate path.
+**Step 5 — λ·MAD retired.**  ``_MAD_PENALTY_LAMBDA = 0.0`` as of the
+Final Framework override 2026-04-20: count-aware trimming (offense)
+and anchor + α-shrinkage (IDP + picks) already damp disagreement;
+λ·MAD on top was a duplicate penalty on the same signal.
+``sourceMAD`` is still stamped as a diagnostic transparency field
+(the frontend value-chain panel displays it as "source spread") but
+never subtracts from ``rankDerivedValue``.
+
+The result of Phase 3 is a pre-discount ``blended_value`` that then
+enters Phase 3a (pick year discount) and Phase 4 (global sort).
 
 ### Phase 3a — Pick year discount (L4739)
 
@@ -330,14 +326,29 @@ rankDerivedValueUncalibrated = center − λ·MAD          ← players only
 
 ## Re-tuning the constants
 
-The backtest harnesses that exercise these constants:
+Auto-refit is wired up for the four scope-level master Hill curves
+(GLOBAL / OFFENSE / IDP / ROOKIE).  The workflow
+`.github/workflows/refit-hill-curves.yml` runs on the 1st of every
+month via cron (plus manual dispatch); the driver at
+`scripts/auto_refit_hill_curves.py` re-fits the masters, computes
+per-scope RMSE drift on a percentile grid, rewrites the constants in
+`src/canonical/player_valuation.py`, and rebaselines the KTC
+reconciliation test pins when max drift exceeds 50 RMSE points on
+the 0-9999 scale.
 
-- `scripts/backtest_mad_lambda.py` — sweeps `_MAD_PENALTY_LAMBDA`.
-  Output: `reports/mad_lambda_backtest_full.md`.
-- `scripts/backtest_ktc_volatility.py` — empirical KTC drift bands per
-  rank.  Output: `reports/ktc_volatility_backtest_full.md`.
+Retired / archived backtest scripts:
 
-`HILL_MIDPOINT` / `HILL_SLOPE` / `IDP_HILL_*` are fit by
-`scripts/fit_hill_curve_from_market.py` against the market-source
-pool.  A re-fit is a deliberate decision — the KTC reconciliation test
-will fail loudly and must be re-baselined as part of the PR.
+- `scripts/archive/backtest_mad_lambda.py` — λ is pinned to 0.0;
+  script is kept for historical reference only.
+
+Live constants that are NOT auto-tuned:
+
+- `_ALPHA_SHRINKAGE = 0.10` — IDP/pick hierarchical-blend shrinkage.
+  Tuned via `scripts/backtest_alpha_shrinkage.py` (joint α × λ sweep
+  in `scripts/backtest_alpha_lambda_joint.py`).
+- `_PERCENTILE_REFERENCE_N = 500` — aligned with KTC's pool size.
+  Re-tune via `scripts/backtest_percentile_reference_n.py` if the
+  retail market's natural depth ever shifts.
+- IDP calibration `family_scale` clamp `[0.85, 1.15]` — controlled by
+  the IDP calibration lab in `src/idp_calibration/` and promoted via
+  `config/idp_calibration.json`.
