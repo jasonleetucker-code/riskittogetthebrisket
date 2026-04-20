@@ -3362,279 +3362,7 @@ def _apply_offense_calibration_post_pass(
                     pdata["offenseCalibrationMultiplier"] = round(multiplier, 4)
 
 
-# Volatility compression hyperparameters — mirror the canonical engine's
-# Step 5 defaults in ``src/canonical/player_valuation.py`` so the live
-# path and canonical-engine output stay conceptually aligned.  Kept
-# intentionally gentle: the floor caps worst-case compression at 8%, so
-# a high-disagreement top-tier player drops no more than 800 points on
-# the 1–9999 scale.  If this needs retuning, change it here and update
-# the matching constants in player_valuation.py.
-_VOLATILITY_COMPRESSION_STRENGTH: float = 0.03
-_VOLATILITY_COMPRESSION_FLOOR: float = 0.92
-_VOLATILITY_COMPRESSION_CEIL: float = 1.08
-
-# Final-blend mix between the weighted-mean (structural) and the
-# robust-trimmed-median (outlier-resistant) aggregation of per-source
-# Hill-curve values.  The live formula is:
-#
-#     blended_value = _BLEND_MEAN_WEIGHT * weighted_mean +
-#                     _BLEND_ROBUST_WEIGHT * robust
-#
-# The two weights MUST sum to 1.0; the pipeline treats them as a
-# convex combination and does not renormalize.
-#
-# 70/30 trusts the configured source weights heavily (the IDPTC 2.0
-# backbone weight is the dominant example) while still letting the
-# robust blend absorb single-source outliers.  Change these together
-# (not independently) — a 0.5/0.5 split weights outlier-correction
-# more, a 0.7/0.3 split trusts the configured source weights more.
-#
-# Historical note: this pair was 0.6/0.4 through 2026-04-19.  The
-# ``scripts/backtest_blend_params.py`` sweep on 25 daily snapshots
-# (2026-03-23 → 2026-04-16) showed a clean peak at 0.70 for
-# value-weighted rank stability (4.9% improvement over 0.60; spread
-# 10.7% across the {0.50 .. 0.75} grid; monotonic rise from 0.55 to
-# 0.70 with a downturn at 0.75).  See
-# ``reports/backtest_blend_params_full.md``.
-#
-# Backtests (see ``scripts/backtest_blend_params.py``) sweep these
-# against daily snapshots to verify the split is near-optimal for
-# rank stability.  Overriding at runtime is a supported pattern: the
-# backtest harness mutates the module attribute directly before each
-# ``build_api_data_contract`` call, so keep the names stable.
-_BLEND_MEAN_WEIGHT: float = 0.7
-_BLEND_ROBUST_WEIGHT: float = 0.3
-
-# Source-rank-scaled monotonicity step.  When the natural boosted
-# value overshoots ``_DISPLAY_SCALE_MAX`` (9999) for a cluster of
-# top-of-board rows, a fixed-step cap (e.g. "always 100 pts down
-# per rank") flattens the top into equal stairs — but the real
-# rank-consistency signal varies row to row:
-#   - Allen (blendedSourceRank 1.1) vs Maye (3.9) = 2.8-rank gap
-#     → Allen is far and away the consensus #1; a big visible
-#     cliff here is justified.
-#   - Chase (5.0) vs Bijan (6.3) = 1.3-rank gap → typical step.
-#   - Two adjacent players within ~0.5 source-rank of each other
-#     should collapse to a near-flat display gap; a large fixed
-#     step would fabricate separation that isn't in the source data.
-# Scaling the step by the ``blendedSourceRank`` delta between
-# consecutive rows ties the visible cliff shape directly to the
-# actual source consensus.  ``_MONOTONICITY_BASE_STEP`` is the step
-# per 1.0-rank-gap; floor/ceiling prevent zero-step collapse on
-# rank ties / inversions and runaway cliffs on huge gaps.
-_MONOTONICITY_BASE_STEP: int = 75
-_MONOTONICITY_STEP_FLOOR: int = 25
-_MONOTONICITY_STEP_CEIL: int = 250
-
 _DISPLAY_SCALE_MAX: int = 9999
-
-
-def _apply_volatility_compression_post_pass(
-    players_array: list[dict[str, Any]],
-    players_by_name: dict[str, Any],
-) -> None:
-    """Adjust ``rankDerivedValue`` symmetrically by source disagreement.
-
-    Extends Step 5 of the canonical engine
-    (``compute_volatility_adjustments`` in
-    ``src/canonical/player_valuation.py:349-391``) to be two-sided:
-    high-disagreement rows (z > 0) get compressed down to the FLOOR,
-    high-agreement rows (z < 0) get boosted up to the CEIL.  Driven
-    by the coverage-corrected ``sourceRankPercentileSpread`` stamped
-    in Phase 4 (not raw ``stdev(source_ranks)``) so heterogeneous
-    source depths (DLF IDP=185 vs FBG IDP=400) do not masquerade as
-    genuine disagreement.
-
-    Only rows with a non-None ``sourceRankPercentileSpread`` and a
-    positive ``rankDerivedValue`` participate.  Picks are skipped
-    because ``_anchor_current_year_picks_to_rookies`` overrides their
-    value from a rookie row — the pick row's own disagreement
-    signal is not a meaningful confidence signal for the anchored
-    value.
-
-    ``volatilityCompressionApplied`` is a signed fraction:
-        * positive = value compressed (high spread)
-        * negative = value boosted (high agreement)
-        * None     = no adjustment (fewer than 2 eligible, zero std,
-                     or picks/unranked rows)
-
-    Boost is clamped to ``DISPLAY_SCALE_MAX``.  The Phase 5 compact
-    resort handles monotonicity breaks from a boosted or compressed
-    value crossing a neighbor.  Mirrors the updated value into the
-    legacy ``players_by_name`` dict.
-    """
-    eligible: list[tuple[dict[str, Any], float, float]] = []
-    for row in players_array:
-        if row.get("canonicalConsensusRank") is None:
-            continue
-        if row.get("assetClass") == "pick":
-            continue
-        spread = row.get("sourceRankPercentileSpread")
-        if spread is None:
-            continue
-        try:
-            value = float(row.get("rankDerivedValue") or 0)
-        except (TypeError, ValueError):
-            continue
-        if value <= 0:
-            continue
-        eligible.append((row, value, float(spread)))
-
-    if len(eligible) < 2:
-        return
-
-    spreads = [s for _, _, s in eligible]
-    spread_mean = statistics.mean(spreads)
-    spread_std = statistics.stdev(spreads) if len(spreads) >= 2 else 0.0
-    if spread_std < 1e-9:
-        # Nothing to discriminate on — mark every eligible row as
-        # un-adjusted so delta merges clear prior state.
-        for row, _value, _spread in eligible:
-            row["volatilityCompressionApplied"] = None
-            legacy_ref = row.get("legacyRef")
-            if legacy_ref and legacy_ref in players_by_name:
-                pdata = players_by_name[legacy_ref]
-                if isinstance(pdata, dict):
-                    pdata["volatilityCompressionApplied"] = None
-        return
-
-    max_compress = 1.0 - _VOLATILITY_COMPRESSION_FLOOR
-    max_boost = _VOLATILITY_COMPRESSION_CEIL - 1.0
-    strength = _VOLATILITY_COMPRESSION_STRENGTH
-
-    # Process in canonical rank order so the monotonicity-preserving
-    # boost cap (see ``prior_post_value`` below) can reach back to
-    # the immediately-higher-ranked row.  Without this sort the raw
-    # ``eligible`` order is insertion order from the players_array
-    # walk above, which is already rank-desc for historical reasons,
-    # but making the sort explicit guards against future callers that
-    # might append rows out of order.
-    eligible.sort(
-        key=lambda triple: int(triple[0].get("canonicalConsensusRank") or 10**9)
-    )
-
-    # Tracks the post-adjustment ``rankDerivedValue`` of the row we
-    # just processed.  When a boost (``z < 0``) would raise the
-    # current row to or above ``prior_post_value``, we clamp it to
-    # ``prior_post_value - 1`` so rank 1 stays strictly above rank 2,
-    # rank 2 stays strictly above rank 3, etc.  Prevents the
-    # ``_DISPLAY_SCALE_MAX`` clamp from collapsing multiple
-    # high-agreement top players onto a single 9999 plateau (e.g.
-    # Josh Allen at rank 1 and Drake Maye at rank 2 both hitting
-    # 9999 because each raw-boosted value exceeds 9999 and clamps).
-    # Compression (``z > 0``) is NOT constrained here — any
-    # compression-induced inversion is fixed by the Phase 5 compact
-    # resort that runs after this pass.
-    prior_post_value: int | None = None
-    prior_blended_rank: float | None = None
-
-    for row, value, spread in eligible:
-        z = (spread - spread_mean) / spread_std
-        legacy_ref = row.get("legacyRef")
-        pdata = (
-            players_by_name.get(legacy_ref)
-            if legacy_ref and legacy_ref in players_by_name
-            else None
-        )
-
-        # Snapshot the pre-volatility value before any
-        # compression/boost arithmetic mutates it.  This is what the
-        # row held after the 60/40 weighted-mean / robust-median
-        # blend but BEFORE the volatility pass touched it — used by
-        # the PlayerPopup value-chain display so users can see each
-        # stage of the value derivation individually.  We also mirror
-        # into the legacy ``players_by_name`` dict so frontend rows
-        # that read from either contract shape can see it.
-        pre_vol_value = int(row.get("rankDerivedValue") or 0)
-        row["preVolatilityValue"] = pre_vol_value
-        if isinstance(pdata, dict):
-            pdata["preVolatilityValue"] = pre_vol_value
-
-        # Pull the blended source rank (mean of effective per-source
-        # ranks) stamped in Phase 4a.  Falls back to canonical rank
-        # if the row is missing a blend (single-source rows, picks).
-        bsr_raw = row.get("blendedSourceRank")
-        current_blended_rank: float | None
-        if isinstance(bsr_raw, (int, float)):
-            current_blended_rank = float(bsr_raw)
-        else:
-            ccr = row.get("canonicalConsensusRank")
-            current_blended_rank = float(ccr) if isinstance(ccr, (int, float)) else None
-
-        if z > 0:
-            frac = min(z * strength, max_compress)
-            # Compression moves values downward; no ceiling clamp
-            # needed and compression-branch values above 9999 are
-            # deliberately preserved.  The inline TEP multiplier can
-            # inflate the pre-volatility blend above the display
-            # scale (a Hill rank-1 value of 9999 × 1.15 = 11499),
-            # and a downstream Phase 5 resort is the right place to
-            # handle out-of-range display values rather than the
-            # volatility pass clamping mid-pipeline.
-            new_val = max(1, int(round(value * (1.0 - frac))))
-            signed_frac = round(frac, 4)
-        elif z < 0:
-            frac = min(abs(z) * strength, max_boost)
-            boosted = max(1, int(round(value * (1.0 + frac))))
-            # Monotonicity-preserving ceiling on boost, scaled by
-            # the source-rank gap between this row and the prior:
-            #   step = BASE * (bsr[N] − bsr[N−1])  clamped to [FLOOR, CEIL]
-            # A 2.8-rank gap (Allen 1.1 → Maye 3.9) yields a ~210-pt
-            # cliff; a 0.8-rank gap (Gibbs → Daniels) yields ~60.
-            # Rows whose natural boosted value falls below the
-            # capped ceiling use their natural value untouched, so
-            # the cap only shapes rows that would otherwise clamp
-            # at _DISPLAY_SCALE_MAX.
-            ceiling = _DISPLAY_SCALE_MAX
-            if prior_post_value is not None and prior_post_value <= _DISPLAY_SCALE_MAX:
-                if (
-                    prior_blended_rank is not None
-                    and current_blended_rank is not None
-                    and current_blended_rank > prior_blended_rank
-                ):
-                    rank_gap = current_blended_rank - prior_blended_rank
-                    raw_step = int(round(_MONOTONICITY_BASE_STEP * rank_gap))
-                else:
-                    # Rank inversion or tie (no positive gap) — fall
-                    # back to the base step so we still enforce a
-                    # minimum visible cliff between ranks.
-                    raw_step = _MONOTONICITY_BASE_STEP
-                step = max(
-                    _MONOTONICITY_STEP_FLOOR,
-                    min(_MONOTONICITY_STEP_CEIL, raw_step),
-                )
-                ceiling = min(ceiling, prior_post_value - step)
-            new_val = max(1, min(boosted, ceiling))
-            signed_frac = round(-frac, 4)
-        else:
-            new_val = int(value)
-            signed_frac = None
-
-        # Track the ``min(new_val, _DISPLAY_SCALE_MAX)`` view of
-        # this row so a compression-branch value above 9999 can't
-        # lift the next row's boost ceiling above 9999.  Any row
-        # (boost, compress, no-op) can constrain the next boost.
-        prior_post_value = min(new_val, _DISPLAY_SCALE_MAX)
-        # Track the blended rank too so the NEXT row's cliff step
-        # can be scaled against the source-consensus gap.
-        if current_blended_rank is not None:
-            prior_blended_rank = current_blended_rank
-
-        # When z is on either side but frac rounds to zero (very small
-        # |z|), skip the value mutation to avoid spurious 1-point
-        # drift but still emit an explicit None so delta merges clear
-        # prior state.
-        if signed_frac is None or abs(signed_frac) < 1e-9:
-            row["volatilityCompressionApplied"] = None
-            if isinstance(pdata, dict):
-                pdata["volatilityCompressionApplied"] = None
-            continue
-
-        row["rankDerivedValue"] = new_val
-        row["volatilityCompressionApplied"] = signed_frac
-        if isinstance(pdata, dict):
-            pdata["rankDerivedValue"] = new_val
-            pdata["volatilityCompressionApplied"] = signed_frac
 
 
 def _reassign_pick_slot_order(players_array: list[dict[str, Any]]) -> int:
@@ -4604,14 +4332,13 @@ def _compute_unified_rankings(
     for row_idx, source_ranks in row_source_ranks.items():
         # Compute the per-source value contributions and effective weights
         # in lockstep so we can apply both a weighted-mean and a
-        # robust-median blend.  The two blends are then combined: the
-        # final blended value is the average of the weighted mean and
-        # the robust median.  This downweights single-outlier sources
-        # (e.g. an IDPTC dynasty value that grossly under-prices
-        # established stars like T.J. Watt or Nick Bosa) without losing
-        # the cross-source signal entirely.
-        contributions: list[tuple[float, float]] = []  # (value, weight)
-        weight_total = 0.0
+        # trimmed mean-median aggregation (framework step 5).  The
+        # per-source ``effective_weight`` is stamped onto source meta
+        # for transparency but is NOT used in the aggregation — every
+        # source carries equal voice once trimmed.  Weighting will be
+        # reintroduced later as the hierarchical anchor / subgroup
+        # structure (framework steps 7–8).
+        contributions: list[tuple[float, float]] = []  # (value, effective_weight)
         # TE positions trigger the TEP boost.  Read once per row so
         # the per-source inner loop does not keep re-checking the
         # position string.  IDP positions (DL/LB/DB) swap in the IDP-
@@ -4660,7 +4387,6 @@ def _compute_unified_rankings(
                 value *= tep_native_correction
                 tep_native_corrected = True
             contributions.append((value, effective_weight))
-            weight_total += effective_weight
             # Stamp value contribution onto per-source meta (for debugging)
             meta = row_source_meta[row_idx].get(source_key, {})
             meta["valueContribution"] = int(round(value))
@@ -4676,46 +4402,40 @@ def _compute_unified_rankings(
             blended_value = 0.0
             hill_value_spread: float | None = None
         else:
+            # Framework step 5: Trimmed Mean-Median Blend (unweighted).
+            # For N ≥ 3 sources:
+            #   1. drop the highest and the lowest raw Hill-curve value
+            #   2. compute the arithmetic mean of the remaining values
+            #   3. compute the median of the remaining values
+            #   4. blended_value = (trimmed_mean + trimmed_median) / 2
+            # For N = 2 we mean the two; for N = 1 we pass through.
+            #
+            # This replaces the earlier 0.7·weighted_mean + 0.3·robust
+            # convex combo.  Per-source ``effective_weight`` is no longer
+            # part of the aggregation — it's still stamped onto
+            # ``sourceRankMeta[*]["effectiveWeight"]`` for transparency
+            # but the blend treats every source equally once trimmed.
+            # Weighting is reintroduced in later PRs via the
+            # hierarchical anchor / subgroup-adjustment structure (the
+            # Final Framework, steps 7–8).
             values = [v for v, _w in contributions]
-            if weight_total > 0:
-                weighted_mean = (
-                    sum(v * w for v, w in contributions) / weight_total
-                )
-            else:
-                weighted_mean = sum(values) / len(values)
-
-            # Robust blend: when 5+ sources contribute, symmetrically
-            # trim both extremes — drop the most pessimistic AND the
-            # most optimistic value so a single bullish outlier gets
-            # the same discount as a single bearish one.  Only fires
-            # at 5+ because a 2-trim on 4 sources throws away half
-            # the signal.  3-4 sources keep the prior asymmetric
-            # behavior (drop only the worst).  2 = mean; 1 = use.
             sorted_vals = sorted(values)
-            if len(sorted_vals) >= 5:
+            n = len(sorted_vals)
+            if n >= 3:
                 trimmed = sorted_vals[1:-1]
-                robust = sum(trimmed) / len(trimmed)
-            elif len(sorted_vals) >= 3:
-                trimmed = sorted_vals[1:]  # drop the worst only
-                robust = sum(trimmed) / len(trimmed)
-            elif len(sorted_vals) == 2:
-                robust = sum(sorted_vals) / 2.0
+                trimmed_mean = sum(trimmed) / len(trimmed)
+                m = len(trimmed)
+                if m % 2 == 1:
+                    trimmed_median = float(trimmed[m // 2])
+                else:
+                    trimmed_median = (
+                        trimmed[m // 2 - 1] + trimmed[m // 2]
+                    ) / 2.0
+                blended_value = (trimmed_mean + trimmed_median) / 2.0
+            elif n == 2:
+                blended_value = (sorted_vals[0] + sorted_vals[1]) / 2.0
             else:
-                robust = sorted_vals[0]
-
-            # Final blended value: ``_BLEND_MEAN_WEIGHT`` /
-            # ``_BLEND_ROBUST_WEIGHT`` convex combination of the
-            # weighted-mean (structural) and robust-trimmed-median
-            # (outlier-resistant) aggregations.  Defaults to 70/30 so
-            # the configured source weights have the dominant voice
-            # while the robust blend still absorbs obvious outliers.
-            # The split was tuned via ``scripts/backtest_blend_params.py``
-            # against 25 daily snapshots; see the constant's doc block
-            # at definition site for the reasoning and results.
-            blended_value = (
-                _BLEND_MEAN_WEIGHT * weighted_mean
-                + _BLEND_ROBUST_WEIGHT * robust
-            )
+                blended_value = sorted_vals[0]
 
             # Separation diagnostic: stdev of per-source Hill-curve values
             # before the blend.  Pairs with sourceRankPercentileSpread
@@ -5020,17 +4740,13 @@ def _compute_unified_rankings(
     # reference but they do NOT mutate rankDerivedValue.
     # _apply_offense_calibration_post_pass(players_array, players_by_name)
 
-    # ── Phase 4d: Volatility compression ──
-    # Port of Step 5 of the canonical engine
-    # (src/canonical/player_valuation.py:349-391) but driven by the
-    # coverage-corrected sourceRankPercentileSpread (stamped in
-    # Phase 4) rather than raw stdev(source_ranks).  The percentile
-    # spread normalizes for heterogeneous source depths (DLF IDP=185
-    # vs FBG IDP=400); raw stdev does not.  The compact resort in
-    # Phase 5 will naturally reshuffle any rows whose compressed
-    # value crosses a neighbor.  Runs after IDP calibration so the
-    # compression dampens the already-calibrated value.
-    _apply_volatility_compression_post_pass(players_array, players_by_name)
+    # (Phase 4d — volatility compression — intentionally removed as
+    # part of the Final Framework transition.  A principled
+    # MAD-based volatility penalty with a fitted ``λ`` weight will
+    # reappear in a later PR once backtested.  The old ±8%
+    # compress/boost + 75-pt monotonicity cap was a heuristic stack
+    # sitting on top of the Hill curve and has been removed
+    # outright — see docs/architecture/live-value-pipeline-trace.md.)
 
     # ── Phase 5: Pick refinement passes (gated to picks) ──
     # 1) Reassign (rank, value) tuples within each (year, round) bucket
@@ -5455,7 +5171,6 @@ def _derive_player_row(
         "sourceRankSpread": None,
         "sourceRankPercentileSpread": None,
         "hillValueSpread": None,
-        "volatilityCompressionApplied": None,
         "marketGapDirection": "none",
         "marketGapMagnitude": None,
         "sourceAudit": {
@@ -5975,7 +5690,6 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "sourceRankSpread",
     "sourceRankPercentileSpread",
     "hillValueSpread",
-    "volatilityCompressionApplied",
     "isSingleSource",
     "isStructurallySingleSource",
     "hasSourceDisagreement",

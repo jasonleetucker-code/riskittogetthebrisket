@@ -2,25 +2,20 @@
 
 Pins the structural claim that the live path
 (``src/api/data_contract.py::_compute_unified_rankings``) applies
-exactly one Hill curve, at most one calibration multiplier, and at
-most one volatility adjustment to produce ``rankDerivedValue``.  No
-hidden second curve, no accidental double-calibration, no mystery
-remap.
+exactly one Hill curve + at most one calibration multiplier to
+produce ``rankDerivedValue``.  No hidden second curve, no accidental
+double-calibration, no mystery remap.
 
-The chain, as documented in the audit dated 2026-04-20:
+The chain, as of the Final Framework transition PR 1:
 
-    rankDerivedValueUncalibrated  (snapshot after Hill blend + TEP)
+    rankDerivedValueUncalibrated  (trimmed mean-median of per-source
+                                    Hill values, post-TEP)
         × (idpCalibrationMultiplier × idpFamilyScale)   (IDP rows only)
-        = preVolatilityValue
-        × (1 − volatilityCompressionApplied)            (compression z>0)
-        OR
-        min(preVolatilityValue × (1 + |vol|),           (boost z<0,
-            monotonicity_cap, _DISPLAY_SCALE_MAX)       clamped)
         = rankDerivedValue
 
-If a second curve is ever reintroduced (e.g. offense calibration
-re-enabled without the right gate, a new post-pass remap added),
-the identities below will break and this test will fail loudly.
+The prior volatility compression + monotonicity-cap post-pass has
+been removed outright.  ``preVolatilityValue`` and
+``volatilityCompressionApplied`` are no longer stamped.
 
 These tests are invariant-band style (PR #154): they assert the
 structural chain holds for today's snapshot, not specific values.
@@ -34,8 +29,6 @@ from typing import Any
 
 from src.api.data_contract import (
     _DISPLAY_SCALE_MAX,
-    _VOLATILITY_COMPRESSION_CEIL,
-    _VOLATILITY_COMPRESSION_FLOOR,
     build_api_data_contract,
 )
 
@@ -78,9 +71,9 @@ class TestOffenseHasNoCalibrationLayer(unittest.TestCase):
 
     ``_apply_offense_calibration_post_pass`` is intentionally commented
     out at ``src/api/data_contract.py::_compute_unified_rankings``
-    (~line 5021).  Re-enabling it without a new invariant test would
-    silently restack a second curve on top of the Hill blend.  This
-    test exists to catch that regression.
+    (around line 5021).  Re-enabling it without a new invariant test
+    would silently restack a second curve on top of the Hill blend.
+    This test exists to catch that regression.
     """
 
     def setUp(self) -> None:
@@ -109,18 +102,63 @@ class TestOffenseHasNoCalibrationLayer(unittest.TestCase):
         )
 
 
-class TestPreVolatilityChain(unittest.TestCase):
-    """``preVolatilityValue`` must equal the one-time calibration fold.
+class TestVolatilityPassIsRemoved(unittest.TestCase):
+    """No row should carry the stamps the removed volatility pass left.
 
-    For offense rows (no live calibration): preVolatilityValue
-    should equal rankDerivedValueUncalibrated exactly.
+    If ``_apply_volatility_compression_post_pass`` or an analogous
+    second remap is ever re-added without a principled λ / α choice,
+    this test will catch the re-introduction of the old stamps and
+    fail loudly.
+    """
 
-    For IDP rows: preVolatilityValue should equal
-    rankDerivedValueUncalibrated × idpCalibrationMultiplier ×
-    idpFamilyScale.  Because ``get_idp_bucket_multiplier`` already
-    folds family_scale into the bucket product, the live code
-    multiplies by the combined factor EXACTLY ONCE.  If someone
-    accidentally multiplies again, this test catches it.
+    def setUp(self) -> None:
+        self.contract = _get()
+        if self.contract is None:
+            self.skipTest("No live data")
+
+    def test_no_row_carries_prevolatility_stamp(self) -> None:
+        offending = [
+            r.get("canonicalName")
+            for r in _ranked_rows(self.contract)
+            if "preVolatilityValue" in r
+        ]
+        self.assertFalse(
+            offending,
+            f"{len(offending)} row(s) carry the removed "
+            f"preVolatilityValue stamp: {offending[:5]}",
+        )
+
+    def test_no_row_carries_volatility_fraction_stamp(self) -> None:
+        offending = [
+            r.get("canonicalName")
+            for r in _ranked_rows(self.contract)
+            if "volatilityCompressionApplied" in r
+        ]
+        self.assertFalse(
+            offending,
+            f"{len(offending)} row(s) carry the removed "
+            f"volatilityCompressionApplied stamp: {offending[:5]}",
+        )
+
+
+class TestValueChain(unittest.TestCase):
+    """``rankDerivedValue`` is derived from exactly one Hill blend
+    and at most one calibration multiplier.
+
+    For offense rows (no live calibration): ``rankDerivedValue`` must
+    equal ``rankDerivedValueUncalibrated`` exactly.
+
+    For IDP rows with an active promoted calibration config:
+    ``rankDerivedValue`` must equal
+    ``rankDerivedValueUncalibrated × idpCalibrationMultiplier × idpFamilyScale``
+    applied exactly once.
+
+    For IDP rows without an active config (default test env —
+    ``tests/conftest.py`` redirects the config path): same as offense,
+    strict equality.
+
+    The deeper invariant under an active config is also exercised in
+    ``tests/idp_calibration/test_family_scale_once_only.py``.
     """
 
     def setUp(self) -> None:
@@ -129,209 +167,71 @@ class TestPreVolatilityChain(unittest.TestCase):
             self.skipTest("No live data")
         self.rows = _ranked_rows(self.contract)
 
-    def test_offense_pre_vol_equals_uncalibrated(self) -> None:
+    def test_offense_final_equals_uncalibrated(self) -> None:
         checked = 0
         for row in self.rows:
             pos = str(row.get("position") or "").upper()
             if pos not in _OFFENSE_POSITIONS:
                 continue
-            pre_vol = row.get("preVolatilityValue")
             uncal = row.get("rankDerivedValueUncalibrated")
-            if pre_vol is None or uncal is None:
+            final = row.get("rankDerivedValue")
+            if uncal is None or final is None:
                 continue
             self.assertEqual(
-                int(pre_vol),
+                int(final),
                 int(uncal),
                 f"{row.get('canonicalName')} offense row has "
-                f"preVolatilityValue={pre_vol} != "
+                f"rankDerivedValue={final} != "
                 f"rankDerivedValueUncalibrated={uncal}. "
-                f"Either offense calibration was re-enabled or a new "
-                f"mystery multiplier was inserted between Hill blend "
-                f"and volatility pass.",
+                f"Either offense calibration was re-enabled, or a new "
+                f"mystery multiplier was inserted after the blend.",
             )
             checked += 1
         self.assertGreater(checked, 50, "expected many offense anchors")
 
-    def test_idp_pre_vol_chain(self) -> None:
-        """IDP pre-volatility chain.
+    def test_idp_final_is_one_time_calibration_fold(self) -> None:
+        """IDP chain.
 
-        When calibration is ACTIVE (multiplier + family_scale fields
-        stamped on the row), preVolatilityValue must equal
-        uncalibrated × (bucket × family_scale), applied exactly once.
+        When calibration is active, ``rankDerivedValue`` equals
+        ``uncalibrated × (bucket × family_scale)`` applied exactly once.
 
-        When calibration is NEUTRAL (fields absent — the default test
-        env, see ``tests/conftest.py``), preVolatilityValue must equal
-        uncalibrated exactly, same as offense.
-
-        The deeper invariant — family_scale folded-once under an
-        active promoted config — is exercised separately in
-        ``tests/idp_calibration/test_family_scale_once_only.py``.
+        When calibration is neutral (fields absent), final equals
+        uncalibrated.
         """
         checked = 0
-        calibrated = 0
-        neutral = 0
         for row in self.rows:
             pos = str(row.get("position") or "").upper()
             if pos not in _IDP_POSITIONS:
                 continue
-            pre_vol = row.get("preVolatilityValue")
             uncal = row.get("rankDerivedValueUncalibrated")
-            if pre_vol is None or uncal is None:
+            final = row.get("rankDerivedValue")
+            if uncal is None or final is None:
                 continue
             bucket = row.get("idpCalibrationMultiplier")
             family = row.get("idpFamilyScale")
             if bucket is not None and family is not None:
                 expected = int(round(float(uncal) * float(bucket) * float(family)))
                 self.assertLessEqual(
-                    abs(int(pre_vol) - expected),
+                    abs(int(final) - expected),
                     2,
-                    f"{row.get('canonicalName')} IDP row (calibrated): "
-                    f"preVolatilityValue={pre_vol} "
-                    f"!= round(uncal={uncal} × bucket={bucket} × "
-                    f"family={family}) = {expected}. "
-                    f"family_scale may have been double-applied, or a "
-                    f"new IDP multiplier was introduced.",
+                    f"{row.get('canonicalName')} IDP (calibrated): "
+                    f"rankDerivedValue={final} != round("
+                    f"uncal={uncal} × bucket={bucket} × "
+                    f"family={family}) = {expected}.  family_scale may "
+                    f"have been double-applied, or a new IDP multiplier "
+                    f"was introduced.",
                 )
-                calibrated += 1
             else:
                 self.assertEqual(
-                    int(pre_vol),
+                    int(final),
                     int(uncal),
-                    f"{row.get('canonicalName')} IDP row (no "
-                    f"calibration): preVolatilityValue={pre_vol} != "
-                    f"rankDerivedValueUncalibrated={uncal}. A new IDP "
-                    f"post-pass was added between Hill blend and "
-                    f"volatility.",
+                    f"{row.get('canonicalName')} IDP (no calibration): "
+                    f"rankDerivedValue={final} != uncalibrated={uncal}. "
+                    f"A new IDP post-pass was added between Hill blend "
+                    f"and final.",
                 )
-                neutral += 1
             checked += 1
         self.assertGreater(checked, 30, "expected many IDP anchors")
-
-
-class TestVolatilityChain(unittest.TestCase):
-    """``rankDerivedValue`` must equal ``preVolatilityValue`` ± volatility.
-
-    For compression (``volatilityCompressionApplied > 0``):
-        rankDerivedValue ≈ preVolatilityValue × (1 − vol)
-    (exact to within rounding; compression is not capped, so the
-    identity is strict.)
-
-    For boost (``volatilityCompressionApplied < 0``):
-        rankDerivedValue ≤ preVolatilityValue × (1 + |vol|) + 1
-    AND rankDerivedValue ≤ _DISPLAY_SCALE_MAX
-    (the monotonicity cap plus the 9999 ceiling can clamp boosts below
-    the natural boosted value).
-
-    For unadjusted (``volatilityCompressionApplied is None``):
-        rankDerivedValue == preVolatilityValue exactly.
-    """
-
-    def setUp(self) -> None:
-        self.contract = _get()
-        if self.contract is None:
-            self.skipTest("No live data")
-        self.rows = _ranked_rows(self.contract)
-
-    def test_compression_matches_identity(self) -> None:
-        checked = 0
-        for row in self.rows:
-            vol = row.get("volatilityCompressionApplied")
-            pre_vol = row.get("preVolatilityValue")
-            final = row.get("rankDerivedValue")
-            if vol is None or pre_vol is None or final is None:
-                continue
-            if vol <= 0:
-                continue  # compression branch only
-            expected = int(round(float(pre_vol) * (1.0 - float(vol))))
-            self.assertLessEqual(
-                abs(int(final) - expected),
-                1,
-                f"{row.get('canonicalName')} compression chain broken: "
-                f"preVol={pre_vol} × (1 − {vol}) = {expected}, "
-                f"got rankDerivedValue={final}. A new post-pass may be "
-                f"mutating the value after volatility compression.",
-            )
-            checked += 1
-        self.assertGreater(
-            checked, 20, "expected many compressed rows in the live board"
-        )
-
-    def test_boost_respects_cap_and_ceiling(self) -> None:
-        checked = 0
-        for row in self.rows:
-            vol = row.get("volatilityCompressionApplied")
-            pre_vol = row.get("preVolatilityValue")
-            final = row.get("rankDerivedValue")
-            if vol is None or pre_vol is None or final is None:
-                continue
-            if vol >= 0:
-                continue  # boost branch only
-            natural_boost = int(round(float(pre_vol) * (1.0 + abs(float(vol)))))
-            # Boost may be capped by monotonicity; final must not
-            # EXCEED the natural boost (allowing +1 for rounding).
-            self.assertLessEqual(
-                int(final),
-                natural_boost + 1,
-                f"{row.get('canonicalName')} boost exceeded natural "
-                f"ceiling: pre={pre_vol}, vol={vol}, "
-                f"natural_boost={natural_boost}, final={final}. "
-                f"The volatility pass should never produce a value "
-                f"above the natural boost.",
-            )
-            self.assertLessEqual(
-                int(final),
-                _DISPLAY_SCALE_MAX,
-                f"{row.get('canonicalName')} post-boost value {final} "
-                f"exceeds display scale {_DISPLAY_SCALE_MAX}",
-            )
-            checked += 1
-        self.assertGreater(checked, 10, "expected many boosted rows")
-
-    def test_unadjusted_rows_pass_through(self) -> None:
-        checked = 0
-        for row in self.rows:
-            vol = row.get("volatilityCompressionApplied")
-            pre_vol = row.get("preVolatilityValue")
-            final = row.get("rankDerivedValue")
-            if vol is not None:
-                continue  # only unadjusted rows
-            if pre_vol is None or final is None:
-                continue
-            self.assertEqual(
-                int(final),
-                int(pre_vol),
-                f"{row.get('canonicalName')} has vol=None but "
-                f"preVolatilityValue={pre_vol} != rankDerivedValue={final}. "
-                f"The volatility pass should be a strict no-op when "
-                f"its applied fraction is None.",
-            )
-            checked += 1
-
-    def test_volatility_fraction_stays_in_bounds(self) -> None:
-        """``volatilityCompressionApplied`` must stay within the bounds
-        derived from FLOOR/CEIL constants.  A value outside this range
-        would indicate the bounds constants drifted or the strength
-        clamp broke.
-        """
-        max_compress = 1.0 - _VOLATILITY_COMPRESSION_FLOOR
-        max_boost = _VOLATILITY_COMPRESSION_CEIL - 1.0
-        for row in self.rows:
-            vol = row.get("volatilityCompressionApplied")
-            if vol is None:
-                continue
-            name = row.get("canonicalName")
-            self.assertLessEqual(
-                float(vol),
-                max_compress + 1e-9,
-                f"{name}: compression {vol} exceeds floor-derived "
-                f"max {max_compress}",
-            )
-            self.assertGreaterEqual(
-                float(vol),
-                -max_boost - 1e-9,
-                f"{name}: boost {vol} exceeds ceil-derived "
-                f"max {max_boost}",
-            )
 
 
 class TestNoSecondHillCurve(unittest.TestCase):
@@ -363,14 +263,33 @@ class TestNoSecondHillCurve(unittest.TestCase):
         top = int(offense[0]["rankDerivedValue"])
         bottom = int(offense[-1]["rankDerivedValue"])
         spread = top - bottom
-        # Single Hill curve with our constants: rank 1 ≈ 9999,
-        # rank 50 ≈ 5000.  A second curve would compress this below
-        # ~3000.  2500 is a forgiving floor — a real second-curve
-        # regression would drop it far below that.
+        # Single Hill curve with our constants: rank 1 ≈ 9999, rank 50
+        # ≈ 5000.  A second curve would compress this below ~3000.
+        # 2500 is a forgiving floor — a real second-curve regression
+        # would drop it far below that.
         self.assertGreater(
             spread,
             2500,
             f"Top-50 offense value spread collapsed to {spread} "
             f"({top}..{bottom}). A second Hill remap may have been "
-            f"introduced; investigate calibration / volatility passes.",
+            f"introduced; investigate calibration passes.",
+        )
+
+    def test_no_value_exceeds_display_scale(self) -> None:
+        """rankDerivedValue must stay within the display scale."""
+        offenders: list[tuple[str, int]] = []
+        for row in self.rows:
+            final = row.get("rankDerivedValue")
+            if final is None:
+                continue
+            try:
+                v = int(final)
+            except (TypeError, ValueError):
+                continue
+            if v > _DISPLAY_SCALE_MAX:
+                offenders.append((str(row.get("canonicalName") or ""), v))
+        self.assertFalse(
+            offenders,
+            f"Rows above _DISPLAY_SCALE_MAX={_DISPLAY_SCALE_MAX}: "
+            f"{offenders[:5]}",
         )

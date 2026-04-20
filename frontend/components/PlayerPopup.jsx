@@ -7,21 +7,15 @@ import { resolvedRank } from "@/lib/dynasty-data";
 /**
  * Build the ordered value-chain stages from a player row.
  *
- * Pipeline order (from src/api/data_contract.py phases 4a → 5):
- *   1. Blended Hill value (weighted-mean + robust-median) → stamped
- *      as ``rankDerivedValueUncalibrated``.
+ * Pipeline order (from src/api/data_contract.py Phase 3 → 4c):
+ *   1. Blended Hill value — trimmed mean-median across per-source
+ *      Hill-curve values → stamped as ``rankDerivedValueUncalibrated``.
  *   2. IDP calibration pass (family_scale × bucket multiplier) —
- *      IDP rows only; offense rows skip this stage.
- *   3. Volatility compression / boost → stamped as
- *      ``preVolatilityValue`` capture (the value at the start of the
- *      volatility iteration) and the final ``rankDerivedValue``.
- *      Monotonicity cap can pull the boosted value BELOW the input
- *      when a higher-ranked neighbor landed at a low final value —
- *      this is why Schwesinger (rank 78) ends up at 4062 despite
- *      his calibrated pre-volatility being 6591.
- *   4. Phase-5 compact resort / pick anchoring (rare) — shows up as
- *      a catch-all delta when the final value doesn't match what
- *      the volatility stage produced.
+ *      IDP rows only; offense rows skip this stage.  Output is the
+ *      final ``rankDerivedValue``.
+ *
+ * The prior volatility-compression stage was removed along with the
+ * monotonicity cap; see docs/architecture/live-value-pipeline-trace.md.
  *
  * Only stages with a meaningful delta are emitted so offense rows
  * don't render zero-op "IDP calibration ×1.00" rows.
@@ -31,22 +25,22 @@ function computeValueChain(row) {
 
   const stages = [];
 
-  // Stage 1 — blended value (output of 60/40 weighted-mean + robust-median).
+  // Stage 1 — blended value (trimmed mean-median across Hill-curve
+  // values from every contributing source).
   const blended = Number(row.rankDerivedValueUncalibrated) || null;
   if (blended !== null && blended > 0) {
     stages.push({
       key: "blend",
       label: "Blended value",
       description:
-        "Weighted-mean + robust-median across per-source Hill-curve values",
+        "Trimmed mean-median across per-source Hill-curve values",
       value: Math.round(blended),
       delta: null,
     });
   }
 
   // Stage 2 — IDP calibration (family_scale × bucket multiplier).
-  // Offense rows lack these fields and skip this stage.  Captured
-  // BEFORE the volatility pass by the ``preVolatilityValue`` snapshot.
+  // Offense rows lack these fields and skip this stage.
   const bucket =
     typeof row.idpCalibrationMultiplier === "number"
       ? row.idpCalibrationMultiplier
@@ -57,14 +51,12 @@ function computeValueChain(row) {
     typeof row.idpCalibrationPositionRank === "number"
       ? row.idpCalibrationPositionRank
       : null;
-  const calibrated = Number(row.preVolatilityValue) || null;
-  if (family !== null && bucket !== null && calibrated !== null) {
+  const finalValue = Number(row.rankDerivedValue) || 0;
+  if (family !== null && bucket !== null && finalValue > 0) {
     const combined = family * bucket;
     const prior = stages.length ? stages[stages.length - 1].value : null;
-    const delta = prior !== null ? Math.round(calibrated) - prior : null;
-    // Skip if the calibration is a clean no-op AND there's no delta
-    // (some rows get the multiplier applied but still round-trip
-    // to the same integer).
+    const delta = prior !== null ? Math.round(finalValue) - prior : null;
+    // Skip if the calibration is a clean no-op AND there's no delta.
     if (!(Math.abs(combined - 1.0) < 1e-9 && (delta === null || delta === 0))) {
       const posLabel =
         posRank && row.pos ? ` (${row.pos}${posRank})` : "";
@@ -72,46 +64,6 @@ function computeValueChain(row) {
         key: "idp-calibration",
         label: `IDP calibration: ×${combined.toFixed(2)}`,
         description: `Family scale ×${family.toFixed(2)} × bucket multiplier ×${bucket.toFixed(2)}${posLabel}`,
-        value: Math.round(calibrated),
-        delta,
-      });
-    }
-  }
-
-  // Stage 3 — volatility compression / boost / cap.  The
-  // ``volatilityCompressionApplied`` fraction captures the raw
-  // boost/compress signal from source agreement; the actual delta
-  // can be different because the monotonicity cap may bind.
-  const volFrac =
-    typeof row.volatilityCompressionApplied === "number"
-      ? row.volatilityCompressionApplied
-      : null;
-  const finalValue = Number(row.rankDerivedValue) || 0;
-  if (finalValue > 0) {
-    const prior = stages.length ? stages[stages.length - 1].value : null;
-    const delta = prior !== null ? Math.round(finalValue) - prior : null;
-    if (delta !== null && delta !== 0) {
-      let label;
-      let description;
-      if (volFrac === null || volFrac === 0) {
-        label = "Post-volatility adjustment";
-        description =
-          "Monotonicity cap or Phase-5 compact resort produced a value shift";
-      } else if (volFrac < 0) {
-        label = `Volatility: boost ${(Math.abs(volFrac) * 100).toFixed(1)}%`;
-        description =
-          delta < 0
-            ? "High source agreement (theoretical boost), but monotonicity cap pulled the value below a higher-ranked neighbour"
-            : "High source agreement → multiplicative lift (capped by display ceiling and monotonicity step)";
-      } else {
-        label = `Volatility: compress ${(volFrac * 100).toFixed(1)}%`;
-        description =
-          "Source disagreement → value pulled toward the mean to down-weight noisy players";
-      }
-      stages.push({
-        key: "volatility",
-        label,
-        description,
         value: Math.round(finalValue),
         delta,
       });
