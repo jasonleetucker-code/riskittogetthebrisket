@@ -3454,6 +3454,19 @@ def _apply_volatility_compression_post_pass(
             else None
         )
 
+        # Snapshot the pre-volatility value before any
+        # compression/boost arithmetic mutates it.  This is what the
+        # row held after the 60/40 weighted-mean / robust-median
+        # blend but BEFORE the volatility pass touched it — used by
+        # the PlayerPopup value-chain display so users can see each
+        # stage of the value derivation individually.  We also mirror
+        # into the legacy ``players_by_name`` dict so frontend rows
+        # that read from either contract shape can see it.
+        pre_vol_value = int(row.get("rankDerivedValue") or 0)
+        row["preVolatilityValue"] = pre_vol_value
+        if isinstance(pdata, dict):
+            pdata["preVolatilityValue"] = pre_vol_value
+
         # Pull the blended source rank (mean of effective per-source
         # ranks) stamped in Phase 4a.  Falls back to canonical rank
         # if the row is missing a blend (single-source rows, picks).
@@ -4696,12 +4709,23 @@ def _compute_unified_rankings(
     # passes so offense rows get a snapshot too (they're re-ranked
     # globally even though offense calibration's multipliers are all
     # 1.0; the cross-family scale still reshuffles the merged board).
+    # Mirror into the legacy players_by_name dict as well so the
+    # frontend row-builder (which reads player.rankDerivedValueUncalibrated)
+    # can render the value-chain panel.
     for row in players_array:
         rank = row.get("canonicalConsensusRank")
         if rank is None or rank <= 0:
             continue
-        row["canonicalConsensusRankUncalibrated"] = int(rank)
-        row["rankDerivedValueUncalibrated"] = int(row.get("rankDerivedValue") or 0)
+        snapshot_rank = int(rank)
+        snapshot_val = int(row.get("rankDerivedValue") or 0)
+        row["canonicalConsensusRankUncalibrated"] = snapshot_rank
+        row["rankDerivedValueUncalibrated"] = snapshot_val
+        legacy_ref = row.get("legacyRef")
+        if legacy_ref and legacy_ref in players_by_name:
+            pdata = players_by_name[legacy_ref]
+            if isinstance(pdata, dict):
+                pdata["canonicalConsensusRankUncalibrated"] = snapshot_rank
+                pdata["rankDerivedValueUncalibrated"] = snapshot_val
 
     _apply_idp_calibration_post_pass(players_array, players_by_name)
     # Offense calibration deliberately not applied to live values.

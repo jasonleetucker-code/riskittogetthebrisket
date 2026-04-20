@@ -778,6 +778,26 @@ function _materializePlayerArrayRow(player) {
     sourceRankMeta: backendSourceRankMeta,
     blendedSourceRank: backendBlendedSourceRank,
     sourceCount: backendSourceCount,
+    // Value-chain audit fields — exposed so the PlayerPopup can show
+    // each pipeline stage (blend → volatility → calibration) as a
+    // transparent sequence rather than a single opaque final number.
+    preVolatilityValue: Number(player.preVolatilityValue) || null,
+    volatilityCompressionApplied:
+      typeof player.volatilityCompressionApplied === "number"
+        ? player.volatilityCompressionApplied
+        : null,
+    idpCalibrationMultiplier:
+      typeof player.idpCalibrationMultiplier === "number"
+        ? player.idpCalibrationMultiplier
+        : null,
+    idpFamilyScale:
+      typeof player.idpFamilyScale === "number" ? player.idpFamilyScale : null,
+    idpCalibrationPositionRank:
+      Number(player.idpCalibrationPositionRank) || null,
+    sourceRankPercentileSpread:
+      typeof player.sourceRankPercentileSpread === "number"
+        ? player.sourceRankPercentileSpread
+        : null,
     // Trust/transparency fields — pass through from backend contract.
     confidenceBucket: String(player.confidenceBucket || "none"),
     confidenceLabel: String(player.confidenceLabel || ""),
