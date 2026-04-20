@@ -1687,6 +1687,7 @@ def _summarize_source_overrides(
     tep_multiplier: float = 1.0,
     tep_multiplier_derived: float = 1.0,
     tep_multiplier_source: str = "default",
+    tep_native_correction: float = 1.0,
 ) -> dict[str, Any]:
     """Produce the ``rankingsOverride`` contract summary block.
 
@@ -1781,6 +1782,15 @@ def _summarize_source_overrides(
     if abs(tep_eff - tep_derived) > 1e-6:
         is_customized = True
 
+    # Clamp the TEP-native correction for display purposes only; the
+    # pipeline already consumed it as-is during the blend.
+    try:
+        tep_native_corr = float(tep_native_correction)
+    except (TypeError, ValueError):
+        tep_native_corr = 1.0
+    if not math.isfinite(tep_native_corr):
+        tep_native_corr = 1.0
+
     return {
         "isCustomized": is_customized,
         "enabledSources": enabled_sources,
@@ -1791,6 +1801,7 @@ def _summarize_source_overrides(
         "tepMultiplierDefault": round(tep_derived, 4),
         "tepMultiplierDerived": round(tep_derived, 4),
         "tepMultiplierSource": str(tep_multiplier_source or "default"),
+        "tepNativeCorrection": round(tep_native_corr, 4),
     }
 
 
@@ -3839,6 +3850,39 @@ _TEP_DERIVATION_SLOPE = 0.30
 _TEP_DERIVED_CLAMP_MIN = 1.0
 _TEP_DERIVED_CLAMP_MAX = 2.0
 
+# TEP-native source correction.
+#
+# TEP-native sources (Dynasty Nerds SF-TEP, Yahoo/Justin Boone SF-TEP)
+# already bake a TE-premium boost into their raw rankings.  The
+# non-TEP sources in the blend are value-corrected via
+# ``tep_multiplier`` so their TE contributions match the league's
+# actual scoring.  TEP-native sources were historically untouched,
+# which is correct when the league matches the industry-standard
+# TEP-1.5 assumption (``bonus_rec_te == 0.5`` → native multiplier
+# 1.15).  But in a non-TEP league — or any league whose ``bonus_rec_te``
+# diverges from 0.5 — TEP-native sources silently bias TE rankings
+# in the opposite direction:
+#
+#   * Non-TEP league (bonus 0.0): native 1.15 baked in; league wants
+#     1.00.  TEP-native sources over-price TEs by ~15%.
+#   * Operator's league (bonus 0.31): native 1.15; league wants 1.093.
+#     TEP-native sources over-price TEs by ~5%.
+#   * Heavy-TEP league (bonus 1.0): native 1.15; league wants 1.30.
+#     TEP-native sources UNDER-price TEs by ~13%.
+#
+# The correction factor ``tep_native_correction = tep_multiplier_effective
+# / _TEP_NATIVE_ASSUMED_MULTIPLIER`` is applied to TEP-native source
+# contributions for TE rows only, symmetric to the tep_multiplier
+# applied to non-TEP sources.  Together they normalize every source
+# to the league's actual TEP before the blend.
+#
+# The 1.15 assumption is the industry standard for "TEP-1.5" — the
+# shape most TEP boards publish by default.  If a source's actual
+# bake is known to differ (e.g. a hypothetical TEP-2.0 native board),
+# the per-source registry entry could override this, but today we
+# have no such source so a single module-level constant suffices.
+_TEP_NATIVE_ASSUMED_MULTIPLIER: float = 1.15
+
 # Cached Sleeper league context.  Populated on first call via the
 # Sleeper /v1/league/{id} endpoint using ``SLEEPER_LEAGUE_ID`` from
 # the env.  Stores the full resolved payload (roster count, TE-bonus,
@@ -4168,6 +4212,7 @@ def _compute_unified_rankings(
     *,
     source_overrides: dict[str, dict[str, Any]] | None = None,
     tep_multiplier: float = 1.0,
+    tep_native_correction: float = 1.0,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -4199,22 +4244,35 @@ def _compute_unified_rankings(
     When None / empty the pipeline is byte-for-byte identical to the
     default canonical run.
 
-    TE Premium (``tep_multiplier``)
-    ───────────────────────────────
-    League-wide TE premium boost for tight ends.  Applied as a
-    value-level multiplier during the Phase 2-3 blend: for any row
-    with ``position == "TE"``, each per-source rank-derived value
-    from a source flagged ``is_tep_premium=False`` is multiplied
-    by ``tep_multiplier`` before it enters the weighted-mean /
-    robust-median combine.  TEP-native sources (currently just
-    ``dynastyNerdsSfTep``) pass through unchanged, so we never
-    double-boost a TE whose source already bakes in TE premium.
-    Non-TE positions are untouched.
+    TE Premium (``tep_multiplier`` + ``tep_native_correction``)
+    ───────────────────────────────────────────────────────────
+    League-wide TE premium normalization.  Applied as value-level
+    multipliers during the Phase 2-3 blend to TE rows ONLY, in two
+    symmetric passes:
 
-    Expected range is ``[1.0, 2.0]``; values outside that range are
-    clamped.  ``1.0`` is a no-op (byte-for-byte identical to the
-    pre-TEP behavior).  The canonical default is ``1.0``; the
-    frontend's ``settings.tepMultiplier`` defaults to ``1.15``.
+      * Sources flagged ``is_tep_premium=False`` (KTC, DLF, FantasyPros,
+        etc.) have their raw TE values multiplied by
+        ``tep_multiplier``.  These sources price TEs for a standard
+        league; the multiplier boosts them to the league's actual TEP.
+      * Sources flagged ``is_tep_premium=True`` (Dynasty Nerds SF-TEP,
+        Yahoo/Boone SF-TEP) have their raw TE values multiplied by
+        ``tep_native_correction``.  These sources bake in a fixed
+        industry-standard TEP bonus (assumed 1.15); the correction
+        re-normalizes them to the league's actual TEP.
+
+    The correction factor is the ratio
+    ``tep_multiplier / _TEP_NATIVE_ASSUMED_MULTIPLIER``.  At
+    ``tep_multiplier == 1.15`` (standard TEP-1.5), correction is
+    ``1.0`` and TEP-native sources pass through unchanged — the
+    pre-correction behavior.  For non-TEP leagues (tep_multiplier
+    1.0) the correction drops TEP-native values ~13%, undoing their
+    baked-in assumption.  For heavy-TEP leagues (tep_multiplier 1.30)
+    the correction lifts them ~13%.
+
+    Non-TE positions are untouched by either multiplier.  Expected
+    range for ``tep_multiplier`` is ``[1.0, 2.0]``; ``1.0`` is a
+    no-op for non-TEP sources but still triggers the correction
+    (drops TEP-native values to match).
 
     Stamps onto each row:
       - sourceRanks:  dict[str, int] — effective rank per source (the
@@ -4523,15 +4581,23 @@ def _compute_unified_rankings(
     # Look up each source's weight / depth once.
     src_by_key: dict[str, dict[str, Any]] = {s["key"]: s for s in active_sources}
 
-    # Cache which source keys are NOT TEP-native, so TEs get a value-
-    # level boost from those sources while the TEP-native sources
-    # (today: dynastyNerdsSfTep) pass through unchanged.  Reading
-    # `is_tep_premium` off the registry once avoids per-player dict
-    # lookups in the hot blend loop.
+    # Cache which source keys are NOT TEP-native (non-TEP sources) and
+    # which ARE TEP-native.  Both get a value-level correction on TE
+    # rows during the Phase 2-3 blend, but with different multipliers:
+    # non-TEP sources get boosted by ``tep_multiplier`` to the league
+    # TEP; TEP-native sources get corrected by ``tep_native_correction``
+    # away from their baked-in industry-standard 1.15 toward the
+    # league's actual TEP.  Reading ``is_tep_premium`` off the
+    # registry once avoids per-player dict lookups in the hot blend loop.
     tep_boosted_source_keys: set[str] = {
         str(s.get("key") or "")
         for s in active_sources
         if not bool(s.get("is_tep_premium"))
+    }
+    tep_native_source_keys: set[str] = {
+        str(s.get("key") or "")
+        for s in active_sources
+        if bool(s.get("is_tep_premium"))
     }
 
     row_normalized: list[tuple[float, int]] = []  # (blended_value, row_idx)
@@ -4558,6 +4624,16 @@ def _compute_unified_rankings(
             row_is_te
             and tep_multiplier_effective > 1.0
         )
+        # Apply TEP-native correction whenever it's not effectively 1.0.
+        # Unlike the non-TEP boost, the correction can be < 1.0 (non-TEP
+        # league dropping TEP-native values) or > 1.0 (heavy-TEP league
+        # lifting them).  Short-circuit when it's essentially 1.0 so the
+        # byte-for-byte pre-correction behavior is preserved on
+        # standard TEP-1.5 leagues (where the correction cancels to 1).
+        apply_tep_native_correction = (
+            row_is_te
+            and abs(tep_native_correction - 1.0) > 1e-6
+        )
         if row_pos in _IDP_POSITIONS:
             hill_midpoint, hill_slope = IDP_HILL_MIDPOINT, IDP_HILL_SLOPE
         else:
@@ -4570,9 +4646,19 @@ def _compute_unified_rankings(
                 rank_to_value(eff_rank, midpoint=hill_midpoint, slope=hill_slope)
             )
             tep_applied = False
+            tep_native_corrected = False
             if apply_tep and source_key in tep_boosted_source_keys:
                 value *= tep_multiplier_effective
                 tep_applied = True
+            elif (
+                apply_tep_native_correction
+                and source_key in tep_native_source_keys
+            ):
+                # TEP-native source in a league whose scoring differs from
+                # the industry-standard 1.15 bake-in: rescale the TE
+                # contribution to the league's actual TEP.
+                value *= tep_native_correction
+                tep_native_corrected = True
             contributions.append((value, effective_weight))
             weight_total += effective_weight
             # Stamp value contribution onto per-source meta (for debugging)
@@ -4582,6 +4668,9 @@ def _compute_unified_rankings(
             if tep_applied:
                 meta["tepBoostApplied"] = True
                 meta["tepMultiplier"] = round(tep_multiplier_effective, 4)
+            if tep_native_corrected:
+                meta["tepNativeCorrectionApplied"] = True
+                meta["tepNativeCorrection"] = round(tep_native_correction, 4)
 
         if not contributions:
             blended_value = 0.0
@@ -5539,6 +5628,21 @@ def build_api_data_contract(
                     min(_TEP_DERIVED_CLAMP_MAX, tep_multiplier_effective),
                 )
                 tep_multiplier_source = "explicit"
+
+    # Correction factor applied to TEP-native sources' TE contributions
+    # so their baked-in (assumed 1.15) boost is re-normalized to the
+    # league's actual TEP.  At tep_multiplier_effective == 1.15 this is
+    # a no-op (1.0), so standard TEP-1.5 leagues see byte-for-byte the
+    # old behavior.  For non-TEP / off-standard leagues this drops or
+    # lifts the TEP-native TE contributions symmetrically to the
+    # tep_multiplier that boosts non-TEP sources.
+    if _TEP_NATIVE_ASSUMED_MULTIPLIER > 0:
+        tep_native_correction = (
+            tep_multiplier_effective / _TEP_NATIVE_ASSUMED_MULTIPLIER
+        )
+    else:
+        tep_native_correction = 1.0
+
     # Two-level copy of raw_payload: shallow at the top, one-deep for
     # the ``players`` dict so per-player mutations stay isolated.  Full
     # ``deepcopy`` of a 3MB payload was 70+ms per call; this lands at
@@ -5634,6 +5738,7 @@ def build_api_data_contract(
         csv_index=csv_index,
         source_overrides=source_overrides,
         tep_multiplier=tep_multiplier_effective,
+        tep_native_correction=tep_native_correction,
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
@@ -5815,6 +5920,7 @@ def build_api_data_contract(
         tep_multiplier=tep_multiplier_effective,
         tep_multiplier_derived=tep_multiplier_derived,
         tep_multiplier_source=tep_multiplier_source,
+        tep_native_correction=tep_native_correction,
     )
 
     contract_payload: dict[str, Any] = {

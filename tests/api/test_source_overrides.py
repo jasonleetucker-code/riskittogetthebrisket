@@ -1041,18 +1041,28 @@ class TestTepMultiplier(unittest.TestCase):
             )
 
     def test_tep_boost_does_not_touch_non_te_values(self) -> None:
-        """Non-TE players must be unaffected by tep_multiplier.
+        """Non-TE players must be unaffected by tep_multiplier at the
+        per-source contribution level, but may see small display-
+        value drift from cascading monotonicity-cap effects.
 
         The volatility-compression pass includes a monotonicity-
         preserving ceiling at the top of the board (rank 1 ≤ 9999,
         rank 2 ≤ 9998, rank 3 ≤ 9997, ...) to prevent multiple
-        high-agreement boosted players from collapsing onto a
-        single 9999 plateau.  When the TEP slider moves a TE above
-        a QB in rank, the QB's ceiling can tighten by a handful of
-        points because its rank has shifted — the player's source
-        inputs are unchanged, but the ranking neighbourhood is.
-        We allow a small ±5 tolerance here for rows whose rank
-        shifted and strict equality otherwise.
+        high-agreement boosted players from collapsing onto a single
+        9999 plateau.  When the TEP slider moves a TE above a QB in
+        rank, the QB's ceiling can tighten by a handful of points
+        because its rank has shifted — the player's source inputs
+        are unchanged, but the ranking neighbourhood is.
+
+        As of the TEP-native correction landing, the cascading also
+        fires in the "tep went from 1.0 to 1.15" direction even when
+        no rank shifts occur: at tep=1.0 the correction drops TEP-
+        native TE contributions by ~13%; at tep=1.15 it passes them
+        through.  The resulting TE-value shift nudges adjacent non-TE
+        rows through the volatility-compression boost term even when
+        their own rank is stable.  We therefore allow a small (≤ 200
+        pts) drift for non-rank-shift rows and the larger cap-scaled
+        drift for rows whose rank did move.
         """
         boosted = build_api_data_contract(
             _fixture_raw_payload(), tep_multiplier=1.15
@@ -1087,10 +1097,19 @@ class TestTepMultiplier(unittest.TestCase):
                     ),
                 )
             else:
-                self.assertEqual(
-                    base_val, boost_val,
-                    f"Non-TE {name} ({pos}) changed under TEP boost with "
-                    f"no rank shift: {base_val} -> {boost_val}",
+                # No rank shift — drift should be bounded by the
+                # volatility-boost envelope.  The boost term maxes
+                # around ±8% of value for a single rank-neighbor
+                # shift, and most non-TE drift seen here is <2%.
+                # A 200-pt budget is a generous cap that still
+                # catches runaway regressions.
+                self.assertAlmostEqual(
+                    base_val, boost_val, delta=200,
+                    msg=(
+                        f"Non-TE {name} ({pos}) drifted > 200 pts under "
+                        f"TEP boost with no rank shift: "
+                        f"{base_val} -> {boost_val}"
+                    ),
                 )
 
     def test_brock_bowers_mostly_proportional_boost(self) -> None:
@@ -1122,19 +1141,25 @@ class TestTepMultiplier(unittest.TestCase):
         # blend where 3 of 4 contributions get multiplied by 1.15).
         self.assertGreater(boost_value / base_value, 1.01)
 
-    def test_tep_native_only_coverage_is_not_boosted(self) -> None:
-        """When the only TE source is TEP-native, no boost is applied.
+    def test_tep_native_only_coverage_gets_correction_not_boost(self) -> None:
+        """TEP-native-only TEs re-normalize to the league's actual TEP.
 
-        Bowers gets synthetic ranks for sources that don't carry a
-        value for him in the fixture (e.g. the split-offense
-        ``draftSharks``), so the override must also disable those
-        non-TEP-native sources for the premise to hold.  Without
-        that disable, ``draftSharks`` would contribute a TEP-
-        boosted value and the post-volatility Bowers value would
-        shift between base and boost scenarios (previously hidden
-        by the volatility-compression clamp collapsing both to
-        9999; the clamp no longer collapses ranks after the
-        monotonicity cap was added).
+        Previously this test asserted that TEP-native-only coverage
+        was completely unaffected by the tep_multiplier slider.  That
+        codified a subtle bug: TEP-native sources bake in an assumed
+        1.15 boost, so a league whose actual TEP is 1.0 (non-TEP)
+        silently over-priced TEs from those sources by ~13%.
+
+        The TEP-native correction fixes that: at tep_multiplier=1.0
+        the TEP-native contribution is DOWN-corrected (value × 1/1.15
+        ≈ 0.87); at tep_multiplier=1.15 the correction cancels to
+        1.0 and values pass through unchanged.  The slider therefore
+        DOES move TEP-native-only Bowers — correctly, because we're
+        re-normalizing to the league rather than boosting.
+
+        Specifically: base (tep=1.0) < boosted (tep=1.15) for a
+        TEP-native-only TE, with the ratio near the 1.15 cancellation
+        point.
         """
         override = {
             "ktc": {"include": False},
@@ -1160,10 +1185,72 @@ class TestTepMultiplier(unittest.TestCase):
         boost_bowers = _by_name(boosted).get("Brock Bowers")
         self.assertIsNotNone(base_bowers)
         self.assertIsNotNone(boost_bowers)
-        self.assertEqual(
-            base_bowers.get("rankDerivedValue"),
-            boost_bowers.get("rankDerivedValue"),
-            "TEP-native-only coverage should not be boosted by the global TEP slider",
+        base_val = int(base_bowers.get("rankDerivedValue") or 0)
+        boost_val = int(boost_bowers.get("rankDerivedValue") or 0)
+        # Moving the slider from 1.0 to 1.15 should LIFT a TEP-native-only
+        # TE because the correction cancels out at 1.15 but dropped it at 1.0.
+        self.assertGreater(
+            boost_val, base_val,
+            msg=(
+                "TEP-native-only coverage should re-normalize toward the "
+                f"league's actual TEP: base={base_val}, boost={boost_val}"
+            ),
+        )
+
+    def test_tep_native_correction_cancels_at_standard_tep(self) -> None:
+        """At tep_multiplier=1.15 the correction is a no-op (1.0).
+
+        The assumed TEP-native baseline is 1.15 (industry standard
+        TEP-1.5), so passing tep_multiplier=1.15 as the league TEP
+        means the correction ratio equals 1.0 and TEP-native sources
+        pass through unchanged — matching the pre-correction
+        behavior on standard-TEP leagues.
+        """
+        import src.api.data_contract as dc
+
+        contract = build_api_data_contract(
+            _fixture_raw_payload(), tep_multiplier=1.15
+        )
+        rov = contract.get("rankingsOverride") or {}
+        # The ratio 1.15 / _TEP_NATIVE_ASSUMED_MULTIPLIER (1.15) == 1.0
+        # by construction; the summary should surface exactly that.
+        self.assertAlmostEqual(
+            float(rov.get("tepNativeCorrection") or 0), 1.0, places=4
+        )
+
+    def test_tep_native_correction_drops_in_non_tep_league(self) -> None:
+        """At tep_multiplier=1.0 the correction drops TEP-native values.
+
+        Non-TEP leagues want the league's actual TEP to land at 1.0
+        across the board, so the TEP-native sources' baked-in 1.15
+        boost needs to be REMOVED.  Correction ratio: 1.0 / 1.15 ≈
+        0.8696.
+        """
+        contract = build_api_data_contract(
+            _fixture_raw_payload(), tep_multiplier=1.0
+        )
+        rov = contract.get("rankingsOverride") or {}
+        self.assertAlmostEqual(
+            float(rov.get("tepNativeCorrection") or 0),
+            1.0 / 1.15,
+            places=4,
+        )
+
+    def test_tep_native_correction_lifts_in_heavy_tep_league(self) -> None:
+        """At tep_multiplier=1.30 the correction lifts TEP-native values.
+
+        Heavy-TEP leagues (bonus_rec_te=1.0 → derived 1.30) want more
+        TE premium than the industry standard 1.15 baked in.  The
+        correction lifts TEP-native contributions: 1.30 / 1.15 ≈ 1.1304.
+        """
+        contract = build_api_data_contract(
+            _fixture_raw_payload(), tep_multiplier=1.30
+        )
+        rov = contract.get("rankingsOverride") or {}
+        self.assertAlmostEqual(
+            float(rov.get("tepNativeCorrection") or 0),
+            1.30 / 1.15,
+            places=4,
         )
 
     def test_tep_native_disabled_full_non_native_boost(self) -> None:
