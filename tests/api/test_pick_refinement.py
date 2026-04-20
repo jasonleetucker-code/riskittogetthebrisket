@@ -312,6 +312,7 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
     """
 
     _ANCHORS: dict[str, dict[str, Any]] = {
+        # ── Offense anchors ──
         "Josh Allen":       {"max_rank": 20, "min_value": 6000, "allowed_buckets": ("high",)},
         "Drake Maye":       {"max_rank": 20, "min_value": 6000, "allowed_buckets": ("high",)},
         "Ja'Marr Chase":    {"max_rank": 15, "min_value": 7000, "allowed_buckets": ("high",)},
@@ -322,6 +323,20 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
         "Malik Nabers":     {"max_rank": 30, "min_value": 5000, "allowed_buckets": ("high", "medium")},
         "Brock Bowers":     {"max_rank": 40, "min_value": 5000, "allowed_buckets": ("high", "medium")},
         "Patrick Mahomes":  {"max_rank": 50, "min_value": 4000, "allowed_buckets": ("high", "medium")},
+        # ── IDP anchors ──
+        # IDP rows sit deeper in the unified board (smaller pool, later
+        # calibration) and their confidence buckets lean "low" because
+        # the IDP source pool is narrower.  Bands are proportionally
+        # more generous to absorb normal drift.  A regression that
+        # collapses IDP value pricing (e.g. a calibration bug, shared-
+        # market ladder breakage, IDPTC backbone failure) will trip
+        # these.
+        "Myles Garrett":    {"max_rank": 90,  "min_value": 3500, "allowed_buckets": ("low", "medium", "high")},
+        "Will Anderson":    {"max_rank": 90,  "min_value": 3500, "allowed_buckets": ("low", "medium", "high")},
+        "Micah Parsons":    {"max_rank": 90,  "min_value": 3500, "allowed_buckets": ("low", "medium", "high")},
+        "Fred Warner":      {"max_rank": 90,  "min_value": 3200, "allowed_buckets": ("low", "medium", "high")},
+        "Roquan Smith":     {"max_rank": 100, "min_value": 3000, "allowed_buckets": ("low", "medium", "high")},
+        "Kyle Hamilton":    {"max_rank": 180, "min_value": 2200, "allowed_buckets": ("low", "medium", "high")},
     }
 
     def setUp(self) -> None:
