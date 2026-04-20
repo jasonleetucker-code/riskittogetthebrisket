@@ -720,15 +720,16 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # correct default.
         "weight": 2.0,
         "is_backbone": True,
-        # Final Framework step 7: IDPTC is the global offense+defense
-        # anchor.  Its dual-scope coverage (offense via extra_scopes +
-        # IDP backbone) makes it the only source that prices both
-        # universes on a common combined-pool scale, which is what the
-        # framework wants for the universal baseline.  All other
-        # sources are treated as subgroup adjustments against this
-        # anchor.  See the hierarchical-blend logic in
-        # ``_compute_unified_rankings``.
-        "is_anchor": True,
+        # Cross-market anchor source (2026-04-20): IDPTC prices both
+        # offense and IDP on a single combined-pool scale, so its
+        # per-player value is a direct cross-market signal.  Along
+        # with DraftSharks (via combined rank pre-pass) and
+        # FootballGuys (via the scraper's preserved combined rank),
+        # IDPTC contributes to the anchor value on IDP + pick rows;
+        # ``anchor_value`` = mean of every ``is_cross_market=True``
+        # source's contribution.  See the blend loop in
+        # ``_compute_unified_rankings`` for the exact math.
+        "is_cross_market": True,
         # IDPTradeCalc's offense autocomplete is a standard SF board,
         # not TE-premium.  The frontend TEP boost applies.
         "is_tep_premium": False,
@@ -958,18 +959,20 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
     },
     {
         # FootballGuys Dynasty Rankings — offense half (QB/RB/WR/TE).
-        # Parsed from the user-managed
-        # ``Fantasy Football Dynasty Rankings - Footballguys.pdf``
-        # via ``scripts/parse_footballguys_pdf.py``.  6-expert
-        # consensus.  Standard Superflex — the frontend TEP slider
-        # boosts its contribution on TE-position players.
+        # Scraped from ``www.footballguys.com/rankings/duration/dynasty``
+        # via ``scripts/fetch_footballguys.py`` using the authenticated
+        # league-synced view (``leagueid=16023``).  FBG natively
+        # publishes offense + IDP on ONE combined consensus rank, and
+        # the scraper preserves that cross-market rank in both this
+        # CSV and the IDP sibling below — so FBG SF rank 1 is Josh
+        # Allen (overall #1) while FBG IDP rank 19 is Jack Campbell
+        # (first IDP, overall #19).  6-expert offense consensus.
         "key": "footballGuysSf",
         "display_name": "FootballGuys Dynasty SF",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
-        # Parser typically produces ~540 offensive rows; depth=500 so
-        # ``_expected_sources_for_position`` stops expecting FBG
-        # coverage past rank ~625 (depth * 1.25).
+        # Scraper typically produces ~560 offensive rows; depth=500
+        # for ``_expected_sources_for_position`` coverage expectations.
         "depth": 500,
         "weight": 1.0,
         "is_backbone": False,
@@ -977,13 +980,22 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_tep_premium": False,
         "needs_shared_market_translation": False,
         "excludes_rookies": False,
+        # Contributes to the multi-source cross-market anchor.  FBG
+        # differs from DraftSharks mechanically: FBG's CSV already
+        # carries the cross-market rank (no pre-pass needed), so the
+        # ``effective_rank`` stamped in Phase 1 is the combined rank
+        # directly.  ``_curve_for_source`` routes this through the
+        # GLOBAL Hill master via the ``is_cross_market`` flag.
+        "is_cross_market": True,
     },
     {
-        # FootballGuys Dynasty Rankings — IDP half (DE/DT/LB/CB/S).
-        # 3-expert IDP consensus; translates through the shared-market
-        # IDP ladder, same as dlfIdp / fantasyProsIdp.  Parser yields
-        # ~400 IDP rows — deeper than DLF IDP (185) or FP IDP (100).
-        # Includes rookie IDP prospects so ``excludes_rookies=False``.
+        # FootballGuys Dynasty Rankings — IDP half (DL/LB/DB).  Same
+        # scrape as ``footballGuysSf`` but filtered to IDP rows.  3-
+        # expert IDP consensus on FBG's platform; ~440 IDP rows in
+        # the current snapshot.  Every row's ``rank`` column is the
+        # cross-market combined rank (e.g. Jack Campbell rank 19), so
+        # no shared-market translation is needed — the combined rank
+        # already puts FBG's IDPs on the offense+IDP ladder.
         "key": "footballGuysIdp",
         "display_name": "FootballGuys Dynasty IDP",
         "scope": SOURCE_SCOPE_OVERALL_IDP,
@@ -992,8 +1004,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "weight": 1.0,
         "is_backbone": False,
         "is_retail": False,
-        "needs_shared_market_translation": True,
+        # Combined-rank CSV makes shared-market translation redundant;
+        # disabling it prevents the IDP backbone re-mapping from
+        # overwriting FBG's native cross-market rank.
+        "needs_shared_market_translation": False,
         "excludes_rookies": False,
+        "is_cross_market": True,
     },
     {
         # Yahoo / Justin Boone Dynasty Trade Value Charts — monthly
@@ -1117,6 +1133,10 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # (roughly half the CSV) by sorting them to the tail of the
         # combined ladder where the Hill tail produces low values.
         "ds_combined_rank_partner": "draftSharksIdp",
+        # Contributes to the multi-source cross-market anchor
+        # (alongside IDPTC and FootballGuys).  See IDPTC entry above
+        # for the blend math.
+        "is_cross_market": True,
     },
     {
         # DraftSharks IDP dynasty board (DL/LB/DB).  Mirror of the
@@ -1144,6 +1164,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # single cross-market rank list that feeds the GLOBAL Hill
         # master.
         "ds_combined_rank_partner": "draftSharks",
+        "is_cross_market": True,
     },
 ]
 
@@ -1253,6 +1274,24 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     "aj haulcy": "rookie_source_gap:idpTradeCalc+footballGuysIdp — 2026 DB rookie only ranked by DLF Rookie IDP",
     "shavon revel": "source_gap:idpTradeCalc+dlfIdp+fantasyProsIdp+footballGuysIdp — 2026 DB rookie only ranked by DraftSharks",
     "kamari ramsey": "rookie_source_gap:idpTradeCalc+draftSharksIdp+footballGuysIdp — 2026 DB rookie only ranked by DLF Rookie IDP",
+    # ── Deep-board FootballGuys-only coverage (2026-04-20 scraper
+    # upgrade).  FBG's combined cross-market ordering pulled these
+    # deep-roster DBs / veteran DL / fringe RBs+WRs into the top-400
+    # board; they're genuine FBG-only picks that every other source
+    # either ranks outside its published depth or has dropped. ──
+    "dane belton": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — deep veteran DB only ranked by FootballGuys",
+    "daron bland": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — veteran CB only ranked by FootballGuys IDP",
+    "dee alford": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — deep nickel CB only ranked by FootballGuys IDP",
+    "emmanuel henderson": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds+fantasyPros+flock — deep WR only ranked by FootballGuys SF",
+    "isaiah pola mao": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — veteran safety only ranked by FootballGuys IDP",
+    "jadeveon clowney": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — veteran DL only ranked by FootballGuys IDP",
+    "jamel dean": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — veteran CB only ranked by FootballGuys IDP",
+    "jaylen watson": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — veteran CB only ranked by FootballGuys IDP",
+    "kentrel bullock": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds — deep RB only ranked by FootballGuys SF",
+    "nahshon wright": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — deep CB only ranked by FootballGuys IDP",
+    "upton stout": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — deep CB only ranked by FootballGuys IDP",
+    "zavion thomas": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds — deep WR only ranked by FootballGuys SF",
+    "zyon mccollum": "source_gap:idpTradeCalc+draftSharksIdp+dlfIdp — veteran CB only ranked by FootballGuys IDP",
 }
 
 
@@ -4187,11 +4226,11 @@ def _compute_unified_rankings(
     #   scope=overall_idp                → IDP master
     #   everything else (offense, picks) → OFFENSE master
     def _curve_for_source(src_def: dict) -> tuple[float, float]:
-        # The anchor (IDPTC) and DraftSharks' combined offense+IDP
-        # rank both price players on ONE cross-market scale, so both
-        # use the GLOBAL Hill master that was fit off IDPTC's native
-        # combined pool.
-        if src_def.get("is_anchor") or src_def.get("ds_combined_rank_partner"):
+        # Cross-market sources (IDPTC, DraftSharks SF/IDP, FootballGuys
+        # SF/IDP) price players on ONE combined offense+IDP scale, so
+        # they all use the GLOBAL Hill master that was fit off IDPTC's
+        # native combined pool.
+        if src_def.get("is_cross_market"):
             return HILL_GLOBAL_PERCENTILE_C, HILL_GLOBAL_PERCENTILE_S
         if src_def.get("needs_rookie_translation"):
             return HILL_ROOKIE_PERCENTILE_C, HILL_ROOKIE_PERCENTILE_S
@@ -4542,16 +4581,24 @@ def _compute_unified_rankings(
         if bool(s.get("is_tep_premium"))
     }
 
-    # Identify the anchor source (Final Framework step 7).  Currently
-    # IDPTC is the only source with ``is_anchor=True`` — its dual-scope
-    # coverage lets it price both offense and IDP on a single combined
-    # scale, which is what the framework wants for the universal
-    # baseline.
-    anchor_key: str | None = None
-    for s in active_sources:
-        if s.get("is_anchor"):
-            anchor_key = str(s.get("key") or "")
-            break
+    # Identify every cross-market source (2026-04-20 multi-anchor
+    # upgrade).  Formerly a single ``is_anchor=True`` source (IDPTC)
+    # with ~90% weight on IDP/pick rows; now every source flagged
+    # ``is_cross_market=True`` — IDPTC, DraftSharks SF, DraftSharks
+    # IDP, FootballGuys SF, FootballGuys IDP — contributes to the
+    # anchor via a simple mean of their per-player value
+    # contributions.  Each source prices offense and IDP on ONE
+    # combined scale (IDPTC natively; DS via the combined-rank
+    # pre-pass; FBG via the scraper's preserved combined rank), so
+    # averaging their values is a straightforward cross-market
+    # consensus.  Subgroup = every other source, α=0.10 against the
+    # averaged anchor.  See the hierarchical-blend block further
+    # down for the math.
+    cross_market_keys: set[str] = {
+        str(s.get("key") or "")
+        for s in active_sources
+        if s.get("is_cross_market")
+    }
 
     # Final Framework override (2026-04-20): value-based sources vote
     # with their raw site values, normalized so each site's top player
@@ -4593,13 +4640,16 @@ def _compute_unified_rankings(
         # Framework step 2–3: for each source, compute
         # percentile-to-value using the source's scope-appropriate
         # master curve (updated framework step 5-6):
-        #   - anchor (IDPTC, dual-scope) → GLOBAL master
+        #   - cross-market sources (IDPTC, DS SF/IDP, FG SF/IDP) →
+        #     GLOBAL master (IDPTC uses value-direct, DS + FG use the
+        #     combined rank → Hill path)
         #   - offense-scope sources       → OFFENSE master
         #   - IDP-scope sources           → IDP master
-        # Then split contributions into anchor vs subgroup per step 7.
-        anchor_value: float | None = None
+        # Then split contributions into cross-market anchor
+        # contributions vs subgroup per step 7.
+        cross_market_values: list[float] = []
         subgroup_values: list[float] = []
-        all_values: list[float] = []  # full set for MAD
+        all_values: list[float] = []  # full set for MAD diagnostic
 
         canonical_site_values = (
             players_array[row_idx].get("canonicalSiteValues") or {}
@@ -4665,8 +4715,8 @@ def _compute_unified_rankings(
                 value *= tep_native_correction
                 tep_native_corrected = True
             all_values.append(value)
-            if source_key == anchor_key:
-                anchor_value = value
+            if source_key in cross_market_keys:
+                cross_market_values.append(value)
             else:
                 subgroup_values.append(value)
             # Per-source audit stamps.
@@ -4681,7 +4731,7 @@ def _compute_unified_rankings(
                 else "rank_hill"
             )
             meta["effectiveWeight"] = round(effective_weight, 4)
-            meta["isAnchor"] = bool(source_key == anchor_key)
+            meta["isAnchor"] = bool(source_key in cross_market_keys)
             if tep_applied:
                 meta["tepBoostApplied"] = True
                 meta["tepMultiplier"] = round(tep_multiplier_effective, 4)
@@ -4746,6 +4796,18 @@ def _compute_unified_rankings(
         #     caused ordering glitches (e.g. Drake Maye < Smith-Njigba
         #     where the offense consensus had Maye higher).
         use_hierarchical_blend = row_is_pick or (row_pos in _IDP_POSITIONS)
+        # Cross-market anchor value = simple mean of every
+        # cross-market source that covered this player (IDPTC via
+        # value-direct; DS + FG via their combined cross-market
+        # rank → GLOBAL Hill).  Using the mean preserves each
+        # source's equal voice and is the operator-confirmed
+        # composition method (Option A) from the 2026-04-20 audit.
+        anchor_value: float | None
+        if cross_market_values:
+            anchor_value = sum(cross_market_values) / len(cross_market_values)
+        else:
+            anchor_value = None
+
         subgroup_center: float | None
         if subgroup_values:
             subgroup_center, _ = _trimmed_mean_median(subgroup_values)
@@ -4764,8 +4826,9 @@ def _compute_unified_rankings(
             else:
                 center_value = 0.0
         else:
-            # Offense (QB/RB/WR/TE): flat blend over all_values (anchor +
-            # subgroup together).  No α-shrinkage, no anchor override.
+            # Offense (QB/RB/WR/TE): flat blend over all_values (every
+            # covered source gets equal voice, including cross-market
+            # ones).  No α-shrinkage against a single anchor.
             if all_values:
                 flat_center, _ = _trimmed_mean_median(all_values)
                 center_value = flat_center

@@ -346,27 +346,36 @@ def _write_csv(
     *,
     include_families: frozenset[str],
 ) -> int:
-    """Filter rows by position family and dense-rank 1..N.
+    """Filter rows by position family and **preserve the original
+    cross-market rank** from the FBG payload.
+
+    Up through 2026-04-20 this function dense-reranked each CSV to
+    1..N within position family, which was fine while FBG was treated
+    as a rank-only same-universe source.  The move to treat FBG as a
+    cross-market source (alongside IDPTC and DraftSharks) means every
+    row in both CSVs must carry its ORIGINAL mixed offense+IDP rank
+    — e.g. Josh Allen at ``rank=1`` and Jack Campbell at some deeper
+    combined rank — so the blend loop can place offense and IDP on
+    one ladder.
 
     Canonical pipeline reads ``name`` and ``rank`` from this CSV; the
     ``position``, ``team``, ``age``, ``years_exp`` columns are
-    informational.  We write the positional ordinal (e.g. ``QB1``) in
-    the position column to match the schema the PDF-parser version
-    produced.
+    informational.
     """
     selected = [r for r in rows if r["family"] in include_families]
-    # Dense rank 1..N within the filtered slice so downstream's
-    # rank-signal synthesis sees a contiguous ordering.
+    # Sort by combined rank so the CSV is still ascending-rank order
+    # when the enrichment reader walks it, but DO NOT re-rank — the
+    # combined rank must survive into the live pipeline.
     selected.sort(key=lambda r: int(r["rank"]))
 
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["name", "rank", "position", "team", "age", "years_exp"])
-        for new_rank, row in enumerate(selected, 1):
+        for row in selected:
             w.writerow([
                 row["name"],
-                new_rank,
+                row["rank"],  # original cross-market rank — not re-densified
                 row["position"],
                 row["team"],
                 row["age"],
@@ -413,43 +422,38 @@ def main() -> int:
     _load_env_dotfile(ENV_PATH)
     cookies = _load_cookies()
 
-    print("[FBG] fetching offense rankings …", flush=True)
-    off_html, cookies = _fetch_with_auto_login(
-        OFFENSE_URL, cookies, label="offense"
+    # Fetch the unified ``pos=all`` response exactly once.  It carries
+    # EVERY player (offense + IDP, ~1000 rows) ordered by FBG's single
+    # cross-market consensus rank, with DL / LB / DB family markers
+    # resolved per row via the ``pos-XX`` span class.  We then split by
+    # family to write the two CSVs the canonical pipeline consumes —
+    # both preserving the original combined rank so downstream code can
+    # treat FBG SF + IDP as one cross-market ranking source (same
+    # pattern used for DraftSharks).  The dedicated ``pos=idp`` fetch
+    # path was retired 2026-04-20 because ``pos=idp`` returns IDP rows
+    # re-ranked 1..N inside the IDP universe only, which would erase
+    # FBG's native offense-vs-IDP ratio.
+    print("[FBG] fetching combined rankings (pos=all) …", flush=True)
+    all_html, cookies = _fetch_with_auto_login(
+        OFFENSE_URL, cookies, label="combined"
     )
-    off_rows = parse_rows(off_html)
-    print(f"[FBG] offense rows parsed: {len(off_rows)}")
-
-    print("[FBG] fetching IDP rankings …", flush=True)
-    # We already have a known-good session at this point — disable
-    # the second auto-refresh so a genuine IDP parse failure surfaces
-    # instead of quietly burning a second Playwright login.
-    idp_html, cookies = _fetch_with_auto_login(
-        IDP_URL, cookies, label="idp", allow_refresh=False
-    )
-    # IDP page has no per-row position column — every row is an IDP
-    # player; we pass default_family="IDP" so the rows get through
-    # and the downstream pipeline's sleeper positions map assigns
-    # the real DL/LB/DB family at enrichment time.
-    idp_rows = parse_rows(idp_html, default_family="IDP")
-    print(f"[FBG] IDP rows parsed: {len(idp_rows)}")
+    all_rows = parse_rows(all_html)
+    print(f"[FBG] combined rows parsed: {len(all_rows)}")
 
     if args.dry_run:
         print("[FBG] dry-run — skipping CSV writes")
-        print("offense top 5:")
-        for r in off_rows[:5]:
+        print("top 5 (combined ranking):")
+        for r in all_rows[:5]:
             print(f"  {r}")
-        print("IDP top 5:")
-        for r in idp_rows[:5]:
-            print(f"  {r}")
+        first_idp = next(
+            (r for r in all_rows if r["family"] in _IDP_POS), None
+        )
+        print(f"first IDP row: {first_idp}")
         return 0
 
-    off_written = _write_csv(OUT_SF, off_rows, include_families=_OFFENSE_POS)
+    off_written = _write_csv(OUT_SF, all_rows, include_families=_OFFENSE_POS)
     print(f"[FBG] wrote {OUT_SF} ({off_written} rows)")
-    # IDP page has no DL/LB/DB markers per row, so every row carries
-    # family="IDP" and the enrichment path resolves the real family
-    # via the sleeper positions map downstream.
-    idp_written = _write_csv(OUT_IDP, idp_rows, include_families=frozenset({"IDP"}))
+    idp_written = _write_csv(OUT_IDP, all_rows, include_families=_IDP_POS)
     print(f"[FBG] wrote {OUT_IDP} ({idp_written} rows)")
 
     if off_written == 0 or idp_written == 0:
