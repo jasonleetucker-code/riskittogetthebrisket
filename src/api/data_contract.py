@@ -3362,6 +3362,38 @@ _VOLATILITY_COMPRESSION_STRENGTH: float = 0.03
 _VOLATILITY_COMPRESSION_FLOOR: float = 0.92
 _VOLATILITY_COMPRESSION_CEIL: float = 1.08
 
+# Final-blend mix between the weighted-mean (structural) and the
+# robust-trimmed-median (outlier-resistant) aggregation of per-source
+# Hill-curve values.  The live formula is:
+#
+#     blended_value = _BLEND_MEAN_WEIGHT * weighted_mean +
+#                     _BLEND_ROBUST_WEIGHT * robust
+#
+# The two weights MUST sum to 1.0; the pipeline treats them as a
+# convex combination and does not renormalize.
+#
+# 70/30 trusts the configured source weights heavily (the IDPTC 2.0
+# backbone weight is the dominant example) while still letting the
+# robust blend absorb single-source outliers.  Change these together
+# (not independently) — a 0.5/0.5 split weights outlier-correction
+# more, a 0.7/0.3 split trusts the configured source weights more.
+#
+# Historical note: this pair was 0.6/0.4 through 2026-04-19.  The
+# ``scripts/backtest_blend_params.py`` sweep on 25 daily snapshots
+# (2026-03-23 → 2026-04-16) showed a clean peak at 0.70 for
+# value-weighted rank stability (4.9% improvement over 0.60; spread
+# 10.7% across the {0.50 .. 0.75} grid; monotonic rise from 0.55 to
+# 0.70 with a downturn at 0.75).  See
+# ``reports/backtest_blend_params_full.md``.
+#
+# Backtests (see ``scripts/backtest_blend_params.py``) sweep these
+# against daily snapshots to verify the split is near-optimal for
+# rank stability.  Overriding at runtime is a supported pattern: the
+# backtest harness mutates the module attribute directly before each
+# ``build_api_data_contract`` call, so keep the names stable.
+_BLEND_MEAN_WEIGHT: float = 0.7
+_BLEND_ROBUST_WEIGHT: float = 0.3
+
 # Source-rank-scaled monotonicity step.  When the natural boosted
 # value overshoots ``_DISPLAY_SCALE_MAX`` (9999) for a cluster of
 # top-of-board rows, a fixed-step cap (e.g. "always 100 pts down
@@ -4582,10 +4614,19 @@ def _compute_unified_rankings(
             else:
                 robust = sorted_vals[0]
 
-            # Final blended value: 60/40 weighted mean / robust to give
-            # the structural source weights the dominant voice while
-            # still letting the robust blend correct obvious outliers.
-            blended_value = 0.6 * weighted_mean + 0.4 * robust
+            # Final blended value: ``_BLEND_MEAN_WEIGHT`` /
+            # ``_BLEND_ROBUST_WEIGHT`` convex combination of the
+            # weighted-mean (structural) and robust-trimmed-median
+            # (outlier-resistant) aggregations.  Defaults to 70/30 so
+            # the configured source weights have the dominant voice
+            # while the robust blend still absorbs obvious outliers.
+            # The split was tuned via ``scripts/backtest_blend_params.py``
+            # against 25 daily snapshots; see the constant's doc block
+            # at definition site for the reasoning and results.
+            blended_value = (
+                _BLEND_MEAN_WEIGHT * weighted_mean
+                + _BLEND_ROBUST_WEIGHT * robust
+            )
 
             # Separation diagnostic: stdev of per-source Hill-curve values
             # before the blend.  Pairs with sourceRankPercentileSpread
