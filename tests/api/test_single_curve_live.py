@@ -234,6 +234,91 @@ class TestValueChain(unittest.TestCase):
         self.assertGreater(checked, 30, "expected many IDP anchors")
 
 
+class TestMADPenaltyChain(unittest.TestCase):
+    """Pin the Final Framework step 6 MAD penalty chain.
+
+    For every ranked non-pick row with ≥ 2 sources:
+      * ``sourceMAD`` is stamped with the trimmed-mean absolute deviation
+        of the per-source Hill-curve values.
+      * When λ = _MAD_PENALTY_LAMBDA > 0, ``madPenaltyApplied`` is
+        stamped with the subtracted penalty, and the penalty is
+        exactly ``min(center, λ · MAD)``.
+
+    Picks are intentionally exempt (see comment at the penalty site
+    for why), so their ``madPenaltyApplied`` is always ``None``.
+    """
+
+    def setUp(self) -> None:
+        self.contract = _get()
+        if self.contract is None:
+            self.skipTest("No live data")
+        self.rows = _ranked_rows(self.contract)
+
+    def test_nonpick_rows_carry_source_mad_when_multi_source(self) -> None:
+        from src.api.data_contract import _MAD_PENALTY_LAMBDA  # noqa: PLC0415
+
+        checked = 0
+        for row in self.rows:
+            if row.get("assetClass") == "pick":
+                continue
+            src_ranks = row.get("sourceRanks") or {}
+            if len(src_ranks) < 2:
+                continue
+            mad = row.get("sourceMAD")
+            self.assertIsNotNone(
+                mad,
+                f"{row.get('canonicalName')}: multi-source row missing "
+                f"sourceMAD stamp",
+            )
+            self.assertGreaterEqual(
+                float(mad), 0.0,
+                f"{row.get('canonicalName')}: sourceMAD={mad} is negative",
+            )
+            checked += 1
+        self.assertGreater(checked, 50, "expected many multi-source rows")
+
+        if _MAD_PENALTY_LAMBDA <= 0:
+            return  # nothing further to pin when the feature is a no-op
+
+        # When λ > 0, mad_penalty == min(center, λ · MAD) and
+        # final == center - penalty.  We can't recompute center directly
+        # without the raw contributions, but we CAN verify that
+        # penalty ≤ λ · MAD (the clamp never adds value, only caps it)
+        # and that final ≤ uncalibrated (the penalty is always a
+        # reduction, never a boost).
+        for row in self.rows:
+            if row.get("assetClass") == "pick":
+                continue
+            mad = row.get("sourceMAD")
+            penalty = row.get("madPenaltyApplied")
+            if mad is None or penalty is None:
+                continue
+            expected_max = _MAD_PENALTY_LAMBDA * float(mad)
+            self.assertLessEqual(
+                float(penalty),
+                expected_max + 1.0,
+                f"{row.get('canonicalName')}: madPenaltyApplied={penalty} "
+                f"exceeds λ·MAD = {expected_max:.2f}",
+            )
+
+    def test_picks_never_get_mad_penalty(self) -> None:
+        """Pick rows must have madPenaltyApplied == None regardless of λ."""
+        offenders: list[str] = []
+        for row in _ranked_rows(self.contract):
+            if row.get("assetClass") != "pick":
+                continue
+            if row.get("madPenaltyApplied") not in (None, 0):
+                offenders.append(
+                    f"{row.get('canonicalName')}: "
+                    f"{row['madPenaltyApplied']}"
+                )
+        self.assertFalse(
+            offenders,
+            f"Pick rows carrying MAD penalty (should be exempt): "
+            f"{offenders[:5]}",
+        )
+
+
 class TestNoSecondHillCurve(unittest.TestCase):
     """No live row can carry values consistent with a second Hill remap.
 

@@ -3364,6 +3364,27 @@ def _apply_offense_calibration_post_pass(
 
 _DISPLAY_SCALE_MAX: int = 9999
 
+# Final Framework step 6: volatility penalty weight.  Applied as
+# ``final = center − λ·MAD`` where MAD is the mean absolute deviation
+# of the trimmed source values around the trimmed mean.  A principled
+# single constant, replacing the removed ±8% z-score stack.
+#
+# λ = 0.0 is a strict no-op (center value passes through unchanged).
+# Larger λ penalizes high-disagreement players more.  MAD is in value-
+# units (0-9999 scale), so λ=0.5 subtracts half the MAD from each
+# player's value — a player with trimmed source values spanning
+# {8000, 8500, 9000} has MAD ≈ 333 → penalty ≈ 167.
+#
+# Value chosen via ``scripts/backtest_mad_lambda.py`` against the 25
+# daily snapshots in ``data/`` (see ``reports/mad_lambda_backtest_full.md``).
+# The sweep produced a unimodal optimum with clear minima at λ=0.5 on
+# the value-weighted rank-change metric (-25.13% vs λ=0, best) and
+# λ=0.7 on the unweighted metric (-25.62% vs λ=0, best).  We adopt
+# λ=0.5 because the two metrics agree within noise and the lower
+# constant imposes a gentler overall penalty while preserving nearly
+# all the stability win.
+_MAD_PENALTY_LAMBDA: float = 0.5
+
 
 def _reassign_pick_slot_order(players_array: list[dict[str, Any]]) -> int:
     """Reorder slot-specific picks within each year so slot order is
@@ -4401,13 +4422,15 @@ def _compute_unified_rankings(
         if not contributions:
             blended_value = 0.0
             hill_value_spread: float | None = None
+            source_mad: float | None = None
+            mad_penalty: float = 0.0
         else:
             # Framework step 5: Trimmed Mean-Median Blend (unweighted).
             # For N ≥ 3 sources:
             #   1. drop the highest and the lowest raw Hill-curve value
             #   2. compute the arithmetic mean of the remaining values
             #   3. compute the median of the remaining values
-            #   4. blended_value = (trimmed_mean + trimmed_median) / 2
+            #   4. center = (trimmed_mean + trimmed_median) / 2
             # For N = 2 we mean the two; for N = 1 we pass through.
             #
             # This replaces the earlier 0.7·weighted_mean + 0.3·robust
@@ -4431,11 +4454,51 @@ def _compute_unified_rankings(
                     trimmed_median = (
                         trimmed[m // 2 - 1] + trimmed[m // 2]
                     ) / 2.0
-                blended_value = (trimmed_mean + trimmed_median) / 2.0
+                center_value = (trimmed_mean + trimmed_median) / 2.0
+                # Framework step 6: volatility penalty — MAD is the
+                # mean absolute deviation of the *trimmed* source
+                # values around the trimmed mean.  Larger MAD = noisier
+                # source agreement = bigger penalty.
+                source_mad = sum(
+                    abs(v - trimmed_mean) for v in trimmed
+                ) / len(trimmed)
             elif n == 2:
-                blended_value = (sorted_vals[0] + sorted_vals[1]) / 2.0
+                center_value = (sorted_vals[0] + sorted_vals[1]) / 2.0
+                # 2-source "MAD": half-range, which equals MAD of 2
+                # points around their mean.
+                source_mad = abs(sorted_vals[0] - sorted_vals[1]) / 2.0
             else:
-                blended_value = sorted_vals[0]
+                center_value = sorted_vals[0]
+                source_mad = None
+
+            # Framework step 6: final blended value = center - λ·MAD.
+            # λ is ``_MAD_PENALTY_LAMBDA``, chosen via
+            # ``scripts/backtest_mad_lambda.py``.  Clamp the penalty to
+            # the center so we never produce a negative blended value.
+            #
+            # Picks are exempted: KTC and IDPTC use different tier
+            # systems for draft picks, which produces a large structural
+            # MAD that has nothing to do with market uncertainty.  Slot
+            # picks are also replaced by rookie anchors downstream, so
+            # the pre-anchor blend is already discarded.  Keeping picks
+            # out of the penalty band matches the semantics ("volatility
+            # of source consensus for a player") and was necessary to
+            # keep deep-tier picks (e.g. 2027 Late 3rd) ranked above
+            # OVERALL_RANK_LIMIT after promotion.
+            row_is_pick = (
+                players_array[row_idx].get("assetClass") == "pick"
+            )
+            if (
+                source_mad is not None
+                and _MAD_PENALTY_LAMBDA > 0
+                and not row_is_pick
+            ):
+                mad_penalty = min(
+                    center_value, _MAD_PENALTY_LAMBDA * source_mad
+                )
+            else:
+                mad_penalty = 0.0
+            blended_value = max(0.0, center_value - mad_penalty)
 
             # Separation diagnostic: stdev of per-source Hill-curve values
             # before the blend.  Pairs with sourceRankPercentileSpread
@@ -4446,6 +4509,15 @@ def _compute_unified_rankings(
             hill_value_spread = (
                 statistics.stdev(values) if len(values) >= 2 else None
             )
+
+        # Stamp MAD diagnostics on the row so the value chain can
+        # surface "center value − λ·MAD = blended" transparently.
+        players_array[row_idx]["sourceMAD"] = (
+            round(source_mad, 2) if source_mad is not None else None
+        )
+        players_array[row_idx]["madPenaltyApplied"] = (
+            round(mad_penalty, 2) if mad_penalty > 0 else None
+        )
 
         players_array[row_idx]["hillValueSpread"] = (
             round(hill_value_spread, 2) if hill_value_spread is not None else None
@@ -5171,6 +5243,8 @@ def _derive_player_row(
         "sourceRankSpread": None,
         "sourceRankPercentileSpread": None,
         "hillValueSpread": None,
+        "sourceMAD": None,
+        "madPenaltyApplied": None,
         "marketGapDirection": "none",
         "marketGapMagnitude": None,
         "sourceAudit": {
@@ -5690,6 +5764,8 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "sourceRankSpread",
     "sourceRankPercentileSpread",
     "hillValueSpread",
+    "sourceMAD",
+    "madPenaltyApplied",
     "isSingleSource",
     "isStructurallySingleSource",
     "hasSourceDisagreement",

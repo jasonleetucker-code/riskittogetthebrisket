@@ -137,15 +137,32 @@ sources shallower than `MIN_FULL_COVERAGE_DEPTH=60`.
 Blend — **Final Framework step 5: Trimmed Mean-Median** (unweighted):
 - Sort per-source values.
 - If ≥ 3 sources: drop the highest and the lowest, compute the
-  arithmetic mean AND the median of what remains, blend =
+  arithmetic mean AND the median of what remains, center =
   `(trimmed_mean + trimmed_median) / 2`.
-- If 2 sources: mean of the two.
+- If 2 sources: mean of the two (MAD = half-range).
 - If 1 source: keep.
+
+**Final Framework step 6: MAD volatility penalty**:
+- `MAD = mean(|v - trimmed_mean| for v in trimmed)` over the same
+  trimmed set.
+- `penalty = min(center, λ · MAD)` — clamped so blended never goes
+  negative.
+- `final = center − penalty` (players), or `final = center` (picks —
+  exempt because pick-tier MAD is a structural artifact of KTC vs
+  IDPTC using different tier systems, not true source uncertainty).
+- `λ = _MAD_PENALTY_LAMBDA = 0.5` (chosen via
+  `scripts/backtest_mad_lambda.py`; 25-day snapshot history shows
+  ~25% improvement in value-weighted rank stability over λ=0; see
+  `reports/mad_lambda_backtest_full.md`).
+
+Per-row diagnostics: `sourceMAD` and `madPenaltyApplied` are stamped
+on every multi-source non-pick row so the frontend value-chain panel
+can show the penalty transparently.
 
 Weighting is reintroduced later as the hierarchical anchor / subgroup
 structure (framework steps 7–8).  The previous `0.7·weighted_mean +
-0.3·robust` convex combo has been retired — see the PR 1 commit for
-the Final Framework transition.
+0.3·robust` convex combo was retired in PR 1 of the Final Framework
+transition.
 
 ### Phase 3a — Pick year discount (L4739)
 
@@ -183,9 +200,8 @@ carries `offenseCalibrationMultiplier`.
 ### Phase 4d — Volatility compression (REMOVED)
 
 The prior ±8% compress/boost post-pass and its 75-point monotonicity
-cap were removed as part of the Final Framework transition.  A
-principled MAD-based volatility penalty with a backtested `λ` weight
-will reappear in a later PR once the backtest is done.
+cap were removed in PR 1.  Replaced in PR 2 by the MAD penalty
+integrated directly into the Phase 3 blend (see above).
 
 Fields `preVolatilityValue` and `volatilityCompressionApplied` are no
 longer stamped.
@@ -229,8 +245,10 @@ runtime view (`/api/data?view=app`) still has per-row data after
 The chain identity (pinned in `tests/api/test_single_curve_live.py`):
 
 ```
-rankDerivedValueUncalibrated                              ← Hill + TEP + trimmed mean-median
-    × (idpCalibrationMultiplier × idpFamilyScale)         ← IDP only, if active
+center = trimmed_mean_median(per-source Hill values, post-TEP)
+rankDerivedValueUncalibrated = center − λ·MAD          ← players only
+                               = center                ← picks (exempt)
+    × (idpCalibrationMultiplier × idpFamilyScale)      ← IDP only, if active
     = rankDerivedValue
 ```
 
@@ -251,11 +269,8 @@ rankDerivedValueUncalibrated                              ← Hill + TEP + trimm
 
 The backtest harnesses that exercise these constants:
 
-- `scripts/backtest_blend_params.py` — IDPTC weight and (historically)
-  the old `_BLEND_MEAN_WEIGHT` / `_VOLATILITY_*` constants.  Output:
-  `reports/backtest_blend_params_full.md`.  The volatility knobs
-  referenced in older runs no longer exist; re-running the script
-  today exercises only the IDPTC weight lever.
+- `scripts/backtest_mad_lambda.py` — sweeps `_MAD_PENALTY_LAMBDA`.
+  Output: `reports/mad_lambda_backtest_full.md`.
 - `scripts/backtest_ktc_volatility.py` — empirical KTC drift bands per
   rank.  Output: `reports/ktc_volatility_backtest_full.md`.
 

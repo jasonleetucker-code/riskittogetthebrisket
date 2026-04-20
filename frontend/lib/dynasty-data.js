@@ -796,6 +796,12 @@ function _materializePlayerArrayRow(player) {
     // Value-chain audit fields — exposed so the PlayerPopup can show
     // each pipeline stage (blend → calibration) as a transparent
     // sequence rather than a single opaque final number.
+    sourceMAD:
+      typeof player.sourceMAD === "number" ? player.sourceMAD : null,
+    madPenaltyApplied:
+      typeof player.madPenaltyApplied === "number"
+        ? player.madPenaltyApplied
+        : null,
     idpCalibrationMultiplier:
       typeof player.idpCalibrationMultiplier === "number"
         ? player.idpCalibrationMultiplier
