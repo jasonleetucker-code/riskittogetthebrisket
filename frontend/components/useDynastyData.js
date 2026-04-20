@@ -19,7 +19,19 @@ export function useDynastyData() {
   // frontend TEP multiplication either.
   const { settings } = useSettings();
   const siteOverrides = settings?.siteWeights || null;
-  const tepMultiplier = Number(settings?.tepMultiplier ?? 1.0) || 1.0;
+  // tepMultiplier: null means "auto from league" (derive on backend
+  // from Sleeper's bonus_rec_te).  A finite number means the user
+  // dragged the slider and wants that exact override.  Coercing null
+  // → 1.0 here would defeat the derivation path entirely, so we
+  // preserve the sentinel and let ``fetchDynastyData`` route
+  // accordingly (absent body key → backend derives).
+  const rawTep = settings?.tepMultiplier;
+  const tepMultiplier =
+    rawTep === null || rawTep === undefined
+      ? null
+      : Number.isFinite(Number(rawTep))
+        ? Number(rawTep)
+        : null;
   // Serialize the override map so the effect's dependency array
   // fires on semantic changes, not reference churn, without forcing
   // callers to memoize on their side.  The tepMultiplier is part of

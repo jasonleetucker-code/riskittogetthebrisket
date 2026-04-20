@@ -1494,14 +1494,22 @@ _RESERVED_OVERRIDE_BODY_KEYS: frozenset[str] = frozenset(
 )
 
 
-def normalize_tep_multiplier(raw: Any) -> float:
+def normalize_tep_multiplier(raw: Any) -> float | None:
     """Extract + clamp a TEP multiplier from a POST override body.
 
-    Accepts a raw request body dict and returns a TEP multiplier in
-    the canonical range ``[1.0, 2.0]``.  Missing / invalid / out-of-
-    range values silently default to ``1.0`` (a no-op), matching the
-    permissive override-validation philosophy elsewhere in this
-    module.
+    Accepts a raw request body dict.  Returns:
+
+      * ``None`` when no ``tep_multiplier`` / ``tepMultiplier`` key is
+        present in the body — signals "user did not override, fall
+        back to the league-derived default".  ``build_api_data_contract``
+        and ``build_rankings_delta_payload`` both treat ``None`` as
+        "derive from Sleeper" via :func:`_derive_tep_multiplier_from_league`.
+      * A ``float`` clamped to ``[1.0, 2.0]`` when the key IS present
+        and parses as a finite number.  The clamped value is what the
+        pipeline applies verbatim (no derivation layered on top).
+      * ``None`` when the key is present but unparseable / infinite —
+        treated the same as "absent" so a garbled body falls back to
+        the league-derived default rather than silently becoming 1.0.
 
     The key lookup accepts both ``tep_multiplier`` (snake_case, the
     canonical API spelling) and ``tepMultiplier`` (camelCase, the
@@ -1510,17 +1518,17 @@ def normalize_tep_multiplier(raw: Any) -> float:
     import math
 
     if not isinstance(raw, dict):
-        return 1.0
+        return None
     for key in ("tep_multiplier", "tepMultiplier"):
         if key in raw:
             try:
                 v = float(raw[key])
             except (TypeError, ValueError):
-                return 1.0
+                return None
             if not math.isfinite(v):
-                return 1.0
+                return None
             return max(1.0, min(2.0, v))
-    return 1.0
+    return None
 
 
 def normalize_source_overrides(
@@ -1677,13 +1685,15 @@ def _summarize_source_overrides(
     source_overrides: dict[str, dict[str, Any]] | None,
     *,
     tep_multiplier: float = 1.0,
+    tep_multiplier_derived: float = 1.0,
+    tep_multiplier_source: str = "default",
 ) -> dict[str, Any]:
     """Produce the ``rankingsOverride`` contract summary block.
 
     The block carries:
       * ``isCustomized`` — True when at least one override actually
-        diverges from the registry default, OR ``tep_multiplier``
-        differs from the canonical default of 1.0.
+        diverges from the registry default, OR the effective
+        ``tep_multiplier`` diverges from the league-derived default.
       * ``enabledSources`` — ordered list of source keys that were
         enabled in the effective configuration.
       * ``weights`` — dict mapping source key → effective declared
@@ -1695,7 +1705,19 @@ def _summarize_source_overrides(
         was given, for debugging.
       * ``tepMultiplier`` — effective (clamped) TE-premium multiplier
         that was applied during the blend.
-      * ``tepMultiplierDefault`` — canonical default (``1.0``).
+      * ``tepMultiplierDefault`` — the league-derived default the
+        frontend should treat as "auto" / unchecked.  Equals
+        ``tep_multiplier_derived`` so the slider shows the right
+        baseline when the user has not overridden.
+      * ``tepMultiplierDerived`` — the raw TE-premium value derived
+        from the operator's Sleeper ``bonus_rec_te`` (redundant with
+        ``tepMultiplierDefault`` but kept as an explicit channel so
+        the frontend never confuses derivation with fallback).
+      * ``tepMultiplierSource`` — one of ``"derived"`` (came from
+        Sleeper), ``"explicit"`` (user slider override), or
+        ``"default"`` (fallback when the Sleeper fetch failed and no
+        override was sent).  The frontend uses this to label the
+        slider state ("Auto from league" vs "Custom override").
     """
     import math
 
@@ -1741,8 +1763,24 @@ def _summarize_source_overrides(
     if not math.isfinite(tep_eff):
         tep_eff = 1.0
     tep_eff = max(1.0, min(2.0, tep_eff))
-    if tep_eff != 1.0:
+
+    try:
+        tep_derived = float(tep_multiplier_derived)
+    except (TypeError, ValueError):
+        tep_derived = 1.0
+    if not math.isfinite(tep_derived):
+        tep_derived = 1.0
+    tep_derived = max(1.0, min(2.0, tep_derived))
+
+    # isCustomized flips only when the user-facing effective value
+    # diverges from the league-derived baseline.  A league with
+    # bonus_rec_te=0.5 (derived TEP=1.15) that lands on tep_eff=1.15
+    # is NOT customized — the user just accepted the auto value.
+    # Customization only fires when they explicitly drag the slider
+    # to something else.
+    if abs(tep_eff - tep_derived) > 1e-6:
         is_customized = True
+
     return {
         "isCustomized": is_customized,
         "enabledSources": enabled_sources,
@@ -1750,7 +1788,9 @@ def _summarize_source_overrides(
         "defaults": default_weights,
         "received": dict(normalized),
         "tepMultiplier": round(tep_eff, 4),
-        "tepMultiplierDefault": 1.0,
+        "tepMultiplierDefault": round(tep_derived, 4),
+        "tepMultiplierDerived": round(tep_derived, 4),
+        "tepMultiplierSource": str(tep_multiplier_source or "default"),
     }
 
 
@@ -3734,7 +3774,7 @@ def _suppress_generic_pick_tiers_when_slots_exist(
 #
 # League-size default: pick (round, slot) → rookie rank = (round-1)*N + slot,
 # where N = the operator's Sleeper league roster count.  Resolved at runtime
-# via :func:`_resolve_league_roster_count`; the constant below is the fallback
+# via :func:`_resolve_league_context`; the constant below is the fallback
 # when the Sleeper fetch is unavailable (offline, bad league id, etc.).
 # Only affects rows consumed via /api/data (rankings + trade calculator).
 # /api/draft-capital is served by a separate code path (server.py::_fetch_draft_capital)
@@ -3742,22 +3782,72 @@ def _suppress_generic_pick_tiers_when_slots_exist(
 _ROOKIE_ANCHOR_LEAGUE_SIZE_DEFAULT = 12
 _ROOKIE_ANCHOR_ROUNDS = 6
 
-# Cached Sleeper league size.  Populated on first call via the Sleeper
-# /v1/league/{id} endpoint using ``SLEEPER_LEAGUE_ID`` from the env.
+# TE-premium derivation from Sleeper ``bonus_rec_te``.
+#
+# Sleeper exposes the per-reception TE bonus as ``bonus_rec_te`` under
+# the league's ``scoring_settings``.  A "TEP 1.5" league has bonus 0.5
+# (TEs get 1.5 per reception vs the 1.0 the league awards everyone).
+#
+# The TE-premium value boost applied to non-TEP-native sources during
+# the blend is derived linearly from that bonus:
+#
+#     tep_multiplier = 1.0 + bonus_rec_te * _TEP_DERIVATION_SLOPE
+#
+# The slope 0.30 is calibrated so the standard TEP-1.5 setup
+# (bonus_rec_te == 0.5) lands at 1.15, which was the historical
+# frontend default and represents a ~15% TE value bump.  Sleeper
+# leagues without any TE bonus (bonus_rec_te == 0) derive tep == 1.0,
+# which is a no-op on the blend — the canonical "clean" board.
+#
+# The derived value is clamped to the same [1.0, 2.0] range as the
+# manual override so a misconfigured bonus (e.g. 3.0 per rec) can't
+# pump TE values off the board.  Callers who pass an explicit float
+# for ``tep_multiplier`` bypass the derivation entirely.
+_TEP_DERIVATION_SLOPE = 0.30
+_TEP_DERIVED_CLAMP_MIN = 1.0
+_TEP_DERIVED_CLAMP_MAX = 2.0
+
+# Cached Sleeper league context.  Populated on first call via the
+# Sleeper /v1/league/{id} endpoint using ``SLEEPER_LEAGUE_ID`` from
+# the env.  Stores the full resolved payload (roster count, TE-bonus,
+# scoring format hash) so every pipeline knob can reference the same
+# snapshot without a second HTTP round-trip.
 # Refresh every hour so a mid-season league expansion (rare) or a
 # switch to a different league eventually propagates without a restart.
-_LEAGUE_ROSTER_CACHE: dict[str, Any] = {"size": None, "fetched_at": 0.0}
-_LEAGUE_ROSTER_CACHE_TTL_SECONDS = 3600
+_LEAGUE_CONTEXT_CACHE: dict[str, Any] = {
+    "context": None,
+    "fetched_at": 0.0,
+}
+_LEAGUE_CONTEXT_CACHE_TTL_SECONDS = 3600
+
+# Back-compat alias — older revisions referenced the roster-only
+# cache dict by this name.  Keeping the symbol (as a view of the new
+# cache) avoids ImportError on any test helper that may patch it.
+_LEAGUE_ROSTER_CACHE: dict[str, Any] = _LEAGUE_CONTEXT_CACHE
+_LEAGUE_ROSTER_CACHE_TTL_SECONDS = _LEAGUE_CONTEXT_CACHE_TTL_SECONDS
 
 
-def _resolve_league_roster_count(default: int = _ROOKIE_ANCHOR_LEAGUE_SIZE_DEFAULT) -> int:
-    """Return the operator's Sleeper league roster count.
+def _resolve_league_context(
+    default_roster_count: int = _ROOKIE_ANCHOR_LEAGUE_SIZE_DEFAULT,
+) -> dict[str, Any]:
+    """Return the operator's Sleeper league context as a dict.
 
     Reads ``SLEEPER_LEAGUE_ID`` from the environment and fetches
-    ``total_rosters`` from Sleeper, cached for an hour.  Returns
-    ``default`` (12) if the env var is unset, the fetch fails, or
-    Sleeper returns an unusable payload — so the pipeline still
-    produces output on a cold start / offline machine.
+    ``total_rosters`` + ``scoring_settings`` from Sleeper, cached for
+    an hour.  Returns a dict with keys:
+
+      * ``roster_count`` (int) — number of rosters in the league; the
+        rookie-pick anchor uses this as N in ``(round-1)*N + slot``.
+      * ``bonus_rec_te`` (float) — Sleeper's per-reception TE bonus
+        (0.0 for leagues with no TE premium, 0.5 for standard TEP-1.5,
+        1.0 for TEP-2.0, etc.).
+      * ``fetched_from_sleeper`` (bool) — True when the dict reflects
+        a live Sleeper fetch, False when it's a fallback dict.
+
+    Returns a fallback dict (``roster_count=default``, ``bonus_rec_te=0.0``,
+    ``fetched_from_sleeper=False``) if the env var is unset, the fetch
+    fails, or Sleeper returns an unusable payload — so the pipeline
+    still produces output on a cold start / offline machine.
 
     Public helper so tests can patch it; no side effects beyond
     the cache fill.
@@ -3766,18 +3856,24 @@ def _resolve_league_roster_count(default: int = _ROOKIE_ANCHOR_LEAGUE_SIZE_DEFAU
     import urllib.request
 
     now = _time.time()
-    cached = _LEAGUE_ROSTER_CACHE.get("size")
-    fetched_at = float(_LEAGUE_ROSTER_CACHE.get("fetched_at") or 0.0)
-    if isinstance(cached, int) and cached > 0:
-        if (now - fetched_at) < _LEAGUE_ROSTER_CACHE_TTL_SECONDS:
-            return cached
+    cached = _LEAGUE_CONTEXT_CACHE.get("context")
+    fetched_at = float(_LEAGUE_CONTEXT_CACHE.get("fetched_at") or 0.0)
+    if isinstance(cached, dict) and cached.get("roster_count"):
+        if (now - fetched_at) < _LEAGUE_CONTEXT_CACHE_TTL_SECONDS:
+            return dict(cached)
+
+    fallback: dict[str, Any] = {
+        "roster_count": int(default_roster_count),
+        "bonus_rec_te": 0.0,
+        "fetched_from_sleeper": False,
+    }
 
     league_id = os.getenv("SLEEPER_LEAGUE_ID", "").strip()
     if not league_id:
-        # No league configured — return the default without populating
+        # No league configured — return the fallback without populating
         # the cache so a later SLEEPER_LEAGUE_ID env change takes
         # effect on the next call.
-        return default
+        return fallback
 
     try:
         url = f"https://api.sleeper.app/v1/league/{league_id}"
@@ -3785,13 +3881,71 @@ def _resolve_league_roster_count(default: int = _ROOKIE_ANCHOR_LEAGUE_SIZE_DEFAU
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.load(resp)
         size = int(data.get("total_rosters") or 0)
+        scoring = data.get("scoring_settings") or {}
+        if not isinstance(scoring, dict):
+            scoring = {}
+        try:
+            bonus_rec_te = float(scoring.get("bonus_rec_te") or 0.0)
+        except (TypeError, ValueError):
+            bonus_rec_te = 0.0
+        if not math.isfinite(bonus_rec_te) or bonus_rec_te < 0:
+            bonus_rec_te = 0.0
         if size > 0:
-            _LEAGUE_ROSTER_CACHE["size"] = size
-            _LEAGUE_ROSTER_CACHE["fetched_at"] = now
-            return size
+            context = {
+                "roster_count": size,
+                "bonus_rec_te": bonus_rec_te,
+                "fetched_from_sleeper": True,
+            }
+            _LEAGUE_CONTEXT_CACHE["context"] = context
+            _LEAGUE_CONTEXT_CACHE["fetched_at"] = now
+            # Back-compat: mirror roster count under the legacy key so
+            # any caller that inspects the cache directly (tests) can
+            # still see ``cache["size"]``.
+            _LEAGUE_CONTEXT_CACHE["size"] = size
+            return dict(context)
     except Exception:  # noqa: BLE001 — any failure falls back to default
         pass
-    return default
+    return fallback
+
+
+def _resolve_league_roster_count(default: int = _ROOKIE_ANCHOR_LEAGUE_SIZE_DEFAULT) -> int:
+    """Return the operator's Sleeper league roster count.
+
+    Thin wrapper over :func:`_resolve_league_context` kept for
+    backwards-compatibility with callers that only need the roster
+    count (rookie pick anchor, DLF league-size gate).  New code
+    should prefer ``_resolve_league_context()`` directly.
+    """
+    return int(_resolve_league_context(default).get("roster_count") or default)
+
+
+def _derive_tep_multiplier_from_league(
+    context: dict[str, Any] | None = None,
+) -> float:
+    """Derive the effective TE-premium multiplier from the league context.
+
+    ``context`` is the dict returned by :func:`_resolve_league_context`;
+    when ``None`` the function resolves it itself (same 1h cache).
+
+    Formula: ``1.0 + bonus_rec_te * _TEP_DERIVATION_SLOPE``, clamped
+    to ``[_TEP_DERIVED_CLAMP_MIN, _TEP_DERIVED_CLAMP_MAX]``.
+
+    Returns ``1.0`` (a no-op on the blend) for any league with no TE
+    bonus, and also when the Sleeper fetch fails — the pipeline falls
+    back to the canonical "clean" board rather than silently
+    inheriting a boost from a prior deployment.
+    """
+    ctx = context if isinstance(context, dict) else _resolve_league_context()
+    try:
+        bonus = float(ctx.get("bonus_rec_te") or 0.0)
+    except (TypeError, ValueError):
+        bonus = 0.0
+    if not math.isfinite(bonus) or bonus < 0:
+        bonus = 0.0
+    derived = 1.0 + bonus * _TEP_DERIVATION_SLOPE
+    if not math.isfinite(derived):
+        return 1.0
+    return max(_TEP_DERIVED_CLAMP_MIN, min(_TEP_DERIVED_CLAMP_MAX, derived))
 
 
 def _anchor_current_year_picks_to_rookies(
@@ -4761,8 +4915,11 @@ def _compute_unified_rankings(
 
     # 2b) Anchor current-year slot picks to merged offense+IDP rookies.
     #     Pick (round, slot) inherits the rankDerivedValue of the rookie
-    #     at position (round-1)*12 + slot in the merged rookie list.  The
-    #     compact-ranks pass below re-sorts by value so coherence holds.
+    #     at position (round-1)*N + slot in the merged rookie list, where
+    #     N is the operator's Sleeper league roster count resolved via
+    #     ``_resolve_league_context`` (falls back to 12 when the Sleeper
+    #     fetch is unavailable).  The compact-ranks pass below re-sorts
+    #     by value so coherence holds.
     _anchor_year = int(_load_pick_year_discount().get("baselineYear") or 2026)
     _anchor_current_year_picks_to_rookies(players_array, _anchor_year)
 
@@ -5261,7 +5418,7 @@ def build_api_data_contract(
     *,
     data_source: dict[str, Any] | None = None,
     source_overrides: dict[str, dict[str, Any]] | None = None,
-    tep_multiplier: float = 1.0,
+    tep_multiplier: float | None = None,
     _for_delta: bool = False,
 ) -> dict[str, Any]:
     """Build a full API data contract payload from a raw scraper bundle.
@@ -5274,12 +5431,25 @@ def build_api_data_contract(
     consumers can tell an override response from the baseline
     response without guessing.
 
-    ``tep_multiplier`` (optional, default ``1.0``) is the league-wide
-    TE premium boost.  It is applied value-level inside the
-    canonical blend — see ``_compute_unified_rankings`` docstring.
-    Passing ``1.0`` is a no-op and byte-for-byte identical to the
-    pre-TEP pipeline; any value > 1.0 boosts TE rows whose
-    contributions came from non-TEP-native sources.
+    ``tep_multiplier`` is the league-wide TE premium boost, applied
+    value-level inside the canonical blend (see
+    ``_compute_unified_rankings`` docstring).  Two modes:
+
+      * ``None`` (default) — derive the multiplier from the operator's
+        Sleeper league context via
+        :func:`_derive_tep_multiplier_from_league`.  A standard TEP-1.5
+        league (``bonus_rec_te == 0.5``) yields ``1.15``; a non-TEP
+        league yields ``1.0`` (a no-op).  This is the production
+        cold-start path.
+      * an explicit ``float`` — use the caller's value verbatim (after
+        the same ``[1.0, 2.0]`` clamp the derivation applies).  Used by
+        the override endpoint when the user moves the TEP slider.
+
+    Previously this parameter defaulted to ``1.0``, which meant every
+    cold start produced a "clean" board regardless of league setup
+    and the frontend had to stamp its own ``tepMultiplier=1.15``
+    default on top.  That path is now symmetric: absent override →
+    league-derived, explicit override → user value.
 
     ``_for_delta`` (internal) skips work that only feeds fields the
     delta payload discards (trust-mirror into legacy players dict,
@@ -5287,6 +5457,47 @@ def build_api_data_contract(
     this to ``True`` so overrides round-trips don't pay for output
     blocks the wire shape drops.
     """
+    # ── Resolve the TE-premium multiplier ──
+    # ``None`` = caller wants the league-derived default (production
+    # cold start + any override request that omits ``tep_multiplier``).
+    # A finite float = caller passed an explicit override; we trust
+    # their value after the standard [1.0, 2.0] clamp.  The derived
+    # value is always computed (even when overridden) so the
+    # ``rankingsOverride`` summary can report both channels and the
+    # frontend slider can show the "Auto" baseline.
+    league_context = _resolve_league_context()
+    tep_multiplier_derived = _derive_tep_multiplier_from_league(league_context)
+    if tep_multiplier is None:
+        tep_multiplier_effective = tep_multiplier_derived
+        tep_multiplier_source = (
+            "derived"
+            if league_context.get("fetched_from_sleeper")
+            else "default"
+        )
+    else:
+        try:
+            tep_multiplier_effective = float(tep_multiplier)
+        except (TypeError, ValueError):
+            tep_multiplier_effective = tep_multiplier_derived
+            tep_multiplier_source = (
+                "derived"
+                if league_context.get("fetched_from_sleeper")
+                else "default"
+            )
+        else:
+            if not math.isfinite(tep_multiplier_effective):
+                tep_multiplier_effective = tep_multiplier_derived
+                tep_multiplier_source = (
+                    "derived"
+                    if league_context.get("fetched_from_sleeper")
+                    else "default"
+                )
+            else:
+                tep_multiplier_effective = max(
+                    _TEP_DERIVED_CLAMP_MIN,
+                    min(_TEP_DERIVED_CLAMP_MAX, tep_multiplier_effective),
+                )
+                tep_multiplier_source = "explicit"
     # Two-level copy of raw_payload: shallow at the top, one-deep for
     # the ``players`` dict so per-player mutations stay isolated.  Full
     # ``deepcopy`` of a 3MB payload was 70+ms per call; this lands at
@@ -5381,7 +5592,7 @@ def build_api_data_contract(
         players_by_name,
         csv_index=csv_index,
         source_overrides=source_overrides,
-        tep_multiplier=tep_multiplier,
+        tep_multiplier=tep_multiplier_effective,
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
@@ -5560,7 +5771,9 @@ def build_api_data_contract(
     # can hydrate a consistent shape without branching on presence.
     rankings_override = _summarize_source_overrides(
         source_overrides,
-        tep_multiplier=tep_multiplier,
+        tep_multiplier=tep_multiplier_effective,
+        tep_multiplier_derived=tep_multiplier_derived,
+        tep_multiplier_source=tep_multiplier_source,
     )
 
     contract_payload: dict[str, Any] = {
@@ -5640,7 +5853,7 @@ def build_rankings_delta_payload(
     *,
     data_source: dict[str, Any] | None = None,
     source_overrides: dict[str, dict[str, Any]] | None = None,
-    tep_multiplier: float = 1.0,
+    tep_multiplier: float | None = None,
 ) -> dict[str, Any]:
     """Build a compact delta contract for the rankings-override endpoint.
 
@@ -5648,6 +5861,10 @@ def build_rankings_delta_payload(
     extracts only the override-sensitive fields per player, keyed by
     ``displayName``.  The frontend merges each delta entry onto its
     cached base ``/api/data?view=app`` contract by that key.
+
+    ``tep_multiplier`` follows the same two-mode contract as
+    :func:`build_api_data_contract`: ``None`` derives from the Sleeper
+    league context; a ``float`` is used verbatim (after clamping).
 
     The delta drops the legacy ``players`` dict, ``sleeper``,
     ``methodology``, ``poolAudit``, and the full ``playersArray``,

@@ -32,7 +32,10 @@ import json
 from src.api.data_contract import (
     _DELTA_PLAYER_FIELDS,
     _RANKING_SOURCES,
+    _TEP_DERIVATION_SLOPE,
     _compute_unified_rankings,
+    _derive_tep_multiplier_from_league,
+    _resolve_league_context,
     _summarize_source_overrides,
     assert_ranking_source_registry_parity,
     build_api_data_contract,
@@ -760,18 +763,32 @@ class TestBuildRankingsDeltaPayload(unittest.TestCase):
 
 
 class TestNormalizeTepMultiplier(unittest.TestCase):
-    """Input validation + clamping for the TE-premium multiplier."""
+    """Input validation + clamping for the TE-premium multiplier.
 
-    def test_missing_field_defaults_to_one(self) -> None:
-        self.assertEqual(normalize_tep_multiplier(None), 1.0)
-        self.assertEqual(normalize_tep_multiplier({}), 1.0)
-        self.assertEqual(normalize_tep_multiplier({"ktc": {"include": False}}), 1.0)
+    Absent or invalid values return ``None`` (not ``1.0``) so the
+    pipeline can distinguish "user did not override" (→ derive from
+    Sleeper league context) from "user explicitly set 1.0" (→ use
+    1.0 verbatim).
+    """
+
+    def test_missing_field_returns_none(self) -> None:
+        self.assertIsNone(normalize_tep_multiplier(None))
+        self.assertIsNone(normalize_tep_multiplier({}))
+        self.assertIsNone(normalize_tep_multiplier({"ktc": {"include": False}}))
 
     def test_snake_case_key_is_accepted(self) -> None:
         self.assertEqual(normalize_tep_multiplier({"tep_multiplier": 1.15}), 1.15)
 
     def test_camel_case_key_is_accepted(self) -> None:
         self.assertEqual(normalize_tep_multiplier({"tepMultiplier": 1.2}), 1.2)
+
+    def test_explicit_one_is_preserved(self) -> None:
+        # Critical: posting ``{"tep_multiplier": 1.0}`` must return
+        # 1.0, NOT None.  The frontend slider explicitly set to 1.0
+        # (user wants to disable TE premium entirely) is a real
+        # override that the pipeline honors verbatim; it must not
+        # fall back to the league-derived default.
+        self.assertEqual(normalize_tep_multiplier({"tep_multiplier": 1.0}), 1.0)
 
     def test_snake_case_wins_over_camel_case(self) -> None:
         # Both forms present: snake_case is the canonical spelling and
@@ -786,27 +803,27 @@ class TestNormalizeTepMultiplier(unittest.TestCase):
         self.assertEqual(normalize_tep_multiplier({"tep_multiplier": 3.0}), 2.0)
         self.assertEqual(normalize_tep_multiplier({"tep_multiplier": -1}), 1.0)
 
-    def test_non_numeric_values_default_to_one(self) -> None:
-        self.assertEqual(normalize_tep_multiplier({"tep_multiplier": "nope"}), 1.0)
-        self.assertEqual(normalize_tep_multiplier({"tep_multiplier": None}), 1.0)
-        self.assertEqual(
-            normalize_tep_multiplier({"tep_multiplier": float("inf")}), 1.0
+    def test_non_numeric_values_return_none(self) -> None:
+        # Unparseable values fall back to "let the backend derive",
+        # not to a silent 1.0 (which would mask garbled bodies).
+        self.assertIsNone(normalize_tep_multiplier({"tep_multiplier": "nope"}))
+        self.assertIsNone(normalize_tep_multiplier({"tep_multiplier": None}))
+        self.assertIsNone(
+            normalize_tep_multiplier({"tep_multiplier": float("inf")})
         )
-        self.assertEqual(
-            normalize_tep_multiplier({"tep_multiplier": float("nan")}), 1.0
+        self.assertIsNone(
+            normalize_tep_multiplier({"tep_multiplier": float("nan")})
         )
 
-    def test_non_dict_input_returns_default(self) -> None:
-        self.assertEqual(normalize_tep_multiplier("1.15"), 1.0)
-        self.assertEqual(normalize_tep_multiplier(1.15), 1.0)
-        self.assertEqual(normalize_tep_multiplier([1.15]), 1.0)
+    def test_non_dict_input_returns_none(self) -> None:
+        self.assertIsNone(normalize_tep_multiplier("1.15"))
+        self.assertIsNone(normalize_tep_multiplier(1.15))
+        self.assertIsNone(normalize_tep_multiplier([1.15]))
 
     def test_tep_multiplier_with_source_overrides_is_accepted(self) -> None:
         """The TEP field must not reject a body that has no per-source overrides.
 
-        The frontend default is tepMultiplier=1.15 with an empty
-        siteWeights map.  Posting just ``{"tep_multiplier": 1.15}``
-        must be a valid body.
+        Posting just ``{"tep_multiplier": 1.15}`` must be a valid body.
         """
         overrides, warnings = normalize_source_overrides({"tep_multiplier": 1.15})
         # No per-source overrides were provided — the source map
@@ -823,6 +840,150 @@ class TestNormalizeTepMultiplier(unittest.TestCase):
         self.assertEqual(overrides, {"ktc": {"include": False}})
         self.assertEqual(warnings, [])
         self.assertEqual(normalize_tep_multiplier(body), 1.2)
+
+
+class TestTepMultiplierDerivation(unittest.TestCase):
+    """League-context-aware derivation of the TE-premium multiplier.
+
+    The backend derives the TEP multiplier from the operator's
+    Sleeper league ``bonus_rec_te`` scoring setting when the caller
+    passes ``tep_multiplier=None`` (production cold-start path).  This
+    suite pins the linear formula + the three "from league context"
+    entry points.
+
+    Calibration: ``tep_multiplier = 1.0 + bonus_rec_te * 0.30``,
+    clamped to ``[1.0, 2.0]``.  0.5 PPR bonus (standard TEP-1.5)
+    → 1.15, which matches the historical frontend default.
+    """
+
+    def test_derive_zero_bonus_is_identity(self) -> None:
+        """A league with no TE premium derives a no-op multiplier."""
+        result = _derive_tep_multiplier_from_league({"bonus_rec_te": 0.0})
+        self.assertEqual(result, 1.0)
+
+    def test_derive_half_bonus_matches_legacy_default(self) -> None:
+        """TEP-1.5 (bonus 0.5) derives the historical frontend default."""
+        result = _derive_tep_multiplier_from_league({"bonus_rec_te": 0.5})
+        self.assertAlmostEqual(result, 1.15, places=6)
+
+    def test_derive_full_bonus(self) -> None:
+        """TEP-2.0 (bonus 1.0) derives a 30% boost."""
+        result = _derive_tep_multiplier_from_league({"bonus_rec_te": 1.0})
+        self.assertAlmostEqual(result, 1.30, places=6)
+
+    def test_derive_clamps_extreme_values(self) -> None:
+        """Misconfigured bonuses can't pump TE values off the board."""
+        # bonus_rec_te=10 would derive 4.0 without clamping; clamp to 2.0.
+        result = _derive_tep_multiplier_from_league({"bonus_rec_te": 10.0})
+        self.assertEqual(result, 2.0)
+
+    def test_derive_floors_at_one(self) -> None:
+        """Negative / invalid bonuses floor at 1.0 (no TE discount)."""
+        self.assertEqual(
+            _derive_tep_multiplier_from_league({"bonus_rec_te": -0.5}), 1.0
+        )
+        self.assertEqual(
+            _derive_tep_multiplier_from_league({"bonus_rec_te": None}), 1.0
+        )
+        self.assertEqual(
+            _derive_tep_multiplier_from_league({"bonus_rec_te": "nope"}), 1.0
+        )
+
+    def test_derive_with_none_context_falls_back_to_default(self) -> None:
+        """No context (offline / no SLEEPER_LEAGUE_ID) → no-op."""
+        # In the test environment SLEEPER_LEAGUE_ID is cleared by
+        # conftest, so _resolve_league_context returns the fallback
+        # dict with bonus_rec_te=0.0 → derived TEP = 1.0.
+        result = _derive_tep_multiplier_from_league()
+        self.assertEqual(result, 1.0)
+
+    def test_derivation_slope_matches_constant(self) -> None:
+        """Slope constant is 0.30 (calibrated for TEP-1.5 → 1.15)."""
+        self.assertAlmostEqual(_TEP_DERIVATION_SLOPE, 0.30)
+
+
+class TestBuildContractTepDerivation(unittest.TestCase):
+    """End-to-end: build_api_data_contract uses None → derived behavior."""
+
+    def test_none_derives_from_league_context(self) -> None:
+        """Passing tep_multiplier=None derives from Sleeper."""
+        import src.api.data_contract as dc
+
+        # Override the resolver to mimic a TEP-1.5 league.
+        original = dc._resolve_league_context
+        dc._resolve_league_context = lambda default_roster_count=12: {  # type: ignore[assignment]
+            "roster_count": 12,
+            "bonus_rec_te": 0.5,
+            "fetched_from_sleeper": True,
+        }
+        try:
+            contract = build_api_data_contract(_fixture_raw_payload())
+        finally:
+            dc._resolve_league_context = original
+
+        rov = contract.get("rankingsOverride") or {}
+        # tepMultiplier reflects the derived value (1.15).
+        self.assertAlmostEqual(float(rov.get("tepMultiplier") or 0), 1.15)
+        # tepMultiplierDerived exposes the raw league derivation.
+        self.assertAlmostEqual(
+            float(rov.get("tepMultiplierDerived") or 0), 1.15
+        )
+        # Source is "derived" (not "explicit" / "default") — confirms
+        # the None path took the Sleeper route.
+        self.assertEqual(rov.get("tepMultiplierSource"), "derived")
+        # Not customized: derived == effective, user didn't override.
+        self.assertFalse(rov.get("isCustomized"))
+
+    def test_explicit_override_beats_derivation(self) -> None:
+        """Passing a finite float uses that value, not the derived one."""
+        import src.api.data_contract as dc
+
+        # League derives 1.15, but the caller overrides to 1.0.
+        original = dc._resolve_league_context
+        dc._resolve_league_context = lambda default_roster_count=12: {  # type: ignore[assignment]
+            "roster_count": 12,
+            "bonus_rec_te": 0.5,
+            "fetched_from_sleeper": True,
+        }
+        try:
+            contract = build_api_data_contract(
+                _fixture_raw_payload(), tep_multiplier=1.0
+            )
+        finally:
+            dc._resolve_league_context = original
+
+        rov = contract.get("rankingsOverride") or {}
+        self.assertEqual(float(rov.get("tepMultiplier") or 0), 1.0)
+        # The derived baseline is still exposed so the frontend can
+        # render "Auto would be 1.15" under the slider.
+        self.assertAlmostEqual(
+            float(rov.get("tepMultiplierDerived") or 0), 1.15
+        )
+        self.assertEqual(rov.get("tepMultiplierSource"), "explicit")
+        # Effective (1.0) differs from derived (1.15) → isCustomized flips.
+        self.assertTrue(rov.get("isCustomized"))
+
+    def test_non_tep_league_derives_no_boost(self) -> None:
+        """A league without bonus_rec_te derives a no-op multiplier."""
+        import src.api.data_contract as dc
+
+        original = dc._resolve_league_context
+        dc._resolve_league_context = lambda default_roster_count=12: {  # type: ignore[assignment]
+            "roster_count": 12,
+            "bonus_rec_te": 0.0,
+            "fetched_from_sleeper": True,
+        }
+        try:
+            contract = build_api_data_contract(_fixture_raw_payload())
+        finally:
+            dc._resolve_league_context = original
+
+        rov = contract.get("rankingsOverride") or {}
+        self.assertEqual(float(rov.get("tepMultiplier") or 0), 1.0)
+        self.assertEqual(
+            float(rov.get("tepMultiplierDerived") or 0), 1.0
+        )
+        self.assertFalse(rov.get("isCustomized"))
 
 
 class TestTepMultiplier(unittest.TestCase):

@@ -665,16 +665,31 @@ export function siteOverridesAreCustomized(siteOverrides) {
 }
 
 /**
- * A TE premium multiplier is "customized" when it differs from the
- * canonical backend default (1.0 = no boost).  Any value strictly
- * greater than 1.0 triggers the override fetch so the backend
- * pipeline bakes TEP into every TE's ``rankDerivedValue`` stamp.
- * Values at or below 1.0 pass through as the default blend.
+ * A TE premium multiplier is "customized" when the caller has passed
+ * an explicit finite number — i.e. the user dragged the slider on
+ * /settings and the value is no longer the ``null`` sentinel that
+ * means "auto from league".
+ *
+ * Previously this function considered 1.0 to be "default" and any
+ * value strictly > 1.0 to be customized, but that shape couldn't
+ * express "auto derived from my Sleeper league" — the frontend
+ * default of 1.15 always looked customized even when it matched the
+ * league-derived value.  The new shape uses ``null`` for "inherit
+ * from backend" and a finite number for "explicit override".  The
+ * backend's ``rankingsOverride.tepMultiplierDerived`` carries the
+ * league-derived default so the UI can render it without re-fetching
+ * the registry.
+ *
+ * Returns ``true`` when the caller has posted a finite number (they
+ * want to override the derived default).  Returns ``false`` for
+ * ``null`` / ``undefined`` / non-finite values (auto-from-league
+ * path — ``fetchDynastyData`` skips posting ``tep_multiplier`` in
+ * the body and the backend derives from Sleeper).
  */
 export function tepMultiplierIsCustomized(tepMultiplier) {
+  if (tepMultiplier === null || tepMultiplier === undefined) return false;
   const n = Number(tepMultiplier);
-  if (!Number.isFinite(n)) return false;
-  return n > 1.0;
+  return Number.isFinite(n);
 }
 
 // ── Row materialization ──────────────────────────────────────────────
@@ -1159,12 +1174,24 @@ export function mergeRankingsDelta(baseContract, delta) {
 
 export async function fetchDynastyData(opts = {}) {
   const siteOverrides = opts.siteOverrides || null;
-  const tepMultiplier = Number(opts.tepMultiplier ?? 1.0) || 1.0;
+  // Preserve ``null`` / ``undefined`` as "inherit derived default"
+  // rather than coercing to 1.0.  A finite number is treated as the
+  // explicit override the user set via the slider.
+  const rawTep = opts.tepMultiplier;
+  const tepMultiplier =
+    rawTep === null || rawTep === undefined
+      ? null
+      : Number.isFinite(Number(rawTep))
+        ? Number(rawTep)
+        : null;
   const sitesCustomized = siteOverridesAreCustomized(siteOverrides);
   const tepCustomized = tepMultiplierIsCustomized(tepMultiplier);
   const customized = sitesCustomized || tepCustomized;
 
   // Default path (no overrides): fetch + cache the base contract.
+  // The backend will derive tep_multiplier from the operator's
+  // Sleeper league ``bonus_rec_te`` and bake it into the blend for
+  // us, so the frontend doesn't need to POST anything.
   if (!customized) {
     return _fetchBaseContract();
   }
@@ -1177,11 +1204,12 @@ export async function fetchDynastyData(opts = {}) {
   const base = _cachedBaseContract || (await _fetchBaseContract());
 
   // Build the POST body: start from the siteOverrides map (legacy
-  // shape) and stamp the tep_multiplier field on top.  Both shapes
-  // the backend accepts leave extra top-level keys alone, so an
-  // empty siteOverrides map with tepMultiplier > 1.0 produces
-  // ``{tep_multiplier: 1.15}`` which the backend routes purely
-  // through normalize_tep_multiplier().
+  // shape) and stamp the tep_multiplier field on top only when the
+  // user has an explicit override.  When the slider is in "auto"
+  // (null) the body omits tep_multiplier entirely; the backend's
+  // ``normalize_tep_multiplier`` returns ``None`` for an absent key
+  // and ``build_api_data_contract`` derives from the Sleeper league
+  // context.
   const body = { ...(siteOverrides || {}) };
   if (tepCustomized) {
     body.tep_multiplier = tepMultiplier;
