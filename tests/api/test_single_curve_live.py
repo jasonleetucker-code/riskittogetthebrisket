@@ -476,6 +476,80 @@ class TestSoftFallback(unittest.TestCase):
         )
 
 
+class TestScopeMasterRouting(unittest.TestCase):
+    """Pin the updated-framework scope-master routing.
+
+    Each source's contribution uses its SCOPE-appropriate master
+    curve, not the row's position family:
+      - anchor (IDPTC, dual-scope) → GLOBAL master
+      - offense-scope sources      → OFFENSE master
+      - IDP-scope sources          → IDP master
+
+    The per-source ``sourceRankMeta[*].valueContribution`` should
+    therefore reflect V(p) under each source's scope curve.  We
+    sanity-check that:
+      1. The anchor's valueContribution for a top player is
+         consistent with the GLOBAL master's V(p=0) ≈ 9999.
+      2. Offense-scope and IDP-scope sources produce different V(p)
+         at the same effective rank (because they use different
+         Hill constants).
+    """
+
+    def setUp(self) -> None:
+        self.contract = _get()
+        if self.contract is None:
+            self.skipTest("No live data")
+        self.rows = _ranked_rows(self.contract)
+
+    def test_anchor_top_rank_contribution_near_max(self) -> None:
+        # Find the anchor's rank-1 player.  Their anchor valueContribution
+        # should be ≈ 9999 regardless of which scope curve is in play
+        # (all Hill curves pin p=0 to 9999).
+        for row in self.rows:
+            meta = row.get("sourceRankMeta") or {}
+            anchor_meta = meta.get("idpTradeCalc") or {}
+            if anchor_meta.get("rawRank") == 1:
+                v = anchor_meta.get("valueContribution")
+                self.assertIsNotNone(v)
+                # Allow a tiny slack for rounding + TEP boost (TEs may
+                # exceed 9999 post-boost).
+                self.assertGreater(int(v), 9000)
+                return
+        self.skipTest("no anchor rank-1 player in snapshot")
+
+    def test_offense_and_idp_masters_differ(self) -> None:
+        """With different scope masters in play, two sources at the
+        same effective rank but different scopes should produce
+        different V values on the same player (absent TEP, absent
+        fallback).
+        """
+        from src.canonical.player_valuation import (  # noqa: PLC0415
+            HILL_PERCENTILE_C,
+            HILL_PERCENTILE_S,
+            IDP_HILL_PERCENTILE_C,
+            IDP_HILL_PERCENTILE_S,
+            percentile_to_value,
+        )
+        # Sanity — the two master curves produce different V at
+        # typical mid-pack percentile.
+        p = 0.1
+        off_v = int(
+            percentile_to_value(
+                p, midpoint=HILL_PERCENTILE_C, slope=HILL_PERCENTILE_S
+            )
+        )
+        idp_v = int(
+            percentile_to_value(
+                p, midpoint=IDP_HILL_PERCENTILE_C, slope=IDP_HILL_PERCENTILE_S
+            )
+        )
+        self.assertNotEqual(
+            off_v, idp_v,
+            f"Offense and IDP master curves produce identical V at p={p}: "
+            f"{off_v}.  Framework-update requires distinct scope curves."
+        )
+
+
 class TestNoSecondHillCurve(unittest.TestCase):
     """No live row can carry values consistent with a second Hill remap.
 

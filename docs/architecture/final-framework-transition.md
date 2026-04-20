@@ -35,7 +35,10 @@ the authoritative live-path description.
 ```
 For each source S that ranks player P:
     V_S = percentile_to_value((rank_S − 1) / (REF_N − 1))
-    with Hill constants (c, s) = offense or IDP family
+    with Hill constants (c, s) = S's SCOPE master:
+        - is_anchor    → GLOBAL master
+        - offense scope → OFFENSE master
+        - IDP scope     → IDP master
 
 For each source S that does NOT rank P but whose scope admits P's position:
     fallback_rank = pool_size_S + round(pool_size_S × 0.0)   # framework step 9
@@ -60,10 +63,12 @@ rankDerivedValueUncalibrated = center − λ · MAD               # framework st
 
 | Name | Value | Source of truth |
 |---|---|---|
-| `_PERCENTILE_REFERENCE_N` | 500 | KTC's native pool size (fixed, design choice) |
-| `HILL_PERCENTILE_C` | 0.1240 | `scripts/fit_hill_curve_percentile.py` (offense) |
-| `HILL_PERCENTILE_S` | 1.010 | same |
-| `IDP_HILL_PERCENTILE_C` | 0.1130 | `scripts/fit_hill_curve_percentile.py --universe idp` |
+| `_PERCENTILE_REFERENCE_N` | 500 | KTC's native pool size (design choice; +2% gain at N=400 not worth re-baselining, per `reports/percentile_reference_n_backtest_full.md`) |
+| `HILL_GLOBAL_PERCENTILE_C` | 0.1880 | `fit_hill_curve_percentile.py` (IDPTC combined pool) |
+| `HILL_GLOBAL_PERCENTILE_S` | 0.780 | same |
+| `HILL_PERCENTILE_C` (offense) | 0.1100 | `fit_hill_curve_percentile.py` (mean of KTC + DD + DN per-source fits) |
+| `HILL_PERCENTILE_S` (offense) | 1.210 | same |
+| `IDP_HILL_PERCENTILE_C` | 0.1130 | `fit_hill_curve_percentile.py --universe idp` |
 | `IDP_HILL_PERCENTILE_S` | 0.850 | same |
 | `_ALPHA_SHRINKAGE` | 0.10 | `reports/alpha_lambda_joint_backtest_full.md` |
 | `_MAD_PENALTY_LAMBDA` | 0.10 | `reports/alpha_lambda_joint_backtest_full.md` |

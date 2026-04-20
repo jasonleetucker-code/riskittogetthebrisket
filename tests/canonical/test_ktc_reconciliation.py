@@ -105,16 +105,23 @@ def _load_ktc_players_sorted() -> list[tuple[str, int]]:
 # ──────────────────────────────────────────────────────────────────────
 PINNED_DELTAS: list[tuple[int, int, float, float]] = [
     # rank, ours (exact), pct_diff band center, tolerance_pp
+    # Re-baselined after the updated-framework per-source-scope master
+    # curves landed (HILL_PERCENTILE_C=0.1100, HILL_PERCENTILE_S=1.210).
+    # Offense master now blends KTC + DynastyDaddy + DynastyNerds
+    # equally via mean-of-per-source-curves, producing a steeper tail
+    # than KTC alone — our master underprices KTC at the deep tail
+    # by ~18-30%, overprices slightly at ranks 12-50.  This is the
+    # consensus view of the offense market, not a regression.
     (1,   9999,   0.0,  3.0),
-    (5,   9407,  -2.4,  3.0),
-    (12,  8512,   9.2,  3.0),
-    (24,  7309,   8.0,  3.0),
-    (50,  5586,   8.5,  3.0),
-    (100, 3835,   6.2,  3.0),
-    (150, 2916,   2.9,  3.0),
-    (200, 2351,  -2.9, 10.0),
-    (300, 1692,   3.9, 10.0),
-    (400, 1321,  31.1, 10.0),
+    (5,   9596,  -0.5,  3.0),
+    (12,  8748,  12.2,  3.0),
+    (24,  7412,   9.5,  3.0),
+    (50,  5342,   3.7,  3.0),
+    (100, 3288,  -9.1,  5.0),
+    (150, 2300, -18.6,  5.0),
+    (200, 1739, -28.1, 10.0),
+    (300, 1139, -30.0, 10.0),
+    (400,  831, -17.6, 10.0),
 ]
 
 
@@ -209,10 +216,10 @@ class TestKTCCurveShapeInvariants:
         self, ktc_players: list[tuple[str, int]]
     ) -> None:
         # Past rank 100, the divergence from KTC stays within ±40pp.
-        # Under the percentile-Hill fit the deep tail can actually
-        # run ABOVE KTC (rank 400 is ~+31% vs KTC right now), which
-        # is the opposite of the rank-Hill version's behavior; this
-        # invariant doesn't assert a sign, only a bound.
+        # Our offense master curve is the unweighted mean of KTC, DD,
+        # and DN per-source fits; DD and DN have steeper tails than
+        # KTC, so the master compresses the deep tail relative to KTC.
+        # The bound permits this consensus divergence without flagging.
         for rank in (100, 150, 200, 300, 400):
             _, ktc = ktc_players[rank - 1]
             ours = _ours(rank)

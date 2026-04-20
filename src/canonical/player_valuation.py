@@ -71,28 +71,34 @@ HILL_SLOPE: float = 1.149          # controls steepness of decay
 IDP_HILL_MIDPOINT: float = 69.50
 IDP_HILL_SLOPE: float = 0.945
 
-# Final Framework step 2-3: percentile-input Hill curve.
+# Final Framework step 2-3: percentile-input Hill curves, one per scope.
 #
 #     p = (r − 1) / (N − 1)
 #     V(p) = 9999 / (1 + (p / c)^s)
 #
-# Where N = source's NATIVE pool size.  Each source's top rank always
-# maps to p=0 → V=9999, and the curve shape captures how quickly the
-# market's normalised value decays per-source.
+# Updated framework (2026-04-20) uses SCOPE-LEVEL master curves built
+# via per-source fits + trimmed mean-median combination, not a pooled
+# fit across all value sources.  See ``scripts/fit_hill_curve_percentile.py``.
 #
-# Fit via ``scripts/fit_hill_curve_percentile.py`` against value-based
-# sources' native percentile-to-value shapes.  Combined fit across
-# 1415 offense points from KTC, IDPTradeCalc, DynastyDaddy, and
-# DynastyNerds yielded c=0.1240, s=1.010 (RMSE ~955 across
-# heterogeneous sources); the IDP fit across 355 IDPTC IDP points
-# yielded c=0.1130, s=0.850 (RMSE 307).
+# GLOBAL master — fit from the anchor's combined offense+IDP pool
+# (currently IDPTradeCalc only; the only source with dual-universe
+# coverage).  Used for the anchor source's contributions to every
+# player, regardless of position.
+HILL_GLOBAL_PERCENTILE_C: float = 0.1880
+HILL_GLOBAL_PERCENTILE_S: float = 0.780
 #
-# Used by the live pipeline starting in PR 3 of the Final Framework
-# transition.  The older rank-based HILL_MIDPOINT / HILL_SLOPE and
-# IDP_HILL_MIDPOINT / IDP_HILL_SLOPE constants remain for the
-# canonical-engine alternate path and the KTC reconciliation test.
-HILL_PERCENTILE_C: float = 0.1240
-HILL_PERCENTILE_S: float = 1.010
+# OFFENSE master — fit from offense-only value sources (KTC,
+# DynastyDaddy, DynastyNerds).  Used for every offense-scope source's
+# contributions (KTC, DLF SF, Dynasty Nerds, FantasyPros SF, Dynasty
+# Daddy, Flock Fantasy, FootballGuys SF, Yahoo/Boone, DraftSharks,
+# DLF Rookie SF).
+HILL_PERCENTILE_C: float = 0.1100
+HILL_PERCENTILE_S: float = 1.210
+#
+# IDP master — fit from IDPTradeCalc's IDP slice (the only value-
+# based IDP source).  Used for every IDP-scope source's contributions
+# (DLF IDP, FantasyPros IDP, FootballGuys IDP, DLF Rookie IDP,
+# DraftSharks IDP).
 IDP_HILL_PERCENTILE_C: float = 0.1130
 IDP_HILL_PERCENTILE_S: float = 0.850
 
