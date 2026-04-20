@@ -346,6 +346,18 @@ KNOWN_TOP_BOARD_SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     "Jack Gibbens":    "Veteran LB only ranked by FantasyPros IDP — IDPTC/DLF/FBG haven't picked him up",
     "Malachi Moore":   "Veteran S only ranked by FantasyPros IDP — IDPTC/FBG haven't picked him up",
     "Lavonte David":   "36yo FA veteran LB only ranked by FootballGuys IDP — IDPTC and others have dropped him",
+    # ── Top-200 1-src surfacings after the 2026-04-20 FBG combined-
+    # rank scraper upgrade.  FBG's cross-market ordering pulled these
+    # veteran DBs / DL up into the top 200 (they previously lived in
+    # the 250-400 tail).  Each is a genuine FBG-only veteran that
+    # IDPTC, DLF IDP, and the other IDP boards have either dropped or
+    # never carried. ──
+    "DaRon Bland":      "Veteran CB only ranked by FootballGuys IDP",
+    "Jordan Davis":     "Veteran DL only ranked by FootballGuys IDP",
+    "Marlon Humphrey":  "Veteran CB only ranked by FootballGuys IDP",
+    "Mike Jackson":     "Veteran CB only ranked by FootballGuys IDP",
+    "Nahshon Wright":   "Veteran CB only ranked by FootballGuys IDP",
+    "Zyon McCollum":    "Veteran CB only ranked by FootballGuys IDP",
 }
 
 

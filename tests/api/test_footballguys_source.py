@@ -42,9 +42,23 @@ class TestCsvExports(unittest.TestCase):
             self.assertIn("rank", reader.fieldnames or [])
             rows = list(reader)
         self.assertGreater(len(rows), 400, "SF CSV should have 400+ offensive rows")
-        # Rank is 1..N contiguous.
+        # Rank column carries FBG's original cross-market combined rank
+        # (FBG publishes offense + IDP on one ordering; we preserve the
+        # original rank so the pipeline can treat FBG SF + IDP as a
+        # single cross-market ranking source).  Ranks are strictly
+        # ascending and rank 1 is an offense player (a QB in current
+        # snapshots), but the sequence is NOT 1..N — IDP rows occupy
+        # the gaps (e.g. Jack Campbell at combined rank 19).
         ranks = [int(r["rank"]) for r in rows]
-        self.assertEqual(ranks, list(range(1, len(rows) + 1)))
+        self.assertEqual(ranks, sorted(ranks), "ranks must be ascending")
+        self.assertEqual(ranks[0], 1, "top row should carry combined rank 1")
+        # With IDP rows removed from this CSV, the max rank is larger
+        # than len(rows) (missing slots = IDPs in the sibling CSV).
+        self.assertGreater(
+            max(ranks), len(rows),
+            "SF CSV max rank should exceed row count — IDP slots live "
+            "in footballGuysIdp.csv and their ranks are skipped here.",
+        )
 
     def test_idp_csv_exists_and_has_expected_columns(self) -> None:
         self.assertTrue(IDP_CSV.exists(), f"Missing {IDP_CSV}")
@@ -55,7 +69,15 @@ class TestCsvExports(unittest.TestCase):
             rows = list(reader)
         self.assertGreater(len(rows), 300, "IDP CSV should have 300+ IDP rows")
         ranks = [int(r["rank"]) for r in rows]
-        self.assertEqual(ranks, list(range(1, len(rows) + 1)))
+        self.assertEqual(ranks, sorted(ranks), "ranks must be ascending")
+        # First IDP in FBG's combined ranking is not rank 1 — offense
+        # players occupy the very top of the combined ordering, so the
+        # first IDP sits somewhere in the teens-to-twenties range.
+        self.assertGreater(
+            ranks[0], 1,
+            "first IDP rank should be > 1 (offense occupies the top of "
+            "FBG's combined cross-market ordering).",
+        )
 
     def test_csv_positions_split_correctly(self) -> None:
         import re
@@ -116,11 +138,18 @@ class TestRegistryWiring(unittest.TestCase):
         self.assertFalse(entry["needs_shared_market_translation"])
         self.assertFalse(entry["excludes_rookies"])
 
-    def test_idp_scope_is_overall_idp_with_shared_market_translation(self) -> None:
+    def test_idp_scope_is_overall_idp_without_shared_market_translation(self) -> None:
         entry = next(s for s in _RANKING_SOURCES if s["key"] == "footballGuysIdp")
         self.assertEqual(entry["scope"], "overall_idp")
-        self.assertTrue(entry["needs_shared_market_translation"])
+        # Shared-market translation is redundant now that the CSV
+        # already carries the cross-market combined rank directly
+        # (2026-04-20 scraper upgrade); the IDP backbone re-mapping
+        # would overwrite FBG's native combined rank with a ladder
+        # translation that assumes IDP-only within-family ranks.
+        self.assertFalse(entry["needs_shared_market_translation"])
         self.assertFalse(entry["excludes_rookies"])
+        # And the cross-market flag is the new enablement:
+        self.assertTrue(entry.get("is_cross_market"))
 
 
 class TestLiveEnrichment(unittest.TestCase):
