@@ -3396,15 +3396,22 @@ _PERCENTILE_REFERENCE_N: int = 500
 #   α = 1.0  → pure subgroup (anchor ignored)
 #   α intermediate → anchor-baseline with subgroup adjustment
 #
-# Chosen via ``scripts/backtest_alpha_shrinkage.py`` against the 25
-# daily snapshots in ``data/`` (see
-# ``reports/alpha_shrinkage_backtest_full.md``).  The sweep produced
-# a clean unimodal optimum at α=0.30 on both the unweighted and
-# value-weighted rank-change metrics.  At α=0 (pure anchor)
-# subgroup disagreement has no outlet → stability is slightly
-# worse; past α≈0.4 the subgroup starts dominating and stability
-# degrades sharply (α=1.0 is ~2× worse than α=0.3).
-_ALPHA_SHRINKAGE: float = 0.3
+# Originally tuned to α=0.30 in the PR 3 standalone sweep.  A 2D joint
+# backtest over the α × λ grid after PR 4 (see
+# ``reports/alpha_lambda_joint_backtest_full.md``) showed the true
+# stability optimum sits at α=0 — the degenerate "ignore the 15 other
+# sources, use IDPTC alone" solution — because any subgroup voice
+# introduces day-to-day variance.
+#
+# α=0 is product-bad (it violates the declared "market consensus
+# fit" optimization target in ``docs/architecture/optimization-target.md``;
+# our values should reflect multi-source consensus, not a single
+# source).  We pick the cheapest non-degenerate joint point
+# (α=0.10, λ=0.10, VW 0.299) — the subgroup keeps 10% voice over the
+# anchor baseline, which preserves meaningful multi-source signal
+# while staying near the stability frontier (~2× worse than the
+# degenerate optimum, tied for best among cells with α ≥ 0.10).
+_ALPHA_SHRINKAGE: float = 0.10
 
 # Final Framework step 6: volatility penalty weight.  Applied as
 # ``final = center − λ·MAD`` where MAD is the mean absolute deviation
@@ -3419,13 +3426,15 @@ _ALPHA_SHRINKAGE: float = 0.3
 #
 # Value chosen via ``scripts/backtest_mad_lambda.py`` against the 25
 # daily snapshots in ``data/`` (see ``reports/mad_lambda_backtest_full.md``).
-# The sweep produced a unimodal optimum with clear minima at λ=0.5 on
-# the value-weighted rank-change metric (-25.13% vs λ=0, best) and
-# λ=0.7 on the unweighted metric (-25.62% vs λ=0, best).  We adopt
-# λ=0.5 because the two metrics agree within noise and the lower
-# constant imposes a gentler overall penalty while preserving nearly
-# all the stability win.
-_MAD_PENALTY_LAMBDA: float = 0.5
+# Originally tuned to λ=0.5 in PR 2 (pre-hierarchical, pre-fallback).
+# Joint 2D α × λ backtest after the full framework shipped (see
+# ``reports/alpha_lambda_joint_backtest_full.md``) placed the optimum
+# at λ=0.10 for the non-degenerate α=0.10 operating point.  At α=0.10,
+# λ={0.05, 0.10} are tied on the value-weighted metric (VW 0.299);
+# λ=0.10 is preferred because it imposes slightly more penalty on
+# high-disagreement players (the whole point of the MAD step)
+# without measurable stability cost.
+_MAD_PENALTY_LAMBDA: float = 0.10
 
 # Final Framework step 9: soft fallback for unranked players.
 #
