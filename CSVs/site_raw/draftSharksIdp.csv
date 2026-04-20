@@ -137,10 +137,10 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 136,NYJ,Will McDonald,DL,N/A,9,26.8,54,139,217,310,,-0
 137,LAR,Kamren Kinchens,DB,N/A,8,23.5,73,166,272,506,,-0
 138,NYG,Andru Phillips,DB,N/A,14,24.3,71,174,277,489,,-1
-139,CLE,Grant Delpit,DB,N/A,9,27.5,105,172,265,405,,-1
+139,CLE,Grant Delpit,DB,N/A,9,27.6,105,172,265,405,,-1
 140,MIN,Andrew Van Ginkel,DL,N/A,6,30.8,101,131,170,243,,-1
 141,PIT,Derrick Harmon,DL,N/A,5,22.7,46,121,204,378,,-1
-142,DEN,Zach Allen,DL,N/A,12,28.6,53,142,210,292,,-1
+142,DEN,Zach Allen,DL,N/A,12,28.7,53,142,210,292,,-1
 143,SF,Malik Mustapha,DB,N/A,14,23.8,84,164,270,484,,-1
 144,NO,Danny Stutsman,LB,N/A,11,23.1,54,157,260,486,,-1
 145,RK,Jake Golday,LB,N/A,18,22.8,54,157,260,486,,-1
@@ -252,9 +252,9 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 251,NYJ,Harrison Phillips,DL,N/A,9,30.2,49,87,121,170,,-7
 252,TB,Anthony Nelson,DL,N/A,9,29.1,37,90,121,169,,-8
 253,ARI,Jordan Burch,DL,N/A,8,24.5,28,79,131,232,,-8
-254,NE,Craig Woodson,DB,N/A,14,25.1,63,134,215,371,,-8
+254,NE,Craig Woodson,DB,N/A,14,25.2,63,134,215,371,,-8
 255,DEN,Patrick Surtain II,DB,N/A,12,26,71,134,210,353,,-8
-256,IND,Grover Stewart,DL,N/A,11,32.4,52,82,107,159,,-8
+256,IND,Grover Stewart,DL,N/A,11,32.5,52,82,107,159,,-8
 257,DET,D.J. Reed,DB,N/A,8,29.4,88,133,206,306,,-8
 258,CLE,Maliek Collins,DL,N/A,9,31,47,83,110,155,,-8
 259,NO,Justin Reid,DB,N/A,11,29.2,93,133,202,300,,-8
@@ -263,7 +263,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 262,NYJ,Jarvis Brownlee Jr.,DB,N/A,9,24.8,63,134,209,360,,-8
 263,ARI,Baron Browning,DL,N/A,8,27.2,31,80,125,179,,-8
 264,PIT,Jack Sawyer,DL,N/A,5,23.9,30,70,117,210,,-8
-265,CIN,B.J. Hill,DL,N/A,10,30.9,50,81,107,151,,-8
+265,CIN,B.J. Hill,DL,N/A,10,31,50,81,107,151,,-8
 266,IND,Ahmad Gardner,DB,N/A,11,24.6,69,129,203,351,,-8
 267,PHI,Quinyon Mitchell,DB,N/A,9,24.8,69,131,204,348,,-8
 268,CAR,Jaycee Horn,DB,N/A,14,26.3,68,133,208,351,,-8
@@ -284,7 +284,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 283,IND,JT Tuimoloau,DL,N/A,11,22.9,24,58,99,189,,-10
 284,CHI,Kyler Gordon,DB,N/A,5,26.3,75,116,184,313,,-10
 285,WAS,K'Lavon Chaisson,LB,N/A,12,26.7,41,115,179,256,,-10
-286,PIT,Jaquan Brisker,DB,N/A,5,26.9,60,120,186,299,,-11
+286,PIT,Jaquan Brisker,DB,N/A,5,27,60,120,186,299,,-11
 287,NO,Davon Godchaux,DL,N/A,11,31.4,35,59,78,109,,-11
 288,JAC,Davon Hamilton,DL,N/A,8,29.2,0,70,104,144,,-11
 289,LAR,Poona Ford,DL,N/A,8,30.4,0,71,99,139,,-11
@@ -332,7 +332,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 331,MIN,Theo Jackson,DB,N/A,6,27.5,48,91,140,226,,-17
 332,RK,Peter Woods,DL,N/A,18,21.1,47,0,0,0,,-17
 333,RK,R Mason Thomas,DL,N/A,18,21.6,44,0,0,0,,-17
-334,TEN,Oluwafemi Oladejo,LB,N/A,10,22.5,35,60,102,194,,-17
+334,TEN,Oluwafemi Oladejo,LB,N/A,10,22.6,35,60,102,194,,-17
 335,TB,David Walker,LB,N/A,9,25.8,32,65,108,165,,-17
 336,RK,Keldric Faulk,DL,N/A,18,20.6,38,0,0,0,,-17
 337,RK,Zion Young,DL,N/A,18,22.1,35,0,0,0,,-17
@@ -344,7 +344,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 343,ARI,BJ Ojulari,LB,N/A,8,24,21,55,93,166,,-19
 344,HOU,Sheldon Rankins,DL,N/A,6,32,0,0,0,0,,-19
 345,LAC,Dalvin Tomlinson,DL,N/A,12,32.1,0,0,0,0,,-19
-346,WAS,Charles Omenihu,DL,N/A,12,28.6,0,0,0,0,,-19
+346,WAS,Charles Omenihu,DL,N/A,12,28.7,0,0,0,0,,-19
 347,UNS,D.J. Jones,DL,N/A,18,31.3,0,0,0,0,,-19
 348,UNS,Levi Onwuzurike,DL,N/A,18,28.1,0,0,0,0,,-19
 349,KC,Felix Anudike-Uzomah,DL,N/A,10,24.2,0,0,0,0,,-19
