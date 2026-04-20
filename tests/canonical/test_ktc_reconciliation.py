@@ -70,7 +70,7 @@ def _load_ktc_players_sorted() -> list[tuple[str, int]]:
 # ──────────────────────────────────────────────────────────────────────
 # Pinned deltas — our Hill curve vs KTC at key ranks.
 #
-# Each entry: (rank, ours_expected, pct_diff_band_center).
+# Each entry: (rank, ours_expected, pct_diff_band_center, tolerance_pp).
 # Baselined 2026-04-20 against CSVs/site_raw/ktc.csv.
 #
 # ``ours_expected`` is the exact integer ``rank_to_value(rank)`` output.
@@ -78,29 +78,33 @@ def _load_ktc_players_sorted() -> list[tuple[str, int]]:
 # constants, changing it is a deliberate act and must re-baseline here.
 #
 # ``pct_diff_band_center`` is the expected (ours − ktc) / ktc × 100
-# at that rank.  Tolerance ``DELTA_TOLERANCE_PP`` is applied symmetrically
-# around the band center — wide enough (±5pp) to absorb ordinary daily
-# KTC scrape drift, narrow enough to catch a real curve shape change.
+# at that rank.  ``tolerance_pp`` is the symmetric band half-width.
+#
+# Tolerances are tiered per the 2026-04-20 KTC volatility backtest
+# (``scripts/backtest_ktc_volatility.py``, see
+# ``reports/ktc_volatility_backtest.md``) across 25 daily snapshots:
+#
+#   ranks 1–50  | max observed day-over-day drift = 0.64pp → ±2pp
+#   ranks 100–150 | max observed day-over-day drift = 1.04pp → ±3pp
+#   ranks 200–400 | max observed day-over-day drift = 8.36pp (driven
+#                   by the 2026-04-08 deep-tail methodology shift) → ±10pp
+#
+# A structural KTC tail shift larger than these bands is a signal, not
+# a regression — break CI, investigate, re-baseline the affected ranks.
 # ──────────────────────────────────────────────────────────────────────
-PINNED_DELTAS: list[tuple[int, int, float]] = [
-    # rank, ours (exact), pct_diff band center
-    (1,   9999,   0.0),
-    (5,   9460,  -1.8),
-    (12,  8459,   8.4),
-    (24,  7017,   3.8),
-    (50,  4967,  -3.6),
-    (100, 3055, -15.4),
-    (150, 2157, -24.0),
-    (200, 1648, -31.9),
-    (300, 1100, -32.5),
-    (400,  815, -19.2),
+PINNED_DELTAS: list[tuple[int, int, float, float]] = [
+    # rank, ours (exact), pct_diff band center, tolerance_pp
+    (1,   9999,   0.0,  2.0),
+    (5,   9460,  -1.8,  2.0),
+    (12,  8459,   8.4,  2.0),
+    (24,  7017,   3.8,  2.0),
+    (50,  4967,  -3.6,  2.0),
+    (100, 3055, -15.4,  3.0),
+    (150, 2157, -24.0,  3.0),
+    (200, 1648, -31.9, 10.0),
+    (300, 1100, -32.5, 10.0),
+    (400,  815, -19.2, 10.0),
 ]
-
-# Tolerance band around pinned pct_diff, in absolute percentage points.
-# ±5pp is wide enough to absorb normal daily KTC scrape drift (their
-# daily changes typically sit well under ±2pp at most ranks) while
-# still tight enough to catch a real curve-shape regression.
-DELTA_TOLERANCE_PP = 5.0
 
 
 @pytest.fixture(scope="module")
@@ -116,13 +120,14 @@ def ktc_players() -> list[tuple[str, int]]:
 class TestKTCReconciliation:
     """Pin our Hill curve's divergence from KTC at key ranks."""
 
-    @pytest.mark.parametrize("rank,pinned_ours,pinned_pct", PINNED_DELTAS)
+    @pytest.mark.parametrize("rank,pinned_ours,pinned_pct,tolerance_pp", PINNED_DELTAS)
     def test_rank_delta_within_tolerance(
         self,
         ktc_players: list[tuple[str, int]],
         rank: int,
         pinned_ours: int,
         pinned_pct: float,
+        tolerance_pp: float,
     ) -> None:
         _, ktc_value = ktc_players[rank - 1]
         ours = rank_to_value(rank)
@@ -136,13 +141,14 @@ class TestKTCReconciliation:
             f"(e.g. re-fit via scripts/fit_hill_curve_from_market.py)."
         )
 
-        # KTC's curve wiggles with their daily scrape.  Keep the
-        # divergence within ±DELTA_TOLERANCE_PP of the pinned center.
+        # KTC's curve wiggles with their daily scrape.  Tier-specific
+        # tolerance (see PINNED_DELTAS doc block) — tight at the stable
+        # top of board, wide at the actively-drifting deep tail.
         actual_pct = 100.0 * (ours - ktc_value) / ktc_value
-        assert abs(actual_pct - pinned_pct) <= DELTA_TOLERANCE_PP, (
+        assert abs(actual_pct - pinned_pct) <= tolerance_pp, (
             f"Divergence from KTC at rank {rank} drifted: "
             f"pinned {pinned_pct:+.1f}% vs actual {actual_pct:+.1f}% "
-            f"(KTC={ktc_value}, ours={ours}, band ±{DELTA_TOLERANCE_PP:.1f}pp). "
+            f"(KTC={ktc_value}, ours={ours}, band ±{tolerance_pp:.1f}pp). "
             f"Investigate whether KTC shifted or our curve needs re-fitting."
         )
 
