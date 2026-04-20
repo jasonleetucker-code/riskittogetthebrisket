@@ -95,6 +95,41 @@ def _load_idptc_idp_values() -> list[float]:
     return vs
 
 
+def _load_rookie_values(source_key: str) -> list[float]:
+    """Rookie-only values for the given value-based source.
+
+    Filters the latest snapshot to rookies and pulls the source's
+    value from each rookie's ``_canonicalSiteValues`` dict.  Returns
+    descending-sorted values.  Used to build the ROOKIE scope master
+    curve.
+    """
+    import json
+
+    candidates = sorted(
+        (REPO / "data").glob("dynasty_data_*.json"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not candidates:
+        return []
+    with candidates[0].open() as f:
+        raw = json.load(f)
+    vs: list[float] = []
+    for _name, p in (raw.get("players") or {}).items():
+        if not (p.get("_isRookie") or p.get("_formatFitRookie")):
+            continue
+        site_values = (p or {}).get("_canonicalSiteValues") or {}
+        v = site_values.get(source_key)
+        try:
+            vf = float(v) if v is not None else 0.0
+        except (TypeError, ValueError):
+            continue
+        if vf > 0:
+            vs.append(vf)
+    vs.sort(reverse=True)
+    return vs
+
+
 def _percentile_pairs(values: list[float]) -> list[tuple[float, float]]:
     """Return [(p, normalized_v)] where normalized_v has top = 9999."""
     if len(values) < 2:
@@ -253,11 +288,32 @@ def main() -> int:
     else:
         print("  (no IDP value source data)")
 
+    print("\nROOKIE scope (rookie slices of value-based sources):")
+    rookie_fits: list[tuple[str, float, float]] = []
+    for label, src_key in (
+        ("KTC-Rookie", "ktc"),
+        ("IDPTC-Rookie", "idpTradeCalc"),
+    ):
+        rv = _load_rookie_values(src_key)
+        if len(rv) < 10:
+            print(
+                f"  {label:18s}  (only {len(rv)} rookies with values; skipping)"
+            )
+            continue
+        pairs = _percentile_pairs(rv)
+        c, s, mse = _fit(pairs)
+        rookie_fits.append((label, c, s))
+        print(
+            f"  {label:18s}  n={len(pairs):4d}  c={c:.4f}  "
+            f"s={s:.3f}  rmse={mse ** 0.5:.1f}"
+        )
+
     print("\nScope-level master curves (trimmed mean-median across per-source fits):")
     for scope_label, fits in (
         ("GLOBAL", global_fits),
         ("OFFENSE", offense_fits),
         ("IDP", idp_fits),
+        ("ROOKIE", rookie_fits),
     ):
         result = _fit_scope_master(scope_label, fits)
         if result is None:
@@ -277,6 +333,7 @@ def main() -> int:
         ("GLOBAL", global_fits),
         ("OFFENSE", offense_fits),
         ("IDP", idp_fits),
+        ("ROOKIE", rookie_fits),
     ):
         result = _fit_scope_master(scope_label, fits)
         if result is None:
@@ -291,6 +348,7 @@ def main() -> int:
         ("GLOBAL", global_fits),
         ("OFFENSE", offense_fits),
         ("IDP", idp_fits),
+        ("ROOKIE", rookie_fits),
     ):
         result = _fit_scope_master(scope_label, fits)
         if result is None:
@@ -307,6 +365,9 @@ def main() -> int:
         elif scope_label == "IDP":
             print(f"IDP_HILL_PERCENTILE_C: float = {c:.4f}")
             print(f"IDP_HILL_PERCENTILE_S: float = {s:.3f}")
+        elif scope_label == "ROOKIE":
+            print(f"HILL_ROOKIE_PERCENTILE_C: float = {c:.4f}")
+            print(f"HILL_ROOKIE_PERCENTILE_S: float = {s:.3f}")
         else:
             print(f"HILL_GLOBAL_PERCENTILE_C: float = {c:.4f}")
             print(f"HILL_GLOBAL_PERCENTILE_S: float = {s:.3f}")

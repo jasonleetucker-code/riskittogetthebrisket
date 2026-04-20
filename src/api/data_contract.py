@@ -4174,25 +4174,38 @@ def _compute_unified_rankings(
         HILL_GLOBAL_PERCENTILE_S,
         HILL_PERCENTILE_C,
         HILL_PERCENTILE_S,
+        HILL_ROOKIE_PERCENTILE_C,
+        HILL_ROOKIE_PERCENTILE_S,
         IDP_HILL_PERCENTILE_C,
         IDP_HILL_PERCENTILE_S,
         percentile_to_value,
     )
 
-    # Updated framework (step 5-6): route each source to its scope-
-    # appropriate master curve, not per-player-position.  The anchor
-    # source (IDPTC — dual-scope offense+IDP) uses the GLOBAL master;
-    # offense-only sources use the OFFENSE master; IDP-only sources
-    # use the IDP master.  Picks are treated as offense-scope (they're
-    # embedded in KTC's offense pool, and dlfRookieSf anchors them to
-    # the offense rookie ladder).
+    # Updated framework (steps 5-6): route each source to its scope-
+    # appropriate master curve, not per-player-position.
+    #   is_anchor=True                   → GLOBAL master
+    #   needs_rookie_translation=True    → ROOKIE master
+    #   scope=overall_idp                → IDP master
+    #   everything else (offense, picks) → OFFENSE master
     def _curve_for_source(src_def: dict) -> tuple[float, float]:
         if src_def.get("is_anchor"):
             return HILL_GLOBAL_PERCENTILE_C, HILL_GLOBAL_PERCENTILE_S
+        if src_def.get("needs_rookie_translation"):
+            return HILL_ROOKIE_PERCENTILE_C, HILL_ROOKIE_PERCENTILE_S
         scope = str(src_def.get("scope") or "")
         if scope == SOURCE_SCOPE_OVERALL_IDP:
             return IDP_HILL_PERCENTILE_C, IDP_HILL_PERCENTILE_S
         return HILL_PERCENTILE_C, HILL_PERCENTILE_S
+
+    # Rookie sources compute percentile against their NATIVE pool
+    # (N_j = rookie-class size), not the fixed
+    # ``_PERCENTILE_REFERENCE_N``.  The ROOKIE master's shape
+    # already encodes rookie-relative value decay directly.
+    def _percentile_denom_for_source(src_def: dict, source_key: str) -> int:
+        if src_def.get("needs_rookie_translation"):
+            native_n = source_pool_sizes.get(source_key, 0) or 0
+            return max(2, native_n)
+        return _PERCENTILE_REFERENCE_N
 
     # Clamp TEP multiplier to a sane range.  1.0 is a no-op, 2.0 is
     # a generous upper bound (the slider UI caps at 1.5 today).  The
@@ -4427,23 +4440,12 @@ def _compute_unified_rankings(
                 ladder_depth_meta = len(shared_market_ladder)
                 backbone_depth_meta = shared_market_depth
             elif needs_rookie_xlate:
-                ref_key = (
-                    "idpTradeCalc"
-                    if row_scope == SOURCE_SCOPE_OVERALL_IDP
-                    else "ktc"
-                )
-                ladder = _build_rookie_ladder(
-                    ref_key,
-                    idp=(row_scope == SOURCE_SCOPE_OVERALL_IDP),
-                )
-                if ladder:
-                    effective_rank, method = translate_position_rank(
-                        raw_rank, ladder
-                    )
-                    ladder_depth_meta = len(ladder)
-                else:
-                    effective_rank = raw_rank
-                    method = TRANSLATION_FALLBACK
+                # Updated framework: rookie sources skip the ladder.
+                # The ROOKIE master curve + native-N percentile
+                # denominator together encode rookie-relative value
+                # decay — no reference-source crosswalk needed.
+                effective_rank = raw_rank
+                method = TRANSLATION_DIRECT
             else:
                 effective_rank = raw_rank
                 method = TRANSLATION_DIRECT
@@ -4532,14 +4534,13 @@ def _compute_unified_rankings(
             # GLOBAL master (IDPTC's native curve shape), not the
             # OFFENSE master.
             hill_c, hill_s = _curve_for_source(src_def)
-            # Percentile denominator is the FIXED reference pool size
-            # (_PERCENTILE_REFERENCE_N).  Effective rank is post-ladder
-            # (combined-pool coordinate), so dividing by a fixed N
-            # keeps every source's contribution in the same value
-            # scale.  A rank beyond the reference pool is clamped to
-            # p=1 (long tail of the Hill).
-            if _PERCENTILE_REFERENCE_N >= 2:
-                p = (float(eff_rank) - 1.0) / float(_PERCENTILE_REFERENCE_N - 1)
+            # Percentile denominator picks by source:
+            #   rookie sources → native pool size N_j (framework #2)
+            #   everything else → _PERCENTILE_REFERENCE_N (combined
+            #                     pool coordinate, post-ladder)
+            denom = _percentile_denom_for_source(src_def, source_key)
+            if denom >= 2:
+                p = (float(eff_rank) - 1.0) / float(denom - 1)
             else:
                 p = 0.0
             p = max(0.0, min(1.0, p))
@@ -4606,10 +4607,14 @@ def _compute_unified_rankings(
                 fallback_rank = pool_n + int(
                     round(pool_n * _SOFT_FALLBACK_DISTANCE)
                 )
-                if _PERCENTILE_REFERENCE_N >= 2:
+                # Use the source's own denominator rule so rookie
+                # sources stay in native-N space and offense/IDP/global
+                # sources stay in the combined-pool reference.
+                fb_denom = _percentile_denom_for_source(src, skey)
+                if fb_denom >= 2:
                     p_fallback = (
                         float(fallback_rank) - 1.0
-                    ) / float(_PERCENTILE_REFERENCE_N - 1)
+                    ) / float(fb_denom - 1)
                 else:
                     p_fallback = 1.0
                 p_fallback = max(0.0, min(1.0, p_fallback))

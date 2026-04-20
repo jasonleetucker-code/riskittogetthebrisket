@@ -550,6 +550,77 @@ class TestScopeMasterRouting(unittest.TestCase):
         )
 
 
+class TestRookieScopeRouting(unittest.TestCase):
+    """Framework steps 5-6 (rookie scope): rookie-only sources use
+    the ROOKIE master curve with their native pool size N_j, not a
+    ladder-translated rank against the OFFENSE / IDP master.
+    """
+
+    def setUp(self) -> None:
+        self.contract = _get()
+        if self.contract is None:
+            self.skipTest("No live data")
+        self.rows = _ranked_rows(self.contract)
+
+    def test_rookie_source_rank_one_gets_max_value(self) -> None:
+        """A rookie source's rank-1 player should have V=9999 from
+        the ROOKIE master (p=0).  Under the old ladder-translation
+        this value was the OFFENSE-master-mapped reference-source
+        rank and therefore less than 9999.
+        """
+        for row in self.rows:
+            meta = row.get("sourceRankMeta") or {}
+            for src_key in ("dlfRookieSf", "dlfRookieIdp"):
+                m = meta.get(src_key) or {}
+                if m.get("rawRank") != 1:
+                    continue
+                # Rookie rank 1 now maps to p=0 → V=9999 under ROOKIE
+                # master.  Ladder is off.
+                self.assertEqual(
+                    m.get("effectiveRank"),
+                    1,
+                    f"{src_key} rank-1 player "
+                    f"{row.get('canonicalName')} has eff_rank "
+                    f"{m.get('effectiveRank')} != 1 — rookie-ladder "
+                    f"translation should be OFF.",
+                )
+                self.assertEqual(
+                    int(m.get("valueContribution") or 0),
+                    9999,
+                    f"{src_key} rank-1 V="
+                    f"{m.get('valueContribution')} != 9999 — ROOKIE "
+                    f"master should map p=0 → 9999.",
+                )
+                return
+        self.skipTest("no rookie rank-1 player in snapshot")
+
+    def test_rookie_master_differs_from_offense_and_idp(self) -> None:
+        from src.canonical.player_valuation import (  # noqa: PLC0415
+            HILL_PERCENTILE_C,
+            HILL_PERCENTILE_S,
+            HILL_ROOKIE_PERCENTILE_C,
+            HILL_ROOKIE_PERCENTILE_S,
+            IDP_HILL_PERCENTILE_C,
+            IDP_HILL_PERCENTILE_S,
+            percentile_to_value,
+        )
+        p = 0.3
+        off_v = int(percentile_to_value(
+            p, midpoint=HILL_PERCENTILE_C, slope=HILL_PERCENTILE_S
+        ))
+        idp_v = int(percentile_to_value(
+            p, midpoint=IDP_HILL_PERCENTILE_C, slope=IDP_HILL_PERCENTILE_S
+        ))
+        rook_v = int(percentile_to_value(
+            p,
+            midpoint=HILL_ROOKIE_PERCENTILE_C,
+            slope=HILL_ROOKIE_PERCENTILE_S,
+        ))
+        # All three masters must produce distinct V at p=0.3.
+        self.assertNotEqual(rook_v, off_v)
+        self.assertNotEqual(rook_v, idp_v)
+
+
 class TestNoSecondHillCurve(unittest.TestCase):
     """No live row can carry values consistent with a second Hill remap.
 
