@@ -1235,6 +1235,7 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     # evaluated.  IDPTC and FBG haven't added them yet.
     "aj haulcy": "rookie_source_gap:idpTradeCalc+footballGuysIdp — 2026 DB rookie only ranked by DLF Rookie IDP",
     "shavon revel": "source_gap:idpTradeCalc+dlfIdp+fantasyProsIdp+footballGuysIdp — 2026 DB rookie only ranked by DraftSharks",
+    "kamari ramsey": "rookie_source_gap:idpTradeCalc+draftSharksIdp+footballGuysIdp — 2026 DB rookie only ranked by DLF Rookie IDP",
 }
 
 
@@ -4644,8 +4645,28 @@ def _compute_unified_rankings(
 
         players_array[row_idx]["softFallbackCount"] = fallback_count
 
-        # Framework step 5 + 7–8: compute subgroup center, then combine
-        # with anchor under α-shrinkage.
+        # Framework step 5 + 7–8.  Gating rule (2026-04-20):
+        #   - IDP rows: keep the anchor/subgroup split.  IDPTC is the
+        #     only source that prices offense and IDP on one combined
+        #     scale, so using it as an anchor + α-shrunk subgroup
+        #     adjustment gives IDPs a cross-market baseline that the
+        #     IDP-only sources can't supply on their own.
+        #   - Pick rows: keep the anchor/subgroup split too.  Picks
+        #     attract many soft-fallback values from offense sources
+        #     that do not rank picks (dlfSf, dynastyNerdsSfTep,
+        #     fantasyPros, flockFantasy, …); flat-blending dilutes the
+        #     real anchor + real covered sources with ≥7 dead-last
+        #     fallback values and collapses the generic-tier picks
+        #     (2027 Early/Mid/Late) out of the top-800 ranked board.
+        #   - Offense rows (QB/RB/WR/TE): flat count-aware mean-median
+        #     across ALL contributing values (anchor included).  The
+        #     offense subgroup already has many independent sources
+        #     (KTC, DynastyDaddy, DynastyNerds, DLF, FantasyPros, …)
+        #     to form a stable consensus; using IDPTC as a hard anchor
+        #     with α=0.10 over-weighted it vs. the other sources and
+        #     caused ordering glitches (e.g. Drake Maye < Smith-Njigba
+        #     where the offense consensus had Maye higher).
+        use_hierarchical_blend = row_is_pick or (row_pos in _IDP_POSITIONS)
         subgroup_center: float | None
         if subgroup_values:
             subgroup_center, _ = _trimmed_mean_median(subgroup_values)
@@ -4653,15 +4674,24 @@ def _compute_unified_rankings(
             subgroup_center = None
 
         subgroup_delta: float | None = None
-        if anchor_value is not None and subgroup_center is not None:
-            subgroup_delta = subgroup_center - anchor_value
-            center_value = anchor_value + _ALPHA_SHRINKAGE * subgroup_delta
-        elif anchor_value is not None:
-            center_value = anchor_value
-        elif subgroup_center is not None:
-            center_value = subgroup_center
+        if use_hierarchical_blend:
+            if anchor_value is not None and subgroup_center is not None:
+                subgroup_delta = subgroup_center - anchor_value
+                center_value = anchor_value + _ALPHA_SHRINKAGE * subgroup_delta
+            elif anchor_value is not None:
+                center_value = anchor_value
+            elif subgroup_center is not None:
+                center_value = subgroup_center
+            else:
+                center_value = 0.0
         else:
-            center_value = 0.0
+            # Offense (QB/RB/WR/TE): flat blend over all_values (anchor +
+            # subgroup together).  No α-shrinkage, no anchor override.
+            if all_values:
+                flat_center, _ = _trimmed_mean_median(all_values)
+                center_value = flat_center
+            else:
+                center_value = 0.0
 
         # Framework step 6: MAD across ALL contributing sources.
         _, source_mad = _trimmed_mean_median(all_values)
@@ -4695,7 +4725,13 @@ def _compute_unified_rankings(
         players_array[row_idx]["subgroupDelta"] = (
             int(round(subgroup_delta)) if subgroup_delta is not None else None
         )
-        players_array[row_idx]["alphaShrinkage"] = round(_ALPHA_SHRINKAGE, 4)
+        # alphaShrinkage stamp: IDP + pick rows carry the live module
+        # constant (they exercise the hierarchical anchor+α·subgroup
+        # path); offense rows carry 0.0 to signal "flat blend, no
+        # shrinkage applied".
+        players_array[row_idx]["alphaShrinkage"] = (
+            round(_ALPHA_SHRINKAGE, 4) if use_hierarchical_blend else 0.0
+        )
 
         # Stamp MAD diagnostics on the row so the value chain can
         # surface "center value − λ·MAD = blended" transparently.
