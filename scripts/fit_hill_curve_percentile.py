@@ -246,6 +246,16 @@ def main() -> int:
         action="store_true",
         help="Also print the legacy pooled fit for comparison",
     )
+    parser.add_argument(
+        "--json-out",
+        type=Path,
+        default=None,
+        help=(
+            "Also write fitted constants to this path as a JSON dict "
+            "keyed by HILL_*_C/S name.  Consumed by "
+            "scripts/auto_refit_hill_curves.py."
+        ),
+    )
     args = parser.parse_args()
 
     def _fit_sources(
@@ -344,6 +354,7 @@ def main() -> int:
 
     print()
     print("Suggested constants (src/canonical/player_valuation.py):")
+    out_constants: dict[str, float] = {}
     for scope_label, fits in (
         ("GLOBAL", global_fits),
         ("OFFENSE", offense_fits),
@@ -354,23 +365,23 @@ def main() -> int:
         if result is None:
             continue
         c, s, _ = result
-        prefix = "HILL_" + (scope_label + "_" if scope_label != "OFFENSE" else "")
-        # Emit names that match the existing convention:
-        # OFFENSE → HILL_PERCENTILE_C/S (already lives here)
-        # IDP → IDP_HILL_PERCENTILE_C/S
-        # GLOBAL → HILL_GLOBAL_PERCENTILE_C/S (new)
         if scope_label == "OFFENSE":
-            print(f"HILL_PERCENTILE_C: float = {c:.4f}")
-            print(f"HILL_PERCENTILE_S: float = {s:.3f}")
+            c_name, s_name = "HILL_PERCENTILE_C", "HILL_PERCENTILE_S"
         elif scope_label == "IDP":
-            print(f"IDP_HILL_PERCENTILE_C: float = {c:.4f}")
-            print(f"IDP_HILL_PERCENTILE_S: float = {s:.3f}")
+            c_name, s_name = "IDP_HILL_PERCENTILE_C", "IDP_HILL_PERCENTILE_S"
         elif scope_label == "ROOKIE":
-            print(f"HILL_ROOKIE_PERCENTILE_C: float = {c:.4f}")
-            print(f"HILL_ROOKIE_PERCENTILE_S: float = {s:.3f}")
+            c_name, s_name = "HILL_ROOKIE_PERCENTILE_C", "HILL_ROOKIE_PERCENTILE_S"
         else:
-            print(f"HILL_GLOBAL_PERCENTILE_C: float = {c:.4f}")
-            print(f"HILL_GLOBAL_PERCENTILE_S: float = {s:.3f}")
+            c_name, s_name = "HILL_GLOBAL_PERCENTILE_C", "HILL_GLOBAL_PERCENTILE_S"
+        print(f"{c_name}: float = {c:.4f}")
+        print(f"{s_name}: float = {s:.3f}")
+        out_constants[c_name] = round(c, 4)
+        out_constants[s_name] = round(s, 3)
+
+    if args.json_out is not None:
+        import json as _json
+        args.json_out.parent.mkdir(parents=True, exist_ok=True)
+        args.json_out.write_text(_json.dumps(out_constants, indent=2))
     return 0
 
 
