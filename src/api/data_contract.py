@@ -4037,6 +4037,52 @@ def _apply_pick_year_discount_to_blend(
     return out, discount_applied
 
 
+def count_aware_mean_median_blend(
+    values: list[float],
+) -> tuple[float, float | None]:
+    """Framework step 9: count-aware mean-median blend.
+
+    Returns (center, mad).  MAD is ``None`` for n=1.
+
+    Rules by source count (updated 2026-04-20):
+
+      n == 1   → passthrough (the single value)
+      n == 2   → mean; MAD = half-range (= MAD of 2 around mean)
+      n == 3-4 → UNTRIMMED mean-median blend
+                 center = (mean + median) / 2
+                 MAD computed over the full set
+      n ≥ 5    → trimmed mean-median (drop one max + one min)
+                 center = (trimmed_mean + trimmed_median) / 2
+                 MAD computed over the trimmed set
+
+    The prior implementation trimmed at n≥3 which over-compressed
+    sparse IDP / rookie groups (n=3 collapsed to a single surviving
+    source; n=4 to two).  The updated rule preserves robustness for
+    high-coverage players (n≥5) while avoiding degenerate collapse
+    for sparse coverage.
+    """
+    if not values:
+        return 0.0, None
+    sorted_vals = sorted(values)
+    k = len(sorted_vals)
+    if k == 1:
+        return sorted_vals[0], None
+    if k == 2:
+        center = (sorted_vals[0] + sorted_vals[1]) / 2.0
+        mad_val = abs(sorted_vals[0] - sorted_vals[1]) / 2.0
+        return center, mad_val
+    used = sorted_vals[1:-1] if k >= 5 else sorted_vals
+    u_mean = sum(used) / len(used)
+    m = len(used)
+    if m % 2 == 1:
+        u_median = float(used[m // 2])
+    else:
+        u_median = (used[m // 2 - 1] + used[m // 2]) / 2.0
+    center = (u_mean + u_median) / 2.0
+    mad_val = sum(abs(v - u_mean) for v in used) / len(used)
+    return center, mad_val
+
+
 def _compute_unified_rankings(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
@@ -4453,33 +4499,7 @@ def _compute_unified_rankings(
             anchor_key = str(s.get("key") or "")
             break
 
-    def _trimmed_mean_median(values: list[float]) -> tuple[float, float | None]:
-        """Framework step 5: unweighted Trimmed Mean-Median.
-
-        Returns (center, mad).  MAD is the mean absolute deviation
-        of the trimmed set around its mean (``None`` for a single
-        value).
-        """
-        if not values:
-            return 0.0, None
-        sorted_vals = sorted(values)
-        k = len(sorted_vals)
-        if k >= 3:
-            trimmed = sorted_vals[1:-1]
-            t_mean = sum(trimmed) / len(trimmed)
-            m = len(trimmed)
-            if m % 2 == 1:
-                t_median = float(trimmed[m // 2])
-            else:
-                t_median = (trimmed[m // 2 - 1] + trimmed[m // 2]) / 2.0
-            center = (t_mean + t_median) / 2.0
-            mad_val = sum(abs(v - t_mean) for v in trimmed) / len(trimmed)
-            return center, mad_val
-        if k == 2:
-            center = (sorted_vals[0] + sorted_vals[1]) / 2.0
-            mad_val = abs(sorted_vals[0] - sorted_vals[1]) / 2.0
-            return center, mad_val
-        return sorted_vals[0], None
+    _trimmed_mean_median = count_aware_mean_median_blend
 
     row_normalized: list[tuple[float, int]] = []  # (blended_value, row_idx)
     for row_idx, source_ranks in row_source_ranks.items():

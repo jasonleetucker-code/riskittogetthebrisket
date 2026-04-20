@@ -175,12 +175,21 @@ frontend how many sources contributed via fallback.
   offense and IDP on a shared combined pool).
   `anchor_value` = IDPTC's value for the player (real rank if
   covered, otherwise the soft-fallback value).
-- **Subgroup blend**: the unweighted trimmed mean-median (framework
-  step 5) of every non-anchor source's value (real or fallback).
-  - For ≥ 3 subgroup sources: drop highest + lowest, average
-    `(trimmed_mean + trimmed_median) / 2`.
-  - For 2: mean.
-  - For 1: passthrough.
+- **Subgroup blend**: the **count-aware** mean-median blend
+  (framework step 9) of every non-anchor source's value (real or
+  fallback).  Shared helper is
+  `count_aware_mean_median_blend` at module scope.
+  - n=1: passthrough (the single value).
+  - n=2: mean; MAD = half-range.
+  - n=3-4: UNTRIMMED mean-median — `center = (mean + median) / 2`
+    over all n values.  MAD is the full-set mean absolute deviation.
+  - n≥5: trimmed (drop one max + one min) mean-median;
+    `center = (trimmed_mean + trimmed_median) / 2`.  MAD is computed
+    over the trimmed set.
+
+  The updated rule replaces a prior "always trim at n≥3" version
+  that collapsed sparse IDP / rookie groups (n=3 → single surviving
+  source; n=4 → middle two only).
 - **α-shrinkage combine** (framework step 8):
   ```
   center = anchor_value + α · (subgroup_blend − anchor_value)
