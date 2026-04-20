@@ -1,10 +1,43 @@
-# Final Framework Transition — Status: COMPLETE
+# Final Framework Transition — Status: COMPLETE (superseded)
 
 Record of the four-PR transition from the pre-2026-04-20 value engine
 (accumulated hand-tuned constants) to the user-specified Final
 Framework (principled, backtested, multi-source with hierarchical
 structure).  See `docs/architecture/live-value-pipeline-trace.md` for
 the authoritative live-path description.
+
+> ## ⚠️ Post-framework overrides (2026-04-20 forward)
+>
+> Several rules from this doc have since been *overridden* by follow-up
+> directives.  The authoritative live behaviour is what
+> `_compute_unified_rankings` does today, not what this doc describes.
+> Superseded rules:
+>
+> - **Value-based sources bypass the Hill curve** (PR #174, #175).
+>   ``ktc`` / ``idpTradeCalc`` / ``dynastyDaddySf`` now vote with their
+>   raw site values normalized to 0-9999.  Rank-only sources still
+>   route through the scope-master Hill.
+> - **Offense is flat-blended** (PR #168).  The hierarchical anchor +
+>   α-shrinkage path is gated to IDP + pick rows only; offense rows
+>   use the count-aware mean-median directly.
+> - **Soft fallback no longer injects imputed values** (PR #175).  The
+>   count-aware trim was dropping only one imputed value at n≥5 and
+>   any residual fallback was silently dragging the mean.
+>   ``softFallbackCount`` is now a pure coverage diagnostic.
+> - **λ·MAD is retired** (PR #174).  ``_MAD_PENALTY_LAMBDA = 0.0``.
+>   Count-aware trim (offense) and anchor+α (IDP+picks) already damp
+>   disagreement; λ·MAD on top was duplicative.  The ``sourceSpread``
+>   field (renamed from ``sourceMAD`` in PR #176) is kept as a
+>   transparency metric only.
+> - **DraftSharks uses combined cross-market ranking** (PR #175).
+>   DS offense + IDP CSVs are merged into one rank list and routed
+>   through the GLOBAL Hill master — preserves DS's native ~56%
+>   offense-vs-IDP premium and handles its negative values (~50% of
+>   each CSV) by sorting them to the deep tail.
+>
+> The "Final pipeline identity" and "Final constant values" sections
+> below describe the state at the end of PR #161, not today.  Read
+> ``live-value-pipeline-trace.md`` Phase 3 for the current picture.
 
 ## The framework, as specified
 

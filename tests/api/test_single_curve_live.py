@@ -308,7 +308,7 @@ class TestHierarchicalAnchorChain(unittest.TestCase):
             subgroup = row.get("subgroupBlendValue")
             delta = row.get("subgroupDelta")
             uncal = row.get("rankDerivedValueUncalibrated")
-            mad = row.get("sourceMAD")
+            mad = row.get("sourceSpread")
             if (
                 anchor is None
                 or subgroup is None
@@ -375,7 +375,7 @@ class TestMADPenaltyChain(unittest.TestCase):
     """Pin the Final Framework step 6 MAD penalty chain.
 
     For every ranked non-pick row with ≥ 2 sources:
-      * ``sourceMAD`` is stamped with the trimmed-mean absolute deviation
+      * ``sourceSpread`` is stamped with the trimmed-mean absolute deviation
         of the per-source Hill-curve values.
       * When λ = _MAD_PENALTY_LAMBDA > 0, ``madPenaltyApplied`` is
         stamped with the subtracted penalty, and the penalty is
@@ -391,7 +391,7 @@ class TestMADPenaltyChain(unittest.TestCase):
             self.skipTest("No live data")
         self.rows = _ranked_rows(self.contract)
 
-    def test_nonpick_rows_carry_source_mad_when_multi_source(self) -> None:
+    def test_nonpick_rows_carry_source_spread_when_multi_source(self) -> None:
         from src.api.data_contract import _MAD_PENALTY_LAMBDA  # noqa: PLC0415
 
         checked = 0
@@ -401,15 +401,15 @@ class TestMADPenaltyChain(unittest.TestCase):
             src_ranks = row.get("sourceRanks") or {}
             if len(src_ranks) < 2:
                 continue
-            mad = row.get("sourceMAD")
+            mad = row.get("sourceSpread")
             self.assertIsNotNone(
                 mad,
                 f"{row.get('canonicalName')}: multi-source row missing "
-                f"sourceMAD stamp",
+                f"sourceSpread stamp",
             )
             self.assertGreaterEqual(
                 float(mad), 0.0,
-                f"{row.get('canonicalName')}: sourceMAD={mad} is negative",
+                f"{row.get('canonicalName')}: sourceSpread={mad} is negative",
             )
             checked += 1
         self.assertGreater(checked, 50, "expected many multi-source rows")
@@ -426,7 +426,7 @@ class TestMADPenaltyChain(unittest.TestCase):
         for row in self.rows:
             if row.get("assetClass") == "pick":
                 continue
-            mad = row.get("sourceMAD")
+            mad = row.get("sourceSpread")
             penalty = row.get("madPenaltyApplied")
             if mad is None or penalty is None:
                 continue
@@ -889,7 +889,7 @@ class TestMADPenaltyNeutralized(unittest.TestCase):
     The count-aware mean-median blend already damps offense rows via
     trimming at n≥5.  The anchor + α-shrinkage path already damps IDP
     + pick rows.  Adding λ·MAD on top stacked a second disagreement
-    penalty on the same signal.  λ is now pinned to 0; ``sourceMAD``
+    penalty on the same signal.  λ is now pinned to 0; ``sourceSpread``
     is still stamped as a diagnostic statistic but never deducted
     from ``rankDerivedValue``.
     """
@@ -924,18 +924,18 @@ class TestMADPenaltyNeutralized(unittest.TestCase):
             f"(offenders first 5): {offenders[:5]}",
         )
 
-    def test_source_mad_still_stamped_as_diagnostic(self) -> None:
-        """``sourceMAD`` is retained as a diagnostic even though no
+    def test_source_spread_still_stamped_as_diagnostic(self) -> None:
+        """``sourceSpread`` is retained as a diagnostic even though no
         penalty is deducted.  Frontend value-chain panel still
         displays it.
         """
         multi_source = [r for r in self.rows if (r.get("sourceCount") or 0) >= 2]
         if not multi_source:
             self.skipTest("no multi-source rows in live data")
-        stamped = sum(1 for r in multi_source if r.get("sourceMAD") is not None)
+        stamped = sum(1 for r in multi_source if r.get("sourceSpread") is not None)
         self.assertGreater(
             stamped, 0,
-            "sourceMAD diagnostic is missing on every multi-source row",
+            "sourceSpread diagnostic is missing on every multi-source row",
         )
 
 
