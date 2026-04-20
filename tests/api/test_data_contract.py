@@ -9,7 +9,7 @@ from src.api.data_contract import (
     build_canonical_comparison_block,
     validate_api_data_contract,
 )
-from src.canonical.player_valuation import rank_to_value
+from src.canonical.player_valuation import percentile_to_value, rank_to_value  # noqa: F401
 
 
 def _minimal_raw_payload():
@@ -453,15 +453,22 @@ class TestComputeKtcRankings(unittest.TestCase):
         rows = [self._make_player_row("Solo", "QB", 9999)]
         _compute_unified_rankings(rows, {})
         self.assertEqual(rows[0]["ktcRank"], 1)
-        expected = int(rank_to_value(1))
-        self.assertEqual(rows[0]["rankDerivedValue"], expected)
+        # Under the Final Framework's percentile-input Hill, rank 1
+        # always maps to p=0 → V=9999 regardless of the fitted
+        # constants.  The rank-based alias ``rank_to_value(1)`` also
+        # returns 9999, so either curve agrees at rank 1.
         self.assertEqual(rows[0]["rankDerivedValue"], 9999)
 
     def test_rank_50_value_matches_hill_formula(self):
         rows = [self._make_player_row(f"P{i}", "WR", 9999 - i * 10) for i in range(60)]
         _compute_unified_rankings(rows, {})
         rank_50_row = next(r for r in rows if r.get("ktcRank") == 50)
-        expected = int(rank_to_value(50))
+        # Final Framework percentile Hill: p = (50 − 1) / (REFERENCE_N − 1)
+        # with REFERENCE_N = 500 → p ≈ 0.098, V(p) per HILL_PERCENTILE_*
+        # constants.
+        from src.api.data_contract import _PERCENTILE_REFERENCE_N  # noqa: PLC0415
+        p = (50 - 1) / (_PERCENTILE_REFERENCE_N - 1)
+        expected = int(percentile_to_value(p))
         self.assertEqual(rank_50_row["rankDerivedValue"], expected)
 
     def test_picks_included(self):

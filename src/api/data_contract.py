@@ -720,6 +720,15 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # correct default.
         "weight": 2.0,
         "is_backbone": True,
+        # Final Framework step 7: IDPTC is the global offense+defense
+        # anchor.  Its dual-scope coverage (offense via extra_scopes +
+        # IDP backbone) makes it the only source that prices both
+        # universes on a common combined-pool scale, which is what the
+        # framework wants for the universal baseline.  All other
+        # sources are treated as subgroup adjustments against this
+        # anchor.  See the hierarchical-blend logic in
+        # ``_compute_unified_rankings``.
+        "is_anchor": True,
         # IDPTradeCalc's offense autocomplete is a standard SF board,
         # not TE-premium.  The frontend TEP boost applies.
         "is_tep_premium": False,
@@ -1201,6 +1210,7 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     # Deep-board veterans that Flock Fantasy's expert consensus ranks but
     # no other source currently carries.
     "adam thielen": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds+fantasyPros — veteran WR only ranked by Flock Fantasy SF",
+    "zonovan knight": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds+fantasyPros — veteran RB only ranked by Flock Fantasy SF",
     # ── IDP: FootballGuys-IDP-only (not listed by other IDP sources) ──
     # Veteran / free-agent LBs that FootballGuys' 3-expert IDP board
     # ranks as deep dynasty holds even though IDPTradeCalc and the
@@ -3364,6 +3374,38 @@ def _apply_offense_calibration_post_pass(
 
 _DISPLAY_SCALE_MAX: int = 9999
 
+# Reference pool size for percentile-to-value normalization under the
+# Final Framework.  Per-source effective ranks (post-ladder) are
+# normalized against this fixed denominator so every source's value
+# contribution lives in the same combined-pool coordinate system.  500
+# aligns with KTC's native pool, the retail market's natural scale;
+# deeper ranks asymptote to the Hill's long tail.
+_PERCENTILE_REFERENCE_N: int = 500
+
+# Final Framework step 8: subgroup shrinkage factor.
+#
+#     Final = Anchor + α · (SubgroupBlend − Anchor)
+#
+# The anchor is the global offense+defense source (IDPTC) — it
+# determines each player's universal baseline value.  The subgroup is
+# the trimmed mean-median of every other source that ranks the
+# player.  α controls how much the subgroup is allowed to move the
+# final value away from the anchor:
+#
+#   α = 0.0  → pure anchor (subgroup ignored)
+#   α = 1.0  → pure subgroup (anchor ignored)
+#   α intermediate → anchor-baseline with subgroup adjustment
+#
+# Chosen via ``scripts/backtest_alpha_shrinkage.py`` against the 25
+# daily snapshots in ``data/`` (see
+# ``reports/alpha_shrinkage_backtest_full.md``).  The sweep produced
+# a clean unimodal optimum at α=0.30 on both the unweighted and
+# value-weighted rank-change metrics.  At α=0 (pure anchor)
+# subgroup disagreement has no outlet → stability is slightly
+# worse; past α≈0.4 the subgroup starts dominating and stability
+# degrades sharply (α=1.0 is ~2× worse than α=0.3).
+_ALPHA_SHRINKAGE: float = 0.3
+
 # Final Framework step 6: volatility penalty weight.  Applied as
 # ``final = center − λ·MAD`` where MAD is the mean absolute deviation
 # of the trimmed source values around the trimmed mean.  A principled
@@ -4041,11 +4083,11 @@ def _compute_unified_rankings(
       - ktcRank / idpRank — preserved for backward compatibility
     """
     from src.canonical.player_valuation import (  # noqa: PLC0415
-        HILL_MIDPOINT,
-        HILL_SLOPE,
-        IDP_HILL_MIDPOINT,
-        IDP_HILL_SLOPE,
-        rank_to_value,
+        HILL_PERCENTILE_C,
+        HILL_PERCENTILE_S,
+        IDP_HILL_PERCENTILE_C,
+        IDP_HILL_PERCENTILE_S,
+        percentile_to_value,
     )
 
     # Clamp TEP multiplier to a sane range.  1.0 is a no-op, 2.0 is
@@ -4273,21 +4315,14 @@ def _compute_unified_rankings(
             elif needs_shared_market and row_scope == SOURCE_SCOPE_OVERALL_IDP:
                 # Crosswalk an IDP-only expert board's raw IDP ordinal
                 # into the backbone source's combined offense+IDP rank
-                # space.  This prevents DLF rank 1 from being fed to the
-                # Hill curve as if it were shared-market rank 1.
+                # space.  The framework's step 2 percentile normalization
+                # runs in this combined coordinate — see Phase 3.
                 effective_rank, method = translate_position_rank(
                     raw_rank, shared_market_ladder
                 )
                 ladder_depth_meta = len(shared_market_ladder)
                 backbone_depth_meta = shared_market_depth
             elif needs_rookie_xlate:
-                # Rookie-class source — translate DLF's rookie rank
-                # through the reference source's rank on real rookie
-                # rows.  KTC anchors offense rookies; IDPTC anchors
-                # IDP rookies.  Falls back to TRANSLATION_DIRECT when
-                # the reference source has not populated the ladder
-                # yet (e.g. during a custom override that disables
-                # the anchor).
                 ref_key = (
                     "idpTradeCalc"
                     if row_scope == SOURCE_SCOPE_OVERALL_IDP
@@ -4349,50 +4384,85 @@ def _compute_unified_rankings(
         if bool(s.get("is_tep_premium"))
     }
 
+    # Identify the anchor source (Final Framework step 7).  Currently
+    # IDPTC is the only source with ``is_anchor=True`` — its dual-scope
+    # coverage lets it price both offense and IDP on a single combined
+    # scale, which is what the framework wants for the universal
+    # baseline.
+    anchor_key: str | None = None
+    for s in active_sources:
+        if s.get("is_anchor"):
+            anchor_key = str(s.get("key") or "")
+            break
+
+    def _trimmed_mean_median(values: list[float]) -> tuple[float, float | None]:
+        """Framework step 5: unweighted Trimmed Mean-Median.
+
+        Returns (center, mad).  MAD is the mean absolute deviation
+        of the trimmed set around its mean (``None`` for a single
+        value).
+        """
+        if not values:
+            return 0.0, None
+        sorted_vals = sorted(values)
+        k = len(sorted_vals)
+        if k >= 3:
+            trimmed = sorted_vals[1:-1]
+            t_mean = sum(trimmed) / len(trimmed)
+            m = len(trimmed)
+            if m % 2 == 1:
+                t_median = float(trimmed[m // 2])
+            else:
+                t_median = (trimmed[m // 2 - 1] + trimmed[m // 2]) / 2.0
+            center = (t_mean + t_median) / 2.0
+            mad_val = sum(abs(v - t_mean) for v in trimmed) / len(trimmed)
+            return center, mad_val
+        if k == 2:
+            center = (sorted_vals[0] + sorted_vals[1]) / 2.0
+            mad_val = abs(sorted_vals[0] - sorted_vals[1]) / 2.0
+            return center, mad_val
+        return sorted_vals[0], None
+
     row_normalized: list[tuple[float, int]] = []  # (blended_value, row_idx)
     for row_idx, source_ranks in row_source_ranks.items():
-        # Compute the per-source value contributions and effective weights
-        # in lockstep so we can apply both a weighted-mean and a
-        # trimmed mean-median aggregation (framework step 5).  The
-        # per-source ``effective_weight`` is stamped onto source meta
-        # for transparency but is NOT used in the aggregation — every
-        # source carries equal voice once trimmed.  Weighting will be
-        # reintroduced later as the hierarchical anchor / subgroup
-        # structure (framework steps 7–8).
-        contributions: list[tuple[float, float]] = []  # (value, effective_weight)
-        # TE positions trigger the TEP boost.  Read once per row so
-        # the per-source inner loop does not keep re-checking the
-        # position string.  IDP positions (DL/LB/DB) swap in the IDP-
-        # fit Hill curve — dynasty IDP markets have a flatter top and
-        # slower long-tail decay than offense.  Picks and offense
-        # positions share the offense curve.
+        # TE positions trigger the TEP boost.  IDP positions swap in
+        # the IDP-fit Hill curve.  Picks and offense share the offense
+        # curve.
         row_pos = str(players_array[row_idx].get("position") or "").strip().upper()
         row_is_te = row_pos == "TE"
-        apply_tep = (
-            row_is_te
-            and tep_multiplier_effective > 1.0
+        row_is_pick = (
+            players_array[row_idx].get("assetClass") == "pick"
         )
-        # Apply TEP-native correction whenever it's not effectively 1.0.
-        # Unlike the non-TEP boost, the correction can be < 1.0 (non-TEP
-        # league dropping TEP-native values) or > 1.0 (heavy-TEP league
-        # lifting them).  Short-circuit when it's essentially 1.0 so the
-        # byte-for-byte pre-correction behavior is preserved on
-        # standard TEP-1.5 leagues (where the correction cancels to 1).
+        apply_tep = row_is_te and tep_multiplier_effective > 1.0
         apply_tep_native_correction = (
-            row_is_te
-            and abs(tep_native_correction - 1.0) > 1e-6
+            row_is_te and abs(tep_native_correction - 1.0) > 1e-6
         )
         if row_pos in _IDP_POSITIONS:
-            hill_midpoint, hill_slope = IDP_HILL_MIDPOINT, IDP_HILL_SLOPE
+            hill_c, hill_s = IDP_HILL_PERCENTILE_C, IDP_HILL_PERCENTILE_S
         else:
-            hill_midpoint, hill_slope = HILL_MIDPOINT, HILL_SLOPE
+            hill_c, hill_s = HILL_PERCENTILE_C, HILL_PERCENTILE_S
+
+        # Framework step 2–3: for each source, compute
+        # percentile-to-value using the SOURCE's native pool size.
+        # Then split contributions into anchor vs subgroup per step 7.
+        anchor_value: float | None = None
+        subgroup_values: list[float] = []
+        all_values: list[float] = []  # full set for MAD
+
         for source_key, eff_rank in source_ranks.items():
             src_def = src_by_key.get(source_key, {})
-            declared_weight = float(src_def.get("weight") or 1.0)
-            effective_weight = coverage_weight(declared_weight, src_def.get("depth"))
-            value = float(
-                rank_to_value(eff_rank, midpoint=hill_midpoint, slope=hill_slope)
-            )
+            # Percentile denominator is the FIXED reference pool size
+            # (_PERCENTILE_REFERENCE_N).  Effective rank is post-ladder
+            # (combined-pool coordinate), so dividing by a fixed N
+            # keeps every source's contribution in the same value
+            # scale.  A rank beyond the reference pool is clamped to
+            # p=1 (long tail of the Hill).
+            if _PERCENTILE_REFERENCE_N >= 2:
+                p = (float(eff_rank) - 1.0) / float(_PERCENTILE_REFERENCE_N - 1)
+            else:
+                p = 0.0
+            p = max(0.0, min(1.0, p))
+            value = float(percentile_to_value(p, midpoint=hill_c, slope=hill_s))
             tep_applied = False
             tep_native_corrected = False
             if apply_tep and source_key in tep_boosted_source_keys:
@@ -4402,16 +4472,21 @@ def _compute_unified_rankings(
                 apply_tep_native_correction
                 and source_key in tep_native_source_keys
             ):
-                # TEP-native source in a league whose scoring differs from
-                # the industry-standard 1.15 bake-in: rescale the TE
-                # contribution to the league's actual TEP.
                 value *= tep_native_correction
                 tep_native_corrected = True
-            contributions.append((value, effective_weight))
-            # Stamp value contribution onto per-source meta (for debugging)
+            all_values.append(value)
+            if source_key == anchor_key:
+                anchor_value = value
+            else:
+                subgroup_values.append(value)
+            # Per-source audit stamps.
             meta = row_source_meta[row_idx].get(source_key, {})
+            declared_weight = float(src_def.get("weight") or 1.0)
+            effective_weight = coverage_weight(declared_weight, src_def.get("depth"))
+            meta["percentile"] = round(p, 6)
             meta["valueContribution"] = int(round(value))
             meta["effectiveWeight"] = round(effective_weight, 4)
+            meta["isAnchor"] = bool(source_key == anchor_key)
             if tep_applied:
                 meta["tepBoostApplied"] = True
                 meta["tepMultiplier"] = round(tep_multiplier_effective, 4)
@@ -4419,96 +4494,64 @@ def _compute_unified_rankings(
                 meta["tepNativeCorrectionApplied"] = True
                 meta["tepNativeCorrection"] = round(tep_native_correction, 4)
 
-        if not contributions:
-            blended_value = 0.0
-            hill_value_spread: float | None = None
-            source_mad: float | None = None
-            mad_penalty: float = 0.0
+        # Framework step 5 + 7–8: compute subgroup center, then combine
+        # with anchor under α-shrinkage.
+        subgroup_center: float | None
+        if subgroup_values:
+            subgroup_center, _ = _trimmed_mean_median(subgroup_values)
         else:
-            # Framework step 5: Trimmed Mean-Median Blend (unweighted).
-            # For N ≥ 3 sources:
-            #   1. drop the highest and the lowest raw Hill-curve value
-            #   2. compute the arithmetic mean of the remaining values
-            #   3. compute the median of the remaining values
-            #   4. center = (trimmed_mean + trimmed_median) / 2
-            # For N = 2 we mean the two; for N = 1 we pass through.
-            #
-            # This replaces the earlier 0.7·weighted_mean + 0.3·robust
-            # convex combo.  Per-source ``effective_weight`` is no longer
-            # part of the aggregation — it's still stamped onto
-            # ``sourceRankMeta[*]["effectiveWeight"]`` for transparency
-            # but the blend treats every source equally once trimmed.
-            # Weighting is reintroduced in later PRs via the
-            # hierarchical anchor / subgroup-adjustment structure (the
-            # Final Framework, steps 7–8).
-            values = [v for v, _w in contributions]
-            sorted_vals = sorted(values)
-            n = len(sorted_vals)
-            if n >= 3:
-                trimmed = sorted_vals[1:-1]
-                trimmed_mean = sum(trimmed) / len(trimmed)
-                m = len(trimmed)
-                if m % 2 == 1:
-                    trimmed_median = float(trimmed[m // 2])
-                else:
-                    trimmed_median = (
-                        trimmed[m // 2 - 1] + trimmed[m // 2]
-                    ) / 2.0
-                center_value = (trimmed_mean + trimmed_median) / 2.0
-                # Framework step 6: volatility penalty — MAD is the
-                # mean absolute deviation of the *trimmed* source
-                # values around the trimmed mean.  Larger MAD = noisier
-                # source agreement = bigger penalty.
-                source_mad = sum(
-                    abs(v - trimmed_mean) for v in trimmed
-                ) / len(trimmed)
-            elif n == 2:
-                center_value = (sorted_vals[0] + sorted_vals[1]) / 2.0
-                # 2-source "MAD": half-range, which equals MAD of 2
-                # points around their mean.
-                source_mad = abs(sorted_vals[0] - sorted_vals[1]) / 2.0
-            else:
-                center_value = sorted_vals[0]
-                source_mad = None
+            subgroup_center = None
 
-            # Framework step 6: final blended value = center - λ·MAD.
-            # λ is ``_MAD_PENALTY_LAMBDA``, chosen via
-            # ``scripts/backtest_mad_lambda.py``.  Clamp the penalty to
-            # the center so we never produce a negative blended value.
-            #
-            # Picks are exempted: KTC and IDPTC use different tier
-            # systems for draft picks, which produces a large structural
-            # MAD that has nothing to do with market uncertainty.  Slot
-            # picks are also replaced by rookie anchors downstream, so
-            # the pre-anchor blend is already discarded.  Keeping picks
-            # out of the penalty band matches the semantics ("volatility
-            # of source consensus for a player") and was necessary to
-            # keep deep-tier picks (e.g. 2027 Late 3rd) ranked above
-            # OVERALL_RANK_LIMIT after promotion.
-            row_is_pick = (
-                players_array[row_idx].get("assetClass") == "pick"
-            )
-            if (
-                source_mad is not None
-                and _MAD_PENALTY_LAMBDA > 0
-                and not row_is_pick
-            ):
-                mad_penalty = min(
-                    center_value, _MAD_PENALTY_LAMBDA * source_mad
-                )
-            else:
-                mad_penalty = 0.0
-            blended_value = max(0.0, center_value - mad_penalty)
+        subgroup_delta: float | None = None
+        if anchor_value is not None and subgroup_center is not None:
+            # Anchored blend: baseline is anchor, subgroup pulls it.
+            subgroup_delta = subgroup_center - anchor_value
+            center_value = anchor_value + _ALPHA_SHRINKAGE * subgroup_delta
+        elif anchor_value is not None:
+            # Anchor-only coverage (e.g. a player only IDPTC ranks).
+            center_value = anchor_value
+        elif subgroup_center is not None:
+            # No anchor coverage — fall back to subgroup blend alone
+            # (effective α=1.0 for this row).  The soft fallback for
+            # unranked players arrives in a later PR to handle deeper
+            # cases.
+            center_value = subgroup_center
+        else:
+            center_value = 0.0
 
-            # Separation diagnostic: stdev of per-source Hill-curve values
-            # before the blend.  Pairs with sourceRankPercentileSpread
-            # (agreement in rank space) to describe "how large is the
-            # value gap the sources are implying?".  None when fewer than
-            # two sources contributed — matches the percentile-spread
-            # convention.
-            hill_value_spread = (
-                statistics.stdev(values) if len(values) >= 2 else None
+        # Framework step 6: MAD across ALL contributing sources.
+        _, source_mad = _trimmed_mean_median(all_values)
+
+        if (
+            source_mad is not None
+            and _MAD_PENALTY_LAMBDA > 0
+            and not row_is_pick
+        ):
+            mad_penalty = min(
+                center_value, _MAD_PENALTY_LAMBDA * source_mad
             )
+        else:
+            mad_penalty = 0.0
+
+        blended_value = max(0.0, center_value - mad_penalty)
+
+        hill_value_spread = (
+            statistics.stdev(all_values) if len(all_values) >= 2 else None
+        )
+
+        # Stamp anchor/subgroup diagnostics so the frontend value-chain
+        # panel can surface the framework's hierarchical shape
+        # (anchor + α·subgroup) transparently.
+        players_array[row_idx]["anchorValue"] = (
+            int(round(anchor_value)) if anchor_value is not None else None
+        )
+        players_array[row_idx]["subgroupBlendValue"] = (
+            int(round(subgroup_center)) if subgroup_center is not None else None
+        )
+        players_array[row_idx]["subgroupDelta"] = (
+            int(round(subgroup_delta)) if subgroup_delta is not None else None
+        )
+        players_array[row_idx]["alphaShrinkage"] = round(_ALPHA_SHRINKAGE, 4)
 
         # Stamp MAD diagnostics on the row so the value chain can
         # surface "center value − λ·MAD = blended" transparently.
@@ -5245,6 +5288,10 @@ def _derive_player_row(
         "hillValueSpread": None,
         "sourceMAD": None,
         "madPenaltyApplied": None,
+        "anchorValue": None,
+        "subgroupBlendValue": None,
+        "subgroupDelta": None,
+        "alphaShrinkage": None,
         "marketGapDirection": "none",
         "marketGapMagnitude": None,
         "sourceAudit": {
@@ -5766,6 +5813,10 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "hillValueSpread",
     "sourceMAD",
     "madPenaltyApplied",
+    "anchorValue",
+    "subgroupBlendValue",
+    "subgroupDelta",
+    "alphaShrinkage",
     "isSingleSource",
     "isStructurallySingleSource",
     "hasSourceDisagreement",

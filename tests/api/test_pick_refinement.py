@@ -173,14 +173,20 @@ class TestSpecificSlotVsRoundBoundary(unittest.TestCase):
         self.by_name = _by_name(self.contract)
 
     def test_2026_slot_1_12_above_2026_slot_2_01(self) -> None:
+        # Under the Final Framework's flatter Hill tail the 12th and
+        # 13th rookies can land at identical integer values (picks
+        # anchor to rookies, so ties on the rookie side propagate).
+        # We assert weak monotonicity — 1.12 must never undervalue
+        # 2.01 — rather than strict > which the old rank-Hill curve
+        # guaranteed by construction.
         a = self.by_name.get("2026 Pick 1.12")
         b = self.by_name.get("2026 Pick 2.01")
         self.assertIsNotNone(a, "2026 Pick 1.12 missing")
         self.assertIsNotNone(b, "2026 Pick 2.01 missing")
-        self.assertGreater(
+        self.assertGreaterEqual(
             int(a["rankDerivedValue"]),  # type: ignore[index]
             int(b["rankDerivedValue"]),  # type: ignore[index]
-            "2026 Pick 1.12 must outvalue 2026 Pick 2.01",
+            "2026 Pick 1.12 must weakly outvalue 2026 Pick 2.01",
         )
 
 
@@ -331,12 +337,19 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
         # collapses IDP value pricing (e.g. a calibration bug, shared-
         # market ladder breakage, IDPTC backbone failure) will trip
         # these.
-        "Myles Garrett":    {"max_rank": 90,  "min_value": 3500, "allowed_buckets": ("low", "medium", "high")},
-        "Will Anderson":    {"max_rank": 90,  "min_value": 3500, "allowed_buckets": ("low", "medium", "high")},
-        "Micah Parsons":    {"max_rank": 90,  "min_value": 3500, "allowed_buckets": ("low", "medium", "high")},
-        "Fred Warner":      {"max_rank": 90,  "min_value": 3200, "allowed_buckets": ("low", "medium", "high")},
-        "Roquan Smith":     {"max_rank": 100, "min_value": 3000, "allowed_buckets": ("low", "medium", "high")},
-        "Kyle Hamilton":    {"max_rank": 180, "min_value": 2200, "allowed_buckets": ("low", "medium", "high")},
+        # IDP bands widened to absorb the Final Framework PR 3
+        # structural shift (hierarchical anchor + α-shrunk subgroup).
+        # IDP values now sit closer to the anchor's pricing than the
+        # prior subgroup-dominant blend, which pushed some IDP anchors
+        # 10-30 ranks deeper.  Bands still catch a real regression
+        # (e.g. Garrett falling outside the top 150, value collapsing
+        # below 2500).
+        "Myles Garrett":    {"max_rank": 120, "min_value": 3500, "allowed_buckets": ("low", "medium", "high")},
+        "Will Anderson":    {"max_rank": 100, "min_value": 3500, "allowed_buckets": ("low", "medium", "high")},
+        "Micah Parsons":    {"max_rank": 120, "min_value": 3500, "allowed_buckets": ("low", "medium", "high")},
+        "Fred Warner":      {"max_rank": 130, "min_value": 3000, "allowed_buckets": ("low", "medium", "high")},
+        "Roquan Smith":     {"max_rank": 160, "min_value": 2500, "allowed_buckets": ("low", "medium", "high")},
+        "Kyle Hamilton":    {"max_rank": 200, "min_value": 2000, "allowed_buckets": ("low", "medium", "high")},
     }
 
     def setUp(self) -> None:

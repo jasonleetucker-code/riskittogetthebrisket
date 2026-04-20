@@ -234,6 +234,96 @@ class TestValueChain(unittest.TestCase):
         self.assertGreater(checked, 30, "expected many IDP anchors")
 
 
+class TestHierarchicalAnchorChain(unittest.TestCase):
+    """Pin the Final Framework PR 3 hierarchical anchor + α chain.
+
+    For every multi-source ranked non-pick row, at least one of
+    ``anchorValue`` or ``subgroupBlendValue`` must be stamped.  When
+    both are present, the uncalibrated value should equal
+    ``anchor + α·(subgroup − anchor) − λ·MAD`` (clamped non-negative),
+    allowing a few points of integer-rounding slack at each stage.
+    """
+
+    def setUp(self) -> None:
+        self.contract = _get()
+        if self.contract is None:
+            self.skipTest("No live data")
+        self.rows = _ranked_rows(self.contract)
+
+    def test_every_ranked_row_has_baseline_contribution(self) -> None:
+        from src.api.data_contract import _ALPHA_SHRINKAGE  # noqa: PLC0415
+
+        offenders: list[str] = []
+        for row in self.rows:
+            if row.get("assetClass") == "pick":
+                continue
+            anchor = row.get("anchorValue")
+            subgroup = row.get("subgroupBlendValue")
+            if anchor is None and subgroup is None:
+                offenders.append(str(row.get("canonicalName") or ""))
+        self.assertFalse(
+            offenders,
+            f"Ranked non-pick rows with no anchor or subgroup "
+            f"contribution (should be impossible for ranked rows): "
+            f"{offenders[:5]}",
+        )
+        # alphaShrinkage stamp should match the module constant.
+        for row in self.rows:
+            if row.get("assetClass") == "pick":
+                continue
+            stamped = row.get("alphaShrinkage")
+            if stamped is None:
+                continue
+            self.assertAlmostEqual(
+                float(stamped), _ALPHA_SHRINKAGE, places=4
+            )
+
+    def test_anchor_plus_shrunk_subgroup_matches_uncalibrated(self) -> None:
+        """When both anchor and subgroup are stamped, their α-shrunk
+        combination should match rankDerivedValueUncalibrated ± (MAD
+        penalty + rounding).
+        """
+        from src.api.data_contract import (  # noqa: PLC0415
+            _ALPHA_SHRINKAGE,
+            _MAD_PENALTY_LAMBDA,
+        )
+
+        checked = 0
+        for row in self.rows:
+            if row.get("assetClass") == "pick":
+                continue
+            anchor = row.get("anchorValue")
+            subgroup = row.get("subgroupBlendValue")
+            delta = row.get("subgroupDelta")
+            uncal = row.get("rankDerivedValueUncalibrated")
+            mad = row.get("sourceMAD")
+            if (
+                anchor is None
+                or subgroup is None
+                or delta is None
+                or uncal is None
+            ):
+                continue
+            # Expected center BEFORE MAD penalty.
+            expected_center = float(anchor) + _ALPHA_SHRINKAGE * float(delta)
+            expected_penalty = 0.0
+            if mad is not None:
+                expected_penalty = min(
+                    expected_center, _MAD_PENALTY_LAMBDA * float(mad)
+                )
+            expected_uncal = max(0.0, expected_center - expected_penalty)
+            self.assertLessEqual(
+                abs(int(uncal) - int(round(expected_uncal))),
+                3,
+                f"{row.get('canonicalName')}: uncalibrated={uncal} "
+                f"differs from anchor({anchor}) + α({_ALPHA_SHRINKAGE})·"
+                f"Δ({delta}) − λ({_MAD_PENALTY_LAMBDA})·MAD({mad}) = "
+                f"{expected_uncal:.1f}",
+            )
+            checked += 1
+        self.assertGreater(checked, 50, "expected many hierarchically-covered rows")
+
+
 class TestMADPenaltyChain(unittest.TestCase):
     """Pin the Final Framework step 6 MAD penalty chain.
 

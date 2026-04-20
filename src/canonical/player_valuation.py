@@ -71,6 +71,31 @@ HILL_SLOPE: float = 1.149          # controls steepness of decay
 IDP_HILL_MIDPOINT: float = 69.50
 IDP_HILL_SLOPE: float = 0.945
 
+# Final Framework step 2-3: percentile-input Hill curve.
+#
+#     p = (r − 1) / (N − 1)
+#     V(p) = 9999 / (1 + (p / c)^s)
+#
+# Where N = source's NATIVE pool size.  Each source's top rank always
+# maps to p=0 → V=9999, and the curve shape captures how quickly the
+# market's normalised value decays per-source.
+#
+# Fit via ``scripts/fit_hill_curve_percentile.py`` against value-based
+# sources' native percentile-to-value shapes.  Combined fit across
+# 1415 offense points from KTC, IDPTradeCalc, DynastyDaddy, and
+# DynastyNerds yielded c=0.1240, s=1.010 (RMSE ~955 across
+# heterogeneous sources); the IDP fit across 355 IDPTC IDP points
+# yielded c=0.1130, s=0.850 (RMSE 307).
+#
+# Used by the live pipeline starting in PR 3 of the Final Framework
+# transition.  The older rank-based HILL_MIDPOINT / HILL_SLOPE and
+# IDP_HILL_MIDPOINT / IDP_HILL_SLOPE constants remain for the
+# canonical-engine alternate path and the KTC reconciliation test.
+HILL_PERCENTILE_C: float = 0.1240
+HILL_PERCENTILE_S: float = 1.010
+IDP_HILL_PERCENTILE_C: float = 0.1130
+IDP_HILL_PERCENTILE_S: float = 0.850
+
 # Step 4: Tier cliff injection
 CLIFF_BASE_POINTS: float = 120.0   # base cliff size in value units
 CLIFF_RANK_DECAY: float = 0.006    # cliff decays with rank (deeper = smaller cliff)
@@ -306,6 +331,42 @@ def rank_to_value(
 def base_value_curve(consensus_rank: float, **_kwargs: object) -> float:  # type: ignore[return]
     """Deprecated alias — use rank_to_value() instead."""
     return float(rank_to_value(consensus_rank))
+
+
+def percentile_to_value(
+    percentile: float,
+    *,
+    midpoint: float = HILL_PERCENTILE_C,
+    slope: float = HILL_PERCENTILE_S,
+) -> int:
+    """Final Framework step 2→3: convert a percentile to a display value.
+
+    Input:
+        percentile = (rank − 1) / (N − 1)  where N is the source's
+            NATIVE pool size.  Clamped to [0, 1].
+
+    Formula:
+        V(p) = 9999 / (1 + (p / midpoint)^slope)
+
+    Properties:
+        - percentile=0 (source's rank 1) always returns 9999.
+        - percentile=1 (source's last-ranked) decays to the curve's
+          long tail.  Exact floor depends on (midpoint, slope).
+        - Source pool size is absorbed into the percentile — a 100-
+          deep source and a 500-deep source both map their rank-1
+          to p=0 → V=9999, and their rank-50 to different p values
+          reflecting how "deep" 50 is within each source.
+
+    Constants are fit via ``scripts/fit_hill_curve_percentile.py``;
+    see the module-level constants (``HILL_PERCENTILE_C`` /
+    ``HILL_PERCENTILE_S`` for offense, ``IDP_HILL_PERCENTILE_C`` /
+    ``IDP_HILL_PERCENTILE_S`` for IDP).
+    """
+    p = max(0.0, min(1.0, float(percentile)))
+    if p == 0.0:
+        return DISPLAY_SCALE_MAX
+    raw = 9999.0 / (1.0 + (p / midpoint) ** slope)
+    return max(DISPLAY_SCALE_MIN, min(DISPLAY_SCALE_MAX, round(raw)))
 
 
 # ══════════════════════════════════════════════════════════════════════

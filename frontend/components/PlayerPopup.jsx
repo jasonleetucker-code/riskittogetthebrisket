@@ -7,19 +7,19 @@ import { resolvedRank } from "@/lib/dynasty-data";
 /**
  * Build the ordered value-chain stages from a player row.
  *
- * Pipeline order (from src/api/data_contract.py Phase 3 → 4c):
- *   1. Blended Hill value — trimmed mean-median across per-source
- *      Hill-curve values, minus λ·MAD volatility penalty for
- *      multi-source non-pick rows → stamped as
- *      ``rankDerivedValueUncalibrated``.  ``sourceMAD`` and
- *      ``madPenaltyApplied`` surface the MAD components for
- *      transparency.
- *   2. IDP calibration pass (family_scale × bucket multiplier) —
- *      IDP rows only; offense rows skip this stage.  Output is the
- *      final ``rankDerivedValue``.
- *
- * The prior volatility-compression stage was removed along with the
- * monotonicity cap; see docs/architecture/live-value-pipeline-trace.md.
+ * Pipeline order (Final Framework PR 3 live chain,
+ * src/api/data_contract.py Phase 3 → 4c):
+ *   1. Anchor value — IDPTC's percentile-Hill value for this player,
+ *      or the subgroup-only fallback when IDPTC doesn't rank them.
+ *   2. Subgroup adjustment — trimmed mean-median of non-anchor source
+ *      values, shrunk by α into the anchor baseline: center =
+ *      anchor + α·(subgroup − anchor).  Only emitted when both
+ *      anchor and subgroup contribute.
+ *   3. MAD volatility penalty — center − λ·MAD (players only; picks
+ *      skip this stage).
+ *   4. Combined output of 1-3 → ``rankDerivedValueUncalibrated``.
+ *   5. IDP calibration (family_scale × bucket multiplier) — IDP rows
+ *      only.  Output is the final ``rankDerivedValue``.
  *
  * Only stages with a meaningful delta are emitted so offense rows
  * don't render zero-op "IDP calibration ×1.00" rows.
@@ -29,11 +29,61 @@ function computeValueChain(row) {
 
   const stages = [];
 
-  // Stage 1 — blended value (trimmed mean-median across Hill-curve
-  // values from every contributing source, minus any MAD volatility
-  // penalty).  We show this as the "uncalibrated" stamp, which
-  // already reflects the penalty.  When the penalty is non-zero we
-  // annotate the description so users see where it came from.
+  // Stage 1 — anchor baseline.  IDPTC's percentile-Hill value.
+  const anchor = Number(row.anchorValue) || null;
+  const subgroupBlend = Number(row.subgroupBlendValue) || null;
+  const subgroupDelta =
+    typeof row.subgroupDelta === "number" ? row.subgroupDelta : null;
+  const alpha =
+    typeof row.alphaShrinkage === "number" ? row.alphaShrinkage : null;
+
+  if (anchor !== null && anchor > 0) {
+    stages.push({
+      key: "anchor",
+      label: "Anchor value",
+      description:
+        "IDPTC percentile-Hill — the universal offense+IDP baseline",
+      value: Math.round(anchor),
+      delta: null,
+    });
+  } else if (subgroupBlend !== null && subgroupBlend > 0) {
+    // Player only has subgroup coverage (no anchor) — surface the
+    // subgroup blend as the effective baseline.
+    stages.push({
+      key: "subgroup-only",
+      label: "Subgroup baseline",
+      description:
+        "No anchor coverage — trimmed mean-median of subgroup sources",
+      value: Math.round(subgroupBlend),
+      delta: null,
+    });
+  }
+
+  // Stage 2 — α-shrunk subgroup adjustment (only when both anchor and
+  // subgroup are present and the adjustment is non-zero).
+  if (
+    anchor !== null &&
+    anchor > 0 &&
+    subgroupBlend !== null &&
+    subgroupDelta !== null &&
+    alpha !== null &&
+    Math.round(alpha * subgroupDelta) !== 0
+  ) {
+    const adjusted = Math.round(anchor + alpha * subgroupDelta);
+    const prior = stages.length ? stages[stages.length - 1].value : null;
+    stages.push({
+      key: "subgroup",
+      label: `Subgroup adjustment ×${alpha.toFixed(2)}`,
+      description:
+        `Subgroup blend ${Math.round(subgroupBlend)} − anchor ` +
+        `${Math.round(anchor)} = Δ${subgroupDelta >= 0 ? "+" : ""}` +
+        `${Math.round(subgroupDelta)}; shrunk by α=${alpha.toFixed(2)}`,
+      value: adjusted,
+      delta: prior !== null ? adjusted - prior : null,
+    });
+  }
+
+  // Stage 3 — MAD volatility penalty (when applied).
   const blended = Number(row.rankDerivedValueUncalibrated) || null;
   const madPenalty =
     typeof row.madPenaltyApplied === "number" && row.madPenaltyApplied > 0
@@ -41,18 +91,30 @@ function computeValueChain(row) {
       : null;
   const sourceMad =
     typeof row.sourceMAD === "number" ? row.sourceMAD : null;
-  if (blended !== null && blended > 0) {
-    let description =
-      "Trimmed mean-median across per-source Hill-curve values";
-    if (madPenalty !== null && sourceMad !== null) {
-      description +=
-        ` − λ·MAD penalty (${Math.round(madPenalty)} pts off ` +
-        `${Math.round(sourceMad)} MAD)`;
+  if (
+    blended !== null &&
+    blended > 0 &&
+    madPenalty !== null &&
+    sourceMad !== null
+  ) {
+    const prior = stages.length ? stages[stages.length - 1].value : null;
+    if (prior !== null && Math.round(blended) !== prior) {
+      stages.push({
+        key: "mad-penalty",
+        label: `MAD penalty −${Math.round(madPenalty)}`,
+        description:
+          `Source disagreement (MAD = ${Math.round(sourceMad)}) shrunk ` +
+          `toward anchor; penalty capped at the center value`,
+        value: Math.round(blended),
+        delta: Math.round(blended) - prior,
+      });
     }
+  } else if (blended !== null && blended > 0 && stages.length === 0) {
+    // Fallback — no anchor/subgroup stamps (e.g. legacy row).
     stages.push({
       key: "blend",
       label: "Blended value",
-      description,
+      description: "Per-source Hill-curve blend",
       value: Math.round(blended),
       delta: null,
     });
