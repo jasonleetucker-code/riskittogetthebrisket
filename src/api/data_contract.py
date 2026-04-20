@@ -3266,20 +3266,26 @@ _VOLATILITY_COMPRESSION_STRENGTH: float = 0.03
 _VOLATILITY_COMPRESSION_FLOOR: float = 0.92
 _VOLATILITY_COMPRESSION_CEIL: float = 1.08
 
-# Minimum step-down on the monotonicity-preserving boost clamp at
-# the top of the board.  When the natural boosted value would
-# overshoot ``_DISPLAY_SCALE_MAX`` (9999) for multiple top-of-board
-# rows in a row, enforcing "prior - 1" collapsed rank 1/2/3/4 to
-# 9999/9998/9997/9996 and erased the visible rank-consistency
-# signal the user expects (e.g. Josh Allen far and away the most
-# consistent #1 across sources).  Stepping down by 100 makes the
-# plateau legible as "each rank at the top is ~100 pts apart" —
-# a natural cliff shape even when every row's underlying boost
-# would have blown past the ceiling.  Rows whose natural boosted
-# value falls BELOW the capped ceiling use their natural value
-# (no cap applied), so mid-rank high-agreement players still get
-# their full multiplicative reward.
-_MONOTONICITY_MIN_STEP: int = 100
+# Source-rank-scaled monotonicity step.  When the natural boosted
+# value overshoots ``_DISPLAY_SCALE_MAX`` (9999) for a cluster of
+# top-of-board rows, a fixed-step cap (e.g. "always 100 pts down
+# per rank") flattens the top into equal stairs — but the real
+# rank-consistency signal varies row to row:
+#   - Allen (blendedSourceRank 1.1) vs Maye (3.9) = 2.8-rank gap
+#     → Allen is far and away the consensus #1; a big visible
+#     cliff here is justified.
+#   - Chase (5.0) vs Bijan (6.3) = 1.3-rank gap → typical step.
+#   - Two adjacent players within ~0.5 source-rank of each other
+#     should collapse to a near-flat display gap; a large fixed
+#     step would fabricate separation that isn't in the source data.
+# Scaling the step by the ``blendedSourceRank`` delta between
+# consecutive rows ties the visible cliff shape directly to the
+# actual source consensus.  ``_MONOTONICITY_BASE_STEP`` is the step
+# per 1.0-rank-gap; floor/ceiling prevent zero-step collapse on
+# rank ties / inversions and runaway cliffs on huge gaps.
+_MONOTONICITY_BASE_STEP: int = 75
+_MONOTONICITY_STEP_FLOOR: int = 25
+_MONOTONICITY_STEP_CEIL: int = 250
 
 _DISPLAY_SCALE_MAX: int = 9999
 
@@ -3381,6 +3387,7 @@ def _apply_volatility_compression_post_pass(
     # compression-induced inversion is fixed by the Phase 5 compact
     # resort that runs after this pass.
     prior_post_value: int | None = None
+    prior_blended_rank: float | None = None
 
     for row, value, spread in eligible:
         z = (spread - spread_mean) / spread_std
@@ -3390,6 +3397,17 @@ def _apply_volatility_compression_post_pass(
             if legacy_ref and legacy_ref in players_by_name
             else None
         )
+
+        # Pull the blended source rank (mean of effective per-source
+        # ranks) stamped in Phase 4a.  Falls back to canonical rank
+        # if the row is missing a blend (single-source rows, picks).
+        bsr_raw = row.get("blendedSourceRank")
+        current_blended_rank: float | None
+        if isinstance(bsr_raw, (int, float)):
+            current_blended_rank = float(bsr_raw)
+        else:
+            ccr = row.get("canonicalConsensusRank")
+            current_blended_rank = float(ccr) if isinstance(ccr, (int, float)) else None
 
         if z > 0:
             frac = min(z * strength, max_compress)
@@ -3406,24 +3424,34 @@ def _apply_volatility_compression_post_pass(
         elif z < 0:
             frac = min(abs(z) * strength, max_boost)
             boosted = max(1, int(round(value * (1.0 + frac))))
-            # Monotonicity-preserving ceiling on boost: new_val is
-            # the min of (raw-boosted, _DISPLAY_SCALE_MAX,
-            # prior_post_value - _MONOTONICITY_MIN_STEP).  The
-            # second and third terms prevent multiple high-agreement
-            # top-of-board players from collapsing onto a single
-            # 9999 plateau when their natural boosts all overshoot
-            # the display max.  The step size is 100 (not 1) so the
-            # resulting cliff shape — 9999, 9899, 9799, 9699... —
-            # reflects the rank-consistency spread the user expects
-            # at the top of the board; rows whose natural boosted
-            # value falls below the capped ceiling use their natural
-            # value and are unaffected by the cap.  The cap only
-            # tightens when the prior row itself landed at or below
-            # 9999 — a compression-branch neighbour sitting at 10694
-            # does not drag the boost ceiling above 9999.
+            # Monotonicity-preserving ceiling on boost, scaled by
+            # the source-rank gap between this row and the prior:
+            #   step = BASE * (bsr[N] − bsr[N−1])  clamped to [FLOOR, CEIL]
+            # A 2.8-rank gap (Allen 1.1 → Maye 3.9) yields a ~210-pt
+            # cliff; a 0.8-rank gap (Gibbs → Daniels) yields ~60.
+            # Rows whose natural boosted value falls below the
+            # capped ceiling use their natural value untouched, so
+            # the cap only shapes rows that would otherwise clamp
+            # at _DISPLAY_SCALE_MAX.
             ceiling = _DISPLAY_SCALE_MAX
             if prior_post_value is not None and prior_post_value <= _DISPLAY_SCALE_MAX:
-                ceiling = min(ceiling, prior_post_value - _MONOTONICITY_MIN_STEP)
+                if (
+                    prior_blended_rank is not None
+                    and current_blended_rank is not None
+                    and current_blended_rank > prior_blended_rank
+                ):
+                    rank_gap = current_blended_rank - prior_blended_rank
+                    raw_step = int(round(_MONOTONICITY_BASE_STEP * rank_gap))
+                else:
+                    # Rank inversion or tie (no positive gap) — fall
+                    # back to the base step so we still enforce a
+                    # minimum visible cliff between ranks.
+                    raw_step = _MONOTONICITY_BASE_STEP
+                step = max(
+                    _MONOTONICITY_STEP_FLOOR,
+                    min(_MONOTONICITY_STEP_CEIL, raw_step),
+                )
+                ceiling = min(ceiling, prior_post_value - step)
             new_val = max(1, min(boosted, ceiling))
             signed_frac = round(-frac, 4)
         else:
@@ -3435,6 +3463,10 @@ def _apply_volatility_compression_post_pass(
         # lift the next row's boost ceiling above 9999.  Any row
         # (boost, compress, no-op) can constrain the next boost.
         prior_post_value = min(new_val, _DISPLAY_SCALE_MAX)
+        # Track the blended rank too so the NEXT row's cliff step
+        # can be scaled against the source-consensus gap.
+        if current_blended_rank is not None:
+            prior_blended_rank = current_blended_rank
 
         # When z is on either side but frac rounds to zero (very small
         # |z|), skip the value mutation to avoid spurious 1-point

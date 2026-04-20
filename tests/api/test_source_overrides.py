@@ -907,14 +907,16 @@ class TestTepMultiplier(unittest.TestCase):
             boost_rank = boosted_by_name[name].get("canonicalConsensusRank")
             if base_rank != boost_rank:
                 # Rank shifted — the monotonicity cap steps the
-                # ceiling down by ``_MONOTONICITY_MIN_STEP`` (100)
-                # per rank, so a two-rank TEP shuffle can drift the
-                # display value by up to ~250 pts (two steps plus a
-                # bit of slack for rounding).  We still assert the
-                # shift is proportional to the rank change so a
-                # runaway drift surfaces as a regression.
+                # ceiling down by up to ``_MONOTONICITY_STEP_CEIL``
+                # (250) per rank, depending on the source-rank gap
+                # between adjacent rows.  A two-rank TEP shuffle can
+                # therefore drift a non-TE's display value by up to
+                # ~500 pts (two max-sized steps), though the typical
+                # case sees much less.  We still assert the drift
+                # stays bounded by the cap's max step so a runaway
+                # drift surfaces as a regression.
                 rank_delta = abs(int(base_rank or 0) - int(boost_rank or 0))
-                allowed = max(50, 120 * max(1, rank_delta))
+                allowed = max(100, 275 * max(1, rank_delta))
                 self.assertAlmostEqual(
                     base_val, boost_val, delta=allowed,
                     msg=(
