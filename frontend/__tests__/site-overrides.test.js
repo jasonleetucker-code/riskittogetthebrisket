@@ -765,18 +765,32 @@ describe("fetchDynastyData — routes overrides to backend endpoint", () => {
 // This block pins every step.
 
 describe("tepMultiplierIsCustomized", () => {
-  it("returns false for 1.0 and sub-default values", () => {
-    expect(tepMultiplierIsCustomized(1.0)).toBe(false);
-    expect(tepMultiplierIsCustomized(0.5)).toBe(false);
+  // The "customized" bit flips on EXPLICITNESS, not on a magic
+  // value like 1.0.  ``null`` (the new default) means "auto from
+  // league" — no override.  A finite number (including 1.0) means
+  // "user dragged the slider, honor this value verbatim".
+  //
+  // Historical note: this function used to return ``true`` only for
+  // ``n > 1.0``, which bundled the hardcoded 1.15 frontend default
+  // into every TEP-league user's cold-start payload and masked
+  // non-TEP-league users' over-boosted TEs.  The new shape lets the
+  // backend derive from Sleeper ``bonus_rec_te`` and reserves
+  // "customized" for the opt-in slider drag.
+  it("returns false for null / undefined (auto-from-league default)", () => {
     expect(tepMultiplierIsCustomized(undefined)).toBe(false);
     expect(tepMultiplierIsCustomized(null)).toBe(false);
     expect(tepMultiplierIsCustomized("not a number")).toBe(false);
+    expect(tepMultiplierIsCustomized(NaN)).toBe(false);
   });
 
-  it("returns true for values > 1.0", () => {
+  it("returns true for any finite number (explicit user override)", () => {
+    // Critically: 1.0 IS customized now — "user explicitly set TEP to 1.0"
+    // is a real override when the league derives a non-1.0 default.
+    expect(tepMultiplierIsCustomized(1.0)).toBe(true);
     expect(tepMultiplierIsCustomized(1.15)).toBe(true);
     expect(tepMultiplierIsCustomized(1.2)).toBe(true);
     expect(tepMultiplierIsCustomized(1.5)).toBe(true);
+    expect(tepMultiplierIsCustomized(0.5)).toBe(true);
   });
 });
 
@@ -849,12 +863,23 @@ describe("fetchDynastyData — tepMultiplier routes overrides to backend", () =>
     };
   }
 
-  it("does not hit override endpoint when tepMultiplier is 1.0 and no siteOverrides", async () => {
+  it("does not hit override endpoint when tepMultiplier is null/undefined (auto-from-league)", async () => {
+    // ``null`` is the new default — "let the backend derive from my
+    // Sleeper league".  No override POST; the base contract already
+    // carries the derived value baked into every rankDerivedValue.
     globalThis.fetch.mockResolvedValueOnce(baseMock());
-    await fetchDynastyData({ tepMultiplier: 1.0 });
+    await fetchDynastyData({ tepMultiplier: null });
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     const [url] = globalThis.fetch.mock.calls[0];
     expect(String(url)).toMatch(/\/api\/dynasty-data/);
+
+    // Also verify undefined behaves the same (some callers omit the prop).
+    _resetBaseContractCache();
+    globalThis.fetch.mockResolvedValueOnce(baseMock());
+    await fetchDynastyData({});
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    const [url2] = globalThis.fetch.mock.calls[1];
+    expect(String(url2)).toMatch(/\/api\/dynasty-data/);
   });
 
   it("routes to override endpoint when only tepMultiplier is customized", async () => {

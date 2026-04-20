@@ -61,13 +61,37 @@ function ToggleRow({ label, checked, onChange, hint }) {
 }
 
 export default function SettingsPage() {
-  const { loading, error, rows } = useDynastyData();
+  const { loading, error, rows, rawData } = useDynastyData();
   const { settings, update, updateSiteWeight, resetSiteWeights, reset } = useSettings();
   const [hydrated, setHydrated] = useState(true);
 
   function resetToDefaults() {
     reset();
   }
+
+  // Derived TE-premium multiplier from the backend.  Comes from
+  // ``rankingsOverride.tepMultiplierDerived`` which the backend
+  // stamps on every /api/data + override response.  The number is
+  // computed from the operator's Sleeper league ``bonus_rec_te``
+  // (0.0 → 1.0, 0.5 → 1.15, 1.0 → 1.30, ...) and represents the
+  // "auto" baseline the slider shows when the user has not
+  // explicitly overridden it.
+  const tepDerivedFromLeague = (() => {
+    const v = Number(rawData?.rankingsOverride?.tepMultiplierDerived);
+    return Number.isFinite(v) ? v : 1.0;
+  })();
+  // Effective slider value.  null/undefined in settings → show the
+  // derived value (auto); a finite number → show the user's override.
+  // Coerce any noise (strings, NaN) back to the derived baseline.
+  const tepSliderValue = (() => {
+    const raw = settings?.tepMultiplier;
+    if (raw === null || raw === undefined) return tepDerivedFromLeague;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : tepDerivedFromLeague;
+  })();
+  const tepIsAuto =
+    settings?.tepMultiplier === null ||
+    settings?.tepMultiplier === undefined;
 
   // Split the canonical registry into offense / IDP groups by the
   // declared scope field.  idpTradeCalc is listed under IDP (its
@@ -157,15 +181,43 @@ export default function SettingsPage() {
         </div>
         <SliderRow
           label="TE Premium"
-          value={settings.tepMultiplier}
+          value={tepSliderValue}
           min={1.0} max={1.5} step={0.05}
           onChange={(v) => update("tepMultiplier", v)}
-          hint="Backend TE boost — applied to non-TEP-native sources before blending"
+          hint={
+            tepIsAuto
+              ? `Auto from league (bonus_rec_te → ${tepDerivedFromLeague.toFixed(2)})`
+              : `Custom override (auto would be ${tepDerivedFromLeague.toFixed(2)})`
+          }
         />
+        {!tepIsAuto && (
+          <div style={{ marginTop: 4, marginBottom: 6 }}>
+            <button
+              type="button"
+              className="button-reset"
+              style={{
+                fontSize: "0.7rem",
+                color: "var(--accent-gold, #FFC62F)",
+                textDecoration: "underline",
+                cursor: "pointer",
+                padding: 0,
+              }}
+              onClick={() => update("tepMultiplier", null)}
+            >
+              Reset to Auto (derive from my Sleeper league)
+            </button>
+          </div>
+        )}
         <p className="muted" style={{ fontSize: "0.68rem", marginTop: 4, marginBottom: 0 }}>
-          Applied on the backend to every TE&apos;s per-source contributions from
-          rankings sources that don&apos;t already bake TE premium into their ranks.
-          Sources tagged{" "}
+          By default, this is <strong>derived from your Sleeper league&apos;s{" "}
+          <span style={{ fontFamily: "var(--mono)", fontSize: "0.64rem" }}>
+            bonus_rec_te
+          </span></strong>{" "}
+          scoring setting: 0.0 (standard) → 1.00, 0.5 (TEP-1.5) → 1.15,
+          1.0 (TEP-2.0) → 1.30.  Dragging the slider opts into a manual
+          override on top of that.  Applied on the backend to every TE&apos;s
+          per-source contributions from rankings sources that don&apos;t
+          already bake TE premium into their ranks.  Sources tagged{" "}
           <span
             style={{
               fontFamily: "var(--mono)",
@@ -181,9 +233,7 @@ export default function SettingsPage() {
           in the Ranking Sources table below pass through unchanged, so there is
           no double-boost. Changing the slider re-runs the canonical ranking
           pipeline with the new multiplier, so every page (rankings, trade
-          calculator, edge) sees the same TEP-adjusted values. Set to 1.00 to
-          disable the boost entirely, or raise it if your non-TEP sources
-          (DLF SF, KTC, etc.) are under-valuing TEs for your league.
+          calculator, edge) sees the same TEP-adjusted values.
         </p>
       </Section>
 
