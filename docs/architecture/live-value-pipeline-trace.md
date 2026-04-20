@@ -110,7 +110,7 @@ For each active source:
      IDPTC for IDP)
    - everything else → direct passthrough
 
-### Phase 3 — Hill curve + blend (L4582-4728)
+### Phase 3 — Hill curve + trimmed mean-median blend
 
 For each row with any per-source rank:
 
@@ -126,26 +126,26 @@ TEP application on TE rows only:
 - `is_tep_premium=False` sources: `value *= tep_multiplier`
 - `is_tep_premium=True` sources: `value *= tep_native_correction`
 
-Effective weight:
+Effective weight (stamped onto source meta for transparency, NOT used
+in aggregation):
 ```
 effective_weight = coverage_weight(declared_weight, depth)
 ```
 `coverage_weight` at `src/canonical/idp_backbone.py:306` linearly scales
-sources shallower than `MIN_FULL_COVERAGE_DEPTH=60`.  Only rookie
-sources (depth=50) trigger this scaling in the current registry.
+sources shallower than `MIN_FULL_COVERAGE_DEPTH=60`.
 
-Blend:
-- `weighted_mean` = ∑(value × effective_weight) / ∑ effective_weight
-- `robust`:
-  - ≥ 5 sources → drop max AND min, mean the rest
-  - 3-4 sources → drop worst (lowest) only, mean the rest
-  - 2 sources → mean
-  - 1 source → keep
-- `blended_value = 0.7 * weighted_mean + 0.3 * robust`
+Blend — **Final Framework step 5: Trimmed Mean-Median** (unweighted):
+- Sort per-source values.
+- If ≥ 3 sources: drop the highest and the lowest, compute the
+  arithmetic mean AND the median of what remains, blend =
+  `(trimmed_mean + trimmed_median) / 2`.
+- If 2 sources: mean of the two.
+- If 1 source: keep.
 
-Constants `_BLEND_MEAN_WEIGHT=0.7`, `_BLEND_ROBUST_WEIGHT=0.3`
-(see `src/api/data_contract.py:3405`; chosen via
-`scripts/backtest_blend_params.py`, PR #151).
+Weighting is reintroduced later as the hierarchical anchor / subgroup
+structure (framework steps 7–8).  The previous `0.7·weighted_mean +
+0.3·robust` convex combo has been retired — see the PR 1 commit for
+the Final Framework transition.
 
 ### Phase 3a — Pick year discount (L4739)
 
@@ -180,21 +180,15 @@ Offense calibration is **commented out** at L5021.  Regression test
 at `tests/api/test_single_curve_live.py` asserts no offense row
 carries `offenseCalibrationMultiplier`.
 
-### Phase 4d — Volatility compression (L5033)
+### Phase 4d — Volatility compression (REMOVED)
 
-`_apply_volatility_compression_post_pass`:
-- z-score of `sourceRankPercentileSpread` across all eligible rows.
-- z > 0: compress down toward floor `0.92`.
-- z < 0: boost up toward ceil `1.08`.
-- Boosts clamped by monotonicity cap:
-  `ceiling = prior_post_value - _MONOTONICITY_BASE_STEP * rank_gap`,
-  clamped to `[25, 250]` step points.
-- Picks skipped (they're anchored to rookies).
+The prior ±8% compress/boost post-pass and its 75-point monotonicity
+cap were removed as part of the Final Framework transition.  A
+principled MAD-based volatility penalty with a backtested `λ` weight
+will reappear in a later PR once the backtest is done.
 
-Constants: `_VOLATILITY_COMPRESSION_STRENGTH=0.03`,
-`_VOLATILITY_COMPRESSION_FLOOR=0.92`, `_VOLATILITY_COMPRESSION_CEIL=1.08`,
-`_MONOTONICITY_BASE_STEP=75`.  These have not been refit since they
-were migrated from the canonical engine defaults.
+Fields `preVolatilityValue` and `volatilityCompressionApplied` are no
+longer stamped.
 
 ### Phase 5 — Pick refinement + recompact (L5040-5111)
 
@@ -226,8 +220,6 @@ runtime view (`/api/data?view=app`) still has per-row data after
 - `canonicalConsensusRank` — authoritative rank (1..N)
 - `canonicalTierId` — value-gap-detected tier index
 - `rankDerivedValueUncalibrated` — pre-IDP-calibration snapshot
-- `preVolatilityValue` — post-calibration, pre-volatility snapshot
-- `volatilityCompressionApplied` — signed fraction
 - `sourceRanks`, `sourceRankMeta` — per-source transparency
 - `confidenceBucket`, `confidenceLabel` — display badge
 - `anomalyFlags` — diagnostic flags
@@ -237,12 +229,8 @@ runtime view (`/api/data?view=app`) still has per-row data after
 The chain identity (pinned in `tests/api/test_single_curve_live.py`):
 
 ```
-rankDerivedValueUncalibrated                               ← Hill + TEP + blend
-    × (idpCalibrationMultiplier × idpFamilyScale)          ← IDP only, if active
-    = preVolatilityValue
-    × (1 − volatilityCompressionApplied)   compression
-    OR                                                     ← signed fraction
-    min(× (1 + |vol|), monotonicity_cap, 9999)  boost
+rankDerivedValueUncalibrated                              ← Hill + TEP + trimmed mean-median
+    × (idpCalibrationMultiplier × idpFamilyScale)         ← IDP only, if active
     = rankDerivedValue
 ```
 
@@ -263,9 +251,11 @@ rankDerivedValueUncalibrated                               ← Hill + TEP + blen
 
 The backtest harnesses that exercise these constants:
 
-- `scripts/backtest_blend_params.py` — `_BLEND_MEAN_WEIGHT`,
-  `_VOLATILITY_COMPRESSION_*`, IDPTC weight.  Output:
-  `reports/backtest_blend_params_full.md`.
+- `scripts/backtest_blend_params.py` — IDPTC weight and (historically)
+  the old `_BLEND_MEAN_WEIGHT` / `_VOLATILITY_*` constants.  Output:
+  `reports/backtest_blend_params_full.md`.  The volatility knobs
+  referenced in older runs no longer exist; re-running the script
+  today exercises only the IDPTC weight lever.
 - `scripts/backtest_ktc_volatility.py` — empirical KTC drift bands per
   rank.  Output: `reports/ktc_volatility_backtest_full.md`.
 

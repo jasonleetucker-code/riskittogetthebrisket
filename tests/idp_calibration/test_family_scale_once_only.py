@@ -13,7 +13,7 @@ that would reintroduce the bug.
 
 This test makes the invariant executable: with an explicit promoted
 config (family_scale=1.3, DL bucket=0.5), the live pipeline must
-produce ``preVolatilityValue ≈ rankDerivedValueUncalibrated × 0.5 × 1.3``
+produce ``rankDerivedValue ≈ rankDerivedValueUncalibrated × 0.5 × 1.3``
 for DL rows — a single combined multiplication, NOT a double one.
 
 If anyone re-introduces a second application of ``family_scale`` in
@@ -86,7 +86,7 @@ def _load_latest_raw() -> dict | None:
 
 def test_family_scale_is_folded_exactly_once(tmp_path, monkeypatch):
     """Full live-pipeline exercise: under an active promoted config,
-    ``preVolatilityValue`` for DL rows must equal
+    ``rankDerivedValue`` for DL rows must equal
     ``uncalibrated × (bucket × family_scale)`` once — never twice.
     """
     raw = _load_latest_raw()
@@ -113,10 +113,10 @@ def test_family_scale_is_folded_exactly_once(tmp_path, monkeypatch):
     checked = 0
     for row in dl_rows:
         uncal = row.get("rankDerivedValueUncalibrated")
-        pre_vol = row.get("preVolatilityValue")
+        final_val = row.get("rankDerivedValue")
         bucket = row.get("idpCalibrationMultiplier")
         family = row.get("idpFamilyScale")
-        if uncal is None or pre_vol is None:
+        if uncal is None or final_val is None:
             continue
         # Stamped components match the config exactly.
         assert bucket is not None and abs(bucket - DL_BUCKET) < 1e-6, (
@@ -130,9 +130,9 @@ def test_family_scale_is_folded_exactly_once(tmp_path, monkeypatch):
         # Combined factor is applied exactly once, not twice.
         expected_once = int(round(float(uncal) * expected_combined))
         expected_twice = int(round(float(uncal) * expected_combined * FAMILY_SCALE))
-        assert abs(int(pre_vol) - expected_once) <= 2, (
+        assert abs(int(final_val) - expected_once) <= 2, (
             f"{row.get('canonicalName')}: "
-            f"preVolatilityValue={pre_vol}, "
+            f"rankDerivedValue={final_val}, "
             f"uncal={uncal}, expected_once={expected_once} "
             f"(combined={expected_combined:.4f}). "
             f"family_scale may have been double-applied — "
@@ -140,8 +140,8 @@ def test_family_scale_is_folded_exactly_once(tmp_path, monkeypatch):
         )
         # Defensive: the observed value must NOT match the
         # double-apply expectation.
-        assert abs(int(pre_vol) - expected_twice) > 2, (
-            f"{row.get('canonicalName')}: preVolatilityValue={pre_vol} "
+        assert abs(int(final_val) - expected_twice) > 2, (
+            f"{row.get('canonicalName')}: rankDerivedValue={final_val} "
             f"matches double-application of family_scale "
             f"(expected_twice={expected_twice}). family_scale is being "
             f"applied twice."

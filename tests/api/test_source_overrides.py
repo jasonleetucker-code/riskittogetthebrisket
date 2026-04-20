@@ -1042,27 +1042,15 @@ class TestTepMultiplier(unittest.TestCase):
 
     def test_tep_boost_does_not_touch_non_te_values(self) -> None:
         """Non-TE players must be unaffected by tep_multiplier at the
-        per-source contribution level, but may see small display-
-        value drift from cascading monotonicity-cap effects.
+        per-source contribution level.
 
-        The volatility-compression pass includes a monotonicity-
-        preserving ceiling at the top of the board (rank 1 ≤ 9999,
-        rank 2 ≤ 9998, rank 3 ≤ 9997, ...) to prevent multiple
-        high-agreement boosted players from collapsing onto a single
-        9999 plateau.  When the TEP slider moves a TE above a QB in
-        rank, the QB's ceiling can tighten by a handful of points
-        because its rank has shifted — the player's source inputs
-        are unchanged, but the ranking neighbourhood is.
-
-        As of the TEP-native correction landing, the cascading also
-        fires in the "tep went from 1.0 to 1.15" direction even when
-        no rank shifts occur: at tep=1.0 the correction drops TEP-
-        native TE contributions by ~13%; at tep=1.15 it passes them
-        through.  The resulting TE-value shift nudges adjacent non-TE
-        rows through the volatility-compression boost term even when
-        their own rank is stable.  We therefore allow a small (≤ 200
-        pts) drift for non-rank-shift rows and the larger cap-scaled
-        drift for rows whose rank did move.
+        Under the Final Framework's simpler blend (trimmed mean-median
+        with no volatility post-pass), non-TE rows have an extremely
+        small drift envelope: rank shifts propagate into a non-TE's
+        blend only through the trim pair (drop top + drop bottom),
+        which can flip if a neighbouring TE's boosted value nudges the
+        non-TE's contributions set.  Typical drift stays under 100 pts;
+        a 150-pt budget catches runaway regressions.
         """
         boosted = build_api_data_contract(
             _fixture_raw_payload(), tep_multiplier=1.15
@@ -1074,43 +1062,13 @@ class TestTepMultiplier(unittest.TestCase):
                 continue
             base_val = int(baseline_row.get("rankDerivedValue") or 0)
             boost_val = int(boosted_by_name[name].get("rankDerivedValue") or 0)
-            base_rank = baseline_row.get("canonicalConsensusRank")
-            boost_rank = boosted_by_name[name].get("canonicalConsensusRank")
-            if base_rank != boost_rank:
-                # Rank shifted — the monotonicity cap steps the
-                # ceiling down by up to ``_MONOTONICITY_STEP_CEIL``
-                # (250) per rank, depending on the source-rank gap
-                # between adjacent rows.  A two-rank TEP shuffle can
-                # therefore drift a non-TE's display value by up to
-                # ~500 pts (two max-sized steps), though the typical
-                # case sees much less.  We still assert the drift
-                # stays bounded by the cap's max step so a runaway
-                # drift surfaces as a regression.
-                rank_delta = abs(int(base_rank or 0) - int(boost_rank or 0))
-                allowed = max(100, 275 * max(1, rank_delta))
-                self.assertAlmostEqual(
-                    base_val, boost_val, delta=allowed,
-                    msg=(
-                        f"Non-TE {name} ({pos}) drifted more than "
-                        f"{allowed} pts ({rank_delta} rank shift) "
-                        f"under TEP boost: {base_val} -> {boost_val}"
-                    ),
-                )
-            else:
-                # No rank shift — drift should be bounded by the
-                # volatility-boost envelope.  The boost term maxes
-                # around ±8% of value for a single rank-neighbor
-                # shift, and most non-TE drift seen here is <2%.
-                # A 200-pt budget is a generous cap that still
-                # catches runaway regressions.
-                self.assertAlmostEqual(
-                    base_val, boost_val, delta=200,
-                    msg=(
-                        f"Non-TE {name} ({pos}) drifted > 200 pts under "
-                        f"TEP boost with no rank shift: "
-                        f"{base_val} -> {boost_val}"
-                    ),
-                )
+            self.assertAlmostEqual(
+                base_val, boost_val, delta=150,
+                msg=(
+                    f"Non-TE {name} ({pos}) drifted > 150 pts under "
+                    f"TEP boost: {base_val} -> {boost_val}"
+                ),
+            )
 
     def test_brock_bowers_mostly_proportional_boost(self) -> None:
         """A top TE with mixed-TEP coverage gets a measurable but sub-15% boost.
@@ -1119,8 +1077,14 @@ class TestTepMultiplier(unittest.TestCase):
         (non-TEP), idpTradeCalc (non-TEP), dlfSf (non-TEP), and
         dynastyNerdsSfTep (TEP-native).  Three of four contributions
         get multiplied by 1.15 and one passes through unchanged, so
-        the final blended value should be boosted by less than the
-        full 15% but meaningfully more than 0%.
+        the final blended value should be boosted but stay within
+        the 15% raw multiplier.
+
+        Under the post-Final-Framework trimmed mean-median blend, the
+        trim can drop the unboosted native contribution entirely,
+        leaving only boosted values in the aggregate — so the boost
+        can sit right at 1.15× (±rounding) rather than strictly
+        below it.
         """
         boosted = build_api_data_contract(
             _fixture_raw_payload(), tep_multiplier=1.15
@@ -1134,9 +1098,10 @@ class TestTepMultiplier(unittest.TestCase):
         )
         self.assertGreater(base_value, 0)
         self.assertGreater(boost_value, base_value)
-        # Cap: the boost cannot exceed the raw 15% multiplier because
-        # at least one source (dynastyNerdsSfTep) passes through unchanged.
-        self.assertLess(boost_value, int(base_value * 1.15))
+        # Cap: the boost cannot exceed the raw 15% multiplier.  Allow
+        # one point of integer-rounding slack because the comparison
+        # is int-vs-int.
+        self.assertLessEqual(boost_value, int(round(base_value * 1.15)) + 1)
         # Floor: the boost must be measurable (at least 1% on a 4-source
         # blend where 3 of 4 contributions get multiplied by 1.15).
         self.assertGreater(boost_value / base_value, 1.01)
@@ -1379,83 +1344,27 @@ class TestTepMultiplier(unittest.TestCase):
         rov = contract.get("rankingsOverride") or {}
         self.assertEqual(float(rov.get("tepMultiplier") or 0), 2.0)
 
-    def test_volatility_compression_always_emitted_in_delta(self) -> None:
-        """Every ranked delta entry must carry an explicit ``volatilityCompressionApplied`` value.
-
-        Regression guard for the silent-skip bug: the compression pass
-        used to only stamp ``volatilityCompressionApplied`` when a
-        penalty was applied and silently omitted the field otherwise.
-        That broke override merges — a player compressed in the base
-        contract but uncompressed after an override would keep the
-        stale fraction because ``mergeRankingsDelta`` overwrites only
-        fields present in the delta.  Every ranked row must emit an
-        explicit value (a float fraction or ``None``) so the merge
-        path can clear stale state deterministically.
+    def test_volatility_stamps_removed_from_delta(self) -> None:
+        """Regression guard for the Final Framework PR 1: the old
+        ``volatilityCompressionApplied`` and ``preVolatilityValue``
+        fields must not reappear on any delta entry.  If they do, the
+        removed post-pass was reintroduced somewhere.
         """
         delta = build_rankings_delta_payload(
             _fixture_raw_payload(),
             source_overrides={"ktc": {"include": False}},
         )
-        missing: list[str] = []
+        offenders: list[str] = []
         for entry in delta.get("rankingsDelta", {}).get("players", []):
-            # Only rows that actually received a rank participate in
-            # the compression pass; unranked rows legitimately never
-            # have the field set explicitly, but the _derive_player_row
-            # default covers those.
-            if entry.get("canonicalConsensusRank") is None:
-                continue
-            if "volatilityCompressionApplied" not in entry:
-                missing.append(entry.get("id", "<unknown>"))
+            if (
+                "volatilityCompressionApplied" in entry
+                or "preVolatilityValue" in entry
+            ):
+                offenders.append(entry.get("id", "<unknown>"))
         self.assertEqual(
-            missing, [],
-            "Ranked rows missing explicit volatilityCompressionApplied "
-            f"in delta payload: {missing[:10]}",
-        )
-
-    def test_volatility_adjustment_is_symmetric(self) -> None:
-        """``volatilityCompressionApplied`` carries signed fractions.
-
-        Positive values indicate the row was compressed (high source
-        disagreement); negative values indicate it was boosted (high
-        source agreement).  At least one of each sign must appear on
-        a heterogeneous fixture to confirm the two-sided math works.
-        None means either fewer than 2 eligible rows or the row's
-        spread sat exactly at the population mean.
-        """
-        from src.api.data_contract import (  # noqa: PLC0415
-            _apply_volatility_compression_post_pass,
-        )
-
-        # Synthetic eligible rows spanning low to high spread.
-        rows = [
-            {
-                "canonicalConsensusRank": i + 1,
-                "rankDerivedValue": 9500 - i * 400,
-                "sourceRankPercentileSpread": spread,
-                "legacyRef": None,
-                "assetClass": "offense",
-                "canonicalName": f"row{i}",
-            }
-            for i, spread in enumerate([0.02, 0.05, 0.35, 0.10, 0.01, 0.50, 0.03])
-        ]
-        _apply_volatility_compression_post_pass(rows, {})
-        signs = [
-            r.get("volatilityCompressionApplied") for r in rows
-        ]
-        positive = [s for s in signs if s is not None and s > 0]
-        negative = [s for s in signs if s is not None and s < 0]
-        self.assertTrue(
-            positive,
-            "Expected at least one compressed row (positive signed_frac)",
-        )
-        self.assertTrue(
-            negative,
-            "Expected at least one boosted row (negative signed_frac)",
-        )
-        # All fractions are bounded by the 8% ceiling on either side.
-        self.assertTrue(
-            all(abs(s) <= 0.08 + 1e-6 for s in signs if s is not None),
-            f"signed_frac exceeded |0.08| cap: {signs}",
+            offenders, [],
+            "Delta entries carry removed volatility stamps: "
+            f"{offenders[:10]}",
         )
 
     def test_delta_payload_reflects_tep_in_summary(self) -> None:
