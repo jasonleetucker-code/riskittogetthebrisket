@@ -36,7 +36,11 @@ REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from src.canonical.player_valuation import rank_to_value
+from src.canonical.player_valuation import (
+    percentile_to_value,
+    rank_to_value,  # kept for shape invariants
+)
+from src.api.data_contract import _PERCENTILE_REFERENCE_N
 
 
 KTC_CSV = REPO / "CSVs" / "site_raw" / "ktc.csv"
@@ -71,40 +75,58 @@ def _load_ktc_players_sorted() -> list[tuple[str, int]]:
 # Pinned deltas — our Hill curve vs KTC at key ranks.
 #
 # Each entry: (rank, ours_expected, pct_diff_band_center, tolerance_pp).
-# Baselined 2026-04-20 against CSVs/site_raw/ktc.csv.
+# Baselined 2026-04-20 against CSVs/site_raw/ktc.csv after the Final
+# Framework PR 3 transition to percentile-input Hill.
 #
-# ``ours_expected`` is the exact integer ``rank_to_value(rank)`` output.
-# Because ``rank_to_value`` is pure and deterministic in the Hill
-# constants, changing it is a deliberate act and must re-baseline here.
+# ``ours_expected`` is the exact integer
+# ``percentile_to_value(p)`` output where
+# ``p = (rank − 1) / (_PERCENTILE_REFERENCE_N − 1)``.  Because
+# ``percentile_to_value`` is deterministic in HILL_PERCENTILE_C/S,
+# changing those constants is a deliberate act and must re-baseline
+# the test.
 #
 # ``pct_diff_band_center`` is the expected (ours − ktc) / ktc × 100
 # at that rank.  ``tolerance_pp`` is the symmetric band half-width.
 #
-# Tolerances are tiered per the 2026-04-20 KTC volatility backtest
+# Tolerances are tiered per the KTC volatility backtest
 # (``scripts/backtest_ktc_volatility.py``, see
-# ``reports/ktc_volatility_backtest.md``) across 25 daily snapshots:
+# ``reports/ktc_volatility_backtest_full.md``) across 25 daily
+# snapshots.  Day-over-day KTC drift (independent of our Hill):
 #
-#   ranks 1–50  | max observed day-over-day drift = 0.64pp → ±2pp
-#   ranks 100–150 | max observed day-over-day drift = 1.04pp → ±3pp
-#   ranks 200–400 | max observed day-over-day drift = 8.36pp (driven
-#                   by the 2026-04-08 deep-tail methodology shift) → ±10pp
+#   ranks 1–50    max dod ≈ 0.64pp → ±3pp  (slightly wider than the
+#                                           rank-Hill version because
+#                                           the percentile fit tracks
+#                                           mid-top differently)
+#   ranks 100–150 max dod ≈ 1.04pp → ±3pp
+#   ranks 200–400 max dod ≈ 8.36pp → ±10pp
 #
 # A structural KTC tail shift larger than these bands is a signal, not
 # a regression — break CI, investigate, re-baseline the affected ranks.
 # ──────────────────────────────────────────────────────────────────────
 PINNED_DELTAS: list[tuple[int, int, float, float]] = [
     # rank, ours (exact), pct_diff band center, tolerance_pp
-    (1,   9999,   0.0,  2.0),
-    (5,   9460,  -1.8,  2.0),
-    (12,  8459,   8.4,  2.0),
-    (24,  7017,   3.8,  2.0),
-    (50,  4967,  -3.6,  2.0),
-    (100, 3055, -15.4,  3.0),
-    (150, 2157, -24.0,  3.0),
-    (200, 1648, -31.9, 10.0),
-    (300, 1100, -32.5, 10.0),
-    (400,  815, -19.2, 10.0),
+    (1,   9999,   0.0,  3.0),
+    (5,   9407,  -2.4,  3.0),
+    (12,  8512,   9.2,  3.0),
+    (24,  7309,   8.0,  3.0),
+    (50,  5586,   8.5,  3.0),
+    (100, 3835,   6.2,  3.0),
+    (150, 2916,   2.9,  3.0),
+    (200, 2351,  -2.9, 10.0),
+    (300, 1692,   3.9, 10.0),
+    (400, 1321,  31.1, 10.0),
 ]
+
+
+def _ours(rank: int) -> int:
+    """Return the expected live value at ``rank`` under the Final
+    Framework percentile Hill, using the same reference pool size
+    (``_PERCENTILE_REFERENCE_N``) as ``_compute_unified_rankings``.
+    """
+    if _PERCENTILE_REFERENCE_N < 2:
+        return 9999
+    p = (rank - 1) / (_PERCENTILE_REFERENCE_N - 1)
+    return int(percentile_to_value(p))
 
 
 @pytest.fixture(scope="module")
@@ -130,15 +152,15 @@ class TestKTCReconciliation:
         tolerance_pp: float,
     ) -> None:
         _, ktc_value = ktc_players[rank - 1]
-        ours = rank_to_value(rank)
+        ours = _ours(rank)
 
-        # Our curve is deterministic — any change to HILL_MIDPOINT/
-        # HILL_SLOPE is intentional and should require re-baselining
-        # this test.  Pin exactly.
+        # Our curve is deterministic — any change to HILL_PERCENTILE_C
+        # / HILL_PERCENTILE_S is intentional and should require
+        # re-baselining this test.  Pin exactly.
         assert ours == pinned_ours, (
             f"Our Hill curve at rank {rank} changed: {pinned_ours} -> {ours}. "
             f"Re-baseline PINNED_DELTAS if this was intentional "
-            f"(e.g. re-fit via scripts/fit_hill_curve_from_market.py)."
+            f"(e.g. re-fit via scripts/fit_hill_curve_percentile.py)."
         )
 
         # KTC's curve wiggles with their daily scrape.  Tier-specific
@@ -166,50 +188,36 @@ class TestKTCCurveShapeInvariants:
     ) -> None:
         # Both curves anchor at ~9999 at rank 1.
         _, ktc_top = ktc_players[0]
-        ours_top = rank_to_value(1)
+        ours_top = _ours(1)
         assert abs(ours_top - ktc_top) <= 5
 
     def test_midrange_is_higher_than_ktc(
         self, ktc_players: list[tuple[str, int]]
     ) -> None:
-        # Ranks 10-15 — our curve sits above KTC (their curve dips
-        # faster through the early top-12).
+        # Ranks 10-15 — our percentile-Hill curve sits above KTC
+        # (their curve dips faster through the early top-12 than
+        # the fitted Hill shape).
         for rank in range(10, 16):
             _, ktc = ktc_players[rank - 1]
-            ours = rank_to_value(rank)
+            ours = _ours(rank)
             assert ours > ktc, (
                 f"Expected our curve above KTC at rank {rank}, "
                 f"got ours={ours}, ktc={ktc}"
             )
 
-    def test_tail_is_compressed_vs_ktc(
+    def test_tail_stays_bounded_vs_ktc(
         self, ktc_players: list[tuple[str, int]]
     ) -> None:
-        # Past rank 100, our Hill curve compresses more aggressively
-        # than KTC's — this is the primary known divergence and should
-        # remain visible until the curve is re-fit.
-        for rank in (100, 150, 200, 300):
+        # Past rank 100, the divergence from KTC stays within ±40pp.
+        # Under the percentile-Hill fit the deep tail can actually
+        # run ABOVE KTC (rank 400 is ~+31% vs KTC right now), which
+        # is the opposite of the rank-Hill version's behavior; this
+        # invariant doesn't assert a sign, only a bound.
+        for rank in (100, 150, 200, 300, 400):
             _, ktc = ktc_players[rank - 1]
-            ours = rank_to_value(rank)
-            assert ours < ktc, (
-                f"Expected our curve below KTC at rank {rank}, "
-                f"got ours={ours}, ktc={ktc}"
+            ours = _ours(rank)
+            pct = abs(100.0 * (ours - ktc) / ktc)
+            assert pct <= 40.0, (
+                f"Divergence at rank {rank} too large: "
+                f"ours={ours}, ktc={ktc}, |pct|={pct:.1f}%"
             )
-
-    def test_aggregate_tail_gap_is_material(
-        self, ktc_players: list[tuple[str, int]]
-    ) -> None:
-        # Sanity: the average tail divergence (ranks 100-300) should
-        # be at least 15% below KTC.  If this collapses, either KTC
-        # changed shape or we re-fit the curve — either way,
-        # re-baseline the test.
-        deltas: list[float] = []
-        for rank in range(100, 301, 25):
-            _, ktc = ktc_players[rank - 1]
-            ours = rank_to_value(rank)
-            deltas.append(100.0 * (ours - ktc) / ktc)
-        avg = sum(deltas) / len(deltas)
-        assert avg <= -15.0, (
-            f"Tail divergence collapsed: avg pct diff = {avg:+.1f}% "
-            f"(expected <= -15%). Re-baseline if curve was re-fit."
-        )

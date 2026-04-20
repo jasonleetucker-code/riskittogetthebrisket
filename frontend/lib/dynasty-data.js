@@ -794,14 +794,20 @@ function _materializePlayerArrayRow(player) {
     blendedSourceRank: backendBlendedSourceRank,
     sourceCount: backendSourceCount,
     // Value-chain audit fields — exposed so the PlayerPopup can show
-    // each pipeline stage (blend → calibration) as a transparent
-    // sequence rather than a single opaque final number.
+    // each pipeline stage (anchor + subgroup → MAD → calibration) as
+    // a transparent sequence rather than a single opaque final number.
     sourceMAD:
       typeof player.sourceMAD === "number" ? player.sourceMAD : null,
     madPenaltyApplied:
       typeof player.madPenaltyApplied === "number"
         ? player.madPenaltyApplied
         : null,
+    anchorValue: Number(player.anchorValue) || null,
+    subgroupBlendValue: Number(player.subgroupBlendValue) || null,
+    subgroupDelta:
+      typeof player.subgroupDelta === "number" ? player.subgroupDelta : null,
+    alphaShrinkage:
+      typeof player.alphaShrinkage === "number" ? player.alphaShrinkage : null,
     idpCalibrationMultiplier:
       typeof player.idpCalibrationMultiplier === "number"
         ? player.idpCalibrationMultiplier

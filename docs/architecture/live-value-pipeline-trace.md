@@ -110,59 +110,76 @@ For each active source:
      IDPTC for IDP)
    - everything else → direct passthrough
 
-### Phase 3 — Hill curve + trimmed mean-median blend
+### Phase 3 — Percentile Hill + hierarchical anchor + MAD penalty
 
 For each row with any per-source rank:
 
-Per-source value:
+**Step 2 — Per-source percentile (framework step 1):**
 ```
-value = rank_to_value(effective_rank, midpoint, slope)
+p = (effective_rank − 1) / (_PERCENTILE_REFERENCE_N − 1)
+```
+`_PERCENTILE_REFERENCE_N = 500` (KTC's native pool size, the retail
+market's natural scale).  Effective ranks are post-ladder, so every
+source contributes in the same combined-pool coordinate system.
+
+**Step 3 — Percentile-to-value Hill (framework step 3):**
+```
+value = percentile_to_value(p, midpoint=c, slope=s)
+      = 9999 / (1 + (p / c)^s)
 ```
 Constants differ by family:
-- **offense / picks**: `HILL_MIDPOINT=48.44`, `HILL_SLOPE=1.149`
-- **IDP** (DL/LB/DB): `IDP_HILL_MIDPOINT=69.50`, `IDP_HILL_SLOPE=0.945`
+- **offense / picks**: `HILL_PERCENTILE_C=0.1240`, `HILL_PERCENTILE_S=1.010`
+- **IDP** (DL/LB/DB): `IDP_HILL_PERCENTILE_C=0.1130`, `IDP_HILL_PERCENTILE_S=0.850`
+
+Fit by `scripts/fit_hill_curve_percentile.py` against the value-based
+market sources' native percentile-to-value shapes.
 
 TEP application on TE rows only:
 - `is_tep_premium=False` sources: `value *= tep_multiplier`
 - `is_tep_premium=True` sources: `value *= tep_native_correction`
 
-Effective weight (stamped onto source meta for transparency, NOT used
-in aggregation):
-```
-effective_weight = coverage_weight(declared_weight, depth)
-```
-`coverage_weight` at `src/canonical/idp_backbone.py:306` linearly scales
-sources shallower than `MIN_FULL_COVERAGE_DEPTH=60`.
+**Step 4 — Hierarchical anchor + subgroup (framework steps 5, 7, 8):**
+- **Anchor source**: the single source with `is_anchor=True` in
+  `_RANKING_SOURCES` (currently IDPTC, because it prices both
+  offense and IDP on a shared combined pool).
+  `anchor_value` = IDPTC's percentile-Hill value for the player, if
+  IDPTC ranks them; `None` otherwise.
+- **Subgroup blend**: the unweighted trimmed mean-median (framework
+  step 5) of every non-anchor source's percentile-Hill value.
+  - For ≥ 3 subgroup sources: drop highest + lowest, average
+    `(trimmed_mean + trimmed_median) / 2`.
+  - For 2: mean.
+  - For 1: passthrough.
+- **α-shrinkage combine** (framework step 8):
+  ```
+  center = anchor_value + α · (subgroup_blend − anchor_value)
+  ```
+  `_ALPHA_SHRINKAGE = 0.3` (chosen via
+  `scripts/backtest_alpha_shrinkage.py`; clean unimodal optimum on
+  both unweighted and value-weighted rank stability).
+  - If anchor alone covers: `center = anchor_value`.
+  - If subgroup alone covers (no anchor): `center = subgroup_blend`
+    (effective α=1.0 for this row; the framework's soft fallback
+    for fully-unranked players arrives in a later PR).
 
-Blend — **Final Framework step 5: Trimmed Mean-Median** (unweighted):
-- Sort per-source values.
-- If ≥ 3 sources: drop the highest and the lowest, compute the
-  arithmetic mean AND the median of what remains, center =
-  `(trimmed_mean + trimmed_median) / 2`.
-- If 2 sources: mean of the two (MAD = half-range).
-- If 1 source: keep.
-
-**Final Framework step 6: MAD volatility penalty**:
-- `MAD = mean(|v - trimmed_mean| for v in trimmed)` over the same
-  trimmed set.
+**Step 5 — MAD volatility penalty (framework step 6):**
+- `MAD = mean(|v − trimmed_mean| for v in trimmed)` across the full
+  set of contributing per-source values (anchor + subgroup).
 - `penalty = min(center, λ · MAD)` — clamped so blended never goes
   negative.
 - `final = center − penalty` (players), or `final = center` (picks —
   exempt because pick-tier MAD is a structural artifact of KTC vs
   IDPTC using different tier systems, not true source uncertainty).
-- `λ = _MAD_PENALTY_LAMBDA = 0.5` (chosen via
-  `scripts/backtest_mad_lambda.py`; 25-day snapshot history shows
-  ~25% improvement in value-weighted rank stability over λ=0; see
-  `reports/mad_lambda_backtest_full.md`).
+- `λ = _MAD_PENALTY_LAMBDA = 0.5`.
 
 Per-row diagnostics: `sourceMAD` and `madPenaltyApplied` are stamped
-on every multi-source non-pick row so the frontend value-chain panel
-can show the penalty transparently.
+on every multi-source non-pick row.  Per-source meta includes
+`percentile`, `valueContribution`, and `isAnchor` stamps so the
+frontend value-chain can show the hierarchy transparently.
 
-Weighting is reintroduced later as the hierarchical anchor / subgroup
-structure (framework steps 7–8).  The previous `0.7·weighted_mean +
-0.3·robust` convex combo was retired in PR 1 of the Final Framework
-transition.
+The previous `rank_to_value`-based blend has been retired from the
+live path.  The function remains in `src/canonical/player_valuation.py`
+for the canonical-engine alternate path.
 
 ### Phase 3a — Pick year discount (L4739)
 
@@ -245,7 +262,10 @@ runtime view (`/api/data?view=app`) still has per-row data after
 The chain identity (pinned in `tests/api/test_single_curve_live.py`):
 
 ```
-center = trimmed_mean_median(per-source Hill values, post-TEP)
+For each source: V = percentile_to_value((rank-1)/(N-1)), post-TEP
+anchor_value     = V from the anchor source (IDPTC)
+subgroup_blend   = trimmed_mean_median(V for every non-anchor source)
+center           = anchor_value + α·(subgroup_blend − anchor_value)
 rankDerivedValueUncalibrated = center − λ·MAD          ← players only
                                = center                ← picks (exempt)
     × (idpCalibrationMultiplier × idpFamilyScale)      ← IDP only, if active
