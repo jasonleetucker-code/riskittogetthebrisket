@@ -2695,12 +2695,13 @@ def _enrich_from_source_csvs(
                 for (disp, syn, rnk) in entries
             ]
             _flat.sort(key=lambda t: (-t[1], str(t[0]).lower()))
+            _dlf_league_size = _resolve_league_roster_count()
             for _rookie_idx, (_disp, _syn, _rnk) in enumerate(_flat):
                 rookie_rank = _rookie_idx + 1
-                if rookie_rank > _ROOKIE_ANCHOR_LEAGUE_SIZE * _ROOKIE_ANCHOR_ROUNDS:
+                if rookie_rank > _dlf_league_size * _ROOKIE_ANCHOR_ROUNDS:
                     break
-                _rnd = (rookie_rank - 1) // _ROOKIE_ANCHOR_LEAGUE_SIZE + 1
-                _slot = (rookie_rank - 1) % _ROOKIE_ANCHOR_LEAGUE_SIZE + 1
+                _rnd = (rookie_rank - 1) // _dlf_league_size + 1
+                _slot = (rookie_rank - 1) % _dlf_league_size + 1
                 _pick_name = f"2026 Pick {_rnd}.{_slot:02d}"
                 _pick_key = _canonical_match_key(_pick_name)
                 if not _pick_key:
@@ -3131,6 +3132,17 @@ def _apply_idp_calibration_post_pass(
     if not config:
         return
     active_mode = str(config.get("active_mode") or "blended")
+    # ``family_scale`` (class-wide IDP lift/discount) is already folded
+    # INTO the return value of ``get_idp_bucket_multiplier`` at
+    # :func:`src.idp_calibration.production.get_idp_bucket_multiplier`
+    # (line 254: ``return bucket * family``).  An earlier audit pass
+    # mistakenly believed family_scale was dead code and tried to
+    # multiply it here as a separate step, which would have
+    # double-applied the scale (1.2571² ≈ 1.58×).  We surface it as a
+    # sibling field below for the value-chain audit, but do NOT
+    # multiply it a second time here — the single product from
+    # ``get_idp_bucket_multiplier`` is the correct math.
+    family_scale = _idp_production._family_scale_for(config, active_mode)
 
     by_pos: dict[str, list[dict[str, Any]]] = {"DL": [], "LB": [], "DB": []}
     for row in players_array:
@@ -3155,14 +3167,31 @@ def _apply_idp_calibration_post_pass(
         rows.sort(key=lambda r: -int(r.get("rankDerivedValue") or 0))
         for idx, row in enumerate(rows, 1):
             try:
-                multiplier = float(
+                # Returns bucket × family_scale already combined — see
+                # comment above and production.py::get_idp_bucket_multiplier.
+                combined_multiplier = float(
                     _idp_production.get_idp_bucket_multiplier(
                         pos, idx, mode=active_mode
                     )
                 )
             except Exception:  # noqa: BLE001 — never fail the whole board
-                multiplier = 1.0
-            if abs(multiplier - 1.0) < 1e-9:
+                combined_multiplier = 1.0
+            if abs(combined_multiplier - 1.0) < 1e-9:
+                # Still stamp the audit fields even when the effective
+                # multiplier is identity, so the /rankings and trade UI
+                # can display a clean 1.00× in the chain instead of
+                # "unknown" for an IDP row that was legitimately
+                # un-multiplied.
+                row["idpCalibrationMultiplier"] = 1.0
+                row["idpFamilyScale"] = round(family_scale, 4)
+                row["idpCalibrationPositionRank"] = idx
+                legacy_ref = row.get("legacyRef")
+                if legacy_ref and legacy_ref in players_by_name:
+                    pdata = players_by_name[legacy_ref]
+                    if isinstance(pdata, dict):
+                        pdata["idpCalibrationMultiplier"] = 1.0
+                        pdata["idpFamilyScale"] = round(family_scale, 4)
+                        pdata["idpCalibrationPositionRank"] = idx
                 continue
             # Multiplier scales the row's value (on top of the
             # weighted Hill-curve blend already encoded in
@@ -3174,16 +3203,27 @@ def _apply_idp_calibration_post_pass(
             # the calibration so elite players don't get snapped to
             # the integer-rank Hill value.
             old_val = int(row.get("rankDerivedValue") or 0)
-            new_val = max(1, int(round(old_val * multiplier)))
+            new_val = max(1, int(round(old_val * combined_multiplier)))
             row["rankDerivedValue"] = new_val
-            row["idpCalibrationMultiplier"] = round(multiplier, 4)
+            # Back out the pure bucket component for the chain audit
+            # (family_scale is constant across all IDP rows, bucket
+            # varies by position-rank).  Prevents double-apply at the
+            # frontend while showing each component distinctly.
+            if family_scale > 0:
+                bucket_only = combined_multiplier / family_scale
+            else:
+                bucket_only = combined_multiplier
+            row["idpCalibrationMultiplier"] = round(bucket_only, 4)
+            row["idpFamilyScale"] = round(family_scale, 4)
             row["idpCalibrationPositionRank"] = idx
             legacy_ref = row.get("legacyRef")
             if legacy_ref and legacy_ref in players_by_name:
                 pdata = players_by_name[legacy_ref]
                 if isinstance(pdata, dict):
                     pdata["rankDerivedValue"] = new_val
-                    pdata["idpCalibrationMultiplier"] = round(multiplier, 4)
+                    pdata["idpCalibrationMultiplier"] = round(bucket_only, 4)
+                    pdata["idpFamilyScale"] = round(family_scale, 4)
+                    pdata["idpCalibrationPositionRank"] = idx
 
 
 def _apply_offense_calibration_post_pass(
@@ -3191,6 +3231,22 @@ def _apply_offense_calibration_post_pass(
     players_by_name: dict[str, Any],
 ) -> None:
     """Apply promoted per-position offense multipliers (QB/RB/WR/TE).
+
+    ⚠️ **NOT INVOKED IN PRODUCTION.** The caller in
+    :func:`build_api_data_contract` is intentionally commented out —
+    VOR bucket multipliers produced absurd artefacts on offense
+    (sharp QB-tier cliffs, Mahomes ending at half the value of the
+    QB1, etc.) because the offense market is already well-priced by
+    the blend of KTC / DLF / IDPTC / etc.  This function is kept as
+    an analytical reference used by the IDP lab only; mutating live
+    ``rankDerivedValue`` with it would actively worsen signal.
+
+    If you're considering re-enabling this, verify:
+      1. The offense VOR signal has been re-validated against more
+         recent market data than the initial PR #105 promotion.
+      2. The bucket definitions (``1-6``, ``7-12``, ...) still match
+         your league's starting-lineup structure — the current
+         buckets assume 12-team superflex.
 
     Mirror of :func:`_apply_idp_calibration_post_pass` but for offense
     rows. Reads ``offense_multipliers`` from the promoted config and
@@ -3663,12 +3719,66 @@ def _suppress_generic_pick_tiers_when_slots_exist(
 # pinned to the top-N merged (offense + IDP) rookies so pick values in the
 # rankings and trade calculator match the rookies they will become.
 #
-# 12-team league assumption: pick (round, slot) → rookie rank = (round-1)*12 + slot.
+# League-size default: pick (round, slot) → rookie rank = (round-1)*N + slot,
+# where N = the operator's Sleeper league roster count.  Resolved at runtime
+# via :func:`_resolve_league_roster_count`; the constant below is the fallback
+# when the Sleeper fetch is unavailable (offline, bad league id, etc.).
 # Only affects rows consumed via /api/data (rankings + trade calculator).
 # /api/draft-capital is served by a separate code path (server.py::_fetch_draft_capital)
 # that reads from the draft spreadsheet and is untouched by this pass.
-_ROOKIE_ANCHOR_LEAGUE_SIZE = 12
+_ROOKIE_ANCHOR_LEAGUE_SIZE_DEFAULT = 12
 _ROOKIE_ANCHOR_ROUNDS = 6
+
+# Cached Sleeper league size.  Populated on first call via the Sleeper
+# /v1/league/{id} endpoint using ``SLEEPER_LEAGUE_ID`` from the env.
+# Refresh every hour so a mid-season league expansion (rare) or a
+# switch to a different league eventually propagates without a restart.
+_LEAGUE_ROSTER_CACHE: dict[str, Any] = {"size": None, "fetched_at": 0.0}
+_LEAGUE_ROSTER_CACHE_TTL_SECONDS = 3600
+
+
+def _resolve_league_roster_count(default: int = _ROOKIE_ANCHOR_LEAGUE_SIZE_DEFAULT) -> int:
+    """Return the operator's Sleeper league roster count.
+
+    Reads ``SLEEPER_LEAGUE_ID`` from the environment and fetches
+    ``total_rosters`` from Sleeper, cached for an hour.  Returns
+    ``default`` (12) if the env var is unset, the fetch fails, or
+    Sleeper returns an unusable payload — so the pipeline still
+    produces output on a cold start / offline machine.
+
+    Public helper so tests can patch it; no side effects beyond
+    the cache fill.
+    """
+    import time as _time
+    import urllib.request
+
+    now = _time.time()
+    cached = _LEAGUE_ROSTER_CACHE.get("size")
+    fetched_at = float(_LEAGUE_ROSTER_CACHE.get("fetched_at") or 0.0)
+    if isinstance(cached, int) and cached > 0:
+        if (now - fetched_at) < _LEAGUE_ROSTER_CACHE_TTL_SECONDS:
+            return cached
+
+    league_id = os.getenv("SLEEPER_LEAGUE_ID", "").strip()
+    if not league_id:
+        # No league configured — return the default without populating
+        # the cache so a later SLEEPER_LEAGUE_ID env change takes
+        # effect on the next call.
+        return default
+
+    try:
+        url = f"https://api.sleeper.app/v1/league/{league_id}"
+        req = urllib.request.Request(url, headers={"User-Agent": "dynasty-trade-calc"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.load(resp)
+        size = int(data.get("total_rosters") or 0)
+        if size > 0:
+            _LEAGUE_ROSTER_CACHE["size"] = size
+            _LEAGUE_ROSTER_CACHE["fetched_at"] = now
+            return size
+    except Exception:  # noqa: BLE001 — any failure falls back to default
+        pass
+    return default
 
 
 def _anchor_current_year_picks_to_rookies(
@@ -3680,12 +3790,18 @@ def _anchor_current_year_picks_to_rookies(
 
     Rookie ordering is a merged list of offense + IDP rookies sorted by
     ``rankDerivedValue`` descending.  Pick (round, slot) maps 1-indexed to
-    rookie position = ``(round - 1) * 12 + slot`` in the merged list.
+    rookie position = ``(round - 1) * N + slot`` where ``N`` is the
+    operator's Sleeper league roster count (resolved via
+    :func:`_resolve_league_roster_count`; falls back to 12 when the
+    league configuration isn't available).  Prior to that fix the
+    league size was hardcoded to 12, silently mis-anchoring picks on
+    10-team or 14-team leagues.
 
     Returns the number of picks anchored.  Callers are responsible for
     re-sorting the board by ``rankDerivedValue`` afterward so rank/value
     monotonicity (``assert_ranking_coherence``) is preserved.
     """
+    league_size = _resolve_league_roster_count()
     rookies = [
         r
         for r in players_array
@@ -3715,9 +3831,9 @@ def _anchor_current_year_picks_to_rookies(
             continue
         if not (1 <= rnd <= _ROOKIE_ANCHOR_ROUNDS):
             continue
-        if not (1 <= slot <= _ROOKIE_ANCHOR_LEAGUE_SIZE):
+        if not (1 <= slot <= league_size):
             continue
-        idx = (rnd - 1) * _ROOKIE_ANCHOR_LEAGUE_SIZE + (slot - 1)
+        idx = (rnd - 1) * league_size + (slot - 1)
         if idx >= len(rookies):
             continue
         anchor = rookies[idx]
