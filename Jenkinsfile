@@ -6,11 +6,6 @@ pipeline {
     disableConcurrentBuilds()
   }
 
-  // R-7: Run canonical pipeline every 6 hours automatically
-  triggers {
-    cron('H H/6 * * *')
-  }
-
   environment {
     PYTHONUNBUFFERED = '1'
   }
@@ -30,21 +25,6 @@ pipeline {
             : bat(returnStdout: true, script: '@echo off\r\ngit rev-parse --short HEAD').trim()
         }
         echo "Branch: ${env.BRANCH_NAME ?: 'main'} | Commit: ${env.GIT_COMMIT_SHORT}"
-      }
-    }
-
-    stage('Ingest') {
-      when {
-        expression { fileExists('scripts/source_pull.py') }
-      }
-      steps {
-        script {
-          if (isUnix()) {
-            sh 'python scripts/source_pull.py --repo .'
-          } else {
-            bat 'python scripts\\source_pull.py --repo .'
-          }
-        }
       }
     }
 
@@ -73,51 +53,6 @@ pipeline {
             sh 'python scripts/identity_resolve.py --repo .'
           } else {
             bat 'python scripts\\identity_resolve.py --repo .'
-          }
-        }
-      }
-    }
-
-    stage('Canonical Build') {
-      when {
-        expression { fileExists('scripts/canonical_build.py') }
-      }
-      steps {
-        script {
-          if (isUnix()) {
-            sh 'python scripts/canonical_build.py --repo .'
-          } else {
-            bat 'python scripts\\canonical_build.py --repo .'
-          }
-        }
-      }
-    }
-
-    stage('League Refresh') {
-      when {
-        expression { fileExists('scripts/league_refresh.py') }
-      }
-      steps {
-        script {
-          if (isUnix()) {
-            sh 'python scripts/league_refresh.py --repo .'
-          } else {
-            bat 'python scripts\\league_refresh.py --repo .'
-          }
-        }
-      }
-    }
-
-    stage('Publish Report') {
-      when {
-        expression { fileExists('scripts/reporting.py') }
-      }
-      steps {
-        script {
-          if (isUnix()) {
-            sh 'python scripts/reporting.py --repo .'
-          } else {
-            bat 'python scripts\\reporting.py --repo .'
           }
         }
       }

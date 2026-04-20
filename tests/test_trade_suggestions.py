@@ -1611,10 +1611,9 @@ class TestKtcTopNFilter:
 
 
 class TestBuildAssetPoolFromContract:
-    """The contract-native asset pool builder is the migration target
-    for ``/api/trade/suggestions`` — it removes the requirement that
-    ``scripts/canonical_build.py`` has produced an offline snapshot
-    before the suggestion engine can run.
+    """The contract-native asset pool builder is the live path for
+    ``/api/trade/suggestions`` — the suggestion engine reads the
+    ``/api/data`` contract directly, no offline canonical build.
 
     These tests pin the field-mapping from ``playersArray`` rows to
     ``PlayerAsset`` objects.  The suggestion engine is unchanged; as

@@ -1,11 +1,10 @@
 """Pin the canonical engine's single-curve invariant.
 
-The canonical 6-step Hill-curve pipeline (``src/canonical/player_valuation.py``)
-produces display-scaled values in a single pass.  The legacy
-``calibration.py`` remap (percentile power curve + per-universe scales)
-is explicitly skipped for canonical output — see the
-``if not use_canonical_engine:`` gate in
-``scripts/canonical_build.py``.
+The canonical 6-step Hill-curve pipeline
+(``src/canonical/player_valuation.py``) produces display-scaled values
+in a single pass.  The legacy ``calibration.py`` remap (percentile
+power curve + per-universe scales) is explicitly skipped for canonical
+output so we never double-calibrate.
 
 These tests pin that invariant from two directions:
 
@@ -17,8 +16,7 @@ These tests pin that invariant from two directions:
 
   2. **Consume side** — ``calibrate_canonical_values`` raises
      ``RuntimeError`` if called on a canonical-tagged asset, defending
-     against accidental double-calibration if the engine-flag gate is
-     ever bypassed.
+     against accidental double-calibration.
 """
 from __future__ import annotations
 
@@ -95,7 +93,9 @@ class TestCalibrationRejectsCanonical:
             calibrate_canonical_values(assets)
         msg = str(exc_info.value)
         assert "canonical" in msg.lower()
-        assert "use_canonical_engine" in msg
+        # Error message must cite the offending asset's display_name so
+        # callers can investigate without grepping the logs.
+        assert "Player 01" in msg or "Player 02" in msg or "Player 03" in msg
 
     def test_raises_even_when_only_one_asset_is_canonical(self):
         # Mixed input: most legacy, one canonical-tagged.  The guard

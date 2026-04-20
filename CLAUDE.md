@@ -43,7 +43,7 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 │   ├── leagues/               # League profile templates
 │   └── promotion/             # Canonical mode promotion thresholds
 │
-├── scripts/                   # Pipeline helper scripts (canonical_build, etc.)
+├── scripts/                   # Pipeline helper scripts (source fetches, fit, etc.)
 ├── deploy/                    # Deployment configs (nginx, systemd, deploy scripts)
 ├── tests/                     # pytest unit/integration + Playwright E2E
 ├── data/                      # Generated pipeline outputs (not committed)
@@ -73,16 +73,6 @@ npm run regression:install           # Install Playwright browsers (one-time)
 npm run regression                   # Full pipeline: preflight + tests
 ```
 
-### Build Pipeline
-
-```bash
-# Legacy engine (default)
-python scripts/canonical_build.py --repo .
-
-# Canonical engine (6-step rank-based valuation)
-python scripts/canonical_build.py --repo . --engine canonical
-```
-
 ### Git Workflow
 
 ```powershell
@@ -99,8 +89,9 @@ python scripts/canonical_build.py --repo . --engine canonical
 | `/api/scrape` | POST | Trigger manual scrape |
 | `/api/scaffold/status` | GET | Pipeline status |
 | `/api/scaffold/raw` | GET | Raw source snapshots |
-| `/api/scaffold/canonical` | GET | Canonical values |
 | `/api/scaffold/identity` | GET | Identity mappings |
+| `/api/trade/suggestions` | POST | Roster-aware trade suggestions (reads live contract) |
+| `/api/trade/finder` | POST | KTC arbitrage finder |
 
 ## Architecture Concepts
 
@@ -109,19 +100,35 @@ Next.js is the sole production frontend. `FRONTEND_RUNTIME` is hardcoded to `nex
 
 Production deployment requires both `dynasty.service` (backend) and `dynasty-frontend.service` (Next.js) running.
 
-### Multi-Universe Value Pipeline
-Separate canonical value chains for: offense vet, offense rookie, IDP vet, IDP rookie, picks. Each has independent source blending, percentile transforms, and calibration.
+### Live Value Pipeline
+The live ``/api/data`` contract is produced by
+``src/api/data_contract.py::_compute_unified_rankings`` — the one and
+only code path that determines live player values ("Final Framework").
+Steps:
 
-### Canonical Player Valuation
-The new 6-step rank-based engine (`src/canonical/player_valuation.py`):
-1. **Consensus rank** — weighted median/mean of per-source ranks
-2. **Tier detection** — gap-based clustering into natural value tiers
-3. **Base value curve** — exponential decay from consensus rank
-4. **Tier cliff injection** — bonus points at tier boundaries
-5. **Volatility adjustment** — compresses values for high-disagreement players
-6. **Display scaling** — stable 1-9999 mapping via hyperparameter-derived anchor
+1. Common 0-9999 internal value scale
+2. Percentile normalization (effective rank / reference pool)
+3. Hill-style percentile-to-value conversion via scope-level master
+   curves in ``src/canonical/player_valuation.py``
+4. Value-based sources (KTC, IDPTradeCalc, DynastyNerds, DynastyDaddy)
+   as the training set for the per-source implied-curve fits that
+   combine into the scope masters (GLOBAL / OFFENSE / IDP / ROOKIE)
+5. Scope-appropriate routing for rank-only sources
+6. Hierarchical anchor + α-shrinkage ONLY for IDP and picks; offense
+   takes a flat count-aware mean-median across all sources
+7. Count-aware aggregation (n=1 passthrough, n=2 mean, n=3-4 untrimmed
+   mean-median, n≥5 trimmed mean-median)
+8. λ·MAD volatility penalty
+9. Soft fallback for unranked scope-eligible sources
+10. IDP calibration post-pass (``_apply_idp_calibration_post_pass``
+    reads ``config/idp_calibration.json``)
+11. Pick tethering — current-year slot picks inherit the merged
+    rookie pool's values (offense + IDP rookies combined)
+12. Multiplicative future-year pick discount
 
-Selected via `--engine canonical` in `scripts/canonical_build.py`. Default remains `--engine legacy`.
+Master curve constants auto-refit monthly by
+``.github/workflows/refit-hill-curves.yml`` (see
+``scripts/auto_refit_hill_curves.py``).
 
 ### Trade Engines
 Two independent trade suggestion systems in `src/trade/`:
@@ -131,7 +138,11 @@ Two independent trade suggestion systems in `src/trade/`:
 Both enforce a **KTC top-150 quality filter**: only players ranked inside the top 150 appear in any trade suggestion.
 
 ### Canonical Data Mode
-Controlled by `CANONICAL_DATA_MODE` env var (`off` | `shadow` | `internal_primary` | `primary`). Allows gradual rollout of canonical values alongside legacy scraper values.
+The offline canonical-build path (``scripts/canonical_build.py`` +
+``src/canonical/transform.py`` + ``src/canonical/pipeline.py``) and its
+``CANONICAL_DATA_MODE`` branches have been retired.  The live
+``/api/data`` contract is the single source of truth; trade
+suggestions read from it directly.
 
 ### Single Source of Truth: Rankings Override Path
 Custom source configurations (user-toggled sources or custom weights) flow through the **SAME** canonical pipeline as the default board. There is no frontend ranking engine, period — not even a fallback. `buildRows` is a pure materializer.
@@ -219,7 +230,6 @@ Key variables (see `.env.example` for full list):
 |---|---|---|
 | `FRONTEND_RUNTIME` | `next` (hardcoded) | `next` |
 | `FRONTEND_URL` | Next.js dev server URL | `http://127.0.0.1:3000` |
-| `CANONICAL_DATA_MODE` | Canonical rollout mode | `off` |
 | `SLEEPER_LEAGUE_ID` | Primary Sleeper league | -- |
 | `BASELINE_LEAGUE_ID` | Baseline comparison league | -- |
 

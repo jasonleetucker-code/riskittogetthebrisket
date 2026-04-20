@@ -12,7 +12,7 @@
     "FOOTBALLGUYS_IDP": "FootballGuys Dynasty Rankings — IDP half (DE/DT/LB/CB/S) of the same PDF export, 3-expert consensus. Rank-based signal (~400 players), translates through the shared-market IDP ladder.",
     "YAHOO_BOONE": "Justin Boone's monthly Yahoo dynasty trade value charts (QB/RB/WR/TE). Rank-based signal combining the 2QB QB column with the TE-premium TE column — natively sized to our Superflex + TEP league. ~500 players."
   },
-  "how_to_tune": "Edit the 'sources' values below. Higher = more influence. Set to 0 to exclude. Re-run: python scripts/source_pull.py && python scripts/canonical_build.py",
+  "how_to_tune": "Edit the 'sources' values below. Higher = more influence. Set to 0 to exclude. Changes take effect on the next live contract rebuild (next scheduled scrape or manual /api/scrape).",
   "universe_defaults": {
     "offense_vet": 1.0,
     "idp_vet": 1.0,

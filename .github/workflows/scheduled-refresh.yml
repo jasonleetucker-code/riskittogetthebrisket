@@ -148,39 +148,6 @@ jobs:
             exit 1
           fi
 
-      - name: Rebuild canonical snapshot
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          echo "::group::Source pull"
-          python scripts/source_pull.py --repo .
-          echo "::endgroup::"
-          echo "::group::Canonical build"
-          python scripts/canonical_build.py --repo .
-          echo "::endgroup::"
-
-      - name: Verify canonical output
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          # `ls | head -1` is wrapped in `|| true` so the pipe's
-          # pipefail exit (from `ls` finding no matches) doesn't kill
-          # the script mid-assignment under `set -e`.  Without this,
-          # the empty-snapshot case exits with a cryptic `Process
-          # completed with exit code 2` and the ::error annotation
-          # below never gets a chance to fire.
-          SNAP=$(ls -t data/canonical/canonical_snapshot_*.json 2>/dev/null | head -1 || true)
-          if [[ -z "$SNAP" ]]; then
-            echo "::error title=No canonical snapshot::Canonical rebuild produced no snapshot — check the Rebuild canonical snapshot step's log for a source_pull or canonical_build error."
-            exit 1
-          fi
-          ASSETS=$(python -c "import json; print(len(json.load(open('${SNAP}')).get('assets', [])))")
-          echo "Canonical snapshot: ${SNAP} (${ASSETS} assets)"
-          if (( ASSETS < 500 )); then
-            echo "::error title=Canonical too small::Only ${ASSETS} assets in snapshot"
-            exit 1
-          fi
-
       - name: Commit updated data
         shell: bash
         run: |
