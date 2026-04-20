@@ -56,6 +56,7 @@ jobs:
           set -Eeuo pipefail
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pytest
 
       - name: Run auto-refit driver
         id: refit
