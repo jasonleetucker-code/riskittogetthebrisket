@@ -83,10 +83,11 @@ function computeValueChain(row) {
     });
   }
 
-  // MAD-penalty stage retired 2026-04-20: λ is pinned to 0, so the
-  // previous "MAD penalty" chain row never fires.  ``sourceMAD`` is
-  // still stamped as a diagnostic so it's surfaced below the chain
-  // as a pure transparency metric, labelled "source spread".
+  // λ·MAD penalty retired 2026-04-20; field renamed to
+  // ``sourceSpread`` 2026-04-20 for clarity (it was always a
+  // diagnostic statistic, never a penalty).  The stage that used to
+  // render "MAD penalty −N" is gone — ``sourceSpread`` is displayed
+  // below the chain as a pure transparency metric.
   const blended = Number(row.rankDerivedValueUncalibrated) || null;
   if (blended !== null && blended > 0 && stages.length === 0) {
     // Offense rows (no anchor/subgroup stamps) — surface the final
