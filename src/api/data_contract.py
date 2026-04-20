@@ -3867,33 +3867,46 @@ def _anchor_current_year_picks_to_rookies(
     so each pick inherits the value of its corresponding rookie.
 
     Rookie ordering is a merged list of offense + IDP rookies sorted by
-    ``rankDerivedValue`` descending.  Pick (round, slot) maps 1-indexed to
-    rookie position = ``(round - 1) * N + slot`` where ``N`` is the
-    operator's Sleeper league roster count (resolved via
+    value descending.  Pick (round, slot) maps 1-indexed to rookie
+    position = ``(round - 1) * N + slot`` where ``N`` is the operator's
+    Sleeper league roster count (resolved via
     :func:`_resolve_league_roster_count`; falls back to 12 when the
-    league configuration isn't available).  Prior to that fix the
-    league size was hardcoded to 12, silently mis-anchoring picks on
-    10-team or 14-team leagues.
+    league configuration isn't available).
+
+    To cover all ``_ROOKIE_ANCHOR_ROUNDS * N`` picks (e.g. 72 for a
+    12-team league × 6 rounds), the pool includes rookies BEYOND the
+    top-``OVERALL_RANK_LIMIT`` cut — they're sourced from
+    ``_blendedValueUncapped`` when ``rankDerivedValue`` is zero.  This
+    covers deep rookies whose values the Hill blend computed but who
+    didn't survive the board cap; without it rounds 5 and 6 of the
+    current-year pick board would run out of tether targets around slot
+    53 and stamp ``rankDerivedValue=0`` on picks 5.06-6.12.
 
     Returns the number of picks anchored.  Callers are responsible for
     re-sorting the board by ``rankDerivedValue`` afterward so rank/value
     monotonicity (``assert_ranking_coherence``) is preserved.
     """
     league_size = _resolve_league_roster_count()
+
+    def _rookie_pool_value(row: dict[str, Any]) -> int:
+        primary = int(row.get("rankDerivedValue") or 0)
+        if primary > 0:
+            return primary
+        return int(row.get("_blendedValueUncapped") or 0)
+
     rookies = [
         r
         for r in players_array
         if r.get("assetClass") != "pick"
         and bool(r.get("rookie"))
-        and r.get("canonicalConsensusRank")
-        and (r.get("rankDerivedValue") or 0) > 0
+        and _rookie_pool_value(r) > 0
     ]
     if not rookies:
         return 0
     rookies.sort(
         key=lambda r: (
-            -int(r.get("rankDerivedValue") or 0),
-            int(r.get("canonicalConsensusRank") or 0),
+            -_rookie_pool_value(r),
+            int(r.get("canonicalConsensusRank") or 99999),
         )
     )
 
@@ -3915,7 +3928,7 @@ def _anchor_current_year_picks_to_rookies(
         if idx >= len(rookies):
             continue
         anchor = rookies[idx]
-        anchor_val = int(anchor.get("rankDerivedValue") or 0)
+        anchor_val = _rookie_pool_value(anchor)
         if anchor_val <= 0:
             continue
         # Anchor regardless of whether the pick itself survived the
@@ -4708,6 +4721,18 @@ def _compute_unified_rankings(
             mad_penalty = 0.0
 
         blended_value = max(0.0, center_value - mad_penalty)
+
+        # Stamp the uncapped blended value on every row.  ``rankDerivedValue``
+        # is only set for rows that survive the top-``OVERALL_RANK_LIMIT``
+        # sort; deep rookies (e.g. 2026 rookie class beyond the DLF top-60)
+        # fall out of that cap and lose their ``rankDerivedValue``.  Pick
+        # tethering needs them back — all 72 of a given year's slot picks
+        # must tether to a distinct rookie — so we keep the pre-cap blend
+        # value on every row in a separate field that's read only by the
+        # rookie-anchor pass.
+        players_array[row_idx]["_blendedValueUncapped"] = (
+            int(round(blended_value)) if blended_value > 0 else 0
+        )
 
         hill_value_spread = (
             statistics.stdev(all_values) if len(all_values) >= 2 else None
