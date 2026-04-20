@@ -212,10 +212,12 @@ Count-aware blend (shared helper ``count_aware_mean_median_blend``):
 **Step 5 — λ·MAD retired.**  ``_MAD_PENALTY_LAMBDA = 0.0`` as of the
 Final Framework override 2026-04-20: count-aware trimming (offense)
 and anchor + α-shrinkage (IDP + picks) already damp disagreement;
-λ·MAD on top was a duplicate penalty on the same signal.
-``sourceMAD`` is still stamped as a diagnostic transparency field
-(the frontend value-chain panel displays it as "source spread") but
-never subtracts from ``rankDerivedValue``.
+λ·MAD on top was a duplicate penalty on the same signal.  The
+diagnostic statistic itself (mean absolute deviation of per-source
+value contributions around the trimmed center) is still stamped on
+every multi-source row as ``sourceSpread`` (renamed from
+``sourceMAD`` 2026-04-20 for clarity) and surfaced in the frontend
+value-chain panel, but it never subtracts from ``rankDerivedValue``.
 
 The result of Phase 3 is a pre-discount ``blended_value`` that then
 enters Phase 3a (pick year discount) and Phase 4 (global sort).
