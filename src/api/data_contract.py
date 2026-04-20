@@ -3290,91 +3290,6 @@ def _apply_idp_calibration_post_pass(
                     pdata["idpCalibrationPositionRank"] = idx
 
 
-def _apply_offense_calibration_post_pass(
-    players_array: list[dict[str, Any]],
-    players_by_name: dict[str, Any],
-) -> None:
-    """Apply promoted per-position offense multipliers (QB/RB/WR/TE).
-
-    ⚠️ **NOT INVOKED IN PRODUCTION.** The caller in
-    :func:`build_api_data_contract` is intentionally commented out —
-    VOR bucket multipliers produced absurd artefacts on offense
-    (sharp QB-tier cliffs, Mahomes ending at half the value of the
-    QB1, etc.) because the offense market is already well-priced by
-    the blend of KTC / DLF / IDPTC / etc.  This function is kept as
-    an analytical reference used by the IDP lab only; mutating live
-    ``rankDerivedValue`` with it would actively worsen signal.
-
-    If you're considering re-enabling this, verify:
-      1. The offense VOR signal has been re-validated against more
-         recent market data than the initial PR #105 promotion.
-      2. The bucket definitions (``1-6``, ``7-12``, ...) still match
-         your league's starting-lineup structure — the current
-         buckets assume 12-team superflex.
-
-    Mirror of :func:`_apply_idp_calibration_post_pass` but for offense
-    rows. Reads ``offense_multipliers`` from the promoted config and
-    scales each QB/RB/WR/TE row's ``rankDerivedValue`` by the looked-up
-    bucket value. Unlike IDP, there is no family_scale component on the
-    offense side — offense is the reference for the family ratio.
-
-    Snapshots the pre-calibration value into
-    ``rankDerivedValueUncalibrated`` on every offense row (even when
-    multiplier == 1.0) so the /rankings toggle can swap both families
-    uniformly.
-    """
-    config = _idp_production.load_production_config()
-    if not config:
-        return
-    # Backward-compat with pre-offense-calibration promoted configs —
-    # if the file has no offense_multipliers block, this pass is a
-    # strict no-op.
-    if not (config.get("offense_multipliers") or {}):
-        return
-    active_mode = str(config.get("active_mode") or "blended")
-
-    by_pos: dict[str, list[dict[str, Any]]] = {"QB": [], "RB": [], "WR": [], "TE": []}
-    for row in players_array:
-        pos = str(row.get("position") or "").upper()
-        if pos not in by_pos:
-            continue
-        try:
-            derived = int(row.get("rankDerivedValue") or 0)
-        except (TypeError, ValueError):
-            derived = 0
-        if derived <= 0:
-            continue
-        by_pos[pos].append(row)
-
-    for pos, rows in by_pos.items():
-        rows.sort(key=lambda r: -int(r.get("rankDerivedValue") or 0))
-        for idx, row in enumerate(rows, 1):
-            try:
-                multiplier = float(
-                    _idp_production.get_offense_bucket_multiplier(
-                        pos, idx, mode=active_mode
-                    )
-                )
-            except Exception:  # noqa: BLE001
-                multiplier = 1.0
-            if abs(multiplier - 1.0) < 1e-9:
-                continue
-            # Same semantics as IDP post-pass: multiplier scales the
-            # blended rankDerivedValue; the global re-sort then places
-            # the row at its new merged rank.
-            old_val = int(row.get("rankDerivedValue") or 0)
-            new_val = max(1, int(round(old_val * multiplier)))
-            row["rankDerivedValue"] = new_val
-            row["offenseCalibrationMultiplier"] = round(multiplier, 4)
-            row["offenseCalibrationPositionRank"] = idx
-            legacy_ref = row.get("legacyRef")
-            if legacy_ref and legacy_ref in players_by_name:
-                pdata = players_by_name[legacy_ref]
-                if isinstance(pdata, dict):
-                    pdata["rankDerivedValue"] = new_val
-                    pdata["offenseCalibrationMultiplier"] = round(multiplier, 4)
-
-
 _DISPLAY_SCALE_MAX: int = 9999
 
 # Reference pool size for percentile-to-value normalization under the
@@ -5052,13 +4967,16 @@ def _compute_unified_rankings(
                 pdata["rankDerivedValueUncalibrated"] = snapshot_val
 
     _apply_idp_calibration_post_pass(players_array, players_by_name)
-    # Offense calibration deliberately not applied to live values.
-    # Offense trade value tracks the market-derived rankings (KTC/DLF/
-    # FantasyCalc/etc.); VOR bucket multipliers produced absurd
-    # artefacts (QB bucket cliffs, Mahomes-at-half-value-of-QB1). The
-    # lab still computes offense_multipliers as an analytical
-    # reference but they do NOT mutate rankDerivedValue.
-    # _apply_offense_calibration_post_pass(players_array, players_by_name)
+    # Offense calibration is deliberately never applied to live values.
+    # The offense market is already priced by the blend of KTC / DLF /
+    # IDPTC / etc.  VOR bucket multipliers produced absurd artefacts
+    # (QB bucket cliffs, Mahomes-at-half-value-of-QB1) so the live
+    # pipeline intentionally has no offense post-pass.  The IDP
+    # calibration lab still writes ``offense_multipliers`` /
+    # ``offense_anchors`` into the promoted config as an analytical
+    # reference; ``tests/api/test_single_curve_live.py::
+    # TestOffenseHasNoCalibrationLayer`` fails if that reference ever
+    # starts mutating live values.
 
     # (Phase 4d — volatility compression — intentionally removed as
     # part of the Final Framework transition.  A principled

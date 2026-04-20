@@ -69,11 +69,11 @@ def _ranked_rows(contract: dict[str, Any]) -> list[dict[str, Any]]:
 class TestOffenseHasNoCalibrationLayer(unittest.TestCase):
     """Live offense rows must NOT carry IDP-calibration fields.
 
-    ``_apply_offense_calibration_post_pass`` is intentionally commented
-    out at ``src/api/data_contract.py::_compute_unified_rankings``
-    (around line 5021).  Re-enabling it without a new invariant test
-    would silently restack a second curve on top of the Hill blend.
-    This test exists to catch that regression.
+    The offense-calibration post-pass and its helpers were deleted as
+    part of the Final Framework legacy purge — offense values track
+    the market-derived rankings (KTC/DLF/IDPTC/etc.) and never get
+    re-multiplied by a VOR bucket.  If a future PR reintroduces an
+    offense post-pass, this test will fail loudly.
     """
 
     def setUp(self) -> None:
@@ -94,9 +94,9 @@ class TestOffenseHasNoCalibrationLayer(unittest.TestCase):
                 )
         self.assertFalse(
             offending,
-            "Offense rows carry offenseCalibrationMultiplier — "
-            "_apply_offense_calibration_post_pass was re-enabled without "
-            "an accompanying invariant. If intentional, add a test pinning "
+            "Offense rows carry offenseCalibrationMultiplier — an "
+            "offense calibration pass has been reintroduced without an "
+            "accompanying invariant. If intentional, add a test pinning "
             "the offense chain, then delete this assertion. Offenders: "
             f"{offending[:5]}",
         )
