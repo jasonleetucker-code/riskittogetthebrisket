@@ -195,10 +195,18 @@ def _family_scale_for(config: dict[str, Any], mode: str) -> float:
 
         final = rankDerivedValue × family_scale × bucket_multiplier
 
-    A family scale > 1.0 lifts every IDP row in lockstep (because my
-    league values IDP as a class more than the market); < 1.0 discounts
-    the class. Missing block → 1.0 (identity, backward compat with
-    pre-Family-Scale promoted configs).
+    A family scale > 1.0 lifts every IDP row in lockstep (because the
+    operator's league values IDP as a class more than the market);
+    < 1.0 discounts the class.  Missing block → 1.0 (identity).
+
+    **Market-sensibility cap (2026-04-20)**: we clamp to
+    ``[0.85, 1.15]`` — max ±15% class-wide adjustment.  The engine's
+    ``compute_family_scale`` technically permits up to ±300% based on
+    league scoring differences, but applying a 25%+ lift uniformly to
+    every IDP pushes top IDPs past top-20 offense and "too far above
+    market" (per user directive).  15% is a ~5-rank lift for top
+    IDPs on the Hill curve — enough to reflect league premium,
+    bounded enough to stay near retail ordering.
     """
     fs = config.get("family_scale")
     if not isinstance(fs, dict):
@@ -213,10 +221,7 @@ def _family_scale_for(config: dict[str, Any], mode: str) -> float:
         scale = float(val)
     except (TypeError, ValueError):
         return 1.0
-    # Hard sanity clamp to the same bounds the engine's
-    # compute_family_scale uses. Defends production against a
-    # hand-edited config with a nonsense value.
-    return max(0.25, min(4.0, scale))
+    return max(0.85, min(1.15, scale))
 
 
 def get_idp_bucket_multiplier(

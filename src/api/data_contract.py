@@ -1211,6 +1211,8 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     # no other source currently carries.
     "adam thielen": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds+fantasyPros — veteran WR only ranked by Flock Fantasy SF",
     "zonovan knight": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds+fantasyPros — veteran RB only ranked by Flock Fantasy SF",
+    "riley nowakowski": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds+flock — deep TE only ranked by FantasyPros SF",
+    "rj maryland": "source_gap:ktc+idpTradeCalc+dlfSf+dynastyNerds+flock — deep TE only ranked by FantasyPros SF",
     # ── IDP: FootballGuys-IDP-only (not listed by other IDP sources) ──
     # Veteran / free-agent LBs that FootballGuys' 3-expert IDP board
     # ranks as deep dynasty holds even though IDPTradeCalc and the
@@ -4209,16 +4211,14 @@ def _compute_unified_rankings(
 
     # Clamp TEP multiplier to a sane range.  1.0 is a no-op, 2.0 is
     # a generous upper bound (the slider UI caps at 1.5 today).  The
-    # clamp is permissive so bad input silently degrades to the
-    # pre-TEP behavior rather than raising — matches the override
-    # validation philosophy elsewhere in this module.
-    try:
-        tep_multiplier_effective = float(tep_multiplier)
-    except (TypeError, ValueError):
-        tep_multiplier_effective = 1.0
-    if not math.isfinite(tep_multiplier_effective):
-        tep_multiplier_effective = 1.0
-    tep_multiplier_effective = max(1.0, min(2.0, tep_multiplier_effective))
+    # TEP (2026-04-20, simplified): one fixed 15% boost on TE rows
+    # for non-TEP-native sources.  TEP-native sources pass through
+    # unchanged (no correction factor).  The ``tep_multiplier``
+    # parameter is accepted for API compat but ignored — derivation
+    # from league, slider, and clamp all retired per user directive.
+    _ = tep_multiplier  # acknowledged-unused, kept for backwards-compat
+    _ = tep_native_correction  # acknowledged-unused, kept for backwards-compat
+    tep_multiplier_effective = 1.15
 
     # Build the active source list honoring user-supplied overrides.
     # This is the only place ranks + weights are gated, so downstream
@@ -4654,17 +4654,11 @@ def _compute_unified_rankings(
 
         subgroup_delta: float | None = None
         if anchor_value is not None and subgroup_center is not None:
-            # Anchored blend: baseline is anchor, subgroup pulls it.
             subgroup_delta = subgroup_center - anchor_value
             center_value = anchor_value + _ALPHA_SHRINKAGE * subgroup_delta
         elif anchor_value is not None:
-            # Anchor-only coverage (e.g. a player only IDPTC ranks).
             center_value = anchor_value
         elif subgroup_center is not None:
-            # No anchor coverage — fall back to subgroup blend alone
-            # (effective α=1.0 for this row).  The soft fallback for
-            # unranked players arrives in a later PR to handle deeper
-            # cases.
             center_value = subgroup_center
         else:
             center_value = 0.0
@@ -5574,61 +5568,22 @@ def build_api_data_contract(
     this to ``True`` so overrides round-trips don't pay for output
     blocks the wire shape drops.
     """
-    # ── Resolve the TE-premium multiplier ──
-    # ``None`` = caller wants the league-derived default (production
-    # cold start + any override request that omits ``tep_multiplier``).
-    # A finite float = caller passed an explicit override; we trust
-    # their value after the standard [1.0, 2.0] clamp.  The derived
-    # value is always computed (even when overridden) so the
-    # ``rankingsOverride`` summary can report both channels and the
-    # frontend slider can show the "Auto" baseline.
+    # TEP (2026-04-20, simplified): TE rows get a fixed 1.15× boost
+    # from non-TEP-native sources.  No league derivation, no slider,
+    # no TEP-native correction.  The ``tep_multiplier`` parameter is
+    # accepted for API compat but ignored.
+    _ = tep_multiplier  # intentionally ignored
+    tep_multiplier_derived = 1.15
+    tep_multiplier_effective = 1.15
+    tep_multiplier_source = "fixed"
+    # League context still resolved for other uses (roster count,
+    # logging); TEP derivation is a stable constant now.
     league_context = _resolve_league_context()
-    tep_multiplier_derived = _derive_tep_multiplier_from_league(league_context)
-    if tep_multiplier is None:
-        tep_multiplier_effective = tep_multiplier_derived
-        tep_multiplier_source = (
-            "derived"
-            if league_context.get("fetched_from_sleeper")
-            else "default"
-        )
-    else:
-        try:
-            tep_multiplier_effective = float(tep_multiplier)
-        except (TypeError, ValueError):
-            tep_multiplier_effective = tep_multiplier_derived
-            tep_multiplier_source = (
-                "derived"
-                if league_context.get("fetched_from_sleeper")
-                else "default"
-            )
-        else:
-            if not math.isfinite(tep_multiplier_effective):
-                tep_multiplier_effective = tep_multiplier_derived
-                tep_multiplier_source = (
-                    "derived"
-                    if league_context.get("fetched_from_sleeper")
-                    else "default"
-                )
-            else:
-                tep_multiplier_effective = max(
-                    _TEP_DERIVED_CLAMP_MIN,
-                    min(_TEP_DERIVED_CLAMP_MAX, tep_multiplier_effective),
-                )
-                tep_multiplier_source = "explicit"
 
-    # Correction factor applied to TEP-native sources' TE contributions
-    # so their baked-in (assumed 1.15) boost is re-normalized to the
-    # league's actual TEP.  At tep_multiplier_effective == 1.15 this is
-    # a no-op (1.0), so standard TEP-1.5 leagues see byte-for-byte the
-    # old behavior.  For non-TEP / off-standard leagues this drops or
-    # lifts the TEP-native TE contributions symmetrically to the
-    # tep_multiplier that boosts non-TEP sources.
-    if _TEP_NATIVE_ASSUMED_MULTIPLIER > 0:
-        tep_native_correction = (
-            tep_multiplier_effective / _TEP_NATIVE_ASSUMED_MULTIPLIER
-        )
-    else:
-        tep_native_correction = 1.0
+    # TEP-native correction retired (2026-04-20): tep_multiplier is
+    # now a fixed 1.15, and TEP-native sources pass through unchanged.
+    # The correction factor is the identity (1.0) from here on.
+    tep_native_correction = 1.0
 
     # Two-level copy of raw_payload: shallow at the top, one-deep for
     # the ``players`` dict so per-player mutations stay isolated.  Full

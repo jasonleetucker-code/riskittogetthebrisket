@@ -12,7 +12,7 @@ is pre-folded into the return of
 that would reintroduce the bug.
 
 This test makes the invariant executable: with an explicit promoted
-config (family_scale=1.3, DL bucket=0.5), the live pipeline must
+config (family_scale=1.1, DL bucket=0.5), the live pipeline must
 produce ``rankDerivedValue ≈ rankDerivedValueUncalibrated × 0.5 × 1.3``
 for DL rows — a single combined multiplication, NOT a double one.
 
@@ -36,7 +36,7 @@ from src.api.data_contract import build_api_data_contract
 from src.idp_calibration import production
 
 
-FAMILY_SCALE = 1.3
+FAMILY_SCALE = 1.1  # within the [0.85, 1.15] production clamp
 DL_BUCKET = 0.5
 
 
