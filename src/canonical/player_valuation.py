@@ -101,6 +101,16 @@ HILL_PERCENTILE_S: float = 1.210
 # DraftSharks IDP).
 IDP_HILL_PERCENTILE_C: float = 0.1130
 IDP_HILL_PERCENTILE_S: float = 0.850
+#
+# ROOKIE master — fit from KTC + IDPTC rookie slices of the latest
+# snapshot.  Used for every rookie-only source's contributions
+# (DLF Rookie SF, DLF Rookie IDP).  Rookie sources use their NATIVE
+# pool size N_j (~40-50 rookies) for the percentile denominator; the
+# rookie master's flatter shape captures rookie-relative value decay
+# (rookie #1 = 9999, rookie ~#25 ≈ mid-pack) directly, so the prior
+# rookie-ladder translation via reference source is no longer needed.
+HILL_ROOKIE_PERCENTILE_C: float = 0.1650
+HILL_ROOKIE_PERCENTILE_S: float = 0.905
 
 # Step 4: Tier cliff injection
 CLIFF_BASE_POINTS: float = 120.0   # base cliff size in value units

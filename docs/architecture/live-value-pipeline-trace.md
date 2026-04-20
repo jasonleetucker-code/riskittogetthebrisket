@@ -129,13 +129,20 @@ value = percentile_to_value(p, midpoint=c, slope=s)
 ```
 **Scope-level master curves (updated framework)**: each source's
 contribution uses its SCOPE-appropriate master, not the player's
-position family.  Three masters:
+position family.  Four masters:
 
 | Scope | Routing | Constants | Fit source(s) |
 |---|---|---|---|
 | GLOBAL | anchor source (`is_anchor=True` — IDPTC) | `HILL_GLOBAL_PERCENTILE_C=0.1880`, `_S=0.780` | IDPTC's combined offense+IDP pool |
-| OFFENSE | non-anchor sources with offense scope | `HILL_PERCENTILE_C=0.1100`, `_S=1.210` | mean-of-curves from KTC + DynastyDaddy + DynastyNerds |
-| IDP | non-anchor sources with IDP scope | `IDP_HILL_PERCENTILE_C=0.1130`, `_S=0.850` | IDPTC's IDP slice |
+| OFFENSE | non-anchor, non-rookie, offense scope | `HILL_PERCENTILE_C=0.1100`, `_S=1.210` | mean-of-curves from KTC + DynastyDaddy + DynastyNerds |
+| IDP | non-anchor, non-rookie, IDP scope | `IDP_HILL_PERCENTILE_C=0.1130`, `_S=0.850` | IDPTC's IDP slice |
+| ROOKIE | sources with `needs_rookie_translation=True` (DLF Rookie SF, DLF Rookie IDP) | `HILL_ROOKIE_PERCENTILE_C=0.1650`, `_S=0.905` | mean-of-curves from KTC rookie slice + IDPTC rookie slice |
+
+**Rookie sources skip the ladder translation** and use their
+**native pool size N_j** (~40-50 rookies) as the percentile
+denominator, not `_PERCENTILE_REFERENCE_N=500`.  The ROOKIE master's
+flatter shape encodes rookie-relative value decay (rookie #1 = 9999,
+rookie ~#25 ≈ mid-pack) directly, so no crosswalk is needed.
 
 Fit methodology (see `scripts/fit_hill_curve_percentile.py`):
 1. Fit each value-based source's implied Hill curve individually.
