@@ -1,0 +1,19 @@
+{
+  "source": "YAHOO_BOONE",
+  "snapshot_id": "yahoo_boone_2026_20260420T164837Z",
+  "pulled_at_utc": "2026-04-20T16:48:38.039564+00:00",
+  "season": "2026",
+  "scoring_context": "dynasty superflex TE-premium (Justin Boone Yahoo trade value charts \u2014 2QB QB column, TE-Prem TE column)",
+  "universe": "offense_vet",
+  "ingest_method": "yahoo_boone_scraper",
+  "ingest_type": "html_scrape",
+  "source_url": "https://sports.yahoo.com/fantasy/",
+  "format_key": "dynasty_sf",
+  "raw_file_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/CSVs/site_raw/yahooBoone.csv",
+  "raw_storage_path": "/home/runner/work/riskittogetthebrisket/riskittogetthebrisket/data/raw/yahoo_boone/2026/yahoo_boone_2026_20260420T164837Z",
+  "record_count": 500,
+  "hash": "6c63216b756d26d8e67828decb51047ce32c88f2845e5379518f279c176d0ca5",
+  "notes": "Justin Boone's monthly Yahoo dynasty trade value charts (QB/RB/WR/TE) combined into one cross-positional rank. Fetched by scripts/fetch_yahoo_boone.py, which follows Yahoo's 308 redirects from prior-month URLs to the newest article in each series. 2QB column used for QBs and TE Prem. column used for TEs \u2014 this is our Superflex + TEP league source.",
+  "adapter_version": "1.0.0",
+  "inserted_by": "codex_pipeline"
+}
