@@ -184,6 +184,39 @@ class TestAnchorPassCore(unittest.TestCase):
         self.assertEqual(pick_601["rankDerivedValue"], 2000)
         self.assertNotIn("pickRookieAnchor", pick_601)
 
+    def test_tail_rookies_with_only_blended_value_included(self) -> None:
+        """Deep rookies whose Hill-blend output survived beyond the
+        top-``OVERALL_RANK_LIMIT`` cap (so they carry
+        ``_blendedValueUncapped`` instead of ``rankDerivedValue``) must
+        still participate in the tether pool.  Without this, rounds 5
+        and 6 of the current-year pick board run out of tether targets
+        around slot 53 and stamp ``rankDerivedValue=0`` on deep picks.
+        """
+        # 40 top-800 offense rookies + 35 tail rookies (only uncapped value).
+        top_rookies = [_make_rookie(f"Top{i}", i, 9000 - i * 50) for i in range(1, 41)]
+        tail_rookies: list[dict[str, Any]] = []
+        for i in range(1, 36):
+            r = _make_rookie(f"Tail{i}", 0, 0)
+            r["canonicalConsensusRank"] = None
+            r["_blendedValueUncapped"] = 1500 - i * 5  # strictly decreasing
+            tail_rookies.append(r)
+        picks = [
+            _make_pick(f"2026 Pick {rnd}.{slot:02d}", 100 + rnd * 12 + slot, 100)
+            for rnd in range(1, 7)
+            for slot in range(1, 13)
+        ]
+        players_array = top_rookies + tail_rookies + picks
+
+        anchored = _anchor_current_year_picks_to_rookies(players_array, 2026)
+
+        # 40 top + 35 tail = 75 rookies → all 72 picks should tether.
+        self.assertEqual(anchored, 72)
+        # Slot 6.12 should be tethered (index 71); without tail rookies
+        # it would be skipped.
+        pick_612 = next(p for p in picks if p["canonicalName"] == "2026 Pick 6.12")
+        self.assertIn("pickRookieAnchor", pick_612)
+        self.assertGreater(int(pick_612["rankDerivedValue"]), 0)
+
 
 class TestAnchorEndToEnd(unittest.TestCase):
     """Verify the anchor flows end-to-end through the real contract
@@ -280,6 +313,34 @@ class TestAnchorEndToEnd(unittest.TestCase):
             offenders, [],
             f"2026 slot picks still hold ranks: "
             f"{[r.get('canonicalName') for r in offenders[:3]]}",
+        )
+
+    def test_all_72_current_year_picks_tethered(self) -> None:
+        """Every 2026 slot-specific pick (6 rounds × 12 slots = 72)
+        must be anchored to a distinct rookie via
+        ``_anchor_current_year_picks_to_rookies``.  The tether pool
+        draws from BOTH offense and IDP rookies, including tail
+        rookies that fell off the Phase 4 cap.
+        """
+        rows = self.contract["playersArray"]
+        picks = [
+            r for r in rows
+            if r.get("assetClass") == "pick"
+            and isinstance(r.get("canonicalName"), str)
+            and r["canonicalName"].startswith("2026 Pick ")
+        ]
+        if len(picks) < 72:
+            self.skipTest(f"Only {len(picks)} 2026 slot picks in contract")
+        untethered = [
+            p.get("canonicalName") for p in picks
+            if not p.get("pickRookieAnchor")
+        ]
+        self.assertEqual(
+            untethered, [],
+            f"2026 slot picks still untethered: {untethered[:5]}.  "
+            f"The combined offense+IDP rookie pool (including tail "
+            f"rookies with _blendedValueUncapped) should cover all "
+            f"72 picks.",
         )
 
     def test_coherence_preserved_after_anchor(self) -> None:
