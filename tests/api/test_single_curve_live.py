@@ -409,6 +409,73 @@ class TestMADPenaltyChain(unittest.TestCase):
         )
 
 
+class TestSoftFallback(unittest.TestCase):
+    """Pin Final Framework step 9: soft fallback for unranked players.
+
+    Every ranked non-pick row must carry a ``softFallbackCount`` field
+    (an integer ≥ 0).  The count represents the number of active
+    sources that could have ranked the player but didn't, contributing
+    a "just past the published list" imputed value to the blend.
+
+    Sanity bounds:
+      - softFallbackCount is always ≥ 0.
+      - When _SOFT_FALLBACK_ENABLED is True, most ranked rows have at
+        least one fallback source (there are 16 active sources and
+        very few players are covered by all 16).
+    """
+
+    def setUp(self) -> None:
+        self.contract = _get()
+        if self.contract is None:
+            self.skipTest("No live data")
+        self.rows = _ranked_rows(self.contract)
+
+    def test_soft_fallback_count_stamped(self) -> None:
+        missing: list[str] = []
+        for row in self.rows:
+            if row.get("assetClass") == "pick":
+                continue
+            if "softFallbackCount" not in row:
+                missing.append(str(row.get("canonicalName") or ""))
+        self.assertFalse(
+            missing,
+            f"Ranked non-pick rows without softFallbackCount: "
+            f"{missing[:5]}",
+        )
+
+    def test_soft_fallback_count_nonnegative(self) -> None:
+        for row in self.rows:
+            sfc = row.get("softFallbackCount")
+            if sfc is None:
+                continue
+            self.assertGreaterEqual(
+                int(sfc), 0,
+                f"{row.get('canonicalName')}: negative softFallbackCount",
+            )
+
+    def test_fallback_provides_broad_coverage(self) -> None:
+        """With 16 active sources, most ranked players should see at
+        least one fallback contribution — very few are covered by
+        every source."""
+        from src.api.data_contract import _SOFT_FALLBACK_ENABLED  # noqa: PLC0415
+        if not _SOFT_FALLBACK_ENABLED:
+            self.skipTest("soft fallback disabled")
+        sf_counts = [
+            int(r.get("softFallbackCount") or 0)
+            for r in self.rows
+            if r.get("assetClass") != "pick"
+        ]
+        if not sf_counts:
+            self.skipTest("no non-pick ranked rows")
+        with_fallback = sum(1 for c in sf_counts if c > 0)
+        pct = 100.0 * with_fallback / len(sf_counts)
+        self.assertGreater(
+            pct, 50.0,
+            f"Expected >50% of ranked rows to have at least one "
+            f"fallback contribution; got {pct:.1f}%",
+        )
+
+
 class TestNoSecondHillCurve(unittest.TestCase):
     """No live row can carry values consistent with a second Hill remap.
 

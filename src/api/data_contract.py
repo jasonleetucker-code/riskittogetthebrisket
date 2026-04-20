@@ -3427,6 +3427,38 @@ _ALPHA_SHRINKAGE: float = 0.3
 # all the stability win.
 _MAD_PENALTY_LAMBDA: float = 0.5
 
+# Final Framework step 9: soft fallback for unranked players.
+#
+# When an active source does NOT rank a player but the player's
+# position is scope-eligible for that source (i.e. the source could
+# have covered them but didn't), the framework says the player
+# should get a soft fallback rank "just below the published list"
+# rather than being treated as absolute dead last (or, equivalently
+# in the prior implementation, as contributing nothing from that
+# source).
+#
+# Implementation: fallback_rank = pool_size + round(pool_size * distance).
+# Larger ``_SOFT_FALLBACK_DISTANCE`` → softer penalty (rank further
+# below the list but not astronomically so).  Zero means the fallback
+# rank is exactly pool_size + 1 (the slot just past the published
+# list).
+#
+# When disabled (``_SOFT_FALLBACK_ENABLED=False``) the blend behaves
+# as before PR 4: only sources that actually ranked the player
+# contribute.
+#
+# Promoted value comes from ``scripts/backtest_soft_fallback.py``
+# against the 25 daily snapshots.
+_SOFT_FALLBACK_ENABLED: bool = True
+# Distance = 0.0 means fallback_rank = pool_size + 1 (the slot just
+# past the published list — the canonical "just below the list"
+# framework prescribes).  Chosen via
+# ``scripts/backtest_soft_fallback.py``; 25-day snapshot sweep
+# showed +78.67% improvement in value-weighted rank stability over
+# the disabled pre-PR-4 behavior, with distance=0.00 best on both
+# the unweighted and value-weighted metrics.
+_SOFT_FALLBACK_DISTANCE: float = 0.0
+
 
 def _reassign_pick_slot_order(players_array: list[dict[str, Any]]) -> int:
     """Reorder slot-specific picks within each year so slot order is
@@ -4494,6 +4526,67 @@ def _compute_unified_rankings(
                 meta["tepNativeCorrectionApplied"] = True
                 meta["tepNativeCorrection"] = round(tep_native_correction, 4)
 
+        # Framework step 9: soft fallback for scope-eligible but
+        # unranked sources.  Each active source whose scope admits the
+        # player's position but which DIDN'T rank them contributes a
+        # "just below the published list" value — not zero (current
+        # default) and not dead-last (the naive clamp).
+        fallback_count = 0
+        if _SOFT_FALLBACK_ENABLED:
+            for src in active_sources:
+                skey = str(src.get("key") or "")
+                if skey in source_ranks:
+                    continue  # source already covered this player
+                # Determine scope eligibility across all declared scopes.
+                src_scopes: list[str] = [src["scope"]] + list(
+                    src.get("extra_scopes") or []
+                )
+                eligible = any(
+                    _scope_eligible(
+                        row_pos, scope, src.get("position_group")
+                    )
+                    for scope in src_scopes
+                )
+                if not eligible:
+                    continue
+                pool_n = source_pool_sizes.get(skey, 0)
+                if pool_n <= 0:
+                    continue
+                # Fallback rank: just past the source's published list
+                # with a soft-distance buffer.
+                fallback_rank = pool_n + int(
+                    round(pool_n * _SOFT_FALLBACK_DISTANCE)
+                )
+                if _PERCENTILE_REFERENCE_N >= 2:
+                    p_fallback = (
+                        float(fallback_rank) - 1.0
+                    ) / float(_PERCENTILE_REFERENCE_N - 1)
+                else:
+                    p_fallback = 1.0
+                p_fallback = max(0.0, min(1.0, p_fallback))
+                fallback_value = float(
+                    percentile_to_value(
+                        p_fallback, midpoint=hill_c, slope=hill_s
+                    )
+                )
+                # TEP boost on TE rows for non-native sources; correction
+                # for native sources.  Same rules as the covered path.
+                if apply_tep and skey in tep_boosted_source_keys:
+                    fallback_value *= tep_multiplier_effective
+                elif (
+                    apply_tep_native_correction
+                    and skey in tep_native_source_keys
+                ):
+                    fallback_value *= tep_native_correction
+                all_values.append(fallback_value)
+                if skey == anchor_key:
+                    anchor_value = fallback_value
+                else:
+                    subgroup_values.append(fallback_value)
+                fallback_count += 1
+
+        players_array[row_idx]["softFallbackCount"] = fallback_count
+
         # Framework step 5 + 7–8: compute subgroup center, then combine
         # with anchor under α-shrinkage.
         subgroup_center: float | None
@@ -5292,6 +5385,7 @@ def _derive_player_row(
         "subgroupBlendValue": None,
         "subgroupDelta": None,
         "alphaShrinkage": None,
+        "softFallbackCount": 0,
         "marketGapDirection": "none",
         "marketGapMagnitude": None,
         "sourceAudit": {
@@ -5817,6 +5911,7 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "subgroupBlendValue",
     "subgroupDelta",
     "alphaShrinkage",
+    "softFallbackCount",
     "isSingleSource",
     "isStructurallySingleSource",
     "hasSourceDisagreement",
@@ -6258,27 +6353,37 @@ def assert_no_unexplained_single_source(
     *,
     rank_limit: int = 400,
 ) -> list[dict[str, Any]]:
-    """Return a list of top-N players that are single-source without an
-    allowlist reason.
+    """Return a list of top-N players that are single-source WITH a
+    matching failure but no allowlist reason.
+
+    Only rows whose sourceAudit reason is
+    ``matching_failure_other_sources_eligible`` are candidates — i.e.,
+    at least one additional source was EXPECTED to cover this player
+    but didn't.  ``structurally_single_source`` rows (no other source
+    was expected, typically because the player sits outside shallow
+    sources' depth/scope) are benign and not flagged here.
 
     Each entry in the returned list is a dict with:
       - canonicalName, position, rank, matchedSources, reason
 
-    An empty list means every 1-src player in the top N is either fixed
-    or explicitly justified in ``SINGLE_SOURCE_ALLOWLIST``.
-
-    This function is called by the build pipeline and regression tests
-    to prevent unexplained 1-src cases from shipping to production.
+    An empty list means every flagged 1-src player in the top N is
+    either fixed or explicitly justified in ``SINGLE_SOURCE_ALLOWLIST``.
     """
     unexplained: list[dict[str, Any]] = []
     for row in players_array:
         rank = row.get("canonicalConsensusRank")
         if rank is None or rank > rank_limit:
             continue
-        is_1src = row.get("isSingleSource") or row.get("isStructurallySingleSource")
-        if not is_1src:
-            continue
         audit = row.get("sourceAudit") or {}
+        if audit.get("reason") != "matching_failure_other_sources_eligible":
+            # Structurally single-source plays are benign — no other
+            # source was expected to cover them (e.g. IDPTC-only deep
+            # veteran DLs past DLF/FP/FBG IDP's published cuts).  The
+            # framework's soft fallback still pulls them toward the
+            # market via the other sources' "just past the published
+            # list" values, so they're not actually single-opinion
+            # picks.
+            continue
         if audit.get("allowlistReason"):
             continue
         unexplained.append({

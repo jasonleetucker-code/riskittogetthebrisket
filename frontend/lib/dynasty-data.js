@@ -808,6 +808,10 @@ function _materializePlayerArrayRow(player) {
       typeof player.subgroupDelta === "number" ? player.subgroupDelta : null,
     alphaShrinkage:
       typeof player.alphaShrinkage === "number" ? player.alphaShrinkage : null,
+    softFallbackCount:
+      typeof player.softFallbackCount === "number"
+        ? player.softFallbackCount
+        : 0,
     idpCalibrationMultiplier:
       typeof player.idpCalibrationMultiplier === "number"
         ? player.idpCalibrationMultiplier

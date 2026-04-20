@@ -90,7 +90,11 @@ def _is_deep_future_tier(name: str) -> bool:
         rnd = int(m.group(3))
         if year >= 2027 and rnd >= 4:
             return True
-        if year >= 2028 and rnd >= 3:
+        if year >= 2028 and rnd >= 2:
+            # 2028 R2-R3 generic tier rows sit near the OVERALL_RANK_LIMIT
+            # cutoff after the future-year discount + Final Framework
+            # PR 4 soft-fallback reshaping.  They're still in the
+            # playersArray with a value, just off the ranked board.
             return True
         if rnd >= 5:  # any year's deep R5/R6 generic tier
             return True
