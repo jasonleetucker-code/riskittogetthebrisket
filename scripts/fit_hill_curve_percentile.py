@@ -65,17 +65,32 @@ def _load_values(path: Path, col: str) -> list[float]:
     return vs
 
 
+def _latest_snapshot() -> "Path | None":
+    """Return the newest ``dynasty_data_*.json`` snapshot path, or None.
+
+    Prefers ``data/`` (dev machine) but falls back to
+    ``exports/latest/`` (which is checked into the repo, so CI runs can
+    still fit IDP / rookie scopes off the most recent committed board).
+    """
+    for sub in ("data", "exports/latest"):
+        candidates = sorted(
+            (REPO / sub).glob("dynasty_data_*.json"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        if candidates:
+            return candidates[0]
+    return None
+
+
 def _load_idptc_idp_values() -> list[float]:
     """IDPTC's IDP-slice values in descending order."""
     import json
 
-    candidates = sorted(
-        (REPO / "data").glob("dynasty_data_*.json"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    if not candidates:
+    snapshot = _latest_snapshot()
+    if snapshot is None:
         return []
+    candidates = [snapshot]
     with candidates[0].open() as f:
         raw = json.load(f)
     positions = (raw.get("sleeper") or {}).get("positions") or {}
@@ -105,13 +120,10 @@ def _load_rookie_values(source_key: str) -> list[float]:
     """
     import json
 
-    candidates = sorted(
-        (REPO / "data").glob("dynasty_data_*.json"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-    if not candidates:
+    snapshot = _latest_snapshot()
+    if snapshot is None:
         return []
+    candidates = [snapshot]
     with candidates[0].open() as f:
         raw = json.load(f)
     vs: list[float] = []
