@@ -1,25 +1,28 @@
 #!/usr/bin/env python3
-"""Fit the Final Framework Hill curve against percentile-transformed input.
+"""Fit scope-level master Hill curves per the updated Final Framework.
 
-Replaces the rank-based fit in ``fit_hill_curve_from_market.py`` with
-the framework's step-2→3 formulation:
+Framework update (2026-04-20): value-based sources are the training
+set for the rank-to-value conversion system.  Methodology:
 
-    p = (r − 1) / (N − 1)
-    V(p) = 9999 / (1 + (p / c)^s)
+  Step 1: For each value-based source j, fit its own implied
+          rank-to-value curve f_j(p) where p = (r - 1) / (N_j - 1).
+  Step 2: For each scope (global, offense, IDP), combine the per-
+          source fits into a master curve V*_scope(p) by trimmed
+          mean-median across the percentile grid.
+  Step 3: Emit the master (c*, s*) for each scope.
 
-where N is the SOURCE's native pool size.  Each value-based market
-source contributes (p, normalized_v) pairs where normalized_v is
-scaled so the source's top player = 9999.  We combine all sources'
-pairs into one dataset and fit a single global (c, s) via grid search.
+Scope assignments (in the current registry):
 
-This is the right fit methodology for the Final Framework's
-percentile-per-native-source approach: each source's top rank always
-maps to p=0 → V=9999, and each source's bottom rank maps to p=1 → V
-at some low value set by (c, s).
+  - GLOBAL:   IDPTradeCalc (combined offense + IDP pool)
+  - OFFENSE:  KTC, DynastyDaddy, DynastyNerds (offense-only pools)
+  - IDP:      IDPTradeCalc's IDP slice (the only value-based IDP source)
+
+Replaces the previous "pooled fit" which weighted sources by their
+data-point count.  Per-source-then-combine gives each source equal
+voice, matching the framework's intent.
 
 Usage:
     python3 scripts/fit_hill_curve_percentile.py
-    python3 scripts/fit_hill_curve_percentile.py --universe idp
 """
 from __future__ import annotations
 
@@ -29,18 +32,16 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 
-# Offense value-based sources. Each entry is (csv_path, value_col).
+# Value-based sources grouped by scope.  Each entry: (csv_path,
+# value_col, label).  The IDP scope is handled specially via
+# _load_idptc_idp_values().
+GLOBAL_SOURCES: dict[str, tuple[str, str]] = {
+    "IDPTradeCalc": ("CSVs/site_raw/idpTradeCalc.csv", "value"),
+}
 OFFENSE_SOURCES: dict[str, tuple[str, str]] = {
     "KTC":          ("CSVs/site_raw/ktc.csv",               "value"),
-    "IDPTradeCalc": ("CSVs/site_raw/idpTradeCalc.csv",      "value"),
     "DynastyDaddy": ("CSVs/site_raw/dynastyDaddySf.csv",    "value"),
     "DynastyNerds": ("CSVs/site_raw/dynastyNerdsSfTep.csv", "Value"),
-}
-
-# IDP value-based sources. IDPTradeCalc is the only IDP backbone with
-# a true native value; we fit its IDP slice separately from offense.
-IDP_SOURCES: dict[str, tuple[str, str]] = {
-    "IDPTradeCalc-IDP": ("CSVs/site_raw/idpTradeCalc.csv", "value"),
 }
 
 _IDP_POSITIONS: frozenset[str] = frozenset(
@@ -65,9 +66,7 @@ def _load_values(path: Path, col: str) -> list[float]:
 
 
 def _load_idptc_idp_values() -> list[float]:
-    """Return IDPTC's IDP-only values, sorted desc, using the latest
-    snapshot's sleeper positions map to filter to IDP rows.
-    """
+    """IDPTC's IDP-slice values in descending order."""
     import json
 
     candidates = sorted(
@@ -97,17 +96,12 @@ def _load_idptc_idp_values() -> list[float]:
 
 
 def _percentile_pairs(values: list[float]) -> list[tuple[float, float]]:
-    """Return [(p, normalized_v)] where p = (i)/(N-1) for i in 0..N-1
-    and normalized_v = values[i] / values[0] * 9999.
-    """
+    """Return [(p, normalized_v)] where normalized_v has top = 9999."""
     if len(values) < 2:
         return []
     top = values[0]
     n = len(values)
-    return [
-        ((i) / (n - 1), values[i] / top * 9999.0)
-        for i in range(n)
-    ]
+    return [((i) / (n - 1), values[i] / top * 9999.0) for i in range(n)]
 
 
 def _hill(p: float, c: float, s: float) -> float:
@@ -118,12 +112,10 @@ def _hill(p: float, c: float, s: float) -> float:
 
 
 def _fit(pairs: list[tuple[float, float]]) -> tuple[float, float, float]:
-    """Grid-search + refine (c, s) minimising MSE on the pairs."""
+    """Grid-search + refine (c, s) against the pairs."""
     best: tuple[float, float, float] | None = None
-    # c ∈ (0, 1) — midpoint in percentile space.  0.01..0.5 in 0.005
-    # steps covers the plausible range comfortably.
-    c_grid = [0.005 + 0.005 * i for i in range(100)]  # 0.005 .. 0.5
-    s_grid = [0.4 + 0.02 * i for i in range(106)]     # 0.4  .. 2.5
+    c_grid = [0.005 + 0.005 * i for i in range(100)]  # 0.005..0.5
+    s_grid = [0.4 + 0.02 * i for i in range(106)]     # 0.4..2.5
     for c in c_grid:
         for s in s_grid:
             err = sum((v - _hill(p, c, s)) ** 2 for p, v in pairs)
@@ -131,7 +123,6 @@ def _fit(pairs: list[tuple[float, float]]) -> tuple[float, float, float]:
                 best = (err, c, s)
     assert best is not None
     err0, c0, s0 = best
-    # Fine refinement
     for dc in (-0.002, -0.001, 0.0, 0.001, 0.002):
         for ds in (-0.01, -0.005, 0.0, 0.005, 0.01):
             c = c0 + dc
@@ -144,63 +135,181 @@ def _fit(pairs: list[tuple[float, float]]) -> tuple[float, float, float]:
     return best[1], best[2], best[0] / len(pairs)
 
 
+def _trimmed_mean_median(values: list[float]) -> float:
+    """Framework's step 9 blend: drop max+min, mean of (trimmed_mean,
+    trimmed_median).  For n=2 returns mean; for n=1 returns passthrough.
+    """
+    if not values:
+        return 0.0
+    vs = sorted(values)
+    n = len(vs)
+    if n >= 3:
+        t = vs[1:-1]
+        t_mean = sum(t) / len(t)
+        m = len(t)
+        t_median = (
+            float(t[m // 2])
+            if m % 2 == 1
+            else (t[m // 2 - 1] + t[m // 2]) / 2.0
+        )
+        return (t_mean + t_median) / 2.0
+    if n == 2:
+        return (vs[0] + vs[1]) / 2.0
+    return vs[0]
+
+
+def _fit_scope_master(
+    scope_label: str,
+    per_source_fits: list[tuple[str, float, float]],  # (label, c, s)
+) -> tuple[float, float, float] | None:
+    """Build a scope master curve from per-source fits.
+
+    Framework step 5 combines per-source fitted curves into a
+    "weighted market target" — the framework does not prescribe a
+    specific aggregation rule for this step (the trimmed mean-median
+    is for step 9, the subgroup combining).  We use the unweighted
+    mean of per-source V_j(p) values at each percentile p.
+
+    The mean (rather than trimmed mean-median) is the right rule
+    here because:
+      - With n=3 sources, trimmed mean-median degenerates to the
+        middle source — it's not a blend, it's a single-source pick.
+      - The mean treats every source equally, matching the framework's
+        "weighted market target" intent.
+      - Outlier curves can't skew the master very far because the
+        Hill family is constrained.
+
+    Rule:
+      1. Generate a fine percentile grid.
+      2. For each percentile, compute V_j(p) for every source in scope.
+      3. V*(p) = mean(V_j(p)).
+      4. Fit a single Hill against the (p, V*(p)) curve.
+      5. Emit master (c*, s*).
+    """
+    if not per_source_fits:
+        return None
+    grid: list[float] = []
+    for i in range(1, 50):
+        grid.append(i / 2000.0)  # fine top-of-curve sampling
+    for i in range(1, 200):
+        grid.append(i / 200.0)   # linear mid-to-tail sampling
+    grid = sorted(set(round(p, 6) for p in grid))
+
+    master_pairs: list[tuple[float, float]] = []
+    for p in grid:
+        vals = [_hill(p, c, s) for _, c, s in per_source_fits]
+        master_pairs.append((p, sum(vals) / len(vals)))
+
+    c, s, mse = _fit(master_pairs)
+    return c, s, mse
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--universe", choices=["offense", "idp"], default="offense",
+        "--print-old-style",
+        action="store_true",
+        help="Also print the legacy pooled fit for comparison",
     )
     args = parser.parse_args()
 
-    sources = OFFENSE_SOURCES if args.universe == "offense" else IDP_SOURCES
-    print(f"Fitting percentile Hill curve to {len(sources)} "
-          f"{args.universe} sources …\n")
-    all_pairs: list[tuple[float, float]] = []
-    per_source_fits: list[tuple[str, int, float, float, float]] = []
-
-    for label, (rel_path, col) in sources.items():
-        if args.universe == "idp" and label == "IDPTradeCalc-IDP":
-            values = _load_idptc_idp_values()
-        else:
+    def _fit_sources(
+        sources: dict[str, tuple[str, str]],
+        label_prefix: str = "",
+    ) -> list[tuple[str, float, float]]:
+        out: list[tuple[str, float, float]] = []
+        for label, (rel_path, col) in sources.items():
             values = _load_values(REPO / rel_path, col)
-        if not values:
-            print(f"  {label}: no values found")
-            continue
-        pairs = _percentile_pairs(values[:400])  # top 400 per source
+            if not values:
+                print(f"  {label_prefix}{label}: no values found")
+                continue
+            pairs = _percentile_pairs(values[:400])
+            c, s, mse = _fit(pairs)
+            out.append((label, c, s))
+            print(
+                f"  {label_prefix}{label:18s}  n={len(pairs):4d}  "
+                f"c={c:.4f}  s={s:.3f}  rmse={mse ** 0.5:.1f}"
+            )
+        return out
+
+    print("Per-source Hill fits:\n")
+    print("OFFENSE scope (offense-only value sources):")
+    offense_fits = _fit_sources(OFFENSE_SOURCES, "")
+
+    print("\nGLOBAL scope (combined offense + IDP value sources):")
+    global_fits = _fit_sources(GLOBAL_SOURCES, "")
+
+    print("\nIDP scope (IDP value sources):")
+    idp_values = _load_idptc_idp_values()
+    idp_fits: list[tuple[str, float, float]] = []
+    if idp_values:
+        pairs = _percentile_pairs(idp_values)
         c, s, mse = _fit(pairs)
-        per_source_fits.append((label, len(pairs), c, s, mse))
-        all_pairs.extend(pairs)
-        print(f"  {label:18s}  n={len(pairs):4d}  c={c:.4f}  s={s:.3f}  "
-              f"rmse={mse ** 0.5:.1f}")
-
-    if not per_source_fits:
-        print("No sources loaded; aborting.")
-        return 1
-
-    # Combined fit across all source pairs (what we actually adopt).
-    print(f"\n  Combined fit across {len(all_pairs)} points:")
-    combined_c, combined_s, combined_mse = _fit(all_pairs)
-    print(f"  {'COMBINED':18s}              c={combined_c:.4f}  s={combined_s:.3f}  "
-          f"rmse={combined_mse ** 0.5:.1f}")
-
-    # Per-source simple-average fit (alt reference).
-    simple_c = sum(c for _, _, c, _, _ in per_source_fits) / len(per_source_fits)
-    simple_s = sum(s for _, _, _, s, _ in per_source_fits) / len(per_source_fits)
-    print(f"  {'SIMPLE_AVG':18s}              c={simple_c:.4f}  s={simple_s:.3f}")
-
-    # Reference values at key percentiles.
-    print("\nValue at key percentiles:")
-    ps = (0.0, 0.001, 0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9)
-    print("  " + "".join(f"{p:>9.3f}" for p in ps))
-    print("  " + "".join(f"{int(_hill(p, combined_c, combined_s)):>9}" for p in ps))
-
-    # Suggested constant names.
-    print()
-    if args.universe == "offense":
-        print(f"HILL_PERCENTILE_C: float = {combined_c:.4f}")
-        print(f"HILL_PERCENTILE_S: float = {combined_s:.3f}")
+        idp_fits.append(("IDPTradeCalc-IDP", c, s))
+        print(
+            f"  IDPTradeCalc-IDP    n={len(pairs):4d}  c={c:.4f}  "
+            f"s={s:.3f}  rmse={mse ** 0.5:.1f}"
+        )
     else:
-        print(f"IDP_HILL_PERCENTILE_C: float = {combined_c:.4f}")
-        print(f"IDP_HILL_PERCENTILE_S: float = {combined_s:.3f}")
+        print("  (no IDP value source data)")
+
+    print("\nScope-level master curves (trimmed mean-median across per-source fits):")
+    for scope_label, fits in (
+        ("GLOBAL", global_fits),
+        ("OFFENSE", offense_fits),
+        ("IDP", idp_fits),
+    ):
+        result = _fit_scope_master(scope_label, fits)
+        if result is None:
+            print(f"  {scope_label:8s}  (no per-source fits)")
+            continue
+        c, s, mse = result
+        print(
+            f"  {scope_label:8s}  c*={c:.4f}  s*={s:.3f}  "
+            f"master-fit rmse={mse ** 0.5:.1f}"
+        )
+
+    print()
+    print("Value at key percentiles for each scope master:")
+    ps = (0.0, 0.001, 0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9)
+    print("  " + "scope".ljust(8) + "".join(f"{p:>9.3f}" for p in ps))
+    for scope_label, fits in (
+        ("GLOBAL", global_fits),
+        ("OFFENSE", offense_fits),
+        ("IDP", idp_fits),
+    ):
+        result = _fit_scope_master(scope_label, fits)
+        if result is None:
+            continue
+        c, s, _ = result
+        row = "".join(f"{int(_hill(p, c, s)):>9}" for p in ps)
+        print(f"  {scope_label:<8}" + row)
+
+    print()
+    print("Suggested constants (src/canonical/player_valuation.py):")
+    for scope_label, fits in (
+        ("GLOBAL", global_fits),
+        ("OFFENSE", offense_fits),
+        ("IDP", idp_fits),
+    ):
+        result = _fit_scope_master(scope_label, fits)
+        if result is None:
+            continue
+        c, s, _ = result
+        prefix = "HILL_" + (scope_label + "_" if scope_label != "OFFENSE" else "")
+        # Emit names that match the existing convention:
+        # OFFENSE → HILL_PERCENTILE_C/S (already lives here)
+        # IDP → IDP_HILL_PERCENTILE_C/S
+        # GLOBAL → HILL_GLOBAL_PERCENTILE_C/S (new)
+        if scope_label == "OFFENSE":
+            print(f"HILL_PERCENTILE_C: float = {c:.4f}")
+            print(f"HILL_PERCENTILE_S: float = {s:.3f}")
+        elif scope_label == "IDP":
+            print(f"IDP_HILL_PERCENTILE_C: float = {c:.4f}")
+            print(f"IDP_HILL_PERCENTILE_S: float = {s:.3f}")
+        else:
+            print(f"HILL_GLOBAL_PERCENTILE_C: float = {c:.4f}")
+            print(f"HILL_GLOBAL_PERCENTILE_S: float = {s:.3f}")
     return 0
 
 

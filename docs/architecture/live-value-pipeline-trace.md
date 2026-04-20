@@ -127,12 +127,25 @@ source contributes in the same combined-pool coordinate system.
 value = percentile_to_value(p, midpoint=c, slope=s)
       = 9999 / (1 + (p / c)^s)
 ```
-Constants differ by family:
-- **offense / picks**: `HILL_PERCENTILE_C=0.1240`, `HILL_PERCENTILE_S=1.010`
-- **IDP** (DL/LB/DB): `IDP_HILL_PERCENTILE_C=0.1130`, `IDP_HILL_PERCENTILE_S=0.850`
+**Scope-level master curves (updated framework)**: each source's
+contribution uses its SCOPE-appropriate master, not the player's
+position family.  Three masters:
 
-Fit by `scripts/fit_hill_curve_percentile.py` against the value-based
-market sources' native percentile-to-value shapes.
+| Scope | Routing | Constants | Fit source(s) |
+|---|---|---|---|
+| GLOBAL | anchor source (`is_anchor=True` — IDPTC) | `HILL_GLOBAL_PERCENTILE_C=0.1880`, `_S=0.780` | IDPTC's combined offense+IDP pool |
+| OFFENSE | non-anchor sources with offense scope | `HILL_PERCENTILE_C=0.1100`, `_S=1.210` | mean-of-curves from KTC + DynastyDaddy + DynastyNerds |
+| IDP | non-anchor sources with IDP scope | `IDP_HILL_PERCENTILE_C=0.1130`, `_S=0.850` | IDPTC's IDP slice |
+
+Fit methodology (see `scripts/fit_hill_curve_percentile.py`):
+1. Fit each value-based source's implied Hill curve individually.
+2. For each scope, combine the per-source curves via unweighted mean
+   of V_j(p) at every percentile p.
+3. Fit a single Hill against the resulting master (p, V*(p)) curve.
+
+The per-source-then-combine methodology replaced the older pooled-fit
+(which weighted sources by their data-point count).  Under the updated
+framework, each source is the training set for its scope master.
 
 TEP application on TE rows only:
 - `is_tep_premium=False` sources: `value *= tep_multiplier`

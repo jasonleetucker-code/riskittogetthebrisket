@@ -4124,12 +4124,29 @@ def _compute_unified_rankings(
       - ktcRank / idpRank — preserved for backward compatibility
     """
     from src.canonical.player_valuation import (  # noqa: PLC0415
+        HILL_GLOBAL_PERCENTILE_C,
+        HILL_GLOBAL_PERCENTILE_S,
         HILL_PERCENTILE_C,
         HILL_PERCENTILE_S,
         IDP_HILL_PERCENTILE_C,
         IDP_HILL_PERCENTILE_S,
         percentile_to_value,
     )
+
+    # Updated framework (step 5-6): route each source to its scope-
+    # appropriate master curve, not per-player-position.  The anchor
+    # source (IDPTC — dual-scope offense+IDP) uses the GLOBAL master;
+    # offense-only sources use the OFFENSE master; IDP-only sources
+    # use the IDP master.  Picks are treated as offense-scope (they're
+    # embedded in KTC's offense pool, and dlfRookieSf anchors them to
+    # the offense rookie ladder).
+    def _curve_for_source(src_def: dict) -> tuple[float, float]:
+        if src_def.get("is_anchor"):
+            return HILL_GLOBAL_PERCENTILE_C, HILL_GLOBAL_PERCENTILE_S
+        scope = str(src_def.get("scope") or "")
+        if scope == SOURCE_SCOPE_OVERALL_IDP:
+            return IDP_HILL_PERCENTILE_C, IDP_HILL_PERCENTILE_S
+        return HILL_PERCENTILE_C, HILL_PERCENTILE_S
 
     # Clamp TEP multiplier to a sane range.  1.0 is a no-op, 2.0 is
     # a generous upper bound (the slider UI caps at 1.5 today).  The
@@ -4466,9 +4483,6 @@ def _compute_unified_rankings(
 
     row_normalized: list[tuple[float, int]] = []  # (blended_value, row_idx)
     for row_idx, source_ranks in row_source_ranks.items():
-        # TE positions trigger the TEP boost.  IDP positions swap in
-        # the IDP-fit Hill curve.  Picks and offense share the offense
-        # curve.
         row_pos = str(players_array[row_idx].get("position") or "").strip().upper()
         row_is_te = row_pos == "TE"
         row_is_pick = (
@@ -4478,13 +4492,13 @@ def _compute_unified_rankings(
         apply_tep_native_correction = (
             row_is_te and abs(tep_native_correction - 1.0) > 1e-6
         )
-        if row_pos in _IDP_POSITIONS:
-            hill_c, hill_s = IDP_HILL_PERCENTILE_C, IDP_HILL_PERCENTILE_S
-        else:
-            hill_c, hill_s = HILL_PERCENTILE_C, HILL_PERCENTILE_S
 
         # Framework step 2–3: for each source, compute
-        # percentile-to-value using the SOURCE's native pool size.
+        # percentile-to-value using the source's scope-appropriate
+        # master curve (updated framework step 5-6):
+        #   - anchor (IDPTC, dual-scope) → GLOBAL master
+        #   - offense-scope sources       → OFFENSE master
+        #   - IDP-scope sources           → IDP master
         # Then split contributions into anchor vs subgroup per step 7.
         anchor_value: float | None = None
         subgroup_values: list[float] = []
@@ -4492,6 +4506,12 @@ def _compute_unified_rankings(
 
         for source_key, eff_rank in source_ranks.items():
             src_def = src_by_key.get(source_key, {})
+            # Pick the SOURCE's scope master curve (not the row's
+            # position).  This is the updated-framework change —
+            # IDPTC's contribution to an offense player uses the
+            # GLOBAL master (IDPTC's native curve shape), not the
+            # OFFENSE master.
+            hill_c, hill_s = _curve_for_source(src_def)
             # Percentile denominator is the FIXED reference pool size
             # (_PERCENTILE_REFERENCE_N).  Effective rank is post-ladder
             # (combined-pool coordinate), so dividing by a fixed N
@@ -4573,9 +4593,12 @@ def _compute_unified_rankings(
                 else:
                     p_fallback = 1.0
                 p_fallback = max(0.0, min(1.0, p_fallback))
+                # Soft fallback uses the SAME scope master as the
+                # covered path for this source (framework step 5-6).
+                fb_c, fb_s = _curve_for_source(src)
                 fallback_value = float(
                     percentile_to_value(
-                        p_fallback, midpoint=hill_c, slope=hill_s
+                        p_fallback, midpoint=fb_c, slope=fb_s
                     )
                 )
                 # TEP boost on TE rows for non-native sources; correction
