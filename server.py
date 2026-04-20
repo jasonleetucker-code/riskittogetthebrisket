@@ -57,9 +57,7 @@ from src.api.data_contract import (
     CONTRACT_VERSION as API_DATA_CONTRACT_VERSION,
     build_api_data_contract,
     build_api_startup_payload,
-    build_canonical_comparison_block,
     build_rankings_delta_payload,
-    build_shadow_comparison_report,
     get_ranking_source_registry,
     normalize_source_overrides,
     normalize_tep_multiplier,
@@ -72,17 +70,6 @@ PORT = 8000
 HOST = "0.0.0.0"  # accessible from local network; use "127.0.0.1" for local only
 SCRAPE_STALL_SECONDS = int(os.getenv("SCRAPE_STALL_SECONDS", "900"))
 SCRAPE_RUN_TIMEOUT_SECONDS = int(os.getenv("SCRAPE_RUN_TIMEOUT_SECONDS", "7200"))
-
-# R-6: Canonical data mode — controls how canonical pipeline data is used.
-#   off              = ignore canonical pipeline output (default, current behavior)
-#   shadow           = load canonical data, log comparison with legacy, serve legacy
-#   internal_primary = serve canonical values to internal/dev only (gated, not public)
-#   primary          = serve canonical data publicly, fallback to legacy if unavailable
-# IMPORTANT: default is always "off". Only change after running
-#   python scripts/check_promotion_readiness.py --target <mode>
-CANONICAL_DATA_MODE = os.getenv("CANONICAL_DATA_MODE", "off").strip().lower()
-if CANONICAL_DATA_MODE not in ("off", "shadow", "internal_primary", "primary"):
-    CANONICAL_DATA_MODE = "off"
 
 # ── EMAIL ALERTS ────────────────────────────────────────────────────────
 # Configure alerts via environment variables (no hardcoded secrets):
@@ -239,10 +226,6 @@ contract_health: dict = {
     "contractVersion": API_DATA_CONTRACT_VERSION,
     "playerCount": 0,
 }
-# R-6: Canonical pipeline data (shadow/primary mode)
-canonical_data: dict | None = None
-canonical_data_loaded_at: str | None = None
-shadow_comparison_report: dict | None = None
 # R-9: Lightweight metrics counters
 _metrics: dict = {
     "server_start_time": None,
@@ -943,28 +926,6 @@ def _prime_latest_payload(data: dict | None) -> None:
             "warningCount": int(contract_report.get("warningCount", 0)),
             "checkedAt": contract_report.get("checkedAt"),
         }
-        # R-6 shadow/internal_primary/primary: attach canonical comparison when available.
-        if CANONICAL_DATA_MODE in ("shadow", "internal_primary", "primary") and canonical_data is not None:
-            try:
-                legacy_players = data.get("players") if isinstance(data, dict) else None
-                cmp_block = build_canonical_comparison_block(
-                    canonical_data,
-                    loaded_at=canonical_data_loaded_at,
-                    legacy_players=legacy_players,
-                )
-                contract_payload["canonicalComparison"] = cmp_block
-                summary = cmp_block.get("summary", {})
-                log.info(
-                    "[SHADOW] Attached canonicalComparison block: %d assets "
-                    "(%d matched to legacy, avg|delta|=%s)",
-                    cmp_block.get("assetCount", 0),
-                    summary.get("matchedToLegacy", 0),
-                    summary.get("avgAbsDelta", "n/a"),
-                )
-            except Exception as cmp_err:
-                log.warning("[SHADOW] Failed to build canonical comparison: %s", cmp_err)
-                # Non-fatal — live payload still serves without comparison data.
-
         latest_contract_data = contract_payload
         contract_health = contract_report
 
@@ -1049,90 +1010,6 @@ def _load_json_file(path: Path | None) -> dict | None:
     except Exception as e:
         log.error(f"Failed to load scaffold json {path}: {e}")
         return None
-
-
-def _load_canonical_snapshot() -> dict | None:
-    """R-6: Load the latest canonical pipeline snapshot if available."""
-    global canonical_data, canonical_data_loaded_at
-    if CANONICAL_DATA_MODE == "off":
-        return None
-    canonical_dir = DATA_DIR / "canonical"
-    canonical_file = _latest_file(canonical_dir, "canonical_snapshot_*.json")
-    if canonical_file is None:
-        return None
-    try:
-        with canonical_file.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-        canonical_data = data
-        canonical_data_loaded_at = _utc_now_iso()
-        log.info(f"Canonical snapshot loaded: {canonical_file.name} "
-                 f"({len(data.get('assets', []))} assets, mode={CANONICAL_DATA_MODE})")
-        return data
-    except Exception as e:
-        log.error(f"Failed to load canonical snapshot {canonical_file}: {e}")
-        return None
-
-
-def _run_canonical_shadow_comparison(legacy_data: dict | None) -> None:
-    """R-6: In shadow mode, compare canonical vs legacy data and log differences."""
-    global shadow_comparison_report
-    if CANONICAL_DATA_MODE not in ("shadow", "internal_primary", "primary") or canonical_data is None or legacy_data is None:
-        shadow_comparison_report = None
-        return
-
-    legacy_players = legacy_data.get("players", {})
-    try:
-        report = build_shadow_comparison_report(canonical_data, legacy_players)
-    except Exception as e:
-        log.warning("[SHADOW] Failed to build comparison report: %s", e)
-        shadow_comparison_report = None
-        return
-
-    shadow_comparison_report = report
-    s = report.get("summary", {})
-
-    log.info(
-        "[SHADOW] Comparison: canonical=%d legacy=%d matched=%d "
-        "canonical_only=%d legacy_only=%d",
-        s.get("canonicalAssetCount", 0),
-        s.get("legacyPlayerCount", 0),
-        s.get("matchedCount", 0),
-        s.get("canonicalOnlyCount", 0),
-        s.get("legacyOnlyCount", 0),
-    )
-
-    if s.get("avgAbsDelta") is not None:
-        log.info(
-            "[SHADOW] Delta stats: avg|delta|=%d median=%d p90=%d max=%d",
-            s["avgAbsDelta"],
-            s.get("medianAbsDelta", 0),
-            s.get("p90AbsDelta", 0),
-            s.get("maxAbsDelta", 0),
-        )
-        dist = s.get("deltaDistribution", {})
-        if dist:
-            log.info(
-                "[SHADOW] Distribution: <200=%d  200-600=%d  600-1200=%d  >1200=%d",
-                dist.get("under200", 0),
-                dist.get("200to600", 0),
-                dist.get("600to1200", 0),
-                dist.get("over1200", 0),
-            )
-
-    log.info(
-        "[SHADOW] Top-50 overlap: %d/50 (%d%%)",
-        s.get("top50Overlap", 0),
-        s.get("top50OverlapPct", 0),
-    )
-
-    risers = report.get("topRisers", [])[:5]
-    fallers = report.get("topFallers", [])[:5]
-    if risers:
-        riser_strs = [f"{r['name']}(+{r['delta']})" for r in risers]
-        log.info("[SHADOW] Top risers: %s", ", ".join(riser_strs))
-    if fallers:
-        faller_strs = [f"{r['name']}({r['delta']})" for r in fallers]
-        log.info("[SHADOW] Top fallers: %s", ", ".join(faller_strs))
 
 
 async def run_scraper(trigger: str = "manual") -> dict | None:
@@ -1415,11 +1292,6 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                 f"{site_count}/{total_sites} sites, {elapsed:.1f}s"
             )
 
-            # R-6: Reload canonical data and run shadow comparison after each scrape
-            if CANONICAL_DATA_MODE != "off":
-                _load_canonical_snapshot()
-                _run_canonical_shadow_comparison(result)
-
             return result
         except Exception as e:
             elapsed = time.time() - start
@@ -1548,12 +1420,6 @@ async def lifespan(app: FastAPI):
         log.info("Dashboard ready with cached data")
     else:
         log.info("No cached data found — dashboard will show empty until first scrape completes")
-
-    # R-6: Load canonical pipeline data if shadow/primary mode is enabled
-    if CANONICAL_DATA_MODE != "off":
-        _load_canonical_snapshot()
-        _run_canonical_shadow_comparison(latest_data)
-        log.info(f"Canonical data mode: {CANONICAL_DATA_MODE}")
 
     # 2. Start first scrape in background (don't block startup)
     async def initial_scrape():
@@ -1839,15 +1705,6 @@ async def get_status():
         # R-4: Scrape success rate tracking
         "scrape_success_rate_24h": _scrape_success_rate_24h(),
         "last_n_scrapes": scrape_history[-20:],
-        # R-6: Canonical pipeline mode
-        "canonical_data_mode": CANONICAL_DATA_MODE,
-        "canonical_data_loaded": canonical_data is not None,
-        "canonical_data_loaded_at": canonical_data_loaded_at,
-        "canonical_shadow_comparison": {
-            "available": shadow_comparison_report is not None,
-            "summary": shadow_comparison_report.get("summary") if shadow_comparison_report else None,
-            "generatedAt": shadow_comparison_report.get("generatedAt") if shadow_comparison_report else None,
-        } if CANONICAL_DATA_MODE in ("shadow", "internal_primary") else None,
     })
 
 
@@ -1947,8 +1804,6 @@ async def get_metrics():
         "disk_free_mb": free_mb,
         "disk_ok": disk_ok,
         "scrape_running": scrape_status.get("running", False),
-        "canonical_data_mode": CANONICAL_DATA_MODE,
-        "canonical_data_loaded": canonical_data is not None,
     })
 
 
@@ -1957,8 +1812,6 @@ async def get_scaffold_status():
     """Return latest scaffold snapshot metadata for raw/canonical/league/report outputs."""
     raw_file = _latest_file(DATA_DIR / "raw_sources", "raw_source_snapshot_*.json")
     ingest_validation_file = _latest_file(DATA_DIR / "validation", "ingest_validation_*.json")
-    canonical_file = _latest_file(DATA_DIR / "canonical", "canonical_snapshot_*.json")
-    canonical_validation_file = _latest_file(DATA_DIR / "validation", "canonical_validation_*.json")
     league_file = _latest_file(DATA_DIR / "league", "league_snapshot_*.json")
     identity_file = _latest_file(DATA_DIR / "identity", "identity_resolution_*.json")
     if identity_file is None:
@@ -1967,8 +1820,6 @@ async def get_scaffold_status():
 
     raw = _load_json_file(raw_file)
     ingest_validation = _load_json_file(ingest_validation_file)
-    canonical = _load_json_file(canonical_file)
-    canonical_validation = _load_json_file(canonical_validation_file)
     league = _load_json_file(league_file)
     identity = _load_json_file(identity_file)
 
@@ -2000,15 +1851,6 @@ async def get_scaffold_status():
                 "missing_snapshot_field_count": ingest_validation.get("missing_snapshot_field_count", 0) if ingest_validation else 0,
                 "missing_asset_field_count": ingest_validation.get("missing_asset_field_count", 0) if ingest_validation else 0,
             },
-            "canonical": {
-                "file": _meta(canonical_file),
-                "asset_count": canonical.get("asset_count", 0) if canonical else 0,
-            },
-            "canonical_validation": {
-                "file": _meta(canonical_validation_file),
-                "suspicious_jump_count": canonical_validation.get("suspicious_jump_count", 0) if canonical_validation else 0,
-                "rookie_universe_warning_count": canonical_validation.get("rookie_universe_warning_count", 0) if canonical_validation else 0,
-            },
             "league": {
                 "file": _meta(league_file),
                 "asset_count": league.get("asset_count", 0) if league else 0,
@@ -2035,52 +1877,6 @@ async def get_scaffold_raw():
     return JSONResponse(content=payload)
 
 
-@app.get("/api/scaffold/canonical")
-async def get_scaffold_canonical():
-    """Return canonical pipeline data.
-
-    In internal_primary mode: serves a curated player-values response with
-    calibrated values and enrichment metadata — suitable
-    for evaluation without affecting the public /api/data path.
-
-    In other modes: serves the raw canonical snapshot JSON (debug view).
-    """
-    if CANONICAL_DATA_MODE == "internal_primary" and canonical_data is not None:
-        # Build a lightweight player-values response (not the full snapshot)
-        assets = canonical_data.get("assets", [])
-        player_values = {}
-        for a in assets:
-            name = a.get("display_name", "")
-            if not name:
-                continue
-            player_values[name] = {
-                "calibrated_value": a.get("calibrated_value"),
-                "display_value": a.get("display_value"),
-                "blended_value": a.get("blended_value"),
-                "universe": a.get("universe", ""),
-                "source_count": len(a.get("source_values", {})),
-                "position": (a.get("metadata") or {}).get("position"),
-            }
-        return JSONResponse(content={
-            "mode": CANONICAL_DATA_MODE,
-            "source_count": canonical_data.get("source_count", 0),
-            "asset_count": canonical_data.get("asset_count", 0),
-            "loaded_at": canonical_data_loaded_at,
-            "run_id": canonical_data.get("run_id", ""),
-            "calibration": canonical_data.get("calibration"),
-            "enrichment_summary": canonical_data.get("enrichment_summary"),
-            "player_count": len(player_values),
-            "players": player_values,
-            "_note": "This is internal-primary data for evaluation only. Public API at /api/data still serves legacy values.",
-        })
-    # Default: serve raw canonical snapshot
-    file_path = _latest_file(DATA_DIR / "canonical", "canonical_snapshot_*.json")
-    payload = _load_json_file(file_path)
-    if payload is None:
-        return JSONResponse(status_code=404, content={"error": "No canonical scaffold snapshot found"})
-    return JSONResponse(content=payload)
-
-
 @app.get("/api/scaffold/league")
 async def get_scaffold_league():
     file_path = _latest_file(DATA_DIR / "league", "league_snapshot_*.json")
@@ -2099,47 +1895,6 @@ async def get_scaffold_identity():
     if payload is None:
         return JSONResponse(status_code=404, content={"error": "No identity report found"})
     return JSONResponse(content=payload)
-
-
-@app.get("/api/scaffold/shadow")
-async def get_scaffold_shadow():
-    """Return the latest shadow comparison report (canonical vs legacy).
-
-    Available when CANONICAL_DATA_MODE=shadow and both a canonical
-    snapshot and legacy data are loaded.  Shows overlap, deltas,
-    top risers/fallers, rank correlation, and distribution analysis.
-    """
-    if CANONICAL_DATA_MODE not in ("shadow", "internal_primary", "primary"):
-        return JSONResponse(
-            status_code=404,
-            content={"error": "Shadow comparison not available (CANONICAL_DATA_MODE must be 'shadow', 'internal_primary', or 'primary')"},
-        )
-    if shadow_comparison_report is None:
-        return JSONResponse(
-            status_code=404,
-            content={"error": "No shadow comparison report generated yet. Ensure canonical snapshot and legacy data are both loaded."},
-        )
-    return JSONResponse(content=shadow_comparison_report)
-
-
-@app.get("/api/scaffold/mode")
-async def get_scaffold_mode():
-    """Return current canonical data mode and status."""
-    public_serves = (
-        "canonical (primary mode — canonical calibrated values overlaid on legacy contract)"
-        if CANONICAL_DATA_MODE == "primary"
-        else "legacy (canonical data used for comparison/shadow only)"
-    )
-    return JSONResponse(content={
-        "canonical_data_mode": CANONICAL_DATA_MODE,
-        "canonical_loaded": canonical_data is not None,
-        "canonical_loaded_at": canonical_data_loaded_at,
-        "canonical_asset_count": len(canonical_data.get("assets", [])) if canonical_data else 0,
-        "shadow_comparison_available": shadow_comparison_report is not None,
-        "public_api_serves": public_serves,
-        "internal_api_available": CANONICAL_DATA_MODE in ("internal_primary", "primary"),
-        "rollback": "Set CANONICAL_DATA_MODE=off (or internal_primary) and restart to revert",
-    })
 
 
 @app.post("/api/trade/suggestions")
@@ -2625,49 +2380,6 @@ async def get_scaffold_report():
     if file_path is None or not file_path.exists():
         return JSONResponse(status_code=404, content={"error": "No scaffold report found"})
     return FileResponse(file_path, media_type="text/markdown")
-
-
-@app.get("/api/scaffold/promotion")
-async def get_scaffold_promotion():
-    """Return promotion readiness check results for all modes.
-
-    Evaluates the current state against thresholds defined in
-    config/promotion/promotion_thresholds.json.
-    """
-    repo = Path(__file__).parent
-    try:
-        sys_path_backup = list(sys.path)
-        if str(repo) not in sys.path:
-            sys.path.insert(0, str(repo))
-        from scripts.check_promotion_readiness import (
-            check_shadow_readiness,
-            check_internal_primary_readiness,
-            check_public_primary_readiness,
-        )
-        results = {}
-        for target, checker in [
-            ("shadow", check_shadow_readiness),
-            ("internal_primary", check_internal_primary_readiness),
-            ("public_primary", check_public_primary_readiness),
-        ]:
-            checks = checker(repo)
-            passed = sum(1 for c in checks if c.get("pass") is True)
-            failed = sum(1 for c in checks if c.get("pass") is False)
-            manual = sum(1 for c in checks if c.get("pass") is None)
-            results[target] = {
-                "ready": failed == 0 and manual == 0,
-                "passed": passed,
-                "failed": failed,
-                "manual_verification": manual,
-                "checks": checks,
-            }
-        results["current_mode"] = CANONICAL_DATA_MODE
-        return JSONResponse(content=results)
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": f"Promotion check failed: {e}"},
-        )
 
 
 # ── DRAFT CAPITAL ──────────────────────────────────────────────────────

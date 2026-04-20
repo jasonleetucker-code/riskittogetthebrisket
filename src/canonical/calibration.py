@@ -271,8 +271,7 @@ def calibrate_canonical_values(
             f"asset(s) already produced by the canonical Hill-curve pipeline "
             f"(e.g. {sample!r}). The canonical engine emits display-scaled "
             f"values in a single pass; re-calibrating them here would stack "
-            f"a second curve on top. Fix the caller to gate on the engine flag "
-            f"(see scripts/canonical_build.py::use_canonical_engine)."
+            f"a second curve on top."
         )
 
     scales = universe_scales or UNIVERSE_SCALES

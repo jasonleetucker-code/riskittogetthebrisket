@@ -215,18 +215,27 @@ def _norm_pos(pos: str) -> str:
 
 
 def build_asset_pool(
-    canonical_snapshot: dict[str, Any],
+    asset_dict_payload: dict[str, Any],
     *,
     ktc_top_n: int = KTC_TOP_N_FILTER,
 ) -> list[PlayerAsset]:
-    """Convert canonical snapshot assets into PlayerAsset objects.
+    """Convert an asset-dict payload into ``PlayerAsset`` objects.
+
+    Retained as a thin back-compat entry point for tests and tooling
+    that still pass payloads shaped like ``{"assets": [...]}``.
+    Production ``/api/trade/suggestions`` uses
+    :func:`build_asset_pool_from_contract` instead; see its docstring
+    for the field mapping from the live ``playersArray`` contract.
 
     Args:
-        canonical_snapshot: Full canonical snapshot with assets.
+        asset_dict_payload: Dict with an ``assets`` list where each
+            entry has ``display_name``, ``calibrated_value``,
+            ``display_value`` (optional), ``metadata`` (position/team/
+            rookie/years_exp), ``source_values``, and ``universe``.
         ktc_top_n: Only include players ranked inside the KTC top N.
             Set to 0 to disable the filter.
     """
-    assets = canonical_snapshot.get("assets", [])
+    assets = asset_dict_payload.get("assets", [])
     pool: list[PlayerAsset] = []
     for a in assets:
         name = str(a.get("display_name", "")).strip()
@@ -293,14 +302,16 @@ def build_asset_pool_from_contract(
     *,
     ktc_top_n: int = KTC_TOP_N_FILTER,
 ) -> list[PlayerAsset]:
-    """Contract-native replacement for :func:`build_asset_pool`.
+    """Primary pool builder — maps the live contract ``playersArray``
+    to ``PlayerAsset`` objects for the trade-suggestion engine.
 
-    Reads the live ``playersArray`` directly instead of the offline
-    canonical snapshot, so ``/api/trade/suggestions`` can run without
-    requiring ``scripts/canonical_build.py`` to have produced a
-    snapshot.  Emits the same ``PlayerAsset`` shape as the snapshot
-    path so every downstream consumer (roster analysis, sell/buy
-    categories, balancer search) is unchanged.
+    Called by ``/api/trade/suggestions`` with the live
+    ``latest_contract_data`` so suggestions sort + fairness-check on
+    the same calibrated values the public ``/api/data`` contract
+    serves.  Emits the same ``PlayerAsset`` shape as the legacy
+    asset-dict path (see :func:`build_asset_pool`) so downstream
+    consumers (roster analysis, sell/buy categories, balancer search)
+    are unchanged.
 
     Mapping:
 
@@ -1164,14 +1175,12 @@ def generate_suggestions_from_pool(
     construction so the caller controls where the pool comes from.
     Used by ``/api/trade/suggestions`` in ``server.py`` to source the
     pool directly from the live contract via
-    :func:`build_asset_pool_from_contract`, removing the need for an
-    offline canonical snapshot.
+    :func:`build_asset_pool_from_contract`.
 
-    Args match :func:`generate_suggestions` except ``pool`` replaces
-    ``canonical_snapshot``.  ``ktc_top_n`` is informational-only here
-    (reported in metadata) — the pool is expected to have already had
-    the top-N filter applied by the caller.  Leaving the kwarg in the
-    signature avoids breaking existing consumers that pass it.
+    ``ktc_top_n`` is informational-only here (reported in metadata) —
+    the pool is expected to have already had the top-N filter applied
+    by the caller.  Leaving the kwarg in the signature avoids
+    breaking existing consumers that pass it.
     """
     roster = analyze_roster(roster_names, pool, starter_needs)
     roster_set = {n.lower().strip() for n in roster_names}
@@ -1255,22 +1264,22 @@ def generate_suggestions_from_pool(
 
 def generate_suggestions(
     roster_names: list[str],
-    canonical_snapshot: dict[str, Any],
+    asset_dict_payload: dict[str, Any],
     *,
     starter_needs: dict[str, int] | None = None,
     max_per_type: int = MAX_SUGGESTIONS_PER_TYPE,
     league_rosters: list[dict[str, Any]] | None = None,
     ktc_top_n: int = KTC_TOP_N_FILTER,
 ) -> dict[str, Any]:
-    """Canonical-snapshot entry point (legacy).
+    """Asset-dict entry point (legacy back-compat).
 
-    Preserved for tests and tooling that still pass the offline
-    canonical snapshot.  Production ``/api/trade/suggestions`` now
+    Preserved for tests and tooling that still pass a payload shaped
+    like ``{"assets": [...]}``.  Production ``/api/trade/suggestions``
     uses :func:`generate_suggestions_from_pool` with a pool built
     directly from the live contract via
     :func:`build_asset_pool_from_contract`.
     """
-    pool = build_asset_pool(canonical_snapshot, ktc_top_n=ktc_top_n)
+    pool = build_asset_pool(asset_dict_payload, ktc_top_n=ktc_top_n)
     return generate_suggestions_from_pool(
         roster_names=roster_names,
         pool=pool,
