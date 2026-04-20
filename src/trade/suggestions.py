@@ -268,6 +268,131 @@ def build_asset_pool(
     return pool
 
 
+# ──────────────────────────────────────────────────────────────────────
+# Contract-native asset pool
+# ──────────────────────────────────────────────────────────────────────
+
+def _universe_from_row(row: dict[str, Any]) -> str:
+    """Derive the asset's universe label from the live contract row.
+
+    Matches the labels the legacy canonical snapshot used so downstream
+    consumers (roster analysis, suggestion categories) see the same
+    universe strings.
+    """
+    if row.get("assetClass") == "pick":
+        return "picks"
+    pos = _norm_pos(str(row.get("position") or ""))
+    is_rookie = bool(row.get("rookie"))
+    if pos in {"DL", "LB", "DB"}:
+        return "idp_rookie" if is_rookie else "idp_vet"
+    return "offense_rookie" if is_rookie else "offense_vet"
+
+
+def build_asset_pool_from_contract(
+    contract: dict[str, Any],
+    *,
+    ktc_top_n: int = KTC_TOP_N_FILTER,
+) -> list[PlayerAsset]:
+    """Contract-native replacement for :func:`build_asset_pool`.
+
+    Reads the live ``playersArray`` directly instead of the offline
+    canonical snapshot, so ``/api/trade/suggestions`` can run without
+    requiring ``scripts/canonical_build.py`` to have produced a
+    snapshot.  Emits the same ``PlayerAsset`` shape as the snapshot
+    path so every downstream consumer (roster analysis, sell/buy
+    categories, balancer search) is unchanged.
+
+    Mapping:
+
+    =========================   ==================================================
+    ``PlayerAsset`` field       Source in ``contract``
+    =========================   ==================================================
+    ``name``                    ``row["canonicalName"]``
+    ``position``                ``row["position"]`` (normalised)
+    ``display_value``           ``row["rankDerivedValue"]``
+    ``calibrated_value``        same (live values are already calibrated)
+    ``source_count``            ``len(row["canonicalSiteValues"])`` (values > 0)
+    ``team``                    ``row["team"]``
+    ``rookie``                  ``row["rookie"]``
+    ``years_exp``               ``contract["players"][legacyRef]["_yearsExp"]``
+    ``universe``                derived from ``assetClass`` + position + rookie
+    ``dispersion_cv``           CV of ``canonicalSiteValues`` (values > 0)
+    =========================   ==================================================
+
+    Only rows with a positive ``rankDerivedValue`` are included; rows
+    that fell off the Phase 4 ``OVERALL_RANK_LIMIT`` cap or that have
+    no calibrated value are filtered out, matching the canonical-
+    snapshot filter that required ``calibrated_value`` to be present.
+    """
+    players_array = contract.get("playersArray") or []
+    legacy_players = contract.get("players") or {}
+
+    pool: list[PlayerAsset] = []
+    for row in players_array:
+        name = str(row.get("canonicalName") or row.get("displayName") or "").strip()
+        if not name:
+            continue
+        cv = row.get("rankDerivedValue")
+        if cv is None:
+            continue
+        try:
+            cv_int = int(cv)
+        except (TypeError, ValueError):
+            continue
+        if cv_int <= 0:
+            continue
+
+        pos = _norm_pos(str(row.get("position") or ""))
+        team = str(row.get("team") or "")
+
+        # Source values for dispersion CV + source_count.
+        site_values = row.get("canonicalSiteValues") or {}
+        sv_list: list[float] = []
+        if isinstance(site_values, dict):
+            for v in site_values.values():
+                try:
+                    f = float(v) if v is not None else 0.0
+                except (TypeError, ValueError):
+                    continue
+                if f > 0:
+                    sv_list.append(f)
+        dispersion = _compute_cv(sv_list)
+
+        # years_exp lives on the legacy players dict, not on the
+        # playersArray row.  Look it up via the row's legacyRef.
+        years_exp: int | None = None
+        legacy_ref = row.get("legacyRef") or name
+        legacy_entry = legacy_players.get(legacy_ref)
+        if isinstance(legacy_entry, dict):
+            raw_yrs = legacy_entry.get("_yearsExp")
+            if raw_yrs is not None:
+                try:
+                    years_exp = int(raw_yrs)
+                except (TypeError, ValueError):
+                    years_exp = None
+
+        pool.append(PlayerAsset(
+            name=name,
+            position=pos,
+            display_value=cv_int,
+            calibrated_value=cv_int,
+            source_count=len(sv_list),
+            team=team,
+            rookie=bool(row.get("rookie")),
+            years_exp=years_exp,
+            universe=_universe_from_row(row),
+            dispersion_cv=round(dispersion, 4) if dispersion is not None else None,
+        ))
+    pool.sort(key=lambda x: -x.display_value)
+
+    # ── Compute KTC rank and apply top-N filter ────────────────────
+    pool = _assign_ktc_ranks(pool)
+    if ktc_top_n > 0:
+        pool = _apply_ktc_top_n_filter(pool, ktc_top_n)
+
+    return pool
+
+
 def _assign_ktc_ranks(pool: list[PlayerAsset]) -> list[PlayerAsset]:
     """Assign 1-based KTC rank to each player based on KTC source value.
 
@@ -1024,31 +1149,30 @@ def _apply_quality_filters(
 
 # ── Main entry point ─────────────────────────────────────────────────
 
-def generate_suggestions(
+def generate_suggestions_from_pool(
     roster_names: list[str],
-    canonical_snapshot: dict[str, Any],
+    pool: list[PlayerAsset],
     *,
     starter_needs: dict[str, int] | None = None,
     max_per_type: int = MAX_SUGGESTIONS_PER_TYPE,
     league_rosters: list[dict[str, Any]] | None = None,
     ktc_top_n: int = KTC_TOP_N_FILTER,
 ) -> dict[str, Any]:
-    """Generate trade suggestions for a given roster.
+    """Generate trade suggestions against a pre-built asset pool.
 
-    Args:
-        roster_names: List of player names on the user's team.
-        canonical_snapshot: Full canonical snapshot with assets.
-        starter_needs: Override positional starter needs.
-        max_per_type: Max suggestions per category.
-        league_rosters: Optional list of opponent rosters for bilateral fit.
-            Each entry: {"team_name": "...", "players": ["name1", "name2", ...]}
-        ktc_top_n: Only suggest trades involving players in the KTC top N.
-            Set to 0 to disable.
+    This is the pool-native entry point — it skips asset-pool
+    construction so the caller controls where the pool comes from.
+    Used by ``/api/trade/suggestions`` in ``server.py`` to source the
+    pool directly from the live contract via
+    :func:`build_asset_pool_from_contract`, removing the need for an
+    offline canonical snapshot.
 
-    Returns:
-        Dict with suggestion categories, roster analysis, and metadata.
+    Args match :func:`generate_suggestions` except ``pool`` replaces
+    ``canonical_snapshot``.  ``ktc_top_n`` is informational-only here
+    (reported in metadata) — the pool is expected to have already had
+    the top-N filter applied by the caller.  Leaving the kwarg in the
+    signature avoids breaking existing consumers that pass it.
     """
-    pool = build_asset_pool(canonical_snapshot, ktc_top_n=ktc_top_n)
     roster = analyze_roster(roster_names, pool, starter_needs)
     roster_set = {n.lower().strip() for n in roster_names}
 
@@ -1127,6 +1251,34 @@ def generate_suggestions(
             "opponentRostersAnalyzed": len(opponent_analyses),
         },
     }
+
+
+def generate_suggestions(
+    roster_names: list[str],
+    canonical_snapshot: dict[str, Any],
+    *,
+    starter_needs: dict[str, int] | None = None,
+    max_per_type: int = MAX_SUGGESTIONS_PER_TYPE,
+    league_rosters: list[dict[str, Any]] | None = None,
+    ktc_top_n: int = KTC_TOP_N_FILTER,
+) -> dict[str, Any]:
+    """Canonical-snapshot entry point (legacy).
+
+    Preserved for tests and tooling that still pass the offline
+    canonical snapshot.  Production ``/api/trade/suggestions`` now
+    uses :func:`generate_suggestions_from_pool` with a pool built
+    directly from the live contract via
+    :func:`build_asset_pool_from_contract`.
+    """
+    pool = build_asset_pool(canonical_snapshot, ktc_top_n=ktc_top_n)
+    return generate_suggestions_from_pool(
+        roster_names=roster_names,
+        pool=pool,
+        starter_needs=starter_needs,
+        max_per_type=max_per_type,
+        league_rosters=league_rosters,
+        ktc_top_n=ktc_top_n,
+    )
 
 
 # ── Serializers ──────────────────────────────────────────────────────
