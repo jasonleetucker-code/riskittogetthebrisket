@@ -11,7 +11,9 @@ HTML of https://keeptradecut.com/trade-calculator.  Each entry has
         &teamOne=1274&teamTwo=1555
         &format=2&isStartup=0&tep=0
 
-where ``teamOne`` and ``teamTwo`` are comma-separated KTC player IDs.
+where ``teamOne`` and ``teamTwo`` are KTC player IDs separated by
+EITHER ``,`` (KTC's legacy URL form) OR ``|`` (KTC's current URL
+form).  The parser accepts both — we split on ``[,|]``.
 This module turns that URL into two ordered lists of canonical player
 names the frontend trade page can load into its sides.
 
@@ -129,7 +131,11 @@ def parse_trade_url(url: str) -> tuple[list[int], list[int]]:
     def _parse_side(raw_values: list[str]) -> list[int]:
         ids: list[int] = []
         for raw in raw_values:
-            for token in str(raw).split(","):
+            # KTC uses BOTH ``,`` and ``|`` as ID separators depending
+            # on where/when the URL was generated.  Treating only one
+            # as valid makes pipe-form URLs (``teamOne=1934|1771``)
+            # error out with "non-integer KTC id".  Split on either.
+            for token in re.split(r"[,|]", str(raw)):
                 token = token.strip()
                 if not token:
                     continue
