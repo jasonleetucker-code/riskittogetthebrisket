@@ -84,19 +84,19 @@ function posMatchesFilter(pos, assetClass, filter, row) {
 //
 // Unified formatting for every per-source cell the rankings table
 // renders — both the desktop column cells and the mobile chip strip
-// beneath each player row.  Returns:
+// beneath each player row.  Every source (rank-signal or value-based)
+// lives on one common 1-9,999 scale in the UI: the backend stamps a
+// ``valueContribution`` for every matched source (rank sources route
+// through the Hill curve, value sources rescale linearly), and this
+// helper renders that number as the primary cell label with the
+// effective rank on the shared board shown in parentheses.  Returns:
 //
 //   hasVal    — true if the source contributed a value for this player
-//   primary   — the main label (raw value for value sources, `#rank`
-//               for rank-signal sources — per the rank-signal contract
-//               described on `RANKING_SOURCES` in dynasty-data.js,
-//               which requires UIs to render `sourceOriginalRanks`
-//               and never the synthetic value stamped for sort order).
-//   rankLabel — the effective rank on the shared board, wrapped with
-//               a `#` prefix and the `eff` prefix for rank-signal
-//               sources where "primary" is already a rank; this makes
-//               the distinction explicit in the cell output.
-//   title     — hover tooltip explaining the cell.
+//   primary   — the 9,999-scale ``valueContribution`` for the source
+//   rankLabel — the effective rank on the shared board, `#`-prefixed
+//   title     — hover tooltip explaining the cell (includes the
+//               source's original pre-translation rank when it differs
+//               from the effective rank, e.g. rookie / shared-market).
 //
 // Mirror the display format between desktop and mobile by always
 // using this helper so both surfaces show `value (#rank)` consistently.
@@ -124,39 +124,24 @@ function formatSourceCell(row, src) {
     };
   }
 
-  if (src.isRankSignal) {
-    // Rank-signal sources (DLF SF, DLF IDP, DN SF-TEP, FP IDP) expose
-    // only ordinal rank, not a trade value.  Render the original rank
-    // as primary and the effective (shared-market-translated) rank
-    // in parentheses, prefixed with `eff` to disambiguate.
-    const primary = origRank != null ? `#${origRank}` : "\u2014";
-    const rankLabel =
-      effectiveRank != null ? `eff #${effectiveRank}` : "eff \u2014";
-    return {
-      hasVal: true,
-      primary,
-      rankLabel,
-      title: `${src.displayName}: original rank ${primary}, effective rank on blended board ${
-        effectiveRank != null ? `#${effectiveRank}` : "\u2014"
-      }`,
-    };
-  }
-
-  // Value source: prefer the normalized 9999-scale value contribution
-  // so sources with non-9999 native ranges (e.g. Yahoo/Boone ~141 max)
-  // render consistently with KTC/IDPTC.  Fall back to the raw site
-  // value if the backend didn't stamp a valueContribution (old payloads
-  // during rollout).
+  // Every source renders its 9,999-scale valueContribution as the
+  // primary cell label — the same number the blend averages into the
+  // final Hill value.  Fall back to the raw site value if the backend
+  // didn't stamp a valueContribution (legacy payloads during rollout).
   const displayVal = normalizedVal != null ? normalizedVal : rawVal;
   const primary = Math.round(Number(displayVal)).toLocaleString();
   const rankLabel = effectiveRank != null ? `#${effectiveRank}` : "\u2014";
+  const origRankSuffix =
+    origRank != null && origRank !== effectiveRank
+      ? `, original rank #${origRank}`
+      : "";
   return {
     hasVal: true,
     primary,
     rankLabel,
     title: `${src.displayName}: value ${primary}${
       effectiveRank != null ? `, effective rank #${effectiveRank}` : ""
-    }`,
+    }${origRankSuffix}`,
   };
 }
 
@@ -813,11 +798,9 @@ export default function RankingsPage() {
                       col={`src:${src.key}`}
                       style={{ textAlign: "right", width: 90 }}
                       className="hide-mobile rankings-source-col"
-                      title={`${src.displayName} — ${
-                        src.isRankSignal
-                          ? "expert rank source (lower = better). Cell shows the source's original rank with its effective rank on the shared board in parentheses."
-                          : "value source. Cell shows the source's raw trade value with its effective rank on the shared board in parentheses."
-                      }`}
+                      title={`${src.displayName} — cell shows the source's 1\u20139,999 scale value (${
+                        src.isRankSignal ? "Hill curve from this source's ordinal rank" : "linear rescale of this source's native trade value"
+                      }) with its effective rank on the shared board in parentheses.`}
                     >
                       {src.columnLabel}
                     </SortHeader>
@@ -953,10 +936,11 @@ export default function RankingsPage() {
                         {/* Per-source value + rank columns.  Gated on
                             `showSiteCols` so power users can collapse the
                             source columns to focus on the Value column.
-                            Each cell shows the source's raw value (or
-                            original rank for rank-signal sources) with
-                            the effective rank on the shared board in
-                            parentheses — unified single-line format. */}
+                            Each cell shows the source's 9,999-scale
+                            valueContribution with the effective rank on
+                            the shared board in parentheses — unified
+                            single-line format so every source sits on
+                            the same value scale. */}
                         {settings.showSiteCols && RANKING_SOURCES.map((src) => {
                           const cell = formatSourceCell(row, src);
                           return (
