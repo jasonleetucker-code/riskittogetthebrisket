@@ -261,13 +261,22 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # Yahoo / Justin Boone dynasty trade value charts — scraped from
     # sports.yahoo.com via ``scripts/fetch_yahoo_boone.py``.  The
     # scraper combines Boone's QB (2QB column), RB, WR, and TE
-    # (TE-Prem. column) charts into one cross-positional competition
-    # rank and writes the ``rank`` column of the CSV.  Signal=rank so
-    # the ``_enrich_from_source_csvs`` reader picks up the rank column
-    # via ``_RANK_ALIASES``.
+    # (TE-Prem. column) charts into one cross-positional pool and
+    # writes BOTH a competition rank and Boone's published trade
+    # value (0-~141 scale where Boone's top player = 141) to the CSV
+    # columns ``rank`` and ``boone_value``.
+    #
+    # Signal=value (2026-04-21): blend reads ``boone_value`` directly
+    # via ``_VALUE_ALIASES``, normalising by the column's max so Boone's
+    # top player contributes 9999 and every other player scales linearly.
+    # This preserves Boone's published value structure (e.g. his QB vs
+    # WR separation) instead of collapsing to rank-only ordinal info.
+    # The ``rank`` column is still preserved into
+    # ``sourceOriginalRanks.yahooBoone`` for the UI to display Boone's
+    # published rank alongside his value.
     "yahooBoone": {
         "path": "CSVs/site_raw/yahooBoone.csv",
-        "signal": "rank",
+        "signal": "value",
     },
     # DLF Dynasty Rookie Superflex rankings — 6-expert consensus of the
     # current rookie class only (no veterans).  Raw CSV exported from
@@ -1019,11 +1028,17 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # Superflex + TEP league scoring — so the source is declared
         # ``is_tep_premium=True``.  Roughly 500 combined rows.
         #
-        # Rank signal: the scraper emits a competition rank computed
-        # across all four positions (ties share a rank, next rank is
-        # skipped).  The contract loader inverts rank to a synthetic
-        # monotonic value for the blend; the UI must render
-        # sourceOriginalRanks.yahooBoone, never the synthetic.
+        # Value signal (2026-04-21): the scraper writes Boone's
+        # published trade value in ``boone_value`` (0-~141 scale) plus a
+        # cross-position competition rank in ``rank``.  The blend reads
+        # ``boone_value`` via the value-direct branch, scaling linearly
+        # so Boone's top player contributes 9999 — preserving his
+        # published value structure (e.g. how much further QBs lead WRs)
+        # rather than collapsing to rank-only ordinal info.  The UI
+        # continues to render Boone's published rank via
+        # ``sourceOriginalRanks.yahooBoone`` (the value-signal CSV
+        # loader now also picks up the ``rank`` column so this audit
+        # stamp survives the switch).
         #
         # depth=500 mirrors the live row count; ``_expected_sources_for_position``
         # multiplies this by 1.25 so YAHOO_BOONE is not expected for
@@ -2537,9 +2552,18 @@ def _parse_source_csv_cached(
         "effectiveRank",
     )
     # ``3D Value +`` is DraftSharks' normalised 0-100 value column (top
-    # player = 100, decimals preserved).  Kept at the tail so more
-    # conventional aliases win when multiple are present.
-    _VALUE_ALIASES = ("value", "Value", "trade_value", "TradeValue", "3D Value +")
+    # player = 100, decimals preserved).  ``boone_value`` is Yahoo /
+    # Justin Boone's published trade value (0-~141 integer scale).
+    # Conventional aliases are placed first so more generic columns
+    # win when multiple are present.
+    _VALUE_ALIASES = (
+        "value",
+        "Value",
+        "trade_value",
+        "TradeValue",
+        "3D Value +",
+        "boone_value",
+    )
 
     def _pick(csvrow: dict[str, Any], aliases: tuple[str, ...]) -> str:
         for k in aliases:
@@ -2619,9 +2643,23 @@ def _parse_source_csv_cached(
                     val = _pick(csvrow, _VALUE_ALIASES)
                     if not val:
                         continue
+                    # Value-signal CSVs often carry a rank column too
+                    # (e.g. yahooBoone emits name,pos,rank,boone_value).
+                    # Preserve it so ``sourceOriginalRanks[source_key]``
+                    # stamps for the UI just like the rank-signal
+                    # branch does.  Missing/invalid → None (harmless).
+                    rank_raw = _pick(csvrow, _RANK_ALIASES)
+                    orig_rank: float | None = None
+                    if rank_raw != "":
+                        try:
+                            rv = float(str(rank_raw).strip())
+                            if rv > 0:
+                                orig_rank = rv
+                        except (TypeError, ValueError):
+                            orig_rank = None
                     try:
                         csv_lookup.setdefault(key, []).append(
-                            (name, int(float(val)), None)
+                            (name, int(float(val)), orig_rank)
                         )
                     except (ValueError, TypeError):
                         continue
@@ -3444,6 +3482,11 @@ _VALUE_BASED_SOURCES: frozenset[str] = frozenset({
     "ktc",
     "idpTradeCalc",
     "dynastyDaddySf",
+    # Yahoo / Justin Boone's published trade values (0-~141 scale) are
+    # rescaled to 0-9999 linearly by the blend's value-direct branch.
+    # Added 2026-04-21 to preserve Boone's native value structure
+    # instead of collapsing it to rank-only ordinal information.
+    "yahooBoone",
 })
 
 

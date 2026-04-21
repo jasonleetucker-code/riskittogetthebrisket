@@ -481,10 +481,13 @@ export const RANKING_SOURCES = [
     // surfaces a "TEP NATIVE" badge and the global tepMultiplier
     // boost does NOT compound on this source.
     //
-    // Rank-signal: a single competition rank is computed across all
-    // four positions (ties share a rank, next rank is skipped).  The
-    // UI must render sourceOriginalRanks.yahooBoone, never the
-    // synthetic value produced by the rank-to-value inversion.
+    // Value-signal (2026-04-21): the scraper writes Boone's
+    // published trade value in ``boone_value`` (0-~141 scale) and the
+    // backend blend rescales linearly so Boone's top player
+    // contributes 9999.  The ``rank`` column is still preserved and
+    // the UI renders Boone's published rank via
+    // ``sourceOriginalRanks.yahooBoone``.  `isRankSignal` is false now
+    // because the blend no longer uses the rank column as its vote.
     key: "yahooBoone",
     displayName: "Yahoo / Justin Boone SF-TEP",
     columnLabel: "Boone",
@@ -495,7 +498,7 @@ export const RANKING_SOURCES = [
     weight: 1.0,
     isBackbone: false,
     isRetail: false,
-    isRankSignal: true,
+    isRankSignal: false,
     isTepPremium: true,
     needsSharedMarketTranslation: false,
     excludesRookies: false,
