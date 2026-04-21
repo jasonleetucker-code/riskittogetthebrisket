@@ -329,6 +329,51 @@ describe("analyzeSleeperTradeHistory — side shape (gave + got + net)", () => {
     expect(analyzed[0].loser.team).toBe("Big Pile Gave");
   });
 
+  it("anchors the headline to the biggest-magnitude side, not the winner", () => {
+    // 3-team trade where the positive net is split across two small
+    // winners (<3% each) but one side takes a big loss.  The headline
+    // must surface the loser's 'overpaid by N%' rather than rounding
+    // to 'Fair trade', so the card stays consistent with per-side
+    // grades and W/L credit.
+    const rawData = {
+      sleeper: {
+        teams: [
+          { name: "Small Winner A", roster_id: 1, ownerId: "user-a" },
+          { name: "Small Winner B", roster_id: 2, ownerId: "user-b" },
+          { name: "Big Loser", roster_id: 3, ownerId: "user-c" },
+        ],
+        trades: [
+          mkTrade({
+            offsetDaysAgo: 1,
+            sides: [
+              // Two teams each swap star-for-star with a tiny top-up,
+              // coming out slightly ahead.
+              { team: "Small Winner A", rosterId: 1, ownerId: "user-a", got: ["Test Star", "Test Mid"], gave: ["Test Star"] },
+              { team: "Small Winner B", rosterId: 2, ownerId: "user-b", got: ["Test Star", "Test Mid"], gave: ["Test Star"] },
+              // Third team sends two stars, gets nothing back.
+              { team: "Big Loser", rosterId: 3, ownerId: "user-c", got: [], gave: ["Test Star", "Test Star"] },
+            ],
+          }),
+        ],
+      },
+    };
+
+    const { analyzed } = analyzeSleeperTradeHistory(rawData, rows);
+    expect(analyzed).toHaveLength(1);
+    const a = analyzed[0];
+
+    // The big loser takes a 100% pctGap on the magnitude side (−100%).
+    const bigLoser = a.sides.find((s) => s.team === "Big Loser");
+    expect(bigLoser).toBeDefined();
+    expect(bigLoser.pctGap).toBeLessThan(-3);
+
+    // Headline should name the biggest-magnitude side (the loser),
+    // with the "overpaid" direction and their magnitude.
+    expect(a.headlineSide?.team).toBe("Big Loser");
+    expect(a.headlineDirection).toBe("overpaid");
+    expect(a.pctGap).toBeGreaterThanOrEqual(3);
+  });
+
   it("labels a balanced trade as Fair on both sides and skips W/L credit", () => {
     const rawData = {
       sleeper: {

@@ -281,12 +281,15 @@ function AssetRow({ label, items, total }) {
 }
 
 function TradeCard({ analysis: a }) {
-  // Headline uses the biggest winner's own pctGap; a trade is "fair"
-  // when no side clears the ±3% grading threshold.
-  const showWinnerBadge = a.pctGap >= 3 && a.winner;
-  const borderColor = showWinnerBadge
-    ? (a.winner === a.sides[0] ? "var(--green)" : "var(--red)")
-    : "var(--green)";
+  // Headline reflects the largest grievance — winner OR loser,
+  // whichever has the biggest magnitude pctGap.  If no side clears
+  // ±3%, the trade reads as fair on both the card header and the
+  // per-side grades.
+  const showBadge = a.pctGap >= 3 && a.headlineSide;
+  const isLoserHeadline = showBadge && a.headlineDirection === "overpaid";
+  const badgeBg = isLoserHeadline ? "var(--red-soft)" : "var(--green-soft)";
+  const badgeColor = isLoserHeadline ? "var(--red)" : "var(--green)";
+  const borderColor = isLoserHeadline ? "var(--red)" : "var(--green)";
 
   return (
     <div
@@ -298,9 +301,11 @@ function TradeCard({ analysis: a }) {
         <span style={{ fontSize: "0.68rem", color: "var(--subtext)" }}>
           Week {a.trade.week} &middot; {a.date}
         </span>
-        {showWinnerBadge ? (
-          <span className="badge" style={{ background: "var(--green-soft)", color: "var(--green)" }}>
-            {a.winner.team} won by {a.pctGap.toFixed(1)}%
+        {showBadge ? (
+          <span className="badge" style={{ background: badgeBg, color: badgeColor }}>
+            {a.headlineSide.team}{" "}
+            {a.headlineDirection === "overpaid" ? "overpaid by" : "won by"}{" "}
+            {a.pctGap.toFixed(1)}%
           </span>
         ) : (
           <span className="badge" style={{ background: "var(--green-soft)", color: "var(--green)" }}>

@@ -340,13 +340,27 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
     }
 
     // Biggest winner = highest positive netWeighted; biggest loser =
-    // lowest (most negative).  The headline uses the biggest winner's
-    // own pctGap.  If nobody cleared the ±3% threshold on their net,
-    // the whole trade reads as "Fair trade".
+    // lowest (most negative).  Headline reflects the largest
+    // grievance — the side with the biggest magnitude ``pctGap``,
+    // whether that's a clear winner or a clear loser.  In 3+ team
+    // trades, several sides can share small positive nets (<3% each)
+    // while one side absorbs a −15% loss; if we anchored the headline
+    // to the winner's tiny pct, the card would read "Fair trade" even
+    // though one team was graded F.  Using the max-magnitude side
+    // keeps the header consistent with per-side grades and the W/L
+    // credit below.
     const sortedByNet = [...sides].sort((a, b) => b.netWeighted - a.netWeighted);
     const winner = sortedByNet[0] || null;
     const loser = sortedByNet[sortedByNet.length - 1] || null;
-    const headlinePct = winner ? Math.abs(winner.pctGap) : 0;
+    const headlineSide = sides.reduce(
+      (best, s) => (Math.abs(s.pctGap) > Math.abs(best?.pctGap ?? 0) ? s : best),
+      null,
+    );
+    const headlinePct = headlineSide ? Math.abs(headlineSide.pctGap) : 0;
+    // If the largest-magnitude side is a loser (negative pctGap), the
+    // UI should say "X overpaid by Y%" rather than "X won by Y%".
+    const headlineDirection =
+      headlineSide && headlineSide.pctGap < 0 ? "overpaid" : "won";
 
     // Per-side W/L for team scores.  3% is the fairness threshold
     // carried over from the prior grading regime — any trade where
@@ -382,6 +396,8 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
       winner,
       loser,
       pctGap: headlinePct,
+      headlineSide,
+      headlineDirection,
       // Legacy top-level grades kept for any caller that still reads
       // the overall winnerGrade/loserGrade — rendering prefers the
       // per-side ``side.grade`` field now.
