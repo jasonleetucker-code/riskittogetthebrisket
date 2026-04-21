@@ -109,9 +109,16 @@ function formatSourceCell(row, src) {
   // native range is 0-~141, this is the rescaled value so every
   // value column in the UI lives on the same scale.
   const normalizedVal = row?.sourceRankMeta?.[src.key]?.valueContribution;
-  const hasVal =
-    (normalizedVal != null && Number.isFinite(Number(normalizedVal))) ||
-    (rawVal != null && Number.isFinite(Number(rawVal)));
+  // Rank-signal sources stamp a synthetic encoding into canonicalSites
+  // (``_RANK_TO_SYNTHETIC_VALUE_OFFSET - rank * 100`` in the backend) that
+  // the pipeline uses only for ordering — it is NOT a 1-9,999 contribution.
+  // Require a real ``valueContribution`` for those sources so a legacy
+  // payload without the stamp shows an honest "\u2014" instead of a
+  // six-digit synthetic number mislabeled as a normalized value.
+  const hasNormalized =
+    normalizedVal != null && Number.isFinite(Number(normalizedVal));
+  const hasRaw = rawVal != null && Number.isFinite(Number(rawVal));
+  const hasVal = hasNormalized || (!src.isRankSignal && hasRaw);
   const effectiveRank = row?.sourceRanks?.[src.key];
   const origRank = row?.sourceOriginalRanks?.[src.key];
 
@@ -126,9 +133,13 @@ function formatSourceCell(row, src) {
 
   // Every source renders its 9,999-scale valueContribution as the
   // primary cell label — the same number the blend averages into the
-  // final Hill value.  Fall back to the raw site value if the backend
-  // didn't stamp a valueContribution (legacy payloads during rollout).
-  const displayVal = normalizedVal != null ? normalizedVal : rawVal;
+  // final Hill value.  Value-based sources may fall back to the raw
+  // site value on legacy payloads that predate the valueContribution
+  // stamp (their raw value IS on a monotonic value scale, just not yet
+  // rescaled to 9,999); rank-signal sources intentionally do not fall
+  // back because their raw canonicalSites entry is a synthetic rank
+  // encoding, not a value.
+  const displayVal = hasNormalized ? normalizedVal : rawVal;
   const primary = Math.round(Number(displayVal)).toLocaleString();
   const rankLabel = effectiveRank != null ? `#${effectiveRank}` : "\u2014";
   const origRankSuffix =
@@ -503,8 +514,23 @@ export default function RankingsPage() {
           // automatically.
           if (typeof sortCol === "string" && sortCol.startsWith("src:")) {
             const key = sortCol.slice(4);
-            va = Number(a.canonicalSites?.[key]) || 0;
-            vb = Number(b.canonicalSites?.[key]) || 0;
+            // Sort by the same 9,999-scale ``valueContribution`` the cell
+            // renders, so the column order always matches the displayed
+            // numbers.  Rank-signal sources with shared-market / rookie
+            // translation re-order between their original and effective
+            // rank; reading ``canonicalSites`` here would sort on the
+            // pre-translation synthetic encoding and produce a ranking
+            // that disagrees with the values in the column.  Fall back
+            // to ``canonicalSites`` only when the backend didn't stamp
+            // a valueContribution (legacy payloads).
+            const aMeta = Number(a.sourceRankMeta?.[key]?.valueContribution);
+            const bMeta = Number(b.sourceRankMeta?.[key]?.valueContribution);
+            va = Number.isFinite(aMeta)
+              ? aMeta
+              : Number(a.canonicalSites?.[key]) || 0;
+            vb = Number.isFinite(bMeta)
+              ? bMeta
+              : Number(b.canonicalSites?.[key]) || 0;
             return (va - vb) * dir;
           }
           return resolvedRank(a) - resolvedRank(b);
