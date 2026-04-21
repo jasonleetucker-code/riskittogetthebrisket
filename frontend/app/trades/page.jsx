@@ -47,14 +47,15 @@ export default function TradesPage() {
       );
     }
     if (q) {
-      // Match against every item name on either side of the trade.
+      // Match against every item name on either side of the trade,
+      // regardless of whether the player/pick was given or received.
       // ``item.name`` covers both players ("Patrick Mahomes") and
       // picks ("2026 Pick 1.06") so one query input does both.
+      const itemMatches = (item) =>
+        String(item?.name || "").toLowerCase().includes(q);
       results = results.filter((a) =>
-        a.sides.some((s) =>
-          s.items.some((item) =>
-            String(item.name || "").toLowerCase().includes(q),
-          ),
+        a.sides.some(
+          (s) => (s.got || []).some(itemMatches) || (s.gave || []).some(itemMatches),
         ),
       );
     }
@@ -240,22 +241,64 @@ function TradeTendenciesCard({ tendencies }) {
   );
 }
 
+function AssetPill({ item }) {
+  const posLabel = item.isPick ? "PICK" : item.pos;
+  const posColor = item.isPick ? POS_COLORS.PICK : (POS_COLORS[item.pos] || "#9b59b6");
+  return (
+    <span
+      style={{
+        fontSize: "0.66rem",
+        padding: "2px 6px",
+        border: "1px solid var(--border)",
+        borderRadius: 4,
+        background: "var(--bg-soft)",
+      }}
+    >
+      <span style={{ color: posColor, fontWeight: 700, fontSize: "0.58rem" }}>{posLabel}</span>{" "}
+      {item.name}{" "}
+      <span style={{ fontFamily: "var(--mono)", color: "var(--subtext)" }}>{item.val.toLocaleString()}</span>
+    </span>
+  );
+}
+
+function AssetRow({ label, items, total }) {
+  return (
+    <div style={{ marginBottom: 4 }}>
+      <div style={{ fontSize: "0.6rem", color: "var(--subtext)", fontWeight: 600, marginBottom: 2 }}>
+        {label} <span style={{ fontFamily: "var(--mono)", fontWeight: 400 }}>({Math.round(total).toLocaleString()})</span>
+      </div>
+      {items.length === 0 ? (
+        <div style={{ fontSize: "0.62rem", color: "var(--subtext)", fontStyle: "italic" }}>—</div>
+      ) : (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {items.map((item, j) => (
+            <AssetPill key={j} item={item} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TradeCard({ analysis: a }) {
+  // Headline uses the biggest winner's own pctGap; a trade is "fair"
+  // when no side clears the ±3% grading threshold.
+  const showWinnerBadge = a.pctGap >= 3 && a.winner;
+  const borderColor = showWinnerBadge
+    ? (a.winner === a.sides[0] ? "var(--green)" : "var(--red)")
+    : "var(--green)";
+
   return (
     <div
       className="card"
-      style={{
-        borderLeft: a.pctGap >= 3
-          ? `3px solid ${a.winner === a.sides[0] ? "var(--green)" : "var(--red)"}`
-          : "3px solid var(--green)",
-      }}
+      style={{ borderLeft: `3px solid ${borderColor}` }}
     >
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <span style={{ fontSize: "0.68rem", color: "var(--subtext)" }}>
           Week {a.trade.week} &middot; {a.date}
         </span>
-        {a.pctGap >= 3 ? (
+        {showWinnerBadge ? (
           <span className="badge" style={{ background: "var(--green-soft)", color: "var(--green)" }}>
             {a.winner.team} won by {a.pctGap.toFixed(1)}%
           </span>
@@ -266,13 +309,23 @@ function TradeCard({ analysis: a }) {
         )}
       </div>
 
-      {/* Sides */}
-      <div className="grid-responsive" style={{ display: "grid", gridTemplateColumns: a.sides.length > 2 ? "1fr 1fr 1fr" : "1fr 1fr", gap: 12 }}>
+      {/* Sides: each shows Gave + Got + Net so 3+ team trades are legible. */}
+      <div
+        className="grid-responsive"
+        style={{
+          display: "grid",
+          gridTemplateColumns: a.sides.length > 2 ? "1fr 1fr 1fr" : "1fr 1fr",
+          gap: 12,
+        }}
+      >
         {a.sides.map((side, i) => {
-          const isWinner = side === a.winner && a.pctGap >= 3;
-          const isLoser = side === a.loser && a.pctGap >= 3;
-          const grade = isWinner ? a.winnerGrade : isLoser ? a.loserGrade : { grade: "A", color: "var(--green)", label: "Fair" };
-
+          const grade = side.grade;
+          const netColor = side.pctGap >= 3
+            ? "var(--green)"
+            : side.pctGap <= -3
+              ? "var(--red)"
+              : "var(--subtext)";
+          const netSign = side.netValue >= 0 ? "+" : "−";
           return (
             <div key={i}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
@@ -284,30 +337,17 @@ function TradeCard({ analysis: a }) {
                   </>
                 )}
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
-                {side.items.map((item, j) => {
-                  const posLabel = item.isPick ? "PICK" : item.pos;
-                  const posColor = item.isPick ? POS_COLORS.PICK : (POS_COLORS[item.pos] || "#9b59b6");
-                  return (
-                    <span
-                      key={j}
-                      style={{
-                        fontSize: "0.66rem",
-                        padding: "2px 6px",
-                        border: "1px solid var(--border)",
-                        borderRadius: 4,
-                        background: "var(--bg-soft)",
-                      }}
-                    >
-                      <span style={{ color: posColor, fontWeight: 700, fontSize: "0.58rem" }}>{posLabel}</span>{" "}
-                      {item.name}{" "}
-                      <span style={{ fontFamily: "var(--mono)", color: "var(--subtext)" }}>{item.val.toLocaleString()}</span>
-                    </span>
-                  );
-                })}
-              </div>
-              <div style={{ fontFamily: "var(--mono)", fontSize: "0.62rem", color: "var(--subtext)" }}>
-                Total: {Math.round(side.weighted).toLocaleString()}
+              <AssetRow label="Gave" items={side.gave} total={side.gaveValue} />
+              <AssetRow label="Got" items={side.got} total={side.gotValue} />
+              <div style={{
+                fontFamily: "var(--mono)",
+                fontSize: "0.62rem",
+                color: netColor,
+                fontWeight: 600,
+                marginTop: 2,
+              }}>
+                Net: {netSign}{Math.abs(Math.round(side.netValue)).toLocaleString()}
+                {" "}({side.pctGap >= 0 ? "+" : ""}{side.pctGap.toFixed(1)}%)
               </div>
             </div>
           );

@@ -249,6 +249,15 @@ function sideDisplayName(side, identityMaps) {
  * Analyze all Sleeper trades within the rolling window.
  * Returns { windowDays, analyzed, teamScores }.
  *
+ * Each side carries both what that team GAVE and what they GOT, plus
+ * per-side net gain on both the linear and alpha-weighted scales.  A
+ * side's grade and pctGap are computed from its OWN net (gotWeighted
+ * minus gaveWeighted) rather than compared against other sides'
+ * received totals — this matters for 3+ team trades where each team's
+ * sent and received pools don't pair up.  For 2-team trades the old
+ * "compare received totals" math is algebraically equivalent, because
+ * A.got = B.gave and vice versa.
+ *
  * Aggregation is keyed by `ownerId` (Sleeper user id) so trades from
  * managers who renamed their team roll up under the current team
  * name, while trades from an orphaned roster that changed hands stay
@@ -271,28 +280,45 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
   const teamScores = {};
   const analyzed = [];
 
+  // Resolve a list of raw item labels to { items, linear, weighted }.
+  // ``weighted`` uses the alpha exponent so a single star asset counts
+  // more than a pile of scrubs with the same linear sum.
+  const resolveSideList = (rawList) => {
+    const items = [];
+    let linear = 0;
+    let weighted = 0;
+    for (const rawItem of getTradeSideItemLabels(rawList)) {
+      const resolved = resolveTradeItemValue(rawItem, rowLookup, posMap, pickAliases);
+      const safeVal = Number.isFinite(resolved.value) ? Math.max(0, resolved.value) : 0;
+      linear += safeVal;
+      weighted += Math.pow(Math.max(safeVal, 1), alpha);
+      items.push({
+        name: resolved.name,
+        val: Math.round(safeVal),
+        pos: resolved.pos,
+        isPick: resolved.isPick,
+      });
+    }
+    return { items, linear, weighted };
+  };
+
   for (const trade of filtered) {
     const ts = normalizeTradeTimestampMs(trade.timestamp);
     const date = ts ? new Date(ts).toLocaleDateString() : "?";
     const sides = [];
 
     for (const side of trade.sides || []) {
-      let linearTotal = 0;
-      let weightedTotal = 0;
-      const items = [];
-
-      for (const rawItem of getTradeSideItemLabels(side?.got)) {
-        const resolved = resolveTradeItemValue(rawItem, rowLookup, posMap, pickAliases);
-        const safeVal = Number.isFinite(resolved.value) ? Math.max(0, resolved.value) : 0;
-        linearTotal += safeVal;
-        weightedTotal += Math.pow(Math.max(safeVal, 1), alpha);
-        items.push({
-          name: resolved.name,
-          val: Math.round(safeVal),
-          pos: resolved.pos,
-          isPick: resolved.isPick,
-        });
-      }
+      const got = resolveSideList(side?.got);
+      const gave = resolveSideList(side?.gave);
+      const netLinear = got.linear - gave.linear;
+      const netWeighted = got.weighted - gave.weighted;
+      // pctGap expresses net gain relative to the larger side of this
+      // team's own equation: +20% = "I got 20% more value than I
+      // gave", −30% = "I gave away 30% more than I got".  Positive
+      // means this side won; negative means they lost.
+      const scale = Math.max(got.weighted, gave.weighted, 1);
+      const pctGap = (netWeighted / scale) * 100;
+      const grade = gradeTradeHistorySide(Math.abs(pctGap), pctGap > 0);
 
       const displayTeam = sideDisplayName(side, identityMaps);
       sides.push({
@@ -300,27 +326,32 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
         historicalTeam: side.team || "",
         ownerId: side.ownerId || null,
         rosterId: side.rosterId ?? null,
-        linear: linearTotal,
-        weighted: weightedTotal,
-        items,
+        got: got.items,
+        gave: gave.items,
+        gotValue: got.linear,
+        gotWeighted: got.weighted,
+        gaveValue: gave.linear,
+        gaveWeighted: gave.weighted,
+        netValue: netLinear,
+        netWeighted,
+        pctGap,
+        grade,
       });
     }
 
-    // Determine winner using stud-adjusted values
-    sides.sort((a, b) => b.weighted - a.weighted);
-    const winner = sides[0];
-    const loser = sides.length > 1 ? sides[sides.length - 1] : null;
-    const pctGap =
-      loser && winner.weighted > 0
-        ? ((winner.weighted - loser.weighted) / winner.weighted) * 100
-        : 0;
+    // Biggest winner = highest positive netWeighted; biggest loser =
+    // lowest (most negative).  The headline uses the biggest winner's
+    // own pctGap.  If nobody cleared the ±3% threshold on their net,
+    // the whole trade reads as "Fair trade".
+    const sortedByNet = [...sides].sort((a, b) => b.netWeighted - a.netWeighted);
+    const winner = sortedByNet[0] || null;
+    const loser = sortedByNet[sortedByNet.length - 1] || null;
+    const headlinePct = winner ? Math.abs(winner.pctGap) : 0;
 
-    const winnerGrade = gradeTradeHistorySide(pctGap, true);
-    const loserGrade = loser ? gradeTradeHistorySide(pctGap, false) : null;
-
-    // Track team scores, keyed by ownerId (falls back to rosterId /
-    // name) so renamed teams roll up per human while orphan
-    // takeovers stay split.
+    // Per-side W/L for team scores.  3% is the fairness threshold
+    // carried over from the prior grading regime — any trade where
+    // every team's net rounds below 3% shouldn't count as a win or
+    // loss for anyone.
     for (const s of sides) {
       const key = sideAggregationKey(s);
       if (!teamScores[key]) {
@@ -335,16 +366,28 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
         };
       }
       teamScores[key].trades++;
-      if (s === winner && pctGap >= 3) {
+      if (s.pctGap >= 3) {
         teamScores[key].won++;
-        teamScores[key].totalGain += winner.weighted - (loser ? loser.weighted : 0);
-      } else if (s === loser && pctGap >= 3) {
+        teamScores[key].totalGain += s.netWeighted;
+      } else if (s.pctGap <= -3) {
         teamScores[key].lost++;
-        teamScores[key].totalGain -= winner.weighted - loser.weighted;
+        teamScores[key].totalGain += s.netWeighted;
       }
     }
 
-    analyzed.push({ trade, date, sides, winner, loser, pctGap, winnerGrade, loserGrade });
+    analyzed.push({
+      trade,
+      date,
+      sides,
+      winner,
+      loser,
+      pctGap: headlinePct,
+      // Legacy top-level grades kept for any caller that still reads
+      // the overall winnerGrade/loserGrade — rendering prefers the
+      // per-side ``side.grade`` field now.
+      winnerGrade: winner ? winner.grade : null,
+      loserGrade: loser && loser !== winner ? loser.grade : null,
+    });
   }
 
   return { windowDays, analyzed, teamScores };

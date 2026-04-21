@@ -214,6 +214,151 @@ describe("analyzeSleeperTradeHistory — unique keys across orphan takeovers", (
   });
 });
 
+describe("analyzeSleeperTradeHistory — side shape (gave + got + net)", () => {
+  it("stamps got, gave, gotValue, gaveValue, netValue, pctGap, grade per side", () => {
+    const rawData = {
+      sleeper: {
+        teams: [
+          { name: "Team A", roster_id: 1, ownerId: "user-a" },
+          { name: "Team B", roster_id: 2, ownerId: "user-b" },
+        ],
+        trades: [
+          mkTrade({
+            offsetDaysAgo: 1,
+            sides: [
+              { team: "Team A", rosterId: 1, ownerId: "user-a", got: ["Test Star"], gave: ["Test Mid"] },
+              { team: "Team B", rosterId: 2, ownerId: "user-b", got: ["Test Mid"], gave: ["Test Star"] },
+            ],
+          }),
+        ],
+      },
+    };
+
+    const { analyzed } = analyzeSleeperTradeHistory(rawData, rows);
+    expect(analyzed).toHaveLength(1);
+    const [a, b] = analyzed[0].sides;
+
+    // Team A got Test Star (5000) for Test Mid (2000) — net positive.
+    expect(a.team).toBe("Team A");
+    expect(a.got.map((i) => i.name)).toEqual(["Test Star"]);
+    expect(a.gave.map((i) => i.name)).toEqual(["Test Mid"]);
+    expect(a.gotValue).toBe(5000);
+    expect(a.gaveValue).toBe(2000);
+    expect(a.netValue).toBe(3000);
+    expect(a.pctGap).toBeGreaterThan(0);
+    expect(a.grade).toBeDefined();
+    expect(a.grade.grade).toMatch(/^A/); // A / A+ / A- for winners
+
+    // Team B is the mirror: got Test Mid, gave Test Star.
+    expect(b.netValue).toBe(-3000);
+    expect(b.pctGap).toBeLessThan(0);
+    // Loser's pctGap magnitude equals winner's — symmetric 2-team trade.
+    expect(Math.abs(a.pctGap)).toBeCloseTo(Math.abs(b.pctGap), 5);
+  });
+
+  it("grades each side on its own net, not on absolute received total (3-team trade)", () => {
+    // Scenario mirroring the screenshot on PR #190:
+    //   - Big-pile team gives 3 players worth (2000+2000+5000=9000), gets
+    //     one star worth 5000.  Net = −4000, they overpaid.
+    //   - Small-pile team gives one star (5000), gets 3 pieces (9000).
+    //     Net = +4000, they made out.
+    //   - Third team swaps 5000 for 5000.  Net = 0, fair.
+    // Old grading (by absolute received) would flag whoever received
+    // the fewest pieces as "F Fleeced" even when their outgoing stack
+    // was smaller.  New grading should call the small-pile team the
+    // winner and the big-pile team the loser.
+    const rawData = {
+      sleeper: {
+        teams: [
+          { name: "Big Pile Gave", roster_id: 1, ownerId: "user-a" },
+          { name: "Small Pile Got", roster_id: 2, ownerId: "user-b" },
+          { name: "Even Swap", roster_id: 3, ownerId: "user-c" },
+        ],
+        trades: [
+          mkTrade({
+            offsetDaysAgo: 1,
+            sides: [
+              {
+                team: "Big Pile Gave",
+                rosterId: 1,
+                ownerId: "user-a",
+                // gave 3 pieces (2000+2000+5000 = 9000), got 1 star
+                got: ["Test Star"],
+                gave: ["Test Mid", "Test Mid", "Test Star"],
+              },
+              {
+                team: "Small Pile Got",
+                rosterId: 2,
+                ownerId: "user-b",
+                // gave 1 star (5000), got 3 pieces (9000)
+                got: ["Test Mid", "Test Mid", "Test Star"],
+                gave: ["Test Star"],
+              },
+              {
+                team: "Even Swap",
+                rosterId: 3,
+                ownerId: "user-c",
+                got: ["Test Star"],
+                gave: ["Test Star"],
+              },
+            ],
+          }),
+        ],
+      },
+    };
+
+    const { analyzed } = analyzeSleeperTradeHistory(rawData, rows);
+    expect(analyzed).toHaveLength(1);
+    const [bigPile, smallPile, evenSwap] = analyzed[0].sides;
+
+    // Big-pile team OVERPAID despite receiving a high-value piece.
+    expect(bigPile.netValue).toBeLessThan(0);
+    expect(bigPile.pctGap).toBeLessThan(-3);
+
+    // Small-pile team WON despite receiving cheaper pieces than the
+    // old absolute-received math would have scored highest.
+    expect(smallPile.netValue).toBeGreaterThan(0);
+    expect(smallPile.pctGap).toBeGreaterThan(3);
+
+    // Even-swap team grades as fair.
+    expect(evenSwap.netValue).toBe(0);
+    expect(Math.abs(evenSwap.pctGap)).toBeLessThan(3);
+
+    // Overall headline winner should be the small-pile team.
+    expect(analyzed[0].winner.team).toBe("Small Pile Got");
+    expect(analyzed[0].loser.team).toBe("Big Pile Gave");
+  });
+
+  it("labels a balanced trade as Fair on both sides and skips W/L credit", () => {
+    const rawData = {
+      sleeper: {
+        teams: [
+          { name: "Team A", roster_id: 1, ownerId: "user-a" },
+          { name: "Team B", roster_id: 2, ownerId: "user-b" },
+        ],
+        trades: [
+          mkTrade({
+            offsetDaysAgo: 1,
+            sides: [
+              { team: "Team A", rosterId: 1, ownerId: "user-a", got: ["Test Star"], gave: ["Test Star"] },
+              { team: "Team B", rosterId: 2, ownerId: "user-b", got: ["Test Star"], gave: ["Test Star"] },
+            ],
+          }),
+        ],
+      },
+    };
+
+    const { analyzed, teamScores } = analyzeSleeperTradeHistory(rawData, rows);
+    expect(analyzed[0].sides.every((s) => s.pctGap === 0)).toBe(true);
+    expect(analyzed[0].sides.every((s) => s.grade.grade === "A")).toBe(true);
+    // No one wins or loses a fair trade.
+    for (const bucket of Object.values(teamScores)) {
+      expect(bucket.won).toBe(0);
+      expect(bucket.lost).toBe(0);
+    }
+  });
+});
+
 describe("analyzeTradeTendencies — ownerId aggregation", () => {
   it("splits orphan takeovers by owner", () => {
     const rawData = {
