@@ -261,11 +261,13 @@ class TestCCoverageAwareBlending(unittest.TestCase):
         # Coverage weight stamped on meta
         eff_w = dl_a["sourceRankMeta"]["dlTop5"]["effectiveWeight"]
         self.assertLess(eff_w, 0.1)
-        # IDPTC's declared weight is 2.0 (IDP backbone + retail
-        # authority); coverage_weight preserves it on full-board
-        # sources (depth=None).
+        # IDPTC's declared weight is 1.0 as of 2026-04-21 — it was
+        # demoted from 2.0 when DS SF/IDP and FG SF/IDP joined the
+        # cross-market anchor set (IDPTC is no longer the sole
+        # authority).  coverage_weight still preserves the declared
+        # weight unchanged on full-board sources (depth=None).
         backbone_w = dl_a["sourceRankMeta"]["idpTradeCalc"]["effectiveWeight"]
-        self.assertEqual(backbone_w, 2.0)
+        self.assertEqual(backbone_w, 1.0)
 
         # The blended value must stay closer to rank_to_value(3) than to
         # rank_to_value(1) — the deep backbone dominates the shallow list.
@@ -278,7 +280,7 @@ class TestCCoverageAwareBlending(unittest.TestCase):
     def test_full_board_second_idp_source_preserves_declared_weights(self):
         """A second full-board overall_idp source (depth=None) should
         carry its declared weight unchanged by coverage_weight; the
-        backbone's declared 2.0 is similarly preserved."""
+        backbone's declared 1.0 is similarly preserved."""
         self._saved_registry2 = copy.deepcopy(_RANKING_SOURCES)
         _RANKING_SOURCES.append(
             {
@@ -301,8 +303,11 @@ class TestCCoverageAwareBlending(unittest.TestCase):
             bw = b["sourceRankMeta"]["secondFull"]["effectiveWeight"]
             bw_bb = b["sourceRankMeta"]["idpTradeCalc"]["effectiveWeight"]
             self.assertEqual(bw, 1.0)
-            # IDPTC's declared weight is 2.0 per the IDP-authority policy.
-            self.assertEqual(bw_bb, 2.0)
+            # IDPTC's declared weight is 1.0 as of 2026-04-21 (demoted
+            # from 2.0 when DS SF/IDP and FG SF/IDP joined the
+            # cross-market anchor set — IDPTC is no longer the sole
+            # IDP authority).
+            self.assertEqual(bw_bb, 1.0)
         finally:
             _RANKING_SOURCES.clear()
             _RANKING_SOURCES.extend(self._saved_registry2)

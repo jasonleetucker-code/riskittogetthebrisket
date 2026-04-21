@@ -608,37 +608,70 @@ class TestRookieScopeRouting(unittest.TestCase):
             self.skipTest("No live data")
         self.rows = _ranked_rows(self.contract)
 
-    def test_rookie_source_rank_one_gets_max_value(self) -> None:
-        """A rookie source's rank-1 player should have V=9999 from
-        the ROOKIE master (p=0).  Under the old ladder-translation
-        this value was the OFFENSE-master-mapped reference-source
-        rank and therefore less than 9999.
+    def test_rookie_source_rank_one_translated_via_reference_ladder(self) -> None:
+        """Fix B (2026-04-21): a rookie source's rank-1 player has
+        its effective rank TRANSLATED to the reference ladder's top-
+        rookie rank (KTC for SF, IDPTC for IDP), NOT left at rank 1.
+
+        This is the whole point of the ladder translation — the top
+        rookie isn't "the best player overall" (value 9999); they're
+        "where KTC/IDPTC puts the top rookie on their combined
+        board" (SF rookies typically land around rank 25-40 in KTC's
+        offense-only pool; IDP rookies land around rank 100-200 in
+        IDPTC's combined offense+IDP pool where offense players sit
+        above IDPs on the shared 0-9999 scale).
         """
+        # Per-source sanity upper bounds — KTC is a pure offense
+        # ranker so rookie#1 sits shallow; IDPTC is a combined pool
+        # so top IDP rookie naturally sits deeper.
+        _SANITY_UPPER_BOUND = {
+            "dlfRookieSf": 100,
+            "dlfRookieIdp": 250,
+        }
+        hits = 0
         for row in self.rows:
             meta = row.get("sourceRankMeta") or {}
             for src_key in ("dlfRookieSf", "dlfRookieIdp"):
                 m = meta.get(src_key) or {}
                 if m.get("rawRank") != 1:
                     continue
-                # Rookie rank 1 now maps to p=0 → V=9999 under ROOKIE
-                # master.  Ladder is off.
-                self.assertEqual(
-                    m.get("effectiveRank"),
-                    1,
-                    f"{src_key} rank-1 player "
-                    f"{row.get('canonicalName')} has eff_rank "
-                    f"{m.get('effectiveRank')} != 1 — rookie-ladder "
-                    f"translation should be OFF.",
+                eff = int(m.get("effectiveRank") or 0)
+                vc = int(m.get("valueContribution") or 0)
+                # Ladder-translated rank must be much deeper than 1
+                # (if it's still 1 the translation didn't run) and
+                # the contribution must be well below the max 9999.
+                self.assertGreater(
+                    eff, 1,
+                    f"{src_key} rank-1 player {row.get('canonicalName')}"
+                    f" still at effective rank {eff} — the Phase 1d"
+                    f" rookie-ladder translation is OFF.",
                 )
-                self.assertEqual(
-                    int(m.get("valueContribution") or 0),
-                    9999,
-                    f"{src_key} rank-1 V="
-                    f"{m.get('valueContribution')} != 9999 — ROOKIE "
-                    f"master should map p=0 → 9999.",
+                self.assertLess(
+                    vc, 9999,
+                    f"{src_key} rank-1 player contribution still 9999"
+                    f" — ladder translation should cap it below that.",
                 )
-                return
-        self.skipTest("no rookie rank-1 player in snapshot")
+                # Sanity: not wildly deep either.  Bounds differ per
+                # source because the reference ladder's universe
+                # (offense-only KTC vs combined-pool IDPTC) puts the
+                # top rookie at very different ranks.
+                bound = _SANITY_UPPER_BOUND[src_key]
+                self.assertLess(
+                    eff, bound,
+                    f"{src_key} rank-1 translated to {eff} (sanity"
+                    f" bound {bound}) — reference ladder may be"
+                    f" malformed or universe filter incorrect.",
+                )
+                # And the ``method`` stamp records the translation.
+                self.assertIn(
+                    "rookie_ladder_translation",
+                    str(m.get("method") or ""),
+                    f"{src_key} rank-1 player lacks ladder-translation"
+                    f" method stamp; got {m.get('method')!r}",
+                )
+                hits += 1
+        if hits == 0:
+            self.skipTest("no rookie rank-1 player in snapshot")
 
     def test_rookie_master_differs_from_offense_and_idp(self) -> None:
         from src.canonical.player_valuation import (  # noqa: PLC0415
