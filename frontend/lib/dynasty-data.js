@@ -644,6 +644,59 @@ export const RANKING_SOURCES = [
   },
 ];
 
+// ── Source vendor grouping ───────────────────────────────────────────
+// Several vendors publish multiple sibling boards (e.g. DLF ships SF +
+// IDP + rookie-SF + rookie-IDP as four separate scraped sources so the
+// backend can weight and translate each scope independently).  For
+// end-user display this sub-source split is noise — if we list every
+// sub-source in the trade breakdown, a rookie-for-veteran trade lights
+// up DLF as "Side A wins on DLF RK, Side B wins on DLF SF" when really
+// those are just two views of the same vendor opinion.
+//
+// ``SOURCE_VENDORS`` maps each canonical source key to its vendor
+// identifier.  UI components that want to present one-row-per-vendor
+// (e.g. the trade per-source breakdown) sum ``valueContribution``
+// across every sub-source belonging to a vendor for each trade side,
+// then render one consolidated row.  Sources whose key doesn't appear
+// here stand alone under their own key (fallback handled in consumers).
+//
+// ``SOURCE_VENDOR_LABELS`` supplies the display label for each vendor
+// row; components can fall back to the first matching sub-source's
+// ``columnLabel`` if a vendor has no explicit label here.
+export const SOURCE_VENDORS = {
+  dlfSf: "dlf",
+  dlfIdp: "dlf",
+  dlfRookieSf: "dlf",
+  dlfRookieIdp: "dlf",
+  fantasyProsSf: "fantasyPros",
+  fantasyProsIdp: "fantasyPros",
+  flockFantasySf: "flock",
+  flockFantasySfRookies: "flock",
+  footballGuysSf: "footballGuys",
+  footballGuysIdp: "footballGuys",
+  draftSharks: "draftSharks",
+  draftSharksIdp: "draftSharks",
+};
+
+export const SOURCE_VENDOR_LABELS = {
+  dlf: "DLF",
+  fantasyPros: "FantasyPros",
+  flock: "Flock Fantasy",
+  footballGuys: "FootballGuys",
+  draftSharks: "Draft Sharks",
+};
+
+/**
+ * Return the vendor identifier for a source key.  Falls back to the
+ * source key itself when the source isn't part of a multi-board
+ * vendor (e.g. ktc, idpTradeCalc, dynastyDaddySf, yahooBoone,
+ * dynastyNerdsSfTep, fantasyProsFitzmaurice — single-board vendors).
+ */
+export function vendorForSource(sourceKey) {
+  if (!sourceKey) return "";
+  return SOURCE_VENDORS[sourceKey] || sourceKey;
+}
+
 // ── Retail source registry helpers ───────────────────────────────────
 // Mirrors `_retail_source_keys()` on the backend.  "Retail" sources are
 // flagged in the registry with `isRetail: true` and represent the

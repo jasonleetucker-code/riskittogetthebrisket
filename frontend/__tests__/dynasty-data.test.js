@@ -13,6 +13,10 @@ import {
   fetchDynastyData,
   normalizePlayerName,
   _resetBaseContractCache,
+  SOURCE_VENDORS,
+  SOURCE_VENDOR_LABELS,
+  vendorForSource,
+  RANKING_SOURCES,
 } from "@/lib/dynasty-data";
 
 // Common test helper: every fixture row that wants to be ranked must
@@ -1007,5 +1011,73 @@ describe("resolveIdpPosition (IDP multi-position priority)", () => {
     expect(normalizePos("LB")).toBe("LB");
     // Non-IDP multi-strings fall through to the single-token path.
     expect(normalizePos("QB")).toBe("QB");
+  });
+});
+
+describe("source vendor grouping", () => {
+  it("maps every multi-board vendor's sub-sources to the same vendor id", () => {
+    // DLF ships four sibling boards; they must all fold back to "dlf".
+    expect(vendorForSource("dlfSf")).toBe("dlf");
+    expect(vendorForSource("dlfIdp")).toBe("dlf");
+    expect(vendorForSource("dlfRookieSf")).toBe("dlf");
+    expect(vendorForSource("dlfRookieIdp")).toBe("dlf");
+
+    // Flock publishes vet + rookie boards — same vendor.
+    expect(vendorForSource("flockFantasySf")).toBe("flock");
+    expect(vendorForSource("flockFantasySfRookies")).toBe("flock");
+
+    // FBG and DraftSharks each publish SF + IDP — same vendor.
+    expect(vendorForSource("footballGuysSf")).toBe("footballGuys");
+    expect(vendorForSource("footballGuysIdp")).toBe("footballGuys");
+    expect(vendorForSource("draftSharks")).toBe("draftSharks");
+    expect(vendorForSource("draftSharksIdp")).toBe("draftSharks");
+
+    // FantasyPros SF + IDP — same vendor.  Fitzmaurice is a separate
+    // FP article with its own scrape path and display-invariant
+    // identity, so it stands alone.
+    expect(vendorForSource("fantasyProsSf")).toBe("fantasyPros");
+    expect(vendorForSource("fantasyProsIdp")).toBe("fantasyPros");
+    expect(vendorForSource("fantasyProsFitzmaurice")).toBe(
+      "fantasyProsFitzmaurice",
+    );
+  });
+
+  it("falls back to the source key itself for single-board vendors", () => {
+    expect(vendorForSource("ktc")).toBe("ktc");
+    expect(vendorForSource("idpTradeCalc")).toBe("idpTradeCalc");
+    expect(vendorForSource("dynastyDaddySf")).toBe("dynastyDaddySf");
+    expect(vendorForSource("dynastyNerdsSfTep")).toBe("dynastyNerdsSfTep");
+    expect(vendorForSource("yahooBoone")).toBe("yahooBoone");
+  });
+
+  it("returns empty string for empty/undefined source keys", () => {
+    expect(vendorForSource("")).toBe("");
+    expect(vendorForSource(undefined)).toBe("");
+    expect(vendorForSource(null)).toBe("");
+  });
+
+  it("handles unknown source keys by returning them unchanged", () => {
+    // A new source added to the backend before the vendor map is
+    // updated must still show up as its own row (single-board
+    // fallback), never crash.
+    expect(vendorForSource("newExperimentalSource")).toBe(
+      "newExperimentalSource",
+    );
+  });
+
+  it("exports explicit display labels for every multi-board vendor", () => {
+    const multiBoardVendors = new Set(Object.values(SOURCE_VENDORS));
+    for (const vendor of multiBoardVendors) {
+      expect(SOURCE_VENDOR_LABELS[vendor]).toBeTruthy();
+    }
+  });
+
+  it("every SOURCE_VENDORS key corresponds to a registered source", () => {
+    // Prevents typos / stale entries in the vendor map when sources
+    // get renamed on the backend.
+    const registeredKeys = new Set(RANKING_SOURCES.map((s) => s.key));
+    for (const key of Object.keys(SOURCE_VENDORS)) {
+      expect(registeredKeys.has(key)).toBe(true);
+    }
   });
 });
