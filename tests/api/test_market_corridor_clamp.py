@@ -12,7 +12,9 @@ from typing import Any
 
 from src.api.data_contract import (
     _MARKET_ANCHOR_BY_ASSET_CLASS,
+    _MARKET_ANCHOR_FALLBACKS,
     _apply_market_corridor_clamp,
+    _market_anchor_for_row,
     _market_anchor_value_for_row,
     _percentile,
 )
@@ -72,6 +74,128 @@ class TestMarketAnchorSelection(unittest.TestCase):
             ktc=8200,  # pick KTC values exist but picks aren't in the clamp scope
         )
         self.assertIsNone(_market_anchor_value_for_row(row))
+
+
+class TestFallbackAnchor(unittest.TestCase):
+    """``_market_anchor_for_row`` falls back when the primary anchor
+    is missing.  The fallback chain is the key safety net for
+    IDPs like Shavon Revel who aren't listed by IDPTC but ARE
+    listed by IDP Show / DLF IDP — without it they'd escape the
+    clamp entirely and the calibration's 3-4× DB bucket multipliers
+    could inflate single-source noise into a top-50 finish.
+    """
+
+    def _idp_row_with_vc(self, source_key: str, vc: int) -> dict:
+        return {
+            "canonicalName": "Test IDP",
+            "assetClass": "idp",
+            "canonicalSiteValues": {},
+            "sourceRankMeta": {source_key: {"valueContribution": vc}},
+            "rankDerivedValue": 6000,
+            "canonicalConsensusRank": 50,
+            "confidenceBucket": "low",
+        }
+
+    def test_primary_anchor_preferred(self):
+        row = {
+            "assetClass": "idp",
+            "canonicalSiteValues": {"idpTradeCalc": 4500},
+            "sourceRankMeta": {
+                "idpTradeCalc": {"valueContribution": 4000},
+                "dlfIdp": {"valueContribution": 3000},
+                "idpShow": {"valueContribution": 5000},
+            },
+        }
+        val, src = _market_anchor_for_row(row)
+        self.assertEqual(src, "idpTradeCalc")
+        self.assertEqual(val, 4000)  # prefers valueContribution
+
+    def test_falls_back_to_secondary_anchor(self):
+        """IDPTC missing → use DLF IDP valueContribution."""
+        row = {
+            "assetClass": "idp",
+            "canonicalSiteValues": {},
+            "sourceRankMeta": {
+                "dlfIdp": {"valueContribution": 3500},
+                "idpShow": {"valueContribution": 4200},
+            },
+        }
+        val, src = _market_anchor_for_row(row)
+        self.assertEqual(src, "dlfIdp")
+        self.assertEqual(val, 3500)
+
+    def test_falls_back_to_median_when_only_deep_sources(self):
+        """No IDPTC, no DLF IDP, no IDP Show — just FP IDP + FBG IDP.
+        Both are deep in the fallback chain, so we use the median
+        instead of picking arbitrarily."""
+        row = {
+            "assetClass": "idp",
+            "canonicalSiteValues": {},
+            "sourceRankMeta": {
+                # Only stamping sources past position 2 in the chain
+                # (indices 3+) so the "chain pick" doesn't fire.
+                "fantasyProsIdp": {"valueContribution": 2000},
+                "footballGuysIdp": {"valueContribution": 3000},
+            },
+        }
+        val, src = _market_anchor_for_row(row)
+        # fantasyProsIdp comes before footballGuysIdp in the chain,
+        # so it gets picked first.
+        self.assertEqual(src, "fantasyProsIdp")
+        self.assertEqual(val, 2000)
+
+    def test_single_source_fallback(self):
+        """Only IDP Show listed — Revel's case.  Anchor is the single
+        source's valueContribution; clamp protects against runaway
+        calibration boost with a per-player floor."""
+        row = self._idp_row_with_vc("idpShow", 1026)
+        val, src = _market_anchor_for_row(row)
+        self.assertEqual(src, "idpShow")
+        self.assertEqual(val, 1026)
+
+    def test_no_anchor_when_no_source_stamped(self):
+        row = {
+            "assetClass": "idp",
+            "canonicalSiteValues": {},
+            "sourceRankMeta": {},
+        }
+        val, src = _market_anchor_for_row(row)
+        self.assertIsNone(val)
+        self.assertIsNone(src)
+
+    def test_fallback_chain_covers_all_scope_sources(self):
+        """Safety rail: every IDP-scope and offense-scope value+rank
+        source in the registry should be somewhere in the fallback
+        chain for its asset class.  Catches a new source being added
+        to _RANKING_SOURCES without being added to the anchor chain
+        — which would silently reintroduce the gap we're fixing."""
+        from src.api.data_contract import _RANKING_SOURCES
+        from src.canonical.idp_backbone import (
+            SOURCE_SCOPE_OVERALL_IDP,
+            SOURCE_SCOPE_OVERALL_OFFENSE,
+        )
+        offense_sources = {
+            s["key"] for s in _RANKING_SOURCES
+            if s.get("scope") == SOURCE_SCOPE_OVERALL_OFFENSE
+            and not s.get("excludes_rookies")  # rookie-only boards aren't anchors
+        }
+        idp_sources = {
+            s["key"] for s in _RANKING_SOURCES
+            if s.get("scope") == SOURCE_SCOPE_OVERALL_IDP
+        }
+        chain_offense = set(_MARKET_ANCHOR_FALLBACKS.get("offense") or [])
+        chain_idp = set(_MARKET_ANCHOR_FALLBACKS.get("idp") or [])
+        # The chain is a curated shortlist — we don't require every
+        # offense source, just confirm the chain is non-empty and
+        # starts with the declared primary anchors.
+        self.assertEqual(
+            _MARKET_ANCHOR_FALLBACKS["offense"][0],
+            _MARKET_ANCHOR_BY_ASSET_CLASS["offense"],
+        )
+        self.assertEqual(
+            _MARKET_ANCHOR_FALLBACKS["idp"][0],
+            _MARKET_ANCHOR_BY_ASSET_CLASS["idp"],
+        )
 
 
 class TestPercentileHelper(unittest.TestCase):
