@@ -1216,6 +1216,41 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                     message=f"FantasyPros IDP fetch raised: {_fp_err}",
                 )
 
+            # Refresh The IDP Show (Adamidp) rankings.  The fetcher
+            # reads cookies from ``idpshow_session.json`` at the repo
+            # root — if the file is missing (e.g. fresh deploy before
+            # the operator has pasted cookies) we skip silently.
+            # When cookies have expired the fetcher returns non-zero
+            # and we surface it as a warning so the stale-data banner
+            # knows to prompt a cookie refresh.
+            _idpshow_session = BASE_DIR / "idpshow_session.json"
+            if _idpshow_session.exists():
+                try:
+                    from scripts import fetch_idpshow as _idpshow_fetch
+                    rc = _idpshow_fetch.main([])
+                    if rc != 0:
+                        _record_scrape_event(
+                            "idpshow_fetch_failed",
+                            level="warning",
+                            message=(
+                                f"IDP Show fetch returned exit={rc}.  "
+                                f"Session cookies may have expired — "
+                                f"refresh idpshow_session.json."
+                            ),
+                            exit_code=rc,
+                        )
+                except Exception as _idpshow_err:
+                    _record_scrape_event(
+                        "idpshow_fetch_exception",
+                        level="warning",
+                        message=f"IDP Show fetch raised: {_idpshow_err}",
+                    )
+            else:
+                log.info(
+                    "IDP Show skipped — idpshow_session.json missing; "
+                    "operator must paste cookies into that file to enable."
+                )
+
             _update_scrape_progress(
                 step="publish",
                 source="api_cache",
