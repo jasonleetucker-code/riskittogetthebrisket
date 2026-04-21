@@ -177,6 +177,13 @@ class TestValueChain(unittest.TestCase):
             final = row.get("rankDerivedValue")
             if uncal is None or final is None:
                 continue
+            # Market-corridor clamp may have pulled this row's value
+            # toward KTC when the blend drifted past the P90 band.
+            # The invariant being tested here is that no OFFENSE
+            # CALIBRATION pass mutates the value; the clamp is a
+            # separate transform covered by its own test suite.
+            if row.get("marketCorridorClamp"):
+                continue
             self.assertEqual(
                 int(final),
                 int(uncal),
@@ -206,6 +213,12 @@ class TestValueChain(unittest.TestCase):
             uncal = row.get("rankDerivedValueUncalibrated")
             final = row.get("rankDerivedValue")
             if uncal is None or final is None:
+                continue
+            # Skip rows where the market-corridor clamp has pulled
+            # the final value away from the pure calibration fold.
+            # The calibration-folds-exactly-once invariant is what
+            # this test pins; the clamp is a separate transform.
+            if row.get("marketCorridorClamp"):
                 continue
             bucket = row.get("idpCalibrationMultiplier")
             family = row.get("idpFamilyScale")
