@@ -4,3 +4,9 @@ requests
 playwright
 openpyxl
 anthropic
+# DLF scraping: curl_cffi impersonates Chrome's TLS fingerprint so
+# we can pass DLF's Cloudflare JS challenge (vanilla requests and
+# Playwright both get blocked at the challenge page).
+# beautifulsoup4 parses DLF's WPDataTable HTML.
+curl_cffi
+beautifulsoup4

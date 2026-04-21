@@ -103,6 +103,8 @@ jobs:
           FOOTBALLGUYS_PASSWORD: ${{ secrets.FOOTBALLGUYS_PASSWORD }}
           DRAFTSHARKS_EMAIL: ${{ secrets.DRAFTSHARKS_EMAIL }}
           DRAFTSHARKS_PASSWORD: ${{ secrets.DRAFTSHARKS_PASSWORD }}
+          DLF_USERNAME: ${{ secrets.DLF_USERNAME }}
+          DLF_PASSWORD: ${{ secrets.DLF_PASSWORD }}
         run: |
           set -Eeuo pipefail
           echo "::group::Scraper output"
@@ -134,6 +136,14 @@ jobs:
           # client-side by a WebAssembly worker; auto-login is wired
           # into the scraper itself.
           python scripts/fetch_draftsharks.py 2>&1 || echo "::warning title=DraftSharks fetch failed::Non-fatal — continuing with stale CSV"
+
+          # Fetch DLF member-only rankings (four boards: dlfSf, dlfIdp,
+          # dlfRookieSf, dlfRookieIdp).  DLF sits behind a Cloudflare JS
+          # challenge + WordPress member login; the scraper uses
+          # curl_cffi with Chrome TLS fingerprint impersonation to pass
+          # CF, then POSTs credentials to wp-login.php.  Non-fatal — a
+          # failed DLF fetch leaves the previous CSV in place.
+          python scripts/fetch_dlf.py 2>&1 || echo "::warning title=DLF fetch failed::Non-fatal — continuing with stale CSV"
 
           # Verify at least KTC data was produced (primary source)
           if [[ -f "CSVs/site_raw/ktc.csv" ]]; then
