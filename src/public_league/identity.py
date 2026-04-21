@@ -21,6 +21,25 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
+# ── Retired owner IDs ────────────────────────────────────────────────
+# Sleeper owner_ids of former league members who have left the league
+# entirely.  Their historical aliases (team names, avatars, roster
+# slots) are filtered out at registry build time so they don't appear
+# in franchise dropdowns, manager lists, or alias tables.  Game-data
+# references to their old roster slots (matchup results, trades) that
+# exist in the Sleeper archives will simply attribute to "" and get
+# filtered out by the same orphan-roster handling that skips
+# un-assigned rosters, so no historical rewrite is required.
+#
+# Add an entry here to retire an owner:
+#     _RETIRED_OWNER_IDS: frozenset[str] = frozenset({
+#         "714976074907336704",  # Bwalk903 — left after 2024
+#     })
+_RETIRED_OWNER_IDS: frozenset[str] = frozenset({
+    "714976074907336704",  # Bwalk903 — left after 2024
+    "720849338183548928",  # SheriffB — left after 2024
+})
+
 
 @dataclass
 class TeamAlias:
@@ -133,6 +152,14 @@ def build_manager_registry(seasons: Iterable[dict[str, Any]]) -> ManagerRegistry
                 # Orphaned roster — skip; we refuse to invent a
                 # pseudo-owner.  History for this roster in this season
                 # will simply be attributed to "" and filtered out.
+                continue
+            if owner_id in _RETIRED_OWNER_IDS:
+                # Operator-maintained retirement list.  Drop every
+                # alias from this owner across every season so they
+                # don't appear in manager dropdowns or franchise
+                # pages.  Historical matchup / trade data that
+                # references their old roster slot falls through to
+                # the same "" attribution path as orphaned rosters.
                 continue
             try:
                 rid_int = int(roster.get("roster_id"))
