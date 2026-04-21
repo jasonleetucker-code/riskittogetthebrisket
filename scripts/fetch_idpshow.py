@@ -129,12 +129,15 @@ def _fetch_article_html(session) -> str:
 
 
 def _extract_chart_id(html: str) -> str | None:
-    """Locate the Datawrapper iframe and return its chart ID.
+    """Locate the Datawrapper iframe and return the base chart ID.
 
     The iframe ``src`` looks like
-    ``https://datawrapper.dwcdn.net/Kwh7Y/5/`` — we pull the ID
-    (``Kwh7Y``) from the path, not the version suffix, because the
-    Datawrapper dataset.csv endpoint accepts any version path.
+    ``https://datawrapper.dwcdn.net/Kwh7Y/5/`` — we pull the chart
+    ID only (``Kwh7Y``) and rely on :func:`_resolve_latest_version`
+    to walk the JS-redirect chain and find the current version.
+    Substack articles often keep the iframe's embed URL at whatever
+    version was live when the post was first published (here v5)
+    while the author republishes new versions behind that redirect.
     """
     m = re.search(
         r"datawrapper\.dwcdn\.net/([A-Za-z0-9]+)/(\d+)/",
@@ -142,7 +145,55 @@ def _extract_chart_id(html: str) -> str | None:
     )
     if not m:
         return None
-    return f"{m.group(1)}/{m.group(2)}"
+    return m.group(1)
+
+
+def _resolve_latest_version(session, chart_id: str) -> str | None:
+    """Follow Datawrapper's JS/meta-refresh redirects to find the
+    current published version of a chart.
+
+    The iframe endpoint at
+    ``https://datawrapper.dwcdn.net/{chart_id}/{ver}/`` returns
+    either:
+      * a 200 with a small JS/meta redirect to the "next" version
+        (e.g. v5 → v133 → v165 → v186 → v190), OR
+      * a 200 with the rendered chart HTML (terminal; no redirect).
+
+    We walk the chain up to 20 hops (protects against pathological
+    loops) and return the final version number.  Fallback: return
+    the starting version unchanged if the first hop already
+    terminates.
+    """
+    current = "1"
+    for _ in range(20):
+        url = f"https://datawrapper.dwcdn.net/{chart_id}/{current}/"
+        r = session.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=15,
+            allow_redirects=False,
+        )
+        if r.status_code != 200:
+            return None
+        # If the response is a large rendered HTML page we've hit the
+        # terminal version; the redirect shell is a tiny (<300 byte)
+        # HTML with one script + meta tag.
+        if len(r.text) > 1000:
+            return current
+        m = re.search(
+            rf"datawrapper\.dwcdn\.net/{re.escape(chart_id)}/(\d+)/",
+            r.text,
+        )
+        if not m:
+            # No redirect and not rendered HTML either — unusual,
+            # but treat as terminal to avoid infinite loops.
+            return current
+        next_ver = m.group(1)
+        if next_ver == current:
+            return current
+        current = next_ver
+    # Hit the hop limit without finding a terminal — likely a loop.
+    return current
 
 
 def _looks_paywalled(html: str) -> bool:
@@ -158,8 +209,8 @@ def _looks_paywalled(html: str) -> bool:
     return any(s in html for s in sentinels)
 
 
-def _fetch_dataset_csv(session, chart_id: str) -> str:
-    url = f"https://datawrapper.dwcdn.net/{chart_id}/dataset.csv"
+def _fetch_dataset_csv(session, chart_id: str, version: str) -> str:
+    url = f"https://datawrapper.dwcdn.net/{chart_id}/{version}/dataset.csv"
     r = session.get(
         url,
         headers={"Referer": "https://www.theidpshow.com/"},
@@ -251,10 +302,18 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-    print(f"[idpshow] chart_id={chart_id}")
+    version = _resolve_latest_version(session, chart_id)
+    if not version:
+        print(
+            f"[idpshow] ERROR: could not resolve latest Datawrapper "
+            f"version for chart {chart_id} — redirect chain broke.",
+            file=sys.stderr,
+        )
+        return 1
+    print(f"[idpshow] chart_id={chart_id} version={version}")
 
     try:
-        csv_text = _fetch_dataset_csv(session, chart_id)
+        csv_text = _fetch_dataset_csv(session, chart_id, version)
     except RuntimeError as exc:
         print(f"[idpshow] dataset fetch failed: {exc}", file=sys.stderr)
         return 1

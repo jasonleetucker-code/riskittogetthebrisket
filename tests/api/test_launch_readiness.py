@@ -380,9 +380,13 @@ class TestGate8FlagIntegrity(unittest.TestCase):
         bucket.  Relaxed from 9% → 8% when DLF Rookie SF + IDP were
         added as sources 13 + 14 — rookie-class sources have narrow
         coverage and wide ladder-translation spreads that push some
-        rookies + picks out of the high bucket.  Still a useful sanity
-        floor — if high drops much below 8% something has broken in
-        the source pipeline.
+        rookies + picks out of the high bucket.  Relaxed from 7% →
+        6% when The IDP Show was added as source 19 — deep IDP
+        sources widen rankSpread for elite edges that disagree
+        between IDP-ranker sources (e.g. Parsons at #9 on The IDP
+        Show vs #65 on IDPTC on the combined pool).  Still a useful
+        sanity floor — if high drops much below 6% something has
+        broken in the source pipeline.
         """
         result = _get()
         if result is None:
@@ -390,7 +394,7 @@ class TestGate8FlagIntegrity(unittest.TestCase):
         _, ranked, _ = result
         high = sum(1 for r in ranked if r.get("confidenceBucket") == "high")
         pct = high / len(ranked) * 100
-        self.assertGreaterEqual(pct, 7, f"High confidence {pct:.1f}% < 7%")
+        self.assertGreaterEqual(pct, 6, f"High confidence {pct:.1f}% < 6%")
 
 
 # ── GATE 9: Live-Page Verification ──────────────────────────────────────
