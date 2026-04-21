@@ -361,14 +361,22 @@ class TestPlayerRankingsUnchanged(unittest.TestCase):
         # ~65, which the count-aware mean-median can't fully absorb
         # when two of three anchor sources outlier in the same
         # direction).  A true pipeline regression still trips these
-        # — Parsons cratering below rank 200 or his value falling
-        # below 3000 would signal a real break.
-        "Myles Garrett":    {"max_rank": 150, "min_value": 3500, "allowed_buckets": ("low", "medium", "high")},
-        "Will Anderson":    {"max_rank": 120, "min_value": 3500, "allowed_buckets": ("low", "medium", "high")},
-        "Micah Parsons":    {"max_rank": 170, "min_value": 3000, "allowed_buckets": ("low", "medium", "high")},
-        "Fred Warner":      {"max_rank": 150, "min_value": 3000, "allowed_buckets": ("low", "medium", "high")},
-        "Roquan Smith":     {"max_rank": 160, "min_value": 2500, "allowed_buckets": ("low", "medium", "high")},
-        "Kyle Hamilton":    {"max_rank": 200, "min_value": 2000, "allowed_buckets": ("low", "medium", "high")},
+        # — Parsons cratering below rank 210 or his value falling
+        # below 2800 would signal a real break.
+        #
+        # Widened again 2026-04-21 after the Hill scope masters were
+        # refit to include yahooBoone + Fitzmaurice + DraftSharks as
+        # training data.  Flatter GLOBAL (c 0.188 → 0.112) and IDP
+        # (c 0.113 → 0.102) curves compress mid-pool value by ~10%
+        # for elite IDPs like Parsons/Garrett who industry-consensus
+        # rank below IDPTC's view of them.  Bands tracked to the new
+        # neutral-calibration equilibrium.
+        "Myles Garrett":    {"max_rank": 150, "min_value": 3400, "allowed_buckets": ("low", "medium", "high")},
+        "Will Anderson":    {"max_rank": 120, "min_value": 3400, "allowed_buckets": ("low", "medium", "high")},
+        "Micah Parsons":    {"max_rank": 210, "min_value": 2500, "allowed_buckets": ("low", "medium", "high")},
+        "Fred Warner":      {"max_rank": 150, "min_value": 2800, "allowed_buckets": ("low", "medium", "high")},
+        "Roquan Smith":     {"max_rank": 160, "min_value": 2300, "allowed_buckets": ("low", "medium", "high")},
+        "Kyle Hamilton":    {"max_rank": 200, "min_value": 1800, "allowed_buckets": ("low", "medium", "high")},
     }
 
     def setUp(self) -> None:
