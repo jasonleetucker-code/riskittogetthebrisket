@@ -11,11 +11,26 @@ set for the rank-to-value conversion system.  Methodology:
           mean-median across the percentile grid.
   Step 3: Emit the master (c*, s*) for each scope.
 
-Scope assignments (in the current registry):
+Scope assignments (current registry, expanded 2026-04-21):
 
-  - GLOBAL:   IDPTradeCalc (combined offense + IDP pool)
-  - OFFENSE:  KTC, DynastyDaddy, DynastyNerds (offense-only pools)
-  - IDP:      IDPTradeCalc's IDP slice (the only value-based IDP source)
+  - GLOBAL:   IDPTradeCalc + DraftSharks-Combined
+              (both publish offense + IDP on a single cross-universe
+              value scale — IDPTC natively; DS via the offense-combined
+              page that serves every position from one shared ``3D
+              Value +`` scale.  DS is concat-loaded from its SF + IDP
+              CSVs so the concatenated pool's top value anchors 9999.)
+  - OFFENSE:  KTC, DynastyDaddy, DynastyNerds, YahooBoone,
+              FantasyPros-Fitzmaurice, DraftSharks-SF
+              (offense-only value distributions; Boone/Fitzmaurice are
+              SF-TEP-native, DraftSharks-SF is the league-synced slice
+              from the combined board).
+  - IDP:      IDPTradeCalc's IDP slice + DraftSharks-IDP
+              (IDPTC IDP slice via snapshot position filter; DS IDP
+              directly from its IDP-filtered CSV).
+  - ROOKIE:   KTC + IDPTC rookie slices (unchanged — rookies-only
+              slicing is value-source-agnostic, but we add Boone /
+              Fitzmaurice / DraftSharks rookie slices too when they
+              have ≥10 rookies with values in the latest snapshot).
 
 Replaces the previous "pooled fit" which weighted sources by their
 data-point count.  Per-source-then-combine gives each source equal
@@ -33,15 +48,37 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 
 # Value-based sources grouped by scope.  Each entry: (csv_path,
-# value_col, label).  The IDP scope is handled specially via
-# _load_idptc_idp_values().
+# value_col, label).  The IDPTC IDP scope contribution is still
+# handled specially via _load_idptc_idp_values() because the IDPTC
+# CSV mixes positions and needs a snapshot-backed position filter;
+# DS IDP has its own pre-filtered CSV so it just rides _load_values.
 GLOBAL_SOURCES: dict[str, tuple[str, str]] = {
     "IDPTradeCalc": ("CSVs/site_raw/idpTradeCalc.csv", "value"),
 }
 OFFENSE_SOURCES: dict[str, tuple[str, str]] = {
-    "KTC":          ("CSVs/site_raw/ktc.csv",               "value"),
-    "DynastyDaddy": ("CSVs/site_raw/dynastyDaddySf.csv",    "value"),
-    "DynastyNerds": ("CSVs/site_raw/dynastyNerdsSfTep.csv", "Value"),
+    "KTC":          ("CSVs/site_raw/ktc.csv",                    "value"),
+    "DynastyDaddy": ("CSVs/site_raw/dynastyDaddySf.csv",         "value"),
+    "DynastyNerds": ("CSVs/site_raw/dynastyNerdsSfTep.csv",      "Value"),
+    # Added 2026-04-21: three more value-based offense sources that
+    # went live in the April source expansion.  Each is SF-TEP-native
+    # (Boone pulls 2QB + TE-Prem columns; Fitzmaurice uses SF Value +
+    # TEP Value; DraftSharks is league-synced via its WebAssembly
+    # scoring worker).  Tops are ~141 (Boone), ~101 (Fitzmaurice),
+    # ~100 (DS SF) — all normalize to 9999 at the curve's anchor.
+    "YahooBoone":   ("CSVs/site_raw/yahooBoone.csv",             "boone_value"),
+    "Fitzmaurice":  ("CSVs/site_raw/fantasyProsFitzmaurice.csv", "value"),
+    "DraftSharks":  ("CSVs/site_raw/draftSharksSf.csv",          "3D Value +"),
+}
+# IDP value sources that have pre-filtered per-position CSVs.  IDPTC
+# is NOT in this dict because its CSV is all positions mixed —
+# _load_idptc_idp_values() handles IDPTC's IDP slice via a snapshot
+# position filter instead.
+IDP_CSV_SOURCES: dict[str, tuple[str, str]] = {
+    # DraftSharks IDP slice: every value is on DS's cross-universe
+    # scale (Schwesinger at 44 reflects his cross-universe rank ~36,
+    # not an IDP-only rescale).  Training against the IDP slice
+    # normalizes the slice top to 9999 — same pattern as IDPTC-IDP.
+    "DraftSharks-IDP": ("CSVs/site_raw/draftSharksIdp.csv", "3D Value +"),
 }
 
 _IDP_POSITIONS: frozenset[str] = frozenset(
@@ -108,6 +145,25 @@ def _load_idptc_idp_values() -> list[float]:
             vs.append(vf)
     vs.sort(reverse=True)
     return vs
+
+
+def _load_draftsharks_combined_values() -> list[float]:
+    """DraftSharks offense + IDP combined pool, descending.
+
+    DraftSharks publishes every player on a single cross-universe
+    ``3D Value +`` scale (Josh Allen at 100 and Schwesinger at 44 are
+    comparable on the same 0-100 range).  The scraper writes the
+    offense and IDP slices into separate CSVs for downstream scope
+    filtering, but for GLOBAL training we recover the original pool
+    by concatenating both files before normalizing — preserving DS's
+    native cross-universe top anchor (Allen at 100) so the resulting
+    Hill curve matches IDPTC's combined-pool semantics.
+    """
+    sf = _load_values(REPO / "CSVs" / "site_raw" / "draftSharksSf.csv", "3D Value +")
+    idp = _load_values(REPO / "CSVs" / "site_raw" / "draftSharksIdp.csv", "3D Value +")
+    combined = sf + idp
+    combined.sort(reverse=True)
+    return combined
 
 
 def _load_rookie_values(source_key: str) -> list[float]:
@@ -295,6 +351,24 @@ def main() -> int:
 
     print("\nGLOBAL scope (combined offense + IDP value sources):")
     global_fits = _fit_sources(GLOBAL_SOURCES, "")
+    # Add DraftSharks as a combined-pool entry alongside IDPTC.  DS
+    # natively cross-universe → concatenate SF + IDP CSVs, sort
+    # descending, percentile-fit.  Labeled DraftSharks-Combined for
+    # parity with the IDPTradeCalc entry shown above.
+    ds_combined = _load_draftsharks_combined_values()
+    if len(ds_combined) >= 20:
+        pairs = _percentile_pairs(ds_combined[:400])
+        c, s, mse = _fit(pairs)
+        global_fits.append(("DraftSharks-Combined", c, s))
+        print(
+            f"  DraftSharks-Combined  n={len(pairs):4d}  "
+            f"c={c:.4f}  s={s:.3f}  rmse={mse ** 0.5:.1f}"
+        )
+    else:
+        print(
+            f"  DraftSharks-Combined  (only {len(ds_combined)} total "
+            f"values; skipping)"
+        )
 
     print("\nIDP scope (IDP value sources):")
     idp_values = _load_idptc_idp_values()
@@ -308,25 +382,38 @@ def main() -> int:
             f"s={s:.3f}  rmse={mse ** 0.5:.1f}"
         )
     else:
-        print("  (no IDP value source data)")
+        print("  IDPTradeCalc-IDP    (no snapshot available)")
+    # Any additional IDP value sources whose CSVs are pre-filtered
+    # to IDP positions (e.g. DraftSharks-IDP) are fit alongside the
+    # IDPTC IDP slice; _fit_scope_master averages them into the IDP
+    # master curve.
+    idp_fits.extend(_fit_sources(IDP_CSV_SOURCES, "  "))
 
     print("\nROOKIE scope (rookie slices of value-based sources):")
     rookie_fits: list[tuple[str, float, float]] = []
     for label, src_key in (
-        ("KTC-Rookie", "ktc"),
-        ("IDPTC-Rookie", "idpTradeCalc"),
+        ("KTC-Rookie",          "ktc"),
+        ("IDPTC-Rookie",        "idpTradeCalc"),
+        # Added 2026-04-21: rookie slices from the newly-wired
+        # value sources.  Each rookie slice is normalized so the
+        # slice's top contributes 9999, same as KTC / IDPTC.
+        # Small rookie classes with <10 rookies in a snapshot are
+        # auto-skipped so a sparse source doesn't wreck the master.
+        ("Boone-Rookie",        "yahooBoone"),
+        ("Fitzmaurice-Rookie",  "fantasyProsFitzmaurice"),
+        ("DraftSharks-Rookie",  "draftSharks"),
     ):
         rv = _load_rookie_values(src_key)
         if len(rv) < 10:
             print(
-                f"  {label:18s}  (only {len(rv)} rookies with values; skipping)"
+                f"  {label:22s}  (only {len(rv)} rookies with values; skipping)"
             )
             continue
         pairs = _percentile_pairs(rv)
         c, s, mse = _fit(pairs)
         rookie_fits.append((label, c, s))
         print(
-            f"  {label:18s}  n={len(pairs):4d}  c={c:.4f}  "
+            f"  {label:22s}  n={len(pairs):4d}  c={c:.4f}  "
             f"s={s:.3f}  rmse={mse ** 0.5:.1f}"
         )
 
