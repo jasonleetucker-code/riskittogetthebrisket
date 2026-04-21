@@ -23,16 +23,24 @@ _NEUTRAL_PATH = Path(
 ) / "idp_calibration.json"
 
 
-def _neutral_config_path(base: Path | None = None) -> Path:  # noqa: ARG001
+# Stash the real implementation so calibration-specific tests can
+# opt back in by passing ``base=tmp_path`` to their API calls, and so
+# the wrapper below can delegate to it when a base is explicit.
+_production._original_production_config_path = _production.production_config_path
+
+
+def _neutral_config_path(base: Path | None = None) -> Path:
+    # Honour an explicit ``base`` so opt-in calibration tests that
+    # pass ``base=tmp_path`` (e.g. ``tests/idp_calibration/test_api.py``)
+    # still hit their own sandbox. Without an explicit base we fall
+    # through to the neutral temp file so unrelated tests never read
+    # any promoted config that happens to live at
+    # ``config/idp_calibration.json`` on the dev machine.
+    if base is not None:
+        return _production._original_production_config_path(base)
     return _NEUTRAL_PATH
 
 
-# Stash the real implementation so the calibration-specific tests can
-# restore it via monkeypatch if they need to hit a specific config
-# file. In practice those tests also monkeypatch this attribute, which
-# layers on top of the neutral override without us needing to expose
-# a switch.
-_production._original_production_config_path = _production.production_config_path
 _production.production_config_path = _neutral_config_path
 _production.reset_cache()
 

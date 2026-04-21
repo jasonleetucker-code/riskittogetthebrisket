@@ -17,10 +17,9 @@ from .promotion import (
     StaleArtifactSchemaError,
     V2_VALID_MODES,
     VALID_MODES,
-    load_production,
     promote_run,
 )
-from .production import is_promoted
+from .production import promoted_state
 from .storage import delete_all_runs, delete_run, get_latest, list_runs, load_run, save_run
 
 
@@ -134,18 +133,33 @@ def promote(body: dict[str, Any] | None, *, base: Path | None = None) -> tuple[i
 
 
 def production(*, base: Path | None = None) -> tuple[int, dict[str, Any]]:
-    cfg = load_production(base)
-    if not cfg:
-        return 200, {"ok": True, "present": False, "config": None}
-    return 200, {"ok": True, "present": True, "config": cfg}
+    # Routes through the schema-aware ``promoted_state`` so this
+    # endpoint and ``/status`` never disagree about whether
+    # calibration is live. When a schema-stale config sits on disk
+    # we surface that explicitly (``stale=true``, ``stale_version=N``)
+    # so operators can see why ``present`` is ``false`` despite a
+    # file being present.
+    state = promoted_state(base)
+    return 200, {
+        "ok": True,
+        "present": state["present"],
+        "stale": state["stale"],
+        "stale_version": state["stale_version"],
+        "required_version": state["required_version"],
+        "config": state["config"],
+    }
 
 
 def status(*, base: Path | None = None) -> tuple[int, dict[str, Any]]:
     latest = get_latest(base=base)
+    state = promoted_state(base)
     return 200, {
         "ok": True,
         "latest_run_id": (latest or {}).get("run_id"),
         "latest_generated_at": (latest or {}).get("generated_at"),
-        "production_present": is_promoted(base=base),
+        "production_present": state["present"],
+        "production_stale": state["stale"],
+        "production_stale_version": state["stale_version"],
+        "required_schema_version": state["required_version"],
         "valid_modes": list(VALID_MODES),
     }

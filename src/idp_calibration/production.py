@@ -29,7 +29,11 @@ from .promotion import production_config_path
 _STALE_SENTINEL: object = object()
 
 _lock = threading.Lock()
-_cache: dict[str, Any] = {"mtime": None, "config": None}
+# ``stale_version`` is cached alongside the sentinel so
+# :func:`promoted_state` can surface the on-disk schema version to
+# operators without re-reading the file.  ``None`` when the config
+# is absent or actively applied.
+_cache: dict[str, Any] = {"mtime": None, "config": None, "stale_version": None}
 
 # Minimum config version the runtime will apply. Configs written by the
 # v1 engine encoded ``final`` as a top-bucket-normalised VOR decay
@@ -50,6 +54,7 @@ def _load_if_stale(base: Path | None = None) -> dict[str, Any] | None:
         with _lock:
             _cache["mtime"] = None
             _cache["config"] = None
+            _cache["stale_version"] = None
         _stale_version_warned = False
         return None
     mtime = path.stat().st_mtime
@@ -85,15 +90,18 @@ def _load_if_stale(base: Path | None = None) -> dict[str, Any] | None:
                     _stale_version_warned = True
                 _cache["mtime"] = mtime
                 _cache["config"] = _STALE_SENTINEL
+                _cache["stale_version"] = cfg_version
                 return None
             _stale_version_warned = False
             _cache["mtime"] = mtime
             _cache["config"] = data
+            _cache["stale_version"] = None
             return data
         # Non-dict JSON (corrupt file) — treat as stale so we don't
         # re-read and parse every call.
         _cache["mtime"] = mtime
         _cache["config"] = _STALE_SENTINEL
+        _cache["stale_version"] = 0
         return None
 
 
@@ -103,12 +111,81 @@ def reset_cache() -> None:
     with _lock:
         _cache["mtime"] = None
         _cache["config"] = None
+        _cache["stale_version"] = None
     _stale_version_warned = False
 
 
 def load_production_config(base: Path | None = None) -> dict[str, Any] | None:
     """Public read: current promoted config, or ``None`` if absent."""
     return _load_if_stale(base)
+
+
+def promoted_state(base: Path | None = None) -> dict[str, Any]:
+    """Structured snapshot of the promoted-config state.
+
+    Single source of truth for every operator-facing endpoint
+    (``/api/idp-calibration/production`` and ``/status``), so both
+    surfaces can't contradict each other about whether calibration
+    is live — a real concern during the rollout window where a
+    schema-stale config may sit on disk while the runtime ignores it.
+
+    Fields:
+
+    * ``present`` — the live pipeline is applying this config right
+      now. ``True`` only when the file exists **and** passes the
+      schema-version gate.
+    * ``stale`` — a file exists on disk but the loader refused it
+      (version below :data:`_MIN_SUPPORTED_VERSION` or corrupt JSON).
+      When ``stale`` is ``True``, ``present`` is ``False``.
+    * ``stale_version`` — the on-disk schema version when ``stale``
+      is ``True``; ``None`` otherwise. Helpful for operators to see
+      "you're on v1, need v2" at a glance.
+    * ``required_version`` — the minimum schema version the runtime
+      accepts. Constant per build.
+    * ``config`` — the active config dict when ``present`` is
+      ``True``; ``None`` otherwise.
+
+    Always routes through :func:`_load_if_stale` so its cache-
+    management branches (file-missing clears the cache; file-present
+    refreshes on mtime change; stale-version stamps the sentinel)
+    run on every call. A short-circuit on ``not path.exists()`` would
+    skip the reset path and leave stale cache entries alive across a
+    delete/restore cycle that preserves the original mtime.
+    """
+    cfg = _load_if_stale(base)
+    # Snapshot the cache state once under the lock so the
+    # "absent vs stale" branching below stays consistent even if a
+    # concurrent thread mutates the cache in between.
+    with _lock:
+        cached = _cache["config"]
+        stale_version = _cache["stale_version"]
+    if cfg is not None:
+        return {
+            "present": True,
+            "stale": False,
+            "stale_version": None,
+            "required_version": _MIN_SUPPORTED_VERSION,
+            "config": cfg,
+        }
+    if cached is _STALE_SENTINEL:
+        # File is on disk but the loader refused it. ``stale_version``
+        # was cached alongside the sentinel so we can surface it
+        # without a second ``load_json`` call.
+        return {
+            "present": False,
+            "stale": True,
+            "stale_version": stale_version,
+            "required_version": _MIN_SUPPORTED_VERSION,
+            "config": None,
+        }
+    # No config on disk (or the cache was reset after a delete).
+    return {
+        "present": False,
+        "stale": False,
+        "stale_version": None,
+        "required_version": _MIN_SUPPORTED_VERSION,
+        "config": None,
+    }
 
 
 def _position_has_real_data(position_block: Any) -> bool:
