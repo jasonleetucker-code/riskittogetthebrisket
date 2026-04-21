@@ -114,10 +114,10 @@ class TestParsePlayersPositionFilter(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["name"], "Jeremiyah Love")
 
-    def test_missing_isRookie_field_defaults_to_accept(self):
-        """If the endpoint omits ``isRookie``, accept the row — the
-        PROSPECTS_SF endpoint is rookie-only by contract; don't over-
-        filter on a field that might disappear."""
+    def test_missing_isRookie_field_is_rejected(self):
+        """Strict ``isRookie is True`` filter — rows lacking the flag
+        are dropped to preserve the rookie-only invariant the
+        downstream rookie ladder depends on."""
         data = {
             "data": [
                 {
@@ -125,11 +125,56 @@ class TestParsePlayersPositionFilter(unittest.TestCase):
                     "position": "RB",
                     "averageRank": 1.0,
                     "isDraftPick": False,
+                    "isRookie": True,
+                },
+                {
+                    "playerName": "No Flag Player",
+                    "position": "WR",
+                    "averageRank": 2.0,
+                    "isDraftPick": False,
+                    # isRookie deliberately omitted
+                },
+                {
+                    "playerName": "Null Flag Player",
+                    "position": "WR",
+                    "averageRank": 3.0,
+                    "isDraftPick": False,
+                    "isRookie": None,
                 },
             ]
         }
         rows = ffr._parse_players(data)
         self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["name"], "Jeremiyah Love")
+
+    def test_non_dict_entries_are_skipped(self):
+        """Malformed rows (e.g. ``null``) in the ``data`` array must
+        not abort the whole fetch — skip them and keep the valid rows."""
+        data = {
+            "data": [
+                None,
+                {
+                    "playerName": "Jeremiyah Love",
+                    "position": "RB",
+                    "averageRank": 1.0,
+                    "isDraftPick": False,
+                    "isRookie": True,
+                },
+                "string instead of dict",
+                42,
+                {
+                    "playerName": "Carnell Tate",
+                    "position": "WR",
+                    "averageRank": 2.71,
+                    "isDraftPick": False,
+                    "isRookie": True,
+                },
+            ]
+        }
+        rows = ffr._parse_players(data)
+        self.assertEqual(len(rows), 2)
+        names = {r["name"] for r in rows}
+        self.assertEqual(names, {"Jeremiyah Love", "Carnell Tate"})
 
     def test_none_averageRank_filtered_out(self):
         data = {

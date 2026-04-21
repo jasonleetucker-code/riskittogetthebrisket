@@ -113,14 +113,22 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
     """Extract (name, Rank) from a Flock Fantasy PROSPECTS_SF response.
 
     Only returns players whose position is in _OFFENSE_POSITIONS,
-    whose isDraftPick is false, whose isRookie is true, and whose
-    averageRank is a positive number.
+    whose isDraftPick is false, whose isRookie is explicitly true,
+    and whose averageRank is a positive number.
 
     The PROSPECTS_SF endpoint is rookie-only by name, but we filter
-    defensively on ``isRookie`` because this source is wired with
+    strictly on ``isRookie is True`` because this source is wired with
     ``needs_rookie_translation=True`` downstream — any veteran row
     that slips through would be remapped via the rookie ladder and
-    skew blended values.
+    skew blended values.  Missing/null ``isRookie`` flags are dropped
+    rather than accepted; losing a legit rookie if Flock changes their
+    schema costs us one source's contribution for that player, while
+    accepting a non-rookie distorts the ladder for every player above
+    them.
+
+    Non-dict rows in the ``data`` array (e.g. ``null`` from a partial
+    payload) are silently skipped so a single malformed element does
+    not abort the whole fetch.
     """
     if not isinstance(data, dict) or "data" not in data:
         raise FlockFantasyRookiesSchemaError(
@@ -133,9 +141,11 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
         )
     out: list[dict[str, Any]] = []
     for entry in entries:
+        if not isinstance(entry, dict):
+            continue
         if entry.get("isDraftPick"):
             continue
-        if entry.get("isRookie") is False:
+        if entry.get("isRookie") is not True:
             continue
         name = str(entry.get("playerName") or "").strip()
         if not name:
