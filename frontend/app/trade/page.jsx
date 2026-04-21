@@ -255,27 +255,31 @@ function TradeSourceBreakdown({ sides, settings }) {
         // valuation board.  Every other vendor leaves picks uncovered
         // and would skew the piece-count math if we counted them.
         const includePicks = vendor === "ktc";
-        // For each side + each player, pick the MAX valueContribution
-        // across every sub-source belonging to this vendor.  A player
-        // typically appears in exactly one of the vendor's sub-
-        // sources (e.g. Jeremiyah Love is covered by dlfRookieSf but
-        // not dlfSf); in that common case max is identical to sum and
-        // simply picks up the one covered sub-source.  Max is the
-        // safer primitive for the rare case where a vendor has
-        // overlapping coverage — summing would double-count the same
-        // player and inflate that vendor's total, flipping the
-        // winner/margin; max gives you the vendor's best single look
-        // at the player instead.
+        // For each side + each player, average valueContribution
+        // across every sub-source that actually covered the player.
+        // A player typically appears in exactly one of the vendor's
+        // sub-boards (e.g. Jeremiyah Love is on dlfRookieSf but not
+        // dlfSf), in which case the mean reduces to that one value.
+        // In the overlap case (a rookie may also appear in a vendor's
+        // vet SF board post-NFL-draft), averaging gives the vendor's
+        // unified opinion of the player without biasing upward (max
+        // would cherry-pick) or downward (min) or double-counting
+        // (sum).  Sub-boards that don't cover the player are excluded
+        // from the denominator.
         const sideValues = assetsBySide.map((assets) =>
           assets.map((row) => {
             if (!includePicks && row.pos === "PICK") return 0;
             const meta = row.sourceRankMeta || {};
-            let best = 0;
+            let sumVc = 0;
+            let covered = 0;
             for (const sub of subs) {
               const vc = Number(meta[sub.key]?.valueContribution);
-              if (Number.isFinite(vc) && vc > best) best = vc;
+              if (Number.isFinite(vc) && vc > 0) {
+                sumVc += vc;
+                covered += 1;
+              }
             }
-            return best;
+            return covered > 0 ? sumVc / covered : 0;
           }),
         );
         const rawTotals = sideValues.map((vs) =>
