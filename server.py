@@ -1883,41 +1883,62 @@ async def get_health():
         except (ValueError, TypeError):
             pass
 
-    # Session-cookie age surface.  Some sources (DLF, IDP Show) use
-    # manual cookie-dump auth — we track the session file's mtime as
-    # a proxy for cookie freshness.  The frontend banner surfaces a
-    # nudge when the file is approaching the source's typical cookie
-    # lifetime so the operator knows to paste fresh cookies before
-    # the next scrape fails.
+    # Session-cookie age surface.  Distinguishes AUTO-refreshing
+    # sessions (scraper re-logs-in via stored credentials when the
+    # cached cookies fail) from MANUAL-only sessions (operator
+    # pastes browser cookies because the site blocks automated
+    # login — currently just IDP Show, whose Substack paywall has
+    # a captcha on password auth).  The frontend banner only alarms
+    # on manual-only sessions since auto-refresh sessions fix
+    # themselves on the next scrape.
     _session_ages: dict[str, dict] = {}
     import os as _os
-    _session_lifetimes = {
-        "dlf_session.json": 14,          # WP session cookies ~14 days
-        "idpshow_session.json": 90,      # Substack connect.sid ~90 days
-        "draftsharks_session.json": 30,
-        "footballguys_session.json": 30,
+    _session_configs = {
+        # Scraper POSTs DLF_USERNAME/PASSWORD to wp-login on failure,
+        # so this file auto-refreshes.  Tracked for visibility only.
+        "dlf_session.json": {"lifetimeDays": 14, "autoRefresh": True},
+        # Scraper POSTs DRAFTSHARKS_EMAIL/PASSWORD on failure.
+        "draftsharks_session.json": {"lifetimeDays": 30, "autoRefresh": True},
+        # Scraper POSTs FOOTBALLGUYS_EMAIL/PASSWORD on failure.
+        "footballguys_session.json": {"lifetimeDays": 30, "autoRefresh": True},
+        # Substack captcha-gates password login — the ONLY way to
+        # refresh these cookies is a manual browser dump.  Banner
+        # alarms on this file specifically.
+        "idpshow_session.json": {"lifetimeDays": 90, "autoRefresh": False},
     }
-    for fname, lifetime_days in _session_lifetimes.items():
+    for fname, cfg in _session_configs.items():
+        lifetime_days = cfg["lifetimeDays"]
+        auto_refresh = cfg["autoRefresh"]
         fpath = BASE_DIR / fname
         try:
             if not fpath.exists():
-                _session_ages[fname] = {"present": False}
+                _session_ages[fname] = {"present": False, "autoRefresh": auto_refresh}
                 continue
             mtime_ts = fpath.stat().st_mtime
             age_days = round(
                 (datetime.now(timezone.utc).timestamp() - mtime_ts) / 86400, 1
             )
             days_remaining = max(0.0, round(lifetime_days - age_days, 1))
+            # Only MANUAL sessions get the warnSoon flag — auto-refresh
+            # sessions silently rotate when cached cookies expire, so
+            # the banner shouldn't nag about them.
+            warn_soon = (
+                not auto_refresh
+                and days_remaining <= 14
+                and age_days > 0
+            )
+            expired = (not auto_refresh) and days_remaining <= 0
             _session_ages[fname] = {
                 "present": True,
+                "autoRefresh": auto_refresh,
                 "ageDays": age_days,
                 "lifetimeDays": lifetime_days,
                 "daysRemaining": days_remaining,
-                "warnSoon": days_remaining <= 14 and age_days > 0,
-                "expired": days_remaining <= 0,
+                "warnSoon": warn_soon,
+                "expired": expired,
             }
         except Exception:
-            _session_ages[fname] = {"present": False}
+            _session_ages[fname] = {"present": False, "autoRefresh": auto_refresh}
 
     is_ok = (
         status_payload.get("last_error") in (None, "")
