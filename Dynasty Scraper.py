@@ -3533,7 +3533,16 @@ async def run(progress_callback=None):
 
     # ── Save CSV (all players with composites) ──
     # Keep spreadsheet outputs stable so each run overwrites the previous file.
+    #
+    # When the server invokes us with ``SCRIPT_DIR=DATA_DIR`` (server.py
+    # overrides SCRIPT_DIR to route outputs into ``data/``), the implicit
+    # ``CSVs/`` child directory may not exist yet.  Create it defensively
+    # so the first scrape after a clean checkout doesn't crash the whole
+    # pipeline on a missing directory.  April-2026 regression: scrapes
+    # failed at the ``health_report`` phase because ``data/CSVs/`` was
+    # never created on new server deploys, blocking every scrape run.
     fname = os.path.join(SCRIPT_DIR, "CSVs", "dynasty_values.csv")
+    os.makedirs(os.path.dirname(fname), exist_ok=True)
     with open(fname, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["Player"] + active_sites)
@@ -6233,6 +6242,7 @@ async def run(progress_callback=None):
 
     # ── Save FULL CSV (all players with per-site values and composite) ──
     full_csv_fname = os.path.join(SCRIPT_DIR, "CSVs", "dynasty_full.csv")
+    os.makedirs(os.path.dirname(full_csv_fname), exist_ok=True)
     try:
         site_keys = [site_key_map.get(s, s) for s in active_sites if s in site_key_map]
         with open(full_csv_fname, "w", newline="", encoding="utf-8") as f:
