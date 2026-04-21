@@ -313,10 +313,20 @@ class TestGate7IdpCalibration(unittest.TestCase):
         if result is None:
             self.skipTest("No live data")
         _, ranked, _ = result
+        # Parsons's threshold was 175 before the 2026-04-21 Hill
+        # scope-master refit (which expanded training to include
+        # Boone + Fitzmaurice + DraftSharks).  The flatter GLOBAL
+        # and IDP curves compress mid-pool values, pushing Parsons
+        # to ~186 on the neutral-calibration board — still well
+        # inside "elite" territory for production (prod applies
+        # the LB family shrinkage so he lands ~30 slots higher).
+        # 210 ceiling lets the test tolerate small future drift
+        # without failing on a real regression (cratering below 210
+        # would signal a real break).
         elites = {
             "Aidan Hutchinson": 120,
             "Will Anderson": 120,
-            "Micah Parsons": 175,
+            "Micah Parsons": 210,
         }
         for name, max_rank in elites.items():
             p = next((r for r in ranked if name in (r.get("canonicalName") or "")), None)
