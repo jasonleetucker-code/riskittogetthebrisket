@@ -3426,14 +3426,27 @@ def _parse_pick_tier(name: str) -> tuple[int, str, int] | None:
 
 
 # ── Market-anchor corridor clamp ────────────────────────────────────────
-# Designated market anchor sources per asset class.  KTC and IDPTC are
-# the deepest retail value boards, so they define "market reality" for
-# each universe.  Other sources can move the final value within the
-# corridor — they just can't pull a player into a rank that contradicts
-# market at a pathological level.
+# Designated PRIMARY market anchor sources per asset class.  KTC and
+# IDPTC are the deepest retail value boards, so they define "market
+# reality" for each universe.  Other sources can move the final value
+# within the corridor — they just can't pull a player into a rank
+# that contradicts market at a pathological level.
 _MARKET_ANCHOR_BY_ASSET_CLASS: dict[str, str] = {
     "offense": "ktc",
     "idp": "idpTradeCalc",
+}
+
+# Fallback anchor chain per asset class.  When the primary anchor
+# (KTC / IDPTC) doesn't list a player — common for deep prospects or
+# freshly-drafted rookies — we fall through to additional value-based
+# sources, then finally to a MEDIAN of valueContributions across all
+# scope-eligible sources that DID list them.  Without this chain,
+# Shavon-Revel-style single-source-only IDPs escape the clamp
+# entirely and the IDP calibration's 3-4× DB bucket multipliers can
+# inflate a 1500-point uncalibrated value into a top-50 finish.
+_MARKET_ANCHOR_FALLBACKS: dict[str, list[str]] = {
+    "offense": ["ktc", "idpTradeCalc", "dynastyDaddySf", "fantasyProsFitzmaurice", "yahooBoone"],
+    "idp":     ["idpTradeCalc", "dlfIdp", "idpShow", "fantasyProsIdp", "footballGuysIdp"],
 }
 
 # Percentile at which we declare a drift "too extreme" and clamp it.
@@ -3450,10 +3463,14 @@ _MARKET_CORRIDOR_MIN_BUCKET_N: int = 30
 
 
 def _market_anchor_value_for_row(row: dict[str, Any]) -> float | None:
-    """Return the market-anchor source value for a row, or None if
-    the row doesn't have one (e.g. rookie pre-NFL-draft without a KTC
-    value, or a pick).  Used by the corridor clamp to pick an anchor
-    per asset class."""
+    """Return the primary market-anchor source value (KTC for offense,
+    IDPTC for IDP) as a raw native-scale value, or None if missing.
+
+    Kept for backwards-compat of call sites that only care about the
+    canonical primary anchor.  The clamp pipeline uses
+    :func:`_market_anchor_for_row` instead, which returns both value
+    and source identity and falls back through the anchor chain.
+    """
     sites = row.get("canonicalSiteValues")
     if not isinstance(sites, dict):
         return None
@@ -3471,6 +3488,99 @@ def _market_anchor_value_for_row(row: dict[str, Any]) -> float | None:
     if v <= 0:
         return None
     return v
+
+
+def _market_anchor_for_row(
+    row: dict[str, Any],
+) -> tuple[float | None, str | None]:
+    """Return ``(anchor_value, anchor_source)`` for the corridor clamp.
+
+    Resolution order:
+      1. Primary anchor (KTC for offense, IDPTC for IDP) read from
+         ``canonicalSiteValues`` as a native-scale value.  If the
+         source is value-based, we also cross-check
+         ``sourceRankMeta[source].valueContribution`` so the clamp
+         math stays on the 0-9,999 scale.
+      2. Secondary anchors from ``_MARKET_ANCHOR_FALLBACKS`` — the
+         first source in the chain that has a ``valueContribution``
+         on the row wins.
+      3. Median of ``valueContribution`` across every source in the
+         fallback chain that actually stamped a contribution.  This
+         handles the "Shavon Revel" case: IDPTC didn't list him,
+         but IDP Show did — pegging him to the single source's
+         9,999-scale contribution is safer than no clamp at all,
+         because unclamped the calibration's DB bucket multiplier
+         can 4x him and he lands top-50 on pure single-source noise.
+
+    Returns ``(None, None)`` when no source contributed at all —
+    the caller should skip the clamp for that player.
+    """
+    asset_class = str(row.get("assetClass") or "")
+    chain = _MARKET_ANCHOR_FALLBACKS.get(asset_class) or []
+    if not chain:
+        return None, None
+    sites = row.get("canonicalSiteValues") or {}
+    meta = row.get("sourceRankMeta") or {}
+    if not isinstance(sites, dict):
+        sites = {}
+    if not isinstance(meta, dict):
+        meta = {}
+
+    # Stage 1+2: try each source in chain order, use its
+    # ``valueContribution`` if present (always 0-9,999 scaled), else
+    # fall back to the native ``canonicalSiteValues`` entry for the
+    # primary anchor only (since that's guaranteed to be a value-based
+    # source on a 0-9,999 scale).
+    primary = _MARKET_ANCHOR_BY_ASSET_CLASS.get(asset_class)
+    for source_key in chain:
+        src_meta = meta.get(source_key)
+        vc: float | None = None
+        if isinstance(src_meta, dict):
+            raw_vc = src_meta.get("valueContribution")
+            try:
+                vc_f = float(raw_vc) if raw_vc is not None else 0.0
+            except (TypeError, ValueError):
+                vc_f = 0.0
+            if vc_f > 0:
+                vc = vc_f
+        if vc is None and source_key == primary:
+            raw_site = sites.get(source_key)
+            try:
+                v_f = float(raw_site) if raw_site is not None else 0.0
+            except (TypeError, ValueError):
+                v_f = 0.0
+            if v_f > 0:
+                vc = v_f
+        if vc is not None:
+            return vc, source_key
+
+    # Stage 3: median of per-source valueContribution across whatever
+    # sources in the chain stamped a contribution.  Strictly
+    # informational (labelled with a synthetic source key for audit).
+    contributions: list[float] = []
+    for source_key in chain:
+        src_meta = meta.get(source_key)
+        if not isinstance(src_meta, dict):
+            continue
+        raw_vc = src_meta.get("valueContribution")
+        try:
+            vc_f = float(raw_vc) if raw_vc is not None else 0.0
+        except (TypeError, ValueError):
+            vc_f = 0.0
+        if vc_f > 0:
+            contributions.append(vc_f)
+    if len(contributions) >= 2:
+        contributions.sort()
+        n = len(contributions)
+        med = (
+            contributions[n // 2]
+            if n % 2 == 1
+            else (contributions[n // 2 - 1] + contributions[n // 2]) / 2.0
+        )
+        return med, f"median_of_{n}"
+    if len(contributions) == 1:
+        return contributions[0], "single_source_fallback"
+    return None, None
 
 
 def _percentile(sorted_vals: list[float], p: float) -> float:
@@ -3515,7 +3625,7 @@ def _apply_market_corridor_clamp(
     for row in players_array:
         if not row.get("canonicalConsensusRank"):
             continue
-        anchor = _market_anchor_value_for_row(row)
+        anchor, anchor_source = _market_anchor_for_row(row)
         if anchor is None:
             continue
         try:
@@ -3526,12 +3636,9 @@ def _apply_market_corridor_clamp(
             continue
         drift = abs(value - anchor) / anchor
         bucket = str(row.get("confidenceBucket") or "low")
-        source_key = _MARKET_ANCHOR_BY_ASSET_CLASS.get(
-            str(row.get("assetClass") or "")
-        ) or ""
         by_bucket.setdefault(bucket, []).append(drift)
         overall.append(drift)
-        drifts.append((row, value, anchor, source_key))
+        drifts.append((row, value, anchor, anchor_source or ""))
 
     if not overall:
         return
