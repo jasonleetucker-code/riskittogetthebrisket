@@ -37,6 +37,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import csv
+import html as _html
 import json
 import os
 import re
@@ -328,8 +329,14 @@ def parse_rows(html: str, *, default_family: str | None = None) -> list[dict[str
             age = trail_m.group(1).strip()
             years_exp = trail_m.group(2).strip()
             # trail_m.group(3) is bye; we don't surface it
+        # HTML-unescape names.  FBG's ``data-playername`` attribute
+        # contains HTML entities (``Ja&apos;Marr Chase``,
+        # ``D&apos;Andre Swift``) that don't match the canonical
+        # apostrophe form Sleeper uses, so without unescape the
+        # canonical-name matcher drops these players silently.
+        # Affects ~11 players across the SF + IDP CSVs.
         out.append({
-            "name": name.strip(),
+            "name": _html.unescape(name).strip(),
             "rank": str(rank),
             "position": position_display,
             "family": canonical_family,
