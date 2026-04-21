@@ -265,14 +265,14 @@ class TestBackendFrontendRegistryParity(unittest.TestCase):
             )
 
     def test_default_weights_match_registry_policy(self) -> None:
-        # Guardrail on the "no silent weight boosts" rule — weights
-        # must match the explicit per-source policy documented in the
-        # registry comments.  The default is 1.0, but IDPTC carries
-        # 2.0 because it is the IDP backbone + retail IDP authority
-        # (see registry comment in src/api/data_contract.py).  Any
-        # other per-source override must be added here AND in the
-        # registry comment explaining why.
-        expected_weights: dict[str, float] = {"idpTradeCalc": 2.0}
+        # Guardrail on the "no silent weight boosts" rule — every
+        # source contributes with an equal weight=1.0 in the live
+        # blend as of 2026-04-21.  IDPTC previously carried 2.0 when
+        # it was the sole IDP anchor; that was demoted to 1.0 when DS
+        # SF/IDP and FG SF/IDP joined the cross-market anchor set.
+        # If a future entry requires a non-1.0 default, add it here
+        # AND document the registry comment policy.
+        expected_weights: dict[str, float] = {}
         for entry in self.py_registry:
             expected = expected_weights.get(str(entry["key"]), 1.0)
             self.assertEqual(

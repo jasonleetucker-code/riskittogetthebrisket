@@ -709,16 +709,14 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "position_group": None,
         "depth": None,
         # IDPTC is the retail IDP authority and the backbone source.
-        # Weight bumped to 2.0 so the IDP blend leans toward IDPTC
-        # whenever it disagrees strongly with veteran-focused expert
-        # boards (DLF IDP, FantasyPros IDP, FootballGuys IDP).  The
-        # original 1.0 weight let DLF IDP drag down players IDPTC
-        # likes — particularly high-draft-capital edge rushers whose
-        # pass-rush projection (IDPTC) diverges from raw tackle
-        # production (DLF).  Mirrored in
-        # frontend/lib/dynasty-data.js so the settings page shows the
-        # correct default.
-        "weight": 2.0,
+        # The old weight=2.0 dated to when IDPTC was the SOLE IDP
+        # anchor; now that DraftSharks SF+IDP and FootballGuys SF+IDP
+        # are also cross-market anchors (see ``is_cross_market``), no
+        # single source gets an explicit multiplier in the blend.
+        # The ``weight`` field is still honoured as a user-override
+        # knob on ``/settings`` but in the live blend every source
+        # contributes with one equal vote.
+        "weight": 1.0,
         "is_backbone": True,
         # Cross-market anchor source (2026-04-20): IDPTC prices both
         # offense and IDP on a single combined-pool scale, so its
@@ -4221,32 +4219,28 @@ def _compute_unified_rankings(
 
     # Updated framework (steps 5-6): route each source to its scope-
     # appropriate master curve, not per-player-position.
-    #   is_anchor=True                   → GLOBAL master
-    #   needs_rookie_translation=True    → ROOKIE master
+    #   is_cross_market=True             → GLOBAL master
     #   scope=overall_idp                → IDP master
     #   everything else (offense, picks) → OFFENSE master
+    #
+    # ``needs_rookie_translation`` flag and the ROOKIE master used to
+    # gate rookie-only sources through their own Hill curve fit
+    # against rookie slices.  Retired 2026-04-21: rookie-only sources
+    # now go through the Phase 1d ladder translation (their rank is
+    # translated to a combined-pool rank via KTC/IDPTC), so by the
+    # time they reach this function their rank is in combined-pool
+    # space and the OFFENSE/IDP master is the correct curve.
     def _curve_for_source(src_def: dict) -> tuple[float, float]:
-        # Cross-market sources (IDPTC, DraftSharks SF/IDP, FootballGuys
-        # SF/IDP) price players on ONE combined offense+IDP scale, so
-        # they all use the GLOBAL Hill master that was fit off IDPTC's
-        # native combined pool.
         if src_def.get("is_cross_market"):
             return HILL_GLOBAL_PERCENTILE_C, HILL_GLOBAL_PERCENTILE_S
-        if src_def.get("needs_rookie_translation"):
-            return HILL_ROOKIE_PERCENTILE_C, HILL_ROOKIE_PERCENTILE_S
         scope = str(src_def.get("scope") or "")
         if scope == SOURCE_SCOPE_OVERALL_IDP:
             return IDP_HILL_PERCENTILE_C, IDP_HILL_PERCENTILE_S
         return HILL_PERCENTILE_C, HILL_PERCENTILE_S
 
-    # Rookie sources compute percentile against their NATIVE pool
-    # (N_j = rookie-class size), not the fixed
-    # ``_PERCENTILE_REFERENCE_N``.  The ROOKIE master's shape
-    # already encodes rookie-relative value decay directly.
+    # All sources (including rookie-only ones after Phase 1d ladder
+    # translation) use the fixed combined-pool reference denominator.
     def _percentile_denom_for_source(src_def: dict, source_key: str) -> int:
-        if src_def.get("needs_rookie_translation"):
-            native_n = source_pool_sizes.get(source_key, 0) or 0
-            return max(2, native_n)
         return _PERCENTILE_REFERENCE_N
 
     # Clamp TEP multiplier to a sane range.  1.0 is a no-op, 2.0 is
@@ -4610,6 +4604,118 @@ def _compute_unified_rankings(
                 meta["rawRank"] = meta.get("rawRank", csv_rank)
                 meta["effectiveRank"] = csv_rank
                 meta["method"] = "csv_combined_cross_market"
+
+    # ── Phase 1d: Rookie-ladder translation ──
+    # DLF Rookie SF / DLF Rookie IDP publish rookie-only boards (~50
+    # rookies, within-class ranks 1..N).  Treated naively, DLF's #1
+    # rookie ends up at percentile 0 on the ROOKIE Hill master,
+    # producing a contribution of 9999 — i.e. "the #1 rookie is as
+    # valuable as the #1 player overall", which is wrong.  In reality
+    # the top rookie sits around overall rank 25-30 in the combined
+    # market (per KTC/IDPTC's combined boards).
+    #
+    # This pre-pass (Fix B from the 2026-04-21 audit) translates each
+    # rookie-source rank to a combined-pool rank via the reference
+    # ladder:
+    #
+    #   * ``dlfRookieSf`` (offense rookies) → KTC ladder:
+    #     DLF's #1 rookie → the rank KTC gives its #1 rookie.
+    #     DLF's #2 rookie → KTC's #2 rookie-slot rank.  Etc.
+    #
+    #   * ``dlfRookieIdp`` (IDP rookies) → IDPTC ladder:
+    #     DLF's #1 IDP rookie → IDPTC's top-rookie rank, etc.
+    #
+    # Preserves each rookie source's within-class ORDERING while
+    # calibrating the top-rookie's market value to the reference
+    # source's opinion.  After this translation, the rookie source's
+    # ``effective_rank`` is a combined-pool rank and the downstream
+    # Hill conversion uses the OFFENSE/IDP master (not a special
+    # ROOKIE master), which is what we want now that ranks are in
+    # combined-pool space.
+    #
+    # Rookies past the reference ladder's depth are extrapolated
+    # using the slope of the last ~10 ladder entries.
+    def _build_rookie_ladder(reference_source: str, universe_positions: set[str]) -> list[int]:
+        """Collect the reference source's ranks for every rookie in
+        the relevant universe, sorted ascending (best rookie first).
+        ``ladder[k - 1]`` is the combined-pool rank that the k-th
+        rookie should translate to.
+        """
+        out: list[int] = []
+        for idx, row in enumerate(players_array):
+            if not bool(row.get("rookie")):
+                continue
+            pos = str(row.get("position") or "").upper()
+            if pos not in universe_positions:
+                continue
+            ref_rank = row_source_ranks.get(idx, {}).get(reference_source)
+            if ref_rank is None:
+                continue
+            try:
+                out.append(int(ref_rank))
+            except (TypeError, ValueError):
+                continue
+        out.sort()
+        return out
+
+    def _translate_via_ladder(rookie_rank: int, ladder: list[int]) -> int:
+        """Map a within-class rookie rank k to the ladder's k-th
+        entry.  Extrapolate past the ladder's depth using the slope
+        across the last 10 entries (floor slope to 1.0 so ranks
+        strictly increase).
+        """
+        if not ladder:
+            return rookie_rank
+        if 1 <= rookie_rank <= len(ladder):
+            return ladder[rookie_rank - 1]
+        # Past the ladder — linear extrapolation using the tail slope.
+        tail_n = min(10, len(ladder))
+        if tail_n < 2:
+            slope = 1.0
+        else:
+            tail_start = ladder[len(ladder) - tail_n]
+            tail_end = ladder[-1]
+            slope = max(1.0, (tail_end - tail_start) / (tail_n - 1))
+        extrapolated = ladder[-1] + int(
+            round((rookie_rank - len(ladder)) * slope)
+        )
+        return max(1, extrapolated)
+
+    # Pair each rookie source with its reference ladder.  If the
+    # reference source isn't active or has no rookie coverage, the
+    # fallback is to leave the rookie source's rank untranslated
+    # (it'll go through the Hill path with its within-class rank,
+    # which is the pre-fix behaviour — safer than silently breaking).
+    _rookie_ladder_pairs = (
+        ("dlfRookieSf", "ktc", _OFFENSE_POSITIONS),
+        ("dlfRookieIdp", "idpTradeCalc", _IDP_POSITIONS),
+    )
+    for rookie_key, ref_key, universe in _rookie_ladder_pairs:
+        if rookie_key not in active_keys or ref_key not in active_keys:
+            continue
+        ladder = _build_rookie_ladder(ref_key, universe)
+        if len(ladder) < 3:
+            # Not enough rookie coverage on the reference source to
+            # translate reliably; skip and let the rookie source flow
+            # through the normal Hill path below.
+            continue
+        for row_idx, rk_dict in row_source_ranks.items():
+            if rookie_key not in rk_dict:
+                continue
+            orig = rk_dict[rookie_key]
+            try:
+                orig_int = int(orig)
+            except (TypeError, ValueError):
+                continue
+            translated = _translate_via_ladder(orig_int, ladder)
+            rk_dict[rookie_key] = translated
+            meta = row_source_meta.setdefault(row_idx, {}).setdefault(
+                rookie_key, {}
+            )
+            meta["effectiveRank"] = translated
+            meta["method"] = (
+                f"rookie_ladder_translation_via_{ref_key}"
+            )
 
     # ── Phase 2-3: Normalized value (Hill curve) + robust blend ──
     # Look up each source's weight / depth once.
