@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getPlayerEdge } from "@/lib/trade-logic";
-import { resolvedRank } from "@/lib/dynasty-data";
+import { resolvedRank, RANKING_SOURCES } from "@/lib/dynasty-data";
 
 /**
  * Build the ordered value-chain stages from a player row.
@@ -170,15 +170,55 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
   const valueChain = useMemo(() => computeValueChain(row), [row]);
 
   const siteDetails = useMemo(() => {
-    if (!row?.canonicalSites) return [];
-    const maxVal = Math.max(1, ...Object.values(row.canonicalSites).map(Number).filter(Number.isFinite));
-    return (siteKeys.length > 0 ? siteKeys : Object.keys(row.canonicalSites))
+    if (!row) return [];
+    // Prefer the backend's 9,999-scale ``valueContribution`` stamp —
+    // the same normalized vote each source casts into the blend, and
+    // the same number rendered in the rankings row chips.  Reading
+    // ``canonicalSites`` here (the previous behaviour) mixed value
+    // sources' raw native scale with rank-signal sources' synthetic
+    // rank encoding (``_RANK_TO_SYNTHETIC_VALUE_OFFSET * 100 - rank *
+    // 100``), so IDP expert boards like DLF IDP / FBG IDP were either
+    // dwarfed to invisible bars or dropped entirely by the
+    // normalized-vs-maxVal math — producing the classic "Only 1 source
+    // — speculative" line on a player that actually had 4 sources
+    // contributing.  Using ``sourceRankMeta[key].valueContribution``
+    // keeps the popup in lockstep with the rankings table.
+    const meta = row.sourceRankMeta || {};
+    const canonicalSites = row.canonicalSites || {};
+    const sourceByKey = Object.fromEntries(
+      RANKING_SOURCES.map((s) => [s.key, s]),
+    );
+    const candidateKeys = Array.from(
+      new Set([
+        ...(siteKeys.length > 0 ? siteKeys : []),
+        ...Object.keys(meta),
+        ...Object.keys(canonicalSites),
+      ]),
+    );
+    const rows = candidateKeys
       .map((key) => {
-        const val = Number(row.canonicalSites[key]);
-        if (!Number.isFinite(val) || val <= 0) return null;
-        return { key, value: val, pct: (val / maxVal) * 100 };
+        const src = sourceByKey[key];
+        const label = src?.columnLabel || src?.displayName || key;
+        const contribution = Number(meta[key]?.valueContribution);
+        if (Number.isFinite(contribution) && contribution > 0) {
+          return { key, label, value: contribution };
+        }
+        // Legacy payloads may not carry ``valueContribution`` yet.
+        // Fall back to ``canonicalSites`` only for value-based sources
+        // — their raw slot is a monotonic value scale.  Rank-signal
+        // sources skip this path because their canonicalSites entry is
+        // a synthetic rank encoding, not a renderable value.
+        if (src?.isRankSignal) return null;
+        const raw = Number(canonicalSites[key]);
+        if (Number.isFinite(raw) && raw > 0) {
+          return { key, label, value: raw };
+        }
+        return null;
       })
-      .filter(Boolean)
+      .filter(Boolean);
+    const maxVal = Math.max(1, ...rows.map((r) => r.value));
+    return rows
+      .map((r) => ({ ...r, pct: (r.value / maxVal) * 100 }))
       .sort((a, b) => b.value - a.value);
   }, [row, siteKeys]);
 
@@ -198,6 +238,13 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
 
   const rank = resolvedRank(row);
   const values = row.values || {};
+  // Pre-IDP-calibration snapshot.  ``rankDerivedValueUncalibrated`` is
+  // the blended Hill value at the moment just before
+  // ``_apply_idp_calibration_post_pass`` runs; when calibration is
+  // either a no-op or inactive (e.g. ``config/idp_calibration.json``
+  // absent), this equals ``rankDerivedValue``/``values.full`` and the
+  // comparison UI below hides itself.
+  const preCalibrationValue = Number(row.rankDerivedValueUncalibrated) || 0;
 
   return (
     <div className="picker-overlay" onClick={onClose} style={{ zIndex: 1100 }}>
@@ -232,25 +279,46 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
           </div>
         </div>
 
-        {/* Primary value */}
+        {/* Primary value — ``Our Value`` is the live Hill-blended
+            ``rankDerivedValue``.  The IDP calibration post-pass (family
+            scale × bucket multiplier) is the only pipeline stage that
+            can still move that number after the blend, so when it does
+            fire we surface the pre-calibration ``rankDerivedValueUncalibrated``
+            alongside and compute the delta against it.  The prior
+            ``Raw`` / ``Delta`` pair subtracted ``values.rawComposite``
+            (a legacy weighted composite from the old Dynasty Scraper
+            pipeline) from the live Hill blend — two independent
+            pipelines — which produced a misleading three- or four-digit
+            "discount" on every IDP row regardless of what calibration
+            actually did.  When calibration is a no-op (or the config
+            isn't deployed), pre = full and we simply hide the extra
+            fields. */}
         <div style={{ display: "flex", gap: 20, marginTop: 14, flexWrap: "wrap" }}>
           <div>
             <div className="label">Our Value</div>
             <div className="value" style={{ fontSize: "1.4rem" }}>{Math.round(values.full || 0).toLocaleString()}</div>
           </div>
-          {values.raw > 0 && values.raw !== values.full && (
-            <div>
-              <div className="label">Raw</div>
-              <div className="value">{Math.round(values.raw).toLocaleString()}</div>
-            </div>
-          )}
-          {values.full !== values.raw && (
-            <div>
-              <div className="label">Delta</div>
-              <div className="value" style={{ color: values.full > values.raw ? "var(--green)" : "var(--red)" }}>
-                {values.full > values.raw ? "+" : ""}{Math.round(values.full - values.raw).toLocaleString()}
+          {preCalibrationValue > 0
+            && Math.round(preCalibrationValue) !== Math.round(values.full || 0) && (
+            <>
+              <div>
+                <div className="label">Pre-calibration</div>
+                <div className="value">{Math.round(preCalibrationValue).toLocaleString()}</div>
               </div>
-            </div>
+              <div>
+                <div className="label">IDP Calibration</div>
+                <div
+                  className="value"
+                  style={{
+                    color: values.full > preCalibrationValue ? "var(--green)" : "var(--red)",
+                  }}
+                  title="Family scale × bucket multiplier applied by the IDP calibration post-pass"
+                >
+                  {values.full > preCalibrationValue ? "+" : ""}
+                  {Math.round(values.full - preCalibrationValue).toLocaleString()}
+                </div>
+              </div>
+            </>
           )}
         </div>
 
@@ -387,7 +455,13 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
             <div className="label" style={{ marginBottom: 6 }}>Source Breakdown</div>
             {siteDetails.map((s) => (
               <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <div style={{ minWidth: 90, fontSize: "0.72rem" }} className="muted">{s.key}</div>
+                <div
+                  style={{ minWidth: 90, fontSize: "0.72rem" }}
+                  className="muted"
+                  title={s.key}
+                >
+                  {s.label}
+                </div>
                 <div style={{ flex: 1, height: 14, background: "var(--border)", borderRadius: 3, overflow: "hidden" }}>
                   <div style={{
                     width: `${Math.min(100, s.pct)}%`, height: "100%", borderRadius: 3,
