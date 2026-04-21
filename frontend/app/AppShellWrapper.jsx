@@ -74,13 +74,15 @@ function DesktopNav() {
               </Link>
             );
           })}
-          <button
-            className="nav-link nav-search-btn"
-            onClick={openSearch}
-            title="Search players (press /)"
-          >
-            /
-          </button>
+          {authenticated && (
+            <button
+              className="nav-link nav-search-btn"
+              onClick={openSearch}
+              title="Search players (press /)"
+            >
+              /
+            </button>
+          )}
           {authenticated && (
             <button className="nav-link nav-logout-btn" onClick={logout} title="Sign out">
               Sign out
@@ -165,9 +167,11 @@ function MobileTopBar() {
       <Link href="/" className="mobile-brand">Brisket</Link>
       <span className="mobile-page-title">{pageTitle}</span>
       <div className="mobile-topbar-actions">
-        <button className="mobile-search-btn" onClick={openSearch} title="Search" aria-label="Search">
-          /
-        </button>
+        {authenticated && (
+          <button className="mobile-search-btn" onClick={openSearch} title="Search" aria-label="Search">
+            /
+          </button>
+        )}
         {authenticated && (
           <button
             className="mobile-signout-btn"
@@ -189,7 +193,7 @@ export default function AppShellWrapper({ children }) {
 
   return (
     <AuthContext.Provider value={auth}>
-      <AppShell>
+      <AppShell authenticated={auth.authenticated === true}>
         <DesktopNav />
         <MobileTopBar />
         <StaleDataBanner />

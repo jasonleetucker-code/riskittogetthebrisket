@@ -45,18 +45,18 @@ function isPublicOnlyRoute(pathname) {
  * For PUBLIC-only routes, AppShell refuses to hydrate private data.
  * See PUBLIC_ONLY_ROUTE_PREFIXES above.
  */
-export default function AppShell({ children }) {
+export default function AppShell({ children, authenticated = false }) {
   const pathname = usePathname();
   const privateDataEnabled = !isPublicOnlyRoute(pathname);
 
   return privateDataEnabled ? (
-    <PrivateAppShell>{children}</PrivateAppShell>
+    <PrivateAppShell authenticated={authenticated}>{children}</PrivateAppShell>
   ) : (
-    <PublicAppShell>{children}</PublicAppShell>
+    <PublicAppShell authenticated={authenticated}>{children}</PublicAppShell>
   );
 }
 
-function PrivateAppShell({ children }) {
+function PrivateAppShell({ children, authenticated }) {
   const { loading, error, rows, siteKeys, rawData } = useDynastyData();
   return (
     <InnerAppShell
@@ -66,13 +66,14 @@ function PrivateAppShell({ children }) {
       siteKeys={siteKeys}
       rawData={rawData}
       privateDataEnabled={true}
+      authenticated={authenticated}
     >
       {children}
     </InnerAppShell>
   );
 }
 
-function PublicAppShell({ children }) {
+function PublicAppShell({ children, authenticated }) {
   // No useDynastyData call — the public page pipeline must never
   // hydrate from /api/data.  The search + popup components render
   // against an empty rows list so they simply no-op rather than
@@ -85,13 +86,18 @@ function PublicAppShell({ children }) {
       siteKeys={[]}
       rawData={null}
       privateDataEnabled={false}
+      authenticated={authenticated}
     >
       {children}
     </InnerAppShell>
   );
 }
 
-function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEnabled, children }) {
+function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEnabled, authenticated, children }) {
+  // Player search requires an authenticated session.  Search against
+  // the private contract leaks ranking data and private identifiers
+  // to logged-out visitors on otherwise-public surfaces.
+  const searchEnabled = privateDataEnabled && authenticated;
   // Player popup state
   const [popupRow, setPopupRow] = useState(null);
 
@@ -117,13 +123,13 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
   }, [rows, privateDataEnabled]);
 
   const openSearch = useCallback(() => {
-    if (!privateDataEnabled) return;
+    if (!searchEnabled) return;
     setSearchOpen(true);
-  }, [privateDataEnabled]);
+  }, [searchEnabled]);
 
   // Global "/" keyboard shortcut for search
   useEffect(() => {
-    if (!privateDataEnabled) return undefined;
+    if (!searchEnabled) return undefined;
     function onKeyDown(e) {
       const tag = e.target?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
@@ -134,7 +140,7 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [privateDataEnabled]);
+  }, [searchEnabled]);
 
   return (
     <AppContext.Provider
@@ -153,21 +159,21 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
       {children}
 
       {privateDataEnabled && (
-        <>
-          <PlayerPopup
-            row={popupRow}
-            siteKeys={siteKeys}
-            onClose={() => setPopupRow(null)}
-            onAddToTrade={addToTradeRef.current ? handleAddToTrade : null}
-          />
+        <PlayerPopup
+          row={popupRow}
+          siteKeys={siteKeys}
+          onClose={() => setPopupRow(null)}
+          onAddToTrade={addToTradeRef.current ? handleAddToTrade : null}
+        />
+      )}
 
-          <GlobalSearch
-            rows={rows}
-            isOpen={searchOpen}
-            onClose={() => setSearchOpen(false)}
-            onSelect={(row) => openPlayerPopup(row)}
-          />
-        </>
+      {searchEnabled && (
+        <GlobalSearch
+          rows={rows}
+          isOpen={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          onSelect={(row) => openPlayerPopup(row)}
+        />
       )}
     </AppContext.Provider>
   );
