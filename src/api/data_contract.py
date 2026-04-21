@@ -81,6 +81,7 @@ _IDP_SIGNAL_KEYS = {
     "dlfIdp",
     "fantasyProsIdp",
     "footballGuysIdp",
+    "idpShow",
 }
 
 # All source signal keys — used to detect which source(s) a player has
@@ -181,6 +182,21 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     "idpTradeCalc": "CSVs/site_raw/idpTradeCalc.csv",
     "dlfIdp": {
         "path": "CSVs/site_raw/dlfIdp.csv",
+        "signal": "rank",
+    },
+    # The IDP Show (Adamidp) — Substack-hosted IDP rankings article
+    # at theidpshow.com/p/idp-dynasty-rankings.  The actual rankings
+    # are served from an embedded Datawrapper iframe whose
+    # dataset.csv is publicly accessible.  Fetched by
+    # ``scripts/fetch_idpshow.py`` which authenticates into the
+    # paywalled article (via cookie-dump session), extracts the
+    # current chart ID from the iframe src, and downloads the
+    # dataset.  Signal=rank — the chart includes a TRADE VALUE
+    # column but it's draft-pick-equivalent text ("1st + 2nd",
+    # "3rd", etc.), not numeric, so we use the OVR column as the
+    # rank signal.  ~420 rows covering ED/IDL/LB/S/CB.
+    "idpShow": {
+        "path": "CSVs/site_raw/idpShow.csv",
         "signal": "rank",
     },
     # DLF Dynasty Superflex rankings — offense expert consensus.
@@ -387,6 +403,10 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     # FantasyPros / Pat Fitzmaurice Dynasty Trade Value Chart:
     # refreshes monthly as a new FP article.  30-day window.
     "fantasyProsFitzmaurice": 720,
+    # The IDP Show (Adamidp): Substack article updated periodically;
+    # give a 30-day freshness budget — staler than that and we
+    # probably need a fresh cookie dump or the article is stale.
+    "idpShow": 720,
     # DraftSharks SF + IDP CSVs are written by scripts/fetch_draftsharks.py
     # on every scheduled-refresh tick (3-hour cadence), so the same
     # 6-hour freshness budget as ktc / idpTradeCalc applies.
@@ -426,6 +446,12 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # FantasyPros / Pat Fitzmaurice: QB (50) + RB (~88) + WR (~115) +
     # TE (~46) ≈ 299 rows at the April 2026 baseline.  Floor at ~75%.
     "fantasyProsFitzmaurice": 225,
+    # The IDP Show: the CSV has ~419 rows but only ~200 canonicalize
+    # against the Sleeper player pool (the source goes deep into
+    # camp-body / backup IDPs that Sleeper doesn't enumerate).  Floor
+    # at 150 covers ~75% of the realistic match rate — a partial
+    # fetch or column-drop regression would trip this warning.
+    "idpShow": 150,
     # DraftSharks: the scraper ingests 461 offense / 389 IDP rows,
     # but canonical-name matches against the Sleeper player pool
     # yield a smaller count because DS's deeper rows are prospects
@@ -823,6 +849,31 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_backbone": False,
         "needs_shared_market_translation": True,
         "excludes_rookies": True,
+    },
+    {
+        # The IDP Show (Adamidp) — Substack-hosted full IDP rankings
+        # board published at theidpshow.com/p/idp-dynasty-rankings.
+        # Data is served from an embedded Datawrapper iframe whose
+        # dataset.csv is fetched by ``scripts/fetch_idpshow.py``.
+        # ~420 rows covering ED/IDL/LB/S/CB.  Unlike DLF IDP this
+        # board DOES include rookie prospects (Arvell Reese, Sonny
+        # Styles, etc.), so ``excludes_rookies=False``.
+        #
+        # Rank-only signal — the source's TRADE VALUE column is
+        # draft-pick-equivalent text ("1st + 2nd", "3rd") rather
+        # than a numeric scale, so we use the OVR column as the
+        # rank and let the shared-market translator convert to the
+        # combined-pool for Hill-curve input.
+        "key": "idpShow",
+        "display_name": "The IDP Show (Adamidp)",
+        "column_label": "IDP Show",
+        "scope": SOURCE_SCOPE_OVERALL_IDP,
+        "position_group": None,
+        "depth": 420,
+        "weight": 1.0,
+        "is_backbone": False,
+        "needs_shared_market_translation": True,
+        "excludes_rookies": False,
     },
     {
         # DLF Dynasty Superflex rankings — the offense counterpart of
