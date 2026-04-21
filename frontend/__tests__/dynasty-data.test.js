@@ -1022,11 +1022,9 @@ describe("source vendor grouping", () => {
     expect(vendorForSource("dlfRookieSf")).toBe("dlf");
     expect(vendorForSource("dlfRookieIdp")).toBe("dlf");
 
-    // Flock vet board is mapped.  The rookie sibling
-    // (flockFantasySfRookies) is still on PR #188 — the vendor map
-    // intentionally omits it until that merges so this test stays in
-    // lockstep with ``main``.
+    // Flock publishes vet + rookie boards — same vendor.
     expect(vendorForSource("flockFantasySf")).toBe("flock");
+    expect(vendorForSource("flockFantasySfRookies")).toBe("flock");
 
     // FBG and DraftSharks each publish SF + IDP — same vendor.
     expect(vendorForSource("footballGuysSf")).toBe("footballGuys");

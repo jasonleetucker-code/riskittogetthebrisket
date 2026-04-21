@@ -671,10 +671,7 @@ export const SOURCE_VENDORS = {
   fantasyProsSf: "fantasyPros",
   fantasyProsIdp: "fantasyPros",
   flockFantasySf: "flock",
-  // NOTE: `flockFantasySfRookies` is intentionally omitted here — it
-  // is not yet on ``main`` (lives on PR #188).  Once that merges the
-  // entry should read ``flockFantasySfRookies: "flock"`` so Flock's
-  // vet + rookie boards consolidate like DLF's four boards do.
+  flockFantasySfRookies: "flock",
   footballGuysSf: "footballGuys",
   footballGuysIdp: "footballGuys",
   draftSharks: "draftSharks",
