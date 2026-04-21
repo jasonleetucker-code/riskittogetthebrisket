@@ -1,16 +1,32 @@
-"""Intrinsic / market / final multiplier math.
+"""Cross-league relativity multiplier math (schema v2).
 
-Converts per-season bucket centers into per-bucket multipliers:
+Converts per-season bucket centers into per-bucket multipliers that
+express **how my league values this IDP bucket relative to a test
+league, anchored to each league's own offense baseline**.
 
-* **Intrinsic** — "what my-league scoring + my-league lineup economics
-  say this bucket is worth". Normalised against the top bucket so
-  the top bucket in each position has multiplier 1.0.
-* **Market** — same recipe but using the test-league centers. This
-  is treated as a prior, not ground truth.
-* **Final** — convex blend ``alpha * intrinsic + (1 - alpha) * market``.
+Per-bucket formula::
 
-Multi-year weighting folds per-season buckets into a single table by
-applying recency weights and skipping missing seasons.
+    my_norm[i]   = center_vor_mine[i]  / offense_anchor_mine
+    test_norm[i] = center_vor_test[i]  / offense_anchor_test
+    final[i]     = my_norm[i] / test_norm[i]     # the applied multiplier
+
+Where ``offense_anchor_*`` is the mean VOR of the top-24 RB+WR under
+each league's scoring (see ``vor.compute_offense_anchor_vor``).
+
+Fields on the emitted :class:`BucketMultipliers` record:
+
+* ``intrinsic`` — ``my_norm[i]``. How much VOR my-league scoring
+  produces for this bucket expressed as a multiple of one average top-24
+  flex starter's VOR. Display-only in the final-mode production path.
+* ``market`` — ``test_norm[i]``. Same measure for the test league.
+* ``final`` — ``intrinsic / market``. The **relativity ratio** applied
+  as a multiplier to market-derived ``rankDerivedValue`` in the live
+  pipeline. 1.0 = identical weighting; > 1.0 lifts the bucket; < 1.0
+  cuts it.
+
+Multi-year weighting folds per-season buckets (and per-season offense
+anchors) into a single table by applying recency weights and skipping
+missing seasons.
 """
 from __future__ import annotations
 
@@ -27,6 +43,27 @@ DEFAULT_YEAR_WEIGHTS: dict[int, float] = {
 }
 
 DEFAULT_BLEND: dict[str, float] = {"intrinsic": 0.75, "market": 0.25}
+
+# Schema version tag written into the emitted multipliers/anchors
+# artifact. ``production.py`` refuses to apply anything older than
+# :data:`CALIBRATION_SCHEMA_VERSION` because the v1 ``final`` field
+# encoded a different quantity (top-bucket-normalised VOR decay) and
+# would be misinterpreted as a relativity ratio.
+CALIBRATION_SCHEMA_VERSION: int = 2
+
+# Cross-league relativity bounds. The engineering floor/ceiling here
+# bounds the ``final`` multiplier only — the display-side ``intrinsic``
+# and ``market`` fields are emitted without a ceiling because they're
+# in offense-anchor units and the reader does not apply them as
+# multipliers when the active mode is ``blended``/``final``.
+RELATIVITY_MIN: float = 0.25
+RELATIVITY_MAX: float = 4.0
+
+# Guard against pathological zero/near-zero offense anchors. A
+# missing-data anchor collapses the ratio to garbage; we fall back to
+# an identity multiplier (``1.0``) whenever either side can't produce
+# a real number.
+_OFFENSE_ANCHOR_EPSILON: float = 1.0  # VOR points; anything below this is noise
 
 
 @dataclass
@@ -84,21 +121,23 @@ def _weighted_center(
     return total_val / total_w, total_w
 
 
-def _normalise(values: list[float]) -> list[float]:
-    """Normalise so the top (first) bucket equals 1.0.
+def _clamp_relativity(value: float) -> float:
+    """Clamp a relativity ratio into ``[RELATIVITY_MIN, RELATIVITY_MAX]``.
 
-    If the top bucket is zero we fall back to the max abs value; if
-    everything is zero we return 1.0s so downstream code doesn't get
-    divide-by-zero.
+    Unlike the old :func:`_clamp_series`, we do not force the output to
+    sit below 1.0 — a relativity > 1.0 is the signal that "my league
+    values this bucket more than the test league." The floor keeps a
+    pathological near-zero test anchor from producing an absurd
+    deflation; the ceiling keeps a pathological near-zero my-league
+    anchor from producing an absurd inflation. Identity passes through
+    unchanged.
     """
-    if not values:
-        return []
-    anchor = values[0]
-    if abs(anchor) < 1e-9:
-        anchor = max((abs(v) for v in values), default=0.0)
-    if abs(anchor) < 1e-9:
-        return [1.0 for _ in values]
-    return [v / anchor for v in values]
+    if not isinstance(value, (int, float)):
+        return 1.0
+    v = float(value)
+    if v != v:  # NaN
+        return 1.0
+    return max(RELATIVITY_MIN, min(RELATIVITY_MAX, v))
 
 
 def _collect_year_centers(
@@ -141,100 +180,91 @@ def compute_position_multipliers(
     *,
     year_weights: dict[int, float] | None = None,
     blend: dict[str, float] | None = None,
-    multiplier_floor: float = 0.05,
+    offense_anchor_mine: float = 0.0,
+    offense_anchor_test: float = 0.0,
+    multiplier_floor: float = 0.05,  # kept for signature compat; no longer used
 ) -> PositionMultipliers:
-    """Combine per-season bucket tables into per-bucket multipliers.
+    """Combine per-season bucket tables into cross-league relativity multipliers.
 
-    ``multiplier_floor`` (default ``0.05``) clamps every emitted
-    multiplier to a positive minimum. Without it, sub-replacement
-    buckets produce **negative** multipliers: VOR goes negative for
-    players below replacement, normalisation against the positive
-    top bucket yields a negative ratio, and the live pipeline would
-    multiply ``rankDerivedValue`` by a negative number — flipping a
-    player's value sign, which is nonsense (a bench depth player
-    still has positive trade value, just a small one). Flooring at
-    5% matches the anchor-curve floor so bucket and anchor lookups
-    don't disagree.
+    For each bucket the function computes::
+
+        my_norm   = weighted_center_vor_mine / offense_anchor_mine
+        test_norm = weighted_center_vor_test / offense_anchor_test
+        final     = my_norm / test_norm          (clamped to [0.25, 4.0])
+
+    ``offense_anchor_mine`` / ``offense_anchor_test`` are the mean VOR
+    of the top-24 RB+WR under each league's scoring (see
+    :func:`src.idp_calibration.vor.compute_offense_anchor_vor`),
+    weighted-aggregated across seasons upstream. They put ``intrinsic``
+    and ``market`` into a common "offense flex starter" unit so the
+    ratio represents genuine cross-league relativity rather than raw
+    VOR point counts (which would just reflect scoring intensity).
+
+    Fallback semantics:
+
+    * Either anchor missing / ≤ ``_OFFENSE_ANCHOR_EPSILON`` → every
+      bucket emits the identity multiplier (1.0) with raw VOR still
+      exposed on ``intrinsic`` / ``market`` for audit.
+    * A single bucket with ``center_vor_mine`` ≤ 0 or
+      ``center_vor_test`` ≤ 0 → emit identity (1.0) for that bucket's
+      ``final`` — we don't have a meaningful ratio when either side is
+      at/below replacement.
+
+    ``multiplier_floor`` is accepted for call-site compat but no longer
+    used; the relativity floor/ceiling are set by
+    :data:`RELATIVITY_MIN` / :data:`RELATIVITY_MAX`.
     """
+    del multiplier_floor  # schema v1 vestige; relativity has its own bounds
     year_weights = year_weights or DEFAULT_YEAR_WEIGHTS
-    blend = blend or DEFAULT_BLEND
+    blend = blend or DEFAULT_BLEND  # kept for API compat; unused in v2 math
+    del blend
     labels = _bucket_labels(per_season)
-    intrinsic_raw: list[float] = []
-    market_raw: list[float] = []
-    counts: list[int] = []
+
+    anchors_ok = (
+        offense_anchor_mine > _OFFENSE_ANCHOR_EPSILON
+        and offense_anchor_test > _OFFENSE_ANCHOR_EPSILON
+    )
+
+    buckets: list[BucketMultipliers] = []
     for label in labels:
         mine_centers = _collect_year_centers(per_season, label, "center_vor_mine")
         test_centers = _collect_year_centers(per_season, label, "center_vor_test")
         mine_val, _ = _weighted_center(mine_centers, year_weights)
         test_val, _ = _weighted_center(test_centers, year_weights)
-        intrinsic_raw.append(mine_val)
-        market_raw.append(test_val)
         total_count = 0
-        for buckets in per_season.values():
-            for b in buckets:
+        for season_buckets in per_season.values():
+            for b in season_buckets:
                 if b.label == label:
                     total_count += int(b.count)
                     break
-        counts.append(total_count)
-    intrinsic_norm = _clamp_series(
-        _enforce_descending(_normalise(intrinsic_raw)), multiplier_floor
-    )
-    market_norm = _clamp_series(
-        _enforce_descending(_normalise(market_raw)), multiplier_floor
-    )
-    alpha = float(blend.get("intrinsic", 0.75))
-    beta = 1.0 - alpha
-    final_norm = _clamp_series(
-        _enforce_descending(
-            [alpha * i + beta * m for i, m in zip(intrinsic_norm, market_norm)]
-        ),
-        multiplier_floor,
-    )
-    buckets = [
-        BucketMultipliers(
-            label=lbl,
-            intrinsic=intrinsic_norm[i],
-            market=market_norm[i],
-            final=final_norm[i],
-            count=counts[i],
+
+        if anchors_ok:
+            my_norm = mine_val / offense_anchor_mine
+            test_norm = test_val / offense_anchor_test
+        else:
+            my_norm = 0.0
+            test_norm = 0.0
+
+        # Relativity ratio — the applied multiplier.
+        if anchors_ok and mine_val > 0 and test_val > 0:
+            final = _clamp_relativity(my_norm / test_norm)
+        else:
+            # No meaningful ratio: identity passthrough so the live
+            # pipeline leaves the market-derived value alone rather
+            # than guessing.
+            final = 1.0
+
+        buckets.append(
+            BucketMultipliers(
+                label=label,
+                intrinsic=my_norm,
+                market=test_norm,
+                final=final,
+                count=total_count,
+            )
         )
-        for i, lbl in enumerate(labels)
-    ]
+
     return PositionMultipliers(position="", buckets=buckets)
-
-
-def _enforce_descending(values: list[float]) -> list[float]:
-    """Clamp a list so each element is <= the previous one.
-
-    This prevents calibration noise from producing a bucket that is
-    worth *more* than a higher-ranked bucket. We only enforce a soft
-    non-increasing pass — equal values are allowed so small genuine
-    plateaus (e.g. mid-tier depth) survive.
-    """
-    out: list[float] = []
-    for i, v in enumerate(values):
-        if i == 0:
-            out.append(v)
-            continue
-        prev = out[-1]
-        out.append(min(v, prev))
-    return out
-
-
-def _clamp_series(values: list[float], floor: float) -> list[float]:
-    """Clamp every value into ``[floor, 1.0]`` while preserving non-increasing order.
-
-    Without this, ``_normalise`` divides every VOR center by the top
-    bucket's positive value — sub-replacement buckets (negative VOR)
-    therefore emit *negative* multipliers. Applied to a positive
-    ``rankDerivedValue`` in the live pipeline, a negative multiplier
-    would flip the player's value sign. We instead floor at
-    ``floor`` (default 5%) so sub-replacement buckets collapse to
-    the minimum positive multiplier and cap at 1.0 so calibration
-    noise can't inflate a deep bucket past the top bucket.
-    """
-    floor = max(0.0, float(floor))
-    return [max(floor, min(1.0, float(v))) for v in values]
 
 
 @dataclass
@@ -413,15 +443,18 @@ def build_multi_year_multipliers(
     *,
     year_weights: dict[int, float] | None = None,
     blend: dict[str, float] | None = None,
+    offense_anchor_mine: float = 0.0,
+    offense_anchor_test: float = 0.0,
     multiplier_floor: float = 0.05,
 ) -> dict[str, PositionMultipliers]:
-    """Produce intrinsic/market/final multiplier tables for DL/LB/DB.
+    """Produce per-bucket relativity multiplier tables for DL/LB/DB.
 
-    ``multiplier_floor`` flows through to
-    :func:`compute_position_multipliers` so every emitted multiplier
-    sits inside ``[floor, 1.0]``. See the per-position helper's
-    docstring for the rationale (sub-replacement VOR would otherwise
-    yield negative multipliers).
+    ``offense_anchor_mine`` / ``offense_anchor_test`` are the aggregate
+    (year-weighted) top-24 RB+WR mean VOR on each side; they are
+    threaded into :func:`compute_position_multipliers` so every bucket
+    is normalised into the same offense-anchored unit before the ratio.
+    Missing anchors collapse every bucket to identity (see that helper's
+    docstring).
     """
     out: dict[str, PositionMultipliers] = {}
     for position, per_season in per_season_per_position.items():
@@ -429,6 +462,8 @@ def build_multi_year_multipliers(
             per_season,
             year_weights=year_weights,
             blend=blend,
+            offense_anchor_mine=offense_anchor_mine,
+            offense_anchor_test=offense_anchor_test,
             multiplier_floor=multiplier_floor,
         )
         result.position = position

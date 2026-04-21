@@ -1,13 +1,15 @@
-"""Anchor curves and monotonic smoothing.
+"""Anchor curves for per-rank interpolation.
 
 Given per-bucket multipliers we produce three curves per position —
 intrinsic, market, final — sampled at the default anchor ranks
 ``[1, 3, 6, 12, 24, 36, 48, 72, 100]``.
 
-The smoothing pass is an in-place pool-adjacent-violators (PAV) style
-sweep that enforces non-increasing anchors along with a floor so we
-never emit negative or zero-crossing values. No sklearn dep —
-implemented with plain lists.
+Schema-v2 behaviour: the ``final`` curve carries cross-league
+relativity ratios, which can legitimately be non-monotone (the user's
+scoring may lift a mid-rank bucket over the top bucket in some
+positions). We therefore do **not** force monotone descent on the
+emitted anchors — we only apply a safety floor against
+near-zero/negative values that would blow up the live interpolation.
 """
 from __future__ import annotations
 
@@ -52,12 +54,25 @@ def _bucket_value_at_rank(buckets: list[BucketMultipliers], rank: int, kind: str
     return float(getattr(buckets[-1], kind))
 
 
-def _monotone_non_increasing(values: list[float], floor: float = 0.0) -> list[float]:
+def _floor_only(values: list[float], floor: float = 0.0) -> list[float]:
+    """Apply a minimum-value floor without enforcing monotone descent.
+
+    Schema v2 relativity ratios can legitimately sit above 1.0 or move
+    non-monotonically across buckets; clamping-down would discard the
+    real cross-league signal. We only guard against near-zero / NaN
+    values that would blow up the live anchor interpolation.
+    """
     if not values:
         return []
-    out = [max(float(values[0]), floor)]
-    for v in values[1:]:
-        out.append(max(min(float(v), out[-1]), floor))
+    out: list[float] = []
+    for v in values:
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            f = floor
+        if f != f:  # NaN
+            f = floor
+        out.append(max(f, floor))
     return out
 
 
@@ -74,8 +89,8 @@ def build_anchor_curve(
             _bucket_value_at_rank(multipliers.buckets, r, kind)
             for r in anchor_ranks
         ]
-        smoothed = _monotone_non_increasing(raw, floor=floor)
-        out[kind] = [AnchorPoint(rank=r, value=v) for r, v in zip(anchor_ranks, smoothed)]
+        floored = _floor_only(raw, floor=floor)
+        out[kind] = [AnchorPoint(rank=r, value=v) for r, v in zip(anchor_ranks, floored)]
     return out
 
 

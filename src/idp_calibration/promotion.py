@@ -15,6 +15,7 @@ from typing import Any
 from src.utils.config_loader import load_json, repo_root, save_json
 
 from .storage import load_run
+from .translation import CALIBRATION_SCHEMA_VERSION
 
 CONFIG_FILENAME = "idp_calibration.json"
 BACKUPS_DIR = "idp_calibration.backups"
@@ -86,8 +87,15 @@ def build_production_config(
         )
     settings = artifact.get("settings") or {}
     inputs = artifact.get("inputs") or {}
+    # Schema v2: per-bucket ``final`` already carries the offense-
+    # anchored cross-league relativity ratio, so ``family_scale`` is
+    # redundant class-wide lift and would double-count if applied on
+    # top. We keep the field in the artifact for the lab UI's display
+    # but pin the applied value to identity (1.0 / 1.0 / 1.0) in the
+    # promoted config. If a future schema needs a separate class-wide
+    # lever, bump the version and plug it back in.
     return {
-        "version": 1,
+        "version": CALIBRATION_SCHEMA_VERSION,
         "promoted_at": _utc_now_iso(),
         "source_run_id": str(artifact.get("run_id") or ""),
         "promoted_by": str(promoted_by or "internal"),
@@ -100,9 +108,16 @@ def build_production_config(
         "replacement_settings": dict(settings.get("replacement") or {}),
         "active_mode": active_mode,
         "bucket_edges": list(settings.get("bucket_edges") or []),
+        "offense_anchor_vor_mine": float(
+            artifact.get("offense_anchor_vor_mine") or 0.0
+        ),
+        "offense_anchor_vor_test": float(
+            artifact.get("offense_anchor_vor_test") or 0.0
+        ),
         "multipliers": dict(artifact.get("multipliers") or {}),
         "offense_multipliers": dict(artifact.get("offense_multipliers") or {}),
-        "family_scale": dict(artifact.get("family_scale") or {}),
+        "family_scale": {"intrinsic": 1.0, "market": 1.0, "final": 1.0},
+        "family_scale_diagnostic": dict(artifact.get("family_scale") or {}),
         "anchors": dict(artifact.get("anchors") or {}),
         "offense_anchors": dict(artifact.get("offense_anchors") or {}),
     }

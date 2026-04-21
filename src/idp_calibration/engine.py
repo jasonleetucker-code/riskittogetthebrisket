@@ -29,6 +29,7 @@ from .stats_adapter import (
     get_stats_adapter,
 )
 from .translation import (
+    CALIBRATION_SCHEMA_VERSION,
     DEFAULT_BLEND,
     DEFAULT_YEAR_WEIGHTS,
     FamilyScale,
@@ -44,6 +45,7 @@ from .vor import (
     ScoredPlayer,
     VorRow,
     build_universe,
+    compute_offense_anchor_vor,
     compute_vor,
     score_universe,
     trim_to_top_n_per_position,
@@ -411,6 +413,13 @@ def run_analysis(
         pos: {} for pos in OFFENSE_FAMILY
     }
     per_season_family_scales: dict[int, FamilyScale] = {}
+    # Schema v2 cross-league relativity anchors — mean VOR of the top-24
+    # RB+WR under each league's scoring, per season. Year-weighted and
+    # aggregated downstream into scalar anchors the translation layer
+    # uses to put ``intrinsic`` and ``market`` into the same offense-
+    # flex unit before taking their ratio.
+    per_season_offense_anchor_mine: dict[int, float] = {}
+    per_season_offense_anchor_test: dict[int, float] = {}
     resolved_seasons: list[int] = []
 
     # ── Prefetch per-season universes concurrently ──────────────────
@@ -628,6 +637,18 @@ def run_analysis(
                 offense_vor_test=offense_vor_test,
                 blend=settings.blend,
             )
+            # Offense anchor VOR (top-24 RB+WR mean under each scoring
+            # system) — the yardstick every IDP bucket's VOR gets
+            # normalised against before the cross-league ratio.
+            anchor_mine, anchor_test = compute_offense_anchor_vor(
+                offense_scored,
+                replacement_mine=offense_repl_my,
+                replacement_test=offense_repl_test,
+            )
+            if anchor_mine > 0:
+                per_season_offense_anchor_mine[season] = anchor_mine
+            if anchor_test > 0:
+                per_season_offense_anchor_test[season] = anchor_test
         else:
             warnings.append(
                 f"{season}: offense universe empty — family_scale for this "
@@ -711,10 +732,27 @@ def run_analysis(
     normalised_weights = normalise_year_weights(
         settings.year_weights, seasons=resolved_seasons
     )
+
+    def _weighted_anchor(samples: dict[int, float]) -> float:
+        total_val = 0.0
+        total_w = 0.0
+        for season, value in samples.items():
+            w = float(normalised_weights.get(int(season), 0.0))
+            if w <= 0:
+                continue
+            total_val += float(value) * w
+            total_w += w
+        return total_val / total_w if total_w > 0 else 0.0
+
+    offense_anchor_mine = _weighted_anchor(per_season_offense_anchor_mine)
+    offense_anchor_test = _weighted_anchor(per_season_offense_anchor_test)
+
     multipliers = build_multi_year_multipliers(
         per_season_per_position_buckets,
         year_weights=normalised_weights,
         blend=settings.blend,
+        offense_anchor_mine=offense_anchor_mine,
+        offense_anchor_test=offense_anchor_test,
         multiplier_floor=settings.anchor_floor,
     )
     # Same aggregation for offense — drop positions where every
@@ -730,6 +768,8 @@ def run_analysis(
         offense_buckets_present,
         year_weights=normalised_weights,
         blend=settings.blend,
+        offense_anchor_mine=offense_anchor_mine,
+        offense_anchor_test=offense_anchor_test,
         multiplier_floor=settings.anchor_floor,
     )
     family_scale = combine_family_scales(
@@ -753,7 +793,9 @@ def run_analysis(
     artifact: dict[str, Any] = {
         "run_id": run_id,
         "generated_at": _utc_now_iso(),
-        "schema_version": 1,
+        "schema_version": CALIBRATION_SCHEMA_VERSION,
+        "offense_anchor_vor_mine": round(offense_anchor_mine, 4),
+        "offense_anchor_vor_test": round(offense_anchor_test, 4),
         "inputs": {
             "test_league_id": str(test_league_id or ""),
             "my_league_id": str(my_league_id or ""),

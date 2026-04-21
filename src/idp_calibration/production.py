@@ -22,19 +22,54 @@ from .promotion import production_config_path
 _lock = threading.Lock()
 _cache: dict[str, Any] = {"mtime": None, "config": None}
 
+# Minimum config version the runtime will apply. Configs written by the
+# v1 engine encoded ``final`` as a top-bucket-normalised VOR decay
+# curve; under the v2 engine the same field carries a cross-league
+# relativity ratio. Applying a v1 config under v2 semantics would
+# mis-interpret the numbers, so we refuse to load anything older than
+# :data:`_MIN_SUPPORTED_VERSION` and leave calibration as a strict
+# no-op until the lab re-promotes on the current engine.
+_MIN_SUPPORTED_VERSION: int = 2
+
+_stale_version_warned = False
+
 
 def _load_if_stale(base: Path | None = None) -> dict[str, Any] | None:
+    global _stale_version_warned
     path = production_config_path(base)
     if not path.exists():
         with _lock:
             _cache["mtime"] = None
             _cache["config"] = None
+        _stale_version_warned = False
         return None
     mtime = path.stat().st_mtime
     with _lock:
         if _cache["mtime"] == mtime and _cache["config"] is not None:
             return _cache["config"]
         data = load_json(path)
+        if isinstance(data, dict):
+            try:
+                cfg_version = int(data.get("version") or 0)
+            except (TypeError, ValueError):
+                cfg_version = 0
+            if cfg_version < _MIN_SUPPORTED_VERSION:
+                if not _stale_version_warned:
+                    import logging
+
+                    logging.getLogger(__name__).warning(
+                        "config/idp_calibration.json is schema v%s "
+                        "(minimum supported: v%s). IDP calibration is a "
+                        "strict no-op until the lab re-promotes a run on "
+                        "the current engine.",
+                        cfg_version,
+                        _MIN_SUPPORTED_VERSION,
+                    )
+                    _stale_version_warned = True
+                _cache["mtime"] = mtime
+                _cache["config"] = None
+                return None
+            _stale_version_warned = False
         _cache["mtime"] = mtime
         _cache["config"] = data if isinstance(data, dict) else None
         return _cache["config"]
@@ -42,9 +77,11 @@ def _load_if_stale(base: Path | None = None) -> dict[str, Any] | None:
 
 def reset_cache() -> None:
     """Test hook — drop the in-memory cache."""
+    global _stale_version_warned
     with _lock:
         _cache["mtime"] = None
         _cache["config"] = None
+    _stale_version_warned = False
 
 
 def load_production_config(base: Path | None = None) -> dict[str, Any] | None:

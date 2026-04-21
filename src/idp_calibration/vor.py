@@ -171,6 +171,55 @@ def compute_vor(
     return rows
 
 
+_OFFENSE_ANCHOR_POSITIONS: tuple[str, ...] = ("RB", "WR")
+_OFFENSE_ANCHOR_TOP_N: int = 24
+
+
+def compute_offense_anchor_vor(
+    offense_scored: list[ScoredPlayer],
+    replacement_mine: dict[str, float],
+    replacement_test: dict[str, float],
+    *,
+    positions: Iterable[str] = _OFFENSE_ANCHOR_POSITIONS,
+    top_n: int = _OFFENSE_ANCHOR_TOP_N,
+) -> tuple[float, float]:
+    """Return ``(anchor_mine, anchor_test)`` — mean VOR of the top
+    ``top_n`` RB+WR under each scoring system.
+
+    This is the "what counts as a top flex starter" yardstick that
+    every IDP bucket's VOR is normalised against in the cross-league
+    relativity math (see :func:`compute_position_multipliers`). Top-24
+    combined RB+WR is a robust, scoring-invariant anchor: it's the
+    depth of a standard 12-team flex pool, and it's insensitive to
+    SF/non-SF (QBs are excluded) and TE-premium (TE excluded) format
+    differences.
+
+    Each side ranks independently by its own VOR column, so a player
+    who is elite under my-league scoring but mediocre under test
+    scoring is counted in my anchor but not the test anchor — that's
+    the point: we're measuring each league's own "top-24 flex" cohort.
+
+    Returns ``(0.0, 0.0)`` when there isn't enough offense data on
+    either side; the caller should treat a zero anchor as a signal
+    to skip the calibration altogether for that season.
+    """
+    allowed = {p.upper() for p in positions}
+    cohort = [s for s in offense_scored if s.position in allowed]
+    if not cohort or top_n <= 0:
+        return 0.0, 0.0
+    vor_mine_list = [
+        s.points_mine - float(replacement_mine.get(s.position, 0.0)) for s in cohort
+    ]
+    vor_test_list = [
+        s.points_test - float(replacement_test.get(s.position, 0.0)) for s in cohort
+    ]
+    top_mine = sorted(vor_mine_list, reverse=True)[:top_n]
+    top_test = sorted(vor_test_list, reverse=True)[:top_n]
+    anchor_mine = sum(top_mine) / len(top_mine) if top_mine else 0.0
+    anchor_test = sum(top_test) / len(top_test) if top_test else 0.0
+    return float(anchor_mine), float(anchor_test)
+
+
 def vor_rows_to_dict(rows: list[VorRow]) -> list[dict[str, Any]]:
     return [
         {

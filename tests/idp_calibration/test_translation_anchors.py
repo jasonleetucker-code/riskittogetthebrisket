@@ -34,7 +34,12 @@ def _three_bucket_series(test_seed, mine_seed):
     ]
 
 
-def test_build_multi_year_multipliers_produces_normalised_curves():
+def test_build_multi_year_multipliers_produces_offense_anchored_curves():
+    # Schema v2: ``intrinsic`` and ``market`` carry offense-anchored
+    # VOR (bucket_center / offense_anchor), and ``final`` is their
+    # cross-league ratio. Setup: both anchors set to 100 so ``intrinsic``
+    # is the bucket center expressed as a multiple of "one top-24 flex
+    # starter's VOR", and ``final`` is the mine/test VOR ratio.
     per_position = {
         "DL": {
             2025: _three_bucket_series(100, 120),
@@ -43,38 +48,83 @@ def test_build_multi_year_multipliers_produces_normalised_curves():
             2022: _three_bucket_series(85, 100),
         }
     }
-    year_weights = normalise_year_weights(DEFAULT_YEAR_WEIGHTS, seasons=[2022, 2023, 2024, 2025])
+    year_weights = normalise_year_weights(
+        DEFAULT_YEAR_WEIGHTS, seasons=[2022, 2023, 2024, 2025]
+    )
     multipliers = build_multi_year_multipliers(
-        per_position, year_weights=year_weights, blend=DEFAULT_BLEND
+        per_position,
+        year_weights=year_weights,
+        blend=DEFAULT_BLEND,
+        offense_anchor_mine=100.0,
+        offense_anchor_test=100.0,
     )
     dl = multipliers["DL"].buckets
-    assert dl[0].intrinsic == 1.0  # Top bucket normalised to 1.0
-    assert dl[1].intrinsic < dl[0].intrinsic
-    assert dl[2].intrinsic < dl[1].intrinsic
-    # Final blend must sit between intrinsic and market at each bucket.
+    # Bucket centers divided by anchor: top-bucket intrinsic =
+    # weighted-mean(mine_seed) / 100. For this fixture the bucket
+    # centers shrink with rank, so intrinsic monotonically decreases.
+    assert dl[0].intrinsic > dl[1].intrinsic > dl[2].intrinsic
+    assert dl[0].market > dl[1].market > dl[2].market
+    # Every final is the offense-anchored ratio. With both anchors ==
+    # 100 it collapses to mine_center / test_center.
     for b in dl:
-        lo = min(b.intrinsic, b.market)
-        hi = max(b.intrinsic, b.market)
-        assert lo - 1e-6 <= b.final <= hi + 1e-6
+        expected = b.intrinsic / b.market
+        assert abs(b.final - expected) < 1e-6
 
 
-def test_anchors_are_non_increasing():
+def test_final_lifts_above_one_when_my_league_values_a_bucket_more():
+    # Setup: both sides agree on the top bucket but my league scores
+    # rank 7-12 much more generously (edge-premium scoring). The
+    # relativity ratio for 7-12 must climb above 1.0 — this is the
+    # exact behaviour the schema-v1 engine could not produce.
     per_position = {
-        "LB": {
-            2025: _three_bucket_series(100, 120),
-            2024: _three_bucket_series(90, 110),
+        "DL": {
+            2025: [
+                _bucket("1-6", 1, 6, 100.0, 100.0),
+                _bucket("7-12", 7, 12, 40.0, 80.0),  # my-league doubles the bucket
+            ]
         }
     }
     multipliers = build_multi_year_multipliers(
         per_position,
-        year_weights={2025: 0.6, 2024: 0.4},
+        year_weights={2025: 1.0},
         blend=DEFAULT_BLEND,
+        offense_anchor_mine=100.0,
+        offense_anchor_test=100.0,
+    )
+    dl = multipliers["DL"].buckets
+    assert abs(dl[0].final - 1.0) < 1e-6  # agreeing top bucket → 1.0
+    assert dl[1].final > 1.5  # my-league 80 / test 40 = 2.0 → lifted
+
+
+def test_anchors_preserve_relativity_signal():
+    # The v2 anchor smoothing pass must NOT force monotone descent —
+    # otherwise a lifted mid-rank bucket (final > top) would get
+    # clamped down to the top bucket value and destroy the signal.
+    per_position = {
+        "LB": {
+            2025: [
+                _bucket("1-6", 1, 6, 100.0, 100.0),
+                _bucket("7-12", 7, 12, 40.0, 80.0),  # lifted bucket
+                _bucket("13-24", 13, 24, 25.0, 25.0),
+            ]
+        }
+    }
+    multipliers = build_multi_year_multipliers(
+        per_position,
+        year_weights={2025: 1.0},
+        blend=DEFAULT_BLEND,
+        offense_anchor_mine=100.0,
+        offense_anchor_test=100.0,
     )
     anchors = build_all_anchors(multipliers)
-    for kind in ("intrinsic", "market", "final"):
-        points = anchors["LB"][kind]
-        for a, b in zip(points, points[1:]):
-            assert b.value <= a.value + 1e-9, f"{kind} violates monotonicity"
+    # rank=12 sits inside the 7-12 bucket where final ≈ 2.0. Rank=1
+    # sits in the 1-6 bucket where final ≈ 1.0. The v1 code would have
+    # forced rank=12 <= rank=1 (≈1.0) and lost the lift signal.
+    pts = {p.rank: p.value for p in anchors["LB"]["final"]}
+    assert pts[12] > 1.5, "7-12 lift was flattened by monotone smoothing"
+    # Floor is still respected (no negative/zero values).
+    for v in pts.values():
+        assert v >= 0.05 - 1e-9
 
 
 def test_bucket_labels_aggregate_across_seasons_not_just_first():
@@ -128,59 +178,81 @@ def _series(*pairs, count=10):
     return [_bucket(lbl, lo, hi, tv, mv, count=count) for lbl, lo, hi, tv, mv in pairs]
 
 
-def test_sub_replacement_buckets_are_floored_not_negative():
-    # Reproduces the real-run case the user showed: DL buckets 37-60
-    # and 61-100 have negative VOR centers, which under raw
-    # normalisation produce negative multipliers. The clamp must
-    # floor each of intrinsic/market/final at 0.05 so the live
-    # pipeline never multiplies a positive rankDerivedValue by a
-    # negative number.
+def test_sub_replacement_buckets_fall_through_to_identity():
+    # v2 behaviour: sub-replacement buckets (center <= 0 on either side)
+    # can't produce a meaningful cross-league ratio, so they fall
+    # through to ``final=1.0`` (identity). The ``intrinsic`` /
+    # ``market`` display fields still surface the raw offense-anchored
+    # VOR, including negatives, for audit.
     series = _series(
         ("1-6", 1, 6, 100.0, 120.0),
         ("7-12", 7, 12, 50.0, 60.0),
         ("13-24", 13, 24, 20.0, 25.0),
-        ("25-36", 25, 36, 0.0, 5.0),
-        ("37-60", 37, 60, -30.0, -20.0),       # sub-replacement
-        ("61-100", 61, 100, -55.0, -45.0),     # deep sub-replacement
+        ("25-36", 25, 36, 0.0, 5.0),                # zero bucket on test side
+        ("37-60", 37, 60, -30.0, -20.0),            # sub-replacement both sides
+        ("61-100", 61, 100, -55.0, -45.0),          # deep sub-replacement
     )
     per_position = {"DL": {2025: series}}
     multipliers = build_multi_year_multipliers(
         per_position,
         year_weights={2025: 1.0},
         blend=DEFAULT_BLEND,
+        offense_anchor_mine=100.0,
+        offense_anchor_test=100.0,
     )
     dl = multipliers["DL"].buckets
-    # Every emitted multiplier must be in [0.05, 1.0] on every
-    # channel (intrinsic, market, final). Previously 37-60 and
-    # 61-100 were negative on all three.
-    for b in dl:
-        for channel in ("intrinsic", "market", "final"):
-            val = getattr(b, channel)
-            assert 0.05 - 1e-9 <= val <= 1.0 + 1e-9, (
-                f"{b.label} {channel}={val} outside [0.05, 1.0]"
-            )
-    # Top bucket still equals 1.0 (normalisation anchor).
-    assert abs(dl[0].intrinsic - 1.0) < 1e-6
-    assert abs(dl[0].market - 1.0) < 1e-6
-    assert abs(dl[0].final - 1.0) < 1e-6
-    # Sub-replacement buckets are floored, not 0 and not negative.
-    for bucket in dl[-2:]:
-        assert abs(bucket.intrinsic - 0.05) < 1e-9
-        assert abs(bucket.market - 0.05) < 1e-9
-        assert abs(bucket.final - 0.05) < 1e-9
+    # Bucket 1-6 and 7-12 and 13-24 have positive VOR on both sides
+    # → real ratio.
+    for lbl in ("1-6", "7-12", "13-24"):
+        b = next(x for x in dl if x.label == lbl)
+        assert b.final != 1.0 or abs(b.intrinsic - b.market) < 1e-9
+    # Bucket 25-36 and deeper: at least one side is ≤ 0, so ``final``
+    # falls through to 1.0 rather than producing a negative multiplier.
+    for lbl in ("25-36", "37-60", "61-100"):
+        b = next(x for x in dl if x.label == lbl)
+        assert abs(b.final - 1.0) < 1e-9, (
+            f"{lbl} final={b.final} should be identity under sub-replacement"
+        )
 
 
-def test_custom_multiplier_floor_propagates():
-    # If a caller raises the floor (say 0.10) the clamp applies at
-    # that level end-to-end.
+def test_missing_offense_anchor_falls_through_to_identity():
+    # If the engine couldn't compute a usable offense anchor on either
+    # side (e.g. offense universe was empty every season), every
+    # bucket's final must default to 1.0 so the live pipeline runs as
+    # a no-op rather than applying garbage ratios.
     series = _series(
         ("1-6", 1, 6, 100.0, 120.0),
-        ("7-12", 7, 12, -50.0, -40.0),  # immediately sub-replacement
+        ("7-12", 7, 12, 50.0, 60.0),
     )
     multipliers = build_multi_year_multipliers(
         {"DL": {2025: series}},
         year_weights={2025: 1.0},
         blend=DEFAULT_BLEND,
-        multiplier_floor=0.10,
+        offense_anchor_mine=0.0,  # missing anchor
+        offense_anchor_test=0.0,
     )
-    assert abs(multipliers["DL"].buckets[1].final - 0.10) < 1e-9
+    for b in multipliers["DL"].buckets:
+        assert abs(b.final - 1.0) < 1e-9
+
+
+def test_relativity_clamped_to_engineering_bounds():
+    # Pathologically large disparity (10× on one side) must clamp to
+    # the ``[0.25, 4.0]`` engineering band so a single weird bucket
+    # can't ship an absurd multiplier to production.
+    series = _series(
+        ("1-6", 1, 6, 100.0, 100.0),
+        ("7-12", 7, 12, 1.0, 100.0),    # test says ~nothing, mine says a lot
+        ("13-24", 13, 24, 100.0, 1.0),  # mirror case
+    )
+    multipliers = build_multi_year_multipliers(
+        {"DL": {2025: series}},
+        year_weights={2025: 1.0},
+        blend=DEFAULT_BLEND,
+        offense_anchor_mine=100.0,
+        offense_anchor_test=100.0,
+    )
+    dl = multipliers["DL"].buckets
+    lifted = next(b for b in dl if b.label == "7-12")
+    cut = next(b for b in dl if b.label == "13-24")
+    assert abs(lifted.final - 4.0) < 1e-6  # pinned at ceiling
+    assert abs(cut.final - 0.25) < 1e-6    # pinned at floor
