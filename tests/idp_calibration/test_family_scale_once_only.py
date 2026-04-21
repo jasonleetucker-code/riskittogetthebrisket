@@ -118,6 +118,14 @@ def test_family_scale_is_folded_exactly_once(tmp_path, monkeypatch):
         family = row.get("idpFamilyScale")
         if uncal is None or final_val is None:
             continue
+        # Skip rows where the market-corridor clamp has pulled the
+        # value away from the calibration-folded expectation.  The
+        # invariant we're testing is that the CALIBRATION itself
+        # folds exactly once — a subsequent clamp operating on the
+        # calibrated value is a different transform and is tested
+        # separately.
+        if row.get("marketCorridorClamp"):
+            continue
         # Stamped components match the config exactly.
         assert bucket is not None and abs(bucket - DL_BUCKET) < 1e-6, (
             f"{row.get('canonicalName')}: "

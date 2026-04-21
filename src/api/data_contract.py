@@ -3425,6 +3425,167 @@ def _parse_pick_tier(name: str) -> tuple[int, str, int] | None:
         return None
 
 
+# ── Market-anchor corridor clamp ────────────────────────────────────────
+# Designated market anchor sources per asset class.  KTC and IDPTC are
+# the deepest retail value boards, so they define "market reality" for
+# each universe.  Other sources can move the final value within the
+# corridor — they just can't pull a player into a rank that contradicts
+# market at a pathological level.
+_MARKET_ANCHOR_BY_ASSET_CLASS: dict[str, str] = {
+    "offense": "ktc",
+    "idp": "idpTradeCalc",
+}
+
+# Percentile at which we declare a drift "too extreme" and clamp it.
+# 0.90 means: the worst 10% of drifts (relative to the market anchor)
+# inside each confidence bucket get pulled back to the edge of that
+# bucket's natural drift distribution.  Everything inside the top 90%
+# of natural drifts is untouched.  Chosen over an arbitrary fixed
+# percent so the band width adapts as the board's source set evolves.
+_MARKET_CORRIDOR_PERCENTILE: float = 0.90
+# Minimum sample per confidence bucket before we trust its own P90;
+# below this we fall back to the overall board P90 so a tiny bucket
+# can't get an unrepresentative band.
+_MARKET_CORRIDOR_MIN_BUCKET_N: int = 30
+
+
+def _market_anchor_value_for_row(row: dict[str, Any]) -> float | None:
+    """Return the market-anchor source value for a row, or None if
+    the row doesn't have one (e.g. rookie pre-NFL-draft without a KTC
+    value, or a pick).  Used by the corridor clamp to pick an anchor
+    per asset class."""
+    sites = row.get("canonicalSiteValues")
+    if not isinstance(sites, dict):
+        return None
+    asset_class = str(row.get("assetClass") or "")
+    source_key = _MARKET_ANCHOR_BY_ASSET_CLASS.get(asset_class)
+    if not source_key:
+        return None
+    raw = sites.get(source_key)
+    if raw is None:
+        return None
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if v <= 0:
+        return None
+    return v
+
+
+def _percentile(sorted_vals: list[float], p: float) -> float:
+    """Nearest-rank percentile on a pre-sorted list."""
+    if not sorted_vals:
+        return 0.0
+    idx = int(round((len(sorted_vals) - 1) * max(0.0, min(1.0, p))))
+    return float(sorted_vals[idx])
+
+
+def _apply_market_corridor_clamp(
+    players_array: list[dict[str, Any]],
+    players_by_name: dict[str, Any],
+) -> None:
+    """Clamp blended values that have drifted further from the market
+    anchor than the 90th percentile of natural drift within each
+    confidence bucket.
+
+    Rationale: with 19 sources, extreme disagreements (e.g. FG + DS
+    pricing an elite edge on their combined offense+IDP pool at rank
+    300, while IDPTC + DLF IDP + IDP Show + FP IDP price him top-10)
+    can pull a player's final rank hundreds of slots from where the
+    market anchor alone would place him.  The clamp leaves the blend
+    alone for players whose drift sits inside the naturally-observed
+    distribution, but pulls back the tail outliers to the edge of
+    that distribution.
+
+    Band width is empirical — P90 of ``|final - market| / market``
+    computed within each confidence bucket on THIS board build.
+    Buckets with fewer than _MARKET_CORRIDOR_MIN_BUCKET_N players
+    fall back to the overall board P90 so small-sample noise can't
+    set an unrepresentative band.
+
+    Stamps ``marketCorridorClamp`` on every clamped row so the UI
+    and audit code can see original value, clamped value, anchor,
+    direction, and which source provided the anchor.
+    """
+    # Gather drift values per confidence bucket.
+    by_bucket: dict[str, list[float]] = {}
+    overall: list[float] = []
+    drifts: list[tuple[dict[str, Any], float, float, str]] = []
+    for row in players_array:
+        if not row.get("canonicalConsensusRank"):
+            continue
+        anchor = _market_anchor_value_for_row(row)
+        if anchor is None:
+            continue
+        try:
+            value = float(row.get("rankDerivedValue") or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if value <= 0:
+            continue
+        drift = abs(value - anchor) / anchor
+        bucket = str(row.get("confidenceBucket") or "low")
+        source_key = _MARKET_ANCHOR_BY_ASSET_CLASS.get(
+            str(row.get("assetClass") or "")
+        ) or ""
+        by_bucket.setdefault(bucket, []).append(drift)
+        overall.append(drift)
+        drifts.append((row, value, anchor, source_key))
+
+    if not overall:
+        return
+
+    overall_sorted = sorted(overall)
+    overall_p90 = _percentile(overall_sorted, _MARKET_CORRIDOR_PERCENTILE)
+    bucket_bands: dict[str, float] = {}
+    for bucket, vals in by_bucket.items():
+        if len(vals) >= _MARKET_CORRIDOR_MIN_BUCKET_N:
+            bucket_bands[bucket] = _percentile(
+                sorted(vals), _MARKET_CORRIDOR_PERCENTILE
+            )
+        else:
+            bucket_bands[bucket] = overall_p90
+
+    # Apply clamps.
+    for row, value, anchor, source_key in drifts:
+        bucket = str(row.get("confidenceBucket") or "low")
+        band = bucket_bands.get(bucket, overall_p90)
+        drift = abs(value - anchor) / anchor
+        if drift <= band:
+            continue
+        # Clamp to the band edge, preserving direction.
+        if value > anchor:
+            clamped_f = anchor * (1.0 + band)
+            direction = "down"
+        else:
+            clamped_f = anchor * (1.0 - band)
+            direction = "up"
+        clamped_int = int(round(clamped_f))
+        if clamped_int <= 0:
+            continue
+        row["rankDerivedValue"] = clamped_int
+        row["marketCorridorClamp"] = {
+            "applied": True,
+            "originalValue": int(round(value)),
+            "clampedValue": clamped_int,
+            "marketAnchor": int(round(anchor)),
+            "marketSource": source_key,
+            "bandPct": round(band, 4),
+            "percentile": _MARKET_CORRIDOR_PERCENTILE,
+            "confidenceBucket": bucket,
+            "direction": direction,
+        }
+        # Mirror onto the legacy dict payload so the delta + full
+        # contract views both see the clamped value.
+        legacy_ref = row.get("legacyRef")
+        if legacy_ref and legacy_ref in players_by_name:
+            pdata = players_by_name[legacy_ref]
+            if isinstance(pdata, dict):
+                pdata["rankDerivedValue"] = clamped_int
+                pdata["marketCorridorClamp"] = dict(row["marketCorridorClamp"])
+
+
 def _apply_idp_calibration_post_pass(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
@@ -5573,6 +5734,17 @@ def _compute_unified_rankings(
                 pdata["rankDerivedValueUncalibrated"] = snapshot_val
 
     _apply_idp_calibration_post_pass(players_array, players_by_name)
+
+    # Market-anchor corridor clamp: after all value-moving passes,
+    # clamp players whose blended value has drifted further from the
+    # market anchor (KTC for offense, IDPTC for IDP) than the P90 of
+    # natural drift inside their confidence bucket.  Leaves 90% of
+    # the board untouched — only the tail outliers where one or two
+    # sources have pulled a player far from the retail-market consensus
+    # get pulled back to the band edge.  See
+    # ``_apply_market_corridor_clamp`` for the design rationale.
+    _apply_market_corridor_clamp(players_array, players_by_name)
+
     # Offense calibration is deliberately never applied to live values.
     # The offense market is already priced by the blend of KTC / DLF /
     # IDPTC / etc.  VOR bucket multipliers produced absurd artefacts
