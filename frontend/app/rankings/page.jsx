@@ -102,7 +102,16 @@ function posMatchesFilter(pos, assetClass, filter, row) {
 // using this helper so both surfaces show `value (#rank)` consistently.
 function formatSourceCell(row, src) {
   const rawVal = row?.canonicalSites?.[src.key];
-  const hasVal = rawVal != null && Number.isFinite(Number(rawVal));
+  // valueContribution is the backend's 9999-scale normalized value
+  // (source's top player = 9999, others scale linearly).  For sources
+  // whose native value range is already 0-9999 (KTC, IDPTC, DD-SF)
+  // this is effectively rawVal; for sources like Yahoo/Boone whose
+  // native range is 0-~141, this is the rescaled value so every
+  // value column in the UI lives on the same scale.
+  const normalizedVal = row?.sourceRankMeta?.[src.key]?.valueContribution;
+  const hasVal =
+    (normalizedVal != null && Number.isFinite(Number(normalizedVal))) ||
+    (rawVal != null && Number.isFinite(Number(rawVal)));
   const effectiveRank = row?.sourceRanks?.[src.key];
   const origRank = row?.sourceOriginalRanks?.[src.key];
 
@@ -133,8 +142,13 @@ function formatSourceCell(row, src) {
     };
   }
 
-  // Value source: raw value as primary, effective rank in parens.
-  const primary = Math.round(Number(rawVal)).toLocaleString();
+  // Value source: prefer the normalized 9999-scale value contribution
+  // so sources with non-9999 native ranges (e.g. Yahoo/Boone ~141 max)
+  // render consistently with KTC/IDPTC.  Fall back to the raw site
+  // value if the backend didn't stamp a valueContribution (old payloads
+  // during rollout).
+  const displayVal = normalizedVal != null ? normalizedVal : rawVal;
+  const primary = Math.round(Number(displayVal)).toLocaleString();
   const rankLabel = effectiveRank != null ? `#${effectiveRank}` : "\u2014";
   return {
     hasVal: true,
