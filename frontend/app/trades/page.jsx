@@ -20,6 +20,7 @@ export default function TradesPage() {
   const { rows, rawData, loading, error } = useApp();
   const { settings } = useSettings();
   const [teamFilter, setTeamFilter] = useState("");
+  const [playerQuery, setPlayerQuery] = useState("");
 
   const alpha = settings.alpha || TRADE_ALPHA;
   const windowDays = settings.tradeHistoryWindowDays || 365;
@@ -38,11 +39,27 @@ export default function TradesPage() {
   }, [analysis]);
 
   const filtered = useMemo(() => {
-    if (!teamFilter) return analysis.analyzed;
-    return analysis.analyzed.filter((a) =>
-      a.sides.some((s) => s.team === teamFilter),
-    );
-  }, [analysis, teamFilter]);
+    const q = playerQuery.trim().toLowerCase();
+    let results = analysis.analyzed;
+    if (teamFilter) {
+      results = results.filter((a) =>
+        a.sides.some((s) => s.team === teamFilter),
+      );
+    }
+    if (q) {
+      // Match against every item name on either side of the trade.
+      // ``item.name`` covers both players ("Patrick Mahomes") and
+      // picks ("2026 Pick 1.06") so one query input does both.
+      results = results.filter((a) =>
+        a.sides.some((s) =>
+          s.items.some((item) =>
+            String(item.name || "").toLowerCase().includes(q),
+          ),
+        ),
+      );
+    }
+    return results;
+  }, [analysis, teamFilter, playerQuery]);
 
   const tendencies = useMemo(
     () => analyzeTradeTendencies(rawData, rows),
@@ -61,18 +78,30 @@ export default function TradesPage() {
           title="Trade History"
           subtitle={`Analyzing ${analysis.analyzed.length} trades in the last ${windowDays} days using alpha=${alpha}`}
           actions={
-            teams.length > 0 && (
-              <select
-                className="input"
-                value={teamFilter}
-                onChange={(e) => setTeamFilter(e.target.value)}
-                style={{ minWidth: 160 }}
-              >
-                <option value="">All teams</option>
-                {teams.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
+            hasTrades && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input
+                  className="input"
+                  type="search"
+                  placeholder="Search player or pick..."
+                  value={playerQuery}
+                  onChange={(e) => setPlayerQuery(e.target.value)}
+                  style={{ minWidth: 200 }}
+                />
+                {teams.length > 0 && (
+                  <select
+                    className="input"
+                    value={teamFilter}
+                    onChange={(e) => setTeamFilter(e.target.value)}
+                    style={{ minWidth: 160 }}
+                  >
+                    <option value="">All teams</option>
+                    {teams.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
             )
           }
         />
@@ -102,9 +131,18 @@ export default function TradesPage() {
         </div>
       )}
 
-      {teamFilter && filtered.length === 0 && (
+      {(teamFilter || playerQuery) && filtered.length === 0 && (
         <div className="card">
-          <EmptyState title="No trades match" message={`No trades found for ${teamFilter}.`} />
+          <EmptyState
+            title="No trades match"
+            message={
+              teamFilter && playerQuery
+                ? `No trades for ${teamFilter} involving "${playerQuery}".`
+                : playerQuery
+                  ? `No trades involving "${playerQuery}".`
+                  : `No trades found for ${teamFilter}.`
+            }
+          />
         </div>
       )}
     </section>
