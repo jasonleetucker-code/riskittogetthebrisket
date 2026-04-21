@@ -89,6 +89,48 @@ class TestParsePlayersPositionFilter(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["name"], "Jeremiyah Love")
 
+    def test_non_rookies_filtered_out(self):
+        """Defensive ``isRookie=False`` filter — the rookie ladder
+        downstream would mis-scale any veteran row that slipped through."""
+        data = {
+            "data": [
+                {
+                    "playerName": "Jeremiyah Love",
+                    "position": "RB",
+                    "averageRank": 1.0,
+                    "isDraftPick": False,
+                    "isRookie": True,
+                },
+                {
+                    "playerName": "Some Veteran",
+                    "position": "WR",
+                    "averageRank": 5.0,
+                    "isDraftPick": False,
+                    "isRookie": False,
+                },
+            ]
+        }
+        rows = ffr._parse_players(data)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["name"], "Jeremiyah Love")
+
+    def test_missing_isRookie_field_defaults_to_accept(self):
+        """If the endpoint omits ``isRookie``, accept the row — the
+        PROSPECTS_SF endpoint is rookie-only by contract; don't over-
+        filter on a field that might disappear."""
+        data = {
+            "data": [
+                {
+                    "playerName": "Jeremiyah Love",
+                    "position": "RB",
+                    "averageRank": 1.0,
+                    "isDraftPick": False,
+                },
+            ]
+        }
+        rows = ffr._parse_players(data)
+        self.assertEqual(len(rows), 1)
+
     def test_none_averageRank_filtered_out(self):
         data = {
             "data": [
