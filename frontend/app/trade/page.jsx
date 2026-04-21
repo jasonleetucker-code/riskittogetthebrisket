@@ -255,31 +255,39 @@ function TradeSourceBreakdown({ sides, settings }) {
         // valuation board.  Every other vendor leaves picks uncovered
         // and would skew the piece-count math if we counted them.
         const includePicks = vendor === "ktc";
-        // For each side + each player, average valueContribution
-        // across every sub-source that actually covered the player.
-        // A player typically appears in exactly one of the vendor's
-        // sub-boards (e.g. Jeremiyah Love is on dlfRookieSf but not
-        // dlfSf), in which case the mean reduces to that one value.
-        // In the overlap case (a rookie may also appear in a vendor's
-        // vet SF board post-NFL-draft), averaging gives the vendor's
-        // unified opinion of the player without biasing upward (max
-        // would cherry-pick) or downward (min) or double-counting
-        // (sum).  Sub-boards that don't cover the player are excluded
-        // from the denominator.
+        // Sub-board priority rule: main boards win over rookie-
+        // specialty boards.  Once a rookie is promoted onto a
+        // vendor's main SF/IDP board (typically post-NFL-draft), the
+        // main board reflects that vendor's current opinion and the
+        // rookie board is a historical pre-draft artifact.  So for
+        // each vendor + player we look at non-rookie sub-boards
+        // first; only if none of them cover the player do we fall
+        // back to the vendor's rookie sub-boards.  In either tier,
+        // covered sub-boards are averaged together — unbiased in the
+        // rare case of multi-board overlap within the same tier, and
+        // equivalent to "pick whichever one covered" in the common
+        // case where only one sub-board covers a given player.
+        const mainSubs = subs.filter((s) => !s.needsRookieTranslation);
+        const rookieSubs = subs.filter((s) => s.needsRookieTranslation);
+        const averageCovered = (meta, sourceList) => {
+          let sumVc = 0;
+          let covered = 0;
+          for (const sub of sourceList) {
+            const vc = Number(meta[sub.key]?.valueContribution);
+            if (Number.isFinite(vc) && vc > 0) {
+              sumVc += vc;
+              covered += 1;
+            }
+          }
+          return covered > 0 ? sumVc / covered : 0;
+        };
         const sideValues = assetsBySide.map((assets) =>
           assets.map((row) => {
             if (!includePicks && row.pos === "PICK") return 0;
             const meta = row.sourceRankMeta || {};
-            let sumVc = 0;
-            let covered = 0;
-            for (const sub of subs) {
-              const vc = Number(meta[sub.key]?.valueContribution);
-              if (Number.isFinite(vc) && vc > 0) {
-                sumVc += vc;
-                covered += 1;
-              }
-            }
-            return covered > 0 ? sumVc / covered : 0;
+            const mainAvg = averageCovered(meta, mainSubs);
+            if (mainAvg > 0) return mainAvg;
+            return averageCovered(meta, rookieSubs);
           }),
         );
         const rawTotals = sideValues.map((vs) =>
