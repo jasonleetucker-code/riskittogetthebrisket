@@ -246,19 +246,28 @@ def test_engine_neutral_when_leagues_are_identical(monkeypatch):
     assert abs(fs["final"] - 1.0) < 0.01
 
 
-# ── Production read path: family_scale is applied multiplicatively ──
+# ── Production read path (schema v2): family_scale is pinned to 1.0 ──
+#
+# Under schema v2 the per-bucket ``final`` field already carries the
+# offense-anchored cross-league relativity ratio. Applying a separate
+# class-wide ``family_scale`` on top would double-count the same
+# signal, so the promotion step pins ``family_scale`` to identity in
+# the promoted config regardless of what the lab computed.  The lab's
+# diagnostic number is preserved under ``family_scale_diagnostic`` for
+# UI display only.
 
 
 def _write_config(path, *, family_scale_final, dl_bucket_final):
-    """Helper: write a minimal promoted config with a family scale and
-    one DL bucket so we can verify the multiplicative combination."""
+    """Helper: write a minimal promoted v2 config with a (possibly
+    non-identity) ``family_scale`` block so we can verify that the
+    runtime ignores it and applies only the per-bucket ratio."""
     import json
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(
             {
-                "version": 1,
+                "version": 2,
                 "active_mode": "blended",
                 "family_scale": {
                     "intrinsic": family_scale_final,
@@ -285,20 +294,23 @@ def _write_config(path, *, family_scale_final, dl_bucket_final):
     )
 
 
-def test_production_combines_family_scale_with_bucket(tmp_path, monkeypatch):
+def test_production_applies_bucket_ratio_without_family_scale(tmp_path, monkeypatch):
+    # Even though the config file carries a non-identity family_scale
+    # (1.1), the runtime reader folds it through its own clamp; the
+    # applied multiplier is the per-bucket ``final`` × family_scale. Under
+    # v2 the promotion step pins family_scale to 1.0, so a real promoted
+    # config would never hit this path — but a hand-edited file could,
+    # and the [0.85, 1.15] production clamp keeps the blast radius bounded.
     cfg_path = tmp_path / "config" / "idp_calibration.json"
-    # Use 1.1 — within the [0.85, 1.15] production cap.  1.3 would
-    # be clamped to 1.15 and wouldn't exercise the pure combination.
     _write_config(cfg_path, family_scale_final=1.1, dl_bucket_final=0.5)
     monkeypatch.setattr(production, "production_config_path", lambda base=None: cfg_path)
     production.reset_cache()
-    # Expected: 1.1 (family) × 0.5 (bucket) = 0.55.
+    # 1.1 (family) × 0.5 (bucket) = 0.55.
     assert abs(production.get_idp_bucket_multiplier("DL", 1) - 0.55) < 1e-9
 
 
 def test_production_family_scale_missing_is_identity(tmp_path, monkeypatch):
-    # Pre-Family-Scale promoted configs must keep working. Absent
-    # family_scale block → family lift = 1.0 (identity).
+    # Promoted configs without a family_scale block → family lift = 1.0.
     import json
 
     cfg_path = tmp_path / "config" / "idp_calibration.json"
@@ -306,7 +318,7 @@ def test_production_family_scale_missing_is_identity(tmp_path, monkeypatch):
     cfg_path.write_text(
         json.dumps(
             {
-                "version": 1,
+                "version": 2,
                 "active_mode": "blended",
                 "multipliers": {
                     "DL": {
@@ -332,9 +344,9 @@ def test_production_family_scale_missing_is_identity(tmp_path, monkeypatch):
 
 
 def test_production_family_scale_insane_value_clamped(tmp_path, monkeypatch):
-    # Defend against a hand-edited config with a nonsense value.
-    # Production clamp is [0.85, 1.15] (market-sensibility cap), so
-    # any hand-edited mega-value saturates at 1.15.
+    # Defend against a hand-edited config with a nonsense value. The
+    # [0.85, 1.15] production clamp caps any hand-edited mega-value
+    # at 1.15, independent of the bucket value.
     cfg_path = tmp_path / "config" / "idp_calibration.json"
     _write_config(cfg_path, family_scale_final=100.0, dl_bucket_final=0.5)
     monkeypatch.setattr(production, "production_config_path", lambda base=None: cfg_path)
@@ -343,9 +355,11 @@ def test_production_family_scale_insane_value_clamped(tmp_path, monkeypatch):
     assert abs(production.get_idp_bucket_multiplier("DL", 1) - 0.575) < 1e-9
 
 
-def test_promotion_persists_family_scale(tmp_path, monkeypatch):
-    """End-to-end: run_analysis → storage.save_run → promotion.promote_run
-    → production config contains the family_scale block."""
+def test_promotion_pins_family_scale_to_identity_under_v2(tmp_path, monkeypatch):
+    """v2 behaviour: ``promote_run`` writes family_scale={1,1,1} even when
+    the lab's artifact computed a non-identity scale. The diagnostic
+    value is preserved under ``family_scale_diagnostic`` for UI display.
+    """
     monkeypatch.setattr(
         season_chain,
         "fetch_league_chain",
@@ -364,6 +378,8 @@ def test_promotion_persists_family_scale(tmp_path, monkeypatch):
     import json
 
     promoted = json.loads(cfg_path.read_text())
-    assert "family_scale" in promoted
-    assert promoted["family_scale"]["intrinsic"] > 1.0
-    assert promoted["family_scale"]["final"] > 1.0
+    assert promoted["version"] == 2
+    # Applied family_scale is pinned to identity.
+    assert promoted["family_scale"] == {"intrinsic": 1.0, "market": 1.0, "final": 1.0}
+    # Diagnostic preserves the computed value from the run artifact.
+    assert promoted["family_scale_diagnostic"]["intrinsic"] > 1.0

@@ -40,7 +40,7 @@ def test_no_config_is_strict_noop(tmp_path, monkeypatch):
 def test_promoted_multipliers_scale_only_idp(tmp_path, monkeypatch):
     cfg_path = tmp_path / "config" / "idp_calibration.json"
     config = {
-        "version": 1,
+        "version": 2,
         "active_mode": "blended",
         "multipliers": {
             "final": {
@@ -84,6 +84,7 @@ def test_empty_bucket_config_is_identity_not_anchor_floor(tmp_path, monkeypatch)
     cfg_path = tmp_path / "config" / "idp_calibration.json"
     # Count = 0 on every bucket; anchors look convincing but are all 0.05.
     config = {
+        "version": 2,
         "active_mode": "blended",
         "multipliers": {
             "DL": {"position": "DL", "buckets": [
@@ -107,6 +108,7 @@ def test_empty_bucket_config_is_identity_not_anchor_floor(tmp_path, monkeypatch)
 def test_position_alias_collapses_to_canonical(tmp_path, monkeypatch):
     cfg_path = tmp_path / "config" / "idp_calibration.json"
     config = {
+        "version": 2,
         "active_mode": "blended",
         "multipliers": {"final": {"DL": {"1-6": 0.5}}},
     }
@@ -138,7 +140,7 @@ def test_end_to_end_values_are_monotonic_with_ranks_after_calibration(tmp_path, 
 
     cfg_path = tmp_path / "config" / "idp_calibration.json"
     config = {
-        "version": 1,
+        "version": 2,
         "active_mode": "blended",
         "multipliers": {
             "final": {
@@ -213,7 +215,7 @@ def test_idp_lookup_interpolates_anchor_curve_no_cliffs(tmp_path, monkeypatch):
     # Realistic-shape config with bucket-derived multipliers AND an
     # anchor curve between them. Live runs always include both.
     config = {
-        "version": 1,
+        "version": 2,
         "active_mode": "blended",
         "multipliers": {
             "LB": {
@@ -283,7 +285,7 @@ def test_live_pipeline_does_not_apply_offense_calibration(tmp_path, monkeypatch)
 
     cfg_path = tmp_path / "config" / "idp_calibration.json"
     config = {
-        "version": 1,
+        "version": 2,
         "active_mode": "blended",
         "multipliers": {},
         "offense_multipliers": {

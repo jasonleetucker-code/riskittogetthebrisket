@@ -12,7 +12,14 @@ from pathlib import Path
 from typing import Any
 
 from .engine import AnalysisSettings, run_analysis
-from .promotion import EmptyCalibrationError, VALID_MODES, load_production, promote_run
+from .promotion import (
+    EmptyCalibrationError,
+    StaleArtifactSchemaError,
+    V2_VALID_MODES,
+    VALID_MODES,
+    load_production,
+    promote_run,
+)
 from .production import is_promoted
 from .storage import delete_all_runs, delete_run, get_latest, list_runs, load_run, save_run
 
@@ -99,6 +106,18 @@ def promote(body: dict[str, Any] | None, *, base: Path | None = None) -> tuple[i
             422,
             f"active_mode must be one of {list(VALID_MODES)}, got {active_mode!r}.",
         )
+    # Under schema v2 only ``blended`` is a valid applied mode
+    # (``intrinsic`` / ``market`` are display-only diagnostic
+    # channels — see ``promotion.V2_VALID_MODES``). Catch this at the
+    # HTTP boundary so the lab surfaces a structured 422 rather than
+    # a ``StaleArtifactSchemaError`` / ``ValueError`` 500.
+    if active_mode not in V2_VALID_MODES:
+        return _error(
+            422,
+            f"active_mode={active_mode!r} is not applicable under the "
+            f"current calibration schema. Only {list(V2_VALID_MODES)} "
+            f"produce a valid applied multiplier.",
+        )
     try:
         result = promote_run(
             run_id, active_mode=active_mode, promoted_by=promoted_by, base=base
@@ -106,6 +125,8 @@ def promote(body: dict[str, Any] | None, *, base: Path | None = None) -> tuple[i
     except FileNotFoundError as exc:
         return _error(404, str(exc))
     except EmptyCalibrationError as exc:
+        return _error(422, str(exc))
+    except StaleArtifactSchemaError as exc:
         return _error(422, str(exc))
     except Exception as exc:  # noqa: BLE001
         return _error(500, f"Promotion failed: {exc}")

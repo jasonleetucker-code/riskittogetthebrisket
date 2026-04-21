@@ -19,32 +19,91 @@ from src.utils.config_loader import load_json
 
 from .promotion import production_config_path
 
+# Sentinel stored in the cache when the on-disk config has been read
+# and rejected (e.g. schema version below :data:`_MIN_SUPPORTED_VERSION`
+# or not a JSON dict).  Having a distinct value from ``None`` lets the
+# mtime fast-path short-circuit **without re-reading the file**, which
+# matters during the pre-re-promotion rollout window where a stale
+# config is present — otherwise every per-player multiplier lookup
+# would load_json() a ~200 KB file off disk on every call.
+_STALE_SENTINEL: object = object()
+
 _lock = threading.Lock()
 _cache: dict[str, Any] = {"mtime": None, "config": None}
 
+# Minimum config version the runtime will apply. Configs written by the
+# v1 engine encoded ``final`` as a top-bucket-normalised VOR decay
+# curve; under the v2 engine the same field carries a cross-league
+# relativity ratio. Applying a v1 config under v2 semantics would
+# mis-interpret the numbers, so we refuse to load anything older than
+# :data:`_MIN_SUPPORTED_VERSION` and leave calibration as a strict
+# no-op until the lab re-promotes on the current engine.
+_MIN_SUPPORTED_VERSION: int = 2
+
+_stale_version_warned = False
+
 
 def _load_if_stale(base: Path | None = None) -> dict[str, Any] | None:
+    global _stale_version_warned
     path = production_config_path(base)
     if not path.exists():
         with _lock:
             _cache["mtime"] = None
             _cache["config"] = None
+        _stale_version_warned = False
         return None
     mtime = path.stat().st_mtime
     with _lock:
-        if _cache["mtime"] == mtime and _cache["config"] is not None:
-            return _cache["config"]
+        cached = _cache["config"]
+        if _cache["mtime"] == mtime:
+            # Fast path covers both outcomes:
+            #   * valid dict cached → return it
+            #   * stale-version sentinel cached → return None
+            # without re-parsing the JSON every call.
+            if cached is _STALE_SENTINEL:
+                return None
+            if cached is not None:
+                return cached
         data = load_json(path)
+        if isinstance(data, dict):
+            try:
+                cfg_version = int(data.get("version") or 0)
+            except (TypeError, ValueError):
+                cfg_version = 0
+            if cfg_version < _MIN_SUPPORTED_VERSION:
+                if not _stale_version_warned:
+                    import logging
+
+                    logging.getLogger(__name__).warning(
+                        "config/idp_calibration.json is schema v%s "
+                        "(minimum supported: v%s). IDP calibration is a "
+                        "strict no-op until the lab re-promotes a run on "
+                        "the current engine.",
+                        cfg_version,
+                        _MIN_SUPPORTED_VERSION,
+                    )
+                    _stale_version_warned = True
+                _cache["mtime"] = mtime
+                _cache["config"] = _STALE_SENTINEL
+                return None
+            _stale_version_warned = False
+            _cache["mtime"] = mtime
+            _cache["config"] = data
+            return data
+        # Non-dict JSON (corrupt file) — treat as stale so we don't
+        # re-read and parse every call.
         _cache["mtime"] = mtime
-        _cache["config"] = data if isinstance(data, dict) else None
-        return _cache["config"]
+        _cache["config"] = _STALE_SENTINEL
+        return None
 
 
 def reset_cache() -> None:
     """Test hook — drop the in-memory cache."""
+    global _stale_version_warned
     with _lock:
         _cache["mtime"] = None
         _cache["config"] = None
+    _stale_version_warned = False
 
 
 def load_production_config(base: Path | None = None) -> dict[str, Any] | None:
@@ -252,6 +311,19 @@ def get_idp_bucket_multiplier(
         return 1.0
     effective_mode = mode or str(config.get("active_mode") or "blended")
     if effective_mode not in {"intrinsic_only", "market_only", "blended"}:
+        effective_mode = "blended"
+    # Schema v2 safety rail: the ``intrinsic`` / ``market`` channels
+    # carry offense-anchored absolute VOR magnitudes (unbounded above
+    # 1.0), not applied multipliers. The promotion factory already
+    # refuses non-blended modes under v2, but a hand-edited config
+    # could still smuggle one in — coerce to ``blended`` so
+    # ``_bucket_lookup_for`` reads the ``final`` relativity ratio
+    # regardless.
+    try:
+        cfg_version = int(config.get("version") or 0)
+    except (TypeError, ValueError):
+        cfg_version = 0
+    if cfg_version >= 2 and effective_mode != "blended":
         effective_mode = "blended"
     try:
         bucket = float(_bucket_lookup_for(position, int(rank), config, effective_mode))

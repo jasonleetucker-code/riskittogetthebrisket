@@ -46,7 +46,7 @@ def _write_config(path: Path) -> None:
     path.write_text(
         json.dumps(
             {
-                "version": 1,
+                "version": 2,
                 "active_mode": "blended",
                 "family_scale": {
                     "intrinsic": FAMILY_SCALE,

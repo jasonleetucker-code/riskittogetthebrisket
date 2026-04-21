@@ -54,6 +54,14 @@ import requests
 from playwright.async_api import async_playwright
 import sys
 
+# Reach into the shared IDP position resolver so dual-position
+# Sleeper entries (e.g. "DL,LB" for edge rushers) collapse with the
+# DL > DB > LB priority used everywhere else in the stack.
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
+from src.utils.name_clean import resolve_idp_position as _resolve_idp_position  # noqa: E402
+
 try:
     from src.scoring import (
         build_default_baseline_config,
@@ -969,7 +977,25 @@ def fetch_sleeper_rosters(league_id):
                 continue
             full = (p.get("full_name")
                     or f"{p.get('first_name','')} {p.get('last_name','')}".strip())
-            pos = p.get("position", "")
+            raw_pos = p.get("position", "") or ""
+            # Sleeper exposes ``fantasy_positions`` as the list of
+            # eligible slots; ``position`` is just the primary. For
+            # dual-eligible IDPs (Micah Parsons = ["DL","LB"]) we want
+            # the non-LB family so Parsons doesn't get bucketed as an
+            # off-ball LB. Only collapse through resolve_idp_position
+            # when fantasy_positions has 2+ entries AND at least one
+            # is an IDP family — single-position rows (including plain
+            # "DE", "CB", etc.) pass through untouched so offense rows
+            # and the fine-grained IDP tokens downstream code may
+            # still read stay intact.
+            fp_list = p.get("fantasy_positions") if isinstance(
+                p.get("fantasy_positions"), list
+            ) else None
+            pos = raw_pos
+            if fp_list and len(fp_list) >= 2:
+                resolved_family = _resolve_idp_position(fp_list)
+                if resolved_family in {"DL", "DB", "LB"}:
+                    pos = resolved_family
             if pos in VALID_POSITIONS and full:
                 cn = clean_name(full)
                 team_players.append(cn)
