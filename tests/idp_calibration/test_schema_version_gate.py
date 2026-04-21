@@ -163,6 +163,52 @@ def test_promotion_refuses_non_blended_mode_under_v2(tmp_path):
     assert cfg["active_mode"] == "blended"
 
 
+def test_stale_config_is_cached_without_reparsing(tmp_path, monkeypatch):
+    """Rollout-window performance guardrail: when the on-disk config is
+    schema-stale, the loader must cache that verdict by mtime so repeat
+    calls don't re-read and re-parse the JSON on every IDP multiplier
+    lookup. Exercised by stubbing ``load_json`` with a call counter
+    under a fixed mtime and verifying only one parse fires across many
+    multiplier calls.
+    """
+    from src.idp_calibration import production as prod_module
+
+    cfg = tmp_path / "config" / "idp_calibration.json"
+    _write(
+        cfg,
+        {
+            "version": 1,  # stale — will be rejected
+            "active_mode": "blended",
+            "multipliers": {"final": {"DL": {"1-6": 0.5}}},
+        },
+    )
+    monkeypatch.setattr(
+        production, "production_config_path", lambda base=None: cfg
+    )
+    production.reset_cache()
+
+    call_count = {"n": 0}
+    real_load_json = prod_module.load_json
+
+    def _counting_load_json(path):
+        call_count["n"] += 1
+        return real_load_json(path)
+
+    monkeypatch.setattr(prod_module, "load_json", _counting_load_json)
+
+    # Fire a bunch of lookups — all should resolve to identity (1.0)
+    # because the config is refused.
+    for _ in range(50):
+        assert production.get_idp_bucket_multiplier("DL", 1) == 1.0
+
+    # Only one disk read should have happened — the fast path must
+    # short-circuit on subsequent calls via the mtime-matched sentinel.
+    assert call_count["n"] == 1, (
+        f"Stale config re-parsed {call_count['n']}× across 50 lookups — "
+        "the stale-sentinel fast path regressed."
+    )
+
+
 def test_runtime_coerces_non_blended_mode_back_to_final(tmp_path, monkeypatch):
     """Defence-in-depth: even if a hand-edited v2 config smuggles
     ``active_mode="intrinsic_only"`` past the factory, the runtime

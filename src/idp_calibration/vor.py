@@ -202,16 +202,38 @@ def compute_offense_anchor_vor(
     Returns ``(0.0, 0.0)`` when there isn't enough offense data on
     either side; the caller should treat a zero anchor as a signal
     to skip the calibration altogether for that season.
+
+    Phantom-demand guardrail: ``replacement_mine`` / ``replacement_test``
+    come from :func:`engine._compute_offense_replacement`, which omits
+    positions with zero starter demand (a 0-RB league skips RB
+    entirely). We therefore **drop** any row whose position is missing
+    from either side's replacement map — using ``replacement.get(pos,
+    0.0)`` would silently treat zero-demand positions as "replacement
+    = 0", turning every player's raw points into pure VOR and inflating
+    the anchor. That inflation deflates ``my_norm`` / ``test_norm`` and
+    produces unjustified cuts in the final relativity ratio.
     """
     allowed = {p.upper() for p in positions}
-    cohort = [s for s in offense_scored if s.position in allowed]
-    if not cohort or top_n <= 0:
+    # Per-side cohorts: a position must have a real replacement
+    # baseline on that side to contribute. "Real" means the position
+    # key is present in the map at all — the engine strips
+    # zero-demand positions before handing the dict over, so any key
+    # here represents a genuine starter pool.
+    cohort_mine = [
+        s for s in offense_scored
+        if s.position in allowed and s.position in replacement_mine
+    ]
+    cohort_test = [
+        s for s in offense_scored
+        if s.position in allowed and s.position in replacement_test
+    ]
+    if top_n <= 0:
         return 0.0, 0.0
     vor_mine_list = [
-        s.points_mine - float(replacement_mine.get(s.position, 0.0)) for s in cohort
+        s.points_mine - float(replacement_mine[s.position]) for s in cohort_mine
     ]
     vor_test_list = [
-        s.points_test - float(replacement_test.get(s.position, 0.0)) for s in cohort
+        s.points_test - float(replacement_test[s.position]) for s in cohort_test
     ]
     top_mine = sorted(vor_mine_list, reverse=True)[:top_n]
     top_test = sorted(vor_test_list, reverse=True)[:top_n]

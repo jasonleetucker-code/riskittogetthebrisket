@@ -19,6 +19,15 @@ from src.utils.config_loader import load_json
 
 from .promotion import production_config_path
 
+# Sentinel stored in the cache when the on-disk config has been read
+# and rejected (e.g. schema version below :data:`_MIN_SUPPORTED_VERSION`
+# or not a JSON dict).  Having a distinct value from ``None`` lets the
+# mtime fast-path short-circuit **without re-reading the file**, which
+# matters during the pre-re-promotion rollout window where a stale
+# config is present — otherwise every per-player multiplier lookup
+# would load_json() a ~200 KB file off disk on every call.
+_STALE_SENTINEL: object = object()
+
 _lock = threading.Lock()
 _cache: dict[str, Any] = {"mtime": None, "config": None}
 
@@ -45,8 +54,16 @@ def _load_if_stale(base: Path | None = None) -> dict[str, Any] | None:
         return None
     mtime = path.stat().st_mtime
     with _lock:
-        if _cache["mtime"] == mtime and _cache["config"] is not None:
-            return _cache["config"]
+        cached = _cache["config"]
+        if _cache["mtime"] == mtime:
+            # Fast path covers both outcomes:
+            #   * valid dict cached → return it
+            #   * stale-version sentinel cached → return None
+            # without re-parsing the JSON every call.
+            if cached is _STALE_SENTINEL:
+                return None
+            if cached is not None:
+                return cached
         data = load_json(path)
         if isinstance(data, dict):
             try:
@@ -67,12 +84,17 @@ def _load_if_stale(base: Path | None = None) -> dict[str, Any] | None:
                     )
                     _stale_version_warned = True
                 _cache["mtime"] = mtime
-                _cache["config"] = None
+                _cache["config"] = _STALE_SENTINEL
                 return None
             _stale_version_warned = False
+            _cache["mtime"] = mtime
+            _cache["config"] = data
+            return data
+        # Non-dict JSON (corrupt file) — treat as stale so we don't
+        # re-read and parse every call.
         _cache["mtime"] = mtime
-        _cache["config"] = data if isinstance(data, dict) else None
-        return _cache["config"]
+        _cache["config"] = _STALE_SENTINEL
+        return None
 
 
 def reset_cache() -> None:
