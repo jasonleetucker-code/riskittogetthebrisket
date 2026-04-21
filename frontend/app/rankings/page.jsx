@@ -206,6 +206,73 @@ function EdgeRailSection({ label, items, emptyText, onPlayerClick }) {
   );
 }
 
+function TopMoversRail({ rows, onPlayerClick }) {
+  // "Who moved since the last scrape" — sorts ranked rows by the
+  // backend-stamped rankChange and surfaces the 5 biggest risers
+  // and 5 biggest fallers.  Only renders when we have movement
+  // data (first build of a fresh deploy has no prior snapshot, so
+  // this silently hides itself).
+  const { risers, fallers } = useMemo(() => {
+    const withChange = rows.filter(
+      (r) => typeof r?.rankChange === "number" && r.rankChange !== 0 && r.rank != null,
+    );
+    const byDelta = [...withChange].sort(
+      (a, b) => Math.abs(b.rankChange) - Math.abs(a.rankChange),
+    );
+    const ups = byDelta.filter((r) => r.rankChange > 0).slice(0, 5);
+    const downs = byDelta.filter((r) => r.rankChange < 0).slice(0, 5);
+    return { risers: ups, fallers: downs };
+  }, [rows]);
+
+  if (risers.length === 0 && fallers.length === 0) return null;
+
+  const renderSection = (label, items, color, arrow) => (
+    <div className="edge-rail-section">
+      <h4 className="edge-rail-section-title" style={{ color }}>
+        {arrow} {label}
+      </h4>
+      {items.length === 0 ? (
+        <p className="muted text-xs">No movement</p>
+      ) : (
+        <ul className="edge-rail-list">
+          {items.map((row) => (
+            <li key={row.name} className="edge-rail-item">
+              <span
+                className="edge-rail-name"
+                onClick={() => onPlayerClick?.(row)}
+              >
+                #{row.rank} {row.name}
+              </span>
+              <span className="edge-rail-pos badge">{row.pos}</span>
+              <span
+                className="edge-rail-detail"
+                style={{ color, fontFamily: "var(--mono, monospace)" }}
+              >
+                {row.rankChange > 0 ? "\u25B2" : "\u25BC"}
+                {Math.abs(row.rankChange)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="edge-rail">
+      <div className="edge-rail-header">
+        <h3 className="edge-rail-title">Top Movers</h3>
+        <span className="muted text-xs">Biggest rank changes since the previous scrape</span>
+      </div>
+      <div className="edge-rail-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+        {renderSection("Risers", risers, "var(--green, #4ade80)", "\u25B2")}
+        {renderSection("Fallers", fallers, "var(--red, #f87171)", "\u25BC")}
+      </div>
+    </div>
+  );
+}
+
+
 function EdgeRail({ summary, onPlayerClick }) {
   const hasSomething =
     summary.retailPremium.length > 0 ||
@@ -900,6 +967,11 @@ export default function RankingsPage() {
 
       {/* ── Methodology (expandable) ────────────────────────────────── */}
       {showMethodology && <MethodologySection />}
+
+      {/* ── Top movers rail (auto-hides when no movement data) ─────── */}
+      {!loading && !error && rows.length > 0 && (
+        <TopMoversRail rows={ranked} onPlayerClick={openPlayerPopup} />
+      )}
 
       {/* ── Edge rail (expandable) ──────────────────────────────────── */}
       {!loading && !error && showEdgeRail && rows.length > 0 && (

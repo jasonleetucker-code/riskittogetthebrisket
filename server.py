@@ -1440,6 +1440,120 @@ async def schedule_loop():
         await scheduled_scrape()
 
 
+# ── IDP calibration auto-refit ──────────────────────────────────────────
+# Monthly re-run of the IDP calibration against the latest Sleeper
+# historical stats.  Mirrors the Hill scope-master refit (which runs
+# in GH Actions) but lives in-process here because the promoted
+# config file (``config/idp_calibration.json``) is server-local state
+# — the Lab UI's manual promotion writes to the same path, so we
+# don't want a CI commit fighting with the operator's mid-month
+# manual promotion.
+#
+# Behaviour:
+#   - Check once per server-boot, then every 24h.
+#   - If the promoted config is ≥28 days old, rerun ``run_analysis``
+#     with the same inputs (league IDs, blend, seasons) and promote
+#     the fresh run.  The Lab UI remains the authoritative path for
+#     ad-hoc re-fits with different inputs.
+#   - Logs structured events so ``/api/status`` surfaces "last
+#     calibration refit" alongside the scrape cadence.
+IDP_CAL_REFIT_INTERVAL_DAYS = 28
+IDP_CAL_CHECK_INTERVAL_HOURS = 24
+
+
+def _run_idp_calibration_refit() -> dict[str, object]:
+    """Re-run the promoted calibration's analysis and promote the
+    result.  Returns a summary dict for logging."""
+    import json as _json
+    from src.idp_calibration.engine import AnalysisSettings, run_analysis
+    from src.idp_calibration.storage import save_run
+    from src.idp_calibration.promotion import promote_run
+    cfg_path = BASE_DIR / "config" / "idp_calibration.json"
+    if not cfg_path.exists():
+        return {
+            "ok": False,
+            "reason": "no_promoted_config",
+            "message": (
+                "No promoted IDP calibration to refit.  Use the Lab "
+                "UI's 'Analyze' + 'Promote' buttons for the first run."
+            ),
+        }
+    with cfg_path.open() as f:
+        cfg = _json.load(f)
+    test_id = (cfg.get("league_ids") or {}).get("test", "")
+    my_id = (cfg.get("league_ids") or {}).get("mine", "")
+    active_mode = cfg.get("active_mode") or "blended"
+    if not test_id or not my_id:
+        return {"ok": False, "reason": "missing_league_ids"}
+    settings = AnalysisSettings.from_payload({
+        "seasons": cfg.get("year_coverage") or [2022, 2023, 2024, 2025],
+        "bucket_edges": cfg.get("bucket_edges"),
+        "blend": cfg.get("blend_weights"),
+        "replacement": cfg.get("replacement_settings"),
+    })
+    artifact = run_analysis(test_id, my_id, settings)
+    save_run(artifact)
+    result = promote_run(
+        artifact["run_id"],
+        active_mode=active_mode,
+        promoted_by="auto_refit",
+    )
+    return {"ok": True, "result": result, "family_scale": artifact.get("family_scale")}
+
+
+async def idp_calibration_refit_loop() -> None:
+    """Background loop that periodically refits the IDP calibration."""
+    from datetime import timedelta
+    # Initial short delay so a quick restart doesn't race the first
+    # scrape.  Then poll once a day.
+    await asyncio.sleep(600)
+    while True:
+        try:
+            cfg_path = BASE_DIR / "config" / "idp_calibration.json"
+            should_refit = False
+            reason = ""
+            if not cfg_path.exists():
+                reason = "no_promoted_config"
+            else:
+                try:
+                    import json as _json
+                    with cfg_path.open() as f:
+                        cfg = _json.load(f)
+                    from datetime import datetime as _dt
+                    promoted_at = str(cfg.get("promoted_at") or "").rstrip("Z")
+                    try:
+                        p_dt = _dt.fromisoformat(promoted_at)
+                        if p_dt.tzinfo is None:
+                            p_dt = p_dt.replace(tzinfo=timezone.utc)
+                    except Exception:
+                        p_dt = _dt.fromtimestamp(0, tz=timezone.utc)
+                    age = datetime.now(timezone.utc) - p_dt
+                    if age >= timedelta(days=IDP_CAL_REFIT_INTERVAL_DAYS):
+                        should_refit = True
+                        reason = f"age={age.days}d"
+                except Exception as exc:
+                    reason = f"read_failed: {exc}"
+            if should_refit:
+                log.info(
+                    "[idp-calibration] auto-refit triggered (%s)", reason
+                )
+                loop = asyncio.get_running_loop()
+                try:
+                    summary = await loop.run_in_executor(
+                        None, _run_idp_calibration_refit
+                    )
+                    log.info(
+                        "[idp-calibration] auto-refit complete: %s", summary
+                    )
+                except Exception as exc:
+                    log.error(
+                        "[idp-calibration] auto-refit failed: %s", exc
+                    )
+        except Exception as exc:
+            log.error("[idp-calibration] refit loop tick failed: %s", exc)
+        await asyncio.sleep(IDP_CAL_CHECK_INTERVAL_HOURS * 3600)
+
+
 # ── APP LIFECYCLE ───────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -1466,6 +1580,12 @@ async def lifespan(app: FastAPI):
     # 3. Start the recurring schedule
     scheduler_task = asyncio.create_task(schedule_loop())
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
+    # Monthly IDP calibration refit — checks daily, re-runs when
+    # ≥28 days since last promotion.  In-process rather than GH
+    # Actions because the promoted config is server-local (the Lab
+    # UI writes the same file on manual promotion, so a CI commit
+    # would conflict).
+    idp_cal_task = asyncio.create_task(idp_calibration_refit_loop())
 
     # Public league snapshot warmup — kicks a background rebuild if
     # no persisted snapshot was loaded at boot.  Name is resolved at
@@ -1486,6 +1606,7 @@ async def lifespan(app: FastAPI):
     scrape_task.cancel()
     scheduler_task.cancel()
     uptime_task.cancel()
+    idp_cal_task.cancel()
     log.info("Server shutting down")
 
 
