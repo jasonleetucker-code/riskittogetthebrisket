@@ -458,13 +458,14 @@ class TestPayloadLevelBlocks(unittest.TestCase):
         self.assertIn("confidenceBuckets", meth)
         self.assertIn("anomalyFlags", meth)
         self.assertIsInstance(meth["sources"], list)
-        # ktc + idpTradeCalc + dlfIdp + dlfSf + dynastyNerdsSfTep +
-        # fantasyProsSf + dynastyDaddySf + fantasyProsIdp + flockFantasySf +
-        # footballGuysSf + footballGuysIdp + yahooBoone +
-        # fantasyProsFitzmaurice + dlfRookieSf + flockFantasySfRookies +
-        # dlfRookieIdp + draftSharks + draftSharksIdp (eighteen sources
-        # as of 2026-04-21 when flockFantasySfRookies was added).
-        self.assertEqual(len(meth["sources"]), 18)
+        # ktc + idpTradeCalc + dlfIdp + idpShow + dlfSf +
+        # dynastyNerdsSfTep + fantasyProsSf + dynastyDaddySf +
+        # fantasyProsIdp + flockFantasySf + footballGuysSf +
+        # footballGuysIdp + yahooBoone + fantasyProsFitzmaurice +
+        # dlfRookieSf + flockFantasySfRookies + dlfRookieIdp +
+        # draftSharks + draftSharksIdp (nineteen sources as of
+        # 2026-04-21 when The IDP Show was added).
+        self.assertEqual(len(meth["sources"]), 19)
         keys = {s.get("key") for s in meth["sources"]}
         self.assertEqual(
             keys,
@@ -472,6 +473,7 @@ class TestPayloadLevelBlocks(unittest.TestCase):
                 "ktc",
                 "idpTradeCalc",
                 "dlfIdp",
+                "idpShow",
                 "dlfSf",
                 "dynastyNerdsSfTep",
                 "fantasyProsSf",

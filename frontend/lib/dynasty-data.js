@@ -287,6 +287,28 @@ export const RANKING_SOURCES = [
     isRankSignal: true,
   },
   {
+    // The IDP Show (Adamidp) — Substack-hosted full-universe IDP
+    // rankings board.  Includes rookies, edge/interior split.
+    // Data loaded by scripts/fetch_idpshow.py from a Datawrapper
+    // iframe embedded in the paywalled article; session cookies
+    // are refreshed manually ~quarterly (Substack captcha blocks
+    // automated login).  ~420 rows.  Rank-signal via the OVR
+    // column; needs shared-market translation for Hill input.
+    key: "idpShow",
+    displayName: "The IDP Show (Adamidp)",
+    columnLabel: "IDP Show",
+    scope: "overall_idp",
+    positionGroup: null,
+    depth: 420,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isTepPremium: false,
+    needsSharedMarketTranslation: true,
+    excludesRookies: false,
+    isRankSignal: true,
+  },
+  {
     // DLF Dynasty Superflex rankings — offense expert consensus.
     // Curated 6-expert board with Rank / Avg / Pos / Name columns.
     // Includes rookies (unlike DLF IDP).  Mirrors the backend entry

@@ -155,6 +155,19 @@ jobs:
           # new month's update yet, the previous CSV stays in place.
           python scripts/fetch_fantasypros_fitzmaurice.py 2>&1 || echo "::warning title=FP Fitzmaurice fetch failed::Non-fatal — continuing with stale CSV"
 
+          # Fetch The IDP Show (Adamidp) rankings — Substack paywall
+          # with captcha-protected login, so the scraper reads
+          # cookies from idpshow_session.json (gitignored, set
+          # up locally by the operator).  CI has no session file,
+          # so this step is a soft-no-op in the pipeline until an
+          # encrypted cookie vault is set up.  Locally the scraper
+          # runs on each scheduled server scrape.
+          if [[ -f idpshow_session.json ]]; then
+            python scripts/fetch_idpshow.py 2>&1 || echo "::warning title=IDP Show fetch failed::Non-fatal — continuing with stale CSV"
+          else
+            echo "::notice title=IDP Show skipped::idpshow_session.json missing in CI — scraper runs on the production server where the session file is maintained."
+          fi
+
           # Verify at least KTC data was produced (primary source)
           if [[ -f "CSVs/site_raw/ktc.csv" ]]; then
             KTC_LINES=$(wc -l < "CSVs/site_raw/ktc.csv")
