@@ -145,6 +145,13 @@ jobs:
           # failed DLF fetch leaves the previous CSV in place.
           python scripts/fetch_dlf.py 2>&1 || echo "::warning title=DLF fetch failed::Non-fatal — continuing with stale CSV"
 
+          # Fetch FantasyPros / Pat Fitzmaurice Dynasty Trade Value
+          # Chart.  Monthly article with date-rotating URL; the
+          # fetcher auto-resolves the current month (falls back up
+          # to 3 months).  Non-fatal — if FP hasn't published the
+          # new month's update yet, the previous CSV stays in place.
+          python scripts/fetch_fantasypros_fitzmaurice.py 2>&1 || echo "::warning title=FP Fitzmaurice fetch failed::Non-fatal — continuing with stale CSV"
+
           # Verify at least KTC data was produced (primary source)
           if [[ -f "CSVs/site_raw/ktc.csv" ]]; then
             KTC_LINES=$(wc -l < "CSVs/site_raw/ktc.csv")

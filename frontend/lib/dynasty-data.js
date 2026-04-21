@@ -504,6 +504,32 @@ export const RANKING_SOURCES = [
     excludesRookies: false,
   },
   {
+    // FantasyPros / Pat Fitzmaurice Dynasty Trade Value Chart —
+    // monthly offense board covering QB/RB/WR/TE.  Fetched by
+    // scripts/fetch_fantasypros_fitzmaurice.py, which resolves the
+    // date-rotating article URL, extracts four Datawrapper iframes
+    // (one per position), and grabs each chart's dataset.csv.  Per
+    // position we pick the league-appropriate value column (SF Value
+    // for QB, TEP Value for TE, Trade Value for RB/WR) — so
+    // Fitzmaurice's Superflex + TE-Premium native numbers align
+    // with our league scoring.  Value-signal: the blend rescales
+    // Fitzmaurice's top player (typically a QB at ~101) to 9999.
+    key: "fantasyProsFitzmaurice",
+    displayName: "FantasyPros / Pat Fitzmaurice SF-TEP",
+    columnLabel: "Fitzmaurice",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 350,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: false,
+    isTepPremium: true,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+  },
+  {
     // DLF Dynasty Rookie Superflex — 6-expert consensus covering the
     // current rookie class only (QB/RB/WR/TE prospects).  The raw
     // rookie-only rank is crosswalked at blend time through a rookie
