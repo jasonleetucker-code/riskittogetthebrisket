@@ -183,12 +183,12 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "signal": "rank",
     },
     # DLF Dynasty Superflex rankings — offense expert consensus.
-    # Raw CSV exported from DLF with capitalized Name/Rank columns
-    # plus several per-expert columns.  The `_enrich_from_source_csvs`
-    # reader uses column-name aliases so we can point directly at the
-    # original filename without any preprocessing.
+    # Auto-refreshed by ``scripts/fetch_dlf.py`` on each scheduled
+    # run, which POSTs credentials to DLF's wp-login, fetches the
+    # member-gated table, and writes a ``name,rank`` CSV preferring
+    # the expert-consensus Avg column over the nominal Rank column.
     "dlfSf": {
-        "path": "CSVs/site_raw/Dynasty Superflex Rankings-3-15-2026-1642.csv",
+        "path": "CSVs/site_raw/dlfSf.csv",
         "signal": "rank",
     },
     # Dynasty Nerds Superflex + TE Premium rankings — scraped from
@@ -291,14 +291,15 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # (IDP), preserving DLF's ORDERING while inheriting the reference
     # source's SCALE.
     "dlfRookieSf": {
-        "path": "CSVs/site_raw/Dynasty Rookie Superflex Rankings-3-20-2026-0955.csv",
+        "path": "CSVs/site_raw/dlfRookieSf.csv",
         "signal": "rank",
     },
     # DLF Dynasty Rookie IDP rankings — same shape as the SF rookie
     # export but for DL/LB/DB prospects.  IDP rookie translation uses
-    # the IDPTC IDP ladder.
+    # the IDPTC IDP ladder.  Also auto-refreshed by
+    # ``scripts/fetch_dlf.py``.
     "dlfRookieIdp": {
-        "path": "CSVs/site_raw/Dynasty Rookie IDP Rankings-3-20-2026-0955.csv",
+        "path": "CSVs/site_raw/dlfRookieIdp.csv",
         "signal": "rank",
     },
     # DraftSharks dynasty rankings — split into offense + IDP CSVs
@@ -2584,7 +2585,14 @@ def _parse_source_csv_cached(
                 exc,
             )
         if source_key == "dlfSf":
-            expected_tokens = ("Rank", "Avg", "Name", "Player")
+            # Historical schema (manual DLF export): capitalized
+            # ``Rank,Avg,Pos,Name,Team,Age,<expert cols>,Value,Follow``.
+            # New schema (``scripts/fetch_dlf.py``): lowercase
+            # ``name,rank`` — already preferred-Avg-over-Rank at the
+            # fetcher, so the loader just reads the two columns.
+            # Accept either shape via the token set so we don't need a
+            # migration window where one side is stale.
+            expected_tokens = ("Rank", "Avg", "Name", "Player", "name", "rank")
         elif source_key == "fantasyProsIdp":
             expected_tokens = (
                 "effectiveRank",
