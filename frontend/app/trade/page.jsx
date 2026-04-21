@@ -255,23 +255,27 @@ function TradeSourceBreakdown({ sides, settings }) {
         // valuation board.  Every other vendor leaves picks uncovered
         // and would skew the piece-count math if we counted them.
         const includePicks = vendor === "ktc";
-        // For each side + each player, sum valueContribution across
-        // every sub-source belonging to this vendor.  A player
+        // For each side + each player, pick the MAX valueContribution
+        // across every sub-source belonging to this vendor.  A player
         // typically appears in exactly one of the vendor's sub-
         // sources (e.g. Jeremiyah Love is covered by dlfRookieSf but
-        // not dlfSf), so the sum is effectively "pick whichever sub-
-        // source covered the player" — which is exactly the vendor
-        // unification we want.
+        // not dlfSf); in that common case max is identical to sum and
+        // simply picks up the one covered sub-source.  Max is the
+        // safer primitive for the rare case where a vendor has
+        // overlapping coverage — summing would double-count the same
+        // player and inflate that vendor's total, flipping the
+        // winner/margin; max gives you the vendor's best single look
+        // at the player instead.
         const sideValues = assetsBySide.map((assets) =>
           assets.map((row) => {
             if (!includePicks && row.pos === "PICK") return 0;
             const meta = row.sourceRankMeta || {};
-            let total = 0;
+            let best = 0;
             for (const sub of subs) {
               const vc = Number(meta[sub.key]?.valueContribution);
-              if (Number.isFinite(vc) && vc > 0) total += vc;
+              if (Number.isFinite(vc) && vc > best) best = vc;
             }
-            return total;
+            return best;
           }),
         );
         const rawTotals = sideValues.map((vs) =>
