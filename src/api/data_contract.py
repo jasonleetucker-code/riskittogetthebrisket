@@ -244,6 +244,18 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/flockFantasySf.csv",
         "signal": "rank",
     },
+    # Flock Fantasy Dynasty Superflex ROOKIE rankings — fetched from
+    # https://api.flockfantasy.com/rankings?format=PROSPECTS_SF via
+    # ``scripts/fetch_flock_fantasy_rookies.py``.  Same multi-expert
+    # averaged-rank shape as ``flockFantasySf`` but scoped to the
+    # current incoming rookie class only (~95 prospects).  Signal=rank
+    # — registered as ``needs_rookie_translation=True`` so the
+    # within-class rank is crosswalked through KTC's offense rookie
+    # ladder before the Hill curve, mirroring ``dlfRookieSf``.
+    "flockFantasySfRookies": {
+        "path": "CSVs/site_raw/flockFantasySfRookies.csv",
+        "signal": "rank",
+    },
     # FootballGuys dynasty rankings — 6-expert offense board and
     # 3-expert IDP board, exported from FootballGuys as a PDF by the
     # user and converted to CSV via
@@ -359,6 +371,9 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     "fantasyProsIdp": 6,
     "dynastyDaddySf": 6,
     "flockFantasySf": 168,
+    # Flock Fantasy rookie board updates as experts refresh ranks
+    # through the offseason; same 1-week window as the vet board.
+    "flockFantasySfRookies": 168,
     "dlfIdp": 720,
     "dlfSf": 720,
     # FootballGuys rankings are a user-managed PDF→CSV export; allow
@@ -1151,6 +1166,36 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # nudge is wired via synthetic "2026 Pick R.SS" rows that
         # the conversion step appends to the CSV so the source's
         # Hill value flows into pick rankDerivedValue directly.
+        "excludes_rookies": False,
+    },
+    {
+        # Flock Fantasy Dynasty Superflex Rookie/Prospect rankings —
+        # multi-expert averaged ranks of the current incoming rookie
+        # class only (~95 QB/RB/WR/TE prospects).  Fetched from the
+        # PROSPECTS_SF endpoint by ``scripts/fetch_flock_fantasy_rookies.py``.
+        # Same shape and translation behaviour as ``dlfRookieSf``: the
+        # within-class rank is crosswalked through KTC's offense rookie
+        # ladder so Flock's #1 rookie inherits KTC's scale-for-top-rookie
+        # rather than being mapped to overall #1 = 9999.
+        #
+        # depth=50 mirrors ``dlfRookieSf``; coverage weight scales the
+        # rookie board's contribution down so it never overwhelms the
+        # veteran-rich blend.  Pick nudging is intentionally NOT wired
+        # for this source — ``dlfRookieSf`` already stamps synthetic
+        # "2026 Pick R.SS" rows to drive pick values, and the cross-
+        # rookie pick tethering pass (Phase 11) blends Flock's rookie
+        # values into picks via the merged rookie pool.
+        "key": "flockFantasySfRookies",
+        "display_name": "Flock Fantasy Rookie SF",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": 50,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "needs_rookie_translation": True,
         "excludes_rookies": False,
     },
     {
@@ -4433,7 +4478,8 @@ def _compute_unified_rankings(
 
     # ── Rookie-translation ladders (built lazily on demand) ──
     # Sources flagged ``needs_rookie_translation=True`` (dlfRookieSf /
-    # dlfRookieIdp) rank the current rookie class only.  Their raw
+    # dlfRookieIdp / flockFantasySfRookies) rank the current rookie
+    # class only.  Their raw
     # within-source rank 1 would otherwise be fed to the Hill curve
     # as if the #1 rookie were the #1 overall player — inflating every
     # rookie to value ~9999.  We crosswalk through a rookie ladder
@@ -4741,6 +4787,10 @@ def _compute_unified_rankings(
     #   * ``dlfRookieIdp`` (IDP rookies) → IDPTC ladder:
     #     DLF's #1 IDP rookie → IDPTC's top-rookie rank, etc.
     #
+    #   * ``flockFantasySfRookies`` (offense rookies) → KTC ladder:
+    #     same shape as dlfRookieSf — Flock's class-only ranks anchor
+    #     to KTC's offense rookie ladder.
+    #
     # Preserves each rookie source's within-class ORDERING while
     # calibrating the top-rookie's market value to the reference
     # source's opinion.  After this translation, the rookie source's
@@ -4805,6 +4855,7 @@ def _compute_unified_rankings(
     _rookie_ladder_pairs = (
         ("dlfRookieSf", "ktc", _OFFENSE_POSITIONS),
         ("dlfRookieIdp", "idpTradeCalc", _IDP_POSITIONS),
+        ("flockFantasySfRookies", "ktc", _OFFENSE_POSITIONS),
     )
     for rookie_key, ref_key, universe in _rookie_ladder_pairs:
         if rookie_key not in active_keys or ref_key not in active_keys:

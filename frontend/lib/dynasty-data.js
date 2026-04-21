@@ -554,6 +554,30 @@ export const RANKING_SOURCES = [
     excludesRookies: false,
   },
   {
+    // Flock Fantasy Dynasty Superflex ROOKIE rankings — multi-expert
+    // averaged ranks of the current incoming rookie class only
+    // (~95 QB/RB/WR/TE prospects).  Same translation behaviour as
+    // dlfRookieSf — the within-class rank is crosswalked through KTC's
+    // offense rookie ladder so Flock's #1 rookie inherits KTC's
+    // scale-for-top-rookie.  Pick nudging is not wired for this source;
+    // dlfRookieSf already stamps synthetic "2026 Pick R.SS" rows.
+    key: "flockFantasySfRookies",
+    displayName: "Flock Fantasy Rookie SF",
+    columnLabel: "Flock RK",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 50,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    needsRookieTranslation: true,
+    excludesRookies: false,
+  },
+  {
     // DLF Dynasty Rookie IDP — rookie-only DL/LB/DB prospects.
     // Translated against IDPTC's rookie ladder.  Does NOT stamp onto
     // picks because rookie IDP ranks are not a strong signal for

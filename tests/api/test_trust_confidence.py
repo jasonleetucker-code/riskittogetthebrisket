@@ -461,10 +461,10 @@ class TestPayloadLevelBlocks(unittest.TestCase):
         # ktc + idpTradeCalc + dlfIdp + dlfSf + dynastyNerdsSfTep +
         # fantasyProsSf + dynastyDaddySf + fantasyProsIdp + flockFantasySf +
         # footballGuysSf + footballGuysIdp + yahooBoone +
-        # fantasyProsFitzmaurice + dlfRookieSf + dlfRookieIdp +
-        # draftSharks + draftSharksIdp (seventeen sources as of 2026-04-21
-        # when FP/Fitzmaurice was added).
-        self.assertEqual(len(meth["sources"]), 17)
+        # fantasyProsFitzmaurice + dlfRookieSf + flockFantasySfRookies +
+        # dlfRookieIdp + draftSharks + draftSharksIdp (eighteen sources
+        # as of 2026-04-21 when flockFantasySfRookies was added).
+        self.assertEqual(len(meth["sources"]), 18)
         keys = {s.get("key") for s in meth["sources"]}
         self.assertEqual(
             keys,
@@ -483,6 +483,7 @@ class TestPayloadLevelBlocks(unittest.TestCase):
                 "yahooBoone",
                 "fantasyProsFitzmaurice",
                 "dlfRookieSf",
+                "flockFantasySfRookies",
                 "dlfRookieIdp",
                 "draftSharks",
                 "draftSharksIdp",
