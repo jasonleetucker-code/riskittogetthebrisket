@@ -259,6 +259,57 @@ export const RANKING_SOURCES = [
     isTepPremium: false,
   },
   {
+    // DLF Dynasty Superflex rankings — offense expert consensus.
+    // Curated 6-expert board with Rank / Avg / Pos / Name columns.
+    // Includes rookies (unlike DLF IDP).  Mirrors the backend entry
+    // in src/api/data_contract.py::_RANKING_SOURCES.
+    //
+    // Rank-signal: CSV has an explicit Rank column.  The backend
+    // converts ranks to synthetic monotonic values for sort purposes;
+    // the UI must render sourceOriginalRanks.dlfSf, never the synthetic.
+    key: "dlfSf",
+    displayName: "Dynasty League Football Superflex",
+    columnLabel: "DLF SF",
+    scope: "overall_offense",
+    positionGroup: null,
+    depth: 280,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    // DLF's dynasty Superflex board is a standard SF consensus — no
+    // TE premium.  The CSV columns (Rank / Avg / Pos / Name / 6 expert
+    // columns) contain no TEP indicator.  Raw source:
+    // dynastyleaguefootball.com/dynasty-rankings/superflex.  The
+    // tepMultiplier applies to DLF SF's contribution on the blended
+    // board.
+    isTepPremium: false,
+  },
+  {
+    // DLF Dynasty Rookie Superflex — 6-expert consensus covering the
+    // current rookie class only (QB/RB/WR/TE prospects).  The raw
+    // rookie-only rank is crosswalked at blend time through a rookie
+    // ladder built from KTC's current ranks on offensive rookies, so
+    // DLF's #1 rookie inherits KTC's rank-for-top-rookie scale while
+    // DLF's ORDERING remains intact.  Synthetic "2026 Pick R.SS" rows
+    // appended during CSV enrichment also nudge rookie pick values.
+    key: "dlfRookieSf",
+    displayName: "Dynasty League Football Rookie SF",
+    columnLabel: "DLF RK",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 50,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    needsRookieTranslation: true,
+    excludesRookies: false,
+  },
+  {
     // DLF (Dynasty League Football) full-board IDP rankings.  Mirrors
     // the backend `_RANKING_SOURCES` entry in src/api/data_contract.py.
     // 185-player expert consensus; overall_idp scope; not a backbone.
@@ -287,6 +338,28 @@ export const RANKING_SOURCES = [
     isRankSignal: true,
   },
   {
+    // DLF Dynasty Rookie IDP — rookie-only DL/LB/DB prospects.
+    // Translated against IDPTC's rookie ladder.  Does NOT stamp onto
+    // picks because rookie IDP ranks are not a strong signal for
+    // pick-slot value (most rookie drafts prioritize offensive
+    // prospects at the top).
+    key: "dlfRookieIdp",
+    displayName: "Dynasty League Football Rookie IDP",
+    columnLabel: "DLF RK-IDP",
+    scope: "overall_idp",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 50,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    needsRookieTranslation: true,
+    excludesRookies: false,
+  },
+  {
     // The IDP Show (Adamidp) — Substack-hosted full-universe IDP
     // rankings board.  Includes rookies, edge/interior split.
     // Data loaded by scripts/fetch_idpshow.py from a Datawrapper
@@ -307,33 +380,6 @@ export const RANKING_SOURCES = [
     needsSharedMarketTranslation: true,
     excludesRookies: false,
     isRankSignal: true,
-  },
-  {
-    // DLF Dynasty Superflex rankings — offense expert consensus.
-    // Curated 6-expert board with Rank / Avg / Pos / Name columns.
-    // Includes rookies (unlike DLF IDP).  Mirrors the backend entry
-    // in src/api/data_contract.py::_RANKING_SOURCES.
-    //
-    // Rank-signal: CSV has an explicit Rank column.  The backend
-    // converts ranks to synthetic monotonic values for sort purposes;
-    // the UI must render sourceOriginalRanks.dlfSf, never the synthetic.
-    key: "dlfSf",
-    displayName: "Dynasty League Football Superflex",
-    columnLabel: "DLF SF",
-    scope: "overall_offense",
-    positionGroup: null,
-    depth: 280,
-    weight: 1.0,
-    isBackbone: false,
-    isRetail: false,
-    isRankSignal: true,
-    // DLF's dynasty Superflex board is a standard SF consensus — no
-    // TE premium.  The CSV columns (Rank / Avg / Pos / Name / 6 expert
-    // columns) contain no TEP indicator.  Raw source:
-    // dynastyleaguefootball.com/dynasty-rankings/superflex.  The
-    // tepMultiplier applies to DLF SF's contribution on the blended
-    // board.
-    isTepPremium: false,
   },
   {
     // Dynasty Nerds Superflex + TE Premium rankings — scraped inline
@@ -360,28 +406,6 @@ export const RANKING_SOURCES = [
     // UI can show users that this source does not need the
     // tepMultiplier boost on top of its contribution.
     isTepPremium: true,
-  },
-  {
-    // FantasyPros Dynasty Superflex rankings — offense expert consensus
-    // scraped from fantasypros.com/nfl/rankings/dynasty-superflex.php
-    // via scripts/fetch_fantasypros_offense.py.  Single flat board
-    // covering QB/RB/WR/TE.  Mirrors the backend `_RANKING_SOURCES`
-    // entry in src/api/data_contract.py.
-    //
-    // FantasyPros' dynasty superflex board is a standard SF consensus —
-    // no TE premium baked in.  The frontend `settings.tepMultiplier`
-    // boost applies to its blended contribution.
-    key: "fantasyProsSf",
-    displayName: "FantasyPros Dynasty Superflex",
-    columnLabel: "FP SF",
-    scope: "overall_offense",
-    positionGroup: null,
-    depth: 250,
-    weight: 1.0,
-    isBackbone: false,
-    isRetail: false,
-    isRankSignal: true,
-    isTepPremium: false,
   },
   {
     // Dynasty Daddy Superflex trade values — crowd-sourced community
@@ -411,6 +435,28 @@ export const RANKING_SOURCES = [
     excludesRookies: false,
   },
   {
+    // FantasyPros Dynasty Superflex rankings — offense expert consensus
+    // scraped from fantasypros.com/nfl/rankings/dynasty-superflex.php
+    // via scripts/fetch_fantasypros_offense.py.  Single flat board
+    // covering QB/RB/WR/TE.  Mirrors the backend `_RANKING_SOURCES`
+    // entry in src/api/data_contract.py.
+    //
+    // FantasyPros' dynasty superflex board is a standard SF consensus —
+    // no TE premium baked in.  The frontend `settings.tepMultiplier`
+    // boost applies to its blended contribution.
+    key: "fantasyProsSf",
+    displayName: "FantasyPros Dynasty Superflex",
+    columnLabel: "FP SF",
+    scope: "overall_offense",
+    positionGroup: null,
+    depth: 250,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+  },
+  {
     // FantasyPros Dynasty IDP expert consensus.  Combined IDP page
     // (dynasty-idp.php) is authoritative for cross-position ordering;
     // individual DL/LB/DB pages are used only as depth extension via
@@ -434,6 +480,32 @@ export const RANKING_SOURCES = [
     excludesRookies: true,
   },
   {
+    // FantasyPros / Pat Fitzmaurice Dynasty Trade Value Chart —
+    // monthly offense board covering QB/RB/WR/TE.  Fetched by
+    // scripts/fetch_fantasypros_fitzmaurice.py, which resolves the
+    // date-rotating article URL, extracts four Datawrapper iframes
+    // (one per position), and grabs each chart's dataset.csv.  Per
+    // position we pick the league-appropriate value column (SF Value
+    // for QB, TEP Value for TE, Trade Value for RB/WR) — so
+    // Fitzmaurice's Superflex + TE-Premium native numbers align
+    // with our league scoring.  Value-signal: the blend rescales
+    // Fitzmaurice's top player (typically a QB at ~101) to 9999.
+    key: "fantasyProsFitzmaurice",
+    displayName: "FantasyPros / Pat Fitzmaurice SF-TEP",
+    columnLabel: "Fitzmaurice",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 350,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: false,
+    isTepPremium: true,
+    needsSharedMarketTranslation: false,
+    excludesRookies: false,
+  },
+  {
     // Flock Fantasy Dynasty Superflex rankings — expert consensus.
     // Standard SF — no TE premium.  tepMultiplier boost applies.
     key: "flockFantasySf",
@@ -449,6 +521,30 @@ export const RANKING_SOURCES = [
     isRankSignal: true,
     isTepPremium: false,
     needsSharedMarketTranslation: false,
+    excludesRookies: false,
+  },
+  {
+    // Flock Fantasy Dynasty Superflex ROOKIE rankings — multi-expert
+    // averaged ranks of the current incoming rookie class only
+    // (~95 QB/RB/WR/TE prospects).  Same translation behaviour as
+    // dlfRookieSf — the within-class rank is crosswalked through KTC's
+    // offense rookie ladder so Flock's #1 rookie inherits KTC's
+    // scale-for-top-rookie.  Pick nudging is not wired for this source;
+    // dlfRookieSf already stamps synthetic "2026 Pick R.SS" rows.
+    key: "flockFantasySfRookies",
+    displayName: "Flock Fantasy Rookie SF",
+    columnLabel: "Flock RK",
+    scope: "overall_offense",
+    extraScopes: [],
+    positionGroup: null,
+    depth: 50,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isRankSignal: true,
+    isTepPremium: false,
+    needsSharedMarketTranslation: false,
+    needsRookieTranslation: true,
     excludesRookies: false,
   },
   {
@@ -523,102 +619,6 @@ export const RANKING_SOURCES = [
     isRankSignal: false,
     isTepPremium: true,
     needsSharedMarketTranslation: false,
-    excludesRookies: false,
-  },
-  {
-    // FantasyPros / Pat Fitzmaurice Dynasty Trade Value Chart —
-    // monthly offense board covering QB/RB/WR/TE.  Fetched by
-    // scripts/fetch_fantasypros_fitzmaurice.py, which resolves the
-    // date-rotating article URL, extracts four Datawrapper iframes
-    // (one per position), and grabs each chart's dataset.csv.  Per
-    // position we pick the league-appropriate value column (SF Value
-    // for QB, TEP Value for TE, Trade Value for RB/WR) — so
-    // Fitzmaurice's Superflex + TE-Premium native numbers align
-    // with our league scoring.  Value-signal: the blend rescales
-    // Fitzmaurice's top player (typically a QB at ~101) to 9999.
-    key: "fantasyProsFitzmaurice",
-    displayName: "FantasyPros / Pat Fitzmaurice SF-TEP",
-    columnLabel: "Fitzmaurice",
-    scope: "overall_offense",
-    extraScopes: [],
-    positionGroup: null,
-    depth: 350,
-    weight: 1.0,
-    isBackbone: false,
-    isRetail: false,
-    isRankSignal: false,
-    isTepPremium: true,
-    needsSharedMarketTranslation: false,
-    excludesRookies: false,
-  },
-  {
-    // DLF Dynasty Rookie Superflex — 6-expert consensus covering the
-    // current rookie class only (QB/RB/WR/TE prospects).  The raw
-    // rookie-only rank is crosswalked at blend time through a rookie
-    // ladder built from KTC's current ranks on offensive rookies, so
-    // DLF's #1 rookie inherits KTC's rank-for-top-rookie scale while
-    // DLF's ORDERING remains intact.  Synthetic "2026 Pick R.SS" rows
-    // appended during CSV enrichment also nudge rookie pick values.
-    key: "dlfRookieSf",
-    displayName: "Dynasty League Football Rookie SF",
-    columnLabel: "DLF RK",
-    scope: "overall_offense",
-    extraScopes: [],
-    positionGroup: null,
-    depth: 50,
-    weight: 1.0,
-    isBackbone: false,
-    isRetail: false,
-    isRankSignal: true,
-    isTepPremium: false,
-    needsSharedMarketTranslation: false,
-    needsRookieTranslation: true,
-    excludesRookies: false,
-  },
-  {
-    // Flock Fantasy Dynasty Superflex ROOKIE rankings — multi-expert
-    // averaged ranks of the current incoming rookie class only
-    // (~95 QB/RB/WR/TE prospects).  Same translation behaviour as
-    // dlfRookieSf — the within-class rank is crosswalked through KTC's
-    // offense rookie ladder so Flock's #1 rookie inherits KTC's
-    // scale-for-top-rookie.  Pick nudging is not wired for this source;
-    // dlfRookieSf already stamps synthetic "2026 Pick R.SS" rows.
-    key: "flockFantasySfRookies",
-    displayName: "Flock Fantasy Rookie SF",
-    columnLabel: "Flock RK",
-    scope: "overall_offense",
-    extraScopes: [],
-    positionGroup: null,
-    depth: 50,
-    weight: 1.0,
-    isBackbone: false,
-    isRetail: false,
-    isRankSignal: true,
-    isTepPremium: false,
-    needsSharedMarketTranslation: false,
-    needsRookieTranslation: true,
-    excludesRookies: false,
-  },
-  {
-    // DLF Dynasty Rookie IDP — rookie-only DL/LB/DB prospects.
-    // Translated against IDPTC's rookie ladder.  Does NOT stamp onto
-    // picks because rookie IDP ranks are not a strong signal for
-    // pick-slot value (most rookie drafts prioritize offensive
-    // prospects at the top).
-    key: "dlfRookieIdp",
-    displayName: "Dynasty League Football Rookie IDP",
-    columnLabel: "DLF RK-IDP",
-    scope: "overall_idp",
-    extraScopes: [],
-    positionGroup: null,
-    depth: 50,
-    weight: 1.0,
-    isBackbone: false,
-    isRetail: false,
-    isRankSignal: true,
-    isTepPremium: false,
-    needsSharedMarketTranslation: false,
-    needsRookieTranslation: true,
     excludesRookies: false,
   },
   {
