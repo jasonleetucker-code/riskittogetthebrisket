@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
-import { RANKING_SOURCES } from "@/lib/dynasty-data";
+import {
+  RANKING_SOURCES,
+  SOURCE_VENDOR_LABELS,
+  vendorForSource,
+} from "@/lib/dynasty-data";
 import {
   VALUE_MODES,
   STORAGE_KEY,
@@ -209,16 +213,20 @@ function TradeMeterMultiTeam({ sides, sideTotals }) {
 /* ── Per-source Trade Breakdown ──────────────────────────────────────── */
 
 /**
- * Render a per-source winner table below the main trade meter.
+ * Render a per-vendor winner table below the main trade meter.
  *
- * For every source in ``RANKING_SOURCES``, sum each side's per-player
- * ``canonicalSites[sourceKey]`` into a raw total, compute Value
- * Adjustment from those raw arrays (identical VA formula to the main
- * meter — re-applied per source so the adjustment scales with each
- * source's own value range), then declare the winner from the
- * adjusted totals.  Sources with no coverage on either side are
- * hidden so the table stays focused on the signal that actually
- * changed.
+ * Sources that share a vendor (e.g. dlfSf + dlfIdp + dlfRookieSf +
+ * dlfRookieIdp all belong to DLF) are consolidated into one row so
+ * rookie-for-veteran trades don't artificially split the DLF opinion
+ * across its sub-boards.  For each vendor + side, we sum every
+ * covered sub-source's ``sourceRankMeta[subKey].valueContribution``
+ * — the per-source Hill-curve output on the canonical 0-9999 scale —
+ * which puts every vendor on the same axis as KTC instead of the
+ * pre-cap synthetic 999,XXX values used internally for sort ordering.
+ *
+ * Margin is rendered as a percent of the winner's total so a 5%
+ * margin on DLF is directly comparable to a 5% margin on KTC even
+ * though their total scales aren't identical.
  */
 function TradeSourceBreakdown({ sides, settings }) {
   const rows = useMemo(() => {
@@ -226,27 +234,51 @@ function TradeSourceBreakdown({ sides, settings }) {
     const hasAny = assetsBySide.some((a) => a.length > 0);
     if (!hasAny) return [];
 
-    return RANKING_SOURCES
-      .map((src) => {
-        const key = src.key;
-        // Raw per-player values from this source per side.  Picks are
-        // excluded from non-KTC sources because only KTC values picks
-        // in the same 1-9999 space; other sources return 0/null for
-        // picks and would skew the piece-count math.  The KTC column
-        // keeps them because KTC is the canonical pick-valuation board.
-        const includePicks = key === "ktc";
+    // Walk RANKING_SOURCES in its canonical order, grouping each
+    // source under its vendor.  Vendors appear in the order their
+    // first sub-source is registered.
+    const vendorOrder = [];
+    const vendorSubs = new Map();
+    for (const src of RANKING_SOURCES) {
+      const vendor = vendorForSource(src.key);
+      if (!vendorSubs.has(vendor)) {
+        vendorSubs.set(vendor, []);
+        vendorOrder.push(vendor);
+      }
+      vendorSubs.get(vendor).push(src);
+    }
+
+    return vendorOrder
+      .map((vendor) => {
+        const subs = vendorSubs.get(vendor);
+        // Picks are included only for KTC — it's the canonical pick-
+        // valuation board.  Every other vendor leaves picks uncovered
+        // and would skew the piece-count math if we counted them.
+        const includePicks = vendor === "ktc";
+        // For each side + each player, sum valueContribution across
+        // every sub-source belonging to this vendor.  A player
+        // typically appears in exactly one of the vendor's sub-
+        // sources (e.g. Jeremiyah Love is covered by dlfRookieSf but
+        // not dlfSf), so the sum is effectively "pick whichever sub-
+        // source covered the player" — which is exactly the vendor
+        // unification we want.
         const sideValues = assetsBySide.map((assets) =>
           assets.map((row) => {
             if (!includePicks && row.pos === "PICK") return 0;
-            const v = Number(row.canonicalSites?.[key]);
-            return Number.isFinite(v) && v > 0 ? v : 0;
+            const meta = row.sourceRankMeta || {};
+            let total = 0;
+            for (const sub of subs) {
+              const vc = Number(meta[sub.key]?.valueContribution);
+              if (Number.isFinite(vc) && vc > 0) total += vc;
+            }
+            return total;
           }),
         );
         const rawTotals = sideValues.map((vs) =>
           vs.reduce((sum, v) => sum + v, 0),
         );
         const coverage = sideValues.map((vs) => vs.filter((v) => v > 0).length);
-        // Skip sources that touch zero pieces across the whole trade.
+        // Skip vendors that touch zero pieces across the whole trade.
         if (coverage.reduce((a, b) => a + b, 0) === 0) return null;
 
         const adjustments = valueAdjustmentFromSideArrays(sideValues);
@@ -261,20 +293,38 @@ function TradeSourceBreakdown({ sides, settings }) {
         const runnerUp = adjustedTotals
           .filter((_, i) => i !== winnerIdx)
           .reduce((max, v) => Math.max(max, v), 0);
-        const margin = adjustedTotals[winnerIdx] - runnerUp;
-        const tied = margin < 1;
+        const rawMargin = adjustedTotals[winnerIdx] - runnerUp;
+        const winnerTotal = adjustedTotals[winnerIdx];
+        const marginPct =
+          winnerTotal > 0 ? (rawMargin / winnerTotal) * 100 : 0;
+        const tied = rawMargin < 1;
+
+        // Display label: use SOURCE_VENDOR_LABELS for multi-board
+        // vendors (DLF, Flock, FBG, DraftSharks, FantasyPros);
+        // single-board vendors fall back to their sub-source's
+        // columnLabel/displayName (ktc → "KTC", dynastyDaddySf →
+        // "DD", etc.).
+        const primary = subs[0];
+        const label =
+          SOURCE_VENDOR_LABELS[vendor] ||
+          primary.columnLabel ||
+          primary.displayName ||
+          vendor;
+        const displayName = SOURCE_VENDOR_LABELS[vendor]
+          ? subs.map((s) => s.displayName || s.key).join(" + ")
+          : primary.displayName || primary.key;
 
         return {
-          key,
-          label: src.columnLabel || src.displayName || src.key,
-          displayName: src.displayName || src.key,
+          key: vendor,
+          label,
+          displayName,
           rawTotals,
           adjustments,
           adjustedTotals,
           coverage,
           winnerIdx: tied ? null : winnerIdx,
           winnerLabel: tied ? "Even" : sides[winnerIdx]?.label || "?",
-          margin,
+          marginPct,
         };
       })
       .filter(Boolean);
@@ -291,7 +341,7 @@ function TradeSourceBreakdown({ sides, settings }) {
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
         <h3 style={{ margin: 0, fontSize: "0.88rem" }}>Per-source winner</h3>
         <span className="muted" style={{ fontSize: "0.72rem" }}>
-          VA-adjusted totals from each source's raw values. Hidden when a source has no coverage.
+          VA-adjusted totals on the 0-9999 value scale, summed per vendor. Sub-boards (e.g. DLF SF + DLF RK) roll up into one row; margin shows winner's edge as a percent.
         </span>
       </div>
       <div style={{ overflowX: "auto" }}>
@@ -374,7 +424,7 @@ function TradeSourceBreakdown({ sides, settings }) {
                 >
                   {row.winnerIdx === null
                     ? "—"
-                    : Math.round(row.margin).toLocaleString()}
+                    : `${row.marginPct.toFixed(1)}%`}
                 </td>
               </tr>
             ))}
