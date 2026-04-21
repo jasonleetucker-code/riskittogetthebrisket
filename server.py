@@ -1762,6 +1762,42 @@ async def get_health():
         except (ValueError, TypeError):
             pass
 
+    # Session-cookie age surface.  Some sources (DLF, IDP Show) use
+    # manual cookie-dump auth — we track the session file's mtime as
+    # a proxy for cookie freshness.  The frontend banner surfaces a
+    # nudge when the file is approaching the source's typical cookie
+    # lifetime so the operator knows to paste fresh cookies before
+    # the next scrape fails.
+    _session_ages: dict[str, dict] = {}
+    import os as _os
+    _session_lifetimes = {
+        "dlf_session.json": 14,          # WP session cookies ~14 days
+        "idpshow_session.json": 90,      # Substack connect.sid ~90 days
+        "draftsharks_session.json": 30,
+        "footballguys_session.json": 30,
+    }
+    for fname, lifetime_days in _session_lifetimes.items():
+        fpath = BASE_DIR / fname
+        try:
+            if not fpath.exists():
+                _session_ages[fname] = {"present": False}
+                continue
+            mtime_ts = fpath.stat().st_mtime
+            age_days = round(
+                (datetime.now(timezone.utc).timestamp() - mtime_ts) / 86400, 1
+            )
+            days_remaining = max(0.0, round(lifetime_days - age_days, 1))
+            _session_ages[fname] = {
+                "present": True,
+                "ageDays": age_days,
+                "lifetimeDays": lifetime_days,
+                "daysRemaining": days_remaining,
+                "warnSoon": days_remaining <= 14 and age_days > 0,
+                "expired": days_remaining <= 0,
+            }
+        except Exception:
+            _session_ages[fname] = {"present": False}
+
     is_ok = (
         status_payload.get("last_error") in (None, "")
         and not status_payload.get("stalled")
@@ -1790,6 +1826,7 @@ async def get_health():
                 "enabled": uptime_status.get("enabled"),
                 "target_url": uptime_status.get("target_url"),
             },
+            "session_cookies": _session_ages,
         },
     )
 

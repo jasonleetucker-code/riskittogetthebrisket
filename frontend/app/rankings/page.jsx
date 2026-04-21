@@ -350,7 +350,23 @@ function CustomMixBadge({ rankingsOverride }) {
 
 export default function RankingsPage() {
   const { loading, error, source, rows, rawData } = useDynastyData();
-  const { settings } = useSettings();
+  const { settings, update: updateSetting } = useSettings();
+  const [colsMenuOpen, setColsMenuOpen] = useState(false);
+  const hiddenSiteCols = settings.hiddenSiteCols || {};
+  const visibleSources = useMemo(
+    () => RANKING_SOURCES.filter((s) => !hiddenSiteCols[s.key]),
+    [hiddenSiteCols]
+  );
+  const hiddenCount = RANKING_SOURCES.length - visibleSources.length;
+  const toggleSiteCol = useCallback((key) => {
+    const next = { ...(settings.hiddenSiteCols || {}) };
+    if (next[key]) delete next[key];
+    else next[key] = true;
+    updateSetting("hiddenSiteCols", next);
+  }, [settings.hiddenSiteCols, updateSetting]);
+  const showAllSiteCols = useCallback(() => {
+    updateSetting("hiddenSiteCols", {});
+  }, [updateSetting]);
   const { openPlayerPopup } = useApp();
   const [query, setQuery] = useState("");
   const [posFilter, setPosFilter] = useState("all");
@@ -559,6 +575,24 @@ export default function RankingsPage() {
   const displayRows = hasActiveFilter ? ranked : ranked.slice(0, rowLimit);
   const hasMore = !hasActiveFilter && ranked.length > rowLimit;
 
+  // Per-position ranks (QB3, RB5, LB2…).  Computed from the full
+  // ``ranked`` order — not ``displayRows`` — so filtering/search
+  // doesn't renumber badges.  Uses the same position string as the
+  // position badge, so "DB" lumps CB/S together unless the pipeline
+  // splits them.
+  const positionRankByName = useMemo(() => {
+    const counts = new Map();
+    const byName = new Map();
+    for (const row of ranked) {
+      const pos = String(row?.pos || "").toUpperCase();
+      if (!pos || !row?.name) continue;
+      const next = (counts.get(pos) || 0) + 1;
+      counts.set(pos, next);
+      byName.set(row.name, next);
+    }
+    return byName;
+  }, [ranked]);
+
   function SortHeader({ col, children, style, className }) {
     const active = sortCol === col;
     const arrow = active ? (sortAsc ? " \u25B2" : " \u25BC") : "";
@@ -621,9 +655,89 @@ export default function RankingsPage() {
     }
   }
 
+  // Same columns as ``copyValues`` but emits a proper comma-separated
+  // CSV with RFC-4180 quoting and triggers a browser download instead
+  // of a clipboard write.  Used by the "Export CSV" button.
+  function exportCsv() {
+    const sourceHeaders = RANKING_SOURCES.flatMap((src) => [
+      src.columnLabel,
+      `${src.columnLabel} Rank`,
+    ]);
+    const headers = [
+      "Rank", "Player", "Pos", "Team", "Tier", "Value", "Value Band",
+      "Confidence", "Action", "Sources",
+      ...sourceHeaders,
+    ];
+    const escape = (cell) => {
+      const s = cell == null ? "" : String(cell);
+      if (/[",\n\r]/.test(s)) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+    const lines = [headers.map(escape).join(",")];
+    displayRows.forEach((row) => {
+      const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
+      const band = valueBand(val);
+      const action = actionLabel(row);
+      const cautions = cautionLabels(row);
+      const actionStr = [action?.label, ...cautions.map((c) => c.label)]
+        .filter(Boolean).join("; ");
+      const sourceCells = RANKING_SOURCES.flatMap((src) => {
+        const raw = row.canonicalSites?.[src.key];
+        const valCell = raw != null && Number.isFinite(Number(raw))
+          ? Math.round(Number(raw))
+          : "";
+        const rankCell = row.sourceRanks?.[src.key] ?? "";
+        return [valCell, rankCell];
+      });
+      lines.push(
+        [
+          row.rank, row.name, row.pos, row.team || "",
+          tierLabel(row), val, band.label,
+          row.confidenceBucket || "", actionStr, row.sourceCount || 0,
+          ...sourceCells,
+        ].map(escape).join(",")
+      );
+    });
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const iso = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `brisket-rankings-${iso}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setCopyStatus(`Exported ${displayRows.length.toLocaleString()} rows`);
+    setTimeout(() => setCopyStatus(""), 1800);
+  }
+
   // ── Freshness timestamp ────────────────────────────────────────────
   const freshness = rawData?.dataFreshness;
   const timestamp = freshness?.generatedAt || rawData?.date || null;
+
+  // Relative-time formatter for the "Updated" footer.  Matches the
+  // stale-banner's formatAgo — keeps humans honest about staleness
+  // without having to parse ISO timestamps in their head.
+  const relativeUpdated = useMemo(() => {
+    if (!timestamp) return null;
+    try {
+      const then = new Date(timestamp);
+      const now = new Date();
+      const secs = Math.round((now.getTime() - then.getTime()) / 1000);
+      if (!Number.isFinite(secs)) return null;
+      if (secs < 60) return `${secs}s ago`;
+      if (secs < 3600) return `${Math.round(secs / 60)}m ago`;
+      if (secs < 86_400) return `${Math.round(secs / 3600)}h ago`;
+      const days = Math.round(secs / 86_400);
+      return `${days}d ago`;
+    } catch {
+      return null;
+    }
+  }, [timestamp]);
 
   // ── Tier separator logic ───────────────────────────────────────────
   const tierGroupingActive = showTiers && sortCol === "rank" && sortAsc && activeLens === "consensus" && !query;
@@ -665,9 +779,79 @@ export default function RankingsPage() {
           >
             {showMethodology ? "Hide methodology" : "How this works"}
           </button>
-          <button className="button" onClick={copyValues}>
+          <button className="button" onClick={copyValues} title="Copy the current rows as TSV for pasting into a spreadsheet">
             Copy
           </button>
+          <button className="button" onClick={exportCsv} title="Download the current rows as a CSV file">
+            Export CSV
+          </button>
+          {/* Columns toggle — opens an inline popover with one
+              checkbox per source so the user can hide clutter from
+              sources they don't care about.  Persisted across
+              sessions via ``settings.hiddenSiteCols``. */}
+          <div style={{ position: "relative", display: "inline-block" }}>
+            <button
+              className="button"
+              onClick={() => setColsMenuOpen((v) => !v)}
+              title="Show/hide per-source columns"
+            >
+              Columns{hiddenCount > 0 ? ` (${hiddenCount} hidden)` : ""}
+            </button>
+            {colsMenuOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 4px)",
+                  right: 0,
+                  minWidth: 260,
+                  maxHeight: 400,
+                  overflowY: "auto",
+                  background: "var(--panel-bg, #1a1e2a)",
+                  border: "1px solid var(--border, #2e3442)",
+                  borderRadius: 6,
+                  padding: "8px 12px",
+                  fontSize: "0.85rem",
+                  zIndex: 30,
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <strong>Source columns</strong>
+                  <button
+                    className="button button-small"
+                    onClick={showAllSiteCols}
+                    style={{ fontSize: "0.7rem", padding: "2px 8px" }}
+                    title="Restore all source columns"
+                  >
+                    Show all
+                  </button>
+                </div>
+                {RANKING_SOURCES.map((src) => {
+                  const hidden = Boolean(hiddenSiteCols[src.key]);
+                  return (
+                    <label
+                      key={src.key}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "4px 0",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!hidden}
+                        onChange={() => toggleSiteCol(src.key)}
+                      />
+                      <span>{src.columnLabel}</span>
+                      <span className="muted" style={{ marginLeft: "auto", fontSize: "0.72rem" }}>{src.displayName}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           {copyStatus && <span className="muted text-sm">{copyStatus}</span>}
         </div>
       </div>
@@ -703,7 +887,12 @@ export default function RankingsPage() {
           )}
           {timestamp && (
             <div className="rankings-trust-stat" style={{ marginLeft: "auto" }}>
-              <span className="rankings-trust-label">Updated {timestamp}</span>
+              <span
+                className="rankings-trust-label"
+                title={`Data generated at ${timestamp}`}
+              >
+                Last scraped {relativeUpdated || timestamp}
+              </span>
             </div>
           )}
         </div>
@@ -832,7 +1021,7 @@ export default function RankingsPage() {
                     Consensus
                   </SortHeader>
                   <SortHeader col="value" style={{ textAlign: "right" }}>Value</SortHeader>
-                  {settings.showSiteCols && RANKING_SOURCES.map((src) => (
+                  {settings.showSiteCols && visibleSources.map((src) => (
                     <SortHeader
                       key={src.key}
                       col={`src:${src.key}`}
@@ -870,7 +1059,7 @@ export default function RankingsPage() {
                   // colspans.  It tracks the render gate on
                   // ``settings.showSiteCols`` so the separator stretches
                   // cleanly whether or not per-source columns are visible.
-                  const totalCols = 10 + (settings.showSiteCols ? RANKING_SOURCES.length : 0);
+                  const totalCols = 10 + (settings.showSiteCols ? visibleSources.length : 0);
 
                   const prevTierId = idx > 0 ? effectiveTierId(displayRows[idx - 1]) : null;
                   const showTierBreak = tierGroupingActive && idx > 0 && tierId !== prevTierId && tierId != null;
@@ -905,9 +1094,27 @@ export default function RankingsPage() {
                         ].filter(Boolean).join(" ")}
                         onClick={() => setExpandedRow(isExpanded ? null : row.name)}
                       >
-                        {/* Rank */}
+                        {/* Rank + rank-change indicator.  Positive
+                            change = moved up since last scrape (green
+                            ▲N); negative = moved down (red ▼N);
+                            null = new / previously unranked. */}
                         <td style={{ textAlign: "center", fontWeight: 700, color: "var(--cyan)", fontFamily: "var(--mono)" }}>
                           {row.rank || "\u2014"}
+                          {row.rankChange != null && row.rankChange !== 0 && (
+                            <span
+                              className="rankings-rank-change"
+                              title={`Moved ${row.rankChange > 0 ? "up" : "down"} ${Math.abs(row.rankChange)} since the previous scrape`}
+                              style={{
+                                marginLeft: 4,
+                                fontSize: "0.68rem",
+                                fontWeight: 600,
+                                color: row.rankChange > 0 ? "var(--green, #4ade80)" : "var(--red, #f87171)",
+                              }}
+                            >
+                              {row.rankChange > 0 ? "\u25B2" : "\u25BC"}
+                              {Math.abs(row.rankChange)}
+                            </span>
+                          )}
                         </td>
 
                         {/* Tier */}
@@ -939,10 +1146,27 @@ export default function RankingsPage() {
                           </div>
                         </td>
 
-                        {/* Position */}
+                        {/* Position + position rank (QB3, RB5, LB2…).
+                            Position rank is computed from the full
+                            ``ranked`` order at render-time so search/filter
+                            doesn't renumber badges. */}
                         <td>
                           <span className={posBadgeClass(row)}>
                             {row.pos}
+                            {positionRankByName.get(row.name) != null && (
+                              <span
+                                className="rankings-pos-rank"
+                                style={{
+                                  marginLeft: 4,
+                                  opacity: 0.85,
+                                  fontFamily: "var(--mono, monospace)",
+                                  fontSize: "0.78em",
+                                }}
+                                title={`${row.pos}${positionRankByName.get(row.name)} — position rank within the full ranked board`}
+                              >
+                                {positionRankByName.get(row.name)}
+                              </span>
+                            )}
                           </span>
                         </td>
 
@@ -962,9 +1186,21 @@ export default function RankingsPage() {
 
                         {/* Value — Hill-curve dynasty value (integer, 1-9999).
                             Band badge (S+/S/D+/D/F) carries a tooltip so
-                            users can hover to see what the letter means. */}
-                        <td style={{ textAlign: "right" }} title={`Hill-curve value ${val.toLocaleString()} (scale 1\u20139,999)`}>
-                          <span className="rankings-value">{val.toLocaleString()}</span>
+                            users can hover to see what the letter means.
+                            Value is clickable and opens the player popup
+                            with the full per-source breakdown so you can
+                            see exactly which sources contributed to this
+                            number. */}
+                        <td style={{ textAlign: "right" }} title={`Hill-curve value ${val.toLocaleString()} (scale 1\u20139,999) — click to see per-source breakdown`}>
+                          <span
+                            className="rankings-value rankings-value-clickable"
+                            onClick={(e) => { e.stopPropagation(); openPlayerPopup?.(row); }}
+                            style={{ cursor: "pointer", textDecoration: "underline dotted transparent", textUnderlineOffset: "3px" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.textDecorationColor = "currentColor"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.textDecorationColor = "transparent"; }}
+                          >
+                            {val.toLocaleString()}
+                          </span>
                           <span
                             className={`rankings-value-band ${band.css}`}
                             title={band.title || "Value band"}
@@ -981,7 +1217,7 @@ export default function RankingsPage() {
                             the shared board in parentheses — unified
                             single-line format so every source sits on
                             the same value scale. */}
-                        {settings.showSiteCols && RANKING_SOURCES.map((src) => {
+                        {settings.showSiteCols && visibleSources.map((src) => {
                           const cell = formatSourceCell(row, src);
                           return (
                             <td

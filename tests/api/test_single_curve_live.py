@@ -179,10 +179,15 @@ class TestValueChain(unittest.TestCase):
                 continue
             # Market-corridor clamp may have pulled this row's value
             # toward KTC when the blend drifted past the P90 band.
-            # The invariant being tested here is that no OFFENSE
-            # CALIBRATION pass mutates the value; the clamp is a
-            # separate transform covered by its own test suite.
+            # Two-way-player boost (Travis Hunter etc.) can also
+            # overwrite the offense value with the alt-family IDP
+            # blend.  The invariant being tested here is that no
+            # OFFENSE CALIBRATION pass mutates the value; the clamp
+            # and the two-way boost are separate transforms each
+            # covered by their own test suites.
             if row.get("marketCorridorClamp"):
+                continue
+            if row.get("twoWayPlayerBoost", {}).get("applied"):
                 continue
             self.assertEqual(
                 int(final),
