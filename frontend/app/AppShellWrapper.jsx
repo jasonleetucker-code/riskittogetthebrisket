@@ -6,6 +6,7 @@ import { useCallback, createContext, useContext } from "react";
 import AppShell, { useApp } from "@/components/AppShell";
 import { useAuth } from "@/components/useAuth";
 import ChatDrawer from "@/components/ChatDrawer";
+import StaleDataBanner from "@/components/StaleDataBanner";
 
 // ── Route definitions ────────────────────────────────────────────────────
 // Primary destinations shown in desktop top nav
@@ -191,6 +192,7 @@ export default function AppShellWrapper({ children }) {
       <AppShell>
         <DesktopNav />
         <MobileTopBar />
+        <StaleDataBanner />
         <main className="main-shell">{children}</main>
         <MobileNav />
         <ChatDrawer />
