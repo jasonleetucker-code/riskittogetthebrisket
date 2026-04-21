@@ -74,6 +74,7 @@ _OFFENSE_SIGNAL_KEYS = {
     "dynastyNerdsSfTep",
     "footballGuysSf",
     "yahooBoone",
+    "fantasyProsFitzmaurice",
 }
 _IDP_SIGNAL_KEYS = {
     "idpTradeCalc",
@@ -278,6 +279,22 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/yahooBoone.csv",
         "signal": "value",
     },
+    # FantasyPros Dynasty Trade Value Chart — Pat Fitzmaurice's
+    # monthly article-based chart.  Fetched by
+    # ``scripts/fetch_fantasypros_fitzmaurice.py`` which resolves
+    # the date-rotating article URL, parses the four embedded
+    # Datawrapper iframes (QB/RB/WR/TE), and writes per-position
+    # values on a 0-~101 scale.  For each position we pick the
+    # league-appropriate column: ``SF Value`` for QB (Superflex),
+    # ``Trade Value`` for RB/WR (no league-scoring split), and
+    # ``TEP Value`` for TE (TE-Premium) — matching the yahooBoone
+    # pattern.  Signal=value so the blend's value-direct branch
+    # rescales Fitzmaurice's top player (typically a QB at 101)
+    # to 9999 and every other player scales linearly.
+    "fantasyProsFitzmaurice": {
+        "path": "CSVs/site_raw/fantasyProsFitzmaurice.csv",
+        "signal": "value",
+    },
     # DLF Dynasty Rookie Superflex rankings — 6-expert consensus of the
     # current rookie class only (no veterans).  Raw CSV exported from
     # DLF with Rank, Avg, Pos, Name, Team, Age, expert columns.  Signal=
@@ -352,6 +369,9 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     # allow a 30-day window; the fetcher also emits its own stale-
     # article warning if Yahoo's redirect chain ever stops resolving.
     "yahooBoone": 720,
+    # FantasyPros / Pat Fitzmaurice Dynasty Trade Value Chart:
+    # refreshes monthly as a new FP article.  30-day window.
+    "fantasyProsFitzmaurice": 720,
     # DraftSharks SF + IDP CSVs are written by scripts/fetch_draftsharks.py
     # on every scheduled-refresh tick (3-hour cadence), so the same
     # 6-hour freshness budget as ktc / idpTradeCalc applies.
@@ -388,6 +408,9 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # at the April 2026 baseline.  Floor at ~80% so a scrape regression
     # trips a warning.
     "yahooBoone": 400,
+    # FantasyPros / Pat Fitzmaurice: QB (50) + RB (~88) + WR (~115) +
+    # TE (~46) ≈ 299 rows at the April 2026 baseline.  Floor at ~75%.
+    "fantasyProsFitzmaurice": 225,
     # DraftSharks: the scraper ingests 461 offense / 389 IDP rows,
     # but canonical-name matches against the Sleeper player pool
     # yield a smaller count because DS's deeper rows are prospects
@@ -1049,6 +1072,42 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
         "depth": 500,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": True,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+    },
+    {
+        # FantasyPros / Pat Fitzmaurice Dynasty Trade Value Chart —
+        # monthly offense board covering QB/RB/WR/TE.  Fetched by
+        # ``scripts/fetch_fantasypros_fitzmaurice.py`` which:
+        #   1. resolves the month-rotating article URL (falls back
+        #      3 months if the current-month update isn't published yet),
+        #   2. parses the four embedded Datawrapper iframes for
+        #      QB / RB / WR / TE,
+        #   3. fetches each chart's dataset.csv and picks the league-
+        #      appropriate value column: ``SF Value`` for QB (Superflex),
+        #      ``Trade Value`` for RB/WR, ``TEP Value`` for TE (TE-Premium).
+        # Result: ~300 combined rows with a top-of-pool value of ~101
+        # (SF-adjusted QB).  Signal=value so the blend's value-direct
+        # branch scales Fitzmaurice's top to 9999 and every other row
+        # linearly.  Cross-position separation is preserved (e.g. top
+        # QB at SF value 101 beats top WR at 88, scaling to 9999 vs
+        # 8712 on the 9999 scale).
+        #
+        # depth=350 reflects the published row count; coverage_weight
+        # keeps full weight for rows within depth and degrades past.
+        # Like yahooBoone, this is a TEP-native source: it applies the
+        # TE premium directly via the TEP Value column, so the global
+        # TEP multiplier MUST NOT compound.
+        "key": "fantasyProsFitzmaurice",
+        "display_name": "FantasyPros / Pat Fitzmaurice SF-TEP",
+        "column_label": "Fitzmaurice",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": 350,
         "weight": 1.0,
         "is_backbone": False,
         "is_retail": False,
@@ -3495,6 +3554,12 @@ _VALUE_BASED_SOURCES: frozenset[str] = frozenset({
     # Added 2026-04-21 to preserve Boone's native value structure
     # instead of collapsing it to rank-only ordinal information.
     "yahooBoone",
+    # FantasyPros / Pat Fitzmaurice Dynasty Trade Value Chart.
+    # Published monthly; Datawrapper CSV exposes SF Value (QB),
+    # Trade Value (RB/WR), TEP Value (TE) columns.  Top player
+    # sits at 101 (SF-adjusted QB) so the value-direct rescaling
+    # maps Fitzmaurice's top → 9999.  Added 2026-04-21.
+    "fantasyProsFitzmaurice",
 })
 
 
