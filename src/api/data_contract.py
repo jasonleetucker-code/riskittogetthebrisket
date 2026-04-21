@@ -4558,6 +4558,59 @@ def _compute_unified_rankings(
             meta["effectiveRank"] = combined_rank
             meta["method"] = "ds_combined_cross_market"
 
+    # ── Phase 1c: FootballGuys cross-market combined rank restoration ──
+    # FBG's CSVs natively carry the cross-market combined rank (Jack
+    # Campbell at CSV rank 19 — first IDP in FBG's mixed offense+IDP
+    # ordering).  Phase 1 dense-re-ranks each source's coverage 1..N
+    # within-source, which clobbers that combined rank back to
+    # within-family ordinals (Campbell = FG IDP rank 1).  This block
+    # RESTORES the CSV rank by reversing the synthetic-value encoding
+    # from the CSV enrichment reader:
+    #   synthetic = (_RANK_TO_SYNTHETIC_VALUE_OFFSET * 100) − (rank * 100)
+    # So ``csv_rank = _RANK_TO_SYNTHETIC_VALUE_OFFSET − (synthetic / 100)``.
+    # Every ``is_cross_market=True`` source that carries a rank signal
+    # natively (i.e. NOT routed through the DS combined-rank pre-pass
+    # above) falls into this bucket — currently just FBG SF + FBG IDP,
+    # but extensible to any future rank-signal cross-market source.
+    csv_rank_cross_market_keys: set[str] = {
+        str(s.get("key") or "")
+        for s in active_sources
+        if s.get("is_cross_market")
+        and not s.get("ds_combined_rank_partner")
+        # IDPTC is cross-market but value-direct, so no rank override
+        # is needed — its direct-vote path reads canonicalSiteValues
+        # raw values, not the effective rank.
+        and str(s.get("key") or "") not in _VALUE_BASED_SOURCES
+    }
+    if csv_rank_cross_market_keys:
+        for row_idx, row in enumerate(players_array):
+            csv_vals = row.get("canonicalSiteValues") or {}
+            if not isinstance(csv_vals, dict):
+                continue
+            for skey in csv_rank_cross_market_keys:
+                if skey not in row_source_ranks.get(row_idx, {}):
+                    continue
+                synthetic = csv_vals.get(skey)
+                if synthetic is None:
+                    continue
+                try:
+                    syn_f = float(synthetic)
+                except (TypeError, ValueError):
+                    continue
+                # Reverse the encoding to recover the original CSV rank.
+                csv_rank = int(round(
+                    _RANK_TO_SYNTHETIC_VALUE_OFFSET - (syn_f / 100.0)
+                ))
+                if csv_rank <= 0:
+                    continue
+                row_source_ranks[row_idx][skey] = csv_rank
+                meta = row_source_meta.setdefault(row_idx, {}).setdefault(
+                    skey, {}
+                )
+                meta["rawRank"] = meta.get("rawRank", csv_rank)
+                meta["effectiveRank"] = csv_rank
+                meta["method"] = "csv_combined_cross_market"
+
     # ── Phase 2-3: Normalized value (Hill curve) + robust blend ──
     # Look up each source's weight / depth once.
     src_by_key: dict[str, dict[str, Any]] = {s["key"]: s for s in active_sources}
@@ -4796,15 +4849,20 @@ def _compute_unified_rankings(
         #     caused ordering glitches (e.g. Drake Maye < Smith-Njigba
         #     where the offense consensus had Maye higher).
         use_hierarchical_blend = row_is_pick or (row_pos in _IDP_POSITIONS)
-        # Cross-market anchor value = simple mean of every
-        # cross-market source that covered this player (IDPTC via
-        # value-direct; DS + FG via their combined cross-market
-        # rank → GLOBAL Hill).  Using the mean preserves each
-        # source's equal voice and is the operator-confirmed
-        # composition method (Option A) from the 2026-04-20 audit.
-        anchor_value: float | None
+        # Cross-market anchor value: count-aware mean-median across
+        # every covered cross-market source (IDPTC via value-direct;
+        # DS + FG via their combined cross-market rank → GLOBAL
+        # Hill).  n=1 passthrough, n=2 mean, n=3-4 untrimmed
+        # (mean+median)/2, n≥5 trimmed.  Using the count-aware blend
+        # here instead of a bare mean damps single-source outliers
+        # (e.g. FG's combined rank was 304 for Micah Parsons vs 43
+        # for IDPTC / 89 for DS — bare mean pulled his anchor
+        # ~15% below reality; the mean+median blend keeps the
+        # outlier's influence to ~half that).  Matches the exact
+        # aggregation rule the subgroup uses on the other side of
+        # the α-shrinkage combine.
         if cross_market_values:
-            anchor_value = sum(cross_market_values) / len(cross_market_values)
+            anchor_value, _ = _trimmed_mean_median(cross_market_values)
         else:
             anchor_value = None
 
