@@ -3677,6 +3677,22 @@ def _stamp_rank_changes(
 # the alt-family (pulling ranks from the source's canonicalSiteValues
 # synthetic entries) and use the maximum of that vs his offense-pool
 # blend.  Sleeper's position is preserved for display + roster purposes.
+#
+# Scope: the boost ONLY helps when the player's Sleeper position
+# places them outside a scope where their source coverage lives.
+# Offense-classed with IDP source coverage is the canonical case.
+# LB-classed rookies ranked as DE on IDP Show (Arvell Reese, David
+# Bailey — audited 2026-04-21) are NOT in scope because they're
+# already in the IDP pool and those sources already contribute to
+# their blend via the IDP scope gate — no coverage is being missed.
+# Edge rushers like Parsons / Watt / Burns are already classed DL
+# in Sleeper so they flow through the correct bucket directly.
+#
+# Audit result (2026-04-21): Travis Hunter is the only player on
+# the current board where offense-pool classification actively
+# loses IDP-source coverage.  Other offense-classed players with
+# IDP-source entries (Justin Madubuike, Milton Williams, etc.) are
+# name collisions or low-signal cases and don't warrant a boost.
 _TWO_WAY_PLAYERS: dict[str, str] = {
     # Travis Hunter — CU / JAX corner-WR two-way player.  Listed WR.
     "Travis Hunter": "DB",
