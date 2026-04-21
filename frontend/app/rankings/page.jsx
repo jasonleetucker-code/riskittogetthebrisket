@@ -520,17 +520,31 @@ export default function RankingsPage() {
             // translation re-order between their original and effective
             // rank; reading ``canonicalSites`` here would sort on the
             // pre-translation synthetic encoding and produce a ranking
-            // that disagrees with the values in the column.  Fall back
-            // to ``canonicalSites`` only when the backend didn't stamp
-            // a valueContribution (legacy payloads).
+            // that disagrees with the values in the column.
+            //
+            // Fall back to ``canonicalSites`` only for value-based
+            // sources on legacy payloads that predate the
+            // ``valueContribution`` stamp — their raw slot is on a
+            // monotonic value scale, so the sort still matches what
+            // ``formatSourceCell`` renders in that legacy branch.  For
+            // rank-signal sources the raw slot is a synthetic rank
+            // encoding the cell intentionally refuses to render, so
+            // reading it here would reorder rows whose visible cells
+            // are all "—" — sort order the user cannot interpret.
+            const src = RANKING_SOURCES.find((s) => s.key === key);
             const aMeta = Number(a.sourceRankMeta?.[key]?.valueContribution);
             const bMeta = Number(b.sourceRankMeta?.[key]?.valueContribution);
+            const allowRawFallback = !src?.isRankSignal;
             va = Number.isFinite(aMeta)
               ? aMeta
-              : Number(a.canonicalSites?.[key]) || 0;
+              : allowRawFallback
+                ? Number(a.canonicalSites?.[key]) || 0
+                : 0;
             vb = Number.isFinite(bMeta)
               ? bMeta
-              : Number(b.canonicalSites?.[key]) || 0;
+              : allowRawFallback
+                ? Number(b.canonicalSites?.[key]) || 0
+                : 0;
             return (va - vb) * dir;
           }
           return resolvedRank(a) - resolvedRank(b);
