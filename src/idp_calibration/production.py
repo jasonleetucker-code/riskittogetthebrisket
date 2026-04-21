@@ -144,17 +144,21 @@ def promoted_state(base: Path | None = None) -> dict[str, Any]:
       accepts. Constant per build.
     * ``config`` — the active config dict when ``present`` is
       ``True``; ``None`` otherwise.
+
+    Always routes through :func:`_load_if_stale` so its cache-
+    management branches (file-missing clears the cache; file-present
+    refreshes on mtime change; stale-version stamps the sentinel)
+    run on every call. A short-circuit on ``not path.exists()`` would
+    skip the reset path and leave stale cache entries alive across a
+    delete/restore cycle that preserves the original mtime.
     """
-    path = production_config_path(base)
-    if not path.exists():
-        return {
-            "present": False,
-            "stale": False,
-            "stale_version": None,
-            "required_version": _MIN_SUPPORTED_VERSION,
-            "config": None,
-        }
     cfg = _load_if_stale(base)
+    # Snapshot the cache state once under the lock so the
+    # "absent vs stale" branching below stays consistent even if a
+    # concurrent thread mutates the cache in between.
+    with _lock:
+        cached = _cache["config"]
+        stale_version = _cache["stale_version"]
     if cfg is not None:
         return {
             "present": True,
@@ -163,14 +167,22 @@ def promoted_state(base: Path | None = None) -> dict[str, Any]:
             "required_version": _MIN_SUPPORTED_VERSION,
             "config": cfg,
         }
-    # File is on disk but was rejected. Surface the cached version
-    # so operators can see why without another read.
-    with _lock:
-        stale_version = _cache["stale_version"]
+    if cached is _STALE_SENTINEL:
+        # File is on disk but the loader refused it. ``stale_version``
+        # was cached alongside the sentinel so we can surface it
+        # without a second ``load_json`` call.
+        return {
+            "present": False,
+            "stale": True,
+            "stale_version": stale_version,
+            "required_version": _MIN_SUPPORTED_VERSION,
+            "config": None,
+        }
+    # No config on disk (or the cache was reset after a delete).
     return {
         "present": False,
-        "stale": True,
-        "stale_version": stale_version,
+        "stale": False,
+        "stale_version": None,
         "required_version": _MIN_SUPPORTED_VERSION,
         "config": None,
     }

@@ -99,6 +99,50 @@ def test_v1_config_both_endpoints_report_stale(tmp_base):
     assert stat["required_schema_version"] == 2
 
 
+def test_delete_then_restore_same_mtime_forces_reread(tmp_base):
+    """Regression: ``promoted_state`` previously short-circuited on
+    ``not path.exists()`` without resetting the cache. If the file
+    was then restored with the same mtime (preserved-timestamp
+    restore or coarse filesystem mtime), the mtime fast-path would
+    reuse the old cached config.
+
+    With the short-circuit removed, the file-missing branch inside
+    ``_load_if_stale`` clears the cache, so even a same-mtime
+    restore triggers a fresh disk read.
+    """
+    import os
+
+    cfg = tmp_base / "config" / "idp_calibration.json"
+    _write_config(cfg, version=2)
+    original_mtime = cfg.stat().st_mtime
+
+    # Prime the cache with the v2 config.
+    _, prod = api.production(base=tmp_base)
+    assert prod["present"] is True
+    assert prod["config"]["version"] == 2
+
+    # Simulate a delete/restore cycle that preserves mtime.
+    cfg.unlink()
+    _, prod_missing = api.production(base=tmp_base)
+    assert prod_missing["present"] is False
+    assert prod_missing["stale"] is False
+
+    # Restore a DIFFERENT config at the SAME mtime. If the cache
+    # still held the old config, the mtime fast-path would replay
+    # it; with the file-missing cache-reset, the loader re-reads.
+    _write_config(cfg, version=1)  # v1 → would be refused as stale
+    os.utime(cfg, (original_mtime, original_mtime))
+    assert cfg.stat().st_mtime == original_mtime
+
+    _, prod_restored = api.production(base=tmp_base)
+    assert prod_restored["present"] is False
+    assert prod_restored["stale"] is True
+    assert prod_restored["stale_version"] == 1, (
+        "Same-mtime restore reused the v2 cache entry instead of "
+        "re-reading the v1 file — cache-reset regression."
+    )
+
+
 def test_missing_version_treated_as_stale_v0(tmp_base):
     """A config with no version field (hand-edited or very old) gets
     parsed as v0 and surfaced as stale with stale_version=0."""
