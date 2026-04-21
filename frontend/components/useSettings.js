@@ -38,6 +38,13 @@ export const SETTINGS_DEFAULTS = {
   // mobile hid the columns via CSS regardless.  Default ON is the
   // canonical behavior — see rankings/page.jsx for the render gate.
   showSiteCols: true,
+  // Per-source column visibility map ({ [sourceKey]: false } to
+  // hide a specific source column on the rankings table).  Any key
+  // missing from the map defaults to visible — so an empty map
+  // means "show all columns".  Independent from ``siteWeights``
+  // (which controls whether a source contributes to the blend) —
+  // this toggle is purely about rendered column clutter.
+  hiddenSiteCols: {},
 
   // Pick settings
   pickCurrentYear: 2026,

@@ -3586,6 +3586,247 @@ def _apply_market_corridor_clamp(
                 pdata["marketCorridorClamp"] = dict(row["marketCorridorClamp"])
 
 
+# ── Rank-change snapshot ────────────────────────────────────────────────
+# Persists the last board's ranks so we can stamp per-player movement
+# deltas on each subsequent build.  Stored as a small JSON file at
+# ``data/snapshots/ranks_last.json``: ``{name: rank, ...}``.  Missing
+# file = first run; nothing is stamped.  The snapshot is rewritten at
+# the end of each non-delta build so the next build can diff against
+# it.  Deltas: +N means the player moved UP N ranks since the last
+# build; -N means down; None = newly ranked or previously unranked.
+_RANK_SNAPSHOT_PATH: "Path | None" = None
+
+
+def _get_rank_snapshot_path() -> "Path":
+    from pathlib import Path as _Path
+
+    global _RANK_SNAPSHOT_PATH
+    if _RANK_SNAPSHOT_PATH is None:
+        _RANK_SNAPSHOT_PATH = (
+            _Path(__file__).resolve().parents[2]
+            / "data"
+            / "snapshots"
+            / "ranks_last.json"
+        )
+    return _RANK_SNAPSHOT_PATH
+
+
+def _stamp_rank_changes(
+    rows: list[dict[str, Any]],
+    *,
+    write_snapshot: bool = True,
+) -> None:
+    """Diff each row's canonicalConsensusRank against the last-saved
+    snapshot and stamp ``rankChange`` (positive = moved up).
+    Optionally rewrite the snapshot file with the current ranks.
+
+    ``write_snapshot=False`` is used on override / delta-payload
+    builds so a user toggling sources on /settings doesn't clobber
+    the canonical-board snapshot the scheduled scrape writes.  Reads
+    always happen so the stamp is available on every build.
+    """
+    import json as _json
+
+    snap_path = _get_rank_snapshot_path()
+    previous: dict[str, int] = {}
+    try:
+        if snap_path.exists():
+            previous = _json.loads(snap_path.read_text()) or {}
+    except Exception:
+        previous = {}
+
+    current: dict[str, int] = {}
+    for row in rows:
+        name = str(row.get("canonicalName") or "")
+        rank = row.get("canonicalConsensusRank")
+        if not name or rank is None:
+            continue
+        try:
+            cur_rank = int(rank)
+        except (TypeError, ValueError):
+            continue
+        current[name] = cur_rank
+        prev = previous.get(name)
+        if isinstance(prev, int) and prev > 0:
+            # Positive = moved UP (prev rank higher number, now lower
+            # number).  A player at prev=50 who's now at 40 moved up
+            # 10; change = 10.
+            row["rankChange"] = prev - cur_rank
+        else:
+            row["rankChange"] = None
+
+    if not write_snapshot:
+        return
+    try:
+        snap_path.parent.mkdir(parents=True, exist_ok=True)
+        snap_path.write_text(_json.dumps(current, separators=(",", ":")))
+    except Exception:
+        # Snapshot write failure is non-fatal — next build just
+        # lacks diff data, exactly like first-run.
+        pass
+
+
+# ── Two-way player override ─────────────────────────────────────────────
+# Canonical-name → alt-position-family mapping for players whose
+# Sleeper classification undersells their real fantasy value because
+# they're playable at BOTH an offense AND an IDP slot.  The classic
+# case is Travis Hunter (listed WR in Sleeper, plays CB for the Jags;
+# IDP-specialist sources rank him #1 among corners but he's invisible
+# to the IDP blend because he sits in the offense pool).  For each
+# entry we compute what his value WOULD be if he were classed under
+# the alt-family (pulling ranks from the source's canonicalSiteValues
+# synthetic entries) and use the maximum of that vs his offense-pool
+# blend.  Sleeper's position is preserved for display + roster purposes.
+_TWO_WAY_PLAYERS: dict[str, str] = {
+    # Travis Hunter — CU / JAX corner-WR two-way player.  Listed WR.
+    "Travis Hunter": "DB",
+}
+
+
+def _apply_two_way_player_boost(
+    players_array: list[dict[str, Any]],
+    players_by_name: dict[str, Any],
+) -> None:
+    """For players in ``_TWO_WAY_PLAYERS``, compute what their value
+    would be under the alt-position family and use max(offense, alt)
+    as the final ``rankDerivedValue``.
+
+    Most of the work is already done by the upstream CSV loader —
+    when a source includes a two-way player under its IDP universe,
+    the loader writes a synthetic rank-encoded value into
+    ``canonicalSiteValues[source_key]`` even when the scope gate
+    would later reject that contribution.  We pull those entries
+    back out here, convert the synthetic rank back to an ordinal,
+    percentile-normalise, Hill it, and take the mean across sources
+    as the player's alt-family value.  Simple, no pipeline rewrite.
+
+    Stamps ``twoWayPlayerBoost`` on every boosted row with offense
+    value, alt-family value, and max-of-two so the UI can surface
+    the dual-value reality.
+    """
+    if not _TWO_WAY_PLAYERS:
+        return
+    from src.canonical.player_valuation import (  # noqa: PLC0415
+        HILL_PERCENTILE_C,
+        HILL_PERCENTILE_S,
+        IDP_HILL_PERCENTILE_C,
+        IDP_HILL_PERCENTILE_S,
+        percentile_to_value,
+    )
+    # Collect IDP signal sources (the ones that could contribute to
+    # an alt-family value for an offense-classed player).
+    idp_source_keys = {
+        str(s.get("key") or "")
+        for s in _RANKING_SOURCES
+        if s.get("scope") == SOURCE_SCOPE_OVERALL_IDP
+    }
+    # Same for offense sources — used when the alt-family is offense.
+    offense_source_keys = {
+        str(s.get("key") or "")
+        for s in _RANKING_SOURCES
+        if s.get("scope") == SOURCE_SCOPE_OVERALL_OFFENSE
+    }
+
+    for row in players_array:
+        name = str(row.get("canonicalName") or "")
+        if name not in _TWO_WAY_PLAYERS:
+            continue
+        alt_family = _TWO_WAY_PLAYERS[name]
+        alt_is_idp = alt_family in _IDP_POSITIONS
+        candidate_keys = idp_source_keys if alt_is_idp else offense_source_keys
+        site_values = row.get("canonicalSiteValues") or {}
+        if not isinstance(site_values, dict):
+            continue
+
+        # Decode synthetic rank-encoded values back to ordinals.
+        # The loader writes ``_RANK_TO_SYNTHETIC_VALUE_OFFSET * 100
+        # - rank * 100`` for rank-signal sources, so
+        # ``rank = (offset * 100 - synthetic) / 100``.
+        alt_source_values: list[float] = []
+        used_sources: list[str] = []
+        for key in candidate_keys:
+            raw = site_values.get(key)
+            try:
+                syn = float(raw) if raw is not None else 0.0
+            except (TypeError, ValueError):
+                continue
+            if syn <= 0:
+                continue
+            # Reverse the synthetic → rank encoding.  Small-positive
+            # ``syn`` values (e.g. DraftSharks' raw 14 on a 0-100
+            # scale) are VALUE-BASED source contributions; we skip
+            # the rank decode path for those and use the value
+            # directly, normalising by the source's native top
+            # value for alt-family scale coherence.
+            if syn < _RANK_TO_SYNTHETIC_VALUE_OFFSET * 50:
+                # Native-value source: rank ≈ 1 if the raw is near
+                # the source's top.  We approximate by scaling the
+                # raw to a 0-9999 frame using the max value of the
+                # source across the whole board.
+                max_native = 0.0
+                for r in players_array:
+                    sv = (r.get("canonicalSiteValues") or {}).get(key)
+                    try:
+                        sv_f = float(sv) if sv is not None else 0.0
+                    except (TypeError, ValueError):
+                        continue
+                    if sv_f > max_native:
+                        max_native = sv_f
+                if max_native > 0:
+                    alt_source_values.append(syn / max_native * 9999.0)
+                    used_sources.append(key)
+                continue
+            rank = int(round(
+                (_RANK_TO_SYNTHETIC_VALUE_OFFSET * 100 - syn) / 100
+            ))
+            if rank <= 0:
+                continue
+            # Percentile → Hill value.  Use the IDP master curve
+            # if alt is IDP, else the OFFENSE master.
+            p = (float(rank) - 1.0) / max(1.0, float(_PERCENTILE_REFERENCE_N - 1))
+            p = max(0.0, min(1.0, p))
+            if alt_is_idp:
+                c, s = IDP_HILL_PERCENTILE_C, IDP_HILL_PERCENTILE_S
+            else:
+                c, s = HILL_PERCENTILE_C, HILL_PERCENTILE_S
+            alt_val = float(percentile_to_value(p, midpoint=c, slope=s))
+            if alt_val > 0:
+                alt_source_values.append(alt_val)
+                used_sources.append(key)
+
+        if not alt_source_values:
+            continue
+        alt_value = sum(alt_source_values) / len(alt_source_values)
+        current_value = float(row.get("rankDerivedValue") or 0.0)
+        if alt_value <= current_value:
+            # Offense-pool blend already beats the alt-family value;
+            # no boost needed.  Still stamp the audit so the UI can
+            # show "no boost applied".
+            row["twoWayPlayerBoost"] = {
+                "applied": False,
+                "altFamily": alt_family,
+                "altFamilyValue": int(round(alt_value)),
+                "primaryFamilyValue": int(round(current_value)),
+                "sourcesConsidered": sorted(used_sources),
+            }
+            continue
+        boosted = int(round(alt_value))
+        row["rankDerivedValue"] = boosted
+        row["twoWayPlayerBoost"] = {
+            "applied": True,
+            "altFamily": alt_family,
+            "altFamilyValue": boosted,
+            "primaryFamilyValue": int(round(current_value)),
+            "sourcesConsidered": sorted(used_sources),
+        }
+        legacy_ref = row.get("legacyRef")
+        if legacy_ref and legacy_ref in players_by_name:
+            pdata = players_by_name[legacy_ref]
+            if isinstance(pdata, dict):
+                pdata["rankDerivedValue"] = boosted
+                pdata["twoWayPlayerBoost"] = dict(row["twoWayPlayerBoost"])
+
+
 def _apply_idp_calibration_post_pass(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
@@ -5745,6 +5986,15 @@ def _compute_unified_rankings(
     # ``_apply_market_corridor_clamp`` for the design rationale.
     _apply_market_corridor_clamp(players_array, players_by_name)
 
+    # Two-way player boost: a tiny override table that rescues players
+    # whose Sleeper single-position classification excludes them from
+    # the IDP blend (Travis Hunter — WR in Sleeper, CB on the field,
+    # ranked #1 by IDP Show / top-50 by FBG IDP / etc).  For each
+    # entry, compute the alt-family's implied value from the already-
+    # loaded IDP source synthetic ranks and replace rankDerivedValue
+    # with max(offense_value, alt_family_value).
+    _apply_two_way_player_boost(players_array, players_by_name)
+
     # Offense calibration is deliberately never applied to live values.
     # The offense market is already priced by the blend of KTC / DLF /
     # IDPTC / etc.  VOR bucket multipliers produced absurd artefacts
@@ -5841,6 +6091,16 @@ def _compute_unified_rankings(
         tiered_rows, _compute_value_based_tier_ids(tiered_rows)
     ):
         r["canonicalTierId"] = tier_id
+
+    # Rank-change vs previous scrape.  Stamps ``rankChange`` on
+    # each row from the persisted snapshot; writes the current ranks
+    # back only when this is the canonical board build (no source
+    # overrides — override paths shouldn't clobber the snapshot that
+    # the scheduled scrape maintains).
+    _stamp_rank_changes(
+        tiered_rows,
+        write_snapshot=not source_overrides,
+    )
 
     # (Phase 5b — value re-flattening — intentionally removed.) The
     # pre-sort ``rankDerivedValue`` is a weighted blend of per-source

@@ -104,6 +104,43 @@ export default function StaleDataBanner() {
   // state has its own dedicated banner.
   if (!hasData) return null;
 
+  // Session-cookie expiry nudge — surface BEFORE the staleness
+  // check so a fresh-but-expiring session doesn't wait for scrape
+  // failures to become visible.  Only shown when cookies are within
+  // 14 days of typical lifetime; doesn't replace the data-staleness
+  // banner, but comes first so the operator sees the cause.
+  const sessions = health.session_cookies || {};
+  const expired = Object.entries(sessions).filter(
+    ([, info]) => info && info.present && info.expired,
+  );
+  const soon = Object.entries(sessions).filter(
+    ([, info]) => info && info.present && info.warnSoon && !info.expired,
+  );
+  if (expired.length > 0) {
+    return (
+      <BannerShell severity="critical">
+        <strong>
+          Session cookies expired for {expired.map(([f]) => f.replace("_session.json", "")).join(", ")}.
+        </strong>{" "}
+        The next scrape will fail until you paste fresh cookies.  See the
+        scraper's module docstring for the refresh steps.
+      </BannerShell>
+    );
+  }
+  if (soon.length > 0 && (age === null || age <= WARNING_HOURS)) {
+    // Cookies are expiring soon but data is otherwise fresh — show
+    // the cookie warning instead of nothing.
+    const lines = soon.map(
+      ([f, info]) => `${f.replace("_session.json", "")} (${info.daysRemaining}d left)`,
+    );
+    return (
+      <BannerShell severity="warning">
+        <strong>Session cookies expire soon.</strong>{" "}
+        Refresh before the next scrape fails: {lines.join(", ")}.
+      </BannerShell>
+    );
+  }
+
   if (age === null || age <= WARNING_HOURS) return null;
 
   if (age >= CRITICAL_HOURS) {

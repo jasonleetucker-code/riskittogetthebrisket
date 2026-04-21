@@ -917,6 +917,22 @@ function _materializePlayerArrayRow(player) {
     canonicalConsensusRankUncalibrated:
       Number(player.canonicalConsensusRankUncalibrated) || null,
     canonicalTierId: Number(player.canonicalTierId) || null,
+    // Rank movement since the previous scrape.  Positive = moved
+    // UP, negative = down, null = new or previously unranked.
+    rankChange:
+      typeof player.rankChange === "number" ? player.rankChange : null,
+    // Audit stamps from the backend post-passes.  Rendered in the
+    // PlayerPopup and (for ``twoWayPlayerBoost``) as an optional
+    // inline badge on the rankings row.
+    marketCorridorClamp:
+      player.marketCorridorClamp &&
+      typeof player.marketCorridorClamp === "object"
+        ? player.marketCorridorClamp
+        : null,
+    twoWayPlayerBoost:
+      player.twoWayPlayerBoost && typeof player.twoWayPlayerBoost === "object"
+        ? player.twoWayPlayerBoost
+        : null,
     sourceRanks: backendSourceRanks,
     sourceRankMeta: backendSourceRankMeta,
     blendedSourceRank: backendBlendedSourceRank,
