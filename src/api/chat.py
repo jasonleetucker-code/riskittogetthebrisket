@@ -121,6 +121,7 @@ _SOURCE_SHORT: dict[str, str] = {
     "draftSharksIdp": "dsIdp",
     "dlfRookieSf": "dlfRookSf",
     "dlfRookieIdp": "dlfRookIdp",
+    "flockFantasySfRookies": "flockRookSf",
 }
 
 

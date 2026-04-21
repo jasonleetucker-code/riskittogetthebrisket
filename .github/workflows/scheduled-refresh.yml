@@ -125,6 +125,9 @@ jobs:
           # Fetch Flock Fantasy SF rankings
           python scripts/fetch_flock_fantasy.py --mirror-data-dir 2>/dev/null || echo "::warning title=Flock Fantasy fetch failed::Non-fatal — continuing"
 
+          # Fetch Flock Fantasy SF ROOKIE rankings (PROSPECTS_SF endpoint)
+          python scripts/fetch_flock_fantasy_rookies.py --mirror-data-dir 2>/dev/null || echo "::warning title=Flock Fantasy rookies fetch failed::Non-fatal — continuing"
+
           # Fetch FootballGuys league-synced rankings (offense + IDP)
           # The scraper auto-logs-in via Playwright on session refresh
           # when cached cookies are rejected; non-fatal if the site is
