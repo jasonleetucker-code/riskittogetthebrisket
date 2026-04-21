@@ -156,6 +156,7 @@ def test_promote_empty_run_returns_422(tmp_base):
     empty = {
         "run_id": "empty_api",
         "generated_at": "2026-04-18T00:00:00Z",
+        "schema_version": 2,
         "settings": {"blend": {"intrinsic": 0.75, "market": 0.25}},
         "resolved_seasons": [],
         "multipliers": {

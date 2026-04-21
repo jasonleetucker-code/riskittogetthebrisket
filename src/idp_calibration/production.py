@@ -290,6 +290,19 @@ def get_idp_bucket_multiplier(
     effective_mode = mode or str(config.get("active_mode") or "blended")
     if effective_mode not in {"intrinsic_only", "market_only", "blended"}:
         effective_mode = "blended"
+    # Schema v2 safety rail: the ``intrinsic`` / ``market`` channels
+    # carry offense-anchored absolute VOR magnitudes (unbounded above
+    # 1.0), not applied multipliers. The promotion factory already
+    # refuses non-blended modes under v2, but a hand-edited config
+    # could still smuggle one in — coerce to ``blended`` so
+    # ``_bucket_lookup_for`` reads the ``final`` relativity ratio
+    # regardless.
+    try:
+        cfg_version = int(config.get("version") or 0)
+    except (TypeError, ValueError):
+        cfg_version = 0
+    if cfg_version >= 2 and effective_mode != "blended":
+        effective_mode = "blended"
     try:
         bucket = float(_bucket_lookup_for(position, int(rank), config, effective_mode))
         family = _family_scale_for(config, effective_mode)

@@ -101,17 +101,21 @@ def test_promote_writes_config_and_backs_up_prior(tmp_base):
     assert result1["backup_path"] is None
 
     # Second promote should move the prior config into backups dir.
+    # ``blended`` is the only applied mode under schema v2; the
+    # important invariant here is the backup + replace sequence, not
+    # the active_mode value. Non-blended modes would be refused at
+    # the promotion factory under v2 (see ``V2_VALID_MODES``).
     art2 = engine.run_analysis(
         "X", "Y", settings, stats_adapter_factory=lambda s: _StubAdapter()
     )
     storage.save_run(art2, base=tmp_base)
     result2 = promotion.promote_run(
-        art2["run_id"], active_mode="intrinsic_only", base=tmp_base
+        art2["run_id"], active_mode="blended", base=tmp_base
     )
     assert result2["backup_path"] is not None
     assert Path(result2["backup_path"]).exists()
     refreshed = json.loads(cfg_path.read_text())
-    assert refreshed["active_mode"] == "intrinsic_only"
+    assert refreshed["active_mode"] == "blended"
     assert refreshed["source_run_id"] == art2["run_id"]
 
 
@@ -201,6 +205,7 @@ def test_promote_refuses_run_with_no_bucket_data(tmp_base):
     empty_artifact = {
         "run_id": "empty_run",
         "generated_at": "2026-04-18T00:00:00Z",
+        "schema_version": 2,
         "settings": {"blend": {"intrinsic": 0.75, "market": 0.25}},
         "resolved_seasons": [],
         "multipliers": {
