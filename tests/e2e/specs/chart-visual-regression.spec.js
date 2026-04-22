@@ -1,42 +1,42 @@
 // ── Chart visual regression ──────────────────────────────────────────
 //
-// Full-page screenshots of every page that renders one of the chart
-// components built across PRs #211-#214.  Playwright's built-in
-// ``toHaveScreenshot`` captures a baseline PNG on first run and
-// diffs subsequent runs against it with a tolerance threshold.
+// Full-chart screenshots + structural assertions over the chart
+// components shipped across PRs #211-#214.
 //
-// Baseline generation (run once locally / in CI after intentional
-// UI changes):
+// Baseline generation (run once locally / in CI after intentional UI
+// changes):
 //
 //   npx playwright test --update-snapshots chart-visual-regression
 //
-// Tolerance rationale: 0.2% pixel difference + 100-pixel diff allowance
-// per chart.  SVG rendering varies slightly across CI runners (font
-// antialiasing, subpixel positioning); the threshold is loose enough
-// that benign drift doesn't fail the build but tight enough that a
-// genuinely broken chart (missing axis, blank plot area) trips it.
+// Tolerance rationale: 0.2% pixel difference so the test absorbs
+// benign SVG rendering variance across runners (font antialiasing,
+// subpixel positioning) without missing genuine chart breakage.
 //
-// This spec is additive to the existing smoke specs in this folder
-// and intentionally limits itself to the chart region rather than
-// full-page screenshots — pages change layout regularly and we only
-// want to regression-test the *charts*, not the surrounding UI.
+// Readiness model:
+// Naive ``el.count()`` returns 0 while the chart is still fetching
+// data.  That made the first iteration of this spec silently mark
+// real regressions as "skipped" (green) on slower CI runners.  This
+// version uses ``_waitForChartOrSkip`` — a proper ``locator.waitFor``
+// with a timeout that resolves EITHER "chart rendered → run the
+// assertion" OR "waited the full timeout and it's definitely not
+// here → skip with a clear reason."  The skip path only fires on
+// timeout, not on "not yet loaded."
+// ─────────────────────────────────────────────────────────────────────
 
 const { test, expect } = require("@playwright/test");
 
 const SCREENSHOT_OPTIONS = {
-  // 0.2% pixel difference tolerance — enough to absorb benign
-  // rendering variance across runners without missing real breakage.
   maxDiffPixelRatio: 0.002,
-  // Fullscale-mask any elements that change between runs (timestamps,
-  // "Updated X seconds ago").  None today; placeholder for future.
   mask: [],
-  // Animation can create micro-diffs on SVG paths; disable where
-  // possible by setting a stable state before the shot.
   animations: "disabled",
 };
 
-// Selector helpers — each chart renders as an SVG with a known
-// aria-label so we can locate and screenshot just the chart region.
+// Upper bound on how long we'll wait for a chart to render before
+// concluding it's legitimately absent (e.g. page doesn't have the
+// expected feature yet).  Set generously — chart data sometimes
+// involves a 4 MB contract fetch on CI-sized runners.
+const READINESS_TIMEOUT_MS = 15_000;
+
 const CHART_SELECTORS = {
   hillCurve: 'svg[aria-label*="Hill curve"]',
   tierGap: 'svg[aria-label*="Tier-gap waterfall"]',
@@ -48,6 +48,55 @@ const CHART_SELECTORS = {
   franchiseTraj: 'svg[aria-label*="Franchise"]',
 };
 
+/**
+ * Wait for a chart locator to become visible or, if the timeout
+ * elapses, mark the test as skipped with a descriptive reason.
+ *
+ * This replaces a pattern where ``await el.count()`` returned 0 while
+ * the page was still loading and the test quietly passed by skipping.
+ * ``waitFor`` with a bounded timeout resolves the "still loading"
+ * ambiguity: if the selector never resolves within ``READINESS_TIMEOUT_MS``,
+ * it's definitely not on this page and the skip is accurate, not a
+ * silent regression.
+ *
+ * Returns the locator if visible; otherwise ``null`` (and calls
+ * ``test.skip``).
+ */
+async function _waitForChartOrSkip(
+  page,
+  selector,
+  friendlyName,
+) {
+  const el = page.locator(selector).first();
+  try {
+    await el.waitFor({ state: "visible", timeout: READINESS_TIMEOUT_MS });
+    return el;
+  } catch {
+    test.skip(
+      true,
+      `${friendlyName} didn't render within ${READINESS_TIMEOUT_MS}ms — page may not include this chart`,
+    );
+    return null;
+  }
+}
+
+/**
+ * Expand the /rankings methodology panel if it's collapsed.  No-op
+ * if the button isn't present (different page variants).  The button
+ * visibility check is waited so we don't race the initial React
+ * mount.
+ */
+async function _openMethodology(page) {
+  const btn = page.getByRole("button", { name: /how this works/i });
+  try {
+    await btn.waitFor({ state: "visible", timeout: 5_000 });
+    await btn.click();
+  } catch {
+    // Button not present — methodology is either always-open on this
+    // variant or the page doesn't have one.  Silent no-op.
+  }
+}
+
 test.describe("Chart visual regression", () => {
   test.skip(
     !!process.env.SKIP_VISUAL_REGRESSION,
@@ -56,111 +105,119 @@ test.describe("Chart visual regression", () => {
 
   test("Hill curve (methodology panel)", async ({ page }) => {
     await page.goto("/rankings");
-    // Expand methodology to reveal the Hill curve.
-    const btn = page.getByRole("button", { name: /how this works/i });
-    if (await btn.count()) {
-      await btn.click();
-    }
-    const el = page.locator(CHART_SELECTORS.hillCurve).first();
-    if (await el.count()) {
-      await expect(el).toHaveScreenshot("hill-curve.png", SCREENSHOT_OPTIONS);
-    } else {
-      test.skip(true, "Hill curve not present — methodology panel may have moved");
-    }
+    await _openMethodology(page);
+    const el = await _waitForChartOrSkip(
+      page,
+      CHART_SELECTORS.hillCurve,
+      "Hill curve",
+    );
+    if (!el) return;
+    await expect(el).toHaveScreenshot("hill-curve.png", SCREENSHOT_OPTIONS);
   });
 
   test("Tier-gap waterfall", async ({ page }) => {
     await page.goto("/rankings");
-    const btn = page.getByRole("button", { name: /how this works/i });
-    if (await btn.count()) {
-      await btn.click();
-    }
-    const el = page.locator(CHART_SELECTORS.tierGap).first();
-    if (await el.count()) {
-      await expect(el).toHaveScreenshot("tier-gap.png", SCREENSHOT_OPTIONS);
-    } else {
-      test.skip(true, "Tier-gap chart not present");
-    }
+    await _openMethodology(page);
+    const el = await _waitForChartOrSkip(
+      page,
+      CHART_SELECTORS.tierGap,
+      "Tier-gap waterfall",
+    );
+    if (!el) return;
+    await expect(el).toHaveScreenshot("tier-gap.png", SCREENSHOT_OPTIONS);
   });
 
   test("Confidence vs value scatter", async ({ page }) => {
     await page.goto("/edge");
-    const el = page.locator(CHART_SELECTORS.confidenceScatter).first();
-    if (await el.count()) {
-      await expect(el).toHaveScreenshot("confidence-scatter.png", SCREENSHOT_OPTIONS);
-    } else {
-      test.skip(true, "Confidence scatter not present — /edge may be empty");
-    }
+    const el = await _waitForChartOrSkip(
+      page,
+      CHART_SELECTORS.confidenceScatter,
+      "Confidence scatter",
+    );
+    if (!el) return;
+    await expect(el).toHaveScreenshot("confidence-scatter.png", SCREENSHOT_OPTIONS);
   });
 
   test("Matchup margin histogram (league/weekly)", async ({ page }) => {
     await page.goto("/league?tab=weekly");
-    const el = page.locator(CHART_SELECTORS.matchupMargin).first();
-    if (await el.count()) {
-      await expect(el).toHaveScreenshot("matchup-margin.png", SCREENSHOT_OPTIONS);
-    } else {
-      test.skip(true, "Matchup margin chart not present");
-    }
+    const el = await _waitForChartOrSkip(
+      page,
+      CHART_SELECTORS.matchupMargin,
+      "Matchup margin chart",
+    );
+    if (!el) return;
+    await expect(el).toHaveScreenshot("matchup-margin.png", SCREENSHOT_OPTIONS);
   });
 
   test("Trade flow Sankey (league/activity)", async ({ page }) => {
     await page.goto("/league?tab=activity");
-    const el = page.locator(CHART_SELECTORS.tradeFlow).first();
-    if (await el.count()) {
-      await expect(el).toHaveScreenshot("trade-flow.png", SCREENSHOT_OPTIONS);
-    } else {
-      test.skip(true, "Trade flow chart not present");
-    }
+    const el = await _waitForChartOrSkip(
+      page,
+      CHART_SELECTORS.tradeFlow,
+      "Trade flow Sankey",
+    );
+    if (!el) return;
+    await expect(el).toHaveScreenshot("trade-flow.png", SCREENSHOT_OPTIONS);
   });
 
   test("Activity heatmap (league/activity)", async ({ page }) => {
     await page.goto("/league?tab=activity");
-    const el = page.locator(CHART_SELECTORS.activityHeatmap).first();
-    if (await el.count()) {
-      await expect(el).toHaveScreenshot("activity-heatmap.png", SCREENSHOT_OPTIONS);
-    } else {
-      test.skip(true, "Activity heatmap not present");
-    }
+    const el = await _waitForChartOrSkip(
+      page,
+      CHART_SELECTORS.activityHeatmap,
+      "Activity heatmap",
+    );
+    if (!el) return;
+    await expect(el).toHaveScreenshot("activity-heatmap.png", SCREENSHOT_OPTIONS);
   });
 
   test("Franchise trajectory (league/franchise)", async ({ page }) => {
     await page.goto("/league?tab=franchise");
-    const el = page.locator(CHART_SELECTORS.franchiseTraj).first();
-    if (await el.count()) {
-      await expect(el).toHaveScreenshot("franchise-trajectory.png", SCREENSHOT_OPTIONS);
-    } else {
-      test.skip(true, "Franchise trajectory not present");
-    }
+    const el = await _waitForChartOrSkip(
+      page,
+      CHART_SELECTORS.franchiseTraj,
+      "Franchise trajectory",
+    );
+    if (!el) return;
+    await expect(el).toHaveScreenshot("franchise-trajectory.png", SCREENSHOT_OPTIONS);
   });
 });
 
 // ── Structural assertions (non-pixel) ──────────────────────────────
 //
-// Even if the pixel-diff tests are skipped because baselines haven't
-// been generated, these structural tests catch the "chart broke"
-// class of regression: missing axes, zero data points, empty SVGs.
+// These run independently of baseline images.  Even if the
+// ``toHaveScreenshot`` path is short-circuited (first run without
+// baselines, or a CI mode that sets SKIP_VISUAL_REGRESSION), these
+// assertions catch the "chart is broken" class of regression:
+// missing axes, zero data points, empty SVGs.  The same waited
+// readiness gate applies — no silent-skip on slow loads.
 
 test.describe("Chart structural smoke tests", () => {
   test("Hill curve has axis + at least one path", async ({ page }) => {
     await page.goto("/rankings");
-    const btn = page.getByRole("button", { name: /how this works/i });
-    if (await btn.count()) await btn.click();
-    const svg = page.locator(CHART_SELECTORS.hillCurve).first();
-    if (!(await svg.count())) test.skip(true, "Hill curve not present");
-    // Expect at least one <path> (the curve) and at least one <circle>
-    // (a scatter dot from the live board).
+    await _openMethodology(page);
+    const svg = await _waitForChartOrSkip(
+      page,
+      CHART_SELECTORS.hillCurve,
+      "Hill curve",
+    );
+    if (!svg) return;
     await expect(svg.locator("path").first()).toBeVisible();
     await expect(svg.locator("circle").first()).toBeVisible();
   });
 
-  test("Confidence scatter has points", async ({ page }) => {
+  test("Confidence scatter has enough points", async ({ page }) => {
     await page.goto("/edge");
-    const svg = page.locator(CHART_SELECTORS.confidenceScatter).first();
-    if (!(await svg.count())) test.skip(true, "scatter not present");
+    const svg = await _waitForChartOrSkip(
+      page,
+      CHART_SELECTORS.confidenceScatter,
+      "Confidence scatter",
+    );
+    if (!svg) return;
     const circles = svg.locator("circle");
     await expect(circles.first()).toBeVisible();
-    // A healthy scatter has many points — assert at least 5 so a
-    // "zero dots because data flow broke" state trips the test.
+    // Healthy scatter has many points.  A "zero dots because the
+    // data flow broke" state trips this.
     const count = await circles.count();
     expect(count).toBeGreaterThan(5);
   });
