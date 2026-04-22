@@ -106,9 +106,17 @@ def _regular_season_record_to_date(
     for wk in season.regular_season_weeks:
         entries = season.matchups_by_week.get(wk) or []
         for a, b in metrics.matchup_pairs(entries):
-            # Skip un-scored pairs (future weeks may sit in the
-            # matchups dict before they've been played).
-            if not metrics.is_scored(a) and not metrics.is_scored(b):
+            # Only count a matchup once BOTH sides have posted scores.
+            # During a live week one side can be scored (e.g. Thursday
+            # game already finished) while the other hasn't played yet
+            # — if we counted that, the completed side would be
+            # credited with a phantom win over an opponent sitting at
+            # 0 points, and the playoff simulator would inherit that
+            # wrong record.  Requiring both scored also covers the
+            # "future week sits in matchups_by_week before it's
+            # played" case that the earlier single-side check
+            # intended to handle.
+            if not (metrics.is_scored(a) and metrics.is_scored(b)):
                 continue
             for side, opp in ((a, b), (b, a)):
                 rid = metrics.roster_id_of(side)
@@ -265,6 +273,21 @@ def compute_playoff_odds(
 
     registry = snapshot.managers
 
+    # Guard against non-positive simulation counts.  The remaining-
+    # weeks code path divides probabilities by ``num_sims`` — a zero
+    # value would raise ``ZeroDivisionError`` mid-response.  Callers
+    # asking for "just tell me the current snapshot" (``num_sims=0``)
+    # on a season with remaining weeks still get a well-formed reply:
+    # every owner reports ``playoffProbability=None`` and the header
+    # surfaces ``numSims=0`` so the frontend can render a "season in
+    # progress, simulations disabled" state without crashing.
+    try:
+        num_sims = int(num_sims)
+    except (TypeError, ValueError):
+        num_sims = 0
+    if num_sims < 0:
+        num_sims = 0
+
     # Playoff spot count — honour league settings, else default.
     settings = season.league.get("settings") or {}
     cfg_spots = settings.get("playoff_teams") if isinstance(settings, dict) else None
@@ -297,12 +320,22 @@ def compute_playoff_odds(
     per_owner_scores, league_pool = _season_weekly_scores(season, registry)
     current_record = _regular_season_record_to_date(season, registry)
 
-    # Determine played vs remaining regular-season weeks.
-    played_weeks = [
-        wk
-        for wk in season.regular_season_weeks
-        if any(metrics.is_scored(e) for e in (season.matchups_by_week.get(wk) or []))
-    ]
+    # Determine played vs remaining regular-season weeks.  A week is
+    # "played" only when *every* scored matchup in that week has both
+    # sides posted — mirrors ``_regular_season_record_to_date``'s
+    # requirement, so a live Thursday-only week still sits in
+    # ``remaining_weeks`` and gets simulated rather than counted as
+    # completed with half its games at zero.
+    def _week_is_complete(wk: int) -> bool:
+        entries = season.matchups_by_week.get(wk) or []
+        if not entries:
+            return False
+        for a, b in metrics.matchup_pairs(entries):
+            if not (metrics.is_scored(a) and metrics.is_scored(b)):
+                return False
+        return True
+
+    played_weeks = [wk for wk in season.regular_season_weeks if _week_is_complete(wk)]
     remaining_weeks = [wk for wk in season.regular_season_weeks if wk not in played_weeks]
 
     # Early exit: season over → probabilities collapse to 0/1.
@@ -371,6 +404,11 @@ def compute_playoff_odds(
         for o in ordered[:spots]:
             made_counter[o] += 1
 
+    def _probability(owner: str) -> float | None:
+        if num_sims <= 0:
+            return None
+        return round(made_counter[owner] / num_sims, 4)
+
     return {
         "season": season.season,
         "numSims": num_sims,
@@ -384,7 +422,7 @@ def compute_playoff_odds(
                 "displayName": metrics.display_name_for(snapshot, o),
                 "currentWins": base_wins[o],
                 "currentPointsFor": round(base_pf[o], 2),
-                "playoffProbability": round(made_counter[o] / num_sims, 4),
+                "playoffProbability": _probability(o),
             }
             for o in owners_in_league
         ],

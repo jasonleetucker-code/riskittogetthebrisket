@@ -125,3 +125,81 @@ class Thresholds(unittest.TestCase):
         self.assertGreaterEqual(playoff_odds.MIN_SAMPLED_WEEKS, 1)
         self.assertGreaterEqual(playoff_odds.DEFAULT_PLAYOFF_SPOTS, 1)
         self.assertGreaterEqual(playoff_odds.DEFAULT_SIMS, 1000)
+
+
+class LiveWeekRecordCounting(unittest.TestCase):
+    """Regression for Codex PR #215 P1: half-scored weeks must not be
+    counted as complete.  During a live week one team can have posted
+    a score while the opponent hasn't played yet; crediting the
+    scored side with a phantom win would feed the simulator a wrong
+    current record.
+    """
+
+    def test_partial_week_treated_as_unplayed(self) -> None:
+        # Build a minimal SeasonSnapshot-shaped object inline so the
+        # assertion doesn't have to coexist with the rich production
+        # fixture's pre-completed weeks.  Only the fields the
+        # helpers read matter.
+        class _SnapSeason:
+            league_id = "L1"
+            matchups_by_week = {
+                1: [
+                    {"roster_id": 1, "matchup_id": 10, "points": 110.5},
+                    # Opponent in matchup 10 has no points yet.
+                    {"roster_id": 2, "matchup_id": 10, "points": 0.0},
+                ],
+            }
+
+            @property
+            def regular_season_weeks(self):
+                return [1]
+
+        # Stub registry with a resolver that always returns the
+        # roster_id as the owner id — simplest possible mapping.
+        class _Registry:
+            pass
+
+        original_resolve = playoff_odds.metrics.resolve_owner
+        playoff_odds.metrics.resolve_owner = (  # type: ignore[attr-defined]
+            lambda reg, league_id, rid: f"owner-{rid}"
+        )
+        try:
+            rec = playoff_odds._regular_season_record_to_date(_SnapSeason(), _Registry())
+        finally:
+            playoff_odds.metrics.resolve_owner = original_resolve  # type: ignore[attr-defined]
+
+        # Neither side should be credited while week is half-scored.
+        self.assertEqual(rec, {})
+
+
+class NumSimsGuard(_Base):
+    """Regression for Codex PR #215 P2: ``num_sims <= 0`` must not
+    raise a ZeroDivisionError when the season has remaining weeks.
+    """
+
+    def test_zero_sims_returns_null_probabilities_not_exception(self) -> None:
+        # Pass num_sims=0 explicitly.  Either the season has no
+        # remaining weeks (collapse path, probabilities are 0/1) or
+        # we hit the new guard and every probability is None.
+        result = playoff_odds.compute_playoff_odds(
+            self.snapshot, num_sims=0, rng=random.Random(0)
+        )
+        self.assertEqual(result["numSims"], 0)
+        for owner in result["owners"]:
+            self.assertIn(
+                owner["playoffProbability"],
+                (None, 0.0, 1.0),
+                f"unexpected probability for {owner['ownerId']}: {owner['playoffProbability']}",
+            )
+
+    def test_negative_sims_normalised_to_zero(self) -> None:
+        result = playoff_odds.compute_playoff_odds(
+            self.snapshot, num_sims=-5, rng=random.Random(0)
+        )
+        self.assertEqual(result["numSims"], 0)
+
+    def test_non_integer_sims_normalised_to_zero(self) -> None:
+        result = playoff_odds.compute_playoff_odds(
+            self.snapshot, num_sims="bogus", rng=random.Random(0)  # type: ignore[arg-type]
+        )
+        self.assertEqual(result["numSims"], 0)
