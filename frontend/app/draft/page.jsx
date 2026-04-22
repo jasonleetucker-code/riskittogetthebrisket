@@ -74,9 +74,11 @@ function StatsStrip({ stats }) {
         `${fmt$(stats.totalSpent)} of ${fmt$(stats.totalBudget)} total`,
       )}
       {stat(
-        "Board $ left",
-        fmt$(stats.undraftedPreDraft),
-        "Sum of PreDraft $ for every rookie still on the board.",
+        "League $ left",
+        fmt$(stats.remainingLeague),
+        `Total auction $ still unspent across all teams. Starts at ${fmt$(
+          stats.totalBudget,
+        )}; drops as picks are recorded.`,
       )}
     </div>
   );
