@@ -1056,3 +1056,340 @@ describe("hydrateWorkspace — Tier 1 field backfill", () => {
     expect(ws.teams[0].initialSlots).toBe(DEFAULT_INITIAL_SLOTS);
   });
 });
+
+// ── Tier 2 ──────────────────────────────────────────────────────────────
+
+import {
+  TAG_TARGET,
+  TAG_AVOID,
+  TIER_SCARCITY_URGENT,
+  cycleTag,
+  nextBestTargets,
+  playerRecommendation,
+  setPlayerTag,
+} from "@/lib/draft-logic";
+
+describe("cycleTag", () => {
+  it("cycles neutral → target → avoid → neutral", () => {
+    expect(cycleTag(null)).toBe(TAG_TARGET);
+    expect(cycleTag(undefined)).toBe(TAG_TARGET);
+    expect(cycleTag(TAG_TARGET)).toBe(TAG_AVOID);
+    expect(cycleTag(TAG_AVOID)).toBe(null);
+  });
+});
+
+describe("setPlayerTag", () => {
+  it("writes target/avoid and clears on anything else", () => {
+    const ws = createDefaultWorkspace();
+    const love = ws.players.find((p) => p.name === "Jeremiyah Love");
+    const tagged = setPlayerTag(ws, love.id, TAG_TARGET);
+    expect(tagged.tags[love.id]).toBe(TAG_TARGET);
+    const cleared = setPlayerTag(tagged, love.id, null);
+    expect(cleared.tags[love.id]).toBeUndefined();
+    const avoided = setPlayerTag(ws, love.id, TAG_AVOID);
+    expect(avoided.tags[love.id]).toBe(TAG_AVOID);
+  });
+
+  it("does not mutate the input workspace", () => {
+    const ws = createDefaultWorkspace();
+    const love = ws.players.find((p) => p.name === "Jeremiyah Love");
+    const result = setPlayerTag(ws, love.id, TAG_TARGET);
+    expect(ws.tags[love.id]).toBeUndefined();
+    expect(result.tags[love.id]).toBe(TAG_TARGET);
+  });
+
+  it("no-op when playerId is empty", () => {
+    const ws = createDefaultWorkspace();
+    expect(setPlayerTag(ws, "", TAG_TARGET)).toBe(ws);
+  });
+});
+
+describe("hydrateWorkspace — tags roundtrip", () => {
+  it("preserves valid target/avoid tags", () => {
+    const ws = createDefaultWorkspace();
+    const tagged = setPlayerTag(
+      setPlayerTag(ws, "jeremiyah-love", TAG_TARGET),
+      "drew-allar",
+      TAG_AVOID,
+    );
+    const roundtripped = hydrateWorkspace(
+      JSON.parse(JSON.stringify(tagged)),
+    );
+    expect(roundtripped.tags["jeremiyah-love"]).toBe(TAG_TARGET);
+    expect(roundtripped.tags["drew-allar"]).toBe(TAG_AVOID);
+  });
+
+  it("drops invalid tag values", () => {
+    const parsed = {
+      version: 1,
+      settings: {},
+      teams: DEFAULT_TEAMS,
+      players: DEFAULT_ROOKIES.map((p) => ({
+        id: playerSlug(p.name),
+        rank: p.rank,
+        name: p.name,
+        preDraft: p.preDraft,
+      })),
+      picks: [],
+      tags: {
+        "jeremiyah-love": "target",
+        "carnell-tate": "bogus",
+        "makai-lemon": null,
+      },
+    };
+    const ws = hydrateWorkspace(parsed);
+    expect(ws.tags["jeremiyah-love"]).toBe(TAG_TARGET);
+    expect(ws.tags["carnell-tate"]).toBeUndefined();
+    expect(ws.tags["makai-lemon"]).toBeUndefined();
+  });
+});
+
+// ── tierStats ───────────────────────────────────────────────────────────
+
+describe("computeDraftStats — tierStats", () => {
+  it("reports totals per tier at draft start", () => {
+    const stats = computeDraftStats(createDefaultWorkspace());
+    // DEFAULT_ROOKIES distribution:
+    //   S (≥60): Love(135), Mendoza(102), Lemon(90), Tate(83),
+    //            Tyson(73), Styles(66), Downs(61) → 7
+    //   A (25-59): Sadiq, McNeil-Warren, Thieneman, Bailey,
+    //              Reese, CJ Allen, Concepcion, Cooper → 8 (sanity via ≥25 && <60)
+    //   ...
+    // Just sanity-check shape + totals sum to 72.
+    const totalAcrossTiers = Object.values(stats.tierStats).reduce(
+      (s, t) => s + t.total,
+      0,
+    );
+    expect(totalAcrossTiers).toBe(72);
+    expect(stats.tierStats.S.total).toBeGreaterThan(0);
+    expect(stats.tierStats.S.remaining).toBe(stats.tierStats.S.total);
+    expect(stats.tierStats.S.remainingRatio).toBe(1);
+  });
+
+  it("tracks drafted / remaining as picks land", () => {
+    const ws = createDefaultWorkspace();
+    const love = ws.players.find((p) => p.name === "Jeremiyah Love");
+    const withPick = recordPick(ws, {
+      playerId: love.id,
+      teamIdx: 5,
+      amount: 135,
+    });
+    const stats = computeDraftStats(withPick);
+    const sBefore = computeDraftStats(ws).tierStats.S;
+    expect(stats.tierStats.S.drafted).toBe(1);
+    expect(stats.tierStats.S.remaining).toBe(sBefore.total - 1);
+    expect(stats.tierStats.S.remainingRatio).toBeCloseTo(
+      (sBefore.total - 1) / sBefore.total,
+      4,
+    );
+  });
+});
+
+describe("computeDraftStats — draftProgress", () => {
+  it("starts at 0 and climbs with picks", () => {
+    const ws = createDefaultWorkspace();
+    const s0 = computeDraftStats(ws);
+    expect(s0.draftProgress).toBe(0);
+    expect(s0.totalInitialSlots).toBe(12 * DEFAULT_INITIAL_SLOTS);
+
+    const love = ws.players.find((p) => p.name === "Jeremiyah Love");
+    const withPick = recordPick(ws, {
+      playerId: love.id,
+      teamIdx: 0,
+      amount: 135,
+    });
+    const s1 = computeDraftStats(withPick);
+    expect(s1.totalPicksMade).toBe(1);
+    expect(s1.draftProgress).toBeCloseTo(1 / 72, 4);
+  });
+});
+
+describe("enrichedPlayers carry userTag", () => {
+  it("reflects target/avoid/null per player", () => {
+    let ws = createDefaultWorkspace();
+    ws = setPlayerTag(ws, "jeremiyah-love", TAG_TARGET);
+    ws = setPlayerTag(ws, "drew-allar", TAG_AVOID);
+    const stats = computeDraftStats(ws);
+    const love = stats.enrichedPlayers.find(
+      (p) => p.name === "Jeremiyah Love",
+    );
+    const allar = stats.enrichedPlayers.find(
+      (p) => p.name === "Drew Allar",
+    );
+    const tate = stats.enrichedPlayers.find(
+      (p) => p.name === "Carnell Tate",
+    );
+    expect(love.userTag).toBe(TAG_TARGET);
+    expect(allar.userTag).toBe(TAG_AVOID);
+    expect(tate.userTag).toBeNull();
+  });
+});
+
+// ── playerRecommendation ────────────────────────────────────────────────
+
+describe("playerRecommendation", () => {
+  it("returns null for drafted players", () => {
+    const ws = createDefaultWorkspace();
+    const love = ws.players.find((p) => p.name === "Jeremiyah Love");
+    const withPick = recordPick(ws, {
+      playerId: love.id,
+      teamIdx: 0,
+      amount: 120,
+    });
+    const stats = computeDraftStats(withPick);
+    const lovePost = stats.enrichedPlayers.find(
+      (p) => p.name === "Jeremiyah Love",
+    );
+    expect(playerRecommendation(lovePost, stats)).toBeNull();
+  });
+
+  it("AVOID tag always returns level 'avoid'", () => {
+    let ws = createDefaultWorkspace();
+    ws = setPlayerTag(ws, "jeremiyah-love", TAG_AVOID);
+    const stats = computeDraftStats(ws);
+    const love = stats.enrichedPlayers.find(
+      (p) => p.name === "Jeremiyah Love",
+    );
+    const rec = playerRecommendation(love, stats);
+    expect(rec.level).toBe("avoid");
+  });
+
+  it("neutral tag = no recommendation (level 'neutral')", () => {
+    const stats = computeDraftStats(createDefaultWorkspace());
+    const tate = stats.enrichedPlayers.find(
+      (p) => p.name === "Carnell Tate",
+    );
+    const rec = playerRecommendation(tate, stats);
+    expect(rec.level).toBe("neutral");
+  });
+
+  it("LOCK when rivals are bankrupt and player is a target", () => {
+    let ws = createDefaultWorkspace();
+    // Zero every rival's budget so topCompetitorMax == 0.
+    ws = {
+      ...ws,
+      teams: ws.teams.map((t, i) =>
+        i === 0 ? t : { ...t, initialBudget: 0 },
+      ),
+    };
+    ws = setPlayerTag(ws, "jeremiyah-love", TAG_TARGET);
+    const stats = computeDraftStats(ws);
+    const love = stats.enrichedPlayers.find(
+      (p) => p.name === "Jeremiyah Love",
+    );
+    expect(stats.topCompetitorMax).toBe(0);
+    expect(playerRecommendation(love, stats).level).toBe("lock");
+  });
+
+  it("STEAL when rivals are bankrupt but player is untagged", () => {
+    const bankrupt = {
+      ...createDefaultWorkspace(),
+    };
+    bankrupt.teams = bankrupt.teams.map((t, i) =>
+      i === 0 ? t : { ...t, initialBudget: 0 },
+    );
+    const stats = computeDraftStats(bankrupt);
+    const tate = stats.enrichedPlayers.find(
+      (p) => p.name === "Carnell Tate",
+    );
+    expect(playerRecommendation(tate, stats).level).toBe("steal");
+  });
+
+  it("PUSH when target is in a drying-up tier", () => {
+    // Force S-tier scarcity by drafting most S players.
+    let ws = createDefaultWorkspace();
+    const sPlayers = ws.players.filter(
+      (p) => p.preDraft >= 60,
+    );
+    // Draft all but the first S-tier player.
+    for (const p of sPlayers.slice(1)) {
+      ws = recordPick(ws, {
+        playerId: p.id,
+        teamIdx: 5,
+        amount: Math.max(1, Math.floor(p.preDraft * 0.5)),
+      });
+    }
+    ws = setPlayerTag(ws, sPlayers[0].id, TAG_TARGET);
+    const stats = computeDraftStats(ws);
+    expect(stats.tierStats.S.remainingRatio).toBeLessThan(
+      TIER_SCARCITY_URGENT,
+    );
+    const p = stats.enrichedPlayers.find((pl) => pl.id === sPlayers[0].id);
+    const rec = playerRecommendation(p, stats);
+    expect(rec.level).toBe("push");
+  });
+
+  it("BUY is the default for a target in a normal market", () => {
+    // All defaults except target flag on Love.  No picks yet, so
+    // rivals still wealthy, no tier scarcity, no slot pressure.
+    let ws = createDefaultWorkspace();
+    ws = setPlayerTag(ws, "jeremiyah-love", TAG_TARGET);
+    const stats = computeDraftStats(ws);
+    const love = stats.enrichedPlayers.find(
+      (p) => p.name === "Jeremiyah Love",
+    );
+    const rec = playerRecommendation(love, stats);
+    // Opening-state competitor ceiling is $68 (Joel).  preDraft 135;
+    // collapse floor = 0.3 × 135 = 40.  68 > 40 so no lock/steal.
+    // No tier scarcity on S at opening.  Slot pressure 0 so no
+    // spend-up.  → "buy".
+    expect(rec.level).toBe("buy");
+  });
+});
+
+// ── nextBestTargets ─────────────────────────────────────────────────────
+
+describe("nextBestTargets", () => {
+  it("returns an array capped at the limit", () => {
+    const stats = computeDraftStats(createDefaultWorkspace());
+    const top = nextBestTargets(stats, { limit: 5 });
+    expect(top.length).toBeLessThanOrEqual(5);
+    for (const entry of top) {
+      expect(entry.player).toBeTruthy();
+      expect(entry.rec).toBeTruthy();
+      expect(entry.ev).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("excludes drafted players", () => {
+    const ws = createDefaultWorkspace();
+    const love = ws.players.find((p) => p.name === "Jeremiyah Love");
+    const withPick = recordPick(ws, {
+      playerId: love.id,
+      teamIdx: 0,
+      amount: 120,
+    });
+    const stats = computeDraftStats(withPick);
+    const top = nextBestTargets(stats, { limit: 10 });
+    expect(top.find((e) => e.player.name === "Jeremiyah Love")).toBeUndefined();
+  });
+
+  it("excludes AVOID-tagged players entirely", () => {
+    let ws = createDefaultWorkspace();
+    ws = setPlayerTag(ws, "jeremiyah-love", TAG_AVOID);
+    const stats = computeDraftStats(ws);
+    const top = nextBestTargets(stats, { limit: 72 });
+    expect(top.find((e) => e.player.name === "Jeremiyah Love")).toBeUndefined();
+  });
+
+  it("ranks TARGET-tagged players above untagged at similar value", () => {
+    let ws = createDefaultWorkspace();
+    // Tag Tate (PreDraft 83) as a target; Tyson (73) stays neutral.
+    ws = setPlayerTag(ws, "carnell-tate", TAG_TARGET);
+    const stats = computeDraftStats(ws);
+    const top = nextBestTargets(stats, { limit: 5 });
+    const tateIdx = top.findIndex((e) => e.player.name === "Carnell Tate");
+    const tysonIdx = top.findIndex(
+      (e) => e.player.name === "Jordyn Tyson",
+    );
+    // Tate should be at or above Tyson after the tag boost.
+    expect(tateIdx).toBeGreaterThanOrEqual(0);
+    if (tysonIdx >= 0) {
+      expect(tateIdx).toBeLessThan(tysonIdx);
+    }
+  });
+
+  it("falls back gracefully when stats is null", () => {
+    expect(nextBestTargets(null)).toEqual([]);
+  });
+});

@@ -4023,3 +4023,233 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-size: 0.72rem;
   margin-right: 4px;
 }
+
+/* ── Tier 2: tags, recommendations, tier dividers, progress bar,
+      next best targets, simulator ──────────────────────────── */
+
+.draft-progress {
+  margin-bottom: 10px;
+}
+.draft-progress-bar {
+  height: 6px;
+  background: rgba(153, 166, 200, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.draft-progress-fill {
+  height: 100%;
+  background: linear-gradient(to right, var(--cyan), var(--green));
+  transition: width 0.35s ease;
+}
+.draft-progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+/* Tag filter tabs */
+.draft-tag-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 6px 0 8px;
+  flex-wrap: wrap;
+}
+.draft-tag-tab {
+  padding: 3px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.74rem;
+  letter-spacing: 0.03em;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.draft-tag-tab:hover {
+  background: rgba(255, 198, 47, 0.05);
+}
+.draft-tag-tab-active {
+  font-weight: 600;
+}
+.draft-tag-tab-count {
+  font-family: var(--mono, monospace);
+  font-size: 0.68rem;
+  opacity: 0.75;
+}
+
+/* Per-row tag chips */
+.draft-tag-chip {
+  width: 26px;
+  height: 22px;
+  border-radius: 4px;
+  background: rgba(153, 166, 200, 0.05);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.draft-tag-chip:hover {
+  background: rgba(255, 198, 47, 0.08);
+}
+.draft-tag-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.draft-tag-target {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: var(--green);
+  color: var(--green);
+}
+.draft-tag-avoid {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.draft-row-target td:first-child {
+  border-left: 2px solid var(--green);
+}
+.draft-row-avoid td:first-child {
+  border-left: 2px solid var(--red);
+}
+.draft-row-avoid {
+  opacity: 0.6;
+}
+
+/* Recommendation chip */
+.draft-rec-chip {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--border);
+  text-align: center;
+  min-width: 48px;
+  font-family: var(--mono, monospace);
+}
+.draft-rec-lock {
+  background: rgba(52, 211, 153, 0.15);
+  border-color: var(--green);
+  color: var(--green);
+}
+.draft-rec-steal {
+  background: rgba(255, 198, 47, 0.12);
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+.draft-rec-push {
+  background: rgba(167, 139, 250, 0.12);
+  border-color: #a78bfa;
+  color: #c4b5fd;
+}
+.draft-rec-buy {
+  background: rgba(52, 211, 153, 0.08);
+  border-color: rgba(52, 211, 153, 0.5);
+  color: var(--green);
+}
+.draft-rec-spend {
+  background: rgba(255, 198, 47, 0.1);
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+.draft-rec-avoid {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: var(--red);
+  color: var(--red);
+}
+.draft-rec-neutral {
+  color: var(--muted);
+  border-color: var(--border);
+}
+
+/* Tier divider rows on the board */
+.draft-tier-divider td {
+  padding: 6px 8px !important;
+  background: rgba(153, 166, 200, 0.04);
+  border-bottom: 1px solid rgba(38, 58, 105, 0.5) !important;
+  letter-spacing: 0.02em;
+  font-size: 0.8rem;
+}
+
+/* Next Best Targets sidebar */
+.draft-nbt {
+  margin-bottom: 14px;
+}
+.draft-nbt-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+.draft-nbt-row {
+  display: grid;
+  grid-template-columns: 32px 28px 36px 1fr 80px 90px 64px 60px;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  background: rgba(153, 166, 200, 0.04);
+}
+.draft-nbt-row:hover {
+  background: rgba(255, 198, 47, 0.05);
+}
+.draft-nbt-target {
+  background: rgba(52, 211, 153, 0.06);
+}
+.draft-nbt-rank {
+  font-family: var(--mono, monospace);
+  font-weight: 700;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.draft-nbt-name {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+.draft-nbt-name:hover {
+  color: var(--cyan);
+}
+
+/* Bid simulator in draft modal */
+.draft-modal-sim {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(52, 211, 153, 0.04);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
+.draft-sim-grid {
+  display: grid;
+  gap: 3px;
+}
+.draft-sim-row {
+  display: grid;
+  grid-template-columns: 110px 70px 14px 70px 1fr;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.74rem;
+}
+.draft-sim-arrow {
+  color: var(--muted);
+  text-align: center;
+}
+.draft-sim-delta {
+  font-family: var(--mono, monospace);
+  font-size: 0.72rem;
+}
+.draft-sim-delta-up { color: var(--green); }
+.draft-sim-delta-down { color: var(--red); }
+.draft-sim-delta-muted { color: var(--muted); }

@@ -7,17 +7,23 @@ import {
   DRAFT_STORAGE_KEY,
   DEFAULT_AGGRESSION,
   DEFAULT_ENFORCE_PCT,
+  TAG_AVOID,
+  TAG_TARGET,
   TIER_DEFS,
   addPlayer,
   bidStatus,
   computeDraftStats,
   createDefaultWorkspace,
+  cycleTag,
   hydrateWorkspace,
   mergeDraftCapitalTeams,
+  nextBestTargets,
+  playerRecommendation,
   playerSlug,
   recordPick,
   removePick,
   removePlayer,
+  setPlayerTag,
   undoLastPick,
   updatePlayerPreDraft,
   updateSettings,
@@ -26,6 +32,19 @@ import {
 } from "@/lib/draft-logic";
 
 const TIER_LABELS = Object.fromEntries(TIER_DEFS.map((t) => [t.key, t.label]));
+
+// Short labels + CSS classes for the recommendation chip on each row.
+// Kept in one place so the color language is consistent between the
+// board, the Next Best Target sidebar, and the draft modal.
+const REC_CHIP = {
+  lock: { text: "LOCK", cls: "draft-rec-lock" },
+  steal: { text: "STEAL", cls: "draft-rec-steal" },
+  push: { text: "PUSH", cls: "draft-rec-push" },
+  buy: { text: "BUY", cls: "draft-rec-buy" },
+  spend: { text: "SPEND", cls: "draft-rec-spend" },
+  avoid: { text: "AVOID", cls: "draft-rec-avoid" },
+  neutral: { text: "—", cls: "draft-rec-neutral" },
+};
 
 /* ── Utility formatters ───────────────────────────────────────────── */
 
@@ -367,6 +386,38 @@ function BidKnobs({ settings, onSettings }) {
 
 /* ── Draft-pick modal ─────────────────────────────────────────────── */
 
+/**
+ * One-line before → after preview for the bid simulator.  Color-
+ * codes the delta: green when the change improves my position
+ * (more $, higher BA, more slots), red when it hurts.  For
+ * inflation the sign is inverted (lower inflation means my
+ * money buys more later, so a negative delta renders green).
+ */
+function SimRow({ label, before, after, formatter, rawDelta = false }) {
+  const delta = (Number(after) || 0) - (Number(before) || 0);
+  let direction = 0;
+  if (Math.abs(delta) > 0.001) direction = delta > 0 ? 1 : -1;
+  const cls = rawDelta
+    ? "draft-sim-delta-muted"
+    : direction > 0
+      ? "draft-sim-delta-up"
+      : direction < 0
+        ? "draft-sim-delta-down"
+        : "";
+  const signPrefix = delta > 0 ? "+" : delta < 0 ? "−" : "";
+  const magnitude = formatter(Math.abs(delta));
+  const deltaText = direction === 0 ? "" : `(${signPrefix}${magnitude})`;
+  return (
+    <div className="draft-sim-row">
+      <span className="muted">{label}</span>
+      <span className="draft-money">{formatter(before)}</span>
+      <span className="draft-sim-arrow">→</span>
+      <span className="draft-money">{formatter(after)}</span>
+      <span className={`draft-sim-delta ${cls}`}>{deltaText}</span>
+    </div>
+  );
+}
+
 function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
   const existingPick = player?.pick;
   const [teamIdx, setTeamIdx] = useState(
@@ -375,6 +426,31 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
   const [amount, setAmount] = useState(existingPick?.amount ?? "");
   const [liveBid, setLiveBid] = useState("");
   const liveStatus = useMemo(() => bidStatus(player, liveBid), [player, liveBid]);
+
+  // Bid simulator: project the workspace forward with this pick
+  // applied so the user can see the downstream effect before
+  // committing.  Uses the SAME math path as the rest of the app
+  // (computeDraftStats(recordPick(...))) so numbers match the live
+  // board exactly post-commit.  Skips computation when amount is 0
+  // or the pick is just being re-recorded unchanged (existing edit
+  // that didn't move the needle).
+  const simulated = useMemo(() => {
+    const amt = Math.max(0, Number(amount) || 0);
+    if (amt <= 0 || !player) return null;
+    if (
+      existingPick &&
+      existingPick.teamIdx === Number(teamIdx) &&
+      existingPick.amount === amt
+    ) {
+      return null;
+    }
+    const nextWs = recordPick(workspace, {
+      playerId: player.id,
+      teamIdx: Number(teamIdx),
+      amount: amt,
+    });
+    return computeDraftStats(nextWs);
+  }, [workspace, player, teamIdx, amount, existingPick]);
 
   // Re-focus the amount input on open so the user can start typing.
   useEffect(() => {
@@ -511,6 +587,62 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
             return null;
           })()}
 
+          {/* Bid simulator — before/after preview of the key numbers
+              this pick would change.  Surfaces "if I commit this, my
+              BA drops from 5.85× to 3.24×" BEFORE you click Record,
+              so regrets become rare. */}
+          {simulated && (
+            <div className="draft-modal-sim">
+              <div
+                className="muted"
+                style={{ fontSize: "0.68rem", marginBottom: 4 }}
+              >
+                If recorded:
+              </div>
+              <div className="draft-sim-grid">
+                <SimRow
+                  label="League $ left"
+                  before={stats.remainingLeague}
+                  after={simulated.remainingLeague}
+                  formatter={fmt$}
+                />
+                <SimRow
+                  label="My remaining"
+                  before={stats.myRemaining}
+                  after={simulated.myRemaining}
+                  formatter={fmt$}
+                />
+                <SimRow
+                  label="My BA"
+                  before={stats.budgetAdvantage}
+                  after={simulated.budgetAdvantage}
+                  formatter={(n) => `${n.toFixed(2)}×`}
+                  rawDelta
+                />
+                <SimRow
+                  label="Inflation"
+                  before={stats.inflation}
+                  after={simulated.inflation}
+                  formatter={(n) => `${n.toFixed(2)}×`}
+                  rawDelta
+                />
+                <SimRow
+                  label="Top rival $"
+                  before={stats.topCompetitorMax}
+                  after={simulated.topCompetitorMax}
+                  formatter={fmt$}
+                />
+                <SimRow
+                  label="My slots left"
+                  before={stats.mySlotsRemaining}
+                  after={simulated.mySlotsRemaining}
+                  formatter={(n) => `${n}`}
+                  rawDelta
+                />
+              </div>
+            </div>
+          )}
+
           <div className="draft-modal-live">
             <div className="muted" style={{ fontSize: "0.72rem" }}>
               Or simulate a live bid to see the recommendation:
@@ -588,17 +720,46 @@ function RookieBoard({
   onDraft,
   onEditPreDraft,
   onRemovePlayer,
+  onCycleTag,
   showDrafted,
   onShowDraftedChange,
   query,
   onQueryChange,
+  tagFilter,
+  onTagFilterChange,
   onAdd,
 }) {
-  const [sort, setSort] = useState({ col: "myMaxBid", asc: false });
+  const [sort, setSort] = useState({ col: "myWinningBid", asc: false });
+
+  // Tag tabs — quick filter so the user can focus on targets during
+  // live drafting without scrolling past everything.
+  const tagCounts = useMemo(() => {
+    let target = 0;
+    let avoid = 0;
+    let untagged = 0;
+    for (const p of stats.enrichedPlayers) {
+      if (p.drafted) continue;
+      if (p.userTag === TAG_TARGET) target += 1;
+      else if (p.userTag === TAG_AVOID) avoid += 1;
+      else untagged += 1;
+    }
+    return { target, avoid, untagged, all: target + avoid + untagged };
+  }, [stats.enrichedPlayers]);
 
   const filtered = useMemo(() => {
     let list = stats.enrichedPlayers;
     if (!showDrafted) list = list.filter((p) => !p.drafted);
+
+    // Tag filter applies only to undrafted rows; drafted rows still
+    // surface when ``showDrafted`` is on so history stays visible.
+    if (tagFilter === "target") {
+      list = list.filter((p) => p.drafted || p.userTag === TAG_TARGET);
+    } else if (tagFilter === "avoid") {
+      list = list.filter((p) => p.drafted || p.userTag === TAG_AVOID);
+    } else if (tagFilter === "untagged") {
+      list = list.filter((p) => p.drafted || !p.userTag);
+    }
+
     const q = (query || "").trim().toLowerCase();
     if (q) list = list.filter((p) => p.name.toLowerCase().includes(q));
     const dir = sort.asc ? 1 : -1;
@@ -616,6 +777,8 @@ function RookieBoard({
           return (a.enforceUpTo - b.enforceUpTo) * dir;
         case "myMaxBid":
           return (a.myMaxBid - b.myMaxBid) * dir;
+        case "myWinningBid":
+          return (a.myWinningBid - b.myWinningBid) * dir;
         case "final":
           return (
             ((a.pick?.amount ?? -1) - (b.pick?.amount ?? -1)) * dir
@@ -624,7 +787,14 @@ function RookieBoard({
           return 0;
       }
     });
-  }, [stats.enrichedPlayers, sort, query, showDrafted]);
+  }, [stats.enrichedPlayers, sort, query, showDrafted, tagFilter]);
+
+  // Tier-separator rows — only when the current sort groups by tier
+  // naturally (rank or preDraft descending/ascending).  Scatter sorts
+  // (win bid, fair) skip the dividers to avoid noise.
+  const showTierDividers =
+    (sort.col === "rank" && sort.asc) ||
+    (sort.col === "preDraft" && !sort.asc);
 
   const teamName = (idx) =>
     workspace.teams[idx]?.name || `Team ${idx + 1}`;
@@ -645,6 +815,24 @@ function RookieBoard({
       </th>
     );
   }
+
+  const tagTab = (key, label, count, color) => {
+    const active = tagFilter === key;
+    return (
+      <button
+        type="button"
+        className={`draft-tag-tab${active ? " draft-tag-tab-active" : ""}`}
+        style={{
+          borderColor: active ? color : "var(--border)",
+          color: active ? color : "var(--muted)",
+        }}
+        onClick={() => onTagFilterChange(key)}
+      >
+        {label}
+        <span className="draft-tag-tab-count">{count}</span>
+      </button>
+    );
+  };
 
   return (
     <div className="card">
@@ -669,13 +857,31 @@ function RookieBoard({
           <AddPlayerInline onAdd={onAdd} />
         </div>
       </div>
+      <div className="draft-tag-tabs">
+        {tagTab("all", "All", tagCounts.all, "var(--cyan)")}
+        {tagTab("target", "Targets", tagCounts.target, "var(--green)")}
+        {tagTab("avoid", "Avoid", tagCounts.avoid, "var(--red)")}
+        {tagTab("untagged", "Untagged", tagCounts.untagged, "var(--muted)")}
+      </div>
       <div className="draft-table-wrap">
         <table className="draft-table">
           <thead>
             <tr>
               {th("#", "rank", 40)}
-              <th style={{ width: 44 }} title="Tier by PreDraft $: S=$60+, A=$25-59, B=$8-24, C=$3-7, D=$1-2">
+              <th
+                style={{ width: 44 }}
+                title="Tier by PreDraft $: S=$60+, A=$25-59, B=$8-24, C=$3-7, D=$1-2"
+              >
                 Tier
+              </th>
+              <th
+                style={{ width: 70 }}
+                title="Click to cycle: neutral → target → avoid → neutral"
+              >
+                Tag
+              </th>
+              <th style={{ width: 86 }} title="Draft-time recommendation">
+                Rec
               </th>
               {th("Player", "name")}
               {th("PreDraft", "preDraft", 82)}
@@ -689,13 +895,53 @@ function RookieBoard({
             </tr>
           </thead>
           <tbody>
-            {filtered.map((p) => {
-              const capped = p.myWinningBid < p.theoreticalMaxBid;
-              return (
+            {(() => {
+              const rendered = [];
+              let lastTier = null;
+              for (const p of filtered) {
+                if (showTierDividers && p.tier !== lastTier) {
+                  const info = stats.tierStats?.[p.tier];
+                  rendered.push(
+                    <tr
+                      key={`tier-${p.tier}`}
+                      className="draft-tier-divider"
+                    >
+                      <td colSpan={13}>
+                        <span
+                          className={`draft-tier-chip draft-tier-${p.tier}`}
+                          style={{ marginRight: 8 }}
+                        >
+                          {p.tier}
+                        </span>
+                        <strong>
+                          {TIER_LABELS[p.tier] || p.tier} tier
+                        </strong>
+                        {info && (
+                          <span
+                            className="muted"
+                            style={{ marginLeft: 8, fontSize: "0.72rem" }}
+                          >
+                            {info.remaining} of {info.total} left
+                            {info.heat != null &&
+                              info.confidence > 0 &&
+                              ` · heat ${info.heat.toFixed(2)}×`}
+                          </span>
+                        )}
+                      </td>
+                    </tr>,
+                  );
+                  lastTier = p.tier;
+                }
+                const capped = p.myWinningBid < p.theoreticalMaxBid;
+                const rec = playerRecommendation(p, stats);
+                const recInfo = rec ? REC_CHIP[rec.level] : null;
+                rendered.push(
               <tr
                 key={p.id}
                 className={`draft-row${p.drafted ? " draft-row-drafted" : ""}${
                   p.mine ? " draft-row-mine" : ""
+                }${p.userTag === TAG_TARGET ? " draft-row-target" : ""}${
+                  p.userTag === TAG_AVOID ? " draft-row-avoid" : ""
                 }`}
               >
                 <td className="draft-money">{p.rank}</td>
@@ -706,6 +952,39 @@ function RookieBoard({
                   >
                     {p.tier}
                   </span>
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    className={`draft-tag-chip${p.userTag ? ` draft-tag-${p.userTag}` : ""}`}
+                    onClick={() => onCycleTag(p.id)}
+                    disabled={p.drafted}
+                    title={
+                      p.userTag === TAG_TARGET
+                        ? "Target — click to cycle to avoid"
+                        : p.userTag === TAG_AVOID
+                          ? "Avoid — click to clear"
+                          : "Click to mark target"
+                    }
+                  >
+                    {p.userTag === TAG_TARGET
+                      ? "★"
+                      : p.userTag === TAG_AVOID
+                        ? "⊘"
+                        : "+"}
+                  </button>
+                </td>
+                <td>
+                  {recInfo ? (
+                    <span
+                      className={`draft-rec-chip ${recInfo.cls}`}
+                      title={rec.rationale || rec.label}
+                    >
+                      {recInfo.text}
+                    </span>
+                  ) : (
+                    <span className="muted">—</span>
+                  )}
                 </td>
                 <td>{p.name}</td>
                 <td>
@@ -812,13 +1091,15 @@ function RookieBoard({
                     )}
                   </div>
                 </td>
-              </tr>
-              );
-            })}
+              </tr>,
+                );
+              }
+              return rendered;
+            })()}
             {filtered.length === 0 && (
               <tr>
                 <td
-                  colSpan={11}
+                  colSpan={13}
                   className="muted"
                   style={{ padding: 14, textAlign: "center" }}
                 >
@@ -828,6 +1109,101 @@ function RookieBoard({
             )}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+/* ── Next Best Target sidebar ─────────────────────────────────────── */
+
+/**
+ * Top-N EV-ranked undrafted targets, always visible.  Answers "what
+ * should I focus on right now?" without the user having to scroll
+ * or re-sort.  Clicking a row opens the draft modal pre-loaded with
+ * that player; clicking the star cycles the tag.
+ */
+function NextBestTargets({ stats, onDraft, onCycleTag, workspace }) {
+  const top = useMemo(
+    () => nextBestTargets(stats, { limit: 5 }),
+    [stats],
+  );
+
+  if (top.length === 0) {
+    return (
+      <div className="card draft-nbt">
+        <h3 style={{ margin: "0 0 4px" }}>Next Best Targets</h3>
+        <div className="muted" style={{ fontSize: "0.72rem" }}>
+          Nothing to flag yet — tag a few players as <strong>★ target</strong>{" "}
+          to seed EV ranking.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card draft-nbt">
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+        }}
+      >
+        <h3 style={{ margin: 0 }}>Next Best Targets</h3>
+        <span className="muted" style={{ fontSize: "0.68rem" }}>
+          EV = (fair − winBid) × tag weight + scarcity boost
+        </span>
+      </div>
+      <div className="draft-nbt-list">
+        {top.map(({ player, ev, rec }, i) => {
+          const recInfo = rec ? REC_CHIP[rec.level] : null;
+          return (
+            <div
+              key={player.id}
+              className={`draft-nbt-row${player.userTag === TAG_TARGET ? " draft-nbt-target" : ""}`}
+              title={rec?.rationale || rec?.label || ""}
+            >
+              <span className="draft-nbt-rank">#{i + 1}</span>
+              <button
+                type="button"
+                className={`draft-tag-chip${
+                  player.userTag ? ` draft-tag-${player.userTag}` : ""
+                }`}
+                onClick={() => onCycleTag(player.id)}
+                title="Cycle tag"
+              >
+                {player.userTag === TAG_TARGET
+                  ? "★"
+                  : player.userTag === TAG_AVOID
+                    ? "⊘"
+                    : "+"}
+              </button>
+              <span
+                className={`draft-tier-chip draft-tier-${player.tier}`}
+                title={`${TIER_LABELS[player.tier] || player.tier} tier`}
+              >
+                {player.tier}
+              </span>
+              <span className="draft-nbt-name" onClick={() => onDraft(player)}>
+                {player.name}
+              </span>
+              <span className="draft-money draft-money-win">
+                {fmt$(player.myWinningBid)}
+              </span>
+              <span className="muted" style={{ fontSize: "0.68rem" }}>
+                fair {fmt$(player.inflatedFair)}
+              </span>
+              {recInfo && (
+                <span className={`draft-rec-chip ${recInfo.cls}`}>
+                  {recInfo.text}
+                </span>
+              )}
+              <span className="muted" style={{ fontSize: "0.66rem" }}>
+                EV {ev.toFixed(0)}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -883,6 +1259,7 @@ export default function DraftDashboardPage() {
   const [modalPlayer, setModalPlayer] = useState(null);
   const [showDrafted, setShowDrafted] = useState(false);
   const [query, setQuery] = useState("");
+  const [tagFilter, setTagFilter] = useState("all"); // all | target | avoid | untagged
   const [capitalStatus, setCapitalStatus] = useState({
     loading: false,
     error: "",
@@ -1017,6 +1394,14 @@ export default function DraftDashboardPage() {
     (id) => setWorkspace((ws) => removePlayer(ws, id)),
     [],
   );
+  const onCycleTag = useCallback(
+    (id) =>
+      setWorkspace((ws) => {
+        const current = ws.tags?.[id] || null;
+        return setPlayerTag(ws, id, cycleTag(current));
+      }),
+    [],
+  );
 
   const handleModalSubmit = useCallback(
     (payload) => {
@@ -1089,6 +1474,27 @@ export default function DraftDashboardPage() {
         </div>
       </div>
 
+      {/* Draft progress bar — picks drafted vs total slots in the
+          draft (sum of initialSlots across all teams, normally 72).
+          Sits above the stats strip so the user has constant
+          peripheral awareness of "how far in are we?" — which drives
+          every late-draft decision. */}
+      <div className="draft-progress" title={`${stats.totalPicksMade} of ${stats.totalInitialSlots} picks recorded`}>
+        <div className="draft-progress-bar">
+          <div
+            className="draft-progress-fill"
+            style={{ width: `${Math.min(100, stats.draftProgress * 100)}%` }}
+          />
+        </div>
+        <div className="draft-progress-labels">
+          <span>
+            Pick <strong>{stats.totalPicksMade}</strong> of{" "}
+            <strong>{stats.totalInitialSlots}</strong>
+          </span>
+          <span>{Math.round(stats.draftProgress * 100)}% through draft</span>
+        </div>
+      </div>
+
       <StatsStrip stats={stats} />
 
       <div className="draft-top-grid">
@@ -1103,16 +1509,26 @@ export default function DraftDashboardPage() {
         <BidKnobs settings={workspace.settings || {}} onSettings={onSettings} />
       </div>
 
+      <NextBestTargets
+        stats={stats}
+        onDraft={(p) => setModalPlayer(p)}
+        onCycleTag={onCycleTag}
+        workspace={workspace}
+      />
+
       <RookieBoard
         stats={stats}
         workspace={workspace}
         onDraft={(p) => setModalPlayer(p)}
         onEditPreDraft={onEditPreDraft}
         onRemovePlayer={onRemovePlayer}
+        onCycleTag={onCycleTag}
         showDrafted={showDrafted}
         onShowDraftedChange={setShowDrafted}
         query={query}
         onQueryChange={setQuery}
+        tagFilter={tagFilter}
+        onTagFilterChange={setTagFilter}
         onAdd={onAdd}
       />
 

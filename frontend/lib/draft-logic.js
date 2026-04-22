@@ -89,6 +89,46 @@ export function tierForPreDraft(preDraft) {
   return "D";
 }
 
+// ── Player tags (TARGET / AVOID / neutral) ──────────────────────────────
+// Tags drive the recommendation engine.  A player defaults to neutral
+// (no entry in ``workspace.tags``); the UI cycles TARGET → AVOID →
+// neutral via clickable chips.  Stored in a separate map keyed by
+// player id so it survives player renames + is trivially JSON-
+// serializable.
+export const TAG_TARGET = "target";
+export const TAG_AVOID = "avoid";
+export const TAG_VALUES = [TAG_TARGET, TAG_AVOID];
+
+/**
+ * Cycle helper: neutral → target → avoid → neutral.  Used by the
+ * row-level "click to retag" button.
+ */
+export function cycleTag(current) {
+  if (current === TAG_TARGET) return TAG_AVOID;
+  if (current === TAG_AVOID) return null;
+  return TAG_TARGET;
+}
+
+/**
+ * Tier scarcity thresholds.  When ``remaining / initial < THRESHOLD``
+ * the tier is "drying up" and recommendations urge extra aggression.
+ */
+export const TIER_SCARCITY_URGENT = 0.3;
+
+/**
+ * Slot-pressure gate for the "Spend up" recommendation — only trigger
+ * past this fraction of the draft (i.e. late-draft mode).  At 0.6
+ * that's after ~60% of my picks are drafted.
+ */
+export const SPEND_UP_PRESSURE_MIN = 0.6;
+/**
+ * $-per-slot floor for the "Spend up" recommendation — only trigger
+ * when my remaining $ exceeds my remaining slots × this floor.
+ * Prevents the surplus-alert from firing when my per-slot budget is
+ * already normal-sized.
+ */
+export const SPEND_UP_MDV_FLOOR = 10;
+
 // ── Default team roster ─────────────────────────────────────────────────
 // Total league pool is $1200 (the sum of DEFAULT_ROOKIES.preDraft).  The
 // sheet reports Russini Panini (Jason) at $417 and "Other Teams
@@ -277,6 +317,8 @@ export function createDefaultWorkspace() {
     //     retroactive edit to ``players[n].preDraft`` doesn't corrupt
     //     the paid/expected ratios of already-drafted players.
     picks: [],
+    // tags: { [playerId]: "target" | "avoid" }  — neutral = absent
+    tags: {},
   };
 }
 
@@ -490,6 +532,41 @@ export function computeDraftStats(workspace) {
     return conf * heat + (1 - conf) * 1;
   }
 
+  // ── Per-tier scarcity stats ───────────────────────────────────────
+  // Total players in each tier at draft START vs still on the board,
+  // so the recommendation engine can flag "tier drying up" on the
+  // remaining targets.  Tier is determined from ``player.preDraft``
+  // (the current value) because scarcity is about what's LEFT, not
+  // what WAS — retroactive PreDraft edits intentionally reshape this.
+  const tierStats = {};
+  for (const def of TIER_DEFS) {
+    tierStats[def.key] = {
+      key: def.key,
+      label: def.label,
+      total: 0,
+      drafted: 0,
+      remaining: 0,
+      remainingRatio: 1,
+      heat: tierHeat[def.key],
+      confidence: tierConfidence[def.key],
+      sampleCount: tierSampleCount[def.key],
+    };
+  }
+  for (const p of players) {
+    const key = tierForPreDraft(p.preDraft);
+    if (!tierStats[key]) continue;
+    tierStats[key].total += 1;
+    if (pickedPlayerIds.has(p.id)) tierStats[key].drafted += 1;
+  }
+  for (const key of Object.keys(tierStats)) {
+    const t = tierStats[key];
+    t.remaining = Math.max(0, t.total - t.drafted);
+    t.remainingRatio = t.total > 0 ? t.remaining / t.total : 0;
+  }
+
+  // Lookup for user tags.
+  const tagMap = (ws.tags && typeof ws.tags === "object") ? ws.tags : {};
+
   // Per-team stats (name, initial, spent, remaining, slots, eff$).
   const teamStats = teams.map((t, idx) => {
     const spent = picksByTeam[idx].reduce(
@@ -551,6 +628,7 @@ export function computeDraftStats(workspace) {
       drafted && Number.isFinite(Number(pick.amount))
         ? inflatedFair - Number(pick.amount)
         : null;
+    const userTag = tagMap[p.id] || null;
     return {
       ...p,
       preDraft,
@@ -559,6 +637,7 @@ export function computeDraftStats(workspace) {
       pick,
       drafted,
       mine,
+      userTag,
       inflatedFair: Math.max(0, inflatedFair),
       myMaxBid: Math.max(0, theoreticalMaxBid),
       theoreticalMaxBid: Math.max(0, theoreticalMaxBid),
@@ -567,6 +646,14 @@ export function computeDraftStats(workspace) {
       valueVsFair,
     };
   });
+
+  // Total picks in the draft = sum of initial slots across all teams.
+  // Used for the UI progress bar; typically 72 (12 × 6) for our
+  // league but differs when teams trade picks between leagues.
+  const totalInitialSlots = initialSlotsByIdx.reduce((s, n) => s + n, 0);
+  const totalPicksMade = picks.length;
+  const draftProgress =
+    totalInitialSlots > 0 ? totalPicksMade / totalInitialSlots : 0;
 
   return {
     totalBudget,
@@ -590,6 +677,10 @@ export function computeDraftStats(workspace) {
     tierHeat,
     tierConfidence,
     tierSampleCount,
+    tierStats,
+    totalInitialSlots,
+    totalPicksMade,
+    draftProgress,
     teamStats,
     enrichedPlayers,
   };
@@ -653,6 +744,24 @@ export function updatePlayerPreDraft(workspace, playerId, newPreDraft) {
       : p,
   );
   return { ...workspace, players };
+}
+
+/**
+ * Set (or clear) the TARGET / AVOID tag on a player.
+ *
+ * Pass ``null`` / ``undefined`` / anything unrecognized to clear the
+ * tag back to neutral (i.e. remove from the tags map).  Returns a
+ * new workspace; does not mutate.
+ */
+export function setPlayerTag(workspace, playerId, tag) {
+  if (!playerId) return workspace;
+  const next = { ...(workspace.tags || {}) };
+  if (tag === TAG_TARGET || tag === TAG_AVOID) {
+    next[playerId] = tag;
+  } else {
+    delete next[playerId];
+  }
+  return { ...workspace, tags: next };
 }
 
 /** Update a team's name or initial budget. */
@@ -961,7 +1070,181 @@ export function hydrateWorkspace(parsed) {
             .filter((p) => p.playerId && p.teamIdx >= 0);
         })()
       : [],
+    tags: (() => {
+      // Tags are optional; silently drop any value that isn't
+      // exactly "target" or "avoid".  This keeps the map tight
+      // even if localStorage gets hand-edited to something weird.
+      const src = parsed.tags && typeof parsed.tags === "object" ? parsed.tags : {};
+      const out = {};
+      for (const [k, v] of Object.entries(src)) {
+        if (v === TAG_TARGET || v === TAG_AVOID) out[String(k)] = v;
+      }
+      return out;
+    })(),
   };
+}
+
+// ── Recommendation engine ──────────────────────────────────────────────
+/**
+ * Classify a single undrafted player's draft-time stance given the
+ * current workspace state.  Returns null for drafted players or
+ * missing input.  The classification is INDEPENDENT of any live bid
+ * (use ``bidStatus`` for that).  It answers: "all else equal, what
+ * should my posture be on this guy right now?"
+ *
+ * Levels (ordered by priority):
+ *
+ *   - ``avoid``   — user flagged AVOID
+ *   - ``lock``    — target AND competitor ceiling collapses
+ *                  (rivals can't afford past a modest bid)
+ *   - ``steal``   — NEUTRAL AND competitor ceiling collapses
+ *                  (opportunistic grab at fire-sale price)
+ *   - ``spend``   — target AND late-draft surplus (slot pressure
+ *                   high, remaining $ outpaces remaining slots)
+ *   - ``push``    — target AND tier drying up
+ *   - ``buy``     — target, normal market
+ *   - ``neutral`` — nothing noteworthy
+ *
+ * Every level carries a short ``label`` + ``rationale`` so the UI
+ * can render the label as a chip and the rationale as a tooltip.
+ */
+export function playerRecommendation(enrichedPlayer, stats) {
+  if (!enrichedPlayer || enrichedPlayer.drafted || !stats) return null;
+  const p = enrichedPlayer;
+  const tag = p.userTag;
+
+  // Explicit AVOID flag — user knows better than any signal.
+  if (tag === TAG_AVOID) {
+    return {
+      level: "avoid",
+      label: "Avoid",
+      rationale: "You flagged this player as avoid.",
+    };
+  }
+
+  // Competitor ceiling collapse: bid ``topCompetitorMax + 1`` wins.
+  // Floor the threshold at max(1, preDraft × 0.3) so a borderline
+  // "my rivals can afford $10 and the player's PreDraft is $30"
+  // scenario doesn't register as collapse (rivals might push to $15,
+  // still much below my ceiling).
+  const collapseFloor = Math.max(1, Math.floor(p.preDraft * 0.3));
+  if (stats.topCompetitorMax <= collapseFloor) {
+    if (tag === TAG_TARGET) {
+      return {
+        level: "lock",
+        label: "Lock now",
+        rationale: `Rivals maxed at $${stats.topCompetitorMax}; bid $${
+          stats.topCompetitorMax + 1
+        } to lock.`,
+      };
+    }
+    return {
+      level: "steal",
+      label: "Steal candidate",
+      rationale: `Rivals maxed at $${stats.topCompetitorMax}; any bid above wins.`,
+    };
+  }
+
+  // Late-draft surplus $ on a target → spend up.
+  const mdv =
+    stats.mySlotsRemaining > 0
+      ? stats.myRemaining / stats.mySlotsRemaining
+      : 0;
+  if (
+    tag === TAG_TARGET &&
+    stats.slotPressure >= SPEND_UP_PRESSURE_MIN &&
+    mdv > SPEND_UP_MDV_FLOOR
+  ) {
+    return {
+      level: "spend",
+      label: "Spend up",
+      rationale: `Late draft (${Math.round(
+        stats.slotPressure * 100,
+      )}% pressure), ~$${Math.round(mdv)}/slot surplus — don't let $ go unused.`,
+    };
+  }
+
+  // Tier scarcity on a target.
+  if (tag === TAG_TARGET) {
+    const tierInfo = stats.tierStats?.[p.tier];
+    if (
+      tierInfo &&
+      tierInfo.remainingRatio < TIER_SCARCITY_URGENT &&
+      tierInfo.remaining > 0
+    ) {
+      return {
+        level: "push",
+        label: "Push aggressively",
+        rationale: `Only ${tierInfo.remaining} of ${tierInfo.total} ${p.tier}-tier players left.`,
+      };
+    }
+    return {
+      level: "buy",
+      label: "Buy at fair",
+      rationale: `Target; bid up to $${p.myWinningBid} to win.`,
+    };
+  }
+
+  return {
+    level: "neutral",
+    label: "Neutral",
+    rationale: null,
+  };
+}
+
+/**
+ * Rank undrafted players by expected value and return the top N.
+ *
+ * EV model (per player p):
+ *
+ *   surplus(p) = max(0, inflatedFair − myWinningBid)
+ *   tagWeight(p) = 1.5 (target)  1.0 (neutral)  0 (avoid)
+ *   ev(p) = surplus × tagWeight + tierScarcityBoost(p, stats)
+ *
+ * Where ``tierScarcityBoost`` adds a small bump when the player
+ * sits in a drying-up tier, nudging those to the front.  Avoid-
+ * tagged players are forced to 0 so they never surface as
+ * recommendations.  Ties are broken by tier (S > A > B > C > D)
+ * then by ``preDraft`` descending.
+ *
+ * Returns an array of ``{ player, ev, rec }`` objects, sorted
+ * descending by ev, capped at ``limit`` entries (default 5).
+ */
+export function nextBestTargets(stats, { limit = 5 } = {}) {
+  if (!stats || !Array.isArray(stats.enrichedPlayers)) return [];
+  const tierOrder = { S: 5, A: 4, B: 3, C: 2, D: 1 };
+  const candidates = [];
+  for (const p of stats.enrichedPlayers) {
+    if (p.drafted) continue;
+    if (p.userTag === TAG_AVOID) continue;
+
+    const surplus = Math.max(0, p.inflatedFair - p.myWinningBid);
+    const tagWeight = p.userTag === TAG_TARGET ? 1.5 : 1.0;
+    const tierInfo = stats.tierStats?.[p.tier];
+    const scarcityBoost =
+      tierInfo && tierInfo.remainingRatio < TIER_SCARCITY_URGENT
+        ? Math.max(0, 10 * (TIER_SCARCITY_URGENT - tierInfo.remainingRatio))
+        : 0;
+
+    const ev = surplus * tagWeight + scarcityBoost;
+    if (ev <= 0 && p.userTag !== TAG_TARGET) continue;
+
+    candidates.push({
+      player: p,
+      ev,
+      rec: playerRecommendation(p, stats),
+    });
+  }
+
+  candidates.sort((a, b) => {
+    if (b.ev !== a.ev) return b.ev - a.ev;
+    const at = tierOrder[a.player.tier] || 0;
+    const bt = tierOrder[b.player.tier] || 0;
+    if (bt !== at) return bt - at;
+    return b.player.preDraft - a.player.preDraft;
+  });
+
+  return candidates.slice(0, limit);
 }
 
 /**
