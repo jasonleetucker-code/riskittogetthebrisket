@@ -241,7 +241,12 @@ a { color: inherit; text-decoration: none; }
   left: 0;
   right: 0;
   z-index: 40;
-  height: var(--mobile-nav-h);
+  /* Grow the nav by the home-indicator safe area inset so the icons
+     still fit in the original 56px content zone above the indicator.
+     With the previous `height: 56px; padding-bottom: env(...)` +
+     box-sizing: border-box the padding ate the content area and
+     squashed icons into ~22px on iPhones with a home indicator. */
+  height: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px));
   display: flex;
   align-items: center;
   justify-content: space-around;
@@ -1110,7 +1115,7 @@ tr:hover .sticky-name {
   }
 
   .main-shell {
-    padding: var(--space-sm) var(--space-sm) calc(var(--mobile-nav-h) + var(--space-md));
+    padding: var(--space-sm) var(--space-sm) calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md));
     /* Subtract the full top-bar including its safe-area inset so the
        minimum height still reflects the space actually available
        between the (taller, notch-aware) top bar and the bottom nav. */
@@ -1135,7 +1140,9 @@ tr:hover .sticky-name {
   th, td { padding: 6px 8px; }
 
   .trade-sticky-tray {
-    bottom: var(--mobile-nav-h);
+    /* Sit above the bottom nav AND the iOS home indicator, matching
+       the nav's taller total height (var + env). */
+    bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px));
   }
 
   .trade-tray-main {
@@ -2915,7 +2922,9 @@ tr:hover .sticky-name {
 .chat-fab {
   position: fixed;
   right: 16px;
-  bottom: calc(var(--mobile-nav-h) + 16px);
+  /* Stack above both the bottom nav and the iOS home-indicator safe
+     area so the FAB is always reachable with one thumb. */
+  bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 16px);
   z-index: 900;
   display: inline-flex;
   align-items: center;
