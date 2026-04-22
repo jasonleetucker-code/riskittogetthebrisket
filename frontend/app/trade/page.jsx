@@ -28,6 +28,8 @@ import {
   serializeWorkspaceMulti,
   deserializeWorkspaceMulti,
   valueAdjustmentFromSideArrays,
+  defaultDestination,
+  computeSideFlows,
   SIDE_LABELS,
   MAX_SIDES,
   MIN_SIDES,
@@ -73,13 +75,13 @@ function edgeBadge(edge) {
 
 /* ── Trade Meter Component ───────────────────────────────────────────── */
 
-function TradeMeter({ sides, sideTotals, valueMode, settings }) {
+function TradeMeter({ sides, sideTotals, flows, valueMode, settings }) {
   const sideCount = sides.length;
 
   if (sideCount === 2) {
     return <TradeMeterTwoTeam sides={sides} sideTotals={sideTotals} />;
   }
-  return <TradeMeterMultiTeam sides={sides} sideTotals={sideTotals} />;
+  return <TradeMeterMultiTeam sides={sides} sideTotals={sideTotals} flows={flows} />;
 }
 
 function TradeMeterTwoTeam({ sides, sideTotals }) {
@@ -142,69 +144,147 @@ function TradeMeterTwoTeam({ sides, sideTotals }) {
   );
 }
 
-function TradeMeterMultiTeam({ sides, sideTotals }) {
-  const totals = sideTotals.map((t) => t.adjusted);
-  const analysis = multiTeamAnalysis(totals);
-  const grandTotal = totals.reduce((a, b) => a + b, 0);
+function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
+  // In 3+-team trades the fairness story is per-side NET (received −
+  // given), not the sum-of-totals share used by ``multiTeamAnalysis``.
+  // A side that gives away a 9000-value QB and receives a 9000-value
+  // WR is even on flow, even though the grand total counted both.
+  // The bar below shows each side's NET on a zero-centered axis so
+  // getters (positive) and over-payers (negative) read at a glance.
+  const flowList = Array.isArray(flows) && flows.length === sides.length
+    ? flows
+    : sides.map(() => ({ given: 0, received: 0, net: 0 }));
+  const nets = flowList.map((f) => f.net);
+  const absMax = Math.max(350, ...nets.map((n) => Math.abs(n)));
 
-  // Color cycle for multi-team segments
-  const segColors = [
-    "var(--green)", "var(--cyan)", "var(--amber)", "var(--red)", "#a78bfa",
-  ];
+  // Overall verdict: worst-offender absolute net.  Reuses the
+  // 350/900/1800 thresholds in ``meterVerdict`` so the label text
+  // matches the 2-team bar.
+  const worst = Math.max(...nets.map((n) => Math.abs(n)));
+  const verdict = meterVerdict(worst);
+
+  const fmtSigned = (n) => {
+    const sign = n > 0 ? "+" : n < 0 ? "−" : "";
+    return `${sign}${Math.round(Math.abs(n)).toLocaleString()}`;
+  };
+  const netColor = (n) => {
+    if (Math.abs(n) < 350) return "var(--muted)";
+    return n > 0 ? "var(--green)" : "var(--red)";
+  };
+  const netTag = (n) => {
+    if (Math.abs(n) < 350) return "Even";
+    if (n > 0) return "Getting value";
+    return "Losing value";
+  };
 
   return (
     <div className="trade-meter">
-      {/* Value comparison row */}
+      {/* Per-side NET row */}
       <div className="trade-meter-multi-values">
-        {sides.map((s, i) => (
-          <div key={s.id} className="trade-meter-multi-val">
-            <span className="label">Side {s.label}</span>
-            <span className="trade-meter-side-val">{Math.round(totals[i]).toLocaleString()}</span>
-            <span className="muted" style={{ fontSize: "0.64rem" }}>
-              {analysis.shares[i]}% - {analysis.perTeam[i]}
-            </span>
-          </div>
-        ))}
+        {sides.map((s, i) => {
+          const flow = flowList[i] || { given: 0, received: 0, net: 0 };
+          return (
+            <div key={s.id} className="trade-meter-multi-val">
+              <span className="label">Side {s.label}</span>
+              <span
+                className="trade-meter-side-val"
+                style={{ color: netColor(flow.net) }}
+              >
+                {fmtSigned(flow.net)}
+              </span>
+              <span className="muted" style={{ fontSize: "0.64rem" }}>
+                {netTag(flow.net)}
+              </span>
+              <span className="muted" style={{ fontSize: "0.6rem" }}>
+                Give {Math.round(flow.given).toLocaleString()} · Get {Math.round(flow.received).toLocaleString()}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Segmented bar */}
-      <div className="trade-meter-bar">
+      {/* Zero-centered NET bar per side.  Each side gets 1/N of the
+           horizontal axis; within its slot the fill grows left-from-
+           center (red) or right-from-center (green) proportional to
+           |net| / absMax. */}
+      <div style={{ display: "flex", gap: 4, margin: "8px 0 4px" }}>
         {sides.map((s, i) => {
-          const pct = grandTotal > 0 ? (totals[i] / grandTotal) * 100 : 100 / sides.length;
+          const net = nets[i] || 0;
+          const pct = absMax > 0 ? Math.min(100, (Math.abs(net) / absMax) * 100) : 0;
+          const isPos = net > 0;
+          const isEven = Math.abs(net) < 350;
+          const fillColor = isEven
+            ? "var(--muted)"
+            : isPos
+              ? "var(--green)"
+              : "var(--red)";
           return (
             <div
               key={s.id}
-              className="trade-meter-fill"
               style={{
-                width: `${pct}%`,
-                background: segColors[i % segColors.length],
-                opacity: 0.7,
+                flex: 1,
+                position: "relative",
+                height: 14,
+                background: "rgba(153,166,200,0.08)",
+                borderRadius: 6,
+                overflow: "hidden",
               }}
-              title={`Side ${s.label}: ${analysis.shares[i]}%`}
-            />
+              title={`Side ${s.label}: ${fmtSigned(net)}`}
+            >
+              {/* Center marker */}
+              <div
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: 0,
+                  bottom: 0,
+                  width: 1,
+                  background: "var(--border)",
+                }}
+              />
+              {/* Fill */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  bottom: 2,
+                  width: `${pct / 2}%`,
+                  background: fillColor,
+                  opacity: 0.75,
+                  borderRadius: 4,
+                  ...(isPos
+                    ? { left: "50%" }
+                    : { right: "50%" }),
+                }}
+              />
+            </div>
           );
         })}
-        {/* Equal-share markers */}
-        {sides.length > 2 && sides.slice(1).map((_, i) => (
-          <div
-            key={`marker-${i}`}
-            className="trade-meter-equal-marker"
-            style={{ left: `${((i + 1) / sides.length) * 100}%` }}
-          />
-        ))}
       </div>
       <div className="trade-meter-bar-labels">
         {sides.map((s, i) => (
-          <span key={s.id} className="muted" style={{ fontSize: "0.62rem", flex: 1, textAlign: "center" }}>
-            {s.label}: {analysis.shares[i]}%
+          <span
+            key={s.id}
+            className="muted"
+            style={{
+              fontSize: "0.62rem",
+              flex: 1,
+              textAlign: "center",
+              color: netColor(nets[i] || 0),
+            }}
+          >
+            {s.label}: {fmtSigned(nets[i] || 0)}
           </span>
         ))}
       </div>
 
       {/* Overall verdict */}
       <div className="trade-meter-bottom">
-        <span className={`trade-meter-verdict ${analysis.overall === "Balanced" ? "trade-meter-verdict-fair" : "trade-meter-verdict-unfair"}`}>
-          {analysis.overall}
+        <span className={`trade-meter-verdict trade-meter-verdict-${verdict.level}`}>
+          {verdict.label}
+        </span>
+        <span className="trade-meter-pct" style={{ marginLeft: 8 }}>
+          Worst gap: {fmtSigned(worst)}
         </span>
       </div>
     </div>
@@ -574,6 +654,15 @@ export default function TradePage() {
     });
   }, [sides, valueMode, settings]);
 
+  // Per-side flow totals: given / received / net.  In 2-team trades
+  // the destinations map is ignored (assets implicitly go to the other
+  // side).  In 3+-team trades each asset's destination drives the NET
+  // flow, which is what the multi-team fairness bar renders.
+  const sideFlows = useMemo(
+    () => computeSideFlows(sides, valueMode, settings),
+    [sides, valueMode, settings],
+  );
+
   // Legacy 2-team gap computations (for sticky tray + 2-team balancers)
   const pwTotalA = sideTotals[0]?.adjusted || 0;
   const pwTotalB = sideTotals[1]?.adjusted || 0;
@@ -591,19 +680,30 @@ export default function TradePage() {
     return findBalancers(pwGap, available, valueMode);
   }, [pwGap, rows, sides, valueMode]);
 
-  // For 3+ teams, find balancers for the team overpaying
+  // For 3+ teams, find balancers for the team getting the best deal
+  // (they should add more to their give to even things out).  Uses
+  // the destination-aware NET flow (received − given) so the target
+  // is whoever profited most after each asset was routed to its
+  // chosen destination.  Falling back to the raw total index would
+  // pick whoever put the fewest pieces on the table — a different
+  // question entirely.
   const multiBalancers = useMemo(() => {
     if (sides.length <= 2) return null;
-    const totals = sideTotals.map((t) => t.adjusted);
-    const maxIdx = totals.indexOf(Math.max(...totals));
-    const minIdx = totals.indexOf(Math.min(...totals));
-    const gap = totals[maxIdx] - totals[minIdx];
+    const nets = sideFlows.map((f) => f.net);
+    const worstIdx = nets.indexOf(Math.min(...nets)); // most negative = overpaying
+    const bestIdx = nets.indexOf(Math.max(...nets));  // most positive = getting a deal
+    const gap = nets[bestIdx] - nets[worstIdx];
     if (gap < 350) return null;
     const allInTrade = new Set(sides.flatMap((s) => s.assets.map((a) => a.name)));
     const available = rows.filter((r) => !allInTrade.has(r.name));
     const suggestions = findBalancers(gap, available, valueMode);
-    return { overpayingIdx: maxIdx, underpayingIdx: minIdx, gap, suggestions };
-  }, [sides, sideTotals, rows, valueMode]);
+    return {
+      overpayingIdx: worstIdx,
+      underpayingIdx: bestIdx, // panel rendered on the side that needs to give more
+      gap,
+      suggestions,
+    };
+  }, [sides, sideFlows, rows, valueMode]);
 
   // All assets currently in any side (for picker exclusion)
   const allTradeNames = useMemo(() => {
@@ -663,9 +763,31 @@ export default function TradePage() {
     setSides((prev) => prev.map((s, i) => {
       if (i !== sideIdx) return s;
       if (s.assets.some((r) => r.name === row.name)) return s;
-      return { ...s, assets: [...s.assets, row] };
+      // 3+-team trades need an explicit destination per asset so the
+      // fairness bar can compute each side's NET flow.  Seed the
+      // default (next side, circular) whenever we're adding to a
+      // multi-side trade.  2-team trades leave destinations empty —
+      // ``computeSideFlows`` handles the implicit "other side" case.
+      const nextDestinations = { ...(s.destinations || {}) };
+      if (prev.length > 2) {
+        nextDestinations[row.name] = defaultDestination(i, prev.length);
+      }
+      return {
+        ...s,
+        assets: [...s.assets, row],
+        destinations: nextDestinations,
+      };
     }));
     addRecent(row.name);
+  }
+
+  function setAssetDestination(sideIdx, assetName, destIdx) {
+    setSides((prev) => prev.map((s, i) => {
+      if (i !== sideIdx) return s;
+      const next = { ...(s.destinations || {}) };
+      next[assetName] = Number(destIdx);
+      return { ...s, destinations: next };
+    }));
   }
 
   function addToActiveSide(row) { addToSide(row, activeSide); }
@@ -679,12 +801,18 @@ export default function TradePage() {
   function removeFromSide(name, sideIdx) {
     setSides((prev) => prev.map((s, i) => {
       if (i !== sideIdx) return s;
-      return { ...s, assets: s.assets.filter((r) => r.name !== name) };
+      const nextDestinations = { ...(s.destinations || {}) };
+      delete nextDestinations[name];
+      return {
+        ...s,
+        assets: s.assets.filter((r) => r.name !== name),
+        destinations: nextDestinations,
+      };
     }));
   }
 
   function clearTrade() {
-    setSides((prev) => prev.map((s) => ({ ...s, assets: [] })));
+    setSides((prev) => prev.map((s) => ({ ...s, assets: [], destinations: {} })));
   }
 
   function swapSides() {
@@ -695,33 +823,91 @@ export default function TradePage() {
       ]);
       setActiveSide((s) => s === 0 ? 1 : 0);
     } else {
-      // Rotate: A->B, B->C, ..., last->A
+      // Rotate: side i takes the previous side's assets.  Each asset
+      // moves one slot forward, so its destination also rotates one
+      // slot forward to preserve the user's chosen routing.
       setSides((prev) => {
-        const rotated = prev.map((s, i) => {
-          const newIdx = i === 0 ? prev.length - 1 : i - 1;
-          return { ...prev[newIdx === prev.length ? 0 : (newIdx + 1) % prev.length], id: i, label: SIDE_LABELS[i] };
+        const n = prev.length;
+        return prev.map((s, i) => {
+          const srcIdx = (i + n - 1) % n;
+          const src = prev[srcIdx];
+          const nextDestinations = {};
+          for (const [name, dest] of Object.entries(src.destinations || {})) {
+            const parsed = Number(dest);
+            if (!Number.isInteger(parsed)) continue;
+            const rotated = (parsed + 1) % n;
+            // Drop self-references that could sneak in post-rotation;
+            // ``defaultDestination`` will take over in ``computeSideFlows``.
+            if (rotated !== i) nextDestinations[name] = rotated;
+          }
+          return {
+            id: i,
+            label: SIDE_LABELS[i],
+            assets: src.assets,
+            destinations: nextDestinations,
+          };
         });
-        // Actually rotate assets: each side gets the previous side's assets
-        return prev.map((s, i) => ({
-          id: i,
-          label: SIDE_LABELS[i],
-          assets: prev[(i + prev.length - 1) % prev.length].assets,
-        }));
       });
     }
   }
 
   function addTeam() {
     if (sides.length >= MAX_SIDES) return;
-    setSides((prev) => [...prev, createSide(prev.length)]);
+    setSides((prev) => {
+      const newCount = prev.length + 1;
+      // Going from N → N+1.  When the previous trade was 2-team the
+      // assets had implicit "other side" destinations; now we need
+      // explicit ones so the NET flow math has a valid starting point.
+      // Seed the default (next side circular) for any asset that
+      // doesn't already have an entry.  Assets that already have a
+      // destination keep it — the user's chosen routing is preserved.
+      const withDestinations = prev.map((s, i) => {
+        const nextDest = { ...(s.destinations || {}) };
+        for (const asset of s.assets) {
+          if (nextDest[asset.name] == null) {
+            nextDest[asset.name] = defaultDestination(i, newCount);
+          }
+        }
+        return { ...s, destinations: nextDest };
+      });
+      return [...withDestinations, createSide(prev.length)];
+    });
   }
 
   function removeTeam(idx) {
     if (sides.length <= MIN_SIDES) return;
     setSides((prev) => {
       const next = prev.filter((_, i) => i !== idx);
-      // Reletter remaining sides
-      return next.map((s, i) => ({ ...s, id: i, label: SIDE_LABELS[i] }));
+      const newCount = next.length;
+      // Reletter remaining sides AND rewrite destinations so any
+      // asset that was targeting the removed side — or one of the
+      // now-shifted sides — points at a valid slot.  Destinations
+      // that would collapse onto the side itself fall back to the
+      // default (next side circular).
+      return next.map((s, i) => {
+        const remapped = {};
+        for (const [name, dest] of Object.entries(s.destinations || {})) {
+          const parsed = Number(dest);
+          if (!Number.isInteger(parsed)) continue;
+          if (parsed === idx) {
+            // Asset was going to the removed side — reassign.
+            remapped[name] = defaultDestination(i, newCount);
+            continue;
+          }
+          const shifted = parsed > idx ? parsed - 1 : parsed;
+          if (shifted >= 0 && shifted < newCount && shifted !== i) {
+            remapped[name] = shifted;
+          } else {
+            remapped[name] = defaultDestination(i, newCount);
+          }
+        }
+        return {
+          ...s,
+          id: i,
+          label: SIDE_LABELS[i],
+          destinations: remapped,
+        };
+      });
     });
     // Fix activeSide if it's out of bounds
     setActiveSide((prev) => Math.min(prev, sides.length - 2));
@@ -805,9 +991,19 @@ export default function TradePage() {
       const cleanedTwo = clean(two.found);
 
       setSides((prev) => prev.map((s, i) => {
-        if (i === 0) return { ...s, assets: cleanedOne };
-        if (i === 1) return { ...s, assets: cleanedTwo };
-        return s; // leave 3rd+ sides alone
+        if (i !== 0 && i !== 1) return s; // leave 3rd+ sides alone
+        const replacement = i === 0 ? cleanedOne : cleanedTwo;
+        // Seed default destinations for the newly-loaded assets when
+        // we're in a 3+-team trade; 2-team trades ignore the map.
+        // Old destinations referencing assets that aren't in the new
+        // set are dropped so we don't accumulate stale routing.
+        const nextDestinations = {};
+        if (prev.length > 2) {
+          for (const asset of replacement) {
+            nextDestinations[asset.name] = defaultDestination(i, prev.length);
+          }
+        }
+        return { ...s, assets: replacement, destinations: nextDestinations };
       }));
 
       const warnings = [];
@@ -909,14 +1105,24 @@ export default function TradePage() {
   function applySuggestion(s) {
     const giveRows = s.give.map((p) => rowByName.get(p.name)).filter(Boolean);
     const recvRows = s.receive.map((p) => rowByName.get(p.name)).filter(Boolean);
-    // Apply to first two sides, reset others
+    // Apply to first two sides, reset others.  Suggestions are
+    // inherently 2-team; wipe the 3rd+ side contents (and their
+    // destination maps) so stale multi-team routing doesn't linger.
     setSides((prev) => {
-      const next = prev.map((side, i) => {
-        if (i === 0) return { ...side, assets: giveRows };
-        if (i === 1) return { ...side, assets: recvRows };
-        return { ...side, assets: [] };
+      const sideCount = prev.length;
+      const seedDestinations = (assets, sideIdx) => {
+        if (sideCount <= 2) return {};
+        const out = {};
+        for (const asset of assets) {
+          out[asset.name] = defaultDestination(sideIdx, sideCount);
+        }
+        return out;
+      };
+      return prev.map((side, i) => {
+        if (i === 0) return { ...side, assets: giveRows, destinations: seedDestinations(giveRows, 0) };
+        if (i === 1) return { ...side, assets: recvRows, destinations: seedDestinations(recvRows, 1) };
+        return { ...side, assets: [], destinations: {} };
       });
-      return next;
     });
   }
 
@@ -1067,7 +1273,7 @@ export default function TradePage() {
           )}
 
           {/* ── Trade Meter (inline fairness visualization) ──────── */}
-          <TradeMeter sides={sides} sideTotals={sideTotals} valueMode={valueMode} settings={settings} />
+          <TradeMeter sides={sides} sideTotals={sideTotals} flows={sideFlows} valueMode={valueMode} settings={settings} />
 
           {/* ── Per-source winner breakdown (below the fairness meter) ── */}
           <TradeSourceBreakdown sides={sides} settings={settings} />
@@ -1120,6 +1326,20 @@ export default function TradePage() {
                   <div className="list" style={{ marginTop: 10 }}>
                     {side.assets.map((r) => {
                       const edge = getPlayerEdge(r);
+                      // In 3+-team trades, each asset has an explicit
+                      // destination side so the fairness bar can compute
+                      // per-team NET flow.  The dropdown is rendered
+                      // only when N > 2; for 2-team trades the other
+                      // side is implicit and the dropdown is hidden.
+                      const storedDest = side.destinations?.[r.name];
+                      const parsedDest = Number(storedDest);
+                      const currentDest =
+                        Number.isInteger(parsedDest) &&
+                        parsedDest >= 0 &&
+                        parsedDest < sides.length &&
+                        parsedDest !== sideIdx
+                          ? parsedDest
+                          : defaultDestination(sideIdx, sides.length);
                       return (
                         <div className="asset-row" key={`${side.label}-${r.name}`}>
                           <div>
@@ -1135,7 +1355,41 @@ export default function TradePage() {
                             </div>
                             <div className="asset-meta">{r.pos} · Consensus {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
                           </div>
-                          <button className="button trade-remove-btn" onClick={() => removeFromSide(r.name, sideIdx)}>Remove</button>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            {sides.length > 2 && (
+                              <label
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  fontSize: "0.68rem",
+                                }}
+                                title="Which side this asset is going to"
+                              >
+                                <span className="muted" style={{ fontSize: "0.66rem" }}>→</span>
+                                <select
+                                  className="select"
+                                  value={currentDest}
+                                  onChange={(e) => setAssetDestination(sideIdx, r.name, e.target.value)}
+                                  style={{
+                                    fontSize: "0.7rem",
+                                    padding: "2px 4px",
+                                    minHeight: "unset",
+                                    height: "auto",
+                                  }}
+                                >
+                                  {sides.map((s, i) =>
+                                    i === sideIdx ? null : (
+                                      <option key={i} value={i}>
+                                        Side {s.label}
+                                      </option>
+                                    ),
+                                  )}
+                                </select>
+                              </label>
+                            )}
+                            <button className="button trade-remove-btn" onClick={() => removeFromSide(r.name, sideIdx)}>Remove</button>
+                          </div>
                         </div>
                       );
                     })}
@@ -1153,11 +1407,11 @@ export default function TradePage() {
                       ))}
                     </div>
                   )}
-                  {/* Balancers (3+ team mode) - show on the underpaying team */}
+                  {/* Balancers (3+ team mode) - show on the side getting the best deal */}
                   {multiBalancers && sideIdx === multiBalancers.underpayingIdx && multiBalancers.suggestions.length > 0 && (
                     <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(255,198,47,0.06)", borderRadius: 6 }}>
                       <div className="label" style={{ fontSize: "0.68rem", marginBottom: 4 }}>
-                        To balance (Side {sides[multiBalancers.overpayingIdx]?.label} overpays by {Math.round(multiBalancers.gap).toLocaleString()}):
+                        To balance (Side {sides[multiBalancers.overpayingIdx]?.label} loses {Math.round(multiBalancers.gap).toLocaleString()}):
                       </div>
                       {multiBalancers.suggestions.map((b) => (
                         <button key={b.name} className="button-reset muted" style={{ display: "block", fontSize: "0.72rem", cursor: "pointer" }}
