@@ -8,7 +8,7 @@
 //     every (season, week) in the snapshot.
 //   * Historical week selector for drilling into any past week.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Avatar,
   Card,
@@ -17,6 +17,7 @@ import {
   fmtPercent,
   nameFor,
 } from "../shared.jsx";
+import PlayoffOddsChart from "@/components/graphs/PlayoffOddsChart";
 
 function powerColor(power) {
   if (power >= 80) return "#2ecc71";
@@ -284,6 +285,29 @@ function PowerTable({ rankings, managers, onRowHover, hoverOwnerId }) {
 export default function PowerSection({ data, managers }) {
   const [hoverOwnerId, setHoverOwnerId] = useState(null);
   const [selectedWeekKey, setSelectedWeekKey] = useState("__current");
+  const [oddsData, setOddsData] = useState(null);
+  const [oddsError, setOddsError] = useState(null);
+
+  // Fetch playoff odds lazily — it's a Monte Carlo run so we don't
+  // want to block the first paint on it; the chart renders below the
+  // power table once the data lands.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/public/league/playoffOdds")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
+      .then((payload) => {
+        if (cancelled) return;
+        const body = payload?.data || payload?.section || payload;
+        setOddsData(body);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setOddsError(String(err?.message || err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!data || !data.weeks?.length) return <EmptyCard label="Power rankings" />;
 
@@ -335,6 +359,22 @@ export default function PowerSection({ data, managers }) {
           highlightOwnerId={hoverOwnerId}
         />
       </Card>
+
+      {oddsData && Array.isArray(oddsData.owners) && oddsData.owners.length > 0 ? (
+        <Card
+          title="Playoff odds"
+          subtitle="Monte Carlo over remaining regular-season weeks; samples each owner's score from their actual weekly history."
+        >
+          <PlayoffOddsChart data={oddsData} />
+        </Card>
+      ) : null}
+      {oddsError ? (
+        <Card title="Playoff odds">
+          <p style={{ fontSize: "0.78rem", color: "var(--red)" }}>
+            Couldn&apos;t load playoff odds: {oddsError}
+          </p>
+        </Card>
+      ) : null}
 
       <Card title="How this is computed">
         <p style={{ fontSize: "0.78rem", lineHeight: 1.5, color: "var(--subtext)" }}>

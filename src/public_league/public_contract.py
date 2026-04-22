@@ -22,6 +22,7 @@ from . import (
     luck,
     matchup_preview,
     overview,
+    playoff_odds,
     power,
     records,
     rivalries,
@@ -58,6 +59,7 @@ _SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] =
     "power": power.build_section,
     "matchupPreview": matchup_preview.build_section,
     "weeklyRecap": weekly_recap.build_section,
+    "playoffOdds": playoff_odds.build_section,
 }
 
 # Derived overview is a first-class section key the UI can fetch just

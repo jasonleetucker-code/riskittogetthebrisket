@@ -205,6 +205,27 @@ class FranchiseTests(_BaseFixture):
         self.assertIn("weightedScore", capital)
         self.assertGreater(capital["totalPicks"], 0)
 
+    def test_weekly_scoring_trajectory(self) -> None:
+        # Every franchise detail must carry a per-week scoring list
+        # derived from the scored matchups across every season.  Shape
+        # is pinned so the frontend FranchiseTrajectory chart can rely
+        # on {season, week, isPlayoff, pointsFor} without defensive
+        # fallbacks.
+        section = franchise.build_section(self.snapshot)
+        owner_a = section["detail"]["owner-A"]
+        weekly = owner_a.get("weeklyScoring")
+        self.assertIsInstance(weekly, list)
+        self.assertGreater(len(weekly), 0)
+        for row in weekly:
+            self.assertIn("season", row)
+            self.assertIn("week", row)
+            self.assertIn("isPlayoff", row)
+            self.assertIn("pointsFor", row)
+            self.assertIsInstance(row["pointsFor"], (int, float))
+        # Sorted chronologically by (season, week).
+        keys = [(r["season"], r["week"]) for r in weekly]
+        self.assertEqual(keys, sorted(keys))
+
 
 # ── Trade Activity ─────────────────────────────────────────────────────────
 class ActivityTests(_BaseFixture):
