@@ -142,22 +142,34 @@ def _posted_future_matchups(
     season: SeasonSnapshot,
     registry,
 ) -> dict[int, list[tuple[str, str]]]:
-    """Owner-id pairs for weeks that exist in the snapshot but haven't
-    been scored yet.
+    """Owner-id pairs for matchups within each week that haven't been
+    fully scored yet.
 
-    Sleeper posts matchups for upcoming weeks before they're played,
-    so those are authoritative.  We match entries by ``matchup_id``
-    pairs and translate roster_id → owner_id.
+    Key subtlety: a "partially played" live week (Thursday game
+    complete, Sunday games pending) still has authoritative posted
+    pairings for the unplayed matchups.  Early iterations of this
+    helper skipped the whole week when *any* entry was scored, which
+    let ``_round_robin_schedule`` re-generate pairings for the
+    already-completed Thursday game — at best wasted simulator work,
+    at worst wrong opponents for Sunday games.
+
+    So we emit pairings per un-scored matchup within each week, not
+    per whole week.  An already-complete matchup (both sides scored)
+    is filtered out — its actual result feeds ``_regular_season_
+    record_to_date`` via the week-completion check there, not the
+    simulator.  A completely un-started week still yields every pair
+    exactly as before.
     """
     out: dict[int, list[tuple[str, str]]] = {}
     for wk in season.regular_season_weeks:
         entries = season.matchups_by_week.get(wk) or []
-        # If any entry in this week is already scored, skip — this
-        # week is "played" not "future".
-        if any(metrics.is_scored(e) for e in entries):
-            continue
         pairs: list[tuple[str, str]] = []
         for a, b in metrics.matchup_pairs(entries):
+            # Filter completed matchups (both sides scored) — those
+            # are already in the current-record snapshot and must not
+            # be re-simulated.
+            if metrics.is_scored(a) and metrics.is_scored(b):
+                continue
             rid_a = metrics.roster_id_of(a)
             rid_b = metrics.roster_id_of(b)
             if rid_a is None or rid_b is None:

@@ -172,6 +172,90 @@ class LiveWeekRecordCounting(unittest.TestCase):
         self.assertEqual(rec, {})
 
 
+class PartialWeekPostedPairs(unittest.TestCase):
+    """Regression for Codex PR #215 second-round P1 review:
+    ``_posted_future_matchups`` must emit posted pairings for the
+    unplayed matchups inside a partially-scored week, not drop the
+    whole week.
+    """
+
+    def _make_season(self, entries_by_week):
+        class _Season:
+            league_id = "L1"
+            matchups_by_week = entries_by_week
+
+            @property
+            def regular_season_weeks(self):
+                return sorted(entries_by_week.keys())
+
+        return _Season()
+
+    def setUp(self) -> None:
+        self._original = playoff_odds.metrics.resolve_owner
+        playoff_odds.metrics.resolve_owner = (  # type: ignore[attr-defined]
+            lambda reg, league_id, rid: f"owner-{rid}"
+        )
+
+    def tearDown(self) -> None:
+        playoff_odds.metrics.resolve_owner = self._original  # type: ignore[attr-defined]
+
+    def test_partial_week_emits_only_unplayed_pairs(self) -> None:
+        # Week 3: matchup_id 10 is complete (110.2 vs 95.7), matchup_id
+        # 11 hasn't been played yet (both sides at 0).  posted should
+        # contain ONLY the unplayed pair from matchup 11.
+        entries = {
+            3: [
+                {"roster_id": 1, "matchup_id": 10, "points": 110.2},
+                {"roster_id": 2, "matchup_id": 10, "points": 95.7},
+                {"roster_id": 3, "matchup_id": 11, "points": 0.0},
+                {"roster_id": 4, "matchup_id": 11, "points": 0.0},
+            ],
+        }
+        posted = playoff_odds._posted_future_matchups(self._make_season(entries), None)
+        self.assertIn(3, posted)
+        self.assertEqual(len(posted[3]), 1)
+        pair = posted[3][0]
+        self.assertIn("owner-3", pair)
+        self.assertIn("owner-4", pair)
+
+    def test_fully_unplayed_week_emits_all_pairs(self) -> None:
+        entries = {
+            5: [
+                {"roster_id": 1, "matchup_id": 20, "points": 0.0},
+                {"roster_id": 2, "matchup_id": 20, "points": 0.0},
+                {"roster_id": 3, "matchup_id": 21, "points": 0.0},
+                {"roster_id": 4, "matchup_id": 21, "points": 0.0},
+            ],
+        }
+        posted = playoff_odds._posted_future_matchups(self._make_season(entries), None)
+        self.assertEqual(len(posted[5]), 2)
+
+    def test_fully_played_week_absent_from_posted(self) -> None:
+        entries = {
+            2: [
+                {"roster_id": 1, "matchup_id": 30, "points": 100.0},
+                {"roster_id": 2, "matchup_id": 30, "points": 90.0},
+                {"roster_id": 3, "matchup_id": 31, "points": 115.0},
+                {"roster_id": 4, "matchup_id": 31, "points": 105.0},
+            ],
+        }
+        posted = playoff_odds._posted_future_matchups(self._make_season(entries), None)
+        self.assertNotIn(2, posted)
+
+
+class LazySectionRouting(unittest.TestCase):
+    """Regression for Codex PR #215 P2: ``playoffOdds`` must not be
+    invoked as part of the aggregate ``build_public_contract`` walk
+    (which would run a 10K-sim MC on every public-contract load)."""
+
+    def test_playoff_odds_not_in_aggregate_builders(self) -> None:
+        from src.public_league import public_contract
+
+        self.assertNotIn("playoffOdds", public_contract._SECTION_BUILDERS)
+        self.assertIn("playoffOdds", public_contract._LAZY_SECTION_BUILDERS)
+        self.assertIn("playoffOdds", public_contract.PUBLIC_SECTION_KEYS)
+
+
 class NumSimsGuard(_Base):
     """Regression for Codex PR #215 P2: ``num_sims <= 0`` must not
     raise a ZeroDivisionError when the season has remaining weeks.

@@ -59,6 +59,15 @@ _SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] =
     "power": power.build_section,
     "matchupPreview": matchup_preview.build_section,
     "weeklyRecap": weekly_recap.build_section,
+}
+
+# Sections that are expensive enough to warrant lazy-loading — they are
+# *not* included in aggregate ``build_public_contract()`` responses but
+# remain addressable through ``/api/public/league/<section>`` so the
+# specific tab that needs them can fetch on-demand.  ``playoffOdds``
+# runs a 10,000-sim Monte Carlo; including it in the aggregate path
+# would impose that cost on every landing-page load.
+_LAZY_SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] = {
     "playoffOdds": playoff_odds.build_section,
 }
 
@@ -67,7 +76,11 @@ _SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] =
 # walking the snapshot directly.
 OVERVIEW_SECTION = "overview"
 
-PUBLIC_SECTION_KEYS: tuple[str, ...] = (OVERVIEW_SECTION,) + tuple(_SECTION_BUILDERS.keys())
+PUBLIC_SECTION_KEYS: tuple[str, ...] = (
+    (OVERVIEW_SECTION,)
+    + tuple(_SECTION_BUILDERS.keys())
+    + tuple(_LAZY_SECTION_BUILDERS.keys())
+)
 
 
 # Field name blocklist.  These substrings MUST NOT appear as dict keys
@@ -226,6 +239,12 @@ def build_section_payload(
         section_body = _build_activity_section(snapshot, activity_valuation)
     elif section in _SECTION_BUILDERS:
         section_body = _SECTION_BUILDERS[section](snapshot)
+    elif section in _LAZY_SECTION_BUILDERS:
+        # Lazy section builders (e.g. playoffOdds) run on-demand via
+        # ``/api/public/league/<section>`` but are deliberately excluded
+        # from the aggregate overview walk above to avoid imposing their
+        # compute cost on every public-contract request.
+        section_body = _LAZY_SECTION_BUILDERS[section](snapshot)
     else:
         raise KeyError(f"Unknown public-league section: {section!r}")
     header = _league_header(snapshot)
