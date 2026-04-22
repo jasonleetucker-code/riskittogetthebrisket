@@ -15,6 +15,7 @@ import {
   colorFromGap,
   verdictBarPosition,
   adjustedSideTotals,
+  multiAdjustedSideTotals,
   tradeGapAdjusted,
   sideTotal,
   effectiveValue,
