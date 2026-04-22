@@ -419,6 +419,12 @@ export const RANKING_SOURCES = [
     // Dynasty Daddy's SF trade values are standard SF scoring — no
     // TE premium baked in.  The frontend `settings.tepMultiplier`
     // boost applies to its blended contribution.
+    // Signal=rank as of 2026-04-22 (PR #215): Dynasty Daddy's top
+    // values cluster at a 10,200 display ceiling which collapsed
+    // relative ordering under value-direct normalisation.  Source is
+    // now routed through the shared Hill curve via its value-ordered
+    // rank column; the frontend UI renders the rank column, not raw
+    // value, via ``sourceOriginalRanks.dynastyDaddySf``.
     key: "dynastyDaddySf",
     displayName: "Dynasty Daddy Superflex",
     columnLabel: "DD",
@@ -429,7 +435,7 @@ export const RANKING_SOURCES = [
     weight: 1.0,
     isBackbone: false,
     isRetail: false,
-    isRankSignal: false,
+    isRankSignal: true,
     isTepPremium: false,
     needsSharedMarketTranslation: false,
     excludesRookies: false,
@@ -488,8 +494,11 @@ export const RANKING_SOURCES = [
     // position we pick the league-appropriate value column (SF Value
     // for QB, TEP Value for TE, Trade Value for RB/WR) — so
     // Fitzmaurice's Superflex + TE-Premium native numbers align
-    // with our league scoring.  Value-signal: the blend rescales
-    // Fitzmaurice's top player (typically a QB at ~101) to 9999.
+    // with our league scoring.  Signal=rank as of 2026-04-22
+    // (PR #216): Fitzmaurice's 0-101 value scale caps hard at the
+    // top with many ties, which the value-direct path collapsed
+    // into a narrow band.  Source now routed through its value-
+    // ordered rank column.
     key: "fantasyProsFitzmaurice",
     displayName: "FantasyPros / Pat Fitzmaurice SF-TEP",
     columnLabel: "Fitzmaurice",
@@ -500,7 +509,7 @@ export const RANKING_SOURCES = [
     weight: 1.0,
     isBackbone: false,
     isRetail: false,
-    isRankSignal: false,
+    isRankSignal: true,
     isTepPremium: true,
     needsSharedMarketTranslation: false,
     excludesRookies: false,
@@ -602,10 +611,13 @@ export const RANKING_SOURCES = [
     // Value-signal (2026-04-21): the scraper writes Boone's
     // published trade value in ``boone_value`` (0-~141 scale) and the
     // backend blend rescales linearly so Boone's top player
-    // contributes 9999.  The ``rank`` column is still preserved and
-    // the UI renders Boone's published rank via
-    // ``sourceOriginalRanks.yahooBoone``.  `isRankSignal` is false now
-    // because the blend no longer uses the rank column as its vote.
+    // Signal=rank as of 2026-04-22 (PR #215): Boone's 0-141 value
+    // scale has seven players in the 110-141 band which collapsed
+    // relative ordering under value-direct.  Source now routed
+    // through the shared Hill curve via its ``rank`` column; the UI
+    // renders Boone's published rank via ``sourceOriginalRanks.yahooBoone``
+    // (the raw ``boone_value`` column is preserved on row payloads
+    // for display but no longer drives the blend).
     key: "yahooBoone",
     displayName: "Yahoo / Justin Boone SF-TEP",
     columnLabel: "Boone",
@@ -616,7 +628,7 @@ export const RANKING_SOURCES = [
     weight: 1.0,
     isBackbone: false,
     isRetail: false,
-    isRankSignal: false,
+    isRankSignal: true,
     isTepPremium: true,
     needsSharedMarketTranslation: false,
     excludesRookies: false,
