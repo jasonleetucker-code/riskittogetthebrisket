@@ -243,6 +243,126 @@ class PartialWeekPostedPairs(unittest.TestCase):
         self.assertNotIn(2, posted)
 
 
+class ZeroPointPastWeek(unittest.TestCase):
+    """Regression for Codex PR #215 round-3 P2 (line 119): a matchup
+    where one side legitimately scored 0 must still count toward
+    current record once the week is provably in the past.
+    """
+
+    def _make_season(self, entries_by_week):
+        class _Season:
+            league_id = "L1"
+            matchups_by_week = entries_by_week
+
+            @property
+            def regular_season_weeks(self):
+                return sorted(entries_by_week.keys())
+
+        return _Season()
+
+    def setUp(self) -> None:
+        self._original = playoff_odds.metrics.resolve_owner
+        playoff_odds.metrics.resolve_owner = (  # type: ignore[attr-defined]
+            lambda reg, league_id, rid: f"owner-{rid}"
+        )
+
+    def tearDown(self) -> None:
+        playoff_odds.metrics.resolve_owner = self._original  # type: ignore[attr-defined]
+
+    def test_zero_point_game_in_past_week_counts(self) -> None:
+        entries = {
+            1: [
+                {"roster_id": 1, "matchup_id": 10, "points": 110.0},
+                {"roster_id": 2, "matchup_id": 10, "points": 0.0},
+            ],
+            2: [
+                {"roster_id": 1, "matchup_id": 20, "points": 95.0},
+                {"roster_id": 2, "matchup_id": 20, "points": 105.0},
+            ],
+        }
+        rec = playoff_odds._regular_season_record_to_date(
+            self._make_season(entries), None
+        )
+        # Owner-1: 1 win week 1, 1 loss week 2.
+        self.assertEqual(rec["owner-1"]["wins"], 1)
+        self.assertEqual(rec["owner-1"]["losses"], 1)
+        # Owner-2: 1 loss week 1 (despite scoring 0), 1 win week 2.
+        self.assertEqual(rec["owner-2"]["wins"], 1)
+        self.assertEqual(rec["owner-2"]["losses"], 1)
+
+    def test_zero_point_game_in_current_week_does_not_count(self) -> None:
+        # Only week 1 in snapshot, half-scored.  No later weeks show
+        # it as past, so the 0 could be either a real loss or a game
+        # that hasn't been played.  Must not count.
+        entries = {
+            1: [
+                {"roster_id": 1, "matchup_id": 10, "points": 110.0},
+                {"roster_id": 2, "matchup_id": 10, "points": 0.0},
+            ],
+        }
+        rec = playoff_odds._regular_season_record_to_date(
+            self._make_season(entries), None
+        )
+        self.assertEqual(rec, {})
+
+
+class TieHandling(unittest.TestCase):
+    """Regression for Codex PR #215 round-3 P2 (line 414): exact-tie
+    matchups must increment ties and sort correctly in standings.
+    """
+
+    def test_standings_rank_ties_above_losses(self) -> None:
+        # 0-1-0 vs 0-0-1 — tier has 0.5 effective wins, loser 0.
+        wins = {"loser": 0, "tier": 0}
+        points = {"loser": 1000.0, "tier": 500.0}
+        ties = {"loser": 0, "tier": 1}
+        ordered = playoff_odds._standings_from_sim(
+            wins, points, ["loser", "tier"], ties=ties
+        )
+        self.assertEqual(ordered, ["tier", "loser"])
+
+    def test_standings_uses_pf_tiebreak_when_record_matches(self) -> None:
+        wins = {"a": 5, "b": 5}
+        points = {"a": 1500.0, "b": 1200.0}
+        ties = {"a": 1, "b": 1}
+        ordered = playoff_odds._standings_from_sim(
+            wins, points, ["a", "b"], ties=ties
+        )
+        self.assertEqual(ordered, ["a", "b"])
+
+    def test_record_counts_tied_matchup(self) -> None:
+        original = playoff_odds.metrics.resolve_owner
+        playoff_odds.metrics.resolve_owner = (  # type: ignore[attr-defined]
+            lambda reg, league_id, rid: f"owner-{rid}"
+        )
+
+        class _Season:
+            league_id = "L1"
+            matchups_by_week = {
+                1: [
+                    {"roster_id": 1, "matchup_id": 10, "points": 100.0},
+                    {"roster_id": 2, "matchup_id": 10, "points": 100.0},
+                ],
+                2: [
+                    {"roster_id": 1, "matchup_id": 20, "points": 110.0},
+                    {"roster_id": 2, "matchup_id": 20, "points": 95.0},
+                ],
+            }
+
+            @property
+            def regular_season_weeks(self):
+                return [1, 2]
+
+        try:
+            rec = playoff_odds._regular_season_record_to_date(_Season(), None)
+        finally:
+            playoff_odds.metrics.resolve_owner = original  # type: ignore[attr-defined]
+
+        self.assertEqual(rec["owner-1"]["ties"], 1)
+        self.assertEqual(rec["owner-2"]["ties"], 1)
+        self.assertEqual(rec["owner-1"]["wins"], 1)
+
+
 class LazySectionRouting(unittest.TestCase):
     """Regression for Codex PR #215 P2: ``playoffOdds`` must not be
     invoked as part of the aggregate ``build_public_contract`` walk
