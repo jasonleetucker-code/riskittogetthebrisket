@@ -68,6 +68,12 @@ def _extract_ranks(contract: dict[str, Any]) -> dict[str, int]:
     Accepts either the top-level contract shape or the ``data``-
     wrapped API envelope.  Skips rows without a ranked stamp; we
     only record players who actually have a rank on the board.
+
+    Keys are composite ``{canonicalName}::{assetClass}`` so cross-
+    universe same-name players (offense "James Williams" vs IDP
+    "James Williams" — see ``name_collision_cross_universe`` in the
+    identity-validation code) get distinct history series instead of
+    silently overwriting each other in the snapshot dict.
     """
     arr = contract.get("playersArray")
     if not isinstance(arr, list):
@@ -80,12 +86,28 @@ def _extract_ranks(contract: dict[str, Any]) -> dict[str, int]:
     for row in arr:
         if not isinstance(row, dict):
             continue
-        name = row.get("canonicalName") or row.get("displayName")
+        key = _player_key(row)
         rank = row.get("canonicalConsensusRank")
-        if not name or not isinstance(rank, int) or rank <= 0:
+        if not key or not isinstance(rank, int) or rank <= 0:
             continue
-        out[str(name)] = int(rank)
+        out[key] = int(rank)
     return out
+
+
+def _player_key(row: dict[str, Any]) -> str | None:
+    """Compose a stable unique key for a player row.
+
+    ``{canonicalName}::{assetClass}`` disambiguates cross-universe
+    collisions (offense vs IDP with identical names) — Sleeper's
+    player map allows the same display name to refer to two distinct
+    humans, and keying history by raw name would have them overwrite
+    each other in the append dict.
+    """
+    name = row.get("canonicalName") or row.get("displayName")
+    if not name:
+        return None
+    asset_class = str(row.get("assetClass") or "unknown").lower()
+    return f"{name}::{asset_class}"
 
 
 def _read_lines(path: Path) -> list[dict[str, Any]]:
@@ -207,32 +229,68 @@ def stamp_contract_with_history(
 ) -> int:
     """Mutate the contract so each player row carries ``rankHistory``.
 
-    Returns the number of players that had a history series attached.
+    Stamps onto BOTH the modern ``playersArray`` AND the legacy
+    ``players`` dict when present.  The legacy dict matters because
+    the frontend runtime view (``/api/data?view=app``, the default
+    rankings path) strips ``playersArray`` for payload-size reasons
+    and falls back to the legacy dict — without stamping there, the
+    live ``/rankings`` glyph would render fallback arrows / null
+    even though snapshots were successfully written.  Per Codex
+    PR #217 round 2.
 
-    Called at contract build time so the frontend ``RankChangeGlyph``
-    (which already accepts a ``history`` prop) upgrades from a single-
-    delta arrow to a real sparkline with zero frontend changes.
+    Returns the number of players that had a history series attached
+    (counted once per underlying player — if both the array and the
+    legacy dict carry the same entity, it counts once).
     """
     history = load_history(days=days, path=path)
     if not history:
         return 0
 
+    stamped_keys: set[str] = set()
+
+    def _stamp_row(row: dict[str, Any]) -> None:
+        if not isinstance(row, dict):
+            return
+        key = _player_key(row)
+        if not key:
+            return
+        series = history.get(key)
+        if series:
+            row["rankHistory"] = series
+            stamped_keys.add(key)
+
     arr = contract.get("playersArray")
     if not isinstance(arr, list):
         data = contract.get("data") or {}
         arr = data.get("playersArray") if isinstance(data, dict) else None
-    if not isinstance(arr, list):
-        return 0
+    if isinstance(arr, list):
+        for row in arr:
+            _stamp_row(row)
 
-    stamped = 0
-    for row in arr:
-        if not isinstance(row, dict):
-            continue
-        name = row.get("canonicalName") or row.get("displayName")
-        if not name:
-            continue
-        series = history.get(str(name))
-        if series:
-            row["rankHistory"] = series
-            stamped += 1
-    return stamped
+    # Legacy dict keyed by ``displayName``.  The runtime view strips
+    # ``playersArray`` to minimise payload size; the frontend then
+    # falls back to this dict and materialises rows from it, so
+    # stamping here is what makes sparklines light up on the default
+    # ``/rankings`` path.
+    players_dict = contract.get("players")
+    if not isinstance(players_dict, dict):
+        data = contract.get("data") or {}
+        players_dict = data.get("players") if isinstance(data, dict) else None
+    if isinstance(players_dict, dict):
+        for display_name, row in players_dict.items():
+            if not isinstance(row, dict):
+                continue
+            # The legacy dict doesn't always carry the full row shape
+            # — ensure we have the two fields ``_player_key`` reads.
+            scoped = dict(row)
+            scoped.setdefault("canonicalName", display_name)
+            scoped.setdefault("displayName", display_name)
+            key = _player_key(scoped)
+            if not key:
+                continue
+            series = history.get(key)
+            if series:
+                row["rankHistory"] = series
+                stamped_keys.add(key)
+
+    return len(stamped_keys)
