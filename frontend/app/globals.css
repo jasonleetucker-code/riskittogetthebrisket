@@ -201,9 +201,15 @@ a { color: inherit; text-decoration: none; }
   color: var(--muted);
   font-family: var(--mono);
   font-size: 0.78rem;
+  /* 44x44 minimum touch target — the previous ~24x24 glyph was a
+     frequent miss on iOS. */
+  min-width: 44px;
+  min-height: 40px;
   padding: 4px 10px;
   border-radius: var(--radius-sm);
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .mobile-topbar-actions {
@@ -218,9 +224,12 @@ a { color: inherit; text-decoration: none; }
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 600;
-  padding: 4px 8px;
+  min-height: 40px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -232,7 +241,12 @@ a { color: inherit; text-decoration: none; }
   left: 0;
   right: 0;
   z-index: 40;
-  height: var(--mobile-nav-h);
+  /* Grow the nav by the home-indicator safe area inset so the icons
+     still fit in the original 56px content zone above the indicator.
+     With the previous `height: 56px; padding-bottom: env(...)` +
+     box-sizing: border-box the padding ate the content area and
+     squashed icons into ~22px on iPhones with a home indicator. */
+  height: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px));
   display: flex;
   align-items: center;
   justify-content: space-around;
@@ -400,6 +414,21 @@ a { color: inherit; text-decoration: none; }
   font-size: 0.82rem;
 }
 
+/* Compact numeric inputs (eg. per-source weight in settings).  Uses
+   a narrow fixed width on desktop for the tight 6-column table layout;
+   on mobile the generic 16px rule applies so iOS Safari does not
+   zoom when the input is focused. */
+.input.weight-input {
+  width: 64px;
+  font-size: 0.76rem;
+}
+@media (max-width: 768px) {
+  .input.weight-input {
+    width: 80px;
+    font-size: 16px;
+  }
+}
+
 .input:focus,
 .select:focus {
   outline: none;
@@ -417,6 +446,10 @@ a { color: inherit; text-decoration: none; }
   font-weight: 600;
   cursor: pointer;
   transition: border-color 0.12s;
+  /* Kill the 300ms double-tap delay + the default grey tap-flash on
+     iOS; :active + :hover below still provide tap feedback. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .button:hover {
@@ -521,6 +554,306 @@ tr:hover .sticky-name {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   RANKINGS — COLUMNS POPOVER
+   Inline styles on the popover pin it to the button's right edge via
+   `right: 0`.  When the Columns button wraps onto a new row (narrow
+   viewports) the popover extends 260px left from that anchor, which
+   overflows the viewport on phones.  On ≤520px pin the popover to
+   both edges of the page-header card instead.
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 520px) {
+  .rankings-columns-popover {
+    /* The popover is absolutely-positioned under an inline-block
+       wrapper (the Columns button's parent <div>) — using
+       left/right: 8px on an absolute child would shrink the popover
+       to "button width − 16px", not viewport width.  Switch to
+       `position: fixed` on narrow viewports so left/right anchor to
+       the viewport itself; the button-relative layout is only
+       meaningful on desktop where the menu fits naturally. */
+    position: fixed !important;
+    top: auto !important;
+    bottom: auto !important;
+    left: 8px !important;
+    right: 8px !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 16px);
+    /* Pin just below the mobile topbar + safe area; the button
+       itself is typically scrolled within the main-shell card
+       header, so a fixed near-top layout feels natural and keeps the
+       full source checklist readable without interacting with the
+       source button's in-flow position. */
+    top: calc(var(--mobile-topbar-h) + env(safe-area-inset-top, 0px) + 8px) !important;
+    max-height: calc(100dvh - var(--mobile-topbar-h) - var(--mobile-nav-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   TRADE DESTINATION SELECT
+   Appears inside each trade asset row ("→ Side A / Side B / ...").
+   Desktop wants a very compact pill; mobile gets the standard 16px
+   from the global input rule so iOS does not zoom when the select is
+   tapped.
+   ══════════════════════════════════════════════════════════════════════════ */
+.select.trade-dest-select {
+  font-size: 0.7rem;
+}
+@media (max-width: 768px) {
+  .select.trade-dest-select {
+    font-size: 16px;
+  }
+}
+
+.roster-textarea {
+  font-size: 0.82rem;
+}
+@media (max-width: 768px) {
+  .roster-textarea {
+    font-size: 16px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SETTINGS — SOURCES TABLE
+   Render the full 6-column table on desktop.  On mobile (≤768px) the
+   six-column layout overflows the viewport (~680px at 0.76rem) even
+   inside the horizontal-scroll `.table-wrap`, which makes the toggle
+   and weight inputs annoying to reach.  Collapse Role / Covered /
+   Status into the Source cell as inline badges + a status dot + a
+   "covered" inline count, leaving Source / On / Weight as the three
+   visible columns.  Desktop layout untouched.
+   ══════════════════════════════════════════════════════════════════════════ */
+.settings-sources-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.76rem;
+}
+.settings-src-status-mobile {
+  display: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.settings-src-role-mobile,
+.settings-src-covered-mobile {
+  display: none;
+}
+.settings-src-toggle {
+  /* Desktop keeps native density; mobile gets a bigger scale below. */
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .settings-src-col-role,
+  .settings-src-col-covered,
+  .settings-src-col-status {
+    display: none !important;
+  }
+  .settings-src-status-mobile { display: inline-block; }
+  .settings-src-role-mobile { display: inline-flex; }
+  .settings-src-covered-mobile { display: inline; }
+  .settings-sources-table { font-size: 0.82rem; }
+  .settings-sources-table th,
+  .settings-sources-table td {
+    padding: 10px 6px;
+    white-space: normal;
+  }
+  /* Scale the toggle up to ~22px for reliable one-thumb tap. */
+  .settings-src-toggle {
+    width: 22px;
+    height: 22px;
+    transform: scale(1.1);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   RANGE SLIDERS (settings TE-premium, trade-history window, etc.)
+   ══════════════════════════════════════════════════════════════════════════ */
+/* The native <input type="range"> thumb is ~12px on iOS Safari which
+   is nearly impossible to drag with a finger.  Enlarge to 22px with a
+   hit padding that hit-tests beyond the visible thumb, and tighten the
+   track height so the slider still reads compact. */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px; /* overall control height drives the tap surface */
+  background: transparent;
+  touch-action: manipulation;
+}
+input[type="range"]:focus { outline: none; }
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -9px; /* centre the thumb vertically on the 4px track */
+  border-radius: 50%;
+  background: var(--cyan);
+  border: 2px solid rgba(15, 10, 26, 0.9);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  cursor: grab;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--cyan);
+  border: 2px solid rgba(15, 10, 26, 0.9);
+  cursor: grab;
+}
+
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(255, 198, 47, 0.25),
+              0 2px 6px rgba(0, 0, 0, 0.35);
+}
+input[type="range"]:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px rgba(255, 198, 47, 0.25),
+              0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+@media (max-width: 768px) {
+  input[type="range"] { height: 34px; }
+  input[type="range"]::-webkit-slider-thumb {
+    width: 26px;
+    height: 26px;
+    margin-top: -11px;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   GLOBAL SEARCH
+   ══════════════════════════════════════════════════════════════════════════ */
+/* The input row carries the visible border + focus-ring so the bare
+   input can keep `border: none` (design goal: minimal chrome) without
+   losing keyboard-accessibility focus feedback. */
+.global-search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(8, 19, 44, 0.5);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.global-search-input-row:focus-within {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(255, 198, 47, 0.15);
+}
+.global-search-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 8px 2px;
+  /* 16px locked — iOS would zoom on focus otherwise.  The previous
+     inline `fontSize: "1rem"` resolved to 16px but the mobile global
+     rule now covers it explicitly via `input[type="text"]`. */
+  font-size: 1rem;
+}
+.global-search-close {
+  font-size: 0.76rem;
+  min-height: 40px;
+  padding: 6px 12px;
+  letter-spacing: 0.05em;
+  touch-action: manipulation;
+}
+@media (max-width: 768px) {
+  .global-search-close {
+    min-width: 56px;
+    min-height: 44px;
+    font-size: 0.82rem;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PLAYER POPUP HEADER ACTIONS (Add to Trade / close X)
+   ══════════════════════════════════════════════════════════════════════════ */
+.player-popup-action {
+  font-size: 0.78rem;
+  padding: 6px 12px;
+}
+/* Square close button — keeps visual parity with the .picker-close
+   button used on the player picker.  Font-size drives the glyph; the
+   min-width/min-height lock the tap target. */
+.player-popup-close {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+@media (max-width: 768px) {
+  .player-popup-action {
+    min-height: 44px;
+    padding: 8px 14px;
+    font-size: 0.88rem;
+  }
+  .player-popup-close {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 1.3rem;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   POSITION FILTER CHIPS (rosters page, reusable)
+   ══════════════════════════════════════════════════════════════════════════ */
+/* Segmented toggle.  Inline ``color``/``background``/``borderColor`` on
+   each chip paints the per-position accent; this rule only owns shape,
+   typography and the mobile tap-target minimum. */
+.pos-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.08s ease;
+}
+.pos-chip:active { transform: translateY(1px); }
+
+/* Dim the idle (non-active) chip so the active fill reads first. */
+.pos-chip:not(.pos-chip-active) { background: rgba(255, 255, 255, 0.02); }
+
+@media (max-width: 768px) {
+  .pos-chip {
+    /* 44x44 Apple HIG minimum tap target on touch devices. */
+    min-height: 44px;
+    padding: 6px 14px;
+    font-size: 0.84rem;
+  }
+  .roster-pos-filter { gap: 6px; flex-wrap: wrap; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    BADGES
    ══════════════════════════════════════════════════════════════════════════ */
 .badge {
@@ -617,6 +950,8 @@ tr:hover .sticky-name {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   min-width: 0;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .asset-row > div:first-child {
   min-width: 0;
@@ -687,7 +1022,11 @@ tr:hover .sticky-name {
 
 .picker-sheet {
   width: min(660px, 100%);
-  max-height: 80vh;
+  /* dvh = dynamic viewport height.  When the iOS soft keyboard is open
+     this shrinks the sheet above the keyboard instead of clipping its
+     results/controls underneath.  Desktop browsers treat dvh the same
+     as vh, so this is a pure mobile win with no desktop regression. */
+  max-height: 80dvh;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, rgba(20, 39, 79, 0.97) 0%, rgba(13, 29, 63, 0.98) 100%);
@@ -773,7 +1112,9 @@ tr:hover .sticky-name {
 .sheet {
   width: 100%;
   max-width: 600px;
-  max-height: 85vh;
+  /* dvh so the sheet shrinks with the iOS keyboard instead of
+     disappearing behind it. */
+  max-height: 85dvh;
   overflow-y: auto;
   background: linear-gradient(180deg, rgba(42, 21, 80, 0.98) 0%, rgba(26, 15, 46, 0.99) 100%);
   border: 1px solid var(--border);
@@ -893,7 +1234,10 @@ tr:hover .sticky-name {
    LOGIN PAGE
    ══════════════════════════════════════════════════════════════════════════ */
 .login-shell {
-  min-height: calc(100vh - 120px);
+  /* dvh — the keyboard opens when tapping the password field; vh
+     anchored the shell to the pre-keyboard viewport and pushed the
+     submit button behind the keyboard. */
+  min-height: calc(100dvh - 120px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -927,6 +1271,39 @@ tr:hover .sticky-name {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   iOS INPUT ZOOM DEFENSE (orientation-independent)
+   iOS Safari auto-zooms any focused input whose computed font-size is
+   below 16px.  The ≤768px media query below catches portrait phone
+   viewports; landscape iPhones come in at 844px wide and miss that
+   query even though the device is still phone-size.  `pointer: coarse
+   + hover: none` keys off the input device rather than viewport
+   dimensions, so rotated phones and tablets also lock 16px.
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (hover: none) and (pointer: coarse) {
+  .input,
+  .select,
+  textarea,
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"] {
+    font-size: 16px;
+  }
+  .angle-field select, .angle-field input {
+    font-size: 16px;
+    padding: 8px 10px;
+  }
+  .select.trade-dest-select,
+  .roster-textarea,
+  .input.weight-input {
+    font-size: 16px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    MOBILE BREAKPOINT (≤ 768px)
    ══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
@@ -941,12 +1318,9 @@ tr:hover .sticky-name {
   nav.mobile-only { display: flex !important; }
   header.mobile-only { display: flex !important; }
 
-  /* iOS Safari auto-zooms any input whose computed font-size is
-     smaller than 16px.  Our form controls are 0.82rem (~13px) for
-     desktop density, which triggers a disorienting zoom-in whenever a
-     user taps a field on iOS.  Force 16px on touch-size viewports so
-     tapping a search/filter/picker input does not warp the viewport.
-     Visual density is preserved via the padding/min-height below. */
+  /* See the coarse-pointer rule below — this duplicate ensures the
+     ≤768px portrait path also gets 16px even on browsers / devices
+     that don't surface `pointer: coarse` correctly. */
   .input,
   .select,
   textarea,
@@ -961,7 +1335,7 @@ tr:hover .sticky-name {
   }
 
   .main-shell {
-    padding: var(--space-sm) var(--space-sm) calc(var(--mobile-nav-h) + var(--space-md));
+    padding: var(--space-sm) var(--space-sm) calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md));
     /* Subtract the full top-bar including its safe-area inset so the
        minimum height still reflects the space actually available
        between the (taller, notch-aware) top bar and the bottom nav. */
@@ -976,15 +1350,19 @@ tr:hover .sticky-name {
   .filter-bar { gap: 6px; }
   .filter-bar .input,
   .filter-bar .select {
-    font-size: 0.76rem;
-    padding: 6px 8px;
+    /* Keep the general mobile 16px rule so iOS Safari does not zoom
+       on focus.  Density stays tight via padding; bigger type is
+       the correct tradeoff for touch inputs. */
+    padding: 8px 10px;
   }
 
   table { font-size: 0.74rem; }
   th, td { padding: 6px 8px; }
 
   .trade-sticky-tray {
-    bottom: var(--mobile-nav-h);
+    /* Sit above the bottom nav AND the iOS home indicator, matching
+       the nav's taller total height (var + env). */
+    bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px));
   }
 
   .trade-tray-main {
@@ -1037,13 +1415,18 @@ tr:hover .sticky-name {
     flex-shrink: 0;
   }
 
-  /* Trade controls: compact on mobile */
+  /* Trade controls: compact on mobile.  Keep the padding tight but
+     leave the generic `.input/.select` 16px rule in charge so iOS
+     does not zoom when the "Value mode" or Add-team selects are
+     tapped (the earlier 0.74rem font-size undercut 16px). */
   .trade-controls {
     gap: 6px !important;
   }
-  .trade-controls .button,
-  .trade-controls .select {
+  .trade-controls .button {
     font-size: 0.74rem;
+    padding: 6px 8px;
+  }
+  .trade-controls .select {
     padding: 6px 8px;
   }
 
@@ -1197,7 +1580,13 @@ tr:hover .sticky-name {
    SMALL MOBILE (≤ 420px)
    ══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 420px) {
-  .main-shell { padding: 6px 6px calc(var(--mobile-nav-h) + 10px); }
+  /* Keep the safe-area-inset addition from the ≤768px rule — without
+     it, the last row of content lands behind the home indicator on
+     iPhones whose viewport is 390px wide (14 Pro / 14) and activates
+     this narrower override in cascade. */
+  .main-shell {
+    padding: 6px 6px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px);
+  }
   .card { padding: var(--space-sm); }
   .page-title { font-size: 0.95rem; }
   .filter-bar .input,
@@ -1382,10 +1771,22 @@ tr:hover .sticky-name {
   font-weight: 600;
   cursor: pointer;
   transition: color 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-.rankings-player-name:hover {
+.rankings-player-name:hover,
+.rankings-player-name:active {
   color: var(--cyan);
+}
+
+@media (max-width: 768px) {
+  /* Extend the tappable area vertically on touch so a thumb reliably
+     hits the popup trigger.  Desktop row density unchanged. */
+  .rankings-player-name {
+    display: inline-block;
+    padding: 6px 0;
+  }
 }
 
 .rankings-player-meta {
@@ -1547,7 +1948,14 @@ tr:hover .sticky-name {
 }
 
 /* ── Source audit panel (expandable row) ─────────────────────────── */
-.rankings-row-clickable { cursor: pointer; }
+.rankings-row-clickable {
+  cursor: pointer;
+  /* `transparent` suppresses the default grey flash iOS paints over
+     every tap target.  Hover + active styles below replace it with a
+     themed highlight, so the UI still gives visual feedback. */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
 .rankings-row-clickable:hover td { background: rgba(96, 165, 250, 0.04); }
 .rankings-row-expanded td { background: rgba(96, 165, 250, 0.06); border-bottom: none; }
 
@@ -2526,6 +2934,26 @@ tr:hover .sticky-name {
   color: var(--text-primary);
   font-size: 0.9rem;
 }
+@media (max-width: 768px) {
+  /* `.angle-field select/input` doesn't use the `.input`/`.select`
+     class, so the generic mobile 16px rule doesn't match and iOS
+     zooms when these are tapped.  Lift the font-size inside the
+     mobile breakpoint. */
+  .angle-field select, .angle-field input {
+    font-size: 16px;
+    padding: 8px 10px;
+  }
+}
+/* Landscape phone / tablet defense — `pointer: coarse + hover: none`
+   keys off the input device so rotating an iPhone to landscape (viewport
+   width 844 > 768) still matches.  Declared AFTER `.angle-field` so the
+   cascade picks this rule up regardless of specificity tie-breakers. */
+@media (hover: none) and (pointer: coarse) {
+  .angle-field select, .angle-field input {
+    font-size: 16px;
+    padding: 8px 10px;
+  }
+}
 /* Explicit option styling — Chromium on dark OS themes inherits a
    translucent default and dropdown options become unreadable. */
 .angle-field select option {
@@ -2764,7 +3192,9 @@ tr:hover .sticky-name {
 .chat-fab {
   position: fixed;
   right: 16px;
-  bottom: calc(var(--mobile-nav-h) + 16px);
+  /* Stack above both the bottom nav and the iOS home-indicator safe
+     area so the FAB is always reachable with one thumb. */
+  bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 16px);
   z-index: 900;
   display: inline-flex;
   align-items: center;
@@ -2822,8 +3252,11 @@ tr:hover .sticky-name {
   right: 0;
   left: 0;
   bottom: 0;
-  max-height: 90vh;
-  height: 90vh;
+  /* dvh so the drawer shrinks with the iOS soft keyboard.  With vh
+     the chat input was pushed below the keyboard and the user
+     couldn't see what they were typing. */
+  max-height: 90dvh;
+  height: 90dvh;
   display: flex;
   flex-direction: column;
   background: linear-gradient(180deg, rgba(42, 21, 80, 0.98) 0%, rgba(26, 15, 46, 0.99) 100%);

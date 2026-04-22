@@ -871,9 +871,14 @@ export default function RankingsPage() {
             </button>
             {colsMenuOpen && (
               <div
+                className="rankings-columns-popover"
                 style={{
                   position: "absolute",
                   top: "calc(100% + 4px)",
+                  /* Keep the popover anchored to the button's right
+                     edge on desktop; the narrow-viewport override in
+                     globals.css flips anchoring so the popover cannot
+                     overflow off-screen on mobile. */
                   right: 0,
                   minWidth: 260,
                   maxHeight: 400,
