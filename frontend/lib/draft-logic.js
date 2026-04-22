@@ -568,14 +568,35 @@ export function computeDraftStats(workspace) {
   const tagMap = (ws.tags && typeof ws.tags === "object") ? ws.tags : {};
 
   // Per-team stats (name, initial, spent, remaining, slots, eff$).
+  //
+  // Tier 3 additions per team:
+  //   mdv           — marginal dollar value (remaining / slots left).
+  //                   Used in the budget-pressure heatmap.
+  //   overpayIndex  — (Σ paid − Σ preDraftAtPick) / Σ preDraftAtPick
+  //                   across all picks.  Null when no picks yet.
+  //                   > 0: overpayer.  < 0: value hunter.  ~0: rational.
+  //                   Surfaces in the Teams panel so "who's running hot
+  //                   and will likely overpay again" is visible at a
+  //                   glance.
   const teamStats = teams.map((t, idx) => {
-    const spent = picksByTeam[idx].reduce(
+    const teamPicks = picksByTeam[idx];
+    const spent = teamPicks.reduce(
       (s, p) => s + (Number(p.amount) || 0),
       0,
     );
     const initial = Number(t.initialBudget) || 0;
     const remaining = remainingByIdx[idx];
-    const picksCount = picksByTeam[idx].length;
+    const picksCount = teamPicks.length;
+    const preDraftSum = teamPicks.reduce((s, pk) => {
+      const snap = Number.isFinite(Number(pk.preDraftAtPick))
+        ? Math.max(0, Number(pk.preDraftAtPick))
+        : playerPreDraftById.get(pk.playerId) || 0;
+      return s + snap;
+    }, 0);
+    const overpayIndex =
+      preDraftSum > 0 ? (spent - preDraftSum) / preDraftSum : null;
+    const slotsLeft = slotsRemainingByIdx[idx];
+    const mdv = slotsLeft > 0 ? remaining / slotsLeft : 0;
     return {
       idx,
       name: t.name || `Team ${idx + 1}`,
@@ -586,8 +607,11 @@ export function computeDraftStats(workspace) {
       isMine: idx === myTeamIdx,
       initialSlots: initialSlotsByIdx[idx],
       slotsDrafted: slotsDraftedByIdx[idx],
-      slotsRemaining: slotsRemainingByIdx[idx],
+      slotsRemaining: slotsLeft,
       effectiveBudget: effectiveBudgetByIdx[idx],
+      mdv,
+      preDraftSum,
+      overpayIndex,
     };
   });
 
@@ -1245,6 +1269,132 @@ export function nextBestTargets(stats, { limit = 5 } = {}) {
   });
 
   return candidates.slice(0, limit);
+}
+
+// ── Nomination optimizer ───────────────────────────────────────────────
+/**
+ * Rank undrafted players by "good nomination" score.  A good
+ * nomination is a player the user DOESN'T want, whose expected
+ * clearing price is high enough to drain rival budgets, without
+ * creating significant risk of the user being stuck with them.
+ *
+ * Score model:
+ *
+ *   expected_price(p) = p.inflatedFair
+ *   affordable(p)     = min(expected_price, topCompetitorMax)
+ *     — rivals can't pay more than their effective ceiling; a
+ *       player with fair $50 facing $20-max rivals drains at most $20.
+ *   tag_weight(p):
+ *     avoid    → 1.8    // I actively want them off the board
+ *     neutral  → 1.0
+ *     target   → 0      // never nominate my own targets
+ *   risk_of_winning(p) = if my_winning_bid exceeds expected_price by
+ *     a wide margin, I might accidentally win them.  For neutrals we
+ *     dampen the score by this risk factor; avoid-tagged players are
+ *     assumed acceptable to win (user chose the tag).
+ *
+ *   score(p) = affordable × tag_weight × (1 − risk_factor)
+ *
+ * Excludes drafted players and my targets.  Returns top ``limit``
+ * candidates sorted descending by score.
+ */
+export function nominationCandidates(stats, { limit = 5 } = {}) {
+  if (!stats || !Array.isArray(stats.enrichedPlayers)) return [];
+  const out = [];
+  const topCompetitor = Math.max(0, stats.topCompetitorMax || 0);
+  for (const p of stats.enrichedPlayers) {
+    if (p.drafted) continue;
+    if (p.userTag === TAG_TARGET) continue;
+
+    const expectedPrice = Math.max(0, p.inflatedFair || 0);
+    if (expectedPrice <= 0) continue;
+
+    // Cap drain potential by rival affordability.  A $50 fair player
+    // with no rivals over $20 only drains $20 from the pool no matter
+    // how much the nomination theoretically costs.
+    const drain = Math.min(expectedPrice, topCompetitor);
+    if (drain < 1) continue;
+
+    const tagWeight = p.userTag === TAG_AVOID ? 1.8 : 1.0;
+
+    // Risk of accidentally winning: only meaningful for neutrals.  If
+    // I could win by beating the competitor ceiling cheaply, there's
+    // a nontrivial chance nobody else bids much and I end up stuck.
+    // Avoid-tagged players: user opted in, risk_factor = 0.
+    let riskFactor = 0;
+    if (p.userTag !== TAG_AVOID) {
+      const myExcess = Math.max(0, p.myWinningBid - expectedPrice);
+      // Normalize roughly to 0..1 — excess of $30+ over expected
+      // price is a strong "you might actually win this" signal.
+      riskFactor = Math.min(1, myExcess / 30);
+    }
+
+    const score = drain * tagWeight * (1 - riskFactor);
+    if (score <= 0) continue;
+
+    out.push({
+      player: p,
+      score,
+      drain,
+      expectedPrice,
+      rationale:
+        p.userTag === TAG_AVOID
+          ? `Avoid-tagged · clears ~$${Math.round(drain)} from rivals`
+          : `Drains ~$${Math.round(drain)} from rivals at fair price`,
+    });
+  }
+
+  out.sort((a, b) => b.score - a.score);
+  return out.slice(0, limit);
+}
+
+// ── Inflation history series ───────────────────────────────────────────
+/**
+ * Re-simulate the draft pick-by-pick to produce a time series of
+ * ``{picksCount, timestamp, inflation, topCompetitorMax, leagueSpentPct,
+ * budgetAdvantage}`` snapshots — one per pick plus the draft-start
+ * zeroed baseline.
+ *
+ * Used for the inflation sparkline and any other "how did we get
+ * here?" retrospective UI.  Runs ``computeDraftStats`` N+1 times
+ * (N = number of picks) so O(N²) relative to the pick list, but N
+ * caps at 72 in our league and each computeDraftStats call is
+ * cheap, so total cost is negligible even mid-draft.
+ *
+ * Picks are sorted by ``ts`` ascending so the series reflects
+ * actual draft order regardless of any edit-then-re-record churn.
+ */
+export function computeHistorySeries(workspace) {
+  const ws = workspace || createDefaultWorkspace();
+  const picks = Array.isArray(ws.picks) ? [...ws.picks] : [];
+  picks.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+
+  const series = [];
+  // Baseline (no picks).
+  const base = computeDraftStats({ ...ws, picks: [] });
+  series.push({
+    picksCount: 0,
+    timestamp: null,
+    inflation: base.inflation,
+    topCompetitorMax: base.topCompetitorMax,
+    leagueSpentPct: base.leagueSpentPct,
+    budgetAdvantage: base.budgetAdvantage,
+  });
+
+  for (let i = 0; i < picks.length; i++) {
+    const cumulative = picks.slice(0, i + 1);
+    const s = computeDraftStats({ ...ws, picks: cumulative });
+    series.push({
+      picksCount: i + 1,
+      timestamp: picks[i].ts || null,
+      inflation: s.inflation,
+      topCompetitorMax: s.topCompetitorMax,
+      leagueSpentPct: s.leagueSpentPct,
+      budgetAdvantage: s.budgetAdvantage,
+    });
+  }
+
+  return series;
 }
 
 /**
