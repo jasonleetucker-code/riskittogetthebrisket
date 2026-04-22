@@ -16,6 +16,7 @@ import {
   computeDraftStats,
   createDefaultWorkspace,
   hydrateWorkspace,
+  mergeDraftCapitalTeams,
   playerSlug,
   recordPick,
   removePick,
@@ -24,6 +25,7 @@ import {
   updatePlayerPreDraft,
   updateSettings,
   updateTeam,
+  workspaceIsPristine,
 } from "@/lib/draft-logic";
 
 // ── Constants / seed data ────────────────────────────────────────────
@@ -443,5 +445,142 @@ describe("hydrateWorkspace", () => {
       ],
     };
     expect(hydrateWorkspace(bad).picks.length).toBe(1);
+  });
+});
+
+// ── mergeDraftCapitalTeams ──────────────────────────────────────────
+// Sample matches the exact shape returned by /api/draft-capital:
+//   { teamTotals: [{ team: "…", auctionDollars: N }, …] }
+
+describe("mergeDraftCapitalTeams", () => {
+  const capitalFeed = [
+    { team: "Russini Panini", auctionDollars: 418 },
+    { team: "jstuedle", auctionDollars: 171 },
+    { team: "Rage Against The Achane ", auctionDollars: 157 },
+    { team: "CollinFoz", auctionDollars: 140 },
+    { team: "Chargers Team Doctor", auctionDollars: 128 },
+    { team: "killaKich00", auctionDollars: 64 },
+    { team: "I\u2019m Not Afraid Anymore!", auctionDollars: 50 },
+    { team: "TyBWell", auctionDollars: 49 },
+    { team: "ughb", auctionDollars: 18 },
+    { team: "Still Jason&Brents Team", auctionDollars: 5 },
+  ];
+
+  it("matches by case-insensitive name and copies the auction $", () => {
+    const ws = createDefaultWorkspace();
+    const { workspace, matched, added } = mergeDraftCapitalTeams(
+      ws,
+      capitalFeed,
+    );
+    // One of the defaults ("Russini Panini") matches; the rest are
+    // placeholder names so they don't match the feed and stay put.
+    expect(matched).toBe(1);
+    expect(added).toBe(capitalFeed.length - 1);
+    const russini = workspace.teams.find(
+      (t) => t.name === "Russini Panini",
+    );
+    expect(russini.initialBudget).toBe(418);
+  });
+
+  it("appends feed teams that aren't already on the board", () => {
+    const ws = createDefaultWorkspace();
+    const { workspace } = mergeDraftCapitalTeams(ws, capitalFeed);
+    const names = workspace.teams.map((t) => t.name);
+    expect(names).toContain("jstuedle");
+    expect(names).toContain("CollinFoz");
+    expect(names).toContain("ughb");
+  });
+
+  it("preserves the user's myTeamIdx by name across the merge", () => {
+    const ws = createDefaultWorkspace();
+    // Pretend the user picked team index 2 ("Brent") as theirs.
+    const picked = updateSettings(ws, { myTeamIdx: 0 });
+    const { workspace } = mergeDraftCapitalTeams(picked, capitalFeed);
+    // Russini Panini was at idx 0 before; it should still be the
+    // "mine" team after merge.
+    expect(workspace.teams[workspace.settings.myTeamIdx].name).toBe(
+      "Russini Panini",
+    );
+  });
+
+  it("keeps custom team names when preserveCustomNames=true (default)", () => {
+    const ws = createDefaultWorkspace();
+    // Simulate: user renamed "Russini Panini" to "My Squad" before
+    // hitting the Draft Capital button.
+    const renamed = updateTeam(ws, 0, { name: "My Squad" });
+    const { workspace, matched } = mergeDraftCapitalTeams(
+      renamed,
+      capitalFeed,
+    );
+    // The rename means we miss the match against "Russini Panini"
+    // and just append the feed's version.
+    expect(matched).toBe(0);
+    expect(
+      workspace.teams.find((t) => t.name === "Russini Panini").initialBudget,
+    ).toBe(418);
+    expect(workspace.teams.find((t) => t.name === "My Squad")).toBeTruthy();
+  });
+
+  it("empty feed is a safe no-op", () => {
+    const ws = createDefaultWorkspace();
+    const { workspace, matched, added } = mergeDraftCapitalTeams(ws, []);
+    expect(matched).toBe(0);
+    expect(added).toBe(0);
+    expect(workspace.teams).toEqual(ws.teams);
+  });
+
+  it("merged budgets sum to the feed's total budget", () => {
+    const ws = createDefaultWorkspace();
+    const { workspace } = mergeDraftCapitalTeams(ws, capitalFeed);
+    // Every feed team's auction$ should be reflected.  The sum of
+    // the feed (1200) should be a subset of the merged total — any
+    // ADDITIONAL default teams keep their 71/73 budgets.
+    const feedTotal = capitalFeed.reduce((s, t) => s + t.auctionDollars, 0);
+    expect(feedTotal).toBe(1200);
+    const mergedTotal = workspace.teams.reduce(
+      (s, t) => s + t.initialBudget,
+      0,
+    );
+    expect(mergedTotal).toBeGreaterThanOrEqual(1200);
+  });
+});
+
+// ── workspaceIsPristine ─────────────────────────────────────────────
+
+describe("workspaceIsPristine", () => {
+  it("returns true for a freshly created workspace", () => {
+    expect(workspaceIsPristine(createDefaultWorkspace())).toBe(true);
+  });
+
+  it("returns false once a pick is recorded", () => {
+    const ws = createDefaultWorkspace();
+    const next = recordPick(ws, {
+      playerId: ws.players[0].id,
+      teamIdx: 0,
+      amount: 100,
+    });
+    expect(workspaceIsPristine(next)).toBe(false);
+  });
+
+  it("returns false once a team name or budget is edited", () => {
+    const renamed = updateTeam(createDefaultWorkspace(), 0, {
+      name: "Changed",
+    });
+    expect(workspaceIsPristine(renamed)).toBe(false);
+    const rebudgeted = updateTeam(createDefaultWorkspace(), 1, {
+      initialBudget: 999,
+    });
+    expect(workspaceIsPristine(rebudgeted)).toBe(false);
+  });
+
+  it("returns false when the team count differs from the default", () => {
+    const ws = createDefaultWorkspace();
+    const fewer = { ...ws, teams: ws.teams.slice(0, 10) };
+    expect(workspaceIsPristine(fewer)).toBe(false);
+  });
+
+  it("gracefully handles null / undefined input", () => {
+    expect(workspaceIsPristine(null)).toBe(false);
+    expect(workspaceIsPristine(undefined)).toBe(false);
   });
 });
