@@ -166,11 +166,18 @@ a { color: inherit; text-decoration: none; }
   position: sticky;
   top: 0;
   z-index: 40;
-  height: var(--mobile-topbar-h);
+  /* viewport-fit=cover (set in app/layout.jsx) extends the layout into
+     the notch / status-bar zone on iOS.  Grow the bar by the top
+     safe-area inset and pad the content down into the safe zone so
+     brand/title/actions never render under the notch or status bar.
+     The bottom nav has a matching `padding-bottom: env(safe-area-inset-bottom)`. */
+  height: calc(var(--mobile-topbar-h) + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-md);
+  padding-left: var(--space-md);
+  padding-right: var(--space-md);
   background: rgba(15, 10, 26, 0.92);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
@@ -955,7 +962,10 @@ tr:hover .sticky-name {
 
   .main-shell {
     padding: var(--space-sm) var(--space-sm) calc(var(--mobile-nav-h) + var(--space-md));
-    min-height: calc(100vh - var(--mobile-topbar-h));
+    /* Subtract the full top-bar including its safe-area inset so the
+       minimum height still reflects the space actually available
+       between the (taller, notch-aware) top bar and the bottom nav. */
+    min-height: calc(100vh - var(--mobile-topbar-h) - env(safe-area-inset-top, 0px));
   }
 
   .page-title { font-size: 1.05rem; }
