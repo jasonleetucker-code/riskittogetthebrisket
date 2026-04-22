@@ -282,6 +282,58 @@ class StampContract(unittest.TestCase):
             infer({"position": "DL", "assetClass": "offense"}), "offense"
         )
 
+    def test_infers_pick_from_name_when_no_position_or_asset(self) -> None:
+        # Regression for Codex PR #217 round 4: runtime generic-pick
+        # rows carry neither ``assetClass`` NOR ``position``, so the
+        # only signal is the canonical display name.  Without the
+        # name-pattern fallback these would hash to ``::unknown`` and
+        # miss snapshot keys written as ``::pick``.
+        infer = rank_history._infer_asset_class
+        # Early/Mid/Late slot style (most common).
+        self.assertEqual(infer({"canonicalName": "2026 Early 1st"}), "pick")
+        self.assertEqual(infer({"canonicalName": "2027 Mid 2nd"}), "pick")
+        self.assertEqual(infer({"canonicalName": "2028 Late 3rd"}), "pick")
+        # Numbered picks ("2026 Pick 1.04").
+        self.assertEqual(infer({"canonicalName": "2026 Pick 1.04"}), "pick")
+        # Round labels ("2027 Round 2", "2027 R2").
+        self.assertEqual(infer({"canonicalName": "2027 Round 2"}), "pick")
+        self.assertEqual(infer({"canonicalName": "2027 R2"}), "pick")
+        # displayName also works.
+        self.assertEqual(infer({"displayName": "2026 Early 1st"}), "pick")
+        # Non-pick names still hash to unknown.
+        self.assertEqual(infer({"canonicalName": "Josh Allen"}), "unknown")
+        # Explicit assetClass/position still win.
+        self.assertEqual(
+            infer({"canonicalName": "2026 Early 1st", "position": "QB"}),
+            "offense",
+        )
+
+    def test_stamps_legacy_pick_rows_via_name_pattern(self) -> None:
+        # End-to-end: a legacy ``players`` dict row with no assetClass
+        # and no position still gets stamped if the name is pick-shaped.
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "rank_history.jsonl"
+            rank_history.append_snapshot(
+                _contract_with({"2026 Early 1st": 45}, asset_class="pick"),
+                date="2026-04-19",
+                path=path,
+            )
+            rank_history.append_snapshot(
+                _contract_with({"2026 Early 1st": 40}, asset_class="pick"),
+                date="2026-04-20",
+                path=path,
+            )
+            contract = {
+                "players": {
+                    "2026 Early 1st": {},  # No assetClass, no position.
+                }
+            }
+            stamped = rank_history.stamp_contract_with_history(contract, path=path)
+            self.assertEqual(stamped, 1)
+            self.assertEqual(
+                len(contract["players"]["2026 Early 1st"]["rankHistory"]), 2
+            )
+
     def test_stamps_legacy_players_dict_for_runtime_view(self) -> None:
         # Regression for Codex PR #217 round 2: the runtime view
         # strips ``playersArray`` and the frontend falls back to the

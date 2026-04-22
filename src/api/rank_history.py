@@ -42,6 +42,7 @@ Public API
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
@@ -99,6 +100,30 @@ _IDP_POSITIONS = frozenset(
     {"DL", "DE", "DT", "EDGE", "NT", "LB", "OLB", "ILB", "MLB", "DB", "CB", "S", "FS", "SS"}
 )
 
+# Recognise generic pick names like "2026 Early 1st", "2027 Mid 2nd".
+# The runtime ``players`` dict (``/api/data?view=app``) carries pick
+# rows without an ``assetClass`` OR a ``position`` field —
+# ``build_api_data_contract`` leaves generic picks positionless.  Per
+# Codex PR #217 round 4: without a name-pattern fallback, picks hash
+# to ``::unknown`` and miss snapshot keys stored as ``::pick``.
+# Handles Early/Mid/Late slot-style (most common), numbered picks
+# ("2026 Pick 1.04"), and generic round labels ("2027 Round 2",
+# "2027 R2").
+_PICK_NAME_PATTERNS = (
+    re.compile(r"^\s*20\d{2}\s+(early|mid|late)\s+\d+(st|nd|rd|th)\b", re.IGNORECASE),
+    re.compile(r"^\s*20\d{2}\s+pick\s+\d+", re.IGNORECASE),
+    re.compile(r"^\s*20\d{2}\s+round\s+\d+", re.IGNORECASE),
+    re.compile(r"^\s*20\d{2}\s+r\d+\b", re.IGNORECASE),
+)
+
+
+def _looks_like_pick_name(name: Any) -> bool:
+    """True when a row name matches known pick-name shapes."""
+    if not name:
+        return False
+    s = str(name)
+    return any(pat.match(s) for pat in _PICK_NAME_PATTERNS)
+
 
 def _infer_asset_class(row: dict[str, Any]) -> str:
     """Fallback classifier when ``assetClass`` isn't stamped.
@@ -110,11 +135,17 @@ def _infer_asset_class(row: dict[str, Any]) -> str:
     ``::unknown`` and misses snapshot keys written as ``::offense``
     or ``::idp`` — which defeats the whole point of stamping the
     legacy dict and leaves ``row.rankHistory`` null on the default
-    rankings flow.  Per Codex PR #217 round 3.
+    rankings flow.
 
-    Order of preference: explicit ``assetClass`` > inferred from
-    ``position``.  Position taxonomy matches
-    ``src/utils/name_clean.py::classify_position``.
+    Order of preference:
+      1. explicit ``assetClass`` (offense / idp / pick)
+      2. inferred from ``position`` — taxonomy matches
+         ``src/utils/name_clean.py::classify_position``
+         (Codex PR #217 round 3)
+      3. inferred from name pattern for picks — runtime generic-pick
+         rows typically lack BOTH ``assetClass`` AND ``position``,
+         so the canonical display name is the only signal
+         (Codex PR #217 round 4)
     """
     asset = str(row.get("assetClass") or "").strip().lower()
     if asset in ("offense", "idp", "pick"):
@@ -126,6 +157,10 @@ def _infer_asset_class(row: dict[str, Any]) -> str:
         return "offense"
     if pos in _IDP_POSITIONS:
         return "idp"
+    # Name-pattern fallback: positionless pick rows (generic picks
+    # like "2026 Early 1st") would otherwise hash to ``::unknown``.
+    if _looks_like_pick_name(row.get("canonicalName") or row.get("displayName")):
+        return "pick"
     return "unknown"
 
 
