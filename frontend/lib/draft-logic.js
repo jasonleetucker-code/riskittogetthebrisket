@@ -404,6 +404,120 @@ export function updateSettings(workspace, patch) {
   };
 }
 
+/**
+ * Merge per-team auction $ from ``/api/draft-capital`` onto a workspace.
+ *
+ * The draft-capital endpoint returns one row per team that's carrying
+ * carry-over auction dollars — typically 10 of 12 teams (the two with
+ * $0 budget are usually omitted from the API response because they
+ * traded every rookie pick away).  We merge by case-insensitive team
+ * name, preserving:
+ *
+ *   - Any team the user already renamed manually (we match the
+ *     original name so a manual rename doesn't block the merge).
+ *   - Teams that already have picks recorded against them (we NEVER
+ *     blow away budgets mid-draft; callers should only invoke this
+ *     when ``workspace.picks`` is empty, or explicitly ack the reset).
+ *
+ * Any team in the capital feed that doesn't already exist on the
+ * board is appended to the end.  Teams on the board but missing from
+ * the feed keep their existing budget (or default to 0 if this is a
+ * fresh load).  A ``myTeamIdx`` remap is also returned so the UI can
+ * re-pin the user's team even if the order changes.
+ *
+ * @param {object} workspace - existing workspace (mutated into a new copy)
+ * @param {{team: string, auctionDollars: number}[]} teamTotals
+ *   — raw ``teamTotals`` array from the /api/draft-capital payload
+ * @param {object} [opts]
+ * @param {boolean} [opts.preserveCustomNames=true]  — when true, a
+ *   manually-edited team name is kept if its budget matches the feed;
+ *   when false, the feed's names win.
+ * @returns {{workspace: object, matched: number, added: number, missing: string[]}}
+ */
+export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
+  const preserveNames = opts.preserveCustomNames !== false;
+  const ws = workspace || createDefaultWorkspace();
+  const existing = Array.isArray(ws.teams) ? ws.teams : [];
+  const feed = Array.isArray(teamTotals) ? teamTotals : [];
+
+  // Build a case-insensitive lookup from the feed.
+  const feedByKey = new Map();
+  for (const entry of feed) {
+    const name = String(entry?.team || "").trim();
+    if (!name) continue;
+    feedByKey.set(name.toLowerCase(), {
+      name,
+      auctionDollars: Math.max(0, Number(entry?.auctionDollars) || 0),
+    });
+  }
+
+  const myTeamIdx = Number.isInteger(ws.settings?.myTeamIdx)
+    ? ws.settings.myTeamIdx
+    : 0;
+  const myTeamNameBefore = existing[myTeamIdx]?.name || "";
+
+  // Walk existing teams, matching by name.  Unmatched entries keep
+  // their current budget — the UI can flag them as "missing from
+  // capital feed" if needed.
+  const usedFeedKeys = new Set();
+  const merged = existing.map((t) => {
+    const key = String(t.name || "").toLowerCase();
+    const hit = feedByKey.get(key);
+    if (!hit) return { ...t };
+    usedFeedKeys.add(key);
+    return {
+      name: preserveNames && t.name ? t.name : hit.name,
+      initialBudget: hit.auctionDollars,
+    };
+  });
+
+  // Append any feed teams not already on the board.  These are the
+  // rows that just showed up in the capital feed — most likely after
+  // a Sleeper re-sync.
+  const missing = [];
+  for (const [key, hit] of feedByKey.entries()) {
+    if (usedFeedKeys.has(key)) continue;
+    merged.push({ name: hit.name, initialBudget: hit.auctionDollars });
+    missing.push(hit.name);
+  }
+
+  // Re-locate my team by name so the selection survives the merge.
+  let nextMyIdx = merged.findIndex(
+    (t) => String(t.name || "").toLowerCase() === myTeamNameBefore.toLowerCase(),
+  );
+  if (nextMyIdx < 0) nextMyIdx = myTeamIdx >= 0 && myTeamIdx < merged.length ? myTeamIdx : 0;
+
+  return {
+    workspace: {
+      ...ws,
+      teams: merged,
+      settings: { ...(ws.settings || {}), myTeamIdx: nextMyIdx },
+    },
+    matched: usedFeedKeys.size,
+    added: missing.length,
+    missing,
+  };
+}
+
+/**
+ * True when the workspace has never been modified beyond defaults.
+ * Used to decide whether auto-load from ``/api/draft-capital`` is
+ * safe — we don't want to clobber budgets the user has already
+ * edited by hand.
+ */
+export function workspaceIsPristine(workspace) {
+  const ws = workspace || {};
+  if (!Array.isArray(ws.picks) || ws.picks.length !== 0) return false;
+  const def = createDefaultWorkspace();
+  if ((ws.teams || []).length !== def.teams.length) return false;
+  for (let i = 0; i < def.teams.length; i++) {
+    const a = ws.teams[i] || {};
+    const b = def.teams[i];
+    if (a.name !== b.name || a.initialBudget !== b.initialBudget) return false;
+  }
+  return true;
+}
+
 /** Add a new rookie row to the board. */
 export function addPlayer(workspace, { name, preDraft }) {
   const id = playerSlug(name);

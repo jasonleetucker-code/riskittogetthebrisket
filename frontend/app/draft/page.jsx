@@ -12,6 +12,7 @@ import {
   computeDraftStats,
   createDefaultWorkspace,
   hydrateWorkspace,
+  mergeDraftCapitalTeams,
   playerSlug,
   recordPick,
   removePick,
@@ -20,6 +21,7 @@ import {
   updatePlayerPreDraft,
   updateSettings,
   updateTeam,
+  workspaceIsPristine,
 } from "@/lib/draft-logic";
 
 /* ── Utility formatters ───────────────────────────────────────────── */
@@ -82,15 +84,90 @@ function StatsStrip({ stats }) {
 
 /* ── Team budgets panel ───────────────────────────────────────────── */
 
-function TeamPanel({ stats, workspace, onSettings, onTeam }) {
+function TeamPanel({
+  stats,
+  workspace,
+  onSettings,
+  onTeam,
+  onLoadCapital,
+  capitalStatus,
+}) {
+  const confirmAndLoad = () => {
+    const hasPicks = (workspace.picks || []).length > 0;
+    if (hasPicks) {
+      const ok =
+        typeof window !== "undefined" &&
+        window.confirm(
+          "The draft is already in progress.  Loading fresh budgets from Draft Capital will reset every team's Initial $ to their carry-over balances — your picks stay, but any manual budget edits will be overwritten.  Continue?",
+        );
+      if (!ok) return;
+      onLoadCapital({ force: true });
+    } else {
+      onLoadCapital({ force: true });
+    }
+  };
+
   return (
     <div className="card draft-team-panel">
       <div className="draft-panel-header">
-        <h3>Teams & budgets</h3>
-        <div className="muted" style={{ fontSize: "0.72rem" }}>
-          Edit initial $ to match your carry-over balances. Your team is
-          highlighted — pick it from the dropdown.
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 10,
+          }}
+        >
+          <div>
+            <h3 style={{ margin: "0 0 4px" }}>Teams & budgets</h3>
+            <div className="muted" style={{ fontSize: "0.72rem" }}>
+              Budgets pre-fill from the live Draft Capital feed. Edit
+              any row to match your carry-over balances; click{" "}
+              <strong>Load from Draft Capital</strong> to re-pull.
+            </div>
+          </div>
+          <button
+            className="button"
+            onClick={confirmAndLoad}
+            disabled={capitalStatus.loading}
+            title="Re-pull per-team auction $ from /api/draft-capital"
+            style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}
+          >
+            {capitalStatus.loading ? "Loading…" : "↻ Load from Draft Capital"}
+          </button>
         </div>
+        {capitalStatus.info && (
+          <div
+            className="muted"
+            style={{
+              fontSize: "0.72rem",
+              marginTop: 6,
+              color: "var(--green)",
+            }}
+          >
+            {capitalStatus.info}
+          </div>
+        )}
+        {capitalStatus.error && (
+          <div
+            style={{
+              fontSize: "0.72rem",
+              marginTop: 6,
+              color: "var(--red)",
+            }}
+          >
+            Draft Capital error: {capitalStatus.error}
+          </div>
+        )}
+        {capitalStatus.source?.season && !capitalStatus.error && (
+          <div
+            className="muted"
+            style={{ fontSize: "0.68rem", marginTop: 4 }}
+          >
+            Source: {capitalStatus.source.season} Draft Capital · $
+            {capitalStatus.source.totalBudget} total
+          </div>
+        )}
       </div>
       <div className="draft-team-list">
         <div className="draft-team-row draft-team-row-head">
@@ -640,6 +717,12 @@ export default function DraftDashboardPage() {
   const [modalPlayer, setModalPlayer] = useState(null);
   const [showDrafted, setShowDrafted] = useState(false);
   const [query, setQuery] = useState("");
+  const [capitalStatus, setCapitalStatus] = useState({
+    loading: false,
+    error: "",
+    info: "",
+    source: null, // { season, totalBudget, fetchedAt }
+  });
 
   // Gate on auth: unauthenticated users bounce to /login with a return path.
   useEffect(() => {
@@ -674,6 +757,73 @@ export default function DraftDashboardPage() {
   }, [workspace, hydrated]);
 
   const stats = useMemo(() => computeDraftStats(workspace), [workspace]);
+
+  // Pull per-team auction $ budgets from /api/draft-capital.  The
+  // dashboard needs this to mirror real carry-over balances without
+  // forcing the user to re-enter every team's budget by hand.  When
+  // ``quiet`` is true we don't flash a status banner on success —
+  // used for the silent auto-populate on first page load.
+  const fetchDraftCapital = useCallback(
+    async ({ quiet = false, force = false } = {}) => {
+      setCapitalStatus((s) => ({ ...s, loading: true, error: "", info: "" }));
+      try {
+        const res = await fetch("/api/draft-capital", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data?.error) throw new Error(data.error);
+        const teamTotals = Array.isArray(data?.teamTotals) ? data.teamTotals : [];
+        if (teamTotals.length === 0) {
+          throw new Error("Draft capital feed had no team totals.");
+        }
+
+        setWorkspace((ws) => {
+          // Non-force fetches are gated: if the user has already
+          // recorded picks or tuned team budgets, don't clobber.
+          if (!force && !workspaceIsPristine(ws)) return ws;
+          const { workspace: next, matched, added } = mergeDraftCapitalTeams(
+            ws,
+            teamTotals,
+          );
+          if (!quiet) {
+            setCapitalStatus((s) => ({
+              ...s,
+              info: `Loaded ${matched} team budgets from Draft Capital${
+                added > 0 ? ` (${added} new)` : ""
+              }.`,
+            }));
+          }
+          return next;
+        });
+
+        setCapitalStatus((s) => ({
+          ...s,
+          loading: false,
+          source: {
+            season: data.season,
+            totalBudget: data.totalBudget,
+            fetchedAt: new Date().toISOString(),
+          },
+        }));
+      } catch (err) {
+        setCapitalStatus((s) => ({
+          ...s,
+          loading: false,
+          error: err?.message || "Failed to load draft capital.",
+        }));
+      }
+    },
+    [],
+  );
+
+  // Auto-populate on first load when the workspace is still at
+  // defaults — gives the user a pre-seeded team list without a click,
+  // but never overwrites a workspace already in progress.
+  useEffect(() => {
+    if (!hydrated || authenticated !== true) return;
+    if (!workspaceIsPristine(workspace)) return;
+    fetchDraftCapital({ quiet: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, authenticated]);
 
   const onSettings = useCallback(
     (patch) => setWorkspace((ws) => updateSettings(ws, patch)),
@@ -775,6 +925,8 @@ export default function DraftDashboardPage() {
           workspace={workspace}
           onSettings={onSettings}
           onTeam={onTeam}
+          onLoadCapital={fetchDraftCapital}
+          capitalStatus={capitalStatus}
         />
         <BidKnobs settings={workspace.settings || {}} onSettings={onSettings} />
       </div>
