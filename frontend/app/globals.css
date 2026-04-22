@@ -563,15 +563,27 @@ tr:hover .sticky-name {
    ══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 520px) {
   .rankings-columns-popover {
-    /* Override the inline `right: 0` with a fixed-width anchored to
-       the left edge of the viewport so the 260px menu cannot escape
-       off-screen.  Inline styles win on specificity; bump ours with
-       !important (the popover only renders inside this narrow query,
-       so !important scope stays tight). */
+    /* The popover is absolutely-positioned under an inline-block
+       wrapper (the Columns button's parent <div>) — using
+       left/right: 8px on an absolute child would shrink the popover
+       to "button width − 16px", not viewport width.  Switch to
+       `position: fixed` on narrow viewports so left/right anchor to
+       the viewport itself; the button-relative layout is only
+       meaningful on desktop where the menu fits naturally. */
+    position: fixed !important;
+    top: auto !important;
+    bottom: auto !important;
     left: 8px !important;
     right: 8px !important;
     min-width: 0 !important;
     max-width: calc(100vw - 16px);
+    /* Pin just below the mobile topbar + safe area; the button
+       itself is typically scrolled within the main-shell card
+       header, so a fixed near-top layout feels natural and keeps the
+       full source checklist readable without interacting with the
+       source button's in-flow position. */
+    top: calc(var(--mobile-topbar-h) + env(safe-area-inset-top, 0px) + 8px) !important;
+    max-height: calc(100dvh - var(--mobile-topbar-h) - var(--mobile-nav-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px);
   }
 }
 
@@ -1568,7 +1580,13 @@ input[type="range"]:focus-visible::-moz-range-thumb {
    SMALL MOBILE (≤ 420px)
    ══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 420px) {
-  .main-shell { padding: 6px 6px calc(var(--mobile-nav-h) + 10px); }
+  /* Keep the safe-area-inset addition from the ≤768px rule — without
+     it, the last row of content lands behind the home indicator on
+     iPhones whose viewport is 390px wide (14 Pro / 14) and activates
+     this narrower override in cascade. */
+  .main-shell {
+    padding: 6px 6px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px);
+  }
   .card { padding: var(--space-sm); }
   .page-title { font-size: 0.95rem; }
   .filter-bar .input,
