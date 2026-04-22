@@ -348,6 +348,30 @@ def stamp_contract_with_history(
     if not isinstance(players_dict, dict):
         data = contract.get("data") or {}
         players_dict = data.get("players") if isinstance(data, dict) else None
+
+    # Build a ``displayName → assetClass`` map from the modern
+    # playersArray so we can classify legacy-dict rows that carry
+    # neither ``assetClass`` nor ``position`` — which is the common
+    # case: offense/IDP rows in the legacy dict only have source
+    # value columns plus underscored internals.  Without this map,
+    # ``_infer_asset_class`` returns ``"unknown"`` for every non-pick
+    # regular player, and ``history.get(f"{name}::unknown")`` misses
+    # (snapshots were written as ``::offense`` / ``::idp``).  Picks
+    # worked via the name-pattern fallback, so the pre-fix behaviour
+    # stamped only picks — regular players never lit up on
+    # ``/rankings`` regardless of how much history accumulated.
+    name_to_asset: dict[str, str] = {}
+    if isinstance(arr, list):
+        for row in arr:
+            if not isinstance(row, dict):
+                continue
+            display = row.get("displayName") or row.get("canonicalName")
+            if not display:
+                continue
+            asset = str(row.get("assetClass") or "").strip().lower()
+            if asset in ("offense", "idp", "pick"):
+                name_to_asset[str(display)] = asset
+
     if isinstance(players_dict, dict):
         for display_name, row in players_dict.items():
             if not isinstance(row, dict):
@@ -357,6 +381,15 @@ def stamp_contract_with_history(
             scoped = dict(row)
             scoped.setdefault("canonicalName", display_name)
             scoped.setdefault("displayName", display_name)
+            # Borrow the assetClass from the playersArray mirror
+            # when the legacy row doesn't carry one itself; this is
+            # what makes history lookups hit for regular offense/IDP
+            # players (pick rows already worked via the name-pattern
+            # fallback in ``_infer_asset_class``).
+            if "assetClass" not in scoped:
+                asset_from_array = name_to_asset.get(str(display_name))
+                if asset_from_array:
+                    scoped["assetClass"] = asset_from_array
             key = _player_key(scoped)
             if not key:
                 continue

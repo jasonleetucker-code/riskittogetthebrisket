@@ -365,16 +365,22 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # ``scripts/fetch_fantasypros_fitzmaurice.py`` which resolves
     # the date-rotating article URL, parses the four embedded
     # Datawrapper iframes (QB/RB/WR/TE), and writes per-position
-    # values on a 0-~101 scale.  For each position we pick the
-    # league-appropriate column: ``SF Value`` for QB (Superflex),
-    # ``Trade Value`` for RB/WR (no league-scoring split), and
-    # ``TEP Value`` for TE (TE-Premium) — matching the yahooBoone
-    # pattern.  Signal=value so the blend's value-direct branch
-    # rescales Fitzmaurice's top player (typically a QB at 101)
-    # to 9999 and every other player scales linearly.
+    # values on a 0-~101 scale plus a global 1-indexed rank.
+    #
+    # Signal=rank (2026-04-22, restored): Fitzmaurice's value scale
+    # hits its ceiling hard — the top dozen+ players cluster between
+    # 80 and 101 with many ties, which the ``value-direct`` path
+    # collapsed into a narrow top band and the Hampel filter then
+    # correctly rejected against differentiated sources like KTC.
+    # PR #216 originally moved this to rank-signal (19% → 1.7% drop
+    # rate); the subsequent PR #218 merge silently reverted the flag
+    # back to ``value`` while leaving the rest of the scaffolding
+    # intact.  The live audit re-caught the 19% drop rate and this
+    # restores the PR #216 state.  Same template as dynastyDaddySf
+    # and yahooBoone above.
     "fantasyProsFitzmaurice": {
         "path": "CSVs/site_raw/fantasyProsFitzmaurice.csv",
-        "signal": "value",
+        "signal": "rank",
     },
     # DLF Dynasty Rookie Superflex rankings — 6-expert consensus of the
     # current rookie class only (no veterans).  Raw CSV exported from
@@ -2579,6 +2585,13 @@ _TRUST_MIRROR_FIELDS = (
     "sourceAudit",
     "sourceOriginalRanks",
     "canonicalTierId",
+    # ``rankChange`` is stamped by ``_stamp_rank_changes`` at the end
+    # of ``_compute_unified_rankings`` but only onto the playersArray.
+    # Without mirroring, the runtime ``view=app`` (which strips
+    # playersArray) ships a legacy dict with zero rankChange fields,
+    # which is why ``RankChangeGlyph`` had nothing to render on the
+    # default /rankings path for every row (2026-04-22 audit).
+    "rankChange",
 )
 
 
@@ -4222,20 +4235,16 @@ _MAD_PENALTY_LAMBDA: float = 0.0
 _VALUE_BASED_SOURCES: frozenset[str] = frozenset({
     "ktc",
     "idpTradeCalc",
-    # ``dynastyDaddySf`` and ``yahooBoone`` were moved to the rank-signal
-    # path 2026-04-22 after the Hampel audit flagged 61% and 47% drop
-    # rates — both have compressed top-of-curve value distributions
-    # (DynastyDaddy's 10,200 cap with top 3 tied; Boone's 141 top with
-    # seven players ≥110) that the value-direct rescaling preserved
-    # unfaithfully.  See their ``_SOURCE_CSV_PATHS`` entries above for
-    # the full rationale.
-    #
-    # FantasyPros / Pat Fitzmaurice Dynasty Trade Value Chart.
-    # Published monthly; Datawrapper CSV exposes SF Value (QB),
-    # Trade Value (RB/WR), TEP Value (TE) columns.  Top player
-    # sits at 101 (SF-adjusted QB) so the value-direct rescaling
-    # maps Fitzmaurice's top → 9999.  Added 2026-04-21.
-    "fantasyProsFitzmaurice",
+    # ``dynastyDaddySf``, ``yahooBoone``, and ``fantasyProsFitzmaurice``
+    # were moved to the rank-signal path 2026-04-22 after the Hampel
+    # audit flagged 61% / 47% / 19% drop rates respectively — all three
+    # have compressed top-of-curve value distributions (DynastyDaddy's
+    # 10,200 cap with top 3 tied; Boone's 141 top with seven players
+    # ≥110; Fitzmaurice's 0-101 scale with the top dozen bunched
+    # 80-101) that the value-direct rescaling preserved unfaithfully.
+    # See their ``_SOURCE_CSV_PATHS`` entries above for the full
+    # rationale.  Fitzmaurice was reverted by an accidental PR #218
+    # merge and restored here.
 })
 
 

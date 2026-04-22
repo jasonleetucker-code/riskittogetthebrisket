@@ -35,6 +35,7 @@ function certaintyLabel(kind) {
   if (kind === "partial") return { text: "Partial schedule (round-robin for un-posted weeks)", color: CHART_COLORS.warn };
   if (kind === "inferred") return { text: "Inferred round-robin schedule", color: CHART_COLORS.warn };
   if (kind === "final") return { text: "Season complete", color: CHART_COLORS.axisLabel };
+  if (kind === "preseason") return { text: "Preseason — odds not yet simulated", color: CHART_COLORS.axisLabel };
   return { text: "Unknown schedule source", color: CHART_COLORS.axisLabel };
 }
 
@@ -48,6 +49,41 @@ export default function PlayoffOddsChart({
     return (
       <div className="chart-empty" style={{ padding: 12, color: CHART_COLORS.axisLabel }}>
         No playoff-odds data — season may not have started yet.
+      </div>
+    );
+  }
+
+  // Preseason short-circuit: when the backend reports we're before
+  // Week 1 (``scheduleCertainty === "preseason"``) the simulator
+  // deliberately returns ``playoffProbability: null`` for every owner
+  // and ``numSims: 0``.  Rendering the bar chart with 12 rows of
+  // empty placeholder tracks plus "—" dashes looked broken ("every
+  // row shows nothing") even though it was working as designed.
+  // Replace that visualisation with an explicit preseason panel that
+  // names the state, so it's unambiguously "not yet computable" vs.
+  // "something is wrong."
+  const isPreseason =
+    data?.scheduleCertainty === "preseason" ||
+    (owners.length > 0 && owners.every((o) => o?.playoffProbability == null));
+  if (isPreseason) {
+    return (
+      <div
+        className="chart-empty"
+        style={{
+          padding: "16px 12px",
+          color: CHART_COLORS.axisLabel,
+          textAlign: "center",
+          lineHeight: 1.5,
+        }}
+      >
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
+          Preseason — odds not yet simulated
+        </div>
+        <div style={{ fontSize: 11 }}>
+          Playoff probabilities populate once Sleeper posts a schedule and Week 1 begins.
+          {" "}
+          {owners.length} owners · top {data?.playoffSpots ?? "?"} make playoffs.
+        </div>
       </div>
     );
   }

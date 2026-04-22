@@ -299,6 +299,29 @@ class TestCanonicalConsensusRank(unittest.TestCase):
         self.assertEqual(len(ranked), OVERALL_RANK_LIMIT)
 
 
+class TestRankChangeMirror(unittest.TestCase):
+    """``rankChange`` stamped by ``_stamp_rank_changes`` onto playersArray
+    must survive the runtime view that strips playersArray — i.e. it
+    must mirror into the legacy ``players`` dict via
+    ``_TRUST_MIRROR_FIELDS``.  Regression for the 2026-04-22 audit
+    which found rankChange missing from every legacy-dict row.
+    """
+
+    def test_rank_change_mirrors_to_legacy_dict(self):
+        from src.api.data_contract import _mirror_trust_to_legacy
+        players_array = [
+            {"legacyRef": "Josh Allen", "rankChange": 3, "confidenceBucket": "high"},
+            {"legacyRef": "Puka Nacua", "rankChange": None, "confidenceBucket": "high"},
+        ]
+        legacy = {
+            "Josh Allen": {"ktc": 9000},
+            "Puka Nacua": {"ktc": 8800},
+        }
+        _mirror_trust_to_legacy(players_array, legacy)
+        self.assertEqual(legacy["Josh Allen"]["rankChange"], 3)
+        self.assertIsNone(legacy["Puka Nacua"]["rankChange"])
+
+
 class TestIdpIntegrityGuardrails(unittest.TestCase):
     def test_prefers_explicit_player_offense_position_over_conflicting_sleeper_idp_map(self):
         raw = {
