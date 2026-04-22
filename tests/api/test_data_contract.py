@@ -457,5 +457,62 @@ class TestStripNameSuffix(unittest.TestCase):
         self.assertEqual(_strip_name_suffix("Patrick Mahomes"), "Patrick Mahomes")
 
 
+class TestHillCurvesStamp(unittest.TestCase):
+    """Contract carries all four scope-level master Hill curves.
+
+    The refit workflow (``.github/workflows/refit-hill-curves.yml``)
+    fits four scope masters — GLOBAL / OFFENSE / IDP / ROOKIE — via
+    ``scripts/auto_refit_hill_curves.py``, and the routing in
+    ``_curve_for_source`` consumes three of them live.  The frontend
+    HillCurveExplorer renders the set directly; this test pins the
+    stamp shape so a rename or drop doesn't silently leave the chart
+    with no curves.
+    """
+
+    def test_contract_root_has_all_four_scope_curves(self):
+        contract = build_api_data_contract(_minimal_raw_payload())
+        curves = contract.get("hillCurves")
+        self.assertIsInstance(curves, dict)
+        self.assertEqual(
+            set(curves.keys()),
+            {"global", "offense", "idp", "rookie"},
+        )
+
+    def test_each_curve_has_renderable_rank_form(self):
+        contract = build_api_data_contract(_minimal_raw_payload())
+        curves = contract["hillCurves"]
+        for scope in ("global", "offense", "idp", "rookie"):
+            entry = curves[scope]
+            for field in ("midpoint", "slope", "c", "s", "referenceN", "label", "routed"):
+                self.assertIn(field, entry, f"{scope}.{field} missing")
+            self.assertGreater(entry["midpoint"], 0.0, f"{scope} midpoint must be positive")
+            self.assertGreater(entry["slope"], 0.0, f"{scope} slope must be positive")
+            self.assertEqual(entry["slope"], round(entry["s"], 4))
+            # midpoint ≈ c * (referenceN − 1); allow small rounding.
+            expected_midpoint = entry["c"] * (entry["referenceN"] - 1)
+            self.assertAlmostEqual(entry["midpoint"], round(expected_midpoint, 4), places=3)
+
+    def test_curves_match_committed_constants(self):
+        from src.canonical.player_valuation import (
+            HILL_GLOBAL_PERCENTILE_C,
+            HILL_GLOBAL_PERCENTILE_S,
+            HILL_PERCENTILE_C,
+            HILL_PERCENTILE_S,
+            HILL_ROOKIE_PERCENTILE_C,
+            HILL_ROOKIE_PERCENTILE_S,
+            IDP_HILL_PERCENTILE_C,
+            IDP_HILL_PERCENTILE_S,
+        )
+        curves = build_api_data_contract(_minimal_raw_payload())["hillCurves"]
+        self.assertAlmostEqual(curves["global"]["c"], HILL_GLOBAL_PERCENTILE_C)
+        self.assertAlmostEqual(curves["global"]["s"], HILL_GLOBAL_PERCENTILE_S)
+        self.assertAlmostEqual(curves["offense"]["c"], HILL_PERCENTILE_C)
+        self.assertAlmostEqual(curves["offense"]["s"], HILL_PERCENTILE_S)
+        self.assertAlmostEqual(curves["idp"]["c"], IDP_HILL_PERCENTILE_C)
+        self.assertAlmostEqual(curves["idp"]["s"], IDP_HILL_PERCENTILE_S)
+        self.assertAlmostEqual(curves["rookie"]["c"], HILL_ROOKIE_PERCENTILE_C)
+        self.assertAlmostEqual(curves["rookie"]["s"], HILL_ROOKIE_PERCENTILE_S)
+
+
 if __name__ == "__main__":
     unittest.main()

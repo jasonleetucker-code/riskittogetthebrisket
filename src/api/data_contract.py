@@ -4146,6 +4146,62 @@ _DISPLAY_SCALE_MAX: int = 9999
 # deeper ranks asymptote to the Hill's long tail.
 _PERCENTILE_REFERENCE_N: int = 500
 
+
+def _build_hill_curves_block() -> dict[str, dict[str, Any]]:
+    """Stamp the four scope-level master Hill curves onto the contract.
+
+    Mirrors the constants in ``src/canonical/player_valuation.py`` and
+    the routing in ``_curve_for_source``.  Each entry carries:
+        - ``c`` / ``s`` — raw percentile-form constants:
+            V(p) = 9999 / (1 + (p / c)^s),  p = (rank − 1) / (N − 1)
+        - ``referenceN`` — the denominator used to map rank → percentile
+          (= ``_PERCENTILE_REFERENCE_N`` for GLOBAL/OFFENSE/IDP; rookie
+          sources were historically fit against a rookie-only slice but
+          the ROOKIE master is currently fit-only and not routed — see
+          ``_curve_for_source`` — so we stamp the same reference N for
+          consistency).
+        - ``midpoint`` / ``slope`` — rank-form equivalents for callers
+          (e.g. the frontend HillCurveExplorer) that evaluate in rank
+          space: V(r) = 9999 / (1 + ((r − 1) / midpoint)^slope).
+          ``midpoint = c * (referenceN − 1)``, ``slope = s``.
+        - ``label`` — short human label for chart legends.
+        - ``routed`` — whether the live ``_curve_for_source`` routing
+          currently uses this curve.  ROOKIE is fit by the monthly
+          refit workflow but not routed today.
+    """
+    from src.canonical.player_valuation import (  # noqa: PLC0415
+        HILL_GLOBAL_PERCENTILE_C,
+        HILL_GLOBAL_PERCENTILE_S,
+        HILL_PERCENTILE_C,
+        HILL_PERCENTILE_S,
+        HILL_ROOKIE_PERCENTILE_C,
+        HILL_ROOKIE_PERCENTILE_S,
+        IDP_HILL_PERCENTILE_C,
+        IDP_HILL_PERCENTILE_S,
+    )
+
+    ref_n = _PERCENTILE_REFERENCE_N
+    denom = max(1, ref_n - 1)
+
+    def _entry(key: str, label: str, c: float, s: float, routed: bool) -> dict[str, Any]:
+        return {
+            "key": key,
+            "label": label,
+            "c": float(c),
+            "s": float(s),
+            "referenceN": ref_n,
+            "midpoint": round(float(c) * denom, 4),
+            "slope": round(float(s), 4),
+            "routed": routed,
+        }
+
+    return {
+        "global":  _entry("global",  "Global",  HILL_GLOBAL_PERCENTILE_C, HILL_GLOBAL_PERCENTILE_S, True),
+        "offense": _entry("offense", "Offense", HILL_PERCENTILE_C,        HILL_PERCENTILE_S,        True),
+        "idp":     _entry("idp",     "IDP",     IDP_HILL_PERCENTILE_C,    IDP_HILL_PERCENTILE_S,    True),
+        "rookie":  _entry("rookie",  "Rookie",  HILL_ROOKIE_PERCENTILE_C, HILL_ROOKIE_PERCENTILE_S, False),
+    }
+
 # Final Framework step 8: subgroup shrinkage factor.
 #
 #     Final = Anchor + α · (SubgroupBlend − Anchor)
@@ -7212,6 +7268,7 @@ def build_api_data_contract(
         "validationSummary": validation_summary,
         "pickAliases": pick_aliases or {},
         "sourceParseErrors": source_parse_errors,
+        "hillCurves": _build_hill_curves_block(),
     }
     # Drop internal-only provenance markers before materializing the
     # contract so they don't leak into the public payload.
