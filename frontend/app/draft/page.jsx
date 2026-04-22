@@ -1938,100 +1938,6 @@ export default function DraftDashboardPage() {
     }
   }, [stats.slotPressure, triageApplied, triageDismissed]);
 
-  // Global keyboard shortcuts.  Skipped entirely when focus is in an
-  // input/textarea/select so typing a player name or budget doesn't
-  // hijack the shortcuts.  Covers:
-  //   /      — focus search
-  //   ?      — toggle help modal
-  //   Esc    — close modal / help (handled where relevant)
-  //   j/↓    — select next undrafted row
-  //   k/↑    — select prev undrafted row
-  //   D      — open draft modal for selected
-  //   N      — cycle tag on selected
-  //   T      — toggle target tag (neutral ↔ target) on selected
-  //   B      — add selected to Target Board
-  useEffect(() => {
-    function onKey(e) {
-      const tag = (e.target?.tagName || "").toLowerCase();
-      const editable =
-        tag === "input" || tag === "textarea" || tag === "select";
-      if (editable) return;
-
-      if (e.key === "/") {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-        return;
-      }
-      if (e.key === "?") {
-        e.preventDefault();
-        setHelpOpen((o) => !o);
-        return;
-      }
-      if (e.key === "Escape") {
-        if (helpOpen) setHelpOpen(false);
-        // Draft modal handles its own Escape via the backdrop click.
-        return;
-      }
-
-      // Row navigation + per-row shortcuts.  Need the current undrafted
-      // list to walk through.  Skip when there's nothing to navigate.
-      const undrafted = stats.enrichedPlayers.filter((p) => !p.drafted);
-      if (undrafted.length === 0) return;
-
-      const idx = selectedPlayerId
-        ? undrafted.findIndex((p) => p.id === selectedPlayerId)
-        : -1;
-
-      if (e.key === "j" || e.key === "ArrowDown") {
-        e.preventDefault();
-        const next = undrafted[Math.min(idx + 1, undrafted.length - 1)] || undrafted[0];
-        setSelectedPlayerId(next.id);
-        return;
-      }
-      if (e.key === "k" || e.key === "ArrowUp") {
-        e.preventDefault();
-        const next = undrafted[Math.max(idx - 1, 0)] || undrafted[0];
-        setSelectedPlayerId(next.id);
-        return;
-      }
-
-      // Shortcuts below require a selection.
-      if (!selectedPlayerId) return;
-      const selected = undrafted.find((p) => p.id === selectedPlayerId);
-      if (!selected) return;
-
-      if (e.key === "d" || e.key === "D") {
-        e.preventDefault();
-        setModalPlayer(selected);
-        return;
-      }
-      if (e.key === "n" || e.key === "N") {
-        e.preventDefault();
-        onCycleTag(selected.id);
-        return;
-      }
-      if (e.key === "t" || e.key === "T") {
-        e.preventDefault();
-        onToggleTarget(selected.id);
-        return;
-      }
-      if (e.key === "b" || e.key === "B") {
-        e.preventDefault();
-        onAddToBoard(selected.id);
-        return;
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [
-    helpOpen,
-    selectedPlayerId,
-    stats.enrichedPlayers,
-    onCycleTag,
-    onToggleTarget,
-    onAddToBoard,
-  ]);
-
   // Pull per-team auction $ budgets from /api/draft-capital.  The
   // dashboard needs this to mirror real carry-over balances without
   // forcing the user to re-enter every team's budget by hand.  When
@@ -2181,6 +2087,101 @@ export default function DraftDashboardPage() {
     () => setWorkspace((ws) => undoLastNomination(ws)),
     [],
   );
+
+  // Global keyboard shortcuts.  Must be declared AFTER the callbacks
+  // it depends on (onCycleTag / onToggleTarget / onAddToBoard) —
+  // React evaluates a useEffect's dependency array at render time,
+  // which would TDZ on the forward-referenced useCallback consts if
+  // this block lived higher in the function.  Skipped entirely when
+  // focus is in an input/textarea/select so typing player names or
+  // budgets doesn't hijack the shortcuts.  Covers:
+  //   /      — focus search
+  //   ?      — toggle help modal
+  //   Esc    — close modal / help
+  //   j/↓    — select next undrafted row
+  //   k/↑    — select prev undrafted row
+  //   D      — open draft modal for selected
+  //   N      — cycle tag on selected
+  //   T      — toggle target tag (neutral ↔ target) on selected
+  //   B      — add selected to Target Board
+  useEffect(() => {
+    function onKey(e) {
+      const tag = (e.target?.tagName || "").toLowerCase();
+      const editable =
+        tag === "input" || tag === "textarea" || tag === "select";
+      if (editable) return;
+
+      if (e.key === "/") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+      if (e.key === "?") {
+        e.preventDefault();
+        setHelpOpen((o) => !o);
+        return;
+      }
+      if (e.key === "Escape") {
+        if (helpOpen) setHelpOpen(false);
+        return;
+      }
+
+      const undrafted = stats.enrichedPlayers.filter((p) => !p.drafted);
+      if (undrafted.length === 0) return;
+
+      const idx = selectedPlayerId
+        ? undrafted.findIndex((p) => p.id === selectedPlayerId)
+        : -1;
+
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        const next =
+          undrafted[Math.min(idx + 1, undrafted.length - 1)] || undrafted[0];
+        setSelectedPlayerId(next.id);
+        return;
+      }
+      if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const next = undrafted[Math.max(idx - 1, 0)] || undrafted[0];
+        setSelectedPlayerId(next.id);
+        return;
+      }
+
+      if (!selectedPlayerId) return;
+      const selected = undrafted.find((p) => p.id === selectedPlayerId);
+      if (!selected) return;
+
+      if (e.key === "d" || e.key === "D") {
+        e.preventDefault();
+        setModalPlayer(selected);
+        return;
+      }
+      if (e.key === "n" || e.key === "N") {
+        e.preventDefault();
+        onCycleTag(selected.id);
+        return;
+      }
+      if (e.key === "t" || e.key === "T") {
+        e.preventDefault();
+        onToggleTarget(selected.id);
+        return;
+      }
+      if (e.key === "b" || e.key === "B") {
+        e.preventDefault();
+        onAddToBoard(selected.id);
+        return;
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [
+    helpOpen,
+    selectedPlayerId,
+    stats.enrichedPlayers,
+    onCycleTag,
+    onToggleTarget,
+    onAddToBoard,
+  ]);
 
   const handleModalSubmit = useCallback(
     (payload) => {
