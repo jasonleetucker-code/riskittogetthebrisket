@@ -166,11 +166,18 @@ a { color: inherit; text-decoration: none; }
   position: sticky;
   top: 0;
   z-index: 40;
-  height: var(--mobile-topbar-h);
+  /* viewport-fit=cover (set in app/layout.jsx) extends the layout into
+     the notch / status-bar zone on iOS.  Grow the bar by the top
+     safe-area inset and pad the content down into the safe zone so
+     brand/title/actions never render under the notch or status bar.
+     The bottom nav has a matching `padding-bottom: env(safe-area-inset-bottom)`. */
+  height: calc(var(--mobile-topbar-h) + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-md);
+  padding-left: var(--space-md);
+  padding-right: var(--space-md);
   background: rgba(15, 10, 26, 0.92);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
@@ -927,12 +934,38 @@ tr:hover .sticky-name {
   .desktop-only { display: none !important; }
   .mobile-only { display: initial !important; }
 
-  /* Fix: mobile-bottom-nav is flex */
+  /* Elements that need a specific layout mode — `display: initial` in the
+     rule above resolves to `inline` for every tag, which breaks the
+     intended flex layout on <header> and <nav>.  Re-assert the correct
+     layout on the elements that need it. */
   nav.mobile-only { display: flex !important; }
+  header.mobile-only { display: flex !important; }
+
+  /* iOS Safari auto-zooms any input whose computed font-size is
+     smaller than 16px.  Our form controls are 0.82rem (~13px) for
+     desktop density, which triggers a disorienting zoom-in whenever a
+     user taps a field on iOS.  Force 16px on touch-size viewports so
+     tapping a search/filter/picker input does not warp the viewport.
+     Visual density is preserved via the padding/min-height below. */
+  .input,
+  .select,
+  textarea,
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"] {
+    font-size: 16px;
+  }
 
   .main-shell {
     padding: var(--space-sm) var(--space-sm) calc(var(--mobile-nav-h) + var(--space-md));
-    min-height: calc(100vh - var(--mobile-topbar-h));
+    /* Subtract the full top-bar including its safe-area inset so the
+       minimum height still reflects the space actually available
+       between the (taller, notch-aware) top bar and the bottom nav. */
+    min-height: calc(100vh - var(--mobile-topbar-h) - env(safe-area-inset-top, 0px));
   }
 
   .page-title { font-size: 1.05rem; }
@@ -964,10 +997,16 @@ tr:hover .sticky-name {
   .picker-overlay {
     padding: 0;
     align-items: flex-end;
+    /* Pin overlay to the DYNAMIC viewport so the soft-keyboard on iOS
+       doesn't leave a dead zone between the sheet and the keyboard. */
+    height: 100dvh;
   }
   .picker-sheet {
     width: 100%;
-    max-height: 75vh;
+    /* dvh = dynamic viewport height — shrinks when the soft keyboard
+       opens, keeping the sheet above the keyboard instead of clipping
+       half the results list underneath it. */
+    max-height: 85dvh;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     padding: 12px 10px;
   }
@@ -1017,9 +1056,24 @@ tr:hover .sticky-name {
   /* Hide columns marked hide-mobile */
   .hide-mobile { display: none; }
 
-  /* Sub-nav scrolls horizontally */
+  /* Sub-nav scrolls horizontally.  Give tabs a full 40px hit target
+     (min-height) and larger tap padding on mobile so they clear the
+     44px accessibility guideline. */
   .sub-nav { gap: 0; }
-  .sub-nav-btn { font-size: 0.7rem; padding: 7px 12px; }
+  .sub-nav-btn {
+    font-size: 0.74rem;
+    padding: 10px 14px;
+    min-height: 40px;
+  }
+
+  /* Angle filter pills — 23px tall in the wild is too small to tap
+     reliably.  Bump to 36px and tighten wrap gap. */
+  .angle-pill {
+    padding: 8px 12px;
+    min-height: 36px;
+    font-size: 0.82rem;
+  }
+  .angle-pill-row { gap: 8px; }
 
   /* Responsive grid: stack to 1 column on mobile */
   .grid-responsive { grid-template-columns: 1fr !important; }
@@ -1155,7 +1209,7 @@ tr:hover .sticky-name {
   .sticky-name { min-width: 110px; }
 
   /* Picker: tighter on small phones */
-  .picker-sheet { padding: 10px 8px; max-height: 70vh; }
+  .picker-sheet { padding: 10px 8px; max-height: 85dvh; }
   .picker-header h3 { font-size: 0.92rem; }
   .picker-search-row { gap: 6px; }
   .picker-recent { max-height: 120px; }
@@ -1733,7 +1787,11 @@ tr:hover .sticky-name {
 
 .edge-page-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, 1fr) prevents a wide table child from stretching the
+     column past the viewport.  Without the explicit 0 minimum, the
+     grid column sizes to its largest content, so a table > viewport
+     forces the whole card wider than the screen on mobile. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-md);
   margin-top: var(--space-md);
 }
@@ -1793,7 +1851,7 @@ tr:hover .sticky-name {
 
 @media (max-width: 768px) {
   .edge-page-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .edge-stat-bar {
     gap: var(--space-md);
