@@ -70,7 +70,10 @@ def _load_payload(json_path: str | None) -> dict:
             )
             sys.exit(1)
 
-    print(f"Loading: {p}")
+    # Print the load status to stderr so ``--json`` output on stdout
+    # stays valid JSON that can be piped straight into ``jq`` without
+    # having to strip a leading progress line.
+    print(f"Loading: {p}", file=sys.stderr)
     with p.open("r", encoding="utf-8") as f:
         return json.load(f)
 

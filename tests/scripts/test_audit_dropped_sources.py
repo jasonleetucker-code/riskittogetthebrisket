@@ -8,6 +8,8 @@ sections consumers rely on.
 from __future__ import annotations
 
 import importlib.util
+import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -156,3 +158,50 @@ class TestSummariseShape:
         # threshold when the text report renders.
         rate = 100.0 * 3 / 21
         assert rate >= 10.0
+
+
+class TestCliJsonMode:
+    """End-to-end check that ``--json`` produces parseable stdout.
+
+    The ``Loading: ...`` status line must be on stderr so downstream
+    consumers can pipe stdout straight into ``jq`` without a prefix-
+    stripping hack.  Regression for Codex PR #212 review.
+    """
+
+    def test_json_mode_stdout_is_clean_json(self, tmp_path):
+        snapshot = tmp_path / "snapshot.json"
+        snapshot.write_text(
+            json.dumps(
+                {
+                    "playersArray": [
+                        {
+                            "displayName": "A",
+                            "position": "WR",
+                            "canonicalConsensusRank": 1,
+                            "sourceRanks": {"ktc": 1, "dlfSf": 1, "bad": 300},
+                            "droppedSources": ["bad"],
+                            "sourceCount": 3,
+                        }
+                    ]
+                }
+            )
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPT),
+                "--json-path",
+                str(snapshot),
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        # stdout must parse as JSON on its own — no status chatter.
+        summary = json.loads(result.stdout)
+        assert summary["rows_with_drops"] == 1
+        assert summary["dropped_by_source"] == {"bad": 1}
+        # Status line must still be visible for interactive runs —
+        # just not on stdout.
+        assert "Loading:" in result.stderr
