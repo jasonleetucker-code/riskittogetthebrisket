@@ -264,15 +264,22 @@ def _parse_chart_rows(csv_text: str, position: str) -> list[dict]:
 
 
 def _write_csv(path: Path, rows: list[dict]) -> int:
-    """Write the combined ``name,team,position,value`` CSV."""
+    """Write the combined ``name,team,position,value,rank`` CSV.
+
+    ``rank`` is a 1-indexed global rank over the value-sorted set — the
+    contract-side reader routes this source through the rank-signal
+    path (see ``_SOURCE_CSV_PATHS["fantasyProsFitzmaurice"]`` in
+    ``src/api/data_contract.py``): without a ``rank`` column in the
+    CSV, that join would silently produce zero coverage.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     # Sort by value desc so the top player is the first row.
     rows_sorted = sorted(rows, key=lambda r: -int(r["value"]))
     with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["name", "team", "position", "value"])
-        for r in rows_sorted:
-            w.writerow([r["name"], r["team"], r["position"], r["value"]])
+        w.writerow(["name", "team", "position", "value", "rank"])
+        for idx, r in enumerate(rows_sorted, start=1):
+            w.writerow([r["name"], r["team"], r["position"], r["value"], idx])
     return len(rows_sorted)
 
 
