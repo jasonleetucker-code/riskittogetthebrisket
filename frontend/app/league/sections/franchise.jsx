@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { Avatar, Card, EmptyCard, Stat, fmtNumber } from "../shared.jsx";
+import FranchiseTrajectory from "@/components/graphs/FranchiseTrajectory";
 
 function FranchiseSection({ managers, data, onNavigate, initialOwner, setOwner }) {
   const index = data?.index || [];
@@ -174,6 +175,21 @@ function FranchiseSection({ managers, data, onNavigate, initialOwner, setOwner }
               Team-name history: {(fr.aliases || []).map((a) => `${a.teamName} (${a.season})`).join(" → ")}
             </div>
           )}
+        </Card>
+      )}
+
+      {fr && (fr.seasonResults || []).length > 0 && (
+        <Card title="Scoring trajectory" subtitle="Points-for by season — a proxy for roster strength (no per-week roster-value snapshots available)">
+          <FranchiseTrajectory
+            seasons={(fr.seasonResults || []).map((r) => ({
+              season: Number(r.season),
+              pointsFor: r.pointsFor,
+              wins: r.wins,
+              madePlayoffs:
+                Number.isFinite(Number(r.finalPlace)) && Number(r.finalPlace) > 0,
+              finalPlace: r.finalPlace,
+            }))}
+          />
         </Card>
       )}
     </>

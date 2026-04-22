@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, EmptyCard, HighlightCard, LinkButton, SingleHighlight, fmtPoints, nameFor } from "../shared.jsx";
+import MatchupMarginHistogram from "@/components/graphs/MatchupMarginHistogram";
 
 function WeeklySection({ data, managers, onNavigate, initialWeek, setWeek }) {
   const weeks = data?.weeks || [];
@@ -134,6 +135,17 @@ function WeeklySection({ data, managers, onNavigate, initialWeek, setWeek }) {
         <div style={{ marginTop: 12 }}>
           <LinkButton onClick={() => onNavigate("archives")}>Open matchup archive →</LinkButton>
         </div>
+      </Card>
+
+      <Card title="Margin distribution (all seasons)">
+        <p className="text-xs muted" style={{ marginTop: 0, marginBottom: 12 }}>
+          Every completed matchup across the snapshot, bucketed by margin of victory.
+          Tight clusters near 0 = competitive weeks; a tail to the right = the league's
+          runaway blowouts.
+        </p>
+        <MatchupMarginHistogram
+          matchups={weeks.flatMap((w) => w.matchups || [])}
+        />
       </Card>
     </>
   );
