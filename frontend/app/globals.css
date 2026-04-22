@@ -554,6 +554,28 @@ tr:hover .sticky-name {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   RANKINGS — COLUMNS POPOVER
+   Inline styles on the popover pin it to the button's right edge via
+   `right: 0`.  When the Columns button wraps onto a new row (narrow
+   viewports) the popover extends 260px left from that anchor, which
+   overflows the viewport on phones.  On ≤520px pin the popover to
+   both edges of the page-header card instead.
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 520px) {
+  .rankings-columns-popover {
+    /* Override the inline `right: 0` with a fixed-width anchored to
+       the left edge of the viewport so the 260px menu cannot escape
+       off-screen.  Inline styles win on specificity; bump ours with
+       !important (the popover only renders inside this narrow query,
+       so !important scope stays tight). */
+    left: 8px !important;
+    right: 8px !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 16px);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    SETTINGS — SOURCES TABLE
    Render the full 6-column table on desktop.  On mobile (≤768px) the
    six-column layout overflows the viewport (~680px at 0.76rem) even
