@@ -934,6 +934,16 @@ function _materializePlayerArrayRow(player) {
         ? player.twoWayPlayerBoost
         : null,
     sourceRanks: backendSourceRanks,
+    // Post-Hampel-filter rank map used by display helpers
+    // (display-helpers.js::marketEdge / marketGapLabel) so retail-vs-
+    // consensus edge labels agree with backend marketGapDirection /
+    // confidence / anomaly flags, all of which are computed on the
+    // post-Hampel set.  Falls back to `{}` for legacy payloads.
+    effectiveSourceRanks:
+      player.effectiveSourceRanks && typeof player.effectiveSourceRanks === "object"
+        ? player.effectiveSourceRanks
+        : {},
+    droppedSources: Array.isArray(player.droppedSources) ? player.droppedSources : [],
     sourceRankMeta: backendSourceRankMeta,
     blendedSourceRank: backendBlendedSourceRank,
     sourceCount: backendSourceCount,
@@ -1027,6 +1037,13 @@ function _materializeLegacyDictRow(name, player, posMap) {
       Number(player.canonicalConsensusRankUncalibrated) || null,
     canonicalTierId: Number(player._canonicalTierId) || null,
     sourceRanks: player.sourceRanks && typeof player.sourceRanks === "object" ? player.sourceRanks : {},
+    // See ``_materializePlayerArrayRow`` for the rationale on these
+    // two fields — keep both materializers in lockstep.
+    effectiveSourceRanks:
+      player.effectiveSourceRanks && typeof player.effectiveSourceRanks === "object"
+        ? player.effectiveSourceRanks
+        : {},
+    droppedSources: Array.isArray(player.droppedSources) ? player.droppedSources : [],
     sourceRankMeta: player.sourceRankMeta && typeof player.sourceRankMeta === "object" ? player.sourceRankMeta : {},
     blendedSourceRank: player.blendedSourceRank ?? null,
     sourceCount: Number(player.sourceCount || 0),

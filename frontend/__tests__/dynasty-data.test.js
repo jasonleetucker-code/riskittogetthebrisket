@@ -432,6 +432,58 @@ describe("buildRows", () => {
     expect(rows.every((r) => r.assetClass === "pick")).toBe(true);
   });
 
+  it("forwards backend effectiveSourceRanks and droppedSources to row", () => {
+    // Regression for PR #211: the row materializer must expose the
+    // post-Hampel ``effectiveSourceRanks`` so display-helpers
+    // (marketEdge, marketGapLabel) computes the same retail-vs-
+    // consensus signal the backend used for marketGapDirection /
+    // confidence / anomaly flags.  Without forwarding, the new
+    // display-helpers fallback branch is dead code on real rows.
+    const players = [
+      withStamps(
+        {
+          displayName: "Test Player",
+          position: "WR",
+          values: { finalAdjusted: 6000, rawComposite: 6000, overall: 6000 },
+          canonicalSiteValues: { ktc: 6000 },
+          sourceRanks: { ktc: 50, idpTradeCalc: 60, dlfSf: 5500 },
+          effectiveSourceRanks: { ktc: 50, idpTradeCalc: 60 },
+          droppedSources: ["dlfSf"],
+          sourceCount: 3,
+        },
+        1,
+        6000,
+      ),
+    ];
+    const rows = buildRows({ playersArray: players });
+    expect(rows.length).toBe(1);
+    expect(rows[0].effectiveSourceRanks).toEqual({ ktc: 50, idpTradeCalc: 60 });
+    expect(rows[0].droppedSources).toEqual(["dlfSf"]);
+    // Original sourceRanks preserved for audit consumers.
+    expect(rows[0].sourceRanks).toEqual({ ktc: 50, idpTradeCalc: 60, dlfSf: 5500 });
+  });
+
+  it("defaults effectiveSourceRanks to {} and droppedSources to [] when absent", () => {
+    // Legacy / pre-Hampel payloads must still produce a well-formed
+    // row.  Defaults exercise the display-helpers fallback to
+    // ``sourceRanks``.
+    const players = [
+      withStamps(
+        {
+          displayName: "Legacy Player",
+          position: "WR",
+          values: { finalAdjusted: 4000, rawComposite: 4000, overall: 4000 },
+          canonicalSiteValues: { ktc: 4000 },
+        },
+        1,
+        4000,
+      ),
+    ];
+    const rows = buildRows({ playersArray: players });
+    expect(rows[0].effectiveSourceRanks).toEqual({});
+    expect(rows[0].droppedSources).toEqual([]);
+  });
+
   it("preserves backend sourceRanks integer values per row", () => {
     // Generate 25 players each with backend-stamped rank + value.
     const players = [];
