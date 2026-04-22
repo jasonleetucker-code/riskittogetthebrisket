@@ -134,16 +134,24 @@ def _parse_players(data: Any) -> list[dict[str, Any]]:
 
 
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
+    # ``rows`` arrives sorted by value descending from ``_parse_players``,
+    # so emitting ``rank`` as a 1-indexed position mirrors the input
+    # order exactly.  The contract-side reader routes dynastyDaddySf
+    # through the rank-signal path (see
+    # ``_SOURCE_CSV_PATHS["dynastyDaddySf"]`` in
+    # ``src/api/data_contract.py``): without a ``rank`` column in the
+    # CSV, that join silently produces zero coverage.
     path.parent.mkdir(parents=True, exist_ok=True)
-    fields = ["name", "value"]
+    fields = ["name", "value", "rank"]
     with path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
-        for row in rows:
+        for idx, row in enumerate(rows, start=1):
             writer.writerow(
                 {
                     "name": row["name"],
                     "value": row["value"],
+                    "rank": idx,
                 }
             )
 
