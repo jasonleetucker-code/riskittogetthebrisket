@@ -3008,6 +3008,19 @@ def _enrich_from_source_csvs(
     repo = Path(__file__).resolve().parents[2]
     csv_index: dict[str, dict[str, dict[str, Any]]] = {}
 
+    # DraftSharks (offense + IDP) publish a cross-market 0-100 ``3D
+    # Value +`` scale that goes negative past ~rank 200 — the CSV
+    # rows below that threshold carry legitimate negative values
+    # (e.g. Emmanuel McNeil-Warren IDP rank 362 → -25).  Other
+    # value-signal sources (KTC, IDPTC, DynastyNerds, Boone) only
+    # emit non-negative values, so we keep the ``val > 0`` guard
+    # for them and only relax it for the DS combined-rank sources.
+    # Without this carve-out every negatively-valued DS row is
+    # silently dropped from ``canonicalSiteValues``, which means
+    # the downstream DS combined-rank pre-pass never sees those
+    # players and they show up with zero DS coverage on the board.
+    ds_combined_rank_keys = _DS_COMBINED_RANK_KEYS
+
     # Pre-compute the position-group of each player row by canonical
     # key so the position-aware fallback in stage (3) can pick the
     # right CSV entry when name-only collisions occur.
@@ -3144,7 +3157,15 @@ def _enrich_from_source_csvs(
             if not isinstance(csv_vals, dict):
                 continue
             existing = _safe_num(csv_vals.get(source_key))
-            if existing is not None and existing > 0:
+            # Skip rows that already carry a real value.  For DS
+            # combined-rank sources any non-None number counts (their
+            # scale goes negative, so "already stamped" is any
+            # finite value); for everyone else we require > 0 so a
+            # stale zero doesn't block the enrichment from re-running.
+            if existing is not None and (
+                existing > 0
+                or (source_key in ds_combined_rank_keys and existing <= 0)
+            ):
                 continue
             nm = str(row.get("canonicalName") or row.get("displayName") or "")
             if not nm:
@@ -3167,7 +3188,17 @@ def _enrich_from_source_csvs(
             if not entry:
                 continue
             val = entry.get("value")
-            if val is not None and val > 0:
+            # DS combined-rank sources accept negative values (their
+            # ``3D Value +`` scale goes negative past ~rank 200, and
+            # those rows are real — they just sort to the tail of the
+            # combined cross-market ladder); every other value-signal
+            # source requires > 0 to distinguish "ranked" from
+            # "missing/zero".
+            negatives_allowed = source_key in ds_combined_rank_keys
+            accept = val is not None and (
+                val > 0 if not negatives_allowed else True
+            )
+            if accept:
                 csv_vals[source_key] = val
                 # For rank-signal sources, preserve the original CSV rank
                 # so the frontend can display it instead of the meaningless
@@ -4288,6 +4319,22 @@ _MAD_PENALTY_LAMBDA: float = 0.0
 # ``ds_combined_rank_partner`` in the registry) and routes that
 # combined rank through the GLOBAL Hill master — the same curve
 # IDPTC's anchor contribution uses.
+# ── DraftSharks combined-rank exemption ─────────────────────────────────
+# Derived from the registry at import time.  These sources publish a
+# cross-market ``3D Value +`` scale that legitimately goes negative
+# past ~rank 200 (the CSV tail), so the enrichment + Phase 1 ordinal
+# gates relax their strict ``val > 0`` check for them.  Keeping this
+# as a module-level set (rather than recomputing it inside each gate)
+# avoids hot-path repetition and keeps the two gates in lockstep —
+# if someone adds a new negative-scale source to the registry they
+# only have to flip ``ds_combined_rank_partner``.
+_DS_COMBINED_RANK_KEYS: frozenset[str] = frozenset(
+    str(src.get("key") or "")
+    for src in _RANKING_SOURCES
+    if src.get("ds_combined_rank_partner")
+)
+
+
 _VALUE_BASED_SOURCES: frozenset[str] = frozenset({
     "ktc",
     "idpTradeCalc",
@@ -5320,7 +5367,18 @@ def _compute_unified_rankings(
                 continue
             sites = row.get("canonicalSiteValues") or {}
             val = _safe_num(sites.get(source_key))
-            if val is None or val <= 0:
+            # DS combined-rank sources publish a cross-market scale
+            # that goes negative past ~rank 200 (and can legitimately
+            # hit zero).  Let those rows through so Phase 1 ordinal
+            # sort places them at the tail of the pool — the DS
+            # combined-rank pre-pass then re-ranks them in the merged
+            # offense+IDP pool via the GLOBAL Hill master.  Every
+            # other value-signal source treats ``val <= 0`` as
+            # "unranked / missing" because their scales are strictly
+            # non-negative.
+            if val is None:
+                continue
+            if val <= 0 and source_key not in _DS_COMBINED_RANK_KEYS:
                 continue
             tiebreak_name = str(
                 row.get("canonicalName") or row.get("displayName") or ""
@@ -6076,8 +6134,21 @@ def _compute_unified_rankings(
         # then introspect every source-bearing row, ranked or not.
         row["sourceRanks"] = source_ranks
         canonical_sites = row.get("canonicalSiteValues") or {}
+        # ``sourcePresence[k]`` is True when source ``k`` covered this
+        # row.  DS combined-rank sources use a cross-market scale that
+        # goes negative past ~rank 200 (the tail of the CSV); those
+        # rows are still ranked by DS, so any non-None DS value counts
+        # as coverage.  Every other value-signal source treats ``<= 0``
+        # as "unranked / missing."  Keeping this in lockstep with the
+        # enrichment + Phase 1 gates is the whole point of
+        # ``_DS_COMBINED_RANK_KEYS``.
         row["sourcePresence"] = {
-            k: (v is not None and v > 0) for k, v in canonical_sites.items()
+            k: (
+                v is not None
+                if k in _DS_COMBINED_RANK_KEYS
+                else (v is not None and v > 0)
+            )
+            for k, v in canonical_sites.items()
         }
 
         pos = str(row.get("position") or "").strip().upper()
