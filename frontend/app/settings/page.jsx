@@ -22,11 +22,11 @@ function Section({ title, defaultOpen = true, children }) {
         onClick={() => setOpen(!open)}
         style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
-          width: "100%", padding: 0, cursor: "pointer",
+          width: "100%", padding: "8px 0", minHeight: 44, cursor: "pointer",
         }}
       >
         <h3 style={{ margin: 0, fontSize: "0.92rem" }}>{title}</h3>
-        <span className="muted">{open ? "−" : "+"}</span>
+        <span className="muted" style={{ fontSize: "1.2rem", width: 24, textAlign: "center" }}>{open ? "−" : "+"}</span>
       </button>
       {open && <div style={{ marginTop: 10 }}>{children}</div>}
     </div>

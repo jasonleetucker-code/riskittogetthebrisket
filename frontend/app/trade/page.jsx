@@ -802,7 +802,19 @@ export default function TradePage() {
     }));
   }
 
-  function addToActiveSide(row) { addToSide(row, activeSide); }
+  function addToActiveSide(row) {
+    addToSide(row, activeSide);
+    // Tapping a result row blurs the search input, which drops the
+    // iOS soft keyboard and makes the search bar feel like it "went
+    // away" — the user then has to tap the field again to keep
+    // adding players.  Re-focus the picker input so the keyboard
+    // stays up and the field is ready for the next query.
+    if (pickerOpen && pickerInputRef.current) {
+      // Defer one tick so the React commit that removed the tapped
+      // row has flushed before we re-focus.
+      requestAnimationFrame(() => pickerInputRef.current?.focus({ preventScroll: true }));
+    }
+  }
 
   // Register add-to-trade callback so popup/search can add players
   useEffect(() => {
