@@ -80,6 +80,30 @@ class TestEligibleRowsPerSource:
         players = [{"displayName": "Z"}]
         assert _eligible_rows_per_source(players) == {}
 
+    def test_counts_dropped_even_when_absent_from_sourceRanks(self):
+        # Regression for Codex PR #212 review: the elevated-source
+        # diagnosis compares ``dropped_by_source[k] / eligible[k]``.
+        # If the backend ever strips Hampel-dropped keys out of
+        # ``sourceRanks`` (currently it keeps them, but defensive
+        # robustness matters because a chronically-dropped source is
+        # *exactly* the case the script exists to surface), the
+        # denominator must still reflect the rejected occurrences.
+        # Otherwise a source dropped on every row it covered would
+        # land at ``0 / 0`` and never trip the ``>=10%`` flag.
+        players = [
+            # Dropped — absent from sourceRanks on this row.
+            _row("A", "WR", 1, {"ktc": 1, "dlfSf": 1}, dropped=["badSource"]),
+            _row("B", "WR", 2, {"ktc": 2, "dlfSf": 2}, dropped=["badSource"]),
+            # Matched — present in sourceRanks on this row.
+            _row("C", "WR", 3, {"ktc": 3, "badSource": 99, "dlfSf": 3}),
+        ]
+        eligible = _eligible_rows_per_source(players)
+        assert eligible["badSource"] == 3
+        # Summary must report the same denominator.
+        s = _summarise(players)
+        assert s["eligible_rows_per_source"]["badSource"] == 3
+        assert s["dropped_by_source"]["badSource"] == 2
+
 
 class TestSummariseShape:
     def test_no_drops_anywhere_produces_zero_summary(self):

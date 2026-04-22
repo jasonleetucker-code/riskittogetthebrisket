@@ -102,13 +102,26 @@ def _eligible_rows_per_source(
     place — not the whole board — otherwise a source that covers only
     IDPs looks artificially stable relative to one that covers the
     full offense pool.
+
+    Union of ``sourceRanks.keys()`` and ``droppedSources`` per row: the
+    current backend keeps dropped keys in ``sourceRanks`` so the union
+    is a no-op, but if a future change strips Hampel-rejected keys out
+    of ``sourceRanks`` entirely the dropped occurrences would vanish
+    from the denominator and a chronically-dropped source would show
+    as ``0 / 0`` instead of ``N / N`` — inverting the elevated-source
+    diagnosis.  Union-ing is cheap insurance against that.
     """
     counts: Counter[str] = Counter()
     for row in players:
+        keys: set[str] = set()
         ranks = row.get("sourceRanks") or {}
         if isinstance(ranks, dict):
-            for key in ranks.keys():
-                counts[str(key)] += 1
+            keys.update(str(k) for k in ranks.keys())
+        dropped = row.get("droppedSources") or []
+        if isinstance(dropped, list):
+            keys.update(str(k) for k in dropped)
+        for key in keys:
+            counts[key] += 1
     return dict(counts)
 
 
