@@ -1403,13 +1403,18 @@ input[type="range"]:focus-visible::-moz-range-thumb {
     flex-shrink: 0;
   }
 
-  /* Trade controls: compact on mobile */
+  /* Trade controls: compact on mobile.  Keep the padding tight but
+     leave the generic `.input/.select` 16px rule in charge so iOS
+     does not zoom when the "Value mode" or Add-team selects are
+     tapped (the earlier 0.74rem font-size undercut 16px). */
   .trade-controls {
     gap: 6px !important;
   }
-  .trade-controls .button,
-  .trade-controls .select {
+  .trade-controls .button {
     font-size: 0.74rem;
+    padding: 6px 8px;
+  }
+  .trade-controls .select {
     padding: 6px 8px;
   }
 
@@ -2916,6 +2921,16 @@ input[type="range"]:focus-visible::-moz-range-thumb {
      class, so the generic mobile 16px rule doesn't match and iOS
      zooms when these are tapped.  Lift the font-size inside the
      mobile breakpoint. */
+  .angle-field select, .angle-field input {
+    font-size: 16px;
+    padding: 8px 10px;
+  }
+}
+/* Landscape phone / tablet defense — `pointer: coarse + hover: none`
+   keys off the input device so rotating an iPhone to landscape (viewport
+   width 844 > 768) still matches.  Declared AFTER `.angle-field` so the
+   cascade picks this rule up regardless of specificity tie-breakers. */
+@media (hover: none) and (pointer: coarse) {
   .angle-field select, .angle-field input {
     font-size: 16px;
     padding: 8px 10px;
