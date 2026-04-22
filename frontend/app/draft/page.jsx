@@ -1857,6 +1857,387 @@ function AddPlayerInline({ onAdd }) {
 
 /* ── Main page ────────────────────────────────────────────────────── */
 
+/* ── Glossary / how-it-works reference ────────────────────────────── */
+
+/**
+ * Collapsible reference block rendered at the bottom of the page.
+ * Uses native ``<details>`` so state isn't needed and the section
+ * survives tab closes + page reloads cleanly.  Copy is kept punchy
+ * so the glossary reads fast during a live draft — long enough to
+ * answer "what does this column mean?" without becoming a wall of
+ * text.
+ *
+ * Everything here is a VERBAL description of logic defined
+ * elsewhere; if a formula changes in draft-logic.js, update the
+ * matching entry here so the reference stays honest.
+ */
+function DraftGlossary() {
+  const Section = ({ title, children }) => (
+    <details className="draft-gloss-section">
+      <summary>{title}</summary>
+      <div className="draft-gloss-body">{children}</div>
+    </details>
+  );
+  return (
+    <div className="card draft-gloss">
+      <details open>
+        <summary className="draft-gloss-head">
+          <h3 style={{ margin: 0, display: "inline" }}>
+            How this dashboard works
+          </h3>
+          <span className="muted" style={{ fontSize: "0.72rem", marginLeft: 8 }}>
+            click any section to expand
+          </span>
+        </summary>
+        <div className="draft-gloss-inner">
+
+          <Section title="The rookie board, column by column">
+            <p>
+              Every undrafted rookie shows up on the main board with
+              these live-updating numbers:
+            </p>
+            <ul>
+              <li>
+                <strong>#</strong> — your personal rank (the order you
+                care about, inherited from the seed list; edit
+                PreDraft $ to re-sort by dollar value).
+              </li>
+              <li>
+                <strong>Tier</strong> — S (≥ $60 PreDraft) · A ($25–59) ·
+                B ($8–24) · C ($3–7) · D ($1–2).  Tier scarcity drives
+                the PUSH recommendation.
+              </li>
+              <li>
+                <strong>Tag</strong> — click to cycle: neutral → ★ target
+                → ⊘ avoid → neutral.  Drives the recommendation engine.
+              </li>
+              <li>
+                <strong>Rec</strong> — LOCK / STEAL / PUSH / BUY / SPEND /
+                AVOID / neutral.  See the "Recommendation levels"
+                section below.
+              </li>
+              <li>
+                <strong>PreDraft $</strong> — your static projection
+                (editable inline).  Anchors every other number.
+              </li>
+              <li>
+                <strong>Fair</strong> — PreDraft $ × inflation × tier
+                heat.  What the player is worth at this moment in the
+                draft.
+              </li>
+              <li>
+                <strong>Enforce</strong> — 80% of Fair by default.  If
+                a rival is bidding below this, push up to keep the
+                market honest (drains their budget even if you don't
+                ultimately win).
+              </li>
+              <li>
+                <strong>Win at</strong> — lowest $ you'd actually need
+                to lock the player.  Capped at top rival's
+                slot-adjusted budget + $1.  The headline number for
+                bidding decisions.
+              </li>
+              <li>
+                <strong>Max Bid</strong> — theoretical max if rivals
+                forced your ceiling.  Usually ≥ "Win at".  Treat it as
+                the hard stop.
+              </li>
+              <li>
+                <strong>Final</strong> — what the player actually sold
+                for (and green/red delta vs Fair once recorded).
+              </li>
+            </ul>
+          </Section>
+
+          <Section title="How prices adjust as the draft unfolds">
+            <p>
+              Two multipliers on top of PreDraft $ move "Fair" around.
+              Both update after every pick you record.
+            </p>
+            <ul>
+              <li>
+                <strong>Global inflation</strong> = remaining league $
+                ÷ (total budget − sum of PreDraft $ already sold).
+                Above 1.00× = remaining market is cheaper than
+                projected; below = market got hot.
+              </li>
+              <li>
+                <strong>Tier heat</strong> = total $ paid in tier ÷
+                total PreDraft $ of players sold in that tier.
+                Blended with 1.00× under a sample-size confidence
+                weight (3 picks in a tier = full trust).  A hot S tier
+                marks up remaining S players even if global inflation
+                is flat.
+              </li>
+              <li>
+                <strong>Phase multiplier</strong> = 1 + (slot pressure
+                × 0.5).  Scales your Max Bid from 1.0× at draft start
+                to 1.5× at your last pick.  Prevents "unused $ = wasted
+                $" at the end of the draft.
+              </li>
+            </ul>
+          </Section>
+
+          <Section title="Competitor ceiling (why 'Win at' is usually lower than Max Bid)">
+            <p>
+              In a real auction you only need to pay ONE dollar above
+              the next-highest bidder.  Knowing that ceiling saves
+              real money:
+            </p>
+            <ul>
+              <li>
+                <strong>Effective budget</strong> per team = remaining $
+                − $1 × (slots they still need to fill − 1).  A team
+                with $200 and 10 slots can only bid $191 on one player
+                and still afford the rest.
+              </li>
+              <li>
+                <strong>Top rival ceiling</strong> (shown in the stats
+                strip) = max effective budget across all other teams.
+                "Win at" = min(Max Bid, ceiling + $1).
+              </li>
+              <li>
+                <strong>Bayesian ceiling</strong> — if you log
+                nominations (see next section), each team's ceiling for
+                a given tier decays based on how many players they've
+                nominated in that tier.  Lowers "Win at" below the naive
+                ceiling when rivals have signalled disinterest.
+              </li>
+            </ul>
+          </Section>
+
+          <Section title="Recommendation levels">
+            <p>
+              Every undrafted player gets one label based on tag +
+              market state.  Labels update live; the tooltip on each
+              chip explains the trigger.
+            </p>
+            <ul>
+              <li>
+                <strong className="draft-rec-chip draft-rec-lock">LOCK</strong>{" "}
+                — target + rivals collapsed.  Top rival can't afford
+                past 30% of PreDraft $.  Bid their ceiling + $1 and
+                you own it.
+              </li>
+              <li>
+                <strong className="draft-rec-chip draft-rec-steal">STEAL</strong>{" "}
+                — same collapse, untagged player.  Opportunistic grab
+                at fire-sale prices.
+              </li>
+              <li>
+                <strong className="draft-rec-chip draft-rec-push">PUSH</strong>{" "}
+                — target + tier drying up (&lt;30% of tier players
+                remaining).  Last shot; don't wait.
+              </li>
+              <li>
+                <strong className="draft-rec-chip draft-rec-buy">BUY</strong>{" "}
+                — target, normal market.  Bid to your Win-at number.
+              </li>
+              <li>
+                <strong className="draft-rec-chip draft-rec-spend">SPEND</strong>{" "}
+                — target + late draft (slot pressure ≥ 60%) + surplus
+                $/slot.  Time to splash before $ becomes unusable.
+              </li>
+              <li>
+                <strong className="draft-rec-chip draft-rec-avoid">AVOID</strong>{" "}
+                — you flagged them as ⊘.
+              </li>
+              <li>
+                <strong className="draft-rec-chip draft-rec-neutral">neutral</strong>{" "}
+                — no strong signal.
+              </li>
+            </ul>
+          </Section>
+
+          <Section title="Target Board (top of page)">
+            <p>
+              Your explicit "these are my 6" short-list.  Track
+              whatever subset of your targets is most important for
+              portfolio accounting — you can still have 20+ players
+              tagged as targets overall.
+            </p>
+            <ul>
+              <li>
+                Each slot shows PreDraft $, live Fair, Win-at, and
+                Paid (if you won them).
+              </li>
+              <li>
+                <strong>Buffer</strong> = my remaining $ − sum of Win-at
+                for undrafted targets − $1 × other roster slots you
+                still need to fill.
+              </li>
+              <li>
+                <strong>On track (green)</strong>: buffer ≥ $10.{" "}
+                <strong>Tight (cyan)</strong>: 0 ≤ buffer &lt; $10.{" "}
+                <strong>Short (red)</strong>: buffer &lt; 0 — you can't
+                afford your own list, trim or lower a ceiling.
+              </li>
+            </ul>
+          </Section>
+
+          <Section title="Teams & budgets panel">
+            <ul>
+              <li>
+                <strong>Initial / Spent / Remaining</strong> — standard
+                auction accounting.  Initial is editable (Draft Capital
+                pre-fills it).
+              </li>
+              <li>
+                <strong>Slots</strong> — rookie picks drafted / owned
+                by that team.  Pulled from /api/draft-capital's trade
+                graph.
+              </li>
+              <li>
+                <strong>Eff $</strong> — slot-adjusted effective budget
+                (see Competitor ceiling).  Red when &lt; $5.
+              </li>
+              <li>
+                <strong>MDV</strong> — marginal dollar value = remaining
+                $ per slot left.  Heatmap: green ≥ $40/slot (flush),
+                muted $15–40 (normal), red &lt; $15 (pressed).
+              </li>
+              <li>
+                <strong>Over%</strong> — (Σ paid − Σ PreDraft $ at pick
+                time) ÷ Σ PreDraft.  Red &gt; +10% (overpayer), green
+                &lt; −10% (value hunter).  Shows who's chasing and
+                likely to overpay again.
+              </li>
+            </ul>
+          </Section>
+
+          <Section title="Nominations + Bayesian inference (optional)">
+            <p>
+              Teams usually nominate players they DON'T want — either
+              to drain rival budgets or to price-anchor a tier.
+              Logging nominations makes this signal usable:
+            </p>
+            <ul>
+              <li>
+                In the draft modal for any undrafted player: "Who
+                nominated this player?" → pick the team.
+              </li>
+              <li>
+                Each nomination multiplies that team's tier interest
+                by <strong>0.8</strong> (floor 0.2).  After 3 S-tier
+                noms: S interest ≈ 0.51.
+              </li>
+              <li>
+                Bayesian top-competitor ceiling per player reweights
+                each rival's effective budget by their tier interest
+                for THAT player's tier.  Lower ceiling → lower Win-at.
+              </li>
+              <li>
+                Noms are optional — no nominations logged means the
+                Bayesian ceiling collapses to the naive one.  Log
+                what you see; skip what you don't.
+              </li>
+            </ul>
+          </Section>
+
+          <Section title="Next Best Targets + Good to Nominate sidebars">
+            <ul>
+              <li>
+                <strong>Next Best Targets</strong> — top 5 undrafted
+                rookies by EV = max(0, Fair − Win-at) × tag weight +
+                tier scarcity boost.  Targets get a 1.5× tag weight;
+                Avoid players are excluded.
+              </li>
+              <li>
+                <strong>Good to Nominate</strong> — top 5 drain
+                candidates.  Score = min(Fair, top rival ceiling) ×
+                tag weight × (1 − risk of accidentally winning).
+                Target-tagged players are NEVER in this list (never
+                nominate your own targets).
+              </li>
+            </ul>
+          </Section>
+
+          <Section title="Inflation sparkline, progress bar, triage mode">
+            <ul>
+              <li>
+                <strong>Sparkline</strong> (in the Inflation stat card)
+                — inflation trajectory over picks.  Dashed reference
+                line at 1.00×; current value dot color-coded green
+                (&gt; 1.03) / red (&lt; 0.97) / muted.
+              </li>
+              <li>
+                <strong>Progress bar</strong> (top of page) — picks
+                recorded / total initial slots in the draft (normally
+                72).  Drives peripheral awareness of draft phase.
+              </li>
+              <li>
+                <strong>Late-draft triage</strong> — when slot pressure
+                crosses 70%, the board auto-filters to your Targets
+                and pops a banner.  One-shot fire per session; dismiss
+                restores the full view.
+              </li>
+            </ul>
+          </Section>
+
+          <Section title="Keyboard shortcuts">
+            <p>
+              Click any row to select it (cyan outline), then:
+            </p>
+            <ul>
+              <li>
+                <kbd>/</kbd> focus search · <kbd>?</kbd> open this help
+                · <kbd>Esc</kbd> close help
+              </li>
+              <li>
+                <kbd>j</kbd>/<kbd>↓</kbd> next undrafted ·{" "}
+                <kbd>k</kbd>/<kbd>↑</kbd> previous
+              </li>
+              <li>
+                <kbd>D</kbd> open draft modal ·{" "}
+                <kbd>N</kbd> cycle tag (neutral → target → avoid)
+              </li>
+              <li>
+                <kbd>T</kbd> toggle target (never flips to avoid) ·{" "}
+                <kbd>B</kbd> add to Target Board
+              </li>
+            </ul>
+            <p className="muted" style={{ fontSize: "0.72rem" }}>
+              Shortcuts are suppressed while typing in any input /
+              textarea / select, so name searches don't collide.
+            </p>
+          </Section>
+
+          <Section title="Bid simulator (in the draft modal)">
+            <p>
+              Typing a team + amount in the draft modal previews the
+              exact state after the pick lands — League $, My
+              Remaining, BA, Inflation, Top Rival $, Slots left — with
+              arrow deltas so you can see "this pick drops my BA
+              from 5.85× to 3.24×" BEFORE committing.
+            </p>
+          </Section>
+
+          <Section title="Data sources + persistence">
+            <ul>
+              <li>
+                Team budgets + owned-pick counts auto-load from
+                ``/api/draft-capital`` on first visit.  Click "Load
+                from Draft Capital" in the Teams panel to re-pull.
+              </li>
+              <li>
+                Every edit (picks, tags, Target Board, nominations,
+                knobs) persists to localStorage under
+                ``next_draft_board_v1``.  Refresh mid-draft and your
+                state survives.
+              </li>
+              <li>
+                Undo Last removes the newest pick; Reset wipes the
+                whole workspace back to defaults.
+              </li>
+            </ul>
+          </Section>
+
+        </div>
+      </details>
+    </div>
+  );
+}
+
 export default function DraftDashboardPage() {
   const router = useRouter();
   const { authenticated, checking } = useAuthContext();
@@ -2388,6 +2769,8 @@ export default function DraftDashboardPage() {
         onTagFilterChange={setTagFilter}
         onAdd={onAdd}
       />
+
+      <DraftGlossary />
 
       {modalPlayerEnriched && (
         <DraftModal
