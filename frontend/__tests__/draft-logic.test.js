@@ -1593,3 +1593,428 @@ describe("computeHistorySeries", () => {
     expect(series.length).toBe(1);
   });
 });
+
+// ── Target Board + Nominations + Bayesian ceiling (post-Tier-3 follow-on) ──
+
+import {
+  NOMINATION_DECAY,
+  TARGET_BOARD_MAX,
+  TIER_INTEREST_MIN,
+  addToTargetBoard,
+  clearTargetBoard,
+  moveTargetInBoard,
+  recordNomination,
+  removeFromTargetBoard,
+  removeNomination,
+  undoLastNomination,
+} from "@/lib/draft-logic";
+
+describe("addToTargetBoard", () => {
+  it("appends player and auto-applies target tag", () => {
+    const ws = createDefaultWorkspace();
+    const next = addToTargetBoard(ws, "jeremiyah-love");
+    expect(next.targetBoard).toEqual(["jeremiyah-love"]);
+    expect(next.tags["jeremiyah-love"]).toBe(TAG_TARGET);
+  });
+
+  it("no-op if already on the board", () => {
+    const ws = addToTargetBoard(
+      createDefaultWorkspace(),
+      "jeremiyah-love",
+    );
+    const again = addToTargetBoard(ws, "jeremiyah-love");
+    expect(again.targetBoard.length).toBe(1);
+  });
+
+  it("capped at TARGET_BOARD_MAX (6)", () => {
+    let ws = createDefaultWorkspace();
+    for (let i = 0; i < 8; i++) {
+      ws = addToTargetBoard(ws, ws.players[i].id);
+    }
+    expect(ws.targetBoard.length).toBe(TARGET_BOARD_MAX);
+    expect(TARGET_BOARD_MAX).toBe(6);
+  });
+
+  it("preserves order in the board array", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToTargetBoard(ws, "jeremiyah-love");
+    ws = addToTargetBoard(ws, "makai-lemon");
+    ws = addToTargetBoard(ws, "carnell-tate");
+    expect(ws.targetBoard).toEqual([
+      "jeremiyah-love",
+      "makai-lemon",
+      "carnell-tate",
+    ]);
+  });
+
+  it("empty playerId is a no-op", () => {
+    const ws = createDefaultWorkspace();
+    expect(addToTargetBoard(ws, "").targetBoard).toEqual([]);
+  });
+});
+
+describe("removeFromTargetBoard", () => {
+  it("removes the player but keeps the target tag", () => {
+    let ws = addToTargetBoard(createDefaultWorkspace(), "jeremiyah-love");
+    const next = removeFromTargetBoard(ws, "jeremiyah-love");
+    expect(next.targetBoard).toEqual([]);
+    // Tag stays — the two concepts are independent.
+    expect(next.tags["jeremiyah-love"]).toBe(TAG_TARGET);
+  });
+});
+
+describe("clearTargetBoard", () => {
+  it("empties the board but leaves tags alone", () => {
+    let ws = addToTargetBoard(createDefaultWorkspace(), "jeremiyah-love");
+    ws = addToTargetBoard(ws, "makai-lemon");
+    const cleared = clearTargetBoard(ws);
+    expect(cleared.targetBoard).toEqual([]);
+    expect(cleared.tags["jeremiyah-love"]).toBe(TAG_TARGET);
+    expect(cleared.tags["makai-lemon"]).toBe(TAG_TARGET);
+  });
+});
+
+describe("moveTargetInBoard", () => {
+  const build = () => {
+    let ws = createDefaultWorkspace();
+    ws = addToTargetBoard(ws, "jeremiyah-love");
+    ws = addToTargetBoard(ws, "makai-lemon");
+    ws = addToTargetBoard(ws, "carnell-tate");
+    return ws;
+  };
+
+  it("moves a slot up", () => {
+    const ws = build();
+    const next = moveTargetInBoard(ws, "carnell-tate", "up");
+    expect(next.targetBoard).toEqual([
+      "jeremiyah-love",
+      "carnell-tate",
+      "makai-lemon",
+    ]);
+  });
+
+  it("moves a slot down", () => {
+    const ws = build();
+    const next = moveTargetInBoard(ws, "jeremiyah-love", "down");
+    expect(next.targetBoard).toEqual([
+      "makai-lemon",
+      "jeremiyah-love",
+      "carnell-tate",
+    ]);
+  });
+
+  it("no-op at boundaries", () => {
+    const ws = build();
+    expect(moveTargetInBoard(ws, "jeremiyah-love", "up")).toBe(ws);
+    expect(moveTargetInBoard(ws, "carnell-tate", "down")).toBe(ws);
+  });
+
+  it("no-op for unknown player", () => {
+    const ws = build();
+    expect(moveTargetInBoard(ws, "ghost", "up")).toBe(ws);
+  });
+});
+
+describe("computeDraftStats — targetBoardStats", () => {
+  it("empty board yields empty totals + idle status", () => {
+    const stats = computeDraftStats(createDefaultWorkspace());
+    expect(stats.targetBoardStats.slots).toEqual([]);
+    expect(stats.targetBoardStats.portfolioStatus).toBe("idle");
+  });
+
+  it("sums fair + winBid across undrafted targets", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToTargetBoard(ws, "jeremiyah-love");
+    ws = addToTargetBoard(ws, "makai-lemon");
+    const stats = computeDraftStats(ws);
+    const tb = stats.targetBoardStats;
+    expect(tb.slots.length).toBe(2);
+    // At opening: Love fair 135, Lemon fair 90
+    expect(tb.totals.fairSum).toBe(225);
+    expect(tb.totals.remainingCount).toBe(2);
+  });
+
+  it("paid sum only counts targets drafted to me", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToTargetBoard(ws, "jeremiyah-love");
+    ws = addToTargetBoard(ws, "makai-lemon");
+    // I grab Love at $60; rival grabs Lemon at $50.
+    ws = recordPick(ws, {
+      playerId: "jeremiyah-love",
+      teamIdx: 0,
+      amount: 60,
+    });
+    ws = recordPick(ws, {
+      playerId: "makai-lemon",
+      teamIdx: 4,
+      amount: 50,
+    });
+    const stats = computeDraftStats(ws);
+    const tb = stats.targetBoardStats;
+    expect(tb.totals.mineCount).toBe(1);
+    expect(tb.totals.otherCount).toBe(1);
+    expect(tb.totals.paidSum).toBe(60);
+    expect(tb.totals.remainingCount).toBe(0);
+  });
+
+  it("portfolioBuffer = myRemaining − remainingWinBid − nonTargetSlotsLeft × $1", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToTargetBoard(ws, "jeremiyah-love");
+    ws = addToTargetBoard(ws, "makai-lemon");
+    const stats = computeDraftStats(ws);
+    const tb = stats.targetBoardStats;
+    // myRemaining=417, slotsRemaining=6, target count=2, so
+    // nonTargetSlotsLeft = 4.  winBids capped by competitor ceiling
+    // ~$68 each → winBidSum ~ 2×69 = 138.  Buffer ≈ 417 − ~138 − 4.
+    const expected = 417 - tb.totals.remainingWinBid - 4;
+    expect(tb.portfolioBuffer).toBe(expected);
+    expect(tb.portfolioStatus).toBe("on_track");
+  });
+
+  it("flags 'short' when remaining targets exceed remaining $", () => {
+    let ws = createDefaultWorkspace();
+    // Make myRemaining tiny by starting the user with a $20 budget.
+    ws = updateTeam(ws, 0, { initialBudget: 20 });
+    ws = addToTargetBoard(ws, "jeremiyah-love");
+    ws = addToTargetBoard(ws, "makai-lemon");
+    const stats = computeDraftStats(ws);
+    expect(stats.targetBoardStats.portfolioStatus).toBe("short");
+    expect(stats.targetBoardStats.portfolioBuffer).toBeLessThan(0);
+  });
+});
+
+// ── Nominations ─────────────────────────────────────────────────────────
+
+describe("recordNomination", () => {
+  it("stores playerId + team + snapshot preDraft", () => {
+    const ws = createDefaultWorkspace();
+    const next = recordNomination(ws, {
+      playerId: "jeremiyah-love",
+      nominatingTeamIdx: 4,
+    });
+    expect(next.nominations.length).toBe(1);
+    const n = next.nominations[0];
+    expect(n.playerId).toBe("jeremiyah-love");
+    expect(n.nominatingTeamIdx).toBe(4);
+    expect(n.preDraftAtNomination).toBe(135);
+    expect(typeof n.ts).toBe("number");
+  });
+
+  it("replaces an existing nomination for the same player", () => {
+    let ws = recordNomination(createDefaultWorkspace(), {
+      playerId: "jeremiyah-love",
+      nominatingTeamIdx: 4,
+    });
+    ws = recordNomination(ws, {
+      playerId: "jeremiyah-love",
+      nominatingTeamIdx: 5,
+    });
+    expect(ws.nominations.length).toBe(1);
+    expect(ws.nominations[0].nominatingTeamIdx).toBe(5);
+  });
+
+  it("no-op with invalid inputs", () => {
+    const ws = createDefaultWorkspace();
+    expect(
+      recordNomination(ws, { playerId: "", nominatingTeamIdx: 0 }).nominations,
+    ).toEqual([]);
+    expect(
+      recordNomination(ws, {
+        playerId: "jeremiyah-love",
+        nominatingTeamIdx: "bad",
+      }).nominations,
+    ).toEqual([]);
+  });
+});
+
+describe("removeNomination / undoLastNomination", () => {
+  it("removes a specific logged nomination", () => {
+    let ws = recordNomination(createDefaultWorkspace(), {
+      playerId: "jeremiyah-love",
+      nominatingTeamIdx: 4,
+    });
+    ws = removeNomination(ws, "jeremiyah-love");
+    expect(ws.nominations).toEqual([]);
+  });
+
+  it("undoLastNomination pops the newest by ts", async () => {
+    let ws = recordNomination(createDefaultWorkspace(), {
+      playerId: "jeremiyah-love",
+      nominatingTeamIdx: 4,
+    });
+    await new Promise((r) => setTimeout(r, 2));
+    ws = recordNomination(ws, {
+      playerId: "makai-lemon",
+      nominatingTeamIdx: 5,
+    });
+    expect(ws.nominations.length).toBe(2);
+    const undone = undoLastNomination(ws);
+    expect(undone.nominations.length).toBe(1);
+    expect(undone.nominations[0].playerId).toBe("jeremiyah-love");
+  });
+});
+
+describe("computeDraftStats — Bayesian tier interest", () => {
+  it("no nominations → every team tierInterest is 1.0 on every tier", () => {
+    const stats = computeDraftStats(createDefaultWorkspace());
+    for (const t of stats.teamStats) {
+      for (const def of TIER_DEFS) {
+        expect(t.tierInterest[def.key]).toBe(1);
+      }
+      expect(t.nominationsLogged).toBe(0);
+    }
+  });
+
+  it("one S nomination decays the nominator's S-tier interest once", () => {
+    const ws = recordNomination(createDefaultWorkspace(), {
+      playerId: "jeremiyah-love", // tier S
+      nominatingTeamIdx: 4,
+    });
+    const stats = computeDraftStats(ws);
+    expect(stats.teamStats[4].tierInterest.S).toBeCloseTo(
+      NOMINATION_DECAY,
+      4,
+    );
+    // Other tiers untouched.
+    expect(stats.teamStats[4].tierInterest.A).toBe(1);
+    // Other teams untouched.
+    expect(stats.teamStats[5].tierInterest.S).toBe(1);
+    expect(stats.teamStats[4].nominationsLogged).toBe(1);
+  });
+
+  it("multiple nominations stack multiplicatively", () => {
+    let ws = createDefaultWorkspace();
+    // 3 S-tier noms from team 4: 0.8^3 ≈ 0.512.
+    const sPlayers = ws.players.filter((p) => p.preDraft >= 60);
+    for (const p of sPlayers.slice(0, 3)) {
+      ws = recordNomination(ws, {
+        playerId: p.id,
+        nominatingTeamIdx: 4,
+      });
+    }
+    const stats = computeDraftStats(ws);
+    expect(stats.teamStats[4].tierInterest.S).toBeCloseTo(
+      Math.pow(NOMINATION_DECAY, 3),
+      4,
+    );
+  });
+
+  it("tierInterest is floored at TIER_INTEREST_MIN with enough noms", () => {
+    // D tier has 28+ players; 0.8^28 ≈ 0.002 which would dip well
+    // below the floor without clamping.
+    let ws = createDefaultWorkspace();
+    const dPlayers = ws.players.filter((p) => p.preDraft <= 2);
+    expect(dPlayers.length).toBeGreaterThan(20);
+    for (const p of dPlayers) {
+      ws = recordNomination(ws, {
+        playerId: p.id,
+        nominatingTeamIdx: 4,
+      });
+    }
+    const stats = computeDraftStats(ws);
+    expect(stats.teamStats[4].tierInterest.D).toBe(TIER_INTEREST_MIN);
+  });
+
+  it("bayesianTopCompetitor per player reflects tierInterest", () => {
+    // Only ONE rival is wealthy (team 1); the rest are broke.  That
+    // makes team 1 the exclusive ceiling-setter, so their decayed
+    // tier interest directly drops the Bayesian ceiling.
+    let ws = createDefaultWorkspace();
+    ws = {
+      ...ws,
+      teams: ws.teams.map((t, i) => {
+        if (i === 0) return t;
+        if (i === 1) return { ...t, initialBudget: 400 };
+        return { ...t, initialBudget: 0 };
+      }),
+    };
+    ws = recordNomination(ws, {
+      playerId: "jeremiyah-love",
+      nominatingTeamIdx: 1,
+    });
+    ws = recordNomination(ws, {
+      playerId: "fernando-mendoza",
+      nominatingTeamIdx: 1,
+    });
+    const stats = computeDraftStats(ws);
+    const makai = stats.enrichedPlayers.find(
+      (p) => p.name === "Makai Lemon",
+    );
+    expect(stats.topCompetitorMax).toBeGreaterThan(300);
+    // Team 1 nominated 2 S players → S interest ≈ 0.64 → Bayesian
+    // ceiling ≈ 0.64 × topCompetitorMax.
+    expect(makai.bayesianTopCompetitor).toBeLessThan(
+      stats.topCompetitorMax,
+    );
+    expect(makai.bayesianTopCompetitor).toBeCloseTo(
+      Math.floor(stats.topCompetitorMax * NOMINATION_DECAY * NOMINATION_DECAY),
+      0,
+    );
+  });
+
+  it("bayesianWinningBid ≤ myWinningBid (tighter ceiling)", () => {
+    const ws = recordNomination(createDefaultWorkspace(), {
+      playerId: "jeremiyah-love",
+      nominatingTeamIdx: 4,
+    });
+    const stats = computeDraftStats(ws);
+    for (const p of stats.enrichedPlayers) {
+      if (p.drafted) continue;
+      expect(p.bayesianWinningBid).toBeLessThanOrEqual(p.myWinningBid);
+    }
+  });
+});
+
+describe("hydrateWorkspace — targetBoard + nominations roundtrip", () => {
+  it("preserves targetBoard order", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToTargetBoard(ws, "jeremiyah-love");
+    ws = addToTargetBoard(ws, "makai-lemon");
+    const round = hydrateWorkspace(JSON.parse(JSON.stringify(ws)));
+    expect(round.targetBoard).toEqual(["jeremiyah-love", "makai-lemon"]);
+  });
+
+  it("truncates targetBoard to TARGET_BOARD_MAX", () => {
+    const parsed = {
+      version: 1,
+      settings: {},
+      teams: DEFAULT_TEAMS,
+      players: DEFAULT_ROOKIES.map((p) => ({
+        id: playerSlug(p.name),
+        rank: p.rank,
+        name: p.name,
+        preDraft: p.preDraft,
+      })),
+      picks: [],
+      targetBoard: [
+        "a", "b", "c", "d", "e", "f", "g", "h", // 8 > 6
+      ],
+    };
+    expect(hydrateWorkspace(parsed).targetBoard.length).toBe(
+      TARGET_BOARD_MAX,
+    );
+  });
+
+  it("preserves valid nominations and drops malformed ones", () => {
+    const parsed = {
+      version: 1,
+      settings: {},
+      teams: DEFAULT_TEAMS,
+      players: DEFAULT_ROOKIES.map((p) => ({
+        id: playerSlug(p.name),
+        rank: p.rank,
+        name: p.name,
+        preDraft: p.preDraft,
+      })),
+      picks: [],
+      nominations: [
+        { playerId: "jeremiyah-love", nominatingTeamIdx: 4, ts: 1 },
+        { playerId: "", nominatingTeamIdx: 4 }, // drop: empty id
+        { playerId: "makai-lemon", nominatingTeamIdx: "bad" }, // drop
+      ],
+    };
+    const ws = hydrateWorkspace(parsed);
+    expect(ws.nominations.length).toBe(1);
+    expect(ws.nominations[0].playerId).toBe("jeremiyah-love");
+  });
+});

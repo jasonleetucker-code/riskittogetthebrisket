@@ -9,23 +9,31 @@ import {
   DEFAULT_ENFORCE_PCT,
   TAG_AVOID,
   TAG_TARGET,
+  TARGET_BOARD_MAX,
   TIER_DEFS,
   addPlayer,
+  addToTargetBoard,
   bidStatus,
+  clearTargetBoard,
   computeDraftStats,
   computeHistorySeries,
   createDefaultWorkspace,
   cycleTag,
   hydrateWorkspace,
   mergeDraftCapitalTeams,
+  moveTargetInBoard,
   nextBestTargets,
   nominationCandidates,
   playerRecommendation,
   playerSlug,
+  recordNomination,
   recordPick,
+  removeFromTargetBoard,
+  removeNomination,
   removePick,
   removePlayer,
   setPlayerTag,
+  undoLastNomination,
   undoLastPick,
   updatePlayerPreDraft,
   updateSettings,
@@ -720,6 +728,82 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
               </span>
             </div>
           </div>
+
+          {/* Nomination logger — record that a rival nominated this
+              player (without recording a pick).  Drives the Bayesian
+              tier-interest priors.  ``nominatedBy`` shows the current
+              logged nominator, if any, with an undo option. */}
+          {!player.drafted && (
+            <div className="draft-modal-nom">
+              <div
+                className="muted"
+                style={{ fontSize: "0.72rem", marginBottom: 4 }}
+              >
+                Who nominated this player?
+                {(() => {
+                  const existing = (workspace.nominations || []).find(
+                    (n) => n.playerId === player.id,
+                  );
+                  if (!existing) return null;
+                  const teamName =
+                    workspace.teams[existing.nominatingTeamIdx]?.name ||
+                    `Team ${existing.nominatingTeamIdx + 1}`;
+                  return (
+                    <span
+                      style={{
+                        marginLeft: 6,
+                        color: "var(--cyan)",
+                        fontSize: "0.7rem",
+                      }}
+                    >
+                      · logged: {teamName}
+                    </span>
+                  );
+                })()}
+              </div>
+              <div className="draft-live-row">
+                <select
+                  className="select"
+                  defaultValue=""
+                  onChange={(e) => {
+                    const idx = Number(e.target.value);
+                    if (!Number.isInteger(idx)) return;
+                    onSubmit({ _nominate: true, playerId: player.id, teamIdx: idx });
+                    e.target.value = "";
+                  }}
+                >
+                  <option value="" disabled>
+                    Select nominator…
+                  </option>
+                  {workspace.teams.map((t, i) =>
+                    i === workspace.settings?.myTeamIdx ? null : (
+                      <option key={i} value={i}>
+                        {t.name || `Team ${i + 1}`}
+                      </option>
+                    ),
+                  )}
+                </select>
+                {(workspace.nominations || []).some(
+                  (n) => n.playerId === player.id,
+                ) && (
+                  <button
+                    type="button"
+                    className="button"
+                    style={{ fontSize: "0.7rem", padding: "2px 8px" }}
+                    onClick={() =>
+                      onSubmit({
+                        _removeNomination: true,
+                        playerId: player.id,
+                      })
+                    }
+                    title="Clear the logged nomination"
+                  >
+                    Clear nom
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         <div className="draft-modal-footer">
           {existingPick && (
@@ -781,6 +865,8 @@ function RookieBoard({
   onRemovePlayer,
   onCycleTag,
   searchInputRef,
+  selectedPlayerId,
+  onSelectRow,
   showDrafted,
   onShowDraftedChange,
   query,
@@ -999,11 +1085,12 @@ function RookieBoard({
                 rendered.push(
               <tr
                 key={p.id}
+                onClick={() => onSelectRow?.(p.id)}
                 className={`draft-row${p.drafted ? " draft-row-drafted" : ""}${
                   p.mine ? " draft-row-mine" : ""
                 }${p.userTag === TAG_TARGET ? " draft-row-target" : ""}${
                   p.userTag === TAG_AVOID ? " draft-row-avoid" : ""
-                }`}
+                }${p.id === selectedPlayerId ? " draft-row-selected" : ""}`}
               >
                 <td className="draft-money">{p.rank}</td>
                 <td>
@@ -1265,6 +1352,289 @@ function InflationSparkline({ series, width = 140, height = 36 }) {
   );
 }
 
+/* ── Target Board — my explicit short-list ───────────────────────── */
+
+/**
+ * The user's committed "these are my 6" board.  Shows each slot with
+ * live predraft / fair / winning bid / paid numbers, plus an
+ * aggregate footer with the portfolio cost vs my remaining $.
+ *
+ * Headlines:
+ *   - Portfolio cost now  = Σ winning bids of remaining targets
+ *                             + Σ paid on targets already won
+ *   - Buffer              = my remaining $ − cost of remaining
+ *                             − $1 reserve per additional roster slot
+ *
+ * Negative buffer renders red with "SHORT $N — trim a target".
+ */
+function TargetBoard({
+  stats,
+  workspace,
+  onAdd,
+  onRemove,
+  onMove,
+  onClear,
+  onDraft,
+}) {
+  const [search, setSearch] = useState("");
+  const tbStats = stats.targetBoardStats;
+  const slots = tbStats.slots;
+  const undraftedCandidates = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return [];
+    const boardIds = new Set(slots.map((s) => s.id));
+    return stats.enrichedPlayers
+      .filter(
+        (p) =>
+          !p.drafted &&
+          !boardIds.has(p.id) &&
+          p.name.toLowerCase().includes(q),
+      )
+      .slice(0, 8);
+  }, [search, stats.enrichedPlayers, slots]);
+
+  const statusClass =
+    tbStats.portfolioStatus === "short"
+      ? "draft-tb-status-short"
+      : tbStats.portfolioStatus === "tight"
+        ? "draft-tb-status-tight"
+        : tbStats.portfolioStatus === "on_track"
+          ? "draft-tb-status-ok"
+          : "draft-tb-status-idle";
+
+  return (
+    <div className="card draft-target-board">
+      <div className="draft-tb-head">
+        <div>
+          <h3 style={{ margin: "0 0 2px" }}>
+            Target Board{" "}
+            <span className="muted" style={{ fontSize: "0.72rem" }}>
+              ({slots.length} of {TARGET_BOARD_MAX})
+            </span>
+          </h3>
+          <div className="muted" style={{ fontSize: "0.7rem" }}>
+            Live fair + win bid · paid if won · buffer vs my budget
+          </div>
+        </div>
+        <div className="draft-tb-actions">
+          {slots.length > 0 && (
+            <button
+              className="button"
+              style={{ fontSize: "0.7rem", padding: "3px 8px" }}
+              onClick={() => {
+                if (
+                  typeof window !== "undefined" &&
+                  window.confirm("Clear all Target Board slots?")
+                ) {
+                  onClear();
+                }
+              }}
+              title="Clear every target on the board"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
+
+      {slots.length === 0 && (
+        <div
+          className="muted"
+          style={{ fontSize: "0.76rem", padding: "6px 0 4px" }}
+        >
+          Pick up to {TARGET_BOARD_MAX} rookies to track closely.  The
+          board will show what each costs now, what you paid (if won),
+          and how the full portfolio fits your remaining budget.
+        </div>
+      )}
+
+      {slots.length > 0 && (
+        <div className="draft-tb-grid">
+          <div className="draft-tb-row draft-tb-row-head">
+            <span>#</span>
+            <span>Player</span>
+            <span>PD</span>
+            <span>Fair</span>
+            <span>Win</span>
+            <span>Paid</span>
+            <span>Status</span>
+            <span></span>
+          </div>
+          {slots.map((p, idx) => {
+            const isFirst = idx === 0;
+            const isLast = idx === slots.length - 1;
+            const status = p.drafted
+              ? p.mine
+                ? {
+                    label: `Won $${p.pick.amount}`,
+                    cls: "draft-tb-status-won",
+                  }
+                : { label: "Lost", cls: "draft-tb-status-lost" }
+              : {
+                  label: `Win at $${p.myWinningBid}`,
+                  cls: "draft-tb-status-open",
+                };
+            const paidDelta =
+              p.drafted && p.mine && Number.isFinite(p.valueVsFair)
+                ? p.valueVsFair
+                : null;
+            return (
+              <div
+                key={p.id}
+                className={`draft-tb-row${p.drafted ? " draft-tb-row-drafted" : ""}${p.mine ? " draft-tb-row-mine" : ""}`}
+              >
+                <span className="draft-tb-idx">#{idx + 1}</span>
+                <span className="draft-tb-name-cell">
+                  <span
+                    className={`draft-tier-chip draft-tier-${p.tier}`}
+                    style={{ marginRight: 4 }}
+                  >
+                    {p.tier}
+                  </span>
+                  <span
+                    className="draft-nbt-name"
+                    onClick={() => onDraft(p)}
+                    title="Open draft modal"
+                  >
+                    {p.name}
+                  </span>
+                </span>
+                <span className="draft-money">{fmt$(p.preDraft)}</span>
+                <span className="draft-money">{fmt$(p.inflatedFair)}</span>
+                <span className="draft-money draft-money-win">
+                  {fmt$(p.myWinningBid)}
+                </span>
+                <span className="draft-money">
+                  {p.drafted && p.mine ? fmt$(p.pick.amount) : "—"}
+                  {paidDelta != null && (
+                    <span
+                      className={
+                        paidDelta > 0
+                          ? "draft-vs-fair-win"
+                          : paidDelta < 0
+                            ? "draft-vs-fair-lose"
+                            : ""
+                      }
+                      style={{
+                        marginLeft: 4,
+                        fontSize: "0.66rem",
+                        fontWeight: 600,
+                      }}
+                      title={`Inflated fair ${fmt$(
+                        p.inflatedFair,
+                      )} − paid ${fmt$(p.pick.amount)}`}
+                    >
+                      {paidDelta > 0 ? "+" : ""}
+                      {fmt$(paidDelta)}
+                    </span>
+                  )}
+                </span>
+                <span className={`draft-tb-status ${status.cls}`}>
+                  {status.label}
+                </span>
+                <span className="draft-tb-controls">
+                  <button
+                    className="button-reset draft-tb-ctrl"
+                    onClick={() => onMove(p.id, "up")}
+                    disabled={isFirst}
+                    title="Move up"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    className="button-reset draft-tb-ctrl"
+                    onClick={() => onMove(p.id, "down")}
+                    disabled={isLast}
+                    title="Move down"
+                  >
+                    ▼
+                  </button>
+                  <button
+                    className="button-reset draft-tb-ctrl draft-tb-ctrl-remove"
+                    onClick={() => onRemove(p.id)}
+                    title="Remove from board"
+                  >
+                    ×
+                  </button>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className={`draft-tb-summary ${statusClass}`}>
+        <div className="draft-tb-summary-line">
+          <span className="muted">PreDraft Σ</span>
+          <span className="draft-money">{fmt$(tbStats.totals.preDraftSum)}</span>
+          <span className="muted">Fair Σ</span>
+          <span className="draft-money">{fmt$(tbStats.totals.fairSum)}</span>
+          <span className="muted">Win Σ (open)</span>
+          <span className="draft-money">{fmt$(tbStats.totals.remainingWinBid)}</span>
+          <span className="muted">Paid Σ (won)</span>
+          <span className="draft-money">{fmt$(tbStats.totals.paidSum)}</span>
+        </div>
+        <div className="draft-tb-summary-line">
+          <span className="muted">My remaining</span>
+          <span className="draft-money">{fmt$(stats.myRemaining)}</span>
+          <span className="muted">− buys at win</span>
+          <span className="draft-money">
+            {fmt$(tbStats.totals.remainingWinBid)}
+          </span>
+          <span className="muted">− other slots</span>
+          <span className="draft-money">
+            {fmt$(tbStats.nonTargetSlotsLeft)}
+          </span>
+          <strong>=</strong>
+          <span className="draft-money draft-tb-buffer">
+            {fmt$(tbStats.portfolioBuffer)}
+          </span>
+        </div>
+        <div className="draft-tb-status-line">
+          {tbStats.portfolioStatusLabel}
+        </div>
+      </div>
+
+      {slots.length < TARGET_BOARD_MAX && (
+        <div className="draft-tb-add">
+          <input
+            type="text"
+            className="input"
+            placeholder="Add target (type a name)…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ flex: 1, maxWidth: 260 }}
+          />
+          {undraftedCandidates.length > 0 && (
+            <div className="draft-tb-suggest">
+              {undraftedCandidates.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="button draft-tb-suggest-btn"
+                  onClick={() => {
+                    onAdd(p.id);
+                    setSearch("");
+                  }}
+                  style={{ fontSize: "0.72rem", padding: "3px 8px" }}
+                >
+                  <span
+                    className={`draft-tier-chip draft-tier-${p.tier}`}
+                    style={{ marginRight: 4 }}
+                  >
+                    {p.tier}
+                  </span>
+                  {p.name} ({fmt$(p.inflatedFair)})
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Nomination optimizer sidebar ─────────────────────────────────── */
 
 /**
@@ -1504,6 +1874,8 @@ export default function DraftDashboardPage() {
   const [triageApplied, setTriageApplied] = useState(false);
   const [triageDismissed, setTriageDismissed] = useState(false);
   const searchInputRef = useRef(null);
+  const [selectedPlayerId, setSelectedPlayerId] = useState(null);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [capitalStatus, setCapitalStatus] = useState({
     loading: false,
     error: "",
@@ -1566,20 +1938,99 @@ export default function DraftDashboardPage() {
     }
   }, [stats.slotPressure, triageApplied, triageDismissed]);
 
-  // "/" focuses the search input (skip when already typing).
+  // Global keyboard shortcuts.  Skipped entirely when focus is in an
+  // input/textarea/select so typing a player name or budget doesn't
+  // hijack the shortcuts.  Covers:
+  //   /      — focus search
+  //   ?      — toggle help modal
+  //   Esc    — close modal / help (handled where relevant)
+  //   j/↓    — select next undrafted row
+  //   k/↑    — select prev undrafted row
+  //   D      — open draft modal for selected
+  //   N      — cycle tag on selected
+  //   T      — toggle target tag (neutral ↔ target) on selected
+  //   B      — add selected to Target Board
   useEffect(() => {
     function onKey(e) {
-      if (e.key !== "/") return;
       const tag = (e.target?.tagName || "").toLowerCase();
       const editable =
         tag === "input" || tag === "textarea" || tag === "select";
       if (editable) return;
-      e.preventDefault();
-      searchInputRef.current?.focus();
+
+      if (e.key === "/") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+      if (e.key === "?") {
+        e.preventDefault();
+        setHelpOpen((o) => !o);
+        return;
+      }
+      if (e.key === "Escape") {
+        if (helpOpen) setHelpOpen(false);
+        // Draft modal handles its own Escape via the backdrop click.
+        return;
+      }
+
+      // Row navigation + per-row shortcuts.  Need the current undrafted
+      // list to walk through.  Skip when there's nothing to navigate.
+      const undrafted = stats.enrichedPlayers.filter((p) => !p.drafted);
+      if (undrafted.length === 0) return;
+
+      const idx = selectedPlayerId
+        ? undrafted.findIndex((p) => p.id === selectedPlayerId)
+        : -1;
+
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        const next = undrafted[Math.min(idx + 1, undrafted.length - 1)] || undrafted[0];
+        setSelectedPlayerId(next.id);
+        return;
+      }
+      if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const next = undrafted[Math.max(idx - 1, 0)] || undrafted[0];
+        setSelectedPlayerId(next.id);
+        return;
+      }
+
+      // Shortcuts below require a selection.
+      if (!selectedPlayerId) return;
+      const selected = undrafted.find((p) => p.id === selectedPlayerId);
+      if (!selected) return;
+
+      if (e.key === "d" || e.key === "D") {
+        e.preventDefault();
+        setModalPlayer(selected);
+        return;
+      }
+      if (e.key === "n" || e.key === "N") {
+        e.preventDefault();
+        onCycleTag(selected.id);
+        return;
+      }
+      if (e.key === "t" || e.key === "T") {
+        e.preventDefault();
+        onToggleTarget(selected.id);
+        return;
+      }
+      if (e.key === "b" || e.key === "B") {
+        e.preventDefault();
+        onAddToBoard(selected.id);
+        return;
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [
+    helpOpen,
+    selectedPlayerId,
+    stats.enrichedPlayers,
+    onCycleTag,
+    onToggleTarget,
+    onAddToBoard,
+  ]);
 
   // Pull per-team auction $ budgets from /api/draft-capital.  The
   // dashboard needs this to mirror real carry-over balances without
@@ -1682,11 +2133,73 @@ export default function DraftDashboardPage() {
       }),
     [],
   );
+  const onToggleTarget = useCallback(
+    (id) =>
+      setWorkspace((ws) => {
+        const current = ws.tags?.[id] || null;
+        // Toggle: target ↔ neutral (never flips to avoid via T key).
+        return setPlayerTag(
+          ws,
+          id,
+          current === TAG_TARGET ? null : TAG_TARGET,
+        );
+      }),
+    [],
+  );
+  const onAddToBoard = useCallback(
+    (id) => setWorkspace((ws) => addToTargetBoard(ws, id)),
+    [],
+  );
+  const onRemoveFromBoard = useCallback(
+    (id) => setWorkspace((ws) => removeFromTargetBoard(ws, id)),
+    [],
+  );
+  const onMoveInBoard = useCallback(
+    (id, direction) =>
+      setWorkspace((ws) => moveTargetInBoard(ws, id, direction)),
+    [],
+  );
+  const onClearBoard = useCallback(
+    () => setWorkspace((ws) => clearTargetBoard(ws)),
+    [],
+  );
+  const onRecordNomination = useCallback(
+    (playerId, nominatingTeamIdx) =>
+      setWorkspace((ws) =>
+        recordNomination(ws, {
+          playerId,
+          nominatingTeamIdx: Number(nominatingTeamIdx),
+        }),
+      ),
+    [],
+  );
+  const onRemoveNomination = useCallback(
+    (playerId) => setWorkspace((ws) => removeNomination(ws, playerId)),
+    [],
+  );
+  const onUndoLastNomination = useCallback(
+    () => setWorkspace((ws) => undoLastNomination(ws)),
+    [],
+  );
 
   const handleModalSubmit = useCallback(
     (payload) => {
       if (payload?._remove) {
         setWorkspace((ws) => removePick(ws, payload.playerId));
+      } else if (payload?._nominate) {
+        // Nomination logger — record + keep modal open so the user
+        // can continue setting up (e.g. still intends to bid on
+        // this player themselves).  No ``setModalPlayer(null)``.
+        setWorkspace((ws) =>
+          recordNomination(ws, {
+            playerId: payload.playerId,
+            nominatingTeamIdx: payload.teamIdx,
+          }),
+        );
+        return;
+      } else if (payload?._removeNomination) {
+        setWorkspace((ws) => removeNomination(ws, payload.playerId));
+        return;
       } else {
         setWorkspace((ws) => recordPick(ws, payload));
       }
@@ -1736,6 +2249,13 @@ export default function DraftDashboardPage() {
           </p>
         </div>
         <div className="draft-page-actions">
+          <button
+            className="button"
+            onClick={() => setHelpOpen(true)}
+            title="Keyboard shortcuts (?)"
+          >
+            ?
+          </button>
           <button
             className="button"
             onClick={() => setWorkspace((ws) => undoLastPick(ws))}
@@ -1825,6 +2345,16 @@ export default function DraftDashboardPage() {
         </div>
       )}
 
+      <TargetBoard
+        stats={stats}
+        workspace={workspace}
+        onAdd={onAddToBoard}
+        onRemove={onRemoveFromBoard}
+        onMove={onMoveInBoard}
+        onClear={onClearBoard}
+        onDraft={(p) => setModalPlayer(p)}
+      />
+
       <div className="draft-sidebar-grid">
         <NextBestTargets
           stats={stats}
@@ -1847,6 +2377,8 @@ export default function DraftDashboardPage() {
         onRemovePlayer={onRemovePlayer}
         onCycleTag={onCycleTag}
         searchInputRef={searchInputRef}
+        selectedPlayerId={selectedPlayerId}
+        onSelectRow={setSelectedPlayerId}
         showDrafted={showDrafted}
         onShowDraftedChange={setShowDrafted}
         query={query}
@@ -1864,6 +2396,110 @@ export default function DraftDashboardPage() {
           onClose={() => setModalPlayer(null)}
           onSubmit={handleModalSubmit}
         />
+      )}
+
+      {helpOpen && (
+        <div
+          className="draft-modal-backdrop"
+          onClick={() => setHelpOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="draft-modal card"
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: "min(520px, 100%)" }}
+          >
+            <div className="draft-modal-header">
+              <h3>Keyboard shortcuts</h3>
+              <button
+                type="button"
+                className="button-reset draft-modal-close"
+                onClick={() => setHelpOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="draft-modal-body">
+              <table className="draft-help-table">
+                <tbody>
+                  <tr>
+                    <td>
+                      <kbd>/</kbd>
+                    </td>
+                    <td>Focus search</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <kbd>?</kbd>
+                    </td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <kbd>Esc</kbd>
+                    </td>
+                    <td>Close modal / help</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <kbd>j</kbd> / <kbd>↓</kbd>
+                    </td>
+                    <td>Select next undrafted player</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <kbd>k</kbd> / <kbd>↑</kbd>
+                    </td>
+                    <td>Select previous undrafted player</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <kbd>D</kbd>
+                    </td>
+                    <td>Open Draft modal for selected</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <kbd>N</kbd>
+                    </td>
+                    <td>Cycle tag (neutral → target → avoid) on selected</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <kbd>T</kbd>
+                    </td>
+                    <td>Toggle target tag (neutral ↔ target) on selected</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <kbd>B</kbd>
+                    </td>
+                    <td>Add selected to Target Board</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div
+                className="muted"
+                style={{ fontSize: "0.72rem", marginTop: 8 }}
+              >
+                Shortcuts are inactive while typing in any input,
+                textarea, or select.  Click a row on the Rookie Board
+                to select it (keyboard shortcuts target the selected
+                row).
+              </div>
+            </div>
+            <div className="draft-modal-footer">
+              <button
+                type="button"
+                className="button"
+                onClick={() => setHelpOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );
