@@ -201,9 +201,15 @@ a { color: inherit; text-decoration: none; }
   color: var(--muted);
   font-family: var(--mono);
   font-size: 0.78rem;
+  /* 44x44 minimum touch target — the previous ~24x24 glyph was a
+     frequent miss on iOS. */
+  min-width: 44px;
+  min-height: 40px;
   padding: 4px 10px;
   border-radius: var(--radius-sm);
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .mobile-topbar-actions {
@@ -218,9 +224,12 @@ a { color: inherit; text-decoration: none; }
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 600;
-  padding: 4px 8px;
+  min-height: 40px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -533,6 +542,83 @@ thead .sticky-name {
 
 tr:hover .sticky-name {
   background: #3d1e6e;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   GLOBAL SEARCH
+   ══════════════════════════════════════════════════════════════════════════ */
+/* The input row carries the visible border + focus-ring so the bare
+   input can keep `border: none` (design goal: minimal chrome) without
+   losing keyboard-accessibility focus feedback. */
+.global-search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(8, 19, 44, 0.5);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.global-search-input-row:focus-within {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(255, 198, 47, 0.15);
+}
+.global-search-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 8px 2px;
+  /* 16px locked — iOS would zoom on focus otherwise.  The previous
+     inline `fontSize: "1rem"` resolved to 16px but the mobile global
+     rule now covers it explicitly via `input[type="text"]`. */
+  font-size: 1rem;
+}
+.global-search-close {
+  font-size: 0.76rem;
+  min-height: 40px;
+  padding: 6px 12px;
+  letter-spacing: 0.05em;
+  touch-action: manipulation;
+}
+@media (max-width: 768px) {
+  .global-search-close {
+    min-width: 56px;
+    min-height: 44px;
+    font-size: 0.82rem;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PLAYER POPUP HEADER ACTIONS (Add to Trade / close X)
+   ══════════════════════════════════════════════════════════════════════════ */
+.player-popup-action {
+  font-size: 0.78rem;
+  padding: 6px 12px;
+}
+/* Square close button — keeps visual parity with the .picker-close
+   button used on the player picker.  Font-size drives the glyph; the
+   min-width/min-height lock the tap target. */
+.player-popup-close {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+@media (max-width: 768px) {
+  .player-popup-action {
+    min-height: 44px;
+    padding: 8px 14px;
+    font-size: 0.88rem;
+  }
+  .player-popup-close {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 1.3rem;
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

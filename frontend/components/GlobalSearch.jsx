@@ -82,20 +82,30 @@ export default function GlobalSearch({ rows = [], isOpen, onClose, onSelect }) {
         onClick={(e) => e.stopPropagation()}
         style={{ maxWidth: 500, width: "92vw", maxHeight: "70dvh", display: "flex", flexDirection: "column" }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: "1.1rem", opacity: 0.4 }}>/</span>
+        <div className="global-search-input-row">
+          <span
+            style={{ fontSize: "1.1rem", opacity: 0.4 }}
+            aria-hidden="true"
+          >
+            /
+          </span>
           <input
             ref={inputRef}
-            className="input"
+            className="input global-search-input"
             type="text"
             placeholder="Search players and picks..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            style={{ flex: 1, fontSize: "1rem", border: "none", outline: "none", background: "transparent" }}
             autoComplete="off"
+            aria-label="Search players and picks"
           />
-          <button className="button" onClick={onClose} style={{ padding: "4px 10px", fontSize: "0.76rem" }}>
+          <button
+            className="button global-search-close"
+            onClick={onClose}
+            aria-label="Close search"
+            title="Close search (ESC)"
+          >
             ESC
           </button>
         </div>

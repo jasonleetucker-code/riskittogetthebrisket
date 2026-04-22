@@ -268,12 +268,20 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             {onAddToTrade && (
-              <button className="button" style={{ fontSize: "0.72rem", padding: "4px 8px" }}
-                onClick={() => { onAddToTrade(row); onClose?.(); }}>
+              <button
+                className="button player-popup-action"
+                onClick={() => { onAddToTrade(row); onClose?.(); }}
+                aria-label={`Add ${row.name} to trade`}
+              >
                 Add to Trade
               </button>
             )}
-            <button className="button" onClick={onClose} style={{ fontSize: "0.82rem", padding: "4px 10px" }}>
+            <button
+              className="button player-popup-close"
+              onClick={onClose}
+              aria-label="Close player details"
+              title="Close"
+            >
               &times;
             </button>
           </div>
