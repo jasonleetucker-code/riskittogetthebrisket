@@ -576,6 +576,31 @@ tr:hover .sticky-name {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   TRADE DESTINATION SELECT
+   Appears inside each trade asset row ("→ Side A / Side B / ...").
+   Desktop wants a very compact pill; mobile gets the standard 16px
+   from the global input rule so iOS does not zoom when the select is
+   tapped.
+   ══════════════════════════════════════════════════════════════════════════ */
+.select.trade-dest-select {
+  font-size: 0.7rem;
+}
+@media (max-width: 768px) {
+  .select.trade-dest-select {
+    font-size: 16px;
+  }
+}
+
+.roster-textarea {
+  font-size: 0.82rem;
+}
+@media (max-width: 768px) {
+  .roster-textarea {
+    font-size: 16px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    SETTINGS — SOURCES TABLE
    Render the full 6-column table on desktop.  On mobile (≤768px) the
    six-column layout overflows the viewport (~680px at 0.76rem) even
@@ -1234,6 +1259,39 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   iOS INPUT ZOOM DEFENSE (orientation-independent)
+   iOS Safari auto-zooms any focused input whose computed font-size is
+   below 16px.  The ≤768px media query below catches portrait phone
+   viewports; landscape iPhones come in at 844px wide and miss that
+   query even though the device is still phone-size.  `pointer: coarse
+   + hover: none` keys off the input device rather than viewport
+   dimensions, so rotated phones and tablets also lock 16px.
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (hover: none) and (pointer: coarse) {
+  .input,
+  .select,
+  textarea,
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"] {
+    font-size: 16px;
+  }
+  .angle-field select, .angle-field input {
+    font-size: 16px;
+    padding: 8px 10px;
+  }
+  .select.trade-dest-select,
+  .roster-textarea,
+  .input.weight-input {
+    font-size: 16px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    MOBILE BREAKPOINT (≤ 768px)
    ══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
@@ -1248,12 +1306,9 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   nav.mobile-only { display: flex !important; }
   header.mobile-only { display: flex !important; }
 
-  /* iOS Safari auto-zooms any input whose computed font-size is
-     smaller than 16px.  Our form controls are 0.82rem (~13px) for
-     desktop density, which triggers a disorienting zoom-in whenever a
-     user taps a field on iOS.  Force 16px on touch-size viewports so
-     tapping a search/filter/picker input does not warp the viewport.
-     Visual density is preserved via the padding/min-height below. */
+  /* See the coarse-pointer rule below — this duplicate ensures the
+     ≤768px portrait path also gets 16px even on browsers / devices
+     that don't surface `pointer: coarse` correctly. */
   .input,
   .select,
   textarea,
@@ -2855,6 +2910,16 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   background: var(--surface-elevated);
   color: var(--text-primary);
   font-size: 0.9rem;
+}
+@media (max-width: 768px) {
+  /* `.angle-field select/input` doesn't use the `.input`/`.select`
+     class, so the generic mobile 16px rule doesn't match and iOS
+     zooms when these are tapped.  Lift the font-size inside the
+     mobile breakpoint. */
+  .angle-field select, .angle-field input {
+    font-size: 16px;
+    padding: 8px 10px;
+  }
 }
 /* Explicit option styling — Chromium on dark OS themes inherits a
    translucent default and dropdown options become unreadable. */

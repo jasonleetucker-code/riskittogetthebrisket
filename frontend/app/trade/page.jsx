@@ -1423,11 +1423,10 @@ export default function TradePage() {
                               >
                                 <span className="muted" style={{ fontSize: "0.66rem" }}>→</span>
                                 <select
-                                  className="select"
+                                  className="select trade-dest-select"
                                   value={currentDest}
                                   onChange={(e) => setAssetDestination(sideIdx, r.name, e.target.value)}
                                   style={{
-                                    fontSize: "0.7rem",
                                     padding: "2px 4px",
                                     minHeight: "unset",
                                     height: "auto",
@@ -1582,12 +1581,12 @@ export default function TradePage() {
             )}
 
             <textarea
-              className="input"
+              className="input roster-textarea"
               placeholder="Enter roster (comma or newline separated): Josh Allen, Bijan Robinson, Ja'Marr Chase, ..."
               value={rosterInput}
               onChange={(e) => { setRosterInput(e.target.value); setSelectedTeamIdx(-1); setLeagueRosters(null); }}
               rows={3}
-              style={{ width: "100%", resize: "vertical", fontFamily: "inherit", fontSize: "0.82rem" }}
+              style={{ width: "100%", resize: "vertical", fontFamily: "inherit" }}
             />
 
             <div className="row" style={{ marginTop: 8, alignItems: "center" }}>
