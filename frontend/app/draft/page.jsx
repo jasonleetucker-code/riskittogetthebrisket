@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/app/AppShellWrapper";
 import {
@@ -13,11 +13,13 @@ import {
   addPlayer,
   bidStatus,
   computeDraftStats,
+  computeHistorySeries,
   createDefaultWorkspace,
   cycleTag,
   hydrateWorkspace,
   mergeDraftCapitalTeams,
   nextBestTargets,
+  nominationCandidates,
   playerRecommendation,
   playerSlug,
   recordPick,
@@ -66,14 +68,15 @@ function fmtMultiplier(n) {
 
 /* ── Inflation stats strip ────────────────────────────────────────── */
 
-function StatsStrip({ stats }) {
-  const stat = (label, value, title, extraClass = "") => (
+function StatsStrip({ stats, historySeries }) {
+  const stat = (label, value, title, extraClass = "", extra = null) => (
     <div
       className={`draft-stat ${extraClass}`.trim()}
       title={title || undefined}
     >
       <div className="draft-stat-label">{label}</div>
       <div className="draft-stat-value">{value}</div>
+      {extra}
     </div>
   );
 
@@ -105,8 +108,9 @@ function StatsStrip({ stats }) {
       {stat(
         "Inflation",
         fmtMultiplier(stats.inflation),
-        "RemainingLeague$ / (TotalAuction$ − Σ soldPreDraft). >1.00 means the remaining market is cheaper than projected; <1.00 means the remaining market got hot.",
+        "RemainingLeague$ / (TotalAuction$ − Σ soldPreDraft). >1.00 means the remaining market is cheaper than projected; <1.00 means the remaining market got hot.  Sparkline shows trajectory over picks.",
         inflationClass,
+        <InflationSparkline series={historySeries} width={138} height={28} />,
       )}
       {stat(
         "My remaining",
@@ -240,10 +244,44 @@ function TeamPanel({
           >
             Eff $
           </span>
+          <span
+            title="Marginal Dollar Value = remaining $ / slots remaining.  Higher = more $ per pick = buying power.  Shaded by pressure tier."
+          >
+            MDV
+          </span>
+          <span
+            title="Overpay index = (Σ paid − Σ preDraft at pick time) / Σ preDraft. >0 overpayer, <0 value hunter, ~0 market-rational."
+          >
+            Over%
+          </span>
         </div>
         {stats.teamStats.map((t) => {
           const effLow = t.effectiveBudget < 5;
           const slotsEmpty = t.slotsRemaining <= 0;
+          // MDV heatmap: compare each team's MDV to the median across
+          // non-bankrupt teams.  Red = meaningfully below median
+          // (pressed for $); green = meaningfully above (flush).
+          // Gray = near median.
+          const mdvClass =
+            slotsEmpty
+              ? "draft-mdv-empty"
+              : t.mdv >= 40
+                ? "draft-mdv-high"
+                : t.mdv >= 15
+                  ? "draft-mdv-mid"
+                  : "draft-mdv-low";
+          const overpayClass =
+            t.overpayIndex == null
+              ? "muted"
+              : t.overpayIndex > 0.1
+                ? "draft-money-overpay"
+                : t.overpayIndex < -0.1
+                  ? "draft-money-value"
+                  : "draft-money";
+          const overpayText =
+            t.overpayIndex == null
+              ? "—"
+              : `${t.overpayIndex > 0 ? "+" : ""}${(t.overpayIndex * 100).toFixed(0)}%`;
           return (
             <div
               key={t.idx}
@@ -293,6 +331,27 @@ function TeamPanel({
                 title="Slot-adjusted effective $: what this team can actually bid on a single player while reserving $1 each for their remaining slots."
               >
                 {fmt$(t.effectiveBudget)}
+              </span>
+              <span
+                className={`draft-money draft-mdv ${mdvClass}`}
+                title={`Marginal $/slot: ${fmt$(t.mdv)} over ${t.slotsRemaining} slot${t.slotsRemaining === 1 ? "" : "s"}`}
+              >
+                {slotsEmpty ? "—" : fmt$(t.mdv)}
+              </span>
+              <span
+                className={overpayClass}
+                style={{
+                  fontFamily: "var(--mono, monospace)",
+                  textAlign: "right",
+                  fontSize: "0.76rem",
+                }}
+                title={
+                  t.overpayIndex == null
+                    ? "No picks yet"
+                    : `Paid ${fmt$(t.spent)} vs expected ${fmt$(t.preDraftSum)}`
+                }
+              >
+                {overpayText}
               </span>
             </div>
           );
@@ -721,6 +780,7 @@ function RookieBoard({
   onEditPreDraft,
   onRemovePlayer,
   onCycleTag,
+  searchInputRef,
   showDrafted,
   onShowDraftedChange,
   query,
@@ -840,11 +900,12 @@ function RookieBoard({
         <h3 style={{ margin: 0 }}>Rookie board</h3>
         <div className="draft-board-controls">
           <input
+            ref={searchInputRef}
             className="input"
-            placeholder="Search player…"
+            placeholder="Search player… (press / )"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            style={{ width: 180 }}
+            style={{ width: 200 }}
           />
           <label className="draft-check">
             <input
@@ -1122,6 +1183,182 @@ function RookieBoard({
  * or re-sort.  Clicking a row opens the draft modal pre-loaded with
  * that player; clicking the star cycles the tag.
  */
+/* ── Inflation sparkline ──────────────────────────────────────────── */
+
+/**
+ * Tiny SVG sparkline of inflation (y-axis) over picks (x-axis).
+ * Renders inline in the stats strip so the user can see "inflation
+ * has been climbing 3 picks straight" at a glance without scrolling
+ * back through the pick log.
+ *
+ * Draws a horizontal reference line at 1.00×; the main path is a
+ * polyline over the ``series``, color-coded by the most recent
+ * direction (green = above 1.0, red = below, muted when flat).
+ */
+function InflationSparkline({ series, width = 140, height = 36 }) {
+  if (!Array.isArray(series) || series.length < 2) {
+    return (
+      <span className="muted" style={{ fontSize: "0.68rem" }}>
+        (sparkline populates after first pick)
+      </span>
+    );
+  }
+  const values = series.map((s) => s.inflation);
+  const minV = Math.min(0.7, ...values);
+  const maxV = Math.max(1.3, ...values);
+  const range = Math.max(0.01, maxV - minV);
+  const padX = 2;
+  const padY = 2;
+  const w = width - padX * 2;
+  const h = height - padY * 2;
+
+  const pts = values.map((v, i) => {
+    const x = padX + (i / Math.max(1, series.length - 1)) * w;
+    const y = padY + h - ((v - minV) / range) * h;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+
+  // Reference line at 1.00×.
+  const refY = padY + h - ((1 - minV) / range) * h;
+
+  const last = values[values.length - 1];
+  const color =
+    last > 1.03
+      ? "var(--green)"
+      : last < 0.97
+        ? "var(--red)"
+        : "var(--muted)";
+
+  return (
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className="draft-sparkline"
+      role="img"
+      aria-label={`Inflation trajectory, currently ${last.toFixed(2)}×`}
+    >
+      <line
+        x1={padX}
+        y1={refY}
+        x2={width - padX}
+        y2={refY}
+        stroke="rgba(153,166,200,0.3)"
+        strokeWidth="0.5"
+        strokeDasharray="2 2"
+      />
+      <polyline
+        points={pts.join(" ")}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle
+        cx={padX + w}
+        cy={refY - ((last - 1) / range) * h}
+        r="2"
+        fill={color}
+      />
+    </svg>
+  );
+}
+
+/* ── Nomination optimizer sidebar ─────────────────────────────────── */
+
+/**
+ * "Good to nominate" list.  Players I don't want (or am happy
+ * without) whose expected clearing price is high enough to drain
+ * rival budgets.  Companion to ``NextBestTargets``; both live just
+ * above the rookie board so decisions are in peripheral vision.
+ */
+function NominationCandidates({ stats, onDraft, onCycleTag }) {
+  const list = useMemo(
+    () => nominationCandidates(stats, { limit: 5 }),
+    [stats],
+  );
+
+  if (list.length === 0) {
+    return (
+      <div className="card draft-nbt">
+        <h3 style={{ margin: "0 0 4px" }}>Good to nominate</h3>
+        <div className="muted" style={{ fontSize: "0.72rem" }}>
+          No drain candidates — rivals are too tight or everyone is
+          already tagged as target.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card draft-nbt">
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+        }}
+      >
+        <h3 style={{ margin: 0 }}>Good to nominate</h3>
+        <span className="muted" style={{ fontSize: "0.68rem" }}>
+          Drain rival $ without risking a target
+        </span>
+      </div>
+      <div className="draft-nbt-list">
+        {list.map(({ player, score, drain, rationale }, i) => (
+          <div
+            key={player.id}
+            className={`draft-nbt-row${player.userTag === TAG_AVOID ? " draft-nbt-avoid" : ""}`}
+            title={rationale}
+          >
+            <span className="draft-nbt-rank">#{i + 1}</span>
+            <button
+              type="button"
+              className={`draft-tag-chip${
+                player.userTag ? ` draft-tag-${player.userTag}` : ""
+              }`}
+              onClick={() => onCycleTag(player.id)}
+              title="Cycle tag"
+            >
+              {player.userTag === TAG_TARGET
+                ? "★"
+                : player.userTag === TAG_AVOID
+                  ? "⊘"
+                  : "+"}
+            </button>
+            <span
+              className={`draft-tier-chip draft-tier-${player.tier}`}
+              title={`${TIER_LABELS[player.tier] || player.tier} tier`}
+            >
+              {player.tier}
+            </span>
+            <span className="draft-nbt-name" onClick={() => onDraft(player)}>
+              {player.name}
+            </span>
+            <span className="draft-money">fair {fmt$(player.inflatedFair)}</span>
+            <span className="muted" style={{ fontSize: "0.68rem" }}>
+              drain {fmt$(drain)}
+            </span>
+            <span
+              className={`draft-rec-chip ${
+                player.userTag === TAG_AVOID
+                  ? "draft-rec-avoid"
+                  : "draft-rec-neutral"
+              }`}
+            >
+              {player.userTag === TAG_AVOID ? "AVOID" : "DRAIN"}
+            </span>
+            <span className="muted" style={{ fontSize: "0.66rem" }}>
+              S {Math.round(score)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function NextBestTargets({ stats, onDraft, onCycleTag, workspace }) {
   const top = useMemo(
     () => nextBestTargets(stats, { limit: 5 }),
@@ -1260,6 +1497,13 @@ export default function DraftDashboardPage() {
   const [showDrafted, setShowDrafted] = useState(false);
   const [query, setQuery] = useState("");
   const [tagFilter, setTagFilter] = useState("all"); // all | target | avoid | untagged
+  // Late-draft triage mode: when my slotPressure crosses 0.7, auto-
+  // flip the board filter to "Targets" so I see only the players I
+  // still want.  Tracked so a user who manually changes the filter
+  // AFTER auto-switch isn't fought by the effect every re-render.
+  const [triageApplied, setTriageApplied] = useState(false);
+  const [triageDismissed, setTriageDismissed] = useState(false);
+  const searchInputRef = useRef(null);
   const [capitalStatus, setCapitalStatus] = useState({
     loading: false,
     error: "",
@@ -1300,6 +1544,42 @@ export default function DraftDashboardPage() {
   }, [workspace, hydrated]);
 
   const stats = useMemo(() => computeDraftStats(workspace), [workspace]);
+  // Retrospective inflation trajectory — O(N²) in pick count, but
+  // N caps at ~72 so negligible.  Feeds the sparkline in the stats
+  // strip and any future "how did we get here" retrospectives.
+  const historySeries = useMemo(
+    () => computeHistorySeries(workspace),
+    [workspace],
+  );
+
+  // Late-draft triage: when my slot pressure crosses 0.7, auto-flip
+  // the tag filter to "target" so only players I still want appear
+  // on the board.  Only fires ONCE (via triageApplied) so a user
+  // who manually changes the filter after the flip isn't fought by
+  // the effect.  triageDismissed lets the user opt out explicitly.
+  const LATE_DRAFT_THRESHOLD = 0.7;
+  useEffect(() => {
+    if (triageApplied || triageDismissed) return;
+    if ((stats.slotPressure || 0) >= LATE_DRAFT_THRESHOLD) {
+      setTagFilter("target");
+      setTriageApplied(true);
+    }
+  }, [stats.slotPressure, triageApplied, triageDismissed]);
+
+  // "/" focuses the search input (skip when already typing).
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key !== "/") return;
+      const tag = (e.target?.tagName || "").toLowerCase();
+      const editable =
+        tag === "input" || tag === "textarea" || tag === "select";
+      if (editable) return;
+      e.preventDefault();
+      searchInputRef.current?.focus();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // Pull per-team auction $ budgets from /api/draft-capital.  The
   // dashboard needs this to mirror real carry-over balances without
@@ -1495,7 +1775,7 @@ export default function DraftDashboardPage() {
         </div>
       </div>
 
-      <StatsStrip stats={stats} />
+      <StatsStrip stats={stats} historySeries={historySeries} />
 
       <div className="draft-top-grid">
         <TeamPanel
@@ -1509,12 +1789,55 @@ export default function DraftDashboardPage() {
         <BidKnobs settings={workspace.settings || {}} onSettings={onSettings} />
       </div>
 
-      <NextBestTargets
-        stats={stats}
-        onDraft={(p) => setModalPlayer(p)}
-        onCycleTag={onCycleTag}
-        workspace={workspace}
-      />
+      {/* Late-draft triage banner — visible once the auto-filter
+          fires.  Tells the user what just happened and offers an
+          "escape hatch" back to the full view.  Dismiss persists
+          within the session; reload resets to auto-behavior. */}
+      {triageApplied && !triageDismissed && (
+        <div className="draft-triage-banner">
+          <strong>LATE-DRAFT TRIAGE</strong>
+          <span>
+            Slot pressure {Math.round((stats.slotPressure || 0) * 100)}% —
+            auto-filtered to your Targets so you only see players you
+            still want.
+          </span>
+          <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
+            <button
+              className="button"
+              style={{ fontSize: "0.7rem", padding: "2px 8px" }}
+              onClick={() => {
+                setTagFilter("all");
+                setTriageDismissed(true);
+              }}
+              title="Go back to the full board"
+            >
+              Show all
+            </button>
+            <button
+              className="button"
+              style={{ fontSize: "0.7rem", padding: "2px 8px" }}
+              onClick={() => setTriageDismissed(true)}
+              title="Keep the filter but dismiss this banner"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="draft-sidebar-grid">
+        <NextBestTargets
+          stats={stats}
+          onDraft={(p) => setModalPlayer(p)}
+          onCycleTag={onCycleTag}
+          workspace={workspace}
+        />
+        <NominationCandidates
+          stats={stats}
+          onDraft={(p) => setModalPlayer(p)}
+          onCycleTag={onCycleTag}
+        />
+      </div>
 
       <RookieBoard
         stats={stats}
@@ -1523,6 +1846,7 @@ export default function DraftDashboardPage() {
         onEditPreDraft={onEditPreDraft}
         onRemovePlayer={onRemovePlayer}
         onCycleTag={onCycleTag}
+        searchInputRef={searchInputRef}
         showDrafted={showDrafted}
         onShowDraftedChange={setShowDrafted}
         query={query}

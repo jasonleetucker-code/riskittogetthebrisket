@@ -1393,3 +1393,203 @@ describe("nextBestTargets", () => {
     expect(nextBestTargets(null)).toEqual([]);
   });
 });
+
+// ── Tier 3 ──────────────────────────────────────────────────────────────
+
+import {
+  computeHistorySeries,
+  nominationCandidates,
+} from "@/lib/draft-logic";
+
+describe("teamStats — Tier 3 per-team signals", () => {
+  it("mdv = remaining / slotsRemaining; 0 when no slots left", () => {
+    const ws = createDefaultWorkspace();
+    const stats = computeDraftStats(ws);
+    const mine = stats.teamStats[0];
+    // Russini: 417 / 6 ≈ 69.5
+    expect(mine.mdv).toBeCloseTo(417 / 6, 4);
+  });
+
+  it("overpayIndex is null before any picks", () => {
+    const ws = createDefaultWorkspace();
+    const stats = computeDraftStats(ws);
+    for (const t of stats.teamStats) {
+      expect(t.overpayIndex).toBeNull();
+      expect(t.preDraftSum).toBe(0);
+    }
+  });
+
+  it("overpayIndex > 0 when a team pays over PreDraft", () => {
+    const ws = createDefaultWorkspace();
+    const love = ws.players.find((p) => p.name === "Jeremiyah Love");
+    const withPick = recordPick(ws, {
+      playerId: love.id,
+      teamIdx: 5,
+      amount: 200, // $65 over fair
+    });
+    const stats = computeDraftStats(withPick);
+    const overpayer = stats.teamStats[5];
+    expect(overpayer.overpayIndex).toBeCloseTo((200 - 135) / 135, 4);
+  });
+
+  it("overpayIndex < 0 for a value hunter", () => {
+    const ws = createDefaultWorkspace();
+    const mendoza = ws.players.find((p) => p.name === "Fernando Mendoza");
+    const withPick = recordPick(ws, {
+      playerId: mendoza.id,
+      teamIdx: 4,
+      amount: 50, // $52 under fair
+    });
+    const stats = computeDraftStats(withPick);
+    const hunter = stats.teamStats[4];
+    expect(hunter.overpayIndex).toBeCloseTo((50 - 102) / 102, 4);
+    expect(hunter.overpayIndex).toBeLessThan(0);
+  });
+
+  it("overpayIndex aggregates across multiple picks", () => {
+    const ws = createDefaultWorkspace();
+    const love = ws.players.find((p) => p.name === "Jeremiyah Love");
+    const mendoza = ws.players.find((p) => p.name === "Fernando Mendoza");
+    let next = recordPick(ws, {
+      playerId: love.id,
+      teamIdx: 5,
+      amount: 200,
+    });
+    next = recordPick(next, {
+      playerId: mendoza.id,
+      teamIdx: 5,
+      amount: 120,
+    });
+    const stats = computeDraftStats(next);
+    const t = stats.teamStats[5];
+    // Paid 320, preDraft 237 → overpayIndex = (320 - 237) / 237
+    expect(t.preDraftSum).toBe(135 + 102);
+    expect(t.overpayIndex).toBeCloseTo((320 - 237) / 237, 4);
+    expect(t.picksCount).toBe(2);
+  });
+});
+
+describe("nominationCandidates", () => {
+  it("returns empty when stats is null or missing", () => {
+    expect(nominationCandidates(null)).toEqual([]);
+    expect(nominationCandidates({})).toEqual([]);
+  });
+
+  it("excludes drafted players", () => {
+    const ws = createDefaultWorkspace();
+    const love = ws.players.find((p) => p.name === "Jeremiyah Love");
+    const withPick = recordPick(ws, {
+      playerId: love.id,
+      teamIdx: 0,
+      amount: 120,
+    });
+    const stats = computeDraftStats(withPick);
+    const list = nominationCandidates(stats, { limit: 72 });
+    expect(list.find((n) => n.player.name === "Jeremiyah Love")).toBeUndefined();
+  });
+
+  it("excludes target-tagged players (never nominate my own targets)", () => {
+    let ws = createDefaultWorkspace();
+    ws = setPlayerTag(ws, "jeremiyah-love", TAG_TARGET);
+    const stats = computeDraftStats(ws);
+    const list = nominationCandidates(stats, { limit: 72 });
+    expect(list.find((n) => n.player.name === "Jeremiyah Love")).toBeUndefined();
+  });
+
+  it("AVOID-tagged players get a ~1.8× score boost", () => {
+    let ws = createDefaultWorkspace();
+    // Tag Lemon (preDraft 90) as avoid; Tate (preDraft 83) stays
+    // neutral.  Both are S tier with similar expected drain.  The
+    // avoid tag should pull Lemon ahead of Tate in the ranking.
+    ws = setPlayerTag(ws, "makai-lemon", TAG_AVOID);
+    const stats = computeDraftStats(ws);
+    const list = nominationCandidates(stats, { limit: 10 });
+    const lemonIdx = list.findIndex(
+      (n) => n.player.name === "Makai Lemon",
+    );
+    const tateIdx = list.findIndex(
+      (n) => n.player.name === "Carnell Tate",
+    );
+    expect(lemonIdx).toBeGreaterThanOrEqual(0);
+    expect(tateIdx).toBeGreaterThanOrEqual(0);
+    expect(lemonIdx).toBeLessThan(tateIdx);
+  });
+
+  it("score is capped by top competitor affordability (drain floor)", () => {
+    // Strip all other teams' budgets so drain potential = 0.
+    const ws = createDefaultWorkspace();
+    const bankrupt = {
+      ...ws,
+      teams: ws.teams.map((t, i) =>
+        i === 0 ? t : { ...t, initialBudget: 0 },
+      ),
+    };
+    const stats = computeDraftStats(bankrupt);
+    expect(stats.topCompetitorMax).toBe(0);
+    // drain < 1 → player skipped entirely
+    const list = nominationCandidates(stats, { limit: 72 });
+    expect(list.length).toBe(0);
+  });
+
+  it("carries a rationale on every entry", () => {
+    const stats = computeDraftStats(createDefaultWorkspace());
+    const list = nominationCandidates(stats, { limit: 3 });
+    for (const entry of list) {
+      expect(typeof entry.rationale).toBe("string");
+      expect(entry.rationale.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("computeHistorySeries", () => {
+  it("returns baseline + one entry per pick in ts order", () => {
+    const ws = createDefaultWorkspace();
+    const love = ws.players.find((p) => p.name === "Jeremiyah Love");
+    const mendoza = ws.players.find((p) => p.name === "Fernando Mendoza");
+    const p1 = recordPick(ws, {
+      playerId: love.id,
+      teamIdx: 5,
+      amount: 135,
+    });
+    // Mutate the second pick's ts so it's strictly later (recordPick
+    // uses Date.now(), which may collide within a single tick).
+    const p2 = recordPick(p1, {
+      playerId: mendoza.id,
+      teamIdx: 4,
+      amount: 102,
+    });
+    p2.picks[1].ts = p2.picks[0].ts + 1000;
+
+    const series = computeHistorySeries(p2);
+    expect(series.length).toBe(3); // baseline + 2 picks
+    expect(series[0].picksCount).toBe(0);
+    expect(series[1].picksCount).toBe(1);
+    expect(series[2].picksCount).toBe(2);
+    expect(series[0].inflation).toBeCloseTo(1.0, 4);
+  });
+
+  it("reflects inflation shifts as picks accumulate", () => {
+    const ws = createDefaultWorkspace();
+    const love = ws.players.find((p) => p.name === "Jeremiyah Love");
+    // Massive overpay → inflation drops.
+    const withPick = recordPick(ws, {
+      playerId: love.id,
+      teamIdx: 5,
+      amount: 300,
+    });
+    const series = computeHistorySeries(withPick);
+    expect(series[0].inflation).toBeCloseTo(1.0, 4);
+    expect(series[1].inflation).toBeLessThan(series[0].inflation);
+  });
+
+  it("empty workspace yields just the baseline entry", () => {
+    const series = computeHistorySeries(createDefaultWorkspace());
+    expect(series.length).toBe(1);
+    expect(series[0].picksCount).toBe(0);
+  });
+
+  it("handles null input gracefully", () => {
+    const series = computeHistorySeries(null);
+    expect(series.length).toBe(1);
+  });
+});
