@@ -1,17 +1,27 @@
 "use client";
 
 // ── Chart 6: Hill curve explorer ─────────────────────────────────────
-// Renders the Hill curve that maps percentile → Hill value in
-// ``src/canonical/player_valuation.py::percentile_to_value`` and
-// overlays the live board as a scatter.  Hovering / focusing a point
-// highlights its curve anchor.
+// Renders the canonical Hill curve that maps percentile → Hill value
+// (see ``src/canonical/player_valuation.py::percentile_to_value``) with
+// the live board overlaid as a scatter.  Scatter points are coloured
+// by position group so per-scope behaviour (where rookies cluster,
+// where IDPs cluster, where picks sit relative to starters) is visible
+// even though the curve itself is a single global parameter set.
 //
-// Scope caveat: the audit found only a single (HILL_MIDPOINT=45,
-// HILL_SLOPE=1.10) global curve — there are no separate
-// offense/IDP/rookie parameter sets to chart side-by-side.  If the
-// backend ever stamps per-scope parameters into the contract root
-// (``hillCurves: { global: {...}, offense: {...}, ... }``), this
-// component will pick them up automatically via the ``curves`` prop.
+// Design note: the backend has exactly one Hill curve
+// (``HILL_MIDPOINT=45``, ``HILL_SLOPE=1.10``).  A previous iteration of
+// this chart spoke of "4 scope-master curves side-by-side" but those
+// don't exist in the pipeline — every source / scope / position feeds
+// the same percentile-to-value map.  Where sub-pools differ is in the
+// *distribution of ranks* that hit that curve.  Splitting the scatter
+// by position group makes that distribution visible, which is the
+// honest version of "compare scopes on the Hill curve."
+//
+// The ``curves`` prop remains multi-curve capable — if the backend
+// ever stamps per-scope curve parameters into the contract root
+// (``hillCurves: { global: {...}, offense: {...}, idp: {...},
+// rookie: {...} }``), this component picks them up automatically and
+// renders each as a separate line.
 // ─────────────────────────────────────────────────────────────────────
 
 import {
@@ -24,64 +34,97 @@ import {
   linePath,
 } from "../../lib/chart-primitives.js";
 
-// Python default: percentile_to_value(p, midpoint=45, slope=1.10).  A
-// logistic-like ramp from 0 → 9999 as p goes 0 → 100.  Exactly mirrors
-// the ``percentile_to_value`` helper so the frontend stays in lockstep
-// with the backend's rank → value map.
-function hillValue(percentile, { midpoint, slope }) {
-  const p = Math.max(0, Math.min(100, percentile));
-  const denom = 1 + Math.exp(-slope * (p - midpoint));
-  return (9999 * (1 - 1 / denom)) / (1 - 1 / (1 + Math.exp(slope * midpoint))) * (denom > 0 ? 1 : 0);
+// Mirrors the Python ``percentile_to_value`` helper.  The backend's
+// ``HILL_MIDPOINT`` is expressed in *rank* units (the rank at which
+// value ≈ 5000), so the curve plotted here is parameterised on rank
+// as well; the x-axis is labelled "rank" rather than "percentile" so
+// what you see matches what the pipeline actually does.
+function hillValue(rank, { midpoint, slope }) {
+  const r = Math.max(1, rank);
+  const exponent = Math.pow((r - 1) / midpoint, slope);
+  return Math.max(1, Math.min(9999, Math.round(1 + 9998 / (1 + exponent))));
 }
 
-// Fallback curve parameters — single global curve per the audit.
-// Replaced with ``curves`` prop when the caller supplies them.
 const DEFAULT_CURVES = [
   { key: "global", label: "Global", midpoint: 45, slope: 1.1 },
 ];
+
+// Colour palette per position group.  Keys match the ``assetClass`` /
+// coarse position taxonomy the frontend already uses so the Hill
+// chart legend matches the badge colours elsewhere on the board.
+const GROUP_COLORS = {
+  QB: CHART_COLORS.categorical[0],
+  RB: CHART_COLORS.categorical[2],
+  WR: CHART_COLORS.categorical[1],
+  TE: CHART_COLORS.categorical[3],
+  DL: CHART_COLORS.categorical[4],
+  LB: CHART_COLORS.categorical[5],
+  DB: CHART_COLORS.categorical[6],
+  PICK: CHART_COLORS.categorical[7],
+  OTHER: CHART_COLORS.axisLabel,
+};
+
+function groupFor(pos) {
+  const p = String(pos || "").toUpperCase();
+  if (p === "QB" || p === "RB" || p === "WR" || p === "TE") return p;
+  if (p === "DL" || p === "DE" || p === "DT" || p === "EDGE") return "DL";
+  if (p === "LB" || p === "ILB" || p === "OLB") return "LB";
+  if (p === "DB" || p === "CB" || p === "S" || p === "FS" || p === "SS") return "DB";
+  if (p === "PICK") return "PICK";
+  return "OTHER";
+}
 
 export default function HillCurveExplorer({
   rows,
   curves = DEFAULT_CURVES,
   width = 640,
-  height = 320,
-  samplePoints = 60,
+  height = 340,
+  samplePoints = 200,
   onPointClick = null,
 }) {
-  const box = chartBox({ width, height, margin: { left: 52, right: 16, top: 16, bottom: 36 } });
-  const x = linearScale(0, 100, 0, box.innerWidth);
+  const box = chartBox({ width, height, margin: { left: 52, right: 100, top: 16, bottom: 40 } });
+
+  // Determine the x-domain (rank) from the live board so the curve
+  // sample and scatter share a scale.
+  const ranked = (rows || []).filter(
+    (r) =>
+      Number.isFinite(Number(r?.rank)) &&
+      r.rank > 0 &&
+      Number.isFinite(Number(r?.rankDerivedValue)) &&
+      r.rankDerivedValue > 0,
+  );
+  const maxRank = ranked.reduce((m, r) => Math.max(m, r.rank), 300);
+  const xMax = Math.max(maxRank, 300);
+
+  const x = linearScale(1, xMax, 0, box.innerWidth);
   const y = linearScale(0, 9999, box.innerHeight, 0);
 
   const curvePaths = (curves || []).map((c, i) => {
     const pts = [];
     for (let k = 0; k <= samplePoints; k++) {
-      const p = (100 * k) / samplePoints;
-      pts.push([x(p), y(hillValue(p, c))]);
+      const r = 1 + (xMax - 1) * (k / samplePoints);
+      pts.push([x(r), y(hillValue(r, c))]);
     }
-    return { ...c, d: linePath(pts), color: categoricalColor(i) };
+    return { ...c, d: linePath(pts), color: i === 0 ? CHART_COLORS.accent : categoricalColor(i) };
   });
 
-  // Project each board row onto the curve: percentile = 100 - (rank/total)*100.
-  // The exact percentile that the backend feeds the Hill curve depends on
-  // the source pool size, so this is an approximation useful for the visual
-  // but not the pipeline's ground truth.
-  const validRows = (rows || []).filter(
-    (r) =>
-      Number.isFinite(r?.rank) &&
-      r.rank > 0 &&
-      Number.isFinite(r?.rankDerivedValue) &&
-      r.rankDerivedValue > 0,
-  );
-  const maxRank = validRows.reduce((m, r) => Math.max(m, r.rank), 1);
-  const scatter = validRows.map((r) => ({
-    p: 100 - (r.rank / maxRank) * 100,
-    v: r.rankDerivedValue,
-    name: r.name,
-    rank: r.rank,
-    raw: r,
-  }));
+  // Group the scatter by position.  Unknown / excluded groups fall
+  // into OTHER which renders in the muted axis colour.
+  const groupedScatter = {};
+  for (const r of ranked) {
+    const g = groupFor(r.pos);
+    if (!groupedScatter[g]) groupedScatter[g] = [];
+    groupedScatter[g].push({
+      x: x(r.rank),
+      y: y(r.rankDerivedValue),
+      rank: r.rank,
+      name: r.name,
+      raw: r,
+    });
+  }
+  const groupKeys = Object.keys(groupedScatter).sort();
 
-  const xTicks = ticks(0, 100, 6);
+  const xTicks = ticks(1, xMax, 6);
   const yTicks = ticks(0, 9999, 6);
 
   return (
@@ -90,7 +133,7 @@ export default function HillCurveExplorer({
       width="100%"
       height={height}
       role="img"
-      aria-label="Hill curve explorer"
+      aria-label="Hill curve explorer with per-position scatter overlay"
     >
       <g transform={box.plotTransform}>
         {yTicks.map((t) => (
@@ -124,26 +167,33 @@ export default function HillCurveExplorer({
               fontSize={10}
               fill={CHART_COLORS.axisLabel}
             >
-              {formatNumber(t)}%
+              {formatNumber(Math.round(t))}
             </text>
           </g>
         ))}
 
-        {/* Scatter of actual board rows — drawn first so the curve sits on top. */}
-        {scatter.map((s, i) => (
-          <circle
-            key={i}
-            cx={x(s.p)}
-            cy={y(s.v)}
-            r={2}
-            fill={CHART_COLORS.axisLabel}
-            fillOpacity={0.4}
-            style={onPointClick ? { cursor: "pointer" } : undefined}
-            onClick={onPointClick ? () => onPointClick(s.raw) : undefined}
-          >
-            <title>#{s.rank} {s.name}</title>
-          </circle>
-        ))}
+        {/* Scatter first, so the curves sit visually on top of dots. */}
+        {groupKeys.map((g) => {
+          const color = GROUP_COLORS[g] || CHART_COLORS.axisLabel;
+          return (
+            <g key={g}>
+              {groupedScatter[g].map((s, i) => (
+                <circle
+                  key={i}
+                  cx={s.x}
+                  cy={s.y}
+                  r={2.25}
+                  fill={color}
+                  fillOpacity={0.55}
+                  style={onPointClick ? { cursor: "pointer" } : undefined}
+                  onClick={onPointClick ? () => onPointClick(s.raw) : undefined}
+                >
+                  <title>#{s.rank} {s.name} ({g})</title>
+                </circle>
+              ))}
+            </g>
+          );
+        })}
 
         {/* Hill curves */}
         {curvePaths.map((c) => (
@@ -153,10 +203,10 @@ export default function HillCurveExplorer({
             fill="none"
             stroke={c.color}
             strokeWidth={2}
+            strokeDasharray={curvePaths.length > 1 ? undefined : "6 3"}
           />
         ))}
 
-        {/* Axis titles */}
         <text
           x={box.innerWidth / 2}
           y={box.innerHeight + 30}
@@ -164,7 +214,7 @@ export default function HillCurveExplorer({
           fontSize={11}
           fill={CHART_COLORS.axisLabel}
         >
-          percentile
+          rank
         </text>
         <text
           transform={`rotate(-90) translate(${-box.innerHeight / 2}, ${-42})`}
@@ -175,20 +225,43 @@ export default function HillCurveExplorer({
           Hill value
         </text>
 
-        {/* Legend — inline at top-right. */}
-        {curvePaths.length > 1 ? (
-          <g transform={`translate(${box.innerWidth - 120}, 0)`}>
-            {curvePaths.map((c, i) => (
-              <g key={c.key} transform={`translate(0, ${i * 16})`}>
-                <line x1={0} x2={20} y1={6} y2={6} stroke={c.color} strokeWidth={2} />
-                <text x={26} y={6} dominantBaseline="middle" fontSize={10} fill={CHART_COLORS.axisLabel}>
-                  {c.label}
-                </text>
-              </g>
-            ))}
-          </g>
-        ) : null}
+        {/* Legend — curves + position groups.  Always shown because
+            the group split is the actual payload of this chart. */}
+        <g transform={`translate(${box.innerWidth + 10}, 0)`}>
+          {curvePaths.map((c, i) => (
+            <g key={`curve-${c.key}`} transform={`translate(0, ${i * 14})`}>
+              <line x1={0} x2={18} y1={6} y2={6} stroke={c.color} strokeWidth={2} />
+              <text
+                x={24}
+                y={6}
+                dominantBaseline="middle"
+                fontSize={10}
+                fill={CHART_COLORS.axisLabel}
+              >
+                {c.label}
+              </text>
+            </g>
+          ))}
+          {groupKeys.map((g, i) => (
+            <g key={`grp-${g}`} transform={`translate(0, ${curvePaths.length * 14 + 6 + i * 14})`}>
+              <circle cx={9} cy={6} r={3.25} fill={GROUP_COLORS[g] || CHART_COLORS.axisLabel} fillOpacity={0.85} />
+              <text
+                x={24}
+                y={6}
+                dominantBaseline="middle"
+                fontSize={10}
+                fill={CHART_COLORS.axisLabel}
+              >
+                {g} ({groupedScatter[g].length})
+              </text>
+            </g>
+          ))}
+        </g>
       </g>
     </svg>
   );
 }
+
+// Exported so callers (tests, wiring) can stay in lockstep with the
+// component's grouping rules.
+export { groupFor, hillValue };

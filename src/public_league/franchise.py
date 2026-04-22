@@ -77,9 +77,51 @@ def _trade_waiver_counts(snapshot: PublicLeagueSnapshot) -> dict[str, dict[str, 
     return counts
 
 
+def _weekly_scoring_by_owner(
+    snapshot: PublicLeagueSnapshot,
+) -> dict[str, list[dict[str, Any]]]:
+    """Flatten every scored roster-week into a per-owner trajectory.
+
+    Returns ``{owner_id: [{season, week, isPlayoff, pointsFor}]}`` sorted
+    chronologically.  Historical rosters aren't archived (see audit
+    notes in PR), but every scored matchup already exposes a
+    ``points`` field per roster-week, so per-week ``pointsFor`` is the
+    fine-grained signal the franchise trajectory needs.  Weekly
+    opponent ``pointsAgainst`` is available and stamped too for the
+    frontend to do per-week margin rendering if it wants.
+    """
+    out: dict[str, list[dict[str, Any]]] = {}
+    for season, wk, entry in metrics.walk_weekly_scores(snapshot, include_playoffs=True):
+        roster_id = metrics.roster_id_of(entry)
+        if roster_id is None:
+            continue
+        owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, roster_id)
+        if not owner_id:
+            continue
+        out.setdefault(owner_id, []).append(
+            {
+                "season": season.season,
+                "week": int(wk),
+                "isPlayoff": bool(wk >= season.playoff_week_start),
+                "pointsFor": round(metrics.matchup_points(entry), 2),
+            }
+        )
+    for rows in out.values():
+        rows.sort(key=lambda r: (r["season"], r["week"]))
+    return out
+
+
 def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     rivalries_section = build_rivalries(snapshot)
     trade_counts = _trade_waiver_counts(snapshot)
+
+    # Per-owner weekly scoring trajectory — finer-grained than the
+    # season-aggregate ``seasonResults`` below and the proper signal
+    # for the franchise-trajectory chart.  Roster dollar value by
+    # week isn't available (no historical roster archive), but weekly
+    # pointsFor is a real historical signal that tracks how strong a
+    # roster was every week, not just in aggregate.
+    weekly_by_owner = _weekly_scoring_by_owner(snapshot)
 
     # Season-by-season per-owner aggregates.
     per_owner_season: dict[str, list[dict[str, Any]]] = {}
@@ -169,6 +211,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 per_owner_season.get(owner_id, []),
                 key=lambda r: (r["season"], r["rosterId"]),
             ),
+            "weeklyScoring": weekly_by_owner.get(owner_id, []),
             "topRival": _top_rival_for(owner_id, rivalries_section),
             "tradeCount": trade_counts.get(owner_id, {}).get("trades", 0),
             "waiverCount": trade_counts.get(owner_id, {}).get("waivers", 0),

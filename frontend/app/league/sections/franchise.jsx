@@ -179,7 +179,14 @@ function FranchiseSection({ managers, data, onNavigate, initialOwner, setOwner }
       )}
 
       {fr && (fr.seasonResults || []).length > 0 && (
-        <Card title="Scoring trajectory" subtitle="Points-for by season — a proxy for roster strength (no per-week roster-value snapshots available)">
+        <Card
+          title="Scoring trajectory"
+          subtitle={
+            (fr.weeklyScoring || []).length > 0
+              ? "Points-for per week across every scored matchup.  Season boundaries are dashed; playoff weeks are highlighted."
+              : "Points-for by season — a proxy for roster strength (no per-week data in this payload)."
+          }
+        >
           <FranchiseTrajectory
             seasons={(fr.seasonResults || []).map((r) => ({
               season: Number(r.season),
@@ -189,6 +196,7 @@ function FranchiseSection({ managers, data, onNavigate, initialOwner, setOwner }
                 Number.isFinite(Number(r.finalPlace)) && Number(r.finalPlace) > 0,
               finalPlace: r.finalPlace,
             }))}
+            weeklyScoring={fr.weeklyScoring || []}
           />
         </Card>
       )}
