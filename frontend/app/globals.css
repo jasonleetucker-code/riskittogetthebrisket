@@ -550,6 +550,60 @@ tr:hover .sticky-name {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   SETTINGS — SOURCES TABLE
+   Render the full 6-column table on desktop.  On mobile (≤768px) the
+   six-column layout overflows the viewport (~680px at 0.76rem) even
+   inside the horizontal-scroll `.table-wrap`, which makes the toggle
+   and weight inputs annoying to reach.  Collapse Role / Covered /
+   Status into the Source cell as inline badges + a status dot + a
+   "covered" inline count, leaving Source / On / Weight as the three
+   visible columns.  Desktop layout untouched.
+   ══════════════════════════════════════════════════════════════════════════ */
+.settings-sources-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.76rem;
+}
+.settings-src-status-mobile {
+  display: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.settings-src-role-mobile,
+.settings-src-covered-mobile {
+  display: none;
+}
+.settings-src-toggle {
+  /* Desktop keeps native density; mobile gets a bigger scale below. */
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .settings-src-col-role,
+  .settings-src-col-covered,
+  .settings-src-col-status {
+    display: none !important;
+  }
+  .settings-src-status-mobile { display: inline-block; }
+  .settings-src-role-mobile { display: inline-flex; }
+  .settings-src-covered-mobile { display: inline; }
+  .settings-sources-table { font-size: 0.82rem; }
+  .settings-sources-table th,
+  .settings-sources-table td {
+    padding: 10px 6px;
+    white-space: normal;
+  }
+  /* Scale the toggle up to ~22px for reliable one-thumb tap. */
+  .settings-src-toggle {
+    width: 22px;
+    height: 22px;
+    transform: scale(1.1);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    RANGE SLIDERS (settings TE-premium, trade-history window, etc.)
    ══════════════════════════════════════════════════════════════════════════ */
 /* The native <input type="range"> thumb is ~12px on iOS Safari which

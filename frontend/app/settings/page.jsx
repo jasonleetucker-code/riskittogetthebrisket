@@ -342,22 +342,16 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
       <div style={{ fontWeight: 600, fontSize: "0.78rem", marginBottom: 6 }}>
         {title}
       </div>
-      <div className="table-wrap">
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: "0.76rem",
-          }}
-        >
+      <div className="table-wrap settings-sources-wrap">
+        <table className="settings-sources-table">
           <thead>
             <tr style={{ borderBottom: "1px solid var(--border)" }}>
               <th style={{ textAlign: "left", padding: "6px 8px" }}>Source</th>
-              <th style={{ textAlign: "left", padding: "6px 8px" }}>Role</th>
+              <th className="settings-src-col-role" style={{ textAlign: "left", padding: "6px 8px" }}>Role</th>
               <th style={{ textAlign: "center", padding: "6px 8px" }} title="Include this source in rank blending">On</th>
               <th style={{ textAlign: "right", padding: "6px 8px" }} title="Weight applied to this source in the blend. Default 1.0">Weight</th>
-              <th style={{ textAlign: "right", padding: "6px 8px" }}>Covered</th>
-              <th style={{ textAlign: "center", padding: "6px 8px" }}>Status</th>
+              <th className="settings-src-col-covered" style={{ textAlign: "right", padding: "6px 8px" }}>Covered</th>
+              <th className="settings-src-col-status" style={{ textAlign: "center", padding: "6px 8px" }}>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -379,8 +373,25 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                   }}
                 >
                   <td style={{ padding: "6px 8px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                       <span style={{ fontWeight: 600 }}>{src.displayName}</span>
+                      {/* Role badge — visible only on mobile where the
+                          dedicated Role column is hidden to save horizontal
+                          space. */}
+                      <span
+                        className="badge settings-src-role-mobile"
+                        style={{ fontSize: "0.58rem", padding: "1px 5px" }}
+                      >
+                        {role}
+                      </span>
+                      {/* Status dot — visible only on mobile; mirrors the
+                          dedicated Status column. */}
+                      <span
+                        className="settings-src-status-mobile"
+                        aria-label={statusLabel}
+                        title={statusLabel}
+                        style={{ background: statusColor }}
+                      />
                       {src.isTepPremium && (
                         <span
                           className="badge"
@@ -405,9 +416,13 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                       style={{ fontSize: "0.64rem", fontFamily: "var(--mono)" }}
                     >
                       {src.columnLabel} · {src.key}
+                      <span className="settings-src-covered-mobile">
+                        {" · "}
+                        {src.covered} covered
+                      </span>
                     </div>
                   </td>
-                  <td style={{ padding: "6px 8px", fontSize: "0.72rem" }}>
+                  <td className="settings-src-col-role" style={{ padding: "6px 8px", fontSize: "0.72rem" }}>
                     {role}
                   </td>
                   <td style={{ padding: "6px 8px", textAlign: "center" }}>
@@ -416,6 +431,7 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                       checked={enabled}
                       onChange={(e) => onToggle?.(src.key, e.target.checked)}
                       aria-label={`Include ${src.displayName} in blend`}
+                      className="settings-src-toggle"
                       style={{ cursor: "pointer" }}
                     />
                   </td>
@@ -446,6 +462,7 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                     />
                   </td>
                   <td
+                    className="settings-src-col-covered"
                     style={{
                       padding: "6px 8px",
                       textAlign: "right",
@@ -456,6 +473,7 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                     {src.covered}
                   </td>
                   <td
+                    className="settings-src-col-status"
                     style={{
                       padding: "6px 8px",
                       textAlign: "center",
