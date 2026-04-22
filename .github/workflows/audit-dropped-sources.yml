@@ -67,8 +67,13 @@ jobs:
           set -euo pipefail
           SNAPSHOT=$(ls -t exports/latest/dynasty_data_*.json | head -1 || true)
           if [ -z "$SNAPSHOT" ]; then
-            echo "::warning::no dynasty_data snapshot available; skipping audit"
-            exit 0
+            # Missing snapshot is exactly the alert this cron exists
+            # to surface — the export/data-refresh pipeline has broken.
+            # Silently returning 0 would mean "audit didn't run" looks
+            # identical to "all sources healthy" in GitHub's UI.
+            # Per Codex PR #216 round 2: fail loud.
+            echo "::error title=Missing snapshot::no dynasty_data_*.json found in exports/latest/ — data-refresh pipeline may be broken"
+            exit 1
           fi
           echo "Using snapshot: $SNAPSHOT"
           python - <<PY
@@ -85,10 +90,11 @@ jobs:
 
       - name: Run audit (text report to job log)
         run: |
-          if [ ! -f /tmp/live_contract.json ]; then
-            echo "::notice::no contract; nothing to audit"
-            exit 0
-          fi
+          # Previous step exits non-zero if the snapshot is missing,
+          # so by the time we reach here the contract file must exist.
+          # Assert anyway — defensive against a future edit that
+          # swallows the snapshot-missing error.
+          test -f /tmp/live_contract.json
           python scripts/audit_dropped_sources.py --json-path /tmp/live_contract.json --top 10
 
       - name: Enforce elevated-rate threshold
@@ -96,9 +102,7 @@ jobs:
           THRESHOLD: ${{ github.event.inputs.threshold_percent || '15' }}
           MIN_ELIGIBLE: ${{ github.event.inputs.min_eligible || '20' }}
         run: |
-          if [ ! -f /tmp/live_contract.json ]; then
-            exit 0
-          fi
+          test -f /tmp/live_contract.json
           python - <<'PY'
           import json
           import os
