@@ -472,14 +472,44 @@ describe("mergeDraftCapitalTeams", () => {
       ws,
       capitalFeed,
     );
-    // One of the defaults ("Russini Panini") matches; the rest are
-    // placeholder names so they don't match the feed and stay put.
+    // One of the defaults ("Russini Panini") matches; the other 11
+    // defaults are dropped as placeholders, and the feed appends its
+    // remaining 9 teams.
     expect(matched).toBe(1);
     expect(added).toBe(capitalFeed.length - 1);
     const russini = workspace.teams.find(
       (t) => t.name === "Russini Panini",
     );
     expect(russini.initialBudget).toBe(418);
+  });
+
+  it("drops pristine placeholder defaults rather than zeroing them", () => {
+    const ws = createDefaultWorkspace();
+    const { workspace } = mergeDraftCapitalTeams(ws, capitalFeed);
+    // No "Ed" / "Brent" / "Joey" placeholders should survive a
+    // pristine merge — they get replaced entirely by the feed.
+    const names = workspace.teams.map((t) => t.name);
+    expect(names).not.toContain("Ed");
+    expect(names).not.toContain("Brent");
+    expect(names).not.toContain("Joey");
+    // Final size = matched (1) + added (9) = 10.
+    expect(workspace.teams.length).toBe(10);
+  });
+
+  it("zeroes out manually-edited rows that aren't in the feed", () => {
+    // User renamed "Ed" to "Dynasty Danglers" but left the budget
+    // alone.  The rename signals user intent, so the row stays —
+    // but zeroed, because the feed is authoritative for budgets.
+    const ws = createDefaultWorkspace();
+    const withRename = updateTeam(ws, 1, { name: "Dynasty Danglers" });
+    const { workspace, zeroed } = mergeDraftCapitalTeams(
+      withRename,
+      capitalFeed,
+    );
+    const dd = workspace.teams.find((t) => t.name === "Dynasty Danglers");
+    expect(dd).toBeTruthy();
+    expect(dd.initialBudget).toBe(0);
+    expect(zeroed).toContain("Dynasty Danglers");
   });
 
   it("appends feed teams that aren't already on the board", () => {
@@ -529,19 +559,37 @@ describe("mergeDraftCapitalTeams", () => {
     expect(workspace.teams).toEqual(ws.teams);
   });
 
-  it("merged budgets sum to the feed's total budget", () => {
+  it("merged budgets sum to exactly the feed's total budget", () => {
+    // With placeholder defaults dropped, the board should sum to
+    // exactly $1200 — no phantom default budget left over.
     const ws = createDefaultWorkspace();
     const { workspace } = mergeDraftCapitalTeams(ws, capitalFeed);
-    // Every feed team's auction$ should be reflected.  The sum of
-    // the feed (1200) should be a subset of the merged total — any
-    // ADDITIONAL default teams keep their 71/73 budgets.
     const feedTotal = capitalFeed.reduce((s, t) => s + t.auctionDollars, 0);
     expect(feedTotal).toBe(1200);
     const mergedTotal = workspace.teams.reduce(
       (s, t) => s + t.initialBudget,
       0,
     );
-    expect(mergedTotal).toBeGreaterThanOrEqual(1200);
+    expect(mergedTotal).toBe(1200);
+  });
+
+  it("a feed with a $0 team carries that $0 onto the board", () => {
+    // Backend change (2026-04-23) seeds every Sleeper roster at $0
+    // so teams that traded every rookie pick still appear in the
+    // feed.  Confirm those rows land on the board with $0.
+    const feedWithZero = [
+      ...capitalFeed,
+      { team: "Jason&Brent Future Team", auctionDollars: 0 },
+    ];
+    const { workspace } = mergeDraftCapitalTeams(
+      createDefaultWorkspace(),
+      feedWithZero,
+    );
+    const zero = workspace.teams.find(
+      (t) => t.name === "Jason&Brent Future Team",
+    );
+    expect(zero).toBeTruthy();
+    expect(zero.initialBudget).toBe(0);
   });
 });
 

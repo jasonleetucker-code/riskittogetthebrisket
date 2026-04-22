@@ -407,23 +407,28 @@ export function updateSettings(workspace, patch) {
 /**
  * Merge per-team auction $ from ``/api/draft-capital`` onto a workspace.
  *
- * The draft-capital endpoint returns one row per team that's carrying
- * carry-over auction dollars — typically 10 of 12 teams (the two with
- * $0 budget are usually omitted from the API response because they
- * traded every rookie pick away).  We merge by case-insensitive team
- * name, preserving:
+ * The draft-capital endpoint returns one row per team in the league —
+ * teams that traded every rookie pick away show up with
+ * ``auctionDollars: 0`` rather than being omitted, so the dashboard
+ * sees the full 12-team roster after the merge.
  *
- *   - Any team the user already renamed manually (we match the
- *     original name so a manual rename doesn't block the merge).
- *   - Teams that already have picks recorded against them (we NEVER
- *     blow away budgets mid-draft; callers should only invoke this
- *     when ``workspace.picks`` is empty, or explicitly ack the reset).
+ * Merge rules:
  *
- * Any team in the capital feed that doesn't already exist on the
- * board is appended to the end.  Teams on the board but missing from
- * the feed keep their existing budget (or default to 0 if this is a
- * fresh load).  A ``myTeamIdx`` remap is also returned so the UI can
- * re-pin the user's team even if the order changes.
+ *   - Feed is authoritative.  If the feed has 12 teams, the post-
+ *     merge board has exactly 12 teams (placeholder "Ed" / "Brent"
+ *     / etc. defaults are replaced entirely).
+ *   - Existing teams are matched against the feed by
+ *     case-insensitive name.  A name match copies the feed's budget
+ *     onto the existing row (preserving the user's preferred
+ *     display name when ``preserveCustomNames`` is true).
+ *   - Teams in the feed but not on the board are appended.
+ *   - Teams ON the board that AREN'T in the feed get zeroed out —
+ *     the feed is the source of truth for budget, so anyone it
+ *     doesn't list has $0 to spend.  The user can still manually
+ *     bump a budget back up if they're tracking a side deal.
+ *
+ * ``myTeamIdx`` is remapped by name so the merge can't accidentally
+ * deselect the user's team.
  *
  * @param {object} workspace - existing workspace (mutated into a new copy)
  * @param {{team: string, auctionDollars: number}[]} teamTotals
@@ -451,25 +456,58 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
     });
   }
 
+  // Empty feed — leave the workspace untouched rather than nuking
+  // every placeholder team.  The fetch layer should already have
+  // surfaced this as an error to the user; compute-side we just
+  // act as a no-op so nothing gets lost.
+  if (feedByKey.size === 0) {
+    return { workspace: ws, matched: 0, added: 0, missing: [], zeroed: [] };
+  }
+
   const myTeamIdx = Number.isInteger(ws.settings?.myTeamIdx)
     ? ws.settings.myTeamIdx
     : 0;
   const myTeamNameBefore = existing[myTeamIdx]?.name || "";
 
-  // Walk existing teams, matching by name.  Unmatched entries keep
-  // their current budget — the UI can flag them as "missing from
-  // capital feed" if needed.
+  // Default-placeholder detector: a row whose name + initialBudget
+  // still match the DEFAULT_TEAMS seed is assumed to be a pre-load
+  // placeholder and gets DROPPED rather than zeroed on merge.  That
+  // way a fresh workspace doesn't end up with 11 orphan "Ed / Brent /
+  // ..." rows at $0 cluttering the panel next to the real feed.  A
+  // row that's been customized (either renamed or re-budgeted) is
+  // treated as a user assertion and zeroed out rather than dropped.
+  const defaultByKey = new Map(
+    DEFAULT_TEAMS.map((t) => [
+      String(t.name || "").toLowerCase(),
+      t.initialBudget,
+    ]),
+  );
+
   const usedFeedKeys = new Set();
-  const merged = existing.map((t) => {
+  const zeroed = [];
+  const merged = [];
+  for (const t of existing) {
     const key = String(t.name || "").toLowerCase();
     const hit = feedByKey.get(key);
-    if (!hit) return { ...t };
-    usedFeedKeys.add(key);
-    return {
-      name: preserveNames && t.name ? t.name : hit.name,
-      initialBudget: hit.auctionDollars,
-    };
-  });
+    if (hit) {
+      usedFeedKeys.add(key);
+      merged.push({
+        name: preserveNames && t.name ? t.name : hit.name,
+        initialBudget: hit.auctionDollars,
+      });
+      continue;
+    }
+    // Drop unmatched default placeholders; zero out unmatched user-
+    // customized rows.
+    if (
+      defaultByKey.has(key) &&
+      defaultByKey.get(key) === Number(t.initialBudget)
+    ) {
+      continue;
+    }
+    zeroed.push(t.name);
+    merged.push({ name: t.name || "", initialBudget: 0 });
+  }
 
   // Append any feed teams not already on the board.  These are the
   // rows that just showed up in the capital feed — most likely after
@@ -496,6 +534,7 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
     matched: usedFeedKeys.size,
     added: missing.length,
     missing,
+    zeroed,
   };
 }
 

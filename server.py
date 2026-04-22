@@ -3202,6 +3202,16 @@ def _fetch_draft_capital():
     all_picks: list[dict] = []
     team_totals_decimal: dict[str, float] = {}
 
+    # Seed every known roster at $0 so teams that traded every pick
+    # away — and therefore never get a decimal-value addition below
+    # — still appear in the output.  Without this seed, the sort on
+    # ``team_totals_decimal`` drops $0 teams entirely and consumers
+    # (e.g. the /draft dashboard that pulls carry-over budgets from
+    # this endpoint) can't see the full 12-team roster.
+    for rid in roster_ids:
+        roster_name = roster_name_by_id.get(rid, f"Team {rid}")
+        team_totals_decimal.setdefault(roster_name, 0.0)
+
     if roster_ids:
         # Sleeper ownership available — pair workbook values with live owners
         for rnd in range(1, draft_rounds + 1):
