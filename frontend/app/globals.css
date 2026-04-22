@@ -400,6 +400,21 @@ a { color: inherit; text-decoration: none; }
   font-size: 0.82rem;
 }
 
+/* Compact numeric inputs (eg. per-source weight in settings).  Uses
+   a narrow fixed width on desktop for the tight 6-column table layout;
+   on mobile the generic 16px rule applies so iOS Safari does not
+   zoom when the input is focused. */
+.input.weight-input {
+  width: 64px;
+  font-size: 0.76rem;
+}
+@media (max-width: 768px) {
+  .input.weight-input {
+    width: 80px;
+    font-size: 16px;
+  }
+}
+
 .input:focus,
 .select:focus {
   outline: none;
@@ -976,8 +991,10 @@ tr:hover .sticky-name {
   .filter-bar { gap: 6px; }
   .filter-bar .input,
   .filter-bar .select {
-    font-size: 0.76rem;
-    padding: 6px 8px;
+    /* Keep the general mobile 16px rule so iOS Safari does not zoom
+       on focus.  Density stays tight via padding; bigger type is
+       the correct tradeoff for touch inputs. */
+    padding: 8px 10px;
   }
 
   table { font-size: 0.74rem; }

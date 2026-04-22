@@ -437,12 +437,10 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
                         if (Number.isFinite(v) && v >= 0) onWeight?.(src.key, v);
                       }}
                       disabled={!enabled}
-                      className="input"
+                      className="input weight-input"
                       style={{
-                        width: 60,
                         textAlign: "right",
                         fontFamily: "var(--mono)",
-                        fontSize: "0.76rem",
                       }}
                       aria-label={`${src.displayName} weight`}
                     />
