@@ -5,6 +5,8 @@
 
 import { useMemo, useState } from "react";
 import { Avatar, Card, EmptyCard, Stat, nameFor } from "../shared.jsx";
+import TradeFlowSankey from "@/components/graphs/TradeFlowSankey";
+import ActivityHeatmap from "@/components/graphs/ActivityHeatmap";
 
 function ActivitySection({ managers, data, onNavigate }) {
   const feed = data?.feed || [];
@@ -61,6 +63,18 @@ function ActivitySection({ managers, data, onNavigate }) {
               </div>
             ))}
           </div>
+        </Card>
+      )}
+
+      {feed.length > 0 && (
+        <Card title="Trade flow" subtitle="Who traded with whom (asset counts along each edge)">
+          <TradeFlowSankey trades={feed} />
+        </Card>
+      )}
+
+      {feed.length > 0 && (
+        <Card title="Activity calendar" subtitle="Daily trade volume over the last 6 months">
+          <ActivityHeatmap events={feed} weeks={26} />
         </Card>
       )}
 

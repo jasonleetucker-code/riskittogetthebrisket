@@ -17,6 +17,7 @@ import {
   scoreTeamTiers,
   ordinal,
 } from "@/lib/league-analysis";
+import AgeCurveOverlay from "@/components/graphs/AgeCurveOverlay";
 
 const VALUE_MODES = [
   { key: "full", label: "Players + Picks" },
@@ -223,6 +224,43 @@ export default function RostersPage() {
 
       {/* League Edge Map */}
       {leagueEdge.length > 0 && <LeagueEdgeCard edges={leagueEdge} />}
+
+      {/* Age curve overlay — position typical age-value curves + my roster */}
+      {myTeam && (() => {
+        const me = sortedTeams.find((t) => t.name === myTeam);
+        if (!me) return null;
+        const rosterNames = new Set(
+          (me.playerDetails || []).map((p) => String(p.name).toLowerCase()),
+        );
+        const boardRows = rows
+          .filter((r) => r.pos !== "PICK" && r.pos !== "K")
+          .map((r) => ({ pos: r.pos, age: r.age, rankDerivedValue: r.values?.full }));
+        const rosterRows = rows
+          .filter(
+            (r) =>
+              r.pos !== "PICK" &&
+              r.pos !== "K" &&
+              rosterNames.has(String(r.name).toLowerCase()),
+          )
+          .map((r) => ({
+            pos: r.pos,
+            age: r.age,
+            rankDerivedValue: r.values?.full,
+            name: r.name,
+          }));
+        return (
+          <div className="card" style={{ padding: "var(--space-md)" }}>
+            <h2 className="section-title">Age curves</h2>
+            <p className="text-xs muted" style={{ marginTop: 4, marginBottom: "var(--space-sm)" }}>
+              Typical value by age for each position (median of the live board).
+              Dots are players on your roster.  Use it to spot roster-aging risk:
+              a cluster of RBs past the position's value peak is a flag to sell;
+              a cluster before the peak is a sign you're set up for the window.
+            </p>
+            <AgeCurveOverlay boardRows={boardRows} rosterRows={rosterRows} />
+          </div>
+        );
+      })()}
 
       {/* Trade Targets */}
       {myTeam && <TradeTargetsCard myTeam={myTeam} teams={sortedTeams} groupAvg={groupAvg} />}

@@ -27,6 +27,7 @@ import {
   MIN_SIDES,
 } from "@/lib/trade-logic";
 import { useSettings } from "@/components/useSettings";
+import TradeDeltaHistogram from "@/components/graphs/TradeDeltaHistogram";
 import { useApp } from "@/components/AppShell";
 import { posBadgeClass } from "@/lib/display-helpers";
 
@@ -594,6 +595,24 @@ export default function TradePage() {
 
           {/* ── Trade Meter (inline fairness visualization) ──────── */}
           <TradeMeter sides={sides} sideTotals={sideTotals} valueMode={valueMode} settings={settings} />
+
+          {/* ── Value delta histogram (graphical complement to meter) ──── */}
+          {sides.length === 2 ? (
+            <div className="card" style={{ padding: "var(--space-sm) var(--space-md)" }}>
+              <TradeDeltaHistogram
+                sides={[
+                  {
+                    label: `Side ${sides[0]?.label || "A"}`,
+                    total: sideTotals[0]?.adjusted || 0,
+                  },
+                  {
+                    label: `Side ${sides[1]?.label || "B"}`,
+                    total: sideTotals[1]?.adjusted || 0,
+                  },
+                ]}
+              />
+            </div>
+          ) : null}
 
           {/* ── Side Cards ──────────────────────────────────────── */}
           <div className={sidesGridClass} style={{ paddingBottom: 78 }}>

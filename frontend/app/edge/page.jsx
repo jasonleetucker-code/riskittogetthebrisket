@@ -6,6 +6,7 @@ import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
 import { actionLabel, cautionLabels, isTopRankedForEdgePremium } from "@/lib/edge-helpers";
 import { posBadgeClass, confBadgeClass, confBadgeLabel as confLabel, isEligibleForAnalysis } from "@/lib/display-helpers";
+import ConfidenceValueScatter from "@/components/graphs/ConfidenceValueScatter";
 import {
   EDGE_SECTION_LIMIT,
   EDGE_PREMIUM_LIMIT,
@@ -370,6 +371,22 @@ export default function EdgePage() {
               <span className="edge-stat-value">{stats.singleCount.toLocaleString()}</span>
               <span className="edge-stat-label">1-source</span>
             </div>
+          </div>
+
+          {/* ── Value-vs-spread scatter ───────────────────────────── */}
+          <div className="card">
+            <h2 className="section-title">Value vs. source spread</h2>
+            <p className="text-xs muted" style={{ marginTop: 4, marginBottom: "var(--space-sm)" }}>
+              Top-200 ranked rows.  Each dot is a player; x = Hill value, y = how much
+              the sources disagreed.  High-value + high-spread (upper-right) is the
+              edge zone: contested assets that are worth either selling high or buying low
+              depending on which market you trust.
+            </p>
+            <ConfidenceValueScatter
+              rows={eligible}
+              topN={200}
+              onPointClick={openPlayerPopup}
+            />
           </div>
 
           {/* ── Main grid ─────────────────────────────────────────── */}

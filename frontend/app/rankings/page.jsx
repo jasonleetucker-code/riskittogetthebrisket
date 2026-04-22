@@ -27,6 +27,11 @@ import {
   marketEdge,
   isEligibleForBoard,
 } from "@/lib/display-helpers";
+import HillCurveExplorer from "@/components/graphs/HillCurveExplorer";
+import TierGapWaterfall from "@/components/graphs/TierGapWaterfall";
+import SourceContributionBars from "@/components/graphs/SourceContributionBars";
+import SourceAgreementRadar from "@/components/graphs/SourceAgreementRadar";
+import RankChangeGlyph from "@/components/graphs/RankChangeGlyph";
 
 // ── UNIFIED RANKINGS PAGE ────────────────────────────────────────────
 // Trust-forward blended board: offense + IDP sorted by unified rank.
@@ -625,7 +630,29 @@ export default function RankingsPage() {
       )}
 
       {/* ── Methodology (expandable) ────────────────────────────────── */}
-      {showMethodology && <MethodologySection />}
+      {showMethodology && (
+        <>
+          <MethodologySection />
+          <div className="card" style={{ padding: "var(--space-md)" }}>
+            <h3 className="section-title">Hill curve</h3>
+            <p className="text-xs muted" style={{ marginTop: 4, marginBottom: "var(--space-sm)" }}>
+              Percentile → Hill value mapping with the live board overlaid as dots.
+              The curve is the canonical rank-to-value shape; dots are where every
+              rankable player actually lands after per-source aggregation.
+            </p>
+            <HillCurveExplorer rows={rows} onPointClick={openPlayerPopup} />
+          </div>
+          <div className="card" style={{ padding: "var(--space-md)" }}>
+            <h3 className="section-title">Tier gap waterfall</h3>
+            <p className="text-xs muted" style={{ marginTop: 4, marginBottom: "var(--space-sm)" }}>
+              Top-120 descending value curve with inter-row gap bars overlaid.
+              Tall gap bars mark tier cliffs — those are the natural tier boundaries
+              the canonical engine detects via rolling-median gap analysis.
+            </p>
+            <TierGapWaterfall rows={rows} topN={120} />
+          </div>
+        </>
+      )}
 
       {/* ── Edge rail (expandable) ──────────────────────────────────── */}
       {!loading && !error && showEdgeRail && rows.length > 0 && (
@@ -846,6 +873,14 @@ export default function RankingsPage() {
                                 {row.team || ""}{row.age ? `, ${row.age}` : ""}
                               </span>
                             )}
+                            <RankChangeGlyph
+                              history={row.rankHistory}
+                              change={row.rankChange}
+                            />
+                            {/* ``rankHistory`` is reserved for a future per-
+                                player time series; until it's stamped, the
+                                glyph falls back to the single-delta arrow on
+                                ``rankChange``, or renders nothing. */}
                             {chips.length > 0 && (
                               <span className="rankings-chips">
                                 {chips.map((c) => (
@@ -1125,6 +1160,45 @@ export default function RankingsPage() {
                                     </div>
                                   );
                                 })}
+                              </div>
+
+                              {/* ── Visual source contribution + agreement ──
+                                  Two compact graphs side-by-side so the
+                                  aggregation is legible at a glance: bars
+                                  rank per-source contributions (with any
+                                  Hampel-dropped sources struck through); the
+                                  radar shows agreement/disagreement shape. */}
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "minmax(280px, 1fr) minmax(220px, 260px)",
+                                  gap: "var(--space-md)",
+                                  alignItems: "center",
+                                  marginTop: "var(--space-sm)",
+                                }}
+                              >
+                                <div>
+                                  <div className="muted text-xs" style={{ marginBottom: 4 }}>
+                                    Per-source value contribution
+                                  </div>
+                                  <SourceContributionBars
+                                    row={row}
+                                    labelFor={(k) =>
+                                      RANKING_SOURCES.find((s) => s.key === k)?.columnLabel || k
+                                    }
+                                  />
+                                </div>
+                                <div>
+                                  <div className="muted text-xs" style={{ marginBottom: 4 }}>
+                                    Source agreement
+                                  </div>
+                                  <SourceAgreementRadar
+                                    row={row}
+                                    labelFor={(k) =>
+                                      RANKING_SOURCES.find((s) => s.key === k)?.columnLabel || k
+                                    }
+                                  />
+                                </div>
                               </div>
 
                               {/* Summary row — uses consistent naming spec.
