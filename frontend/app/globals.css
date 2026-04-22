@@ -550,6 +550,77 @@ tr:hover .sticky-name {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   RANGE SLIDERS (settings TE-premium, trade-history window, etc.)
+   ══════════════════════════════════════════════════════════════════════════ */
+/* The native <input type="range"> thumb is ~12px on iOS Safari which
+   is nearly impossible to drag with a finger.  Enlarge to 22px with a
+   hit padding that hit-tests beyond the visible thumb, and tighten the
+   track height so the slider still reads compact. */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px; /* overall control height drives the tap surface */
+  background: transparent;
+  touch-action: manipulation;
+}
+input[type="range"]:focus { outline: none; }
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -9px; /* centre the thumb vertically on the 4px track */
+  border-radius: 50%;
+  background: var(--cyan);
+  border: 2px solid rgba(15, 10, 26, 0.9);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  cursor: grab;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--cyan);
+  border: 2px solid rgba(15, 10, 26, 0.9);
+  cursor: grab;
+}
+
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(255, 198, 47, 0.25),
+              0 2px 6px rgba(0, 0, 0, 0.35);
+}
+input[type="range"]:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px rgba(255, 198, 47, 0.25),
+              0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+@media (max-width: 768px) {
+  input[type="range"] { height: 34px; }
+  input[type="range"]::-webkit-slider-thumb {
+    width: 26px;
+    height: 26px;
+    margin-top: -11px;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    GLOBAL SEARCH
    ══════════════════════════════════════════════════════════════════════════ */
 /* The input row carries the visible border + focus-ring so the bare
