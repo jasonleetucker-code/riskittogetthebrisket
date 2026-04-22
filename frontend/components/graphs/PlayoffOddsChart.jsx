@@ -116,15 +116,26 @@ export default function PlayoffOddsChart({
         {/* Owner bars */}
         {sorted.map((o, i) => {
           const y = i * (rowHeight + rowGap);
-          const p = Math.max(0, Math.min(1, Number(o.playoffProbability) || 0));
-          const fill =
-            p >= 0.75
-              ? CHART_COLORS.success
-              : p >= 0.4
-              ? CHART_COLORS.accent
-              : p >= 0.15
-              ? CHART_COLORS.warn
-              : CHART_COLORS.negative;
+          // ``playoffProbability: null`` means "not yet computable"
+          // (preseason, sims disabled via num_sims=0).  Per Codex
+          // PR #215 round 6: coercing null to 0 via ``|| 0`` made
+          // preseason look like every team had zero odds instead of
+          // "not yet computed."  ``rawP = null`` renders the row
+          // label with a dash and skips the bar entirely.
+          const rawP = o.playoffProbability;
+          const isUnknown = rawP == null || !Number.isFinite(Number(rawP));
+          const p = isUnknown
+            ? 0
+            : Math.max(0, Math.min(1, Number(rawP)));
+          const fill = isUnknown
+            ? CHART_COLORS.axisLabel
+            : p >= 0.75
+            ? CHART_COLORS.success
+            : p >= 0.4
+            ? CHART_COLORS.accent
+            : p >= 0.15
+            ? CHART_COLORS.warn
+            : CHART_COLORS.negative;
           return (
             <g key={o.ownerId || i}>
               <text
@@ -137,28 +148,50 @@ export default function PlayoffOddsChart({
               >
                 {o.displayName || o.ownerId || "?"}
               </text>
-              <rect
-                x={0}
-                y={y}
-                width={Math.max(0.5, x(p))}
-                height={rowHeight}
-                fill={fill}
-                fillOpacity={0.85}
-                rx={2}
-              >
-                <title>
-                  {o.displayName || o.ownerId}: {formatNumber(p * 100, 1)}% ·
-                  current record {o.currentWins ?? "?"} · PF {formatNumber(o.currentPointsFor, 1)}
-                </title>
-              </rect>
+              {isUnknown ? (
+                // Render a muted placeholder track instead of a 0%
+                // bar so the user sees "not yet computed" rather than
+                // "0 chance."
+                <rect
+                  x={0}
+                  y={y + rowHeight * 0.4}
+                  width={box.innerWidth}
+                  height={Math.max(1, rowHeight * 0.2)}
+                  fill={CHART_COLORS.grid}
+                  fillOpacity={0.5}
+                  rx={1}
+                >
+                  <title>
+                    {o.displayName || o.ownerId}: not yet computable
+                    {o.currentWins != null
+                      ? ` · current record ${o.currentWins}`
+                      : ""}
+                  </title>
+                </rect>
+              ) : (
+                <rect
+                  x={0}
+                  y={y}
+                  width={Math.max(0.5, x(p))}
+                  height={rowHeight}
+                  fill={fill}
+                  fillOpacity={0.85}
+                  rx={2}
+                >
+                  <title>
+                    {o.displayName || o.ownerId}: {formatNumber(p * 100, 1)}% ·
+                    current record {o.currentWins ?? "?"} · PF {formatNumber(o.currentPointsFor, 1)}
+                  </title>
+                </rect>
+              )}
               <text
-                x={x(p) + 6}
+                x={isUnknown ? 0 : x(p) + 6}
                 y={y + rowHeight / 2}
                 dominantBaseline="middle"
                 fontSize={11}
                 fill={CHART_COLORS.axisLabel}
               >
-                {formatNumber(p * 100, 0)}%
+                {isUnknown ? "—" : `${formatNumber(p * 100, 0)}%`}
               </text>
             </g>
           );

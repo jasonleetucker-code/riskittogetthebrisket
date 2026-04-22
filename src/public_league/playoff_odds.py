@@ -97,18 +97,73 @@ def _season_weekly_scores(
     return per_owner, pool
 
 
+def _latest_played_week(season: SeasonSnapshot) -> int | None:
+    """Return the highest regular-season week that has any scored entry.
+
+    Used to disambiguate ``points == 0 and the week is past`` (e.g. a
+    roster legitimately finished at zero) from ``points == 0 and the
+    week hasn't been played yet``.  ``metrics.is_scored`` returns
+    ``True`` only for ``points > 0``, so we need an out-of-band
+    signal for finalization when a team genuinely scored zero.
+    """
+    latest: int | None = None
+    for wk in season.regular_season_weeks:
+        entries = season.matchups_by_week.get(wk) or []
+        if any(metrics.is_scored(e) for e in entries):
+            if latest is None or wk > latest:
+                latest = wk
+    return latest
+
+
+def _matchup_is_final(a: dict, b: dict, is_past_week: bool) -> bool:
+    """True when the A vs. B matchup should count toward current record.
+
+    Two cases fall under "final":
+      1. The week is strictly before the latest week with any scored
+         entry.  We know the week is done because a later week has
+         scored entries, so every matchup in it is a real final —
+         including an exact 0-0 tie where neither roster scored a
+         point (rare but valid in extreme injury-wipeout scenarios).
+         Per Codex PR #215 round 4: the earlier "at least one side
+         scored" gate incorrectly rejected these 0-0 ties and caused
+         the simulator to re-simulate an already-finalised game.
+      2. Both sides have ``points > 0`` — the standard current-week
+         gate.  During a live week we require both sides to have
+         posted scores before counting, otherwise a Thursday-only
+         finish gets credited as a phantom win over an opponent still
+         sitting at 0.
+    """
+    if is_past_week:
+        return True
+    if metrics.is_scored(a) and metrics.is_scored(b):
+        return True
+    return False
+
+
 def _regular_season_record_to_date(
     season: SeasonSnapshot,
     registry,
 ) -> dict[str, dict[str, float | int]]:
-    """Current wins / PF per owner from already-played regular weeks."""
+    """Current wins / PF / ties per owner from already-played weeks.
+
+    A matchup counts toward current record when ``_matchup_is_final``
+    returns True.  That supports the two legitimate final states:
+    both-sides-scored (normal) and one-side-zero-in-a-past-week (rare
+    but real — addresses the Codex P2 review on PR #215).
+
+    Tie outcomes (both sides with identical non-zero points) are
+    counted into the ``ties`` bucket so downstream standings sort
+    with ``wins + 0.5 * ties`` as the primary key — matches Sleeper's
+    default regular-season tiebreak and keeps 0-1-0 vs 0-0-1 teams
+    ordered correctly in the simulator.
+    """
+    latest_played = _latest_played_week(season)
     out: dict[str, dict[str, float | int]] = {}
     for wk in season.regular_season_weeks:
         entries = season.matchups_by_week.get(wk) or []
+        is_past_week = latest_played is not None and wk < latest_played
         for a, b in metrics.matchup_pairs(entries):
-            # Skip un-scored pairs (future weeks may sit in the
-            # matchups dict before they've been played).
-            if not metrics.is_scored(a) and not metrics.is_scored(b):
+            if not _matchup_is_final(a, b, is_past_week):
                 continue
             for side, opp in ((a, b), (b, a)):
                 rid = metrics.roster_id_of(side)
@@ -134,22 +189,34 @@ def _posted_future_matchups(
     season: SeasonSnapshot,
     registry,
 ) -> dict[int, list[tuple[str, str]]]:
-    """Owner-id pairs for weeks that exist in the snapshot but haven't
-    been scored yet.
+    """Owner-id pairs for matchups within each week that haven't been
+    fully scored yet.
 
-    Sleeper posts matchups for upcoming weeks before they're played,
-    so those are authoritative.  We match entries by ``matchup_id``
-    pairs and translate roster_id → owner_id.
+    Key subtlety: a "partially played" live week (Thursday game
+    complete, Sunday games pending) still has authoritative posted
+    pairings for the unplayed matchups.  Early iterations of this
+    helper skipped the whole week when *any* entry was scored, which
+    let ``_round_robin_schedule`` re-generate pairings for the
+    already-completed Thursday game — at best wasted simulator work,
+    at worst wrong opponents for Sunday games.
+
+    So we emit pairings per un-scored matchup within each week, not
+    per whole week.  An already-complete matchup (both sides scored)
+    is filtered out — its actual result feeds ``_regular_season_
+    record_to_date`` via the week-completion check there, not the
+    simulator.  A completely un-started week still yields every pair
+    exactly as before.
     """
     out: dict[int, list[tuple[str, str]]] = {}
     for wk in season.regular_season_weeks:
         entries = season.matchups_by_week.get(wk) or []
-        # If any entry in this week is already scored, skip — this
-        # week is "played" not "future".
-        if any(metrics.is_scored(e) for e in entries):
-            continue
         pairs: list[tuple[str, str]] = []
         for a, b in metrics.matchup_pairs(entries):
+            # Filter completed matchups (both sides scored) — those
+            # are already in the current-record snapshot and must not
+            # be re-simulated.
+            if metrics.is_scored(a) and metrics.is_scored(b):
+                continue
             rid_a = metrics.roster_id_of(a)
             rid_b = metrics.roster_id_of(b)
             if rid_a is None or rid_b is None:
@@ -206,16 +273,29 @@ def _standings_from_sim(
     wins: dict[str, int],
     points: dict[str, float],
     owners: Iterable[str],
+    *,
+    ties: dict[str, int] | None = None,
 ) -> list[str]:
-    """Sort owners by (wins desc, pointsFor desc).  Matches the tiebreak
-    rule ``season_standings`` applies across every leage Sleeper hosts
-    we've observed.  Advanced tiebreakers (H2H, division records) are
-    intentionally ignored — they don't matter for probability at
+    """Sort owners by (wins+0.5·ties desc, pointsFor desc).
+
+    Matches the tiebreak rule ``season_standings`` applies across
+    every Sleeper league we've observed: a tie counts as half a win
+    in standings sort order, so a (0-0-1) team ranks above (0-1-0).
+    Advanced tiebreakers (H2H, division records) are intentionally
+    ignored — they don't matter for probability at
     ``num_sims >= 10_000`` when integrated over many draws.
+
+    ``ties`` is optional for backward compatibility with callers that
+    don't track ties (the default treats everyone as 0-tie).
     """
+    ties = ties or {}
     return sorted(
         owners,
-        key=lambda o: (-wins.get(o, 0), -points.get(o, 0.0), o),
+        key=lambda o: (
+            -(wins.get(o, 0) + 0.5 * ties.get(o, 0)),
+            -points.get(o, 0.0),
+            o,
+        ),
     )
 
 
@@ -265,6 +345,21 @@ def compute_playoff_odds(
 
     registry = snapshot.managers
 
+    # Guard against non-positive simulation counts.  The remaining-
+    # weeks code path divides probabilities by ``num_sims`` — a zero
+    # value would raise ``ZeroDivisionError`` mid-response.  Callers
+    # asking for "just tell me the current snapshot" (``num_sims=0``)
+    # on a season with remaining weeks still get a well-formed reply:
+    # every owner reports ``playoffProbability=None`` and the header
+    # surfaces ``numSims=0`` so the frontend can render a "season in
+    # progress, simulations disabled" state without crashing.
+    try:
+        num_sims = int(num_sims)
+    except (TypeError, ValueError):
+        num_sims = 0
+    if num_sims < 0:
+        num_sims = 0
+
     # Playoff spot count — honour league settings, else default.
     settings = season.league.get("settings") or {}
     cfg_spots = settings.get("playoff_teams") if isinstance(settings, dict) else None
@@ -297,19 +392,69 @@ def compute_playoff_odds(
     per_owner_scores, league_pool = _season_weekly_scores(season, registry)
     current_record = _regular_season_record_to_date(season, registry)
 
-    # Determine played vs remaining regular-season weeks.
-    played_weeks = [
-        wk
-        for wk in season.regular_season_weeks
-        if any(metrics.is_scored(e) for e in (season.matchups_by_week.get(wk) or []))
-    ]
+    # Determine played vs remaining regular-season weeks.  A week is
+    # "played" only when *every* scored matchup in that week has both
+    # sides posted — mirrors ``_regular_season_record_to_date``'s
+    # requirement, so a live Thursday-only week still sits in
+    # ``remaining_weeks`` and gets simulated rather than counted as
+    # completed with half its games at zero.
+    latest_played = _latest_played_week(season)
+
+    def _week_is_complete(wk: int) -> bool:
+        entries = season.matchups_by_week.get(wk) or []
+        if not entries:
+            return False
+        is_past_week = latest_played is not None and wk < latest_played
+        for a, b in metrics.matchup_pairs(entries):
+            if not _matchup_is_final(a, b, is_past_week):
+                return False
+        return True
+
+    played_weeks = [wk for wk in season.regular_season_weeks if _week_is_complete(wk)]
     remaining_weeks = [wk for wk in season.regular_season_weeks if wk not in played_weeks]
 
-    # Early exit: season over → probabilities collapse to 0/1.
+    # Early exit: both played and remaining are empty.  Two very
+    # different states collapse to this shape and must be handled
+    # distinctly (per Codex PR #215 round 4):
+    #
+    #   * Preseason — ``regular_season_weeks`` is empty because the
+    #     snapshot only stores weeks with real matchup rows and no
+    #     week has been published yet.  Before: reported
+    #     ``scheduleCertainty: "final"`` and handed out arbitrary 0/1
+    #     probabilities from whatever owner order the loop produced.
+    #     Now: emits a ``preseason`` state with all probabilities
+    #     null so the frontend can render "season hasn't started".
+    #
+    #   * Finished — at least one week has been played AND nothing
+    #     remains.  Everyone either made the playoffs (1.0) or didn't
+    #     (0.0) based on their actual current record.
     if not remaining_weeks:
+        is_preseason = len(played_weeks) == 0 and latest_played is None
+        if is_preseason:
+            return {
+                "season": season.season,
+                "numSims": 0,
+                "playoffSpots": spots,
+                "weeksPlayed": 0,
+                "weeksRemaining": 0,
+                "scheduleCertainty": "preseason",
+                "owners": [
+                    {
+                        "ownerId": o,
+                        "displayName": metrics.display_name_for(snapshot, o),
+                        "currentWins": 0,
+                        "currentPointsFor": 0.0,
+                        "playoffProbability": None,
+                    }
+                    for o in owners_in_league
+                ],
+            }
         wins_snapshot = {o: int(current_record.get(o, {}).get("wins", 0)) for o in owners_in_league}
+        ties_snapshot = {o: int(current_record.get(o, {}).get("ties", 0)) for o in owners_in_league}
         pf_snapshot = {o: float(current_record.get(o, {}).get("pointsFor", 0.0)) for o in owners_in_league}
-        ordered = _standings_from_sim(wins_snapshot, pf_snapshot, owners_in_league)
+        ordered = _standings_from_sim(
+            wins_snapshot, pf_snapshot, owners_in_league, ties=ties_snapshot
+        )
         made = set(ordered[:spots])
         return {
             "season": season.season,
@@ -347,14 +492,16 @@ def compute_playoff_odds(
             # sim runs but the distribution is uninformative.
             owner_pool[o] = [100.0]
 
-    # Pre-snapshot current state.
+    # Pre-snapshot current state — wins, ties, PF all carry over.
     base_wins = {o: int(current_record.get(o, {}).get("wins", 0)) for o in owners_in_league}
+    base_ties = {o: int(current_record.get(o, {}).get("ties", 0)) for o in owners_in_league}
     base_pf = {o: float(current_record.get(o, {}).get("pointsFor", 0.0)) for o in owners_in_league}
 
     made_counter: dict[str, int] = {o: 0 for o in owners_in_league}
 
     for _ in range(num_sims):
         sim_wins = dict(base_wins)
+        sim_ties = dict(base_ties)
         sim_pf = dict(base_pf)
         for wk in remaining_weeks:
             pairs = full_schedule.get(wk, [])
@@ -367,9 +514,23 @@ def compute_playoff_odds(
                     sim_wins[a] = sim_wins.get(a, 0) + 1
                 elif pb > pa:
                     sim_wins[b] = sim_wins.get(b, 0) + 1
-        ordered = _standings_from_sim(sim_wins, sim_pf, owners_in_league)
+                else:
+                    # Exact-tie simulation branch.  Both sides get a
+                    # tie credited so downstream standings correctly
+                    # rank (0-0-1) above (0-1-0) via the ``wins +
+                    # 0.5 * ties`` key in ``_standings_from_sim``.
+                    sim_ties[a] = sim_ties.get(a, 0) + 1
+                    sim_ties[b] = sim_ties.get(b, 0) + 1
+        ordered = _standings_from_sim(
+            sim_wins, sim_pf, owners_in_league, ties=sim_ties
+        )
         for o in ordered[:spots]:
             made_counter[o] += 1
+
+    def _probability(owner: str) -> float | None:
+        if num_sims <= 0:
+            return None
+        return round(made_counter[owner] / num_sims, 4)
 
     return {
         "season": season.season,
@@ -384,7 +545,7 @@ def compute_playoff_odds(
                 "displayName": metrics.display_name_for(snapshot, o),
                 "currentWins": base_wins[o],
                 "currentPointsFor": round(base_pf[o], 2),
-                "playoffProbability": round(made_counter[o] / num_sims, 4),
+                "playoffProbability": _probability(o),
             }
             for o in owners_in_league
         ],

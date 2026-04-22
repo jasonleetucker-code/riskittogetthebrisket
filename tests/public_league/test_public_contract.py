@@ -51,8 +51,21 @@ class PublicContractSafetyTests(unittest.TestCase):
         self.assertIn("sections", c)
         self.assertIn("sectionKeys", c)
         self.assertEqual(list(c["sectionKeys"]), list(PUBLIC_SECTION_KEYS))
-        for key in PUBLIC_SECTION_KEYS:
+        # Only eager sections appear in the aggregate walk's
+        # ``c["sections"]`` block.  Lazy ones (e.g. playoffOdds, which
+        # runs a 10K-sim Monte Carlo) are intentionally excluded so
+        # the baseline contract load doesn't pay their cost — they
+        # remain callable via ``/api/public/league/<section>``.
+        from src.public_league.public_contract import (
+            _SECTION_BUILDERS,
+            _LAZY_SECTION_BUILDERS,
+            OVERVIEW_SECTION,
+        )
+        eager = (OVERVIEW_SECTION,) + tuple(_SECTION_BUILDERS.keys())
+        for key in eager:
             self.assertIn(key, c["sections"])
+        for key in _LAZY_SECTION_BUILDERS:
+            self.assertNotIn(key, c["sections"])
 
     def test_contract_does_not_leak_any_private_fields(self) -> None:
         # The explicit assert_public_payload_safe runs during the

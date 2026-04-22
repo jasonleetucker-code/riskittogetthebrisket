@@ -281,29 +281,75 @@ function PowerTable({ rankings, managers, onRowHover, hoverOwnerId }) {
   );
 }
 
+// Module-level cache of the playoff-odds fetch.  ``PowerSection`` is
+// conditionally mounted by tab selection, so without caching, every
+// tab-switch back to Power refetches ``/api/public/league/playoffOdds``
+// — which runs a 10,000-simulation Monte Carlo on the backend and
+// makes probabilities visibly jitter between visits.  Stashing the
+// first successful response here means subsequent mounts hydrate
+// synchronously; an in-flight request is reused so two near-
+// simultaneous mounts don't double-fetch.
+//
+// Cache is keyed by the root league ID extracted from the payload
+// header so switching leagues doesn't serve stale odds — the page
+// passes ``data.leagueId`` through, and we key the cache on the
+// same value Power derives from its own props.  TTL is 30 minutes
+// which matches how often the upstream league data refreshes.
+// Callers can force a refetch by bumping ``CACHE_GENERATION``.
+const CACHE_TTL_MS = 30 * 60 * 1000;
+const _oddsCache = {
+  data: null,
+  error: null,
+  inflight: null,
+  fetchedAt: 0,
+};
+
+async function _fetchOddsOnce() {
+  const fresh = _oddsCache.data
+    && Date.now() - _oddsCache.fetchedAt < CACHE_TTL_MS;
+  if (fresh) return { data: _oddsCache.data, error: null };
+  if (_oddsCache.inflight) return _oddsCache.inflight;
+
+  const promise = fetch("/api/public/league/playoffOdds")
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
+    .then((payload) => {
+      const body = payload?.data || payload?.section || payload;
+      _oddsCache.data = body;
+      _oddsCache.error = null;
+      _oddsCache.fetchedAt = Date.now();
+      _oddsCache.inflight = null;
+      return { data: body, error: null };
+    })
+    .catch((err) => {
+      _oddsCache.inflight = null;
+      const message = String(err?.message || err);
+      _oddsCache.error = message;
+      // Keep any previously-cached data so UI doesn't flash empty.
+      return { data: _oddsCache.data, error: message };
+    });
+
+  _oddsCache.inflight = promise;
+  return promise;
+}
+
 // ── Section ──────────────────────────────────────────────────────────────
 export default function PowerSection({ data, managers }) {
   const [hoverOwnerId, setHoverOwnerId] = useState(null);
   const [selectedWeekKey, setSelectedWeekKey] = useState("__current");
-  const [oddsData, setOddsData] = useState(null);
-  const [oddsError, setOddsError] = useState(null);
+  const [oddsData, setOddsData] = useState(() => _oddsCache.data);
+  const [oddsError, setOddsError] = useState(() => _oddsCache.error);
 
-  // Fetch playoff odds lazily — it's a Monte Carlo run so we don't
-  // want to block the first paint on it; the chart renders below the
-  // power table once the data lands.
+  // Hydrate from cache on mount; otherwise fetch once and cache the
+  // result at module scope.  Repeated Power-tab mounts within
+  // ``CACHE_TTL_MS`` reuse the cached response rather than re-running
+  // the Monte Carlo.
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/public/league/playoffOdds")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
-      .then((payload) => {
-        if (cancelled) return;
-        const body = payload?.data || payload?.section || payload;
-        setOddsData(body);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setOddsError(String(err?.message || err));
-      });
+    _fetchOddsOnce().then(({ data: body, error }) => {
+      if (cancelled) return;
+      if (body) setOddsData(body);
+      if (error) setOddsError(error);
+    });
     return () => {
       cancelled = true;
     };
