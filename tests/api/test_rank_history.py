@@ -424,3 +424,36 @@ class StampContract(unittest.TestCase):
             stamped = rank_history.stamp_contract_with_history(contract, path=path)
             self.assertEqual(stamped, 0)
             self.assertNotIn("rankHistory", contract["playersArray"][0])
+
+    def test_legacy_dict_borrows_asset_class_from_players_array(self) -> None:
+        # Regression for the 2026-04-22 production audit: the runtime
+        # ``/api/data?view=app`` legacy ``players`` dict ships without
+        # ``assetClass`` or ``position`` on offense/IDP rows, so the
+        # pre-fix stamp only landed on picks (which matched via the
+        # name-pattern fallback).  Borrowing ``assetClass`` from the
+        # playersArray mirror makes regular players stamp too.
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "rank_history.jsonl"
+            rank_history.append_snapshot(
+                {
+                    "playersArray": [
+                        {"canonicalName": "Bare Legacy", "canonicalConsensusRank": 42, "assetClass": "offense"},
+                    ],
+                },
+                date="2026-04-22",
+                path=path,
+            )
+            contract = {
+                "playersArray": [
+                    {"canonicalName": "Bare Legacy", "canonicalConsensusRank": 42, "assetClass": "offense", "displayName": "Bare Legacy"},
+                ],
+                "players": {
+                    # Mimic the production shape: no assetClass, no position.
+                    "Bare Legacy": {"ktc": 4200, "_composite": 4200},
+                },
+            }
+            rank_history.stamp_contract_with_history(contract, path=path)
+            self.assertIn("rankHistory", contract["players"]["Bare Legacy"])
+            self.assertEqual(
+                contract["players"]["Bare Legacy"]["rankHistory"][-1]["rank"], 42
+            )

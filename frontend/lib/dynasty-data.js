@@ -494,14 +494,14 @@ export const RANKING_SOURCES = [
     // position we pick the league-appropriate value column (SF Value
     // for QB, TEP Value for TE, Trade Value for RB/WR) — so
     // Fitzmaurice's Superflex + TE-Premium native numbers align
-    // with our league scoring.  Value-signal on this branch: the
-    // blend rescales Fitzmaurice's top player (typically a QB at
-    // ~101) to 9999 via the value-direct path.  PR #216 converts
-    // this source to rank-signal with a matching CSV rank column;
-    // the ``isRankSignal`` flag stays ``false`` here to keep
-    // frontend and backend in lockstep on THIS branch — flipping
-    // without the matching backend change would have the audit UI
-    // render ``#—`` where real values should appear.
+    // with our league scoring.  Rank-signal (restored 2026-04-22):
+    // the 0-101 value scale caps hard at the top with the top dozen
+    // players bunched between 80 and 101, which the value-direct
+    // branch collapsed into a narrow top band that the Hampel filter
+    // correctly rejected (19% drop rate).  Routing through the rank
+    // path instead feeds Fitzmaurice's global 1-indexed rank into
+    // the shared Hill curve.  Mirrors the backend
+    // ``_SOURCE_CSV_PATHS["fantasyProsFitzmaurice"].signal = "rank"``.
     key: "fantasyProsFitzmaurice",
     displayName: "FantasyPros / Pat Fitzmaurice SF-TEP",
     columnLabel: "Fitzmaurice",
@@ -512,7 +512,7 @@ export const RANKING_SOURCES = [
     weight: 1.0,
     isBackbone: false,
     isRetail: false,
-    isRankSignal: false,
+    isRankSignal: true,
     isTepPremium: true,
     needsSharedMarketTranslation: false,
     excludesRookies: false,
