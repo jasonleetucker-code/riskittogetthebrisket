@@ -1,27 +1,23 @@
 "use client";
 
 // ── Chart 6: Hill curve explorer ─────────────────────────────────────
-// Renders the canonical Hill curve that maps percentile → Hill value
-// (see ``src/canonical/player_valuation.py::percentile_to_value``) with
-// the live board overlaid as a scatter.  Scatter points are coloured
-// by position group so per-scope behaviour (where rookies cluster,
-// where IDPs cluster, where picks sit relative to starters) is visible
-// even though the curve itself is a single global parameter set.
+// Renders the four scope-level master Hill curves that map percentile
+// → value (see ``src/canonical/player_valuation.py`` constants
+// ``HILL_GLOBAL_PERCENTILE_*``, ``HILL_PERCENTILE_*``,
+// ``IDP_HILL_PERCENTILE_*``, ``HILL_ROOKIE_PERCENTILE_*``) with the
+// live board overlaid as a scatter.
 //
-// Design note: the backend has exactly one Hill curve
-// (``HILL_MIDPOINT=45``, ``HILL_SLOPE=1.10``).  A previous iteration of
-// this chart spoke of "4 scope-master curves side-by-side" but those
-// don't exist in the pipeline — every source / scope / position feeds
-// the same percentile-to-value map.  Where sub-pools differ is in the
-// *distribution of ranks* that hit that curve.  Splitting the scatter
-// by position group makes that distribution visible, which is the
-// honest version of "compare scopes on the Hill curve."
+// The backend stamps the curves into the contract root as
+// ``hillCurves: { global: {midpoint, slope, ...}, offense: {...},
+// idp: {...}, rookie: {...} }``; rankings/page.jsx forwards that to
+// the ``curves`` prop here.  Each curve's ``midpoint``/``slope`` are
+// already rank-form (``midpoint = c * (referenceN − 1)``), so the
+// rank-based ``hillValue`` below renders them directly.  See
+// ``_build_hill_curves_block`` in ``src/api/data_contract.py``.
 //
-// The ``curves`` prop remains multi-curve capable — if the backend
-// ever stamps per-scope curve parameters into the contract root
-// (``hillCurves: { global: {...}, offense: {...}, idp: {...},
-// rookie: {...} }``), this component picks them up automatically and
-// renders each as a separate line.
+// Scatter points are coloured by position group so per-scope
+// behaviour (where rookies cluster, where IDPs cluster, where picks
+// sit relative to starters) is visible alongside the curves.
 // ─────────────────────────────────────────────────────────────────────
 
 import {
@@ -34,20 +30,57 @@ import {
   linePath,
 } from "../../lib/chart-primitives.js";
 
-// Mirrors the Python ``percentile_to_value`` helper.  The backend's
-// ``HILL_MIDPOINT`` is expressed in *rank* units (the rank at which
-// value ≈ 5000), so the curve plotted here is parameterised on rank
-// as well; the x-axis is labelled "rank" rather than "percentile" so
-// what you see matches what the pipeline actually does.
+// Rank-form Hill evaluator; matches the Python ``percentile_to_value``
+// after the rank→percentile conversion ``p = (r-1)/(N-1)`` and the
+// equivalence ``midpoint_rank = c * (N-1)``, ``slope = s``.  The
+// backend stamps curves in rank form so this renders directly.
 function hillValue(rank, { midpoint, slope }) {
   const r = Math.max(1, rank);
   const exponent = Math.pow((r - 1) / midpoint, slope);
   return Math.max(1, Math.min(9999, Math.round(1 + 9998 / (1 + exponent))));
 }
 
+// Fallback only — used when the contract hasn't stamped ``hillCurves``
+// (e.g. a stale cached payload).  The live path receives the full
+// four-scope object from the ``/api/data`` root.
 const DEFAULT_CURVES = [
   { key: "global", label: "Global", midpoint: 45, slope: 1.1 },
 ];
+
+// Normalize incoming curves: accept either the backend's dict shape
+// ``{global: {...}, offense: {...}, ...}`` or an already-flat array
+// ``[{key, label, midpoint, slope}, ...]``.  Entries missing a numeric
+// ``midpoint`` or ``slope`` are dropped rather than silently rendered
+// as NaN paths.
+function normalizeCurves(curves) {
+  if (Array.isArray(curves)) return curves.filter(isRenderableCurve);
+  if (curves && typeof curves === "object") {
+    const order = ["global", "offense", "idp", "rookie"];
+    const seen = new Set();
+    const flat = [];
+    for (const key of order) {
+      if (curves[key]) {
+        flat.push({ key, ...curves[key] });
+        seen.add(key);
+      }
+    }
+    for (const key of Object.keys(curves)) {
+      if (!seen.has(key) && curves[key]) flat.push({ key, ...curves[key] });
+    }
+    return flat.filter(isRenderableCurve);
+  }
+  return [];
+}
+
+function isRenderableCurve(c) {
+  return (
+    c &&
+    Number.isFinite(Number(c.midpoint)) &&
+    Number(c.midpoint) > 0 &&
+    Number.isFinite(Number(c.slope)) &&
+    Number(c.slope) > 0
+  );
+}
 
 // Colour palette per position group.  Keys match the ``assetClass`` /
 // coarse position taxonomy the frontend already uses so the Hill
@@ -99,7 +132,11 @@ export default function HillCurveExplorer({
   const x = linearScale(1, xMax, 0, box.innerWidth);
   const y = linearScale(0, 9999, box.innerHeight, 0);
 
-  const curvePaths = (curves || []).map((c, i) => {
+  const renderableCurves = (() => {
+    const normalized = normalizeCurves(curves);
+    return normalized.length > 0 ? normalized : DEFAULT_CURVES;
+  })();
+  const curvePaths = renderableCurves.map((c, i) => {
     const pts = [];
     for (let k = 0; k <= samplePoints; k++) {
       const r = 1 + (xMax - 1) * (k / samplePoints);
@@ -264,4 +301,4 @@ export default function HillCurveExplorer({
 
 // Exported so callers (tests, wiring) can stay in lockstep with the
 // component's grouping rules.
-export { groupFor, hillValue };
+export { groupFor, hillValue, normalizeCurves };

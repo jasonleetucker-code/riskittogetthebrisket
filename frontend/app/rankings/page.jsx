@@ -981,7 +981,11 @@ export default function RankingsPage() {
               The curve is the canonical rank-to-value shape; dots are where every
               rankable player actually lands after per-source aggregation.
             </p>
-            <HillCurveExplorer rows={rows} onPointClick={openPlayerPopup} />
+            <HillCurveExplorer
+              rows={rows}
+              curves={rawData?.hillCurves}
+              onPointClick={openPlayerPopup}
+            />
           </div>
           <div className="card" style={{ padding: "var(--space-md)" }}>
             <h3 className="section-title">Tier gap waterfall</h3>
