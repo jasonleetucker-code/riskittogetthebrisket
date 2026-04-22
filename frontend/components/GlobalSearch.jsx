@@ -80,7 +80,7 @@ export default function GlobalSearch({ rows = [], isOpen, onClose, onSelect }) {
       <div
         className="picker-sheet"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 500, width: "92vw", maxHeight: "70vh", display: "flex", flexDirection: "column" }}
+        style={{ maxWidth: 500, width: "92vw", maxHeight: "70dvh", display: "flex", flexDirection: "column" }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: "1.1rem", opacity: 0.4 }}>/</span>

@@ -702,7 +702,11 @@ tr:hover .sticky-name {
 
 .picker-sheet {
   width: min(660px, 100%);
-  max-height: 80vh;
+  /* dvh = dynamic viewport height.  When the iOS soft keyboard is open
+     this shrinks the sheet above the keyboard instead of clipping its
+     results/controls underneath.  Desktop browsers treat dvh the same
+     as vh, so this is a pure mobile win with no desktop regression. */
+  max-height: 80dvh;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, rgba(20, 39, 79, 0.97) 0%, rgba(13, 29, 63, 0.98) 100%);
@@ -788,7 +792,9 @@ tr:hover .sticky-name {
 .sheet {
   width: 100%;
   max-width: 600px;
-  max-height: 85vh;
+  /* dvh so the sheet shrinks with the iOS keyboard instead of
+     disappearing behind it. */
+  max-height: 85dvh;
   overflow-y: auto;
   background: linear-gradient(180deg, rgba(42, 21, 80, 0.98) 0%, rgba(26, 15, 46, 0.99) 100%);
   border: 1px solid var(--border);
@@ -908,7 +914,10 @@ tr:hover .sticky-name {
    LOGIN PAGE
    ══════════════════════════════════════════════════════════════════════════ */
 .login-shell {
-  min-height: calc(100vh - 120px);
+  /* dvh — the keyboard opens when tapping the password field; vh
+     anchored the shell to the pre-keyboard viewport and pushed the
+     submit button behind the keyboard. */
+  min-height: calc(100dvh - 120px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2839,8 +2848,11 @@ tr:hover .sticky-name {
   right: 0;
   left: 0;
   bottom: 0;
-  max-height: 90vh;
-  height: 90vh;
+  /* dvh so the drawer shrinks with the iOS soft keyboard.  With vh
+     the chat input was pushed below the keyboard and the user
+     couldn't see what they were typing. */
+  max-height: 90dvh;
+  height: 90dvh;
   display: flex;
   flex-direction: column;
   background: linear-gradient(180deg, rgba(42, 21, 80, 0.98) 0%, rgba(26, 15, 46, 0.99) 100%);
