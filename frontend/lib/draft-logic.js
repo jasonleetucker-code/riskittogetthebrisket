@@ -129,6 +129,25 @@ export const SPEND_UP_PRESSURE_MIN = 0.6;
  */
 export const SPEND_UP_MDV_FLOOR = 10;
 
+/** Max slots on the user's explicit Target Board. */
+export const TARGET_BOARD_MAX = 6;
+
+/**
+ * Per-nomination decay on a rival's tier-interest prior.  0.8 means
+ * every nomination a team makes in tier T reduces their prior on
+ * wanting ANOTHER player in that tier by 20% (multiplicative).  Tuned
+ * to: 1 nom → 0.80, 2 noms → 0.64, 3 noms → 0.51, 4 noms → 0.41.
+ * Floored at ``TIER_INTEREST_MIN`` so a team is never fully excluded.
+ */
+export const NOMINATION_DECAY = 0.8;
+/**
+ * Minimum tier-interest prior a team can have after nominations.
+ * Keeps the Bayesian competitor ceiling from collapsing to zero for
+ * a rival that has nominated many in a single tier — they MIGHT
+ * still want another one, just less likely.
+ */
+export const TIER_INTEREST_MIN = 0.2;
+
 // ── Default team roster ─────────────────────────────────────────────────
 // Total league pool is $1200 (the sum of DEFAULT_ROOKIES.preDraft).  The
 // sheet reports Russini Panini (Jason) at $417 and "Other Teams
@@ -319,6 +338,17 @@ export function createDefaultWorkspace() {
     picks: [],
     // tags: { [playerId]: "target" | "avoid" }  — neutral = absent
     tags: {},
+    // targetBoard: ordered array of playerId slots (up to TARGET_BOARD_MAX).
+    //   The user's explicit "these are my 6" short-list.  Independent of
+    //   the general target tag system so the user can keep a wide target
+    //   list (20+) but still focus the board on 6 specific picks.  A
+    //   player can be on both (common) or one or the other.
+    targetBoard: [],
+    // nominations: chronological log of who nominated whom.  Drives the
+    // Bayesian per-team tier-interest priors that refine the competitor
+    // ceiling on any given undrafted player.
+    //   { playerId, nominatingTeamIdx, preDraftAtNomination, ts }
+    nominations: [],
   };
 }
 
@@ -440,6 +470,42 @@ export function computeDraftStats(workspace) {
     if (effectiveBudgetByIdx[i] > topCompetitorMax) {
       topCompetitorMax = effectiveBudgetByIdx[i];
     }
+  }
+
+  // ── Bayesian tier-interest priors per team ─────────────────────────
+  // Nominations are a negative signal: teams typically nominate
+  // players they DON'T want (to drain rivals or price-anchor).  Decay
+  // each team's "wants a player of tier T" prior by NOMINATION_DECAY
+  // per nomination they've made in tier T, floored at
+  // TIER_INTEREST_MIN so they're never fully excluded.  No
+  // nominations logged → priors stay 1.0 and Bayesian ceiling
+  // collapses to the naive topCompetitorMax.
+  const nominations = Array.isArray(ws.nominations) ? ws.nominations : [];
+  // tierInterest[teamIdx][tierKey] ∈ [TIER_INTEREST_MIN, 1]
+  const tierInterestByTeam = teams.map(() => {
+    const m = {};
+    for (const def of TIER_DEFS) m[def.key] = 1;
+    return m;
+  });
+  // Build a quick playerId → current preDraft map for the fallback
+  // when a nomination predates the preDraftAtNomination snapshot
+  // (old localStorage data).  Fresh nominations always snapshot, so
+  // the fallback is rare.
+  const nominationPreDraftFallback = new Map(
+    players.map((p) => [p.id, Math.max(0, Number(p.preDraft) || 0)]),
+  );
+  for (const n of nominations) {
+    const idx = n?.nominatingTeamIdx;
+    if (!Number.isInteger(idx) || idx < 0 || idx >= teams.length) continue;
+    const snap = Number.isFinite(Number(n?.preDraftAtNomination))
+      ? Math.max(0, Number(n.preDraftAtNomination))
+      : nominationPreDraftFallback.get(n?.playerId) || 0;
+    const tierKey = tierForPreDraft(snap);
+    const cur = tierInterestByTeam[idx][tierKey] ?? 1;
+    tierInterestByTeam[idx][tierKey] = Math.max(
+      TIER_INTEREST_MIN,
+      cur * NOMINATION_DECAY,
+    );
   }
 
   // Other teams' money (aggregate).
@@ -597,6 +663,10 @@ export function computeDraftStats(workspace) {
       preDraftSum > 0 ? (spent - preDraftSum) / preDraftSum : null;
     const slotsLeft = slotsRemainingByIdx[idx];
     const mdv = slotsLeft > 0 ? remaining / slotsLeft : 0;
+    // Count this team's logged nominations for the UI badge.
+    const nominationsLogged = nominations.filter(
+      (n) => n.nominatingTeamIdx === idx,
+    ).length;
     return {
       idx,
       name: t.name || `Team ${idx + 1}`,
@@ -612,6 +682,8 @@ export function computeDraftStats(workspace) {
       mdv,
       preDraftSum,
       overpayIndex,
+      tierInterest: tierInterestByTeam[idx],
+      nominationsLogged,
     };
   });
 
@@ -645,6 +717,27 @@ export function computeDraftStats(workspace) {
       0,
       Math.min(theoreticalMaxBid, winByCompetitor),
     );
+    // Bayesian competitor ceiling: reweight each rival's effective
+    // budget by their tierInterest for THIS player's tier.  Less
+    // interest (more nominations in this tier) → lower effective
+    // ceiling for this player → lower bayesianWinningBid → I might
+    // pay less than the naive topCompetitorMax suggests.  Only
+    // diverges from topCompetitorMax once at least one nomination
+    // has been logged; otherwise every tier-interest is 1.0 and the
+    // numbers match.
+    let bayesianTopCompetitor = 0;
+    for (let i = 0; i < effectiveBudgetByIdx.length; i++) {
+      if (i === myTeamIdx) continue;
+      const interest = tierInterestByTeam[i]?.[tier] ?? 1;
+      const weighted = effectiveBudgetByIdx[i] * interest;
+      if (weighted > bayesianTopCompetitor) {
+        bayesianTopCompetitor = weighted;
+      }
+    }
+    const bayesianWinningBid = Math.max(
+      0,
+      Math.min(theoreticalMaxBid, Math.max(1, Math.floor(bayesianTopCompetitor) + 1)),
+    );
     const enforceUpTo = Math.floor(inflatedFair * enforcePct);
     const drafted = !!pick;
     const mine = drafted && pick.teamIdx === myTeamIdx;
@@ -666,6 +759,8 @@ export function computeDraftStats(workspace) {
       myMaxBid: Math.max(0, theoreticalMaxBid),
       theoreticalMaxBid: Math.max(0, theoreticalMaxBid),
       myWinningBid,
+      bayesianTopCompetitor: Math.max(0, Math.floor(bayesianTopCompetitor)),
+      bayesianWinningBid,
       enforceUpTo: Math.max(0, enforceUpTo),
       valueVsFair,
     };
@@ -678,6 +773,109 @@ export function computeDraftStats(workspace) {
   const totalPicksMade = picks.length;
   const draftProgress =
     totalInitialSlots > 0 ? totalPicksMade / totalInitialSlots : 0;
+
+  // ── Target Board rollup ─────────────────────────────────────────────
+  // Aggregated view of the user's explicit short-list.  Each slot
+  // carries a reference to the enriched player row so the UI can
+  // render live "fair now" / "win now" numbers that update as other
+  // picks land.  Totals handle three states per slot:
+  //
+  //   drafted to me:    +paid           (green; locked in)
+  //   drafted to other: NOT in totals   (greyed out on the UI)
+  //   undrafted:        +myWinningBid   (the realistic buy price)
+  //
+  // ``portfolioCost`` is what it would cost to get every remaining
+  // target at current winning-bid prices, plus what I already spent
+  // on targets.  ``portfolioBuffer`` = my remaining $ − cost of
+  // remaining targets, i.e. what's left if I hit everything I still
+  // want at today's prices.  Negative buffer means I can't afford
+  // all six — the UI surfaces this as a red warning.
+  const enrichedPlayerById = new Map(
+    enrichedPlayers.map((p) => [p.id, p]),
+  );
+  const boardIds = Array.isArray(ws.targetBoard) ? ws.targetBoard : [];
+  const targetBoardSlots = boardIds
+    .map((id) => enrichedPlayerById.get(id))
+    .filter(Boolean);
+  const tbTotals = {
+    preDraftSum: 0,
+    fairSum: 0,
+    winBidSum: 0,
+    paidSum: 0,
+    mineCount: 0,
+    otherCount: 0,
+    remainingCount: 0,
+    remainingFair: 0,
+    remainingWinBid: 0,
+  };
+  for (const p of targetBoardSlots) {
+    tbTotals.preDraftSum += p.preDraft || 0;
+    tbTotals.fairSum += p.inflatedFair || 0;
+    tbTotals.winBidSum += p.myWinningBid || 0;
+    if (p.drafted) {
+      if (p.mine) {
+        tbTotals.mineCount += 1;
+        tbTotals.paidSum += p.pick?.amount || 0;
+      } else {
+        tbTotals.otherCount += 1;
+      }
+    } else {
+      tbTotals.remainingCount += 1;
+      tbTotals.remainingFair += p.inflatedFair || 0;
+      tbTotals.remainingWinBid += p.myWinningBid || 0;
+    }
+  }
+  // Buffer: what's left of my budget after buying every remaining
+  // target at winning-bid prices, reserving $1 per additional slot
+  // beyond the targets.  If I have 6 slots but only 4 targets, I
+  // need $1 each for the other 2 so I can still fill my roster.
+  const nonTargetSlotsLeft = Math.max(
+    0,
+    mySlotsRemaining - tbTotals.remainingCount,
+  );
+  const portfolioBuffer =
+    myRemaining - tbTotals.remainingWinBid - nonTargetSlotsLeft;
+  let portfolioStatus = "idle";
+  let portfolioStatusLabel = "Add targets to your board";
+  if (targetBoardSlots.length > 0) {
+    if (portfolioBuffer < 0) {
+      portfolioStatus = "short";
+      portfolioStatusLabel = `Short $${Math.abs(Math.round(portfolioBuffer))} — trim a target or lower your ceiling`;
+    } else if (portfolioBuffer < 10) {
+      portfolioStatus = "tight";
+      portfolioStatusLabel = `Tight — $${Math.round(portfolioBuffer)} of slack`;
+    } else {
+      portfolioStatus = "on_track";
+      portfolioStatusLabel = `On track — $${Math.round(portfolioBuffer)} of headroom`;
+    }
+  }
+  const targetBoardStats = {
+    slots: targetBoardSlots,
+    totals: tbTotals,
+    portfolioBuffer,
+    portfolioStatus,
+    portfolioStatusLabel,
+    nonTargetSlotsLeft,
+  };
+
+  // ── Nominations summary ────────────────────────────────────────────
+  // Surface the raw nominations plus a per-tier count so the UI can
+  // show "Joel has logged 3 S-tier noms" as a quick-read signal.
+  const nominationsEnriched = nominations.map((n) => ({
+    ...n,
+    player: enrichedPlayerById.get(n.playerId) || null,
+    nominatingTeamName:
+      teams[n.nominatingTeamIdx]?.name || `Team ${n.nominatingTeamIdx + 1}`,
+  }));
+  const nominationsByTier = {};
+  for (const def of TIER_DEFS) nominationsByTier[def.key] = 0;
+  for (const n of nominations) {
+    const snap = Number.isFinite(Number(n.preDraftAtNomination))
+      ? n.preDraftAtNomination
+      : nominationPreDraftFallback.get(n.playerId) || 0;
+    const k = tierForPreDraft(snap);
+    nominationsByTier[k] = (nominationsByTier[k] || 0) + 1;
+  }
 
   return {
     totalBudget,
@@ -707,6 +905,10 @@ export function computeDraftStats(workspace) {
     draftProgress,
     teamStats,
     enrichedPlayers,
+    targetBoardStats,
+    nominationsCount: nominations.length,
+    nominationsByTier,
+    nominationsEnriched,
   };
 }
 
@@ -786,6 +988,103 @@ export function setPlayerTag(workspace, playerId, tag) {
     delete next[playerId];
   }
   return { ...workspace, tags: next };
+}
+
+// ── Target Board mutators ──────────────────────────────────────────────
+/**
+ * Append a player to the explicit Target Board if there's a free slot
+ * and they're not already on it.  Cap at ``TARGET_BOARD_MAX``.  Also
+ * auto-applies the ``target`` tag so the rec engine picks them up.
+ */
+export function addToTargetBoard(workspace, playerId) {
+  if (!playerId) return workspace;
+  const board = Array.isArray(workspace.targetBoard)
+    ? workspace.targetBoard
+    : [];
+  if (board.includes(playerId)) return workspace;
+  if (board.length >= TARGET_BOARD_MAX) return workspace;
+  const next = setPlayerTag(workspace, playerId, TAG_TARGET);
+  return { ...next, targetBoard: [...board, playerId] };
+}
+
+/**
+ * Remove a player from the Target Board.  Does NOT clear their
+ * target tag — the tag is a broader concept than board membership,
+ * so a user who removes from the board while keeping the tag is
+ * signalling "still interested, just not top-6 focus."
+ */
+export function removeFromTargetBoard(workspace, playerId) {
+  const board = (workspace.targetBoard || []).filter(
+    (id) => id !== playerId,
+  );
+  return { ...workspace, targetBoard: board };
+}
+
+/** Reset the Target Board to empty.  Tags are untouched. */
+export function clearTargetBoard(workspace) {
+  return { ...workspace, targetBoard: [] };
+}
+
+/**
+ * Reorder the Target Board by moving one player one slot up or down.
+ * Used for the row-reorder buttons on the Target Board UI.  No-op if
+ * the player is missing, or already at the boundary.
+ */
+export function moveTargetInBoard(workspace, playerId, direction) {
+  const board = [...(workspace.targetBoard || [])];
+  const idx = board.indexOf(playerId);
+  if (idx < 0) return workspace;
+  const to = direction === "up" ? idx - 1 : idx + 1;
+  if (to < 0 || to >= board.length) return workspace;
+  const [moved] = board.splice(idx, 1);
+  board.splice(to, 0, moved);
+  return { ...workspace, targetBoard: board };
+}
+
+// ── Nomination mutators ────────────────────────────────────────────────
+/**
+ * Log a rival nomination.  Nominations are one per player (re-logging
+ * replaces the prior entry so a miscue can be corrected in place).
+ * ``preDraftAtNomination`` snapshots the PreDraft $ at log time, same
+ * as ``preDraftAtPick`` on picks — retroactive edits can't corrupt
+ * tier-interest decay.
+ */
+export function recordNomination(workspace, { playerId, nominatingTeamIdx }) {
+  if (!playerId || !Number.isInteger(nominatingTeamIdx)) return workspace;
+  const nominations = (workspace.nominations || []).filter(
+    (n) => n.playerId !== playerId,
+  );
+  const player = (workspace.players || []).find((p) => p.id === playerId);
+  const preDraftAtNomination = Math.max(0, Number(player?.preDraft) || 0);
+  nominations.push({
+    playerId,
+    nominatingTeamIdx,
+    preDraftAtNomination,
+    ts: Date.now(),
+  });
+  return { ...workspace, nominations };
+}
+
+/** Remove a single logged nomination (undo a mis-click). */
+export function removeNomination(workspace, playerId) {
+  return {
+    ...workspace,
+    nominations: (workspace.nominations || []).filter(
+      (n) => n.playerId !== playerId,
+    ),
+  };
+}
+
+/** Undo the most recent nomination log entry (by ts). */
+export function undoLastNomination(workspace) {
+  const noms = workspace.nominations || [];
+  if (noms.length === 0) return workspace;
+  const sorted = [...noms].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  const toRemove = sorted[0];
+  return {
+    ...workspace,
+    nominations: noms.filter((n) => n !== toRemove),
+  };
 }
 
 /** Update a team's name or initial budget. */
@@ -1105,6 +1404,26 @@ export function hydrateWorkspace(parsed) {
       }
       return out;
     })(),
+    targetBoard: Array.isArray(parsed.targetBoard)
+      ? parsed.targetBoard
+          .filter((id) => typeof id === "string" && id.length > 0)
+          .slice(0, TARGET_BOARD_MAX)
+      : [],
+    nominations: Array.isArray(parsed.nominations)
+      ? parsed.nominations
+          .map((n) => ({
+            playerId: String(n?.playerId || ""),
+            nominatingTeamIdx: Number.isInteger(n?.nominatingTeamIdx)
+              ? n.nominatingTeamIdx
+              : -1,
+            preDraftAtNomination: Math.max(
+              0,
+              Number(n?.preDraftAtNomination) || 0,
+            ),
+            ts: Number(n?.ts) || Date.now(),
+          }))
+          .filter((n) => n.playerId && n.nominatingTeamIdx >= 0)
+      : [],
   };
 }
 

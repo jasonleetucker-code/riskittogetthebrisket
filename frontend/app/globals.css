@@ -4336,3 +4336,212 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .draft-triage-banner span {
   color: var(--text);
 }
+
+/* ── Target Board + Bayesian nom + help modal + row selection ─── */
+
+.draft-target-board {
+  margin-bottom: 14px;
+}
+.draft-tb-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.draft-tb-grid {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+}
+.draft-tb-row {
+  display: grid;
+  grid-template-columns: 34px 1fr 56px 56px 58px 66px 120px 74px;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.78rem;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: rgba(153, 166, 200, 0.04);
+}
+.draft-tb-row:hover {
+  background: rgba(255, 198, 47, 0.05);
+}
+.draft-tb-row-mine {
+  background: rgba(52, 211, 153, 0.08);
+  border-left: 2px solid var(--green);
+  padding-left: 4px;
+}
+.draft-tb-row-drafted:not(.draft-tb-row-mine) {
+  opacity: 0.5;
+}
+.draft-tb-row-head {
+  color: var(--muted);
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: transparent !important;
+  padding: 2px 6px;
+}
+.draft-tb-idx {
+  font-family: var(--mono, monospace);
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.draft-tb-name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.draft-tb-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.draft-tb-status-won {
+  color: var(--green);
+}
+.draft-tb-status-lost {
+  color: var(--red);
+}
+.draft-tb-status-open {
+  color: var(--cyan);
+}
+.draft-tb-controls {
+  display: inline-flex;
+  gap: 2px;
+  justify-content: flex-end;
+}
+.draft-tb-ctrl {
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 0;
+}
+.draft-tb-ctrl:hover:not(:disabled) {
+  color: var(--cyan);
+  border-color: var(--cyan);
+}
+.draft-tb-ctrl:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.draft-tb-ctrl-remove:hover {
+  color: var(--red);
+  border-color: var(--red);
+}
+
+.draft-tb-summary {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(153, 166, 200, 0.05);
+  border: 1px solid var(--border);
+}
+.draft-tb-summary-line {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.76rem;
+  margin-bottom: 2px;
+  flex-wrap: wrap;
+}
+.draft-tb-summary-line .muted {
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.draft-tb-buffer {
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.draft-tb-status-line {
+  margin-top: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+.draft-tb-status-short {
+  border-color: var(--red);
+  background: rgba(248, 113, 113, 0.08);
+}
+.draft-tb-status-short .draft-tb-status-line {
+  color: var(--red);
+}
+.draft-tb-status-short .draft-tb-buffer {
+  color: var(--red);
+}
+.draft-tb-status-tight {
+  border-color: var(--cyan);
+  background: rgba(255, 198, 47, 0.06);
+}
+.draft-tb-status-tight .draft-tb-status-line {
+  color: var(--cyan);
+}
+.draft-tb-status-ok {
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.05);
+}
+.draft-tb-status-ok .draft-tb-status-line {
+  color: var(--green);
+}
+.draft-tb-status-idle .draft-tb-status-line {
+  color: var(--muted);
+}
+
+.draft-tb-add {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.draft-tb-suggest {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+/* Nomination logger in draft modal */
+.draft-modal-nom {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* Help modal */
+.draft-help-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.draft-help-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(38, 58, 105, 0.3);
+}
+.draft-help-table td:first-child {
+  width: 110px;
+  white-space: nowrap;
+}
+.draft-help-table kbd {
+  background: rgba(153, 166, 200, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-family: var(--mono, monospace);
+  font-size: 0.78rem;
+  color: var(--cyan);
+}
+
+/* Row selection highlight */
+.draft-row-selected {
+  outline: 2px solid var(--cyan);
+  outline-offset: -2px;
+  background: rgba(255, 198, 47, 0.08) !important;
+}
