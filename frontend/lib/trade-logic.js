@@ -658,11 +658,95 @@ export const MIN_SIDES = 2;
 
 /**
  * Create a fresh empty side.
+ *
+ * ``destinations`` is a name → destination-side-index map that only
+ * applies in 3+-team trades.  In a 2-team trade every asset implicitly
+ * goes to the other side, so the map is ignored.  In N ≥ 3 trades the
+ * user picks explicitly which side each asset is going to; ``addToSide``
+ * seeds a default via ``defaultDestination`` and ``computeSideFlows``
+ * uses the map to compute per-side given/received/net.
+ *
  * @param {number} index - 0-based index
- * @returns {{ id: number, label: string, assets: [] }}
+ * @returns {{ id: number, label: string, assets: [], destinations: {} }}
  */
 export function createSide(index) {
-  return { id: index, label: SIDE_LABELS[index] || String.fromCharCode(65 + index), assets: [] };
+  return {
+    id: index,
+    label: SIDE_LABELS[index] || String.fromCharCode(65 + index),
+    assets: [],
+    destinations: {},
+  };
+}
+
+/**
+ * Default destination for an asset on a side in a multi-team trade.
+ * Picks the next side (circular), which matches "A gives to B, B gives
+ * to C, C gives to A" as the first-guess flow.
+ */
+export function defaultDestination(sideIdx, sideCount) {
+  if (sideCount < 2) return 0;
+  if (sideIdx < 0 || sideIdx >= sideCount) return 0;
+  return (sideIdx + 1) % sideCount;
+}
+
+/**
+ * Compute per-side flow for a multi-team trade with explicit destinations.
+ *
+ * Returns an array of ``{ given, received, net }`` per side in the same
+ * order as ``sides``.  ``net = received − given``, so a side with a
+ * positive net is gaining value and a negative net is losing value.
+ *
+ * In 2-team trades (sides.length === 2), destinations are implicit:
+ * every asset goes to the OTHER side, regardless of the destinations
+ * map.  In 3+-team trades, each asset's destination is read from
+ * ``side.destinations[assetName]`` (0-based index).  If the map is
+ * missing a destination, or it points at itself / out of range, the
+ * default destination (next side circular) is used so stale or
+ * partially-configured state still produces sensible flows.
+ *
+ * @param {object[]} sides  - array of side objects
+ * @param {string} valueMode
+ * @param {object} [settings]
+ * @returns {{given: number, received: number, net: number}[]}
+ */
+export function computeSideFlows(sides, valueMode, settings = null) {
+  const n = Array.isArray(sides) ? sides.length : 0;
+  const result = [];
+  for (let i = 0; i < n; i++) result.push({ given: 0, received: 0, net: 0 });
+  if (n < 2) return result;
+
+  for (let i = 0; i < n; i++) {
+    const side = sides[i];
+    const assets = Array.isArray(side?.assets) ? side.assets : [];
+    const destinations = side?.destinations || {};
+    for (const asset of assets) {
+      const value = Math.max(0, effectiveValue(asset, valueMode, settings));
+      result[i].given += value;
+
+      let dest;
+      if (n === 2) {
+        dest = 1 - i; // implicit: the other side
+      } else {
+        const raw = destinations[asset.name];
+        const parsed = Number(raw);
+        if (
+          Number.isInteger(parsed) &&
+          parsed >= 0 &&
+          parsed < n &&
+          parsed !== i
+        ) {
+          dest = parsed;
+        } else {
+          dest = defaultDestination(i, n);
+        }
+      }
+      result[dest].received += value;
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    result[i].net = result[i].received - result[i].given;
+  }
+  return result;
 }
 
 /**
@@ -732,13 +816,28 @@ export function serializeWorkspace(sideA, sideB, valueMode, activeSide) {
 
 /**
  * Serialize multi-team workspace (sides array format).
+ *
+ * Destinations are persisted alongside asset names so a 3+-team trade
+ * reloads with the same per-asset routing the user picked.  Only entries
+ * whose asset is still on the side are persisted — stale keys for
+ * removed assets are dropped here rather than carried through storage.
  */
 export function serializeWorkspaceMulti(sides, valueMode, activeSide) {
   return {
     version: 2,
     valueMode,
     activeSide,
-    sides: sides.map((s) => ({ label: s.label, assets: s.assets.map((r) => r.name) })),
+    sides: sides.map((s) => {
+      const assetNames = s.assets.map((r) => r.name);
+      const destSource = s.destinations || {};
+      const destinations = {};
+      for (const name of assetNames) {
+        if (Object.prototype.hasOwnProperty.call(destSource, name)) {
+          destinations[name] = destSource[name];
+        }
+      }
+      return { label: s.label, assets: assetNames, destinations };
+    }),
   };
 }
 
@@ -764,11 +863,33 @@ export function deserializeWorkspaceMulti(parsed, rowByName) {
   // Version 2 (new multi-team format)
   if (parsed.version === 2 && Array.isArray(parsed.sides)) {
     const activeSide = typeof parsed.activeSide === "number" ? parsed.activeSide : 0;
-    const sides = parsed.sides.map((s, i) => ({
-      id: i,
-      label: s.label || SIDE_LABELS[i] || String.fromCharCode(65 + i),
-      assets: Array.isArray(s.assets) ? s.assets.map((n) => rowByName.get(n)).filter(Boolean) : [],
-    }));
+    const sideCount = parsed.sides.length;
+    const sides = parsed.sides.map((s, i) => {
+      const assets = Array.isArray(s.assets)
+        ? s.assets.map((n) => rowByName.get(n)).filter(Boolean)
+        : [];
+      const destSource =
+        s.destinations && typeof s.destinations === "object" ? s.destinations : {};
+      const destinations = {};
+      for (const asset of assets) {
+        const raw = destSource[asset.name];
+        const parsedIdx = Number(raw);
+        if (
+          Number.isInteger(parsedIdx) &&
+          parsedIdx >= 0 &&
+          parsedIdx < sideCount &&
+          parsedIdx !== i
+        ) {
+          destinations[asset.name] = parsedIdx;
+        }
+      }
+      return {
+        id: i,
+        label: s.label || SIDE_LABELS[i] || String.fromCharCode(65 + i),
+        assets,
+        destinations,
+      };
+    });
     // Ensure at least 2 sides
     while (sides.length < MIN_SIDES) sides.push(createSide(sides.length));
     return { valueMode, activeSide: Math.min(activeSide, sides.length - 1), sides };
@@ -782,8 +903,8 @@ export function deserializeWorkspaceMulti(parsed, rowByName) {
     valueMode,
     activeSide,
     sides: [
-      { id: 0, label: "A", assets: sideA },
-      { id: 1, label: "B", assets: sideB },
+      { id: 0, label: "A", assets: sideA, destinations: {} },
+      { id: 1, label: "B", assets: sideB, destinations: {} },
     ],
   };
 }

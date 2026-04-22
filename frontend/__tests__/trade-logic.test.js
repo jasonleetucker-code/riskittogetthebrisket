@@ -40,6 +40,8 @@ import {
   percentageGap,
   multiTeamAnalysis,
   createSide,
+  defaultDestination,
+  computeSideFlows,
   serializeWorkspaceMulti,
   deserializeWorkspaceMulti,
   SIDE_LABELS,
@@ -1314,10 +1316,123 @@ describe("multiTeamAnalysis", () => {
 // ── createSide ──────────────────────────────────────────────────────────
 
 describe("createSide", () => {
-  it("creates side with correct label", () => {
-    expect(createSide(0)).toEqual({ id: 0, label: "A", assets: [] });
-    expect(createSide(1)).toEqual({ id: 1, label: "B", assets: [] });
-    expect(createSide(4)).toEqual({ id: 4, label: "E", assets: [] });
+  it("creates side with correct label and empty destinations map", () => {
+    expect(createSide(0)).toEqual({ id: 0, label: "A", assets: [], destinations: {} });
+    expect(createSide(1)).toEqual({ id: 1, label: "B", assets: [], destinations: {} });
+    expect(createSide(4)).toEqual({ id: 4, label: "E", assets: [], destinations: {} });
+  });
+});
+
+// ── defaultDestination ──────────────────────────────────────────────────
+
+describe("defaultDestination", () => {
+  it("returns the next side (circular) for a given side count", () => {
+    expect(defaultDestination(0, 3)).toBe(1);
+    expect(defaultDestination(1, 3)).toBe(2);
+    expect(defaultDestination(2, 3)).toBe(0);
+    expect(defaultDestination(0, 4)).toBe(1);
+    expect(defaultDestination(3, 4)).toBe(0);
+  });
+
+  it("clamps to 0 for degenerate inputs", () => {
+    expect(defaultDestination(0, 1)).toBe(0);
+    expect(defaultDestination(-1, 3)).toBe(0);
+    expect(defaultDestination(5, 3)).toBe(0);
+  });
+});
+
+// ── computeSideFlows ────────────────────────────────────────────────────
+
+describe("computeSideFlows", () => {
+  it("2-team trade: every asset flows to the other side implicitly", () => {
+    const sides = [
+      { id: 0, label: "A", assets: [ALLEN], destinations: {} },
+      { id: 1, label: "B", assets: [CHASE], destinations: {} },
+    ];
+    const flows = computeSideFlows(sides, "full");
+    expect(flows).toEqual([
+      { given: 9000, received: 8500, net: -500 },
+      { given: 8500, received: 9000, net: 500 },
+    ]);
+  });
+
+  it("2-team trade ignores any stored destinations", () => {
+    const sides = [
+      { id: 0, label: "A", assets: [ALLEN], destinations: { "Josh Allen": 0 } }, // self-ref
+      { id: 1, label: "B", assets: [CHASE], destinations: {} },
+    ];
+    const flows = computeSideFlows(sides, "full");
+    // Implicit flow overrides the self-referencing destination
+    expect(flows[0].net).toBe(-500);
+    expect(flows[1].net).toBe(500);
+  });
+
+  it("3-team trade: routes assets via destinations map", () => {
+    // A gives Allen (9000) to C, B gives Chase (8500) to A, C gives Parsons (5000) to B
+    const sides = [
+      { id: 0, label: "A", assets: [ALLEN], destinations: { "Josh Allen": 2 } },
+      { id: 1, label: "B", assets: [CHASE], destinations: { "Ja'Marr Chase": 0 } },
+      { id: 2, label: "C", assets: [PARSONS], destinations: { "Micah Parsons": 1 } },
+    ];
+    const flows = computeSideFlows(sides, "full");
+    expect(flows[0]).toEqual({ given: 9000, received: 8500, net: -500 });
+    expect(flows[1]).toEqual({ given: 8500, received: 5000, net: -3500 });
+    expect(flows[2]).toEqual({ given: 5000, received: 9000, net: 4000 });
+  });
+
+  it("3-team trade: missing destination falls back to next-side default", () => {
+    const sides = [
+      { id: 0, label: "A", assets: [ALLEN], destinations: {} }, // no dest → default to 1
+      { id: 1, label: "B", assets: [CHASE], destinations: {} }, // no dest → default to 2
+      { id: 2, label: "C", assets: [PARSONS], destinations: {} }, // no dest → default to 0
+    ];
+    const flows = computeSideFlows(sides, "full");
+    expect(flows[0].received).toBe(5000); // Parsons from C
+    expect(flows[1].received).toBe(9000); // Allen from A
+    expect(flows[2].received).toBe(8500); // Chase from B
+  });
+
+  it("3-team trade: self-referencing or out-of-range destination falls back to default", () => {
+    const sides = [
+      { id: 0, label: "A", assets: [ALLEN], destinations: { "Josh Allen": 0 } }, // self
+      { id: 1, label: "B", assets: [CHASE], destinations: { "Ja'Marr Chase": 99 } }, // OOR
+      { id: 2, label: "C", assets: [PARSONS], destinations: { "Micah Parsons": -1 } }, // neg
+    ];
+    const flows = computeSideFlows(sides, "full");
+    // All fall back to defaults: A→1, B→2, C→0
+    expect(flows[0].received).toBe(5000); // Parsons from C
+    expect(flows[1].received).toBe(9000); // Allen from A
+    expect(flows[2].received).toBe(8500); // Chase from B
+  });
+
+  it("returns zero-shaped arrays for empty / single-side inputs", () => {
+    expect(computeSideFlows([], "full")).toEqual([]);
+    expect(computeSideFlows([{ assets: [ALLEN] }], "full")).toEqual([
+      { given: 0, received: 0, net: 0 },
+    ]);
+  });
+
+  it("handles empty sides in a 3-team trade", () => {
+    const sides = [
+      { id: 0, label: "A", assets: [ALLEN], destinations: { "Josh Allen": 1 } },
+      { id: 1, label: "B", assets: [], destinations: {} },
+      { id: 2, label: "C", assets: [], destinations: {} },
+    ];
+    const flows = computeSideFlows(sides, "full");
+    expect(flows[0]).toEqual({ given: 9000, received: 0, net: -9000 });
+    expect(flows[1]).toEqual({ given: 0, received: 9000, net: 9000 });
+    expect(flows[2]).toEqual({ given: 0, received: 0, net: 0 });
+  });
+
+  it("NET flow always sums to zero across all sides (conservation)", () => {
+    const sides = [
+      { id: 0, label: "A", assets: [ALLEN, MAHOMES], destinations: { "Josh Allen": 1, "Patrick Mahomes": 2 } },
+      { id: 1, label: "B", assets: [CHASE], destinations: { "Ja'Marr Chase": 2 } },
+      { id: 2, label: "C", assets: [PARSONS, PICK_2026], destinations: { "Micah Parsons": 0, "2026 Early 1st": 1 } },
+    ];
+    const flows = computeSideFlows(sides, "full");
+    const totalNet = flows.reduce((s, f) => s + f.net, 0);
+    expect(totalNet).toBe(0);
   });
 });
 
@@ -1339,8 +1454,8 @@ describe("multi-team constants", () => {
 describe("serializeWorkspaceMulti", () => {
   it("serializes sides array with version 2", () => {
     const sides = [
-      { id: 0, label: "A", assets: [ALLEN] },
-      { id: 1, label: "B", assets: [CHASE] },
+      { id: 0, label: "A", assets: [ALLEN], destinations: {} },
+      { id: 1, label: "B", assets: [CHASE], destinations: {} },
     ];
     const result = serializeWorkspaceMulti(sides, "full", 0);
     expect(result.version).toBe(2);
@@ -1353,14 +1468,41 @@ describe("serializeWorkspaceMulti", () => {
 
   it("handles 3+ sides", () => {
     const sides = [
-      { id: 0, label: "A", assets: [ALLEN] },
-      { id: 1, label: "B", assets: [CHASE] },
-      { id: 2, label: "C", assets: [PARSONS] },
+      { id: 0, label: "A", assets: [ALLEN], destinations: {} },
+      { id: 1, label: "B", assets: [CHASE], destinations: {} },
+      { id: 2, label: "C", assets: [PARSONS], destinations: {} },
     ];
     const result = serializeWorkspaceMulti(sides, "raw", 2);
     expect(result.sides.length).toBe(3);
     expect(result.sides[2].label).toBe("C");
     expect(result.activeSide).toBe(2);
+  });
+
+  it("persists per-asset destinations for each side", () => {
+    const sides = [
+      { id: 0, label: "A", assets: [ALLEN], destinations: { "Josh Allen": 2 } },
+      { id: 1, label: "B", assets: [CHASE], destinations: { "Ja'Marr Chase": 0 } },
+      { id: 2, label: "C", assets: [PARSONS], destinations: { "Micah Parsons": 1 } },
+    ];
+    const result = serializeWorkspaceMulti(sides, "full", 1);
+    expect(result.sides[0].destinations).toEqual({ "Josh Allen": 2 });
+    expect(result.sides[1].destinations).toEqual({ "Ja'Marr Chase": 0 });
+    expect(result.sides[2].destinations).toEqual({ "Micah Parsons": 1 });
+  });
+
+  it("drops destination entries for assets that are no longer on the side", () => {
+    const sides = [
+      {
+        id: 0,
+        label: "A",
+        assets: [ALLEN],
+        destinations: { "Josh Allen": 1, "Ghost Player": 2 },
+      },
+      { id: 1, label: "B", assets: [CHASE], destinations: {} },
+    ];
+    const result = serializeWorkspaceMulti(sides, "full", 0);
+    expect(result.sides[0].destinations).toEqual({ "Josh Allen": 1 });
+    expect(result.sides[0].destinations["Ghost Player"]).toBeUndefined();
   });
 });
 
@@ -1481,6 +1623,59 @@ describe("deserializeWorkspaceMulti", () => {
     expect(result.sides.length).toBe(3);
     expect(result.sides[2].assets[0].name).toBe("Micah Parsons");
     expect(result.activeSide).toBe(2);
+  });
+
+  it("restores per-asset destinations in version 2 format", () => {
+    const parsed = {
+      version: 2,
+      valueMode: "full",
+      activeSide: 0,
+      sides: [
+        { label: "A", assets: ["Josh Allen"], destinations: { "Josh Allen": 2 } },
+        { label: "B", assets: ["Ja'Marr Chase"], destinations: { "Ja'Marr Chase": 0 } },
+        { label: "C", assets: ["Micah Parsons"], destinations: { "Micah Parsons": 1 } },
+      ],
+    };
+    const result = deserializeWorkspaceMulti(parsed, rowByName);
+    expect(result.sides[0].destinations).toEqual({ "Josh Allen": 2 });
+    expect(result.sides[1].destinations).toEqual({ "Ja'Marr Chase": 0 });
+    expect(result.sides[2].destinations).toEqual({ "Micah Parsons": 1 });
+  });
+
+  it("drops invalid / stale destination entries during restore", () => {
+    const parsed = {
+      version: 2,
+      valueMode: "full",
+      activeSide: 0,
+      sides: [
+        {
+          label: "A",
+          assets: ["Josh Allen"],
+          destinations: {
+            "Josh Allen": 0, // self-ref → drop
+            "Ghost Player": 1, // asset not on side → drop
+          },
+        },
+        {
+          label: "B",
+          assets: ["Ja'Marr Chase"],
+          destinations: { "Ja'Marr Chase": 99 }, // OOR → drop
+        },
+      ],
+    };
+    const result = deserializeWorkspaceMulti(parsed, rowByName);
+    expect(result.sides[0].destinations).toEqual({});
+    expect(result.sides[1].destinations).toEqual({});
+  });
+
+  it("seeds empty destinations map when legacy format is migrated", () => {
+    const parsed = {
+      sideA: ["Josh Allen"],
+      sideB: ["Ja'Marr Chase"],
+    };
+    const result = deserializeWorkspaceMulti(parsed, rowByName);
+    expect(result.sides[0].destinations).toEqual({});
+    expect(result.sides[1].destinations).toEqual({});
   });
 });
 
