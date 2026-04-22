@@ -4545,3 +4545,95 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   outline-offset: -2px;
   background: rgba(255, 198, 47, 0.08) !important;
 }
+
+/* ── Draft glossary ─────────────────────────────────────────────── */
+
+.draft-gloss {
+  margin-top: 16px;
+  margin-bottom: 32px;
+}
+.draft-gloss > details > summary {
+  list-style: none;
+  cursor: pointer;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+.draft-gloss > details > summary::-webkit-details-marker {
+  display: none;
+}
+.draft-gloss-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.draft-gloss-inner {
+  display: grid;
+  gap: 4px;
+}
+.draft-gloss-section {
+  border-bottom: 1px solid rgba(38, 58, 105, 0.3);
+  padding: 4px 0;
+}
+.draft-gloss-section:last-child {
+  border-bottom: none;
+}
+.draft-gloss-section > summary {
+  cursor: pointer;
+  padding: 6px 4px;
+  font-weight: 600;
+  font-size: 0.82rem;
+  list-style: none;
+  color: var(--text);
+  position: relative;
+  padding-left: 22px;
+}
+.draft-gloss-section > summary::-webkit-details-marker {
+  display: none;
+}
+.draft-gloss-section > summary::before {
+  content: "▸";
+  position: absolute;
+  left: 4px;
+  color: var(--muted);
+  transition: transform 0.15s;
+  display: inline-block;
+}
+.draft-gloss-section[open] > summary::before {
+  transform: rotate(90deg);
+}
+.draft-gloss-section > summary:hover {
+  color: var(--cyan);
+}
+.draft-gloss-body {
+  padding: 4px 10px 10px 22px;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--text);
+}
+.draft-gloss-body p {
+  margin: 0 0 8px;
+}
+.draft-gloss-body ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.draft-gloss-body li {
+  margin-bottom: 4px;
+}
+.draft-gloss-body strong {
+  color: var(--text);
+}
+.draft-gloss-body kbd {
+  background: rgba(153, 166, 200, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 5px;
+  font-family: var(--mono, monospace);
+  font-size: 0.76rem;
+  color: var(--cyan);
+}
+.draft-gloss-body .draft-rec-chip {
+  display: inline-block;
+  margin: 0 2px;
+}
