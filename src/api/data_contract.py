@@ -133,6 +133,38 @@ _CONFIDENCE_SPREAD_MEDIUM = 80
 #   "missing_source_distortion"— only 1 source present when 2 are expected
 #   "impossible_value"         — rankDerivedValue <= 0 despite having a rank
 _SUSPICIOUS_DISAGREEMENT_THRESHOLD = 150
+
+# ── Per-player Hampel outlier rejection ──────────────────────────────────────
+# Before aggregating per-source values into a player's blended rank, run a
+# Hampel filter across that player's source values: drop any source whose
+# value sits more than ``_HAMPEL_K`` median-absolute-deviations from the
+# median of the others.  This catches the "FootballGuys is way off on this
+# one player" case without dropping the whole source globally.
+#
+# Guards (see ``_hampel_filter_per_player``):
+#   * ``len(values) < _HAMPEL_MIN_N`` → no filtering (median + MAD too
+#     unstable to identify outliers reliably below 4 sources)
+#   * MAD == 0 → no filtering (perfect agreement; nothing is an outlier)
+#   * Filter would leave fewer than 2 surviving sources → no filtering
+#   * Pick rows skip Hampel entirely (KTC's per-slot synthetic values
+#     create artificial agreement that the statistic mis-reads)
+#
+# K=2.75 sits between the textbook conservative K=3 (≈3σ for normal data)
+# and the more aggressive K=2.5; tuned for our typical n=4–8 source coverage
+# where a single mis-categorised or stale value can shift the consensus by
+# 500–1500 Hill points.
+#
+# ``_HAMPEL_MIN_THRESHOLD`` is an absolute floor on ``K · MAD`` in Hill-value
+# units (the 0–9999 scale on which all per-source contributions live).  Without
+# it, a tight cluster like [4950, 5000, 5025, 5050, 5100] (MAD=25, K·MAD=68.75)
+# would call values ±75 from the median "outliers" — nonsense at this scale.
+# 500 is roughly 5% of the full Hill range; a source value within 500 Hill
+# points of the rest of the field is in genuine consensus, never an outlier
+# regardless of how tight the bulk happens to be.
+_HAMPEL_K = 2.75
+_HAMPEL_MIN_N = 4
+_HAMPEL_MIN_THRESHOLD = 500.0
+
 _RETIRED_INVALID_PATTERNS = re.compile(
     r"(?i)\b(retired|invalid|test|unknown|placeholder)\b"
 )
@@ -4810,6 +4842,65 @@ def _apply_pick_year_discount_to_blend(
     return out, discount_applied
 
 
+def _hampel_filter_per_player(
+    pairs: list[tuple[str, float]],
+    *,
+    k: float = _HAMPEL_K,
+    min_n: int = _HAMPEL_MIN_N,
+    min_threshold: float = _HAMPEL_MIN_THRESHOLD,
+) -> tuple[list[tuple[str, float]], list[str]]:
+    """Per-player Hampel outlier filter.
+
+    Drops ``(source_key, value)`` pairs whose value deviates from the
+    median by more than ``max(k · MAD, min_threshold)``.  Returns
+    ``(kept_pairs, dropped_keys)`` with original ordering preserved.
+
+    Safety guards (see module-level ``_HAMPEL_K`` docstring for the
+    full rationale):
+      * ``len(pairs) < min_n`` → return (pairs, []); median/MAD too
+        unstable below 4 points to pick out an outlier reliably.
+      * MAD == 0 → return (pairs, []); the bulk agrees perfectly so
+        nothing is an outlier.
+      * ``min_threshold`` floor on ``k · MAD`` — tight clusters like
+        [4950, 5000, 5025, 5050, 5100] should not call values ±75 from
+        the median "outliers" just because MAD happens to be small.
+      * Filtering would leave fewer than 2 surviving pairs → return
+        (pairs, []); never collapse a player to a single source via
+        outlier rejection.
+
+    MAD here is the *median* absolute deviation (the textbook Hampel
+    statistic) — distinct from the *mean* absolute deviation that
+    ``count_aware_mean_median_blend`` returns as its second tuple
+    element for downstream λ·MAD penalty work.
+    """
+    n = len(pairs)
+    if n < min_n:
+        return list(pairs), []
+    sorted_vals = sorted(v for _, v in pairs)
+    if n % 2 == 1:
+        median = float(sorted_vals[n // 2])
+    else:
+        median = (sorted_vals[n // 2 - 1] + sorted_vals[n // 2]) / 2.0
+    deviations = sorted(abs(v - median) for _, v in pairs)
+    if n % 2 == 1:
+        mad = float(deviations[n // 2])
+    else:
+        mad = (deviations[n // 2 - 1] + deviations[n // 2]) / 2.0
+    if mad <= 0:
+        return list(pairs), []
+    threshold = max(k * mad, min_threshold)
+    kept: list[tuple[str, float]] = []
+    dropped_keys: list[str] = []
+    for sk, val in pairs:
+        if abs(val - median) > threshold:
+            dropped_keys.append(sk)
+        else:
+            kept.append((sk, val))
+    if len(kept) < 2:
+        return list(pairs), []
+    return kept, dropped_keys
+
+
 def count_aware_mean_median_blend(
     values: list[float],
 ) -> tuple[float, float | None]:
@@ -5552,6 +5643,11 @@ def _compute_unified_rankings(
         cross_market_values: list[float] = []
         subgroup_values: list[float] = []
         all_values: list[float] = []  # full set for MAD diagnostic
+        # Parallel (source_key, value, is_anchor) tracking so the
+        # per-player Hampel filter below can identify which sources
+        # produced which values and rebuild the three lists from the
+        # surviving subset.
+        all_value_pairs: list[tuple[str, float, bool]] = []
 
         canonical_site_values = (
             players_array[row_idx].get("canonicalSiteValues") or {}
@@ -5617,7 +5713,9 @@ def _compute_unified_rankings(
                 value *= tep_native_correction
                 tep_native_corrected = True
             all_values.append(value)
-            if source_key in cross_market_keys:
+            is_anchor_source = source_key in cross_market_keys
+            all_value_pairs.append((source_key, value, is_anchor_source))
+            if is_anchor_source:
                 cross_market_values.append(value)
             else:
                 subgroup_values.append(value)
@@ -5640,6 +5738,36 @@ def _compute_unified_rankings(
             if tep_native_corrected:
                 meta["tepNativeCorrectionApplied"] = True
                 meta["tepNativeCorrection"] = round(tep_native_correction, 4)
+
+        # ── Per-player Hampel outlier rejection (K=2.75) ──
+        # Drop source values that sit more than 2.75 MADs from the
+        # median of this player's source values — catches the "this
+        # one source got this one player wildly wrong" case before it
+        # pulls the consensus around.  See ``_hampel_filter_per_player``
+        # for guard rules (n>=4, MAD>0, >=2 survivors required).
+        # Picks bypass: KTC's per-slot synthetic values create
+        # artificial agreement that the Hampel statistic mis-reads as
+        # outliers across the synthetic vs. real-source values.
+        hampel_dropped_keys: list[str] = []
+        if not row_is_pick and len(all_value_pairs) >= _HAMPEL_MIN_N:
+            kept_pairs, hampel_dropped_keys = _hampel_filter_per_player(
+                [(k, v) for k, v, _ in all_value_pairs], k=_HAMPEL_K
+            )
+            if hampel_dropped_keys:
+                kept_set = {k for k, _ in kept_pairs}
+                all_values = [
+                    v for k, v, _ in all_value_pairs if k in kept_set
+                ]
+                cross_market_values = [
+                    v for k, v, a in all_value_pairs if k in kept_set and a
+                ]
+                subgroup_values = [
+                    v for k, v, a in all_value_pairs if k in kept_set and not a
+                ]
+                for sk in hampel_dropped_keys:
+                    meta = row_source_meta[row_idx].get(sk, {})
+                    meta["hampelDropped"] = True
+        players_array[row_idx]["droppedSources"] = list(hampel_dropped_keys)
 
         # Coverage diagnostic (2026-04-20 override): soft-fallback
         # values used to be injected into the blend as "just past the
@@ -5941,15 +6069,29 @@ def _compute_unified_rankings(
         derived = int(norm_val)
         source_ranks = row_source_ranks.get(row_idx, {})
         source_meta = row_source_meta.get(row_idx, {})
-        rank_values = list(source_ranks.values())
 
         # ── Core ranking fields ──
+        # ``sourceRanks`` / ``sourceRankMeta`` / ``sourceCount`` reflect
+        # *matched* sources end-to-end so audit consumers still see
+        # which sources covered this player.  Trust/spread/confidence/
+        # anomaly computations below use the post-Hampel subset so a
+        # single rejected outlier source doesn't fire a false
+        # disagreement flag on an otherwise-tight consensus.
         row["sourceRanks"] = source_ranks
         row["sourceRankMeta"] = source_meta
         row["rankDerivedValue"] = derived
         row["canonicalConsensusRank"] = overall_rank
         row["canonicalTierId"] = _tier_id_from_rank(overall_rank)
         row["sourceCount"] = len(source_ranks)
+
+        dropped_set = set(row.get("droppedSources") or [])
+        effective_source_ranks = {
+            k: v for k, v in source_ranks.items() if k not in dropped_set
+        }
+        effective_source_meta = {
+            k: v for k, v in source_meta.items() if k not in dropped_set
+        }
+        rank_values = list(effective_source_ranks.values())
 
         # Caution flag when any IDP source required fallback translation
         used_fallback = any(
@@ -5978,7 +6120,7 @@ def _compute_unified_rankings(
         # max-minus-min of each source's *raw* rank divided by that
         # source's auto-detected pool size.
         percentile_spread = _percentile_rank_spread(
-            source_ranks, source_meta, source_pool_sizes
+            effective_source_ranks, effective_source_meta, source_pool_sizes
         )
         row["sourceRankPercentileSpread"] = (
             round(percentile_spread, 4) if percentile_spread is not None else None
@@ -5991,7 +6133,7 @@ def _compute_unified_rankings(
             percentile_spread is not None and percentile_spread > 0.10
         )
 
-        gap_dir, gap_mag = _compute_market_gap(source_ranks)
+        gap_dir, gap_mag = _compute_market_gap(effective_source_ranks)
         row["marketGapDirection"] = gap_dir
         row["marketGapMagnitude"] = gap_mag
 
@@ -6008,7 +6150,7 @@ def _compute_unified_rankings(
             )
         else:
             bucket, label = _compute_confidence_bucket(
-                len(source_ranks),
+                len(effective_source_ranks),
                 source_rank_spread,
                 percentile_spread=percentile_spread,
             )
@@ -6020,8 +6162,8 @@ def _compute_unified_rankings(
             name=row.get("canonicalName") or row.get("displayName") or "",
             position=row.get("position"),
             asset_class=row.get("assetClass") or "",
-            source_ranks=source_ranks,
-            source_meta=source_meta,
+            source_ranks=effective_source_ranks,
+            source_meta=effective_source_meta,
             rank_derived_value=derived,
             canonical_sites=row.get("canonicalSiteValues") or {},
             percentile_spread=percentile_spread,
@@ -6575,6 +6717,7 @@ def _derive_player_row(
         "subgroupDelta": None,
         "alphaShrinkage": None,
         "softFallbackCount": 0,
+        "droppedSources": [],
         "marketGapDirection": "none",
         "marketGapMagnitude": None,
         "sourceAudit": {
@@ -7062,6 +7205,7 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "subgroupDelta",
     "alphaShrinkage",
     "softFallbackCount",
+    "droppedSources",
     "isSingleSource",
     "isStructurallySingleSource",
     "hasSourceDisagreement",
