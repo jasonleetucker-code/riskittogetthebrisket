@@ -363,6 +363,125 @@ class TieHandling(unittest.TestCase):
         self.assertEqual(rec["owner-1"]["wins"], 1)
 
 
+class PreseasonState(unittest.TestCase):
+    """Regression for Codex PR #215 round-4 P1: ``remaining_weeks == 0``
+    with no weeks ever played must report preseason, not final.
+    """
+
+    def _make_preseason_snapshot(self):
+        class _Season:
+            season = "2027"
+            league_id = "L_PRE"
+            league = {"settings": {}}
+            rosters = [{"roster_id": 1}, {"roster_id": 2}]
+            matchups_by_week: dict = {}
+
+            @property
+            def regular_season_weeks(self):
+                return []
+
+        class _Manager:
+            display_name = ""
+            current_team_name = ""
+
+        class _Registry:
+            by_owner_id: dict = {}
+
+        class _Snapshot:
+            def __init__(self):
+                self._s = _Season()
+                self.managers = _Registry()
+
+            @property
+            def current_season(self):
+                return self._s
+
+        return _Snapshot()
+
+    def test_preseason_returns_preseason_certainty_and_null_probs(self) -> None:
+        original = playoff_odds.metrics.resolve_owner
+        original_display = playoff_odds.metrics.display_name_for
+        playoff_odds.metrics.resolve_owner = (  # type: ignore[attr-defined]
+            lambda reg, league_id, rid: f"owner-{rid}"
+        )
+        playoff_odds.metrics.display_name_for = (  # type: ignore[attr-defined]
+            lambda snapshot, owner_id: owner_id
+        )
+        try:
+            result = playoff_odds.compute_playoff_odds(
+                self._make_preseason_snapshot(),
+                num_sims=100,
+                rng=random.Random(0),
+            )
+        finally:
+            playoff_odds.metrics.resolve_owner = original  # type: ignore[attr-defined]
+            playoff_odds.metrics.display_name_for = original_display  # type: ignore[attr-defined]
+
+        self.assertEqual(result["scheduleCertainty"], "preseason")
+        self.assertEqual(result["weeksPlayed"], 0)
+        self.assertEqual(result["weeksRemaining"], 0)
+        for owner in result["owners"]:
+            # Critical: probabilities are None, NOT 0/1 from arbitrary
+            # sort order.
+            self.assertIsNone(owner["playoffProbability"])
+            self.assertEqual(owner["currentWins"], 0)
+
+
+class ZeroZeroPastWeek(unittest.TestCase):
+    """Regression for Codex PR #215 round-4 P2 (line 134): a past-week
+    matchup with both sides at 0 must be treated as a completed tie.
+    """
+
+    def test_zero_zero_in_past_week_counts_as_tie(self) -> None:
+        class _Season:
+            league_id = "L1"
+            matchups_by_week = {
+                1: [
+                    {"roster_id": 1, "matchup_id": 10, "points": 0.0},
+                    {"roster_id": 2, "matchup_id": 10, "points": 0.0},
+                ],
+                2: [
+                    {"roster_id": 1, "matchup_id": 20, "points": 110.0},
+                    {"roster_id": 2, "matchup_id": 20, "points": 95.0},
+                ],
+            }
+
+            @property
+            def regular_season_weeks(self):
+                return [1, 2]
+
+        original = playoff_odds.metrics.resolve_owner
+        playoff_odds.metrics.resolve_owner = (  # type: ignore[attr-defined]
+            lambda reg, league_id, rid: f"owner-{rid}"
+        )
+        try:
+            rec = playoff_odds._regular_season_record_to_date(_Season(), None)
+        finally:
+            playoff_odds.metrics.resolve_owner = original  # type: ignore[attr-defined]
+
+        self.assertEqual(rec["owner-1"]["ties"], 1)
+        self.assertEqual(rec["owner-2"]["ties"], 1)
+        self.assertEqual(rec["owner-1"]["wins"], 1)
+        self.assertEqual(rec["owner-2"]["losses"], 1)
+
+
+class CsvExportableKeys(unittest.TestCase):
+    """Regression for Codex PR #215 round-4 P2 (public_contract line 82):
+    lazy sections must not appear in the CSV allowlist.
+    """
+
+    def test_playoff_odds_absent_from_csv_allowlist(self) -> None:
+        from src.public_league.public_contract import (
+            PUBLIC_CSV_EXPORTABLE_KEYS,
+            PUBLIC_SECTION_KEYS,
+        )
+
+        self.assertNotIn("playoffOdds", PUBLIC_CSV_EXPORTABLE_KEYS)
+        # But the full section-keys list MUST still advertise it —
+        # playoffOdds IS available via the single-section JSON endpoint.
+        self.assertIn("playoffOdds", PUBLIC_SECTION_KEYS)
+
+
 class LazySectionRouting(unittest.TestCase):
     """Regression for Codex PR #215 P2: ``playoffOdds`` must not be
     invoked as part of the aggregate ``build_public_contract`` walk

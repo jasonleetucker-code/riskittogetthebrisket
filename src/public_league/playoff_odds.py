@@ -119,18 +119,23 @@ def _matchup_is_final(a: dict, b: dict, is_past_week: bool) -> bool:
     """True when the A vs. B matchup should count toward current record.
 
     Two cases fall under "final":
-      1. Both sides have ``points > 0`` — the standard case.
-      2. The week is strictly before the latest week with any scored
-         entry AND the matchup has *any* scored side (so we know the
-         roster data is populated, not stubbed).  This is the
-         0-point-game escape hatch: if one roster legitimately
-         finished at 0 while their opponent scored, we know the week
-         is done and the 0 is a real result rather than an unplayed
-         placeholder.
+      1. The week is strictly before the latest week with any scored
+         entry.  We know the week is done because a later week has
+         scored entries, so every matchup in it is a real final —
+         including an exact 0-0 tie where neither roster scored a
+         point (rare but valid in extreme injury-wipeout scenarios).
+         Per Codex PR #215 round 4: the earlier "at least one side
+         scored" gate incorrectly rejected these 0-0 ties and caused
+         the simulator to re-simulate an already-finalised game.
+      2. Both sides have ``points > 0`` — the standard current-week
+         gate.  During a live week we require both sides to have
+         posted scores before counting, otherwise a Thursday-only
+         finish gets credited as a phantom win over an opponent still
+         sitting at 0.
     """
-    if metrics.is_scored(a) and metrics.is_scored(b):
+    if is_past_week:
         return True
-    if is_past_week and (metrics.is_scored(a) or metrics.is_scored(b)):
+    if metrics.is_scored(a) and metrics.is_scored(b):
         return True
     return False
 
@@ -408,8 +413,42 @@ def compute_playoff_odds(
     played_weeks = [wk for wk in season.regular_season_weeks if _week_is_complete(wk)]
     remaining_weeks = [wk for wk in season.regular_season_weeks if wk not in played_weeks]
 
-    # Early exit: season over → probabilities collapse to 0/1.
+    # Early exit: both played and remaining are empty.  Two very
+    # different states collapse to this shape and must be handled
+    # distinctly (per Codex PR #215 round 4):
+    #
+    #   * Preseason — ``regular_season_weeks`` is empty because the
+    #     snapshot only stores weeks with real matchup rows and no
+    #     week has been published yet.  Before: reported
+    #     ``scheduleCertainty: "final"`` and handed out arbitrary 0/1
+    #     probabilities from whatever owner order the loop produced.
+    #     Now: emits a ``preseason`` state with all probabilities
+    #     null so the frontend can render "season hasn't started".
+    #
+    #   * Finished — at least one week has been played AND nothing
+    #     remains.  Everyone either made the playoffs (1.0) or didn't
+    #     (0.0) based on their actual current record.
     if not remaining_weeks:
+        is_preseason = len(played_weeks) == 0 and latest_played is None
+        if is_preseason:
+            return {
+                "season": season.season,
+                "numSims": 0,
+                "playoffSpots": spots,
+                "weeksPlayed": 0,
+                "weeksRemaining": 0,
+                "scheduleCertainty": "preseason",
+                "owners": [
+                    {
+                        "ownerId": o,
+                        "displayName": metrics.display_name_for(snapshot, o),
+                        "currentWins": 0,
+                        "currentPointsFor": 0.0,
+                        "playoffProbability": None,
+                    }
+                    for o in owners_in_league
+                ],
+            }
         wins_snapshot = {o: int(current_record.get(o, {}).get("wins", 0)) for o in owners_in_league}
         ties_snapshot = {o: int(current_record.get(o, {}).get("ties", 0)) for o in owners_in_league}
         pf_snapshot = {o: float(current_record.get(o, {}).get("pointsFor", 0.0)) for o in owners_in_league}

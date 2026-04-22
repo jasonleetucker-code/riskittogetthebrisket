@@ -3269,7 +3269,10 @@ from src.public_league import (  # noqa: E402 — grouped after route block abov
     build_public_snapshot,
     build_section_payload,
 )
-from src.public_league.public_contract import assert_public_payload_safe
+from src.public_league.public_contract import (
+    PUBLIC_CSV_EXPORTABLE_KEYS,
+    assert_public_payload_safe,
+)
 from src.public_league.sleeper_client import PUBLIC_MAX_SEASONS
 from src.public_league import snapshot_store as public_snapshot_store
 from src.public_league import csv_export as public_csv_export
@@ -3835,12 +3838,16 @@ async def get_public_league_section_csv(
                 content={"error": f"CSV export unavailable: {exc}"},
             )
 
-    if section not in PUBLIC_SECTION_KEYS:
+    # CSV route allowlist is the eager section set only — lazy-only
+    # sections (e.g. playoffOdds) don't have CSV exporters in
+    # ``csv_export.export_section`` and must 404 here, not pass
+    # through and raise a KeyError (which would surface as 503).
+    if section not in PUBLIC_CSV_EXPORTABLE_KEYS:
         return JSONResponse(
             status_code=404,
             content={
                 "error": f"Unknown public league section: {section!r}",
-                "availableSections": list(PUBLIC_SECTION_KEYS) + ["hall_of_fame"],
+                "availableSections": list(PUBLIC_CSV_EXPORTABLE_KEYS) + ["hall_of_fame"],
             },
         )
     try:

@@ -82,6 +82,18 @@ PUBLIC_SECTION_KEYS: tuple[str, ...] = (
     + tuple(_LAZY_SECTION_BUILDERS.keys())
 )
 
+# Subset of ``PUBLIC_SECTION_KEYS`` that have matching CSV exporters
+# in ``src/public_league/csv_export.py::export_section``.  The CSV
+# route handler gates on THIS tuple, not ``PUBLIC_SECTION_KEYS``,
+# because lazy-only sections (playoffOdds) don't have CSV exporters
+# — advertising them through the CSV allowlist would pass the route
+# check and then raise KeyError inside ``export_section``, returning
+# 503 for a section the API appears to advertise as valid.  Per
+# Codex PR #215 round 4.
+PUBLIC_CSV_EXPORTABLE_KEYS: tuple[str, ...] = (
+    (OVERVIEW_SECTION,) + tuple(_SECTION_BUILDERS.keys())
+)
+
 
 # Field name blocklist.  These substrings MUST NOT appear as dict keys
 # anywhere in a public payload.  The assertion runs recursively over
