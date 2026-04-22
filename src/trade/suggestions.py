@@ -297,6 +297,32 @@ def _universe_from_row(row: dict[str, Any]) -> str:
     return "offense_rookie" if is_rookie else "offense_vet"
 
 
+def _effective_source_keys(
+    row: dict[str, Any],
+    site_values: dict[str, Any],
+) -> set[str] | None:
+    """Return the post-Hampel source-key allowlist for ``row``.
+
+    Resolution order:
+
+    1. ``effectiveSourceRanks`` — the canonical post-Hampel rank map the
+       live contract stamps (the same set marketGapDirection /
+       confidenceBucket / anomaly flags are computed from).
+    2. ``canonicalSiteValues`` keys minus ``droppedSources`` — a
+       transitional fallback for contracts that carry the dropped list
+       but no effective-rank map.
+    3. ``None`` — legacy contracts without any Hampel stamps; caller
+       should use every key in ``canonicalSiteValues``.
+    """
+    effective_ranks = row.get("effectiveSourceRanks")
+    if isinstance(effective_ranks, dict) and effective_ranks:
+        return set(effective_ranks.keys())
+    dropped = row.get("droppedSources")
+    if isinstance(dropped, list) and dropped and isinstance(site_values, dict):
+        return set(site_values.keys()) - set(dropped)
+    return None
+
+
 def build_asset_pool_from_contract(
     contract: dict[str, Any],
     *,
@@ -322,18 +348,28 @@ def build_asset_pool_from_contract(
     ``position``                ``row["position"]`` (normalised)
     ``display_value``           ``row["rankDerivedValue"]``
     ``calibrated_value``        same (live values are already calibrated)
-    ``source_count``            ``len(row["canonicalSiteValues"])`` (values > 0)
+    ``source_count``            post-Hampel effective source count (see below)
     ``team``                    ``row["team"]``
     ``rookie``                  ``row["rookie"]``
     ``years_exp``               ``contract["players"][legacyRef]["_yearsExp"]``
     ``universe``                derived from ``assetClass`` + position + rookie
-    ``dispersion_cv``           CV of ``canonicalSiteValues`` (values > 0)
+    ``dispersion_cv``           CV of post-Hampel ``canonicalSiteValues`` (values > 0)
     =========================   ==================================================
 
     Only rows with a positive ``rankDerivedValue`` are included; rows
     that fell off the Phase 4 ``OVERALL_RANK_LIMIT`` cap or that have
     no calibrated value are filtered out, matching the canonical-
     snapshot filter that required ``calibrated_value`` to be present.
+
+    Per-source reads respect the Hampel filter the live contract
+    applies at ingest.  ``effectiveSourceRanks`` is the canonical
+    post-Hampel rank map; ``droppedSources`` lists the source keys
+    Hampel rejected as outliers.  Both ``source_count`` and
+    ``dispersion_cv`` are computed from the *effective* subset so
+    suggestion confidence tiers and market-edge signals see the same
+    readings ``marketGapDirection`` and ``confidenceBucket`` do.
+    Legacy contracts without Hampel stamps fall back to the raw
+    ``canonicalSiteValues`` set.
     """
     players_array = contract.get("playersArray") or []
     legacy_players = contract.get("players") or {}
@@ -356,11 +392,19 @@ def build_asset_pool_from_contract(
         pos = _norm_pos(str(row.get("position") or ""))
         team = str(row.get("team") or "")
 
-        # Source values for dispersion CV + source_count.
+        # Source values for dispersion CV + source_count.  Prefer the
+        # post-Hampel effective source set so the engine's confidence
+        # tier and market-edge signals match marketGapDirection /
+        # confidenceBucket (which the contract computes from the same
+        # filtered set).  Fall back to the raw site-values keys for
+        # legacy contracts that pre-date the Hampel stamps.
         site_values = row.get("canonicalSiteValues") or {}
+        effective_keys = _effective_source_keys(row, site_values)
         sv_list: list[float] = []
         if isinstance(site_values, dict):
-            for v in site_values.values():
+            for key, v in site_values.items():
+                if effective_keys is not None and key not in effective_keys:
+                    continue
                 try:
                     f = float(v) if v is not None else 0.0
                 except (TypeError, ValueError):
