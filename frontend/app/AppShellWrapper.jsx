@@ -13,6 +13,7 @@ import StaleDataBanner from "@/components/StaleDataBanner";
 const PRIMARY_NAV = [
   { href: "/rankings", label: "Rankings" },
   { href: "/trade", label: "Trade" },
+  { href: "/draft", label: "Draft" },
   { href: "/edge", label: "Edge" },
   { href: "/finder", label: "Finder" },
   { href: "/angle", label: "Angle" },
@@ -148,6 +149,7 @@ function MobileTopBar() {
       "": "Home",
       rankings: "Rankings",
       trade: "Trade",
+      draft: "Draft",
       edge: "Edge",
       finder: "Finder",
       angle: "Angle",
