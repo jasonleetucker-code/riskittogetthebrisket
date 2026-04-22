@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 // ── Chart 6: Hill curve explorer ─────────────────────────────────────
 // Renders the four scope-level master Hill curves that map percentile
 // → value (see ``src/canonical/player_valuation.py`` constants
@@ -115,7 +117,34 @@ export default function HillCurveExplorer({
   samplePoints = 200,
   onPointClick = null,
 }) {
-  const box = chartBox({ width, height, margin: { left: 52, right: 100, top: 16, bottom: 40 } });
+  // SVG renders responsive via viewBox.  The right margin on desktop
+  // leaves room for the in-SVG legend; on narrow viewports we cut the
+  // margin to zero and render a regular HTML legend below the chart
+  // instead, so the plot area uses the whole width and the legend
+  // text stays readable (the in-SVG text scaled down to ~4-5px on
+  // iPhone SE).
+  //
+  // State-driven so SSR renders the desktop layout consistently and
+  // the first client paint after hydration flips narrow viewports to
+  // the stacked layout without a hydration mismatch.
+  const [isNarrow, setIsNarrow] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 520px)");
+    const update = () => setIsNarrow(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  const box = chartBox({
+    width,
+    height,
+    margin: {
+      left: 44,
+      right: isNarrow ? 12 : 100,
+      top: 16,
+      bottom: 40,
+    },
+  });
 
   // Determine the x-domain (rank) from the live board so the curve
   // sample and scatter share a scale.
@@ -164,7 +193,7 @@ export default function HillCurveExplorer({
   const xTicks = ticks(1, xMax, 6);
   const yTicks = ticks(0, 9999, 6);
 
-  return (
+  const svg = (
     <svg
       viewBox={box.viewBox}
       width="100%"
@@ -263,39 +292,103 @@ export default function HillCurveExplorer({
         </text>
 
         {/* Legend — curves + position groups.  Always shown because
-            the group split is the actual payload of this chart. */}
-        <g transform={`translate(${box.innerWidth + 10}, 0)`}>
-          {curvePaths.map((c, i) => (
-            <g key={`curve-${c.key}`} transform={`translate(0, ${i * 14})`}>
-              <line x1={0} x2={18} y1={6} y2={6} stroke={c.color} strokeWidth={2} />
-              <text
-                x={24}
-                y={6}
-                dominantBaseline="middle"
-                fontSize={10}
-                fill={CHART_COLORS.axisLabel}
-              >
-                {c.label}
-              </text>
-            </g>
-          ))}
-          {groupKeys.map((g, i) => (
-            <g key={`grp-${g}`} transform={`translate(0, ${curvePaths.length * 14 + 6 + i * 14})`}>
-              <circle cx={9} cy={6} r={3.25} fill={GROUP_COLORS[g] || CHART_COLORS.axisLabel} fillOpacity={0.85} />
-              <text
-                x={24}
-                y={6}
-                dominantBaseline="middle"
-                fontSize={10}
-                fill={CHART_COLORS.axisLabel}
-              >
-                {g} ({groupedScatter[g].length})
-              </text>
-            </g>
-          ))}
-        </g>
+            the group split is the actual payload of this chart.
+            Suppressed on narrow viewports; the HTML legend below
+            renders instead (see return() wrapper). */}
+        {!isNarrow && (
+          <g transform={`translate(${box.innerWidth + 10}, 0)`}>
+            {curvePaths.map((c, i) => (
+              <g key={`curve-${c.key}`} transform={`translate(0, ${i * 14})`}>
+                <line x1={0} x2={18} y1={6} y2={6} stroke={c.color} strokeWidth={2} />
+                <text
+                  x={24}
+                  y={6}
+                  dominantBaseline="middle"
+                  fontSize={10}
+                  fill={CHART_COLORS.axisLabel}
+                >
+                  {c.label}
+                </text>
+              </g>
+            ))}
+            {groupKeys.map((g, i) => (
+              <g key={`grp-${g}`} transform={`translate(0, ${curvePaths.length * 14 + 6 + i * 14})`}>
+                <circle cx={9} cy={6} r={3.25} fill={GROUP_COLORS[g] || CHART_COLORS.axisLabel} fillOpacity={0.85} />
+                <text
+                  x={24}
+                  y={6}
+                  dominantBaseline="middle"
+                  fontSize={10}
+                  fill={CHART_COLORS.axisLabel}
+                >
+                  {g} ({groupedScatter[g].length})
+                </text>
+              </g>
+            ))}
+          </g>
+        )}
       </g>
     </svg>
+  );
+
+  if (!isNarrow) return svg;
+
+  // Narrow viewport — render the chart full-width and the legend as a
+  // wrapping chip row below.  Keeps labels readable instead of
+  // scaling them down with the SVG viewBox.
+  return (
+    <div>
+      {svg}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "6px 10px",
+          marginTop: 6,
+          fontSize: "0.68rem",
+          color: CHART_COLORS.axisLabel,
+        }}
+      >
+        {curvePaths.map((c) => (
+          <span
+            key={`lg-c-${c.key}`}
+            style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                display: "inline-block",
+                width: 14,
+                height: 2,
+                background: c.color,
+                borderRadius: 1,
+              }}
+            />
+            {c.label}
+          </span>
+        ))}
+        {groupKeys.map((g) => (
+          <span
+            key={`lg-g-${g}`}
+            style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                display: "inline-block",
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background:
+                  GROUP_COLORS[g] || CHART_COLORS.axisLabel,
+                opacity: 0.85,
+              }}
+            />
+            {g} ({groupedScatter[g].length})
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 
