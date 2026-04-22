@@ -96,7 +96,7 @@ export default async function RivalryOGImage({ params }) {
         <div style={{ display: "flex", gap: 60, justifyContent: "center", fontSize: 34 }}>
           <Stat label="Rivalry Index" value={String(index)} color="#fbbf24" />
           <Stat label="Meetings" value={String(meetings)} color="#eaf2ff" />
-          <Stat label="Playoff" value={String(playoffMeetings)} color="#FFC62F" />
+          <Stat label="Playoff" value={String(playoffMeetings)} color="#FFC704" />
           <Stat label="Series" value={record} color="#34d399" />
         </div>
 

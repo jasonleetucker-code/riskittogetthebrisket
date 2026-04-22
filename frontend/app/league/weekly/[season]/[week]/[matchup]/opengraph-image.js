@@ -60,7 +60,7 @@ export default async function MatchupOGImage({ params }) {
           justifyContent: "space-between",
         }}
       >
-        <div style={{ display: "flex", color: "#FFC62F", fontSize: 28, letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700 }}>
+        <div style={{ display: "flex", color: "#FFC704", fontSize: 28, letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700 }}>
           {`Brisket League · ${season} Week ${week}${m?.isPlayoff ? " · Playoffs" : ""}`}
         </div>
 
@@ -98,7 +98,7 @@ function Side({ name, points, winner }) {
         gap: 12,
         padding: "24px 32px",
         borderRadius: 20,
-        border: `2px solid ${winner ? "#34d399" : "#4F2683"}`,
+        border: `2px solid ${winner ? "#34d399" : "#4F2185"}`,
         background: winner ? "rgba(52,211,153,0.08)" : "transparent",
         minWidth: 360,
       }}

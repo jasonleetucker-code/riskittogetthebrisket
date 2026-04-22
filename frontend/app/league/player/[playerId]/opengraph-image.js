@@ -50,7 +50,7 @@ export default async function PlayerOGImage({ params }) {
           justifyContent: "space-between",
         }}
       >
-        <div style={{ display: "flex", gap: 16, color: "#FFC62F", fontSize: 28 }}>
+        <div style={{ display: "flex", gap: 16, color: "#FFC704", fontSize: 28 }}>
           <span style={{ letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700 }}>
             Brisket League · Player Journey
           </span>
@@ -88,7 +88,7 @@ export default async function PlayerOGImage({ params }) {
             </div>
             <div style={{ display: "flex", gap: 40 }}>
               <Stat label="Total pts" value={`${top.pointsTotal}`} color="#34d399" />
-              <Stat label="Wks started" value={`${top.weeksStarted}`} color="#FFC62F" />
+              <Stat label="Wks started" value={`${top.weeksStarted}`} color="#FFC704" />
               <Stat label="Wks rostered" value={`${top.weeksRostered}`} color="#eaf2ff" />
             </div>
           </div>

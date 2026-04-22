@@ -368,7 +368,7 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
                   border: "1px solid var(--border)",
                   borderRadius: 6,
                   padding: "8px 10px",
-                  background: "rgba(79, 38, 131, 0.12)",
+                  background: "rgba(79, 33, 133, 0.12)",
                   display: "flex",
                   flexDirection: "column",
                   gap: 6,
