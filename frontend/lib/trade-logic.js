@@ -690,6 +690,59 @@ export function defaultDestination(sideIdx, sideCount) {
 }
 
 /**
+ * Compute, for each side, the lists of incoming / outgoing asset
+ * references with their counterparty side index.  This is the
+ * "who's getting what" view of a multi-team trade — the companion
+ * to ``computeSideFlows`` which only returns totals.
+ *
+ * Returns an array of ``{ outgoing, incoming }`` per side.  Each
+ * entry in ``outgoing`` is ``{ asset, toSideIdx }`` and each entry
+ * in ``incoming`` is ``{ asset, fromSideIdx }``.
+ *
+ * In 2-team trades the mapping is implicit (every asset flows to
+ * the other side).  In 3+-team trades the destinations map drives
+ * routing, with the same default-destination fallback used in
+ * ``computeSideFlows``.
+ *
+ * @param {object[]} sides
+ * @returns {{outgoing: {asset: object, toSideIdx: number}[], incoming: {asset: object, fromSideIdx: number}[]}[]}
+ */
+export function computeSideFlowAssets(sides) {
+  const n = Array.isArray(sides) ? sides.length : 0;
+  const result = [];
+  for (let i = 0; i < n; i++) result.push({ outgoing: [], incoming: [] });
+  if (n < 2) return result;
+
+  for (let i = 0; i < n; i++) {
+    const side = sides[i];
+    const assets = Array.isArray(side?.assets) ? side.assets : [];
+    const destinations = side?.destinations || {};
+    for (const asset of assets) {
+      let dest;
+      if (n === 2) {
+        dest = 1 - i;
+      } else {
+        const raw = destinations[asset.name];
+        const parsed = Number(raw);
+        if (
+          Number.isInteger(parsed) &&
+          parsed >= 0 &&
+          parsed < n &&
+          parsed !== i
+        ) {
+          dest = parsed;
+        } else {
+          dest = defaultDestination(i, n);
+        }
+      }
+      result[i].outgoing.push({ asset, toSideIdx: dest });
+      result[dest].incoming.push({ asset, fromSideIdx: i });
+    }
+  }
+  return result;
+}
+
+/**
  * Compute per-side flow for a multi-team trade with explicit destinations.
  *
  * Returns an array of ``{ given, received, net }`` per side in the same

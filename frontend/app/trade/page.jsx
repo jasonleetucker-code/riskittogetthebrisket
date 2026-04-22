@@ -30,6 +30,7 @@ import {
   valueAdjustmentFromSideArrays,
   defaultDestination,
   computeSideFlows,
+  computeSideFlowAssets,
   SIDE_LABELS,
   MAX_SIDES,
   MIN_SIDES,
@@ -661,6 +662,16 @@ export default function TradePage() {
   const sideFlows = useMemo(
     () => computeSideFlows(sides, valueMode, settings),
     [sides, valueMode, settings],
+  );
+
+  // Per-side incoming / outgoing asset lists.  This is the
+  // "who's getting what" view — for each side we know exactly which
+  // assets (and from whom) are arriving.  Rendered as a "Receiving"
+  // section in 3+-team mode so the user doesn't have to mentally
+  // reverse-lookup destinations across three separate side cards.
+  const sideFlowAssets = useMemo(
+    () => computeSideFlowAssets(sides),
+    [sides],
   );
 
   // Legacy 2-team gap computations (for sticky tray + 2-team balancers)
@@ -1323,7 +1334,20 @@ export default function TradePage() {
                       <button className="button trade-add-btn" onClick={() => openPickerFor(sideIdx)}>+ Add</button>
                     </div>
                   </div>
-                  <div className="list" style={{ marginTop: 10 }}>
+                  {sides.length > 2 && (
+                    <div
+                      className="label"
+                      style={{
+                        marginTop: 10,
+                        fontSize: "0.68rem",
+                        color: "var(--red)",
+                        letterSpacing: "0.05em",
+                      }}
+                    >
+                      GIVING
+                    </div>
+                  )}
+                  <div className="list" style={{ marginTop: sides.length > 2 ? 4 : 10 }}>
                     {side.assets.map((r) => {
                       const edge = getPlayerEdge(r);
                       // In 3+-team trades, each asset has an explicit
@@ -1395,6 +1419,72 @@ export default function TradePage() {
                     })}
                     {side.assets.length === 0 && <div className="muted">No assets yet.</div>}
                   </div>
+                  {/* Receiving section — 3+-team mode only.  Shows the
+                      assets that other sides have routed to THIS side,
+                      so each card answers both "what am I giving up?"
+                      and "what am I getting back?" in the same place. */}
+                  {sides.length > 2 && (
+                    <>
+                      <div
+                        className="label"
+                        style={{
+                          marginTop: 10,
+                          fontSize: "0.68rem",
+                          color: "var(--green)",
+                          letterSpacing: "0.05em",
+                        }}
+                      >
+                        RECEIVING
+                      </div>
+                      <div className="list" style={{ marginTop: 4 }}>
+                        {(sideFlowAssets[sideIdx]?.incoming || []).length > 0 ? (
+                          sideFlowAssets[sideIdx].incoming.map(({ asset, fromSideIdx }) => {
+                            const edge = getPlayerEdge(asset);
+                            return (
+                              <div
+                                className="asset-row"
+                                key={`recv-${side.label}-${asset.name}`}
+                                style={{ borderLeft: "2px solid var(--green)", paddingLeft: 6 }}
+                              >
+                                <div>
+                                  <div className="asset-name">
+                                    <span
+                                      style={{ cursor: "pointer", textDecoration: "underline dotted" }}
+                                      onClick={() => openPlayerPopup?.(asset)}
+                                    >
+                                      {asset.name}
+                                    </span>
+                                    {edge.signal && (
+                                      <span
+                                        className="badge"
+                                        style={{
+                                          marginLeft: 6,
+                                          fontSize: "0.6rem",
+                                          padding: "1px 4px",
+                                          color: edge.signal === "BUY" ? "var(--green)" : "var(--red)",
+                                          borderColor: edge.signal === "BUY" ? "var(--green)" : "var(--red)",
+                                        }}
+                                      >
+                                        {edge.signal} {edge.edgePct}%
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="asset-meta">
+                                    {asset.pos} · from Side {sides[fromSideIdx]?.label || "?"} ·{" "}
+                                    {Math.round(effectiveValue(asset, valueMode, settings)).toLocaleString()}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="muted" style={{ fontSize: "0.72rem" }}>
+                            Nothing incoming. Assign a destination on another side to route here.
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                   {/* Balancers (2-team mode only) */}
                   {sides.length === 2 && isUnderpaying && balancers.length > 0 && (
                     <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(255,198,47,0.06)", borderRadius: 6 }}>
