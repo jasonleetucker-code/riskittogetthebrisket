@@ -103,7 +103,15 @@ export function isEligibleForAnalysis(row) {
  */
 export function marketEdge(row) {
   const retailLabel = getRetailLabel();
-  if (!row?.sourceRanks || Object.keys(row.sourceRanks).length === 0) {
+  // Prefer ``effectiveSourceRanks`` (post-Hampel filter on the
+  // backend) when present so retail-vs-consensus edge labels stay in
+  // lockstep with backend marketGapDirection / confidence /
+  // anomalyFlags.  Fall back to ``sourceRanks`` for legacy payloads.
+  const ranks =
+    row?.effectiveSourceRanks && Object.keys(row.effectiveSourceRanks).length > 0
+      ? row.effectiveSourceRanks
+      : row?.sourceRanks;
+  if (!ranks || Object.keys(ranks).length === 0) {
     return {
       label: "unranked",
       css: "edge-none",
@@ -113,12 +121,12 @@ export function marketEdge(row) {
   }
   const retailKeys = new Set(getRetailSourceKeys());
 
-  const retailRanks = Object.entries(row.sourceRanks)
+  const retailRanks = Object.entries(ranks)
     .filter(([key, rank]) => retailKeys.has(key) && rank != null)
     .map(([, rank]) => Number(rank))
     .filter((n) => Number.isFinite(n));
 
-  const consensusRanks = Object.entries(row.sourceRanks)
+  const consensusRanks = Object.entries(ranks)
     .filter(([key, rank]) => !retailKeys.has(key) && rank != null)
     .map(([, rank]) => Number(rank))
     .filter((n) => Number.isFinite(n));
@@ -184,16 +192,22 @@ export function marketEdge(row) {
  * returns an explicit structured object.
  */
 export function marketGapLabel(row) {
-  if (!row?.sourceRanks) return null;
+  // Mirror ``marketEdge``: prefer the post-Hampel ``effectiveSourceRanks``
+  // when stamped, fall back to ``sourceRanks`` for legacy payloads.
+  const ranks =
+    row?.effectiveSourceRanks && Object.keys(row.effectiveSourceRanks).length > 0
+      ? row.effectiveSourceRanks
+      : row?.sourceRanks;
+  if (!ranks) return null;
   const retailKeys = new Set(getRetailSourceKeys());
 
-  const retailRanks = Object.entries(row.sourceRanks)
+  const retailRanks = Object.entries(ranks)
     .filter(([key, rank]) => retailKeys.has(key) && rank != null)
     .map(([, rank]) => Number(rank))
     .filter((n) => Number.isFinite(n));
   if (retailRanks.length === 0) return null;
 
-  const consensusRanks = Object.entries(row.sourceRanks)
+  const consensusRanks = Object.entries(ranks)
     .filter(([key, rank]) => !retailKeys.has(key) && rank != null)
     .map(([, rank]) => Number(rank))
     .filter((n) => Number.isFinite(n));

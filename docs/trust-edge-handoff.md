@@ -40,6 +40,8 @@ Frontend consumer: `frontend/lib/dynasty-data.js` (`buildRows` + `computeUnified
 | `identityConfidence` | float 0.0-1.0 | How confident we are this is the right entity |
 | `identityMethod` | string | Method used: `canonical_id`, `position_source_aligned`, `partial_evidence`, `name_only` |
 | `quarantined` | boolean | Row flagged by identity/data-quality validation |
+| `droppedSources` | string[] | Source keys whose values were rejected by the per-player Hampel outlier filter (K=2.75, n>=4, 500 Hill-point absolute floor). Empty for rows where no source was dropped. |
+| `effectiveSourceRanks` | object | `sourceRanks` minus any keys present in `droppedSources`. Frontend display helpers (`marketEdge`, `marketGapLabel`) read this so retail-vs-consensus edge labels stay in lockstep with backend `marketGapDirection`/`confidence`/`anomalyFlags`, all of which use the post-Hampel set. Falls back to `sourceRanks` on legacy payloads that pre-date the field. |
 
 ### Confidence Bucket Logic
 
@@ -60,7 +62,7 @@ Ranking-phase flags:
 - `missing_position` — position is null, empty, or "?"
 - `retired_or_invalid_name` — name matches invalid patterns
 - `ol_contamination` — OL/OT/OG/C position leaked into rankings
-- `suspicious_disagreement` — sources disagree by >150 ordinal ranks
+- `suspicious_disagreement` — surviving sources disagree by >20% percentile spread (or >150 ordinal ranks for legacy callers). Computed on the *post-Hampel* set: any source dropped by the per-player outlier filter (see `droppedSources`) is excluded from the spread calculation, so a single rogue value cannot trip the flag if the rest of the field agrees.
 - `missing_source_distortion` — single source when dual expected
 - `impossible_value` — rankDerivedValue <= 0 despite having a rank
 

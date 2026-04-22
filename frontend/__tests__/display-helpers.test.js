@@ -85,6 +85,27 @@ describe("marketGapLabel", () => {
   it("returns null for null row", () => {
     expect(marketGapLabel(null)).toBeNull();
   });
+  it("prefers effectiveSourceRanks over sourceRanks when present", () => {
+    // sourceRanks contains a Hampel-dropped outlier (ktc: 200) that
+    // would otherwise pull the retail mean way out.  effectiveSourceRanks
+    // reflects the post-Hampel set the backend uses for its own
+    // marketGapDirection — frontend must agree.
+    const row = {
+      sourceRanks: { ktc: 200, idpTradeCalc: 10, dlfIdp: 20 },
+      effectiveSourceRanks: { idpTradeCalc: 10, dlfIdp: 20 },
+    };
+    // KTC dropped → no retail rank → null per the "KTC missing" rule.
+    expect(marketGapLabel(row)).toBeNull();
+  });
+  it("falls back to sourceRanks when effectiveSourceRanks is empty", () => {
+    // Legacy / pre-Hampel payloads stamp effectiveSourceRanks as {}.
+    // Display helpers must still work off sourceRanks in that case.
+    const row = {
+      sourceRanks: { ktc: 5, idpTradeCalc: 50 },
+      effectiveSourceRanks: {},
+    };
+    expect(marketGapLabel(row)).toBe("KTC +45");
+  });
 });
 
 // ── isEligibleForBoard ──────────────────────────────────────────────
