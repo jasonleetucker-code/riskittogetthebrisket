@@ -42,6 +42,7 @@ import {
   createSide,
   defaultDestination,
   computeSideFlows,
+  computeSideFlowAssets,
   serializeWorkspaceMulti,
   deserializeWorkspaceMulti,
   SIDE_LABELS,
@@ -1433,6 +1434,71 @@ describe("computeSideFlows", () => {
     const flows = computeSideFlows(sides, "full");
     const totalNet = flows.reduce((s, f) => s + f.net, 0);
     expect(totalNet).toBe(0);
+  });
+});
+
+// ── computeSideFlowAssets ───────────────────────────────────────────────
+
+describe("computeSideFlowAssets", () => {
+  it("2-team trade: every outgoing asset has a mirror incoming entry", () => {
+    const sides = [
+      { id: 0, label: "A", assets: [ALLEN], destinations: {} },
+      { id: 1, label: "B", assets: [CHASE], destinations: {} },
+    ];
+    const flow = computeSideFlowAssets(sides);
+    expect(flow[0].outgoing).toEqual([{ asset: ALLEN, toSideIdx: 1 }]);
+    expect(flow[0].incoming).toEqual([{ asset: CHASE, fromSideIdx: 1 }]);
+    expect(flow[1].outgoing).toEqual([{ asset: CHASE, toSideIdx: 0 }]);
+    expect(flow[1].incoming).toEqual([{ asset: ALLEN, fromSideIdx: 0 }]);
+  });
+
+  it("3-team trade: routes per the destinations map", () => {
+    const sides = [
+      { id: 0, label: "A", assets: [ALLEN], destinations: { "Josh Allen": 2 } },
+      { id: 1, label: "B", assets: [CHASE], destinations: { "Ja'Marr Chase": 0 } },
+      { id: 2, label: "C", assets: [PARSONS], destinations: { "Micah Parsons": 1 } },
+    ];
+    const flow = computeSideFlowAssets(sides);
+    expect(flow[0].outgoing).toEqual([{ asset: ALLEN, toSideIdx: 2 }]);
+    expect(flow[0].incoming).toEqual([{ asset: CHASE, fromSideIdx: 1 }]);
+    expect(flow[1].outgoing).toEqual([{ asset: CHASE, toSideIdx: 0 }]);
+    expect(flow[1].incoming).toEqual([{ asset: PARSONS, fromSideIdx: 2 }]);
+    expect(flow[2].outgoing).toEqual([{ asset: PARSONS, toSideIdx: 1 }]);
+    expect(flow[2].incoming).toEqual([{ asset: ALLEN, fromSideIdx: 0 }]);
+  });
+
+  it("empty side with no incoming: receives nothing", () => {
+    const sides = [
+      { id: 0, label: "A", assets: [ALLEN], destinations: { "Josh Allen": 1 } },
+      { id: 1, label: "B", assets: [], destinations: {} },
+      { id: 2, label: "C", assets: [], destinations: {} },
+    ];
+    const flow = computeSideFlowAssets(sides);
+    expect(flow[0].outgoing.length).toBe(1);
+    expect(flow[0].incoming.length).toBe(0);
+    expect(flow[1].incoming.length).toBe(1);
+    expect(flow[2].incoming.length).toBe(0);
+  });
+
+  it("every outgoing has a matching incoming (bijection)", () => {
+    const sides = [
+      { id: 0, label: "A", assets: [ALLEN, MAHOMES], destinations: { "Josh Allen": 1, "Patrick Mahomes": 2 } },
+      { id: 1, label: "B", assets: [CHASE], destinations: { "Ja'Marr Chase": 2 } },
+      { id: 2, label: "C", assets: [PARSONS, PICK_2026], destinations: { "Micah Parsons": 0, "2026 Early 1st": 1 } },
+    ];
+    const flow = computeSideFlowAssets(sides);
+    const totalOutgoing = flow.reduce((s, f) => s + f.outgoing.length, 0);
+    const totalIncoming = flow.reduce((s, f) => s + f.incoming.length, 0);
+    expect(totalOutgoing).toBe(5);
+    expect(totalIncoming).toBe(5);
+    expect(totalOutgoing).toBe(totalIncoming);
+  });
+
+  it("empty / single-side inputs return empty-shaped results", () => {
+    expect(computeSideFlowAssets([])).toEqual([]);
+    expect(computeSideFlowAssets([{ assets: [ALLEN] }])).toEqual([
+      { outgoing: [], incoming: [] },
+    ]);
   });
 });
 
