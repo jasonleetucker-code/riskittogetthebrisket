@@ -1693,10 +1693,22 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-weight: 600;
   cursor: pointer;
   transition: color 0.1s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
-.rankings-player-name:hover {
+.rankings-player-name:hover,
+.rankings-player-name:active {
   color: var(--cyan);
+}
+
+@media (max-width: 768px) {
+  /* Extend the tappable area vertically on touch so a thumb reliably
+     hits the popup trigger.  Desktop row density unchanged. */
+  .rankings-player-name {
+    display: inline-block;
+    padding: 6px 0;
+  }
 }
 
 .rankings-player-meta {
