@@ -41,6 +41,7 @@ Frontend consumer: `frontend/lib/dynasty-data.js` (`buildRows` + `computeUnified
 | `identityMethod` | string | Method used: `canonical_id`, `position_source_aligned`, `partial_evidence`, `name_only` |
 | `quarantined` | boolean | Row flagged by identity/data-quality validation |
 | `droppedSources` | string[] | Source keys whose values were rejected by the per-player Hampel outlier filter (K=2.75, n>=4, 500 Hill-point absolute floor). Empty for rows where no source was dropped. |
+| `effectiveSourceRanks` | object | `sourceRanks` minus any keys present in `droppedSources`. Frontend display helpers (`marketEdge`, `marketGapLabel`) read this so retail-vs-consensus edge labels stay in lockstep with backend `marketGapDirection`/`confidence`/`anomalyFlags`, all of which use the post-Hampel set. Falls back to `sourceRanks` on legacy payloads that pre-date the field. |
 
 ### Confidence Bucket Logic
 

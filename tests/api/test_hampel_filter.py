@@ -38,12 +38,44 @@ class TestSafetyGuards:
         # Sanity: this test exists to make accidental floor changes loud.
         assert _HAMPEL_MIN_THRESHOLD == 500.0
 
-    def test_zero_mad_returns_input_unchanged(self):
-        # Perfect agreement → MAD == 0 → no source can be an outlier.
+    def test_perfect_agreement_drops_nothing(self):
+        # All identical → all deviations are zero → nothing exceeds the
+        # min_threshold floor → nothing dropped.
         pairs = [("a", 5000.0)] * 5
         kept, dropped = _hampel_filter_per_player(pairs)
         assert len(kept) == 5
         assert dropped == []
+
+    def test_tied_bulk_with_outlier_drops_outlier(self):
+        # Regression for Codex review (PR #211): when the bulk agrees
+        # exactly (e.g. [9999, 9999, 9999, 2000]) MAD == 0, but the
+        # lone 2000 is still 7999 from the median.  The min_threshold
+        # floor must catch it — the prior ``mad <= 0`` short-circuit
+        # silently kept the rogue source and let the outlier survive
+        # to distort the blend.
+        pairs = [
+            ("a", 9999.0),
+            ("b", 9999.0),
+            ("c", 9999.0),
+            ("d", 2000.0),
+        ]
+        kept, dropped = _hampel_filter_per_player(pairs)
+        assert dropped == ["d"]
+        assert len(kept) == 3
+
+    def test_tied_bulk_with_close_value_keeps_all(self):
+        # Counterpart guard: tied bulk + a value within the floor
+        # distance must NOT be dropped.  Confirms the floor isn't
+        # over-aggressive when MAD == 0.
+        pairs = [
+            ("a", 9999.0),
+            ("b", 9999.0),
+            ("c", 9999.0),
+            ("d", 9600.0),  # 399 from median → inside the 500 floor
+        ]
+        kept, dropped = _hampel_filter_per_player(pairs)
+        assert dropped == []
+        assert len(kept) == 4
 
     def test_lone_outlier_against_tight_cluster_drops(self):
         # 4 sources: 1 outlier + 3 tight cluster.  Dropping the

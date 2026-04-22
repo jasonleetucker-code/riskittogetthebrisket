@@ -4859,11 +4859,15 @@ def _hampel_filter_per_player(
     full rationale):
       * ``len(pairs) < min_n`` → return (pairs, []); median/MAD too
         unstable below 4 points to pick out an outlier reliably.
-      * MAD == 0 → return (pairs, []); the bulk agrees perfectly so
-        nothing is an outlier.
       * ``min_threshold`` floor on ``k · MAD`` — tight clusters like
         [4950, 5000, 5025, 5050, 5100] should not call values ±75 from
         the median "outliers" just because MAD happens to be small.
+        The floor also handles the tied-cluster case where MAD is
+        exactly zero (e.g. [9999, 9999, 9999, 2000]): the bulk agrees,
+        MAD=0, but the lone 2000 is still 7999 from the median and
+        exceeds the 500-Hill-point floor, so the outlier is correctly
+        dropped — perfect agreement (all values identical) yields zero
+        deviations and trivially keeps everything.
       * Filtering would leave fewer than 2 surviving pairs → return
         (pairs, []); never collapse a player to a single source via
         outlier rejection.
@@ -4886,8 +4890,6 @@ def _hampel_filter_per_player(
         mad = float(deviations[n // 2])
     else:
         mad = (deviations[n // 2 - 1] + deviations[n // 2]) / 2.0
-    if mad <= 0:
-        return list(pairs), []
     threshold = max(k * mad, min_threshold)
     kept: list[tuple[str, float]] = []
     dropped_keys: list[str] = []
@@ -6091,6 +6093,13 @@ def _compute_unified_rankings(
         effective_source_meta = {
             k: v for k, v in source_meta.items() if k not in dropped_set
         }
+        # Publish the post-Hampel rank map so frontend display helpers
+        # (frontend/lib/display-helpers.js::marketEdge / marketGapLabel)
+        # compute retail-vs-consensus on the same set the backend used
+        # for marketGapDirection / confidence / anomaly flags.  Without
+        # this, the same player could show conflicting edge signals
+        # across UI surfaces after a Hampel drop.
+        row["effectiveSourceRanks"] = effective_source_ranks
         rank_values = list(effective_source_ranks.values())
 
         # Caution flag when any IDP source required fallback translation
@@ -6718,6 +6727,7 @@ def _derive_player_row(
         "alphaShrinkage": None,
         "softFallbackCount": 0,
         "droppedSources": [],
+        "effectiveSourceRanks": {},
         "marketGapDirection": "none",
         "marketGapMagnitude": None,
         "sourceAudit": {
@@ -7206,6 +7216,7 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "alphaShrinkage",
     "softFallbackCount",
     "droppedSources",
+    "effectiveSourceRanks",
     "isSingleSource",
     "isStructurallySingleSource",
     "hasSourceDisagreement",
