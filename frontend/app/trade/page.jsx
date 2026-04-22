@@ -21,6 +21,7 @@ import {
   effectiveValue,
   getPlayerEdge,
   findBalancers,
+  resolvePickRow,
   meterVerdict,
   percentageGap,
   multiTeamAnalysis,
@@ -589,6 +590,78 @@ export default function TradePage() {
     return m;
   }, [rows]);
 
+  // Lowercased-name → row map for the Sleeper pick resolver; matches
+  // the shape ``resolvePickRow`` expects.  Built alongside rowByName
+  // so both are available when we need to translate a Sleeper roster
+  // string like "2026 1.12 (own)" back into a rankings row.
+  const rowByLowerName = useMemo(() => {
+    const m = new Map();
+    rows.forEach((r) => m.set(r.name.toLowerCase(), r));
+    return m;
+  }, [rows]);
+  const pickAliases = rawData?.pickAliases || null;
+
+  /**
+   * Resolve a Sleeper team's roster into a Set of rankings-row NAMES.
+   * Players are looked up verbatim (same display-name space); picks
+   * route through ``resolvePickRow`` so Sleeper's "2026 1.12 (own)"
+   * ends up pointing at the rankings "2026 Pick 1.12" row.  Only
+   * assets the rankings actually know about land in the set, which
+   * is exactly what the balancer filter needs (unknown names would
+   * filter nothing useful).
+   */
+  const teamRosterNames = useCallback(
+    (team) => {
+      const names = new Set();
+      if (!team) return names;
+      for (const p of team.players || []) {
+        if (!p) continue;
+        if (rowByName.has(p)) names.add(p);
+      }
+      for (const pickLabel of team.picks || []) {
+        const row = resolvePickRow(pickLabel, rowByLowerName, pickAliases);
+        if (row) names.add(row.name);
+      }
+      return names;
+    },
+    [rowByName, rowByLowerName, pickAliases],
+  );
+
+  /**
+   * Figure out which Sleeper team most likely owns a given side's
+   * assets pre-trade.  Scores each team by count of matched assets
+   * (players + picks, resolved through ``teamRosterNames``); returns
+   * the team with the most matches, or null if no team matches any.
+   *
+   * Used to filter balancer suggestions so "add these to balance"
+   * only shows players ALREADY on the team sitting on that side of
+   * the trade.  A mixed side (assets spanning multiple rosters)
+   * still resolves to the best single-team match, which is usually
+   * the right answer in practice — trades happen against one
+   * partner, not a pool.
+   */
+  const inferTeamForSide = useCallback(
+    (side) => {
+      if (!sleeperTeams || !side?.assets?.length) return null;
+      const assetNames = new Set(side.assets.map((a) => a.name));
+      let bestTeam = null;
+      let bestCount = 0;
+      for (const team of sleeperTeams) {
+        const roster = teamRosterNames(team);
+        let count = 0;
+        for (const n of assetNames) {
+          if (roster.has(n)) count += 1;
+        }
+        if (count > bestCount) {
+          bestCount = count;
+          bestTeam = team;
+        }
+      }
+      return bestCount > 0 ? bestTeam : null;
+    },
+    [sleeperTeams, teamRosterNames],
+  );
+
   // Hydrate roster input, team selection, and recent names from localStorage
   useEffect(() => {
     try {
@@ -683,14 +756,42 @@ export default function TradePage() {
   const pwGap = pwTotalA - pwTotalB;
   const pctGap = Math.max(pwTotalA, pwTotalB) > 0 ? Math.round(Math.abs(pwGap) / Math.max(pwTotalA, pwTotalB) * 100) : 0;
 
-  // Balancing suggestions (2-team mode only)
+  // Balancing suggestions (2-team mode only).
+  //
+  // Filter the candidate pool to the roster of whichever Sleeper team
+  // owns the assets ALREADY on the behind side.  If the trade is
+  // between Jason and team X, and Jason is behind, the suggestions
+  // should come from Jason's roster — he's the one who'd add more
+  // to his side.  Falls back to the full ranked pool when no team
+  // match is found (manual-entry workflows, mixed assets, no Sleeper
+  // data).  Also emits the inferred team name so the UI can label
+  // "Add from [team]:" instead of a generic "consider adding".
   const balancers = useMemo(() => {
-    if (sides.length !== 2) return [];
-    if (Math.abs(pwGap) < 350) return [];
+    if (sides.length !== 2) return { list: [], teamName: null };
+    if (Math.abs(pwGap) < 350) return { list: [], teamName: null };
     const allInTrade = new Set(sides.flatMap((s) => s.assets.map((a) => a.name)));
-    const available = rows.filter((r) => !allInTrade.has(r.name));
-    return findBalancers(pwGap, available, valueMode);
-  }, [pwGap, rows, sides, valueMode]);
+    // Behind side = the one whose total is LOWER.
+    const behindSideIdx = pwGap > 0 ? 1 : 0;
+    const behindSide = sides[behindSideIdx];
+    const behindTeam = inferTeamForSide(behindSide);
+    let pool;
+    let teamName = null;
+    if (behindTeam) {
+      const roster = teamRosterNames(behindTeam);
+      pool = rows.filter((r) => roster.has(r.name) && !allInTrade.has(r.name));
+      teamName = behindTeam.name || null;
+    }
+    // Fallback when no team can be inferred (or the inferred team
+    // has nothing left after subtracting what's already in the
+    // trade).  Preserves existing behaviour when Sleeper data is
+    // unavailable.
+    if (!pool || pool.length === 0) {
+      pool = rows.filter((r) => !allInTrade.has(r.name));
+      teamName = null;
+    }
+    const list = findBalancers(pwGap, pool, valueMode);
+    return { list, teamName };
+  }, [pwGap, rows, sides, valueMode, inferTeamForSide, teamRosterNames]);
 
   // For 3+ teams, find balancers for the team getting the best deal
   // (they should add more to their give to even things out).  Uses
@@ -707,15 +808,32 @@ export default function TradePage() {
     const gap = nets[bestIdx] - nets[worstIdx];
     if (gap < 350) return null;
     const allInTrade = new Set(sides.flatMap((s) => s.assets.map((a) => a.name)));
-    const available = rows.filter((r) => !allInTrade.has(r.name));
-    const suggestions = findBalancers(gap, available, valueMode);
+    // Panel renders on the side that needs to GIVE more (the one with
+    // the best deal right now).  Filter the suggestion pool to that
+    // side's Sleeper team so the "add more" list is players they
+    // actually own.  Same fallback to full pool when inference fails.
+    const underpayingSide = sides[bestIdx];
+    const underpayingTeam = inferTeamForSide(underpayingSide);
+    let pool;
+    let teamName = null;
+    if (underpayingTeam) {
+      const roster = teamRosterNames(underpayingTeam);
+      pool = rows.filter((r) => roster.has(r.name) && !allInTrade.has(r.name));
+      teamName = underpayingTeam.name || null;
+    }
+    if (!pool || pool.length === 0) {
+      pool = rows.filter((r) => !allInTrade.has(r.name));
+      teamName = null;
+    }
+    const suggestions = findBalancers(gap, pool, valueMode);
     return {
       overpayingIdx: worstIdx,
       underpayingIdx: bestIdx, // panel rendered on the side that needs to give more
       gap,
       suggestions,
+      teamName,
     };
-  }, [sides, sideFlows, rows, valueMode]);
+  }, [sides, sideFlows, rows, valueMode, inferTeamForSide, teamRosterNames]);
 
   // All assets currently in any side (for picker exclusion)
   const allTradeNames = useMemo(() => {
@@ -1516,10 +1634,14 @@ export default function TradePage() {
                     </>
                   )}
                   {/* Balancers (2-team mode only) */}
-                  {sides.length === 2 && isUnderpaying && balancers.length > 0 && (
+                  {sides.length === 2 && isUnderpaying && balancers.list.length > 0 && (
                     <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(255,198,47,0.06)", borderRadius: 6 }}>
-                      <div className="label" style={{ fontSize: "0.68rem", marginBottom: 4 }}>To balance, consider adding:</div>
-                      {balancers.map((b) => (
+                      <div className="label" style={{ fontSize: "0.68rem", marginBottom: 4 }}>
+                        {balancers.teamName
+                          ? `Add from ${balancers.teamName}'s roster:`
+                          : "To balance, consider adding:"}
+                      </div>
+                      {balancers.list.map((b) => (
                         <button key={b.name} className="button-reset muted" style={{ display: "block", fontSize: "0.72rem", cursor: "pointer" }}
                           onClick={() => { const row = rowByName.get(b.name); if (row) addToSide(row, sideIdx); }}>
                           {b.name} ({b.pos}) · {b.value.toLocaleString()}
@@ -1531,7 +1653,9 @@ export default function TradePage() {
                   {multiBalancers && sideIdx === multiBalancers.underpayingIdx && multiBalancers.suggestions.length > 0 && (
                     <div style={{ marginTop: 8, padding: "6px 8px", background: "rgba(255,198,47,0.06)", borderRadius: 6 }}>
                       <div className="label" style={{ fontSize: "0.68rem", marginBottom: 4 }}>
-                        To balance (Side {sides[multiBalancers.overpayingIdx]?.label} loses {Math.round(multiBalancers.gap).toLocaleString()}):
+                        {multiBalancers.teamName
+                          ? `Add from ${multiBalancers.teamName}'s roster (Side ${sides[multiBalancers.overpayingIdx]?.label} loses ${Math.round(multiBalancers.gap).toLocaleString()}):`
+                          : `To balance (Side ${sides[multiBalancers.overpayingIdx]?.label} loses ${Math.round(multiBalancers.gap).toLocaleString()}):`}
                       </div>
                       {multiBalancers.suggestions.map((b) => (
                         <button key={b.name} className="button-reset muted" style={{ display: "block", fontSize: "0.72rem", cursor: "pointer" }}
