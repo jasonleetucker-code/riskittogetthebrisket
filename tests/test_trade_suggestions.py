@@ -1785,3 +1785,406 @@ class TestBuildAssetPoolFromContract:
         assert "positionalUpgrades" in result
         assert "metadata" in result
         assert result["metadata"]["assetPoolSize"] == len(pool)
+
+
+# ── effectiveSourceRanks (post-Hampel) regression ────────────────────
+
+class TestEffectiveSourceRanks:
+    """Regression coverage for the post-Hampel source read.
+
+    The live ``/api/data`` contract stamps ``effectiveSourceRanks`` (the
+    per-player rank map after the Hampel filter drops outlier source
+    readings) and ``droppedSources`` (the dropped keys).  The trade
+    engine reads those so its ``source_count`` and ``dispersion_cv``
+    match the same set the contract uses for ``marketGapDirection`` and
+    ``confidenceBucket``; otherwise a single rejected outlier source
+    could inflate the engine's apparent source count (bumping the
+    confidence tier above what the rest of the stack reports) or fire a
+    false market-disagreement edge on an otherwise-tight consensus.
+    """
+
+    def _contract(self, rows, players_dict=None):
+        return {
+            "playersArray": rows,
+            "players": players_dict or {},
+        }
+
+    def _row(
+        self,
+        name,
+        pos,
+        value,
+        *,
+        rookie=False,
+        team="",
+        site_values=None,
+        effective_source_ranks=None,
+        dropped_sources=None,
+        asset_class="player",
+        legacy_ref=None,
+    ):
+        row: dict = {
+            "canonicalName": name,
+            "displayName": name,
+            "position": pos,
+            "team": team,
+            "rookie": rookie,
+            "assetClass": asset_class,
+            "rankDerivedValue": value,
+            "canonicalSiteValues": site_values if site_values is not None
+                else {"ktc": value, "idpTradeCalc": value - 50},
+            "legacyRef": legacy_ref or name,
+        }
+        if effective_source_ranks is not None:
+            row["effectiveSourceRanks"] = effective_source_ranks
+        if dropped_sources is not None:
+            row["droppedSources"] = dropped_sources
+        return row
+
+    # ── Builder-level: source_count + dispersion_cv come from the
+    # ── post-Hampel subset, not the raw canonicalSiteValues keys.
+
+    def test_source_count_uses_effective_source_ranks(self):
+        from src.trade.suggestions import build_asset_pool_from_contract
+        # 8 raw site values, but Hampel dropped 5 → effective count = 3.
+        site_values = {f"src{i}": 7000 for i in range(8)}
+        effective = {"src0": 10, "src1": 11, "src2": 12}
+        row = self._row(
+            "Post Hampel", "WR", 7000,
+            site_values=site_values,
+            effective_source_ranks=effective,
+            dropped_sources=[f"src{i}" for i in range(3, 8)],
+        )
+        pool = build_asset_pool_from_contract(self._contract([row]), ktc_top_n=0)
+        assert len(pool) == 1
+        assert pool[0].source_count == 3, (
+            "source_count must be the post-Hampel effective count, "
+            "not len(canonicalSiteValues)"
+        )
+
+    def test_dispersion_cv_uses_effective_source_ranks(self):
+        from src.trade.suggestions import build_asset_pool_from_contract
+        # Tight consensus on 4 sources + one extreme outlier Hampel drops.
+        site_values = {
+            "ktc": 7000, "dynastyNerds": 7050, "dynastyDaddy": 6980,
+            "dlfSf": 7020, "idpTradeCalc": 1500,  # outlier
+        }
+        # Post-Hampel: outlier removed, consensus is tight.
+        effective = {"ktc": 10, "dynastyNerds": 11, "dynastyDaddy": 12, "dlfSf": 13}
+        row_filtered = self._row(
+            "Hampel Filtered", "WR", 7000,
+            site_values=site_values,
+            effective_source_ranks=effective,
+            dropped_sources=["idpTradeCalc"],
+        )
+        # Same site values, no Hampel stamps → legacy read, outlier
+        # inflates the dispersion.
+        row_raw = self._row(
+            "Raw Unfiltered", "WR", 7000,
+            site_values=site_values,
+        )
+        pool = build_asset_pool_from_contract(
+            self._contract([row_filtered, row_raw]), ktc_top_n=0
+        )
+        filtered = next(p for p in pool if p.name == "Hampel Filtered")
+        raw = next(p for p in pool if p.name == "Raw Unfiltered")
+        assert filtered.dispersion_cv is not None
+        assert raw.dispersion_cv is not None
+        # The Hampel-filtered CV must be materially smaller because the
+        # outlier no longer contributes.
+        assert filtered.dispersion_cv < raw.dispersion_cv / 5
+
+    def test_dropped_sources_fallback_without_effective_ranks(self):
+        """Legacy fallback: a contract with ``droppedSources`` but no
+        ``effectiveSourceRanks`` should still respect the drop list."""
+        from src.trade.suggestions import build_asset_pool_from_contract
+        site_values = {"a": 7000, "b": 7050, "c": 6980, "d": 1500}
+        row = self._row(
+            "Partial Stamps", "WR", 7000,
+            site_values=site_values,
+            dropped_sources=["d"],
+        )
+        pool = build_asset_pool_from_contract(self._contract([row]), ktc_top_n=0)
+        asset = pool[0]
+        # 4 raw − 1 dropped = 3 effective readings.
+        assert asset.source_count == 3
+
+    def test_legacy_contract_without_stamps_uses_raw_site_values(self):
+        from src.trade.suggestions import build_asset_pool_from_contract
+        row = self._row(
+            "Legacy Row", "WR", 7000,
+            site_values={"a": 7000, "b": 7050, "c": 6980, "d": 1500},
+            # No effectiveSourceRanks, no droppedSources → legacy contract.
+        )
+        pool = build_asset_pool_from_contract(self._contract([row]), ktc_top_n=0)
+        # All 4 raw sources counted (positive values, no filter).
+        assert pool[0].source_count == 4
+
+    # ── Per-category regressions: each suggestion category exposes
+    # ── the post-Hampel source_count via its confidence tier.
+    # ── ``_confidence_from_sources``: ≥6 → "high", ≥3 → "medium",
+    # ── else "low".  If we stamp effectiveSourceRanks with fewer than
+    # ── 6 keys (while the raw canonicalSiteValues has ≥6), the engine
+    # ── must pick the lower tier — proving it read the effective set.
+
+    def _raw_site_values(self, value, n=8):
+        """8 raw source readings.  Used to differentiate pre/post-Hampel."""
+        return {f"src{i}": value + i * 10 for i in range(n)}
+
+    def _effective_ranks(self, keys, base_rank=10):
+        """Pick a subset of source keys and assign fake ranks.  The
+        values are irrelevant — the engine only reads the key set for
+        the effective filter."""
+        return {k: base_rank + i for i, k in enumerate(keys)}
+
+    def _build_sell_high_scenario(self, *, effective_count_for_sell):
+        """Surplus QB, need WR.  ``sell`` is our surplus QB, ``target``
+        is the WR the engine buys with it.  Both carry 8 raw site
+        values (confidence=high if the engine reads raw); we dial the
+        sell player's effective count down to exercise the Hampel path.
+        """
+        rows = [
+            # QB surplus (4 QBs, need 2).
+            self._row(
+                "QB Sell", "QB", 5500,
+                site_values=self._raw_site_values(5500),
+                effective_source_ranks=self._effective_ranks(
+                    [f"src{i}" for i in range(effective_count_for_sell)]
+                ),
+                dropped_sources=[
+                    f"src{i}" for i in range(effective_count_for_sell, 8)
+                ],
+            ),
+            self._row("QB Starter A", "QB", 7500,
+                      site_values=self._raw_site_values(7500)),
+            self._row("QB Starter B", "QB", 7300,
+                      site_values=self._raw_site_values(7300)),
+            self._row("QB Depth", "QB", 5200,
+                      site_values=self._raw_site_values(5200)),
+            # WR target the engine can swap into.  Generous effective
+            # ranks so the target side is always "high".
+            self._row(
+                "WR Target", "WR", 5700,
+                site_values=self._raw_site_values(5700),
+                effective_source_ranks=self._effective_ranks(
+                    [f"src{i}" for i in range(7)]
+                ),
+                dropped_sources=["src7"],
+            ),
+            # Other WRs so the user has a WR need (0 starters).
+            self._row("WR Other", "WR", 1500,
+                      site_values=self._raw_site_values(1500)),
+        ]
+        roster = ["QB Sell", "QB Starter A", "QB Starter B", "QB Depth"]
+        return rows, roster
+
+    def test_sell_high_confidence_reflects_effective_source_count(self):
+        """Hampel drops 5 of 8 sources on the sell-side player → the
+        suggestion's confidence must be medium, not high.  If the
+        engine read the raw canonicalSiteValues it would report high
+        (8 ≥ 6) — which would be out of sync with the contract's
+        own confidenceBucket for that player.
+        """
+        from src.trade.suggestions import (
+            build_asset_pool_from_contract,
+            generate_suggestions_from_pool,
+        )
+        rows, roster = self._build_sell_high_scenario(effective_count_for_sell=3)
+        pool = build_asset_pool_from_contract(
+            self._contract(rows), ktc_top_n=0
+        )
+        sell_player = next(p for p in pool if p.name == "QB Sell")
+        assert sell_player.source_count == 3  # effective, not 8
+
+        result = generate_suggestions_from_pool(
+            roster_names=roster, pool=pool,
+        )
+        sell_high = result["sellHigh"]
+        # Filter to suggestions that actually trade the Hampel-filtered
+        # sell piece — other surplus QBs may also generate sell-high
+        # entries with unfiltered (high) confidence.
+        hampel_sells = [
+            s for s in sell_high
+            if any(g["name"] == "QB Sell" for g in s["give"])
+        ]
+        assert hampel_sells, (
+            "expected a sell_high suggestion that moves QB Sell"
+        )
+        # confidence = min(sell.source_count, target.source_count)
+        # = min(3, 7) = 3 → "medium".  Proves the post-Hampel count
+        # flowed through.
+        for s in hampel_sells:
+            assert s["confidence"] == "medium"
+
+    def test_buy_low_confidence_reflects_effective_source_count(self):
+        from src.trade.suggestions import (
+            build_asset_pool_from_contract,
+            generate_suggestions_from_pool,
+        )
+        # Roster has QB surplus but WR need → engine buys-low at WR.
+        # WR target carries 8 raw sources but only 2 effective → low.
+        rows = [
+            self._row("QB1", "QB", 8000,
+                      site_values=self._raw_site_values(8000)),
+            self._row("QB2", "QB", 7700,
+                      site_values=self._raw_site_values(7700)),
+            self._row("QB3", "QB", 6500,
+                      site_values=self._raw_site_values(6500)),
+            self._row("QB4", "QB", 6000,
+                      site_values=self._raw_site_values(6000)),
+            # WR starter slot empty-ish on roster.
+            self._row(
+                "WR Buy Low", "WR", 6200,
+                site_values=self._raw_site_values(6200),
+                effective_source_ranks=self._effective_ranks(
+                    ["src0", "src1"]
+                ),
+                dropped_sources=[f"src{i}" for i in range(2, 8)],
+            ),
+        ]
+        roster = ["QB1", "QB2", "QB3", "QB4"]
+        pool = build_asset_pool_from_contract(
+            self._contract(rows), ktc_top_n=0
+        )
+        target = next(p for p in pool if p.name == "WR Buy Low")
+        assert target.source_count == 2
+
+        result = generate_suggestions_from_pool(
+            roster_names=roster, pool=pool,
+        )
+        buy_low = result["buyLow"]
+        # If any buy-low targets "WR Buy Low", its confidence should be
+        # "low" (min(give=high, target=2) = 2 → low).
+        matching = [
+            s for s in buy_low
+            if any(r["name"] == "WR Buy Low" for r in s["receive"])
+        ]
+        assert matching, "expected a buy_low suggestion for WR Buy Low"
+        for s in matching:
+            assert s["confidence"] == "low"
+
+    def test_consolidation_confidence_reflects_effective_source_count(self):
+        """Consolidation confidence is driven solely by the target's
+        source_count (suggestions.py ~line 862).  If the target has 8
+        raw sources but Hampel leaves only 4 effective, the suggestion
+        should be "medium" rather than "high".
+        """
+        from src.trade.suggestions import (
+            build_asset_pool_from_contract,
+            generate_suggestions_from_pool,
+        )
+        rows = [
+            # 4 RBs on roster — surplus depth the user can package.
+            self._row("RB1", "RB", 5000,
+                      site_values=self._raw_site_values(5000)),
+            self._row("RB2", "RB", 4800,
+                      site_values=self._raw_site_values(4800)),
+            self._row("RB3", "RB", 4600,
+                      site_values=self._raw_site_values(4600)),
+            self._row("RB Depth A", "RB", 3200,
+                      site_values=self._raw_site_values(3200)),
+            self._row("RB Depth B", "RB", 3100,
+                      site_values=self._raw_site_values(3100)),
+            # Consolidation target at WR (a need position).
+            self._row(
+                "WR Consolidation Target", "WR", 6200,
+                site_values=self._raw_site_values(6200),
+                effective_source_ranks=self._effective_ranks(
+                    ["src0", "src1", "src2", "src3"]
+                ),
+                dropped_sources=[f"src{i}" for i in range(4, 8)],
+            ),
+        ]
+        roster = ["RB1", "RB2", "RB3", "RB Depth A", "RB Depth B"]
+        pool = build_asset_pool_from_contract(
+            self._contract(rows), ktc_top_n=0
+        )
+        target = next(p for p in pool if p.name == "WR Consolidation Target")
+        assert target.source_count == 4
+
+        result = generate_suggestions_from_pool(
+            roster_names=roster, pool=pool,
+        )
+        cons = result["consolidation"]
+        # The suggestion list may be pruned by quality filters; assert
+        # every remaining consolidation targeting our WR is "medium"
+        # (4 effective sources → medium tier), not "high".
+        matching = [
+            s for s in cons
+            if any(r["name"] == "WR Consolidation Target" for r in s["receive"])
+        ]
+        assert matching, (
+            "expected a consolidation suggestion targeting WR Consolidation Target"
+        )
+        for s in matching:
+            assert s["confidence"] == "medium"
+
+    def test_positional_upgrade_confidence_reflects_effective_source_count(self):
+        """Positional-upgrade confidence is driven by the upgrade
+        target's source_count.  Prove the engine reads the effective
+        set by constructing a target with 8 raw sources but only 2
+        effective — which must report "low" confidence.
+        """
+        from src.trade.suggestions import (
+            build_asset_pool_from_contract,
+            generate_suggestions_from_pool,
+        )
+        rows = [
+            # 4 WR starters so the upgrade target clears upgrade_floor
+            # against the weakest slotted starter.
+            self._row("WR Starter A", "WR", 6000,
+                      site_values=self._raw_site_values(6000)),
+            self._row("WR Starter B", "WR", 5500,
+                      site_values=self._raw_site_values(5500)),
+            self._row("WR Starter C", "WR", 5000,
+                      site_values=self._raw_site_values(5000)),
+            self._row("WR Starter D", "WR", 4500,
+                      site_values=self._raw_site_values(4500)),
+            self._row("WR Depth", "WR", 3200,
+                      site_values=self._raw_site_values(3200)),
+            # RB surplus (3 starters + 2 depth) supplies the sweetener
+            # search fallback the engine uses for positional upgrades.
+            self._row("RB1", "RB", 7000,
+                      site_values=self._raw_site_values(7000)),
+            self._row("RB2", "RB", 6800,
+                      site_values=self._raw_site_values(6800)),
+            self._row("RB3", "RB", 6600,
+                      site_values=self._raw_site_values(6600)),
+            self._row("RB Depth A", "RB", 2800,
+                      site_values=self._raw_site_values(2800)),
+            self._row("RB Depth B", "RB", 2700,
+                      site_values=self._raw_site_values(2700)),
+            # Upgrade target at WR: raw=8 sources, effective=2 → low.
+            self._row(
+                "WR Upgrade Target", "WR", 7500,
+                site_values=self._raw_site_values(7500),
+                effective_source_ranks=self._effective_ranks(
+                    ["src0", "src1"]
+                ),
+                dropped_sources=[f"src{i}" for i in range(2, 8)],
+            ),
+        ]
+        roster = [
+            "WR Starter A", "WR Starter B", "WR Starter C", "WR Starter D",
+            "WR Depth",
+            "RB1", "RB2", "RB3", "RB Depth A", "RB Depth B",
+        ]
+        pool = build_asset_pool_from_contract(
+            self._contract(rows), ktc_top_n=0
+        )
+        target = next(p for p in pool if p.name == "WR Upgrade Target")
+        assert target.source_count == 2
+
+        result = generate_suggestions_from_pool(
+            roster_names=roster, pool=pool,
+        )
+        upgrades = result["positionalUpgrades"]
+        matching = [
+            s for s in upgrades
+            if any(r["name"] == "WR Upgrade Target" for r in s["receive"])
+        ]
+        assert matching, (
+            "expected a positional_upgrade suggestion targeting WR Upgrade Target"
+        )
+        for s in matching:
+            assert s["confidence"] == "low"
