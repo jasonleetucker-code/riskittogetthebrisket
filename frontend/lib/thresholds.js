@@ -51,14 +51,18 @@ export const MARKET_GAP_MIN_DIFF = 10;
 export const EDGE_CAUTION_RANK_LIMIT = 300;
 
 /**
- * Maximum rank (by consensus OR retail/KTC) for players to appear in
- * the Edge page's Sell Signals / Buy Signals sections.  Deep-bench
- * players can have huge source disagreements without any real trade
- * relevance, so we pin both sections to players inside the top 200 of
- * either scale.  A player qualifies when EITHER their consensus rank
- * is <= 200 OR their per-source KTC rank is <= 200.
+ * Maximum OUR-consensus rank for players to appear in the Edge page's
+ * Sell Signals / Buy Signals sections.  Deep-bench players can have
+ * huge source disagreements without any real trade relevance, so we
+ * pin both sections to players inside the top 150 of the blended
+ * board.  Previously qualified on ``consensus <= 200 OR ktc <= 200``
+ * — the KTC-only path pulled in low-rated players KTC happened to
+ * price highly (Mac Jones, Jacoby Brissett, etc.) which defeated
+ * the "only trade-relevant" intent.  Now single-filtered on
+ * consensus rank: if the blended board doesn't think the player is
+ * top-150, no signal.
  */
-export const EDGE_PREMIUM_RANK_LIMIT = 200;
+export const EDGE_PREMIUM_RANK_LIMIT = 150;
 
 // ── Display limits ──────────────────────────────────────────────────────────
 // These are page-level UX choices, not data thresholds.

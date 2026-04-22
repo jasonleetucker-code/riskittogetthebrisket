@@ -141,7 +141,11 @@ const COL_GAP_DIR = {
   render: (r) => {
     if (r.marketGapDirection === "retail_premium") return <span className="text-cyan">Sell</span>;
     if (r.marketGapDirection === "consensus_premium") return <span className="text-amber">Buy</span>;
-    return <span className="muted">\u2014</span>;
+    // JSX text nodes don't interpret ``\uXXXX`` escapes — wrapping in
+    // a JS-string expression forces the em-dash to render correctly
+    // instead of the four literal characters ``\``, ``u``, ``2``,
+    // ``0``, ``1``, ``4`` showing up in the cell.
+    return <span className="muted">{"\u2014"}</span>;
   },
 };
 
@@ -169,7 +173,7 @@ const COL_SIGNAL = {
   render: (r) => {
     const action = actionLabel(r);
     const cautions = cautionLabels(r);
-    if (!action && cautions.length === 0) return <span className="muted">\u2014</span>;
+    if (!action && cautions.length === 0) return <span className="muted">{"\u2014"}</span>;
     return (
       <>
         {action && <span className={`action-label ${action.css}`} title={action.title}>{action.label}</span>}
@@ -407,7 +411,7 @@ export default function EdgePage() {
             {/* Sell Signals — retail (KTC) values higher than consensus */}
             <EdgeSection
               title="Sell Signals"
-              description={`Players the retail market (${getRetailLabel()}) values much higher than the expert consensus. Limited to players inside the top ${EDGE_PREMIUM_RANK_LIMIT} by consensus or ${getRetailLabel()} rank so only trade-relevant gaps surface. Potential sells to retail-first trade partners.`}
+              description={`Players the retail market (${getRetailLabel()}) values much higher than the expert consensus. Limited to players inside the top ${EDGE_PREMIUM_RANK_LIMIT} on OUR blended board so only trade-relevant gaps surface. Potential sells to retail-first trade partners.`}
               count={`${retailPremium.length} shown`}
               accent="cyan"
             >
@@ -422,7 +426,7 @@ export default function EdgePage() {
             {/* Buy Signals — consensus values higher than retail */}
             <EdgeSection
               title="Buy Signals"
-              description={`Players the expert consensus values much higher than ${getRetailLabel()}. Limited to players inside the top ${EDGE_PREMIUM_RANK_LIMIT} by consensus or ${getRetailLabel()} rank so only trade-relevant gaps surface. Potential buys from retail-first trade partners.`}
+              description={`Players the expert consensus values much higher than ${getRetailLabel()}. Limited to players inside the top ${EDGE_PREMIUM_RANK_LIMIT} on OUR blended board so only trade-relevant gaps surface. Potential buys from retail-first trade partners.`}
               count={`${consensusPremium.length} shown`}
               accent="cyan"
             >

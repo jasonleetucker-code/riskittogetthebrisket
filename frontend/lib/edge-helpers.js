@@ -28,45 +28,24 @@ import { isEligibleForAnalysis } from "./display-helpers.js";
 import { getRetailLabel } from "./dynasty-data.js";
 
 /**
- * True when a row is "top-ranked" for the Edge page Premium sections.
- * A row qualifies if EITHER its consensus rank OR its per-source KTC
- * rank is inside the top ``EDGE_PREMIUM_RANK_LIMIT`` (200 today).
+ * True when a row is "top-ranked" for the Edge page Premium sections
+ * (Sell / Buy Signals).  Qualifies strictly by OUR consensus rank —
+ * inside the top ``EDGE_PREMIUM_RANK_LIMIT`` (150 today) on the
+ * blended board.
  *
- * The Premium sections on /edge are the only two that use this
- * filter — the other sections (Consensus Assets, Biggest
- * Disagreements, Flagged Anomalies, Single-Source Players) still
- * trust the backend's ``canonicalConsensusRank`` alone or a
- * different rank-based cap, because their signals are still
- * meaningful for players outside the top 200.  Premium gaps are
- * different: a deep-bench player with wildly different consensus
- * and retail ranks has no real trade relevance, so we pin both
- * Premium tables to players who actually show up near the top of
- * at least one of the two scales.
- *
- * ``row.rank`` is the resolved consensus rank stamp (see
- * ``resolvedRank`` in dynasty-data.js); ``row.sourceRanks.ktc`` is
- * the per-source KTC rank stamp produced by the canonical
- * ranking pipeline in
- * ``src/api/data_contract.py::_compute_unified_rankings``.
+ * Previously qualified on ``consensus OR ktc`` rank, which pulled in
+ * players KTC priced high but our blend ranked deep (Mac Jones,
+ * Jacoby Brissett, etc.).  That defeated the "only trade-relevant"
+ * intent — if OUR board doesn't think a player is top-150, a market
+ * gap on them isn't actionable.
  */
 export function isTopRankedForEdgePremium(row) {
   if (!row) return false;
-  // Real ranks start at 1; rank 0 or negative is a sentinel for
-  // "no rank" (e.g. Number(null) → 0) and should not count as
-  // "top-ranked".  Require a strictly positive finite rank <= cap.
   const consensusRank = Number(row.rank);
   if (
     Number.isFinite(consensusRank) &&
     consensusRank >= 1 &&
     consensusRank <= EDGE_PREMIUM_RANK_LIMIT
-  ) {
-    return true;
-  }
-  const ktcRank = Number(row?.sourceRanks?.ktc);
-  if (
-    Number.isFinite(ktcRank) &&
-    ktcRank >= 1 &&
-    ktcRank <= EDGE_PREMIUM_RANK_LIMIT
   ) {
     return true;
   }

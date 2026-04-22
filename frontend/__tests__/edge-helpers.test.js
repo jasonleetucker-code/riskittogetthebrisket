@@ -317,9 +317,11 @@ describe("getLens", () => {
 // ── isTopRankedForEdgePremium ────────────────────────────────────────
 //
 // The Edge page's Sell Signals / Buy Signals sections are pinned to
-// the top 200 by consensus rank OR KTC rank so deep-bench
-// disagreements (which have no trade relevance) don't flood the
-// sections.  This block pins every eligibility branch.
+// the top 150 by OUR consensus rank only — the previous OR-on-KTC
+// path was dropped (users reported it surfaced deep players KTC
+// priced high but our blend ranked outside the top 200, defeating
+// the "only trade-relevant" intent).  This block pins the new,
+// stricter gate.
 
 describe("isTopRankedForEdgePremium", () => {
   it("returns false for null / undefined / missing row", () => {
@@ -327,60 +329,43 @@ describe("isTopRankedForEdgePremium", () => {
     expect(isTopRankedForEdgePremium(undefined)).toBe(false);
   });
 
-  it("admits rows whose consensus rank is inside the top 200", () => {
+  it("admits rows whose consensus rank is inside the top 150", () => {
     expect(isTopRankedForEdgePremium({ rank: 1 })).toBe(true);
     expect(isTopRankedForEdgePremium({ rank: 50 })).toBe(true);
-    expect(isTopRankedForEdgePremium({ rank: 199 })).toBe(true);
-    expect(isTopRankedForEdgePremium({ rank: 200 })).toBe(true);
+    expect(isTopRankedForEdgePremium({ rank: 149 })).toBe(true);
+    expect(isTopRankedForEdgePremium({ rank: 150 })).toBe(true);
   });
 
-  it("rejects rows whose consensus rank is past the top 200 with no KTC signal", () => {
-    expect(isTopRankedForEdgePremium({ rank: 201 })).toBe(false);
+  it("rejects rows past the top 150", () => {
+    expect(isTopRankedForEdgePremium({ rank: 151 })).toBe(false);
+    expect(isTopRankedForEdgePremium({ rank: 200 })).toBe(false);
     expect(isTopRankedForEdgePremium({ rank: 500 })).toBe(false);
   });
 
-  it("admits rows with KTC rank <= 200 even when consensus rank is past 200", () => {
+  it("ignores KTC rank — consensus rank is the sole gate", () => {
+    // Previously admitted on ``ktc <= 200`` even when consensus was
+    // past 200; that escape hatch is gone.  A player KTC prices top-10
+    // but OUR blend ranks #300 now DOES NOT surface in Sell/Buy.
     expect(
-      isTopRankedForEdgePremium({ rank: 500, sourceRanks: { ktc: 150 } }),
-    ).toBe(true);
-    expect(
-      isTopRankedForEdgePremium({ rank: 201, sourceRanks: { ktc: 200 } }),
-    ).toBe(true);
-  });
-
-  it("rejects rows where both ranks are past the top 200", () => {
-    expect(
-      isTopRankedForEdgePremium({ rank: 250, sourceRanks: { ktc: 300 } }),
+      isTopRankedForEdgePremium({ rank: 500, sourceRanks: { ktc: 50 } }),
     ).toBe(false);
     expect(
-      isTopRankedForEdgePremium({ rank: 500, sourceRanks: { ktc: 500 } }),
+      isTopRankedForEdgePremium({ rank: 300, sourceRanks: { ktc: 10 } }),
     ).toBe(false);
-  });
-
-  it("treats a missing consensus rank as Infinity and defers to KTC", () => {
+    // And a player inside top-150 consensus is admitted regardless
+    // of KTC rank.
     expect(
-      isTopRankedForEdgePremium({ sourceRanks: { ktc: 100 } }),
+      isTopRankedForEdgePremium({ rank: 100, sourceRanks: { ktc: 800 } }),
     ).toBe(true);
-    expect(
-      isTopRankedForEdgePremium({ sourceRanks: { ktc: 300 } }),
-    ).toBe(false);
   });
 
-  it("treats a missing sourceRanks.ktc as Infinity and defers to consensus", () => {
-    expect(isTopRankedForEdgePremium({ rank: 150 })).toBe(true);
-    expect(isTopRankedForEdgePremium({ rank: 150, sourceRanks: {} })).toBe(
-      true,
-    );
-    expect(isTopRankedForEdgePremium({ rank: 220, sourceRanks: {} })).toBe(
-      false,
-    );
-  });
-
-  it("returns false when both ranks are NaN / missing", () => {
+  it("returns false when consensus rank is missing / invalid", () => {
     expect(isTopRankedForEdgePremium({})).toBe(false);
     expect(isTopRankedForEdgePremium({ rank: null })).toBe(false);
+    expect(isTopRankedForEdgePremium({ rank: 0 })).toBe(false);
+    expect(isTopRankedForEdgePremium({ rank: -5 })).toBe(false);
     expect(
-      isTopRankedForEdgePremium({ rank: "garbage", sourceRanks: { ktc: null } }),
+      isTopRankedForEdgePremium({ rank: "garbage", sourceRanks: { ktc: 10 } }),
     ).toBe(false);
   });
 });
