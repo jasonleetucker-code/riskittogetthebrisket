@@ -7,6 +7,7 @@ import {
   DRAFT_STORAGE_KEY,
   DEFAULT_AGGRESSION,
   DEFAULT_ENFORCE_PCT,
+  TIER_DEFS,
   addPlayer,
   bidStatus,
   computeDraftStats,
@@ -23,6 +24,8 @@ import {
   updateTeam,
   workspaceIsPristine,
 } from "@/lib/draft-logic";
+
+const TIER_LABELS = Object.fromEntries(TIER_DEFS.map((t) => [t.key, t.label]));
 
 /* ── Utility formatters ───────────────────────────────────────────── */
 
@@ -45,33 +48,67 @@ function fmtMultiplier(n) {
 /* ── Inflation stats strip ────────────────────────────────────────── */
 
 function StatsStrip({ stats }) {
-  const stat = (label, value, title) => (
-    <div className="draft-stat" title={title || undefined}>
+  const stat = (label, value, title, extraClass = "") => (
+    <div
+      className={`draft-stat ${extraClass}`.trim()}
+      title={title || undefined}
+    >
       <div className="draft-stat-label">{label}</div>
       <div className="draft-stat-value">{value}</div>
     </div>
   );
+
+  const inflationClass =
+    stats.inflation > 1.05
+      ? "draft-stat-green"
+      : stats.inflation < 0.95
+        ? "draft-stat-red"
+        : "";
+
+  // Phase: 0 at draft start, →1 as my last pick approaches.  Shown as
+  // "N of M slots left · P% pressure" so both the absolute slot count
+  // and the pressure % are visible at a glance.
+  const slotsPart = `${stats.mySlotsRemaining} of ${stats.myInitialSlots} slots`;
+  const pressurePart = `${Math.round((stats.slotPressure || 0) * 100)}% pressure`;
+
+  // Top rival ceiling — the real competitor cap driving myWinningBid.
+  // Surfacing it in the strip teaches the user "this is the number to
+  // beat, not some hypothetical".
+  const rivalClass =
+    stats.topCompetitorMax < 10
+      ? "draft-stat-green" // rivals broke, I can steal anything
+      : stats.topCompetitorMax > 150
+        ? "draft-stat-red"
+        : "";
+
   return (
     <div className="draft-stats">
       {stat(
         "Inflation",
         fmtMultiplier(stats.inflation),
-        "Remaining league $ divided by undrafted PreDraft $. >1.00 means the market got cheaper than projected; <1.00 means the market is running hot.",
+        "RemainingLeague$ / (TotalAuction$ − Σ soldPreDraft). >1.00 means the remaining market is cheaper than projected; <1.00 means the remaining market got hot.",
+        inflationClass,
       )}
       {stat(
         "My remaining",
         fmt$(stats.myRemaining),
-        `Starting ${fmt$(stats.myStarting)} − spent ${fmt$(stats.mySpent)}`,
+        `Starting ${fmt$(stats.myStarting)} − spent ${fmt$(stats.mySpent)} · ${slotsPart} left`,
       )}
       {stat(
         "Budget advantage",
         fmtMultiplier(stats.budgetAdvantage),
-        `My remaining / avg per other team (${fmt$(stats.avgPerOtherTeam)}).  Above 1.0 = I can afford to outbid the field.`,
+        `My remaining / avg per other team (${fmt$(stats.avgPerOtherTeam)}). Above 1.0 = I can afford to outbid the field average.`,
       )}
       {stat(
-        "League spent",
-        fmtPct(stats.leagueSpentPct),
-        `${fmt$(stats.totalSpent)} of ${fmt$(stats.totalBudget)} total`,
+        "Top rival ceiling",
+        fmt$(stats.topCompetitorMax),
+        `The richest OTHER team can bid up to this much (slot-adjusted). Bid $1 above this to lock a player — anything more is overpay.`,
+        rivalClass,
+      )}
+      {stat(
+        "Phase",
+        `${slotsPart}`,
+        `${pressurePart}. MaxBid scales by phaseMultiplier ${fmtMultiplier(stats.phaseMultiplier)} to prevent unused $ at end of draft.`,
       )}
       {stat(
         "League $ left",
@@ -178,49 +215,69 @@ function TeamPanel({
           <span>Initial</span>
           <span>Spent</span>
           <span>Remaining</span>
-          <span>Picks</span>
-        </div>
-        {stats.teamStats.map((t) => (
-          <div
-            key={t.idx}
-            className={`draft-team-row${t.isMine ? " draft-team-mine" : ""}`}
+          <span title="Slots drafted / initial slots owned">Slots</span>
+          <span
+            title="Slot-adjusted effective $ — max single-bid this team can actually afford while still filling their other slots at $1 each."
           >
-            <label className="draft-radio">
-              <input
-                type="radio"
-                name="myTeam"
-                checked={t.isMine}
-                onChange={() => onSettings({ myTeamIdx: t.idx })}
-              />
-            </label>
-            <input
-              className="draft-inline-input"
-              value={workspace.teams[t.idx]?.name ?? ""}
-              onChange={(e) => onTeam(t.idx, { name: e.target.value })}
-              placeholder={`Team ${t.idx + 1}`}
-            />
-            <input
-              className="draft-inline-input draft-money-input"
-              type="number"
-              min="0"
-              value={workspace.teams[t.idx]?.initialBudget ?? 0}
-              onChange={(e) =>
-                onTeam(t.idx, {
-                  initialBudget: Math.max(0, Number(e.target.value) || 0),
-                })
-              }
-            />
-            <span className="draft-money">{fmt$(t.spent)}</span>
-            <span
-              className={`draft-money${
-                t.remaining < t.initialBudget * 0.25 ? " draft-money-low" : ""
-              }`}
+            Eff $
+          </span>
+        </div>
+        {stats.teamStats.map((t) => {
+          const effLow = t.effectiveBudget < 5;
+          const slotsEmpty = t.slotsRemaining <= 0;
+          return (
+            <div
+              key={t.idx}
+              className={`draft-team-row${t.isMine ? " draft-team-mine" : ""}`}
             >
-              {fmt$(t.remaining)}
-            </span>
-            <span className="draft-money">{t.picksCount}</span>
-          </div>
-        ))}
+              <label className="draft-radio">
+                <input
+                  type="radio"
+                  name="myTeam"
+                  checked={t.isMine}
+                  onChange={() => onSettings({ myTeamIdx: t.idx })}
+                />
+              </label>
+              <input
+                className="draft-inline-input"
+                value={workspace.teams[t.idx]?.name ?? ""}
+                onChange={(e) => onTeam(t.idx, { name: e.target.value })}
+                placeholder={`Team ${t.idx + 1}`}
+              />
+              <input
+                className="draft-inline-input draft-money-input"
+                type="number"
+                min="0"
+                value={workspace.teams[t.idx]?.initialBudget ?? 0}
+                onChange={(e) =>
+                  onTeam(t.idx, {
+                    initialBudget: Math.max(0, Number(e.target.value) || 0),
+                  })
+                }
+              />
+              <span className="draft-money">{fmt$(t.spent)}</span>
+              <span
+                className={`draft-money${
+                  t.remaining < t.initialBudget * 0.25 ? " draft-money-low" : ""
+                }`}
+              >
+                {fmt$(t.remaining)}
+              </span>
+              <span
+                className={`draft-money${slotsEmpty ? " draft-money-low" : ""}`}
+                title={`${t.slotsDrafted} drafted of ${t.initialSlots} owned`}
+              >
+                {t.slotsDrafted}/{t.initialSlots}
+              </span>
+              <span
+                className={`draft-money${effLow ? " draft-money-low" : ""}`}
+                title="Slot-adjusted effective $: what this team can actually bid on a single player while reserving $1 each for their remaining slots."
+              >
+                {fmt$(t.effectiveBudget)}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -365,20 +422,40 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
         <div className="draft-modal-body">
           <div className="draft-modal-refs">
             <div>
-              <span className="muted">PreDraft $</span>
-              <span className="draft-money">{fmt$(player.preDraft)}</span>
+              <span className="muted">Tier · PreDraft $</span>
+              <span className="draft-money">
+                <span
+                  className={`draft-tier-chip draft-tier-${player.tier}`}
+                  style={{ marginRight: 6 }}
+                >
+                  {player.tier}
+                </span>
+                {fmt$(player.preDraft)}
+              </span>
             </div>
             <div>
               <span className="muted">Inflated fair</span>
               <span className="draft-money">{fmt$(player.inflatedFair)}</span>
             </div>
             <div>
-              <span className="muted">My max bid</span>
+              <span className="muted">Win at</span>
+              <span className="draft-money draft-money-win">
+                {fmt$(player.myWinningBid)}
+              </span>
+            </div>
+            <div>
+              <span className="muted">My max bid (theoretical)</span>
               <span className="draft-money">{fmt$(player.myMaxBid)}</span>
             </div>
             <div>
               <span className="muted">Enforce up to</span>
               <span className="draft-money">{fmt$(player.enforceUpTo)}</span>
+            </div>
+            <div>
+              <span className="muted">Top rival ceiling</span>
+              <span className="draft-money">
+                {fmt$(stats.topCompetitorMax)}
+              </span>
             </div>
           </div>
 
@@ -410,6 +487,29 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
               placeholder="e.g. 120"
             />
           </label>
+
+          {(() => {
+            // Overpay warning: red banner when the amount is going on
+            // MY team AND exceeds myWinningBid.  No warning when
+            // recording picks on rival teams (they overpaid, not me).
+            const amt = Math.max(0, Number(amount) || 0);
+            const isMine = Number(teamIdx) === workspace.settings?.myTeamIdx;
+            const myCeiling = Number.isFinite(player.myWinningBid)
+              ? player.myWinningBid
+              : player.myMaxBid;
+            if (amt > 0 && isMine && amt > myCeiling) {
+              const diff = amt - myCeiling;
+              return (
+                <div className="draft-modal-warn">
+                  <strong>Overpay.</strong> ${amt} is ${diff} above your
+                  winning bid (${myCeiling}). The top rival can only
+                  bid ${fmt$(stats.topCompetitorMax)} — you don't need
+                  to pay more than ${myCeiling} to lock this player.
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           <div className="draft-modal-live">
             <div className="muted" style={{ fontSize: "0.72rem" }}>
@@ -445,13 +545,35 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
           <button type="button" className="button" onClick={onClose}>
             Cancel
           </button>
-          <button
-            type="submit"
-            className="button"
-            style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}
-          >
-            {existingPick ? "Save" : "Record pick"}
-          </button>
+          {(() => {
+            const amt = Math.max(0, Number(amount) || 0);
+            const isMine = Number(teamIdx) === workspace.settings?.myTeamIdx;
+            const myCeiling = Number.isFinite(player.myWinningBid)
+              ? player.myWinningBid
+              : player.myMaxBid;
+            const danger = amt > 0 && isMine && amt > myCeiling;
+            return (
+              <button
+                type="submit"
+                className="button"
+                style={{
+                  borderColor: danger ? "var(--red)" : "var(--cyan)",
+                  color: danger ? "var(--red)" : "var(--cyan)",
+                }}
+                title={
+                  danger
+                    ? "You're about to overpay — double-check before committing."
+                    : ""
+                }
+              >
+                {existingPick
+                  ? "Save"
+                  : danger
+                    ? "Record (overpay!)"
+                    : "Record pick"}
+              </button>
+            );
+          })()}
         </div>
       </form>
     </div>
@@ -552,18 +674,24 @@ function RookieBoard({
           <thead>
             <tr>
               {th("#", "rank", 40)}
+              <th style={{ width: 44 }} title="Tier by PreDraft $: S=$60+, A=$25-59, B=$8-24, C=$3-7, D=$1-2">
+                Tier
+              </th>
               {th("Player", "name")}
-              {th("PreDraft", "preDraft", 90)}
-              {th("Fair", "inflatedFair", 80)}
-              {th("Enforce", "enforceUpTo", 80)}
-              {th("Max Bid", "myMaxBid", 90)}
+              {th("PreDraft", "preDraft", 82)}
+              {th("Fair", "inflatedFair", 70)}
+              {th("Enforce", "enforceUpTo", 70)}
+              {th("Win at", "myWinningBid", 80)}
+              {th("Max Bid", "myMaxBid", 80)}
               {th("Final", "final", 100)}
               <th style={{ width: 180 }}>Drafted to</th>
               <th style={{ width: 110 }}></th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((p) => (
+            {filtered.map((p) => {
+              const capped = p.myWinningBid < p.theoreticalMaxBid;
+              return (
               <tr
                 key={p.id}
                 className={`draft-row${p.drafted ? " draft-row-drafted" : ""}${
@@ -571,6 +699,14 @@ function RookieBoard({
                 }`}
               >
                 <td className="draft-money">{p.rank}</td>
+                <td>
+                  <span
+                    className={`draft-tier-chip draft-tier-${p.tier}`}
+                    title={`${TIER_LABELS[p.tier] || p.tier} tier`}
+                  >
+                    {p.tier}
+                  </span>
+                </td>
                 <td>{p.name}</td>
                 <td>
                   <input
@@ -586,7 +722,34 @@ function RookieBoard({
                 </td>
                 <td className="draft-money">{fmt$(p.inflatedFair)}</td>
                 <td className="draft-money">{fmt$(p.enforceUpTo)}</td>
-                <td className="draft-money draft-money-max">
+                <td
+                  className="draft-money draft-money-win"
+                  title={
+                    capped
+                      ? `Capped by top rival ceiling (${fmt$(
+                          stats.topCompetitorMax,
+                        )} + $1). Theoretical max was ${fmt$(
+                          p.theoreticalMaxBid,
+                        )}.`
+                      : `Limited by my theoretical max (${fmt$(
+                          p.theoreticalMaxBid,
+                        )})`
+                  }
+                >
+                  {fmt$(p.myWinningBid)}
+                  {capped && (
+                    <span
+                      style={{
+                        marginLeft: 4,
+                        fontSize: "0.64rem",
+                        color: "var(--green)",
+                      }}
+                    >
+                      ✓
+                    </span>
+                  )}
+                </td>
+                <td className="draft-money draft-money-max" title="Theoretical max bid if forced all the way to the ceiling.">
                   {fmt$(p.myMaxBid)}
                 </td>
                 <td className="draft-money">
@@ -650,11 +813,12 @@ function RookieBoard({
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
             {filtered.length === 0 && (
               <tr>
                 <td
-                  colSpan={9}
+                  colSpan={11}
                   className="muted"
                   style={{ padding: 14, textAlign: "center" }}
                 >
@@ -777,6 +941,11 @@ export default function DraftDashboardPage() {
         if (teamTotals.length === 0) {
           throw new Error("Draft capital feed had no team totals.");
         }
+        // Raw picks array — used to derive per-team initial slot
+        // counts (how many rookie picks each team currently owns).
+        // Feeds into the slot-adjusted effectiveBudget calculation
+        // so MaxBid / WinningBid reflect real opponent bidding power.
+        const picksArray = Array.isArray(data?.picks) ? data.picks : [];
 
         setWorkspace((ws) => {
           // Non-force fetches are gated: if the user has already
@@ -785,13 +954,14 @@ export default function DraftDashboardPage() {
           const { workspace: next, matched, added } = mergeDraftCapitalTeams(
             ws,
             teamTotals,
+            { picks: picksArray },
           );
           if (!quiet) {
             setCapitalStatus((s) => ({
               ...s,
-              info: `Loaded ${matched} team budgets from Draft Capital${
+              info: `Loaded ${matched} team budgets${
                 added > 0 ? ` (${added} new)` : ""
-              }.`,
+              }${picksArray.length > 0 ? ` · ${picksArray.length} picks tracked` : ""}.`,
             }));
           }
           return next;

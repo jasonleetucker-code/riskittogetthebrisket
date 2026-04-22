@@ -3664,8 +3664,8 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 .draft-team-row {
   display: grid;
-  grid-template-columns: 32px 1fr 80px 70px 90px 50px;
-  gap: 8px;
+  grid-template-columns: 32px 1fr 72px 60px 72px 56px 62px;
+  gap: 6px;
   align-items: center;
   padding: 4px 0;
 }
@@ -3959,4 +3959,67 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   gap: 8px;
   padding: 12px 14px;
   border-top: 1px solid var(--border);
+}
+
+/* ── Tier 1: tier chips, winning-bid emphasis, overpay warning ─── */
+
+.draft-tier-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-align: center;
+  min-width: 18px;
+  border: 1px solid var(--border);
+  font-family: var(--mono, monospace);
+}
+.draft-tier-S {
+  background: rgba(255, 198, 47, 0.15);
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+.draft-tier-A {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: var(--green);
+  color: var(--green);
+}
+.draft-tier-B {
+  background: rgba(167, 139, 250, 0.12);
+  border-color: #a78bfa;
+  color: #c4b5fd;
+}
+.draft-tier-C {
+  background: rgba(153, 166, 200, 0.1);
+  color: var(--muted);
+}
+.draft-tier-D {
+  background: rgba(153, 166, 200, 0.05);
+  color: var(--subtext);
+}
+
+.draft-money-win {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.draft-stat-green .draft-stat-value { color: var(--green); }
+.draft-stat-red .draft-stat-value { color: var(--red); }
+
+.draft-modal-warn {
+  margin-top: 4px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--red);
+  background: rgba(248, 113, 113, 0.08);
+  color: var(--red);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+.draft-modal-warn strong {
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  margin-right: 4px;
 }

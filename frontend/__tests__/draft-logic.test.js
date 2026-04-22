@@ -8,19 +8,26 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_AGGRESSION,
   DEFAULT_ENFORCE_PCT,
+  DEFAULT_INITIAL_SLOTS,
   DEFAULT_TEAMS,
   DEFAULT_ROOKIES,
   DRAFT_STORAGE_KEY,
+  PHASE_LATE_BOOST,
+  TIER_DEFS,
+  TIER_CONFIDENCE_MIN_SAMPLES,
   addPlayer,
   bidStatus,
   computeDraftStats,
   createDefaultWorkspace,
+  effectiveBudgetFor,
   hydrateWorkspace,
   mergeDraftCapitalTeams,
   playerSlug,
   recordPick,
   removePick,
   removePlayer,
+  slotsByTeamFromPicks,
+  tierForPreDraft,
   undoLastPick,
   updatePlayerPreDraft,
   updateSettings,
@@ -389,17 +396,45 @@ describe("bidStatus", () => {
     expect(bidStatus(love, 0).level).toBe("idle");
   });
 
-  it("push when bid is below enforce floor", () => {
+  it("push when bid is below enforce floor AND below ceiling", () => {
+    // Opening Love: enforce=108, winningBid=68 (top competitor is
+    // Joel at 68 effective).  Bid of $50 is below both → push.
     expect(bidStatus(love, 50).level).toBe("push");
   });
 
-  it("target (sweet spot) when between enforce and max", () => {
-    // enforce=108, max=193 → 150 should be target.
-    expect(bidStatus(love, 150).level).toBe("target");
+  it("pass when bid exceeds winning bid (pass-beats-push)", () => {
+    // Opening Love winning bid ≈ 68.  Bid of $100 is below the
+    // enforce cap (108) but above the ceiling — overpay territory.
+    // Pre-Tier-1 this was "target"; post-Tier-1 the competitor
+    // ceiling rules.
+    expect(bidStatus(love, 100).level).toBe("pass");
   });
 
-  it("pass when bid exceeds max", () => {
+  it("pass when bid far above ceiling", () => {
     expect(bidStatus(love, 250).level).toBe("pass");
+  });
+
+  it("target when bid between enforce and ceiling (mid-draft, rich rivals)", () => {
+    // Force a scenario with a rich rival so ceiling > enforce and
+    // "sweet spot" actually has space.  Simulate it by giving every
+    // other team the same budget as Russini Panini so competitor
+    // ceiling ≈ my own wealth.
+    const richWs = createDefaultWorkspace();
+    const evenWs = {
+      ...richWs,
+      teams: richWs.teams.map((t, i) =>
+        i === 0 ? t : { ...t, initialBudget: 400 },
+      ),
+    };
+    const evenStats = computeDraftStats(evenWs);
+    const loveRich = evenStats.enrichedPlayers.find(
+      (p) => p.name === "Jeremiyah Love",
+    );
+    // With 11 teams at $400 each, ceiling high → enforce=108 and
+    // winning ≈ 400+1 competitor reality.  A bid of $120 sits
+    // between enforce and ceiling → "target".
+    expect(loveRich.myWinningBid).toBeGreaterThan(loveRich.enforceUpTo);
+    expect(bidStatus(loveRich, 120).level).toBe("target");
   });
 
   it("mine/gone labels when already drafted", () => {
@@ -630,5 +665,394 @@ describe("workspaceIsPristine", () => {
   it("gracefully handles null / undefined input", () => {
     expect(workspaceIsPristine(null)).toBe(false);
     expect(workspaceIsPristine(undefined)).toBe(false);
+  });
+});
+
+// ── Tier 1 upgrades ─────────────────────────────────────────────────────
+
+describe("tierForPreDraft", () => {
+  it("classifies by PreDraft $ thresholds", () => {
+    expect(tierForPreDraft(135)).toBe("S");
+    expect(tierForPreDraft(60)).toBe("S");
+    expect(tierForPreDraft(59)).toBe("A");
+    expect(tierForPreDraft(25)).toBe("A");
+    expect(tierForPreDraft(24)).toBe("B");
+    expect(tierForPreDraft(8)).toBe("B");
+    expect(tierForPreDraft(7)).toBe("C");
+    expect(tierForPreDraft(3)).toBe("C");
+    expect(tierForPreDraft(2)).toBe("D");
+    expect(tierForPreDraft(1)).toBe("D");
+    expect(tierForPreDraft(0)).toBe("D");
+  });
+
+  it("coerces bad input to D", () => {
+    expect(tierForPreDraft(null)).toBe("D");
+    expect(tierForPreDraft(undefined)).toBe("D");
+    expect(tierForPreDraft("garbage")).toBe("D");
+    expect(tierForPreDraft(-5)).toBe("D");
+  });
+
+  it("TIER_DEFS exports 5 tiers in descending price order", () => {
+    expect(TIER_DEFS.map((t) => t.key)).toEqual(["S", "A", "B", "C", "D"]);
+    for (let i = 1; i < TIER_DEFS.length; i++) {
+      expect(TIER_DEFS[i].min).toBeLessThan(TIER_DEFS[i - 1].min);
+    }
+  });
+});
+
+describe("effectiveBudgetFor", () => {
+  it("reserves $1 per remaining slot beyond the current bid", () => {
+    expect(effectiveBudgetFor(100, 3)).toBe(98); // $1 × 2 reserved
+    expect(effectiveBudgetFor(100, 1)).toBe(100); // last slot: full budget
+    expect(effectiveBudgetFor(5, 5)).toBe(1); // $1 × 4 reserved
+  });
+
+  it("returns 0 when slots are 0 (team has no roster space)", () => {
+    expect(effectiveBudgetFor(50, 0)).toBe(0);
+  });
+
+  it("returns 0 when team is over-committed (more slots than $)", () => {
+    expect(effectiveBudgetFor(10, 11)).toBe(0);
+  });
+
+  it("handles bad input gracefully", () => {
+    expect(effectiveBudgetFor(null, 3)).toBe(0);
+    expect(effectiveBudgetFor(100, null)).toBe(0);
+    expect(effectiveBudgetFor(-5, 3)).toBe(0);
+  });
+});
+
+describe("slotsByTeamFromPicks", () => {
+  it("counts picks per currentOwner (case-insensitive)", () => {
+    const picks = [
+      { currentOwner: "Russini Panini" },
+      { currentOwner: "Russini Panini" },
+      { currentOwner: "jstuedle" },
+      { currentOwner: "RUSSINI PANINI" }, // different casing
+    ];
+    const counts = slotsByTeamFromPicks(picks);
+    expect(counts.get("russini panini")).toBe(3);
+    expect(counts.get("jstuedle")).toBe(1);
+  });
+
+  it("handles null / non-array input", () => {
+    expect(slotsByTeamFromPicks(null).size).toBe(0);
+    expect(slotsByTeamFromPicks(undefined).size).toBe(0);
+    expect(slotsByTeamFromPicks("bad").size).toBe(0);
+  });
+
+  it("ignores picks with missing owner", () => {
+    const picks = [
+      { currentOwner: "Russini Panini" },
+      { currentOwner: "" },
+      { currentOwner: null },
+      {},
+    ];
+    expect(slotsByTeamFromPicks(picks).get("russini panini")).toBe(1);
+  });
+});
+
+// ── computeDraftStats: Tier 1 derivations ───────────────────────────────
+
+describe("computeDraftStats — Tier 1 new fields", () => {
+  const ws = createDefaultWorkspace();
+  const stats = computeDraftStats(ws);
+
+  it("exposes initialSlots / slotsRemaining / effectiveBudget per team", () => {
+    for (const t of stats.teamStats) {
+      expect(t.initialSlots).toBe(DEFAULT_INITIAL_SLOTS);
+      expect(t.slotsDrafted).toBe(0);
+      expect(t.slotsRemaining).toBe(DEFAULT_INITIAL_SLOTS);
+      // effectiveBudget = max(0, remaining − (slots − 1))
+      expect(t.effectiveBudget).toBe(
+        Math.max(0, t.remaining - (DEFAULT_INITIAL_SLOTS - 1)),
+      );
+    }
+  });
+
+  it("slotPressure is 0 at draft start", () => {
+    expect(stats.slotPressure).toBe(0);
+    expect(stats.phaseMultiplier).toBe(1);
+  });
+
+  it("topCompetitorMax is the max OTHER slot-adjusted budget", () => {
+    // Teams 1-10 have $71, Joel has $73.  All with 6 slots.
+    // Effective: 71-5=66, 73-5=68.  Top competitor = 68 (Joel).
+    expect(stats.topCompetitorMax).toBe(68);
+  });
+
+  it("enrichedPlayers carry tier + myWinningBid", () => {
+    const love = stats.enrichedPlayers.find(
+      (p) => p.name === "Jeremiyah Love",
+    );
+    expect(love.tier).toBe("S");
+    // Love's theoretical max at opening is 193; competitor ceiling
+    // caps winning bid at 68+1=69.
+    expect(love.theoreticalMaxBid).toBe(193);
+    expect(love.myWinningBid).toBe(69);
+  });
+
+  it("myWinningBid ≤ theoreticalMaxBid for every undrafted player", () => {
+    for (const p of stats.enrichedPlayers) {
+      if (p.drafted) continue;
+      expect(p.myWinningBid).toBeLessThanOrEqual(p.theoreticalMaxBid);
+    }
+  });
+
+  it("tier heat is null at draft start (no samples)", () => {
+    for (const key of ["S", "A", "B", "C", "D"]) {
+      expect(stats.tierHeat[key]).toBeNull();
+      expect(stats.tierConfidence[key]).toBe(0);
+      expect(stats.tierSampleCount[key]).toBe(0);
+    }
+  });
+});
+
+describe("computeDraftStats — preDraftAtPick snapshot", () => {
+  it("recordPick stores the current preDraft at the moment of the pick", () => {
+    const ws = createDefaultWorkspace();
+    const love = ws.players.find((p) => p.name === "Jeremiyah Love");
+    const next = recordPick(ws, {
+      playerId: love.id,
+      teamIdx: 0,
+      amount: 120,
+    });
+    expect(next.picks[0].preDraftAtPick).toBe(135);
+  });
+
+  it("retroactive preDraft edit does NOT change tier heat (snapshot wins)", () => {
+    const ws = createDefaultWorkspace();
+    const love = ws.players.find((p) => p.name === "Jeremiyah Love");
+    const withPick = recordPick(ws, {
+      playerId: love.id,
+      teamIdx: 5,
+      amount: 200,
+    });
+    const before = computeDraftStats(withPick);
+    // Now the user decides Love is actually worth 80 (retroactive).
+    const withEdit = updatePlayerPreDraft(withPick, love.id, 80);
+    const after = computeDraftStats(withEdit);
+    // tierHeat for S should be unchanged because preDraftAtPick
+    // snapshot is what's used, not the current player.preDraft.
+    expect(after.tierHeat.S).toBeCloseTo(before.tierHeat.S, 4);
+    // And the inflation denominator is the same (also uses snapshot).
+    expect(after.inflation).toBeCloseTo(before.inflation, 4);
+  });
+});
+
+describe("computeDraftStats — tier heat / inflation blend", () => {
+  it("one S-tier overpay pushes tier heat > 1 with low confidence", () => {
+    const ws = createDefaultWorkspace();
+    const love = ws.players.find((p) => p.name === "Jeremiyah Love");
+    const stats = computeDraftStats(
+      recordPick(ws, { playerId: love.id, teamIdx: 5, amount: 200 }),
+    );
+    expect(stats.tierHeat.S).toBeCloseTo(200 / 135, 4);
+    // 1 sample / 3-sample min = 0.333 confidence
+    expect(stats.tierConfidence.S).toBeCloseTo(1 / 3, 4);
+    expect(stats.tierSampleCount.S).toBe(1);
+  });
+
+  it("three S-tier picks hits full confidence", () => {
+    const ws = createDefaultWorkspace();
+    const love = ws.players.find((p) => p.name === "Jeremiyah Love");
+    const mendoza = ws.players.find(
+      (p) => p.name === "Fernando Mendoza",
+    );
+    const lemon = ws.players.find((p) => p.name === "Makai Lemon");
+    let next = recordPick(ws, { playerId: love.id, teamIdx: 5, amount: 135 });
+    next = recordPick(next, { playerId: mendoza.id, teamIdx: 4, amount: 102 });
+    next = recordPick(next, { playerId: lemon.id, teamIdx: 3, amount: 90 });
+    const stats = computeDraftStats(next);
+    expect(stats.tierSampleCount.S).toBe(3);
+    expect(stats.tierConfidence.S).toBe(1);
+    // Paid exactly fair each time → heat = 1.0
+    expect(stats.tierHeat.S).toBeCloseTo(1.0, 4);
+  });
+
+  it("tier heat is unaffected by picks in other tiers", () => {
+    const ws = createDefaultWorkspace();
+    // Draft a $1 D-tier player at $10 (massive overpay, but for D).
+    const caleb = ws.players.find((p) => p.name === "Caleb Douglas");
+    const next = recordPick(ws, {
+      playerId: caleb.id,
+      teamIdx: 3,
+      amount: 10,
+    });
+    const stats = computeDraftStats(next);
+    expect(stats.tierHeat.D).toBeGreaterThan(1);
+    expect(stats.tierHeat.S).toBeNull();
+    expect(stats.tierHeat.A).toBeNull();
+    expect(stats.tierHeat.B).toBeNull();
+    expect(stats.tierHeat.C).toBeNull();
+  });
+});
+
+describe("computeDraftStats — phase multiplier (slot pressure)", () => {
+  it("ramps up as my slots drain", () => {
+    // Simulate me (team 0) drafting 5 of 6 picks at $1 each so we
+    // move slotPressure from 0 → 5/6 without blowing the budget
+    // (and without disturbing tier S heat).
+    const ws = createDefaultWorkspace();
+    const picks = [
+      "Caleb Douglas",
+      "De'Zhaun Stribling",
+      "Drew Allar",
+      "Roman Hemby",
+      "Jeff Caldwell",
+    ];
+    let next = ws;
+    for (const name of picks) {
+      const p = next.players.find((pl) => pl.name === name);
+      next = recordPick(next, {
+        playerId: p.id,
+        teamIdx: 0,
+        amount: 1,
+      });
+    }
+    const stats = computeDraftStats(next);
+    expect(stats.mySlotsRemaining).toBe(1);
+    expect(stats.slotPressure).toBeCloseTo(5 / 6, 4);
+    // phaseMultiplier = 1 + (5/6) × 0.5 ≈ 1.417
+    expect(stats.phaseMultiplier).toBeCloseTo(1 + (5 / 6) * PHASE_LATE_BOOST, 4);
+  });
+
+  it("phase multiplier stays at 1 when no slots drafted", () => {
+    const stats = computeDraftStats(createDefaultWorkspace());
+    expect(stats.phaseMultiplier).toBe(1);
+  });
+});
+
+describe("computeDraftStats — top competitor ceiling capping", () => {
+  it("winning bid collapses to 1 when every other team is bankrupt", () => {
+    const ws = createDefaultWorkspace();
+    // Zero every other team's budget.
+    const bankruptWs = {
+      ...ws,
+      teams: ws.teams.map((t, i) =>
+        i === 0 ? t : { ...t, initialBudget: 0 },
+      ),
+    };
+    const stats = computeDraftStats(bankruptWs);
+    expect(stats.topCompetitorMax).toBe(0);
+    const love = stats.enrichedPlayers.find(
+      (p) => p.name === "Jeremiyah Love",
+    );
+    // myWinningBid = max(1, 0+1) = 1 — I lock any player for $1.
+    expect(love.myWinningBid).toBe(1);
+  });
+
+  it("winning bid uncapped (up to theoretical max) with wealthy rivals", () => {
+    const ws = createDefaultWorkspace();
+    // Set every rival to my budget so competitor ceiling is high.
+    const evenWs = {
+      ...ws,
+      teams: ws.teams.map((t, i) =>
+        i === 0 ? t : { ...t, initialBudget: 417 },
+      ),
+    };
+    const stats = computeDraftStats(evenWs);
+    expect(stats.topCompetitorMax).toBeGreaterThan(400);
+    const love = stats.enrichedPlayers.find(
+      (p) => p.name === "Jeremiyah Love",
+    );
+    // Budget advantage ≈ 1.0 now, so theoretical max ≈ preDraft ×
+    // (1 + 0.09 × 0) = preDraft.  Winning bid doesn't cap below it.
+    expect(love.myWinningBid).toBeCloseTo(love.theoreticalMaxBid, 0);
+  });
+});
+
+describe("mergeDraftCapitalTeams — with picks array", () => {
+  const teamTotals = [
+    { team: "Russini Panini", auctionDollars: 418 },
+    { team: "jstuedle", auctionDollars: 171 },
+    { team: "Pop Trunk", auctionDollars: 0 },
+  ];
+  const picks = [
+    // Russini owns 8 picks, jstuedle 3, Pop Trunk 0
+    ...Array(8).fill({ currentOwner: "Russini Panini" }),
+    ...Array(3).fill({ currentOwner: "jstuedle" }),
+  ];
+
+  it("sets initialSlots from the picks array when supplied", () => {
+    const ws = createDefaultWorkspace();
+    const { workspace } = mergeDraftCapitalTeams(ws, teamTotals, { picks });
+    const russini = workspace.teams.find((t) => t.name === "Russini Panini");
+    const jstu = workspace.teams.find((t) => t.name === "jstuedle");
+    const pop = workspace.teams.find((t) => t.name === "Pop Trunk");
+    expect(russini.initialSlots).toBe(8);
+    expect(jstu.initialSlots).toBe(3);
+    expect(pop.initialSlots).toBe(0);
+  });
+
+  it("without picks array, initialSlots falls back to DEFAULT_INITIAL_SLOTS", () => {
+    const ws = createDefaultWorkspace();
+    const { workspace } = mergeDraftCapitalTeams(ws, teamTotals);
+    const russini = workspace.teams.find((t) => t.name === "Russini Panini");
+    expect(russini.initialSlots).toBe(DEFAULT_INITIAL_SLOTS);
+  });
+});
+
+describe("hydrateWorkspace — Tier 1 field backfill", () => {
+  it("backfills preDraftAtPick from current player when missing", () => {
+    const parsed = {
+      version: 1,
+      settings: { myTeamIdx: 0 },
+      teams: DEFAULT_TEAMS,
+      players: DEFAULT_ROOKIES.map((p) => ({
+        id: playerSlug(p.name),
+        rank: p.rank,
+        name: p.name,
+        preDraft: p.preDraft,
+      })),
+      picks: [
+        // Old-format pick: no preDraftAtPick field
+        {
+          playerId: playerSlug("Jeremiyah Love"),
+          teamIdx: 0,
+          amount: 120,
+          ts: 1000,
+        },
+      ],
+    };
+    const ws = hydrateWorkspace(parsed);
+    expect(ws.picks[0].preDraftAtPick).toBe(135); // from player.preDraft
+  });
+
+  it("preserves preDraftAtPick when present (no retroactive rewrite)", () => {
+    const parsed = {
+      version: 1,
+      settings: { myTeamIdx: 0 },
+      teams: DEFAULT_TEAMS,
+      players: DEFAULT_ROOKIES.map((p) => ({
+        id: playerSlug(p.name),
+        rank: p.rank,
+        name: p.name,
+        preDraft: p.preDraft,
+      })),
+      picks: [
+        {
+          playerId: playerSlug("Jeremiyah Love"),
+          teamIdx: 0,
+          amount: 120,
+          preDraftAtPick: 999, // user edited preDraft after pick
+          ts: 1000,
+        },
+      ],
+    };
+    const ws = hydrateWorkspace(parsed);
+    expect(ws.picks[0].preDraftAtPick).toBe(999);
+  });
+
+  it("backfills initialSlots to DEFAULT_INITIAL_SLOTS when missing", () => {
+    const parsed = {
+      version: 1,
+      settings: { myTeamIdx: 0 },
+      teams: [{ name: "A", initialBudget: 100 }], // no initialSlots
+      players: [],
+      picks: [],
+    };
+    const ws = hydrateWorkspace(parsed);
+    expect(ws.teams[0].initialSlots).toBe(DEFAULT_INITIAL_SLOTS);
   });
 });
