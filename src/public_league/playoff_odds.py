@@ -19,9 +19,13 @@ For the *current* season only:
 2. Determine the remaining schedule.  Sleeper exposes matchups only
    for weeks that have been posted (usually current + a couple of
    future weeks).  For posted-but-not-played weeks we honour the
-   exact matchup pairs.  For further-out weeks we assume a standard
-   single round-robin rotation over a week-0 reference pairing, which
-   closely matches how most Sleeper leagues schedule.
+   exact matchup pairs.  For further-out weeks we first try to infer
+   the pairings from the observed posted-week pattern — detecting the
+   cycle length by looking for pair-set repetition across posted
+   weeks and propagating forward.  Only when fewer than 2 posted
+   weeks are available (or the observed block leaves residues
+   uncovered) do we fall back to a synthetic single round-robin
+   rotation.
 
 3. Run N Monte Carlo simulations.  In each run, for every remaining
    week, sample each owner's score from their empirical distribution
@@ -185,6 +189,128 @@ def _regular_season_record_to_date(
     return out
 
 
+def _all_posted_pair_lists(
+    season: SeasonSnapshot,
+    registry,
+) -> dict[int, list[tuple[str, str]]]:
+    """Owner-id pairs for every regular-season week Sleeper has posted
+    matchup assignments for — regardless of whether the games are
+    already scored.
+
+    Differs from ``_posted_future_matchups`` in that this helper does
+    not filter out fully-scored matchups.  Cycle detection in
+    ``_infer_schedule_from_posted`` needs the authoritative pairings
+    from already-played weeks, not just the live/future un-played ones.
+    """
+    out: dict[int, list[tuple[str, str]]] = {}
+    for wk in season.regular_season_weeks:
+        entries = season.matchups_by_week.get(wk) or []
+        pairs: list[tuple[str, str]] = []
+        for a, b in metrics.matchup_pairs(entries):
+            rid_a = metrics.roster_id_of(a)
+            rid_b = metrics.roster_id_of(b)
+            if rid_a is None or rid_b is None:
+                continue
+            oa = metrics.resolve_owner(registry, season.league_id, rid_a)
+            ob = metrics.resolve_owner(registry, season.league_id, rid_b)
+            if oa and ob:
+                pairs.append((oa, ob))
+        if pairs:
+            out[wk] = pairs
+    return out
+
+
+def _detect_cycle_length(
+    posted_weeks: list[int],
+    canonical: dict[int, frozenset],
+) -> int | None:
+    """Return the smallest ``L ≥ 1`` such that every pair of posted
+    weeks sharing a residue ``(w - anchor) mod L`` has the same
+    canonical pair-set, AND at least one such overlap exists.
+
+    Returns ``None`` when no cycle can be confirmed — e.g. all posted
+    weeks carry distinct pair-sets and no ``L`` within the span lines
+    two of them up.
+    """
+    if len(posted_weeks) < 2:
+        return None
+    anchor = posted_weeks[0]
+    span = posted_weeks[-1] - anchor
+    for L in range(1, span + 1):
+        residues: dict[int, frozenset] = {}
+        has_overlap = False
+        ok = True
+        for w in posted_weeks:
+            r = (w - anchor) % L
+            if r in residues:
+                has_overlap = True
+                if residues[r] != canonical[w]:
+                    ok = False
+                    break
+            else:
+                residues[r] = canonical[w]
+        if ok and has_overlap:
+            return L
+    return None
+
+
+def _infer_schedule_from_posted(
+    season: SeasonSnapshot,
+    registry,
+) -> dict[int, list[tuple[str, str]]] | None:
+    """Infer per-week owner pairs for every regular-season week from
+    the pattern of posted weeks.
+
+    Returns a full schedule dict when inference succeeds, or ``None``
+    when fewer than 2 posted weeks are available (caller should fall
+    back to ``_round_robin_schedule``) or when at least one regular-
+    season week has no matching residue in the observed pattern.
+
+    Algorithm:
+      1. Gather all posted weeks with their canonical pair-sets.
+      2. Detect the cycle length ``L`` via pair-set repetition across
+         posted weeks.  If no cycle is confirmed, fall back to
+         ``L = span + 1`` — treats the contiguous observed block as a
+         single cycle and propagates it forward.
+      3. For each regular-season week, reuse the posted pairs from the
+         observed week with the same residue ``(wk - anchor) mod L``.
+    """
+    posted_pairs = _all_posted_pair_lists(season, registry)
+    if len(posted_pairs) < 2:
+        return None
+    posted_weeks = sorted(posted_pairs.keys())
+    canonical = {
+        w: frozenset(frozenset(p) for p in posted_pairs[w]) for w in posted_weeks
+    }
+    anchor = posted_weeks[0]
+
+    cycle_length = _detect_cycle_length(posted_weeks, canonical)
+    if cycle_length is None:
+        # No confirmed repetition — treat the posted block itself as
+        # the cycle.  Works for the common case of weeks [1..k] posted
+        # with distinct pairings: week k+1 inherits week 1's pairs.
+        cycle_length = posted_weeks[-1] - anchor + 1
+
+    residue_to_week: dict[int, int] = {}
+    for w in posted_weeks:
+        r = (w - anchor) % cycle_length
+        residue_to_week.setdefault(r, w)
+
+    schedule: dict[int, list[tuple[str, str]]] = {}
+    for wk in season.regular_season_weeks:
+        if wk in posted_pairs:
+            schedule[wk] = posted_pairs[wk]
+            continue
+        residue = (wk - anchor) % cycle_length
+        src_week = residue_to_week.get(residue)
+        if src_week is None:
+            # Posted block has a gap at this residue — inference
+            # can't cover every missing week; caller falls back.
+            return None
+        schedule[wk] = posted_pairs[src_week]
+    return schedule
+
+
 def _posted_future_matchups(
     season: SeasonSnapshot,
     registry,
@@ -317,7 +443,7 @@ def compute_playoff_odds(
           "playoffSpots": 6,
           "weeksPlayed": 8,
           "weeksRemaining": 5,
-          "scheduleCertainty": "posted" | "inferred" | "partial",
+          "scheduleCertainty": "posted" | "inferred_from_posted" | "partial" | "inferred",
           "owners": [
             {
               "ownerId": "...",
@@ -476,11 +602,31 @@ def compute_playoff_odds(
         }
 
     posted = _posted_future_matchups(season, registry)
-    schedule_certainty = "posted" if all(wk in posted for wk in remaining_weeks) else (
-        "partial" if any(wk in posted for wk in remaining_weeks) else "inferred"
-    )
     missing_weeks = [wk for wk in remaining_weeks if wk not in posted]
-    inferred = _round_robin_schedule(owners_in_league, missing_weeks)
+    # For missing future weeks, prefer inference from the observed
+    # posted-week pattern over a synthetic round-robin — the latter
+    # ignores Sleeper's actual pairings and can invent opponents the
+    # league will never face.  Fall back to round-robin only when
+    # fewer than 2 posted weeks exist (helper returns ``None``) or
+    # when the observed block has gaps that block inference.
+    inferred_full = (
+        _infer_schedule_from_posted(season, registry) if missing_weeks else None
+    )
+    if missing_weeks and inferred_full is not None:
+        inferred = {wk: inferred_full.get(wk, []) for wk in missing_weeks}
+        used_posted_inference = True
+    else:
+        inferred = _round_robin_schedule(owners_in_league, missing_weeks)
+        used_posted_inference = False
+
+    if not missing_weeks:
+        schedule_certainty = "posted"
+    elif used_posted_inference:
+        schedule_certainty = "inferred_from_posted"
+    elif any(wk in posted for wk in remaining_weeks):
+        schedule_certainty = "partial"
+    else:
+        schedule_certainty = "inferred"
     full_schedule = {**inferred, **posted}
 
     owner_pool: dict[str, list[float]] = {}

@@ -526,3 +526,207 @@ class NumSimsGuard(_Base):
             self.snapshot, num_sims="bogus", rng=random.Random(0)  # type: ignore[arg-type]
         )
         self.assertEqual(result["numSims"], 0)
+
+
+class ScheduleInferenceFromPosted(unittest.TestCase):
+    """Regression for the round-robin fallback gap: when the league
+    has posted enough weeks to reveal the rotation pattern, subsequent
+    un-posted weeks should inherit the observed pairings rather than
+    being filled in by a synthetic circle-method round-robin.
+    """
+
+    @staticmethod
+    def _pair_row(matchup_id: int, roster_id: int, points: float = 0.0) -> dict:
+        return {"roster_id": roster_id, "matchup_id": matchup_id, "points": points}
+
+    def _make_season(
+        self,
+        entries_by_week: dict[int, list[dict]],
+        *,
+        playoff_week_start: int = 15,
+    ):
+        entries = entries_by_week
+        cutoff = playoff_week_start
+
+        class _Season:
+            league_id = "L1"
+            league = {"settings": {"playoff_week_start": cutoff}}
+            matchups_by_week = entries
+
+            @property
+            def regular_season_weeks(self):
+                return sorted(w for w in entries if w < cutoff)
+
+        return _Season()
+
+    def setUp(self) -> None:
+        self._orig_resolve = playoff_odds.metrics.resolve_owner
+        playoff_odds.metrics.resolve_owner = (  # type: ignore[attr-defined]
+            lambda reg, league_id, rid: f"owner-{rid}"
+        )
+
+    def tearDown(self) -> None:
+        playoff_odds.metrics.resolve_owner = self._orig_resolve  # type: ignore[attr-defined]
+
+    def test_detects_four_team_three_week_cycle(self) -> None:
+        # 4 teams → round-robin cycle length 3.  Weeks 1-5 posted with
+        # week 4 == week 1 and week 5 == week 2.  Un-posted week 6
+        # should inherit week 3's pairing (same residue mod 3).
+        # Week 1: (1v2, 3v4); Week 2: (1v3, 2v4); Week 3: (1v4, 2v3).
+        entries = {
+            1: [self._pair_row(10, 1, 120.0), self._pair_row(10, 2, 110.0),
+                self._pair_row(11, 3,  95.0), self._pair_row(11, 4, 105.0)],
+            2: [self._pair_row(20, 1, 130.0), self._pair_row(20, 3, 115.0),
+                self._pair_row(21, 2, 140.0), self._pair_row(21, 4,  98.0)],
+            3: [self._pair_row(30, 1, 125.0), self._pair_row(30, 4, 108.0),
+                self._pair_row(31, 2, 133.0), self._pair_row(31, 3, 112.0)],
+            4: [self._pair_row(40, 1,   0.0), self._pair_row(40, 2,   0.0),
+                self._pair_row(41, 3,   0.0), self._pair_row(41, 4,   0.0)],
+            5: [self._pair_row(50, 1,   0.0), self._pair_row(50, 3,   0.0),
+                self._pair_row(51, 2,   0.0), self._pair_row(51, 4,   0.0)],
+            # Weeks 6..14 intentionally absent — inference must fill them.
+        }
+        # Regular season weeks 1..14, playoffs week 15+.  Note the
+        # helper only inspects weeks present in ``matchups_by_week``,
+        # so expand that to include empty entries for the missing
+        # weeks so regular_season_weeks returns the full range.
+        for wk in range(6, 15):
+            entries[wk] = []
+        season = self._make_season(entries, playoff_week_start=15)
+        schedule = playoff_odds._infer_schedule_from_posted(season, None)
+        self.assertIsNotNone(schedule)
+
+        def _pair_set(week_pairs):
+            return frozenset(frozenset(p) for p in week_pairs)
+
+        # Verify cycle propagation: week 6 ≡ week 3, week 7 ≡ week 1,
+        # week 8 ≡ week 2, and so on through the rest of the season.
+        self.assertEqual(_pair_set(schedule[6]), _pair_set(schedule[3]))
+        self.assertEqual(_pair_set(schedule[7]), _pair_set(schedule[1]))
+        self.assertEqual(_pair_set(schedule[8]), _pair_set(schedule[2]))
+        self.assertEqual(_pair_set(schedule[14]), _pair_set(schedule[2]))
+        # And posted weeks survive verbatim.
+        self.assertEqual(_pair_set(schedule[1]),
+                         _pair_set([("owner-1", "owner-2"), ("owner-3", "owner-4")]))
+
+    def test_odd_team_count_league_cycle_propagates(self) -> None:
+        # 5 teams, 2 pairs posted per week (one roster sits out each
+        # week — Sleeper encodes byes by simply not listing that
+        # roster in the week's matchups).  Weeks 1-6 posted with a
+        # 5-week cycle (week 6 == week 1).  Inference must carry that
+        # pattern into weeks 7+, preserving the bye rotation.
+        weekly_pairs = {
+            1: [(1, 2), (3, 4)],              # roster 5 on bye
+            2: [(1, 3), (2, 5)],              # roster 4 on bye
+            3: [(1, 4), (3, 5)],              # roster 2 on bye
+            4: [(1, 5), (2, 4)],              # roster 3 on bye
+            5: [(2, 3), (4, 5)],              # roster 1 on bye
+        }
+        # Week 6 repeats week 1 to give the detector something to
+        # latch onto.
+        weekly_pairs[6] = list(weekly_pairs[1])
+
+        entries: dict[int, list[dict]] = {}
+        for wk, pairs in weekly_pairs.items():
+            rows: list[dict] = []
+            for idx, (a, b) in enumerate(pairs):
+                rows.append(self._pair_row(wk * 100 + idx, a, 100.0))
+                rows.append(self._pair_row(wk * 100 + idx, b,  90.0))
+            entries[wk] = rows
+        for wk in range(7, 15):
+            entries[wk] = []
+        season = self._make_season(entries, playoff_week_start=15)
+        schedule = playoff_odds._infer_schedule_from_posted(season, None)
+        self.assertIsNotNone(schedule)
+
+        def _pair_set(week_pairs):
+            return frozenset(frozenset(p) for p in week_pairs)
+
+        # Cycle length must be 5 because week 6 ≡ week 1.
+        self.assertEqual(_pair_set(schedule[7]), _pair_set(schedule[2]))
+        self.assertEqual(_pair_set(schedule[11]), _pair_set(schedule[1]))
+        # Every propagated week still has exactly 2 pairs (5 teams → 1
+        # bye per week, never 3 pairs).
+        for wk in range(7, 15):
+            self.assertEqual(len(schedule[wk]), 2)
+            # No roster sits in two games in the same week.
+            owners_this_week = [o for pair in schedule[wk] for o in pair]
+            self.assertEqual(len(owners_this_week), len(set(owners_this_week)))
+
+    def test_single_posted_week_falls_back_to_round_robin(self) -> None:
+        # Only week 1 posted — under 2 weeks means we can't detect any
+        # repetition, so the helper returns None and the simulator
+        # falls through to _round_robin_schedule.  scheduleCertainty
+        # stays "partial" (some posted + round-robin fallback) or
+        # "inferred" (no posted at all).  Either way, NOT
+        # "inferred_from_posted".
+        entries = {
+            1: [self._pair_row(10, 1, 120.0), self._pair_row(10, 2, 110.0),
+                self._pair_row(11, 3,  95.0), self._pair_row(11, 4, 105.0)],
+        }
+        for wk in range(2, 15):
+            entries[wk] = []
+        season = self._make_season(entries, playoff_week_start=15)
+        schedule = playoff_odds._infer_schedule_from_posted(season, None)
+        self.assertIsNone(schedule)
+
+    def test_zero_posted_weeks_returns_none(self) -> None:
+        season = self._make_season({wk: [] for wk in range(1, 15)}, playoff_week_start=15)
+        self.assertIsNone(playoff_odds._infer_schedule_from_posted(season, None))
+
+    def test_compute_playoff_odds_reports_inferred_from_posted(self) -> None:
+        # Integration: the new certainty value reaches the public
+        # payload when inference drives the missing-week schedule.
+        entries = {
+            1: [self._pair_row(10, 1, 120.0), self._pair_row(10, 2, 110.0),
+                self._pair_row(11, 3,  95.0), self._pair_row(11, 4, 105.0)],
+            2: [self._pair_row(20, 1, 130.0), self._pair_row(20, 3, 115.0),
+                self._pair_row(21, 2, 140.0), self._pair_row(21, 4,  98.0)],
+            3: [self._pair_row(30, 1, 125.0), self._pair_row(30, 4, 108.0),
+                self._pair_row(31, 2, 133.0), self._pair_row(31, 3, 112.0)],
+            4: [self._pair_row(40, 1, 118.0), self._pair_row(40, 2, 111.0),
+                self._pair_row(41, 3,  97.0), self._pair_row(41, 4, 101.0)],
+        }
+        for wk in range(5, 15):
+            entries[wk] = []
+
+        class _Season:
+            season = "2026"
+            league_id = "L1"
+            league = {"settings": {"playoff_week_start": 15, "playoff_teams": 2}}
+            rosters = [{"roster_id": r} for r in (1, 2, 3, 4)]
+            matchups_by_week = entries
+
+            @property
+            def regular_season_weeks(self):
+                return sorted(w for w in entries if w < 15)
+
+        class _Registry:
+            by_owner_id: dict = {}
+
+        class _Snapshot:
+            def __init__(self) -> None:
+                self._s = _Season()
+                self.managers = _Registry()
+
+            @property
+            def current_season(self):
+                return self._s
+
+        orig_display = playoff_odds.metrics.display_name_for
+        playoff_odds.metrics.display_name_for = (  # type: ignore[attr-defined]
+            lambda snapshot, owner_id: owner_id
+        )
+        try:
+            result = playoff_odds.compute_playoff_odds(
+                _Snapshot(), num_sims=50, rng=random.Random(7)
+            )
+        finally:
+            playoff_odds.metrics.display_name_for = orig_display  # type: ignore[attr-defined]
+
+        self.assertEqual(result["scheduleCertainty"], "inferred_from_posted")
+        # Every owner gets a probability (none skipped by empty
+        # schedule gaps).
+        self.assertEqual(len(result["owners"]), 4)
+        for owner in result["owners"]:
+            self.assertIsNotNone(owner["playoffProbability"])
