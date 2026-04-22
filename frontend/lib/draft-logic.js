@@ -2,18 +2,34 @@
  * Draft-board logic — pure inflation math + state helpers for the
  * live auction dashboard at ``/draft``.
  *
- * Ported from Jason's "Inflation" Google Sheet
- * (https://docs.google.com/spreadsheets/d/17wa6qdZ1Y8ckb4TIVZ4_C71g0skvtk9UZy43zSFzRlA).
- * Every number matches a cell in that sheet; every formula has a
- * comment pointing at the column it came from.
+ * Originally ported from Jason's "Inflation" Google Sheet
+ * (https://docs.google.com/spreadsheets/d/17wa6qdZ1Y8ckb4TIVZ4_C71g0skvtk9UZy43zSFzRlA);
+ * Tier 1 upgrades (2026-04) extend it past the sheet in four ways:
  *
- * Formulas:
+ *   1. ``preDraftAtPick`` snapshot on every pick so retroactive
+ *      PreDraft edits don't corrupt historical inflation tracking.
+ *   2. Per-team ``initialSlots`` accounting (from the live
+ *      ``/api/draft-capital`` picks array) so "slots remaining"
+ *      drives every budget calculation.
+ *   3. Slot-adjusted ``effectiveBudget`` per team + per-player
+ *      ``topCompetitorMax`` so MaxBid is capped by the richest
+ *      rival that can still actually bid, not the mean.
+ *   4. Phase multiplier (``slotPressure``) that ramps aggression
+ *      as my roster nears full, plus tier-specific inflation
+ *      (S / A / B / C / D buckets by PreDraft $) blended with
+ *      global inflation under a confidence weight.
  *
- *   Inflation          = Remaining League $ / Undrafted PreDraft $
- *   Inflated Fair      = PreDraft $ × Inflation
- *   Budget Advantage   = My Remaining / Avg $ per Other Team
- *   My Max Bid         = PreDraft × (1 + Aggression × (Advantage − 1)) × Inflation
- *   Enforce Up To      = Inflated Fair × Enforce %
+ * Core formulas (post-upgrade):
+ *
+ *   Inflation            = RemainingLeague$ / (TotalAuction$ − Σ soldPreDraft)
+ *   Tier heat(T)         = Σ paid in T / Σ preDraftAtPick in T
+ *   Tier inflation(T)    = inflation × (conf × tier_heat + (1−conf) × 1)
+ *   Budget Advantage(p)  = My Effective$ / (avg other effective$; min 1)
+ *   Slot pressure        = 1 − myPicksRemaining / myInitialSlots
+ *   Phase multiplier     = 1 + slotPressure × PHASE_LATE_BOOST
+ *   Theoretical Max(p)   = PreDraft × (1 + Aggression × (BA−1)) × tierInflation(p) × phaseMultiplier
+ *   Winning bid(p)       = min(Theoretical Max, topCompetitorMax + 1)
+ *   Enforce Up To(p)     = Inflated Fair × Enforce %
  *
  * No React dependencies — fully testable.
  */
@@ -26,6 +42,52 @@ export const DEFAULT_TOTAL_BUDGET = 1200;
 export const DEFAULT_TEAM_COUNT = 12;
 export const DEFAULT_AGGRESSION = 0.09;
 export const DEFAULT_ENFORCE_PCT = 0.8;
+/**
+ * Default number of rookie picks per team before any trades.  The
+ * actual per-team count is pulled from ``/api/draft-capital``'s
+ * ``picks`` array on first load; this default only applies to a
+ * pristine workspace before the fetch completes.
+ */
+export const DEFAULT_INITIAL_SLOTS = 6;
+/**
+ * How much slot pressure converts into MaxBid ramp-up.  At
+ * ``slotPressure=1`` (my last pick) MaxBid scales by
+ * ``1 + PHASE_LATE_BOOST`` (1.5× at the default).  Prevents the
+ * "I have $300 and 2 slots left, unused $ is wasted" failure mode.
+ */
+export const PHASE_LATE_BOOST = 0.5;
+/**
+ * Minimum number of tier samples needed before tier inflation is
+ * trusted at full weight.  With fewer samples, tier inflation is
+ * confidence-blended toward 1.0 (no tier adjustment beyond global).
+ */
+export const TIER_CONFIDENCE_MIN_SAMPLES = 3;
+
+// ── Tier partitioning ──────────────────────────────────────────────────
+// PreDraft $ cutoffs for the 5-tier classification.  Tier inflation is
+// computed independently per tier so "elite tier hot" (S-heavy overpays)
+// is surfaced separately from "cheap tier clearing" (D-heavy $1 picks).
+// Ordered from most expensive to least; a player's tier is the first
+// bucket whose ``min`` they meet.
+export const TIER_DEFS = [
+  { key: "S", label: "Elite", min: 60 },
+  { key: "A", label: "Starter", min: 25 },
+  { key: "B", label: "Depth", min: 8 },
+  { key: "C", label: "Dart", min: 3 },
+  { key: "D", label: "Min", min: 0 },
+];
+
+/**
+ * Classify a PreDraft $ value into one of the 5 tiers.
+ * Returns the tier key (``"S"``, ``"A"``, ..., ``"D"``).
+ */
+export function tierForPreDraft(preDraft) {
+  const v = Math.max(0, Number(preDraft) || 0);
+  for (const t of TIER_DEFS) {
+    if (v >= t.min) return t.key;
+  }
+  return "D";
+}
 
 // ── Default team roster ─────────────────────────────────────────────────
 // Total league pool is $1200 (the sum of DEFAULT_ROOKIES.preDraft).  The
@@ -36,18 +98,18 @@ export const DEFAULT_ENFORCE_PCT = 0.8;
 // carry-over balances, but defaulting to the sheet's anchor keeps the
 // opening inflation math matching the sheet cell-for-cell.
 export const DEFAULT_TEAMS = [
-  { name: "Russini Panini", initialBudget: 417 },
-  { name: "Ed", initialBudget: 71 },
-  { name: "Brent", initialBudget: 71 },
-  { name: "Joey", initialBudget: 71 },
-  { name: "MaKayla", initialBudget: 71 },
-  { name: "Ty", initialBudget: 71 },
-  { name: "Kich", initialBudget: 71 },
-  { name: "Eric", initialBudget: 71 },
-  { name: "Collin", initialBudget: 71 },
-  { name: "Roy", initialBudget: 71 },
-  { name: "Blaine", initialBudget: 71 },
-  { name: "Joel", initialBudget: 73 },
+  { name: "Russini Panini", initialBudget: 417, initialSlots: DEFAULT_INITIAL_SLOTS },
+  { name: "Ed", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
+  { name: "Brent", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
+  { name: "Joey", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
+  { name: "MaKayla", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
+  { name: "Ty", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
+  { name: "Kich", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
+  { name: "Eric", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
+  { name: "Collin", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
+  { name: "Roy", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
+  { name: "Blaine", initialBudget: 71, initialSlots: DEFAULT_INITIAL_SLOTS },
+  { name: "Joel", initialBudget: 73, initialSlots: DEFAULT_INITIAL_SLOTS },
 ];
 
 // ── Seed rookie pool ────────────────────────────────────────────────────
@@ -129,6 +191,52 @@ export const DEFAULT_ROOKIES = [
   { rank: 72, name: "Aaron Anderson", preDraft: 1 },
 ];
 
+/**
+ * Count per-team rookie pick ownership from the raw ``picks`` array
+ * returned by ``/api/draft-capital``.  Each pick's ``currentOwner``
+ * (a team display name) contributes +1 to that team's slot count.
+ *
+ * Returns a ``Map<teamNameLowerCase, count>``.  Callers should resolve
+ * the map against their own team list by lowercased name.
+ */
+export function slotsByTeamFromPicks(picksArray) {
+  const out = new Map();
+  if (!Array.isArray(picksArray)) return out;
+  for (const pk of picksArray) {
+    const owner = String(pk?.currentOwner || "").trim().toLowerCase();
+    if (!owner) continue;
+    out.set(owner, (out.get(owner) || 0) + 1);
+  }
+  return out;
+}
+
+/**
+ * Slot-adjusted effective budget — the maximum $ a team can actually
+ * bid on a single player right now, reserving $1 per OTHER remaining
+ * slot so they can still fill their roster.  This is the number that
+ * belongs in ``topCompetitorMax`` — the mean or even max of raw
+ * remaining $ overstates real bidding power for teams with many
+ * slots to fill.
+ *
+ *   effectiveBudget = 0 if slotsRemaining <= 0
+ *                   = max(0, remaining − max(0, slotsRemaining − 1))
+ *
+ * Examples:
+ *   (remaining 100, slots 3) → bid up to $98, reserve $1 × 2
+ *   (remaining 5, slots 5)  → bid up to $1, reserve $1 × 4
+ *   (remaining 50, slots 0) → 0 (team has no roster space left)
+ *   (remaining 0, slots 1)  → 0 (team can only bid $1 min, but
+ *                             the conventional "0 means can't
+ *                             bid more than $1" is noise; explicit
+ *                             0 in the UI is clearer)
+ */
+export function effectiveBudgetFor(remaining, slotsRemaining) {
+  const rem = Math.max(0, Number(remaining) || 0);
+  const slots = Math.max(0, Number(slotsRemaining) || 0);
+  if (slots <= 0) return 0;
+  return Math.max(0, rem - Math.max(0, slots - 1));
+}
+
 // ── Player ID slug ──────────────────────────────────────────────────────
 /**
  * Produce a stable slug from a player name.  Used as the key on picks
@@ -163,30 +271,36 @@ export function createDefaultWorkspace() {
       name: p.name,
       preDraft: p.preDraft,
     })),
-    picks: [], // { playerId, teamIdx, amount, ts }
+    // picks: { playerId, teamIdx, amount, preDraftAtPick, ts }
+    //   - preDraftAtPick: snapshot of the PreDraft $ at the moment the
+    //     pick was recorded.  Used for historical tier inflation so a
+    //     retroactive edit to ``players[n].preDraft`` doesn't corrupt
+    //     the paid/expected ratios of already-drafted players.
+    picks: [],
   };
 }
 
 // ── Derived stats ───────────────────────────────────────────────────────
 /**
- * Compute every derived value the UI renders from a workspace.  All
- * money values are rounded to the nearest whole dollar; the sheet
- * rounds in the same places so the display matches.
+ * Compute every derived value the UI renders from a workspace.
  *
- * Returns:
- *   totalBudget, totalSpent, remainingLeague, myTeamName,
- *   myStarting, mySpent, myRemaining, otherTeamsRemaining,
- *   avgPerOtherTeam, budgetAdvantage, undraftedPreDraft, inflation,
- *   leagueSpentPct, teamStats[], enrichedPlayers[]
+ * Tier 1 return shape adds (beyond the sheet-port baseline):
  *
- * ``enrichedPlayers`` carries, per row:
- *   id, rank, name, preDraft, pick (|| null), drafted (bool),
- *   mine (bool), inflatedFair, myMaxBid, enforceUpTo, valueVsFair
+ *   slotPressure          0..1 — how far through my own draft I am
+ *   phaseMultiplier       1 + slotPressure × PHASE_LATE_BOOST
+ *   topCompetitorMax      slot-adjusted max effective $ of any OTHER team
+ *   tierHeat              { S/A/B/C/D: paidSum/preDraftSum or null }
+ *   tierConfidence        { S/A/B/C/D: 0..1 } — sample-size weight
+ *   teamStats[i]          + initialSlots, slotsDrafted, slotsRemaining,
+ *                           effectiveBudget
+ *   enrichedPlayers[p]    + tier, tierInflation, theoreticalMaxBid,
+ *                           myWinningBid, exceedsMyCeiling
  *
- * Undrafted rows get live inflation + max-bid; drafted rows get
- * ``valueVsFair`` = InflatedFairAtDraftTime − pick.amount (approx; we
- * use current inflation as the fair-price proxy since the sheet does
- * the same when its history snapshot is current).
+ *   myMaxBid now carries the THEORETICAL ceiling (what you'd be
+ *   willing to pay if the competitor set demanded it).  Actual
+ *   bid-to-win is ``myWinningBid`` = min(myMaxBid, topCompetitorMax+1).
+ *   The UI should surface myWinningBid as the headline figure and
+ *   myMaxBid as the tooltip explainer.
  */
 export function computeDraftStats(workspace) {
   const ws = workspace || createDefaultWorkspace();
@@ -204,9 +318,7 @@ export function computeDraftStats(workspace) {
     ? settings.enforcePct
     : DEFAULT_ENFORCE_PCT;
 
-  // League-wide money accounting.  ``initialBudget`` is the PER-TEAM
-  // entrance budget — for carry-over leagues this varies by team, so
-  // we sum to get ``totalBudget`` rather than assuming uniform split.
+  // League-wide money accounting.
   const totalBudget = teams.reduce(
     (s, t) => s + (Number(t.initialBudget) || 0),
     0,
@@ -218,21 +330,80 @@ export function computeDraftStats(workspace) {
   const remainingLeague = Math.max(0, totalBudget - totalSpent);
 
   // My team's money.
-  const myTeam = teams[myTeamIdx] || { name: "", initialBudget: 0 };
+  const myTeam = teams[myTeamIdx] || {
+    name: "",
+    initialBudget: 0,
+    initialSlots: DEFAULT_INITIAL_SLOTS,
+  };
   const myStarting = Number(myTeam.initialBudget) || 0;
   const mySpent = picks
     .filter((p) => p.teamIdx === myTeamIdx)
     .reduce((s, p) => s + (Number(p.amount) || 0), 0);
   const myRemaining = Math.max(0, myStarting - mySpent);
 
-  // Other teams' money (aggregate).  Used for the budget-advantage
-  // factor — the sheet divides the aggregate by (teams − 1) rather
-  // than weighting per-team, which is what we mirror here.
+  // ── Slot accounting ────────────────────────────────────────────────
+  // Per-team slots drafted + remaining.  ``initialSlots`` is set on
+  // the team when ``/api/draft-capital`` merges; absent that, we
+  // fall back to the 6-round default so pre-merge state still works.
+  const picksByTeam = teams.map(() => []);
+  for (const pk of picks) {
+    if (
+      Number.isInteger(pk.teamIdx) &&
+      pk.teamIdx >= 0 &&
+      pk.teamIdx < teams.length
+    ) {
+      picksByTeam[pk.teamIdx].push(pk);
+    }
+  }
+  const initialSlotsByIdx = teams.map((t) =>
+    Number.isFinite(Number(t?.initialSlots))
+      ? Math.max(0, Number(t.initialSlots))
+      : DEFAULT_INITIAL_SLOTS,
+  );
+  const slotsDraftedByIdx = picksByTeam.map((pks) => pks.length);
+  const slotsRemainingByIdx = teams.map((_, i) =>
+    Math.max(0, initialSlotsByIdx[i] - slotsDraftedByIdx[i]),
+  );
+  const remainingByIdx = teams.map((t, i) => {
+    const spent = picksByTeam[i].reduce(
+      (s, p) => s + (Number(p.amount) || 0),
+      0,
+    );
+    return Math.max(0, (Number(t.initialBudget) || 0) - spent);
+  });
+  const effectiveBudgetByIdx = teams.map((_, i) =>
+    effectiveBudgetFor(remainingByIdx[i], slotsRemainingByIdx[i]),
+  );
+
+  // My slot pressure drives the phase multiplier: at the start
+  // pressure=0 and MaxBid is unchanged; at my final pick pressure=1
+  // and MaxBid scales up by (1 + PHASE_LATE_BOOST).  This prevents
+  // the "unused $ is wasted $" failure mode when I'm wealthy but
+  // only have one roster slot left.
+  const myInitialSlots = initialSlotsByIdx[myTeamIdx] || 0;
+  const mySlotsRemaining = slotsRemainingByIdx[myTeamIdx] || 0;
+  const slotPressure =
+    myInitialSlots > 0
+      ? Math.max(0, Math.min(1, 1 - mySlotsRemaining / myInitialSlots))
+      : 0;
+  const phaseMultiplier = 1 + slotPressure * PHASE_LATE_BOOST;
+
+  // Top competitor ceiling: the single richest OTHER team, after
+  // slot adjustment.  This is the real "ceiling I need to clear" on
+  // any given player — bidding 1 above it wins.  Without this cap,
+  // MaxBid hallucinates opponents that can't actually outbid me.
+  let topCompetitorMax = 0;
+  for (let i = 0; i < effectiveBudgetByIdx.length; i++) {
+    if (i === myTeamIdx) continue;
+    if (effectiveBudgetByIdx[i] > topCompetitorMax) {
+      topCompetitorMax = effectiveBudgetByIdx[i];
+    }
+  }
+
+  // Other teams' money (aggregate).
   const otherTeamsRemaining = Math.max(0, remainingLeague - myRemaining);
   const otherTeamCount = Math.max(1, teams.length - 1);
   const avgPerOtherTeam = otherTeamsRemaining / otherTeamCount;
-  // Guard: divide-by-zero when every other team is tapped.  Fall back
-  // to "no advantage" (1.0) so MyMaxBid stays at PreDraft × Inflation.
   const rawBudgetAdvantage =
     avgPerOtherTeam > 0 ? myRemaining / avgPerOtherTeam : 1;
   // The sheet displays BAF at 2dp (e.g. 5.85) and uses THAT truncated
@@ -242,42 +413,92 @@ export function computeDraftStats(workspace) {
   // cell-for-cell.
   const budgetAdvantage = Math.floor(rawBudgetAdvantage * 100) / 100;
 
-  // Inflation denominator: the sheet uses ``TotalAuction$ − Σ (sold
-  // players' preDraft $)`` rather than the dynamic sum of undrafted
-  // preDraft values.  The difference matters when the preDraft column
-  // doesn't sum to exactly ``totalBudget`` — which is the common case,
-  // because users tune preDraft values for *relative* player worth and
-  // those don't have to land on the budget total.  Using ``totalBudget``
-  // as the baseline keeps the opening inflation pinned at 1.0 so Fair
-  // Price == PreDraft$ at the start regardless of column-sum drift,
-  // matching the sheet cell-for-cell.
+  // ── Global inflation (sheet-compatible) ────────────────────────────
+  // inflation = remainingLeague / (totalBudget − soldPreDraft).
+  // soldPreDraft uses the SNAPSHOTTED preDraftAtPick on each pick so a
+  // retroactive edit to player.preDraft doesn't rewrite history.
   const pickedPlayerIds = new Set(picks.map((p) => p.playerId));
   const playerPreDraftById = new Map(
     players.map((p) => [p.id, Number(p.preDraft) || 0]),
   );
-  const soldPreDraft = picks.reduce(
-    (s, pk) => s + (playerPreDraftById.get(pk.playerId) || 0),
-    0,
-  );
+  const soldPreDraft = picks.reduce((s, pk) => {
+    const snap = Number.isFinite(Number(pk.preDraftAtPick))
+      ? Math.max(0, Number(pk.preDraftAtPick))
+      : playerPreDraftById.get(pk.playerId) || 0;
+    return s + snap;
+  }, 0);
   const expectedPoolRemaining = Math.max(1, totalBudget - soldPreDraft);
   const inflation = remainingLeague / expectedPoolRemaining;
 
-  // Kept for the "Board $ left" display card.  This is the literal sum
-  // of still-on-the-board preDraft values — different from the
-  // inflation denominator above when the column doesn't sum to budget.
+  // Kept for the "Board $ left" display card.
   const undraftedPreDraft = players
     .filter((p) => !pickedPlayerIds.has(p.id))
     .reduce((s, p) => s + (Number(p.preDraft) || 0), 0);
   const leagueSpentPct = totalBudget > 0 ? totalSpent / totalBudget : 0;
 
-  // Per-team stats (name, initial, spent, remaining).
+  // ── Per-tier inflation (heat) ─────────────────────────────────────
+  // tier_heat(T) = Σ paid / Σ preDraftAtPick within tier T.
+  // Above 1.0 → tier was overpaid; remaining T players should mark up.
+  // Below 1.0 → tier bargains; remaining T players mark down.
+  //
+  // Blended with 1.0 via a confidence weight based on sample count,
+  // then multiplied on top of global inflation to produce
+  // ``tierInflation`` (the actual modifier applied to fair/max bids).
+  const tierHeat = {};
+  const tierConfidence = {};
+  const tierSampleCount = {};
+  for (const def of TIER_DEFS) {
+    const tierPicks = picks.filter((pk) => {
+      const snap = Number.isFinite(Number(pk.preDraftAtPick))
+        ? Math.max(0, Number(pk.preDraftAtPick))
+        : playerPreDraftById.get(pk.playerId) || 0;
+      return tierForPreDraft(snap) === def.key;
+    });
+    tierSampleCount[def.key] = tierPicks.length;
+    if (tierPicks.length === 0) {
+      tierHeat[def.key] = null;
+      tierConfidence[def.key] = 0;
+      continue;
+    }
+    const paidSum = tierPicks.reduce(
+      (s, pk) => s + (Number(pk.amount) || 0),
+      0,
+    );
+    const preSum = tierPicks.reduce((s, pk) => {
+      const snap = Number.isFinite(Number(pk.preDraftAtPick))
+        ? Math.max(0, Number(pk.preDraftAtPick))
+        : playerPreDraftById.get(pk.playerId) || 0;
+      return s + snap;
+    }, 0);
+    tierHeat[def.key] = preSum > 0 ? paidSum / preSum : 1;
+    tierConfidence[def.key] = Math.min(
+      1,
+      tierPicks.length / TIER_CONFIDENCE_MIN_SAMPLES,
+    );
+  }
+
+  // Resolve the effective tier multiplier for any PreDraft $.
+  // At full confidence, this is tier_heat.  At zero confidence
+  // (no tier picks yet), this is 1.0 (no tier adjustment beyond
+  // global inflation).  The final per-player inflation applied to
+  // fair price and max bid is ``inflation × effectiveTierMult``.
+  function effectiveTierMultFor(preDraft) {
+    const tier = tierForPreDraft(preDraft);
+    const heat = tierHeat[tier];
+    const conf = tierConfidence[tier];
+    if (heat == null || conf <= 0) return 1;
+    return conf * heat + (1 - conf) * 1;
+  }
+
+  // Per-team stats (name, initial, spent, remaining, slots, eff$).
   const teamStats = teams.map((t, idx) => {
-    const spent = picks
-      .filter((p) => p.teamIdx === idx)
-      .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const spent = picksByTeam[idx].reduce(
+      (s, p) => s + (Number(p.amount) || 0),
+      0,
+    );
     const initial = Number(t.initialBudget) || 0;
-    const remaining = Math.max(0, initial - spent);
-    const picksCount = picks.filter((p) => p.teamIdx === idx).length;
+    const remaining = remainingByIdx[idx];
+    const picksCount = picksByTeam[idx].length;
     return {
       idx,
       name: t.name || `Team ${idx + 1}`,
@@ -286,6 +507,10 @@ export function computeDraftStats(workspace) {
       remaining,
       picksCount,
       isMine: idx === myTeamIdx,
+      initialSlots: initialSlotsByIdx[idx],
+      slotsDrafted: slotsDraftedByIdx[idx],
+      slotsRemaining: slotsRemainingByIdx[idx],
+      effectiveBudget: effectiveBudgetByIdx[idx],
     };
   });
 
@@ -296,14 +521,28 @@ export function computeDraftStats(workspace) {
   const enrichedPlayers = players.map((p) => {
     const pick = pickByPlayer.get(p.id) || null;
     const preDraft = Math.max(0, Number(p.preDraft) || 0);
-    // The sheet truncates (FLOOR) these derived dollar values rather
-    // than rounding — matching that is the difference between
-    // "MaxBid 193" (sheet) vs "MaxBid 194" (round).  Keeping the UI
-    // cell-for-cell identical to the sheet means the user can trust
-    // that the two views agree.
-    const inflatedFair = Math.floor(preDraft * inflation);
-    const myMaxBid = Math.floor(
-      preDraft * (1 + aggression * (budgetAdvantage - 1)) * inflation,
+    const tier = tierForPreDraft(preDraft);
+    const tierMult = effectiveTierMultFor(preDraft);
+    const combinedInflation = inflation * tierMult;
+
+    // The sheet truncates (FLOOR) these derived dollar values.
+    // We keep FLOOR for parity so numbers match the user's manual
+    // sheet when both are in view.
+    const inflatedFair = Math.floor(preDraft * combinedInflation);
+    const theoreticalMaxBid = Math.floor(
+      preDraft *
+        (1 + aggression * (budgetAdvantage - 1)) *
+        combinedInflation *
+        phaseMultiplier,
+    );
+    // My winning bid = cap theoretical max at "what I need to beat"
+    // (top competitor's slot-adjusted budget + 1).  If no one else
+    // can bid (everyone bankrupt), winning bid collapses to 1.
+    const competitorCeiling = Math.max(0, topCompetitorMax);
+    const winByCompetitor = Math.max(1, competitorCeiling + 1);
+    const myWinningBid = Math.max(
+      0,
+      Math.min(theoreticalMaxBid, winByCompetitor),
     );
     const enforceUpTo = Math.floor(inflatedFair * enforcePct);
     const drafted = !!pick;
@@ -315,11 +554,15 @@ export function computeDraftStats(workspace) {
     return {
       ...p,
       preDraft,
+      tier,
+      tierInflation: combinedInflation,
       pick,
       drafted,
       mine,
       inflatedFair: Math.max(0, inflatedFair),
-      myMaxBid: Math.max(0, myMaxBid),
+      myMaxBid: Math.max(0, theoreticalMaxBid),
+      theoreticalMaxBid: Math.max(0, theoreticalMaxBid),
+      myWinningBid,
       enforceUpTo: Math.max(0, enforceUpTo),
       valueVsFair,
     };
@@ -333,12 +576,20 @@ export function computeDraftStats(workspace) {
     myStarting,
     mySpent,
     myRemaining,
+    myInitialSlots,
+    mySlotsRemaining,
+    slotPressure,
+    phaseMultiplier,
+    topCompetitorMax,
     otherTeamsRemaining,
     avgPerOtherTeam,
     budgetAdvantage,
     undraftedPreDraft,
     inflation,
     leagueSpentPct,
+    tierHeat,
+    tierConfidence,
+    tierSampleCount,
     teamStats,
     enrichedPlayers,
   };
@@ -347,14 +598,30 @@ export function computeDraftStats(workspace) {
 // ── State mutators (pure) ───────────────────────────────────────────────
 /**
  * Record a draft pick.  Returns a new workspace; does not mutate.
- * If the player is already drafted, the pick is replaced (so an edit
- * is a no-op record-the-same-pick call).
+ *
+ * Snapshots ``preDraftAtPick`` at record time so historical tier
+ * inflation remains accurate even if the user later edits the
+ * player's PreDraft $ inline.  Without the snapshot, a retroactive
+ * PreDraft edit would silently rewrite what the market "looked
+ * like" when the pick landed — corrupting every downstream
+ * paid-vs-expected diagnostic.
+ *
+ * If the player is already drafted, the pick is REPLACED (edit
+ * flow) and the snapshot refreshes to the current PreDraft value.
  */
 export function recordPick(workspace, { playerId, teamIdx, amount }) {
   if (!playerId || !Number.isInteger(teamIdx)) return workspace;
   const amt = Math.max(0, Number(amount) || 0);
   const picks = (workspace.picks || []).filter((p) => p.playerId !== playerId);
-  picks.push({ playerId, teamIdx, amount: amt, ts: Date.now() });
+  const player = (workspace.players || []).find((p) => p.id === playerId);
+  const preDraftAtPick = Math.max(0, Number(player?.preDraft) || 0);
+  picks.push({
+    playerId,
+    teamIdx,
+    amount: amt,
+    preDraftAtPick,
+    ts: Date.now(),
+  });
   return { ...workspace, picks };
 }
 
@@ -444,6 +711,16 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
   const ws = workspace || createDefaultWorkspace();
   const existing = Array.isArray(ws.teams) ? ws.teams : [];
   const feed = Array.isArray(teamTotals) ? teamTotals : [];
+  // Optional: raw ``picks`` array from the /api/draft-capital
+  // response.  When provided, per-team rookie pick counts are set
+  // as ``initialSlots`` on every matched/appended team so the
+  // effective-budget math downstream is accurate.  Absent this
+  // (e.g. teamTotals passed alone), teams keep their existing
+  // ``initialSlots`` or fall back to the DEFAULT_INITIAL_SLOTS.
+  const picksArray = Array.isArray(opts.picks) ? opts.picks : null;
+  const slotsByKey = picksArray
+    ? slotsByTeamFromPicks(picksArray)
+    : new Map();
 
   // Build a case-insensitive lookup from the feed.
   const feedByKey = new Map();
@@ -483,6 +760,28 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
     ]),
   );
 
+  // Build a team row with feed-aware ``initialSlots``.  When the
+  // picks array is present, the slot count is authoritative.  When
+  // it's not (no picks opts passed), we keep whatever ``initialSlots``
+  // the existing team carried, falling back to the default.
+  const buildTeam = (nameOut, budget, prior) => {
+    const slotKey = String(nameOut || "").toLowerCase();
+    const feedSlots = slotsByKey.get(slotKey);
+    const priorSlots = Number.isFinite(Number(prior?.initialSlots))
+      ? Math.max(0, Number(prior.initialSlots))
+      : DEFAULT_INITIAL_SLOTS;
+    const initialSlots = picksArray
+      ? Number.isFinite(feedSlots)
+        ? feedSlots
+        : 0
+      : priorSlots;
+    return {
+      name: nameOut,
+      initialBudget: budget,
+      initialSlots,
+    };
+  };
+
   const usedFeedKeys = new Set();
   const zeroed = [];
   const merged = [];
@@ -491,10 +790,8 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
     const hit = feedByKey.get(key);
     if (hit) {
       usedFeedKeys.add(key);
-      merged.push({
-        name: preserveNames && t.name ? t.name : hit.name,
-        initialBudget: hit.auctionDollars,
-      });
+      const nameOut = preserveNames && t.name ? t.name : hit.name;
+      merged.push(buildTeam(nameOut, hit.auctionDollars, t));
       continue;
     }
     // Drop unmatched default placeholders; zero out unmatched user-
@@ -506,7 +803,7 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
       continue;
     }
     zeroed.push(t.name);
-    merged.push({ name: t.name || "", initialBudget: 0 });
+    merged.push(buildTeam(t.name || "", 0, t));
   }
 
   // Append any feed teams not already on the board.  These are the
@@ -515,7 +812,7 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
   const missing = [];
   for (const [key, hit] of feedByKey.entries()) {
     if (usedFeedKeys.has(key)) continue;
-    merged.push({ name: hit.name, initialBudget: hit.auctionDollars });
+    merged.push(buildTeam(hit.name, hit.auctionDollars, null));
     missing.push(hit.name);
   }
 
@@ -609,30 +906,73 @@ export function hydrateWorkspace(parsed) {
       ? parsed.teams.map((t, i) => ({
           name: String(t?.name || `Team ${i + 1}`),
           initialBudget: Math.max(0, Number(t?.initialBudget) || 0),
+          initialSlots: Number.isFinite(Number(t?.initialSlots))
+            ? Math.max(0, Number(t.initialSlots))
+            : DEFAULT_INITIAL_SLOTS,
         }))
       : def.teams,
-    players: Array.isArray(parsed.players) && parsed.players.length > 0
-      ? parsed.players.map((p, i) => ({
-          id: String(p?.id || playerSlug(p?.name) || `player-${i}`),
-          rank: Number(p?.rank) || i + 1,
-          name: String(p?.name || ""),
-          preDraft: Math.max(0, Number(p?.preDraft) || 0),
-        }))
-      : def.players,
+    players: (() => {
+      const src =
+        Array.isArray(parsed.players) && parsed.players.length > 0
+          ? parsed.players
+          : null;
+      if (!src) return def.players;
+      return src.map((p, i) => ({
+        id: String(p?.id || playerSlug(p?.name) || `player-${i}`),
+        rank: Number(p?.rank) || i + 1,
+        name: String(p?.name || ""),
+        preDraft: Math.max(0, Number(p?.preDraft) || 0),
+      }));
+    })(),
     picks: Array.isArray(parsed.picks)
-      ? parsed.picks
-          .map((p) => ({
-            playerId: String(p?.playerId || ""),
-            teamIdx: Number.isInteger(p?.teamIdx) ? p.teamIdx : -1,
-            amount: Math.max(0, Number(p?.amount) || 0),
-            ts: Number(p?.ts) || Date.now(),
-          }))
-          .filter((p) => p.playerId && p.teamIdx >= 0)
+      ? (() => {
+          // Build a playerId → current preDraft fallback map so old
+          // localStorage state (pre-Tier-1, no preDraftAtPick snapshot)
+          // hydrates with SOMETHING reasonable rather than 0.  Preference
+          // order: stored snapshot → current player preDraft → 0.
+          const playerSrc =
+            Array.isArray(parsed.players) && parsed.players.length > 0
+              ? parsed.players
+              : def.players;
+          const preDraftById = new Map();
+          for (const p of playerSrc) {
+            const id = String(p?.id || playerSlug(p?.name) || "");
+            if (!id) continue;
+            preDraftById.set(
+              id,
+              Math.max(0, Number(p?.preDraft) || 0),
+            );
+          }
+          return parsed.picks
+            .map((p) => {
+              const pid = String(p?.playerId || "");
+              const storedSnap = Number.isFinite(Number(p?.preDraftAtPick))
+                ? Math.max(0, Number(p.preDraftAtPick))
+                : null;
+              const fallback = preDraftById.get(pid) ?? 0;
+              return {
+                playerId: pid,
+                teamIdx: Number.isInteger(p?.teamIdx) ? p.teamIdx : -1,
+                amount: Math.max(0, Number(p?.amount) || 0),
+                preDraftAtPick: storedSnap != null ? storedSnap : fallback,
+                ts: Number(p?.ts) || Date.now(),
+              };
+            })
+            .filter((p) => p.playerId && p.teamIdx >= 0);
+        })()
       : [],
   };
 }
 
-/** Bid-status classification for UI color coding. */
+/**
+ * Bid-status classification for UI color coding.
+ *
+ * Uses ``myWinningBid`` (the competitor-ceiling-capped value) as the
+ * PASS threshold.  Bidding above that is strictly wasteful because
+ * no rival could match — any $1 above top competitor locks the
+ * player.  Falls back to ``myMaxBid`` when winningBid isn't present
+ * (old enriched-player shapes without Tier 1 fields).
+ */
 export function bidStatus(enrichedPlayer, currentBid) {
   if (!enrichedPlayer) return { level: "unknown", label: "" };
   if (enrichedPlayer.drafted) {
@@ -641,7 +981,16 @@ export function bidStatus(enrichedPlayer, currentBid) {
   }
   const bid = Math.max(0, Number(currentBid) || 0);
   if (bid <= 0) return { level: "idle", label: "Watching" };
+  const ceiling = Number.isFinite(enrichedPlayer.myWinningBid)
+    ? enrichedPlayer.myWinningBid
+    : enrichedPlayer.myMaxBid;
+  // Check ceiling FIRST: if the bid would win by more than $1 against
+  // the true competitor ceiling, it's overpay territory regardless of
+  // where the enforce threshold sits.  This matters when poor
+  // competitors push ``myWinningBid`` well below ``enforceUpTo``
+  // (rich-vs-bankrupt scenario) — pushing to enforce would
+  // overpay by $ you don't need to spend.
+  if (bid > ceiling) return { level: "pass", label: "Pass" };
   if (bid <= enrichedPlayer.enforceUpTo) return { level: "push", label: "Push up" };
-  if (bid <= enrichedPlayer.myMaxBid) return { level: "target", label: "Sweet spot" };
-  return { level: "pass", label: "Pass" };
+  return { level: "target", label: "Sweet spot" };
 }
