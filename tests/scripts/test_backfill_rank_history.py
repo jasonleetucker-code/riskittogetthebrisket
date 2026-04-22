@@ -304,6 +304,135 @@ class TestBackfillDrySelection(unittest.TestCase):
             )
 
 
+class TestCorruptLatestFallback(unittest.TestCase):
+    """Regression coverage for Codex PR #223 round 1.
+
+    The original selector kept only the highest-HHMMSS archive per
+    date before any validation — so if that latest upload was
+    corrupt or crashed build_contract, the entire day was dropped
+    even when earlier same-day archives were fine.  The selector
+    now returns all candidates per date and the loop walks them
+    newest-first until one succeeds.
+    """
+
+    def test_corrupt_latest_falls_back_to_earlier_same_day(self) -> None:
+        with TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            archive = tmpdir / "archive"
+            archive.mkdir()
+            history = tmpdir / "rank_history.jsonl"
+
+            # Earlier valid bundle.
+            _write_zip(
+                archive / "dynasty_export_20260308_020000.zip",
+                date="2026-03-08",
+                payload=_contract({"Alice": 1, "Bob": 2}),
+            )
+            # Latest is corrupt — pre-fix this would drop the day.
+            (archive / "dynasty_export_20260308_220000.zip").write_bytes(b"not a zip")
+
+            results = _mod.backfill(
+                archive_dir=archive,
+                history_path=history,
+                build_contract=_passthrough,
+                out=io.StringIO(),
+            )
+
+            # The valid-earlier bundle wrote a snapshot.
+            lines = history.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(lines), 1)
+            entry = json.loads(lines[0])
+            self.assertEqual(entry["date"], "2026-03-08")
+            self.assertEqual(
+                entry["ranks"],
+                {"Alice::offense": 1, "Bob::offense": 2},
+            )
+            # The corrupt candidate should not be surfaced as a
+            # failure — we found a good one for that day.  Any
+            # results reported must be for successful appends only.
+            self.assertEqual(len(results), 1)
+            self.assertTrue(results[0]["appended"])
+
+    def test_build_error_on_latest_falls_back_to_earlier(self) -> None:
+        with TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            archive = tmpdir / "archive"
+            history = tmpdir / "rank_history.jsonl"
+
+            _write_zip(
+                archive / "dynasty_export_20260308_020000.zip",
+                date="2026-03-08",
+                payload={"flavour": "good", "playersArray": [
+                    {"canonicalName": "Alice", "canonicalConsensusRank": 1, "assetClass": "offense"},
+                ]},
+            )
+            _write_zip(
+                archive / "dynasty_export_20260308_220000.zip",
+                date="2026-03-08",
+                payload={"flavour": "bad"},
+            )
+
+            # Builder that rejects the "bad" payload but accepts
+            # the "good" one — simulates a targeted build failure
+            # on the latest upload only.
+            def _picky_build(raw):
+                if raw.get("flavour") == "bad":
+                    raise RuntimeError("simulated build error")
+                return raw
+
+            _mod.backfill(
+                archive_dir=archive,
+                history_path=history,
+                build_contract=_picky_build,
+                out=io.StringIO(),
+            )
+
+            lines = history.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(lines), 1)
+            self.assertEqual(
+                json.loads(lines[0])["ranks"],
+                {"Alice::offense": 1},
+            )
+
+
+class TestSinceAgainstManifestDate(unittest.TestCase):
+    """Regression coverage for Codex PR #223 round 1.
+
+    Pre-fix, ``--since`` was evaluated against the filename date
+    before the manifest was read — so an archive whose filename
+    said 2026-03-08 but whose manifest said 2026-03-09 was
+    incorrectly skipped by ``--since 2026-03-09``, even though the
+    manifest date is what ``append_snapshot`` actually writes.
+    """
+
+    def test_since_uses_manifest_date_not_filename_date(self) -> None:
+        with TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            archive = tmpdir / "archive"
+            history = tmpdir / "rank_history.jsonl"
+
+            # Filename says 2026-03-08 but manifest authoritatively
+            # says 2026-03-09 — simulates a UTC-midnight-crossing
+            # scrape or a clock skew.
+            _write_zip(
+                archive / "dynasty_export_20260308_235959.zip",
+                date="2026-03-09",
+                payload=_contract({"Alice": 1}),
+            )
+
+            _mod.backfill(
+                archive_dir=archive,
+                history_path=history,
+                since="2026-03-09",
+                build_contract=_passthrough,
+                out=io.StringIO(),
+            )
+
+            lines = history.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(lines), 1)
+            self.assertEqual(json.loads(lines[0])["date"], "2026-03-09")
+
+
 class TestArchiveZipLoader(unittest.TestCase):
     def test_unreadable_zip_is_reported_not_fatal(self) -> None:
         with TemporaryDirectory() as tmp:

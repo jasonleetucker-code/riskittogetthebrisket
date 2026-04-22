@@ -110,22 +110,29 @@ def _iter_candidate_zips(archive_dir: Path) -> Iterator[tuple[str, str, Path]]:
         yield _date_from_ymd(m.group(1)), m.group(2), p
 
 
-def _select_latest_per_date(
+def _select_archives_by_date(
     archive_dir: Path,
-) -> list[tuple[str, Path]]:
-    """Return ``[(date_str, zip_path), ...]`` in ascending date order.
+) -> list[tuple[str, list[Path]]]:
+    """Return ``[(date_str, [zip_path, ...]), ...]`` in ascending date order.
 
-    When multiple archives land on the same day we keep the latest
-    ``HHMMSS`` — that's the freshest snapshot of that day's state
-    and matches what ``append_snapshot``'s per-date dedup would
-    produce if we processed every zip blindly.
+    Each inner list is ordered newest-HHMMSS first.  The caller walks
+    the list and picks the first candidate that loads + builds
+    cleanly — so a corrupt latest archive falls back to an earlier
+    same-day archive instead of dropping the whole day.  That matters
+    because scrape days almost always have 4-6 bundles and a single
+    truncated final upload shouldn't defeat the backfill for that
+    day.  When every bundle loads (the common case) this behaves
+    identically to a latest-wins pre-selection: the first candidate
+    succeeds and the rest are never touched.
     """
-    by_date: dict[str, tuple[str, Path]] = {}
+    by_date: dict[str, list[tuple[str, Path]]] = {}
     for date_str, hms, path in _iter_candidate_zips(archive_dir):
-        prev = by_date.get(date_str)
-        if prev is None or hms > prev[0]:
-            by_date[date_str] = (hms, path)
-    return [(d, by_date[d][1]) for d in sorted(by_date.keys())]
+        by_date.setdefault(date_str, []).append((hms, path))
+    out: list[tuple[str, list[Path]]] = []
+    for date_str in sorted(by_date.keys()):
+        candidates = sorted(by_date[date_str], key=lambda t: t[0], reverse=True)
+        out.append((date_str, [p for _, p in candidates]))
+    return out
 
 
 def _load_raw_from_zip(zip_path: Path) -> tuple[str | None, dict[str, Any] | None]:
@@ -260,49 +267,76 @@ def backfill(
     _print("  " + "-" * 68)
 
     results: list[dict[str, Any]] = []
-    selections = _select_latest_per_date(archive_dir)
+    selections = _select_archives_by_date(archive_dir)
 
-    for filename_date, zip_path in selections:
-        if since and filename_date < since:
+    for filename_date, candidates in selections:
+        # Walk newest -> oldest HHMMSS for this day.  The first
+        # candidate that loads + builds wins; older ones only come
+        # into play if the newer ones are corrupt or trip build_
+        # contract.  Without this fallback a single bad latest-of-
+        # the-day upload drops the whole date even when yesterday's
+        # scrape had 5 other valid bundles.
+        chosen: tuple[str | None, dict[str, Any], Path, dict[str, Any]] | None = None
+        attempt_failures: list[tuple[Path, str]] = []
+
+        for candidate in candidates:
+            manifest_date, raw = _load_raw_from_zip(candidate)
+            if raw is None:
+                attempt_failures.append((candidate, "unreadable"))
+                continue
+
+            effective_date = manifest_date or filename_date
+            if since and effective_date < since:
+                # ``--since`` is evaluated against the manifest-
+                # authoritative date, matching what ``append_snapshot``
+                # will actually write; filename/manifest mismatches
+                # would otherwise produce off-by-one skips at the
+                # cutoff boundary.  Skipping here still allows older
+                # same-day candidates to be tried for days whose
+                # manifest floats them over the cutoff.
+                attempt_failures.append((candidate, "before-since"))
+                continue
+
+            try:
+                contract = build_contract(raw)
+            except Exception as exc:  # noqa: BLE001
+                attempt_failures.append((candidate, f"build-err: {exc}"))
+                continue
+
+            chosen = (manifest_date, contract, candidate, {})
+            break
+
+        if chosen is None:
+            # Nothing salvageable for this day.  Only log when the
+            # reason wasn't a pure --since skip — an entirely-
+            # before-cutoff day is expected and shouldn't pollute
+            # the report.
+            non_since_failures = [
+                (p, reason) for p, reason in attempt_failures
+                if reason != "before-since"
+            ]
+            if not non_since_failures:
+                continue
+            for path, reason in non_since_failures:
+                label = "unreadable" if reason == "unreadable" else "build-err"
+                _print(
+                    f"  {filename_date:<12} {'?':>5}  {label:<9}  {path.name}"
+                    + (f": {reason[len('build-err: '):]}" if reason.startswith("build-err: ") else "")
+                )
+                results.append(
+                    {
+                        "date": filename_date,
+                        "zip": str(path),
+                        "rows": 0,
+                        "appended": False,
+                        "dry_run": dry_run,
+                        "skipped": reason,
+                    }
+                )
             continue
 
-        manifest_date, raw = _load_raw_from_zip(zip_path)
-        if raw is None:
-            _print(
-                f"  {filename_date:<12} {'?':>5}  {'unreadable':<9}  {zip_path.name}"
-            )
-            results.append(
-                {
-                    "date": manifest_date or filename_date,
-                    "zip": str(zip_path),
-                    "rows": 0,
-                    "appended": False,
-                    "dry_run": dry_run,
-                    "skipped": "unreadable",
-                }
-            )
-            continue
-
+        manifest_date, contract, zip_path, _ = chosen
         effective_date = manifest_date or filename_date
-
-        try:
-            contract = build_contract(raw)
-        except Exception as exc:  # noqa: BLE001
-            _print(
-                f"  {effective_date:<12} {'?':>5}  {'build-err':<9}  "
-                f"{zip_path.name}: {exc}"
-            )
-            results.append(
-                {
-                    "date": effective_date,
-                    "zip": str(zip_path),
-                    "rows": 0,
-                    "appended": False,
-                    "dry_run": dry_run,
-                    "skipped": f"build-err: {exc}",
-                }
-            )
-            continue
 
         row_count = _count_ranked_rows(contract)
         appended = False
