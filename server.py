@@ -897,8 +897,16 @@ def _build_source_health_snapshot(data: dict | None) -> dict:
 
 
 # ── SCRAPER INTEGRATION ────────────────────────────────────────────────
-def _prime_latest_payload(data: dict | None) -> None:
-    """Pre-serialize latest payload once so /api/data returns instantly."""
+def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -> None:
+    """Pre-serialize latest payload once so /api/data returns instantly.
+
+    ``is_fresh_scrape`` gates rank-history appends: startup priming
+    from cached disk data must NOT append a new "today" entry (which
+    would fabricate a history point after every server restart).
+    Scrape-promotion callers pass ``is_fresh_scrape=True``; startup
+    lifespan priming leaves it False so the history log stays read-
+    only until a real scrape lands.
+    """
     global latest_contract_data, latest_data_bytes, latest_data_gzip_bytes, latest_data_etag
     global latest_runtime_data, latest_runtime_data_bytes, latest_runtime_data_gzip_bytes, latest_runtime_data_etag
     global latest_startup_data, latest_startup_data_bytes, latest_startup_data_gzip_bytes, latest_startup_data_etag
@@ -927,13 +935,18 @@ def _prime_latest_payload(data: dict | None) -> None:
             "warningCount": int(contract_report.get("warningCount", 0)),
             "checkedAt": contract_report.get("checkedAt"),
         }
-        # Append today's rank snapshot to the per-player history log
-        # and stamp the previous ``days`` worth of series onto every
-        # row.  The frontend ``RankChangeGlyph`` (shipped in PR #213)
-        # picks up ``rankHistory`` automatically — zero frontend
-        # changes to activate sparklines once the log has >=2 entries.
+        # Rank-history integration:
+        # - Append a new "today" snapshot ONLY on fresh scrape
+        #   promotions.  Startup priming from cached disk data must
+        #   stay read-only or every restart fabricates a redundant
+        #   history entry (and /api/data/rank-history misleads
+        #   consumers into thinking a scrape ran).
+        # - Stamp ``rankHistory`` onto every row regardless of
+        #   source — it's a pure read of the existing log and the
+        #   frontend glyph needs it on startup-primed payloads too.
         try:
-            _rank_history.append_snapshot(contract_payload)
+            if is_fresh_scrape:
+                _rank_history.append_snapshot(contract_payload)
             stamped = _rank_history.stamp_contract_with_history(contract_payload)
             if stamped:
                 log.info("rank_history: stamped %d rows with history series", stamped)
@@ -1334,7 +1347,12 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                 if candidate.exists():
                     source_path = str(candidate)
             _set_latest_data_source("scrape_run", source_path)
-            _prime_latest_payload(result)
+            # Fresh scrape promotion — rank-history log gets a new
+            # "today" entry.  Startup priming from cached disk data
+            # (``_prime_latest_payload`` called in the lifespan hook)
+            # leaves is_fresh_scrape=False so the history log stays
+            # read-only until a real scrape lands.
+            _prime_latest_payload(result, is_fresh_scrape=True)
 
             _mark_scrape_success(elapsed, player_count, site_count, total_sites)
 

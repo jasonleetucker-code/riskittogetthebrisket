@@ -484,6 +484,51 @@ describe("buildRows", () => {
     expect(rows[0].droppedSources).toEqual([]);
   });
 
+  it("forwards backend rankHistory onto materialized rows", () => {
+    // Regression for PR #217: the backend stamps a per-player
+    // rankHistory series at contract-build time, and
+    // ``_materializePlayerArrayRow`` must propagate it onto the row
+    // so ``RankChangeGlyph`` can upgrade from a delta arrow to a
+    // real sparkline.
+    const history = [
+      { date: "2026-03-18", rank: 5 },
+      { date: "2026-03-19", rank: 4 },
+      { date: "2026-03-20", rank: 3 },
+    ];
+    const players = [
+      withStamps(
+        {
+          displayName: "Hist Player",
+          position: "WR",
+          values: { finalAdjusted: 6000, rawComposite: 6000, overall: 6000 },
+          canonicalSiteValues: { ktc: 6000 },
+          rankHistory: history,
+        },
+        3,
+        6000,
+      ),
+    ];
+    const rows = buildRows({ playersArray: players });
+    expect(rows[0].rankHistory).toEqual(history);
+  });
+
+  it("defaults rankHistory to null when backend didn't stamp it", () => {
+    const players = [
+      withStamps(
+        {
+          displayName: "No-Hist",
+          position: "WR",
+          values: { finalAdjusted: 4000, rawComposite: 4000, overall: 4000 },
+          canonicalSiteValues: { ktc: 4000 },
+        },
+        1,
+        4000,
+      ),
+    ];
+    const rows = buildRows({ playersArray: players });
+    expect(rows[0].rankHistory).toBeNull();
+  });
+
   it("preserves backend sourceRanks integer values per row", () => {
     // Generate 25 players each with backend-stamped rank + value.
     const players = [];
