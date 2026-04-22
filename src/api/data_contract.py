@@ -344,16 +344,21 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # ``scripts/fetch_fantasypros_fitzmaurice.py`` which resolves
     # the date-rotating article URL, parses the four embedded
     # Datawrapper iframes (QB/RB/WR/TE), and writes per-position
-    # values on a 0-~101 scale.  For each position we pick the
-    # league-appropriate column: ``SF Value`` for QB (Superflex),
-    # ``Trade Value`` for RB/WR (no league-scoring split), and
-    # ``TEP Value`` for TE (TE-Premium) — matching the yahooBoone
-    # pattern.  Signal=value so the blend's value-direct branch
-    # rescales Fitzmaurice's top player (typically a QB at 101)
-    # to 9999 and every other player scales linearly.
+    # values on a 0-~101 scale plus a global 1-indexed rank.
+    #
+    # Signal=rank (2026-04-22): Fitzmaurice's value scale hits its
+    # ceiling hard — the top ~dozen players cluster between 80 and
+    # 101 with many ties, which the previous ``value-direct`` path
+    # collapsed into a narrow top band and the Hampel filter then
+    # correctly rejected against differentiated sources like KTC.
+    # Live audit sampled 19% drop rate — the third-highest in the
+    # registry before this fix (after dynastyDaddySf / yahooBoone,
+    # both converted in PR #215 with the same template).  Routing
+    # through the rank-signal path uses the global value-ordered
+    # rank as the signal.
     "fantasyProsFitzmaurice": {
         "path": "CSVs/site_raw/fantasyProsFitzmaurice.csv",
-        "signal": "value",
+        "signal": "rank",
     },
     # DLF Dynasty Rookie Superflex rankings — 6-expert consensus of the
     # current rookie class only (no veterans).  Raw CSV exported from
@@ -4207,12 +4212,13 @@ _VALUE_BASED_SOURCES: frozenset[str] = frozenset({
     # Added 2026-04-21 to preserve Boone's native value structure
     # instead of collapsing it to rank-only ordinal information.
     "yahooBoone",
-    # FantasyPros / Pat Fitzmaurice Dynasty Trade Value Chart.
-    # Published monthly; Datawrapper CSV exposes SF Value (QB),
-    # Trade Value (RB/WR), TEP Value (TE) columns.  Top player
-    # sits at 101 (SF-adjusted QB) so the value-direct rescaling
-    # maps Fitzmaurice's top → 9999.  Added 2026-04-21.
-    "fantasyProsFitzmaurice",
+    # ``fantasyProsFitzmaurice`` was moved to the rank-signal path
+    # 2026-04-22 after the live audit flagged a 19% drop rate — the
+    # 0-101 value scale caps hard at the top with many ties, which
+    # the value-direct branch rescaled into a narrow band that
+    # Hampel correctly rejected against differentiated sources.
+    # Same template as the PR #215 conversion of dynastyDaddySf /
+    # yahooBoone.  See its ``_SOURCE_CSV_PATHS`` entry above.
 })
 
 

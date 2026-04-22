@@ -1,0 +1,160 @@
+name: Audit Hampel Dropped Sources
+
+# Weekly surveillance of the per-player Hampel outlier filter.  Runs
+# ``scripts/audit_dropped_sources.py`` against the latest canonical
+# snapshot and fails the workflow if any source climbs above the
+# elevated-rate threshold, which is exactly the signal the script was
+# designed to surface (see PR #215: audit flagged dynastyDaddySf at
+# 61% and yahooBoone at 47% before their rank-signal conversions).
+#
+# The point is early warning — without this cron, a new source
+# regression would only be caught whenever someone manually runs the
+# audit, which historically meant "never."  Running weekly means a
+# regression is visible within ~7 days.
+#
+# Exit codes (from the audit driver this workflow wraps):
+#   0  - all sources below the elevated threshold; workflow green
+#   1  - at least one source at-or-above the threshold; workflow red
+#        with the offending source(s) in the job summary
+
+on:
+  schedule:
+    # Monday 07:23 UTC — off the top-of-hour thundering herd, weekly
+    # so we catch slow drift before it lands in a PR review.
+    - cron: "23 7 * * 1"
+  workflow_dispatch:
+    inputs:
+      threshold_percent:
+        description: "Elevated-rate threshold (percentage) to fail on"
+        required: false
+        type: string
+        default: "15"
+      min_eligible:
+        description: "Minimum eligible-row count before a source is checked"
+        required: false
+        type: string
+        default: "20"
+
+concurrency:
+  group: audit-dropped-sources
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit Hampel drop rates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt || true
+          # Runtime-only — no playwright / npm deps needed for the audit.
+
+      - name: Build live contract from latest snapshot
+        run: |
+          set -euo pipefail
+          SNAPSHOT=$(ls -t exports/latest/dynasty_data_*.json | head -1 || true)
+          if [ -z "$SNAPSHOT" ]; then
+            # Missing snapshot is exactly the alert this cron exists
+            # to surface — the export/data-refresh pipeline has broken.
+            # Silently returning 0 would mean "audit didn't run" looks
+            # identical to "all sources healthy" in GitHub's UI.
+            # Per Codex PR #216 round 2: fail loud.
+            echo "::error title=Missing snapshot::no dynasty_data_*.json found in exports/latest/ — data-refresh pipeline may be broken"
+            exit 1
+          fi
+          echo "Using snapshot: $SNAPSHOT"
+          python - <<PY
+          import json
+          from pathlib import Path
+          from src.api.data_contract import build_api_data_contract
+
+          raw = json.load(open("$SNAPSHOT"))
+          contract = build_api_data_contract(raw)
+          arr = contract.get("playersArray") or contract.get("data", {}).get("playersArray", [])
+          Path("/tmp/live_contract.json").write_text(json.dumps({"playersArray": arr}))
+          print(f"built contract: {len(arr)} players")
+          PY
+
+      - name: Run audit (text report to job log)
+        run: |
+          # Previous step exits non-zero if the snapshot is missing,
+          # so by the time we reach here the contract file must exist.
+          # Assert anyway — defensive against a future edit that
+          # swallows the snapshot-missing error.
+          test -f /tmp/live_contract.json
+          python scripts/audit_dropped_sources.py --json-path /tmp/live_contract.json --top 10
+
+      - name: Enforce elevated-rate threshold
+        env:
+          THRESHOLD: ${{ github.event.inputs.threshold_percent || '15' }}
+          MIN_ELIGIBLE: ${{ github.event.inputs.min_eligible || '20' }}
+        run: |
+          test -f /tmp/live_contract.json
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          # Re-use the audit script's summariser so the threshold
+          # logic stays in one place rather than duplicated here.
+          sys.path.insert(0, ".")
+          import importlib.util
+          spec = importlib.util.spec_from_file_location(
+              "audit_dropped_sources", "scripts/audit_dropped_sources.py"
+          )
+          mod = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+
+          payload = json.load(open("/tmp/live_contract.json"))
+          players = mod._players_array(payload)
+          summary = mod._summarise(players)
+
+          threshold = float(os.environ["THRESHOLD"])
+          min_eligible = int(os.environ["MIN_ELIGIBLE"])
+          elevated = []
+          for key in summary["dropped_by_source"]:
+              dropped = summary["dropped_by_source"].get(key, 0)
+              eligible = summary["eligible_rows_per_source"].get(key, 0)
+              if eligible < min_eligible:
+                  continue
+              rate = 100.0 * dropped / eligible
+              if rate >= threshold:
+                  elevated.append((key, rate, dropped, eligible))
+
+          # Write a Markdown job summary so the GitHub UI shows the
+          # table even when the workflow passes.
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_path:
+              with open(summary_path, "a") as f:
+                  f.write(f"## Hampel drop audit\n\n")
+                  f.write(f"- Rows with >=1 dropped: **{summary['rows_with_drops']} / {summary['total_rows']}**\n")
+                  f.write(f"- Threshold: {threshold:.1f}%, min eligible: {min_eligible}\n\n")
+                  if elevated:
+                      f.write("### Elevated sources\n\n")
+                      f.write("| source | rate | dropped | eligible |\n")
+                      f.write("|---|---|---|---|\n")
+                      for key, rate, dropped, eligible in elevated:
+                          f.write(f"| `{key}` | **{rate:.1f}%** | {dropped} | {eligible} |\n")
+                  else:
+                      f.write("### All sources healthy\n\nNone at or above threshold.\n")
+
+          if elevated:
+              for key, rate, dropped, eligible in elevated:
+                  print(f"::error title=Elevated source::{key} {rate:.1f}% ({dropped}/{eligible})")
+              sys.exit(1)
+          print("All sources below the elevated threshold.")
+          PY

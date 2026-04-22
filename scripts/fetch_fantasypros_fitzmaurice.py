@@ -263,16 +263,57 @@ def _parse_chart_rows(csv_text: str, position: str) -> list[dict]:
     return rows_out
 
 
+def _assign_ranks_preserving_ties(rows_sorted: list[dict]) -> list[int]:
+    """Dense-rank over value-sorted rows so ties share a rank.
+
+    Fitzmaurice publishes many players at identical values (the 0-101
+    scale has lots of plateaus).  Per Codex PR #216 round 2: the
+    earlier ``enumerate(rows_sorted, start=1)`` gave tied players
+    sequential ranks based on input order — and because the scraper
+    concatenates per-position buckets (QB, then RB, WR, TE), cross-
+    position ties at the same value got artificial separation that
+    propagated into ``sourceRankMeta.valueContribution`` and could
+    shift blend / Hampel outcomes even though the source marked them
+    as ties.
+
+    Standard-competition ranking ("1224" style) is what readers
+    expect: players 1-3 all tied at value=101 all get rank 1; the
+    next (value=91) gets rank 4.  That preserves tie semantics and
+    matches how other sources in the registry handle ties.
+    """
+    ranks: list[int] = []
+    last_value: int | None = None
+    last_rank = 0
+    for idx, r in enumerate(rows_sorted, start=1):
+        val = int(r["value"])
+        if val == last_value:
+            ranks.append(last_rank)
+        else:
+            last_rank = idx
+            last_value = val
+            ranks.append(last_rank)
+    return ranks
+
+
 def _write_csv(path: Path, rows: list[dict]) -> int:
-    """Write the combined ``name,team,position,value`` CSV."""
+    """Write the combined ``name,team,position,value,rank`` CSV.
+
+    ``rank`` is a standard-competition rank over the value-sorted
+    set — ties at the same value share a rank (per Codex PR #216
+    round 2).  The contract-side reader routes this source through
+    the rank-signal path (see ``_SOURCE_CSV_PATHS["fantasyProsFitzmaurice"]``
+    in ``src/api/data_contract.py``): without a ``rank`` column in the
+    CSV, that join would silently produce zero coverage.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     # Sort by value desc so the top player is the first row.
     rows_sorted = sorted(rows, key=lambda r: -int(r["value"]))
+    ranks = _assign_ranks_preserving_ties(rows_sorted)
     with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["name", "team", "position", "value"])
-        for r in rows_sorted:
-            w.writerow([r["name"], r["team"], r["position"], r["value"]])
+        w.writerow(["name", "team", "position", "value", "rank"])
+        for rank, r in zip(ranks, rows_sorted):
+            w.writerow([r["name"], r["team"], r["position"], r["value"], rank])
     return len(rows_sorted)
 
 
