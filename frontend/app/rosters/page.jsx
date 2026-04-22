@@ -130,20 +130,47 @@ export default function RostersPage() {
           }
         />
 
-        {/* Position filter */}
-        <div className="filter-bar" style={{ marginBottom: 12 }}>
-          <span style={{ fontWeight: 600, fontSize: "0.72rem", color: "var(--subtext)" }}>Positions:</span>
-          {POS_GROUPS.map((g) => (
-            <label key={g} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: "0.68rem", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={activeGroups.has(g)}
-                onChange={() => toggleGroup(g)}
-                style={{ width: 13, height: 13, accentColor: POS_GROUP_COLORS[g] }}
-              />
-              <span style={{ color: POS_GROUP_COLORS[g], fontWeight: 700 }}>{g}</span>
-            </label>
-          ))}
+        {/* Position filter — toggle chips.  The previous 13x13 native
+            checkbox + 11px label was impossible to tap on mobile.
+            Render each position as a segmented toggle button so the
+            entire chip is the tap target (meets 44px HIG minimum on
+            mobile) and still fits on a single row on phones. */}
+        <div
+          className="filter-bar roster-pos-filter"
+          style={{ marginBottom: 12 }}
+          role="group"
+          aria-label="Filter by position"
+        >
+          <span
+            style={{
+              fontWeight: 600,
+              fontSize: "0.72rem",
+              color: "var(--subtext)",
+            }}
+          >
+            Positions:
+          </span>
+          {POS_GROUPS.map((g) => {
+            const active = activeGroups.has(g);
+            const color = POS_GROUP_COLORS[g];
+            return (
+              <button
+                key={g}
+                type="button"
+                className={`pos-chip${active ? " pos-chip-active" : ""}`}
+                onClick={() => toggleGroup(g)}
+                aria-pressed={active}
+                title={`Toggle ${g}`}
+                style={{
+                  color: active ? "#fff" : color,
+                  background: active ? color : "transparent",
+                  borderColor: color,
+                }}
+              >
+                {g}
+              </button>
+            );
+          })}
         </div>
 
         {/* Legend */}

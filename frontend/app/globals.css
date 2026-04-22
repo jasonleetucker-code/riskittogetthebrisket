@@ -536,6 +536,45 @@ tr:hover .sticky-name {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   POSITION FILTER CHIPS (rosters page, reusable)
+   ══════════════════════════════════════════════════════════════════════════ */
+/* Segmented toggle.  Inline ``color``/``background``/``borderColor`` on
+   each chip paints the per-position accent; this rule only owns shape,
+   typography and the mobile tap-target minimum. */
+.pos-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.08s ease;
+}
+.pos-chip:active { transform: translateY(1px); }
+
+/* Dim the idle (non-active) chip so the active fill reads first. */
+.pos-chip:not(.pos-chip-active) { background: rgba(255, 255, 255, 0.02); }
+
+@media (max-width: 768px) {
+  .pos-chip {
+    /* 44x44 Apple HIG minimum tap target on touch devices. */
+    min-height: 44px;
+    padding: 6px 14px;
+    font-size: 0.84rem;
+  }
+  .roster-pos-filter { gap: 6px; flex-wrap: wrap; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    BADGES
    ══════════════════════════════════════════════════════════════════════════ */
 .badge {
