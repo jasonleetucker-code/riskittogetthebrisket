@@ -13,14 +13,17 @@
 // subpixel positioning) without missing genuine chart breakage.
 //
 // Readiness model:
-// Naive ``el.count()`` returns 0 while the chart is still fetching
-// data.  That made the first iteration of this spec silently mark
-// real regressions as "skipped" (green) on slower CI runners.  This
-// version uses ``_waitForChartOrSkip`` — a proper ``locator.waitFor``
-// with a timeout that resolves EITHER "chart rendered → run the
-// assertion" OR "waited the full timeout and it's definitely not
-// here → skip with a clear reason."  The skip path only fires on
-// timeout, not on "not yet loaded."
+// ``_waitForChart`` waits up to READINESS_TIMEOUT_MS for the chart
+// SVG to become visible and LETS THE TIMEOUT FAIL THE TEST.  Earlier
+// iterations either used a non-waiting ``count()`` or converted the
+// timeout into ``test.skip`` — both patterns masked the regressions
+// this suite exists to catch (chart removed, selector drift, data-
+// path broken, render genuinely slower than the budget).  Every
+// chart this spec targets is expected on its route; if it never
+// renders, that's the signal.
+//
+// Only legitimate skip path: ``SKIP_VISUAL_REGRESSION=1`` set by
+// the caller, for local runs where the dev server isn't up.
 // ─────────────────────────────────────────────────────────────────────
 
 const { test, expect } = require("@playwright/test");
@@ -32,9 +35,12 @@ const SCREENSHOT_OPTIONS = {
 };
 
 // Upper bound on how long we'll wait for a chart to render before
-// concluding it's legitimately absent (e.g. page doesn't have the
-// expected feature yet).  Set generously — chart data sometimes
-// involves a 4 MB contract fetch on CI-sized runners.
+// failing the test with "chart didn't render in time" — that's the
+// regression signal the suite exists to catch.  Set generously so
+// benign CI slowness doesn't flap, but tight enough that a genuinely
+// broken chart surfaces within a reasonable dev-loop.  15s covers
+// the 4 MB contract fetch plus the initial React mount on a
+// CI-sized runner.
 const READINESS_TIMEOUT_MS = 15_000;
 
 const CHART_SELECTORS = {
@@ -49,35 +55,27 @@ const CHART_SELECTORS = {
 };
 
 /**
- * Wait for a chart locator to become visible or, if the timeout
- * elapses, mark the test as skipped with a descriptive reason.
+ * Wait up to READINESS_TIMEOUT_MS for a chart locator to become
+ * visible.  Returns the locator on success; throws on timeout so the
+ * test fails (see readiness-model comment at the top of the file).
  *
- * This replaces a pattern where ``await el.count()`` returned 0 while
- * the page was still loading and the test quietly passed by skipping.
- * ``waitFor`` with a bounded timeout resolves the "still loading"
- * ambiguity: if the selector never resolves within ``READINESS_TIMEOUT_MS``,
- * it's definitely not on this page and the skip is accurate, not a
- * silent regression.
- *
- * Returns the locator if visible; otherwise ``null`` (and calls
- * ``test.skip``).
+ * ``friendlyName`` is threaded through purely to enrich the Playwright
+ * error message when the wait fails.
  */
-async function _waitForChartOrSkip(
+async function _waitForChart(
   page,
   selector,
   friendlyName,
 ) {
+  // Let the timeout throw.  Per Codex PR #216 round 2: if the chart
+  // doesn't become visible within READINESS_TIMEOUT_MS, that's
+  // exactly the "chart broke / selector drifted / data-path regressed"
+  // class of regression this suite exists to catch.  Silently
+  // skipping converts real failures into green builds.  Every chart
+  // this spec targets is expected on its route.
   const el = page.locator(selector).first();
-  try {
-    await el.waitFor({ state: "visible", timeout: READINESS_TIMEOUT_MS });
-    return el;
-  } catch {
-    test.skip(
-      true,
-      `${friendlyName} didn't render within ${READINESS_TIMEOUT_MS}ms — page may not include this chart`,
-    );
-    return null;
-  }
+  await el.waitFor({ state: "visible", timeout: READINESS_TIMEOUT_MS });
+  return el;
 }
 
 /**
@@ -106,79 +104,72 @@ test.describe("Chart visual regression", () => {
   test("Hill curve (methodology panel)", async ({ page }) => {
     await page.goto("/rankings");
     await _openMethodology(page);
-    const el = await _waitForChartOrSkip(
+    const el = await _waitForChart(
       page,
       CHART_SELECTORS.hillCurve,
       "Hill curve",
     );
-    if (!el) return;
     await expect(el).toHaveScreenshot("hill-curve.png", SCREENSHOT_OPTIONS);
   });
 
   test("Tier-gap waterfall", async ({ page }) => {
     await page.goto("/rankings");
     await _openMethodology(page);
-    const el = await _waitForChartOrSkip(
+    const el = await _waitForChart(
       page,
       CHART_SELECTORS.tierGap,
       "Tier-gap waterfall",
     );
-    if (!el) return;
     await expect(el).toHaveScreenshot("tier-gap.png", SCREENSHOT_OPTIONS);
   });
 
   test("Confidence vs value scatter", async ({ page }) => {
     await page.goto("/edge");
-    const el = await _waitForChartOrSkip(
+    const el = await _waitForChart(
       page,
       CHART_SELECTORS.confidenceScatter,
       "Confidence scatter",
     );
-    if (!el) return;
     await expect(el).toHaveScreenshot("confidence-scatter.png", SCREENSHOT_OPTIONS);
   });
 
   test("Matchup margin histogram (league/weekly)", async ({ page }) => {
     await page.goto("/league?tab=weekly");
-    const el = await _waitForChartOrSkip(
+    const el = await _waitForChart(
       page,
       CHART_SELECTORS.matchupMargin,
       "Matchup margin chart",
     );
-    if (!el) return;
     await expect(el).toHaveScreenshot("matchup-margin.png", SCREENSHOT_OPTIONS);
   });
 
   test("Trade flow Sankey (league/activity)", async ({ page }) => {
     await page.goto("/league?tab=activity");
-    const el = await _waitForChartOrSkip(
+    const el = await _waitForChart(
       page,
       CHART_SELECTORS.tradeFlow,
       "Trade flow Sankey",
     );
-    if (!el) return;
     await expect(el).toHaveScreenshot("trade-flow.png", SCREENSHOT_OPTIONS);
   });
 
   test("Activity heatmap (league/activity)", async ({ page }) => {
     await page.goto("/league?tab=activity");
-    const el = await _waitForChartOrSkip(
+    const el = await _waitForChart(
       page,
       CHART_SELECTORS.activityHeatmap,
       "Activity heatmap",
     );
-    if (!el) return;
     await expect(el).toHaveScreenshot("activity-heatmap.png", SCREENSHOT_OPTIONS);
   });
 
   test("Franchise trajectory (league/franchise)", async ({ page }) => {
     await page.goto("/league?tab=franchise");
-    const el = await _waitForChartOrSkip(
+    const el = await _waitForChart(
       page,
       CHART_SELECTORS.franchiseTraj,
       "Franchise trajectory",
     );
-    if (!el) return;
     await expect(el).toHaveScreenshot("franchise-trajectory.png", SCREENSHOT_OPTIONS);
   });
 });
@@ -196,24 +187,22 @@ test.describe("Chart structural smoke tests", () => {
   test("Hill curve has axis + at least one path", async ({ page }) => {
     await page.goto("/rankings");
     await _openMethodology(page);
-    const svg = await _waitForChartOrSkip(
+    const svg = await _waitForChart(
       page,
       CHART_SELECTORS.hillCurve,
       "Hill curve",
     );
-    if (!svg) return;
     await expect(svg.locator("path").first()).toBeVisible();
     await expect(svg.locator("circle").first()).toBeVisible();
   });
 
   test("Confidence scatter has enough points", async ({ page }) => {
     await page.goto("/edge");
-    const svg = await _waitForChartOrSkip(
+    const svg = await _waitForChart(
       page,
       CHART_SELECTORS.confidenceScatter,
       "Confidence scatter",
     );
-    if (!svg) return;
     const circles = svg.locator("circle");
     await expect(circles.first()).toBeVisible();
     // Healthy scatter has many points.  A "zero dots because the
