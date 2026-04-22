@@ -446,6 +446,10 @@ a { color: inherit; text-decoration: none; }
   font-weight: 600;
   cursor: pointer;
   transition: border-color 0.12s;
+  /* Kill the 300ms double-tap delay + the default grey tap-flash on
+     iOS; :active + :hover below still provide tap feedback. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .button:hover {
@@ -887,6 +891,8 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   min-width: 0;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .asset-row > div:first-child {
   min-width: 0;
@@ -1830,7 +1836,14 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 
 /* ── Source audit panel (expandable row) ─────────────────────────── */
-.rankings-row-clickable { cursor: pointer; }
+.rankings-row-clickable {
+  cursor: pointer;
+  /* `transparent` suppresses the default grey flash iOS paints over
+     every tap target.  Hover + active styles below replace it with a
+     themed highlight, so the UI still gives visual feedback. */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
 .rankings-row-clickable:hover td { background: rgba(96, 165, 250, 0.04); }
 .rankings-row-expanded td { background: rgba(96, 165, 250, 0.06); border-bottom: none; }
 
