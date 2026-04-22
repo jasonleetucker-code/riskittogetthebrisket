@@ -279,10 +279,24 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # https://dynasty-daddy.com/api/v1/player/all/today?market=14
     # via ``scripts/fetch_dynasty_daddy.py``.  The API returns crowd-
     # sourced SF trade values for ~641 players; we filter to offensive
-    # positions (QB/RB/WR/TE) and write ``name,value`` CSV.  Signal=value
-    # so the ``_enrich_from_source_csvs`` reader uses the value column
-    # directly, same as KTC.
-    "dynastyDaddySf": "CSVs/site_raw/dynastyDaddySf.csv",
+    # positions (QB/RB/WR/TE) and write a ``name,value,rank`` CSV.
+    #
+    # Signal=rank (2026-04-22): Dynasty Daddy's top values cluster at
+    # a display ceiling of 10,200 — the top three players (Ja'Marr
+    # Chase, Jahmyr Gibbs, Josh Allen) are all tied at 10,200 with
+    # Jaxon Smith-Njigba and Bijan Robinson just below.  The previous
+    # ``value-direct`` path mapped all of these to 9,999 after
+    # normalisation, collapsing their relative order and tripping the
+    # Hampel filter on 61% of rows (the worst in the registry — see
+    # ``scripts/audit_dropped_sources.py`` output 2026-04-22).
+    # Routing through the rank-signal path instead uses DynastyDaddy's
+    # value-ordered rank as the signal, restoring the relative
+    # ordering the value cap destroys.  The ``value`` column is still
+    # emitted for audit / display.
+    "dynastyDaddySf": {
+        "path": "CSVs/site_raw/dynastyDaddySf.csv",
+        "signal": "rank",
+    },
     # Flock Fantasy Dynasty Superflex rankings — expert consensus from
     # https://flockfantasy.com via JSON API (?format=superflex).
     # Multi-expert averaged ranks (~368 offensive players after
@@ -327,38 +341,40 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # value (0-~141 scale where Boone's top player = 141) to the CSV
     # columns ``rank`` and ``boone_value``.
     #
-    # Signal=value (2026-04-21): blend reads ``boone_value`` directly
-    # via ``_VALUE_ALIASES``, normalising by the column's max so Boone's
-    # top player contributes 9999 and every other player scales linearly.
-    # This preserves Boone's published value structure (e.g. his QB vs
-    # WR separation) instead of collapsing to rank-only ordinal info.
-    # The ``rank`` column is still preserved into
-    # ``sourceOriginalRanks.yahooBoone`` for the UI to display Boone's
-    # published rank alongside his value.
+    # Signal=rank (2026-04-22): Boone's published value column (0-~141
+    # range) has a compressed top — values 141, 130, 122, 115, 110,
+    # 110, 109 for the top seven players.  The previous ``value-direct``
+    # normalisation mapped all seven into a narrow 9400-9999 band,
+    # which the per-player Hampel filter (see
+    # ``_hampel_filter_per_player``) then correctly rejected against
+    # KTC/IDPTC's more differentiated value curves — yahooBoone hit a
+    # 47% drop rate in the live audit (see
+    # ``scripts/audit_dropped_sources.py``).  Routing Boone through
+    # the rank-signal path instead feeds his ordinal rank into the
+    # shared Hill curve, which gives each rank position a
+    # differentiated value just like DLF's rank-signal sources.  The
+    # published ``boone_value`` column is still emitted into
+    # ``sourceOriginalRanks`` / audit panels so the raw number remains
+    # visible, it just no longer participates in the blend directly.
     "yahooBoone": {
         "path": "CSVs/site_raw/yahooBoone.csv",
-        "signal": "value",
+        "signal": "rank",
     },
     # FantasyPros Dynasty Trade Value Chart — Pat Fitzmaurice's
     # monthly article-based chart.  Fetched by
     # ``scripts/fetch_fantasypros_fitzmaurice.py`` which resolves
     # the date-rotating article URL, parses the four embedded
     # Datawrapper iframes (QB/RB/WR/TE), and writes per-position
-    # values on a 0-~101 scale plus a global 1-indexed rank.
-    #
-    # Signal=rank (2026-04-22): Fitzmaurice's value scale hits its
-    # ceiling hard — the top ~dozen players cluster between 80 and
-    # 101 with many ties, which the previous ``value-direct`` path
-    # collapsed into a narrow top band and the Hampel filter then
-    # correctly rejected against differentiated sources like KTC.
-    # Live audit sampled 19% drop rate — the third-highest in the
-    # registry before this fix (after dynastyDaddySf / yahooBoone,
-    # both converted in PR #215 with the same template).  Routing
-    # through the rank-signal path uses the global value-ordered
-    # rank as the signal.
+    # values on a 0-~101 scale.  For each position we pick the
+    # league-appropriate column: ``SF Value`` for QB (Superflex),
+    # ``Trade Value`` for RB/WR (no league-scoring split), and
+    # ``TEP Value`` for TE (TE-Premium) — matching the yahooBoone
+    # pattern.  Signal=value so the blend's value-direct branch
+    # rescales Fitzmaurice's top player (typically a QB at 101)
+    # to 9999 and every other player scales linearly.
     "fantasyProsFitzmaurice": {
         "path": "CSVs/site_raw/fantasyProsFitzmaurice.csv",
-        "signal": "rank",
+        "signal": "value",
     },
     # DLF Dynasty Rookie Superflex rankings — 6-expert consensus of the
     # current rookie class only (no veterans).  Raw CSV exported from
@@ -4206,19 +4222,20 @@ _MAD_PENALTY_LAMBDA: float = 0.0
 _VALUE_BASED_SOURCES: frozenset[str] = frozenset({
     "ktc",
     "idpTradeCalc",
-    "dynastyDaddySf",
-    # Yahoo / Justin Boone's published trade values (0-~141 scale) are
-    # rescaled to 0-9999 linearly by the blend's value-direct branch.
-    # Added 2026-04-21 to preserve Boone's native value structure
-    # instead of collapsing it to rank-only ordinal information.
-    "yahooBoone",
-    # ``fantasyProsFitzmaurice`` was moved to the rank-signal path
-    # 2026-04-22 after the live audit flagged a 19% drop rate — the
-    # 0-101 value scale caps hard at the top with many ties, which
-    # the value-direct branch rescaled into a narrow band that
-    # Hampel correctly rejected against differentiated sources.
-    # Same template as the PR #215 conversion of dynastyDaddySf /
-    # yahooBoone.  See its ``_SOURCE_CSV_PATHS`` entry above.
+    # ``dynastyDaddySf`` and ``yahooBoone`` were moved to the rank-signal
+    # path 2026-04-22 after the Hampel audit flagged 61% and 47% drop
+    # rates — both have compressed top-of-curve value distributions
+    # (DynastyDaddy's 10,200 cap with top 3 tied; Boone's 141 top with
+    # seven players ≥110) that the value-direct rescaling preserved
+    # unfaithfully.  See their ``_SOURCE_CSV_PATHS`` entries above for
+    # the full rationale.
+    #
+    # FantasyPros / Pat Fitzmaurice Dynasty Trade Value Chart.
+    # Published monthly; Datawrapper CSV exposes SF Value (QB),
+    # Trade Value (RB/WR), TEP Value (TE) columns.  Top player
+    # sits at 101 (SF-adjusted QB) so the value-direct rescaling
+    # maps Fitzmaurice's top → 9999.  Added 2026-04-21.
+    "fantasyProsFitzmaurice",
 })
 
 

@@ -419,6 +419,12 @@ export const RANKING_SOURCES = [
     // Dynasty Daddy's SF trade values are standard SF scoring — no
     // TE premium baked in.  The frontend `settings.tepMultiplier`
     // boost applies to its blended contribution.
+    // Signal=rank as of 2026-04-22 (PR #215): Dynasty Daddy's top
+    // values cluster at a 10,200 display ceiling which collapsed
+    // relative ordering under value-direct normalisation.  Source is
+    // now routed through the shared Hill curve via its value-ordered
+    // rank column; the frontend UI renders the rank column, not raw
+    // value, via ``sourceOriginalRanks.dynastyDaddySf``.
     key: "dynastyDaddySf",
     displayName: "Dynasty Daddy Superflex",
     columnLabel: "DD",
@@ -429,7 +435,7 @@ export const RANKING_SOURCES = [
     weight: 1.0,
     isBackbone: false,
     isRetail: false,
-    isRankSignal: false,
+    isRankSignal: true,
     isTepPremium: false,
     needsSharedMarketTranslation: false,
     excludesRookies: false,
@@ -488,8 +494,14 @@ export const RANKING_SOURCES = [
     // position we pick the league-appropriate value column (SF Value
     // for QB, TEP Value for TE, Trade Value for RB/WR) — so
     // Fitzmaurice's Superflex + TE-Premium native numbers align
-    // with our league scoring.  Value-signal: the blend rescales
-    // Fitzmaurice's top player (typically a QB at ~101) to 9999.
+    // with our league scoring.  Value-signal on this branch: the
+    // blend rescales Fitzmaurice's top player (typically a QB at
+    // ~101) to 9999 via the value-direct path.  PR #216 converts
+    // this source to rank-signal with a matching CSV rank column;
+    // the ``isRankSignal`` flag stays ``false`` here to keep
+    // frontend and backend in lockstep on THIS branch — flipping
+    // without the matching backend change would have the audit UI
+    // render ``#—`` where real values should appear.
     key: "fantasyProsFitzmaurice",
     displayName: "FantasyPros / Pat Fitzmaurice SF-TEP",
     columnLabel: "Fitzmaurice",
@@ -602,10 +614,13 @@ export const RANKING_SOURCES = [
     // Value-signal (2026-04-21): the scraper writes Boone's
     // published trade value in ``boone_value`` (0-~141 scale) and the
     // backend blend rescales linearly so Boone's top player
-    // contributes 9999.  The ``rank`` column is still preserved and
-    // the UI renders Boone's published rank via
-    // ``sourceOriginalRanks.yahooBoone``.  `isRankSignal` is false now
-    // because the blend no longer uses the rank column as its vote.
+    // Signal=rank as of 2026-04-22 (PR #215): Boone's 0-141 value
+    // scale has seven players in the 110-141 band which collapsed
+    // relative ordering under value-direct.  Source now routed
+    // through the shared Hill curve via its ``rank`` column; the UI
+    // renders Boone's published rank via ``sourceOriginalRanks.yahooBoone``
+    // (the raw ``boone_value`` column is preserved on row payloads
+    // for display but no longer drives the blend).
     key: "yahooBoone",
     displayName: "Yahoo / Justin Boone SF-TEP",
     columnLabel: "Boone",
@@ -616,7 +631,7 @@ export const RANKING_SOURCES = [
     weight: 1.0,
     isBackbone: false,
     isRetail: false,
-    isRankSignal: false,
+    isRankSignal: true,
     isTepPremium: true,
     needsSharedMarketTranslation: false,
     excludesRookies: false,
@@ -995,14 +1010,6 @@ function _materializePlayerArrayRow(player) {
     identityConfidence: Number(player.identityConfidence ?? 0.7),
     identityMethod: String(player.identityMethod || "name_only"),
     quarantined: Boolean(player.quarantined),
-    // Per-player rank history series stamped by the backend
-    // (``src/api/rank_history.py::stamp_contract_with_history``).
-    // The frontend ``RankChangeGlyph`` (see
-    // ``frontend/components/graphs/RankChangeGlyph.jsx``) reads
-    // ``row.rankHistory`` directly and upgrades from a single-delta
-    // arrow to a sparkline when >=2 entries exist.  Defaults to
-    // ``null`` on legacy contracts that pre-date the history log.
-    rankHistory: Array.isArray(player.rankHistory) ? player.rankHistory : null,
     raw: player,
   };
 }
@@ -1071,11 +1078,6 @@ function _materializeLegacyDictRow(name, player, posMap) {
     identityConfidence: Number(player.identityConfidence ?? 0.7),
     identityMethod: String(player.identityMethod || "name_only"),
     quarantined: Boolean(player.quarantined),
-    // See ``_materializePlayerArrayRow`` for the rationale — keep
-    // both materializers in lockstep so rankHistory lands on rows
-    // regardless of whether the payload used the playersArray path
-    // or the legacy-dict fallback.
-    rankHistory: Array.isArray(player.rankHistory) ? player.rankHistory : null,
     raw: player,
   };
 }
