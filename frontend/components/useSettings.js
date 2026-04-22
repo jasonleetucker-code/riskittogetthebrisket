@@ -30,14 +30,17 @@ export const SETTINGS_DEFAULTS = {
 
   // Rankings display
   rankingsSortBasis: "full",         // "full" | "raw"
-  // Source-site columns are on by default on mobile AND desktop.  The
-  // rankings table always renders the per-source value + rank cells;
-  // this toggle lets power users hide them to focus on the consensus
-  // value column.  Historically this defaulted to false but we never
-  // wired the toggle to the table render, so the setting was dead and
-  // mobile hid the columns via CSS regardless.  Default ON is the
-  // canonical behavior — see rankings/page.jsx for the render gate.
-  showSiteCols: true,
+  // Source-site columns are off by default.  The rankings table's
+  // headline columns (rank, player, pos, consensus, value) are what
+  // most users open the page to see; the per-source value + rank
+  // cells are power-user transparency data that dominates the
+  // viewport — especially on mobile, where they render as a wrapping
+  // chip strip below every row and push the Value column off-screen.
+  // Users who want to audit per-source contributions can flip the
+  // toggle from the Columns popover on /rankings or the Rankings
+  // Display section on /settings.  See rankings/page.jsx for the
+  // render gate.
+  showSiteCols: false,
   // Per-source column visibility map ({ [sourceKey]: false } to
   // hide a specific source column on the rankings table).  Any key
   // missing from the map defaults to visible — so an empty map

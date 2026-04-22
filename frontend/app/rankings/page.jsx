@@ -857,17 +857,24 @@ export default function RankingsPage() {
           <button className="button" onClick={exportCsv} title="Download the current rows as a CSV file">
             Export CSV
           </button>
-          {/* Columns toggle — opens an inline popover with one
-              checkbox per source so the user can hide clutter from
-              sources they don't care about.  Persisted across
-              sessions via ``settings.hiddenSiteCols``. */}
+          {/* Columns toggle — opens an inline popover with a master
+              on/off for the per-source columns plus one checkbox per
+              source so the user can hide clutter from sources they
+              don't care about.  Persisted across sessions via
+              ``settings.showSiteCols`` (master gate) and
+              ``settings.hiddenSiteCols`` (per-source). */}
           <div style={{ position: "relative", display: "inline-block" }}>
             <button
               className="button"
               onClick={() => setColsMenuOpen((v) => !v)}
               title="Show/hide per-source columns"
             >
-              Columns{hiddenCount > 0 ? ` (${hiddenCount} hidden)` : ""}
+              Columns
+              {!settings.showSiteCols
+                ? " (off)"
+                : hiddenCount > 0
+                  ? ` (${hiddenCount} hidden)`
+                  : ""}
             </button>
             {colsMenuOpen && (
               <div
@@ -899,12 +906,39 @@ export default function RankingsPage() {
                     onClick={showAllSiteCols}
                     style={{ fontSize: "0.7rem", padding: "2px 8px" }}
                     title="Restore all source columns"
+                    disabled={!settings.showSiteCols}
                   >
                     Show all
                   </button>
                 </div>
+                {/* Master on/off — flips the global gate that renders
+                    the per-source value columns on desktop and the
+                    per-row chip strip on mobile.  Without this toggle
+                    the per-source checkboxes below would be silent
+                    no-ops for cold-start users, since the default for
+                    ``showSiteCols`` is off. */}
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "6px 0",
+                    borderBottom: "1px solid var(--border-dim, rgba(255,255,255,0.08))",
+                    marginBottom: 4,
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={Boolean(settings.showSiteCols)}
+                    onChange={(e) => updateSetting("showSiteCols", e.target.checked)}
+                  />
+                  <span>Show source columns</span>
+                </label>
                 {RANKING_SOURCES.map((src) => {
                   const hidden = Boolean(hiddenSiteCols[src.key]);
+                  const rowDisabled = !settings.showSiteCols;
                   return (
                     <label
                       key={src.key}
@@ -913,13 +947,15 @@ export default function RankingsPage() {
                         alignItems: "center",
                         gap: 8,
                         padding: "4px 0",
-                        cursor: "pointer",
+                        cursor: rowDisabled ? "not-allowed" : "pointer",
+                        opacity: rowDisabled ? 0.45 : 1,
                       }}
                     >
                       <input
                         type="checkbox"
                         checked={!hidden}
                         onChange={() => toggleSiteCol(src.key)}
+                        disabled={rowDisabled}
                       />
                       <span>{src.columnLabel}</span>
                       <span className="muted" style={{ marginLeft: "auto", fontSize: "0.72rem" }}>{src.displayName}</span>
