@@ -4,23 +4,28 @@
    ══════════════════════════════════════════════════════════════════════════ */
 
 /* ── DESIGN TOKENS ─────────────────────────────────────────────────────── */
-/* Minnesota Vikings skin.  Official brand colors are purple #4F2683 and
- * gold #FFC62F, plus white and black.  The palette below anchors on those:
- *   - Backgrounds step from near-black with a purple tint up to the Vikings
- *     primary purple (used for card hover + accent borders).
- *   - The historic ``--cyan`` variable — used throughout the codebase as
- *     "the accent color" (buttons, links, focus rings, trade-meter) — now
- *     holds Vikings gold.  136 ``var(--cyan)`` usages pick this up for free;
- *     the ~50 hardcoded ``#FFC62F`` / ``rgba(255, 198, 47, X)`` references
- *     are search-replaced to the gold equivalent.
- *   - ``--amber`` collapses to the same gold so the two accent flavors no
- *     longer diverge.  The IDP position badge separately remaps to purple
- *     so offense (gold) and IDP (purple) stay visually distinguishable.
- *   - ``--green`` / ``--red`` stay for data semantics (wins/losses, high/low
- *     confidence) — contrast vs the deep-purple bg is still AAA+.
- *   - White text on any of the background tones hits WCAG AAA.  Gold text on
- *     ``--card`` (#2a1550) is ~8:1 (AAA).  Gold on Vikings primary purple
- *     (#4F2683) is ~5.6:1 — AA for normal, AAA for large/bold.
+/* Minnesota Vikings skin — aligned to the official 4-color palette
+ * (schemecolor.com/minnesota-vikings-team-colors):
+ *     Dark Yellow  #FFC704   (primary gold)
+ *     Aesthetic P. #4F2185   (primary purple)
+ *     Full White   #FFFFFF
+ *     Blush Orange #EABF99   (warm cream accent)
+ *
+ * Semantic mapping:
+ *   - ``--cyan`` is the codebase's "accent" variable — it now holds the
+ *     exact Vikings gold.  130+ ``var(--cyan)`` usages (buttons, focus
+ *     rings, recommendation chips, Win-at column, sparkline) pick this
+ *     up automatically.
+ *   - ``--amber`` collapses to the same gold so "amber" flavors don't
+ *     drift from primary.
+ *   - ``--border`` / ``--vikings-purple`` carry the exact palette purple.
+ *   - ``--blush`` is a NEW accent for warmer tints — borders of
+ *     informational-not-critical states, secondary chip backgrounds,
+ *     decorative highlights where gold would feel too loud.
+ *   - ``--green`` / ``--red`` stay for data semantics (up/down, ok/err)
+ *     — both still hit AAA contrast on the deep-purple bg.
+ *   - Body gradient now tinted with Vikings purple instead of the
+ *     previous navy-blue highlight, so even the backdrop says "Vikings".
  */
 :root {
   --bg: #0f0a1a;
@@ -30,16 +35,19 @@
   --text: #ffffff;
   --subtext: #c7b8dc;
   --muted: #c7b8dc;
-  --cyan: #FFC62F;
+  --cyan: #FFC704;
   --green: #34d399;
   --red: #f87171;
-  --amber: #FFC62F;
-  --border: #4F2683;
-  --border-bright: #7a3fbf;
-  /* Explicit brand colors — reach for these when you want the raw Vikings
-   * hex without going through the semantic variable names. */
-  --vikings-purple: #4F2683;
-  --vikings-gold: #FFC62F;
+  --amber: #FFC704;
+  --border: #4F2185;
+  --border-bright: #6d35b3;
+  /* Explicit brand colors — reach for these when you want the raw
+   * Vikings hex without going through the semantic variable names. */
+  --vikings-purple: #4F2185;
+  --vikings-gold: #FFC704;
+  --vikings-blush: #EABF99;
+  /* Aliased for CSS usage: ``var(--blush)`` reads cleaner inline. */
+  --blush: #EABF99;
 
   /* Spacing scale */
   --space-xs: 4px;
@@ -70,7 +78,10 @@ html, body { margin: 0; padding: 0; min-height: 100%; }
 
 body {
   font-family: var(--font);
-  background: radial-gradient(circle at top right, #12264f 0%, var(--bg) 45%);
+  /* Vikings purple radial glow top-right, fading into the deep
+   * near-black base.  Replaces the pre-skin navy #12264f highlight
+   * so the backdrop matches the palette. */
+  background: radial-gradient(circle at top right, #3b186a 0%, var(--bg) 50%);
   color: var(--text);
   font-size: 14px;
   line-height: 1.5;
@@ -137,8 +148,8 @@ a { color: inherit; text-decoration: none; }
 
 .nav-link.nav-active {
   color: var(--cyan);
-  border-color: rgba(255, 198, 47, 0.25);
-  background: rgba(255, 198, 47, 0.06);
+  border-color: rgba(255, 199, 4, 0.25);
+  background: rgba(255, 199, 4, 0.06);
 }
 
 .nav-search-btn {
@@ -462,13 +473,13 @@ a { color: inherit; text-decoration: none; }
 }
 
 .button-primary {
-  background: rgba(255, 198, 47, 0.12);
-  border-color: rgba(255, 198, 47, 0.35);
+  background: rgba(255, 199, 4, 0.12);
+  border-color: rgba(255, 199, 4, 0.35);
   color: var(--cyan);
 }
 
 .button-primary:hover {
-  background: rgba(255, 198, 47, 0.18);
+  background: rgba(255, 199, 4, 0.18);
 }
 
 .button-danger {
@@ -716,11 +727,11 @@ input[type="range"]::-moz-range-thumb {
 }
 
 input[type="range"]:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 4px rgba(255, 198, 47, 0.25),
+  box-shadow: 0 0 0 4px rgba(255, 199, 4, 0.25),
               0 2px 6px rgba(0, 0, 0, 0.35);
 }
 input[type="range"]:focus-visible::-moz-range-thumb {
-  box-shadow: 0 0 0 4px rgba(255, 198, 47, 0.25),
+  box-shadow: 0 0 0 4px rgba(255, 199, 4, 0.25),
               0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
@@ -755,7 +766,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 .global-search-input-row:focus-within {
   border-color: var(--cyan);
-  box-shadow: 0 0 0 3px rgba(255, 198, 47, 0.15);
+  box-shadow: 0 0 0 3px rgba(255, 199, 4, 0.15);
 }
 .global-search-input {
   flex: 1;
@@ -869,8 +880,8 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 
 .badge-cyan {
   color: var(--cyan);
-  border-color: rgba(255, 198, 47, 0.35);
-  background: rgba(255, 198, 47, 0.08);
+  border-color: rgba(255, 199, 4, 0.35);
+  background: rgba(255, 199, 4, 0.08);
 }
 
 .badge-green {
@@ -895,7 +906,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
    * touching every consumer of the old amber label. */
   color: #c9a9ff;
   border-color: rgba(122, 63, 191, 0.45);
-  background: rgba(79, 38, 131, 0.25);
+  background: rgba(79, 33, 133, 0.25);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -1093,7 +1104,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   cursor: pointer;
 }
 .picker-row:active {
-  background: rgba(255, 198, 47, 0.08);
+  background: rgba(255, 199, 4, 0.08);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -1208,8 +1219,8 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 
 .toast-info {
-  background: rgba(255, 198, 47, 0.18);
-  border: 1px solid rgba(255, 198, 47, 0.35);
+  background: rgba(255, 199, 4, 0.18);
+  border: 1px solid rgba(255, 199, 4, 0.35);
   color: var(--cyan);
 }
 
@@ -1241,7 +1252,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at top left, rgba(255, 198, 47, 0.08), transparent 48%);
+  background: radial-gradient(circle at top left, rgba(255, 199, 4, 0.08), transparent 48%);
 }
 
 .login-panel {
@@ -1252,7 +1263,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   padding: 18px;
 }
 
-.login-badge { color: var(--cyan); border-color: rgba(255, 198, 47, 0.35); background: rgba(255, 198, 47, 0.08); }
+.login-badge { color: var(--cyan); border-color: rgba(255, 199, 4, 0.35); background: rgba(255, 199, 4, 0.08); }
 .login-form { margin-top: var(--space-md); display: grid; gap: 10px; }
 .login-label { font-size: 0.78rem; font-weight: 700; color: var(--muted); }
 .login-input { width: 100%; }
@@ -2880,7 +2891,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   padding: var(--space-sm);
   border: 1px dashed var(--border);
   border-radius: var(--radius);
-  background: rgba(255, 198, 47, 0.04);
+  background: rgba(255, 199, 4, 0.04);
 }
 
 .idp-lab-diff-header {
@@ -3202,20 +3213,20 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   padding: 10px 16px;
   border-radius: 999px;
   border: 1px solid var(--border-bright);
-  background: linear-gradient(135deg, #4F2683 0%, #2a1550 100%);
+  background: linear-gradient(135deg, #4F2185 0%, #2a1550 100%);
   color: var(--text);
   font-family: var(--font);
   font-size: 0.82rem;
   font-weight: 600;
   letter-spacing: 0.01em;
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(255, 198, 47, 0.14);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(255, 199, 4, 0.14);
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
 }
 .chat-fab:hover {
   transform: translateY(-1px);
   border-color: var(--cyan);
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5), 0 2px 10px rgba(255, 198, 47, 0.3);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5), 0 2px 10px rgba(255, 199, 4, 0.3);
 }
 .chat-fab-glyph {
   display: inline-block;
@@ -3363,7 +3374,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   gap: 8px;
   padding: 8px;
   border-radius: var(--radius);
-  background: rgba(255, 198, 47, 0.04);
+  background: rgba(255, 199, 4, 0.04);
   border: 1px dashed var(--border);
 }
 .chat-suggestions-title {
@@ -3406,7 +3417,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 .chat-bubble-user {
   align-self: flex-end;
-  background: linear-gradient(135deg, #4F2683 0%, #2a1550 100%);
+  background: linear-gradient(135deg, #4F2185 0%, #2a1550 100%);
   border-color: var(--border-bright);
 }
 .chat-bubble-assistant {
@@ -3415,7 +3426,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 .chat-bubble-streaming {
   border-color: var(--cyan);
-  box-shadow: 0 0 0 1px rgba(255, 198, 47, 0.25);
+  box-shadow: 0 0 0 1px rgba(255, 199, 4, 0.25);
 }
 .chat-bubble-role {
   font-size: 0.66rem;
@@ -3469,7 +3480,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .chat-bubble-body a {
   color: var(--cyan);
   text-decoration: underline;
-  text-decoration-color: rgba(255, 198, 47, 0.5);
+  text-decoration-color: rgba(255, 199, 4, 0.5);
 }
 .chat-bubble-body blockquote {
   margin: 4px 0;
@@ -3537,7 +3548,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .chat-input::placeholder { color: var(--muted); }
 .chat-input:focus {
   border-color: var(--cyan);
-  box-shadow: 0 0 0 3px rgba(255, 198, 47, 0.12);
+  box-shadow: 0 0 0 3px rgba(255, 199, 4, 0.12);
 }
 .chat-input:disabled { opacity: 0.6; }
 
@@ -3545,7 +3556,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   padding: 10px 18px;
   border: 1px solid var(--border-bright);
   border-radius: var(--radius);
-  background: linear-gradient(135deg, #4F2683 0%, #2a1550 100%);
+  background: linear-gradient(135deg, #4F2185 0%, #2a1550 100%);
   color: var(--text);
   font-family: var(--font);
   font-size: 0.82rem;
@@ -3597,7 +3608,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border-bottom: none;
 }
 .source-breakdown-table tbody tr:hover {
-  background: rgba(255, 198, 47, 0.04);
+  background: rgba(255, 199, 4, 0.04);
 }
 
 /* ── Draft dashboard ──────────────────────────────────────────────── */
@@ -3623,8 +3634,8 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   margin-bottom: 14px;
 }
 .draft-stat {
-  background: rgba(255, 198, 47, 0.04);
-  border: 1px solid rgba(255, 198, 47, 0.15);
+  background: rgba(255, 199, 4, 0.04);
+  border: 1px solid rgba(255, 199, 4, 0.15);
   border-radius: 8px;
   padding: 10px 12px;
 }
@@ -3811,7 +3822,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border-left: 2px solid var(--green);
 }
 .draft-row:hover {
-  background: rgba(255, 198, 47, 0.04);
+  background: rgba(255, 199, 4, 0.04);
 }
 
 .draft-tag {
@@ -3947,7 +3958,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border: 1px solid var(--border);
 }
 .draft-live-idle    { color: var(--muted); }
-.draft-live-push    { color: var(--cyan); border-color: var(--cyan); background: rgba(255, 198, 47, 0.08); }
+.draft-live-push    { color: var(--cyan); border-color: var(--cyan); background: rgba(255, 199, 4, 0.08); }
 .draft-live-target  { color: var(--green); border-color: var(--green); background: rgba(52, 211, 153, 0.1); }
 .draft-live-pass    { color: var(--red); border-color: var(--red); background: rgba(248, 113, 113, 0.08); }
 .draft-live-mine    { color: var(--green); border-color: var(--green); background: rgba(52, 211, 153, 0.1); }
@@ -3976,7 +3987,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-family: var(--mono, monospace);
 }
 .draft-tier-S {
-  background: rgba(255, 198, 47, 0.15);
+  background: rgba(255, 199, 4, 0.15);
   border-color: var(--cyan);
   color: var(--cyan);
 }
@@ -4039,7 +4050,15 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 .draft-progress-fill {
   height: 100%;
-  background: linear-gradient(to right, var(--cyan), var(--green));
+  /* Vikings palette sweep: purple → gold → blush so all three
+   * brand colors ride the progress bar.  Visual beat: the user
+   * sees the whole league palette fill in as the draft completes. */
+  background: linear-gradient(
+    to right,
+    var(--vikings-purple),
+    var(--vikings-gold) 60%,
+    var(--blush)
+  );
   transition: width 0.35s ease;
 }
 .draft-progress-labels {
@@ -4071,7 +4090,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   align-items: center;
 }
 .draft-tag-tab:hover {
-  background: rgba(255, 198, 47, 0.05);
+  background: rgba(255, 199, 4, 0.05);
 }
 .draft-tag-tab-active {
   font-weight: 600;
@@ -4099,7 +4118,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   justify-content: center;
 }
 .draft-tag-chip:hover {
-  background: rgba(255, 198, 47, 0.08);
+  background: rgba(255, 199, 4, 0.08);
 }
 .draft-tag-chip:disabled {
   opacity: 0.4;
@@ -4145,7 +4164,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   color: var(--green);
 }
 .draft-rec-steal {
-  background: rgba(255, 198, 47, 0.12);
+  background: rgba(255, 199, 4, 0.12);
   border-color: var(--cyan);
   color: var(--cyan);
 }
@@ -4160,7 +4179,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   color: var(--green);
 }
 .draft-rec-spend {
-  background: rgba(255, 198, 47, 0.1);
+  background: rgba(255, 199, 4, 0.1);
   border-color: var(--cyan);
   color: var(--cyan);
 }
@@ -4203,7 +4222,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   background: rgba(153, 166, 200, 0.04);
 }
 .draft-nbt-row:hover {
-  background: rgba(255, 198, 47, 0.05);
+  background: rgba(255, 199, 4, 0.05);
 }
 .draft-nbt-target {
   background: rgba(52, 211, 153, 0.06);
@@ -4320,7 +4339,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   padding: 8px 12px;
   margin-bottom: 12px;
   border-radius: 6px;
-  background: rgba(255, 198, 47, 0.08);
+  background: rgba(255, 199, 4, 0.08);
   border: 1px solid var(--cyan);
   color: var(--cyan);
   font-size: 0.78rem;
@@ -4365,7 +4384,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   background: rgba(153, 166, 200, 0.04);
 }
 .draft-tb-row:hover {
-  background: rgba(255, 198, 47, 0.05);
+  background: rgba(255, 199, 4, 0.05);
 }
 .draft-tb-row-mine {
   background: rgba(52, 211, 153, 0.08);
@@ -4478,7 +4497,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 .draft-tb-status-tight {
   border-color: var(--cyan);
-  background: rgba(255, 198, 47, 0.06);
+  background: rgba(255, 199, 4, 0.06);
 }
 .draft-tb-status-tight .draft-tb-status-line {
   color: var(--cyan);
@@ -4543,7 +4562,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .draft-row-selected {
   outline: 2px solid var(--cyan);
   outline-offset: -2px;
-  background: rgba(255, 198, 47, 0.08) !important;
+  background: rgba(255, 199, 4, 0.08) !important;
 }
 
 /* ── Draft glossary ─────────────────────────────────────────────── */
@@ -4556,7 +4575,10 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   list-style: none;
   cursor: pointer;
   padding-bottom: 6px;
-  border-bottom: 1px solid var(--border);
+  /* Blush-orange underline — the 4th Vikings palette color.  Only
+   * used here and on the progress-bar gradient end-stop, so the
+   * color stays a "peripheral trim" accent rather than dominating. */
+  border-bottom: 2px solid var(--blush);
   margin-bottom: 10px;
 }
 .draft-gloss > details > summary::-webkit-details-marker {

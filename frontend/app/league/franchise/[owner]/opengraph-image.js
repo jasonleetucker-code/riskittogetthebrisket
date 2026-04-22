@@ -61,7 +61,7 @@ export default async function FranchiseOGImage({ params }) {
           justifyContent: "space-between",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 16, color: "#FFC62F", fontSize: 28 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, color: "#FFC704", fontSize: 28 }}>
           <span style={{ letterSpacing: "0.15em", textTransform: "uppercase", fontWeight: 700 }}>
             Brisket League · Franchise
           </span>
@@ -78,7 +78,7 @@ export default async function FranchiseOGImage({ params }) {
           <div style={{ display: "flex", gap: 48, marginTop: 20, fontSize: 30 }}>
             <Stat label="Record" value={record || "—"} color="#eaf2ff" />
             <Stat label="Titles" value={`${titles}×`} color="#fbbf24" />
-            <Stat label="Seasons" value={`${seasons}`} color="#FFC62F" />
+            <Stat label="Seasons" value={`${seasons}`} color="#FFC704" />
             {cum.playoffAppearances ? (
               <Stat label="Playoffs" value={`${cum.playoffAppearances}`} color="#34d399" />
             ) : null}

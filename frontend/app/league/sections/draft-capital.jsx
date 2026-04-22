@@ -135,10 +135,10 @@ function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds
                     style={{
                       width: `${pct}%`,
                       height: "100%",
-                      background: "linear-gradient(90deg, var(--cyan), rgba(255,198,47,0.6))",
+                      background: "linear-gradient(90deg, var(--cyan), rgba(255, 199, 4,0.6))",
                       borderRadius: "var(--radius-sm)",
                       transition: "width 0.4s ease-out",
-                      boxShadow: pct > 30 ? "0 0 12px rgba(255,198,47,0.15)" : "none",
+                      boxShadow: pct > 30 ? "0 0 12px rgba(255, 199, 4,0.15)" : "none",
                     }}
                   />
                 </div>
