@@ -144,24 +144,41 @@ export default function ConfidenceValueScatter({
           source spread (%)
         </text>
 
-        {/* Points */}
+        {/* Points.  The visible dot is r=3.5 for the desktop density
+            this chart was designed for.  Stacked on top is an invisible
+            r=10 tap-target circle so finger taps near a dot still hit
+            it — on a phone an r=3.5 (7px) circle is essentially
+            impossible to land on accurately. */}
         {points.map((p, i) => (
-          <circle
+          <g
             key={i}
-            cx={x(p.x)}
-            cy={y(p.y)}
-            r={3.5}
-            fill={CHART_COLORS.confidence[p.bucket] || CHART_COLORS.confidence.none}
-            fillOpacity={0.8}
-            stroke={CHART_COLORS.bg}
-            strokeWidth={0.5}
             style={onPointClick ? { cursor: "pointer" } : undefined}
             onClick={onPointClick ? () => onPointClick(p.raw) : undefined}
           >
-            <title>
-              #{p.rank} {p.name} — value {formatNumber(p.x)}, spread {formatNumber(p.y * 100, 1)}%, {p.bucket}
-            </title>
-          </circle>
+            {onPointClick && (
+              <circle
+                cx={x(p.x)}
+                cy={y(p.y)}
+                r={10}
+                fill="transparent"
+                pointerEvents="all"
+              />
+            )}
+            <circle
+              cx={x(p.x)}
+              cy={y(p.y)}
+              r={3.5}
+              fill={CHART_COLORS.confidence[p.bucket] || CHART_COLORS.confidence.none}
+              fillOpacity={0.8}
+              stroke={CHART_COLORS.bg}
+              strokeWidth={0.5}
+              pointerEvents="none"
+            >
+              <title>
+                #{p.rank} {p.name} — value {formatNumber(p.x)}, spread {formatNumber(p.y * 100, 1)}%, {p.bucket}
+              </title>
+            </circle>
+          </g>
         ))}
       </g>
     </svg>
