@@ -234,6 +234,54 @@ class StampContract(unittest.TestCase):
             # Row with no history should NOT be stamped.
             self.assertNotIn("rankHistory", contract["playersArray"][1])
 
+    def test_infers_asset_class_for_legacy_rows_without_field(self) -> None:
+        # Regression for Codex PR #217 round 3: legacy ``players``
+        # dict rows don't carry ``assetClass`` but do carry ``position``.
+        # Without position-based inference, every legacy row hashed to
+        # ``::unknown`` and missed snapshot keys written as
+        # ``::offense`` / ``::idp``.
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "rank_history.jsonl"
+            rank_history.append_snapshot(
+                _contract_with({"Josh Allen": 1}, asset_class="offense"),
+                date="2026-04-19",
+                path=path,
+            )
+            rank_history.append_snapshot(
+                _contract_with({"Josh Allen": 1}, asset_class="offense"),
+                date="2026-04-20",
+                path=path,
+            )
+            contract = {
+                "players": {
+                    "Josh Allen": {"position": "QB"},
+                    "Micah Parsons": {"position": "DL"},
+                }
+            }
+            stamped = rank_history.stamp_contract_with_history(contract, path=path)
+            self.assertEqual(stamped, 1)
+            self.assertIn("rankHistory", contract["players"]["Josh Allen"])
+            self.assertEqual(
+                len(contract["players"]["Josh Allen"]["rankHistory"]), 2
+            )
+
+    def test_infer_asset_class_position_to_class(self) -> None:
+        infer = rank_history._infer_asset_class
+        self.assertEqual(infer({"position": "QB"}), "offense")
+        self.assertEqual(infer({"position": "RB"}), "offense")
+        self.assertEqual(infer({"position": "WR"}), "offense")
+        self.assertEqual(infer({"position": "TE"}), "offense")
+        self.assertEqual(infer({"position": "DL"}), "idp")
+        self.assertEqual(infer({"position": "LB"}), "idp")
+        self.assertEqual(infer({"position": "DB"}), "idp")
+        self.assertEqual(infer({"position": "EDGE"}), "idp")
+        self.assertEqual(infer({"position": "PICK"}), "pick")
+        self.assertEqual(infer({"position": "K"}), "unknown")
+        # Explicit assetClass wins over inferred.
+        self.assertEqual(
+            infer({"position": "DL", "assetClass": "offense"}), "offense"
+        )
+
     def test_stamps_legacy_players_dict_for_runtime_view(self) -> None:
         # Regression for Codex PR #217 round 2: the runtime view
         # strips ``playersArray`` and the frontend falls back to the

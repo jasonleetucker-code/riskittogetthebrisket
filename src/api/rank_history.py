@@ -94,6 +94,41 @@ def _extract_ranks(contract: dict[str, Any]) -> dict[str, int]:
     return out
 
 
+_OFFENSE_POSITIONS = frozenset({"QB", "RB", "WR", "TE"})
+_IDP_POSITIONS = frozenset(
+    {"DL", "DE", "DT", "EDGE", "NT", "LB", "OLB", "ILB", "MLB", "DB", "CB", "S", "FS", "SS"}
+)
+
+
+def _infer_asset_class(row: dict[str, Any]) -> str:
+    """Fallback classifier when ``assetClass`` isn't stamped.
+
+    The modern ``playersArray`` shape always carries ``assetClass``,
+    but the legacy ``players`` dict (the frontend runtime-view
+    fallback when ``playersArray`` is stripped for payload size)
+    does not.  Without a fallback, every legacy row falls through to
+    ``::unknown`` and misses snapshot keys written as ``::offense``
+    or ``::idp`` — which defeats the whole point of stamping the
+    legacy dict and leaves ``row.rankHistory`` null on the default
+    rankings flow.  Per Codex PR #217 round 3.
+
+    Order of preference: explicit ``assetClass`` > inferred from
+    ``position``.  Position taxonomy matches
+    ``src/utils/name_clean.py::classify_position``.
+    """
+    asset = str(row.get("assetClass") or "").strip().lower()
+    if asset in ("offense", "idp", "pick"):
+        return asset
+    pos = str(row.get("position") or "").strip().upper()
+    if pos == "PICK":
+        return "pick"
+    if pos in _OFFENSE_POSITIONS:
+        return "offense"
+    if pos in _IDP_POSITIONS:
+        return "idp"
+    return "unknown"
+
+
 def _player_key(row: dict[str, Any]) -> str | None:
     """Compose a stable unique key for a player row.
 
@@ -102,12 +137,14 @@ def _player_key(row: dict[str, Any]) -> str | None:
     player map allows the same display name to refer to two distinct
     humans, and keying history by raw name would have them overwrite
     each other in the append dict.
+
+    Falls back to position-based assetClass inference for legacy
+    rows (``players`` dict) that don't carry the field directly.
     """
     name = row.get("canonicalName") or row.get("displayName")
     if not name:
         return None
-    asset_class = str(row.get("assetClass") or "unknown").lower()
-    return f"{name}::{asset_class}"
+    return f"{name}::{_infer_asset_class(row)}"
 
 
 def _read_lines(path: Path) -> list[dict[str, Any]]:
