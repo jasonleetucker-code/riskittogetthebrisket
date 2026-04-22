@@ -995,6 +995,14 @@ function _materializePlayerArrayRow(player) {
     identityConfidence: Number(player.identityConfidence ?? 0.7),
     identityMethod: String(player.identityMethod || "name_only"),
     quarantined: Boolean(player.quarantined),
+    // Per-player rank history series stamped by the backend
+    // (``src/api/rank_history.py::stamp_contract_with_history``).
+    // The frontend ``RankChangeGlyph`` (see
+    // ``frontend/components/graphs/RankChangeGlyph.jsx``) reads
+    // ``row.rankHistory`` directly and upgrades from a single-delta
+    // arrow to a sparkline when >=2 entries exist.  Defaults to
+    // ``null`` on legacy contracts that pre-date the history log.
+    rankHistory: Array.isArray(player.rankHistory) ? player.rankHistory : null,
     raw: player,
   };
 }
@@ -1063,6 +1071,11 @@ function _materializeLegacyDictRow(name, player, posMap) {
     identityConfidence: Number(player.identityConfidence ?? 0.7),
     identityMethod: String(player.identityMethod || "name_only"),
     quarantined: Boolean(player.quarantined),
+    // See ``_materializePlayerArrayRow`` for the rationale — keep
+    // both materializers in lockstep so rankHistory lands on rows
+    // regardless of whether the payload used the playersArray path
+    // or the legacy-dict fallback.
+    rankHistory: Array.isArray(player.rankHistory) ? player.rankHistory : null,
     raw: player,
   };
 }
