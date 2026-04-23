@@ -65,10 +65,25 @@ class _PlayerMapCache:
         fetcher,
         ttl_s: float = _PLAYER_MAP_TTL_S,
     ) -> dict[str, dict[str, Any]]:
+        """Return the cached map, fetching if stale.
+
+        Contract change (Codex P1): raises when the cache is
+        COLD (empty + no prior successful fetch) and the
+        fetcher fails.  Previously we'd log + return ``{}``, but
+        that let Sleeper emit a silently-empty feed during a real
+        outage — the service would see ``ok=True, count=0`` and
+        the all-providers-failed 503 path could never fire.
+
+        A warm-cache fetcher failure still degrades gracefully:
+        we return the stale map, since names from yesterday are
+        better than no names at all and trending data is still
+        mostly useful.
+        """
         now = time.time()
         with self._lock:
             if self._map and now < self._expires_at:
                 return self._map
+            had_cache = bool(self._map)
         # Fetch outside the lock so concurrent callers don't pile
         # up on a single slow request.  Worst case we issue two
         # fetches on a cold start — benign, the second one just
@@ -77,9 +92,8 @@ class _PlayerMapCache:
             fresh = fetcher()
         except Exception as exc:
             log.warning("sleeper player-map fetch failed: %s", exc)
-            # Return whatever we have (possibly stale, possibly
-            # empty) rather than erroring out — trending data is
-            # still useful with opaque player_ids.
+            if not had_cache:
+                raise
             return self._map
         if isinstance(fresh, dict) and fresh:
             with self._lock:
@@ -267,11 +281,10 @@ class SleeperTrendingProvider(NewsProvider):
         if not adds and not drops:
             return []
 
-        try:
-            player_map = self._fetch_player_map()
-        except Exception as exc:
-            log.warning("sleeper player map fetch failed: %s", exc)
-            player_map = {}
+        # Player-map failure bubbles up ONLY when the cache is
+        # cold.  _PlayerMapCache raises in that case (Codex P1);
+        # warm-cache failures return the stale map silently.
+        player_map = self._fetch_player_map()
 
         now = datetime.now(timezone.utc)
         top_add = adds[0]["count"] if adds and adds[0].get("count") else 0

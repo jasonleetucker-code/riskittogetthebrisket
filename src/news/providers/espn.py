@@ -1,65 +1,21 @@
-"""ESPN headline-feed provider.
+"""ESPN NFL news RSS provider.
 
-ESPN publishes a public NFL news RSS feed at
-``https://www.espn.com/espn/rss/nfl/news``.  No auth, no key.
-Each ``<item>`` becomes a ``NewsItem``; player tagging scans the
-headline + description for names visible in the live contract.
-
-The RSS parsing, severity classification, and player matching
-logic lives in ``_rss.py`` and is shared with the FantasyPros
-provider — keeping this file a thin adapter that only pins the
-feed URL + provider identity.
+Thin subclass over ``RssNewsProvider`` — ESPN publishes a public
+NFL news RSS feed with no auth.  Fetch, parse, classification,
+and player tagging all live in the base class.
 """
 from __future__ import annotations
 
-from typing import Iterable, List, Optional
-
-from ..base import NewsItem, NewsProvider
-from . import _rss
+from ._rss import RssNewsProvider
 
 DEFAULT_FEED_URL = "https://www.espn.com/espn/rss/nfl/news"
 
 
-class EspnRssProvider(NewsProvider):
-    """Provider backed by ESPN's public NFL news RSS feed."""
-
+class EspnRssProvider(RssNewsProvider):
     name = "espn"
     label = "ESPN"
-    timeout_s = 5.0
-
-    def __init__(
-        self,
-        *,
-        feed_url: str = DEFAULT_FEED_URL,
-        fetcher=None,
-    ) -> None:
-        super().__init__(feed_url=feed_url)
-        self._feed_url = feed_url
-        # Tests inject a fetcher that returns the RSS body so they
-        # don't need a live HTTP endpoint.
-        self._fetcher = fetcher or self._default_fetcher
-
-    def _default_fetcher(self, url: str) -> bytes:
-        return _rss.default_http_fetcher(
-            url,
-            timeout=self.timeout_s,
-            user_agent="brisket-news-espn/1.0",
-        )
-
-    def fetch(
-        self,
-        *,
-        player_names: Optional[Iterable[str]] = None,
-        limit: int = 50,
-    ) -> List[NewsItem]:
-        return _rss.fetch_rss_items(
-            feed_url=self._feed_url,
-            provider_name=self.name,
-            provider_label=self.label,
-            fetcher=self._fetcher,
-            known_names=player_names,
-            limit=limit,
-        )
+    feed_url = DEFAULT_FEED_URL
+    user_agent = "brisket-news-espn/1.0"
 
 
 __all__ = ["DEFAULT_FEED_URL", "EspnRssProvider"]

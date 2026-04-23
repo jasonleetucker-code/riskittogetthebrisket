@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Callable, Iterable, List, Optional
 
-from ..base import NewsItem, PlayerMention, stable_id, to_iso_utc
+from ..base import NewsItem, NewsProvider, PlayerMention, stable_id, to_iso_utc
 
 # Keywords matched with word boundaries so short fragments like
 # "ir", "cut", "acl" don't trip on substrings of unrelated words
@@ -228,7 +228,55 @@ def _item_from_element(
     )
 
 
+class RssNewsProvider(NewsProvider):
+    """Base class for any public RSS news feed.
+
+    Subclasses override the class attributes ``name``, ``label``,
+    and ``feed_url``.  ``user_agent`` is optional; it defaults to
+    a generic brisket UA but per-provider UAs are nice for the
+    upstream ops team to attribute traffic.
+
+    The subclass contract is deliberately tiny — everything about
+    fetch + parse + classify + player-match lives in this module.
+    Adding a new RSS source is a ~5-line subclass:
+
+        class FootballguysRssProvider(RssNewsProvider):
+            name = "footballguys"
+            label = "Footballguys"
+            feed_url = "https://www.footballguys.com/.../rss"
+            user_agent = "brisket-news-fbg/1.0"
+    """
+
+    feed_url: str = ""
+    user_agent: str = "brisket-news/1.0"
+
+    def __init__(self, *, feed_url=None, fetcher=None):
+        super().__init__()
+        self._feed_url = feed_url or self.feed_url
+        # Tests inject a fetcher that returns the raw RSS bytes so
+        # the test stays offline.
+        self._fetcher = fetcher or self._default_fetcher
+
+    def _default_fetcher(self, url: str) -> bytes:
+        return default_http_fetcher(
+            url,
+            timeout=self.timeout_s,
+            user_agent=self.user_agent,
+        )
+
+    def fetch(self, *, player_names=None, limit: int = 50) -> List[NewsItem]:
+        return fetch_rss_items(
+            feed_url=self._feed_url,
+            provider_name=self.name,
+            provider_label=self.label,
+            fetcher=self._fetcher,
+            known_names=player_names,
+            limit=limit,
+        )
+
+
 __all__ = [
+    "RssNewsProvider",
     "classify",
     "clean_text",
     "default_http_fetcher",

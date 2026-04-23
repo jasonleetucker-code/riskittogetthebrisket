@@ -139,6 +139,47 @@ def test_sort_alerts_float_above_info():
     assert [i.id for i in out.items] == ["b-alert", "c-watch", "a-info"]
 
 
+def test_expired_entries_evicted_on_miss():
+    """Many distinct team filters must not leak full payloads
+    into the cache forever.  Eviction sweeps on every miss
+    (Codex P2)."""
+    clock = {"t": 1000.0}
+    provider = _StaticProvider(
+        items=[
+            _item("a-1", players=[PlayerMention(name="Alpha")]),
+            _item("a-2", players=[PlayerMention(name="Beta")]),
+            _item("a-3", players=[PlayerMention(name="Gamma")]),
+        ]
+    )
+    svc = NewsService([provider], cache_ttl_s=30, clock=lambda: clock["t"])
+    # Three distinct team filters → three cache entries.
+    svc.aggregate(team_names=["Alpha"])
+    svc.aggregate(team_names=["Beta"])
+    svc.aggregate(team_names=["Gamma"])
+    assert len(svc._cache) == 3
+
+    # Advance past TTL, trigger one more miss — all three prior
+    # entries should get evicted, leaving only the fresh one.
+    clock["t"] += 60
+    svc.aggregate(team_names=["Delta"])
+    assert len(svc._cache) == 1
+
+
+def test_total_limit_matches_route_cap():
+    """Service cap must not silently truncate below the route's
+    max limit (Codex P2).  Default total_limit should allow the
+    route's documented ``?limit=100`` to return 100 items."""
+    from src.news.service import DEFAULT_TOTAL_LIMIT
+
+    assert DEFAULT_TOTAL_LIMIT >= 100
+
+    many = [_item(f"x-{i}") for i in range(80)]
+    svc = NewsService([_StaticProvider(items=many)], cache_ttl_s=0)
+    out = svc.aggregate()
+    # 80 items should survive; previously capped at 60.
+    assert len(out.items) == 80
+
+
 def test_serialize_to_dict_shape():
     provider = _StaticProvider(
         items=[_item("a-1", players=[PlayerMention(name="Player X")])]

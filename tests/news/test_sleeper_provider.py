@@ -114,6 +114,78 @@ def test_missing_player_map_entry_is_dropped():
     assert provider.fetch() == []
 
 
+def test_cold_player_map_failure_propagates():
+    """Player-map fetch failure on a cold cache must raise, so
+    the service can mark the provider run ``ok=False``.  A warm
+    cache (previous successful fetch) still degrades gracefully.
+    Codex P1 #2."""
+    import pytest
+
+    class _TrendingOkMapFailSession:
+        def __init__(self):
+            self.calls = []
+
+        def get(self, url, timeout=None, headers=None):
+            self.calls.append(url)
+            if "trending" in url:
+                class _R:
+                    def raise_for_status(self):
+                        return None
+
+                    def json(self):
+                        return [{"player_id": "1", "count": 3}]
+
+                return _R()
+            # /players/nfl — simulate outage
+            raise RuntimeError("player-map unavailable")
+
+    _reset_player_map_for_tests()
+    provider = SleeperTrendingProvider(session=_TrendingOkMapFailSession())
+    with pytest.raises(RuntimeError):
+        provider.fetch()
+
+
+def test_warm_player_map_failure_degrades_gracefully():
+    """If a prior fetch succeeded, a later fetch outage falls
+    back to the stale map rather than raising — dynasty names
+    don't change that often, and stale-but-usable > failure."""
+    # First populate the cache via a successful fetch.
+    routes_ok = {
+        "/players/nfl/trending/add": [
+            {"player_id": "42", "count": 10},
+        ],
+        "/players/nfl/trending/drop": [],
+        "/players/nfl": {"42": {"full_name": "Cached Star"}},
+    }
+    provider_ok, _ = _build_provider(routes_ok)
+    items_ok = provider_ok.fetch()
+    assert len(items_ok) == 1
+
+    # Now simulate a player-map outage on the next fetch.  The
+    # trending endpoints still work, but /players/nfl errors out.
+    class _WarmMapOutage:
+        def get(self, url, timeout=None, headers=None):
+            if "trending" in url:
+                class _R:
+                    def raise_for_status(self):
+                        return None
+
+                    def json(self):
+                        return [{"player_id": "42", "count": 11}]
+
+                return _R()
+            raise RuntimeError("player-map down")
+
+    # Force a player-map refetch by expiring the TTL — simulate by
+    # invalidating then re-seeding trending but failing map.
+    # The existing module-level cache has the "42" entry so the
+    # warm-stale path should return it.
+    provider_warm = SleeperTrendingProvider(session=_WarmMapOutage())
+    items_warm = provider_warm.fetch()
+    assert len(items_warm) >= 1
+    assert any(p.name == "Cached Star" for i in items_warm for p in i.players)
+
+
 def test_provider_propagates_when_both_endpoints_fail():
     """Total upstream outage → raise so the service can mark the
     run ``ok=False``.  Silently returning ``[]`` would hide a real

@@ -36,7 +36,10 @@ log = logging.getLogger(__name__)
 
 DEFAULT_CACHE_TTL_S = 180  # 3 minutes — rate-limit-safe for all providers
 DEFAULT_LIMIT_PER_PROVIDER = 25
-DEFAULT_TOTAL_LIMIT = 60
+# Matches the route's ``?limit=`` hard ceiling so the route's limit
+# contract isn't silently capped by the service before reaching the
+# slicing step (Codex P2).
+DEFAULT_TOTAL_LIMIT = 100
 
 
 @dataclass
@@ -206,6 +209,20 @@ class NewsService:
 
         with self._lock:
             self._cache[cache_key] = (now, result)
+            # Evict expired entries on every miss (Codex P2).  The
+            # cache key is ``(player_names, team_filter)`` — many
+            # distinct team combinations would otherwise accumulate
+            # full aggregated payloads forever.  Doing the sweep at
+            # write time (not on every read) keeps the hot path
+            # lock-free-ish and bounds the work by miss rate, which
+            # is itself rate-limited by the TTL.
+            expired = [
+                k
+                for k, (ts, _v) in self._cache.items()
+                if (now - ts) >= self._ttl
+            ]
+            for k in expired:
+                self._cache.pop(k, None)
 
         return result
 
