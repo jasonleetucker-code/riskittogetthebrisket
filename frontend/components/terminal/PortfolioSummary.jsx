@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
 import { useRankHistory } from "@/components/useRankHistory";
+import { useTerminal } from "@/components/useTerminal";
 import { computePortfolio } from "@/lib/portfolio-insights";
 import Panel from "./Panel";
 
@@ -51,10 +52,41 @@ export default function PortfolioSummary() {
   const { selectedTeam } = useTeam();
   const { history, loading: historyLoading } = useRankHistory({ days: 30 });
 
-  const portfolio = useMemo(
+  // Server-side portfolio (aggregates + byPosition + byAge +
+  // volExposure + counters) when the /api/terminal call is
+  // authenticated and resolves a team.  Anonymous / un-resolved
+  // cases fall through to local ``computePortfolio`` which walks
+  // the same backend-stamped row values but does the grouping in
+  // the browser.
+  const { portfolio: serverPortfolio } = useTerminal({
+    ownerId: String(selectedTeam?.ownerId || ""),
+    teamName: selectedTeam?.name || "",
+    windowDays: 30,
+  });
+
+  const localPortfolio = useMemo(
     () => computePortfolio({ rows, selectedTeam, rawData, history }),
     [rows, selectedTeam, rawData, history],
   );
+
+  // Merge: prefer server-computed sub-sections when present; fall
+  // back to the local computation for starter/bench split and pick
+  // totals, which the server doesn't compute.  Every field the UI
+  // below reads (byPosition, byAge, volExposure, totalValue, etc.)
+  // comes from whichever source provided it first.
+  const portfolio = useMemo(() => {
+    if (!localPortfolio) return null;
+    if (!serverPortfolio) return localPortfolio;
+    return {
+      ...localPortfolio,
+      // Server fields override locals where both exist.
+      totalValue: serverPortfolio.totalValue ?? localPortfolio.totalValue,
+      byPosition: serverPortfolio.byPosition || localPortfolio.byPosition,
+      byAge: serverPortfolio.byAge || localPortfolio.byAge,
+      volExposure: serverPortfolio.volExposure || localPortfolio.volExposure,
+      medianAge: serverPortfolio.medianAge ?? localPortfolio.medianAge,
+    };
+  }, [serverPortfolio, localPortfolio]);
 
   if (!selectedTeam) {
     return (

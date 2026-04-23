@@ -65,6 +65,8 @@ from src.api.data_contract import (
 )
 from src.api import rank_history as _rank_history
 from src.api import source_history as _source_history
+from src.api import terminal as _terminal
+from src.api import user_kv as _user_kv
 from src.news import NewsService, build_default_service
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
@@ -4130,6 +4132,288 @@ async def auth_logout_redirect(request: Request):
     response.delete_cookie(key=JASON_AUTH_COOKIE_NAME, path="/")
     return response
 
+
+# ── USER PREFERENCE PERSISTENCE (AUTH-GATED) ────────────────────────────
+# Durable per-user state that follows the authenticated session across
+# devices.  Backed by SQLite at ``data/user_kv.sqlite`` (see
+# ``src/api/user_kv.py``).  Anonymous requests get 401 — the frontend
+# hook falls back to a localStorage-only path when unauthenticated, so
+# a logged-out visitor still sees defaults without polluting the
+# shared store.
+
+@app.get("/api/user/state")
+async def get_user_state_api(request: Request):
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    username = str(session.get("username") or "").strip()
+    state = await run_in_threadpool(_user_kv.get_user_state, username)
+    return JSONResponse(
+        content={"username": username, "state": state},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.put("/api/user/state")
+async def put_user_state_api(request: Request):
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    username = str(session.get("username") or "").strip()
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+    patch: dict = {}
+    if "selectedTeam" in body:
+        sel = body.get("selectedTeam")
+        if sel is None:
+            patch["selectedTeam"] = None
+        elif isinstance(sel, dict):
+            patch["selectedTeam"] = {
+                "ownerId": str(sel.get("ownerId") or ""),
+                "name": str(sel.get("name") or ""),
+            }
+    if "watchlist" in body:
+        wl = body.get("watchlist")
+        if wl is None:
+            patch["watchlist"] = None
+        elif isinstance(wl, list):
+            patch["watchlist"] = [str(x) for x in wl if isinstance(x, (str, int))]
+    if "dismissedSignals" in body:
+        ds = body.get("dismissedSignals")
+        if ds is None:
+            patch["dismissedSignals"] = None
+        elif isinstance(ds, dict):
+            clean: dict[str, int] = {}
+            for k, v in ds.items():
+                try:
+                    clean[str(k)] = int(v)
+                except (TypeError, ValueError):
+                    continue
+            patch["dismissedSignals"] = clean
+    if "dismissalAliases" in body:
+        da = body.get("dismissalAliases")
+        if da is None:
+            patch["dismissalAliases"] = None
+        elif isinstance(da, dict):
+            patch["dismissalAliases"] = {
+                str(k): str(v) for k, v in da.items()
+                if isinstance(k, str) and isinstance(v, (str, int))
+            }
+    state = await run_in_threadpool(_user_kv.merge_user_state, username, patch)
+    return JSONResponse(
+        content={"username": username, "state": state},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.post("/api/user/signals/dismiss")
+async def dismiss_signal_api(request: Request):
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    username = str(session.get("username") or "").strip()
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+    signal_key = str(body.get("signalKey") or "").strip()
+    if not signal_key:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "signalKey_required"},
+        )
+    try:
+        ttl_ms = int(body.get("ttlMs") or 7 * 24 * 3600 * 1000)
+    except (TypeError, ValueError):
+        ttl_ms = 7 * 24 * 3600 * 1000
+    alias_sid = str(body.get("aliasSleeperId") or "").strip() or None
+    alias_name = str(body.get("aliasDisplayName") or "").strip() or None
+    state = await run_in_threadpool(
+        _user_kv.dismiss_signal,
+        username,
+        signal_key,
+        ttl_ms=ttl_ms,
+        alias_sleeper_id=alias_sid,
+        alias_display_name=alias_name,
+    )
+    return JSONResponse(
+        content={"username": username, "state": state},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.post("/api/user/signals/restore")
+async def restore_signal_api(request: Request):
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    username = str(session.get("username") or "").strip()
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+    signal_key = str(body.get("signalKey") or "").strip()
+    if not signal_key:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "signalKey_required"},
+        )
+    state = await run_in_threadpool(_user_kv.undismiss_signal, username, signal_key)
+    return JSONResponse(
+        content={"username": username, "state": state},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+# ── TERMINAL AGGREGATION ENDPOINT ───────────────────────────────────────
+#
+# Server-side aggregate of everything the landing page needs: team
+# aggregates, market movers, signals, news, portfolio.  See
+# ``src/api/terminal.py`` for the builder.  Two modes:
+#
+#   * Authenticated users get the full payload including signals,
+#     portfolio, watchlist, and roster-aware team aggregates.
+#   * Anonymous users get a public slice (league + top150 movers,
+#     news for top-150 players) — enough for an at-a-glance "market
+#     pulse" without leaking private identifiers or roster state.
+#
+# Availability:
+#   * When the live contract is loaded: serve the fresh aggregation.
+#   * When the live contract hasn't loaded yet (cold start): fall
+#     back to the most recent cached dynasty_data_*.json export
+#     from disk.  The frontend sees a ``stale: true`` flag and a
+#     ``staleAs`` date so it can surface "last good data from
+#     YYYY-MM-DD" instead of spinning forever.
+#   * If even the cached export is absent, surface a 503 with the
+#     same shape so the frontend error UI can render a coherent
+#     message.
+
+def _latest_cached_contract_from_disk() -> tuple[dict | None, str | None]:
+    """Return the most recent on-disk ``dynasty_data_*.json`` export
+    parsed as a contract, plus the date string it was stamped with.
+    Used when ``latest_contract_data`` hasn't been primed yet (cold
+    start between process-restart and first scrape).
+    """
+    try:
+        candidates = sorted(
+            DATA_DIR.glob("dynasty_data_*.json"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+    except OSError:
+        return None, None
+    for candidate in candidates:
+        try:
+            with candidate.open("r", encoding="utf-8") as f:
+                raw = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(raw, dict):
+            continue
+        # Older exports are pre-contract-builder and lack
+        # ``playersArray``; the terminal builder handles that path
+        # via the legacy dict, so we can still serve.
+        if not raw.get("players") and not raw.get("playersArray"):
+            continue
+        return raw, raw.get("date") or candidate.stem.replace("dynasty_data_", "")
+    return None, None
+
+
+@app.get("/api/terminal")
+async def get_terminal(request: Request):
+    session = _get_auth_session(request)
+    authed = bool(session)
+    username = str((session or {}).get("username") or "").strip() if authed else ""
+
+    contract = latest_contract_data
+    stale = False
+    stale_as = None
+    if not contract:
+        # 503 fallback (Item 3 from the TODO list): try the most
+        # recent cached export before giving up.
+        cached, cached_date = _latest_cached_contract_from_disk()
+        if cached:
+            contract = cached
+            stale = True
+            stale_as = cached_date
+        else:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "No data available yet. First scrape may still be running.",
+                    "stale": False,
+                },
+            )
+
+    params = request.query_params
+    team_owner_id = (params.get("team") or params.get("ownerId") or "").strip()
+    team_name = (params.get("teamName") or "").strip()
+    try:
+        window_days = int(params.get("windowDays") or 30)
+    except (TypeError, ValueError):
+        window_days = 30
+    window_days = max(7, min(180, window_days))
+
+    user_state: dict = {}
+    if authed and username:
+        try:
+            user_state = await run_in_threadpool(_user_kv.get_user_state, username)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("/api/terminal user_kv read failed: %s", exc)
+
+    resolved_team = None
+    if authed:
+        # Anonymous callers get the public slice even if they pass a
+        # ``team`` param — we never expose per-roster state without
+        # authentication.  ``resolved_team=None`` is enforced below.
+        resolved_team = _terminal.resolve_team(
+            contract, owner_id=team_owner_id, name=team_name,
+        )
+
+    try:
+        payload = await run_in_threadpool(
+            _terminal.build_terminal_payload,
+            contract,
+            resolved_team=resolved_team,
+            window_days=window_days,
+            news_items=_terminal.gather_news_items(
+                lambda: _get_news_service(),
+                _live_player_names(),
+                (resolved_team or {}).get("name") if resolved_team else None,
+            ),
+            user_state=user_state,
+            public_mode=not authed,
+        )
+    except Exception as exc:
+        log.exception("/api/terminal build failed: %s", exc)
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"terminal_build_failed: {type(exc).__name__}"},
+        )
+
+    # Stale-data stamp: consumers can render a "last good data from
+    # YYYY-MM-DD" banner when the live scrape hasn't caught up.
+    payload["stale"] = stale
+    payload["staleAs"] = stale_as
+    payload["authenticated"] = authed
+
+    cache_control = (
+        "public, max-age=60, stale-while-revalidate=600"
+        if not authed
+        else "private, max-age=30, stale-while-revalidate=120"
+    )
+    return JSONResponse(
+        content=payload,
+        headers={"Cache-Control": cache_control},
+    )
 
 
 @app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)

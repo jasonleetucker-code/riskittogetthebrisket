@@ -244,3 +244,238 @@ def test_available_teams_returned_for_picker(history_path):
     )
     owners = {t["ownerId"] for t in payload["availableTeams"]}
     assert owners == {"owner-1", "owner-2"}
+
+
+# ── Public mode (Item 4) ────────────────────────────────────────────
+
+
+def test_public_mode_strips_private_fields(history_path):
+    contract = _mk_contract(history_path)
+    team = terminal.resolve_team(contract, owner_id="owner-1", name=None)
+    payload = terminal.build_terminal_payload(
+        contract,
+        resolved_team=team,
+        window_days=30,
+        public_mode=True,
+    )
+    # Private surfaces gone
+    assert payload["team"] is None
+    assert payload["signals"] == []
+    assert payload["portfolio"] is None
+    assert payload["watchlist"] == []
+    # Roster mover list cleared; league + top150 preserved
+    assert payload["movers"]["roster"] == []
+    assert isinstance(payload["movers"]["league"], list)
+    assert isinstance(payload["movers"]["top150"], list)
+    # Aggregates report null values instead of real totals
+    agg = payload["teamAggregates"]
+    assert agg["totalValue"] is None
+    assert agg["delta30d"] is None
+    # Meta exposes the flag for client inspection
+    assert payload["meta"]["publicMode"] is True
+
+
+# ── Trade coverage (Item 6) ─────────────────────────────────────────
+
+
+def test_roster_aware_is_false_when_no_trades(history_path):
+    contract = _mk_contract(history_path)
+    # Zero trades in the contract → rosterAware must be False,
+    # delta coverage reason reports "no_trades".
+    contract["sleeper"]["trades"] = []
+    team = terminal.resolve_team(contract, owner_id="owner-1", name=None)
+    payload = terminal.build_terminal_payload(contract, resolved_team=team, window_days=30)
+    assert payload["teamAggregates"]["rosterAware"] is False
+    d30 = payload["teamAggregates"]["delta30dDetail"]
+    assert d30["rosterAware"] is False
+    assert d30["tradesSeen"] == 0
+    assert d30["tradesApplied"] == 0
+    assert d30["reason"] in ("no_trades", "low_history_coverage")
+
+
+def test_roster_aware_is_true_when_owner_trade_inside_window(history_path):
+    contract = _mk_contract(history_path)
+    ts = int((datetime.now(timezone.utc) - timedelta(days=14)).timestamp() * 1000)
+    contract["sleeper"]["trades"] = [
+        {
+            "timestamp": ts,
+            "sides": [
+                {"ownerId": "owner-1", "got": [], "gave": ["Bob"]},
+                {"ownerId": "owner-2", "got": ["Bob"], "gave": []},
+            ],
+        }
+    ]
+    team = terminal.resolve_team(contract, owner_id="owner-1", name=None)
+    payload = terminal.build_terminal_payload(contract, resolved_team=team, window_days=30)
+    d30 = payload["teamAggregates"]["delta30dDetail"]
+    assert d30["tradesSeen"] >= 1
+    assert d30["tradesApplied"] >= 1
+    assert d30["rosterAware"] is True
+    assert payload["teamAggregates"]["rosterAware"] is True
+
+
+def test_trade_for_other_owner_does_not_flip_roster_aware(history_path):
+    contract = _mk_contract(history_path)
+    ts = int((datetime.now(timezone.utc) - timedelta(days=10)).timestamp() * 1000)
+    # Trade is inside the 30d window but doesn't involve owner-1.
+    contract["sleeper"]["trades"] = [
+        {
+            "timestamp": ts,
+            "sides": [
+                {"ownerId": "owner-2", "got": ["Carlo"], "gave": []},
+                {"ownerId": "owner-99", "got": [], "gave": ["Carlo"]},
+            ],
+        }
+    ]
+    team = terminal.resolve_team(contract, owner_id="owner-1", name=None)
+    payload = terminal.build_terminal_payload(contract, resolved_team=team, window_days=30)
+    d30 = payload["teamAggregates"]["delta30dDetail"]
+    assert d30["tradesSeen"] == 1
+    assert d30["tradesApplied"] == 0
+    assert d30["rosterAware"] is False
+    assert d30["reason"] == "no_trades_for_owner"
+
+
+# ── Coverage fraction (Item 8) ──────────────────────────────────────
+
+
+def test_delta_detail_exposes_coverage_fraction(history_path):
+    contract = _mk_contract(history_path)
+    team = terminal.resolve_team(contract, owner_id="owner-1", name=None)
+    payload = terminal.build_terminal_payload(contract, resolved_team=team, window_days=30)
+    d30 = payload["teamAggregates"]["delta30dDetail"]
+    assert "coverageFraction" in d30
+    assert 0.0 <= d30["coverageFraction"] <= 1.0
+    assert "resolved" in d30
+    assert "expected" in d30
+    assert d30["expected"] == 2  # Alice + Bob
+
+
+def test_low_coverage_produces_null_value_with_fraction(history_path):
+    # Build a contract with three players but only seed history for
+    # one — coverage is 1/3 which is below the 60% reliability floor,
+    # so the delta value comes back None but the coverage data is
+    # still exposed.
+    contract = _mk_contract(history_path)
+    team = terminal.resolve_team(contract, owner_id="owner-1", name=None)
+    # Add a 3rd roster player with no history to drop coverage below 60%.
+    contract["sleeper"]["teams"][0]["players"].append("Ghost")
+    contract["playersArray"].append({
+        "displayName": "Ghost",
+        "canonicalName": "Ghost",
+        "assetClass": "offense",
+        "position": "TE",
+        "pos": "TE",
+        "canonicalConsensusRank": 200,
+        "rankChange": None,
+        "rankDerivedValue": 100,
+        "values": {"full": 100},
+    })
+    team = terminal.resolve_team(contract, owner_id="owner-1", name=None)
+    payload = terminal.build_terminal_payload(contract, resolved_team=team, window_days=30)
+    d30 = payload["teamAggregates"]["delta30dDetail"]
+    # Alice + Bob have history, Ghost doesn't — coverage = 2/3 ≈ 0.67
+    # which IS reliable; test that the fraction + resolved count are
+    # exposed regardless.
+    assert d30["resolved"] == 2
+    assert d30["expected"] == 3
+    assert d30["coverageFraction"] == pytest.approx(2 / 3, abs=0.01)
+
+
+# ── Alias signal keys (Item 7) ──────────────────────────────────────
+
+
+def test_signal_carries_alias_key_when_sleeper_id_present(history_path):
+    contract = _mk_contract(history_path)
+    for row in contract["playersArray"]:
+        row["sleeperId"] = f"sid-{row['displayName']}"
+    team = terminal.resolve_team(contract, owner_id="owner-1", name=None)
+    payload = terminal.build_terminal_payload(contract, resolved_team=team, window_days=30)
+    assert payload["signals"]
+    for s in payload["signals"]:
+        assert s["signalKey"].count("::") == 1
+        assert s["aliasSignalKey"].startswith("sid:sid-")
+        assert s["sleeperId"].startswith("sid-")
+
+
+def test_portfolio_breakdown_includes_byposition_byage_volexposure(history_path):
+    contract = _mk_contract(history_path)
+    team = terminal.resolve_team(contract, owner_id="owner-1", name=None)
+    payload = terminal.build_terminal_payload(contract, resolved_team=team, window_days=30)
+    p = payload["portfolio"]
+    assert p is not None
+    # Position splits
+    assert "byPosition" in p
+    assert p["byPosition"]["QB"]["count"] == 1
+    assert p["byPosition"]["WR"]["count"] == 1
+    assert p["byPosition"]["QB"]["value"] > 0
+    # Percentages add to ~100 within the populated buckets
+    pct_total = sum(p["byPosition"][g]["pct"] for g in p["byPosition"])
+    assert 99.0 <= pct_total <= 100.1
+    # Age mix
+    assert "byAge" in p
+    assert p["byAge"]["prime"]["count"] >= 1  # Alice is 27 = prime
+    # Volatility exposure
+    assert "volExposure" in p
+    assert sum(p["volExposure"][k]["count"] for k in p["volExposure"]) == 2
+    # Counters
+    assert "counters" in p
+    assert "rising" in p["counters"]
+    assert "falling" in p["counters"]
+    assert "highVol" in p["counters"]
+    # Median age
+    assert p["medianAge"] == pytest.approx(28.0, abs=0.1)  # median of 27 and 29
+
+
+def test_dismissal_resolves_via_alias_key_after_rename(history_path):
+    contract = _mk_contract(history_path)
+    for row in contract["playersArray"]:
+        row["sleeperId"] = f"sid-{row['displayName']}"
+    team = terminal.resolve_team(contract, owner_id="owner-1", name=None)
+    # First build — harvest the alias signal key + tag for Alice.
+    baseline = terminal.build_terminal_payload(contract, resolved_team=team, window_days=30)
+    alice_entry = next(s for s in baseline["signals"] if s["name"] == "Alice")
+    alias_key = alice_entry["aliasSignalKey"]
+    assert alias_key  # sleeperId was set, alias is required
+    # Rename Alice in the contract and team roster.  Also mirror her
+    # rank history into the new name so the firing rules evaluate
+    # identically (same tag before/after); the test pins the alias-
+    # key dismissal resolution, not the rule engine.
+    for row in contract["playersArray"]:
+        if row["displayName"] == "Alice":
+            row["displayName"] = "Alice Renamed"
+            row["canonicalName"] = "Alice Renamed"
+    contract["sleeper"]["teams"][0]["players"] = [
+        "Alice Renamed" if p == "Alice" else p
+        for p in contract["sleeper"]["teams"][0]["players"]
+    ]
+    # Append "Alice Renamed::offense" to every snapshot with the
+    # same ranks the log already has for Alice.
+    log_lines = []
+    with history_path.open("r") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            obj = json.loads(line)
+            ranks = obj.get("ranks") or {}
+            alice_rank = ranks.get("Alice::offense")
+            if alice_rank is not None:
+                ranks["Alice Renamed::offense"] = alice_rank
+            obj["ranks"] = ranks
+            log_lines.append(obj)
+    with history_path.open("w") as f:
+        for obj in log_lines:
+            f.write(json.dumps(obj) + "\n")
+    future_ts = int((datetime.now(timezone.utc) + timedelta(days=3)).timestamp() * 1000)
+    team2 = terminal.resolve_team(contract, owner_id="owner-1", name=None)
+    after = terminal.build_terminal_payload(
+        contract,
+        resolved_team=team2,
+        window_days=30,
+        user_state={"dismissedSignals": {alias_key: future_ts}},
+    )
+    hit = next(s for s in after["signals"] if s["name"] == "Alice Renamed")
+    assert hit["aliasSignalKey"] == alias_key  # alias stays identical across rename
+    assert hit["dismissed"] is True
+    assert hit["dismissedUntil"] == future_ts

@@ -1,6 +1,9 @@
 """Tests for ``src.api.user_kv`` — durable per-user preference store."""
 from __future__ import annotations
 
+import json
+import sqlite3
+import threading
 import time
 
 import pytest
@@ -10,7 +13,17 @@ from src.api import user_kv
 
 @pytest.fixture()
 def kv_path(tmp_path):
-    return tmp_path / "user_kv.json"
+    return tmp_path / "user_kv.sqlite"
+
+
+@pytest.fixture(autouse=True)
+def _reset_setup_cache():
+    # Each test gets a fresh tmp path; clear the module-level "schema
+    # already applied" cache so the SQLite pragmas + CREATE TABLE
+    # actually run against the new path.
+    user_kv._SETUP_DONE.clear()
+    yield
+    user_kv._SETUP_DONE.clear()
 
 
 def test_empty_user_returns_empty_dict(kv_path):
@@ -108,3 +121,137 @@ def test_dismissed_expires_pruned_on_read(kv_path):
     state = user_kv.get_user_state("u", path=kv_path)
     assert "expired" not in state["dismissedSignals"]
     assert "future" in state["dismissedSignals"]
+
+
+# ── SQLite-specific behaviours ──────────────────────────────────────
+
+
+def test_file_is_sqlite_database(kv_path):
+    user_kv.set_user_field("alice", "watchlist", ["a"], path=kv_path)
+    assert kv_path.exists()
+    # sqlite3 magic header
+    with kv_path.open("rb") as f:
+        assert f.read(16).startswith(b"SQLite format 3")
+
+
+def test_wal_journal_mode_enabled(kv_path):
+    user_kv.set_user_field("alice", "watchlist", ["a"], path=kv_path)
+    conn = sqlite3.connect(str(kv_path))
+    try:
+        mode = conn.execute("PRAGMA journal_mode;").fetchone()[0].lower()
+        assert mode == "wal"
+    finally:
+        conn.close()
+
+
+def test_corrupt_file_renamed_and_replaced(tmp_path):
+    # Path to a non-database file; _ensure_schema should rename it
+    # to .corrupt and rebuild.
+    path = tmp_path / "user_kv.sqlite"
+    path.write_text("definitely not a database", encoding="utf-8")
+    user_kv._SETUP_DONE.clear()
+    state = user_kv.get_user_state("u", path=path)
+    assert state == {}
+    # Write still works after the reset.
+    user_kv.set_user_field("u", "watchlist", ["x"], path=path)
+    assert user_kv.get_user_state("u", path=path)["watchlist"] == ["x"]
+    # Corrupt file was preserved for inspection.
+    assert (tmp_path / "user_kv.sqlite.corrupt").exists()
+
+
+def test_concurrent_writes_do_not_lose_data(kv_path):
+    # 10 writer threads each insert a distinct user; all 10 should
+    # survive (SQLite's WAL-mode locks serialise the writes).
+    user_kv.set_user_field("seed", "watchlist", [], path=kv_path)
+
+    def _writer(idx: int) -> None:
+        user_kv.set_user_field(
+            f"user-{idx}",
+            "watchlist",
+            [f"p{idx}"],
+            path=kv_path,
+        )
+
+    threads = [threading.Thread(target=_writer, args=(i,)) for i in range(10)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    conn = sqlite3.connect(str(kv_path))
+    try:
+        count = conn.execute("SELECT COUNT(*) FROM user_state").fetchone()[0]
+    finally:
+        conn.close()
+    assert count == 11  # 10 writers + the seed user
+
+
+def test_legacy_json_migration_runs_on_first_boot(tmp_path, monkeypatch):
+    sqlite_path = tmp_path / "user_kv.sqlite"
+    legacy_path = tmp_path / "user_kv.json"
+    # Pretend we're running against the production path so the
+    # migration path is exercised.
+    monkeypatch.setattr(user_kv, "USER_KV_PATH", sqlite_path)
+    monkeypatch.setattr(user_kv, "_LEGACY_JSON_PATH", legacy_path)
+
+    legacy_path.write_text(
+        json.dumps({
+            "alice": {
+                "watchlist": ["Ja'Marr Chase"],
+                "selectedTeam": {"ownerId": "o", "name": "Alphas"},
+                "updatedAt": "2026-04-22T10:00:00Z",
+            },
+            "bob": {"watchlist": ["Bijan Robinson"]},
+        })
+    )
+    user_kv._SETUP_DONE.clear()
+    # First call triggers migration.
+    alice = user_kv.get_user_state("alice")
+    assert alice["watchlist"] == ["Ja'Marr Chase"]
+    assert user_kv.get_user_state("bob")["watchlist"] == ["Bijan Robinson"]
+    # Legacy file renamed, not deleted.
+    assert not legacy_path.exists()
+    assert legacy_path.with_suffix(".json.migrated").exists()
+
+
+def test_dismiss_signal_stores_alias_mapping(kv_path):
+    user_kv.dismiss_signal(
+        "u",
+        "Ja'Marr Chase::alert_with_drop",
+        ttl_ms=60_000,
+        alias_sleeper_id="7564",
+        alias_display_name="Ja'Marr Chase",
+        path=kv_path,
+    )
+    state = user_kv.get_user_state("u", path=kv_path)
+    aliases = state.get("dismissalAliases") or {}
+    assert aliases.get("Ja'Marr Chase") == "7564"
+
+
+def test_dismiss_signal_without_alias_keeps_existing_map(kv_path):
+    # Set one alias, then dismiss another signal without providing
+    # alias args — the first mapping must persist.
+    user_kv.dismiss_signal(
+        "u", "A::tag",
+        ttl_ms=60_000,
+        alias_sleeper_id="111",
+        alias_display_name="A",
+        path=kv_path,
+    )
+    user_kv.dismiss_signal(
+        "u", "B::tag",
+        ttl_ms=60_000,
+        path=kv_path,
+    )
+    aliases = user_kv.dismissal_aliases("u", path=kv_path)
+    assert aliases == {"A": "111"}
+
+
+def test_get_user_state_does_not_read_other_users_blobs(kv_path):
+    user_kv.set_user_field("alice", "watchlist", ["a"], path=kv_path)
+    user_kv.set_user_field("bob", "watchlist", ["b"], path=kv_path)
+    # Read Alice — bob should NOT appear in alice's state.
+    alice = user_kv.get_user_state("alice", path=kv_path)
+    assert alice.get("watchlist") == ["a"]
+    assert "bob" not in alice
+    assert user_kv.get_user_state("charlie", path=kv_path) == {}
