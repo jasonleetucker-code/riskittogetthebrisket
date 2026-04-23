@@ -143,13 +143,16 @@ async function writeServerState(patch) {
   }
 }
 
-async function dismissSignalOnServer(signalKey, ttlMs) {
+async function dismissSignalOnServer(signalKey, ttlMs, opts) {
   try {
+    const payload = { signalKey, ttlMs };
+    if (opts?.aliasSleeperId) payload.aliasSleeperId = opts.aliasSleeperId;
+    if (opts?.aliasDisplayName) payload.aliasDisplayName = opts.aliasDisplayName;
     const res = await fetch("/api/user/signals/dismiss", {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ signalKey, ttlMs }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) return null;
     const body = await res.json();
@@ -312,19 +315,27 @@ export function useUserState() {
   );
 
   const dismissSignal = useCallback(
-    (signalKey, ttlMs) => {
+    (signalKey, ttlMs, opts) => {
       if (!signalKey) return;
       const ttl = Number.isFinite(Number(ttlMs)) ? Number(ttlMs) : 7 * 24 * 3600 * 1000;
       const expiresAt = Date.now() + ttl;
+      const curr = currentState || state;
       const dismissed = {
-        ...((currentState || state).dismissedSignals || {}),
+        ...(curr.dismissedSignals || {}),
         [String(signalKey)]: expiresAt,
       };
-      const next = { ...(currentState || state), dismissedSignals: dismissed };
+      // Record the alias mapping locally too so a rename-on-login
+      // has the data available for the alias-resolution pass even
+      // before the server round-trips.
+      let aliases = { ...(curr.dismissalAliases || {}) };
+      if (opts?.aliasDisplayName && opts?.aliasSleeperId) {
+        aliases[String(opts.aliasDisplayName)] = String(opts.aliasSleeperId);
+      }
+      const next = { ...curr, dismissedSignals: dismissed, dismissalAliases: aliases };
       writeLocal(next);
       notify(next);
       if (serverBacked) {
-        dismissSignalOnServer(String(signalKey), ttl).catch(() => {});
+        dismissSignalOnServer(String(signalKey), ttl, opts).catch(() => {});
       }
     },
     [serverBacked, state],
