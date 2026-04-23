@@ -5396,8 +5396,7 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   gap: 4px;
   font-variant-numeric: tabular-nums;
 }
-.pmm-head,
-.pmm-row {
+.pmm-head {
   display: grid;
   grid-template-columns: minmax(0, 2fr) 40px 64px 52px minmax(0, 1fr) 40px;
   gap: var(--space-sm);
@@ -5423,7 +5422,21 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   flex-direction: column;
   gap: 4px;
 }
+/*
+ * ``.pmm-row`` is a plain block container — the grid columns live on
+ * the inner ``.pmm-row-trigger`` button (see rule further down).
+ * A prior rule set the LI to ``display: grid`` with the same 6-track
+ * template, which caused the LI to reserve full-width tracks for
+ * children that didn't exist (the LI only has one child — the
+ * button).  The button was placed in the FIRST track (``minmax(0,
+ * 2fr)``) and its own grid tried to fit ``2.2fr + 276px`` of
+ * columns inside roughly two-thirds of the LI's width.  Once the
+ * panel got narrower than ~610 px, the inner name column collapsed
+ * to zero and names stopped rendering — values, positions, etc.
+ * stayed visible because they have fixed track widths.
+ */
 .pmm-row {
+  display: block;
   background: rgba(255, 255, 255, 0.02);
 }
 .pmm-col { min-width: 0; }
