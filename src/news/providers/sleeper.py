@@ -153,16 +153,26 @@ class SleeperTrendingProvider(NewsProvider):
     def _fetch_player_map(self) -> dict[str, dict[str, Any]]:
         return _PLAYER_MAP.get(fetcher=lambda: self._get_json(_PLAYERS_PATH))
 
-    def _fetch_trending(self, path: str) -> List[dict[str, Any]]:
+    def _fetch_trending_safe(
+        self, path: str
+    ) -> tuple[bool, List[dict[str, Any]]]:
+        """Fetch one trending endpoint, tolerating a single-endpoint outage.
+
+        Returns ``(ok, rows)``.  ``ok=False`` means the upstream
+        call failed — the caller uses that to decide whether
+        total-failure propagation is warranted (both endpoints
+        down) versus a partial-signal return (only one endpoint
+        down, still useful).
+        """
         params = f"?lookback_hours={self._lookback}&limit={self._limit}"
         try:
             data = self._get_json(f"{path}{params}")
         except Exception as exc:
             log.warning("sleeper trending fetch (%s) failed: %s", path, exc)
-            return []
+            return False, []
         if not isinstance(data, list):
-            return []
-        return [row for row in data if isinstance(row, dict)]
+            return True, []
+        return True, [row for row in data if isinstance(row, dict)]
 
     # ── normalization ───────────────────────────────────────────
     def _row_to_item(
@@ -246,8 +256,14 @@ class SleeperTrendingProvider(NewsProvider):
         player_names: Optional[Iterable[str]] = None,
         limit: int = 50,
     ) -> List[NewsItem]:
-        adds = self._fetch_trending(_TRENDING_PATH_ADD)
-        drops = self._fetch_trending(_TRENDING_PATH_DROP)
+        adds_ok, adds = self._fetch_trending_safe(_TRENDING_PATH_ADD)
+        drops_ok, drops = self._fetch_trending_safe(_TRENDING_PATH_DROP)
+        # Both endpoints down → propagate so the service marks this
+        # provider ``ok=False`` and the all-providers-failed check
+        # can trigger 503 / DEMO fallback.  Partial failure (one
+        # endpoint OK) stays silent — we still have usable signal.
+        if not adds_ok and not drops_ok:
+            raise RuntimeError("sleeper trending endpoints unavailable")
         if not adds and not drops:
             return []
 

@@ -1,14 +1,15 @@
-"""ESPN headline-feed provider.
+"""CBS Sports Fantasy news provider.
 
-ESPN publishes a public NFL news RSS feed at
-``https://www.espn.com/espn/rss/nfl/news``.  No auth, no key.
-Each ``<item>`` becomes a ``NewsItem``; player tagging scans the
-headline + description for names visible in the live contract.
+CBS Sports publishes a public NFL-fantasy headlines RSS feed.
+It's unauthenticated and follows standard RSS 2.0 shape, so
+parsing + classification + player tagging reuse the shared
+``_rss`` helpers.
 
-The RSS parsing, severity classification, and player matching
-logic lives in ``_rss.py`` and is shared with the FantasyPros
-provider — keeping this file a thin adapter that only pins the
-feed URL + provider identity.
+The CBS feed tends to carry strategy and analysis pieces more
+than injury microbursts, so most items classify as ``info``
+unless the headline explicitly names an injury or transaction.
+That's fine — the service's relevance pass handles surfacing
+on the frontend.
 """
 from __future__ import annotations
 
@@ -17,14 +18,14 @@ from typing import Iterable, List, Optional
 from ..base import NewsItem, NewsProvider
 from . import _rss
 
-DEFAULT_FEED_URL = "https://www.espn.com/espn/rss/nfl/news"
+DEFAULT_FEED_URL = "https://www.cbssports.com/rss/headlines/nfl/"
 
 
-class EspnRssProvider(NewsProvider):
-    """Provider backed by ESPN's public NFL news RSS feed."""
+class CbsFantasyRssProvider(NewsProvider):
+    """Provider backed by CBS Sports' public NFL headlines RSS feed."""
 
-    name = "espn"
-    label = "ESPN"
+    name = "cbs"
+    label = "CBS Sports"
     timeout_s = 5.0
 
     def __init__(
@@ -35,15 +36,13 @@ class EspnRssProvider(NewsProvider):
     ) -> None:
         super().__init__(feed_url=feed_url)
         self._feed_url = feed_url
-        # Tests inject a fetcher that returns the RSS body so they
-        # don't need a live HTTP endpoint.
         self._fetcher = fetcher or self._default_fetcher
 
     def _default_fetcher(self, url: str) -> bytes:
         return _rss.default_http_fetcher(
             url,
             timeout=self.timeout_s,
-            user_agent="brisket-news-espn/1.0",
+            user_agent="brisket-news-cbs/1.0",
         )
 
     def fetch(
@@ -62,4 +61,4 @@ class EspnRssProvider(NewsProvider):
         )
 
 
-__all__ = ["DEFAULT_FEED_URL", "EspnRssProvider"]
+__all__ = ["CbsFantasyRssProvider", "DEFAULT_FEED_URL"]

@@ -76,17 +76,28 @@ def test_no_player_context_still_emits_items():
     assert all(i.players == [] for i in items)
 
 
-def test_malformed_rss_returns_empty():
+def test_malformed_rss_propagates():
+    """Malformed upstream → raise.  The service layer catches it
+    and marks the provider run ``ok=False`` so all-providers-fail
+    detection fires correctly; silently returning ``[]`` here
+    would look like a healthy-but-quiet feed (Codex P1)."""
+    import pytest
+    import xml.etree.ElementTree as ET
+
     provider = EspnRssProvider(fetcher=lambda _url: b"<not-rss>")
-    assert provider.fetch() == []
+    with pytest.raises(ET.ParseError):
+        provider.fetch()
 
 
-def test_fetch_error_returns_empty():
+def test_fetch_error_propagates():
+    import pytest
+
     def boom(_url):
         raise OSError("simulated network down")
 
     provider = EspnRssProvider(fetcher=boom)
-    assert provider.fetch() == []
+    with pytest.raises(OSError):
+        provider.fetch()
 
 
 def test_stable_ids_and_iso_timestamps():

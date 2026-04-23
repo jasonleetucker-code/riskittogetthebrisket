@@ -255,7 +255,9 @@ class NewsService:
 
 
 # ── factory helpers ─────────────────────────────────────────────
-_DEFAULT_ENABLED = ("sleeper", "espn")
+# Enabled-by-default providers.  All public, no licence required.
+# Rotowire stays registered but OFF until its paid API is wired.
+_DEFAULT_ENABLED = ("sleeper", "espn", "fantasypros", "cbs")
 
 
 def build_default_service(

@@ -6,17 +6,22 @@ individual modules so adding a provider is a one-line change in
 instance) so the service can construct them with per-deploy config
 loaded at startup.
 
-Priority ordering matches the task brief:
-    1. Sleeper trending (real-time adds/drops, always-on)
-    2. ESPN RSS (headline firehose, public feed)
-    3. Rotowire (licensing pending — stub returns empty until auth'd)
+Priority ordering (trending first, then RSS headline sources,
+then licensed sources):
+    1. Sleeper trending — real-time adds/drops, always-on, no auth
+    2. ESPN RSS — broad headline firehose, public feed
+    3. FantasyPros RSS — fantasy-flavored player news, public feed
+    4. CBS Sports RSS — NFL headlines, public feed
+    5. Rotowire — licensing pending, stub until auth'd
 """
 from __future__ import annotations
 
 from typing import Callable, Dict
 
 from ..base import NewsProvider
+from .cbs import CbsFantasyRssProvider
 from .espn import EspnRssProvider
+from .fantasypros import FantasyProsRssProvider
 from .rotowire import RotowireProvider
 from .sleeper import SleeperTrendingProvider
 
@@ -30,6 +35,8 @@ ProviderFactory = Callable[..., NewsProvider]
 _PROVIDER_FACTORIES: Dict[str, ProviderFactory] = {
     "sleeper": SleeperTrendingProvider,
     "espn": EspnRssProvider,
+    "fantasypros": FantasyProsRssProvider,
+    "cbs": CbsFantasyRssProvider,
     "rotowire": RotowireProvider,
 }
 
@@ -50,7 +57,9 @@ def build_provider(name: str, **config) -> NewsProvider:
 
 
 __all__ = [
+    "CbsFantasyRssProvider",
     "EspnRssProvider",
+    "FantasyProsRssProvider",
     "RotowireProvider",
     "SleeperTrendingProvider",
     "available_provider_names",

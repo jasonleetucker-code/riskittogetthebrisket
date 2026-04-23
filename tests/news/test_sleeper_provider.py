@@ -114,19 +114,60 @@ def test_missing_player_map_entry_is_dropped():
     assert provider.fetch() == []
 
 
-def test_provider_swallows_network_errors():
-    """The provider must return ``[]`` not raise on upstream errors."""
-    class _ExplodingSession:
-        calls = 0
+def test_provider_propagates_when_both_endpoints_fail():
+    """Total upstream outage → raise so the service can mark the
+    run ``ok=False``.  Silently returning ``[]`` would hide a real
+    outage from the all-providers-failed → 503 path (Codex P1)."""
+    import pytest
 
+    class _ExplodingSession:
         def get(self, *_a, **_kw):
-            self.__class__.calls += 1
             raise RuntimeError("boom")
 
     _reset_player_map_for_tests()
     provider = SleeperTrendingProvider(session=_ExplodingSession())
-    # The public fetch method logs + returns [], never raises.
-    assert provider.fetch() == []
+    with pytest.raises(RuntimeError):
+        provider.fetch()
+
+
+def test_provider_tolerates_one_endpoint_failing():
+    """Partial outage (only one of add/drop down) still returns
+    the usable items — no reason to throw away a working signal."""
+
+    class _SplitSession:
+        def __init__(self, ok_path: str):
+            self._ok_path = ok_path
+            self.calls = []
+
+        def get(self, url, timeout=None, headers=None):
+            self.calls.append(url)
+            if self._ok_path in url:
+                class _R:
+                    def raise_for_status(self):
+                        return None
+
+                    def json(self):
+                        return [{"player_id": "1", "count": 5}]
+
+                return _R()
+            if "/players/nfl" in url and "trending" not in url:
+                class _R2:
+                    def raise_for_status(self):
+                        return None
+
+                    def json(self):
+                        return {"1": {"full_name": "Only Add"}}
+
+                return _R2()
+            raise RuntimeError("drops unavailable")
+
+    _reset_player_map_for_tests()
+    provider = SleeperTrendingProvider(
+        session=_SplitSession("/trending/add")
+    )
+    items = provider.fetch()
+    assert len(items) == 1
+    assert items[0].players[0].name == "Only Add"
 
 
 def test_stable_ids_across_bucket():
