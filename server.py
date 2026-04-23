@@ -64,6 +64,7 @@ from src.api.data_contract import (
     validate_api_data_contract,
 )
 from src.api import rank_history as _rank_history
+from src.news import NewsService, build_default_service
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
 SCRAPE_INTERVAL_HOURS = 2
@@ -227,6 +228,53 @@ contract_health: dict = {
     "contractVersion": API_DATA_CONTRACT_VERSION,
     "playerCount": 0,
 }
+# ── NEWS SERVICE ───────────────────────────────────────────────────────
+# Lazy-built singleton.  Built on first request rather than at import
+# so unit tests can monkey-patch the factory and the server can boot
+# even if a transient DNS failure would block provider construction.
+_news_service: NewsService | None = None
+_news_service_lock = threading.Lock()
+
+
+def _get_news_service() -> NewsService:
+    global _news_service
+    if _news_service is not None:
+        return _news_service
+    with _news_service_lock:
+        if _news_service is None:
+            _news_service = build_default_service()
+    return _news_service
+
+
+def _reset_news_service_for_tests(svc: NewsService | None = None) -> None:
+    """Test hook — inject a stubbed service or clear the singleton."""
+    global _news_service
+    with _news_service_lock:
+        _news_service = svc
+
+
+def _live_player_names() -> list[str]:
+    """Return every player name visible in the live contract.
+
+    ESPN's RSS provider uses this set to tag headlines with matched
+    players; returning an empty list when the contract hasn't
+    loaded yet degrades gracefully — headlines still surface,
+    they just arrive with empty ``players[]``.
+    """
+    contract = latest_contract_data or {}
+    rows = contract.get("playersArray") or []
+    names: list[str] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        for key in ("displayName", "name", "canonicalName", "fullName"):
+            v = row.get(key)
+            if isinstance(v, str) and v.strip():
+                names.append(v.strip())
+                break
+    return names
+
+
 # R-9: Lightweight metrics counters
 _metrics: dict = {
     "server_start_time": None,
@@ -2082,6 +2130,82 @@ async def get_metrics():
         "disk_ok": disk_ok,
         "scrape_running": scrape_status.get("running", False),
     })
+
+
+# ── NEWS ───────────────────────────────────────────────────────────────
+# Normalized news feed aggregating Sleeper trending + ESPN RSS.  The
+# service layer owns caching, per-provider fault isolation, and the
+# normalized NewsItem shape (see ``src/news/base.py``).  The route is
+# a thin adapter: parse query args, delegate, and surface per-provider
+# diagnostics so the frontend can distinguish "empty feed" from "all
+# providers degraded".
+@app.get("/api/news")
+async def get_news(request: Request):
+    limit_raw = request.query_params.get("limit")
+    try:
+        limit = int(limit_raw) if limit_raw else 50
+    except ValueError:
+        limit = 50
+    limit = max(1, min(limit, 100))
+
+    # Optional team-name filter.  Repeatable ?team=... or comma
+    # separated.  Items that don't mention at least one of those
+    # players are dropped from the response (client-side filtering
+    # stays available for scope="roster"/"league" already).
+    team_params = request.query_params.getlist("team") if hasattr(
+        request.query_params, "getlist"
+    ) else []
+    team_names: list[str] = []
+    for raw in team_params:
+        for part in str(raw).split(","):
+            if part.strip():
+                team_names.append(part.strip())
+
+    svc = _get_news_service()
+    try:
+        aggregated = await run_in_threadpool(
+            svc.aggregate,
+            player_names=_live_player_names(),
+            team_names=team_names or None,
+        )
+    except Exception as exc:
+        log.warning("/api/news aggregation failed: %s", exc)
+        # Signal "temporarily unavailable" — the frontend falls back
+        # to the mock fixture on 503 so the page stays functional.
+        return JSONResponse(
+            status_code=503,
+            content={
+                "items": [],
+                "providersUsed": [],
+                "providerRuns": [],
+                "error": f"{type(exc).__name__}",
+                "generatedAt": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+
+    payload = aggregated.to_dict()
+    payload["source"] = "backend"
+    payload["limit"] = limit
+    if len(payload.get("items", [])) > limit:
+        payload["items"] = payload["items"][:limit]
+        payload["count"] = len(payload["items"])
+
+    # Distinguish "providers worked, nothing trending" (legit 200
+    # with empty items — DEMO badge stays OFF) from "every provider
+    # errored out" (503 — frontend falls back to its mock fixture
+    # and re-shows the DEMO badge).
+    provider_runs = aggregated.provider_runs or []
+    all_failed = bool(provider_runs) and not any(r.ok for r in provider_runs)
+    if all_failed:
+        return JSONResponse(
+            status_code=503,
+            content={
+                **payload,
+                "source": "backend",
+                "error": "all_providers_failed",
+            },
+        )
+    return JSONResponse(content=payload)
 
 
 @app.get("/api/scaffold/status")
