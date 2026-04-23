@@ -6600,11 +6600,11 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   opacity: 0.6;
 }
 
-/* ── Player rank-history chart (PlayerPopup) ─────────────────────── */
+/* ── Player value-history chart (PlayerPopup) ───────────────────── */
 .player-rank-chart {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   padding: 10px 12px;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border);
@@ -6632,6 +6632,12 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   text-transform: uppercase;
   font-size: 0.68rem;
 }
+.player-rank-chart-asterisk {
+  color: var(--cyan);
+  font-weight: 700;
+  margin-left: 2px;
+  cursor: help;
+}
 .player-rank-chart-delta {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -6641,19 +6647,83 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .player-rank-chart-delta--flat { color: var(--muted); }
 .player-rank-chart-svg {
   width: 100%;
-  height: 140px;
+  height: 180px;
   display: block;
 }
+
+/* Legend: grid of small chips, one per series.  Blended chip is
+   highlighted and occupies the full first column. */
 .player-rank-chart-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  font-size: 0.68rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 4px 10px;
+  font-size: 0.66rem;
   color: var(--subtext);
   font-variant-numeric: tabular-nums;
 }
-.player-rank-chart-legend strong {
+.player-rank-chart-legend-blended {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  font-size: 0.72rem;
+}
+.player-rank-chart-legend-blended strong {
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.player-rank-chart-legend-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.player-rank-chart-legend-source > span:nth-child(2) {
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  flex-grow: 0;
+  min-width: 0;
+}
+.player-rank-chart-legend-range {
+  color: var(--muted);
+  font-size: 0.62rem;
+  margin-left: auto;
+  padding-left: 6px;
+  white-space: nowrap;
+}
+.player-rank-chart-swatch {
+  display: inline-block;
+  width: 12px;
+  min-width: 12px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.player-rank-chart-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding-top: 6px;
+  margin-top: 2px;
+  border-top: 1px solid var(--border);
+  font-size: 0.62rem;
+  color: var(--subtext);
+}
+.player-rank-chart-footer strong {
   color: var(--muted);
   font-weight: 600;
   margin-right: 2px;
+}
+.player-rank-chart-note {
+  color: var(--cyan);
+  font-style: italic;
+  margin-left: auto;
 }

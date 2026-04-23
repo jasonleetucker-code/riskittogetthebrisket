@@ -1,85 +1,134 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { RANKING_SOURCES } from "@/lib/dynasty-data";
 
 /**
- * PlayerRankHistoryChart — 180-day rank-history line chart.
+ * PlayerRankHistoryChart — 180-day per-source + blended value chart.
  *
- * Reads ``row.rankHistory`` when the contract stamped it (the
- * default) and falls back to ``/api/data/rank-history?days=180`` with
- * a case-insensitive name match when it didn't (e.g. runtime-view
- * payloads that strip ``playersArray``).
+ * Renders one thin line per ranking source (the value each source
+ * cast into the blend on each scrape date) plus one thicker, bolder
+ * line for OUR blended value.  A shared Y axis (1–9999 value scale)
+ * lets the viewer see at a glance which sources disagree, which
+ * have drifted, and where the blended line lands relative to the
+ * extremes.
  *
- * Y-axis is rank (inverted — lower rank = up = visually better).
- * X-axis is date.  We render three windows worth of reference tags
- * (30d / 90d / 180d lines) so a viewer can eyeball "how much has he
- * moved in the last month vs the last six months".
+ * Data source: ``GET /api/data/player-source-history?name=...`` which
+ * reads ``data/source_value_history.jsonl`` on the backend.  A
+ * backfill mined the existing ``data/dynasty_data_*.json`` daily
+ * exports so the chart has ~28 days of per-source history on day
+ * one; new snapshots are appended on every scrape.
  *
- * No external chart library — SVG path primitives only.  Under 150
- * lines, renders sub-millisecond for a 180-point series.
+ * The blended line may be marked ``derived`` for historical dates
+ * that pre-date the contract-builder pipeline — in that case we
+ * show the median-of-sources approximation and note it in the
+ * legend.
+ *
+ * No external chart library — pure SVG.  ~200 lines, renders <1ms
+ * for a 28-point × 10-source series.
  */
 
 const CACHE = new Map(); // { [nameLower]: { result, expires } }
 const CACHE_TTL_MS = 120_000;
 
-async function fetchAllHistory(signal) {
+async function fetchPlayerHistory(name, signal) {
+  const key = String(name).toLowerCase().trim();
+  if (!key) return { dates: [], blended: [], sources: {} };
   const now = Date.now();
-  const cached = CACHE.get("__all__");
+  const cached = CACHE.get(key);
   if (cached && cached.expires > now) return cached.result;
-  const res = await fetch("/api/data/rank-history?days=180", {
-    credentials: "same-origin",
-    signal,
-  });
-  if (!res.ok) throw new Error(`rank-history ${res.status}`);
+  const url = `/api/data/player-source-history?name=${encodeURIComponent(name)}&days=180`;
+  const res = await fetch(url, { credentials: "same-origin", signal });
+  if (!res.ok) throw new Error(`player-source-history ${res.status}`);
   const body = await res.json();
-  const history = body?.history && typeof body.history === "object" ? body.history : {};
-  // The backend stores entries with composite keys like ``Ja'Marr
-  // Chase::offense``.  Flatten to lower-cased display names so the
-  // chart can look up by row.name alone.
-  const flat = {};
-  for (const key of Object.keys(history)) {
-    const series = history[key];
-    if (!Array.isArray(series)) continue;
-    const [namePart] = String(key).split("::");
-    const norm = String(namePart || key).toLowerCase().trim();
-    if (!norm) continue;
-    // If two asset classes share a name, keep whichever has more
-    // points — the common case is picks vs offense colliding on
-    // generic names; rank-relevant series will have more coverage.
-    const prev = flat[norm];
-    if (!prev || series.length > prev.length) {
-      flat[norm] = series;
-    }
-  }
-  const result = flat;
-  CACHE.set("__all__", { result, expires: Date.now() + CACHE_TTL_MS });
+  const result = {
+    dates: Array.isArray(body?.dates) ? body.dates : [],
+    blended: Array.isArray(body?.blended) ? body.blended : [],
+    sources: body?.sources && typeof body.sources === "object" ? body.sources : {},
+  };
+  CACHE.set(key, { result, expires: Date.now() + CACHE_TTL_MS });
   return result;
 }
 
-function normalizePoints(raw) {
-  if (!Array.isArray(raw)) return [];
-  const out = [];
-  for (const p of raw) {
-    if (!p || typeof p !== "object") continue;
-    const rank = Number(p.rank);
-    if (!Number.isFinite(rank) || rank <= 0) continue;
-    const t = Date.parse(p.date);
-    if (!Number.isFinite(t)) continue;
-    out.push({ date: p.date, t, rank });
+function parseMs(date) {
+  const t = Date.parse(date);
+  return Number.isFinite(t) ? t : null;
+}
+
+// Palette for source lines.  Non-saturated so the bold blended line
+// remains the visual focal point.  Colors are repeated in a stable
+// order so the same source gets the same color across re-renders.
+const SOURCE_PALETTE = [
+  "#60a5fa", // blue
+  "#a78bfa", // violet
+  "#f472b6", // pink
+  "#fbbf24", // amber
+  "#34d399", // emerald (dupe of blended; intentional — not used first)
+  "#fb923c", // orange
+  "#22d3ee", // cyan
+  "#a3e635", // lime
+  "#f87171", // red
+  "#818cf8", // indigo
+  "#fde047", // yellow
+  "#4ade80", // green
+];
+
+function colorForSource(key, index) {
+  return SOURCE_PALETTE[index % SOURCE_PALETTE.length];
+}
+
+// Source label lookup: prefer the display label from the registry,
+// fall back to the raw key.  Keeps the legend readable.
+const SOURCE_LABELS = (() => {
+  const map = {};
+  for (const s of RANKING_SOURCES) {
+    map[s.key] = s.columnLabel || s.displayName || s.key;
   }
-  out.sort((a, b) => a.t - b.t);
-  return out;
+  // Legacy keys from pre-contract-builder exports (camelCase).
+  map.fantasyCalc = "FantasyCalc";
+  map.dlfSf = "DLF SF";
+  map.dynastyDaddy = "Dynasty Daddy";
+  map.draftSharks = "Draft Sharks";
+  map.draftSharksIdp = "Draft Sharks IDP";
+  map.fantasyPros = "FantasyPros";
+  map.idpTradeCalc = "IDPTC";
+  map.yahoo = "Yahoo";
+  map.ktc = "KTC";
+  return map;
+})();
+
+function labelForSource(key) {
+  return SOURCE_LABELS[key] || key;
+}
+
+function buildPath({ points, toX, toY }) {
+  const parts = [];
+  let open = false;
+  for (const p of points) {
+    if (!Number.isFinite(p.value) || p.value <= 0) {
+      open = false;
+      continue;
+    }
+    const x = toX(p.t).toFixed(1);
+    const y = toY(p.value).toFixed(1);
+    parts.push(`${open ? "L" : "M"}${x},${y}`);
+    open = true;
+  }
+  return parts.join(" ");
 }
 
 export default function PlayerRankHistoryChart({
   row,
   width = 520,
-  height = 140,
+  height = 180,
 }) {
-  const stamped = Array.isArray(row?.rankHistory) ? row.rankHistory : null;
-  const [remote, setRemote] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [state, setState] = useState({
+    loading: true,
+    error: null,
+    dates: [],
+    blended: [],
+    sources: {},
+  });
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -90,134 +139,134 @@ export default function PlayerRankHistoryChart({
   }, []);
 
   useEffect(() => {
-    // Only fall back to the network when the row didn't carry a
-    // stamped series.  This keeps the popup fast in the common case
-    // (full contract view) and correct in the fallback case (runtime
-    // view / the occasional unstamped row).
-    if (stamped && stamped.length > 0) return undefined;
     if (!row?.name) return undefined;
     const controller = new AbortController();
-    setLoading(true);
-    setError(null);
-    fetchAllHistory(controller.signal)
-      .then((all) => {
+    setState((prev) => ({ ...prev, loading: true, error: null }));
+    fetchPlayerHistory(row.name, controller.signal)
+      .then((res) => {
         if (!mounted.current) return;
-        const key = String(row.name).toLowerCase().trim();
-        setRemote(all[key] || []);
-        setLoading(false);
+        setState({ loading: false, error: null, ...res });
       })
       .catch((err) => {
         if (err?.name === "AbortError") return;
         if (!mounted.current) return;
-        setError(err?.message || "rank-history fetch failed");
-        setLoading(false);
+        setState({
+          loading: false,
+          error: err?.message || "fetch failed",
+          dates: [],
+          blended: [],
+          sources: {},
+        });
       });
     return () => controller.abort();
-  }, [stamped, row?.name]);
-
-  const points = useMemo(() => normalizePoints(stamped || remote), [stamped, remote]);
+  }, [row?.name]);
 
   const geometry = useMemo(() => {
-    if (points.length < 2) return null;
+    const blended = (state.blended || [])
+      .map((p) => ({ t: parseMs(p.date), value: Number(p.value), derived: !!p.derived }))
+      .filter((p) => p.t != null);
+    const sources = {};
+    for (const [key, series] of Object.entries(state.sources || {})) {
+      if (!Array.isArray(series)) continue;
+      sources[key] = series
+        .map((p) => ({ t: parseMs(p.date), value: Number(p.value) }))
+        .filter((p) => p.t != null);
+    }
+    // Collect all points for Y-axis domain.
+    const allValues = [];
+    for (const p of blended) if (Number.isFinite(p.value) && p.value > 0) allValues.push(p.value);
+    for (const key of Object.keys(sources)) {
+      for (const p of sources[key]) if (Number.isFinite(p.value) && p.value > 0) allValues.push(p.value);
+    }
+    if (allValues.length < 2) return null;
+
+    const allTimes = [];
+    for (const p of blended) allTimes.push(p.t);
+    for (const key of Object.keys(sources)) for (const p of sources[key]) allTimes.push(p.t);
+    const tMin = Math.min(...allTimes);
+    const tMax = Math.max(...allTimes);
+    const tSpan = tMax - tMin || 1;
+
+    let vMin = Math.min(...allValues);
+    let vMax = Math.max(...allValues);
+    // Pad the Y domain 5% either side so lines at the extremes
+    // don't sit right on the frame.
+    const vPad = Math.max(50, Math.round((vMax - vMin) * 0.05));
+    vMin = Math.max(0, vMin - vPad);
+    vMax += vPad;
+    const vSpan = vMax - vMin || 1;
+
     const padX = 8;
-    const padY = 10;
+    const padY = 12;
     const usableW = width - padX * 2;
     const usableH = height - padY * 2;
+    const toX = (t) => padX + ((t - tMin) / tSpan) * usableW;
+    const toY = (v) => padY + (1 - (v - vMin) / vSpan) * usableH;
 
-    const tFirst = points[0].t;
-    const tLast = points[points.length - 1].t;
-    const tSpan = tLast - tFirst || 1;
+    const sourcePaths = [];
+    const sourceKeys = Object.keys(sources).sort();
+    sourceKeys.forEach((key, index) => {
+      sourcePaths.push({
+        key,
+        label: labelForSource(key),
+        color: colorForSource(key, index),
+        path: buildPath({ points: sources[key], toX, toY }),
+        first: sources[key][0]?.value ?? null,
+        last: sources[key][sources[key].length - 1]?.value ?? null,
+      });
+    });
 
-    let rMin = Infinity;
-    let rMax = -Infinity;
-    for (const p of points) {
-      if (p.rank < rMin) rMin = p.rank;
-      if (p.rank > rMax) rMax = p.rank;
-    }
-    // Give the plot 1 rank of headroom either side so a flat series
-    // doesn't collapse to a single horizontal line at the edge.
-    const rPad = Math.max(1, Math.round((rMax - rMin) * 0.1));
-    rMin = Math.max(1, rMin - rPad);
-    rMax += rPad;
-    const rSpan = rMax - rMin || 1;
-
-    const toX = (t) => padX + ((t - tFirst) / tSpan) * usableW;
-    // Invert Y: lower rank (better) renders at TOP of plot.
-    const toY = (r) => padY + ((r - rMin) / rSpan) * usableH;
-
-    const parts = points.map((p, i) => `${i === 0 ? "M" : "L"}${toX(p.t).toFixed(1)},${toY(p.rank).toFixed(1)}`);
-    const pathD = parts.join(" ");
-    const areaD = `${pathD} L${toX(tLast).toFixed(1)},${(height - padY).toFixed(1)} L${toX(tFirst).toFixed(1)},${(height - padY).toFixed(1)} Z`;
-
-    // Axis reference: the baseline (oldest) vs latest rank and the
-    // 30d / 90d midpoints.  We return the concrete (date, rank) pairs
-    // so the caller can show small tick labels next to them.
-    const latest = points[points.length - 1];
-    const pickBack = (days) => {
-      const cutoff = latest.t - days * 86_400_000;
-      let chosen = null;
-      for (const p of points) {
-        if (p.t >= cutoff) {
-          chosen = p;
-          break;
-        }
-      }
-      return chosen || points[0];
-    };
-    const back30 = pickBack(30);
-    const back90 = pickBack(90);
-    const back180 = points[0];
-    const delta30 = back30.rank - latest.rank;
-    const delta90 = back90.rank - latest.rank;
-    const delta180 = back180.rank - latest.rank;
+    const blendedPath = buildPath({ points: blended, toX, toY });
+    const blendedFirst = blended.find((p) => Number.isFinite(p.value) && p.value > 0);
+    const blendedLast = [...blended].reverse().find((p) => Number.isFinite(p.value) && p.value > 0);
+    const blendedDelta =
+      blendedFirst && blendedLast ? blendedLast.value - blendedFirst.value : 0;
+    const anyDerived = blended.some((p) => p.derived);
 
     return {
-      pathD,
-      areaD,
-      firstRank: points[0].rank,
-      lastRank: latest.rank,
-      minRank: rMin,
-      maxRank: rMax,
-      deltas: { d30: delta30, d90: delta90, d180: delta180 },
-      firstDate: points[0].date,
-      lastDate: latest.date,
+      blendedPath,
+      blendedDelta,
+      blendedFirst,
+      blendedLast,
+      anyDerived,
+      sourcePaths,
+      firstDate: state.dates[0] || null,
+      lastDate: state.dates[state.dates.length - 1] || null,
     };
-  }, [points, width, height]);
+  }, [state, width, height]);
 
   if (!row) return null;
 
-  if (loading && !geometry) {
-    return (
-      <div className="player-rank-chart player-rank-chart--loading" aria-busy="true">
-        Loading rank history…
-      </div>
-    );
+  if (state.loading && !geometry) {
+    return <div className="player-rank-chart player-rank-chart--loading">Loading value history…</div>;
   }
-  if (error) {
-    return (
-      <div className="player-rank-chart player-rank-chart--error" role="status">
-        Rank history unavailable.
-      </div>
-    );
+  if (state.error) {
+    return <div className="player-rank-chart player-rank-chart--error">Value history unavailable.</div>;
   }
   if (!geometry) {
     return (
-      <div className="player-rank-chart player-rank-chart--empty" role="status">
-        Not enough rank history yet (need at least two snapshots).
+      <div className="player-rank-chart player-rank-chart--empty">
+        Not enough value history yet (need at least two snapshots).
       </div>
     );
   }
 
-  const { pathD, areaD, firstRank, lastRank, deltas, firstDate, lastDate } = geometry;
-  const trend180 = deltas.d180; // positive = improved rank
-  const trendTone = trend180 > 0 ? "up" : trend180 < 0 ? "down" : "flat";
+  const { blendedPath, blendedDelta, blendedFirst, blendedLast, anyDerived, sourcePaths, firstDate, lastDate } = geometry;
+  const trendTone = blendedDelta > 0 ? "up" : blendedDelta < 0 ? "down" : "flat";
 
   return (
-    <div className="player-rank-chart" role="group" aria-label="Rank history over the last 180 days">
+    <div className="player-rank-chart" role="group" aria-label="Per-source value history over the last 180 days">
       <div className="player-rank-chart-head">
-        <span className="player-rank-chart-label">Rank history · 180d</span>
+        <span className="player-rank-chart-label">
+          Value history · 180d
+          {anyDerived && <span className="player-rank-chart-asterisk" title="Historical blended line is the median of per-source values — true blend started persisting on 2026-04-23"> *</span>}
+        </span>
         <span className={`player-rank-chart-delta player-rank-chart-delta--${trendTone}`}>
-          {trend180 === 0 ? "No change" : trend180 > 0 ? `▲ ${trend180} ranks better` : `▼ ${Math.abs(trend180)} ranks worse`}
+          {blendedDelta === 0
+            ? "No change"
+            : blendedDelta > 0
+            ? `▲ ${blendedDelta.toLocaleString()} value`
+            : `▼ ${Math.abs(blendedDelta).toLocaleString()} value`}
         </span>
       </div>
       <svg
@@ -229,32 +278,77 @@ export default function PlayerRankHistoryChart({
         focusable="false"
         preserveAspectRatio="none"
       >
-        <path d={areaD} fill={trend180 >= 0 ? "rgba(52, 211, 153, 0.15)" : "rgba(248, 113, 113, 0.15)"} />
-        <path
-          d={pathD}
-          fill="none"
-          stroke={trend180 >= 0 ? "var(--green)" : "var(--red)"}
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        {/* Thin per-source lines first so the blended line overlays */}
+        {sourcePaths.map((s) => (
+          <path
+            key={s.key}
+            d={s.path}
+            fill="none"
+            stroke={s.color}
+            strokeWidth={1}
+            strokeOpacity={0.55}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ))}
+        {/* Bold blended line on top */}
+        {blendedPath && (
+          <path
+            d={blendedPath}
+            fill="none"
+            stroke={blendedDelta >= 0 ? "var(--green)" : "var(--red)"}
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
       </svg>
       <div className="player-rank-chart-legend">
+        <span className="player-rank-chart-legend-blended">
+          <span
+            className="player-rank-chart-swatch"
+            style={{
+              background: blendedDelta >= 0 ? "var(--green)" : "var(--red)",
+              height: 3,
+            }}
+            aria-hidden="true"
+          />
+          <strong>Our blend</strong>
+          {blendedFirst && blendedLast && (
+            <span className="player-rank-chart-legend-range">
+              {blendedFirst.value.toLocaleString()} → {blendedLast.value.toLocaleString()}
+            </span>
+          )}
+        </span>
+        {sourcePaths.map((s) => (
+          <span key={s.key} className="player-rank-chart-legend-source">
+            <span
+              className="player-rank-chart-swatch"
+              style={{ background: s.color, opacity: 0.55 }}
+              aria-hidden="true"
+            />
+            <span>{s.label}</span>
+            {Number.isFinite(s.first) && Number.isFinite(s.last) && (
+              <span className="player-rank-chart-legend-range">
+                {s.first?.toLocaleString?.() ?? s.first} → {s.last?.toLocaleString?.() ?? s.last}
+              </span>
+            )}
+          </span>
+        ))}
+      </div>
+      <div className="player-rank-chart-footer">
         <span>
-          <strong>Then</strong> #{firstRank} ({firstDate})
+          <strong>Then</strong> {firstDate}
         </span>
         <span>
-          <strong>Now</strong> #{lastRank} ({lastDate})
+          <strong>Now</strong> {lastDate}
         </span>
-        <span>
-          30d {fmtSigned(deltas.d30)} · 90d {fmtSigned(deltas.d90)} · 180d {fmtSigned(deltas.d180)}
-        </span>
+        {anyDerived && (
+          <span className="player-rank-chart-note">
+            * Historical blend approximated from per-source median
+          </span>
+        )}
       </div>
     </div>
   );
-}
-
-function fmtSigned(v) {
-  if (!Number.isFinite(v) || v === 0) return "·";
-  return v > 0 ? `+${v}` : `${v}`;
 }
