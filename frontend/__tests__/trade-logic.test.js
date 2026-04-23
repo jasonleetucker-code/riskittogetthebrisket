@@ -904,28 +904,59 @@ describe("verdictBarPosition", () => {
 });
 
 describe("getPlayerEdge", () => {
-  it("returns no signal when no canonical sites", () => {
+  it("returns no signal when the row has no market-gap data", () => {
     const result = getPlayerEdge({ values: { full: 5000 } });
     expect(result.signal).toBeNull();
   });
 
-  it("returns BUY when our value is below external average", () => {
+  it("returns no signal when the market-gap magnitude is below 3 ranks", () => {
     const row = {
       values: { full: 5000 },
+      canonicalSites: { ktc: 5200 },
+      marketGapDirection: "retail_premium",
+      marketGapMagnitude: 2,
+    };
+    expect(getPlayerEdge(row).signal).toBeNull();
+  });
+
+  it("returns BUY when consensus_premium (market undervalues vs consensus)", () => {
+    // Consensus mean rank is lower (better) than retail/KTC — market
+    // is pricing the player cheap.  We should BUY from a KTC-anchored
+    // partner before the market catches up.
+    const row = {
+      values: { full: 9000 },
       canonicalSites: { ktc: 7000 },
+      marketGapDirection: "consensus_premium",
+      marketGapMagnitude: 6,
     };
     const result = getPlayerEdge(row);
     expect(result.signal).toBe("BUY");
+    expect(result.rankGap).toBe(6);
     expect(result.edgePct).toBeGreaterThan(0);
   });
 
-  it("returns SELL when our value is above external average", () => {
+  it("returns SELL when retail_premium (market overvalues vs consensus)", () => {
+    // KTC ranks the player higher than the rest of the board — the
+    // retail market is overpaying.  SELL HIGH to that market.
     const row = {
-      values: { full: 9000 },
-      canonicalSites: { ktc: 6000 },
+      values: { full: 5000 },
+      canonicalSites: { ktc: 6800 },
+      marketGapDirection: "retail_premium",
+      marketGapMagnitude: 8,
     };
     const result = getPlayerEdge(row);
     expect(result.signal).toBe("SELL");
+    expect(result.rankGap).toBe(8);
+  });
+
+  it("falls back to rank-gap for edgePct when per-source values are missing", () => {
+    const row = {
+      marketGapDirection: "consensus_premium",
+      marketGapMagnitude: 5,
+    };
+    const result = getPlayerEdge(row);
+    expect(result.signal).toBe("BUY");
+    expect(result.edgePct).toBe(5);
   });
 });
 
