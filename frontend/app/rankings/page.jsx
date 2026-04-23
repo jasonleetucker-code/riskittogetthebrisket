@@ -1446,10 +1446,17 @@ export default function RankingsPage() {
                           horizontally and get hidden via `hide-mobile`.
                           Instead of dropping the data entirely, we
                           render a compact flex strip of source chips
-                          below each player row so mobile users see the
-                          same per-source value + rank they'd see on
-                          desktop.  Gated on `showSiteCols` so the
-                          toggle has the same effect on both surfaces.
+                          below each player row — but only when the
+                          user has tapped the row to expand it.
+                          Rendering the strip under every row by
+                          default dominated the mobile viewport and
+                          pushed the headline Value column off-screen
+                          for cold-start users carrying the legacy
+                          ``showSiteCols: true`` localStorage value.
+                          Gating on ``isExpanded`` makes the source
+                          audit on-demand on mobile.  ``showSiteCols``
+                          still governs the desktop per-source column
+                          render — desktop behavior is unchanged.
 
                           Uses a dedicated `.rankings-mobile-source-row`
                           class (not the global `.mobile-only` helper)
@@ -1458,7 +1465,7 @@ export default function RankingsPage() {
                           `display: initial !important`, which would
                           force the <tr> to `inline` and break the
                           table layout. */}
-                      {settings.showSiteCols && (
+                      {isExpanded && (
                         <tr className="rankings-mobile-source-row">
                           <td colSpan={totalCols}>
                             <div className="rankings-mobile-sources">
