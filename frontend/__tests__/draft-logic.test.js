@@ -626,6 +626,68 @@ describe("mergeDraftCapitalTeams", () => {
     expect(zero).toBeTruthy();
     expect(zero.initialBudget).toBe(0);
   });
+
+  it("sync mode updates every row when none have been manually edited", () => {
+    // First pull seeds feedBudget on every row.  A second pull with
+    // different numbers should flow through freely because no row's
+    // initialBudget has diverged from its feedBudget yet.
+    const ws = createDefaultWorkspace();
+    const { workspace: first } = mergeDraftCapitalTeams(ws, capitalFeed, {
+      mode: "sync",
+    });
+    const bumpedFeed = capitalFeed.map((e) => ({
+      ...e,
+      auctionDollars: e.auctionDollars + 1,
+    }));
+    const { workspace: second } = mergeDraftCapitalTeams(first, bumpedFeed, {
+      mode: "sync",
+    });
+    const russini = second.teams.find((t) => t.name === "Russini Panini");
+    expect(russini.initialBudget).toBe(419);
+    expect(russini.feedBudget).toBe(419);
+  });
+
+  it("sync mode preserves a user-edited row and still advances feedBudget", () => {
+    const ws = createDefaultWorkspace();
+    const { workspace: seeded } = mergeDraftCapitalTeams(ws, capitalFeed, {
+      mode: "sync",
+    });
+    // User overrides Russini Panini to 500.
+    const edited = updateTeam(
+      seeded,
+      seeded.teams.findIndex((t) => t.name === "Russini Panini"),
+      { initialBudget: 500 },
+    );
+    // Draft capital re-pulls with a new value.
+    const newFeed = capitalFeed.map((e) =>
+      e.team === "Russini Panini" ? { ...e, auctionDollars: 420 } : e,
+    );
+    const { workspace: after } = mergeDraftCapitalTeams(edited, newFeed, {
+      mode: "sync",
+    });
+    const russini = after.teams.find((t) => t.name === "Russini Panini");
+    // User's 500 is preserved; feedBudget tracks the latest feed.
+    expect(russini.initialBudget).toBe(500);
+    expect(russini.feedBudget).toBe(420);
+  });
+
+  it("force mode overwrites user edits (the Load-from-Draft-Capital button)", () => {
+    const ws = createDefaultWorkspace();
+    const { workspace: seeded } = mergeDraftCapitalTeams(ws, capitalFeed, {
+      mode: "sync",
+    });
+    const edited = updateTeam(
+      seeded,
+      seeded.teams.findIndex((t) => t.name === "Russini Panini"),
+      { initialBudget: 500 },
+    );
+    const { workspace: forced } = mergeDraftCapitalTeams(edited, capitalFeed, {
+      mode: "force",
+    });
+    const russini = forced.teams.find((t) => t.name === "Russini Panini");
+    expect(russini.initialBudget).toBe(418);
+    expect(russini.feedBudget).toBe(418);
+  });
 });
 
 // ── workspaceIsPristine ─────────────────────────────────────────────

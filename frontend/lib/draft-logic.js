@@ -323,7 +323,7 @@ export function createDefaultWorkspace() {
       aggression: DEFAULT_AGGRESSION,
       enforcePct: DEFAULT_ENFORCE_PCT,
     },
-    teams: DEFAULT_TEAMS.map((t) => ({ ...t })),
+    teams: DEFAULT_TEAMS.map((t) => ({ ...t, feedBudget: t.initialBudget })),
     players: DEFAULT_ROOKIES.map((p) => ({
       id: playerSlug(p.name),
       rank: p.rank,
@@ -1140,6 +1140,12 @@ export function updateSettings(workspace, patch) {
  */
 export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
   const preserveNames = opts.preserveCustomNames !== false;
+  // ``mode === "sync"`` preserves user-edited budgets: a row is only
+  // rewritten when its ``initialBudget`` still equals its last-seen
+  // ``feedBudget`` (i.e. the user hasn't typed a custom value).
+  // ``mode === "force"`` (default) is the "Load from Draft Capital"
+  // semantics — overwrite everything.
+  const mode = opts.mode === "sync" ? "sync" : "force";
   const ws = workspace || createDefaultWorkspace();
   const existing = Array.isArray(ws.teams) ? ws.teams : [];
   const feed = Array.isArray(teamTotals) ? teamTotals : [];
@@ -1196,7 +1202,7 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
   // picks array is present, the slot count is authoritative.  When
   // it's not (no picks opts passed), we keep whatever ``initialSlots``
   // the existing team carried, falling back to the default.
-  const buildTeam = (nameOut, budget, prior) => {
+  const buildTeam = (nameOut, feedBudget, prior) => {
     const slotKey = String(nameOut || "").toLowerCase();
     const feedSlots = slotsByKey.get(slotKey);
     const priorSlots = Number.isFinite(Number(prior?.initialSlots))
@@ -1207,10 +1213,30 @@ export function mergeDraftCapitalTeams(workspace, teamTotals, opts = {}) {
         ? feedSlots
         : 0
       : priorSlots;
+    // In sync mode, preserve the user's typed initialBudget when it
+    // diverges from the last-seen feed value.  In force mode (or when
+    // no prior feedBudget exists), snap initialBudget to the new feed
+    // value.  Either way, feedBudget always tracks the latest feed.
+    let initialBudget = feedBudget;
+    if (mode === "sync" && prior) {
+      const priorFeed = Number.isFinite(Number(prior.feedBudget))
+        ? Number(prior.feedBudget)
+        : null;
+      const priorInitial = Number.isFinite(Number(prior.initialBudget))
+        ? Number(prior.initialBudget)
+        : null;
+      if (priorFeed != null && priorInitial != null && priorInitial !== priorFeed) {
+        // User has edited the budget since the last feed pull —
+        // preserve their value, but still advance the feedBudget
+        // cursor so future edits re-match the user's intent.
+        initialBudget = priorInitial;
+      }
+    }
     return {
       name: nameOut,
-      initialBudget: budget,
+      initialBudget,
       initialSlots,
+      feedBudget,
     };
   };
 
@@ -1445,13 +1471,25 @@ export function hydrateWorkspace(parsed) {
         : def.settings.enforcePct,
     },
     teams: Array.isArray(parsed.teams) && parsed.teams.length > 0
-      ? parsed.teams.map((t, i) => ({
-          name: String(t?.name || `Team ${i + 1}`),
-          initialBudget: Math.max(0, Number(t?.initialBudget) || 0),
-          initialSlots: Number.isFinite(Number(t?.initialSlots))
-            ? Math.max(0, Number(t.initialSlots))
-            : DEFAULT_INITIAL_SLOTS,
-        }))
+      ? parsed.teams.map((t, i) => {
+          const initialBudget = Math.max(0, Number(t?.initialBudget) || 0);
+          // Legacy workspaces (pre-feedBudget tracking) are treated as
+          // in-sync so the next /api/draft-capital fetch freely updates
+          // them.  Once the user edits a row post-hydration, the
+          // diverging feedBudget will protect that edit on subsequent
+          // auto-syncs.
+          const feedBudget = Number.isFinite(Number(t?.feedBudget))
+            ? Math.max(0, Number(t.feedBudget))
+            : initialBudget;
+          return {
+            name: String(t?.name || `Team ${i + 1}`),
+            initialBudget,
+            initialSlots: Number.isFinite(Number(t?.initialSlots))
+              ? Math.max(0, Number(t.initialSlots))
+              : DEFAULT_INITIAL_SLOTS,
+            feedBudget,
+          };
+        })
       : def.teams,
     players: (() => {
       const src =
