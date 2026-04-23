@@ -20,14 +20,33 @@ import {
  * No randomness.  Every insight cites the metric that earned it.
  */
 
-// Which positions can fill each flex-style slot in a Sleeper league.
+// Which player positions can fill each slot in a Sleeper lineup.
+// Covers both offense-side flexes (FLEX/SUPER_FLEX/…) and the IDP
+// slot shapes (DL/LB/DB/IDP_FLEX).  We also include specific IDP
+// slot names as keys because player positions get normalized to
+// the generic "IDP" bucket upstream — without an entry here, an
+// IDP-formatted lineup slot like "DL" would never match a roster
+// of normalized "IDP" players and valid IDP starters would be
+// shoved onto the bench.
 const FLEX_POOLS = {
-  FLEX: new Set(["RB", "WR", "TE"]),
+  // Offense flexes
+  FLEX:       new Set(["RB", "WR", "TE"]),
   WR_RB_FLEX: new Set(["RB", "WR"]),
-  REC_FLEX: new Set(["WR", "TE"]),
+  REC_FLEX:   new Set(["WR", "TE"]),
+  WRT:        new Set(["WR", "TE"]),
   SUPER_FLEX: new Set(["QB", "RB", "WR", "TE"]),
-  SUPERFLEX: new Set(["QB", "RB", "WR", "TE"]),
-  Q_FLEX: new Set(["QB", "RB", "WR", "TE"]),
+  SUPERFLEX:  new Set(["QB", "RB", "WR", "TE"]),
+  Q_FLEX:     new Set(["QB", "RB", "WR", "TE"]),
+  // IDP slots — generic "IDP" normalized roster pos accepted by all.
+  DL:         new Set(["IDP", "DL", "DE", "DT"]),
+  DE:         new Set(["IDP", "DE", "DL"]),
+  DT:         new Set(["IDP", "DT", "DL"]),
+  LB:         new Set(["IDP", "LB"]),
+  DB:         new Set(["IDP", "DB", "CB", "S"]),
+  CB:         new Set(["IDP", "CB", "DB"]),
+  S:          new Set(["IDP", "S", "DB"]),
+  IDP:        new Set(["IDP", "DL", "DE", "DT", "LB", "DB", "CB", "S"]),
+  IDP_FLEX:   new Set(["IDP", "DL", "DE", "DT", "LB", "DB", "CB", "S"]),
 };
 
 const POSITION_GROUPS = ["QB", "RB", "WR", "TE", "K", "DEF", "IDP", "PICK"];
@@ -60,30 +79,48 @@ function pct(part, whole) {
   return Math.round((part / whole) * 1000) / 10;
 }
 
+// Strict slots (no flex pool entry): these match a single
+// normalized player position token exactly.  K and DEF do not
+// collapse into a flex pool; their slots match same-named rosters
+// and nothing else.
+const STRICT_SLOT_REMAP = {
+  PK: "K",
+};
+
 /**
  * Compute the strict starter / bench split using the league's
- * positions array when present, falling back to a reasonable default
- * (1QB/2RB/3WR/1TE/1FLEX/1SF) otherwise.  Returns each bucket with
- * its player list and summed value.
+ * roster-positions array when present, falling back to a reasonable
+ * default (1QB/2RB/3WR/1TE/1FLEX/1SF) otherwise.
+ *
+ * Two passes so flex slots fill AFTER strict-position slots have
+ * already claimed the appropriate starters.  All slot-to-position
+ * matching routes through FLEX_POOLS for anything flex-y, including
+ * the IDP slot family (DL/LB/DB/IDP_FLEX/…) — those pools include
+ * the generic "IDP" token so roster positions normalized upstream
+ * still match specific-IDP lineup slots.
  */
-function splitStartersBench({ rosterValues, sleeperPositions }) {
-  const slots = Array.isArray(sleeperPositions) && sleeperPositions.length > 0
-    ? sleeperPositions.filter((p) => String(p).toUpperCase() !== "BN" && String(p).toUpperCase() !== "IR")
-    : ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "FLEX", "SUPER_FLEX"];
+function splitStartersBench({ rosterValues, sleeperRosterPositions }) {
+  const defaultSlots = ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "FLEX", "SUPER_FLEX"];
+  const slots = Array.isArray(sleeperRosterPositions) && sleeperRosterPositions.length > 0
+    ? sleeperRosterPositions.filter((p) => {
+        const u = String(p).toUpperCase();
+        return u !== "BN" && u !== "IR" && u !== "TAXI";
+      })
+    : defaultSlots;
 
   const pool = [...rosterValues].sort((a, b) => b.value - a.value);
   const starterNames = new Set();
 
   // First pass: strict position slots.
   for (const slot of slots) {
-    const upper = String(slot).toUpperCase();
+    const upper = STRICT_SLOT_REMAP[String(slot).toUpperCase()] ?? String(slot).toUpperCase();
     if (FLEX_POOLS[upper]) continue;
     const match = pool.find((p) => !starterNames.has(p.name) && p.pos === upper);
     if (match) starterNames.add(match.name);
   }
-  // Second pass: flex slots.
+  // Second pass: flex / IDP-family slots.
   for (const slot of slots) {
-    const upper = String(slot).toUpperCase();
+    const upper = STRICT_SLOT_REMAP[String(slot).toUpperCase()] ?? String(slot).toUpperCase();
     const pool_ = FLEX_POOLS[upper];
     if (!pool_) continue;
     const match = pool.find((p) => !starterNames.has(p.name) && pool_.has(p.pos));
@@ -108,7 +145,9 @@ function splitStartersBench({ rosterValues, sleeperPositions }) {
  * Inputs:
  *   - rows          flat contract rows (from useDynastyData)
  *   - selectedTeam  Sleeper team object ({players, picks})
- *   - rawData       full contract (used for sleeper.positions)
+ *   - rawData       full contract (used for sleeper.rosterPositions —
+ *                   the lineup-slot ARRAY, distinct from
+ *                   sleeper.positions which is the player→position map)
  *   - history       rank-history map (name -> [{date, rank}])
  */
 export function computePortfolio({ rows, selectedTeam, rawData, history }) {
@@ -151,8 +190,12 @@ export function computePortfolio({ rows, selectedTeam, rawData, history }) {
   }
 
   const totalValue = sumValue(rosterValues);
-  const sleeperPositions = rawData?.sleeper?.positions;
-  const starterSplit = splitStartersBench({ rosterValues, sleeperPositions });
+  // ``sleeper.rosterPositions`` is the lineup-slot array (e.g.
+  // ["QB","RB","RB","WR","WR","WR","TE","FLEX","SUPER_FLEX","BN",...]).
+  // ``sleeper.positions`` is a different field entirely — a
+  // player-name → position MAP — and was previously misread here.
+  const sleeperRosterPositions = rawData?.sleeper?.rosterPositions;
+  const starterSplit = splitStartersBench({ rosterValues, sleeperRosterPositions });
 
   // Positional allocation: value + count per position group.
   const byPosition = {};
