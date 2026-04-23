@@ -69,6 +69,16 @@ export const SETTINGS_DEFAULTS = {
 
   // Selected team (global)
   selectedTeam: "",                  // Sleeper team name selection
+
+  // True once the user (or any surface) has written ``selectedTeam``
+  // at least once on this device.  Used by ``useTeam`` to distinguish
+  // "never chose" from "explicitly cleared" so auto-assignment of the
+  // default team does not silently re-overwrite a deliberate empty
+  // selection on reload.  Written implicitly by ``update`` below —
+  // any call of the shape ``update("selectedTeam", ...)`` (the
+  // TeamSwitcher, the /rosters "My team..." dropdown, and any future
+  // surface) flips this to true in the same localStorage write.
+  selectedTeamTouched: false,
 };
 
 // ── localStorage helpers ────────────────────────────────────────────────
@@ -127,6 +137,11 @@ export function useSettings() {
 
   const update = useCallback((key, value) => {
     const next = { ...getSnapshot(), [key]: value };
+    // Any write to ``selectedTeam`` — from any caller — marks the
+    // selection as user-touched.  This preserves an explicit clear
+    // ("") across reloads by giving ``useTeam``'s auto-assign guard
+    // a durable signal that's distinct from the empty-string default.
+    if (key === "selectedTeam") next.selectedTeamTouched = true;
     writeSettings(next);
     notify(next);
   }, []);

@@ -28,16 +28,20 @@ function normalize(s) {
  * teams writes to settings which notifies every useSettings subscriber
  * in the app.
  *
- * First-load behavior: if nothing is persisted and the league contains
- * a team whose name matches DEFAULT_TEAM_NAME, auto-select it and
- * persist.  If a persisted selection does not resolve to any current
- * league team, we do NOT silently overwrite it — ``needsSelection``
- * flips true and the UI can prompt the user.
+ * First-load behavior: if the user has NEVER written a team selection
+ * on this device (``settings.selectedTeamTouched === false``) and the
+ * league contains a team whose name matches DEFAULT_TEAM_NAME,
+ * auto-select it and persist.  A persisted empty string counts as an
+ * explicit clear once ``selectedTeamTouched`` is true and is
+ * preserved across reloads; an unresolvable persisted name (e.g.
+ * league renamed a team) is likewise not silently overwritten —
+ * ``needsSelection`` flips true and the UI can prompt the user.
  */
 export function useTeam() {
   const { rawData, privateDataEnabled, loading: dataLoading } = useApp();
   const { settings, update } = useSettings();
   const selectedName = settings?.selectedTeam || "";
+  const selectionTouched = settings?.selectedTeamTouched === true;
   const autoAssignedRef = useRef(false);
 
   const availableTeams = useMemo(() => {
@@ -52,15 +56,20 @@ export function useTeam() {
     return availableTeams.find((t) => normalize(t?.name) === needle) || null;
   }, [availableTeams, selectedName]);
 
-  // Auto-assign default team when (a) nothing is persisted yet and
-  // (b) the default exists in this league.  Skipped if the user has
-  // any persisted name (even if currently unresolvable) so a transient
-  // rename / data glitch doesn't clobber their choice.
+  // Auto-assign default team when (a) the user has never written a
+  // selection on this device and (b) the default exists in this
+  // league.  The ``selectionTouched`` flag — flipped by every
+  // ``update("selectedTeam", ...)`` write in useSettings — is what
+  // lets us respect an explicit clear across reloads without
+  // conflating it with a never-chosen empty default.  A persisted
+  // but currently-unresolvable name keeps ``selectionTouched`` true,
+  // so we skip auto-assign in that case too and let the UI surface
+  // ``needsSelection``.
   useEffect(() => {
     if (autoAssignedRef.current) return;
     if (dataLoading) return;
     if (!privateDataEnabled) return;
-    if (selectedName) return;
+    if (selectionTouched) return;
     if (availableTeams.length === 0) return;
 
     const match = availableTeams.find(
@@ -70,7 +79,7 @@ export function useTeam() {
       autoAssignedRef.current = true;
       update("selectedTeam", match.name);
     }
-  }, [availableTeams, selectedName, privateDataEnabled, dataLoading, update]);
+  }, [availableTeams, selectionTouched, privateDataEnabled, dataLoading, update]);
 
   const setSelectedTeam = useCallback(
     (name) => update("selectedTeam", name || ""),
