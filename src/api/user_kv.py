@@ -445,3 +445,43 @@ def dismissal_aliases(username: str, *, path: Path | None = None) -> dict[str, s
     if not isinstance(aliases, dict):
         return {}
     return {str(k): str(v) for k, v in aliases.items()}
+
+
+def all_user_states(*, path: Path | None = None) -> dict[str, dict[str, Any]]:
+    """Return every stored user's state, keyed by username.
+
+    Used by admin / background jobs (e.g. the signal-alerts timer)
+    that need to walk every user.  Expired dismissals are pruned
+    per-row on read — cheap, and keeps the returned dict honest.
+    The caller gets fresh copies so they can safely mutate without
+    writing back.
+
+    Returns an empty dict if the DB is missing or empty.
+    """
+    target = path or USER_KV_PATH
+    # If the DB file doesn't exist yet (e.g. fresh install),
+    # ``_connect`` will create it.  But if the parent dir also
+    # doesn't exist and we aren't pointed at a temp path, that's
+    # fine too — the create is idempotent.
+    try:
+        conn = _connect(target)
+    except Exception:
+        return {}
+    try:
+        rows = conn.execute("SELECT username, state_json FROM user_state").fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    finally:
+        conn.close()
+
+    out: dict[str, dict[str, Any]] = {}
+    for username, state_json in rows:
+        try:
+            state = json.loads(state_json) if state_json else {}
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(state, dict):
+            continue
+        _prune_expired_dismissals(state)
+        out[str(username)] = state
+    return out

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useSettings, SETTINGS_DEFAULTS as DEFAULTS } from "@/components/useSettings";
+import { useUserState } from "@/components/useUserState";
 import {
   WEIGHT_PRESETS,
   presetToWeights,
@@ -68,7 +69,37 @@ function ToggleRow({ label, checked, onChange, hint }) {
 export default function SettingsPage() {
   const { loading, error, rows, rawData } = useDynastyData();
   const { settings, update, updateSiteWeight, resetSiteWeights, reset } = useSettings();
+  const { state: userState, serverBacked, setNotifications } = useUserState();
   const [hydrated, setHydrated] = useState(true);
+  const [emailDraft, setEmailDraft] = useState("");
+  const [emailStatus, setEmailStatus] = useState("");
+
+  // Keep the email input in sync with the server-backed value on
+  // hydrate.  A user who clears the field and saves empty should see
+  // the input stay empty (not snap back to the server value).
+  useEffect(() => {
+    if (userState?.notificationsEmail) {
+      setEmailDraft(String(userState.notificationsEmail));
+    }
+  }, [userState?.notificationsEmail]);
+
+  const saveEmail = useCallback(() => {
+    const clean = emailDraft.trim();
+    if (clean && (!clean.includes("@") || !clean.split("@")[1]?.includes("."))) {
+      setEmailStatus("That doesn't look like a valid email address.");
+      return;
+    }
+    setNotifications({ email: clean || null });
+    setEmailStatus(clean ? "Saved." : "Email cleared.");
+    setTimeout(() => setEmailStatus(""), 2500);
+  }, [emailDraft, setNotifications]);
+
+  const toggleEnabled = useCallback(
+    (next) => {
+      setNotifications({ enabled: next });
+    },
+    [setNotifications],
+  );
 
   function resetToDefaults() {
     reset();
@@ -337,6 +368,65 @@ export default function SettingsPage() {
           Picks from future years are automatically discounted in trade calculations:
           current year = 100%, +1 year = 85%, +2 years = 72%, +3+ years = 60%.
         </p>
+      </Section>
+
+      <Section title="Notifications" defaultOpen={false}>
+        {serverBacked ? (
+          <>
+            <ToggleRow
+              label="Email me daily signal alerts"
+              checked={!!userState?.notificationsEnabled}
+              onChange={toggleEnabled}
+              hint="Buy/sell/injury/roster digest, sent once per day when you have live signals."
+            />
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, flexWrap: "wrap" }}>
+              <label style={{ fontSize: "0.82rem", minWidth: 100 }}>Email address</label>
+              <input
+                type="email"
+                className="input"
+                value={emailDraft}
+                placeholder="you@example.com"
+                onChange={(e) => setEmailDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveEmail();
+                }}
+                style={{ flex: "1 1 260px", maxWidth: 360 }}
+              />
+              <button className="button" onClick={saveEmail} style={{ fontSize: "0.76rem" }}>
+                Save
+              </button>
+              {emailDraft && (
+                <button
+                  className="button"
+                  onClick={() => {
+                    setEmailDraft("");
+                    setNotifications({ email: null });
+                    setEmailStatus("Email cleared.");
+                    setTimeout(() => setEmailStatus(""), 2500);
+                  }}
+                  style={{ fontSize: "0.76rem" }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            {emailStatus && (
+              <div className="muted" style={{ fontSize: "0.72rem", marginTop: 6, color: "var(--green)" }}>
+                {emailStatus}
+              </div>
+            )}
+            <p className="muted" style={{ fontSize: "0.7rem", marginTop: 10, marginBottom: 0 }}>
+              Alerts fire once per day when the signal engine finds something notable on your
+              roster — buy-low / sell-high opportunities, injury news, rookie or pick movement.
+              We only email you when there&apos;s a change worth acting on.
+            </p>
+          </>
+        ) : (
+          <p className="muted" style={{ fontSize: "0.78rem" }}>
+            Sign in to enable email notifications.  Your notification preferences
+            are stored on the server and apply across devices.
+          </p>
+        )}
       </Section>
 
       <Section title="Data & Admin" defaultOpen={false}>

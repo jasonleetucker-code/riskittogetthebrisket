@@ -194,3 +194,77 @@ def test_process_user_alerts_honors_delivery_error(kv_path):
     )
     assert result["delivered"] is False
     assert "delivery_error" in result["reason"]
+
+
+# ── /api/signal-alerts/run endpoint auth tests ────────────────────
+# These exercise the auth-gating on the HTTP layer.  We stub out
+# ``latest_contract_data`` so the endpoint gets past the 503 guard
+# and can reach the auth branch.  No SMTP is touched because no
+# users in the user_kv have ``notificationsEnabled`` set.
+
+
+def test_signal_alerts_run_rejects_unauthenticated(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    import server
+
+    monkeypatch.setattr(server, "latest_contract_data", {"stub": True})
+    monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "")
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.post("/api/signal-alerts/run")
+    assert res.status_code == 401
+
+
+def test_signal_alerts_run_accepts_bearer_token(monkeypatch, tmp_path):
+    """With SIGNAL_ALERT_CRON_TOKEN set and a matching bearer header,
+    the endpoint processes the sweep (even though no users qualify)."""
+    from fastapi.testclient import TestClient
+
+    import server
+
+    monkeypatch.setattr(server, "latest_contract_data", {"players": {}})
+    monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "test-token-abc123")
+    # all_user_states() returns {} in a fresh temp env; stub it so
+    # we don't depend on the real user_kv.sqlite on this box.
+    monkeypatch.setattr(server._user_kv, "all_user_states", lambda: {})
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.post(
+            "/api/signal-alerts/run",
+            headers={"Authorization": "Bearer test-token-abc123"},
+        )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["processed"] == 0
+
+
+def test_signal_alerts_run_rejects_wrong_bearer_token(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    import server
+
+    monkeypatch.setattr(server, "latest_contract_data", {"players": {}})
+    monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "real-token")
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.post(
+            "/api/signal-alerts/run",
+            headers={"Authorization": "Bearer wrong-token"},
+        )
+    assert res.status_code == 401
+
+
+def test_signal_alerts_run_ignores_bearer_when_token_unset(monkeypatch):
+    """Sanity check: an empty server token must never authorize an
+    arbitrary bearer header — otherwise a blank .env would make the
+    endpoint open to the internet."""
+    from fastapi.testclient import TestClient
+
+    import server
+
+    monkeypatch.setattr(server, "latest_contract_data", {"players": {}})
+    monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "")
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.post(
+            "/api/signal-alerts/run",
+            headers={"Authorization": "Bearer anything"},
+        )
+    assert res.status_code == 401

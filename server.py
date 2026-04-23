@@ -24,6 +24,7 @@ import traceback
 import smtplib
 import gzip
 import hashlib
+import hmac
 import shutil
 import uuid
 import urllib.request
@@ -99,6 +100,16 @@ ALERT_ENABLED = _env_bool("ALERT_ENABLED", False)
 ALERT_TO = os.getenv("ALERT_TO", "")
 ALERT_FROM = os.getenv("ALERT_FROM", "")
 ALERT_PASSWORD = os.getenv("ALERT_PASSWORD") or os.getenv("GMAIL_APP_PASSWORD", "")
+
+# Shared secret for the systemd signal-alert timer.  When set, any
+# request to ``POST /api/signal-alerts/run`` with a matching
+# ``Authorization: Bearer <token>`` header is accepted in place of
+# the usual password-session gate.  Empty = cron auth disabled
+# (only browser-sessioned admins can trigger the sweep).  Generate
+# with e.g. ``openssl rand -hex 32`` and store in .env alongside the
+# ALERT_* creds.  Treat it like a password: leaking it lets anyone
+# force a full alert send.
+SIGNAL_ALERT_CRON_TOKEN = os.getenv("SIGNAL_ALERT_CRON_TOKEN", "").strip()
 
 # ── UPTIME WATCHDOG ────────────────────────────────────────────────────
 UPTIME_CHECK_ENABLED = _env_bool("UPTIME_CHECK_ENABLED", True)
@@ -4707,13 +4718,29 @@ async def run_signal_alerts(request: Request):
       3. Returns a summary.
 
     Wire this to a cron / systemd timer for automated daily digests.
+    Cron clients authenticate via the shared ``SIGNAL_ALERT_CRON_TOKEN``
+    as a Bearer token; browser clients still need a password session.
     """
-    session = _get_auth_session(request)
-    if not session or session.get("auth_method") != "password":
-        return JSONResponse(
-            status_code=401,
-            content={"error": "admin_auth_required"},
-        )
+    # Two auth paths: (1) a password-session admin from the browser,
+    # (2) an opaque bearer token for cron / systemd timers.  Either is
+    # sufficient on its own.  Failure mode: if no session AND no token
+    # (or token mismatch), reject.  Short-circuit the token check
+    # before touching cookies so an unset token can never authorize.
+    cron_auth_ok = False
+    if SIGNAL_ALERT_CRON_TOKEN:
+        header = (request.headers.get("authorization") or "").strip()
+        if header.lower().startswith("bearer "):
+            presented = header.split(None, 1)[1].strip()
+            # Constant-time compare to avoid timing leaks.
+            if hmac.compare_digest(presented, SIGNAL_ALERT_CRON_TOKEN):
+                cron_auth_ok = True
+    if not cron_auth_ok:
+        session = _get_auth_session(request)
+        if not session or session.get("auth_method") != "password":
+            return JSONResponse(
+                status_code=401,
+                content={"error": "admin_auth_required"},
+            )
     if not latest_contract_data:
         return JSONResponse(
             status_code=503,
@@ -4722,7 +4749,7 @@ async def run_signal_alerts(request: Request):
     # Walk every user_kv row.  No pagination — at current scale
     # (dozens of users tops) this is fine.
     def _run_sweep() -> dict[str, object]:
-        db = _user_kv._read_all()
+        db = _user_kv.all_user_states()
         summary: list[dict] = []
         for username, state in db.items():
             if not isinstance(state, dict):

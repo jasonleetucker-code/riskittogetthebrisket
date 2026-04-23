@@ -245,8 +245,60 @@ main() {
     log "Installed ${frontend_name}.service"
   fi
 
+  # ── Signal-alerts sweep (optional systemd timer) ───────────────────────
+  # Deploys a one-shot service + daily timer that POSTs the internal
+  # /api/signal-alerts/run endpoint.  We only install these units when
+  # both templates exist AND SIGNAL_ALERT_CRON_TOKEN is set in the
+  # .env file — without the token the endpoint would reject the
+  # bearer auth, so there's no point enabling the timer yet.
+  local alerts_service_template="${APP_DIR}/deploy/systemd/dynasty-signal-alerts.service.template"
+  local alerts_timer_template="${APP_DIR}/deploy/systemd/dynasty-signal-alerts.timer.template"
+  local alerts_service_name="${SERVICE_NAME}-signal-alerts"
+  local alerts_service_path="/etc/systemd/system/${alerts_service_name}.service"
+  local alerts_timer_path="/etc/systemd/system/${alerts_service_name}.timer"
+  local alerts_needs_install=false
+  local has_cron_token=false
+
+  if [[ -f "${APP_DIR}/.env" ]] && grep -Eq '^[[:space:]]*SIGNAL_ALERT_CRON_TOKEN=.+$' "${APP_DIR}/.env"; then
+    has_cron_token=true
+  fi
+
+  if [[ -f "${alerts_service_template}" && -f "${alerts_timer_template}" && "${has_cron_token}" == "true" ]]; then
+    if sudo -n "${SYSTEMCTL_BIN}" cat "${alerts_service_name}.timer" >/dev/null 2>&1; then
+      if [[ "${force_install_on}" == "true" ]]; then
+        log "FORCE_SERVICE_INSTALL enabled; rewriting ${alerts_service_path} + timer."
+        alerts_needs_install=true
+      else
+        log "Signal-alerts timer already installed; skipping."
+      fi
+    else
+      log "Installing signal-alerts service + timer."
+      alerts_needs_install=true
+    fi
+
+    if [[ "${alerts_needs_install}" == "true" ]]; then
+      local tmp_alerts_service tmp_alerts_timer
+      tmp_alerts_service="$(mktemp)"
+      tmp_alerts_timer="$(mktemp)"
+      trap 'rm -f "${tmp_unit:-}" "${tmp_frontend:-}" "${tmp_alerts_service:-}" "${tmp_alerts_timer:-}"' EXIT
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+        "${alerts_service_template}" > "${tmp_alerts_service}"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        "${alerts_timer_template}" > "${tmp_alerts_timer}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_alerts_service}" "${alerts_service_path}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_alerts_timer}" "${alerts_timer_path}"
+      log "Installed ${alerts_service_name}.service + .timer"
+    fi
+  elif [[ -f "${alerts_service_template}" && "${has_cron_token}" != "true" ]]; then
+    log "Signal-alerts timer skipped: SIGNAL_ALERT_CRON_TOKEN not set in ${APP_DIR}/.env."
+  fi
+
   # ── daemon-reload and enable ────────────────────────────────────────────
-  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" ]]; then
+  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" || "${alerts_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" daemon-reload
     log "Reloaded systemd unit files."
   fi
@@ -258,6 +310,10 @@ main() {
   if [[ "${frontend_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" enable "${frontend_name}"
     log "Enabled ${frontend_name}.service"
+  fi
+  if [[ "${alerts_needs_install}" == "true" ]]; then
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${alerts_service_name}.timer"
+    log "Enabled ${alerts_service_name}.timer"
   fi
 }
 

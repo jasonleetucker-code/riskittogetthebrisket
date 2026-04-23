@@ -314,6 +314,29 @@ export function useUserState() {
     [persist, state],
   );
 
+  // Patch the notification fields (email + enabled toggle).  Each
+  // field is optional so callers can flip one without clobbering the
+  // other; a null / empty-string email clears the stored address.
+  const setNotifications = useCallback(
+    ({ email, enabled } = {}) => {
+      const curr = currentState || state;
+      const next = { ...curr };
+      const patch = {};
+      if (email !== undefined) {
+        const clean = email === null ? null : String(email).trim() || null;
+        next.notificationsEmail = clean;
+        patch.notificationsEmail = clean;
+      }
+      if (enabled !== undefined) {
+        next.notificationsEnabled = !!enabled;
+        patch.notificationsEnabled = !!enabled;
+      }
+      if (Object.keys(patch).length === 0) return;
+      persist(next, patch);
+    },
+    [persist, state],
+  );
+
   const dismissSignal = useCallback(
     (signalKey, ttlMs, opts) => {
       if (!signalKey) return;
@@ -378,6 +401,7 @@ export function useUserState() {
     setSelectedTeam,
     clearSelectedTeam,
     toggleWatchlist,
+    setNotifications,
     dismissSignal,
     restoreSignal,
   };
