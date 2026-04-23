@@ -1047,6 +1047,28 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   overflow: hidden;
 }
 
+/*
+ * ``.picker-sheet--scrollable`` — opt-in scrollable body for popups
+ * whose content (charts, long source breakdowns, value chains) can
+ * exceed the 80dvh cap.  PlayerPopup uses this; GlobalSearch + the
+ * trade picker keep the default ``overflow: hidden`` because they
+ * manage their own inner scroll containers (result list, picker
+ * list).
+ *
+ * ``overscroll-behavior: contain`` stops the scroll from chaining to
+ * document.body when the user hits the top/bottom of the sheet, so a
+ * trackpad flick inside the popup can't smuggle into the page
+ * behind.  Paired with the body-scroll lock set by the popup
+ * component while it's mounted, this gives proper modal scroll
+ * isolation.
+ */
+.picker-sheet--scrollable {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 .picker-header {
   display: flex;
   justify-content: space-between;
