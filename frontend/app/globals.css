@@ -5440,50 +5440,220 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .pmm-col--spark { text-align: left; }
 
 /* ─ Signals ─ */
-.signal-tabs {
+.signal-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.signal-filter {
   display: inline-flex;
-  gap: 2px;
-  padding: 2px;
-  background: var(--bg, #0f0a1a);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 6px);
-}
-.signal-tab {
-  padding: 4px 14px;
-  font-size: 0.76rem;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
   font-weight: 600;
-  color: var(--muted, #9a8bc4);
   background: transparent;
-  border: 0;
-  border-radius: 4px;
+  color: var(--muted, #9a8bc4);
+  border: 1px solid var(--border);
+  border-radius: 999px;
   cursor: pointer;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
 }
-.signal-tab.is-active {
-  background: rgba(255, 199, 4, 0.12);
-  color: var(--cyan);
+.signal-filter:hover { color: var(--text, #fff); }
+.signal-filter.is-active {
+  color: var(--text, #fff);
+  border-color: var(--cyan);
+  background: rgba(255, 199, 4, 0.06);
 }
-.signal-cards {
+.signal-filter--up.is-active     { border-color: var(--cyan); background: rgba(255, 199, 4, 0.1); }
+.signal-filter--down.is-active   { border-color: #e0767a; background: rgba(224, 118, 122, 0.1); }
+.signal-filter--warn.is-active   { border-color: #eabf99; background: rgba(234, 191, 153, 0.1); }
+.signal-filter--flat.is-active   { border-color: var(--muted, #9a8bc4); background: rgba(255, 255, 255, 0.04); }
+.signal-filter-count {
+  font-variant-numeric: tabular-nums;
+  padding: 1px 6px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+.signal-empty {
+  padding: var(--space-md);
+  font-size: 0.78rem;
+  color: var(--muted, #9a8bc4);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm, 6px);
+  text-align: center;
+}
+
+.signal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 520px;
+  overflow-y: auto;
 }
+
 .signal-card {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: var(--space-sm) var(--space-md);
+  padding: 10px 12px;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
   border-radius: var(--radius-sm, 6px);
 }
-.signal-card-head,
-.signal-card-body,
-.signal-card-foot {
+.signal-card--up   { border-left-color: var(--cyan); }
+.signal-card--down { border-left-color: #e0767a; }
+.signal-card--warn { border-left-color: #eabf99; }
+.signal-card--flat { border-left-color: var(--muted, #9a8bc4); }
+
+.signal-card-top {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.signal-card-name-btn {
+  display: inline-flex;
+  align-items: baseline;
   gap: 8px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.signal-card-name {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text, #fff);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.signal-card-pos {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--muted, #9a8bc4);
+  text-transform: uppercase;
+}
+.signal-card-value {
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted, #9a8bc4);
+}
+.signal-card-rationale {
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text, #fff);
+}
+.signal-card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
   align-items: center;
 }
-.signal-card-body { flex-direction: column; align-items: stretch; gap: 4px; }
+.signal-card-more {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--muted, #9a8bc4);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.signal-card-more:hover { color: var(--cyan); border-color: var(--cyan); }
+
+.signal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+}
+.signal-chip-label {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #9a8bc4);
+}
+.signal-chip-value {
+  font-weight: 700;
+  color: var(--text, #fff);
+}
+.signal-chip--up    .signal-chip-value { color: var(--cyan, #ffc704); }
+.signal-chip--down  .signal-chip-value { color: #e0767a; }
+.signal-chip--warn  .signal-chip-value { color: #eabf99; }
+.signal-chip--flat  .signal-chip-value { color: var(--muted, #9a8bc4); }
+
+.signal-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.signal-badge--up   { color: var(--cyan); border-color: rgba(255, 199, 4, 0.5); background: rgba(255, 199, 4, 0.1); }
+.signal-badge--down { color: #e0767a; border-color: rgba(224, 118, 122, 0.5); background: rgba(224, 118, 122, 0.1); }
+.signal-badge--warn { color: #eabf99; border-color: rgba(234, 191, 153, 0.5); background: rgba(234, 191, 153, 0.1); }
+.signal-badge--flat { color: var(--muted, #9a8bc4); }
+.signal-badge--sm {
+  font-size: 0.6rem;
+  padding: 1px 6px;
+}
+
+.signal-card-chain {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.signal-card-chain-item {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.72rem;
+}
+.signal-card-chain-step {
+  font-weight: 700;
+  color: var(--muted, #9a8bc4);
+  font-variant-numeric: tabular-nums;
+}
+.signal-card-chain-reason { color: var(--text, #fff); }
+.signal-card-chain-tag {
+  font-size: 0.6rem;
+  font-family: var(--mono, monospace);
+  color: var(--muted, #9a8bc4);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
 
 /* ─ Portfolio Summary ─ */
 .portfolio-stack {

@@ -1,59 +1,245 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useApp } from "@/components/AppShell";
+import { useTeam } from "@/components/useTeam";
+import { useRankHistory } from "@/components/useRankHistory";
+import {
+  evaluateRoster,
+  SIGNAL_META,
+  SIGNALS,
+} from "@/lib/signal-engine";
+import { fetchNews, rankByRelevance } from "@/lib/news-service";
 import Panel from "./Panel";
 
-const SIGNAL_TABS = [
-  { key: "buy", label: "Buy" },
-  { key: "sell", label: "Sell" },
-  { key: "hold", label: "Hold" },
+const FILTER_ORDER = [
+  SIGNALS.RISK,
+  SIGNALS.SELL,
+  SIGNALS.MONITOR,
+  SIGNALS.STRONG_HOLD,
+  SIGNALS.BUY,
+  SIGNALS.HOLD,
 ];
 
-function SignalCard() {
+const DEFAULT_FILTERS = new Set([SIGNALS.RISK, SIGNALS.SELL, SIGNALS.MONITOR, SIGNALS.BUY]);
+
+export default function BuySellHold() {
+  const { rows, rawData, openPlayerPopup } = useApp();
+  const { selectedTeam } = useTeam();
+  const { history, loading: historyLoading } = useRankHistory({ days: 30 });
+
+  const sleeperTeams = rawData?.sleeper?.teams;
+  const leagueNames = useMemo(() => {
+    const names = [];
+    if (!Array.isArray(sleeperTeams)) return names;
+    for (const t of sleeperTeams) {
+      if (Array.isArray(t?.players)) names.push(...t.players);
+    }
+    return names;
+  }, [sleeperTeams]);
+
+  const [news, setNews] = useState({ items: [], loaded: false });
+  const [filters, setFilters] = useState(new Set(DEFAULT_FILTERS));
+  const [expandedId, setExpandedId] = useState(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    fetchNews({ signal: controller.signal })
+      .then((res) => {
+        if (!active) return;
+        setNews({ items: Array.isArray(res.items) ? res.items : [], loaded: true });
+      })
+      .catch((err) => {
+        if (err?.name === "AbortError") return;
+        if (!active) return;
+        setNews({ items: [], loaded: true });
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, []);
+
+  // Score news once so the engine receives items that already have
+  // ``__matchedOn``/roster tags — we pass in the scored items since
+  // the rule engine cares about roster-player impact counts.
+  const scoredNews = useMemo(() => {
+    if (!news.loaded || news.items.length === 0) return [];
+    const rosterNames = selectedTeam?.players || [];
+    return rankByRelevance(news.items, { rosterNames, leagueNames });
+  }, [news, selectedTeam, leagueNames]);
+
+  const verdicts = useMemo(
+    () =>
+      evaluateRoster({
+        rows,
+        selectedTeam,
+        history,
+        newsItems: scoredNews,
+      }),
+    [rows, selectedTeam, history, scoredNews],
+  );
+
+  const counts = useMemo(() => {
+    const c = Object.fromEntries(FILTER_ORDER.map((s) => [s, 0]));
+    for (const v of verdicts) c[v.verdict.signal] = (c[v.verdict.signal] || 0) + 1;
+    return c;
+  }, [verdicts]);
+
+  const visible = useMemo(
+    () => verdicts.filter((v) => filters.has(v.verdict.signal)),
+    [verdicts, filters],
+  );
+
+  function toggleFilter(sig) {
+    setFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(sig)) next.delete(sig);
+      else next.add(sig);
+      if (next.size === 0) {
+        // Don't allow empty — reset to defaults.
+        return new Set(DEFAULT_FILTERS);
+      }
+      return next;
+    });
+  }
+
+  const emptyReason = (() => {
+    if (!selectedTeam) return "Pick a team to see roster signals.";
+    if (historyLoading && !news.loaded) return "Loading signals…";
+    if (verdicts.length === 0) return "No rows resolved for this roster.";
+    if (visible.length === 0) return "No signals match the active filters.";
+    return null;
+  })();
+
   return (
-    <article className="signal-card" aria-hidden="true">
-      <div className="signal-card-head">
-        <span className="signal-card-name skeleton-line" />
-        <span className="signal-card-tag skeleton-line skeleton-line--xs" />
+    <Panel
+      title="Signals"
+      subtitle="Rule-driven Buy / Sell / Hold per roster player"
+      className="panel--signals"
+    >
+      <div className="signal-filters" role="group" aria-label="Filter by signal">
+        {FILTER_ORDER.map((sig) => {
+          const meta = SIGNAL_META[sig];
+          const active = filters.has(sig);
+          return (
+            <button
+              key={sig}
+              type="button"
+              className={`signal-filter signal-filter--${meta.tone}${active ? " is-active" : ""}`}
+              onClick={() => toggleFilter(sig)}
+              aria-pressed={active}
+            >
+              <span>{meta.label}</span>
+              <span className="signal-filter-count">{counts[sig] || 0}</span>
+            </button>
+          );
+        })}
       </div>
-      <div className="signal-card-body">
-        <span className="signal-card-rationale skeleton-line skeleton-line--wide" />
-        <span className="signal-card-rationale skeleton-line skeleton-line--wide" />
-      </div>
-      <div className="signal-card-foot">
-        <span className="signal-card-cta skeleton-line skeleton-line--sm" />
-      </div>
-    </article>
+
+      {emptyReason && (
+        <div className="signal-empty" role="status">{emptyReason}</div>
+      )}
+
+      {!emptyReason && (
+        <ul className="signal-list">
+          {visible.map((entry) => (
+            <SignalCard
+              key={entry.row.name}
+              entry={entry}
+              expanded={expandedId === entry.row.name}
+              onToggleExpand={() =>
+                setExpandedId((prev) => (prev === entry.row.name ? null : entry.row.name))
+              }
+              onOpenPlayer={() => openPlayerPopup?.(entry.row.name)}
+            />
+          ))}
+        </ul>
+      )}
+    </Panel>
   );
 }
 
-/**
- * Buy / Sell / Hold Signals — decision layer.
- * Structural stub with tabs and skeleton signal cards.
- */
-export default function BuySellHold() {
-  const [active, setActive] = useState("buy");
+function SignalCard({ entry, expanded, onToggleExpand, onOpenPlayer }) {
+  const { context, verdict } = entry;
+  const meta = SIGNAL_META[verdict.signal];
+  const volLabel = context.volatility?.label ?? "—";
+
   return (
-    <Panel title="Signals" subtitle="Buy / Sell / Hold" className="panel--signals">
-      <div className="signal-tabs" role="tablist" aria-label="Signal kind">
-        {SIGNAL_TABS.map((t) => (
+    <li className={`signal-card signal-card--${meta.tone}`}>
+      <div className="signal-card-top">
+        <button type="button" className="signal-card-name-btn" onClick={onOpenPlayer} title={`Open ${context.name}`}>
+          <span className="signal-card-name">{context.name}</span>
+          <span className="signal-card-pos">{context.pos}</span>
+          <span className="signal-card-value">{context.value.toLocaleString()}</span>
+        </button>
+        <span className={`signal-badge signal-badge--${meta.tone}`}>{meta.label}</span>
+      </div>
+      <div className="signal-card-rationale">{verdict.reason}</div>
+      <div className="signal-card-chips">
+        <Chip label="7d" value={fmtSignedInt(context.trend7)} tone={toneOf(context.trend7)} />
+        <Chip label="30d" value={fmtSignedInt(context.trend30)} tone={toneOf(context.trend30)} />
+        <Chip label="Vol" value={volLabel.toUpperCase()} tone={volTone(volLabel)} />
+        {context.newsCount > 0 && (
+          <Chip
+            label="News"
+            value={context.newsCount}
+            tone={context.alertCount > 0 ? "down" : context.positiveImpactCount > 0 ? "up" : "flat"}
+          />
+        )}
+        {verdict.fired.length > 1 && (
           <button
-            key={t.key}
             type="button"
-            role="tab"
-            aria-selected={active === t.key}
-            className={`signal-tab${active === t.key ? " is-active" : ""}`}
-            onClick={() => setActive(t.key)}
+            className="signal-card-more"
+            onClick={onToggleExpand}
+            aria-expanded={expanded}
           >
-            {t.label}
+            {expanded ? "Hide" : `Why (${verdict.fired.length})`}
           </button>
-        ))}
+        )}
       </div>
-      <div className="signal-cards">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <SignalCard key={i} />
-        ))}
-      </div>
-    </Panel>
+      {expanded && verdict.fired.length > 0 && (
+        <ul className="signal-card-chain" aria-label="Firing rule chain">
+          {verdict.fired.map((r, i) => (
+            <li key={r.id} className="signal-card-chain-item">
+              <span className="signal-card-chain-step">{i + 1}.</span>
+              <span className={`signal-badge signal-badge--${SIGNAL_META[r.signal]?.tone || "flat"} signal-badge--sm`}>
+                {SIGNAL_META[r.signal]?.label || r.signal}
+              </span>
+              <span className="signal-card-chain-reason">{r.reason}</span>
+              <span className="signal-card-chain-tag">{r.tag}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
   );
+}
+
+function Chip({ label, value, tone = "flat" }) {
+  return (
+    <span className={`signal-chip signal-chip--${tone}`}>
+      <span className="signal-chip-label">{label}</span>
+      <span className="signal-chip-value">{value}</span>
+    </span>
+  );
+}
+
+function fmtSignedInt(v) {
+  if (v == null || !Number.isFinite(v)) return "—";
+  if (v === 0) return "·";
+  return v > 0 ? `+${v}` : `${v}`;
+}
+
+function toneOf(v) {
+  if (v == null || !Number.isFinite(v) || v === 0) return "flat";
+  return v > 0 ? "up" : "down";
+}
+
+function volTone(label) {
+  if (label === "low") return "up";
+  if (label === "high") return "down";
+  if (label === "med") return "warn";
+  return "flat";
 }
