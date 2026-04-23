@@ -201,6 +201,14 @@ def test_process_user_alerts_honors_delivery_error(kv_path):
 # ``latest_contract_data`` so the endpoint gets past the 503 guard
 # and can reach the auth branch.  No SMTP is touched because no
 # users in the user_kv have ``notificationsEnabled`` set.
+#
+# IMPORTANT: monkeypatch ``latest_contract_data`` INSIDE the
+# ``TestClient`` context.  The client's ``with`` block triggers
+# app lifespan startup, which may reset that module-level variable
+# as part of normal boot (e.g. loading the initial canonical
+# contract).  Patching before the ``with`` gets clobbered in CI
+# where no cached contract exists on disk; patching after startup
+# reliably wins.
 
 
 def test_signal_alerts_run_rejects_unauthenticated(monkeypatch):
@@ -208,9 +216,9 @@ def test_signal_alerts_run_rejects_unauthenticated(monkeypatch):
 
     import server
 
-    monkeypatch.setattr(server, "latest_contract_data", {"stub": True})
-    monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "")
     with TestClient(server.app, raise_server_exceptions=True) as c:
+        monkeypatch.setattr(server, "latest_contract_data", {"stub": True})
+        monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "")
         res = c.post("/api/signal-alerts/run")
     assert res.status_code == 401
 
@@ -222,12 +230,15 @@ def test_signal_alerts_run_accepts_bearer_token(monkeypatch, tmp_path):
 
     import server
 
-    monkeypatch.setattr(server, "latest_contract_data", {"players": {}})
-    monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "test-token-abc123")
-    # all_user_states() returns {} in a fresh temp env; stub it so
-    # we don't depend on the real user_kv.sqlite on this box.
-    monkeypatch.setattr(server._user_kv, "all_user_states", lambda: {})
     with TestClient(server.app, raise_server_exceptions=True) as c:
+        # Patch AFTER lifespan so startup can't clobber our stub.  The
+        # endpoint reads ``server.latest_contract_data`` at call time,
+        # so the patched value wins as long as it outlives startup.
+        monkeypatch.setattr(server, "latest_contract_data", {"players": {}})
+        monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "test-token-abc123")
+        # all_user_states() returns {} in a fresh temp env; stub it so
+        # we don't depend on the real user_kv.sqlite on this box.
+        monkeypatch.setattr(server._user_kv, "all_user_states", lambda: {})
         res = c.post(
             "/api/signal-alerts/run",
             headers={"Authorization": "Bearer test-token-abc123"},
@@ -242,9 +253,9 @@ def test_signal_alerts_run_rejects_wrong_bearer_token(monkeypatch):
 
     import server
 
-    monkeypatch.setattr(server, "latest_contract_data", {"players": {}})
-    monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "real-token")
     with TestClient(server.app, raise_server_exceptions=True) as c:
+        monkeypatch.setattr(server, "latest_contract_data", {"players": {}})
+        monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "real-token")
         res = c.post(
             "/api/signal-alerts/run",
             headers={"Authorization": "Bearer wrong-token"},
@@ -260,9 +271,9 @@ def test_signal_alerts_run_ignores_bearer_when_token_unset(monkeypatch):
 
     import server
 
-    monkeypatch.setattr(server, "latest_contract_data", {"players": {}})
-    monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "")
     with TestClient(server.app, raise_server_exceptions=True) as c:
+        monkeypatch.setattr(server, "latest_contract_data", {"players": {}})
+        monkeypatch.setattr(server, "SIGNAL_ALERT_CRON_TOKEN", "")
         res = c.post(
             "/api/signal-alerts/run",
             headers={"Authorization": "Bearer anything"},
