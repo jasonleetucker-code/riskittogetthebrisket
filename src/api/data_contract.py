@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any
 
 from src.data_models.contracts import utc_now_iso
-from src.idp_calibration import production as _idp_production
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -4047,125 +4046,6 @@ def _apply_two_way_player_boost(
                 pdata["twoWayPlayerBoost"] = dict(row["twoWayPlayerBoost"])
 
 
-def _apply_idp_calibration_post_pass(
-    players_array: list[dict[str, Any]],
-    players_by_name: dict[str, Any],
-) -> None:
-    """Apply the promoted IDP calibration multipliers, if any.
-
-    Strict no-op whenever ``config/idp_calibration.json`` is absent —
-    :func:`src.idp_calibration.production.load_production_config`
-    returns ``None`` in that case and we early-exit.
-
-    When a promoted config is present we:
-
-    1. Enumerate all rows whose position normalises to DL/LB/DB.
-    2. Sort each position by the pre-multiplier ``rankDerivedValue``
-       descending to derive a stable position-specific rank.
-    3. Multiply the row's ``rankDerivedValue`` by the per-position /
-       per-bucket multiplier (looked up from the promoted config).
-    4. Mirror the updated value into the legacy-dict players map so
-       the runtime view stays in sync.
-
-    Offense rows are never touched.
-    """
-    config = _idp_production.load_production_config()
-    if not config:
-        return
-    active_mode = str(config.get("active_mode") or "blended")
-    # ``family_scale`` (class-wide IDP lift/discount) is already folded
-    # INTO the return value of ``get_idp_bucket_multiplier`` at
-    # :func:`src.idp_calibration.production.get_idp_bucket_multiplier`
-    # (line 254: ``return bucket * family``).  An earlier audit pass
-    # mistakenly believed family_scale was dead code and tried to
-    # multiply it here as a separate step, which would have
-    # double-applied the scale (1.2571² ≈ 1.58×).  We surface it as a
-    # sibling field below for the value-chain audit, but do NOT
-    # multiply it a second time here — the single product from
-    # ``get_idp_bucket_multiplier`` is the correct math.
-    family_scale = _idp_production._family_scale_for(config, active_mode)
-
-    by_pos: dict[str, list[dict[str, Any]]] = {"DL": [], "LB": [], "DB": []}
-    for row in players_array:
-        pos = str(row.get("position") or "").upper()
-        if pos in ("DE", "DT", "EDGE", "NT"):
-            pos = "DL"
-        elif pos in ("ILB", "OLB", "MLB"):
-            pos = "LB"
-        elif pos in ("CB", "S", "SS", "FS"):
-            pos = "DB"
-        if pos not in by_pos:
-            continue
-        try:
-            derived = int(row.get("rankDerivedValue") or 0)
-        except (TypeError, ValueError):
-            derived = 0
-        if derived <= 0:
-            continue
-        by_pos[pos].append(row)
-
-    for pos, rows in by_pos.items():
-        rows.sort(key=lambda r: -int(r.get("rankDerivedValue") or 0))
-        for idx, row in enumerate(rows, 1):
-            try:
-                # Returns bucket × family_scale already combined — see
-                # comment above and production.py::get_idp_bucket_multiplier.
-                combined_multiplier = float(
-                    _idp_production.get_idp_bucket_multiplier(
-                        pos, idx, mode=active_mode
-                    )
-                )
-            except Exception:  # noqa: BLE001 — never fail the whole board
-                combined_multiplier = 1.0
-            if abs(combined_multiplier - 1.0) < 1e-9:
-                # Still stamp the audit fields even when the effective
-                # multiplier is identity, so the /rankings and trade UI
-                # can display a clean 1.00× in the chain instead of
-                # "unknown" for an IDP row that was legitimately
-                # un-multiplied.
-                row["idpCalibrationMultiplier"] = 1.0
-                row["idpFamilyScale"] = round(family_scale, 4)
-                row["idpCalibrationPositionRank"] = idx
-                legacy_ref = row.get("legacyRef")
-                if legacy_ref and legacy_ref in players_by_name:
-                    pdata = players_by_name[legacy_ref]
-                    if isinstance(pdata, dict):
-                        pdata["idpCalibrationMultiplier"] = 1.0
-                        pdata["idpFamilyScale"] = round(family_scale, 4)
-                        pdata["idpCalibrationPositionRank"] = idx
-                continue
-            # Multiplier scales the row's value (on top of the
-            # weighted Hill-curve blend already encoded in
-            # rankDerivedValue). The subsequent global re-sort places
-            # the row at its new merged rank based on the multiplied
-            # value. We deliberately keep the multiplied value as the
-            # final rankDerivedValue — the tiered fractional-rank
-            # signal from the per-source Hill blend carries through
-            # the calibration so elite players don't get snapped to
-            # the integer-rank Hill value.
-            old_val = int(row.get("rankDerivedValue") or 0)
-            new_val = max(1, int(round(old_val * combined_multiplier)))
-            row["rankDerivedValue"] = new_val
-            # Back out the pure bucket component for the chain audit
-            # (family_scale is constant across all IDP rows, bucket
-            # varies by position-rank).  Prevents double-apply at the
-            # frontend while showing each component distinctly.
-            if family_scale > 0:
-                bucket_only = combined_multiplier / family_scale
-            else:
-                bucket_only = combined_multiplier
-            row["idpCalibrationMultiplier"] = round(bucket_only, 4)
-            row["idpFamilyScale"] = round(family_scale, 4)
-            row["idpCalibrationPositionRank"] = idx
-            legacy_ref = row.get("legacyRef")
-            if legacy_ref and legacy_ref in players_by_name:
-                pdata = players_by_name[legacy_ref]
-                if isinstance(pdata, dict):
-                    pdata["rankDerivedValue"] = new_val
-                    pdata["idpCalibrationMultiplier"] = round(bucket_only, 4)
-                    pdata["idpFamilyScale"] = round(family_scale, 4)
-                    pdata["idpCalibrationPositionRank"] = idx
-
 
 _DISPLAY_SCALE_MAX: int = 9999
 
@@ -6378,36 +6258,15 @@ def _compute_unified_rankings(
                 if "idpTradeCalc" in source_ranks:
                     pdata["idpRank"] = source_ranks["idpTradeCalc"]
 
-    # ── Phase 4c: IDP calibration post-pass ──
-    # Apply the promoted IDP calibration config (if any) to every
-    # DL/LB/DB row. Strict no-op when config/idp_calibration.json is
-    # absent — the calibration lab's Promote step is the only way to
-    # activate this. See src/idp_calibration/production.py.
-    # Snapshot the pre-calibration rank and value on every ranked row so
-    # the /rankings toggle can reconstruct the uncalibrated board
-    # (rank + value) without a refetch. Runs BEFORE the calibration
-    # passes so offense rows get a snapshot too (they're re-ranked
-    # globally even though offense calibration's multipliers are all
-    # 1.0; the cross-family scale still reshuffles the merged board).
-    # Mirror into the legacy players_by_name dict as well so the
-    # frontend row-builder (which reads player.rankDerivedValueUncalibrated)
-    # can render the value-chain panel.
-    for row in players_array:
-        rank = row.get("canonicalConsensusRank")
-        if rank is None or rank <= 0:
-            continue
-        snapshot_rank = int(rank)
-        snapshot_val = int(row.get("rankDerivedValue") or 0)
-        row["canonicalConsensusRankUncalibrated"] = snapshot_rank
-        row["rankDerivedValueUncalibrated"] = snapshot_val
-        legacy_ref = row.get("legacyRef")
-        if legacy_ref and legacy_ref in players_by_name:
-            pdata = players_by_name[legacy_ref]
-            if isinstance(pdata, dict):
-                pdata["canonicalConsensusRankUncalibrated"] = snapshot_rank
-                pdata["rankDerivedValueUncalibrated"] = snapshot_val
-
-    _apply_idp_calibration_post_pass(players_array, players_by_name)
+    # ── Phase 4c: removed ──
+    # The IDP calibration post-pass (a Lab-configured per-bucket
+    # multiplier applied to DL/LB/DB rows) has been retired.  The
+    # live ``rankDerivedValue`` is now the canonical-pipeline output
+    # with no post-blend adjustment on IDPs.  The prior
+    # ``rankDerivedValueUncalibrated`` / ``canonicalConsensusRankUncalibrated``
+    # snapshots are no longer stamped — downstream consumers fall
+    # back to the live rank and value, which are the single source
+    # of truth for every position.
 
     # Market-anchor corridor clamp: after all value-moving passes,
     # clamp players whose blended value has drifted further from the

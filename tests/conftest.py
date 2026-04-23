@@ -1,48 +1,7 @@
-"""Global test fixtures.
-
-Keeps unrelated tests (TEP, picks, identity, etc.) isolated from any
-promoted IDP calibration config that happens to sit at
-``config/idp_calibration.json`` on the dev machine. Tests that want
-to exercise calibration (``tests/idp_calibration/*``) explicitly
-monkeypatch the path themselves.
-
-The redirect happens at module import time (before pytest collection)
-so unittest ``setUpClass`` hooks that build the contract can't leak
-the live calibration into tests that shouldn't see it.
-"""
+"""Global test fixtures."""
 from __future__ import annotations
 
 import os
-import tempfile
-from pathlib import Path
-
-from src.idp_calibration import production as _production
-
-_NEUTRAL_PATH = Path(
-    tempfile.mkdtemp(prefix="pytest-no-calibration-")
-) / "idp_calibration.json"
-
-
-# Stash the real implementation so calibration-specific tests can
-# opt back in by passing ``base=tmp_path`` to their API calls, and so
-# the wrapper below can delegate to it when a base is explicit.
-_production._original_production_config_path = _production.production_config_path
-
-
-def _neutral_config_path(base: Path | None = None) -> Path:
-    # Honour an explicit ``base`` so opt-in calibration tests that
-    # pass ``base=tmp_path`` (e.g. ``tests/idp_calibration/test_api.py``)
-    # still hit their own sandbox. Without an explicit base we fall
-    # through to the neutral temp file so unrelated tests never read
-    # any promoted config that happens to live at
-    # ``config/idp_calibration.json`` on the dev machine.
-    if base is not None:
-        return _production._original_production_config_path(base)
-    return _NEUTRAL_PATH
-
-
-_production.production_config_path = _neutral_config_path
-_production.reset_cache()
 
 
 # ── Sleeper league context isolation ──────────────────────────────────

@@ -2,20 +2,22 @@
 
 Pins the structural claim that the live path
 (``src/api/data_contract.py::_compute_unified_rankings``) applies
-exactly one Hill curve + at most one calibration multiplier to
-produce ``rankDerivedValue``.  No hidden second curve, no accidental
-double-calibration, no mystery remap.
+exactly one Hill curve and no calibration multiplier to produce
+``rankDerivedValue``.  No hidden second curve, no accidental
+calibration, no mystery remap.
 
-The chain, as of the Final Framework transition PR 1:
+The chain:
 
-    rankDerivedValueUncalibrated  (trimmed mean-median of per-source
-                                    Hill values, post-TEP)
-        × (idpCalibrationMultiplier × idpFamilyScale)   (IDP rows only)
-        = rankDerivedValue
+    rankDerivedValue  (trimmed mean-median of per-source Hill
+                       values, post-TEP — no post-blend multiplier)
 
-The prior volatility compression + monotonicity-cap post-pass has
-been removed outright.  ``preVolatilityValue`` and
-``volatilityCompressionApplied`` are no longer stamped.
+The prior IDP calibration post-pass (family_scale × bucket
+multiplier) was retired in 2026-04; ``rankDerivedValueUncalibrated``
+and ``canonicalConsensusRankUncalibrated`` are no longer stamped,
+and ``idpCalibrationMultiplier`` / ``idpFamilyScale`` /
+``idpCalibrationPositionRank`` are no longer emitted.  The earlier
+volatility compression + monotonicity-cap post-pass was removed
+outright.
 
 These tests are invariant-band style (PR #154): they assert the
 structural chain holds for today's snapshot, not specific values.
@@ -142,23 +144,14 @@ class TestVolatilityPassIsRemoved(unittest.TestCase):
 
 
 class TestValueChain(unittest.TestCase):
-    """``rankDerivedValue`` is derived from exactly one Hill blend
-    and at most one calibration multiplier.
+    """``rankDerivedValue`` is the blended output with no post-blend
+    multiplier.
 
-    For offense rows (no live calibration): ``rankDerivedValue`` must
-    equal ``rankDerivedValueUncalibrated`` exactly.
-
-    For IDP rows with an active promoted calibration config:
-    ``rankDerivedValue`` must equal
-    ``rankDerivedValueUncalibrated × idpCalibrationMultiplier × idpFamilyScale``
-    applied exactly once.
-
-    For IDP rows without an active config (default test env —
-    ``tests/conftest.py`` redirects the config path): same as offense,
-    strict equality.
-
-    The deeper invariant under an active config is also exercised in
-    ``tests/idp_calibration/test_family_scale_once_only.py``.
+    Historically there was a pre/post pair
+    (``rankDerivedValueUncalibrated`` + IDP calibration multiplier)
+    that this test pinned.  The calibration post-pass has been
+    retired, so now we simply assert the pre/post fields no longer
+    appear and ``rankDerivedValue`` carries the full blend output.
     """
 
     def setUp(self) -> None:
@@ -167,89 +160,40 @@ class TestValueChain(unittest.TestCase):
             self.skipTest("No live data")
         self.rows = _ranked_rows(self.contract)
 
-    def test_offense_final_equals_uncalibrated(self) -> None:
+    def test_no_calibration_stamps_remain_on_rows(self) -> None:
+        offenders: list[str] = []
+        banned = (
+            "rankDerivedValueUncalibrated",
+            "canonicalConsensusRankUncalibrated",
+            "idpCalibrationMultiplier",
+            "idpFamilyScale",
+            "idpCalibrationPositionRank",
+        )
+        for row in self.rows:
+            for key in banned:
+                if key in row and row.get(key) is not None:
+                    offenders.append(
+                        f"{row.get('canonicalName')}::{key}={row.get(key)}"
+                    )
+                    break
+        self.assertFalse(
+            offenders,
+            "Calibration stamps were found on live rows — the post-pass "
+            "should have been deleted.  First offenders: "
+            f"{offenders[:5]}",
+        )
+
+    def test_rank_derived_value_is_finite_and_positive(self) -> None:
         checked = 0
         for row in self.rows:
-            pos = str(row.get("position") or "").upper()
-            if pos not in _OFFENSE_POSITIONS:
-                continue
-            uncal = row.get("rankDerivedValueUncalibrated")
             final = row.get("rankDerivedValue")
-            if uncal is None or final is None:
+            if final is None:
                 continue
-            # Market-corridor clamp may have pulled this row's value
-            # toward KTC when the blend drifted past the P90 band.
-            # Two-way-player boost (Travis Hunter etc.) can also
-            # overwrite the offense value with the alt-family IDP
-            # blend.  The invariant being tested here is that no
-            # OFFENSE CALIBRATION pass mutates the value; the clamp
-            # and the two-way boost are separate transforms each
-            # covered by their own test suites.
-            if row.get("marketCorridorClamp"):
-                continue
-            if row.get("twoWayPlayerBoost", {}).get("applied"):
-                continue
-            self.assertEqual(
-                int(final),
-                int(uncal),
-                f"{row.get('canonicalName')} offense row has "
-                f"rankDerivedValue={final} != "
-                f"rankDerivedValueUncalibrated={uncal}. "
-                f"Either offense calibration was re-enabled, or a new "
-                f"mystery multiplier was inserted after the blend.",
-            )
+            self.assertIsInstance(final, int)
+            self.assertGreater(final, 0)
+            self.assertLessEqual(final, 9999)
             checked += 1
-        self.assertGreater(checked, 50, "expected many offense anchors")
-
-    def test_idp_final_is_one_time_calibration_fold(self) -> None:
-        """IDP chain.
-
-        When calibration is active, ``rankDerivedValue`` equals
-        ``uncalibrated × (bucket × family_scale)`` applied exactly once.
-
-        When calibration is neutral (fields absent), final equals
-        uncalibrated.
-        """
-        checked = 0
-        for row in self.rows:
-            pos = str(row.get("position") or "").upper()
-            if pos not in _IDP_POSITIONS:
-                continue
-            uncal = row.get("rankDerivedValueUncalibrated")
-            final = row.get("rankDerivedValue")
-            if uncal is None or final is None:
-                continue
-            # Skip rows where the market-corridor clamp has pulled
-            # the final value away from the pure calibration fold.
-            # The calibration-folds-exactly-once invariant is what
-            # this test pins; the clamp is a separate transform.
-            if row.get("marketCorridorClamp"):
-                continue
-            bucket = row.get("idpCalibrationMultiplier")
-            family = row.get("idpFamilyScale")
-            if bucket is not None and family is not None:
-                expected = int(round(float(uncal) * float(bucket) * float(family)))
-                self.assertLessEqual(
-                    abs(int(final) - expected),
-                    2,
-                    f"{row.get('canonicalName')} IDP (calibrated): "
-                    f"rankDerivedValue={final} != round("
-                    f"uncal={uncal} × bucket={bucket} × "
-                    f"family={family}) = {expected}.  family_scale may "
-                    f"have been double-applied, or a new IDP multiplier "
-                    f"was introduced.",
-                )
-            else:
-                self.assertEqual(
-                    int(final),
-                    int(uncal),
-                    f"{row.get('canonicalName')} IDP (no calibration): "
-                    f"rankDerivedValue={final} != uncalibrated={uncal}. "
-                    f"A new IDP post-pass was added between Hill blend "
-                    f"and final.",
-                )
-            checked += 1
-        self.assertGreater(checked, 30, "expected many IDP anchors")
+        self.assertGreater(checked, 100, "expected many ranked rows")
 
 
 class TestHierarchicalAnchorChain(unittest.TestCase):
@@ -302,12 +246,14 @@ class TestHierarchicalAnchorChain(unittest.TestCase):
                 float(stamped), expected, places=4
             )
 
-    def test_anchor_plus_shrunk_subgroup_matches_uncalibrated(self) -> None:
+    def test_anchor_plus_shrunk_subgroup_matches_rank_derived_value(self) -> None:
         """For IDP rows with both anchor and subgroup stamped, the
-        α-shrunk combination should match rankDerivedValueUncalibrated
-        ± (MAD penalty + rounding).  Offense rows use the flat blend
-        and are exempt from this pin — they're covered by the
-        companion ``test_offense_flat_blend_matches_uncalibrated``.
+        α-shrunk combination should match ``rankDerivedValue`` ± (MAD
+        penalty + rounding).  With the calibration post-pass retired,
+        ``rankDerivedValue`` IS the blend output, so we check it
+        directly.  Offense rows use the flat blend and are exempt
+        from this pin — they're covered by the companion
+        ``test_offense_flat_blend_stamps_no_subgroup_delta``.
         """
         from src.api.data_contract import (  # noqa: PLC0415
             _ALPHA_SHRINKAGE,
@@ -325,14 +271,18 @@ class TestHierarchicalAnchorChain(unittest.TestCase):
             anchor = row.get("anchorValue")
             subgroup = row.get("subgroupBlendValue")
             delta = row.get("subgroupDelta")
-            uncal = row.get("rankDerivedValueUncalibrated")
+            final = row.get("rankDerivedValue")
             mad = row.get("sourceSpread")
             if (
                 anchor is None
                 or subgroup is None
                 or delta is None
-                or uncal is None
+                or final is None
             ):
+                continue
+            # Skip rows where the market-corridor clamp has pulled
+            # the final value away from the pure blend output.
+            if row.get("marketCorridorClamp"):
                 continue
             # Expected center BEFORE MAD penalty.
             expected_center = float(anchor) + _ALPHA_SHRINKAGE * float(delta)
@@ -341,32 +291,24 @@ class TestHierarchicalAnchorChain(unittest.TestCase):
                 expected_penalty = min(
                     expected_center, _MAD_PENALTY_LAMBDA * float(mad)
                 )
-            expected_uncal = max(0.0, expected_center - expected_penalty)
-            # IDP rows carry an idpCalibrationMultiplier × idpFamilyScale
-            # that is applied AFTER the hierarchical blend but BEFORE
-            # rankDerivedValueUncalibrated is stamped on some builds.
-            # Rather than model the post-pass here, we accept a wider
-            # tolerance: the invariant we care about is "uncalibrated
-            # ≈ anchor + α·Δ − λ·MAD", which the ±3-pt slack covers on
-            # neutral-config builds and the test still pins when the
-            # live builds exercise the blend.
+            expected_final = max(0.0, expected_center - expected_penalty)
             self.assertLessEqual(
-                abs(int(uncal) - int(round(expected_uncal))),
+                abs(int(final) - int(round(expected_final))),
                 3,
-                f"{row.get('canonicalName')} (IDP): uncalibrated={uncal} "
+                f"{row.get('canonicalName')} (IDP): rankDerivedValue={final} "
                 f"differs from anchor({anchor}) + α({_ALPHA_SHRINKAGE})·"
                 f"Δ({delta}) − λ({_MAD_PENALTY_LAMBDA})·MAD({mad}) = "
-                f"{expected_uncal:.1f}",
+                f"{expected_final:.1f}",
             )
             checked += 1
         self.assertGreater(checked, 10, "expected IDP rows with anchor+subgroup coverage")
 
-    def test_offense_flat_blend_matches_uncalibrated(self) -> None:
-        """For offense rows the uncalibrated value should reflect the
-        count-aware mean-median over ALL contributing sources (anchor
-        included), not the α-shrunk anchor/subgroup split.  Sanity
-        check: subgroupDelta is stamped as None on offense rows since
-        no anchor override is applied.
+    def test_offense_flat_blend_stamps_no_subgroup_delta(self) -> None:
+        """For offense rows the count-aware mean-median over ALL
+        contributing sources (anchor included) is the final blend —
+        no α-shrunk anchor/subgroup split applies.  Sanity check:
+        subgroupDelta is stamped as None on offense rows since no
+        anchor override is applied.
         """
         from src.api.data_contract import _OFFENSE_POSITIONS  # noqa: PLC0415
 

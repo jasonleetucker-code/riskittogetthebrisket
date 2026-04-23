@@ -15,8 +15,8 @@ from src.utils.name_clean import (
 
 class TestResolveIdpPosition:
     def test_priority_order_constant(self):
-        # The priority tuple is the documented contract; don't change
-        # it without updating docs/idp_calibration_lab.md.
+        # The priority tuple is a documented contract used wherever
+        # dual-eligible IDPs must be collapsed to a single family.
         assert IDP_PRIORITY == ("DL", "DB", "LB")
 
     @pytest.mark.parametrize(

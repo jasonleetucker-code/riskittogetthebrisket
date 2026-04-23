@@ -20,12 +20,10 @@ import {
  * No randomness.  Every insight cites the metric that earned it.
  */
 
-// Which player positions can fill each Sleeper lineup slot.  Keys
-// enumerate every Sleeper slot alias seen in this repo (canonical
-// list: src/idp_calibration/lineup.py).  Without full coverage an
-// unrecognized alias like WRRB_FLEX would fall through the strict
-// pass, never match any player, and push valid starters onto the
-// bench — skewing starter-share metrics.
+// Which player positions can fill each Sleeper lineup slot.  Without
+// full coverage an unrecognized alias like WRRB_FLEX would fall
+// through the strict pass, never match any player, and push valid
+// starters onto the bench — skewing starter-share metrics.
 //
 // IDP slot pools include the generic "IDP" token because upstream
 // normalization collapses DB/LB/DL/DE/DT/CB/S → "IDP".
@@ -446,7 +444,6 @@ export function computeInsights({ portfolio, rows, selectedTeam, newsItems }) {
       const t7 = Number(r.rankChange);
       if (!Number.isFinite(t7)) continue;
       if (t7 > -3) continue;
-      const long = r.canonicalConsensusRankUncalibrated || r.canonicalConsensusRank;
       const score = -t7; // bigger short-term drop = bigger opportunity
       if (score > bestScore) {
         bestScore = score;

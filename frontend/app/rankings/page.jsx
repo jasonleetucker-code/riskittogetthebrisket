@@ -446,7 +446,6 @@ export default function RankingsPage() {
   const [activeLens, setActiveLens] = useState("consensus");
   const [showTiers, setShowTiers] = useState(true);
   const [showEdgeRail, setShowEdgeRail] = useState(true);
-  const [showIdpUncalibrated, setShowIdpUncalibrated] = useState(false);
   const [rowLimit, setRowLimit] = useState(DEFAULT_ROW_LIMIT);
   const [sortCol, setSortCol] = useState("rank");
   const [sortAsc, setSortAsc] = useState(true);
@@ -483,35 +482,10 @@ export default function RankingsPage() {
     }
   }, []);
 
-  // ── Calibration toggle ──────────────────────────────────────
-  // When on, swap each row's rank + value with the pre-calibration
-  // snapshots the backend already stamped. Because the backend anchors
-  // rankDerivedValue onto the Hill curve after every calibration pass,
-  // both snapshots are already Hill-curve coherent — this is a pure
-  // field swap, not a recomputation. Affects the /rankings view only;
-  // the promoted config stays live everywhere else in the app.
-  const toggledRows = useMemo(() => {
-    if (!showIdpUncalibrated) return rows;
-    return rows.map((r) => {
-      const uncalValue = Number(r.rankDerivedValueUncalibrated) || null;
-      const uncalRank = Number(r.canonicalConsensusRankUncalibrated) || null;
-      if (!uncalValue && !uncalRank) return r;
-      const next = { ...r };
-      if (uncalValue) {
-        next.rankDerivedValue = uncalValue;
-        next.values = { ...(r.values || {}), full: uncalValue };
-      }
-      if (uncalRank) {
-        next.canonicalConsensusRank = uncalRank;
-      }
-      return next;
-    });
-  }, [rows, showIdpUncalibrated]);
-
   // ── Base eligible list ──────────────────────────────────────────
   const eligible = useMemo(() => {
-    return toggledRows.filter(isEligibleForBoard);
-  }, [toggledRows]);
+    return rows.filter(isEligibleForBoard);
+  }, [rows]);
 
   // ── Trust summary stats ──────────────────────────────────────────
   // Single-pass aggregate — six filters would each walk the full
@@ -837,13 +811,6 @@ export default function RankingsPage() {
             onClick={() => setShowEdgeRail((v) => !v)}
           >
             {showEdgeRail ? "Hide edge" : "Show edge"}
-          </button>
-          <button
-            className={`button ${showIdpUncalibrated ? "button-primary" : ""}`}
-            onClick={() => setShowIdpUncalibrated((v) => !v)}
-            title="Toggle IDP calibration display. Swaps each IDP row to its pre-calibration value and re-sorts."
-          >
-            {showIdpUncalibrated ? "IDP: uncalibrated" : "IDP: calibrated"}
           </button>
           <button
             className={`button ${showMethodology ? "button-primary" : ""}`}
