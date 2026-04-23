@@ -4659,3 +4659,189 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   display: inline-block;
   margin: 0 2px;
 }
+
+/* ── Alerts / roster-gap / quick-record / review ─────────────── */
+
+.draft-alert-stack {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.draft-alert-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+.draft-alert-clear {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.68rem;
+  text-decoration: underline dotted;
+  padding: 0;
+}
+.draft-alert {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  animation: draftAlertSlide 0.25s ease-out;
+}
+@keyframes draftAlertSlide {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.draft-alert-info {
+  background: rgba(234, 191, 153, 0.1);
+  border: 1px solid var(--blush);
+  color: var(--text);
+}
+.draft-alert-warn {
+  background: rgba(255, 199, 4, 0.08);
+  border: 1px solid var(--cyan);
+  color: var(--text);
+}
+.draft-alert-danger {
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid var(--red);
+  color: var(--text);
+}
+.draft-alert-msg {
+  flex: 1;
+}
+.draft-alert-close {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0 4px;
+  opacity: 0.7;
+}
+.draft-alert-close:hover {
+  opacity: 1;
+}
+
+/* Roster need strip */
+.draft-need-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(79, 33, 133, 0.12);
+  border: 1px solid rgba(79, 33, 133, 0.4);
+  font-size: 0.78rem;
+}
+.draft-need-chip {
+  background: rgba(234, 191, 153, 0.15);
+  color: var(--blush);
+  border: 1px solid var(--blush);
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-family: var(--mono, monospace);
+  letter-spacing: 0.04em;
+}
+.draft-need-chip .draft-need-short {
+  opacity: 0.75;
+  font-size: 0.66rem;
+  margin-left: 2px;
+}
+.draft-need-chip-row {
+  display: inline-block;
+  background: rgba(234, 191, 153, 0.15);
+  color: var(--blush);
+  border: 1px solid var(--blush);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* Quick-record inline row */
+.draft-quick-row td {
+  background: rgba(255, 199, 4, 0.06);
+  border-left: 2px solid var(--cyan) !important;
+  padding: 6px 10px;
+}
+.draft-quick-inner {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Draft review modal */
+.draft-review-modal {
+  width: min(780px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.draft-review-portfolio {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+@media (max-width: 620px) {
+  .draft-review-portfolio {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.draft-review-portfolio > div {
+  padding: 10px 12px;
+  background: rgba(153, 166, 200, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.draft-review-big {
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-family: var(--mono, monospace);
+  margin-top: 3px;
+}
+.draft-review-callout {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 4px 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(153, 166, 200, 0.04);
+  border: 1px solid var(--border);
+  font-size: 0.82rem;
+}
+.draft-review-table-wrap {
+  overflow-x: auto;
+  margin-top: 4px;
+}
+.draft-review-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.draft-review-table th {
+  text-align: left;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.draft-review-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(38, 58, 105, 0.3);
+}

@@ -7,6 +7,7 @@ import {
   DRAFT_STORAGE_KEY,
   DEFAULT_AGGRESSION,
   DEFAULT_ENFORCE_PCT,
+  DEFAULT_POSITION_MINS,
   TAG_AVOID,
   TAG_TARGET,
   TARGET_BOARD_MAX,
@@ -15,10 +16,13 @@ import {
   addToTargetBoard,
   bidStatus,
   clearTargetBoard,
+  computeDraftReview,
   computeDraftStats,
   computeHistorySeries,
+  computeRosterBreakdown,
   createDefaultWorkspace,
   cycleTag,
+  draftReviewToCsv,
   hydrateWorkspace,
   mergeDraftCapitalTeams,
   moveTargetInBoard,
@@ -32,6 +36,8 @@ import {
   removeNomination,
   removePick,
   removePlayer,
+  replacePlayerPool,
+  rescaleValuesToBudget,
   setPlayerTag,
   undoLastNomination,
   undoLastPick,
@@ -857,6 +863,100 @@ function DraftModal({ player, workspace, stats, onClose, onSubmit }) {
 
 /* ── Rookie board ─────────────────────────────────────────────────── */
 
+/**
+ * Inline quick-record row rendered beneath a player on the board.
+ * Two fields — team + amount — with Enter to commit, Esc to bail.
+ * Way faster than opening the full draft modal when you just need
+ * to log a sale.
+ */
+function QuickRecordRow({ player, workspace, onSubmit, onCancel }) {
+  const myTeamIdx = workspace?.settings?.myTeamIdx ?? 0;
+  const [teamIdx, setTeamIdx] = useState(myTeamIdx);
+  const [amount, setAmount] = useState("");
+  const amountRef = useRef(null);
+
+  useEffect(() => {
+    if (amountRef.current) amountRef.current.focus();
+  }, []);
+
+  function handleKey(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const amt = Math.max(0, Number(amount) || 0);
+      if (amt <= 0) return;
+      onSubmit?.(player.id, Number(teamIdx), amt);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      onCancel?.();
+    }
+  }
+
+  return (
+    <tr className="draft-quick-row">
+      <td colSpan={13}>
+        <div className="draft-quick-inner">
+          <span className="muted" style={{ fontSize: "0.7rem" }}>
+            Quick record <strong>{player.name}</strong>
+          </span>
+          <select
+            className="select"
+            value={teamIdx}
+            onChange={(e) => setTeamIdx(Number(e.target.value))}
+            onKeyDown={handleKey}
+            style={{ fontSize: "0.74rem", padding: "2px 6px" }}
+          >
+            {workspace.teams.map((t, i) => (
+              <option key={i} value={i}>
+                {t.name || `Team ${i + 1}`}
+                {i === myTeamIdx ? " (mine)" : ""}
+              </option>
+            ))}
+          </select>
+          <input
+            ref={amountRef}
+            type="number"
+            className="input"
+            min="1"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            onKeyDown={handleKey}
+            placeholder="$"
+            style={{
+              width: 70,
+              fontSize: "0.74rem",
+              padding: "2px 6px",
+            }}
+          />
+          <button
+            type="button"
+            className="button"
+            style={{
+              fontSize: "0.7rem",
+              padding: "2px 8px",
+              borderColor: "var(--cyan)",
+              color: "var(--cyan)",
+            }}
+            onClick={() => {
+              const amt = Math.max(0, Number(amount) || 0);
+              if (amt > 0) onSubmit?.(player.id, Number(teamIdx), amt);
+            }}
+          >
+            Save ⏎
+          </button>
+          <button
+            type="button"
+            className="button-reset muted"
+            style={{ fontSize: "0.7rem", cursor: "pointer" }}
+            onClick={onCancel}
+          >
+            Esc
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 function RookieBoard({
   stats,
   workspace,
@@ -867,6 +967,11 @@ function RookieBoard({
   searchInputRef,
   selectedPlayerId,
   onSelectRow,
+  quickRecordingId,
+  onQuickOpen,
+  onQuickSubmit,
+  onQuickCancel,
+  needSet,
   showDrafted,
   onShowDraftedChange,
   query,
@@ -1100,6 +1205,14 @@ function RookieBoard({
                   >
                     {p.tier}
                   </span>
+                  {p.pos && needSet?.has(p.pos) && (
+                    <span
+                      className="draft-need-chip-row"
+                      title={`${p.pos} is a roster need`}
+                    >
+                      NEED
+                    </span>
+                  )}
                 </td>
                 <td>
                   <button
@@ -1222,25 +1335,54 @@ function RookieBoard({
                       {p.drafted ? "Edit" : "Draft"}
                     </button>
                     {!p.drafted && (
-                      <button
-                        className="button-reset draft-remove-btn"
-                        onClick={() => {
-                          if (
-                            typeof window !== "undefined" &&
-                            window.confirm(`Remove ${p.name} from the board?`)
-                          ) {
-                            onRemovePlayer(p.id);
-                          }
-                        }}
-                        title="Remove from board"
-                      >
-                        ×
-                      </button>
+                      <>
+                        <button
+                          className="button"
+                          style={{
+                            fontSize: "0.68rem",
+                            padding: "2px 6px",
+                            borderColor: "var(--cyan)",
+                            color: "var(--cyan)",
+                          }}
+                          onClick={() => onQuickOpen?.(p.id)}
+                          title="Quick record (Q when selected)"
+                        >
+                          Q
+                        </button>
+                        <button
+                          className="button-reset draft-remove-btn"
+                          onClick={() => {
+                            if (
+                              typeof window !== "undefined" &&
+                              window.confirm(`Remove ${p.name} from the board?`)
+                            ) {
+                              onRemovePlayer(p.id);
+                            }
+                          }}
+                          title="Remove from board"
+                        >
+                          ×
+                        </button>
+                      </>
                     )}
                   </div>
                 </td>
               </tr>,
                 );
+                // Inline quick-record row — only rendered when this
+                // specific player is in quick-record mode.  Keeps the
+                // UI flat when nothing is being quick-recorded.
+                if (quickRecordingId === p.id) {
+                  rendered.push(
+                    <QuickRecordRow
+                      key={`qr-${p.id}`}
+                      player={p}
+                      workspace={workspace}
+                      onSubmit={onQuickSubmit}
+                      onCancel={onQuickCancel}
+                    />,
+                  );
+                }
               }
               return rendered;
             })()}
@@ -1871,6 +2013,281 @@ function AddPlayerInline({ onAdd }) {
  * elsewhere; if a formula changes in draft-logic.js, update the
  * matching entry here so the reference stays honest.
  */
+/* ── Post-draft review panel ──────────────────────────────────────── */
+
+/**
+ * Modal that shows the "how did this draft go" recap: my picks +
+ * deltas, portfolio ratio, best steal / worst overpay, per-team
+ * rankings, CSV export.  Computed from the current workspace state
+ * via ``computeDraftReview``.
+ *
+ * Can be opened mid-draft (shows partial data) or post-draft (the
+ * full accounting).
+ */
+function DraftReviewPanel({ workspace, stats, onClose }) {
+  const review = useMemo(
+    () => computeDraftReview(workspace, stats),
+    [workspace, stats],
+  );
+
+  const downloadCsv = () => {
+    const csv = draftReviewToCsv(review);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `draft-review-${new Date()
+      .toISOString()
+      .slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div
+      className="draft-modal-backdrop"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="draft-modal card draft-review-modal"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="draft-modal-header">
+          <h3>Draft review</h3>
+          <button
+            type="button"
+            className="button-reset draft-modal-close"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+        <div className="draft-modal-body">
+          {review.myPicks.length === 0 ? (
+            <div className="muted" style={{ fontSize: "0.82rem" }}>
+              No picks recorded yet.  Run the draft — this panel
+              populates with every pick you made, the delta vs fair
+              at the time, and a portfolio-value rollup.
+            </div>
+          ) : (
+            <>
+              {/* Portfolio headline */}
+              <div className="draft-review-portfolio">
+                <div>
+                  <div className="muted" style={{ fontSize: "0.7rem" }}>
+                    You paid
+                  </div>
+                  <div className="draft-review-big">
+                    {fmt$(review.portfolio.paid)}
+                  </div>
+                </div>
+                <div>
+                  <div className="muted" style={{ fontSize: "0.7rem" }}>
+                    Fair value received
+                  </div>
+                  <div className="draft-review-big draft-money-win">
+                    {fmt$(review.portfolio.fairValue)}
+                  </div>
+                </div>
+                <div>
+                  <div className="muted" style={{ fontSize: "0.7rem" }}>
+                    Portfolio ratio
+                  </div>
+                  <div
+                    className="draft-review-big"
+                    style={{
+                      color:
+                        review.portfolio.ratio > 1.05
+                          ? "var(--green)"
+                          : review.portfolio.ratio < 0.95
+                            ? "var(--red)"
+                            : "var(--cyan)",
+                    }}
+                  >
+                    {review.portfolio.ratio.toFixed(2)}×
+                  </div>
+                </div>
+                <div>
+                  <div className="muted" style={{ fontSize: "0.7rem" }}>
+                    Delta
+                  </div>
+                  <div
+                    className="draft-review-big"
+                    style={{
+                      color:
+                        review.portfolio.delta > 0
+                          ? "var(--green)"
+                          : "var(--red)",
+                    }}
+                  >
+                    {review.portfolio.delta > 0 ? "+" : ""}
+                    {fmt$(review.portfolio.delta)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Steal + overpay callouts */}
+              {review.bestSteal && (
+                <div className="draft-review-callout">
+                  <span className="draft-rec-chip draft-rec-lock">
+                    BEST STEAL
+                  </span>
+                  <span>
+                    <strong>{review.bestSteal.playerName}</strong> —
+                    paid {fmt$(review.bestSteal.paid)}, fair{" "}
+                    {fmt$(review.bestSteal.fair)}{" "}
+                    <span className="draft-vs-fair-win">
+                      (+{fmt$(review.bestSteal.valueVsFair)})
+                    </span>
+                  </span>
+                </div>
+              )}
+              {review.worstOverpay && review.worstOverpay.valueVsFair < 0 && (
+                <div className="draft-review-callout">
+                  <span className="draft-rec-chip draft-rec-avoid">
+                    WORST OVERPAY
+                  </span>
+                  <span>
+                    <strong>{review.worstOverpay.playerName}</strong>{" "}
+                    — paid {fmt$(review.worstOverpay.paid)}, fair{" "}
+                    {fmt$(review.worstOverpay.fair)}{" "}
+                    <span className="draft-vs-fair-lose">
+                      ({fmt$(review.worstOverpay.valueVsFair)})
+                    </span>
+                  </span>
+                </div>
+              )}
+
+              {/* My picks table */}
+              <h4 style={{ margin: "10px 0 4px" }}>
+                My roster ({review.myPicks.length} picks)
+              </h4>
+              <div className="draft-review-table-wrap">
+                <table className="draft-review-table">
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left" }}>Player</th>
+                      <th>Tier</th>
+                      <th style={{ textAlign: "right" }}>Paid</th>
+                      <th style={{ textAlign: "right" }}>Fair</th>
+                      <th style={{ textAlign: "right" }}>Δ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {review.myPicks.map((r) => (
+                      <tr key={r.playerId}>
+                        <td>{r.playerName}</td>
+                        <td>
+                          <span
+                            className={`draft-tier-chip draft-tier-${r.tier}`}
+                          >
+                            {r.tier}
+                          </span>
+                        </td>
+                        <td className="draft-money">{fmt$(r.paid)}</td>
+                        <td className="draft-money">{fmt$(r.fair)}</td>
+                        <td
+                          className={`draft-money ${
+                            r.valueVsFair > 0
+                              ? "draft-vs-fair-win"
+                              : r.valueVsFair < 0
+                                ? "draft-vs-fair-lose"
+                                : ""
+                          }`}
+                        >
+                          {r.valueVsFair > 0 ? "+" : ""}
+                          {fmt$(r.valueVsFair)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Per-team rankings */}
+              <h4 style={{ margin: "14px 0 4px" }}>
+                League draft efficiency
+              </h4>
+              <div className="draft-review-table-wrap">
+                <table className="draft-review-table">
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left" }}>Team</th>
+                      <th style={{ textAlign: "right" }}>Picks</th>
+                      <th style={{ textAlign: "right" }}>Paid</th>
+                      <th style={{ textAlign: "right" }}>Fair</th>
+                      <th style={{ textAlign: "right" }}>Ratio</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {review.teamRankings.map((t, i) => (
+                      <tr
+                        key={t.idx}
+                        className={t.isMine ? "draft-row-mine" : ""}
+                      >
+                        <td>
+                          <span className="muted" style={{ fontSize: "0.7rem", marginRight: 4 }}>
+                            #{i + 1}
+                          </span>
+                          <strong>{t.name}</strong>
+                          {t.isMine && (
+                            <span
+                              className="draft-tag draft-tag-mine"
+                              style={{ marginLeft: 6, fontSize: "0.62rem" }}
+                            >
+                              mine
+                            </span>
+                          )}
+                        </td>
+                        <td className="draft-money">{t.count}</td>
+                        <td className="draft-money">{fmt$(t.paid)}</td>
+                        <td className="draft-money">{fmt$(t.fair)}</td>
+                        <td
+                          className="draft-money"
+                          style={{
+                            color:
+                              t.ratio > 1.05
+                                ? "var(--green)"
+                                : t.ratio < 0.95
+                                  ? "var(--red)"
+                                  : "var(--cyan)",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {t.ratio.toFixed(2)}×
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="draft-modal-footer">
+          {review.rows.length > 0 && (
+            <button
+              type="button"
+              className="button"
+              onClick={downloadCsv}
+              style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}
+            >
+              ⬇ Export CSV
+            </button>
+          )}
+          <button type="button" className="button" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DraftGlossary() {
   const Section = ({ title, children }) => (
     <details className="draft-gloss-section">
@@ -2257,6 +2674,20 @@ export default function DraftDashboardPage() {
   const searchInputRef = useRef(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [syncOpen, setSyncOpen] = useState(false);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncError, setSyncError] = useState("");
+  const [syncPreview, setSyncPreview] = useState(null);
+  const [quickRecordingId, setQuickRecordingId] = useState(null);
+  // Alert layer state — ephemeral, not persisted.
+  const [alerts, setAlerts] = useState([]);
+  const previousStatsRef = useRef(null);
+  const seenAlertsRef = useRef(new Set());
+  // Roster gap awareness — the user's current Sleeper roster + an
+  // ``allPlayersArray`` (from /api/data) so we can look up positions.
+  const [rosterPlayers, setRosterPlayers] = useState(null);
+  const [allPlayersArray, setAllPlayersArray] = useState(null);
   const [capitalStatus, setCapitalStatus] = useState({
     loading: false,
     error: "",
@@ -2304,6 +2735,143 @@ export default function DraftDashboardPage() {
     () => computeHistorySeries(workspace),
     [workspace],
   );
+
+  // Roster gap: breakdown of the user's current Sleeper NFL roster
+  // into positional counts.  ``needPositions`` flags positions below
+  // the per-position minimum so target/rec UI can render a NEED chip.
+  const rosterBreakdown = useMemo(
+    () => computeRosterBreakdown(rosterPlayers || [], allPlayersArray || []),
+    [rosterPlayers, allPlayersArray],
+  );
+  const needSet = useMemo(
+    () => new Set(rosterBreakdown.needPositions),
+    [rosterBreakdown.needPositions],
+  );
+
+  // Alert layer — detect threshold crossings between stat snapshots
+  // and push one-shot alerts.  ``seenAlertsRef`` dedupes per event
+  // key; ``previousStatsRef`` carries the prior snapshot so we can
+  // compare.  Alerts persist in component state until dismissed (or
+  // until an auto-fade we may add later).  Keep the effect cheap —
+  // it runs on every stats change.
+  useEffect(() => {
+    const prev = previousStatsRef.current;
+    const cur = stats;
+    if (!prev) {
+      previousStatsRef.current = cur;
+      return;
+    }
+
+    const seen = seenAlertsRef.current;
+    const push = (id, message, level = "info") => {
+      if (seen.has(id)) return null;
+      seen.add(id);
+      return { id, message, level, ts: Date.now() };
+    };
+    const newAlerts = [];
+
+    // 1. Tier drying up: remainingRatio just crossed below 0.3.
+    for (const [tierKey, tierData] of Object.entries(cur.tierStats || {})) {
+      const prevTier = prev.tierStats?.[tierKey];
+      if (!prevTier) continue;
+      if (
+        prevTier.remainingRatio >= 0.3 &&
+        tierData.remainingRatio < 0.3 &&
+        tierData.remaining > 0
+      ) {
+        const myInTier = cur.enrichedPlayers.filter(
+          (p) =>
+            !p.drafted &&
+            p.userTag === TAG_TARGET &&
+            p.tier === tierKey,
+        );
+        const suffix =
+          myInTier.length > 0
+            ? ` — ${myInTier.length} of yours still in: ${myInTier
+                .map((p) => p.name)
+                .slice(0, 3)
+                .join(", ")}`
+            : "";
+        const alert = push(
+          `tier-scarcity-${tierKey}`,
+          `Tier ${tierKey} drying up — ${tierData.remaining} of ${tierData.total} left${suffix}`,
+          myInTier.length > 0 ? "warn" : "info",
+        );
+        if (alert) newAlerts.push(alert);
+      }
+    }
+
+    // 2. Overpay on the most recent pick (≥40% over preDraft, with a
+    // $10 floor so $1 throw-ins don't trigger "overpay" alerts).
+    if (cur.totalPicksMade > prev.totalPicksMade) {
+      const sorted = [...(workspace.picks || [])].sort(
+        (a, b) => (b.ts || 0) - (a.ts || 0),
+      );
+      const newest = sorted[0];
+      if (newest) {
+        const preDraft = Math.max(0, Number(newest.preDraftAtPick) || 0);
+        const paid = Math.max(0, Number(newest.amount) || 0);
+        const delta = paid - preDraft;
+        if (preDraft >= 10 && delta >= preDraft * 0.4) {
+          const player = cur.enrichedPlayers.find(
+            (p) => p.id === newest.playerId,
+          );
+          const teamName =
+            cur.teamStats[newest.teamIdx]?.name ||
+            `Team ${newest.teamIdx + 1}`;
+          const alert = push(
+            `overpay-${newest.playerId}`,
+            `${player?.name || newest.playerId} went to ${teamName} for $${paid} (+$${delta} over fair) — ${player?.tier || "?"} tier heating up`,
+            "warn",
+          );
+          if (alert) newAlerts.push(alert);
+        }
+      }
+    }
+
+    // 3. Target Board buffer crossed below zero.
+    const prevBuf = prev.targetBoardStats?.portfolioBuffer ?? 0;
+    const curBuf = cur.targetBoardStats?.portfolioBuffer ?? 0;
+    if (prevBuf >= 0 && curBuf < 0) {
+      const alert = push(
+        `tb-short-${cur.totalPicksMade}`,
+        `Target Board buffer dropped to $${Math.round(curBuf)} — trim a target or lower a ceiling`,
+        "danger",
+      );
+      if (alert) newAlerts.push(alert);
+    }
+
+    // 4. Win-at just dropped substantially on an undrafted target.
+    const prevById = new Map(
+      prev.enrichedPlayers.map((p) => [p.id, p]),
+    );
+    for (const cp of cur.enrichedPlayers) {
+      if (cp.drafted) continue;
+      if (cp.userTag !== TAG_TARGET) continue;
+      const pp = prevById.get(cp.id);
+      if (!pp || pp.drafted) continue;
+      const drop = pp.myWinningBid - cp.myWinningBid;
+      if (drop >= 10 && drop >= pp.myWinningBid * 0.25) {
+        const alert = push(
+          `winbid-drop-${cp.id}-${cp.myWinningBid}`,
+          `${cp.name} Win-at dropped $${pp.myWinningBid} → $${cp.myWinningBid}`,
+          "info",
+        );
+        if (alert) newAlerts.push(alert);
+      }
+    }
+
+    if (newAlerts.length > 0) {
+      setAlerts((prior) => [...prior, ...newAlerts]);
+    }
+    previousStatsRef.current = cur;
+  }, [stats, workspace.picks]);
+
+  const dismissAlert = useCallback(
+    (id) => setAlerts((as) => as.filter((a) => a.id !== id)),
+    [],
+  );
+  const clearAllAlerts = useCallback(() => setAlerts([]), []);
 
   // Late-draft triage: when my slot pressure crosses 0.7, auto-flip
   // the tag filter to "target" so only players I still want appear
@@ -2469,6 +3037,123 @@ export default function DraftDashboardPage() {
     [],
   );
 
+  // Quick-record: fast inline pick-recording on the selected row.
+  // Takes a team idx + amount, applies recordPick, closes the form.
+  // Separate from the full draft-modal submit path so the UI can
+  // render a compact inline form without the modal overhead.
+  const recordQuickPick = useCallback(
+    (playerId, teamIdx, amount) => {
+      if (!playerId) return;
+      const amt = Math.max(0, Number(amount) || 0);
+      if (amt <= 0) return;
+      setWorkspace((ws) =>
+        recordPick(ws, {
+          playerId,
+          teamIdx: Number(teamIdx),
+          amount: amt,
+        }),
+      );
+      setQuickRecordingId(null);
+    },
+    [],
+  );
+
+  // Pre-draft sync: fetch /api/data, shape rookies, show a preview
+  // modal.  User confirms → replacePlayerPool applies; cancels →
+  // workspace is untouched.  Rescales to $1200 so the column sum
+  // stays close to the league budget even when the source values
+  // are on a different scale.
+  const fetchSyncPreview = useCallback(async () => {
+    setSyncBusy(true);
+    setSyncError("");
+    try {
+      const res = await fetch("/api/data", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const pa = Array.isArray(data?.playersArray) ? data.playersArray : [];
+      setAllPlayersArray(pa);
+
+      // Rookies only, sorted by consensus value (values.full) desc.
+      const rookies = pa
+        .filter((p) => p?.rookie === true)
+        .filter((p) => p?.assetClass === "offense" || p?.assetClass === "idp")
+        .map((p) => ({
+          name: p.displayName || p.canonicalName || "",
+          rawValue: Number(p?.values?.full) || 0,
+          pos: String(p?.position || p?.pos || "").toUpperCase(),
+        }))
+        .filter((p) => p.name && p.rawValue > 0)
+        .sort((a, b) => b.rawValue - a.rawValue)
+        .slice(0, 72);
+
+      if (rookies.length === 0) {
+        throw new Error(
+          "No rookies found in /api/data — the backend contract may not have a rookie flag set.",
+        );
+      }
+
+      // Rescale raw consensus values to the $1200 league pool.
+      const scaled = rescaleValuesToBudget(
+        rookies.map((r) => r.rawValue),
+        1200,
+      );
+
+      const incoming = rookies.map((r, i) => ({
+        name: r.name,
+        preDraft: scaled[i],
+        pos: r.pos,
+      }));
+
+      // Dry-run against current workspace to show a preview diff.
+      const dry = replacePlayerPool(workspace, incoming);
+      setSyncPreview({ incoming, dry });
+      setSyncOpen(true);
+    } catch (err) {
+      setSyncError(err?.message || "Sync failed.");
+    } finally {
+      setSyncBusy(false);
+    }
+  }, [workspace]);
+
+  const applySyncPreview = useCallback(() => {
+    if (!syncPreview) return;
+    setWorkspace(() => syncPreview.dry.workspace);
+    setSyncOpen(false);
+    setSyncPreview(null);
+  }, [syncPreview]);
+
+  // Roster gap: whenever selectedTeamIdx (from fetchDraftCapital
+  // metadata) and sleeperTeams are resolved, capture the user's
+  // current NFL roster so ``computeRosterBreakdown`` has data to
+  // work with.  Wired to the same /api/data fetch as the sync
+  // feature — no extra network call needed.
+  useEffect(() => {
+    if (!allPlayersArray) return;
+    const myTeamIdx = workspace?.settings?.myTeamIdx ?? 0;
+    const myTeamName = workspace?.teams?.[myTeamIdx]?.name || "";
+    // Sleeper teams are under the cached /api/data response
+    // (rawData.sleeper.teams in other pages) but here we pull the
+    // latest fetched snapshot's sleeper section via the
+    // playersArray fetch side-effect.  Defer to the user's
+    // currently selected team identity by NAME.
+    try {
+      fetch("/api/data", { cache: "force-cache" })
+        .then((r) => r.json())
+        .then((data) => {
+          const teams = data?.sleeper?.teams || [];
+          const mine = teams.find(
+            (t) =>
+              String(t.name || "").toLowerCase() ===
+              myTeamName.toLowerCase(),
+          );
+          if (mine) setRosterPlayers(mine.players || []);
+        })
+        .catch(() => {});
+    } catch {
+      /* ignore */
+    }
+  }, [allPlayersArray, workspace?.settings?.myTeamIdx, workspace?.teams]);
+
   // Global keyboard shortcuts.  Must be declared AFTER the callbacks
   // it depends on (onCycleTag / onToggleTarget / onAddToBoard) —
   // React evaluates a useEffect's dependency array at render time,
@@ -2552,6 +3237,15 @@ export default function DraftDashboardPage() {
         onAddToBoard(selected.id);
         return;
       }
+      if (e.key === "q" || e.key === "Q") {
+        // Speed-mode quick-record: toggles an inline form on the
+        // selected row.  Cancels if already open on the same row.
+        e.preventDefault();
+        setQuickRecordingId((cur) =>
+          cur === selected.id ? null : selected.id,
+        );
+        return;
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -2633,6 +3327,23 @@ export default function DraftDashboardPage() {
         <div className="draft-page-actions">
           <button
             className="button"
+            onClick={fetchSyncPreview}
+            disabled={syncBusy}
+            title="Pull current rookie values from our live consensus rankings"
+            style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}
+          >
+            {syncBusy ? "Syncing…" : "↻ Sync rookies"}
+          </button>
+          <button
+            className="button"
+            onClick={() => setReviewOpen(true)}
+            disabled={(workspace.picks || []).length === 0}
+            title="Show the post-draft review (deltas, rankings, CSV)"
+          >
+            Review
+          </button>
+          <button
+            className="button"
             onClick={() => setHelpOpen(true)}
             title="Keyboard shortcuts (?)"
           >
@@ -2655,6 +3366,84 @@ export default function DraftDashboardPage() {
           </button>
         </div>
       </div>
+
+      {syncError && (
+        <div
+          className="draft-modal-warn"
+          style={{ marginBottom: 10 }}
+          onClick={() => setSyncError("")}
+        >
+          <strong>Sync error.</strong> {syncError}
+        </div>
+      )}
+
+      {/* Alert stack — sticky banners for threshold-crossing events.
+          Render newest-first so the latest signal is always on top.
+          Color-coded: danger (red) for budget collapse, warn (cyan)
+          for tier / overpay events, info (blush) for favorable
+          moves.  Each has an X to dismiss; "Clear all" wipes the
+          whole stack. */}
+      {alerts.length > 0 && (
+        <div className="draft-alert-stack">
+          <div className="draft-alert-head">
+            <span className="label" style={{ fontSize: "0.7rem" }}>
+              Signals
+            </span>
+            {alerts.length > 1 && (
+              <button
+                className="button-reset draft-alert-clear"
+                onClick={clearAllAlerts}
+                title="Dismiss all"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          {alerts
+            .slice()
+            .reverse()
+            .slice(0, 5)
+            .map((a) => (
+              <div
+                key={a.id}
+                className={`draft-alert draft-alert-${a.level}`}
+              >
+                <span className="draft-alert-msg">{a.message}</span>
+                <button
+                  type="button"
+                  className="button-reset draft-alert-close"
+                  onClick={() => dismissAlert(a.id)}
+                  aria-label="Dismiss"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+        </div>
+      )}
+
+      {/* Roster-gap strip — surfaces positional shortages vs my
+          current NFL roster.  Hidden until /api/data has resolved
+          and we've mapped the user's team. */}
+      {rosterPlayers && rosterBreakdown.needPositions.length > 0 && (
+        <div className="draft-need-strip">
+          <span className="muted" style={{ fontSize: "0.7rem" }}>
+            Roster needs:
+          </span>
+          {rosterBreakdown.needPositions.map((pos) => (
+            <span key={pos} className="draft-need-chip">
+              {pos}{" "}
+              <span className="draft-need-short">
+                −{rosterBreakdown.shortages[pos]}
+              </span>
+            </span>
+          ))}
+          <span className="muted" style={{ fontSize: "0.68rem", marginLeft: 6 }}>
+            (positions where I'm below threshold; factored into
+            target priority)
+          </span>
+        </div>
+      )}
 
       {/* Draft progress bar — picks drafted vs total slots in the
           draft (sum of initialSlots across all teams, normally 72).
@@ -2761,6 +3550,11 @@ export default function DraftDashboardPage() {
         searchInputRef={searchInputRef}
         selectedPlayerId={selectedPlayerId}
         onSelectRow={setSelectedPlayerId}
+        quickRecordingId={quickRecordingId}
+        onQuickOpen={(id) => setQuickRecordingId(id)}
+        onQuickSubmit={recordQuickPick}
+        onQuickCancel={() => setQuickRecordingId(null)}
+        needSet={needSet}
         showDrafted={showDrafted}
         onShowDraftedChange={setShowDrafted}
         query={query}
@@ -2779,6 +3573,123 @@ export default function DraftDashboardPage() {
           stats={stats}
           onClose={() => setModalPlayer(null)}
           onSubmit={handleModalSubmit}
+        />
+      )}
+
+      {syncOpen && syncPreview && (
+        <div
+          className="draft-modal-backdrop"
+          onClick={() => {
+            setSyncOpen(false);
+            setSyncPreview(null);
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="draft-modal card"
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: "min(560px, 100%)" }}
+          >
+            <div className="draft-modal-header">
+              <h3>Sync rookies from consensus rankings</h3>
+              <button
+                type="button"
+                className="button-reset draft-modal-close"
+                onClick={() => {
+                  setSyncOpen(false);
+                  setSyncPreview(null);
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <div className="draft-modal-body">
+              <div className="muted" style={{ fontSize: "0.78rem" }}>
+                Pulled top <strong>{syncPreview.incoming.length}</strong>{" "}
+                rookies from ``/api/data``, rescaled their consensus values
+                to total $1,200.  Applying will:
+              </div>
+              <ul style={{ fontSize: "0.82rem", margin: "8px 0" }}>
+                <li>
+                  <strong>Kept:</strong> {syncPreview.dry.kept} rookies
+                  already on your board (tags + Target Board slots
+                  preserved)
+                </li>
+                <li>
+                  <strong>Added:</strong> {syncPreview.dry.added} new
+                  rookies
+                </li>
+                <li>
+                  <strong>Dropped:</strong> {syncPreview.dry.dropped}{" "}
+                  rookies no longer in the top {syncPreview.incoming.length}
+                </li>
+                {syncPreview.dry.orphanedPicks.length > 0 && (
+                  <li style={{ color: "var(--red)" }}>
+                    <strong>
+                      {syncPreview.dry.orphanedPicks.length} recorded
+                      pick{syncPreview.dry.orphanedPicks.length === 1 ? "" : "s"}
+                    </strong>{" "}
+                    reference dropped players — those picks will be
+                    removed.  Cancel if that's not what you want.
+                  </li>
+                )}
+              </ul>
+              <div
+                className="muted"
+                style={{ fontSize: "0.72rem", marginTop: 6 }}
+              >
+                New rookie list (first 10 of {syncPreview.incoming.length}):
+                <div style={{ marginTop: 4 }}>
+                  {syncPreview.incoming.slice(0, 10).map((p, i) => (
+                    <div
+                      key={p.name}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "24px 1fr 48px 48px",
+                        gap: 6,
+                        padding: "2px 0",
+                        fontSize: "0.76rem",
+                      }}
+                    >
+                      <span>#{i + 1}</span>
+                      <span>{p.name}</span>
+                      <span className="muted">{p.pos || "—"}</span>
+                      <span className="draft-money">{fmt$(p.preDraft)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="draft-modal-footer">
+              <button
+                type="button"
+                className="button"
+                onClick={() => {
+                  setSyncOpen(false);
+                  setSyncPreview(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="button"
+                onClick={applySyncPreview}
+                style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}
+              >
+                Apply sync
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reviewOpen && (
+        <DraftReviewPanel
+          workspace={workspace}
+          stats={stats}
+          onClose={() => setReviewOpen(false)}
         />
       )}
 
@@ -2860,6 +3771,15 @@ export default function DraftDashboardPage() {
                       <kbd>B</kbd>
                     </td>
                     <td>Add selected to Target Board</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <kbd>Q</kbd>
+                    </td>
+                    <td>
+                      Quick-record pick on selected (inline form;
+                      Enter saves, Esc cancels)
+                    </td>
                   </tr>
                 </tbody>
               </table>

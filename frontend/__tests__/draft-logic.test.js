@@ -2018,3 +2018,253 @@ describe("hydrateWorkspace — targetBoard + nominations roundtrip", () => {
     expect(ws.nominations[0].playerId).toBe("jeremiyah-love");
   });
 });
+
+// ── replacePlayerPool / rescaleValuesToBudget ──────────────────────────
+
+import {
+  DEFAULT_POSITION_MINS,
+  computeDraftReview,
+  computeRosterBreakdown,
+  draftReviewToCsv,
+  replacePlayerPool,
+  rescaleValuesToBudget,
+} from "@/lib/draft-logic";
+
+describe("rescaleValuesToBudget", () => {
+  it("scales a raw value array so its sum matches the target", () => {
+    const out = rescaleValuesToBudget([100, 50, 25, 10, 5], 1200);
+    expect(out.reduce((s, v) => s + v, 0)).toBeCloseTo(1200, -1);
+  });
+
+  it("floors every scaled value at 1 (no unbiddable fillers)", () => {
+    const out = rescaleValuesToBudget([1000, 1, 1, 1], 100);
+    // Raw #1 dominates; without a floor the 1's would scale to tiny.
+    for (const v of out) expect(v).toBeGreaterThanOrEqual(1);
+  });
+
+  it("no-op on empty / zero-total input", () => {
+    expect(rescaleValuesToBudget([], 1200)).toEqual([]);
+    const out = rescaleValuesToBudget([0, 0, 0], 1200);
+    expect(out).toEqual([1, 1, 1]);
+  });
+});
+
+describe("replacePlayerPool", () => {
+  it("replaces players and preserves tags that still have a home", () => {
+    let ws = createDefaultWorkspace();
+    ws = setPlayerTag(ws, "jeremiyah-love", TAG_TARGET);
+    ws = setPlayerTag(ws, "drew-allar", TAG_AVOID);
+    const { workspace: next, kept, added, dropped } = replacePlayerPool(ws, [
+      { name: "Jeremiyah Love", preDraft: 200, pos: "RB" },
+      { name: "New Player X", preDraft: 40, pos: "WR" },
+      // Note: Drew Allar dropped from the list
+    ]);
+    expect(next.players.length).toBe(2);
+    expect(next.tags["jeremiyah-love"]).toBe(TAG_TARGET);
+    // Drew Allar dropped → tag removed.
+    expect(next.tags["drew-allar"]).toBeUndefined();
+    expect(kept).toBe(1); // Love carried over
+    expect(added).toBe(1); // New Player X
+    expect(dropped).toBeGreaterThan(0);
+  });
+
+  it("preserves Target Board order when players survive", () => {
+    let ws = createDefaultWorkspace();
+    ws = addToTargetBoard(ws, "jeremiyah-love");
+    ws = addToTargetBoard(ws, "makai-lemon");
+    ws = addToTargetBoard(ws, "drew-allar");
+    const { workspace: next } = replacePlayerPool(ws, [
+      { name: "Jeremiyah Love", preDraft: 100 },
+      { name: "Makai Lemon", preDraft: 90 },
+      // Allar dropped
+      { name: "Caleb Douglas", preDraft: 2 },
+    ]);
+    expect(next.targetBoard).toEqual([
+      "jeremiyah-love",
+      "makai-lemon",
+      // drew-allar dropped
+    ]);
+  });
+
+  it("retains picks whose player survived + reports orphans", () => {
+    let ws = createDefaultWorkspace();
+    ws = recordPick(ws, {
+      playerId: "jeremiyah-love",
+      teamIdx: 0,
+      amount: 120,
+    });
+    ws = recordPick(ws, {
+      playerId: "drew-allar",
+      teamIdx: 2,
+      amount: 1,
+    });
+    const { workspace: next, orphanedPicks } = replacePlayerPool(ws, [
+      { name: "Jeremiyah Love", preDraft: 100 },
+    ]);
+    expect(next.picks.length).toBe(1);
+    expect(next.picks[0].playerId).toBe("jeremiyah-love");
+    expect(orphanedPicks.length).toBe(1);
+    expect(orphanedPicks[0].playerId).toBe("drew-allar");
+  });
+
+  it("carries pos through from the incoming list", () => {
+    const ws = createDefaultWorkspace();
+    const { workspace: next } = replacePlayerPool(ws, [
+      { name: "Jeremiyah Love", preDraft: 100, pos: "RB" },
+    ]);
+    expect(next.players[0].pos).toBe("RB");
+  });
+
+  it("null / empty input returns an empty player list", () => {
+    const ws = createDefaultWorkspace();
+    const { workspace: next } = replacePlayerPool(ws, null);
+    expect(next.players).toEqual([]);
+  });
+});
+
+// ── computeDraftReview / draftReviewToCsv ──────────────────────────────
+
+describe("computeDraftReview", () => {
+  it("aggregates MY picks + computes portfolio ratio + steals", async () => {
+    let ws = createDefaultWorkspace();
+    // I snipe Love at a bargain, overpay on Lemon.
+    ws = recordPick(ws, {
+      playerId: "jeremiyah-love",
+      teamIdx: 0,
+      amount: 60, // fair is 135 at opening → steal
+    });
+    // Force a ts gap between picks.
+    ws.picks[0].ts = 1;
+    ws = recordPick(ws, {
+      playerId: "makai-lemon",
+      teamIdx: 0,
+      amount: 200, // fair is 90 at opening → overpay
+    });
+    ws.picks[1].ts = 2;
+    const review = computeDraftReview(ws);
+
+    expect(review.myPicks.length).toBe(2);
+    expect(review.portfolio.paid).toBe(260);
+    // portfolio.fairValue uses CURRENT inflatedFair which shifts
+    // with inflation, but for this check we just verify ordering:
+    expect(review.bestSteal.playerName).toBe("Jeremiyah Love");
+    expect(review.worstOverpay.playerName).toBe("Makai Lemon");
+  });
+
+  it("per-team rankings include every team with picks, sorted by ratio", () => {
+    let ws = createDefaultWorkspace();
+    ws = recordPick(ws, {
+      playerId: "jeremiyah-love",
+      teamIdx: 0,
+      amount: 100,
+    });
+    ws = recordPick(ws, {
+      playerId: "makai-lemon",
+      teamIdx: 3,
+      amount: 150,
+    });
+    const review = computeDraftReview(ws);
+    expect(review.teamRankings.length).toBe(2);
+    for (let i = 1; i < review.teamRankings.length; i++) {
+      expect(review.teamRankings[i - 1].ratio).toBeGreaterThanOrEqual(
+        review.teamRankings[i].ratio,
+      );
+    }
+    expect(review.teamRankings.find((t) => t.isMine)).toBeTruthy();
+  });
+
+  it("empty workspace produces safe empties", () => {
+    const review = computeDraftReview(createDefaultWorkspace());
+    expect(review.myPicks).toEqual([]);
+    expect(review.bestSteal).toBeNull();
+    expect(review.worstOverpay).toBeNull();
+    expect(review.portfolio.paid).toBe(0);
+  });
+
+  it("CSV header + body shape; quoting works on commas + quotes", () => {
+    let ws = createDefaultWorkspace();
+    ws = recordPick(ws, {
+      playerId: "jeremiyah-love",
+      teamIdx: 0,
+      amount: 100,
+    });
+    const review = computeDraftReview(ws);
+    const csv = draftReviewToCsv(review);
+    expect(csv.split("\n")[0]).toBe(review.csvHeader.join(","));
+    expect(csv).toContain("Jeremiyah Love");
+  });
+
+  it("draftReviewToCsv escapes commas/quotes in cells", () => {
+    const review = {
+      csvHeader: ["Name"],
+      csvBody: [['Say "hi"'], ["a,b,c"]],
+    };
+    const csv = draftReviewToCsv(review);
+    expect(csv).toContain('"Say ""hi"""');
+    expect(csv).toContain('"a,b,c"');
+  });
+});
+
+// ── computeRosterBreakdown ─────────────────────────────────────────────
+
+describe("computeRosterBreakdown", () => {
+  const playersArray = [
+    { displayName: "Josh Allen", position: "QB" },
+    { displayName: "Bijan Robinson", position: "RB" },
+    { displayName: "Ja'Marr Chase", position: "WR" },
+    { displayName: "Travis Kelce", position: "TE" },
+    { displayName: "Micah Parsons", position: "LB" },
+  ];
+
+  it("counts by position and flags shortages", () => {
+    const roster = ["Josh Allen", "Bijan Robinson", "Ja'Marr Chase"];
+    const br = computeRosterBreakdown(roster, playersArray);
+    expect(br.counts.QB).toBe(1);
+    expect(br.counts.RB).toBe(1);
+    expect(br.counts.WR).toBe(1);
+    // QB min is 3 → short 2; TE min 2 → short 2; etc.
+    expect(br.shortages.QB).toBe(2);
+    expect(br.shortages.TE).toBe(2);
+    expect(br.needPositions).toContain("QB");
+    expect(br.needPositions).toContain("TE");
+  });
+
+  it("need positions sorted by largest shortage first", () => {
+    const roster = [
+      "Josh Allen",
+      "Bijan Robinson",
+      "Ja'Marr Chase",
+      "Travis Kelce",
+      "Travis Kelce",
+    ];
+    const br = computeRosterBreakdown(roster, playersArray);
+    // Sorted by biggest shortage first.
+    const [first, ...rest] = br.needPositions;
+    for (const pos of rest) {
+      expect(br.shortages[first]).toBeGreaterThanOrEqual(
+        br.shortages[pos],
+      );
+    }
+  });
+
+  it("unknown names silently skipped", () => {
+    const roster = ["Nobody Real", "Ghost McGhost", "Josh Allen"];
+    const br = computeRosterBreakdown(roster, playersArray);
+    expect(br.counts.QB).toBe(1);
+    expect(br.counts.RB).toBe(0);
+  });
+
+  it("uses default position mins when not overridden", () => {
+    const br = computeRosterBreakdown([], []);
+    expect(br.positionMins).toEqual(DEFAULT_POSITION_MINS);
+  });
+
+  it("custom thresholds override defaults", () => {
+    const roster = ["Josh Allen"];
+    const custom = { QB: 1, RB: 2 };
+    const br = computeRosterBreakdown(roster, playersArray, custom);
+    // QB is met (1/1), RB is short (0/2).
+    expect(br.needPositions).toEqual(["RB"]);
+    expect(br.counts.TE).toBeUndefined(); // TE not in custom mins
+  });
+});
