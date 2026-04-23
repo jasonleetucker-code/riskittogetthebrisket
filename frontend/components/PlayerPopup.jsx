@@ -152,12 +152,27 @@ function computeValueChain(row) {
 export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade }) {
   const [chainOpen, setChainOpen] = useState(false);
 
-  // Close on Escape
+  // Close on Escape + lock body scroll while open.
+  //
+  // Body-scroll lock: when the popup is open we set ``overflow:
+  // hidden`` on ``document.body`` so a user scrolling inside the
+  // popup doesn't accidentally drive the page behind.  On unmount
+  // (or when ``row`` flips back to null) we restore whatever was
+  // there before — reading the prior value rather than hard-coding
+  // "" avoids clobbering a parent component that might have set
+  // ``overflow: scroll`` for its own reasons.  Combined with
+  // ``overscroll-behavior: contain`` on the sheet in CSS, this
+  // fully isolates scrolling inside the popup.
   useEffect(() => {
     if (!row) return;
     function onKey(e) { if (e.key === "Escape") onClose?.(); }
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    const priorOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = priorOverflow;
+    };
   }, [row, onClose]);
 
   // Reset the chain panel when switching players — the new row's
@@ -250,7 +265,7 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
   return (
     <div className="picker-overlay" onClick={onClose} style={{ zIndex: 1100 }}>
       <div
-        className="picker-sheet"
+        className="picker-sheet picker-sheet--scrollable"
         onClick={(e) => e.stopPropagation()}
         style={{ maxWidth: 520, width: "95vw" }}
       >
