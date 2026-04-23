@@ -28,7 +28,6 @@ const SECTIONS = [
   {
     title: "Tools",
     items: [
-      { href: "/tools/idp-calibration", label: "IDP Calibration Lab", desc: "Internal: calibrate DL/LB/DB multipliers from two Sleeper leagues across 2022–2025, then promote to production" },
       { href: "/settings", label: "Settings", desc: "Tuning controls for valuations and display" },
     ],
   },

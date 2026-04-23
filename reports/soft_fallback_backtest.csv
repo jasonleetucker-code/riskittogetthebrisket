@@ -1,0 +1,9 @@
+setting,mean_abs_rank_change,value_weighted_rank_change
+disabled,2.8809,3.0378
+distance=0.00,0.8823,0.6478
+distance=0.10,0.8881,0.6517
+distance=0.20,0.9354,0.6816
+distance=0.30,1.0215,0.7356
+distance=0.50,0.9871,0.7177
+distance=0.75,0.9983,0.7284
+distance=1.00,0.9421,0.6827

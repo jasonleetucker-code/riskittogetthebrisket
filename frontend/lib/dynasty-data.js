@@ -927,10 +927,6 @@ function _materializePlayerArrayRow(player) {
     canonicalSites,
     canonicalConsensusRank: backendRank,
     rankDerivedValue: backendValue,
-    rankDerivedValueUncalibrated:
-      Number(player.rankDerivedValueUncalibrated) || null,
-    canonicalConsensusRankUncalibrated:
-      Number(player.canonicalConsensusRankUncalibrated) || null,
     canonicalTierId: Number(player.canonicalTierId) || null,
     // Rank movement since the previous scrape.  Positive = moved
     // UP, negative = down, null = new or previously unranked.
@@ -984,14 +980,6 @@ function _materializePlayerArrayRow(player) {
       typeof player.softFallbackCount === "number"
         ? player.softFallbackCount
         : 0,
-    idpCalibrationMultiplier:
-      typeof player.idpCalibrationMultiplier === "number"
-        ? player.idpCalibrationMultiplier
-        : null,
-    idpFamilyScale:
-      typeof player.idpFamilyScale === "number" ? player.idpFamilyScale : null,
-    idpCalibrationPositionRank:
-      Number(player.idpCalibrationPositionRank) || null,
     sourceRankPercentileSpread:
       typeof player.sourceRankPercentileSpread === "number"
         ? player.sourceRankPercentileSpread
@@ -1051,10 +1039,6 @@ function _materializeLegacyDictRow(name, player, posMap) {
     canonicalSites,
     canonicalConsensusRank: backendRank,
     rankDerivedValue: backendValue,
-    rankDerivedValueUncalibrated:
-      Number(player.rankDerivedValueUncalibrated) || null,
-    canonicalConsensusRankUncalibrated:
-      Number(player.canonicalConsensusRankUncalibrated) || null,
     canonicalTierId: Number(player._canonicalTierId) || null,
     sourceRanks: player.sourceRanks && typeof player.sourceRanks === "object" ? player.sourceRanks : {},
     // See ``_materializePlayerArrayRow`` for the rationale on these

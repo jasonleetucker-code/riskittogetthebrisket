@@ -8,8 +8,8 @@ import PlayerRankHistoryChart from "@/components/PlayerRankHistoryChart";
 /**
  * Build the ordered value-chain stages from a player row.
  *
- * Pipeline order (Final Framework PR 3 live chain,
- * src/api/data_contract.py Phase 3 → 4c):
+ * Pipeline order (Final Framework live chain,
+ * src/api/data_contract.py Phase 3):
  *   1. Anchor value — IDPTC's percentile-Hill value for this player,
  *      or the subgroup-only fallback when IDPTC doesn't rank them.
  *   2. Subgroup adjustment — trimmed mean-median of non-anchor source
@@ -18,12 +18,11 @@ import PlayerRankHistoryChart from "@/components/PlayerRankHistoryChart";
  *      anchor and subgroup contribute.
  *   3. MAD volatility penalty — center − λ·MAD (players only; picks
  *      skip this stage).
- *   4. Combined output of 1-3 → ``rankDerivedValueUncalibrated``.
- *   5. IDP calibration (family_scale × bucket multiplier) — IDP rows
- *      only.  Output is the final ``rankDerivedValue``.
+ *   4. Combined output → ``rankDerivedValue``.
  *
- * Only stages with a meaningful delta are emitted so offense rows
- * don't render zero-op "IDP calibration ×1.00" rows.
+ * (The former IDP calibration post-pass — family_scale × bucket
+ * multiplier — was retired alongside the rest of the calibration
+ * system, so the chain no longer has a Stage 5.)
  */
 function computeValueChain(row) {
   if (!row) return [];
@@ -84,15 +83,12 @@ function computeValueChain(row) {
     });
   }
 
-  // λ·MAD penalty retired 2026-04-20; field renamed to
-  // ``sourceSpread`` 2026-04-20 for clarity (it was always a
-  // diagnostic statistic, never a penalty).  The stage that used to
-  // render "MAD penalty −N" is gone — ``sourceSpread`` is displayed
+  // λ·MAD penalty retired 2026-04-20.  ``sourceSpread`` is rendered
   // below the chain as a pure transparency metric.
-  const blended = Number(row.rankDerivedValueUncalibrated) || null;
+  const blended = Number(row.rankDerivedValue) || null;
   if (blended !== null && blended > 0 && stages.length === 0) {
     // Offense rows (no anchor/subgroup stamps) — surface the final
-    // uncalibrated blend value as a single "Blended value" chain row.
+    // blended value as a single "Blended value" chain row.
     stages.push({
       key: "blend",
       label: "Blended value",
@@ -103,37 +99,6 @@ function computeValueChain(row) {
       value: Math.round(blended),
       delta: null,
     });
-  }
-
-  // Stage 2 — IDP calibration (family_scale × bucket multiplier).
-  // Offense rows lack these fields and skip this stage.
-  const bucket =
-    typeof row.idpCalibrationMultiplier === "number"
-      ? row.idpCalibrationMultiplier
-      : null;
-  const family =
-    typeof row.idpFamilyScale === "number" ? row.idpFamilyScale : null;
-  const posRank =
-    typeof row.idpCalibrationPositionRank === "number"
-      ? row.idpCalibrationPositionRank
-      : null;
-  const finalValue = Number(row.rankDerivedValue) || 0;
-  if (family !== null && bucket !== null && finalValue > 0) {
-    const combined = family * bucket;
-    const prior = stages.length ? stages[stages.length - 1].value : null;
-    const delta = prior !== null ? Math.round(finalValue) - prior : null;
-    // Skip if the calibration is a clean no-op AND there's no delta.
-    if (!(Math.abs(combined - 1.0) < 1e-9 && (delta === null || delta === 0))) {
-      const posLabel =
-        posRank && row.pos ? ` (${row.pos}${posRank})` : "";
-      stages.push({
-        key: "idp-calibration",
-        label: `IDP calibration: ×${combined.toFixed(2)}`,
-        description: `Family scale ×${family.toFixed(2)} × bucket multiplier ×${bucket.toFixed(2)}${posLabel}`,
-        value: Math.round(finalValue),
-        delta,
-      });
-    }
   }
 
   return stages;
@@ -254,13 +219,6 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
 
   const rank = resolvedRank(row);
   const values = row.values || {};
-  // Pre-IDP-calibration snapshot.  ``rankDerivedValueUncalibrated`` is
-  // the blended Hill value at the moment just before
-  // ``_apply_idp_calibration_post_pass`` runs; when calibration is
-  // either a no-op or inactive (e.g. ``config/idp_calibration.json``
-  // absent), this equals ``rankDerivedValue``/``values.full`` and the
-  // comparison UI below hides itself.
-  const preCalibrationValue = Number(row.rankDerivedValueUncalibrated) || 0;
 
   return (
     <div className="picker-overlay" onClick={onClose} style={{ zIndex: 1100 }}>
@@ -303,47 +261,19 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
           </div>
         </div>
 
-        {/* Primary value — ``Our Value`` is the live Hill-blended
-            ``rankDerivedValue``.  The IDP calibration post-pass (family
-            scale × bucket multiplier) is the only pipeline stage that
-            can still move that number after the blend, so when it does
-            fire we surface the pre-calibration ``rankDerivedValueUncalibrated``
-            alongside and compute the delta against it.  The prior
-            ``Raw`` / ``Delta`` pair subtracted ``values.rawComposite``
-            (a legacy weighted composite from the old Dynasty Scraper
-            pipeline) from the live Hill blend — two independent
-            pipelines — which produced a misleading three- or four-digit
-            "discount" on every IDP row regardless of what calibration
-            actually did.  When calibration is a no-op (or the config
-            isn't deployed), pre = full and we simply hide the extra
-            fields. */}
+        {/* Primary value — ``Our Value`` is the live blended
+            ``rankDerivedValue`` with no post-blend adjustments.  The
+            IDP calibration post-pass was retired, so there are no
+            longer two values to compare (the "Raw / Delta" pair from
+            the original legacy pipeline was already removed earlier
+            for a separate reason — it subtracted a legacy composite
+            from the Hill blend, which produced misleading four-digit
+            "discounts" on every IDP row). */}
         <div style={{ display: "flex", gap: 20, marginTop: 14, flexWrap: "wrap" }}>
           <div>
             <div className="label">Our Value</div>
             <div className="value" style={{ fontSize: "1.4rem" }}>{Math.round(values.full || 0).toLocaleString()}</div>
           </div>
-          {preCalibrationValue > 0
-            && Math.round(preCalibrationValue) !== Math.round(values.full || 0) && (
-            <>
-              <div>
-                <div className="label">Pre-calibration</div>
-                <div className="value">{Math.round(preCalibrationValue).toLocaleString()}</div>
-              </div>
-              <div>
-                <div className="label">IDP Calibration</div>
-                <div
-                  className="value"
-                  style={{
-                    color: values.full > preCalibrationValue ? "var(--green)" : "var(--red)",
-                  }}
-                  title="Family scale × bucket multiplier applied by the IDP calibration post-pass"
-                >
-                  {values.full > preCalibrationValue ? "+" : ""}
-                  {Math.round(values.full - preCalibrationValue).toLocaleString()}
-                </div>
-              </div>
-            </>
-          )}
         </div>
 
         {/* Value chain — how we arrived at Our Value */}

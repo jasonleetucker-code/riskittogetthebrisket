@@ -19,7 +19,6 @@ const PRIMARY_NAV = [
   { href: "/finder", label: "Finder" },
   { href: "/angle", label: "Angle" },
   { href: "/league", label: "League" },
-  { href: "/tools/idp-calibration", label: "IDP Lab" },
   { href: "/settings", label: "Settings" },
   { href: "/more", label: "More" },
 ];
@@ -145,7 +144,6 @@ function MobileTopBar() {
 
   // Derive page title from current route
   const pageTitle = (() => {
-    if (pathname?.startsWith("/tools/idp-calibration")) return "IDP Lab";
     const route = pathname?.split("/")[1] || "";
     const titles = {
       "": "Home",
