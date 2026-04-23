@@ -1,7 +1,8 @@
 """Tests for the draft capital pipeline.
 
-Values come from the workbook (rounded to integers summing to 1200).
-Ownership comes from the Sleeper API (live traded-pick data).
+The Draft Data workbook is the authoritative source for BOTH pick
+values (Q45:Q116) and pick ownership (R45:R116).  Sleeper is used only
+to resolve first-name owners to display team names.
 """
 from __future__ import annotations
 
@@ -96,6 +97,56 @@ class TestApiOutput(unittest.TestCase):
             self.skipTest(f"Unavailable: {result['error']}")
         total = sum(t["auctionDollars"] for t in result["teamTotals"])
         self.assertEqual(total, 1200, f"Team total sum = {total}")
+
+
+class TestTeamTotalsMirrorSheet(unittest.TestCase):
+    """The pipeline must mirror the sheet: accumulating R45:R116
+    ownership against Q45:Q116 values must equal the authoritative
+    per-owner decimals in T63:U74, and the API's integer totals must
+    sum to exactly 1200 via largest-remainder rounding of those
+    decimals."""
+
+    def test_decimal_totals_match_sheet_per_owner(self):
+        from collections import defaultdict
+        _, workbook_picks, _, wb_team_totals, _ = _load()
+        computed = defaultdict(float)
+        for wp in workbook_picks:
+            computed[wp["owner"]] += wp["value"]
+        for owner, total in computed.items():
+            self.assertAlmostEqual(
+                total, wb_team_totals.get(owner, 0.0), places=2,
+                msg=f"{owner}: computed={total}, sheet={wb_team_totals.get(owner)}",
+            )
+
+    def test_api_team_totals_match_largest_remainder_of_sheet_decimals(self):
+        """Sorted API dollar totals must equal largest-remainder
+        rounding of the sheet's per-owner decimals (regardless of the
+        Sleeper display-name mapping used to label each row)."""
+        import server
+        from collections import defaultdict
+        _, workbook_picks, _, _, _ = _load()
+        decimals = defaultdict(float)
+        for wp in workbook_picks:
+            decimals[wp["owner"]] += wp["value"]
+
+        result = server._fetch_draft_capital()
+        if "error" in result:
+            self.skipTest(f"Unavailable: {result['error']}")
+
+        # Pad with zero-total rows for any teams Sleeper reports that
+        # don't appear as owners in R45:R116 (e.g. expansion franchises
+        # with no picks yet).
+        api_totals = sorted(
+            [t["auctionDollars"] for t in result["teamTotals"]], reverse=True,
+        )
+        decimal_vals = sorted(decimals.values(), reverse=True)
+        pad = max(0, len(api_totals) - len(decimal_vals))
+        decimal_vals += [0.0] * pad
+        expected = sorted(
+            server._round_to_budget(decimal_vals, 1200), reverse=True,
+        )
+        self.assertEqual(api_totals, expected,
+                         f"api={api_totals} expected={expected}")
 
 
 if __name__ == "__main__":

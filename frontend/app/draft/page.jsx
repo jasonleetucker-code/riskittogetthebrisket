@@ -44,7 +44,6 @@ import {
   updatePlayerPreDraft,
   updateSettings,
   updateTeam,
-  workspaceIsPristine,
 } from "@/lib/draft-logic";
 
 const TIER_LABELS = Object.fromEntries(TIER_DEFS.map((t) => [t.key, t.label]));
@@ -2911,13 +2910,14 @@ export default function DraftDashboardPage() {
         const picksArray = Array.isArray(data?.picks) ? data.picks : [];
 
         setWorkspace((ws) => {
-          // Non-force fetches are gated: if the user has already
-          // recorded picks or tuned team budgets, don't clobber.
-          if (!force && !workspaceIsPristine(ws)) return ws;
+          // Force = "Load from Draft Capital" button: overwrite every
+          // row unconditionally.  Sync = auto-refresh: only rewrite
+          // rows the user hasn't manually edited (feedBudget !==
+          // initialBudget flags a manual override, which we preserve).
           const { workspace: next, matched, added } = mergeDraftCapitalTeams(
             ws,
             teamTotals,
-            { picks: picksArray },
+            { picks: picksArray, mode: force ? "force" : "sync" },
           );
           if (!quiet) {
             setCapitalStatus((s) => ({
@@ -2950,12 +2950,13 @@ export default function DraftDashboardPage() {
     [],
   );
 
-  // Auto-populate on first load when the workspace is still at
-  // defaults — gives the user a pre-seeded team list without a click,
-  // but never overwrites a workspace already in progress.
+  // Auto-sync team budgets from the live Draft Capital feed on every
+  // page mount.  Runs in "sync" mode so rows the user has manually
+  // edited (initialBudget !== feedBudget) are preserved; all other
+  // rows snap to the latest feed.  "Load from Draft Capital" still
+  // exists for a hard reset that overwrites every row.
   useEffect(() => {
     if (!hydrated || authenticated !== true) return;
-    if (!workspaceIsPristine(workspace)) return;
     fetchDraftCapital({ quiet: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, authenticated]);
