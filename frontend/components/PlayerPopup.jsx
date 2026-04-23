@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getPlayerEdge } from "@/lib/trade-logic";
 import { resolvedRank, RANKING_SOURCES } from "@/lib/dynasty-data";
 import PlayerRankHistoryChart from "@/components/PlayerRankHistoryChart";
+import { useTeam } from "@/components/useTeam";
+import { useTerminal } from "@/components/useTerminal";
+import { useUserState } from "@/components/useUserState";
 
 /**
  * Build the ordered value-chain stages from a player row.
@@ -150,6 +153,36 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
   const edge = useMemo(() => (row ? getPlayerEdge(row) : null), [row]);
   const valueChain = useMemo(() => computeValueChain(row), [row]);
 
+  // Injury impact lookup from the server-side signals block.
+  // Only populated for roster players today — non-roster players
+  // won't have impact data, and the chip simply doesn't render.
+  const { selectedTeam } = useTeam();
+  const { signals: serverSignals } = useTerminal({
+    ownerId: String(selectedTeam?.ownerId || ""),
+    teamName: selectedTeam?.name || "",
+    windowDays: 30,
+  });
+  const injury = useMemo(() => {
+    const name = String(row?.name || "").toLowerCase();
+    if (!name) return null;
+    const hit = (serverSignals || []).find(
+      (s) => s?.name && String(s.name).toLowerCase() === name,
+    );
+    if (!hit?.injuryImpact) return null;
+    return { impact: hit.injuryImpact, adjustedValue: hit.injuryAdjustedValue };
+  }, [serverSignals, row?.name]);
+
+  // Watchlist toggle — wires the ⭐ button in the popup header to
+  // useUserState.toggleWatchlist.  ``serverBacked`` drives the
+  // tooltip so users know whether the state syncs across devices.
+  const { state: userState, toggleWatchlist, serverBacked: userStateServerBacked } = useUserState();
+  const onWatchlist = useMemo(() => {
+    const name = String(row?.name || "").toLowerCase();
+    if (!name) return false;
+    const list = userState?.watchlist || [];
+    return list.some((x) => String(x).toLowerCase() === name);
+  }, [userState?.watchlist, row?.name]);
+
   const siteDetails = useMemo(() => {
     if (!row) return [];
     // Prefer the backend's 9,999-scale ``valueContribution`` stamp —
@@ -241,6 +274,23 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
             </div>
           </div>
           <div style={{ display: "flex", gap: 6 }}>
+            <button
+              type="button"
+              className={`button player-popup-watchlist${onWatchlist ? " is-active" : ""}`}
+              onClick={() => toggleWatchlist(row.name)}
+              aria-pressed={onWatchlist}
+              title={
+                onWatchlist
+                  ? userStateServerBacked
+                    ? "Remove from watchlist (synced)"
+                    : "Remove from watchlist"
+                  : userStateServerBacked
+                  ? "Add to watchlist (synced across devices)"
+                  : "Add to watchlist (local)"
+              }
+            >
+              {onWatchlist ? "★" : "☆"}
+            </button>
             {onAddToTrade && (
               <button
                 className="button player-popup-action"
@@ -269,11 +319,34 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
             for a separate reason — it subtracted a legacy composite
             from the Hill blend, which produced misleading four-digit
             "discounts" on every IDP row). */}
-        <div style={{ display: "flex", gap: 20, marginTop: 14, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 20, marginTop: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
           <div>
             <div className="label">Our Value</div>
             <div className="value" style={{ fontSize: "1.4rem" }}>{Math.round(values.full || 0).toLocaleString()}</div>
           </div>
+          {injury && injury.impact?.appliedDiscountPct > 0 && (
+            <div>
+              <div className="label" style={{ color: "var(--red)" }}>
+                Adjusted (injury −{Number(injury.impact.appliedDiscountPct).toFixed(
+                  injury.impact.appliedDiscountPct < 1 ? 2 : 1,
+                )}%)
+              </div>
+              <div className="value" style={{ fontSize: "1.4rem", color: "var(--red)" }}>
+                {Number.isFinite(Number(injury.adjustedValue))
+                  ? Number(injury.adjustedValue).toLocaleString()
+                  : "—"}
+              </div>
+            </div>
+          )}
+          {injury && injury.impact?.offseasonSuppressed && (
+            <div
+              className="muted"
+              style={{ fontSize: "0.72rem", fontStyle: "italic", paddingBottom: 6 }}
+              title={`Headline: ${injury.impact.headline}`}
+            >
+              Injury news · offseason (value unchanged)
+            </div>
+          )}
         </div>
 
         {/* Value chain — how we arrived at Our Value */}

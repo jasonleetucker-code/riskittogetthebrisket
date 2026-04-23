@@ -6,6 +6,7 @@ import { useTeam } from "@/components/useTeam";
 import { useRankHistory } from "@/components/useRankHistory";
 import { useNews } from "@/components/useNews";
 import { useUserState } from "@/components/useUserState";
+import { useTerminal } from "@/components/useTerminal";
 import {
   evaluateRoster,
   SIGNAL_META,
@@ -46,6 +47,27 @@ export default function BuySellHold() {
     restoreSignal,
     serverBacked,
   } = useUserState();
+  // Server-side signals carry ``injuryImpact`` + ``injuryAdjustedValue``
+  // fields that the client-side ``evaluateRoster`` can't produce
+  // (news rulebook lives in Python).  We merge by name into the
+  // local verdicts below so every card renders the injury chip
+  // when applicable.
+  const { signals: serverSignals } = useTerminal({
+    ownerId: String(selectedTeam?.ownerId || ""),
+    teamName: selectedTeam?.name || "",
+    windowDays: 30,
+  });
+  const injuryByName = useMemo(() => {
+    const m = new Map();
+    for (const s of serverSignals || []) {
+      if (!s?.name || !s?.injuryImpact) continue;
+      m.set(String(s.name).toLowerCase(), {
+        impact: s.injuryImpact,
+        adjustedValue: s.injuryAdjustedValue,
+      });
+    }
+    return m;
+  }, [serverSignals]);
 
   const sleeperTeams = rawData?.sleeper?.teams;
   const leagueNames = useMemo(() => {
@@ -111,6 +133,7 @@ export default function BuySellHold() {
       const primaryExp = Number(dismissedMap[primary] || 0);
       const aliasExp = alias ? Number(dismissedMap[alias] || 0) : 0;
       const expiresAt = Math.max(primaryExp, aliasExp);
+      const injury = injuryByName.get(String(name).toLowerCase()) || null;
       return {
         ...v,
         signalKey: primary,
@@ -118,6 +141,8 @@ export default function BuySellHold() {
         sleeperId: sid,
         dismissedUntil: expiresAt || null,
         dismissed: expiresAt > now,
+        injuryImpact: injury?.impact || null,
+        injuryAdjustedValue: injury?.adjustedValue ?? null,
       };
     });
   }, [rawVerdicts, dismissedMap, sleeperIdByName, now]);
@@ -265,6 +290,9 @@ function SignalCard({ entry, expanded, onToggleExpand, onOpenPlayer, onDismiss, 
         <span className={`signal-badge signal-badge--${meta.tone}`}>{meta.label}</span>
       </div>
       <div className="signal-card-rationale">{verdict.reason}</div>
+      {entry.injuryImpact && (
+        <InjuryChip impact={entry.injuryImpact} adjustedValue={entry.injuryAdjustedValue} />
+      )}
       <div className="signal-card-chips">
         <Chip label="7d" value={fmtSignedInt(context.trend7)} tone={toneOf(context.trend7)} />
         <Chip label="30d" value={fmtSignedInt(context.trend30)} tone={toneOf(context.trend30)} />
@@ -349,4 +377,60 @@ function volTone(label) {
   if (label === "high") return "down";
   if (label === "med") return "warn";
   return "flat";
+}
+
+/**
+ * InjuryChip — shows the server-side injury impact so the signal
+ * card explains WHY value dropped when news is the reason.
+ *
+ * The impact shape comes from ``src/api/injury_impact.py`` and
+ * carries ``appliedDiscountPct`` + ``severity`` + ``headline`` +
+ * ``offseasonSuppressed``.  We render:
+ *
+ *   - In-season: "⚠ -3.2% (alert) · ACL update" with a title
+ *     tooltip showing the full rulebook math
+ *   - Offseason: muted "Injury news (offseason — suppressed)"
+ *     so the user sees the news exists but knows we didn't
+ *     reprice them (dynasty-horizon rule)
+ */
+function InjuryChip({ impact, adjustedValue }) {
+  if (!impact) return null;
+  const offseason = !!impact.offseasonSuppressed;
+  const discount = Number(impact.appliedDiscountPct) || 0;
+  const severity = impact.severity || "";
+  const headline = impact.headline || "";
+
+  if (offseason) {
+    return (
+      <div
+        className="signal-card-injury signal-card-injury--offseason"
+        title={`News: ${headline}\n(Suppressed — NFL offseason; dynasty value unaffected)`}
+      >
+        <span aria-hidden="true">⚪</span>
+        <span>Injury news · offseason (no reprice)</span>
+      </div>
+    );
+  }
+  const tooltipParts = [
+    `Severity: ${severity || "unknown"}`,
+    `Applied discount: ${discount.toFixed(2)}%`,
+    `Adjusted value: ${Number.isFinite(Number(adjustedValue)) ? Number(adjustedValue).toLocaleString() : "—"}`,
+    impact.headline ? `News: ${headline}` : null,
+  ].filter(Boolean);
+  return (
+    <div
+      className="signal-card-injury"
+      title={tooltipParts.join("\n")}
+      role="note"
+    >
+      <span aria-hidden="true">⚠</span>
+      <span className="signal-card-injury-pct">-{discount.toFixed(discount < 1 ? 2 : 1)}%</span>
+      {severity && (
+        <span className="signal-card-injury-severity">{severity}</span>
+      )}
+      {headline && (
+        <span className="signal-card-injury-headline">{headline}</span>
+      )}
+    </div>
+  );
 }

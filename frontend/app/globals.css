@@ -802,6 +802,24 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-size: 0.78rem;
   padding: 6px 12px;
 }
+.player-popup-watchlist {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  font-size: 1.1rem;
+  line-height: 1;
+  border-color: var(--border);
+  color: var(--muted);
+}
+.player-popup-watchlist.is-active {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  background: rgba(255, 199, 4, 0.08);
+}
+.player-popup-watchlist:hover {
+  color: var(--cyan);
+  border-color: var(--cyan);
+}
 /* Square close button — keeps visual parity with the .picker-close
    button used on the player picker.  Font-size drives the glyph; the
    min-width/min-height lock the tap target. */
@@ -4927,6 +4945,45 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-size: 0.78rem;
   line-height: 1.4;
   color: var(--text);
+}
+.signal-card-injury {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 4px 8px;
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.28);
+  border-radius: 6px;
+  font-size: 0.72rem;
+  cursor: help;
+}
+.signal-card-injury--offseason {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--border);
+  color: var(--muted);
+}
+.signal-card-injury-pct {
+  font-weight: 700;
+  color: var(--red);
+  font-variant-numeric: tabular-nums;
+}
+.signal-card-injury-severity {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.signal-card-injury-headline {
+  color: var(--subtext);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 .signal-card-chips {
   display: flex;

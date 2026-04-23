@@ -1,0 +1,19 @@
+[Unit]
+Description=Daily signal-alert digest sweep for __SERVICE_NAME__
+Requires=__SERVICE_NAME__-signal-alerts.service
+
+[Timer]
+# Fire once a day at 15:00 local time.  Chosen for the US Eastern
+# evening window — most people check fantasy news at night, so the
+# email arrives right before the usual look-at-your-roster moment
+# rather than buried under morning inbox noise.  Persistent=true
+# ensures we run once at boot if the machine was down when the
+# timer would have fired; RandomizedDelaySec smears the load a bit
+# so cohort bursts don't hammer the SMTP relay.
+OnCalendar=*-*-* 15:00:00
+RandomizedDelaySec=300
+Persistent=true
+Unit=__SERVICE_NAME__-signal-alerts.service
+
+[Install]
+WantedBy=timers.target

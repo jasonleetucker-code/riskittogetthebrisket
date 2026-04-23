@@ -40,6 +40,13 @@ import { useSettings } from "@/components/useSettings";
 import TradeDeltaHistogram from "@/components/graphs/TradeDeltaHistogram";
 import { useApp } from "@/components/AppShell";
 import { posBadgeClass } from "@/lib/display-helpers";
+import {
+  buildShareUrl,
+  parseShareParam,
+  SHARE_PARAM,
+} from "@/lib/trade-share";
+import { useTradeSimulator } from "@/components/useTradeSimulator";
+import { useTeam } from "@/components/useTeam";
 
 const ROSTER_KEY = "next_trade_roster_v1";
 const TEAM_KEY = "next_trade_team_v1";
@@ -578,6 +585,12 @@ export default function TradePage() {
   const [ktcImportError, setKtcImportError] = useState("");
   const [ktcImportStatus, setKtcImportStatus] = useState("");
 
+  // Share + simulator state.
+  const [shareStatus, setShareStatus] = useState("");
+  const [shareHydrated, setShareHydrated] = useState(false);
+  const { simulate: simulateTrade, result: simResult, loading: simLoading, error: simError, reset: resetSim } = useTradeSimulator();
+  const { selectedTeam } = useTeam();
+
   // Extract Sleeper teams from dynasty data
   const sleeperTeams = useMemo(() => {
     const teams = rawData?.sleeper?.teams;
@@ -705,6 +718,60 @@ export default function TradePage() {
     const payload = serializeWorkspaceMulti(sides, valueMode, activeSide);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }, [hydrated, valueMode, activeSide, sides]);
+
+  // ── Share-URL decoder ──────────────────────────────────────────────
+  // When the page loads with ``?share=<base64url>`` in the URL, decode
+  // the payload and replace the first N sides with its contents.  We
+  // wait for rows to load + localStorage hydration to finish so the
+  // decoded trade doesn't flash-then-disappear when the later effect
+  // commits the stored workspace.  Running once per page load is
+  // enforced via ``shareHydrated`` — the user can still /clear or edit
+  // the trade after, and we won't re-override from the URL.
+  useEffect(() => {
+    if (!hydrated || shareHydrated) return;
+    if (!rows.length) return;
+    if (typeof window === "undefined") return;
+    const state = parseShareParam(window.location.search);
+    if (!state || !state.sides?.length) {
+      setShareHydrated(true);
+      return;
+    }
+    try {
+      const neededSides = Math.max(2, state.sides.length);
+      const ensureSides = (prev) => {
+        let next = prev;
+        while (next.length < neededSides) next = [...next, createSide(next.length)];
+        return next;
+      };
+      setSides((prev) => {
+        const base = ensureSides(prev);
+        return base.map((side, i) => {
+          const incoming = state.sides[i];
+          if (!incoming) return { ...side, assets: [], destinations: {} };
+          const resolved = [];
+          const seen = new Set();
+          for (const name of incoming.players || []) {
+            const row = rowByName.get(name);
+            if (!row || seen.has(row.name)) continue;
+            seen.add(row.name);
+            resolved.push(row);
+          }
+          const nextDestinations = {};
+          if (base.length > 2) {
+            for (const row of resolved) {
+              nextDestinations[row.name] = defaultDestination(i, base.length);
+            }
+          }
+          return { ...side, assets: resolved, destinations: nextDestinations };
+        });
+      });
+      setShareStatus("Loaded shared trade from link.");
+    } catch {
+      setShareStatus("Share link was malformed — ignored.");
+    } finally {
+      setShareHydrated(true);
+    }
+  }, [hydrated, shareHydrated, rows, rowByName]);
 
   useEffect(() => {
     if (pickerOpen && pickerInputRef.current) pickerInputRef.current.focus();
@@ -1177,6 +1244,78 @@ export default function TradePage() {
     }
   }, [ktcImportUrl, rowByName]);
 
+  // ── Share-URL + simulator actions ─────────────────────────────────
+  // Build a share-URL from the current trade and copy to clipboard.
+  // Falls back to selecting the URL in a prompt when the clipboard
+  // API is unavailable (older Safari / non-HTTPS contexts).
+  const copyShareLink = useCallback(async () => {
+    try {
+      const payload = {
+        sides: sides.map((s) => ({
+          name: s.label ? `Side ${s.label}` : "",
+          players: (s.assets || []).map((a) => a.name),
+        })),
+      };
+      const url = buildShareUrl(payload);
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setShareStatus("Share link copied to clipboard.");
+      } else if (typeof window !== "undefined") {
+        // Surface the URL so the user can copy it manually.
+        window.prompt("Copy this share link:", url);
+        setShareStatus("Share link ready.");
+      }
+    } catch (err) {
+      setShareStatus(err?.message || "Could not copy share link.");
+    }
+  }, [sides]);
+
+  // Pure impact-on-my-roster simulator.  2-team trades only:
+  // whichever side matches the user's selected Sleeper team is
+  // treated as "sending" (players OUT) and the other side as
+  // "receiving" (players IN).  Picks and players are sent as one
+  // payload each because the simulator backend treats them
+  // identically — both resolve through the same row-index.
+  const runSimulateTrade = useCallback(() => {
+    if (sides.length !== 2) return;
+    if (!selectedTeam) return;
+    const myRosterNames = teamRosterNames(selectedTeam);
+    // Score each side by how many of its assets the user owns.
+    // Whichever side has more matches is "my side" (I'm giving).
+    const scores = sides.map((s) => {
+      let hits = 0;
+      for (const a of s.assets || []) if (myRosterNames.has(a.name)) hits += 1;
+      return hits;
+    });
+    let mySide = scores[0] >= scores[1] ? 0 : 1;
+    if (scores[0] === 0 && scores[1] === 0) {
+      // Neither side matches — default to "I'm giving side A" so the
+      // user can flip via Swap Sides if needed.
+      mySide = 0;
+    }
+    const otherSide = mySide === 0 ? 1 : 0;
+    const isPickName = (name) => /\d{4}/.test(String(name || ""));
+    const playersOut = [];
+    const picksOut = [];
+    for (const a of sides[mySide].assets || []) {
+      if (isPickName(a.name)) picksOut.push(a.name);
+      else playersOut.push(a.name);
+    }
+    const playersIn = [];
+    const picksIn = [];
+    for (const a of sides[otherSide].assets || []) {
+      if (isPickName(a.name)) picksIn.push(a.name);
+      else playersIn.push(a.name);
+    }
+    simulateTrade({
+      teamName: selectedTeam?.name,
+      playersIn,
+      playersOut,
+      picksIn,
+      picksOut,
+    });
+  }, [sides, selectedTeam, teamRosterNames, simulateTrade]);
+
   // ── Suggestions logic ─────────────────────────────────────────────
   const parseRoster = useCallback(() => {
     return rosterInput
@@ -1315,7 +1454,166 @@ export default function TradePage() {
             >
               + Import KTC
             </button>
+            <button
+              className="button"
+              onClick={copyShareLink}
+              disabled={!sides.some((s) => (s.assets || []).length > 0)}
+              style={{ borderColor: "var(--cyan)", color: "var(--cyan)" }}
+              title="Copy a shareable link that pre-loads this trade for anyone who opens it"
+            >
+              🔗 Copy Share Link
+            </button>
+            {sides.length === 2 && selectedTeam && (
+              <button
+                className="button"
+                onClick={runSimulateTrade}
+                disabled={simLoading || !sides.some((s) => (s.assets || []).length > 0)}
+                style={{ borderColor: "var(--green)", color: "var(--green)" }}
+                title={`Apply this trade to ${selectedTeam.name} and see before/after roster value`}
+              >
+                {simLoading ? "Simulating…" : "⚙ Simulate impact"}
+              </button>
+            )}
           </div>
+
+          {shareStatus && (
+            <div
+              className="muted"
+              style={{
+                fontSize: "0.74rem",
+                marginBottom: 8,
+                paddingLeft: 2,
+              }}
+            >
+              <span style={{ color: "var(--cyan)" }}>Share:</span>{" "}
+              {shareStatus}
+              <button
+                className="button"
+                style={{
+                  marginLeft: 8,
+                  padding: "1px 8px",
+                  fontSize: "0.66rem",
+                  minHeight: "unset",
+                }}
+                onClick={() => setShareStatus("")}
+                title="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {(simResult || simError) && (
+            <div
+              className="card"
+              style={{
+                marginBottom: 10,
+                padding: "10px 12px",
+                border: "1px solid var(--green)",
+                background: "rgba(52,211,153,0.05)",
+              }}
+            >
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 8,
+              }}>
+                <div style={{ fontSize: "0.74rem", fontWeight: 700, letterSpacing: "0.04em" }}>
+                  IMPACT ON {simResult?.team?.name?.toUpperCase?.() || (selectedTeam?.name || "").toUpperCase()}
+                </div>
+                <button
+                  className="button"
+                  style={{ fontSize: "0.66rem", padding: "1px 8px", minHeight: "unset" }}
+                  onClick={resetSim}
+                  title="Clear simulation"
+                >
+                  ×
+                </button>
+              </div>
+              {simError && (
+                <div style={{ color: "var(--red)", fontSize: "0.78rem" }}>
+                  {simError}
+                </div>
+              )}
+              {simResult && (
+                <div>
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, minmax(0,1fr))",
+                    gap: 10,
+                    marginBottom: 8,
+                  }}>
+                    <div>
+                      <div className="muted" style={{ fontSize: "0.66rem" }}>Before</div>
+                      <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>
+                        {Math.round(simResult.before?.totalValue || 0).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="muted" style={{ fontSize: "0.66rem" }}>After</div>
+                      <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>
+                        {Math.round(simResult.after?.totalValue || 0).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="muted" style={{ fontSize: "0.66rem" }}>Δ Total Value</div>
+                      <div style={{
+                        fontSize: "1.1rem",
+                        fontWeight: 700,
+                        color: (simResult.delta?.totalValue || 0) >= 0 ? "var(--green)" : "var(--red)",
+                      }}>
+                        {(simResult.delta?.totalValue || 0) >= 0 ? "+" : ""}
+                        {Math.round(simResult.delta?.totalValue || 0).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+                    gap: 8,
+                    fontSize: "0.72rem",
+                  }}>
+                    {["QB", "RB", "WR", "TE"].map((pos) => {
+                      const row = simResult.delta?.byPosition?.[pos];
+                      if (!row) return null;
+                      const d = row.value || 0;
+                      return (
+                        <div key={pos} style={{
+                          padding: "4px 8px",
+                          border: "1px solid var(--border)",
+                          borderRadius: 4,
+                        }}>
+                          <span className="muted">{pos}</span>{" "}
+                          <span style={{
+                            color: d === 0 ? "var(--muted)" : d > 0 ? "var(--green)" : "var(--red)",
+                            fontWeight: 600,
+                          }}>
+                            {d > 0 ? "+" : ""}{Math.round(d).toLocaleString()}
+                          </span>
+                          {row.count !== 0 && (
+                            <span className="muted" style={{ marginLeft: 4 }}>
+                              ({row.count > 0 ? "+" : ""}{row.count})
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {(simResult.unresolvedIn?.length > 0 || simResult.unresolvedOut?.length > 0) && (
+                    <div className="muted" style={{ fontSize: "0.7rem", marginTop: 6, color: "var(--red)" }}>
+                      Unresolved:{" "}
+                      {[...(simResult.unresolvedIn || []), ...(simResult.unresolvedOut || [])].join(", ")}
+                    </div>
+                  )}
+                  <div className="muted" style={{ fontSize: "0.68rem", marginTop: 6 }}>
+                    Equity (receiving − sending): {simResult.equity >= 0 ? "+" : ""}
+                    {Math.round(simResult.equity || 0).toLocaleString()}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {ktcImportOpen && (
             <div

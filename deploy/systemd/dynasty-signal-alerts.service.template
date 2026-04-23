@@ -1,0 +1,30 @@
+[Unit]
+Description=Dynasty Trade Calculator signal-alert sweep (__SERVICE_NAME__)
+After=network-online.target __SERVICE_NAME__.service
+Wants=network-online.target
+Requires=__SERVICE_NAME__.service
+
+# Fires the /api/signal-alerts/run endpoint on the local backend.
+# The endpoint authenticates via the SIGNAL_ALERT_CRON_TOKEN bearer
+# token loaded from __APP_DIR__/.env — no password session, no
+# cookies.  Failure to send from here means either the backend is
+# down, the token is missing/wrong, or the SMTP creds are off;
+# systemd will retry on the next timer tick.  The sweep is
+# idempotent (per-signal cooldowns prevent duplicate emails) so
+# over-firing is harmless.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+# curl --fail makes systemd report the unit as failed on any non-2xx
+# response.  --show-error prints errors to the journal; --silent
+# suppresses progress output so the journal stays clean on success.
+ExecStart=/usr/bin/curl --fail --silent --show-error --max-time 300 \
+  -H "Authorization: Bearer ${SIGNAL_ALERT_CRON_TOKEN}" \
+  -X POST http://127.0.0.1:8000/api/signal-alerts/run
+
+[Install]
+WantedBy=multi-user.target
