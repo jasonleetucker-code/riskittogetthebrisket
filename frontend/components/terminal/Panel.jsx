@@ -75,21 +75,3 @@ export default function Panel({
   );
 }
 
-/**
- * PanelPlaceholder — intentional "content coming" state for stub
- * sections.  Renders dimmed skeleton rows so the layout holds its
- * shape and a reader can tell the section is deliberately empty, not
- * broken.
- */
-export function PanelPlaceholder({ label = "Wiring pending", rows = 3, dense = false }) {
-  return (
-    <div className={`panel-placeholder${dense ? " panel-placeholder--dense" : ""}`}>
-      <span className="panel-placeholder-label">{label}</span>
-      <div className="panel-placeholder-rows" aria-hidden="true">
-        {Array.from({ length: rows }).map((_, i) => (
-          <div key={i} className="panel-placeholder-row" />
-        ))}
-      </div>
-    </div>
-  );
-}

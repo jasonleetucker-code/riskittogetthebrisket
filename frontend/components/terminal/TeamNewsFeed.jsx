@@ -1,15 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
+import { useNews } from "@/components/useNews";
 import Panel from "./Panel";
-import {
-  fetchNews,
-  filterByScope,
-  rankByRelevance,
-  timeAgo,
-} from "@/lib/news-service";
+import { filterByScope, timeAgo } from "@/lib/news-service";
 
 const SCOPE_TABS = [
   { key: "roster", label: "My Roster" },
@@ -35,54 +31,15 @@ export default function TeamNewsFeed() {
   const { selectedTeam } = useTeam();
   const sleeperTeams = rawData?.sleeper?.teams;
   const leagueNames = useLeagueNames(sleeperTeams);
-
-  const [scope, setScope] = useState("roster");
-  const [news, setNews] = useState({
-    items: [],
-    source: null,
-    loaded: false,
-    unavailable: false,
-    reason: null,
-  });
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let active = true;
-    fetchNews({ signal: controller.signal })
-      .then((res) => {
-        if (!active) return;
-        setNews({
-          items: Array.isArray(res.items) ? res.items : [],
-          source: res.source || null,
-          loaded: true,
-          unavailable: !!res.unavailable,
-          reason: res.reason || null,
-        });
-      })
-      .catch((err) => {
-        if (err?.name === "AbortError") return;
-        if (!active) return;
-        setNews({
-          items: [],
-          source: null,
-          loaded: true,
-          unavailable: true,
-          reason: "fetch_failed",
-        });
-      });
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, []);
-
   const rosterNames = selectedTeam?.players || [];
 
+  const [scope, setScope] = useState("roster");
+  const news = useNews({ rosterNames, leagueNames });
+
   const scopedItems = useMemo(() => {
-    if (!news.loaded || news.items.length === 0) return [];
-    const scored = rankByRelevance(news.items, { rosterNames, leagueNames });
-    return filterByScope(scored, scope).slice(0, MAX_ITEMS);
-  }, [news, rosterNames, leagueNames, scope]);
+    if (news.loading || news.items.length === 0) return [];
+    return filterByScope(news.scored, scope).slice(0, MAX_ITEMS);
+  }, [news, scope]);
 
   const isMock = news.source === "mock";
 
@@ -114,9 +71,9 @@ export default function TeamNewsFeed() {
         </div>
       )}
 
-      {!news.loaded && <NewsSkeleton rows={4} />}
+      {news.loading && <NewsSkeleton rows={4} />}
 
-      {news.loaded && news.unavailable && (
+      {!news.loading && news.unavailable && (
         <div className="news-empty" role="status">
           <span className="news-empty-title">News unavailable</span>
           <span className="news-empty-body">
@@ -125,7 +82,7 @@ export default function TeamNewsFeed() {
         </div>
       )}
 
-      {news.loaded && !news.unavailable && scopedItems.length === 0 && (
+      {!news.loading && !news.unavailable && scopedItems.length === 0 && (
         <div className="news-empty" role="status">
           <span className="news-empty-title">
             {scope === "roster"
@@ -140,7 +97,7 @@ export default function TeamNewsFeed() {
         </div>
       )}
 
-      {news.loaded && !news.unavailable && scopedItems.length > 0 && (
+      {!news.loading && !news.unavailable && scopedItems.length > 0 && (
         <ul className="news-feed">
           {scopedItems.map((item) => (
             <NewsItem

@@ -45,12 +45,12 @@ export default function Sparkline({
   const effectiveTone = tone === "auto" ? trend : tone;
   const stroke =
     effectiveTone === "up"
-      ? "var(--cyan, #ffc704)"
+      ? "var(--green)"
       : effectiveTone === "down"
-        ? "#e0767a"
+        ? "var(--red)"
         : effectiveTone === "cyan"
-          ? "var(--cyan, #ffc704)"
-          : "var(--muted, #9a8bc4)";
+          ? "var(--cyan)"
+          : "var(--muted)";
 
   return (
     <svg

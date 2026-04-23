@@ -1,47 +1,262 @@
 "use client";
 
+import { useMemo } from "react";
+import { useApp } from "@/components/AppShell";
+import { useTeam } from "@/components/useTeam";
+import { useRankHistory } from "@/components/useRankHistory";
+import { computePortfolio } from "@/lib/portfolio-insights";
 import Panel from "./Panel";
 
-const POSITIONS = ["QB", "RB", "WR", "TE", "IDP", "PICK"];
+const POS_ORDER = ["QB", "RB", "WR", "TE", "K", "DEF", "IDP", "PICK"];
+const AGE_ORDER = [
+  { key: "rookie", label: "Rookie", hint: "≤ 22 / rookie flag" },
+  { key: "young",  label: "Young",  hint: "23–24" },
+  { key: "prime",  label: "Prime",  hint: "25–28" },
+  { key: "vet",    label: "Vet",    hint: "29+" },
+  { key: "unknown",label: "?",      hint: "age missing" },
+];
+const VOL_ORDER = [
+  { key: "low",     label: "Low" },
+  { key: "med",     label: "Med" },
+  { key: "high",    label: "High" },
+  { key: "unknown", label: "N/A" },
+];
+
+function formatValue(v) {
+  if (!Number.isFinite(v)) return "—";
+  return v.toLocaleString();
+}
+
+function formatPct(v) {
+  if (!Number.isFinite(v)) return "—";
+  return `${v.toFixed(v < 10 ? 1 : 0)}%`;
+}
 
 /**
- * Portfolio Summary — asset allocation view.
- * Structural stub with position stack bars and top-holdings list.
+ * Portfolio Summary — front-office dashboard for the signed-in roster.
+ *
+ * Reads the portfolio snapshot from ``computePortfolio`` and renders
+ * five dense subsections:
+ *   - Aggregate header (total + starter vs bench split bar)
+ *   - Positional allocation (value-weighted stack)
+ *   - Age mix (value-weighted segments)
+ *   - Volatility exposure (value-weighted segments)
+ *   - Starting XI (top 10 starters as clickable chips)
+ *
+ * All numbers trace back to contract fields or named derived metrics.
+ * No fake data, no filler chips.
  */
 export default function PortfolioSummary() {
+  const { rows, rawData, openPlayerPopup } = useApp();
+  const { selectedTeam } = useTeam();
+  const { history, loading: historyLoading } = useRankHistory({ days: 30 });
+
+  const portfolio = useMemo(
+    () => computePortfolio({ rows, selectedTeam, rawData, history }),
+    [rows, selectedTeam, rawData, history],
+  );
+
+  if (!selectedTeam) {
+    return (
+      <Panel title="Portfolio" subtitle="Positional allocation" className="panel--portfolio">
+        <div className="portfolio-empty">Pick a team to see allocation.</div>
+      </Panel>
+    );
+  }
+
+  if (!portfolio) {
+    return (
+      <Panel title="Portfolio" subtitle="Positional allocation" className="panel--portfolio">
+        <div className="portfolio-empty">
+          {historyLoading ? "Loading portfolio…" : "No roster data resolved."}
+        </div>
+      </Panel>
+    );
+  }
+
+  const {
+    totalValue,
+    starterValue,
+    benchValue,
+    starterCount,
+    benchCount,
+    starters,
+    pickCount,
+    pickValue,
+    byPosition,
+    byAge,
+    volExposure,
+    unresolved,
+    coverage,
+  } = portfolio;
+
+  // Split bar is lineup-only: picks aren't eligible for start/bench
+  // slots, so they'd otherwise create a phantom gap in the bar.
+  // Picks still appear in Total Value above and in the PICK column
+  // of the positional stack below.
+  const lineupValue = starterValue + benchValue;
+  const starterPct = lineupValue ? (starterValue / lineupValue) * 100 : 0;
+
   return (
     <Panel
       title="Portfolio"
-      subtitle="Positional allocation"
+      subtitle="Value, allocation, age + volatility"
       className="panel--portfolio"
     >
-      <div className="portfolio-stack" aria-hidden="true">
-        {POSITIONS.map((pos, i) => (
-          <div key={pos} className="portfolio-stack-row">
-            <span className="portfolio-stack-label">{pos}</span>
-            <div className="portfolio-stack-bar">
-              <span
-                className="portfolio-stack-fill skeleton-line"
-                style={{ width: `${[75, 62, 88, 31, 22, 18][i]}%` }}
-              />
-            </div>
-            <span className="portfolio-stack-value skeleton-line skeleton-line--xs" />
+      {/* ── Aggregate header ── */}
+      <div className="portfolio-agg">
+        <div className="portfolio-agg-stat">
+          <span className="portfolio-agg-label">Total Value</span>
+          <span className="portfolio-agg-value">{formatValue(totalValue)}</span>
+          {coverage < 1 && unresolved.length > 0 && (
+            <span className="portfolio-agg-hint">
+              {unresolved.length} unresolved
+            </span>
+          )}
+        </div>
+        <div className="portfolio-split" aria-label="Starter vs bench value">
+          <div className="portfolio-split-bar">
+            <span
+              className="portfolio-split-starter"
+              style={{ width: `${starterPct}%` }}
+              aria-hidden="true"
+            />
           </div>
-        ))}
+          <div className="portfolio-split-legend">
+            <span>
+              <strong>Starters</strong>{" "}
+              {formatValue(starterValue)} · {formatPct(starterPct)} · {starterCount}
+            </span>
+            <span>
+              <strong>Bench</strong>{" "}
+              {formatValue(benchValue)} · {formatPct(100 - starterPct)} · {benchCount}
+            </span>
+            {pickCount > 0 && (
+              <span>
+                <strong>Picks</strong>{" "}
+                {formatValue(pickValue)} · {pickCount}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
-      <div className="portfolio-top">
-        <h3 className="portfolio-sub">Top Holdings</h3>
-        <ul className="portfolio-top-list">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <li key={i} className="portfolio-top-row" aria-hidden="true">
-              <span className="portfolio-top-rank">{i + 1}</span>
-              <span className="portfolio-top-name skeleton-line" />
-              <span className="portfolio-top-value skeleton-line skeleton-line--sm" />
-            </li>
-          ))}
-        </ul>
-      </div>
+      {/* ── Positional allocation ── */}
+      <section className="portfolio-section">
+        <h3 className="portfolio-section-title">Positional allocation</h3>
+        <div className="portfolio-stack">
+          {POS_ORDER.map((pos) => {
+            const entry = byPosition[pos];
+            if (!entry || entry.count === 0) return null;
+            return (
+              <div key={pos} className="portfolio-stack-row">
+                <span className="portfolio-stack-label">{pos}</span>
+                <div className="portfolio-stack-bar">
+                  <span
+                    className="portfolio-stack-fill"
+                    style={{ width: `${Math.min(entry.pct, 100)}%` }}
+                  />
+                </div>
+                <span className="portfolio-stack-value">
+                  {formatValue(entry.value)}
+                  <span className="portfolio-stack-meta">
+                    {" "}· {entry.count} · {formatPct(entry.pct)}
+                  </span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── Age mix (value-weighted) ── */}
+      <section className="portfolio-section">
+        <h3 className="portfolio-section-title">Age mix (by value)</h3>
+        <div className="portfolio-seg-bar" role="img" aria-label="Age distribution">
+          {AGE_ORDER.map((a) => {
+            const entry = byAge[a.key];
+            if (!entry || entry.pct === 0) return null;
+            return (
+              <span
+                key={a.key}
+                className={`portfolio-seg portfolio-seg--age-${a.key}`}
+                style={{ flex: entry.pct }}
+                title={`${a.label}: ${formatPct(entry.pct)} · ${entry.count} player${entry.count === 1 ? "" : "s"}`}
+              />
+            );
+          })}
+        </div>
+        <div className="portfolio-seg-legend">
+          {AGE_ORDER.map((a) => {
+            const entry = byAge[a.key];
+            if (!entry || entry.count === 0) return null;
+            return (
+              <span key={a.key} className="portfolio-seg-legend-item">
+                <span className={`portfolio-seg-swatch portfolio-seg--age-${a.key}`} aria-hidden="true" />
+                <span className="portfolio-seg-legend-label">{a.label}</span>
+                <span className="portfolio-seg-legend-value">{formatPct(entry.pct)}</span>
+              </span>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── Volatility exposure ── */}
+      <section className="portfolio-section">
+        <h3 className="portfolio-section-title">Volatility exposure (by value)</h3>
+        <div className="portfolio-seg-bar" role="img" aria-label="Volatility distribution">
+          {VOL_ORDER.map((v) => {
+            const entry = volExposure[v.key];
+            if (!entry || entry.pct === 0) return null;
+            return (
+              <span
+                key={v.key}
+                className={`portfolio-seg portfolio-seg--vol-${v.key}`}
+                style={{ flex: entry.pct }}
+                title={`${v.label}: ${formatPct(entry.pct)} · ${entry.count} player${entry.count === 1 ? "" : "s"}`}
+              />
+            );
+          })}
+        </div>
+        <div className="portfolio-seg-legend">
+          {VOL_ORDER.map((v) => {
+            const entry = volExposure[v.key];
+            if (!entry || entry.count === 0) return null;
+            return (
+              <span key={v.key} className="portfolio-seg-legend-item">
+                <span className={`portfolio-seg-swatch portfolio-seg--vol-${v.key}`} aria-hidden="true" />
+                <span className="portfolio-seg-legend-label">{v.label}</span>
+                <span className="portfolio-seg-legend-value">{formatPct(entry.pct)}</span>
+              </span>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── Starters list ── */}
+      {starters.length > 0 && (
+        <section className="portfolio-section">
+          <h3 className="portfolio-section-title">
+            Starters <span className="portfolio-section-hint">click to open</span>
+          </h3>
+          <ul className="portfolio-starters">
+            {starters.slice(0, 12).map((p) => (
+              <li key={p.name}>
+                <button
+                  type="button"
+                  className="portfolio-starter"
+                  onClick={() => openPlayerPopup?.(p.name)}
+                  title={`${p.name} — ${formatValue(p.value)}`}
+                >
+                  <span className="portfolio-starter-pos">{p.pos}</span>
+                  <span className="portfolio-starter-name">{p.name}</span>
+                  <span className="portfolio-starter-value">{formatValue(p.value)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </Panel>
   );
 }
