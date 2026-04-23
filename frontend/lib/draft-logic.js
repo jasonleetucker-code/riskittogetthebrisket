@@ -1315,6 +1315,116 @@ export function removePlayer(workspace, playerId) {
   };
 }
 
+/**
+ * Replace the rookie player pool with a new list (e.g. from the
+ * live /api/data rookie rankings) while preserving the user's
+ * tags, Target Board, and already-recorded picks wherever the
+ * player id carries over.
+ *
+ * Input shape: ``newPlayers`` is ``[{ name, preDraft, pos? }, ...]``.
+ * Each entry's id is generated via ``playerSlug(name)`` (same rule
+ * used in ``createDefaultWorkspace``) so previous state that was
+ * keyed by the same slug lines back up automatically.
+ *
+ *   - Players on the new list keep their old tag/board-membership
+ *     if the slug matches anything from the old list.
+ *   - Players previously drafted (picks) are preserved when their
+ *     slug still exists in the new list.  Orphaned picks (the
+ *     player dropped off the new list entirely) are DROPPED — the
+ *     caller should preview this and confirm before committing.
+ *   - Rank is 1..N in input order (caller decides sort).
+ *
+ * Returns ``{ workspace, kept, added, dropped, orphanedPicks }``
+ * so the UI can report exactly what the sync did.
+ */
+export function replacePlayerPool(workspace, newPlayers) {
+  const prev = workspace || createDefaultWorkspace();
+  const prevPlayers = Array.isArray(prev.players) ? prev.players : [];
+  const prevTags = prev.tags || {};
+  const prevBoard = Array.isArray(prev.targetBoard) ? prev.targetBoard : [];
+  const prevPicks = Array.isArray(prev.picks) ? prev.picks : [];
+  const prevIds = new Set(prevPlayers.map((p) => p.id));
+
+  const incoming = (Array.isArray(newPlayers) ? newPlayers : [])
+    .filter((p) => p && p.name)
+    .map((p, i) => ({
+      id: playerSlug(p.name),
+      rank: Number.isFinite(Number(p.rank)) ? Number(p.rank) : i + 1,
+      name: String(p.name),
+      preDraft: Math.max(0, Number(p.preDraft) || 0),
+      ...(p.pos ? { pos: String(p.pos) } : {}),
+    }))
+    .filter((p) => p.id);
+
+  const incomingIds = new Set(incoming.map((p) => p.id));
+
+  // Preserve tags ONLY for players still on the board.
+  const nextTags = {};
+  for (const [id, tag] of Object.entries(prevTags)) {
+    if (incomingIds.has(id) && (tag === TAG_TARGET || tag === TAG_AVOID)) {
+      nextTags[id] = tag;
+    }
+  }
+
+  // Preserve Target Board order, drop any slot whose player left.
+  const nextBoard = prevBoard.filter((id) => incomingIds.has(id));
+
+  // Preserve picks; drop any whose player is gone (they'll be
+  // reported in ``orphanedPicks`` so the caller can warn / undo).
+  const orphanedPicks = [];
+  const nextPicks = [];
+  for (const pk of prevPicks) {
+    if (incomingIds.has(pk.playerId)) {
+      nextPicks.push(pk);
+    } else {
+      orphanedPicks.push(pk);
+    }
+  }
+
+  // Diagnostic counts.
+  const kept = incoming.filter((p) => prevIds.has(p.id)).length;
+  const added = incoming.length - kept;
+  const dropped = prevPlayers.filter((p) => !incomingIds.has(p.id)).length;
+
+  return {
+    workspace: {
+      ...prev,
+      players: incoming,
+      tags: nextTags,
+      targetBoard: nextBoard,
+      picks: nextPicks,
+    },
+    kept,
+    added,
+    dropped,
+    orphanedPicks,
+  };
+}
+
+/**
+ * Rescale raw value numbers onto a $N total budget.  Used when
+ * syncing from an external ranking source whose values aren't on
+ * the $1200-total scale our dashboard uses.
+ *
+ *   scale        = targetTotal / Σ rawValues
+ *   scaled[i]    = max(1, round(raw[i] × scale))
+ *
+ * Every scaled value is floored at $1 so the tail of the curve
+ * doesn't round to 0 and turn into unbiddable filler.  Small
+ * rounding drift against the exact targetTotal is fine — the
+ * inflation math handles non-exact totals via ``totalBudget`` as
+ * the inflation denominator rather than the column sum.
+ */
+export function rescaleValuesToBudget(rawValues, targetTotal) {
+  const total = (Array.isArray(rawValues) ? rawValues : []).reduce(
+    (s, v) => s + Math.max(0, Number(v) || 0),
+    0,
+  );
+  if (total <= 0) return (rawValues || []).map(() => 1);
+  const scale = Number(targetTotal) / total;
+  return rawValues.map((v) => Math.max(1, Math.round(Math.max(0, Number(v) || 0) * scale)));
+}
+
 // ── Serialization ───────────────────────────────────────────────────────
 /** Validate + coerce a parsed localStorage payload into a workspace. */
 export function hydrateWorkspace(parsed) {
@@ -1714,6 +1824,236 @@ export function computeHistorySeries(workspace) {
   }
 
   return series;
+}
+
+// ── Post-draft review ──────────────────────────────────────────────────
+/**
+ * Build the "how did the draft go" review bundle from a completed
+ * (or in-progress) workspace.
+ *
+ * Uses CURRENT inflated fair as the fair-value yardstick, not the
+ * fair price at the moment of the pick.  Rationale: inflated fair is
+ * the end-state market consensus — the best retrospective number for
+ * "was my roster a good ROI?".  ``valueVsFair`` on each row still
+ * carries this delta (positive = steal, negative = overpay).
+ *
+ * Returns:
+ *   myPicks      — enriched rows for every pick MY team made
+ *   bestSteal    — my pick with largest positive valueVsFair (or null)
+ *   worstOverpay — my pick with largest negative valueVsFair (or null)
+ *   portfolio    — { paid, fairValue, ratio } for MY picks
+ *   teamRankings — every team { idx, name, paid, fair, ratio }
+ *                  sorted descending by ratio (best drafter first)
+ *   csvRows      — array-of-arrays ready for CSV export (mine + all)
+ *
+ * Falls back to sane empties when no picks are recorded yet so the
+ * UI can render skeleton state without special-casing.
+ */
+export function computeDraftReview(workspace, stats) {
+  const ws = workspace || createDefaultWorkspace();
+  const s = stats || computeDraftStats(ws);
+  const picks = Array.isArray(ws.picks) ? ws.picks : [];
+  const myIdx = Number.isInteger(ws.settings?.myTeamIdx)
+    ? ws.settings.myTeamIdx
+    : 0;
+  const playerById = new Map(s.enrichedPlayers.map((p) => [p.id, p]));
+  const teamIdxName = (i) =>
+    ws.teams?.[i]?.name || `Team ${i + 1}`;
+
+  // Build rows per pick.
+  const rows = picks.map((pk) => {
+    const player = playerById.get(pk.playerId);
+    return {
+      playerId: pk.playerId,
+      playerName: player?.name || pk.playerId,
+      tier: player?.tier || "?",
+      teamIdx: pk.teamIdx,
+      teamName: teamIdxName(pk.teamIdx),
+      paid: Number(pk.amount) || 0,
+      fair: player?.inflatedFair ?? 0,
+      preDraft: player?.preDraft ?? pk.preDraftAtPick ?? 0,
+      valueVsFair: player
+        ? (player.inflatedFair || 0) - (Number(pk.amount) || 0)
+        : 0,
+      pos: player?.pos || null,
+      mine: pk.teamIdx === myIdx,
+      ts: pk.ts,
+    };
+  });
+
+  const myRows = rows.filter((r) => r.mine).sort((a, b) => b.valueVsFair - a.valueVsFair);
+  const bestSteal = myRows.length > 0 ? myRows[0] : null;
+  const worstOverpay =
+    myRows.length > 0 ? myRows[myRows.length - 1] : null;
+
+  const portfolioPaid = myRows.reduce((sum, r) => sum + r.paid, 0);
+  const portfolioFair = myRows.reduce((sum, r) => sum + r.fair, 0);
+  const portfolioRatio = portfolioPaid > 0 ? portfolioFair / portfolioPaid : 0;
+
+  // Per-team aggregation.
+  const byTeam = new Map();
+  for (const r of rows) {
+    const key = r.teamIdx;
+    const bucket = byTeam.get(key) || {
+      idx: key,
+      name: r.teamName,
+      paid: 0,
+      fair: 0,
+      count: 0,
+    };
+    bucket.paid += r.paid;
+    bucket.fair += r.fair;
+    bucket.count += 1;
+    byTeam.set(key, bucket);
+  }
+  const teamRankings = [...byTeam.values()]
+    .map((t) => ({
+      ...t,
+      ratio: t.paid > 0 ? t.fair / t.paid : 0,
+      delta: t.fair - t.paid,
+      isMine: t.idx === myIdx,
+    }))
+    .sort((a, b) => b.ratio - a.ratio);
+
+  // CSV shape: header row + one row per pick, chronological.
+  const csvHeader = [
+    "Team",
+    "Player",
+    "Tier",
+    "Pos",
+    "Paid",
+    "PreDraft",
+    "Fair",
+    "Delta (fair - paid)",
+    "Mine",
+  ];
+  const csvBody = [...rows]
+    .sort((a, b) => (a.ts || 0) - (b.ts || 0))
+    .map((r) => [
+      r.teamName,
+      r.playerName,
+      r.tier,
+      r.pos || "",
+      r.paid,
+      r.preDraft,
+      r.fair,
+      r.valueVsFair,
+      r.mine ? "yes" : "",
+    ]);
+
+  return {
+    rows,
+    myPicks: myRows.sort((a, b) => (a.ts || 0) - (b.ts || 0)),
+    bestSteal,
+    worstOverpay,
+    portfolio: {
+      paid: portfolioPaid,
+      fairValue: portfolioFair,
+      ratio: portfolioRatio,
+      delta: portfolioFair - portfolioPaid,
+    },
+    teamRankings,
+    csvHeader,
+    csvBody,
+  };
+}
+
+/**
+ * Serialize a draft review into a CSV string ready for
+ * ``Blob`` download.  Quote only cells that contain commas or
+ * quotes — everything else stays bare for readability when
+ * opened in a spreadsheet app.
+ */
+export function draftReviewToCsv(review) {
+  if (!review) return "";
+  const esc = (v) => {
+    const s = String(v ?? "");
+    if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+  const lines = [review.csvHeader.join(",")];
+  for (const row of review.csvBody) {
+    lines.push(row.map(esc).join(","));
+  }
+  return lines.join("\n");
+}
+
+// ── Roster-gap awareness ───────────────────────────────────────────────
+/**
+ * Default positional thresholds for "need".  When the user's
+ * current Sleeper roster has FEWER of a position than the
+ * threshold, that position is flagged as a need.  Values chosen
+ * to fit a 2-QB/2-RB/3-WR/1-TE + flex IDP starter shape common
+ * in SF leagues — adjust via options when a league's shape
+ * differs significantly.
+ */
+export const DEFAULT_POSITION_MINS = {
+  QB: 3,
+  RB: 4,
+  WR: 5,
+  TE: 2,
+  DL: 3,
+  LB: 3,
+  DB: 3,
+};
+
+/**
+ * Count how many players on my current Sleeper roster fall into
+ * each position bucket, and diff that against ``positionMins`` to
+ * flag positions where I'm short.
+ *
+ * ``sleeperTeamPlayers`` — array of player names from the Sleeper
+ * roster feed.  ``allPlayersArray`` — the playersArray from
+ * /api/data (full rankings, used to map name → position).
+ *
+ * Returns:
+ *   counts         { QB: 3, RB: 4, ... }  — how many I have
+ *   needPositions  ["TE", "DB"]           — positions below min
+ *   shortages      { TE: 1, DB: 2 }       — how many short per pos
+ *
+ * Unmatched names (free-agent pickups, preseason adds, etc) are
+ * simply skipped — they don't contribute to counts either way.
+ */
+export function computeRosterBreakdown(
+  sleeperTeamPlayers,
+  allPlayersArray,
+  positionMins = DEFAULT_POSITION_MINS,
+) {
+  const counts = {};
+  for (const key of Object.keys(positionMins)) counts[key] = 0;
+
+  const playerNames = Array.isArray(sleeperTeamPlayers)
+    ? sleeperTeamPlayers
+    : [];
+  const byName = new Map();
+  if (Array.isArray(allPlayersArray)) {
+    for (const p of allPlayersArray) {
+      const name = p?.displayName || p?.canonicalName || p?.name;
+      if (name) byName.set(String(name), p);
+    }
+  }
+
+  for (const name of playerNames) {
+    const row = byName.get(String(name));
+    if (!row) continue;
+    const pos = String(row.position || row.pos || "").toUpperCase();
+    if (counts[pos] != null) counts[pos] += 1;
+  }
+
+  const shortages = {};
+  const needPositions = [];
+  for (const [key, min] of Object.entries(positionMins)) {
+    const have = counts[key] || 0;
+    const short = Math.max(0, min - have);
+    if (short > 0) {
+      shortages[key] = short;
+      needPositions.push(key);
+    }
+  }
+  // Sort need positions by biggest shortage first for UI priority.
+  needPositions.sort((a, b) => (shortages[b] || 0) - (shortages[a] || 0));
+
+  return { counts, needPositions, shortages, positionMins };
 }
 
 /**
