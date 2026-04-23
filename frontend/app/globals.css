@@ -4845,3 +4845,120 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   padding: 4px 8px;
   border-bottom: 1px solid rgba(38, 58, 105, 0.3);
 }
+
+/* ── Team Switcher ───────────────────────────────────────────────── */
+.team-switcher {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.team-switcher-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card);
+  color: var(--text, #fff);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 6px);
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  max-width: 220px;
+}
+.team-switcher-toggle:hover,
+.team-switcher--open .team-switcher-toggle {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+.team-switcher--needs .team-switcher-toggle {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  animation: team-switcher-pulse 2s ease-in-out infinite;
+}
+@keyframes team-switcher-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 199, 4, 0); }
+  50% { box-shadow: 0 0 0 3px rgba(255, 199, 4, 0.25); }
+}
+.team-switcher-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.team-switcher-caret {
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
+.team-switcher-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 220px;
+  max-height: 60vh;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  z-index: 1000;
+}
+.team-switcher-menu li {
+  margin: 0;
+  padding: 0;
+}
+.team-switcher-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 0;
+  color: var(--text, #fff);
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.team-switcher-option:hover {
+  background: rgba(255, 199, 4, 0.08);
+  color: var(--cyan);
+}
+.team-switcher-option.is-active {
+  color: var(--cyan);
+  background: rgba(255, 199, 4, 0.12);
+  font-weight: 600;
+}
+.team-switcher-option-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.team-switcher-option-meta {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted, #9a8bc4);
+  flex-shrink: 0;
+}
+/* Desktop variant: compact in topbar */
+.team-switcher--desktop .team-switcher-toggle {
+  font-size: 0.78rem;
+  padding: 5px 10px;
+}
+/* Mobile variant: tighter footprint, right-aligned menu still works */
+.team-switcher--mobile .team-switcher-toggle {
+  font-size: 0.72rem;
+  padding: 4px 8px;
+  max-width: 140px;
+}
+.team-switcher--mobile .team-switcher-menu {
+  min-width: 200px;
+  max-width: calc(100vw - 24px);
+}
