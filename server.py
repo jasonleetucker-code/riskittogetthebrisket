@@ -64,6 +64,7 @@ from src.api.data_contract import (
     validate_api_data_contract,
 )
 from src.api import rank_history as _rank_history
+from src.api import source_history as _source_history
 from src.news import NewsService, build_default_service
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
@@ -995,6 +996,18 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         try:
             if is_fresh_scrape:
                 _rank_history.append_snapshot(contract_payload)
+                # Sister snapshot: per-source value history.  Stored in
+                # a separate JSONL so the rank-history log stays small
+                # and readable while the popup chart can stream a
+                # richer per-source series on demand.  Failures are
+                # isolated so a source-history write error doesn't
+                # nuke the rank-history append we just did.
+                try:
+                    _source_history.append_snapshot(contract_payload)
+                except Exception as inner_exc:  # noqa: BLE001
+                    log.warning(
+                        "source_history: append failed: %s", inner_exc,
+                    )
             stamped = _rank_history.stamp_contract_with_history(contract_payload)
             if stamped:
                 log.info("rank_history: stamped %d rows with history series", stamped)
@@ -1678,6 +1691,25 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         log.warning("public_league warmup failed at startup: %s", exc)
 
+    # Per-source value history backfill — if the snapshot log is
+    # missing or empty, mine the historical ``data/dynasty_data_*.json``
+    # exports so the PlayerPopup chart has ~28 days of per-source
+    # history on day one.  Skipped when the log already has entries
+    # (idempotent, safe to re-run).  Runs sync at boot because it's
+    # fast (<2s) and the data is needed before the first
+    # /api/data/player-source-history request lands.
+    try:
+        history_path = _source_history.HISTORY_PATH
+        needs_backfill = not history_path.exists() or history_path.stat().st_size == 0
+        if needs_backfill:
+            exports = sorted((DATA_DIR).glob("dynasty_data_*.json"))
+            if exports:
+                written = _source_history.backfill_from_exports(exports)
+                log.info("source_history: backfilled %d snapshots from %d exports",
+                         written, len(exports))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("source_history: startup backfill failed: %s", exc)
+
     log.info(f"Server started — scraping every {SCRAPE_INTERVAL_HOURS}h")
     log.info("Frontend: Next.js at %s", FRONTEND_URL)
     log.info(f"Dashboard: http://localhost:{PORT}")
@@ -1826,6 +1858,48 @@ async def get_rank_history(request: Request):
     return JSONResponse(
         content={"days": days, "history": history},
         headers={"Cache-Control": "public, max-age=60, stale-while-revalidate=300"},
+    )
+
+
+@app.get("/api/data/player-source-history")
+async def get_player_source_history(request: Request):
+    """Per-source value history for a single player.
+
+    Returns the per-source and blended value timeline the PlayerPopup
+    chart renders as multiple overlaid lines — one thin line per
+    ranking source and one bold line for our blend.
+
+    Query params:
+      * ``name``        — player display name (required, case-insensitive)
+      * ``days``        — window in days (default 180, max 180)
+      * ``assetClass``  — optional disambiguator ("offense" / "idp" /
+                          "pick") for cross-universe name collisions
+    """
+    name = (request.query_params.get("name") or "").strip()
+    if not name:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Missing required 'name' query param."},
+        )
+    try:
+        requested = int(request.query_params.get("days", _source_history.DEFAULT_HISTORY_WINDOW_DAYS))
+    except (TypeError, ValueError):
+        requested = _source_history.DEFAULT_HISTORY_WINDOW_DAYS
+    days = max(1, min(_source_history.MAX_SNAPSHOTS, requested))
+    asset_class = (request.query_params.get("assetClass") or "").strip() or None
+    history = _source_history.load_player_history(
+        name,
+        days=days,
+        asset_class=asset_class,
+    )
+    return JSONResponse(
+        content={
+            "name": name,
+            "days": days,
+            "assetClass": asset_class,
+            **history,
+        },
+        headers={"Cache-Control": "public, max-age=120, stale-while-revalidate=600"},
     )
 
 
