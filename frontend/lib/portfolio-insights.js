@@ -7,15 +7,34 @@ import {
 } from "@/lib/value-history";
 
 /**
- * portfolio-insights — roster aggregates + front-office intel.
+ * portfolio-insights — FALLBACK ROSTER AGGREGATES.
  *
- * Produces the numbers a GM actually uses at a glance:
- *   - total value / starter vs bench split / positional allocation
- *   - age mix (rookie / young / prime / vet) weighted by value
- *   - volatility exposure weighted by value
- *   - four named insight cards (best asset, biggest risk, trade chip,
- *     buy-low) — each with a concrete reason, never generic prose
- *   - short per-player blurb generator for drill-ins
+ * As of the terminal endpoint rollout, the backend's
+ * ``/api/terminal`` computes the authoritative version of every
+ * field this module produces:
+ *   - ``totalValue`` / ``byPosition`` / ``byAge`` / ``volExposure``
+ *     / ``counters`` / ``medianAge``   ← from ``_compute_portfolio_insights``
+ *   - ``bestAsset`` / ``biggestRisk`` / ``tradeChip`` / ``buyLow``
+ *     insight cards                     ← same module
+ *   - per-player ``trend7`` / ``trend30`` / ``volatility``
+ *     enrichment on each roster player  ← same module
+ *
+ * This file is retained as a **defensive fallback** — the panels
+ * that consume it prefer the server fields and only fall through
+ * to these local computations when:
+ *   1. The user is anonymous (no /api/terminal auth).
+ *   2. The terminal endpoint returned an error.
+ *   3. The panel is rendering before the fetch resolves.
+ *
+ * Do NOT add new fields here without a matching server-side
+ * emission; the server is the authority.  Keep this module lean:
+ * shrink it when server coverage expands rather than growing it.
+ *
+ * The two server-missing bits are:
+ *   - Starter/bench split (needs lineup-position parsing)
+ *   - ``computePlayerBlurb`` single-sentence narratives
+ * Those remain owned by this module for both online and fallback
+ * paths.
  *
  * No randomness.  Every insight cites the metric that earned it.
  */

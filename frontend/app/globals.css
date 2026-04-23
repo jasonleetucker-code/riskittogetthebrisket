@@ -4929,6 +4929,37 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 .signal-card-more:hover { color: var(--cyan); border-color: var(--cyan); }
 
+.signal-card-dismiss {
+  padding: 2px 8px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.signal-card-dismiss:hover {
+  color: var(--red);
+  border-color: var(--red);
+}
+.signal-card-dismiss--restore {
+  color: var(--cyan);
+  border-color: var(--cyan);
+}
+.signal-card-dismiss--restore:hover {
+  background: rgba(255, 199, 4, 0.08);
+}
+.signal-card--dismissed {
+  opacity: 0.55;
+  background: rgba(255, 255, 255, 0.02);
+}
+.signal-card--dismissed .signal-card-name {
+  text-decoration: line-through;
+  text-decoration-color: var(--muted);
+  text-decoration-thickness: 1px;
+}
+
 .signal-chip {
   display: inline-flex;
   align-items: center;
@@ -6073,4 +6104,277 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   color: var(--cyan);
   font-style: italic;
   margin-left: auto;
+}
+
+/* ── Stale banner (TerminalLayout) ─────────────────────────────── */
+.stale-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  margin-bottom: 10px;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  color: var(--text);
+}
+.stale-banner--error {
+  background: rgba(248, 113, 113, 0.08);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+.stale-banner-tag {
+  padding: 2px 8px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bg);
+  background: var(--amber, #FFC704);
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.stale-banner--error .stale-banner-tag {
+  color: var(--text);
+  background: var(--red);
+}
+.stale-banner-text {
+  color: var(--subtext);
+}
+
+/* ── Watchlist panel ───────────────────────────────────────────── */
+.watchlist-empty {
+  padding: 14px 4px;
+  text-align: center;
+}
+.watchlist-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.watchlist-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 6px 4px 8px;
+  transition: background 0.12s, border-color 0.12s;
+}
+.watchlist-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.watchlist-row--roster {
+  border-color: rgba(255, 199, 4, 0.25);
+}
+.watchlist-row-trigger {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) 36px 60px minmax(0, 2fr);
+  gap: 8px;
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: left;
+  min-height: 32px;
+}
+.watchlist-col {
+  min-width: 0;
+}
+.watchlist-col--name {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.watchlist-col--pos {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  text-transform: uppercase;
+  text-align: center;
+}
+.watchlist-col--value {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  color: var(--text);
+  text-align: right;
+}
+.watchlist-col--trend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+.watchlist-row-dot {
+  color: var(--cyan);
+  margin-right: 6px;
+  font-size: 0.5rem;
+  line-height: 1;
+  vertical-align: middle;
+}
+.watchlist-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 5px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+}
+.watchlist-delta-label {
+  color: var(--muted);
+  font-weight: 600;
+}
+.watchlist-delta-value {
+  font-weight: 700;
+}
+.watchlist-delta--up   .watchlist-delta-value { color: var(--green); }
+.watchlist-delta--down .watchlist-delta-value { color: var(--red); }
+.watchlist-delta--flat .watchlist-delta-value { color: var(--muted); }
+.watchlist-row-remove {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.watchlist-row-remove:hover {
+  color: var(--red);
+  border-color: var(--red);
+}
+
+/* ── Trade coverage audit ──────────────────────────────────────── */
+.trade-coverage-summary {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.trade-coverage-summary-stat {
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-width: 110px;
+}
+.trade-coverage-summary-stat--warn {
+  border-color: rgba(251, 191, 36, 0.5);
+}
+.trade-coverage-summary-stat--down {
+  border-color: rgba(248, 113, 113, 0.5);
+}
+.trade-coverage-summary-label {
+  display: block;
+  font-size: 0.64rem;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.trade-coverage-summary-value {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.trade-coverage-head,
+.trade-coverage-row {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, 1.8fr)
+    90px
+    60px
+    90px
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr);
+  gap: 8px;
+  padding: 6px 8px;
+  align-items: center;
+}
+.trade-coverage-head {
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.trade-coverage-body {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.trade-coverage-row {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 4px;
+}
+.trade-coverage-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.trade-coverage-cell {
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.trade-coverage-cell--name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.trade-coverage-team-name {
+  color: var(--text);
+  font-weight: 600;
+}
+.trade-coverage-team-owner {
+  font-size: 0.6rem;
+}
+.trade-coverage-flag {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+}
+.trade-coverage-flag--on { color: var(--green); }
+.trade-coverage-flag--off { color: var(--muted); }
+.trade-coverage-cell--delta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.trade-coverage-delta-value {
+  font-weight: 700;
+  color: var(--text);
+}
+.trade-coverage-delta-cov {
+  font-size: 0.62rem;
 }

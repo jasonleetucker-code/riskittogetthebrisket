@@ -5,12 +5,25 @@ import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
 import { useRankHistory } from "@/components/useRankHistory";
 import { useNews } from "@/components/useNews";
+import { useUserState } from "@/components/useUserState";
 import {
   evaluateRoster,
   SIGNAL_META,
   SIGNALS,
 } from "@/lib/signal-engine";
 import Panel from "./Panel";
+
+const DISMISSAL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function signalKey(name, tag) {
+  return `${String(name).trim()}::${String(tag || "unknown").trim()}`;
+}
+
+function aliasSignalKey(sleeperId, tag) {
+  const sid = String(sleeperId || "").trim();
+  if (!sid) return "";
+  return `sid:${sid}::${String(tag || "unknown").trim()}`;
+}
 
 const FILTER_ORDER = [
   SIGNALS.RISK,
@@ -27,6 +40,12 @@ export default function BuySellHold() {
   const { rows, rawData, openPlayerPopup } = useApp();
   const { selectedTeam } = useTeam();
   const { history, loading: historyLoading } = useRankHistory({ days: 30 });
+  const {
+    state: userState,
+    dismissSignal,
+    restoreSignal,
+    serverBacked,
+  } = useUserState();
 
   const sleeperTeams = rawData?.sleeper?.teams;
   const leagueNames = useMemo(() => {
@@ -40,6 +59,24 @@ export default function BuySellHold() {
 
   const [filters, setFilters] = useState(new Set(DEFAULT_FILTERS));
   const [expandedId, setExpandedId] = useState(null);
+  const [showDismissed, setShowDismissed] = useState(false);
+
+  // Build a sleeperId lookup from rawData.players so dismissal
+  // records can carry the stable alias.
+  const sleeperIdByName = useMemo(() => {
+    const m = new Map();
+    const legacy = rawData?.players;
+    if (legacy && typeof legacy === "object") {
+      for (const name of Object.keys(legacy)) {
+        const p = legacy[name];
+        const sid = p?._sleeperId || p?.sleeperId;
+        if (sid) m.set(String(name).toLowerCase(), String(sid));
+      }
+    }
+    return m;
+  }, [rawData]);
+
+  const dismissedMap = userState?.dismissedSignals || {};
 
   const rosterNames = selectedTeam?.players || [];
   const news = useNews({ rosterNames, leagueNames });
@@ -48,7 +85,7 @@ export default function BuySellHold() {
   // no per-component re-ranking needed.
   const scoredNews = news.scored;
 
-  const verdicts = useMemo(
+  const rawVerdicts = useMemo(
     () =>
       evaluateRoster({
         rows,
@@ -59,15 +96,53 @@ export default function BuySellHold() {
     [rows, selectedTeam, history, scoredNews],
   );
 
+  // Attach dismissal state.  A signal is dismissed when EITHER the
+  // display-name key (``<name>::<tag>``) OR the rename-resistant
+  // alias (``sid:<sleeperId>::<tag>``) has an entry with
+  // expiresAt > now.  Two keys so a later rename doesn't un-dismiss.
+  const now = Date.now();
+  const verdicts = useMemo(() => {
+    return rawVerdicts.map((v) => {
+      const name = v.row?.name || v.context?.name || "";
+      const tag = v.verdict?.tag || "unknown";
+      const primary = signalKey(name, tag);
+      const sid = sleeperIdByName.get(String(name).toLowerCase()) || "";
+      const alias = aliasSignalKey(sid, tag);
+      const primaryExp = Number(dismissedMap[primary] || 0);
+      const aliasExp = alias ? Number(dismissedMap[alias] || 0) : 0;
+      const expiresAt = Math.max(primaryExp, aliasExp);
+      return {
+        ...v,
+        signalKey: primary,
+        aliasSignalKey: alias,
+        sleeperId: sid,
+        dismissedUntil: expiresAt || null,
+        dismissed: expiresAt > now,
+      };
+    });
+  }, [rawVerdicts, dismissedMap, sleeperIdByName, now]);
+
   const counts = useMemo(() => {
     const c = Object.fromEntries(FILTER_ORDER.map((s) => [s, 0]));
-    for (const v of verdicts) c[v.verdict.signal] = (c[v.verdict.signal] || 0) + 1;
+    for (const v of verdicts) {
+      if (v.dismissed && !showDismissed) continue;
+      c[v.verdict.signal] = (c[v.verdict.signal] || 0) + 1;
+    }
     return c;
-  }, [verdicts]);
+  }, [verdicts, showDismissed]);
 
   const visible = useMemo(
-    () => verdicts.filter((v) => filters.has(v.verdict.signal)),
-    [verdicts, filters],
+    () =>
+      verdicts.filter((v) => {
+        if (v.dismissed && !showDismissed) return false;
+        return filters.has(v.verdict.signal);
+      }),
+    [verdicts, filters, showDismissed],
+  );
+
+  const dismissedCount = useMemo(
+    () => verdicts.filter((v) => v.dismissed).length,
+    [verdicts],
   );
 
   function toggleFilter(sig) {
@@ -96,6 +171,22 @@ export default function BuySellHold() {
       title="Signals"
       subtitle="Rule-driven Buy / Sell / Hold per roster player"
       className="panel--signals"
+      actions={
+        dismissedCount > 0 ? (
+          <button
+            type="button"
+            className={`panel-tab${showDismissed ? " is-active" : ""}`}
+            onClick={() => setShowDismissed((v) => !v)}
+            title={
+              serverBacked
+                ? "Dismissals sync across your devices"
+                : "Dismissals saved locally (sign in to sync)"
+            }
+          >
+            {showDismissed ? "Hide dismissed" : `Dismissed (${dismissedCount})`}
+          </button>
+        ) : null
+      }
     >
       <div className="signal-filters" role="group" aria-label="Filter by signal">
         {FILTER_ORDER.map((sig) => {
@@ -124,13 +215,28 @@ export default function BuySellHold() {
         <ul className="signal-list">
           {visible.map((entry) => (
             <SignalCard
-              key={entry.row.name}
+              key={entry.signalKey || entry.row.name}
               entry={entry}
-              expanded={expandedId === entry.row.name}
+              expanded={expandedId === (entry.signalKey || entry.row.name)}
               onToggleExpand={() =>
-                setExpandedId((prev) => (prev === entry.row.name ? null : entry.row.name))
+                setExpandedId((prev) =>
+                  prev === (entry.signalKey || entry.row.name)
+                    ? null
+                    : entry.signalKey || entry.row.name,
+                )
               }
               onOpenPlayer={() => openPlayerPopup?.(entry.row.name)}
+              onDismiss={() => {
+                const key = entry.aliasSignalKey || entry.signalKey;
+                dismissSignal(key, DISMISSAL_TTL_MS, {
+                  aliasSleeperId: entry.sleeperId || undefined,
+                  aliasDisplayName: entry.row.name || undefined,
+                });
+              }}
+              onRestore={() => {
+                if (entry.signalKey) restoreSignal(entry.signalKey);
+                if (entry.aliasSignalKey) restoreSignal(entry.aliasSignalKey);
+              }}
             />
           ))}
         </ul>
@@ -139,13 +245,17 @@ export default function BuySellHold() {
   );
 }
 
-function SignalCard({ entry, expanded, onToggleExpand, onOpenPlayer }) {
+function SignalCard({ entry, expanded, onToggleExpand, onOpenPlayer, onDismiss, onRestore }) {
   const { context, verdict } = entry;
   const meta = SIGNAL_META[verdict.signal];
   const volLabel = context.volatility?.label ?? "—";
 
   return (
-    <li className={`signal-card signal-card--${meta.tone}`}>
+    <li
+      className={`signal-card signal-card--${meta.tone}${
+        entry.dismissed ? " signal-card--dismissed" : ""
+      }`}
+    >
       <div className="signal-card-top">
         <button type="button" className="signal-card-name-btn" onClick={onOpenPlayer} title={`Open ${context.name}`}>
           <span className="signal-card-name">{context.name}</span>
@@ -174,6 +284,25 @@ function SignalCard({ entry, expanded, onToggleExpand, onOpenPlayer }) {
             aria-expanded={expanded}
           >
             {expanded ? "Hide" : `Why (${verdict.fired.length})`}
+          </button>
+        )}
+        {entry.dismissed ? (
+          <button
+            type="button"
+            className="signal-card-dismiss signal-card-dismiss--restore"
+            onClick={onRestore}
+            title="Resurface this signal"
+          >
+            Restore
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="signal-card-dismiss"
+            onClick={onDismiss}
+            title="Dismiss for 7 days"
+          >
+            Dismiss
           </button>
         )}
       </div>

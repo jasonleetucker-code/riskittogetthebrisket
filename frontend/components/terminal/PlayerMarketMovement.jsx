@@ -21,6 +21,8 @@ const SCOPE_TABS = [
 const WINDOW_TABS = [
   { key: "d7", label: "7d", days: 7 },
   { key: "d30", label: "30d", days: 30 },
+  { key: "d90", label: "90d", days: 90 },
+  { key: "d180", label: "180d", days: 180 },
 ];
 
 const SORTS = {

@@ -4482,6 +4482,17 @@ async def serve_settings(request: Request):
     return await _serve_app_shell("/settings")
 
 
+@app.get("/tools/trade-coverage", response_class=HTMLResponse)
+async def serve_trade_coverage(request: Request):
+    """Internal diagnostic dashboard: per-team /api/terminal delta
+    coverage.  Auth-gated — the page itself hits /api/terminal for
+    every team in the league, which requires a session."""
+    redirect = _require_auth_or_redirect(request, "/tools/trade-coverage")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/tools/trade-coverage")
+
+
 @app.get("/edge", response_class=HTMLResponse)
 async def serve_edge(request: Request):
     redirect = _require_auth_or_redirect(request, "/edge")
