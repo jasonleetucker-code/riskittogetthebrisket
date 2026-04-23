@@ -28,20 +28,28 @@ function normalize(s) {
  * teams writes to settings which notifies every useSettings subscriber
  * in the app.
  *
- * First-load behavior: if the user has NEVER written a team selection
- * on this device (``settings.selectedTeamTouched === false``) and the
- * league contains a team whose name matches DEFAULT_TEAM_NAME,
- * auto-select it and persist.  A persisted empty string counts as an
- * explicit clear once ``selectedTeamTouched`` is true and is
- * preserved across reloads; an unresolvable persisted name (e.g.
- * league renamed a team) is likewise not silently overwritten —
- * ``needsSelection`` flips true and the UI can prompt the user.
+ * First-load behavior: if the user has no persisted selection AND
+ * no explicit touched flag on this device, and the league contains a
+ * team whose name matches DEFAULT_TEAM_NAME, auto-select it and
+ * persist.  A persisted empty string with the touched flag set
+ * counts as an explicit clear and is preserved across reloads; an
+ * unresolvable persisted name (e.g. league renamed a team) is
+ * likewise not silently overwritten — ``needsSelection`` flips true
+ * and the UI can prompt the user.
+ *
+ * The guard OR's ``selectedTeamTouched`` with ``!!selectedName`` so
+ * that users upgrading from a build that pre-dates the touched flag
+ * (where their persisted non-empty ``selectedTeam`` carries an
+ * implicit-default ``selectedTeamTouched: false``) are not clobbered
+ * by auto-assignment.  A non-empty persisted name is authoritative
+ * evidence of prior user intent regardless of the flag.
  */
 export function useTeam() {
   const { rawData, privateDataEnabled, loading: dataLoading } = useApp();
   const { settings, update } = useSettings();
   const selectedName = settings?.selectedTeam || "";
-  const selectionTouched = settings?.selectedTeamTouched === true;
+  const selectionTouched =
+    settings?.selectedTeamTouched === true || selectedName.length > 0;
   const autoAssignedRef = useRef(false);
 
   const availableTeams = useMemo(() => {
@@ -58,11 +66,11 @@ export function useTeam() {
 
   // Auto-assign default team when (a) the user has never written a
   // selection on this device and (b) the default exists in this
-  // league.  The ``selectionTouched`` flag — flipped by every
-  // ``update("selectedTeam", ...)`` write in useSettings — is what
-  // lets us respect an explicit clear across reloads without
-  // conflating it with a never-chosen empty default.  A persisted
-  // but currently-unresolvable name keeps ``selectionTouched`` true,
+  // league.  ``selectionTouched`` is true if the stored flag is set
+  // (any ``update("selectedTeam", ...)`` write via useSettings flips
+  // it) OR if a non-empty name is persisted — the latter covers users
+  // upgrading from a build that pre-dates the touched flag.  A
+  // persisted-but-unresolvable name keeps ``selectionTouched`` true
   // so we skip auto-assign in that case too and let the UI surface
   // ``needsSelection``.
   useEffect(() => {
