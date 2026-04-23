@@ -374,39 +374,87 @@ export function verdictBarPosition(gap, maxGap = 4000) {
 }
 
 // ── Edge Detection ───────────────────────────────────────────────────────
-const MIN_EDGE_PCT = 3; // minimum % gap to signal
+//
+// We trust the backend's rank-based ``marketGapDirection`` +
+// ``marketGapMagnitude`` (see ``_compute_market_gap`` in
+// ``src/api/data_contract.py``) as the source of truth:
+//
+//   * ``retail_premium``     — retail (KTC) mean rank is LOWER (better)
+//                              than the expert consensus → market
+//                              OVERVALUES the player vs consensus →
+//                              ``SELL HIGH`` to a retail-anchored
+//                              trade partner.
+//   * ``consensus_premium``  — consensus mean rank is LOWER (better)
+//                              than retail → market UNDERVALUES the
+//                              player → ``BUY LOW`` from a retail-
+//                              anchored partner.
+//
+// Why rank not value:
+//   The Hill curve is flat at the top and steep in the middle.  Three
+//   ranks of disagreement at #8 vs #11 reads as ~18% value gap; three
+//   ranks at #80 reads as ~4%.  A rank-based signal is stable across
+//   the board and matches the trade intuition ("who's ranked higher
+//   by whom").  The prior value-based implementation over-fired at
+//   elite QB/RB tiers and under-fired in the mid-rounds.
+//
+//   The prior implementation also had the sign backwards — ``ourValue
+//   > KTC`` was labelled SELL, but a blend higher than retail means
+//   the MARKET is cheap, which is BUY.  See PR for the walkthrough.
+//
+// Magnitude threshold (in ranks):
+//   3 ranks is the floor.  Below that we treat it as noise — the mean-
+//   of-means comparison can flicker by a rank from scrape to scrape.
+//   Anything 3+ is a real, actionable disagreement.
+const MIN_EDGE_RANK_GAP = 3;
 
 /**
- * Compute edge signal for a player row.
- * Compares the player's consensus value against external source values.
- * @param {object} row - Player row with canonicalSites and values
- * @returns {{ signal: 'BUY'|'SELL'|null, edgePct: number, sources: string[] }}
+ * Compute the retail-vs-consensus edge signal for a player row.
+ *
+ * Reads the backend-stamped ``marketGapDirection`` /
+ * ``marketGapMagnitude`` directly — no client-side recompute from
+ * per-source values.
+ *
+ * @param {object} row - Player row with marketGapDirection + marketGapMagnitude
+ * @returns {{ signal: 'BUY'|'SELL'|null, edgePct: number, rankGap: number, sources: string[] }}
  */
 export function getPlayerEdge(row) {
-  if (!row?.canonicalSites || !row?.values?.full) return { signal: null, edgePct: 0, sources: [] };
+  if (!row) return { signal: null, edgePct: 0, rankGap: 0, sources: [] };
 
-  const ourValue = row.values.full;
-  if (ourValue <= 0) return { signal: null, edgePct: 0, sources: [] };
-
-  // Compare against external sources
-  const externalKeys = ["ktc"];
-  const externals = [];
-  for (const key of externalKeys) {
-    const v = Number(row.canonicalSites[key]);
-    if (Number.isFinite(v) && v > 0) externals.push({ key, value: v });
+  const direction = String(row.marketGapDirection || "none");
+  const magnitude = Number(row.marketGapMagnitude);
+  // ``marketGapMagnitude`` is the absolute rank gap between retail
+  // mean and consensus mean — float because both sides are mean-of-N.
+  if (!Number.isFinite(magnitude) || magnitude < MIN_EDGE_RANK_GAP) {
+    return { signal: null, edgePct: 0, rankGap: 0, sources: ["ktc"] };
+  }
+  if (direction !== "retail_premium" && direction !== "consensus_premium") {
+    return { signal: null, edgePct: 0, rankGap: 0, sources: ["ktc"] };
   }
 
-  if (externals.length === 0) return { signal: null, edgePct: 0, sources: [] };
-
-  const avgExternal = externals.reduce((s, e) => s + e.value, 0) / externals.length;
-  const pctDiff = ((ourValue - avgExternal) / avgExternal) * 100;
-
-  if (Math.abs(pctDiff) < MIN_EDGE_PCT) return { signal: null, edgePct: 0, sources: externals.map((e) => e.key) };
+  // Translate the rank gap into a rough value-% for display continuity
+  // with the old UI.  We compare the row's live value against its KTC
+  // canonical-site value when available, else derive from the rank
+  // gap.  The SIGNAL itself is rank-driven — this % is purely a
+  // human-readable "how different is the price".
+  let edgePct = 0;
+  const ourValue = Number(row?.values?.full);
+  const ktcValue = Number(row?.canonicalSites?.ktc);
+  if (Number.isFinite(ourValue) && ourValue > 0 && Number.isFinite(ktcValue) && ktcValue > 0) {
+    edgePct = Math.round(Math.abs(((ourValue - ktcValue) / ktcValue) * 100));
+  } else {
+    // Fallback: magnitude-in-ranks is the best we have.  Render as
+    // "3-rank gap" style.  The popup handles the suffix via the
+    // ``rankGap`` field.
+    edgePct = Math.round(magnitude);
+  }
 
   return {
-    signal: pctDiff < 0 ? "BUY" : "SELL",
-    edgePct: Math.round(Math.abs(pctDiff)),
-    sources: externals.map((e) => e.key),
+    // consensus_premium → BUY LOW (market undervalues the player)
+    // retail_premium    → SELL HIGH (market overvalues the player)
+    signal: direction === "consensus_premium" ? "BUY" : "SELL",
+    edgePct,
+    rankGap: Math.round(magnitude),
+    sources: ["ktc"],
   };
 }
 

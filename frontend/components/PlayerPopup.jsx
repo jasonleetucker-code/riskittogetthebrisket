@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getPlayerEdge } from "@/lib/trade-logic";
 import { resolvedRank, RANKING_SOURCES } from "@/lib/dynasty-data";
+import PlayerRankHistoryChart from "@/components/PlayerRankHistoryChart";
 
 /**
  * Build the ordered value-chain stages from a player row.
@@ -452,10 +453,18 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
               {edge.signal === "BUY" ? "Buy Low" : "Sell High"}
             </span>
             <span className="muted" style={{ marginLeft: 8, fontSize: "0.76rem" }}>
-              {edge.edgePct}% edge vs. external sources ({edge.sources.join(", ")})
+              {edge.signal === "BUY"
+                ? `Consensus ranks ${edge.rankGap} spots higher than KTC — market is cheap`
+                : `KTC ranks ${edge.rankGap} spots higher than consensus — market overvalues`}
+              {edge.edgePct > 0 && <> · ~{edge.edgePct}% value gap</>}
             </span>
           </div>
         )}
+
+        {/* 180-day rank-history mini-chart */}
+        <div style={{ marginTop: 14 }}>
+          <PlayerRankHistoryChart row={row} />
+        </div>
 
         {/* Source breakdown bars */}
         {siteDetails.length > 0 && (

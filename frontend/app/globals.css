@@ -6599,3 +6599,61 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-size: 1rem;
   opacity: 0.6;
 }
+
+/* ── Player rank-history chart (PlayerPopup) ─────────────────────── */
+.player-rank-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 6px);
+}
+.player-rank-chart--loading,
+.player-rank-chart--empty,
+.player-rank-chart--error {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 14px 12px;
+}
+.player-rank-chart-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.78rem;
+}
+.player-rank-chart-label {
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+}
+.player-rank-chart-delta {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.player-rank-chart-delta--up   { color: var(--green); }
+.player-rank-chart-delta--down { color: var(--red); }
+.player-rank-chart-delta--flat { color: var(--muted); }
+.player-rank-chart-svg {
+  width: 100%;
+  height: 140px;
+  display: block;
+}
+.player-rank-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.68rem;
+  color: var(--subtext);
+  font-variant-numeric: tabular-nums;
+}
+.player-rank-chart-legend strong {
+  color: var(--muted);
+  font-weight: 600;
+  margin-right: 2px;
+}

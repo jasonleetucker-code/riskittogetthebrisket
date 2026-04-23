@@ -1010,6 +1010,11 @@ function _materializePlayerArrayRow(player) {
     identityConfidence: Number(player.identityConfidence ?? 0.7),
     identityMethod: String(player.identityMethod || "name_only"),
     quarantined: Boolean(player.quarantined),
+    // rankHistory: array of { date, rank } points stamped by the
+    // backend from ``data/rank_history.jsonl`` (up to 180 days).  The
+    // PlayerPopup mini-chart reads this directly; defaults to null
+    // when the player wasn't ranked at the time of any snapshot.
+    rankHistory: Array.isArray(player.rankHistory) ? player.rankHistory : null,
     raw: player,
   };
 }
@@ -1078,6 +1083,8 @@ function _materializeLegacyDictRow(name, player, posMap) {
     identityConfidence: Number(player.identityConfidence ?? 0.7),
     identityMethod: String(player.identityMethod || "name_only"),
     quarantined: Boolean(player.quarantined),
+    // Same history field, mirrored onto the legacy-dict code path.
+    rankHistory: Array.isArray(player.rankHistory) ? player.rankHistory : null,
     raw: player,
   };
 }
