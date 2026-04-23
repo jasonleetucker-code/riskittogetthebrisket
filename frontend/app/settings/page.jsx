@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useSettings, SETTINGS_DEFAULTS as DEFAULTS } from "@/components/useSettings";
+import {
+  WEIGHT_PRESETS,
+  presetToWeights,
+  detectActivePreset,
+} from "@/lib/weight-presets";
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
 
 // The settings page enumerates the canonical ranking registry directly
@@ -278,7 +283,23 @@ export default function SettingsPage() {
           also feeds offense via its secondary scope.  Backend registry:{" "}
           <code style={{ fontFamily: "var(--mono)" }}>src/api/data_contract.py</code>.
         </div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+          {Object.values(WEIGHT_PRESETS).map((preset) => {
+            const active = detectActivePreset(settings?.siteWeights) === preset.key;
+            return (
+              <button
+                key={preset.key}
+                type="button"
+                className={`button${active ? " button-primary" : ""}`}
+                style={{ fontSize: "0.72rem" }}
+                title={preset.description}
+                onClick={() => update("siteWeights", presetToWeights(preset.key))}
+              >
+                {preset.label}
+                {active ? " ✓" : ""}
+              </button>
+            );
+          })}
           <button
             className="button"
             onClick={resetSiteWeights}
