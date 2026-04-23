@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
 import { useRankHistory } from "@/components/useRankHistory";
+import { useNews } from "@/components/useNews";
 import {
   computePortfolio,
   computeInsights,
   computeRosterChips,
   computePlayerBlurb,
 } from "@/lib/portfolio-insights";
-import { fetchNews, rankByRelevance } from "@/lib/news-service";
 import Panel from "./Panel";
 
 const INSIGHT_CARDS = [
@@ -44,30 +44,6 @@ export default function ScoutingIntel() {
   const { rows, rawData, openPlayerPopup } = useApp();
   const { selectedTeam } = useTeam();
   const { history, loading: historyLoading } = useRankHistory({ days: 30 });
-  const [news, setNews] = useState({ items: [], loaded: false });
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let active = true;
-    fetchNews({ signal: controller.signal })
-      .then((res) => {
-        if (!active) return;
-        setNews({ items: Array.isArray(res.items) ? res.items : [], loaded: true });
-      })
-      .catch((err) => {
-        if (err?.name === "AbortError") return;
-        if (active) setNews({ items: [], loaded: true });
-      });
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, []);
-
-  const portfolio = useMemo(
-    () => computePortfolio({ rows, selectedTeam, rawData, history }),
-    [rows, selectedTeam, rawData, history],
-  );
 
   const sleeperTeams = rawData?.sleeper?.teams;
   const leagueNames = useMemo(() => {
@@ -79,16 +55,23 @@ export default function ScoutingIntel() {
     return names;
   }, [sleeperTeams]);
 
-  const scoredNews = useMemo(() => {
-    if (!news.loaded || news.items.length === 0) return [];
-    const rosterNames = selectedTeam?.players || [];
-    return rankByRelevance(news.items, { rosterNames, leagueNames });
-  }, [news, selectedTeam, leagueNames]);
+  const rosterNames = selectedTeam?.players || [];
+  const news = useNews({ rosterNames, leagueNames });
+
+  const portfolio = useMemo(
+    () => computePortfolio({ rows, selectedTeam, rawData, history }),
+    [rows, selectedTeam, rawData, history],
+  );
 
   const insights = useMemo(
     () =>
-      computeInsights({ portfolio, rows, selectedTeam, newsItems: scoredNews }),
-    [portfolio, rows, selectedTeam, scoredNews],
+      computeInsights({
+        portfolio,
+        rows,
+        selectedTeam,
+        newsItems: news.scored,
+      }),
+    [portfolio, rows, selectedTeam, news.scored],
   );
 
   const rosterChips = useMemo(
@@ -216,7 +199,7 @@ export default function ScoutingIntel() {
         </section>
       )}
 
-      {news.loaded && news.items.length === 0 && (
+      {!news.loading && news.items.length === 0 && (
         <div className="scouting-note">News feed currently empty — intel uses portfolio metrics only.</div>
       )}
     </Panel>

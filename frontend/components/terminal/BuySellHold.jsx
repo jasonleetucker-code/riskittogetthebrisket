@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
 import { useRankHistory } from "@/components/useRankHistory";
+import { useNews } from "@/components/useNews";
 import {
   evaluateRoster,
   SIGNAL_META,
   SIGNALS,
 } from "@/lib/signal-engine";
-import { fetchNews, rankByRelevance } from "@/lib/news-service";
 import Panel from "./Panel";
 
 const FILTER_ORDER = [
@@ -38,37 +38,15 @@ export default function BuySellHold() {
     return names;
   }, [sleeperTeams]);
 
-  const [news, setNews] = useState({ items: [], loaded: false });
   const [filters, setFilters] = useState(new Set(DEFAULT_FILTERS));
   const [expandedId, setExpandedId] = useState(null);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    let active = true;
-    fetchNews({ signal: controller.signal })
-      .then((res) => {
-        if (!active) return;
-        setNews({ items: Array.isArray(res.items) ? res.items : [], loaded: true });
-      })
-      .catch((err) => {
-        if (err?.name === "AbortError") return;
-        if (!active) return;
-        setNews({ items: [], loaded: true });
-      });
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, []);
+  const rosterNames = selectedTeam?.players || [];
+  const news = useNews({ rosterNames, leagueNames });
 
-  // Score news once so the engine receives items that already have
-  // ``__matchedOn``/roster tags — we pass in the scored items since
-  // the rule engine cares about roster-player impact counts.
-  const scoredNews = useMemo(() => {
-    if (!news.loaded || news.items.length === 0) return [];
-    const rosterNames = selectedTeam?.players || [];
-    return rankByRelevance(news.items, { rosterNames, leagueNames });
-  }, [news, selectedTeam, leagueNames]);
+  // useNews returns its items already scored for the rule engine —
+  // no per-component re-ranking needed.
+  const scoredNews = news.scored;
 
   const verdicts = useMemo(
     () =>
@@ -107,7 +85,7 @@ export default function BuySellHold() {
 
   const emptyReason = (() => {
     if (!selectedTeam) return "Pick a team to see roster signals.";
-    if (historyLoading && !news.loaded) return "Loading signals…";
+    if (historyLoading && news.loading) return "Loading signals…";
     if (verdicts.length === 0) return "No rows resolved for this roster.";
     if (visible.length === 0) return "No signals match the active filters.";
     return null;

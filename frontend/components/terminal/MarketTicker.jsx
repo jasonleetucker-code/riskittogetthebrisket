@@ -1,17 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
+import { useNews } from "@/components/useNews";
 import {
   computeMovers,
   formatChange,
 } from "@/lib/market-movers";
-import {
-  fetchNews,
-  rankByRelevance,
-  selectTickerAlerts,
-} from "@/lib/news-service";
+import { selectTickerAlerts } from "@/lib/news-service";
 
 const SCOPE_OPTIONS = [
   { key: "roster", label: "My Roster" },
@@ -56,29 +53,13 @@ export default function MarketTicker() {
 
   const [scope, setScope] = useState("roster");
   const [paused, setPaused] = useState(false);
-  const [news, setNews] = useState({ items: [], source: null, loaded: false });
 
-  // Load news once on mount — the panel renders its own feed; we
-  // reuse the same fetch here for alert injection so we don't call
-  // /api/news twice on first render.  Component-level cache only;
-  // this isn't a shared store yet.
-  useEffect(() => {
-    const controller = new AbortController();
-    let active = true;
-    fetchNews({ signal: controller.signal })
-      .then((res) => {
-        if (!active) return;
-        setNews({ items: res.items, source: res.source, loaded: true });
-      })
-      .catch((err) => {
-        if (err?.name === "AbortError") return;
-        if (active) setNews({ items: [], source: null, loaded: true });
-      });
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, []);
+  // Single shared news fetch via the module-level cache in
+  // useNews — ticker + news feed + signals + scouting all read
+  // from the same 60s-TTL store, so mounting the whole landing
+  // page issues exactly one /api/news request instead of four.
+  const rosterNames = selectedTeam?.players || [];
+  const newsState = useNews({ rosterNames, leagueNames });
 
   const movers = useMemo(
     () =>
@@ -93,14 +74,9 @@ export default function MarketTicker() {
   );
 
   const alerts = useMemo(() => {
-    if (!news.loaded || news.items.length === 0) return [];
-    const rosterNames = selectedTeam?.players || [];
-    const scored = rankByRelevance(news.items, {
-      rosterNames,
-      leagueNames,
-    });
-    return selectTickerAlerts(scored, { limit: 3 });
-  }, [news, selectedTeam, leagueNames]);
+    if (newsState.loading || newsState.items.length === 0) return [];
+    return selectTickerAlerts(newsState.scored, { limit: 3 });
+  }, [newsState]);
 
   // Interleave: drop every 5th ticker slot with an alert, so the
   // strip reads as "moves + moves + moves + moves + alert" visually.

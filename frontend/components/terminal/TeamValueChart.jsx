@@ -131,7 +131,7 @@ export default function TeamValueChart({
           {area && (
             <path
               d={area}
-              fill={summary?.delta >= 0 ? "rgba(255,199,4,0.12)" : "rgba(224,118,122,0.12)"}
+              fill={summary?.delta >= 0 ? "rgba(52, 211, 153, 0.12)" : "rgba(248, 113, 113, 0.12)"}
               stroke="none"
             />
           )}
@@ -139,7 +139,7 @@ export default function TeamValueChart({
             <path
               d={path}
               fill="none"
-              stroke={summary?.delta >= 0 ? "var(--cyan, #ffc704)" : "#e0767a"}
+              stroke={summary?.delta >= 0 ? "var(--green)" : "var(--red)"}
               strokeWidth={1.5}
               strokeLinecap="round"
               strokeLinejoin="round"
