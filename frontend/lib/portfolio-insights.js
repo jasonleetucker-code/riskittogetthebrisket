@@ -20,33 +20,53 @@ import {
  * No randomness.  Every insight cites the metric that earned it.
  */
 
-// Which player positions can fill each slot in a Sleeper lineup.
-// Covers both offense-side flexes (FLEX/SUPER_FLEX/…) and the IDP
-// slot shapes (DL/LB/DB/IDP_FLEX).  We also include specific IDP
-// slot names as keys because player positions get normalized to
-// the generic "IDP" bucket upstream — without an entry here, an
-// IDP-formatted lineup slot like "DL" would never match a roster
-// of normalized "IDP" players and valid IDP starters would be
-// shoved onto the bench.
+// Which player positions can fill each Sleeper lineup slot.  Keys
+// enumerate every Sleeper slot alias seen in this repo (canonical
+// list: src/idp_calibration/lineup.py).  Without full coverage an
+// unrecognized alias like WRRB_FLEX would fall through the strict
+// pass, never match any player, and push valid starters onto the
+// bench — skewing starter-share metrics.
+//
+// IDP slot pools include the generic "IDP" token because upstream
+// normalization collapses DB/LB/DL/DE/DT/CB/S → "IDP".
+const OFFENSE_FLEX = new Set(["RB", "WR", "TE"]);
+const WR_RB_FLEX_POOL = new Set(["RB", "WR"]);
+const WR_TE_FLEX_POOL = new Set(["WR", "TE"]);
+const SUPER_FLEX_POOL = new Set(["QB", "RB", "WR", "TE"]);
+const IDP_POOL = new Set(["IDP", "DL", "DE", "DT", "LB", "DB", "CB", "S"]);
+
 const FLEX_POOLS = {
-  // Offense flexes
-  FLEX:       new Set(["RB", "WR", "TE"]),
-  WR_RB_FLEX: new Set(["RB", "WR"]),
-  REC_FLEX:   new Set(["WR", "TE"]),
-  WRT:        new Set(["WR", "TE"]),
-  SUPER_FLEX: new Set(["QB", "RB", "WR", "TE"]),
-  SUPERFLEX:  new Set(["QB", "RB", "WR", "TE"]),
-  Q_FLEX:     new Set(["QB", "RB", "WR", "TE"]),
-  // IDP slots — generic "IDP" normalized roster pos accepted by all.
-  DL:         new Set(["IDP", "DL", "DE", "DT"]),
-  DE:         new Set(["IDP", "DE", "DL"]),
-  DT:         new Set(["IDP", "DT", "DL"]),
-  LB:         new Set(["IDP", "LB"]),
-  DB:         new Set(["IDP", "DB", "CB", "S"]),
-  CB:         new Set(["IDP", "CB", "DB"]),
-  S:          new Set(["IDP", "S", "DB"]),
-  IDP:        new Set(["IDP", "DL", "DE", "DT", "LB", "DB", "CB", "S"]),
-  IDP_FLEX:   new Set(["IDP", "DL", "DE", "DT", "LB", "DB", "CB", "S"]),
+  // Offense: all known Sleeper aliases → the same pool.
+  FLEX:         OFFENSE_FLEX,
+  // RB/WR (no TE)
+  WR_RB_FLEX:   WR_RB_FLEX_POOL,
+  WRRB_FLEX:    WR_RB_FLEX_POOL,
+  RB_WR_FLEX:   WR_RB_FLEX_POOL,
+  RBWR_FLEX:    WR_RB_FLEX_POOL,
+  // WR/TE
+  REC_FLEX:     WR_TE_FLEX_POOL,
+  WR_TE_FLEX:   WR_TE_FLEX_POOL,
+  WRTE_FLEX:    WR_TE_FLEX_POOL,
+  WRT:          WR_TE_FLEX_POOL,
+  // Superflex (QB-eligible)
+  SUPER_FLEX:   SUPER_FLEX_POOL,
+  SUPERFLEX:    SUPER_FLEX_POOL,
+  Q_FLEX:       SUPER_FLEX_POOL,
+  QB_RB_WR_TE:  SUPER_FLEX_POOL,
+  // IDP — both specific slot names and flex aliases.
+  DL:           new Set(["IDP", "DL", "DE", "DT"]),
+  DE:           new Set(["IDP", "DE", "DL"]),
+  DT:           new Set(["IDP", "DT", "DL"]),
+  LB:           new Set(["IDP", "LB"]),
+  DB:           new Set(["IDP", "DB", "CB", "S"]),
+  CB:           new Set(["IDP", "CB", "DB"]),
+  S:            new Set(["IDP", "S", "DB"]),
+  IDP:          IDP_POOL,
+  IDP_FLEX:     IDP_POOL,
+  DB_LB:        IDP_POOL,
+  DL_LB:        IDP_POOL,
+  DL_DB:        IDP_POOL,
+  DEF_FLEX:     IDP_POOL,
 };
 
 const POSITION_GROUPS = ["QB", "RB", "WR", "TE", "K", "DEF", "IDP", "PICK"];
@@ -151,7 +171,9 @@ function splitStartersBench({ rosterValues, sleeperRosterPositions }) {
  *   - history       rank-history map (name -> [{date, rank}])
  */
 export function computePortfolio({ rows, selectedTeam, rawData, history }) {
-  if (!selectedTeam?.players?.length || !Array.isArray(rows)) {
+  const hasPlayers = !!selectedTeam?.players?.length;
+  const hasPicks = !!selectedTeam?.picks?.length;
+  if ((!hasPlayers && !hasPicks) || !Array.isArray(rows)) {
     return null;
   }
 
@@ -161,7 +183,7 @@ export function computePortfolio({ rows, selectedTeam, rawData, history }) {
   // Build per-player value objects with position, age, volatility.
   const rosterValues = [];
   const unresolved = [];
-  for (const name of selectedTeam.players) {
+  for (const name of selectedTeam.players || []) {
     const row = byName.get(String(name).toLowerCase());
     if (!row) {
       unresolved.push(name);
@@ -186,6 +208,38 @@ export function computePortfolio({ rows, selectedTeam, rawData, history }) {
       volatility: vol,
       volLabel: vol?.label || "unknown",
       ageBucket: ageBucket(row.age, row.rookie),
+      isPick: false,
+    });
+  }
+
+  // Pick assets — Sleeper team objects carry them as a separate list
+  // (e.g. "2026 1.05" / "2027 2.11").  They don't fill lineup slots
+  // so they're excluded from the starter/bench split, but they DO
+  // count toward total value + the PICK positional bucket.  Ignoring
+  // them here silently understated both.
+  for (const name of selectedTeam.picks || []) {
+    const row = byName.get(String(name).toLowerCase());
+    if (!row) {
+      unresolved.push(name);
+      continue;
+    }
+    const value = Number(row.rankDerivedValue || row.values?.full || 0);
+    rosterValues.push({
+      name: row.name,
+      pos: "PICK",
+      value,
+      age: null,
+      isRookie: false,
+      rank: Number(row.canonicalConsensusRank) || null,
+      rankChange: Number.isFinite(row.rankChange) ? row.rankChange : null,
+      confidence: Number.isFinite(row.confidence) ? row.confidence : null,
+      points: [],
+      trend7: null,
+      trend30: null,
+      volatility: null,
+      volLabel: "unknown",
+      ageBucket: "unknown",
+      isPick: true,
     });
   }
 
@@ -195,7 +249,16 @@ export function computePortfolio({ rows, selectedTeam, rawData, history }) {
   // ``sleeper.positions`` is a different field entirely — a
   // player-name → position MAP — and was previously misread here.
   const sleeperRosterPositions = rawData?.sleeper?.rosterPositions;
-  const starterSplit = splitStartersBench({ rosterValues, sleeperRosterPositions });
+  // Starters are drawn from the lineup-eligible pool only — picks
+  // don't fill lineup slots, so we filter them out before the split.
+  // Picks still appear in totalValue and byPosition.PICK below.
+  const lineupEligible = rosterValues.filter((p) => !p.isPick);
+  const starterSplit = splitStartersBench({
+    rosterValues: lineupEligible,
+    sleeperRosterPositions,
+  });
+  const picks = rosterValues.filter((p) => p.isPick);
+  const pickValue = sumValue(picks);
 
   // Positional allocation: value + count per position group.
   const byPosition = {};
@@ -251,18 +314,22 @@ export function computePortfolio({ rows, selectedTeam, rawData, history }) {
   }
   for (const k of Object.keys(volExposure)) volExposure[k].pct = pct(volExposure[k].value, totalValue);
 
+  const expectedAssets =
+    (selectedTeam.players?.length || 0) + (selectedTeam.picks?.length || 0);
+
   return {
     totalValue,
     ...starterSplit,
+    picks,
+    pickCount: picks.length,
+    pickValue,
     byPosition,
     byAge,
     medianAge,
     volExposure,
     rosterValues,
     unresolved,
-    coverage: selectedTeam.players.length
-      ? rosterValues.length / selectedTeam.players.length
-      : 0,
+    coverage: expectedAssets ? rosterValues.length / expectedAssets : 0,
   };
 }
 

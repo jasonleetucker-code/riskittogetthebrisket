@@ -81,6 +81,8 @@ export default function PortfolioSummary() {
     starterCount,
     benchCount,
     starters,
+    pickCount,
+    pickValue,
     byPosition,
     byAge,
     volExposure,
@@ -88,7 +90,12 @@ export default function PortfolioSummary() {
     coverage,
   } = portfolio;
 
-  const starterPct = totalValue ? (starterValue / totalValue) * 100 : 0;
+  // Split bar is lineup-only: picks aren't eligible for start/bench
+  // slots, so they'd otherwise create a phantom gap in the bar.
+  // Picks still appear in Total Value above and in the PICK column
+  // of the positional stack below.
+  const lineupValue = starterValue + benchValue;
+  const starterPct = lineupValue ? (starterValue / lineupValue) * 100 : 0;
 
   return (
     <Panel
@@ -124,6 +131,12 @@ export default function PortfolioSummary() {
               <strong>Bench</strong>{" "}
               {formatValue(benchValue)} · {formatPct(100 - starterPct)} · {benchCount}
             </span>
+            {pickCount > 0 && (
+              <span>
+                <strong>Picks</strong>{" "}
+                {formatValue(pickValue)} · {pickCount}
+              </span>
+            )}
           </div>
         </div>
       </div>
