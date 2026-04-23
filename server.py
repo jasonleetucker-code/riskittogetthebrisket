@@ -65,7 +65,9 @@ from src.api.data_contract import (
 )
 from src.api import rank_history as _rank_history
 from src.api import source_history as _source_history
+from src.api import signal_alerts as _signal_alerts
 from src.api import terminal as _terminal
+from src.api import trade_simulator as _trade_simulator
 from src.api import user_kv as _user_kv
 from src.news import NewsService, build_default_service
 
@@ -387,10 +389,31 @@ def _is_authenticated(request: Request) -> bool:
     return _get_auth_session(request) is not None
 
 
-def _create_auth_session(username: str) -> str:
+def _create_auth_session(
+    username: str,
+    *,
+    sleeper_user_id: str | None = None,
+    display_name: str | None = None,
+    avatar: str | None = None,
+    auth_method: str = "password",
+) -> str:
+    """Create an in-memory session for ``username``.
+
+    ``sleeper_user_id`` / ``display_name`` / ``avatar`` are populated
+    when the session was created via the Sleeper username sign-in
+    flow (see ``POST /api/auth/sleeper-login``) so downstream
+    handlers can resolve the user's Sleeper team by ownerId without
+    another round-trip.  ``auth_method`` tags sessions as either
+    ``password`` (admin login) or ``sleeper`` (username lookup)
+    so logs and audit tooling can tell them apart.
+    """
     session_id = uuid.uuid4().hex
     auth_sessions[session_id] = {
         "username": str(username or ""),
+        "sleeper_user_id": str(sleeper_user_id or ""),
+        "display_name": str(display_name or username or ""),
+        "avatar": str(avatar or ""),
+        "auth_method": str(auth_method or "password"),
         "created_at": _utc_now_iso(),
     }
     if len(auth_sessions) > 5000:
@@ -4076,10 +4099,16 @@ async def test_alert():
 @app.get("/api/auth/status")
 async def auth_status(request: Request):
     session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(content={"authenticated": False})
     return JSONResponse(
         content={
-            "authenticated": bool(session),
-            "username": session.get("username") if session else None,
+            "authenticated": True,
+            "username": session.get("username"),
+            "displayName": session.get("display_name") or session.get("username"),
+            "sleeperUserId": session.get("sleeper_user_id") or None,
+            "avatar": session.get("avatar") or None,
+            "authMethod": session.get("auth_method") or "password",
         }
     )
 
@@ -4104,8 +4133,130 @@ async def auth_login(request: Request):
             content={"ok": False, "error": "Invalid username or password."},
         )
 
-    session_id = _create_auth_session(username)
+    session_id = _create_auth_session(username, auth_method="password")
     response = JSONResponse(content={"ok": True, "redirect": next_path})
+    response.set_cookie(
+        key=JASON_AUTH_COOKIE_NAME,
+        value=session_id,
+        path="/",
+        httponly=True,
+        samesite="lax",
+        secure=JASON_AUTH_COOKIE_SECURE,
+    )
+    return response
+
+
+@app.post("/api/auth/sleeper-login")
+async def auth_sleeper_login(request: Request):
+    """Sign in as any user known to the Sleeper API.
+
+    Flow:
+      1. Client POSTs ``{"username": "<sleeper-handle>"}``.
+      2. We call https://api.sleeper.app/v1/user/<username> which
+         returns ``{user_id, username, display_name, avatar}`` on
+         success or 404 for unknown users.
+      3. On success, create a session keyed on the Sleeper
+         ``user_id`` so the user_kv store partitions per-person
+         (not per-handle — Sleeper usernames CAN be changed, IDs
+         cannot).
+      4. ``useUserState``'s first ``GET /api/user/state`` after
+         login hydrates the returned ``username`` → the Sleeper
+         handle, and any roster team in the configured league
+         whose ``ownerId`` matches ``sleeper_user_id`` becomes the
+         default selection on the terminal.
+
+    Security note: this is a trust-on-first-use sign-in — anyone
+    who knows a valid Sleeper username can sign in as that user.
+    That's fine for a league-scoped tool (your leaguemates know
+    if someone claims their identity) but NOT suitable for
+    anything with financial or account-recovery exposure.  The
+    hardcoded-password admin path at ``/api/auth/login`` stays
+    available for operator access.
+    """
+    payload: dict = {}
+    try:
+        raw = await request.json()
+        if isinstance(raw, dict):
+            payload = raw
+    except Exception:
+        payload = {}
+
+    username = str(payload.get("username") or "").strip().lower()
+    next_path = _sanitize_next_path(payload.get("next"), "/app")
+
+    if not username or len(username) > 64:
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": "Invalid username."},
+        )
+    if not all(c.isalnum() or c in "_-." for c in username):
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error": "Invalid username."},
+        )
+
+    # Fetch the Sleeper user record.  Run in a threadpool because
+    # urllib is sync and we don't want to block the event loop.
+    def _fetch() -> dict | None:
+        url = f"https://api.sleeper.app/v1/user/{username}"
+        req = urllib.request.Request(url, headers={"User-Agent": "brisket-sleeper-login/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=5.0) as resp:
+                body = resp.read()
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None
+            raise
+        except (urllib.error.URLError, TimeoutError):
+            return None
+        try:
+            parsed = json.loads(body)
+        except (json.JSONDecodeError, ValueError):
+            return None
+        if not isinstance(parsed, dict):
+            return None
+        return parsed
+
+    try:
+        user_record = await run_in_threadpool(_fetch)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("sleeper-login fetch error for %s: %s", username, exc)
+        return JSONResponse(
+            status_code=502,
+            content={"ok": False, "error": "Sleeper API unreachable; try again shortly."},
+        )
+
+    if not user_record or not user_record.get("user_id"):
+        return JSONResponse(
+            status_code=404,
+            content={
+                "ok": False,
+                "error": "No Sleeper user with that username.  Double-check spelling.",
+            },
+        )
+
+    sleeper_user_id = str(user_record.get("user_id") or "")
+    display_name = str(user_record.get("display_name") or user_record.get("username") or username)
+    avatar = str(user_record.get("avatar") or "")
+
+    # Use the Sleeper username as the session ``username`` so
+    # user_kv rows partition per-handle.  Sleeper handles are
+    # globally unique and stable-enough for this scope.
+    session_id = _create_auth_session(
+        username,
+        sleeper_user_id=sleeper_user_id,
+        display_name=display_name,
+        avatar=avatar,
+        auth_method="sleeper",
+    )
+    response = JSONResponse(content={
+        "ok": True,
+        "redirect": next_path,
+        "username": username,
+        "displayName": display_name,
+        "sleeperUserId": sleeper_user_id,
+        "avatar": avatar,
+    })
     response.set_cookie(
         key=JASON_AUTH_COOKIE_NAME,
         value=session_id,
@@ -4203,6 +4354,21 @@ async def put_user_state_api(request: Request):
                 str(k): str(v) for k, v in da.items()
                 if isinstance(k, str) and isinstance(v, (str, int))
             }
+    if "notificationsEmail" in body:
+        # Optional email for signal-alert digests.  Stored per-user
+        # in user_kv under the ``notificationsEmail`` key so the
+        # alert loop can resolve it without a separate table.  We
+        # only accept plausible-looking addresses — no MX check,
+        # just format validation.
+        ne = body.get("notificationsEmail")
+        if ne is None or ne == "":
+            patch["notificationsEmail"] = None
+        elif isinstance(ne, str):
+            s = ne.strip()
+            if "@" in s and "." in s.split("@")[-1] and len(s) <= 254:
+                patch["notificationsEmail"] = s
+    if "notificationsEnabled" in body:
+        patch["notificationsEnabled"] = bool(body.get("notificationsEnabled"))
     state = await run_in_threadpool(_user_kv.merge_user_state, username, patch)
     return JSONResponse(
         content={"username": username, "state": state},
@@ -4377,6 +4543,17 @@ async def get_terminal(request: Request):
         resolved_team = _terminal.resolve_team(
             contract, owner_id=team_owner_id, name=team_name,
         )
+        # Auto-resolve via the authenticated Sleeper user id when the
+        # client didn't pass an explicit team.  This is the "Sleeper
+        # login → your team lights up on first page load" path — no
+        # manual team picker needed when the authed user owns a team
+        # in this league.
+        if resolved_team is None and not team_owner_id and not team_name:
+            session_sleeper_id = str((session or {}).get("sleeper_user_id") or "").strip()
+            if session_sleeper_id:
+                resolved_team = _terminal.resolve_team(
+                    contract, owner_id=session_sleeper_id, name=None,
+                )
 
     try:
         payload = await run_in_threadpool(
@@ -4414,6 +4591,187 @@ async def get_terminal(request: Request):
         content=payload,
         headers={"Cache-Control": cache_control},
     )
+
+
+@app.post("/api/trade/simulate")
+async def post_trade_simulate(request: Request):
+    """Pure-function what-if: apply a hypothetical trade to the
+    authenticated user's team and return the delta payload.
+
+    Body::
+
+        {
+          "team":       "<ownerId>" (optional — defaults to session
+                        owner when signed in via Sleeper),
+          "teamName":   "<teamName>" (optional fallback lookup),
+          "playersIn":  ["Ja'Marr Chase", ...],   # inbound players
+          "playersOut": ["Drake London", ...],     # outbound players
+          "picksIn":    ["2026 1.04", ...],        # inbound picks
+          "picksOut":   ["2027 2.08", ...]         # outbound picks
+        }
+
+    Response shape matches ``trade_simulator.simulate_trade``.
+    No persistence — the live contract is never mutated.
+    """
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    if not latest_contract_data:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "No data available yet."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+
+    team_owner_id = str(body.get("team") or "").strip()
+    team_name = str(body.get("teamName") or "").strip()
+
+    # Session auto-resolve: if the user didn't pass a team, use
+    # the Sleeper user_id attached to their session.
+    if not team_owner_id and not team_name:
+        team_owner_id = str(session.get("sleeper_user_id") or "").strip()
+
+    resolved_team = _terminal.resolve_team(
+        latest_contract_data, owner_id=team_owner_id, name=team_name,
+    )
+    if resolved_team is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "team_not_found"},
+        )
+
+    def _str_list(key):
+        vs = body.get(key) or []
+        if not isinstance(vs, list):
+            return []
+        return [str(x) for x in vs if isinstance(x, (str, int)) and str(x).strip()]
+
+    result = await run_in_threadpool(
+        _trade_simulator.simulate_trade,
+        latest_contract_data,
+        resolved_team=resolved_team,
+        players_in=_str_list("playersIn"),
+        players_out=_str_list("playersOut"),
+        picks_in=_str_list("picksIn"),
+        picks_out=_str_list("picksOut"),
+    )
+    return JSONResponse(
+        content=result,
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+def _deliver_email_smtp(to: str, subject: str, body: str) -> bool:
+    """SMTP delivery bound to the existing ALERT_* env vars.
+
+    Returns True on successful send, False on any error.  Errors
+    are logged but never raised — the alert runner catches
+    exceptions itself and we want deliver-per-user to be isolated.
+    """
+    if not ALERT_ENABLED or not ALERT_FROM or not ALERT_PASSWORD or not to:
+        return False
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = ALERT_FROM
+    msg["To"] = to
+    msg.attach(MIMEText(body, "plain"))
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as s:
+            s.login(ALERT_FROM, ALERT_PASSWORD)
+            s.send_message(msg)
+        return True
+    except Exception as exc:  # noqa: BLE001
+        log.warning("signal-alert SMTP delivery error to %s: %s", to, exc)
+        return False
+
+
+@app.post("/api/signal-alerts/run")
+async def run_signal_alerts(request: Request):
+    """Trigger a signal-alert sweep for every user with email
+    notifications enabled.  Admin-only — requires the password
+    session method; a Sleeper-login session is NOT authorized
+    since that auth method is trust-on-first-use and shouldn't be
+    able to trigger mass-email sends.
+
+    The alert runner:
+      1. Loads every user from user_kv.
+      2. For each with ``notificationsEnabled: true`` AND a valid
+         ``notificationsEmail``, builds a terminal payload for that
+         user (resolving their team by ``sleeper_user_id`` when
+         present) and runs ``signal_alerts.process_user_alerts``.
+      3. Returns a summary.
+
+    Wire this to a cron / systemd timer for automated daily digests.
+    """
+    session = _get_auth_session(request)
+    if not session or session.get("auth_method") != "password":
+        return JSONResponse(
+            status_code=401,
+            content={"error": "admin_auth_required"},
+        )
+    if not latest_contract_data:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "no_live_contract"},
+        )
+    # Walk every user_kv row.  No pagination — at current scale
+    # (dozens of users tops) this is fine.
+    def _run_sweep() -> dict[str, object]:
+        db = _user_kv._read_all()
+        summary: list[dict] = []
+        for username, state in db.items():
+            if not isinstance(state, dict):
+                continue
+            if not state.get("notificationsEnabled"):
+                continue
+            email = str(state.get("notificationsEmail") or "").strip()
+            if not email:
+                continue
+            # Resolve the user's team via their stored ownerId OR
+            # their session sleeper_user_id — neither may be
+            # available here, so try both.
+            owner_id = str((state.get("selectedTeam") or {}).get("ownerId") or "")
+            # Try finding the user's team by matching username to
+            # sleeper_user_id of any team (user_kv key = Sleeper
+            # username for sleeper-auth users).
+            team = _terminal.resolve_team(
+                latest_contract_data,
+                owner_id=owner_id,
+                name=None,
+            )
+            try:
+                payload = _terminal.build_terminal_payload(
+                    latest_contract_data,
+                    resolved_team=team,
+                    window_days=30,
+                    user_state=state,
+                )
+            except Exception as exc:  # noqa: BLE001
+                summary.append({"username": username, "ok": False,
+                                "reason": f"build_error:{type(exc).__name__}"})
+                continue
+            display_name = username
+            result = _signal_alerts.process_user_alerts(
+                username,
+                signals=payload.get("signals") or [],
+                display_name=display_name,
+                email=email,
+                delivery=_deliver_email_smtp,
+            )
+            summary.append({"username": username, **result})
+        return {
+            "total_users_checked": len(db),
+            "processed": len(summary),
+            "results": summary,
+        }
+
+    result = await run_in_threadpool(_run_sweep)
+    return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
 
 
 @app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
@@ -4491,6 +4849,16 @@ async def serve_trade_coverage(request: Request):
     if redirect is not None:
         return redirect
     return await _serve_app_shell("/tools/trade-coverage")
+
+
+@app.get("/tools/source-health", response_class=HTMLResponse)
+async def serve_source_health(request: Request):
+    """Scraper source-health dashboard.  Auth-gated so the scraper
+    diagnostics aren't exposed to anonymous visitors."""
+    redirect = _require_auth_or_redirect(request, "/tools/source-health")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/tools/source-health")
 
 
 @app.get("/edge", response_class=HTMLResponse)

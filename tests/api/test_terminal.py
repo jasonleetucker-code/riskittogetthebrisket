@@ -427,6 +427,68 @@ def test_portfolio_breakdown_includes_byposition_byage_volexposure(history_path)
     assert p["medianAge"] == pytest.approx(28.0, abs=0.1)  # median of 27 and 29
 
 
+def test_value_history_fallback_covers_when_rank_history_missing(tmp_path, monkeypatch):
+    """When ``rank_history.jsonl`` has no entries but
+    ``source_value_history.jsonl`` does, the terminal delta
+    computation should still produce coverage-fraction numbers from
+    the value-history source.  Pins the #6 historical-backfill
+    behaviour."""
+    from src.api import source_history, terminal
+    from datetime import date, timedelta
+
+    rank_path = tmp_path / "rank_history.jsonl"
+    rank_path.write_text("")  # empty — the recent log has no coverage
+    monkeypatch.setattr(rank_history, "HISTORY_PATH", rank_path)
+
+    value_path = tmp_path / "source_value_history.jsonl"
+    monkeypatch.setattr(source_history, "HISTORY_PATH", value_path)
+
+    # Seed 40 days of value history for both Alice and Bob, who
+    # make up the owner-1 roster in _mk_contract.  Blended value
+    # decreases ~2 per day so the 30d delta is a clean positive
+    # number we can assert against.
+    today = date.today()
+    for i in range(40):
+        d = (today - timedelta(days=i)).isoformat()
+        source_history.append_snapshot(
+            {
+                "playersArray": [
+                    {
+                        "displayName": "Alice",
+                        "canonicalName": "Alice",
+                        "assetClass": "offense",
+                        "position": "QB",
+                        "rankDerivedValue": 9000 - i * 2,
+                        "sourceRankMeta": {"ktc": {"valueContribution": 9000 - i * 2}},
+                    },
+                    {
+                        "displayName": "Bob",
+                        "canonicalName": "Bob",
+                        "assetClass": "offense",
+                        "position": "WR",
+                        "rankDerivedValue": 8000 - i,
+                        "sourceRankMeta": {"ktc": {"valueContribution": 8000 - i}},
+                    },
+                ]
+            },
+            date=d,
+            path=value_path,
+        )
+
+    contract = _mk_contract(tmp_path / "rank_history.jsonl")
+    team = terminal.resolve_team(contract, owner_id="owner-1", name=None)
+    payload = terminal.build_terminal_payload(
+        contract, resolved_team=team, window_days=30,
+    )
+    d30 = payload["teamAggregates"]["delta30dDetail"]
+    # With value-history now primed, we should see real coverage
+    # (≥60%) and a non-null delta value even though rank_history is
+    # empty.  The "source" field should flag "value" as the data path.
+    assert d30["coverageFraction"] >= 0.60
+    assert d30["value"] is not None
+    assert d30["source"] in ("value", "mixed")
+
+
 def test_dismissal_resolves_via_alias_key_after_rename(history_path):
     contract = _mk_contract(history_path)
     for row in contract["playersArray"]:

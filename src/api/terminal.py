@@ -35,7 +35,9 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Iterable
 
 from src.canonical.player_valuation import rank_to_value as _rank_to_value
+from src.api import injury_impact as _injury_impact
 from src.api import rank_history as _rank_history
+from src.api import source_history as _source_history
 
 
 # ── CONSTANTS ───────────────────────────────────────────────────────────
@@ -333,6 +335,67 @@ def _history_lookup(history: dict[str, Any] | None) -> Callable[[str], list[dict
     return _lookup
 
 
+def _build_value_history_lookup(
+    *, days: int
+) -> Callable[[str], list[dict[str, Any]]]:
+    """Pre-load the source-value history JSONL once per terminal
+    request and return a case-insensitive lookup.
+
+    ``source_history.load_player_history`` is a per-player fetch,
+    which would mean re-parsing the whole JSONL for every roster
+    member.  This helper parses the file ONCE and caches a
+    ``name_lower → [{date, value}]`` dict in closure.
+
+    The underlying log stores entries under composite keys like
+    ``"Josh Allen::offense"``; the lookup strips the asset-class
+    suffix so callers can pass plain display names.
+    """
+    # Re-use the source_history reader so we don't reimplement
+    # JSONL parsing.  The reader already handles date-trim,
+    # corrupted lines, and composite keys.  We just need to flip
+    # its (per-date nested) shape into a per-player list.
+    path = _source_history.HISTORY_PATH
+    try:
+        entries = _source_history._read_lines(path)
+    except Exception:  # noqa: BLE001 — a bad history file must not 500 the endpoint
+        entries = []
+    if not entries:
+        return lambda _name: []
+    entries.sort(key=lambda e: e.get("date") or "")
+    windowed = entries[-max(1, int(days)):]
+
+    lookup: dict[str, list[dict[str, Any]]] = {}
+    for snap in windowed:
+        date = snap.get("date")
+        if not isinstance(date, str):
+            continue
+        players = snap.get("players") or {}
+        if not isinstance(players, dict):
+            continue
+        for raw_key, entry in players.items():
+            if not isinstance(raw_key, str) or not isinstance(entry, dict):
+                continue
+            name_part = raw_key.split("::", 1)[0].strip().lower()
+            if not name_part:
+                continue
+            v = entry.get("blended")
+            try:
+                value = int(v) if v is not None else None
+            except (TypeError, ValueError):
+                value = None
+            if value is None:
+                continue
+            lookup.setdefault(name_part, []).append({"date": date, "value": value})
+
+    def _lookup(name: str) -> list[dict[str, Any]]:
+        if not name:
+            return []
+        needle = str(name).strip().lower()
+        return lookup.get(needle) or []
+
+    return _lookup
+
+
 # ── ROSTER RECONSTRUCTION (historical) ──────────────────────────────────
 
 
@@ -451,26 +514,41 @@ def _sum_roster_value_at_date(
     history_by_name: Callable[[str], list[dict[str, Any]]],
     date: str,
     row_index: dict[str, dict[str, Any]],
+    value_history_by_name: Callable[[str], list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
-    """Sum Hill-curve values of ``roster_names`` at the closest
+    """Sum historical values of ``roster_names`` at the closest
     snapshot date ≤ ``date``.
+
+    Two data sources are tried, in this order:
+
+    1. ``value_history_by_name`` — per-player blended VALUE series
+       from ``data/source_value_history.jsonl`` (populated by the
+       backfill of 28+ days of historical ``dynasty_data_*.json``
+       exports).  Values here are the median-of-sources proxy for
+       the blended value at that date — they don't require a
+       rank→value Hill conversion.  Preferred when present because
+       it's the richer coverage source.
+    2. ``history_by_name`` — per-player rank series from
+       ``data/rank_history.jsonl`` (populated by the live scrape
+       loop; currently ~2 days deep).  Ranks run through
+       ``rank_to_value`` to derive a value.  Fallback when the
+       value-history log doesn't have the date.
 
     Returns a dict::
 
         {
-          "value":            int | None,  # sum; None when unreliable
-          "resolved":         int,         # players with ≥1 matching snapshot
-          "expected":         int,         # len(roster_names)
-          "coverageFraction": float,       # resolved / expected
-          "reliable":         bool,        # coverageFraction ≥ 0.60
+          "value":            int | None,
+          "resolved":         int,
+          "expected":         int,
+          "coverageFraction": float,
+          "reliable":         bool,
+          "source":           "value" | "rank" | "mixed" | "none",
         }
 
-    The prior version returned a bare ``int | None``, which hid the
-    distinction between "no data at all" and "60%+ coverage, we
-    chose not to emit because the remaining players would have
-    biased the sum".  Exposing the coverage lets the frontend render
-    an explicit "insufficient history (32% coverage)" hint instead
-    of a silent "—".
+    The low-coverage guard (<60% of roster resolved) returns
+    ``value=None`` but still surfaces the coverage fraction so the
+    UI can render "insufficient history (N% coverage)" instead of
+    a silent dash.
     """
     expected = len(roster_names or [])
     result: dict[str, Any] = {
@@ -479,6 +557,7 @@ def _sum_roster_value_at_date(
         "expected": expected,
         "coverageFraction": 0.0,
         "reliable": False,
+        "source": "none",
     }
     if expected == 0:
         return result
@@ -486,7 +565,27 @@ def _sum_roster_value_at_date(
     target = date
     resolved = 0
     total = 0
+    sources_hit: set[str] = set()
     for name in roster_names:
+        chosen_value: int | None = None
+        # 1) Try value-history first.
+        if value_history_by_name is not None:
+            vpoints = value_history_by_name(name) or []
+            for p in sorted(vpoints, key=lambda x: x.get("date") or ""):
+                d = p.get("date")
+                v = p.get("value")
+                if not isinstance(d, str) or not isinstance(v, (int, float)):
+                    continue
+                if d <= target:
+                    chosen_value = int(v)
+                else:
+                    break
+            if chosen_value is not None:
+                sources_hit.add("value")
+                total += chosen_value
+                resolved += 1
+                continue
+        # 2) Fall back to rank-history → Hill curve.
         points = history_by_name(name) or []
         if not points:
             continue
@@ -502,6 +601,7 @@ def _sum_roster_value_at_date(
                 break
         if chosen is None:
             continue
+        sources_hit.add("rank")
         total += int(_rank_to_value(float(chosen)))
         resolved += 1
 
@@ -509,6 +609,10 @@ def _sum_roster_value_at_date(
     result["resolved"] = resolved
     result["coverageFraction"] = round(coverage, 3)
     result["reliable"] = coverage >= _MIN_COVERAGE_FOR_RELIABLE_SUM
+    if len(sources_hit) == 1:
+        result["source"] = next(iter(sources_hit))
+    elif len(sources_hit) >= 2:
+        result["source"] = "mixed"
     # Low-coverage guard: under-covered sum is biased against missing
     # players.  Leave ``value`` None so the UI surfaces the hint.
     if result["reliable"]:
@@ -1036,6 +1140,18 @@ def build_terminal_payload(
     history = _rank_history.load_history(days=history_window_days)
     history_for = _history_lookup(history)
 
+    # Per-player blended VALUE history.  Populated by the live
+    # scrape loop AND by a one-shot backfill from the historical
+    # dynasty_data_*.json exports (src/api/source_history.py).
+    # Coverage is typically wider than rank_history because value
+    # history can be synthesized from raw per-source values even on
+    # pre-contract-builder exports.  Stored as a ``name_lower →
+    # [{date, value}]`` dict so the terminal delta computation can
+    # hit it case-insensitively.
+    value_history_lookup = _build_value_history_lookup(
+        days=history_window_days,
+    )
+
     sleeper = contract.get("sleeper") or {}
     teams = sleeper.get("teams") or []
     availableTeams = []
@@ -1139,6 +1255,11 @@ def build_terminal_payload(
         # the pre-coverage consumers; the full block is exposed on
         # ``delta*dDetail``.
         latest_date = _latest_snapshot_date(history)
+        # Value history is a richer source (28+ days backfilled
+        # from exports vs 2 days of live rank log).  If rank
+        # history doesn't have a date, try value history's latest.
+        if not latest_date:
+            latest_date = _latest_value_history_date(value_history_lookup)
         teamAggregates["rosterAware"] = False
         if latest_date and total > 0:
             any_roster_aware = False
@@ -1155,6 +1276,7 @@ def build_terminal_payload(
                 past_total = _sum_roster_value_at_date(
                     past_roster,
                     history_by_name=history_for,
+                    value_history_by_name=value_history_lookup,
                     date=past_date,
                     row_index=row_index,
                 )
@@ -1165,6 +1287,7 @@ def build_terminal_payload(
                     "resolved": past_total["resolved"],
                     "expected": past_total["expected"],
                     "reliable": past_total["reliable"],
+                    "source": past_total.get("source", "none"),
                     "rosterAware": roster_coverage["rosterAware"],
                     "tradesSeen": roster_coverage["tradesSeen"],
                     "tradesApplied": roster_coverage["tradesApplied"],
@@ -1182,6 +1305,8 @@ def build_terminal_payload(
             teamAggregates["rosterAware"] = any_roster_aware
 
         # Signals for each roster player.
+        import time as _time_mod
+        now_ms = int(_time_mod.time() * 1000)
         for r in roster_rows:
             points = _normalize_points(history_for(_row_name(r)))
             player_news = news_by_player.get(_row_name(r).lower(), [])
@@ -1198,6 +1323,13 @@ def build_terminal_payload(
             dismissed_until = active_dismissals.get(skey)
             if dismissed_until is None and alias_key:
                 dismissed_until = active_dismissals.get(alias_key)
+            # Injury impact: zero-out when no applicable news, a
+            # short-term percentage discount when the news rulebook
+            # fires.  Stamped onto the signal entry so the UI can
+            # render "Jamo -15% (ACL, RB)" next to the signal reason.
+            injury = _injury_impact.apply_injury_impact(
+                row=r, news_for_player=player_news, now_ms=now_ms,
+            )
             entry = {
                 **ctx,
                 "signal": verdict["signal"],
@@ -1208,6 +1340,12 @@ def build_terminal_payload(
                 "aliasSignalKey": alias_key,
                 "dismissedUntil": dismissed_until,
                 "dismissed": bool(dismissed_until),
+                "injuryImpact": injury if injury.get("appliedDiscountPct") else None,
+                "injuryAdjustedValue": (
+                    injury.get("adjustedValue")
+                    if injury.get("appliedDiscountPct")
+                    else None
+                ),
             }
             signals_list.append(entry)
         # Sort like the frontend: RISK/SELL/MONITOR first, HOLD last,
@@ -1340,6 +1478,29 @@ def _latest_snapshot_date(history: dict[str, Any]) -> str | None:
             if isinstance(d, str) and (latest is None or d > latest):
                 latest = d
     return latest
+
+
+def _latest_value_history_date(
+    value_lookup: Callable[[str], list[dict[str, Any]]] | None,
+) -> str | None:
+    """Probe the value-history lookup for its latest stamped date.
+
+    The lookup itself is a closure over a dict; we don't have a
+    "give me all names" API, so we read directly from the snapshot
+    file.  Cheap — it's already been parsed by
+    ``_build_value_history_lookup`` and we're just re-reading the
+    tail entry.
+    """
+    try:
+        entries = _source_history._read_lines(_source_history.HISTORY_PATH)
+    except Exception:  # noqa: BLE001
+        return None
+    if not entries:
+        return None
+    entries.sort(key=lambda e: e.get("date") or "")
+    tail = entries[-1]
+    d = tail.get("date") if isinstance(tail, dict) else None
+    return d if isinstance(d, str) else None
 
 
 def _back_iso_date(latest_date: str, days: int) -> str:
