@@ -1,41 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { useAuthContext } from "@/app/AppShellWrapper";
+import TerminalLayout from "@/components/terminal/TerminalLayout";
 
 /**
  * Home page — entry point for the app.
- * Authenticated users see a dashboard hub with quick links.
+ * Authenticated users see the fantasy-market terminal landing.
  * Unauthenticated users see a landing with League (public) and Login options.
  */
-const DESTINATIONS = [
-  { href: "/rankings", label: "Rankings", desc: "Unified player board with multi-source values" },
-  { href: "/trade", label: "Trade Calculator", desc: "Evaluate trades with power-weighted analysis" },
-  { href: "/edge", label: "Edge Detection", desc: "Find buy-low and sell-high opportunities" },
-  { href: "/finder", label: "Trade Finder", desc: "Discover arbitrage trades across your league" },
-  { href: "/league", label: "League Hub", desc: "Power rankings, comparisons, draft capital" },
-];
 
 function AuthenticatedHome() {
-  return (
-    <section>
-      <div className="card" style={{ marginBottom: "var(--space-md)" }}>
-        <h1 className="page-title">Risk It To Get The Brisket</h1>
-        <p className="muted text-sm" style={{ marginTop: 4 }}>
-          Dynasty trade calculator and league analysis platform.
-        </p>
-      </div>
-      <div className="list">
-        {DESTINATIONS.map((d) => (
-          <Link key={d.href} href={d.href} className="card" style={{ display: "block" }}>
-            <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>{d.label}</div>
-            <div className="muted text-xs" style={{ marginTop: 2 }}>{d.desc}</div>
-          </Link>
-        ))}
-      </div>
-    </section>
-  );
+  return <TerminalLayout />;
 }
 
 function LandingHome() {

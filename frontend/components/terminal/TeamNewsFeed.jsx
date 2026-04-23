@@ -1,0 +1,228 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useApp } from "@/components/AppShell";
+import { useTeam } from "@/components/useTeam";
+import Panel from "./Panel";
+import {
+  fetchNews,
+  filterByScope,
+  rankByRelevance,
+  timeAgo,
+} from "@/lib/news-service";
+
+const SCOPE_TABS = [
+  { key: "roster", label: "My Roster" },
+  { key: "league", label: "League" },
+  { key: "all", label: "All" },
+];
+
+const MAX_ITEMS = 12;
+
+function useLeagueNames(sleeperTeams) {
+  return useMemo(() => {
+    const names = [];
+    if (!Array.isArray(sleeperTeams)) return names;
+    for (const t of sleeperTeams) {
+      if (Array.isArray(t?.players)) names.push(...t.players);
+    }
+    return names;
+  }, [sleeperTeams]);
+}
+
+export default function TeamNewsFeed() {
+  const { rawData, openPlayerPopup } = useApp();
+  const { selectedTeam } = useTeam();
+  const sleeperTeams = rawData?.sleeper?.teams;
+  const leagueNames = useLeagueNames(sleeperTeams);
+
+  const [scope, setScope] = useState("roster");
+  const [news, setNews] = useState({
+    items: [],
+    source: null,
+    loaded: false,
+    unavailable: false,
+    reason: null,
+  });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    fetchNews({ signal: controller.signal })
+      .then((res) => {
+        if (!active) return;
+        setNews({
+          items: Array.isArray(res.items) ? res.items : [],
+          source: res.source || null,
+          loaded: true,
+          unavailable: !!res.unavailable,
+          reason: res.reason || null,
+        });
+      })
+      .catch((err) => {
+        if (err?.name === "AbortError") return;
+        if (!active) return;
+        setNews({
+          items: [],
+          source: null,
+          loaded: true,
+          unavailable: true,
+          reason: "fetch_failed",
+        });
+      });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, []);
+
+  const rosterNames = selectedTeam?.players || [];
+
+  const scopedItems = useMemo(() => {
+    if (!news.loaded || news.items.length === 0) return [];
+    const scored = rankByRelevance(news.items, { rosterNames, leagueNames });
+    return filterByScope(scored, scope).slice(0, MAX_ITEMS);
+  }, [news, rosterNames, leagueNames, scope]);
+
+  const isMock = news.source === "mock";
+
+  return (
+    <Panel
+      title="News"
+      subtitle={isMock ? "Demo feed — backend adapter pending" : "Roster-relevant headlines"}
+      className="panel--news"
+      actions={
+        <div className="panel-tabs" role="tablist" aria-label="News scope">
+          {SCOPE_TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={scope === t.key}
+              className={`panel-tab${scope === t.key ? " is-active" : ""}`}
+              onClick={() => setScope(t.key)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      }
+    >
+      {isMock && (
+        <div className="news-demo-badge" role="note" aria-label="Demo data notice">
+          DEMO · Using bundled fixture until backend /api/news lands
+        </div>
+      )}
+
+      {!news.loaded && <NewsSkeleton rows={4} />}
+
+      {news.loaded && news.unavailable && (
+        <div className="news-empty" role="status">
+          <span className="news-empty-title">News unavailable</span>
+          <span className="news-empty-body">
+            {humanizeReason(news.reason)}
+          </span>
+        </div>
+      )}
+
+      {news.loaded && !news.unavailable && scopedItems.length === 0 && (
+        <div className="news-empty" role="status">
+          <span className="news-empty-title">
+            {scope === "roster"
+              ? "No roster-relevant headlines"
+              : "No matching news"}
+          </span>
+          <span className="news-empty-body">
+            {scope === "roster"
+              ? "Switch scope to League or All to see broader coverage."
+              : "Try a wider scope."}
+          </span>
+        </div>
+      )}
+
+      {news.loaded && !news.unavailable && scopedItems.length > 0 && (
+        <ul className="news-feed">
+          {scopedItems.map((item) => (
+            <NewsItem
+              key={item.id || `${item.ts}-${item.headline}`}
+              item={item}
+              onPlayerClick={openPlayerPopup}
+            />
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
+function NewsItem({ item, onPlayerClick }) {
+  const matched = Array.isArray(item.__matchedOn) ? item.__matchedOn : [];
+  const primary = matched.find((m) => m.scope === "roster") || matched[0] || null;
+  const sevClass = `news-item--sev-${item.severity || "info"}`;
+  const rosterClass =
+    item.__relevance >= 100 ? " news-item--roster" : "";
+
+  return (
+    <li className={`news-item ${sevClass}${rosterClass}`}>
+      <div className="news-item-meta">
+        <span className="news-item-time">{timeAgo(item.ts)}</span>
+        <span className="news-item-provider">{item.providerLabel || item.provider || "—"}</span>
+        {item.severity && (
+          <span className={`news-item-severity news-item-severity--${item.severity}`}>
+            {item.severity}
+          </span>
+        )}
+      </div>
+      <h3 className="news-item-headline">{item.headline}</h3>
+      {item.body && <p className="news-item-body">{item.body}</p>}
+      <div className="news-item-foot">
+        {matched.length > 0 ? (
+          <div className="news-item-players">
+            {matched.map((m) => (
+              <button
+                key={m.name + m.scope}
+                type="button"
+                className={`news-item-player news-item-player--${m.scope}`}
+                onClick={() => onPlayerClick?.(m.name)}
+                title={`Open ${m.name}`}
+              >
+                {m.name}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <span className="news-item-players-empty">General</span>
+        )}
+        {item.kind && <span className="news-item-kind">{item.kind}</span>}
+      </div>
+    </li>
+  );
+}
+
+function NewsSkeleton({ rows = 3 }) {
+  return (
+    <ul className="news-feed news-feed--skeleton" aria-hidden="true">
+      {Array.from({ length: rows }).map((_, i) => (
+        <li key={i} className="news-item news-item--skeleton">
+          <div className="news-item-meta">
+            <span className="skeleton-line skeleton-line--xs" />
+            <span className="skeleton-line skeleton-line--xs" />
+          </div>
+          <span className="skeleton-line skeleton-line--wide" />
+          <span className="skeleton-line skeleton-line--wide" />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function humanizeReason(reason) {
+  switch (reason) {
+    case "fetch_failed":
+      return "Could not reach the news endpoint. Check network and try again.";
+    case "no_provider_configured":
+      return "No provider is configured yet; panel will populate when one is.";
+    default:
+      return "News provider returned an unexpected response.";
+  }
+}
