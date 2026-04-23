@@ -122,11 +122,36 @@ def _row_rank_change(row: dict[str, Any]) -> int | None:
 
 
 def _players_array(contract: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return the flat list of rows, preferring ``playersArray`` but
+    falling back to the legacy ``players`` dict when the runtime
+    view strips the array for payload size (``/api/data?view=app``
+    serves an empty ``playersArray: []``).
+
+    The live pipeline emits ``playersArray`` WITHOUT ``_sleeperId``
+    on each row — that field only lives on the legacy ``players``
+    dict.  When ``playersArray`` is populated we backfill each row
+    with the ``_sleeperId`` from the matching dict entry so the
+    alias-key signal flow works regardless of which view the
+    contract came from.
+    """
+    sleeper_lookup = _build_sleeper_id_lookup(contract)
     arr = contract.get("playersArray")
-    if isinstance(arr, list):
-        return [r for r in arr if isinstance(r, dict)]
+    if isinstance(arr, list) and arr:
+        rows: list[dict[str, Any]] = []
+        for r in arr:
+            if not isinstance(r, dict):
+                continue
+            name_lower = str(
+                r.get("displayName") or r.get("canonicalName") or r.get("name") or ""
+            ).strip().lower()
+            if name_lower and "_sleeperId" not in r:
+                sid = sleeper_lookup.get(name_lower)
+                if sid:
+                    r = {**r, "_sleeperId": sid}
+            rows.append(r)
+        return rows
     players = contract.get("players") or {}
-    if isinstance(players, dict):
+    if isinstance(players, dict) and players:
         out: list[dict[str, Any]] = []
         for name, row in players.items():
             if isinstance(row, dict):
@@ -134,6 +159,40 @@ def _players_array(contract: dict[str, Any]) -> list[dict[str, Any]]:
                 out.append(row)
         return out
     return []
+
+
+def _build_sleeper_id_lookup(contract: dict[str, Any]) -> dict[str, str]:
+    """Build a ``displayName_lower → sleeperId`` map from whichever
+    surface of the contract carries the IDs.  Used to backfill rows
+    emitted by ``playersArray`` (which routinely omits ``_sleeperId``)
+    with the stable identifier the alias-key logic needs.
+    """
+    out: dict[str, str] = {}
+    players = contract.get("players")
+    if isinstance(players, dict):
+        for name, row in players.items():
+            if not isinstance(row, dict):
+                continue
+            sid = row.get("_sleeperId") or row.get("sleeperId")
+            if sid is None:
+                continue
+            out[str(name).strip().lower()] = str(sid)
+    # Also scan playersArray in case it DOES carry IDs — no harm
+    # in merging.
+    arr = contract.get("playersArray")
+    if isinstance(arr, list):
+        for row in arr:
+            if not isinstance(row, dict):
+                continue
+            sid = row.get("_sleeperId") or row.get("sleeperId")
+            if sid is None:
+                continue
+            n = str(
+                row.get("displayName") or row.get("canonicalName") or row.get("name") or ""
+            ).strip().lower()
+            if n and n not in out:
+                out[n] = str(sid)
+    return out
 
 
 def _build_row_index(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
