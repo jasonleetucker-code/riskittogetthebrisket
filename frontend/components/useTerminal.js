@@ -1,29 +1,35 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useTeam } from "@/components/useTeam";
 
 /**
- * useTerminal — consume the server-side aggregation endpoint.
+ * useTerminal — fetch the server-side terminal aggregation.
  *
- * Replaces the old pattern where every terminal panel reached into
- * useApp/useRankHistory/useNews independently and recomputed
- * valueFromRank, windowTrend, volatility, and signal rules
- * client-side.  The backend now computes all of that in one pass and
- * hands back a fully rendered payload.  The client just renders.
+ * Returns the /api/terminal payload for the given (ownerId,
+ * windowDays) combination.  Single-flighted + module-cached with a
+ * 30s TTL, so multiple components reading the same combination
+ * produce one network request.
  *
- * Request shape: ``GET /api/terminal?team=<ownerId>&teamName=<name>&windowDays=<N>``
+ * This hook is standalone — it does NOT depend on TerminalLayout or
+ * any React context — so any surface in the app can opt in to the
+ * server-computed portfolio / movers / signals without reshaping
+ * the component tree.
  *
- * Response shape: see ``src/api/terminal.py::build_terminal_payload``.
+ * The hook is auth-agnostic: an authenticated request returns the
+ * private payload (signals, portfolio, watchlist), an anonymous
+ * request returns the public slice (league + top150 movers + top-
+ * 150 news only).  The ``authenticated`` flag on the payload
+ * tells consumers which mode they got.
  *
- * Cache: 30s single-flight per (ownerId, windowDays) pair — multiple
- * panels mounting at once issue exactly one request per combination.
+ * Callers that want the private payload but are happy to fall back
+ * to local computation when the fetch 401s should inspect
+ * ``state.authenticated`` on the returned payload — when it's
+ * false, ``state.portfolio`` and ``state.signals`` will be null /
+ * empty and the caller should rely on its own fallback path.
  */
 
 const TTL_MS = 30_000;
-
-// Single-flight cache keyed by ``${ownerId}::${windowDays}``.
-const cache = new Map();   // key → { result, expires }
+const cache = new Map(); // key → { result, expires }
 const inflight = new Map(); // key → Promise
 
 function cacheKey({ ownerId, name, windowDays }) {
@@ -49,7 +55,9 @@ async function fetchTerminal({ ownerId, name, windowDays, signal }) {
     headers: { "Cache-Control": "no-store" },
   })
     .then(async (res) => {
-      if (!res.ok) throw new Error(`terminal ${res.status}`);
+      if (!res.ok && res.status !== 503) {
+        throw new Error(`terminal ${res.status}`);
+      }
       const data = await res.json();
       cache.set(key, { result: data, expires: Date.now() + TTL_MS });
       inflight.delete(key);
@@ -68,10 +76,13 @@ export function invalidateTerminalCache() {
   inflight.clear();
 }
 
-export function useTerminal({ windowDays = 30 } = {}) {
-  const { selectedTeam, loading: teamLoading } = useTeam();
-  const ownerId = selectedTeam?.ownerId || "";
-  const name = selectedTeam?.name || "";
+/**
+ * Read the terminal payload for a team (or the public slice if no
+ * ownerId is provided).  ``windowDays`` defaults to 30; callers can
+ * widen to 7/30/90/180 via the window selector in the Team Command
+ * Header.
+ */
+export function useTerminal({ ownerId = "", teamName = "", windowDays = 30 } = {}) {
   const [state, setState] = useState({
     loading: true,
     error: null,
@@ -87,10 +98,9 @@ export function useTerminal({ windowDays = 30 } = {}) {
   }, []);
 
   useEffect(() => {
-    if (teamLoading) return undefined;
     const controller = new AbortController();
     setState((prev) => ({ ...prev, loading: true, error: null }));
-    fetchTerminal({ ownerId, name, windowDays, signal: controller.signal })
+    fetchTerminal({ ownerId, name: teamName, windowDays, signal: controller.signal })
       .then((payload) => {
         if (!mounted.current) return;
         setState({ loading: false, error: null, payload });
@@ -105,40 +115,29 @@ export function useTerminal({ windowDays = 30 } = {}) {
         });
       });
     return () => controller.abort();
-  }, [ownerId, name, windowDays, teamLoading]);
+  }, [ownerId, teamName, windowDays]);
 
-  const {
-    team,
-    availableTeams,
-    teamAggregates,
-    movers,
-    signals,
-    portfolio,
-    news,
-    watchlist,
-    trendWindows,
-    meta,
-    generatedAt,
-  } = state.payload || {};
-
-  const value = useMemo(
-    () => ({
+  const value = useMemo(() => {
+    const p = state.payload || {};
+    return {
       loading: state.loading,
       error: state.error,
-      team: team || null,
-      availableTeams: availableTeams || [],
-      teamAggregates: teamAggregates || null,
-      movers: movers || { roster: [], league: [], top150: [] },
-      signals: signals || [],
-      portfolio: portfolio || null,
-      news: news || { items: [], count: 0 },
-      watchlist: watchlist || [],
-      trendWindows: trendWindows || [7, 30, 90, 180],
-      meta: meta || {},
-      generatedAt: generatedAt || null,
+      authenticated: !!p.authenticated,
+      stale: !!p.stale,
+      staleAs: p.staleAs || null,
+      team: p.team || null,
+      availableTeams: p.availableTeams || [],
+      teamAggregates: p.teamAggregates || null,
+      movers: p.movers || { roster: [], league: [], top150: [] },
+      signals: p.signals || [],
+      portfolio: p.portfolio || null,
+      news: p.news || { items: [], count: 0 },
+      watchlist: p.watchlist || [],
+      trendWindows: p.trendWindows || [7, 30, 90, 180],
+      meta: p.meta || {},
+      generatedAt: p.generatedAt || null,
       windowDays,
-    }),
-    [state, windowDays],
-  );
+    };
+  }, [state, windowDays]);
   return value;
 }

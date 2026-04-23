@@ -46,7 +46,16 @@ from pathlib import Path
 from typing import Any, Iterable
 
 HISTORY_PATH: Path = Path(__file__).resolve().parents[2] / "data" / "source_value_history.jsonl"
-MAX_SNAPSHOTS: int = 180
+# Mirror rank_history's three-year retention so the two logs stay in
+# lockstep; a per-source chart can render the same 3-year window the
+# blended rank chart can.  At ~85 KB per snapshot (1,200 players ×
+# 12 sources), three years ≈ 90 MB on disk — manageable.  The trim
+# happens on each append, so long-running deployments stay bounded.
+MAX_SNAPSHOTS: int = 365 * 3
+# Charts still open on a 180-day window by default — that's where
+# the "value history · 180d" callout comes from.  Callers that want
+# the full tail pass ``days=1095`` (or larger, clamped to
+# MAX_SNAPSHOTS server-side).
 DEFAULT_HISTORY_WINDOW_DAYS: int = 180
 
 

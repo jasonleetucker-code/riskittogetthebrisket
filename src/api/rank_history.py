@@ -49,10 +49,16 @@ from typing import Any, Iterable
 
 HISTORY_PATH: Path = Path(__file__).resolve().parents[2] / "data" / "rank_history.jsonl"
 
-# Keep six months of daily scrapes.  At ~1,200 players × ~5 bytes per
-# rank-entry the on-disk footprint is ~1 MB — trivial, even if a
-# scrape runs more than once a day the trim keeps it bounded.
-MAX_SNAPSHOTS: int = 180
+# Retain three full calendar years of daily scrapes.  At ~1,200
+# players × ~5 bytes per rank-entry the per-snapshot footprint is
+# ~6 KB, so three years × 365 snapshots ≈ 6.5 MB on disk — still
+# trivial relative to the ~3-4 MB daily export.  The prior six-month
+# cap clipped any long-horizon study before it could start; tripling
+# retention lets callers compare a player's current rank to their
+# rank at the start of the previous league year without needing a
+# separate archive.  Callers that only need a short window still
+# pass ``days=30`` and read the tail slice.
+MAX_SNAPSHOTS: int = 365 * 3
 
 # Default sparkline window.  30 days is enough for a meaningful
 # trend line without dominating the rankings-row rendering footprint.

@@ -5,6 +5,7 @@ import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
 import { useRankHistory } from "@/components/useRankHistory";
 import { useNews } from "@/components/useNews";
+import { useTerminal } from "@/components/useTerminal";
 import {
   computePortfolio,
   computeInsights,
@@ -58,21 +59,63 @@ export default function ScoutingIntel() {
   const rosterNames = selectedTeam?.players || [];
   const news = useNews({ rosterNames, leagueNames });
 
-  const portfolio = useMemo(
+  // Server-side portfolio + insights when available.  Authenticated
+  // users get ``serverPortfolio`` with pre-computed bestAsset /
+  // biggestRisk / tradeChip / buyLow + the breakdown fields
+  // (byPosition / byAge / volExposure / counters).  Anonymous
+  // requests or mid-refresh gaps fall through to the local
+  // ``computePortfolio`` + ``computeInsights`` below so the panel
+  // never renders a blank state waiting on the network.
+  const { portfolio: serverPortfolio } = useTerminal({
+    ownerId: String(selectedTeam?.ownerId || ""),
+    teamName: selectedTeam?.name || "",
+    windowDays: 30,
+  });
+
+  const localPortfolio = useMemo(
     () => computePortfolio({ rows, selectedTeam, rawData, history }),
     [rows, selectedTeam, rawData, history],
   );
 
-  const insights = useMemo(
-    () =>
-      computeInsights({
-        portfolio,
-        rows,
-        selectedTeam,
-        newsItems: news.scored,
-      }),
-    [portfolio, rows, selectedTeam, news.scored],
-  );
+  const portfolio = useMemo(() => {
+    if (!localPortfolio) return null;
+    if (!serverPortfolio) return localPortfolio;
+    return {
+      ...localPortfolio,
+      totalValue: serverPortfolio.totalValue ?? localPortfolio.totalValue,
+      byPosition: serverPortfolio.byPosition || localPortfolio.byPosition,
+      byAge: serverPortfolio.byAge || localPortfolio.byAge,
+      volExposure: serverPortfolio.volExposure || localPortfolio.volExposure,
+      medianAge: serverPortfolio.medianAge ?? localPortfolio.medianAge,
+    };
+  }, [serverPortfolio, localPortfolio]);
+
+  // Prefer server-computed insights (best asset / biggest risk /
+  // trade chip / buy-low); fall back to local ``computeInsights``
+  // when the server didn't provide them.
+  const insights = useMemo(() => {
+    if (
+      serverPortfolio &&
+      (serverPortfolio.bestAsset
+        || serverPortfolio.biggestRisk
+        || serverPortfolio.tradeChip
+        || serverPortfolio.buyLow)
+    ) {
+      return {
+        bestAsset: serverPortfolio.bestAsset || null,
+        biggestRisk: serverPortfolio.biggestRisk || null,
+        tradeChip: serverPortfolio.tradeChip || null,
+        buyLow: serverPortfolio.buyLow || null,
+        newsByPlayer: new Map(),
+      };
+    }
+    return computeInsights({
+      portfolio,
+      rows,
+      selectedTeam,
+      newsItems: news.scored,
+    });
+  }, [serverPortfolio, portfolio, rows, selectedTeam, news.scored]);
 
   const rosterChips = useMemo(
     () => computeRosterChips(portfolio),

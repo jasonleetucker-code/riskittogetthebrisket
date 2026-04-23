@@ -283,42 +283,58 @@ def _reconstruct_roster_at(
     owner_id: str,
     current_players: list[str],
     cutoff_ms: int,
-) -> list[str]:
+) -> tuple[list[str], dict[str, Any]]:
     """Reverse-apply completed trades back to ``cutoff_ms``.
 
-    Returns the approximate roster player-name list at that historical
-    moment.  Uses ``sleeper.trades[]`` (already present in the live
-    contract, see ``Dynasty Scraper.py::roster_data["trades"]``).
-    Each trade carries ``sides[].{ownerId, got, gave}`` — applying
-    each trade AFTER ``cutoff_ms`` in reverse means:
+    Returns ``(roster_list, coverage_report)``.  The coverage report
+    has the shape::
+
+        {
+          "rosterAware":   bool,   # True iff ≥1 trade for this owner
+                                   # actually moved the roster
+          "tradesSeen":    int,    # total trades in window, any owner
+          "tradesApplied": int,    # trades that touched this owner
+          "reason":        str,    # one of "no_owner" / "no_trades" /
+                                   # "no_trades_for_owner" / "applied"
+        }
+
+    ``rosterAware: True`` ONLY when a trade actually un-did some of
+    the current roster.  The prior version set it True even when the
+    trades list was empty, which was a lie — a static-roster delta
+    dressed up as history-aware.  Now the frontend can render "delta
+    (static)" vs "delta (roster-aware)" honestly.
+
+    Uses ``sleeper.trades[]`` (already present in the live contract,
+    see ``Dynasty Scraper.py::roster_data["trades"]``).  Each trade
+    carries ``sides[].{ownerId, got, gave}`` — applying each trade
+    AFTER ``cutoff_ms`` in reverse means:
 
         * remove from roster items this owner GOT in that trade
         * add back items this owner GAVE away in that trade
-
-    Picks are ignored (they don't carry a rank-derived value in the
-    roster_now set — they go in a separate ``picks`` array), but
-    player names and canonical pick labels are ignored the same way:
-    if a name doesn't resolve to a row in the live contract, it's
-    silently dropped downstream.
 
     Cross-universe collisions (same name, different assetClass) are
     accepted as-is: the live contract's display-name index already
     collapses them, so a reconstruction using display names inherits
     the same collapse.
-
-    If ``sleeper.trades`` is missing or empty, we return
-    ``current_players`` verbatim — reconstructions equal to the
-    current roster produce deltas equal to the static-roster delta,
-    which is the pre-fix behaviour.  No harm, no silent error.
     """
+    coverage: dict[str, Any] = {
+        "rosterAware": False,
+        "tradesSeen": 0,
+        "tradesApplied": 0,
+        "reason": "applied",
+    }
     if not owner_id:
-        return list(current_players or [])
+        coverage["reason"] = "no_owner"
+        return list(current_players or []), coverage
     sleeper = contract.get("sleeper") or {}
     trades = sleeper.get("trades") or []
     if not isinstance(trades, list) or not trades:
-        return list(current_players or [])
+        coverage["reason"] = "no_trades"
+        return list(current_players or []), coverage
 
     roster = set(current_players or [])
+    seen = 0
+    applied = 0
     # Reverse-order iteration through completed trades, applying the
     # inverse: UNDO each trade for this owner back until we cross the
     # cutoff.  ``trades`` is already sorted newest-first in the
@@ -332,12 +348,13 @@ def _reconstruct_roster_at(
             continue
         if ts <= cutoff_ms:
             # This trade (and everything older) is OLDER than the
-            # requested cutoff — the roster after this trade is
-            # irrelevant; we've already walked past the cutoff.
+            # requested cutoff — we've already walked past the cutoff.
             break
+        seen += 1
         sides = tx.get("sides") or []
         if not isinstance(sides, list):
             continue
+        touched_this_owner = False
         for side in sides:
             if not isinstance(side, dict):
                 continue
@@ -345,14 +362,28 @@ def _reconstruct_roster_at(
                 continue
             got = side.get("got") or []
             gave = side.get("gave") or []
-            # Undo: remove what we received, add back what we gave.
             if isinstance(got, list):
                 for item in got:
                     roster.discard(str(item))
+                    touched_this_owner = touched_this_owner or bool(item)
             if isinstance(gave, list):
                 for item in gave:
                     roster.add(str(item))
-    return sorted(roster)
+                    touched_this_owner = touched_this_owner or bool(item)
+        if touched_this_owner:
+            applied += 1
+
+    coverage["tradesSeen"] = seen
+    coverage["tradesApplied"] = applied
+    coverage["rosterAware"] = applied > 0
+    if seen == 0:
+        coverage["reason"] = "no_trades"
+    elif applied == 0:
+        coverage["reason"] = "no_trades_for_owner"
+    return sorted(roster), coverage
+
+
+_MIN_COVERAGE_FOR_RELIABLE_SUM: float = 0.60
 
 
 def _sum_roster_value_at_date(
@@ -361,26 +392,44 @@ def _sum_roster_value_at_date(
     history_by_name: Callable[[str], list[dict[str, Any]]],
     date: str,
     row_index: dict[str, dict[str, Any]],
-) -> int | None:
+) -> dict[str, Any]:
     """Sum Hill-curve values of ``roster_names`` at the closest
     snapshot date ≤ ``date``.
 
-    Returns ``None`` if fewer than 60% of the roster had coverage
-    on/before the cutoff — an under-covered sum is worse than no
-    number at all (the UI prefers "—" to a lie).
+    Returns a dict::
+
+        {
+          "value":            int | None,  # sum; None when unreliable
+          "resolved":         int,         # players with ≥1 matching snapshot
+          "expected":         int,         # len(roster_names)
+          "coverageFraction": float,       # resolved / expected
+          "reliable":         bool,        # coverageFraction ≥ 0.60
+        }
+
+    The prior version returned a bare ``int | None``, which hid the
+    distinction between "no data at all" and "60%+ coverage, we
+    chose not to emit because the remaining players would have
+    biased the sum".  Exposing the coverage lets the frontend render
+    an explicit "insufficient history (32% coverage)" hint instead
+    of a silent "—".
     """
-    if not roster_names:
-        return None
+    expected = len(roster_names or [])
+    result: dict[str, Any] = {
+        "value": None,
+        "resolved": 0,
+        "expected": expected,
+        "coverageFraction": 0.0,
+        "reliable": False,
+    }
+    if expected == 0:
+        return result
+
     target = date
     resolved = 0
     total = 0
     for name in roster_names:
         points = history_by_name(name) or []
         if not points:
-            # Try the current live row as a sentinel: the frontend
-            # fallback was "use the latest row's rank if history
-            # missing", but that'd just reproduce the static-roster
-            # delta.  Drop the player instead.
             continue
         chosen = None
         for p in sorted(points, key=lambda x: x.get("date") or ""):
@@ -396,13 +445,16 @@ def _sum_roster_value_at_date(
             continue
         total += int(_rank_to_value(float(chosen)))
         resolved += 1
-    if resolved == 0:
-        return None
-    # Low-coverage guard: <60% coverage means the sum is a biased
-    # shadow of the real past roster.  Caller renders "—".
-    if resolved / max(1, len(roster_names)) < 0.6:
-        return None
-    return total
+
+    coverage = resolved / max(1, expected)
+    result["resolved"] = resolved
+    result["coverageFraction"] = round(coverage, 3)
+    result["reliable"] = coverage >= _MIN_COVERAGE_FOR_RELIABLE_SUM
+    # Low-coverage guard: under-covered sum is biased against missing
+    # players.  Leave ``value`` None so the UI surfaces the hint.
+    if result["reliable"]:
+        result["value"] = total
+    return result
 
 
 # ── MOVERS ──────────────────────────────────────────────────────────────
@@ -473,8 +525,20 @@ def _build_signal_context(
         confidence = float(confidence) if confidence is not None else None
     except (TypeError, ValueError):
         confidence = None
+    # Sleeper ID is a stable identifier across renames — every row
+    # in the contract carries either ``sleeperId`` (modern) or
+    # ``_sleeperId`` (legacy dict).  We surface both on the signal
+    # context so the frontend can maintain a rename-resistant
+    # dismissal alias map.
+    sleeper_id = (
+        row.get("sleeperId")
+        or row.get("_sleeperId")
+        or (row.get("raw") or {}).get("_sleeperId")
+        or ""
+    )
     return {
         "name": _row_name(row),
+        "sleeperId": str(sleeper_id) if sleeper_id else "",
         "pos": _normalize_pos(row.get("pos") or row.get("position")),
         "value": int(_row_value(row)),
         "rank": _row_rank(row),
@@ -576,8 +640,33 @@ def _signal_key(name: str, tag: str) -> str:
     follows the SIGNAL REASON, not just the player — if a player's
     signal flips from SELL/sustained_downtrend to RISK/alert_with_drop,
     they re-surface even if the first was dismissed.
+
+    Note: a player rename at the display-name layer would produce a
+    different ``name::tag`` key from the old one, so a dismissal
+    stored under the old name would silently fail to match.  The
+    terminal payload therefore emits an ``aliasSignalKey`` field
+    alongside the primary ``signalKey`` — keyed by Sleeper ID
+    instead of display name — and the frontend/user_kv alias map
+    lets it resolve dismissals across renames.  See
+    ``_signal_alias_key`` below.
     """
     return f"{str(name).strip()}::{str(tag).strip()}"
+
+
+def _signal_alias_key(sleeper_id: str, tag: str) -> str:
+    """Rename-resistant dismissal key: ``sid:<id>::tag``.
+
+    Emitted alongside the display-name ``signalKey`` so the user_kv
+    alias map can resolve a dismissal when a player's display name
+    changes between scrapes.  When ``sleeper_id`` is empty the alias
+    collapses to an empty string — the UI treats that as "only the
+    display-name key is available" and behaves identically to the
+    pre-alias path.
+    """
+    sid = str(sleeper_id or "").strip()
+    if not sid:
+        return ""
+    return f"sid:{sid}::{str(tag).strip()}"
 
 
 # ── PORTFOLIO INSIGHTS ──────────────────────────────────────────────────
@@ -704,6 +793,96 @@ def _compute_portfolio_insights(
             "metric": "short_drop_long_steady",
         }
 
+    # ── Sub-section breakdowns ────────────────────────────────────
+    # Match the client-side ``computePortfolio`` output so the
+    # PortfolioSummary + ScoutingIntel components can render off
+    # server-provided data without re-deriving anything locally.
+
+    def _age_bucket(age: Any, is_rookie: bool) -> str:
+        if is_rookie:
+            return "rookie"
+        try:
+            a = float(age) if age is not None else None
+        except (TypeError, ValueError):
+            a = None
+        if a is None or a <= 0:
+            return "unknown"
+        if a <= 22:
+            return "rookie"
+        if a <= 24:
+            return "young"
+        if a <= 28:
+            return "prime"
+        return "vet"
+
+    position_groups = ("QB", "RB", "WR", "TE", "K", "DEF", "IDP", "PICK")
+    by_position: dict[str, dict[str, Any]] = {
+        g: {"count": 0, "value": 0, "pct": 0.0} for g in position_groups
+    }
+    for p in rosterValues:
+        bucket = p["pos"] if p["pos"] in position_groups else None
+        if bucket:
+            by_position[bucket]["count"] += 1
+            by_position[bucket]["value"] += p["value"]
+    # Picks aren't part of ``rosterValues`` (picks handled separately
+    # in the contract), so ``PICK`` stays zero unless the caller pre-
+    # injects them — matching the client-side shape.
+    if totalValue:
+        for g in position_groups:
+            by_position[g]["pct"] = round(by_position[g]["value"] / totalValue * 100, 1)
+
+    by_age: dict[str, dict[str, Any]] = {
+        "rookie":  {"count": 0, "value": 0, "pct": 0.0},
+        "young":   {"count": 0, "value": 0, "pct": 0.0},
+        "prime":   {"count": 0, "value": 0, "pct": 0.0},
+        "vet":     {"count": 0, "value": 0, "pct": 0.0},
+        "unknown": {"count": 0, "value": 0, "pct": 0.0},
+    }
+    ages: list[float] = []
+    for p in rosterValues:
+        bucket = _age_bucket(p.get("age"), p.get("isRookie", False))
+        by_age[bucket]["count"] += 1
+        by_age[bucket]["value"] += p["value"]
+        try:
+            a = float(p.get("age")) if p.get("age") is not None else None
+        except (TypeError, ValueError):
+            a = None
+        if a is not None and a > 0:
+            ages.append(a)
+    if totalValue:
+        for k in by_age:
+            by_age[k]["pct"] = round(by_age[k]["value"] / totalValue * 100, 1)
+    ages.sort()
+    median_age = None
+    if ages:
+        mid = len(ages) // 2
+        median_age = (
+            ages[mid]
+            if len(ages) % 2 == 1
+            else round((ages[mid - 1] + ages[mid]) / 2.0, 1)
+        )
+
+    vol_exposure: dict[str, dict[str, Any]] = {
+        "low":     {"count": 0, "value": 0, "pct": 0.0},
+        "med":     {"count": 0, "value": 0, "pct": 0.0},
+        "high":    {"count": 0, "value": 0, "pct": 0.0},
+        "unknown": {"count": 0, "value": 0, "pct": 0.0},
+    }
+    for p in rosterValues:
+        lbl = p.get("volLabel") or "unknown"
+        if lbl not in vol_exposure:
+            lbl = "unknown"
+        vol_exposure[lbl]["count"] += 1
+        vol_exposure[lbl]["value"] += p["value"]
+    if totalValue:
+        for k in vol_exposure:
+            vol_exposure[k]["pct"] = round(vol_exposure[k]["value"] / totalValue * 100, 1)
+
+    # Rising / falling / high-vol counters — for the roster-chip row.
+    rising = sum(1 for p in rosterValues if (p["trend7"] or 0) >= 3)
+    falling = sum(1 for p in rosterValues if (p["trend7"] or 0) <= -3)
+    high_vol = vol_exposure["high"]["count"]
+
     return {
         "totalValue": totalValue,
         "rosterValues": rosterValues,
@@ -711,6 +890,18 @@ def _compute_portfolio_insights(
         "biggestRisk": risk,
         "tradeChip": tradeChip,
         "buyLow": buyLow,
+        # Sub-section breakdowns now computed server-side so
+        # PortfolioSummary / ScoutingIntel can render without
+        # recomputing locally.
+        "byPosition": by_position,
+        "byAge": by_age,
+        "volExposure": vol_exposure,
+        "medianAge": median_age,
+        "counters": {
+            "rising": rising,
+            "falling": falling,
+            "highVol": high_vol,
+        },
     }
 
 
@@ -751,6 +942,7 @@ def build_terminal_payload(
     news_items: list[dict[str, Any]] | None = None,
     user_state: dict[str, Any] | None = None,
     history_window_days: int | None = None,
+    public_mode: bool = False,
 ) -> dict[str, Any]:
     """Assemble the full landing-page payload.
 
@@ -873,12 +1065,29 @@ def build_terminal_payload(
         teamAggregates["coverage"] = round(coverage, 3)
 
         # Roster-aware deltas for 7 / 30 / 90 / 180.
+        #
+        # Each delta carries both the numeric value and a coverage
+        # block so the UI can distinguish:
+        #   * value=int, rosterAware=True    — clean window, backed
+        #     by trades
+        #   * value=int, rosterAware=False   — clean window but no
+        #     trades fell inside it (static-roster delta)
+        #   * value=None, reason="low_history_coverage" — the past
+        #     snapshot had fewer than 60% of the roster with
+        #     matching rank history; UI renders "—"
+        #
+        # ``delta*d`` is ``int | None`` for backwards compat with
+        # the pre-coverage consumers; the full block is exposed on
+        # ``delta*dDetail``.
         latest_date = _latest_snapshot_date(history)
+        teamAggregates["rosterAware"] = False
         if latest_date and total > 0:
-            def _delta(days: int) -> int | None:
+            any_roster_aware = False
+
+            def _delta(days: int) -> dict[str, Any]:
                 past_date = _back_iso_date(latest_date, days)
                 past_ms = _iso_date_to_ms(past_date)
-                past_roster = _reconstruct_roster_at(
+                past_roster, roster_coverage = _reconstruct_roster_at(
                     contract,
                     owner_id=owner_id,
                     current_players=current_players,
@@ -890,14 +1099,28 @@ def build_terminal_payload(
                     date=past_date,
                     row_index=row_index,
                 )
-                if past_total is None:
-                    return None
-                return total - past_total
+                value = past_total["value"]
+                return {
+                    "value": (total - value) if value is not None else None,
+                    "coverageFraction": past_total["coverageFraction"],
+                    "resolved": past_total["resolved"],
+                    "expected": past_total["expected"],
+                    "reliable": past_total["reliable"],
+                    "rosterAware": roster_coverage["rosterAware"],
+                    "tradesSeen": roster_coverage["tradesSeen"],
+                    "tradesApplied": roster_coverage["tradesApplied"],
+                    "reason": roster_coverage["reason"] if value is not None
+                              else "low_history_coverage",
+                    "pastDate": past_date,
+                }
 
-            teamAggregates["delta7d"] = _delta(7)
-            teamAggregates["delta30d"] = _delta(30)
-            teamAggregates["delta90d"] = _delta(90)
-            teamAggregates["delta180d"] = _delta(180)
+            for days in (7, 30, 90, 180):
+                detail = _delta(days)
+                teamAggregates[f"delta{days}d"] = detail["value"]
+                teamAggregates[f"delta{days}dDetail"] = detail
+                if detail["rosterAware"]:
+                    any_roster_aware = True
+            teamAggregates["rosterAware"] = any_roster_aware
 
         # Signals for each roster player.
         for r in roster_rows:
@@ -905,8 +1128,17 @@ def build_terminal_payload(
             player_news = news_by_player.get(_row_name(r).lower(), [])
             ctx = _build_signal_context(r, points=points, news_for_player=player_news)
             verdict = _evaluate_signal(ctx)
-            skey = _signal_key(ctx["name"], verdict.get("tag") or "unknown")
+            tag = verdict.get("tag") or "unknown"
+            skey = _signal_key(ctx["name"], tag)
+            alias_key = _signal_alias_key(ctx.get("sleeperId", ""), tag)
+            # Resolve dismissal via either the display-name key or
+            # the Sleeper-ID alias key — whichever matches wins.  A
+            # legacy dismissal stored under the old display-name key
+            # keeps applying even after a rename, because the alias
+            # key still matches by sleeperId.
             dismissed_until = active_dismissals.get(skey)
+            if dismissed_until is None and alias_key:
+                dismissed_until = active_dismissals.get(alias_key)
             entry = {
                 **ctx,
                 "signal": verdict["signal"],
@@ -914,6 +1146,7 @@ def build_terminal_payload(
                 "tag": verdict["tag"],
                 "fired": verdict["fired"],
                 "signalKey": skey,
+                "aliasSignalKey": alias_key,
                 "dismissedUntil": dismissed_until,
                 "dismissed": bool(dismissed_until),
             }
@@ -1001,8 +1234,38 @@ def build_terminal_payload(
         "meta": {
             "historyWindowDays": history_window_days,
             "historyPlayerCount": len(history) if isinstance(history, dict) else 0,
+            "publicMode": bool(public_mode),
         },
     }
+    if public_mode:
+        # Strip everything that requires an authenticated identity:
+        #   * no team — public visitors don't have a selection
+        #   * no signals / portfolio / watchlist — those are all
+        #     private per-roster
+        #   * no roster movers — the league ownership is private too
+        #   * keep: league + top150 movers, news (scoped by public
+        #     relevance), availableTeams (identity-free metadata),
+        #     trendWindows, contract meta
+        # The frontend treats this as "public terminal" and falls
+        # back to a condensed layout without the roster rails.
+        payload["team"] = None
+        payload["signals"] = []
+        payload["portfolio"] = None
+        payload["watchlist"] = []
+        payload["teamAggregates"] = {
+            "totalValue": None,
+            "delta7d": None, "delta30d": None, "delta90d": None, "delta180d": None,
+            "rosterAware": False,
+            "tiers": None,
+            "rosterCount": 0,
+            "coverage": None,
+        }
+        payload["movers"]["roster"] = []
+        # News coverage in public mode is "top-150 only" — roster
+        # scoping needed an authenticated roster set.
+        payload["news"]["items"] = [
+            n for n in payload["news"]["items"] if (n.get("relevance") or 0) < 100
+        ]
     return payload
 
 
