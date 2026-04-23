@@ -5745,6 +5745,234 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .tc-header-team--error   { color: #e0767a; }
 .tc-header-team--needs   { color: var(--cyan); }
 
+/* ── Team Command Header: chart row + stat tone ─────────────────── */
+.tc-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-md);
+  width: 100%;
+}
+.tc-header-chart {
+  width: 100%;
+  margin-top: var(--space-sm);
+}
+.tc-stat--up   .tc-stat-value { color: var(--cyan, #ffc704); }
+.tc-stat--down .tc-stat-value { color: #e0767a; }
+
+/* ── Team Value Chart (inline SVG) ──────────────────────────────── */
+.team-value-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+.team-value-chart-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.team-value-chart-current {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text, #fff);
+}
+.team-value-chart-delta {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.team-value-chart-delta--up   { color: var(--cyan, #ffc704); }
+.team-value-chart-delta--down { color: #e0767a; }
+.team-value-chart-window {
+  font-size: 0.64rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted, #9a8bc4);
+}
+.team-value-chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
+.team-value-chart-empty {
+  font-size: 0.76rem;
+  color: var(--muted, #9a8bc4);
+  padding: var(--space-sm) 0;
+}
+
+/* ── Sparkline ──────────────────────────────────────────────────── */
+.sparkline {
+  display: inline-block;
+  vertical-align: middle;
+}
+.sparkline--empty,
+.sparkline--loading {
+  display: inline-block;
+  width: 64px;
+  height: 20px;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.03),
+    rgba(255, 255, 255, 0.03) 4px,
+    rgba(255, 255, 255, 0.06) 4px,
+    rgba(255, 255, 255, 0.06) 8px
+  );
+  border-radius: 3px;
+}
+.sparkline--loading {
+  animation: skeleton-shimmer 2.4s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* ── Movers table: sort chips, rows, volatility pills ───────────── */
+.pmm-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.pmm-sort {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.pmm-sort-chip {
+  padding: 3px 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--muted, #9a8bc4);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.pmm-sort-chip.is-active {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  background: rgba(255, 199, 4, 0.08);
+}
+.pmm-empty {
+  padding: var(--space-md);
+  font-size: 0.78rem;
+  color: var(--muted, #9a8bc4);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm, 6px);
+  text-align: center;
+}
+.pmm-head,
+.pmm-row-trigger {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) 36px 60px 64px 64px 52px;
+  gap: var(--space-sm);
+  align-items: center;
+  padding: 4px 8px;
+}
+.pmm-row {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+}
+.pmm-row--roster {
+  border-color: rgba(255, 199, 4, 0.2);
+  background: rgba(255, 199, 4, 0.04);
+}
+.pmm-row:hover { background: rgba(255, 255, 255, 0.04); }
+.pmm-row-trigger {
+  width: 100%;
+  min-height: 40px;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pmm-row-dot {
+  color: var(--cyan);
+  margin-right: 6px;
+  font-size: 0.45rem;
+  line-height: 1;
+  vertical-align: middle;
+}
+.pmm-col--name {
+  color: var(--text, #fff);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pmm-col--pos {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted, #9a8bc4);
+  text-transform: uppercase;
+  text-align: center;
+}
+.pmm-col--value,
+.pmm-col--delta {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, #fff);
+}
+.pmm-row--up   .pmm-col--delta { color: var(--cyan, #ffc704); font-weight: 700; }
+.pmm-row--down .pmm-col--delta { color: #e0767a; font-weight: 700; }
+.pmm-row--flat .pmm-col--delta { color: var(--muted, #9a8bc4); }
+.pmm-col--spark { text-align: left; }
+.pmm-col--vol { text-align: center; }
+.pmm-vol-pill {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.pmm-vol-pill--low  { color: var(--cyan, #ffc704); border-color: rgba(255, 199, 4, 0.4); }
+.pmm-vol-pill--med  { color: #eabf99; border-color: rgba(234, 191, 153, 0.4); }
+.pmm-vol-pill--high { color: #e0767a; border-color: rgba(224, 118, 122, 0.4); }
+.pmm-vol-pill--none { color: var(--muted, #9a8bc4); }
+
+/* Mobile: collapse table to 3 columns (name+dot, delta, spark) */
+@media (max-width: 600px) {
+  .pmm-head { display: none; }
+  .pmm-row-trigger {
+    grid-template-columns: minmax(0, 1fr) 56px 60px;
+    grid-template-areas:
+      "name delta spark"
+      "meta meta  meta";
+    row-gap: 4px;
+  }
+  .pmm-col--name  { grid-area: name; }
+  .pmm-col--delta { grid-area: delta; }
+  .pmm-col--spark { grid-area: spark; }
+  .pmm-col--pos,
+  .pmm-col--value,
+  .pmm-col--vol {
+    grid-area: meta;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    justify-self: start;
+    font-size: 0.7rem;
+  }
+  .pmm-col--value { color: var(--muted, #9a8bc4); }
+}
+
 /* ─ Quick Actions ─ */
 .quick-actions {
   list-style: none;
