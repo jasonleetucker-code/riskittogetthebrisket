@@ -1091,6 +1091,44 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         latest_contract_data = contract_payload
         contract_health = contract_report
 
+        # Post-scrape overlay warm — for every ACTIVE league other
+        # than the one the scraper just built for, force-refresh the
+        # Sleeper overlay so the first user request after a scrape
+        # hits a warm 15-min cache instead of round-tripping to
+        # Sleeper.  Non-fatal: any failure is logged + skipped.
+        try:
+            default_cfg = _league_registry.get_default_league()
+            loaded_sleeper = contract_payload.get("sleeper") or {}
+            id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else {}
+            warmed: list[str] = []
+            warm_failed: list[str] = []
+            for cfg in _league_registry.active_leagues():
+                if default_cfg and cfg.key == default_cfg.key:
+                    continue
+                try:
+                    overlay = _sleeper_overlay.fetch_sleeper_overlay(
+                        sleeper_league_id=cfg.sleeper_league_id,
+                        id_to_player=id_map if isinstance(id_map, dict) else {},
+                        force_refresh=True,
+                    )
+                    if overlay and overlay.get("teams"):
+                        warmed.append(cfg.key)
+                    else:
+                        warm_failed.append(cfg.key)
+                except Exception as inner:  # noqa: BLE001
+                    log.warning(
+                        "post-scrape overlay warm failed for %s: %s",
+                        cfg.key, inner,
+                    )
+                    warm_failed.append(cfg.key)
+            if warmed or warm_failed:
+                log.info(
+                    "post-scrape overlay warm: %d warmed, %d failed (warmed=%s failed=%s)",
+                    len(warmed), len(warm_failed), warmed, warm_failed,
+                )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("post-scrape overlay warm pass failed: %s", exc)
+
         if not contract_report.get("ok"):
             log.error(
                 "API contract validation failed: %s",
