@@ -1994,21 +1994,42 @@ async def get_leagues(request: Request):
     callers thread through the rest of the API when we eventually
     add ``?leagueId=`` parameters to league-scoped endpoints.
 
-    Two views:
+    Views:
       * Anonymous:     active leagues only.
-      * Authenticated: active leagues + the user's resolved default
-                       (``userDefaultKey``), which the UI uses to
-                       pre-select the right league on cold start.
+      * Authenticated: active leagues + ``userDefaultKey`` (which
+                       league the UI should land this user on by
+                       default) + per-league ``userDefaultTeam``
+                       entries from each league's ``defaultTeamMap``
+                       so the frontend can auto-select the right
+                       team in each league without a second round-
+                       trip to user_kv.
     """
     session = _get_auth_session(request)
-    leagues = [cfg.public_dict() for cfg in _league_registry.active_leagues()]
+    active_cfgs = _league_registry.active_leagues()
+    leagues = [cfg.public_dict() for cfg in active_cfgs]
+
+    if session:
+        username = (session.get("username") or "").strip().lower()
+        # Stamp each league's entry with this user's default team
+        # when the registry knows about one.  Only this authed user
+        # sees their own default — we don't expose other usernames'
+        # mappings even though the registry file holds them.
+        for i, cfg in enumerate(active_cfgs):
+            default_team = cfg.default_team_map.get(username) if username else None
+            if default_team:
+                leagues[i]["userDefaultTeam"] = {
+                    "ownerId": default_team.get("ownerId", ""),
+                    "teamName": default_team.get("teamName", ""),
+                }
+
     body: dict[str, Any] = {
         "leagues": leagues,
         "defaultKey": _league_registry.default_league_key(),
     }
     if session:
-        username = session.get("username") or ""
-        user_default = _league_registry.get_user_default_league(username)
+        user_default = _league_registry.get_user_default_league(
+            session.get("username") or ""
+        )
         body["userDefaultKey"] = user_default.key if user_default else None
     return JSONResponse(content=body, headers={"Cache-Control": "no-store"})
 
@@ -4716,6 +4737,43 @@ async def put_user_state_api(request: Request):
             # Unknown or inactive league → silently drop.  The
             # frontend will notice the server didn't echo the key back
             # and fall through to the default.
+    if "selectedTeamsByLeague" in body:
+        # Per-league selected team map.  Accepts
+        #   {"leagueKey": {"ownerId": "...", "teamName": "...",
+        #                  "rosterId": <int|str>, "managerName": "..."}}
+        # Each entry's leagueKey must resolve against the registry
+        # (aliases canonicalized); unknown / inactive leagues are
+        # dropped.  Null/"" clears the entire map.
+        raw = body.get("selectedTeamsByLeague")
+        if raw is None or raw == "":
+            patch["selectedTeamsByLeague"] = None
+        elif isinstance(raw, dict):
+            clean: dict[str, dict[str, object]] = {}
+            for lkey, spec in raw.items():
+                if not isinstance(lkey, str) or not isinstance(spec, dict):
+                    continue
+                cfg = _league_registry.get_league_by_key(lkey.strip())
+                if cfg is None or not cfg.active:
+                    continue
+                owner_id = str(spec.get("ownerId") or "").strip()
+                team_name = str(spec.get("teamName") or "").strip()
+                if not owner_id and not team_name:
+                    # An empty entry clears that league's selection
+                    # (distinct from not touching the map at all).
+                    clean[cfg.key] = {"ownerId": "", "teamName": ""}
+                    continue
+                entry: dict[str, object] = {
+                    "ownerId": owner_id,
+                    "teamName": team_name,
+                }
+                roster_id = spec.get("rosterId")
+                if roster_id is not None:
+                    entry["rosterId"] = str(roster_id)
+                manager_name = str(spec.get("managerName") or "").strip()
+                if manager_name:
+                    entry["managerName"] = manager_name
+                clean[cfg.key] = entry
+            patch["selectedTeamsByLeague"] = clean
     state = await run_in_threadpool(_user_kv.merge_user_state, username, patch)
     return JSONResponse(
         content={"username": username, "state": state},
