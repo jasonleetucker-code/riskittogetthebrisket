@@ -21,6 +21,20 @@ import os
 # ``_derive_tep_multiplier_from_league``.
 os.environ.pop("SLEEPER_LEAGUE_ID", None)
 
+# The league registry (``src/api/league_registry``) is the new source
+# of truth for Sleeper league IDs — ``_resolve_league_context`` now
+# reads from it first, falling back to the env var.  For tests we
+# point the registry at a non-existent file so its env-var fallback
+# path kicks in, and because we've cleared SLEEPER_LEAGUE_ID above,
+# the registry returns None.  Net effect: no live Sleeper fetches,
+# same as before the registry existed.
+os.environ["LEAGUE_REGISTRY_PATH"] = "/nonexistent/path/for/tests.json"
+try:
+    from src.api import league_registry as _league_registry
+    _league_registry.reload_registry()
+except Exception:  # noqa: BLE001 — conftest must never block collection
+    pass
+
 # The cache is keyed by the env var, but some tests import
 # data_contract before pytest runs this conftest (in which case the
 # cache may already carry a live Sleeper snapshot from a prior dev

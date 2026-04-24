@@ -70,6 +70,7 @@ from src.api import signal_alerts as _signal_alerts
 from src.api import terminal as _terminal
 from src.api import trade_simulator as _trade_simulator
 from src.api import user_kv as _user_kv
+from src.api import league_registry as _league_registry
 from src.news import NewsService, build_default_service
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
@@ -1918,6 +1919,34 @@ async def post_rankings_overrides(request: Request):
     return JSONResponse(content=contract_payload, headers=headers)
 
 
+@app.get("/api/leagues")
+async def get_leagues(request: Request):
+    """List every configured league.
+
+    Public endpoint — the response contains no secrets (no Sleeper
+    league IDs, no auth tokens).  The ``key`` is the stable identifier
+    callers thread through the rest of the API when we eventually
+    add ``?leagueId=`` parameters to league-scoped endpoints.
+
+    Two views:
+      * Anonymous:     active leagues only.
+      * Authenticated: active leagues + the user's resolved default
+                       (``userDefaultKey``), which the UI uses to
+                       pre-select the right league on cold start.
+    """
+    session = _get_auth_session(request)
+    leagues = [cfg.public_dict() for cfg in _league_registry.active_leagues()]
+    body: dict[str, Any] = {
+        "leagues": leagues,
+        "defaultKey": _league_registry.default_league_key(),
+    }
+    if session:
+        username = session.get("username") or ""
+        user_default = _league_registry.get_user_default_league(username)
+        body["userDefaultKey"] = user_default.key if user_default else None
+    return JSONResponse(content=body, headers={"Cache-Control": "no-store"})
+
+
 @app.get("/api/status")
 async def get_status():
     """Return scraper status info."""
@@ -2777,7 +2806,21 @@ async def get_scaffold_report():
 # Uses a decay curve to fill/extrapolate KTC values to all 72 picks.
 DRAFT_DATA_XLSX = Path(__file__).parent / "CSVs" / "Draft Data.xlsx"
 DRAFT_DATA_CSV = Path(__file__).parent / "CSVs" / "draft_data.csv"
-SLEEPER_LEAGUE_ID_FOR_DRAFT = os.getenv("SLEEPER_LEAGUE_ID", "1312006700437352448")
+
+
+def _sleeper_league_id_for_draft() -> str:
+    """Resolve the Sleeper league ID for draft endpoints via the
+    league registry.  Previously a module-level constant read from
+    ``SLEEPER_LEAGUE_ID`` env var; now routes through
+    ``league_registry.get_sleeper_league_id()`` which itself falls
+    back to the env var when no registry.json is configured.
+
+    Returns empty string when no league is configured at all so
+    callers can short-circuit instead of making a Sleeper call to
+    ``/league/``.
+    """
+    sid = _league_registry.get_sleeper_league_id()
+    return sid or ""
 _KTC_TOTAL_PICKS = 72  # fill rookie data for all 6 rounds (12 teams × 6 rounds)
 DRAFT_TOTAL_BUDGET = 1200  # $100 × 12 teams
 
@@ -3214,13 +3257,19 @@ def _fetch_draft_capital():
     first_name_to_team: dict[str, str] = {}
     all_team_names: list[str] = []
     try:
+        _league_id_for_draft = _sleeper_league_id_for_draft()
+        if not _league_id_for_draft:
+            # No league configured at all — skip the Sleeper joins and
+            # leave the mapping empty; downstream code renders draft
+            # capital without a team-name column.
+            raise RuntimeError("no_sleeper_league_configured")
         rosters_resp = urllib.request.urlopen(
-            f"https://api.sleeper.app/v1/league/{SLEEPER_LEAGUE_ID_FOR_DRAFT}/rosters", timeout=15
+            f"https://api.sleeper.app/v1/league/{_league_id_for_draft}/rosters", timeout=15
         )
         rosters = json.loads(rosters_resp.read())
 
         users_resp = urllib.request.urlopen(
-            f"https://api.sleeper.app/v1/league/{SLEEPER_LEAGUE_ID_FOR_DRAFT}/users", timeout=15
+            f"https://api.sleeper.app/v1/league/{_league_id_for_draft}/users", timeout=15
         )
         user_map: dict[str, str] = {}
         for u in json.loads(users_resp.read()):
@@ -3243,7 +3292,7 @@ def _fetch_draft_capital():
         all_team_names = list(roster_name_by_id.values())
 
         drafts_resp = urllib.request.urlopen(
-            f"https://api.sleeper.app/v1/league/{SLEEPER_LEAGUE_ID_FOR_DRAFT}/drafts", timeout=15
+            f"https://api.sleeper.app/v1/league/{_league_id_for_draft}/drafts", timeout=15
         )
         slot_to_roster: dict[int, int] = {}
         for draft in json.loads(drafts_resp.read()):
@@ -3525,9 +3574,17 @@ except Exception as _exc:  # noqa: BLE001
 
 
 def _public_league_id() -> str:
-    """Return the current public-facing league id.  Falls back to the
-    same env default used by the private draft-capital route."""
-    return os.getenv("SLEEPER_LEAGUE_ID", SLEEPER_LEAGUE_ID_FOR_DRAFT).strip()
+    """Return the current public-facing league id.
+
+    Routes through the league registry (``league_registry``) so that
+    the ID comes from ``config/leagues/registry.json`` when present
+    and from ``SLEEPER_LEAGUE_ID`` env var as a back-compat fallback.
+    Returns empty string when no league is configured — callers that
+    immediately hit Sleeper should treat that as "no snapshot
+    available" rather than calling ``/league/`` with an empty path.
+    """
+    sid = _league_registry.get_sleeper_league_id()
+    return (sid or "").strip()
 
 
 def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
