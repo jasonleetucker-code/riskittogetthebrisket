@@ -20,7 +20,7 @@ def kv(tmp_path):
 def _iso(hours_ago):
     t = time.time() - hours_ago * 3600
     import datetime as dt
-    return dt.datetime.utcfromtimestamp(t).isoformat() + "+00:00"
+    return dt.datetime.fromtimestamp(t, dt.timezone.utc).isoformat()
 
 
 def test_fresh_sources_produce_no_alerts():

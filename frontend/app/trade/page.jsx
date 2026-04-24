@@ -47,6 +47,7 @@ import {
 } from "@/lib/trade-share";
 import { useTradeSimulator } from "@/components/useTradeSimulator";
 import { useTeam } from "@/components/useTeam";
+import { MonteCarloButton, ValueBandBadge } from "@/components/ui";
 
 const ROSTER_KEY = "next_trade_roster_v1";
 const TEAM_KEY = "next_trade_team_v1";
@@ -150,6 +151,13 @@ function TradeMeterTwoTeam({ sides, sideTotals }) {
         </span>
         <span className="trade-meter-pct">{winnerText}</span>
       </div>
+
+      {/* Monte Carlo simulator — renders nothing when flag off, a
+          button when flag on and trade has assets, or a "flag off"
+          pill when backend returns 503.  Provides the probabilistic
+          "win %" / "risk level" / "tier impact" decision-layer
+          outputs that the spec requires the trade calc to show. */}
+      <MonteCarloButton sides={sides} />
     </div>
   );
 }

@@ -3,6 +3,18 @@
    Dynasty Trade Calculator · Next.js Frontend
    ══════════════════════════════════════════════════════════════════════════ */
 
+/* Skeleton shimmer animation — used by components/ui/Skeleton.jsx */
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [aria-hidden="true"] {
+    animation: none !important;
+  }
+}
+
 /* ── DESIGN TOKENS ─────────────────────────────────────────────────────── */
 /* Minnesota Vikings skin — aligned to the official 4-color palette
  * (schemecolor.com/minnesota-vikings-team-colors):

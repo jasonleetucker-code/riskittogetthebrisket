@@ -1197,15 +1197,27 @@ export function _resetBaseContractCache() {
 
 async function _fetchBaseContract() {
   const leagueKey = _readActiveLeagueKey();
+  // Mobile / slow-network callers get the compact view (~500KB vs
+  // ~4MB full) — the frontend materializer tolerates the pruned
+  // fields.  Lazy import so this module stays SSR-safe.
+  let view = null;
+  try {
+    const dp = await import("./device-profile.js");
+    view = dp.preferredDataView?.() || null;
+  } catch {
+    // device-profile is advisory only; absence just keeps old default.
+  }
   // Append leagueKey so the server can stamp ``meta.leagueKey`` and
   // ``meta.sleeperDataReady`` correctly on the response.  When the
   // active league shares the scoring profile with the loaded
   // contract, the server serves the common rankings with a nulled
   // ``sleeper`` block.  When profiles differ, the server 503s and
   // we surface the error the same way as any other data failure.
-  const url = leagueKey
-    ? `${DEFAULT_DATA_URL}?leagueKey=${encodeURIComponent(leagueKey)}`
-    : DEFAULT_DATA_URL;
+  const params = new URLSearchParams();
+  if (leagueKey) params.set("leagueKey", leagueKey);
+  if (view && view !== "delta") params.set("view", view);
+  const qs = params.toString();
+  const url = qs ? `${DEFAULT_DATA_URL}?${qs}` : DEFAULT_DATA_URL;
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {
     const txt = await res.text();

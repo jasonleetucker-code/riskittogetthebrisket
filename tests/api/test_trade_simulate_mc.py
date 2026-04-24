@@ -76,10 +76,25 @@ def test_flag_on_returns_simulation_result(monkeypatch):
     assert "winProbB" in body
     assert "meanDelta" in body
     assert "deltaRange" in body
-    assert body["method"] == "consensus_based_win_rate"
+    # After the Phase-11 integration pass, the endpoint routes
+    # through the symmetrize+enrich pipeline, so:
+    #   - method = "consensus_based_win_rate_symmetrized"
+    #   - labelHint = "consensus_based_win_rate"  (frontend label)
+    #   - decision-layer fields are present: valueDelta,
+    #     adjustedDelta, winPct, riskLevel, tierImpact
+    assert body["method"] in (
+        "consensus_based_win_rate",
+        "consensus_based_win_rate_symmetrized",
+    )
     assert body["labelHint"] == "consensus_based_win_rate"
     assert "disclaimer" in body
     assert "NOT" in body["disclaimer"]
+    # Decision-layer fields from enrich_with_decision_shape.
+    assert "valueDelta" in body
+    assert "adjustedDelta" in body
+    assert "winPct" in body
+    assert body["riskLevel"] in ("low", "medium", "high")
+    assert body["tierImpact"] in ("even", "minor", "moderate", "significant")
 
 
 def test_invalid_body_returns_400(monkeypatch):
@@ -114,5 +129,7 @@ def test_n_sims_clamped_to_max(monkeypatch):
     with TestClient(server.app, raise_server_exceptions=True) as c:
         res = c.post("/api/trade/simulate-mc", json=body)
     assert res.status_code == 200
-    # Guard clamps to 200k.
-    assert res.json()["nSims"] <= 200_000
+    # Guard clamps to 200k per-direction.  The symmetrize pipeline
+    # runs the sim in BOTH directions so the reported nSims is 2×
+    # the per-direction clamp = 400k max.
+    assert res.json()["nSims"] <= 400_000

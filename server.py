@@ -1959,7 +1959,8 @@ async def get_data(request: Request):
 
         view = (request.query_params.get("view") or "").strip().lower()
         startup_view = view in {"startup", "boot", "initial"}
-        runtime_view = view in {"app", "runtime", "lite", "slim"}
+        runtime_view = view in {"app", "runtime", "lite"}
+        compact_view = view in {"compact", "slim"}
 
         payload_bytes = latest_data_bytes
         payload_gzip_bytes = latest_data_gzip_bytes
@@ -1979,6 +1980,20 @@ async def get_data(request: Request):
             payload_etag = latest_runtime_data_etag
             payload_obj = latest_runtime_data
             payload_view_name = "runtime"
+        elif compact_view and latest_contract_data is not None:
+            # Mobile / slow-network view — prune ~20 audit + trust
+            # fields.  ~90% byte reduction.  Additive: a frontend
+            # that doesn't know to ignore pruned fields breaks only
+            # if it READS one of them, which the compact shape test
+            # pins against.
+            from src.api.compact_view import compact_contract
+            compact_obj = compact_contract(latest_contract_data)
+            import json as _json
+            payload_bytes = _json.dumps(compact_obj).encode("utf-8")
+            payload_gzip_bytes = None  # regenerate-on-demand (no cached gzip)
+            payload_etag = None
+            payload_obj = compact_obj
+            payload_view_name = "compact"
 
         headers = {
             # Keep dashboard startup fast with a short cache window + conditional revalidation.
