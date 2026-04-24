@@ -4437,6 +4437,23 @@ async def put_user_state_api(request: Request):
                 patch["notificationsEmail"] = s
     if "notificationsEnabled" in body:
         patch["notificationsEnabled"] = bool(body.get("notificationsEnabled"))
+    if "activeLeagueKey" in body:
+        # The user's preferred league from the registry.  Validate
+        # against the live registry so a stale/typo value can't
+        # silently land a user on a nonexistent league on next load.
+        # ``None`` / empty string clears the preference → callers fall
+        # back to the registry's default league on next read.
+        raw = body.get("activeLeagueKey")
+        if raw is None or raw == "":
+            patch["activeLeagueKey"] = None
+        elif isinstance(raw, str):
+            candidate = raw.strip()
+            cfg = _league_registry.get_league_by_key(candidate)
+            if cfg is not None and cfg.active:
+                patch["activeLeagueKey"] = cfg.key  # canonicalize via alias lookup
+            # Unknown or inactive league → silently drop.  The
+            # frontend will notice the server didn't echo the key back
+            # and fall through to the default.
     state = await run_in_threadpool(_user_kv.merge_user_state, username, patch)
     return JSONResponse(
         content={"username": username, "state": state},
