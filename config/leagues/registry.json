@@ -4,7 +4,7 @@
   "leagues": [
     {
       "key": "dynasty_main",
-      "displayName": "Dynasty Main (Superflex + TEP + IDP)",
+      "displayName": "Risk It To Get The Brisket",
       "sleeperLeagueId": "1312006700437352448",
       "scoringProfile": "superflex_tep15_ppr1",
       "idpEnabled": true,
@@ -39,14 +39,14 @@
     },
     {
       "key": "dynasty_new",
-      "displayName": "Dynasty New (Superflex + TEP, no IDP)",
+      "displayName": "Blood, Sweat, and Beers",
       "sleeperLeagueId": "1320092771247222784",
       "scoringProfile": "superflex_tep15_ppr1",
       "idpEnabled": false,
       "active": true,
-      "aliases": ["new", "non-idp"],
+      "aliases": ["new", "non-idp", "bsb", "beers"],
       "rosterSettings": {
-        "teamCount": 12,
+        "teamCount": 10,
         "rosterSize": 24,
         "taxiSize": 5,
         "starters": {

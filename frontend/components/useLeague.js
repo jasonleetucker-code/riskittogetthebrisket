@@ -150,14 +150,19 @@ export function useLeague() {
   const defaultLeagueKey = leaguesPayload?.defaultKey || "";
   const userDefaultKey = leaguesPayload?.userDefaultKey || "";
 
-  // Resolve the selected key using the order described in the
-  // docblock: user pref → user-default from registry → site default
-  // → first active → "".
+  // Resolve the selected key.  ``localKey`` is FIRST because it's
+  // the optimistic value written synchronously on every setLeague()
+  // call — it's the "user just clicked the switcher" signal.  If
+  // we deferred to ``userState.activeLeagueKey``, the switcher
+  // would appear to do nothing until the 30s useUserState cache
+  // TTL expires + a refetch brings back the server's copy.  Since
+  // setLeague also PUTs to /api/user/state, the two sources
+  // converge on the next refetch regardless.
   const selectedLeagueKey = useMemo(() => {
     const keysActive = new Set(leagues.map((l) => l.key));
     const prefs = [
+      localKey,
       userState?.activeLeagueKey || "",
-      serverBacked ? "" : localKey, // only trust localStorage for anon users
       userDefaultKey,
       defaultLeagueKey,
       leagues[0]?.key || "",
@@ -168,7 +173,6 @@ export function useLeague() {
     return "";
   }, [
     userState?.activeLeagueKey,
-    serverBacked,
     localKey,
     userDefaultKey,
     defaultLeagueKey,
