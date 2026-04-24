@@ -89,6 +89,57 @@ def test_undismiss_signal(kv_path):
     assert "foo" not in user_kv.active_dismissals("u", path=kv_path)
 
 
+def test_dismissals_scoped_per_league(kv_path):
+    """Dismissing a signal in league A must NOT hide the same
+    signal in league B — both leagues get independent buckets."""
+    user_kv.dismiss_signal(
+        "u", "Josh Allen::elite_stable", ttl_ms=60_000,
+        league_key="dynasty_main", path=kv_path,
+    )
+    # League A has it; league B does not.
+    assert "Josh Allen::elite_stable" in user_kv.active_dismissals(
+        "u", league_key="dynasty_main", path=kv_path,
+    )
+    assert user_kv.active_dismissals(
+        "u", league_key="dynasty_new", path=kv_path,
+    ) == {}
+
+
+def test_undismiss_scoped_per_league(kv_path):
+    """Un-dismissing in league A leaves league B's dismissal alone."""
+    user_kv.dismiss_signal(
+        "u", "Josh Allen::elite_stable", league_key="dynasty_main", path=kv_path,
+    )
+    user_kv.dismiss_signal(
+        "u", "Josh Allen::elite_stable", league_key="dynasty_new", path=kv_path,
+    )
+    user_kv.undismiss_signal(
+        "u", "Josh Allen::elite_stable", league_key="dynasty_main", path=kv_path,
+    )
+    # A gone, B intact.
+    assert user_kv.active_dismissals(
+        "u", league_key="dynasty_main", path=kv_path,
+    ) == {}
+    assert "Josh Allen::elite_stable" in user_kv.active_dismissals(
+        "u", league_key="dynasty_new", path=kv_path,
+    )
+
+
+def test_legacy_flat_dismissals_unchanged(kv_path):
+    """Legacy callers (no ``league_key``) continue to write the flat
+    ``dismissedSignals`` field + read from it, keeping pre-migration
+    state intact."""
+    user_kv.dismiss_signal("u", "legacy::x", ttl_ms=60_000, path=kv_path)
+    flat = user_kv.active_dismissals("u", path=kv_path)  # no league_key
+    assert "legacy::x" in flat
+    # Per-league reader on a league with no bucket returns empty —
+    # it does NOT surface the flat field (we'd be showing default-
+    # league dismissals under league B's name).
+    assert user_kv.active_dismissals(
+        "u", league_key="dynasty_new", path=kv_path,
+    ) == {}
+
+
 def test_corrupt_file_starts_fresh(kv_path):
     kv_path.write_text("not json", encoding="utf-8")
     # Should not raise

@@ -5078,6 +5078,15 @@ async def dismiss_signal_api(request: Request):
         ttl_ms = 7 * 24 * 3600 * 1000
     alias_sid = str(body.get("aliasSleeperId") or "").strip() or None
     alias_name = str(body.get("aliasDisplayName") or "").strip() or None
+    # Scope the dismissal to the active league.  Validated against
+    # the registry; unknown/inactive keys fall through to legacy flat
+    # dismissal.  See user_kv.dismiss_signal docstring.
+    raw_league = str(body.get("leagueKey") or "").strip()
+    scoped_key: str | None = None
+    if raw_league:
+        cfg = _league_registry.get_league_by_key(raw_league)
+        if cfg is not None and cfg.active:
+            scoped_key = cfg.key
     state = await run_in_threadpool(
         _user_kv.dismiss_signal,
         username,
@@ -5085,6 +5094,7 @@ async def dismiss_signal_api(request: Request):
         ttl_ms=ttl_ms,
         alias_sleeper_id=alias_sid,
         alias_display_name=alias_name,
+        league_key=scoped_key,
     )
     return JSONResponse(
         content={"username": username, "state": state},
@@ -5110,7 +5120,15 @@ async def restore_signal_api(request: Request):
             status_code=400,
             content={"error": "signalKey_required"},
         )
-    state = await run_in_threadpool(_user_kv.undismiss_signal, username, signal_key)
+    raw_league = str(body.get("leagueKey") or "").strip()
+    scoped_key: str | None = None
+    if raw_league:
+        cfg = _league_registry.get_league_by_key(raw_league)
+        if cfg is not None and cfg.active:
+            scoped_key = cfg.key
+    state = await run_in_threadpool(
+        _user_kv.undismiss_signal, username, signal_key, league_key=scoped_key,
+    )
     return JSONResponse(
         content={"username": username, "state": state},
         headers={"Cache-Control": "no-store"},
@@ -5328,6 +5346,11 @@ async def get_terminal(request: Request):
             ),
             user_state=user_state,
             public_mode=not authed,
+            # Scope dismissals to the active league so a dismissal
+            # on league A doesn't silence the same player's signal
+            # on league B.  See terminal.build_terminal_payload +
+            # user_kv.active_dismissals docstrings.
+            league_key=league_cfg.key if league_cfg else None,
         )
     except Exception as exc:
         log.exception("/api/terminal build failed: %s", exc)
@@ -5506,10 +5529,28 @@ async def run_signal_alerts(request: Request):
             content={"error": "no_live_contract"},
         )
     # Walk every user_kv row.  No pagination — at current scale
-    # (dozens of users tops) this is fine.
+    # (dozens of users tops) this is fine.  For each user, loop
+    # over every active league: build a league-specific terminal
+    # payload (via Sleeper overlay for non-default leagues) and
+    # run the alert detector with the league_key scoped.  Cooldowns
+    # are now nested per league so a SELL in league A doesn't
+    # silently eat a SELL in league B for the same player.
     def _run_sweep() -> dict[str, object]:
         db = _user_kv.all_user_states()
         summary: list[dict] = []
+        loaded_league = (
+            (latest_contract_data or {}).get("meta", {}).get("leagueKey")
+            if isinstance(latest_contract_data, dict) else None
+        )
+        loaded_profile = (
+            (latest_contract_data or {}).get("meta", {}).get("scoringProfile")
+            if isinstance(latest_contract_data, dict) else None
+        )
+        loaded_sleeper = (
+            latest_contract_data.get("sleeper") or {}
+            if isinstance(latest_contract_data, dict) else {}
+        )
+        active_leagues = _league_registry.active_leagues()
         for username, state in db.items():
             if not isinstance(state, dict):
                 continue
@@ -5518,38 +5559,89 @@ async def run_signal_alerts(request: Request):
             email = str(state.get("notificationsEmail") or "").strip()
             if not email:
                 continue
-            # Resolve the user's team via their stored ownerId OR
-            # their session sleeper_user_id — neither may be
-            # available here, so try both.
             owner_id = str((state.get("selectedTeam") or {}).get("ownerId") or "")
-            # Try finding the user's team by matching username to
-            # sleeper_user_id of any team (user_kv key = Sleeper
-            # username for sleeper-auth users).
-            team = _terminal.resolve_team(
-                latest_contract_data,
-                owner_id=owner_id,
-                name=None,
-            )
-            try:
-                payload = _terminal.build_terminal_payload(
-                    latest_contract_data,
-                    resolved_team=team,
-                    window_days=30,
-                    user_state=state,
+            selected_teams = state.get("selectedTeamsByLeague") or {}
+            if not isinstance(selected_teams, dict):
+                selected_teams = {}
+            user_summary: list[dict] = []
+            for cfg in active_leagues:
+                # Skip leagues the user isn't in — if there's no
+                # team-map entry and the contract doesn't resolve a
+                # team, they have nothing to alert on here.
+                league_entry = selected_teams.get(cfg.key) or {}
+                league_owner_id = (
+                    str(league_entry.get("ownerId") or "").strip()
+                    or owner_id
                 )
-            except Exception as exc:  # noqa: BLE001
-                summary.append({"username": username, "ok": False,
-                                "reason": f"build_error:{type(exc).__name__}"})
-                continue
-            display_name = username
-            result = _signal_alerts.process_user_alerts(
-                username,
-                signals=payload.get("signals") or [],
-                display_name=display_name,
-                email=email,
-                delivery=_deliver_email_smtp,
-            )
-            summary.append({"username": username, **result})
+                # Build the league-specific contract.  For the
+                # loaded league this is just latest_contract_data;
+                # for other active leagues we splice in the overlay.
+                if cfg.key == loaded_league:
+                    contract = latest_contract_data
+                elif loaded_profile and loaded_profile == cfg.scoring_profile:
+                    id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else {}
+                    try:
+                        overlay = _sleeper_overlay.fetch_sleeper_overlay(
+                            sleeper_league_id=cfg.sleeper_league_id,
+                            id_to_player=id_map if isinstance(id_map, dict) else {},
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        log.warning(
+                            "signal-alerts overlay failed for %s / %s: %s",
+                            username, cfg.key, exc,
+                        )
+                        overlay = None
+                    if not overlay or not overlay.get("teams"):
+                        # No data for this league — skip, not a
+                        # failure (e.g. Sleeper transient error).
+                        continue
+                    hybrid_sleeper = {
+                        **{
+                            k: loaded_sleeper.get(k)
+                            for k in ("positions", "playerIds", "idToPlayer",
+                                      "scoringSettings", "rosterPositions",
+                                      "leagueSettings")
+                            if isinstance(loaded_sleeper, dict) and k in loaded_sleeper
+                        },
+                        **overlay,
+                    }
+                    contract = {**latest_contract_data, "sleeper": hybrid_sleeper}
+                else:
+                    # Different scoring profile — rankings aren't
+                    # comparable, skip this league for this run.
+                    continue
+
+                team = _terminal.resolve_team(
+                    contract, owner_id=league_owner_id, name=None,
+                )
+                if team is None:
+                    # User isn't in this league — nothing to alert on.
+                    continue
+                try:
+                    payload = _terminal.build_terminal_payload(
+                        contract,
+                        resolved_team=team,
+                        window_days=30,
+                        user_state=state,
+                        league_key=cfg.key,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    user_summary.append({
+                        "leagueKey": cfg.key, "ok": False,
+                        "reason": f"build_error:{type(exc).__name__}",
+                    })
+                    continue
+                result = _signal_alerts.process_user_alerts(
+                    username,
+                    signals=payload.get("signals") or [],
+                    display_name=username,
+                    email=email,
+                    delivery=_deliver_email_smtp,
+                    league_key=cfg.key,
+                )
+                user_summary.append({"leagueKey": cfg.key, **result})
+            if user_summary:
+                summary.append({"username": username, "byLeague": user_summary})
         return {
             "total_users_checked": len(db),
             "processed": len(summary),

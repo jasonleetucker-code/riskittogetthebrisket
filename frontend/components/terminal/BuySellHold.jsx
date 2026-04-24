@@ -39,7 +39,7 @@ const DEFAULT_FILTERS = new Set([SIGNALS.RISK, SIGNALS.SELL, SIGNALS.MONITOR, SI
 
 export default function BuySellHold() {
   const { rows, rawData, openPlayerPopup } = useApp();
-  const { selectedTeam } = useTeam();
+  const { selectedTeam, selectedLeagueKey } = useTeam();
   const { history, loading: historyLoading } = useRankHistory({ days: 30 });
   const {
     state: userState,
@@ -98,7 +98,22 @@ export default function BuySellHold() {
     return m;
   }, [rawData]);
 
-  const dismissedMap = userState?.dismissedSignals || {};
+  // Per-league dismissals take precedence over the legacy flat map.
+  // ``useTeam().selectedLeagueKey`` tells us which league's bucket
+  // to read; for pre-migration users on the default league the flat
+  // map is used as a fallback so their existing dismissals carry
+  // over.  ``useLeague`` can't be imported here without pulling a
+  // larger context cycle — we read the active league key off the
+  // team hook which already resolves it.
+  const dismissedMap = useMemo(() => {
+    const leagueKey = selectedTeam ? selectedLeagueKey : "";
+    const byLeague = userState?.dismissedSignalsByLeague;
+    if (leagueKey && byLeague && typeof byLeague === "object") {
+      const bucket = byLeague[leagueKey];
+      if (bucket && typeof bucket === "object") return bucket;
+    }
+    return userState?.dismissedSignals || {};
+  }, [userState?.dismissedSignalsByLeague, userState?.dismissedSignals, selectedLeagueKey, selectedTeam]);
 
   const rosterNames = selectedTeam?.players || [];
   const news = useNews({ rosterNames, leagueNames });
