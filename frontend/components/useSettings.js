@@ -67,7 +67,12 @@ export const SETTINGS_DEFAULTS = {
   // Trade history
   tradeHistoryWindowDays: 365,       // rolling 1-year window for trade analysis
 
-  // Selected team (global)
+  // Selected team (LEGACY, one-league era).  Kept for back-compat:
+  // if ``selectedTeamsByLeague`` has no entry for the active league
+  // but this field is set AND the active league is the registry
+  // default, ``useTeam`` treats this as the default league's pick.
+  // Writes still mirror here when on the default league so a roll-
+  // back to a pre-migration build won't flip the user's team empty.
   selectedTeam: "",                  // Sleeper team name selection
 
   // True once the user (or any surface) has written ``selectedTeam``
@@ -79,6 +84,18 @@ export const SETTINGS_DEFAULTS = {
   // TeamSwitcher, the /rosters "My team..." dropdown, and any future
   // surface) flips this to true in the same localStorage write.
   selectedTeamTouched: false,
+
+  // Per-league selected team map.  Shape:
+  //   { [leagueKey]: { ownerId, teamName, rosterId?, managerName? } }
+  // Takes precedence over ``selectedTeam`` when an entry exists for
+  // the active league.  ``useTeam`` writes to this AND mirrors to
+  // the legacy field when writing for the default league.
+  selectedTeamsByLeague: {},
+  // Per-league touched flags, same shape as ``selectedTeamTouched``
+  // but keyed by leagueKey.  Once a user picks a team in League B
+  // explicitly, auto-select never overrides their choice on that
+  // league — even if their League A pick was implicit.
+  selectedTeamTouchedByLeague: {},
 };
 
 // ── localStorage helpers ────────────────────────────────────────────────

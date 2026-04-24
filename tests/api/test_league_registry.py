@@ -455,6 +455,114 @@ def test_put_user_state_drops_unknown_active_league_key(tmp_path, monkeypatch):
     assert state.get("activeLeagueKey") in (None, "")  # not persisted
 
 
+def test_put_user_state_accepts_selected_teams_by_league(tmp_path, monkeypatch):
+    """PUT /api/user/state accepts a per-league team map, validates
+    each key against the registry, and canonicalizes aliases.  Unknown
+    / inactive leagues are silently dropped from the map."""
+    from fastapi.testclient import TestClient
+
+    import server
+
+    path = _write_registry(
+        tmp_path,
+        {
+            "leagues": [
+                {"key": "main", "displayName": "Main", "sleeperLeagueId": "1", "active": True, "rosterSettings": {}, "aliases": ["primary"]},
+                {"key": "side", "displayName": "Side", "sleeperLeagueId": "2", "active": True, "rosterSettings": {}},
+                {"key": "retired", "displayName": "Off", "sleeperLeagueId": "3", "active": False, "rosterSettings": {}},
+            ],
+        },
+    )
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
+    league_registry.reload_registry()
+
+    from src.api import user_kv
+    monkeypatch.setattr(user_kv, "USER_KV_PATH", tmp_path / "user_kv.sqlite")
+    user_kv._SETUP_DONE.clear()
+    monkeypatch.setattr(
+        server, "_get_auth_session",
+        lambda request: {"username": "alice", "auth_method": "password"},
+    )
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.put(
+            "/api/user/state",
+            json={
+                "selectedTeamsByLeague": {
+                    # Uses an alias — server should canonicalize to "main".
+                    "primary": {"ownerId": "o1", "teamName": "Team One", "rosterId": 5},
+                    "side": {"ownerId": "o2", "teamName": "Side Team", "managerName": "Alice"},
+                    "retired": {"ownerId": "o9", "teamName": "Legacy"},  # should drop
+                    "ghost": {"ownerId": "oX", "teamName": "Nope"},  # should drop
+                },
+            },
+        )
+    assert res.status_code == 200, res.text
+    by_league = res.json()["state"]["selectedTeamsByLeague"]
+    assert set(by_league.keys()) == {"main", "side"}  # canonical + valid only
+    assert by_league["main"]["ownerId"] == "o1"
+    assert by_league["main"]["teamName"] == "Team One"
+    assert by_league["main"]["rosterId"] == "5"
+    assert by_league["side"]["managerName"] == "Alice"
+
+
+def test_api_leagues_includes_user_default_team_when_authed(tmp_path, monkeypatch):
+    """When authenticated, each league entry in /api/leagues carries
+    a ``userDefaultTeam`` pulled from the registry's defaultTeamMap
+    so the frontend can auto-select per league without a second
+    round-trip."""
+    from fastapi.testclient import TestClient
+
+    import server
+
+    path = _write_registry(
+        tmp_path,
+        {
+            "leagues": [
+                {
+                    "key": "main",
+                    "displayName": "Main",
+                    "sleeperLeagueId": "1",
+                    "active": True,
+                    "rosterSettings": {},
+                    "defaultTeamMap": {
+                        "alice": {"ownerId": "", "teamName": "Alice's Squad"},
+                    },
+                },
+                {
+                    "key": "side",
+                    "displayName": "Side",
+                    "sleeperLeagueId": "2",
+                    "active": True,
+                    "rosterSettings": {},
+                    "defaultTeamMap": {},  # alice has no default on side
+                },
+            ],
+        },
+    )
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
+    league_registry.reload_registry()
+
+    # Authed as alice.
+    monkeypatch.setattr(
+        server, "_get_auth_session",
+        lambda request: {"username": "alice", "auth_method": "sleeper"},
+    )
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.get("/api/leagues")
+    assert res.status_code == 200
+    leagues_by_key = {lg["key"]: lg for lg in res.json()["leagues"]}
+    assert leagues_by_key["main"].get("userDefaultTeam", {}).get("teamName") == "Alice's Squad"
+    assert "userDefaultTeam" not in leagues_by_key["side"]
+
+    # Anon callers never see userDefaultTeam.
+    monkeypatch.setattr(server, "_get_auth_session", lambda request: None)
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.get("/api/leagues")
+    for lg in res.json()["leagues"]:
+        assert "userDefaultTeam" not in lg
+
+
 def test_put_user_state_canonicalizes_alias(tmp_path, monkeypatch):
     """Submitting an alias like ``idp`` (instead of ``dynasty_main``)
     should be stored as the canonical key so user state stays clean
