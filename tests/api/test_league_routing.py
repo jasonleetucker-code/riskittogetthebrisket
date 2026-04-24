@@ -170,16 +170,27 @@ def test_api_data_rejects_unknown_league(two_league_registry, monkeypatch):
     assert res.json()["error"] == "unknown_league"
 
 
-def test_api_data_returns_503_for_non_loaded_league(two_league_registry, monkeypatch):
-    _install_contract_for_league(monkeypatch, "main")
-    monkeypatch.setattr(server, "latest_data_bytes", None)
-    monkeypatch.setattr(server, "latest_data_gzip_bytes", None)
-    monkeypatch.setattr(server, "latest_data_etag", None)
+def test_api_data_returns_200_with_nulled_sleeper_for_legacy_stub(
+    two_league_registry, monkeypatch
+):
+    """Legacy test: the stub contract in this fixture doesn't stamp
+    ``meta.scoringProfile``, which means the endpoint can't enforce
+    profile matching.  In that case the pre-refactor behavior applies
+    — same-scoring-profile pass-through is assumed, sleeper is
+    nulled for the non-matching league.  Upgrading the stub to
+    include a profile would push this into the ``stranger`` (503)
+    path; see ``test_api_data_503s_when_scoring_profile_differs``."""
     with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_for_league(monkeypatch, "main")
+        monkeypatch.setattr(server, "latest_data_bytes", None)
+        monkeypatch.setattr(server, "latest_data_gzip_bytes", None)
+        monkeypatch.setattr(server, "latest_data_etag", None)
         res = c.get("/api/data?leagueKey=side")
-    assert res.status_code == 503
-    assert res.json()["error"] == "data_not_ready"
-    assert res.json()["leagueKey"] == "side"
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["sleeper"] is None
+    assert body["meta"]["leagueKey"] == "side"
+    assert body["meta"]["sleeperDataReady"] is False
 
 
 # ── /api/trade/simulate ──────────────────────────────────────────
@@ -221,6 +232,142 @@ def test_trade_simulate_rejects_wrong_league_in_body(two_league_registry, monkey
         )
     assert res.status_code == 503
     assert res.json()["error"] == "data_not_ready"
+
+
+# ── Scoring-profile sharing ──────────────────────────────────────
+# Leagues that share a scoring profile share one ranking pipeline
+# output.  When the server has loaded the contract for League A
+# but the client requests League B (same profile), the response
+# carries the shared rankings with the ``sleeper`` block nulled
+# and ``meta.sleeperDataReady: false``.  Only when profiles
+# actually differ does the server 503.
+
+
+@pytest.fixture
+def shared_scoring_registry(tmp_path, monkeypatch):
+    """Two leagues with the SAME scoring profile + one with a
+    different profile.  Tests around scoring-vs-sleeper distinction
+    use this fixture to verify that profile-match serves shared
+    rankings and profile-mismatch returns 503."""
+    path = tmp_path / "registry.json"
+    path.write_text(
+        json.dumps(
+            {
+                "defaultLeagueKey": "main",
+                "leagues": [
+                    {
+                        "key": "main",
+                        "displayName": "Main",
+                        "sleeperLeagueId": "LM",
+                        "scoringProfile": "superflex_tep15_ppr1",
+                        "active": True,
+                        "rosterSettings": {"teamCount": 12},
+                    },
+                    {
+                        "key": "twin",
+                        "displayName": "Twin",
+                        "sleeperLeagueId": "LT",
+                        "scoringProfile": "superflex_tep15_ppr1",  # same
+                        "active": True,
+                        "rosterSettings": {"teamCount": 10},
+                    },
+                    {
+                        "key": "stranger",
+                        "displayName": "Stranger",
+                        "sleeperLeagueId": "LS",
+                        "scoringProfile": "standard_1qb_ppr1",  # different
+                        "active": True,
+                        "rosterSettings": {"teamCount": 12},
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
+    league_registry.reload_registry()
+    yield
+    league_registry.reload_registry()
+
+
+def _install_contract_with_profile(monkeypatch, league_key: str, profile: str):
+    stub = {
+        "meta": {"leagueKey": league_key, "scoringProfile": profile},
+        "players": {"stub": {"name": "Stub"}},
+        "playersArray": [{"name": "Stub"}],
+        "sleeper": {"teams": [{"ownerId": "oA", "name": "Team A", "players": []}]},
+    }
+    monkeypatch.setattr(server, "latest_contract_data", stub)
+    # Skip the pre-serialized bytes path so our hand-edited sleeper
+    # scrubbing branch is exercised.
+    monkeypatch.setattr(server, "latest_data_bytes", None)
+    monkeypatch.setattr(server, "latest_data_gzip_bytes", None)
+    monkeypatch.setattr(server, "latest_data_etag", None)
+
+
+def test_api_data_serves_shared_rankings_for_same_profile(
+    shared_scoring_registry, monkeypatch
+):
+    """Loaded contract is for League 'main' (superflex_tep15_ppr1).
+    Request for 'twin' (same profile) should succeed with 200,
+    serve the rankings, and null the sleeper block so the UI
+    doesn't render League main's teams under Twin's name.
+
+    IMPORTANT: monkeypatch inside the TestClient context so app
+    startup can't re-populate ``latest_contract_data`` after our
+    stub.  Same pattern as the signal-alerts tests."""
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_with_profile(monkeypatch, "main", "superflex_tep15_ppr1")
+        res = c.get("/api/data?leagueKey=twin")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    # Rankings are intact.
+    assert body["players"]["stub"]["name"] == "Stub"
+    # Sleeper is nulled + meta flags the state.
+    assert body["sleeper"] is None
+    assert body["meta"]["leagueKey"] == "twin"
+    assert body["meta"]["scoringProfile"] == "superflex_tep15_ppr1"
+    assert body["meta"]["sleeperDataReady"] is False
+    assert body["meta"]["sleeperLoadedLeagueKey"] == "main"
+
+
+def test_api_data_serves_full_contract_when_sleeper_matches(
+    shared_scoring_registry, monkeypatch
+):
+    """When the loaded contract's leagueKey matches the requested
+    league, the sleeper block is returned intact."""
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_with_profile(monkeypatch, "main", "superflex_tep15_ppr1")
+        res = c.get("/api/data?leagueKey=main")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["sleeper"] is not None
+    assert body["sleeper"]["teams"][0]["ownerId"] == "oA"
+
+
+def test_api_data_503s_when_scoring_profile_differs(
+    shared_scoring_registry, monkeypatch
+):
+    """Loaded contract is superflex_tep15_ppr1.  Requesting the
+    'stranger' league (standard_1qb_ppr1) must 503 — rankings
+    genuinely can't be reused across different scoring."""
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_with_profile(monkeypatch, "main", "superflex_tep15_ppr1")
+        res = c.get("/api/data?leagueKey=stranger")
+    assert res.status_code == 503
+    body = res.json()
+    assert body["error"] == "data_not_ready"
+    assert body["leagueKey"] == "stranger"
+    assert body["scoringProfile"] == "standard_1qb_ppr1"
+
+
+def test_registry_helpers_share_scoring(shared_scoring_registry):
+    """Unit-level check on the registry helpers themselves."""
+    assert league_registry.leagues_share_scoring("main", "twin") is True
+    assert league_registry.leagues_share_scoring("main", "stranger") is False
+    assert league_registry.leagues_share_scoring("main", "unknown") is False
+    assert league_registry.leagues_share_scoring(None, "main") is False
+    assert league_registry.get_scoring_profile("twin") == "superflex_tep15_ppr1"
 
 
 # ── /api/leagues stays coherent ──────────────────────────────────

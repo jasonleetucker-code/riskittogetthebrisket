@@ -453,6 +453,49 @@ def get_sleeper_league_id(key: str | None = None) -> str | None:
     return cfg.sleeper_league_id if cfg else None
 
 
+def get_scoring_profile(key: str | None = None) -> str | None:
+    """Return the scoring-profile marker for a league, or the default's.
+
+    The scoring profile is the identifier for "which set of rules
+    produces this league's player values" — e.g.
+    ``"superflex_tep15_ppr1"``.  **Rankings are keyed by scoring
+    profile, not by league.**  When two leagues share a profile, they
+    share the blended rank + value pipeline; when they differ, each
+    profile runs its own pipeline.
+
+    See ``config/leagues/README.md`` and ``CLAUDE.md`` ("League-aware
+    routing" section) for the full split:
+
+      * scoringProfile → controls rankings, values, rank-history
+      * leagueKey      → controls teams, rosters, signals, context
+
+    Returns None when no league is configured at all.
+    """
+    if key is None:
+        cfg = get_default_league()
+    else:
+        cfg = get_league_by_key(key)
+    return cfg.scoring_profile if cfg else None
+
+
+def leagues_share_scoring(key_a: str | None, key_b: str | None) -> bool:
+    """True iff two league keys resolve to the same scoring profile.
+
+    Used by routes that serve rankings (``/api/data``,
+    ``/api/rankings/overrides``) to decide whether the loaded
+    contract's rankings apply to a different requested league.
+    Unknown keys never share scoring — safer to return False and
+    force the caller to surface a ``data_not_ready`` response than
+    to silently serve the default league's pipeline output under
+    the wrong league's name.
+    """
+    cfg_a = get_league_by_key(key_a) if key_a else None
+    cfg_b = get_league_by_key(key_b) if key_b else None
+    if cfg_a is None or cfg_b is None:
+        return False
+    return cfg_a.scoring_profile == cfg_b.scoring_profile
+
+
 def default_league_key() -> str | None:
     """Return the default league's key, or None if none configured."""
     cfg = get_default_league()

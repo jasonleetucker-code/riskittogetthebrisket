@@ -94,6 +94,69 @@ npm run regression                   # Full pipeline: preflight + tests
 | `/api/trade/finder` | POST | KTC arbitrage finder |
 | `/api/leagues` | GET | Active league registry (stable `key` → `displayName` + roster settings; **no Sleeper IDs leaked**) |
 
+### Rankings vs. league context — the core split
+
+The single most important architectural rule for multi-league:
+
+> **Scoring profile controls rankings.  League key controls context.**
+
+* **`scoringProfile`** (from `config/leagues/registry.json`) is the
+  identifier for "which set of rules produces a player's value".  Two
+  leagues that use identical scoring share ONE ranking pipeline and
+  ONE output.  A single scrape's blended rankings can be served to
+  every league with the same profile — no per-league recompute.
+
+* **`leagueKey`** is the identifier for "which league's rosters,
+  teams, managers, draft, and signals".  Anything that depends on
+  who-owns-what in Sleeper is league-scoped.
+
+Fields that follow **scoring profile** (global across same-scoring leagues):
+- `players`, `playersArray`, `sources`, `rankings`, `poolAudit`
+- Rank history, source-value history, edge signals
+- Player metadata (position, Sleeper ID, news)
+- Tier boundaries, confidence buckets, value bands
+- Injury-impact calculations (position-based, not league-based)
+
+Fields that follow **leagueKey** (must be per-league):
+- `sleeper.teams`, `sleeper.leagueId`, `sleeper.positions`,
+  `sleeper.scoringSettings`
+- Draft capital (per-team auction budgets, pick ownership)
+- Public-league snapshots / standings / matchups
+- Terminal aggregates (team portfolio, roster movers)
+- Trade-finder, trade-suggestions, trade-simulate outputs
+- Angle-finder / Angle-packages opponent filters
+- Signal visibility (filtered by roster ownership)
+- IDP display toggle (per-league `idpEnabled`)
+- Roster-constraint derived UI (starter counts, flex rules)
+- Per-user `selectedTeam`, `activeLeagueKey`, watchlist relevance
+
+Contract annotations:
+- `meta.leagueKey` — which specific league's `sleeper` block is
+  stamped here
+- `meta.scoringProfile` — which scoring rules produced these rankings
+- `meta.sleeperDataReady` — true iff `sleeper` block is valid for the
+  *requested* league; false when the server served the shared
+  rankings but doesn't have the requested league's rosters loaded
+- `meta.sleeperLoadedLeagueKey` — which league the `sleeper` block
+  *would* be for, when `sleeperDataReady: false` (diagnostic only)
+
+Error behavior on endpoints:
+- `/api/data`, `/api/rankings/overrides` — 503 only when scoring
+  profiles genuinely differ.  When they match but sleeper is for a
+  different league, serve shared rankings with `sleeper: null` +
+  `sleeperDataReady: false`.
+- `/api/terminal`, `/api/trade/*`, `/api/angle/*`,
+  `/api/draft-capital` — 503 whenever the loaded contract's
+  `leagueKey` doesn't match the request.  These endpoints can't
+  meaningfully work without the specific league's rosters.
+
+Rule for new code:
+- Need rankings / values / player data?  →  resolve the scoring
+  profile via `league_registry.get_scoring_profile(key)`.  Share
+  across leagues.  Never index per-league.
+- Need rosters / teams / matchups?  →  resolve via `leagueKey`.  One
+  pipeline per league.  Never collapse.
+
 ### League-aware routing
 
 League-scoped endpoints accept an optional `leagueKey` parameter

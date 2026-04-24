@@ -1053,17 +1053,27 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
             # contract response.  The glyph degrades gracefully when
             # rankHistory is absent.
             log.warning("rank_history: append/stamp failed: %s", exc)
-        # Tag the contract with the league it was built for so
-        # ``_resolve_league_for_request()`` can reject requests
-        # asking for a different league (503 "data_not_ready").
-        # Today only one league runs the scraper, so this is always
-        # the registry's default.  When multi-league scraping lands,
-        # this annotation is the link between a request's leagueKey
-        # and the correct in-memory contract.
+        # Tag the contract with the league + scoring profile it was
+        # built for.  Two different roles:
+        #
+        #   * ``meta.leagueKey`` — which specific league's Sleeper
+        #     block (teams, rosters, ownerIds) is stamped here.
+        #     Team-requiring endpoints (/api/terminal, /api/trade/*)
+        #     reject requests for other leagues with 503.
+        #   * ``meta.scoringProfile`` — which scoring rules produced
+        #     these rankings.  Rankings endpoints (/api/data,
+        #     /api/rankings/overrides) serve the same rankings to
+        #     any league that shares the profile, and only 503 when
+        #     profiles actually differ.
+        #
+        # This split is the core of the "scoring drives rankings,
+        # league drives context" architecture — see CLAUDE.md.
         try:
             _default_cfg = _league_registry.get_default_league()
             if _default_cfg and isinstance(contract_payload, dict):
-                contract_payload.setdefault("meta", {})["leagueKey"] = _default_cfg.key
+                meta_block = contract_payload.setdefault("meta", {})
+                meta_block["leagueKey"] = _default_cfg.key
+                meta_block["scoringProfile"] = _default_cfg.scoring_profile
         except Exception:  # noqa: BLE001
             pass
         latest_contract_data = contract_payload
@@ -1708,11 +1718,22 @@ def _proxy_next(path: str) -> tuple[Response | None, str | None]:
 async def get_data(request: Request):
     """Return latest normalized/validated data contract JSON.
 
-    Optional ``?leagueKey=...`` validates against the league registry
-    and 503s if the loaded contract is for a different league.
-    Without the param we fall through to the user's saved
-    ``activeLeagueKey`` and finally the registry default — matching
-    ``/api/terminal``'s resolution behavior.
+    Optional ``?leagueKey=...`` validates against the league registry.
+
+    **Rankings are keyed by scoring profile, not by league.**  When
+    two leagues share a profile, they share the rankings pipeline's
+    output — the ``players`` / ``playersArray`` / ``sources`` blocks
+    are identical and we serve them to any caller whose league
+    resolves to the same profile.  Only the league-specific
+    ``sleeper`` block (teams, rosters, owners) is per-league; when a
+    different league is requested and we don't have that league's
+    sleeper data loaded, the block is returned as ``None`` and
+    ``meta.sleeperDataReady=false`` tells the client to show
+    "no roster data yet" rather than rendering the default league's
+    teams under the wrong name.
+
+    503 ``data_not_ready`` only fires when the scoring profiles
+    genuinely differ — i.e. the rankings themselves can't be reused.
     """
     # League validation comes first so a stale leagueKey returns 400
     # before we bother assembling the payload.  Skip the loaded-
@@ -1724,23 +1745,34 @@ async def get_data(request: Request):
         return err.json_response()
 
     if latest_contract_data:
-        # Validate that the loaded contract matches the resolved league.
-        # When it doesn't (non-default league requested, scraper hasn't
-        # caught up), surface a clean 503 with the key so the client
-        # knows to wait or switch back.
-        loaded_league = (
-            (latest_contract_data.get("meta") or {}).get("leagueKey")
-            if isinstance(latest_contract_data, dict) else None
+        loaded_meta = (
+            latest_contract_data.get("meta") or {}
+            if isinstance(latest_contract_data, dict) else {}
         )
-        if loaded_league and loaded_league != league_cfg.key:
+        loaded_league = str(loaded_meta.get("leagueKey") or "")
+        loaded_profile = str(loaded_meta.get("scoringProfile") or "")
+        sleeper_matches = bool(loaded_league) and loaded_league == league_cfg.key
+
+        # Scoring-profile mismatch → genuinely different data; 503.
+        # Missing loaded_profile means we're running a contract built
+        # before this refactor; treat it as if profiles match (the
+        # rankings are global), and surface sleeper_matches only.
+        if loaded_profile and loaded_profile != league_cfg.scoring_profile:
             return JSONResponse(
                 status_code=503,
                 content={
                     "error": "data_not_ready",
-                    "message": f"No data loaded for league {league_cfg.key!r} yet",
+                    "message": (
+                        f"League {league_cfg.key!r} uses scoring profile "
+                        f"{league_cfg.scoring_profile!r}, but the loaded "
+                        f"contract is {loaded_profile!r}.  Rankings are "
+                        "not compatible."
+                    ),
                     "leagueKey": league_cfg.key,
+                    "scoringProfile": league_cfg.scoring_profile,
                 },
             )
+
         view = (request.query_params.get("view") or "").strip().lower()
         startup_view = view in {"startup", "boot", "initial"}
         runtime_view = view in {"app", "runtime", "lite", "slim"}
@@ -1769,6 +1801,24 @@ async def get_data(request: Request):
             "Cache-Control": "public, max-age=30, stale-while-revalidate=300",
             "X-Payload-View": payload_view_name,
         }
+
+        # Cross-league request for a same-scoring-profile league —
+        # serve the shared rankings but null the sleeper block so the
+        # UI doesn't render the loaded league's teams under the
+        # requested league's name.  Bypass the pre-serialized fast-
+        # path here; we need to hand-edit the payload.
+        if not sleeper_matches:
+            scrubbed = dict(payload_obj) if isinstance(payload_obj, dict) else {}
+            scrubbed["sleeper"] = None
+            meta = dict(scrubbed.get("meta") or {})
+            meta["leagueKey"] = league_cfg.key
+            meta["scoringProfile"] = league_cfg.scoring_profile
+            meta["sleeperDataReady"] = False
+            meta["sleeperLoadedLeagueKey"] = loaded_league or None
+            scrubbed["meta"] = meta
+            headers["X-Payload-View"] = f"{payload_view_name}-cross-league"
+            return JSONResponse(content=scrubbed, headers=headers)
+
         if payload_etag:
             headers["ETag"] = payload_etag
             incoming = request.headers.get("if-none-match", "").strip('"')
@@ -1924,19 +1974,39 @@ async def post_rankings_overrides(request: Request):
     except Exception:
         body = None
 
-    # Validate leagueKey (body or query).  The override pipeline
-    # always runs against the currently-loaded scrape data
-    # (``latest_data``), so a mismatched league key gets 503 with a
-    # clean error rather than rebuilding a contract whose
-    # ``sleeper`` block is wrong.
+    # Rankings follow scoring profile, not league key.  Validate the
+    # key but only 503 when profiles actually differ — otherwise the
+    # override pipeline can serve the same recomputed rankings to any
+    # league that shares scoring.  The league-specific sleeper block
+    # in the response is nulled below when the loaded contract was
+    # built for a different league.
     try:
         league_cfg = _resolve_league_for_request(
             request,
             body=body if isinstance(body, dict) else None,
-            require_loaded_contract=True,
         )
     except LeagueResolutionError as err:
         return err.json_response()
+    loaded_meta = (
+        latest_contract_data.get("meta") or {}
+        if isinstance(latest_contract_data, dict) else {}
+    )
+    loaded_league = str(loaded_meta.get("leagueKey") or "")
+    loaded_profile = str(loaded_meta.get("scoringProfile") or "")
+    sleeper_matches = bool(loaded_league) and loaded_league == league_cfg.key
+    if loaded_profile and loaded_profile != league_cfg.scoring_profile:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": (
+                    f"League {league_cfg.key!r} uses scoring profile "
+                    f"{league_cfg.scoring_profile!r}, not {loaded_profile!r}."
+                ),
+                "leagueKey": league_cfg.key,
+                "scoringProfile": league_cfg.scoring_profile,
+            },
+        )
 
     overrides, warnings = normalize_source_overrides(body)
     tep_multiplier = normalize_tep_multiplier(body)
@@ -1972,11 +2042,22 @@ async def post_rankings_overrides(request: Request):
     if warnings:
         contract_payload.setdefault("warnings", []).extend(warnings)
 
-    # Stamp the resolved league key on the override response so the
-    # frontend can assert "this is the right league's data" after
-    # merging the delta onto its base contract.
+    # Stamp meta fields so the frontend can assert compatibility:
+    # ``leagueKey`` = resolved league; ``scoringProfile`` = which
+    # rules the pipeline used; ``sleeperDataReady`` = whether the
+    # ``sleeper`` block can be trusted for this league.  When the
+    # loaded contract was built for a different league (same scoring
+    # profile though — we'd have 503'd above if profiles differed),
+    # null the sleeper block so callers don't render the wrong
+    # league's teams.
     if isinstance(contract_payload, dict):
-        contract_payload.setdefault("meta", {})["leagueKey"] = league_cfg.key
+        meta = contract_payload.setdefault("meta", {})
+        meta["leagueKey"] = league_cfg.key
+        meta["scoringProfile"] = league_cfg.scoring_profile
+        meta["sleeperDataReady"] = sleeper_matches
+        if not sleeper_matches:
+            contract_payload["sleeper"] = None
+            meta["sleeperLoadedLeagueKey"] = loaded_league or None
 
     headers = {
         "Cache-Control": "no-store",

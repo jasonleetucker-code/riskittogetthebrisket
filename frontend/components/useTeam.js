@@ -57,21 +57,36 @@ export function useTeam() {
   const { selectedLeague, selectedLeagueKey, defaultLeagueKey } = useLeague();
   const autoAssignedRef = useRef(new Set());
 
-  // ── Contract-for-this-league guard ──────────────────────────────
-  // The contract in memory carries ``meta.leagueKey``.  When the UI
-  // asks for teams in a league the contract wasn't built for, we
-  // return an empty list — the UI then renders the data-not-ready
-  // state rather than showing League A's teams on League B.
+  // ── Sleeper-data-for-this-league guard ─────────────────────────
+  // The contract's ``meta.sleeperDataReady`` tells us whether the
+  // ``sleeper`` block in the response is real for the requested
+  // league.  When the user switches to a league whose rosters
+  // haven't been scraped yet, the server returns shared rankings
+  // with ``sleeper: null`` and ``sleeperDataReady: false``.  We
+  // surface that as ``leagueMismatch: true`` so team-dependent UI
+  // (pickers, rosters, terminal) renders the data-not-ready state
+  // rather than the wrong league's teams.
+  //
+  // Back-compat: older contracts (pre-scoringProfile refactor) lack
+  // the flag.  Treat an absent flag as "ready" and fall back to
+  // the old leagueKey-mismatch check so pre-multi-league clients
+  // still work.
   const contractLeagueKey = useMemo(
     () => rawData?.meta?.leagueKey || rawData?.leagueKey || "",
     [rawData],
   );
+  const sleeperDataReady = useMemo(() => {
+    const flag = rawData?.meta?.sleeperDataReady;
+    if (flag === false) return false;
+    if (flag === true) return true;
+    // Legacy path: if the flag is absent, infer from leagueKey match.
+    if (contractLeagueKey && selectedLeagueKey) {
+      return contractLeagueKey === selectedLeagueKey;
+    }
+    return true;
+  }, [rawData, contractLeagueKey, selectedLeagueKey]);
 
-  const leagueMismatch = Boolean(
-    selectedLeagueKey &&
-    contractLeagueKey &&
-    contractLeagueKey !== selectedLeagueKey,
-  );
+  const leagueMismatch = !sleeperDataReady && Boolean(selectedLeagueKey);
 
   const availableTeams = useMemo(() => {
     if (!privateDataEnabled) return [];
