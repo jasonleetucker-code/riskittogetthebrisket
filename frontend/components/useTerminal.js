@@ -88,6 +88,10 @@ export function useTerminal({ ownerId = "", teamName = "", windowDays = 30 } = {
     error: null,
     payload: null,
   });
+  // Forces a re-fetch when the active league changes — same pattern
+  // as useDynastyData.  Keeps the hook signature unchanged while
+  // wiring league-awareness for the Phase 1 migration.
+  const [leagueRefreshKey, setLeagueRefreshKey] = useState(0);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -95,6 +99,16 @@ export function useTerminal({ ownerId = "", teamName = "", windowDays = 30 } = {
     return () => {
       mounted.current = false;
     };
+  }, []);
+
+  useEffect(() => {
+    function onLeagueChanged() {
+      invalidateTerminalCache();
+      setLeagueRefreshKey((v) => v + 1);
+    }
+    if (typeof window === "undefined") return undefined;
+    window.addEventListener("league:changed", onLeagueChanged);
+    return () => window.removeEventListener("league:changed", onLeagueChanged);
   }, []);
 
   useEffect(() => {
@@ -115,7 +129,7 @@ export function useTerminal({ ownerId = "", teamName = "", windowDays = 30 } = {
         });
       });
     return () => controller.abort();
-  }, [ownerId, teamName, windowDays]);
+  }, [ownerId, teamName, windowDays, leagueRefreshKey]);
 
   const value = useMemo(() => {
     const p = state.payload || {};

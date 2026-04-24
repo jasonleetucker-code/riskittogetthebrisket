@@ -70,6 +70,16 @@ KNOWN_KEYS = frozenset({
     "dismissedSignals",
     "dismissalAliases",
     "updatedAt",
+    # League preference — the user's currently-active league key from
+    # the league registry (``src/api/league_registry``).  Persists
+    # across devices so that a user who switches to the non-IDP
+    # league on mobile sees the same league on desktop.  Unvalidated
+    # here; the PUT endpoint validates against the live registry.
+    "activeLeagueKey",
+    # Notification preferences already flow through ``merge_user_state``
+    # — listed here so new readers know the schema includes them.
+    "notificationsEmail",
+    "notificationsEnabled",
 })
 
 # Process-wide lock around connection setup / migration so module

@@ -383,6 +383,120 @@ def test_public_dict_omits_sleeper_id(tmp_path, monkeypatch):
     assert "SECRET-ID-123" not in json.dumps(payload)
 
 
+def test_put_user_state_accepts_valid_active_league_key(tmp_path, monkeypatch):
+    """PUT /api/user/state should accept an activeLeagueKey that
+    matches an active registry entry and echo it back in the response
+    state."""
+    from fastapi.testclient import TestClient
+
+    import server
+
+    path = _write_registry(
+        tmp_path,
+        {
+            "leagues": [
+                {"key": "main", "displayName": "Main", "sleeperLeagueId": "1", "active": True, "rosterSettings": {}},
+                {"key": "backup", "displayName": "Backup", "sleeperLeagueId": "2", "active": True, "rosterSettings": {}},
+            ],
+        },
+    )
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
+    league_registry.reload_registry()
+
+    # Route the user_kv DB to a temp file so we don't touch prod data.
+    from src.api import user_kv
+    user_kv_path = tmp_path / "test_user_kv.sqlite"
+    monkeypatch.setattr(user_kv, "USER_KV_PATH", user_kv_path)
+    user_kv._SETUP_DONE.clear()
+    # Stub auth so the endpoint accepts us as 'alice'.
+    monkeypatch.setattr(
+        server, "_get_auth_session",
+        lambda request: {"username": "alice", "auth_method": "password"},
+    )
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.put("/api/user/state", json={"activeLeagueKey": "backup"})
+    assert res.status_code == 200, res.text
+    state = res.json()["state"]
+    assert state["activeLeagueKey"] == "backup"
+
+
+def test_put_user_state_drops_unknown_active_league_key(tmp_path, monkeypatch):
+    """An unknown key must be silently dropped (not persisted as-is
+    and not raise a 400) so a stale client can't poison user state."""
+    from fastapi.testclient import TestClient
+
+    import server
+
+    path = _write_registry(
+        tmp_path,
+        {
+            "leagues": [
+                {"key": "main", "displayName": "Main", "sleeperLeagueId": "1", "active": True, "rosterSettings": {}},
+            ],
+        },
+    )
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
+    league_registry.reload_registry()
+
+    from src.api import user_kv
+    user_kv_path = tmp_path / "test_user_kv.sqlite"
+    monkeypatch.setattr(user_kv, "USER_KV_PATH", user_kv_path)
+    user_kv._SETUP_DONE.clear()
+    monkeypatch.setattr(
+        server, "_get_auth_session",
+        lambda request: {"username": "alice", "auth_method": "password"},
+    )
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.put("/api/user/state", json={"activeLeagueKey": "nonexistent"})
+    assert res.status_code == 200, res.text
+    state = res.json()["state"]
+    assert state.get("activeLeagueKey") in (None, "")  # not persisted
+
+
+def test_put_user_state_canonicalizes_alias(tmp_path, monkeypatch):
+    """Submitting an alias like ``idp`` (instead of ``dynasty_main``)
+    should be stored as the canonical key so user state stays clean
+    even if aliases change later."""
+    from fastapi.testclient import TestClient
+
+    import server
+
+    path = _write_registry(
+        tmp_path,
+        {
+            "leagues": [
+                {
+                    "key": "dynasty_main",
+                    "displayName": "Main",
+                    "sleeperLeagueId": "1",
+                    "active": True,
+                    "rosterSettings": {},
+                    "aliases": ["idp", "main"],
+                },
+            ],
+        },
+    )
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
+    league_registry.reload_registry()
+
+    from src.api import user_kv
+    user_kv_path = tmp_path / "test_user_kv.sqlite"
+    monkeypatch.setattr(user_kv, "USER_KV_PATH", user_kv_path)
+    user_kv._SETUP_DONE.clear()
+    monkeypatch.setattr(
+        server, "_get_auth_session",
+        lambda request: {"username": "alice", "auth_method": "password"},
+    )
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.put("/api/user/state", json={"activeLeagueKey": "idp"})
+    assert res.status_code == 200, res.text
+    state = res.json()["state"]
+    assert state["activeLeagueKey"] == "dynasty_main"
+
+
 def test_api_leagues_endpoint_returns_active_leagues(tmp_path, monkeypatch):
     """GET /api/leagues returns the list of active leagues with no
     Sleeper IDs leaked.  Unauthenticated clients don't see

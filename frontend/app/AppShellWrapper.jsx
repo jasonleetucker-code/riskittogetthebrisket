@@ -8,6 +8,7 @@ import { useAuth } from "@/components/useAuth";
 import ChatDrawer from "@/components/ChatDrawer";
 import StaleDataBanner from "@/components/StaleDataBanner";
 import TeamSwitcher from "@/components/TeamSwitcher";
+import LeagueSwitcher from "@/components/LeagueSwitcher";
 
 // ── Route definitions ────────────────────────────────────────────────────
 // Primary destinations shown in desktop top nav
@@ -75,6 +76,7 @@ function DesktopNav() {
               </Link>
             );
           })}
+          {authenticated && <LeagueSwitcher variant="desktop" />}
           {authenticated && <TeamSwitcher variant="desktop" />}
           {authenticated && (
             <button
@@ -169,6 +171,7 @@ function MobileTopBar() {
       <Link href="/" className="mobile-brand">Brisket</Link>
       <span className="mobile-page-title">{pageTitle}</span>
       <div className="mobile-topbar-actions">
+        {authenticated && <LeagueSwitcher variant="mobile" />}
         {authenticated && <TeamSwitcher variant="mobile" />}
         {authenticated && (
           <button className="mobile-search-btn" onClick={openSearch} title="Search" aria-label="Search">
