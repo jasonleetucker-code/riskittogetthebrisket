@@ -4625,6 +4625,18 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   text-transform: uppercase;
   color: var(--muted);
 }
+.tc-header-eyebrow-sep {
+  color: var(--border);
+  /* Dim the middot so the league label reads as secondary info
+     rather than a peer of "My Team" — subtle by design. */
+  opacity: 0.55;
+}
+.tc-header-eyebrow-league {
+  color: var(--cyan);
+  /* Same size as "My Team" eyebrow but de-emphasized via color
+     only — reads as "you're on THIS league" without competing
+     with the team name below. */
+}
 .tc-header-team {
   margin: 2px 0 0;
   font-size: 1.4rem;

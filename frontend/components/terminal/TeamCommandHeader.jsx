@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
+import { useLeague } from "@/components/useLeague";
 import { useRankHistory } from "@/components/useRankHistory";
 import { useTerminal } from "@/components/useTerminal";
 import {
@@ -85,7 +86,18 @@ function formatDeltaTooltip(detail) {
  */
 export default function TeamCommandHeader() {
   const { rows } = useApp();
-  const { selectedTeam, needsSelection, loading: teamLoading, privateDataEnabled } = useTeam();
+  const {
+    selectedTeam,
+    needsSelection,
+    loading: teamLoading,
+    privateDataEnabled,
+    leagueMismatch,
+  } = useTeam();
+  // League context for the header eyebrow: shows the active league
+  // name so the user always knows which league these aggregates
+  // belong to.  Hidden when only one league exists — at that point
+  // it'd be visual clutter, not information.
+  const { selectedLeague, leagues } = useLeague();
   const { history, loading: historyLoading } = useRankHistory({ days: 30 });
   const {
     teamAggregates: serverAggregates,
@@ -98,7 +110,14 @@ export default function TeamCommandHeader() {
 
   let teamName;
   let nameVariant = "ready";
-  if (needsSelection) {
+  if (leagueMismatch) {
+    // The user switched to a league whose roster data isn't loaded
+    // yet (single-instance deployments).  Rankings still work; the
+    // team widget just shows a clear "waiting for data" state so
+    // the page isn't rendering stale/wrong team info.
+    teamName = "Roster data not ready for this league";
+    nameVariant = "needs";
+  } else if (needsSelection) {
     teamName = "Pick your team";
     nameVariant = "needs";
   } else if (selectedTeam?.name) {
@@ -113,6 +132,14 @@ export default function TeamCommandHeader() {
     teamName = "No team data";
     nameVariant = "error";
   }
+
+  // League chip: show ONLY when more than one league is configured.
+  // For the single-league dev era (today), showing the league name
+  // above every team is redundant — there's only one league.  Once
+  // a second league is activated in the registry this flips on
+  // automatically.
+  const showLeagueEyebrow = Array.isArray(leagues) && leagues.length >= 2;
+  const leagueLabel = selectedLeague?.displayName || selectedLeague?.key || "";
 
   const rowByName = useMemo(() => {
     const m = new Map();
@@ -202,7 +229,17 @@ export default function TeamCommandHeader() {
     <header className="tc-header panel panel--bare">
       <div className="tc-header-row">
         <div className="tc-header-identity">
-          <span className="tc-header-eyebrow">My Team</span>
+          <span className="tc-header-eyebrow">
+            My Team
+            {showLeagueEyebrow && leagueLabel && (
+              <>
+                <span className="tc-header-eyebrow-sep" aria-hidden="true"> · </span>
+                <span className="tc-header-eyebrow-league" title={`Active league: ${leagueLabel}`}>
+                  {leagueLabel}
+                </span>
+              </>
+            )}
+          </span>
           <h1 className={`tc-header-team tc-header-team--${nameVariant}`}>{teamName}</h1>
         </div>
         <div className="tc-header-stats" aria-label="Team aggregates">
