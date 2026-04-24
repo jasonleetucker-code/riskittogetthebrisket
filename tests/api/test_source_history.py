@@ -50,7 +50,7 @@ def test_append_then_load(path):
         ],
         date="2026-04-23",
     )
-    assert source_history.append_snapshot(contract, path=path) is True
+    assert source_history.append_snapshot(contract, date="2026-04-23", path=path) is True
 
     hist = source_history.load_player_history("Malik Nabers", path=path)
     assert hist["dates"] == ["2026-04-23"]
@@ -204,6 +204,7 @@ def test_backfill_from_exports_merges_with_existing(tmp_path, path):
     # Seed an existing snapshot for 2026-04-23 via the live path.
     source_history.append_snapshot(
         _make_contract([{"name": "A", "blended": 9999, "sources": {"ktc": 9000}}], date="2026-04-23"),
+        date="2026-04-23",
         path=path,
     )
     # Now point backfill at a historical export dated earlier.
