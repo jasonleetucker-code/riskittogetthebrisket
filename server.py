@@ -2546,6 +2546,7 @@ async def get_status():
         "featureFlags": _feature_flag_snapshot_safe(),
         "idMappingCoverage": _id_mapping_coverage_safe(),
         "nflDataProvider": _nfl_data_provider_status_safe(),
+        "normalizationHealth": _normalization_health_safe(),
     })
 
 
@@ -2575,6 +2576,18 @@ def _nfl_data_provider_status_safe() -> dict:
         return _ing.provider_status()
     except Exception as exc:  # noqa: BLE001
         log.warning("nfl_data provider status failed: %s", exc)
+        return {}
+
+
+def _normalization_health_safe() -> dict:
+    """Return the contract validation summary for /api/status.
+    Runs on every status hit (not cached) — it's O(N) over the
+    playersArray, ~5ms for ~1100 rows."""
+    try:
+        from src.canonical import normalization_validator as _nv
+        return _nv.validate_contract(latest_contract_data or {})
+    except Exception as exc:  # noqa: BLE001
+        log.warning("normalization validator failed: %s", exc)
         return {}
 
 
@@ -6154,12 +6167,19 @@ async def post_trade_simulate_mc(request: Request):
         seed = int(seed) if seed is not None else None
     except (TypeError, ValueError):
         seed = None
-    result = _mc.simulate_trade(
+    # Symmetrize the direction (A→B averaged with B→A) so ordering
+    # never biases the result — critical invariant per the Phase 11
+    # integration pass.  Then enrich with the decision-layer fields
+    # (valueDelta / adjustedDelta / winPct / riskLevel / tierImpact)
+    # the trade calculator UI consumes.
+    from src.trade import symmetrize as _sym
+    base = _sym.simulate_symmetric(
         side_a, side_b,
         n_sims=n_sims, same_team_rho=rho_t,
         same_pos_group_rho=rho_p, seed=seed,
     )
-    return JSONResponse(content=result.to_dict())
+    enriched = _sym.enrich_with_decision_shape(base, side_a, side_b)
+    return JSONResponse(content=enriched)
 
 
 @app.post("/api/signal-alerts/run")
