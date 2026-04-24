@@ -1166,7 +1166,29 @@ const DEFAULT_DATA_URL = "/api/dynasty-data";
 // delta onto.  We keep the last successfully loaded full contract in
 // module-level state so the second call with overrides does not have
 // to refetch the 2.5MB base payload.
+//
+// NOTE: rankings are scoped by scoring profile (see CLAUDE.md).  When
+// two leagues share a profile they share this cached contract.  We
+// still pass ``leagueKey`` on the wire so the server can stamp the
+// response with the right league's ``sleeper`` block (or null it
+// when the specific league's roster data isn't loaded yet).
 let _cachedBaseContract = null;
+
+// Key to read the active league from localStorage — written by
+// ``useLeague`` whenever the user switches leagues.  We can't
+// ``useLeague`` here because this module is imported by
+// ``useLeague`` itself (via ``_resetBaseContractCache``); localStorage
+// is the cycle-safe way to share the value.
+const LEAGUE_LOCAL_KEY = "next_active_league_v1";
+
+function _readActiveLeagueKey() {
+  if (typeof window === "undefined") return "";
+  try {
+    return localStorage.getItem(LEAGUE_LOCAL_KEY) || "";
+  } catch {
+    return "";
+  }
+}
 
 /** Clear the in-memory base contract cache.  Useful for tests. */
 export function _resetBaseContractCache() {
@@ -1174,7 +1196,17 @@ export function _resetBaseContractCache() {
 }
 
 async function _fetchBaseContract() {
-  const res = await fetch(DEFAULT_DATA_URL, { cache: "no-store" });
+  const leagueKey = _readActiveLeagueKey();
+  // Append leagueKey so the server can stamp ``meta.leagueKey`` and
+  // ``meta.sleeperDataReady`` correctly on the response.  When the
+  // active league shares the scoring profile with the loaded
+  // contract, the server serves the common rankings with a nulled
+  // ``sleeper`` block.  When profiles differ, the server 503s and
+  // we surface the error the same way as any other data failure.
+  const url = leagueKey
+    ? `${DEFAULT_DATA_URL}?leagueKey=${encodeURIComponent(leagueKey)}`
+    : DEFAULT_DATA_URL;
+  const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {
     const txt = await res.text();
     throw new Error(`Failed to load dynasty data: ${res.status} ${txt}`);
