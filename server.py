@@ -2333,7 +2333,65 @@ async def get_status():
         # R-4: Scrape success rate tracking
         "scrape_success_rate_24h": _scrape_success_rate_24h(),
         "last_n_scrapes": scrape_history[-20:],
+        "leagues": _league_status_snapshot(),
     })
+
+
+def _league_status_snapshot() -> list[dict]:
+    """Per-league data-health snapshot for /api/status.
+
+    Reports for each ACTIVE league:
+      * ``key`` / ``displayName``                — identity
+      * ``source``                                — "primary-scrape" | "overlay" | "none"
+      * ``teamCount``                             — rosters resolved
+      * ``tradeCount``                            — trades loaded
+      * ``overlayFetchedAt`` / ``overlayAgeSec``  — staleness (None when primary)
+      * ``sleeperLeagueId``                       — raw id for correlation with logs
+
+    This is the diagnostic surface for answering "does League B have
+    fresh data, or am I serving the stale overlay again?".  When the
+    source is ``none`` the UI surfaces the data-not-ready state.
+    """
+    import time as _time
+    snapshot: list[dict[str, Any]] = []
+    loaded = latest_contract_data or {}
+    loaded_meta = loaded.get("meta") or {}
+    loaded_key = loaded_meta.get("leagueKey")
+    loaded_sleeper = loaded.get("sleeper") or {}
+    for cfg in _league_registry.active_leagues():
+        entry: dict[str, Any] = {
+            "key": cfg.key,
+            "displayName": cfg.display_name,
+            "sleeperLeagueId": cfg.sleeper_league_id,
+            "idpEnabled": cfg.idp_enabled,
+            "scoringProfile": cfg.scoring_profile,
+        }
+        if cfg.key == loaded_key and isinstance(loaded_sleeper, dict):
+            entry["source"] = "primary-scrape"
+            entry["teamCount"] = len(loaded_sleeper.get("teams") or [])
+            entry["tradeCount"] = len(loaded_sleeper.get("trades") or [])
+            entry["overlayFetchedAt"] = None
+            entry["overlayAgeSec"] = None
+        else:
+            cached = _sleeper_overlay._CACHE.get(cfg.sleeper_league_id) or {}
+            payload = cached.get("payload") or {}
+            fetched_at = float(cached.get("_cached_at") or 0)
+            if payload.get("teams"):
+                entry["source"] = "overlay"
+                entry["teamCount"] = len(payload.get("teams") or [])
+                entry["tradeCount"] = len(payload.get("trades") or [])
+                entry["overlayFetchedAt"] = payload.get("overlayFetchedAt")
+                entry["overlayAgeSec"] = (
+                    round(_time.time() - fetched_at, 1) if fetched_at > 0 else None
+                )
+            else:
+                entry["source"] = "none"
+                entry["teamCount"] = 0
+                entry["tradeCount"] = 0
+                entry["overlayFetchedAt"] = None
+                entry["overlayAgeSec"] = None
+        snapshot.append(entry)
+    return snapshot
 
 
 @app.api_route("/api/health", methods=["GET", "HEAD"])
@@ -3928,11 +3986,35 @@ async def get_draft_capital(request: Request, refresh: str = ""):
     user's saved pref and then the registry default.  Unknown or
     inactive keys return 400.
 
+    The pick-value Excel workbook (``CSVs/Draft Data.xlsx``) is
+    wired to the default league's draft — per-team budgets,
+    carry-over balances, and standings all reflect that league's
+    actual data.  Non-default leagues 501 with
+    ``not_configured_for_league`` rather than serving league-A
+    numbers under league-B's team names.  Angle-finder + roster
+    picks still work across leagues via the Sleeper overlay; only
+    the workbook-sourced budget column is league-specific.
+
     Pass ``?refresh=1`` to force a fresh KTC fetch."""
     try:
         league_cfg = _resolve_league_for_request(request)
     except LeagueResolutionError as err:
         return err.json_response()
+    default_cfg = _league_registry.get_default_league()
+    if default_cfg and league_cfg.key != default_cfg.key:
+        return JSONResponse(
+            status_code=501,
+            content={
+                "error": "not_configured_for_league",
+                "message": (
+                    f"Draft-capital budgets are pinned to the default league "
+                    f"({default_cfg.key!r}).  {league_cfg.key!r} needs its own "
+                    "pick-value workbook + rookie ranks before this endpoint "
+                    "can serve it."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
     if refresh:
         _ktc_cache["fetched_at"] = 0  # invalidate cache
     try:
@@ -4637,27 +4719,59 @@ async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
     ``not_implemented`` because multi-league scraping isn't wired up
     yet (that's a future refactor of Dynasty Scraper.py).
     """
-    # Validate the key first.  The 501 below is a more honest
-    # response than silently scraping the default league when the
-    # caller asked for a specific one.
+    # Validate the key first.  Non-default leagues don't run the
+    # full ranking scrape (the pipeline is single-league) — instead
+    # they refresh the on-demand Sleeper overlay (rosters + trades
+    # + pick ownership) so the UI picks up new trades / roster
+    # moves without waiting for the 15-min cache to expire.  Same
+    # shape of response either way.
     try:
         league_cfg = _resolve_league_for_request(request)
     except LeagueResolutionError as err:
         return err.json_response()
     default_cfg = _league_registry.get_default_league()
     if default_cfg and league_cfg.key != default_cfg.key:
-        return JSONResponse(
-            status_code=501,
-            content={
-                "error": "multi_league_scrape_not_supported",
-                "message": (
-                    f"Only the default league ({default_cfg.key!r}) can be "
-                    "scraped at this time; multi-league scraping is a future "
-                    "refactor."
-                ),
-                "leagueKey": league_cfg.key,
-            },
+        # Invalidate + rewarm the overlay for this league.  Returns
+        # immediately with the refreshed team/trade counts so the
+        # UI can show "X trades loaded" right away.
+        loaded_sleeper = (
+            latest_contract_data.get("sleeper") or {}
+            if isinstance(latest_contract_data, dict) else {}
         )
+        id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else {}
+        _sleeper_overlay.invalidate_overlay_cache(league_cfg.sleeper_league_id)
+        try:
+            overlay = await run_in_threadpool(
+                _sleeper_overlay.fetch_sleeper_overlay,
+                sleeper_league_id=league_cfg.sleeper_league_id,
+                id_to_player=id_map if isinstance(id_map, dict) else {},
+                force_refresh=True,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse(
+                status_code=502,
+                content={
+                    "error": "sleeper_overlay_fetch_failed",
+                    "message": f"Sleeper overlay refresh failed: {exc}",
+                    "leagueKey": league_cfg.key,
+                },
+            )
+        if not overlay:
+            return JSONResponse(
+                status_code=502,
+                content={
+                    "error": "sleeper_overlay_empty",
+                    "message": "Overlay fetch succeeded but returned no data.",
+                    "leagueKey": league_cfg.key,
+                },
+            )
+        return JSONResponse(content={
+            "message": f"Sleeper overlay refreshed for {league_cfg.key!r}.",
+            "leagueKey": league_cfg.key,
+            "teamCount": len(overlay.get("teams") or []),
+            "tradeCount": len(overlay.get("trades") or []),
+            "overlayFetchedAt": overlay.get("overlayFetchedAt"),
+        })
 
     status_payload = _scrape_status_payload()
     if status_payload.get("is_running") or scrape_run_lock.locked():
