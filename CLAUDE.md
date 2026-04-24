@@ -92,6 +92,50 @@ npm run regression                   # Full pipeline: preflight + tests
 | `/api/scaffold/identity` | GET | Identity mappings |
 | `/api/trade/suggestions` | POST | Roster-aware trade suggestions (reads live contract) |
 | `/api/trade/finder` | POST | KTC arbitrage finder |
+| `/api/leagues` | GET | Active league registry (stable `key` → `displayName` + roster settings; **no Sleeper IDs leaked**) |
+
+### League-aware routing
+
+League-scoped endpoints accept an optional `leagueKey` parameter
+(query string for GET, body field for POST).  The resolver lives in
+`server.py::_resolve_league_for_request` and picks the target
+league in this order:
+
+1. explicit `leagueKey` in the request
+2. the authenticated user's `activeLeagueKey` from `user_kv`
+3. the registry's default league
+
+**Validation rules** (returned as clean JSON errors):
+
+| Condition | HTTP | Error code |
+|---|---|---|
+| unknown `leagueKey` | 400 | `unknown_league` |
+| `leagueKey` is inactive | 400 | `inactive_league` |
+| valid key but contract for it not loaded | 503 | `data_not_ready` |
+| no leagues configured at all | 404 | `no_leagues_configured` |
+
+Aliases (`"main"` → `"dynasty_main"`) are accepted and canonicalised
+server-side.  Frontend callers should use the stable `key` from
+`/api/leagues`, not raw Sleeper league IDs — no endpoint exposes
+raw Sleeper IDs to the UI.
+
+League-aware endpoints (all stamp `leagueKey` on their response):
+
+- `GET /api/data` — full canonical contract
+- `POST /api/rankings/overrides` — override-sensitive delta
+- `GET /api/terminal` — team aggregates, movers, signals
+- `POST /api/trade/simulate`
+- `POST /api/trade/suggestions`
+- `POST /api/trade/finder`
+- `POST /api/angle/find`, `POST /api/angle/packages`
+- `GET /api/draft-capital`
+- `POST /api/scrape` (non-default leagueKey returns 501 today; multi-league scrape is future work)
+- `GET /api/public/league/*` (routes through `_public_league_id()` which reads the registry)
+
+Backend map the frontend relies on: `leagueKey` → `sleeperLeagueId`
++ `rosterSettings` + `idpEnabled`.  Lookups go through
+`src/api/league_registry.py`; never read `os.getenv("SLEEPER_LEAGUE_ID")`
+in new code.
 
 ## Architecture Concepts
 
