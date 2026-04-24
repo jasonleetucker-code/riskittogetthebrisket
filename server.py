@@ -2134,6 +2134,46 @@ async def post_rankings_overrides(request: Request):
     return JSONResponse(content=contract_payload, headers=headers)
 
 
+# Cache of Sleeper league ``name`` fields.  Refreshed every
+# ``_SLEEPER_NAME_TTL_SEC`` so a rename in Sleeper propagates to the
+# UI without a deploy, but we don't hammer Sleeper on every
+# /api/leagues request.
+_SLEEPER_NAME_CACHE: dict[str, dict] = {}
+_SLEEPER_NAME_TTL_SEC = 300
+
+
+def _fetch_sleeper_league_name(sleeper_league_id: str) -> str | None:
+    """Return the live ``name`` from ``/v1/league/<id>`` or None on
+    any failure.  Cached per-league for 5 minutes.  Used by
+    ``/api/leagues`` to label each league with its actual Sleeper
+    name (e.g. "Risk It To Get The Brisket") instead of whatever
+    operator-edited string lives in the registry's ``displayName``.
+    """
+    import time as _time
+
+    sleeper_league_id = str(sleeper_league_id or "").strip()
+    if not sleeper_league_id:
+        return None
+    now = _time.time()
+    cached = _SLEEPER_NAME_CACHE.get(sleeper_league_id)
+    if cached and (now - float(cached.get("fetched_at") or 0)) < _SLEEPER_NAME_TTL_SEC:
+        return cached.get("name")
+
+    try:
+        url = f"https://api.sleeper.app/v1/league/{sleeper_league_id}"
+        req = urllib.request.Request(url, headers={"User-Agent": "brisket-league-name/1.0"})
+        with urllib.request.urlopen(req, timeout=5.0) as resp:
+            body = resp.read()
+        parsed = json.loads(body)
+    except Exception:  # noqa: BLE001 — transient failures cache None so we don't refetch every call
+        _SLEEPER_NAME_CACHE[sleeper_league_id] = {"name": None, "fetched_at": now}
+        return None
+
+    name = str((parsed or {}).get("name") or "").strip() or None
+    _SLEEPER_NAME_CACHE[sleeper_league_id] = {"name": name, "fetched_at": now}
+    return name
+
+
 @app.get("/api/leagues")
 async def get_leagues(request: Request):
     """List every configured league.
@@ -2142,6 +2182,12 @@ async def get_leagues(request: Request):
     league IDs, no auth tokens).  The ``key`` is the stable identifier
     callers thread through the rest of the API when we eventually
     add ``?leagueId=`` parameters to league-scoped endpoints.
+
+    ``displayName`` is pulled LIVE from Sleeper (``/v1/league/<id>``
+    ``.name``) and cached for 5 minutes.  This way a league rename
+    in Sleeper propagates to the switcher without a registry edit
+    or redeploy.  Falls back to the registry's configured
+    ``displayName`` when Sleeper is unreachable.
 
     Views:
       * Anonymous:     active leagues only.
@@ -2156,6 +2202,17 @@ async def get_leagues(request: Request):
     session = _get_auth_session(request)
     active_cfgs = _league_registry.active_leagues()
     leagues = [cfg.public_dict() for cfg in active_cfgs]
+
+    # Overlay the live Sleeper name for each league.  Run the
+    # fetches in a threadpool so we don't block the event loop on
+    # the Sleeper round-trip.  Cached 5 min so steady-state traffic
+    # doesn't hammer Sleeper.
+    def _fetch_names(cfgs):
+        return [_fetch_sleeper_league_name(c.sleeper_league_id) for c in cfgs]
+    sleeper_names = await run_in_threadpool(_fetch_names, active_cfgs)
+    for i, live_name in enumerate(sleeper_names):
+        if live_name:
+            leagues[i]["displayName"] = live_name
 
     if session:
         username = (session.get("username") or "").strip().lower()
