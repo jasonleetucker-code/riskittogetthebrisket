@@ -34,13 +34,30 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies (requirements.txt)
+      - name: Install dependencies (requirements-dev.txt)
         shell: bash
         run: |
           set -Eeuo pipefail
           [[ -f "requirements.txt" ]] || { echo "::error title=Missing Python manifest::requirements.txt is required for production deploy dependency installation."; exit 1; }
+          [[ -f "requirements-dev.txt" ]] || { echo "::error title=Missing dev manifest::requirements-dev.txt is required so the validate job can run the test suite."; exit 1; }
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          # Validate job installs the dev manifest (which chains in
+          # requirements.txt) so the test step below has pytest + httpx
+          # available.  Production itself only installs requirements.txt
+          # on the Hetzner box via deploy/deploy.sh::prepare_python_runtime.
+          pip install -r requirements-dev.txt
+
+      - name: Validate dependency graph (pip check)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          pip check
+
+      - name: Preflight environment check
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/check_env.py
 
       - name: Python syntax gate
         shell: bash
@@ -65,7 +82,6 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          pip install pytest
           python -m pytest tests/ -x -q --tb=short
 
       - name: API data contract check (if sample data exists)

@@ -58,9 +58,16 @@ jobs:
 
       - name: Install dependencies
         run: |
+          set -Eeuo pipefail
+          # Runtime manifest only — the audit does not run the test
+          # suite.  Previously this step masked failures with
+          # ``|| true`` which silently shipped a broken audit whenever
+          # pip resolution broke; removed so a genuine install failure
+          # surfaces as a red workflow instead of a green-but-useless run.
           python -m pip install --upgrade pip
-          pip install -r requirements.txt || true
-          # Runtime-only — no playwright / npm deps needed for the audit.
+          pip install -r requirements.txt
+          pip check
+          python scripts/check_env.py --runtime
 
       - name: Build live contract from latest snapshot
         run: |

@@ -3,6 +3,11 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .scrape_cache/
+# Local virtualenv created by scripts/setup.sh / make setup.
+.venv/
+venv/
+# Optional reproducible lockfile written by ``make freeze``.
+requirements.lock.txt
 
 # Node / Next
 node_modules/

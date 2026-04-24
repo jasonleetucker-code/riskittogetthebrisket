@@ -1,0 +1,23 @@
+# ── Development / test dependencies ───────────────────────────────────
+#
+# Installed on top of the runtime manifest.  Local developers and CI
+# test jobs install via ``pip install -r requirements-dev.txt`` which
+# pulls in ``requirements.txt`` transitively — guaranteeing local dev
+# and CI run against the same runtime + test toolchain.
+#
+# Anything that is ONLY needed for running the test suite (pytest,
+# TestClient HTTP shim, fixtures, linters) goes here.  Production
+# never installs this file.
+
+-r requirements.txt
+
+# Test runner.
+pytest~=8.3.0
+
+# ``fastapi.testclient.TestClient`` is a re-export of
+# ``starlette.testclient.TestClient``, which requires ``httpx`` at
+# runtime since Starlette 0.21 / FastAPI 0.87.  It is NOT declared as
+# a required dep by FastAPI itself — installing FastAPI alone leaves
+# TestClient importable but unusable.  Pin httpx here so every test
+# job has it.
+httpx~=0.27.0
