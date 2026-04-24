@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/app/AppShellWrapper";
+import { useLeague } from "@/components/useLeague";
 import {
   DRAFT_STORAGE_KEY,
   DEFAULT_AGGRESSION,
@@ -2657,6 +2658,16 @@ function DraftGlossary() {
 export default function DraftDashboardPage() {
   const router = useRouter();
   const { authenticated, checking } = useAuthContext();
+  // League-scoped draft workspace — a draft-in-progress lives per
+  // league, keyed by ``DRAFT_STORAGE_KEY__<leagueKey>``.  Switching
+  // leagues mid-draft doesn't destroy the prior league's board.
+  // Falls back to the legacy unsuffixed key when no league is
+  // resolved yet (cold boot) so pre-migration state still hydrates.
+  const { selectedLeagueKey } = useLeague();
+  const draftStorageKey = useMemo(
+    () => (selectedLeagueKey ? `${DRAFT_STORAGE_KEY}__${selectedLeagueKey}` : DRAFT_STORAGE_KEY),
+    [selectedLeagueKey],
+  );
 
   const [workspace, setWorkspace] = useState(() => createDefaultWorkspace());
   const [hydrated, setHydrated] = useState(false);
@@ -2702,29 +2713,42 @@ export default function DraftDashboardPage() {
     }
   }, [checking, authenticated, router]);
 
-  // Hydrate workspace from localStorage on mount.
+  // Hydrate workspace from localStorage when the active league
+  // changes (or on mount).  Reads the league-scoped key first and
+  // falls back to the legacy unsuffixed key — migration path so
+  // pre-multi-league state carries over into the default league's
+  // slot on the first load.
   useEffect(() => {
+    setHydrated(false);
     try {
-      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      let raw = localStorage.getItem(draftStorageKey);
+      if (!raw && draftStorageKey !== DRAFT_STORAGE_KEY) {
+        // Legacy fallback: user had a workspace saved pre-migration
+        // under the unsuffixed key.  Adopt it as the current league's
+        // workspace.  Next persist write will land at the scoped key.
+        raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      }
       if (raw) {
         const parsed = JSON.parse(raw);
         setWorkspace(hydrateWorkspace(parsed));
+      } else {
+        setWorkspace(createDefaultWorkspace());
       }
     } catch {
       /* ignore */
     }
     setHydrated(true);
-  }, []);
+  }, [draftStorageKey]);
 
   // Persist on every change.
   useEffect(() => {
     if (!hydrated) return;
     try {
-      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(workspace));
+      localStorage.setItem(draftStorageKey, JSON.stringify(workspace));
     } catch {
       /* ignore */
     }
-  }, [workspace, hydrated]);
+  }, [workspace, hydrated, draftStorageKey]);
 
   const stats = useMemo(() => computeDraftStats(workspace), [workspace]);
   // Retrospective inflation trajectory — O(N²) in pick count, but
@@ -2895,7 +2919,14 @@ export default function DraftDashboardPage() {
     async ({ quiet = false, force = false } = {}) => {
       setCapitalStatus((s) => ({ ...s, loading: true, error: "", info: "" }));
       try {
-        const res = await fetch("/api/draft-capital", { cache: "no-store" });
+        // Scope the draft-capital fetch to the active league so
+        // per-team auction budgets come from the right Sleeper
+        // league.  Backend validates + 503s with a clean error
+        // when the requested league's data isn't loaded.
+        const url = selectedLeagueKey
+          ? `/api/draft-capital?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
+          : "/api/draft-capital";
+        const res = await fetch(url, { cache: "no-store" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data?.error) throw new Error(data.error);
@@ -2947,7 +2978,7 @@ export default function DraftDashboardPage() {
         }));
       }
     },
-    [],
+    [selectedLeagueKey],
   );
 
   // Auto-sync team budgets from the live Draft Capital feed on every
@@ -3068,7 +3099,13 @@ export default function DraftDashboardPage() {
     setSyncBusy(true);
     setSyncError("");
     try {
-      const res = await fetch("/api/data", { cache: "no-store" });
+      // Pass leagueKey so the backend serves the right league's
+      // sleeper block and 503s cleanly when the requested league
+      // isn't loaded yet.
+      const url = selectedLeagueKey
+        ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
+        : "/api/data";
+      const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const pa = Array.isArray(data?.playersArray) ? data.playersArray : [];
@@ -3114,7 +3151,7 @@ export default function DraftDashboardPage() {
     } finally {
       setSyncBusy(false);
     }
-  }, [workspace]);
+  }, [workspace, selectedLeagueKey]);
 
   const applySyncPreview = useCallback(() => {
     if (!syncPreview) return;
@@ -3138,7 +3175,10 @@ export default function DraftDashboardPage() {
     // playersArray fetch side-effect.  Defer to the user's
     // currently selected team identity by NAME.
     try {
-      fetch("/api/data", { cache: "force-cache" })
+      const url = selectedLeagueKey
+        ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
+        : "/api/data";
+      fetch(url, { cache: "force-cache" })
         .then((r) => r.json())
         .then((data) => {
           const teams = data?.sleeper?.teams || [];
@@ -3153,7 +3193,7 @@ export default function DraftDashboardPage() {
     } catch {
       /* ignore */
     }
-  }, [allPlayersArray, workspace?.settings?.myTeamIdx, workspace?.teams]);
+  }, [allPlayersArray, workspace?.settings?.myTeamIdx, workspace?.teams, selectedLeagueKey]);
 
   // Global keyboard shortcuts.  Must be declared AFTER the callbacks
   // it depends on (onCycleTag / onToggleTarget / onAddToBoard) —

@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useApp } from "@/components/AppShell";
+import { useTeam } from "@/components/useTeam";
 import { actionLabel, cautionLabels } from "@/lib/edge-helpers";
 import { posBadgeClass, confBadgeClass, confBadgeLabel as confLabel, isEligibleForAnalysis } from "@/lib/display-helpers";
 import { rowChips } from "@/lib/rankings-helpers";
@@ -113,12 +114,39 @@ const ROW_LIMIT = FINDER_ROW_LIMIT;
 export default function FinderPage() {
   const { loading, error, rows } = useDynastyData();
   const { openPlayerPopup } = useApp();
+  // League gating: hide IDP workflows + filter tabs on non-IDP
+  // leagues.  ``idpEnabled`` comes from the registry via useLeague
+  // via useTeam.
+  const { idpEnabled } = useTeam();
+
+  // Filter WORKFLOWS and POS_FILTERS through the IDP gate in one
+  // place rather than N guard checks inline.
+  const visibleWorkflows = useMemo(
+    () => (idpEnabled ? WORKFLOWS : WORKFLOWS.filter((w) => w.key !== "stable-idp")),
+    [idpEnabled],
+  );
+  const visiblePosFilters = useMemo(() => {
+    if (idpEnabled) return POS_FILTERS;
+    const IDP_KEYS = new Set(["idp", "DL", "LB", "DB"]);
+    return POS_FILTERS.filter((f) => !IDP_KEYS.has(f.key));
+  }, [idpEnabled]);
 
   const [activeWorkflow, setActiveWorkflow] = useState("wr-gaps");
   const [query, setQuery] = useState("");
   const [posFilter, setPosFilter] = useState("all");
   const [confFilter, setConfFilter] = useState("all");
   const [expanded, setExpanded] = useState(false);
+
+  // Snap away from stale IDP selections when the user switches to
+  // a non-IDP league mid-session.  Runs on every relevant change;
+  // no-ops when already on a non-IDP filter.
+  useEffect(() => {
+    if (idpEnabled) return;
+    if (activeWorkflow === "stable-idp") setActiveWorkflow("wr-gaps");
+    if (posFilter === "idp" || posFilter === "DL" || posFilter === "LB" || posFilter === "DB") {
+      setPosFilter("all");
+    }
+  }, [idpEnabled, activeWorkflow, posFilter]);
 
   const handleWorkflowChange = useCallback((key) => {
     setActiveWorkflow(key);
@@ -191,7 +219,7 @@ export default function FinderPage() {
         <div className="card">
           {/* ── Workflow tabs ────────────────────────────────────────── */}
           <div className="sub-nav">
-            {WORKFLOWS.map((w) => (
+            {visibleWorkflows.map((w) => (
               <button
                 key={w.key}
                 className={`sub-nav-btn ${activeWorkflow === w.key ? "active" : ""}`}
@@ -217,7 +245,7 @@ export default function FinderPage() {
               style={{ flex: 1, minWidth: 140 }}
             />
             <select className="select" value={posFilter} onChange={(e) => setPosFilter(e.target.value)}>
-              {POS_FILTERS.map((f) => (
+              {visiblePosFilters.map((f) => (
                 <option key={f.key} value={f.key}>{f.label}</option>
               ))}
             </select>
