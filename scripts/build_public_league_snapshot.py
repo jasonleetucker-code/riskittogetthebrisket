@@ -16,16 +16,36 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from src.api import league_registry  # noqa: E402
 from src.public_league import build_public_contract, build_public_snapshot  # noqa: E402
 from src.public_league import snapshot_store  # noqa: E402
+
+
+def _default_league_id() -> str:
+    """Pick the default --league-id for the CLI:
+       1. ``SLEEPER_LEAGUE_ID`` env var (explicit operator override)
+       2. The registry's default league
+       3. Empty string (caller must pass --league-id)
+
+    Removes the hardcoded Sleeper ID that used to live here; the
+    registry is now the source of truth per the multi-league audit.
+    """
+    env = os.getenv("SLEEPER_LEAGUE_ID", "").strip()
+    if env:
+        return env
+    reg = league_registry.get_sleeper_league_id()
+    return reg or ""
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--league-id",
-        default=os.getenv("SLEEPER_LEAGUE_ID", "1312006700437352448"),
-        help="Sleeper league id to start the chain walk from.",
+        default=_default_league_id(),
+        help=(
+            "Sleeper league id to start the chain walk from.  Defaults "
+            "to SLEEPER_LEAGUE_ID env var → registry default → empty."
+        ),
     )
     parser.add_argument(
         "--max-seasons",
