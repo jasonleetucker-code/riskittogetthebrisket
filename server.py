@@ -71,6 +71,7 @@ from src.api import terminal as _terminal
 from src.api import trade_simulator as _trade_simulator
 from src.api import user_kv as _user_kv
 from src.api import league_registry as _league_registry
+from src.api import sleeper_overlay as _sleeper_overlay
 from src.news import NewsService, build_default_service
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
@@ -1871,20 +1872,69 @@ async def get_data(request: Request):
         }
 
         # Cross-league request for a same-scoring-profile league —
-        # serve the shared rankings but null the sleeper block so the
-        # UI doesn't render the loaded league's teams under the
-        # requested league's name.  Bypass the pre-serialized fast-
-        # path here; we need to hand-edit the payload.
+        # serve the shared rankings, then try to splice in a live
+        # Sleeper overlay for the requested league.  The overlay
+        # fetches rosters + trades + metadata from Sleeper on
+        # demand (cached 15 min) so the terminal, /trades page,
+        # team pickers, etc. work without running the full
+        # scraper per league.
         if not sleeper_matches:
             scrubbed = dict(payload_obj) if isinstance(payload_obj, dict) else {}
-            scrubbed["sleeper"] = None
+            # Re-use the NFL-wide Sleeper-ID → display-name map from
+            # the currently-loaded contract (League A's scrape) so
+            # we don't have to refetch /v1/players/nfl (~5MB) for
+            # every overlay.  The map is NFL-wide, not league-scoped,
+            # so it's safe across leagues.
+            loaded_sleeper = (
+                (latest_contract_data or {}).get("sleeper") or {}
+                if isinstance(latest_contract_data, dict) else {}
+            )
+            id_to_player = loaded_sleeper.get("idToPlayer") or {}
+            try:
+                overlay = await run_in_threadpool(
+                    _sleeper_overlay.fetch_sleeper_overlay,
+                    sleeper_league_id=league_cfg.sleeper_league_id,
+                    id_to_player=id_to_player if isinstance(id_to_player, dict) else {},
+                )
+            except Exception as exc:  # noqa: BLE001
+                log.warning(
+                    "sleeper_overlay fetch failed for %s: %s",
+                    league_cfg.key, exc,
+                )
+                overlay = None
+
             meta = dict(scrubbed.get("meta") or {})
             meta["leagueKey"] = league_cfg.key
             meta["scoringProfile"] = league_cfg.scoring_profile
-            meta["sleeperDataReady"] = False
             meta["sleeperLoadedLeagueKey"] = loaded_league or None
+
+            if overlay and overlay.get("teams"):
+                # Carry forward the NFL-wide maps from the loaded
+                # contract — the overlay is lean + doesn't refetch
+                # them.  These keys power frontend lookups that
+                # aren't league-scoped (positions, IDs, etc).
+                overlay_full = {
+                    **{
+                        k: loaded_sleeper.get(k)
+                        for k in ("positions", "playerIds", "idToPlayer",
+                                  "scoringSettings", "rosterPositions",
+                                  "leagueSettings")
+                        if k in loaded_sleeper
+                    },
+                    **overlay,
+                }
+                scrubbed["sleeper"] = overlay_full
+                meta["sleeperDataReady"] = True
+                meta["sleeperSource"] = "overlay"
+                headers["X-Payload-View"] = f"{payload_view_name}-cross-league-overlay"
+            else:
+                # Overlay unavailable (Sleeper down, empty league,
+                # etc.) — null the sleeper block so the UI falls
+                # back to the data-not-ready state.
+                scrubbed["sleeper"] = None
+                meta["sleeperDataReady"] = False
+                headers["X-Payload-View"] = f"{payload_view_name}-cross-league"
             scrubbed["meta"] = meta
-            headers["X-Payload-View"] = f"{payload_view_name}-cross-league"
             return JSONResponse(content=scrubbed, headers=headers)
 
         if payload_etag:
@@ -5161,19 +5211,73 @@ async def get_terminal(request: Request):
                 },
             )
 
-    # Guard: the loaded contract was built for a different league
-    # than the one requested.  Today this only trips for non-default
-    # leagues because the scraper only runs the default league.
-    loaded_league = (contract.get("meta") or {}).get("leagueKey") if isinstance(contract, dict) else None
+    # Cross-league request: the loaded contract is for a different
+    # league than the one requested.  If the scoring profiles match,
+    # splice in a live Sleeper overlay (rosters + trades) so the
+    # terminal + team widgets actually have data to render.  Only
+    # 503 when the overlay fetch fails completely — Sleeper
+    # unreachable, invalid league ID, etc.
+    loaded_meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
+    loaded_league = loaded_meta.get("leagueKey")
+    loaded_profile = loaded_meta.get("scoringProfile")
     if loaded_league and loaded_league != league_cfg.key:
-        return JSONResponse(
-            status_code=503,
-            content={
-                "error": "data_not_ready",
-                "message": f"No data loaded for league {league_cfg.key!r} yet",
-                "leagueKey": league_cfg.key,
+        if loaded_profile and loaded_profile != league_cfg.scoring_profile:
+            # Rankings incompatible; the /api/data 503 path already
+            # explains this shape.  Terminal can't do anything.
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "data_not_ready",
+                    "message": (
+                        f"League {league_cfg.key!r} uses scoring profile "
+                        f"{league_cfg.scoring_profile!r}, not {loaded_profile!r}."
+                    ),
+                    "leagueKey": league_cfg.key,
+                },
+            )
+        loaded_sleeper = contract.get("sleeper") or {}
+        id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else None
+        try:
+            overlay = await run_in_threadpool(
+                _sleeper_overlay.fetch_sleeper_overlay,
+                sleeper_league_id=league_cfg.sleeper_league_id,
+                id_to_player=id_map if isinstance(id_map, dict) else {},
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "terminal overlay fetch failed for %s: %s", league_cfg.key, exc,
+            )
+            overlay = None
+        if not overlay or not overlay.get("teams"):
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "data_not_ready",
+                    "message": f"Sleeper overlay for league {league_cfg.key!r} unavailable.",
+                    "leagueKey": league_cfg.key,
+                },
+            )
+        # Build a hybrid contract: global rankings + per-league
+        # sleeper.  Carry forward the NFL-wide maps so the terminal
+        # builder can resolve positions/IDs the same as for the
+        # primary league.
+        hybrid_sleeper = {
+            **{
+                k: loaded_sleeper.get(k)
+                for k in ("positions", "playerIds", "idToPlayer",
+                          "scoringSettings", "rosterPositions",
+                          "leagueSettings")
+                if isinstance(loaded_sleeper, dict) and k in loaded_sleeper
             },
-        )
+            **overlay,
+        }
+        contract = {**contract, "sleeper": hybrid_sleeper, "meta": {
+            **loaded_meta,
+            "leagueKey": league_cfg.key,
+            "sleeperDataReady": True,
+            "sleeperSource": "overlay",
+            "sleeperLoadedLeagueKey": loaded_league,
+        }}
 
     params = request.query_params
     team_owner_id = (params.get("team") or params.get("ownerId") or "").strip()
