@@ -11,8 +11,10 @@
 
 -r requirements.txt
 
-# Test runner.
-pytest~=8.3.0
+# Test runner.  Minor bumped 8.3 → 9.0 on 2026-04-24 to match
+# what the local + production test envs actually have installed;
+# the original PR pin fell behind by three days.
+pytest~=9.0.0
 
 # ``fastapi.testclient.TestClient`` is a re-export of
 # ``starlette.testclient.TestClient``, which requires ``httpx`` at
@@ -20,4 +22,4 @@ pytest~=8.3.0
 # a required dep by FastAPI itself — installing FastAPI alone leaves
 # TestClient importable but unusable.  Pin httpx here so every test
 # job has it.
-httpx~=0.27.0
+httpx~=0.28.0
