@@ -31,13 +31,29 @@ import { useEffect, useMemo, useRef, useState } from "react";
 const TTL_MS = 30_000;
 const cache = new Map(); // key → { result, expires }
 const inflight = new Map(); // key → Promise
+const LEAGUE_LOCAL_KEY = "next_active_league_v1";
 
-function cacheKey({ ownerId, name, windowDays }) {
-  return `${ownerId || "_"}::${name || "_"}::${windowDays || 30}`;
+// Read the active league key from localStorage.  ``useLeague`` writes
+// here on every switch and server-side user state mirrors it, so this
+// is a fast + sync read.  We can't ``useLeague`` inside this module
+// because useLeague already imports ``invalidateTerminalCache`` from
+// us — that cycle would blow up at import time.
+function readActiveLeagueKey() {
+  if (typeof window === "undefined") return "";
+  try {
+    return localStorage.getItem(LEAGUE_LOCAL_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function cacheKey({ ownerId, name, windowDays, leagueKey }) {
+  return `${leagueKey || "_"}::${ownerId || "_"}::${name || "_"}::${windowDays || 30}`;
 }
 
 async function fetchTerminal({ ownerId, name, windowDays, signal }) {
-  const key = cacheKey({ ownerId, name, windowDays });
+  const leagueKey = readActiveLeagueKey();
+  const key = cacheKey({ ownerId, name, windowDays, leagueKey });
   const now = Date.now();
   const cached = cache.get(key);
   if (cached && cached.expires > now) return cached.result;
@@ -47,6 +63,7 @@ async function fetchTerminal({ ownerId, name, windowDays, signal }) {
   if (ownerId) params.set("team", ownerId);
   if (name) params.set("teamName", name);
   if (windowDays) params.set("windowDays", String(windowDays));
+  if (leagueKey) params.set("leagueKey", leagueKey);
   const url = `/api/terminal?${params.toString()}`;
 
   const promise = fetch(url, {
