@@ -49,7 +49,17 @@ function formatPct(v) {
  */
 export default function PortfolioSummary() {
   const { rows, rawData, openPlayerPopup } = useApp();
-  const { selectedTeam } = useTeam();
+  const { selectedTeam, idpEnabled } = useTeam();
+  // IDP gating: skip the IDP positional bucket (and any IDP rows in
+  // the positional stack) for leagues that don't support IDP.  The
+  // portfolio computation still runs globally on the contract; we
+  // just don't surface an "IDP: 0" row or any stray IDP entries
+  // that might have sneaked in via a shared contract.  Matches the
+  // rankings-page IDP-tab gating.
+  const posOrder = useMemo(
+    () => (idpEnabled ? POS_ORDER : POS_ORDER.filter((p) => p !== "IDP")),
+    [idpEnabled],
+  );
   const { history, loading: historyLoading } = useRankHistory({ days: 30 });
 
   // Server-side portfolio (aggregates + byPosition + byAge +
@@ -177,7 +187,7 @@ export default function PortfolioSummary() {
       <section className="portfolio-section">
         <h3 className="portfolio-section-title">Positional allocation</h3>
         <div className="portfolio-stack">
-          {POS_ORDER.map((pos) => {
+          {posOrder.map((pos) => {
             const entry = byPosition[pos];
             if (!entry || entry.count === 0) return null;
             return (
