@@ -103,6 +103,98 @@ def _walk_league_chain(root_league_id: str, max_depth: int = 2) -> list[str]:
     return out
 
 
+def _round_suffix(n: int) -> str:
+    """1 → '1st', 2 → '2nd', 3 → '3rd', 4+ → 'Nth'.  Matches the
+    scraper's convention for pick labels (``2027 1st``)."""
+    if n == 1:
+        return "1st"
+    if n == 2:
+        return "2nd"
+    if n == 3:
+        return "3rd"
+    return f"{n}th"
+
+
+def _format_pick_label(season: str, round_num: int, slot: int | None = None) -> str:
+    """Build a human-readable pick asset name matching what the
+    rankings board renders: ``"2027 1.05"`` when slot is known,
+    ``"2027 1st"`` otherwise (traded-future picks usually have no
+    slot yet).  The rankings pipeline emits both shapes so the UI
+    resolves either."""
+    if slot is not None and slot > 0:
+        return f"{season} {round_num}.{str(slot).zfill(2)}"
+    return f"{season} {_round_suffix(round_num)}"
+
+
+def _build_pick_ownership(
+    sleeper_league_id: str,
+    roster_ids: list[int],
+    num_rounds: int = 6,
+    num_years: int = 3,
+) -> dict[int, list[dict[str, Any]]]:
+    """Return ``{rosterId: [pickDetail, ...]}`` — which future picks
+    each roster currently owns based on the league's
+    ``/traded_picks`` endpoint.
+
+    Default ownership: each roster owns its own pick in every round
+    of every upcoming year.  ``/traded_picks`` returns the diffs —
+    swap ``original`` → ``owner`` per entry to get current
+    ownership.  Matches the scraper's team_pick_details construction
+    in Dynasty Scraper.py (fetch_sleeper_rosters).
+
+    Returns an empty map on any fetch failure — callers degrade to
+    the data-not-ready state for draft-capital widgets.
+    """
+    import datetime as _dt
+    if not roster_ids:
+        return {}
+    current_year = _dt.datetime.now(_dt.timezone.utc).year
+    years = [str(current_year + y) for y in range(num_years)]
+
+    # Seed: every roster owns its own picks by default.
+    ownership: dict[tuple[str, int, int], int] = {}
+    for year in years:
+        for rnd in range(1, num_rounds + 1):
+            for rid in roster_ids:
+                ownership[(year, rnd, rid)] = rid
+
+    traded = _http_get_json(
+        f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks"
+    )
+    if isinstance(traded, list):
+        for tp in traded:
+            if not isinstance(tp, dict):
+                continue
+            try:
+                season = str(tp.get("season") or "")
+                rnd = int(tp.get("round") or 0)
+                original = int(tp.get("roster_id") or 0)
+                owner = int(tp.get("owner_id") or 0)
+            except (TypeError, ValueError):
+                continue
+            if not season or rnd < 1 or not original or not owner:
+                continue
+            key = (season, rnd, original)
+            if key in ownership:
+                ownership[key] = owner
+
+    # Re-pivot to {current_owner: [pickDetail...]}.
+    per_roster: dict[int, list[dict[str, Any]]] = {rid: [] for rid in roster_ids}
+    for (season, rnd, original), current_owner in ownership.items():
+        per_roster.setdefault(current_owner, []).append({
+            "season": season,
+            "round": rnd,
+            "slot": None,
+            "original_roster_id": original,
+            "owner_roster_id": current_owner,
+            "label": _format_pick_label(season, rnd),
+        })
+    # Sort each team's picks year-then-round for deterministic output.
+    for rid, plist in per_roster.items():
+        plist.sort(key=lambda p: (p.get("season", ""), p.get("round", 0)))
+    return per_roster
+
+
 def _build_teams_block(
     sleeper_league_id: str,
     id_to_player: dict[str, str] | None,
@@ -114,6 +206,12 @@ def _build_teams_block(
     safe to reuse from the primary league's contract).  When a
     roster references an ID not in the map, we fall back to the
     raw ID so the UI at least renders a row.
+
+    Also populates ``picks`` (list of pick labels) + ``pickDetails``
+    (raw {season, round, ...} dicts) per team by resolving
+    ``/traded_picks`` against each roster's default ownership.
+    This is what unblocks /api/draft-capital + angle-finder for
+    non-default leagues.
     """
     rosters = _http_get_json(
         f"https://api.sleeper.app/v1/league/{sleeper_league_id}/rosters"
@@ -140,6 +238,14 @@ def _build_teams_block(
         user_map[uid] = str(name)
 
     id_map = id_to_player or {}
+    roster_ids: list[int] = []
+    for r in rosters:
+        if isinstance(r, dict) and r.get("roster_id") is not None:
+            try:
+                roster_ids.append(int(r["roster_id"]))
+            except (TypeError, ValueError):
+                continue
+    pick_ownership = _build_pick_ownership(sleeper_league_id, roster_ids)
 
     teams: list[dict[str, Any]] = []
     for r in rosters:
@@ -160,19 +266,20 @@ def _build_teams_block(
                 continue
             mapped = id_map.get(pid_str)
             names.append(mapped if mapped else pid_str)
+        try:
+            rid_int = int(roster_id) if roster_id is not None else 0
+        except (TypeError, ValueError):
+            rid_int = 0
+        pick_details = pick_ownership.get(rid_int, [])
+        pick_labels = [p["label"] for p in pick_details]
         teams.append({
             "name": user_map.get(owner_id, f"Team {roster_id}"),
             "ownerId": owner_id,
             "roster_id": roster_id,
             "players": names,
             "playerIds": [str(pid) for pid in player_ids if pid],
-            # ``picks`` + ``pickDetails`` require /traded_picks + a
-            # pick-owner resolver — out of scope for the minimal
-            # overlay.  Empty list is safe: draft-capital panels
-            # gracefully render blank, /api/draft-capital still
-            # 503s for non-loaded leagues.
-            "picks": [],
-            "pickDetails": [],
+            "picks": pick_labels,
+            "pickDetails": pick_details,
         })
     return teams
 
