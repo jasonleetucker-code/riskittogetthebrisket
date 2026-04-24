@@ -40,10 +40,10 @@
     {
       "key": "dynasty_new",
       "displayName": "Dynasty New (Superflex + TEP, no IDP)",
-      "sleeperLeagueId": "REPLACE_WITH_NEW_SLEEPER_ID",
+      "sleeperLeagueId": "1320092771247222784",
       "scoringProfile": "superflex_tep15_ppr1",
       "idpEnabled": false,
-      "active": false,
+      "active": true,
       "aliases": ["new", "non-idp"],
       "rosterSettings": {
         "teamCount": 12,
