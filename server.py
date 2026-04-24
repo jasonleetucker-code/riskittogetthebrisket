@@ -129,6 +129,17 @@ JASON_LOGIN_PASSWORD = (os.getenv("JASON_LOGIN_PASSWORD") or "Elliott21!").strip
 JASON_AUTH_COOKIE_NAME = "jason_session"
 JASON_AUTH_COOKIE_SECURE = _env_bool("JASON_AUTH_COOKIE_SECURE", True)
 
+# Private-app allowlist.  Only these Sleeper handles can sign in
+# via /api/auth/sleeper-login.  Anyone else — even with a valid
+# Sleeper account — gets 403.  Password auth (JASON_LOGIN_*) is
+# the operator fallback and isn't constrained by this list.
+# Env var is comma-separated, lowercase-normalised at load time.
+PRIVATE_APP_ALLOWED_USERNAMES = frozenset(
+    u.strip().lower()
+    for u in (os.getenv("PRIVATE_APP_ALLOWED_USERNAMES") or "jasonleetucker").split(",")
+    if u.strip()
+)
+
 # Rate limit: max 1 email per hour to avoid spam on repeated failures
 _last_alert_time = 0
 ALERT_COOLDOWN_SEC = 3600
@@ -1675,6 +1686,63 @@ app.add_middleware(GZipMiddleware, minimum_size=1024)
 async def _count_requests(request: Request, call_next):
     """R-9: Count all HTTP requests for metrics."""
     _metrics["request_count"] = _metrics.get("request_count", 0) + 1
+    return await call_next(request)
+
+
+# Paths under /api/* that do NOT require an authenticated session.
+# Anything else gets 401'd by ``_private_api_gate`` below.  Closes
+# the scrape risk: without this gate, ``curl /api/data`` from a
+# stranger returns the full private rankings contract.
+_PUBLIC_API_EXACT = frozenset({
+    "/api/health",
+    "/api/status",
+    "/api/uptime",
+    "/api/metrics",
+    "/api/leagues",
+    "/api/rankings/sources",
+    "/api/auth/status",
+    "/api/auth/login",
+    "/api/auth/logout",
+    "/api/auth/sleeper-login",
+    "/api/scaffold/status",
+})
+# Endpoints that handle their own auth (bearer token, etc.) — the
+# session-cookie middleware must skip them so the endpoint's own
+# check runs.
+_SELF_AUTHED_API_EXACT = frozenset({
+    "/api/signal-alerts/run",
+})
+_PUBLIC_API_PREFIXES = (
+    "/api/public/league",
+)
+
+
+def _is_public_api_path(path: str) -> bool:
+    if path in _PUBLIC_API_EXACT:
+        return True
+    if path in _SELF_AUTHED_API_EXACT:
+        return True
+    for prefix in _PUBLIC_API_PREFIXES:
+        if path == prefix or path.startswith(prefix + "/"):
+            return True
+    return False
+
+
+@app.middleware("http")
+async def _private_api_gate(request: Request, call_next):
+    """401 any /api/* call without a session, except the public
+    allowlist.  Page routes still redirect via
+    ``_require_auth_or_redirect``; static/_next assets aren't
+    touched.
+    """
+    path = request.url.path or ""
+    if path.startswith("/api/") and not _is_public_api_path(path):
+        if not _is_authenticated(request):
+            return JSONResponse(
+                status_code=401,
+                content={"error": "auth_required", "message": "Sign-in required."},
+                headers={"Cache-Control": "no-store"},
+            )
     return await call_next(request)
 
 def _proxy_next(path: str) -> tuple[Response | None, str | None]:
@@ -4664,6 +4732,23 @@ async def auth_sleeper_login(request: Request):
             content={
                 "ok": False,
                 "error": "No Sleeper user with that username.  Double-check spelling.",
+            },
+        )
+
+    # Private-app allowlist.  A valid Sleeper handle is necessary but
+    # NOT sufficient — the app is a single-user dashboard.  Anyone
+    # whose username isn't in PRIVATE_APP_ALLOWED_USERNAMES (default:
+    # ``jasonleetucker`` only) gets 403.  Password auth remains the
+    # operator fallback.
+    if username not in PRIVATE_APP_ALLOWED_USERNAMES:
+        log.warning(
+            "sleeper-login rejected for non-allowlisted user %r", username,
+        )
+        return JSONResponse(
+            status_code=403,
+            content={
+                "ok": False,
+                "error": "This app is private.  Contact the operator for access.",
             },
         )
 

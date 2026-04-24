@@ -74,6 +74,13 @@ def two_league_registry(tmp_path, monkeypatch):
     monkeypatch.setattr(user_kv, "USER_KV_PATH", tmp_path / "user_kv.sqlite")
     user_kv._SETUP_DONE.clear()
 
+    # Bypass the ``_private_api_gate`` middleware: these tests
+    # exercise league-routing logic under authenticated conditions.
+    # The gate is covered separately in ``test_private_auth.py``.
+    # Stub ``_is_authenticated`` to always pass so we don't have to
+    # seed a real session for every request.
+    monkeypatch.setattr(server, "_is_authenticated", lambda request: True)
+
     yield
 
     # Reset the registry AFTER the test so later tests (especially
@@ -296,6 +303,10 @@ def shared_scoring_registry(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
     league_registry.reload_registry()
+    # Bypass the private-api middleware — separately tested in
+    # test_private_auth.py.  Without this, /api/data + /api/terminal
+    # 401 before the scoring-profile logic can run.
+    monkeypatch.setattr(server, "_is_authenticated", lambda request: True)
     yield
     league_registry.reload_registry()
 
