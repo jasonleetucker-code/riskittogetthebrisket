@@ -39,7 +39,6 @@ PRIVATE_API_PATHS = [
     "/api/trade/simulate",
     "/api/angle/find",
     "/api/angle/packages",
-    "/api/draft-capital",
     "/api/scaffold/raw",
     "/api/scaffold/league",
     "/api/scaffold/identity",
@@ -84,6 +83,10 @@ PUBLIC_API_PATHS = [
     "/api/leagues",
     "/api/rankings/sources",
     "/api/auth/status",
+    # The public /league page's draft-capital tab reads this.
+    # Payload is public Sleeper data (team names + pick values +
+    # owners) — keep reachable without auth.
+    "/api/draft-capital",
 ]
 
 

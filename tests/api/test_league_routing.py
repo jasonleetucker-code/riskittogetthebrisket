@@ -402,3 +402,156 @@ def test_api_leagues_excludes_inactive(two_league_registry):
     assert "main" in keys
     assert "side" in keys
     assert "retired" not in keys
+
+
+# ── userDefaultTeam auto-resolve for leagues missing defaultTeamMap ──
+#
+# When a user is signed in and the registry has NO defaultTeamMap entry
+# for them on a given league (typical for newly-added leagues), the
+# /api/leagues endpoint must fall back to Sleeper: look up the user's
+# Sleeper user_id in that league's /users and stamp the team name so
+# the frontend team picker can auto-select it.  Without this the
+# dashboard stays at "Pick your team" until the user manually selects.
+
+
+def test_api_leagues_autoresolves_user_team_via_sleeper(
+    two_league_registry, monkeypatch,
+):
+    """Registry has no defaultTeamMap for "main" → server should
+    resolve the user's team from Sleeper via their sleeper_user_id."""
+    # Seed an in-memory session with a Sleeper user_id.
+    monkeypatch.setattr(
+        server, "_get_auth_session",
+        lambda request: {
+            "username": "jasonleetucker",
+            "sleeper_user_id": "U-JASON",
+        },
+    )
+    # Stub the Sleeper user-team lookup to pretend Jason is in "main"
+    # as "Rossini Panini" and in "side" as "Blood Sweat Crew".
+    def _stub_fetch(league_id, user_id):
+        assert user_id == "U-JASON"
+        if league_id == "L-MAIN":
+            return {"ownerId": "U-JASON", "teamName": "Rossini Panini"}
+        if league_id == "L-SIDE":
+            return {"ownerId": "U-JASON", "teamName": "Blood Sweat Crew"}
+        return None
+    monkeypatch.setattr(server, "_fetch_sleeper_user_team", _stub_fetch)
+    # Avoid the live Sleeper name fetch in the test.
+    monkeypatch.setattr(server, "_fetch_sleeper_league_name", lambda _id: None)
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.get("/api/leagues")
+    assert res.status_code == 200
+    body = res.json()
+    by_key = {lg["key"]: lg for lg in body["leagues"]}
+    assert by_key["main"]["userDefaultTeam"]["teamName"] == "Rossini Panini"
+    assert by_key["side"]["userDefaultTeam"]["teamName"] == "Blood Sweat Crew"
+
+
+def test_api_leagues_registry_default_team_wins_over_sleeper_fallback(
+    tmp_path, monkeypatch,
+):
+    """When the registry DOES have a defaultTeamMap entry, that
+    takes precedence — the Sleeper fallback is only for leagues the
+    registry hasn't been edited for."""
+    path = tmp_path / "registry.json"
+    path.write_text(json.dumps({
+        "defaultLeagueKey": "main",
+        "leagues": [{
+            "key": "main",
+            "displayName": "Main",
+            "sleeperLeagueId": "L-MAIN",
+            "active": True,
+            "rosterSettings": {},
+            "defaultTeamMap": {
+                "jasonleetucker": {"teamName": "Registry-Override"},
+            },
+        }],
+    }), encoding="utf-8")
+    monkeypatch.setenv("LEAGUE_REGISTRY_PATH", str(path))
+    league_registry.reload_registry()
+
+    monkeypatch.setattr(
+        server, "_get_auth_session",
+        lambda request: {
+            "username": "jasonleetucker",
+            "sleeper_user_id": "U-JASON",
+        },
+    )
+    # This stub should NEVER be called if the registry entry wins.
+    calls = []
+    def _should_not_be_called(*a, **kw):
+        calls.append((a, kw))
+        return {"ownerId": "U-JASON", "teamName": "Sleeper-Fallback"}
+    monkeypatch.setattr(server, "_fetch_sleeper_user_team", _should_not_be_called)
+    monkeypatch.setattr(server, "_fetch_sleeper_league_name", lambda _id: None)
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.get("/api/leagues")
+    assert res.status_code == 200
+    body = res.json()
+    main = next(lg for lg in body["leagues"] if lg["key"] == "main")
+    assert main["userDefaultTeam"]["teamName"] == "Registry-Override"
+    assert calls == [], "Sleeper fallback should not run when registry has a mapping"
+
+    league_registry.reload_registry()
+
+
+def test_api_leagues_anonymous_users_get_no_user_default_team(
+    two_league_registry, monkeypatch,
+):
+    """Anonymous callers (no session) must not get a userDefaultTeam
+    block — we don't leak any user's team-in-league on an unauthed
+    response."""
+    monkeypatch.setattr(server, "_get_auth_session", lambda request: None)
+    monkeypatch.setattr(server, "_fetch_sleeper_league_name", lambda _id: None)
+
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        res = c.get("/api/leagues")
+    body = res.json()
+    for lg in body["leagues"]:
+        assert "userDefaultTeam" not in lg
+
+
+def test_fetch_sleeper_user_team_returns_none_for_unknown_user(monkeypatch):
+    """Direct unit test on the helper: an unknown user_id → None
+    (not an exception)."""
+    import io
+    def _fake_urlopen(req, timeout=5.0):
+        return io.BytesIO(b'[{"user_id":"OTHER","metadata":{"team_name":"Not Mine"}}]')
+    monkeypatch.setattr(server.urllib.request, "urlopen", _fake_urlopen)
+    # Clear cache so this call actually hits the stub.
+    server._SLEEPER_USER_TEAM_CACHE.clear()
+    result = server._fetch_sleeper_user_team("L-MAIN", "U-JASON")
+    assert result is None
+
+
+def test_fetch_sleeper_user_team_resolves_team_name(monkeypatch):
+    """Helper returns {ownerId, teamName} when the user is present in
+    the league's users list."""
+    import io
+    def _fake_urlopen(req, timeout=5.0):
+        return io.BytesIO(
+            b'[{"user_id":"U-JASON","metadata":{"team_name":"Brisket Crew"},'
+            b'"display_name":"jasonleetucker"}]'
+        )
+    monkeypatch.setattr(server.urllib.request, "urlopen", _fake_urlopen)
+    server._SLEEPER_USER_TEAM_CACHE.clear()
+    result = server._fetch_sleeper_user_team("L-MAIN", "U-JASON")
+    assert result == {"ownerId": "U-JASON", "teamName": "Brisket Crew"}
+
+
+def test_fetch_sleeper_user_team_falls_back_to_display_name(monkeypatch):
+    """When ``metadata.team_name`` is absent, fall back to
+    ``display_name`` so the team picker shows SOMETHING instead of
+    blank."""
+    import io
+    def _fake_urlopen(req, timeout=5.0):
+        return io.BytesIO(
+            b'[{"user_id":"U-JASON","display_name":"jasonleetucker"}]'
+        )
+    monkeypatch.setattr(server.urllib.request, "urlopen", _fake_urlopen)
+    server._SLEEPER_USER_TEAM_CACHE.clear()
+    result = server._fetch_sleeper_user_team("L-MAIN", "U-JASON")
+    assert result == {"ownerId": "U-JASON", "teamName": "jasonleetucker"}

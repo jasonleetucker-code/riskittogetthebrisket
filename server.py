@@ -1744,6 +1744,11 @@ _PUBLIC_API_EXACT = frozenset({
     "/api/auth/logout",
     "/api/auth/sleeper-login",
     "/api/scaffold/status",
+    # /league page is a public view — its draft-capital tab reads
+    # this endpoint.  Payload is public Sleeper data (team names,
+    # pick dollar values, owners) already viewable on Sleeper; no
+    # private rankings / user state is leaked here.
+    "/api/draft-capital",
 })
 # Endpoints that handle their own auth (bearer token, etc.) — the
 # session-cookie middleware must skip them so the endpoint's own
@@ -2262,6 +2267,74 @@ def _fetch_sleeper_league_name(sleeper_league_id: str) -> str | None:
     return name
 
 
+# Cache of (league_id, user_id) → {ownerId, teamName} so the user's
+# default team in a given league can be auto-selected by
+# ``/api/leagues`` without a second round-trip.  Same 5-min TTL as
+# the league-name cache; a rename of the user's team in Sleeper
+# propagates within that window.
+_SLEEPER_USER_TEAM_CACHE: dict[tuple[str, str], dict] = {}
+
+
+def _fetch_sleeper_user_team(
+    sleeper_league_id: str, sleeper_user_id: str,
+) -> dict | None:
+    """Return ``{"ownerId", "teamName"}`` for the user in the given
+    league, or ``None`` if the user isn't in the league or Sleeper
+    is unreachable.
+
+    Falls back gracefully: a single failure caches ``None`` for
+    ``_SLEEPER_NAME_TTL_SEC`` so a flaky Sleeper doesn't force a
+    refetch on every authed request.
+
+    Used by ``/api/leagues`` so a user who isn't enumerated in a
+    league's registry ``defaultTeamMap`` still gets their team
+    auto-selected on that league (resolved via ownerId match from
+    the session's ``sleeper_user_id``).
+    """
+    import time as _time
+
+    sleeper_league_id = str(sleeper_league_id or "").strip()
+    sleeper_user_id = str(sleeper_user_id or "").strip()
+    if not sleeper_league_id or not sleeper_user_id:
+        return None
+    now = _time.time()
+    cache_key = (sleeper_league_id, sleeper_user_id)
+    cached = _SLEEPER_USER_TEAM_CACHE.get(cache_key)
+    if cached and (now - float(cached.get("fetched_at") or 0)) < _SLEEPER_NAME_TTL_SEC:
+        return cached.get("value")
+
+    try:
+        users_url = (
+            f"https://api.sleeper.app/v1/league/{sleeper_league_id}/users"
+        )
+        req = urllib.request.Request(
+            users_url, headers={"User-Agent": "brisket-user-team/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=5.0) as resp:
+            users = json.loads(resp.read())
+    except Exception:  # noqa: BLE001 — cache None on any transient failure
+        _SLEEPER_USER_TEAM_CACHE[cache_key] = {"value": None, "fetched_at": now}
+        return None
+
+    # Find the authed user in the league.
+    team_name = ""
+    for u in users or []:
+        if str(u.get("user_id") or "") == sleeper_user_id:
+            team_name = (
+                (u.get("metadata") or {}).get("team_name")
+                or u.get("display_name")
+                or ""
+            )
+            break
+    if not team_name:
+        _SLEEPER_USER_TEAM_CACHE[cache_key] = {"value": None, "fetched_at": now}
+        return None
+
+    value = {"ownerId": sleeper_user_id, "teamName": str(team_name).strip()}
+    _SLEEPER_USER_TEAM_CACHE[cache_key] = {"value": value, "fetched_at": now}
+    return value
+
+
 @app.get("/api/leagues")
 async def get_leagues(request: Request):
     """List every configured league.
@@ -2304,17 +2377,39 @@ async def get_leagues(request: Request):
 
     if session:
         username = (session.get("username") or "").strip().lower()
+        sleeper_user_id = str(session.get("sleeper_user_id") or "").strip()
         # Stamp each league's entry with this user's default team
         # when the registry knows about one.  Only this authed user
         # sees their own default — we don't expose other usernames'
         # mappings even though the registry file holds them.
-        for i, cfg in enumerate(active_cfgs):
-            default_team = cfg.default_team_map.get(username) if username else None
-            if default_team:
-                leagues[i]["userDefaultTeam"] = {
-                    "ownerId": default_team.get("ownerId", ""),
-                    "teamName": default_team.get("teamName", ""),
+        #
+        # Fallback: when the registry has no default_team_map entry
+        # for this user on this league (common for newly-added
+        # leagues), auto-resolve the user's team from Sleeper via
+        # their ``sleeper_user_id`` → league users lookup.  Without
+        # this fallback the team picker stays on "Pick your team"
+        # forever for any league the registry hasn't been edited
+        # for, forcing every dashboard block to sit at "Pick a team
+        # to see..." until the user manually selects one.
+        def _resolve_team(cfg):
+            mapped = cfg.default_team_map.get(username) if username else None
+            if mapped:
+                return {
+                    "ownerId": mapped.get("ownerId", "") or sleeper_user_id,
+                    "teamName": mapped.get("teamName", ""),
                 }
+            if sleeper_user_id:
+                return _fetch_sleeper_user_team(
+                    cfg.sleeper_league_id, sleeper_user_id,
+                )
+            return None
+
+        resolved = await run_in_threadpool(
+            lambda: [_resolve_team(c) for c in active_cfgs]
+        )
+        for i, team in enumerate(resolved):
+            if team:
+                leagues[i]["userDefaultTeam"] = team
 
     body: dict[str, Any] = {
         "leagues": leagues,
