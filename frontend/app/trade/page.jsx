@@ -589,7 +589,18 @@ export default function TradePage() {
   const [shareStatus, setShareStatus] = useState("");
   const [shareHydrated, setShareHydrated] = useState(false);
   const { simulate: simulateTrade, result: simResult, loading: simLoading, error: simError, reset: resetSim } = useTradeSimulator();
-  const { selectedTeam } = useTeam();
+  // useTeam is already league-aware: ``selectedTeam`` resolves
+  // against the active league, ``idpEnabled`` comes from the
+  // league config, ``leagueMismatch`` flags the data-not-ready
+  // state.  We use all three below to render the right picker
+  // options, auto-attach the right league to trade suggestions,
+  // and show a clear "data not ready" banner when needed.
+  const {
+    selectedTeam,
+    idpEnabled,
+    leagueMismatch,
+    selectedLeagueKey,
+  } = useTeam();
 
   // Extract Sleeper teams from dynasty data
   const sleeperTeams = useMemo(() => {
@@ -693,6 +704,15 @@ export default function TradePage() {
       }
     } catch { /* ignore */ }
   }, []);
+
+  // Reset the picker filter to "all" if the user's on an IDP filter
+  // and switches to a non-IDP league.  Mirrors the rankings-page
+  // guard so the same IDP filter doesn't silently render empty.
+  useEffect(() => {
+    if (!idpEnabled && pickerFilter === "idp") {
+      setPickerFilter("all");
+    }
+  }, [idpEnabled, pickerFilter]);
 
   // Hydrate trade workspace from localStorage (with migration)
   useEffect(() => {
@@ -1365,10 +1385,21 @@ export default function TradePage() {
     setSuggestions(null);
     localStorage.setItem(ROSTER_KEY, rosterInput);
     try {
+      // Attach the active league key so the backend validates
+      // against the registry and serves/rejects for the right
+      // league.  The endpoint falls back to the user's saved
+      // preference when leagueKey is absent, but passing it
+      // explicitly keeps the response league unambiguous when the
+      // user has just switched leagues and the new key hasn't
+      // round-tripped to user_kv yet.
+      const body = leagueRosters
+        ? { roster, league_rosters: leagueRosters }
+        : { roster };
+      if (selectedLeagueKey) body.leagueKey = selectedLeagueKey;
       const res = await fetch("/api/trade/suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(leagueRosters ? { roster, league_rosters: leagueRosters } : { roster }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -1427,6 +1458,26 @@ export default function TradePage() {
 
       {loading && <p>Loading player pool...</p>}
       {!!error && <p style={{ color: "var(--red)" }}>{error}</p>}
+
+      {!loading && !error && leagueMismatch && (
+        <div
+          className="card"
+          style={{
+            marginBottom: 10,
+            padding: "8px 12px",
+            border: "1px solid var(--cyan)",
+            background: "rgba(255, 199, 4, 0.05)",
+            fontSize: "0.78rem",
+          }}
+        >
+          <strong style={{ color: "var(--cyan)" }}>Roster data not ready for this league.</strong>{" "}
+          Rankings + values are available (scoring is shared), but team-specific
+          features — Sleeper roster import, the "Simulate on my team" button,
+          and league-mate pickers — need this league&apos;s scrape to complete
+          first.  Switch back to the primary league from the nav to use those
+          features.
+        </div>
+      )}
 
       {!loading && !error && (
         <>
@@ -2297,7 +2348,7 @@ export default function TradePage() {
                   <select className="select" value={pickerFilter} onChange={(e) => setPickerFilter(e.target.value)}>
                     <option value="all">All</option>
                     <option value="offense">OFF</option>
-                    <option value="idp">IDP</option>
+                    {idpEnabled && <option value="idp">IDP</option>}
                     <option value="pick">Picks</option>
                   </select>
                 </div>
