@@ -14,7 +14,7 @@ Bo Nix,12,QB12,DEN,26,2
 Ja'Marr Chase,13,WR1,CIN,26,5
 Brock Purdy,14,QB13,SF,26,4
 Puka Nacua,15,WR2,LAR,24,3
-Fernando Mendoza,16,QB14,FA,22,R
+Fernando Mendoza,16,QB14,LV,22,R
 Jaxon Smith-Njigba,17,WR3,SEA,24,3
 Dak Prescott,18,QB15,DAL,32,10
 Malik Nabers,20,WR4,NYG,22,2
@@ -42,7 +42,7 @@ Garrett Wilson,45,WR13,NYJ,25,4
 Tyler Shough,46,QB21,NO,26,1
 James Cook,47,RB7,BUF,26,4
 Emeka Egbuka,49,WR14,TB,23,1
-Jeremiyah Love,50,RB8,FA,20,R
+Jeremiyah Love,50,RB8,ARI,20,R
 TreVeyon Henderson,51,RB9,NE,23,1
 Rashee Rice,52,WR15,KC,26,3
 Ladd McConkey,55,WR16,LAC,24,2
@@ -61,7 +61,7 @@ Luther Burden III,73,WR21,CHI,22,1
 Ken Walker III,74,RB12,KC,25,4
 Christian McCaffrey,75,RB13,SF,29,9
 Bryce Young,76,QB24,CAR,24,3
-Carnell Tate,77,WR22,FA,21,R
+Carnell Tate,77,WR22,TEN,21,R
 Jameson Williams,79,WR23,DET,25,4
 Saquon Barkley,80,RB14,PHI,29,8
 DeVonta Smith,81,WR24,PHI,27,5
@@ -72,11 +72,11 @@ Brian Thomas Jr.,88,WR25,JAX,23,2
 Marvin Harrison Jr.,89,WR26,ARI,23,2
 Tucker Kraft,91,TE6,GB,25,3
 Kyren Williams,92,RB16,LAR,25,4
-Makai Lemon,93,WR27,FA,21,R
+Makai Lemon,93,WR27,PHI,21,R
 Matthew Stafford,94,QB26,LAR,38,17
 Bucky Irving,95,RB17,TB,23,2
 Travis Etienne Jr.,96,RB18,NO,27,5
-Jordyn Tyson,97,WR28,FA,21,R
+Jordyn Tyson,97,WR28,NO,21,R
 Jaylen Waddle,98,WR29,DEN,27,5
 Josh Jacobs,99,RB19,GB,28,7
 Sam LaPorta,101,TE7,DET,25,3
@@ -95,18 +95,18 @@ D'Andre Swift,116,RB23,CHI,27,6
 Ricky Pearsall,118,WR34,SF,25,2
 RJ Harvey,119,RB24,DEN,25,1
 Wan'Dale Robinson,120,WR35,TEN,25,4
-Kenyon Sadiq,121,TE10,FA,21,R
+Kenyon Sadiq,121,TE10,NYJ,21,R
 J.J. McCarthy,122,QB29,MIN,23,2
 Courtland Sutton,123,WR36,DEN,30,8
 Zach Charbonnet,124,RB25,SEA,25,3
 Kyle Monangai,127,RB26,CHI,24,1
 Dalton Kincaid,128,TE11,BUF,26,3
 Michael Wilson,129,WR37,ARI,26,3
-Jadarian Price,130,RB27,FA,22,R
+Jadarian Price,130,RB27,SEA,22,R
 Alec Pierce,131,WR38,IND,25,4
-Ty Simpson,132,QB30,FA,23,R
+Ty Simpson,132,QB30,LAR,23,R
 George Kittle,134,TE12,SF,32,9
-KC Concepcion,135,WR39,FA,21,R
+KC Concepcion,135,WR39,CLE,21,R
 Jaylen Warren,136,RB28,PIT,27,4
 Denzel Boston,137,WR40,FA,22,R
 Kaytron Allen,138,RB29,FA,23,R
@@ -141,7 +141,7 @@ Jayden Higgins,172,WR50,HOU,23,1
 J.K. Dobbins,173,RB43,DEN,27,6
 Jayden Reed,174,WR51,GB,26,3
 Mike Evans,175,WR52,SF,32,12
-Omar Cooper Jr.,176,WR53,FA,22,R
+Omar Cooper Jr.,176,WR53,NYJ,22,R
 Jauan Jennings,177,WR54,FA,28,6
 Tony Pollard,178,RB44,TEN,29,7
 Chris Brazzell II,179,WR55,FA,22,R
@@ -256,7 +256,7 @@ LeQuint Allen Jr.,287,RB82,JAX,21,1
 Cade Otton,288,TE30,TB,27,4
 Keenan Allen,289,WR111,FA,34,13
 Pat Freiermuth,290,TE31,PIT,27,5
-Jam Miller,291,RB83,FA,21,R
+Jam Miller,291,RB83,FA,22,R
 Andrei Iosivas,292,WR112,CIN,26,3
 Travis Kelce,293,TE32,KC,36,13
 Brenen Thompson,294,WR113,FA,22,R
@@ -355,7 +355,7 @@ Rasheen Ali,625,RB123,BAL,25,2
 Elijah Mitchell,626,RB124,NE,27,5
 Justice Hill,627,RB125,BAL,28,7
 Cam Akers,628,RB126,SEA,26,6
-Miles Sanders,629,RB127,FA,28,7
+Miles Sanders,629,RB127,FA,29,7
 Patrick Taylor Jr.,630,RB128,SF,28,6
 Nick Chubb,631,RB129,FA,30,8
 Zamir White,632,RB130,FA,26,4
