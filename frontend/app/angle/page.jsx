@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
+import { useTeam } from "@/components/useTeam";
 
 // ── Angle ───────────────────────────────────────────────────────────
 // Multi-player trade-target arbitrage.
@@ -34,6 +35,10 @@ function marketLabelForSource(source) {
 
 export default function AnglePage() {
   const { loading: dataLoading, error: dataError, rawData, rows } = useDynastyData();
+  // League awareness: ``idpEnabled`` gates the IDP position filters
+  // + the "Include IDP" checkbox; ``selectedLeagueKey`` attaches to
+  // the POST body so the backend serves/rejects for the right league.
+  const { idpEnabled, selectedLeagueKey } = useTeam();
 
   const teams = useMemo(() => {
     const list = rawData?.sleeper?.teams || [];
@@ -41,6 +46,14 @@ export default function AnglePage() {
       String(a?.name || "").localeCompare(String(b?.name || "")),
     );
   }, [rawData]);
+
+  // Offensive-only position filters for non-IDP leagues — the
+  // backend still accepts ``positions`` + ``includeIdp`` but there's
+  // no reason to show IDP toggles in a league that can't use them.
+  const positionFiltersList = useMemo(
+    () => (idpEnabled ? POSITION_FILTERS : POSITION_FILTERS.filter((p) => !IDP_POSITION_FILTERS.has(p))),
+    [idpEnabled],
+  );
 
   // Quick lookup: canonical name → { my_value, market_value, market_source, position }.
   // "Market" source is IDPTC for IDP positions, KTC for everyone else
@@ -271,6 +284,11 @@ export default function AnglePage() {
               seedPlayerNames: activeSeedNames,
               includeIdp: effectiveIncludeIdp,
             };
+      // Attach leagueKey so the backend validates + scopes to the
+      // right league.  Backend falls back to the user's saved pref
+      // when absent but we pass it explicitly so switcher changes
+      // don't race user_kv writes.
+      if (selectedLeagueKey) body.leagueKey = selectedLeagueKey;
       const res = await fetch("/api/angle/packages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -457,7 +475,7 @@ export default function AnglePage() {
           <div className="angle-filter-group">
             <span className="muted">Positions wanted</span>
             <div className="angle-pill-row">
-              {POSITION_FILTERS.map((pos) => {
+              {positionFiltersList.map((pos) => {
                 const active = positionFilters.has(pos);
                 return (
                   <button
@@ -513,6 +531,7 @@ export default function AnglePage() {
               deep-bench filler.
             </span>
           </div>
+          {idpEnabled && (
           <div className="angle-filter-group">
             <span className="muted">IDP players</span>
             <div className="angle-pill-row">
@@ -541,6 +560,7 @@ export default function AnglePage() {
               above, or explicitly add an IDP player to the trade.
             </span>
           </div>
+          )}
         </div>
       </section>
 
