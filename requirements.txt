@@ -1,12 +1,48 @@
-fastapi
-uvicorn
-requests
-playwright
-openpyxl
-anthropic
+# ── Runtime dependencies ──────────────────────────────────────────────
+#
+# Single source of truth for the Python runtime.  Every environment
+# (local dev, CI, production) installs from THIS file via
+# ``pip install -r requirements.txt``.  Test/dev-only dependencies
+# live in ``requirements-dev.txt`` which chains in this file via
+# ``-r requirements.txt`` so there is no duplication.
+#
+# Versions use compatible-release (``~=``) pins so patch/minor
+# bumps flow in but a surprise major-version bump cannot silently
+# break CI or production.  To lock exact versions for reproducibility,
+# run ``pip freeze > requirements.lock.txt`` after a clean install.
+#
+# Do NOT add test/dev-only dependencies here.  Add them to
+# ``requirements-dev.txt`` instead.
+
+# Web framework + ASGI server.  Pin syntax ``~=X.Y.0`` is
+# compatible-release: patches flow (0.135.0 → 0.135.9) but a minor
+# or major bump requires an explicit edit.  Minors bumped from the
+# original PR pins to match what production + dev are actually
+# running on 2026-04-24 — the narrower pins were authored three
+# days earlier and fell behind the live env.
+fastapi~=0.135.0
+uvicorn~=0.44.0
+
+# HTTP client used by scrapers, Sleeper client, news providers, etc.
+requests~=2.31.0
+
+# Browser automation (FootballGuys + DraftSharks scrapers).
+playwright~=1.58.0
+
+# Excel workbook parser (CSVs/Draft Data.xlsx → draft_data.csv).
+openpyxl~=3.1.0
+
+# Chat endpoint (``/api/chat``) — optional at runtime (server.py
+# guards ``import anthropic`` with ImportError fallback) but declared
+# here so production + CI install a consistent version and the feature
+# is never silently disabled.
+anthropic~=0.40.0
+
 # DLF scraping: curl_cffi impersonates Chrome's TLS fingerprint so
 # we can pass DLF's Cloudflare JS challenge (vanilla requests and
 # Playwright both get blocked at the challenge page).
-# beautifulsoup4 parses DLF's WPDataTable HTML.
-curl_cffi
-beautifulsoup4
+curl_cffi~=0.15.0
+
+# beautifulsoup4 parses DLF's WPDataTable HTML + FantasyPros Fitzmaurice
+# markup.
+beautifulsoup4~=4.14.0

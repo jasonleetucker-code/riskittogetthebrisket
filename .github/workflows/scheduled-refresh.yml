@@ -40,8 +40,14 @@ jobs:
           set -Eeuo pipefail
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          # Playwright browser for scraper
-          pip install playwright 2>/dev/null || true
+          pip check
+          python scripts/check_env.py --runtime
+          # Playwright package itself is declared in requirements.txt;
+          # this step only installs the Chromium *browser binary* that
+          # the scraper drives.  The `2>/dev/null || true` is
+          # deliberate — a transient Chromium download failure should
+          # not block the scheduled refresh when a browser is already
+          # cached on the runner.
           python -m playwright install chromium 2>/dev/null || true
 
       - name: Sync Draft Data from Google Sheet

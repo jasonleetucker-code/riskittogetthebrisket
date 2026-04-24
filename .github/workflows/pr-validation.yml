@@ -32,8 +32,23 @@ jobs:
         run: |
           set -Eeuo pipefail
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest
+          # requirements-dev.txt chains in requirements.txt via ``-r``,
+          # so this single install keeps local dev, CI, and production
+          # (runtime-only) walking the same dependency graph.  No
+          # ad-hoc ``pip install pytest`` calls sprinkled elsewhere.
+          pip install -r requirements-dev.txt
+
+      - name: Validate dependency graph (pip check)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          pip check
+
+      - name: Preflight environment check
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/check_env.py
 
       - name: Python syntax gate
         shell: bash

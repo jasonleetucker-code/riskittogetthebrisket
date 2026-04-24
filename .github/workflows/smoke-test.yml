@@ -29,7 +29,21 @@ jobs:
         run: |
           set -Eeuo pipefail
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          # Single manifest for runtime + dev deps keeps smoke-test,
+          # pr-validation, refit-hill-curves, and deploy gates in lockstep.
+          pip install -r requirements-dev.txt
+
+      - name: Validate dependency graph (pip check)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          pip check
+
+      - name: Preflight environment check
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/check_env.py
 
       - name: Python syntax gate
         shell: bash
@@ -54,7 +68,6 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          pip install pytest
           python -m pytest tests/ -x -q --tb=short
 
       - name: API contract check
