@@ -4237,24 +4237,27 @@ async def get_draft_capital(request: Request, refresh: str = ""):
     except LeagueResolutionError as err:
         return err.json_response()
     default_cfg = _league_registry.get_default_league()
-    if default_cfg and league_cfg.key != default_cfg.key:
-        return JSONResponse(
-            status_code=501,
-            content={
-                "error": "not_configured_for_league",
-                "message": (
-                    f"Draft-capital budgets are pinned to the default league "
-                    f"({default_cfg.key!r}).  {league_cfg.key!r} needs its own "
-                    "pick-value workbook + rookie ranks before this endpoint "
-                    "can serve it."
-                ),
-                "leagueKey": league_cfg.key,
-            },
-        )
+    is_default_league = default_cfg and league_cfg.key == default_cfg.key
     if refresh:
         _ktc_cache["fetched_at"] = 0  # invalidate cache
     try:
-        result = _fetch_draft_capital(league_cfg.key)
+        if is_default_league:
+            # Workbook path — rich per-pick values pinned to League A's
+            # rookie pool.
+            result = _fetch_draft_capital(league_cfg.key)
+        else:
+            # Sleeper-derived fallback for non-default leagues.
+            # Uses the canonical contract's pick values (Hill-curve-
+            # calibrated) + Sleeper's traded_picks.  Clearly labeled
+            # in the UI so users see "Sleeper-derived" vs.
+            # "workbook-calibrated".
+            from src.api.draft_capital_fallback import build_sleeper_derived
+            result = build_sleeper_derived(
+                league_cfg.sleeper_league_id,
+                latest_contract_data or {},
+                current_season=datetime.now(timezone.utc).year,
+                num_teams=league_cfg.roster_settings.get("teamCount", 12) if hasattr(league_cfg, "roster_settings") else 12,
+            )
         if isinstance(result, dict):
             result["leagueKey"] = league_cfg.key
         return JSONResponse(content=result)

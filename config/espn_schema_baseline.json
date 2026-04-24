@@ -1,0 +1,3 @@
+{
+  "_comment": "Baseline shape-hashes for ESPN endpoints we parse. Updated via scripts/update_espn_schema_baseline.py after verifying a drift is benign. Keys are endpoint names (NOT full URLs — the module's caller decides). Auto-populates on first run: missing entries are treated as 'new' and added without alerting."
+}
