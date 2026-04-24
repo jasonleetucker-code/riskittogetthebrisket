@@ -37,6 +37,7 @@ PRIVATE_API_PATHS = [
     "/api/trade/suggestions",
     "/api/trade/finder",
     "/api/trade/simulate",
+    "/api/trade/simulate-mc",  # Phase 9 — Monte Carlo sim
     "/api/angle/find",
     "/api/angle/packages",
     "/api/scaffold/raw",
@@ -48,6 +49,7 @@ PRIVATE_API_PATHS = [
 ]
 PRIVATE_POST_PATHS = {
     "/api/trade/suggestions", "/api/trade/finder", "/api/trade/simulate",
+    "/api/trade/simulate-mc",
     "/api/angle/find", "/api/angle/packages", "/api/rankings/overrides",
 }
 

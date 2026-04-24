@@ -1,0 +1,13 @@
+{
+  "_comment": "Per-position Cohen's-d thresholds for the tiering engine (src/scoring/tiering.py). Refit monthly via scripts/fit_tier_thresholds.py. Changes >15% open a PR; smaller drifts update silently. These values are priors — let the fitter replace them once we have a month of canonical-contract history to calibrate against.",
+  "thresholds": {
+    "QB": 0.35,
+    "RB": 0.22,
+    "WR": 0.22,
+    "TE": 0.35,
+    "DL": 0.30,
+    "LB": 0.30,
+    "DB": 0.30,
+    "PICK": 2.0
+  }
+}

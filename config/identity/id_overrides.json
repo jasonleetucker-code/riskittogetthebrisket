@@ -1,0 +1,10 @@
+{
+  "_comment": "Manual ID overrides for players the automatic mapper can't resolve confidently. Keyed by Sleeper player_id. Edit + redeploy to ship a new override. Common use: UDFAs, practice-squad callups, players with identical names across positions. See src/identity/unified_mapper.py docstring for the matching ladder.",
+  "_example_entry_only": {
+    "gsis_id": "00-0000000",
+    "espn_id": "0000000",
+    "full_name": "Example Player",
+    "position": "RB",
+    "team": "XXX"
+  }
+}

@@ -2467,7 +2467,43 @@ async def get_status():
         "scrape_success_rate_24h": _scrape_success_rate_24h(),
         "last_n_scrapes": scrape_history[-20:],
         "leagues": _league_status_snapshot(),
+        # 2026-04 upgrade observability — feature-flag state +
+        # unified-mapper coverage.  All flags default off so this
+        # is additive/informational; enabling a flag at runtime is
+        # the operator's decision.
+        "featureFlags": _feature_flag_snapshot_safe(),
+        "idMappingCoverage": _id_mapping_coverage_safe(),
+        "nflDataProvider": _nfl_data_provider_status_safe(),
     })
+
+
+def _feature_flag_snapshot_safe() -> dict:
+    """Return the feature-flag snapshot, tolerant of import errors
+    so a malformed upgrade doesn't 500 /api/status."""
+    try:
+        from src.api import feature_flags as _ff
+        return _ff.snapshot()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("feature_flag snapshot failed: %s", exc)
+        return {}
+
+
+def _id_mapping_coverage_safe() -> dict:
+    try:
+        from src.identity import unified_mapper as _um
+        return _um.mapping_coverage_snapshot()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("id mapping coverage snapshot failed: %s", exc)
+        return {}
+
+
+def _nfl_data_provider_status_safe() -> dict:
+    try:
+        from src.nfl_data import ingest as _ing
+        return _ing.provider_status()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("nfl_data provider status failed: %s", exc)
+        return {}
 
 
 def _league_status_snapshot() -> list[dict]:
@@ -5728,6 +5764,102 @@ def _deliver_email_smtp(to: str, subject: str, body: str) -> bool:
     except Exception as exc:  # noqa: BLE001
         log.warning("signal-alert SMTP delivery error to %s: %s", to, exc)
         return False
+
+
+@app.post("/api/trade/simulate-mc")
+async def post_trade_simulate_mc(request: Request):
+    """Monte Carlo trade simulator (Phase 9 of the 2026-04 upgrade).
+
+    Uses the consensus-band distribution from Phase 4 (`valueBand`
+    on each player row) to produce a probabilistic view of trade
+    outcomes: win probability, delta distribution, range of outcomes.
+
+    Lives alongside `/api/trade/simulate` — the existing endpoint
+    is unchanged.  This is additive, behind the `monte_carlo_trade`
+    feature flag.  When the flag is off this endpoint returns 503
+    `feature_disabled` so clients can fall back cleanly.
+
+    Body::
+
+        {
+          "sideA": [{"name": "...", "rankDerivedValue": N,
+                     "team": "...", "pos": "...",
+                     "valueBand": {"p10":, "p50":, "p90":}}],
+          "sideB": [...],
+          "nSims": 50000,          # optional, default 50000
+          "sameTeamRho": 0.25,     # optional correlation knob
+          "samePosGroupRho": 0.10, # optional correlation knob
+          "seed": 42               # optional for reproducible runs
+        }
+
+    Response (on success)::
+
+        {
+          "winProbA": 0.62,
+          "winProbB": 0.38,
+          "meanDelta": 450.2,
+          "stdDelta": 1240.5,
+          "deltaRange": {"p10": ..., "p50": ..., "p90": ...},
+          "nSims": 50000,
+          "method": "consensus_based_win_rate",
+          "labelHint": "consensus_based_win_rate",
+          "disclaimer": "..."
+        }
+
+    The ``labelHint`` + ``disclaimer`` fields are PART OF THE
+    CONTRACT — the frontend MUST render the disclaimer somewhere
+    visible so users don't mis-read win probability as real-world
+    odds.
+    """
+    from src.api import feature_flags as _ff
+    from src.trade import monte_carlo as _mc
+
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    if not _ff.is_enabled("monte_carlo_trade"):
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "feature_disabled",
+                "flag": "monte_carlo_trade",
+                "message": "Monte Carlo simulator is not yet enabled.",
+            },
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+    side_a_raw = body.get("sideA") or []
+    side_b_raw = body.get("sideB") or []
+    if not isinstance(side_a_raw, list) or not isinstance(side_b_raw, list):
+        return JSONResponse(status_code=400, content={"error": "sides_must_be_lists"})
+    side_a = [tp for tp in (_mc.build_trade_player(r) for r in side_a_raw) if tp is not None]
+    side_b = [tp for tp in (_mc.build_trade_player(r) for r in side_b_raw) if tp is not None]
+    try:
+        n_sims = int(body.get("nSims") or 50000)
+    except (TypeError, ValueError):
+        n_sims = 50000
+    # Guardrail — don't let a caller request a million sims.
+    n_sims = max(1000, min(200_000, n_sims))
+    try:
+        rho_t = float(body.get("sameTeamRho", 0.25))
+        rho_p = float(body.get("samePosGroupRho", 0.10))
+    except (TypeError, ValueError):
+        rho_t, rho_p = 0.25, 0.10
+    seed = body.get("seed")
+    try:
+        seed = int(seed) if seed is not None else None
+    except (TypeError, ValueError):
+        seed = None
+    result = _mc.simulate_trade(
+        side_a, side_b,
+        n_sims=n_sims, same_team_rho=rho_t,
+        same_pos_group_rho=rho_p, seed=seed,
+    )
+    return JSONResponse(content=result.to_dict())
 
 
 @app.post("/api/signal-alerts/run")
