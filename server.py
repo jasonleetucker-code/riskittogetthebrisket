@@ -1784,6 +1784,11 @@ _PUBLIC_API_EXACT = frozenset({
 # check runs.
 _SELF_AUTHED_API_EXACT = frozenset({
     "/api/signal-alerts/run",
+    # E2E test-session bootstrap — handles its own bearer-token auth.
+    # Returns 404 unless E2E_TEST_MODE + matching bearer secret are
+    # both set, so having it bypass the session gate doesn't leak
+    # anything in prod (env vars aren't set there).
+    "/api/test/create-session",
 })
 _PUBLIC_API_PREFIXES = (
     "/api/public/league",
@@ -5863,6 +5868,42 @@ def _require_admin_session(request: Request):
     return session
 
 
+@app.post("/api/test/create-session")
+async def post_test_create_session(request: Request):
+    """E2E-only session bootstrap — gated behind two env vars.
+
+    Returns 404 (NOT 401) unless BOTH:
+      * ``E2E_TEST_MODE=1`` (or true/yes/on)
+      * ``E2E_TEST_SECRET`` matches the caller's ``Authorization:
+        Bearer <secret>`` header
+
+    In prod neither var is set, so this endpoint is invisible.
+    """
+    mode_raw = os.getenv("E2E_TEST_MODE", "").strip().lower()
+    if mode_raw not in ("1", "true", "yes", "on"):
+        return JSONResponse(status_code=404, content={"error": "not_found"})
+    expected = os.getenv("E2E_TEST_SECRET", "").strip()
+    auth = str(request.headers.get("authorization", "")).strip()
+    provided = auth[len("Bearer "):].strip() if auth.lower().startswith("bearer ") else ""
+    if not expected or provided != expected:
+        return JSONResponse(status_code=404, content={"error": "not_found"})
+    username = (os.getenv("E2E_TEST_USERNAME") or "jasonleetucker").strip().lower()
+    session_id = _create_auth_session(
+        username=username,
+        sleeper_user_id=os.getenv("E2E_TEST_SLEEPER_USER_ID", "").strip() or None,
+        display_name=username,
+        auth_method="e2e_test",
+    )
+    res = JSONResponse(content={
+        "ok": True, "username": username, "sessionId": session_id,
+    })
+    res.set_cookie(
+        JASON_AUTH_COOKIE_NAME, session_id,
+        max_age=3600, httponly=True, samesite="lax",
+    )
+    return res
+
+
 @app.post("/api/admin/nfl-data/flush")
 async def post_admin_nfl_data_flush(request: Request):
     """Flush every nfl_data cache entry (forces next fetch to go
@@ -6420,6 +6461,16 @@ async def serve_more(request: Request):
         return redirect
     return await _serve_app_shell("/more")
 
+
+@app.get("/admin", response_class=HTMLResponse)
+async def serve_admin(request: Request):
+    """Admin dashboard — auth-gated + admin-allowlist-gated.
+    The page itself makes its own /api/admin/* calls which enforce
+    admin-allowlist; this route just guards access to the shell."""
+    redirect = _require_auth_or_redirect(request, "/admin")
+    if redirect is not None:
+        return redirect
+    return await _serve_app_shell("/admin")
 
 
 @app.get("/login", response_class=HTMLResponse)

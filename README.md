@@ -1,9 +1,24 @@
 # Risk It To Get The Brisket — Dynasty Trade Calculator
 
-Private repo for your dynasty trade calculator stack:
-- Python scraper + API server
-- Legacy static dashboard
-- New React + Next.js frontend (`frontend/`)
+Private repo for the dynasty trade calculator stack powering
+[riskittogetthebrisket.org](https://riskittogetthebrisket.org).
+
+**Architecture at a glance:**
+- **Backend:** Python 3.12 FastAPI + Uvicorn (port 8000).
+- **Frontend:** Next.js 15 + React 19 App Router (port 3000).
+- **Multi-league:** configurable via `config/leagues/registry.json`;
+  scoring profile drives rankings, league key drives context
+  (teams / trades / draft capital).
+- **Auth model:** session-gated `/api/*` endpoints with a
+  Sleeper-login allowlist; public routes hit `/api/public/league/*`.
+- **Feature flags** (`src/api/feature_flags.py`): every new
+  capability from the 2026-04 upgrade ships flag-gated (default OFF).
+
+**Orientation docs:**
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system map
+- [`docs/ONBOARDING.md`](docs/ONBOARDING.md) — how to add a league / source / flag
+- [`docs/upgrade_phases_1_10.md`](docs/upgrade_phases_1_10.md) — April 2026 upgrade deep-dive
+- [`CLAUDE.md`](CLAUDE.md) — architectural rules + non-negotiables
 
 ## Production Bootstrap
 
