@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "defaultLeagueKey": "dynasty_main",
+  "leagues": [
+    {
+      "key": "dynasty_main",
+      "displayName": "Dynasty Main (Superflex + TEP + IDP)",
+      "sleeperLeagueId": "1312006700437352448",
+      "scoringProfile": "superflex_tep15_ppr1",
+      "idpEnabled": true,
+      "active": true,
+      "aliases": ["main", "idp", "primary"],
+      "rosterSettings": {
+        "teamCount": 12,
+        "rosterSize": 30,
+        "taxiSize": 5,
+        "starters": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 2,
+          "SFLEX": 1,
+          "DL": 2,
+          "LB": 2,
+          "DB": 2,
+          "IDP_FLEX": 2
+        },
+        "flexEligible": ["RB", "WR", "TE"],
+        "sflexEligible": ["QB", "RB", "WR", "TE"],
+        "idpFlexEligible": ["DL", "LB", "DB"]
+      },
+      "defaultTeamMap": {
+        "jasonleetucker": {
+          "ownerId": "",
+          "teamName": "Rossini Panini"
+        }
+      }
+    },
+    {
+      "key": "dynasty_new",
+      "displayName": "Dynasty New (Superflex + TEP, no IDP)",
+      "sleeperLeagueId": "1320092771247222784",
+      "scoringProfile": "superflex_tep15_ppr1",
+      "idpEnabled": false,
+      "active": true,
+      "aliases": ["new", "non-idp"],
+      "rosterSettings": {
+        "teamCount": 12,
+        "rosterSize": 24,
+        "taxiSize": 5,
+        "starters": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 2,
+          "SFLEX": 1
+        },
+        "flexEligible": ["RB", "WR", "TE"],
+        "sflexEligible": ["QB", "RB", "WR", "TE"]
+      },
+      "defaultTeamMap": {}
+    }
+  ]
+}

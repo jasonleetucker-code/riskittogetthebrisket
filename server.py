@@ -70,6 +70,7 @@ from src.api import signal_alerts as _signal_alerts
 from src.api import terminal as _terminal
 from src.api import trade_simulator as _trade_simulator
 from src.api import user_kv as _user_kv
+from src.api import league_registry as _league_registry
 from src.news import NewsService, build_default_service
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
@@ -127,6 +128,17 @@ JASON_LOGIN_USERNAME = (os.getenv("JASON_LOGIN_USERNAME") or "jasonleetucker").s
 JASON_LOGIN_PASSWORD = (os.getenv("JASON_LOGIN_PASSWORD") or "Elliott21!").strip()
 JASON_AUTH_COOKIE_NAME = "jason_session"
 JASON_AUTH_COOKIE_SECURE = _env_bool("JASON_AUTH_COOKIE_SECURE", True)
+
+# Private-app allowlist.  Only these Sleeper handles can sign in
+# via /api/auth/sleeper-login.  Anyone else — even with a valid
+# Sleeper account — gets 403.  Password auth (JASON_LOGIN_*) is
+# the operator fallback and isn't constrained by this list.
+# Env var is comma-separated, lowercase-normalised at load time.
+PRIVATE_APP_ALLOWED_USERNAMES = frozenset(
+    u.strip().lower()
+    for u in (os.getenv("PRIVATE_APP_ALLOWED_USERNAMES") or "jasonleetucker").split(",")
+    if u.strip()
+)
 
 # Rate limit: max 1 email per hour to avoid spam on repeated failures
 _last_alert_time = 0
@@ -1052,6 +1064,29 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
             # contract response.  The glyph degrades gracefully when
             # rankHistory is absent.
             log.warning("rank_history: append/stamp failed: %s", exc)
+        # Tag the contract with the league + scoring profile it was
+        # built for.  Two different roles:
+        #
+        #   * ``meta.leagueKey`` — which specific league's Sleeper
+        #     block (teams, rosters, ownerIds) is stamped here.
+        #     Team-requiring endpoints (/api/terminal, /api/trade/*)
+        #     reject requests for other leagues with 503.
+        #   * ``meta.scoringProfile`` — which scoring rules produced
+        #     these rankings.  Rankings endpoints (/api/data,
+        #     /api/rankings/overrides) serve the same rankings to
+        #     any league that shares the profile, and only 503 when
+        #     profiles actually differ.
+        #
+        # This split is the core of the "scoring drives rankings,
+        # league drives context" architecture — see CLAUDE.md.
+        try:
+            _default_cfg = _league_registry.get_default_league()
+            if _default_cfg and isinstance(contract_payload, dict):
+                meta_block = contract_payload.setdefault("meta", {})
+                meta_block["leagueKey"] = _default_cfg.key
+                meta_block["scoringProfile"] = _default_cfg.scoring_profile
+        except Exception:  # noqa: BLE001
+            pass
         latest_contract_data = contract_payload
         contract_health = contract_report
 
@@ -1653,6 +1688,63 @@ async def _count_requests(request: Request, call_next):
     _metrics["request_count"] = _metrics.get("request_count", 0) + 1
     return await call_next(request)
 
+
+# Paths under /api/* that do NOT require an authenticated session.
+# Anything else gets 401'd by ``_private_api_gate`` below.  Closes
+# the scrape risk: without this gate, ``curl /api/data`` from a
+# stranger returns the full private rankings contract.
+_PUBLIC_API_EXACT = frozenset({
+    "/api/health",
+    "/api/status",
+    "/api/uptime",
+    "/api/metrics",
+    "/api/leagues",
+    "/api/rankings/sources",
+    "/api/auth/status",
+    "/api/auth/login",
+    "/api/auth/logout",
+    "/api/auth/sleeper-login",
+    "/api/scaffold/status",
+})
+# Endpoints that handle their own auth (bearer token, etc.) — the
+# session-cookie middleware must skip them so the endpoint's own
+# check runs.
+_SELF_AUTHED_API_EXACT = frozenset({
+    "/api/signal-alerts/run",
+})
+_PUBLIC_API_PREFIXES = (
+    "/api/public/league",
+)
+
+
+def _is_public_api_path(path: str) -> bool:
+    if path in _PUBLIC_API_EXACT:
+        return True
+    if path in _SELF_AUTHED_API_EXACT:
+        return True
+    for prefix in _PUBLIC_API_PREFIXES:
+        if path == prefix or path.startswith(prefix + "/"):
+            return True
+    return False
+
+
+@app.middleware("http")
+async def _private_api_gate(request: Request, call_next):
+    """401 any /api/* call without a session, except the public
+    allowlist.  Page routes still redirect via
+    ``_require_auth_or_redirect``; static/_next assets aren't
+    touched.
+    """
+    path = request.url.path or ""
+    if path.startswith("/api/") and not _is_public_api_path(path):
+        if not _is_authenticated(request):
+            return JSONResponse(
+                status_code=401,
+                content={"error": "auth_required", "message": "Sign-in required."},
+                headers={"Cache-Control": "no-store"},
+            )
+    return await call_next(request)
+
 def _proxy_next(path: str) -> tuple[Response | None, str | None]:
     """
     Proxy frontend routes to local Next.js dev/prod server when available.
@@ -1692,8 +1784,63 @@ def _proxy_next(path: str) -> tuple[Response | None, str | None]:
 # ── API ROUTES ──────────────────────────────────────────────────────────
 @app.get("/api/data")
 async def get_data(request: Request):
-    """Return latest normalized/validated data contract JSON."""
+    """Return latest normalized/validated data contract JSON.
+
+    Optional ``?leagueKey=...`` validates against the league registry.
+
+    **Rankings are keyed by scoring profile, not by league.**  When
+    two leagues share a profile, they share the rankings pipeline's
+    output — the ``players`` / ``playersArray`` / ``sources`` blocks
+    are identical and we serve them to any caller whose league
+    resolves to the same profile.  Only the league-specific
+    ``sleeper`` block (teams, rosters, owners) is per-league; when a
+    different league is requested and we don't have that league's
+    sleeper data loaded, the block is returned as ``None`` and
+    ``meta.sleeperDataReady=false`` tells the client to show
+    "no roster data yet" rather than rendering the default league's
+    teams under the wrong name.
+
+    503 ``data_not_ready`` only fires when the scoring profiles
+    genuinely differ — i.e. the rankings themselves can't be reused.
+    """
+    # League validation comes first so a stale leagueKey returns 400
+    # before we bother assembling the payload.  Skip the loaded-
+    # contract check here and enforce below so the 503 path can
+    # include the resolved league key in the response.
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
     if latest_contract_data:
+        loaded_meta = (
+            latest_contract_data.get("meta") or {}
+            if isinstance(latest_contract_data, dict) else {}
+        )
+        loaded_league = str(loaded_meta.get("leagueKey") or "")
+        loaded_profile = str(loaded_meta.get("scoringProfile") or "")
+        sleeper_matches = bool(loaded_league) and loaded_league == league_cfg.key
+
+        # Scoring-profile mismatch → genuinely different data; 503.
+        # Missing loaded_profile means we're running a contract built
+        # before this refactor; treat it as if profiles match (the
+        # rankings are global), and surface sleeper_matches only.
+        if loaded_profile and loaded_profile != league_cfg.scoring_profile:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "data_not_ready",
+                    "message": (
+                        f"League {league_cfg.key!r} uses scoring profile "
+                        f"{league_cfg.scoring_profile!r}, but the loaded "
+                        f"contract is {loaded_profile!r}.  Rankings are "
+                        "not compatible."
+                    ),
+                    "leagueKey": league_cfg.key,
+                    "scoringProfile": league_cfg.scoring_profile,
+                },
+            )
+
         view = (request.query_params.get("view") or "").strip().lower()
         startup_view = view in {"startup", "boot", "initial"}
         runtime_view = view in {"app", "runtime", "lite", "slim"}
@@ -1722,6 +1869,24 @@ async def get_data(request: Request):
             "Cache-Control": "public, max-age=30, stale-while-revalidate=300",
             "X-Payload-View": payload_view_name,
         }
+
+        # Cross-league request for a same-scoring-profile league —
+        # serve the shared rankings but null the sleeper block so the
+        # UI doesn't render the loaded league's teams under the
+        # requested league's name.  Bypass the pre-serialized fast-
+        # path here; we need to hand-edit the payload.
+        if not sleeper_matches:
+            scrubbed = dict(payload_obj) if isinstance(payload_obj, dict) else {}
+            scrubbed["sleeper"] = None
+            meta = dict(scrubbed.get("meta") or {})
+            meta["leagueKey"] = league_cfg.key
+            meta["scoringProfile"] = league_cfg.scoring_profile
+            meta["sleeperDataReady"] = False
+            meta["sleeperLoadedLeagueKey"] = loaded_league or None
+            scrubbed["meta"] = meta
+            headers["X-Payload-View"] = f"{payload_view_name}-cross-league"
+            return JSONResponse(content=scrubbed, headers=headers)
+
         if payload_etag:
             headers["ETag"] = payload_etag
             incoming = request.headers.get("if-none-match", "").strip('"')
@@ -1877,6 +2042,40 @@ async def post_rankings_overrides(request: Request):
     except Exception:
         body = None
 
+    # Rankings follow scoring profile, not league key.  Validate the
+    # key but only 503 when profiles actually differ — otherwise the
+    # override pipeline can serve the same recomputed rankings to any
+    # league that shares scoring.  The league-specific sleeper block
+    # in the response is nulled below when the loaded contract was
+    # built for a different league.
+    try:
+        league_cfg = _resolve_league_for_request(
+            request,
+            body=body if isinstance(body, dict) else None,
+        )
+    except LeagueResolutionError as err:
+        return err.json_response()
+    loaded_meta = (
+        latest_contract_data.get("meta") or {}
+        if isinstance(latest_contract_data, dict) else {}
+    )
+    loaded_league = str(loaded_meta.get("leagueKey") or "")
+    loaded_profile = str(loaded_meta.get("scoringProfile") or "")
+    sleeper_matches = bool(loaded_league) and loaded_league == league_cfg.key
+    if loaded_profile and loaded_profile != league_cfg.scoring_profile:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": (
+                    f"League {league_cfg.key!r} uses scoring profile "
+                    f"{league_cfg.scoring_profile!r}, not {loaded_profile!r}."
+                ),
+                "leagueKey": league_cfg.key,
+                "scoringProfile": league_cfg.scoring_profile,
+            },
+        )
+
     overrides, warnings = normalize_source_overrides(body)
     tep_multiplier = normalize_tep_multiplier(body)
 
@@ -1911,11 +2110,77 @@ async def post_rankings_overrides(request: Request):
     if warnings:
         contract_payload.setdefault("warnings", []).extend(warnings)
 
+    # Stamp meta fields so the frontend can assert compatibility:
+    # ``leagueKey`` = resolved league; ``scoringProfile`` = which
+    # rules the pipeline used; ``sleeperDataReady`` = whether the
+    # ``sleeper`` block can be trusted for this league.  When the
+    # loaded contract was built for a different league (same scoring
+    # profile though — we'd have 503'd above if profiles differed),
+    # null the sleeper block so callers don't render the wrong
+    # league's teams.
+    if isinstance(contract_payload, dict):
+        meta = contract_payload.setdefault("meta", {})
+        meta["leagueKey"] = league_cfg.key
+        meta["scoringProfile"] = league_cfg.scoring_profile
+        meta["sleeperDataReady"] = sleeper_matches
+        if not sleeper_matches:
+            contract_payload["sleeper"] = None
+            meta["sleeperLoadedLeagueKey"] = loaded_league or None
+
     headers = {
         "Cache-Control": "no-store",
         "X-Payload-View": "rankings-overrides-delta" if delta_view else "rankings-overrides",
     }
     return JSONResponse(content=contract_payload, headers=headers)
+
+
+@app.get("/api/leagues")
+async def get_leagues(request: Request):
+    """List every configured league.
+
+    Public endpoint — the response contains no secrets (no Sleeper
+    league IDs, no auth tokens).  The ``key`` is the stable identifier
+    callers thread through the rest of the API when we eventually
+    add ``?leagueId=`` parameters to league-scoped endpoints.
+
+    Views:
+      * Anonymous:     active leagues only.
+      * Authenticated: active leagues + ``userDefaultKey`` (which
+                       league the UI should land this user on by
+                       default) + per-league ``userDefaultTeam``
+                       entries from each league's ``defaultTeamMap``
+                       so the frontend can auto-select the right
+                       team in each league without a second round-
+                       trip to user_kv.
+    """
+    session = _get_auth_session(request)
+    active_cfgs = _league_registry.active_leagues()
+    leagues = [cfg.public_dict() for cfg in active_cfgs]
+
+    if session:
+        username = (session.get("username") or "").strip().lower()
+        # Stamp each league's entry with this user's default team
+        # when the registry knows about one.  Only this authed user
+        # sees their own default — we don't expose other usernames'
+        # mappings even though the registry file holds them.
+        for i, cfg in enumerate(active_cfgs):
+            default_team = cfg.default_team_map.get(username) if username else None
+            if default_team:
+                leagues[i]["userDefaultTeam"] = {
+                    "ownerId": default_team.get("ownerId", ""),
+                    "teamName": default_team.get("teamName", ""),
+                }
+
+    body: dict[str, Any] = {
+        "leagues": leagues,
+        "defaultKey": _league_registry.default_league_key(),
+    }
+    if session:
+        user_default = _league_registry.get_user_default_league(
+            session.get("username") or ""
+        )
+        body["userDefaultKey"] = user_default.key if user_default else None
+    return JSONResponse(content=body, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/status")
@@ -2319,6 +2584,14 @@ async def post_trade_suggestions(request: Request):
     except Exception:
         return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
 
+    # Validate leagueKey (body or query) against the registry.
+    try:
+        league_cfg = _resolve_league_for_request(
+            request, body=body, require_loaded_contract=True,
+        )
+    except LeagueResolutionError as err:
+        return err.json_response()
+
     roster = body.get("roster")
     if not isinstance(roster, list) or not roster:
         return JSONResponse(
@@ -2354,6 +2627,8 @@ async def post_trade_suggestions(request: Request):
         log.error(f"Trade suggestion generation failed: {e}")
         return JSONResponse(status_code=500, content={"error": f"Suggestion generation failed: {e}"})
 
+    if isinstance(result, dict):
+        result["leagueKey"] = league_cfg.key
     return JSONResponse(content=result)
 
 
@@ -2389,6 +2664,14 @@ async def post_trade_finder(request: Request):
     except Exception:
         return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
 
+    # Validate leagueKey (body or query).
+    try:
+        league_cfg = _resolve_league_for_request(
+            request, body=body, require_loaded_contract=True,
+        )
+    except LeagueResolutionError as err:
+        return err.json_response()
+
     my_team = body.get("myTeam")
     if not my_team or not isinstance(my_team, str):
         return JSONResponse(
@@ -2418,6 +2701,8 @@ async def post_trade_finder(request: Request):
         log.error(f"Trade Finder failed: {e}")
         return JSONResponse(status_code=500, content={"error": f"Trade Finder failed: {e}"})
 
+    if isinstance(result, dict):
+        result["leagueKey"] = league_cfg.key
     return JSONResponse(content=result)
 
 
@@ -2517,6 +2802,16 @@ async def post_angle_find(request: Request):
     except Exception:
         return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
 
+    # League routing: accept leagueKey in body or query, reject
+    # unknown/inactive, 503 when the loaded contract is for a
+    # different league.
+    try:
+        league_cfg = _resolve_league_for_request(
+            request, body=body, require_loaded_contract=True,
+        )
+    except LeagueResolutionError as err:
+        return err.json_response()
+
     owner_id = str(body.get("ownerId") or "").strip()
     player_name = str(body.get("playerName") or "").strip()
     if not owner_id or not player_name:
@@ -2557,6 +2852,8 @@ async def post_angle_find(request: Request):
             status_code=500,
             content={"error": f"Angle find failed: {exc}"},
         )
+    if isinstance(result, dict):
+        result["leagueKey"] = league_cfg.key
     return JSONResponse(content=result)
 
 
@@ -2616,6 +2913,14 @@ async def post_angle_packages(request: Request):
         body = await request.json()
     except Exception:
         return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
+
+    # League routing (same pattern as /api/angle/find).
+    try:
+        league_cfg = _resolve_league_for_request(
+            request, body=body, require_loaded_contract=True,
+        )
+    except LeagueResolutionError as err:
+        return err.json_response()
 
     owner_id = str(body.get("ownerId") or "").strip()
     mode = str(body.get("mode") or "offer").strip().lower()
@@ -2705,7 +3010,7 @@ async def post_angle_packages(request: Request):
                 status_code=500,
                 content={"error": f"Angle acquire failed: {exc}"},
             )
-        result = {"mode": "acquire", **result}
+        result = {"mode": "acquire", **result, "leagueKey": league_cfg.key}
         return JSONResponse(content=result)
 
     target_teams_req = body.get("targetTeamOwnerIds") or []
@@ -2744,7 +3049,7 @@ async def post_angle_packages(request: Request):
             status_code=500,
             content={"error": f"Angle packages failed: {exc}"},
         )
-    result = {"mode": "offer", **result}
+    result = {"mode": "offer", **result, "leagueKey": league_cfg.key}
     return JSONResponse(content=result)
 
 
@@ -2777,7 +3082,132 @@ async def get_scaffold_report():
 # Uses a decay curve to fill/extrapolate KTC values to all 72 picks.
 DRAFT_DATA_XLSX = Path(__file__).parent / "CSVs" / "Draft Data.xlsx"
 DRAFT_DATA_CSV = Path(__file__).parent / "CSVs" / "draft_data.csv"
-SLEEPER_LEAGUE_ID_FOR_DRAFT = os.getenv("SLEEPER_LEAGUE_ID", "1312006700437352448")
+
+
+def _sleeper_league_id_for_draft(league_key: str | None = None) -> str:
+    """Resolve the Sleeper league ID for draft endpoints via the
+    league registry.  Previously a module-level constant read from
+    ``SLEEPER_LEAGUE_ID`` env var; now routes through
+    ``league_registry.get_sleeper_league_id()`` which itself falls
+    back to the env var when no registry.json is configured.
+
+    If ``league_key`` is provided, that specific league's Sleeper ID
+    is returned (after validation).  ``None`` resolves to the
+    default league — the existing single-league behavior.
+
+    Returns empty string when no league is configured at all so
+    callers can short-circuit instead of making a Sleeper call to
+    ``/league/``.
+    """
+    sid = _league_registry.get_sleeper_league_id(league_key)
+    return sid or ""
+
+
+class LeagueResolutionError(Exception):
+    """Raised when a request references a league the server can't
+    serve.  Carries an HTTP status + body so route handlers can
+    ``except`` once and return a uniform error response.
+
+    Status codes:
+      * 400 — ``leagueKey`` is present but unknown or inactive
+      * 503 — requested league is valid but no contract is loaded
+              for it yet (single-league instance, or scrape in progress)
+      * 404 — no leagues configured at all (fresh dev machine)
+    """
+
+    def __init__(self, status: int, code: str, message: str):
+        self.status = status
+        self.code = code
+        self.message = message
+        super().__init__(message)
+
+    def json_response(self) -> "JSONResponse":
+        return JSONResponse(
+            status_code=self.status,
+            content={"error": self.code, "message": self.message},
+        )
+
+
+def _resolve_league_for_request(
+    request: "Request",
+    *,
+    body: dict | None = None,
+    require_loaded_contract: bool = False,
+) -> "_league_registry.LeagueConfig":
+    """Pick the right league for this request.
+
+    Resolution order:
+      1. Explicit ``leagueKey`` in the query string
+      2. Explicit ``leagueKey`` in the request body (when provided)
+      3. The authenticated user's ``activeLeagueKey`` (from user_kv)
+      4. The registry's default league
+
+    Passes 1 + 2 go through ``get_league_by_key`` which also accepts
+    aliases.  Passes 3 + 4 always resolve to a canonical key.  An
+    inactive league at passes 1–2 raises 400 so a stale frontend
+    can't accidentally keep hitting a retired league.
+
+    When ``require_loaded_contract=True`` and the resolved league
+    doesn't match the league that built ``latest_contract_data``,
+    raises 503 ``data_not_ready``.  This is the guard that keeps
+    single-instance deployments from returning garbage for a league
+    they haven't scraped yet.
+    """
+    # 1 + 2: explicit leagueKey in query or body.
+    explicit = (request.query_params.get("leagueKey") or "").strip()
+    if not explicit and isinstance(body, dict):
+        explicit = str(body.get("leagueKey") or "").strip()
+    if explicit:
+        cfg = _league_registry.get_league_by_key(explicit)
+        if cfg is None:
+            raise LeagueResolutionError(
+                400, "unknown_league",
+                f"Unknown leagueKey {explicit!r}",
+            )
+        if not cfg.active:
+            raise LeagueResolutionError(
+                400, "inactive_league",
+                f"League {cfg.key!r} is not active",
+            )
+    else:
+        # 3: user's saved preference.
+        cfg = None
+        session = _get_auth_session(request)
+        if session:
+            username = str(session.get("username") or "").strip()
+            if username:
+                try:
+                    state = _user_kv.get_user_state(username) or {}
+                    saved = (state.get("activeLeagueKey") or "").strip()
+                    if saved:
+                        candidate = _league_registry.get_league_by_key(saved)
+                        if candidate is not None and candidate.active:
+                            cfg = candidate
+                except Exception:  # noqa: BLE001
+                    cfg = None
+        # 4: registry default.
+        if cfg is None:
+            cfg = _league_registry.get_default_league()
+        if cfg is None:
+            raise LeagueResolutionError(
+                404, "no_leagues_configured",
+                "No leagues configured on this server",
+            )
+
+    if require_loaded_contract:
+        loaded_key = None
+        try:
+            loaded_key = (
+                (latest_contract_data or {}).get("meta", {}).get("leagueKey")
+            )
+        except Exception:  # noqa: BLE001
+            loaded_key = None
+        if loaded_key and loaded_key != cfg.key:
+            raise LeagueResolutionError(
+                503, "data_not_ready",
+                f"No data loaded for league {cfg.key!r} yet",
+            )
+    return cfg
 _KTC_TOTAL_PICKS = 72  # fill rookie data for all 6 rounds (12 teams × 6 rounds)
 DRAFT_TOTAL_BUDGET = 1200  # $100 × 12 teams
 
@@ -3182,7 +3612,7 @@ def _round_to_budget(values: list[float], budget: int = 1200) -> list[int]:
     return floors
 
 
-def _fetch_draft_capital():
+def _fetch_draft_capital(league_key: str | None = None):
     """Compute draft capital per team.
 
     The Draft Data workbook is the authoritative source for BOTH pick
@@ -3197,6 +3627,9 @@ def _fetch_draft_capital():
     by joining the sheet's standings on Sleeper's draft
     ``slot_to_roster_id``.  If Sleeper is unavailable we fall back to
     showing first names directly.
+
+    ``league_key`` selects which league's Sleeper IDs to use for the
+    team-name join.  None resolves to the registry default.
     """
     pick_dollars, workbook_picks, slot_to_original, wb_team_totals, rookies = _parse_draft_data()
     if not workbook_picks:
@@ -3214,13 +3647,19 @@ def _fetch_draft_capital():
     first_name_to_team: dict[str, str] = {}
     all_team_names: list[str] = []
     try:
+        _league_id_for_draft = _sleeper_league_id_for_draft(league_key)
+        if not _league_id_for_draft:
+            # No league configured at all — skip the Sleeper joins and
+            # leave the mapping empty; downstream code renders draft
+            # capital without a team-name column.
+            raise RuntimeError("no_sleeper_league_configured")
         rosters_resp = urllib.request.urlopen(
-            f"https://api.sleeper.app/v1/league/{SLEEPER_LEAGUE_ID_FOR_DRAFT}/rosters", timeout=15
+            f"https://api.sleeper.app/v1/league/{_league_id_for_draft}/rosters", timeout=15
         )
         rosters = json.loads(rosters_resp.read())
 
         users_resp = urllib.request.urlopen(
-            f"https://api.sleeper.app/v1/league/{SLEEPER_LEAGUE_ID_FOR_DRAFT}/users", timeout=15
+            f"https://api.sleeper.app/v1/league/{_league_id_for_draft}/users", timeout=15
         )
         user_map: dict[str, str] = {}
         for u in json.loads(users_resp.read()):
@@ -3243,7 +3682,7 @@ def _fetch_draft_capital():
         all_team_names = list(roster_name_by_id.values())
 
         drafts_resp = urllib.request.urlopen(
-            f"https://api.sleeper.app/v1/league/{SLEEPER_LEAGUE_ID_FOR_DRAFT}/drafts", timeout=15
+            f"https://api.sleeper.app/v1/league/{_league_id_for_draft}/drafts", timeout=15
         )
         slot_to_roster: dict[int, int] = {}
         for draft in json.loads(drafts_resp.read()):
@@ -3373,14 +3812,26 @@ def _fetch_draft_capital():
 
 
 @app.get("/api/draft-capital")
-async def get_draft_capital(refresh: str = ""):
+async def get_draft_capital(request: Request, refresh: str = ""):
     """Return draft capital breakdown per team using Sleeper pick ownership
     and the pick value curve from the draft data spreadsheet.
-    Pass ?refresh=1 to force a fresh KTC fetch."""
+
+    Accepts ``?leagueKey=...`` to scope the Sleeper roster + users +
+    drafts calls to a specific league; absent, falls through to the
+    user's saved pref and then the registry default.  Unknown or
+    inactive keys return 400.
+
+    Pass ``?refresh=1`` to force a fresh KTC fetch."""
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
     if refresh:
         _ktc_cache["fetched_at"] = 0  # invalidate cache
     try:
-        result = _fetch_draft_capital()
+        result = _fetch_draft_capital(league_cfg.key)
+        if isinstance(result, dict):
+            result["leagueKey"] = league_cfg.key
         return JSONResponse(content=result)
     except Exception as e:
         logging.error(f"Draft capital computation failed: {e}")
@@ -3525,9 +3976,17 @@ except Exception as _exc:  # noqa: BLE001
 
 
 def _public_league_id() -> str:
-    """Return the current public-facing league id.  Falls back to the
-    same env default used by the private draft-capital route."""
-    return os.getenv("SLEEPER_LEAGUE_ID", SLEEPER_LEAGUE_ID_FOR_DRAFT).strip()
+    """Return the current public-facing league id.
+
+    Routes through the league registry (``league_registry``) so that
+    the ID comes from ``config/leagues/registry.json`` when present
+    and from ``SLEEPER_LEAGUE_ID`` env var as a back-compat fallback.
+    Returns empty string when no league is configured — callers that
+    immediately hit Sleeper should treat that as "no snapshot
+    available" rather than calling ``/league/`` with an empty path.
+    """
+    sid = _league_registry.get_sleeper_league_id()
+    return (sid or "").strip()
 
 
 def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
@@ -4061,8 +4520,38 @@ async def get_public_league_section(section: str, owner: str = "", refresh: str 
 
 
 @app.post("/api/scrape")
-async def trigger_scrape(background_tasks: BackgroundTasks):
-    """Manually trigger a scrape. Returns immediately; scrape runs in background."""
+async def trigger_scrape(request: Request, background_tasks: BackgroundTasks):
+    """Manually trigger a scrape. Returns immediately; scrape runs in background.
+
+    Accepts optional ``?leagueKey=...`` — today the scraper runs the
+    registry's default league regardless, but we still validate the
+    key so a multi-league-aware frontend can't accidentally ask for a
+    retired league.  A non-default key currently returns 501
+    ``not_implemented`` because multi-league scraping isn't wired up
+    yet (that's a future refactor of Dynasty Scraper.py).
+    """
+    # Validate the key first.  The 501 below is a more honest
+    # response than silently scraping the default league when the
+    # caller asked for a specific one.
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+    default_cfg = _league_registry.get_default_league()
+    if default_cfg and league_cfg.key != default_cfg.key:
+        return JSONResponse(
+            status_code=501,
+            content={
+                "error": "multi_league_scrape_not_supported",
+                "message": (
+                    f"Only the default league ({default_cfg.key!r}) can be "
+                    "scraped at this time; multi-league scraping is a future "
+                    "refactor."
+                ),
+                "leagueKey": league_cfg.key,
+            },
+        )
+
     status_payload = _scrape_status_payload()
     if status_payload.get("is_running") or scrape_run_lock.locked():
         _record_scrape_event(
@@ -4246,6 +4735,23 @@ async def auth_sleeper_login(request: Request):
             },
         )
 
+    # Private-app allowlist.  A valid Sleeper handle is necessary but
+    # NOT sufficient — the app is a single-user dashboard.  Anyone
+    # whose username isn't in PRIVATE_APP_ALLOWED_USERNAMES (default:
+    # ``jasonleetucker`` only) gets 403.  Password auth remains the
+    # operator fallback.
+    if username not in PRIVATE_APP_ALLOWED_USERNAMES:
+        log.warning(
+            "sleeper-login rejected for non-allowlisted user %r", username,
+        )
+        return JSONResponse(
+            status_code=403,
+            content={
+                "ok": False,
+                "error": "This app is private.  Contact the operator for access.",
+            },
+        )
+
     sleeper_user_id = str(user_record.get("user_id") or "")
     display_name = str(user_record.get("display_name") or user_record.get("username") or username)
     avatar = str(user_record.get("avatar") or "")
@@ -4380,6 +4886,60 @@ async def put_user_state_api(request: Request):
                 patch["notificationsEmail"] = s
     if "notificationsEnabled" in body:
         patch["notificationsEnabled"] = bool(body.get("notificationsEnabled"))
+    if "activeLeagueKey" in body:
+        # The user's preferred league from the registry.  Validate
+        # against the live registry so a stale/typo value can't
+        # silently land a user on a nonexistent league on next load.
+        # ``None`` / empty string clears the preference → callers fall
+        # back to the registry's default league on next read.
+        raw = body.get("activeLeagueKey")
+        if raw is None or raw == "":
+            patch["activeLeagueKey"] = None
+        elif isinstance(raw, str):
+            candidate = raw.strip()
+            cfg = _league_registry.get_league_by_key(candidate)
+            if cfg is not None and cfg.active:
+                patch["activeLeagueKey"] = cfg.key  # canonicalize via alias lookup
+            # Unknown or inactive league → silently drop.  The
+            # frontend will notice the server didn't echo the key back
+            # and fall through to the default.
+    if "selectedTeamsByLeague" in body:
+        # Per-league selected team map.  Accepts
+        #   {"leagueKey": {"ownerId": "...", "teamName": "...",
+        #                  "rosterId": <int|str>, "managerName": "..."}}
+        # Each entry's leagueKey must resolve against the registry
+        # (aliases canonicalized); unknown / inactive leagues are
+        # dropped.  Null/"" clears the entire map.
+        raw = body.get("selectedTeamsByLeague")
+        if raw is None or raw == "":
+            patch["selectedTeamsByLeague"] = None
+        elif isinstance(raw, dict):
+            clean: dict[str, dict[str, object]] = {}
+            for lkey, spec in raw.items():
+                if not isinstance(lkey, str) or not isinstance(spec, dict):
+                    continue
+                cfg = _league_registry.get_league_by_key(lkey.strip())
+                if cfg is None or not cfg.active:
+                    continue
+                owner_id = str(spec.get("ownerId") or "").strip()
+                team_name = str(spec.get("teamName") or "").strip()
+                if not owner_id and not team_name:
+                    # An empty entry clears that league's selection
+                    # (distinct from not touching the map at all).
+                    clean[cfg.key] = {"ownerId": "", "teamName": ""}
+                    continue
+                entry: dict[str, object] = {
+                    "ownerId": owner_id,
+                    "teamName": team_name,
+                }
+                roster_id = spec.get("rosterId")
+                if roster_id is not None:
+                    entry["rosterId"] = str(roster_id)
+                manager_name = str(spec.get("managerName") or "").strip()
+                if manager_name:
+                    entry["managerName"] = manager_name
+                clean[cfg.key] = entry
+            patch["selectedTeamsByLeague"] = clean
     state = await run_in_threadpool(_user_kv.merge_user_state, username, patch)
     return JSONResponse(
         content={"username": username, "state": state},
@@ -4510,25 +5070,53 @@ async def get_terminal(request: Request):
     authed = bool(session)
     username = str((session or {}).get("username") or "").strip() if authed else ""
 
+    # League routing — validate the key, but DON'T require a loaded
+    # contract yet (we want to fall through to the disk cache below
+    # for the default league).  The loaded-contract check fires
+    # after the in-memory contract is available.
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
     contract = latest_contract_data
     stale = False
     stale_as = None
     if not contract:
         # 503 fallback (Item 3 from the TODO list): try the most
-        # recent cached export before giving up.
-        cached, cached_date = _latest_cached_contract_from_disk()
-        if cached:
-            contract = cached
-            stale = True
-            stale_as = cached_date
-        else:
+        # recent cached export before giving up.  Disk cache is for
+        # the default league only — if a non-default league is
+        # requested we skip the cache and return 503 cleanly.
+        default_cfg = _league_registry.get_default_league()
+        if default_cfg and league_cfg.key == default_cfg.key:
+            cached, cached_date = _latest_cached_contract_from_disk()
+            if cached:
+                contract = cached
+                stale = True
+                stale_as = cached_date
+        if not contract:
             return JSONResponse(
                 status_code=503,
                 content={
                     "error": "No data available yet. First scrape may still be running.",
                     "stale": False,
+                    "leagueKey": league_cfg.key,
                 },
             )
+
+    # Guard: the loaded contract was built for a different league
+    # than the one requested.  Today this only trips for non-default
+    # leagues because the scraper only runs the default league.
+    loaded_league = (contract.get("meta") or {}).get("leagueKey") if isinstance(contract, dict) else None
+    if loaded_league and loaded_league != league_cfg.key:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "data_not_ready",
+                "message": f"No data loaded for league {league_cfg.key!r} yet",
+                "leagueKey": league_cfg.key,
+            },
+        )
 
     params = request.query_params
     team_owner_id = (params.get("team") or params.get("ownerId") or "").strip()
@@ -4639,6 +5227,15 @@ async def post_trade_simulate(request: Request):
     if not isinstance(body, dict):
         return JSONResponse(status_code=400, content={"error": "invalid_body"})
 
+    # Validate leagueKey (body or query).  The contract in memory
+    # must match the resolved league — if not, 503.
+    try:
+        league_cfg = _resolve_league_for_request(
+            request, body=body, require_loaded_contract=True,
+        )
+    except LeagueResolutionError as err:
+        return err.json_response()
+
     team_owner_id = str(body.get("team") or "").strip()
     team_name = str(body.get("teamName") or "").strip()
 
@@ -4653,7 +5250,7 @@ async def post_trade_simulate(request: Request):
     if resolved_team is None:
         return JSONResponse(
             status_code=404,
-            content={"error": "team_not_found"},
+            content={"error": "team_not_found", "leagueKey": league_cfg.key},
         )
 
     def _str_list(key):
@@ -4671,6 +5268,7 @@ async def post_trade_simulate(request: Request):
         picks_in=_str_list("picksIn"),
         picks_out=_str_list("picksOut"),
     )
+    result["leagueKey"] = league_cfg.key
     return JSONResponse(
         content=result,
         headers={"Cache-Control": "no-store"},

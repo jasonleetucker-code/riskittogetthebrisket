@@ -27,11 +27,23 @@ export function useTradeSimulator() {
   const simulate = useCallback(async (body) => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
     try {
+      // Attach the active league key if the caller didn't supply
+      // one.  The backend validates it against the registry and
+      // returns 503 ``data_not_ready`` when the loaded contract is
+      // for a different league — that's a nicer failure mode than
+      // simulating the wrong league silently.
+      const payload = { ...(body || {}) };
+      if (!payload.leagueKey && typeof window !== "undefined") {
+        try {
+          const k = localStorage.getItem("next_active_league_v1") || "";
+          if (k) payload.leagueKey = k;
+        } catch { /* ignore */ }
+      }
       const res = await fetch("/api/trade/simulate", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body || {}),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         let msg = `HTTP ${res.status}`;

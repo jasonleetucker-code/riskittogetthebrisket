@@ -4583,7 +4583,17 @@ def _resolve_league_context(
         "fetched_from_sleeper": False,
     }
 
-    league_id = os.getenv("SLEEPER_LEAGUE_ID", "").strip()
+    # Resolve via the league registry first (reads registry.json when
+    # present, falls back to the SLEEPER_LEAGUE_ID env var).  The
+    # env-var fallback is what keeps existing deployments working
+    # without touching config files.
+    try:
+        from src.api import league_registry as _league_registry  # local import avoids a cycle
+        league_id = (_league_registry.get_sleeper_league_id() or "").strip()
+    except Exception:  # noqa: BLE001 — if the registry module is broken, fall back to env var
+        league_id = ""
+    if not league_id:
+        league_id = os.getenv("SLEEPER_LEAGUE_ID", "").strip()
     if not league_id:
         # No league configured — return the fallback without populating
         # the cache so a later SLEEPER_LEAGUE_ID env change takes

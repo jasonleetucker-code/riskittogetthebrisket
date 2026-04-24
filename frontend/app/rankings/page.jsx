@@ -1,10 +1,11 @@
 "use client";
 
-import { Fragment, useMemo, useState, useCallback } from "react";
+import { Fragment, useMemo, useState, useCallback, useEffect } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { resolvedRank, RANKING_SOURCES, getRetailLabel } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
+import { useTeam } from "@/components/useTeam";
 import {
   tierLabel,
   effectiveTierId,
@@ -440,6 +441,13 @@ export default function RankingsPage() {
     updateSetting("hiddenSiteCols", {});
   }, [updateSetting]);
   const { openPlayerPopup } = useApp();
+  // IDP gating — when the active league has ``idpEnabled: false``
+  // (the new non-IDP league), we strip IDP filter tabs from the
+  // pos-filter dropdown and drop IDP rows from the list.  The
+  // underlying blended board still lives on the backend; we just
+  // don't surface it here.  ``useTeam`` reads the flag off the
+  // registry's league config via ``useLeague``.
+  const { idpEnabled } = useTeam();
   const [query, setQuery] = useState("");
   const [posFilter, setPosFilter] = useState("all");
   const [confFilter, setConfFilter] = useState("all");
@@ -462,6 +470,16 @@ export default function RankingsPage() {
     }
   }, [sortCol]);
 
+  // If the user is viewing an IDP-only filter and then switches to
+  // a league that disables IDP, snap back to "all" so the board
+  // doesn't render empty.  Runs every render but only commits a
+  // state change when the filter is actually stale.
+  useEffect(() => {
+    if (!idpEnabled && (posFilter === "idp" || posFilter === "DL" || posFilter === "LB" || posFilter === "DB")) {
+      setPosFilter("all");
+    }
+  }, [idpEnabled, posFilter]);
+
   // Switch lens: reset sort to default, expand row limit
   const handleLensChange = useCallback((key) => {
     setActiveLens(key);
@@ -483,9 +501,17 @@ export default function RankingsPage() {
   }, []);
 
   // ── Base eligible list ──────────────────────────────────────────
+  // ``idpEnabled=false`` drops every IDP row from the board.  The
+  // rankings pipeline still blends IDP sources globally, but non-IDP
+  // leagues don't render any IDP rows, tabs, or summary counts —
+  // nothing the user of a non-IDP league can trade.
   const eligible = useMemo(() => {
-    return rows.filter(isEligibleForBoard);
-  }, [rows]);
+    const filtered = rows.filter(isEligibleForBoard);
+    if (!idpEnabled) {
+      return filtered.filter((r) => r?.assetClass !== "idp");
+    }
+    return filtered;
+  }, [rows, idpEnabled]);
 
   // ── Trust summary stats ──────────────────────────────────────────
   // Single-pass aggregate — six filters would each walk the full
@@ -1068,7 +1094,7 @@ export default function RankingsPage() {
             <select className="select" value={posFilter} onChange={(e) => setPosFilter(e.target.value)}>
               <option value="all">All</option>
               <option value="offense">OFF</option>
-              <option value="idp">IDP</option>
+              {idpEnabled && <option value="idp">IDP</option>}
               <option value="pick">Picks</option>
               <optgroup label="Rookies">
                 <option value="rookie">All Rookies</option>
@@ -1082,9 +1108,9 @@ export default function RankingsPage() {
                 <option value="RB">RB</option>
                 <option value="WR">WR</option>
                 <option value="TE">TE</option>
-                <option value="DL">DL</option>
-                <option value="LB">LB</option>
-                <option value="DB">DB</option>
+                {idpEnabled && <option value="DL">DL</option>}
+                {idpEnabled && <option value="LB">LB</option>}
+                {idpEnabled && <option value="DB">DB</option>}
               </optgroup>
             </select>
             <select className="select hide-mobile" value={confFilter} onChange={(e) => setConfFilter(e.target.value)}>

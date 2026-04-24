@@ -230,8 +230,23 @@ def retry(max_attempts=3, delay=2, backoff=2, exceptions=(Exception,)):
 # ─────────────────────────────────────────
 # SLEEPER LEAGUE — pulls rostered players automatically
 # ─────────────────────────────────────────
+# The Sleeper league ID comes from the league registry
+# (``config/leagues/registry.json``) when present, otherwise from
+# the ``SLEEPER_LEAGUE_ID`` env var.  The hardcoded fallback at the
+# bottom is a last-resort for a fresh dev box with no registry AND
+# no env var — it preserves the scraper's ability to run standalone
+# without any config.  Multi-league scrape is a future refactor;
+# for now we still scrape exactly one league per run.
+try:
+    from src.api import league_registry as _league_registry  # noqa: E402
+    _registry_league_id = _league_registry.get_sleeper_league_id()
+except Exception:  # noqa: BLE001 — registry is optional at scrape time
+    _registry_league_id = None
 DEFAULT_SLEEPER_LEAGUE_ID = "1312006700437352448"
-SLEEPER_LEAGUE_ID = _env_str("SLEEPER_LEAGUE_ID", DEFAULT_SLEEPER_LEAGUE_ID)
+SLEEPER_LEAGUE_ID = _env_str(
+    "SLEEPER_LEAGUE_ID",
+    _registry_league_id or DEFAULT_SLEEPER_LEAGUE_ID,
+)
 
 # ─────────────────────────────────────────
 # TRADE MOVEMENT ALERTS — email when your roster players move 5%+

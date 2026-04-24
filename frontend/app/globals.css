@@ -4346,6 +4346,110 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   max-width: calc(100vw - 24px);
 }
 
+/* ── League switcher ──────────────────────────────────────────────
+   Mirrors the TeamSwitcher shape so desktop + mobile nav rails
+   look consistent.  The whole widget is hidden by JS when only one
+   league is configured (registry default), so single-league
+   deployments never see it. */
+.league-switcher {
+  position: relative;
+  display: inline-block;
+}
+.league-switcher-toggle {
+  appearance: none;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  transition: border-color 120ms ease, color 120ms ease;
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 0.76rem;
+  max-width: 180px;
+}
+.league-switcher-toggle:hover,
+.league-switcher--open .league-switcher-toggle {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+.league-switcher-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+.league-switcher-caret {
+  font-size: 0.6rem;
+  color: var(--muted);
+}
+.league-switcher-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-width: 220px;
+  max-height: 60vh;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  z-index: 120;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+.league-switcher-menu li {
+  list-style: none;
+  padding: 0;
+}
+.league-switcher-option {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: inherit;
+  font-size: 0.78rem;
+  padding: 6px 10px;
+}
+.league-switcher-option:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.league-switcher-option.is-active {
+  background: rgba(94, 234, 212, 0.08);
+  color: var(--cyan);
+}
+.league-switcher-option-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.league-switcher-option-meta {
+  font-size: 0.66rem;
+  color: var(--muted);
+}
+.league-switcher--mobile .league-switcher-toggle {
+  font-size: 0.72rem;
+  padding: 4px 8px;
+  max-width: 120px;
+}
+.league-switcher--mobile .league-switcher-menu {
+  min-width: 200px;
+  max-width: calc(100vw - 24px);
+}
+
 /* ── Terminal Landing: layout + primitives ───────────────────────── */
 .terminal {
   display: flex;
@@ -4520,6 +4624,18 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--muted);
+}
+.tc-header-eyebrow-sep {
+  color: var(--border);
+  /* Dim the middot so the league label reads as secondary info
+     rather than a peer of "My Team" — subtle by design. */
+  opacity: 0.55;
+}
+.tc-header-eyebrow-league {
+  color: var(--cyan);
+  /* Same size as "My Team" eyebrow but de-emphasized via color
+     only — reads as "you're on THIS league" without competing
+     with the team name below. */
 }
 .tc-header-team {
   margin: 2px 0 0;

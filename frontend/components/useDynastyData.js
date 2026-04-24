@@ -45,6 +45,21 @@ export function useDynastyData() {
   const [error, setError] = useState("");
   const [source, setSource] = useState("");
   const [rawData, setRawData] = useState(null);
+  // Bumped when the active league changes so the fetch effect below
+  // re-fires.  Today's endpoints don't read leagueId (Phase 1 of the
+  // multi-league migration adds that); including the bump in the
+  // effect deps means the plumbing is ready the moment the endpoint
+  // starts routing by league.
+  const [leagueRefreshKey, setLeagueRefreshKey] = useState(0);
+
+  useEffect(() => {
+    function onLeagueChanged() {
+      setLeagueRefreshKey((v) => v + 1);
+    }
+    if (typeof window === "undefined") return undefined;
+    window.addEventListener("league:changed", onLeagueChanged);
+    return () => window.removeEventListener("league:changed", onLeagueChanged);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -84,7 +99,7 @@ export function useDynastyData() {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteOverridesKey, tepMultiplier]);
+  }, [siteOverridesKey, tepMultiplier, leagueRefreshKey]);
 
   const rows = useMemo(() => {
     try {

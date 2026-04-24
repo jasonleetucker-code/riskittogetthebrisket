@@ -70,6 +70,24 @@ KNOWN_KEYS = frozenset({
     "dismissedSignals",
     "dismissalAliases",
     "updatedAt",
+    # League preference — the user's currently-active league key from
+    # the league registry (``src/api/league_registry``).  Persists
+    # across devices so that a user who switches to the non-IDP
+    # league on mobile sees the same league on desktop.  Unvalidated
+    # here; the PUT endpoint validates against the live registry.
+    "activeLeagueKey",
+    # Per-league selected team.  Shape:
+    #   ``{ [leagueKey]: {ownerId, teamName, rosterId?, managerName?} }``
+    # Takes precedence over the legacy top-level ``selectedTeam`` when
+    # a per-league entry exists for the active league.  The legacy
+    # field is kept for back-compat — it's treated as the default
+    # league's entry on read, and writes mirror to both for one more
+    # release so pre-migration clients don't flip empty on first load.
+    "selectedTeamsByLeague",
+    # Notification preferences already flow through ``merge_user_state``
+    # — listed here so new readers know the schema includes them.
+    "notificationsEmail",
+    "notificationsEnabled",
 })
 
 # Process-wide lock around connection setup / migration so module

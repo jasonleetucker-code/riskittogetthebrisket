@@ -18,7 +18,12 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any
 
-DEFAULT_SLEEPER_LEAGUE_ID = "1312006700437352448"
+# Historical note: this file used to export
+# ``DEFAULT_SLEEPER_LEAGUE_ID`` as a hardcoded fallback.  The constant
+# was never consumed outside its own module (confirmed by grep on
+# 2026-04-24) — the scraper resolves the league ID through
+# ``src/api/league_registry`` with its own env-var fallback, not via
+# this builder.  Removed during the multi-league audit.
 KTC_UNIVERSE_LIMIT = 525
 
 # Source type classification for the valuation pipeline
