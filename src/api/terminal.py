@@ -1106,6 +1106,7 @@ def build_terminal_payload(
     user_state: dict[str, Any] | None = None,
     history_window_days: int | None = None,
     public_mode: bool = False,
+    league_key: str | None = None,
 ) -> dict[str, Any]:
     """Assemble the full landing-page payload.
 
@@ -1200,16 +1201,37 @@ def build_terminal_payload(
     watchlist_block: list[dict[str, Any]] = []
     roster_rows: list[dict[str, Any]] = []
 
-    # Dismissals applied to signals.
+    # Dismissals applied to signals.  When ``league_key`` is passed,
+    # read from ``dismissedSignalsByLeague[leagueKey]`` (nested
+    # per-league) and fall back to the flat ``dismissedSignals`` field
+    # so users who haven't written any dismissals on the new
+    # per-league schema yet (everyone pre-migration) still see their
+    # existing dismissals honored for their default league.  See
+    # ``user_kv.active_dismissals`` for the resolution rules.
     active_dismissals: dict[str, int] = {}
     if isinstance(user_state, dict):
-        ds = user_state.get("dismissedSignals")
-        if isinstance(ds, dict):
-            for k, v in ds.items():
-                try:
-                    active_dismissals[str(k)] = int(v)
-                except (TypeError, ValueError):
-                    continue
+        key = str(league_key or "").strip()
+        ds_by_league = user_state.get("dismissedSignalsByLeague")
+        if key and isinstance(ds_by_league, dict):
+            bucket = ds_by_league.get(key)
+            if isinstance(bucket, dict):
+                for k, v in bucket.items():
+                    try:
+                        active_dismissals[str(k)] = int(v)
+                    except (TypeError, ValueError):
+                        continue
+        # Legacy flat field — layer in for the default league only so
+        # dismissals made before the migration still take effect.
+        # For non-default leagues we intentionally skip the flat field
+        # because its entries belong to the default league's context.
+        if not active_dismissals:
+            ds = user_state.get("dismissedSignals")
+            if isinstance(ds, dict):
+                for k, v in ds.items():
+                    try:
+                        active_dismissals[str(k)] = int(v)
+                    except (TypeError, ValueError):
+                        continue
 
     if resolved_team and isinstance(resolved_team, dict):
         owner_id = str(resolved_team.get("ownerId") or "").strip()

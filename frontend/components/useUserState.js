@@ -143,11 +143,31 @@ async function writeServerState(patch) {
   }
 }
 
+// Read the active league key from localStorage — same key
+// ``useLeague`` writes on every switcher change.  Can't import
+// ``useLeague`` here because this module is imported BY
+// ``useLeague`` (cycle).  localStorage is the cycle-safe bridge.
+const LEAGUE_LOCAL_KEY = "next_active_league_v1";
+function _readActiveLeagueKey() {
+  if (typeof window === "undefined") return "";
+  try {
+    return localStorage.getItem(LEAGUE_LOCAL_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
 async function dismissSignalOnServer(signalKey, ttlMs, opts) {
   try {
     const payload = { signalKey, ttlMs };
     if (opts?.aliasSleeperId) payload.aliasSleeperId = opts.aliasSleeperId;
     if (opts?.aliasDisplayName) payload.aliasDisplayName = opts.aliasDisplayName;
+    // Scope the dismissal to the active league so flipping a SELL
+    // off on league A doesn't silence the same player's alert on
+    // league B.  Backend falls through to legacy flat storage when
+    // leagueKey is absent or invalid.
+    const leagueKey = _readActiveLeagueKey();
+    if (leagueKey) payload.leagueKey = leagueKey;
     const res = await fetch("/api/user/signals/dismiss", {
       method: "POST",
       credentials: "same-origin",
@@ -167,11 +187,14 @@ async function dismissSignalOnServer(signalKey, ttlMs, opts) {
 
 async function restoreSignalOnServer(signalKey) {
   try {
+    const payload = { signalKey };
+    const leagueKey = _readActiveLeagueKey();
+    if (leagueKey) payload.leagueKey = leagueKey;
     const res = await fetch("/api/user/signals/restore", {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ signalKey }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) return null;
     const body = await res.json();

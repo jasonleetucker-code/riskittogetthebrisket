@@ -68,7 +68,17 @@ KNOWN_KEYS = frozenset({
     "selectedTeam",
     "watchlist",
     "dismissedSignals",
+    # Per-league nested dismissals: ``{leagueKey: {signalKey: expiresAt}}``.
+    # Takes precedence over the flat field when ``active_dismissals``
+    # is called with a ``league_key``.  Dismissing a signal on league
+    # A no longer silences the same player's signal on league B.
+    "dismissedSignalsByLeague",
     "dismissalAliases",
+    # Per-league signal-alert state used by signal_alerts.py for the
+    # 12-hour cooldown: ``{leagueKey: {stateKey: {signal, notifiedAt}}}``.
+    # Prevents a SELL in league A from silently suppressing the same
+    # player's SELL notification in league B.
+    "signalAlertStateByLeague",
     "updatedAt",
     # League preference — the user's currently-active league key from
     # the league registry (``src/api/league_registry``).  Persists
@@ -385,6 +395,42 @@ def merge_user_state(
         conn.close()
 
 
+def _merge_per_league_dismissals(
+    existing_by_league: dict[str, Any] | None,
+    league_key: str,
+    add: dict[str, int] | None = None,
+    remove: set[str] | None = None,
+) -> dict[str, dict[str, int]]:
+    """Helper: layer ``add`` + ``remove`` onto
+    ``existing_by_league[league_key]`` and return the full map.
+
+    Keeps other leagues' dismissal buckets untouched — that's the
+    whole point of nesting.  Used by ``dismiss_signal`` +
+    ``undismiss_signal`` below.
+    """
+    by_league: dict[str, dict[str, int]] = {}
+    if isinstance(existing_by_league, dict):
+        for k, v in existing_by_league.items():
+            if isinstance(k, str) and isinstance(v, dict):
+                by_league[k] = {
+                    str(sk): int(sv)
+                    for sk, sv in v.items()
+                    if str(sk)
+                }
+    bucket = dict(by_league.get(league_key) or {})
+    if add:
+        for k, v in add.items():
+            try:
+                bucket[str(k)] = int(v)
+            except (TypeError, ValueError):
+                continue
+    if remove:
+        for k in remove:
+            bucket.pop(str(k), None)
+    by_league[league_key] = bucket
+    return by_league
+
+
 def dismiss_signal(
     username: str,
     signal_key: str,
@@ -392,6 +438,7 @@ def dismiss_signal(
     ttl_ms: int = 7 * 24 * 3600 * 1000,
     alias_sleeper_id: str | None = None,
     alias_display_name: str | None = None,
+    league_key: str | None = None,
     path: Path | None = None,
 ) -> dict[str, Any]:
     """Dismiss ``signal_key`` for ``ttl_ms`` milliseconds.
@@ -400,19 +447,29 @@ def dismiss_signal(
     again on the next refresh but short enough that a stale
     dismissal doesn't permanently hide a re-armed signal.
 
+    ``league_key`` (when provided) scopes the dismissal to one league.
+    Stored under ``dismissedSignalsByLeague[leagueKey][signalKey]`` so
+    dismissing a signal on league A doesn't silence the same player's
+    signal on league B.  When ``league_key`` is None or empty the
+    legacy flat ``dismissedSignals`` is written instead — back-compat
+    path for pre-migration callers + anonymous frontend usage.
+
     Optional ``alias_sleeper_id`` + ``alias_display_name`` record a
-    rename-resistant mapping: the UI can pass the Sleeper ID of the
-    player whose signal was dismissed, and when the player later
-    appears under a different display name the dismissal can still
-    be matched by looking up the alias.  Stored in a separate
-    ``dismissalAliases`` map so the primary dismissal key (``name::
-    tag``) stays a pure string key — existing consumers don't have
-    to change.
+    rename-resistant mapping (global across leagues — Sleeper IDs are
+    NFL-wide, the alias isn't league-scoped).
     """
     if not username or not signal_key:
         return get_user_state(username, path=path)
     expires_at = _now_ms() + max(1_000, int(ttl_ms))
-    patch: dict[str, Any] = {"dismissedSignals": {str(signal_key): expires_at}}
+    patch: dict[str, Any] = {}
+    key = str(league_key or "").strip()
+    if key:
+        existing = get_user_state(username, path=path).get("dismissedSignalsByLeague")
+        patch["dismissedSignalsByLeague"] = _merge_per_league_dismissals(
+            existing, key, add={str(signal_key): expires_at},
+        )
+    else:
+        patch["dismissedSignals"] = {str(signal_key): expires_at}
     if alias_sleeper_id and alias_display_name:
         patch["dismissalAliases"] = {str(alias_display_name): str(alias_sleeper_id)}
     return merge_user_state(username, patch, path=path)
@@ -422,31 +479,68 @@ def undismiss_signal(
     username: str,
     signal_key: str,
     *,
+    league_key: str | None = None,
     path: Path | None = None,
 ) -> dict[str, Any]:
-    """Remove a single dismissal (user chose to re-surface the signal)."""
+    """Remove a single dismissal (user chose to re-surface the signal).
+
+    ``league_key`` scopes the removal to one league's bucket; legacy
+    callers without a key modify the flat ``dismissedSignals`` map.
+    """
     if not username or not signal_key:
         return get_user_state(username, path=path)
     conn = _connect(path)
     try:
         entry = _read_row(conn, username)
-        dismissed = entry.get("dismissedSignals")
-        if isinstance(dismissed, dict) and str(signal_key) in dismissed:
-            dismissed.pop(str(signal_key), None)
-            entry["dismissedSignals"] = dismissed
+        changed = False
+        key = str(league_key or "").strip()
+        if key:
+            by_league = entry.get("dismissedSignalsByLeague")
+            if isinstance(by_league, dict):
+                bucket = by_league.get(key)
+                if isinstance(bucket, dict) and str(signal_key) in bucket:
+                    bucket.pop(str(signal_key), None)
+                    by_league[key] = bucket
+                    entry["dismissedSignalsByLeague"] = by_league
+                    changed = True
+        else:
+            dismissed = entry.get("dismissedSignals")
+            if isinstance(dismissed, dict) and str(signal_key) in dismissed:
+                dismissed.pop(str(signal_key), None)
+                entry["dismissedSignals"] = dismissed
+                changed = True
+        if changed:
             _write_row(conn, username, entry)
         return dict(entry)
     finally:
         conn.close()
 
 
-def active_dismissals(username: str, *, path: Path | None = None) -> dict[str, int]:
-    """Return the ``{signalKey: expiresAtMs}`` dict with expireds pruned."""
+def active_dismissals(
+    username: str,
+    *,
+    league_key: str | None = None,
+    path: Path | None = None,
+) -> dict[str, int]:
+    """Return the ``{signalKey: expiresAtMs}`` dict with expireds pruned.
+
+    ``league_key`` returns just that league's bucket (merged with the
+    legacy flat dismissals for the default league as a soft migration
+    path).  Omitted → returns the flat legacy field only (pre-migration
+    behaviour for callers that haven't adopted league scoping yet).
+    """
     state = get_user_state(username, path=path)
-    dismissed = state.get("dismissedSignals")
-    if not isinstance(dismissed, dict):
-        return {}
-    return dict(dismissed)
+    key = str(league_key or "").strip()
+    if not key:
+        dismissed = state.get("dismissedSignals")
+        return dict(dismissed) if isinstance(dismissed, dict) else {}
+    by_league = state.get("dismissedSignalsByLeague")
+    bucket = {}
+    if isinstance(by_league, dict):
+        b = by_league.get(key)
+        if isinstance(b, dict):
+            bucket = {str(k): int(v) for k, v in b.items() if isinstance(v, (int, float))}
+    return bucket
 
 
 def dismissal_aliases(username: str, *, path: Path | None = None) -> dict[str, str]:

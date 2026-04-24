@@ -181,6 +181,67 @@ def test_process_user_alerts_skips_when_no_email(kv_path):
     assert result["reason"] == "no_email"
 
 
+def test_cooldown_is_scoped_per_league(kv_path):
+    """The #1 pre-refactor bleed: a SELL signal on Ja'Marr Chase
+    in league A at 10am must NOT suppress the same player's SELL
+    alert in league B at 11am.  Fresh per-league state means the
+    12-hour cooldown only looks at league B's bucket.
+    """
+    sig = _sig("Josh Allen", "elite_stable", "SELL", sid="4017")
+
+    # League A: first fire — transition emitted.
+    a1 = signal_alerts.detect_signal_transitions(
+        "alice", [sig], path=kv_path, league_key="dynasty_main",
+    )
+    assert len(a1) == 1
+
+    # Same player, same signal, league B — different bucket, so
+    # this must ALSO fire even though the cooldown in league A
+    # just set notifiedAt = now.
+    b1 = signal_alerts.detect_signal_transitions(
+        "alice", [sig], path=kv_path, league_key="dynasty_new",
+    )
+    assert len(b1) == 1, (
+        "league B fire suppressed by league A's cooldown — per-league "
+        "bucketing is broken"
+    )
+
+    # Re-fire in league A within the cooldown window: correctly
+    # suppressed (same-league flicker guard is what the cooldown is
+    # for in the first place).
+    a2 = signal_alerts.detect_signal_transitions(
+        "alice", [sig], path=kv_path, league_key="dynasty_main",
+    )
+    assert a2 == [], "league A cooldown should still guard same-league flicker"
+
+
+def test_legacy_flat_state_read_for_default_league(kv_path):
+    """Pre-migration state lives in the flat ``signalAlertState``
+    field.  The default-league code path (``league_key=None`` or
+    empty) must still read + write it so users who had cooldowns
+    before the upgrade don't re-fire everything on first run.
+    """
+    # Seed a pre-migration state blob.
+    from src.api import user_kv
+    seeded = {
+        "signalAlertState": {
+            "sid:4017::elite_stable": {
+                "signal": "SELL",
+                "notifiedAt": signal_alerts._utc_now_ms(),
+            }
+        }
+    }
+    user_kv.merge_user_state("alice", seeded, path=kv_path)
+
+    # Legacy call (no league_key) — must see prior cooldown and
+    # suppress.
+    sig = _sig("Josh Allen", "elite_stable", "SELL", sid="4017")
+    legacy = signal_alerts.detect_signal_transitions(
+        "alice", [sig], path=kv_path,  # no league_key
+    )
+    assert legacy == [], "legacy flat signalAlertState must still gate cooldowns"
+
+
 def test_process_user_alerts_honors_delivery_error(kv_path):
     def boom(to, s, b):
         raise RuntimeError("smtp unreachable")

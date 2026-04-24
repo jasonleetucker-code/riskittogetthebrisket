@@ -7,16 +7,27 @@ user, and queues a delivery via whatever transport is configured
 
 State model
 -----------
-For each (username, signalKey) pair we persist two facts:
+For each (username, leagueKey, signalKey) triple we persist two
+facts:
 
 * ``last_seen_signal`` — the most recent signal the user saw for
-  this player+tag.  Compared against the current signal to decide
-  whether to alert.
+  this player+tag IN THIS LEAGUE.  Compared against the current
+  signal to decide whether to alert.
 * ``last_notified_at`` — when we last fired an alert for this
-  key, so we don't spam the user if they ignore two evaluations
+  triple, so we don't spam the user if they ignore two evaluations
   in a row.
 
-Both are stored in user_kv under the ``signalAlertState`` key.
+Stored in user_kv under ``signalAlertStateByLeague[leagueKey]``.
+Legacy ``signalAlertState`` (un-nested) is read as a fallback for
+the default league only so pre-migration state keeps working —
+see ``_load_alert_state``.
+
+Why per-league — the scenario this fixes: a SELL signal fires for
+Ja'Marr Chase in league A at 10am → alert sent → same signal
+fires for the same user's league B roster at 11am.  Under the old
+single-bucket scheme the 12-hour cooldown saw "already notified"
+and silently dropped league B's alert.  Nested by league each
+cooldown is independent.
 
 Delivery is pluggable — the default ``delivery_email`` uses the
 existing ``ALERT_TO`` / ``ALERT_FROM`` / ``ALERT_PASSWORD`` SMTP
@@ -54,11 +65,54 @@ def _utc_now_ms() -> int:
     return int(time.time() * 1000)
 
 
+def _load_alert_state(
+    user_state: dict[str, Any],
+    league_key: str | None,
+) -> dict[str, Any]:
+    """Return the signalAlertState bucket for a specific league.
+
+    Resolution order (each step is also a one-time implicit
+    migration — whatever wins the read is what subsequent writes
+    use):
+
+      1. ``signalAlertStateByLeague[leagueKey]`` (new shape)
+      2. Legacy flat ``signalAlertState`` IF this is the user's
+         default-league query (empty league_key or matches
+         registry default).  Pre-migration state doesn't lose
+         its cooldowns on upgrade.
+      3. Empty dict.
+
+    We don't auto-rewrite the legacy field on read — too easy to
+    race a concurrent write.  The first write through
+    ``detect_signal_transitions`` below stores to the new shape
+    and leaves the legacy field alone; on the next read the
+    legacy bucket may drift out of date, which is fine because
+    once the new shape is populated we never read the legacy one
+    again for that league.
+    """
+    by_league = user_state.get("signalAlertStateByLeague") or {}
+    if not isinstance(by_league, dict):
+        by_league = {}
+    key = str(league_key or "").strip()
+    if key and isinstance(by_league.get(key), dict):
+        return dict(by_league[key])
+    # Legacy fallback — only for the default-league request path.
+    # We assume the caller passes "" / None only for default-league
+    # scrape runs; a new-league run passes an explicit key and
+    # correctly gets an empty state on first evaluation.
+    if not key:
+        legacy = user_state.get("signalAlertState") or {}
+        if isinstance(legacy, dict):
+            return dict(legacy)
+    return {}
+
+
 def detect_signal_transitions(
     username: str,
     signals: list[dict[str, Any]],
     *,
     path: Any = None,
+    league_key: str | None = None,
 ) -> list[dict[str, Any]]:
     """Compare the live signal list to the user's last-seen state
     and return the subset that represents a newly-actionable
@@ -68,8 +122,15 @@ def detect_signal_transitions(
       * ``signal in ACTIONABLE_SIGNALS``
       * AND either no prior signal exists OR the prior signal was
         different
-      * AND we haven't already notified on this same (key, signal)
-        within _MIN_NOTIFY_INTERVAL_HOURS
+      * AND we haven't already notified on this same
+        (leagueKey, key, signal) within _MIN_NOTIFY_INTERVAL_HOURS
+
+    ``league_key`` scopes the cooldown state.  Omitted / empty →
+    treated as the legacy single-league path (reads + writes the
+    un-nested ``signalAlertState`` for back-compat with pre-
+    multi-league deployments).  Passed explicitly for each
+    active league during the alert sweep so cooldowns don't
+    bleed.
 
     Writes the new state back to user_kv.  Returns the list of
     alerts to deliver (the caller actually sends them).
@@ -78,9 +139,7 @@ def detect_signal_transitions(
         return []
 
     user_state = _user_kv.get_user_state(username, path=path)
-    alert_state = user_state.get("signalAlertState") or {}
-    if not isinstance(alert_state, dict):
-        alert_state = {}
+    alert_state = _load_alert_state(user_state, league_key)
 
     now = _utc_now_ms()
     min_interval_ms = int(_MIN_NOTIFY_INTERVAL_HOURS * 3600 * 1000)
@@ -140,11 +199,32 @@ def detect_signal_transitions(
     # Persist the updated state even when no transitions fired —
     # we still want to remember "last seen" so the first evaluation
     # after a quiet period doesn't flood the user.
-    _user_kv.merge_user_state(
-        username,
-        {"signalAlertState": new_state},
-        path=path,
-    )
+    #
+    # Storage shape: when a league_key is present, nest under
+    # ``signalAlertStateByLeague[leagueKey]``.  When absent (legacy
+    # single-league callers) keep writing the flat field — that's
+    # what pre-migration state reads on the next run.
+    key = str(league_key or "").strip()
+    if key:
+        # Merge with whatever other leagues are already stored so
+        # we don't clobber them.  ``merge_user_state`` does shallow
+        # dict-merge at the top level, so nesting one extra level
+        # means each league's bucket updates atomically.
+        existing_by_league = user_state.get("signalAlertStateByLeague") or {}
+        if not isinstance(existing_by_league, dict):
+            existing_by_league = {}
+        next_by_league = {**existing_by_league, key: new_state}
+        _user_kv.merge_user_state(
+            username,
+            {"signalAlertStateByLeague": next_by_league},
+            path=path,
+        )
+    else:
+        _user_kv.merge_user_state(
+            username,
+            {"signalAlertState": new_state},
+            path=path,
+        )
     return transitions
 
 
@@ -188,6 +268,7 @@ def process_user_alerts(
     email: str | None = None,
     delivery: Callable[[str, str, str], bool] | None = None,
     path: Any = None,
+    league_key: str | None = None,
 ) -> dict[str, Any]:
     """End-to-end: detect transitions + deliver via ``delivery``.
 
@@ -201,8 +282,13 @@ def process_user_alerts(
 
     ``delivery`` is called as ``delivery(to, subject, body) -> bool``
     so tests can pass a stub to inspect the payload without SMTP.
+
+    ``league_key`` scopes the cooldown (see ``detect_signal_transitions``).
+    Omitted → legacy single-league behaviour.
     """
-    transitions = detect_signal_transitions(username, signals, path=path)
+    transitions = detect_signal_transitions(
+        username, signals, path=path, league_key=league_key,
+    )
     if not transitions:
         return {"transitions": 0, "delivered": False, "reason": "no_transitions"}
     if not email:
