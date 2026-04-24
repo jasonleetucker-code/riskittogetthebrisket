@@ -1187,14 +1187,37 @@ export default function TradePage() {
       // Resolve each KTC-returned name → our canonical row.  Our
       // board and KTC share pick-name shapes ("2026 Early 1st") and
       // most player names verbatim, so a direct rowByName hit
-      // covers the common case.  For near-matches we punt and
-      // surface the entry as unmatched so the user knows to add it
-      // manually rather than silently dropping it.
+      // covers the common case.  For near-matches we try a ladder
+      // of increasingly permissive lookups (case-insensitive,
+      // whitespace-normalized, suffix-stripped) before giving up —
+      // historically this silently dropped picks + "Jr./III"
+      // variants.  Residual misses are surfaced to the user.
+      const _normalize = (s) =>
+        String(s || "")
+          .toLowerCase()
+          .replace(/[.']/g, "")
+          .replace(/\s+/g, " ")
+          .replace(/\s+(jr|sr|ii|iii|iv|v)$/i, "")
+          .trim();
+      const lowerIndex = new Map();
+      const normIndex = new Map();
+      for (const r of rows) {
+        if (!r?.name) continue;
+        const low = r.name.toLowerCase();
+        if (!lowerIndex.has(low)) lowerIndex.set(low, r);
+        const norm = _normalize(r.name);
+        if (!normIndex.has(norm)) normIndex.set(norm, r);
+      }
       const resolveBatch = (entries) => {
         const found = [];
         const missing = [];
         for (const entry of entries) {
-          const row = rowByName.get(entry.name);
+          // 1. Exact case match — fast path, covers 99%.
+          let row = rowByName.get(entry.name);
+          // 2. Case-insensitive match.
+          if (!row) row = lowerIndex.get(String(entry.name || "").toLowerCase());
+          // 3. Normalized (punctuation / whitespace / suffix-stripped).
+          if (!row) row = normIndex.get(_normalize(entry.name));
           if (row) found.push(row);
           else missing.push(entry.name);
         }

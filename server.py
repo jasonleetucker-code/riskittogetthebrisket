@@ -432,7 +432,7 @@ def _create_auth_session(
     so logs and audit tooling can tell them apart.
     """
     session_id = uuid.uuid4().hex
-    auth_sessions[session_id] = {
+    payload = {
         "username": str(username or ""),
         "sleeper_user_id": str(sleeper_user_id or ""),
         "display_name": str(display_name or username or ""),
@@ -440,6 +440,18 @@ def _create_auth_session(
         "auth_method": str(auth_method or "password"),
         "created_at": _utc_now_iso(),
     }
+    auth_sessions[session_id] = payload
+    # Persist the session so a deploy/restart doesn't force a re-login.
+    # Best-effort: any SQLite failure falls through to in-memory-only
+    # behavior (the existing behavior — no regression).
+    try:
+        from src.api import session_store as _ss
+        _ss.persist(
+            session_id, payload,
+            allowlist=PRIVATE_APP_ALLOWED_USERNAMES,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("session_store persist in _create_auth_session failed: %s", exc)
     if len(auth_sessions) > 5000:
         oldest = sorted(
             auth_sessions.items(),
@@ -454,6 +466,11 @@ def _clear_auth_session(request: Request) -> None:
     session_id = str(request.cookies.get(JASON_AUTH_COOKIE_NAME, "")).strip()
     if session_id:
         auth_sessions.pop(session_id, None)
+        try:
+            from src.api import session_store as _ss
+            _ss.evict(session_id)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("session_store evict failed: %s", exc)
 
 
 def _auth_redirect_response(request: Request, default_next: str = "/app") -> RedirectResponse:
@@ -1662,6 +1679,18 @@ async def lifespan(app: FastAPI):
     else:
         log.info("No cached data found — dashboard will show empty until first scrape completes")
 
+    # 1b. Hydrate persisted auth sessions so users don't have to re-login
+    # on every deploy.  Any failure here falls through to empty in-memory
+    # sessions — the existing pre-persistence behavior — so a broken
+    # session store can never brick auth entirely.
+    try:
+        from src.api import session_store as _ss
+        hydrated = _ss.hydrate(allowlist=PRIVATE_APP_ALLOWED_USERNAMES)
+        auth_sessions.update(hydrated)
+        log.info("session_store: hydrated %d sessions from disk", len(hydrated))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("session_store hydrate on startup failed: %s", exc)
+
     # 2. Start first scrape in background (don't block startup)
     async def initial_scrape():
         await asyncio.sleep(3)  # small delay to let server finish booting
@@ -1778,8 +1807,33 @@ async def _private_api_gate(request: Request, call_next):
     allowlist.  Page routes still redirect via
     ``_require_auth_or_redirect``; static/_next assets aren't
     touched.
+
+    Also applies rate limiting to public endpoints only — signed-
+    in users on private endpoints aren't subject to the limit
+    (they already paid the auth cost, and it's just Jason anyway).
     """
     path = request.url.path or ""
+    # Rate limit public endpoints to protect against scraper abuse.
+    if path.startswith("/api/") and _is_public_api_path(path):
+        client_ip = _client_ip_from_request(request)
+        try:
+            from src.api import rate_limit as _rl
+            limited, retry_after = _rl.should_rate_limit(client_ip)
+        except Exception:  # noqa: BLE001 — never let rate-limiter break the gate
+            limited, retry_after = False, 0
+        if limited:
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": "rate_limited",
+                    "message": "Too many requests — slow down.",
+                    "retryAfterSeconds": retry_after,
+                },
+                headers={
+                    "Cache-Control": "no-store",
+                    "Retry-After": str(retry_after),
+                },
+            )
     if path.startswith("/api/") and not _is_public_api_path(path):
         if not _is_authenticated(request):
             return JSONResponse(
@@ -1788,6 +1842,19 @@ async def _private_api_gate(request: Request, call_next):
                 headers={"Cache-Control": "no-store"},
             )
     return await call_next(request)
+
+
+def _client_ip_from_request(request: Request) -> str:
+    """Prefer ``X-Forwarded-For`` (nginx sets it for us in prod);
+    fall back to ``request.client.host``."""
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        # First entry in the chain is the original client.
+        first = xff.split(",")[0].strip()
+        if first:
+            return first
+    client = request.client
+    return client.host if client else ""
 
 def _proxy_next(path: str) -> tuple[Response | None, str | None]:
     """
@@ -5764,6 +5831,195 @@ def _deliver_email_smtp(to: str, subject: str, body: str) -> bool:
     except Exception as exc:  # noqa: BLE001
         log.warning("signal-alert SMTP delivery error to %s: %s", to, exc)
         return False
+
+
+# ── Admin endpoints (Phase 11 follow-ons) ────────────────────────
+#
+# Gated on both: (1) a valid session AND (2) an explicit admin
+# username check against PRIVATE_APP_ALLOWED_USERNAMES.  Every
+# admin action is logged with username + action for audit.
+
+def _require_admin_session(request: Request):
+    """Returns the session dict on success; returns a JSONResponse
+    error on failure.  Caller pattern:
+
+        session_or_err = _require_admin_session(request)
+        if isinstance(session_or_err, JSONResponse):
+            return session_or_err
+        session = session_or_err
+    """
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    username = str(session.get("username") or "").strip().lower()
+    if not PRIVATE_APP_ALLOWED_USERNAMES or username not in PRIVATE_APP_ALLOWED_USERNAMES:
+        return JSONResponse(
+            status_code=403,
+            content={"error": "admin_required", "message": "Allowlisted users only."},
+        )
+    return session
+
+
+@app.post("/api/admin/nfl-data/flush")
+async def post_admin_nfl_data_flush(request: Request):
+    """Flush every nfl_data cache entry (forces next fetch to go
+    upstream).  Use when an upstream schema change is suspected
+    and cached parquet is stale.
+    """
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
+    session = session_or_err
+    from src.nfl_data import cache as _nflc
+    cache_dir = _nflc._default_cache_dir()  # noqa: SLF001
+    deleted = 0
+    try:
+        if cache_dir.exists():
+            for p in cache_dir.iterdir():
+                try:
+                    p.unlink()
+                    deleted += 1
+                except OSError:
+                    pass
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(
+            status_code=500,
+            content={"error": "flush_failed", "message": str(exc)},
+        )
+    log.info(
+        "admin action: nfl_data flush by %s — %d entries evicted",
+        session.get("username"), deleted,
+    )
+    return JSONResponse(content={"ok": True, "evicted": deleted})
+
+
+@app.post("/api/admin/sessions/force-logout-all")
+async def post_admin_force_logout_all(request: Request):
+    """Emergency: sign-out-everyone hammer.  Wipes both the in-memory
+    dict AND the persistent store so a stolen session / compromise
+    can be remediated without a deploy."""
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
+    session = session_or_err
+    in_mem_count = len(auth_sessions)
+    auth_sessions.clear()
+    persisted = 0
+    try:
+        from src.api import session_store as _ss
+        persisted = _ss.force_clear_all()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("force_clear_all session_store: %s", exc)
+    log.warning(
+        "admin action: FORCE-LOGOUT-ALL by %s — %d in-memory + %d persisted",
+        session.get("username"), in_mem_count, persisted,
+    )
+    return JSONResponse(content={
+        "ok": True,
+        "inMemoryCleared": in_mem_count,
+        "persistedCleared": persisted,
+    })
+
+
+@app.post("/api/admin/signal-state/migrate")
+async def post_admin_signal_state_migrate(request: Request):
+    """One-shot migration: legacy ``signalAlertState`` →
+    ``signalAlertStateByLeague[defaultLeagueKey]`` for every user.
+    Idempotent."""
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
+    session = session_or_err
+    from src.api import signal_state_migration as _mig
+    default_cfg = _league_registry.get_default_league()
+    if default_cfg is None:
+        return JSONResponse(
+            status_code=500,
+            content={"error": "no_default_league"},
+        )
+    result = _mig.migrate_all(default_league_key=default_cfg.key)
+    log.info(
+        "admin action: signal-state migrate by %s — counts=%s",
+        session.get("username"), result.get("counts"),
+    )
+    return JSONResponse(content=result)
+
+
+@app.get("/api/player/{sleeper_id}/realized")
+async def get_player_realized(sleeper_id: str, request: Request):
+    """Return realized weekly fantasy points for a player against the
+    authed user's active league scoring settings.
+
+    Gated on ``realized_points_api`` feature flag (default OFF).
+    When the flag is off, returns 503 feature_disabled.  When ON
+    but ``nfl_data_ingest`` is also needed to fetch stats — which
+    is why this endpoint returns an empty weeks list with a clear
+    `reason` when no stats are available, rather than 500-ing.
+    """
+    from src.api import feature_flags as _ff
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    if not _ff.is_enabled("realized_points_api"):
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": "feature_disabled",
+                "flag": "realized_points_api",
+            },
+        )
+    try:
+        league_cfg = _resolve_league_for_request(request)
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    # Pull the Sleeper scoring settings from the overlay or primary
+    # contract — whichever belongs to this league.
+    sleeper_block = (latest_contract_data or {}).get("sleeper") or {}
+    scoring_settings = sleeper_block.get("scoringSettings") or {}
+
+    # Fetch weekly stats via nfl_data_ingest (already flag-gated —
+    # returns [] when nfl_data_ingest is off).  We scope to the
+    # current season for freshness + prior season for comparison.
+    from src.nfl_data import ingest as _ing
+    from src.nfl_data import realized_points as _rp
+    now_year = datetime.now(timezone.utc).year
+    years = [now_year - 1, now_year]
+    weekly = _ing.fetch_weekly_stats(years)
+
+    if not weekly:
+        return JSONResponse(content={
+            "sleeperId": sleeper_id,
+            "leagueKey": league_cfg.key,
+            "reason": "no_stats_available",
+            "weeks": [],
+            "totalPoints": 0.0,
+            "weekCount": 0,
+        })
+
+    # Find this player's GSIS via the unified mapper, then filter.
+    from src.identity import unified_mapper as _um
+    players_dir = sleeper_block.get("players") or sleeper_block.get("playerDict")
+    resolved = _um.resolve_player(players_dir, sleeper_id=str(sleeper_id))
+    if resolved is None or not resolved.gsis_id:
+        return JSONResponse(content={
+            "sleeperId": sleeper_id,
+            "leagueKey": league_cfg.key,
+            "reason": "unmapped_player",
+            "weeks": [],
+        })
+    player_rows = [r for r in weekly if str(r.get("player_id_gsis") or "") == resolved.gsis_id]
+    cumulative = _rp.compute_cumulative_points(
+        player_rows, scoring_settings, position=resolved.position,
+    )
+    return JSONResponse(content={
+        "sleeperId": sleeper_id,
+        "gsisId": resolved.gsis_id,
+        "fullName": resolved.full_name,
+        "position": resolved.position,
+        "leagueKey": league_cfg.key,
+        **cumulative,
+    })
 
 
 @app.post("/api/trade/simulate-mc")

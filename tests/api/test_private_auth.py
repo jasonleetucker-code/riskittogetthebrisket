@@ -46,11 +46,19 @@ PRIVATE_API_PATHS = [
     "/api/scaffold/validation",
     "/api/scaffold/report",
     "/api/user/state",
+    "/api/player/12345/realized",  # Phase 11 follow-on — realized points
+    "/api/admin/nfl-data/flush",
+    "/api/admin/sessions/force-logout-all",
+    "/api/admin/signal-state/migrate",
 ]
 PRIVATE_POST_PATHS = {
     "/api/trade/suggestions", "/api/trade/finder", "/api/trade/simulate",
     "/api/trade/simulate-mc",
     "/api/angle/find", "/api/angle/packages", "/api/rankings/overrides",
+    # Phase 11 admin endpoints
+    "/api/admin/nfl-data/flush",
+    "/api/admin/sessions/force-logout-all",
+    "/api/admin/signal-state/migrate",
 }
 
 
