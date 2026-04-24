@@ -90,7 +90,17 @@ def _install_contract_for_league(monkeypatch, league_key: str):
     """Put a stub contract in ``latest_contract_data`` stamped for
     ``league_key``.  Minimal enough to pass the initial guards on
     routes like /api/trade/simulate that bail on missing
-    ``playersArray``."""
+    ``playersArray``.
+
+    **Must be called INSIDE the TestClient context** so the
+    ``app.lifespan`` startup can't overwrite ``latest_contract_data``
+    after we set it.  Called pre-context, the stub is visible for a
+    moment but gets clobbered when the TestClient enters — this
+    passes locally (where cached scrape data may keep it alive) but
+    fails in CI (where no data exists on disk).  See the signal-
+    alerts tests (tests/api/test_signal_alerts.py) for the same
+    pattern + rationale.
+    """
     stub = {
         "meta": {"leagueKey": league_key},
         "players": {"stub": {"name": "Stub"}},
@@ -105,16 +115,16 @@ def _install_contract_for_league(monkeypatch, league_key: str):
 
 
 def test_unknown_league_key_returns_400(two_league_registry, monkeypatch):
-    _install_contract_for_league(monkeypatch, "main")
     with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_for_league(monkeypatch, "main")
         res = c.get("/api/terminal?leagueKey=ghost")
     assert res.status_code == 400
     assert res.json()["error"] == "unknown_league"
 
 
 def test_inactive_league_key_returns_400(two_league_registry, monkeypatch):
-    _install_contract_for_league(monkeypatch, "main")
     with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_for_league(monkeypatch, "main")
         res = c.get("/api/terminal?leagueKey=retired")
     assert res.status_code == 400
     assert res.json()["error"] == "inactive_league"
@@ -123,8 +133,8 @@ def test_inactive_league_key_returns_400(two_league_registry, monkeypatch):
 def test_data_not_ready_for_non_loaded_league(two_league_registry, monkeypatch):
     """The loaded contract is for 'main' — asking for 'side' must
     return 503 ``data_not_ready`` with the league key echoed back."""
-    _install_contract_for_league(monkeypatch, "main")
     with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_for_league(monkeypatch, "main")
         res = c.get("/api/terminal?leagueKey=side")
     assert res.status_code == 503
     body = res.json()
@@ -135,8 +145,8 @@ def test_data_not_ready_for_non_loaded_league(two_league_registry, monkeypatch):
 def test_alias_resolves_to_canonical_key(two_league_registry, monkeypatch):
     """Passing ``primary`` (an alias for ``main``) should work —
     same as passing ``main`` directly."""
-    _install_contract_for_league(monkeypatch, "main")
     with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_for_league(monkeypatch, "main")
         res = c.get("/api/terminal?leagueKey=primary")
     # 200 means validation accepted the alias.
     assert res.status_code == 200, res.text
@@ -148,8 +158,8 @@ def test_alias_resolves_to_canonical_key(two_league_registry, monkeypatch):
 def test_no_league_key_falls_back_to_default(two_league_registry, monkeypatch):
     """Omitting ``leagueKey`` must continue to work — backward-compat
     for every existing caller that predates multi-league."""
-    _install_contract_for_league(monkeypatch, "main")
     with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_for_league(monkeypatch, "main")
         res = c.get("/api/terminal")
     assert res.status_code == 200, res.text
 
@@ -158,13 +168,13 @@ def test_no_league_key_falls_back_to_default(two_league_registry, monkeypatch):
 
 
 def test_api_data_rejects_unknown_league(two_league_registry, monkeypatch):
-    _install_contract_for_league(monkeypatch, "main")
-    # latest_data_bytes is referenced by the response path; make it
-    # non-None so we hit the league validation first.
-    monkeypatch.setattr(server, "latest_data_bytes", None)
-    monkeypatch.setattr(server, "latest_data_gzip_bytes", None)
-    monkeypatch.setattr(server, "latest_data_etag", None)
     with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_for_league(monkeypatch, "main")
+        # latest_data_bytes is referenced by the response path; make it
+        # non-None so we hit the league validation first.
+        monkeypatch.setattr(server, "latest_data_bytes", None)
+        monkeypatch.setattr(server, "latest_data_gzip_bytes", None)
+        monkeypatch.setattr(server, "latest_data_etag", None)
         res = c.get("/api/data?leagueKey=ghost")
     assert res.status_code == 400
     assert res.json()["error"] == "unknown_league"
@@ -201,12 +211,12 @@ def test_trade_simulate_accepts_league_key_in_body(two_league_registry, monkeypa
     ``team_not_found`` surfaces because the stub sleeper block is
     minimal, which is fine: the test asserts validation succeeded by
     checking the 404 response still echoes the leagueKey back."""
-    _install_contract_for_league(monkeypatch, "main")
-    monkeypatch.setattr(
-        server, "_get_auth_session",
-        lambda request: {"username": "alice", "auth_method": "sleeper", "sleeper_user_id": "oA"},
-    )
     with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_for_league(monkeypatch, "main")
+        monkeypatch.setattr(
+            server, "_get_auth_session",
+            lambda request: {"username": "alice", "auth_method": "sleeper", "sleeper_user_id": "oA"},
+        )
         res = c.post(
             "/api/trade/simulate",
             json={"leagueKey": "main", "teamName": "Nonexistent", "playersIn": [], "playersOut": []},
@@ -220,12 +230,12 @@ def test_trade_simulate_accepts_league_key_in_body(two_league_registry, monkeypa
 
 
 def test_trade_simulate_rejects_wrong_league_in_body(two_league_registry, monkeypatch):
-    _install_contract_for_league(monkeypatch, "main")
-    monkeypatch.setattr(
-        server, "_get_auth_session",
-        lambda request: {"username": "alice", "auth_method": "sleeper", "sleeper_user_id": "oA"},
-    )
     with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_for_league(monkeypatch, "main")
+        monkeypatch.setattr(
+            server, "_get_auth_session",
+            lambda request: {"username": "alice", "auth_method": "sleeper", "sleeper_user_id": "oA"},
+        )
         res = c.post(
             "/api/trade/simulate",
             json={"leagueKey": "side", "teamName": "Team A"},
