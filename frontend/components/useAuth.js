@@ -15,34 +15,53 @@ export function useAuth() {
 
   useEffect(() => {
     let active = true;
+    // sessionStorage can throw synchronously in strict privacy modes
+    // and locked-down WebViews — wrap every access so a thrown read
+    // can't abort the effect before ``setChecking(false)`` runs.
+    function readAuthCache() {
+      try {
+        return sessionStorage.getItem(AUTH_CHECK_KEY) === "true";
+      } catch {
+        return false;
+      }
+    }
+    function writeAuthCache(authed) {
+      try {
+        if (authed) sessionStorage.setItem(AUTH_CHECK_KEY, "true");
+        else sessionStorage.removeItem(AUTH_CHECK_KEY);
+      } catch {
+        // sessionStorage unavailable — accept the in-memory state.
+      }
+    }
+
     async function check() {
       // Stale-while-revalidate: paint optimistically from the cached
       // flag for fast first render, but ALWAYS re-verify against the
       // backend.  A stuck "authenticated=true" cache after the cookie
       // is gone is the entire reason this hook used to wedge users on
       // the dashboard with a 401-on-every-request loop.
-      const cached = sessionStorage.getItem(AUTH_CHECK_KEY);
-      if (cached === "true" && active) {
+      const cached = readAuthCache();
+      if (cached && active) {
         setAuthenticated(true);
         setChecking(false);
       }
       try {
         const res = await fetch("/api/auth/status", { credentials: "same-origin" });
-        if (!res.ok) {
-          sessionStorage.removeItem(AUTH_CHECK_KEY);
-          if (active) setAuthenticated(false);
-          return;
-        }
+        // /api/auth/status is public and reports unauthenticated
+        // users with 200 + {authenticated: false}, so a non-OK status
+        // here means a transient backend/proxy failure (5xx, 502
+        // during a deploy, nginx timeout).  Keep the optimistic state
+        // instead of forcing a sign-out on infra blips.
+        if (!res.ok) return;
         const data = await res.json();
         const authed = !!data.authenticated;
         if (active) setAuthenticated(authed);
-        if (authed) sessionStorage.setItem(AUTH_CHECK_KEY, "true");
-        else sessionStorage.removeItem(AUTH_CHECK_KEY);
+        writeAuthCache(authed);
       } catch {
         // Network failure: keep optimistic state if we had one,
         // otherwise fall to unauthenticated.  Don't clobber the cache
         // on transient errors.
-        if (active && cached !== "true") setAuthenticated(false);
+        if (active && !cached) setAuthenticated(false);
       } finally {
         if (active) setChecking(false);
       }
