@@ -379,6 +379,17 @@ function TradeCard({ analysis: a }) {
                 marginTop: 2,
               }}>
                 Net: {netSign}{Math.abs(Math.round(side.netValue)).toLocaleString()}
+                {/* When V13 fires a non-zero VA on this side, surface
+                    it next to the linear net so users see exactly
+                    where the stud-scarcity premium kicked in.  Sign
+                    follows the convention: +VA = team got the studs,
+                    −VA = team gave studs away. */}
+                {side.vaNet != null && Math.abs(side.vaNet) >= 1 && (
+                  <span style={{ color: "var(--subtext)", fontWeight: 400 }}>
+                    {" "}{side.vaNet >= 0 ? "+" : "−"}
+                    {Math.abs(Math.round(side.vaNet)).toLocaleString()} VA
+                  </span>
+                )}
                 {" "}({side.pctGap >= 0 ? "+" : ""}{side.pctGap.toFixed(1)}%)
               </div>
             </div>
