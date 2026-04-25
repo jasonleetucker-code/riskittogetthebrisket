@@ -434,8 +434,15 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
       null,
     );
     const headlinePct = headlineSide ? Math.abs(headlineSide.pctGap) : 0;
+    // Absolute V13-adjusted point gap for the headline side.  Reads
+    // more naturally than a percent — "won by 1,820" tells you the
+    // raw stud-aware gap directly, while "won by 6.7%" requires
+    // mental arithmetic against the trade size.
+    const headlineNet = headlineSide
+      ? Math.abs(Math.round(headlineSide.netAdjusted ?? headlineSide.netValue))
+      : 0;
     // If the largest-magnitude side is a loser (negative pctGap), the
-    // UI should say "X overpaid by Y%" rather than "X won by Y%".
+    // UI should say "X overpaid by Y" rather than "X won by Y".
     const headlineDirection =
       headlineSide && headlineSide.pctGap < 0 ? "overpaid" : "won";
 
@@ -473,6 +480,7 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
       winner,
       loser,
       pctGap: headlinePct,
+      headlineNet,
       headlineSide,
       headlineDirection,
       // Legacy top-level grades kept for any caller that still reads

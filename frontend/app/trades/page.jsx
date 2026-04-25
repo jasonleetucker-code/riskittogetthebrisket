@@ -332,7 +332,11 @@ function TradeCard({ analysis: a }) {
           <span className="badge" style={{ background: badgeBg, color: badgeColor }}>
             {a.headlineSide.team}{" "}
             {a.headlineDirection === "overpaid" ? "overpaid by" : "won by"}{" "}
-            {a.pctGap.toFixed(1)}%
+            {/* Show the absolute V13-adjusted point gap.  Numbers
+                read more directly than percentages ("won by 1,820"
+                tells you the magnitude immediately; "won by 6.7%"
+                requires mental math against trade size). */}
+            {(a.headlineNet ?? 0).toLocaleString()}
           </span>
         ) : (
           <span className="badge" style={{ background: "var(--green-soft)", color: "var(--green)" }}>
@@ -378,19 +382,19 @@ function TradeCard({ analysis: a }) {
                 fontWeight: 600,
                 marginTop: 2,
               }}>
-                Net: {netSign}{Math.abs(Math.round(side.netValue)).toLocaleString()}
-                {/* When V13 fires a non-zero VA on this side, surface
-                    it next to the linear net so users see exactly
-                    where the stud-scarcity premium kicked in.  Sign
-                    follows the convention: +VA = team got the studs,
-                    −VA = team gave studs away. */}
+                {/* Show the V13-adjusted net (linear + VA) as a single
+                    number — that's the meaningful "did this team win
+                    or lose" quantity.  Surface the VA contribution
+                    inline so users see when the stud-scarcity rule
+                    moved the verdict. */}
+                Net: {(side.netAdjusted ?? side.netValue) >= 0 ? "+" : "−"}
+                {Math.abs(Math.round(side.netAdjusted ?? side.netValue)).toLocaleString()}
                 {side.vaNet != null && Math.abs(side.vaNet) >= 1 && (
                   <span style={{ color: "var(--subtext)", fontWeight: 400 }}>
-                    {" "}{side.vaNet >= 0 ? "+" : "−"}
-                    {Math.abs(Math.round(side.vaNet)).toLocaleString()} VA
+                    {" "}({side.vaNet >= 0 ? "+" : "−"}
+                    {Math.abs(Math.round(side.vaNet)).toLocaleString()} VA)
                   </span>
                 )}
-                {" "}({side.pctGap >= 0 ? "+" : ""}{side.pctGap.toFixed(1)}%)
               </div>
             </div>
           );
