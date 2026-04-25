@@ -124,8 +124,58 @@ def _parse_int(text: str) -> int | None:
         return None
 
 
+def _xpath_lit(s: str) -> str:
+    """Encode a Python string as an XPath string literal safely.
+
+    XPath has no escape syntax for quotes — strings must use one or the
+    other.  ``Ja'Marr Chase`` (single quote) and ``"quoted"`` (double
+    quotes) both need handling.  When the string contains both kinds,
+    we splice it together with ``concat()``.
+    """
+    if "'" not in s:
+        return f"'{s}'"
+    if '"' not in s:
+        return f'"{s}"'
+    # Both kinds present: concat("foo", "'", "bar")
+    parts = s.split("'")
+    return "concat(" + ", \"'\", ".join(f"'{p}'" for p in parts) + ")"
+
+
+async def _dump_debug_snapshot(page, tag: str) -> str:
+    """Save a screenshot + page HTML for offline inspection.
+
+    Returns the directory path so the caller can print it.  On any
+    capture failure, returns the empty string and swallows — debug
+    output should never mask the real error.
+    """
+    try:
+        debug_dir = Path(__file__).resolve().parent / "debug"
+        debug_dir.mkdir(parents=True, exist_ok=True)
+        ts = time.strftime("%Y%m%d-%H%M%S")
+        stem = f"{tag}_{ts}"
+        await page.screenshot(path=str(debug_dir / f"{stem}.png"), full_page=True)
+        html = await page.content()
+        (debug_dir / f"{stem}.html").write_text(html, encoding="utf-8")
+        return str(debug_dir)
+    except Exception:
+        return ""
+
+
 async def _add_player(page, team_idx: int, player_name: str, *, timeout: int = 15000) -> None:
-    """Add a single player to team_idx (0 or 1) via the search input."""
+    """Add a single player to team_idx (0 or 1) via the search input.
+
+    Strategy: type the name into the team's search box, then race
+    several locator strategies against the autocomplete dropdown.
+    KTC's class names have shifted historically, so we try a wide net:
+
+      1. class-based ("result" / "option" / "suggest" / "autocomplete" / "dropdown")
+      2. ARIA role-based (role="option")
+      3. plain text-match excluding form controls
+
+    Whichever strategy locates a visible matching element first wins.
+    On total failure we dump a screenshot + HTML so the next iteration
+    can be fixed without another round trip with Jason.
+    """
     inputs = page.locator(SEL_SEARCH_INPUT)
     count = await inputs.count()
     if count <= team_idx:
@@ -136,17 +186,43 @@ async def _add_player(page, team_idx: int, player_name: str, *, timeout: int = 1
     await box.click()
     await box.fill("")
     await box.type(player_name, delay=40)
-    # KTC shows an autocomplete dropdown.  Prefer an exact-text match on
-    # the dropdown item to avoid picking the wrong autocomplete hit.
-    option = page.locator(
-        f'xpath=//*[self::li or self::div or self::button]'
-        f'[contains(@class, "result") or contains(@class, "option") or contains(@class, "suggest")]'
-        f'[.//text()[contains(., "{player_name}")] or normalize-space()="{player_name}"]'
-    ).first
-    await option.wait_for(state="visible", timeout=timeout)
-    await option.click()
-    # Give KTC a moment to stamp the row and recompute VA.
-    await page.wait_for_timeout(600)
+    # KTC's autocomplete is debounced — give it a beat to render.
+    await page.wait_for_timeout(700)
+
+    name_lit = _xpath_lit(player_name)
+    strategies = [
+        # 1. Class-based ("result" / "option" / "suggest" / "autocomplete" / "dropdown")
+        f'xpath=//*[self::li or self::div or self::button or self::a]'
+        f'[contains(@class, "result") or contains(@class, "option") '
+        f' or contains(@class, "suggest") or contains(@class, "autocomplete") '
+        f' or contains(@class, "dropdown") or contains(@class, "search")]'
+        f'[.//text()[contains(., {name_lit})] or normalize-space()={name_lit}]',
+        # 2. ARIA role-based — proper accessibility wins if KTC uses it
+        f'xpath=//*[@role="option" or @role="listitem"]'
+        f'[.//text()[contains(., {name_lit})] or normalize-space()={name_lit}]',
+        # 3. Plain text match, excluding form controls and the input itself
+        f'xpath=//*[not(self::input) and not(self::textarea) and not(ancestor::input)]'
+        f'[normalize-space(text())={name_lit}]',
+    ]
+
+    last_err: Exception | None = None
+    for strat in strategies:
+        try:
+            option = page.locator(strat).first
+            await option.wait_for(state="visible", timeout=timeout // len(strategies))
+            await option.click()
+            # Give KTC a moment to stamp the row and recompute VA.
+            await page.wait_for_timeout(600)
+            return
+        except Exception as e:
+            last_err = e
+            continue
+
+    # All strategies failed — dump diagnostic and re-raise.
+    debug_path = await _dump_debug_snapshot(page, f"add_player_fail_team{team_idx}_{player_name.replace(' ', '_')}")
+    if debug_path:
+        print(f"    DEBUG: saved screenshot + HTML to {debug_path}")
+    raise last_err if last_err else RuntimeError(f"could not locate autocomplete option for {player_name!r}")
 
 
 async def _clear_team(page, team_idx: int) -> None:
