@@ -345,7 +345,12 @@ KNOWN_TOP_BOARD_SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     # only one IDP board (FP or DLF Rookie) stamps a rank.
     "Jack Gibbens":    "Veteran LB only ranked by FantasyPros IDP — IDPTC/DLF/FBG haven't picked him up",
     "Malachi Moore":   "Veteran S only ranked by FantasyPros IDP — IDPTC/FBG haven't picked him up",
-    "Lavonte David":   "36yo FA veteran LB only ranked by FootballGuys IDP — IDPTC and others have dropped him",
+    # Lavonte David removed 2026-04-25: 36yo FA, FBG dropped him in
+    # the latest scrape and he no longer appears on the live board.
+    # Allowlist entries must reflect a player who CURRENTLY exists on
+    # the live contract, otherwise the post-condition test
+    # (test_allowlist_entries_actually_appear_on_board) flags it as
+    # stale.  If FBG re-adds him, restore the entry.
     # ── Top-200 1-src surfacings after the 2026-04-20 FBG combined-
     # rank scraper upgrade.  FBG's cross-market ordering pulled these
     # veteran DBs / DL up into the top 200 (they previously lived in

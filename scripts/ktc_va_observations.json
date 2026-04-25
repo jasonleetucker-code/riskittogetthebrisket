@@ -1,0 +1,2724 @@
+{
+  "capturedAt": "2026-04-25T14:57:34Z",
+  "source": "https://keeptradecut.com/trade-calculator",
+  "observations": [
+    {
+      "label": "EQ_1v1_a",
+      "topology": "1v1",
+      "notes": "Two top-tier WRs \u2014 minimal topGap.",
+      "team1Names": [
+        "Ja'Marr Chase"
+      ],
+      "team2Names": [
+        "Justin Jefferson"
+      ],
+      "team1Values": [
+        9968
+      ],
+      "team2Values": [
+        7780
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:03:21Z"
+    },
+    {
+      "label": "EQ_1v1_b",
+      "topology": "1v1",
+      "notes": "Top WR vs second-tier elite WR.",
+      "team1Names": [
+        "Ja'Marr Chase"
+      ],
+      "team2Names": [
+        "CeeDee Lamb"
+      ],
+      "team1Values": [
+        9968
+      ],
+      "team2Values": [
+        7337
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:05:19Z"
+    },
+    {
+      "label": "EQ_1v1_c",
+      "topology": "1v1",
+      "notes": "Elite WR vs midtier TE \u2014 ~50% topGap.",
+      "team1Names": [
+        "Justin Jefferson"
+      ],
+      "team2Names": [
+        "T.J. Hockenson"
+      ],
+      "team1Values": [
+        7780
+      ],
+      "team2Values": [
+        2812
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:05:32Z"
+    },
+    {
+      "label": "EQ_1v1_d",
+      "topology": "1v1",
+      "notes": "Elite RB vs depth piece.",
+      "team1Names": [
+        "Bijan Robinson"
+      ],
+      "team2Names": [
+        "George Pickens"
+      ],
+      "team1Values": [
+        9988
+      ],
+      "team2Values": [
+        5948
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:05:47Z"
+    },
+    {
+      "label": "EQ_1v1_e",
+      "topology": "1v1",
+      "notes": "Elite WR vs deep throw-in \u2014 extreme topGap.",
+      "team1Names": [
+        "Ja'Marr Chase"
+      ],
+      "team2Names": [
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        9968
+      ],
+      "team2Values": [
+        1293
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:06:08Z"
+    },
+    {
+      "label": "EQ_1v1_f",
+      "topology": "1v1",
+      "notes": "Mid-elite QB vs mid-tier WR.",
+      "team1Names": [
+        "Patrick Mahomes"
+      ],
+      "team2Names": [
+        "DeVonta Smith"
+      ],
+      "team1Values": [
+        6846
+      ],
+      "team2Values": [
+        5112
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:06:28Z"
+    },
+    {
+      "label": "EQ_2v2_a",
+      "topology": "2v2",
+      "notes": "Anchor \u2014 KTC observed 2026-04 as VA=+3610.",
+      "team1Names": [
+        "Justin Jefferson",
+        "Tanner McKee"
+      ],
+      "team2Names": [
+        "2026 Pick 1.09",
+        "T.J. Hockenson"
+      ],
+      "team1Values": [
+        7780,
+        1299
+      ],
+      "team2Values": [
+        4275,
+        2812
+      ],
+      "valueAdjustmentTeam1": 3297,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:15:54Z"
+    },
+    {
+      "label": "EQ_2v2_b",
+      "topology": "2v2",
+      "notes": "Two elites vs two solid mids.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Patrick Mahomes"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "Drake London"
+      ],
+      "team1Values": [
+        9968,
+        6846
+      ],
+      "team2Values": [
+        4913,
+        6887
+      ],
+      "valueAdjustmentTeam1": 3262,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:16:19Z"
+    },
+    {
+      "label": "EQ_2v2_c",
+      "topology": "2v2",
+      "notes": "Elite + throw-in vs two midtiers.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Tanner McKee"
+      ],
+      "team2Names": [
+        "T.J. Hockenson",
+        "Brian Thomas Jr."
+      ],
+      "team1Values": [
+        9968,
+        1293
+      ],
+      "team2Values": [
+        2812,
+        4913
+      ],
+      "valueAdjustmentTeam1": 4288,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:16:43Z"
+    },
+    {
+      "label": "EQ_2v2_d",
+      "topology": "2v2",
+      "notes": "Matched-depth (no throw-in).",
+      "team1Names": [
+        "Justin Jefferson",
+        "T.J. Hockenson"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "2026 Pick 1.09"
+      ],
+      "team1Values": [
+        7780,
+        2812
+      ],
+      "team2Values": [
+        4913,
+        4275
+      ],
+      "valueAdjustmentTeam1": 3197,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:17:08Z"
+    },
+    {
+      "label": "EQ_2v2_e",
+      "topology": "2v2",
+      "notes": "Near-equal tops, slight depth edge.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "T.J. Hockenson"
+      ],
+      "team2Names": [
+        "Justin Jefferson",
+        "Brian Thomas Jr."
+      ],
+      "team1Values": [
+        9968,
+        2812
+      ],
+      "team2Values": [
+        7780,
+        4913
+      ],
+      "valueAdjustmentTeam1": 3849,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:17:32Z"
+    },
+    {
+      "label": "EQ_2v2_f",
+      "topology": "2v2",
+      "notes": "Two RBs vs two WRs (similar tier).",
+      "team1Names": [
+        "Bijan Robinson",
+        "Jahmyr Gibbs"
+      ],
+      "team2Names": [
+        "Puka Nacua",
+        "Drake London"
+      ],
+      "team1Values": [
+        9988,
+        9667
+      ],
+      "team2Values": [
+        8638,
+        6887
+      ],
+      "valueAdjustmentTeam1": 4316,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:17:56Z"
+    },
+    {
+      "label": "EQ_2v2_g",
+      "topology": "2v2",
+      "notes": "Elite + pick vs two mids.",
+      "team1Names": [
+        "Justin Jefferson",
+        "2026 Pick 1.09"
+      ],
+      "team2Names": [
+        "DeVonta Smith",
+        "Brian Thomas Jr."
+      ],
+      "team1Values": [
+        7780,
+        4275
+      ],
+      "team2Values": [
+        5112,
+        4913
+      ],
+      "valueAdjustmentTeam1": 2955,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:18:21Z"
+    },
+    {
+      "label": "EQ_2v2_h",
+      "topology": "2v2",
+      "notes": "Matched throw-in case (mirror of c).",
+      "team1Names": [
+        "T.J. Hockenson",
+        "Brian Thomas Jr."
+      ],
+      "team2Names": [
+        "Ja'Marr Chase",
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        2812,
+        4913
+      ],
+      "team2Values": [
+        9968,
+        1299
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 4282,
+      "capturedAt": "2026-04-25T14:18:45Z"
+    },
+    {
+      "label": "EQ_2v2_i",
+      "topology": "2v2",
+      "notes": "Two QBs vs two WRs.",
+      "team1Names": [
+        "Patrick Mahomes",
+        "Josh Allen"
+      ],
+      "team2Names": [
+        "Puka Nacua",
+        "Garrett Wilson"
+      ],
+      "team1Values": [
+        6846,
+        9984
+      ],
+      "team2Values": [
+        8638,
+        5820
+      ],
+      "valueAdjustmentTeam1": 3128,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:19:09Z"
+    },
+    {
+      "label": "EQ_2v2_j",
+      "topology": "2v2",
+      "notes": "Mid + low vs mid + low (low topGap).",
+      "team1Names": [
+        "Brian Thomas Jr.",
+        "Tanner McKee"
+      ],
+      "team2Names": [
+        "DeVonta Smith",
+        "Mark Andrews"
+      ],
+      "team1Values": [
+        4913,
+        1299
+      ],
+      "team2Values": [
+        5112,
+        2768
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 960,
+      "capturedAt": "2026-04-25T14:19:34Z"
+    },
+    {
+      "label": "EQ_2v2_k",
+      "topology": "2v2",
+      "notes": "Stud + junk vs two near-equals.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Geno Smith"
+      ],
+      "team2Names": [
+        "Drake London",
+        "Brian Thomas Jr."
+      ],
+      "team1Values": [
+        9968,
+        2129
+      ],
+      "team2Values": [
+        6887,
+        4913
+      ],
+      "valueAdjustmentTeam1": 4482,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:19:59Z"
+    },
+    {
+      "label": "EQ_2v2_l",
+      "topology": "2v2",
+      "notes": "Pick-heavy 2v2.",
+      "team1Names": [
+        "2026 Pick 1.09",
+        "2027 Mid 1st"
+      ],
+      "team2Names": [
+        "T.J. Hockenson",
+        "Mark Andrews"
+      ],
+      "team1Values": [
+        4275,
+        5622
+      ],
+      "team2Values": [
+        2812,
+        2768
+      ],
+      "valueAdjustmentTeam1": 1136,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:20:24Z"
+    },
+    {
+      "label": "EQ_2v2_m",
+      "topology": "2v2",
+      "notes": "Two elites vs elite + pick.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Bijan Robinson"
+      ],
+      "team2Names": [
+        "Justin Jefferson",
+        "2026 Pick 1.09"
+      ],
+      "team1Values": [
+        9974,
+        9988
+      ],
+      "team2Values": [
+        7780,
+        4275
+      ],
+      "valueAdjustmentTeam1": 2521,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:20:48Z"
+    },
+    {
+      "label": "EQ_2v2_n",
+      "topology": "2v2",
+      "notes": "Tier C vs Tier D.",
+      "team1Names": [
+        "Sam LaPorta",
+        "Justin Herbert"
+      ],
+      "team2Names": [
+        "Mark Andrews",
+        "Bo Nix"
+      ],
+      "team1Values": [
+        4502,
+        6906
+      ],
+      "team2Values": [
+        2768,
+        6238
+      ],
+      "valueAdjustmentTeam1": 1684,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:21:12Z"
+    },
+    {
+      "label": "EQ_3v3_a",
+      "topology": "3v3",
+      "notes": "Three elites vs three mids \u2014 tests aggregate.",
+      "team1Names": [
+        "Justin Jefferson",
+        "Ja'Marr Chase",
+        "Bijan Robinson"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "Drake London",
+        "T.J. Hockenson"
+      ],
+      "team1Values": [
+        7780,
+        9974,
+        9988
+      ],
+      "team2Values": [
+        4913,
+        6886,
+        2812
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:31:38Z"
+    },
+    {
+      "label": "EQ_3v3_b",
+      "topology": "3v3",
+      "notes": "Elite + mid + throw-in vs three balanced mids.",
+      "team1Names": [
+        "Justin Jefferson",
+        "T.J. Hockenson",
+        "Tanner McKee"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "DeVonta Smith",
+        "2026 Pick 1.09"
+      ],
+      "team1Values": [
+        7780,
+        2812,
+        1299
+      ],
+      "team2Values": [
+        4913,
+        5112,
+        4275
+      ],
+      "valueAdjustmentTeam1": 2743,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:32:12Z"
+    },
+    {
+      "label": "EQ_3v3_c",
+      "topology": "3v3",
+      "notes": "Three RBs vs three WRs.",
+      "team1Names": [
+        "Bijan Robinson",
+        "Jahmyr Gibbs",
+        "Kyren Williams"
+      ],
+      "team2Names": [
+        "Puka Nacua",
+        "Drake London",
+        "Garrett Wilson"
+      ],
+      "team1Values": [
+        9988,
+        9667,
+        4877
+      ],
+      "team2Values": [
+        8638,
+        6887,
+        5826
+      ],
+      "valueAdjustmentTeam1": 4715,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:32:44Z"
+    },
+    {
+      "label": "EQ_3v3_d",
+      "topology": "3v3",
+      "notes": "Stud + two throw-ins vs three matched mids.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Bo Nix",
+        "Tanner McKee"
+      ],
+      "team2Names": [
+        "T.J. Hockenson",
+        "Brian Thomas Jr.",
+        "Mark Andrews"
+      ],
+      "team1Values": [
+        9974,
+        6238,
+        1299
+      ],
+      "team2Values": [
+        2812,
+        4913,
+        2768
+      ],
+      "valueAdjustmentTeam1": 2647,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:33:19Z"
+    },
+    {
+      "label": "EQ_3v3_e",
+      "topology": "3v3",
+      "notes": "Elite + two mids vs three near-equal mids.",
+      "team1Names": [
+        "Justin Jefferson",
+        "T.J. Hockenson",
+        "Brian Thomas Jr."
+      ],
+      "team2Names": [
+        "DeVonta Smith",
+        "Drake London",
+        "Sam LaPorta"
+      ],
+      "team1Values": [
+        7780,
+        2812,
+        4913
+      ],
+      "team2Values": [
+        5106,
+        6886,
+        4502
+      ],
+      "valueAdjustmentTeam1": 1626,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:33:52Z"
+    },
+    {
+      "label": "EQ_3v3_f",
+      "topology": "3v3",
+      "notes": "Two QBs + WR vs three skill players.",
+      "team1Names": [
+        "Patrick Mahomes",
+        "Josh Allen",
+        "Drake London"
+      ],
+      "team2Names": [
+        "Puka Nacua",
+        "T.J. Hockenson",
+        "Brian Thomas Jr."
+      ],
+      "team1Values": [
+        6846,
+        9984,
+        6887
+      ],
+      "team2Values": [
+        8638,
+        2812,
+        4913
+      ],
+      "valueAdjustmentTeam1": 1707,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:34:25Z"
+    },
+    {
+      "label": "EQ_3v3_g",
+      "topology": "3v3",
+      "notes": "Three picks vs three players.",
+      "team1Names": [
+        "2026 Pick 1.09",
+        "2026 Pick 2.01",
+        "2027 Mid 1st"
+      ],
+      "team2Names": [
+        "T.J. Hockenson",
+        "Mark Andrews",
+        "George Pickens"
+      ],
+      "team1Values": [
+        4272,
+        3586,
+        5616
+      ],
+      "team2Values": [
+        2812,
+        2768,
+        5948
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:34:59Z"
+    },
+    {
+      "label": "EQ_3v3_h",
+      "topology": "3v3",
+      "notes": "Three near-equal mids on each side.",
+      "team1Names": [
+        "Brian Thomas Jr.",
+        "Drake London",
+        "T.J. Hockenson"
+      ],
+      "team2Names": [
+        "DeVonta Smith",
+        "Sam LaPorta",
+        "Mark Andrews"
+      ],
+      "team1Values": [
+        4913,
+        6886,
+        2812
+      ],
+      "team2Values": [
+        5106,
+        4502,
+        2768
+      ],
+      "valueAdjustmentTeam1": 2460,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:35:32Z"
+    },
+    {
+      "label": "EQ_3v3_i",
+      "topology": "3v3",
+      "notes": "Stud + two mids vs three throw-ins.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "T.J. Hockenson",
+        "Brian Thomas Jr."
+      ],
+      "team2Names": [
+        "Mark Andrews",
+        "Bo Nix",
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        9974,
+        2812,
+        4913
+      ],
+      "team2Values": [
+        2768,
+        6238,
+        1299
+      ],
+      "valueAdjustmentTeam1": 1629,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:36:05Z"
+    },
+    {
+      "label": "EQ_3v3_j",
+      "topology": "3v3",
+      "notes": "Two elites + pick vs elite + two mids.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Justin Jefferson",
+        "2026 Pick 1.09"
+      ],
+      "team2Names": [
+        "Bijan Robinson",
+        "Drake London",
+        "T.J. Hockenson"
+      ],
+      "team1Values": [
+        9974,
+        7780,
+        4272
+      ],
+      "team2Values": [
+        9988,
+        6886,
+        2812
+      ],
+      "valueAdjustmentTeam1": 1501,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:36:39Z"
+    },
+    {
+      "label": "EQ_3v3_k",
+      "topology": "3v3",
+      "notes": "Three matched throw-ins per side.",
+      "team1Names": [
+        "Tanner McKee",
+        "Bo Nix",
+        "Geno Smith"
+      ],
+      "team2Names": [
+        "Mark Andrews",
+        "Aaron Rodgers",
+        "Kirk Cousins"
+      ],
+      "team1Values": [
+        1299,
+        6238,
+        2129
+      ],
+      "team2Values": [
+        2768,
+        1880,
+        1999
+      ],
+      "valueAdjustmentTeam1": 2401,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:37:12Z"
+    },
+    {
+      "label": "EQ_3v3_l",
+      "topology": "3v3",
+      "notes": "Elite WR + two picks vs three solid players.",
+      "team1Names": [
+        "Justin Jefferson",
+        "2026 Pick 1.09",
+        "2026 Pick 2.01"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "DeVonta Smith",
+        "T.J. Hockenson"
+      ],
+      "team1Values": [
+        7780,
+        4272,
+        3586
+      ],
+      "team2Values": [
+        4913,
+        5112,
+        2812
+      ],
+      "valueAdjustmentTeam1": 2720,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:37:45Z"
+    },
+    {
+      "label": "EQ_3v3_m",
+      "topology": "3v3",
+      "notes": "Pick-heavy mirror \u2014 three picks each.",
+      "team1Names": [
+        "2026 Pick 1.09",
+        "2027 Mid 1st",
+        "2026 Pick 3.01"
+      ],
+      "team2Names": [
+        "2026 Pick 2.01",
+        "2027 Late 1st",
+        "2028 Mid 1st"
+      ],
+      "team1Values": [
+        4272,
+        5616,
+        2467
+      ],
+      "team2Values": [
+        3586,
+        4853,
+        4510
+      ],
+      "valueAdjustmentTeam1": 1114,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:38:19Z"
+    },
+    {
+      "label": "EQ_3v3_n",
+      "topology": "3v3",
+      "notes": "Stud + junk + junk vs balanced.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Tanner McKee",
+        "Geno Smith"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "T.J. Hockenson",
+        "Mark Andrews"
+      ],
+      "team1Values": [
+        9974,
+        1299,
+        2129
+      ],
+      "team2Values": [
+        4913,
+        2812,
+        2768
+      ],
+      "valueAdjustmentTeam1": 4904,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:38:52Z"
+    },
+    {
+      "label": "EQ_4v4_a",
+      "topology": "4v4",
+      "notes": "Four elites vs four mids.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Justin Jefferson",
+        "Bijan Robinson",
+        "Patrick Mahomes"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "Drake London",
+        "T.J. Hockenson",
+        "DeVonta Smith"
+      ],
+      "team1Values": [
+        9974,
+        7780,
+        9988,
+        6846
+      ],
+      "team2Values": [
+        4913,
+        6886,
+        2812,
+        5112
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:47:19Z"
+    },
+    {
+      "label": "EQ_4v4_b",
+      "topology": "4v4",
+      "notes": "Elite + three mids vs four balanced mids.",
+      "team1Names": [
+        "Justin Jefferson",
+        "Brian Thomas Jr.",
+        "T.J. Hockenson",
+        "DeVonta Smith"
+      ],
+      "team2Names": [
+        "Drake London",
+        "Sam LaPorta",
+        "Mark Andrews",
+        "Garrett Wilson"
+      ],
+      "team1Values": [
+        7780,
+        4913,
+        2812,
+        5112
+      ],
+      "team2Values": [
+        6887,
+        4502,
+        2768,
+        5826
+      ],
+      "valueAdjustmentTeam1": 1772,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:47:59Z"
+    },
+    {
+      "label": "EQ_4v4_c",
+      "topology": "4v4",
+      "notes": "Stud + three throw-ins vs four mids.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Mark Andrews",
+        "Bo Nix",
+        "Tanner McKee"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "T.J. Hockenson",
+        "DeVonta Smith",
+        "Sam LaPorta"
+      ],
+      "team1Values": [
+        9974,
+        2768,
+        6232,
+        1299
+      ],
+      "team2Values": [
+        4920,
+        2812,
+        5112,
+        4502
+      ],
+      "valueAdjustmentTeam1": 5140,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:48:40Z"
+    },
+    {
+      "label": "EQ_4v4_d",
+      "topology": "4v4",
+      "notes": "Four near-matched on each side.",
+      "team1Names": [
+        "Justin Jefferson",
+        "T.J. Hockenson",
+        "Mark Andrews",
+        "Tanner McKee"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "DeVonta Smith",
+        "Bo Nix",
+        "Geno Smith"
+      ],
+      "team1Values": [
+        7780,
+        2812,
+        2768,
+        1299
+      ],
+      "team2Values": [
+        4920,
+        5112,
+        6232,
+        2129
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:49:21Z"
+    },
+    {
+      "label": "EQ_4v4_e",
+      "topology": "4v4",
+      "notes": "Two QBs + two WRs each side.",
+      "team1Names": [
+        "Patrick Mahomes",
+        "Josh Allen",
+        "Puka Nacua",
+        "Drake London"
+      ],
+      "team2Names": [
+        "Lamar Jackson",
+        "Jayden Daniels",
+        "Garrett Wilson",
+        "Brian Thomas Jr."
+      ],
+      "team1Values": [
+        6846,
+        9987,
+        8638,
+        6886
+      ],
+      "team2Values": [
+        7758,
+        7799,
+        5826,
+        4920
+      ],
+      "valueAdjustmentTeam1": 2982,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:50:02Z"
+    },
+    {
+      "label": "EQ_4v4_f",
+      "topology": "4v4",
+      "notes": "Pick-heavy 4v4.",
+      "team1Names": [
+        "2026 Pick 1.09",
+        "2026 Pick 2.01",
+        "T.J. Hockenson",
+        "Mark Andrews"
+      ],
+      "team2Names": [
+        "2027 Mid 1st",
+        "2027 Late 1st",
+        "Brian Thomas Jr.",
+        "DeVonta Smith"
+      ],
+      "team1Values": [
+        4272,
+        3585,
+        2812,
+        2768
+      ],
+      "team2Values": [
+        5616,
+        4853,
+        4920,
+        5112
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:50:43Z"
+    },
+    {
+      "label": "EQ_4v4_g",
+      "topology": "4v4",
+      "notes": "Two elites + two throw-ins per side.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Bijan Robinson",
+        "Tanner McKee",
+        "Geno Smith"
+      ],
+      "team2Names": [
+        "Justin Jefferson",
+        "Patrick Mahomes",
+        "Bo Nix",
+        "Mark Andrews"
+      ],
+      "team1Values": [
+        9974,
+        9985,
+        1299,
+        2129
+      ],
+      "team2Values": [
+        7780,
+        6846,
+        6232,
+        2768
+      ],
+      "valueAdjustmentTeam1": 7066,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:51:24Z"
+    },
+    {
+      "label": "EQ_4v4_h",
+      "topology": "4v4",
+      "notes": "Three solid + pick vs four solid.",
+      "team1Names": [
+        "Brian Thomas Jr.",
+        "T.J. Hockenson",
+        "Drake London",
+        "2026 Pick 1.09"
+      ],
+      "team2Names": [
+        "DeVonta Smith",
+        "Sam LaPorta",
+        "Garrett Wilson",
+        "Mark Andrews"
+      ],
+      "team1Values": [
+        4920,
+        2812,
+        6886,
+        4272
+      ],
+      "team2Values": [
+        5112,
+        4502,
+        5826,
+        2768
+      ],
+      "valueAdjustmentTeam1": 1903,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:52:04Z"
+    },
+    {
+      "label": "EQ_5v5_a",
+      "topology": "5v5",
+      "notes": "Five elites vs five mids.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Justin Jefferson",
+        "Bijan Robinson",
+        "Patrick Mahomes",
+        "Josh Allen"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "Drake London",
+        "T.J. Hockenson",
+        "DeVonta Smith",
+        "Sam LaPorta"
+      ],
+      "team1Values": [
+        9974,
+        7780,
+        9985,
+        6846,
+        9992
+      ],
+      "team2Values": [
+        4920,
+        6886,
+        2812,
+        5106,
+        4502
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:55:07Z"
+    },
+    {
+      "label": "EQ_5v5_b",
+      "topology": "5v5",
+      "notes": "Top + four mids vs five solid.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "T.J. Hockenson",
+        "Brian Thomas Jr.",
+        "Mark Andrews",
+        "Tanner McKee"
+      ],
+      "team2Names": [
+        "Justin Jefferson",
+        "Drake London",
+        "DeVonta Smith",
+        "Sam LaPorta",
+        "George Pickens"
+      ],
+      "team1Values": [
+        9974,
+        2812,
+        4920,
+        2768,
+        1299
+      ],
+      "team2Values": [
+        7780,
+        6886,
+        5106,
+        4502,
+        5954
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:55:55Z"
+    },
+    {
+      "label": "EQ_5v5_c",
+      "topology": "5v5",
+      "notes": "Five matched mids per side.",
+      "team1Names": [
+        "Brian Thomas Jr.",
+        "T.J. Hockenson",
+        "Mark Andrews",
+        "Bo Nix",
+        "Tanner McKee"
+      ],
+      "team2Names": [
+        "DeVonta Smith",
+        "Sam LaPorta",
+        "George Pickens",
+        "Geno Smith",
+        "Aaron Rodgers"
+      ],
+      "team1Values": [
+        4920,
+        2812,
+        2768,
+        6232,
+        1299
+      ],
+      "team2Values": [
+        5112,
+        4502,
+        5948,
+        2129,
+        1880
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 1689,
+      "capturedAt": "2026-04-25T14:56:45Z"
+    },
+    {
+      "label": "EQ_5v5_d",
+      "topology": "5v5",
+      "notes": "Pick-heavy 5v5.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "2026 Pick 1.09",
+        "2026 Pick 2.01",
+        "T.J. Hockenson",
+        "Tanner McKee"
+      ],
+      "team2Names": [
+        "Justin Jefferson",
+        "2027 Mid 1st",
+        "2027 Late 1st",
+        "Mark Andrews",
+        "Brian Thomas Jr."
+      ],
+      "team1Values": [
+        9974,
+        4272,
+        3585,
+        2812,
+        1299
+      ],
+      "team2Values": [
+        7780,
+        5616,
+        4853,
+        2768,
+        4920
+      ],
+      "valueAdjustmentTeam1": 2159,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:57:34Z"
+    },
+    {
+      "label": "UNEQ_1v2_a",
+      "topology": "1v2",
+      "notes": "Stud WR vs two midtiers (matched depth).",
+      "team1Names": [
+        "Ja'Marr Chase"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "T.J. Hockenson"
+      ],
+      "team1Values": [
+        9968
+      ],
+      "team2Values": [
+        4913,
+        2812
+      ],
+      "valueAdjustmentTeam1": 5007,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:06:50Z"
+    },
+    {
+      "label": "UNEQ_1v2_b",
+      "topology": "1v2",
+      "notes": "Stud WR vs midtier + pick.",
+      "team1Names": [
+        "Ja'Marr Chase"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "2026 Pick 1.09"
+      ],
+      "team1Values": [
+        9968
+      ],
+      "team2Values": [
+        4919,
+        4279
+      ],
+      "valueAdjustmentTeam1": 5667,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:07:14Z"
+    },
+    {
+      "label": "UNEQ_1v2_c",
+      "topology": "1v2",
+      "notes": "Elite WR vs solid + throw-in.",
+      "team1Names": [
+        "Justin Jefferson"
+      ],
+      "team2Names": [
+        "DeVonta Smith",
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        7780
+      ],
+      "team2Values": [
+        5112,
+        1293
+      ],
+      "valueAdjustmentTeam1": 3395,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:07:38Z"
+    },
+    {
+      "label": "UNEQ_1v2_d",
+      "topology": "1v2",
+      "notes": "Elite QB vs two midtier WRs.",
+      "team1Names": [
+        "Josh Allen"
+      ],
+      "team2Names": [
+        "D.J. Moore",
+        "George Pickens"
+      ],
+      "team1Values": [
+        9984
+      ],
+      "team2Values": [
+        3897,
+        5948
+      ],
+      "valueAdjustmentTeam1": 5190,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:07:59Z"
+    },
+    {
+      "label": "UNEQ_1v2_e",
+      "topology": "1v2",
+      "notes": "Elite RB vs two depth pieces.",
+      "team1Names": [
+        "Bijan Robinson"
+      ],
+      "team2Names": [
+        "Mark Andrews",
+        "Bo Nix"
+      ],
+      "team1Values": [
+        9988
+      ],
+      "team2Values": [
+        2768,
+        6242
+      ],
+      "valueAdjustmentTeam1": 4974,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:08:22Z"
+    },
+    {
+      "label": "UNEQ_1v2_f",
+      "topology": "1v2",
+      "notes": "Stud WR vs two near-matching elites \u2014 small topGap.",
+      "team1Names": [
+        "Ja'Marr Chase"
+      ],
+      "team2Names": [
+        "Patrick Mahomes",
+        "Drake London"
+      ],
+      "team1Values": [
+        9968
+      ],
+      "team2Values": [
+        6846,
+        6887
+      ],
+      "valueAdjustmentTeam1": 3913,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:08:45Z"
+    },
+    {
+      "label": "UNEQ_1v2_g",
+      "topology": "1v2",
+      "notes": "Mid WR + pick vs another mid WR + pick.",
+      "team1Names": [
+        "Brian Thomas Jr."
+      ],
+      "team2Names": [
+        "DeVonta Smith",
+        "2026 Pick 2.01"
+      ],
+      "team1Values": [
+        4913
+      ],
+      "team2Values": [
+        5112,
+        3586
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:09:09Z"
+    },
+    {
+      "label": "UNEQ_1v2_h",
+      "topology": "1v2",
+      "notes": "Top RB vs WR + pick consolidation.",
+      "team1Names": [
+        "Jahmyr Gibbs"
+      ],
+      "team2Names": [
+        "Garrett Wilson",
+        "2026 Pick 1.09"
+      ],
+      "team1Values": [
+        9667
+      ],
+      "team2Values": [
+        5813,
+        4277
+      ],
+      "valueAdjustmentTeam1": 5648,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:09:31Z"
+    },
+    {
+      "label": "UNEQ_1v3_a",
+      "topology": "1v3",
+      "notes": "Stud vs 3 midtiers \u2014 extras decay test.",
+      "team1Names": [
+        "Ja'Marr Chase"
+      ],
+      "team2Names": [
+        "T.J. Hockenson",
+        "Brian Thomas Jr.",
+        "2026 Pick 1.09"
+      ],
+      "team1Values": [
+        9968
+      ],
+      "team2Values": [
+        2812,
+        4913,
+        4276
+      ],
+      "valueAdjustmentTeam1": 7188,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:09:59Z"
+    },
+    {
+      "label": "UNEQ_1v3_b",
+      "topology": "1v3",
+      "notes": "Elite vs 3 throw-ins.",
+      "team1Names": [
+        "Justin Jefferson"
+      ],
+      "team2Names": [
+        "Bo Nix",
+        "Mark Andrews",
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        7780
+      ],
+      "team2Values": [
+        6242,
+        2768,
+        1293
+      ],
+      "valueAdjustmentTeam1": 3256,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:10:27Z"
+    },
+    {
+      "label": "UNEQ_1v3_c",
+      "topology": "1v3",
+      "notes": "Top RB vs 3 mids \u2014 decay across positions.",
+      "team1Names": [
+        "Bijan Robinson"
+      ],
+      "team2Names": [
+        "Drake London",
+        "T.J. Hockenson",
+        "2026 Pick 2.01"
+      ],
+      "team1Values": [
+        9988
+      ],
+      "team2Values": [
+        6887,
+        2812,
+        3586
+      ],
+      "valueAdjustmentTeam1": 6711,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:10:58Z"
+    },
+    {
+      "label": "UNEQ_1v3_d",
+      "topology": "1v3",
+      "notes": "QB vs 3 lower mids.",
+      "team1Names": [
+        "Patrick Mahomes"
+      ],
+      "team2Names": [
+        "George Pickens",
+        "Mark Andrews",
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        6846
+      ],
+      "team2Values": [
+        5948,
+        2768,
+        1299
+      ],
+      "valueAdjustmentTeam1": 2119,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:11:27Z"
+    },
+    {
+      "label": "UNEQ_1v3_e",
+      "topology": "1v3",
+      "notes": "Elite WR vs 3 picks (pick valuation).",
+      "team1Names": [
+        "Ja'Marr Chase"
+      ],
+      "team2Names": [
+        "2026 Pick 1.09",
+        "2026 Pick 2.01",
+        "2027 Mid 1st"
+      ],
+      "team1Values": [
+        9968
+      ],
+      "team2Values": [
+        4277,
+        3586,
+        5622
+      ],
+      "valueAdjustmentTeam1": 6382,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:11:56Z"
+    },
+    {
+      "label": "UNEQ_1v3_f",
+      "topology": "1v3",
+      "notes": "Mid WR vs 3 deep throw-ins.",
+      "team1Names": [
+        "Brian Thomas Jr."
+      ],
+      "team2Names": [
+        "Mark Andrews",
+        "Bo Nix",
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        4913
+      ],
+      "team2Values": [
+        2768,
+        6242,
+        1299
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:12:24Z"
+    },
+    {
+      "label": "UNEQ_1v4_a",
+      "topology": "1v4",
+      "notes": "Stud vs 4 mids \u2014 deep decay regime.",
+      "team1Names": [
+        "Ja'Marr Chase"
+      ],
+      "team2Names": [
+        "T.J. Hockenson",
+        "Brian Thomas Jr.",
+        "Mark Andrews",
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        9968
+      ],
+      "team2Values": [
+        2812,
+        4913,
+        2768,
+        1299
+      ],
+      "valueAdjustmentTeam1": 7527,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:12:56Z"
+    },
+    {
+      "label": "UNEQ_1v4_b",
+      "topology": "1v4",
+      "notes": "Elite RB vs 4 throw-ins.",
+      "team1Names": [
+        "Bijan Robinson"
+      ],
+      "team2Names": [
+        "George Pickens",
+        "Bo Nix",
+        "Mark Andrews",
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        9988
+      ],
+      "team2Values": [
+        5948,
+        6242,
+        2768,
+        1299
+      ],
+      "valueAdjustmentTeam1": 5165,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:13:28Z"
+    },
+    {
+      "label": "UNEQ_1v4_c",
+      "topology": "1v4",
+      "notes": "Elite WR vs 4 picks.",
+      "team1Names": [
+        "Justin Jefferson"
+      ],
+      "team2Names": [
+        "2026 Pick 1.09",
+        "2026 Pick 2.01",
+        "2027 Mid 1st",
+        "2027 Late 1st"
+      ],
+      "team1Values": [
+        7780
+      ],
+      "team2Values": [
+        4277,
+        3586,
+        5622,
+        4853
+      ],
+      "valueAdjustmentTeam1": 4290,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:13:56Z"
+    },
+    {
+      "label": "UNEQ_1v4_d",
+      "topology": "1v4",
+      "notes": "Mid QB vs 4 deep mids.",
+      "team1Names": [
+        "Justin Herbert"
+      ],
+      "team2Names": [
+        "Bo Nix",
+        "Mark Andrews",
+        "Geno Smith",
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        6906
+      ],
+      "team2Values": [
+        6242,
+        2768,
+        2129,
+        1299
+      ],
+      "valueAdjustmentTeam1": 2382,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:14:24Z"
+    },
+    {
+      "label": "UNEQ_1v5_a",
+      "topology": "1v5",
+      "notes": "Stud vs 5 throw-ins \u2014 extreme decay test.",
+      "team1Names": [
+        "Ja'Marr Chase"
+      ],
+      "team2Names": [
+        "T.J. Hockenson",
+        "Mark Andrews",
+        "Bo Nix",
+        "Geno Smith",
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        9968
+      ],
+      "team2Values": [
+        2812,
+        2768,
+        6242,
+        2129,
+        1299
+      ],
+      "valueAdjustmentTeam1": 8926,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:14:57Z"
+    },
+    {
+      "label": "UNEQ_1v5_b",
+      "topology": "1v5",
+      "notes": "Elite WR vs 5 mid pieces.",
+      "team1Names": [
+        "Justin Jefferson"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "T.J. Hockenson",
+        "2026 Pick 1.09",
+        "2026 Pick 2.01",
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        7780
+      ],
+      "team2Values": [
+        4913,
+        2812,
+        4275,
+        3586,
+        1299
+      ],
+      "valueAdjustmentTeam1": 4728,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:15:30Z"
+    },
+    {
+      "label": "UNEQ_2v3_a",
+      "topology": "2v3",
+      "notes": "Anchor \u2014 KTC observed 2026-04 as VA=+4187.",
+      "team1Names": [
+        "Justin Jefferson",
+        "Tanner McKee"
+      ],
+      "team2Names": [
+        "2026 Pick 1.09",
+        "T.J. Hockenson",
+        "Brian Thomas Jr."
+      ],
+      "team1Values": [
+        7780,
+        1299
+      ],
+      "team2Values": [
+        4275,
+        2812,
+        4913
+      ],
+      "valueAdjustmentTeam1": 3615,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:21:41Z"
+    },
+    {
+      "label": "UNEQ_2v3_b",
+      "topology": "2v3",
+      "notes": "Two elites vs three mids.",
+      "team1Names": [
+        "Justin Jefferson",
+        "Ja'Marr Chase"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "T.J. Hockenson",
+        "2026 Pick 1.09"
+      ],
+      "team1Values": [
+        7780,
+        9974
+      ],
+      "team2Values": [
+        4913,
+        2812,
+        4275
+      ],
+      "valueAdjustmentTeam1": 3949,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:22:09Z"
+    },
+    {
+      "label": "UNEQ_2v3_c",
+      "topology": "2v3",
+      "notes": "Elite + pick vs three balanced.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "2026 Pick 1.09"
+      ],
+      "team2Names": [
+        "Drake London",
+        "T.J. Hockenson",
+        "Mark Andrews"
+      ],
+      "team1Values": [
+        9974,
+        4275
+      ],
+      "team2Values": [
+        6887,
+        2812,
+        2768
+      ],
+      "valueAdjustmentTeam1": 4782,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:22:37Z"
+    },
+    {
+      "label": "UNEQ_2v3_d",
+      "topology": "2v3",
+      "notes": "Two mids vs three lower mids.",
+      "team1Names": [
+        "Brian Thomas Jr.",
+        "DeVonta Smith"
+      ],
+      "team2Names": [
+        "T.J. Hockenson",
+        "Mark Andrews",
+        "George Pickens"
+      ],
+      "team1Values": [
+        4913,
+        5112
+      ],
+      "team2Values": [
+        2812,
+        2768,
+        5948
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:23:06Z"
+    },
+    {
+      "label": "UNEQ_2v3_e",
+      "topology": "2v3",
+      "notes": "Stud + throw-in vs three solid.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Tanner McKee"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "T.J. Hockenson",
+        "2026 Pick 1.09"
+      ],
+      "team1Values": [
+        9974,
+        1299
+      ],
+      "team2Values": [
+        4913,
+        2812,
+        4275
+      ],
+      "valueAdjustmentTeam1": 6731,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:23:35Z"
+    },
+    {
+      "label": "UNEQ_2v3_f",
+      "topology": "2v3",
+      "notes": "Elite RB + WR vs three picks.",
+      "team1Names": [
+        "Bijan Robinson",
+        "Garrett Wilson"
+      ],
+      "team2Names": [
+        "2026 Pick 1.09",
+        "2026 Pick 2.01",
+        "2027 Mid 1st"
+      ],
+      "team1Values": [
+        9988,
+        5826
+      ],
+      "team2Values": [
+        4275,
+        3586,
+        5616
+      ],
+      "valueAdjustmentTeam1": 5130,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:24:04Z"
+    },
+    {
+      "label": "UNEQ_2v3_g",
+      "topology": "2v3",
+      "notes": "Two QBs vs three skill players.",
+      "team1Names": [
+        "Patrick Mahomes",
+        "Josh Allen"
+      ],
+      "team2Names": [
+        "DeVonta Smith",
+        "T.J. Hockenson",
+        "George Pickens"
+      ],
+      "team1Values": [
+        6846,
+        9984
+      ],
+      "team2Values": [
+        5112,
+        2812,
+        5948
+      ],
+      "valueAdjustmentTeam1": 4693,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:24:32Z"
+    },
+    {
+      "label": "UNEQ_2v3_h",
+      "topology": "2v3",
+      "notes": "Matched-tier 2v3 with depth.",
+      "team1Names": [
+        "Justin Jefferson",
+        "Drake London"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "DeVonta Smith",
+        "Sam LaPorta"
+      ],
+      "team1Values": [
+        7780,
+        6887
+      ],
+      "team2Values": [
+        4913,
+        5112,
+        4502
+      ],
+      "valueAdjustmentTeam1": 4756,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:25:01Z"
+    },
+    {
+      "label": "UNEQ_2v3_i",
+      "topology": "2v3",
+      "notes": "Mid + throw-in vs three balanced.",
+      "team1Names": [
+        "Brian Thomas Jr.",
+        "Tanner McKee"
+      ],
+      "team2Names": [
+        "Mark Andrews",
+        "Bo Nix",
+        "Geno Smith"
+      ],
+      "team1Values": [
+        4913,
+        1299
+      ],
+      "team2Values": [
+        2768,
+        6238,
+        2129
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:25:30Z"
+    },
+    {
+      "label": "UNEQ_2v3_j",
+      "topology": "2v3",
+      "notes": "Pick-heavy small side.",
+      "team1Names": [
+        "2026 Pick 1.09",
+        "2026 Pick 2.01"
+      ],
+      "team2Names": [
+        "T.J. Hockenson",
+        "Mark Andrews",
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        4275,
+        3586
+      ],
+      "team2Values": [
+        2812,
+        2768,
+        1299
+      ],
+      "valueAdjustmentTeam1": 1988,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:25:58Z"
+    },
+    {
+      "label": "UNEQ_2v4_a",
+      "topology": "2v4",
+      "notes": "Two elites vs four mids \u2014 decay sweep.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Justin Jefferson"
+      ],
+      "team2Names": [
+        "T.J. Hockenson",
+        "Brian Thomas Jr.",
+        "Mark Andrews",
+        "2026 Pick 1.09"
+      ],
+      "team1Values": [
+        9974,
+        7780
+      ],
+      "team2Values": [
+        2812,
+        4913,
+        2768,
+        4275
+      ],
+      "valueAdjustmentTeam1": 6262,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:26:31Z"
+    },
+    {
+      "label": "UNEQ_2v4_b",
+      "topology": "2v4",
+      "notes": "Elite + mid vs four throw-ins.",
+      "team1Names": [
+        "Justin Jefferson",
+        "T.J. Hockenson"
+      ],
+      "team2Names": [
+        "Bo Nix",
+        "Mark Andrews",
+        "Geno Smith",
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        7780,
+        2812
+      ],
+      "team2Values": [
+        6238,
+        2768,
+        2129,
+        1299
+      ],
+      "valueAdjustmentTeam1": 4585,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:27:03Z"
+    },
+    {
+      "label": "UNEQ_2v4_c",
+      "topology": "2v4",
+      "notes": "Elite + pick vs four picks.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "2026 Pick 1.09"
+      ],
+      "team2Names": [
+        "2026 Pick 2.01",
+        "2027 Mid 1st",
+        "2027 Late 1st",
+        "2028 Mid 1st"
+      ],
+      "team1Values": [
+        9974,
+        4275
+      ],
+      "team2Values": [
+        3586,
+        5616,
+        4853,
+        4510
+      ],
+      "valueAdjustmentTeam1": 9107,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:27:35Z"
+    },
+    {
+      "label": "UNEQ_2v4_d",
+      "topology": "2v4",
+      "notes": "Two QBs vs four mid skills.",
+      "team1Names": [
+        "Patrick Mahomes",
+        "Josh Allen"
+      ],
+      "team2Names": [
+        "DeVonta Smith",
+        "T.J. Hockenson",
+        "D.J. Moore",
+        "George Pickens"
+      ],
+      "team1Values": [
+        6846,
+        9984
+      ],
+      "team2Values": [
+        5112,
+        2812,
+        3897,
+        5948
+      ],
+      "valueAdjustmentTeam1": 6449,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:28:09Z"
+    },
+    {
+      "label": "UNEQ_2v4_e",
+      "topology": "2v4",
+      "notes": "Two elites vs four mids (matched depth).",
+      "team1Names": [
+        "Bijan Robinson",
+        "Jahmyr Gibbs"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "Drake London",
+        "T.J. Hockenson",
+        "Sam LaPorta"
+      ],
+      "team1Values": [
+        9988,
+        9667
+      ],
+      "team2Values": [
+        4913,
+        6887,
+        2812,
+        4502
+      ],
+      "valueAdjustmentTeam1": 8217,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:28:42Z"
+    },
+    {
+      "label": "UNEQ_2v4_f",
+      "topology": "2v4",
+      "notes": "Mid stud + junk vs four mids.",
+      "team1Names": [
+        "Brian Thomas Jr.",
+        "Tanner McKee"
+      ],
+      "team2Names": [
+        "T.J. Hockenson",
+        "Mark Andrews",
+        "George Pickens",
+        "Bo Nix"
+      ],
+      "team1Values": [
+        4913,
+        1299
+      ],
+      "team2Values": [
+        2812,
+        2768,
+        5948,
+        6238
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:29:15Z"
+    },
+    {
+      "label": "UNEQ_2v5_a",
+      "topology": "2v5",
+      "notes": "Two elites vs five throw-ins.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Patrick Mahomes"
+      ],
+      "team2Names": [
+        "T.J. Hockenson",
+        "Mark Andrews",
+        "Bo Nix",
+        "Geno Smith",
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        9974,
+        6846
+      ],
+      "team2Values": [
+        2812,
+        2768,
+        6238,
+        2129,
+        1299
+      ],
+      "valueAdjustmentTeam1": 6362,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:29:51Z"
+    },
+    {
+      "label": "UNEQ_2v5_b",
+      "topology": "2v5",
+      "notes": "Elite + mid vs five spread.",
+      "team1Names": [
+        "Justin Jefferson",
+        "Brian Thomas Jr."
+      ],
+      "team2Names": [
+        "DeVonta Smith",
+        "T.J. Hockenson",
+        "Mark Andrews",
+        "Bo Nix",
+        "2026 Pick 2.01"
+      ],
+      "team1Values": [
+        7780,
+        4913
+      ],
+      "team2Values": [
+        5112,
+        2812,
+        2768,
+        6238,
+        3586
+      ],
+      "valueAdjustmentTeam1": 4123,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:30:27Z"
+    },
+    {
+      "label": "UNEQ_2v5_c",
+      "topology": "2v5",
+      "notes": "Stud + throw-in vs five mid pieces.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Tanner McKee"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "T.J. Hockenson",
+        "Mark Andrews",
+        "2026 Pick 1.09",
+        "2026 Pick 2.01"
+      ],
+      "team1Values": [
+        9974,
+        1299
+      ],
+      "team2Values": [
+        4913,
+        2812,
+        2768,
+        4272,
+        3586
+      ],
+      "valueAdjustmentTeam1": 11738,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:31:05Z"
+    },
+    {
+      "label": "UNEQ_3v4_a",
+      "topology": "3v4",
+      "notes": "Three elites vs four mids.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Justin Jefferson",
+        "Patrick Mahomes"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "T.J. Hockenson",
+        "Drake London",
+        "Mark Andrews"
+      ],
+      "team1Values": [
+        9974,
+        7780,
+        6846
+      ],
+      "team2Values": [
+        4913,
+        2812,
+        6886,
+        2768
+      ],
+      "valueAdjustmentTeam1": 2828,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:39:29Z"
+    },
+    {
+      "label": "UNEQ_3v4_b",
+      "topology": "3v4",
+      "notes": "Elite + two mids vs four balanced.",
+      "team1Names": [
+        "Justin Jefferson",
+        "Brian Thomas Jr.",
+        "T.J. Hockenson"
+      ],
+      "team2Names": [
+        "DeVonta Smith",
+        "Drake London",
+        "Mark Andrews",
+        "2026 Pick 1.09"
+      ],
+      "team1Values": [
+        7780,
+        4913,
+        2812
+      ],
+      "team2Values": [
+        5112,
+        6886,
+        2768,
+        4272
+      ],
+      "valueAdjustmentTeam1": 1617,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:40:06Z"
+    },
+    {
+      "label": "UNEQ_3v4_c",
+      "topology": "3v4",
+      "notes": "Three RBs vs four WRs.",
+      "team1Names": [
+        "Bijan Robinson",
+        "Jahmyr Gibbs",
+        "Kyren Williams"
+      ],
+      "team2Names": [
+        "Drake London",
+        "Garrett Wilson",
+        "Puka Nacua",
+        "DeVonta Smith"
+      ],
+      "team1Values": [
+        9988,
+        9667,
+        4877
+      ],
+      "team2Values": [
+        6887,
+        5826,
+        8638,
+        5112
+      ],
+      "valueAdjustmentTeam1": 6475,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:40:44Z"
+    },
+    {
+      "label": "UNEQ_3v4_d",
+      "topology": "3v4",
+      "notes": "Three solid + junk extra on the four side.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "T.J. Hockenson",
+        "Brian Thomas Jr."
+      ],
+      "team2Names": [
+        "Drake London",
+        "DeVonta Smith",
+        "Mark Andrews",
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        9974,
+        2812,
+        4913
+      ],
+      "team2Values": [
+        6887,
+        5112,
+        2768,
+        1299
+      ],
+      "valueAdjustmentTeam1": 4278,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:41:22Z"
+    },
+    {
+      "label": "UNEQ_3v4_e",
+      "topology": "3v4",
+      "notes": "Mid-tier WRs and picks.",
+      "team1Names": [
+        "DeVonta Smith",
+        "Brian Thomas Jr.",
+        "2026 Pick 1.09"
+      ],
+      "team2Names": [
+        "Drake London",
+        "T.J. Hockenson",
+        "Mark Andrews",
+        "2026 Pick 2.01"
+      ],
+      "team1Values": [
+        5112,
+        4920,
+        4272
+      ],
+      "team2Values": [
+        6886,
+        2812,
+        2768,
+        3585
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 1488,
+      "capturedAt": "2026-04-25T14:42:00Z"
+    },
+    {
+      "label": "UNEQ_3v4_f",
+      "topology": "3v4",
+      "notes": "Stud + two throw-ins vs four mids.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Bo Nix",
+        "Tanner McKee"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "T.J. Hockenson",
+        "Mark Andrews",
+        "George Pickens"
+      ],
+      "team1Values": [
+        9974,
+        6232,
+        1299
+      ],
+      "team2Values": [
+        4920,
+        2812,
+        2768,
+        5948
+      ],
+      "valueAdjustmentTeam1": 6064,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:42:37Z"
+    },
+    {
+      "label": "UNEQ_3v4_g",
+      "topology": "3v4",
+      "notes": "Two elites + pick vs four mids.",
+      "team1Names": [
+        "Justin Jefferson",
+        "Patrick Mahomes",
+        "2026 Pick 1.09"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "T.J. Hockenson",
+        "Sam LaPorta",
+        "Drake London"
+      ],
+      "team1Values": [
+        7780,
+        6846,
+        4272
+      ],
+      "team2Values": [
+        4913,
+        2812,
+        4502,
+        6886
+      ],
+      "valueAdjustmentTeam1": 4197,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:43:14Z"
+    },
+    {
+      "label": "UNEQ_3v5_a",
+      "topology": "3v5",
+      "notes": "Three elites vs five mids \u2014 heavy decay.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Justin Jefferson",
+        "Bijan Robinson"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "T.J. Hockenson",
+        "Drake London",
+        "Mark Andrews",
+        "2026 Pick 1.09"
+      ],
+      "team1Values": [
+        9974,
+        7780,
+        9988
+      ],
+      "team2Values": [
+        4913,
+        2812,
+        6886,
+        2768,
+        4272
+      ],
+      "valueAdjustmentTeam1": 5440,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:43:55Z"
+    },
+    {
+      "label": "UNEQ_3v5_b",
+      "topology": "3v5",
+      "notes": "Elite + two solid vs five spread.",
+      "team1Names": [
+        "Justin Jefferson",
+        "Brian Thomas Jr.",
+        "T.J. Hockenson"
+      ],
+      "team2Names": [
+        "DeVonta Smith",
+        "Drake London",
+        "Sam LaPorta",
+        "Mark Andrews",
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        7780,
+        4913,
+        2812
+      ],
+      "team2Values": [
+        5112,
+        6887,
+        4502,
+        2768,
+        1299
+      ],
+      "valueAdjustmentTeam1": 1396,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:44:36Z"
+    },
+    {
+      "label": "UNEQ_3v5_c",
+      "topology": "3v5",
+      "notes": "Stud + two mids vs five throw-ins.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Brian Thomas Jr.",
+        "T.J. Hockenson"
+      ],
+      "team2Names": [
+        "Mark Andrews",
+        "Bo Nix",
+        "George Pickens",
+        "Geno Smith",
+        "Tanner McKee"
+      ],
+      "team1Values": [
+        9974,
+        4920,
+        2812
+      ],
+      "team2Values": [
+        2768,
+        6232,
+        5948,
+        2129,
+        1299
+      ],
+      "valueAdjustmentTeam1": 6024,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:45:16Z"
+    },
+    {
+      "label": "UNEQ_3v5_d",
+      "topology": "3v5",
+      "notes": "Pick-heavy receiving side.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Justin Jefferson",
+        "Patrick Mahomes"
+      ],
+      "team2Names": [
+        "2026 Pick 1.09",
+        "2026 Pick 2.01",
+        "2027 Mid 1st",
+        "2027 Late 1st",
+        "2028 Mid 1st"
+      ],
+      "team1Values": [
+        9974,
+        7780,
+        6846
+      ],
+      "team2Values": [
+        4275,
+        3586,
+        5616,
+        4853,
+        4510
+      ],
+      "valueAdjustmentTeam1": 7498,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:45:58Z"
+    },
+    {
+      "label": "UNEQ_3v5_e",
+      "topology": "3v5",
+      "notes": "Three RBs vs five mid skills.",
+      "team1Names": [
+        "Bijan Robinson",
+        "Jahmyr Gibbs",
+        "Kyren Williams"
+      ],
+      "team2Names": [
+        "Drake London",
+        "DeVonta Smith",
+        "T.J. Hockenson",
+        "Sam LaPorta",
+        "Mark Andrews"
+      ],
+      "team1Values": [
+        9988,
+        9667,
+        4877
+      ],
+      "team2Values": [
+        6886,
+        5112,
+        2812,
+        4502,
+        2768
+      ],
+      "valueAdjustmentTeam1": 6931,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:46:38Z"
+    },
+    {
+      "label": "UNEQ_4v5_a",
+      "topology": "4v5",
+      "notes": "Four elites vs five mids.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Justin Jefferson",
+        "Patrick Mahomes",
+        "Bijan Robinson"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "Drake London",
+        "T.J. Hockenson",
+        "Mark Andrews",
+        "2026 Pick 1.09"
+      ],
+      "team1Values": [
+        9974,
+        7780,
+        6846,
+        9988
+      ],
+      "team2Values": [
+        4913,
+        6886,
+        2812,
+        2768,
+        4272
+      ],
+      "valueAdjustmentTeam1": 1958,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:52:49Z"
+    },
+    {
+      "label": "UNEQ_4v5_b",
+      "topology": "4v5",
+      "notes": "Elite + three mids vs five spread.",
+      "team1Names": [
+        "Justin Jefferson",
+        "Brian Thomas Jr.",
+        "T.J. Hockenson",
+        "Sam LaPorta"
+      ],
+      "team2Names": [
+        "DeVonta Smith",
+        "Drake London",
+        "Mark Andrews",
+        "Bo Nix",
+        "George Pickens"
+      ],
+      "team1Values": [
+        7780,
+        4920,
+        2812,
+        4502
+      ],
+      "team2Values": [
+        5106,
+        6886,
+        2768,
+        6232,
+        5954
+      ],
+      "valueAdjustmentTeam1": 0,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:53:34Z"
+    },
+    {
+      "label": "UNEQ_4v5_c",
+      "topology": "4v5",
+      "notes": "Stud + three throw-ins vs five mids.",
+      "team1Names": [
+        "Ja'Marr Chase",
+        "Mark Andrews",
+        "Bo Nix",
+        "Tanner McKee"
+      ],
+      "team2Names": [
+        "Brian Thomas Jr.",
+        "T.J. Hockenson",
+        "Drake London",
+        "Sam LaPorta",
+        "DeVonta Smith"
+      ],
+      "team1Values": [
+        9974,
+        2768,
+        6238,
+        1299
+      ],
+      "team2Values": [
+        4913,
+        2812,
+        6886,
+        4502,
+        5112
+      ],
+      "valueAdjustmentTeam1": 7955,
+      "valueAdjustmentTeam2": 0,
+      "capturedAt": "2026-04-25T14:54:18Z"
+    }
+  ]
+}

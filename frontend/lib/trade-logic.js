@@ -165,19 +165,40 @@ function sortedSideValues(side, valueMode, settings) {
  */
 function _vaFromSortedSides(small, large) {
   if (small.length === 0 || small[0] <= 0) return 0;
-  // KNOWN GAP — equal-count trades return 0 here.  V2 was fit
-  // against 13 KTC observations all of which were unequal-count
-  // (1v2, 1v3, 2v3, 3v5).  KTC's actual behavior on equal-count
-  // trades (e.g. the user-reported 2v2 Jefferson+McKee vs Pick
-  // 1.09+Hockenson where KTC awards +3,610) was not in the
-  // training set.
+  // KNOWN GAP (calibrated 2026-04-25) — equal-count trades return 0
+  // here.  KTC's actual algorithm fires VA on some equal-count shapes
+  // (notably 2v2 stud-vs-pile where one side has the better top
+  // piece) and stays silent on others (count-matched trades where one
+  // side dominates piece-by-piece, especially at deep counts).
   //
-  // The fix lives in scripts/ — once the 100-trade scrape lands
-  // and the V8 (stud-factor + full-loop) candidate from
-  // calibrate_va_formula.py wins the grid search, this gate is
-  // replaced with the V8 formula which is smooth across the
-  // count boundary by construction.  See PR #283 + the V8 docstring
-  // in scripts/calibrate_va_formula.py.
+  // We collected 100 KTC trades across 15 topologies (46 equal-count)
+  // in scripts/ktc_va_observations.json and ran V1-V10 candidates in
+  // calibrate_va_formula.py:
+  //
+  //   - V1-V5 use ``extras = large[len(small):]`` which is empty for
+  //     equal counts → predict 0 → can't capture nonzero KTC VA.
+  //   - V6-V8 iterate over the whole large side → over-predict on
+  //     equal counts where KTC actually reports 0.
+  //   - V9 added a separate equal-count branch
+  //     (small_top × top_gap × stud_coeff + offset).  Grid rejected
+  //     it (set all eq_* coefficients to 0).
+  //   - V10 added two classifier gates (min_top_gap,
+  //     dom_count_thresh).  Grid still rejected the linear term —
+  //     it's bimodal and a linear formula can't fit "0 here, 4000
+  //     there" on similar inputs.
+  //
+  // V9/V10 produced a tiny aggregate RMS improvement (64% → 63%) on
+  // the 113-point set, but ALL of that came from trading away
+  // accuracy on the 13 hand-curated baseline anchors (V2 fits at
+  // 8% RMS; V9 fits at ~40% RMS) for marginal gains on the new
+  // captures — a net regression on common trade shapes.  So we kept
+  // V2 in production.
+  //
+  // Closing this gap requires features we don't currently encode
+  // (positional scarcity, full per-piece distribution, hard
+  // dominance-pattern classification) or an ML regressor.  V11+
+  // can be evaluated against the same 100-trade benchmark when
+  // someone takes another swing.
   if (small.length >= large.length) return 0;
 
   const topSmall = small[0];
