@@ -41,9 +41,12 @@ export async function POST(request) {
   // board without clipping legitimate responses.
   const timer = setTimeout(() => ctl.abort(), 15000);
   try {
+    const cookie = request.headers.get("cookie") || "";
+    const headers = { "Content-Type": "application/json" };
+    if (cookie) headers.Cookie = cookie;
     const res = await fetch(forwardedUrl.toString(), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(body || {}),
       signal: ctl.signal,
       cache: "no-store",

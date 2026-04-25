@@ -16,11 +16,12 @@ const BACKEND_URL = (() => {
   }
 })();
 
-async function fetchFromBackendApi() {
+async function fetchFromBackendApi(cookie) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 1500);
   try {
-    const res = await fetch(BACKEND_URL, { cache: "no-store", signal: ctl.signal });
+    const headers = cookie ? { Cookie: cookie } : undefined;
+    const res = await fetch(BACKEND_URL, { cache: "no-store", signal: ctl.signal, headers });
     if (!res.ok) return null;
     const data = await res.json();
     if (!data || typeof data !== "object") return null;
@@ -69,9 +70,10 @@ function newestFile(files) {
     .sort((a, b) => b.m - a.m)[0]?.f || null;
 }
 
-export async function GET() {
+export async function GET(request) {
   try {
-    const backendPayload = await fetchFromBackendApi();
+    const cookie = request.headers.get("cookie") || "";
+    const backendPayload = await fetchFromBackendApi(cookie);
     if (backendPayload) {
       return NextResponse.json({ ok: true, source: backendPayload.source, data: backendPayload.data });
     }
