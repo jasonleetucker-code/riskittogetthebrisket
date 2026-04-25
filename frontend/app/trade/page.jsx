@@ -331,6 +331,22 @@ function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
  */
 function TradeSourceBreakdown({ sides, settings }) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
+  // Mirror the CSS breakpoint so aria-expanded reflects what's
+  // actually rendered: on desktop the body is always visible, on
+  // mobile it follows mobileExpanded. State-driven so SSR renders a
+  // consistent "desktop = expanded" view and the first client paint
+  // after hydration flips narrow viewports to the collapsed state
+  // without a hydration mismatch.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return undefined;
+    const mq = window.matchMedia("(max-width: 768px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  const effectiveExpanded = isMobile ? mobileExpanded : true;
   const rows = useMemo(() => {
     const assetsBySide = sides.map((s) => s.assets || []);
     const hasAny = assetsBySide.some((a) => a.length > 0);
@@ -462,9 +478,12 @@ function TradeSourceBreakdown({ sides, settings }) {
       <button
         type="button"
         className="source-breakdown-header"
-        aria-expanded={mobileExpanded}
+        aria-expanded={effectiveExpanded}
         aria-controls="source-breakdown-body"
-        onClick={() => setMobileExpanded((v) => !v)}
+        tabIndex={isMobile ? 0 : -1}
+        onClick={() => {
+          if (isMobile) setMobileExpanded((v) => !v);
+        }}
       >
         <span className="source-breakdown-header-text">
           <span
