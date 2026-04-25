@@ -315,6 +315,56 @@ main() {
     sudo -n "${SYSTEMCTL_BIN}" enable --now "${alerts_service_name}.timer"
     log "Enabled ${alerts_service_name}.timer"
   fi
+
+  # ── Backup timer + restore-test timer + logrotate (2026-04-25) ──
+  # Idempotent: copies from deploy/systemd/ if not already installed.
+  # Units hardcode paths to /home/dynasty/trade-calculator so they
+  # don't need template rendering.  Safe to re-run on every deploy;
+  # `cp` + `install` overwrites with an identical file when the
+  # source is unchanged.  Enabling is idempotent too.
+  local any_backup_installed=false
+  for unit in riskit-backup.service riskit-backup.timer \
+              riskit-backup-restore-test.service riskit-backup-restore-test.timer; do
+    local src="${APP_DIR}/deploy/systemd/${unit}"
+    local dst="/etc/systemd/system/${unit}"
+    if [[ ! -f "${src}" ]]; then
+      continue
+    fi
+    # Only reinstall when the target is missing OR content differs —
+    # keeps daemon-reload churn to a minimum.
+    if [[ ! -f "${dst}" ]] || ! sudo -n cmp -s "${src}" "${dst}" 2>/dev/null; then
+      sudo -n "${INSTALL_BIN}" -m 0644 "${src}" "${dst}"
+      log "Installed ${unit}"
+      any_backup_installed=true
+    fi
+  done
+
+  if [[ "${any_backup_installed}" == "true" ]]; then
+    sudo -n "${SYSTEMCTL_BIN}" daemon-reload
+    log "Reloaded systemd unit files (backup timers)."
+  fi
+
+  # Enable timers — safe to re-run; --now starts them if inactive.
+  for timer in riskit-backup.timer riskit-backup-restore-test.timer; do
+    local timer_path="/etc/systemd/system/${timer}"
+    if [[ -f "${timer_path}" ]]; then
+      if ! sudo -n "${SYSTEMCTL_BIN}" is-enabled "${timer}" >/dev/null 2>&1; then
+        sudo -n "${SYSTEMCTL_BIN}" enable --now "${timer}" >/dev/null 2>&1 || \
+          log "Note: enable ${timer} skipped (likely no systemd user unit perms)."
+        log "Enabled ${timer}"
+      fi
+    fi
+  done
+
+  # Logrotate config — copy into /etc/logrotate.d/ if changed.
+  local logrotate_src="${APP_DIR}/deploy/logrotate.conf"
+  local logrotate_dst="/etc/logrotate.d/riskit"
+  if [[ -f "${logrotate_src}" ]]; then
+    if [[ ! -f "${logrotate_dst}" ]] || ! sudo -n cmp -s "${logrotate_src}" "${logrotate_dst}" 2>/dev/null; then
+      sudo -n "${INSTALL_BIN}" -m 0644 "${logrotate_src}" "${logrotate_dst}"
+      log "Installed /etc/logrotate.d/riskit"
+    fi
+  fi
 }
 
 main "$@"

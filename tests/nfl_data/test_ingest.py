@@ -23,6 +23,11 @@ def _flags(monkeypatch):
 
 
 def test_flag_off_returns_empty_without_provider_call(monkeypatch, tmp_path):
+    # Force flag OFF — post-2026-04-25 the default is ON, but the
+    # gate behavior must still work when explicitly disabled.
+    monkeypatch.setenv("RISKIT_FEATURE_NFL_DATA_INGEST", "0")
+    from src.api import feature_flags
+    feature_flags.reload()
     calls = []
     def provider(years):
         calls.append(years)

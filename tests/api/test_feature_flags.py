@@ -20,22 +20,43 @@ def _reset_cache():
 
 
 def test_every_flag_defaults_off_except_safe_additive():
-    """Safety guarantee: if you forgot to add an env override,
-    the system behaves exactly like pre-upgrade.
+    """Safety guarantee: every default-ON flag has been explicitly
+    vetted as safe in production.  Adding a flag to this allowlist
+    requires matching rationale in _DEFAULTS (see src/api/feature_flags.py).
 
-    The only flag that may default ON is ``unified_id_mapper`` —
-    it's a pure-read API that adds no behavior, never changes the
-    canonical contract, and can't regress anything on its own.
+    When flipping a flag default ON in _DEFAULTS, ADD IT HERE so
+    the test continues to pin the intent.
     """
     flags = feature_flags.snapshot()
-    safe_on = {"unified_id_mapper"}
+    # The vetted-safe-ON set — each one has explanatory comments in
+    # _DEFAULTS explaining why it's safe + how to flip it off via
+    # RISKIT_FEATURE_<NAME>=0 if needed.
+    safe_on = {
+        "unified_id_mapper",           # no behavior change, read API only
+        "nfl_data_ingest",             # guarded import; empty [] if missing
+        "realized_points_api",         # endpoint-only, inert until called
+        "value_confidence_intervals",  # additive valueBand field
+        "positional_tiers",            # additive tierId field
+        "usage_signals",               # freshness + starter-guarded
+        "espn_injury_feed",            # circuit-breaker protected
+        "depth_chart_validation",      # circuit-breaker protected
+        "monte_carlo_trade",           # new endpoint, old unchanged
+    }
+    off_only = {
+        "dynamic_source_weights",      # held OFF until backtest data exists
+    }
     for name, value in flags.items():
         if name in safe_on:
+            continue
+        if name in off_only:
+            assert value is False, (
+                f"flag {name!r} expected OFF but is ON"
+            )
             continue
         assert value is False, (
             f"flag {name!r} defaults ON but hasn't been vetted as "
             f"regression-safe.  Either add to the safe_on set with "
-            f"rationale, or flip the default in _DEFAULTS to False."
+            f"rationale in _DEFAULTS, or flip the default to False."
         )
 
 
@@ -68,9 +89,12 @@ def test_env_override_accepts_common_strings(monkeypatch):
 
 
 def test_garbage_env_falls_back_to_default(monkeypatch):
-    monkeypatch.setenv("RISKIT_FEATURE_MONTE_CARLO_TRADE", "maybe")
+    """Invalid env value → falls back to the registered default.
+    Uses dynamic_source_weights since it's the one flag still defaulting
+    OFF in the 2026-04-25 activation."""
+    monkeypatch.setenv("RISKIT_FEATURE_DYNAMIC_SOURCE_WEIGHTS", "maybe")
     feature_flags.reload()
-    assert feature_flags.is_enabled("monte_carlo_trade") is False
+    assert feature_flags.is_enabled("dynamic_source_weights") is False
 
 
 def test_snapshot_covers_every_registered_flag():

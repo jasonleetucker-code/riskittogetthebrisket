@@ -65,18 +65,46 @@ def _http_get_json(url: str) -> Any:
     """Fetch a Sleeper endpoint and parse JSON.  Returns ``None`` on
     any failure — callers treat missing data as "no overlay available"
     and serve the data-not-ready state.
+
+    Protected by the ``sleeper_api`` circuit breaker: after repeated
+    failures the breaker OPENs and this call fails fast (returns
+    None) for 60s, preventing a Sleeper outage from turning into 10
+    minutes of /api/data timeouts.
     """
+    # Circuit breaker: fail fast when Sleeper is tripped.
+    try:
+        from src.utils import circuit_breaker as _cb
+        bp = _cb.get_or_create(
+            "sleeper_api",
+            failure_threshold=5, failure_window_sec=60.0,
+            open_duration_sec=60.0,
+        )
+        if not bp.can_call():
+            log.warning("sleeper_overlay: breaker OPEN, fast-fail %s", url)
+            return None
+    except Exception:  # noqa: BLE001 — never let CB itself break the fetch
+        bp = None
+
     try:
         req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
         with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT_SEC) as resp:
             body = resp.read()
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
         log.warning("sleeper_overlay: fetch %s failed: %s", url, exc)
+        if bp is not None:
+            bp.report_failure(exc)
         return None
     try:
-        return json.loads(body)
+        parsed = json.loads(body)
+        if bp is not None:
+            bp.report_success()
+        return parsed
     except (json.JSONDecodeError, ValueError):
         log.warning("sleeper_overlay: non-JSON response from %s", url)
+        if bp is not None:
+            # JSON-parse failure counts as a failure — Sleeper returning
+            # an HTML challenge page means they're blocking us.
+            bp.report_failure("non_json")
         return None
 
 

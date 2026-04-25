@@ -111,11 +111,19 @@ def test_signal_state_migrate_admin_returns_summary(monkeypatch):
 
 def test_realized_points_requires_feature_flag(monkeypatch):
     _authed_admin(monkeypatch)
-    # Flag defaults OFF; endpoint should 503.
-    with TestClient(server.app, raise_server_exceptions=True) as c:
-        res = c.get("/api/player/12345/realized")
-    assert res.status_code == 503
-    assert res.json()["error"] == "feature_disabled"
+    # Force flag OFF to verify the gate.  (Flag now defaults ON
+    # after the 2026-04-25 activation, but the gate behavior must
+    # still work when explicitly disabled.)
+    monkeypatch.setenv("RISKIT_FEATURE_REALIZED_POINTS_API", "0")
+    from src.api import feature_flags
+    feature_flags.reload()
+    try:
+        with TestClient(server.app, raise_server_exceptions=True) as c:
+            res = c.get("/api/player/12345/realized")
+        assert res.status_code == 503
+        assert res.json()["error"] == "feature_disabled"
+    finally:
+        feature_flags.reload()
 
 
 def test_realized_points_flag_on_returns_shape(monkeypatch):

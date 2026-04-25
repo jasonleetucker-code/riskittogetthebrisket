@@ -115,6 +115,21 @@ def fetch_injuries(
     if cached is not None:
         return [_from_cached_dict(d) for d in cached]
 
+    # Circuit breaker pre-check — bail out fast if ESPN is tripping.
+    bp = None
+    try:
+        from src.utils import circuit_breaker as _cb
+        bp = _cb.get_or_create(
+            "espn_injuries",
+            failure_threshold=3, failure_window_sec=120.0,
+            open_duration_sec=180.0,
+        )
+        if not bp.can_call():
+            _LOGGER.warning("espn injuries: breaker OPEN, fast-fail")
+            return []
+    except Exception:  # noqa: BLE001
+        bp = None
+
     try:
         req = urllib.request.Request(
             _ESPN_INJURIES_URL, headers={"User-Agent": _UA},
@@ -125,12 +140,18 @@ def fetch_injuries(
         raw = json.loads(body)
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
         _LOGGER.warning("espn injuries: network error: %s", exc)
+        if bp is not None:
+            bp.report_failure(exc)
         return []
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning("espn injuries: parse error: %s", exc)
+        if bp is not None:
+            bp.report_failure(exc)
         return []
 
     parsed = _parse_espn_payload(raw)
+    if bp is not None:
+        bp.report_success()
     _cache.put(key, [e.to_dict() for e in parsed], cache_dir=cache_dir)
     return parsed
 

@@ -89,7 +89,17 @@ def install_exception_handler(app: FastAPI) -> None:
 
     Critical: this runs OUTSIDE any middleware, so a crash in a
     middleware (auth gate, rate limiter) is also caught.
+
+    Also silences Starlette's built-in middleware.errors logger so
+    a single unhandled exception doesn't produce TWO full-trace
+    error logs (Starlette's + our structured one).  Our handler
+    captures everything Starlette would; the duplicate is pure
+    noise.
     """
+    # Silence Starlette's default error logger — our handler
+    # already logs the full trace + correlation context.
+    import logging
+    logging.getLogger("starlette.middleware.errors").setLevel(logging.CRITICAL)
 
     @app.exception_handler(Exception)
     async def _global_exception_handler(request: Request, exc: Exception):

@@ -46,3 +46,14 @@ curl_cffi~=0.15.0
 # beautifulsoup4 parses DLF's WPDataTable HTML + FantasyPros Fitzmaurice
 # markup.
 beautifulsoup4~=4.14.0
+
+# NFL data pipeline (Phase 2 of the 2026-04 upgrade).  Pulls weekly
+# stats, snap counts, play-by-play, schedules from nflverse's
+# GitHub parquet releases.  Transitively installs pandas + pyarrow
+# (~150MB on disk) which is heavy but we've audited the import
+# guards (src/nfl_data/ingest.py) to degrade cleanly to empty
+# lists when this dep is absent — adding it here activates the
+# pipeline when the ``nfl_data_ingest`` feature flag is flipped.
+# No runtime behavior change at install time: code only invokes
+# nfl_data_py when the flag is on.
+nfl_data_py~=0.3.0

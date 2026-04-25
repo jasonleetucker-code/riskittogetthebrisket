@@ -101,6 +101,23 @@ def fetch_team_depth_chart(
     cached = _cache.get(key, ttl_seconds=ttl_seconds, cache_dir=cache_dir)
     if cached is not None:
         return [_from_cached(d) for d in cached]
+
+    # Circuit breaker — same ESPN infrastructure as injuries, separate
+    # breaker name so one endpoint failing doesn't mask the other.
+    bp = None
+    try:
+        from src.utils import circuit_breaker as _cb
+        bp = _cb.get_or_create(
+            "espn_depth_charts",
+            failure_threshold=5, failure_window_sec=180.0,
+            open_duration_sec=180.0,
+        )
+        if not bp.can_call():
+            _LOGGER.warning("espn depth team=%s: breaker OPEN", team_id)
+            return []
+    except Exception:  # noqa: BLE001
+        bp = None
+
     try:
         url = _ESPN_DEPTH_URL.format(team_id=team_id)
         req = urllib.request.Request(url, headers={"User-Agent": _UA})
@@ -109,11 +126,17 @@ def fetch_team_depth_chart(
             raw = json.loads(resp.read())
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
         _LOGGER.warning("espn depth team=%s: network error: %s", team_id, exc)
+        if bp is not None:
+            bp.report_failure(exc)
         return []
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning("espn depth team=%s: parse error: %s", team_id, exc)
+        if bp is not None:
+            bp.report_failure(exc)
         return []
     parsed = _parse_depth_payload(raw)
+    if bp is not None:
+        bp.report_success()
     _cache.put(key, [e.to_dict() for e in parsed], cache_dir=cache_dir)
     return parsed
 

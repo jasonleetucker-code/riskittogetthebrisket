@@ -130,8 +130,11 @@ def test_multi_player_separation():
     assert by_id["B"].rz_targets == 1
 
 
-def test_fetch_flag_off_returns_empty(tmp_path):
-    # Default: flag off.
+def test_fetch_flag_off_returns_empty(tmp_path, monkeypatch):
+    # Force OFF — post-2026-04-25 default is ON, but the gate
+    # behavior must still work when explicitly disabled.
+    monkeypatch.setenv("RISKIT_FEATURE_NFL_DATA_INGEST", "0")
+    feature_flags.reload()
     result = op.fetch_opportunity_stats(
         [2024], _provider=lambda _: [_pass(15)], cache_dir=tmp_path,
     )

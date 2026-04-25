@@ -39,23 +39,46 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # Phase 1 — Unified ID mapper
     "unified_id_mapper": True,  # safe: no behavior change, new API only
     # Phase 2 — nfl_data_py pipeline
-    "nfl_data_ingest": False,  # needs external data + package install
-    # Phase 3 — Realized fantasy points
-    "realized_points_api": False,  # needs nfl_data_ingest
-    # Phase 4 — Confidence intervals
-    "value_confidence_intervals": False,  # additive contract field
-    # Phase 5 — Positional tiering
-    "positional_tiers": False,  # additive contract field
-    # Phase 6 — Usage-based signals
-    "usage_signals": False,  # needs nfl_data_ingest
-    # Phase 7 — ESPN injury feed
-    "espn_injury_feed": False,  # external endpoint, rate-limit risk
-    # Phase 8 — Depth chart cross-check
-    "depth_chart_validation": False,  # needs espn_injury_feed
-    # Phase 9 — Monte Carlo trade simulator
-    "monte_carlo_trade": False,  # new endpoint, old endpoint unchanged
-    # Phase 10 — Backtesting + dynamic weights
-    "dynamic_source_weights": False,  # math runs offline; prod read gated
+    # Activated with the 2026-04-25 deploy that adds nfl_data_py to
+    # requirements.txt.  Safe: every fetch is guarded so an import
+    # failure in prod degrades to [].  Upstream cost: one-time ~150MB
+    # pip install.  Flip to False via RISKIT_FEATURE_NFL_DATA_INGEST=0
+    # if pandas install ever breaks prod.
+    "nfl_data_ingest": True,
+    # Phase 3 — Realized fantasy points — endpoint-only, inert until
+    # a client calls it.  Activated with nfl_data_ingest.
+    "realized_points_api": True,
+    # Phase 4 — Confidence intervals — additive ``valueBand`` field
+    # on rankings contract.  Frontend ValueBandBadge renders when
+    # field is present; absent = no badge (safe).  Flipping on now.
+    "value_confidence_intervals": True,
+    # Phase 5 — Positional tiering — additive ``tierId`` field on
+    # rankings rows.  Frontend TierDivider renders when tierId set;
+    # absent = no divider lines (safe).  Flipping on now.
+    "positional_tiers": True,
+    # Phase 6 — Usage-based signals — fires via unified_signal_engine
+    # when nfl_data_ingest supplies stats.  Freshness-guarded: blocks
+    # mid-week data pre-Thursday.  Active-starter-only SELL guard
+    # prevents backup-role false alerts.
+    "usage_signals": True,
+    # Phase 7 — ESPN injury feed — external endpoint, now protected
+    # by the ``espn_injuries`` circuit breaker (3 failures / 2min →
+    # 3min OPEN).  Safe to activate.
+    "espn_injury_feed": True,
+    # Phase 8 — Depth chart cross-check — same ESPN infrastructure.
+    # Gated by ``espn_depth_charts`` breaker (5 failures / 3min → 3min
+    # OPEN).  Requires injury feed ON to cross-check.
+    "depth_chart_validation": True,
+    # Phase 9 — Monte Carlo trade simulator — new endpoint
+    # /api/trade/simulate-mc.  Old /api/trade/simulate is unchanged.
+    # Enabling reveals the "Simulate" button in the trade-calc UI.
+    "monte_carlo_trade": True,
+    # Phase 10 — Backtesting + dynamic weights — held OFF until 2-3
+    # months of historical snapshots accumulate.  Flipping this on
+    # without a populated dynamic_source_weights.json is a no-op
+    # (falls back to static weights).  Promoted deliberately, not
+    # automatically.
+    "dynamic_source_weights": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"

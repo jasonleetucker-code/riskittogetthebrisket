@@ -62,17 +62,49 @@ def _fetch_ktc_players(timeout: float = 15.0) -> list[dict[str, Any]]:
     Raises ``RuntimeError`` if the page's ``playersArray`` regex
     doesn't match — that'd mean KTC changed their embed shape and
     the import feature is broken until we update this module.
+
+    Protected by the ``ktc_scraper`` circuit breaker — prevents a
+    KTC outage from stalling every trade-import request.
     """
+    # Circuit breaker pre-check.
+    bp = None
+    try:
+        from src.utils import circuit_breaker as _cb
+        bp = _cb.get_or_create(
+            "ktc_scraper",
+            failure_threshold=3, failure_window_sec=120.0,
+            open_duration_sec=120.0,
+        )
+        if not bp.can_call():
+            raise RuntimeError("ktc_scraper circuit breaker is OPEN")
+    except RuntimeError:
+        raise
+    except Exception:  # noqa: BLE001
+        bp = None
+
     req = urllib.request.Request(_KTC_CALCULATOR_URL, headers={"User-Agent": _KTC_UA})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        html = resp.read().decode("utf-8", errors="replace")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            html = resp.read().decode("utf-8", errors="replace")
+    except Exception as exc:
+        if bp is not None:
+            bp.report_failure(exc)
+        raise
+
     m = _PLAYERS_ARRAY_RE.search(html)
     if not m:
+        if bp is not None:
+            # Shape drift counts as a failure — the endpoint is "up"
+            # but unusable.
+            bp.report_failure("shape_drift")
         raise RuntimeError(
             "KTC page layout changed — playersArray regex no longer matches. "
             "Update src/trade/ktc_import.py::_PLAYERS_ARRAY_RE."
         )
-    return json.loads(m.group(1))
+    parsed = json.loads(m.group(1))
+    if bp is not None:
+        bp.report_success()
+    return parsed
 
 
 def get_ktc_player_map(*, force_refresh: bool = False) -> dict[int, dict[str, Any]]:
