@@ -165,6 +165,19 @@ function sortedSideValues(side, valueMode, settings) {
  */
 function _vaFromSortedSides(small, large) {
   if (small.length === 0 || small[0] <= 0) return 0;
+  // KNOWN GAP — equal-count trades return 0 here.  V2 was fit
+  // against 13 KTC observations all of which were unequal-count
+  // (1v2, 1v3, 2v3, 3v5).  KTC's actual behavior on equal-count
+  // trades (e.g. the user-reported 2v2 Jefferson+McKee vs Pick
+  // 1.09+Hockenson where KTC awards +3,610) was not in the
+  // training set.
+  //
+  // The fix lives in scripts/ — once the 100-trade scrape lands
+  // and the V8 (stud-factor + full-loop) candidate from
+  // calibrate_va_formula.py wins the grid search, this gate is
+  // replaced with the V8 formula which is smooth across the
+  // count boundary by construction.  See PR #283 + the V8 docstring
+  // in scripts/calibrate_va_formula.py.
   if (small.length >= large.length) return 0;
 
   const topSmall = small[0];

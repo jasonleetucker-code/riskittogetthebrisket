@@ -32,6 +32,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OBSERVATIONS = REPO_ROOT / "scripts" / "ktc_va_observations.json"
+DEFAULT_FIXTURE = REPO_ROOT / "scripts" / "ktc_va_fixture.json"
 
 
 @dataclass(frozen=True)
@@ -69,8 +70,33 @@ class DataPoint:
         return self.sorted_small()[0] if self.small else 0.0
 
 
-def load_observations(path: Path = DEFAULT_OBSERVATIONS) -> list[DataPoint]:
-    """Load observations from ``data/ktc_va_observations.json``.
+def _load_fixture_labels(fixture_path: Path) -> set[str] | None:
+    """Return the set of labels currently in the fixture, or None when
+    the fixture is missing or unreadable (in which case we skip the
+    orphan-filter step rather than fail).  The fixture itself is
+    committed and should always be present in normal usage; this is
+    purely defensive."""
+    if not fixture_path.exists():
+        return None
+    try:
+        with fixture_path.open("r", encoding="utf-8") as f:
+            entries = json.load(f)
+    except Exception:
+        return None
+    if not isinstance(entries, list):
+        return None
+    labels: set[str] = set()
+    for e in entries:
+        if isinstance(e, dict) and isinstance(e.get("label"), str):
+            labels.add(e["label"])
+    return labels or None
+
+
+def load_observations(
+    path: Path = DEFAULT_OBSERVATIONS,
+    fixture_path: Path = DEFAULT_FIXTURE,
+) -> list[DataPoint]:
+    """Load observations from ``scripts/ktc_va_observations.json``.
 
     Each observation is converted to a DataPoint.  The ``small`` side is
     the one with fewer pieces (unequal) or higher top asset (equal) —
@@ -78,6 +104,14 @@ def load_observations(path: Path = DEFAULT_OBSERVATIONS) -> list[DataPoint]:
     reportable VA (``valueAdjustmentTeam1 == 0`` AND
     ``valueAdjustmentTeam2 == 0``) are still loaded with ktc_va=0 so
     the fit can honor the "no adjustment" signal.
+
+    Observations whose label is no longer present in the current fixture
+    are silently skipped (with a warning printed so the orphan count is
+    visible).  This prevents stale carryover when the fixture is
+    renamed or trimmed: ``collect_ktc_va.py`` doesn't prune stale
+    captures from the JSON, so without this filter a renamed fixture
+    would mix old + new datasets and quietly bias the fit toward
+    whichever local capture history a developer happens to have.
     """
     # "File doesn't exist" is a legitimate state (no observations
     # captured yet); fall through quietly and let main() print a
@@ -126,6 +160,19 @@ def load_observations(path: Path = DEFAULT_OBSERVATIONS) -> list[DataPoint]:
         large = tuple(sorted(team2 if small_is_team1 else team1, reverse=True))
         ktc_va = va1 if small_is_team1 else va2
         points.append(DataPoint(label, small, large, float(ktc_va), topo))
+
+    fixture_labels = _load_fixture_labels(fixture_path)
+    if fixture_labels is not None:
+        kept = [p for p in points if p.label in fixture_labels]
+        orphans = [p.label for p in points if p.label not in fixture_labels]
+        if orphans:
+            preview = ", ".join(orphans[:5])
+            suffix = f", … (+{len(orphans) - 5} more)" if len(orphans) > 5 else ""
+            print(
+                f"WARNING: {len(orphans)} observation(s) have labels not in "
+                f"current fixture {fixture_path.name}; skipping: {preview}{suffix}"
+            )
+        return kept
     return points
 
 
@@ -295,6 +342,48 @@ def predict_v7_full_loop(pt: DataPoint, p: dict) -> float:
         effective = top_scarcity + p["boost"] * max(0.0, extra_gap - top_gap)
         effective = max(0.0, min(p["effective_cap"], effective))
         total += piece * effective * (p["decay"] ** i)
+    return total
+
+
+def predict_v8_stud_factor(pt: DataPoint, p: dict) -> float:
+    """V8: V7 full-loop + an explicit ``stud factor`` magnitude term.
+
+    Motivation — KTC's own FAQ for Value Adjustment names ``"stud
+    factor"`` as a distinct input alongside value-difference and
+    lesser-piece-count.  V7's per-piece weight is purely ratio-based
+    (``top_gap`` is a percentage), so a 9000-vs-5000 trade and a
+    4500-vs-2500 trade get identical per-piece weights even though
+    the first one involves a true stud.  V8 amplifies the per-piece
+    weight when the small side's top piece is elite in absolute
+    terms::
+
+        stud_excess = max(0, top_small - stud_threshold) / 10000
+        stud_mult   = 1 + stud_coeff · stud_excess
+
+    When ``stud_coeff = 0`` V8 collapses to V7 exactly — so the grid
+    search will tell us if the stud factor adds real signal or is
+    just absorbed by the existing terms.  Threshold defaults to
+    7000 (loosely "top-50 dynasty value" on the 0-9999 canonical
+    scale) but is also a grid-searched parameter.
+    """
+    small_top = pt.small_top()
+    top_gap = pt.top_gap()
+    top_scarcity = max(0.0, min(p["cap"], p["slope"] * top_gap - p["intercept"]))
+    sorted_small = pt.sorted_small()
+    sorted_large = pt.sorted_large()
+    if len(sorted_small) > len(sorted_large):
+        return 0.0
+
+    stud_threshold = p.get("stud_threshold", 7000.0)
+    stud_excess = max(0.0, small_top - stud_threshold) / 10000.0
+    stud_mult = 1.0 + p["stud_coeff"] * stud_excess
+
+    total = 0.0
+    for i, piece in enumerate(sorted_large):
+        extra_gap = max(0.0, (small_top - piece) / small_top) if small_top else 0.0
+        effective = top_scarcity + p["boost"] * max(0.0, extra_gap - top_gap)
+        effective = max(0.0, min(p["effective_cap"], effective))
+        total += piece * effective * (p["decay"] ** i) * stud_mult
     return total
 
 
@@ -501,6 +590,34 @@ def main() -> None:
     )
     report(predict_v7_full_loop, v7_best["params"], "V7 full-loop (RMS)")
 
+    # V8 — V7 + stud-factor magnitude term.
+    # KTC's FAQ explicitly names "stud factor" as a distinct input.
+    # V7's per-piece weight is purely ratio-based (top_gap is a
+    # percentage), so V8 adds a multiplier that amplifies elite-top-
+    # piece trades.  When stud_coeff=0 V8 collapses to V7 exactly,
+    # so the grid search can decide whether the stud term improves
+    # the fit or is just absorbed by other parameters.
+    #
+    # Grid is intentionally wider on stud_coeff (0.0 to 1.5) so the
+    # search can choose to NOT apply it (coeff=0).  Threshold range
+    # 5000-8500 spans "top-100 dynasty" through "top-25 elite-only".
+    print("\n--- V8 grid refit ---")
+    v8_best = grid_search(
+        predict_v8_stud_factor,
+        {
+            "slope": _linspace(2.5, 5.5, 6),
+            "intercept": _linspace(0.10, 0.50, 4),
+            "cap": _linspace(0.35, 0.90, 6),
+            "decay": _linspace(0.20, 0.65, 5),
+            "boost": _linspace(0.4, 1.8, 6),
+            "effective_cap": _linspace(0.80, 1.40, 5),
+            "stud_coeff": _linspace(0.0, 1.5, 7),
+            "stud_threshold": [5000.0, 6500.0, 7000.0, 7500.0, 8500.0],
+        },
+        metric="rms",
+    )
+    report(predict_v8_stud_factor, v8_best["params"], "V8 stud-factor (RMS)")
+
     # Summary ranking.
     total_points = len(DATA)
     print("\n=== CANDIDATE RANKING (by RMS) ===")
@@ -513,6 +630,7 @@ def main() -> None:
         ("V5", predict_v5_additive_with_roster, v5_best["params"]),
         ("V6", predict_v6_equal_count, v6_best["params"]),
         ("V7", predict_v7_full_loop, v7_best["params"]),
+        ("V8", predict_v8_stud_factor, v8_best["params"]),
     ]
     for name, fn, params in candidates:
         errs = [abs(r[3]) for r in errors(fn, params)]
