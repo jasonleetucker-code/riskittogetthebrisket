@@ -32,6 +32,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OBSERVATIONS = REPO_ROOT / "scripts" / "ktc_va_observations.json"
+DEFAULT_FIXTURE = REPO_ROOT / "scripts" / "ktc_va_fixture.json"
 
 
 @dataclass(frozen=True)
@@ -69,8 +70,33 @@ class DataPoint:
         return self.sorted_small()[0] if self.small else 0.0
 
 
-def load_observations(path: Path = DEFAULT_OBSERVATIONS) -> list[DataPoint]:
-    """Load observations from ``data/ktc_va_observations.json``.
+def _load_fixture_labels(fixture_path: Path) -> set[str] | None:
+    """Return the set of labels currently in the fixture, or None when
+    the fixture is missing or unreadable (in which case we skip the
+    orphan-filter step rather than fail).  The fixture itself is
+    committed and should always be present in normal usage; this is
+    purely defensive."""
+    if not fixture_path.exists():
+        return None
+    try:
+        with fixture_path.open("r", encoding="utf-8") as f:
+            entries = json.load(f)
+    except Exception:
+        return None
+    if not isinstance(entries, list):
+        return None
+    labels: set[str] = set()
+    for e in entries:
+        if isinstance(e, dict) and isinstance(e.get("label"), str):
+            labels.add(e["label"])
+    return labels or None
+
+
+def load_observations(
+    path: Path = DEFAULT_OBSERVATIONS,
+    fixture_path: Path = DEFAULT_FIXTURE,
+) -> list[DataPoint]:
+    """Load observations from ``scripts/ktc_va_observations.json``.
 
     Each observation is converted to a DataPoint.  The ``small`` side is
     the one with fewer pieces (unequal) or higher top asset (equal) —
@@ -78,6 +104,14 @@ def load_observations(path: Path = DEFAULT_OBSERVATIONS) -> list[DataPoint]:
     reportable VA (``valueAdjustmentTeam1 == 0`` AND
     ``valueAdjustmentTeam2 == 0``) are still loaded with ktc_va=0 so
     the fit can honor the "no adjustment" signal.
+
+    Observations whose label is no longer present in the current fixture
+    are silently skipped (with a warning printed so the orphan count is
+    visible).  This prevents stale carryover when the fixture is
+    renamed or trimmed: ``collect_ktc_va.py`` doesn't prune stale
+    captures from the JSON, so without this filter a renamed fixture
+    would mix old + new datasets and quietly bias the fit toward
+    whichever local capture history a developer happens to have.
     """
     # "File doesn't exist" is a legitimate state (no observations
     # captured yet); fall through quietly and let main() print a
@@ -126,6 +160,19 @@ def load_observations(path: Path = DEFAULT_OBSERVATIONS) -> list[DataPoint]:
         large = tuple(sorted(team2 if small_is_team1 else team1, reverse=True))
         ktc_va = va1 if small_is_team1 else va2
         points.append(DataPoint(label, small, large, float(ktc_va), topo))
+
+    fixture_labels = _load_fixture_labels(fixture_path)
+    if fixture_labels is not None:
+        kept = [p for p in points if p.label in fixture_labels]
+        orphans = [p.label for p in points if p.label not in fixture_labels]
+        if orphans:
+            preview = ", ".join(orphans[:5])
+            suffix = f", … (+{len(orphans) - 5} more)" if len(orphans) > 5 else ""
+            print(
+                f"WARNING: {len(orphans)} observation(s) have labels not in "
+                f"current fixture {fixture_path.name}; skipping: {preview}{suffix}"
+            )
+        return kept
     return points
 
 
