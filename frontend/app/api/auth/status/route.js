@@ -20,6 +20,14 @@ export async function GET(request) {
       clearTimeout(timer);
     }
   } catch {
-    return NextResponse.json({ authenticated: false }, { status: 200 });
+    // Backend unreachable / timeout / parse failure — return a
+    // non-2xx so callers (notably ``useAuth``) can distinguish a
+    // transient infra blip from a genuine ``{authenticated: false}``
+    // and preserve the optimistic cached session instead of forcing
+    // a sign-out on every backend hiccup.
+    return NextResponse.json(
+      { authenticated: false, error: "auth_status_unreachable" },
+      { status: 502 },
+    );
   }
 }
