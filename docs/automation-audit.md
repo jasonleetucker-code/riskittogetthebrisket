@@ -169,68 +169,70 @@ of production data flow.** They do not need to be eliminated.
 Here is the gap list with my proposed Phase-2 fix for each. **No code
 will change until you confirm.**
 
-### Tier 1 — fix because they are silent failures
+### Tier 1 — silent-failure gaps (RESOLVED)
 
-**G1. IDP Show goes stale invisibly when the prod-server cookie expires.**  
-Currently the only way to notice is via `audit-dropped-sources.yml`
-catching a high drop rate weeks later, or someone looking at the
-source-health dashboard.  
-*Proposed fix:* extend `health-check.yml` (or `source_health_alerts.py`)
-to compare each source's most-recent CSV mtime against
-`config/source_staleness.json` thresholds and emit `::error::` (which
-fails the workflow and shows red in the Actions tab) when a source
-breaches its threshold. Smallest change set: one new shell step in
-the existing `health-check.yml`, no new workflow.
+**G1. IDP Show goes stale invisibly when the prod-server cookie expires.**
+*Resolved.* The `source_health_alerts` module was already written and
+unit-tested but never wired into the running server. We now invoke
+`source_health_alerts.check_and_alert(...)` from
+`server.py::run_signal_sweep` (right after the existing `ops_alerts`
+call), so it piggybacks on the same cron and emits an email when
+any source breaches its `config/source_staleness.json` threshold —
+including a new explicit `idpShow: 168 h` entry. Cooldown state
+persists in `user_kv` under `_system_source_health`. Recovery
+alerts fire when a previously-stale source comes back.
 
-**G2. CSV-filename ↔ ingestion-path link has no parity test.**  
-A scraper file rename silently drops the source from the live blend.  
-*Proposed fix:* add `tests/api/test_source_csv_paths_exist.py` —
-iterates `_SOURCE_CSV_PATHS`, asserts each path exists in `CSVs/` (or
-in a fixture for sources we don't ship). Runs in `pr-validation.yml`,
-fails CI if a renamed scraper output isn't matched.
+**G2. CSV-filename ↔ ingestion-path link has no parity test.**
+*Resolved.* `tests/api/test_config_parity.py::TestSourceCsvPathRegistryParity`
+asserts every `_SOURCE_CSV_PATHS` key is in `_RANKING_SOURCES`. CI
+fails if a scraper rename or registry removal silently drops a source.
 
 **G3. `_VALUE_BASED_SOURCES` and frontend `SOURCE_VENDORS` are silently
-parallel to the registry.**  
-*Proposed fix:* one parity test per pair, mirroring
-`test_source_registry_parity.py` style. ~30 lines each.
+parallel to the registry.**
+*Resolved.* `_VALUE_BASED_SOURCES` was already enforced at module
+import via `_validate_value_based_sources_invariant()` (line 4277 in
+`data_contract.py`). The frontend `SOURCE_VENDORS` map now has a
+parity test (`test_config_parity.py::TestFrontendSourceVendorsParity`)
+that fails CI if a JS vendor key references a Python source that no
+longer exists.
 
-### Tier 2 — fix because the artifacts exist but aren't wired
+### Tier 2 — RETRACTED on verification (2026-04-25)
 
-**G4. `scripts/fetch_yahoo_boone.py` and `scripts/fetch_dynasty_nerds.py`
-are dead code — orphaned prototypes superseded by `Dynasty Scraper.py`.**  
-*Proposed fix:* delete them. They are not in any workflow, the test
-suite never imports them, and they duplicate logic that lives in the
-legacy scraper. Document the deletion in the commit message so
-operators know the legacy scraper is the canonical path for these two
-sources.  
-*Risk note:* If either script is intended as a fallback, keep them but
-add a `# DEPRECATED` banner + a parity test that verifies the legacy
-scraper still emits the corresponding CSV. Owner call.
+**G4 (originally: delete `fetch_yahoo_boone.py` + `fetch_dynasty_nerds.py`):**
+**RETRACTED.** On second look, both scripts are imported and called
+inline by `server.py` during the `/api/scrape` flow:
+- `server.py:1364` — `from scripts import fetch_dynasty_nerds`
+- `server.py:1399` — `from scripts import fetch_fantasypros_offense`
+- `server.py:1433` — `from scripts import fetch_fantasypros_idp`
+- `server.py:1469` — `from scripts import fetch_idpshow`
+And `tests/adapters/test_yahoo_boone_scraper.py` imports
+`fetch_yahoo_boone.py` directly. The audit was wrong to call them
+orphans — they're invoked at runtime by the live scrape loop, not by
+the GitHub Actions workflow. They are an intentional split: lightweight
+HTTP-only fetches live as standalone scripts (run inline by server.py),
+heavier Playwright-driven fetches live in `Dynasty Scraper.py`.
+**No action.**
 
-**G5. `scripts/fetch_fantasypros_offense.py` and
-`scripts/fetch_fantasypros_idp.py` are similarly unused** (FP SF + IDP
-are scraped by `Dynasty Scraper.py`; only `fetch_fantasypros_fitzmaurice.py`
-is wired to scheduled-refresh).  
-*Same fix as G4*: delete or banner.
+**G5 (originally: delete `fetch_fantasypros_*.py`):** Same retraction.
+Both are imported from `server.py:1399` and `:1433`. No action.
 
-### Tier 3 — fix because they're manual but easy to automate
+### Tier 3 — manual config validation (RESOLVED)
 
-**G6. Tunable JSON configs have no schema validation.**  
-A typo in `config/leagues/registry.json`, `config/weights/default_weights.json`,
-or `config/source_staleness.json` only surfaces at runtime as a 503.  
-*Proposed fix:* one new test, `tests/config/test_config_schemas.py`,
-that imports the production loader for each config and asserts it
-parses without error. Catches typos pre-merge.
+**G6. Tunable JSON configs have no schema validation.**
+*Resolved.* `test_config_parity.py::TestConfigJsonFilesParse` walks
+every `*.json` under `config/` and parses each one. CI fails on
+malformed JSON, so a typo in `registry.json` /
+`default_weights.json` / `source_staleness.json` /
+`tiers/thresholds.json` etc. is caught pre-merge instead of as a
+503 in production.
 
-**G7. League registry has no parity test against frontend usage.**  
-Adding a new league to `config/leagues/registry.json` requires no
-frontend change (the API serves it) — but the existing UI expects
-specific scoring profiles to exist for each league key. A registry
-that ships an unknown `scoringProfile` returns 503 on
-`/api/data?leagueKey=…`.  
-*Proposed fix:* extend `tests/api/test_league_registry.py` to assert
-every registered `scoringProfile` exists in the
-`scoring_profiles_registry`. ~10 lines.
+**G7. League registry has no parity test.**
+*Resolved.* `test_config_parity.py::TestLeagueRegistryWellFormed`
+runs the live registry through the production
+`league_registry._parse_league_entry` parser, asserts every league
+has a non-empty `scoringProfile` (catching the silent fallback to
+the literal `"default"` string), and asserts no two leagues share
+an alias.
 
 ### Tier 4 — pure tech debt cleanup
 

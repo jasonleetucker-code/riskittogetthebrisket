@@ -1114,13 +1114,17 @@ export default function RankingsPage() {
                 {idpEnabled && <option value="DB">DB</option>}
               </optgroup>
             </select>
-            <select className="select hide-mobile" value={confFilter} onChange={(e) => setConfFilter(e.target.value)}>
+            {/* Confidence filter and Tiers toggle — previously hidden
+                on mobile, now exposed so mobile users can access them.
+                On a 390 px viewport they wrap to a second row of the
+                filter bar (.filter-bar already has flex-wrap). */}
+            <select className="select" value={confFilter} onChange={(e) => setConfFilter(e.target.value)}>
               {CONFIDENCE_FILTERS.map((f) => (
                 <option key={f.key} value={f.key}>{f.label}</option>
               ))}
             </select>
             <button
-              className={`button hide-mobile ${showTiers ? "button-primary" : ""}`}
+              className={`button ${showTiers ? "button-primary" : ""}`}
               onClick={() => setShowTiers((v) => !v)}
               title="Toggle tier grouping"
             >

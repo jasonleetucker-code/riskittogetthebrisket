@@ -6554,6 +6554,28 @@ async def run_signal_alerts(request: Request):
         log.warning("ops_alerts check failed: %s", exc)
         result["opsAlerts"] = {"error": str(exc)}
 
+    # Per-source staleness alerts (G1 from docs/automation-audit.md).
+    # Catches the "IDP Show prod cookie expired and the source went
+    # silently stale for two weeks" failure mode by per-source SLA.
+    # Thresholds live in ``config/source_staleness.json``; cooldown
+    # state persists in ``user_kv`` under ``_system_source_health``
+    # so we don't re-fire on every sweep.
+    try:
+        from src.api import source_health_alerts as _sha
+        source_health = _build_source_health_snapshot(
+            latest_data or latest_contract_data
+        )
+        if source_health:
+            stale_summary = _sha.check_and_alert(
+                source_health,
+                delivery=_deliver_email_smtp if ALERT_TO else None,
+                to_email=ALERT_TO or None,
+            )
+            result["sourceStalenessAlerts"] = stale_summary
+    except Exception as exc:  # noqa: BLE001
+        log.warning("source_health_alerts check failed: %s", exc)
+        result["sourceStalenessAlerts"] = {"error": str(exc)}
+
     return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
 
 

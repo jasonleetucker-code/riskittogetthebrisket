@@ -144,9 +144,32 @@ function MobileTopBar() {
   const { openSearch } = useApp();
   const { authenticated, logout } = useContext(AuthContext);
 
-  // Derive page title from current route
+  // Derive page title from current route.  Top-level routes map to a
+  // simple noun; deep routes under /league get a per-tab title so a
+  // user landing on /league/franchise/<owner> sees "Franchise"
+  // instead of the parent "League" — small but meaningful clarity
+  // win for mobile, where the breadcrumb pattern doesn't fit.
   const pageTitle = (() => {
-    const route = pathname?.split("/")[1] || "";
+    const segments = (pathname || "").split("/").filter(Boolean);
+    const top = segments[0] || "";
+    const sub = segments[1] || "";
+    if (top === "league" && sub) {
+      const sublabels = {
+        franchise: "Franchise",
+        player: "Player",
+        rivalry: "Rivalry",
+        week: "Week recap",
+        weekly: "Matchup",
+      };
+      if (sublabels[sub]) return sublabels[sub];
+    }
+    if (top === "tools" && sub) {
+      const toolLabels = {
+        "source-health": "Source health",
+        "trade-coverage": "Trade coverage",
+      };
+      if (toolLabels[sub]) return toolLabels[sub];
+    }
     const titles = {
       "": "Home",
       rankings: "Rankings",
@@ -162,8 +185,10 @@ function MobileTopBar() {
       login: "Login",
       more: "More",
       "draft-capital": "Draft Capital",
+      tools: "Tools",
+      admin: "Admin",
     };
-    return titles[route] || "Brisket";
+    return titles[top] || "Brisket";
   })();
 
   return (
