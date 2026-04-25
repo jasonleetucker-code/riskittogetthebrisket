@@ -74,7 +74,9 @@ class ActiveStreakOwnerTests(unittest.TestCase):
         self.assertNotIn("lossStreak", out)
         self.assertEqual(out["winStreak"]["length"], 2)
 
-    def test_plus100_streak_includes_games_below_100(self) -> None:
+    def test_only_winloss_streaks_after_threshold_streaks_removed(self) -> None:
+        # plus100 / plus120 / plus140 streaks have been removed — only
+        # win and loss streaks remain.
         events = [
             {"result": "W", "points": 130.0, "week": 1, "season": "2025"},
             {"result": "W", "points": 90.0, "week": 2, "season": "2025"},
@@ -82,9 +84,10 @@ class ActiveStreakOwnerTests(unittest.TestCase):
             {"result": "W", "points": 140.0, "week": 4, "season": "2025"},
         ]
         out = _active_streaks_for_owner(events, "owner-A", "Ann")
-        # Latest game is 140 → plus100 streak starts here; goes back
-        # through the 125-point week too; stops at the 90-point week.
-        self.assertEqual(out["plus100Streak"]["length"], 2)
+        self.assertNotIn("plus100Streak", out)
+        self.assertNotIn("plus120Streak", out)
+        self.assertNotIn("plus140Streak", out)
+        self.assertEqual(out["winStreak"]["length"], 4)
 
     def test_tie_at_tail_reports_no_win_or_loss_streak(self) -> None:
         events = [
@@ -109,9 +112,11 @@ class StreaksSectionTests(unittest.TestCase):
             "latestWeek",
             "activeStreaks",
             "activeStreaksByType",
+            "currentStreaksByOwner",
+            "longestWinStreaks",
+            "longestLossStreaks",
             "recordsInReach",
             "notableThisWeek",
-            "thresholds",
         }
         self.assertTrue(expected.issubset(set(self.data.keys())))
 

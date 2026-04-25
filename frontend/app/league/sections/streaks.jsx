@@ -2,13 +2,13 @@
 
 // StreaksSection — "Streaks" tab on /league.
 //
-// Three sections, top to bottom:
+// Sections rendered:
 //   * "Records are falling" — records-in-reach: the all-time holder
 //     plus the current-season chaser (if any), with a within-reach flag.
 //   * "Notable this week" — the most recently scored week's games that
 //     cracked the all-time top-5 in a category.
-//   * "Active streaks" — per owner, their trailing W/L/100+/120+/140+
-//     run of consecutive games.
+//   * "Longest win streaks" + "Longest losing streaks" — top-5 of each.
+//   * "Active streaks" — every manager's current trailing W/L run.
 //
 // Reads strictly from ``sections.streaks`` of the public contract.
 
@@ -20,12 +20,10 @@ function StreakTypeLabel(type) {
       return { label: "Win streak", color: "#2ecc71", suffix: "W" };
     case "lossStreak":
       return { label: "Loss streak", color: "#ff6b6b", suffix: "L" };
-    case "plus100Streak":
-      return { label: "100+ streak", color: "#7bdfb3", suffix: "G" };
-    case "plus120Streak":
-      return { label: "120+ streak", color: "#4fc3f7", suffix: "G" };
-    case "plus140Streak":
-      return { label: "140+ streak", color: "#ffa726", suffix: "G" };
+    case "tie":
+      return { label: "Tie", color: "var(--subtext)", suffix: "T" };
+    case "none":
+      return { label: "No games", color: "var(--subtext)", suffix: "" };
     default:
       return { label: type, color: "var(--subtext)", suffix: "" };
   }
@@ -117,7 +115,42 @@ function NotableRow({ n, managers }) {
   );
 }
 
-function ActiveStreakRow({ s, managers }) {
+function LongestStreakRow({ s, managers, color, suffix }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "6px 0",
+        borderBottom: "1px solid var(--border)",
+      }}
+    >
+      <Avatar managers={managers} ownerId={s.ownerId} size={20} />
+      <div style={{ flex: 1, fontSize: "0.78rem" }}>
+        <strong>{nameFor(managers, s.ownerId) || s.displayName}</strong>
+        {s.start && s.end && (
+          <span style={{ color: "var(--subtext)", marginLeft: 8, fontSize: "0.66rem" }}>
+            {s.start.season} wk {s.start.week} → {s.end.season} wk {s.end.week}
+          </span>
+        )}
+      </div>
+      <div
+        style={{
+          fontFamily: "var(--mono)",
+          color,
+          fontWeight: 700,
+          minWidth: 40,
+          textAlign: "right",
+        }}
+      >
+        {s.length}{suffix}
+      </div>
+    </div>
+  );
+}
+
+function CurrentStreakRow({ s, managers }) {
   const { label, color, suffix } = StreakTypeLabel(s.type);
   return (
     <div
@@ -132,9 +165,11 @@ function ActiveStreakRow({ s, managers }) {
       <Avatar managers={managers} ownerId={s.ownerId} size={20} />
       <div style={{ flex: 1, fontSize: "0.78rem" }}>
         <strong>{nameFor(managers, s.ownerId) || s.displayName}</strong>
-        <span style={{ color: "var(--subtext)", marginLeft: 8, fontSize: "0.66rem" }}>
-          since {s.start?.season} wk {s.start?.week}
-        </span>
+        {s.start && (
+          <span style={{ color: "var(--subtext)", marginLeft: 8, fontSize: "0.66rem" }}>
+            since {s.start.season} wk {s.start.week}
+          </span>
+        )}
       </div>
       <div
         style={{
@@ -145,7 +180,8 @@ function ActiveStreakRow({ s, managers }) {
           textAlign: "right",
         }}
       >
-        {s.length}{suffix} <span style={{ color: "var(--subtext)", fontWeight: 400, fontSize: "0.66rem" }}>{label}</span>
+        {s.length > 0 ? `${s.length}${suffix}` : "—"}{" "}
+        <span style={{ color: "var(--subtext)", fontWeight: 400, fontSize: "0.66rem" }}>{label}</span>
       </div>
     </div>
   );
@@ -153,9 +189,21 @@ function ActiveStreakRow({ s, managers }) {
 
 export default function StreaksSection({ data, managers }) {
   if (!data) return <EmptyCard label="Streaks" />;
-  const { activeStreaks = [], recordsInReach = [], notableThisWeek = [], latestWeek } = data;
+  const {
+    longestWinStreaks = [],
+    longestLossStreaks = [],
+    currentStreaksByOwner = [],
+    recordsInReach = [],
+    notableThisWeek = [],
+    latestWeek,
+  } = data;
 
-  const hasContent = activeStreaks.length + recordsInReach.length + notableThisWeek.length > 0;
+  const hasContent =
+    longestWinStreaks.length +
+      longestLossStreaks.length +
+      currentStreaksByOwner.length +
+      recordsInReach.length +
+      notableThisWeek.length > 0;
   if (!hasContent) return <EmptyCard label="Streaks" />;
 
   return (
@@ -199,19 +247,58 @@ export default function StreaksSection({ data, managers }) {
         </Card>
       )}
 
-      {activeStreaks.length > 0 && (
-        <Card title="Active streaks">
+      {(longestWinStreaks.length > 0 || longestLossStreaks.length > 0) && (
+        <Card title="Longest streaks · top 5 each">
+          <div className="row">
+            <div className="card" style={{ flex: "1 1 260px" }}>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>Win streaks</div>
+              {longestWinStreaks.length === 0 ? (
+                <div style={{ fontSize: "0.7rem", color: "var(--subtext)" }}>—</div>
+              ) : (
+                longestWinStreaks.map((s) => (
+                  <LongestStreakRow
+                    key={`win-${s.ownerId}`}
+                    s={s}
+                    managers={managers}
+                    color="#2ecc71"
+                    suffix="W"
+                  />
+                ))
+              )}
+            </div>
+            <div className="card" style={{ flex: "1 1 260px" }}>
+              <div style={{ fontWeight: 700, marginBottom: 6 }}>Losing streaks</div>
+              {longestLossStreaks.length === 0 ? (
+                <div style={{ fontSize: "0.7rem", color: "var(--subtext)" }}>—</div>
+              ) : (
+                longestLossStreaks.map((s) => (
+                  <LongestStreakRow
+                    key={`loss-${s.ownerId}`}
+                    s={s}
+                    managers={managers}
+                    color="#ff6b6b"
+                    suffix="L"
+                  />
+                ))
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {currentStreaksByOwner.length > 0 && (
+        <Card title="Current streak by manager">
           <div>
-            {activeStreaks.map((s) => (
-              <ActiveStreakRow
-                key={`${s.type}-${s.ownerId}`}
+            {currentStreaksByOwner.map((s) => (
+              <CurrentStreakRow
+                key={`cur-${s.ownerId}`}
                 s={s}
                 managers={managers}
               />
             ))}
           </div>
           <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginTop: 10 }}>
-            Trailing runs only — computed from each manager's most recent game, walking backwards until the streak breaks.
+            Each manager's current trailing run from their most recent game. A tie ends both win and loss streaks.
           </div>
         </Card>
       )}
