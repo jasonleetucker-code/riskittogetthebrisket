@@ -509,6 +509,344 @@ def predict_v10_classifier(pt: DataPoint, p: dict) -> float:
     return max(0.0, eq_va)
 
 
+# ── V11: V2 unequal + Ridge-regression equal-count ─────────────────────
+#
+# V8/V9/V10 all converged on "predict 0 on equal-count" because a hand-
+# crafted linear branch over a single (top_gap × small_top) feature
+# cannot fit KTC's bimodal equal-count behavior.  V11 keeps V2 verbatim
+# for the unequal-count branch (which fits the 13 baseline anchors at
+# 8% RMS — must not regress) and learns a richer linear model on
+# engineered features for the equal-count branch.
+#
+# Hard requirement: V11 = V2 exactly on every unequal-count input.
+# This is satisfied by construction: if extras exist, return V2.  Only
+# equal-count cases route through the regression.
+#
+# Features (all dimensionless ratios so the regression generalizes
+# across value scales):
+#
+#   1.  intercept            (always 1.0)
+#   2.  top_gap              max(0, (small_top - large_top) / small_top)
+#   3.  second_gap           (small_top - large[1]) / small_top, signed
+#                            (or 0 when count == 1 — no second piece)
+#   4.  mean_pair_gap        avg over i of (small[i] - large[i]) / small_top
+#   5.  count_size           number of pieces per side (1, 2, 3, 4, 5)
+#   6.  sum_advantage_norm   (small_sum - large_sum) / max(small_sum, large_sum)
+#   7.  dominance_ratio      fraction of (sorted) pairs where small[i] > large[i]
+#   8.  top_value_norm       small_top / 9999  (stud absolute magnitude)
+#
+# Output is a single VA value, then capped at 0 to enforce the
+# "VA is always non-negative" invariant the rest of the system assumes.
+EQ_FEATURE_NAMES = (
+    "intercept",
+    "top_gap",
+    "second_gap",
+    "mean_pair_gap",
+    "count_size",
+    "sum_advantage_norm",
+    "dominance_ratio",
+    "top_value_norm",
+)
+
+
+def equal_count_features(pt: DataPoint) -> list[float] | None:
+    """Compute the V11 feature vector for an equal-count DataPoint.
+
+    Returns None when the point isn't equal-count (caller should not
+    invoke V11's regression branch in that case).
+    """
+    sm = pt.sorted_small()
+    lg = pt.sorted_large()
+    if len(sm) != len(lg) or not sm or sm[0] <= 0:
+        return None
+    n = len(sm)
+    small_top = sm[0]
+
+    top_gap = max(0.0, (sm[0] - lg[0]) / small_top)
+
+    if n >= 2:
+        second_gap = (sm[0] - lg[1]) / small_top
+    else:
+        second_gap = 0.0
+
+    mean_pair_gap = sum((sm[i] - lg[i]) / small_top for i in range(n)) / n
+
+    s_sum = sum(sm)
+    l_sum = sum(lg)
+    sum_adv_norm = (s_sum - l_sum) / max(s_sum, l_sum, 1.0)
+
+    dominance_ratio = sum(1 for i in range(n) if sm[i] > lg[i]) / n
+    top_value_norm = small_top / 9999.0
+
+    return [
+        1.0,
+        top_gap,
+        second_gap,
+        mean_pair_gap,
+        float(n),
+        sum_adv_norm,
+        dominance_ratio,
+        top_value_norm,
+    ]
+
+
+def _ridge_fit(X: list[list[float]], y: list[float], alpha: float = 1.0) -> list[float]:
+    """Solve Ridge regression β = (XᵀX + αI)⁻¹ Xᵀy in pure Python.
+
+    Pure-Python matrix solve so the script runs without numpy.  With
+    only ~50 training points and ~8 features the operation is
+    instantaneous and round-off error is negligible.
+
+    Doesn't penalize the intercept (assumes column 0 is all 1.0).
+    Setting ``alpha=0`` reduces to plain OLS.
+    """
+    n_features = len(X[0])
+    # Build XᵀX
+    xtx = [[0.0] * n_features for _ in range(n_features)]
+    for row in X:
+        for i in range(n_features):
+            for j in range(n_features):
+                xtx[i][j] += row[i] * row[j]
+    # Add αI on non-intercept rows.
+    for i in range(1, n_features):
+        xtx[i][i] += alpha
+    # Build Xᵀy
+    xty = [0.0] * n_features
+    for row, target in zip(X, y):
+        for i in range(n_features):
+            xty[i] += row[i] * target
+    # Solve via Gaussian elimination on the augmented matrix.
+    aug = [xtx[i][:] + [xty[i]] for i in range(n_features)]
+    for col in range(n_features):
+        # Find pivot
+        pivot_row = max(range(col, n_features), key=lambda r: abs(aug[r][col]))
+        if abs(aug[pivot_row][col]) < 1e-12:
+            raise ValueError(f"singular at column {col}")
+        aug[col], aug[pivot_row] = aug[pivot_row], aug[col]
+        pivot_val = aug[col][col]
+        # Normalize pivot row
+        for k in range(col, n_features + 1):
+            aug[col][k] /= pivot_val
+        # Eliminate
+        for r in range(n_features):
+            if r == col:
+                continue
+            factor = aug[r][col]
+            if factor == 0.0:
+                continue
+            for k in range(col, n_features + 1):
+                aug[r][k] -= factor * aug[col][k]
+    return [aug[i][n_features] for i in range(n_features)]
+
+
+def fit_v11_equal_branch(data: list[DataPoint], alpha: float = 1.0) -> dict:
+    """Fit the V11 equal-count regression branch.
+
+    Trains on every equal-count DataPoint in ``data`` regardless of
+    whether KTC reported zero or nonzero VA — both signals matter
+    ("predict 0 here" is just as informative as "predict 4288 here").
+
+    Returns a params dict shaped for ``predict_v11`` containing
+    ``coefficients`` (one float per feature in EQ_FEATURE_NAMES order)
+    and the V2 unequal-count constants verbatim.
+    """
+    X: list[list[float]] = []
+    y: list[float] = []
+    for pt in data:
+        feats = equal_count_features(pt)
+        if feats is None:
+            continue
+        X.append(feats)
+        y.append(pt.ktc_va)
+    if len(X) < len(EQ_FEATURE_NAMES):
+        # Not enough equal-count points to fit; return zero coefficients
+        # (regression branch will always predict 0 → V11 collapses to V2).
+        coeffs = [0.0] * len(EQ_FEATURE_NAMES)
+    else:
+        coeffs = _ridge_fit(X, y, alpha=alpha)
+    return {
+        # V2 (current production) unequal-count constants
+        "v2_slope": 4.27,
+        "v2_intercept": 0.288,
+        "v2_cap": 0.64,
+        "v2_decay": 0.7,
+        # Equal-count regression coefficients (in EQ_FEATURE_NAMES order)
+        "eq_coeffs": coeffs,
+        "eq_alpha": alpha,
+        "eq_n_train": len(X),
+    }
+
+
+def predict_v11(pt: DataPoint, p: dict) -> float:
+    """V11: V2 verbatim on unequal-count, learned linear regression on
+    equal-count features.
+
+    On unequal-count inputs this returns *exactly* the same VA as
+    ``predict_v1_current`` with the V2 production params, so the 13
+    baseline anchors (which are all unequal-count) cannot regress.
+    """
+    extras = pt.extras()
+    if extras:
+        # Unequal-count: replicate V1 prod / V2 production formula.
+        top_gap = pt.top_gap()
+        raw = p["v2_slope"] * top_gap - p["v2_intercept"]
+        scarcity = max(0.0, min(p["v2_cap"], raw))
+        total = 0.0
+        for i, extra in enumerate(extras):
+            total += extra * scarcity * (p["v2_decay"] ** i)
+        return total
+
+    # Equal-count: linear regression on engineered features.
+    feats = equal_count_features(pt)
+    if feats is None:
+        return 0.0
+    coeffs = p.get("eq_coeffs") or []
+    if len(coeffs) != len(feats):
+        return 0.0
+    eq_va = sum(c * f for c, f in zip(coeffs, feats))
+    return max(0.0, eq_va)
+
+
+# ── V12: KTC's actual formula ──────────────────────────────────────────
+#
+# Reverse-engineered from KTC's client-side JavaScript (published by
+# javelinfantasyfootball.com 2022-09-30) and corroborated by KTC's own
+# Reddit explanation.  This is the EXACT algorithm KTC uses to compute
+# the displayed Value Adjustment, no parameters to fit.
+#
+# Per-player raw adjustment::
+#
+#     raw(p, t, v) = p · (0.1
+#                         + 0.04 · (p / v)^8
+#                         + 0.11 · (p / t)^1.3
+#                         + 0.22 · (p / (v + 2000))^1.28)
+#
+# where:
+#     p  = this player's KTC value
+#     t  = max KTC value among all players in the trade
+#     v  = max KTC value overall (~9999, e.g. Josh Allen)
+#
+# Algorithm:
+#   1. Compute raw(p, t, v) for every player in the trade.
+#   2. Sum raw per side.  Larger raw_sum side has the bigger studs.
+#   3. Compute raw_diff = | raw_sum_A - raw_sum_B |.
+#   4. Find player value X such that raw(X, t, v) ≈ raw_diff
+#      (the smaller raw side needs a virtual X to even).
+#   5. Displayed VA = (smaller_side_total + X) - bigger_side_total,
+#      applied to the side with bigger studs (= bigger raw_sum).
+#
+# The DataPoint's ``small`` is the side with the bigger top piece
+# (matching the convention used by every prior candidate); KTC's
+# bigger-raw-sum side will be that same side in practice because raw
+# scales super-linearly with value, so the side with the top piece
+# generally wins on raw_sum even if it has fewer pieces.
+
+# Fixed v: max KTC value overall.  Effectively a constant in the
+# formula since real top players sit at 9999.
+_KTC_V_OVERALL_MAX = 9999.0
+
+
+def _ktc_raw_adjustment(p: float, t: float, v: float = _KTC_V_OVERALL_MAX) -> float:
+    """Per-player raw adjustment from KTC's published formula."""
+    if p <= 0:
+        return 0.0
+    pv = p / v if v > 0 else 0.0
+    pt_ratio = p / t if t > 0 else 0.0
+    pv2k = p / (v + 2000.0)
+    return p * (
+        0.1
+        + 0.04 * (pv ** 8)
+        + 0.11 * (pt_ratio ** 1.3)
+        + 0.22 * (pv2k ** 1.28)
+    )
+
+
+def _ktc_solve_for_added_value(
+    target_raw: float, t: float, v: float = _KTC_V_OVERALL_MAX
+) -> float:
+    """Find player value X such that ``_ktc_raw_adjustment(X, t, v) ≈ target_raw``.
+
+    Binary search on X in [0, t].  ``raw(p, t, v)`` is monotonically
+    increasing in p when t and v are fixed (every term inside the
+    parens is non-decreasing, and p multiplies the whole thing), so
+    bisection converges fast.
+    """
+    if target_raw <= 0:
+        return 0.0
+    lo, hi = 0.0, max(t, _KTC_V_OVERALL_MAX)
+    # If even raw(hi) is below target (unusual — would require target
+    # bigger than max possible raw), saturate at hi.
+    if _ktc_raw_adjustment(hi, t, v) < target_raw:
+        return hi
+    for _ in range(60):  # 60 iterations → ~10⁻¹⁸ precision (overkill)
+        mid = (lo + hi) / 2.0
+        if _ktc_raw_adjustment(mid, t, v) < target_raw:
+            lo = mid
+        else:
+            hi = mid
+    return (lo + hi) / 2.0
+
+
+def predict_v12_ktc_actual(pt: DataPoint, p: dict | None = None) -> float:
+    """V12: KTC's published Value Adjustment formula, applied verbatim.
+
+    No parameters — the formula constants 0.1 / 0.04 / 0.11 / 0.22 and
+    exponents 8 / 1.3 / 1.28 are baked in (these are KTC's own).  The
+    ``p`` dict argument is accepted for signature compatibility with
+    the rest of the candidate family but unused.
+
+    Returns the VA (always ≥ 0) on the side with the bigger raw_sum.
+    Matches the convention used by every other ``predict_v*`` function:
+    the DataPoint's ``small`` is the recipient side, and the returned
+    value is the VA applied to that side.
+    """
+    sm = pt.sorted_small()
+    lg = pt.sorted_large()
+    if not sm or not lg:
+        return 0.0
+    # KTC empirical observation: 1v1 trades never display a VA, even
+    # when the article formula would produce one.  All 6 of our 1v1
+    # captures (EQ_1v1_a-f) report VA=[0, 0] in KTC's UI.  KTC seems
+    # to treat 1v1 trades as "raw value comparison only" and suppress
+    # the VA row.
+    if len(sm) == 1 and len(lg) == 1:
+        return 0.0
+    pieces_small = list(sm)
+    pieces_large = list(lg)
+    all_pieces = pieces_small + pieces_large
+    if not all_pieces:
+        return 0.0
+    t = max(all_pieces)
+    v = _KTC_V_OVERALL_MAX
+
+    raw_small = sum(_ktc_raw_adjustment(x, t, v) for x in pieces_small)
+    raw_large = sum(_ktc_raw_adjustment(x, t, v) for x in pieces_large)
+
+    raw_diff = raw_small - raw_large
+    if abs(raw_diff) < 1e-9:
+        return 0.0
+
+    # Whichever side has lower raw_sum needs a virtual player added.
+    sum_small = sum(pieces_small)
+    sum_large = sum(pieces_large)
+    if raw_diff > 0:
+        # Small side has bigger raw → large side needs virtual player.
+        virtual = _ktc_solve_for_added_value(raw_diff, t, v)
+        # VA applied to small side = (large_total + virtual) - small_total
+        va = (sum_large + virtual) - sum_small
+    else:
+        # Large side has bigger raw → small side needs virtual player.
+        # In our DataPoint convention this means the VA goes on the
+        # large side, but our ``predict`` returns the VA on the
+        # ``small`` (recipient) side, so for this branch return 0.
+        # In practice the small side is built to be the recipient of
+        # the VA in the fixture, so this branch fires when we
+        # mis-identified the recipient (rare for stud-vs-pile shapes).
+        return 0.0
+
+    return max(0.0, va)
+
+
 # ── Scoring + grid search ───────────────────────────────────────────────
 
 # Floor for the relative-error divisor.  Dividing by pt.ktc_va is
@@ -798,6 +1136,61 @@ def main() -> None:
     )
     report(predict_v10_classifier, v10_best["params"], "V10 classifier (RMS)")
 
+    # V11: V2 verbatim on unequal-count + Ridge regression on
+    # equal-count engineered features.  Hard requirement: V11 must
+    # match V2 exactly on every unequal-count input — satisfied by
+    # construction since predict_v11 returns the V2 formula in that
+    # branch.  The regression only fires on equal-count cases.
+    #
+    # We sweep alpha to compare lightly-regularized to heavily-
+    # regularized fits.  alpha=0 is plain OLS (max overfitting risk
+    # on 46 training points × 8 features); higher alphas trade
+    # in-sample fit for stability.
+    print("\n--- V11 fit (split formula, regression equal-count branch) ---")
+    v11_alphas = (0.0, 0.5, 1.0, 5.0, 25.0, 100.0)
+    v11_results: list[tuple[float, dict, float]] = []
+    for alpha in v11_alphas:
+        params = fit_v11_equal_branch(DATA, alpha=alpha)
+        rms = objective(predict_v11, params, metric="rms") * 100
+        v11_results.append((alpha, params, rms))
+        coef_str = ", ".join(
+            f"{name}={c:+.3f}"
+            for name, c in zip(EQ_FEATURE_NAMES, params["eq_coeffs"])
+        )
+        print(f"  α={alpha:>5g}  rms={rms:6.2f}%   coefs: {coef_str}")
+    # Pick the alpha with the lowest aggregate RMS for the report+ranking.
+    v11_best = min(v11_results, key=lambda r: r[2])
+    print(
+        f"  → V11 best alpha={v11_best[0]} "
+        f"(trained on {v11_best[1]['eq_n_train']} equal-count points)"
+    )
+    report(predict_v11, v11_best[1], f"V11 split-regression (α={v11_best[0]})")
+
+    # Hard-requirement check: V11 must match V2 exactly on the 13
+    # baseline anchors (all unequal-count).  Print the per-anchor
+    # delta so a regression here is impossible to miss.
+    print("\n--- V11 baseline-anchor regression check ---")
+    v2_prod_params = v1_prod  # V2 = V1's "current production" formula
+    anchor_max_delta = 0.0
+    for pt in DATA[:13]:
+        if pt.label not in {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"}:
+            continue
+        v2_pred = predict_v1_current(pt, v2_prod_params)
+        v11_pred = predict_v11(pt, v11_best[1])
+        delta = abs(v11_pred - v2_pred)
+        anchor_max_delta = max(anchor_max_delta, delta)
+        print(f"  {pt.label:<2} ({pt.topology}): V2={v2_pred:6.0f}  V11={v11_pred:6.0f}  Δ={delta:5.1f}")
+    if anchor_max_delta > 0.5:
+        print(f"  ✘ FAIL: V11 deviates from V2 on a baseline anchor (max Δ = {anchor_max_delta:.2f})")
+        print("    Hard requirement violated.  Do NOT port V11.")
+    else:
+        print(f"  ✓ PASS: V11 matches V2 within {anchor_max_delta:.2f} on every baseline anchor.")
+
+    # V12: KTC's actual published formula, applied verbatim.  No
+    # parameters to fit — this is the algorithm KTC themselves use.
+    print("\n--- V12 (KTC's published formula) ---")
+    report(predict_v12_ktc_actual, {}, "V12 KTC actual (RMS)")
+
     # Summary ranking.
     total_points = len(DATA)
     print("\n=== CANDIDATE RANKING (by RMS) ===")
@@ -813,6 +1206,8 @@ def main() -> None:
         ("V8", predict_v8_stud_factor, v8_best["params"]),
         ("V9", predict_v9_split, v9_best["params"]),
         ("V10", predict_v10_classifier, v10_best["params"]),
+        ("V11", predict_v11, v11_best[1]),
+        ("V12 KTC", predict_v12_ktc_actual, {}),
     ]
     for name, fn, params in candidates:
         errs = [abs(r[3]) for r in errors(fn, params)]
