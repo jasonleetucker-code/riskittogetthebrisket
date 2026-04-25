@@ -47,13 +47,23 @@ curl_cffi~=0.15.0
 # markup.
 beautifulsoup4~=4.14.0
 
-# NFL data pipeline (Phase 2 of the 2026-04 upgrade).  Pulls weekly
-# stats, snap counts, play-by-play, schedules from nflverse's
-# GitHub parquet releases.  Transitively installs pandas + pyarrow
-# (~150MB on disk) which is heavy but we've audited the import
-# guards (src/nfl_data/ingest.py) to degrade cleanly to empty
-# lists when this dep is absent — adding it here activates the
-# pipeline when the ``nfl_data_ingest`` feature flag is flipped.
-# No runtime behavior change at install time: code only invokes
-# nfl_data_py when the flag is on.
-nfl_data_py~=0.3.0
+# nfl_data_py: deliberately NOT in this manifest.
+#
+# nfl_data_py 0.3.x pins pandas<2.0, which forces pandas-1.5.3 to
+# build from source on Python 3.12 and fails (pkg_resources missing
+# from modern setuptools).  Newer nfl_data_py releases that support
+# pandas 2.x are not yet on PyPI as compatible-release pins our deploy
+# manifest can use safely.
+#
+# To activate the nfl_data pipeline (after which value confidence
+# intervals, usage signals, opportunity stats start producing real
+# data instead of [] no-ops), install on the production VPS:
+#
+#     ssh dynasty@<vps>
+#     source ~/.venvs/trade-calculator/bin/activate
+#     pip install 'nfl_data_py>=0.4.0' --upgrade-strategy only-if-needed
+#     systemctl restart dynasty
+#
+# Without nfl_data_py installed, every src/nfl_data/* fetch returns
+# [] (guarded import in ingest._nfl_data_py_or_none()) — no crash,
+# observable via /api/status.nflDataProvider.installed=False.
