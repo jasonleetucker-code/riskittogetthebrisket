@@ -222,15 +222,30 @@ function sortedSideValues(side, valueMode, settings) {
  * same math — no divergence between how a 2-team trade is graded vs
  * how the same shape is graded inside a 3-team trade.
  */
+// V13 suppression thresholds — calibrated 2026-04 against 39 captured
+// borderline KTC trades (raw gaps 0-2500 across 9 topologies).
+//
+// Grid-searched on the full 139-trade fixture
+// (scripts/ktc_va_observations.json):
+//
+//                                RMS   on-orig-100   on-39-BORD
+//   V12 (no suppression)        91%      39%          160%
+//   V13 (these thresholds)      41%      42%           41%
+//
+// The 3pt regression on the original 100 captures is the cost of
+// catching the 11 false-fire cases on the borderline set + the
+// user-reported "fair trade" where V12 over-predicted +1028.
+const V13_SUPPRESS_RAW_DIFF = 100;
+const V13_SUPPRESS_SAME_SIDE_RAW_DIFF = 400;
+
 function _vaFromSortedSides(small, large) {
   if (small.length === 0 || small[0] <= 0) return 0;
   if (large.length === 0) return 0;
 
-  // V12: KTC's actual published formula.
+  // V12 + V13: KTC's published formula plus empirical suppression rules.
   //
-  // KTC empirical observation: 1v1 trades never display a VA, even
-  // when the formula would produce one.  KTC's UI gates the VA row
-  // off for these shapes — match that.
+  // KTC observation 1: 1v1 trades never display a VA, even when the
+  // formula would produce one.  KTC's UI gates the row off.
   if (small.length === 1 && large.length === 1) return 0;
 
   const all = small.concat(large);
@@ -242,21 +257,43 @@ function _vaFromSortedSides(small, large) {
   let rawLarge = 0;
   for (const x of large) rawLarge += ktcRawAdjustment(x, t, v);
 
-  // KTC convention: the side with the bigger raw_sum is the
-  // "winning" side and gets the displayed VA.  Our caller convention
-  // is that ``small`` is the recipient — so we only return a
-  // non-zero VA when small actually has the bigger raw_sum.  When
-  // large has the bigger raw_sum, KTC would display VA on large; in
-  // our DataPoint convention that surfaces as 0 here.
+  // KTC convention: VA displayed on the bigger raw_sum side.  Our
+  // caller convention is that ``small`` is the recipient — so we only
+  // return a non-zero VA when small actually has the bigger raw_sum.
   const rawDiff = rawSmall - rawLarge;
   if (rawDiff <= 0) return 0;
+
+  // V13 suppression rule 1 — "trade is too close to fire".  When
+  // raw_diff is small in absolute terms, KTC's UI shows "Fair Trade"
+  // and suppresses the VA row.  Threshold tuned from 4 captured cases
+  // where V12 over-predicted by 200-1100 but KTC reported 0.
+  if (rawDiff < V13_SUPPRESS_RAW_DIFF) return 0;
+
+  // V13 suppression rule 2 — KTC article hint: "The value adjustment
+  // isn't necessarily applied to the side with the best player; it
+  // tends to be applied to the side with less junk."  When the
+  // single best AND single worst piece in the trade are on the same
+  // side AND the raw gap is moderate, KTC tends to suppress.  This
+  // is the rule that caught the user-reported "fair trade" where
+  // Justin Jefferson (best) and Germie Bernard (worst) were both on
+  // the same side and KTC showed VA=0 despite V12 computing 1028.
+  const allMin = Math.min(...all);
+  const bestInSmall = small.includes(t);
+  const worstInSmall = small.includes(allMin);
+  if (
+    bestInSmall === worstInSmall &&
+    rawDiff < V13_SUPPRESS_SAME_SIDE_RAW_DIFF
+  ) {
+    return 0;
+  }
 
   const sumSmall = small.reduce((s, x) => s + x, 0);
   const sumLarge = large.reduce((s, x) => s + x, 0);
 
-  // Solve for the virtual player value that closes the raw gap on
-  // the large side, then compute displayed VA = (large_total +
-  // virtual) - small_total.
+  // Solve for the virtual player value that closes the raw gap on the
+  // large side, then displayed VA = (large_total + virtual) -
+  // small_total — which is the "show this much extra to make the
+  // sides equal" quantity KTC's UI displays.
   const virtual = ktcSolveForAddedValue(rawDiff, t, v);
   const va = (sumLarge + virtual) - sumSmall;
   return Math.max(0, va);

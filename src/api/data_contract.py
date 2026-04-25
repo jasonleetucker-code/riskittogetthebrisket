@@ -1446,6 +1446,7 @@ SINGLE_SOURCE_ALLOWLIST: dict[str, str] = {
     "david bailey": "rookie_exclusion:dlfIdp — DLF excludes rookies",
     "cj allen": "rookie_exclusion:dlfIdp — DLF excludes rookies",
     "dillon thieneman": "rookie_exclusion:dlfIdp — DLF excludes rookies",
+    "dani dennis sutton": "rookie_exclusion:dlfIdp — DLF excludes rookies",
     "emmanuel mcneil warren": "rookie_exclusion:dlfIdp — DLF excludes rookies",
     "jake golday": "rookie_exclusion:dlfIdp — DLF excludes rookies",
     "devin bush": "depth_boundary:dlfIdp — IDPTC rank 189, DLF depth 185; just outside DLF cutoff",
