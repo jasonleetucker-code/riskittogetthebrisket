@@ -38,8 +38,11 @@ def test_error_payload_picks_up_request_id():
 
 
 def test_error_payload_picks_up_username_from_context():
+    # Use a sleeper_user_id pattern that can't appear in a timestamp
+    # microsecond suffix, so the leak check stays unambiguous.
+    sleeper_id = "leak-canary-zzz"
     tok1 = rc.set_request_id("req-1")
-    tok2 = rc.set_user({"username": "alice", "sleeper_user_id": "99"})
+    tok2 = rc.set_user({"username": "alice", "sleeper_user_id": sleeper_id})
     try:
         _, body = er.error_payload("x")
     finally:
@@ -48,7 +51,7 @@ def test_error_payload_picks_up_username_from_context():
     # Username exposed, but NOT sleeper_user_id.
     assert body["context"]["user"] == "alice"
     assert "sleeper_user_id" not in body["context"]
-    assert "99" not in str(body)
+    assert sleeper_id not in str(body)
 
 
 def test_error_payload_default_message_equals_error_code():
