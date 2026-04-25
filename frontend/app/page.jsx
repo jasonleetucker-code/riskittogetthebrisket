@@ -34,9 +34,13 @@ function LandingHome() {
 }
 
 export default function HomePage() {
-  const { authenticated, checking } = useAuthContext();
-
-  if (checking) return null;
-  if (authenticated) return <AuthenticatedHome />;
+  const { authenticated } = useAuthContext();
+  // Render the public landing while ``authenticated`` is still
+  // resolving (``null``) instead of returning ``null``.  Returning
+  // null here means a stalled auth check (slow network, blocked
+  // sessionStorage, etc.) wedges the user on a blank page with no
+  // way to recover; the landing page works for every auth state and
+  // briefly flashes before the terminal mounts for signed-in users.
+  if (authenticated === true) return <AuthenticatedHome />;
   return <LandingHome />;
 }

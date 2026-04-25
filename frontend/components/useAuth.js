@@ -46,7 +46,22 @@ export function useAuth() {
         setChecking(false);
       }
       try {
-        const res = await fetch("/api/auth/status", { credentials: "same-origin" });
+        // Cap the auth check so a hung fetch (slow network, broken
+        // proxy, iOS Safari background-tab throttling) can't leave
+        // the UI wedged on ``checking=true`` — every consumer that
+        // gates UI on the resolved state would otherwise sit on a
+        // blank screen until the request finally errors out.
+        const ctl = new AbortController();
+        const timer = setTimeout(() => ctl.abort(), 5000);
+        let res;
+        try {
+          res = await fetch("/api/auth/status", {
+            credentials: "same-origin",
+            signal: ctl.signal,
+          });
+        } finally {
+          clearTimeout(timer);
+        }
         // /api/auth/status is public and reports unauthenticated
         // users with 200 + {authenticated: false}, so a non-OK status
         // here means a transient backend/proxy failure (5xx, 502
