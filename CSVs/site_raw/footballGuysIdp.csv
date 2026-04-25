@@ -191,7 +191,7 @@ Kayvon Thibodeaux,506,DE41,NYG,25,4
 Milton Williams,507,DT23,NE,27,5
 Ivan Pace Jr.,508,LB63,MIN,25,3
 Tyrique Stevenson,509,CB37,CHI,25,3
-Kyle Louis,510,LB64,FA,22,R
+Kyle Louis,510,LB64,MIA,22,R
 Henry To'oTo'o,511,LB65,HOU,25,3
 Patrick Surtain II,512,CB38,DEN,26,5
 Cody Barton,513,LB66,TEN,29,7
@@ -210,9 +210,9 @@ Mack Wilson Sr.,527,LB73,ARI,28,7
 Tatum Bethune,528,LB74,SF,25,2
 Alex Anzalone,529,LB75,TB,31,9
 D.J. Reed,530,CB41,DET,29,8
-Keyshaun Elliott,531,LB76,FA,22,R
+Keyshaun Elliott,531,LB76,CHI,22,R
 Trenton Simpson,532,LB77,BAL,24,3
-Kaleb Elarms-Orr,533,LB78,FA,22,R
+Kaleb Elarms-Orr,533,LB78,BUF,22,R
 Deontae Lawson,534,LB79,FA,23,R
 Kenneth Murray Jr.,535,LB80,FA,27,6
 Amik Robertson,537,CB42,WAS,27,6
@@ -222,11 +222,11 @@ Omar Speights,540,LB82,LAR,25,2
 Justin Strnad,541,LB83,DEN,29,6
 Taurean York,542,LB84,FA,20,R
 Harold Perkins Jr.,543,LB85,FA,21,R
-Jimmy Rolder,544,LB86,FA,-,R
+Jimmy Rolder,544,LB86,DET,22,R
 Nohl Williams,545,CB44,KC,23,1
 Mohamoud Diabate,546,LB87,TEN,24,3
 D'Marco Jackson,547,LB88,CHI,27,4
-Bryce Boettcher,548,LB89,FA,23,R
+Bryce Boettcher,548,LB89,IND,23,R
 DaRon Bland,549,CB45,DAL,26,4
 Aiden Fisher,550,LB90,FA,22,R
 Deion Jones,551,LB91,FA,31,10
@@ -375,7 +375,7 @@ Keldric Faulk,845,DE78,TEN,20,R
 Grover Stewart,846,DT52,IND,32,9
 T'Vondre Sweat,847,DT53,NYJ,24,2
 Sam Williams,848,DE79,DAL,27,4
-Tyree Wilson,849,DE80,LV,25,3
+Tyree Wilson,849,DE80,NO,25,3
 Shavon Revel Jr.,850,CB70,DAL,25,1
 Colton Hood,851,CB71,NYG,21,R
 Justin Reid,852,S53,NO,29,8
@@ -388,7 +388,7 @@ Sheldon Rankins,882,DT56,HOU,32,10
 Alex Wright,883,DE84,CLE,25,4
 Kerby Joseph,884,S54,DET,25,4
 Jourdan Lewis,885,CB72,JAX,30,9
-Keith Abney II,892,S55,FA,21,R
+Keith Abney II,892,S55,DET,21,R
 Renardo Green,893,CB73,SF,25,2
 Ji'Ayir Brown,901,S56,SF,26,3
 Dane Belton,905,S57,NYJ,25,4
@@ -432,5 +432,5 @@ Zaven Collins,975,DE94,ARI,26,5
 Arnold Ebiketie,976,DE95,PHI,27,4
 Javon Kinlaw,977,DT66,WAS,28,6
 Derrick Moore,978,DE96,DET,23,R
-Zakee Wheatley,996,S67,FA,24,R
+Zakee Wheatley,996,S67,CAR,24,R
 Elijah Molden,1000,S68,LAC,27,5
