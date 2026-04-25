@@ -1,0 +1,117 @@
+[
+  {
+    "label": "EQ_1v1_low",
+    "topology": "1v1",
+    "notes": "Top-gap ~6%. Expect VA=0 on KTC — scarcity below threshold.",
+    "team1": ["Josh Allen"],
+    "team2": ["Ja'Marr Chase"]
+  },
+  {
+    "label": "EQ_1v1_mid",
+    "topology": "1v1",
+    "notes": "Top-gap ~25%. Mid elite vs second-tier elite.",
+    "team1": ["Ja'Marr Chase"],
+    "team2": ["Justin Jefferson"]
+  },
+  {
+    "label": "EQ_1v1_high",
+    "topology": "1v1",
+    "notes": "Top-gap ~60%. Super-elite vs midtier.",
+    "team1": ["Ja'Marr Chase"],
+    "team2": ["T.J. Hockenson"]
+  },
+
+  {
+    "label": "EQ_2v2_jefferson_mckee_vs_pick_hockenson",
+    "topology": "2v2",
+    "notes": "Anchor point — KTC observed 2026-04 as VA=+3610 on team1.",
+    "team1": ["Justin Jefferson", "Tanner McKee"],
+    "team2": ["2026 Pick 1.09", "T.J. Hockenson"]
+  },
+  {
+    "label": "EQ_2v2_matched_depth",
+    "topology": "2v2",
+    "notes": "Similar topGap to anchor but matched depth (no throw-in).",
+    "team1": ["Justin Jefferson", "T.J. Hockenson"],
+    "team2": ["Brian Thomas Jr.", "2026 Pick 1.09"]
+  },
+  {
+    "label": "EQ_2v2_small_gap",
+    "topology": "2v2",
+    "notes": "Near-matched tops, slight depth edge.",
+    "team1": ["Ja'Marr Chase", "T.J. Hockenson"],
+    "team2": ["Justin Jefferson", "Brian Thomas Jr."]
+  },
+  {
+    "label": "EQ_2v2_throw_in",
+    "topology": "2v2",
+    "notes": "Elite + deep junk vs two solid midtier.",
+    "team1": ["Ja'Marr Chase", "Tanner McKee"],
+    "team2": ["T.J. Hockenson", "Brian Thomas Jr."]
+  },
+
+  {
+    "label": "EQ_3v3_elite_vs_depth",
+    "topology": "3v3",
+    "notes": "Elite top + weak depth vs three balanced midtier.",
+    "team1": ["Justin Jefferson", "T.J. Hockenson", "Tanner McKee"],
+    "team2": ["Brian Thomas Jr.", "2026 Pick 1.09", "Sam LaPorta"]
+  },
+  {
+    "label": "EQ_3v3_matched",
+    "topology": "3v3",
+    "notes": "Three-for-three with roughly matched pieces.",
+    "team1": ["Justin Jefferson", "Ja'Marr Chase", "Josh Allen"],
+    "team2": ["Patrick Mahomes", "CeeDee Lamb", "Puka Nacua"]
+  },
+
+  {
+    "label": "UNEQ_1v2_high_gap",
+    "topology": "1v2",
+    "notes": "topGap ~50%. Tests cap-bound regime unequal.",
+    "team1": ["Ja'Marr Chase"],
+    "team2": ["T.J. Hockenson", "2026 Pick 1.09"]
+  },
+  {
+    "label": "UNEQ_1v2_matched_pair",
+    "topology": "1v2",
+    "notes": "Elite vs two near-matching mids — extras loop baseline.",
+    "team1": ["Justin Jefferson"],
+    "team2": ["Brian Thomas Jr.", "T.J. Hockenson"]
+  },
+  {
+    "label": "UNEQ_1v3_extreme",
+    "topology": "1v3",
+    "notes": "One elite vs three midtier, all extras should boost.",
+    "team1": ["Ja'Marr Chase"],
+    "team2": ["T.J. Hockenson", "2026 Pick 1.09", "Brian Thomas Jr."]
+  },
+  {
+    "label": "UNEQ_2v3_jefferson_mckee_vs_triple",
+    "topology": "2v3",
+    "notes": "Anchor — KTC observed 2026-04 as VA=+4187 on team1.",
+    "team1": ["Justin Jefferson", "Tanner McKee"],
+    "team2": ["2026 Pick 1.09", "T.J. Hockenson", "Brian Thomas Jr."]
+  },
+  {
+    "label": "UNEQ_2v3_balanced",
+    "topology": "2v3",
+    "notes": "Two near-matched elites vs three mids — tests topGap at cap.",
+    "team1": ["Justin Jefferson", "Ja'Marr Chase"],
+    "team2": ["Brian Thomas Jr.", "T.J. Hockenson", "2026 Pick 1.09"]
+  },
+  {
+    "label": "UNEQ_2v4_throw_ins",
+    "topology": "2v4",
+    "notes": "Two-for-four with deep extras — decay should bite.",
+    "team1": ["Justin Jefferson", "T.J. Hockenson"],
+    "team2": ["Brian Thomas Jr.", "2026 Pick 1.09", "Tanner McKee", "2026 Pick 2.01"]
+  },
+  {
+    "label": "UNEQ_1v4_decay",
+    "topology": "1v4",
+    "notes": "One superelite vs four mids — tests decay term sharply.",
+    "team1": ["Ja'Marr Chase"],
+    "team2": ["T.J. Hockenson", "2026 Pick 1.09", "Brian Thomas Jr.", "Tanner McKee"]
+  }
+]
