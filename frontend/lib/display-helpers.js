@@ -273,3 +273,182 @@ export function marketGapLabel(row) {
   const higher = retailMean < consensusMean ? getRetailLabel() : "Consensus";
   return `${higher} +${diff}`;
 }
+
+
+// ── IDP market gap (IDPTC vs other IDP sources) ─────────────────────────
+//
+// The `marketEdge` / `marketAction` helpers above use the registry's
+// retail flag — today only KTC.  KTC doesn't list IDP players, so
+// IDP rows always come back as "expert only" / unranked / neutral
+// from those helpers, and the offense BUY/SELL signals never fire
+// for defenders.
+//
+// For IDP-specific Buy/Sell signals we treat IDPTC as the analogous
+// "retail" anchor (the most-followed source on the IDP side, just as
+// KTC is the most-followed source on the offense side) and the other
+// IDP sources (DLF IDP, IDP Show, FantasyPros IDP, FootballGuys IDP,
+// DraftSharks IDP) as the expert consensus.
+
+const IDP_RETAIL_KEY = "idpTradeCalc";
+
+const IDP_CONSENSUS_KEYS = new Set([
+  "dlfIdp",
+  "idpShow",
+  "fantasyProsIdp",
+  "footballGuysIdp",
+  "draftSharksIdp",
+]);
+
+/**
+ * Structured retail-vs-consensus descriptor for IDP rows, using
+ * IDPTC as the retail anchor.
+ *
+ * Returns `{ label, css, kind, title }` matching the shape
+ * `marketEdge()` returns, so a caller can hand the result to the
+ * same UI components.
+ *
+ * `kind` values:
+ *   - `"consensus_higher"` — IDP experts mean rank is significantly
+ *     better (lower number) than IDPTC's rank → market (IDPTC)
+ *     undervalues → BUY signal.
+ *   - `"retail_higher"` — IDPTC ranks the player significantly above
+ *     the IDP-expert consensus mean → market (IDPTC) overvalues →
+ *     SELL signal.
+ *   - `"aligned"`, `"retail_only"`, `"consensus_only"`, `"unranked"`
+ *     — same semantics as `marketEdge`.
+ */
+export function idpMarketEdge(row) {
+  const ranks =
+    row?.effectiveSourceRanks && Object.keys(row.effectiveSourceRanks).length > 0
+      ? row.effectiveSourceRanks
+      : row?.sourceRanks;
+  if (!ranks || Object.keys(ranks).length === 0) {
+    return {
+      label: "unranked",
+      css: "edge-none",
+      kind: "unranked",
+      title: "No IDP source ranks available for this player.",
+    };
+  }
+  const retailRank = Number(ranks[IDP_RETAIL_KEY]);
+  const consensusRanks = Object.entries(ranks)
+    .filter(([k, v]) => IDP_CONSENSUS_KEYS.has(k) && v != null)
+    .map(([, v]) => Number(v))
+    .filter((n) => Number.isFinite(n));
+
+  const haveRetail = Number.isFinite(retailRank);
+  const haveConsensus = consensusRanks.length > 0;
+
+  if (!haveRetail && !haveConsensus) {
+    return {
+      label: "unranked",
+      css: "edge-none",
+      kind: "unranked",
+      title: "No IDP source ranks available for this player.",
+    };
+  }
+  if (!haveRetail) {
+    return {
+      label: "expert only",
+      css: "edge-none",
+      kind: "consensus_only",
+      title: "No IDPTC rank — only IDP-expert sources contributed.",
+    };
+  }
+  if (!haveConsensus) {
+    return {
+      label: "IDPTC only",
+      css: "edge-none",
+      kind: "retail_only",
+      title: "No IDP-expert rank — only IDPTC contributed.",
+    };
+  }
+
+  const consensusMean =
+    consensusRanks.reduce((s, v) => s + v, 0) / consensusRanks.length;
+  const diff = Math.round(Math.abs(consensusMean - retailRank));
+
+  if (diff < MARKET_GAP_MIN_DIFF) {
+    return {
+      label: "aligned",
+      css: "edge-aligned",
+      kind: "aligned",
+      title: `IDPTC and IDP-expert consensus agree within ${MARKET_GAP_MIN_DIFF} ranks (actual difference: ${diff}).`,
+    };
+  }
+  if (retailRank < consensusMean) {
+    return {
+      label: `IDPTC higher by ${diff}`,
+      css: "edge-retail",
+      kind: "retail_higher",
+      title: `IDPTC ranks this player ~${diff} ordinal ranks above IDP-expert consensus.`,
+    };
+  }
+  return {
+    label: `Experts higher by ${diff}`,
+    css: "edge-consensus",
+    kind: "consensus_higher",
+    title: `IDP-expert consensus ranks this player ~${diff} ordinal ranks above IDPTC.`,
+  };
+}
+
+/**
+ * Single-verb BUY / SELL / HOLD descriptor for IDP rows, derived
+ * from `idpMarketEdge`.  Mirrors `marketAction` but with IDPTC as
+ * the retail anchor.
+ */
+export function idpMarketAction(row) {
+  const edge = idpMarketEdge(row);
+  if (edge.kind === "consensus_higher") {
+    return {
+      label: "BUY",
+      css: "edge-buy",
+      kind: "buy",
+      title: `${edge.title} IDP experts > IDPTC → IDPTC is undervaluing.`,
+    };
+  }
+  if (edge.kind === "retail_higher") {
+    return {
+      label: "SELL",
+      css: "edge-sell",
+      kind: "sell",
+      title: `${edge.title} IDPTC > IDP experts → IDPTC is overvaluing.`,
+    };
+  }
+  if (edge.kind === "aligned") {
+    return {
+      label: "HOLD",
+      css: "edge-hold",
+      kind: "hold",
+      title: edge.title,
+    };
+  }
+  return {
+    label: "—",
+    css: "edge-none",
+    kind: edge.kind,
+    title: edge.title || "Insufficient IDP source coverage to compare IDPTC vs experts.",
+  };
+}
+
+/**
+ * Predicate: row is an IDP eligible for the top-200 IDP Buy/Sell
+ * sections.  Requires:
+ *   - assetClass === "idp"
+ *   - IDPTC ranked the player at or above 200
+ *   - row is not quarantined
+ *
+ * The IDPTC-rank-based limit (rather than our blended consensus rank)
+ * matches user expectation: "limit to the top 200 by IDPTC".
+ */
+export function isIdpInTopByIdptc(row, limit = 200) {
+  if (!row || row.assetClass !== "idp") return false;
+  if (row.quarantined) return false;
+  const ranks =
+    (row.effectiveSourceRanks && Object.keys(row.effectiveSourceRanks).length > 0
+      ? row.effectiveSourceRanks
+      : row.sourceRanks) || {};
+  const idptcRank = Number(ranks[IDP_RETAIL_KEY]);
+  if (!Number.isFinite(idptcRank) || idptcRank < 1) return false;
+  return idptcRank <= limit;
+}

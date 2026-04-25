@@ -5,7 +5,14 @@ import { useDynastyData } from "@/components/useDynastyData";
 import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
 import { actionLabel, cautionLabels, isTopRankedForEdgePremium } from "@/lib/edge-helpers";
-import { posBadgeClass, confBadgeClass, confBadgeLabel as confLabel, isEligibleForAnalysis } from "@/lib/display-helpers";
+import {
+  posBadgeClass,
+  confBadgeClass,
+  confBadgeLabel as confLabel,
+  isEligibleForAnalysis,
+  idpMarketAction,
+  isIdpInTopByIdptc,
+} from "@/lib/display-helpers";
 import ConfidenceValueScatter from "@/components/graphs/ConfidenceValueScatter";
 import {
   EDGE_SECTION_LIMIT,
@@ -267,6 +274,61 @@ export default function EdgePage() {
     [eligible],
   );
 
+  // ── IDP Buy/Sell — IDPTC as the retail anchor ─────────────────────
+  //
+  // The offense Buy/Sell sections above use KTC as the retail anchor,
+  // but KTC doesn't list IDP players, so defenders never appear in
+  // those sections.  For IDP-specific Buy/Sell we mirror the offense
+  // logic with IDPTC playing the role KTC plays:
+  //
+  //   * "IDPTC overvalues"  → SELL signal (IDPTC ranks player above
+  //                            IDP-expert consensus)
+  //   * "IDPTC undervalues" → BUY signal  (IDP-expert consensus ranks
+  //                            player above IDPTC)
+  //
+  // Filter scope: top 200 by IDPTC.  Below that the IDP-expert
+  // consensus is too noisy for these signals to be trustworthy.
+  const IDP_TOP_LIMIT = 200;
+
+  const idpEligible = useMemo(
+    () => eligible.filter((r) => isIdpInTopByIdptc(r, IDP_TOP_LIMIT)),
+    [eligible],
+  );
+
+  const idpRetailPremium = useMemo(
+    () =>
+      idpEligible
+        .map((r) => ({ row: r, action: idpMarketAction(r) }))
+        .filter(({ action }) => action.kind === "sell")
+        // Sort by gap magnitude — biggest IDPTC overvaluations first.
+        // Pull the diff out of the title since idpMarketEdge stamps it.
+        .map(({ row, action }) => {
+          const m = action.title?.match(/~(\d+) ordinal/);
+          const diff = m ? Number(m[1]) : 0;
+          return { row, diff };
+        })
+        .sort((a, b) => b.diff - a.diff)
+        .slice(0, EDGE_PREMIUM_LIMIT)
+        .map(({ row }) => row),
+    [idpEligible],
+  );
+
+  const idpConsensusPremium = useMemo(
+    () =>
+      idpEligible
+        .map((r) => ({ row: r, action: idpMarketAction(r) }))
+        .filter(({ action }) => action.kind === "buy")
+        .map(({ row, action }) => {
+          const m = action.title?.match(/~(\d+) ordinal/);
+          const diff = m ? Number(m[1]) : 0;
+          return { row, diff };
+        })
+        .sort((a, b) => b.diff - a.diff)
+        .slice(0, EDGE_PREMIUM_LIMIT)
+        .map(({ row }) => row),
+    [idpEligible],
+  );
+
   const flagged = useMemo(
     () =>
       eligible
@@ -451,6 +513,36 @@ export default function EdgePage() {
                 rows={consensusPremium}
                 onPlayerClick={openPlayerPopup}
                 emptyText={`No buy signals in the top ${EDGE_PREMIUM_RANK_LIMIT}.`}
+                columns={[COL_RANK, COL_PLAYER, COL_POS, COL_SPREAD, COL_VALUE]}
+              />
+            </EdgeSection>
+
+            {/* IDP Sell Signals — IDPTC values defenders higher than IDP-expert consensus */}
+            <EdgeSection
+              title="IDP Sell Signals"
+              description={`IDP players where IDPTC's rank is much higher than the IDP-expert consensus (DLF IDP, IDP Show, FantasyPros IDP, FootballGuys IDP, DraftSharks IDP). Limited to the top ${IDP_TOP_LIMIT} by IDPTC. Potential sells to IDPTC-first trade partners.`}
+              count={`${idpRetailPremium.length} shown`}
+              accent="amber"
+            >
+              <SectionTable
+                rows={idpRetailPremium}
+                onPlayerClick={openPlayerPopup}
+                emptyText={`No IDP sell signals inside the top ${IDP_TOP_LIMIT} by IDPTC.`}
+                columns={[COL_RANK, COL_PLAYER, COL_POS, COL_SPREAD, COL_VALUE]}
+              />
+            </EdgeSection>
+
+            {/* IDP Buy Signals — IDP-expert consensus values defenders higher than IDPTC */}
+            <EdgeSection
+              title="IDP Buy Signals"
+              description={`IDP players where the IDP-expert consensus ranks them much higher than IDPTC. Limited to the top ${IDP_TOP_LIMIT} by IDPTC. Potential buys from IDPTC-first trade partners.`}
+              count={`${idpConsensusPremium.length} shown`}
+              accent="green"
+            >
+              <SectionTable
+                rows={idpConsensusPremium}
+                onPlayerClick={openPlayerPopup}
+                emptyText={`No IDP buy signals inside the top ${IDP_TOP_LIMIT} by IDPTC.`}
                 columns={[COL_RANK, COL_PLAYER, COL_POS, COL_SPREAD, COL_VALUE]}
               />
             </EdgeSection>

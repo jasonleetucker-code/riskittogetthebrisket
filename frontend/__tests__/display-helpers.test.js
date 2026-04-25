@@ -7,6 +7,9 @@ import {
   marketAction,
   isEligibleForBoard,
   isEligibleForAnalysis,
+  idpMarketEdge,
+  idpMarketAction,
+  isIdpInTopByIdptc,
 } from "../lib/display-helpers.js";
 
 describe("posBadgeClass", () => {
@@ -214,5 +217,215 @@ describe("marketAction", () => {
   it("title surfaces direction context", () => {
     const a = marketAction(_row({ ktc: 50, dlf: 10, fc: 12 }));
     expect(a.title.toLowerCase()).toContain("market is undervaluing");
+  });
+});
+
+
+// ── idpMarketAction (IDP BUY / SELL / HOLD vs IDPTC) ────────────────
+
+describe("idpMarketAction", () => {
+  // Build an IDP row with IDPTC + IDP-expert ranks.
+  function _idp({ idptc, dlf, ipd, fp, fbg, ds }) {
+    const sourceRanks = {};
+    if (idptc != null) sourceRanks.idpTradeCalc = idptc;
+    if (dlf != null) sourceRanks.dlfIdp = dlf;
+    if (ipd != null) sourceRanks.idpShow = ipd;
+    if (fp != null) sourceRanks.fantasyProsIdp = fp;
+    if (fbg != null) sourceRanks.footballGuysIdp = fbg;
+    if (ds != null) sourceRanks.draftSharksIdp = ds;
+    return { assetClass: "idp", pos: "LB", sourceRanks };
+  }
+
+  it("BUY when IDP experts rank well above IDPTC", () => {
+    // IDPTC=50, experts mean ~12 — experts ~38 ranks above IDPTC
+    const a = idpMarketAction(_idp({ idptc: 50, dlf: 10, fp: 12, fbg: 14 }));
+    expect(a.label).toBe("BUY");
+    expect(a.kind).toBe("buy");
+    expect(a.css).toBe("edge-buy");
+    expect(a.title.toLowerCase()).toContain("idptc is undervaluing");
+  });
+
+  it("SELL when IDPTC ranks well above IDP experts", () => {
+    // IDPTC=10, experts mean ~55 — IDPTC ~45 ranks above
+    const a = idpMarketAction(_idp({ idptc: 10, dlf: 50, fp: 55, fbg: 60 }));
+    expect(a.label).toBe("SELL");
+    expect(a.kind).toBe("sell");
+    expect(a.css).toBe("edge-sell");
+    expect(a.title.toLowerCase()).toContain("idptc is overvaluing");
+  });
+
+  it("HOLD when IDPTC and IDP experts agree within threshold", () => {
+    const a = idpMarketAction(_idp({ idptc: 25, dlf: 26, fp: 24 }));
+    expect(a.label).toBe("HOLD");
+    expect(a.kind).toBe("hold");
+  });
+
+  it("— when only IDPTC ranks (no IDP-expert sources)", () => {
+    const a = idpMarketAction(_idp({ idptc: 25 }));
+    expect(a.label).toBe("—");
+    expect(a.css).toBe("edge-none");
+  });
+
+  it("— when only IDP-expert sources rank (no IDPTC)", () => {
+    const a = idpMarketAction(_idp({ dlf: 25, fp: 26 }));
+    expect(a.label).toBe("—");
+  });
+
+  it("— when no IDP source ranks at all", () => {
+    const a = idpMarketAction({ assetClass: "idp", sourceRanks: {} });
+    expect(a.label).toBe("—");
+  });
+
+  it("uses effectiveSourceRanks when present (post-Hampel)", () => {
+    // sourceRanks contains an IDPTC outlier; effectiveSourceRanks
+    // is the post-Hampel set the backend would use.
+    const row = {
+      assetClass: "idp",
+      sourceRanks: { idpTradeCalc: 200, dlfIdp: 50, fantasyProsIdp: 55 },
+      effectiveSourceRanks: { idpTradeCalc: 50, dlfIdp: 50, fantasyProsIdp: 55 },
+    };
+    const a = idpMarketAction(row);
+    // With effective ranks, IDPTC=50 vs experts mean ~52 → aligned →
+    // idpMarketAction translates "aligned" → label "HOLD" / kind "hold"
+    expect(a.kind).toBe("hold");
+    expect(a.label).toBe("HOLD");
+  });
+
+  it("ignores non-IDP sources (e.g. KTC) in the consensus calculation", () => {
+    // KTC's offense rank should NOT count toward IDP consensus.
+    const a = idpMarketAction({
+      assetClass: "idp",
+      sourceRanks: { idpTradeCalc: 50, ktc: 1, dlfIdp: 12, fantasyProsIdp: 14 },
+    });
+    // Experts mean = (12+14)/2 = 13 vs IDPTC 50 → BUY (consensus_higher)
+    expect(a.label).toBe("BUY");
+  });
+});
+
+
+// ── isIdpInTopByIdptc ───────────────────────────────────────────────
+
+describe("isIdpInTopByIdptc", () => {
+  it("includes IDP rows ranked at or above the limit by IDPTC", () => {
+    expect(
+      isIdpInTopByIdptc(
+        { assetClass: "idp", sourceRanks: { idpTradeCalc: 1 } },
+        200,
+      ),
+    ).toBe(true);
+    expect(
+      isIdpInTopByIdptc(
+        { assetClass: "idp", sourceRanks: { idpTradeCalc: 200 } },
+        200,
+      ),
+    ).toBe(true);
+  });
+
+  it("excludes IDP rows ranked below the IDPTC limit", () => {
+    expect(
+      isIdpInTopByIdptc(
+        { assetClass: "idp", sourceRanks: { idpTradeCalc: 201 } },
+        200,
+      ),
+    ).toBe(false);
+  });
+
+  it("excludes IDP rows IDPTC didn't rank", () => {
+    expect(
+      isIdpInTopByIdptc(
+        { assetClass: "idp", sourceRanks: { dlfIdp: 50 } },
+        200,
+      ),
+    ).toBe(false);
+  });
+
+  it("excludes non-IDP rows (offense, picks)", () => {
+    expect(
+      isIdpInTopByIdptc(
+        { assetClass: "offense", sourceRanks: { idpTradeCalc: 50 } },
+        200,
+      ),
+    ).toBe(false);
+    expect(
+      isIdpInTopByIdptc(
+        { assetClass: "pick", sourceRanks: { idpTradeCalc: 50 } },
+        200,
+      ),
+    ).toBe(false);
+  });
+
+  it("excludes quarantined rows", () => {
+    expect(
+      isIdpInTopByIdptc(
+        {
+          assetClass: "idp",
+          quarantined: true,
+          sourceRanks: { idpTradeCalc: 50 },
+        },
+        200,
+      ),
+    ).toBe(false);
+  });
+
+  it("prefers effectiveSourceRanks over sourceRanks when present", () => {
+    // sourceRanks says IDPTC=50 (in top-200); effectiveSourceRanks
+    // dropped IDPTC entirely → row should be excluded.
+    expect(
+      isIdpInTopByIdptc(
+        {
+          assetClass: "idp",
+          sourceRanks: { idpTradeCalc: 50 },
+          effectiveSourceRanks: { dlfIdp: 50 },
+        },
+        200,
+      ),
+    ).toBe(false);
+  });
+
+  it("handles null / undefined input", () => {
+    expect(isIdpInTopByIdptc(null, 200)).toBe(false);
+    expect(isIdpInTopByIdptc(undefined, 200)).toBe(false);
+    expect(isIdpInTopByIdptc({}, 200)).toBe(false);
+  });
+});
+
+
+// ── idpMarketEdge — descriptor shape ────────────────────────────────
+
+describe("idpMarketEdge", () => {
+  it("returns retail_only when only IDPTC is ranked", () => {
+    const e = idpMarketEdge({
+      assetClass: "idp",
+      sourceRanks: { idpTradeCalc: 25 },
+    });
+    expect(e.kind).toBe("retail_only");
+    expect(e.label).toBe("IDPTC only");
+  });
+
+  it("returns consensus_only when only IDP experts ranked", () => {
+    const e = idpMarketEdge({
+      assetClass: "idp",
+      sourceRanks: { dlfIdp: 25, fantasyProsIdp: 26 },
+    });
+    expect(e.kind).toBe("consensus_only");
+    expect(e.label).toBe("expert only");
+  });
+
+  it("returns retail_higher with diff in label when IDPTC > experts", () => {
+    const e = idpMarketEdge({
+      assetClass: "idp",
+      sourceRanks: { idpTradeCalc: 10, dlfIdp: 50, fantasyProsIdp: 60 },
+    });
+    expect(e.kind).toBe("retail_higher");
+    expect(e.label).toMatch(/^IDPTC higher by \d+$/);
+  });
+
+  it("returns consensus_higher with diff in label when experts > IDPTC", () => {
+    const e = idpMarketEdge({
+      assetClass: "idp",
+      sourceRanks: { idpTradeCalc: 50, dlfIdp: 10, fantasyProsIdp: 12 },
+    });
+    expect(e.kind).toBe("consensus_higher");
+    expect(e.label).toMatch(/^Experts higher by \d+$/);
   });
 });
