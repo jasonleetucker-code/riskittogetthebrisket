@@ -26,6 +26,7 @@ import {
   confBadgeClass as confidenceBadgeClass,
   confBadgeLabel as confidenceBadgeLabel,
   marketEdge,
+  marketAction,
   isEligibleForBoard,
 } from "@/lib/display-helpers";
 import HillCurveExplorer from "@/components/graphs/HillCurveExplorer";
@@ -1188,6 +1189,11 @@ export default function RankingsPage() {
                   // Replaces the legacy marketGapLabel(row) string which
                   // caused the Gap column to show an ambiguous dash.
                   const edge = marketEdge(row);
+                  // Trader-facing collapse of edge → BUY/SELL/HOLD.  This
+                  // is what renders in the Edge column header.  The
+                  // detailed `edge.label` (e.g. "Experts higher by 12")
+                  // remains available in the row's expanded audit panel.
+                  const action_ = marketAction(row);
                   const isQuarantined = row.quarantined;
                   const action = actionLabel(row);
                   const cautions = cautionLabels(row);
@@ -1407,12 +1413,16 @@ export default function RankingsPage() {
                           </span>
                         </td>
 
-                        {/* Market edge — always rendered with an explicit
-                            state label.  No ambiguous dashes: the column
-                            always tells the user which side is higher and
-                            by how much, or why no comparison is possible. */}
+                        {/* Market edge — collapsed to BUY/SELL/HOLD.
+                            BUY = experts > market (undervalued).
+                            SELL = market > experts (overvalued).
+                            HOLD = aligned within threshold.
+                            "—" = insufficient data to compare.
+                            Tooltip surfaces the detailed gap. */}
                         <td className="hide-mobile" style={{ textAlign: "center" }}>
-                          <span className={`edge-label ${edge.css}`} title={edge.title}>{edge.label}</span>
+                          <span className={`edge-label ${action_.css}`} title={action_.title}>
+                            {action_.label}
+                          </span>
                         </td>
 
                         {/* Signal */}

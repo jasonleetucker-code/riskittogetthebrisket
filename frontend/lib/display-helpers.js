@@ -186,6 +186,58 @@ export function marketEdge(row) {
 }
 
 /**
+ * marketAction(row) — collapses the structured ``marketEdge()``
+ * descriptor into a single trader-facing verb: BUY / SELL / HOLD.
+ *
+ * Rules (matching the user-facing contract):
+ *   - "consensus_higher"  experts price the player above the market
+ *                         → market is undervaluing → BUY
+ *   - "retail_higher"     market prices the player above experts
+ *                         → market is overvaluing → SELL
+ *   - "aligned"           sides agree                        → HOLD
+ *   - anything else (consensus_only / retail_only / unranked)
+ *                         → "—"   (insufficient data)
+ *
+ * Returns { label, css, title, kind } so the rankings table can
+ * style the cell uniformly.  Title surfaces the underlying gap
+ * for hover-debug.
+ */
+export function marketAction(row) {
+  const edge = marketEdge(row);
+  if (edge.kind === "consensus_higher") {
+    return {
+      label: "BUY",
+      css: "edge-buy",
+      kind: "buy",
+      title: `${edge.title} Experts > market → market is undervaluing.`,
+    };
+  }
+  if (edge.kind === "retail_higher") {
+    return {
+      label: "SELL",
+      css: "edge-sell",
+      kind: "sell",
+      title: `${edge.title} Market > experts → market is overvaluing.`,
+    };
+  }
+  if (edge.kind === "aligned") {
+    return {
+      label: "HOLD",
+      css: "edge-hold",
+      kind: "hold",
+      title: edge.title,
+    };
+  }
+  return {
+    label: "—",
+    css: "edge-none",
+    kind: edge.kind,
+    title: edge.title || "Insufficient source coverage to compare market vs experts.",
+  };
+}
+
+
+/**
  * Legacy string-only market gap label.  Retained for tests and any
  * consumer that still expects the old `"KTC +N"` / `"Consensus +N"` /
  * `null` contract.  New code should prefer `marketEdge()` which

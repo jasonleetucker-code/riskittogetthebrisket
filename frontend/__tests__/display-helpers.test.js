@@ -4,6 +4,7 @@ import {
   confBadgeClass,
   confBadgeLabel,
   marketGapLabel,
+  marketAction,
   isEligibleForBoard,
   isEligibleForAnalysis,
 } from "../lib/display-helpers.js";
@@ -148,5 +149,70 @@ describe("isEligibleForAnalysis", () => {
   });
   it("handles null", () => {
     expect(isEligibleForAnalysis(null)).toBe(false);
+  });
+});
+
+
+// ── marketAction (BUY / SELL / HOLD) ────────────────────────────────
+
+describe("marketAction", () => {
+  // Build a row with rank dict matching the retail/expert split.
+  // Retail = ktc by default; everything else = expert/consensus.
+  function _row({ ktc, dlf, fc }) {
+    const sourceRanks = {};
+    if (ktc != null) sourceRanks.ktc = ktc;
+    if (dlf != null) sourceRanks.dlf = dlf;
+    if (fc != null) sourceRanks.fc = fc;
+    return { sourceRanks };
+  }
+
+  it("BUY when experts rank well above retail (consensus_higher)", () => {
+    // ktc=50, experts=10/12 — experts 38+ ranks above retail.
+    const r = _row({ ktc: 50, dlf: 10, fc: 12 });
+    const a = marketAction(r);
+    expect(a.label).toBe("BUY");
+    expect(a.kind).toBe("buy");
+    expect(a.css).toBe("edge-buy");
+  });
+
+  it("SELL when retail ranks well above experts (retail_higher)", () => {
+    // ktc=10, experts=50/55 — market overvalues.
+    const r = _row({ ktc: 10, dlf: 50, fc: 55 });
+    const a = marketAction(r);
+    expect(a.label).toBe("SELL");
+    expect(a.kind).toBe("sell");
+    expect(a.css).toBe("edge-sell");
+  });
+
+  it("HOLD when sides are aligned within threshold", () => {
+    const r = _row({ ktc: 25, dlf: 26, fc: 24 });
+    const a = marketAction(r);
+    expect(a.label).toBe("HOLD");
+    expect(a.kind).toBe("hold");
+    expect(a.css).toBe("edge-hold");
+  });
+
+  it("— when only retail (consensus_only would be inverse here)", () => {
+    const r = _row({ ktc: 25 });
+    const a = marketAction(r);
+    expect(a.label).toBe("—");
+    expect(a.css).toBe("edge-none");
+  });
+
+  it("— when only experts", () => {
+    const r = _row({ dlf: 25, fc: 26 });
+    const a = marketAction(r);
+    expect(a.label).toBe("—");
+    expect(a.css).toBe("edge-none");
+  });
+
+  it("— when no source ranks at all", () => {
+    expect(marketAction({}).label).toBe("—");
+    expect(marketAction({ sourceRanks: {} }).label).toBe("—");
+  });
+
+  it("title surfaces direction context", () => {
+    const a = marketAction(_row({ ktc: 50, dlf: 10, fc: 12 }));
+    expect(a.title.toLowerCase()).toContain("market is undervaluing");
   });
 });

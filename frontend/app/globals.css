@@ -1981,6 +1981,31 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   border: 1px solid rgba(153, 166, 200, 0.12);
   font-style: italic;
 }
+/* Trader-facing collapse of edge → BUY/SELL/HOLD.
+   BUY mirrors edge-consensus colors (green = experts > market).
+   SELL mirrors edge-retail colors (amber = market > experts).
+   HOLD mirrors edge-aligned (cyan = no signal). */
+.edge-buy {
+  color: var(--green);
+  background: rgba(52, 211, 153, 0.10);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.edge-sell {
+  color: var(--amber);
+  background: rgba(251, 191, 36, 0.10);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.edge-hold {
+  color: var(--cyan);
+  background: rgba(96, 165, 250, 0.06);
+  border: 1px solid rgba(96, 165, 250, 0.20);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
 
 /* ── Score column (decimal consensus metric) ─────────────────────── */
 .rankings-score {

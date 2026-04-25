@@ -5878,14 +5878,73 @@ async def post_trade_simulate(request: Request):
     if not isinstance(body, dict):
         return JSONResponse(status_code=400, content={"error": "invalid_body"})
 
-    # Validate leagueKey (body or query).  The contract in memory
-    # must match the resolved league — if not, 503.
+    # Validate leagueKey but don't require the loaded contract's
+    # leagueKey to match — when the user is on a non-default league
+    # we can splice in a live Sleeper overlay (same trick the
+    # /api/terminal endpoint uses).  Without this, every trade
+    # simulation on League B returns data_not_ready.
     try:
-        league_cfg = _resolve_league_for_request(
-            request, body=body, require_loaded_contract=True,
-        )
+        league_cfg = _resolve_league_for_request(request, body=body)
     except LeagueResolutionError as err:
         return err.json_response()
+
+    # Build the contract this trade sim runs against.  When the
+    # request league matches the loaded contract, just use it.
+    # When they differ but the scoring profile matches, splice in
+    # the per-league Sleeper overlay so the resolver can find the
+    # user's team in this league's rosters.
+    contract = latest_contract_data
+    loaded_meta = (contract.get("meta") or {}) if isinstance(contract, dict) else {}
+    loaded_league = loaded_meta.get("leagueKey")
+    loaded_profile = loaded_meta.get("scoringProfile")
+    if loaded_league and loaded_league != league_cfg.key:
+        if loaded_profile and loaded_profile != league_cfg.scoring_profile:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "data_not_ready",
+                    "message": (
+                        f"League {league_cfg.key!r} uses scoring profile "
+                        f"{league_cfg.scoring_profile!r}, not {loaded_profile!r}. "
+                        "Trade simulation needs matching rankings."
+                    ),
+                    "leagueKey": league_cfg.key,
+                },
+            )
+        # Splice in a live overlay for the requested league.
+        loaded_sleeper = contract.get("sleeper") or {}
+        id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else None
+        try:
+            overlay = await run_in_threadpool(
+                _sleeper_overlay.fetch_sleeper_overlay,
+                sleeper_league_id=league_cfg.sleeper_league_id,
+                id_to_player=id_map if isinstance(id_map, dict) else {},
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "trade-simulate overlay fetch failed for %s: %s", league_cfg.key, exc,
+            )
+            overlay = None
+        if not overlay or not overlay.get("teams"):
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "data_not_ready",
+                    "message": f"Sleeper overlay for league {league_cfg.key!r} unavailable.",
+                    "leagueKey": league_cfg.key,
+                },
+            )
+        hybrid_sleeper = {
+            **{
+                k: loaded_sleeper.get(k)
+                for k in ("positions", "playerIds", "idToPlayer",
+                          "scoringSettings", "rosterPositions",
+                          "leagueSettings")
+                if isinstance(loaded_sleeper, dict) and k in loaded_sleeper
+            },
+            **overlay,
+        }
+        contract = {**latest_contract_data, "sleeper": hybrid_sleeper}
 
     team_owner_id = str(body.get("team") or "").strip()
     team_name = str(body.get("teamName") or "").strip()
@@ -5896,7 +5955,7 @@ async def post_trade_simulate(request: Request):
         team_owner_id = str(session.get("sleeper_user_id") or "").strip()
 
     resolved_team = _terminal.resolve_team(
-        latest_contract_data, owner_id=team_owner_id, name=team_name,
+        contract, owner_id=team_owner_id, name=team_name,
     )
     if resolved_team is None:
         return JSONResponse(
@@ -5912,7 +5971,7 @@ async def post_trade_simulate(request: Request):
 
     result = await run_in_threadpool(
         _trade_simulator.simulate_trade,
-        latest_contract_data,
+        contract,
         resolved_team=resolved_team,
         players_in=_str_list("playersIn"),
         players_out=_str_list("playersOut"),
