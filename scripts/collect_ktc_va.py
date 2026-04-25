@@ -57,13 +57,23 @@ DEFAULT_OUTPUT = REPO_ROOT / "scripts" / "ktc_va_observations.json"
 KTC_URL = "https://keeptradecut.com/trade-calculator"
 
 # ── DOM selectors ──────────────────────────────────────────────────────
-# These target the 2026-era KTC trade calculator layout.  If KTC
-# redesigns, adjust these four and the rest of the script keeps working.
-SEL_SEARCH_INPUT = 'input[placeholder="Search for a player"]'
-SEL_PLAYER_ROW = 'div.single-player-result, li.player-result, .trade-calc-player'
+# These target the 2026-era KTC trade calculator layout.  KTC uses
+# the easy-autocomplete jQuery plugin, with stable per-team IDs:
+#
+#   <input id="team-{one,two}-player-select">           — search box
+#   <div id="eac-container-team-{one,two}-player-select">— dropdown
+#     <ul style="display: {block,none}">
+#       <li><div class="eac-item"><b>Player Name</b></div></li>
+#     </ul>
+#   <div id="team-{one,two}-player-list">              — added pieces
+#   <div id="team-{one,two}-adjustment-block">         — VA, when nonzero
+#   <div id="team-{one,two}-total">                    — sum of pieces
+#
+# If KTC redesigns, the per-team-id pattern is what to verify first —
+# everything else falls out of it.
+SEL_SEARCH_INPUT = "input.team-player-select"
 SEL_VALUE_CELL = '.playerValue, .player-value, [class*="Value"]'
-SEL_VA_ROW = 'text=Value Adjustment'
-# The VA amount is typically in the same row — use a relative query.
+TEAM_WORDS = ("one", "two")  # KTC indexes teams as one/two, not 1/2 or 0/1
 
 
 def load_fixture(path: Path) -> list[dict]:
@@ -161,144 +171,201 @@ async def _dump_debug_snapshot(page, tag: str) -> str:
         return ""
 
 
+def _safe_filename(s: str) -> str:
+    """Make a string safe to embed in a debug filename (Windows-safe)."""
+    return "".join(c if c.isalnum() else "_" for c in s)[:40]
+
+
 async def _add_player(page, team_idx: int, player_name: str, *, timeout: int = 15000) -> None:
     """Add a single player to team_idx (0 or 1) via the search input.
 
-    Strategy: type the name into the team's search box, then race
-    several locator strategies against the autocomplete dropdown.
-    KTC's class names have shifted historically, so we try a wide net:
+    KTC uses the easy-autocomplete jQuery plugin.  After typing into
+    ``#team-{one,two}-player-select``, the dropdown renders as:
 
-      1. class-based ("result" / "option" / "suggest" / "autocomplete" / "dropdown")
-      2. ARIA role-based (role="option")
-      3. plain text-match excluding form controls
+        <div id="eac-container-team-one-player-select">
+          <ul style="display: block;">         <!-- visible when results -->
+            <li><div class="eac-item"><b>Player Name</b></div></li>
+            ...
+          </ul>
+        </div>
 
-    Whichever strategy locates a visible matching element first wins.
-    On total failure we dump a screenshot + HTML so the next iteration
-    can be fixed without another round trip with Jason.
+    Click the <li> whose text matches the requested player.  After
+    KTC stamps the row, verify it landed in
+    ``#team-{one,two}-player-list``; if not, dump a debug snapshot
+    rather than silently move on (the bug we just fixed).
     """
-    inputs = page.locator(SEL_SEARCH_INPUT)
-    count = await inputs.count()
-    if count <= team_idx:
-        raise RuntimeError(
-            f"KTC page shows {count} search inputs; expected at least {team_idx + 1}"
-        )
-    box = inputs.nth(team_idx)
+    if team_idx not in (0, 1):
+        raise ValueError(f"team_idx must be 0 or 1, got {team_idx!r}")
+    word = TEAM_WORDS[team_idx]
+    input_id = f"team-{word}-player-select"
+    container_id = f"eac-container-{input_id}"
+    list_id = f"team-{word}-player-list"
+
+    box = page.locator(f"#{input_id}")
+    await box.wait_for(state="visible", timeout=5000)
     await box.click()
     await box.fill("")
+    # Use type() (not fill) so jQuery's keyup-bound autocomplete fires.
     await box.type(player_name, delay=40)
-    # KTC's autocomplete is debounced — give it a beat to render.
-    await page.wait_for_timeout(700)
 
-    name_lit = _xpath_lit(player_name)
-    strategies = [
-        # 1. Class-based ("result" / "option" / "suggest" / "autocomplete" / "dropdown")
-        f'xpath=//*[self::li or self::div or self::button or self::a]'
-        f'[contains(@class, "result") or contains(@class, "option") '
-        f' or contains(@class, "suggest") or contains(@class, "autocomplete") '
-        f' or contains(@class, "dropdown") or contains(@class, "search")]'
-        f'[.//text()[contains(., {name_lit})] or normalize-space()={name_lit}]',
-        # 2. ARIA role-based — proper accessibility wins if KTC uses it
-        f'xpath=//*[@role="option" or @role="listitem"]'
-        f'[.//text()[contains(., {name_lit})] or normalize-space()={name_lit}]',
-        # 3. Plain text match, excluding form controls and the input itself
-        f'xpath=//*[not(self::input) and not(self::textarea) and not(ancestor::input)]'
-        f'[normalize-space(text())={name_lit}]',
-    ]
+    # Wait for the autocomplete dropdown <ul> to flip from
+    # display:none to display:block, signalling KTC has results.
+    visible_list = page.locator(f'#{container_id} ul[style*="display: block"]')
+    try:
+        await visible_list.wait_for(state="visible", timeout=timeout)
+    except Exception:
+        debug_path = await _dump_debug_snapshot(
+            page, f"add_player_no_dropdown_team{team_idx}_{_safe_filename(player_name)}"
+        )
+        msg = f"autocomplete dropdown never appeared for {player_name!r} on team {team_idx}"
+        if debug_path:
+            msg += f" (debug snapshot: {debug_path})"
+        raise RuntimeError(msg)
 
-    last_err: Exception | None = None
-    for strat in strategies:
-        try:
-            option = page.locator(strat).first
-            await option.wait_for(state="visible", timeout=timeout // len(strategies))
-            await option.click()
-            # Give KTC a moment to stamp the row and recompute VA.
-            await page.wait_for_timeout(600)
-            return
-        except Exception as e:
-            last_err = e
-            continue
+    # Click the <li> whose <b> text matches.  KTC sometimes shows
+    # multiple suggestions for ambiguous searches; prefer exact match.
+    items = visible_list.locator("li")
+    n = await items.count()
+    if n == 0:
+        debug_path = await _dump_debug_snapshot(
+            page, f"add_player_empty_dropdown_team{team_idx}_{_safe_filename(player_name)}"
+        )
+        msg = f"autocomplete dropdown is visible but has zero items for {player_name!r}"
+        if debug_path:
+            msg += f" (debug snapshot: {debug_path})"
+        raise RuntimeError(msg)
 
-    # All strategies failed — dump diagnostic and re-raise.
-    debug_path = await _dump_debug_snapshot(page, f"add_player_fail_team{team_idx}_{player_name.replace(' ', '_')}")
-    if debug_path:
-        print(f"    DEBUG: saved screenshot + HTML to {debug_path}")
-    raise last_err if last_err else RuntimeError(f"could not locate autocomplete option for {player_name!r}")
+    target = None
+    for i in range(n):
+        item = items.nth(i)
+        text = (await item.inner_text()).strip()
+        # Case-insensitive, whitespace-tolerant equality first; then containment.
+        if text.lower() == player_name.lower() or player_name.lower() in text.lower():
+            target = item
+            break
+    if target is None:
+        # No textual match — likely the fixture has a name variant
+        # (e.g. picks like "2026 Pick 1.09" can format slightly
+        # differently in the dropdown).  Fall back to the first item
+        # KTC ranked, but warn so the operator can verify.
+        first_text = (await items.first.inner_text()).strip()
+        print(
+            f"    WARN: no exact match for {player_name!r} — "
+            f"clicking first dropdown entry: {first_text!r}"
+        )
+        target = items.first
+
+    await target.click()
+
+    # Verify the player row landed in the team list.  This is the
+    # check we should have had from day one — clicking the wrong
+    # element succeeds silently otherwise (see bug history pre-#288).
+    list_loc = page.locator(f"#{list_id}")
+    try:
+        # Wait up to 3s for at least one direct child to appear.
+        await page.wait_for_function(
+            f"document.querySelector('#{list_id}') && document.querySelector('#{list_id}').children.length > 0",
+            timeout=3000,
+        )
+    except Exception:
+        debug_path = await _dump_debug_snapshot(
+            page, f"add_player_no_row_team{team_idx}_{_safe_filename(player_name)}"
+        )
+        msg = (
+            f"clicked dropdown for {player_name!r} but no row appeared in #{list_id}"
+        )
+        if debug_path:
+            msg += f" (debug snapshot: {debug_path})"
+        raise RuntimeError(msg)
+
+    # Settle: KTC recomputes totals + VA after each add.
+    await page.wait_for_timeout(500)
 
 
 async def _clear_team(page, team_idx: int) -> None:
-    """Remove every player currently in team_idx's list."""
-    # KTC uses an 'x' button per row.  We look inside the section for
-    # team_idx and click remove buttons until no rows remain.
-    for _ in range(20):  # safety cap
+    """Remove every player currently in team_idx's list.
+
+    Player rows live inside ``#team-{one,two}-player-list``.  KTC
+    renders a remove control per row — exact class isn't pinned by
+    our debug snapshot (rows were empty), so we widen the locator to
+    any clickable element with a "remove" / "close" / "×" affordance.
+    """
+    word = TEAM_WORDS[team_idx]
+    list_id = f"team-{word}-player-list"
+    for _ in range(20):  # safety cap against infinite loop
         close_buttons = page.locator(
-            f'xpath=(//*[contains(@class, "trade-calc-team") or contains(@class, "team-section")])[{team_idx + 1}]'
-            f'//button[contains(@class, "close") or contains(@class, "remove") or @aria-label="Remove"]'
+            f'css=#{list_id} button, '
+            f'css=#{list_id} [class*="remove"], '
+            f'css=#{list_id} [class*="close"], '
+            f'css=#{list_id} [aria-label="Remove"]'
         )
         remaining = await close_buttons.count()
         if remaining == 0:
             return
-        await close_buttons.first.click()
+        try:
+            await close_buttons.first.click(timeout=2000)
+        except Exception:
+            return  # row likely already removed by previous click
         await page.wait_for_timeout(200)
 
 
 async def _read_trade_state(page) -> dict:
     """Extract per-side player values and the KTC-reported VA.
 
-    Tries multiple class-name patterns for the team containers because
-    KTC's CSS class names have shifted over time.  On failure to
-    locate two team sections, dumps a screenshot + page HTML so we
-    can pin the precise selector from the rendered DOM rather than
-    guessing.
+    Reads from KTC's stable per-team IDs:
+
+      * ``#team-{word}-player-list``  — populated piece rows
+      * ``#team-{word}-adjustment-block`` — VA, populated when nonzero
+      * ``#team-{word}-total``  — sum of all piece values on this side
+
+    Per-piece values inside the player list aren't pinned by stable
+    IDs, so we scan the rendered text of each row for the largest
+    integer in [100, 9999] (KTC's value scale).  If a row layout
+    drifts in the future, this still works as long as the value stays
+    visible.
+
+    Dumps a debug snapshot if both sides come back empty so we can
+    pin the per-row structure from a real populated state.
     """
-    team_locators = [
-        # Historical / hyphenated variants
-        '//*[contains(@class, "trade-calc-team") or contains(@class, "team-section") '
-        'or contains(@class, "trade-team") or contains(@class, "tradeTeam") '
-        'or contains(@class, "team-side") or contains(@class, "teamSide") '
-        'or contains(@class, "trade-side") or contains(@class, "tradeSide")]',
-        # Anything labeled with side1 / side2
-        '//*[contains(@class, "side-1") or contains(@class, "side-2") '
-        'or contains(@class, "side1") or contains(@class, "side2")]',
-        # ARIA region with team-ish accessible name
-        '//*[@role="region"][contains(translate(@aria-label, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "team")]',
-    ]
-    teams = None
-    team_count = 0
-    for xp in team_locators:
-        teams = page.locator(f"xpath={xp}")
-        team_count = await teams.count()
-        if team_count >= 2:
-            break
-
-    if team_count < 2:
-        debug_path = await _dump_debug_snapshot(page, "read_state_no_team_sections")
-        msg = f"Expected 2 team sections, found {team_count}"
-        if debug_path:
-            msg += f" (debug snapshot saved to {debug_path})"
-        raise RuntimeError(msg)
-
     side_values: list[list[int]] = [[], []]
-    for i in range(min(2, team_count)):
-        cells = teams.nth(i).locator(SEL_VALUE_CELL)
-        n = await cells.count()
-        for j in range(n):
-            txt = (await cells.nth(j).inner_text()).strip()
-            v = _parse_int(txt)
-            if v is not None and v > 0:
-                side_values[i].append(v)
-
-    # VA is usually displayed in a row labeled "Value Adjustment" on the
-    # side receiving it.  Grab all text with that label and parse the
-    # sibling cell for a signed integer.
     va_by_side: list[int] = [0, 0]
-    for i in range(2):
-        row = teams.nth(i).locator('xpath=.//*[contains(text(), "Value Adjustment")]/..')
-        if await row.count() == 0:
+
+    for i, word in enumerate(TEAM_WORDS):
+        list_loc = page.locator(f"#team-{word}-player-list")
+        if await list_loc.count() == 0:
             continue
-        va_text = await row.first.inner_text()
-        v = _parse_int(va_text)
-        if v is not None:
-            va_by_side[i] = v
+        # Each direct child of the player list is one piece row.
+        rows = list_loc.locator("xpath=./*")
+        nrows = await rows.count()
+        for j in range(nrows):
+            row_text = (await rows.nth(j).inner_text()).strip()
+            # Pick the largest integer in the row's text within KTC's
+            # 0-9999 scale — that's the piece value.  Smaller numbers
+            # like jersey #s, ages, or pick rounds get filtered.
+            best = None
+            for m in re.finditer(r"\d[\d,]*", row_text):
+                v = _parse_int(m.group(0))
+                if v is None:
+                    continue
+                if 100 <= v <= 9999 and (best is None or v > best):
+                    best = v
+            if best is not None:
+                side_values[i].append(best)
+
+        # Value Adjustment block: text content holds the VA when nonzero.
+        adj_loc = page.locator(f"#team-{word}-adjustment-block")
+        if await adj_loc.count() > 0:
+            adj_text = (await adj_loc.inner_text()).strip()
+            v = _parse_int(adj_text)
+            if v is not None:
+                va_by_side[i] = v
+
+    if not side_values[0] and not side_values[1]:
+        debug_path = await _dump_debug_snapshot(page, "read_state_no_pieces")
+        msg = "_read_trade_state found no piece values on either side"
+        if debug_path:
+            msg += f" (debug snapshot: {debug_path})"
+        raise RuntimeError(msg)
 
     return {"sideValues": side_values, "valueAdjustments": va_by_side}
 
