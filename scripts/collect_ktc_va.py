@@ -292,13 +292,18 @@ async def _clear_team(page, team_idx: int) -> None:
     """
     word = TEAM_WORDS[team_idx]
     list_id = f"team-{word}-player-list"
+    # Playwright auto-detects CSS — the `css=` prefix is redundant here
+    # and breaks parsing when used inside a comma-separated selector
+    # list (each `css=` after the first becomes literal text and trips
+    # the CSS tokenizer).  Concatenate plain CSS selectors instead.
+    selector = (
+        f'#{list_id} button, '
+        f'#{list_id} [class*="remove"], '
+        f'#{list_id} [class*="close"], '
+        f'#{list_id} [aria-label="Remove"]'
+    )
     for _ in range(20):  # safety cap against infinite loop
-        close_buttons = page.locator(
-            f'css=#{list_id} button, '
-            f'css=#{list_id} [class*="remove"], '
-            f'css=#{list_id} [class*="close"], '
-            f'css=#{list_id} [aria-label="Remove"]'
-        )
+        close_buttons = page.locator(selector)
         remaining = await close_buttons.count()
         if remaining == 0:
             return
