@@ -79,16 +79,22 @@ def load_observations(path: Path = DEFAULT_OBSERVATIONS) -> list[DataPoint]:
     ``valueAdjustmentTeam2 == 0``) are still loaded with ktc_va=0 so
     the fit can honor the "no adjustment" signal.
     """
+    # "File doesn't exist" is a legitimate state (no observations
+    # captured yet); fall through quietly and let main() print a
+    # baseline-only message.  Anything else — bad JSON, wrong shape,
+    # IO error — is a real failure that would silently mask stale or
+    # corrupt data and produce a misleading calibration if swallowed,
+    # so we let it propagate.
     if not path.exists():
         return []
-    try:
-        with path.open("r", encoding="utf-8") as f:
-            payload = json.load(f)
-    except Exception:
-        return []
+    with path.open("r", encoding="utf-8") as f:
+        payload = json.load(f)
     observations = payload.get("observations") if isinstance(payload, dict) else payload
     if not isinstance(observations, list):
-        return []
+        raise ValueError(
+            f"{path}: expected an 'observations' list (or top-level array); "
+            f"got {type(observations).__name__}"
+        )
     points: list[DataPoint] = []
     for obs in observations:
         if not isinstance(obs, dict):
