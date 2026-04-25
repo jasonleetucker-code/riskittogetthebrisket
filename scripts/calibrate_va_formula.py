@@ -294,11 +294,25 @@ def predict_v7_full_loop(pt: DataPoint, p: dict) -> float:
 
 # ── Scoring + grid search ───────────────────────────────────────────────
 
+# Floor for the relative-error divisor.  Dividing by pt.ktc_va is
+# ideal when KTC reports a nonzero VA (gives a true percentage), but
+# breaks on observations where KTC reports 0 — those are meaningful
+# calibration signal ("formula should predict near-0 here") rather
+# than noise, so skipping them is wrong.  Using max(|target|, floor)
+# scales all errors to a common magnitude: zero-target points still
+# penalize nonzero predictions proportionally, and nonzero-target
+# points behave identically to the original pure-relative metric as
+# long as |target| ≥ floor (which is true for every one of the 13
+# baseline anchors — smallest is 1166).
+_ERROR_FLOOR = 500.0
+
+
 def errors(predict_fn, params: dict) -> list[tuple[str, float, float, float, str]]:
     rows = []
     for pt in DATA:
         pred = predict_fn(pt, params)
-        err = (pred - pt.ktc_va) / pt.ktc_va
+        denom = max(abs(pt.ktc_va), _ERROR_FLOOR)
+        err = (pred - pt.ktc_va) / denom
         rows.append((pt.label, pred, pt.ktc_va, err, pt.topology))
     return rows
 
