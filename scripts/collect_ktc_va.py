@@ -81,16 +81,21 @@ def load_fixture(path: Path) -> list[dict]:
 
 
 def load_existing(path: Path) -> dict[str, dict]:
+    # File-doesn't-exist is the legitimate "fresh run" state — return
+    # an empty dict quietly.  Anything else (bad JSON, wrong shape,
+    # IO error) is real corruption: surface it so the run aborts
+    # before the next save_observations() overwrites the file with a
+    # tiny new dataset and permanently loses prior captures.
     if not path.exists():
         return {}
-    try:
-        with path.open("r", encoding="utf-8") as f:
-            payload = json.load(f)
-    except Exception:
-        return {}
+    with path.open("r", encoding="utf-8") as f:
+        payload = json.load(f)
     observations = payload.get("observations") if isinstance(payload, dict) else payload
     if not isinstance(observations, list):
-        return {}
+        raise ValueError(
+            f"{path}: expected an 'observations' list (or top-level array); "
+            f"got {type(observations).__name__}"
+        )
     return {o.get("label"): o for o in observations if isinstance(o, dict) and o.get("label")}
 
 
@@ -237,7 +242,13 @@ async def run(args: argparse.Namespace) -> int:
             print(f"No fixture entries match --only={args.only}")
             return 2
 
-    existing = {} if args.refresh else load_existing(Path(args.output))
+    # Always load prior observations — even on --refresh.  The
+    # refresh flag controls *which fixture entries get re-captured*,
+    # not whether to discard everything we've already saved.  Combined
+    # with --only the previous behaviour rewrote the file from scratch
+    # with only the filtered subset, silently deleting every other
+    # label.
+    existing = load_existing(Path(args.output))
     pending = [e for e in fixture if args.refresh or e["label"] not in existing]
     print(f"Fixture: {len(fixture)} trades  |  already captured: {len(fixture) - len(pending)}")
 
@@ -251,6 +262,7 @@ async def run(args: argparse.Namespace) -> int:
         print("FAIL: playwright not installed.  Run: pip install playwright && playwright install chromium")
         return 1
 
+    failures: list[tuple[str, str]] = []
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=not args.headed)
         context = await browser.new_context(
@@ -269,7 +281,9 @@ async def run(args: argparse.Namespace) -> int:
             try:
                 obs = await capture_trade(page, entry)
             except Exception as e:
-                print(f"    FAIL: {type(e).__name__}: {str(e)[:160]}")
+                msg = f"{type(e).__name__}: {str(e)[:160]}"
+                print(f"    FAIL: {msg}")
+                failures.append((label, msg))
                 continue
 
             t1 = sum(obs["team1Values"])
@@ -288,6 +302,14 @@ async def run(args: argparse.Namespace) -> int:
         await browser.close()
 
     print(f"\nWrote {len(existing)} observations to {args.output}")
+    if failures:
+        print(f"\n{len(failures)} of {len(pending)} captures FAILED:")
+        for label, msg in failures:
+            print(f"  - {label}: {msg}")
+        # Surface a nonzero exit code so shell scripts / CI / pre-commit
+        # hooks don't treat a partial run as success and let an
+        # incomplete observation set propagate into calibration.
+        return 1
     return 0
 
 
