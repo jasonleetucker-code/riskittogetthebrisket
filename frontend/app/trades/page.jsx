@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
 import { PageHeader, LoadingState, EmptyState } from "@/components/ui";
@@ -10,6 +11,7 @@ import {
   analyzeTradeTendencies,
   POS_GROUP_COLORS,
 } from "@/lib/league-analysis";
+import { encodeTrade, SHARE_PARAM } from "@/lib/trade-share";
 
 const POS_COLORS = {
   QB: "#e74c3c", RB: "#27ae60", WR: "#3498db", TE: "#e67e22",
@@ -291,11 +293,36 @@ function TradeCard({ analysis: a }) {
   const badgeColor = isLoserHeadline ? "var(--red)" : "var(--green)";
   const borderColor = isLoserHeadline ? "var(--red)" : "var(--green)";
 
-  return (
-    <div
-      className="card"
-      style={{ borderLeft: `3px solid ${borderColor}` }}
-    >
+  // Build a /trade?share=... href so clicking the card pre-loads the
+  // trade in the calculator.  Each calculator side mirrors what that
+  // historical team RECEIVED, which is the natural visualization
+  // ("show me what this trade looked like as a 2-team deal").  Picks
+  // and players come through with their canonical names so the
+  // calculator's rowByName lookup resolves them on hydration.
+  const shareHref = useMemo(() => {
+    try {
+      const teamPlayerNames = (items) =>
+        (items || [])
+          .map((it) => String(it?.name || "").trim())
+          .filter(Boolean);
+      const sides = (a.sides || []).map((side) => ({
+        name: String(side?.team || "").slice(0, 40),
+        players: teamPlayerNames(side.got),
+      }));
+      // ``encodeTrade`` rejects empty sides arrays; defensively
+      // fall back to a non-clickable card if the data is malformed.
+      if (sides.length < 2 || sides.every((s) => s.players.length === 0)) {
+        return null;
+      }
+      const encoded = encodeTrade({ sides });
+      return `/trade?${SHARE_PARAM}=${encoded}`;
+    } catch {
+      return null;
+    }
+  }, [a.sides]);
+
+  const cardContent = (
+    <>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <span style={{ fontSize: "0.68rem", color: "var(--subtext)" }}>
@@ -358,6 +385,59 @@ function TradeCard({ analysis: a }) {
           );
         })}
       </div>
+
+      {/* Click-to-import affordance — hint at bottom so users learn
+          the card is interactive without forcing them to discover it. */}
+      {shareHref && (
+        <div style={{
+          marginTop: 8,
+          paddingTop: 8,
+          borderTop: "1px dashed var(--border)",
+          fontSize: "0.62rem",
+          color: "var(--subtext)",
+          textAlign: "right",
+          fontStyle: "italic",
+        }}>
+          Click to open in trade calculator →
+        </div>
+      )}
+    </>
+  );
+
+  // When a valid share URL was built, wrap the card content in a
+  // Next ``Link`` so click navigates the user to ``/trade?share=...``
+  // with the trade pre-loaded.  The trade page's existing share-URL
+  // hydration code (frontend/app/trade/page.jsx, "Share-URL decoder")
+  // resolves the player names against ``rowByName`` and populates
+  // both sides on mount.  Falls back to a plain card when the trade
+  // can't be encoded (malformed data, empty sides, etc.).
+  const cardStyle = {
+    borderLeft: `3px solid ${borderColor}`,
+    cursor: shareHref ? "pointer" : "default",
+    // Inherit the card's normal text color even when wrapped in a
+    // <Link> (which would otherwise paint everything in the link
+    // accent color).
+    color: "inherit",
+    textDecoration: "none",
+    display: "block",
+  };
+
+  if (shareHref) {
+    return (
+      <Link
+        href={shareHref}
+        className="card"
+        style={cardStyle}
+        aria-label={`Open this trade in the calculator`}
+      >
+        {cardContent}
+      </Link>
+    );
+  }
+
+  return (
+    <div className="card" style={{ borderLeft: `3px solid ${borderColor}` }}>
+      {cardContent}
     </div>
   );
 }
