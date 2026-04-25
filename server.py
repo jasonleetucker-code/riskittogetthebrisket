@@ -131,8 +131,19 @@ JASON_AUTH_COOKIE_NAME = "jason_session"
 JASON_AUTH_COOKIE_SECURE = _env_bool("JASON_AUTH_COOKIE_SECURE", True)
 # Match the SQLite session TTL (SESSION_TTL_DAYS, default 30) so the
 # browser cookie outlives an iOS Safari tab eviction instead of dying
-# as a session cookie the first time the OS reclaims memory.
-JASON_AUTH_COOKIE_MAX_AGE = int(float(os.getenv("SESSION_TTL_DAYS", "30")) * 86400)
+# as a session cookie the first time the OS reclaims memory.  Parse
+# defensively so a malformed env var (e.g. ``30d``) doesn't take the
+# whole server down at import time — fall back to the 30-day default.
+def _session_ttl_days_seconds(default_days: float = 30.0) -> int:
+    raw = os.getenv("SESSION_TTL_DAYS", "")
+    try:
+        days = float(raw) if raw else default_days
+    except (TypeError, ValueError):
+        days = default_days
+    return int(days * 86400)
+
+
+JASON_AUTH_COOKIE_MAX_AGE = _session_ttl_days_seconds()
 
 # Private-app allowlist.  Only these Sleeper handles can sign in
 # via /api/auth/sleeper-login.  Anyone else — even with a valid
