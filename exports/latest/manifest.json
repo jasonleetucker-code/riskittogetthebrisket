@@ -1,17 +1,18 @@
 {
-  "generatedAt": "2026-04-24T22:30:12.386333",
-  "date": "2026-04-24",
+  "generatedAt": "2026-04-25T03:46:26.470649",
+  "date": "2026-04-25",
   "files": [
     "dynasty_data.js",
-    "dynasty_data_2026-04-24.json",
+    "dynasty_data_2026-04-25.json",
     "dynasty_full.csv",
     "dynasty_values.csv",
     "site_raw"
   ],
   "siteRawCount": 2,
   "siteRawFresh": [
-    "idpTradeCalc.csv",
     "ktc.csv"
   ],
-  "siteRawPreserved": []
+  "siteRawPreserved": [
+    "idpTradeCalc.csv"
+  ]
 }
