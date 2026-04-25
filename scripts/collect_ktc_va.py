@@ -201,11 +201,58 @@ async def _read_trade_state(page) -> dict:
     return {"sideValues": side_values, "valueAdjustments": va_by_side}
 
 
+async def _dismiss_blocking_modals(page) -> None:
+    """Dismiss KTC overlays that cover the search inputs.
+
+    Observed in the wild (2026-04):
+
+    1. **"Your Thoughts?" rookie-ranking modal** — KTC crowdsources
+       its values by asking each visitor to rank three random rookies
+       Keep / Trade / Cut.  This modal pops on (effectively) every
+       fresh navigation to /trade-calculator and sits on top of the
+       trade pane, so the search inputs aren't reachable.  Click the
+       opt-out link "I don't know all of these players" rather than
+       submitting a fake vote — that would pollute KTC's crowd values
+       (which we then scrape and rely on, so we'd be poisoning our
+       own data).
+
+    2. **Generic close-button fallback** — any other modal/popup with
+       a standard "X" / aria-label="Close" button.  Best-effort.
+
+    Both clicks are wrapped in try/except: if the modal isn't present
+    (cookie remembered the dismissal, A/B variant, etc.) we silently
+    move on.  We re-run this on every goto because each navigation
+    can resurrect the prompt.
+    """
+    # 1. "Your Thoughts?" rookie ranking modal
+    try:
+        opt_out = page.get_by_text("I don't know all of these players", exact=False)
+        if await opt_out.count() > 0:
+            await opt_out.first.click(timeout=3000)
+            await page.wait_for_timeout(400)
+    except Exception:
+        pass
+
+    # 2. Generic close-button fallback for any other dialog
+    try:
+        close = page.locator(
+            'xpath=//*[contains(@class, "modal") or contains(@class, "popup") or @role="dialog"]'
+            '//button[contains(@class, "close") or @aria-label="Close" or normalize-space()="×"]'
+        )
+        if await close.count() > 0:
+            await close.first.click(timeout=2000)
+            await page.wait_for_timeout(300)
+    except Exception:
+        pass
+
+
 async def capture_trade(page, entry: dict) -> dict:
     """Navigate fresh, add both teams, capture the VA observation."""
     await page.goto(KTC_URL, wait_until="domcontentloaded", timeout=30000)
-    # Let any blocking modals/banners dismiss on their own.
     await page.wait_for_timeout(800)
+    # KTC's "Your Thoughts?" modal blocks the search inputs on every
+    # fresh navigation — must be dismissed before we can interact.
+    await _dismiss_blocking_modals(page)
     # KTC sometimes retains prior state — do a belt-and-suspenders clear.
     await _clear_team(page, 0)
     await _clear_team(page, 1)
