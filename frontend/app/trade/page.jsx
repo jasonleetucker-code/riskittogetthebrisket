@@ -21,6 +21,7 @@ import {
   effectiveValue,
   getPlayerEdge,
   findBalancers,
+  parsePickToken,
   resolvePickRow,
   meterVerdict,
   percentageGap,
@@ -832,7 +833,21 @@ export default function TradePage() {
           const resolved = [];
           const seen = new Set();
           for (const name of incoming.players || []) {
-            const row = rowByName.get(name);
+            // Direct rowByName lookup catches every player and any
+            // pick that happens to be in canonical form
+            // ("2026 Pick 1.04").
+            let row = rowByName.get(name);
+            if (!row) {
+              // Pick fallback: trade history items round-trip through
+              // share URLs using the SLEEPER format ("2026 1.04 (from
+              // Team X)" or "2027 Mid 1st (own)"), which doesn't
+              // match the canonical rowByName key.  Re-use the same
+              // ``resolvePickRow`` walker league-analysis uses so
+              // imported trades from /trades correctly hydrate picks.
+              if (parsePickToken(name)) {
+                row = resolvePickRow(name, rowByLowerName, pickAliases);
+              }
+            }
             if (!row || seen.has(row.name)) continue;
             seen.add(row.name);
             resolved.push(row);
