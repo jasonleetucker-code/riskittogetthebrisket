@@ -365,6 +365,11 @@ frontend_runtime_status = {
 # In-memory auth sessions for private-use gate.
 auth_sessions: dict[str, dict] = {}
 
+# Startup validation summary — populated by lifespan; surfaced via
+# /api/health.  Default to an empty summary so the endpoint never
+# references an unbound name before lifespan runs.
+_startup_checks_summary: dict = {"total": 0, "ok": 0, "failed": 0, "fatal": 0, "checks": []}
+
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -1667,9 +1672,22 @@ async def schedule_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: load cached data + kick off first scrape + start scheduler."""
-    global latest_data
+    global latest_data, _startup_checks_summary
 
     _metrics["server_start_time"] = _utc_now_iso()
+
+    # 0. Run startup validation FIRST so misconfiguration surfaces
+    # before any heavy work.  Never raises — logs individual check
+    # results and stores the summary for /api/health.
+    try:
+        from src.api import startup_validation as _sv
+        _startup_checks = _sv.run_all()
+        _startup_checks_summary = _sv.summary(_startup_checks)
+    except Exception as exc:  # noqa: BLE001
+        log.error("startup_validation crashed: %s", exc)
+        _startup_checks_summary = {
+            "error": str(exc), "total": 0, "ok": 0, "failed": 1, "fatal": 0,
+        }
 
     # 1. Load cached data immediately so the dashboard is usable right away
     latest_data = load_from_disk()
@@ -1748,6 +1766,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+# Global exception handler — catches ANY unhandled exception from
+# handlers, middleware, or dependency resolution.  Returns the
+# standard error-envelope + logs with full context (requestId,
+# path, method, IP, traceback).  Installed before any other
+# middleware registers so it wraps everything.
+from src.api.error_responses import install_exception_handler as _install_exc_handler  # noqa: E402
+_install_exc_handler(app)
 
 
 @app.middleware("http")
@@ -1847,6 +1873,34 @@ async def _private_api_gate(request: Request, call_next):
                 headers={"Cache-Control": "no-store"},
             )
     return await call_next(request)
+
+
+@app.middleware("http")
+async def _request_context_middleware(request: Request, call_next):
+    """Generate + propagate a per-request correlation ID.
+
+    Registered AFTER ``_private_api_gate`` so it wraps the gate —
+    every response (including 401/429 from the gate) gets an
+    ``X-Request-Id`` header + the ContextVar is set for any log
+    lines emitted during request handling.
+
+    Accepts an incoming ``X-Request-Id`` header (e.g. from nginx
+    or an uptime monitor) when present + sane (1-64 chars);
+    otherwise mints a fresh token-urlsafe 12-char ID.
+    """
+    from src.utils import request_context as _rc
+    incoming = str(request.headers.get("x-request-id") or "").strip()
+    rid = incoming if (1 <= len(incoming) <= 64) else _rc.new_request_id()
+    token = _rc.set_request_id(rid)
+    try:
+        response = await call_next(request)
+    finally:
+        _rc.reset_request_id(token)
+    try:
+        response.headers["X-Request-Id"] = rid
+    except Exception:  # noqa: BLE001 — some response types reject mutations
+        pass
+    return response
 
 
 def _client_ip_from_request(request: Request) -> str:
@@ -2746,6 +2800,28 @@ async def get_health():
         and bool(contract_health.get("ok", False))
     )
     status = "ok" if is_ok else "degraded"
+    # Deeper health: startup checks + circuit breakers + session
+    # store size.  Wrapped so a dependency import error can't bring
+    # down the health endpoint itself.
+    def _circuits_safe():
+        try:
+            from src.utils import circuit_breaker as _cb
+            return _cb.snapshot_all()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("health: circuit_breaker snapshot failed: %s", exc)
+            return []
+
+    def _sessions_safe():
+        try:
+            from src.api import session_store as _ss
+            return {"persistedCount": _ss.count_active()}
+        except Exception as exc:  # noqa: BLE001
+            log.warning("health: session_store count failed: %s", exc)
+            return {"persistedCount": None}
+
+    circuits = _circuits_safe()
+    # Any breaker in OPEN state flips overall status to degraded.
+    any_breaker_open = any(c.get("state") == "open" for c in circuits)
     return JSONResponse(
         status_code=200 if is_ok else 503,
         content={
@@ -2768,6 +2844,11 @@ async def get_health():
                 "target_url": uptime_status.get("target_url"),
             },
             "session_cookies": _session_ages,
+            "sessions": _sessions_safe(),
+            "circuitBreakers": circuits,
+            "anyBreakerOpen": any_breaker_open,
+            "startupChecks": _startup_checks_summary,
+            "memberInMemorySessions": len(auth_sessions) if isinstance(auth_sessions, dict) else None,
         },
     )
 
@@ -6363,6 +6444,38 @@ async def run_signal_alerts(request: Request):
         }
 
     result = await run_in_threadpool(_run_sweep)
+
+    # Operator alerts piggyback on the signal-alert cron so we don't
+    # need another timer.  Checks: scrape success rate, circuit
+    # breakers, contract health, data freshness.  Never raises.
+    try:
+        from src.api import ops_alerts as _ops
+        from src.utils import circuit_breaker as _cb
+        status_payload = _scrape_status_payload()
+        data_age_hours = None
+        loaded_at = latest_data_source.get("loadedAt")
+        if loaded_at:
+            try:
+                loaded_dt = datetime.fromisoformat(loaded_at)
+                data_age_hours = (
+                    datetime.now(timezone.utc) - loaded_dt
+                ).total_seconds() / 3600.0
+            except (ValueError, TypeError):
+                pass
+        ops_summary = _ops.check_and_alert(
+            status_payload=status_payload,
+            circuit_snapshots=_cb.snapshot_all(),
+            contract_health=contract_health,
+            data_age_hours=data_age_hours,
+            scrape_interval_hours=float(SCRAPE_INTERVAL_HOURS),
+            delivery=_deliver_email_smtp if ALERT_TO else None,
+            to_email=ALERT_TO or None,
+        )
+        result["opsAlerts"] = ops_summary
+    except Exception as exc:  # noqa: BLE001
+        log.warning("ops_alerts check failed: %s", exc)
+        result["opsAlerts"] = {"error": str(exc)}
+
     return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
 
 

@@ -48,6 +48,7 @@ import {
 import { useTradeSimulator } from "@/components/useTradeSimulator";
 import { useTeam } from "@/components/useTeam";
 import { MonteCarloButton, ValueBandBadge } from "@/components/ui";
+import ResilientSection from "@/components/ResilientSection";
 
 const ROSTER_KEY = "next_trade_roster_v1";
 const TEAM_KEY = "next_trade_team_v1";
@@ -154,10 +155,11 @@ function TradeMeterTwoTeam({ sides, sideTotals }) {
 
       {/* Monte Carlo simulator — renders nothing when flag off, a
           button when flag on and trade has assets, or a "flag off"
-          pill when backend returns 503.  Provides the probabilistic
-          "win %" / "risk level" / "tier impact" decision-layer
-          outputs that the spec requires the trade calc to show. */}
-      <MonteCarloButton sides={sides} />
+          pill when backend returns 503.  Wrapped in ResilientSection
+          so an MC-panel crash doesn't take down the trade meter. */}
+      <ResilientSection name="Monte Carlo panel">
+        <MonteCarloButton sides={sides} />
+      </ResilientSection>
     </div>
   );
 }

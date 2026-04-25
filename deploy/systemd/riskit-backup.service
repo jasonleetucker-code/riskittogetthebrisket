@@ -1,0 +1,22 @@
+[Unit]
+Description=Risk It nightly SQLite backup
+After=network.target
+
+[Service]
+Type=oneshot
+User=dynasty
+Group=dynasty
+WorkingDirectory=/home/dynasty/trade-calculator
+ExecStart=/home/dynasty/trade-calculator/deploy/backup_user_kv.sh
+StandardOutput=append:/var/log/riskit-backup.log
+StandardError=append:/var/log/riskit-backup.log
+# Environment — override via drop-in if S3 mirroring is configured.
+Environment="DATA_DIR=/home/dynasty/trade-calculator/data"
+Environment="BACKUP_DIR=/var/backups/riskit"
+Environment="KEEP_DAILY=30"
+Environment="KEEP_MONTHLY=12"
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

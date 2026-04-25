@@ -1,0 +1,15 @@
+[Unit]
+Description=Weekly Risk It backup restore-test
+After=network.target
+
+[Service]
+Type=oneshot
+User=dynasty
+Group=dynasty
+WorkingDirectory=/home/dynasty/trade-calculator
+ExecStart=/home/dynasty/trade-calculator/deploy/backup_user_kv.sh --restore-test
+StandardOutput=append:/var/log/riskit-backup.log
+StandardError=append:/var/log/riskit-backup.log
+
+[Install]
+WantedBy=multi-user.target

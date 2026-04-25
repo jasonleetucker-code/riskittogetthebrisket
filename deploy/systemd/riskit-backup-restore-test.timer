@@ -1,0 +1,12 @@
+[Unit]
+Description=Weekly backup restore-test
+Requires=riskit-backup-restore-test.service
+
+[Timer]
+# Every Monday at 03:30 UTC — after the daily backup runs at 02:00.
+OnCalendar=Mon *-*-* 03:30:00 UTC
+Persistent=true
+AccuracySec=15min
+
+[Install]
+WantedBy=timers.target

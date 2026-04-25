@@ -1,0 +1,14 @@
+[Unit]
+Description=Nightly Risk It SQLite backup trigger
+Requires=riskit-backup.service
+
+[Timer]
+# 02:00 UTC every day.  Persistent=true catches a missed run
+# (laptop sleep, VPS reboot) and kicks it off when the system
+# comes back online.
+OnCalendar=*-*-* 02:00:00 UTC
+Persistent=true
+AccuracySec=5min
+
+[Install]
+WantedBy=timers.target

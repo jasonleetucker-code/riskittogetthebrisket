@@ -50,16 +50,41 @@ def fetch(
     extra_headers: dict[str, str] | None = None,
     retry_delay_base: float = 0.5,
     label: str | None = None,
+    breaker: str | None = None,
 ) -> FetchResult:
     """Fetch a URL with optional retry.  Never raises.
 
     ``label`` tags log lines for filtering — pass the logical
     purpose (e.g. ``"sleeper_rosters"``, ``"espn_injuries"``).
+
+    ``breaker`` names a circuit breaker.  When provided:
+      * If the named breaker is OPEN, returns immediately with
+        ``error_kind="circuit_open"`` — no network call.
+      * Successful calls close/keep-closed the breaker.
+      * Failed calls (network / timeout / unexpected) count
+        toward the breaker's trip threshold.
     """
     headers = {"User-Agent": user_agent}
     if extra_headers:
         headers.update(extra_headers)
     started = time.time()
+
+    # Pre-check the circuit breaker.
+    bp = None
+    if breaker:
+        from src.utils import circuit_breaker as _cb
+        bp = _cb.get_or_create(breaker)
+        if not bp.can_call():
+            _LOGGER.warning(
+                "http_fetch=circuit_open label=%s breaker=%s url=%s",
+                label or "unlabeled", breaker, _truncate(url),
+            )
+            return FetchResult(
+                status_code=0, body=b"",
+                error_kind="circuit_open",
+                attempts=0, elapsed_sec=0.0,
+            )
+
     last_error_kind = "retries_exhausted"
     last_status = 0
     for attempt in range(retries + 1):
@@ -74,6 +99,8 @@ def fetch(
                 label or "unlabeled", _truncate(url), status, len(body),
                 attempt + 1, elapsed,
             )
+            if bp is not None:
+                bp.report_success()
             return FetchResult(
                 status_code=status, body=body, error_kind="ok",
                 attempts=attempt + 1, elapsed_sec=elapsed,
@@ -136,6 +163,11 @@ def fetch(
         last_error_kind, label or "unlabeled", _truncate(url),
         retries + 1, elapsed,
     )
+    # Report terminal failure to the breaker (network/timeout errors
+    # only — HTTP errors reported above inside the 5xx branch when
+    # retries are exhausted).
+    if bp is not None and last_error_kind in ("timeout", "network", "retries_exhausted"):
+        bp.report_failure(last_error_kind)
     return FetchResult(
         status_code=last_status, body=b"",
         error_kind=last_error_kind,

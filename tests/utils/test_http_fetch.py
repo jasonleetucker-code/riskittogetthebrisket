@@ -107,3 +107,45 @@ def test_elapsed_time_reasonable():
     with patch.object(hf.urllib.request, "urlopen", return_value=_fake_response(b"x")):
         result = hf.fetch("https://example.com")
     assert 0 <= result.elapsed_sec < 1.0
+
+
+def test_circuit_breaker_short_circuits_when_open():
+    """When the named breaker is open, no network call happens."""
+    from src.utils import circuit_breaker as cb
+    cb.reset_all_for_tests()
+    bp = cb.get_or_create("test_external", failure_threshold=1, failure_window_sec=60)
+    bp.report_failure("priming")  # trip it
+    calls = []
+    def _never(*_a, **_kw):
+        calls.append(1)
+        return _fake_response(b"shouldn't see this")
+    with patch.object(hf.urllib.request, "urlopen", side_effect=_never):
+        result = hf.fetch("https://example.com", breaker="test_external")
+    assert result.error_kind == "circuit_open"
+    assert result.attempts == 0
+    assert calls == []
+    cb.reset_all_for_tests()
+
+
+def test_circuit_breaker_success_reports_to_breaker():
+    from src.utils import circuit_breaker as cb
+    cb.reset_all_for_tests()
+    bp = cb.get_or_create("test_ext2", failure_threshold=2, failure_window_sec=60)
+    with patch.object(hf.urllib.request, "urlopen", return_value=_fake_response(b"ok")):
+        result = hf.fetch("https://example.com", breaker="test_ext2")
+    assert result.ok()
+    assert bp.snapshot()["counters"]["success"] >= 1
+    cb.reset_all_for_tests()
+
+
+def test_circuit_breaker_network_failures_trip_it():
+    from src.utils import circuit_breaker as cb
+    cb.reset_all_for_tests()
+    bp = cb.get_or_create("test_ext3", failure_threshold=3, failure_window_sec=60)
+    def _raise(*_a, **_kw):
+        raise urllib.error.URLError("refused")
+    with patch.object(hf.urllib.request, "urlopen", side_effect=_raise):
+        for _ in range(3):
+            hf.fetch("https://example.com", breaker="test_ext3", retry_delay_base=0)
+    assert bp.snapshot()["state"] == "open"
+    cb.reset_all_for_tests()
