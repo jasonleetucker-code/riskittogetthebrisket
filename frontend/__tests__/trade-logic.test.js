@@ -342,6 +342,62 @@ describe("computeValueAdjustment", () => {
       expect(va9999).toBeGreaterThan(va8000);
     });
   });
+
+  // ── V13 suppression rules (calibrated 2026-04 from 39 borderline trades) ──
+  describe("V13 suppression (KTC 'fair trade' gates)", () => {
+    it("suppresses VA when raw_diff is below the close-trade threshold", () => {
+      // Two near-identical 2v2 sides — raw_diff under 100, no firing.
+      // Captured analog: BORD_2v2_f, BORD_2v2_c → KTC reported VA=0.
+      const r = computeValueAdjustment(
+        [mockRow(6896), mockRow(3486)],
+        [mockRow(6888), mockRow(3387)],
+        "full",
+      );
+      expect(r.adjustment).toBe(0);
+    });
+
+    it("suppresses VA when best AND worst piece are on the same side (KTC article hint)", () => {
+      // Per KTC's article: "the value adjustment ... tends to be
+      // applied to the side with less junk."  When both extremes
+      // are on the same side AND the raw gap is moderate (< 400),
+      // KTC suppresses to 0.  Captured analog: BORD_USER_a — the
+      // user's reported "fair trade" where V12 over-predicted +1028
+      // but KTC actually displayed +0.
+      //
+      // Side A holds best (7765) AND worst (1963); side B has 3
+      // moderate-tier pieces.  KTC's UI suppresses.
+      const r = computeValueAdjustment(
+        [mockRow(7765), mockRow(3880), mockRow(2540), mockRow(1963)],
+        [mockRow(6642), mockRow(4915), mockRow(4874)],
+        "full",
+      );
+      expect(r.adjustment).toBe(0);
+    });
+
+    it("does NOT suppress when best+worst same side but raw_diff is large", () => {
+      // BORD_3v3_e analog: stud + mid + throw vs three mids/strong.
+      // Same-side rule alone doesn't suppress when the raw gap is
+      // big enough that KTC fires anyway.
+      const r = computeValueAdjustment(
+        [mockRow(9979), mockRow(4868), mockRow(3387)],
+        [mockRow(6888), mockRow(6642), mockRow(4921)],
+        "full",
+      );
+      expect(r.adjustment).toBeGreaterThan(0);
+    });
+
+    it("does NOT suppress when best+worst on different sides with moderate raw_diff", () => {
+      // Best on side A, worst on side B → same-side rule doesn't
+      // apply.  Falls through to V12's article math.  Captured
+      // analog: BORD_3v3_c which fires VA=2428.
+      const r = computeValueAdjustment(
+        [mockRow(6642), mockRow(5309), mockRow(3486)],
+        [mockRow(4921), mockRow(4868), mockRow(3387)],
+        "full",
+      );
+      expect(r.adjustment).toBeGreaterThan(0);
+    });
+  });
 });
 
 // ── computeMultiSideAdjustments (N-team trades) ──────────────────────
