@@ -51,8 +51,13 @@ export function useAuth() {
         // users with 200 + {authenticated: false}, so a non-OK status
         // here means a transient backend/proxy failure (5xx, 502
         // during a deploy, nginx timeout).  Keep the optimistic state
-        // instead of forcing a sign-out on infra blips.
-        if (!res.ok) return;
+        // when we had one (don't sign out a real session on infra
+        // blips); otherwise resolve to unauthenticated so callers
+        // that treat ``null`` as "still checking" don't wedge.
+        if (!res.ok) {
+          if (active && !cached) setAuthenticated(false);
+          return;
+        }
         const data = await res.json();
         const authed = !!data.authenticated;
         if (active) setAuthenticated(authed);

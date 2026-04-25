@@ -96,17 +96,22 @@ export function useDynastyData() {
         // the UI in a "signed-in but every fetch 401s" stuck state.
         // Clear the cache and bounce to /login so the user can
         // recover instead of staring at a persistent error banner.
+        // Skip the redirect when we're already on /login — otherwise
+        // a 401 from the data fetch would self-redirect into
+        // ``/login?next=%2Flogin...`` and trap the user in a loop on
+        // the login page itself.
         if (typeof window !== "undefined" && /\b401\b/.test(message)) {
           try {
             window.sessionStorage.removeItem("next_auth_checked_v1");
           } catch {
             // sessionStorage can throw in private mode — ignore.
           }
-          const next = encodeURIComponent(
-            window.location.pathname + window.location.search,
-          );
-          window.location.replace(`/login?next=${next}`);
-          return;
+          const path = window.location.pathname || "";
+          if (path !== "/login" && !path.startsWith("/login/")) {
+            const next = encodeURIComponent(path + window.location.search);
+            window.location.replace(`/login?next=${next}`);
+            return;
+          }
         }
         setError(message);
       } finally {
