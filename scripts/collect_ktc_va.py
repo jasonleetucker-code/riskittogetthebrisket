@@ -242,14 +242,40 @@ async def _clear_team(page, team_idx: int) -> None:
 
 
 async def _read_trade_state(page) -> dict:
-    """Extract per-side player values and the KTC-reported VA."""
-    # Grab every player's displayed value, split by team section.
-    teams = page.locator(
-        'xpath=//*[contains(@class, "trade-calc-team") or contains(@class, "team-section")]'
-    )
-    team_count = await teams.count()
+    """Extract per-side player values and the KTC-reported VA.
+
+    Tries multiple class-name patterns for the team containers because
+    KTC's CSS class names have shifted over time.  On failure to
+    locate two team sections, dumps a screenshot + page HTML so we
+    can pin the precise selector from the rendered DOM rather than
+    guessing.
+    """
+    team_locators = [
+        # Historical / hyphenated variants
+        '//*[contains(@class, "trade-calc-team") or contains(@class, "team-section") '
+        'or contains(@class, "trade-team") or contains(@class, "tradeTeam") '
+        'or contains(@class, "team-side") or contains(@class, "teamSide") '
+        'or contains(@class, "trade-side") or contains(@class, "tradeSide")]',
+        # Anything labeled with side1 / side2
+        '//*[contains(@class, "side-1") or contains(@class, "side-2") '
+        'or contains(@class, "side1") or contains(@class, "side2")]',
+        # ARIA region with team-ish accessible name
+        '//*[@role="region"][contains(translate(@aria-label, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"), "team")]',
+    ]
+    teams = None
+    team_count = 0
+    for xp in team_locators:
+        teams = page.locator(f"xpath={xp}")
+        team_count = await teams.count()
+        if team_count >= 2:
+            break
+
     if team_count < 2:
-        raise RuntimeError(f"Expected 2 team sections, found {team_count}")
+        debug_path = await _dump_debug_snapshot(page, "read_state_no_team_sections")
+        msg = f"Expected 2 team sections, found {team_count}"
+        if debug_path:
+            msg += f" (debug snapshot saved to {debug_path})"
+        raise RuntimeError(msg)
 
     side_values: list[list[int]] = [[], []]
     for i in range(min(2, team_count)):
