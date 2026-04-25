@@ -396,25 +396,52 @@ function TradeSourceBreakdown({ sides, settings }) {
         // case where only one sub-board covers a given player.
         const mainSubs = subs.filter((s) => !s.needsRookieTranslation);
         const rookieSubs = subs.filter((s) => s.needsRookieTranslation);
-        const averageCovered = (meta, sourceList) => {
-          let sumVc = 0;
+        // Per-source value resolution.
+        //
+        // For KTC specifically, the V13 Value Adjustment formula and
+        // its empirical suppression thresholds (V13_SUPPRESS_RAW_DIFF,
+        // V13_SUPPRESS_SAME_SIDE_RAW_DIFF) were calibrated against
+        // KTC's raw 0-9999 piece values.  Feeding the formula the
+        // canonical Hill-blended ``valueContribution`` instead would
+        // mis-fire VA — sometimes suppressing a real VA, sometimes
+        // inventing one — and the per-source KTC row would disagree
+        // with what keeptradecut.com displays for the same trade.
+        // We therefore use the raw KTC value from
+        // ``row.canonicalSites['ktc']`` as the formula input for the
+        // KTC vendor row.
+        //
+        // For every other vendor we keep the Hill-normalized
+        // ``valueContribution``: rank-only sources don't have a raw
+        // native value, and cross-market rank sources stash a
+        // synthetic 100,000+ rank-encoded number in ``canonicalSites``
+        // that would break the V13 formula's 0-9999-scaled ratios.
+        const useRawNative = vendor === "ktc";
+        const sourceValueForRow = (row, sub) => {
+          if (useRawNative) {
+            const native = Number(row.canonicalSites?.[sub.key]);
+            if (Number.isFinite(native) && native > 0) return native;
+          }
+          const vc = Number(row.sourceRankMeta?.[sub.key]?.valueContribution);
+          return Number.isFinite(vc) && vc > 0 ? vc : 0;
+        };
+        const averageCovered = (row, sourceList) => {
+          let sum = 0;
           let covered = 0;
           for (const sub of sourceList) {
-            const vc = Number(meta[sub.key]?.valueContribution);
-            if (Number.isFinite(vc) && vc > 0) {
-              sumVc += vc;
+            const v = sourceValueForRow(row, sub);
+            if (v > 0) {
+              sum += v;
               covered += 1;
             }
           }
-          return covered > 0 ? sumVc / covered : 0;
+          return covered > 0 ? sum / covered : 0;
         };
         const sideValues = assetsBySide.map((assets) =>
           assets.map((row) => {
             if (!includePicks && row.pos === "PICK") return 0;
-            const meta = row.sourceRankMeta || {};
-            const mainAvg = averageCovered(meta, mainSubs);
+            const mainAvg = averageCovered(row, mainSubs);
             if (mainAvg > 0) return mainAvg;
-            return averageCovered(meta, rookieSubs);
+            return averageCovered(row, rookieSubs);
           }),
         );
         const rawTotals = sideValues.map((vs) =>
