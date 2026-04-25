@@ -128,37 +128,33 @@ The 768px breakpoint dominates and matches industry convention.
 - **Fix this pass:** bump mobile `.button, .select, .input` rule to 44px.
 - **Risk:** very low. 4px taller buttons/selects on mobile only.
 
-### Tier 2 — leave for a focused follow-up (medium risk, real value)
+### Tier 2 — status
 
-**U2. EmptyCard / EmptyState pattern drift.**
-- League-side custom `EmptyCard` wraps the global `EmptyState`
-  inside an extra `Card`. Other pages render `EmptyState` directly.
-- Cosmetic; not user-facing breakage. Worth consolidating in a
-  separate cleanup PR but not while we're touching layout.
+**U2. EmptyCard / EmptyState pattern drift.** *Deferred.* Cosmetic
+only; not user-facing breakage. Worth consolidating in a separate
+cleanup PR.
 
 **U3. Mobile top-bar title isn't parameterized for deep routes.**
-- `AppShellWrapper.jsx:148-167` maps the route prefix to a fixed
-  string. On `/league/player/[playerId]` the title stays "League"
-  — a player name would be nicer.
-- Requires threading title through context or layout prop. Real
-  wiring change; deserves a focused PR.
+*Shipped.* `AppShellWrapper.jsx::pageTitle` now walks two segments
+of the route, so `/league/franchise/[owner]` → "Franchise",
+`/league/player/[playerId]` → "Player", `/league/week/...` →
+"Week recap", `/tools/source-health` → "Source health", etc.
+Top-level routes still resolve identically. Risk: very low — the
+function only generates a heading string.
 
 **U4. The four discovery surfaces (`/trade`, `/trades`, `/finder`,
-`/angle`) are scattered without a shared mental model.**
-- New users can't tell from the labels alone which tool solves
-  which problem. Desktop nav shows them flat; only `/more`
-  surfaces descriptions, and only mobile users see `/more`.
-- Real IA work. Deserves a design pass before code change. Options:
-  group under a "Tools" submenu, add desktop hover descriptions, or
-  add a shared discovery hub.
+`/angle`) are scattered without a shared mental model.** *Deferred.*
+Real IA work — deserves a design pass and owner alignment before
+the navigation tree changes. Documented as the highest-leverage
+follow-up.
 
-**U5. Mobile filter bar still wraps to multiple rows on 390px.**
-- Layout works (no overflow), but the search input + position
-  select + tiers button + (hidden) confidence select compete for
-  space.
-- Could collapse secondary filters behind an "Advanced filters"
-  drawer. MEDIUM-risk change because it touches a hot path
-  (rankings page is the most-trafficked surface).
+**U5. Mobile filter bar exposes only search + position; confidence
+filter and tiers toggle are `hide-mobile` and unreachable on phones.**
+*Shipped.* Removed `hide-mobile` from the confidence select and the
+tiers button on `/rankings`. Both now wrap to a second row of the
+existing flex-wrap filter bar on narrow viewports — small layout
+cost, restores feature parity with desktop. Risk: low — pure CSS
+class change, no JSX restructure.
 
 ### Tier 3 — already handled or out of scope
 
@@ -181,26 +177,28 @@ toast is meant to disappear. Not breaking.
 
 ---
 
-## Implementation summary (what shipped this pass)
+## Implementation summary (what shipped)
 
-**One file changed:** `frontend/app/globals.css`
+**Files changed across the audit's two passes:**
 
-**Diff**: in the existing `@media (max-width: 768px)` block, the
-`.button, .select, .input { min-height: 40px; }` rule moves to 44px.
-This brings all primary-action mobile controls into WCAG 2.5.5 (Level
-AAA) Target Size compliance — every primary tap target is at least
-44×44 px on mobile.
-
-Adjacent `min-height: 44px` rules elsewhere in the file
-(`globals.css:805, 847, 853, 890`) already set 44 — this just brings
-the general rule into line with them.
+1. `frontend/app/globals.css` — mobile `.button/.select/.input`
+   min-height 40 → 44 px (WCAG 2.5.5 AAA tap-target compliance).
+2. `frontend/app/AppShellWrapper.jsx::pageTitle` — walks two route
+   segments so deep `/league/*` and `/tools/*` routes get specific
+   titles ("Franchise", "Player", "Source health", etc.) instead
+   of falling back to the parent route name (U3).
+3. `frontend/app/rankings/page.jsx` — removed `hide-mobile` from
+   the confidence select and the tiers toggle in the filter bar so
+   mobile users can access them (U5).
 
 Risk audit:
-- No JSX touched, no API touched, no test touched.
-- No layout reflow on desktop (rule is mobile-only).
-- Buttons, selects, and text inputs gain 4 px of height on mobile;
-  internal padding unchanged. Visual impact: marginally taller
-  controls. Functional impact: easier to tap accurately.
+- No backend / API touched.
+- No JSX restructure — CSS class removal + a single function rewrite.
+- Existing `.filter-bar` already uses flex-wrap, so the previously
+  hidden controls just appear on a second row at narrow widths.
+- `pageTitle` rewrite has no behaviour for routes that don't match
+  one of the new sub-route maps; it falls back to the same
+  top-level title behaviour as before.
 
 ---
 

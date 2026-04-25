@@ -1,5 +1,5 @@
 {
-  "_comment": "Per-source stale-threshold hours for the source-health alert engine (src/api/source_health_alerts.py). Default (for any source not listed): 168 hours = 7 days. Daily sources: 48h; weekly sources: 168h; monthly sources: 744h.",
+  "_comment": "Per-source stale-threshold hours for the source-health alert engine (src/api/source_health_alerts.py). A source is matched by full registry key (e.g. ``flockFantasySf``) OR by vendor prefix (e.g. ``fantasyPros`` covers ``fantasyProsSf`` + ``fantasyProsIdp`` + ``fantasyProsFitzmaurice``). Default (for any source not listed): 168 hours = 7 days. Daily sources: 48h; weekly sources: 168h; monthly sources: 744h.",
   "thresholds": {
     "ktc": 48,
     "idpTradeCalc": 48,
@@ -10,6 +10,9 @@
     "fantasyPros": 168,
     "pff": 168,
     "footballGuys": 336,
-    "draftSharks": 168
+    "draftSharks": 168,
+    "flockFantasy": 168,
+    "yahooBoone": 744,
+    "idpShow": 168
   }
 }
