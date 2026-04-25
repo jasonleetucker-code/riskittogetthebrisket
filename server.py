@@ -15,6 +15,7 @@ Requirements:
 
 import asyncio
 import json
+import math
 import os
 import sys
 import threading
@@ -129,6 +130,23 @@ JASON_LOGIN_USERNAME = (os.getenv("JASON_LOGIN_USERNAME") or "jasonleetucker").s
 JASON_LOGIN_PASSWORD = (os.getenv("JASON_LOGIN_PASSWORD") or "Elliott21!").strip()
 JASON_AUTH_COOKIE_NAME = "jason_session"
 JASON_AUTH_COOKIE_SECURE = _env_bool("JASON_AUTH_COOKIE_SECURE", True)
+# Match the SQLite session TTL (SESSION_TTL_DAYS, default 30) so the
+# browser cookie outlives an iOS Safari tab eviction instead of dying
+# as a session cookie the first time the OS reclaims memory.  Parse
+# defensively so a malformed env var (e.g. ``30d``) doesn't take the
+# whole server down at import time — fall back to the 30-day default.
+def _session_ttl_days_seconds(default_days: float = 30.0) -> int:
+    raw = os.getenv("SESSION_TTL_DAYS", "")
+    try:
+        days = float(raw) if raw else default_days
+        if not math.isfinite(days) or days <= 0:
+            days = default_days
+        return int(days * 86400)
+    except (TypeError, ValueError, OverflowError):
+        return int(default_days * 86400)
+
+
+JASON_AUTH_COOKIE_MAX_AGE = _session_ttl_days_seconds()
 
 # Private-app allowlist.  Only these Sleeper handles can sign in
 # via /api/auth/sleeper-login.  Anyone else — even with a valid
@@ -3731,7 +3749,6 @@ _ktc_cache = {"rookies": None, "fetched_at": 0}
 _KTC_CACHE_TTL = 6 * 3600  # 6 hours
 
 
-import math
 import re
 
 
@@ -5216,6 +5233,7 @@ async def auth_login(request: Request):
         httponly=True,
         samesite="lax",
         secure=JASON_AUTH_COOKIE_SECURE,
+        max_age=JASON_AUTH_COOKIE_MAX_AGE,
     )
     return response
 
@@ -5355,6 +5373,7 @@ async def auth_sleeper_login(request: Request):
         httponly=True,
         samesite="lax",
         secure=JASON_AUTH_COOKIE_SECURE,
+        max_age=JASON_AUTH_COOKIE_MAX_AGE,
     )
     return response
 
