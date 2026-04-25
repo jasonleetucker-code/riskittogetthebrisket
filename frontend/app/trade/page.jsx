@@ -343,8 +343,16 @@ function TradeSourceBreakdown({ sides, settings }) {
     const mq = window.matchMedia("(max-width: 768px)");
     const update = () => setIsMobile(mq.matches);
     update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
+    // iOS Safari < 14 only exposes addListener/removeListener on
+    // MediaQueryList; modern browsers support the standard
+    // EventTarget API.  Prefer the modern API and fall back for
+    // older WebViews that would otherwise throw.
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", update);
+      return () => mq.removeEventListener("change", update);
+    }
+    mq.addListener(update);
+    return () => mq.removeListener(update);
   }, []);
   const effectiveExpanded = isMobile ? mobileExpanded : true;
   const rows = useMemo(() => {
