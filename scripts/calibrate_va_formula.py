@@ -26,7 +26,12 @@ update the pinned regression tests in
 from __future__ import annotations
 
 import itertools
+import json
 from dataclasses import dataclass, field
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_OBSERVATIONS = REPO_ROOT / "scripts" / "ktc_va_observations.json"
 
 
 @dataclass(frozen=True)
@@ -62,6 +67,60 @@ class DataPoint:
 
     def small_top(self) -> float:
         return self.sorted_small()[0] if self.small else 0.0
+
+
+def load_observations(path: Path = DEFAULT_OBSERVATIONS) -> list[DataPoint]:
+    """Load observations from ``data/ktc_va_observations.json``.
+
+    Each observation is converted to a DataPoint.  The ``small`` side is
+    the one with fewer pieces (unequal) or higher top asset (equal) —
+    matching the convention the frontend uses.  Observations without a
+    reportable VA (``valueAdjustmentTeam1 == 0`` AND
+    ``valueAdjustmentTeam2 == 0``) are still loaded with ktc_va=0 so
+    the fit can honor the "no adjustment" signal.
+    """
+    if not path.exists():
+        return []
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+    except Exception:
+        return []
+    observations = payload.get("observations") if isinstance(payload, dict) else payload
+    if not isinstance(observations, list):
+        return []
+    points: list[DataPoint] = []
+    for obs in observations:
+        if not isinstance(obs, dict):
+            continue
+        team1 = [v for v in (obs.get("team1Values") or []) if v]
+        team2 = [v for v in (obs.get("team2Values") or []) if v]
+        va1 = obs.get("valueAdjustmentTeam1", 0) or 0
+        va2 = obs.get("valueAdjustmentTeam2", 0) or 0
+        label = obs.get("label") or "?"
+        topo = obs.get("topology") or f"{len(team1)}v{len(team2)}"
+        if not team1 or not team2:
+            continue
+
+        # Pick which side is "small" (VA recipient).
+        #   - Unequal counts: smaller-count side.
+        #   - Equal counts: side reporting VA > 0, else side with
+        #     higher top asset (default to team1 if tied).
+        if len(team1) != len(team2):
+            small_is_team1 = len(team1) < len(team2)
+        else:
+            if va1 > 0 and va2 == 0:
+                small_is_team1 = True
+            elif va2 > 0 and va1 == 0:
+                small_is_team1 = False
+            else:
+                small_is_team1 = max(team1) >= max(team2)
+
+        small = tuple(sorted(team1 if small_is_team1 else team2, reverse=True))
+        large = tuple(sorted(team2 if small_is_team1 else team1, reverse=True))
+        ktc_va = va1 if small_is_team1 else va2
+        points.append(DataPoint(label, small, large, float(ktc_va), topo))
+    return points
 
 
 DATA: list[DataPoint] = [
@@ -183,6 +242,56 @@ def predict_v5_additive_with_roster(pt: DataPoint, p: dict) -> float:
     return total
 
 
+def predict_v6_equal_count(pt: DataPoint, p: dict) -> float:
+    """V6: V3_hybrid + explicit equal-count branch.
+
+    When small.length < large.length, identical to V3_hybrid (the
+    current production formula).  When small.length == large.length,
+    the extras loop has nothing to iterate, so we apply a single
+    elite-premium term: ``top_small · top_scarcity · equal_factor``.
+    """
+    small_top = pt.small_top()
+    top_gap = pt.top_gap()
+    top_scarcity = max(0.0, min(p["cap"], p["slope"] * top_gap - p["intercept"]))
+    sorted_small = pt.sorted_small()
+    sorted_large = pt.sorted_large()
+    if len(sorted_small) == len(sorted_large):
+        return small_top * top_scarcity * p["equal_factor"]
+    if len(sorted_small) > len(sorted_large):
+        return 0.0
+    total = 0.0
+    for i, extra in enumerate(pt.extras()):
+        extra_gap = max(0.0, (small_top - extra) / small_top) if small_top else 0.0
+        effective = top_scarcity + p["boost"] * max(0.0, extra_gap - top_gap)
+        effective = max(0.0, min(p["effective_cap"], effective))
+        total += extra * effective * (p["decay"] ** i)
+    return total
+
+
+def predict_v7_full_loop(pt: DataPoint, p: dict) -> float:
+    """V7: loop over every piece of the large side with positional decay.
+
+    V3_hybrid only iterates extras beyond the matched pair; V7 treats
+    all large-side pieces as contributing to the VA, which makes the
+    formula graceful at equal counts (no separate branch).  The first
+    matched piece is at p=0 with full weight; deeper pieces decay.
+    """
+    small_top = pt.small_top()
+    top_gap = pt.top_gap()
+    top_scarcity = max(0.0, min(p["cap"], p["slope"] * top_gap - p["intercept"]))
+    sorted_small = pt.sorted_small()
+    sorted_large = pt.sorted_large()
+    if len(sorted_small) > len(sorted_large):
+        return 0.0
+    total = 0.0
+    for i, piece in enumerate(sorted_large):
+        extra_gap = max(0.0, (small_top - piece) / small_top) if small_top else 0.0
+        effective = top_scarcity + p["boost"] * max(0.0, extra_gap - top_gap)
+        effective = max(0.0, min(p["effective_cap"], effective))
+        total += piece * effective * (p["decay"] ** i)
+    return total
+
+
 # ── Scoring + grid search ───────────────────────────────────────────────
 
 def errors(predict_fn, params: dict) -> list[tuple[str, float, float, float, str]]:
@@ -246,6 +355,20 @@ def _linspace(lo, hi, n):
 
 # ── Main ────────────────────────────────────────────────────────────────
 def main() -> None:
+    # Extend DATA with any observations collected via
+    # ``scripts/collect_ktc_va.py``.  The baseline 13 anchors stay
+    # in-source so the calibration always pins against the same
+    # reference set.
+    extra_points = load_observations()
+    if extra_points:
+        print(f"Loaded {len(extra_points)} observations from {DEFAULT_OBSERVATIONS}")
+        DATA.extend(extra_points)
+    else:
+        print(
+            f"No observations file at {DEFAULT_OBSERVATIONS} — calibrating "
+            f"against the {len(DATA)} in-source anchors only."
+        )
+
     # V1 — CURRENT PRODUCTION FORMULA.
     v1_prod = {"slope": 4.27, "intercept": 0.288, "cap": 0.64, "decay": 0.70}
     report(predict_v1_current, v1_prod, "V1 (current production)")
@@ -325,7 +448,41 @@ def main() -> None:
     )
     report(predict_v5_additive_with_roster, v5_best["params"], "V5 additive + roster floor (RMS)")
 
+    # V6 — V3 with equal-count elite-premium branch.
+    print("\n--- V6 grid refit ---")
+    v6_best = grid_search(
+        predict_v6_equal_count,
+        {
+            "slope": _linspace(3.0, 6.0, 7),
+            "intercept": _linspace(0.10, 0.50, 5),
+            "cap": _linspace(0.45, 1.10, 10),
+            "decay": _linspace(0.30, 0.90, 7),
+            "boost": _linspace(0.8, 2.0, 7),
+            "effective_cap": _linspace(0.80, 1.40, 7),
+            "equal_factor": _linspace(0.0, 1.20, 13),
+        },
+        metric="rms",
+    )
+    report(predict_v6_equal_count, v6_best["params"], "V6 equal-count extended (RMS)")
+
+    # V7 — full-loop over all large pieces (no separate extras slice).
+    print("\n--- V7 grid refit ---")
+    v7_best = grid_search(
+        predict_v7_full_loop,
+        {
+            "slope": _linspace(2.5, 5.5, 7),
+            "intercept": _linspace(0.10, 0.50, 5),
+            "cap": _linspace(0.35, 0.90, 8),
+            "decay": _linspace(0.20, 0.65, 7),
+            "boost": _linspace(0.4, 1.8, 8),
+            "effective_cap": _linspace(0.80, 1.40, 7),
+        },
+        metric="rms",
+    )
+    report(predict_v7_full_loop, v7_best["params"], "V7 full-loop (RMS)")
+
     # Summary ranking.
+    total_points = len(DATA)
     print("\n=== CANDIDATE RANKING (by RMS) ===")
     candidates = [
         ("V1 prod", predict_v1_current, v1_prod),
@@ -334,6 +491,8 @@ def main() -> None:
         ("V3", predict_v3_hybrid, v3_best["params"]),
         ("V4", predict_v4_additive, v4_best["params"]),
         ("V5", predict_v5_additive_with_roster, v5_best["params"]),
+        ("V6", predict_v6_equal_count, v6_best["params"]),
+        ("V7", predict_v7_full_loop, v7_best["params"]),
     ]
     for name, fn, params in candidates:
         errs = [abs(r[3]) for r in errors(fn, params)]
@@ -343,7 +502,7 @@ def main() -> None:
         over_10 = sum(1 for e in errs if e > 0.10)
         over_20 = sum(1 for e in errs if e > 0.20)
         print(f"  {name:<10}  rms={rms:5.2f}%  mean={mean:5.2f}%  max={mx:5.2f}%  "
-              f">10%: {over_10}/13  >20%: {over_20}/13")
+              f">10%: {over_10}/{total_points}  >20%: {over_20}/{total_points}")
 
 
 if __name__ == "__main__":
