@@ -1294,6 +1294,15 @@ export default function TradePage() {
           if (!row) row = lowerIndex.get(String(entry.name || "").toLowerCase());
           // 3. Normalized (punctuation / whitespace / suffix-stripped).
           if (!row) row = normIndex.get(_normalize(entry.name));
+          // 4. Pick token fallback — KTC's pick labels ("2026 1.09",
+          //    "2027 Mid 1st") use a different shape than our
+          //    canonical row names ("2026 Pick 1.09").  Walk the
+          //    same ``resolvePickRow`` resolver league-analysis +
+          //    the share-URL hydrator use so picks from KTC URLs
+          //    actually load instead of silently dropping.
+          if (!row && parsePickToken(entry.name)) {
+            row = resolvePickRow(entry.name, rowByLowerName, pickAliases);
+          }
           if (row) found.push(row);
           else missing.push(entry.name);
         }
