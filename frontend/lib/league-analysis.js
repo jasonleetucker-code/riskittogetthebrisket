@@ -363,20 +363,35 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
       const gave = resolveSideList(side?.gave);
       const netLinear = got.linear - gave.linear;
       const netWeighted = got.weighted - gave.weighted;
-      // V12 KTC-style VA for this team's got-vs-gave equation.
-      // Positive = team got the stud premium; negative = team gave
-      // away the studs.  Adjusted net value = linear net + VA net.
+      // V13 KTC-style VA for this team's got-vs-gave equation.
+      // Positive vaNet = team got the stud premium (received side has
+      // bigger raw_adjustment_sum); negative = team gave the studs
+      // away.  Adjusted net = linear net + VA net = the "effective"
+      // trade outcome that includes stud-scarcity adjustment.
       const vaNet = computeTradeVANet(got.values, gave.values);
       const netAdjusted = netLinear + vaNet;
-      // pctGap expresses net gain relative to the larger side of this
-      // team's own equation: +20% = "I got 20% more value than I
-      // gave", −30% = "I gave away 30% more than I got".  Positive
-      // means this side won; negative means they lost.  V12 brings
-      // KTC's stud-scarcity premium into the historical grading so
-      // a "two studs for a pile of mids" trade reads as a clear win
-      // for the studs side, even when raw linear sums are close.
-      const scale = Math.max(got.weighted, gave.weighted, 1);
-      const pctGap = (netWeighted / scale) * 100;
+      // pctGap is now driven by netAdjusted (V13).  This means trade
+      // history grades reflect KTC's stud-scarcity logic:
+      //
+      //   * "2 studs for a pile of mids" reads as a clear win for the
+      //     studs side, even when raw linear sums are close.
+      //   * Trades where the best+worst piece are both on one side
+      //     (the article's "fair trade" suppression case) grade as
+      //     fair when V13 zeros out the VA.
+      //
+      // The denominator is the larger of the two sides' EFFECTIVE
+      // values (linear + their share of the VA).  This keeps the
+      // pct intuitive: "+20% = I got 20% more effective value than
+      // I gave."  Falls back to weighted scale on degenerate input
+      // so the calc never divides by zero.
+      const gotEffective = got.linear + Math.max(0, vaNet);
+      const gaveEffective = gave.linear + Math.max(0, -vaNet);
+      // Denominator is the larger EFFECTIVE side total (linear +
+      // VA).  Don't include ``got.weighted`` / ``gave.weighted`` —
+      // those are alpha-powered (^1.65) and dominate by an order of
+      // magnitude, which would crush all pcts toward zero.
+      const scale = Math.max(gotEffective, gaveEffective, 1);
+      const pctGap = (netAdjusted / scale) * 100;
       const grade = gradeTradeHistorySide(Math.abs(pctGap), pctGap > 0);
 
       const displayTeam = sideDisplayName(side, identityMaps);
@@ -393,8 +408,7 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
         gaveWeighted: gave.weighted,
         netValue: netLinear,
         netWeighted,
-        // V12 stud-aware fields (additive, don't disturb downstream
-        // consumers that read netValue / netWeighted / pctGap).
+        // V13 stud-aware fields drive the displayed pctGap + grade.
         vaNet,
         netAdjusted,
         pctGap,
