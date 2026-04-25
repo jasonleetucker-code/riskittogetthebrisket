@@ -176,14 +176,25 @@ class DraftSharksNegativeValueTests(unittest.TestCase):
             if (p.get("sourcePresence") or {}).get("draftSharks")
         )
 
-        # Floors: at time of fix, DS IDP covered 270 and DS SF covered
-        # 407.  Set the floor at 80% of those numbers so scraper churn
-        # (a dozen-row pull-forward, a depth trim) doesn't fail the
-        # test, but a regression that drops the negative-tail coverage
-        # (losing ~170 IDP / ~185 SF rows) trips immediately.
+        # Regression floor: a real regression of the carve-out drops
+        # ~170 IDP rows / ~185 SF rows (the negative-tail population).
+        # Floors are set well above the resulting trip points so day-
+        # to-day scraper churn (DS rotating tail players in/out of the
+        # rank-200+ band) doesn't false-fail, while a true regression
+        # still fails immediately.
+        #
+        # Empirical baselines (2026-04):
+        #   - DS IDP coverage drifted from 270 (test author's
+        #     as-found) to 213 over a few weeks of routine scraper
+        #     refreshes — DS publishes fewer IDP entries than they
+        #     used to.  Floor at 180 leaves ~33 rows of churn buffer
+        #     and still catches a regression that would drop coverage
+        #     to ~43.
+        #   - DS SF coverage has been stable at 406-407.  Floor at
+        #     326 (80% of original 407) is unchanged.
         self.assertGreaterEqual(
             ds_idp_covered,
-            216,
+            180,
             f"DS IDP coverage collapsed to {ds_idp_covered}; the "
             "negative-value carve-out may have regressed.",
         )
