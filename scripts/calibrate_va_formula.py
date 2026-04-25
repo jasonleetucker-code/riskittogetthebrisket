@@ -345,6 +345,48 @@ def predict_v7_full_loop(pt: DataPoint, p: dict) -> float:
     return total
 
 
+def predict_v8_stud_factor(pt: DataPoint, p: dict) -> float:
+    """V8: V7 full-loop + an explicit ``stud factor`` magnitude term.
+
+    Motivation — KTC's own FAQ for Value Adjustment names ``"stud
+    factor"`` as a distinct input alongside value-difference and
+    lesser-piece-count.  V7's per-piece weight is purely ratio-based
+    (``top_gap`` is a percentage), so a 9000-vs-5000 trade and a
+    4500-vs-2500 trade get identical per-piece weights even though
+    the first one involves a true stud.  V8 amplifies the per-piece
+    weight when the small side's top piece is elite in absolute
+    terms::
+
+        stud_excess = max(0, top_small - stud_threshold) / 10000
+        stud_mult   = 1 + stud_coeff · stud_excess
+
+    When ``stud_coeff = 0`` V8 collapses to V7 exactly — so the grid
+    search will tell us if the stud factor adds real signal or is
+    just absorbed by the existing terms.  Threshold defaults to
+    7000 (loosely "top-50 dynasty value" on the 0-9999 canonical
+    scale) but is also a grid-searched parameter.
+    """
+    small_top = pt.small_top()
+    top_gap = pt.top_gap()
+    top_scarcity = max(0.0, min(p["cap"], p["slope"] * top_gap - p["intercept"]))
+    sorted_small = pt.sorted_small()
+    sorted_large = pt.sorted_large()
+    if len(sorted_small) > len(sorted_large):
+        return 0.0
+
+    stud_threshold = p.get("stud_threshold", 7000.0)
+    stud_excess = max(0.0, small_top - stud_threshold) / 10000.0
+    stud_mult = 1.0 + p["stud_coeff"] * stud_excess
+
+    total = 0.0
+    for i, piece in enumerate(sorted_large):
+        extra_gap = max(0.0, (small_top - piece) / small_top) if small_top else 0.0
+        effective = top_scarcity + p["boost"] * max(0.0, extra_gap - top_gap)
+        effective = max(0.0, min(p["effective_cap"], effective))
+        total += piece * effective * (p["decay"] ** i) * stud_mult
+    return total
+
+
 # ── Scoring + grid search ───────────────────────────────────────────────
 
 # Floor for the relative-error divisor.  Dividing by pt.ktc_va is
@@ -548,6 +590,34 @@ def main() -> None:
     )
     report(predict_v7_full_loop, v7_best["params"], "V7 full-loop (RMS)")
 
+    # V8 — V7 + stud-factor magnitude term.
+    # KTC's FAQ explicitly names "stud factor" as a distinct input.
+    # V7's per-piece weight is purely ratio-based (top_gap is a
+    # percentage), so V8 adds a multiplier that amplifies elite-top-
+    # piece trades.  When stud_coeff=0 V8 collapses to V7 exactly,
+    # so the grid search can decide whether the stud term improves
+    # the fit or is just absorbed by other parameters.
+    #
+    # Grid is intentionally wider on stud_coeff (0.0 to 1.5) so the
+    # search can choose to NOT apply it (coeff=0).  Threshold range
+    # 5000-8500 spans "top-100 dynasty" through "top-25 elite-only".
+    print("\n--- V8 grid refit ---")
+    v8_best = grid_search(
+        predict_v8_stud_factor,
+        {
+            "slope": _linspace(2.5, 5.5, 6),
+            "intercept": _linspace(0.10, 0.50, 4),
+            "cap": _linspace(0.35, 0.90, 6),
+            "decay": _linspace(0.20, 0.65, 5),
+            "boost": _linspace(0.4, 1.8, 6),
+            "effective_cap": _linspace(0.80, 1.40, 5),
+            "stud_coeff": _linspace(0.0, 1.5, 7),
+            "stud_threshold": [5000.0, 6500.0, 7000.0, 7500.0, 8500.0],
+        },
+        metric="rms",
+    )
+    report(predict_v8_stud_factor, v8_best["params"], "V8 stud-factor (RMS)")
+
     # Summary ranking.
     total_points = len(DATA)
     print("\n=== CANDIDATE RANKING (by RMS) ===")
@@ -560,6 +630,7 @@ def main() -> None:
         ("V5", predict_v5_additive_with_roster, v5_best["params"]),
         ("V6", predict_v6_equal_count, v6_best["params"]),
         ("V7", predict_v7_full_loop, v7_best["params"]),
+        ("V8", predict_v8_stud_factor, v8_best["params"]),
     ]
     for name, fn, params in candidates:
         errs = [abs(r[3]) for r in errors(fn, params)]
