@@ -112,5 +112,55 @@
   { "label": "EQ_5v5_a", "topology": "5v5", "notes": "Five elites vs five mids.", "team1": ["Ja'Marr Chase", "Justin Jefferson", "Bijan Robinson", "Patrick Mahomes", "Josh Allen"], "team2": ["Brian Thomas Jr.", "Drake London", "T.J. Hockenson", "DeVonta Smith", "Sam LaPorta"] },
   { "label": "EQ_5v5_b", "topology": "5v5", "notes": "Top + four mids vs five solid.", "team1": ["Ja'Marr Chase", "T.J. Hockenson", "Brian Thomas Jr.", "Mark Andrews", "Tanner McKee"], "team2": ["Justin Jefferson", "Drake London", "DeVonta Smith", "Sam LaPorta", "George Pickens"] },
   { "label": "EQ_5v5_c", "topology": "5v5", "notes": "Five matched mids per side.", "team1": ["Brian Thomas Jr.", "T.J. Hockenson", "Mark Andrews", "Bo Nix", "Tanner McKee"], "team2": ["DeVonta Smith", "Sam LaPorta", "George Pickens", "Geno Smith", "Aaron Rodgers"] },
-  { "label": "EQ_5v5_d", "topology": "5v5", "notes": "Pick-heavy 5v5.", "team1": ["Ja'Marr Chase", "2026 Pick 1.09", "2026 Pick 2.01", "T.J. Hockenson", "Tanner McKee"], "team2": ["Justin Jefferson", "2027 Mid 1st", "2027 Late 1st", "Mark Andrews", "Brian Thomas Jr."] }
+  { "label": "EQ_5v5_d", "topology": "5v5", "notes": "Pick-heavy 5v5.", "team1": ["Ja'Marr Chase", "2026 Pick 1.09", "2026 Pick 2.01", "T.J. Hockenson", "Tanner McKee"], "team2": ["Justin Jefferson", "2027 Mid 1st", "2027 Late 1st", "Mark Andrews", "Brian Thomas Jr."] },
+
+  { "label": "BORD_1v1_a", "topology": "1v1", "notes": "BORDER: tight 1v1 — both top studs (control: 1v1 should always = 0).", "team1": ["Ja'Marr Chase"], "team2": ["Bijan Robinson"] },
+  { "label": "BORD_1v1_b", "topology": "1v1", "notes": "BORDER: tight mid-tier 1v1 (control: 1v1 should always = 0).", "team1": ["Drake London"], "team2": ["Justin Herbert"] },
+
+  { "label": "BORD_1v2_a", "topology": "1v2", "notes": "BORDER: solo strong vs two mids — small target gap (~0-500).", "team1": ["Drake London"], "team2": ["Oronde Gadsden", "Michael Pittman"] },
+  { "label": "BORD_1v2_b", "topology": "1v2", "notes": "BORDER: solo strong vs mid + throw — target gap ~500-1000.", "team1": ["Patrick Mahomes"], "team2": ["Harold Fannin", "Romeo Doubs"] },
+  { "label": "BORD_1v2_c", "topology": "1v2", "notes": "BORDER: solo elite vs two strong — target gap ~1000-1500.", "team1": ["Brock Bowers"], "team2": ["Rome Odunze", "Luther Burden"] },
+  { "label": "BORD_1v2_d", "topology": "1v2", "notes": "BORDER: solo strong vs mid + 2nd-rd pick — target gap ~500.", "team1": ["De'Von Achane"], "team2": ["Tucker Kraft", "2026 Pick 2.01"] },
+  { "label": "BORD_1v2_e", "topology": "1v2", "notes": "BORDER: solo strong vs mid + depth — target gap ~1500-2000.", "team1": ["Trey McBride"], "team2": ["Ladd McConkey", "Elijah Sarratt"] },
+  { "label": "BORD_1v2_f", "topology": "1v2", "notes": "BORDER: solo elite vs strong + 1.09 pick — target gap ~2000-2500.", "team1": ["Jayden Daniels"], "team2": ["Brian Thomas Jr.", "2026 Pick 1.09"] },
+
+  { "label": "BORD_2v2_a", "topology": "2v2", "notes": "BORDER: two mids vs two mids — target gap ~0-500.", "team1": ["Drake London", "Oronde Gadsden"], "team2": ["De'Von Achane", "Harold Fannin"] },
+  { "label": "BORD_2v2_b", "topology": "2v2", "notes": "BORDER: elite + throw vs two strong — target gap ~500-1000.", "team1": ["Brock Bowers", "Romeo Doubs"], "team2": ["Drake London", "Tetairoa McMillan"] },
+  { "label": "BORD_2v2_c", "topology": "2v2", "notes": "BORDER: two near-equal strong vs two near-equal strong — gap ~250-750.", "team1": ["Patrick Mahomes", "Luther Burden"], "team2": ["Justin Herbert", "Rome Odunze"] },
+  { "label": "BORD_2v2_d", "topology": "2v2", "notes": "BORDER: stud + throw-in vs two mids — target gap ~1000-2000.", "team1": ["Bijan Robinson", "Elijah Sarratt"], "team2": ["Brian Thomas Jr.", "Tetairoa McMillan"] },
+  { "label": "BORD_2v2_e", "topology": "2v2", "notes": "BORDER: two TEs vs two WRs at same tier — target gap ~250.", "team1": ["Harold Fannin", "Tucker Kraft"], "team2": ["Rome Odunze", "Luther Burden"] },
+  { "label": "BORD_2v2_f", "topology": "2v2", "notes": "BORDER: strong + throw vs strong + throw — target gap ~500.", "team1": ["Drake London", "Romeo Doubs"], "team2": ["Justin Herbert", "Michael Pittman"] },
+
+  { "label": "BORD_2v3_a", "topology": "2v3", "notes": "BORDER: two strong vs three mids — target gap ~500-1000.", "team1": ["Drake London", "Harold Fannin"], "team2": ["Tucker Kraft", "Romeo Doubs", "Michael Pittman"] },
+  { "label": "BORD_2v3_b", "topology": "2v3", "notes": "BORDER: elite + mid vs mid + mid + 2nd-rd pick — target gap ~250.", "team1": ["Brock Bowers", "Oronde Gadsden"], "team2": ["Harold Fannin", "Luther Burden", "2026 Pick 2.01"] },
+  { "label": "BORD_2v3_c", "topology": "2v3", "notes": "BORDER: two mids vs three small — target gap ~1500.", "team1": ["Trey McBride", "Tucker Kraft"], "team2": ["Romeo Doubs", "Elijah Sarratt", "2026 Pick 2.01"] },
+  { "label": "BORD_2v3_d", "topology": "2v3", "notes": "BORDER: stud + throw vs three near-mid — target gap ~1000-2000.", "team1": ["Ja'Marr Chase", "Romeo Doubs"], "team2": ["Tetairoa McMillan", "Brian Thomas Jr.", "Harold Fannin"] },
+  { "label": "BORD_2v3_e", "topology": "2v3", "notes": "BORDER: mid + 1.09 pick vs three depth — target gap ~750.", "team1": ["Drake London", "2026 Pick 1.09"], "team2": ["Harold Fannin", "Romeo Doubs", "Michael Pittman"] },
+
+  { "label": "BORD_3v3_a", "topology": "3v3", "notes": "BORDER: three mids vs three mids — target gap ~250.", "team1": ["Drake London", "Harold Fannin", "Romeo Doubs"], "team2": ["De'Von Achane", "Tucker Kraft", "Luther Burden"] },
+  { "label": "BORD_3v3_b", "topology": "3v3", "notes": "BORDER: elite + mid + throw vs three mids — target gap ~500.", "team1": ["Brock Bowers", "Oronde Gadsden", "Elijah Sarratt"], "team2": ["Drake London", "Harold Fannin", "Tucker Kraft"] },
+  { "label": "BORD_3v3_c", "topology": "3v3", "notes": "BORDER: three close-tier mids per side — target gap ~750.", "team1": ["Tetairoa McMillan", "Luther Burden", "Michael Pittman"], "team2": ["Brian Thomas Jr.", "Harold Fannin", "Romeo Doubs"] },
+  { "label": "BORD_3v3_d", "topology": "3v3", "notes": "BORDER: mix of tiers — target gap ~1000-1500.", "team1": ["Patrick Mahomes", "Luther Burden", "Romeo Doubs"], "team2": ["Trey McBride", "Tucker Kraft", "Michael Pittman"] },
+  { "label": "BORD_3v3_e", "topology": "3v3", "notes": "BORDER: stud + 2 mids vs 3 strong — target gap ~1500-2500.", "team1": ["Bijan Robinson", "Harold Fannin", "Romeo Doubs"], "team2": ["Drake London", "Tetairoa McMillan", "Brian Thomas Jr."] },
+
+  { "label": "BORD_3v4_a", "topology": "3v4", "notes": "BORDER: three mids vs four small — target gap ~250-750.", "team1": ["Drake London", "Harold Fannin", "Tucker Kraft"], "team2": ["De'Von Achane", "Luther Burden", "Romeo Doubs", "Elijah Sarratt"] },
+  { "label": "BORD_3v4_b", "topology": "3v4", "notes": "BORDER: elite + 2 mids vs four mids — target gap ~500-1000.", "team1": ["Brock Bowers", "Oronde Gadsden", "Romeo Doubs"], "team2": ["Drake London", "Harold Fannin", "Tucker Kraft", "Michael Pittman"] },
+  { "label": "BORD_3v4_c", "topology": "3v4", "notes": "BORDER: mid + mid + throw vs four picks/depth — target gap ~1000.", "team1": ["Tetairoa McMillan", "Harold Fannin", "Romeo Doubs"], "team2": ["Brian Thomas Jr.", "Luther Burden", "Tucker Kraft", "2026 Pick 2.01"] },
+  { "label": "BORD_3v4_d", "topology": "3v4", "notes": "BORDER: stud + 2 throws vs four mids — target gap ~1500-2500.", "team1": ["Ja'Marr Chase", "Romeo Doubs", "Elijah Sarratt"], "team2": ["Tetairoa McMillan", "Harold Fannin", "Tucker Kraft", "Luther Burden"] },
+
+  { "label": "BORD_4v4_a", "topology": "4v4", "notes": "BORDER: four mids vs four mids — target gap ~250.", "team1": ["Drake London", "Harold Fannin", "Tucker Kraft", "Romeo Doubs"], "team2": ["De'Von Achane", "Rome Odunze", "Luther Burden", "Michael Pittman"] },
+  { "label": "BORD_4v4_b", "topology": "4v4", "notes": "BORDER: elite + 3 mids vs 4 mids — target gap ~500-1000.", "team1": ["Brock Bowers", "Harold Fannin", "Tucker Kraft", "Elijah Sarratt"], "team2": ["Drake London", "Rome Odunze", "Luther Burden", "Romeo Doubs"] },
+  { "label": "BORD_4v4_c", "topology": "4v4", "notes": "BORDER: mix tiers — target gap ~1000-1500.", "team1": ["Justin Jefferson", "Rome Odunze", "Romeo Doubs", "Elijah Sarratt"], "team2": ["Drake London", "Brian Thomas Jr.", "Tetairoa McMillan", "Harold Fannin"] },
+  { "label": "BORD_4v4_d", "topology": "4v4", "notes": "BORDER: stud + 3 throws vs 4 strong — target gap ~2000+.", "team1": ["Ja'Marr Chase", "Romeo Doubs", "Elijah Sarratt", "2026 Pick 2.01"], "team2": ["Tetairoa McMillan", "Brian Thomas Jr.", "Harold Fannin", "Rome Odunze"] },
+
+  { "label": "BORD_4v5_a", "topology": "4v5", "notes": "BORDER: four mids vs five small — target gap ~500-1000.", "team1": ["Drake London", "Harold Fannin", "Tucker Kraft", "Luther Burden"], "team2": ["De'Von Achane", "Rome Odunze", "Romeo Doubs", "Michael Pittman", "Elijah Sarratt"] },
+  { "label": "BORD_4v5_b", "topology": "4v5", "notes": "BORDER: elite + 3 mids vs 5 mids+depth — target gap ~1000-1500.", "team1": ["Brock Bowers", "Oronde Gadsden", "Romeo Doubs", "Elijah Sarratt"], "team2": ["Drake London", "Harold Fannin", "Tucker Kraft", "Luther Burden", "2026 Pick 2.01"] },
+  { "label": "BORD_4v5_c", "topology": "4v5", "notes": "BORDER: stud + 3 throws vs 5 mids — target gap ~1500-2500.", "team1": ["Justin Jefferson", "Romeo Doubs", "Elijah Sarratt", "2026 Pick 2.01"], "team2": ["Tetairoa McMillan", "Brian Thomas Jr.", "Harold Fannin", "Rome Odunze", "Luther Burden"] },
+
+  { "label": "BORD_5v5_a", "topology": "5v5", "notes": "BORDER: five mids vs five mids — target gap ~500.", "team1": ["Drake London", "Harold Fannin", "Tucker Kraft", "Romeo Doubs", "Michael Pittman"], "team2": ["De'Von Achane", "Rome Odunze", "Luther Burden", "Brian Thomas Jr.", "Tetairoa McMillan"] },
+  { "label": "BORD_5v5_b", "topology": "5v5", "notes": "BORDER: elite + 4 mids vs 5 mids — target gap ~1000.", "team1": ["Brock Bowers", "Harold Fannin", "Tucker Kraft", "Elijah Sarratt", "Romeo Doubs"], "team2": ["Drake London", "Rome Odunze", "Luther Burden", "Michael Pittman", "Tetairoa McMillan"] },
+  { "label": "BORD_5v5_c", "topology": "5v5", "notes": "BORDER: stud + 4 throws vs 5 mids — target gap ~2000+.", "team1": ["Ja'Marr Chase", "Romeo Doubs", "Elijah Sarratt", "Michael Pittman", "2026 Pick 2.01"], "team2": ["Tetairoa McMillan", "Brian Thomas Jr.", "Harold Fannin", "Rome Odunze", "Luther Burden"] },
+
+  { "label": "BORD_USER_a", "topology": "4v3", "notes": "BORDER: user-reported 'fair trade' case — best+worst on same side, raw gap ~370. KTC reported VA=0 in 2026-04 verification screenshot.", "team1": ["Justin Jefferson", "Oronde Gadsden", "Chris Rodriguez", "Germie Bernard"], "team2": ["Tetairoa McMillan", "Harold Fannin", "Brian Thomas Jr."] },
+  { "label": "BORD_USER_b", "topology": "4v3", "notes": "BORDER: variant of user case with deeper throw-ins — raw gap likely larger.", "team1": ["Justin Jefferson", "Harold Fannin", "Chris Rodriguez", "Romeo Doubs"], "team2": ["Tetairoa McMillan", "Brian Thomas Jr.", "Trey McBride"] }
 ]
