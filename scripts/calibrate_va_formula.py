@@ -387,6 +387,128 @@ def predict_v8_stud_factor(pt: DataPoint, p: dict) -> float:
     return total
 
 
+def predict_v9_split(pt: DataPoint, p: dict) -> float:
+    """V9: split formula — V4-style additive for unequal counts,
+    a separate ``small_top * top_gap * stud_coeff + offset`` branch
+    for equal-count trades.
+
+    The V1-V8 family all share one structural problem: they treat
+    "equal piece counts" as either "no extras → predict 0" (V1-V5)
+    or "iterate over the whole large side, including matched pieces"
+    (V6-V8).  Neither matches KTC's actual behavior.  KTC's VA on
+    equal-count trades:
+
+      * Fires on stud-vs-pile shapes (e.g. Chase + throw-in vs two
+        mids → VA ~4000)
+      * Goes silent when the trade is too lopsided for VA to salvage
+        (huge value gap → VA = 0)
+      * Caps in magnitude (5v5 equal almost always silent)
+
+    V9 separates the unequal-count and equal-count branches and lets
+    the grid search learn each independently.  The unequal branch is
+    V4 (the best of the original family at handling unequal counts).
+    The equal branch is a deliberately small parameterization::
+
+        eq_va = max(0, eq_offset
+                       + eq_top_coeff   * small_top * top_gap
+                       + eq_count_coeff * count_size)
+
+    where ``count_size = len(small) = len(large)``.  ``eq_count_coeff``
+    can go negative to suppress the term at deep counts (the 4v4/5v5
+    suppression KTC seems to apply).
+
+    When all equal-count params are 0, V9 collapses to V4.
+    """
+    small_top = pt.small_top()
+    top_gap = pt.top_gap()
+    extras = pt.extras()
+
+    if extras:
+        # Unequal-count: V4 additive formula
+        total = 0.0
+        for i, extra in enumerate(extras):
+            ratio = (extra / small_top) if small_top else 1.0
+            w = p["floor"] + p["alpha"] * top_gap + p["beta"] * max(0.0, 1 - ratio)
+            w = max(0.0, min(p["cap"], w))
+            total += extra * w * (p["decay"] ** i)
+        return total
+
+    # Equal-count branch
+    if not pt.small or not pt.large:
+        return 0.0
+    count_size = len(pt.small)
+    eq_va = (
+        p["eq_offset"]
+        + p["eq_top_coeff"] * small_top * top_gap
+        + p["eq_count_coeff"] * count_size
+    )
+    return max(0.0, eq_va)
+
+
+def predict_v10_classifier(pt: DataPoint, p: dict) -> float:
+    """V10: V9 + a two-gate classifier on the equal-count branch.
+
+    The V9 grid rejected a simple linear equal-count term because
+    KTC's behavior is bimodal: VA = 0 in some equal-count shapes and
+    nonzero in others.  V10 adds two interpretable gates that turn
+    the linear term off when KTC clearly reports zero:
+
+      Gate 1 — ``min_top_gap``:  Skip when ``small_top - large_top``
+        is a tiny percentage.  Captures shapes like EQ_3v3_g where
+        the "stud advantage" is only ~5% — KTC reports VA=0.
+
+      Gate 2 — ``dom_count_thresh``:  Skip when ``small`` dominates
+        ``large`` piece-by-piece (after sorting both desc) AND the
+        roster count is at or above the threshold.  Captures shapes
+        like EQ_3v3_a / EQ_4v4_a / EQ_5v5_a where every small piece
+        outranks the matched large piece — KTC declines to fire VA
+        on totally lopsided trades, especially at deep roster counts.
+
+    When BOTH gates pass, V10 falls back to V9's linear term::
+
+        eq_va = max(0, eq_offset + eq_top_coeff * small_top * top_gap
+                                 + eq_count_coeff * count)
+
+    Unequal-count branch is unchanged from V4.
+    """
+    small_top = pt.small_top()
+    top_gap = pt.top_gap()
+    extras = pt.extras()
+
+    if extras:
+        # Unequal-count branch (V4)
+        total = 0.0
+        for i, extra in enumerate(extras):
+            ratio = (extra / small_top) if small_top else 1.0
+            w = p["floor"] + p["alpha"] * top_gap + p["beta"] * max(0.0, 1 - ratio)
+            w = max(0.0, min(p["cap"], w))
+            total += extra * w * (p["decay"] ** i)
+        return total
+
+    # Equal-count branch
+    if not pt.small or not pt.large:
+        return 0.0
+    sm = pt.sorted_small()
+    lg = pt.sorted_large()
+    count_size = len(sm)
+
+    # Gate 1: top must be meaningfully bigger.
+    if top_gap < p["min_top_gap"]:
+        return 0.0
+
+    # Gate 2: full piece-dominance + deep count → KTC silences VA.
+    fully_dominates = all(sm[i] > lg[i] for i in range(count_size))
+    if fully_dominates and count_size >= p["dom_count_thresh"]:
+        return 0.0
+
+    eq_va = (
+        p["eq_offset"]
+        + p["eq_top_coeff"] * small_top * top_gap
+        + p["eq_count_coeff"] * count_size
+    )
+    return max(0.0, eq_va)
+
+
 # ── Scoring + grid search ───────────────────────────────────────────────
 
 # Floor for the relative-error divisor.  Dividing by pt.ktc_va is
@@ -618,6 +740,64 @@ def main() -> None:
     )
     report(predict_v8_stud_factor, v8_best["params"], "V8 stud-factor (RMS)")
 
+    # V9: split formula — V4 additive for unequal counts + a separate
+    # equal-count branch.  V1-V8 all share one structural problem:
+    # they treat equal piece counts as either "no extras" (V1-V5) or
+    # "iterate over the whole large side" (V6-V8).  Neither matches
+    # KTC, which fires VA on stud-vs-pile shapes for equal counts but
+    # silences it when the trade is too lopsided.  V9 separates the
+    # branches and lets the grid learn each independently.
+    print("\n--- V9 grid (split formula, equal-count branch) ---")
+    v9_best = grid_search(
+        predict_v9_split,
+        {
+            # V4 unequal-count params (same ranges as V4)
+            "floor": _linspace(-0.30, 0.10, 5),
+            "alpha": _linspace(0.6, 2.4, 6),
+            "beta": _linspace(0.0, 0.8, 5),
+            "cap": _linspace(0.6, 1.5, 5),
+            "decay": _linspace(0.5, 0.95, 5),
+            # Equal-count branch params
+            "eq_offset": _linspace(0.0, 2500.0, 6),
+            "eq_top_coeff": _linspace(0.0, 1.2, 7),
+            "eq_count_coeff": _linspace(-800.0, 200.0, 6),
+        },
+        metric="rms",
+    )
+    report(predict_v9_split, v9_best["params"], "V9 split (RMS)")
+
+    # V10: V9 + a two-gate classifier on the equal-count branch.
+    # Gate 1 (min_top_gap) silences trades where the top advantage is
+    # under a few percent; gate 2 (dom_count_thresh) silences trades
+    # where small dominates large piece-by-piece at deep counts.
+    # Inside the gates, the linear stud-vs-pile term fires.
+    #
+    # V4 unequal-count params are narrowed around V4's known optimum
+    # (floor=-0.25, alpha=2.0, beta=0.6, cap=1.2, decay=0.7) to keep
+    # the grid tractable while still letting the equal-count branch
+    # flex.
+    print("\n--- V10 grid (V9 + classifier gates) ---")
+    v10_best = grid_search(
+        predict_v10_classifier,
+        {
+            # V4 unequal — narrow grid around known optimum
+            "floor": [-0.30, -0.25, -0.20],
+            "alpha": [1.6, 2.0, 2.4],
+            "beta": [0.4, 0.6, 0.8],
+            "cap": [1.0, 1.2, 1.5],
+            "decay": [0.6, 0.7, 0.8],
+            # Classifier gates
+            "min_top_gap": [0.05, 0.10, 0.15],
+            "dom_count_thresh": [3, 4],
+            # Equal-count linear term (only fires when both gates pass)
+            "eq_offset": [0.0, 1000.0, 2000.0],
+            "eq_top_coeff": [0.0, 0.3, 0.6, 0.9],
+            "eq_count_coeff": [-500.0, 0.0, 500.0],
+        },
+        metric="rms",
+    )
+    report(predict_v10_classifier, v10_best["params"], "V10 classifier (RMS)")
+
     # Summary ranking.
     total_points = len(DATA)
     print("\n=== CANDIDATE RANKING (by RMS) ===")
@@ -631,6 +811,8 @@ def main() -> None:
         ("V6", predict_v6_equal_count, v6_best["params"]),
         ("V7", predict_v7_full_loop, v7_best["params"]),
         ("V8", predict_v8_stud_factor, v8_best["params"]),
+        ("V9", predict_v9_split, v9_best["params"]),
+        ("V10", predict_v10_classifier, v10_best["params"]),
     ]
     for name, fn, params in candidates:
         errs = [abs(r[3]) for r in errors(fn, params)]
