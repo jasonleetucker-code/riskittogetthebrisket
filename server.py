@@ -15,6 +15,7 @@ Requirements:
 
 import asyncio
 import json
+import math
 import os
 import sys
 import threading
@@ -138,9 +139,11 @@ def _session_ttl_days_seconds(default_days: float = 30.0) -> int:
     raw = os.getenv("SESSION_TTL_DAYS", "")
     try:
         days = float(raw) if raw else default_days
-    except (TypeError, ValueError):
-        days = default_days
-    return int(days * 86400)
+        if not math.isfinite(days) or days <= 0:
+            days = default_days
+        return int(days * 86400)
+    except (TypeError, ValueError, OverflowError):
+        return int(default_days * 86400)
 
 
 JASON_AUTH_COOKIE_MAX_AGE = _session_ttl_days_seconds()
@@ -3746,7 +3749,6 @@ _ktc_cache = {"rookies": None, "fetched_at": 0}
 _KTC_CACHE_TTL = 6 * 3600  # 6 hours
 
 
-import math
 import re
 
 
