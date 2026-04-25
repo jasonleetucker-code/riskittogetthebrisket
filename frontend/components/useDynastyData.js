@@ -92,22 +92,26 @@ export function useDynastyData() {
         const message = err?.message || "Failed to load data";
         // A 401 here means the server-side session is gone (cookie
         // expired, deploy invalidated, allowlist rotated).  The
-        // sessionStorage auth cache in useAuth would otherwise keep
-        // the UI in a "signed-in but every fetch 401s" stuck state.
-        // Clear the cache and bounce to /login so the user can
-        // recover instead of staring at a persistent error banner.
-        // Skip the redirect when we're already on /login — otherwise
-        // a 401 from the data fetch would self-redirect into
-        // ``/login?next=%2Flogin...`` and trap the user in a loop on
-        // the login page itself.
+        // recovery is targeted at the original stuck-state bug:
+        // useAuth's sessionStorage cache says "signed-in" while
+        // every fetch 401s.  Only redirect when we have that cache
+        // flag set — otherwise we'd bounce unauthenticated visitors
+        // off PUBLIC_ROUTES (``/``, ``/draft-capital``, ``/trades``)
+        // where ``useDynastyData`` is hydrated but auth isn't
+        // required.  Also skip the redirect on /login itself to
+        // avoid a self-redirect loop on the login form.
         if (typeof window !== "undefined" && /\b401\b/.test(message)) {
+          let hadAuthCache = false;
           try {
+            hadAuthCache =
+              window.sessionStorage.getItem("next_auth_checked_v1") === "true";
             window.sessionStorage.removeItem("next_auth_checked_v1");
           } catch {
             // sessionStorage can throw in private mode — ignore.
           }
           const path = window.location.pathname || "";
-          if (path !== "/login" && !path.startsWith("/login/")) {
+          const onLogin = path === "/login" || path.startsWith("/login/");
+          if (hadAuthCache && !onLogin) {
             const next = encodeURIComponent(path + window.location.search);
             window.location.replace(`/login?next=${next}`);
             return;
