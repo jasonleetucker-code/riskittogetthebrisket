@@ -129,6 +129,10 @@ JASON_LOGIN_USERNAME = (os.getenv("JASON_LOGIN_USERNAME") or "jasonleetucker").s
 JASON_LOGIN_PASSWORD = (os.getenv("JASON_LOGIN_PASSWORD") or "Elliott21!").strip()
 JASON_AUTH_COOKIE_NAME = "jason_session"
 JASON_AUTH_COOKIE_SECURE = _env_bool("JASON_AUTH_COOKIE_SECURE", True)
+# Match the SQLite session TTL (SESSION_TTL_DAYS, default 30) so the
+# browser cookie outlives an iOS Safari tab eviction instead of dying
+# as a session cookie the first time the OS reclaims memory.
+JASON_AUTH_COOKIE_MAX_AGE = int(float(os.getenv("SESSION_TTL_DAYS", "30")) * 86400)
 
 # Private-app allowlist.  Only these Sleeper handles can sign in
 # via /api/auth/sleeper-login.  Anyone else — even with a valid
@@ -5216,6 +5220,7 @@ async def auth_login(request: Request):
         httponly=True,
         samesite="lax",
         secure=JASON_AUTH_COOKIE_SECURE,
+        max_age=JASON_AUTH_COOKIE_MAX_AGE,
     )
     return response
 
@@ -5355,6 +5360,7 @@ async def auth_sleeper_login(request: Request):
         httponly=True,
         samesite="lax",
         secure=JASON_AUTH_COOKIE_SECURE,
+        max_age=JASON_AUTH_COOKIE_MAX_AGE,
     )
     return response
 

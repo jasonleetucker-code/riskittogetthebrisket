@@ -89,7 +89,26 @@ export function useDynastyData() {
         }
       } catch (err) {
         if (!active) return;
-        setError(err?.message || "Failed to load data");
+        const message = err?.message || "Failed to load data";
+        // A 401 here means the server-side session is gone (cookie
+        // expired, deploy invalidated, allowlist rotated).  The
+        // sessionStorage auth cache in useAuth would otherwise keep
+        // the UI in a "signed-in but every fetch 401s" stuck state.
+        // Clear the cache and bounce to /login so the user can
+        // recover instead of staring at a persistent error banner.
+        if (typeof window !== "undefined" && /\b401\b/.test(message)) {
+          try {
+            window.sessionStorage.removeItem("next_auth_checked_v1");
+          } catch {
+            // sessionStorage can throw in private mode — ignore.
+          }
+          const next = encodeURIComponent(
+            window.location.pathname + window.location.search,
+          );
+          window.location.replace(`/login?next=${next}`);
+          return;
+        }
+        setError(message);
       } finally {
         if (active) setLoading(false);
       }
