@@ -218,9 +218,15 @@ def format_report(summary: BacktestSummary) -> str:
         lines.append(f"  skipped: {summary.skipped} (reasons: {summary.skip_reasons})")
     lines.append("")
     lines.append("Accuracy by confidence bucket:")
-    lines.append("  bucket            total  correct  acc   calibration")
+    lines.append("  bucket            total  correct  acc    calibration")
     for label, bucket in summary.buckets.items():
         mid = (float(label.split("-")[0]) + float(label.split("-")[1])) / 2
+        if bucket.total == 0:
+            # Empty bucket — don't show a misleading calibration delta.
+            lines.append(
+                f"  {label:<18} {bucket.total:>5}  {bucket.correct:>7}   —       —"
+            )
+            continue
         deviation = bucket.accuracy - mid
         lines.append(
             f"  {label:<18} {bucket.total:>5}  {bucket.correct:>7}  "

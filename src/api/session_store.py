@@ -152,7 +152,8 @@ def evict(session_id: str, *, db_path: Path | None = None) -> None:
     if not _setup_done.is_set():
         try:
             _setup(path)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning("session_store evict setup failed: %s", exc)
             return
     try:
         with _db_lock:
@@ -242,7 +243,8 @@ def force_clear_all(*, db_path: Path | None = None) -> int:
     if not _setup_done.is_set():
         try:
             _setup(path)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning("session_store force_clear setup failed: %s", exc)
             return 0
     try:
         with _db_lock:
@@ -264,7 +266,8 @@ def count_active(*, db_path: Path | None = None) -> int:
     if not _setup_done.is_set():
         try:
             _setup(path)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning("session_store count_active setup failed: %s", exc)
             return 0
     try:
         with _db_lock:

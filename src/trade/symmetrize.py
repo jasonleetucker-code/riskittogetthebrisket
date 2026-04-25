@@ -188,6 +188,11 @@ def enrich_with_decision_shape(
 
 
 def _summary(win_pct: float, raw_delta: float, risk: str, impact: str) -> str:
+    # Coin-flip band (49-51%) has no favorite — avoid the
+    # "Side B favored at 50%" nonsense that rounding used to
+    # produce.
+    if 49.0 <= win_pct <= 51.0:
+        return f"Coin-flip trade (~50%, Δ={raw_delta:+.0f} {impact}, risk {risk})"
     side = "Side A" if win_pct >= 50 else "Side B"
     return (
         f"{side} favored at {win_pct:.0f}% "
