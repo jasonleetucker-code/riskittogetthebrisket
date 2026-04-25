@@ -330,6 +330,7 @@ function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
  * though their total scales aren't identical.
  */
 function TradeSourceBreakdown({ sides, settings }) {
+  const [mobileExpanded, setMobileExpanded] = useState(false);
   const rows = useMemo(() => {
     const assetsBySide = sides.map((s) => s.assets || []);
     const hasAny = assetsBySide.some((a) => a.length > 0);
@@ -454,14 +455,37 @@ function TradeSourceBreakdown({ sides, settings }) {
   const sideLabels = sides.map((s) => s.label);
 
   return (
-    <div className="card" style={{ marginTop: 14 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
-        <h3 style={{ margin: 0, fontSize: "0.88rem" }}>Per-source winner</h3>
-        <span className="muted" style={{ fontSize: "0.72rem" }}>
-          VA-adjusted totals on the 0-9999 value scale, summed per vendor. Sub-boards (e.g. DLF SF + DLF RK) roll up into one row; margin shows winner's edge as a percent.
+    <div
+      className={`card source-breakdown-card${mobileExpanded ? " is-expanded" : ""}`}
+      style={{ marginTop: 14 }}
+    >
+      <button
+        type="button"
+        className="source-breakdown-header"
+        aria-expanded={mobileExpanded}
+        aria-controls="source-breakdown-body"
+        onClick={() => setMobileExpanded((v) => !v)}
+      >
+        <span className="source-breakdown-header-text">
+          <span
+            className="source-breakdown-title"
+            style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700 }}
+          >
+            Per-source winner
+          </span>
+          <span className="muted source-breakdown-subtitle" style={{ fontSize: "0.72rem" }}>
+            VA-adjusted totals on the 0-9999 value scale, summed per vendor. Sub-boards (e.g. DLF SF + DLF RK) roll up into one row; margin shows winner's edge as a percent.
+          </span>
         </span>
-      </div>
-      <div style={{ overflowX: "auto" }}>
+        <span className="source-breakdown-chevron" aria-hidden="true">
+          {mobileExpanded ? "−" : "+"}
+        </span>
+      </button>
+      <div
+        id="source-breakdown-body"
+        className="source-breakdown-body"
+        style={{ overflowX: "auto" }}
+      >
         <table className="source-breakdown-table">
           <thead>
             <tr>
