@@ -1558,8 +1558,12 @@ input[type="range"]:focus-visible::-moz-range-thumb {
     justify-content: center;
   }
 
-  /* Bigger touch targets on mobile */
-  .button, .select, .input { min-height: 40px; }
+  /* Bigger touch targets on mobile — WCAG 2.5.5 (Level AAA) recommends
+     a 44 px minimum.  Several specific controls in this file already
+     hit 44 (search :44, modal close :44, etc.); this rule brings the
+     general fallback into line so every primary tap target meets the
+     guideline on touch devices. */
+  .button, .select, .input { min-height: 44px; }
 
   /* Rankings page mobile */
   .rankings-trust-bar {
