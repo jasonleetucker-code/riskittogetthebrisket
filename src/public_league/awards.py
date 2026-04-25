@@ -87,7 +87,9 @@ AWARD_DESCRIPTIONS: dict[str, str] = {
     ),
     "weekly_hammer": "Count of weekly high-score finishes.",
     "playoff_mvp": (
-        "Total team points during the playoffs. Live during playoff weeks."
+        "Highest playoff VORP (Value Over Replacement Player) — the player "
+        "who outscored his position's playoff replacement by the most while "
+        "in a starting lineup."
     ),
     "bad_beat": "Biggest single 'points in a loss' performance.",
     "best_rebuild": (
@@ -98,7 +100,61 @@ AWARD_DESCRIPTIONS: dict[str, str] = {
         "Season's nastiest head-to-head ranked by rivalry index, boosted by "
         "playoff meetings."
     ),
+    # ── Manager awards ──
+    "top_offense": (
+        "Most regular-season points produced by offensive starters "
+        "(QB / RB / WR / TE / K) — bench points excluded."
+    ),
+    "top_defense": (
+        "Most regular-season points produced by defensive starters "
+        "(DL / LB / DB / DEF) — bench points excluded."
+    ),
+    "manager_of_the_year": (
+        "Composite manager rating: 60% regular-season win%, 40% "
+        "regular-season points scored (normalized to league high)."
+    ),
+    # ── Player awards ──
+    "top_qb": "Top QB by total starter-only points scored in the regular season.",
+    "top_rb": "Top RB by total starter-only points scored in the regular season.",
+    "top_wr": "Top WR by total starter-only points scored in the regular season.",
+    "top_te": "Top TE by total starter-only points scored in the regular season.",
+    "top_k":  "Top K by total starter-only points scored in the regular season.",
+    "top_dl": "Top DL by total starter-only points scored in the regular season.",
+    "top_lb": "Top LB by total starter-only points scored in the regular season.",
+    "top_db": "Top DB by total starter-only points scored in the regular season.",
+    "league_mvp": (
+        "Regular-season MVP: highest VORP (Value Over Replacement Player) "
+        "across all positions, computed from starter-only scoring."
+    ),
 }
+
+
+# Player-award positions in display order.
+_PLAYER_AWARD_POSITIONS = ("QB", "RB", "WR", "TE", "K", "DL", "LB", "DB")
+_PLAYER_AWARD_KEY_BY_POS = {
+    "QB": "top_qb",
+    "RB": "top_rb",
+    "WR": "top_wr",
+    "TE": "top_te",
+    "K":  "top_k",
+    "DL": "top_dl",
+    "LB": "top_lb",
+    "DB": "top_db",
+}
+_PLAYER_AWARD_LABEL_BY_POS = {
+    "QB": "Top QB",
+    "RB": "Top RB",
+    "WR": "Top WR",
+    "TE": "Top TE",
+    "K":  "Top Kicker",
+    "DL": "Top DL",
+    "LB": "Top LB",
+    "DB": "Top DB",
+}
+
+# Offensive vs defensive position families for manager awards.
+_OFFENSIVE_POSITIONS = frozenset({"QB", "RB", "WR", "TE", "K"})
+_DEFENSIVE_POSITIONS = frozenset({"DL", "LB", "DB", "DEF"})
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
@@ -911,6 +967,434 @@ def _best_rebuild_scores(
     return rows
 
 
+# ── Starter-only scoring helpers (manager + player + MVP awards) ──────────
+def _starter_scoring_walk(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    *,
+    regular_season_only: bool,
+):
+    """Yield ``(week, roster_id, owner_id, player_id, position, points, is_playoff)``
+    for every starter in every scored matchup of the season.
+
+    Skips any matchup-entry that lacks ``players_points`` or ``starters``
+    (older Sleeper seasons sometimes omit them).  Position is resolved
+    via ``snapshot.player_position`` so IDP-eligible players collapse
+    into DL/LB/DB.
+    """
+    for week in sorted(season.matchups_by_week.keys()):
+        is_playoff = week >= season.playoff_week_start
+        if regular_season_only and is_playoff:
+            continue
+        for entry in season.matchups_by_week[week]:
+            rid = metrics.roster_id_of(entry)
+            if rid is None:
+                continue
+            owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid)
+            if not owner_id:
+                continue
+            pp = entry.get("players_points")
+            if not isinstance(pp, dict):
+                continue
+            starters = _starter_set(entry)
+            if not starters:
+                continue
+            for pid in starters:
+                raw = pp.get(pid)
+                try:
+                    pts = float(raw or 0.0)
+                except (TypeError, ValueError):
+                    continue
+                pos = snapshot.player_position(pid)
+                yield week, rid, owner_id, pid, pos, pts, is_playoff
+
+
+def _manager_unit_points(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    *,
+    regular_season_only: bool = True,
+) -> dict[str, dict[str, float]]:
+    """Aggregate starter-only points per owner, partitioned by offense /
+    defense unit.  Returns ``{owner_id: {"offense": pts, "defense": pts}}``.
+    """
+    out: dict[str, dict[str, float]] = {}
+    for _wk, _rid, owner_id, _pid, pos, pts, _is_p in _starter_scoring_walk(
+        snapshot, season, regular_season_only=regular_season_only
+    ):
+        rec = out.setdefault(owner_id, {"offense": 0.0, "defense": 0.0})
+        if pos in _OFFENSIVE_POSITIONS or pos == "":
+            # Default unmapped positions into offense (covers DEF/ST team
+            # defenses too if they appear in an offense-style starter slot).
+            if pos in _DEFENSIVE_POSITIONS:
+                rec["defense"] += pts
+            else:
+                rec["offense"] += pts
+        elif pos in _DEFENSIVE_POSITIONS:
+            rec["defense"] += pts
+        else:
+            rec["offense"] += pts
+    return out
+
+
+def _top_offense_scores(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+) -> list[dict[str, Any]]:
+    units = _manager_unit_points(snapshot, season, regular_season_only=True)
+    rows = []
+    for owner_id, totals in units.items():
+        rows.append({
+            "ownerId": owner_id,
+            "displayName": metrics.display_name_for(snapshot, owner_id),
+            "offensePoints": round(totals["offense"], 2),
+        })
+    rows.sort(key=lambda r: -r["offensePoints"])
+    return rows
+
+
+def _top_defense_scores(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+) -> list[dict[str, Any]]:
+    units = _manager_unit_points(snapshot, season, regular_season_only=True)
+    rows = []
+    for owner_id, totals in units.items():
+        rows.append({
+            "ownerId": owner_id,
+            "displayName": metrics.display_name_for(snapshot, owner_id),
+            "defensePoints": round(totals["defense"], 2),
+        })
+    # Filter out leagues with no IDP scoring on file so we don't surface
+    # an "everyone tied at 0.0" race.
+    rows = [r for r in rows if r["defensePoints"] > 0]
+    rows.sort(key=lambda r: -r["defensePoints"])
+    return rows
+
+
+def _manager_of_the_year_scores(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+) -> list[dict[str, Any]]:
+    """60% regular-season win% + 40% PF-normalized.  Both rescaled to
+    [0, 1] within the league so a perfect manager would score 1.0.
+    """
+    standings = metrics.season_standings(season, snapshot.managers)
+    if not standings:
+        return []
+    pf_max = max((r["pointsFor"] for r in standings), default=0.0) or 1.0
+    rows = []
+    for r in standings:
+        win_component = r["winPct"]
+        pf_component = r["pointsFor"] / pf_max
+        composite = 0.6 * win_component + 0.4 * pf_component
+        rows.append({
+            "ownerId": r["ownerId"],
+            "displayName": metrics.display_name_for(snapshot, r["ownerId"]),
+            "wins": r["wins"],
+            "losses": r["losses"],
+            "ties": r["ties"],
+            "winPct": round(r["winPct"], 4),
+            "pointsFor": r["pointsFor"],
+            "compositeScore": round(composite, 4),
+        })
+    rows.sort(key=lambda r: (-r["compositeScore"], -r["wins"], -r["pointsFor"]))
+    return rows
+
+
+def _player_starter_totals(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    *,
+    regular_season_only: bool = True,
+) -> dict[str, dict[str, Any]]:
+    """Aggregate starter-only points per player across the season.
+
+    Returns ``{player_id: {points, gamesStarted, position, ownerIds}}``.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    for week, _rid, owner_id, pid, pos, pts, _is_p in _starter_scoring_walk(
+        snapshot, season, regular_season_only=regular_season_only
+    ):
+        rec = out.setdefault(pid, {
+            "playerId": pid,
+            "playerName": snapshot.player_display(pid),
+            "position": pos,
+            "starterPoints": 0.0,
+            "gamesStarted": 0,
+            "ownerIds": set(),
+            "lastOwnerId": "",
+            "lastWeek": 0,
+        })
+        # Track the most-recent fantasy owner so we can attribute the
+        # award to a manager card on the page (ownership can change
+        # mid-season after a trade).
+        rec["starterPoints"] += pts
+        rec["gamesStarted"] += 1
+        rec["ownerIds"].add(owner_id)
+        if week >= rec["lastWeek"]:
+            rec["lastWeek"] = week
+            rec["lastOwnerId"] = owner_id
+        # Position can drift if a player is dual-eligible — keep the
+        # IDP-resolved one when present, otherwise overwrite.
+        if pos and not rec["position"]:
+            rec["position"] = pos
+    for rec in out.values():
+        rec["starterPoints"] = round(rec["starterPoints"], 2)
+        rec["ownerIds"] = sorted(rec["ownerIds"])
+    return out
+
+
+def _top_player_per_position_scores(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    *,
+    regular_season_only: bool = True,
+) -> dict[str, list[dict[str, Any]]]:
+    """Top scorers grouped by position from starter-only points.
+
+    Returns ``{pos: [row, row, row]}`` where rows are sorted descending
+    by ``starterPoints``.  Up to top 3 per position.
+    """
+    totals = _player_starter_totals(
+        snapshot, season, regular_season_only=regular_season_only
+    )
+    grouped: dict[str, list[dict[str, Any]]] = {pos: [] for pos in _PLAYER_AWARD_POSITIONS}
+    for pid, rec in totals.items():
+        pos = rec["position"]
+        if pos not in grouped:
+            continue
+        owner_id = rec["lastOwnerId"]
+        grouped[pos].append({
+            "playerId": pid,
+            "playerName": rec["playerName"],
+            "position": pos,
+            "starterPoints": rec["starterPoints"],
+            "gamesStarted": rec["gamesStarted"],
+            "ownerId": owner_id,
+            "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
+        })
+    for pos in grouped:
+        grouped[pos].sort(key=lambda r: -r["starterPoints"])
+    return grouped
+
+
+def _replacement_per_game_for_position(
+    rows: list[dict[str, Any]],
+    starter_slots: int,
+) -> float:
+    """Replacement-level points-per-game at a position.
+
+    Computed as the average ``starterPoints / gamesStarted`` of the
+    five players ranked just below the league's starter cutoff
+    (``starter_slots`` total starting slots filled at this position
+    each week).  Falls back to the worst-tier average if the position
+    has fewer rostered players than expected.
+    """
+    if not rows:
+        return 0.0
+    # Per-game average for each player (filter out zero-game phantoms).
+    per_game = [
+        (r["starterPoints"] / r["gamesStarted"], r)
+        for r in rows
+        if r["gamesStarted"] > 0
+    ]
+    if not per_game:
+        return 0.0
+    per_game.sort(key=lambda x: -x[0])
+    cutoff = max(0, int(starter_slots))
+    band_start = cutoff
+    band_end = cutoff + 5
+    band = per_game[band_start:band_end]
+    if not band:
+        # Position is too thin to draw a replacement band — fall back to
+        # the worst player's per-game line.
+        return per_game[-1][0]
+    return sum(p for p, _ in band) / len(band)
+
+
+def _starter_slot_counts(
+    season: SeasonSnapshot,
+) -> dict[str, int]:
+    """Total starting slots per position across the entire league per week.
+
+    Reads ``league.roster_positions`` and counts both direct slots
+    (``"QB"``) and flexes (``"FLEX"``, ``"SUPER_FLEX"``, ``"REC_FLEX"``,
+    ``"IDP_FLEX"``) which contribute to multiple positions.  Multiplied
+    by ``num_teams``.
+
+    The flex contribution is split evenly across its eligible
+    positions — close enough for a VORP baseline without overfitting.
+    """
+    positions = season.league.get("roster_positions") or []
+    teams = max(1, season.num_teams)
+    counts: dict[str, float] = defaultdict(float)
+    for slot in positions:
+        slot_norm = str(slot or "").upper()
+        if slot_norm in {"BN", "TAXI", "IR", ""}:
+            continue
+        if slot_norm == "FLEX":
+            for p in ("RB", "WR", "TE"):
+                counts[p] += 1.0 / 3.0
+        elif slot_norm in {"SUPER_FLEX", "SUPERFLEX", "SFLEX", "QFLEX"}:
+            for p in ("QB", "RB", "WR", "TE"):
+                counts[p] += 1.0 / 4.0
+        elif slot_norm in {"REC_FLEX", "WRT", "WRRBTE"}:
+            for p in ("WR", "TE", "RB"):
+                counts[p] += 1.0 / 3.0
+        elif slot_norm in {"IDP_FLEX"}:
+            for p in ("DL", "LB", "DB"):
+                counts[p] += 1.0 / 3.0
+        elif slot_norm in {"DEF"}:
+            counts["DEF"] += 1.0
+        else:
+            counts[slot_norm] += 1.0
+    out: dict[str, int] = {}
+    for pos, frac in counts.items():
+        out[pos] = max(1, int(round(frac * teams)))
+    return out
+
+
+def _vorp_rows(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    *,
+    regular_season_only: bool,
+) -> list[dict[str, Any]]:
+    """Compute a VORP row per player.
+
+    Replacement-level baseline is per-position (per-game), so injured
+    starters who scored a lot per game still rate fairly against
+    healthier-but-thinner peers.
+    """
+    totals = _player_starter_totals(
+        snapshot, season, regular_season_only=regular_season_only
+    )
+    if not totals:
+        return []
+
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for rec in totals.values():
+        pos = rec["position"]
+        if not pos:
+            continue
+        grouped[pos].append({
+            "playerId": rec["playerId"],
+            "playerName": rec["playerName"],
+            "position": pos,
+            "starterPoints": rec["starterPoints"],
+            "gamesStarted": rec["gamesStarted"],
+            "ownerIds": rec["ownerIds"],
+            "lastOwnerId": rec["lastOwnerId"],
+        })
+
+    starter_slots = _starter_slot_counts(season)
+    out: list[dict[str, Any]] = []
+    for pos, rows in grouped.items():
+        slots = starter_slots.get(pos, 0)
+        if slots <= 0:
+            # No dedicated slot for this position; treat as a thin
+            # baseline so a single-game cameo doesn't outshine real
+            # full-season starters.
+            slots = max(1, len(rows) // 2)
+        replacement_per_game = _replacement_per_game_for_position(rows, slots)
+        for r in rows:
+            games = r["gamesStarted"] or 1
+            replacement_total = replacement_per_game * games
+            vorp = r["starterPoints"] - replacement_total
+            owner_id = r["lastOwnerId"]
+            out.append({
+                "playerId": r["playerId"],
+                "playerName": r["playerName"],
+                "position": pos,
+                "starterPoints": r["starterPoints"],
+                "gamesStarted": r["gamesStarted"],
+                "vorp": round(vorp, 2),
+                "replacementPerGame": round(replacement_per_game, 2),
+                "ownerId": owner_id,
+                "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
+            })
+    out.sort(key=lambda r: -r["vorp"])
+    return out
+
+
+def _league_mvp_rows(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+) -> list[dict[str, Any]]:
+    """Regular-season MVP candidates ranked by VORP."""
+    return _vorp_rows(snapshot, season, regular_season_only=True)
+
+
+def _playoff_mvp_player_rows(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+) -> list[dict[str, Any]]:
+    """Playoff MVP candidates ranked by VORP across playoff weeks only."""
+    totals = _player_starter_totals(
+        snapshot, season, regular_season_only=False
+    )
+    if not totals:
+        return []
+    # Strip regular-season data: we want playoff-only.  Re-run the walk
+    # but only over playoff weeks.
+    playoff_totals: dict[str, dict[str, Any]] = {}
+    for week, _rid, owner_id, pid, pos, pts, is_playoff in _starter_scoring_walk(
+        snapshot, season, regular_season_only=False
+    ):
+        if not is_playoff:
+            continue
+        rec = playoff_totals.setdefault(pid, {
+            "playerId": pid,
+            "playerName": snapshot.player_display(pid),
+            "position": pos,
+            "starterPoints": 0.0,
+            "gamesStarted": 0,
+            "lastOwnerId": "",
+            "lastWeek": 0,
+        })
+        rec["starterPoints"] += pts
+        rec["gamesStarted"] += 1
+        if week >= rec["lastWeek"]:
+            rec["lastWeek"] = week
+            rec["lastOwnerId"] = owner_id
+        if pos and not rec["position"]:
+            rec["position"] = pos
+    if not playoff_totals:
+        return []
+
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for rec in playoff_totals.values():
+        pos = rec["position"]
+        if not pos:
+            continue
+        grouped[pos].append(rec)
+
+    starter_slots = _starter_slot_counts(season)
+    out: list[dict[str, Any]] = []
+    for pos, rows in grouped.items():
+        slots = starter_slots.get(pos, 0)
+        if slots <= 0:
+            slots = max(1, len(rows) // 2)
+        replacement_per_game = _replacement_per_game_for_position(rows, slots)
+        for r in rows:
+            games = r["gamesStarted"] or 1
+            vorp = r["starterPoints"] - replacement_per_game * games
+            owner_id = r["lastOwnerId"]
+            out.append({
+                "playerId": r["playerId"],
+                "playerName": r["playerName"],
+                "position": pos,
+                "starterPoints": round(r["starterPoints"], 2),
+                "gamesStarted": r["gamesStarted"],
+                "vorp": round(vorp, 2),
+                "ownerId": owner_id,
+                "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
+            })
+    out.sort(key=lambda r: -r["vorp"])
+    return out
+
+
 def _rivalry_of_the_year(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> dict[str, Any] | None:
     """Season-scoped rivalry of the year."""
     pair_scores: dict[tuple[str, str], dict[str, Any]] = {}
@@ -1100,15 +1584,27 @@ def _activity_awards_for_season(
         snapshot, season, hammer_rows, "weekly_hammer", "Weekly Hammer",
         lambda r: {"highScoreFinishes": r["highScoreFinishes"], "highestWeek": r["highestWeekPoints"]},
     ))
-    if playoff_rows and playoff_rows[0]["playoffWeeksPlayed"] > 0:
-        _add(_award_from_row(
-            snapshot, season, playoff_rows, "playoff_mvp", "Playoff MVP",
-            lambda r: {
-                "playoffPoints": r["playoffPoints"],
-                "topPlayerName": r["topPlayerName"] or None,
-                "topPlayerPoints": r["topPlayerPoints"] or None,
+    # Playoff MVP — VORP-based player award (replaces the prior team-points version).
+    playoff_mvp_rows = _playoff_mvp_player_rows(snapshot, season)
+    if playoff_mvp_rows:
+        winner = playoff_mvp_rows[0]
+        rid = _roster_id_for_owner(season, winner["ownerId"])
+        awards.append({
+            "key": "playoff_mvp",
+            "label": "Playoff MVP",
+            "description": AWARD_DESCRIPTIONS["playoff_mvp"],
+            "ownerId": winner["ownerId"],
+            "displayName": winner["displayName"],
+            "teamName": metrics.team_name(snapshot, season.league_id, rid) if rid is not None else "",
+            "value": {
+                "playerId": winner["playerId"],
+                "playerName": winner["playerName"],
+                "position": winner["position"],
+                "vorp": winner["vorp"],
+                "starterPoints": winner["starterPoints"],
+                "gamesStarted": winner["gamesStarted"],
             },
-        ))
+        })
     _add(_award_from_row(
         snapshot, season, bad_beat_rows, "bad_beat", "Bad Beat",
         lambda r: {
@@ -1117,6 +1613,80 @@ def _activity_awards_for_season(
             "opponentPoints": r["biggestLossOpponentPoints"],
         },
     ))
+
+    # ── Manager awards ─────────────────────────────────────────────
+    offense_rows = _top_offense_scores(snapshot, season)
+    _add(_award_from_row(
+        snapshot, season, offense_rows, "top_offense", "Top Offense",
+        lambda r: {"offensePoints": r["offensePoints"]},
+    ))
+    defense_rows = _top_defense_scores(snapshot, season)
+    if defense_rows:
+        _add(_award_from_row(
+            snapshot, season, defense_rows, "top_defense", "Top Defense",
+            lambda r: {"defensePoints": r["defensePoints"]},
+        ))
+    moty_rows = _manager_of_the_year_scores(snapshot, season)
+    _add(_award_from_row(
+        snapshot, season, moty_rows, "manager_of_the_year", "Manager of the Year",
+        lambda r: {
+            "compositeScore": r["compositeScore"],
+            "wins": r["wins"],
+            "losses": r["losses"],
+            "winPct": r["winPct"],
+            "pointsFor": r["pointsFor"],
+        },
+    ))
+
+    # ── Player awards (top scorer per position, regular-season starter-only) ──
+    player_rows_by_pos = _top_player_per_position_scores(
+        snapshot, season, regular_season_only=True
+    )
+    for pos in _PLAYER_AWARD_POSITIONS:
+        rows = player_rows_by_pos.get(pos) or []
+        if not rows:
+            continue
+        winner = rows[0]
+        if winner["starterPoints"] <= 0:
+            continue
+        rid = _roster_id_for_owner(season, winner["ownerId"]) if winner["ownerId"] else None
+        awards.append({
+            "key": _PLAYER_AWARD_KEY_BY_POS[pos],
+            "label": _PLAYER_AWARD_LABEL_BY_POS[pos],
+            "description": AWARD_DESCRIPTIONS[_PLAYER_AWARD_KEY_BY_POS[pos]],
+            "ownerId": winner["ownerId"],
+            "displayName": winner["displayName"],
+            "teamName": metrics.team_name(snapshot, season.league_id, rid) if rid is not None else "",
+            "value": {
+                "playerId": winner["playerId"],
+                "playerName": winner["playerName"],
+                "position": winner["position"],
+                "starterPoints": winner["starterPoints"],
+                "gamesStarted": winner["gamesStarted"],
+            },
+        })
+
+    # ── League MVP (regular-season VORP) ───────────────────────────
+    mvp_rows = _league_mvp_rows(snapshot, season)
+    if mvp_rows:
+        winner = mvp_rows[0]
+        rid = _roster_id_for_owner(season, winner["ownerId"]) if winner["ownerId"] else None
+        awards.append({
+            "key": "league_mvp",
+            "label": "League MVP",
+            "description": AWARD_DESCRIPTIONS["league_mvp"],
+            "ownerId": winner["ownerId"],
+            "displayName": winner["displayName"],
+            "teamName": metrics.team_name(snapshot, season.league_id, rid) if rid is not None else "",
+            "value": {
+                "playerId": winner["playerId"],
+                "playerName": winner["playerName"],
+                "position": winner["position"],
+                "vorp": winner["vorp"],
+                "starterPoints": winner["starterPoints"],
+                "gamesStarted": winner["gamesStarted"],
+            },
+        })
 
     pick_rows = _pick_hoarder_scores(snapshot)
     if pick_rows:
@@ -1238,14 +1808,29 @@ def _current_season_races(
         snapshot, "weekly_hammer", "Weekly Hammer", hammer_rows,
         lambda r: {"highScoreFinishes": r["highScoreFinishes"], "highestWeek": r["highestWeekPoints"]},
     ))
-    if playoff_rows and playoff_rows[0]["playoffWeeksPlayed"] > 0:
-        _add(_build_race(
-            snapshot, "playoff_mvp", "Playoff MVP", playoff_rows,
-            lambda r: {
-                "playoffPoints": r["playoffPoints"],
-                "weeksPlayed": r["playoffWeeksPlayed"],
-            },
-        ))
+    playoff_mvp_rows = _playoff_mvp_player_rows(snapshot, season)
+    if playoff_mvp_rows:
+        race = {
+            "key": "playoff_mvp",
+            "label": "Playoff MVP",
+            "description": AWARD_DESCRIPTIONS["playoff_mvp"],
+            "leaders": [
+                {
+                    "rank": i + 1,
+                    "ownerId": r["ownerId"],
+                    "displayName": r["displayName"],
+                    "value": {
+                        "playerId": r["playerId"],
+                        "playerName": r["playerName"],
+                        "position": r["position"],
+                        "vorp": r["vorp"],
+                        "starterPoints": r["starterPoints"],
+                    },
+                }
+                for i, r in enumerate(playoff_mvp_rows[:3])
+            ],
+        }
+        _add(race)
     _add(_build_race(
         snapshot, "bad_beat", "Bad Beat", bad_beat_rows,
         lambda r: {
@@ -1257,6 +1842,87 @@ def _current_season_races(
         snapshot, "pick_hoarder", "Pick Hoarder", pick_rows,
         lambda r: {"weightedScore": r["weightedScore"], "totalPicks": r["totalPicks"]},
     ))
+
+    # ── Manager-award races ──
+    offense_rows = _top_offense_scores(snapshot, season)
+    _add(_build_race(
+        snapshot, "top_offense", "Top Offense Race", offense_rows,
+        lambda r: {"offensePoints": r["offensePoints"]},
+    ))
+    defense_rows = _top_defense_scores(snapshot, season)
+    if defense_rows:
+        _add(_build_race(
+            snapshot, "top_defense", "Top Defense Race", defense_rows,
+            lambda r: {"defensePoints": r["defensePoints"]},
+        ))
+    moty_rows = _manager_of_the_year_scores(snapshot, season)
+    _add(_build_race(
+        snapshot, "manager_of_the_year", "Manager of the Year Race", moty_rows,
+        lambda r: {
+            "compositeScore": r["compositeScore"],
+            "wins": r["wins"],
+            "losses": r["losses"],
+            "winPct": r["winPct"],
+            "pointsFor": r["pointsFor"],
+        },
+    ))
+
+    # ── Player-award races (top 3 per position) ──
+    player_rows_by_pos = _top_player_per_position_scores(
+        snapshot, season, regular_season_only=True
+    )
+    for pos in _PLAYER_AWARD_POSITIONS:
+        rows = player_rows_by_pos.get(pos) or []
+        rows = [r for r in rows if r["starterPoints"] > 0]
+        if not rows:
+            continue
+        race = {
+            "key": _PLAYER_AWARD_KEY_BY_POS[pos],
+            "label": f"{_PLAYER_AWARD_LABEL_BY_POS[pos]} Race",
+            "description": AWARD_DESCRIPTIONS[_PLAYER_AWARD_KEY_BY_POS[pos]],
+            "leaders": [
+                {
+                    "rank": i + 1,
+                    "ownerId": r["ownerId"],
+                    "displayName": r["displayName"],
+                    "value": {
+                        "playerId": r["playerId"],
+                        "playerName": r["playerName"],
+                        "position": r["position"],
+                        "starterPoints": r["starterPoints"],
+                        "gamesStarted": r["gamesStarted"],
+                    },
+                }
+                for i, r in enumerate(rows[:3])
+            ],
+        }
+        _add(race)
+
+    # ── League MVP race ──
+    mvp_rows = _league_mvp_rows(snapshot, season)
+    if mvp_rows:
+        race = {
+            "key": "league_mvp",
+            "label": "League MVP Race",
+            "description": AWARD_DESCRIPTIONS["league_mvp"],
+            "leaders": [
+                {
+                    "rank": i + 1,
+                    "ownerId": r["ownerId"],
+                    "displayName": r["displayName"],
+                    "value": {
+                        "playerId": r["playerId"],
+                        "playerName": r["playerName"],
+                        "position": r["position"],
+                        "vorp": r["vorp"],
+                        "starterPoints": r["starterPoints"],
+                        "gamesStarted": r["gamesStarted"],
+                    },
+                }
+                for i, r in enumerate(mvp_rows[:3])
+            ],
+        }
+        _add(race)
 
     return races
 

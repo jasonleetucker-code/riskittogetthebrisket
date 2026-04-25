@@ -8,16 +8,20 @@ headline rail.
 
 Output shape
 ────────────
-``activeStreaks``    — per owner, their current trailing run of wins,
-                       losses, 100+ point weeks, 120+ point weeks, etc.
-                       Ordered so the longest streak leads, grouped by type.
-``recordsInReach``   — per all-time record, the reigning holder and
-                       the closest active chaser (if any).
-``notableThisWeek``  — most recent scored week's entries that placed
-                       in the all-time top-N for a category (e.g.
-                       "3rd-highest score of all time").
-``seasonsCovered``   — passthrough.
-``currentSeason``    — passthrough.
+``activeStreaks``       — per owner, their current trailing run of
+                          wins or losses (whichever is active).  Each
+                          entry includes a ``length`` and start/end
+                          metadata.
+``longestWinStreaks``   — top-5 all-time win streaks across all
+                          owners (each owner's longest only).
+``longestLossStreaks``  — top-5 all-time loss streaks across all
+                          owners (each owner's longest only).
+``recordsInReach``      — per all-time record, the reigning holder
+                          and the closest active chaser (if any).
+``notableThisWeek``     — most recent scored week's entries that
+                          placed in the all-time top-N for a category.
+``seasonsCovered``      — passthrough.
+``currentSeason``       — passthrough.
 """
 from __future__ import annotations
 
@@ -26,11 +30,6 @@ from typing import Any
 
 from . import metrics
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
-
-
-# Point thresholds we track "consecutive weeks above X" for.  Picked to
-# be broad enough that most dynasty leagues hit them weekly.
-_POINT_THRESHOLDS = (100.0, 120.0, 140.0)
 
 
 # How many entries the "records in reach" list pulls for each category.
@@ -115,7 +114,9 @@ def _active_streaks_for_owner(
     owner_id: str,
     display_name: str,
 ) -> dict[str, dict[str, Any]]:
-    """Compute trailing streaks for one owner from their chronological events."""
+    """Compute the trailing W/L streak for one owner from their
+    chronological events.  Ties end both — return empty dict for ties.
+    """
     if not events:
         return {}
     rev = list(reversed(events))
@@ -147,22 +148,6 @@ def _active_streaks_for_owner(
                 "end": end,
             }
     # A tie ends both streaks; no trailing run either way.
-
-    # Point-threshold streaks are independent of W/L and track consecutive
-    # games where the owner scored ≥ threshold.
-    for t in _POINT_THRESHOLDS:
-        length, start, end = _trailing_run(rev, lambda e, thr=t: e["points"] >= thr)
-        if length > 0:
-            key = f"plus{int(t)}Streak"
-            out[key] = {
-                "type": key,
-                "threshold": t,
-                "ownerId": owner_id,
-                "displayName": display_name,
-                "length": length,
-                "start": start,
-                "end": end,
-            }
     return out
 
 
@@ -191,22 +176,32 @@ def _active_streaks_all(
     return dict(collected)
 
 
-def _longest_ever_win_loss(
+def _longest_streaks_per_owner(
     events: list[dict[str, Any]],
     snapshot: PublicLeagueSnapshot,
-) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    """All-time longest win and loss streaks (chronological, ties break)."""
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """All-time longest win and loss streaks per owner (chronological).
+
+    Returns ``(wins, losses)`` — each a list with one row per owner who
+    had at least one streak of length >= 1, sorted descending by length.
+    A tie in either direction breaks both running streaks (matches the
+    record-book convention).
+    """
     by_owner: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for ev in events:
         by_owner[ev["ownerId"]].append(ev)
 
-    best_win = None
-    best_loss = None
+    win_rows: list[dict[str, Any]] = []
+    loss_rows: list[dict[str, Any]] = []
+
     for owner_id, owner_events in by_owner.items():
+        owner_events.sort(key=_chron_key)
         cur_w = 0
         cur_l = 0
         w_start = None
         l_start = None
+        best_w = {"length": 0, "start": None, "end": None}
+        best_l = {"length": 0, "start": None, "end": None}
         for ev in owner_events:
             if ev["result"] == "W":
                 cur_l = 0
@@ -214,52 +209,36 @@ def _longest_ever_win_loss(
                 cur_w += 1
                 if cur_w == 1:
                     w_start = ev
-                if best_win is None or cur_w > best_win["length"]:
-                    best_win = {
-                        "ownerId": owner_id,
-                        "displayName": metrics.display_name_for(snapshot, owner_id),
-                        "length": cur_w,
-                        "start": w_start,
-                        "end": ev,
-                    }
+                if cur_w > best_w["length"]:
+                    best_w = {"length": cur_w, "start": w_start, "end": ev}
             elif ev["result"] == "L":
                 cur_w = 0
                 w_start = None
                 cur_l += 1
                 if cur_l == 1:
                     l_start = ev
-                if best_loss is None or cur_l > best_loss["length"]:
-                    best_loss = {
-                        "ownerId": owner_id,
-                        "displayName": metrics.display_name_for(snapshot, owner_id),
-                        "length": cur_l,
-                        "start": l_start,
-                        "end": ev,
-                    }
+                if cur_l > best_l["length"]:
+                    best_l = {"length": cur_l, "start": l_start, "end": ev}
             else:
                 cur_w = 0
                 cur_l = 0
                 w_start = None
                 l_start = None
-
-    return best_win, best_loss
-
-
-def _top_score_events(
-    events: list[dict[str, Any]],
-    highest: bool,
-    n: int = _RECORDS_IN_REACH_TOP_N,
-) -> list[dict[str, Any]]:
-    filtered = [e for e in events if e["points"] > 0]
-    filtered.sort(key=lambda e: e["points"], reverse=highest)
-    out = []
-    for e in filtered[:n]:
-        out.append({
-            "rank": len(out) + 1,
-            **e,
-            "displayName": None,  # filled in by caller
-        })
-    return out
+        if best_w["length"] > 0:
+            win_rows.append({
+                "ownerId": owner_id,
+                "displayName": metrics.display_name_for(snapshot, owner_id),
+                **best_w,
+            })
+        if best_l["length"] > 0:
+            loss_rows.append({
+                "ownerId": owner_id,
+                "displayName": metrics.display_name_for(snapshot, owner_id),
+                **best_l,
+            })
+    win_rows.sort(key=lambda r: -r["length"])
+    loss_rows.sort(key=lambda r: -r["length"])
+    return win_rows, loss_rows
 
 
 def _latest_scored_week(
@@ -285,18 +264,16 @@ def _notable_this_week(
     events: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Entries from the most recent scored week that crack the all-time
-    top-10 in any point-total, margin, or bad-beat category.
+    top-N in any point-total, margin, or bad-beat category.
     """
     latest = _latest_scored_week(snapshot)
     if latest is None:
         return []
     latest_season, latest_week = latest
 
-    # All-time sorted stacks.
     by_points_hi = sorted(events, key=lambda e: -e["points"])
     by_points_lo = sorted([e for e in events if e["points"] > 0], key=lambda e: e["points"])
     by_margin_hi = sorted(events, key=lambda e: -e["margin"])
-    # Bad beats: high points in a loss (margin < 0, points high).
     losses = [e for e in events if e["result"] == "L"]
     by_bad_beat = sorted(losses, key=lambda e: -e["points"])
 
@@ -385,6 +362,8 @@ def _ordinal_label(rank: int, thing: str) -> str:
 def _records_in_reach(
     snapshot: PublicLeagueSnapshot,
     events: list[dict[str, Any]],
+    longest_wins: list[dict[str, Any]],
+    longest_losses: list[dict[str, Any]],
     active_streaks: dict[str, list[dict[str, Any]]],
 ) -> list[dict[str, Any]]:
     """For each all-time record, return the holder + the closest chaser."""
@@ -406,7 +385,6 @@ def _records_in_reach(
                 "week": holder_ev["week"],
             },
         })
-        # Current season candidates.
         current_year = snapshot.current_season.season if snapshot.current_season else None
         current = [e for e in scored if e["season"] == current_year]
         if current:
@@ -424,8 +402,8 @@ def _records_in_reach(
                 }
 
     # Longest win streak.
-    best_win, best_loss = _longest_ever_win_loss(events, snapshot)
-    if best_win:
+    if longest_wins:
+        best_win = longest_wins[0]
         rec = {
             "category": "longestWinStreak",
             "label": "Longest win streak",
@@ -438,7 +416,6 @@ def _records_in_reach(
                 "week": best_win["end"]["week"] if best_win["end"] else None,
             },
         }
-        # Active win streak chaser.
         active_wins = active_streaks.get("winStreak") or []
         if active_wins:
             top = active_wins[0]
@@ -452,7 +429,8 @@ def _records_in_reach(
                     "withinReach": top["length"] >= best_win["length"] - 1,
                 }
         records.append(rec)
-    if best_loss:
+    if longest_losses:
+        best_loss = longest_losses[0]
         rec = {
             "category": "longestLossStreak",
             "label": "Longest losing streak",
@@ -482,28 +460,86 @@ def _records_in_reach(
     return records
 
 
+def _current_streaks_per_owner(
+    snapshot: PublicLeagueSnapshot,
+    events: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """One row per active manager describing whatever W/L run they're
+    currently riding (or "tied / no streak" when the most recent game
+    ended in a tie).  Sorted longest first, with win streaks before
+    loss streaks for ties on length.
+    """
+    by_owner: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for ev in events:
+        by_owner[ev["ownerId"]].append(ev)
+
+    rows: list[dict[str, Any]] = []
+    for owner_id in snapshot.managers.by_owner_id.keys():
+        display = metrics.display_name_for(snapshot, owner_id)
+        owner_events = by_owner.get(owner_id) or []
+        if not owner_events:
+            rows.append({
+                "ownerId": owner_id,
+                "displayName": display,
+                "type": "none",
+                "length": 0,
+                "start": None,
+                "end": None,
+            })
+            continue
+        owner_events.sort(key=_chron_key)
+        rev = list(reversed(owner_events))
+        latest = rev[0]
+        if latest["result"] == "W":
+            length, start, end = _trailing_run(rev, lambda e: e["result"] == "W")
+            rows.append({
+                "ownerId": owner_id,
+                "displayName": display,
+                "type": "winStreak",
+                "length": length,
+                "start": start,
+                "end": end,
+            })
+        elif latest["result"] == "L":
+            length, start, end = _trailing_run(rev, lambda e: e["result"] == "L")
+            rows.append({
+                "ownerId": owner_id,
+                "displayName": display,
+                "type": "lossStreak",
+                "length": length,
+                "start": start,
+                "end": end,
+            })
+        else:
+            rows.append({
+                "ownerId": owner_id,
+                "displayName": display,
+                "type": "tie",
+                "length": 0,
+                "start": None,
+                "end": latest,
+            })
+    type_priority = {"winStreak": 0, "lossStreak": 1, "tie": 2, "none": 3}
+    rows.sort(key=lambda r: (type_priority.get(r["type"], 99), -r["length"]))
+    return rows
+
+
 # ── Public builder ───────────────────────────────────────────────────────
 def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     events = _all_events(snapshot)
     active = _active_streaks_all(snapshot, events)
-    records = _records_in_reach(snapshot, events, active)
+    longest_wins, longest_losses = _longest_streaks_per_owner(events, snapshot)
+    records = _records_in_reach(snapshot, events, longest_wins, longest_losses, active)
     notable = _notable_this_week(snapshot, events)
     latest = _latest_scored_week(snapshot)
+    current_per_owner = _current_streaks_per_owner(snapshot, events)
 
-    # Flatten active streaks into a single sorted list for rendering
-    # convenience, keeping each owner's longest only.
+    # Flatten active streaks (W/L only) longest first.
     active_flat: list[dict[str, Any]] = []
-    for stype, rows in active.items():
-        for r in rows:
+    for stype in ("winStreak", "lossStreak"):
+        for r in active.get(stype) or []:
             active_flat.append({**r, "type": stype})
-    # Sort longest first within type priority: win > loss > plus140 > plus120 > plus100
-    type_priority = {
-        "winStreak": 0,
-        "lossStreak": 1,
-        "plus140Streak": 2,
-        "plus120Streak": 3,
-        "plus100Streak": 4,
-    }
+    type_priority = {"winStreak": 0, "lossStreak": 1}
     active_flat.sort(key=lambda s: (type_priority.get(s["type"], 99), -s["length"]))
 
     return {
@@ -513,10 +549,12 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             {"season": latest[0], "week": latest[1]} if latest else None
         ),
         "activeStreaks": active_flat,
-        "activeStreaksByType": active,
+        "activeStreaksByType": {
+            k: v for k, v in active.items() if k in ("winStreak", "lossStreak")
+        },
+        "currentStreaksByOwner": current_per_owner,
+        "longestWinStreaks": longest_wins[:5],
+        "longestLossStreaks": longest_losses[:5],
         "recordsInReach": records,
         "notableThisWeek": notable,
-        "thresholds": {
-            "points": list(_POINT_THRESHOLDS),
-        },
     }

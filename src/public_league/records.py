@@ -3,13 +3,17 @@
 Full dynasty record book — single-game highs/lows, margin records,
 most-points-in-a-loss / fewest-in-a-win, per-season scoring totals,
 longest win/loss streaks, per-season trade/waiver counts, FAAB records,
-and playoff scoring records.
+playoff scoring records, and per-position player records.
 
 Streak rules:
     * Chronological regular-season + playoff games only.
     * Ties end both win and loss streaks.
     * Byes (rows with points == 0 AND no paired matchup) are skipped,
       not counted as wins or losses.
+
+Single-week records use individual-week side rows (no combined-finals
+fusion) so the highest single-week always reflects exactly one NFL week
+of scoring.
 """
 from __future__ import annotations
 
@@ -19,8 +23,18 @@ from . import metrics
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
 
+# Positions we track player records for.  Order = display order in the UI.
+_PLAYER_RECORD_POSITIONS = ("QB", "RB", "WR", "TE", "K", "DL", "LB", "DB")
+
+
 def _weekly_side_rows(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
-    """Return every paired, scored roster-week with its opposing score."""
+    """Return every paired, scored roster-week with its opposing score.
+
+    Combined-week finals (multi-week championships) are emitted as ONE
+    row carrying both weeks' summed score — used for rivalry/meeting
+    bookkeeping.  See ``_weekly_side_rows_individual`` for un-combined
+    rows used by single-week records.
+    """
     rows: list[dict[str, Any]] = []
     for season, week, a, b, is_playoff in metrics.walk_matchup_pairs(snapshot):
         # Multi-week finals collapse to one pair; stamp the spanned
@@ -55,6 +69,53 @@ def _weekly_side_rows(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
             if combined_weeks and len(combined_weeks) > 1:
                 row["combinedWeeks"] = list(combined_weeks)
             rows.append(row)
+    return rows
+
+
+def _weekly_side_rows_individual(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
+    """Per-individual-week side rows.  Never fuses multi-week finals.
+
+    Used by single-week record categories (highest score, biggest
+    margin, narrowest victory, etc.) so a 2-week championship is
+    counted as TWO separate weeks of scoring rather than one combined
+    300-point explosion.
+    """
+    rows: list[dict[str, Any]] = []
+    for season in snapshot.seasons:
+        for week in sorted(season.matchups_by_week.keys()):
+            entries = season.matchups_by_week.get(week) or []
+            is_playoff = week >= season.playoff_week_start
+            for a, b in metrics.matchup_pairs(entries):
+                for me, foe in ((a, b), (b, a)):
+                    rid = metrics.roster_id_of(me)
+                    if rid is None:
+                        continue
+                    my_pts = metrics.matchup_points(me)
+                    opp_pts = metrics.matchup_points(foe)
+                    if my_pts <= 0:
+                        continue
+                    owner_id = metrics.resolve_owner(
+                        snapshot.managers, season.league_id, rid
+                    )
+                    if not owner_id:
+                        continue
+                    margin = my_pts - opp_pts
+                    result = "W" if margin > 0 else ("L" if margin < 0 else "T")
+                    rows.append({
+                        "season": season.season,
+                        "leagueId": season.league_id,
+                        "week": week,
+                        "isPlayoff": is_playoff,
+                        "ownerId": owner_id,
+                        "rosterId": rid,
+                        "teamName": metrics.team_name(
+                            snapshot, season.league_id, rid
+                        ),
+                        "points": round(my_pts, 2),
+                        "opponentPoints": round(opp_pts, 2),
+                        "margin": round(margin, 2),
+                        "result": result,
+                    })
     return rows
 
 
@@ -197,11 +258,25 @@ def _trade_waiver_counts(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]
     return out
 
 
-def _season_scoring_totals(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any]]:
-    """Per-owner-per-season total PF / PA / weeks."""
+def _season_scoring_totals(
+    snapshot: PublicLeagueSnapshot,
+    *,
+    regular_season_only: bool = True,
+) -> list[dict[str, Any]]:
+    """Per-owner-per-season total PF / PA / weeks.
+
+    When ``regular_season_only`` is True (default), playoff weeks are
+    excluded so the resulting "most points in a season" leaderboard
+    reflects regular-season scoring only.
+    """
     by_key: dict[tuple[str, str], dict[str, Any]] = {}
     for season in snapshot.seasons:
-        for wk in season.all_weeks:
+        weeks = (
+            season.regular_season_weeks
+            if regular_season_only
+            else season.all_weeks
+        )
+        for wk in weeks:
             for a, b in metrics.matchup_pairs(season.matchups_by_week.get(wk) or []):
                 for me, foe in ((a, b), (b, a)):
                     if not metrics.is_scored(me) and not metrics.is_scored(foe):
@@ -234,6 +309,71 @@ def _season_scoring_totals(snapshot: PublicLeagueSnapshot) -> list[dict[str, Any
     return rows
 
 
+def _starter_set(entry: dict[str, Any]) -> list[str]:
+    starters = entry.get("starters") or []
+    return [str(s) for s in starters if s]
+
+
+def _player_records(snapshot: PublicLeagueSnapshot) -> dict[str, list[dict[str, Any]]]:
+    """Top single-week starter-only scorers grouped by position.
+
+    Regular season only.  Only counts a player's points when they
+    appeared in the starting lineup.  Returns ``{position: [top5...]}``
+    ordered by points descending.
+    """
+    by_position: dict[str, list[dict[str, Any]]] = {pos: [] for pos in _PLAYER_RECORD_POSITIONS}
+
+    for season in snapshot.seasons:
+        for week in season.regular_season_weeks:
+            entries = season.matchups_by_week.get(week) or []
+            for entry in entries:
+                rid = metrics.roster_id_of(entry)
+                if rid is None:
+                    continue
+                owner_id = metrics.resolve_owner(
+                    snapshot.managers, season.league_id, rid
+                )
+                if not owner_id:
+                    continue
+                pp = entry.get("players_points")
+                if not isinstance(pp, dict):
+                    continue
+                starters = _starter_set(entry)
+                if not starters:
+                    continue
+                for pid in starters:
+                    raw = pp.get(pid)
+                    try:
+                        pts = float(raw or 0.0)
+                    except (TypeError, ValueError):
+                        continue
+                    if pts <= 0:
+                        continue
+                    pos = snapshot.player_position(pid)
+                    if not pos or pos not in by_position:
+                        continue
+                    by_position[pos].append({
+                        "season": season.season,
+                        "leagueId": season.league_id,
+                        "week": week,
+                        "ownerId": owner_id,
+                        "rosterId": rid,
+                        "teamName": metrics.team_name(snapshot, season.league_id, rid),
+                        "displayName": metrics.display_name_for(snapshot, owner_id),
+                        "playerId": pid,
+                        "playerName": snapshot.player_display(pid),
+                        "position": pos,
+                        "points": round(pts, 2),
+                    })
+
+    out: dict[str, list[dict[str, Any]]] = {}
+    for pos, rows in by_position.items():
+        rows.sort(key=lambda r: -r["points"])
+        # Top 5 single-week explosions per position.
+        out[pos] = rows[:5]
+    return out
+
+
 def _playoff_records(side_rows: list[dict[str, Any]], snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     playoff_rows = [r for r in side_rows if r["isPlayoff"]]
     most_points = _top_n(playoff_rows, "points", reverse=True, n=5)
@@ -260,41 +400,44 @@ def _playoff_records(side_rows: list[dict[str, Any]], snapshot: PublicLeagueSnap
 
 
 def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+    # Combined side rows preserve the multi-week-finals fusion for
+    # rivalries / playoff bookkeeping.
     side_rows = _weekly_side_rows(snapshot)
+    # Individual side rows are the truth for "single-week" record
+    # categories — never fused, so each row is exactly one NFL week.
+    individual_rows = _weekly_side_rows_individual(snapshot)
     win_streaks, loss_streaks = _streaks(snapshot)
-    season_totals = _season_scoring_totals(snapshot)
+    season_totals_regular = _season_scoring_totals(snapshot, regular_season_only=True)
     trade_waiver = _trade_waiver_counts(snapshot)
 
-    # Single-game highs / lows (regular + playoffs).
-    highest = _top_n(side_rows, "points", reverse=True, n=10)
-    lowest = _top_n(side_rows, "points", reverse=False, n=10)
+    # Single-game highs / lows from the un-combined per-week rows.
+    highest = _top_n(individual_rows, "points", reverse=True, n=10)
+    lowest = _top_n(individual_rows, "points", reverse=False, n=10)
 
-    # Margin records.
-    biggest_margin = _top_n(side_rows, "margin", reverse=True, n=10)
+    # Margin records (also single-week only).
+    biggest_margin = _top_n(individual_rows, "margin", reverse=True, n=10)
     narrowest_margin = _top_n(
-        [r for r in side_rows if r["result"] == "W"],
+        [r for r in individual_rows if r["result"] == "W"],
         "margin",
         reverse=False,
         n=10,
     )
-    # Most points in a loss (biggest points among losers).
     most_points_in_loss = _top_n(
-        [r for r in side_rows if r["result"] == "L"],
+        [r for r in individual_rows if r["result"] == "L"],
         "points",
         reverse=True,
         n=5,
     )
-    # Fewest points in a win.
     fewest_points_in_win = _top_n(
-        [r for r in side_rows if r["result"] == "W"],
+        [r for r in individual_rows if r["result"] == "W"],
         "points",
         reverse=False,
         n=5,
     )
 
-    # Season-level top lists.
-    most_points_season = sorted(season_totals, key=lambda r: -r["totalPoints"])[:10]
-    most_pa_season = sorted(season_totals, key=lambda r: -r["totalPointsAgainst"])[:10]
+    # Season-level top lists — regular season only per user request.
+    most_points_season = sorted(season_totals_regular, key=lambda r: -r["totalPoints"])[:10]
+    most_pa_season = sorted(season_totals_regular, key=lambda r: -r["totalPointsAgainst"])[:10]
 
     most_trades_season = sorted(trade_waiver, key=lambda r: -r["tradeCount"])[:3]
     most_waivers_season = sorted(trade_waiver, key=lambda r: -r["waiverCount"])[:3]
@@ -318,4 +461,6 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         "mostWaiversInSeason": most_waivers_season,
         "largestFaabBid": [r["maxFaab"] for r in largest_faab[:3]],
         "playoffRecords": _playoff_records(side_rows, snapshot),
+        "playerRecords": _player_records(snapshot),
+        "playerRecordPositions": list(_PLAYER_RECORD_POSITIONS),
     }

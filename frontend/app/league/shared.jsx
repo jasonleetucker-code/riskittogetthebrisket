@@ -176,8 +176,15 @@ export function renderAwardValue(key, value) {
       return `${fmtPercent(value.winPct)} in ${value.closeGames} close games`;
     case "weekly_hammer":
       return `${value.highScoreFinishes} high-score wks`;
-    case "playoff_mvp":
+    case "playoff_mvp": {
+      // Player-based VORP MVP (new format).  Older shape carried
+      // playoffPoints; both are tolerated here so old cached payloads
+      // still render.
+      if (value.playerName) {
+        return `${value.playerName} (${value.position}) · VORP ${fmtPoints(value.vorp)}`;
+      }
       return `${fmtPoints(value.playoffPoints)} playoff pts`;
+    }
     case "bad_beat":
       return `${fmtPoints(value.points)} in loss · Wk ${value.week}`;
     case "best_rebuild":
@@ -186,6 +193,29 @@ export function renderAwardValue(key, value) {
       return `${value.displayNames[0]} vs ${value.displayNames[1]} · Index ${value.rivalryIndex}`;
     case "pick_hoarder":
       return `Weighted ${value.weightedScore} · ${value.totalPicks} picks`;
+    // ── Manager awards ──
+    case "top_offense":
+      return `${fmtNumber(value.offensePoints, 1)} starter pts`;
+    case "top_defense":
+      return `${fmtNumber(value.defensePoints, 1)} starter pts`;
+    case "manager_of_the_year":
+      return `${value.wins}-${value.losses} · ${fmtNumber(value.pointsFor, 1)} PF · score ${fmtNumber(value.compositeScore, 3)}`;
+    // ── Player awards ──
+    case "top_qb":
+    case "top_rb":
+    case "top_wr":
+    case "top_te":
+    case "top_k":
+    case "top_dl":
+    case "top_lb":
+    case "top_db":
+      return value.playerName
+        ? `${value.playerName} · ${fmtPoints(value.starterPoints)} pts in ${value.gamesStarted} starts`
+        : `${fmtPoints(value.starterPoints)} pts`;
+    case "league_mvp":
+      return value.playerName
+        ? `${value.playerName} (${value.position}) · VORP ${fmtPoints(value.vorp)}`
+        : `VORP ${fmtPoints(value.vorp)}`;
     default:
       return "";
   }

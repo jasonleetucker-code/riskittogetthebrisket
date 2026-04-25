@@ -5,6 +5,17 @@
 
 import { Card, EmptyCard, fmtNumber, fmtPoints } from "../shared.jsx";
 
+const POSITION_LABELS = {
+  QB: "Quarterbacks",
+  RB: "Running backs",
+  WR: "Wide receivers",
+  TE: "Tight ends",
+  K:  "Kickers",
+  DL: "Defensive linemen",
+  LB: "Linebackers",
+  DB: "Defensive backs",
+};
+
 function RecordsSection({ data }) {
   if (!data) return <EmptyCard label="Records" />;
 
@@ -17,9 +28,16 @@ function RecordsSection({ data }) {
     { title: "Fewest points in a win", key: "fewestPointsInWin" },
   ];
 
+  const playerPositions =
+    data.playerRecordPositions ||
+    Object.keys(data.playerRecords || {});
+  const playerRecordsHasContent = playerPositions.some(
+    (pos) => (data.playerRecords?.[pos] || []).length > 0,
+  );
+
   return (
     <>
-      <Card title="Record book" subtitle="Single-game extremes across the last 2 seasons">
+      <Card title="Record book" subtitle="Single-game extremes (each row is one NFL week)">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 10 }}>
           {groups.map((g) => (
             <div key={g.key} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 10 }}>
@@ -30,6 +48,9 @@ function RecordsSection({ data }) {
                     <span>
                       <span style={{ color: "var(--subtext)", marginRight: 4 }}>{i + 1}.</span>
                       {r.teamName}
+                      <span style={{ color: "var(--subtext)", marginLeft: 4 }}>
+                        ({r.season} wk {r.week})
+                      </span>
                     </span>
                     <span style={{ fontFamily: "var(--mono)", color: "var(--cyan)" }}>
                       {r.margin !== undefined && g.key.toLowerCase().includes("margin")
@@ -47,7 +68,7 @@ function RecordsSection({ data }) {
         </div>
       </Card>
 
-      <Card title="Season totals" subtitle="Most points scored / allowed in a single season">
+      <Card title="Season totals" subtitle="Most points scored / allowed in a regular season (no playoffs)">
         <div className="row">
           <div className="card" style={{ flex: "1 1 260px" }}>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>Most points in a season</div>
@@ -75,6 +96,43 @@ function RecordsSection({ data }) {
           </div>
         </div>
       </Card>
+
+      {playerRecordsHasContent && (
+        <Card
+          title="Player records · single-week"
+          subtitle="Top starter-only single-week scores by position (regular season)"
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 10 }}>
+            {playerPositions.map((pos) => {
+              const rows = data.playerRecords?.[pos] || [];
+              if (!rows.length) return null;
+              return (
+                <div key={pos} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 10 }}>
+                  <div style={{ fontWeight: 700, marginBottom: 6, fontSize: "0.86rem" }}>
+                    {POSITION_LABELS[pos] || pos}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    {rows.slice(0, 5).map((r, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.74rem" }}>
+                        <span>
+                          <span style={{ color: "var(--subtext)", marginRight: 4 }}>{i + 1}.</span>
+                          {r.playerName || r.playerId}
+                          <span style={{ color: "var(--subtext)", marginLeft: 4 }}>
+                            ({r.displayName}, {r.season} wk {r.week})
+                          </span>
+                        </span>
+                        <span style={{ fontFamily: "var(--mono)", color: "var(--cyan)" }}>
+                          {fmtPoints(r.points)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       <Card title="Streaks" subtitle="Longest consecutive wins / losses (ties end streaks)">
         <div className="row">
