@@ -3,7 +3,16 @@
  * Pure functions, no React dependencies.
  */
 
-import { effectiveValue, TRADE_ALPHA, parsePickToken, getPlayerEdge, resolvePickRow } from "@/lib/trade-logic";
+import {
+  effectiveValue,
+  TRADE_ALPHA,
+  parsePickToken,
+  getPlayerEdge,
+  resolvePickRow,
+  ktcRawAdjustment,
+  ktcSolveForAddedValue,
+  KTC_V_OVERALL_MAX,
+} from "@/lib/trade-logic";
 import { normalizePos } from "@/lib/dynasty-data";
 
 // ── Position Group Helpers ──────────────────────────────────────────────
@@ -280,11 +289,14 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
   const teamScores = {};
   const analyzed = [];
 
-  // Resolve a list of raw item labels to { items, linear, weighted }.
+  // Resolve a list of raw item labels to { items, linear, weighted, values }.
   // ``weighted`` uses the alpha exponent so a single star asset counts
   // more than a pile of scrubs with the same linear sum.
+  // ``values`` is the bare numeric array — needed by V12 VA which
+  // computes per-piece raw_adjustments based on the absolute KTC scale.
   const resolveSideList = (rawList) => {
     const items = [];
+    const values = [];
     let linear = 0;
     let weighted = 0;
     for (const rawItem of getTradeSideItemLabels(rawList)) {
@@ -292,6 +304,7 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
       const safeVal = Number.isFinite(resolved.value) ? Math.max(0, resolved.value) : 0;
       linear += safeVal;
       weighted += Math.pow(Math.max(safeVal, 1), alpha);
+      if (safeVal > 0) values.push(safeVal);
       items.push({
         name: resolved.name,
         val: Math.round(safeVal),
@@ -299,7 +312,45 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
         isPick: resolved.isPick,
       });
     }
-    return { items, linear, weighted };
+    return { items, linear, weighted, values };
+  };
+
+  // V12 KTC value adjustment for one team's "got vs gave" comparison.
+  //
+  // For grading historical trades, the natural application is:
+  // every team RECEIVED a basket and GAVE a basket.  Treat got/gave
+  // as a 2-side trade and compute V12's VA on whichever side has
+  // the bigger raw_sum.  If got has bigger raw_sum, this team got
+  // the "stud premium" benefit; if gave has bigger raw_sum, this
+  // team gave away the studs.  ``vaNet`` returns positive when got
+  // wins on raw, negative when gave wins.
+  //
+  // Pure: takes value arrays only, no React or row references.
+  const computeTradeVANet = (gotValues, gaveValues) => {
+    if (!gotValues.length || !gaveValues.length) return 0;
+    // 1v1 special case: KTC suppresses VA on these (matches the
+    // V12 trade-logic.js behavior).
+    if (gotValues.length === 1 && gaveValues.length === 1) return 0;
+    const all = gotValues.concat(gaveValues);
+    const t = Math.max(...all);
+    const v = KTC_V_OVERALL_MAX;
+    let rawGot = 0;
+    for (const x of gotValues) rawGot += ktcRawAdjustment(x, t, v);
+    let rawGave = 0;
+    for (const x of gaveValues) rawGave += ktcRawAdjustment(x, t, v);
+    if (Math.abs(rawGot - rawGave) < 1e-9) return 0;
+    const sumGot = gotValues.reduce((s, x) => s + x, 0);
+    const sumGave = gaveValues.reduce((s, x) => s + x, 0);
+    if (rawGot > rawGave) {
+      // Got side has bigger raw → gave side needs virtual to even.
+      // VA shown on got = (gave_total + virtual) - got_total.
+      const virtual = ktcSolveForAddedValue(rawGot - rawGave, t, v);
+      return Math.max(0, (sumGave + virtual) - sumGot);
+    }
+    // Gave side has bigger raw → got side needs virtual.  This team
+    // gave away the studs, so their VA is negative (penalty).
+    const virtual = ktcSolveForAddedValue(rawGave - rawGot, t, v);
+    return -Math.max(0, (sumGot + virtual) - sumGave);
   };
 
   for (const trade of filtered) {
@@ -312,10 +363,18 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
       const gave = resolveSideList(side?.gave);
       const netLinear = got.linear - gave.linear;
       const netWeighted = got.weighted - gave.weighted;
+      // V12 KTC-style VA for this team's got-vs-gave equation.
+      // Positive = team got the stud premium; negative = team gave
+      // away the studs.  Adjusted net value = linear net + VA net.
+      const vaNet = computeTradeVANet(got.values, gave.values);
+      const netAdjusted = netLinear + vaNet;
       // pctGap expresses net gain relative to the larger side of this
       // team's own equation: +20% = "I got 20% more value than I
       // gave", −30% = "I gave away 30% more than I got".  Positive
-      // means this side won; negative means they lost.
+      // means this side won; negative means they lost.  V12 brings
+      // KTC's stud-scarcity premium into the historical grading so
+      // a "two studs for a pile of mids" trade reads as a clear win
+      // for the studs side, even when raw linear sums are close.
       const scale = Math.max(got.weighted, gave.weighted, 1);
       const pctGap = (netWeighted / scale) * 100;
       const grade = gradeTradeHistorySide(Math.abs(pctGap), pctGap > 0);
@@ -334,6 +393,10 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
         gaveWeighted: gave.weighted,
         netValue: netLinear,
         netWeighted,
+        // V12 stud-aware fields (additive, don't disturb downstream
+        // consumers that read netValue / netWeighted / pctGap).
+        vaNet,
+        netAdjusted,
         pctGap,
         grade,
       });

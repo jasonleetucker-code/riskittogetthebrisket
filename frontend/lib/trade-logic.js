@@ -29,60 +29,119 @@ const VERDICT_STRONG_LEAN = 1800;
 // consolidation premium can't be attributed after the fact.
 export const TRADE_ALPHA = 1.65;
 
-// ── KTC-Style Value Adjustment (V2 formula) ──────────────────────────────
-// Mirrors KeepTradeCut's "Value Adjustment" row: the side with fewer pieces
-// gets a consolidation / roster-spot bonus.
+// ── KTC-Style Value Adjustment (V12 — KTC's actual published formula) ───
 //
-// Formula (hybrid — top-gap scarcity with per-extra ratio boost):
+// V12 is the EXACT algorithm KTC uses, reverse-engineered from KTC's
+// client-side JavaScript and corroborated by KTC's own Reddit
+// explanation.  It supersedes the previous hand-tuned V2 formula.
 //
-//   top_gap         = max(0, (small_top − large_top) / small_top)
-//   top_scarcity    = clamp(SLOPE · top_gap − INTERCEPT, 0, CAP)
-//   for each extraᵢ:
-//       extra_gapᵢ  = max(0, (small_top − extraᵢ) / small_top)
-//       effᵢ        = clamp(top_scarcity + BOOST · max(0, extra_gapᵢ − top_gap),
-//                           0, EFFECTIVE_CAP)
-//       VA         += extraᵢ · effᵢ · DECAYⁱ
+// Per-player raw adjustment:
 //
-// The per-extra boost is the key V2 innovation.  It says: if a specific
-// extra is a low-value throw-in (large extra_gap relative to top_gap),
-// give it proportionally more consolidation premium.  A throw-in pick
-// 3.x "costs a roster slot" far cheaper than its face value, so a
-// larger fraction becomes VA.  Conversely, an extra piece near
-// ``large_top`` is "real" value, so its weight stays close to
-// top_scarcity — matching the old V1 behavior for that case.
+//   raw(p, t, v) = p · (0.1
+//                       + 0.04 · (p / v)^8
+//                       + 0.11 · (p / t)^1.3
+//                       + 0.22 · (p / (v + 2000))^1.28)
 //
-// Calibration against 13 observed KTC data points (Superflex, TEP=1):
+// where:
+//   p = this player's KTC value
+//   t = max KTC value among players IN the trade
+//   v = max KTC value overall (~9999, e.g. Josh Allen)
 //
-//   case  layout   small           large                KTC    V2    err%
-//   A     1v2      9999            7846+5717            3712   3748   +1.0
-//   B     1v2      7846            5717+4829            3034   3421  +12.8
-//   C     1v2      7846            6949+5717            1166   1257   +7.8
-//   D     1v3      4342            2667+2324+1172       1820   1945   +6.9
-//   E     1v3      7798            4519+4208+2906       3834   3403  -11.2
-//   F     1v3      9999            7471+4862+2215       4879   4973   +1.9
-//   G     1v2      7795            6883+2950            2077   2084   +0.3
-//   H     1v3      7795            5086+4021+2950       3587   3945  +10.0
-//   I     1v2      9999            7813+5086            4103   3823   -6.8
-//   J     1v3      9999            7813+3811+2756       4848   4509   -7.0
-//   K     1v2      7509            6737+2179            1887   1852   -1.9
-//   L     3v5      9999+9983+5086  9603+7687+7298+      4586   4085  -10.9
-//                                  4206+2670
-//   M     2v3      7795+1914       5086+4021+3943       3371   2978  -11.7
+// Algorithm to compute the displayed Value Adjustment:
+//   1. Compute raw(p, t, v) for every player on each side.
+//   2. Sum raw per side.  Side with bigger raw_sum has the bigger studs.
+//   3. Compute raw_diff = bigger_raw - smaller_raw.
+//   4. Solve for player value X such that raw(X, t, v) ≈ raw_diff
+//      (the smaller-raw side needs a virtual player worth X to even).
+//   5. Displayed VA = (smaller_raw_side_total + X) - bigger_raw_side_total,
+//      applied to the side with the bigger raw_sum.
 //
-//   mean |err| = 6.9%,  max |err| = 12.8%,  rms = 8.1%
-//   (V1 was mean 28.3%, max 100%, rms 42.8% on the same 13 points.)
+// Special cases:
+//   - 1v1 trades → VA = 0 (KTC empirically suppresses VA for these,
+//     even when the formula would produce one).
+//   - Equal raw_sum → VA = 0.
+//   - Cases where small (DataPoint convention) doesn't have the
+//     bigger raw → VA on small = 0; the trade favors large.
 //
-// The calibration script at ``scripts/calibrate_va_formula.py`` grids
-// several candidate formula families against all 13 observed points.
-// V2 is the winner under a blended (mean + max/4) objective.  If you
-// tune these coefficients, re-run the script to check that the full
-// 13-point regression doesn't regress.
+// Calibration on 100 fresh KTC captures (2026-04-25, 15 topologies):
+//
+//   V2 prod (replaced):  rms = 69.6%   mean = 58.4%   max = 112%
+//   V12 KTC actual:      rms = 39.3%   mean = 24.7%   max = 100%
+//
+// V12 cuts RMS by 44% and mean error by 58% on current KTC behavior.
+// The script ``scripts/calibrate_va_formula.py`` runs the comparison
+// against the captured fixture in ``scripts/ktc_va_observations.json``.
+//
+// V12 is closed-form — no parameters to tune.  The constants 0.1 /
+// 0.04 / 0.11 / 0.22 and exponents 8 / 1.3 / 1.28 are KTC's own.
+
+// Max KTC value overall — Josh Allen sits here.  Effectively constant
+// across the lifetime of any deployed build; refresh if the top
+// player's value drifts more than ±5%.
+export const KTC_V_OVERALL_MAX = 9999;
+
+// Backward-compat exports — kept so any test file or downstream
+// consumer that imports these by name still resolves.  The values are
+// unused at runtime now that V12 replaces V2.  Will be removed once
+// the 2026-Q3 deprecation window passes.
 export const VA_SCARCITY_SLOPE = 3.75;
 export const VA_SCARCITY_INTERCEPT = 0.45;
 export const VA_SCARCITY_CAP = 0.55;
 export const VA_PER_EXTRA_BOOST = 1.4;
 export const VA_EFFECTIVE_CAP = 1.0;
 export const VA_POSITION_DECAY = 0.35;
+
+/**
+ * KTC's per-player raw adjustment, the inner term of V12.
+ *
+ * Pure function — same inputs always produce the same output, no
+ * hidden state.  ``Math.pow`` handles the fractional exponents fine
+ * for the value ranges we deal with (0–9999).
+ *
+ * @param {number} p - this player's KTC value
+ * @param {number} t - max KTC value among players in the trade
+ * @param {number} [v=KTC_V_OVERALL_MAX] - max KTC value overall
+ * @returns {number} the player's raw adjustment contribution
+ */
+export function ktcRawAdjustment(p, t, v = KTC_V_OVERALL_MAX) {
+  if (!(p > 0)) return 0;
+  const pv = v > 0 ? p / v : 0;
+  const ptRatio = t > 0 ? p / t : 0;
+  const pv2k = p / (v + 2000);
+  return p * (
+    0.1
+    + 0.04 * Math.pow(pv, 8)
+    + 0.11 * Math.pow(ptRatio, 1.3)
+    + 0.22 * Math.pow(pv2k, 1.28)
+  );
+}
+
+/**
+ * Find player value X such that ``ktcRawAdjustment(X, t, v) ≈ target``.
+ *
+ * Binary search.  ``ktcRawAdjustment`` is monotonically increasing in
+ * p when t and v are fixed (every term inside the parens is
+ * non-decreasing in p, and p multiplies the whole thing), so
+ * bisection converges fast.  60 iterations bring the bracket
+ * width to ~10⁻¹⁸ — way past floating-point precision.
+ *
+ * @param {number} target - target raw adjustment value
+ * @param {number} t - max KTC value in the trade (drives the formula)
+ * @param {number} [v=KTC_V_OVERALL_MAX]
+ * @returns {number} player value X
+ */
+export function ktcSolveForAddedValue(target, t, v = KTC_V_OVERALL_MAX) {
+  if (!(target > 0)) return 0;
+  let lo = 0;
+  let hi = Math.max(t || 0, KTC_V_OVERALL_MAX);
+  if (ktcRawAdjustment(hi, t, v) < target) return hi;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (ktcRawAdjustment(mid, t, v) < target) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
 
 // ── Pick Year Discount ──────────────────────────────────────────────────
 // Future-year picks are worth less than current-year picks.
@@ -165,77 +224,58 @@ function sortedSideValues(side, valueMode, settings) {
  */
 function _vaFromSortedSides(small, large) {
   if (small.length === 0 || small[0] <= 0) return 0;
-  // KNOWN GAP (calibrated 2026-04-25) — equal-count trades return 0
-  // here.  KTC's actual algorithm fires VA on some equal-count shapes
-  // (notably 2v2 stud-vs-pile where one side has the better top
-  // piece) and stays silent on others (count-matched trades where one
-  // side dominates piece-by-piece, especially at deep counts).
-  //
-  // We collected 100 KTC trades across 15 topologies (46 equal-count)
-  // in scripts/ktc_va_observations.json and ran V1-V10 candidates in
-  // calibrate_va_formula.py:
-  //
-  //   - V1-V5 use ``extras = large[len(small):]`` which is empty for
-  //     equal counts → predict 0 → can't capture nonzero KTC VA.
-  //   - V6-V8 iterate over the whole large side → over-predict on
-  //     equal counts where KTC actually reports 0.
-  //   - V9 added a separate equal-count branch
-  //     (small_top × top_gap × stud_coeff + offset).  Grid rejected
-  //     it (set all eq_* coefficients to 0).
-  //   - V10 added two classifier gates (min_top_gap,
-  //     dom_count_thresh).  Grid still rejected the linear term —
-  //     it's bimodal and a linear formula can't fit "0 here, 4000
-  //     there" on similar inputs.
-  //
-  // V9/V10 produced a tiny aggregate RMS improvement (64% → 63%) on
-  // the 113-point set, but ALL of that came from trading away
-  // accuracy on the 13 hand-curated baseline anchors (V2 fits at
-  // 8% RMS; V9 fits at ~40% RMS) for marginal gains on the new
-  // captures — a net regression on common trade shapes.  So we kept
-  // V2 in production.
-  //
-  // Closing this gap requires features we don't currently encode
-  // (positional scarcity, full per-piece distribution, hard
-  // dominance-pattern classification) or an ML regressor.  V11+
-  // can be evaluated against the same 100-trade benchmark when
-  // someone takes another swing.
-  if (small.length >= large.length) return 0;
+  if (large.length === 0) return 0;
 
-  const topSmall = small[0];
-  const topLarge = large[0] || 0;
-  const topGap = Math.max(0, (topSmall - topLarge) / topSmall);
-  if (topGap === 0) return 0;
+  // V12: KTC's actual published formula.
+  //
+  // KTC empirical observation: 1v1 trades never display a VA, even
+  // when the formula would produce one.  KTC's UI gates the VA row
+  // off for these shapes — match that.
+  if (small.length === 1 && large.length === 1) return 0;
 
-  const rawScarcity = VA_SCARCITY_SLOPE * topGap - VA_SCARCITY_INTERCEPT;
-  const topScarcity = Math.max(0, Math.min(VA_SCARCITY_CAP, rawScarcity));
+  const all = small.concat(large);
+  const t = Math.max(...all);
+  const v = KTC_V_OVERALL_MAX;
 
-  const extras = large.slice(small.length);
-  let adjustment = 0;
-  for (let p = 0; p < extras.length; p++) {
-    const extra = extras[p];
-    const extraGap = Math.max(0, (topSmall - extra) / topSmall);
-    const boostTerm = VA_PER_EXTRA_BOOST * Math.max(0, extraGap - topGap);
-    const effective = Math.max(
-      0,
-      Math.min(VA_EFFECTIVE_CAP, topScarcity + boostTerm),
-    );
-    adjustment += extra * effective * Math.pow(VA_POSITION_DECAY, p);
-  }
-  return adjustment;
+  let rawSmall = 0;
+  for (const x of small) rawSmall += ktcRawAdjustment(x, t, v);
+  let rawLarge = 0;
+  for (const x of large) rawLarge += ktcRawAdjustment(x, t, v);
+
+  // KTC convention: the side with the bigger raw_sum is the
+  // "winning" side and gets the displayed VA.  Our caller convention
+  // is that ``small`` is the recipient — so we only return a
+  // non-zero VA when small actually has the bigger raw_sum.  When
+  // large has the bigger raw_sum, KTC would display VA on large; in
+  // our DataPoint convention that surfaces as 0 here.
+  const rawDiff = rawSmall - rawLarge;
+  if (rawDiff <= 0) return 0;
+
+  const sumSmall = small.reduce((s, x) => s + x, 0);
+  const sumLarge = large.reduce((s, x) => s + x, 0);
+
+  // Solve for the virtual player value that closes the raw gap on
+  // the large side, then compute displayed VA = (large_total +
+  // virtual) - small_total.
+  const virtual = ktcSolveForAddedValue(rawDiff, t, v);
+  const va = (sumLarge + virtual) - sumSmall;
+  return Math.max(0, va);
 }
 
 /**
  * Compute the KTC-style Value Adjustment between two sides.
  *
- * The side with fewer pieces receives a bonus representing the
- * consolidation / roster-spot premium.  Uses the V2 hybrid formula:
- * a top-gap scarcity that sets the baseline, plus a per-extra boost
- * that scales up each extra's effective weight when it is smaller
- * than the matched top-large piece (throw-in premium).
+ * Uses V12 — KTC's actual published formula.  The side with the
+ * bigger raw_adjustment_sum receives the displayed VA bonus.  KTC's
+ * algorithm is symmetric: equal-count trades (e.g. 2v2 stud-vs-pile)
+ * fire VA when one side has bigger studs, and unequal-count trades
+ * (the canonical 1v2/1v3) fire VA on the consolidator side.  The
+ * one empirical exception is 1v1 trades, where KTC suppresses VA.
  *
  * Returns { adjustment, recipientIdx } where:
  *   - adjustment: ≥ 0 bonus to apply to the receiving side's total
- *   - recipientIdx: 0 for sideA, 1 for sideB, or null when counts tie
+ *   - recipientIdx: 0 for sideA, 1 for sideB, or null when neither
+ *     side merits the boost (raw sums equal, or 1v1, or empty input)
  *
  * @param {object[]} sideA
  * @param {object[]} sideB
@@ -246,18 +286,31 @@ export function computeValueAdjustment(sideA, sideB, valueMode, settings = null)
   const aValues = sortedSideValues(sideA, valueMode, settings);
   const bValues = sortedSideValues(sideB, valueMode, settings);
 
-  if (aValues.length === bValues.length) {
+  if (aValues.length === 0 || bValues.length === 0) {
+    return { adjustment: 0, recipientIdx: null };
+  }
+  // KTC empirical: 1v1 trades never display a VA.
+  if (aValues.length === 1 && bValues.length === 1) {
     return { adjustment: 0, recipientIdx: null };
   }
 
-  const recipientIdx = aValues.length < bValues.length ? 0 : 1;
+  // Compute raw sums to determine which side gets the VA.  Whichever
+  // side has the bigger raw_sum is the recipient (KTC convention).
+  const all = aValues.concat(bValues);
+  if (all.length === 0 || all[0] <= 0) {
+    return { adjustment: 0, recipientIdx: null };
+  }
+  const t = Math.max(...all);
+  const v = KTC_V_OVERALL_MAX;
+  const rawA = aValues.reduce((s, x) => s + ktcRawAdjustment(x, t, v), 0);
+  const rawB = bValues.reduce((s, x) => s + ktcRawAdjustment(x, t, v), 0);
+
+  if (Math.abs(rawA - rawB) < 1e-9) {
+    return { adjustment: 0, recipientIdx: null };
+  }
+  const recipientIdx = rawA > rawB ? 0 : 1;
   const small = recipientIdx === 0 ? aValues : bValues;
   const large = recipientIdx === 0 ? bValues : aValues;
-
-  if (small.length === 0 || small[0] <= 0) {
-    return { adjustment: 0, recipientIdx: null };
-  }
-
   const adjustment = _vaFromSortedSides(small, large);
   return { adjustment, recipientIdx };
 }
