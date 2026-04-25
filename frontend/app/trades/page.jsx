@@ -332,11 +332,11 @@ function TradeCard({ analysis: a }) {
           <span className="badge" style={{ background: badgeBg, color: badgeColor }}>
             {a.headlineSide.team}{" "}
             {a.headlineDirection === "overpaid" ? "overpaid by" : "won by"}{" "}
-            {/* Show the absolute V13-adjusted point gap.  Numbers
-                read more directly than percentages ("won by 1,820"
-                tells you the magnitude immediately; "won by 6.7%"
-                requires mental math against trade size). */}
-            {(a.headlineNet ?? 0).toLocaleString()}
+            {/* Headline pct is V13-aware (driven by netAdjusted, see
+                league-analysis.js).  Per-side Net renders the
+                absolute V13 number + VA chip below — headline keeps
+                the percentage for at-a-glance scale-aware feedback. */}
+            {a.pctGap.toFixed(1)}%
           </span>
         ) : (
           <span className="badge" style={{ background: "var(--green-soft)", color: "var(--green)" }}>
