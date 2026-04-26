@@ -94,3 +94,35 @@ jobs:
             bash -n "${script}"
           done
 
+      # Frontend bundle-size budget gate.  Builds the Next.js app
+      # without checks (``build:nocheck``) then explicitly runs the
+      # ``check:bundles`` script that compares each page's chunk size
+      # against the per-page budget in
+      # ``frontend/scripts/check-bundle-sizes.mjs``.  Splitting the
+      # build from the check lets us print the full Next.js build
+      # output even on success, while the check step's exit code is
+      # what determines the gate.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        shell: bash
+        working-directory: frontend
+        run: |
+          set -Eeuo pipefail
+          if [[ -f package-lock.json ]]; then
+            npm ci --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      - name: Frontend build + bundle-size budget
+        shell: bash
+        working-directory: frontend
+        run: |
+          set -Eeuo pipefail
+          npm run build:nocheck
+          npm run check:bundles
+
