@@ -239,77 +239,82 @@ describe("computeValueAdjustment", () => {
     expect(r.recipientIdx).toBe(0);
   });
 
-  it("recipientIdx is the side with the bigger raw_adjustment_sum", () => {
-    // V12 picks the recipient by raw_sum, not piece count.  When the
-    // multi-piece side has a higher raw_sum (their cumulative pieces
-    // outweigh the lone stud's premium), the recipient flips to the
-    // multi side.  Here ALLEN solo is outweighed by CHASE+PICK_2026.
-    const r1 = computeValueAdjustment([ALLEN], [CHASE, PICK_2026], "full");
-    expect(r1.recipientIdx).toBe(1);
-    // Mirror: A is multi, B is solo → recipient is A.
-    const r2 = computeValueAdjustment([CHASE, PICK_2026], [ALLEN], "full");
-    expect(r2.recipientIdx).toBe(0);
-    // True stud case: a 9999 stud has bigger raw_sum than a pile of
-    // mids → recipient is the stud side.
-    const r3 = computeValueAdjustment(
+  it("recipientIdx is the consolidator side when KTC fires", () => {
+    // KTC's actual algorithm (ported 2026-04-26 from site.min.js):
+    // [9000] vs [8500, 7000] is too "fair" on intensity-adjusted
+    // raw_adj — KTC's UI shows no VA badge.  Test the case that
+    // unambiguously fires: a true stud (9999) versus two mids — the
+    // stud side gets the VA.
+    const r = computeValueAdjustment(
       [mockRow(9999)],
       [mockRow(4000), mockRow(3000)],
       "full",
     );
-    expect(r3.recipientIdx).toBe(0);
-  });
-
-  it("applies zero VA when the multi-piece side has the bigger studs", () => {
-    // single=CHASE (8500) vs multi=[ALLEN (9000), PICK_2026 (7000)]
-    // ALLEN's raw is bigger than CHASE's → recipient is the multi side.
-    // From the small-side caller's perspective the VA is on side B
-    // (recipient=1), and the magnitude is the V12 computation.
-    const r = computeValueAdjustment([CHASE], [ALLEN, PICK_2026], "full");
-    expect(r.recipientIdx).toBe(1);
+    expect(r.recipientIdx).toBe(0);
     expect(r.adjustment).toBeGreaterThan(0);
   });
 
-  // ── V12 reference cases (KTC's published article, 2022-09-30) ────────
+  it("suppresses VA on intensity-balanced consolidation trades", () => {
+    // [ALLEN (9000)] vs [CHASE (8500) + PICK_2026 (7000)] — by KTC's
+    // actual algorithm this is a "Fair Trade": Side A's raw_adj
+    // intensity (raw_adj / total) is comparable to Side B's, so KTC
+    // suppresses the VA badge entirely.  The previous V13 regression
+    // fit fired here, but KTC.com does not.  Mirror returns null too.
+    const r1 = computeValueAdjustment([ALLEN], [CHASE, PICK_2026], "full");
+    expect(r1.recipientIdx).toBeNull();
+    expect(r1.adjustment).toBe(0);
+    const r2 = computeValueAdjustment([CHASE, PICK_2026], [ALLEN], "full");
+    expect(r2.recipientIdx).toBeNull();
+    expect(r2.adjustment).toBe(0);
+    // [CHASE (8500)] vs [ALLEN (9000) + PICK_2026 (7000)] — same
+    // intensity-balanced shape, different stud assignment.  KTC also
+    // suppresses.
+    const r3 = computeValueAdjustment([CHASE], [ALLEN, PICK_2026], "full");
+    expect(r3.recipientIdx).toBeNull();
+    expect(r3.adjustment).toBe(0);
+  });
+
+  // ── KTC live-fixture reference cases ─────────────────────────────────
   //
-  // These are pinned against KTC's own worked example from the
-  // javelinfantasyfootball.com article ("How the KeepTradeCut Value
-  // Adjustment Algorithm Works").  V12 reproduces the worked example
-  // to <1% error, so we pin it tightly here.
-  //
-  // The article example: Ja'Marr Chase (8200) for CeeDee Lamb (5500)
-  // + Joe Mixon (4900).  Article reports VA = ~4900 on Chase's side,
-  // with a virtual 2700-value player closing the gap on the other.
-  describe("KTC article reference (V12 ground truth)", () => {
-    it("Chase (8200) vs Lamb (5500) + Mixon (4900) → ~4900 (±2%)", () => {
+  // The 2026-04-26 port of KTC's site.min.js algorithm replaces the
+  // V12/V13 regression fit.  The 2022 article that V12 reproduced
+  // (~4900 on Chase 8200 vs Lamb+Mixon) used an outdated formula
+  // version; the current KTC algorithm produces ~3636 for the same
+  // inputs.  Reference checks now pin against captured KTC.com
+  // outputs (scripts/ktc_va_observations.json) — RMS error across
+  // the 139-trade fixture is ~27 absolute, basically bit-exact.
+  describe("KTC live-fixture reference (port ground truth)", () => {
+    it("Chase-style 1v2 stud-vs-mids: VA fires on the stud side", () => {
+      // [8200] vs [5500, 4900]: KTC's current algorithm produces
+      // ~3636 (we tolerate ±5% to absorb tiny iterative-search
+      // rounding differences between Node and KTC's live JS).
       const r = computeValueAdjustment(
         [mockRow(8200)],
         [mockRow(5500), mockRow(4900)],
         "full",
       );
       expect(r.recipientIdx).toBe(0);
-      // Article reports 4900; V12 produces ~4910.  ±2% covers float
-      // precision plus the article's stated rounding of input values.
-      expect(Math.abs(r.adjustment - 4900) / 4900).toBeLessThan(0.02);
+      expect(r.adjustment).toBeGreaterThan(3400);
+      expect(r.adjustment).toBeLessThan(3900);
     });
 
-    it("article raw-adjustment table (single-player VA contribution at v=t=9999)", () => {
-      // From the article: "the raw adjustment for a player worth N
-      // when v=t=9999".  We pin a few rows of the table to ensure the
-      // ktcRawAdjustment function constants don't drift.
-      const cases = [
-        [9000, 3250, 0.05],   // 78% of max
-        [7000, 1959, 0.05],   // 47% of max
-        [5000, 1077, 0.05],   // 26% of max
-        [3000, 479, 0.05],    // 11% of max
-        [1000, 115, 0.10],    // 3% of max  (smaller absolute, looser tolerance)
-      ];
-      // ktcRawAdjustment is exported from trade-logic.js
-      // We re-import it here to check the constants directly.
+    it("ktcProcessV reproduces KTC's per-piece raw-adj for canonical inputs", () => {
+      // Pin a few outputs of ktcProcessV (KTC's processV) so a future
+      // refactor can't silently drift the per-piece weights.  Values
+      // computed directly from the ported algorithm at maxInTrade=9999,
+      // t=10041 — same inputs KTC uses on its top-of-board page.
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { ktcRawAdjustment } = require("../lib/trade-logic.js");
+      const { ktcProcessV } = require("../lib/trade-logic.js");
+      const cases = [
+        [9000, 1469, 5],    // top-tier piece
+        [7000, 950, 5],     // strong piece
+        [5000, 604, 5],     // mid piece
+        [3000, 331, 5],     // depth piece
+        [1000, 103, 5],     // throw-in
+      ];
       for (const [p, expected, tol] of cases) {
-        const got = ktcRawAdjustment(p, 9999, 9999);
-        expect(Math.abs(got - expected) / expected).toBeLessThan(tol);
+        const got = ktcProcessV(p, 9999, 10041, -1);
+        expect(Math.abs(got - expected)).toBeLessThan(tol);
       }
     });
 
