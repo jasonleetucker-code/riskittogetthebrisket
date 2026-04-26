@@ -470,13 +470,20 @@ function TradeSourceBreakdown({ sides, settings }) {
       vendorSubs.get(vendor).push(src);
     }
 
+    // KTC and its TE+ sibling are the only vendors with native 0-9999
+    // pick values, and the only ones whose per-source winner row uses
+    // the raw KTC values directly so the V13 Value Adjustment formula
+    // (calibrated against KTC's raw scale) reproduces what
+    // keeptradecut.com displays.  Centralised so includePicks and
+    // useRawNative stay in lockstep.
+    const KTC_RAW_NATIVE_VENDORS = new Set(["ktc", "ktcSfTep"]);
     return vendorOrder
       .map((vendor) => {
         const subs = vendorSubs.get(vendor);
-        // Picks are included only for KTC — it's the canonical pick-
-        // valuation board.  Every other vendor leaves picks uncovered
-        // and would skew the piece-count math if we counted them.
-        const includePicks = vendor === "ktc";
+        // Picks are included only for KTC (and its TE+ sibling, sourced
+        // from the same scrape).  Every other vendor leaves picks
+        // uncovered and would skew the piece-count math if we counted them.
+        const includePicks = KTC_RAW_NATIVE_VENDORS.has(vendor);
         // Sub-board priority rule: main boards win over rookie-
         // specialty boards.  Once a rookie is promoted onto a
         // vendor's main SF/IDP board (typically post-NFL-draft), the
@@ -493,8 +500,8 @@ function TradeSourceBreakdown({ sides, settings }) {
         const rookieSubs = subs.filter((s) => s.needsRookieTranslation);
         // Per-source value resolution.
         //
-        // For KTC specifically, the V13 Value Adjustment formula and
-        // its empirical suppression thresholds (V13_SUPPRESS_RAW_DIFF,
+        // For KTC and its TE+ sibling, the V13 Value Adjustment formula
+        // and its empirical suppression thresholds (V13_SUPPRESS_RAW_DIFF,
         // V13_SUPPRESS_SAME_SIDE_RAW_DIFF) were calibrated against
         // KTC's raw 0-9999 piece values.  Feeding the formula the
         // canonical Hill-blended ``valueContribution`` instead would
@@ -502,15 +509,15 @@ function TradeSourceBreakdown({ sides, settings }) {
         // inventing one — and the per-source KTC row would disagree
         // with what keeptradecut.com displays for the same trade.
         // We therefore use the raw KTC value from
-        // ``row.canonicalSites['ktc']`` as the formula input for the
-        // KTC vendor row.
+        // ``row.canonicalSites['ktc']`` (or ``['ktcSfTep']`` for the
+        // TE+ row) as the formula input.
         //
         // For every other vendor we keep the Hill-normalized
         // ``valueContribution``: rank-only sources don't have a raw
         // native value, and cross-market rank sources stash a
         // synthetic 100,000+ rank-encoded number in ``canonicalSites``
         // that would break the V13 formula's 0-9999-scaled ratios.
-        const useRawNative = vendor === "ktc";
+        const useRawNative = KTC_RAW_NATIVE_VENDORS.has(vendor);
         const sourceValueForRow = (row, sub) => {
           if (useRawNative) {
             const native = Number(row.canonicalSites?.[sub.key]);
