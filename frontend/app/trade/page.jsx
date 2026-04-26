@@ -938,6 +938,33 @@ export default function TradePage() {
     [sides],
   );
 
+  // Which side is the user's own roster?  Derived by counting how
+  // many of each side's current assets match the user's selected
+  // Sleeper team.  Falls back to ``-1`` when there's no team
+  // selected, no matches on either side, or the data isn't ready.
+  // Used to label the matching side card with a "Your team" pill so
+  // the user always knows which side is "I'm giving" vs. "I'm
+  // receiving" — fixes the audit's U-2-style "team affordance
+  // disappears once the tray scrolls" finding.
+  const mySideIdx = useMemo(() => {
+    if (!selectedTeam) return -1;
+    const myRoster = teamRosterNames(selectedTeam);
+    if (!myRoster.size) return -1;
+    let bestIdx = -1;
+    let bestHits = 0;
+    sides.forEach((s, i) => {
+      let hits = 0;
+      for (const a of s.assets || []) {
+        if (myRoster.has(a.name)) hits += 1;
+      }
+      if (hits > bestHits) {
+        bestHits = hits;
+        bestIdx = i;
+      }
+    });
+    return bestHits > 0 ? bestIdx : -1;
+  }, [sides, selectedTeam, teamRosterNames]);
+
   // Legacy 2-team gap computations (for sticky tray + 2-team balancers)
   const pwTotalA = sideTotals[0]?.adjusted || 0;
   const pwTotalB = sideTotals[1]?.adjusted || 0;
@@ -1933,11 +1960,38 @@ export default function TradePage() {
                 ? (sideIdx === 0 ? pwGap < -350 : pwGap > 350)
                 : false;
 
+              const isMySide = sideIdx === mySideIdx;
               return (
-                <div className="card" key={side.id} style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  className="card"
+                  key={side.id}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    // Subtle gold accent on the user's own side so it
+                    // stays visually identifiable even after the tray
+                    // scrolls or the user adds/removes assets.
+                    borderColor: isMySide ? "rgba(255, 199, 4, 0.4)" : undefined,
+                  }}
+                >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                       <h3 style={{ margin: 0 }}>Side {side.label}</h3>
+                      {isMySide && selectedTeam?.name && (
+                        <span
+                          className="badge"
+                          title={`This side matches your roster: ${selectedTeam.name}`}
+                          style={{
+                            fontSize: "0.6rem",
+                            padding: "2px 6px",
+                            color: "var(--cyan)",
+                            borderColor: "rgba(255, 199, 4, 0.45)",
+                            background: "rgba(255, 199, 4, 0.08)",
+                          }}
+                        >
+                          You · {selectedTeam.name}
+                        </span>
+                      )}
                       {sides.length > MIN_SIDES && (
                         <button
                           className="button button-danger"

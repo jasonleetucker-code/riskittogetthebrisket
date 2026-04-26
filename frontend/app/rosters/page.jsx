@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
-import { PageHeader, LoadingState, EmptyState } from "@/components/ui";
+import { PageHeader, LoadingState, EmptyState, PlayerImage } from "@/components/ui";
 import {
   POS_GROUPS,
   OFFENSE_GROUPS,
@@ -380,6 +380,13 @@ function TradeTargetsCard({ myTeam, teams, groupAvg }) {
           ) : (
             targets.map((t, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: "0.72rem" }}>
+                <PlayerImage
+                  playerId={t.playerId}
+                  team={t.team}
+                  position={t.pos}
+                  name={t.name}
+                  size={22}
+                />
                 <span style={{ color: POS_GROUP_COLORS[needPos], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: "0.62rem" }}>
                   {t.pos}
                 </span>
@@ -406,6 +413,13 @@ function TradeTargetsCard({ myTeam, teams, groupAvg }) {
           </h4>
           {surplus.map((p, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: "0.72rem" }}>
+              <PlayerImage
+                playerId={p.playerId}
+                team={p.team}
+                position={p.pos}
+                name={p.name}
+                size={22}
+              />
               <span style={{ color: POS_GROUP_COLORS[p.group], fontFamily: "var(--mono)", fontWeight: 700, width: 28, fontSize: "0.62rem" }}>
                 {p.pos}
               </span>
@@ -567,6 +581,13 @@ function WaiverWireCard({ gems }) {
               fontSize: "0.72rem",
             }}
           >
+            <PlayerImage
+              playerId={p.playerId}
+              team={p.team}
+              position={p.pos}
+              name={p.name}
+              size={20}
+            />
             <span style={{ color: POS_GROUP_COLORS[p.pos] || "var(--subtext)", fontWeight: 700, fontFamily: "var(--mono)", fontSize: "0.62rem" }}>
               {p.pos}
             </span>
