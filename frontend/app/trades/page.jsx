@@ -12,6 +12,9 @@ import {
   POS_GROUP_COLORS,
 } from "@/lib/league-analysis";
 import { encodeTrade, SHARE_PARAM } from "@/lib/trade-share";
+import { useRankHistory } from "@/components/useRankHistory";
+import { buildHistoryLookup } from "@/lib/value-history";
+import { gradeRetro } from "@/lib/trade-retro-value";
 
 const POS_COLORS = {
   QB: "#e74c3c", RB: "#27ae60", WR: "#3498db", TE: "#e67e22",
@@ -30,6 +33,35 @@ export default function TradesPage() {
     () => analyzeSleeperTradeHistory(rawData, rows, windowDays, alpha),
     [rawData, rows, windowDays, alpha],
   );
+
+  // Pull rank history so we can value each trade at the date it
+  // happened.  ``useRankHistory`` is single-flight + cached for 60s.
+  const { history: rankHistory } = useRankHistory({ days: 365 });
+  const historyLookup = useMemo(
+    () => buildHistoryLookup(rankHistory),
+    [rankHistory],
+  );
+  // Map of (analyzed trade.id) → per-side retro grade so the renderer
+  // can stamp an "aged well / aged poorly / stable" chip on each side.
+  const retroByTrade = useMemo(() => {
+    if (!analysis?.analyzed?.length) return new Map();
+    const out = new Map();
+    for (const a of analysis.analyzed) {
+      const ts = Number(a.trade?._statusUpdatedMs)
+        || Date.parse(a.date)
+        || Date.now();
+      const perSide = (a.sides || []).map((side) =>
+        gradeRetro({
+          side,
+          currentNet: side.netValue,
+          asOfMs: ts,
+          historyLookup,
+        }),
+      );
+      out.set(a.id, perSide);
+    }
+    return out;
+  }, [analysis, historyLookup]);
 
   const teams = useMemo(() => {
     const set = new Set();
@@ -128,7 +160,11 @@ export default function TradesPage() {
       {filtered.length > 0 && (
         <div className="list" style={{ marginTop: "var(--space-md)" }}>
           {filtered.map((a, idx) => (
-            <TradeCard key={idx} analysis={a} />
+            <TradeCard
+              key={idx}
+              analysis={a}
+              retroSides={retroByTrade.get(a.id) || []}
+            />
           ))}
         </div>
       )}
@@ -291,7 +327,29 @@ function AssetRow({ label, items, total }) {
   );
 }
 
-function TradeCard({ analysis: a }) {
+const RETRO_META = {
+  aged_well: { label: "Aged well", color: "var(--green)", soft: "var(--green-soft)" },
+  aged_poorly: { label: "Aged poorly", color: "var(--red)", soft: "var(--red-soft)" },
+  stable: { label: "Stable", color: "var(--subtext)", soft: "transparent" },
+  unknown: null,
+};
+
+function fmtRetro(retro) {
+  if (!retro) return null;
+  const meta = RETRO_META[retro.verdict];
+  if (!meta) return null;
+  const delta = Number.isFinite(retro.verdictDelta) ? Math.round(retro.verdictDelta) : null;
+  const sign = delta != null && delta !== 0 ? (delta > 0 ? "+" : "") : "";
+  return {
+    ...meta,
+    label: delta != null
+      ? `${meta.label} (${sign}${delta.toLocaleString()})`
+      : meta.label,
+    title: `Value at trade: ${retro.atTradeNet > 0 ? "+" : ""}${Math.round(retro.atTradeNet).toLocaleString()} · current: ${retro.currentNet > 0 ? "+" : ""}${Math.round(retro.currentNet || 0).toLocaleString()}`,
+  };
+}
+
+function TradeCard({ analysis: a, retroSides = [] }) {
   // Headline reflects the largest grievance — winner OR loser,
   // whichever has the biggest magnitude pctGap.  If no side clears
   // ±3%, the trade reads as fair on both the card header and the
@@ -371,6 +429,7 @@ function TradeCard({ analysis: a }) {
               ? "var(--red)"
               : "var(--subtext)";
           const netSign = side.netValue >= 0 ? "+" : "−";
+          const retroChip = fmtRetro(retroSides[i]);
           return (
             <div key={i}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
@@ -405,6 +464,22 @@ function TradeCard({ analysis: a }) {
                   </span>
                 )}
               </div>
+              {retroChip && (
+                <div
+                  className="badge"
+                  title={retroChip.title}
+                  style={{
+                    fontSize: "0.6rem",
+                    fontFamily: "var(--mono)",
+                    background: retroChip.soft,
+                    color: retroChip.color,
+                    marginTop: 2,
+                    display: "inline-block",
+                  }}
+                >
+                  {retroChip.label}
+                </div>
+              )}
             </div>
           );
         })}
