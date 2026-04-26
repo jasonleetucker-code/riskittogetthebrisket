@@ -3788,10 +3788,16 @@ async def run(progress_callback=None):
     def _candidate_score(cand, preferred_pos=""):
         score = 0.0
         if cand.get("active"):
-            score += 1000.0
+            score += 10000.0
         if cand.get("team"):
-            score += 20.0
-        score += cand.get("search_rank", 0.0) * 0.01
+            score += 500.0
+        # Sleeper's search_rank is "lower is better" (1 = top result).
+        # Inactive/irrelevant players get 9999999 as a sentinel — drop it
+        # entirely so it can't dwarf the active-status bonus and pin a
+        # popular name (e.g. "Josh Allen") to a long-retired homonym.
+        sr = cand.get("search_rank") or 0
+        if 0 < sr < 9999999:
+            score += max(0.0, 1000.0 - float(sr))
         score += cand.get("years_exp", 0) * 2.0
         if preferred_pos:
             if _pos_family(cand.get("pos")) == _pos_family(preferred_pos):
