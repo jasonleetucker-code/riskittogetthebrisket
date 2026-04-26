@@ -103,7 +103,7 @@ Kenyon Sadiq,127,TE11,NYJ,21,R
 Jadarian Price,128,RB26,SEA,22,R
 Michael Wilson,129,WR37,ARI,26,3
 Zach Charbonnet,130,RB27,SEA,25,3
-Alec Pierce,131,WR38,IND,25,4
+Alec Pierce,131,WR38,IND,26,4
 Ty Simpson,132,QB30,LAR,23,R
 Kaytron Allen,134,RB28,WAS,23,R
 George Kittle,135,TE12,SF,32,9
@@ -209,7 +209,7 @@ Joe Mixon,240,RB69,FA,29,9
 Dallas Goedert,241,TE18,PHI,31,8
 Rashod Bateman,242,WR90,BAL,26,5
 Kaleb Johnson,243,RB70,PIT,22,1
-Deion Burks,244,WR91,FA,23,R
+Deion Burks,244,WR91,IND,23,R
 Marquise Brown,245,WR92,PHI,28,7
 Jaydon Blue,246,RB71,DAL,22,1
 Eli Stowers,247,TE19,PHI,23,R
@@ -220,7 +220,7 @@ J'Mari Taylor,251,RB72,FA,24,R
 Darnell Mooney,252,WR95,NYG,28,6
 Marvin Mims Jr.,253,WR96,DEN,24,3
 Mark Andrews,254,TE21,BAL,30,8
-Seth McGowan,255,RB73,FA,24,R
+Seth McGowan,255,RB73,IND,24,R
 Reggie Virgil,256,WR97,ARI,21,R
 Robert Henry Jr.,257,RB74,FA,24,R
 Jaylen Wright,258,RB75,MIA,23,2
@@ -258,7 +258,7 @@ Cade Otton,289,TE30,TB,27,4
 Isaiah Davis,290,RB83,NYJ,24,2
 Andrei Iosivas,291,WR112,CIN,26,3
 Pat Freiermuth,292,TE31,PIT,27,5
-Jam Miller,293,RB84,FA,22,R
+Jam Miller,293,RB84,NE,22,R
 Brenen Thompson,294,WR113,LAC,22,R
 Travis Kelce,295,TE32,KC,36,13
 Jalen Nailor,296,WR114,LV,27,4
@@ -318,7 +318,7 @@ Phil Mafah,468,RB102,DAL,23,1
 Konata Mumpfield,479,WR137,LAR,23,1
 Malik Davis,521,RB103,DAL,27,4
 Jaylin Lane,525,WR138,WAS,24,1
-Jack Endries,536,TE46,FA,22,R
+Jack Endries,536,TE46,CIN,22,R
 Rahsul Faison,593,RB104,FA,26,R
 Joshua Palmer,594,WR139,BUF,26,5
 Dont'e Thornton Jr.,595,WR140,LV,23,1
@@ -394,7 +394,7 @@ Eric Gray,664,RB157,NYG,26,3
 C.J. Ham,665,RB158,FA,32,10
 Hassan Haskins,666,RB159,FA,26,4
 JaMycal Hasty,667,RB160,FA,29,6
-Eli Heidenreich,668,RB161,FA,22,R
+Eli Heidenreich,668,RB161,PIT,22,R
 Evan Hull,669,RB162,NO,25,3
 Terrell Jennings,670,RB163,NE,25,2
 D'Ernest Johnson,671,RB164,FA,30,7
@@ -407,8 +407,8 @@ Kenny McIntosh,677,RB170,SEA,26,3
 Jordan Mims,678,RB171,FA,26,3
 Ty Montgomery II,679,RB172,FA,33,11
 Raheem Mostert,680,RB173,FA,34,11
-Dare Ogunbowale,681,RB174,FA,31,9
-Kejon Owens,682,RB175,FA,-,R
+Dare Ogunbowale,681,RB174,FA,32,9
+Kejon Owens,682,RB175,MIN,-,R
 Lincoln Pare,683,RB176,FA,24,R
 Cordarrelle Patterson,684,RB177,FA,35,13
 Jaret Patterson,685,RB178,LAC,26,5
@@ -437,7 +437,7 @@ Anthony Richardson Sr.,707,QB38,IND,23,3
 Jalen Milroe,708,QB39,SEA,23,1
 Geno Smith,709,QB40,NYJ,35,13
 Jackson Hawes,710,TE55,BUF,25,1
-Garrett Nussmeier,711,QB41,FA,24,R
+Garrett Nussmeier,711,QB41,KC,24,R
 Xavier Hutchinson,712,WR151,HOU,25,3
 Kirk Cousins,713,QB42,LV,37,14
 Quinn Ewers,714,QB43,MIA,23,1
@@ -471,7 +471,7 @@ Kendrick Bourne,836,WR172,ARI,30,9
 Nick Westbrook-Ikhine,838,WR173,IND,29,6
 David Moore,839,WR174,CAR,31,9
 Demarcus Robinson,843,WR175,SF,31,10
-Dillon Bell,853,WR176,FA,22,R
+Dillon Bell,853,WR176,MIN,22,R
 Malik Benson,854,WR177,LV,23,R
 Jeff Caldwell,855,WR178,FA,23,R
 Emmanuel Henderson Jr.,856,WR179,SEA,22,R
@@ -504,7 +504,7 @@ Joe Flacco,891,QB47,CIN,41,18
 Trinidad Chambliss,894,QB48,FA,23,R
 Rondale Moore,895,WR205,FA,25,5
 Ainias Smith,896,WR206,CAR,24,2
-Anthony Smith,897,WR207,FA,24,R
+Anthony Smith,897,WR207,DAL,24,R
 Kris Thornton,898,WR208,FA,-,3
 Theo Wease Jr.,899,WR209,MIA,24,1
 Jalin Hyatt,900,WR210,NYG,24,3
