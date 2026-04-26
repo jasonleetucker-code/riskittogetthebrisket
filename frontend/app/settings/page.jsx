@@ -10,6 +10,8 @@ import {
   detectActivePreset,
 } from "@/lib/weight-presets";
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
+import PushNotificationToggle from "@/components/PushNotificationToggle";
+import CustomAlertsConfigurator from "@/components/CustomAlertsConfigurator";
 
 // The settings page enumerates the canonical ranking registry directly
 // so a newly registered source automatically shows up here without any
@@ -420,6 +422,9 @@ export default function SettingsPage() {
               roster — buy-low / sell-high opportunities, injury news, rookie or pick movement.
               We only email you when there&apos;s a change worth acting on.
             </p>
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+              <PushNotificationToggle enabled={!!serverBacked} />
+            </div>
           </>
         ) : (
           <p className="muted" style={{ fontSize: "0.78rem" }}>
@@ -427,6 +432,10 @@ export default function SettingsPage() {
             are stored on the server and apply across devices.
           </p>
         )}
+      </Section>
+
+      <Section title="Custom alerts" defaultOpen={false}>
+        <CustomAlertsConfigurator enabled={!!serverBacked} players={rows} />
       </Section>
 
       <Section title="Data & Admin" defaultOpen={false}>

@@ -47,6 +47,13 @@ curl_cffi~=0.15.0
 # markup.
 beautifulsoup4~=4.14.0
 
+# Web Push (PWA notifications).  ``pywebpush`` handles the VAPID
+# signing + RFC8291 payload encryption; ``cryptography`` is already
+# pulled in transitively.  Used by ``src/api/push_delivery.py`` to
+# fan out the daily signal-alerts digest + custom alert hits to
+# subscribed devices.
+pywebpush~=2.0
+
 # nfl_data_py: deliberately NOT in this manifest.
 #
 # nfl_data_py 0.3.x pins pandas<2.0, which forces pandas-1.5.3 to

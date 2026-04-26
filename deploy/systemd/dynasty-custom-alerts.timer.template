@@ -1,0 +1,18 @@
+[Unit]
+Description=Hourly custom-alert sweep for __SERVICE_NAME__
+Requires=__SERVICE_NAME__-custom-alerts.service
+
+[Timer]
+# Fire every two hours so a value crossing or rank shift turns into
+# a notification within at most ~2h of the next scrape.  The
+# 24-hour cooldown inside ``custom_alerts.py`` prevents the same
+# rule from re-firing during a sustained crossing — a rule that
+# matches now will not match again until tomorrow even if every
+# tick of this timer hits.
+OnCalendar=*-*-* 0/2:13:00
+RandomizedDelaySec=180
+Persistent=true
+Unit=__SERVICE_NAME__-custom-alerts.service
+
+[Install]
+WantedBy=timers.target

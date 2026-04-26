@@ -297,8 +297,51 @@ main() {
     log "Signal-alerts timer skipped: SIGNAL_ALERT_CRON_TOKEN not set in ${APP_DIR}/.env."
   fi
 
+  # ── Custom-alerts sweep (optional systemd timer) ───────────────────────
+  # Same pattern as signal-alerts: install only when the cron token is
+  # present.  Fires every 2 hours; the rule-engine cooldown inside
+  # ``custom_alerts.py`` keeps a single rule from re-firing within 24h.
+  local custom_alerts_service_template="${APP_DIR}/deploy/systemd/dynasty-custom-alerts.service.template"
+  local custom_alerts_timer_template="${APP_DIR}/deploy/systemd/dynasty-custom-alerts.timer.template"
+  local custom_alerts_service_name="${SERVICE_NAME}-custom-alerts"
+  local custom_alerts_service_path="/etc/systemd/system/${custom_alerts_service_name}.service"
+  local custom_alerts_timer_path="/etc/systemd/system/${custom_alerts_service_name}.timer"
+  local custom_alerts_needs_install=false
+
+  if [[ -f "${custom_alerts_service_template}" && -f "${custom_alerts_timer_template}" && "${has_cron_token}" == "true" ]]; then
+    if sudo -n "${SYSTEMCTL_BIN}" cat "${custom_alerts_service_name}.timer" >/dev/null 2>&1; then
+      if [[ "${force_install_on}" == "true" ]]; then
+        log "FORCE_SERVICE_INSTALL enabled; rewriting ${custom_alerts_service_path} + timer."
+        custom_alerts_needs_install=true
+      else
+        log "Custom-alerts timer already installed; skipping."
+      fi
+    else
+      log "Installing custom-alerts service + timer."
+      custom_alerts_needs_install=true
+    fi
+
+    if [[ "${custom_alerts_needs_install}" == "true" ]]; then
+      local tmp_custom_alerts_service tmp_custom_alerts_timer
+      tmp_custom_alerts_service="$(mktemp)"
+      tmp_custom_alerts_timer="$(mktemp)"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
+        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+        "${custom_alerts_service_template}" > "${tmp_custom_alerts_service}"
+      sed \
+        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+        "${custom_alerts_timer_template}" > "${tmp_custom_alerts_timer}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_custom_alerts_service}" "${custom_alerts_service_path}"
+      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_custom_alerts_timer}" "${custom_alerts_timer_path}"
+      rm -f "${tmp_custom_alerts_service}" "${tmp_custom_alerts_timer}"
+      log "Installed ${custom_alerts_service_name}.service + .timer"
+    fi
+  fi
+
   # ── daemon-reload and enable ────────────────────────────────────────────
-  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" || "${alerts_needs_install}" == "true" ]]; then
+  if [[ "${backend_needs_install}" == "true" || "${frontend_needs_install}" == "true" || "${alerts_needs_install}" == "true" || "${custom_alerts_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" daemon-reload
     log "Reloaded systemd unit files."
   fi
@@ -314,6 +357,10 @@ main() {
   if [[ "${alerts_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" enable --now "${alerts_service_name}.timer"
     log "Enabled ${alerts_service_name}.timer"
+  fi
+  if [[ "${custom_alerts_needs_install}" == "true" ]]; then
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${custom_alerts_service_name}.timer"
+    log "Enabled ${custom_alerts_service_name}.timer"
   fi
 
   # ── Backup timer + restore-test timer + logrotate (2026-04-25) ──
