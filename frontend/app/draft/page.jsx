@@ -1787,7 +1787,7 @@ function TargetBoard({
  */
 function NominationCandidates({ stats, onDraft, onCycleTag }) {
   const list = useMemo(
-    () => nominationCandidates(stats, { limit: 5 }),
+    () => nominationCandidates(stats, { limit: 10 }),
     [stats],
   );
 
@@ -1796,8 +1796,8 @@ function NominationCandidates({ stats, onDraft, onCycleTag }) {
       <div className="card draft-nbt">
         <h3 style={{ margin: "0 0 4px" }}>Good to nominate</h3>
         <div className="muted" style={{ fontSize: "0.72rem" }}>
-          No drain candidates — rivals are too tight or everyone is
-          already tagged as target.
+          No KTC overrates — either every rookie's KTC and our board
+          agree, or KTC values are missing from the live contract.
         </div>
       </div>
     );
@@ -1814,11 +1814,11 @@ function NominationCandidates({ stats, onDraft, onCycleTag }) {
       >
         <h3 style={{ margin: 0 }}>Good to nominate</h3>
         <span className="muted" style={{ fontSize: "0.68rem" }}>
-          Drain rival $ without risking a target
+          Top 10 rookies KTC overrates vs our board
         </span>
       </div>
       <div className="draft-nbt-list">
-        {list.map(({ player, score, drain, rationale }, i) => (
+        {list.map(({ player, gap, ourDollar, ktcDollar, rationale }, i) => (
           <div
             key={player.id}
             className={`draft-nbt-row${player.userTag === TAG_AVOID ? " draft-nbt-avoid" : ""}`}
@@ -1848,21 +1848,22 @@ function NominationCandidates({ stats, onDraft, onCycleTag }) {
             <span className="draft-nbt-name" onClick={() => onDraft(player)}>
               {player.name}
             </span>
-            <span className="draft-money">fair {fmt$(player.inflatedFair)}</span>
-            <span className="muted" style={{ fontSize: "0.68rem" }}>
-              drain {fmt$(drain)}
+            <span className="muted" style={{ fontSize: "0.68rem" }} title="Our board's pre-draft fair price">
+              ours {fmt$(ourDollar)}
+            </span>
+            <span className="muted" style={{ fontSize: "0.68rem" }} title="KTC's market value at the same scale">
+              ktc {fmt$(ktcDollar)}
             </span>
             <span
-              className={`draft-rec-chip ${
-                player.userTag === TAG_AVOID
-                  ? "draft-rec-avoid"
-                  : "draft-rec-neutral"
-              }`}
+              className="draft-rec-chip"
+              style={{
+                background: "rgba(34, 211, 238, 0.18)",
+                color: "var(--cyan, #22d3ee)",
+                fontWeight: 600,
+              }}
+              title={`KTC overrates by $${Math.round(gap)} — leaguemates following KTC will overpay`}
             >
-              {player.userTag === TAG_AVOID ? "AVOID" : "DRAIN"}
-            </span>
-            <span className="muted" style={{ fontSize: "0.66rem" }}>
-              S {Math.round(score)}
+              +{fmt$(gap)}
             </span>
           </div>
         ))}
@@ -3112,12 +3113,21 @@ export default function DraftDashboardPage() {
       setAllPlayersArray(pa);
 
       // Rookies only, sorted by consensus value (values.full) desc.
+      // Also capture the per-source KTC value so the
+      // ``nominationCandidates`` ranker can compute the
+      // KTC-vs-our-board discrepancy (the gap drives the "good to
+      // nominate" list — biggest KTC overrates first).
       const rookies = pa
         .filter((p) => p?.rookie === true)
         .filter((p) => p?.assetClass === "offense" || p?.assetClass === "idp")
         .map((p) => ({
           name: p.displayName || p.canonicalName || "",
           rawValue: Number(p?.values?.full) || 0,
+          // Raw KTC value on the same 0-9999 scale.  Null when KTC
+          // didn't rank the rookie.  Captured here so we don't have
+          // to re-fetch playersArray inside the draft logic.
+          ktcRawValue: typeof p?.canonicalSiteValues?.ktc === "number"
+            ? p.canonicalSiteValues.ktc : null,
           pos: String(p?.position || p?.pos || "").toUpperCase(),
         }))
         .filter((p) => p.name && p.rawValue > 0)
@@ -3136,10 +3146,33 @@ export default function DraftDashboardPage() {
         1200,
       );
 
+      // Rescale the KTC values onto the same $1200 budget so the
+      // discrepancy ``ktcDollar - preDraft`` is comparable to the
+      // user's board.  Players with no KTC value get null (skipped
+      // by the discrepancy ranker).
+      const ktcDollarsByName = (() => {
+        const ranked = rookies.filter((r) => r.ktcRawValue && r.ktcRawValue > 0);
+        if (ranked.length === 0) return new Map();
+        // Sort by KTC value desc (parallels the rawValue sort) then
+        // rescale that ordered list to the $1200 pool.
+        const ktcSorted = [...ranked].sort((a, b) => b.ktcRawValue - a.ktcRawValue);
+        const ktcRaws = ktcSorted.map((r) => r.ktcRawValue);
+        const ktcScaled = rescaleValuesToBudget(ktcRaws, 1200);
+        const m = new Map();
+        ktcSorted.forEach((r, i) => m.set(r.name, ktcScaled[i]));
+        return m;
+      })();
+
       const incoming = rookies.map((r, i) => ({
         name: r.name,
         preDraft: scaled[i],
         pos: r.pos,
+        // KTC's market dollar value on the same $1200 scale.  Null
+        // when KTC doesn't rank this rookie.  Used by the
+        // ``nominationCandidates`` ranker to compute the
+        // KTC-vs-our-board gap that drives the "good to nominate"
+        // list.
+        ktcDollar: ktcDollarsByName.get(r.name) ?? null,
       }));
 
       // Dry-run against current workspace to show a preview diff.
