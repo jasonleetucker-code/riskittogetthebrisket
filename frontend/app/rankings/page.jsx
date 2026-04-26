@@ -35,6 +35,7 @@ import SourceContributionBars from "@/components/graphs/SourceContributionBars";
 import SourceAgreementRadar from "@/components/graphs/SourceAgreementRadar";
 import RankChangeGlyph from "@/components/graphs/RankChangeGlyph";
 import { PlayerImage } from "@/components/ui";
+import { useNews } from "@/components/useNews";
 
 // ── UNIFIED RANKINGS PAGE ────────────────────────────────────────────
 // Trust-forward blended board: offense + IDP sorted by unified rank.
@@ -450,6 +451,11 @@ export default function RankingsPage() {
   // don't surface it here.  ``useTeam`` reads the flag off the
   // registry's league config via ``useLeague``.
   const { idpEnabled } = useTeam();
+  // Pull recent news so we can stamp a "📰" chip on rows whose
+  // player has fresh news / injury status.  Looks up by lowercase
+  // name in O(1).  News data is single-flighted at module level so
+  // this hook is essentially free for the rankings page.
+  const { byPlayer: newsByPlayer } = useNews();
   const [query, setQuery] = useState("");
   const [posFilter, setPosFilter] = useState("all");
   const [confFilter, setConfFilter] = useState("all");
@@ -481,6 +487,25 @@ export default function RankingsPage() {
       setPosFilter("all");
     }
   }, [idpEnabled, posFilter]);
+
+  // Seed ``posFilter`` from the URL query string on first load.  Lets
+  // the per-position drill-down routes (e.g. /rankings/qb) deep-link
+  // into a pre-filtered view.  Recognised values mirror the dropdown
+  // options: all / offense / idp / pick / rookie / rookie:QB / QB /
+  // RB / WR / TE / DL / LB / DB.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const requested = (params.get("pos") || "").trim();
+    if (!requested) return;
+    const normalized = ["all", "offense", "idp", "pick", "rookie"].includes(requested.toLowerCase())
+      ? requested.toLowerCase()
+      : requested.toUpperCase();
+    setPosFilter(normalized);
+    // Run once on mount only — subsequent filter changes go through
+    // the dropdown.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Switch lens: reset sort to default, expand row limit
   const handleLensChange = useCallback((key) => {
@@ -1185,7 +1210,8 @@ export default function RankingsPage() {
               </thead>
               <tbody>
                 {displayRows.map((row, idx) => {
-                  const chips = rowChips(row);
+                  const newsItem = newsByPlayer.get(String(row.name || "").toLowerCase());
+                  const chips = rowChips(row, { newsItem });
                   const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
                   const band = valueBand(val);
                   const tier = tierLabel(row);

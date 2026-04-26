@@ -2164,6 +2164,138 @@ async def get_dynasty_data_alias(request: Request):
     return await get_data(request)
 
 
+@app.get("/api/movers")
+async def get_movers(request: Request):
+    """Buy-low / sell-high signals from rank history.
+
+    Query params:
+      * ``window`` — days to compare against (default 14, max 90)
+      * ``threshold`` — minimum absolute rank change to qualify
+        (default 15)
+      * ``limit`` — max entries per side (default 10)
+
+    Returns::
+
+        {
+          "window": 14,
+          "threshold": 15,
+          "asOf": "2026-04-26",
+          "risers": [
+            {"name": "...", "team": "TEX", "position": "WR", "playerId": "...",
+             "rankNow": 12, "rankThen": 32, "delta": 20,
+             "valueNow": 7421, "perSourceDelta": {...}}
+          ],
+          "fallers": [...]
+        }
+
+    Risers = rank improved (number got smaller).  Fallers = rank got
+    worse (number got bigger).  Each entry includes a per-source
+    rank delta breakdown so the user can see which sources drove the
+    move.
+    """
+    try:
+        window = int(request.query_params.get("window", 14))
+    except (TypeError, ValueError):
+        window = 14
+    window = max(2, min(90, window))
+    try:
+        threshold = int(request.query_params.get("threshold", 15))
+    except (TypeError, ValueError):
+        threshold = 15
+    threshold = max(1, threshold)
+    try:
+        limit = int(request.query_params.get("limit", 10))
+    except (TypeError, ValueError):
+        limit = 10
+    limit = max(1, min(50, limit))
+
+    # Load full history; we need both endpoints of the window so we
+    # ask for at least window+1 days.
+    history = _rank_history.load_history(days=window + 1)
+    if not history:
+        return JSONResponse(
+            content={"window": window, "threshold": threshold,
+                     "asOf": None, "risers": [], "fallers": []},
+            headers={"Cache-Control": "public, max-age=60, stale-while-revalidate=300"},
+        )
+
+    # Index the live contract by displayName so we can stitch in
+    # team / position / current value + per-source rank metadata for
+    # each mover.  Falls back to bare-name only when the player is
+    # missing from the live board.
+    contract = latest_contract_data or {}
+    by_name: dict[str, dict] = {}
+    arr = contract.get("playersArray") or []
+    if isinstance(arr, list):
+        for row in arr:
+            if isinstance(row, dict):
+                key = str(row.get("displayName") or row.get("canonicalName") or "")
+                if key:
+                    by_name[key] = row
+
+    risers: list[dict] = []
+    fallers: list[dict] = []
+    for name, series in history.items():
+        if not series or len(series) < 2:
+            continue
+        # Most-recent ``rank`` and the rank from ~``window`` days ago.
+        # Series is already date-sorted ascending by load_history.
+        latest = series[-1]
+        anchor = series[0]
+        try:
+            r_now = int(latest.get("rank"))
+            r_then = int(anchor.get("rank"))
+        except (TypeError, ValueError):
+            continue
+        if r_now <= 0 or r_then <= 0:
+            continue
+        # Rank smaller = better; "delta" is positive when player rose.
+        delta = r_then - r_now
+        if abs(delta) < threshold:
+            continue
+        row = by_name.get(name) or {}
+        per_source_delta: dict[str, int] = {}
+        # Per-source rank deltas — useful so the user can see
+        # "this move was driven by KTC dropping them 25 spots".
+        # ``sourceOriginalRanks`` stamps the un-Hampel-filtered ranks.
+        sor = row.get("sourceOriginalRanks") or {}
+        if isinstance(sor, dict):
+            for src_key, src_rank in sor.items():
+                try:
+                    per_source_delta[str(src_key)] = int(src_rank)
+                except (TypeError, ValueError):
+                    continue
+        entry = {
+            "name": name,
+            "playerId": str(row.get("playerId") or "") or None,
+            "position": str(row.get("position") or "") or None,
+            "team": str(row.get("team") or "") or None,
+            "rankNow": r_now,
+            "rankThen": r_then,
+            "delta": delta,
+            "valueNow": int(row.get("rankDerivedValue") or 0) or None,
+            "currentSourceRanks": per_source_delta if per_source_delta else None,
+        }
+        if delta > 0:
+            risers.append(entry)
+        else:
+            fallers.append(entry)
+
+    risers.sort(key=lambda e: -e["delta"])
+    fallers.sort(key=lambda e: e["delta"])
+    as_of = max((s[-1]["date"] for s in history.values() if s), default=None)
+    return JSONResponse(
+        content={
+            "window": window,
+            "threshold": threshold,
+            "asOf": as_of,
+            "risers": risers[:limit],
+            "fallers": fallers[:limit],
+        },
+        headers={"Cache-Control": "public, max-age=60, stale-while-revalidate=300"},
+    )
+
+
 @app.get("/api/data/rank-history")
 async def get_rank_history(request: Request):
     """Per-player rank history series for the last ``days`` days.
