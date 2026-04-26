@@ -49,7 +49,17 @@ const PRIMARY_NAV = [
   },
   { href: "/draft", label: "Draft", hint: "Rookie draft prep + ADP" },
   { href: "/edge", label: "Edge", hint: "Where sources disagree most", groupBreak: true },
-  { href: "/league", label: "League", hint: "Public league hub", groupBreak: true },
+  {
+    href: "/league",
+    label: "League",
+    hint: "Public league hub",
+    groupBreak: true,
+    children: [
+      { href: "/league", label: "Hub", hint: "League overview" },
+      { href: "/league/activity", label: "Activity", hint: "Trades + news in one feed" },
+      { href: "/league/phases", label: "Win-now vs Rebuild", hint: "Per-team phase classification + trade partners" },
+    ],
+  },
   { href: "/settings", label: "Settings", hint: "Source weights, TEP, profile", groupBreak: true },
   { href: "/more", label: "More", hint: "Rosters, tools, admin" },
 ];
