@@ -1192,32 +1192,13 @@ def _replacement_per_game_for_position(
 ) -> float:
     """Replacement-level points-per-game at a position.
 
-    Computed as the average ``starterPoints / gamesStarted`` of the
-    five players ranked just below the league's starter cutoff
-    (``starter_slots`` total starting slots filled at this position
-    each week).  Falls back to the worst-tier average if the position
-    has fewer rostered players than expected.
+    Thin shim around :func:`src.scoring.replacement_level.replacement_per_game`
+    that lets the awards path keep using its dict shape (``starterPoints``,
+    ``gamesStarted``) without restructuring callers.  See the shared
+    module for the algorithm.
     """
-    if not rows:
-        return 0.0
-    # Per-game average for each player (filter out zero-game phantoms).
-    per_game = [
-        (r["starterPoints"] / r["gamesStarted"], r)
-        for r in rows
-        if r["gamesStarted"] > 0
-    ]
-    if not per_game:
-        return 0.0
-    per_game.sort(key=lambda x: -x[0])
-    cutoff = max(0, int(starter_slots))
-    band_start = cutoff
-    band_end = cutoff + 5
-    band = per_game[band_start:band_end]
-    if not band:
-        # Position is too thin to draw a replacement band — fall back to
-        # the worst player's per-game line.
-        return per_game[-1][0]
-    return sum(p for p, _ in band) / len(band)
+    from src.scoring.replacement_level import replacement_per_game
+    return replacement_per_game(rows or [], starter_slots, band_size=5)
 
 
 def _starter_slot_counts(
@@ -1225,41 +1206,16 @@ def _starter_slot_counts(
 ) -> dict[str, int]:
     """Total starting slots per position across the entire league per week.
 
-    Reads ``league.roster_positions`` and counts both direct slots
-    (``"QB"``) and flexes (``"FLEX"``, ``"SUPER_FLEX"``, ``"REC_FLEX"``,
-    ``"IDP_FLEX"``) which contribute to multiple positions.  Multiplied
-    by ``num_teams``.
-
-    The flex contribution is split evenly across its eligible
-    positions — close enough for a VORP baseline without overfitting.
+    Thin shim around
+    :func:`src.scoring.replacement_level.starter_slot_counts`.  Pulls
+    ``roster_positions`` + team count off the snapshot and delegates
+    the FLEX / SUPER_FLEX / IDP_FLEX splitting to the shared module.
     """
-    positions = season.league.get("roster_positions") or []
-    teams = max(1, season.num_teams)
-    counts: dict[str, float] = defaultdict(float)
-    for slot in positions:
-        slot_norm = str(slot or "").upper()
-        if slot_norm in {"BN", "TAXI", "IR", ""}:
-            continue
-        if slot_norm == "FLEX":
-            for p in ("RB", "WR", "TE"):
-                counts[p] += 1.0 / 3.0
-        elif slot_norm in {"SUPER_FLEX", "SUPERFLEX", "SFLEX", "QFLEX"}:
-            for p in ("QB", "RB", "WR", "TE"):
-                counts[p] += 1.0 / 4.0
-        elif slot_norm in {"REC_FLEX", "WRT", "WRRBTE"}:
-            for p in ("WR", "TE", "RB"):
-                counts[p] += 1.0 / 3.0
-        elif slot_norm in {"IDP_FLEX"}:
-            for p in ("DL", "LB", "DB"):
-                counts[p] += 1.0 / 3.0
-        elif slot_norm in {"DEF"}:
-            counts["DEF"] += 1.0
-        else:
-            counts[slot_norm] += 1.0
-    out: dict[str, int] = {}
-    for pos, frac in counts.items():
-        out[pos] = max(1, int(round(frac * teams)))
-    return out
+    from src.scoring.replacement_level import starter_slot_counts
+    return starter_slot_counts(
+        season.league.get("roster_positions") or [],
+        season.num_teams,
+    )
 
 
 def _vorp_rows(

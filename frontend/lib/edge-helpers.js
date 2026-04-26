@@ -181,6 +181,29 @@ export const LENSES = [
       (row.anomalyFlags || []).length > 0,
     sort: (a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity),
   },
+  {
+    // IDP scoring-fit lens (Phase 1).  Diagnostic-only view —
+    // ``idpScoringFitDelta > 0`` means THIS league's stacked scoring
+    // would rank the player higher than the consensus market does
+    // (buy-low candidate); ``< 0`` means the league's scoring under-
+    // values them vs market (sell-high candidate).  Synthetic rows
+    // (rookies, derived from draft-round cohort baseline) are
+    // included with a separate badge.
+    //
+    // Filter naturally hides this lens for offense-only leagues —
+    // when the ``idp_scoring_fit`` pass doesn't run, ZERO rows have
+    // the delta field stamped, so the lens shows an empty board and
+    // the page-level "no rows" empty state surfaces.  The lens
+    // toggle itself is always present in the dropdown.
+    key: "scoringFit",
+    label: "Scoring Fit",
+    description: "IDPs whose value under THIS league's scoring diverges most from the consensus market. Positive delta = league overrates consensus (buy-low); negative = league undervalues vs market (sell-high). Phase 1: diagnostic only — does not move trade values.",
+    filter: (row) =>
+      typeof row.idpScoringFitDelta === "number"
+      && Number.isFinite(row.idpScoringFitDelta),
+    sort: (a, b) =>
+      (b.idpScoringFitDelta ?? -Infinity) - (a.idpScoringFitDelta ?? -Infinity),
+  },
 ];
 
 /**

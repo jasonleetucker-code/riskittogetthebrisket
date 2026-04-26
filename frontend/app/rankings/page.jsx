@@ -1088,18 +1088,28 @@ export default function RankingsPage() {
       {/* ── Lens selector + controls ────────────────────────────────── */}
       {!loading && !error && rows.length > 0 && (
         <>
-          {/* Lens tabs */}
+          {/* Lens tabs.  ``scoringFit`` is conditionally hidden until
+              the ``idp_scoring_fit`` backend flag actually stamps
+              fields on at least one row — otherwise the button shows
+              an empty board for offense-only leagues / when the flag
+              is off, which is just confusing UX. */}
           <div className="sub-nav" style={{ marginTop: "var(--space-sm)" }}>
-            {LENSES.map((lens) => (
-              <button
-                key={lens.key}
-                className={`sub-nav-btn ${activeLens === lens.key ? "active" : ""}`}
-                onClick={() => handleLensChange(lens.key)}
-                title={lens.description}
-              >
-                {lens.label}
-              </button>
-            ))}
+            {LENSES
+              .filter((lens) =>
+                lens.key !== "scoringFit"
+                || rows.some((r) => typeof r.idpScoringFitDelta === "number"
+                                     && Number.isFinite(r.idpScoringFitDelta))
+              )
+              .map((lens) => (
+                <button
+                  key={lens.key}
+                  className={`sub-nav-btn ${activeLens === lens.key ? "active" : ""}`}
+                  onClick={() => handleLensChange(lens.key)}
+                  title={lens.description}
+                >
+                  {lens.label}
+                </button>
+              ))}
           </div>
 
           {/* Lens description */}

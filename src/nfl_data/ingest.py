@@ -86,6 +86,49 @@ class WeeklyStatRow:
     snap_pct: float | None = None
 
 
+@dataclass(frozen=True)
+class WeeklyDefensiveStatRow:
+    """Normalized per-IDP-per-week defensive box-score stats.
+
+    Mirrors the column names used in nflverse's
+    ``player_stats_def_{year}.csv`` file (the defensive sibling of
+    ``player_stats_{year}.csv``).  Every field is `def_`-prefixed in
+    the source CSV; we drop the prefix here so the dataclass reads
+    naturally, but the underlying fetcher reads from the prefixed
+    columns.
+    """
+
+    player_id_gsis: str
+    player_name: str
+    position: str
+    team: str
+    season: int
+    week: int
+    # Tackle volume
+    tackles_solo: float
+    tackles_assist: float
+    tackles_combined: float
+    tackles_for_loss: float
+    tackles_for_loss_yards: float
+    # Pressure / disruption
+    sacks: float
+    sack_yards: float
+    qb_hits: float
+    # Pass-defense
+    passes_defended: float
+    interceptions: float
+    interception_yards: float
+    # Turnovers
+    fumbles_forced: float
+    fumble_recovery_own: float
+    fumble_recovery_opp: float
+    fumble_recovery_yards_own: float
+    fumble_recovery_yards_opp: float
+    # Splash
+    def_tds: float
+    safeties: float
+
+
 def _dataframe_to_rows(df: Any) -> list[dict[str, Any]]:
     """Convert a pandas DataFrame to a list of dicts without
     importing pandas at module top.  Handles None / empty /
@@ -244,6 +287,44 @@ def fetch_weekly_stats(
         nfl_method="import_weekly_data",
         direct_method="fetch_weekly_stats",
         label="weekly_stats",
+    )
+    if rows is None:
+        return []
+    _cache.put(key, rows, cache_dir=cache_dir)
+    return rows
+
+
+def fetch_weekly_defensive_stats(
+    years: list[int],
+    *,
+    _provider: Callable[[list[int]], Any] | None = None,
+    cache_dir=None,
+) -> list[dict[str, Any]]:
+    """Per-IDP-per-week defensive stat rows for the given years.
+
+    Same fall-through ladder as :func:`fetch_weekly_stats`: test
+    provider → ``nfl_data_py.import_weekly_data_def`` (when
+    available) → ``nflverse_direct.fetch_weekly_defensive_stats``
+    (always works, stdlib-only).
+
+    Each row carries ``def_*`` prefixed columns straight from
+    nflverse — callers should normalize via
+    :class:`WeeklyDefensiveStatRow` or read directly.
+    """
+    if not _gated():
+        return []
+    key = f"weekly_def_stats:{','.join(str(y) for y in sorted(years))}"
+    cached = _cache.get(key, ttl_seconds=_WEEKLY_STATS_TTL, cache_dir=cache_dir)
+    if cached is not None:
+        return cached
+    rows = _try_fetch_with_fallback(
+        years, _provider,
+        # ``import_weekly_data_def`` was added in nfl_data_py 0.3.5;
+        # earlier versions don't expose it.  The fall-through to the
+        # direct fetcher handles that case.
+        nfl_method="import_weekly_data_def",
+        direct_method="fetch_weekly_defensive_stats",
+        label="weekly_def_stats",
     )
     if rows is None:
         return []
