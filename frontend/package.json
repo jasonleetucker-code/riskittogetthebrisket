@@ -4,10 +4,12 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build",
+    "build": "next build && node scripts/check-bundle-sizes.mjs",
+    "build:nocheck": "next build",
     "start": "next start -p 3000",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check:bundles": "node scripts/check-bundle-sizes.mjs"
   },
   "dependencies": {
     "next": "15.5.12",
