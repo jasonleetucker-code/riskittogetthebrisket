@@ -1,0 +1,24 @@
+[Unit]
+Description=Dynasty Trade Calculator custom-alert sweep (__SERVICE_NAME__)
+After=network-online.target __SERVICE_NAME__.service
+Wants=network-online.target
+Requires=__SERVICE_NAME__.service
+
+# Fires the /api/custom-alerts/run endpoint, which evaluates
+# every user's custom value/rank rules and dispatches matches via
+# email and/or web push.  Same SIGNAL_ALERT_CRON_TOKEN bearer
+# auth as the signal-alerts sweep — single shared secret keeps
+# operator burden low.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=/usr/bin/curl --fail --silent --show-error --max-time 120 \
+  -H "Authorization: Bearer ${SIGNAL_ALERT_CRON_TOKEN}" \
+  -X POST http://127.0.0.1:8000/api/custom-alerts/run
+
+[Install]
+WantedBy=multi-user.target

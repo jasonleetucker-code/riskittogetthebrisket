@@ -20,9 +20,14 @@
  *     the homepage HTML ``/offline``-style shell so the user sees
  *     "You're offline" instead of Chrome's dino.
  *
+ * Push (`push` + `notificationclick`):
+ *   - On `push`, parses the JSON payload (`{title, body, url, tag}`)
+ *     and shows a notification.  Falls back to a generic title +
+ *     body if the payload is malformed (some test pushes are empty).
+ *   - On `notificationclick`, focuses an existing tab on the same
+ *     origin (the `url` field if provided) or opens a new one.
+ *
  * What this deliberately does NOT do:
- *   - Push notifications (that's a future PR once a subscription
- *     endpoint ships).
  *   - Background sync.
  *   - Cache any authenticated API endpoint.  ``/api/user/*`` and
  *     ``/api/terminal`` intentionally pass straight through so we
@@ -31,9 +36,10 @@
  * Versioning: bump ``CACHE_VERSION`` when the cache layout changes.
  * Old caches are deleted on ``activate``.
  */
-// Bumped to v2 alongside the SWR /api/public/league path so the
-// new cache layout takes effect on first re-visit.
-const CACHE_VERSION = "brisket-v2";
+// v3: push + notificationclick handlers added.  Cache layout is
+// otherwise unchanged; the bump just forces an SW activation cycle so
+// existing tabs pick up the new event listeners.
+const CACHE_VERSION = "brisket-v3";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const PUBLIC_LEAGUE_CACHE = `${CACHE_VERSION}-public-league`;
@@ -176,6 +182,56 @@ async function staleWhileRevalidate(request, cacheName) {
   if (fresh) return fresh;
   return offlineFallback();
 }
+
+self.addEventListener("push", (event) => {
+  let payload = {};
+  if (event.data) {
+    try {
+      payload = event.data.json();
+    } catch {
+      try {
+        payload = { title: "Brisket", body: event.data.text() };
+      } catch {
+        payload = {};
+      }
+    }
+  }
+  const title = String(payload.title || "Brisket").slice(0, 120);
+  const body = String(payload.body || "").slice(0, 300);
+  const url = typeof payload.url === "string" ? payload.url : "/";
+  const tag = typeof payload.tag === "string" ? payload.tag : undefined;
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: { url },
+      tag,
+      renotify: !!tag,
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const c of clients) {
+        try {
+          const u = new URL(c.url);
+          if (u.origin === self.location.origin && "focus" in c) {
+            c.navigate?.(target);
+            return c.focus();
+          }
+        } catch { /* ignore malformed client url */ }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(target);
+      }
+    }),
+  );
+});
 
 async function offlineFallback() {
   const shell = await caches.match("/");

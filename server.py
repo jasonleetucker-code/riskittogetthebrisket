@@ -67,6 +67,7 @@ from src.api.data_contract import (
 )
 from src.api import rank_history as _rank_history
 from src.api import source_history as _source_history
+from src.api import push_delivery as _push_delivery
 from src.api import signal_alerts as _signal_alerts
 from src.api import terminal as _terminal
 from src.api import trade_simulator as _trade_simulator
@@ -74,6 +75,7 @@ from src.api import user_kv as _user_kv
 from src.api import league_registry as _league_registry
 from src.api import sleeper_overlay as _sleeper_overlay
 from src.news import NewsService, build_default_service
+from src.news import custom_alerts as _custom_alerts
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
 SCRAPE_INTERVAL_HOURS = 2
@@ -1831,11 +1833,14 @@ _SELF_AUTHED_API_EXACT = frozenset({
     # Same bearer-auth pattern as signal-alerts.  Bypass session
     # cookie gate so the systemd timer's curl call hits the
     # endpoint's own bearer check.
+    "/api/custom-alerts/run",
     # E2E test-session bootstrap — handles its own bearer-token auth.
     # Returns 404 unless E2E_TEST_MODE + matching bearer secret are
     # both set, so having it bypass the session gate doesn't leak
     # anything in prod (env vars aren't set there).
     "/api/test/create-session",
+    # Push public-key endpoint is read-only and stateless — no auth.
+    "/api/push/public-key",
 })
 _PUBLIC_API_PREFIXES = (
     "/api/public/league",
@@ -5784,6 +5789,254 @@ async def put_user_state_api(request: Request):
     state = await run_in_threadpool(_user_kv.merge_user_state, username, patch)
     return JSONResponse(
         content={"username": username, "state": state},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+# ── Web Push subscriptions ────────────────────────────────────────
+@app.get("/api/push/public-key")
+async def get_push_public_key():
+    """Return the VAPID public key the browser uses when calling
+    ``pushManager.subscribe({applicationServerKey})``.  Stateless,
+    no auth — the public key is, by definition, public."""
+    if not _push_delivery.is_configured():
+        return JSONResponse(
+            status_code=503,
+            content={"error": "push_not_configured"},
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse(
+        content={"publicKey": _push_delivery.public_key()},
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
+@app.post("/api/push/subscribe")
+async def post_push_subscribe(request: Request):
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    username = str(session.get("username") or "").strip()
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+    try:
+        state = await run_in_threadpool(_user_kv.get_user_state, username) or {}
+        new_subs = _push_delivery.upsert_subscription(state, body)
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content={"error": str(exc)})
+    await run_in_threadpool(
+        _user_kv.set_user_field, username, "pushSubscriptions", new_subs,
+    )
+    return JSONResponse(
+        content={"ok": True, "count": len(new_subs)},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.post("/api/push/unsubscribe")
+async def post_push_unsubscribe(request: Request):
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    username = str(session.get("username") or "").strip()
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    endpoint = ""
+    if isinstance(body, dict):
+        endpoint = str(body.get("endpoint") or "").strip()
+    if not endpoint:
+        return JSONResponse(status_code=400, content={"error": "endpoint_required"})
+    state = await run_in_threadpool(_user_kv.get_user_state, username) or {}
+    new_subs = _push_delivery.remove_subscription(state, endpoint)
+    await run_in_threadpool(
+        _user_kv.set_user_field, username, "pushSubscriptions", new_subs,
+    )
+    return JSONResponse(
+        content={"ok": True, "count": len(new_subs)},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+# ── Custom alerts (user-defined value/rank watchers) ──────────────
+@app.get("/api/custom-alerts")
+async def get_custom_alerts(request: Request):
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    username = str(session.get("username") or "").strip()
+    state = await run_in_threadpool(_user_kv.get_user_state, username) or {}
+    rules = state.get("customAlerts") or []
+    if not isinstance(rules, list):
+        rules = []
+    return JSONResponse(
+        content={"rules": rules},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.put("/api/custom-alerts")
+async def put_custom_alerts(request: Request):
+    session = _get_auth_session(request)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "auth_required"})
+    username = str(session.get("username") or "").strip()
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse(status_code=400, content={"error": "invalid_body"})
+    raw_rules = body.get("rules")
+    if not isinstance(raw_rules, list):
+        return JSONResponse(status_code=400, content={"error": "rules_array_required"})
+    if len(raw_rules) > 50:
+        return JSONResponse(status_code=400, content={"error": "too_many_rules"})
+
+    cleaned: list[dict[str, object]] = []
+    for entry in raw_rules:
+        try:
+            cleaned.append(_custom_alerts.validate_rule(entry))
+        except ValueError as exc:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "invalid_rule", "detail": str(exc)},
+            )
+
+    state = await run_in_threadpool(_user_kv.get_user_state, username) or {}
+    prior_state = state.get("customAlertsState") or {}
+    if not isinstance(prior_state, dict):
+        prior_state = {}
+    new_ids = {r["id"] for r in cleaned}
+    pruned_state = {
+        k: v for k, v in prior_state.items()
+        if isinstance(k, str) and k.split("::", 1)[0] in new_ids
+    }
+
+    await run_in_threadpool(
+        _user_kv.merge_user_state,
+        username,
+        {"customAlerts": cleaned, "customAlertsState": pruned_state},
+    )
+    return JSONResponse(
+        content={"rules": cleaned, "count": len(cleaned)},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.post("/api/custom-alerts/run")
+async def run_custom_alerts(request: Request):
+    """Cron-driven evaluator.  Walks every user's rules, fires any
+    that hit, delivers via email and/or push, updates cooldown state.
+
+    Same bearer-token auth model as ``/api/signal-alerts/run``.
+    """
+    cron_auth_ok = False
+    if SIGNAL_ALERT_CRON_TOKEN:
+        header = (request.headers.get("authorization") or "").strip()
+        if header.lower().startswith("bearer "):
+            presented = header.split(None, 1)[1].strip()
+            if hmac.compare_digest(presented, SIGNAL_ALERT_CRON_TOKEN):
+                cron_auth_ok = True
+    if not cron_auth_ok:
+        session = _get_auth_session(request)
+        if not session or session.get("auth_method") != "password":
+            return JSONResponse(
+                status_code=401, content={"error": "admin_auth_required"},
+            )
+
+    if not latest_contract_data:
+        return JSONResponse(status_code=503, content={"error": "no_live_contract"})
+    players_array = (latest_contract_data or {}).get("playersArray") or []
+
+    db = await run_in_threadpool(_user_kv.all_user_states)
+    summary: dict[str, dict[str, int]] = {}
+
+    for username, state in (db or {}).items():
+        if not isinstance(state, dict):
+            continue
+        rules = state.get("customAlerts") or []
+        if not isinstance(rules, list) or not rules:
+            continue
+        cooldown_state = state.get("customAlertsState") or {}
+        if not isinstance(cooldown_state, dict):
+            cooldown_state = {}
+
+        try:
+            hits = _custom_alerts.evaluate_alerts(
+                rules, players_array, state=cooldown_state,
+            )
+        except Exception as exc:
+            log.warning("custom-alerts evaluation failed for %s: %s", username, exc)
+            continue
+        if not hits:
+            continue
+
+        notify_email = ""
+        if isinstance(state.get("notificationsEmail"), str):
+            notify_email = state["notificationsEmail"].strip()
+
+        delivered_email = 0
+        delivered_push = 0
+        endpoints_to_prune: list[str] = []
+        new_state = dict(cooldown_state)
+
+        for hit in hits:
+            email_ok = False
+            push_ok = False
+
+            if "email" in hit.channels and notify_email:
+                try:
+                    email_ok = _deliver_email_smtp(
+                        notify_email,
+                        f"[Brisket alert] {hit.title}",
+                        f"{hit.body}\n\n— Brisket custom alert ({hit.kind})",
+                    )
+                except Exception as exc:
+                    log.warning("custom-alert email failed for %s: %s", username, exc)
+                if email_ok:
+                    delivered_email += 1
+
+            if "push" in hit.channels:
+                count, prune = _push_delivery.fanout(
+                    state,
+                    title=f"Brisket: {hit.title}",
+                    body=hit.body,
+                    url="/rankings",
+                    tag=hit.rule_id,
+                )
+                push_ok = count > 0
+                delivered_push += count
+                endpoints_to_prune.extend(prune)
+
+            if email_ok or push_ok:
+                new_state = _custom_alerts.mark_fired(new_state, hit)
+
+        patch: dict[str, object] = {}
+        if new_state != cooldown_state:
+            patch["customAlertsState"] = new_state
+        if endpoints_to_prune:
+            kept = [
+                s for s in _push_delivery.list_subscriptions(state)
+                if s.get("endpoint") not in set(endpoints_to_prune)
+            ]
+            patch["pushSubscriptions"] = kept
+        if patch:
+            await run_in_threadpool(_user_kv.merge_user_state, username, patch)
+
+        summary[username] = {
+            "hits": len(hits),
+            "email": delivered_email,
+            "push": delivered_push,
+        }
+
+    return JSONResponse(
+        content={"ok": True, "users": summary},
         headers={"Cache-Control": "no-store"},
     )
 
