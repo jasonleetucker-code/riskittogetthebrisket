@@ -193,15 +193,29 @@ export default function WaiverSuggestionsPanel() {
                           {c.fitDelta > 0 ? "+" : ""}{Math.round(c.fitDelta).toLocaleString()}
                         </span>
                       )}
-                      <span
-                        style={{
-                          fontFamily: "var(--mono, monospace)",
-                          fontSize: "0.74rem",
-                          fontWeight: 600,
-                        }}
-                      >
-                        {c.adjustedValue.toLocaleString()}
-                      </span>
+                      {c.bid && c.bid.aggressive ? (
+                        <span
+                          style={{
+                            fontFamily: "var(--mono, monospace)",
+                            fontSize: "0.7rem",
+                            color: "var(--cyan)",
+                            fontWeight: 600,
+                          }}
+                          title={`FAAB bid suggestions — Aggressive $${c.bid.aggressive} / Reasonable $${c.bid.reasonable} / Lowball $${c.bid.lowball}`}
+                        >
+                          ${c.bid.reasonable}
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            fontFamily: "var(--mono, monospace)",
+                            fontSize: "0.74rem",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {c.adjustedValue.toLocaleString()}
+                        </span>
+                      )}
                     </div>
                   );
                 })}
