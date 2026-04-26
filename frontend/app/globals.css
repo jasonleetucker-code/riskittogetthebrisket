@@ -2797,6 +2797,36 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   .chat-fab { bottom: 20px; }
 }
 
+/* On phones the full "▲ Ask" pill ate ~110px x 40px of screen, sat
+   above the bottom nav, and reliably masked the last list item.
+   Collapse to an icon-only round button at 44x44 (the iOS HIG touch
+   target minimum) — the label still ships in the DOM for screen
+   readers, just visually hidden. */
+@media (max-width: 600px) {
+  .chat-fab {
+    padding: 0;
+    width: 44px;
+    height: 44px;
+    justify-content: center;
+    border-radius: 999px;
+    right: 12px;
+    /* Sit a notch closer to the nav so it eats less list space. */
+    bottom: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px);
+  }
+  .chat-fab-glyph {
+    font-size: 0.95rem;
+    transform: rotate(-90deg);
+  }
+  .chat-fab-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
 /* Drawer overlay + backdrop */
 .chat-overlay {
   position: fixed;
@@ -5472,7 +5502,11 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 .portfolio-stack-row {
   display: grid;
-  grid-template-columns: 32px 1fr 48px;
+  /* Value column auto-sizes to its (variable-width) numeric content
+     instead of being clamped to 48px while the value's own
+     ``min-width: 100px`` happily overflowed past the right edge of
+     narrow phone viewports. */
+  grid-template-columns: 32px minmax(0, 1fr) auto;
   gap: var(--space-sm);
   align-items: center;
   font-variant-numeric: tabular-nums;
@@ -5581,6 +5615,12 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 
 /* ── Portfolio Summary (front-office dashboard) ─────────────────── */
+.portfolio-empty-inline {
+  font-size: 0.7rem;
+  color: var(--muted);
+  padding: 8px 0;
+  font-style: italic;
+}
 .portfolio-empty {
   padding: var(--space-md);
   color: var(--muted);
@@ -5677,11 +5717,22 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   color: var(--text);
   font-size: 0.76rem;
   text-align: right;
-  min-width: 100px;
+  white-space: nowrap;
 }
 .portfolio-stack-meta {
   color: var(--muted);
   font-size: 0.66rem;
+}
+@media (max-width: 480px) {
+  /* On narrow phones the inline meta ("· 28 · 45%") doubles the
+     column width — drop it under the headline number so the bar
+     keeps room to breathe. */
+  .portfolio-stack-meta {
+    display: block;
+    text-align: right;
+    font-size: 0.6rem;
+    line-height: 1.1;
+  }
 }
 .portfolio-stack-fill {
   background: linear-gradient(90deg, var(--cyan), var(--green));
@@ -6317,32 +6368,46 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 .pmm-vol-pill--high { color: var(--red); border-color: rgba(248, 113, 113, 0.4); }
 .pmm-vol-pill--none { color: var(--muted); }
 
-/* Mobile: collapse table to 3 columns (name+dot, delta, spark) */
+/* Mobile: collapse table to a 2-row card layout.
+ *
+ * Each meta column (pos / value / vol) gets its own grid cell on the
+ * second row.  The previous template assigned all three to the same
+ * ``meta`` named area, which caused them to render stacked on top of
+ * each other — visible as garbled glyphs like "Q,B54" / "8VRC9" where
+ * the position pill, value, and volatility pill all painted into the
+ * same x/y. */
 @media (max-width: 600px) {
   /* Movers table → card layout */
   .pmm-head { display: none; }
   .pmm-row-trigger {
-    grid-template-columns: minmax(0, 1fr) 56px 60px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     grid-template-areas:
-      "name delta spark"
-      "meta meta  meta";
+      "name  delta spark"
+      "pos   value vol";
+    column-gap: 8px;
     row-gap: 4px;
     min-height: 52px;
+    align-items: center;
   }
   .pmm-col--name  { grid-area: name; }
-  .pmm-col--delta { grid-area: delta; }
-  .pmm-col--spark { grid-area: spark; }
-  .pmm-col--pos,
-  .pmm-col--value,
-  .pmm-col--vol {
-    grid-area: meta;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+  .pmm-col--delta { grid-area: delta; min-width: 40px; }
+  .pmm-col--spark { grid-area: spark; min-width: 56px; }
+  .pmm-col--pos {
+    grid-area: pos;
     justify-self: start;
-    font-size: 0.7rem;
+    font-size: 0.66rem;
   }
-  .pmm-col--value { color: var(--muted); }
+  .pmm-col--value {
+    grid-area: value;
+    justify-self: end;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+  .pmm-col--vol {
+    grid-area: vol;
+    justify-self: end;
+    font-size: 0.66rem;
+  }
 
   /* Bump small tabs/chips so thumbs land cleanly.  44px is the iOS
      HIG minimum; we accept 36px here because every tap target sits

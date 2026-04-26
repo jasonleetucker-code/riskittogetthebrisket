@@ -4,6 +4,7 @@ import {
   normalizePoints,
   computeWindowTrend,
   computeVolatility,
+  buildHistoryLookup,
 } from "@/lib/value-history";
 
 /**
@@ -197,6 +198,13 @@ export function computePortfolio({ rows, selectedTeam, rawData, history }) {
   const byName = new Map();
   for (const r of rows) byName.set(String(r.name).toLowerCase(), r);
 
+  // Backend rank-history keys are stamped as "{Name}::{asset_class}",
+  // so a bare ``history[name]`` lookup misses every entry — which
+  // collapsed every player into the volatility/age "unknown" bucket.
+  // ``buildHistoryLookup`` strips the suffix and supports scope-aware
+  // disambiguation via the row's assetClass.
+  const lookupHistory = buildHistoryLookup(history);
+
   // Build per-player value objects with position, age, volatility.
   const rosterValues = [];
   const unresolved = [];
@@ -208,7 +216,7 @@ export function computePortfolio({ rows, selectedTeam, rawData, history }) {
     }
     const pos = normalizePos(row.pos);
     const value = Number(row.rankDerivedValue || row.values?.full || 0);
-    const points = normalizePoints(history?.[row.name] || history?.[name] || []);
+    const points = normalizePoints(lookupHistory(row.name, row.assetClass));
     const vol = computeVolatility(points, 30);
     rosterValues.push({
       name: row.name,

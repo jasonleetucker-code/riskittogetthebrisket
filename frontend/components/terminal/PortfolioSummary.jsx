@@ -212,36 +212,63 @@ export default function PortfolioSummary() {
       </section>
 
       {/* ── Age mix (value-weighted) ── */}
-      <section className="portfolio-section">
-        <h3 className="portfolio-section-title">Age mix (by value)</h3>
-        <div className="portfolio-seg-bar" role="img" aria-label="Age distribution">
-          {AGE_ORDER.map((a) => {
-            const entry = byAge[a.key];
-            if (!entry || entry.pct === 0) return null;
-            return (
-              <span
-                key={a.key}
-                className={`portfolio-seg portfolio-seg--age-${a.key}`}
-                style={{ flex: entry.pct }}
-                title={`${a.label}: ${formatPct(entry.pct)} · ${entry.count} player${entry.count === 1 ? "" : "s"}`}
-              />
-            );
-          })}
-        </div>
-        <div className="portfolio-seg-legend">
-          {AGE_ORDER.map((a) => {
-            const entry = byAge[a.key];
-            if (!entry || entry.count === 0) return null;
-            return (
-              <span key={a.key} className="portfolio-seg-legend-item">
-                <span className={`portfolio-seg-swatch portfolio-seg--age-${a.key}`} aria-hidden="true" />
-                <span className="portfolio-seg-legend-label">{a.label}</span>
-                <span className="portfolio-seg-legend-value">{formatPct(entry.pct)}</span>
-              </span>
-            );
-          })}
-        </div>
-      </section>
+      {(() => {
+        // When every resolved player is in the "unknown" bucket the
+        // section adds nothing but a flat purple bar with a confused
+        // "? 100%" legend.  That happens when the contract hasn't
+        // stamped birthdates (e.g. a fresh league sync, or a Sleeper
+        // outage) — surface that state honestly instead of pretending
+        // the data is meaningful.
+        const unknownEntry = byAge?.unknown;
+        const totalAgeCount = AGE_ORDER.reduce(
+          (acc, a) => acc + (byAge?.[a.key]?.count || 0),
+          0,
+        );
+        const allUnknown =
+          totalAgeCount > 0 &&
+          unknownEntry &&
+          unknownEntry.count === totalAgeCount;
+        return (
+          <section className="portfolio-section">
+            <h3 className="portfolio-section-title">Age mix (by value)</h3>
+            {allUnknown ? (
+              <div className="portfolio-empty-inline">
+                Age data unavailable for this roster.
+              </div>
+            ) : (
+              <>
+                <div className="portfolio-seg-bar" role="img" aria-label="Age distribution">
+                  {AGE_ORDER.map((a) => {
+                    const entry = byAge[a.key];
+                    if (!entry || entry.pct === 0) return null;
+                    return (
+                      <span
+                        key={a.key}
+                        className={`portfolio-seg portfolio-seg--age-${a.key}`}
+                        style={{ flex: entry.pct }}
+                        title={`${a.label}: ${formatPct(entry.pct)} · ${entry.count} player${entry.count === 1 ? "" : "s"}`}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="portfolio-seg-legend">
+                  {AGE_ORDER.map((a) => {
+                    const entry = byAge[a.key];
+                    if (!entry || entry.count === 0) return null;
+                    return (
+                      <span key={a.key} className="portfolio-seg-legend-item">
+                        <span className={`portfolio-seg-swatch portfolio-seg--age-${a.key}`} aria-hidden="true" />
+                        <span className="portfolio-seg-legend-label">{a.label}</span>
+                        <span className="portfolio-seg-legend-value">{formatPct(entry.pct)}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </section>
+        );
+      })()}
 
       {/* ── Volatility exposure ── */}
       <section className="portfolio-section">

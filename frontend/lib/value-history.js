@@ -186,12 +186,14 @@ export function computeTeamValueSeries({ rosterNames, history, valueFromRank }) 
   if (typeof valueFromRank !== "function") return [];
 
   // Build per-player sorted point lists, keyed by lowercased name.
+  // History keys are scoped ("Name::offense"), so use the shared
+  // helper instead of bare ``history[name]`` (which misses every key).
+  const lookup = buildHistoryLookup(history);
   const byName = new Map();
   for (const name of rosterNames) {
     const key = String(name).toLowerCase();
     if (byName.has(key)) continue;
-    const raw = history[name] || history[key] || findCaseInsensitive(history, name);
-    byName.set(key, normalizePoints(raw));
+    byName.set(key, normalizePoints(lookup(name)));
   }
 
   // Find the intersection of dates across all players with coverage.
@@ -229,12 +231,52 @@ export function computeTeamValueSeries({ rosterNames, history, valueFromRank }) 
   return series;
 }
 
-function findCaseInsensitive(obj, name) {
-  const needle = String(name).toLowerCase();
-  for (const key of Object.keys(obj)) {
-    if (key.toLowerCase() === needle) return obj[key];
+/**
+ * Build a fast scope-aware lookup over a /api/data/rank-history map.
+ *
+ * Backend keys are stamped as ``"{Display Name}::{asset_class}"`` (see
+ * ``src/api/rank_history.py::_player_key``).  Frontend rows only carry
+ * the bare ``name`` (and an optional ``assetClass``), so every consumer
+ * needs to strip / split the keys to get a hit — the previous bare
+ * ``history[name]`` lookup missed every row, which is why "Top
+ * Gainers" rendered as all-dashes and the portfolio age/volatility
+ * mix collapsed into the "unknown" bucket.
+ *
+ * The returned function accepts ``(name, assetClass?)`` and returns
+ * the raw history series (or ``[]``).  When the same display name
+ * appears under multiple asset classes (rare offense/IDP collisions
+ * — e.g. "Devin Singletary" if a defender ever shared the name), the
+ * caller can disambiguate by passing ``assetClass``.
+ */
+export function buildHistoryLookup(history) {
+  if (!history || typeof history !== "object") return () => [];
+  const byName = new Map();        // lowercased clean name → series
+  const byScoped = new Map();      // "name::scope" → series
+  for (const rawKey of Object.keys(history)) {
+    const series = history[rawKey];
+    const idx = rawKey.indexOf("::");
+    const cleanName = (idx >= 0 ? rawKey.slice(0, idx) : rawKey).trim().toLowerCase();
+    const scope = (idx >= 0 ? rawKey.slice(idx + 2) : "").trim().toLowerCase();
+    if (scope) {
+      byScoped.set(`${cleanName}::${scope}`, series);
+    }
+    // First-write wins so that a scope-collision doesn't overwrite a
+    // legitimate primary entry; callers passing assetClass still get
+    // the precise scoped series via byScoped.
+    if (!byName.has(cleanName)) {
+      byName.set(cleanName, series);
+    }
   }
-  return null;
+  return (name, assetClass) => {
+    if (!name) return [];
+    const lowered = String(name).toLowerCase();
+    const ac = String(assetClass || "").toLowerCase();
+    if (ac) {
+      const scoped = byScoped.get(`${lowered}::${ac}`);
+      if (scoped) return scoped;
+    }
+    return byName.get(lowered) || [];
+  };
 }
 
 /**
