@@ -252,6 +252,7 @@ export function buildHistoryLookup(history) {
   if (!history || typeof history !== "object") return () => [];
   const byName = new Map();        // lowercased clean name → series
   const byScoped = new Map();      // "name::scope" → series
+  const nameVariantCount = new Map(); // lowercased name → number of distinct scopes
   for (const rawKey of Object.keys(history)) {
     const series = history[rawKey];
     const idx = rawKey.indexOf("::");
@@ -260,12 +261,13 @@ export function buildHistoryLookup(history) {
     if (scope) {
       byScoped.set(`${cleanName}::${scope}`, series);
     }
-    // First-write wins so that a scope-collision doesn't overwrite a
-    // legitimate primary entry; callers passing assetClass still get
-    // the precise scoped series via byScoped.
+    // First-write wins so that a scope-collision doesn't silently
+    // overwrite a legitimate primary entry; callers passing
+    // assetClass still get the precise scoped series via byScoped.
     if (!byName.has(cleanName)) {
       byName.set(cleanName, series);
     }
+    nameVariantCount.set(cleanName, (nameVariantCount.get(cleanName) || 0) + 1);
   }
   return (name, assetClass) => {
     if (!name) return [];
@@ -275,6 +277,11 @@ export function buildHistoryLookup(history) {
       const scoped = byScoped.get(`${lowered}::${ac}`);
       if (scoped) return scoped;
     }
+    // Bare-name path: refuse to pick arbitrarily when the same
+    // display name maps to multiple scopes (e.g. cross-universe
+    // offense/IDP collision).  Returning [] is the conservative
+    // choice — better "no chart" than "wrong chart".
+    if ((nameVariantCount.get(lowered) || 0) > 1) return [];
     return byName.get(lowered) || [];
   };
 }

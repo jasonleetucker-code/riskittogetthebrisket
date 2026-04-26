@@ -127,7 +127,10 @@ function MoverRow({ row, openPlayerPopup }) {
                 e.stopPropagation();
                 // Look up the row in the live rankings + open the
                 // popup so the user gets the full per-source detail.
-                openPlayerPopup({ name: row.name });
+                // Pass ``assetClass`` so cross-universe name
+                // collisions (offense vs IDP) resolve to the right
+                // contract row downstream.
+                openPlayerPopup({ name: row.name, assetClass: row.assetClass });
               }}
               style={{
                 marginLeft: "auto",
@@ -217,7 +220,11 @@ export default function MoversPanel() {
               </div>
             ) : (
               risers.map((r) => (
-                <MoverRow key={`up-${r.name}`} row={r} openPlayerPopup={openPlayerPopup} />
+                <MoverRow
+                  key={`up-${r.name}::${r.assetClass || "x"}`}
+                  row={r}
+                  openPlayerPopup={openPlayerPopup}
+                />
               ))
             )}
           </div>
@@ -231,7 +238,11 @@ export default function MoversPanel() {
               </div>
             ) : (
               fallers.map((r) => (
-                <MoverRow key={`down-${r.name}`} row={r} openPlayerPopup={openPlayerPopup} />
+                <MoverRow
+                  key={`down-${r.name}::${r.assetClass || "x"}`}
+                  row={r}
+                  openPlayerPopup={openPlayerPopup}
+                />
               ))
             )}
           </div>
