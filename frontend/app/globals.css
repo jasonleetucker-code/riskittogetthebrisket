@@ -1844,11 +1844,14 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   }
 }
 
-/* ── Player cell layout (name + team/age + chips on one line) ──────── */
+/* ── Player cell layout (headshot + name + team/age + chips on one line) ──── */
 .rankings-player-cell {
   display: flex;
-  align-items: baseline;
-  gap: 6px;
+  /* center alignment so the player headshot avatar lines up with the
+     text baseline; chips inherit normal vertical-centering and look
+     unchanged from the previous baseline-aligned layout. */
+  align-items: center;
+  gap: 8px;
   flex-wrap: wrap;
 }
 

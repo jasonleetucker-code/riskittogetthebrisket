@@ -4,6 +4,7 @@
 // Extracted from page.jsx to keep the tab file lean.
 
 import { Card, EmptyCard, fmtNumber, fmtPoints } from "../shared.jsx";
+import { PlayerImage } from "@/components/ui";
 
 const POSITION_LABELS = {
   QB: "Quarterbacks",
@@ -111,17 +112,26 @@ function RecordsSection({ data }) {
                   <div style={{ fontWeight: 700, marginBottom: 6, fontSize: "0.86rem" }}>
                     {POSITION_LABELS[pos] || pos}
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     {rows.slice(0, 5).map((r, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.74rem" }}>
-                        <span>
-                          <span style={{ color: "var(--subtext)", marginRight: 4 }}>{i + 1}.</span>
-                          {r.playerName || r.playerId}
-                          <span style={{ color: "var(--subtext)", marginLeft: 4 }}>
-                            ({r.displayName}, {r.season} wk {r.week})
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.74rem", gap: 6 }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1 }}>
+                          <span style={{ color: "var(--subtext)", fontFamily: "var(--mono)" }}>{i + 1}.</span>
+                          <PlayerImage
+                            playerId={r.playerId}
+                            team={r.team}
+                            position={pos}
+                            name={r.playerName}
+                            size={22}
+                          />
+                          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {r.playerName || r.playerId}
+                            <span style={{ color: "var(--subtext)", marginLeft: 4 }}>
+                              ({r.displayName}, {r.season} wk {r.week})
+                            </span>
                           </span>
                         </span>
-                        <span style={{ fontFamily: "var(--mono)", color: "var(--cyan)" }}>
+                        <span style={{ fontFamily: "var(--mono)", color: "var(--cyan)", flexShrink: 0 }}>
                           {fmtPoints(r.points)}
                         </span>
                       </div>

@@ -14,3 +14,5 @@ export {
   segmentRowsByTier,
 } from "./TierDivider";
 export { default as MonteCarloButton } from "./MonteCarloButton";
+export { default as PlayerImage } from "./PlayerImage";
+export { default as NflTeamLogo } from "./NflTeamLogo";

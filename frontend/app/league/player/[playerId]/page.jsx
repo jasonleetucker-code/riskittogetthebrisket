@@ -8,7 +8,7 @@
 import Link from "next/link";
 import { Avatar, Card, Stat } from "../../shared-server.jsx";
 import { buildManagerLookup, fmtPoints } from "../../shared-helpers.js";
-import { EmptyState, PageHeader } from "@/components/ui";
+import { EmptyState, PageHeader, PlayerImage } from "@/components/ui";
 import ShareButton from "../../ShareButton.jsx";
 
 function _backend() {
@@ -86,16 +86,27 @@ export default async function PlayerJourneyPage({ params }) {
         <div style={{ fontSize: "0.72rem", marginBottom: 6 }}>
           <Link href="/league" style={{ color: "var(--cyan)" }}>← League home</Link>
         </div>
-        <PageHeader
-          title={ident.playerName || ident.playerId}
-          subtitle={[
-            ident.position || "?",
-            ident.nflTeam || null,
-            ident.yearsExp !== null && ident.yearsExp !== undefined
-              ? `${ident.yearsExp} yr${ident.yearsExp === 1 ? "" : "s"} exp`
-              : null,
-          ].filter(Boolean).join(" · ")}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 4 }}>
+          <PlayerImage
+            playerId={ident.playerId}
+            team={ident.nflTeam}
+            position={ident.position}
+            name={ident.playerName}
+            size={72}
+          />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <PageHeader
+              title={ident.playerName || ident.playerId}
+              subtitle={[
+                ident.position || "?",
+                ident.nflTeam || null,
+                ident.yearsExp !== null && ident.yearsExp !== undefined
+                  ? `${ident.yearsExp} yr${ident.yearsExp === 1 ? "" : "s"} exp`
+                  : null,
+              ].filter(Boolean).join(" · ")}
+            />
+          </div>
+        </div>
         <div>
           <ShareButton
             label="Share journey"
