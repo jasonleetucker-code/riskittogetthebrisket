@@ -303,6 +303,81 @@ export default function SettingsPage() {
         />
       </Section>
 
+      {/* IDP Scoring Fit — global toggle + weight slider.  When ON,
+          IDP rows everywhere (rankings board, trade calculator, trade
+          suggestions, trade finder, popup) substitute
+          ``consensus + delta × scoringFitWeight`` for the consensus
+          value.  Slider changes values + ranks instantly without a
+          backend round-trip. */}
+      <Section title="IDP Scoring Fit" defaultOpen>
+        <div style={{ fontSize: "0.72rem", marginBottom: 10 }} className="muted">
+          Adjusts IDP values + ranks based on how your league&apos;s stacked
+          scoring rules rate each player vs the 19-source consensus market.
+          Positive delta = your league overvalues consensus (buy-low candidate);
+          negative = market overpays vs your scoring (sell-high). Backend
+          stamps the raw delta; the slider controls how aggressively that
+          delta moves the displayed value. Off = consensus board.
+        </div>
+        <ToggleRow
+          label="Apply Scoring Fit globally"
+          checked={!!settings.applyScoringFit}
+          onChange={(v) => update("applyScoringFit", v)}
+          hint="Affects /rankings, /trade, suggestions, finder, and player popups"
+        />
+        {/* Weight slider with preset buttons.  Disabled when toggle is off
+            since the value would have no effect. */}
+        <div style={{ marginTop: 12, opacity: settings.applyScoringFit ? 1 : 0.5 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+            <label style={{ fontSize: "0.82rem" }}>Adjustment strength</label>
+            <code style={{ fontFamily: "var(--mono)", fontSize: "0.78rem", color: "var(--cyan)" }}>
+              {Math.round((settings.scoringFitWeight ?? 0.30) * 100)}%
+            </code>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={Math.round((settings.scoringFitWeight ?? 0.30) * 100)}
+            onChange={(e) => update("scoringFitWeight", Number(e.target.value) / 100)}
+            disabled={!settings.applyScoringFit}
+            style={{ width: "100%" }}
+          />
+          <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+            {[
+              { label: "Off", value: 0.0 },
+              { label: "Conservative", value: 0.15 },
+              { label: "Moderate", value: 0.30 },
+              { label: "Strong", value: 0.50 },
+              { label: "Full", value: 1.0 },
+            ].map((preset) => {
+              const cur = settings.scoringFitWeight ?? 0.30;
+              const active = Math.abs(cur - preset.value) < 0.01;
+              return (
+                <button
+                  key={preset.label}
+                  type="button"
+                  className={`button${active ? " button-primary" : ""}`}
+                  style={{ fontSize: "0.72rem" }}
+                  disabled={!settings.applyScoringFit}
+                  onClick={() => update("scoringFitWeight", preset.value)}
+                  title={`Apply delta at ${Math.round(preset.value * 100)}% strength`}
+                >
+                  {preset.label}
+                  {active ? " ✓" : ""}
+                </button>
+              );
+            })}
+          </div>
+          <div className="muted" style={{ fontSize: "0.68rem", marginTop: 6, lineHeight: 1.4 }}>
+            Recommended: <strong>Moderate (30%)</strong> — a one-tier nudge for median deltas.
+            Strong (50%) and Full (100%) are aggressive — only use if you fully trust the lens
+            on your specific league&apos;s scoring rules.
+          </div>
+        </div>
+        <ScoringFitHealth />
+      </Section>
+
       <Section title="Ranking Sources" defaultOpen>
         <div style={{ fontSize: "0.72rem", marginBottom: 10 }} className="muted">
           Every registered source contributes equally (default weight 1.0) to the
@@ -601,6 +676,120 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ── ScoringFit health panel ─────────────────────────────────────────
+// Renders inside the IDP Scoring Fit settings section.  Shows what
+// the latest backend pass produced — counts, distribution, top movers,
+// cache freshness — so the operator can spot silent regressions early
+// (e.g. nflverse schema drift dropping the cross-walk size).
+//
+// Reads ``/api/idp-fit-health``, refreshes every 60s.
+function ScoringFitHealth() {
+  const [health, setHealth] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchHealth = useCallback(async () => {
+    try {
+      const res = await fetch("/api/idp-fit-health");
+      if (res.ok) setHealth(await res.json());
+      else setHealth({ error: `HTTP ${res.status}` });
+    } catch {
+      setHealth({ error: "Backend unreachable" });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHealth();
+    const interval = setInterval(fetchHealth, 60000);
+    return () => clearInterval(interval);
+  }, [fetchHealth]);
+
+  if (loading) {
+    return (
+      <div className="muted text-xs" style={{ marginTop: 12 }}>
+        Loading scoring-fit health…
+      </div>
+    );
+  }
+  if (!health || health.error) {
+    return (
+      <div className="muted text-xs" style={{ marginTop: 12, color: "var(--red)" }}>
+        Health endpoint unavailable: {health?.error || "unknown error"}
+      </div>
+    );
+  }
+
+  const dist = health.delta_distribution || {};
+  const conf = health.confidence_breakdown || {};
+
+  return (
+    <div style={{ marginTop: 16, padding: 10, background: "rgba(20, 25, 36, 0.5)", borderRadius: 4, border: "1px solid var(--border)" }}>
+      <div style={{ fontSize: "0.72rem", fontWeight: 600, marginBottom: 8, color: "var(--cyan)" }}>
+        Pipeline health
+        {!health.flag_on && (
+          <span className="muted" style={{ marginLeft: 8, fontSize: "0.68rem", fontWeight: 400 }}>
+            (flag is OFF — values shown reflect last build before flag flip)
+          </span>
+        )}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, fontSize: "0.72rem" }}>
+        <div>
+          <div className="muted text-xs">IDP coverage</div>
+          <div style={{ fontFamily: "var(--mono, monospace)" }}>
+            {health.with_delta} / {health.idp_total} stamped (
+            {health.idp_total > 0 ? Math.round(100 * health.with_delta / health.idp_total) : 0}%)
+          </div>
+        </div>
+        <div>
+          <div className="muted text-xs">Synthetic rookies</div>
+          <div style={{ fontFamily: "var(--mono, monospace)" }}>{health.synthetic_rookies}</div>
+        </div>
+        <div>
+          <div className="muted text-xs">Confidence</div>
+          <div style={{ fontFamily: "var(--mono, monospace)", fontSize: "0.68rem" }}>
+            H{conf.high || 0} M{conf.medium || 0} L{conf.low || 0} ·{" "}
+            {conf.none_or_sentinel || 0} sentinel
+          </div>
+        </div>
+        <div title="P25 / median / P75 of the per-IDP delta distribution.  Wide ranges mean the league diverges from consensus on a lot of players.">
+          <div className="muted text-xs">Delta spread</div>
+          <div style={{ fontFamily: "var(--mono, monospace)", fontSize: "0.68rem" }}>
+            {dist.p25} / {dist.median} / {dist.p75}
+          </div>
+        </div>
+        <div>
+          <div className="muted text-xs">Cache age</div>
+          <div style={{ fontFamily: "var(--mono, monospace)", fontSize: "0.68rem" }}>
+            {health.cache_age_seconds?.sleeper_players != null
+              ? `${Math.round(health.cache_age_seconds.sleeper_players / 60)}m`
+              : "—"}{" "}/{" "}
+            {health.cache_age_seconds?.league_context != null
+              ? `${Math.round(health.cache_age_seconds.league_context / 60)}m`
+              : "—"}
+          </div>
+        </div>
+      </div>
+      {health.top_positive?.length > 0 && (
+        <div style={{ marginTop: 10, fontSize: "0.7rem" }}>
+          <div className="muted text-xs">Top buy-low (largest positive delta)</div>
+          <div style={{ fontFamily: "var(--mono, monospace)" }}>
+            {health.top_positive.slice(0, 5).map((p) => `${p.name} ${p.position} +${Math.round(p.delta)}`).join(" · ")}
+          </div>
+        </div>
+      )}
+      {health.top_negative?.length > 0 && (
+        <div style={{ marginTop: 6, fontSize: "0.7rem" }}>
+          <div className="muted text-xs">Top sell-high (largest negative delta)</div>
+          <div style={{ fontFamily: "var(--mono, monospace)" }}>
+            {health.top_negative.slice(0, 5).map((p) => `${p.name} ${p.position} ${Math.round(p.delta)}`).join(" · ")}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -54,7 +54,7 @@ const BUDGETS_KB = {
   "/league/page": 165, // public hub bundles every section together
   "/rosters/page": 30,
   "/trades/page": 20,
-  "/settings/page": 30,
+  "/settings/page": 35,  // bumped from 30 for the IDP scoring-fit panel + health dashboard
   "/login/page": 15,
   "/more/page": 10,
 };

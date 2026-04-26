@@ -156,6 +156,12 @@ def main() -> int:
                         help="Minimum fit-positive count to pass.  "
                              "Default 0 = use the recalibrated principled gate "
                              "(fit_positive > fit_negative AND ≥20%% floor).")
+    parser.add_argument("--snapshot", default=None,
+                        help="Path to a captured snapshot from "
+                             "scripts/capture_idp_fit_snapshot.py.  When "
+                             "provided, the consensus values are read from "
+                             "the snapshot (point-in-time) instead of the "
+                             "current contract — true historical backtest.")
     args = parser.parse_args()
 
     print("Phase 1 IDP scoring-fit backtest")
@@ -253,9 +259,38 @@ def main() -> int:
     ]
 
     # Consensus values.
-    contract = _load_latest_contract()
-    consensus_by_gsis = _consensus_by_gsis(contract, sleeper_to_gsis, id_map)
-    print(f"Consensus contract loaded: {len(consensus_by_gsis)} IDP value entries")
+    if args.snapshot:
+        # Historical replay: read consensus values from a captured
+        # snapshot (point-in-time as of when the snapshot was made).
+        snap_path = _REPO_ROOT / args.snapshot if not Path(args.snapshot).is_absolute() else Path(args.snapshot)
+        try:
+            snapshot = json.loads(snap_path.read_text())
+        except Exception as exc:  # noqa: BLE001
+            print(f"ERROR: failed to read snapshot {snap_path}: {exc}", file=sys.stderr)
+            return 2
+        # Map name → consensus from the snapshot.  The captured snapshot
+        # has both ``name`` and ``playerId`` so we can join via name
+        # (which we have from gsis_to_name) regardless of cross-walk
+        # gaps.  Convert to a gsis-keyed dict to match the existing
+        # downstream code.
+        name_to_consensus: dict[str, float] = {}
+        for p in snapshot.get("players") or []:
+            nm = p.get("name")
+            cv = p.get("consensus")
+            if isinstance(nm, str) and isinstance(cv, (int, float)) and cv > 0:
+                name_to_consensus[nm] = float(cv)
+        consensus_by_gsis = {
+            gsis: name_to_consensus[nm]
+            for gsis, nm in gsis_to_name.items()
+            if nm in name_to_consensus
+        }
+        print(f"Snapshot ({snap_path.name}, {snapshot.get('captured_at')}): "
+              f"{len(name_to_consensus)} IDP entries → "
+              f"{len(consensus_by_gsis)} after gsis join")
+    else:
+        contract = _load_latest_contract()
+        consensus_by_gsis = _consensus_by_gsis(contract, sleeper_to_gsis, id_map)
+        print(f"Consensus contract loaded: {len(consensus_by_gsis)} IDP value entries")
     print(f"VORP table rows: {len(vorp_rows)} (season_rows: {len(season_rows)})")
     # Diagnose the top-N join.
     join_have_vorp = sum(1 for r in top_n if vorp_by_id.get(r.player_id) is not None)

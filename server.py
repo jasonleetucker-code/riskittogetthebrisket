@@ -2750,6 +2750,154 @@ async def get_leagues(request: Request):
     return JSONResponse(content=body, headers={"Cache-Control": "no-store"})
 
 
+@app.get("/api/idp-fit-health")
+async def get_idp_fit_health():
+    """Diagnostic endpoint for the IDP scoring-fit pipeline.
+
+    Returns counts + distributions describing what the latest contract
+    build produced.  Used by the ``/league?tab=idp-fit-health`` admin
+    view to catch silent regressions early — if the cross-walk drops
+    from 7,000 to 800 next time nflverse changes their schema, the
+    operator sees it immediately instead of through user reports.
+
+    Public read-only endpoint (same shape as ``/api/status``).
+    """
+    contract = latest_contract_data or {}
+    arr = contract.get("playersArray") or []
+    if not isinstance(arr, list):
+        arr = []
+
+    idp_total = 0
+    with_delta = 0
+    with_adjusted = 0
+    synthetic = 0
+    realized_high = 0
+    realized_medium = 0
+    realized_low = 0
+    sentinel = 0
+    deltas: list[float] = []
+    by_position: dict[str, dict[str, Any]] = {}
+    top_positive: list[dict[str, Any]] = []
+    top_negative: list[dict[str, Any]] = []
+
+    _idp_set = {"DL", "DT", "DE", "EDGE", "NT", "LB", "ILB", "OLB", "MLB",
+                "DB", "CB", "S", "FS", "SS"}
+    for row in arr:
+        if not isinstance(row, dict):
+            continue
+        pos = str(row.get("position") or "").upper()
+        if pos not in _idp_set:
+            continue
+        idp_total += 1
+        delta = row.get("idpScoringFitDelta")
+        if isinstance(delta, (int, float)):
+            with_delta += 1
+            deltas.append(float(delta))
+            entry = {
+                "name": row.get("displayName"),
+                "position": pos,
+                "delta": float(delta),
+                "consensus": row.get("rankDerivedValue"),
+                "tier": row.get("idpScoringFitTier"),
+                "confidence": row.get("idpScoringFitConfidence"),
+                "synthetic": bool(row.get("idpScoringFitSynthetic")),
+            }
+            if delta > 0:
+                top_positive.append(entry)
+            else:
+                top_negative.append(entry)
+        if isinstance(row.get("idpScoringFitAdjustedValue"), (int, float)):
+            with_adjusted += 1
+        if row.get("idpScoringFitSynthetic"):
+            synthetic += 1
+        conf = row.get("idpScoringFitConfidence")
+        if conf == "high":
+            realized_high += 1
+        elif conf == "medium":
+            realized_medium += 1
+        elif conf == "low":
+            realized_low += 1
+        else:
+            sentinel += 1
+        # Per-position counts.
+        by_position.setdefault(pos, {"count": 0, "with_delta": 0,
+                                     "synthetic": 0, "delta_sum": 0.0})
+        by_position[pos]["count"] += 1
+        if isinstance(delta, (int, float)):
+            by_position[pos]["with_delta"] += 1
+            by_position[pos]["delta_sum"] += float(delta)
+        if row.get("idpScoringFitSynthetic"):
+            by_position[pos]["synthetic"] += 1
+
+    # Average delta per position.
+    for v in by_position.values():
+        v["avg_delta"] = (
+            round(v["delta_sum"] / v["with_delta"], 1)
+            if v["with_delta"] > 0 else None
+        )
+        del v["delta_sum"]
+
+    deltas.sort()
+    n = len(deltas)
+    distribution = {
+        "n": n,
+        "min": round(deltas[0], 1) if n else None,
+        "p25": round(deltas[n // 4], 1) if n >= 4 else None,
+        "median": round(deltas[n // 2], 1) if n else None,
+        "p75": round(deltas[(3 * n) // 4], 1) if n >= 4 else None,
+        "max": round(deltas[-1], 1) if n else None,
+        "mean": round(sum(deltas) / n, 1) if n else None,
+    }
+
+    top_positive.sort(key=lambda e: -e["delta"])
+    top_negative.sort(key=lambda e: e["delta"])
+
+    # Feature flag state + cache freshness.
+    from src.api import feature_flags as _ff
+    flag_on = _ff.is_enabled("idp_scoring_fit")
+    try:
+        from src.scoring.idp_scoring_fit_apply import (  # noqa: PLC0415
+            _SLEEPER_PLAYERS_CACHE, _IDP_LEAGUE_CONTEXT_CACHE,
+        )
+        sleeper_cache_age = (
+            time.time() - float(_SLEEPER_PLAYERS_CACHE.get("fetched_at") or 0)
+            if _SLEEPER_PLAYERS_CACHE.get("idmap") else None
+        )
+        ctx_cache_age = (
+            time.time() - float(_IDP_LEAGUE_CONTEXT_CACHE.get("fetched_at") or 0)
+            if _IDP_LEAGUE_CONTEXT_CACHE.get("ctx") else None
+        )
+    except Exception:  # noqa: BLE001
+        sleeper_cache_age = None
+        ctx_cache_age = None
+
+    return JSONResponse(content={
+        "flag_on": flag_on,
+        "idp_total": idp_total,
+        "with_delta": with_delta,
+        "with_adjusted_value": with_adjusted,
+        "synthetic_rookies": synthetic,
+        "confidence_breakdown": {
+            "high": realized_high,
+            "medium": realized_medium,
+            "low": realized_low,
+            "none_or_sentinel": sentinel,
+        },
+        "delta_distribution": distribution,
+        "by_position": by_position,
+        "top_positive": top_positive[:10],
+        "top_negative": top_negative[:10],
+        "cache_age_seconds": {
+            "sleeper_players": (
+                round(sleeper_cache_age, 1) if sleeper_cache_age is not None else None
+            ),
+            "league_context": (
+                round(ctx_cache_age, 1) if ctx_cache_age is not None else None
+            ),
+        },
+    })
+
+
 @app.get("/api/status")
 async def get_status():
     """Return scraper status info."""
@@ -3571,6 +3719,12 @@ async def post_angle_find(request: Request):
 
     from src.trade.angle import find_angles
 
+    angle_apply_fit = bool(body.get("applyScoringFit"))
+    try:
+        angle_fit_weight = float(body.get("scoringFitWeight", 0.30))
+    except (TypeError, ValueError):
+        angle_fit_weight = 0.30
+
     try:
         result = await run_in_threadpool(
             find_angles,
@@ -3581,6 +3735,8 @@ async def post_angle_find(request: Request):
             min_my_gain_pct=min_my,
             max_market_gain_pct=max_market,
             limit=limit,
+            apply_scoring_fit=angle_apply_fit,
+            scoring_fit_weight=angle_fit_weight,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Angle find failed: {exc}")
@@ -3722,6 +3878,12 @@ async def post_angle_packages(request: Request):
     ):
         include_idp = True
 
+    angle_apply_fit = bool(body.get("applyScoringFit"))
+    try:
+        angle_fit_weight = float(body.get("scoringFitWeight", 0.30))
+    except (TypeError, ValueError):
+        angle_fit_weight = 0.30
+
     if mode == "acquire":
         from src.trade.angle import find_acquisition_packages
 
@@ -3739,6 +3901,8 @@ async def post_angle_packages(request: Request):
                 positions=positions_req or None,
                 min_player_my_value=min_player,
                 include_idp=include_idp,
+                apply_scoring_fit=angle_apply_fit,
+                scoring_fit_weight=angle_fit_weight,
             )
         except Exception as exc:  # noqa: BLE001
             log.error(f"Angle acquire failed: {exc}")
@@ -3778,6 +3942,8 @@ async def post_angle_packages(request: Request):
             target_team_owner_ids=target_teams_req or None,
             seed_player_names=seeds_req or None,
             include_idp=include_idp,
+            apply_scoring_fit=angle_apply_fit,
+            scoring_fit_weight=angle_fit_weight,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Angle packages failed: {exc}")
@@ -6526,8 +6692,22 @@ async def post_trade_simulate_mc(request: Request):
     side_b_raw = body.get("sideB") or []
     if not isinstance(side_a_raw, list) or not isinstance(side_b_raw, list):
         return JSONResponse(status_code=400, content={"error": "sides_must_be_lists"})
-    side_a = [tp for tp in (_mc.build_trade_player(r) for r in side_a_raw) if tp is not None]
-    side_b = [tp for tp in (_mc.build_trade_player(r) for r in side_b_raw) if tp is not None]
+    # Forward the global Apply Scoring Fit setting so the simulator's
+    # value bands shift by ``delta × weight`` for IDP rows when the
+    # user has the toggle on.
+    mc_fit = bool(body.get("applyScoringFit"))
+    try:
+        mc_weight = float(body.get("scoringFitWeight", 0.30))
+    except (TypeError, ValueError):
+        mc_weight = 0.30
+    side_a = [tp for tp in (
+        _mc.build_trade_player(r, apply_scoring_fit=mc_fit, scoring_fit_weight=mc_weight)
+        for r in side_a_raw
+    ) if tp is not None]
+    side_b = [tp for tp in (
+        _mc.build_trade_player(r, apply_scoring_fit=mc_fit, scoring_fit_weight=mc_weight)
+        for r in side_b_raw
+    ) if tp is not None]
     try:
         n_sims = int(body.get("nSims") or 50000)
     except (TypeError, ValueError):

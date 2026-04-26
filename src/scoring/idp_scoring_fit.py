@@ -420,6 +420,33 @@ def build_rookie_archetype_baseline(
         if len(samples) < 2:
             continue
         out[key] = sum(samples) / len(samples)
+
+    # Family-level aliases (DL/LB/DB).  nflverse position labels for
+    # IDPs are inconsistent — a rookie listed as "S" in Sleeper might
+    # be "FS" or "SS" in nflverse, and a "DE" in Sleeper is often "DL"
+    # in our consensus pipeline.  Building family-level cohorts at
+    # ``(DL, round_n)`` / ``(LB, round_n)`` / ``(DB, round_n)`` lets
+    # the live-rookie lookup fall through when the exact-position
+    # match fails.  Computed by aggregating samples across every
+    # specific position that maps to that family.
+    _FAMILY: dict[str, str] = {
+        "DL": "DL", "DT": "DL", "DE": "DL", "EDGE": "DL", "NT": "DL",
+        "LB": "LB", "ILB": "LB", "OLB": "LB", "MLB": "LB",
+        "DB": "DB", "CB": "DB", "S": "DB", "FS": "DB", "SS": "DB",
+    }
+    by_family: dict[tuple[str, int], list[float]] = defaultdict(list)
+    for (pos, rnd), samples in bucket_samples.items():
+        fam = _FAMILY.get(pos)
+        if fam:
+            by_family[(fam, rnd)].extend(samples)
+    for key, samples in by_family.items():
+        if len(samples) < 2:
+            continue
+        # Only add the family bucket if it doesn't already exist as a
+        # specific position match — exact-position cohorts are
+        # tighter and should win when present.
+        if key not in out:
+            out[key] = sum(samples) / len(samples)
     return out
 
 
@@ -767,10 +794,23 @@ def compute_idp_scoring_fit(
             draft_round, _rookie_season = _resolve_rookie_draft_round(
                 sleeper_id, sleeper_to_gsis, gsis_to_draft
             )
-            cohort_ppg = (
-                rookie_archetype.get((pos, draft_round))
-                if draft_round is not None else None
-            )
+            # Two-tier cohort lookup: exact-position first
+            # (``(EDGE, 1)`` is tighter than ``(DL, 1)``), then fall
+            # through to the position-family bucket so a rookie
+            # listed as "DE" in Sleeper still finds a match against
+            # the broader DL cohort the baseline aggregates.
+            _FAMILY: dict[str, str] = {
+                "DL": "DL", "DT": "DL", "DE": "DL", "EDGE": "DL", "NT": "DL",
+                "LB": "LB", "ILB": "LB", "OLB": "LB", "MLB": "LB",
+                "DB": "DB", "CB": "DB", "S": "DB", "FS": "DB", "SS": "DB",
+            }
+            cohort_ppg = None
+            if draft_round is not None:
+                cohort_ppg = rookie_archetype.get((pos, draft_round))
+                if cohort_ppg is None:
+                    fam = _FAMILY.get(pos)
+                    if fam:
+                        cohort_ppg = rookie_archetype.get((fam, draft_round))
             if cohort_ppg is not None:
                 # Synthetic path: the player gets a PlayerSeasonRow
                 # built from the cohort baseline.  ``games=17`` is the

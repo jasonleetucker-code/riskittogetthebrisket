@@ -27,11 +27,24 @@ players by your calibrated value so the search stays fast.
 """
 from __future__ import annotations
 
+import contextvars
 from itertools import combinations
 from typing import Any, Iterable, Sequence
 
 _IDP_POSITIONS: frozenset[str] = frozenset(
     {"DL", "DE", "DT", "EDGE", "NT", "LB", "ILB", "OLB", "MLB", "DB", "CB", "S", "SS", "FS"}
+)
+
+# Apply Scoring Fit context — set by the public entry points
+# (``find_angles``, ``find_angle_packages``, ``find_acquisition_packages``)
+# and read by ``_value_pair`` deep in the call graph.  Using a ContextVar
+# instead of threading parameters through every helper keeps the call
+# sites readable and avoids 8 places where we'd have to remember to
+# forward the same two args.  The default tuple ``(False, 0.30)``
+# matches the pre-toggle behaviour, so any code path that doesn't set
+# the context (legacy tests, direct helper imports) is unaffected.
+_SCORING_FIT_CTX: contextvars.ContextVar[tuple[bool, float]] = (
+    contextvars.ContextVar("_angle_scoring_fit", default=(False, 0.30))
 )
 
 # KTC-style Value Adjustment (V2) — ports the frontend formula in
@@ -132,6 +145,13 @@ def _value_pair(row: dict[str, Any]) -> tuple[float, float, str] | None:
     ``market_source_key`` is the canonicalSiteValues key used —
     ``"idpTradeCalc"`` for IDP rows, ``"ktc"`` otherwise. Returns
     ``None`` when either value is missing or non-positive.
+
+    Reads the global ``_SCORING_FIT_CTX`` context variable: when the
+    toggle is on, IDP rows substitute
+    ``rankDerivedValue + idpScoringFitDelta × scoring_fit_weight``
+    for the my-league value, clamped to [0, 9999].  Market value is
+    untouched (it's the consensus market we're comparing AGAINST).
+    Offense + picks always use rankDerivedValue.
     """
     my_val = row.get("rankDerivedValue")
     sites = row.get("canonicalSiteValues") or {}
@@ -144,6 +164,17 @@ def _value_pair(row: dict[str, Any]) -> tuple[float, float, str] | None:
         return None
     if my_num <= 0 or market_num <= 0:
         return None
+    # Scoring-fit shift: only on IDP rows, only when toggle on.
+    apply_fit, fit_weight = _SCORING_FIT_CTX.get()
+    if apply_fit and _is_idp_position(row.get("position")):
+        delta = row.get("idpScoringFitDelta")
+        if isinstance(delta, (int, float)):
+            try:
+                w = max(0.0, min(1.0, float(fit_weight)))
+            except (TypeError, ValueError):
+                w = 0.30
+            shifted = my_num + float(delta) * w
+            my_num = max(0.0, min(9999.0, shifted))
     return my_num, market_num, source
 
 
@@ -156,6 +187,8 @@ def find_angles(
     min_my_gain_pct: float = 5.0,
     max_market_gain_pct: float = 5.0,
     limit: int = 50,
+    apply_scoring_fit: bool = False,
+    scoring_fit_weight: float = 0.30,
 ) -> dict[str, Any]:
     """Find trade-target candidates that lean in the user's favour.
 
@@ -186,6 +219,37 @@ def find_angles(
         Market value is in ``market_value``; market source (``ktc``
         vs ``idpTradeCalc``) is in ``market_source``.
     """
+    # Set the scoring-fit context so every ``_value_pair`` call deep
+    # in the call graph sees the same toggle + weight without having
+    # to thread two extra parameters through 8 helpers.  Restored on
+    # exit via the token returned by ``set``.
+    _ctx_token = _SCORING_FIT_CTX.set(
+        (bool(apply_scoring_fit), float(scoring_fit_weight)),
+    )
+    try:
+        return _find_angles_impl(
+            players_array, selected_player_name, selected_team_owner_id,
+            sleeper_teams,
+            min_my_gain_pct=min_my_gain_pct,
+            max_market_gain_pct=max_market_gain_pct,
+            limit=limit,
+        )
+    finally:
+        _SCORING_FIT_CTX.reset(_ctx_token)
+
+
+def _find_angles_impl(
+    players_array: list[dict[str, Any]],
+    selected_player_name: str,
+    selected_team_owner_id: str,
+    sleeper_teams: list[dict[str, Any]],
+    *,
+    min_my_gain_pct: float,
+    max_market_gain_pct: float,
+    limit: int,
+) -> dict[str, Any]:
+    """Inner impl — assumes ``_SCORING_FIT_CTX`` has already been set
+    by the caller.  Original ``find_angles`` body unchanged."""
     warnings: list[str] = []
 
     by_name: dict[str, dict[str, Any]] = {}
@@ -317,6 +381,8 @@ def find_angle_packages(
     target_team_owner_ids: list[str] | None = None,
     seed_player_names: list[str] | None = None,
     include_idp: bool = False,
+    apply_scoring_fit: bool = False,
+    scoring_fit_weight: float = 0.30,
 ) -> dict[str, Any]:
     """Find multi-player counter-packages for a user-built offer.
 
@@ -372,6 +438,46 @@ def find_angle_packages(
     where ``N`` is the offered-player count. Size ``0`` is skipped
     when ``N == 1`` (that's what :func:`find_angles` is for).
     """
+    _ctx_token = _SCORING_FIT_CTX.set(
+        (bool(apply_scoring_fit), float(scoring_fit_weight)),
+    )
+    try:
+        return _find_angle_packages_impl(
+            players_array, selected_player_names, selected_team_owner_id,
+            sleeper_teams,
+            min_my_gain_pct=min_my_gain_pct,
+            max_market_gain_pct=max_market_gain_pct,
+            limit=limit,
+            candidate_pool_per_team=candidate_pool_per_team,
+            per_team_limit=per_team_limit,
+            positions=positions,
+            min_player_my_value=min_player_my_value,
+            target_team_owner_ids=target_team_owner_ids,
+            seed_player_names=seed_player_names,
+            include_idp=include_idp,
+        )
+    finally:
+        _SCORING_FIT_CTX.reset(_ctx_token)
+
+
+def _find_angle_packages_impl(
+    players_array: list[dict[str, Any]],
+    selected_player_names: list[str],
+    selected_team_owner_id: str,
+    sleeper_teams: list[dict[str, Any]],
+    *,
+    min_my_gain_pct: float,
+    max_market_gain_pct: float,
+    limit: int,
+    candidate_pool_per_team: int,
+    per_team_limit: int,
+    positions: list[str] | None,
+    min_player_my_value: float,
+    target_team_owner_ids: list[str] | None,
+    seed_player_names: list[str] | None,
+    include_idp: bool,
+) -> dict[str, Any]:
+    """Inner impl — assumes ``_SCORING_FIT_CTX`` is set by caller."""
     warnings: list[str] = []
 
     by_name: dict[str, dict[str, Any]] = {}
@@ -751,6 +857,8 @@ def find_acquisition_packages(
     positions: list[str] | None = None,
     min_player_my_value: float = 0.0,
     include_idp: bool = False,
+    apply_scoring_fit: bool = False,
+    scoring_fit_weight: float = 0.30,
 ) -> dict[str, Any]:
     """Find offer-side packages from the user's roster that acquire a
     fixed set of desired players from other teams.
@@ -782,6 +890,40 @@ def find_acquisition_packages(
         roster satisfying the arbitrage constraints vs the fixed
         desired package. Sorted by ``arb_score`` desc.
     """
+    _ctx_token = _SCORING_FIT_CTX.set(
+        (bool(apply_scoring_fit), float(scoring_fit_weight)),
+    )
+    try:
+        return _find_acquisition_packages_impl(
+            players_array, desired_player_names, selected_team_owner_id,
+            sleeper_teams,
+            min_my_gain_pct=min_my_gain_pct,
+            max_market_gain_pct=max_market_gain_pct,
+            limit=limit,
+            candidate_pool=candidate_pool,
+            positions=positions,
+            min_player_my_value=min_player_my_value,
+            include_idp=include_idp,
+        )
+    finally:
+        _SCORING_FIT_CTX.reset(_ctx_token)
+
+
+def _find_acquisition_packages_impl(
+    players_array: list[dict[str, Any]],
+    desired_player_names: list[str],
+    selected_team_owner_id: str,
+    sleeper_teams: list[dict[str, Any]],
+    *,
+    min_my_gain_pct: float,
+    max_market_gain_pct: float,
+    limit: int,
+    candidate_pool: int,
+    positions: list[str] | None,
+    min_player_my_value: float,
+    include_idp: bool,
+) -> dict[str, Any]:
+    """Inner impl — assumes ``_SCORING_FIT_CTX`` is set by caller."""
     warnings: list[str] = []
 
     by_name: dict[str, dict[str, Any]] = {}
