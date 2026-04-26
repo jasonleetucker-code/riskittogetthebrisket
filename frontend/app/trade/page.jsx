@@ -39,6 +39,7 @@ import {
 } from "@/lib/trade-logic";
 import { useSettings } from "@/components/useSettings";
 import TradeDeltaHistogram from "@/components/graphs/TradeDeltaHistogram";
+import MultiTradeFlow from "@/components/graphs/MultiTradeFlow";
 import { useApp } from "@/components/AppShell";
 import { posBadgeClass } from "@/lib/display-helpers";
 import {
@@ -64,6 +65,99 @@ function fairnessColor(f) {
   if (f === "even") return "var(--green)";
   if (f === "lean") return "var(--cyan)";
   return "var(--red)";
+}
+
+// Compact "Recommended right now" rail.  Surfaces the top
+// suggestion from each populated category so the user sees
+// actionable trade ideas at-a-glance — instead of having to scroll
+// down + click ``Get Suggestions`` first.  Click a card to populate
+// the trade builder with the give/get pair.
+const SUGGESTION_RAIL_LABELS = {
+  sellHigh: { label: "Sell High", color: "var(--cyan)", hint: "These pieces have peaked — convert before the market cools." },
+  buyLow: { label: "Buy Low", color: "var(--green)", hint: "Undervalued by the consensus right now." },
+  consolidation: { label: "Consolidation", color: "var(--amber)", hint: "Trade pile-of-assets for a single anchor." },
+  positionalUpgrades: { label: "Upgrade", color: "var(--purple)", hint: "Direct positional swaps that net you value." },
+};
+
+function ProactiveSuggestionsRail({ suggestions, onApply }) {
+  // For each category, take the top suggestion (already sorted by
+  // the engine).  Skip categories with zero results.
+  const cards = [];
+  for (const [key, meta] of Object.entries(SUGGESTION_RAIL_LABELS)) {
+    const list = suggestions[key] || [];
+    if (list.length === 0) continue;
+    cards.push({ key, meta, top: list[0], remaining: list.length - 1 });
+  }
+  if (cards.length === 0) return null;
+  return (
+    <div
+      className="card"
+      style={{
+        marginBottom: 10,
+        padding: "10px 12px",
+        background: "rgba(255, 199, 4, 0.04)",
+        border: "1px solid rgba(255, 199, 4, 0.18)",
+      }}
+    >
+      <div style={{ fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+        Recommended right now · top idea per category
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: 8,
+        }}
+      >
+        {cards.map((c) => (
+          <button
+            key={c.key}
+            type="button"
+            className="button-reset"
+            onClick={() => onApply(c.top)}
+            title={c.meta.hint}
+            style={{
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              padding: "8px 10px",
+              background: "rgba(8, 19, 44, 0.55)",
+              cursor: "pointer",
+              textAlign: "left",
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: "0.62rem", color: c.meta.color, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                {c.meta.label}
+              </span>
+              {c.remaining > 0 && (
+                <span style={{ fontSize: "0.58rem", color: "var(--subtext)" }}>
+                  +{c.remaining} more
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: "0.78rem", lineHeight: 1.3 }}>
+              <span style={{ color: "var(--subtext)" }}>Give:</span>{" "}
+              <span style={{ fontWeight: 600 }}>
+                {(c.top.give || []).map((p) => p.name).join(" + ") || "—"}
+              </span>
+            </div>
+            <div style={{ fontSize: "0.78rem", lineHeight: 1.3 }}>
+              <span style={{ color: "var(--subtext)" }}>Get:</span>{" "}
+              <span style={{ fontWeight: 600, color: c.meta.color }}>
+                {(c.top.receive || []).map((p) => p.name).join(" + ") || "—"}
+              </span>
+            </div>
+            <div style={{ fontSize: "0.62rem", color: "var(--subtext)", marginTop: 2 }}>
+              Tap to load into the trade builder ↓
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function fairnessLabel(f) {
@@ -1536,6 +1630,39 @@ export default function TradePage() {
     setLeagueRosters(opponents);
   }
 
+  // Auto-fetch suggestions whenever the user lands on the page with
+  // a populated roster — surfaces the proactive "Recommended right
+  // now" rail without requiring the user to scroll down + click
+  // ``Get Suggestions`` first.  Re-fires when:
+  //   * roster contents change (paste / reset)
+  //   * selected league/team changes (incl. picks regenerate)
+  //   * loading completes (cold-load arrives after first paint)
+  // Debounced via a ref so a rapid roster edit doesn't spam the API.
+  const proactiveFetchRef = useRef({ lastBody: null, timer: null });
+  useEffect(() => {
+    if (loading || error || leagueMismatch) return;
+    if (!rows || rows.length === 0) return;
+    const roster = parseRoster();
+    if (roster.length < 3) return;
+    const bodyKey = `${selectedLeagueKey || ""}|${roster.join("|")}`;
+    if (proactiveFetchRef.current.lastBody === bodyKey) return;
+    proactiveFetchRef.current.lastBody = bodyKey;
+    if (proactiveFetchRef.current.timer) {
+      clearTimeout(proactiveFetchRef.current.timer);
+    }
+    proactiveFetchRef.current.timer = setTimeout(() => {
+      // Only auto-fetch if we don't already have suggestions for this
+      // roster — preserves manually-fetched results.
+      if (!suggestions) fetchSuggestions();
+    }, 500);
+    return () => {
+      if (proactiveFetchRef.current.timer) {
+        clearTimeout(proactiveFetchRef.current.timer);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, error, leagueMismatch, rows, rosterInput, selectedLeagueKey]);
+
   async function fetchSuggestions() {
     const roster = parseRoster();
     if (roster.length < 3) {
@@ -1639,6 +1766,22 @@ export default function TradePage() {
           first.  Switch back to the primary league from the nav to use those
           features.
         </div>
+      )}
+
+      {/* Proactive "Recommended right now" rail.  Surfaces top
+          suggestion from each category when ``/api/trade/suggestions``
+          has a non-empty result for the user's roster.  Each card
+          previews the give/get and one-click-applies the suggestion
+          to the trade builder below. */}
+      {!loading && !error && !leagueMismatch && suggestions && suggestions.totalSuggestions > 0 && (
+        <ProactiveSuggestionsRail
+          suggestions={suggestions}
+          onApply={(s) => {
+            applySuggestion(s);
+            // Scroll into view so the user sees the populated builder.
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        />
       )}
 
       {!loading && !error && (
@@ -1948,6 +2091,21 @@ export default function TradePage() {
               />
             </div>
           ) : null}
+
+          {/* Multi-team Sankey-style flow visual.  Only renders when
+              there are 3+ sides — the existing 2-team trade meter
+              already makes flow obvious for a 1-on-1 deal.  Reads
+              the same ``sideFlowAssets`` the side cards consume so
+              the picture stays in lockstep with what each side
+              shows. */}
+          {sides.length >= 3 && (
+            <MultiTradeFlow
+              sides={sides}
+              sideFlowAssets={sideFlowAssets}
+              valueMode={valueMode}
+              settings={settings}
+            />
+          )}
 
           {/* ── Side Cards ──────────────────────────────────────── */}
           <div className={sidesGridClass} style={{ paddingBottom: 78 }}>

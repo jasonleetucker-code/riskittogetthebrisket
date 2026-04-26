@@ -6,6 +6,7 @@ import TeamCommandHeader from "./TeamCommandHeader";
 import MarketTicker from "./MarketTicker";
 import PlayerMarketMovement from "./PlayerMarketMovement";
 import BuySellHold from "./BuySellHold";
+import MoversPanel from "./MoversPanel";
 import PortfolioSummary from "./PortfolioSummary";
 import ScoutingIntel from "./ScoutingIntel";
 import TeamNewsFeed from "./TeamNewsFeed";
@@ -62,6 +63,7 @@ export default function TerminalLayout() {
           <ScoutingIntel />
         </div>
         <div className="terminal-col terminal-col--center">
+          <MoversPanel />
           <PlayerMarketMovement />
           <BuySellHold />
           <WatchlistPanel />

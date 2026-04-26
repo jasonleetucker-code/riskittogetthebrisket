@@ -122,7 +122,7 @@ export function valueBand(value) {
  * Returns array of ``{ label, css, title }`` objects.  Empty array
  * for clean rows.
  */
-export function rowChips(row) {
+export function rowChips(row, options = {}) {
   const chips = [];
   if (row?.rookie) {
     chips.push({ label: "R", css: "badge-green", title: "Rookie" });
@@ -147,6 +147,31 @@ export function rowChips(row) {
   }
   if (row?.hasSourceDisagreement) {
     chips.push({ label: "~", css: "badge-amber", title: "Sources disagree significantly (percentile spread > 10%)" });
+  }
+  // News / injury chip — wired in by the rankings page from
+  // ``useNews().byPlayer``.  ``options.newsItem`` is a NewsItem object
+  // for this player or undefined.  We render a chip whose label +
+  // tone reflect severity so a user scanning the board can see at a
+  // glance which of their players has fresh news.
+  const news = options?.newsItem;
+  if (news) {
+    const severity = String(news.severity || "info").toLowerCase();
+    const label = severity === "injury"
+      ? "INJ"
+      : severity === "alert" || severity === "high"
+        ? "!N"
+        : "N";
+    const css = severity === "injury"
+      ? "badge-red"
+      : severity === "alert" || severity === "high"
+        ? "badge-amber"
+        : "badge-blue";
+    const headline = String(news.headline || news.summary || "Recent news").slice(0, 140);
+    chips.push({
+      label,
+      css,
+      title: `${headline} (${news.providerLabel || news.provider || "news"})`,
+    });
   }
   return chips;
 }
