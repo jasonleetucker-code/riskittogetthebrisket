@@ -416,6 +416,80 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
           )}
         </div>
 
+        {/* Scoring-fit explainer — what's driving the league-aware
+            value.  Renders only when the backend stamped per-stat
+            contributions on the row (i.e. the player has realized
+            data, not a synthetic rookie).  Shows the top stats by
+            absolute points contribution so users can see EXACTLY
+            why their league rates this player higher / lower than
+            consensus does.
+
+            Example: a fit-positive EDGE will show "Sack 14 → 56 pts
+            (32%)", "QB Hit 28 → 42 pts (24%)", "TFL 15 → 30 pts
+            (17%)" — surfacing that this league's stacked sack
+            scoring is what's pulling them above market. */}
+        {Array.isArray(row.idpScoringFitTopStats)
+          && row.idpScoringFitTopStats.length > 0 && (
+          <div style={{ marginTop: 10 }}>
+            <div
+              className="label"
+              style={{ fontSize: "0.7rem", color: "var(--cyan)" }}
+              title="The stat categories driving this player's realized fantasy points under YOUR league's scoring.  Aggregated across the trailing 3 seasons.  Rank-ordered by points contribution; ``share`` is fraction of total points."
+            >
+              What&apos;s driving the scoring fit
+            </div>
+            <div
+              style={{
+                marginTop: 4,
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                fontSize: "0.72rem",
+                fontFamily: "var(--mono, monospace)",
+              }}
+            >
+              {row.idpScoringFitTopStats.slice(0, 4).map((s, i) => {
+                const pct = typeof s.share === "number"
+                  ? Math.round(s.share * 100) : null;
+                const ptsSign = (s.points_total ?? 0) >= 0 ? "+" : "";
+                return (
+                  <span
+                    key={`${s.label}-${i}`}
+                    title={`${s.label}: ${s.stat_total} events × scoring rules = ${ptsSign}${(s.points_total ?? 0).toFixed(1)} pts (${pct ?? "—"}% of total realized fantasy points)`}
+                    style={{
+                      padding: "3px 8px",
+                      borderRadius: 4,
+                      background: "rgba(34, 211, 238, 0.10)",
+                      border: "1px solid rgba(34, 211, 238, 0.30)",
+                    }}
+                  >
+                    <span style={{ color: "var(--text)", fontWeight: 600 }}>
+                      {s.label}
+                    </span>
+                    <span style={{ color: "var(--muted)", marginLeft: 6 }}>
+                      {s.stat_total}
+                    </span>
+                    <span
+                      style={{
+                        color: (s.points_total ?? 0) >= 0 ? "var(--green, #4ade80)" : "var(--red, #f87171)",
+                        marginLeft: 6,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {ptsSign}{(s.points_total ?? 0).toFixed(0)}
+                    </span>
+                    {pct != null && (
+                      <span style={{ color: "var(--muted)", marginLeft: 4 }}>
+                        ({pct}%)
+                      </span>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Value chain — how we arrived at Our Value */}
         {valueChain.length > 0 && (
           <div style={{ marginTop: 12 }}>

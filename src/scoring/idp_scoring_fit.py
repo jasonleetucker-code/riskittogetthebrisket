@@ -143,6 +143,13 @@ class IdpFitRow:
     # row so the frontend lens can show a "synthetic" badge.
     synthetic: bool = False
     draft_round: int | None = None
+    # Top stat categories driving the player's realized PPG across
+    # the trailing-3-yr corpus.  Each entry is
+    # ``{"label", "stat_total", "points_total", "share"}``.  Empty list
+    # for synthetic rows (no realized data) and for rookies (handled
+    # via the cohort baseline).  Rendered in the player popup so users
+    # see WHY a player is fit-positive — "Sacks: 14 → 56 pts (32%)".
+    top_stats: tuple[dict[str, Any], ...] = ()
 
 
 # ── Tier mapping ──────────────────────────────────────────────────
@@ -254,6 +261,64 @@ def build_realized_3yr_ppg(
     )
 
     return weighted_ppg, len(season_ppg), total_games, total_points
+
+
+def aggregate_stat_contributions(
+    player_id: str,
+    position: str,
+    scoring_settings: dict[str, Any],
+    *,
+    weekly_rows_by_season: dict[int, list[dict[str, Any]]],
+    top_n: int = 4,
+) -> list[dict[str, Any]]:
+    """Return the top-N stat categories driving a player's realized
+    fantasy points across the trailing-3-yr corpus.
+
+    Each entry: ``{"label", "stat_total", "points_total", "share"}``.
+    ``share`` is the fraction of total points this category
+    contributed (0.0-1.0).  Sorted by absolute points contribution
+    descending — so big negatives surface too.
+
+    Used by the player popup to render WHY a player is fit-positive
+    or fit-negative under the league's scoring — so the user sees
+    "Sacks: 14 → 56 pts (32% of total)" instead of just
+    "+7695 vs market".  The labels match what
+    ``compute_weekly_points`` emits ("Sack", "QB Hit", "Solo Tkl",
+    "TFL", "PD", "INT", etc.).
+
+    Returns ``[]`` when the player has no realized weeks in the corpus.
+    """
+    by_label_stat: dict[str, float] = defaultdict(float)
+    by_label_points: dict[str, float] = defaultdict(float)
+    grand_total = 0.0
+    for _season, weekly_rows in (weekly_rows_by_season or {}).items():
+        for row in weekly_rows or []:
+            row_pid = str(row.get("player_id") or row.get("player_id_gsis") or "")
+            if row_pid != player_id:
+                continue
+            rp = _realized.compute_weekly_points(
+                row, scoring_settings, position=position
+            )
+            if rp is None:
+                continue
+            for label, stat, contribution in rp.breakdown:
+                by_label_stat[str(label)] += float(stat or 0)
+                by_label_points[str(label)] += float(contribution or 0)
+                grand_total += float(contribution or 0)
+    if not by_label_points or grand_total == 0:
+        return []
+    out: list[dict[str, Any]] = []
+    for label, points in by_label_points.items():
+        if points == 0:
+            continue
+        out.append({
+            "label": label,
+            "stat_total": round(by_label_stat[label], 1),
+            "points_total": round(points, 1),
+            "share": round(points / grand_total, 3),
+        })
+    out.sort(key=lambda e: -abs(e["points_total"]))
+    return out[:top_n]
 
 
 # ── Rookie archetype baseline (draft-capital-derived synthetic) ────
@@ -820,6 +885,24 @@ def compute_idp_scoring_fit(
             continue
         vorp_per_game = v.vorp / max(1, v.games)
         tier = _tier_for_vorp(vorp_per_game)
+        # Top stat contributions — only computed for non-synthetic
+        # rows that have realized data.  Synthetic / sentinel rows
+        # have no per-stat breakdown to surface.
+        if diag.get("synthetic"):
+            top_stats: tuple[dict[str, Any], ...] = ()
+        else:
+            try:
+                top_stats = tuple(aggregate_stat_contributions(
+                    join_key, diag["position"], scoring_settings,
+                    weekly_rows_by_season=weekly_rows_by_season,
+                    top_n=4,
+                ))
+            except Exception as exc:  # noqa: BLE001
+                _LOGGER.warning(
+                    "idp_scoring_fit=top_stats_failed name=%r err=%r",
+                    display, exc,
+                )
+                top_stats = ()
         out[display] = IdpFitRow(
             player_id=v.player_id,
             position=v.position,
@@ -832,6 +915,7 @@ def compute_idp_scoring_fit(
             games_used=diag["games"],
             synthetic=bool(diag.get("synthetic")),
             draft_round=diag.get("draft_round"),
+            top_stats=top_stats,
         )
 
     return out
@@ -875,4 +959,5 @@ def stamp_delta(
         games_used=fit_row.games_used,
         synthetic=fit_row.synthetic,
         draft_round=fit_row.draft_round,
+        top_stats=fit_row.top_stats,
     )

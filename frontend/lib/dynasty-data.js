@@ -1016,6 +1016,8 @@ function _materializePlayerArrayRow(player) {
     idpScoringFitDraftRound: player.idpScoringFitDraftRound ?? null,
     idpScoringFitWeightedPpg: player.idpScoringFitWeightedPpg ?? null,
     idpScoringFitGamesUsed: player.idpScoringFitGamesUsed ?? null,
+    idpScoringFitTopStats: Array.isArray(player.idpScoringFitTopStats)
+      ? player.idpScoringFitTopStats : null,
     raw: player,
   };
 }

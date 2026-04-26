@@ -23,6 +23,7 @@ import unittest
 from src.scoring.idp_scoring_fit import (
     IdpFitRow,
     _confidence_for_history,
+    aggregate_stat_contributions,
     build_realized_3yr_ppg,
     build_rookie_archetype_baseline,
     compute_idp_scoring_fit,
@@ -375,6 +376,66 @@ class TestQuantileMap(unittest.TestCase):
         # of the IDP value curve.
         v = quantile_map_to_consensus_scale(10.0, [1.0, 2.0, 5.0, 10.0])
         self.assertGreater(v, 1000)
+
+
+class TestAggregateStatContributions(unittest.TestCase):
+    """Top-N stat-category aggregation surfaces what's driving a
+    player's realized fantasy points under the league's scoring."""
+
+    def test_returns_top_n_sorted_by_absolute_points(self):
+        # An EDGE with one event-stack week × 16 weeks: 1 sack-tackle
+        # generating sack + sack_yds + qb_hit + tfl + solo simultaneously.
+        rows = {
+            2024: [
+                _weekly_row("E1", "EDGE", w,
+                            def_tackles_solo=1, def_sacks=1,
+                            def_sack_yards=7, def_qb_hits=1,
+                            def_tackles_for_loss=1)
+                for w in range(1, 17)
+            ],
+        }
+        out = aggregate_stat_contributions(
+            "E1", "EDGE", _STACKED_SCORING,
+            weekly_rows_by_season=rows,
+            top_n=4,
+        )
+        # Should land top-4 in absolute-points order.  16 weeks of
+        # the same stack: sack_total=16 × 4=64, sack_yds=112 × 0.5=56,
+        # tfl=16 × 2=32, solo=16 × 1.5=24, qb_hit=16 × 1.5=24.
+        self.assertEqual(len(out), 4)
+        labels = [e["label"] for e in out]
+        # Sack should be the biggest (64).
+        self.assertEqual(labels[0], "Sack")
+        # Each entry has the contract fields.
+        for e in out:
+            self.assertIn("label", e)
+            self.assertIn("stat_total", e)
+            self.assertIn("points_total", e)
+            self.assertIn("share", e)
+            self.assertGreaterEqual(e["share"], 0)
+            self.assertLessEqual(e["share"], 1)
+
+    def test_returns_empty_when_no_realized_data(self):
+        out = aggregate_stat_contributions(
+            "MISSING", "LB", _STACKED_SCORING,
+            weekly_rows_by_season={2024: []},
+        )
+        self.assertEqual(out, [])
+
+    def test_share_sums_to_one_within_top_n(self):
+        # Single-stat-category fixture so share = 1.0 exactly.
+        rows = {
+            2024: [
+                _weekly_row("L1", "LB", w, def_tackles_solo=4)
+                for w in range(1, 18)
+            ],
+        }
+        out = aggregate_stat_contributions(
+            "L1", "LB", {"idp_tkl_solo": 1.5},
+            weekly_rows_by_season=rows,
+        )
+        self.assertEqual(len(out), 1)
+        self.assertAlmostEqual(out[0]["share"], 1.0, places=2)
 
 
 if __name__ == "__main__":

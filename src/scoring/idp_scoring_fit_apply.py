@@ -388,6 +388,12 @@ def apply_idp_scoring_fit_pass(
             player["idpScoringFitWeightedPpg"] = fit_with_delta.weighted_ppg
         if fit_with_delta.games_used:
             player["idpScoringFitGamesUsed"] = fit_with_delta.games_used
+        # Top stat contributions — list of {label, stat_total,
+        # points_total, share}.  Empty for synthetic rows.  Rendered
+        # in the player popup so users see WHY a player is fit-positive
+        # (which stats are driving the lens's verdict).
+        if fit_with_delta.top_stats:
+            player["idpScoringFitTopStats"] = list(fit_with_delta.top_stats)
         # Adjusted value: what rankDerivedValue would BE if the user
         # toggles "apply scoring fit" on the frontend.  Always stamped
         # when the pass produces a delta — frontend toggle decides

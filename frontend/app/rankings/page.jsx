@@ -858,15 +858,23 @@ export default function RankingsPage() {
   const displayRows = hasActiveFilter ? ranked : ranked.slice(0, rowLimit);
   const hasMore = !hasActiveFilter && ranked.length > rowLimit;
 
-  // Per-position ranks (QB3, RB5, LB2…).  Computed from the full
-  // ``ranked`` order — not ``displayRows`` — so filtering/search
-  // doesn't renumber badges.  Uses the same position string as the
-  // position badge, so "DB" lumps CB/S together unless the pipeline
-  // splits them.
+  // Per-position ranks (QB3, RB5, LB2…).  Computed from the
+  // ``eligible`` board sorted by ``row.rank`` ASCENDING — independent
+  // of the user's current sort/filter so badges don't renumber when
+  // the user sorts by name or filters to a single position.
+  //
+  // When ``applyScoringFit`` is on, the ``eligible`` projection has
+  // already overwritten ``row.rank`` with the adjusted-value-based
+  // rank, so iterating in rank order gives position ranks that
+  // reflect the league-aware ordering: a fit-positive LB that
+  // bubbled to LB3 (from consensus LB12) shows "LB3" in its badge.
   const positionRankByName = useMemo(() => {
     const counts = new Map();
     const byName = new Map();
-    for (const row of ranked) {
+    const sorted = [...eligible].sort(
+      (a, b) => (a?.rank ?? Infinity) - (b?.rank ?? Infinity),
+    );
+    for (const row of sorted) {
       const pos = String(row?.pos || "").toUpperCase();
       if (!pos || !row?.name) continue;
       const next = (counts.get(pos) || 0) + 1;
@@ -874,7 +882,7 @@ export default function RankingsPage() {
       byName.set(row.name, next);
     }
     return byName;
-  }, [ranked]);
+  }, [eligible]);
 
   function SortHeader({ col, children, style, className }) {
     const active = sortCol === col;

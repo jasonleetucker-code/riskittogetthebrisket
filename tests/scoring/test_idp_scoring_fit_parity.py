@@ -38,6 +38,7 @@ _ALLOWED_NEW_FIELDS = frozenset({
     "idpScoringFitWeightedPpg",
     "idpScoringFitGamesUsed",
     "idpScoringFitAdjustedValue",
+    "idpScoringFitTopStats",
 })
 
 

@@ -7318,6 +7318,10 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     # this or raw rankDerivedValue.  Backend never mutates
     # rankDerivedValue itself.
     "idpScoringFitAdjustedValue",
+    # Top stat categories driving the player's realized PPG.  List of
+    # {label, stat_total, points_total, share} dicts.  Rendered in the
+    # popup as the "why" breakdown for the lens verdict.
+    "idpScoringFitTopStats",
 )
 
 
