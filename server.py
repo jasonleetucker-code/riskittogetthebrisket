@@ -1023,6 +1023,14 @@ def _build_source_health_snapshot(data: dict | None) -> dict:
     if not partial_run:
         partial_run = len(failures) > 0
 
+    # Per-source freshness — the CSV mtime tells us when each source
+    # was last successfully refreshed, independent of the most recent
+    # *full-pipeline* scrape time.  Stamp this here so the staleness
+    # alert system in src.api.source_health_alerts has the
+    # ``sources[src].lastFetched`` field it expects, and the source-
+    # health page can render per-source ages.
+    sources_meta = _per_source_freshness()
+
     return {
         "total_sources": len(source_counts),
         "sources_with_data": available,
@@ -1031,7 +1039,44 @@ def _build_source_health_snapshot(data: dict | None) -> dict:
         "partial_run": bool(partial_run),
         "source_runtime": source_runtime,
         "source_failures": failures,
+        "sources": sources_meta,
     }
+
+
+def _per_source_freshness() -> dict[str, dict]:
+    """Per-source ``{lastFetched, ageHours}`` derived from the CSV
+    file mtimes in ``CSVs/site_raw/``.  Source key → CSV name mapping
+    follows the convention ``CSVs/site_raw/{key}.csv`` for every
+    source registered in ``_SOURCE_CSV_PATHS``.  Sources without a
+    CSV (rare; only ones backed entirely by adapter modules) report
+    ``lastFetched: None``.
+
+    Returns ``{}`` if the CSV directory is missing or unreadable.
+    """
+    try:
+        from src.api.data_contract import _SOURCE_CSV_PATHS
+    except Exception:  # pragma: no cover
+        return {}
+    repo_root = Path(__file__).resolve().parent
+    out: dict[str, dict] = {}
+    now_epoch = time.time()
+    for src_key, entry in _SOURCE_CSV_PATHS.items():
+        csv_rel = entry if isinstance(entry, str) else (entry or {}).get("path")
+        if not csv_rel:
+            continue
+        csv_path = repo_root / csv_rel
+        try:
+            mtime = csv_path.stat().st_mtime
+        except OSError:
+            continue
+        age_hours = max(0.0, (now_epoch - mtime) / 3600.0)
+        out[src_key] = {
+            "lastFetched": datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat(
+                timespec="seconds"
+            ),
+            "ageHours": round(age_hours, 2),
+        }
+    return out
 
 
 

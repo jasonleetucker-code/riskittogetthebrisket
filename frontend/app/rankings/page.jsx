@@ -1332,9 +1332,26 @@ export default function RankingsPage() {
                                 ``rankChange``, or renders nothing. */}
                             {chips.length > 0 && (
                               <span className="rankings-chips">
-                                {chips.map((c) => (
-                                  <span key={c.label} className={`badge ${c.css} rankings-chip`} title={c.title}>{c.label}</span>
-                                ))}
+                                {chips.map((c) =>
+                                  c.url ? (
+                                    <a
+                                      key={c.label}
+                                      href={c.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className={`badge ${c.css} rankings-chip`}
+                                      title={`${c.title} \u2014 click to read`}
+                                      style={{ cursor: "pointer", textDecoration: "none" }}
+                                    >
+                                      {c.label}
+                                    </a>
+                                  ) : (
+                                    <span key={c.label} className={`badge ${c.css} rankings-chip`} title={c.title}>
+                                      {c.label}
+                                    </span>
+                                  ),
+                                )}
                               </span>
                             )}
                           </div>

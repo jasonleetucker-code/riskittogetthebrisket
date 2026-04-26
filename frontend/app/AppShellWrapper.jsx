@@ -35,6 +35,7 @@ import LeagueSwitcher from "@/components/LeagueSwitcher";
 // ``href`` (sensible default) — the dropdown surfaces the siblings.
 const PRIMARY_NAV = [
   { href: "/rankings", label: "Rankings", hint: "Player value board" },
+  { href: "/trending", label: "Trending", hint: "Biggest rank movers, last 1d/7d/30d" },
   {
     href: "/trade",
     label: "Trade",

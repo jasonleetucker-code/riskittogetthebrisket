@@ -167,10 +167,14 @@ export function rowChips(row, options = {}) {
         ? "badge-amber"
         : "badge-blue";
     const headline = String(news.headline || news.summary || "Recent news").slice(0, 140);
+    const url = typeof news.url === "string" && news.url.startsWith("http")
+      ? news.url
+      : null;
     chips.push({
       label,
       css,
       title: `${headline} (${news.providerLabel || news.provider || "news"})`,
+      url,
     });
   }
   return chips;
