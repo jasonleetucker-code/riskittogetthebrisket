@@ -191,39 +191,6 @@ jobs:
             exit 1
           fi
 
-      # ── IDP scoring-fit snapshot (idempotent, daily) ──────────────
-      # The capture script writes to ``data/idp_fit_snapshots/{date}.json``.
-      # Skipping when today's file already exists turns the every-3-hour
-      # refresh into a daily snapshot cadence without a second cron.
-      # Each snapshot is ~50KB JSON of the lens output for every
-      # IDP-with-delta — small enough to commit inline; large enough to
-      # power historical backtests later.
-      #
-      # Snapshots accumulate forever in git; pruning is a future concern
-      # (at ~50KB × 365/yr × N years, the bottom of the iceberg is
-      # ~18MB/yr — fine until we have multiple years of history).
-      - name: Capture daily IDP scoring-fit snapshot
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          TODAY=$(date -u +%Y-%m-%d)
-          TARGET="data/idp_fit_snapshots/${TODAY}.json"
-          if [[ -f "$TARGET" ]]; then
-            echo "Snapshot for ${TODAY} already exists — skipping capture"
-            exit 0
-          fi
-          # League context resolves via config/leagues/registry.json
-          # (already in the repo) — no SLEEPER_LEAGUE_ID secret needed.
-          mkdir -p data/idp_fit_snapshots
-          # Capture script is best-effort.  Any failure (missing payload,
-          # nflverse outage, Sleeper rate-limit) logs a warning and
-          # continues the workflow rather than blocking the refresh.
-          if python3 scripts/capture_idp_fit_snapshot.py; then
-            echo "Captured snapshot: $TARGET"
-            ls -la "$TARGET" 2>/dev/null || true
-          else
-            echo "::warning title=Snapshot capture failed::see logs above"
-          fi
 
       - name: Commit updated data
         shell: bash
@@ -231,7 +198,7 @@ jobs:
           set -Eeuo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/ data/idp_fit_snapshots/
+          git add -f CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/
           if git diff --cached --quiet; then
             echo "No data changes to commit"
           else

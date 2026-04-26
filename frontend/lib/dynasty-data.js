@@ -1003,22 +1003,6 @@ function _materializePlayerArrayRow(player) {
     // PlayerPopup mini-chart reads this directly; defaults to null
     // when the player wasn't ranked at the time of any snapshot.
     rankHistory: Array.isArray(player.rankHistory) ? player.rankHistory : null,
-    // IDP scoring-fit lens (Phase 1).  Stamped only when the
-    // ``idp_scoring_fit`` flag is ON and the league has IDP slots;
-    // null otherwise.  Frontend trusts backend stamps verbatim — no
-    // recompute.  Diagnostic only — does NOT influence
-    // ``rankDerivedValue`` or any trade engine in Phase 1.
-    idpScoringFitVorp: player.idpScoringFitVorp ?? null,
-    idpScoringFitTier: player.idpScoringFitTier ?? null,
-    idpScoringFitDelta: player.idpScoringFitDelta ?? null,
-    idpScoringFitConfidence: player.idpScoringFitConfidence ?? null,
-    idpScoringFitSynthetic: Boolean(player.idpScoringFitSynthetic),
-    idpScoringFitDraftRound: player.idpScoringFitDraftRound ?? null,
-    idpScoringFitWeightedPpg: player.idpScoringFitWeightedPpg ?? null,
-    idpScoringFitGamesUsed: player.idpScoringFitGamesUsed ?? null,
-    idpScoringFitTopStats: Array.isArray(player.idpScoringFitTopStats)
-      ? player.idpScoringFitTopStats : null,
-    idpSnapShare: typeof player.idpSnapShare === "number" ? player.idpSnapShare : null,
     raw: player,
   };
 }

@@ -3,7 +3,7 @@
 import { Fragment, useMemo, useState, useCallback, useEffect } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { resolvedRank, RANKING_SOURCES, getRetailLabel } from "@/lib/dynasty-data";
-import { useSettings, resolveScoringFitForLeague } from "@/components/useSettings";
+import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
 import {
@@ -36,7 +36,6 @@ import SourceAgreementRadar from "@/components/graphs/SourceAgreementRadar";
 import RankChangeGlyph from "@/components/graphs/RankChangeGlyph";
 import { PlayerImage } from "@/components/ui";
 import { useNews } from "@/components/useNews";
-import ScoringFitOnboarding from "@/components/ScoringFitOnboarding";
 
 // ── UNIFIED RANKINGS PAGE ────────────────────────────────────────────
 // Trust-forward blended board: offense + IDP sorted by unified rank.
@@ -88,102 +87,6 @@ function posMatchesFilter(pos, assetClass, filter, row) {
   return pos === filter;
 }
 
-// ── Scoring-fit badges ───────────────────────────────────────────────
-// Renders next to the value cell when the scoring-fit lens is active
-// or the apply-scoring-fit toggle is on.  Three pieces of info:
-//
-//   * Tier — categorical (elite / starter+ / starter / fringe / below)
-//   * Confidence — how robust the underlying estimate is.  ``synthetic``
-//     means the value comes from a draft-cohort baseline (rookie), not
-//     from realized production.
-//   * Delta — the value-scale gap vs the consensus market.  Positive =
-//     the league's stacked scoring would value this player higher than
-//     consensus does (buy-low candidate).  Negative = the league
-//     undervalues vs market (sell-high candidate).
-//
-// Pure presentational — every value comes from backend stamps.
-const _TIER_STYLES = {
-  elite:              { label: "Elite",     css: "rankings-tier-elite" },
-  starter_plus:       { label: "Starter+",  css: "rankings-tier-starter-plus" },
-  starter:            { label: "Starter",   css: "rankings-tier-starter" },
-  fringe:             { label: "Fringe",    css: "rankings-tier-fringe" },
-  below_replacement:  { label: "Below",     css: "rankings-tier-below" },
-  rookie:             { label: "Rookie",    css: "rankings-tier-rookie" },
-};
-
-const _CONFIDENCE_STYLES = {
-  high:      { label: "High conf",       dot: "var(--green, #4ade80)" },
-  medium:    { label: "Medium conf",     dot: "var(--yellow, #facc15)" },
-  low:       { label: "Low conf",        dot: "var(--orange, #fb923c)" },
-  synthetic: { label: "Rookie cohort",   dot: "var(--cyan, #22d3ee)" },
-  none:      { label: "No data",         dot: "var(--muted, #9ca3af)" },
-};
-
-function ScoringFitBadges({ tier, confidence, synthetic, draftRound, delta, consensusValue }) {
-  const tierMeta = _TIER_STYLES[tier] || _TIER_STYLES.starter;
-  const confMeta = _CONFIDENCE_STYLES[confidence] || _CONFIDENCE_STYLES.none;
-  const showSynthetic = !!synthetic;
-  const deltaNum = typeof delta === "number" && Number.isFinite(delta) ? delta : null;
-  const consensus = typeof consensusValue === "number" && Number.isFinite(consensusValue) ? consensusValue : null;
-
-  let deltaTitle = "";
-  if (deltaNum != null && consensus != null) {
-    const sign = deltaNum > 0 ? "+" : "";
-    deltaTitle = `Scoring fit delta vs market: ${sign}${Math.round(deltaNum)} (consensus ${Math.round(consensus)})`;
-  }
-
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 6 }}>
-      <span
-        className={`rankings-tier-badge ${tierMeta.css}`}
-        title={`Tier from VORP-per-game under your league's scoring`}
-        style={{ fontSize: "0.65rem", padding: "1px 5px" }}
-      >
-        {tierMeta.label}
-      </span>
-      <span
-        title={confMeta.label + (showSynthetic && draftRound != null ? ` (Round ${draftRound})` : "")}
-        style={{
-          display: "inline-block",
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
-          backgroundColor: confMeta.dot,
-        }}
-      />
-      {showSynthetic && (
-        <span
-          title={draftRound != null
-            ? `Estimated from average rookie-year production of round-${draftRound} ${tier}s under your league's scoring`
-            : "Synthetic value from draft-cohort baseline"}
-          style={{
-            fontSize: "0.62rem",
-            padding: "1px 4px",
-            borderRadius: 3,
-            background: "rgba(34, 211, 238, 0.18)",
-            color: "var(--cyan, #22d3ee)",
-            fontWeight: 600,
-          }}
-        >
-          R{draftRound != null ? draftRound : "?"} synth
-        </span>
-      )}
-      {deltaNum != null && (
-        <span
-          title={deltaTitle}
-          style={{
-            fontFamily: "var(--mono, monospace)",
-            fontSize: "0.7rem",
-            color: deltaNum > 0 ? "var(--green, #4ade80)" : "var(--red, #f87171)",
-            fontWeight: 600,
-          }}
-        >
-          {deltaNum > 0 ? "+" : ""}{Math.round(deltaNum)}
-        </span>
-      )}
-    </span>
-  );
-}
 
 // ── Methodology content ──────────────────────────────────────────────
 
@@ -380,16 +283,12 @@ function TopMoversRail({ rows, onPlayerClick }) {
 }
 
 
-function EdgeRail({ summary, onPlayerClick, applyScoringFit = false }) {
+function EdgeRail({ summary, onPlayerClick }) {
   const hasSomething =
     summary.retailPremium.length > 0 ||
     summary.consensusPremium.length > 0 ||
     summary.flaggedCautions.length > 0 ||
-    summary.consensusAssets.length > 0 ||
-    (applyScoringFit && (
-      (summary.scoringFitBuys?.length ?? 0) > 0 ||
-      (summary.scoringFitSells?.length ?? 0) > 0
-    ));
+    summary.consensusAssets.length > 0;
 
   if (!hasSomething) return null;
 
@@ -424,25 +323,6 @@ function EdgeRail({ summary, onPlayerClick, applyScoringFit = false }) {
           emptyText="No flagged players in top 300"
           onPlayerClick={onPlayerClick}
         />
-        {/* Scoring-fit edges only render when the user has the global
-            toggle on AND the backend pass produced data.  Surfaces the
-            top buy-low / sell-high IDPs by league-aware delta. */}
-        {applyScoringFit && (summary.scoringFitBuys?.length ?? 0) > 0 && (
-          <EdgeRailSection
-            label="League Fit · Buy"
-            items={summary.scoringFitBuys}
-            emptyText="No league-fit buys"
-            onPlayerClick={onPlayerClick}
-          />
-        )}
-        {applyScoringFit && (summary.scoringFitSells?.length ?? 0) > 0 && (
-          <EdgeRailSection
-            label="League Fit · Sell"
-            items={summary.scoringFitSells}
-            emptyText="No league-fit sells"
-            onPlayerClick={onPlayerClick}
-          />
-        )}
       </div>
     </div>
   );
@@ -588,27 +468,6 @@ export default function RankingsPage() {
   const [showMethodology, setShowMethodology] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null);
 
-  // ── Apply Scoring Fit toggle ────────────────────────────────────
-  // Sourced from global settings so toggling on /rankings is visible
-  // immediately on /trade (Trade Calculator), Trade Suggestions, and
-  // any other consumer of player values.  When ON, IDP rows substitute
-  // ``idpScoringFitAdjustedValue`` for ``rankDerivedValue`` everywhere.
-  // Per-league resolution: if the active league has an override in
-  // ``scoringFitByLeague`` it wins over the global default.  Lets a
-  // user run the lens differently in their stacked-scoring league
-  // vs their non-IDP league without flipping the global toggle.
-  const _resolved = useMemo(
-    () => resolveScoringFitForLeague(settings, selectedLeagueKey),
-    [settings, selectedLeagueKey],
-  );
-  const applyScoringFit = _resolved.applyScoringFit;
-  const setApplyScoringFit = useCallback((next) => {
-    // Toggling from /rankings updates the GLOBAL default — the
-    // per-league override is configured from /settings.  Avoids
-    // surprising users who flip the rankings toggle and don't
-    // realise it only affected one league.
-    updateSetting("applyScoringFit", !!next);
-  }, [updateSetting]);
 
   const handleSort = useCallback((col) => {
     if (sortCol === col) {
@@ -681,96 +540,7 @@ export default function RankingsPage() {
     return filtered;
   }, [rows, idpEnabled]);
 
-  // ── Apply Scoring Fit transform ─────────────────────────────────
-  // When the toggle is ON: every IDP row that has an
-  // ``idpScoringFitAdjustedValue`` substitutes that for its
-  // ``rankDerivedValue``, and the entire board is re-sorted by the
-  // adjusted values to assign a fresh rank.
-  //
-  // Offense rows pass through unchanged — they have no scoring-fit
-  // adjustment.  This mutation is local to the rankings page; trade
-  // engines, edge rail, and any other consumer of ``rankDerivedValue``
-  // continue to see the consensus value.
-  //
-  // Whether at least one row actually carries an adjusted value also
-  // controls visibility of the "Apply Scoring Fit" toggle button —
-  // hidden when the backend pass didn't run for this league.
-  const hasScoringFitAvailable = useMemo(
-    () => eligibleRaw.some(
-      (r) => typeof r.idpScoringFitDelta === "number"
-              && Number.isFinite(r.idpScoringFitDelta),
-    ),
-    [eligibleRaw],
-  );
-
-  // Single source of truth for the slider weight — uses the
-  // per-league resolved value when the active league has an
-  // override, otherwise the global default.  Clamped to [0, 1]
-  // so any future code path that mutates the value can't break
-  // downstream math.
-  const scoringFitWeight = Math.max(0, Math.min(1, _resolved.scoringFitWeight));
-
-  const eligible = useMemo(() => {
-    if (!applyScoringFit || !hasScoringFitAvailable || scoringFitWeight <= 0) {
-      return eligibleRaw;
-    }
-    // Project every row to a working copy with displayValue/displayRank
-    // overlay.  The ORIGINAL ``rankDerivedValue`` is preserved so the
-    // PlayerPopup / trade calculator (when invoked from this page) can
-    // still surface the consensus number alongside the adjusted one.
-    //
-    // Adjusted value is recomputed from primitives
-    // (``consensus + delta × scoringFitWeight``) so the slider on
-    // /settings re-renders the board without a backend round-trip.
-    const projected = eligibleRaw.map((r) => {
-      const consensus = Number(r.rankDerivedValue) || 0;
-      const delta = Number(r.idpScoringFitDelta);
-      const adjusted = (Number.isFinite(delta) && consensus > 0)
-        ? Math.max(0, Math.min(9999, consensus + delta * scoringFitWeight))
-        : null;
-      const displayValue = adjusted ?? consensus;
-      return {
-        ...r,
-        // Preserve originals for tooltip / debug surfaces.
-        consensusRankDerivedValueOriginal: r.rankDerivedValue,
-        consensusRankOriginal: r.canonicalConsensusRank,
-        // Swap the working values + ranks so existing sort/display
-        // pipelines (resolvedRank, sort by "value", etc.) pick up the
-        // adjusted numbers without further plumbing.
-        rankDerivedValue: displayValue,
-        // Also overlay values.full so the rendered table cell follows
-        // the toggle without a separate code path.
-        values: {
-          ...(r.values || {}),
-          full: displayValue,
-        },
-      };
-    });
-    // Re-rank by descending adjusted value, breaking ties on the
-    // original consensus rank (stable order for offense rows that
-    // didn't move).
-    const ranked = [...projected].sort((a, b) => {
-      const va = Number(a.rankDerivedValue) || 0;
-      const vb = Number(b.rankDerivedValue) || 0;
-      if (vb !== va) return vb - va;
-      return (a.consensusRankOriginal ?? Infinity) - (b.consensusRankOriginal ?? Infinity);
-    });
-    // Stamp 1-N ranks in the new order; only stamp on rows that
-    // currently carry a canonicalConsensusRank — picks-suppressed rows
-    // and any other unranked rows stay unranked.  Also overwrite the
-    // ``rank`` field (set in buildRows from canonicalConsensusRank) so
-    // every existing renderer / sort path picks up the new order
-    // without further plumbing.
-    let nextRank = 0;
-    for (const r of ranked) {
-      if (r.consensusRankOriginal != null) {
-        nextRank += 1;
-        r.canonicalConsensusRank = nextRank;
-        r.rank = nextRank;
-      }
-    }
-    return ranked;
-  }, [eligibleRaw, applyScoringFit, hasScoringFitAvailable, scoringFitWeight]);
+  const eligible = eligibleRaw;
 
   // ── Trust summary stats ──────────────────────────────────────────
   // Single-pass aggregate — six filters would each walk the full
@@ -796,50 +566,6 @@ export default function RankingsPage() {
     return { total: eligible.length, high, medium, low, quarantined, multiSource, withAnomalies };
   }, [eligible]);
 
-  // ── Per-position scoring-fit summary ─────────────────────────────
-  // When the user has the global toggle on, summarise how each IDP
-  // position group's average ``idpScoringFitDelta`` compares to the
-  // consensus.  Surfaces "your league overvalues LBs by avg +1200,
-  // undervalues EDGEs by -800, aligned on DBs" — the one-shot
-  // insight that tells the user where their league diverges most.
-  const scoringFitPositionSummary = useMemo(() => {
-    if (!applyScoringFit || !hasScoringFitAvailable) return null;
-    const buckets = new Map();
-    for (const r of eligibleRaw) {
-      if (r.assetClass !== "idp") continue;
-      const delta = Number(r.idpScoringFitDelta);
-      if (!Number.isFinite(delta)) continue;
-      // Group by abstract family — combines specific positions
-      // (DT/DE/EDGE → DL, etc.) so the user sees three rows, not
-      // ten.  Matches the cohort-aliasing in the rookie baseline.
-      const family = (
-        ({
-          "DL": "DL", "DT": "DL", "DE": "DL", "EDGE": "DL", "NT": "DL",
-          "LB": "LB", "ILB": "LB", "OLB": "LB", "MLB": "LB",
-          "DB": "DB", "CB": "DB", "S": "DB", "FS": "DB", "SS": "DB",
-        })[String(r.pos || "").toUpperCase()] || "Other"
-      );
-      if (family === "Other") continue;
-      if (!buckets.has(family)) buckets.set(family, []);
-      buckets.get(family).push(delta);
-    }
-    const out = [];
-    for (const [family, deltas] of buckets) {
-      if (!deltas.length) continue;
-      const sorted = [...deltas].sort((a, b) => a - b);
-      const median = sorted[Math.floor(sorted.length / 2)];
-      const avg = deltas.reduce((s, x) => s + x, 0) / deltas.length;
-      out.push({
-        family,
-        count: deltas.length,
-        avg: Math.round(avg),
-        median: Math.round(median),
-        positive: deltas.filter((d) => d > 0).length,
-      });
-    }
-    out.sort((a, b) => Math.abs(b.avg) - Math.abs(a.avg));
-    return out.length ? out : null;
-  }, [eligibleRaw, applyScoringFit, hasScoringFitAvailable]);
 
   // ── Edge summary ─────────────────────────────────────────────────
   const edgeSummary = useMemo(() => computeEdgeSummary(eligible), [eligible]);
@@ -947,7 +673,7 @@ export default function RankingsPage() {
   }, [eligible, activeLens, posFilter, confFilter, query, sortCol, sortAsc]);
 
   // Apply row limit — search/filter bypasses the limit
-  const hasActiveFilter = query || posFilter !== "all" || confFilter !== "all" || activeLens !== "consensus" || applyScoringFit;
+  const hasActiveFilter = query || posFilter !== "all" || confFilter !== "all" || activeLens !== "consensus";
   const displayRows = hasActiveFilter ? ranked : ranked.slice(0, rowLimit);
   const hasMore = !hasActiveFilter && ranked.length > rowLimit;
 
@@ -955,12 +681,6 @@ export default function RankingsPage() {
   // ``eligible`` board sorted by ``row.rank`` ASCENDING — independent
   // of the user's current sort/filter so badges don't renumber when
   // the user sorts by name or filters to a single position.
-  //
-  // When ``applyScoringFit`` is on, the ``eligible`` projection has
-  // already overwritten ``row.rank`` with the adjusted-value-based
-  // rank, so iterating in rank order gives position ranks that
-  // reflect the league-aware ordering: a fit-positive LB that
-  // bubbled to LB3 (from consensus LB12) shows "LB3" in its badge.
   const positionRankByName = useMemo(() => {
     const counts = new Map();
     const byName = new Map();
@@ -1131,12 +851,6 @@ export default function RankingsPage() {
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
-    <>
-    {/* First-run onboarding for the scoring-fit lens.  Renders only
-        when (a) the user hasn't dismissed before AND (b) the
-        backend has lens data available for this league.  Self-
-        contained component handles localStorage + step navigation. */}
-    <ScoringFitOnboarding enabled={hasScoringFitAvailable} />
     <section className="card">
       {/* ── Header ──────────────────────────────────────────────────── */}
       <div className="rankings-header">
@@ -1358,7 +1072,7 @@ export default function RankingsPage() {
 
       {/* ── Edge rail (expandable) ──────────────────────────────────── */}
       {!loading && !error && showEdgeRail && rows.length > 0 && (
-        <EdgeRail summary={edgeSummary} onPlayerClick={openPlayerPopup} applyScoringFit={applyScoringFit && hasScoringFitAvailable} />
+        <EdgeRail summary={edgeSummary} onPlayerClick={openPlayerPopup} />
       )}
 
       {/* ── Loading / error / empty states ──────────────────────────── */}
@@ -1379,48 +1093,18 @@ export default function RankingsPage() {
       {/* ── Lens selector + controls ────────────────────────────────── */}
       {!loading && !error && rows.length > 0 && (
         <>
-          {/* Lens tabs.  ``scoringFit`` is conditionally hidden until
-              the ``idp_scoring_fit`` backend flag actually stamps
-              fields on at least one row — otherwise the button shows
-              an empty board for offense-only leagues / when the flag
-              is off, which is just confusing UX. */}
-          <div className="sub-nav" style={{ marginTop: "var(--space-sm)", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-              {LENSES
-                .filter((lens) =>
-                  lens.key !== "scoringFit"
-                  || rows.some((r) => typeof r.idpScoringFitDelta === "number"
-                                       && Number.isFinite(r.idpScoringFitDelta))
-                )
-                .map((lens) => (
-                  <button
-                    key={lens.key}
-                    className={`sub-nav-btn ${activeLens === lens.key ? "active" : ""}`}
-                    onClick={() => handleLensChange(lens.key)}
-                    title={lens.description}
-                  >
-                    {lens.label}
-                  </button>
-                ))}
-            </div>
-            {/* Apply Scoring Fit toggle.  Only rendered when at least
-                one row has ``idpScoringFitAdjustedValue`` stamped (i.e.
-                the backend pass actually ran for this league).  When
-                the user toggles, the entire board re-sorts instantly
-                and IDP rows show the adjusted value instead of the
-                consensus value. */}
-            {hasScoringFitAvailable && (
+          {/* Lens tabs */}
+          <div className="sub-nav" style={{ marginTop: "var(--space-sm)" }}>
+            {LENSES.map((lens) => (
               <button
-                className={`sub-nav-btn ${applyScoringFit ? "active" : ""}`}
-                onClick={() => setApplyScoringFit(!applyScoringFit)}
-                title={applyScoringFit
-                  ? "Showing IDP values adjusted by your league's scoring fit. Click to revert to the consensus board."
-                  : "Adjust IDP values + ranks by how this league's stacked scoring rates each player vs the consensus market. Toggles instantly — does not affect the trade calculator."}
-                style={{ marginLeft: "auto" }}
+                key={lens.key}
+                className={`sub-nav-btn ${activeLens === lens.key ? "active" : ""}`}
+                onClick={() => handleLensChange(lens.key)}
+                title={lens.description}
               >
-                {applyScoringFit ? "✓ Scoring Fit applied" : "Apply Scoring Fit"}
+                {lens.label}
               </button>
-            )}
+            ))}
           </div>
 
           {/* Lens description */}
@@ -1428,70 +1112,6 @@ export default function RankingsPage() {
             <p className="muted text-xs" style={{ margin: "4px 0 8px", lineHeight: 1.4 }}>
               {currentLens.description}
             </p>
-          )}
-
-          {/* Apply-Scoring-Fit explainer banner + per-position summary.
-              The banner surfaces only when the toggle is ON so first-run
-              users understand what changed about the board before the
-              lens cells make sense.  The position summary below it
-              shows where the league diverges most from the consensus —
-              one-shot insight that tells the user "your league
-              overvalues X, undervalues Y." */}
-          {applyScoringFit && (
-            <div
-              className="muted text-xs"
-              style={{
-                margin: "4px 0 8px",
-                padding: "6px 10px",
-                lineHeight: 1.4,
-                borderLeft: "3px solid var(--cyan, #22d3ee)",
-                background: "rgba(34, 211, 238, 0.08)",
-                borderRadius: "3px",
-              }}
-            >
-              IDP values + ranks are adjusted by your league&apos;s scoring
-              fit (weight {Math.round(scoringFitWeight * 100)}% — change on{" "}
-              <a href="/settings" style={{ color: "var(--cyan)" }}>/settings</a>).
-              Cyan dot = rookie cohort estimate. Trade calculator,
-              suggestions, finder + buy/sell signals all respect this toggle.
-            </div>
-          )}
-          {applyScoringFit && scoringFitPositionSummary && (
-            <div
-              style={{
-                margin: "4px 0 8px",
-                padding: "6px 10px",
-                background: "rgba(20, 25, 36, 0.5)",
-                border: "1px solid var(--border)",
-                borderRadius: "3px",
-                display: "flex",
-                gap: 16,
-                flexWrap: "wrap",
-                alignItems: "center",
-                fontSize: "0.74rem",
-              }}
-              title="Mean per-position scoring-fit delta across all IDPs in this league.  Positive = your league overvalues these vs consensus market (more buy-low candidates).  Negative = market overpays."
-            >
-              <strong style={{ color: "var(--text)" }}>League fit by position:</strong>
-              {scoringFitPositionSummary.map((b) => (
-                <span key={b.family} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontWeight: 600 }}>{b.family}</span>
-                  <span
-                    style={{
-                      fontFamily: "var(--mono, monospace)",
-                      color: b.avg > 0 ? "var(--green, #4ade80)"
-                        : b.avg < 0 ? "var(--red, #f87171)"
-                        : "var(--muted)",
-                      fontWeight: 600,
-                    }}
-                    title={`Avg delta ${b.avg >= 0 ? "+" : ""}${b.avg} across ${b.count} ${b.family}s · ${b.positive} fit-positive`}
-                  >
-                    {b.avg >= 0 ? "+" : ""}{b.avg.toLocaleString()}
-                  </span>
-                  <span className="muted">({b.count})</span>
-                </span>
-              ))}
-            </div>
           )}
 
           {/* Filters */}
@@ -1798,16 +1418,6 @@ export default function RankingsPage() {
                           >
                             {band.label}
                           </span>
-                          {(applyScoringFit || activeLens === "scoringFit") && row.idpScoringFitTier && (
-                            <ScoringFitBadges
-                              tier={row.idpScoringFitTier}
-                              confidence={row.idpScoringFitConfidence}
-                              synthetic={row.idpScoringFitSynthetic}
-                              draftRound={row.idpScoringFitDraftRound}
-                              delta={row.idpScoringFitDelta}
-                              consensusValue={row.consensusRankDerivedValueOriginal ?? row.rankDerivedValue}
-                            />
-                          )}
                         </td>
 
                         {/* Per-source value + rank columns.  Gated on
@@ -2142,6 +1752,5 @@ export default function RankingsPage() {
         </>
       )}
     </section>
-    </>
   );
 }

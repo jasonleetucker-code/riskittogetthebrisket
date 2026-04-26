@@ -104,32 +104,6 @@ function computeValueChain(row) {
     });
   }
 
-  // Scoring-fit adjustment — only present on IDP rows when the
-  // backend pass produced a delta.  Rendered as a chain stage so
-  // users can see exactly how the league-aware value is derived
-  // from the consensus blend.
-  if (typeof row.idpScoringFitAdjustedValue === "number"
-      && Number.isFinite(row.idpScoringFitAdjustedValue)) {
-    const delta = Number(row.idpScoringFitDelta) || 0;
-    const tier = row.idpScoringFitTier ? row.idpScoringFitTier.replace(/_/g, " ") : "";
-    const conf = row.idpScoringFitConfidence;
-    const games = row.idpScoringFitGamesUsed;
-    const isSynthetic = !!row.idpScoringFitSynthetic;
-    const sourceLabel = isSynthetic
-      ? `cohort baseline (round-${row.idpScoringFitDraftRound ?? "?"} rookie)`
-      : `${games || 0} games realized · ${conf || "—"} confidence`;
-    stages.push({
-      key: "scoringFit",
-      label: "Scoring fit (league-aware)",
-      description:
-        `Tier: ${tier}.  ` +
-        `${sourceLabel}.  ` +
-        `Delta vs market: ${delta >= 0 ? "+" : ""}${Math.round(delta)}.  ` +
-        `Adjusted = consensus + delta × 0.30 (clamped 0-9999).`,
-      value: Math.round(Number(row.idpScoringFitAdjustedValue)),
-      delta: blended ? Math.round(Number(row.idpScoringFitAdjustedValue)) - Math.round(blended) : null,
-    });
-  }
 
   return stages;
 }
@@ -357,43 +331,6 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
             <div className="label">Our Value</div>
             <div className="value" style={{ fontSize: "1.4rem" }}>{Math.round(values.full || 0).toLocaleString()}</div>
           </div>
-          {typeof row.idpScoringFitAdjustedValue === "number" && Number.isFinite(row.idpScoringFitAdjustedValue) && (
-            <div title={`League-aware value: consensus ${Math.round(values.full || 0).toLocaleString()} ${row.idpScoringFitDelta >= 0 ? "+" : ""}${Math.round(row.idpScoringFitDelta || 0).toLocaleString()} from scoring-fit (weight 0.30)`}>
-              <div className="label" style={{ color: "var(--cyan)" }}>
-                Scoring Fit
-                {row.idpScoringFitConfidence === "synthetic" && (
-                  <span
-                    style={{
-                      fontSize: "0.6rem",
-                      marginLeft: 6,
-                      padding: "1px 4px",
-                      borderRadius: 3,
-                      background: "rgba(34, 211, 238, 0.18)",
-                      color: "var(--cyan, #22d3ee)",
-                      fontWeight: 600,
-                    }}
-                    title={row.idpScoringFitDraftRound
-                      ? `Estimated from average rookie-year production of round-${row.idpScoringFitDraftRound} ${row.idpScoringFitTier}s under your league's scoring`
-                      : "Synthetic value from draft-cohort baseline"}
-                  >
-                    R{row.idpScoringFitDraftRound ?? "?"} synth
-                  </span>
-                )}
-              </div>
-              <div className="value" style={{ fontSize: "1.4rem", color: "var(--cyan)" }}>
-                {Math.round(row.idpScoringFitAdjustedValue).toLocaleString()}
-              </div>
-              <div className="muted" style={{ fontSize: "0.7rem", marginTop: 2 }}>
-                {row.idpScoringFitDelta >= 0 ? "+" : ""}{Math.round(row.idpScoringFitDelta || 0).toLocaleString()} vs market
-                {" · "}
-                {row.idpScoringFitTier ? row.idpScoringFitTier.replace(/_/g, " ") : ""}
-                {row.idpScoringFitGamesUsed ? ` · ${row.idpScoringFitGamesUsed} games` : ""}
-                {typeof row.idpSnapShare === "number" && Number.isFinite(row.idpSnapShare)
-                  ? ` · ${Math.round(row.idpSnapShare * 100)}% snaps`
-                  : ""}
-              </div>
-            </div>
-          )}
           {injury && injury.impact?.appliedDiscountPct > 0 && (
             <div>
               <div className="label" style={{ color: "var(--red)" }}>
@@ -431,67 +368,6 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
             (32%)", "QB Hit 28 → 42 pts (24%)", "TFL 15 → 30 pts
             (17%)" — surfacing that this league's stacked sack
             scoring is what's pulling them above market. */}
-        {Array.isArray(row.idpScoringFitTopStats)
-          && row.idpScoringFitTopStats.length > 0 && (
-          <div style={{ marginTop: 10 }}>
-            <div
-              className="label"
-              style={{ fontSize: "0.7rem", color: "var(--cyan)" }}
-              title="The stat categories driving this player's realized fantasy points under YOUR league's scoring.  Aggregated across the trailing 3 seasons.  Rank-ordered by points contribution; ``share`` is fraction of total points."
-            >
-              What&apos;s driving the scoring fit
-            </div>
-            <div
-              style={{
-                marginTop: 4,
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 8,
-                fontSize: "0.72rem",
-                fontFamily: "var(--mono, monospace)",
-              }}
-            >
-              {row.idpScoringFitTopStats.slice(0, 4).map((s, i) => {
-                const pct = typeof s.share === "number"
-                  ? Math.round(s.share * 100) : null;
-                const ptsSign = (s.points_total ?? 0) >= 0 ? "+" : "";
-                return (
-                  <span
-                    key={`${s.label}-${i}`}
-                    title={`${s.label}: ${s.stat_total} events × scoring rules = ${ptsSign}${(s.points_total ?? 0).toFixed(1)} pts (${pct ?? "—"}% of total realized fantasy points)`}
-                    style={{
-                      padding: "3px 8px",
-                      borderRadius: 4,
-                      background: "rgba(34, 211, 238, 0.10)",
-                      border: "1px solid rgba(34, 211, 238, 0.30)",
-                    }}
-                  >
-                    <span style={{ color: "var(--text)", fontWeight: 600 }}>
-                      {s.label}
-                    </span>
-                    <span style={{ color: "var(--muted)", marginLeft: 6 }}>
-                      {s.stat_total}
-                    </span>
-                    <span
-                      style={{
-                        color: (s.points_total ?? 0) >= 0 ? "var(--green, #4ade80)" : "var(--red, #f87171)",
-                        marginLeft: 6,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {ptsSign}{(s.points_total ?? 0).toFixed(0)}
-                    </span>
-                    {pct != null && (
-                      <span style={{ color: "var(--muted)", marginLeft: 4 }}>
-                        ({pct}%)
-                      </span>
-                    )}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Value chain — how we arrived at Our Value */}
         {valueChain.length > 0 && (

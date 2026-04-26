@@ -6298,44 +6298,6 @@ def _compute_unified_rankings(
     # with max(offense_value, alt_family_value).
     _apply_two_way_player_boost(players_array, players_by_name)
 
-    # IDP scoring-fit lens (Phase 1).  Stamps ``idpScoringFit*`` fields
-    # on IDP rows: VORP under league scoring, tier label, value-scale
-    # delta vs the consensus rank, confidence label scaled by realized
-    # sample size, plus a pre-computed ``idpScoringFitAdjustedValue``
-    # for the frontend's apply-scoring-fit toggle.  Backend never
-    # mutates ``rankDerivedValue``.  Gated behind ``idp_scoring_fit``
-    # feature flag (default OFF) until the production gate passes.
-    # No-op for offense-only leagues — resolved via ``idp_enabled`` on
-    # the active LeagueConfig.
-    try:
-        from src.scoring.idp_scoring_fit_apply import (  # noqa: PLC0415
-            apply_idp_scoring_fit_pass,
-        )
-        # Resolve idp_enabled from the active league registry.  Default
-        # to True when the registry is unavailable (matches the
-        # historical pre-registry behaviour); the pass is still gated
-        # by the feature flag, so True-by-default doesn't cause any
-        # behaviour change with the flag OFF.
-        _idp_enabled = True
-        try:
-            from src.api import league_registry as _lr  # noqa: PLC0415
-            _league = _lr.get_default_league()
-            if _league is not None:
-                _idp_enabled = bool(_league.idp_enabled)
-        except Exception:  # noqa: BLE001
-            pass
-        apply_idp_scoring_fit_pass(
-            players_array,
-            league_idp_enabled=_idp_enabled,
-            legacy_players_dict=players_by_name,
-        )
-    except Exception as _exc:  # noqa: BLE001
-        # Never let a Phase-1 diagnostic pass break the live contract.
-        import logging as _logging
-        _logging.getLogger(__name__).warning(
-            "idp_scoring_fit_pass_failed err=%r", _exc,
-        )
-
     # Offense calibration is deliberately never applied to live values.
     # The offense market is already priced by the blend of KTC / DLF /
     # IDPTC / etc.  VOR bucket multipliers produced absurd artefacts
@@ -7301,32 +7263,6 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "quarantined",
     "ktcRank",
     "idpRank",
-    # IDP scoring-fit lens (Phase 1).  Stamped only when the
-    # ``idp_scoring_fit`` flag is ON and the league is IDP-enabled;
-    # absent fields just mean the pass didn't run for this row.
-    "idpScoringFitVorp",
-    "idpScoringFitTier",
-    "idpScoringFitDelta",
-    "idpScoringFitConfidence",
-    "idpScoringFitSynthetic",
-    "idpScoringFitDraftRound",
-    "idpScoringFitWeightedPpg",
-    "idpScoringFitGamesUsed",
-    # Pre-computed "what rankDerivedValue would be if the user toggles
-    # apply-scoring-fit on the frontend".  Always stamped alongside
-    # the delta; frontend toggle decides whether to display + sort by
-    # this or raw rankDerivedValue.  Backend never mutates
-    # rankDerivedValue itself.
-    "idpScoringFitAdjustedValue",
-    # Top stat categories driving the player's realized PPG.  List of
-    # {label, stat_total, points_total, share} dicts.  Rendered in the
-    # popup as the "why" breakdown for the lens verdict.
-    "idpScoringFitTopStats",
-    # Defensive snap share (0.0-1.0) averaged across the most recent
-    # season.  Durability signal — a 100-tackle LB at 95% snaps is a
-    # bell-cow; the same line at 60% is rotational.  Stamped only on
-    # IDPs the cross-walk could find; absent otherwise.
-    "idpSnapShare",
 )
 
 

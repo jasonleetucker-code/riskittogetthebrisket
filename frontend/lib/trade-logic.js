@@ -182,38 +182,8 @@ export function pickYearDiscount(pickName, currentYear) {
  * @param {object} [settings] - User settings (from useSettings)
  * @returns {number}
  */
-// Internal — apply the user-configured scoring-fit weight to derive
-// an IDP row's adjusted value from primitives (consensus + delta).
-// Falls through to the input ``raw`` value when the toggle is off,
-// the row has no delta, or the weight is 0.  Slider-aware so the
-// adjustment changes instantly when the user moves the weight on
-// /settings.
-function _applyScoringFitWeight(row, raw, settings) {
-  if (!settings?.applyScoringFit || raw <= 0) return raw;
-  const delta = Number(row?.idpScoringFitDelta);
-  if (!Number.isFinite(delta) || delta === 0) return raw;
-  const weight = typeof settings.scoringFitWeight === "number"
-    ? Math.max(0, Math.min(1, settings.scoringFitWeight))
-    : 0.30;
-  if (weight <= 0) return raw;
-  const adjusted = raw + delta * weight;
-  return Math.max(0, Math.min(9999, adjusted));
-}
-
 export function effectiveValue(row, valueMode, settings) {
   let raw = Number(row.values?.[valueMode] || 0);
-
-  // Apply Scoring Fit (global toggle).  When ON, IDP rows substitute
-  // ``consensus + delta × scoringFitWeight`` for the consensus value
-  // so trade math reflects THIS league's stacked scoring rather than
-  // the generic 19-source consensus.  Offense + picks are unaffected;
-  // only IDPs get the adjustment.  Only fires for
-  // ``valueMode === "full"`` — the "raw" mode is by definition
-  // pre-adjustment, and changing it would defeat the purpose of
-  // having a raw view.
-  if (valueMode === "full") {
-    raw = _applyScoringFitWeight(row, raw, settings);
-  }
 
   if (!settings || raw <= 0) return raw;
   const pos = row.pos || "WR";
@@ -243,14 +213,12 @@ export function sideTotal(side, valueMode, settings = null) {
  *
  * Returns 0 when no value is available.
  */
-export function displayValue(row, settings = null) {
+export function displayValue(row, _settings = null) {
   if (!row) return 0;
-  let base = Number(row.values?.full);
-  if (!Number.isFinite(base) || base <= 0) {
-    base = Number(row.rankDerivedValue);
-    if (!Number.isFinite(base) || base <= 0) return 0;
-  }
-  return _applyScoringFitWeight(row, base, settings);
+  const fromValues = Number(row.values?.full);
+  if (Number.isFinite(fromValues) && fromValues > 0) return fromValues;
+  const fromRdv = Number(row.rankDerivedValue);
+  return Number.isFinite(fromRdv) ? fromRdv : 0;
 }
 
 /** Descending-sorted effective values for a side. */
