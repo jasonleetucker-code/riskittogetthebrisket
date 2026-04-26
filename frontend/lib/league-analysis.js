@@ -105,7 +105,9 @@ export function buildRowLookup(rows) {
  * so pick values surface correctly in trade history.
  */
 export function resolveTradeItemValue(itemName, rowLookup, posMap, pickAliases) {
-  if (!itemName) return { name: itemName, value: 0, pos: "", isPick: false };
+  if (!itemName) {
+    return { name: itemName, value: 0, pos: "", isPick: false, playerId: "", team: "" };
+  }
   const name = String(itemName).trim();
   const isPick = !!parsePickToken(name);
 
@@ -117,10 +119,12 @@ export function resolveTradeItemValue(itemName, rowLookup, posMap, pickAliases) 
         value: row.values?.full || 0,
         pos: "PICK",
         isPick: true,
+        playerId: "",
+        team: "",
       };
     }
     // No match — fall through to empty pick result below.
-    return { name, value: 0, pos: "PICK", isPick: true };
+    return { name, value: 0, pos: "PICK", isPick: true, playerId: "", team: "" };
   }
 
   const key = name.toLowerCase();
@@ -131,6 +135,13 @@ export function resolveTradeItemValue(itemName, rowLookup, posMap, pickAliases) 
       value: row.values?.full || 0,
       pos: row.pos || "",
       isPick: false,
+      // Carry the Sleeper player id + NFL team forward so the trade
+      // history view can render a player headshot via <PlayerImage>.
+      // Both fields are best-effort: ``raw.playerId`` is stamped by
+      // the contract for offensive/IDP rows; ``team`` is the NFL
+      // abbreviation or empty for free agents.
+      playerId: String(row.raw?.playerId || "") || "",
+      team: row.team || "",
     };
   }
 
@@ -144,13 +155,15 @@ export function resolveTradeItemValue(itemName, rowLookup, posMap, pickAliases) 
         value: strippedRow.values?.full || 0,
         pos: strippedRow.pos || "",
         isPick: false,
+        playerId: String(strippedRow.raw?.playerId || "") || "",
+        team: strippedRow.team || "",
       };
     }
   }
 
   // Fallback — check position map
   const pos = posMap?.[name] || "";
-  return { name, value: 0, pos, isPick: false };
+  return { name, value: 0, pos, isPick: false, playerId: "", team: "" };
 }
 
 // ── Normalize Trade Asset Label ─────────────────────────────────────────
@@ -310,6 +323,8 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
         val: Math.round(safeVal),
         pos: resolved.pos,
         isPick: resolved.isPick,
+        playerId: resolved.playerId,
+        team: resolved.team,
       });
     }
     return { items, linear, weighted, values };

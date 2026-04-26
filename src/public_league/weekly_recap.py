@@ -149,33 +149,51 @@ _BLOWOUT_HEADLINES = (
     "{w} dismantled {l} {ws:.1f}-{ls:.1f}",
     "{w} ran riot on {l} — {m:.1f}-point margin",
     "{w} torched {l} for a {m:.1f}-point win",
+    "{w} put {l} on a milk carton, {ws:.1f}-{ls:.1f}",
+    "{w} curb-stomped {l} by {m:.1f}",
+    "{w} blew the doors off {l} {ws:.1f}-{ls:.1f}",
 )
 _BIG_WIN_HEADLINES = (
     "{w} cruised past {l} by {m:.1f}",
     "{w} put {l} away by {m:.1f}",
     "{w} took control over {l} by {m:.1f}",
+    "{w} dispatched {l} by {m:.1f}",
+    "{w} handled {l} by {m:.1f}, never threatened",
 )
 _NAILBITER_HEADLINES = (
     "{w} survived {l} by {m:.2f}",
     "{w} squeaked past {l} by {m:.2f}",
     "{w} edged {l} in a thriller, {m:.2f}",
     "{w} held on against {l} by {m:.2f}",
+    "{w} outlasted {l} by {m:.2f} in a coin-flip",
+    "{w} clipped {l} by {m:.2f} — a Monday-night decimals job",
 )
 _MVP_HEADLINES = (
     "{name} torched the league with {pts:.1f}",
     "{name} dropped {pts:.1f} on the slate",
     "{name} led the field at {pts:.1f}",
     "{name} put up a league-best {pts:.1f}",
+    "{name} paced the week at {pts:.1f}",
+    "Top score of the week: {name}'s {pts:.1f}",
 )
 _MVP_AND_BLOWOUT_HEADLINES = (
     "{name} dropped {pts:.1f} in a {m:.1f}-point demolition",
     "{name} powered a {m:.1f}-point statement win, {pts:.1f}",
     "{name}'s {pts:.1f} fueled a {m:.1f}-point rout",
+    "{name} hung {pts:.1f} and won by {m:.1f}",
+    "{name}'s {pts:.1f} buried the rest of the league in a {m:.1f}-point sweep",
+)
+_TRIPLE_LEADER_HEADLINES = (
+    "Three teams cracked {threshold:.0f}+: {leaders}",
+    "Heavyweight slate — {leaders} all crossed {threshold:.0f}",
+    "{leaders} headlined the high-scoring tier ({threshold:.0f}+)",
 )
 _FALLBACK_HEADLINES = (
     "Week in review",
     "Around the league",
     "This week in the league",
+    "Quiet week, big stakes",
+    "League wrap-up",
 )
 
 
@@ -183,6 +201,24 @@ def _headline(recap: dict[str, Any], seed: int) -> str:
     blowout = recap.get("blowout")
     nailbiter = recap.get("nailBiter")
     mvp = recap.get("mvp")
+    top = recap.get("topPerformers") or []
+
+    # Three-leader headline fires only when there's no other dominant
+    # story (no mega-blowout, no nailbiter <2pts) AND three sides
+    # cracked the 150-point mark together.  Keeps it a niche fallback
+    # rather than overwriting a real headline opportunity.
+    bigly = (blowout and blowout["margin"] >= 40)
+    super_close = (nailbiter and nailbiter["margin"] < 2)
+    if (
+        not bigly
+        and not super_close
+        and len(top) >= 3
+        and all(s["points"] >= 150 for s in top[:3])
+    ):
+        names = ", ".join(s["displayName"] for s in top[:3])
+        return _choose(_TRIPLE_LEADER_HEADLINES, seed).format(
+            leaders=names, threshold=150,
+        )
 
     # MVP + blowout from the same manager: "stat torched in a blowout".
     if mvp and blowout and mvp.get("ownerId") == blowout["winner"]["ownerId"] and blowout["margin"] >= 25:
@@ -249,6 +285,20 @@ _NAILBITER_LINES = (
 _TIGHT_PAIR_LINES = (
     "Three games inside ten points underline how compressed this scoring week was.",
     "Multiple matchups went down to the wire — a margin-tight slate top to bottom.",
+    "More than half the slate finished within a TD — every roster decision mattered.",
+)
+_TOP3_LINES = (
+    "Top-3 of the week: {a} ({pa:.1f}), {b} ({pb:.1f}), {c} ({pc:.1f}).",
+    "Podium for the week — {a} {pa:.1f}, {b} {pb:.1f}, {c} {pc:.1f}.",
+    "Best three outputs: {a} ({pa:.1f}) over {b} ({pb:.1f}) over {c} ({pc:.1f}).",
+)
+_HIGH_SCORING_WEEK_LINES = (
+    "The slate averaged {avg:.1f} points per side — well above league norm.",
+    "{above} of {total} teams cracked {threshold:.0f}+, a high-scoring week across the board.",
+)
+_LOW_SCORING_WEEK_LINES = (
+    "Sluggish slate — {below} of {total} teams finished under {threshold:.0f}.",
+    "Across-the-board defensive week; nobody hit the {threshold:.0f}-point mark.",
 )
 _BAD_BEAT_LINES = (
     "{name} was the bad-beat candidate of the week — {pts:.1f} points and still {ml:.1f} short of the win.",
@@ -360,6 +410,57 @@ def _summary(recap: dict[str, Any], seed: int) -> str:
     if tight_count >= 3:
         parts.append(_choose(_TIGHT_PAIR_LINES, seed + 4))
 
+    # Top-3 weekly performers — only render when at least three sides
+    # actually scored, otherwise the line would read awkwardly with
+    # zero-point fillers.
+    top = recap.get("topPerformers") or []
+    # Skip the top-3 line when the MVP line above already names the
+    # #1 unless margin between #1 and #3 is meaningful (avoid feeling
+    # repetitive).
+    if (
+        len(top) >= 3
+        and (top[0]["points"] - top[2]["points"]) >= 15.0
+    ):
+        parts.append(
+            _choose(_TOP3_LINES, seed + 8).format(
+                a=top[0]["displayName"],
+                pa=top[0]["points"],
+                b=top[1]["displayName"],
+                pb=top[1]["points"],
+                c=top[2]["displayName"],
+                pc=top[2]["points"],
+            )
+        )
+
+    # League-wide scoring tone.  150-pt threshold = "high" baseline,
+    # 100-pt threshold = "low" baseline; tuned for SF + TEP fantasy
+    # scoring where 110-150 is a typical pace.
+    if matchups and len(top) >= 2:
+        sides_total = len(top) + sum(2 for _ in matchups[len(top):])
+        side_count = max(1, len(top) + 2 * max(0, len(matchups) - len(top) // 2))
+        avg_side = scored_total / max(1, 2 * len(matchups))
+        if avg_side >= 130:
+            above = sum(1 for s in top if s["points"] >= 150)
+            if above >= 2:
+                parts.append(
+                    _choose(_HIGH_SCORING_WEEK_LINES, seed + 9).format(
+                        avg=avg_side,
+                        above=above,
+                        total=2 * len(matchups),
+                        threshold=150,
+                    )
+                )
+        elif avg_side <= 95:
+            below = sum(1 for s in top if s["points"] <= 100)
+            parts.append(
+                _choose(_LOW_SCORING_WEEK_LINES, seed + 9).format(
+                    avg=avg_side,
+                    below=below,
+                    total=2 * len(matchups),
+                    threshold=100,
+                )
+            )
+
     # Bad beat OR bust framing — never both, to keep the recap punchy.
     if bad_beat and (not mvp or bad_beat["points"] > mvp["points"] - 10):
         parts.append(
@@ -414,6 +515,9 @@ def _build_week_recap(
     biggest: dict[str, Any] | None = None
     closest: dict[str, Any] | None = None
     bad_beat: dict[str, Any] | None = None
+    # Every individual side performance, used to derive the top-3 list
+    # below.  Filled as we walk the matchup pairs.
+    all_sides: list[dict[str, Any]] = []
 
     # Per-recap deterministic seed so phrase choice varies across weeks.
     try:
@@ -451,6 +555,8 @@ def _build_week_recap(
                 highest = side
             if lowest is None or side["points"] < lowest["points"]:
                 lowest = side
+            if side["points"] > 0:
+                all_sides.append(side)
         if winner and (biggest is None or margin > biggest["margin"]):
             biggest = {
                 "winner": winner,
@@ -483,6 +589,13 @@ def _build_week_recap(
 
     trades = _weekly_trades_for(season, snapshot, week)
 
+    # Top-3 weekly performers — used by the UI to render a small
+    # leaderboard and by the summary phrase bank for "three teams
+    # cracked X+" framing.
+    top_performers = sorted(
+        all_sides, key=lambda s: -s["points"]
+    )[:3]
+
     recap: dict[str, Any] = {
         "season": season.season,
         "leagueId": season.league_id,
@@ -495,6 +608,7 @@ def _build_week_recap(
         "bust": lowest,
         "badBeat": bad_beat,
         "trades": trades,
+        "topPerformers": top_performers,
     }
     recap["headline"] = _headline(recap, seed)
     recap["summary"] = _summary(recap, seed)

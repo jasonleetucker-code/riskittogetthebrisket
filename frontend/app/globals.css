@@ -164,6 +164,19 @@ a { color: inherit; text-decoration: none; }
   background: rgba(255, 199, 4, 0.06);
 }
 
+/* Subtle vertical divider between desktop-nav groups.  The hierarchy
+   is workflow (Rankings · Trade · Draft) | discovery (Edge · Finder ·
+   Angle) | public (League) | admin (Settings · More).  The divider
+   visually separates them without taking up a full nav slot. */
+.nav-group-sep {
+  display: inline-block;
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 4px;
+  opacity: 0.55;
+}
+
 .nav-search-btn {
   font-family: var(--mono);
   font-size: 0.82rem;

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useApp } from "@/components/AppShell";
 import { useSettings } from "@/components/useSettings";
-import { PageHeader, LoadingState, EmptyState } from "@/components/ui";
+import { PageHeader, LoadingState, EmptyState, PlayerImage } from "@/components/ui";
 import { TRADE_ALPHA } from "@/lib/trade-logic";
 import {
   analyzeSleeperTradeHistory,
@@ -249,15 +249,25 @@ function AssetPill({ item }) {
   return (
     <span
       style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
         fontSize: "0.66rem",
-        padding: "2px 6px",
+        padding: "2px 6px 2px 2px",
         border: "1px solid var(--border)",
         borderRadius: 4,
         background: "var(--bg-soft)",
       }}
     >
-      <span style={{ color: posColor, fontWeight: 700, fontSize: "0.58rem" }}>{posLabel}</span>{" "}
-      {item.name}{" "}
+      <PlayerImage
+        playerId={item.playerId}
+        team={item.team}
+        position={item.pos}
+        name={item.name}
+        size={20}
+      />
+      <span style={{ color: posColor, fontWeight: 700, fontSize: "0.58rem" }}>{posLabel}</span>
+      {item.name}
       <span style={{ fontFamily: "var(--mono)", color: "var(--subtext)" }}>{item.val.toLocaleString()}</span>
     </span>
   );

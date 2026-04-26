@@ -352,6 +352,11 @@ def _player_records(snapshot: PublicLeagueSnapshot) -> dict[str, list[dict[str, 
                     pos = snapshot.player_position(pid)
                     if not pos or pos not in by_position:
                         continue
+                    # Pull the NFL team off the Sleeper player dump so
+                    # the frontend ``<PlayerImage>`` has a logo fallback
+                    # when the headshot 403s for an obscure player.
+                    nfl_player = snapshot.nfl_players.get(str(pid)) or {}
+                    nfl_team = str(nfl_player.get("team") or "").upper()
                     by_position[pos].append({
                         "season": season.season,
                         "leagueId": season.league_id,
@@ -362,6 +367,7 @@ def _player_records(snapshot: PublicLeagueSnapshot) -> dict[str, list[dict[str, 
                         "displayName": metrics.display_name_for(snapshot, owner_id),
                         "playerId": pid,
                         "playerName": snapshot.player_display(pid),
+                        "team": nfl_team,
                         "position": pos,
                         "points": round(pts, 2),
                     })

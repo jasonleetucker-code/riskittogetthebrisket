@@ -11,20 +11,32 @@ import TeamSwitcher from "@/components/TeamSwitcher";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
 
 // ── Route definitions ────────────────────────────────────────────────────
-// Primary destinations shown in desktop top nav.  ``hint`` populates the
-// browser's native title tooltip on hover so a user passing over "Trade"
-// vs. "Trades" vs. "Finder" vs. "Angle" can tell which one solves which
-// problem without having to click through.  The /more page already shows
-// these descriptions on mobile.
+// Primary destinations shown in desktop top nav.
+//
+// Items are grouped so the four trade-discovery tools (Trade · Edge ·
+// Finder · Angle) cluster together visually instead of reading as flat
+// peers.  ``groupBreak: true`` on an item triggers a thin vertical
+// separator before it on desktop.
+//
+// Mental model:
+//   Group 1 — daily workflow: Rankings, Trade, Draft
+//   Group 2 — decision-support / discovery: Edge, Finder, Angle
+//   Group 3 — public-facing: League
+//   Group 4 — admin: Settings, More
+//
+// ``hint`` populates the browser's native title tooltip on hover so a
+// user passing over "Trade" vs. "Trades" vs. "Finder" vs. "Angle" can
+// tell which one solves which problem without having to click through.
+// The /more page already shows these descriptions on mobile.
 const PRIMARY_NAV = [
   { href: "/rankings", label: "Rankings", hint: "Player value board" },
   { href: "/trade", label: "Trade", hint: "Build and grade a trade" },
   { href: "/draft", label: "Draft", hint: "Rookie draft prep + ADP" },
-  { href: "/edge", label: "Edge", hint: "Where sources disagree most" },
+  { href: "/edge", label: "Edge", hint: "Where sources disagree most", groupBreak: true },
   { href: "/finder", label: "Finder", hint: "Find KTC arbitrage trades" },
   { href: "/angle", label: "Angle", hint: "Counter-package generator" },
-  { href: "/league", label: "League", hint: "Public league hub" },
-  { href: "/settings", label: "Settings", hint: "Source weights, TEP, profile" },
+  { href: "/league", label: "League", hint: "Public league hub", groupBreak: true },
+  { href: "/settings", label: "Settings", hint: "Source weights, TEP, profile", groupBreak: true },
   { href: "/more", label: "More", hint: "Trades history, rosters, tools" },
 ];
 
@@ -68,19 +80,35 @@ function DesktopNav() {
           Risk It To Get The Brisket
         </Link>
         <nav className="nav">
-          {PRIMARY_NAV.filter((item) => authenticated || PUBLIC_ROUTES.has(item.href)).map((item) => {
-            const active = pathname === item.href || pathname?.startsWith(item.href + "/");
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={item.hint || item.label}
-                className={`nav-link${active ? " nav-active" : ""}`}
-              >
-                {item.label}
-              </Link>
+          {(() => {
+            const visible = PRIMARY_NAV.filter(
+              (item) => authenticated || PUBLIC_ROUTES.has(item.href),
             );
-          })}
+            const out = [];
+            visible.forEach((item, idx) => {
+              const active = pathname === item.href || pathname?.startsWith(item.href + "/");
+              if (item.groupBreak && idx > 0) {
+                out.push(
+                  <span
+                    key={`sep-${item.href}`}
+                    aria-hidden="true"
+                    className="nav-group-sep"
+                  />,
+                );
+              }
+              out.push(
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  title={item.hint || item.label}
+                  className={`nav-link${active ? " nav-active" : ""}`}
+                >
+                  {item.label}
+                </Link>,
+              );
+            });
+            return out;
+          })()}
           {authenticated && <LeagueSwitcher variant="desktop" />}
           {authenticated && <TeamSwitcher variant="desktop" />}
           {authenticated && (

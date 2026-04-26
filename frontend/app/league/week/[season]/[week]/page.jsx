@@ -87,7 +87,7 @@ export default async function WeeklyRecapPage({ params }) {
     );
   }
 
-  const { isPlayoff, headline, summary, matchups = [], mvp, bust, blowout, nailBiter, badBeat, trades = [] } = recap;
+  const { isPlayoff, headline, summary, matchups = [], mvp, bust, blowout, nailBiter, badBeat, trades = [], topPerformers = [] } = recap;
 
   return (
     <section>
@@ -180,6 +180,41 @@ export default async function WeeklyRecapPage({ params }) {
             />
           )}
         </div>
+
+        {topPerformers.length >= 3 && (
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: "0.62rem", color: "var(--subtext)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+              Top performers
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {topPerformers.slice(0, 5).map((p, i) => (
+                <div
+                  key={p.ownerId || `top-${i}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "6px 10px",
+                    border: "1px solid var(--border)",
+                    borderRadius: 999,
+                    background: i === 0 ? "rgba(46, 204, 113, 0.08)" : "transparent",
+                  }}
+                >
+                  <span style={{ color: "var(--subtext)", fontFamily: "var(--mono)", fontSize: "0.66rem" }}>
+                    #{i + 1}
+                  </span>
+                  <Avatar managers={managers} ownerId={p.ownerId} size={22} />
+                  <span style={{ fontSize: "0.78rem", fontWeight: 600 }}>
+                    {nameFor(managers, p.ownerId) || p.displayName}
+                  </span>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: "0.78rem", color: "var(--cyan)" }}>
+                    {fmtPoints(p.points)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Matchups */}
