@@ -1828,6 +1828,10 @@ _PUBLIC_API_EXACT = frozenset({
 # check runs.
 _SELF_AUTHED_API_EXACT = frozenset({
     "/api/signal-alerts/run",
+    # Same bearer-auth pattern as signal-alerts.  Bypass session
+    # cookie gate so the systemd timer's curl call hits the
+    # endpoint's own bearer check.
+    "/api/scoring-fit-digest/run",
     # E2E test-session bootstrap — handles its own bearer-token auth.
     # Returns 404 unless E2E_TEST_MODE + matching bearer secret are
     # both set, so having it bypass the session gate doesn't leak
@@ -6379,6 +6383,11 @@ def _deliver_email_smtp(to: str, subject: str, body: str) -> bool:
     Returns True on successful send, False on any error.  Errors
     are logged but never raised — the alert runner catches
     exceptions itself and we want deliver-per-user to be isolated.
+
+    Tries STARTTLS on port 587 first (port 465 is firewall-blocked
+    on the production VPS as of 2026-04-26).  Falls back to SMTP_SSL
+    on 465 if 587 fails — covers environments where 587 is the
+    blocked path instead.
     """
     if not ALERT_ENABLED or not ALERT_FROM or not ALERT_PASSWORD or not to:
         return False
@@ -6388,13 +6397,24 @@ def _deliver_email_smtp(to: str, subject: str, body: str) -> bool:
     msg["To"] = to
     msg.attach(MIMEText(body, "plain"))
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as s:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as s:
+            s.starttls()
             s.login(ALERT_FROM, ALERT_PASSWORD)
             s.send_message(msg)
         return True
-    except Exception as exc:  # noqa: BLE001
-        log.warning("signal-alert SMTP delivery error to %s: %s", to, exc)
-        return False
+    except Exception as exc587:  # noqa: BLE001
+        log.warning(
+            "signal-alert SMTP 587 STARTTLS failed to %s: %s — falling back to 465",
+            to, exc587,
+        )
+        try:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as s:
+                s.login(ALERT_FROM, ALERT_PASSWORD)
+                s.send_message(msg)
+            return True
+        except Exception as exc465:  # noqa: BLE001
+            log.warning("signal-alert SMTP 465 SSL also failed to %s: %s", to, exc465)
+            return False
 
 
 # ── Admin endpoints (Phase 11 follow-ons) ────────────────────────

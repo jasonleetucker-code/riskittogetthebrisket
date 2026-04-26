@@ -1218,6 +1218,31 @@ def _apply_quality_filters(
 
 # ── Main entry point ─────────────────────────────────────────────────
 
+def _rookies_eligible_today() -> bool:
+    """Return False between Feb 1 and May 11 of each year — the
+    pre-draft window when rookie names in the consensus board are
+    just placeholders (the actual class hasn't been drafted yet) and
+    suggesting them would surface speculative names rather than
+    actionable trade targets.
+
+    May 11 was chosen as the consistent cutoff since the NFL Draft
+    runs late April / early May; the week-after gives the dust time
+    to settle on rookie team assignments + fantasy market values.
+
+    From May 12 onward through Jan 31, rookies are real players with
+    real values — eligible for suggestions like any other asset.
+    """
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).date()
+    m, d = today.month, today.day
+    # Pre-draft window: Feb 1 through May 11 (inclusive).
+    if m == 2 or m == 3 or m == 4:
+        return False
+    if m == 5 and d <= 11:
+        return False
+    return True
+
+
 def generate_suggestions_from_pool(
     roster_names: list[str],
     pool: list[PlayerAsset],
@@ -1240,6 +1265,17 @@ def generate_suggestions_from_pool(
     by the caller.  Leaving the kwarg in the signature avoids
     breaking existing consumers that pass it.
     """
+    # Pre-draft rookie suppression (Feb 1 - May 11): rookies in the
+    # consensus board are placeholders during this window — the
+    # class hasn't been drafted, fantasy values are speculative.
+    # Suggesting them produces names like "2026 Rookie EDGE" rather
+    # than actionable trade targets.  Filter the pool down to
+    # non-rookies; the assets stay in the user's roster (so the
+    # roster analysis is correct), they just can't appear as trade
+    # TARGETS.  Re-enabled May 12 each year.
+    if not _rookies_eligible_today():
+        pool = [p for p in pool if not p.rookie]
+
     roster = analyze_roster(roster_names, pool, starter_needs)
     roster_set = {n.lower().strip() for n in roster_names}
 
