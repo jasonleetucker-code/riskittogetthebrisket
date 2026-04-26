@@ -375,6 +375,7 @@ export default function SettingsPage() {
             on your specific league&apos;s scoring rules.
           </div>
         </div>
+        <PerLeagueScoringFitOverrides />
         <ScoringFitHealth />
       </Section>
 
@@ -676,6 +677,96 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ── Per-league overrides ─────────────────────────────────────────
+// Lets a multi-league user run the lens differently in each league
+// without flipping the global toggle every time they switch.
+// Shows a row per active league with a per-league apply toggle +
+// weight slider; "—" or empty fields fall through to the global
+// defaults configured above.
+function PerLeagueScoringFitOverrides() {
+  const { settings, update } = useSettings();
+  const [leagues, setLeagues] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/leagues", { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (!cancelled && d?.leagues) setLeagues(d.leagues); })
+      .catch(() => { /* silently swallow — UI shows empty state */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (leagues.length <= 1) return null; // single-league users don't need this
+
+  const overrides = settings.scoringFitByLeague || {};
+
+  function setOverride(leagueKey, field, value) {
+    const next = { ...overrides };
+    const cur = { ...(next[leagueKey] || {}) };
+    if (value === null) delete cur[field];
+    else cur[field] = value;
+    if (Object.keys(cur).length === 0) delete next[leagueKey];
+    else next[leagueKey] = cur;
+    update("scoringFitByLeague", next);
+  }
+
+  return (
+    <div style={{ marginTop: 16, padding: 10, background: "rgba(20, 25, 36, 0.5)", borderRadius: 4, border: "1px solid var(--border)" }}>
+      <div style={{ fontSize: "0.72rem", fontWeight: 600, marginBottom: 8 }}>
+        Per-league overrides
+      </div>
+      <div className="muted" style={{ fontSize: "0.66rem", marginBottom: 8, lineHeight: 1.4 }}>
+        Override the global toggle / weight for individual leagues.
+        Empty fields fall through to the global defaults above.
+      </div>
+      {leagues.map((lg) => {
+        const ov = overrides[lg.key] || {};
+        const apply = typeof ov.applyScoringFit === "boolean" ? ov.applyScoringFit : null;
+        const weight = typeof ov.scoringFitWeight === "number" ? ov.scoringFitWeight : null;
+        return (
+          <div key={lg.key} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 0", borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
+            <strong style={{ fontSize: "0.78rem", flex: "1 1 160px", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {lg.displayName || lg.key}
+              {!lg.idpEnabled && (
+                <span className="muted" style={{ fontSize: "0.62rem", marginLeft: 6 }}>(no IDP)</span>
+              )}
+            </strong>
+            <select
+              className="select"
+              value={apply === null ? "" : (apply ? "on" : "off")}
+              onChange={(e) => {
+                const v = e.target.value;
+                setOverride(lg.key, "applyScoringFit", v === "" ? null : (v === "on"));
+              }}
+              style={{ fontSize: "0.72rem" }}
+            >
+              <option value="">Inherit</option>
+              <option value="on">On</option>
+              <option value="off">Off</option>
+            </select>
+            <select
+              className="select"
+              value={weight === null ? "" : String(Math.round(weight * 100))}
+              onChange={(e) => {
+                const v = e.target.value;
+                setOverride(lg.key, "scoringFitWeight", v === "" ? null : (Number(v) / 100));
+              }}
+              style={{ fontSize: "0.72rem" }}
+            >
+              <option value="">Inherit</option>
+              <option value="0">0%</option>
+              <option value="15">15%</option>
+              <option value="30">30%</option>
+              <option value="50">50%</option>
+              <option value="100">100%</option>
+            </select>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { Fragment, useMemo, useState, useCallback, useEffect } from "react";
 import { useDynastyData } from "@/components/useDynastyData";
 import { resolvedRank, RANKING_SOURCES, getRetailLabel } from "@/lib/dynasty-data";
-import { useSettings } from "@/components/useSettings";
+import { useSettings, resolveScoringFitForLeague } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
 import { useTeam } from "@/components/useTeam";
 import {
@@ -36,6 +36,7 @@ import SourceAgreementRadar from "@/components/graphs/SourceAgreementRadar";
 import RankChangeGlyph from "@/components/graphs/RankChangeGlyph";
 import { PlayerImage } from "@/components/ui";
 import { useNews } from "@/components/useNews";
+import ScoringFitOnboarding from "@/components/ScoringFitOnboarding";
 
 // ── UNIFIED RANKINGS PAGE ────────────────────────────────────────────
 // Trust-forward blended board: offense + IDP sorted by unified rank.
@@ -568,7 +569,7 @@ export default function RankingsPage() {
   // underlying blended board still lives on the backend; we just
   // don't surface it here.  ``useTeam`` reads the flag off the
   // registry's league config via ``useLeague``.
-  const { idpEnabled } = useTeam();
+  const { idpEnabled, selectedLeagueKey } = useTeam();
   // Pull recent news so we can stamp a "📰" chip on rows whose
   // player has fresh news / injury status.  Looks up by lowercase
   // name in O(1).  News data is single-flighted at module level so
@@ -592,8 +593,20 @@ export default function RankingsPage() {
   // immediately on /trade (Trade Calculator), Trade Suggestions, and
   // any other consumer of player values.  When ON, IDP rows substitute
   // ``idpScoringFitAdjustedValue`` for ``rankDerivedValue`` everywhere.
-  const applyScoringFit = !!settings.applyScoringFit;
+  // Per-league resolution: if the active league has an override in
+  // ``scoringFitByLeague`` it wins over the global default.  Lets a
+  // user run the lens differently in their stacked-scoring league
+  // vs their non-IDP league without flipping the global toggle.
+  const _resolved = useMemo(
+    () => resolveScoringFitForLeague(settings, selectedLeagueKey),
+    [settings, selectedLeagueKey],
+  );
+  const applyScoringFit = _resolved.applyScoringFit;
   const setApplyScoringFit = useCallback((next) => {
+    // Toggling from /rankings updates the GLOBAL default — the
+    // per-league override is configured from /settings.  Avoids
+    // surprising users who flip the rankings toggle and don't
+    // realise it only affected one league.
     updateSetting("applyScoringFit", !!next);
   }, [updateSetting]);
 
@@ -690,17 +703,12 @@ export default function RankingsPage() {
     [eligibleRaw],
   );
 
-  // Single source of truth for the slider weight — falls back to 0.30
-  // (the recommended default) when the saved settings predate the
-  // scoringFitWeight field.  Clamped to [0, 1] so any future code
-  // path that mutates the value can't break downstream math.
-  const scoringFitWeight = Math.max(
-    0,
-    Math.min(1,
-      typeof settings.scoringFitWeight === "number"
-        ? settings.scoringFitWeight : 0.30,
-    ),
-  );
+  // Single source of truth for the slider weight — uses the
+  // per-league resolved value when the active league has an
+  // override, otherwise the global default.  Clamped to [0, 1]
+  // so any future code path that mutates the value can't break
+  // downstream math.
+  const scoringFitWeight = Math.max(0, Math.min(1, _resolved.scoringFitWeight));
 
   const eligible = useMemo(() => {
     if (!applyScoringFit || !hasScoringFitAvailable || scoringFitWeight <= 0) {
@@ -1123,6 +1131,12 @@ export default function RankingsPage() {
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
+    <>
+    {/* First-run onboarding for the scoring-fit lens.  Renders only
+        when (a) the user hasn't dismissed before AND (b) the
+        backend has lens data available for this league.  Self-
+        contained component handles localStorage + step navigation. */}
+    <ScoringFitOnboarding enabled={hasScoringFitAvailable} />
     <section className="card">
       {/* ── Header ──────────────────────────────────────────────────── */}
       <div className="rankings-header">
@@ -2128,5 +2142,6 @@ export default function RankingsPage() {
         </>
       )}
     </section>
+    </>
   );
 }

@@ -388,6 +388,9 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
                 {" · "}
                 {row.idpScoringFitTier ? row.idpScoringFitTier.replace(/_/g, " ") : ""}
                 {row.idpScoringFitGamesUsed ? ` · ${row.idpScoringFitGamesUsed} games` : ""}
+                {typeof row.idpSnapShare === "number" && Number.isFinite(row.idpSnapShare)
+                  ? ` · ${Math.round(row.idpSnapShare * 100)}% snaps`
+                  : ""}
               </div>
             </div>
           )}

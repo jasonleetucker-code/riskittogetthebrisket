@@ -1,0 +1,18 @@
+[Unit]
+Description=Weekly IDP scoring-fit digest for __SERVICE_NAME__
+Requires=__SERVICE_NAME__-scoring-fit-digest.service
+
+[Timer]
+# Fire once a week, Friday at 14:00 UTC (10am EST / 9am EDT).
+# Chosen so the digest lands Friday morning — most fantasy
+# decisions happen Friday-Sunday around the upcoming slate, so the
+# email arrives right when the user is likely to act on it.
+# Persistent=true ensures we run once at boot if the machine was
+# down when the timer would have fired.
+OnCalendar=Fri *-*-* 14:00:00
+RandomizedDelaySec=300
+Persistent=true
+Unit=__SERVICE_NAME__-scoring-fit-digest.service
+
+[Install]
+WantedBy=timers.target

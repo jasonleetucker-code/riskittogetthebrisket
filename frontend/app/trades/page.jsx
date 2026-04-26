@@ -27,9 +27,13 @@ export default function TradesPage() {
   const alpha = settings.alpha || TRADE_ALPHA;
   const windowDays = settings.tradeHistoryWindowDays || 365;
 
+  // Pass ``settings`` so historical trade values can be re-evaluated
+  // under the active Apply Scoring Fit weight when the user has the
+  // toggle on.  IDP rows shift by ``delta × weight``; offense + picks
+  // pass through unchanged.  Re-renders instantly on slider change.
   const analysis = useMemo(
-    () => analyzeSleeperTradeHistory(rawData, rows, windowDays, alpha),
-    [rawData, rows, windowDays, alpha],
+    () => analyzeSleeperTradeHistory(rawData, rows, windowDays, alpha, settings),
+    [rawData, rows, windowDays, alpha, settings],
   );
 
   const teams = useMemo(() => {

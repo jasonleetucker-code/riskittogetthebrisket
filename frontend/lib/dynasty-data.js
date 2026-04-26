@@ -1018,6 +1018,7 @@ function _materializePlayerArrayRow(player) {
     idpScoringFitGamesUsed: player.idpScoringFitGamesUsed ?? null,
     idpScoringFitTopStats: Array.isArray(player.idpScoringFitTopStats)
       ? player.idpScoringFitTopStats : null,
+    idpSnapShare: typeof player.idpSnapShare === "number" ? player.idpSnapShare : null,
     raw: player,
   };
 }

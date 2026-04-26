@@ -6739,6 +6739,137 @@ async def post_trade_simulate_mc(request: Request):
     return JSONResponse(content=enriched)
 
 
+@app.get("/api/scoring-fit/movers")
+async def get_scoring_fit_movers():
+    """Return players whose ``idpScoringFitDelta`` moved most since the
+    most recent captured snapshot in ``data/idp_fit_snapshots/``.
+
+    Public read-only — same auth posture as ``/api/idp-fit-health``.
+    Empty risers/fallers when no snapshot has been captured yet
+    (fresh-deploy case).  Frontend movers widget consumes this.
+    """
+    if not latest_contract_data:
+        return JSONResponse(content={
+            "has_baseline": False,
+            "baseline_date": None,
+            "risers": [],
+            "fallers": [],
+        })
+    from src.scoring import scoring_fit_movers as _sfm  # noqa: PLC0415
+    out = _sfm.compute_movers(latest_contract_data)
+    return JSONResponse(content=out)
+
+
+@app.post("/api/scoring-fit-digest/run")
+async def run_scoring_fit_digest(request: Request):
+    """Build + send the weekly IDP scoring-fit digest email.
+
+    Auth: same dual-path as /api/signal-alerts/run — admin password
+    session OR ``SIGNAL_ALERT_CRON_TOKEN`` bearer for cron / systemd.
+
+    Body (JSON, optional):
+      ``email``          recipient address (defaults to ALERT_TO env)
+      ``leagueKey``      pin to a specific league for the roster section
+      ``ownerId``        Sleeper owner id for the roster section
+      ``dry_run``        when True, build the digest but don't send
+
+    Returns the digest summary + delivery status.
+    """
+    # Same auth pattern as the signal-alerts endpoint.
+    cron_auth_ok = False
+    if SIGNAL_ALERT_CRON_TOKEN:
+        header = (request.headers.get("authorization") or "").strip()
+        if header.lower().startswith("bearer "):
+            presented = header.split(None, 1)[1].strip()
+            if hmac.compare_digest(presented, SIGNAL_ALERT_CRON_TOKEN):
+                cron_auth_ok = True
+    if not cron_auth_ok:
+        session = _get_auth_session(request)
+        if not session or session.get("auth_method") != "password":
+            return JSONResponse(
+                status_code=401,
+                content={"error": "admin_auth_required"},
+            )
+    if not latest_contract_data:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "no_live_contract"},
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    to_email = str(body.get("email") or ALERT_TO or "").strip()
+    if not to_email:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "no_recipient",
+                     "message": "Pass ``email`` in body or set ALERT_TO env var."},
+        )
+
+    dry_run = bool(body.get("dry_run"))
+
+    # Roster context (optional).  When present, the digest gets a
+    # roster-specific section.  When absent, it's just the league-wide
+    # buy/sell lists.
+    user_team_players: list[str] | None = None
+    league_name: str | None = None
+    league_key = body.get("leagueKey")
+    owner_id = str(body.get("ownerId") or "").strip()
+    if owner_id:
+        sleeper = (latest_contract_data or {}).get("sleeper") or {}
+        teams = sleeper.get("teams") or []
+        for t in teams:
+            if str(t.get("ownerId") or "") == owner_id:
+                user_team_players = list(t.get("players") or [])
+                break
+    if league_key:
+        try:
+            from src.api import league_registry as _lr  # noqa: PLC0415
+            cfg = _lr.get_league_by_key(league_key)
+            if cfg:
+                league_name = cfg.display_name
+        except Exception:  # noqa: BLE001
+            pass
+
+    from src.news import scoring_fit_digest as _sfd  # noqa: PLC0415
+    digest = _sfd.build_digest(
+        latest_contract_data,
+        user_team_players=user_team_players,
+        league_name=league_name,
+    )
+    if digest is None:
+        return JSONResponse(content={
+            "delivered": False,
+            "reason": "no_content",
+            "to": to_email,
+        })
+
+    if dry_run:
+        return JSONResponse(content={
+            "delivered": False,
+            "reason": "dry_run",
+            "to": to_email,
+            "subject": digest["subject"],
+            "summary": digest["summary"],
+            "preview": digest["body"][:1200],
+        })
+
+    # Deliver.  ``_deliver_email_smtp`` returns True on success.
+    ok = _deliver_email_smtp(to_email, digest["subject"], digest["body"])
+    return JSONResponse(content={
+        "delivered": bool(ok),
+        "reason": "ok" if ok else "delivery_error",
+        "to": to_email,
+        "subject": digest["subject"],
+        "summary": digest["summary"],
+    })
+
+
 @app.post("/api/signal-alerts/run")
 async def run_signal_alerts(request: Request):
     """Trigger a signal-alert sweep for every user with email
