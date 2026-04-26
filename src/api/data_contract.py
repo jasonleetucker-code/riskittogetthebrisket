@@ -6298,6 +6298,33 @@ def _compute_unified_rankings(
     # with max(offense_value, alt_family_value).
     _apply_two_way_player_boost(players_array, players_by_name)
 
+    # IDP scoring-fit lens (Phase 1).  Stamps ``idpScoringFit*`` fields
+    # on IDP rows: VORP under league scoring, tier label, value-scale
+    # delta vs the consensus rank, confidence label scaled by realized
+    # sample size.  Diagnostic-only — does NOT touch
+    # ``rankDerivedValue`` or any trade engine.  Gated behind
+    # ``idp_scoring_fit`` feature flag (default OFF) until the
+    # production gate passes.  No-op for offense-only leagues.
+    try:
+        from src.scoring.idp_scoring_fit_apply import (  # noqa: PLC0415
+            apply_idp_scoring_fit_pass,
+        )
+        try:
+            from src.api import league_registry as _lr  # noqa: PLC0415
+            _idp_enabled = bool(_lr.get_default_idp_enabled() if hasattr(_lr, "get_default_idp_enabled") else True)
+        except Exception:  # noqa: BLE001
+            _idp_enabled = True
+        apply_idp_scoring_fit_pass(
+            players_array,
+            league_idp_enabled=_idp_enabled,
+        )
+    except Exception as _exc:  # noqa: BLE001
+        # Never let a Phase-1 diagnostic pass break the live contract.
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "idp_scoring_fit_pass_failed err=%r", _exc,
+        )
+
     # Offense calibration is deliberately never applied to live values.
     # The offense market is already priced by the blend of KTC / DLF /
     # IDPTC / etc.  VOR bucket multipliers produced absurd artefacts
@@ -7263,6 +7290,17 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "quarantined",
     "ktcRank",
     "idpRank",
+    # IDP scoring-fit lens (Phase 1).  Stamped only when the
+    # ``idp_scoring_fit`` flag is ON and the league is IDP-enabled;
+    # absent fields just mean the pass didn't run for this row.
+    "idpScoringFitVorp",
+    "idpScoringFitTier",
+    "idpScoringFitDelta",
+    "idpScoringFitConfidence",
+    "idpScoringFitSynthetic",
+    "idpScoringFitDraftRound",
+    "idpScoringFitWeightedPpg",
+    "idpScoringFitGamesUsed",
 )
 
 

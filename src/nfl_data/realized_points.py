@@ -23,19 +23,28 @@ contract.
 League scoring rules — what we map
 ----------------------------------
 Sleeper's ``scoring_settings`` uses these keys (incomplete —
-there are 100+, we map the ~25 that cover >99% of fantasy
+there are 100+, we map the ~40 that cover >99% of fantasy
 production in any league format):
 
-    pass_yd, pass_td, pass_int, pass_2pt, pass_sack
-    rush_yd, rush_td, rush_2pt
-    rec, rec_yd, rec_td, rec_2pt, bonus_rec_te
-    fum_lost
-    bonus_pass_yd_300, bonus_pass_yd_400, bonus_rush_yd_100,
-    bonus_rush_yd_200, bonus_rec_yd_100, bonus_rec_yd_200
+    Offense:
+        pass_yd, pass_td, pass_int, pass_2pt, pass_sack
+        rush_yd, rush_td, rush_2pt
+        rec, rec_yd, rec_td, rec_2pt, bonus_rec_te
+        fum_lost
+        bonus_pass_yd_300, bonus_pass_yd_400, bonus_rush_yd_100,
+        bonus_rush_yd_200, bonus_rec_yd_100, bonus_rec_yd_200
 
-IDP keys are NOT mapped here — IDP scoring comes in as
-``def_<category>`` and we surface it in a follow-on module
-(idea #6 realized points is offense-first in this phase).
+    IDP (added 2026-04-26 for the IDP scoring-fit pass):
+        idp_tkl_solo, idp_tkl_ast, idp_tkl, idp_tkl_loss
+        idp_sack, idp_sack_yd, idp_hit
+        idp_pd, idp_int, idp_int_ret_yd
+        idp_ff, idp_fum_rec, idp_fum_ret_yd
+        idp_def_td, idp_safe, idp_blk_kick
+
+The IDP scoring path consumes nflverse ``def_*`` columns (see
+``nflverse_direct.fetch_weekly_defensive_stats``).  Rows where
+``position`` is not in the IDP set skip the IDP keys entirely so
+the offense path is unaffected.
 
 Degradation
 -----------
@@ -71,6 +80,47 @@ _SIMPLE_KEYS: dict[str, tuple[str, str]] = {
     "rec_td": ("receiving_tds", "Rec TD"),
     "fum_lost": ("fumbles_lost", "Fum Lost"),
 }
+
+
+# Defensive scoring keys → nflverse ``def_*`` stat columns.  Only
+# applied to rows whose ``position`` is in the IDP set below; for
+# offensive players the column either doesn't exist on the row or
+# is zero, so the loop is a no-op.  Extends the same shape as
+# ``_SIMPLE_KEYS`` so the ``compute_weekly_points`` scoring loop
+# can iterate both with one code path.
+_IDP_KEYS: dict[str, tuple[str, str]] = {
+    "idp_tkl_solo": ("def_tackles_solo", "Solo Tkl"),
+    "idp_tkl_ast": ("def_tackle_assists", "Ast Tkl"),
+    "idp_tkl": ("def_tackles", "Tkl"),
+    "idp_tkl_loss": ("def_tackles_for_loss", "TFL"),
+    "idp_sack": ("def_sacks", "Sack"),
+    "idp_sack_yd": ("def_sack_yards", "Sack Yds"),
+    "idp_hit": ("def_qb_hits", "QB Hit"),
+    "idp_pd": ("def_pass_defended", "PD"),
+    "idp_int": ("def_interceptions", "INT"),
+    "idp_int_ret_yd": ("def_interception_yards", "INT Ret Yds"),
+    "idp_ff": ("def_fumbles_forced", "FF"),
+    "idp_fum_rec": ("def_fumble_recovery_own", "FR"),
+    "idp_fum_ret_yd": ("def_fumble_recovery_yards_own", "FR Ret Yds"),
+    "idp_def_td": ("def_tds", "Def TD"),
+    "idp_safe": ("def_safety", "Safety"),
+}
+
+
+# Position labels that count as IDP scoring eligible.  nflverse uses
+# both the abstract group (DL/LB/DB) and the specific listing
+# (DT/DE/EDGE/ILB/OLB/CB/S/FS/SS/NT) — accept both.
+_IDP_POSITIONS = frozenset({
+    "DL", "DT", "DE", "EDGE", "NT",
+    "LB", "ILB", "OLB", "MLB",
+    "DB", "CB", "S", "FS", "SS",
+})
+
+
+def _is_idp_position(position: str | None) -> bool:
+    if not position:
+        return False
+    return str(position).upper() in _IDP_POSITIONS
 
 
 @dataclass(frozen=True)
@@ -147,6 +197,42 @@ def compute_weekly_points(
         if recs:
             breakdown.append(("TE Rec Bonus", recs, recs * te_bonus))
             total += recs * te_bonus
+
+    # IDP keys — only fire for defensive positions.  Sleeper's
+    # stacked-scoring stance: a sack on a solo tackle credits
+    # ``idp_sack`` + ``idp_sack_yd`` + ``idp_hit`` + ``idp_tkl_loss``
+    # + ``idp_tkl_solo`` simultaneously when each category is set on
+    # the league.  Each ``def_*`` column on the nflverse defensive
+    # stat row tracks one event-stat independently, so iterating each
+    # _IDP_KEYS entry separately produces the correct stacked total
+    # without any explicit "stack bonus" logic.
+    if _is_idp_position(pos):
+        for key, (stat_key, label) in _IDP_KEYS.items():
+            pts_per = scoring.get(key, 0.0)
+            if pts_per == 0.0:
+                continue
+            stat = _num(stat_row.get(stat_key))
+            if stat == 0:
+                continue
+            contribution = stat * pts_per
+            breakdown.append((label, stat, contribution))
+            total += contribution
+
+        # Per-game tackle-volume thresholds (Sleeper exposes these
+        # as ``idp_tkl_5p`` and ``idp_tkl_10p`` for ≥5 and ≥10 combined
+        # tackles in a single game).  Read off the per-game combined
+        # tackle count.
+        for key, thresh, label in [
+            ("idp_tkl_5p", 5, "5+ Tkl"),
+            ("idp_tkl_10p", 10, "10+ Tkl"),
+        ]:
+            pts_per = scoring.get(key, 0.0)
+            if pts_per == 0.0:
+                continue
+            tkls = _num(stat_row.get("def_tackles"))
+            if tkls >= thresh:
+                breakdown.append((label, tkls, pts_per))
+                total += pts_per
 
     # Threshold bonuses.
     for key, (stat_key, thresh, label) in [

@@ -58,6 +58,14 @@ _URL_TEMPLATES = {
     "weekly_stats": (
         f"{_RELEASE_BASE}/player_stats/player_stats_{{year}}.csv"
     ),
+    "weekly_defensive_stats": (
+        # Defensive per-week stats live in a separate nflverse file
+        # from offensive stats.  Columns are prefixed ``def_``:
+        # ``def_tackles_solo``, ``def_sacks``, ``def_qb_hits``,
+        # ``def_pass_defended``, ``def_interceptions``, etc.
+        # Verified live 2026-04-26.
+        f"{_RELEASE_BASE}/player_stats/player_stats_def_{{year}}.csv"
+    ),
     "snap_counts": (
         f"{_RELEASE_BASE}/snap_counts/snap_counts_{{year}}.csv"
     ),
@@ -175,12 +183,38 @@ def _coerce_numerics(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def fetch_weekly_stats(years: list[int]) -> list[dict[str, Any]]:
-    """Fetch weekly stat rows for a list of years.  Returns the
-    concatenated list across all years."""
+    """Fetch weekly OFFENSIVE stat rows for a list of years.
+
+    Returns the concatenated list across all years.  Defensive stats
+    are in a separate file — use :func:`fetch_weekly_defensive_stats`.
+    """
     out: list[dict[str, Any]] = []
     for year in years:
         url = _URL_TEMPLATES["weekly_stats"].format(year=year)
         rows = _fetch_csv(url, label=f"weekly_stats:{year}")
+        out.extend(_coerce_numerics(rows))
+    return out
+
+
+def fetch_weekly_defensive_stats(years: list[int]) -> list[dict[str, Any]]:
+    """Fetch weekly DEFENSIVE stat rows for a list of years.
+
+    nflverse splits offense vs. defense across two release files; the
+    defensive file's columns are prefixed ``def_``
+    (``def_tackles_solo``, ``def_sacks``, ``def_qb_hits``,
+    ``def_pass_defended``, ``def_interceptions``,
+    ``def_interception_yards``, ``def_fumbles_forced``,
+    ``def_fumble_recovery_own``, ``def_fumble_recovery_yards_own``,
+    ``def_tds``, ``def_safety``, ``def_tackles_for_loss``,
+    ``def_tackles_for_loss_yards``, ``def_sack_yards``).
+
+    Returns the concatenated list across all years.  Empty list on
+    any failure.
+    """
+    out: list[dict[str, Any]] = []
+    for year in years:
+        url = _URL_TEMPLATES["weekly_defensive_stats"].format(year=year)
+        rows = _fetch_csv(url, label=f"weekly_defensive_stats:{year}")
         out.extend(_coerce_numerics(rows))
     return out
 
