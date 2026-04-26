@@ -413,6 +413,63 @@ def _build_gsis_to_draft(
     return out
 
 
+def _normalize_player_name(name: str) -> str:
+    """Lowercase + strip non-alpha for fuzzy name matching.
+
+    Aligns nflverse ``display_name`` (e.g. "T.J. Watt") with Sleeper
+    ``displayName`` (e.g. "TJ Watt") into a common key like ``tjwatt``.
+    Handles periods, apostrophes, hyphens, suffixes naturally —
+    everything non-alpha is dropped.
+    """
+    out_chars: list[str] = []
+    for ch in str(name or "").lower():
+        if ch.isalpha() or ch == " ":
+            out_chars.append(ch)
+    return " ".join("".join(out_chars).split())
+
+
+def _build_name_to_gsis(
+    id_map_rows: list[dict[str, Any]] | None,
+) -> dict[str, str]:
+    """Build normalised-name → gsis lookup from nflverse players.csv.
+
+    Used as the SECOND join path when a player's Sleeper id has no
+    ``gsis_id`` stamped on the Sleeper /players/nfl payload.  About
+    35-50% of active fantasy IDPs fall into that gap (Sleeper's gsis
+    coverage is incomplete for non-superstar players).
+
+    Position is encoded into the key (``"micah parsons|LB"``) to avoid
+    cross-position name collisions (two players named "John Smith"
+    at different positions would otherwise collide).
+    """
+    out: dict[str, str] = {}
+    for row in id_map_rows or []:
+        gsis = str(row.get("gsis_id") or "").strip()
+        nm = _normalize_player_name(row.get("display_name") or "")
+        pos = str(row.get("position") or "").upper()
+        if not gsis or not nm or not pos:
+            continue
+        out[f"{nm}|{pos}"] = gsis
+        # Also stamp a position-agnostic fallback, picked by the most
+        # recent ``last_season`` if one already exists at this key.
+        # Active players win over retired ones with the same name.
+        prev = out.get(nm)
+        if prev is None:
+            out[nm] = gsis
+        else:
+            try:
+                prev_last = next(
+                    (int(r.get("last_season") or 0) for r in id_map_rows
+                     if str(r.get("gsis_id") or "") == prev), 0,
+                )
+                cur_last = int(row.get("last_season") or 0)
+                if cur_last > prev_last:
+                    out[nm] = gsis
+            except (TypeError, ValueError):
+                pass
+    return out
+
+
 # ── QuantileMap (the proposal's cross-position normalization) ─────
 def quantile_map_to_consensus_scale(
     par_value: float,
@@ -506,10 +563,15 @@ def compute_idp_scoring_fit(
         weekly_rows_by_season, id_map_rows, scoring_settings
     )
     gsis_to_draft = _build_gsis_to_draft(id_map_rows)
+    # Name → gsis fallback for the ~35-50% of active fantasy IDPs whose
+    # Sleeper /players/nfl record doesn't have ``gsis_id`` stamped.
+    name_to_gsis = _build_name_to_gsis(id_map_rows)
 
     # Phase A: build per-player season rows.
     season_rows: list[PlayerSeasonRow] = []
     diagnostic_rows: list[dict[str, Any]] = []
+
+    join_stats = {"sleeper_id": 0, "name": 0, "missing": 0}
 
     for player in players_array:
         pos = str(player.get("position") or "").upper()
@@ -519,14 +581,28 @@ def compute_idp_scoring_fit(
         # without a player_id (picks, name-only entries) can't be
         # joined to nflverse weekly data.
         sleeper_id = str(player.get("playerId") or "")
-        # Cross-walk Sleeper id → gsis id when available; fall back
-        # to display_name lowercase for the legacy join.
-        gsis_id = (sleeper_to_gsis or {}).get(sleeper_id) if sleeper_id else None
-        join_key = (
-            str(gsis_id) if gsis_id
-            else sleeper_id
-            or str(player.get("displayName") or "").lower()
-        )
+        display_name = str(player.get("displayName") or "")
+        # Cross-walk in priority order:
+        #   1. Sleeper id → gsis_id via Sleeper's /players/nfl payload
+        #   2. Normalised name → gsis via nflverse players.csv (covers
+        #      the gap where Sleeper has no gsis_id stamped)
+        gsis_id: str | None = None
+        if sleeper_id:
+            gsis_id = (sleeper_to_gsis or {}).get(sleeper_id) or None
+        if gsis_id:
+            join_stats["sleeper_id"] += 1
+        elif display_name:
+            # Try the position-qualified key first (avoids cross-position
+            # name collisions), then the position-agnostic fallback.
+            nm_norm = _normalize_player_name(display_name)
+            gsis_id = name_to_gsis.get(f"{nm_norm}|{pos}")
+            if not gsis_id:
+                gsis_id = name_to_gsis.get(nm_norm)
+            if gsis_id:
+                join_stats["name"] += 1
+        if not gsis_id:
+            join_stats["missing"] += 1
+        join_key = str(gsis_id) if gsis_id else (sleeper_id or display_name.lower())
         if not join_key:
             continue
 
@@ -608,6 +684,11 @@ def compute_idp_scoring_fit(
             "synthetic": False,
             "draft_round": None,
         })
+
+    _LOGGER.info(
+        "idp_scoring_fit=join_stats sleeper_id=%d name=%d missing=%d",
+        join_stats["sleeper_id"], join_stats["name"], join_stats["missing"],
+    )
 
     # Phase B: VORP table.
     vorp_rows = vorp_table(season_rows, slots)

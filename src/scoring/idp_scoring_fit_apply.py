@@ -15,7 +15,27 @@ raising into the live contract build.
 
 Feature-gated by ``feature_flags.is_enabled("idp_scoring_fit")``.
 Phase 1 ships with the flag OFF until the production gate passes
-(≥30 of top-50 IDPs from the prior season rated fit-positive).
+(lens leans correct AND ≥20% precision floor on the prior-season
+backtest).
+
+Adjusted value (the "apply scoring fit" toggle)
+─────────────────────────────────────────────────
+When the pass runs, every IDP row also gets
+``idpScoringFitAdjustedValue`` =
+``clamp(rankDerivedValue + delta × _ADJUSTED_VALUE_WEIGHT, 0, 9999)``.
+
+That field is what the value would be IF the user toggles "apply
+scoring fit" on the frontend.  The toggle itself is purely a
+display switch — the frontend re-sorts and re-displays using this
+field instead of ``rankDerivedValue``.  Backend never mutates
+``rankDerivedValue``.
+
+The 0.30 weight was chosen as a middle ground between the original
+plan's recommended 0.20 (Phase 3) and the proposal's 0.65
+(too aggressive without proven calibration).  At 0.30 a +6000
+delta moves a player ~1800 value points — meaningful but not
+absurd; positive deltas of ~+2000 (the median of the live IDP
+universe) shift values ~600 — a one-tier nudge.
 """
 from __future__ import annotations
 
@@ -23,6 +43,10 @@ import json as _json
 import logging
 import threading
 import time as _time
+
+_ADJUSTED_VALUE_WEIGHT: float = 0.30
+_ADJUSTED_VALUE_MIN: float = 0.0
+_ADJUSTED_VALUE_MAX: float = 9999.0
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -53,7 +77,12 @@ _IDP_LEAGUE_CONTEXT_TTL_SEC = 3600
 
 
 def _fetch_sleeper_players_idmap() -> dict[str, str]:
-    """Return Sleeper-id → GSIS-id cross-walk.  Daily-cached.
+    """Return Sleeper-id → GSIS-id cross-walk.
+
+    Two-tier cache: in-memory hot path + on-disk warm path via the
+    existing ``src.nfl_data.cache`` module.  A backend restart picks up
+    the disk cache instantly (24-hour TTL) instead of refetching the
+    ~6MB Sleeper /players/nfl payload every cold start.
 
     Empty dict on any failure.  Sleeper's /players/nfl endpoint
     returns ``{sleeper_id: {gsis_id, position, ...}, ...}``.  We pull
@@ -65,6 +94,21 @@ def _fetch_sleeper_players_idmap() -> dict[str, str]:
         fetched_at = float(_SLEEPER_PLAYERS_CACHE.get("fetched_at") or 0.0)
         if isinstance(cached, dict) and (now - fetched_at) < _SLEEPER_PLAYERS_TTL_SEC:
             return cached
+
+    # Disk cache check before the network round-trip.
+    try:
+        from src.nfl_data import cache as _disk_cache  # noqa: PLC0415
+        disk_cached = _disk_cache.get(
+            "idp_scoring_fit:sleeper_idmap:v1",
+            ttl_seconds=_SLEEPER_PLAYERS_TTL_SEC,
+        )
+        if isinstance(disk_cached, dict) and disk_cached:
+            with _LOCK:
+                _SLEEPER_PLAYERS_CACHE["idmap"] = disk_cached
+                _SLEEPER_PLAYERS_CACHE["fetched_at"] = now
+            return disk_cached
+    except Exception:  # noqa: BLE001
+        pass  # disk cache miss / unwriteable → fall through to network
 
     url = "https://api.sleeper.app/v1/players/nfl"
     try:
@@ -90,13 +134,22 @@ def _fetch_sleeper_players_idmap() -> dict[str, str]:
     with _LOCK:
         _SLEEPER_PLAYERS_CACHE["idmap"] = out
         _SLEEPER_PLAYERS_CACHE["fetched_at"] = now
+    # Persist to disk cache so the next backend restart skips the
+    # 6MB fetch (cache TTL is 24h, matching the in-memory TTL).
+    try:
+        from src.nfl_data import cache as _disk_cache  # noqa: PLC0415
+        _disk_cache.put("idp_scoring_fit:sleeper_idmap:v1", out)
+    except Exception:  # noqa: BLE001
+        pass
+
     return out
 
 
 def _fetch_idp_league_context() -> dict[str, Any]:
     """Return ``{scoring_settings, roster_positions, num_teams}``.
 
-    Hourly-cached.  Empty dict on any failure.
+    Two-tier cache: in-memory + on-disk (24-hour TTL).  Empty dict
+    on any failure.
     """
     now = _time.time()
     with _LOCK:
@@ -104,6 +157,21 @@ def _fetch_idp_league_context() -> dict[str, Any]:
         fetched_at = float(_IDP_LEAGUE_CONTEXT_CACHE.get("fetched_at") or 0.0)
         if isinstance(cached, dict) and (now - fetched_at) < _IDP_LEAGUE_CONTEXT_TTL_SEC:
             return cached
+
+    # Disk cache check.
+    try:
+        from src.nfl_data import cache as _disk_cache  # noqa: PLC0415
+        disk_cached = _disk_cache.get(
+            "idp_scoring_fit:league_ctx:v1",
+            ttl_seconds=_IDP_LEAGUE_CONTEXT_TTL_SEC,
+        )
+        if isinstance(disk_cached, dict) and disk_cached.get("scoring_settings"):
+            with _LOCK:
+                _IDP_LEAGUE_CONTEXT_CACHE["ctx"] = disk_cached
+                _IDP_LEAGUE_CONTEXT_CACHE["fetched_at"] = now
+            return disk_cached
+    except Exception:  # noqa: BLE001
+        pass
 
     # Resolve league id via the registry first; fall back to env var.
     league_id = ""
@@ -145,6 +213,12 @@ def _fetch_idp_league_context() -> dict[str, Any]:
         "roster_positions": [str(p) for p in roster_positions],
         "num_teams": total_rosters,
     }
+    # Persist to disk so the next backend restart skips the network.
+    try:
+        from src.nfl_data import cache as _disk_cache  # noqa: PLC0415
+        _disk_cache.put("idp_scoring_fit:league_ctx:v1", ctx)
+    except Exception:  # noqa: BLE001
+        pass
     with _LOCK:
         _IDP_LEAGUE_CONTEXT_CACHE["ctx"] = ctx
         _IDP_LEAGUE_CONTEXT_CACHE["fetched_at"] = now
@@ -294,9 +368,18 @@ def apply_idp_scoring_fit_pass(
             player["idpScoringFitWeightedPpg"] = fit_with_delta.weighted_ppg
         if fit_with_delta.games_used:
             player["idpScoringFitGamesUsed"] = fit_with_delta.games_used
+        # Adjusted value: what rankDerivedValue would BE if the user
+        # toggles "apply scoring fit" on the frontend.  Always stamped
+        # when the pass produces a delta — frontend toggle decides
+        # whether to display this or the raw consensus.  Backend never
+        # mutates ``rankDerivedValue`` itself.
+        if fit_with_delta.delta is not None and consensus_value > 0:
+            adjusted = consensus_value + fit_with_delta.delta * _ADJUSTED_VALUE_WEIGHT
+            adjusted = max(_ADJUSTED_VALUE_MIN, min(_ADJUSTED_VALUE_MAX, adjusted))
+            player["idpScoringFitAdjustedValue"] = round(adjusted, 2)
         stamped += 1
 
     _LOGGER.info(
-        "idp_scoring_fit=applied stamped=%d total_fit_rows=%d",
-        stamped, len(fit_by_name),
+        "idp_scoring_fit=applied stamped=%d total_fit_rows=%d weight=%.2f",
+        stamped, len(fit_by_name), _ADJUSTED_VALUE_WEIGHT,
     )
