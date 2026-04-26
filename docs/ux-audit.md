@@ -246,10 +246,15 @@ remaining items below:
 
 1. **Mobile filter bar redesign for `/rankings`** (U5) — *Shipped.*
    Confidence + Tiers exposed on mobile via `hide-mobile` removal.
-2. **Discovery-surface IA pass** (U4) — *Shipped (lite).* Desktop nav
-   tooltips + visual group separators between workflow / discovery /
-   public / admin clusters.  Full IA reorg deferred — owner design
-   call.
+2. **Discovery-surface IA pass** (U4) — *Shipped (full).* The four
+   trade-related routes (/trade · /trades · /finder · /angle) used
+   to live as flat top-level peers; they now collapse into a single
+   "Trade ▾" dropdown on desktop with sub-items labelled "Calculator
+   / History / Arbitrage Finder / Counter-Pitch".  Direct URLs still
+   work — the change is nav-only.  /more page is restructured to
+   mirror the new grouping ("Trade workflow", "Signals", "League",
+   "Settings").  Original lite version (tooltips + group separators)
+   is preserved.
 3. **Parameterized mobile top-bar titles** (U3) — *Shipped.*
    `AppShellWrapper.jsx::pageTitle` walks two route segments.
 4. **Standardize on `EmptyState` everywhere** (U2) — *Closed wontfix.*

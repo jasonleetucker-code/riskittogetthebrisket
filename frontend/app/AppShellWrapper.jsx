@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, createContext, useContext } from "react";
+import { useCallback, useEffect, useRef, useState, createContext, useContext } from "react";
 import AppShell, { useApp } from "@/components/AppShell";
 import { useAuth } from "@/components/useAuth";
 import ChatDrawer from "@/components/ChatDrawer";
@@ -13,32 +13,50 @@ import LeagueSwitcher from "@/components/LeagueSwitcher";
 // ── Route definitions ────────────────────────────────────────────────────
 // Primary destinations shown in desktop top nav.
 //
-// Items are grouped so the four trade-discovery tools (Trade · Edge ·
-// Finder · Angle) cluster together visually instead of reading as flat
-// peers.  ``groupBreak: true`` on an item triggers a thin vertical
-// separator before it on desktop.
+// IA structure
+// ────────────
+// The four trade-related routes (Calculator / History / Arbitrage
+// Finder / Counter-Pitch) used to live as four flat peers in the nav.
+// They now collapse into a single parent ``Trade`` entry with a
+// dropdown that lists the four sub-tools so the relationship is
+// obvious without crowding the bar.  Direct URLs (/trade, /trades,
+// /finder, /angle) all still work — the reorg is nav-only, no route
+// changes.
 //
-// Mental model:
-//   Group 1 — daily workflow: Rankings, Trade, Draft
-//   Group 2 — decision-support / discovery: Edge, Finder, Angle
+// Mental model after this reorg:
+//   Group 1 — daily workflow: Rankings, Trade ▾ (4 sub-tools), Draft
+//   Group 2 — decision-support / discovery: Edge
 //   Group 3 — public-facing: League
 //   Group 4 — admin: Settings, More
 //
-// ``hint`` populates the browser's native title tooltip on hover so a
-// user passing over "Trade" vs. "Trades" vs. "Finder" vs. "Angle" can
-// tell which one solves which problem without having to click through.
-// The /more page already shows these descriptions on mobile.
+// ``hint`` populates the browser's native title tooltip on hover.
+// ``children`` makes an item a parent that opens a dropdown of its
+// nested sub-routes.  Clicking the parent label still navigates to
+// ``href`` (sensible default) — the dropdown surfaces the siblings.
 const PRIMARY_NAV = [
   { href: "/rankings", label: "Rankings", hint: "Player value board" },
-  { href: "/trade", label: "Trade", hint: "Build and grade a trade" },
+  {
+    href: "/trade",
+    label: "Trade",
+    hint: "Trade workflow tools",
+    children: [
+      { href: "/trade", label: "Calculator", hint: "Build and grade a trade" },
+      { href: "/trades", label: "History", hint: "Analyzed history of every league trade" },
+      { href: "/finder", label: "Arbitrage Finder", hint: "Find KTC market gaps you can exploit" },
+      { href: "/angle", label: "Counter-Pitch", hint: "Generate counter-package suggestions" },
+    ],
+  },
   { href: "/draft", label: "Draft", hint: "Rookie draft prep + ADP" },
   { href: "/edge", label: "Edge", hint: "Where sources disagree most", groupBreak: true },
-  { href: "/finder", label: "Finder", hint: "Find KTC arbitrage trades" },
-  { href: "/angle", label: "Angle", hint: "Counter-package generator" },
   { href: "/league", label: "League", hint: "Public league hub", groupBreak: true },
   { href: "/settings", label: "Settings", hint: "Source weights, TEP, profile", groupBreak: true },
-  { href: "/more", label: "More", hint: "Trades history, rosters, tools" },
+  { href: "/more", label: "More", hint: "Rosters, tools, admin" },
 ];
+
+// Routes that should mark the ``Trade`` parent as active in the
+// dropdown UI.  Any pathname that starts with one of these prefixes
+// counts as "we're inside the trade workflow group".
+const TRADE_GROUP_PREFIXES = ["/trade", "/trades", "/finder", "/angle"];
 
 // Mobile bottom nav — 3-tab model.  /league is intentionally NOT in
 // this bar.  Users reach it via the More menu + desktop top nav; the
@@ -67,6 +85,86 @@ export function useAuthContext() {
   return useContext(AuthContext);
 }
 
+// ── Nav dropdown (used by the "Trade" parent in PRIMARY_NAV) ─────────────
+function NavDropdown({ item, pathname, isActive }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  const closeTimer = useRef(null);
+
+  // Hover dropdown with a 120 ms delay before close so a small
+  // diagonal mouse drift between parent and a menu item doesn't snap
+  // the menu shut.  Standard nav-menu behaviour.
+  const handleEnter = useCallback(() => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+    setOpen(true);
+  }, []);
+  const handleLeave = useCallback(() => {
+    closeTimer.current = setTimeout(() => setOpen(false), 120);
+  }, []);
+
+  // Close when focus leaves the wrapper (keyboard) and on Escape.
+  const handleBlur = useCallback((e) => {
+    if (!wrapRef.current) return;
+    if (!wrapRef.current.contains(e.relatedTarget)) setOpen(false);
+  }, []);
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Close the menu when the route actually changes (link click).
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  return (
+    <span
+      ref={wrapRef}
+      className="nav-dropdown"
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
+      onFocus={handleEnter}
+      onBlur={handleBlur}
+    >
+      <Link
+        href={item.href}
+        title={item.hint || item.label}
+        className={`nav-link nav-dropdown-trigger${isActive ? " nav-active" : ""}`}
+        aria-expanded={open}
+        aria-haspopup="menu"
+      >
+        {item.label}
+        <span className="nav-dropdown-caret" aria-hidden="true">▾</span>
+      </Link>
+      {open && (
+        <div role="menu" className="nav-dropdown-menu">
+          {item.children.map((child) => {
+            const childActive = pathname === child.href
+              || pathname?.startsWith(child.href + "/");
+            return (
+              <Link
+                key={child.href}
+                href={child.href}
+                role="menuitem"
+                className={`nav-dropdown-item${childActive ? " nav-active" : ""}`}
+              >
+                <span className="nav-dropdown-item-label">{child.label}</span>
+                {child.hint && (
+                  <span className="nav-dropdown-item-hint">{child.hint}</span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </span>
+  );
+}
+
 // ── Desktop top navigation bar ───────────────────────────────────────────
 function DesktopNav() {
   const pathname = usePathname();
@@ -86,7 +184,6 @@ function DesktopNav() {
             );
             const out = [];
             visible.forEach((item, idx) => {
-              const active = pathname === item.href || pathname?.startsWith(item.href + "/");
               if (item.groupBreak && idx > 0) {
                 out.push(
                   <span
@@ -96,6 +193,26 @@ function DesktopNav() {
                   />,
                 );
               }
+              if (item.children && item.children.length > 0) {
+                // Parent item with a sub-menu — the parent's "active"
+                // state fires for any path inside its child set so the
+                // user always sees a highlighted top-level entry, even
+                // on a deep child route.
+                const groupActive = TRADE_GROUP_PREFIXES.some(
+                  (prefix) =>
+                    pathname === prefix || pathname?.startsWith(prefix + "/"),
+                );
+                out.push(
+                  <NavDropdown
+                    key={item.href}
+                    item={item}
+                    pathname={pathname}
+                    isActive={groupActive}
+                  />,
+                );
+                return;
+              }
+              const active = pathname === item.href || pathname?.startsWith(item.href + "/");
               out.push(
                 <Link
                   key={item.href}

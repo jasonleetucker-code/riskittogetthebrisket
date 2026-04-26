@@ -7,26 +7,39 @@ import { useAuthContext } from "@/app/AppShellWrapper";
  * More — mobile navigation hub.
  * Provides access to all destinations not in the mobile bottom nav.
  * On desktop this page is accessible but the top nav already covers everything.
+ *
+ * Section structure mirrors the desktop nav grouping:
+ *   * Trade workflow — the four trade-related tools that live under
+ *     the "Trade ▾" dropdown on desktop
+ *   * Signals — Edge (source-disagreement)
+ *   * League — public-facing surfaces
+ *   * Other — Rosters, Settings, etc.
  */
 const SECTIONS = [
   {
-    title: "Analysis",
+    title: "Trade workflow",
     items: [
-      { href: "/edge", label: "Edge — Source Signals", desc: "Where ranking sources agree, disagree, and flag issues" },
-      { href: "/finder", label: "Finder — Player Discovery", desc: "Surface players by source signal patterns and opportunity type" },
-      { href: "/angle", label: "Angle — Trade Pitches", desc: "Pick a player on your team; get targets that win on your rankings but look fair-or-better on KTC" },
+      { href: "/trade", label: "Calculator", desc: "Build and grade a trade" },
+      { href: "/trades", label: "History", desc: "Analyzed history of every league trade" },
+      { href: "/finder", label: "Arbitrage Finder", desc: "Find KTC market gaps you can exploit" },
+      { href: "/angle", label: "Counter-Pitch", desc: "Pick a player on your team; get targets that win on your rankings but look fair-or-better on KTC" },
+    ],
+  },
+  {
+    title: "Signals",
+    items: [
+      { href: "/edge", label: "Edge", desc: "Where ranking sources agree, disagree, and flag issues" },
     ],
   },
   {
     title: "League",
     items: [
-      { href: "/trades", label: "Trade History", desc: "Grade and analyze your league's trades" },
       { href: "/rosters", label: "Roster Dashboard", desc: "Team strength rankings with position breakdowns" },
       { href: "/league", label: "League Hub", desc: "Champions, rivalries, awards, records, draft capital, weekly recaps, and more" },
     ],
   },
   {
-    title: "Tools",
+    title: "Settings",
     items: [
       { href: "/settings", label: "Settings", desc: "Tuning controls for valuations and display" },
     ],
