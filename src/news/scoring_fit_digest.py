@@ -72,7 +72,18 @@ def build_digest(
     if not isinstance(arr, list):
         return None
 
-    # Build buy + sell candidate lists from the league universe.
+    # Build buy + sell candidate lists.
+    #
+    # Buys = league-wide IDPs (potential acquisition targets — you
+    # want to know about fit-positive players on OTHER rosters or
+    # in the FA pool that you might trade for or pick up).
+    #
+    # Sells = ONLY players on the user's roster (your players to
+    # consider dropping or trading).  Surfacing league-wide sells
+    # was noise — the user can't act on someone else's roster
+    # member, and the rail/lens already shows them on /rankings.
+    # The digest's value is "what should I do this week", and
+    # selling is something only your-roster players can answer.
     buys: list[dict[str, Any]] = []
     sells: list[dict[str, Any]] = []
     roster_set = {str(n).strip() for n in (user_team_players or [])}
@@ -84,16 +95,18 @@ def build_digest(
         delta = row.get("idpScoringFitDelta")
         if not isinstance(delta, (int, float)):
             continue
+        name = str(row.get("displayName") or row.get("canonicalName") or "")
         confidence = row.get("idpScoringFitConfidence")
+        is_owned = name in roster_set
         # Filter out synthetic + low-confidence rows from buy/sell
         # lists — those rows are noisy, the user doesn't want
         # weekly spam about a rookie cohort estimate.
         if confidence not in ("high", "medium"):
             # Roster summary still includes the player even at low
             # confidence so the user sees what they actually own.
-            if str(row.get("displayName") or "") in roster_set:
+            if is_owned:
                 roster_summary.append({
-                    "name": row.get("displayName"),
+                    "name": name,
                     "position": row.get("position"),
                     "delta": float(delta),
                     "confidence": confidence,
@@ -101,19 +114,26 @@ def build_digest(
                 })
             continue
         entry = {
-            "name": row.get("displayName") or row.get("canonicalName") or "?",
+            "name": name or "?",
             "position": row.get("position") or "?",
             "delta": float(delta),
             "consensus": int(row.get("rankDerivedValue") or 0),
             "tier": row.get("idpScoringFitTier") or "—",
             "confidence": confidence,
         }
-        if entry["name"] in roster_set:
+        if is_owned:
             roster_summary.append({**entry, "synthetic": False})
         if delta >= _DELTA_THRESHOLD:
-            buys.append(entry)
+            # Buys are league-wide — but exclude players you already
+            # own (no point recommending you "buy-low" on someone
+            # already on your roster).
+            if not is_owned:
+                buys.append(entry)
         elif delta <= -_DELTA_THRESHOLD:
-            sells.append(entry)
+            # Sells are MY-ROSTER ONLY — surfacing other teams'
+            # sells is noise (you can't act on them).
+            if is_owned:
+                sells.append(entry)
 
     buys.sort(key=lambda e: -e["delta"])
     sells.sort(key=lambda e: e["delta"])
@@ -154,7 +174,7 @@ def build_digest(
         text_lines.append("")
 
     if sells:
-        text_lines.append(f"SELL-HIGH · top {min(_TOP_SELL_LIMIT, len(sells))}")
+        text_lines.append(f"SELL-HIGH FROM YOUR ROSTER · {min(_TOP_SELL_LIMIT, len(sells))}")
         text_lines.append("-" * 48)
         for s in sells[:_TOP_SELL_LIMIT]:
             text_lines.append(
@@ -226,8 +246,8 @@ def build_digest(
             )
         html_parts.append("</table>")
 
-    _section("Buy-low candidates", "#16a34a", buys[:_TOP_BUY_LIMIT])
-    _section("Sell-high candidates", "#dc2626", sells[:_TOP_SELL_LIMIT])
+    _section("Buy-low candidates (league-wide)", "#16a34a", buys[:_TOP_BUY_LIMIT])
+    _section("Sell-high from your roster", "#dc2626", sells[:_TOP_SELL_LIMIT])
 
     if roster_summary:
         owned_buys = [r for r in roster_summary if r.get("delta", 0) >= _DELTA_THRESHOLD]

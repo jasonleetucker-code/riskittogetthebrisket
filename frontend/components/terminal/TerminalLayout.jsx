@@ -10,6 +10,7 @@ import MoversPanel from "./MoversPanel";
 import ScoringFitMoversPanel from "./ScoringFitMoversPanel";
 import ScoringFitTargetsPanel from "./ScoringFitTargetsPanel";
 import ScoringFitRosterSummary from "./ScoringFitRosterSummary";
+import WaiverSuggestionsPanel from "./WaiverSuggestionsPanel";
 import PortfolioSummary from "./PortfolioSummary";
 import ScoutingIntel from "./ScoutingIntel";
 import TeamNewsFeed from "./TeamNewsFeed";
@@ -72,6 +73,7 @@ export default function TerminalLayout() {
           <PlayerMarketMovement />
           <BuySellHold />
           <ScoringFitTargetsPanel />
+          <WaiverSuggestionsPanel />
           <WatchlistPanel />
         </div>
         <div className="terminal-col terminal-col--right">
