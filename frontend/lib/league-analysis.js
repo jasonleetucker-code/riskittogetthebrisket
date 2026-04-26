@@ -104,7 +104,24 @@ export function buildRowLookup(rows) {
  * `resolvePickRow` helper walks parsed candidates + backend alias map
  * so pick values surface correctly in trade history.
  */
-export function resolveTradeItemValue(itemName, rowLookup, posMap, pickAliases) {
+// Internal — apply the scoring-fit weight to a row's display value
+// when the global setting is on.  Centralised so the trade-history
+// resolver matches the rest of the app's display logic.  Returns
+// the input value unchanged when settings is null / toggle is off
+// / row has no delta.
+function _applyScoringFitToRow(row, baseValue, settings) {
+  if (!row || !settings?.applyScoringFit) return baseValue;
+  const delta = Number(row.idpScoringFitDelta);
+  if (!Number.isFinite(delta) || delta === 0) return baseValue;
+  const w = typeof settings.scoringFitWeight === "number"
+    ? Math.max(0, Math.min(1, settings.scoringFitWeight))
+    : 0.30;
+  if (w <= 0) return baseValue;
+  const adjusted = (Number(baseValue) || 0) + delta * w;
+  return Math.max(0, Math.min(9999, adjusted));
+}
+
+export function resolveTradeItemValue(itemName, rowLookup, posMap, pickAliases, settings = null) {
   if (!itemName) {
     return { name: itemName, value: 0, pos: "", isPick: false, playerId: "", team: "" };
   }
@@ -130,9 +147,14 @@ export function resolveTradeItemValue(itemName, rowLookup, posMap, pickAliases) 
   const key = name.toLowerCase();
   const row = rowLookup.get(key);
   if (row) {
+    const baseVal = row.values?.full || 0;
     return {
       name,
-      value: row.values?.full || 0,
+      // When the user has Apply Scoring Fit on, IDP values shift by
+      // ``delta × weight`` so historical trade grades reflect what
+      // the deal looks like UNDER YOUR LEAGUE'S RULES, not just the
+      // generic consensus.  Offense + picks pass through unchanged.
+      value: _applyScoringFitToRow(row, baseVal, settings),
       pos: row.pos || "",
       isPick: false,
       // Carry the Sleeper player id + NFL team forward so the trade
@@ -152,7 +174,7 @@ export function resolveTradeItemValue(itemName, rowLookup, posMap, pickAliases) 
     if (strippedRow) {
       return {
         name,
-        value: strippedRow.values?.full || 0,
+        value: _applyScoringFitToRow(strippedRow, strippedRow.values?.full || 0, settings),
         pos: strippedRow.pos || "",
         isPick: false,
         playerId: String(strippedRow.raw?.playerId || "") || "",
@@ -286,7 +308,7 @@ function sideDisplayName(side, identityMaps) {
  * split across the two owners.  Falls back to rosterId and then team
  * name for older scraper output that did not emit ownerId.
  */
-export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alpha = TRADE_ALPHA) {
+export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alpha = TRADE_ALPHA, settings = null) {
   const trades = rawData?.sleeper?.trades;
   if (!Array.isArray(trades) || !trades.length) {
     return { windowDays, analyzed: [], teamScores: {} };
@@ -313,7 +335,7 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
     let linear = 0;
     let weighted = 0;
     for (const rawItem of getTradeSideItemLabels(rawList)) {
-      const resolved = resolveTradeItemValue(rawItem, rowLookup, posMap, pickAliases);
+      const resolved = resolveTradeItemValue(rawItem, rowLookup, posMap, pickAliases, settings);
       const safeVal = Number.isFinite(resolved.value) ? Math.max(0, resolved.value) : 0;
       linear += safeVal;
       weighted += Math.pow(Math.max(safeVal, 1), alpha);

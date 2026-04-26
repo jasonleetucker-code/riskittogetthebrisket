@@ -7,6 +7,9 @@ import MarketTicker from "./MarketTicker";
 import PlayerMarketMovement from "./PlayerMarketMovement";
 import BuySellHold from "./BuySellHold";
 import MoversPanel from "./MoversPanel";
+import ScoringFitMoversPanel from "./ScoringFitMoversPanel";
+import ScoringFitTargetsPanel from "./ScoringFitTargetsPanel";
+import ScoringFitRosterSummary from "./ScoringFitRosterSummary";
 import PortfolioSummary from "./PortfolioSummary";
 import ScoutingIntel from "./ScoutingIntel";
 import TeamNewsFeed from "./TeamNewsFeed";
@@ -60,12 +63,15 @@ export default function TerminalLayout() {
       <div className="terminal-grid">
         <div className="terminal-col terminal-col--left">
           <PortfolioSummary />
+          <ScoringFitRosterSummary />
           <ScoutingIntel />
         </div>
         <div className="terminal-col terminal-col--center">
           <MoversPanel />
+          <ScoringFitMoversPanel />
           <PlayerMarketMovement />
           <BuySellHold />
+          <ScoringFitTargetsPanel />
           <WatchlistPanel />
         </div>
         <div className="terminal-col terminal-col--right">

@@ -363,6 +363,18 @@ def apply_idp_scoring_fit_pass(
         if row.vorp is not None and row.games_used > 0
     ]
 
+    # Snap-share lookup (best-effort).  Stamps ``idpSnapShare`` on
+    # every IDP we have data for — the popup reads it as a
+    # durability signal alongside the lens fields.  Empty dict on
+    # any fetch failure (cold-start, nflverse outage); the apply
+    # loop just skips the field in that case.
+    try:
+        from src.scoring.snap_share import fetch_idp_snap_shares  # noqa: PLC0415
+        snap_share_by_gsis = fetch_idp_snap_shares()
+    except Exception as exc:  # noqa: BLE001
+        _LOGGER.warning("idp_scoring_fit=snap_share_failed err=%r", exc)
+        snap_share_by_gsis = {}
+
     stamped = 0
     for player in players_array:
         name = str(player.get("displayName") or "")
@@ -394,6 +406,16 @@ def apply_idp_scoring_fit_pass(
         # (which stats are driving the lens's verdict).
         if fit_with_delta.top_stats:
             player["idpScoringFitTopStats"] = list(fit_with_delta.top_stats)
+        # Snap-share — stamp when we have it.  Read by the popup as
+        # a durability signal: a 100-tackle LB at 95% snaps is a
+        # bell-cow; the same line at 60% is rotational.  Stamped as
+        # a fraction (0.0-1.0) so the frontend can format as %.
+        if isinstance(player.get("playerId"), str) and player["playerId"]:
+            gsis = sleeper_to_gsis.get(player["playerId"])
+            if gsis:
+                share = snap_share_by_gsis.get(gsis)
+                if isinstance(share, (int, float)):
+                    player["idpSnapShare"] = round(float(share), 3)
         # Adjusted value: what rankDerivedValue would BE if the user
         # toggles "apply scoring fit" on the frontend.  Always stamped
         # when the pass produces a delta — frontend toggle decides

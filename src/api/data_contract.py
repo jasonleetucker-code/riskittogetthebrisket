@@ -7322,6 +7322,11 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     # {label, stat_total, points_total, share} dicts.  Rendered in the
     # popup as the "why" breakdown for the lens verdict.
     "idpScoringFitTopStats",
+    # Defensive snap share (0.0-1.0) averaged across the most recent
+    # season.  Durability signal — a 100-tackle LB at 95% snaps is a
+    # bell-cow; the same line at 60% is rotational.  Stamped only on
+    # IDPs the cross-walk could find; absent otherwise.
+    "idpSnapShare",
 )
 
 

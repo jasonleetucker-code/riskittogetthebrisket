@@ -39,6 +39,7 @@ _ALLOWED_NEW_FIELDS = frozenset({
     "idpScoringFitGamesUsed",
     "idpScoringFitAdjustedValue",
     "idpScoringFitTopStats",
+    "idpSnapShare",
 })
 
 

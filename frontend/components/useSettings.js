@@ -66,6 +66,16 @@ export const SETTINGS_DEFAULTS = {
   // instantly without a backend round-trip.
   scoringFitWeight: 0.30,
 
+  // Per-league overrides for ``applyScoringFit`` + ``scoringFitWeight``.
+  // Shape: ``{ [leagueKey]: { applyScoringFit?: boolean, scoringFitWeight?: number } }``.
+  // When the active league has an entry with the field set, that
+  // wins over the global default above.  Lets a user with two
+  // leagues run the lens at 50% in their stacked-scoring league and
+  // OFF in their non-IDP league without flipping the toggle every
+  // time they switch.  Read via ``resolveScoringFitForLeague`` —
+  // never read this map directly.
+  scoringFitByLeague: {},
+
   // Per-source column visibility map ({ [sourceKey]: false } to
   // hide a specific source column on the rankings table).  Any key
   // missing from the map defaults to visible — so an empty map
@@ -220,4 +230,63 @@ export function useSettings() {
   }, []);
 
   return { settings, update, updateSiteWeight, resetSiteWeights, reset };
+}
+
+/**
+ * Resolve the effective ``applyScoringFit`` + ``scoringFitWeight``
+ * for a specific league.  Per-league overrides win over the global
+ * defaults; missing fields fall through to the global value.
+ *
+ * @param {object} settings — full settings dict from ``useSettings``
+ * @param {string|null} leagueKey — active league's stable key, or null
+ * @returns {{applyScoringFit: boolean, scoringFitWeight: number}}
+ */
+export function resolveScoringFitForLeague(settings, leagueKey) {
+  const globalApply = !!settings?.applyScoringFit;
+  const globalWeight = typeof settings?.scoringFitWeight === "number"
+    ? settings.scoringFitWeight : 0.30;
+  if (!leagueKey || !settings?.scoringFitByLeague || typeof settings.scoringFitByLeague !== "object") {
+    return { applyScoringFit: globalApply, scoringFitWeight: globalWeight };
+  }
+  const override = settings.scoringFitByLeague[leagueKey];
+  if (!override || typeof override !== "object") {
+    return { applyScoringFit: globalApply, scoringFitWeight: globalWeight };
+  }
+  return {
+    applyScoringFit: typeof override.applyScoringFit === "boolean"
+      ? override.applyScoringFit : globalApply,
+    scoringFitWeight: typeof override.scoringFitWeight === "number"
+      ? Math.max(0, Math.min(1, override.scoringFitWeight))
+      : globalWeight,
+  };
+}
+
+/**
+ * Update a single per-league override.  ``field`` is
+ * ``"applyScoringFit"`` or ``"scoringFitWeight"``.  Setting to
+ * ``null`` clears the override (resolves back to the global
+ * default).  Persists to localStorage and notifies subscribers.
+ *
+ * Designed to be called from a small inline UI on /rankings or
+ * /settings without changing the global toggle state.
+ */
+export function updateLeagueScoringFit(settings, leagueKey, field, value) {
+  if (!leagueKey) return settings;
+  const next = { ...settings };
+  const map = { ...(next.scoringFitByLeague || {}) };
+  const cur = { ...(map[leagueKey] || {}) };
+  if (value === null || value === undefined) {
+    delete cur[field];
+  } else {
+    cur[field] = value;
+  }
+  if (Object.keys(cur).length === 0) {
+    delete map[leagueKey];
+  } else {
+    map[leagueKey] = cur;
+  }
+  next.scoringFitByLeague = map;
+  writeSettings(next);
+  notify(next);
+  return next;
 }
