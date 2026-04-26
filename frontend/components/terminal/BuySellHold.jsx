@@ -7,7 +7,6 @@ import { useRankHistory } from "@/components/useRankHistory";
 import { useNews } from "@/components/useNews";
 import { useUserState } from "@/components/useUserState";
 import { useTerminal } from "@/components/useTerminal";
-import { useSettings } from "@/components/useSettings";
 import {
   evaluateRoster,
   SIGNAL_META,
@@ -40,9 +39,7 @@ const DEFAULT_FILTERS = new Set([SIGNALS.RISK, SIGNALS.SELL, SIGNALS.MONITOR, SI
 
 export default function BuySellHold() {
   const { rows, rawData, openPlayerPopup } = useApp();
-  const { selectedTeam, selectedLeagueKey } = useTeam();
-  const { settings } = useSettings();
-  const { history, loading: historyLoading } = useRankHistory({ days: 30 });
+  const { selectedTeam, selectedLeagueKey } = useTeam();  const { history, loading: historyLoading } = useRankHistory({ days: 30 });
   const {
     state: userState,
     dismissSignal,
@@ -131,13 +128,8 @@ export default function BuySellHold() {
         selectedTeam,
         history,
         newsItems: scoredNews,
-        // Forward the global Apply Scoring Fit setting so the
-        // ``scoring_fit_buy`` / ``scoring_fit_sell`` rules light up
-        // when the user has the toggle on.  When off, the rules are
-        // gated and the engine behaves as before.
-        applyScoringFit: !!settings.applyScoringFit,
       }),
-    [rows, selectedTeam, history, scoredNews, settings.applyScoringFit],
+    [rows, selectedTeam, history, scoredNews],
   );
 
   // Attach dismissal state.  A signal is dismissed when EITHER the

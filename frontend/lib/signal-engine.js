@@ -138,32 +138,6 @@ const RULES = [
 
   // ── BUY ─────────────────────────────────────────────────────────
   {
-    // SCORING-FIT BUY — fires only when the user has the global
-    // ``Apply Scoring Fit`` toggle on (otherwise the lens isn't part
-    // of the user's mental model and adding extra BUYs from it would
-    // be confusing).  When on, a meaningfully fit-positive IDP whose
-    // realized data is reasonably trustworthy gets a BUY ahead of the
-    // trend-based rules — the player's value under THIS league's
-    // scoring is materially higher than what the consensus market
-    // bakes in, regardless of recent rank movement.
-    //
-    // Priority 42 sits above the trend-based BUYs so a fit-positive
-    // IDP with a flat 7d trend still surfaces as BUY rather than HOLD.
-    // Threshold 1500 is empirically the median of the |delta|
-    // distribution on the live IDP universe — players above it are
-    // outliers, not noise.
-    id: "buy.scoring_fit_positive",
-    signal: SIGNALS.BUY,
-    priority: 42,
-    test: (c) =>
-      c.applyScoringFit === true &&
-      (c.scoringFitDelta ?? 0) >= 1500 &&
-      (c.scoringFitConfidence === "high" || c.scoringFitConfidence === "medium"),
-    reason: (c) =>
-      `Your league's stacked scoring values this player ${Math.round(c.scoringFitDelta).toLocaleString()} more than the consensus market — buy-low if the market hasn't caught up.`,
-    tag: "scoring_fit_buy",
-  },
-  {
     id: "buy.uptrend_not_volatile",
     signal: SIGNALS.BUY,
     priority: 40,
@@ -182,26 +156,6 @@ const RULES = [
     reason: (c) =>
       `Positive news with rank rising ${fmtDelta(c.rankChange)} on the last scrape.`,
     tag: "pos_news_rising",
-  },
-
-  // ── SELL (scoring-fit) ──────────────────────────────────────────
-  {
-    // Symmetric to ``buy.scoring_fit_positive`` — when the toggle is
-    // on AND the league materially undervalues this player vs market,
-    // they're a sell-high candidate (you can offload them at the
-    // consensus price for value above what they're worth in your
-    // league).  Priority 79 sits between the negative-news SELL (78)
-    // and the sustained-downtrend SELL (80).
-    id: "sell.scoring_fit_negative",
-    signal: SIGNALS.SELL,
-    priority: 79,
-    test: (c) =>
-      c.applyScoringFit === true &&
-      (c.scoringFitDelta ?? 0) <= -1500 &&
-      (c.scoringFitConfidence === "high" || c.scoringFitConfidence === "medium"),
-    reason: (c) =>
-      `Your league's scoring values this player ${Math.round(Math.abs(c.scoringFitDelta)).toLocaleString()} less than the consensus market — sell-high while the market still pays full freight.`,
-    tag: "scoring_fit_sell",
   },
 
   // ── HOLD (default) ─────────────────────────────────────────────
@@ -254,12 +208,8 @@ export function evaluate(context) {
 
 /**
  * Build the per-player context the rule engine needs.
- *
- * ``applyScoringFit`` (optional) gates the scoring-fit BUY/SELL rules
- * — pass through ``settings.applyScoringFit`` so the rules don't fire
- * when the user hasn't opted into the lens.
  */
-export function buildContext({ row, historyPoints, newsItems, applyScoringFit = false }) {
+export function buildContext({ row, historyPoints, newsItems }) {
   const points = Array.isArray(historyPoints) ? historyPoints : normalizePoints(historyPoints);
   const trend7 = computeWindowTrend(points, 7);
   const trend30 = computeWindowTrend(points, 30);
@@ -290,16 +240,7 @@ export function buildContext({ row, historyPoints, newsItems, applyScoringFit = 
     alertCount,
     negativeImpactCount,
     positiveImpactCount,
-    newsCount: items.length,
-    // Scoring-fit context — used by the scoring_fit_buy /
-    // scoring_fit_sell rules.  Always populated from the row so a
-    // future rule that references either field works without further
-    // plumbing; the gate on ``applyScoringFit`` is what prevents the
-    // rules from firing when the user hasn't opted in.
-    applyScoringFit: !!applyScoringFit,
-    scoringFitDelta: Number.isFinite(row?.idpScoringFitDelta)
-      ? Number(row.idpScoringFitDelta) : null,
-    scoringFitConfidence: row?.idpScoringFitConfidence || null,
+    newsCount: items.length
   };
 }
 
@@ -308,7 +249,7 @@ export function buildContext({ row, historyPoints, newsItems, applyScoringFit = 
  * {row, context, verdict} entries, sorted by signal priority so the
  * RISK/SELL items are at the top for scanability.
  */
-export function evaluateRoster({ rows, selectedTeam, history, newsItems, applyScoringFit = false }) {
+export function evaluateRoster({ rows, selectedTeam, history, newsItems }) {
   if (!selectedTeam?.players?.length || !Array.isArray(rows)) return [];
 
   const rowByName = new Map();
@@ -340,7 +281,7 @@ export function evaluateRoster({ rows, selectedTeam, history, newsItems, applySc
     if (!row) continue;
     const historyPoints = normalizePoints(histLower.get(key) || history?.[name]);
     const playerNews = newsByPlayer.get(key) || [];
-    const context = buildContext({ row, historyPoints, newsItems: playerNews, applyScoringFit });
+    const context = buildContext({ row, historyPoints, newsItems: playerNews });
     const verdict = evaluate(context);
     out.push({ row, context, verdict, news: playerNews });
   }

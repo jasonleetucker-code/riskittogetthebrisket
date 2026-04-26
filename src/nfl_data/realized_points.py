@@ -34,17 +34,16 @@ production in any league format):
         bonus_pass_yd_300, bonus_pass_yd_400, bonus_rush_yd_100,
         bonus_rush_yd_200, bonus_rec_yd_100, bonus_rec_yd_200
 
-    IDP (added 2026-04-26 for the IDP scoring-fit pass):
+    IDP:
         idp_tkl_solo, idp_tkl_ast, idp_tkl, idp_tkl_loss
         idp_sack, idp_sack_yd, idp_hit
         idp_pd, idp_int, idp_int_ret_yd
         idp_ff, idp_fum_rec, idp_fum_ret_yd
         idp_def_td, idp_safe, idp_blk_kick
 
-The IDP scoring path consumes nflverse ``def_*`` columns (see
-``nflverse_direct.fetch_weekly_defensive_stats``).  Rows where
-``position`` is not in the IDP set skip the IDP keys entirely so
-the offense path is unaffected.
+The IDP scoring path consumes nflverse ``def_*`` columns.  Rows
+where ``position`` is not in the IDP set skip the IDP keys entirely
+so the offense path is unaffected.
 
 Degradation
 -----------

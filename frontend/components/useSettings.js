@@ -41,40 +41,8 @@ export const SETTINGS_DEFAULTS = {
   // Display section on /settings.  See rankings/page.jsx for the
   // render gate.
   showSiteCols: false,
-  // ── Apply Scoring Fit (global toggle) ──────────────────────────
-  // When ON, IDP rows everywhere — /rankings board, Trade Calculator,
-  // Trade Suggestions, Trade Finder, Player Popup — substitute
-  // ``idpScoringFitAdjustedValue`` for the consensus
-  // ``rankDerivedValue``.  This lets the user see + trade with values
-  // that reflect THIS league's stacked scoring rules, not just the
-  // generic 19-source consensus.
-  //
-  // Default OFF — first-run users get the consensus board.  Persisted
-  // through the same SETTINGS_KEY localStorage entry, so toggling on
-  // /rankings is visible immediately on /trade and vice-versa.
-  applyScoringFit: false,
 
-  // Strength of the scoring-fit adjustment when ``applyScoringFit``
-  // is on.  Frontend computes the displayed IDP value as
-  // ``consensus + delta × scoringFitWeight``, clamped to [0, 9999].
-  // Range 0.0-1.0.  0.30 is the recommended default (one-tier nudge
-  // for median deltas).  1.0 applies the full delta — aggressive,
-  // only for users who fully trust the lens.  Backend always stamps
-  // the raw ``idpScoringFitDelta`` regardless of this setting; the
-  // backend's pre-computed ``idpScoringFitAdjustedValue`` (also at
-  // 0.30) is ignored when this differs so the slider changes values
-  // instantly without a backend round-trip.
-  scoringFitWeight: 0.30,
 
-  // Per-league overrides for ``applyScoringFit`` + ``scoringFitWeight``.
-  // Shape: ``{ [leagueKey]: { applyScoringFit?: boolean, scoringFitWeight?: number } }``.
-  // When the active league has an entry with the field set, that
-  // wins over the global default above.  Lets a user with two
-  // leagues run the lens at 50% in their stacked-scoring league and
-  // OFF in their non-IDP league without flipping the toggle every
-  // time they switch.  Read via ``resolveScoringFitForLeague`` —
-  // never read this map directly.
-  scoringFitByLeague: {},
 
   // Per-source column visibility map ({ [sourceKey]: false } to
   // hide a specific source column on the rankings table).  Any key
@@ -230,63 +198,4 @@ export function useSettings() {
   }, []);
 
   return { settings, update, updateSiteWeight, resetSiteWeights, reset };
-}
-
-/**
- * Resolve the effective ``applyScoringFit`` + ``scoringFitWeight``
- * for a specific league.  Per-league overrides win over the global
- * defaults; missing fields fall through to the global value.
- *
- * @param {object} settings — full settings dict from ``useSettings``
- * @param {string|null} leagueKey — active league's stable key, or null
- * @returns {{applyScoringFit: boolean, scoringFitWeight: number}}
- */
-export function resolveScoringFitForLeague(settings, leagueKey) {
-  const globalApply = !!settings?.applyScoringFit;
-  const globalWeight = typeof settings?.scoringFitWeight === "number"
-    ? settings.scoringFitWeight : 0.30;
-  if (!leagueKey || !settings?.scoringFitByLeague || typeof settings.scoringFitByLeague !== "object") {
-    return { applyScoringFit: globalApply, scoringFitWeight: globalWeight };
-  }
-  const override = settings.scoringFitByLeague[leagueKey];
-  if (!override || typeof override !== "object") {
-    return { applyScoringFit: globalApply, scoringFitWeight: globalWeight };
-  }
-  return {
-    applyScoringFit: typeof override.applyScoringFit === "boolean"
-      ? override.applyScoringFit : globalApply,
-    scoringFitWeight: typeof override.scoringFitWeight === "number"
-      ? Math.max(0, Math.min(1, override.scoringFitWeight))
-      : globalWeight,
-  };
-}
-
-/**
- * Update a single per-league override.  ``field`` is
- * ``"applyScoringFit"`` or ``"scoringFitWeight"``.  Setting to
- * ``null`` clears the override (resolves back to the global
- * default).  Persists to localStorage and notifies subscribers.
- *
- * Designed to be called from a small inline UI on /rankings or
- * /settings without changing the global toggle state.
- */
-export function updateLeagueScoringFit(settings, leagueKey, field, value) {
-  if (!leagueKey) return settings;
-  const next = { ...settings };
-  const map = { ...(next.scoringFitByLeague || {}) };
-  const cur = { ...(map[leagueKey] || {}) };
-  if (value === null || value === undefined) {
-    delete cur[field];
-  } else {
-    cur[field] = value;
-  }
-  if (Object.keys(cur).length === 0) {
-    delete map[leagueKey];
-  } else {
-    map[leagueKey] = cur;
-  }
-  next.scoringFitByLeague = map;
-  writeSettings(next);
-  notify(next);
-  return next;
 }

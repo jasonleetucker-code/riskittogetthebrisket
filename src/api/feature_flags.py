@@ -79,16 +79,6 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # (falls back to static weights).  Promoted deliberately, not
     # automatically.
     "dynamic_source_weights": False,
-    # IDP scoring-fit lens (Phase 1 of the IDP valuation integration).
-    # Stamps ``idpScoringFit*`` fields on IDP rows: VORP under league
-    # scoring, tier label, value-scale delta vs the consensus rank,
-    # confidence label scaled by realized sample size.  Diagnostic
-    # only — does NOT touch ``rankDerivedValue`` or any trade engine
-    # in Phase 1.  The 3-yr nflverse defensive corpus + Sleeper
-    # players/scoring fetches add real I/O; gated OFF by default
-    # until the Phase 1 production gate passes (≥30 of top-50 IDPs
-    # rated fit-positive on the prior season backtest).
-    "idp_scoring_fit": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"

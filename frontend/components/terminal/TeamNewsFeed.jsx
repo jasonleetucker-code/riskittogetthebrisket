@@ -27,7 +27,7 @@ function useLeagueNames(sleeperTeams) {
 }
 
 export default function TeamNewsFeed() {
-  const { rawData, openPlayerPopup, rows } = useApp();
+  const { rawData, openPlayerPopup } = useApp();
   const { selectedTeam } = useTeam();
   const sleeperTeams = rawData?.sleeper?.teams;
   const leagueNames = useLeagueNames(sleeperTeams);
@@ -36,42 +36,13 @@ export default function TeamNewsFeed() {
   const [scope, setScope] = useState("roster");
   const news = useNews({ rosterNames, leagueNames });
 
-  // Build a name → {fitDelta, fitConfidence, onRoster} lookup so we
-  // can enrich each news item's player list with lens context.
-  // Pure transform — no extra fetches needed; ``rows`` is already
-  // available from useApp.
-  const fitByName = useMemo(() => {
-    const out = new Map();
-    if (!Array.isArray(rows)) return out;
-    const rosterLower = new Set(
-      (rosterNames || []).map((n) => String(n).trim().toLowerCase())
-    );
-    for (const r of rows) {
-      const key = String(r?.name || "").trim().toLowerCase();
-      if (!key) continue;
-      out.set(key, {
-        fitDelta: typeof r.idpScoringFitDelta === "number" ? r.idpScoringFitDelta : null,
-        fitConfidence: r.idpScoringFitConfidence || null,
-        onRoster: rosterLower.has(key),
-      });
-    }
-    return out;
-  }, [rows, rosterNames]);
 
   // Enrich + filter.  Each player on each news item gets fit data
   // attached so ``NewsItem`` can render the lens-context badge.
   const scopedItems = useMemo(() => {
     if (news.loading || news.items.length === 0) return [];
-    const filtered = filterByScope(news.scored, scope).slice(0, MAX_ITEMS);
-    return filtered.map((item) => ({
-      ...item,
-      players: (item.players || []).map((p) => {
-        const key = String(p?.name || "").trim().toLowerCase();
-        const fit = fitByName.get(key);
-        return fit ? { ...p, ...fit } : p;
-      }),
-    }));
-  }, [news, scope, fitByName]);
+    return filterByScope(news.scored, scope).slice(0, MAX_ITEMS);
+  }, [news, scope]);
 
   const isMock = news.source === "mock";
 
@@ -151,27 +122,6 @@ function NewsItem({ item, onPlayerClick }) {
   const rosterClass =
     item.__relevance >= 100 ? " news-item--roster" : "";
 
-  // Lens-context badge: when the news mentions a player who's
-  // fit-positive (lens says undervalued vs market) and they're on
-  // the user's roster, surface that on the headline.  Defensive
-  // value — don't lose a buy-low to a news cycle.
-  const fitContext = (() => {
-    if (!Array.isArray(item.players) || item.players.length === 0) return null;
-    const fitPlayers = item.players.filter(
-      (p) => p && typeof p.fitDelta === "number"
-            && Math.abs(p.fitDelta) >= 1500
-            && (p.fitConfidence === "high" || p.fitConfidence === "medium"),
-    );
-    if (fitPlayers.length === 0) return null;
-    const top = fitPlayers.sort(
-      (a, b) => Math.abs(b.fitDelta) - Math.abs(a.fitDelta),
-    )[0];
-    return {
-      name: top.name,
-      delta: top.fitDelta,
-      onRoster: !!top.onRoster,
-    };
-  })();
 
   return (
     <li className={`news-item ${sevClass}${rosterClass}`}>
@@ -185,24 +135,6 @@ function NewsItem({ item, onPlayerClick }) {
         )}
       </div>
       <h3 className="news-item-headline">{item.headline}</h3>
-      {fitContext && (
-        <div
-          style={{
-            fontSize: "0.66rem",
-            margin: "2px 0 4px",
-            padding: "2px 6px",
-            display: "inline-block",
-            borderRadius: 3,
-            background: "rgba(34, 211, 238, 0.12)",
-            color: "var(--cyan, #22d3ee)",
-            fontWeight: 600,
-          }}
-          title={`${fitContext.name} is ${fitContext.delta > 0 ? "fit-positive" : "fit-negative"} ${Math.round(fitContext.delta).toLocaleString()} under your league's scoring${fitContext.onRoster ? " (on your roster)" : ""}`}
-        >
-          ⚡ Lens: {fitContext.name} {fitContext.delta > 0 ? "+" : ""}{Math.round(fitContext.delta).toLocaleString()}
-          {fitContext.onRoster ? " · your roster" : ""}
-        </div>
-      )}
       {item.body && <p className="news-item-body">{item.body}</p>}
       <div className="news-item-foot">
         {matched.length > 0 ? (
