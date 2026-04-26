@@ -102,6 +102,17 @@ export function useAuth() {
   const onLoginSuccess = useCallback(() => {
     sessionStorage.setItem(AUTH_CHECK_KEY, "true");
     setAuthenticated(true);
+    // Notify data hooks (useDynastyData, useUserState) so any cached
+    // 401 error state from before sign-in clears immediately instead
+    // of requiring a full page reload.  Listened for in
+    // ``useDynastyData`` and ``useUserState``.
+    if (typeof window !== "undefined") {
+      try {
+        window.dispatchEvent(new Event("auth:changed"));
+      } catch {
+        /* old browsers without Event constructor — ignore */
+      }
+    }
   }, []);
 
   return { authenticated, checking, logout, onLoginSuccess };

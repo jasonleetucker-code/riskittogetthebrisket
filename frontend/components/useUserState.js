@@ -247,8 +247,17 @@ export function useUserState() {
     };
   }, []);
 
+  const [authBump, setAuthBump] = useState(0);
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const onAuth = () => setAuthBump((v) => v + 1);
+    window.addEventListener("auth:changed", onAuth);
+    return () => window.removeEventListener("auth:changed", onAuth);
+  }, []);
+
   useEffect(() => {
     mounted.current = true;
+    setLoading(true);
     fetchServerState()
       .then((server) => {
         if (!mounted.current) return;
@@ -288,7 +297,7 @@ export function useUserState() {
     return () => {
       mounted.current = false;
     };
-  }, []);
+  }, [authBump]);
 
   // Mutators — write-through to local + server.
   const persist = useCallback(async (nextState, serverPatch) => {

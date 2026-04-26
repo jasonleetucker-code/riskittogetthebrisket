@@ -53,12 +53,19 @@ export function useDynastyData() {
   const [leagueRefreshKey, setLeagueRefreshKey] = useState(0);
 
   useEffect(() => {
-    function onLeagueChanged() {
+    function bump() {
       setLeagueRefreshKey((v) => v + 1);
     }
     if (typeof window === "undefined") return undefined;
-    window.addEventListener("league:changed", onLeagueChanged);
-    return () => window.removeEventListener("league:changed", onLeagueChanged);
+    // ``auth:changed`` fires from ``useAuth.onLoginSuccess`` so a
+    // post-401 sign-in immediately re-fires the data fetch instead of
+    // leaving the page stuck on the cached "Sign-in required" error.
+    window.addEventListener("league:changed", bump);
+    window.addEventListener("auth:changed", bump);
+    return () => {
+      window.removeEventListener("league:changed", bump);
+      window.removeEventListener("auth:changed", bump);
+    };
   }, []);
 
   useEffect(() => {
