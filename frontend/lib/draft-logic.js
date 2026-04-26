@@ -1765,53 +1765,50 @@ export function nextBestTargets(stats, { limit = 5 } = {}) {
  * Excludes drafted players and my targets.  Returns top ``limit``
  * candidates sorted descending by score.
  */
-export function nominationCandidates(stats, { limit = 5 } = {}) {
+export function nominationCandidates(stats, { limit = 10 } = {}) {
   if (!stats || !Array.isArray(stats.enrichedPlayers)) return [];
+
+  // Re-purposed 2026-04-26: instead of a drain-by-affordability
+  // ranker, this now surfaces rookies KTC values MUCH HIGHER than
+  // our board.  Rationale: if KTC says a rookie is worth $50 and
+  // our board says $30, leaguemates who reference KTC will bid up
+  // to $50 — draining their budget on a player our model considers
+  // overpriced.  Largest gap = biggest tax on rivals.
+  //
+  // Selection:
+  //   1. Not yet drafted
+  //   2. Not target-tagged (don't undermine your own pursuit)
+  //   3. Has both a board ``preDraft`` AND a KTC dollar value
+  //   4. ``ktcDollar > preDraft`` (KTC overrates relative to us)
+  //
+  // Sort: ``ktcDollar - preDraft`` descending.  Cap at ``limit``
+  // (default 10).
   const out = [];
-  const topCompetitor = Math.max(0, stats.topCompetitorMax || 0);
   for (const p of stats.enrichedPlayers) {
     if (p.drafted) continue;
     if (p.userTag === TAG_TARGET) continue;
-
-    const expectedPrice = Math.max(0, p.inflatedFair || 0);
-    if (expectedPrice <= 0) continue;
-
-    // Cap drain potential by rival affordability.  A $50 fair player
-    // with no rivals over $20 only drains $20 from the pool no matter
-    // how much the nomination theoretically costs.
-    const drain = Math.min(expectedPrice, topCompetitor);
-    if (drain < 1) continue;
-
-    const tagWeight = p.userTag === TAG_AVOID ? 1.8 : 1.0;
-
-    // Risk of accidentally winning: only meaningful for neutrals.  If
-    // I could win by beating the competitor ceiling cheaply, there's
-    // a nontrivial chance nobody else bids much and I end up stuck.
-    // Avoid-tagged players: user opted in, risk_factor = 0.
-    let riskFactor = 0;
-    if (p.userTag !== TAG_AVOID) {
-      const myExcess = Math.max(0, p.myWinningBid - expectedPrice);
-      // Normalize roughly to 0..1 — excess of $30+ over expected
-      // price is a strong "you might actually win this" signal.
-      riskFactor = Math.min(1, myExcess / 30);
-    }
-
-    const score = drain * tagWeight * (1 - riskFactor);
-    if (score <= 0) continue;
-
+    const ourDollar = Math.max(0, p.preDraft || 0);
+    const ktcDollar = Math.max(0, Number(p.ktcDollar) || 0);
+    if (ourDollar <= 0 || ktcDollar <= 0) continue;
+    const gap = ktcDollar - ourDollar;
+    if (gap < 1) continue;  // KTC must overrate by at least $1
+    const drain = Math.min(ktcDollar, Math.max(0, stats.topCompetitorMax || 0));
     out.push({
       player: p,
-      score,
+      score: gap,
       drain,
-      expectedPrice,
+      gap,
+      ourDollar,
+      ktcDollar,
+      expectedPrice: ktcDollar,
       rationale:
-        p.userTag === TAG_AVOID
-          ? `Avoid-tagged · clears ~$${Math.round(drain)} from rivals`
-          : `Drains ~$${Math.round(drain)} from rivals at fair price`,
+        `KTC values $${Math.round(ktcDollar)} vs our $${Math.round(ourDollar)} ` +
+        `· $${Math.round(gap)} gap — leaguemates following KTC will ` +
+        `bid past your board's fair price`,
     });
   }
 
-  out.sort((a, b) => b.score - a.score);
+  out.sort((a, b) => b.gap - a.gap);
   return out.slice(0, limit);
 }
 
