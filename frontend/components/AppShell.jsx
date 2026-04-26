@@ -114,12 +114,40 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
   const openPlayerPopup = useCallback((row) => {
     if (!privateDataEnabled) return;
     if (typeof row === "string") {
-      // Look up by name
-      const found = rows.find((r) => r.name === row);
+      // Look up by name (case-insensitive).  When the same display
+      // name resolves to multiple universes (rare offense/IDP
+      // collision), this picks the first row encountered — callers
+      // that care should pass ``{ name, assetClass }`` instead.
+      const lowered = row.toLowerCase();
+      const found = rows.find((r) => String(r.name).toLowerCase() === lowered);
       if (found) setPopupRow(found);
-    } else {
-      setPopupRow(row);
+      return;
     }
+    if (!row || typeof row !== "object") return;
+    // When the caller supplies ``{ name, assetClass }`` (e.g. the
+    // movers panel surfacing a scoped rank-history entry) and no
+    // contract data, resolve to the matching live row using both
+    // name + assetClass so offense/IDP collisions land on the right
+    // universe.  When the caller already has a full contract row we
+    // skip the lookup.
+    const looksLikeFullRow =
+      row.rankDerivedValue != null ||
+      row.values != null ||
+      row.canonicalConsensusRank != null;
+    if (!looksLikeFullRow && row.name) {
+      const lowered = String(row.name).toLowerCase();
+      const ac = row.assetClass != null ? String(row.assetClass).toLowerCase() : "";
+      const found = rows.find((r) => {
+        if (String(r.name).toLowerCase() !== lowered) return false;
+        if (!ac) return true;
+        return String(r.assetClass || "").toLowerCase() === ac;
+      });
+      if (found) {
+        setPopupRow(found);
+        return;
+      }
+    }
+    setPopupRow(row);
   }, [rows, privateDataEnabled]);
 
   const openSearch = useCallback(() => {

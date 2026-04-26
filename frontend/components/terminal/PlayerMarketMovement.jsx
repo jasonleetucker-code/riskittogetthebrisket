@@ -8,6 +8,7 @@ import {
   normalizePoints,
   computeWindowTrend,
   computeVolatility,
+  buildHistoryLookup,
 } from "@/lib/value-history";
 import Panel from "./Panel";
 import Sparkline from "./Sparkline";
@@ -39,13 +40,6 @@ function toSet(names) {
   if (!Array.isArray(names)) return s;
   for (const n of names) s.add(String(n).toLowerCase());
   return s;
-}
-
-function buildHistoryLookup(history) {
-  if (!history || typeof history !== "object") return () => [];
-  const lower = new Map();
-  for (const key of Object.keys(history)) lower.set(key.toLowerCase(), history[key]);
-  return (name) => lower.get(String(name).toLowerCase()) || history[name] || [];
 }
 
 export default function PlayerMarketMovement() {
@@ -94,7 +88,9 @@ export default function PlayerMarketMovement() {
 
   const enriched = useMemo(() => {
     return scoped.map((r) => {
-      const rawPts = historyLookup(r.name);
+      // History keys are scoped ("Name::offense"); pass r.assetClass
+      // so cross-universe name collisions resolve to the right series.
+      const rawPts = historyLookup(r.name, r.assetClass);
       const points = normalizePoints(rawPts);
       const trend = computeWindowTrend(points, windowDays);
       const vol = computeVolatility(points, Math.max(30, windowDays));

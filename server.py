@@ -2225,19 +2225,39 @@ async def get_movers(request: Request):
     # missing from the live board.
     contract = latest_contract_data or {}
     by_name: dict[str, dict] = {}
+    by_name_lower: dict[str, dict] = {}
+    by_name_scoped: dict[str, dict] = {}
     arr = contract.get("playersArray") or []
     if isinstance(arr, list):
         for row in arr:
-            if isinstance(row, dict):
-                key = str(row.get("displayName") or row.get("canonicalName") or "")
-                if key:
-                    by_name[key] = row
+            if not isinstance(row, dict):
+                continue
+            display = str(row.get("displayName") or row.get("canonicalName") or "")
+            if not display:
+                continue
+            by_name[display] = row
+            by_name_lower[display.lower()] = row
+            asset = str(row.get("assetClass") or "").strip().lower()
+            if asset:
+                by_name_scoped[f"{display.lower()}::{asset}"] = row
 
     risers: list[dict] = []
     fallers: list[dict] = []
-    for name, series in history.items():
+    for raw_key, series in history.items():
         if not series or len(series) < 2:
             continue
+        # History keys are ``"{Display Name}::{asset_class}"`` (see
+        # ``src/api/rank_history.py::_player_key``).  Split the key so
+        # we can (a) look up the contract row by clean displayName,
+        # (b) emit a clean name to the UI, and (c) carry assetClass
+        # through to the response so the frontend can disambiguate
+        # cross-universe name collisions (offense vs IDP).
+        if "::" in raw_key:
+            clean_name, asset_class = raw_key.split("::", 1)
+        else:
+            clean_name, asset_class = raw_key, ""
+        clean_name = clean_name.strip()
+        asset_class = asset_class.strip().lower()
         # Most-recent ``rank`` and the rank from ~``window`` days ago.
         # Series is already date-sorted ascending by load_history.
         latest = series[-1]
@@ -2253,7 +2273,15 @@ async def get_movers(request: Request):
         delta = r_then - r_now
         if abs(delta) < threshold:
             continue
-        row = by_name.get(name) or {}
+        # Prefer a scope-matched contract row (handles offense/IDP
+        # name collisions), then case-insensitive name match, then
+        # exact-key fallback.
+        row = (
+            by_name_scoped.get(f"{clean_name.lower()}::{asset_class}")
+            or by_name_lower.get(clean_name.lower())
+            or by_name.get(raw_key)
+            or {}
+        )
         per_source_delta: dict[str, int] = {}
         # Per-source rank deltas — useful so the user can see
         # "this move was driven by KTC dropping them 25 spots".
@@ -2265,8 +2293,16 @@ async def get_movers(request: Request):
                     per_source_delta[str(src_key)] = int(src_rank)
                 except (TypeError, ValueError):
                     continue
+        # Prefer the contract's assetClass (most current) but fall
+        # back to the history key's parsed asset_class so picks /
+        # IDPs aren't mis-stamped as "?" when the contract has
+        # rotated them off the board.
+        resolved_asset = (
+            str(row.get("assetClass") or "").strip().lower() or asset_class or None
+        )
         entry = {
-            "name": name,
+            "name": clean_name,
+            "assetClass": resolved_asset,
             "playerId": str(row.get("playerId") or "") or None,
             "position": str(row.get("position") or "") or None,
             "team": str(row.get("team") or "") or None,

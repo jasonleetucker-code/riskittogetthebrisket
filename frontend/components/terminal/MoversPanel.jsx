@@ -24,10 +24,27 @@ const WINDOW_OPTIONS = [
   { days: 30, label: "30d" },
 ];
 
+// Asset-class label used when the contract has no NFL position stamped
+// (picks, or IDP/offense rows that have rolled off the live board).
+// Keeps the meta line readable instead of showing a bare "?".
+const ASSET_LABELS = {
+  pick: "Pick",
+  idp: "IDP",
+  offense: "OFF",
+};
+
+function describePosition(row) {
+  const pos = (row.position || "").trim().toUpperCase();
+  if (pos) return pos;
+  const ac = String(row.assetClass || "").trim().toLowerCase();
+  return ASSET_LABELS[ac] || "—";
+}
+
 function MoverRow({ row, openPlayerPopup }) {
   const [expanded, setExpanded] = useState(false);
   const tone = row.delta > 0 ? "var(--green)" : "var(--red)";
   const arrow = row.delta > 0 ? "▲" : "▼";
+  const posLabel = describePosition(row);
 
   return (
     <div
@@ -51,7 +68,7 @@ function MoverRow({ row, openPlayerPopup }) {
             {row.name}
           </div>
           <div style={{ fontSize: "0.62rem", color: "var(--subtext)" }}>
-            {row.position || "?"}
+            {posLabel}
             {row.team ? ` · ${row.team}` : ""} · #{row.rankNow}
             {row.valueNow ? ` · ${row.valueNow.toLocaleString()}` : ""}
           </div>
@@ -110,7 +127,10 @@ function MoverRow({ row, openPlayerPopup }) {
                 e.stopPropagation();
                 // Look up the row in the live rankings + open the
                 // popup so the user gets the full per-source detail.
-                openPlayerPopup({ name: row.name });
+                // Pass ``assetClass`` so cross-universe name
+                // collisions (offense vs IDP) resolve to the right
+                // contract row downstream.
+                openPlayerPopup({ name: row.name, assetClass: row.assetClass });
               }}
               style={{
                 marginLeft: "auto",
@@ -200,7 +220,11 @@ export default function MoversPanel() {
               </div>
             ) : (
               risers.map((r) => (
-                <MoverRow key={`up-${r.name}`} row={r} openPlayerPopup={openPlayerPopup} />
+                <MoverRow
+                  key={`up-${r.name}::${r.assetClass || "x"}`}
+                  row={r}
+                  openPlayerPopup={openPlayerPopup}
+                />
               ))
             )}
           </div>
@@ -214,7 +238,11 @@ export default function MoversPanel() {
               </div>
             ) : (
               fallers.map((r) => (
-                <MoverRow key={`down-${r.name}`} row={r} openPlayerPopup={openPlayerPopup} />
+                <MoverRow
+                  key={`down-${r.name}::${r.assetClass || "x"}`}
+                  row={r}
+                  openPlayerPopup={openPlayerPopup}
+                />
               ))
             )}
           </div>
