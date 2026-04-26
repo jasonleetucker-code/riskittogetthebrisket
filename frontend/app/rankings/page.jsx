@@ -379,16 +379,18 @@ function TopMoversRail({ rows, onPlayerClick }) {
 }
 
 
-function EdgeRail({ summary, onPlayerClick }) {
+function EdgeRail({ summary, onPlayerClick, applyScoringFit = false }) {
   const hasSomething =
     summary.retailPremium.length > 0 ||
     summary.consensusPremium.length > 0 ||
     summary.flaggedCautions.length > 0 ||
-    summary.consensusAssets.length > 0;
+    summary.consensusAssets.length > 0 ||
+    (applyScoringFit && (
+      (summary.scoringFitBuys?.length ?? 0) > 0 ||
+      (summary.scoringFitSells?.length ?? 0) > 0
+    ));
 
   if (!hasSomething) return null;
-
-  const retailLabel = getRetailLabel();
 
   return (
     <div className="edge-rail">
@@ -421,6 +423,25 @@ function EdgeRail({ summary, onPlayerClick }) {
           emptyText="No flagged players in top 300"
           onPlayerClick={onPlayerClick}
         />
+        {/* Scoring-fit edges only render when the user has the global
+            toggle on AND the backend pass produced data.  Surfaces the
+            top buy-low / sell-high IDPs by league-aware delta. */}
+        {applyScoringFit && (summary.scoringFitBuys?.length ?? 0) > 0 && (
+          <EdgeRailSection
+            label="League Fit · Buy"
+            items={summary.scoringFitBuys}
+            emptyText="No league-fit buys"
+            onPlayerClick={onPlayerClick}
+          />
+        )}
+        {applyScoringFit && (summary.scoringFitSells?.length ?? 0) > 0 && (
+          <EdgeRailSection
+            label="League Fit · Sell"
+            items={summary.scoringFitSells}
+            emptyText="No league-fit sells"
+            onPlayerClick={onPlayerClick}
+          />
+        )}
       </div>
     </div>
   );
@@ -663,24 +684,43 @@ export default function RankingsPage() {
   // hidden when the backend pass didn't run for this league.
   const hasScoringFitAvailable = useMemo(
     () => eligibleRaw.some(
-      (r) => typeof r.idpScoringFitAdjustedValue === "number"
-              && Number.isFinite(r.idpScoringFitAdjustedValue),
+      (r) => typeof r.idpScoringFitDelta === "number"
+              && Number.isFinite(r.idpScoringFitDelta),
     ),
     [eligibleRaw],
   );
 
+  // Single source of truth for the slider weight — falls back to 0.30
+  // (the recommended default) when the saved settings predate the
+  // scoringFitWeight field.  Clamped to [0, 1] so any future code
+  // path that mutates the value can't break downstream math.
+  const scoringFitWeight = Math.max(
+    0,
+    Math.min(1,
+      typeof settings.scoringFitWeight === "number"
+        ? settings.scoringFitWeight : 0.30,
+    ),
+  );
+
   const eligible = useMemo(() => {
-    if (!applyScoringFit || !hasScoringFitAvailable) return eligibleRaw;
+    if (!applyScoringFit || !hasScoringFitAvailable || scoringFitWeight <= 0) {
+      return eligibleRaw;
+    }
     // Project every row to a working copy with displayValue/displayRank
     // overlay.  The ORIGINAL ``rankDerivedValue`` is preserved so the
     // PlayerPopup / trade calculator (when invoked from this page) can
     // still surface the consensus number alongside the adjusted one.
+    //
+    // Adjusted value is recomputed from primitives
+    // (``consensus + delta × scoringFitWeight``) so the slider on
+    // /settings re-renders the board without a backend round-trip.
     const projected = eligibleRaw.map((r) => {
-      const adjusted = (typeof r.idpScoringFitAdjustedValue === "number"
-                        && Number.isFinite(r.idpScoringFitAdjustedValue))
-        ? r.idpScoringFitAdjustedValue
+      const consensus = Number(r.rankDerivedValue) || 0;
+      const delta = Number(r.idpScoringFitDelta);
+      const adjusted = (Number.isFinite(delta) && consensus > 0)
+        ? Math.max(0, Math.min(9999, consensus + delta * scoringFitWeight))
         : null;
-      const displayValue = adjusted ?? Number(r.rankDerivedValue) ?? 0;
+      const displayValue = adjusted ?? consensus;
       return {
         ...r,
         // Preserve originals for tooltip / debug surfaces.
@@ -722,7 +762,7 @@ export default function RankingsPage() {
       }
     }
     return ranked;
-  }, [eligibleRaw, applyScoringFit, hasScoringFitAvailable]);
+  }, [eligibleRaw, applyScoringFit, hasScoringFitAvailable, scoringFitWeight]);
 
   // ── Trust summary stats ──────────────────────────────────────────
   // Single-pass aggregate — six filters would each walk the full
@@ -747,6 +787,51 @@ export default function RankingsPage() {
     }
     return { total: eligible.length, high, medium, low, quarantined, multiSource, withAnomalies };
   }, [eligible]);
+
+  // ── Per-position scoring-fit summary ─────────────────────────────
+  // When the user has the global toggle on, summarise how each IDP
+  // position group's average ``idpScoringFitDelta`` compares to the
+  // consensus.  Surfaces "your league overvalues LBs by avg +1200,
+  // undervalues EDGEs by -800, aligned on DBs" — the one-shot
+  // insight that tells the user where their league diverges most.
+  const scoringFitPositionSummary = useMemo(() => {
+    if (!applyScoringFit || !hasScoringFitAvailable) return null;
+    const buckets = new Map();
+    for (const r of eligibleRaw) {
+      if (r.assetClass !== "idp") continue;
+      const delta = Number(r.idpScoringFitDelta);
+      if (!Number.isFinite(delta)) continue;
+      // Group by abstract family — combines specific positions
+      // (DT/DE/EDGE → DL, etc.) so the user sees three rows, not
+      // ten.  Matches the cohort-aliasing in the rookie baseline.
+      const family = (
+        ({
+          "DL": "DL", "DT": "DL", "DE": "DL", "EDGE": "DL", "NT": "DL",
+          "LB": "LB", "ILB": "LB", "OLB": "LB", "MLB": "LB",
+          "DB": "DB", "CB": "DB", "S": "DB", "FS": "DB", "SS": "DB",
+        })[String(r.pos || "").toUpperCase()] || "Other"
+      );
+      if (family === "Other") continue;
+      if (!buckets.has(family)) buckets.set(family, []);
+      buckets.get(family).push(delta);
+    }
+    const out = [];
+    for (const [family, deltas] of buckets) {
+      if (!deltas.length) continue;
+      const sorted = [...deltas].sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length / 2)];
+      const avg = deltas.reduce((s, x) => s + x, 0) / deltas.length;
+      out.push({
+        family,
+        count: deltas.length,
+        avg: Math.round(avg),
+        median: Math.round(median),
+        positive: deltas.filter((d) => d > 0).length,
+      });
+    }
+    out.sort((a, b) => Math.abs(b.avg) - Math.abs(a.avg));
+    return out.length ? out : null;
+  }, [eligibleRaw, applyScoringFit, hasScoringFitAvailable]);
 
   // ── Edge summary ─────────────────────────────────────────────────
   const edgeSummary = useMemo(() => computeEdgeSummary(eligible), [eligible]);
@@ -1259,7 +1344,7 @@ export default function RankingsPage() {
 
       {/* ── Edge rail (expandable) ──────────────────────────────────── */}
       {!loading && !error && showEdgeRail && rows.length > 0 && (
-        <EdgeRail summary={edgeSummary} onPlayerClick={openPlayerPopup} />
+        <EdgeRail summary={edgeSummary} onPlayerClick={openPlayerPopup} applyScoringFit={applyScoringFit && hasScoringFitAvailable} />
       )}
 
       {/* ── Loading / error / empty states ──────────────────────────── */}
@@ -1331,11 +1416,13 @@ export default function RankingsPage() {
             </p>
           )}
 
-          {/* Apply-Scoring-Fit explainer banner.  Surfaces only when
-              the toggle is ON so first-run users understand what
-              changed about the board before the lens cells make sense.
-              Single line — points at the badges and explains the
-              cyan-pill "synthetic" marker for rookies. */}
+          {/* Apply-Scoring-Fit explainer banner + per-position summary.
+              The banner surfaces only when the toggle is ON so first-run
+              users understand what changed about the board before the
+              lens cells make sense.  The position summary below it
+              shows where the league diverges most from the consensus —
+              one-shot insight that tells the user "your league
+              overvalues X, undervalues Y." */}
           {applyScoringFit && (
             <div
               className="muted text-xs"
@@ -1348,11 +1435,48 @@ export default function RankingsPage() {
                 borderRadius: "3px",
               }}
             >
-              IDP values + ranks are adjusted by how your league's
-              stacked scoring rates each player vs the consensus market.
-              Cyan dot = rookie cohort estimate (no realized production yet).
-              Trade calculator + suggestions still use raw consensus —
-              this toggle only affects the rankings board.
+              IDP values + ranks are adjusted by your league&apos;s scoring
+              fit (weight {Math.round(scoringFitWeight * 100)}% — change on{" "}
+              <a href="/settings" style={{ color: "var(--cyan)" }}>/settings</a>).
+              Cyan dot = rookie cohort estimate. Trade calculator,
+              suggestions, finder + buy/sell signals all respect this toggle.
+            </div>
+          )}
+          {applyScoringFit && scoringFitPositionSummary && (
+            <div
+              style={{
+                margin: "4px 0 8px",
+                padding: "6px 10px",
+                background: "rgba(20, 25, 36, 0.5)",
+                border: "1px solid var(--border)",
+                borderRadius: "3px",
+                display: "flex",
+                gap: 16,
+                flexWrap: "wrap",
+                alignItems: "center",
+                fontSize: "0.74rem",
+              }}
+              title="Mean per-position scoring-fit delta across all IDPs in this league.  Positive = your league overvalues these vs consensus market (more buy-low candidates).  Negative = market overpays."
+            >
+              <strong style={{ color: "var(--text)" }}>League fit by position:</strong>
+              {scoringFitPositionSummary.map((b) => (
+                <span key={b.family} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontWeight: 600 }}>{b.family}</span>
+                  <span
+                    style={{
+                      fontFamily: "var(--mono, monospace)",
+                      color: b.avg > 0 ? "var(--green, #4ade80)"
+                        : b.avg < 0 ? "var(--red, #f87171)"
+                        : "var(--muted)",
+                      fontWeight: 600,
+                    }}
+                    title={`Avg delta ${b.avg >= 0 ? "+" : ""}${b.avg} across ${b.count} ${b.family}s · ${b.positive} fit-positive`}
+                  >
+                    {b.avg >= 0 ? "+" : ""}{b.avg.toLocaleString()}
+                  </span>
+                  <span className="muted">({b.count})</span>
+                </span>
+              ))}
             </div>
           )}
 

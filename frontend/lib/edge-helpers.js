@@ -320,5 +320,54 @@ export function computeEdgeSummary(rows) {
     consensusPremium: topConsensusPremium(eligible),
     flaggedCautions: topFlaggedCautions(eligible),
     consensusAssets: topConsensusAssets(eligible),
+    scoringFitBuys: topScoringFitBuys(eligible),
+    scoringFitSells: topScoringFitSells(eligible),
   };
+}
+
+/**
+ * Top IDPs whose value under THIS league's stacked scoring exceeds
+ * the consensus market by the largest margin — buy-low candidates.
+ * Returns up to 5 entries, sorted by ``idpScoringFitDelta``
+ * descending.  Only includes rows with high/medium confidence so
+ * synthetic rookies + thin-data players don't dominate the rail.
+ */
+function topScoringFitBuys(eligible, limit = 5) {
+  return eligible
+    .filter((r) =>
+      typeof r.idpScoringFitDelta === "number"
+      && r.idpScoringFitDelta >= 1500
+      && (r.idpScoringFitConfidence === "high"
+          || r.idpScoringFitConfidence === "medium"))
+    .sort((a, b) => (b.idpScoringFitDelta ?? 0) - (a.idpScoringFitDelta ?? 0))
+    .slice(0, limit)
+    .map((r) => ({
+      name: r.name,
+      pos: r.pos,
+      rank: r.rank,
+      detail: `League scoring +${Math.round(r.idpScoringFitDelta).toLocaleString()} vs market`,
+    }));
+}
+
+/**
+ * Top IDPs whose value under THIS league's scoring is below market
+ * by the largest margin — sell-high candidates (you can offload them
+ * at consensus pricing and pocket the gap).  Same filter as
+ * ``topScoringFitBuys``.
+ */
+function topScoringFitSells(eligible, limit = 5) {
+  return eligible
+    .filter((r) =>
+      typeof r.idpScoringFitDelta === "number"
+      && r.idpScoringFitDelta <= -1500
+      && (r.idpScoringFitConfidence === "high"
+          || r.idpScoringFitConfidence === "medium"))
+    .sort((a, b) => (a.idpScoringFitDelta ?? 0) - (b.idpScoringFitDelta ?? 0))
+    .slice(0, limit)
+    .map((r) => ({
+      name: r.name,
+      pos: r.pos,
+      rank: r.rank,
+      detail: `League scoring ${Math.round(r.idpScoringFitDelta).toLocaleString()} vs market`,
+    }));
 }

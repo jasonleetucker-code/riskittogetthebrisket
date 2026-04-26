@@ -53,6 +53,19 @@ export const SETTINGS_DEFAULTS = {
   // through the same SETTINGS_KEY localStorage entry, so toggling on
   // /rankings is visible immediately on /trade and vice-versa.
   applyScoringFit: false,
+
+  // Strength of the scoring-fit adjustment when ``applyScoringFit``
+  // is on.  Frontend computes the displayed IDP value as
+  // ``consensus + delta × scoringFitWeight``, clamped to [0, 9999].
+  // Range 0.0-1.0.  0.30 is the recommended default (one-tier nudge
+  // for median deltas).  1.0 applies the full delta — aggressive,
+  // only for users who fully trust the lens.  Backend always stamps
+  // the raw ``idpScoringFitDelta`` regardless of this setting; the
+  // backend's pre-computed ``idpScoringFitAdjustedValue`` (also at
+  // 0.30) is ignored when this differs so the slider changes values
+  // instantly without a backend round-trip.
+  scoringFitWeight: 0.30,
+
   // Per-source column visibility map ({ [sourceKey]: false } to
   // hide a specific source column on the rankings table).  Any key
   // missing from the map defaults to visible — so an empty map

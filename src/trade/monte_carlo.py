@@ -232,11 +232,20 @@ def _stdev(values: list[float]) -> float:
 
 def build_trade_player(
     row: dict[str, Any],
+    *,
+    apply_scoring_fit: bool = False,
+    scoring_fit_weight: float = 0.30,
 ) -> TradePlayer | None:
     """Construct a TradePlayer from a canonical-contract player row.
 
     Prefers the Phase 4 ``valueBand`` dict; falls back to ±15% band
     centered on ``rankDerivedValue`` when CIs haven't been stamped.
+
+    When ``apply_scoring_fit`` is True and the row carries an
+    ``idpScoringFitDelta``, the entire band shifts by
+    ``delta × scoring_fit_weight`` so simulation reflects the
+    league-aware value rather than the consensus market.  Affects
+    only IDP rows; offense + picks pass through unchanged.
     """
     if not isinstance(row, dict):
         return None
@@ -248,19 +257,36 @@ def build_trade_player(
     group = "idp" if pos in ("DL", "LB", "DB", "CB", "S") else (
         "pick" if pos == "PICK" else "offense"
     )
+
+    # Scoring-fit shift: a single additive offset on the entire band.
+    # Computed once here so both the valueBand and fallback paths use
+    # the same number.  Clamped so a wide band doesn't spill below 0.
+    fit_shift = 0.0
+    if apply_scoring_fit and group == "idp":
+        delta = row.get("idpScoringFitDelta")
+        if isinstance(delta, (int, float)):
+            try:
+                w = max(0.0, min(1.0, float(scoring_fit_weight)))
+            except (TypeError, ValueError):
+                w = 0.30
+            fit_shift = float(delta) * w
+
+    def _shifted(v: float) -> float:
+        return max(0.0, min(9999.0, float(v) + fit_shift))
+
     band = row.get("valueBand") or {}
     if isinstance(band, dict) and band.get("p50") is not None:
         return TradePlayer(
             name=name, team=team, position_group=group,
-            p10=float(band.get("p10") or 0),
-            p50=float(band.get("p50") or 0),
-            p90=float(band.get("p90") or 0),
+            p10=_shifted(band.get("p10") or 0),
+            p50=_shifted(band.get("p50") or 0),
+            p90=_shifted(band.get("p90") or 0),
         )
     # Fallback: synthesize a 15% band around the canonical value.
     cv = float(row.get("rankDerivedValue") or row.get("values", {}).get("full") or 0)
     return TradePlayer(
         name=name, team=team, position_group=group,
-        p10=max(0.0, cv * 0.85),
-        p50=cv,
-        p90=cv * 1.15,
+        p10=_shifted(cv * 0.85),
+        p50=_shifted(cv),
+        p90=_shifted(cv * 1.15),
     )
