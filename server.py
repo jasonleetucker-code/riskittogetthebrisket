@@ -3405,6 +3405,100 @@ async def get_scaffold_identity():
     return JSONResponse(content=payload)
 
 
+@app.post("/api/waiver/drops")
+async def post_waiver_drops(request: Request):
+    """Return drop candidates from the user's roster — the lowest
+    adjusted-value players currently rostered, ranked bottom-up.
+
+    Best-ball companion to ``/api/waiver/suggestions``: when the
+    user adds a FA, this surfaces who to drop first.
+
+    Body:
+      ``leagueKey``       optional
+      ``ownerId``         user's owner id (resolved from registry if absent)
+      ``applyScoringFit`` bool
+      ``scoringFitWeight`` float 0-1
+      ``limit``            int default 5
+    """
+    if not latest_contract_data or not latest_contract_data.get("playersArray"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Live contract not loaded yet."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    try:
+        league_cfg = _resolve_league_for_request(
+            request, body=body, require_loaded_contract=True,
+        )
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    sleeper = (latest_contract_data or {}).get("sleeper") or {}
+    teams = sleeper.get("teams") or []
+    owner_id = str(body.get("ownerId") or "").strip()
+
+    # Resolve operator's roster — same auto-resolve as the digest.
+    user_team_players: list[str] = []
+    if owner_id:
+        for t in teams:
+            if str(t.get("ownerId") or "") == owner_id:
+                user_team_players = list(t.get("players") or [])
+                break
+    if not user_team_players:
+        try:
+            from src.api import league_registry as _lr  # noqa: PLC0415
+            cfg = _lr.get_league_by_key(league_cfg.key) or _lr.get_default_league()
+            if cfg:
+                for _u, spec in (cfg.default_team_map or {}).items():
+                    tn = str((spec or {}).get("teamName") or "").strip()
+                    if tn:
+                        for t in teams:
+                            if str(t.get("name") or "").strip() == tn:
+                                user_team_players = list(t.get("players") or [])
+                                break
+                        break
+        except Exception:  # noqa: BLE001
+            pass
+
+    if not user_team_players:
+        return JSONResponse(content={
+            "drops": [],
+            "leagueKey": league_cfg.key,
+            "reason": "no_roster_resolved",
+        })
+
+    apply_fit = bool(body.get("applyScoringFit"))
+    try:
+        fit_weight = float(body.get("scoringFitWeight", 0.30))
+    except (TypeError, ValueError):
+        fit_weight = 0.30
+    try:
+        limit = int(body.get("limit", 5))
+    except (TypeError, ValueError):
+        limit = 5
+
+    from src.trade import waiver as _waiver  # noqa: PLC0415
+    drops = await run_in_threadpool(
+        _waiver.find_drop_candidates,
+        latest_contract_data,
+        user_team_players,
+        apply_scoring_fit=apply_fit,
+        scoring_fit_weight=fit_weight,
+        limit=limit,
+    )
+    return JSONResponse(content={
+        "drops": drops,
+        "leagueKey": league_cfg.key,
+        "reason": "ok",
+    })
+
+
 @app.post("/api/waiver/suggestions")
 async def post_waiver_suggestions(request: Request):
     """Generate waiver-wire suggestions for the requesting league.
@@ -3455,6 +3549,10 @@ async def post_waiver_suggestions(request: Request):
     except (TypeError, ValueError):
         min_value = 500
     include_kicker = bool(body.get("includeKicker"))
+    try:
+        faab_remaining = int(body.get("faabRemaining", 100))
+    except (TypeError, ValueError):
+        faab_remaining = 100
 
     from src.trade import waiver as _waiver  # noqa: PLC0415
 
@@ -3467,6 +3565,7 @@ async def post_waiver_suggestions(request: Request):
             scoring_fit_weight=fit_weight,
             min_value=min_value,
             include_kicker_def=include_kicker,
+            user_faab_remaining=faab_remaining,
         )
     except Exception as exc:  # noqa: BLE001
         log.error(f"Waiver suggestions failed: {exc}")
