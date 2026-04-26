@@ -9,6 +9,7 @@ import { Avatar, Card, Stat } from "../../shared-server.jsx";
 import { buildManagerLookup, fmtNumber } from "../../shared-helpers.js";
 import { EmptyState, PageHeader } from "@/components/ui";
 import ShareButton from "../../ShareButton.jsx";
+import RosterComparePanel from "@/components/RosterComparePanel";
 
 function _backend() {
   const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
@@ -124,6 +125,10 @@ export default async function FranchisePage({ params }) {
           </div>
         </div>
       </div>
+
+      <Card title="Compare to my roster">
+        <RosterComparePanel ownerId={ownerId} />
+      </Card>
 
       <Card title="Cumulative">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
