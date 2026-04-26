@@ -383,7 +383,17 @@ def apply_idp_scoring_fit_pass(
         fit = fit_by_name.get(name)
         if fit is None:
             continue
+        # ``rankDerivedValue`` is the contract's primary value field
+        # but some legacy rows only carry ``values.finalAdjusted`` —
+        # fall back to that so adjusted-value stamping doesn't drop
+        # rows whose top-level field hasn't been mirrored.
         consensus_value = float(player.get("rankDerivedValue") or 0)
+        if consensus_value <= 0:
+            values = player.get("values")
+            if isinstance(values, dict):
+                fallback = values.get("finalAdjusted") or values.get("full")
+                if isinstance(fallback, (int, float)) and fallback > 0:
+                    consensus_value = float(fallback)
         fit_with_delta = stamp_delta(fit, consensus_value, par_distribution)
         player["idpScoringFitVorp"] = fit_with_delta.vorp
         player["idpScoringFitTier"] = fit_with_delta.tier

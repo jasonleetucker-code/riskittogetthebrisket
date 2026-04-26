@@ -3405,6 +3405,78 @@ async def get_scaffold_identity():
     return JSONResponse(content=payload)
 
 
+@app.post("/api/waiver/suggestions")
+async def post_waiver_suggestions(request: Request):
+    """Generate waiver-wire suggestions for the requesting league.
+
+    Players currently free-agent (not on any team's roster) ranked
+    by adjusted value (or consensus when ``applyScoringFit`` is off).
+    Pre-draft window (Feb 1 – May 11) suppresses rookies.
+
+    Request body (JSON):
+      ``leagueKey``        optional — pin to a specific league
+      ``applyScoringFit``  bool — apply the scoring-fit weight
+      ``scoringFitWeight`` float 0-1 — strength of the adjustment
+      ``minValue``         int — floor for ``rankDerivedValue``
+      ``includeKicker``    bool — include K/DEF (default false)
+
+    Returns ``{by_position, by_family, total, rookies_excluded,
+    leagueKey}``.
+    """
+    if not latest_contract_data or not latest_contract_data.get("playersArray"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Live contract not loaded yet."},
+        )
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    try:
+        league_cfg = _resolve_league_for_request(
+            request, body=body, require_loaded_contract=True,
+        )
+    except LeagueResolutionError as err:
+        return err.json_response()
+
+    sleeper = (latest_contract_data or {}).get("sleeper") or {}
+    sleeper_teams = sleeper.get("teams") or []
+
+    apply_fit = bool(body.get("applyScoringFit"))
+    try:
+        fit_weight = float(body.get("scoringFitWeight", 0.30))
+    except (TypeError, ValueError):
+        fit_weight = 0.30
+    try:
+        min_value = int(body.get("minValue", 500))
+    except (TypeError, ValueError):
+        min_value = 500
+    include_kicker = bool(body.get("includeKicker"))
+
+    from src.trade import waiver as _waiver  # noqa: PLC0415
+
+    try:
+        result = await run_in_threadpool(
+            _waiver.find_waiver_targets,
+            latest_contract_data,
+            sleeper_teams,
+            apply_scoring_fit=apply_fit,
+            scoring_fit_weight=fit_weight,
+            min_value=min_value,
+            include_kicker_def=include_kicker,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.error(f"Waiver suggestions failed: {exc}")
+        return JSONResponse(status_code=500, content={"error": f"failed: {exc}"})
+
+    if isinstance(result, dict):
+        result["leagueKey"] = league_cfg.key
+    return JSONResponse(content=result)
+
+
 @app.post("/api/trade/suggestions")
 async def post_trade_suggestions(request: Request):
     """Generate trade suggestions for a given roster.
@@ -6833,28 +6905,47 @@ async def run_scoring_fit_digest(request: Request):
 
     dry_run = bool(body.get("dry_run"))
 
-    # Roster context (optional).  When present, the digest gets a
-    # roster-specific section.  When absent, it's just the league-wide
-    # buy/sell lists.
+    # Roster context.  Auto-resolves the operator's team via the
+    # registry's ``defaultTeamMap`` when the body doesn't pin one,
+    # so the systemd cron's ``-d '{}'`` call still produces a
+    # roster-aware digest (sells filtered to the operator's players).
     user_team_players: list[str] | None = None
     league_name: str | None = None
     league_key = body.get("leagueKey")
     owner_id = str(body.get("ownerId") or "").strip()
+    team_name_from_registry: str | None = None
+
+    # Resolve league config — used for both ``league_name`` (digest
+    # subject line) and the team-name fallback below.
+    try:
+        from src.api import league_registry as _lr  # noqa: PLC0415
+        cfg = _lr.get_league_by_key(league_key) if league_key else None
+        if cfg is None:
+            cfg = _lr.get_default_league()
+        if cfg:
+            league_name = cfg.display_name
+            for _username, spec in (cfg.default_team_map or {}).items():
+                tn = str((spec or {}).get("teamName") or "").strip()
+                if tn:
+                    team_name_from_registry = tn
+                    break
+    except Exception:  # noqa: BLE001
+        pass
+
+    sleeper = (latest_contract_data or {}).get("sleeper") or {}
+    teams = sleeper.get("teams") or []
     if owner_id:
-        sleeper = (latest_contract_data or {}).get("sleeper") or {}
-        teams = sleeper.get("teams") or []
         for t in teams:
             if str(t.get("ownerId") or "") == owner_id:
                 user_team_players = list(t.get("players") or [])
                 break
-    if league_key:
-        try:
-            from src.api import league_registry as _lr  # noqa: PLC0415
-            cfg = _lr.get_league_by_key(league_key)
-            if cfg:
-                league_name = cfg.display_name
-        except Exception:  # noqa: BLE001
-            pass
+    if user_team_players is None and team_name_from_registry:
+        # Fallback: match by team name from registry.defaultTeamMap.
+        # Single-user app today — there's only one entry.
+        for t in teams:
+            if str(t.get("name") or "").strip() == team_name_from_registry:
+                user_team_players = list(t.get("players") or [])
+                break
 
     from src.news import scoring_fit_digest as _sfd  # noqa: PLC0415
     digest = _sfd.build_digest(
