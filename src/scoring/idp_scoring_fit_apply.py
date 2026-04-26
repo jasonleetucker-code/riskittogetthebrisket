@@ -43,10 +43,6 @@ import json as _json
 import logging
 import threading
 import time as _time
-
-_ADJUSTED_VALUE_WEIGHT: float = 0.30
-_ADJUSTED_VALUE_MIN: float = 0.0
-_ADJUSTED_VALUE_MAX: float = 9999.0
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -59,6 +55,10 @@ from src.scoring.idp_scoring_fit import (
     quantile_map_to_consensus_scale,
     stamp_delta,
 )
+
+_ADJUSTED_VALUE_WEIGHT: float = 0.30
+_ADJUSTED_VALUE_MIN: float = 0.0
+_ADJUSTED_VALUE_MAX: float = 9999.0
 
 _LOGGER = logging.getLogger(__name__)
 
