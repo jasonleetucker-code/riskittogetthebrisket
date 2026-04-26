@@ -1,13 +1,17 @@
 name: Scheduled Data Refresh
 
-# Runs the scraper + canonical rebuild every 3 hours.
+# Runs the scraper + canonical rebuild every 2 hours.
 # This keeps the site data fresh without manual intervention.
 # The scraper itself is idempotent and overwrites CSVs/site_raw/.
+#
+# Cadence bumped 3h → 2h on 2026-04-26 to keep Sleeper rosters
+# tighter; the scrape fetches fresh rosters as part of every run,
+# so a tighter cron means rosters never go more than ~2h stale.
 
 on:
   schedule:
-    # Every 3 hours at minute 42 (UTC) to avoid thundering herd.
-    - cron: "42 */3 * * *"
+    # Every 2 hours at minute 42 (UTC) to avoid thundering herd.
+    - cron: "42 */2 * * *"
   workflow_dispatch:
     inputs:
       skip_scrape:
