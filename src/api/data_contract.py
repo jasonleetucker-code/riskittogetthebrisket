@@ -6301,19 +6301,29 @@ def _compute_unified_rankings(
     # IDP scoring-fit lens (Phase 1).  Stamps ``idpScoringFit*`` fields
     # on IDP rows: VORP under league scoring, tier label, value-scale
     # delta vs the consensus rank, confidence label scaled by realized
-    # sample size.  Diagnostic-only — does NOT touch
-    # ``rankDerivedValue`` or any trade engine.  Gated behind
-    # ``idp_scoring_fit`` feature flag (default OFF) until the
-    # production gate passes.  No-op for offense-only leagues.
+    # sample size, plus a pre-computed ``idpScoringFitAdjustedValue``
+    # for the frontend's apply-scoring-fit toggle.  Backend never
+    # mutates ``rankDerivedValue``.  Gated behind ``idp_scoring_fit``
+    # feature flag (default OFF) until the production gate passes.
+    # No-op for offense-only leagues — resolved via ``idp_enabled`` on
+    # the active LeagueConfig.
     try:
         from src.scoring.idp_scoring_fit_apply import (  # noqa: PLC0415
             apply_idp_scoring_fit_pass,
         )
+        # Resolve idp_enabled from the active league registry.  Default
+        # to True when the registry is unavailable (matches the
+        # historical pre-registry behaviour); the pass is still gated
+        # by the feature flag, so True-by-default doesn't cause any
+        # behaviour change with the flag OFF.
+        _idp_enabled = True
         try:
             from src.api import league_registry as _lr  # noqa: PLC0415
-            _idp_enabled = bool(_lr.get_default_idp_enabled() if hasattr(_lr, "get_default_idp_enabled") else True)
+            _league = _lr.get_default_league()
+            if _league is not None:
+                _idp_enabled = bool(_league.idp_enabled)
         except Exception:  # noqa: BLE001
-            _idp_enabled = True
+            pass
         apply_idp_scoring_fit_pass(
             players_array,
             league_idp_enabled=_idp_enabled,
@@ -7301,6 +7311,12 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "idpScoringFitDraftRound",
     "idpScoringFitWeightedPpg",
     "idpScoringFitGamesUsed",
+    # Pre-computed "what rankDerivedValue would be if the user toggles
+    # apply-scoring-fit on the frontend".  Always stamped alongside
+    # the delta; frontend toggle decides whether to display + sort by
+    # this or raw rankDerivedValue.  Backend never mutates
+    # rankDerivedValue itself.
+    "idpScoringFitAdjustedValue",
 )
 
 
