@@ -233,6 +233,28 @@ export const RANKING_SOURCES = [
     isTepPremium: false,
   },
   {
+    // KeepTradeCut Superflex + TE Premium sub-board.  Sourced from
+    // the same scrape as `ktc` — KTC's per-player API response
+    // carries `superflexValues.tep` (level 1, "TE+") alongside the
+    // base `superflexValues.value`, so one Dynasty Scraper run
+    // produces both CSVs.  Registered as its own source so the
+    // per-source winner row in the trade page can show "KTC TE+"
+    // next to "KTC" — users on TE Premium scoring get a row that
+    // matches keeptradecut.com's TE+ display directly instead of the
+    // standard-SF row that disagrees with their league setup.  Mirrors
+    // the backend `_RANKING_SOURCES` entry in src/api/data_contract.py.
+    key: "ktcSfTep",
+    displayName: "KeepTradeCut SF-TEP",
+    columnLabel: "KTC TE+",
+    scope: "overall_offense",
+    positionGroup: null,
+    depth: null,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: false,
+    isTepPremium: true,
+  },
+  {
     // IDP Trade Calculator's value pool covers both offense (via the
     // site's autocomplete) and IDP in the same 0-9999 scale.  Register
     // under overall_idp (as the IDP backbone) AND overall_offense (as a

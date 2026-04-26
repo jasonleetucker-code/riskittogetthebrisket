@@ -210,6 +210,13 @@ _QUARANTINE_FLAGS = {
 #     sort in _compute_unified_rankings produces the correct ordinal)
 _SOURCE_CSV_PATHS: dict[str, Any] = {
     "ktc": "CSVs/site_raw/ktc.csv",
+    # KeepTradeCut Superflex + TE Premium (level 1 / "TE+") sub-board.
+    # Sourced from the same scrape as ``ktc`` — the per-player API
+    # response carries ``superflexValues.tep`` alongside the base SF
+    # value, so a single Dynasty Scraper run produces both CSVs.
+    # Standard ``name,value`` shape on the same 0-9999 scale; signal
+    # defaults to "value".
+    "ktcSfTep": "CSVs/site_raw/ktcSfTep.csv",
     "idpTradeCalc": "CSVs/site_raw/idpTradeCalc.csv",
     "dlfIdp": {
         "path": "CSVs/site_raw/dlfIdp.csv",
@@ -440,6 +447,9 @@ _RANK_TO_SYNTHETIC_VALUE_OFFSET = 10000
 # by hand.
 _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     "ktc": 6,
+    # KTC TE+ (level 1) sub-board is sourced from the same scrape as
+    # ``ktc``, so it shares the 6-hour staleness budget.
+    "ktcSfTep": 6,
     "idpTradeCalc": 6,
     "dynastyNerdsSfTep": 6,
     "fantasyProsIdp": 6,
@@ -824,6 +834,29 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # on the blended board.  See frontend/lib/dynasty-data.js for
         # the mirrored flag.
         "is_tep_premium": False,
+    },
+    {
+        # KeepTradeCut Superflex + TE Premium sub-board.  Sourced from
+        # the same scrape as ``ktc`` — KTC's per-player API response
+        # carries ``superflexValues.tep`` (level 1, "TE+") alongside
+        # the base ``superflexValues.value``, so one Dynasty Scraper
+        # run produces both CSVs.  Registered as its own source so the
+        # per-source winner row in the trade page can show "KTC TE+"
+        # next to "KTC" — users on TE Premium scoring get a row that
+        # matches keeptradecut.com's TE+ display directly instead of
+        # the standard-SF row that disagrees with their league setup.
+        # `is_retail: False` because the retail signal is already
+        # carried by the base ``ktc`` entry — flagging both as retail
+        # would double-count the market-gap calculation.
+        "key": "ktcSfTep",
+        "display_name": "KeepTradeCut SF-TEP",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": None,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": True,
     },
     {
         # IDP Trade Calculator's public value pool covers both offense
@@ -4218,6 +4251,10 @@ _DS_COMBINED_RANK_KEYS: frozenset[str] = frozenset(
 
 _VALUE_BASED_SOURCES: frozenset[str] = frozenset({
     "ktc",
+    # ``ktcSfTep`` is sourced from the same KTC scrape as ``ktc`` and
+    # carries native 0-9999 values (the per-player API response
+    # includes ``superflexValues.tep`` for the TE+ variant).
+    "ktcSfTep",
     "idpTradeCalc",
     # ``dynastyDaddySf``, ``yahooBoone``, and ``fantasyProsFitzmaurice``
     # were moved to the rank-signal path 2026-04-22 after the Hampel

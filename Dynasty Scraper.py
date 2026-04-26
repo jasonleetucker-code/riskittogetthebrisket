@@ -1633,13 +1633,59 @@ async def page_dump(page, label, limit=2500):
 # ─────────────────────────────────────────
 # FantasyCalc — JSON API, TEP + SF
 # ─────────────────────────────────────────
+# KTC's per-player API response carries every TE-premium variant
+# alongside the base SF value (e.g. ``superflexValues.tep`` for TE+
+# level 1 / "TE Premium").  We pluck the level-1 value into a parallel
+# map so the canonical pipeline can register a separate ``ktcSfTep``
+# sub-board.  The field-name list is intentionally generous — KTC has
+# rotated naming a few times and the cost of an extra .get() lookup
+# is negligible against the cost of silently writing an empty CSV.
+_KTC_TEP_FIELD_KEYS = (
+    "tep", "tepValue", "tep_value",
+    "tep1", "tep1Value", "tep1_value",
+    "tepLevel1", "tepValueLevel1",
+)
+_KTC_TEP_TOPLEVEL_KEYS = (
+    "sfTepValue", "sf_tep_value", "value_sftep",
+    "tepValue", "tep_value",
+)
+
+
+def _ktc_extract_tep(item):
+    """Return the TE+ (level 1) superflex value from a KTC API item, or None."""
+    if not isinstance(item, dict):
+        return None
+    if SUPERFLEX:
+        sf_vals = item.get("superflexValues")
+        if isinstance(sf_vals, dict):
+            for k in _KTC_TEP_FIELD_KEYS:
+                v = sf_vals.get(k)
+                if v is not None:
+                    return v
+        sf_vals2 = item.get("superflexValue")
+        if isinstance(sf_vals2, dict):
+            for k in _KTC_TEP_FIELD_KEYS:
+                v = sf_vals2.get(k)
+                if v is not None:
+                    return v
+    for k in _KTC_TEP_TOPLEVEL_KEYS:
+        v = item.get(k)
+        if v is not None:
+            return v
+    return None
+
+
 @retry(max_attempts=3, delay=2, exceptions=(requests.RequestException,))
 async def scrape_ktc(page, players):
     results = {p: None for p in players}
     cached = get_cached("KTC")
     if cached:
         match_all(players, cached, results, site_key="KTC")
+        cached_tep = get_cached("KTC_TEP")
+        if cached_tep:
+            FULL_DATA["KTC_TEP"] = dict(cached_tep)
         return results
+    tep_name_map = {}
     try:
         sf  = "true" if SUPERFLEX else "false"
         url = f"https://keeptradecut.com/dynasty-rankings?sf={sf}&tep=2&filters=QB|WR|RB|TE|RDP"
@@ -1740,9 +1786,17 @@ async def scrape_ktc(page, players):
                             name_map[clean_name(pname)] = int(float(val))
                         except (ValueError, TypeError):
                             pass
+                    tep_val = _ktc_extract_tep(item)
+                    if tep_val is not None:
+                        try:
+                            tep_name_map[clean_name(pname)] = int(float(tep_val))
+                        except (ValueError, TypeError):
+                            pass
                 if name_map and DEBUG:
                     sf_label = "SF API" if SUPERFLEX else "1QB API"
                     print(f"  [KTC] Parsed {len(name_map)} players from API ({sf_label}): {api_url[:60]}")
+                    if tep_name_map:
+                        print(f"  [KTC] TE+ values present for {len(tep_name_map)} players")
                     # Show first item structure for debugging
                     if body and isinstance(body, list) and len(body) > 0:
                         sample = body[0]
@@ -1758,16 +1812,28 @@ async def scrape_ktc(page, players):
             if DEBUG:
                 print("  [KTC] No API data — trying DOM scrape of rendered values")
 
-            # KTC renders values in the DOM after client JS runs
+            # KTC renders values in the DOM after client JS runs.  The
+            # JS payload returns ``{name: {value, tep}}`` so the Python
+            # side can split base SF and TE+ into separate maps.
             dom_data = await page.evaluate("""() => {
                 const results = {};
+                const tepKeys = ['tep','tepValue','tep_value','tep1','tep1Value','tep1_value','tepLevel1','tepValueLevel1'];
+                const grabTep = (obj) => {
+                    if (!obj) return null;
+                    for (const k of tepKeys) {
+                        const v = obj[k];
+                        if (v !== undefined && v !== null) return parseInt(v);
+                    }
+                    return null;
+                };
                 // Try reading from inline playersArray (current KTC format as of 2026-03)
                 if (typeof playersArray !== 'undefined' && Array.isArray(playersArray)) {
                     for (const p of playersArray) {
                         const name = p.playerName || p.name;
                         const sfVals = p.superflexValues;
                         const val = (sfVals && sfVals.value) || p.superflexValue || p.value;
-                        if (name && val) results[name] = parseInt(val);
+                        const tep = grabTep(sfVals) || grabTep(p);
+                        if (name && val) results[name] = { value: parseInt(val), tep };
                     }
                 }
                 if (Object.keys(results).length > 10) return results;
@@ -1782,12 +1848,13 @@ async def scrape_ktc(page, players):
                                 const name = p.playerName || p.name;
                                 const sfVals = p.superflexValues;
                                 const val = (sfVals && sfVals.value) || p.superflexValue || p.value;
-                                if (name && val) results[name] = parseInt(val);
+                                const tep = grabTep(sfVals) || grabTep(p);
+                                if (name && val) results[name] = { value: parseInt(val), tep };
                             }
                         }
                     } catch(e) {}
                 }
-                // Fallback: read from visible DOM elements
+                // Fallback: read from visible DOM elements (no TE+ available in raw DOM)
                 if (Object.keys(results).length === 0) {
                     const rows = document.querySelectorAll('.one-player, [class*="rankings-page--item"], [class*="player-row"]');
                     for (const row of rows) {
@@ -1796,7 +1863,7 @@ async def scrape_ktc(page, players):
                         if (nameEl && valEl) {
                             const name = nameEl.textContent.trim();
                             const val = parseInt(valEl.textContent.trim().replace(/,/g, ''));
-                            if (name && !isNaN(val)) results[name] = val;
+                            if (name && !isNaN(val)) results[name] = { value: val, tep: null };
                         }
                     }
                 }
@@ -1804,10 +1871,22 @@ async def scrape_ktc(page, players):
             }""")
 
             if dom_data and len(dom_data) > 10:
-                for nm, val in dom_data.items():
-                    name_map[clean_name(nm)] = int(val)
+                for nm, payload in dom_data.items():
+                    if isinstance(payload, dict):
+                        v = payload.get("value")
+                        t = payload.get("tep")
+                    else:
+                        v = payload
+                        t = None
+                    if v is not None:
+                        name_map[clean_name(nm)] = int(v)
+                    if t is not None:
+                        try:
+                            tep_name_map[clean_name(nm)] = int(t)
+                        except (ValueError, TypeError):
+                            pass
                 if DEBUG:
-                    print(f"  [KTC] DOM scrape found {len(name_map)} players")
+                    print(f"  [KTC] DOM scrape found {len(name_map)} players ({len(tep_name_map)} with TE+)")
 
         # ── Strategy 3: Full page source parsing ──
         if not name_map:
@@ -1840,8 +1919,14 @@ async def scrape_ktc(page, players):
                             val = item.get("value")
                         if val is not None:
                             name_map[clean_name(pname)] = int(float(val))
+                        tep_val = _ktc_extract_tep(item)
+                        if tep_val is not None:
+                            try:
+                                tep_name_map[clean_name(pname)] = int(float(tep_val))
+                            except (ValueError, TypeError):
+                                pass
                     if name_map and DEBUG:
-                        print(f"  [KTC] playersArray parsed {len(name_map)} players")
+                        print(f"  [KTC] playersArray parsed {len(name_map)} players ({len(tep_name_map)} with TE+)")
                 except Exception as e:
                     if DEBUG:
                         print(f"  [KTC] playersArray parse error: {e}")
@@ -1866,8 +1951,14 @@ async def scrape_ktc(page, players):
                             val = item.get("value")
                         if val is not None:
                             name_map[clean_name(pname)] = int(val)
+                        tep_val = _ktc_extract_tep(item)
+                        if tep_val is not None:
+                            try:
+                                tep_name_map[clean_name(pname)] = int(float(tep_val))
+                            except (ValueError, TypeError):
+                                pass
                     if name_map and DEBUG:
-                        print(f"  [KTC] __NEXT_DATA__ parsed {len(name_map)} players")
+                        print(f"  [KTC] __NEXT_DATA__ parsed {len(name_map)} players ({len(tep_name_map)} with TE+)")
                 except Exception as e:
                     if DEBUG:
                         print(f"  [KTC] __NEXT_DATA__ parse error: {e}")
@@ -1967,6 +2058,21 @@ async def scrape_ktc(page, players):
 
         set_cache("KTC", name_map)
         match_all(players, name_map, results, site_key="KTC")
+        # TE+ (level 1) sub-board: only stash if at least a handful of
+        # players carried the field, so the per-source winner row can
+        # tell "TE+ scrape genuinely succeeded" from "the API stopped
+        # exposing TE+ values".  The 25-player floor is well below the
+        # ~150 TEs+top WRs that materially benefit from TE Premium and
+        # well above any noise threshold.
+        if tep_name_map and len(tep_name_map) >= 25:
+            FULL_DATA["KTC_TEP"] = dict(tep_name_map)
+            set_cache("KTC_TEP", tep_name_map)
+            if DEBUG:
+                la = tep_name_map.get("Sam LaPorta") or tep_name_map.get("sam laporta")
+                bo = tep_name_map.get("Brock Bowers") or tep_name_map.get("brock bowers")
+                print(f"  [KTC] TE+ map stored: {len(tep_name_map)} players (LaPorta={la}, Bowers={bo})")
+        elif DEBUG:
+            print(f"  [KTC] TE+ map skipped — only {len(tep_name_map)} players carried TE+ fields (need ≥25)")
 
         # ── Always build playerID → name mapping for trade/waiver database ──
         global KTC_ID_TO_NAME
@@ -3597,6 +3703,7 @@ async def run(progress_callback=None):
     # ── Save JSON for dashboard ──
     site_key_map = {
         "KTC":          "ktc",
+        "KTC_TEP":      "ktcSfTep",
         "IDPTradeCalc": "idpTradeCalc",
     }
 
@@ -3612,7 +3719,7 @@ async def run(progress_callback=None):
             print(f"  [Max] {scraper_name} → {max_values[dash_key]}")
 
     # ── Trim sites to top N players before building JSON ──
-    _OFFENSIVE_SITES = {"KTC", "FantasyCalc", "DynastyDaddy", "FantasyPros",
+    _OFFENSIVE_SITES = {"KTC", "KTC_TEP", "FantasyCalc", "DynastyDaddy", "FantasyPros",
                         "DraftSharks", "Yahoo", "DynastyNerds", "DLF_SF"}
     _DEFENSIVE_SITES = {"PFF_IDP", "FantasyPros_IDP", "DLF_IDP"}
     _ROOKIE_ONLY_DLF_SITES = {"DLF_RSF", "DLF_RIDP"}
