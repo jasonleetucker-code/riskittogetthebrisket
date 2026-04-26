@@ -1145,6 +1145,12 @@ def _player_starter_totals(
     return out
 
 
+def _nfl_team_for(snapshot: PublicLeagueSnapshot, pid: str) -> str:
+    """Return the NFL team abbreviation for a Sleeper player id, or ""."""
+    nfl_player = snapshot.nfl_players.get(str(pid)) or {}
+    return str(nfl_player.get("team") or "").upper()
+
+
 def _top_player_per_position_scores(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
@@ -1168,6 +1174,7 @@ def _top_player_per_position_scores(
         grouped[pos].append({
             "playerId": pid,
             "playerName": rec["playerName"],
+            "team": _nfl_team_for(snapshot, pid),
             "position": pos,
             "starterPoints": rec["starterPoints"],
             "gamesStarted": rec["gamesStarted"],
@@ -1306,6 +1313,7 @@ def _vorp_rows(
             out.append({
                 "playerId": r["playerId"],
                 "playerName": r["playerName"],
+                "team": _nfl_team_for(snapshot, r["playerId"]),
                 "position": pos,
                 "starterPoints": r["starterPoints"],
                 "gamesStarted": r["gamesStarted"],
@@ -1384,6 +1392,7 @@ def _playoff_mvp_player_rows(
             out.append({
                 "playerId": r["playerId"],
                 "playerName": r["playerName"],
+                "team": _nfl_team_for(snapshot, r["playerId"]),
                 "position": pos,
                 "starterPoints": round(r["starterPoints"], 2),
                 "gamesStarted": r["gamesStarted"],
@@ -1599,6 +1608,7 @@ def _activity_awards_for_season(
             "value": {
                 "playerId": winner["playerId"],
                 "playerName": winner["playerName"],
+                "team": winner.get("team", ""),
                 "position": winner["position"],
                 "vorp": winner["vorp"],
                 "starterPoints": winner["starterPoints"],
@@ -1660,6 +1670,7 @@ def _activity_awards_for_season(
             "value": {
                 "playerId": winner["playerId"],
                 "playerName": winner["playerName"],
+                "team": winner.get("team", ""),
                 "position": winner["position"],
                 "starterPoints": winner["starterPoints"],
                 "gamesStarted": winner["gamesStarted"],
@@ -1681,6 +1692,7 @@ def _activity_awards_for_season(
             "value": {
                 "playerId": winner["playerId"],
                 "playerName": winner["playerName"],
+                "team": winner.get("team", ""),
                 "position": winner["position"],
                 "vorp": winner["vorp"],
                 "starterPoints": winner["starterPoints"],
@@ -1822,6 +1834,7 @@ def _current_season_races(
                     "value": {
                         "playerId": r["playerId"],
                         "playerName": r["playerName"],
+                        "team": r.get("team", ""),
                         "position": r["position"],
                         "vorp": r["vorp"],
                         "starterPoints": r["starterPoints"],
@@ -1888,6 +1901,7 @@ def _current_season_races(
                     "value": {
                         "playerId": r["playerId"],
                         "playerName": r["playerName"],
+                        "team": r.get("team", ""),
                         "position": r["position"],
                         "starterPoints": r["starterPoints"],
                         "gamesStarted": r["gamesStarted"],
@@ -1913,6 +1927,7 @@ def _current_season_races(
                     "value": {
                         "playerId": r["playerId"],
                         "playerName": r["playerName"],
+                        "team": r.get("team", ""),
                         "position": r["position"],
                         "vorp": r["vorp"],
                         "starterPoints": r["starterPoints"],

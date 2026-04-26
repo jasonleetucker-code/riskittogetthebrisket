@@ -40,22 +40,35 @@ function AwardsSection({ managers, data, onNavigate }) {
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {race.leaders.map((leader) => (
                     <div
-                      key={leader.ownerId}
-                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.78rem" }}
+                      key={leader.ownerId || leader.value?.playerId || `${race.key}-${leader.rank}`}
+                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.78rem", gap: 6 }}
                     >
-                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
                         <span style={{ color: "var(--subtext)", fontFamily: "var(--mono)", minWidth: 16 }}>
                           {leader.rank}.
                         </span>
-                        <Avatar managers={managers} ownerId={leader.ownerId} size={18} />
+                        {PLAYER_AWARD_KEYS.has(race.key) && leader.value?.playerId && (
+                          <PlayerImage
+                            playerId={leader.value.playerId}
+                            team={leader.value.team}
+                            position={leader.value.position}
+                            name={leader.value.playerName}
+                            size={18}
+                          />
+                        )}
+                        {leader.ownerId && (
+                          <Avatar managers={managers} ownerId={leader.ownerId} size={18} />
+                        )}
                         <span
-                          style={{ cursor: "pointer", color: "var(--cyan)" }}
-                          onClick={() => onNavigate("franchise", { owner: leader.ownerId })}
+                          style={{ cursor: leader.ownerId ? "pointer" : "default", color: leader.ownerId ? "var(--cyan)" : "var(--text)", overflow: "hidden", textOverflow: "ellipsis" }}
+                          onClick={leader.ownerId ? () => onNavigate("franchise", { owner: leader.ownerId }) : undefined}
                         >
-                          {leader.displayName}
+                          {PLAYER_AWARD_KEYS.has(race.key) && leader.value?.playerName
+                            ? leader.value.playerName
+                            : leader.displayName}
                         </span>
                       </span>
-                      <span style={{ fontFamily: "var(--mono)", color: "var(--text)" }}>
+                      <span style={{ fontFamily: "var(--mono)", color: "var(--text)", flexShrink: 0 }}>
                         {renderAwardValue(race.key, leader.value)}
                       </span>
                     </div>
@@ -103,6 +116,7 @@ function AwardsSection({ managers, data, onNavigate }) {
                     {PLAYER_AWARD_KEYS.has(a.key) && a.value?.playerId && (
                       <PlayerImage
                         playerId={a.value.playerId}
+                        team={a.value.team}
                         position={a.value.position}
                         name={a.value.playerName}
                         size={32}
