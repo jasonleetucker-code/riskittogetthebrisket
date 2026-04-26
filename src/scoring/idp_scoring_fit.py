@@ -284,21 +284,23 @@ def build_rookie_archetype_baseline(
         return {}
 
     # Build gsis_id → (position, draft_round, rookie_season) lookup
-    # from the id_map.  Only include rows with a known rookie_season
-    # AND a known draft_round in [1, 7] — UDFAs and players with
-    # missing draft data are skipped (they fall back to the sentinel).
+    # from the id_map.  Only include rows with a resolvable rookie
+    # season (rookie_season OR draft_year) AND a draft_round in [1,7]
+    # — UDFAs and players with missing draft data are skipped (they
+    # fall back to the sentinel).
     id_map: dict[str, tuple[str, int, int]] = {}
     for row in id_map_rows:
         gsis = str(row.get("gsis_id") or "").strip()
         if not gsis:
             continue
-        rookie_season = row.get("rookie_season")
+        rs_int = _id_map_rookie_season(row)
         draft_round = row.get("draft_round")
         position = str(row.get("position") or "").upper()
-        if not position or not rookie_season or not draft_round:
+        if not position or rs_int is None or draft_round is None:
             continue
         try:
-            rs_int = int(rookie_season)
+            if isinstance(draft_round, float) and draft_round != draft_round:
+                continue
             dr_int = int(draft_round)
         except (TypeError, ValueError):
             continue
@@ -383,6 +385,31 @@ def _resolve_rookie_draft_round(
     return draft_round, rookie_season
 
 
+def _id_map_rookie_season(row: dict[str, Any]) -> int | None:
+    """Resolve the rookie season for a player from the id_map.
+
+    * ``nflverse_direct`` players.csv has ``rookie_season`` directly.
+    * ``nfl_data_py.import_ids()`` has ``draft_year`` instead.  We use
+      that as a proxy — for non-redshirt non-holdout players (>99% of
+      the population) draft_year IS rookie_season.
+
+    Returns ``None`` when neither field is parseable.
+    """
+    candidates = (row.get("rookie_season"), row.get("draft_year"))
+    for raw in candidates:
+        if raw is None:
+            continue
+        try:
+            if isinstance(raw, float) and raw != raw:  # nan
+                continue
+            iv = int(raw)
+            if 2000 <= iv <= 2050:
+                return iv
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
 def _build_gsis_to_draft(
     id_map_rows: list[dict[str, Any]] | None,
 ) -> dict[str, tuple[str, int, int]]:
@@ -397,13 +424,14 @@ def _build_gsis_to_draft(
         gsis = str(row.get("gsis_id") or "").strip()
         if not gsis:
             continue
-        rookie_season = row.get("rookie_season")
+        rs_int = _id_map_rookie_season(row)
         draft_round = row.get("draft_round")
         position = str(row.get("position") or "").upper()
-        if not position or not rookie_season or not draft_round:
+        if not position or rs_int is None or draft_round is None:
             continue
         try:
-            rs_int = int(rookie_season)
+            if isinstance(draft_round, float) and draft_round != draft_round:
+                continue
             dr_int = int(draft_round)
         except (TypeError, ValueError):
             continue
@@ -428,15 +456,79 @@ def _normalize_player_name(name: str) -> str:
     return " ".join("".join(out_chars).split())
 
 
+def _id_map_name(row: dict[str, Any]) -> str:
+    """Extract the canonical player name from an id_map row.
+
+    The id_map can come from two sources with different schemas:
+
+    * ``nfl_data_py.import_ids()`` — has ``name`` (mixed case),
+      ``merge_name`` (lowercase), and direct ``sleeper_id``
+    * ``nflverse_direct.fetch_id_map()`` (players.csv) — has
+      ``display_name``, ``rookie_season``, but NO sleeper_id
+
+    We prefer ``name`` when present (richer source) and fall back to
+    ``display_name``.
+    """
+    return str(row.get("name") or row.get("display_name") or "").strip()
+
+
+def _id_map_sleeper_id(row: dict[str, Any]) -> str:
+    """Extract the Sleeper id from an id_map row, or empty string.
+
+    Only present in the ``nfl_data_py.import_ids()`` shape.  The
+    sleeper_id field is a float in that source (e.g. ``7651.0``);
+    we coerce to a clean string.  ``nan`` values are filtered.
+    """
+    raw = row.get("sleeper_id")
+    if raw is None:
+        return ""
+    # nan check (floats from pandas)
+    try:
+        if isinstance(raw, float) and raw != raw:  # nan
+            return ""
+    except Exception:  # noqa: BLE001
+        pass
+    s = str(raw).strip()
+    if not s or s.lower() == "nan":
+        return ""
+    # Strip the trailing ``.0`` produced by pandas float coercion.
+    if s.endswith(".0"):
+        s = s[:-2]
+    return s
+
+
+def build_sleeper_to_gsis_from_id_map(
+    id_map_rows: list[dict[str, Any]] | None,
+) -> dict[str, str]:
+    """Build sleeper_id → gsis_id directly from the id_map.
+
+    The ``nfl_data_py.import_ids()`` cross-walk has both columns, so
+    this gives us a 6,000+ row cross-walk that's strictly bigger than
+    what Sleeper's /players/nfl payload produces (~3,900 rows where
+    Sleeper has gsis_id stamped per player).
+
+    Returns ``{}`` when the id_map source is the leaner
+    ``nflverse_direct`` players.csv (no sleeper_id field) — caller
+    should still merge in the Sleeper /players/nfl path then.
+    """
+    out: dict[str, str] = {}
+    for row in id_map_rows or []:
+        gsis = str(row.get("gsis_id") or "").strip()
+        sid = _id_map_sleeper_id(row)
+        if gsis and sid:
+            out[sid] = gsis
+    return out
+
+
 def _build_name_to_gsis(
     id_map_rows: list[dict[str, Any]] | None,
 ) -> dict[str, str]:
-    """Build normalised-name → gsis lookup from nflverse players.csv.
+    """Build normalised-name → gsis lookup from the id_map.
 
-    Used as the SECOND join path when a player's Sleeper id has no
-    ``gsis_id`` stamped on the Sleeper /players/nfl payload.  About
-    35-50% of active fantasy IDPs fall into that gap (Sleeper's gsis
-    coverage is incomplete for non-superstar players).
+    Used as the SECOND join path when neither the id_map's direct
+    sleeper_id nor the Sleeper /players/nfl payload has a gsis_id for
+    a player.  This catches the long-tail of fantasy-relevant IDPs
+    that haven't been added to one of the sleeper-id cross-walks yet.
 
     Position is encoded into the key (``"micah parsons|LB"``) to avoid
     cross-position name collisions (two players named "John Smith"
@@ -445,28 +537,19 @@ def _build_name_to_gsis(
     out: dict[str, str] = {}
     for row in id_map_rows or []:
         gsis = str(row.get("gsis_id") or "").strip()
-        nm = _normalize_player_name(row.get("display_name") or "")
+        nm = _normalize_player_name(_id_map_name(row))
         pos = str(row.get("position") or "").upper()
         if not gsis or not nm or not pos:
             continue
         out[f"{nm}|{pos}"] = gsis
-        # Also stamp a position-agnostic fallback, picked by the most
-        # recent ``last_season`` if one already exists at this key.
-        # Active players win over retired ones with the same name.
-        prev = out.get(nm)
-        if prev is None:
+        # Position-agnostic fallback.  When two players share a name
+        # at different positions, the position-qualified key still
+        # disambiguates; this is for the case where the live row's
+        # position differs slightly from the id_map's (e.g. Sleeper
+        # classifies a player as "LB" when nflverse has "OLB" — same
+        # body, different label conventions).
+        if nm not in out:
             out[nm] = gsis
-        else:
-            try:
-                prev_last = next(
-                    (int(r.get("last_season") or 0) for r in id_map_rows
-                     if str(r.get("gsis_id") or "") == prev), 0,
-                )
-                cur_last = int(row.get("last_season") or 0)
-                if cur_last > prev_last:
-                    out[nm] = gsis
-            except (TypeError, ValueError):
-                pass
     return out
 
 

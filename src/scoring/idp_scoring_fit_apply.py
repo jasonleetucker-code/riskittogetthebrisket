@@ -280,6 +280,7 @@ def apply_idp_scoring_fit_pass(
     players_array: list[dict[str, Any]],
     *,
     league_idp_enabled: bool = True,
+    legacy_players_dict: dict[str, Any] | None = None,
 ) -> None:
     """Stamp ``idpScoringFit*`` fields on each IDP row in
     ``players_array`` (in-place).
@@ -318,7 +319,26 @@ def apply_idp_scoring_fit_pass(
         return
 
     id_map_rows = _fetch_nflverse_id_map()
-    sleeper_to_gsis = _fetch_sleeper_players_idmap()
+    # Two sources for sleeper_id → gsis cross-walk:
+    #   1. The id_map itself (richer when sourced from
+    #      ``nfl_data_py.import_ids()`` — has 6,000+ direct
+    #      sleeper_id↔gsis cross-walks).
+    #   2. Sleeper /players/nfl payload (~3,900 entries where Sleeper
+    #      stamped gsis on the player record).
+    # Merge with id_map taking precedence — its data is curated; the
+    # Sleeper payload is best-effort and sometimes stale.
+    from src.scoring.idp_scoring_fit import build_sleeper_to_gsis_from_id_map  # noqa: PLC0415
+    sleeper_to_gsis_id_map = build_sleeper_to_gsis_from_id_map(id_map_rows)
+    sleeper_to_gsis_sleeper = _fetch_sleeper_players_idmap()
+    # Sleeper payload first, then id_map overlays — id_map entries win
+    # on collision.
+    sleeper_to_gsis = {**sleeper_to_gsis_sleeper, **sleeper_to_gsis_id_map}
+    _LOGGER.info(
+        "idp_scoring_fit=cross_walk id_map=%d sleeper_payload=%d merged=%d",
+        len(sleeper_to_gsis_id_map),
+        len(sleeper_to_gsis_sleeper),
+        len(sleeper_to_gsis),
+    )
 
     fit_by_name = compute_idp_scoring_fit(
         players_array,
@@ -377,6 +397,18 @@ def apply_idp_scoring_fit_pass(
             adjusted = consensus_value + fit_with_delta.delta * _ADJUSTED_VALUE_WEIGHT
             adjusted = max(_ADJUSTED_VALUE_MIN, min(_ADJUSTED_VALUE_MAX, adjusted))
             player["idpScoringFitAdjustedValue"] = round(adjusted, 2)
+            # Mirror to the legacy ``players`` dict (if provided) so
+            # consumers that read the legacy shape — Trade Finder,
+            # rankings dashboard widgets — can opt into the adjusted
+            # value via the ``_idpScoringFitAdjustedValue`` underscore-
+            # prefixed key.  Underscore prefix matches the legacy
+            # convention for backend-stamped fields.
+            if isinstance(legacy_players_dict, dict):
+                key = player.get("legacyRef") or player.get("displayName")
+                if key and key in legacy_players_dict:
+                    legacy_row = legacy_players_dict[key]
+                    if isinstance(legacy_row, dict):
+                        legacy_row["_idpScoringFitAdjustedValue"] = round(adjusted, 2)
         stamped += 1
 
     _LOGGER.info(

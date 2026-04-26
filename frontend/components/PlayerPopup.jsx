@@ -104,6 +104,33 @@ function computeValueChain(row) {
     });
   }
 
+  // Scoring-fit adjustment — only present on IDP rows when the
+  // backend pass produced a delta.  Rendered as a chain stage so
+  // users can see exactly how the league-aware value is derived
+  // from the consensus blend.
+  if (typeof row.idpScoringFitAdjustedValue === "number"
+      && Number.isFinite(row.idpScoringFitAdjustedValue)) {
+    const delta = Number(row.idpScoringFitDelta) || 0;
+    const tier = row.idpScoringFitTier ? row.idpScoringFitTier.replace(/_/g, " ") : "";
+    const conf = row.idpScoringFitConfidence;
+    const games = row.idpScoringFitGamesUsed;
+    const isSynthetic = !!row.idpScoringFitSynthetic;
+    const sourceLabel = isSynthetic
+      ? `cohort baseline (round-${row.idpScoringFitDraftRound ?? "?"} rookie)`
+      : `${games || 0} games realized · ${conf || "—"} confidence`;
+    stages.push({
+      key: "scoringFit",
+      label: "Scoring fit (league-aware)",
+      description:
+        `Tier: ${tier}.  ` +
+        `${sourceLabel}.  ` +
+        `Delta vs market: ${delta >= 0 ? "+" : ""}${Math.round(delta)}.  ` +
+        `Adjusted = consensus + delta × 0.30 (clamped 0-9999).`,
+      value: Math.round(Number(row.idpScoringFitAdjustedValue)),
+      delta: blended ? Math.round(Number(row.idpScoringFitAdjustedValue)) - Math.round(blended) : null,
+    });
+  }
+
   return stages;
 }
 
@@ -318,12 +345,52 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
             the original legacy pipeline was already removed earlier
             for a separate reason — it subtracted a legacy composite
             from the Hill blend, which produced misleading four-digit
-            "discounts" on every IDP row). */}
+            "discounts" on every IDP row).
+
+            For IDPs with a scoring-fit adjustment, the popup ALSO
+            renders a "Scoring Fit" cell next to "Our Value" so the
+            user can see both numbers side-by-side regardless of
+            whether the global toggle is on.  Click toggles between
+            them. */}
         <div style={{ display: "flex", gap: 20, marginTop: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
           <div>
             <div className="label">Our Value</div>
             <div className="value" style={{ fontSize: "1.4rem" }}>{Math.round(values.full || 0).toLocaleString()}</div>
           </div>
+          {typeof row.idpScoringFitAdjustedValue === "number" && Number.isFinite(row.idpScoringFitAdjustedValue) && (
+            <div title={`League-aware value: consensus ${Math.round(values.full || 0).toLocaleString()} ${row.idpScoringFitDelta >= 0 ? "+" : ""}${Math.round(row.idpScoringFitDelta || 0).toLocaleString()} from scoring-fit (weight 0.30)`}>
+              <div className="label" style={{ color: "var(--cyan)" }}>
+                Scoring Fit
+                {row.idpScoringFitConfidence === "synthetic" && (
+                  <span
+                    style={{
+                      fontSize: "0.6rem",
+                      marginLeft: 6,
+                      padding: "1px 4px",
+                      borderRadius: 3,
+                      background: "rgba(34, 211, 238, 0.18)",
+                      color: "var(--cyan, #22d3ee)",
+                      fontWeight: 600,
+                    }}
+                    title={row.idpScoringFitDraftRound
+                      ? `Estimated from average rookie-year production of round-${row.idpScoringFitDraftRound} ${row.idpScoringFitTier}s under your league's scoring`
+                      : "Synthetic value from draft-cohort baseline"}
+                  >
+                    R{row.idpScoringFitDraftRound ?? "?"} synth
+                  </span>
+                )}
+              </div>
+              <div className="value" style={{ fontSize: "1.4rem", color: "var(--cyan)" }}>
+                {Math.round(row.idpScoringFitAdjustedValue).toLocaleString()}
+              </div>
+              <div className="muted" style={{ fontSize: "0.7rem", marginTop: 2 }}>
+                {row.idpScoringFitDelta >= 0 ? "+" : ""}{Math.round(row.idpScoringFitDelta || 0).toLocaleString()} vs market
+                {" · "}
+                {row.idpScoringFitTier ? row.idpScoringFitTier.replace(/_/g, " ") : ""}
+                {row.idpScoringFitGamesUsed ? ` · ${row.idpScoringFitGamesUsed} games` : ""}
+              </div>
+            </div>
+          )}
           {injury && injury.impact?.appliedDiscountPct > 0 && (
             <div>
               <div className="label" style={{ color: "var(--red)" }}>

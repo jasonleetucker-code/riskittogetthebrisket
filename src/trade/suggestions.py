@@ -327,6 +327,7 @@ def build_asset_pool_from_contract(
     contract: dict[str, Any],
     *,
     ktc_top_n: int = KTC_TOP_N_FILTER,
+    apply_scoring_fit: bool = False,
 ) -> list[PlayerAsset]:
     """Primary pool builder — maps the live contract ``playersArray``
     to ``PlayerAsset`` objects for the trade-suggestion engine.
@@ -338,6 +339,12 @@ def build_asset_pool_from_contract(
     asset-dict path (see :func:`build_asset_pool`) so downstream
     consumers (roster analysis, sell/buy categories, balancer search)
     are unchanged.
+
+    ``apply_scoring_fit``: when True, IDP rows substitute their
+    ``idpScoringFitAdjustedValue`` for ``rankDerivedValue`` so trade
+    suggestions reflect THIS league's stacked scoring rules, not the
+    generic 19-source consensus.  Offense + picks unaffected.
+    Default False matches the existing behaviour.
 
     Mapping:
 
@@ -379,7 +386,14 @@ def build_asset_pool_from_contract(
         name = str(row.get("canonicalName") or row.get("displayName") or "").strip()
         if not name:
             continue
-        cv = row.get("rankDerivedValue")
+        # Apply Scoring Fit substitution for IDP rows when the toggle
+        # is on AND the row carries an adjusted value.  Offense + picks
+        # always read the consensus rankDerivedValue.
+        cv: Any = row.get("rankDerivedValue")
+        if apply_scoring_fit:
+            adjusted = row.get("idpScoringFitAdjustedValue")
+            if isinstance(adjusted, (int, float)) and adjusted > 0:
+                cv = adjusted
         if cv is None:
             continue
         try:
