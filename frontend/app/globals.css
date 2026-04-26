@@ -1677,6 +1677,49 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 /* ══════════════════════════════════════════════════════════════════════════
    SMALL MOBILE (≤ 420px)
    ══════════════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════════════
+   ULTRA-NARROW (≤360px — iPhone SE / Galaxy Fold cover screen)
+
+   These rules tighten layout further than the standard ≤420px rules
+   below.  Every change in this block is additive — nothing here
+   alters typography or layout that already worked at 420px+; we only
+   close the gap on the very smallest viewports where the existing
+   spacing/font rules overflow horizontally or crowd each other.
+
+   Verified gaps closed by these rules:
+     * Page-header actions wrap onto their own row instead of
+       compressing the title.
+     * Filter-bar gaps tighten so a 4-control bar fits two rows
+       cleanly instead of three.
+     * Trade-meter side-value font + gap can crash into each other
+       when both sides crack 300+; smaller font here.
+     * Card padding at 6px instead of var(--space-sm).
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 360px) {
+  .main-shell { padding: 4px 4px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 8px); }
+  .card { padding: 6px 8px; border-radius: 8px; }
+  .page-title { font-size: 0.9rem; }
+  .page-subtitle { font-size: 0.66rem; }
+
+  /* Allow page-header action clusters to drop onto their own row
+     instead of squishing into the title space. */
+  .page-header-actions {
+    flex: 1 0 100%;
+    justify-content: flex-start;
+  }
+
+  .filter-bar { gap: 4px; }
+  .sub-nav-btn { font-size: 0.62rem; padding: 5px 6px; }
+
+  .trade-meter-side-val { font-size: 0.74rem; }
+  .trade-meter-gap { font-size: 0.6rem; }
+  .trade-meter-multi-val { min-width: 44px; }
+
+  /* Rankings table: even tighter sticky-name column. */
+  .sticky-name { min-width: 96px; }
+  th, td { padding: 3px 5px; font-size: 0.66rem; }
+}
+
 @media (max-width: 420px) {
   /* Keep the safe-area-inset addition from the ≤768px rule — without
      it, the last row of content lands behind the home indicator on

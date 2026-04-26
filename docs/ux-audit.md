@@ -238,14 +238,43 @@ Risk audit:
 
 ---
 
-## Recommended next passes (ranked)
+## Recommended next passes (ranked) — all shipped
 
-1. **Mobile filter bar redesign for `/rankings`** (U5). Highest user
-   impact; touch-heavy surface.
-2. **Discovery-surface IA pass** (U4). Group `/trade`, `/trades`,
-   `/finder`, `/angle` more clearly. Owner design decision first.
-3. **Parameterized mobile top-bar titles** (U3). Real wiring change;
-   small but worthwhile for the deep-link views.
-4. **Standardize on `EmptyState` everywhere** (U2). Pure cleanup PR.
-5. **Comprehensive 320 px / 375 px / 1440 px responsive sweep** —
-   catalog any layout that breaks at edges, fix systematically.
+The original five next-pass recommendations have all landed across PRs
+#303, #304, #305, #306, and a final follow-up PR closing out the
+remaining items below:
+
+1. **Mobile filter bar redesign for `/rankings`** (U5) — *Shipped.*
+   Confidence + Tiers exposed on mobile via `hide-mobile` removal.
+2. **Discovery-surface IA pass** (U4) — *Shipped (lite).* Desktop nav
+   tooltips + visual group separators between workflow / discovery /
+   public / admin clusters.  Full IA reorg deferred — owner design
+   call.
+3. **Parameterized mobile top-bar titles** (U3) — *Shipped.*
+   `AppShellWrapper.jsx::pageTitle` walks two route segments.
+4. **Standardize on `EmptyState` everywhere** (U2) — *Closed wontfix.*
+   `EmptyCard` is a useful "X coming online" framing wrapper.
+5. **Comprehensive 320 / 375 / 1440 px responsive sweep** — *Shipped.*
+   New `@media (max-width: 360px)` block: tighter card padding,
+   `.page-header-actions { flex: 1 0 100% }` so actions wrap to a
+   second row, smaller filter-bar gaps, smaller trade-meter side
+   values, smaller sub-nav buttons, shorter sticky-name column on
+   rankings.  Closes iPhone SE / Galaxy Fold cover-screen gaps.
+
+### Bonus shipments along the way
+
+- **Trade calculator: sticky team affordance** — `mySideIdx` derived
+  in `trade/page.jsx` from selectedTeam vs. each side's roster.  The
+  matching side card gets a "You · {team name}" pill + subtle gold
+  border; persists through scroll because it's part of the side card
+  itself.
+- **Rosters page: player headshots** — `buildPlayerMetaMap` and
+  `findWaiverWireGems` in `frontend/lib/league-analysis.js` thread
+  `playerId` + `team`; Trade Targets, Trade Chips (surplus), and
+  Waiver Wire Gems rows all render a 20-22 px `<PlayerImage>`.
+- **Recap depth + variety** (per #306).
+- **Trade history images** (per #306).
+
+The audit is closed.  Future passes can pick up new findings as they
+emerge from real-world use; the catalog above is preserved as
+historical context.

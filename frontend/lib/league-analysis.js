@@ -525,6 +525,13 @@ export function buildPlayerMetaMap(rows) {
       group,
       meta: r.values?.full || 0,
       isPick: false,
+      // Carry the Sleeper player id + NFL team forward so the rosters
+      // page (Trade Targets, Trade Chips, waiver gems) can render a
+      // <PlayerImage> without re-looking-up the row in dynasty-data.
+      // Rows missing these fields fall back to the position-tinted
+      // initials chip — same fallback chain as everywhere else.
+      playerId: String(r.raw?.playerId || "") || "",
+      team: r.team || "",
     };
   }
   return map;
@@ -697,7 +704,15 @@ export function findWaiverWireGems(rows, sleeperTeams) {
     if (row.pos === "PICK" || row.pos === "K" || row.pos === "?") continue;
     if (rosteredSet.has(row.name.toLowerCase())) continue;
     if ((row.values?.full || 0) < 500) continue;
-    gems.push({ name: row.name, pos: row.pos, value: row.values?.full || 0 });
+    gems.push({
+      name: row.name,
+      pos: row.pos,
+      value: row.values?.full || 0,
+      // Carry the Sleeper player id + NFL team forward so the waiver-
+      // wire chip can render a <PlayerImage>.
+      playerId: String(row.raw?.playerId || "") || "",
+      team: row.team || "",
+    });
   }
 
   gems.sort((a, b) => b.value - a.value);
