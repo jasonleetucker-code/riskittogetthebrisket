@@ -458,19 +458,20 @@ class TestPayloadLevelBlocks(unittest.TestCase):
         self.assertIn("confidenceBuckets", meth)
         self.assertIn("anomalyFlags", meth)
         self.assertIsInstance(meth["sources"], list)
-        # ktc + idpTradeCalc + dlfIdp + idpShow + dlfSf +
+        # ktc + ktcSfTep + idpTradeCalc + dlfIdp + idpShow + dlfSf +
         # dynastyNerdsSfTep + fantasyProsSf + dynastyDaddySf +
         # fantasyProsIdp + flockFantasySf + footballGuysSf +
         # footballGuysIdp + yahooBoone + fantasyProsFitzmaurice +
         # dlfRookieSf + flockFantasySfRookies + dlfRookieIdp +
-        # draftSharks + draftSharksIdp (nineteen sources as of
-        # 2026-04-21 when The IDP Show was added).
-        self.assertEqual(len(meth["sources"]), 19)
+        # draftSharks + draftSharksIdp (twenty sources as of
+        # 2026-04-26 when KTC TE+ sub-board was added).
+        self.assertEqual(len(meth["sources"]), 20)
         keys = {s.get("key") for s in meth["sources"]}
         self.assertEqual(
             keys,
             {
                 "ktc",
+                "ktcSfTep",
                 "idpTradeCalc",
                 "dlfIdp",
                 "idpShow",
