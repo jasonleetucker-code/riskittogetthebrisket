@@ -19,6 +19,7 @@ import {
   tradeGapAdjusted,
   sideTotal,
   effectiveValue,
+  displayValue,
   getPlayerEdge,
   findBalancers,
   parsePickToken,
@@ -729,7 +730,7 @@ function TradeSourceBreakdown({ sides, settings }) {
 
 export default function TradePage() {
   const { loading, error, rows, rawData } = useDynastyData();
-  const { settings } = useSettings();
+  const { settings, update: updateSetting } = useSettings();
   const { openPlayerPopup, registerAddToTrade } = useApp();
   const [valueMode, setValueMode] = useState("full");
   const [pickerSortCol, setPickerSortCol] = useState("rank");
@@ -1169,7 +1170,7 @@ export default function TradePage() {
         case "pos":
           return (a.pos || "").localeCompare(b.pos || "") * dir;
         case "value":
-          va = a.rankDerivedValue || a.values?.full || 0; vb = b.rankDerivedValue || b.values?.full || 0;
+          va = displayValue(a, settings); vb = displayValue(b, settings);
           return (va - vb) * dir;
         default: {
           if (typeof pickerSortCol === "string" && pickerSortCol.startsWith("src:")) {
@@ -1644,16 +1645,20 @@ export default function TradePage() {
     if (!rows || rows.length === 0) return;
     const roster = parseRoster();
     if (roster.length < 3) return;
-    const bodyKey = `${selectedLeagueKey || ""}|${roster.join("|")}`;
+    // bodyKey includes ``applyScoringFit`` so toggling the global
+    // setting re-fires this effect and the existing suggestions block
+    // gets discarded — guarantees the rail re-runs with adjusted
+    // values without the user having to click Get Suggestions again.
+    const bodyKey = `${selectedLeagueKey || ""}|${settings.applyScoringFit ? "fit" : "raw"}|${roster.join("|")}`;
     if (proactiveFetchRef.current.lastBody === bodyKey) return;
     proactiveFetchRef.current.lastBody = bodyKey;
     if (proactiveFetchRef.current.timer) {
       clearTimeout(proactiveFetchRef.current.timer);
     }
     proactiveFetchRef.current.timer = setTimeout(() => {
-      // Only auto-fetch if we don't already have suggestions for this
-      // roster — preserves manually-fetched results.
-      if (!suggestions) fetchSuggestions();
+      // Re-fire on toggle change even if suggestions are present —
+      // the existing block was computed against different values.
+      fetchSuggestions();
     }, 500);
     return () => {
       if (proactiveFetchRef.current.timer) {
@@ -1661,7 +1666,7 @@ export default function TradePage() {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, error, leagueMismatch, rows, rosterInput, selectedLeagueKey]);
+  }, [loading, error, leagueMismatch, rows, rosterInput, selectedLeagueKey, settings.applyScoringFit]);
 
   async function fetchSuggestions() {
     const roster = parseRoster();
@@ -1685,6 +1690,10 @@ export default function TradePage() {
         ? { roster, league_rosters: leagueRosters }
         : { roster };
       if (selectedLeagueKey) body.leagueKey = selectedLeagueKey;
+      // Forward the global Apply Scoring Fit setting so backend
+      // suggestions sort + fairness-check on league-aware IDP values
+      // when the user has the toggle on.
+      if (settings.applyScoringFit) body.applyScoringFit = true;
       const res = await fetch("/api/trade/suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1790,6 +1799,24 @@ export default function TradePage() {
             <select className="select" value={valueMode} onChange={(e) => setValueMode(e.target.value)}>
               {VALUE_MODES.map((m) => (<option key={m.key} value={m.key}>{m.label}</option>))}
             </select>
+            {/* Apply Scoring Fit indicator + inline toggle.  When the
+                user has the global setting on (toggled from /rankings
+                or here), every IDP value in this calculator reflects
+                the league's stacked scoring rules.  We surface the
+                state inline so it's obvious WHY some values differ
+                from KTC. */}
+            <button
+              className={`button ${settings.applyScoringFit ? "button-primary" : ""}`}
+              onClick={() => updateSetting("applyScoringFit", !settings.applyScoringFit)}
+              title={settings.applyScoringFit
+                ? "Trade math uses IDP values adjusted by your league's stacked scoring. Click to revert to consensus values."
+                : "Use IDP values adjusted by your league's stacked scoring instead of generic consensus market values."}
+              style={settings.applyScoringFit
+                ? { borderColor: "var(--cyan)", color: "var(--cyan)", fontWeight: 600 }
+                : {}}
+            >
+              {settings.applyScoringFit ? "✓ Scoring Fit applied" : "Apply Scoring Fit"}
+            </button>
             <button className="button" onClick={swapSides}>
               {sides.length === 2 ? "Swap Sides" : "Rotate Sides"}
             </button>
@@ -2789,7 +2816,7 @@ export default function TradePage() {
                           </td>
                           <td><span className={posBadgeClass(r)}>{r.pos}</span></td>
                           <td style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontWeight: 600 }}>
-                            {Math.round(r.rankDerivedValue || r.values?.full || 0).toLocaleString()}
+                            {Math.round(displayValue(r, settings)).toLocaleString()}
                           </td>
                           {RANKING_SOURCES.map((src) => {
                             const raw = r.canonicalSites?.[src.key];

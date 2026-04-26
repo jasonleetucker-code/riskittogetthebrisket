@@ -6327,6 +6327,7 @@ def _compute_unified_rankings(
         apply_idp_scoring_fit_pass(
             players_array,
             league_idp_enabled=_idp_enabled,
+            legacy_players_dict=players_by_name,
         )
     except Exception as _exc:  # noqa: BLE001
         # Never let a Phase-1 diagnostic pass break the live contract.

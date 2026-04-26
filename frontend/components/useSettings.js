@@ -41,6 +41,18 @@ export const SETTINGS_DEFAULTS = {
   // Display section on /settings.  See rankings/page.jsx for the
   // render gate.
   showSiteCols: false,
+  // ── Apply Scoring Fit (global toggle) ──────────────────────────
+  // When ON, IDP rows everywhere — /rankings board, Trade Calculator,
+  // Trade Suggestions, Trade Finder, Player Popup — substitute
+  // ``idpScoringFitAdjustedValue`` for the consensus
+  // ``rankDerivedValue``.  This lets the user see + trade with values
+  // that reflect THIS league's stacked scoring rules, not just the
+  // generic 19-source consensus.
+  //
+  // Default OFF — first-run users get the consensus board.  Persisted
+  // through the same SETTINGS_KEY localStorage entry, so toggling on
+  // /rankings is visible immediately on /trade and vice-versa.
+  applyScoringFit: false,
   // Per-source column visibility map ({ [sourceKey]: false } to
   // hide a specific source column on the rankings table).  Any key
   // missing from the map defaults to visible — so an empty map

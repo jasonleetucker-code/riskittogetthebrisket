@@ -567,33 +567,14 @@ export default function RankingsPage() {
   const [expandedRow, setExpandedRow] = useState(null);
 
   // ── Apply Scoring Fit toggle ────────────────────────────────────
-  // When ON, IDP rows display ``idpScoringFitAdjustedValue`` instead
-  // of ``rankDerivedValue`` and the entire board re-sorts by the
-  // adjusted values (offense rows keep their consensus value — they
-  // don't have a scoring-fit adjustment).
-  //
-  // Persisted in localStorage so the choice survives page reloads.
-  // Default OFF — first-run users see the consensus board.
-  const [applyScoringFit, setApplyScoringFitState] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const saved = window.localStorage.getItem("applyScoringFit");
-      if (saved === "1") setApplyScoringFitState(true);
-    } catch (_e) {
-      // localStorage may be disabled (Safari private mode); default OFF.
-    }
-  }, []);
+  // Sourced from global settings so toggling on /rankings is visible
+  // immediately on /trade (Trade Calculator), Trade Suggestions, and
+  // any other consumer of player values.  When ON, IDP rows substitute
+  // ``idpScoringFitAdjustedValue`` for ``rankDerivedValue`` everywhere.
+  const applyScoringFit = !!settings.applyScoringFit;
   const setApplyScoringFit = useCallback((next) => {
-    setApplyScoringFitState(next);
-    try {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("applyScoringFit", next ? "1" : "0");
-      }
-    } catch (_e) {
-      // Persistence is best-effort; the in-memory state still works.
-    }
-  }, []);
+    updateSetting("applyScoringFit", !!next);
+  }, [updateSetting]);
 
   const handleSort = useCallback((col) => {
     if (sortCol === col) {

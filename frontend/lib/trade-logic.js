@@ -183,7 +183,24 @@ export function pickYearDiscount(pickName, currentYear) {
  * @returns {number}
  */
 export function effectiveValue(row, valueMode, settings) {
-  const raw = Number(row.values?.[valueMode] || 0);
+  let raw = Number(row.values?.[valueMode] || 0);
+
+  // Apply Scoring Fit (global toggle).  When ON, IDP rows substitute
+  // ``idpScoringFitAdjustedValue`` (consensus + delta × 0.30, clamped)
+  // for the consensus value so trade math reflects THIS league's
+  // stacked scoring rather than the generic 19-source consensus.
+  // Offense + picks are unaffected; only IDPs get the adjustment.
+  // Only fires for ``valueMode === "full"`` — the "raw" mode is by
+  // definition pre-adjustment, and changing it would defeat the
+  // purpose of having a raw view.
+  if (settings?.applyScoringFit
+      && valueMode === "full"
+      && raw > 0
+      && typeof row.idpScoringFitAdjustedValue === "number"
+      && Number.isFinite(row.idpScoringFitAdjustedValue)) {
+    raw = row.idpScoringFitAdjustedValue;
+  }
+
   if (!settings || raw <= 0) return raw;
   const pos = row.pos || "WR";
   let val = raw;
@@ -199,6 +216,30 @@ export function effectiveValue(row, valueMode, settings) {
 /** Simple linear total (sum of values). */
 export function sideTotal(side, valueMode, settings = null) {
   return side.reduce((sum, r) => sum + effectiveValue(r, valueMode, settings), 0);
+}
+
+/**
+ * Resolve the value to *display* for a player row, including the
+ * Apply Scoring Fit adjustment when the global toggle is on.
+ *
+ * Use this anywhere a row's "Our Value" number is shown (picker
+ * cells, sort comparators, headers).  Don't use ``effectiveValue``
+ * directly for display — it also applies the pick-year discount
+ * which is trade-math-only, not display.
+ *
+ * Returns 0 when no value is available.
+ */
+export function displayValue(row, settings = null) {
+  if (!row) return 0;
+  if (settings?.applyScoringFit
+      && typeof row.idpScoringFitAdjustedValue === "number"
+      && Number.isFinite(row.idpScoringFitAdjustedValue)) {
+    return row.idpScoringFitAdjustedValue;
+  }
+  const fromValues = Number(row.values?.full);
+  if (Number.isFinite(fromValues) && fromValues > 0) return fromValues;
+  const fromRdv = Number(row.rankDerivedValue);
+  return Number.isFinite(fromRdv) ? fromRdv : 0;
 }
 
 /** Descending-sorted effective values for a side. */

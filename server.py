@@ -3309,6 +3309,13 @@ async def post_trade_suggestions(request: Request):
     if league_rosters is not None and not isinstance(league_rosters, list):
         league_rosters = None
 
+    # When the user has the global "Apply Scoring Fit" toggle on, IDP
+    # rows substitute their ``idpScoringFitAdjustedValue`` for the raw
+    # consensus ``rankDerivedValue``.  Trade suggestions then sort and
+    # fairness-check on the league-aware values rather than the
+    # generic 19-source consensus.  Falsy/absent → consensus only.
+    apply_scoring_fit = bool(body.get("applyScoringFit"))
+
     # Build the asset pool directly from the live contract.  Every
     # field the suggestion engine needs already lives on the
     # ``playersArray`` rows (see ``build_asset_pool_from_contract``
@@ -3316,7 +3323,10 @@ async def post_trade_suggestions(request: Request):
     # flow of (a) loading the offline canonical snapshot and
     # (b) overlaying live values on top — with the contract-native
     # path there's only one source of truth.
-    pool = build_asset_pool_from_contract(latest_contract_data)
+    pool = build_asset_pool_from_contract(
+        latest_contract_data,
+        apply_scoring_fit=apply_scoring_fit,
+    )
 
     try:
         result = generate_suggestions_from_pool(
@@ -3390,10 +3400,35 @@ async def post_trade_finder(request: Request):
 
     from src.trade.finder import find_trades
 
+    # When the user has Apply Scoring Fit on, swap each IDP row's
+    # legacy ``_finalAdjusted`` (the field the Trade Finder uses as
+    # its model value) with the league-aware
+    # ``_idpScoringFitAdjustedValue`` mirrored from the contract pass.
+    # Done as a shallow copy so we don't mutate the cached
+    # ``latest_contract_data["players"]`` dict.
+    apply_scoring_fit = bool(body.get("applyScoringFit"))
+    finder_players = players
+    if apply_scoring_fit:
+        finder_players = {}
+        for name, pdata in players.items():
+            if not isinstance(pdata, dict):
+                finder_players[name] = pdata
+                continue
+            adjusted = pdata.get("_idpScoringFitAdjustedValue")
+            if isinstance(adjusted, (int, float)) and adjusted > 0:
+                # Shallow-copy + override only the value field finder
+                # reads as its model — preserves every other field.
+                finder_players[name] = {
+                    **pdata,
+                    "_finalAdjusted": int(round(adjusted)),
+                }
+            else:
+                finder_players[name] = pdata
+
     try:
         result = await run_in_threadpool(
             find_trades,
-            players=players,
+            players=finder_players,
             my_team=my_team,
             opponent_teams=opponent_teams,
             sleeper_teams=sleeper_teams,
