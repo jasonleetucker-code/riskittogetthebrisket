@@ -3,8 +3,17 @@
 // AwardsSection — public /league tab view.
 // Extracted from page.jsx to keep the tab file lean.
 
-import { EmptyState } from "@/components/ui";
+import { EmptyState, PlayerImage } from "@/components/ui";
 import { Avatar, Card, EmptyCard, LinkButton, renderAwardValue } from "../shared.jsx";
+
+// Award keys whose ``value`` payload carries a player (top_qb, MVP, etc.).
+// We render the player's headshot next to the manager's avatar so the
+// player part of the award is visible at a glance.
+const PLAYER_AWARD_KEYS = new Set([
+  "top_qb", "top_rb", "top_wr", "top_te", "top_k",
+  "top_dl", "top_lb", "top_db",
+  "league_mvp", "playoff_mvp",
+]);
 
 function AwardsSection({ managers, data, onNavigate }) {
   const seasons = data?.bySeason || [];
@@ -91,10 +100,35 @@ function AwardsSection({ managers, data, onNavigate }) {
                     {a.label}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                    {PLAYER_AWARD_KEYS.has(a.key) && a.value?.playerId && (
+                      <PlayerImage
+                        playerId={a.value.playerId}
+                        position={a.value.position}
+                        name={a.value.playerName}
+                        size={32}
+                      />
+                    )}
                     {a.ownerId && <Avatar managers={managers} ownerId={a.ownerId} size={24} />}
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: "0.98rem" }}>{a.displayName}</div>
-                      {a.teamName && a.teamName !== a.displayName && (
+                    <div style={{ minWidth: 0 }}>
+                      {PLAYER_AWARD_KEYS.has(a.key) && a.value?.playerName && (
+                        <div style={{ fontWeight: 700, fontSize: "0.98rem" }}>
+                          {a.value.playerName}
+                          {a.value.position && (
+                            <span style={{ color: "var(--subtext)", fontSize: "0.7rem", marginLeft: 6 }}>
+                              ({a.value.position})
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {(!PLAYER_AWARD_KEYS.has(a.key) || !a.value?.playerName) && (
+                        <div style={{ fontWeight: 700, fontSize: "0.98rem" }}>{a.displayName}</div>
+                      )}
+                      {PLAYER_AWARD_KEYS.has(a.key) && a.value?.playerName && a.displayName && (
+                        <div style={{ fontSize: "0.72rem", color: "var(--subtext)" }}>
+                          {a.displayName}
+                        </div>
+                      )}
+                      {(!PLAYER_AWARD_KEYS.has(a.key) || !a.value?.playerName) && a.teamName && a.teamName !== a.displayName && (
                         <div style={{ fontSize: "0.7rem", color: "var(--subtext)" }}>{a.teamName}</div>
                       )}
                     </div>

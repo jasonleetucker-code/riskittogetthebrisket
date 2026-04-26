@@ -130,9 +130,12 @@ The 768px breakpoint dominates and matches industry convention.
 
 ### Tier 2 — status
 
-**U2. EmptyCard / EmptyState pattern drift.** *Deferred.* Cosmetic
-only; not user-facing breakage. Worth consolidating in a separate
-cleanup PR.
+**U2. EmptyCard / EmptyState pattern drift.** *Closed — wontfix.*
+On a second read, the league-side `EmptyCard` is not drift but a thin
+convenience wrapper that defaults the "X coming online" framing across
+every league tab.  Removing it would force every consumer to duplicate
+that framing inline, making the codebase more verbose, not less.
+Leaving as-is.
 
 **U3. Mobile top-bar title isn't parameterized for deep routes.**
 *Shipped.* `AppShellWrapper.jsx::pageTitle` now walks two segments
@@ -179,7 +182,7 @@ toast is meant to disappear. Not breaking.
 
 ## Implementation summary (what shipped)
 
-**Files changed across the audit's two passes:**
+**Files changed across the audit's three passes:**
 
 1. `frontend/app/globals.css` — mobile `.button/.select/.input`
    min-height 40 → 44 px (WCAG 2.5.5 AAA tap-target compliance).
@@ -190,6 +193,17 @@ toast is meant to disappear. Not breaking.
 3. `frontend/app/rankings/page.jsx` — removed `hide-mobile` from
    the confidence select and the tiers toggle in the filter bar so
    mobile users can access them (U5).
+4. `frontend/app/AppShellWrapper.jsx` (PRIMARY_NAV `hint` field) —
+   each desktop nav item now has a one-line `title` tooltip that
+   surfaces on hover.  Closes the "/trade vs /trades vs /finder
+   vs /angle" identity ambiguity (U4 lite).
+5. **New components**: `frontend/components/ui/PlayerImage.jsx` +
+   `frontend/components/ui/NflTeamLogo.jsx` + helpers in
+   `frontend/lib/player-images.js`.  Player headshots from Sleeper
+   CDN with team-logo + position-tinted-initials fallback chain.
+   Wired into rankings table, trade tray (player rows + receiving
+   + recent + picker), league player records, league awards
+   (player + MVP + playoff MVP), and the player-journey hero.
 
 Risk audit:
 - No backend / API touched.

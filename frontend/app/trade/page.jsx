@@ -48,7 +48,7 @@ import {
 } from "@/lib/trade-share";
 import { useTradeSimulator } from "@/components/useTradeSimulator";
 import { useTeam } from "@/components/useTeam";
-import { MonteCarloButton, ValueBandBadge } from "@/components/ui";
+import { MonteCarloButton, ValueBandBadge, PlayerImage } from "@/components/ui";
 import ResilientSection from "@/components/ResilientSection";
 
 const ROSTER_KEY = "next_trade_roster_v1";
@@ -1999,18 +1999,27 @@ export default function TradePage() {
                           : defaultDestination(sideIdx, sides.length);
                       return (
                         <div className="asset-row" key={`${side.label}-${r.name}`}>
-                          <div>
-                            <div className="asset-name">
-                              <span style={{ cursor: "pointer", textDecoration: "underline dotted" }} onClick={() => openPlayerPopup?.(r)}>{r.name}</span>
-                              {edge.signal && (
-                                <span className="badge" style={{ marginLeft: 6, fontSize: "0.6rem", padding: "1px 4px",
-                                  color: edge.signal === "BUY" ? "var(--green)" : "var(--red)",
-                                  borderColor: edge.signal === "BUY" ? "var(--green)" : "var(--red)" }}>
-                                  {edge.signal} {edge.edgePct}%
-                                </span>
-                              )}
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                            <PlayerImage
+                              playerId={r.raw?.playerId}
+                              team={r.team}
+                              position={r.pos}
+                              name={r.name}
+                              size={28}
+                            />
+                            <div style={{ minWidth: 0 }}>
+                              <div className="asset-name">
+                                <span style={{ cursor: "pointer", textDecoration: "underline dotted" }} onClick={() => openPlayerPopup?.(r)}>{r.name}</span>
+                                {edge.signal && (
+                                  <span className="badge" style={{ marginLeft: 6, fontSize: "0.6rem", padding: "1px 4px",
+                                    color: edge.signal === "BUY" ? "var(--green)" : "var(--red)",
+                                    borderColor: edge.signal === "BUY" ? "var(--green)" : "var(--red)" }}>
+                                    {edge.signal} {edge.edgePct}%
+                                  </span>
+                                )}
+                              </div>
+                              <div className="asset-meta">{r.pos} · Consensus {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
                             </div>
-                            <div className="asset-meta">{r.pos} · Consensus {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "—"} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             {sides.length > 2 && (
@@ -2078,7 +2087,15 @@ export default function TradePage() {
                                 key={`recv-${side.label}-${asset.name}`}
                                 style={{ borderLeft: "2px solid var(--green)", paddingLeft: 6 }}
                               >
-                                <div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                                  <PlayerImage
+                                    playerId={asset.raw?.playerId}
+                                    team={asset.team}
+                                    position={asset.pos}
+                                    name={asset.name}
+                                    size={24}
+                                  />
+                                <div style={{ minWidth: 0 }}>
                                   <div className="asset-name">
                                     <span
                                       style={{ cursor: "pointer", textDecoration: "underline dotted" }}
@@ -2105,6 +2122,7 @@ export default function TradePage() {
                                     {asset.pos} · from Side {sides[fromSideIdx]?.label || "?"} ·{" "}
                                     {Math.round(effectiveValue(asset, valueMode, settings)).toLocaleString()}
                                   </div>
+                                </div>
                                 </div>
                               </div>
                             );
@@ -2493,9 +2511,18 @@ export default function TradePage() {
                     <div className="list">
                       {recentRows.slice(0, 8).map((r) => (
                         <button key={`recent-${r.name}`} className="asset-row button-reset" onClick={() => addToActiveSide(r)}>
-                          <div>
-                            <div className="asset-name">{r.name}</div>
-                            <div className="asset-meta">{r.pos} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                            <PlayerImage
+                              playerId={r.raw?.playerId}
+                              team={r.team}
+                              position={r.pos}
+                              name={r.name}
+                              size={24}
+                            />
+                            <div style={{ minWidth: 0 }}>
+                              <div className="asset-name">{r.name}</div>
+                              <div className="asset-meta">{r.pos} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
+                            </div>
                           </div>
                           <span className="badge">Add</span>
                         </button>
@@ -2536,7 +2563,18 @@ export default function TradePage() {
                           <td className="picker-rank-col" style={{ textAlign: "center", fontFamily: "var(--mono, monospace)", fontWeight: 600, color: "var(--cyan)" }}>
                             {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "\u2014"}
                           </td>
-                          <td style={{ fontWeight: 600 }}>{r.name}</td>
+                          <td style={{ fontWeight: 600 }}>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                              <PlayerImage
+                                playerId={r.raw?.playerId}
+                                team={r.team}
+                                position={r.pos}
+                                name={r.name}
+                                size={22}
+                              />
+                              {r.name}
+                            </span>
+                          </td>
                           <td><span className={posBadgeClass(r)}>{r.pos}</span></td>
                           <td style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontWeight: 600 }}>
                             {Math.round(r.rankDerivedValue || r.values?.full || 0).toLocaleString()}

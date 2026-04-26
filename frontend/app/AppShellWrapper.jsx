@@ -11,17 +11,21 @@ import TeamSwitcher from "@/components/TeamSwitcher";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
 
 // ── Route definitions ────────────────────────────────────────────────────
-// Primary destinations shown in desktop top nav
+// Primary destinations shown in desktop top nav.  ``hint`` populates the
+// browser's native title tooltip on hover so a user passing over "Trade"
+// vs. "Trades" vs. "Finder" vs. "Angle" can tell which one solves which
+// problem without having to click through.  The /more page already shows
+// these descriptions on mobile.
 const PRIMARY_NAV = [
-  { href: "/rankings", label: "Rankings" },
-  { href: "/trade", label: "Trade" },
-  { href: "/draft", label: "Draft" },
-  { href: "/edge", label: "Edge" },
-  { href: "/finder", label: "Finder" },
-  { href: "/angle", label: "Angle" },
-  { href: "/league", label: "League" },
-  { href: "/settings", label: "Settings" },
-  { href: "/more", label: "More" },
+  { href: "/rankings", label: "Rankings", hint: "Player value board" },
+  { href: "/trade", label: "Trade", hint: "Build and grade a trade" },
+  { href: "/draft", label: "Draft", hint: "Rookie draft prep + ADP" },
+  { href: "/edge", label: "Edge", hint: "Where sources disagree most" },
+  { href: "/finder", label: "Finder", hint: "Find KTC arbitrage trades" },
+  { href: "/angle", label: "Angle", hint: "Counter-package generator" },
+  { href: "/league", label: "League", hint: "Public league hub" },
+  { href: "/settings", label: "Settings", hint: "Source weights, TEP, profile" },
+  { href: "/more", label: "More", hint: "Trades history, rosters, tools" },
 ];
 
 // Mobile bottom nav — 3-tab model.  /league is intentionally NOT in
@@ -70,6 +74,7 @@ function DesktopNav() {
               <Link
                 key={item.href}
                 href={item.href}
+                title={item.hint || item.label}
                 className={`nav-link${active ? " nav-active" : ""}`}
               >
                 {item.label}

@@ -34,6 +34,7 @@ import TierGapWaterfall from "@/components/graphs/TierGapWaterfall";
 import SourceContributionBars from "@/components/graphs/SourceContributionBars";
 import SourceAgreementRadar from "@/components/graphs/SourceAgreementRadar";
 import RankChangeGlyph from "@/components/graphs/RankChangeGlyph";
+import { PlayerImage } from "@/components/ui";
 
 // ── UNIFIED RANKINGS PAGE ────────────────────────────────────────────
 // Trust-forward blended board: offense + IDP sorted by unified rank.
@@ -1269,9 +1270,16 @@ export default function RankingsPage() {
                           <span className={`rankings-tier-badge ${tierCssClass}`}>{tier}</span>
                         </td>
 
-                        {/* Player: name, context, chips */}
+                        {/* Player: headshot, name, context, chips */}
                         <td>
                           <div className="rankings-player-cell">
+                            <PlayerImage
+                              playerId={row.raw?.playerId}
+                              team={row.team}
+                              position={row.pos}
+                              name={row.name}
+                              size={28}
+                            />
                             <span
                               className="rankings-player-name"
                               onClick={(e) => { e.stopPropagation(); openPlayerPopup?.(row); }}
