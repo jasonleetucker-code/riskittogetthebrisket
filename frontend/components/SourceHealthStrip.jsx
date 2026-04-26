@@ -90,12 +90,27 @@ export default function SourceHealthStrip({ variant = "inline" }) {
         : null;
     const enabled = Array.isArray(runtime.enabled_sources) ? runtime.enabled_sources : [];
     const counts = health.source_counts || {};
+    // Per-source freshness map: stamped by ``server._per_source_freshness``,
+    // shape ``{src: {lastFetched, ageHours}}``.  Lets us render a per-source
+    // age next to each row instead of one aggregate "last scrape" age.
+    const perSource = (health.sources && typeof health.sources === "object")
+      ? health.sources
+      : {};
     const entries = enabled.map((src) => {
-      const tone = toneFor(src, runtime, ageHours);
+      const meta = perSource[src] || {};
+      const srcAgeHours = Number.isFinite(meta.ageHours)
+        ? Number(meta.ageHours)
+        : ageHours;
+      // Per-source age trumps the aggregate when available — gives a
+      // truer per-source health signal.
+      const tone = toneFor(src, runtime, srcAgeHours);
+      const ageLbl = meta.lastFetched ? ageLabel(meta.lastFetched) : null;
       return {
         source: src,
         count: Number(counts[src] || counts[src.toLowerCase()] || 0),
         tone,
+        ageLabel: ageLbl,
+        ageHours: srcAgeHours,
         failedReason:
           (health.source_failures || []).find(
             (f) => f.source === src,
@@ -158,6 +173,11 @@ export default function SourceHealthStrip({ variant = "inline" }) {
               <span className="source-health-count">
                 {e.count > 0 ? `${e.count.toLocaleString()} rows` : "—"}
               </span>
+              {e.ageLabel && (
+                <span className="source-health-age" title="CSV file mtime — when this source last refreshed">
+                  {e.ageLabel} ago
+                </span>
+              )}
               {e.failedReason && (
                 <span className="source-health-reason" title={e.failedReason}>
                   {e.failedReason}
