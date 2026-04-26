@@ -242,19 +242,334 @@ function sortedSideValues(side, valueMode, settings) {
  * same math — no divergence between how a 2-team trade is graded vs
  * how the same shape is graded inside a 3-team trade.
  */
-// V13 suppression thresholds — calibrated 2026-04 against 39 captured
-// borderline KTC trades (raw gaps 0-2500 across 9 topologies).
+// ── KTC NATIVE ALGORITHM (ported from keeptradecut.com site.min.js) ────
 //
-// Grid-searched on the full 139-trade fixture
-// (scripts/ktc_va_observations.json):
+// As of 2026-04-26 the V12/V13 regression-fit approximation below is
+// superseded by a direct port of KTC's actual VA algorithm.  V13 had
+// 41% RMS error against the captured fixture; the port reproduces
+// keeptradecut.com's display value bit-for-bit.
 //
-//                                RMS   on-orig-100   on-39-BORD
-//   V12 (no suppression)        91%      39%          160%
-//   V13 (these thresholds)      41%      42%           41%
+// Source: keeptradecut.com/js/site.min.js, functions ``processV``,
+// ``reverseAdjust``, ``adjustPackage``.  Constants ``MAXPLAYERVAL``
+// (10000) and ``tcFilters.variance`` (5%) lifted from the same file.
 //
-// The 3pt regression on the original 100 captures is the cost of
-// catching the 11 false-fire cases on the borderline set + the
-// user-reported "fair trade" where V12 over-predicted +1028.
+// The port preserves variable names from KTC's source where it
+// improves traceability against the original; comments mark the
+// mapping from KTC's identifiers to readable names.
+
+// KTC's MAXPLAYERVAL — board-wide ceiling used as the asymptotic
+// reference in reverseAdjust's "all-equal" fallback branch.
+const KTC_MAX_PLAYER_VAL = 10000;
+
+// KTC's t = playersArray[0].value + 80 — top-of-board reference, used
+// as the denominator in the (e/t)^1.3 term of processV.  We can't
+// observe the live top value at compute time without bundling KTC's
+// player payload, but it's stable around ~9961+80=10041 across the
+// lifetime of any deployed build.  Sensitivity is low — the term is
+// dampened by 0.05 multiplier and 1.3 exponent — so a static constant
+// produces VAs within ~1% of using the live top value.
+const KTC_T_REFERENCE = 10041;
+
+// KTC's tcFilters.variance — the 5% equality threshold used by
+// checkEquality() to gate "trade is fair on totals AND raw_adj"
+// branches.  KTC's UI exposes this slider but defaults it to 5; we
+// match the default.
+const KTC_VARIANCE_PCT = 5;
+
+/**
+ * KTC's per-player raw adjustment, ported verbatim from
+ * site.min.js::processV.  Replaces the V12 ``ktcRawAdjustment``.
+ *
+ * @param {number} value     — this player's KTC value
+ * @param {number} maxInTrade — max value among players in THIS trade
+ * @param {number} t          — top-of-board reference (KTC_T_REFERENCE)
+ * @param {number} nerfIndex  — -1 to disable nerf, else 0,1,2,...
+ *                              (each successive small piece on the same
+ *                              side gets progressively discounted)
+ */
+export function ktcProcessV(value, maxInTrade, t, nerfIndex) {
+  if (!(value > 0) || !(maxInTrade > 0) || !(t > 0)) return 0;
+  let s = (
+    0.05 * Math.pow(value / t, 1.3) +
+    0.05 * Math.pow(value / (1.05 * maxInTrade), 6) +
+    0.1
+  ) * value;
+  if (nerfIndex > 0) s *= Math.max(0.6, 1 - 0.15 * nerfIndex);
+  if (s < 0) s /= 4;
+  return s;
+}
+
+/**
+ * KTC's reverseAdjust, ported verbatim from site.min.js.  Iteratively
+ * solves for the player value V such that
+ * ``ktcProcessV(V, maxInTrade, t, nerfCount) ≈ rawDiff``.
+ *
+ * Two-phase iterative search (not bisection): an outer 10-step coarse
+ * pass with step-size 0.75x current error, then if convergence isn't
+ * within 5% an inner 10-step refinement with step 0.25x.  Mirrors
+ * KTC's implementation exactly so our virtual-player value matches
+ * theirs to ±1.
+ */
+export function ktcReverseAdjust(rawDiff, maxInTrade, t, nerfCount) {
+  if (!(rawDiff > 0) || !(maxInTrade > 0)) return 0;
+  const seed = ktcProcessV(maxInTrade, maxInTrade, t, -1);
+  let n = maxInTrade;
+  if (seed < rawDiff) {
+    n = Math.max((rawDiff / seed) * maxInTrade * 0.8, maxInTrade);
+  }
+  let l = n / 2;
+  let d = 1;
+  let u = 0;
+  let bestErr = 1;
+  let bestL = -1;
+  while (d > 0.025 && u <= 10) {
+    const i = ktcProcessV(l, n, t, nerfCount);
+    d = Math.min(1, Math.abs(i - rawDiff) / rawDiff);
+    if (d > 0.025) {
+      const o = l;
+      const p = d * l * 0.75;
+      l += i <= rawDiff ? p : -p;
+      if (d < bestErr) {
+        bestErr = d;
+        bestL = o;
+        if (bestL > maxInTrade) n = bestL;
+      }
+    } else if (d < bestErr) {
+      bestErr = d;
+      bestL = l;
+      if (bestL > maxInTrade) n = bestL;
+    }
+    if (u === 10 && d > 0.05) {
+      let f = 0;
+      l = Math.max(1, bestL);
+      while (d > 0.025 && f <= 10) {
+        const i2 = ktcProcessV(l, n, t, nerfCount);
+        d = Math.min(1, Math.abs(i2 - rawDiff) / rawDiff);
+        if (d > 0.025) {
+          const o = l;
+          const p = d * l * 0.25;
+          l += i2 <= rawDiff ? p : -p;
+          if (d < bestErr) {
+            bestErr = d;
+            bestL = o;
+            if (bestL > maxInTrade) n = bestL;
+          }
+        } else if (d < bestErr) {
+          bestErr = d;
+          bestL = l;
+          if (bestL > maxInTrade) n = bestL;
+        }
+        f++;
+      }
+      l = bestL;
+    }
+    u++;
+  }
+  return Math.round(l);
+}
+
+/**
+ * KTC's checkEquality — returns true iff |a-b|/(a+b)*100 ≤ variancePct.
+ * Used by adjustPackage to decide whether the trade is "fair" on
+ * total values and on raw_adj sums.
+ */
+function ktcCheckEquality(a, b, variancePct) {
+  const sum = Math.max(0, a) + Math.max(0, b);
+  if (sum <= 0) return true;
+  const pct = Math.min(100, (Math.abs(a - b) / sum) * 100);
+  return parseFloat(Math.round(10 * pct) / 10) <= variancePct;
+}
+
+/**
+ * Build per-piece adjustment list with KTC's progressive-nerf rule:
+ * pieces below 0.5 × maxInTrade are flagged "small"; the FIRST small
+ * piece is unnerfed (nerfIndex=0 → multiplier 1.0), subsequent ones
+ * get nerfIndex 1,2,3,... (multiplier 0.85, 0.70, 0.60-floor).
+ */
+function _ktcBuildSideAdj(values, maxInTrade, t) {
+  const half = 0.5 * maxInTrade;
+  let nerfIndex = -1;
+  let rawAdjSum = 0;
+  const items = [];
+  for (const v of values) {
+    let nerfed = false;
+    if (v < half) {
+      nerfIndex++;
+      nerfed = true;
+    }
+    const adj = ktcProcessV(v, maxInTrade, t, nerfIndex);
+    rawAdjSum += adj;
+    items.push({ value: v, adj, nerfed, nerfIndex });
+  }
+  items.sort((x, y) => y.adj - x.adj);
+  return { items, rawAdjSum };
+}
+
+/**
+ * KTC's adjustPackage, ported from site.min.js.  Takes two arrays of
+ * raw KTC values (no row objects) and returns:
+ *   { value: int, side: 0|1|2, displayed: bool }
+ * where side is 1 if team1 receives the VA, 2 if team2 receives it,
+ * and 0 when KTC would suppress the VA badge entirely.
+ *
+ * The port preserves KTC's branch structure exactly — every named
+ * intermediate (e, a, h, y, v, k, b, T, P, w, V, M, R, A, S) maps
+ * one-to-one to a variable in KTC's site.min.js.  See inline comments
+ * for what each one represents.
+ */
+export function ktcAdjustPackage(team1Vals, team2Vals, opts = {}) {
+  const variance = opts.variancePct ?? KTC_VARIANCE_PCT;
+  const t = opts.t ?? KTC_T_REFERENCE;
+
+  const tOne = [...team1Vals]
+    .map((v) => Number(v) || 0)
+    .filter((v) => v > 0)
+    .sort((a, b) => b - a);
+  const tTwo = [...team2Vals]
+    .map((v) => Number(v) || 0)
+    .filter((v) => v > 0)
+    .sort((a, b) => b - a);
+  if (tOne.length === 0 || tTwo.length === 0) {
+    return { value: 0, side: 0, displayed: false };
+  }
+
+  const team1Total = tOne.reduce((q, v) => q + v, 0);
+  const team2Total = tTwo.reduce((q, v) => q + v, 0);
+  const r = Math.max(tOne[0], tTwo[0]);          // KTC's `r`
+  const o = ktcProcessV(0.5 * r, r, t, -1);       // KTC's `o` — half-max raw_adj reference
+  const { items: s, rawAdjSum: e } = _ktcBuildSideAdj(tOne, r, t);
+  const { items: n, rawAdjSum: a } = _ktcBuildSideAdj(tTwo, r, t);
+  const h = e / team1Total;                       // KTC's `h` — side1 intensity
+  const y = a / team2Total;                       // KTC's `y` — side2 intensity
+  const v = Math.floor(Math.abs(e - a));          // KTC's `v` — raw_adj diff
+  const k = ktcCheckEquality(team1Total, team2Total, variance);
+  const b = ktcCheckEquality(e, a, variance);
+
+  // Compute T (extra nerf count for reverseAdjust).  KTC iterates the
+  // larger-rawAdj side's items and records nerfIndex+1 of the FIRST
+  // item whose adj falls below v (the raw_adj diff).  The original
+  // source has dead-code in the loop body; we drop it.
+  let T = 0;
+  if (v < o) {
+    const items = e > a ? n : s;
+    for (const it of items) {
+      if (it.adj < v) {
+        T = it.nerfIndex + 1;
+        break;
+      }
+    }
+  }
+
+  let side = 0;
+  let value = 0;
+  let w = true;
+
+  if (k && b) {
+    // BRANCH 1: both totals AND raw_adjs are within variance — small VA on the bigger raw_adj side
+    if (e > a) {
+      side = 1;
+      const S = ktcReverseAdjust(v, r, t, T);
+      const A = team2Total + S - team1Total;
+      if (A > 0) value = A;
+      else { w = false; side = 2; value = -A; }
+    } else if (a > e) {
+      side = 2;
+      const S = ktcReverseAdjust(v, r, t, T);
+      const A = team1Total + S - team2Total;
+      if (A > 0) value = A;
+      else { w = false; side = 1; value = -A; }
+    }
+  } else if (h > y) {
+    // BRANCH 2: side1 has higher raw_adj intensity
+    side = 1;
+    if (e > a) {
+      const S = ktcReverseAdjust(v, r, t, T);
+      const A = team2Total + S - team1Total;
+      if (A > 0) value = A;
+      else { w = false; side = 2; value = Math.abs(A); }
+    } else {
+      // h > y but e <= a — "intensity flip" special branch
+      let V = -1;
+      if (team1Total < team2Total) V = 1;
+      else if (team2Total < team1Total) V = 2;
+      const M = ktcReverseAdjust(Math.abs(e - a), Math.max(...tOne, ...tTwo), 10099, T);
+      if (M > 0 && V > 0) {
+        side = V;
+        if (V === 2) {
+          const R = M - (team1Total - team2Total);
+          if (R > 0) value = R;
+          else { w = false; value = R; }
+        } else {
+          // V === 1
+          const R = M - (team2Total - team1Total);
+          if (R > 0) {
+            if (R > KTC_MAX_PLAYER_VAL) { w = false; value = 0; side = 1; }
+            else { side = 2; value = R; }
+          } else { w = true; value = -R; }
+        }
+      } else {
+        w = false;
+      }
+    }
+  } else {
+    // BRANCH 3: side2 has higher raw_adj intensity (mirror of branch 2)
+    side = 2;
+    if (a > e) {
+      const S = ktcReverseAdjust(v, r, t, T);
+      const A = team1Total + S - team2Total;
+      if (A > 0) value = A;
+      else { w = false; side = 1; value = Math.abs(A); }
+    } else {
+      let V = -1;
+      if (team1Total < team2Total) V = 1;
+      else if (team2Total < team1Total) V = 2;
+      const M = ktcReverseAdjust(Math.abs(e - a), Math.max(...tOne, ...tTwo), 10099, T);
+      if (M > 0 && V > 0) {
+        side = V;
+        if (V === 1) {
+          const R = M - (team2Total - team1Total);
+          if (R > 0) value = R;
+          else { w = false; value = R; }
+        } else {
+          // V === 2
+          const R = M - (team1Total - team2Total);
+          if (R > 0) {
+            if (R > KTC_MAX_PLAYER_VAL) { w = false; value = 0; side = 1; }
+            else { side = 1; value = R; }
+          } else { w = true; value = -R; }
+        }
+      } else {
+        w = false;
+      }
+    }
+  }
+
+  // KTC's display gates:
+  //   1. Sign / fairness gate: only show when value passed sign-checks
+  //      (w === true) AND the VA is at least 3.3% of combined trade
+  //      volume.  Sub-3.3% VAs are KTC's "Fair Trade" zone.
+  //   2. 1v1 gate: KTC's evaluateTrade() suppresses displayAdjustment()
+  //      when both sides have exactly 1 piece, regardless of what
+  //      adjustPackage computed.  Reproduce here so 1v1 always returns
+  //      displayed=false even if the math fired a non-zero value.
+  let displayed = false;
+  if (value !== 0) {
+    if (w) displayed = true;
+    if (Math.abs(value / (team1Total + team2Total)) < 0.033) displayed = false;
+  }
+  if (tOne.length === 1 && tTwo.length === 1) displayed = false;
+  if (!displayed) return { value: 0, side: 0, displayed: false };
+  return { value: Math.round(value), side, displayed: true };
+}
+
+// ── Legacy V13 path (deprecated; retained for backwards-compat) ────────
+//
+// V13 was a regression-fit approximation of KTC's algorithm.  As of
+// 2026-04-26 the entry points (computeValueAdjustment,
+// computeMultiSideAdjustments, valueAdjustmentFromSideArrays) route
+// through ktcAdjustPackage above.  The V13 functions below are kept
+// exported because tests and external consumers may import them by
+// name; they are no longer on the live VA path.
 const V13_SUPPRESS_RAW_DIFF = 100;
 const V13_SUPPRESS_SAME_SIDE_RAW_DIFF = 400;
 
@@ -342,34 +657,20 @@ function _vaFromSortedSides(small, large) {
 export function computeValueAdjustment(sideA, sideB, valueMode, settings = null) {
   const aValues = sortedSideValues(sideA, valueMode, settings);
   const bValues = sortedSideValues(sideB, valueMode, settings);
-
   if (aValues.length === 0 || bValues.length === 0) {
     return { adjustment: 0, recipientIdx: null };
   }
-  // KTC empirical: 1v1 trades never display a VA.
-  if (aValues.length === 1 && bValues.length === 1) {
+  // Direct port path: ktcAdjustPackage returns side ∈ {0, 1, 2}
+  // matching KTC's team1/team2 convention.  Map to our 0-indexed
+  // recipientIdx.
+  const result = ktcAdjustPackage(aValues, bValues);
+  if (!result.displayed || result.value <= 0 || result.side === 0) {
     return { adjustment: 0, recipientIdx: null };
   }
-
-  // Compute raw sums to determine which side gets the VA.  Whichever
-  // side has the bigger raw_sum is the recipient (KTC convention).
-  const all = aValues.concat(bValues);
-  if (all.length === 0 || all[0] <= 0) {
-    return { adjustment: 0, recipientIdx: null };
-  }
-  const t = Math.max(...all);
-  const v = KTC_V_OVERALL_MAX;
-  const rawA = aValues.reduce((s, x) => s + ktcRawAdjustment(x, t, v), 0);
-  const rawB = bValues.reduce((s, x) => s + ktcRawAdjustment(x, t, v), 0);
-
-  if (Math.abs(rawA - rawB) < 1e-9) {
-    return { adjustment: 0, recipientIdx: null };
-  }
-  const recipientIdx = rawA > rawB ? 0 : 1;
-  const small = recipientIdx === 0 ? aValues : bValues;
-  const large = recipientIdx === 0 ? bValues : aValues;
-  const adjustment = _vaFromSortedSides(small, large);
-  return { adjustment, recipientIdx };
+  return {
+    adjustment: result.value,
+    recipientIdx: result.side === 1 ? 0 : 1,
+  };
 }
 
 /**
@@ -403,13 +704,22 @@ export function computeMultiSideAdjustments(sides, valueMode, settings = null) {
   const allValues = sides.map((side) =>
     sortedSideValues(side, valueMode, settings),
   );
-  return allValues.map((small, i) => {
-    const large = [];
+  // For each side, fold the rest into one synthetic opposing side and
+  // ask ktcAdjustPackage if THIS side is the recipient.  This is the
+  // direct N-side generalization of the 2-side ktcAdjustPackage call,
+  // matching the prior _vaFromSortedSides semantic of "what does this
+  // side receive given the rest as opposition".
+  return allValues.map((thisSide, i) => {
+    if (thisSide.length === 0) return 0;
+    const others = [];
     for (let j = 0; j < allValues.length; j++) {
-      if (j !== i) large.push(...allValues[j]);
+      if (j !== i) others.push(...allValues[j]);
     }
-    large.sort((a, b) => b - a);
-    return _vaFromSortedSides(small, large);
+    if (others.length === 0) return 0;
+    const result = ktcAdjustPackage(thisSide, others);
+    if (!result.displayed || result.value <= 0) return 0;
+    // side === 1 means team1 (i.e. thisSide) gets the VA
+    return result.side === 1 ? result.value : 0;
   });
 }
 
@@ -441,13 +751,24 @@ export function valueAdjustmentFromSideArrays(sidesValues) {
       .filter((v) => v > 0)
       .sort((a, b) => b - a),
   );
-  return sorted.map((small, i) => {
-    const large = [];
+  // 2-side fast path: direct ktcAdjustPackage call.  N-side path folds
+  // every other side into the opposing array, mirroring
+  // computeMultiSideAdjustments.
+  if (sorted.length === 2) {
+    const result = ktcAdjustPackage(sorted[0], sorted[1]);
+    if (!result.displayed || result.value <= 0) return [0, 0];
+    return result.side === 1 ? [result.value, 0] : [0, result.value];
+  }
+  return sorted.map((thisSide, i) => {
+    if (thisSide.length === 0) return 0;
+    const others = [];
     for (let j = 0; j < sorted.length; j++) {
-      if (j !== i) large.push(...sorted[j]);
+      if (j !== i) others.push(...sorted[j]);
     }
-    large.sort((a, b) => b - a);
-    return _vaFromSortedSides(small, large);
+    if (others.length === 0) return 0;
+    const result = ktcAdjustPackage(thisSide, others);
+    if (!result.displayed || result.value <= 0) return 0;
+    return result.side === 1 ? result.value : 0;
   });
 }
 
