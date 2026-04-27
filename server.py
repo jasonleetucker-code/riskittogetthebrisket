@@ -150,11 +150,9 @@ def _session_ttl_days_seconds(default_days: float = 30.0) -> int:
 
 JASON_AUTH_COOKIE_MAX_AGE = _session_ttl_days_seconds()
 
-# Private-app allowlist.  Only these Sleeper handles can sign in
-# via /api/auth/sleeper-login.  Anyone else — even with a valid
-# Sleeper account — gets 403.  Password auth (JASON_LOGIN_*) is
-# the operator fallback and isn't constrained by this list.
-# Env var is comma-separated, lowercase-normalised at load time.
+# Private-app allowlist.  Gates admin-only endpoints to operator
+# usernames.  Env var is comma-separated, lowercase-normalised at
+# load time.
 PRIVATE_APP_ALLOWED_USERNAMES = frozenset(
     u.strip().lower()
     for u in (os.getenv("PRIVATE_APP_ALLOWED_USERNAMES") or "jasonleetucker").split(",")
@@ -448,13 +446,11 @@ def _create_auth_session(
 ) -> str:
     """Create an in-memory session for ``username``.
 
-    ``sleeper_user_id`` / ``display_name`` / ``avatar`` are populated
-    when the session was created via the Sleeper username sign-in
-    flow (see ``POST /api/auth/sleeper-login``) so downstream
-    handlers can resolve the user's Sleeper team by ownerId without
-    another round-trip.  ``auth_method`` tags sessions as either
-    ``password`` (admin login) or ``sleeper`` (username lookup)
-    so logs and audit tooling can tell them apart.
+    ``sleeper_user_id`` / ``display_name`` / ``avatar`` are optional
+    and consumed by downstream handlers that resolve the user's
+    Sleeper team by ownerId (populated today only by the E2E test
+    login path).  ``auth_method`` tags the session for logs and
+    audit tooling.
     """
     session_id = uuid.uuid4().hex
     payload = {
@@ -1862,7 +1858,6 @@ _PUBLIC_API_EXACT = frozenset({
     "/api/auth/status",
     "/api/auth/login",
     "/api/auth/logout",
-    "/api/auth/sleeper-login",
     "/api/scaffold/status",
     # /league page is a public view — its draft-capital tab reads
     # this endpoint.  Payload is public Sleeper data (team names,
@@ -5524,146 +5519,6 @@ async def auth_login(request: Request):
 
     session_id = _create_auth_session(username, auth_method="password")
     response = JSONResponse(content={"ok": True, "redirect": next_path})
-    response.set_cookie(
-        key=JASON_AUTH_COOKIE_NAME,
-        value=session_id,
-        path="/",
-        httponly=True,
-        samesite="lax",
-        secure=JASON_AUTH_COOKIE_SECURE,
-        max_age=JASON_AUTH_COOKIE_MAX_AGE,
-    )
-    return response
-
-
-@app.post("/api/auth/sleeper-login")
-async def auth_sleeper_login(request: Request):
-    """Sign in as any user known to the Sleeper API.
-
-    Flow:
-      1. Client POSTs ``{"username": "<sleeper-handle>"}``.
-      2. We call https://api.sleeper.app/v1/user/<username> which
-         returns ``{user_id, username, display_name, avatar}`` on
-         success or 404 for unknown users.
-      3. On success, create a session keyed on the Sleeper
-         ``user_id`` so the user_kv store partitions per-person
-         (not per-handle — Sleeper usernames CAN be changed, IDs
-         cannot).
-      4. ``useUserState``'s first ``GET /api/user/state`` after
-         login hydrates the returned ``username`` → the Sleeper
-         handle, and any roster team in the configured league
-         whose ``ownerId`` matches ``sleeper_user_id`` becomes the
-         default selection on the terminal.
-
-    Security note: this is a trust-on-first-use sign-in — anyone
-    who knows a valid Sleeper username can sign in as that user.
-    That's fine for a league-scoped tool (your leaguemates know
-    if someone claims their identity) but NOT suitable for
-    anything with financial or account-recovery exposure.  The
-    hardcoded-password admin path at ``/api/auth/login`` stays
-    available for operator access.
-    """
-    payload: dict = {}
-    try:
-        raw = await request.json()
-        if isinstance(raw, dict):
-            payload = raw
-    except Exception:
-        payload = {}
-
-    username = str(payload.get("username") or "").strip().lower()
-    next_path = _sanitize_next_path(payload.get("next"), "/app")
-
-    if not username or len(username) > 64:
-        return JSONResponse(
-            status_code=400,
-            content={"ok": False, "error": "Invalid username."},
-        )
-    if not all(c.isalnum() or c in "_-." for c in username):
-        return JSONResponse(
-            status_code=400,
-            content={"ok": False, "error": "Invalid username."},
-        )
-
-    # Fetch the Sleeper user record.  Run in a threadpool because
-    # urllib is sync and we don't want to block the event loop.
-    def _fetch() -> dict | None:
-        url = f"https://api.sleeper.app/v1/user/{username}"
-        req = urllib.request.Request(url, headers={"User-Agent": "brisket-sleeper-login/1.0"})
-        try:
-            with urllib.request.urlopen(req, timeout=5.0) as resp:
-                body = resp.read()
-        except urllib.error.HTTPError as e:
-            if e.code == 404:
-                return None
-            raise
-        except (urllib.error.URLError, TimeoutError):
-            return None
-        try:
-            parsed = json.loads(body)
-        except (json.JSONDecodeError, ValueError):
-            return None
-        if not isinstance(parsed, dict):
-            return None
-        return parsed
-
-    try:
-        user_record = await run_in_threadpool(_fetch)
-    except Exception as exc:  # noqa: BLE001
-        log.warning("sleeper-login fetch error for %s: %s", username, exc)
-        return JSONResponse(
-            status_code=502,
-            content={"ok": False, "error": "Sleeper API unreachable; try again shortly."},
-        )
-
-    if not user_record or not user_record.get("user_id"):
-        return JSONResponse(
-            status_code=404,
-            content={
-                "ok": False,
-                "error": "No Sleeper user with that username.  Double-check spelling.",
-            },
-        )
-
-    # Private-app allowlist.  A valid Sleeper handle is necessary but
-    # NOT sufficient — the app is a single-user dashboard.  Anyone
-    # whose username isn't in PRIVATE_APP_ALLOWED_USERNAMES (default:
-    # ``jasonleetucker`` only) gets 403.  Password auth remains the
-    # operator fallback.
-    if username not in PRIVATE_APP_ALLOWED_USERNAMES:
-        log.warning(
-            "sleeper-login rejected for non-allowlisted user %r", username,
-        )
-        return JSONResponse(
-            status_code=403,
-            content={
-                "ok": False,
-                "error": "This app is private.  Contact the operator for access.",
-            },
-        )
-
-    sleeper_user_id = str(user_record.get("user_id") or "")
-    display_name = str(user_record.get("display_name") or user_record.get("username") or username)
-    avatar = str(user_record.get("avatar") or "")
-
-    # Use the Sleeper username as the session ``username`` so
-    # user_kv rows partition per-handle.  Sleeper handles are
-    # globally unique and stable-enough for this scope.
-    session_id = _create_auth_session(
-        username,
-        sleeper_user_id=sleeper_user_id,
-        display_name=display_name,
-        avatar=avatar,
-        auth_method="sleeper",
-    )
-    response = JSONResponse(content={
-        "ok": True,
-        "redirect": next_path,
-        "username": username,
-        "displayName": display_name,
-        "sleeperUserId": sleeper_user_id,
-        "avatar": avatar,
-    })
     response.set_cookie(
         key=JASON_AUTH_COOKIE_NAME,
         value=session_id,
