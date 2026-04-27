@@ -37,7 +37,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 36,BAL,Roquan Smith,LB,N/A,7,29,185,346,527,799,,16
 37,BUF,Terrel Bernard,LB,N/A,7,26.9,172,336,527,868,,16
 38,MIN,Blake Cashman,LB,N/A,6,29.9,205,340,509,754,,15
-39,TB,Sirvocea Dennis,LB,N/A,9,26.1,149,328,520,885,,14
+39,TB,Sirvocea Dennis,LB,N/A,9,26.1,147,328,520,885,,14
 40,DET,Aidan Hutchinson,DL,N/A,8,25.7,134,312,515,785,,14
 41,PIT,Patrick Queen,LB,N/A,5,26.7,139,335,524,863,,14
 42,NYJ,David Bailey,LB,N/A,9,22.6,124,309,521,991,,14
@@ -61,7 +61,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 60,BUF,Gregory Rousseau,DL,N/A,7,26,109,259,427,651,,9
 61,ATL,Xavier Watts,DB,N/A,5,24.4,131,299,491,880,,8
 62,TEN,Jeffery Simmons,DL,N/A,10,28.7,121,276,409,570,,8
-63,TB,Rueben Bain Jr.,DL,N/A,9,21.6,92,249,425,850,,8
+63,TB,Rueben Bain Jr.,DL,N/A,9,21.6,91,245,417,835,,8
 64,NO,Kool-Aid McKinstry,DB,N/A,11,23.5,128,305,485,856,,8
 65,DAL,Shavon Revel Jr.,DB,N/A,10,25,146,305,474,817,,8
 66,UNS,Bobby Okereke,LB,N/A,18,29.7,170,296,442,655,,8
@@ -83,10 +83,10 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 82,CLE,Ronnie Hickman,DB,N/A,9,24.5,131,277,455,815,,5
 83,DEN,Talanoa Hufanga,DB,N/A,12,26.2,153,284,444,737,,5
 84,NO,Jonas Sanker,DB,N/A,11,23.4,107,278,460,859,,5
-85,TB,Antoine Winfield Jr.,DB,N/A,9,27.7,171,287,442,675,,5
-86,DEN,Riley Moss,DB,N/A,12,26.1,149,281,445,746,,4
-87,ARI,Cody Simon,LB,N/A,8,24,85,273,441,800,,4
-88,ATL,Avieon Terrell,DB,N/A,5,21.3,87,278,466,907,,4
+85,ATL,Avieon Terrell,DB,N/A,5,21.3,96,278,466,907,,5
+86,TB,Antoine Winfield Jr.,DB,N/A,9,27.7,171,287,442,675,,5
+87,DEN,Riley Moss,DB,N/A,12,26.1,149,281,445,746,,4
+88,ARI,Cody Simon,LB,N/A,8,24,85,273,441,800,,4
 89,HOU,Azeez Al-Shaair,LB,N/A,6,28.7,143,272,414,628,,4
 90,JAC,Josh Hines-Allen,DL,N/A,8,28.8,115,247,333,464,,3
 91,NO,Chase Young,DL,N/A,11,27,106,227,354,506,,3
@@ -322,10 +322,10 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 321,WAS,Trey Amos,DB,N/A,12,24.1,74,166,263,465,,-18
 322,TB,Alex Anzalone,LB,N/A,9,31.6,138,118,168,234,,-19
 323,BAL,Jaylinn Hawkins,DB,N/A,7,28.7,107,163,247,367,,-19
-324,ATL,Harold Perkins Jr.,LB,N/A,5,21.6,38,124,209,405,,-19
-325,BUF,DeWayne Carter,DL,N/A,7,25.3,35,57,91,152,,-19
-326,PIT,Jalen Ramsey,DB,N/A,5,31.5,121,166,236,328,,-19
-327,RK,Deontae Lawson,LB,N/A,18,23.2,43,125,207,388,,-19
+324,BUF,DeWayne Carter,DL,N/A,7,25.3,35,57,91,152,,-19
+325,PIT,Jalen Ramsey,DB,N/A,5,31.5,121,166,236,328,,-19
+326,RK,Deontae Lawson,LB,N/A,18,23.2,43,125,207,388,,-19
+327,ATL,Harold Perkins Jr.,LB,N/A,5,21.6,32,124,209,405,,-20
 328,NE,Carlton Davis,DB,N/A,14,29.3,108,151,235,351,,-20
 329,ATL,A.J. Terrell,DB,N/A,5,27.6,104,149,231,361,,-20
 330,CLE,Denzel Ward,DB,N/A,9,28.9,93,150,231,343,,-21
