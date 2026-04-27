@@ -855,21 +855,8 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "depth": None,
         "weight": 1.0,
         "is_backbone": False,
-        # Inherits is_retail from the superseded ``ktc`` source at
-        # runtime (see _supersedes_check).  Declared False here so the
-        # static registry doesn't double-count retail when both are
-        # enabled but ktcSfTep has no scrape data yet.
         "is_retail": False,
         "is_tep_premium": True,
-        # When ktcSfTep has live coverage, it replaces ``ktc`` in the
-        # blend — same scrape source, different variant, including both
-        # would double-count KTC.  ``_active_sources`` reads this and
-        # drops the superseded keys (and inherits their is_retail flag
-        # so the market-gap calculation continues to work with TE+ as
-        # the retail anchor).  When ktcSfTep has no coverage (e.g. the
-        # scraper failed to extract TE+ that day), ``ktc`` stays in the
-        # blend as the fallback.
-        "supersedes": ("ktc",),
     },
     {
         # IDP Trade Calculator's public value pool covers both offense
@@ -2230,90 +2217,6 @@ def _effective_source_weight(
     return w
 
 
-# Supersession check cache — keyed by (csv path, mtime) so the file
-# only gets re-counted when it changes.  Counting CSV rows is cheap
-# (~1 ms for 500 rows) but we'd rather not pay even that on every
-# /api/data call; a single dict.get hit is faster.
-_SUPERSEDES_COVERAGE_CACHE: dict[str, tuple[float, bool]] = {}
-_SUPERSEDES_COVERAGE_FLOOR = 25
-
-
-def _source_has_coverage(key: str) -> bool:
-    """Return True if the source's CSV exists with at least 25 data rows.
-
-    Used by ``_active_sources`` to decide whether a registered source
-    has enough live data to supersede a sibling.  The 25-row floor
-    matches the scraper-side guard in Dynasty Scraper.py so we don't
-    flip into "supersede" mode based on a partial or empty scrape.
-    """
-    from pathlib import Path
-    path_spec = _SOURCE_CSV_PATHS.get(key)
-    if not path_spec:
-        return False
-    csv_path = path_spec["path"] if isinstance(path_spec, dict) else path_spec
-    full_path = Path(__file__).resolve().parents[2] / csv_path
-    if not full_path.exists():
-        return False
-    mtime = full_path.stat().st_mtime
-    cached = _SUPERSEDES_COVERAGE_CACHE.get(key)
-    if cached and cached[0] == mtime:
-        return cached[1]
-    try:
-        with full_path.open() as f:
-            row_count = sum(1 for _ in f) - 1  # subtract header
-    except Exception:
-        row_count = 0
-    has_coverage = row_count >= _SUPERSEDES_COVERAGE_FLOOR
-    _SUPERSEDES_COVERAGE_CACHE[key] = (mtime, has_coverage)
-    return has_coverage
-
-
-def _supersedes_check(active: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Apply registry-level supersession to an enabled source list.
-
-    For every active source declaring ``supersedes: (key, ...)``, if
-    that source has live coverage (≥ 25 rows in its CSV), drop the
-    listed keys from the active list.  Inherit ``is_retail`` from the
-    dropped sources onto the superseder so the market-gap calculation
-    continues to work — e.g. when ktcSfTep supersedes ktc, the retail
-    anchor moves to ktcSfTep automatically.
-
-    No-op when:
-    - No active source declares ``supersedes``.
-    - The superseder declares it but doesn't have live coverage yet
-      (e.g. ktcSfTep registered but scraper hasn't populated the CSV).
-    """
-    drops: set[str] = set()
-    inherit_retail: set[str] = set()
-    for src in active:
-        keys = src.get("supersedes") or ()
-        if not keys:
-            continue
-        sup_key = str(src.get("key") or "")
-        if not sup_key or not _source_has_coverage(sup_key):
-            continue
-        for k in keys:
-            drops.add(str(k))
-            for other in active:
-                if str(other.get("key") or "") == str(k) and other.get("is_retail"):
-                    inherit_retail.add(sup_key)
-                    break
-    if not drops:
-        return active
-    out: list[dict[str, Any]] = []
-    for src in active:
-        key = str(src.get("key") or "")
-        if key in drops:
-            continue
-        if key in inherit_retail and not src.get("is_retail"):
-            copy = dict(src)
-            copy["is_retail"] = True
-            out.append(copy)
-        else:
-            out.append(src)
-    return out
-
-
 def _active_sources(
     source_overrides: dict[str, dict[str, Any]] | None,
 ) -> list[dict[str, Any]]:
@@ -2324,13 +2227,9 @@ def _active_sources(
     replaced.  Sources that inherit their defaults are passed through
     by reference so the hot path does not pay a copy tax when no
     overrides are in play.
-
-    After the user-override filter, ``_supersedes_check`` runs to
-    apply registry-level mutual exclusion (e.g. ktcSfTep supersedes
-    ktc when the TE+ scrape has data).
     """
     if not source_overrides:
-        return _supersedes_check(list(_RANKING_SOURCES))
+        return list(_RANKING_SOURCES)
     out: list[dict[str, Any]] = []
     for src in _RANKING_SOURCES:
         if not _source_is_enabled(src, source_overrides):
@@ -2342,7 +2241,7 @@ def _active_sources(
             out.append(copy)
         else:
             out.append(src)
-    return _supersedes_check(out)
+    return out
 
 
 def _compute_market_gap(
