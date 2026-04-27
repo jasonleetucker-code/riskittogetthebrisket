@@ -3132,12 +3132,33 @@ export default function DraftDashboardPage() {
       // discrepancies (the gap drives the "good to nominate" list —
       // biggest overrates first).  KTC for offense, IDPTradeCalc for
       // IDP, on the same 0-9999 scale.
+      // The raw contract stamps the blended value as ``values.overall``
+      // and ``rankDerivedValue``; the synthetic ``values.full`` is only
+      // added downstream by ``buildRows`` in dynasty-data.js, so the
+      // sync (which reads /api/data directly) must consult the real
+      // contract fields.  Falling back through the chain
+      // values.overall → rankDerivedValue → values.displayValue keeps
+      // the sync resilient to either field renames or sparse rows.
+      const readBlendedValue = (p) => {
+        const candidates = [
+          p?.values?.overall,
+          p?.rankDerivedValue,
+          p?.values?.displayValue,
+          p?.values?.finalAdjusted,
+          p?.values?.full,
+        ];
+        for (const v of candidates) {
+          const n = Number(v);
+          if (Number.isFinite(n) && n > 0) return n;
+        }
+        return 0;
+      };
       const rookies = pa
         .filter((p) => p?.rookie === true)
         .filter((p) => p?.assetClass === "offense" || p?.assetClass === "idp")
         .map((p) => ({
           name: p.displayName || p.canonicalName || "",
-          rawValue: Number(p?.values?.full) || 0,
+          rawValue: readBlendedValue(p),
           ktcRawValue: typeof p?.canonicalSiteValues?.ktc === "number"
             ? p.canonicalSiteValues.ktc : null,
           idpTradeCalcRawValue:
