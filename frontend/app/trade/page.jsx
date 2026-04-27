@@ -426,31 +426,6 @@ function TradeMeterMultiTeam({ sides, sideTotals, flows }) {
  * though their total scales aren't identical.
  */
 function TradeSourceBreakdown({ sides, settings }) {
-  const [mobileExpanded, setMobileExpanded] = useState(false);
-  // Mirror the CSS breakpoint so aria-expanded reflects what's
-  // actually rendered: on desktop the body is always visible, on
-  // mobile it follows mobileExpanded. State-driven so SSR renders a
-  // consistent "desktop = expanded" view and the first client paint
-  // after hydration flips narrow viewports to the collapsed state
-  // without a hydration mismatch.
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return undefined;
-    const mq = window.matchMedia("(max-width: 768px)");
-    const update = () => setIsMobile(mq.matches);
-    update();
-    // iOS Safari < 14 only exposes addListener/removeListener on
-    // MediaQueryList; modern browsers support the standard
-    // EventTarget API.  Prefer the modern API and fall back for
-    // older WebViews that would otherwise throw.
-    if (typeof mq.addEventListener === "function") {
-      mq.addEventListener("change", update);
-      return () => mq.removeEventListener("change", update);
-    }
-    mq.addListener(update);
-    return () => mq.removeListener(update);
-  }, []);
-  const effectiveExpanded = isMobile ? mobileExpanded : true;
   const rows = useMemo(() => {
     const assetsBySide = sides.map((s) => s.assets || []);
     const hasAny = assetsBySide.some((a) => a.length > 0);
@@ -610,19 +585,10 @@ function TradeSourceBreakdown({ sides, settings }) {
 
   return (
     <div
-      className={`card source-breakdown-card${mobileExpanded ? " is-expanded" : ""}`}
+      className="card source-breakdown-card"
       style={{ marginTop: 14 }}
     >
-      <button
-        type="button"
-        className="source-breakdown-header"
-        aria-expanded={effectiveExpanded}
-        aria-controls="source-breakdown-body"
-        tabIndex={isMobile ? 0 : -1}
-        onClick={() => {
-          if (isMobile) setMobileExpanded((v) => !v);
-        }}
-      >
+      <div className="source-breakdown-header">
         <span className="source-breakdown-header-text">
           <span
             className="source-breakdown-title"
@@ -634,10 +600,7 @@ function TradeSourceBreakdown({ sides, settings }) {
             VA-adjusted totals on the 0-9999 value scale, summed per vendor. Sub-boards (e.g. DLF SF + DLF RK) roll up into one row; margin shows winner's edge as a percent.
           </span>
         </span>
-        <span className="source-breakdown-chevron" aria-hidden="true">
-          {mobileExpanded ? "−" : "+"}
-        </span>
-      </button>
+      </div>
       <div
         id="source-breakdown-body"
         className="source-breakdown-body"
