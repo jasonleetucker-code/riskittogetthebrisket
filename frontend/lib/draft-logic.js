@@ -34,6 +34,8 @@
  * No React dependencies — fully testable.
  */
 
+import { classifyPos } from "./dynasty-data.js";
+
 // ── Storage key ─────────────────────────────────────────────────────────
 export const DRAFT_STORAGE_KEY = "next_draft_board_v1";
 
@@ -1379,6 +1381,22 @@ export function replacePlayerPool(workspace, newPlayers) {
       name: String(p.name),
       preDraft: Math.max(0, Number(p.preDraft) || 0),
       ...(p.pos ? { pos: String(p.pos) } : {}),
+      // Authoritative offense/IDP class from the live contract.
+      // ``nominationCandidates`` prefers this over ``pos`` so a
+      // rookie with a missing/blank ``position`` string is still
+      // routed to the right vendor (KTC for offense, IDPTradeCalc
+      // for IDP).
+      ...(p.assetClass === "offense" || p.assetClass === "idp"
+        ? { assetClass: p.assetClass } : {}),
+      // Per-vendor reference dollar values (preserved verbatim from
+      // the live contract sync).  ``nominationCandidates`` reads
+      // these to compute vendor-vs-our-board gaps: KTC for offense,
+      // IDPTradeCalc for IDP.  Null when the vendor doesn't rank the
+      // rookie.
+      ...(Number.isFinite(Number(p.ktcDollar))
+        ? { ktcDollar: Number(p.ktcDollar) } : {}),
+      ...(Number.isFinite(Number(p.idpTradeCalcDollar))
+        ? { idpTradeCalcDollar: Number(p.idpTradeCalcDollar) } : {}),
     }))
     .filter((p) => p.id);
 
@@ -1768,43 +1786,67 @@ export function nextBestTargets(stats, { limit = 5 } = {}) {
 export function nominationCandidates(stats, { limit = 10 } = {}) {
   if (!stats || !Array.isArray(stats.enrichedPlayers)) return [];
 
-  // Re-purposed 2026-04-26: instead of a drain-by-affordability
-  // ranker, this now surfaces rookies KTC values MUCH HIGHER than
-  // our board.  Rationale: if KTC says a rookie is worth $50 and
-  // our board says $30, leaguemates who reference KTC will bid up
-  // to $50 — draining their budget on a player our model considers
+  // Surfaces rookies a market vendor values MUCH HIGHER than our
+  // board.  If the vendor says a rookie is worth $50 and our board
+  // says $30, leaguemates who reference that vendor will bid up to
+  // $50 — draining their budget on a player our model considers
   // overpriced.  Largest gap = biggest tax on rivals.
+  //
+  // Vendor split by position:
+  //   - Offense rookies (QB/RB/WR/TE) → KTC reference price.
+  //   - IDP rookies (DL/LB/DB/etc.)   → IDP Trade Calculator.
   //
   // Selection:
   //   1. Not yet drafted
   //   2. Not target-tagged (don't undermine your own pursuit)
-  //   3. Has both a board ``preDraft`` AND a KTC dollar value
-  //   4. ``ktcDollar > preDraft`` (KTC overrates relative to us)
+  //   3. Has both a board ``preDraft`` AND the relevant vendor dollar
+  //   4. ``vendorDollar > preDraft`` (vendor overrates vs us)
   //
-  // Sort: ``ktcDollar - preDraft`` descending.  Cap at ``limit``
+  // Sort: ``vendorDollar - preDraft`` descending.  Cap at ``limit``
   // (default 10).
   const out = [];
   for (const p of stats.enrichedPlayers) {
     if (p.drafted) continue;
     if (p.userTag === TAG_TARGET) continue;
     const ourDollar = Math.max(0, p.preDraft || 0);
-    const ktcDollar = Math.max(0, Number(p.ktcDollar) || 0);
-    if (ourDollar <= 0 || ktcDollar <= 0) continue;
-    const gap = ktcDollar - ourDollar;
-    if (gap < 1) continue;  // KTC must overrate by at least $1
-    const drain = Math.min(ktcDollar, Math.max(0, stats.topCompetitorMax || 0));
+    if (ourDollar <= 0) continue;
+    // Prefer the contract's authoritative ``assetClass`` over
+    // ``pos`` — Sleeper rows occasionally arrive with a blank
+    // ``position`` string, which classifyPos() can't resolve, so
+    // ``pos`` alone would silently route an IDP rookie to KTC and
+    // drop a valid IDPTC overrate.
+    const isIdp =
+      p.assetClass === "idp"
+      || (p.assetClass !== "offense" && classifyPos(p.pos) === "idp");
+    const vendorKey = isIdp ? "idpTradeCalcDollar" : "ktcDollar";
+    const vendorLabel = isIdp ? "IDPTC" : "KTC";
+    const vendorDollar = Math.max(0, Number(p[vendorKey]) || 0);
+    if (vendorDollar <= 0) continue;
+    const gap = vendorDollar - ourDollar;
+    if (gap < 1) continue;  // vendor must overrate by at least $1
+    const drain = Math.min(
+      vendorDollar, Math.max(0, stats.topCompetitorMax || 0),
+    );
     out.push({
       player: p,
       score: gap,
       drain,
       gap,
       ourDollar,
-      ktcDollar,
-      expectedPrice: ktcDollar,
+      vendorDollar,
+      vendorKey,
+      vendorLabel,
+      // ``ktcDollar`` retained for back-compat with any UI that
+      // already reads it; equals ``vendorDollar`` for offense and
+      // is null for IDP rows (which use ``idpTradeCalcDollar``).
+      ktcDollar: isIdp ? null : vendorDollar,
+      idpTradeCalcDollar: isIdp ? vendorDollar : null,
+      expectedPrice: vendorDollar,
       rationale:
-        `KTC values $${Math.round(ktcDollar)} vs our $${Math.round(ourDollar)} ` +
-        `· $${Math.round(gap)} gap — leaguemates following KTC will ` +
-        `bid past your board's fair price`,
+        `${vendorLabel} values $${Math.round(vendorDollar)} vs our ` +
+        `$${Math.round(ourDollar)} · $${Math.round(gap)} gap — ` +
+        `leaguemates following ${vendorLabel} will bid past your ` +
+        `board's fair price`,
     });
   }
 
