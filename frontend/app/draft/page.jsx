@@ -3114,7 +3114,16 @@ export default function DraftDashboardPage() {
       const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      const pa = Array.isArray(data?.playersArray) ? data.playersArray : [];
+      // Prefer the contract's ``playersArray`` (full view).  Fall
+      // back to the legacy ``players`` dict — the runtime view
+      // (``view=app``) strips playersArray but keeps the dict, and
+      // some deploy paths cache that view as the default.  Both
+      // shapes carry the same per-row fields (``rookie``,
+      // ``assetClass``, ``canonicalSiteValues``, ``values``).
+      let pa = Array.isArray(data?.playersArray) ? data.playersArray : [];
+      if (pa.length === 0 && data?.players && typeof data.players === "object") {
+        pa = Object.values(data.players);
+      }
       setAllPlayersArray(pa);
 
       // Rookies only, sorted by consensus value (values.full) desc.
@@ -3146,8 +3155,19 @@ export default function DraftDashboardPage() {
         .slice(0, 72);
 
       if (rookies.length === 0) {
+        // Diagnostic: report what we DID find so the operator can
+        // tell whether playersArray was missing, the contract had no
+        // rookies, or the assetClass/values filter wiped them out.
+        const totalPlayers = pa.length;
+        const rookieCount = pa.filter((p) => p?.rookie === true).length;
+        const offIdpCount = pa.filter(
+          (p) => p?.assetClass === "offense" || p?.assetClass === "idp",
+        ).length;
         throw new Error(
-          "No rookies found in /api/data — the backend contract may not have a rookie flag set.",
+          `No rookies found in /api/data (players=${totalPlayers}, ` +
+          `rookie=${rookieCount}, offense+idp=${offIdpCount}).  Check ` +
+          `the backend contract — playersArray/players may be empty or ` +
+          `missing rookie/assetClass stamps.`,
         );
       }
 
