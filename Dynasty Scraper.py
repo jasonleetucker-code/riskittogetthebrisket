@@ -1652,26 +1652,50 @@ _KTC_TEP_TOPLEVEL_KEYS = (
 
 
 def _ktc_extract_tep(item):
-    """Return the TE+ (level 1) superflex value from a KTC API item, or None."""
+    """Return the TE+ (level 1) superflex value from a KTC API item, or None.
+
+    KTC's playersArray nests the TE+ block as a dict, not a scalar:
+
+        superflexValues: {
+          value: 8337,                # base SF
+          tep:  { value: 8337, rank: 9, ... },   # TE+ level 1
+          tepp: { value: 9113, rank: 8, ... },   # TE++ level 2
+          teppp: { ... }                          # TE+++ level 3
+        }
+
+    The earlier version of this extractor returned the entire ``tep``
+    dict, then later code crashed on ``int(float({}))`` and silently
+    skipped — leaving ktcSfTep.csv empty.  Now we handle both shapes:
+    if a candidate is a dict, pull ``.value``; if it's a scalar,
+    return it directly.
+    """
+    def _coerce_value(candidate):
+        if candidate is None:
+            return None
+        if isinstance(candidate, dict):
+            inner = candidate.get("value")
+            return inner if inner is not None else None
+        return candidate
+
     if not isinstance(item, dict):
         return None
     if SUPERFLEX:
         sf_vals = item.get("superflexValues")
         if isinstance(sf_vals, dict):
             for k in _KTC_TEP_FIELD_KEYS:
-                v = sf_vals.get(k)
-                if v is not None:
-                    return v
+                resolved = _coerce_value(sf_vals.get(k))
+                if resolved is not None:
+                    return resolved
         sf_vals2 = item.get("superflexValue")
         if isinstance(sf_vals2, dict):
             for k in _KTC_TEP_FIELD_KEYS:
-                v = sf_vals2.get(k)
-                if v is not None:
-                    return v
+                resolved = _coerce_value(sf_vals2.get(k))
+                if resolved is not None:
+                    return resolved
     for k in _KTC_TEP_TOPLEVEL_KEYS:
-        v = item.get(k)
-        if v is not None:
-            return v
+        resolved = _coerce_value(item.get(k))
+        if resolved is not None:
+            return resolved
     return None
 
 
@@ -1818,11 +1842,25 @@ async def scrape_ktc(page, players):
             dom_data = await page.evaluate("""() => {
                 const results = {};
                 const tepKeys = ['tep','tepValue','tep_value','tep1','tep1Value','tep1_value','tepLevel1','tepValueLevel1'];
+                // KTC's playersArray nests the TE+ block as a dict
+                // (e.g. superflexValues.tep = {value: 8337, rank: 9}),
+                // not a scalar.  Resolve the nested .value when the
+                // candidate is an object.
                 const grabTep = (obj) => {
                     if (!obj) return null;
                     for (const k of tepKeys) {
                         const v = obj[k];
-                        if (v !== undefined && v !== null) return parseInt(v);
+                        if (v === undefined || v === null) continue;
+                        if (typeof v === 'object') {
+                            const inner = v.value;
+                            if (inner !== undefined && inner !== null) {
+                                const n = parseInt(inner);
+                                if (Number.isFinite(n)) return n;
+                            }
+                            continue;
+                        }
+                        const n = parseInt(v);
+                        if (Number.isFinite(n)) return n;
                     }
                     return null;
                 };
