@@ -37,8 +37,12 @@ _IDP_POSITIONS: frozenset[str] = frozenset(
 # KTC-style Value Adjustment (V2) — ports the frontend formula in
 # ``frontend/lib/trade-logic.js`` (``_vaFromSortedSides``) so the Angle
 # engine stops treating a package of 4 filler players as equivalent to
-# 3 studs whose raw totals happen to match. Coefficients are calibrated
-# against 13 observed KTC data points; see the JS module docstring.
+# Trade-fairness math is now delegated to ``src.trade.ktc_va``, the
+# Python port of KTC's actual algorithm (PR #335 ported it to JS;
+# this replaced the V2 regression-fit constants below in 2026-04-27).
+# The legacy V2 ``_VA_*`` coefficients (calibrated against 13 trades)
+# disagreed materially with what KTC.com displays, leading to Angle
+# Finder grading trades differently than the trade calculator.
 #
 # Arbitrage math was previously pure sum-of-raw-totals, which is wrong
 # for uneven sizes: 3 stars for 4 scrubs can look fair on market and a
@@ -46,69 +50,33 @@ _IDP_POSITIONS: frozenset[str] = frozenset(
 # VA injects the consolidation premium on the SMALLER side — so the
 # side receiving more studs sees its effective total climb, and the
 # thresholds get evaluated on the adjusted numbers.
-_VA_SCARCITY_SLOPE = 3.75
-_VA_SCARCITY_INTERCEPT = 0.45
-_VA_SCARCITY_CAP = 0.55
-_VA_PER_EXTRA_BOOST = 1.4
-_VA_EFFECTIVE_CAP = 1.0
-_VA_POSITION_DECAY = 0.35
+from src.trade.ktc_va import (
+    adjusted_pair_totals as _adjusted_pair_totals,  # noqa: F401
+    ktc_adjust_package,
+)
 
 
 def _value_adjustment(small: Sequence[float], large: Sequence[float]) -> float:
-    """Compute the V2 consolidation premium the ``small`` side gets
-    when trading against the (longer) ``large`` side.
+    """KTC's VA from the perspective of ``small`` as team1.
 
-    Both sequences must be sorted descending. Matches
-    ``_vaFromSortedSides`` in ``frontend/lib/trade-logic.js``. Returns
-    ``0.0`` when sizes tie (no consolidation), when small is empty, or
-    when small's top piece is not above large's top piece.
+    Returns the VA magnitude when KTC awards it to the ``small`` side
+    (``small`` is team1 → side==1), else 0.0.  Thin compat shim around
+    :func:`ktc_adjust_package` so existing callers (tests, importers)
+    keep working with the legacy float-return signature.
+
+    The legacy V2 implementation lived inline here; it was replaced
+    with KTC's actual algorithm via :mod:`src.trade.ktc_va` so the
+    Angle Finder grades trades the same way the trade calculator
+    displays them (PR follow-up to #335).
     """
-    if not small or small[0] <= 0:
+    small_sorted = sorted((float(v) for v in small), reverse=True)
+    large_sorted = sorted((float(v) for v in large), reverse=True)
+    if not small_sorted or not large_sorted:
         return 0.0
-    if len(small) >= len(large):
+    result = ktc_adjust_package(small_sorted, large_sorted)
+    if not result.displayed or result.value <= 0 or result.side != 1:
         return 0.0
-
-    top_small = small[0]
-    top_large = large[0] if large else 0.0
-    top_gap = max(0.0, (top_small - top_large) / top_small)
-    if top_gap == 0.0:
-        return 0.0
-
-    raw_scarcity = _VA_SCARCITY_SLOPE * top_gap - _VA_SCARCITY_INTERCEPT
-    top_scarcity = max(0.0, min(_VA_SCARCITY_CAP, raw_scarcity))
-
-    extras = list(large[len(small):])
-    adjustment = 0.0
-    for p, extra in enumerate(extras):
-        extra_gap = max(0.0, (top_small - extra) / top_small)
-        boost_term = _VA_PER_EXTRA_BOOST * max(0.0, extra_gap - top_gap)
-        effective = max(0.0, min(_VA_EFFECTIVE_CAP, top_scarcity + boost_term))
-        adjustment += extra * effective * (_VA_POSITION_DECAY ** p)
-    return adjustment
-
-
-def _adjusted_pair_totals(
-    small_values: Iterable[float],
-    large_values: Iterable[float],
-) -> tuple[float, float, float, float]:
-    """Apply VA to the smaller of two value lists.
-
-    Returns ``(small_adjusted, large_adjusted, small_va, large_va)``.
-    The longer side never receives VA; the shorter side gets the full
-    consolidation premium. When sizes are equal or either side is
-    empty, both adjustments are zero.
-    """
-    small_sorted = sorted((float(v) for v in small_values), reverse=True)
-    large_sorted = sorted((float(v) for v in large_values), reverse=True)
-    small_sum = sum(small_sorted)
-    large_sum = sum(large_sorted)
-    if len(small_sorted) == len(large_sorted) or not small_sorted or not large_sorted:
-        return small_sum, large_sum, 0.0, 0.0
-    if len(small_sorted) < len(large_sorted):
-        va = _value_adjustment(small_sorted, large_sorted)
-        return small_sum + va, large_sum, va, 0.0
-    va = _value_adjustment(large_sorted, small_sorted)
-    return small_sum, large_sum + va, 0.0, va
+    return float(result.value)
 
 
 def _is_idp_position(position: Any) -> bool:
