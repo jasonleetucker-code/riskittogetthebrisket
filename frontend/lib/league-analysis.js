@@ -9,9 +9,7 @@ import {
   parsePickToken,
   getPlayerEdge,
   resolvePickRow,
-  ktcRawAdjustment,
-  ktcSolveForAddedValue,
-  KTC_V_OVERALL_MAX,
+  ktcAdjustPackage,
 } from "@/lib/trade-logic";
 import { normalizePos } from "@/lib/dynasty-data";
 
@@ -335,42 +333,28 @@ export function analyzeSleeperTradeHistory(rawData, rows, windowDays = 365, alph
     return { items, linear, weighted, values };
   };
 
-  // V12 KTC value adjustment for one team's "got vs gave" comparison.
+  // KTC value adjustment for one team's "got vs gave" comparison —
+  // routes through ``ktcAdjustPackage``, the verbatim port of KTC's
+  // site.min.js algorithm (PR #335).  Treat got/gave as a 2-side
+  // trade: positive ``vaNet`` means this team RECEIVED the stud
+  // premium (got side wins on KTC's intensity-adjusted raw_adj);
+  // negative means they GAVE the studs away.  Magnitude is exactly
+  // what KTC.com would display for the equivalent 2-team trade,
+  // signed by which direction it lands.
   //
-  // For grading historical trades, the natural application is:
-  // every team RECEIVED a basket and GAVE a basket.  Treat got/gave
-  // as a 2-side trade and compute V12's VA on whichever side has
-  // the bigger raw_sum.  If got has bigger raw_sum, this team got
-  // the "stud premium" benefit; if gave has bigger raw_sum, this
-  // team gave away the studs.  ``vaNet`` returns positive when got
-  // wins on raw, negative when gave wins.
+  // Trade-grading historically used the V12 regression fit; switching
+  // to the native port makes the /trades page agree with the trade
+  // calculator's per-source winner row to ±1.
   //
   // Pure: takes value arrays only, no React or row references.
   const computeTradeVANet = (gotValues, gaveValues) => {
     if (!gotValues.length || !gaveValues.length) return 0;
-    // 1v1 special case: KTC suppresses VA on these (matches the
-    // V12 trade-logic.js behavior).
-    if (gotValues.length === 1 && gaveValues.length === 1) return 0;
-    const all = gotValues.concat(gaveValues);
-    const t = Math.max(...all);
-    const v = KTC_V_OVERALL_MAX;
-    let rawGot = 0;
-    for (const x of gotValues) rawGot += ktcRawAdjustment(x, t, v);
-    let rawGave = 0;
-    for (const x of gaveValues) rawGave += ktcRawAdjustment(x, t, v);
-    if (Math.abs(rawGot - rawGave) < 1e-9) return 0;
-    const sumGot = gotValues.reduce((s, x) => s + x, 0);
-    const sumGave = gaveValues.reduce((s, x) => s + x, 0);
-    if (rawGot > rawGave) {
-      // Got side has bigger raw → gave side needs virtual to even.
-      // VA shown on got = (gave_total + virtual) - got_total.
-      const virtual = ktcSolveForAddedValue(rawGot - rawGave, t, v);
-      return Math.max(0, (sumGave + virtual) - sumGot);
-    }
-    // Gave side has bigger raw → got side needs virtual.  This team
-    // gave away the studs, so their VA is negative (penalty).
-    const virtual = ktcSolveForAddedValue(rawGave - rawGot, t, v);
-    return -Math.max(0, (sumGot + virtual) - sumGave);
+    const result = ktcAdjustPackage(gotValues, gaveValues);
+    if (!result.displayed || result.value <= 0) return 0;
+    // ktcAdjustPackage's `side` follows KTC's team1/team2 convention.
+    // We pass got=team1, gave=team2.  side=1 means got receives the
+    // VA (positive); side=2 means gave receives it (penalty for got).
+    return result.side === 1 ? result.value : -result.value;
   };
 
   for (const trade of filtered) {

@@ -832,17 +832,28 @@ def test_packages_player_rows_expose_per_position_market_source():
 
 
 def test_value_adjustment_matches_js_calibration_point_case_a():
-    """Parity check against JS ``_vaFromSortedSides`` (Case A in the
-    trade-logic.js docstring: small=[9999], large=[7846,5717],
-    KTC-observed 3712, V2 predicted 3748). Keeps the Python port from
-    drifting away from the calibrated formula."""
+    """Parity check against the KTC-native algorithm.
+
+    For [9999] vs [7846,5717], KTC.com displays VA = 3712 (captured).
+    Both the JS port (frontend/lib/trade-logic.js::ktcAdjustPackage)
+    and this Python port (src/trade/ktc_va.py) reproduce KTC's number
+    exactly.  Pre-2026-04-27 the angle module used a V2 regression
+    fit that returned 3748 here; now :func:`_value_adjustment` thin-
+    wraps the native algorithm.
+    """
     va = _value_adjustment([9999], [7846, 5717])
-    assert round(va) == 3748
+    assert round(va) == 3712
 
 
-def test_value_adjustment_zero_when_sizes_match():
-    # Same count on each side → no consolidation premium.
-    assert _value_adjustment([8000, 7000], [7500, 6800]) == 0.0
+def test_value_adjustment_zero_when_sides_truly_equal():
+    # KTC's actual algorithm fires VA on equal-count trades whenever
+    # one side has a stud advantage.  Equal piece counts alone do NOT
+    # suppress (V2's behavior was wrong on this).  Suppression only
+    # fires when totals AND raw_adj are both within KTC's 5% variance
+    # threshold AND the algorithm's display gates trigger — easiest
+    # way to construct that is identical sides.
+    assert _value_adjustment([8000, 7000], [8000, 7000]) == 0.0
+    assert _value_adjustment([8000, 7000], [7900, 7100]) == 0.0
 
 
 def test_value_adjustment_positive_for_smaller_side_with_top_gap():
@@ -919,7 +930,12 @@ def test_packages_candidate_exposes_va_adjustment_fields():
     ]
     result = find_angle_packages(
         players, offer, "owner-a", teams,
-        min_my_gain_pct=0.0, max_market_gain_pct=50.0,  # loose so sth qualifies
+        # KTC's native algorithm produces a stronger consolidation
+        # premium than the V2 regression fit (~50% market gap on this
+        # 2-for-1) so the threshold has to be loose enough for the
+        # candidate to survive.  100% gives ample headroom while still
+        # being a meaningful filter for less-extreme topologies.
+        min_my_gain_pct=0.0, max_market_gain_pct=100.0,
     )
     size_one = next((c for c in result["candidates"] if c["size"] == 1), None)
     assert size_one is not None, "expected the single-player counter to qualify"
