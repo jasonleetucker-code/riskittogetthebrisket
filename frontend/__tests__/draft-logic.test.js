@@ -2181,6 +2181,18 @@ describe("replacePlayerPool", () => {
     expect(both.ktcDollar).toBe(35);
     expect(both.idpTradeCalcDollar).toBe(12);
   });
+
+  it("preserves assetClass when offense or idp; drops bogus values", () => {
+    const ws = createDefaultWorkspace();
+    const { workspace: next } = replacePlayerPool(ws, [
+      { name: "Off Rook", preDraft: 30, assetClass: "offense" },
+      { name: "Idp Rook", preDraft: 25, assetClass: "idp" },
+      { name: "Bogus Rook", preDraft: 10, assetClass: "garbage" },
+    ]);
+    expect(next.players.find((p) => p.name === "Off Rook").assetClass).toBe("offense");
+    expect(next.players.find((p) => p.name === "Idp Rook").assetClass).toBe("idp");
+    expect(next.players.find((p) => p.name === "Bogus Rook").assetClass).toBeUndefined();
+  });
 });
 
 describe("nominationCandidates — vendor split (offense=KTC, IDP=IDPTC)", () => {
@@ -2230,6 +2242,42 @@ describe("nominationCandidates — vendor split (offense=KTC, IDP=IDPTC)", () =>
       ]),
     );
     expect(list.length).toBe(0);
+  });
+
+  it("uses assetClass when pos is missing (IDP rookie without a position string)", () => {
+    const list = nominationCandidates(
+      statsWith([
+        {
+          id: "lb-rook",
+          name: "LB Rook",
+          // pos deliberately omitted — Sleeper sometimes blanks this.
+          assetClass: "idp",
+          preDraft: 25,
+          idpTradeCalcDollar: 48,
+        },
+      ]),
+    );
+    expect(list.length).toBe(1);
+    expect(list[0].vendorLabel).toBe("IDPTC");
+  });
+
+  it("assetClass=offense overrides classifyPos when both are present", () => {
+    // Pathological case: pos says IDP but contract says offense.
+    // Trust the contract.
+    const list = nominationCandidates(
+      statsWith([
+        {
+          id: "edge-case",
+          name: "Edge Case",
+          pos: "LB",
+          assetClass: "offense",
+          preDraft: 30,
+          ktcDollar: 50,
+        },
+      ]),
+    );
+    expect(list.length).toBe(1);
+    expect(list[0].vendorLabel).toBe("KTC");
   });
 
   it("rationale uses the per-row vendor label", () => {

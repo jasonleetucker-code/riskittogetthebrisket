@@ -1381,6 +1381,13 @@ export function replacePlayerPool(workspace, newPlayers) {
       name: String(p.name),
       preDraft: Math.max(0, Number(p.preDraft) || 0),
       ...(p.pos ? { pos: String(p.pos) } : {}),
+      // Authoritative offense/IDP class from the live contract.
+      // ``nominationCandidates`` prefers this over ``pos`` so a
+      // rookie with a missing/blank ``position`` string is still
+      // routed to the right vendor (KTC for offense, IDPTradeCalc
+      // for IDP).
+      ...(p.assetClass === "offense" || p.assetClass === "idp"
+        ? { assetClass: p.assetClass } : {}),
       // Per-vendor reference dollar values (preserved verbatim from
       // the live contract sync).  ``nominationCandidates`` reads
       // these to compute vendor-vs-our-board gaps: KTC for offense,
@@ -1803,7 +1810,14 @@ export function nominationCandidates(stats, { limit = 10 } = {}) {
     if (p.userTag === TAG_TARGET) continue;
     const ourDollar = Math.max(0, p.preDraft || 0);
     if (ourDollar <= 0) continue;
-    const isIdp = classifyPos(p.pos) === "idp";
+    // Prefer the contract's authoritative ``assetClass`` over
+    // ``pos`` — Sleeper rows occasionally arrive with a blank
+    // ``position`` string, which classifyPos() can't resolve, so
+    // ``pos`` alone would silently route an IDP rookie to KTC and
+    // drop a valid IDPTC overrate.
+    const isIdp =
+      p.assetClass === "idp"
+      || (p.assetClass !== "offense" && classifyPos(p.pos) === "idp");
     const vendorKey = isIdp ? "idpTradeCalcDollar" : "ktcDollar";
     const vendorLabel = isIdp ? "IDPTC" : "KTC";
     const vendorDollar = Math.max(0, Number(p[vendorKey]) || 0);

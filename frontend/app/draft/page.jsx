@@ -3135,6 +3135,11 @@ export default function DraftDashboardPage() {
             typeof p?.canonicalSiteValues?.idpTradeCalc === "number"
               ? p.canonicalSiteValues.idpTradeCalc : null,
           pos: String(p?.position || p?.pos || "").toUpperCase(),
+          // Authoritative offense/IDP class from the contract; used
+          // by ``nominationCandidates`` to pick the right vendor when
+          // ``pos`` is missing or unrecognized (some Sleeper rows
+          // arrive without a position string).
+          assetClass: p?.assetClass,
         }))
         .filter((p) => p.name && p.rawValue > 0)
         .sort((a, b) => b.rawValue - a.rawValue)
@@ -3177,6 +3182,7 @@ export default function DraftDashboardPage() {
         name: r.name,
         preDraft: scaled[i],
         pos: r.pos,
+        assetClass: r.assetClass,
         // Per-vendor market dollar values on the same $1200 scale.
         // Used by ``nominationCandidates`` to compute the
         // vendor-vs-our-board gap: KTC for offense, IDPTradeCalc for
