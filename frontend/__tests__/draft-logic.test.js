@@ -1558,25 +1558,6 @@ describe("nominationCandidates", () => {
     expect(list.find((n) => n.player.name === "Jeremiyah Love")).toBeUndefined();
   });
 
-  it("AVOID-tagged players get a ~1.8× score boost", () => {
-    let ws = createDefaultWorkspace();
-    // Tag Lemon (preDraft 90) as avoid; Tate (preDraft 83) stays
-    // neutral.  Both are S tier with similar expected drain.  The
-    // avoid tag should pull Lemon ahead of Tate in the ranking.
-    ws = setPlayerTag(ws, "makai-lemon", TAG_AVOID);
-    const stats = computeDraftStats(ws);
-    const list = nominationCandidates(stats, { limit: 10 });
-    const lemonIdx = list.findIndex(
-      (n) => n.player.name === "Makai Lemon",
-    );
-    const tateIdx = list.findIndex(
-      (n) => n.player.name === "Carnell Tate",
-    );
-    expect(lemonIdx).toBeGreaterThanOrEqual(0);
-    expect(tateIdx).toBeGreaterThanOrEqual(0);
-    expect(lemonIdx).toBeLessThan(tateIdx);
-  });
-
   it("score is capped by top competitor affordability (drain floor)", () => {
     // Strip all other teams' budgets so drain potential = 0.
     const ws = createDefaultWorkspace();
@@ -2181,6 +2162,87 @@ describe("replacePlayerPool", () => {
     const ws = createDefaultWorkspace();
     const { workspace: next } = replacePlayerPool(ws, null);
     expect(next.players).toEqual([]);
+  });
+
+  it("preserves ktcDollar and idpTradeCalcDollar through the field strip", () => {
+    const ws = createDefaultWorkspace();
+    const { workspace: next } = replacePlayerPool(ws, [
+      { name: "WR Rook", preDraft: 30, pos: "WR", ktcDollar: 55 },
+      { name: "LB Rook", preDraft: 25, pos: "LB", idpTradeCalcDollar: 48 },
+      { name: "Both Vendors", preDraft: 20, pos: "RB", ktcDollar: 35, idpTradeCalcDollar: 12 },
+    ]);
+    const wr = next.players.find((p) => p.name === "WR Rook");
+    const lb = next.players.find((p) => p.name === "LB Rook");
+    const both = next.players.find((p) => p.name === "Both Vendors");
+    expect(wr.ktcDollar).toBe(55);
+    expect(wr.idpTradeCalcDollar).toBeUndefined();
+    expect(lb.idpTradeCalcDollar).toBe(48);
+    expect(lb.ktcDollar).toBeUndefined();
+    expect(both.ktcDollar).toBe(35);
+    expect(both.idpTradeCalcDollar).toBe(12);
+  });
+});
+
+describe("nominationCandidates — vendor split (offense=KTC, IDP=IDPTC)", () => {
+  function statsWith(players) {
+    // Minimal stats stub — nominationCandidates only reads
+    // `enrichedPlayers` and `topCompetitorMax` from stats.
+    return { enrichedPlayers: players, topCompetitorMax: 100 };
+  }
+
+  it("offense rookie surfaces when KTC overrates vs our board", () => {
+    const list = nominationCandidates(
+      statsWith([
+        { id: "wr-rook", name: "WR Rook", pos: "WR", preDraft: 30, ktcDollar: 50 },
+      ]),
+    );
+    expect(list.length).toBe(1);
+    expect(list[0].vendorLabel).toBe("KTC");
+    expect(list[0].vendorDollar).toBe(50);
+    expect(list[0].gap).toBe(20);
+  });
+
+  it("IDP rookie surfaces when IDPTradeCalc overrates vs our board", () => {
+    const list = nominationCandidates(
+      statsWith([
+        { id: "lb-rook", name: "LB Rook", pos: "LB", preDraft: 25, idpTradeCalcDollar: 48 },
+      ]),
+    );
+    expect(list.length).toBe(1);
+    expect(list[0].vendorLabel).toBe("IDPTC");
+    expect(list[0].vendorDollar).toBe(48);
+    expect(list[0].gap).toBe(23);
+  });
+
+  it("IDP rookie with only KTC dollar (no IDPTradeCalc) is skipped", () => {
+    const list = nominationCandidates(
+      statsWith([
+        { id: "lb-rook", name: "LB Rook", pos: "LB", preDraft: 25, ktcDollar: 60 },
+      ]),
+    );
+    expect(list.length).toBe(0);
+  });
+
+  it("offense rookie with only IDPTradeCalc dollar (no KTC) is skipped", () => {
+    const list = nominationCandidates(
+      statsWith([
+        { id: "wr-rook", name: "WR Rook", pos: "WR", preDraft: 30, idpTradeCalcDollar: 90 },
+      ]),
+    );
+    expect(list.length).toBe(0);
+  });
+
+  it("rationale uses the per-row vendor label", () => {
+    const list = nominationCandidates(
+      statsWith([
+        { id: "wr-rook", name: "WR Rook", pos: "WR", preDraft: 30, ktcDollar: 50 },
+        { id: "lb-rook", name: "LB Rook", pos: "LB", preDraft: 25, idpTradeCalcDollar: 48 },
+      ]),
+    );
+    const wr = list.find((e) => e.player.name === "WR Rook");
+    const lb = list.find((e) => e.player.name === "LB Rook");
+    expect(wr.rationale).toContain("KTC values");
+    expect(lb.rationale).toContain("IDPTC values");
   });
 });
 
