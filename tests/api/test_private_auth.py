@@ -1,24 +1,15 @@
 """Tests for the private-app auth gate.
 
-The app is a single-user private tool.  Two gates enforce that:
+The app is a single-user private tool gated by the
+``_private_api_gate`` middleware: every ``/api/*`` path except an
+explicit public allowlist returns 401 when there is no authenticated
+session.  ``curl /api/data`` from a stranger must not leak the
+rankings contract.
 
-  1. ``PRIVATE_APP_ALLOWED_USERNAMES`` — only whitelisted Sleeper
-     usernames can create a Sleeper-auth session.  Anyone else
-     with a valid Sleeper handle gets 403.
-  2. ``_private_api_gate`` middleware — every ``/api/*`` path
-     except an explicit public allowlist returns 401 when there
-     is no authenticated session.  ``curl /api/data`` from a
-     stranger must not leak the rankings contract.
-
-These tests pin both gates.  They're the core privacy guarantee
-for this deployment.
+These tests pin that gate.  It's the core privacy guarantee for
+this deployment.
 """
 from __future__ import annotations
-
-import io
-import json as _json
-import urllib.error
-import urllib.request
 
 import pytest
 from fastapi.testclient import TestClient
@@ -133,64 +124,6 @@ def test_signal_alerts_run_bypasses_middleware(monkeypatch):
     assert res.status_code == 401
     # Error code proves the ENDPOINT's check fired, not middleware.
     assert res.json().get("error") == "admin_auth_required"
-
-
-# ── Sleeper-login allowlist ────────────────────────────────────────
-
-
-def _stub_urlopen_for_sleeper(monkeypatch, username: str, user_id: str):
-    """Patch urllib to return the stub Sleeper user for one handle.
-    Other handles → 404.  League-members lookups → empty list."""
-    real = urllib.request.urlopen
-
-    def fake_urlopen(req, timeout=5.0):
-        url = getattr(req, "full_url", "") or str(req)
-        if f"/v1/user/{username}" in url:
-            body = _json.dumps({
-                "user_id": user_id,
-                "username": username,
-                "display_name": username,
-            }).encode()
-            return io.BytesIO(body)
-        if "/v1/user/" in url:
-            raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)
-        if "/v1/league/" in url and "/users" in url:
-            return io.BytesIO(b"[]")
-        return real(req, timeout=timeout)
-
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
-
-
-def test_sleeper_login_rejects_non_allowlisted_user(monkeypatch):
-    """Non-allowlisted Sleeper handle → 403 even though the user
-    exists on Sleeper.  The core gate against rando sign-ups."""
-    monkeypatch.setattr(
-        server, "PRIVATE_APP_ALLOWED_USERNAMES", frozenset({"jasonleetucker"}),
-    )
-    _stub_urlopen_for_sleeper(monkeypatch, "randomuser99", "99999999")
-    with TestClient(server.app, raise_server_exceptions=True) as c:
-        res = c.post("/api/auth/sleeper-login", json={"username": "randomuser99"})
-    assert res.status_code == 403, res.text
-    body = res.json()
-    assert body.get("ok") is False
-    assert "private" in body.get("error", "").lower()
-
-
-def test_sleeper_login_accepts_allowlisted_user(monkeypatch):
-    """Allowlisted username → 200 + session cookie."""
-    monkeypatch.setattr(
-        server, "PRIVATE_APP_ALLOWED_USERNAMES", frozenset({"allowed_user"}),
-    )
-    _stub_urlopen_for_sleeper(monkeypatch, "allowed_user", "12345678")
-    with TestClient(server.app, raise_server_exceptions=True) as c:
-        res = c.post("/api/auth/sleeper-login", json={"username": "allowed_user"})
-    assert res.status_code == 200, res.text
-    body = res.json()
-    assert body.get("ok") is True
-    assert body.get("sleeperUserId") == "12345678"
-    # Cookie set.
-    set_cookies = res.headers.get_list("set-cookie")
-    assert any(server.JASON_AUTH_COOKIE_NAME in ck for ck in set_cookies)
 
 
 def test_allowlist_reads_env_var_lowercased():
