@@ -3111,9 +3111,21 @@ export default function DraftDashboardPage() {
       const url = selectedLeagueKey
         ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
         : "/api/data";
-      const res = await fetch(url, { cache: "no-store" });
+      // Fetch /api/data and /api/draft-capital in parallel — the
+      // draft-capital response carries per-slot dollar values from
+      // the workbook, which we use as each rookie's preDraft (the
+      // consensus 1.01 rookie inherits pick 1.01's dollar value, etc.)
+      // instead of rescaling raw blended values across the top 72.
+      const [res, capitalRes] = await Promise.all([
+        fetch(url, { cache: "no-store" }),
+        fetch("/api/draft-capital", { cache: "no-store" }).catch(() => null),
+      ]);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      // capitalRes can be null (network failure) or a non-ok response
+      // — fall back to the rescale path in either case so sync still
+      // works when the workbook isn't available.
+      const capitalData = capitalRes && capitalRes.ok ? await capitalRes.json() : null;
       // Prefer the contract's ``playersArray`` (full view).  Fall
       // back to the legacy ``players`` dict — the runtime view
       // (``view=app``) strips playersArray but keeps the dict, and
@@ -3192,32 +3204,54 @@ export default function DraftDashboardPage() {
         );
       }
 
-      // Rescale raw consensus values to the $1200 league pool.
-      const scaled = rescaleValuesToBudget(
-        rookies.map((r) => r.rawValue),
-        1200,
-      );
+      // Per-slot dollar values from the draft-capital workbook,
+      // ordered by overallPick.  ``originalDollarValue`` is the
+      // unaveraged per-slot price (e.g. 1.01 → $147, 1.02 → $112)
+      // — distinct from ``dollarValue`` which spreads expansion-pair
+      // picks evenly.  When the workbook isn't reachable, fall back
+      // to rescaling raw blended values so sync still works.
+      const slotDollarsByPick = (() => {
+        const picks = Array.isArray(capitalData?.picks) ? capitalData.picks : [];
+        if (picks.length === 0) return null;
+        const sorted = [...picks].sort(
+          (a, b) => (a?.overallPick || 0) - (b?.overallPick || 0),
+        );
+        return sorted
+          .map((p) => Number(p?.originalDollarValue ?? p?.dollarValue))
+          .filter((n) => Number.isFinite(n) && n > 0);
+      })();
+      const scaled = (slotDollarsByPick && slotDollarsByPick.length >= rookies.length)
+        ? rookies.map((_, i) => slotDollarsByPick[i])
+        : rescaleValuesToBudget(rookies.map((r) => r.rawValue), 1200);
 
-      // Rescale per-vendor values onto the same $1200 budget so the
-      // discrepancy ``vendorDollar - preDraft`` is comparable to the
-      // user's board.  One sorted/rescaled pass per vendor; players
-      // not ranked by that vendor stay null (skipped by the ranker).
-      const rescaleVendorByName = (rawKey) => {
+      // Per-vendor dollar values — slot-based when the workbook is
+      // available, rescaled-to-$1200 otherwise.  The vendor's #N rookie
+      // gets the dollar value of pick N: if KTC ranks Carnell Tate #2,
+      // KTC values him at pick 1.02's price ($112).  This makes the
+      // ``vendorDollar - preDraft`` gap an honest "how many more dollars
+      // would a vendor-following leaguemate spend at this slot than my
+      // board does" rather than a comparison of two different
+      // rescaling schemes.
+      const vendorDollarsByName = (rawKey) => {
         const ranked = rookies.filter(
           (r) => Number.isFinite(r[rawKey]) && r[rawKey] > 0,
         );
         if (ranked.length === 0) return new Map();
         const sorted = [...ranked].sort((a, b) => b[rawKey] - a[rawKey]);
-        const scaledVendor = rescaleValuesToBudget(
-          sorted.map((r) => r[rawKey]),
-          1200,
-        );
         const m = new Map();
-        sorted.forEach((r, i) => m.set(r.name, scaledVendor[i]));
+        if (slotDollarsByPick && slotDollarsByPick.length >= sorted.length) {
+          sorted.forEach((r, i) => m.set(r.name, slotDollarsByPick[i]));
+        } else {
+          const scaledVendor = rescaleValuesToBudget(
+            sorted.map((r) => r[rawKey]),
+            1200,
+          );
+          sorted.forEach((r, i) => m.set(r.name, scaledVendor[i]));
+        }
         return m;
       };
-      const ktcDollarsByName = rescaleVendorByName("ktcRawValue");
-      const idpTradeCalcDollarsByName = rescaleVendorByName("idpTradeCalcRawValue");
+      const ktcDollarsByName = vendorDollarsByName("ktcRawValue");
+      const idpTradeCalcDollarsByName = vendorDollarsByName("idpTradeCalcRawValue");
 
       const incoming = rookies.map((r, i) => ({
         name: r.name,
