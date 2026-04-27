@@ -4465,6 +4465,19 @@ def _fetch_draft_capital(league_key: str | None = None):
     draft_rounds = max(1, len(workbook_picks) // num_teams)
     raw_values = [wp["value"] for wp in workbook_picks]
     int_pick_values = _round_to_budget(raw_values, DRAFT_TOTAL_BUDGET)
+    # Original (pre-expansion-averaging) per-slot values from the
+    # workbook's P2:AA7 grid.  workbook_picks Q45:Q116 averages
+    # expansion-pair picks (e.g. 1.01 + 1.02 split equally because both
+    # belong to expansion teams in the user's league), which is correct
+    # for ownership accounting but wrong for valuing individual rookies
+    # at their actual draft slot.  This array preserves the unaveraged
+    # per-slot price so the rookie board can show e.g. 1.01 → $147 and
+    # 1.02 → $112 instead of both at the $130 average.
+    int_original_values = (
+        _round_to_budget(pick_dollars, DRAFT_TOTAL_BUDGET)
+        if pick_dollars and len(pick_dollars) >= len(workbook_picks)
+        else int_pick_values
+    )
 
     # ── First-name → Sleeper team-name mapping ──
     # Built by joining sheet standings (slot → first name) with
@@ -4583,6 +4596,10 @@ def _fetch_draft_capital(league_key: str | None = None):
         origin_team = display(origin_first)
 
         dollar = int_pick_values[overall_idx] if overall_idx < len(int_pick_values) else int(round(val))
+        original_dollar = (
+            int_original_values[overall_idx]
+            if overall_idx < len(int_original_values) else dollar
+        )
 
         all_picks.append({
             "pick": f"{rnd}.{str(slot).zfill(2)}",
@@ -4591,6 +4608,11 @@ def _fetch_draft_capital(league_key: str | None = None):
             "overallPick": overall_idx + 1,
             "dollarValue": dollar,
             "adjustedDollarValue": dollar,
+            # Unaveraged per-slot value — used by the rookie board on
+            # /draft to value each rookie at their consensus pick slot
+            # (e.g. consensus 1.01 → $147, not the $130 expansion-pair
+            # average).  Sums to 1200 across all 72 picks like dollarValue.
+            "originalDollarValue": original_dollar,
             "originalOwner": origin_team,
             "currentOwner": owner_team,
             "isTraded": str(origin_first).strip() != str(owner_first).strip(),
