@@ -7525,15 +7525,24 @@ def assert_no_unexplained_single_source(
         rank = row.get("canonicalConsensusRank")
         if rank is None or rank > rank_limit:
             continue
-        # Quarantined rows are already flagged by a stronger identity-
-        # integrity signal (``test_quarantined_under_threshold``) and
-        # downgraded in the contract.  Re-flagging them here as
-        # "unexplained 1-src" is duplicative noise — the same fringe
-        # rookie / IDP that quarantined for ``no_valid_source_values``
-        # also trips this single-source check the moment the daily
-        # refresh nudges them past the rank-400 cap.  Skip them so the
-        # two gates don't double-count the same row.
-        if row.get("quarantined"):
+        # Skip rows quarantined for ``no_valid_source_values`` only.
+        # Those are the fringe rookies / IDPs whose CSV stamps round to
+        # zero across every source; they trip ``isSingleSource`` the
+        # moment the daily refresh nudges their consensus rank into
+        # the top-N cap, even though the quarantine gate
+        # (``test_quarantined_under_threshold``) already surfaces the
+        # same row.  Other quarantine reasons —
+        # ``duplicate_canonical_identity``,
+        # ``position_source_contradiction``,
+        # ``unsupported_position`` — represent genuine join regressions
+        # that this gate is specifically designed to surface, so do
+        # NOT blanket-skip on ``quarantined`` alone.  See PR #357
+        # Codex P1 review for the rationale.
+        anomaly_flags = row.get("anomalyFlags") or []
+        if (
+            row.get("quarantined")
+            and "no_valid_source_values" in anomaly_flags
+        ):
             continue
         audit = row.get("sourceAudit") or {}
         if audit.get("reason") != "matching_failure_other_sources_eligible":
