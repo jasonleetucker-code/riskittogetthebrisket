@@ -150,6 +150,15 @@ jobs:
           # into the scraper itself.
           python scripts/fetch_draftsharks.py 2>&1 || echo "::warning title=DraftSharks fetch failed::Non-fatal — continuing with stale CSV"
 
+          # Fetch DraftSharks rest-of-season rankings (real ROS pages,
+          # not the dynasty board).  Reuses the session cookies the
+          # dynasty fetch above already minted.  Writes to
+          # ``CSVs/site_raw/draftSharksRos{Sf,Idp}.csv`` — the ROS
+          # adapter prefers these over the dynasty proxies when present.
+          # Non-fatal: the ROS adapter falls back to the dynasty
+          # proxies if these CSVs are missing or stale.
+          python scripts/fetch_draftsharks_ros.py 2>&1 || echo "::warning title=DraftSharks ROS fetch failed::Non-fatal — adapter will fall back to dynasty proxy"
+
           # Fetch DLF member-only rankings (four boards: dlfSf, dlfIdp,
           # dlfRookieSf, dlfRookieIdp).  DLF sits behind a Cloudflare JS
           # challenge + WordPress member login; the scraper uses

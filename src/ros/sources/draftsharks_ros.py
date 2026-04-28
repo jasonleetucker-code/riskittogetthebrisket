@@ -29,20 +29,74 @@ from src.ros.scrape import ScrapeResult
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DS_SF_CSV = REPO_ROOT / "CSVs" / "site_raw" / "draftSharksSf.csv"
-DS_IDP_CSV = REPO_ROOT / "CSVs" / "site_raw" / "draftSharksIdp.csv"
+
+# Real DraftSharks ROS data (written by scripts/fetch_draftsharks_ros.py
+# via authenticated Playwright on /ros-rankings/superflex + /idp).
+# When these CSVs exist they take precedence over the dynasty-page
+# proxies registered below — this is the actual ROS-specific signal
+# the adapter was designed for.
+DS_ROS_SF_CSV = REPO_ROOT / "CSVs" / "site_raw" / "draftSharksRosSf.csv"
+DS_ROS_IDP_CSV = REPO_ROOT / "CSVs" / "site_raw" / "draftSharksRosIdp.csv"
+
+# Dynasty-page CSVs maintained by scripts/fetch_draftsharks.py — used
+# as a fallback when the real ROS pages haven't been fetched yet
+# (e.g. fresh checkout, ROS fetcher temporarily down).  These pages
+# carry deeper coverage but mix in season-long valuation context.
+DS_DYNASTY_SF_CSV = REPO_ROOT / "CSVs" / "site_raw" / "draftSharksSf.csv"
+DS_DYNASTY_IDP_CSV = REPO_ROOT / "CSVs" / "site_raw" / "draftSharksIdp.csv"
 
 LOG = logging.getLogger("ros.adapter.draftsharks")
 
 
-def _read_rank_signal_csv(path: Path) -> list[dict[str, Any]]:
-    """Read a DraftSharks rank-signal CSV into adapter row shape.
+def _read_ros_csv(path: Path) -> list[dict[str, Any]]:
+    """Read the real ROS-page CSV (written by fetch_draftsharks_ros.py).
 
-    The dynasty CSVs use the schema written by
-    ``scripts/fetch_draftsharks.py`` — see the ``CSV_HEADER`` constant
-    there.  We extract Player, Fantasy Position, and the implicit row
-    order as the rank signal.  Missing files / unreadable rows are
-    treated as soft failures (zero rows) rather than crashes.
+    Schema is the orchestrator's standard format:
+    ``canonicalName,sourceName,position,team,rank,total_ranked,projection``.
+    """
+    if not path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    try:
+        with path.open(newline="") as f:
+            reader = csv.DictReader(f)
+            for raw in reader:
+                name = (raw.get("sourceName") or "").strip()
+                if not name:
+                    continue
+                position = (raw.get("position") or "").strip().upper().split("/")[0]
+                team = (raw.get("team") or "").strip()
+                try:
+                    rank = int(raw.get("rank") or 0)
+                except (TypeError, ValueError):
+                    rank = 0
+                if rank <= 0:
+                    continue
+                rows.append(
+                    {
+                        "sourceName": name,
+                        "canonicalName": "",
+                        "position": position,
+                        "team": team,
+                        "rank": rank,
+                        "total_ranked": 0,  # patched below
+                        "projection": (raw.get("projection") or "").strip(),
+                    }
+                )
+    except OSError as exc:
+        LOG.warning("[ros] DS ROS read failed for %s: %s", path, exc)
+        return []
+    n = len(rows)
+    for r in rows:
+        r["total_ranked"] = n
+    return rows
+
+
+def _read_dynasty_proxy_csv(path: Path) -> list[dict[str, Any]]:
+    """Fallback reader: dynasty Superflex / IDP CSV used as a ROS proxy.
+
+    Schema is the dynasty-page schema written by
+    ``scripts/fetch_draftsharks.py`` (Player, Fantasy Position, etc.).
     """
     if not path.exists():
         return []
@@ -59,7 +113,6 @@ def _read_rank_signal_csv(path: Path) -> list[dict[str, Any]]:
                     or raw.get("position")
                     or ""
                 ).strip().upper()
-                # First match wins for split positions like "EDGE/DL".
                 position = position.split("/")[0]
                 team = (raw.get("Team") or raw.get("team") or "").strip()
                 rank_field = raw.get("Rank") or raw.get("rank")
@@ -67,8 +120,6 @@ def _read_rank_signal_csv(path: Path) -> list[dict[str, Any]]:
                     rank = int(rank_field) if rank_field else i
                 except (TypeError, ValueError):
                     rank = i
-                # "3D Value +" is DS's cross-market consensus signal;
-                # preserve when numeric for the projection column.
                 projection: str = ""
                 proj_field = raw.get("3D Value +") or raw.get("projection")
                 if proj_field:
@@ -78,39 +129,20 @@ def _read_rank_signal_csv(path: Path) -> list[dict[str, Any]]:
                             projection = str(f_val)
                     except (TypeError, ValueError):
                         pass
-                # Per-row confidence: DS's dynasty page leaves "1yr. Proj"
-                # blank/undefined for top-tier elites where the multi-
-                # year context dominates.  Rows WITH a defined 1yr proj
-                # are higher-signal as ROS proxies (DS computed a true
-                # in-season projection); rows without it fall back to
-                # the dynasty rank order, still useful but a softer
-                # ROS signal.  Confidence multipliers feed the
-                # aggregator's per-row weight.
-                proj1yr_raw = (raw.get("1yr. Proj") or "").strip()
-                has_1yr = bool(proj1yr_raw) and proj1yr_raw.lower() != "undefined"
-                if has_1yr:
-                    try:
-                        has_1yr = float(proj1yr_raw) > 0
-                    except (TypeError, ValueError):
-                        has_1yr = False
-                confidence = 1.0 if has_1yr else 0.7
                 rows.append(
                     {
                         "sourceName": name,
-                        "canonicalName": "",  # filled by orchestrator
+                        "canonicalName": "",
                         "position": position,
                         "team": team,
                         "rank": rank,
-                        "total_ranked": 0,  # patched below after we know N
+                        "total_ranked": 0,
                         "projection": projection,
-                        "confidence": confidence,
                     }
                 )
     except OSError as exc:
-        LOG.warning("[ros] DS proxy read failed for %s: %s", path, exc)
+        LOG.warning("[ros] DS dynasty-proxy read failed for %s: %s", path, exc)
         return []
-
-    # Re-stamp total_ranked once we know N.
     n = len(rows)
     for r in rows:
         r["total_ranked"] = n
@@ -118,13 +150,35 @@ def _read_rank_signal_csv(path: Path) -> list[dict[str, Any]]:
 
 
 def scrape(src_meta: dict[str, Any]) -> ScrapeResult:
-    """PR 1: DS dynasty SF + IDP CSV reuse as ROS proxy."""
+    """Read DraftSharks ROS data.
+
+    Prefers the real ROS-page output (``draftSharksRosSf.csv`` /
+    ``draftSharksRosIdp.csv``) when present — those carry the actual
+    rest-of-season expert ranks scraped from
+    ``draftsharks.com/ros-rankings/...`` via the authenticated
+    Playwright fetcher.
+
+    Falls back to the dynasty Superflex + IDP CSVs as a season-long
+    proxy when the ROS fetcher hasn't run yet (fresh checkout, ROS
+    page outage, etc.).
+    """
     started = datetime.now(timezone.utc).isoformat()
     key = str(src_meta.get("key") or "draftSharksRosSf")
 
-    sf_rows = _read_rank_signal_csv(DS_SF_CSV)
-    idp_rows = _read_rank_signal_csv(DS_IDP_CSV)
+    # Prefer real ROS data when both CSVs are populated.
+    sf_rows = _read_ros_csv(DS_ROS_SF_CSV)
+    idp_rows = _read_ros_csv(DS_ROS_IDP_CSV)
+    source_mode = "ros"
+    if not sf_rows and not idp_rows:
+        sf_rows = _read_dynasty_proxy_csv(DS_DYNASTY_SF_CSV)
+        idp_rows = _read_dynasty_proxy_csv(DS_DYNASTY_IDP_CSV)
+        source_mode = "dynasty_proxy"
+
     rows = sf_rows + idp_rows
+    LOG.info(
+        "[ros] DraftSharks: %d rows (sf=%d, idp=%d, mode=%s)",
+        len(rows), len(sf_rows), len(idp_rows), source_mode,
+    )
 
     completed = datetime.now(timezone.utc).isoformat()
     if not rows:
