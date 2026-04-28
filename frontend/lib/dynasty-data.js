@@ -227,7 +227,11 @@ export const RANKING_SOURCES = [
     // backend `_RANKING_SOURCES` entry.
     key: "ktcSfTep",
     displayName: "KeepTradeCut SF-TEP",
-    columnLabel: "KTC TE+",
+    // Compact label is just "KTC" since the standard ``ktc`` source
+    // was retired from the blend 2026-04-28; ktcSfTep is now the
+    // sole KTC voter.  ``displayName`` keeps the SF-TEP suffix for
+    // detailed views where the underlying board matters.
+    columnLabel: "KTC",
     scope: "overall_offense",
     positionGroup: null,
     depth: null,

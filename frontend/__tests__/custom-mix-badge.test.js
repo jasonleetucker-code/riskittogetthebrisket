@@ -71,7 +71,7 @@ describe("describeCustomMix", () => {
     };
     const result = describeCustomMix(rankingsOverride);
     expect(result.active).toBe(true);
-    expect(result.disabled).toEqual(["KTC TE+"]);
+    expect(result.disabled).toEqual(["KTC"]);
     expect(result.reweighted).toEqual([]);
     expect(result.summary).toBe("(1 disabled)");
   });
@@ -104,7 +104,7 @@ describe("describeCustomMix", () => {
     };
     const result = describeCustomMix(rankingsOverride);
     expect(result.active).toBe(true);
-    expect(result.disabled).toEqual(["KTC TE+"]);
+    expect(result.disabled).toEqual(["KTC"]);
     expect(result.reweighted).toEqual(["DLF SF 1.0→2.0"]);
     expect(result.summary).toBe("(1 disabled, 1 reweighted)");
   });
@@ -124,7 +124,7 @@ describe("describeCustomMix", () => {
     };
     const result = describeCustomMix(rankingsOverride);
     expect(result.active).toBe(true);
-    expect(result.disabled).toEqual(["KTC TE+", "IDPTC", "DLF IDP", "FP IDP"]);
+    expect(result.disabled).toEqual(["KTC", "IDPTC", "DLF IDP", "FP IDP"]);
     expect(result.reweighted).toEqual([]);
     expect(result.summary).toBe("(4 disabled)");
   });

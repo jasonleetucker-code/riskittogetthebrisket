@@ -445,13 +445,15 @@ function TradeSourceBreakdown({ sides, settings }) {
       vendorSubs.get(vendor).push(src);
     }
 
-    // KTC and its TE+ sibling are the only vendors with native 0-9999
-    // pick values, and the only ones whose per-source winner row uses
-    // the raw KTC values directly so the V13 Value Adjustment formula
+    // KTC's TE+ board is the only vendor with native 0-9999 pick
+    // values and the only one whose per-source winner row uses the
+    // raw KTC values directly so the V13 Value Adjustment formula
     // (calibrated against KTC's raw scale) reproduces what
-    // keeptradecut.com displays.  Centralised so includePicks and
-    // useRawNative stay in lockstep.
-    const KTC_RAW_NATIVE_VENDORS = new Set(["ktc", "ktcSfTep"]);
+    // keeptradecut.com displays.  Standard ``ktc`` was retired from
+    // the blend 2026-04-28 (its CSV still loads for arbitrage
+    // detection, but it doesn't vote and doesn't appear in the
+    // per-source breakdown).
+    const KTC_RAW_NATIVE_VENDORS = new Set(["ktcSfTep"]);
     return vendorOrder
       .map((vendor) => {
         const subs = vendorSubs.get(vendor);
@@ -475,8 +477,8 @@ function TradeSourceBreakdown({ sides, settings }) {
         const rookieSubs = subs.filter((s) => s.needsRookieTranslation);
         // Per-source value resolution.
         //
-        // For KTC and its TE+ sibling, the V13 Value Adjustment formula
-        // and its empirical suppression thresholds (V13_SUPPRESS_RAW_DIFF,
+        // For KTC's TE+ board, the V13 Value Adjustment formula and
+        // its empirical suppression thresholds (V13_SUPPRESS_RAW_DIFF,
         // V13_SUPPRESS_SAME_SIDE_RAW_DIFF) were calibrated against
         // KTC's raw 0-9999 piece values.  Feeding the formula the
         // canonical Hill-blended ``valueContribution`` instead would
@@ -484,8 +486,7 @@ function TradeSourceBreakdown({ sides, settings }) {
         // inventing one — and the per-source KTC row would disagree
         // with what keeptradecut.com displays for the same trade.
         // We therefore use the raw KTC value from
-        // ``row.canonicalSites['ktc']`` (or ``['ktcSfTep']`` for the
-        // TE+ row) as the formula input.
+        // ``row.canonicalSites['ktcSfTep']`` as the formula input.
         //
         // For every other vendor we keep the Hill-normalized
         // ``valueContribution``: rank-only sources don't have a raw
