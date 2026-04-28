@@ -1,0 +1,180 @@
+{
+  "computedAt": "2026-04-28T07:21:24.419175+00:00",
+  "playoffOdds": [
+    {
+      "ownerId": "1012114412049731584",
+      "displayName": "jcardsjr",
+      "playoffOdds": 1.0,
+      "byeOdds": 0.0,
+      "topSeedOdds": 0.0,
+      "missPlayoffsOdds": 0.0,
+      "expectedWins": 6.0,
+      "medianFinalSeed": 5,
+      "mostLikelySeed": 5,
+      "seedDistribution": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "ownerId": "468418790212759552",
+      "displayName": "JasonLeeTucker",
+      "playoffOdds": 1.0,
+      "byeOdds": 0.0,
+      "topSeedOdds": 0.0,
+      "missPlayoffsOdds": 0.0,
+      "expectedWins": 7.0,
+      "medianFinalSeed": 4,
+      "mostLikelySeed": 4,
+      "seedDistribution": [
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "ownerId": "472206636534984704",
+      "displayName": "Djrd7122",
+      "playoffOdds": 1.0,
+      "byeOdds": 0.0,
+      "topSeedOdds": 0.0,
+      "missPlayoffsOdds": 0.0,
+      "expectedWins": 7.0,
+      "medianFinalSeed": 3,
+      "mostLikelySeed": 3,
+      "seedDistribution": [
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "ownerId": "473973924808355840",
+      "displayName": "TyBWell",
+      "playoffOdds": 1.0,
+      "byeOdds": 1.0,
+      "topSeedOdds": 1.0,
+      "missPlayoffsOdds": 0.0,
+      "expectedWins": 9.0,
+      "medianFinalSeed": 1,
+      "mostLikelySeed": 1,
+      "seedDistribution": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "ownerId": "609821340567941120",
+      "displayName": "EricLeeC",
+      "playoffOdds": 1.0,
+      "byeOdds": 0.0,
+      "topSeedOdds": 0.0,
+      "missPlayoffsOdds": 0.0,
+      "expectedWins": 5.0,
+      "medianFinalSeed": 6,
+      "mostLikelySeed": 6,
+      "seedDistribution": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "ownerId": "714912789268865024",
+      "displayName": "MaKaylaChristy",
+      "playoffOdds": 1.0,
+      "byeOdds": 1.0,
+      "topSeedOdds": 0.0,
+      "missPlayoffsOdds": 0.0,
+      "expectedWins": 8.0,
+      "medianFinalSeed": 2,
+      "mostLikelySeed": 2,
+      "seedDistribution": [
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "ownerId": "711452264774041600",
+      "displayName": "Aguilar315",
+      "playoffOdds": 0.0,
+      "byeOdds": 0.0,
+      "topSeedOdds": 0.0,
+      "missPlayoffsOdds": 1.0,
+      "expectedWins": 5.0,
+      "medianFinalSeed": 7,
+      "mostLikelySeed": 7,
+      "seedDistribution": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0
+      ]
+    },
+    {
+      "ownerId": "831633191830933504",
+      "displayName": "CollinFoz",
+      "playoffOdds": 0.0,
+      "byeOdds": 0.0,
+      "topSeedOdds": 0.0,
+      "missPlayoffsOdds": 1.0,
+      "expectedWins": 4.0,
+      "medianFinalSeed": 8,
+      "mostLikelySeed": 8,
+      "seedDistribution": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    }
+  ],
+  "n_simulations": 10000,
+  "playoffSeeds": 6,
+  "byeSeeds": 2,
+  "rosStrengthAvailable": true,
+  "rosBlend": 0.2,
+  "bestBallVarianceBump": 1.1,
+  "bestBallVarianceMode": "off"
+}

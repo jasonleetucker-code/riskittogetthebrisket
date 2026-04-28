@@ -1,0 +1,89 @@
+{
+  "computedAt": "2026-04-28T07:21:24.601446+00:00",
+  "championshipOdds": [
+    {
+      "ownerId": "473973924808355840",
+      "displayName": "TyBWell",
+      "championshipOdds": 0.2995,
+      "finalsOdds": 0.403,
+      "semifinalOdds": 1.0,
+      "playoffOdds": 1.0,
+      "expectedFinish": 2.3,
+      "contenderTier": "Favorite"
+    },
+    {
+      "ownerId": "1012114412049731584",
+      "displayName": "jcardsjr",
+      "championshipOdds": 0.2659,
+      "finalsOdds": 0.3174,
+      "semifinalOdds": 0.52,
+      "playoffOdds": 1.0,
+      "expectedFinish": 3.86,
+      "contenderTier": "Favorite"
+    },
+    {
+      "ownerId": "468418790212759552",
+      "displayName": "JasonLeeTucker",
+      "championshipOdds": 0.2344,
+      "finalsOdds": 0.2796,
+      "semifinalOdds": 0.48,
+      "playoffOdds": 1.0,
+      "expectedFinish": 4.05,
+      "contenderTier": "Favorite"
+    },
+    {
+      "ownerId": "714912789268865024",
+      "displayName": "MaKaylaChristy",
+      "championshipOdds": 0.1097,
+      "finalsOdds": 0.5452,
+      "semifinalOdds": 1.0,
+      "playoffOdds": 1.0,
+      "expectedFinish": 2.35,
+      "contenderTier": "Serious Contender"
+    },
+    {
+      "ownerId": "609821340567941120",
+      "displayName": "EricLeeC",
+      "championshipOdds": 0.0844,
+      "finalsOdds": 0.3733,
+      "semifinalOdds": 0.7255,
+      "playoffOdds": 1.0,
+      "expectedFinish": 3.09,
+      "contenderTier": "Dangerous Playoff Team"
+    },
+    {
+      "ownerId": "472206636534984704",
+      "displayName": "Djrd7122",
+      "championshipOdds": 0.0061,
+      "finalsOdds": 0.0815,
+      "semifinalOdds": 0.2745,
+      "playoffOdds": 1.0,
+      "expectedFinish": 4.36,
+      "contenderTier": "Dangerous Playoff Team"
+    },
+    {
+      "ownerId": "711452264774041600",
+      "displayName": "Aguilar315",
+      "championshipOdds": 0.0,
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.0,
+      "playoffOdds": 0.0,
+      "expectedFinish": 7.0,
+      "contenderTier": "Rebuilder / Seller"
+    },
+    {
+      "ownerId": "831633191830933504",
+      "displayName": "CollinFoz",
+      "championshipOdds": 0.0,
+      "finalsOdds": 0.0,
+      "semifinalOdds": 0.0,
+      "playoffOdds": 0.0,
+      "expectedFinish": 8.0,
+      "contenderTier": "Rebuilder / Seller"
+    }
+  ],
+  "n_simulations": 10000,
+  "playoffSeeds": 6,
+  "byeSeeds": 2,
+  "rosStrengthAvailable": true
+}
