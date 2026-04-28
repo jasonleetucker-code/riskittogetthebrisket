@@ -118,6 +118,10 @@ export default function SettingsPage() {
     const v = Number(rawData?.rankingsOverride?.tepMultiplierDerived);
     return Number.isFinite(v) ? v : 1.0;
   })();
+  const bonusRecTeFromLeague = (() => {
+    const v = Number(rawData?.rankingsOverride?.bonusRecTe);
+    return Number.isFinite(v) && v >= 0 ? v : 0.0;
+  })();
   // Effective slider value.  null/undefined in settings → show the
   // derived value (auto); a finite number → show the user's override.
   // Coerce any noise (strings, NaN) back to the derived baseline.
@@ -224,8 +228,8 @@ export default function SettingsPage() {
           onChange={(v) => update("tepMultiplier", v)}
           hint={
             tepIsAuto
-              ? `Auto from league (bonus_rec_te → ${tepDerivedFromLeague.toFixed(2)})`
-              : `Custom override (auto would be ${tepDerivedFromLeague.toFixed(2)})`
+              ? `Auto: ${tepDerivedFromLeague.toFixed(3)}× (Sleeper bonus_rec_te = ${bonusRecTeFromLeague.toFixed(2)})`
+              : `Custom override (auto would be ${tepDerivedFromLeague.toFixed(3)}× from bonus_rec_te = ${bonusRecTeFromLeague.toFixed(2)})`
           }
         />
         {!tepIsAuto && (

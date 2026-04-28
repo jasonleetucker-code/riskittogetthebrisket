@@ -2114,6 +2114,16 @@ def _summarize_source_overrides(
     if not math.isfinite(tep_native_corr):
         tep_native_corr = 1.0
 
+    # Reverse-derive the Sleeper ``bonus_rec_te`` value so the
+    # frontend can show it alongside the multiplier on /settings —
+    # ``derived = 1.0 + bonus * _TEP_DERIVATION_SLOPE`` (see
+    # ``_derive_tep_multiplier_from_league``), so
+    # ``bonus = (derived - 1.0) / _TEP_DERIVATION_SLOPE``.
+    if _TEP_DERIVATION_SLOPE > 0:
+        bonus_rec_te = max(0.0, (tep_derived - 1.0) / _TEP_DERIVATION_SLOPE)
+    else:
+        bonus_rec_te = 0.0
+
     return {
         "isCustomized": is_customized,
         "enabledSources": enabled_sources,
@@ -2125,6 +2135,9 @@ def _summarize_source_overrides(
         "tepMultiplierDerived": round(tep_derived, 4),
         "tepMultiplierSource": str(tep_multiplier_source or "default"),
         "tepNativeCorrection": round(tep_native_corr, 4),
+        # Underlying Sleeper TE-bonus value driving the derivation.
+        # Empty / non-TEP leagues return 0.0; standard "TEP-1.5" is 0.5.
+        "bonusRecTe": round(bonus_rec_te, 3),
     }
 
 
