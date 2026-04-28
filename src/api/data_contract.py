@@ -7525,6 +7525,16 @@ def assert_no_unexplained_single_source(
         rank = row.get("canonicalConsensusRank")
         if rank is None or rank > rank_limit:
             continue
+        # Quarantined rows are already flagged by a stronger identity-
+        # integrity signal (``test_quarantined_under_threshold``) and
+        # downgraded in the contract.  Re-flagging them here as
+        # "unexplained 1-src" is duplicative noise — the same fringe
+        # rookie / IDP that quarantined for ``no_valid_source_values``
+        # also trips this single-source check the moment the daily
+        # refresh nudges them past the rank-400 cap.  Skip them so the
+        # two gates don't double-count the same row.
+        if row.get("quarantined"):
+            continue
         audit = row.get("sourceAudit") or {}
         if audit.get("reason") != "matching_failure_other_sources_eligible":
             # Structurally single-source plays are benign — no other

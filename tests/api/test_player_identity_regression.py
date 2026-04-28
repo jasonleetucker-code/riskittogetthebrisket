@@ -390,6 +390,16 @@ class TestTopBoardSingleSourceAllowlist(unittest.TestCase):
                 continue
             if not row.get("isSingleSource"):
                 continue
+            # Quarantined rows are already flagged by a stronger
+            # identity-integrity gate (test_quarantined_under_threshold
+            # in tests/api/test_launch_readiness.py).  Listing them here
+            # too just double-counts the same fringe rookie / IDP — the
+            # daily refresh routinely shifts a quarantined no-value row
+            # in and out of the top board, churning this allowlist with
+            # transient entries.  Skip them so the two gates don't
+            # double-count the same row.
+            if row.get("quarantined"):
+                continue
             name = row.get("canonicalName") or ""
             if name in KNOWN_TOP_BOARD_SINGLE_SOURCE_ALLOWLIST:
                 continue
