@@ -450,7 +450,10 @@ def run_all(
 
         # Re-resolve canonical names when the adapter didn't already.
         # Keeps the resolver in one place; per-adapter mapping is not
-        # required.
+        # required.  Per-row confidence multiplies (resolver × source)
+        # so an adapter can express low-signal-row confidence (e.g.
+        # DraftSharks rows lacking a 1yr proj) without being clobbered
+        # by the resolver's high-confidence exact-match score.
         for row in result.rows:
             if not row.get("canonicalName"):
                 resolved = resolve_player(
@@ -459,7 +462,8 @@ def run_all(
                 )
                 if resolved.canonical_name and resolved.confidence >= 0.7:
                     row["canonicalName"] = resolved.canonical_name
-                    row["confidence"] = resolved.confidence
+                    existing = float(row.get("confidence") or 1.0)
+                    row["confidence"] = existing * resolved.confidence
 
         # Drop rows that didn't resolve (quarantine).
         result.rows = [r for r in result.rows if r.get("canonicalName")]

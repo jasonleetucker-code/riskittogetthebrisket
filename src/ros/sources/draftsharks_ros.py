@@ -67,9 +67,8 @@ def _read_rank_signal_csv(path: Path) -> list[dict[str, Any]]:
                     rank = int(rank_field) if rank_field else i
                 except (TypeError, ValueError):
                     rank = i
-                # Three-digit-value column "3D Value +" has the
-                # cross-market projection signal we'd otherwise treat
-                # as a projection_value; preserve when numeric.
+                # "3D Value +" is DS's cross-market consensus signal;
+                # preserve when numeric for the projection column.
                 projection: str = ""
                 proj_field = raw.get("3D Value +") or raw.get("projection")
                 if proj_field:
@@ -79,6 +78,22 @@ def _read_rank_signal_csv(path: Path) -> list[dict[str, Any]]:
                             projection = str(f_val)
                     except (TypeError, ValueError):
                         pass
+                # Per-row confidence: DS's dynasty page leaves "1yr. Proj"
+                # blank/undefined for top-tier elites where the multi-
+                # year context dominates.  Rows WITH a defined 1yr proj
+                # are higher-signal as ROS proxies (DS computed a true
+                # in-season projection); rows without it fall back to
+                # the dynasty rank order, still useful but a softer
+                # ROS signal.  Confidence multipliers feed the
+                # aggregator's per-row weight.
+                proj1yr_raw = (raw.get("1yr. Proj") or "").strip()
+                has_1yr = bool(proj1yr_raw) and proj1yr_raw.lower() != "undefined"
+                if has_1yr:
+                    try:
+                        has_1yr = float(proj1yr_raw) > 0
+                    except (TypeError, ValueError):
+                        has_1yr = False
+                confidence = 1.0 if has_1yr else 0.7
                 rows.append(
                     {
                         "sourceName": name,
@@ -88,6 +103,7 @@ def _read_rank_signal_csv(path: Path) -> list[dict[str, Any]]:
                         "rank": rank,
                         "total_ranked": 0,  # patched below after we know N
                         "projection": projection,
+                        "confidence": confidence,
                     }
                 )
     except OSError as exc:
