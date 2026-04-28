@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useDynastyData } from "@/components/useDynastyData";
 import PlayerPopup from "@/components/PlayerPopup";
 import GlobalSearch from "@/components/GlobalSearch";
-import PullToRefresh from "@/components/PullToRefresh";
 
 // ── App-wide context for popup and search ────────────────────────────────
 const AppContext = createContext({
@@ -186,8 +185,6 @@ function InnerAppShell({ loading, error, rows, siteKeys, rawData, privateDataEna
       }}
     >
       {children}
-
-      <PullToRefresh />
 
       {privateDataEnabled && (
         <PlayerPopup
