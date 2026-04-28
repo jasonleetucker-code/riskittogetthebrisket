@@ -120,6 +120,30 @@ jobs:
             bash -n "${script}"
           done
 
+      # Per-page bundle-size budgets are normally enforced by
+      # ``pr-validation.yml`` before a PR can merge.  This duplicate
+      # check on the deploy path is defence in depth — it catches the
+      # cases where main is updated outside the PR flow (force-push,
+      # data-refresh commits, hotfixes) and a bloated chunk would
+      # otherwise ship to prod without ever hitting the gate.
+      - name: Set up Node (for bundle gate)
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Frontend bundle-size gate
+        shell: bash
+        working-directory: frontend
+        run: |
+          set -Eeuo pipefail
+          npm ci --no-audit --no-fund
+          npm run build
+          # ``check:bundles`` runs as part of ``npm run build`` per
+          # the package.json script, but call it again explicitly so
+          # the workflow log shows a clean ✓ separately from the build.
+          npm run check:bundles
+
   deploy:
     name: Deploy To Hetzner
     runs-on: ubuntu-latest
@@ -338,6 +362,16 @@ jobs:
           # (the ChunkLoadError outage).  Exporting it here guarantees
           # the remote shell inherits "true" regardless of any profile,
           # /etc/environment, or systemd-user default.
+          #
+          # CRITERIA FOR REMOVING THIS OVERRIDE: this can be deleted
+          # once (a) the production login environment no longer sets
+          # RUN_FRONTEND_BUILD anywhere (verified via
+          # ``ssh prod env | grep RUN_FRONTEND_BUILD`` returning empty),
+          # AND (b) we've shipped a deploy script change that requires
+          # an explicit ``--rebuild-frontend`` flag rather than reading
+          # this env var.  Until both conditions hold, keep the override
+          # — silently shipping stale .next/ chunks is the worst class
+          # of deploy bug we've seen.
           export RUN_FRONTEND_BUILD="true"
 
           [[ -n "\${APP_DIR}" ]] || { echo "[remote] APP_DIR is empty" >&2; exit 20; }
