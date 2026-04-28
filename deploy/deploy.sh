@@ -164,12 +164,14 @@ resolve_git_ref() {
   return 1
 }
 
-# A full 40-char lowercase hex SHA is the only form of DEPLOY_REF we
-# can trust to point at a specific revision without a fresh fetch —
-# branches, tags, and abbreviated SHAs are all mutable or ambiguous.
-# GITHUB_SHA (the workflow's default DEPLOY_REF) always matches this.
+# A full 40-char hex SHA is the only form of DEPLOY_REF we can trust
+# to point at a specific revision without a fresh fetch — branches,
+# tags, and abbreviated SHAs are all mutable or ambiguous.  Accept
+# both lowercase and uppercase: GITHUB_SHA is always lowercase, but
+# git resolves either, and workflow_dispatch's deploy_ref input
+# forwards user-pasted SHAs verbatim with no normalization.
 is_full_commit_sha() {
-  [[ "$1" =~ ^[0-9a-f]{40}$ ]]
+  [[ "$1" =~ ^[0-9a-fA-F]{40}$ ]]
 }
 
 canonical_requirements_file() {
