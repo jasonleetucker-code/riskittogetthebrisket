@@ -164,6 +164,14 @@ resolve_git_ref() {
   return 1
 }
 
+# A full 40-char lowercase hex SHA is the only form of DEPLOY_REF we
+# can trust to point at a specific revision without a fresh fetch —
+# branches, tags, and abbreviated SHAs are all mutable or ambiguous.
+# GITHUB_SHA (the workflow's default DEPLOY_REF) always matches this.
+is_full_commit_sha() {
+  [[ "$1" =~ ^[0-9a-f]{40}$ ]]
+}
+
 canonical_requirements_file() {
   printf '%s\n' "requirements.txt"
 }
@@ -862,6 +870,18 @@ main() {
     warn "by a user other than '${APP_USER:-the deploy user}' (commonly the scraper). Fix with"
     warn "'chgrp -R <shared-group> ${APP_DIR}/.git && chmod -R g+ws ${APP_DIR}/.git', or run scrapes"
     warn "as the deploy user. Continuing with whatever refs are already present locally."
+  fi
+
+  # If fetch failed, only proceed when DEPLOY_REF is a full 40-char
+  # commit SHA — anything else (branch, tag, short SHA) could resolve
+  # to a stale local revision and ship the wrong code. GITHUB_SHA is
+  # always a full SHA, so the workflow's auto path stays unaffected.
+  if [[ "${fetch_ok}" != "true" ]] && ! is_full_commit_sha "${DEPLOY_REF}"; then
+    error "git fetch failed and DEPLOY_REF='${DEPLOY_REF}' is not a full 40-char commit SHA."
+    error "Refusing to deploy from a potentially-stale local copy of a mutable ref."
+    error "Fix the .git/objects permissions noted above and re-run, or pass an explicit full SHA"
+    error "(resolve the branch tip yourself with 'git rev-parse' and pass that as deploy_ref)."
+    exit 1
   fi
 
   if ! TARGET_REV="$(resolve_git_ref "${DEPLOY_REF}")"; then
