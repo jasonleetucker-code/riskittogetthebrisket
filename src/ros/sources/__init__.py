@@ -129,6 +129,31 @@ ROS_SOURCES: tuple[dict[str, Any], ...] = (
         "scraper": "src.ros.sources.footballguys_ros_idp",
         "enabled": True,
     },
+    # FantasyPros ROS Overall — the real ROS-specific ECR page.
+    # Distinct from ``fantasyProsRosSf`` (which is the dynasty SF
+    # page used as a season-long proxy): this targets the live
+    # ``/nfl/rankings/ros-overall.php`` ECR-blended consensus
+    # across 100+ experts, refreshed weekly.  Higher base weight
+    # than the dynasty proxy because this IS true ROS data, not
+    # a season-long substitute.
+    {
+        "key": "fantasyProsRosOverall",
+        "display_name": "FantasyPros ROS Overall (ECR)",
+        "source_url": "https://www.fantasypros.com/nfl/rankings/ros-overall.php",
+        "source_type": "ros",
+        "scoring_format": "ppr",
+        "is_superflex": False,
+        "is_2qb": False,
+        "is_te_premium": False,
+        "is_idp": False,
+        "is_ros": True,
+        "is_dynasty": False,
+        "is_projection_source": False,
+        "base_weight": 1.15,
+        "stale_after_hours": 168,
+        "scraper": "src.ros.sources.fantasypros_ros_overall",
+        "enabled": True,
+    },
     {
         "key": "ffc2qbAdp",
         "display_name": "Fantasy Football Calculator 2QB ADP",
