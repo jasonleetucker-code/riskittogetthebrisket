@@ -166,16 +166,21 @@ def simulate_championship_odds(
     n_simulations: int = playoff_sim.DEFAULT_SIMULATIONS,
     playoff_seeds: int = 6,
     bye_seeds: int = 2,
+    best_ball: bool | None = None,
     rng: random.Random | None = None,
 ) -> dict[str, Any]:
     """Run the full regular-season + bracket simulation.
 
     Pulls per-team distributions through ``playoff_sim`` so the
-    ROS-blended means + best-ball variance bump are reused.
+    ROS-blended means + per-team variance multiplier are reused.
     """
     rng = rng or random.Random()
+    if best_ball is None:
+        best_ball = playoff_sim._league_best_ball()
     ros_map = playoff_sim._load_ros_strength_map()
-    distributions, pf_by_owner = playoff_sim._build_team_distributions(snapshot, ros_map)
+    distributions, pf_by_owner = playoff_sim._build_team_distributions(
+        snapshot, ros_map, best_ball=best_ball
+    )
     if not distributions:
         return {
             "championshipOdds": [],

@@ -55,9 +55,65 @@ ROS_BLEND = 0.20
 
 # Best-ball weekly variance bump — the optimal-lineup picks add
 # spike-week upside that empirical scoring distributions under-sample.
+# Used as the *base* multiplier; per-team depth lift is added on top
+# (see ``_team_variance_multiplier``).
 BEST_BALL_VARIANCE_BUMP = 1.10
 
+# Maximum additional variance lift per team, on top of the base bump,
+# proportional to the team's bench-to-starter score ratio.  A team
+# with a deep bench (50% of starting-lineup value) gets ~+5% on top
+# of the 10% base; a thin team gets ~+1%.  Capped to keep tail
+# behavior physically plausible.
+DEPTH_VARIANCE_LIFT_MAX = 0.15
+
 DEFAULT_SIMULATIONS = 10000
+
+
+def _load_team_depth_ratios() -> dict[str, float]:
+    """Per-owner bench/starter score ratio from team-strength snapshot.
+
+    Returns {} when the snapshot is missing — caller falls back to the
+    flat ``BEST_BALL_VARIANCE_BUMP`` for every team.  Capped at 1.0
+    (a bench worth more than the starting lineup is anomalous; clamp
+    to keep the lift bounded).
+    """
+    path = ROS_DATA_DIR / "team_strength" / "latest.json"
+    if not path.exists():
+        return {}
+    try:
+        rows = json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {}
+    out: dict[str, float] = {}
+    for r in rows or []:
+        oid = str(r.get("ownerId") or "")
+        if not oid:
+            continue
+        starter = float(r.get("startingLineupScore") or 0.0)
+        bench = float(r.get("benchDepthScore") or 0.0)
+        if starter <= 0:
+            continue
+        out[oid] = max(0.0, min(1.0, bench / starter))
+    return out
+
+
+def _team_variance_multiplier(
+    owner_id: str,
+    depth_ratios: dict[str, float],
+    best_ball: bool,
+) -> float:
+    """Per-team weekly variance multiplier.
+
+    For best-ball leagues, depth materially increases week-to-week
+    ceiling — a richer bench produces more spike weeks via the
+    optimal-lineup picker.  For start/sit leagues, depth doesn't
+    feed weekly scoring, so the bump stays at 1.0 (no lift).
+    """
+    if not best_ball:
+        return 1.0
+    base = BEST_BALL_VARIANCE_BUMP
+    ratio = depth_ratios.get(owner_id, 0.0)
+    return base + DEPTH_VARIANCE_LIFT_MAX * ratio
 
 
 @dataclass
@@ -95,11 +151,19 @@ def _empirical_distribution(scores: list[float]) -> tuple[float, float]:
 def _build_team_distributions(
     snapshot: PublicLeagueSnapshot,
     ros_strength_map: dict[str, float],
+    *,
+    best_ball: bool = False,
 ) -> tuple[dict[str, _TeamDist], dict[str, float]]:
     """Build per-team weekly score distributions blended with ROS.
 
     Returns (distributions, current_records) where current_records is
     {ownerId: actual_wins_to_date}.
+
+    ``best_ball`` toggles the depth-aware variance lift: in best-ball
+    leagues a deeper bench produces more spike weeks via the optimal-
+    lineup picker, so per-team variance scales with bench/starter
+    ratio.  In start/sit leagues the bench doesn't feed weekly
+    scoring, so the bump is 1.0 (no lift).
     """
     seasons_sorted = sorted(
         snapshot.seasons, key=luck._season_sort_key
@@ -121,6 +185,8 @@ def _build_team_distributions(
     if ros_sd <= 0:
         ros_sd = 1.0
 
+    depth_ratios = _load_team_depth_ratios()
+
     distributions: dict[str, _TeamDist] = {}
     pf_by_owner: dict[str, float] = {}
     for owner_id, scores in per_owner.items():
@@ -134,7 +200,10 @@ def _build_team_distributions(
             blended_mean = emp_mean * (1 + ROS_BLEND * ros_z)
         else:
             blended_mean = emp_mean
-        sd = emp_sd * BEST_BALL_VARIANCE_BUMP if emp_sd > 0 else pool_sd
+        variance_mult = _team_variance_multiplier(
+            owner_id, depth_ratios, best_ball
+        )
+        sd = emp_sd * variance_mult if emp_sd > 0 else pool_sd * variance_mult
         distributions[owner_id] = _TeamDist(
             owner_id=owner_id,
             mean=max(0.0, blended_mean),
@@ -182,12 +251,26 @@ def _current_record(
     )
 
 
+def _league_best_ball() -> bool:
+    """Read the default league's best_ball flag without forcing a
+    PublicLeagueSnapshot dependency on caller side.  Lazy import so
+    test fixtures that mock league_registry still work.
+    """
+    try:
+        from src.api.league_registry import get_default_league  # noqa: PLC0415
+        cfg = get_default_league()
+        return bool(cfg and cfg.best_ball)
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def simulate_playoff_odds(
     snapshot: PublicLeagueSnapshot,
     *,
     n_simulations: int = DEFAULT_SIMULATIONS,
     playoff_seeds: int = 6,
     bye_seeds: int = 2,
+    best_ball: bool | None = None,
     rng: random.Random | None = None,
 ) -> dict[str, Any]:
     """Run the Monte Carlo and return playoff/championship-relevant odds.
@@ -204,8 +287,12 @@ def simulate_playoff_odds(
         }
     """
     rng = rng or random.Random()
+    if best_ball is None:
+        best_ball = _league_best_ball()
     ros_map = _load_ros_strength_map()
-    distributions, pf_by_owner = _build_team_distributions(snapshot, ros_map)
+    distributions, pf_by_owner = _build_team_distributions(
+        snapshot, ros_map, best_ball=best_ball
+    )
     if not distributions:
         return {
             "playoffOdds": [],
@@ -213,6 +300,7 @@ def simulate_playoff_odds(
             "playoffSeeds": playoff_seeds,
             "byeSeeds": bye_seeds,
             "rosStrengthAvailable": bool(ros_map),
+            "bestBallVarianceMode": "depth_aware" if best_ball else "off",
         }
 
     record = _current_record(snapshot)
@@ -303,6 +391,7 @@ def simulate_playoff_odds(
         "rosStrengthAvailable": bool(ros_map),
         "rosBlend": ROS_BLEND,
         "bestBallVarianceBump": BEST_BALL_VARIANCE_BUMP,
+        "bestBallVarianceMode": "depth_aware" if best_ball else "off",
     }
 
 
