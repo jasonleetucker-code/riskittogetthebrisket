@@ -148,13 +148,24 @@ def _nfl_data_py_or_none():
     """Lazy import — returns the module or None.  Catches
     EVERY exception because pandas import errors aren't always
     ImportError (sometimes it's RuntimeError from a broken
-    build)."""
+    build).
+
+    The fallback path (``nflverse_direct``) is stdlib-only and
+    keeps the feature working when ``nfl_data_py`` can't load,
+    but the absence is still operator-relevant — surface it as
+    WARNING so it shows up in the live logs once per process,
+    rather than vanishing into DEBUG.  ``/api/status`` also
+    reports ``nflDataProvider.nfl_data_py_installed`` for the UI.
+    """
     try:
         import nfl_data_py  # type: ignore
 
         return nfl_data_py
     except Exception as exc:  # noqa: BLE001
-        _LOGGER.debug("nfl_data_py not available: %s", exc)
+        _LOGGER.warning(
+            "nfl_data_py not importable; falling back to nflverse_direct: %s",
+            exc,
+        )
         return None
 
 
