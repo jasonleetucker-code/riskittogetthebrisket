@@ -128,8 +128,34 @@ UPTIME_ALERT_FAIL_THRESHOLD = int(os.getenv("UPTIME_ALERT_FAIL_THRESHOLD", "2"))
 
 # ── LIGHTWEIGHT AUTH GATE (PRIVATE-USE) ────────────────────────────────
 # App UI is intentionally gated behind Jason login.
+#
+# ``JASON_LOGIN_PASSWORD`` MUST come from the environment.  Earlier
+# revisions defaulted to a real string baked into source — the
+# pattern is dangerous (the default IS the password until rotated)
+# and shows up in any clone of the repo.  Now: read the env var,
+# accept ``ALLOW_DEFAULT_LOGIN_DEV=1`` as an explicit local-dev
+# escape hatch (uses ``"changeme"``, matching ``.env.example``), or
+# fail fast at import time.  Production sets ``JASON_LOGIN_PASSWORD``
+# in ``.env`` (loaded by the systemd unit's ``EnvironmentFile=``);
+# this guard prevents a misconfigured restart from silently shipping
+# a known password.
 JASON_LOGIN_USERNAME = (os.getenv("JASON_LOGIN_USERNAME") or "jasonleetucker").strip()
-JASON_LOGIN_PASSWORD = (os.getenv("JASON_LOGIN_PASSWORD") or "Elliott21!").strip()
+_JASON_LOGIN_PASSWORD_RAW = (os.getenv("JASON_LOGIN_PASSWORD") or "").strip()
+if not _JASON_LOGIN_PASSWORD_RAW:
+    if _env_bool("ALLOW_DEFAULT_LOGIN_DEV", False):
+        _JASON_LOGIN_PASSWORD_RAW = "changeme"
+        logging.getLogger(__name__).warning(
+            "JASON_LOGIN_PASSWORD unset; ALLOW_DEFAULT_LOGIN_DEV=1 — "
+            "using local-dev placeholder.  DO NOT USE IN PRODUCTION."
+        )
+    else:
+        raise RuntimeError(
+            "JASON_LOGIN_PASSWORD env var is required.  Set it on "
+            "the production .env (loaded via the systemd unit), or "
+            "set ALLOW_DEFAULT_LOGIN_DEV=1 for a placeholder password "
+            "during local development."
+        )
+JASON_LOGIN_PASSWORD = _JASON_LOGIN_PASSWORD_RAW
 JASON_AUTH_COOKIE_NAME = "jason_session"
 JASON_AUTH_COOKIE_SECURE = _env_bool("JASON_AUTH_COOKIE_SECURE", True)
 # Match the SQLite session TTL (SESSION_TTL_DAYS, default 30) so the
