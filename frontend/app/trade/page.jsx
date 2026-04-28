@@ -10,7 +10,6 @@ import {
 import {
   VALUE_MODES,
   STORAGE_KEY,
-  RECENT_KEY,
   verdictFromGap,
   colorFromGap,
   verdictBarPosition,
@@ -704,8 +703,6 @@ export default function TradePage() {
   const { settings } = useSettings();
   const { openPlayerPopup, registerAddToTrade } = useApp();
   const [valueMode, setValueMode] = useState("full");
-  const [pickerSortCol, setPickerSortCol] = useState("rank");
-  const [pickerSortAsc, setPickerSortAsc] = useState(true);
 
   // Multi-team state: array of { id, label, assets }
   const [sides, setSides] = useState([
@@ -713,12 +710,14 @@ export default function TradePage() {
     createSide(1),
   ]);
   const [activeSide, setActiveSide] = useState(0); // index into sides
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerQuery, setPickerQuery] = useState("");
-  const [pickerFilter, setPickerFilter] = useState("all");
-  const [recentNames, setRecentNames] = useState([]);
+  // Per-side inline search: each side renders its own search input, so
+  // adding a player is one tap away — no overlay, no "+ Add" button.
+  // ``sideQueries[i]`` holds side i's current input string;
+  // ``focusedSideIdx`` controls which side's dropdown is visible.
+  const [sideQueries, setSideQueries] = useState({});
+  const [focusedSideIdx, setFocusedSideIdx] = useState(null);
+  const sideInputRefs = useRef({});
   const [hydrated, setHydrated] = useState(false);
-  const pickerInputRef = useRef(null);
 
   // Suggestions state
   const [rosterInput, setRosterInput] = useState("");
@@ -841,7 +840,7 @@ export default function TradePage() {
     [sleeperTeams, teamRosterNames],
   );
 
-  // Hydrate roster input, team selection, and recent names from localStorage
+  // Hydrate roster input and team selection from localStorage
   useEffect(() => {
     try {
       const saved = localStorage.getItem(ROSTER_KEY);
@@ -851,23 +850,7 @@ export default function TradePage() {
       const savedTeam = localStorage.getItem(TEAM_KEY);
       if (savedTeam !== null) setSelectedTeamIdx(Number(savedTeam));
     } catch { /* ignore */ }
-    try {
-      const rawRecent = localStorage.getItem(RECENT_KEY);
-      if (rawRecent) {
-        const parsed = JSON.parse(rawRecent);
-        if (Array.isArray(parsed)) setRecentNames(parsed.filter((x) => typeof x === "string").slice(0, 20));
-      }
-    } catch { /* ignore */ }
   }, []);
-
-  // Reset the picker filter to "all" if the user's on an IDP filter
-  // and switches to a non-IDP league.  Mirrors the rankings-page
-  // guard so the same IDP filter doesn't silently render empty.
-  useEffect(() => {
-    if (!idpEnabled && pickerFilter === "idp") {
-      setPickerFilter("all");
-    }
-  }, [idpEnabled, pickerFilter]);
 
   // Hydrate trade workspace from localStorage (with migration)
   useEffect(() => {
@@ -961,10 +944,6 @@ export default function TradePage() {
       setShareHydrated(true);
     }
   }, [hydrated, shareHydrated, rows, rowByName]);
-
-  useEffect(() => {
-    if (pickerOpen && pickerInputRef.current) pickerInputRef.current.focus();
-  }, [pickerOpen]);
 
   // ── Computed totals for all sides ────────────────────────────────────
   // Both 2-team and N-team trades use the KTC-style Value Adjustment.
@@ -1123,50 +1102,19 @@ export default function TradePage() {
     return new Set(sides.flatMap((s) => s.assets.map((r) => r.name)));
   }, [sides]);
 
-  const pickerRows = useMemo(() => {
-    const q = pickerQuery.trim().toLowerCase();
-    let list = rows.filter((r) => !allTradeNames.has(r.name));
-    if (pickerFilter !== "all") list = list.filter((r) => r.assetClass === pickerFilter);
-    if (q) list = list.filter((r) => r.name.toLowerCase().includes(q));
-    // Sort by selected column
-    const dir = pickerSortAsc ? 1 : -1;
-    list = [...list].sort((a, b) => {
-      let va, vb;
-      switch (pickerSortCol) {
-        case "rank":
-          va = a.blendedSourceRank ?? Infinity; vb = b.blendedSourceRank ?? Infinity;
-          return (va - vb) * dir;
-        case "name":
-          return a.name.localeCompare(b.name) * dir;
-        case "pos":
-          return (a.pos || "").localeCompare(b.pos || "") * dir;
-        case "value":
-          va = displayValue(a, settings); vb = displayValue(b, settings);
-          return (va - vb) * dir;
-        default: {
-          if (typeof pickerSortCol === "string" && pickerSortCol.startsWith("src:")) {
-            const key = pickerSortCol.slice(4);
-            va = Number(a.canonicalSites?.[key]) || 0;
-            vb = Number(b.canonicalSites?.[key]) || 0;
-            return (va - vb) * dir;
-          }
-          va = a.blendedSourceRank ?? Infinity; vb = b.blendedSourceRank ?? Infinity;
-          return (va - vb) * dir;
-        }
-      }
-    });
-    return list.slice(0, 100);
-  }, [rows, allTradeNames, pickerQuery, pickerFilter, pickerSortCol, pickerSortAsc]);
-
-  const recentRows = useMemo(() => recentNames.map((n) => rowByName.get(n)).filter(Boolean), [recentNames, rowByName]);
-
-  function addRecent(name) {
-    setRecentNames((prev) => {
-      const next = [name, ...prev.filter((x) => x !== name)].slice(0, 20);
-      localStorage.setItem(RECENT_KEY, JSON.stringify(next));
-      return next;
-    });
-  }
+  // Inline search helper: returns up to 5 best matches for the given
+  // query, excluding anything already in the trade.  Sorted by
+  // consensus rank ascending so the top hits are the most relevant
+  // dynasty assets first — matches the KTC trade-calculator UX.
+  const searchAssets = useCallback((query) => {
+    const q = (query || "").trim().toLowerCase();
+    if (!q) return [];
+    const list = rows.filter(
+      (r) => !allTradeNames.has(r.name) && r.name.toLowerCase().includes(q),
+    );
+    list.sort((a, b) => (a.blendedSourceRank ?? Infinity) - (b.blendedSourceRank ?? Infinity));
+    return list.slice(0, 5);
+  }, [rows, allTradeNames]);
 
   // ── Side management ─────────────────────────────────────────────────
   function addToSide(row, sideIdx) {
@@ -1191,7 +1139,6 @@ export default function TradePage() {
         destinations: nextDestinations,
       };
     }));
-    addRecent(row.name);
   }
 
   function setAssetDestination(sideIdx, assetName, destIdx) {
@@ -1205,16 +1152,17 @@ export default function TradePage() {
 
   function addToActiveSide(row) {
     addToSide(row, activeSide);
-    // Tapping a result row blurs the search input, which drops the
-    // iOS soft keyboard and makes the search bar feel like it "went
-    // away" — the user then has to tap the field again to keep
-    // adding players.  Re-focus the picker input so the keyboard
-    // stays up and the field is ready for the next query.
-    if (pickerOpen && pickerInputRef.current) {
-      // Defer one tick so the React commit that removed the tapped
-      // row has flushed before we re-focus.
-      requestAnimationFrame(() => pickerInputRef.current?.focus({ preventScroll: true }));
-    }
+  }
+
+  // Inline-search add: drop the row onto the side, clear that side's
+  // query so the dropdown collapses, and re-focus the input so the
+  // soft keyboard stays up for the next addition.
+  function addFromSearch(row, sideIdx) {
+    addToSide(row, sideIdx);
+    setSideQueries((prev) => ({ ...prev, [sideIdx]: "" }));
+    requestAnimationFrame(() => {
+      sideInputRefs.current[sideIdx]?.focus({ preventScroll: true });
+    });
   }
 
   // Register add-to-trade callback so popup/search can add players
@@ -1337,8 +1285,6 @@ export default function TradePage() {
     // Fix activeSide if it's out of bounds
     setActiveSide((prev) => Math.min(prev, sides.length - 2));
   }
-
-  function openPickerFor(sideIdx) { setActiveSide(sideIdx); setPickerOpen(true); }
 
   // ── KTC trade-calculator URL import ───────────────────────────────
   // Paste a https://keeptradecut.com/trade-calculator?teamOne=...&teamTwo=...
@@ -2151,9 +2097,89 @@ export default function TradePage() {
                           <div className="muted" style={{ fontSize: "0.64rem" }}>Raw: {Math.round(total.raw).toLocaleString()}</div>
                         )}
                       </div>
-                      <button className="button trade-add-btn" onClick={() => openPickerFor(sideIdx)}>+ Add</button>
                     </div>
                   </div>
+                  {/* Inline search — KTC-style.  Type 2-3 letters and a
+                      compact dropdown of the top 5 matches appears
+                      below the input.  Tap one to add it to this side
+                      and keep typing for the next addition. */}
+                  {(() => {
+                    const sideQuery = sideQueries[sideIdx] || "";
+                    const isFocused = focusedSideIdx === sideIdx;
+                    const results = isFocused ? searchAssets(sideQuery) : [];
+                    const showResults = isFocused && sideQuery.trim().length > 0;
+                    return (
+                      <div className="trade-side-search">
+                        <input
+                          ref={(el) => { sideInputRefs.current[sideIdx] = el; }}
+                          className="input trade-side-search-input"
+                          placeholder={`Search to add to Side ${side.label}…`}
+                          value={sideQuery}
+                          onChange={(e) =>
+                            setSideQueries((prev) => ({ ...prev, [sideIdx]: e.target.value }))
+                          }
+                          onFocus={() => {
+                            setFocusedSideIdx(sideIdx);
+                            setActiveSide(sideIdx);
+                          }}
+                          onBlur={() => {
+                            // Delay so a tap on a result registers before
+                            // the dropdown unmounts.  ``onMouseDown`` on
+                            // the result also pre-empts blur, but the
+                            // delay is a belt-and-braces guard for touch.
+                            setTimeout(() => {
+                              setFocusedSideIdx((prev) => (prev === sideIdx ? null : prev));
+                            }, 120);
+                          }}
+                        />
+                        {showResults && (
+                          <div className="trade-side-search-results">
+                            {results.length === 0 ? (
+                              <div className="trade-side-search-empty muted">No matches.</div>
+                            ) : (
+                              results.map((r) => (
+                                <button
+                                  key={`search-${side.label}-${r.name}`}
+                                  type="button"
+                                  className="trade-side-search-result button-reset"
+                                  onMouseDown={(e) => {
+                                    // Prevent the input blur so focus
+                                    // stays on the search field after the
+                                    // tap — the keyboard doesn't dismiss.
+                                    e.preventDefault();
+                                    addFromSearch(r, sideIdx);
+                                  }}
+                                  onTouchStart={(e) => {
+                                    e.preventDefault();
+                                    addFromSearch(r, sideIdx);
+                                  }}
+                                >
+                                  <PlayerImage
+                                    playerId={r.raw?.playerId}
+                                    team={r.team}
+                                    position={r.pos}
+                                    name={r.name}
+                                    size={26}
+                                  />
+                                  <div className="trade-side-search-result-body">
+                                    <div className="trade-side-search-result-name">{r.name}</div>
+                                    <div className="trade-side-search-result-meta">
+                                      <span className={posBadgeClass(r)}>{r.pos}</span>
+                                      <span className="muted">
+                                        {r.blendedSourceRank != null ? `#${r.blendedSourceRank.toFixed(1)}` : "—"}
+                                        {" · "}
+                                        {Math.round(displayValue(r, settings)).toLocaleString()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {sides.length > 2 && (
                     <div
                       className="label"
@@ -2665,126 +2691,6 @@ export default function TradePage() {
             </div>
           )}
 
-          {/* Picker overlay */}
-          {pickerOpen && (
-            <div className="picker-overlay" onClick={() => setPickerOpen(false)}>
-              <div className="picker-sheet" onClick={(e) => e.stopPropagation()}>
-                <div className="picker-header">
-                  <div style={{ minWidth: 0 }}>
-                    <h3 style={{ margin: 0 }}>Add to Side {sides[activeSide]?.label || "?"}</h3>
-                    <p className="muted picker-subtitle">Tap a player/pick to add instantly.</p>
-                  </div>
-                  <button className="picker-close" onClick={() => setPickerOpen(false)} aria-label="Close picker">&times;</button>
-                </div>
-                <div className="picker-search-row">
-                  <input
-                    ref={pickerInputRef}
-                    className="input"
-                    placeholder="Search player or pick..."
-                    value={pickerQuery}
-                    onChange={(e) => setPickerQuery(e.target.value)}
-                    style={{ flex: 1 }}
-                  />
-                  <select className="select" value={pickerFilter} onChange={(e) => setPickerFilter(e.target.value)}>
-                    <option value="all">All</option>
-                    <option value="offense">OFF</option>
-                    {idpEnabled && <option value="idp">IDP</option>}
-                    <option value="pick">Picks</option>
-                  </select>
-                </div>
-                {!pickerQuery && recentRows.length > 0 && (
-                  <div className="picker-recent">
-                    <div className="label" style={{ marginBottom: 6 }}>Recent</div>
-                    <div className="list">
-                      {recentRows.slice(0, 8).map((r) => (
-                        <button key={`recent-${r.name}`} className="asset-row button-reset" onClick={() => addToActiveSide(r)}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                            <PlayerImage
-                              playerId={r.raw?.playerId}
-                              team={r.team}
-                              position={r.pos}
-                              name={r.name}
-                              size={24}
-                            />
-                            <div style={{ minWidth: 0 }}>
-                              <div className="asset-name">{r.name}</div>
-                              <div className="asset-meta">{r.pos} · {Math.round(effectiveValue(r, valueMode, settings)).toLocaleString()}</div>
-                            </div>
-                          </div>
-                          <span className="badge">Add</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="picker-table-wrap">
-                  <table style={{ width: "100%", fontSize: "0.78rem" }}>
-                    <thead>
-                      <tr>
-                        {[
-                          { col: "rank", label: "Rank", className: "picker-rank-col", style: { width: 55, textAlign: "center" } },
-                          { col: "name", label: "Player" },
-                          { col: "pos", label: "Pos", style: { width: 46 } },
-                          { col: "value", label: "Value", style: { width: 70, textAlign: "right" } },
-                          ...RANKING_SOURCES.map((src) => ({
-                            col: `src:${src.key}`,
-                            label: src.columnLabel,
-                            className: "picker-source-col",
-                            style: { width: 65, textAlign: "right" },
-                          })),
-                        ].map(({ col, label, style, className }) => (
-                          <th key={col} className={className || undefined} style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", ...style }}
-                            onClick={() => {
-                              if (pickerSortCol === col) setPickerSortAsc((p) => !p);
-                              else { setPickerSortCol(col); setPickerSortAsc(["rank", "name", "pos"].includes(col)); }
-                            }}>
-                            {label}{pickerSortCol === col ? (pickerSortAsc ? " \u25B2" : " \u25BC") : ""}
-                          </th>
-                        ))}
-                        <th className="picker-add-col" style={{ width: 40 }}></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pickerRows.map((r) => (
-                        <tr key={`pick-${r.name}`} className="picker-row" onClick={() => addToActiveSide(r)}>
-                          <td className="picker-rank-col" style={{ textAlign: "center", fontFamily: "var(--mono, monospace)", fontWeight: 600, color: "var(--cyan)" }}>
-                            {r.blendedSourceRank != null ? r.blendedSourceRank.toFixed(1) : "\u2014"}
-                          </td>
-                          <td style={{ fontWeight: 600 }}>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                              <PlayerImage
-                                playerId={r.raw?.playerId}
-                                team={r.team}
-                                position={r.pos}
-                                name={r.name}
-                                size={22}
-                              />
-                              {r.name}
-                            </span>
-                          </td>
-                          <td><span className={posBadgeClass(r)}>{r.pos}</span></td>
-                          <td style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontWeight: 600 }}>
-                            {Math.round(displayValue(r, settings)).toLocaleString()}
-                          </td>
-                          {RANKING_SOURCES.map((src) => {
-                            const raw = r.canonicalSites?.[src.key];
-                            const hasVal = raw != null && Number.isFinite(Number(raw));
-                            return (
-                              <td key={src.key} className="picker-source-col" style={{ textAlign: "right", fontFamily: "var(--mono, monospace)", fontSize: "0.74rem" }}>
-                                {hasVal ? Math.round(Number(raw)).toLocaleString() : "\u2014"}
-                              </td>
-                            );
-                          })}
-                          <td className="picker-add-col"><span className="badge" style={{ fontSize: "0.6rem" }}>Add</span></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {pickerRows.length === 0 && <div className="muted" style={{ padding: 8 }}>No assets match.</div>}
-                </div>
-              </div>
-            </div>
-          )}
         </>
       )}
     </section>

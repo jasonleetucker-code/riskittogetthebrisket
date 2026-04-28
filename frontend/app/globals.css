@@ -1245,6 +1245,86 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   TRADE-SIDE INLINE SEARCH
+   Replaces the old + Add → modal-overlay flow with a KTC-style
+   always-visible search input on each side.  The dropdown of up to 5
+   matches renders inline below the input (not absolute) so it pushes
+   the asset list down without overflowing the side card.
+   ══════════════════════════════════════════════════════════════════════════ */
+.trade-side-search {
+  margin-top: 10px;
+}
+
+.trade-side-search-input {
+  width: 100%;
+}
+
+.trade-side-search-results {
+  margin-top: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(8, 19, 44, 0.85);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.trade-side-search-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: transparent;
+  color: inherit;
+  width: 100%;
+}
+.trade-side-search-result:last-child {
+  border-bottom: none;
+}
+.trade-side-search-result:hover,
+.trade-side-search-result:active {
+  background: rgba(255, 199, 4, 0.08);
+}
+
+.trade-side-search-result-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.trade-side-search-result-name {
+  font-weight: 600;
+  font-size: 0.84rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trade-side-search-result-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  margin-top: 2px;
+}
+
+.trade-side-search-empty {
+  padding: 10px;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 520px) {
+  .trade-side-search-result {
+    padding: 10px;
+  }
+  .trade-side-search-result-name {
+    font-size: 0.86rem;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    BOTTOM SHEET (mobile modals)
    ══════════════════════════════════════════════════════════════════════════ */
 .sheet-overlay {
