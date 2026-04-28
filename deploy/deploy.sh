@@ -164,6 +164,16 @@ resolve_git_ref() {
   return 1
 }
 
+# A full 40-char hex SHA is the only form of DEPLOY_REF we can trust
+# to point at a specific revision without a fresh fetch — branches,
+# tags, and abbreviated SHAs are all mutable or ambiguous.  Accept
+# both lowercase and uppercase: GITHUB_SHA is always lowercase, but
+# git resolves either, and workflow_dispatch's deploy_ref input
+# forwards user-pasted SHAs verbatim with no normalization.
+is_full_commit_sha() {
+  [[ "$1" =~ ^[0-9a-fA-F]{40}$ ]]
+}
+
 canonical_requirements_file() {
   printf '%s\n' "requirements.txt"
 }
@@ -822,6 +832,7 @@ main() {
 
   local tracked_changes
   tracked_changes="$(git status --porcelain --untracked-files=no)"
+  local needs_force_clean="false"
   if [[ -n "${tracked_changes}" ]]; then
     if [[ "${ALLOW_DIRTY_DEPLOY}" == "true" ]]; then
       warn "Tracked changes detected but ALLOW_DIRTY_DEPLOY=true, proceeding without stash."
@@ -830,7 +841,17 @@ main() {
       git diff --stat || true
       local stash_name="deploy-auto-stash-$(date -u +%Y%m%dT%H%M%SZ)"
       log "Auto-stashing tracked changes as '${stash_name}' (inspect later with: git stash list)."
-      git stash push -m "${stash_name}"
+      if ! git stash push -m "${stash_name}"; then
+        warn "git stash failed — likely a .git/objects permission issue (e.g. scraper-owned"
+        warn "objects under ${APP_DIR}/.git/objects/ that the deploy user cannot write next to)."
+        warn "Tracked changes will be DISCARDED by an unconditional 'git reset --hard' against the target ref"
+        warn "(reset only updates refs + working tree, so it survives the same .git/objects permissions"
+        warn "that broke stash)."
+        warn "If you need the dirty files preserved, set ALLOW_DIRTY_DEPLOY=true and stash manually before re-running."
+        warn "To fix the underlying permissions, ensure the scraper and the deploy user share group ownership of"
+        warn "${APP_DIR}/.git (e.g. 'chgrp -R <shared-group> .git && chmod -R g+ws .git')."
+        needs_force_clean="true"
+      fi
     fi
   fi
 
@@ -843,9 +864,40 @@ main() {
   log "Deploy target requested: DEPLOY_REF=${DEPLOY_REF} (fallback branch=${DEPLOY_BRANCH})"
   log "Current revision: ${current_rev}"
 
-  git fetch --prune --tags origin
+  local fetch_ok="true"
+  if ! git fetch --prune --tags origin; then
+    fetch_ok="false"
+    warn "git fetch failed — almost certainly the same .git/objects permission issue as the stash error."
+    warn "On the production box, run 'ls -la ${APP_DIR}/.git/objects' and look for subdirectories owned"
+    warn "by a user other than '${APP_USER:-the deploy user}' (commonly the scraper). Fix with"
+    warn "'chgrp -R <shared-group> ${APP_DIR}/.git && chmod -R g+ws ${APP_DIR}/.git', or run scrapes"
+    warn "as the deploy user. Continuing with whatever refs are already present locally."
+  fi
+
+  # If fetch failed, only proceed when DEPLOY_REF is a full 40-char
+  # commit SHA — anything else (branch, tag, short SHA) could resolve
+  # to a stale local revision and ship the wrong code. GITHUB_SHA is
+  # always a full SHA, so the workflow's auto path stays unaffected.
+  if [[ "${fetch_ok}" != "true" ]] && ! is_full_commit_sha "${DEPLOY_REF}"; then
+    error "git fetch failed and DEPLOY_REF='${DEPLOY_REF}' is not a full 40-char commit SHA."
+    error "Refusing to deploy from a potentially-stale local copy of a mutable ref."
+    error "Fix the .git/objects permissions noted above and re-run, or pass an explicit full SHA"
+    error "(resolve the branch tip yourself with 'git rev-parse' and pass that as deploy_ref)."
+    exit 1
+  fi
 
   if ! TARGET_REV="$(resolve_git_ref "${DEPLOY_REF}")"; then
+    # Don't fall back to DEPLOY_BRANCH when fetch failed: the local
+    # branch ref is potentially stale (the requested SHA may simply be
+    # missing from the local repo), and a silent fallback would deploy
+    # the wrong revision and report success.
+    if [[ "${fetch_ok}" != "true" ]]; then
+      error "Could not resolve DEPLOY_REF='${DEPLOY_REF}' locally and 'git fetch' had failed."
+      error "Refusing to fall back to DEPLOY_BRANCH='${DEPLOY_BRANCH}' (potentially stale)."
+      error "The requested ref may simply be missing from the local repo because fetch could not"
+      error "write new objects. Fix the .git/objects permissions noted above and re-run the deploy."
+      exit 1
+    fi
     if ! TARGET_REV="$(resolve_git_ref "${DEPLOY_BRANCH}")"; then
       error "Could not resolve DEPLOY_REF='${DEPLOY_REF}' or DEPLOY_BRANCH='${DEPLOY_BRANCH}' to a commit."
       exit 1
@@ -859,6 +911,9 @@ main() {
   if [[ "${current_rev}" != "${TARGET_REV}" ]]; then
     log "Checking out target revision."
     git checkout --force "${TARGET_REV}"
+    git reset --hard "${TARGET_REV}"
+  elif [[ "${needs_force_clean}" == "true" ]]; then
+    log "Repository already at target revision but auto-stash failed; running 'git reset --hard ${TARGET_REV}' to discard the dirty working tree."
     git reset --hard "${TARGET_REV}"
   else
     log "Repository already at target revision."
