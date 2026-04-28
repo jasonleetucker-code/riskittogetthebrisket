@@ -87,6 +87,13 @@ def _market_source_for(position: str | None) -> str:
     """Return the canonicalSiteValues key the counterparty would
     consult for this position. IDP positions compare on IDPTC;
     everything else (offense, picks, kickers, etc.) compares on KTC.
+
+    Note: ``ktc`` was retired from the blend 2026-04-28, but the
+    CSV still loads into canonicalSiteValues — it remains the
+    canonical retail-market signal a trade counterparty would see
+    on keeptradecut.com (the public site shows the standard SF
+    view by default), so the angle finder still compares against
+    it.
     """
     pos = str(position or "").strip().upper()
     if pos in _IDP_POSITIONS:

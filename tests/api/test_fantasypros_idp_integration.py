@@ -310,7 +310,7 @@ class TestFantasyProsIdpEnrichment(unittest.TestCase):
             positions[name] = pos
         payload = {
             "players": players,
-            "sites": [{"key": "ktc"}, {"key": "idpTradeCalc"}],
+            "sites": [{"key": "ktcSfTep"}, {"key": "idpTradeCalc"}],
             "maxValues": {"idpTradeCalc": 9999},
             "sleeper": {"positions": positions},
         }

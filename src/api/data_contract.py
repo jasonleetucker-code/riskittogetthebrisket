@@ -68,7 +68,7 @@ _IDP_POSITIONS = {"DL", "LB", "DB"}
 # participate; picks, kickers, and unsupported positions are excluded.
 _RANKABLE_POSITIONS = _OFFENSE_POSITIONS | _IDP_POSITIONS | {"PICK"}
 _OFFENSE_SIGNAL_KEYS = {
-    "ktc",
+    "ktcSfTep",
     "dlfSf",
     "dynastyNerdsSfTep",
     "footballGuysSf",
@@ -827,39 +827,20 @@ from src.canonical.idp_backbone import (
 # ``frontend/lib/dynasty-data.js::RANKING_SOURCES``.
 _RANKING_SOURCES: list[dict[str, Any]] = [
     {
-        # KeepTradeCut is the retail offense market — community trade
-        # values scraped from a public-facing trade calculator.  This
-        # is what casual trade partners see and anchor on, so it's
-        # flagged `is_retail` and fed into the market-gap signal as
-        # the "retail" side against every other (expert) source.
-        "key": "ktc",
-        "display_name": "KeepTradeCut",
-        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
-        "position_group": None,
-        "depth": None,
-        "weight": 1.0,
-        "is_backbone": False,
-        "is_retail": True,
-        # KTC's default scraped view is a standard SF community trade
-        # calculator — it does not bake in TE premium.  The frontend
-        # `settings.tepMultiplier` boost applies to its contribution
-        # on the blended board.  See frontend/lib/dynasty-data.js for
-        # the mirrored flag.
-        "is_tep_premium": False,
-    },
-    {
-        # KeepTradeCut Superflex + TE Premium sub-board.  Sourced from
-        # the same scrape as ``ktc`` — KTC's per-player API response
-        # carries ``superflexValues.tep`` (level 1, "TE+") alongside
-        # the base ``superflexValues.value``, so one Dynasty Scraper
-        # run produces both CSVs.  Registered as its own source so the
-        # per-source winner row in the trade page can show "KTC TE+"
-        # next to "KTC" — users on TE Premium scoring get a row that
-        # matches keeptradecut.com's TE+ display directly instead of
-        # the standard-SF row that disagrees with their league setup.
-        # `is_retail: False` because the retail signal is already
-        # carried by the base ``ktc`` entry — flagging both as retail
-        # would double-count the market-gap calculation.
+        # KeepTradeCut Superflex + TE Premium board.  KTC publishes both
+        # a standard SF view and a TE+ sub-board from the same per-
+        # player API payload (``superflexValues.value`` and
+        # ``superflexValues.tep`` level 1) — one scrape produces both.
+        # Historically we registered both as separate blend sources,
+        # which double-counted KTC's signal: for non-TE rows the two
+        # values are identical, and for TE rows the TEP-correction step
+        # converged them both onto the league's actual TEP anyway.
+        # 2026-04-28: dropped the standard ``ktc`` blend vote and
+        # promoted ``ktcSfTep`` to the canonical retail source.  The
+        # standard ``ktc`` CSV still loads into ``canonicalSiteValues``
+        # (free side-effect of the same scrape) so the KTC arbitrage
+        # finder + per-source winner row on /trade can keep displaying
+        # both values side-by-side.  Only the blend vote was removed.
         "key": "ktcSfTep",
         "display_name": "KeepTradeCut SF-TEP",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
@@ -867,7 +848,7 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "depth": None,
         "weight": 1.0,
         "is_backbone": False,
-        "is_retail": False,
+        "is_retail": True,
         "is_tep_premium": True,
     },
     {
@@ -3587,7 +3568,7 @@ def _parse_pick_tier(name: str) -> tuple[int, str, int] | None:
 # within the corridor — they just can't pull a player into a rank
 # that contradicts market at a pathological level.
 _MARKET_ANCHOR_BY_ASSET_CLASS: dict[str, str] = {
-    "offense": "ktc",
+    "offense": "ktcSfTep",
     "idp": "idpTradeCalc",
 }
 
@@ -3600,7 +3581,7 @@ _MARKET_ANCHOR_BY_ASSET_CLASS: dict[str, str] = {
 # entirely and the IDP calibration's 3-4× DB bucket multipliers can
 # inflate a 1500-point uncalibrated value into a top-50 finish.
 _MARKET_ANCHOR_FALLBACKS: dict[str, list[str]] = {
-    "offense": ["ktc", "idpTradeCalc", "dynastyDaddySf", "fantasyProsFitzmaurice", "yahooBoone"],
+    "offense": ["ktcSfTep", "idpTradeCalc", "dynastyDaddySf", "fantasyProsFitzmaurice", "yahooBoone"],
     "idp":     ["idpTradeCalc", "dlfIdp", "idpShow", "fantasyProsIdp", "footballGuysIdp"],
 }
 
@@ -4275,10 +4256,10 @@ _DS_COMBINED_RANK_KEYS: frozenset[str] = frozenset(
 
 
 _VALUE_BASED_SOURCES: frozenset[str] = frozenset({
-    "ktc",
-    # ``ktcSfTep`` is sourced from the same KTC scrape as ``ktc`` and
-    # carries native 0-9999 values (the per-player API response
-    # includes ``superflexValues.tep`` for the TE+ variant).
+    # ``ktcSfTep`` carries native 0-9999 values from KTC's TE+ sub-board.
+    # Standard ``ktc`` was retired from the blend 2026-04-28 (its values
+    # are still loaded into canonicalSiteValues for the arbitrage finder
+    # + per-source winner display, but it no longer votes).
     "ktcSfTep",
     "idpTradeCalc",
     # ``dynastyDaddySf``, ``yahooBoone``, and ``fantasyProsFitzmaurice``
@@ -4295,15 +4276,30 @@ _VALUE_BASED_SOURCES: frozenset[str] = frozenset({
 
 
 def _validate_value_based_sources_invariant() -> None:
-    """Module-import safety rail: every source in the registry whose
-    CSV signal is ``value`` must either appear in
-    ``_VALUE_BASED_SOURCES`` OR declare ``ds_combined_rank_partner``
-    (the cross-market ranking carve-out).  This guards against a new
-    value source silently going through the Hill curve because
-    someone forgot to add it to ``_VALUE_BASED_SOURCES``.
+    """Module-import safety rail: every source registered for VOTING
+    in ``_RANKING_SOURCES`` whose CSV signal is ``value`` must either
+    appear in ``_VALUE_BASED_SOURCES`` OR declare
+    ``ds_combined_rank_partner`` (the cross-market ranking carve-out).
+
+    Display-only loads (sources in ``_SOURCE_CSV_PATHS`` but NOT in
+    ``_RANKING_SOURCES``) are exempt — they're read into
+    ``canonicalSiteValues`` for trade-finder / per-source winner
+    display only, and never enter the blend.  Standard ``ktc`` is the
+    canonical example after the 2026-04-28 supersession.
+
+    This guards against a new value source silently going through the
+    Hill curve because someone forgot to add it to
+    ``_VALUE_BASED_SOURCES``.
     """
+    voting_keys: set[str] = {
+        str(src.get("key") or "") for src in _RANKING_SOURCES
+    }
+
     value_signal_keys: set[str] = set()
     for key, cfg in _SOURCE_CSV_PATHS.items():
+        if key not in voting_keys:
+            # Display-only load — bypass the value-path requirement.
+            continue
         if isinstance(cfg, str):
             signal = "value"  # default for plain string entries
         elif isinstance(cfg, dict):
@@ -4850,7 +4846,7 @@ def _compute_pick_confidence(
     """
     raw_values: list[tuple[str, float]] = []
     for key in (
-        "ktc",
+        "ktcSfTep",
         "idpTradeCalc",
         "dlfSf",
         "dynastyNerdsSfTep",
@@ -4870,10 +4866,12 @@ def _compute_pick_confidence(
     if not raw_values:
         return "none", "None — no pick source values"
 
-    # KTC slot values on specific slots are partial evidence.
+    # KTC slot values on specific slots are partial evidence (the
+    # underlying KTC pick board is the same whether we read its
+    # standard or TE+ flavor — picks aren't TE-position-sensitive).
     effective_count = 0.0
     for key, _v in raw_values:
-        if key == "ktc" and is_slot_specific:
+        if key == "ktcSfTep" and is_slot_specific:
             effective_count += 0.5
         else:
             effective_count += 1.0
@@ -5641,9 +5639,9 @@ def _compute_unified_rankings(
     # (it'll go through the Hill path with its within-class rank,
     # which is the pre-fix behaviour — safer than silently breaking).
     _rookie_ladder_pairs = (
-        ("dlfRookieSf", "ktc", _OFFENSE_POSITIONS),
+        ("dlfRookieSf", "ktcSfTep", _OFFENSE_POSITIONS),
         ("dlfRookieIdp", "idpTradeCalc", _IDP_POSITIONS),
-        ("flockFantasySfRookies", "ktc", _OFFENSE_POSITIONS),
+        ("flockFantasySfRookies", "ktcSfTep", _OFFENSE_POSITIONS),
     )
     for rookie_key, ref_key, universe in _rookie_ladder_pairs:
         if rookie_key not in active_keys or ref_key not in active_keys:
@@ -6320,11 +6318,14 @@ def _compute_unified_rankings(
         )
 
         # Backward compatibility: set ktcRank / idpRank if applicable.
-        # ktcRank and idpRank carry the *effective* rank consumers are used
-        # to; for the backbone source (overall_idp) that's identical to the
-        # raw ordinal rank, so semantics are unchanged for idpTradeCalc.
-        if "ktc" in source_ranks:
-            row["ktcRank"] = source_ranks["ktc"]
+        # ktcRank and idpRank carry the *effective* rank consumers are
+        # used to.  Standard ``ktc`` was removed from the blend
+        # 2026-04-28 in favor of ``ktcSfTep`` (the TE+ board uses the
+        # same KTC scrape; for non-TE rows the rank ordering matches
+        # ``ktc`` exactly), so ``ktcRank`` now reflects the ktcSfTep
+        # ordinal rank — preserving the field name consumers know.
+        if "ktcSfTep" in source_ranks:
+            row["ktcRank"] = source_ranks["ktcSfTep"]
         if "idpTradeCalc" in source_ranks:
             row["idpRank"] = source_ranks["idpTradeCalc"]
 
@@ -6354,8 +6355,8 @@ def _compute_unified_rankings(
                         if v is not None and v > 0:
                             legacy_csv[k] = v
                             pdata[k] = v
-                if "ktc" in source_ranks:
-                    pdata["ktcRank"] = source_ranks["ktc"]
+                if "ktcSfTep" in source_ranks:
+                    pdata["ktcRank"] = source_ranks["ktcSfTep"]
                 if "idpTradeCalc" in source_ranks:
                     pdata["idpRank"] = source_ranks["idpTradeCalc"]
 

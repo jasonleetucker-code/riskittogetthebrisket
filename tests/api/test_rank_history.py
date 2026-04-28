@@ -511,7 +511,7 @@ class StampContract(unittest.TestCase):
                 ],
                 "players": {
                     # Mimic the production shape: no assetClass, no position.
-                    "Bare Legacy": {"ktc": 4200, "_composite": 4200},
+                    "Bare Legacy": {"ktcSfTep": 4200, "_composite": 4200},
                 },
             }
             rank_history.stamp_contract_with_history(contract, path=path)

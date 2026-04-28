@@ -69,7 +69,10 @@ def _make_player(name, position, *, ktc=None, idp=None, team="TST", sibling=None
     """
     sites = {}
     if ktc is not None:
-        sites["ktc"] = ktc
+        # Standard ``ktc`` was retired from the blend 2026-04-28; the
+        # ``ktcSfTep`` board is the canonical KTC offense source.  The
+        # ``ktc`` parameter name is preserved for fixture ergonomics.
+        sites["ktcSfTep"] = ktc
     if idp is not None:
         sites["idpTradeCalc"] = idp
     if sibling is not None:
@@ -102,8 +105,8 @@ def _payload_with_players(*player_dicts):
             positions[name] = pdata["position"]
     return {
         "players": players,
-        "sites": [{"key": "ktc"}, {"key": "idpTradeCalc"}],
-        "maxValues": {"ktc": 9999},
+        "sites": [{"key": "ktcSfTep"}, {"key": "idpTradeCalc"}],
+        "maxValues": {"ktcSfTep": 9999},
         "sleeper": {"positions": positions},
     }
 
@@ -165,9 +168,9 @@ class TestAnomalyFlags(unittest.TestCase):
             name="Patrick Mahomes",
             position="QB",
             asset_class="offense",
-            source_ranks={"ktc": 1},
+            source_ranks={"ktcSfTep": 1},
             rank_derived_value=9999,
-            canonical_sites={"ktc": 9999},
+            canonical_sites={"ktcSfTep": 9999},
         )
         self.assertEqual(flags, [])
 
@@ -187,9 +190,9 @@ class TestAnomalyFlags(unittest.TestCase):
             name="Fake Defender",
             position="LB",
             asset_class="idp",
-            source_ranks={"ktc": 100},
+            source_ranks={"ktcSfTep": 100},
             rank_derived_value=3000,
-            canonical_sites={"ktc": 300},
+            canonical_sites={"ktcSfTep": 300},
         )
         self.assertIn("idp_as_offense", flags)
 
@@ -198,9 +201,9 @@ class TestAnomalyFlags(unittest.TestCase):
             name="Mystery Man",
             position="?",
             asset_class="offense",
-            source_ranks={"ktc": 200},
+            source_ranks={"ktcSfTep": 200},
             rank_derived_value=2000,
-            canonical_sites={"ktc": 200},
+            canonical_sites={"ktcSfTep": 200},
         )
         self.assertIn("missing_position", flags)
 
@@ -209,9 +212,9 @@ class TestAnomalyFlags(unittest.TestCase):
             name="No Pos",
             position="",
             asset_class="offense",
-            source_ranks={"ktc": 200},
+            source_ranks={"ktcSfTep": 200},
             rank_derived_value=2000,
-            canonical_sites={"ktc": 200},
+            canonical_sites={"ktcSfTep": 200},
         )
         self.assertIn("missing_position", flags)
 
@@ -220,9 +223,9 @@ class TestAnomalyFlags(unittest.TestCase):
             name="Retired Player Test",
             position="QB",
             asset_class="offense",
-            source_ranks={"ktc": 300},
+            source_ranks={"ktcSfTep": 300},
             rank_derived_value=1500,
-            canonical_sites={"ktc": 150},
+            canonical_sites={"ktcSfTep": 150},
         )
         self.assertIn("retired_or_invalid_name", flags)
 
@@ -231,9 +234,9 @@ class TestAnomalyFlags(unittest.TestCase):
             name="Joe Lineman",
             position="OL",
             asset_class="offense",
-            source_ranks={"ktc": 400},
+            source_ranks={"ktcSfTep": 400},
             rank_derived_value=1000,
-            canonical_sites={"ktc": 100},
+            canonical_sites={"ktcSfTep": 100},
         )
         self.assertIn("ol_contamination", flags)
 
@@ -242,9 +245,9 @@ class TestAnomalyFlags(unittest.TestCase):
             name="Disagreed Player",
             position="QB",
             asset_class="offense",
-            source_ranks={"ktc": 10, "idpTradeCalc": 200},
+            source_ranks={"ktcSfTep": 10, "idpTradeCalc": 200},
             rank_derived_value=5000,
-            canonical_sites={"ktc": 9000, "idpTradeCalc": 500},
+            canonical_sites={"ktcSfTep": 9000, "idpTradeCalc": 500},
         )
         self.assertIn("suspicious_disagreement", flags)
 
@@ -253,9 +256,9 @@ class TestAnomalyFlags(unittest.TestCase):
             name="Agreed Player",
             position="QB",
             asset_class="offense",
-            source_ranks={"ktc": 10, "idpTradeCalc": 20},
+            source_ranks={"ktcSfTep": 10, "idpTradeCalc": 20},
             rank_derived_value=9000,
-            canonical_sites={"ktc": 9000, "idpTradeCalc": 8500},
+            canonical_sites={"ktcSfTep": 9000, "idpTradeCalc": 8500},
         )
         self.assertNotIn("suspicious_disagreement", flags)
 
@@ -264,9 +267,9 @@ class TestAnomalyFlags(unittest.TestCase):
             name="Zero Val Player",
             position="QB",
             asset_class="offense",
-            source_ranks={"ktc": 50},
+            source_ranks={"ktcSfTep": 50},
             rank_derived_value=0,
-            canonical_sites={"ktc": 500},
+            canonical_sites={"ktcSfTep": 500},
         )
         self.assertIn("impossible_value", flags)
 
@@ -275,9 +278,9 @@ class TestAnomalyFlags(unittest.TestCase):
             name="None Val Player",
             position="QB",
             asset_class="offense",
-            source_ranks={"ktc": 50},
+            source_ranks={"ktcSfTep": 50},
             rank_derived_value=None,
-            canonical_sites={"ktc": 500},
+            canonical_sites={"ktcSfTep": 500},
         )
         self.assertIn("impossible_value", flags)
 
@@ -291,23 +294,23 @@ class TestMarketGap(unittest.TestCase):
         # KTC (retail) rank 10, IDPTC (consensus) rank 50 → retail mean 10
         # vs consensus mean 50 → retail ranks the player 40 positions
         # higher → retail_premium.
-        direction, magnitude = _compute_market_gap({"ktc": 10, "idpTradeCalc": 50})
+        direction, magnitude = _compute_market_gap({"ktcSfTep": 10, "idpTradeCalc": 50})
         self.assertEqual(direction, "retail_premium")
         self.assertEqual(magnitude, 40.0)
 
     def test_consensus_premium_vs_single_consensus_source(self):
-        direction, magnitude = _compute_market_gap({"ktc": 80, "idpTradeCalc": 20})
+        direction, magnitude = _compute_market_gap({"ktcSfTep": 80, "idpTradeCalc": 20})
         self.assertEqual(direction, "consensus_premium")
         self.assertEqual(magnitude, 60.0)
 
     def test_equal_ranks(self):
-        direction, magnitude = _compute_market_gap({"ktc": 30, "idpTradeCalc": 30})
+        direction, magnitude = _compute_market_gap({"ktcSfTep": 30, "idpTradeCalc": 30})
         self.assertEqual(direction, "none")
         self.assertEqual(magnitude, 0.0)
 
     def test_retail_alone_returns_none(self):
         # Retail side has a rank, consensus side is empty → no gap.
-        direction, magnitude = _compute_market_gap({"ktc": 10})
+        direction, magnitude = _compute_market_gap({"ktcSfTep": 10})
         self.assertEqual(direction, "none")
         self.assertIsNone(magnitude)
 
@@ -321,7 +324,7 @@ class TestMarketGap(unittest.TestCase):
     def test_retail_vs_averaged_multi_source_consensus(self):
         # KTC 10 vs mean(IDPTC 50, DLF 70) = 60 → retail_premium of 50.
         direction, magnitude = _compute_market_gap(
-            {"ktc": 10, "idpTradeCalc": 50, "dlfIdp": 70}
+            {"ktcSfTep": 10, "idpTradeCalc": 50, "dlfIdp": 70}
         )
         self.assertEqual(direction, "retail_premium")
         self.assertEqual(magnitude, 50.0)
@@ -329,7 +332,7 @@ class TestMarketGap(unittest.TestCase):
     def test_consensus_premium_with_multi_source_consensus(self):
         # KTC 100 vs mean(IDPTC 30, DLF 40) = 35 → consensus_premium of 65.
         direction, magnitude = _compute_market_gap(
-            {"ktc": 100, "idpTradeCalc": 30, "dlfIdp": 40}
+            {"ktcSfTep": 100, "idpTradeCalc": 30, "dlfIdp": 40}
         )
         self.assertEqual(direction, "consensus_premium")
         self.assertEqual(magnitude, 65.0)
@@ -341,8 +344,8 @@ class TestMarketGap(unittest.TestCase):
         # retail_premium.  Verified via explicit retail_keys override so
         # we don't need to mutate the real registry.
         direction, magnitude = _compute_market_gap(
-            {"ktc": 10, "sleeperTrade": 30, "idpTradeCalc": 50, "dlfIdp": 70},
-            retail_keys=frozenset({"ktc", "sleeperTrade"}),
+            {"ktcSfTep": 10, "sleeperTrade": 30, "idpTradeCalc": 50, "dlfIdp": 70},
+            retail_keys=frozenset({"ktcSfTep", "sleeperTrade"}),
         )
         self.assertEqual(direction, "retail_premium")
         self.assertEqual(magnitude, 40.0)
@@ -351,8 +354,8 @@ class TestMarketGap(unittest.TestCase):
         # Symmetric two-retail test: retail mean = (80+90)/2 = 85;
         # consensus mean = (20+40)/2 = 30; consensus ranks 55 higher.
         direction, magnitude = _compute_market_gap(
-            {"ktc": 80, "sleeperTrade": 90, "idpTradeCalc": 20, "dlfIdp": 40},
-            retail_keys=frozenset({"ktc", "sleeperTrade"}),
+            {"ktcSfTep": 80, "sleeperTrade": 90, "idpTradeCalc": 20, "dlfIdp": 40},
+            retail_keys=frozenset({"ktcSfTep", "sleeperTrade"}),
         )
         self.assertEqual(direction, "consensus_premium")
         self.assertEqual(magnitude, 55.0)
@@ -413,7 +416,7 @@ class TestTwoSourceRow(_SecondOffenseSourceMixin, unittest.TestCase):
         self.assertFalse(row["isSingleSource"])
         self.assertIsNotNone(row["sourceRankSpread"])
         # Both offense sources exist
-        self.assertIn("ktc", row.get("sourceRanks", {}))
+        self.assertIn("ktcSfTep", row.get("sourceRanks", {}))
         self.assertIn("ktcMirror", row.get("sourceRanks", {}))
         # blendedSourceRank should be a number
         self.assertIsNotNone(row["blendedSourceRank"])
@@ -463,14 +466,15 @@ class TestPayloadLevelBlocks(unittest.TestCase):
         # fantasyProsIdp + flockFantasySf + footballGuysSf +
         # footballGuysIdp + yahooBoone + fantasyProsFitzmaurice +
         # dlfRookieSf + flockFantasySfRookies + dlfRookieIdp +
-        # draftSharks + draftSharksIdp (twenty sources as of
-        # 2026-04-26 when KTC TE+ sub-board was added).
-        self.assertEqual(len(meth["sources"]), 20)
+        # draftSharks + draftSharksIdp.  Standard ``ktc`` was
+        # retired from the blend 2026-04-28 in favor of ``ktcSfTep``
+        # alone (the prior 20-source count included both KTC variants
+        # as separate blend votes).
+        self.assertEqual(len(meth["sources"]), 19)
         keys = {s.get("key") for s in meth["sources"]}
         self.assertEqual(
             keys,
             {
-                "ktc",
                 "ktcSfTep",
                 "idpTradeCalc",
                 "dlfIdp",
@@ -502,7 +506,7 @@ class TestPayloadLevelBlocks(unittest.TestCase):
         self.assertIsNotNone(freshness)
         self.assertIn("generatedAt", freshness)
         self.assertIn("sourceTimestamps", freshness)
-        self.assertIn("ktc", freshness["sourceTimestamps"])
+        self.assertIn("ktcSfTep", freshness["sourceTimestamps"])
         self.assertIn("idpTradeCalc", freshness["sourceTimestamps"])
 
     def test_anomaly_summary_block_present(self):
@@ -656,8 +660,8 @@ class TestMultiFlagScenarios(unittest.TestCase):
         players.update(test_p)
         payload = {
             "players": players,
-            "sites": [{"key": "ktc"}, {"key": "idpTradeCalc"}],
-            "maxValues": {"ktc": 9999},
+            "sites": [{"key": "ktcSfTep"}, {"key": "idpTradeCalc"}],
+            "maxValues": {"ktcSfTep": 9999},
             "sleeper": {"positions": {k: v["position"] for k, v in players.items()}},
         }
         row = _build_and_find(payload, "Spread Guy")
@@ -821,7 +825,7 @@ class TestUnsupportedPositionRankingExclusion(unittest.TestCase):
                 "_sites": 1,
                 "position": position,
                 "team": "TST",
-                "_canonicalSiteValues": {"ktc": ktc_val},
+                "_canonicalSiteValues": {"ktcSfTep": ktc_val},
             }
         }
 

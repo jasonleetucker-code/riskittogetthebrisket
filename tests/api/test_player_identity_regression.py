@@ -454,7 +454,7 @@ class TestCanonicalIdentityUniqueness(unittest.TestCase):
                 "position": "QB",
                 "assetClass": "offense",
                 "playerId": None,
-                "canonicalSiteValues": {"ktc": 9000},
+                "canonicalSiteValues": {"ktcSfTep": 9000},
                 "anomalyFlags": [],
                 "confidenceBucket": "high",
                 "confidenceLabel": "",

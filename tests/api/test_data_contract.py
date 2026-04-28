@@ -32,8 +32,8 @@ def _minimal_raw_payload():
                 "team": "CIN",
             },
         },
-        "sites": [{"key": "ktc"}, {"key": "idpTradeCalc"}],
-        "maxValues": {"ktc": 9999},
+        "sites": [{"key": "ktcSfTep"}, {"key": "idpTradeCalc"}],
+        "maxValues": {"ktcSfTep": 9999},
         "sleeper": {"positions": {"Josh Allen": "QB", "Ja'Marr Chase": "WR"}},
     }
 
@@ -56,7 +56,7 @@ class TestComputeKtcRankings(unittest.TestCase):
             "assetClass": "offense",
             "values": {"overall": ktc, "rawComposite": ktc,
                        "finalAdjusted": ktc, "displayValue": None},
-            "canonicalSiteValues": {"ktc": ktc},
+            "canonicalSiteValues": {"ktcSfTep": ktc},
             "sourceCount": 1,
         }
 
@@ -106,7 +106,7 @@ class TestComputeKtcRankings(unittest.TestCase):
         rows = [self._make_player_row(f"P{i}", "WR", 9999 - i * 10) for i in range(60)]
         _compute_unified_rankings(rows, {})
         rank_50_row = next(r for r in rows if r.get("ktcRank") == 50)
-        raw_v = rank_50_row["canonicalSiteValues"]["ktc"]
+        raw_v = rank_50_row["canonicalSiteValues"]["ktcSfTep"]
         # site_max comes from the same pool → P0's value 9999.
         site_max = 9999
         expected_direct = int(round(raw_v / site_max * 9999.0))
@@ -162,7 +162,7 @@ class TestComputeKtcRankings(unittest.TestCase):
 
     def test_mirrors_to_legacy_players_dict(self):
         rows = [self._make_player_row("Josh Allen", "QB", 9000)]
-        legacy = {"Josh Allen": {"ktc": 9000, "_finalAdjusted": 9000}}
+        legacy = {"Josh Allen": {"ktcSfTep": 9000, "_finalAdjusted": 9000}}
         _compute_unified_rankings(rows, legacy)
         self.assertEqual(legacy["Josh Allen"]["ktcRank"], 1)
         self.assertEqual(legacy["Josh Allen"]["rankDerivedValue"], int(rank_to_value(1)))
@@ -173,15 +173,15 @@ class TestComputeKtcRankings(unittest.TestCase):
             "players": {
                 "Josh Allen": {
                     "_composite": 9000, "_rawComposite": 9000, "_finalAdjusted": 9000,
-                    "_canonicalSiteValues": {"ktc": 9000}, "position": "QB",
+                    "_canonicalSiteValues": {"ktcSfTep": 9000}, "position": "QB",
                 },
                 "Ja'Marr Chase": {
                     "_composite": 8500, "_rawComposite": 8500, "_finalAdjusted": 8500,
-                    "_canonicalSiteValues": {"ktc": 8500}, "position": "WR",
+                    "_canonicalSiteValues": {"ktcSfTep": 8500}, "position": "WR",
                 },
             },
-            "sites": [{"key": "ktc"}],
-            "maxValues": {"ktc": 9999},
+            "sites": [{"key": "ktcSfTep"}],
+            "maxValues": {"ktcSfTep": 9999},
             "sleeper": {"positions": {}},
         }
         contract = build_api_data_contract(raw)
@@ -197,10 +197,10 @@ class TestComputeKtcRankings(unittest.TestCase):
             "players": {
                 "Josh Allen": {
                     "_composite": 9000, "_rawComposite": 9000, "_finalAdjusted": 9000,
-                    "_canonicalSiteValues": {"ktc": 9000}, "position": "QB",
+                    "_canonicalSiteValues": {"ktcSfTep": 9000}, "position": "QB",
                 },
             },
-            "sites": [{"key": "ktc"}],
+            "sites": [{"key": "ktcSfTep"}],
             "maxValues": {},
             "sleeper": {"positions": {}},
         }
@@ -219,10 +219,10 @@ class TestComputeKtcRankings(unittest.TestCase):
             "players": {
                 "Josh Allen": {
                     "_composite": 9000, "_rawComposite": 9000, "_finalAdjusted": 9000,
-                    "_canonicalSiteValues": {"ktc": 9000}, "position": "QB",
+                    "_canonicalSiteValues": {"ktcSfTep": 9000}, "position": "QB",
                 },
             },
-            "sites": [{"key": "ktc"}],
+            "sites": [{"key": "ktcSfTep"}],
             "maxValues": {},
             "sleeper": {"positions": {}},
         }
@@ -254,7 +254,7 @@ class TestCanonicalConsensusRank(unittest.TestCase):
             "assetClass": "offense",
             "values": {"overall": ktc, "rawComposite": ktc,
                        "finalAdjusted": ktc, "displayValue": None},
-            "canonicalSiteValues": {"ktc": ktc},
+            "canonicalSiteValues": {"ktcSfTep": ktc},
             "sourceCount": 1,
         }
 
@@ -288,7 +288,7 @@ class TestCanonicalConsensusRank(unittest.TestCase):
 
     def test_canonical_consensus_rank_mirrored_to_legacy_dict(self):
         rows = [self._make_player_row("Josh Allen", "QB", 9000)]
-        legacy = {"Josh Allen": {"ktc": 9000}}
+        legacy = {"Josh Allen": {"ktcSfTep": 9000}}
         _compute_unified_rankings(rows, legacy)
         self.assertEqual(legacy["Josh Allen"]["_canonicalConsensusRank"], 1)
 
@@ -314,8 +314,8 @@ class TestRankChangeMirror(unittest.TestCase):
             {"legacyRef": "Puka Nacua", "rankChange": None, "confidenceBucket": "high"},
         ]
         legacy = {
-            "Josh Allen": {"ktc": 9000},
-            "Puka Nacua": {"ktc": 8800},
+            "Josh Allen": {"ktcSfTep": 9000},
+            "Puka Nacua": {"ktcSfTep": 8800},
         }
         _mirror_trust_to_legacy(players_array, legacy)
         self.assertEqual(legacy["Josh Allen"]["rankChange"], 3)
@@ -330,12 +330,12 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
                     "_composite": 8000,
                     "_rawComposite": 8000,
                     "_finalAdjusted": 7900,
-                    "_canonicalSiteValues": {"ktc": 7700},
+                    "_canonicalSiteValues": {"ktcSfTep": 7700},
                     "position": "WR",
                 },
             },
-            "sites": [{"key": "ktc"}, {"key": "idpTradeCalc"}],
-            "maxValues": {"ktc": 9999},
+            "sites": [{"key": "ktcSfTep"}, {"key": "idpTradeCalc"}],
+            "maxValues": {"ktcSfTep": 9999},
             "sleeper": {"positions": {"DJ Moore": "DB"}},
         }
         contract = build_api_data_contract(raw)
@@ -350,11 +350,11 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
                 "_composite": 5000,
                 "_rawComposite": 5000,
                 "_finalAdjusted": 5000,
-                "_canonicalSiteValues": {"ktc": 5000},
+                "_canonicalSiteValues": {"ktcSfTep": 5000},
                 "position": "DB",
             },
         }
-        payload["sites"] = [{"key": "ktc"}]
+        payload["sites"] = [{"key": "ktcSfTep"}]
         contract = build_api_data_contract(payload)
         report = validate_api_data_contract(contract)
         self.assertFalse(report["ok"])
@@ -367,7 +367,7 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
                 "_composite": 4000 - i,
                 "_rawComposite": 4000 - i,
                 "_finalAdjusted": 4000 - i,
-                "_canonicalSiteValues": {"ktc": 3000},
+                "_canonicalSiteValues": {"ktcSfTep": 3000},
                 "position": "WR",
             }
         players["Bobby Brown"] = {
@@ -379,8 +379,8 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
         }
         raw = {
             "players": players,
-            "sites": [{"key": "ktc"}, {"key": "idpTradeCalc"}],
-            "maxValues": {"ktc": 9999},
+            "sites": [{"key": "ktcSfTep"}, {"key": "idpTradeCalc"}],
+            "maxValues": {"ktcSfTep": 9999},
             "sleeper": {"positions": {}},
         }
         contract = build_api_data_contract(raw)
@@ -403,7 +403,7 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
                 "finalAdjusted": 100,
                 "displayValue": 100,
             },
-            "canonicalSiteValues": {"ktc": 100},
+            "canonicalSiteValues": {"ktcSfTep": 100},
             "sourceCount": 1,
         })
         payload["playersArray"].append({

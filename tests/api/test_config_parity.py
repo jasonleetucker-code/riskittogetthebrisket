@@ -36,22 +36,33 @@ CONFIG_DIR = REPO_ROOT / "config"
 
 # ── G2: every CSV path key must be a registered source ────────────────────
 class TestSourceCsvPathRegistryParity(unittest.TestCase):
+    # Sources that are intentionally loaded into ``canonicalSiteValues``
+    # for trade-finder / per-source winner display but do NOT vote in
+    # the blend.  Standard ``ktc`` was retired from the blend
+    # 2026-04-28 in favor of ``ktcSfTep`` (same scrape, TE+ values),
+    # but the standard CSV still loads so the KTC arbitrage finder +
+    # /trade per-source row can keep displaying both KTC variants.
+    DISPLAY_ONLY_CSV_KEYS: set[str] = {"ktc"}
+
     def test_source_csv_paths_have_registry_entries(self) -> None:
         from src.api.data_contract import _SOURCE_CSV_PATHS, _RANKING_SOURCES
 
         registry_keys = {str(s["key"]) for s in _RANKING_SOURCES}
         csv_keys = set(_SOURCE_CSV_PATHS.keys())
 
-        # Every CSV-mapped source must be in the registry.  The reverse
-        # direction is *not* enforced — some registry sources (e.g.
-        # picks-only synthetic entries) intentionally have no CSV.
-        orphans = sorted(csv_keys - registry_keys)
+        # Every CSV-mapped source must be in the registry OR the
+        # display-only allowlist.  The reverse direction is *not*
+        # enforced — some registry sources (e.g. picks-only synthetic
+        # entries) intentionally have no CSV.
+        orphans = sorted(csv_keys - registry_keys - self.DISPLAY_ONLY_CSV_KEYS)
         self.assertEqual(
             orphans,
             [],
             "_SOURCE_CSV_PATHS contains keys not registered in "
             f"_RANKING_SOURCES: {orphans}.  A scraper rename or registry "
-            "removal silently dropped this source from the live blend.",
+            "removal silently dropped this source from the live blend.  "
+            "If the source should load for display but not vote, add it "
+            "to DISPLAY_ONLY_CSV_KEYS.",
         )
 
 

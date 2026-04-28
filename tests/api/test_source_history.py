@@ -45,7 +45,7 @@ def test_append_then_load(path):
                 "name": "Malik Nabers",
                 "blended": 8154,
                 "rank": 17,
-                "sources": {"ktc": 7844, "fp_sf": 8580, "dlf_sf": 9720},
+                "sources": {"ktcSfTep": 7844, "fp_sf": 8580, "dlf_sf": 9720},
             },
         ],
         date="2026-04-23",
@@ -57,24 +57,24 @@ def test_append_then_load(path):
     assert hist["blended"][0]["value"] == 8154
     assert hist["blended"][0]["rank"] == 17
     assert hist["blended"][0]["derived"] is False
-    assert hist["sources"]["ktc"][0]["value"] == 7844
+    assert hist["sources"]["ktcSfTep"][0]["value"] == 7844
     assert hist["sources"]["fp_sf"][0]["value"] == 8580
 
 
 def test_dedupe_same_date(path):
     # Two writes on the same date — the second wins.
     source_history.append_snapshot(
-        _make_contract([{"name": "A", "blended": 1000, "sources": {"ktc": 900}}], date="2026-04-23"),
+        _make_contract([{"name": "A", "blended": 1000, "sources": {"ktcSfTep": 900}}], date="2026-04-23"),
         path=path,
     )
     source_history.append_snapshot(
-        _make_contract([{"name": "A", "blended": 1200, "sources": {"ktc": 1100}}], date="2026-04-23"),
+        _make_contract([{"name": "A", "blended": 1200, "sources": {"ktcSfTep": 1100}}], date="2026-04-23"),
         path=path,
     )
     hist = source_history.load_player_history("A", path=path)
     assert len(hist["blended"]) == 1
     assert hist["blended"][0]["value"] == 1200
-    assert hist["sources"]["ktc"][0]["value"] == 1100
+    assert hist["sources"]["ktcSfTep"][0]["value"] == 1100
 
 
 def test_multiple_dates_sorted(path):
@@ -83,17 +83,17 @@ def test_multiple_dates_sorted(path):
     # relies on the wall clock).  Tests must pass ``date=`` explicitly
     # to simulate historical writes.
     source_history.append_snapshot(
-        _make_contract([{"name": "A", "blended": 1000, "sources": {"ktc": 900}}]),
+        _make_contract([{"name": "A", "blended": 1000, "sources": {"ktcSfTep": 900}}]),
         date="2026-04-22",
         path=path,
     )
     source_history.append_snapshot(
-        _make_contract([{"name": "A", "blended": 1050, "sources": {"ktc": 950}}]),
+        _make_contract([{"name": "A", "blended": 1050, "sources": {"ktcSfTep": 950}}]),
         date="2026-04-23",
         path=path,
     )
     source_history.append_snapshot(
-        _make_contract([{"name": "A", "blended": 1100, "sources": {"ktc": 1000}}]),
+        _make_contract([{"name": "A", "blended": 1100, "sources": {"ktcSfTep": 1000}}]),
         date="2026-04-24",
         path=path,
     )
@@ -111,7 +111,7 @@ def test_retention_trims_to_max_snapshots(path):
     for i in range(200):
         d = (base + timedelta(days=i)).isoformat()
         source_history.append_snapshot(
-            _make_contract([{"name": "A", "blended": 1000 + i, "sources": {"ktc": 900 + i}}]),
+            _make_contract([{"name": "A", "blended": 1000 + i, "sources": {"ktcSfTep": 900 + i}}]),
             date=d,
             path=path,
             max_snapshots=180,
@@ -123,19 +123,19 @@ def test_retention_trims_to_max_snapshots(path):
 
 def test_case_insensitive_name_lookup(path):
     source_history.append_snapshot(
-        _make_contract([{"name": "Ja'Marr Chase", "blended": 9999, "sources": {"ktc": 9900}}], date="2026-04-23"),
+        _make_contract([{"name": "Ja'Marr Chase", "blended": 9999, "sources": {"ktcSfTep": 9900}}], date="2026-04-23"),
         path=path,
     )
     hist = source_history.load_player_history("ja'marr chase", path=path)
     assert hist["blended"][0]["value"] == 9999
-    assert hist["sources"]["ktc"][0]["value"] == 9900
+    assert hist["sources"]["ktcSfTep"][0]["value"] == 9900
 
 
 def test_derived_blend_from_median_when_blended_missing(path):
     # No ``rankDerivedValue`` on the row — loader should synthesize a
     # blended entry from the per-source median.
     contract = _make_contract(
-        [{"name": "X", "sources": {"ktc": 7000, "fp_sf": 7500, "dlf_sf": 8000}}],
+        [{"name": "X", "sources": {"ktcSfTep": 7000, "fp_sf": 7500, "dlf_sf": 8000}}],
         date="2026-04-23",
     )
     # Strip the blended stamp.
@@ -152,12 +152,12 @@ def test_canonical_sites_fallback(path):
     # Row has no sourceRankMeta, only canonicalSiteValues — the
     # legacy export shape.
     contract = _make_contract(
-        [{"name": "L", "canonicalSites": {"ktc": 8100, "fp_sf": 8400}}],
+        [{"name": "L", "canonicalSites": {"ktcSfTep": 8100, "fp_sf": 8400}}],
         date="2026-04-23",
     )
     source_history.append_snapshot(contract, path=path)
     hist = source_history.load_player_history("L", path=path)
-    assert hist["sources"]["ktc"][0]["value"] == 8100
+    assert hist["sources"]["ktcSfTep"][0]["value"] == 8100
     assert hist["sources"]["fp_sf"][0]["value"] == 8400
 
 
@@ -171,13 +171,13 @@ def test_asset_class_disambiguation(path):
                 "name": "James Williams",
                 "blended": 5000,
                 "assetClass": "offense",
-                "sources": {"ktc": 5200},
+                "sources": {"ktcSfTep": 5200},
             },
             {
                 "name": "James Williams",
                 "blended": 3000,
                 "assetClass": "idp",
-                "sources": {"ktc": 3100},
+                "sources": {"ktcSfTep": 3100},
             },
         ],
         date="2026-04-23",
@@ -191,7 +191,7 @@ def test_asset_class_disambiguation(path):
 
 def test_missing_player_returns_empty(path):
     source_history.append_snapshot(
-        _make_contract([{"name": "A", "blended": 1000, "sources": {"ktc": 900}}]),
+        _make_contract([{"name": "A", "blended": 1000, "sources": {"ktcSfTep": 900}}]),
         path=path,
     )
     hist = source_history.load_player_history("Unknown", path=path)
@@ -203,7 +203,7 @@ def test_missing_player_returns_empty(path):
 def test_backfill_from_exports_merges_with_existing(tmp_path, path):
     # Seed an existing snapshot for 2026-04-23 via the live path.
     source_history.append_snapshot(
-        _make_contract([{"name": "A", "blended": 9999, "sources": {"ktc": 9000}}], date="2026-04-23"),
+        _make_contract([{"name": "A", "blended": 9999, "sources": {"ktcSfTep": 9000}}], date="2026-04-23"),
         date="2026-04-23",
         path=path,
     )
@@ -211,7 +211,7 @@ def test_backfill_from_exports_merges_with_existing(tmp_path, path):
     export = tmp_path / "dynasty_data_2026-04-20.json"
     export.write_text(json.dumps({
         "date": "2026-04-20",
-        "players": {"A": {"ktc": 8000, "dlfSf": 8500, "_canonicalSiteValues": {"ktc": 8000, "dlfSf": 8500}}},
+        "players": {"A": {"ktcSfTep": 8000, "dlfSf": 8500, "_canonicalSiteValues": {"ktcSfTep": 8000, "dlfSf": 8500}}},
     }))
 
     written = source_history.backfill_from_exports([export], path=path)

@@ -62,26 +62,26 @@ describe("confBadgeLabel", () => {
 describe("marketGapLabel", () => {
   it("returns KTC label when KTC ranks higher than consensus mean", () => {
     // KTC 5 vs mean(IDPTC 50) = 50 → KTC premium 45
-    expect(marketGapLabel({ sourceRanks: { ktc: 5, idpTradeCalc: 50 } })).toBe("KTC +45");
+    expect(marketGapLabel({ sourceRanks: { ktcSfTep: 5, idpTradeCalc: 50 } })).toBe("KTC TE+ +45");
   });
   it("returns Consensus label when consensus mean ranks higher than KTC", () => {
     // KTC 80 vs mean(IDPTC 10) = 10 → Consensus premium 70
-    expect(marketGapLabel({ sourceRanks: { ktc: 80, idpTradeCalc: 10 } })).toBe("Consensus +70");
+    expect(marketGapLabel({ sourceRanks: { ktcSfTep: 80, idpTradeCalc: 10 } })).toBe("Consensus +70");
   });
   it("averages multiple consensus sources", () => {
     // KTC 10 vs mean(IDPTC 50, DLF 70) = 60 → KTC premium 50
     expect(
-      marketGapLabel({ sourceRanks: { ktc: 10, idpTradeCalc: 50, dlfIdp: 70 } })
-    ).toBe("KTC +50");
+      marketGapLabel({ sourceRanks: { ktcSfTep: 10, idpTradeCalc: 50, dlfIdp: 70 } })
+    ).toBe("KTC TE+ +50");
   });
   it("returns null for small differences", () => {
-    expect(marketGapLabel({ sourceRanks: { ktc: 10, idpTradeCalc: 15 } })).toBeNull();
+    expect(marketGapLabel({ sourceRanks: { ktcSfTep: 10, idpTradeCalc: 15 } })).toBeNull();
   });
   it("returns null when KTC is missing", () => {
     expect(marketGapLabel({ sourceRanks: { idpTradeCalc: 20, dlfIdp: 30 } })).toBeNull();
   });
   it("returns null when only KTC is present", () => {
-    expect(marketGapLabel({ sourceRanks: { ktc: 10 } })).toBeNull();
+    expect(marketGapLabel({ sourceRanks: { ktcSfTep: 10 } })).toBeNull();
   });
   it("returns null for no sourceRanks", () => {
     expect(marketGapLabel({})).toBeNull();
@@ -95,7 +95,7 @@ describe("marketGapLabel", () => {
     // reflects the post-Hampel set the backend uses for its own
     // marketGapDirection — frontend must agree.
     const row = {
-      sourceRanks: { ktc: 200, idpTradeCalc: 10, dlfIdp: 20 },
+      sourceRanks: { ktcSfTep: 200, idpTradeCalc: 10, dlfIdp: 20 },
       effectiveSourceRanks: { idpTradeCalc: 10, dlfIdp: 20 },
     };
     // KTC dropped → no retail rank → null per the "KTC missing" rule.
@@ -105,10 +105,10 @@ describe("marketGapLabel", () => {
     // Legacy / pre-Hampel payloads stamp effectiveSourceRanks as {}.
     // Display helpers must still work off sourceRanks in that case.
     const row = {
-      sourceRanks: { ktc: 5, idpTradeCalc: 50 },
+      sourceRanks: { ktcSfTep: 5, idpTradeCalc: 50 },
       effectiveSourceRanks: {},
     };
-    expect(marketGapLabel(row)).toBe("KTC +45");
+    expect(marketGapLabel(row)).toBe("KTC TE+ +45");
   });
 });
 
@@ -163,7 +163,7 @@ describe("marketAction", () => {
   // Retail = ktc by default; everything else = expert/consensus.
   function _row({ ktc, dlf, fc }) {
     const sourceRanks = {};
-    if (ktc != null) sourceRanks.ktc = ktc;
+    if (ktc != null) sourceRanks.ktcSfTep = ktc;
     if (dlf != null) sourceRanks.dlf = dlf;
     if (fc != null) sourceRanks.fc = fc;
     return { sourceRanks };
@@ -295,7 +295,7 @@ describe("idpMarketAction", () => {
     // KTC's offense rank should NOT count toward IDP consensus.
     const a = idpMarketAction({
       assetClass: "idp",
-      sourceRanks: { idpTradeCalc: 50, ktc: 1, dlfIdp: 12, fantasyProsIdp: 14 },
+      sourceRanks: { idpTradeCalc: 50, ktcSfTep: 1, dlfIdp: 12, fantasyProsIdp: 14 },
     });
     // Experts mean = (12+14)/2 = 13 vs IDPTC 50 → BUY (consensus_higher)
     expect(a.label).toBe("BUY");

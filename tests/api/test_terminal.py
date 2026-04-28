@@ -459,7 +459,7 @@ def test_value_history_fallback_covers_when_rank_history_missing(tmp_path, monke
                         "assetClass": "offense",
                         "position": "QB",
                         "rankDerivedValue": 9000 - i * 2,
-                        "sourceRankMeta": {"ktc": {"valueContribution": 9000 - i * 2}},
+                        "sourceRankMeta": {"ktcSfTep": {"valueContribution": 9000 - i * 2}},
                     },
                     {
                         "displayName": "Bob",
@@ -467,7 +467,7 @@ def test_value_history_fallback_covers_when_rank_history_missing(tmp_path, monke
                         "assetClass": "offense",
                         "position": "WR",
                         "rankDerivedValue": 8000 - i,
-                        "sourceRankMeta": {"ktc": {"valueContribution": 8000 - i}},
+                        "sourceRankMeta": {"ktcSfTep": {"valueContribution": 8000 - i}},
                     },
                 ]
             },

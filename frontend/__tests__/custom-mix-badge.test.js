@@ -49,9 +49,9 @@ describe("describeCustomMix", () => {
   it("returns active:false when isCustomized is false", () => {
     const rankingsOverride = {
       isCustomized: false,
-      enabledSources: ["ktc", "idpTradeCalc", "dlfSf"],
-      weights: { ktc: 1.0, dlfSf: 1.0 },
-      defaults: { ktc: 1.0, dlfSf: 1.0 },
+      enabledSources: ["ktcSfTep", "idpTradeCalc", "dlfSf"],
+      weights: { ktcSfTep: 1.0, dlfSf: 1.0 },
+      defaults: { ktcSfTep: 1.0, dlfSf: 1.0 },
       received: {},
     };
     const result = describeCustomMix(rankingsOverride);
@@ -65,13 +65,13 @@ describe("describeCustomMix", () => {
     const rankingsOverride = {
       isCustomized: true,
       enabledSources: ["idpTradeCalc", "dlfSf", "dynastyNerdsSfTep", "fantasyProsIdp", "dlfIdp"],
-      weights: { ktc: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
-      defaults: { ktc: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
-      received: { ktc: { include: false } },
+      weights: { ktcSfTep: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
+      defaults: { ktcSfTep: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
+      received: { ktcSfTep: { include: false } },
     };
     const result = describeCustomMix(rankingsOverride);
     expect(result.active).toBe(true);
-    expect(result.disabled).toEqual(["KTC"]);
+    expect(result.disabled).toEqual(["KTC TE+"]);
     expect(result.reweighted).toEqual([]);
     expect(result.summary).toBe("(1 disabled)");
   });
@@ -79,9 +79,9 @@ describe("describeCustomMix", () => {
   it("populates reweighted list for a non-default weight", () => {
     const rankingsOverride = {
       isCustomized: true,
-      enabledSources: ["ktc", "idpTradeCalc", "dlfSf", "dynastyNerdsSfTep", "fantasyProsIdp", "dlfIdp"],
-      weights: { ktc: 1.0, idpTradeCalc: 1.0, dlfSf: 0.5, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
-      defaults: { ktc: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
+      enabledSources: ["ktcSfTep", "idpTradeCalc", "dlfSf", "dynastyNerdsSfTep", "fantasyProsIdp", "dlfIdp"],
+      weights: { ktcSfTep: 1.0, idpTradeCalc: 1.0, dlfSf: 0.5, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
+      defaults: { ktcSfTep: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
       received: { dlfSf: { weight: 0.5 } },
     };
     const result = describeCustomMix(rankingsOverride);
@@ -95,16 +95,16 @@ describe("describeCustomMix", () => {
     const rankingsOverride = {
       isCustomized: true,
       enabledSources: ["idpTradeCalc", "dlfSf", "dynastyNerdsSfTep", "fantasyProsIdp", "dlfIdp"],
-      weights: { ktc: 1.0, idpTradeCalc: 1.0, dlfSf: 2.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
-      defaults: { ktc: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
+      weights: { ktcSfTep: 1.0, idpTradeCalc: 1.0, dlfSf: 2.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
+      defaults: { ktcSfTep: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
       received: {
-        ktc: { include: false },
+        ktcSfTep: { include: false },
         dlfSf: { weight: 2.0 },
       },
     };
     const result = describeCustomMix(rankingsOverride);
     expect(result.active).toBe(true);
-    expect(result.disabled).toEqual(["KTC"]);
+    expect(result.disabled).toEqual(["KTC TE+"]);
     expect(result.reweighted).toEqual(["DLF SF 1.0→2.0"]);
     expect(result.summary).toBe("(1 disabled, 1 reweighted)");
   });
@@ -113,10 +113,10 @@ describe("describeCustomMix", () => {
     const rankingsOverride = {
       isCustomized: true,
       enabledSources: ["dlfSf", "dynastyNerdsSfTep"],
-      weights: { ktc: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
-      defaults: { ktc: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
+      weights: { ktcSfTep: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
+      defaults: { ktcSfTep: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
       received: {
-        ktc: { include: false },
+        ktcSfTep: { include: false },
         idpTradeCalc: { include: false },
         fantasyProsIdp: { include: false },
         dlfIdp: { include: false },
@@ -124,7 +124,7 @@ describe("describeCustomMix", () => {
     };
     const result = describeCustomMix(rankingsOverride);
     expect(result.active).toBe(true);
-    expect(result.disabled).toEqual(["KTC", "IDPTC", "DLF IDP", "FP IDP"]);
+    expect(result.disabled).toEqual(["KTC TE+", "IDPTC", "DLF IDP", "FP IDP"]);
     expect(result.reweighted).toEqual([]);
     expect(result.summary).toBe("(4 disabled)");
   });
@@ -137,9 +137,9 @@ describe("describeCustomMix", () => {
     // should be empty — there is nothing to enumerate in the popover.
     const rankingsOverride = {
       isCustomized: true,
-      enabledSources: ["ktc", "idpTradeCalc", "dlfSf", "dynastyNerdsSfTep", "fantasyProsIdp", "dlfIdp"],
-      weights: { ktc: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
-      defaults: { ktc: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
+      enabledSources: ["ktcSfTep", "idpTradeCalc", "dlfSf", "dynastyNerdsSfTep", "fantasyProsIdp", "dlfIdp"],
+      weights: { ktcSfTep: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
+      defaults: { ktcSfTep: 1.0, idpTradeCalc: 1.0, dlfSf: 1.0, dynastyNerdsSfTep: 1.0, fantasyProsIdp: 1.0, dlfIdp: 1.0 },
       received: {},
     };
     const result = describeCustomMix(rankingsOverride);

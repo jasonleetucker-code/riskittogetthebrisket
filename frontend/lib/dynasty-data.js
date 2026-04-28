@@ -211,38 +211,20 @@ export function resolvedRank(row) {
 // never acts on the scope — the backend computes every rank.
 export const RANKING_SOURCES = [
   {
-    // KeepTradeCut is the retail offense market — community trade values
-    // scraped from a public-facing trade calculator.  This is what casual
-    // trade partners see and anchor on, so it's flagged `isRetail: true`
-    // and fed into the market-gap signal as the "retail" side against
-    // every other (expert) source.  Mirrors the `is_retail: True` flag
-    // on the backend `_RANKING_SOURCES` entry in src/api/data_contract.py.
-    key: "ktc",
-    displayName: "KeepTradeCut",
-    columnLabel: "KTC",
-    scope: "overall_offense",
-    positionGroup: null,
-    depth: null,
-    weight: 1.0,
-    isBackbone: false,
-    isRetail: true,
-    // KTC is a standard SF community trade calculator — the default
-    // scraped view does NOT bake in TE premium.  The per-row TE boost
-    // from `settings.tepMultiplier` (see trade-logic.js::effectiveValue)
-    // applies to KTC's contribution on the blended board.
-    isTepPremium: false,
-  },
-  {
-    // KeepTradeCut Superflex + TE Premium sub-board.  Sourced from
-    // the same scrape as `ktc` — KTC's per-player API response
-    // carries `superflexValues.tep` (level 1, "TE+") alongside the
-    // base `superflexValues.value`, so one Dynasty Scraper run
-    // produces both CSVs.  Registered as its own source so the
-    // per-source winner row in the trade page can show "KTC TE+"
-    // next to "KTC" — users on TE Premium scoring get a row that
-    // matches keeptradecut.com's TE+ display directly instead of the
-    // standard-SF row that disagrees with their league setup.  Mirrors
-    // the backend `_RANKING_SOURCES` entry in src/api/data_contract.py.
+    // KeepTradeCut TE+ Superflex board — the canonical KTC retail
+    // signal as of 2026-04-28.  KTC publishes both a standard SF
+    // view and a TE+ sub-board from the same per-player API payload
+    // (``superflexValues.value`` + ``superflexValues.tep`` level 1),
+    // and one scrape produces both CSVs.  Historically both were
+    // registered as separate blend sources, but the standard ``ktc``
+    // vote duplicated this one (identical values for non-TE rows;
+    // TEP-correction converged them on TE rows), so it was retired
+    // from the blend.  The standard ``ktc`` raw value is still loaded
+    // into ``canonicalSiteValues`` (free side-effect of the same
+    // scrape) so the KTC arbitrage finder + per-source winner row on
+    // /trade can keep displaying both side-by-side; only the blend
+    // vote was removed.  Mirrors the `is_retail: True` flag on the
+    // backend `_RANKING_SOURCES` entry.
     key: "ktcSfTep",
     displayName: "KeepTradeCut SF-TEP",
     columnLabel: "KTC TE+",
@@ -251,7 +233,7 @@ export const RANKING_SOURCES = [
     depth: null,
     weight: 1.0,
     isBackbone: false,
-    isRetail: false,
+    isRetail: true,
     isTepPremium: true,
   },
   {

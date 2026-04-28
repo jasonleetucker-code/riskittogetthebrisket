@@ -31,7 +31,10 @@ def _make_row(
 ) -> dict[str, Any]:
     sites: dict[str, Any] = {}
     if ktc is not None:
-        sites["ktc"] = ktc
+        # Standard ``ktc`` was retired from the blend 2026-04-28;
+        # ``ktcSfTep`` is the canonical KTC offense market anchor.
+        # The ``ktc`` parameter name preserved for fixture ergonomics.
+        sites["ktcSfTep"] = ktc
     if idpTradeCalc is not None:
         sites["idpTradeCalc"] = idpTradeCalc
     return {
@@ -47,7 +50,9 @@ def _make_row(
 
 class TestMarketAnchorSelection(unittest.TestCase):
     def test_offense_uses_ktc(self):
-        self.assertEqual(_MARKET_ANCHOR_BY_ASSET_CLASS["offense"], "ktc")
+        # Offense anchor moved from ``ktc`` → ``ktcSfTep`` 2026-04-28
+        # when standard KTC was retired from the blend.
+        self.assertEqual(_MARKET_ANCHOR_BY_ASSET_CLASS["offense"], "ktcSfTep")
 
     def test_idp_uses_idptc(self):
         self.assertEqual(_MARKET_ANCHOR_BY_ASSET_CLASS["idp"], "idpTradeCalc")
