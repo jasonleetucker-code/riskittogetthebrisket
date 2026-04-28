@@ -93,6 +93,12 @@ def _ros_championship_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     return championship.build_section(snapshot)
 
 
+def _ros_trade_deadline_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+    """Lazy-import wrapper for src.ros.trade_deadline."""
+    from src.ros import trade_deadline  # noqa: PLC0415
+    return trade_deadline.build_section(snapshot)
+
+
 _LAZY_SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] = {
     "playoffOdds": playoff_odds.build_section,
     "rosTeamStrength": _ros_api.build_section,
@@ -105,6 +111,10 @@ _LAZY_SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any
     "rosPlayoffOdds": _ros_playoff_section,
     # Championship Monte Carlo.  No v1 equivalent — new section.
     "rosChampionship": _ros_championship_section,
+    # Trade-deadline dashboard: per-team buyer/seller direction.
+    # Combines cached playoff + championship + team-strength + roster
+    # age into one informational rollup.  No v1 equivalent.
+    "rosTradeDeadline": _ros_trade_deadline_section,
 }
 
 # Derived overview is a first-class section key the UI can fetch just
