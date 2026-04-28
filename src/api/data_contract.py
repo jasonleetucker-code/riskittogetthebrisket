@@ -7520,10 +7520,43 @@ def assert_no_unexplained_single_source(
     An empty list means every flagged 1-src player in the top N is
     either fixed or explicitly justified in ``SINGLE_SOURCE_ALLOWLIST``.
     """
+    # Quarantine flags that represent identity / join regressions this
+    # gate is specifically designed to surface — never skip rows that
+    # carry any of these even when the same row also carries
+    # ``no_valid_source_values``.  Mirrors ``_QUARANTINE_FLAGS`` minus
+    # the transient no-value bucket; kept as a local literal so this
+    # public helper doesn't take a hidden module-private dependency.
+    _REGRESSION_QUARANTINE_FLAGS = (
+        "duplicate_canonical_identity",
+        "position_source_contradiction",
+        "unsupported_position",
+    )
     unexplained: list[dict[str, Any]] = []
     for row in players_array:
         rank = row.get("canonicalConsensusRank")
         if rank is None or rank > rank_limit:
+            continue
+        # Skip rows quarantined PURELY for ``no_valid_source_values``
+        # (i.e. carrying that flag and none of the regression flags
+        # above).  Those are fringe rookies / IDPs whose CSV stamps
+        # round to zero across every source; they trip
+        # ``isSingleSource`` the moment the daily refresh nudges their
+        # consensus rank into the top-N cap, even though the
+        # quarantine gate (``test_quarantined_under_threshold``)
+        # already surfaces the same row.
+        #
+        # Membership-only check (``"no_valid_source_values" in flags``)
+        # would let a mixed-flag row — quarantined for both
+        # no-value AND a real identity regression — silently slip
+        # through this gate.  Codex PR #357 P1 review caught that;
+        # the exclusive check below preserves the cascade
+        # suppression while keeping the join-regression intent.
+        anomaly_flags = row.get("anomalyFlags") or []
+        if (
+            row.get("quarantined")
+            and "no_valid_source_values" in anomaly_flags
+            and not any(f in anomaly_flags for f in _REGRESSION_QUARANTINE_FLAGS)
+        ):
             continue
         audit = row.get("sourceAudit") or {}
         if audit.get("reason") != "matching_failure_other_sources_eligible":
