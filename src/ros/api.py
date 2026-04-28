@@ -140,6 +140,80 @@ async def get_team_strength(request: Request, leagueKey: str | None = None) -> J
     return JSONResponse({"teams": snapshot, "leagueKey": leagueKey})
 
 
+@router.get("/health")
+async def get_health() -> JSONResponse:
+    """Combined ROS pipeline health snapshot.
+
+    Bundles per-source last-run state, aggregate freshness, sim
+    cache ages, team-strength snapshot age + team count, and total
+    unmapped-roster-player counts in one payload so the
+    /tools/ros-data-health page renders without N+1 fetches.
+    """
+    import os
+    import time
+
+    index = _read_json(ROS_DATA_DIR / "runs" / "index.json") or {}
+    aggregate = _read_json(ROS_DATA_DIR / "aggregate" / "latest.json") or {}
+    team_strength = load_team_strength_snapshot() or []
+    playoff_path = ROS_DATA_DIR / "sims" / "latest_playoff.json"
+    champ_path = ROS_DATA_DIR / "sims" / "latest_championship.json"
+
+    def _file_age_seconds(path) -> float | None:
+        try:
+            return time.time() - os.path.getmtime(path)
+        except OSError:
+            return None
+
+    def _iso_to_age_seconds(iso: str | None) -> float | None:
+        if not iso:
+            return None
+        try:
+            when = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        return (
+            datetime.now(timezone.utc) - when.astimezone(timezone.utc)
+        ).total_seconds()
+
+    unmapped_total = sum(
+        int(t.get("unmappedPlayerCount") or 0) for t in team_strength
+    )
+
+    return JSONResponse(
+        {
+            "rebuiltAt": index.get("rebuiltAt"),
+            "freshness": _classify_overall_freshness(index),
+            "sources": index.get("sources") or {},
+            "aggregate": {
+                "aggregatedAt": aggregate.get("aggregatedAt"),
+                "playerCount": aggregate.get("playerCount")
+                or len(aggregate.get("players") or []),
+                "sourceCount": aggregate.get("sourceCount"),
+                "ageSeconds": _iso_to_age_seconds(aggregate.get("aggregatedAt")),
+            },
+            "teamStrength": {
+                "teamCount": len(team_strength),
+                "unmappedTotal": unmapped_total,
+                "perTeam": [
+                    {
+                        "teamName": t.get("teamName"),
+                        "teamRosStrength": t.get("teamRosStrength"),
+                        "unmappedPlayerCount": t.get("unmappedPlayerCount"),
+                        "rank": t.get("rank"),
+                    }
+                    for t in team_strength
+                ],
+            },
+            "sims": {
+                "playoffAgeSeconds": _file_age_seconds(playoff_path),
+                "championshipAgeSeconds": _file_age_seconds(champ_path),
+                "playoffExists": playoff_path.exists(),
+                "championshipExists": champ_path.exists(),
+            },
+        }
+    )
+
+
 @router.post("/refresh")
 async def post_refresh(request: Request) -> JSONResponse:
     """Admin-only manual scrape trigger.

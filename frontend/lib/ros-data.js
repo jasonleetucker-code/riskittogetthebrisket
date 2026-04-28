@@ -42,6 +42,16 @@ export async function fetchRosPlayerValues({ limit = 500 } = {}) {
 }
 
 /**
+ * Combined ROS pipeline health snapshot — backend bundles per-source
+ * status, aggregate freshness, sims cache age, team-strength
+ * snapshot age + unmapped totals so the diagnostic page renders
+ * without N+1 fetches.  Used by /tools/ros-data-health.
+ */
+export async function fetchRosHealth() {
+  return _getJson("/api/ros/health");
+}
+
+/**
  * React hook: lazy-fetch ROS team strength for the active league.
  * Returns ``{ data, loading, error }``.  Consumers re-render when the
  * leagueKey changes.
