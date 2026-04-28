@@ -44,6 +44,22 @@ CSVs/dynasty_full.csv
 CSVs/dynasty_values.csv
 data/
 exports/
+# ROS pipeline keeps the directory tree + manual mapping overrides
+# in source control so a fresh checkout has the layout in place.
+# Generated scrape outputs (CSVs, run JSONs, aggregate snapshots,
+# sims, team-strength) stay gitignored under data/.
+!data/ros/
+data/ros/sources/*
+!data/ros/sources/.gitkeep
+data/ros/runs/*
+!data/ros/runs/.gitkeep
+data/ros/aggregate/*
+!data/ros/aggregate/.gitkeep
+data/ros/team_strength/*
+!data/ros/team_strength/.gitkeep
+data/ros/sims/*
+!data/ros/sims/.gitkeep
+!data/ros/mapping_overrides.json
 
 # Temporary sync artifacts (created by sync.bat or manual operations)
 tmp_sync_*/

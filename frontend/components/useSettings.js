@@ -99,6 +99,32 @@ export const SETTINGS_DEFAULTS = {
   // explicitly, auto-select never overrides their choice on that
   // league — even if their League A pick was implicit.
   selectedTeamTouchedByLeague: {},
+
+  // ── Rest-of-Season (ROS) engine flags ─────────────────────────────
+  // The ROS layer is a separate short-term contender system — it
+  // never modifies dynasty values or trade math.  These flags gate
+  // the new UI surfaces (added in PR1; PR2-5 wire more consumers).
+  rosEnabled: true,
+  // PR2 ships ros-power as a side-by-side alternative to the existing
+  // power.py-based section.  Default false so ros-power is opt-in
+  // until validated; when the user flips it true, the league page
+  // swaps the Power tab to the ROS-driven version.
+  useRosPowerRankings: false,
+  // PR3 ships ros-playoff-odds.  Same opt-in pattern.
+  useRosPlayoffOdds: false,
+  // PR4 ships the trade-calculator ROS-fit panel + player-popup tags.
+  showRosTradePanel: true,
+  showRosTags: true,
+  // PR3 Monte Carlo iteration count.  10k is enough for stable
+  // playoff/championship odds; 50k for tighter tail estimates.
+  rosSimulationCount: 10000,
+  // TE premium adjustment for non-TEP-native ROS sources.  Capped
+  // at 0.15 (matches spec).  0 disables the adjustment entirely.
+  rosTepBoost: 0.05,
+  // Per-source overrides that mirror dynasty's ``siteWeights`` shape.
+  // ``{ [sourceKey]: { enabled: bool, weight: number } }``.  Empty
+  // means "use registry defaults".
+  rosSourceOverrides: {},
 };
 
 // ── localStorage helpers ────────────────────────────────────────────────
