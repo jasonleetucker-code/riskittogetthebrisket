@@ -78,22 +78,27 @@ def _percentile(values: list[float], target: float) -> float:
     return (below + 0.5 * same) / len(eligible)
 
 
-def _load_team_strength_percentiles() -> dict[str, float]:
-    """Read the latest ROS team-strength snapshot and convert each
-    team's composite score to a percentile in [0, 1] keyed by
-    ownerId.  Returns an empty dict when the snapshot is missing —
-    the caller treats absent percentiles as 0.0 (worst) and the
-    formula-renormalisation below compensates.
+def _load_team_strength_rows() -> list[dict[str, Any]]:
+    """Read raw rows from `data/ros/team_strength/latest.json`.
+    Returns [] when the snapshot is missing or unparsable.
     """
     path = ROS_DATA_DIR / "team_strength" / "latest.json"
     if not path.exists():
-        return {}
+        return []
     try:
         rows = json.loads(path.read_text())
     except (json.JSONDecodeError, OSError):
-        return {}
+        return []
+    return rows or []
+
+
+def _load_team_strength_percentiles() -> dict[str, float]:
+    """Convert team-strength composite to a percentile per ownerId.
+    Empty dict when no snapshot — caller renormalises weights.
+    """
+    rows = _load_team_strength_rows()
     scores: list[tuple[str, float]] = []
-    for r in rows or []:
+    for r in rows:
         oid = str(r.get("ownerId") or "")
         if not oid:
             continue
@@ -101,6 +106,60 @@ def _load_team_strength_percentiles() -> dict[str, float]:
         scores.append((oid, score))
     score_values = [s for _, s in scores]
     return {oid: _percentile(score_values, score) for oid, score in scores}
+
+
+def _load_roster_health_scores(rows: list[dict[str, Any]]) -> dict[str, float]:
+    """Per-owner roster_health in [0, 1] from team-strength snapshot.
+
+    The team-strength file stores ``healthAvailabilityScore`` already
+    in [0, 100] (share of starting lineup not flagged injured/bye).
+    Divide by 100 so it slots into the unit-scaled formula directly.
+    """
+    out: dict[str, float] = {}
+    for r in rows:
+        oid = str(r.get("ownerId") or "")
+        if not oid:
+            continue
+        out[oid] = max(
+            0.0,
+            min(1.0, float(r.get("healthAvailabilityScore") or 0.0) / 100.0),
+        )
+    return out
+
+
+def _schedule_adjusted_scores(
+    snapshot: PublicLeagueSnapshot,
+    team_strength_pcts: dict[str, float],
+) -> dict[str, float]:
+    """Per-owner schedule difficulty score in [0, 1].
+
+    For each team, look up every remaining regular-season opponent
+    and average their team-strength percentile.  Easier schedules
+    average *low* opponent strength, so the score is the inverse:
+    ``1 - mean(opponent_strength_percentiles)``.
+
+    Empty dict when team-strength is absent or no remaining matchups
+    can be inferred — the caller's missing_inputs renormalisation
+    keeps absent metrics from deflating scores.
+    """
+    if not team_strength_pcts:
+        return {}
+    # Lazy import keeps this module's import path acyclic.
+    from src.ros import playoff_sim  # noqa: PLC0415
+
+    schedule = playoff_sim._remaining_schedule(snapshot)
+    opponents: dict[str, list[float]] = defaultdict(list)
+    for _week, owner_a, owner_b in schedule:
+        if owner_b in team_strength_pcts:
+            opponents[owner_a].append(team_strength_pcts[owner_b])
+        if owner_a in team_strength_pcts:
+            opponents[owner_b].append(team_strength_pcts[owner_a])
+    out: dict[str, float] = {}
+    for oid, op_pcts in opponents.items():
+        if not op_pcts:
+            continue
+        out[oid] = max(0.0, min(1.0, 1.0 - statistics.mean(op_pcts)))
+    return out
 
 
 def _streak_score_from_outcomes(outcomes: list[float]) -> float:
@@ -202,8 +261,13 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             "rosTeamStrengthAvailable": False,
         }
 
+    team_strength_rows = _load_team_strength_rows()
     ros_pct = _load_team_strength_percentiles()
     ros_available = bool(ros_pct)
+    roster_health_by_owner = _load_roster_health_scores(team_strength_rows)
+    schedule_by_owner = _schedule_adjusted_scores(snapshot, ros_pct)
+    schedule_available = bool(schedule_by_owner)
+    health_available = bool(roster_health_by_owner)
 
     # Compute per-owner inputs.
     inputs: dict[str, dict[str, float]] = {}
@@ -244,9 +308,8 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             "all_play": all_play,
             "streak": streak,
             "luck_regression": luck_score,
-            # PR2 leaves these at 0 (config-gated TODOs):
-            "schedule_adjusted": 0.0,
-            "roster_health": 0.0,
+            "schedule_adjusted": schedule_by_owner.get(oid, 0.5),
+            "roster_health": roster_health_by_owner.get(oid, 0.0),
         }
 
     # Convert raw inputs to percentiles (ppg, recent only — the others
@@ -260,7 +323,10 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     missing_inputs: list[str] = []
     if not ros_available:
         missing_inputs.append("team_ros_strength")
-    missing_inputs.extend(["schedule_adjusted", "roster_health"])  # TODO PR-future
+    if not schedule_available:
+        missing_inputs.append("schedule_adjusted")
+    if not health_available:
+        missing_inputs.append("roster_health")
     active_weights = {
         k: v for k, v in WEIGHTS.items() if k not in missing_inputs
     }
@@ -279,9 +345,12 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         }
         if ros_available:
             components["team_ros_strength"] = ros_pct.get(oid, 0.0)
-        # Skipped — held at 0 in this PR, renormalised out:
-        components["schedule_adjusted"] = 0.0
-        components["roster_health"] = 0.0
+        components["schedule_adjusted"] = (
+            i["schedule_adjusted"] if schedule_available else 0.0
+        )
+        components["roster_health"] = (
+            i["roster_health"] if health_available else 0.0
+        )
 
         # Active weighted score in [0, 1], then scale to 100.
         score_unit = sum(
