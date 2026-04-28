@@ -830,7 +830,14 @@ main() {
       git diff --stat || true
       local stash_name="deploy-auto-stash-$(date -u +%Y%m%dT%H%M%SZ)"
       log "Auto-stashing tracked changes as '${stash_name}' (inspect later with: git stash list)."
-      git stash push -m "${stash_name}"
+      if ! git stash push -m "${stash_name}"; then
+        warn "git stash failed — likely a .git/objects permission issue (e.g. scraper-owned"
+        warn "objects under ${APP_DIR}/.git/objects/ that the deploy user cannot write next to)."
+        warn "Tracked changes will be DISCARDED by the upcoming 'git reset --hard' against the target ref."
+        warn "If you need the dirty files preserved, set ALLOW_DIRTY_DEPLOY=true and stash manually before re-running."
+        warn "To fix the underlying permissions, ensure the scraper and the deploy user share group ownership of"
+        warn "${APP_DIR}/.git (e.g. 'chgrp -R <shared-group> .git && chmod -R g+ws .git')."
+      fi
     fi
   fi
 
@@ -843,11 +850,23 @@ main() {
   log "Deploy target requested: DEPLOY_REF=${DEPLOY_REF} (fallback branch=${DEPLOY_BRANCH})"
   log "Current revision: ${current_rev}"
 
-  git fetch --prune --tags origin
+  local fetch_ok="true"
+  if ! git fetch --prune --tags origin; then
+    fetch_ok="false"
+    warn "git fetch failed — almost certainly the same .git/objects permission issue as the stash error."
+    warn "On the production box, run 'ls -la ${APP_DIR}/.git/objects' and look for subdirectories owned"
+    warn "by a user other than '${APP_USER:-the deploy user}' (commonly the scraper). Fix with"
+    warn "'chgrp -R <shared-group> ${APP_DIR}/.git && chmod -R g+ws ${APP_DIR}/.git', or run scrapes"
+    warn "as the deploy user. Continuing with whatever refs are already present locally."
+  fi
 
   if ! TARGET_REV="$(resolve_git_ref "${DEPLOY_REF}")"; then
     if ! TARGET_REV="$(resolve_git_ref "${DEPLOY_BRANCH}")"; then
       error "Could not resolve DEPLOY_REF='${DEPLOY_REF}' or DEPLOY_BRANCH='${DEPLOY_BRANCH}' to a commit."
+      if [[ "${fetch_ok}" != "true" ]]; then
+        error "git fetch had failed earlier, so the local repo never received the target ref. Fix the"
+        error ".git/objects permissions noted above and re-run the deploy."
+      fi
       exit 1
     fi
     warn "Falling back to DEPLOY_BRANCH '${DEPLOY_BRANCH}' because DEPLOY_REF '${DEPLOY_REF}' was not resolvable."
