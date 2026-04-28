@@ -50,6 +50,7 @@ import ArchivesSection from "./sections/archives.jsx";
 import LuckSection from "./sections/luck.jsx";
 import StreaksSection from "./sections/streaks.jsx";
 import PowerSection from "./sections/power.jsx";
+import RosTeamStrengthSection from "./sections/ros-team-strength.jsx";
 import MatchupPreviewSection from "./sections/matchup-preview.jsx";
 import WeeklyRecapSection from "./sections/weekly-recap.jsx";
 
@@ -61,6 +62,7 @@ const SUB_TABS = [
   { key: "overview", label: "Home" },
   { key: "matchupPreview", label: "This Week" },
   { key: "power", label: "Power" },
+  { key: "rosTeamStrength", label: "ROS Strength" },
   { key: "luck", label: "Luck" },
   { key: "streaks", label: "Streaks" },
   { key: "weeklyRecap", label: "Recaps" },
@@ -300,6 +302,7 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
       {activeTab === "power" && (
         <PowerSection data={sections.power} managers={managers} />
       )}
+      {activeTab === "rosTeamStrength" && <RosTeamStrengthSection />}
       {activeTab === "matchupPreview" && (
         <MatchupPreviewSection
           data={sections.matchupPreview}

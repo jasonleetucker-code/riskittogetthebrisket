@@ -191,6 +191,14 @@ jobs:
             exit 1
           fi
 
+          # Refresh ROS engine data (separate short-term contender layer;
+          # never touches dynasty values).  Runs after the dynasty
+          # scrapers complete so the DraftSharks-CSV proxy adapter sees
+          # today's CSVs.  Non-fatal — orchestrator preserves last-good
+          # CSV per source on adapter failure, so a bad scrape just
+          # marks the source stale.
+          python -m src.ros.scrape 2>&1 || echo "::warning title=ROS scrape failed::Non-fatal — orchestrator keeps yesterday's CSV per source"
+
 
       - name: Commit updated data
         shell: bash
@@ -198,7 +206,7 @@ jobs:
           set -Eeuo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/
+          git add -f CSVs/ exports/ data/canonical/ data/raw/ data/raw_sources/ data/identity/ data/ros/
           if git diff --cached --quiet; then
             echo "No data changes to commit"
           else

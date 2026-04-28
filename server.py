@@ -1836,6 +1836,11 @@ app.add_middleware(GZipMiddleware, minimum_size=1024)
 from src.api.error_responses import install_exception_handler as _install_exc_handler  # noqa: E402
 _install_exc_handler(app)
 
+# ROS engine router.  Strict isolation: never mutates dynasty contract
+# paths or trade-calculator math; reads/writes only ``data/ros/*``.
+from src.ros.api import router as _ros_router  # noqa: E402
+app.include_router(_ros_router)
+
 
 @app.middleware("http")
 async def _count_requests(request: Request, call_next):

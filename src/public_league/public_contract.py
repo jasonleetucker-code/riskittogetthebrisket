@@ -67,8 +67,16 @@ _SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] =
 # specific tab that needs them can fetch on-demand.  ``playoffOdds``
 # runs a 10,000-sim Monte Carlo; including it in the aggregate path
 # would impose that cost on every landing-page load.
+#
+# ``rosTeamStrength`` reads a cached file written by the ROS engine's
+# scheduled scrape — cheap to assemble but kept lazy so the existing
+# /league landing-page payload stays unchanged in shape (the ROS
+# layer is opt-in until it's been validated against real rosters).
+from src.ros import api as _ros_api  # noqa: E402
+
 _LAZY_SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] = {
     "playoffOdds": playoff_odds.build_section,
+    "rosTeamStrength": _ros_api.build_section,
 }
 
 # Derived overview is a first-class section key the UI can fetch just

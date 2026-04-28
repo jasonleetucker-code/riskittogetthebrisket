@@ -82,6 +82,13 @@ class LeagueConfig:
     # or a friendly URL slug.  Matched case-insensitively by
     # ``get_league_by_key``.
     aliases: tuple[str, ...] = field(default_factory=tuple)
+    # Best-ball mode — Sleeper exposes this on
+    # ``league.settings.best_ball``.  Read from the registry JSON when
+    # present (additive field; defaults False so existing entries
+    # aren't broken).  Consumed only by ``src/ros/*`` so the lineup
+    # optimizer can credit best-ball depth as well as starting
+    # strength; dynasty rankings + trade calculator are unaffected.
+    best_ball: bool = False
 
     def public_dict(self) -> dict[str, Any]:
         """Safe payload for /api/leagues — no Sleeper ID leakage.
@@ -96,6 +103,7 @@ class LeagueConfig:
             "displayName": self.display_name,
             "scoringProfile": self.scoring_profile,
             "idpEnabled": self.idp_enabled,
+            "bestBall": self.best_ball,
             "rosterSettings": dict(self.roster_settings),
             "active": self.active,
         }
@@ -164,6 +172,10 @@ def _parse_league_entry(entry: dict[str, Any]) -> LeagueConfig:
         if isinstance(a, str) and a.strip()
     )
 
+    # ``bestBall`` is optional in the registry JSON so existing
+    # registry files keep working with no edits; defaults False.
+    best_ball = bool(entry.get("bestBall", False))
+
     return LeagueConfig(
         key=key,
         display_name=display_name,
@@ -174,6 +186,7 @@ def _parse_league_entry(entry: dict[str, Any]) -> LeagueConfig:
         default_team_map=team_map,
         active=active,
         aliases=aliases,
+        best_ball=best_ball,
     )
 
 
