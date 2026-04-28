@@ -1,0 +1,21 @@
+{
+  "source_key": "fantasyProsRosSf",
+  "status": "ok",
+  "error": null,
+  "started_at": "2026-04-28T21:47:42.904943+00:00",
+  "completed_at": "2026-04-28T21:47:42.972739+00:00",
+  "player_count": 462,
+  "source_id": "fantasyProsRosSf",
+  "source_name": "FantasyPros Dynasty SF (ROS proxy)",
+  "source_url": "https://www.fantasypros.com/nfl/rankings/dynasty-superflex.php",
+  "source_type": "dynasty_proxy",
+  "scoring_format": "ppr",
+  "is_superflex": true,
+  "is_2qb": false,
+  "is_te_premium": false,
+  "is_idp": false,
+  "is_ros": false,
+  "is_dynasty": true,
+  "is_projection_source": false,
+  "stale_after_hours": 168
+}
