@@ -1,6 +1,7 @@
 import "./globals.css";
 import AppShellWrapper from "./AppShellWrapper";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
+import PullToRefresh from "@/components/PullToRefresh";
 
 export const metadata = {
   title: "Dynasty Trade Calculator",
@@ -34,6 +35,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <ServiceWorkerRegistrar />
+        <PullToRefresh />
         <AppShellWrapper>{children}</AppShellWrapper>
       </body>
     </html>
