@@ -76,15 +76,21 @@ from src.ros import api as _ros_api  # noqa: E402
 
 
 def _ros_power_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
-    """Lazy-import wrapper for src.ros.power_v2.
-
-    power_v2 imports ``src.public_league.luck`` + ``snapshot`` at module
-    load — importing it eagerly here forms a cycle (this module is part
-    of the same package).  Defer until call-time so the package is
-    fully initialised by the time the section runs.
-    """
+    """Lazy-import wrapper for src.ros.power_v2."""
     from src.ros import power_v2  # noqa: PLC0415
     return power_v2.build_section(snapshot)
+
+
+def _ros_playoff_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+    """Lazy-import wrapper for src.ros.playoff_sim."""
+    from src.ros import playoff_sim  # noqa: PLC0415
+    return playoff_sim.build_section(snapshot)
+
+
+def _ros_championship_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+    """Lazy-import wrapper for src.ros.championship."""
+    from src.ros import championship  # noqa: PLC0415
+    return championship.build_section(snapshot)
 
 
 _LAZY_SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] = {
@@ -94,6 +100,11 @@ _LAZY_SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any
     # ``power`` section above; the frontend swaps between them based
     # on ``settings.useRosPowerRankings``.
     "rosPower": _ros_power_section,
+    # ROS-driven playoff Monte Carlo.  Coexists with v1 ``playoffOdds``;
+    # frontend swaps via settings.useRosPlayoffOdds.
+    "rosPlayoffOdds": _ros_playoff_section,
+    # Championship Monte Carlo.  No v1 equivalent — new section.
+    "rosChampionship": _ros_championship_section,
 }
 
 # Derived overview is a first-class section key the UI can fetch just
