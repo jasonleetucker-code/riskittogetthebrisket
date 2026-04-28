@@ -3346,6 +3346,19 @@ def _expected_sources_for_position(
         # Exclude veteran-only sources for rookie players.
         if is_rookie and src.get("excludes_rookies"):
             continue
+        # Rookie-translation sources rank the current rookie class
+        # only, so they are never structurally expected to carry pick
+        # rows.  ``dlfRookieSf`` does stamp synthetic ``2026 Pick R.SS``
+        # entries into ``canonicalSiteValues`` for display, but the
+        # Phase 1 ordinal pass deliberately excludes picks (see the
+        # ``needs_rookie_xlate and assetClass == 'pick'`` skip in
+        # ``_compute_unified_rankings``) — picks get their final value
+        # from the Phase 11 anchor pass, not from a per-source rookie
+        # rank.  Keeping these sources out of the expected set here
+        # mirrors that exclusion in the audit so picks don't show up
+        # as "missing dlfRookieSf" in ``unmatchedSources``.
+        if pos_up == "PICK" and src.get("needs_rookie_translation"):
+            continue
         # Exclude shallow-depth sources for players ranked deeper than
         # their cutoff (with a 25% headroom so the rule doesn't
         # over-prune at the boundary).
@@ -5894,6 +5907,14 @@ def _compute_unified_rankings(
         for src in active_sources:
             skey = str(src.get("key") or "")
             if skey in source_ranks:
+                continue
+            # Rookie-translation sources are deliberately excluded from
+            # picks in the Phase 1 ordinal pass (see the matching skip
+            # earlier in this function and ``_expected_sources_for_position``).
+            # Counting them as a soft fallback for picks would inflate
+            # ``softFallbackCount`` with a coverage gap that was
+            # intentional, not a real matching failure.
+            if row_is_pick and src.get("needs_rookie_translation"):
                 continue
             src_scopes: list[str] = [src["scope"]] + list(
                 src.get("extra_scopes") or []
