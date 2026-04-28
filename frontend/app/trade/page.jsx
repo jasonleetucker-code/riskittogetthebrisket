@@ -40,6 +40,7 @@ import {
 } from "@/lib/trade-logic";
 import { useSettings } from "@/components/useSettings";
 import TradeDeltaHistogram from "@/components/graphs/TradeDeltaHistogram";
+import RosTradeFitPanel from "@/components/RosTradeFitPanel";
 import MultiTradeFlow from "@/components/graphs/MultiTradeFlow";
 import { useApp } from "@/components/AppShell";
 import { posBadgeClass } from "@/lib/display-helpers";
@@ -2044,6 +2045,9 @@ export default function TradePage() {
 
           {/* ── Per-source winner breakdown (below the fairness meter) ── */}
           <TradeSourceBreakdown sides={sides} settings={settings} />
+
+          {/* ── ROS Fit panel (informational; gated by settings) ──── */}
+          <RosTradeFitPanel sides={sides} settings={settings} />
 
           {/* ── Value delta histogram (graphical complement to meter) ──── */}
           {sides.length === 2 ? (
