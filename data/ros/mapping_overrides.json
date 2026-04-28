@@ -1,0 +1,25 @@
+{
+  "_comment": "Manual ROS player-name mapping overrides. Format: {\"<source name>\": \"<canonical name>\"}. Edited by hand when src/ros/mapping.py reports an unresolved player. Confidence for entries here is 1.0.",
+  "_examples": {
+    "M. Williams (TE)": "Mike Williams"
+  },
+  "overrides": {
+    "Ahmad Gardner": "Sauce Gardner",
+    "Bam Knight": "Zonovan Knight",
+    "Cameron Ward": "Cam Ward",
+    "Cameron Skattebo": "Cam Skattebo",
+    "Camryn Bynum": "Cam Bynum",
+    "Chauncey Gardner-Johnson": "CJ Gardner Johnson",
+    "C.J. Gardner-Johnson": "CJ Gardner Johnson",
+    "Chigoziem Okonkwo": "Chig Okonkwo",
+    "Daxton Hill": "Dax Hill",
+    "Gregory Rousseau": "Greg Rousseau",
+    "Jartavius Martin": "Quan Martin",
+    "Kamren Curl": "Kam Curl",
+    "Mitchell Tinsley": "Mitch Tinsley",
+    "Nathan Landman": "Nate Landman",
+    "Nathaniel Dell": "Tank Dell",
+    "Patrick Surtain II": "Pat Surtain",
+    "Tariq Woolen": "Riq Woolen"
+  }
+}

@@ -428,6 +428,40 @@ def _invoke_adapter(src_meta: dict[str, Any]) -> ScrapeResult:
         )
 
 
+def _build_default_canonical_universe() -> set[str]:
+    """Derive a set of normalized canonical names from Sleeper's NFL
+    player dump.  Used when the orchestrator caller doesn't supply a
+    universe — without one the resolver's fuzzy/exact-match guards
+    can't fire (it accepts every input at confidence 1.0), so every
+    typo silently lands in the aggregate as its own row.
+
+    Failure-isolated: a network blip on the Sleeper fetch returns an
+    empty set, which is equivalent to ``canonical_universe=None``
+    (the prior behaviour) — a regression away from validation, never
+    a regression toward dropping rows.
+    """
+    try:
+        from src.public_league.sleeper_client import fetch_nfl_players  # noqa: PLC0415
+        from src.utils.name_clean import normalize_player_name  # noqa: PLC0415
+
+        nfl = fetch_nfl_players() or {}
+        names: set[str] = set()
+        for meta in nfl.values():
+            if not isinstance(meta, dict):
+                continue
+            full = (meta.get("full_name") or "").strip()
+            if not full:
+                continue
+            normalized = normalize_player_name(full)
+            if normalized:
+                names.add(normalized)
+        LOG.info("[ros] canonical universe: %d names from Sleeper", len(names))
+        return names
+    except Exception as exc:  # noqa: BLE001 — best-effort only
+        LOG.warning("[ros] canonical universe build failed: %s", exc)
+        return set()
+
+
 def run_all(
     *,
     overrides: dict[str, dict[str, Any]] | None = None,
@@ -441,6 +475,17 @@ def run_all(
     """
     sources = enabled_ros_sources(overrides)
     LOG.info("[ros] running %d adapters", len(sources))
+
+    # Default the canonical universe to Sleeper's NFL pool when the
+    # caller doesn't supply one.  The resolver auto-accepts every name
+    # at confidence 1.0 with universe=None, which silently routes
+    # source-side typos into their own aggregate rows.  Pulling the
+    # universe from Sleeper means a misspelled "Achane" still gets
+    # fuzzy-matched to canonical "De'Von Achane" instead of becoming
+    # a phantom 1.0-confidence entry.
+    if canonical_universe is None:
+        canonical_universe = _build_default_canonical_universe() or None
+
     results_by_key: dict[str, dict[str, Any]] = {}
     snapshots: list[SourceSnapshot] = []
 
