@@ -208,15 +208,23 @@ def _invoke_adapter(src_meta: dict[str, Any]) -> ScrapeResult:
     try:
         module = importlib.import_module(str(src_meta["scraper"]))
         result = module.scrape(src_meta=src_meta)
-        if not isinstance(result, ScrapeResult):
+        # Duck-type the result.  ``isinstance(result, ScrapeResult)``
+        # would fail when the orchestrator runs as ``__main__`` (Python
+        # loads ``src.ros.scrape`` twice — once as ``__main__`` and once
+        # as ``src.ros.scrape`` when adapters import ScrapeResult — so
+        # the two ScrapeResult classes are distinct).  Field-presence
+        # check works regardless of the loader.
+        required = {"source_key", "status", "rows", "started_at", "completed_at"}
+        missing = required - set(getattr(result, "__dict__", {}).keys())
+        if missing:
             return ScrapeResult(
                 source_key=key,
                 status="failed",
-                error="adapter returned wrong type",
+                error=f"adapter returned wrong type (missing: {sorted(missing)})",
                 started_at=started,
                 completed_at=_now(),
             )
-        return result
+        return result  # type: ignore[return-value]
     except Exception as exc:  # noqa: BLE001 — adapter MUST NOT crash the orchestrator
         LOG.warning("[ros] adapter %s crashed: %s", key, exc)
         return ScrapeResult(
