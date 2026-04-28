@@ -85,34 +85,43 @@ def _is_idp_position(position: Any) -> bool:
 
 def _market_source_for(position: str | None) -> str:
     """Return the canonicalSiteValues key the counterparty would
-    consult for this position. IDP positions compare on IDPTC;
-    everything else (offense, picks, kickers, etc.) compares on KTC.
+    consult for this position.  IDP positions compare on IDPTC;
+    everything else (offense, picks, kickers, etc.) compares on
+    KTC's TE+ board — the canonical KTC retail signal as of
+    2026-04-28 when standard ``ktc`` was retired from the blend.
 
-    Note: ``ktc`` was retired from the blend 2026-04-28, but the
-    CSV still loads into canonicalSiteValues — it remains the
-    canonical retail-market signal a trade counterparty would see
-    on keeptradecut.com (the public site shows the standard SF
-    view by default), so the angle finder still compares against
-    it.
+    ``_value_pair`` falls back to the legacy ``"ktc"`` key when a
+    fixture only carries the standard board, so callers that
+    haven't been migrated keep working.
     """
     pos = str(position or "").strip().upper()
     if pos in _IDP_POSITIONS:
         return "idpTradeCalc"
-    return "ktc"
+    return "ktcSfTep"
 
 
 def _value_pair(row: dict[str, Any]) -> tuple[float, float, str] | None:
     """Return (my_value, market_value, market_source_key) for a row.
 
-    ``market_source_key`` is the canonicalSiteValues key used —
-    ``"idpTradeCalc"`` for IDP rows, ``"ktc"`` otherwise. Returns
-    ``None`` when either value is missing or non-positive.
+    ``market_source_key`` reflects which key was actually read —
+    ``"idpTradeCalc"`` for IDP rows, ``"ktcSfTep"`` for offense
+    rows (with a graceful fallback to ``"ktc"`` when the row
+    only carries the legacy standard board, e.g. older fixtures).
+    Returns ``None`` when neither value is populated.
 
     """
     my_val = row.get("rankDerivedValue")
     sites = row.get("canonicalSiteValues") or {}
     source = _market_source_for(row.get("position"))
     market_val = sites.get(source) if isinstance(sites, dict) else None
+    if market_val is None and source == "ktcSfTep" and isinstance(sites, dict):
+        # Pre-supersession fixtures (and any production row missing
+        # the TE+ vote for some reason) still expose the legacy
+        # board — read it and report the actual key consulted.
+        legacy_val = sites.get("ktc")
+        if legacy_val is not None:
+            market_val = legacy_val
+            source = "ktc"
     try:
         my_num = float(my_val) if my_val is not None else 0.0
         market_num = float(market_val) if market_val is not None else 0.0

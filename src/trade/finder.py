@@ -205,13 +205,21 @@ def build_asset_pool(
         if source_count == 1:
             model = int(model * SINGLE_SOURCE_DISCOUNT)
 
-        # KTC value from canonical site values
+        # KTC value from canonical site values.  Prefer the TE+ board
+        # (``ktcSfTep``) — that's the canonical KTC retail signal as of
+        # 2026-04-28 when standard ``ktc`` was retired from the blend.
+        # Fall back to standard ``ktc`` for compatibility with tests
+        # whose fixtures predate the supersession.
         csv = pdata.get("_canonicalSiteValues")
         ktc: int | None = None
         if isinstance(csv, dict):
-            ktc = _int_or_none(csv.get("ktc"))
+            ktc = _int_or_none(csv.get("ktcSfTep"))
+            if ktc is None:
+                ktc = _int_or_none(csv.get("ktc"))
         if ktc is None:
-            ktc = _int_or_none(pdata.get("ktc"))
+            ktc = _int_or_none(pdata.get("ktcSfTep"))
+            if ktc is None:
+                ktc = _int_or_none(pdata.get("ktc"))
 
         pos = _norm_pos(pdata.get("position", ""))
         team = pdata.get("team", "") or ""
