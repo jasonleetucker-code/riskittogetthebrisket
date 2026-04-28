@@ -51,6 +51,8 @@ import LuckSection from "./sections/luck.jsx";
 import StreaksSection from "./sections/streaks.jsx";
 import PowerSection from "./sections/power.jsx";
 import RosTeamStrengthSection from "./sections/ros-team-strength.jsx";
+import RosPowerSection from "./sections/ros-power.jsx";
+import { useSettings } from "@/components/useSettings";
 import MatchupPreviewSection from "./sections/matchup-preview.jsx";
 import WeeklyRecapSection from "./sections/weekly-recap.jsx";
 
@@ -95,6 +97,12 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
   const urlTab = searchParams.get("tab");
   const urlOwner = searchParams.get("owner") || "";
   const urlWeek = searchParams.get("week") || "";
+  // Read the ROS feature flags so the Power tab can swap to v2 when
+  // the user opts in.  Defaults match the registry in
+  // ``components/useSettings.js`` (rosEnabled true,
+  // useRosPowerRankings false until validated per-user).
+  const { settings } = useSettings();
+  const useRosPower = !!settings?.useRosPowerRankings;
 
   const [activeTab, setActiveTabState] = useState(
     urlTab && VALID_TABS.has(urlTab)
@@ -300,7 +308,9 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
         <StreaksSection data={sections.streaks} managers={managers} />
       )}
       {activeTab === "power" && (
-        <PowerSection data={sections.power} managers={managers} />
+        useRosPower
+          ? <RosPowerSection />
+          : <PowerSection data={sections.power} managers={managers} />
       )}
       {activeTab === "rosTeamStrength" && <RosTeamStrengthSection />}
       {activeTab === "matchupPreview" && (
