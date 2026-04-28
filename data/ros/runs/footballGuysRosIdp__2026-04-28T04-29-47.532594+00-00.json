@@ -1,0 +1,21 @@
+{
+  "source_key": "footballGuysRosIdp",
+  "status": "ok",
+  "error": null,
+  "started_at": "2026-04-28T04:29:47.531558+00:00",
+  "completed_at": "2026-04-28T04:29:47.532594+00:00",
+  "player_count": 419,
+  "source_id": "footballGuysRosIdp",
+  "source_name": "Footballguys IDP (ROS proxy)",
+  "source_url": "https://www.footballguys.com/rankings/idp",
+  "source_type": "dynasty_proxy",
+  "scoring_format": "ppr",
+  "is_superflex": false,
+  "is_2qb": false,
+  "is_te_premium": false,
+  "is_idp": true,
+  "is_ros": false,
+  "is_dynasty": true,
+  "is_projection_source": true,
+  "stale_after_hours": 168
+}
