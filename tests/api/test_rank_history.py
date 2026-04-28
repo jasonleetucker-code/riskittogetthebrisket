@@ -17,17 +17,23 @@ from tempfile import TemporaryDirectory
 from src.api import rank_history
 
 
-def _contract_with(rank_by_name: dict[str, int], asset_class: str = "offense") -> dict:
-    return {
-        "playersArray": [
-            {
-                "canonicalName": name,
-                "canonicalConsensusRank": rank,
-                "assetClass": asset_class,
-            }
-            for name, rank in rank_by_name.items()
-        ]
-    }
+def _contract_with(
+    rank_by_name: dict[str, int],
+    asset_class: str = "offense",
+    *,
+    value_by_name: dict[str, int] | None = None,
+) -> dict:
+    rows = []
+    for name, rank in rank_by_name.items():
+        row = {
+            "canonicalName": name,
+            "canonicalConsensusRank": rank,
+            "assetClass": asset_class,
+        }
+        if value_by_name is not None and name in value_by_name:
+            row["rankDerivedValue"] = value_by_name[name]
+        rows.append(row)
+    return {"playersArray": rows}
 
 
 def _key(name: str, asset_class: str = "offense") -> str:
@@ -170,14 +176,18 @@ class LoadHistory(unittest.TestCase):
             )
             series = rank_history.load_history(days=30, path=path)
             self.assertIn(_key("A"), series)
-            self.assertEqual(
-                series[_key("A")],
-                [
-                    {"date": "2026-04-18", "rank": 3},
-                    {"date": "2026-04-19", "rank": 2},
-                    {"date": "2026-04-20", "rank": 1},
-                ],
-            )
+            self.assertEqual(len(series[_key("A")]), 3)
+            ranks = [p["rank"] for p in series[_key("A")]]
+            self.assertEqual(ranks, [3, 2, 1])
+            dates = [p["date"] for p in series[_key("A")]]
+            self.assertEqual(dates, ["2026-04-18", "2026-04-19", "2026-04-20"])
+            # Each point carries a ``val`` — derived from rank when no
+            # ``rankDerivedValue`` was stamped on the snapshot rows.
+            self.assertTrue(all("val" in p and p["val"] > 0 for p in series[_key("A")]))
+            # Rank 1 should map to the curve's top (close to 9999).
+            top = series[_key("A")][-1]
+            self.assertEqual(top["rank"], 1)
+            self.assertGreater(top["val"], 9500)
             self.assertEqual(series[_key("B")][-1]["rank"], 4)
 
     def test_days_window_truncates_oldest(self) -> None:
@@ -192,6 +202,58 @@ class LoadHistory(unittest.TestCase):
             series = rank_history.load_history(days=2, path=path)
             self.assertEqual(len(series[_key("A")]), 2)
             self.assertEqual(series[_key("A")][0]["date"], "2026-03-04")
+
+    def test_stamps_canonical_value_when_rank_derived_value_present(self) -> None:
+        # New schema: snapshot rows that carry ``rankDerivedValue``
+        # write a ``values`` block alongside ``ranks``.  Reading back
+        # surfaces the stamped value verbatim — no Hill-curve re-
+        # derivation, so the trade-retro grade lines up with the live
+        # ``/api/data`` value scale.
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "rank_history.jsonl"
+            rank_history.append_snapshot(
+                _contract_with(
+                    {"Stud": 1},
+                    value_by_name={"Stud": 9712},
+                ),
+                date="2026-04-20",
+                path=path,
+            )
+            entries = [json.loads(line) for line in path.read_text().splitlines()]
+            self.assertEqual(entries[0]["values"], {_key("Stud"): 9712})
+            series = rank_history.load_history(days=30, path=path)
+            self.assertEqual(series[_key("Stud")][-1]["val"], 9712)
+
+    def test_back_fills_value_for_legacy_entries_without_values_block(self) -> None:
+        # Older log entries (written before the schema bump) only have
+        # ``ranks``.  Reading must back-fill ``val`` from the rank
+        # using the asset-class-aware Hill curve so consumers always
+        # see the same shape.
+        with TemporaryDirectory() as tmp:
+            path = Path(tmp) / "rank_history.jsonl"
+            with path.open("w") as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "date": "2026-01-01",
+                            "ranks": {
+                                _key("Off Rookie", "offense"): 50,
+                                _key("Idp Rookie", "idp"): 50,
+                            },
+                        }
+                    )
+                    + "\n"
+                )
+            series = rank_history.load_history(days=30, path=path)
+            off_val = series[_key("Off Rookie", "offense")][-1]["val"]
+            idp_val = series[_key("Idp Rookie", "idp")][-1]["val"]
+            self.assertGreater(off_val, 0)
+            self.assertGreater(idp_val, 0)
+            # IDP curve decays slower at rank 50 than offense — so an
+            # IDP player at rank 50 should outvalue an offense player
+            # at the same rank.  (Sanity check that the asset class
+            # actually gates which curve fills in the gap.)
+            self.assertGreater(idp_val, off_val)
 
     def test_corrupt_line_is_skipped(self) -> None:
         # A half-written final line must not break the reader.  We

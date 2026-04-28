@@ -7,7 +7,32 @@ function makeLookup(map) {
 }
 
 describe("valueSideAtTime", () => {
-  it("uses rankHistory rank-at-time to compute value", () => {
+  it("prefers the server-stamped val over re-deriving from rank", () => {
+    // The backend now stamps ``val`` (canonical pipeline value) on
+    // every history point so retro grading lines up with the live
+    // ``/api/data`` value scale rather than a frozen client-side
+    // Hill curve.  When ``val`` is present, ``valueFromRank`` is
+    // bypassed entirely.
+    const lookup = makeLookup({
+      "player a": [
+        { date: "2025-01-01", rank: 30, val: 4321 },
+        { date: "2025-06-01", rank: 10, val: 7777 },
+      ],
+    });
+    const asOf = Date.parse("2025-03-01");
+    const out = valueSideAtTime(
+      [{ name: "Player A", val: 9999, isPick: false }],
+      lookup,
+      asOf,
+    );
+    expect(out.total).toBe(4321);
+    expect(out.items[0].source).toBe("rankHistory");
+  });
+
+  it("falls back to the local Hill curve when val is missing on the point", () => {
+    // Defensive path: if a snapshot ever ships without ``val`` (older
+    // on-disk entry the backend forgot to back-fill), we still derive
+    // a value rather than dropping the player.
     const lookup = makeLookup({
       "player a": [
         { date: "2025-01-01", rank: 30 },
@@ -68,44 +93,50 @@ describe("valueSideAtTime", () => {
 });
 
 describe("gradeRetro", () => {
+  // Server-stamped val: 100 → small, 5 → large.  Numbers don't have
+  // to match a specific curve any more — the backend pre-computes
+  // them from the canonical pipeline.
   const lookup = makeLookup({
-    "got player": [{ date: "2025-01-01", rank: 100 }], // value-at-trade ≈ small
-    "gave player": [{ date: "2025-01-01", rank: 5 }],  // value-at-trade ≈ large
+    "got player": [{ date: "2025-01-01", rank: 100, val: 1500 }],
+    "gave player": [{ date: "2025-01-01", rank: 5, val: 8800 }],
   });
   const asOf = Date.parse("2025-02-01");
 
   it("flags 'aged_well' when current net beats at-trade net by >200", () => {
     const side = {
-      got: [{ name: "Got Player", val: valueFromRank(20), isPick: false }],
-      gave: [{ name: "Gave Player", val: valueFromRank(30), isPick: false }],
+      got: [{ name: "Got Player", val: 5000, isPick: false }],
+      gave: [{ name: "Gave Player", val: 4500, isPick: false }],
     };
-    // currentNet ≈ value(20) - value(30) ≈ positive
-    const currentNet = valueFromRank(20) - valueFromRank(30);
+    const currentNet = 5000 - 4500; // +500 today
     const out = gradeRetro({ side, currentNet, asOfMs: asOf, historyLookup: lookup });
-    expect(out.atTradeNet).toBe(valueFromRank(100) - valueFromRank(5));
+    // At-trade net was 1500 - 8800 = -7300 (a brutal initial loss);
+    // verdictDelta = 500 - (-7300) = 7800 → strongly aged_well.
+    expect(out.atTradeNet).toBe(1500 - 8800);
     expect(out.verdictDelta).toBeGreaterThan(200);
     expect(out.verdict).toBe("aged_well");
   });
 
   it("flags 'aged_poorly' when current net is much worse", () => {
     const side = {
-      got: [{ name: "Got Player", val: valueFromRank(200), isPick: false }],
-      gave: [{ name: "Gave Player", val: valueFromRank(2), isPick: false }],
+      got: [{ name: "Got Player", val: 1200, isPick: false }],
+      gave: [{ name: "Gave Player", val: 9500, isPick: false }],
     };
-    const currentNet = valueFromRank(200) - valueFromRank(2); // very negative
+    const currentNet = 1200 - 9500; // -8300 today
     const out = gradeRetro({ side, currentNet, asOfMs: asOf, historyLookup: lookup });
+    // At-trade net was 1500 - 8800 = -7300; today is -8300 →
+    // verdictDelta -1000 → aged_poorly.
     expect(out.verdictDelta).toBeLessThan(-200);
     expect(out.verdict).toBe("aged_poorly");
   });
 
   it("flags 'stable' when delta is small", () => {
     const lookup2 = makeLookup({
-      "got": [{ date: "2025-01-01", rank: 30 }],
-      "gave": [{ date: "2025-01-01", rank: 30 }],
+      "got": [{ date: "2025-01-01", rank: 30, val: 4000 }],
+      "gave": [{ date: "2025-01-01", rank: 30, val: 4000 }],
     });
     const side = {
-      got: [{ name: "Got", val: valueFromRank(30) + 50, isPick: false }],
-      gave: [{ name: "Gave", val: valueFromRank(30), isPick: false }],
+      got: [{ name: "Got", val: 4050, isPick: false }],
+      gave: [{ name: "Gave", val: 4000, isPick: false }],
     };
     const currentNet = 50;
     const out = gradeRetro({ side, currentNet, asOfMs: asOf, historyLookup: lookup2 });
