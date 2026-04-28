@@ -34,9 +34,15 @@ class TestSafetyGuards:
         # Sanity: this test exists to make accidental K changes loud.
         assert _HAMPEL_K == 2.75
 
-    def test_min_threshold_floor_is_500(self):
+    def test_min_threshold_floor_is_1000(self):
         # Sanity: this test exists to make accidental floor changes loud.
-        assert _HAMPEL_MIN_THRESHOLD == 500.0
+        # Raised from 500 → 1000 (2026-04-27) after the weekly Hampel
+        # audit caught dlfSf / dlfRookieSf / flockFantasySfRookies at
+        # 18% / 25% / 25% drop rates — symptoms of the floor binding
+        # whenever the value-direct sources (KTC, ktcSfTep, IDPTC,
+        # dynastyDaddySf) cluster within ~150 Hill points and pull the
+        # MAD below 200.
+        assert _HAMPEL_MIN_THRESHOLD == 1000.0
 
     def test_perfect_agreement_drops_nothing(self):
         # All identical → all deviations are zero → nothing exceeds the
@@ -169,13 +175,13 @@ class TestOutlierRejection:
 
 
 class TestAbsoluteThresholdFloor:
-    """The 500-Hill-point floor protects tight clusters from
+    """The 1000-Hill-point floor protects tight clusters from
     over-aggressive filtering when MAD is small relative to scale."""
 
     def test_tight_cluster_no_drops_under_floor(self):
-        # MAD here is 25 → K*MAD = 68.75, well under the 500 floor.
+        # MAD here is 25 → K*MAD = 68.75, well under the 1000 floor.
         # Without the floor, values ±75 from median would be dropped;
-        # with the floor, threshold = 500 so all five are kept.
+        # with the floor, threshold = 1000 so all five are kept.
         pairs = [
             ("a", 5000.0),
             ("b", 5050.0),
@@ -188,28 +194,28 @@ class TestAbsoluteThresholdFloor:
         assert len(kept) == 5
 
     def test_tight_cluster_with_far_outlier_drops_only_outlier(self):
-        # MAD=25 again; floor=500.  A source 600 Hill points from the
+        # MAD=25 again; floor=1000.  A source >1000 Hill points from the
         # median exceeds the floor and is dropped.
         pairs = [
             ("a", 5000.0),
             ("b", 5050.0),
             ("c", 5100.0),
             ("d", 4950.0),
-            ("e", 5700.0),  # 675 from median → dropped (>500 floor)
+            ("e", 6250.0),  # 1200 from median → dropped (>1000 floor)
         ]
         kept, dropped = _hampel_filter_per_player(pairs)
         assert dropped == ["e"]
         assert len(kept) == 4
 
     def test_value_within_floor_distance_kept_even_when_above_kmad(self):
-        # K*MAD = 68.75 ; floor = 500.  A value 400 from median exceeds
+        # K*MAD = 68.75 ; floor = 1000.  A value 800 from median exceeds
         # K*MAD but sits inside the floor → kept (floor wins).
         pairs = [
             ("a", 5000.0),
             ("b", 5050.0),
             ("c", 5100.0),
             ("d", 4950.0),
-            ("e", 5400.0),  # 350 from median (5050) → kept under floor
+            ("e", 5850.0),  # 800 from median (5050) → kept under floor
         ]
         kept, dropped = _hampel_filter_per_player(pairs)
         assert dropped == []

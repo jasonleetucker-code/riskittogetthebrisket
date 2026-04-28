@@ -157,12 +157,24 @@ _SUSPICIOUS_DISAGREEMENT_THRESHOLD = 150
 # units (the 0–9999 scale on which all per-source contributions live).  Without
 # it, a tight cluster like [4950, 5000, 5025, 5050, 5100] (MAD=25, K·MAD=68.75)
 # would call values ±75 from the median "outliers" — nonsense at this scale.
-# 500 is roughly 5% of the full Hill range; a source value within 500 Hill
-# points of the rest of the field is in genuine consensus, never an outlier
-# regardless of how tight the bulk happens to be.
+#
+# 1000 is roughly 10% of the full Hill range.  The previous 500-point floor
+# (5%) was empirically too tight: with KTC + ktcSfTep + IDPTC + dynastyDaddySf
+# all riding the value-direct path from a shared market, the four typically
+# cluster within 50–150 Hill points on most rows (MAD ≪ 200), pulling the
+# median onto that cluster and making the K·MAD term collapse to the floor.
+# The rank-Hill sources (whose curve produces a ~2000-point spread between
+# adjacent rank decades at the steep top of the Hill) then sit outside the
+# 500-point floor on routine disagreements and get dropped.  The 2026-04-27
+# weekly audit caught this as 18% / 25% / 25% drop rates on dlfSf /
+# dlfRookieSf / flockFantasySfRookies — none of which is a broken source,
+# all of which the prior PR #215/216 regressions (dynastyDaddySf 61%,
+# yahooBoone 47%, fantasyProsFitzmaurice 19%) cleared at the bigger floor.
+# A source within 1000 Hill points of the rest of the field is in genuine
+# consensus regardless of how tight the value-direct bulk happens to be.
 _HAMPEL_K = 2.75
 _HAMPEL_MIN_N = 4
-_HAMPEL_MIN_THRESHOLD = 500.0
+_HAMPEL_MIN_THRESHOLD = 1000.0
 
 _RETIRED_INVALID_PATTERNS = re.compile(
     r"(?i)\b(retired|invalid|test|unknown|placeholder)\b"
@@ -3334,6 +3346,19 @@ def _expected_sources_for_position(
         # Exclude veteran-only sources for rookie players.
         if is_rookie and src.get("excludes_rookies"):
             continue
+        # Rookie-translation sources rank the current rookie class
+        # only, so they are never structurally expected to carry pick
+        # rows.  ``dlfRookieSf`` does stamp synthetic ``2026 Pick R.SS``
+        # entries into ``canonicalSiteValues`` for display, but the
+        # Phase 1 ordinal pass deliberately excludes picks (see the
+        # ``needs_rookie_xlate and assetClass == 'pick'`` skip in
+        # ``_compute_unified_rankings``) — picks get their final value
+        # from the Phase 11 anchor pass, not from a per-source rookie
+        # rank.  Keeping these sources out of the expected set here
+        # mirrors that exclusion in the audit so picks don't show up
+        # as "missing dlfRookieSf" in ``unmatchedSources``.
+        if pos_up == "PICK" and src.get("needs_rookie_translation"):
+            continue
         # Exclude shallow-depth sources for players ranked deeper than
         # their cutoff (with a 25% headroom so the rule doesn't
         # over-prune at the boundary).
@@ -5286,6 +5311,26 @@ def _compute_unified_rankings(
             pos = str(row.get("position") or "").strip().upper()
             if pos not in _RANKABLE_POSITIONS:
                 continue
+            # Rookie-only sources (dlfRookieSf) stamp synthetic
+            # ``2026 Pick R.SS`` rows at CSV enrichment time so each
+            # pick slot inherits the matched rookie's value (see the
+            # ``Rookie source → synthetic pick-slot stamps`` block in
+            # ``_enrich_from_source_csvs``).  Including those picks in
+            # this Phase 1 ordinal sort interleaves them with the
+            # rookies they tether to — each (rookie, pick) pair shares
+            # a synthetic value, so dense-skip ranking gives them the
+            # same rawRank.  That doubles every rookie's within-source
+            # rank (rookie at CSV row k ⇒ rawRank 2k-1 instead of k),
+            # which the Phase 1d rookie-ladder translation then maps
+            # to a far deeper combined-pool rank than intended,
+            # collapsing the rookie's Hill contribution and tripping
+            # the per-player Hampel filter (audit caught dlfRookieSf
+            # at 25% drop rate, 2026-04-27).  Picks get their final
+            # value from the Phase 11 pick-anchor pass which reads the
+            # rookie's blended ``rankDerivedValue`` directly, so
+            # excluding them here costs nothing downstream.
+            if needs_rookie_xlate and row.get("assetClass") == "pick":
+                continue
             row_scope: str | None = None
             for s in all_scopes:
                 if _scope_eligible(pos, s, position_group):
@@ -5862,6 +5907,14 @@ def _compute_unified_rankings(
         for src in active_sources:
             skey = str(src.get("key") or "")
             if skey in source_ranks:
+                continue
+            # Rookie-translation sources are deliberately excluded from
+            # picks in the Phase 1 ordinal pass (see the matching skip
+            # earlier in this function and ``_expected_sources_for_position``).
+            # Counting them as a soft fallback for picks would inflate
+            # ``softFallbackCount`` with a coverage gap that was
+            # intentional, not a real matching failure.
+            if row_is_pick and src.get("needs_rookie_translation"):
                 continue
             src_scopes: list[str] = [src["scope"]] + list(
                 src.get("extra_scopes") or []
