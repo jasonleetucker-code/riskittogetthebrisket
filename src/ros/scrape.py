@@ -241,122 +241,178 @@ def _hydrate_overlay_players(
     return out
 
 
-def _refresh_team_strength_snapshot(aggregated: list[dict[str, Any]]) -> Path | None:
-    """Recompute per-team ROS strength against the live default-league
-    Sleeper roster and persist to ``data/ros/team_strength/latest.json``.
-
-    Failure isolation: any error here logs and returns None — the
-    existing aggregate write still succeeds.
+def _sim_paths(league_key: str | None, default_key: str | None) -> tuple[Path, Path]:
+    """Resolve sim cache paths.  Default-league sims keep the historical
+    ``latest_playoff.json`` / ``latest_championship.json`` filenames
+    so existing readers (build_section, /api/ros/health) keep working.
+    Non-default leagues get ``<leagueKey>_playoff.json`` / etc.
     """
+    sims_dir = ROS_DATA_DIR / "sims"
+    if not league_key or league_key == default_key:
+        return (
+            sims_dir / "latest_playoff.json",
+            sims_dir / "latest_championship.json",
+        )
+    safe = "".join(c for c in league_key if c.isalnum() or c in {"_", "-"})
+    return (
+        sims_dir / f"{safe}_playoff.json",
+        sims_dir / f"{safe}_championship.json",
+    )
+
+
+def _refresh_team_strength_for_league(
+    cfg: Any,
+    aggregated: list[dict[str, Any]],
+    nfl_players: dict[str, Any],
+) -> Path | None:
+    """Compute team-strength for a single league and persist."""
     try:
-        from src.api.league_registry import get_default_league
-        from src.api.sleeper_overlay import fetch_sleeper_overlay
-        from src.public_league.sleeper_client import fetch_nfl_players
-        from src.ros.team_strength import (
+        from src.api.sleeper_overlay import fetch_sleeper_overlay  # noqa: PLC0415
+        from src.ros.team_strength import (  # noqa: PLC0415
             compute_team_strength,
             write_team_strength_snapshot,
         )
 
-        cfg = get_default_league()
-        if cfg is None or not cfg.sleeper_league_id:
-            LOG.info("[ros] team-strength: no default league; skipping")
+        if not cfg or not cfg.sleeper_league_id:
             return None
-
         overlay = fetch_sleeper_overlay(
             sleeper_league_id=cfg.sleeper_league_id,
             force_refresh=True,
         )
         if not overlay or not overlay.get("teams"):
-            LOG.warning("[ros] team-strength: overlay fetch returned no teams")
+            LOG.warning(
+                "[ros] team-strength %s: overlay fetch returned no teams",
+                cfg.key,
+            )
             return None
-
-        nfl_players = fetch_nfl_players() or {}
         teams = _hydrate_overlay_players(overlay["teams"], nfl_players)
         starter_slots = _flatten_starter_slots(
             (cfg.roster_settings or {}).get("starters")
         )
         if not starter_slots:
             LOG.warning(
-                "[ros] team-strength: no starter slots configured for %s",
+                "[ros] team-strength %s: no starter slots configured",
                 cfg.key,
             )
             return None
-
         rows = compute_team_strength(
             teams,
             aggregated_players=aggregated,
             starter_slots=starter_slots,
         )
-        path = write_team_strength_snapshot(rows)
+        path = write_team_strength_snapshot(rows, league_key=cfg.key)
         LOG.info(
-            "[ros] team-strength: wrote %d teams to %s",
-            len(rows),
-            path,
+            "[ros] team-strength %s: wrote %d teams to %s",
+            cfg.key, len(rows), path,
         )
         return path
-    except Exception as exc:  # noqa: BLE001 — never crash the orchestrator
-        LOG.warning("[ros] team-strength refresh failed: %s", exc)
-        LOG.debug("[ros] team-strength traceback: %s", traceback.format_exc())
+    except Exception as exc:  # noqa: BLE001
+        LOG.warning(
+            "[ros] team-strength refresh for %s failed: %s",
+            getattr(cfg, "key", "?"), exc,
+        )
+        LOG.debug(
+            "[ros] team-strength %s traceback: %s",
+            getattr(cfg, "key", "?"), traceback.format_exc(),
+        )
         return None
 
 
-def _refresh_sim_caches() -> dict[str, Path] | None:
-    """Run the playoff + championship sims once and persist the output
-    so lazy ``/api/public/league/rosPlayoffOdds`` + ``rosChampionship``
-    can return cached results instead of re-running 10k-sim Monte
-    Carlos on every visit.
+def _refresh_team_strength_snapshot(aggregated: list[dict[str, Any]]) -> dict[str, Path]:
+    """Iterate every active league in the registry and write a per-league
+    team-strength snapshot.  Default-league output keeps the historical
+    ``team_strength/latest.json`` filename for backward compat.
     """
+    out: dict[str, Path] = {}
     try:
-        from src.api.league_registry import get_default_league
-        from src.public_league.snapshot import build_public_snapshot
-        from src.ros import championship, playoff_sim
+        from src.api.league_registry import active_leagues  # noqa: PLC0415
+        from src.public_league.sleeper_client import fetch_nfl_players  # noqa: PLC0415
 
-        cfg = get_default_league()
-        if cfg is None or not cfg.sleeper_league_id:
-            LOG.info("[ros] sim-cache: no default league; skipping")
+        leagues = active_leagues()
+        if not leagues:
+            LOG.info("[ros] team-strength: no active leagues; skipping")
+            return out
+        nfl_players = fetch_nfl_players() or {}
+        for cfg in leagues:
+            path = _refresh_team_strength_for_league(cfg, aggregated, nfl_players)
+            if path:
+                out[cfg.key] = path
+    except Exception as exc:  # noqa: BLE001
+        LOG.warning("[ros] team-strength refresh failed: %s", exc)
+        LOG.debug("[ros] team-strength traceback: %s", traceback.format_exc())
+    return out
+
+
+def _refresh_sim_caches_for_league(cfg: Any, default_key: str | None) -> dict[str, Path] | None:
+    """Run playoff + championship sims for a single league."""
+    try:
+        from src.public_league.snapshot import build_public_snapshot  # noqa: PLC0415
+        from src.ros import championship, playoff_sim  # noqa: PLC0415
+
+        if not cfg or not cfg.sleeper_league_id:
             return None
-
         snap = build_public_snapshot(
             cfg.sleeper_league_id,
             include_nfl_players=False,
         )
         if not snap or not snap.seasons:
-            LOG.warning("[ros] sim-cache: snapshot empty; skipping")
-            return None
-
-        sims_dir = ROS_DATA_DIR / "sims"
-        sims_dir.mkdir(parents=True, exist_ok=True)
-        out: dict[str, Path] = {}
-
-        playoff_payload = playoff_sim.simulate_playoff_odds(snap)
-        playoff_path = sims_dir / "latest_playoff.json"
-        playoff_path.write_text(
-            json.dumps(
-                {"computedAt": _now(), **playoff_payload},
-                indent=2,
+            LOG.warning(
+                "[ros] sim-cache %s: snapshot empty; skipping",
+                cfg.key,
             )
+            return None
+        playoff_path, champ_path = _sim_paths(cfg.key, default_key)
+        playoff_path.parent.mkdir(parents=True, exist_ok=True)
+
+        out: dict[str, Path] = {}
+        # Best-ball flag is per-league; the simulator auto-detects when
+        # not passed but we thread it explicitly so the right behavior
+        # picks up for each league in the multi-league iteration.
+        bb = bool(getattr(cfg, "best_ball", False))
+        playoff_payload = playoff_sim.simulate_playoff_odds(snap, best_ball=bb)
+        playoff_path.write_text(
+            json.dumps({"computedAt": _now(), **playoff_payload}, indent=2)
         )
         out["playoff"] = playoff_path
 
-        championship_payload = championship.simulate_championship_odds(snap)
-        championship_path = sims_dir / "latest_championship.json"
-        championship_path.write_text(
-            json.dumps(
-                {"computedAt": _now(), **championship_payload},
-                indent=2,
-            )
+        championship_payload = championship.simulate_championship_odds(snap, best_ball=bb)
+        champ_path.write_text(
+            json.dumps({"computedAt": _now(), **championship_payload}, indent=2)
         )
-        out["championship"] = championship_path
+        out["championship"] = champ_path
 
         LOG.info(
-            "[ros] sim-cache: wrote playoff + championship to %s",
-            sims_dir,
+            "[ros] sim-cache %s: wrote playoff + championship",
+            cfg.key,
         )
         return out
-    except Exception as exc:  # noqa: BLE001 — never crash the orchestrator
+    except Exception as exc:  # noqa: BLE001
+        LOG.warning(
+            "[ros] sim-cache refresh for %s failed: %s",
+            getattr(cfg, "key", "?"), exc,
+        )
+        LOG.debug(
+            "[ros] sim-cache %s traceback: %s",
+            getattr(cfg, "key", "?"), traceback.format_exc(),
+        )
+        return None
+
+
+def _refresh_sim_caches() -> dict[str, dict[str, Path]]:
+    """Iterate active leagues and persist sim caches per league."""
+    out: dict[str, dict[str, Path]] = {}
+    try:
+        from src.api.league_registry import active_leagues, default_league_key  # noqa: PLC0415
+
+        default_key = default_league_key()
+        for cfg in active_leagues():
+            paths = _refresh_sim_caches_for_league(cfg, default_key)
+            if paths:
+                out[cfg.key] = paths
+    except Exception as exc:  # noqa: BLE001
         LOG.warning("[ros] sim-cache refresh failed: %s", exc)
         LOG.debug("[ros] sim-cache traceback: %s", traceback.format_exc())
-        return None
+    return out
 
 
 def _build_snapshot(src_meta: dict[str, Any], result: ScrapeResult) -> SourceSnapshot:
@@ -567,27 +623,32 @@ def run_all(
     archive = agg_dir / "history" / f"{_now().replace(':', '-')}.json"
     archive.write_text(json.dumps({"players": aggregated}, indent=2))
 
-    # Warm derived caches.  Both helpers are best-effort and never raise
-    # — a network blip during sim cache refresh shouldn't lose the
-    # aggregate write that just landed.
-    team_strength_path = _refresh_team_strength_snapshot(aggregated)
-    sim_paths = _refresh_sim_caches()
+    # Warm derived caches per active league.  Both helpers are best-
+    # effort and never raise — a network blip during sim cache refresh
+    # shouldn't lose the aggregate write that just landed.
+    team_strength_paths = _refresh_team_strength_snapshot(aggregated)
+    sim_paths_by_league = _refresh_sim_caches()
 
     return {
         "ranSources": list(results_by_key.keys()),
         "results": results_by_key,
         "playerCount": len(aggregated),
         "aggregateAt": _now(),
-        "teamStrengthPath": (
-            str(team_strength_path.relative_to(ROS_DATA_DIR))
-            if team_strength_path
-            else None
-        ),
-        "simPaths": (
-            {k: str(v.relative_to(ROS_DATA_DIR)) for k, v in sim_paths.items()}
-            if sim_paths
-            else None
-        ),
+        # Per-league outputs.  Keys are leagueKey strings; values are
+        # repo-relative paths.  The default league still writes to the
+        # historical ``team_strength/latest.json`` + ``sims/latest_*.json``
+        # filenames so existing readers keep working.
+        "teamStrengthPaths": {
+            k: str(p.relative_to(ROS_DATA_DIR))
+            for k, p in team_strength_paths.items()
+        },
+        "simPathsByLeague": {
+            league_key: {
+                kind: str(p.relative_to(ROS_DATA_DIR))
+                for kind, p in paths.items()
+            }
+            for league_key, paths in sim_paths_by_league.items()
+        },
     }
 
 

@@ -125,19 +125,32 @@ async def get_player_values(limit: int = 500) -> JSONResponse:
 
 @router.get("/team-strength")
 async def get_team_strength(request: Request, leagueKey: str | None = None) -> JSONResponse:
-    """Per-team ROS strength composite.
+    """Per-team ROS strength composite for the requested league.
 
-    PR 1 reads the latest cached snapshot.  Real-time recomputation
-    against the live Sleeper roster ships in PR 2 once the public
-    contract's lazy section builder is wired.
+    Resolves ``leagueKey`` via the standard registry chain (alias →
+    canonical → default), then loads the per-league snapshot file.
+    Default-league snapshots live at the historical
+    ``team_strength/latest.json`` path; non-default keys namespace
+    under ``team_strength/<leagueKey>.json``.
     """
-    _ = leagueKey  # PR 1 single-league only; PR 2 routes per-league
-    snapshot = load_team_strength_snapshot()
+    resolved_key = leagueKey
+    try:
+        from src.api.league_registry import get_league_by_key, default_league_key  # noqa: PLC0415
+        if leagueKey:
+            cfg = get_league_by_key(leagueKey)
+            if cfg and cfg.key:
+                resolved_key = cfg.key
+        else:
+            resolved_key = default_league_key()
+    except Exception:  # noqa: BLE001
+        pass
+    snapshot = load_team_strength_snapshot(resolved_key)
     if snapshot is None:
         return JSONResponse(
-            {"teams": [], "error": "no_snapshot"}, status_code=200
+            {"teams": [], "leagueKey": resolved_key, "error": "no_snapshot"},
+            status_code=200,
         )
-    return JSONResponse({"teams": snapshot, "leagueKey": leagueKey})
+    return JSONResponse({"teams": snapshot, "leagueKey": resolved_key})
 
 
 @router.get("/health")
@@ -271,16 +284,27 @@ async def post_refresh(request: Request) -> JSONResponse:
 # builder.  Signature matches the existing
 # ``Callable[[PublicLeagueSnapshot], dict[str, Any]]`` shape so the
 # section can be registered alongside playoffOdds in
-# ``_LAZY_SECTION_BUILDERS``.  The snapshot is currently unused — PR1
-# reads only the cached ``data/ros/team_strength/latest.json`` — but
-# threading it through keeps the contract consistent for PR2 when
-# we'll recompute from live rosters.
+# ``_LAZY_SECTION_BUILDERS``.  Resolves the snapshot's
+# ``root_league_id`` to a registry leagueKey so we serve the
+# right per-league snapshot file.
 def build_section(snapshot: Any) -> dict[str, Any]:
-    """Lazy-section builder: return the cached ROS team-strength snapshot."""
-    _ = snapshot  # PR2 uses snapshot for live recomputation
-    payload = load_team_strength_snapshot()
+    """Lazy-section builder: return the cached ROS team-strength snapshot
+    for the league the public-contract snapshot was built against."""
+    league_key: str | None = None
+    try:
+        from src.api.league_registry import all_leagues  # noqa: PLC0415
+        root_id = str(getattr(snapshot, "root_league_id", "") or "")
+        if root_id:
+            for cfg in all_leagues():
+                if str(cfg.sleeper_league_id) == root_id:
+                    league_key = cfg.key
+                    break
+    except Exception:  # noqa: BLE001
+        pass
+    payload = load_team_strength_snapshot(league_key)
     return {
         "teams": payload or [],
+        "leagueKey": league_key,
         "computedAt": datetime.now(timezone.utc).isoformat(),
         "stale": payload is None,
     }

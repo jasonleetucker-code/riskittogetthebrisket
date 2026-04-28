@@ -145,16 +145,50 @@ def compute_team_strength(
     return out
 
 
-def write_team_strength_snapshot(rows: list[dict[str, Any]]) -> Path:
+def _team_strength_path(league_key: str | None = None) -> Path:
+    """Resolve the team-strength snapshot path for the given league.
+
+    Default-league snapshots live at the historical
+    ``team_strength/latest.json`` path so existing readers (frontend
+    cache, health endpoint, lazy section builders) keep working.
+    Non-default leagues namespace under ``team_strength/<leagueKey>.json``.
+    """
+    base = ROS_DATA_DIR / "team_strength"
+    if not league_key:
+        return base / "latest.json"
+    # Resolve aliases — caller may pass a league alias that maps to a
+    # canonical key.  Failure-isolated: if the registry can't be read,
+    # fall back to using the literal string as the filename.
+    resolved = league_key
+    try:
+        from src.api.league_registry import get_league_by_key, default_league_key  # noqa: PLC0415
+        cfg = get_league_by_key(league_key)
+        if cfg and cfg.key:
+            resolved = cfg.key
+        if resolved == default_league_key():
+            return base / "latest.json"
+    except Exception:  # noqa: BLE001
+        pass
+    safe = "".join(c for c in resolved if c.isalnum() or c in {"_", "-"})
+    return base / f"{safe or 'latest'}.json"
+
+
+def write_team_strength_snapshot(
+    rows: list[dict[str, Any]],
+    *,
+    league_key: str | None = None,
+) -> Path:
     """Persist the latest team-strength snapshot to disk."""
-    target = ROS_DATA_DIR / "team_strength" / "latest.json"
+    target = _team_strength_path(league_key)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(rows, indent=2))
     return target
 
 
-def load_team_strength_snapshot() -> list[dict[str, Any]] | None:
-    target = ROS_DATA_DIR / "team_strength" / "latest.json"
+def load_team_strength_snapshot(
+    league_key: str | None = None,
+) -> list[dict[str, Any]] | None:
+    target = _team_strength_path(league_key)
     if not target.exists():
         return None
     try:
