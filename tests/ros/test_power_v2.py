@@ -53,25 +53,27 @@ class TestLoadTeamStrength(unittest.TestCase):
             self.assertEqual(power_v2._load_team_strength_percentiles(), {})
 
     def test_loads_and_percentiles(self):
-        # Create temp snapshot file under the real ROS_DATA_DIR.
-        target = power_v2.ROS_DATA_DIR / "team_strength" / "latest.json"
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(
-            json.dumps(
-                [
-                    {"ownerId": "alpha", "teamRosStrength": 90.0},
-                    {"ownerId": "beta", "teamRosStrength": 60.0},
-                    {"ownerId": "gamma", "teamRosStrength": 30.0},
-                ]
+        # Use a temp dir so we never touch the production snapshot —
+        # under the real ROS_DATA_DIR this test would wipe live data.
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_root = Path(tmp)
+            target = tmp_root / "team_strength" / "latest.json"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(
+                json.dumps(
+                    [
+                        {"ownerId": "alpha", "teamRosStrength": 90.0},
+                        {"ownerId": "beta", "teamRosStrength": 60.0},
+                        {"ownerId": "gamma", "teamRosStrength": 30.0},
+                    ]
+                )
             )
-        )
-        try:
-            result = power_v2._load_team_strength_percentiles()
+            with patch.object(power_v2, "ROS_DATA_DIR", tmp_root):
+                result = power_v2._load_team_strength_percentiles()
             self.assertEqual(set(result.keys()), {"alpha", "beta", "gamma"})
             self.assertGreater(result["alpha"], result["beta"])
             self.assertGreater(result["beta"], result["gamma"])
-        finally:
-            target.unlink()
 
 
 class TestWeights(unittest.TestCase):
