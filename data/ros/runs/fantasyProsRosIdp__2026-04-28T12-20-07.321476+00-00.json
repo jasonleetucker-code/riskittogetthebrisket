@@ -1,0 +1,21 @@
+{
+  "source_key": "fantasyProsRosIdp",
+  "status": "ok",
+  "error": null,
+  "started_at": "2026-04-28T12:20:07.321030+00:00",
+  "completed_at": "2026-04-28T12:20:07.321476+00:00",
+  "player_count": 100,
+  "source_id": "fantasyProsRosIdp",
+  "source_name": "FantasyPros Dynasty IDP (ROS proxy)",
+  "source_url": "https://www.fantasypros.com/nfl/rankings/dynasty-idp.php",
+  "source_type": "dynasty_proxy",
+  "scoring_format": "ppr",
+  "is_superflex": false,
+  "is_2qb": false,
+  "is_te_premium": false,
+  "is_idp": true,
+  "is_ros": false,
+  "is_dynasty": true,
+  "is_projection_source": false,
+  "stale_after_hours": 168
+}
