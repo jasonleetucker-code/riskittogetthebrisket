@@ -306,6 +306,45 @@ def simulate_playoff_odds(
     }
 
 
+# Cache TTL (seconds) for the on-disk sim output written by
+# ``src.ros.scrape``.  Past this age the lazy builder falls back to a
+# live re-run so a stale GitHub Actions schedule doesn't pin clients to
+# week-old odds.  Default 6h aligns with the every-2h scrape cadence
+# (3x headroom).
+_SIM_CACHE_TTL_SEC = 6 * 3600
+
+
+def _load_cached_payload() -> dict[str, Any] | None:
+    """Read ``data/ros/sims/latest_playoff.json`` if fresh; else None."""
+    import os
+    path = ROS_DATA_DIR / "sims" / "latest_playoff.json"
+    if not path.exists():
+        return None
+    try:
+        age = os.path.getmtime(path)
+    except OSError:
+        return None
+    import time
+    if (time.time() - age) > _SIM_CACHE_TTL_SEC:
+        LOG.info("[ros] playoff cache stale (>%ds); rerunning sim", _SIM_CACHE_TTL_SEC)
+        return None
+    try:
+        return json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        LOG.warning("[ros] playoff cache unreadable (%s); rerunning sim", exc)
+        return None
+
+
 def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
-    """Lazy-section builder for /api/public/league/rosPlayoffOdds."""
-    return simulate_playoff_odds(snapshot)
+    """Lazy-section builder for /api/public/league/rosPlayoffOdds.
+
+    Prefers the cached output written by the scheduled scrape; falls
+    back to a live Monte Carlo when the cache is missing or stale.
+    """
+    cached = _load_cached_payload()
+    if cached is not None:
+        cached["cached"] = True
+        return cached
+    payload = simulate_playoff_odds(snapshot)
+    payload["cached"] = False
+    return payload

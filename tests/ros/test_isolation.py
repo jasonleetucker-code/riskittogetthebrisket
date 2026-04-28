@@ -104,9 +104,10 @@ class TestTradeLogicNonRegression(unittest.TestCase):
         # through here; we re-run the existing port regression test
         # rather than re-implement it.
         import subprocess
+        import sys
         result = subprocess.run(
             [
-                "python",
+                sys.executable,
                 "-m",
                 "pytest",
                 "tests/trade/test_ktc_va_python_port.py::test_fixture_overall_rms_under_50",

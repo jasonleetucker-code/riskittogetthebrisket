@@ -31,6 +31,7 @@ Returns:
 """
 from __future__ import annotations
 
+import json
 import logging
 import random
 import statistics
@@ -38,7 +39,7 @@ from typing import Any
 
 from src.public_league import metrics, playoff_odds
 from src.public_league.snapshot import PublicLeagueSnapshot
-from src.ros import playoff_sim
+from src.ros import ROS_DATA_DIR, playoff_sim
 
 LOG = logging.getLogger("ros.championship")
 
@@ -266,6 +267,38 @@ def simulate_championship_odds(
     }
 
 
+_SIM_CACHE_TTL_SEC = 6 * 3600
+
+
+def _load_cached_payload() -> dict[str, Any] | None:
+    """Read ``data/ros/sims/latest_championship.json`` if fresh; else None."""
+    import os
+    import time
+    path = ROS_DATA_DIR / "sims" / "latest_championship.json"
+    if not path.exists():
+        return None
+    try:
+        if (time.time() - os.path.getmtime(path)) > _SIM_CACHE_TTL_SEC:
+            return None
+    except OSError:
+        return None
+    try:
+        return json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        LOG.warning("[ros] championship cache unreadable (%s); rerunning sim", exc)
+        return None
+
+
 def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
-    """Lazy-section builder for /api/public/league/rosChampionship."""
-    return simulate_championship_odds(snapshot)
+    """Lazy-section builder for /api/public/league/rosChampionship.
+
+    Prefers the cached output written by the scheduled scrape; falls
+    back to a live Monte Carlo when the cache is missing or stale.
+    """
+    cached = _load_cached_payload()
+    if cached is not None:
+        cached["cached"] = True
+        return cached
+    payload = simulate_championship_odds(snapshot)
+    payload["cached"] = False
+    return payload
