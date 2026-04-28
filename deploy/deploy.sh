@@ -822,6 +822,7 @@ main() {
 
   local tracked_changes
   tracked_changes="$(git status --porcelain --untracked-files=no)"
+  local needs_force_clean="false"
   if [[ -n "${tracked_changes}" ]]; then
     if [[ "${ALLOW_DIRTY_DEPLOY}" == "true" ]]; then
       warn "Tracked changes detected but ALLOW_DIRTY_DEPLOY=true, proceeding without stash."
@@ -833,10 +834,13 @@ main() {
       if ! git stash push -m "${stash_name}"; then
         warn "git stash failed — likely a .git/objects permission issue (e.g. scraper-owned"
         warn "objects under ${APP_DIR}/.git/objects/ that the deploy user cannot write next to)."
-        warn "Tracked changes will be DISCARDED by the upcoming 'git reset --hard' against the target ref."
+        warn "Tracked changes will be DISCARDED by an unconditional 'git reset --hard' against the target ref"
+        warn "(reset only updates refs + working tree, so it survives the same .git/objects permissions"
+        warn "that broke stash)."
         warn "If you need the dirty files preserved, set ALLOW_DIRTY_DEPLOY=true and stash manually before re-running."
         warn "To fix the underlying permissions, ensure the scraper and the deploy user share group ownership of"
         warn "${APP_DIR}/.git (e.g. 'chgrp -R <shared-group> .git && chmod -R g+ws .git')."
+        needs_force_clean="true"
       fi
     fi
   fi
@@ -861,12 +865,19 @@ main() {
   fi
 
   if ! TARGET_REV="$(resolve_git_ref "${DEPLOY_REF}")"; then
+    # Don't fall back to DEPLOY_BRANCH when fetch failed: the local
+    # branch ref is potentially stale (the requested SHA may simply be
+    # missing from the local repo), and a silent fallback would deploy
+    # the wrong revision and report success.
+    if [[ "${fetch_ok}" != "true" ]]; then
+      error "Could not resolve DEPLOY_REF='${DEPLOY_REF}' locally and 'git fetch' had failed."
+      error "Refusing to fall back to DEPLOY_BRANCH='${DEPLOY_BRANCH}' (potentially stale)."
+      error "The requested ref may simply be missing from the local repo because fetch could not"
+      error "write new objects. Fix the .git/objects permissions noted above and re-run the deploy."
+      exit 1
+    fi
     if ! TARGET_REV="$(resolve_git_ref "${DEPLOY_BRANCH}")"; then
       error "Could not resolve DEPLOY_REF='${DEPLOY_REF}' or DEPLOY_BRANCH='${DEPLOY_BRANCH}' to a commit."
-      if [[ "${fetch_ok}" != "true" ]]; then
-        error "git fetch had failed earlier, so the local repo never received the target ref. Fix the"
-        error ".git/objects permissions noted above and re-run the deploy."
-      fi
       exit 1
     fi
     warn "Falling back to DEPLOY_BRANCH '${DEPLOY_BRANCH}' because DEPLOY_REF '${DEPLOY_REF}' was not resolvable."
@@ -878,6 +889,9 @@ main() {
   if [[ "${current_rev}" != "${TARGET_REV}" ]]; then
     log "Checking out target revision."
     git checkout --force "${TARGET_REV}"
+    git reset --hard "${TARGET_REV}"
+  elif [[ "${needs_force_clean}" == "true" ]]; then
+    log "Repository already at target revision but auto-stash failed; running 'git reset --hard ${TARGET_REV}' to discard the dirty working tree."
     git reset --hard "${TARGET_REV}"
   else
     log "Repository already at target revision."
