@@ -356,6 +356,78 @@ export default function SettingsPage() {
         />
       </Section>
 
+      <Section title="Rest-of-Season Engine" defaultOpen={false}>
+        <p className="muted" style={{ fontSize: "0.72rem", marginTop: 0, marginBottom: 10 }}>
+          The ROS engine is a separate short-term contender layer.{" "}
+          <strong>It never modifies dynasty rankings or trade-calculator math.</strong>{" "}
+          These flags only control which surfaces show ROS context.
+        </p>
+        <ToggleRow
+          label="Enable ROS engine"
+          checked={settings.rosEnabled !== false}
+          onChange={(v) => update("rosEnabled", v)}
+          hint="Master switch.  Off hides every ROS-driven surface (Power v2, Championship tab, Trade-deadline dashboard, ROS Fit panel, player tags)."
+        />
+        <ToggleRow
+          label="Use ROS-driven Power Rankings"
+          checked={!!settings.useRosPowerRankings}
+          onChange={(v) => update("useRosPowerRankings", v)}
+          hint="Swap the /league Power tab from the v1 PPG/all-play formula to the ROS-driven 9-input v2.  Defaults off until you've validated v2 against a few weeks of standings."
+        />
+        <ToggleRow
+          label="Use ROS-driven Playoff Odds"
+          checked={!!settings.useRosPlayoffOdds}
+          onChange={(v) => update("useRosPlayoffOdds", v)}
+          hint="When enabled, the playoff Monte Carlo uses ROS-blended weekly score distributions instead of empirical-only.  PR-future toggle for the playoff-odds section swap; ROS Championship tab uses ROS by default."
+        />
+        <ToggleRow
+          label="Show ROS Fit panel on Trade Calculator"
+          checked={settings.showRosTradePanel !== false}
+          onChange={(v) => update("showRosTradePanel", v)}
+          hint="Adds an informational panel below the per-source winner table on /trade.  Surfaces buyer/seller direction + per-player tags.  Does NOT change trade math."
+        />
+        <ToggleRow
+          label="Show ROS context tags on player popups"
+          checked={settings.showRosTags !== false}
+          onChange={(v) => update("showRosTags", v)}
+          hint="Appends a Short-term context section to PlayerPopup with ROS value, rank, tier, and tags like Win-now target / Seller cash-out / Rebuilder hold."
+        />
+        <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 14 }}>
+          <label style={{ fontSize: "0.82rem", minWidth: 200 }}>
+            Monte Carlo simulations
+          </label>
+          <input
+            type="number"
+            min={1000}
+            max={100000}
+            step={1000}
+            value={settings.rosSimulationCount ?? 10000}
+            onChange={(e) =>
+              update(
+                "rosSimulationCount",
+                Math.max(1000, Math.min(100000, parseInt(e.target.value) || 10000)),
+              )
+            }
+            className="input"
+            style={{ width: 100 }}
+          />
+          <span style={{ fontSize: "0.72rem", color: "var(--subtext)" }}>
+            higher = tighter tails, slower section load
+          </span>
+        </div>
+        <p
+          className="muted"
+          style={{ fontSize: "0.7rem", marginTop: 12, marginBottom: 0 }}
+        >
+          ROS source weights and per-source enable toggles ship in a future
+          PR — for now the registry defaults are baked in.  Diagnostic page:{" "}
+          <a href="/tools/ros-data-health" style={{ color: "var(--cyan)" }}>
+            /tools/ros-data-health
+          </a>
+          .
+        </p>
+      </Section>
+
       <Section title="Pick Settings" defaultOpen={false}>
         <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 8 }}>
           <label style={{ fontSize: "0.82rem" }}>Current Draft Year</label>

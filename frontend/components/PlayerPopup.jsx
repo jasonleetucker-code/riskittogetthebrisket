@@ -7,6 +7,176 @@ import PlayerRankHistoryChart from "@/components/PlayerRankHistoryChart";
 import { useTeam } from "@/components/useTeam";
 import { useTerminal } from "@/components/useTerminal";
 import { useUserState } from "@/components/useUserState";
+import { useSettings } from "@/components/useSettings";
+
+
+// ── ROS context section ──────────────────────────────────────────────
+// Read-only contender-layer labels surfaced inside PlayerPopup.  Never
+// mutates dynasty values; gated by ``settings.showRosTags``.  Caches
+// the player-values JSON at module level so opening multiple popups
+// doesn't refetch the 500-row payload each time.
+const _rosCache = { byName: null, fetchedAt: 0, inflight: null };
+const _ROS_TTL_MS = 30 * 60 * 1000;
+
+async function _loadRosValuesByName() {
+  const fresh = _rosCache.byName && Date.now() - _rosCache.fetchedAt < _ROS_TTL_MS;
+  if (fresh) return _rosCache.byName;
+  if (_rosCache.inflight) return _rosCache.inflight;
+  const promise = fetch("/api/ros/player-values?limit=2000")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((payload) => {
+      const map = {};
+      for (const p of payload?.players || []) {
+        if (p.canonicalName) {
+          map[p.canonicalName] = {
+            rosValue: p.rosValue,
+            rosRank: p.rosRankOverall,
+            rosRankPosition: p.rosRankPosition,
+            confidence: p.confidence,
+            volatilityFlag: !!p.volatilityFlag,
+            staleFlag: !!p.staleFlag,
+            tier: p.tier,
+          };
+        }
+      }
+      _rosCache.byName = map;
+      _rosCache.fetchedAt = Date.now();
+      _rosCache.inflight = null;
+      return map;
+    })
+    .catch(() => {
+      _rosCache.inflight = null;
+      return _rosCache.byName || {};
+    });
+  _rosCache.inflight = promise;
+  return promise;
+}
+
+const _ROS_TAG_COLOR = {
+  "Win-now target": "var(--cyan)",
+  "Contender upgrade": "var(--cyan)",
+  "Seller cash-out": "var(--amber)",
+  "Rebuilder hold": "var(--green)",
+  "Avoid unless contending": "var(--red)",
+  "Depth spike option": "var(--subtext)",
+  "Best-ball boost": "var(--cyan)",
+  "IDP contender target": "var(--cyan)",
+  "Injury/bye cover": "var(--subtext)",
+};
+const _VET_AGE = { QB: 32, RB: 26, WR: 29, TE: 30, DL: 30, DE: 30, DT: 30, EDGE: 30, LB: 29, DB: 29, S: 29, CB: 29 };
+
+function _tagsForPlayer({ position, age, rosValue, rosRank, dynastyValue, volatilityFlag }) {
+  const tags = [];
+  if (rosValue == null || rosValue <= 0) return tags;
+  const pos = String(position || "").toUpperCase().split("/")[0];
+  const isIdp = ["DL", "DE", "DT", "EDGE", "LB", "DB", "S", "CB"].includes(pos);
+  const isStrong = rosValue >= 60;
+  const isElite = rosValue >= 80;
+  const isStarterCaliber = rosRank != null && rosRank <= 100;
+  const isTopIdp = isIdp && rosRank != null && rosRank <= 50;
+  const veteran = age != null && _VET_AGE[pos] != null && age >= _VET_AGE[pos];
+  const young = age != null && age <= 24;
+  if (veteran && isStrong) tags.push("Win-now target");
+  if (isElite && isStarterCaliber && !isIdp) tags.push("Contender upgrade");
+  if (veteran && isStrong && dynastyValue != null && dynastyValue < rosValue * 0.7) tags.push("Seller cash-out");
+  if (young && !isStrong) tags.push("Rebuilder hold");
+  if (veteran && isStrong && !isStarterCaliber) tags.push("Avoid unless contending");
+  if (!isStarterCaliber && rosValue >= 30 && rosValue < 60) tags.push("Depth spike option");
+  if (volatilityFlag && isStarterCaliber) tags.push("Best-ball boost");
+  if (isTopIdp) tags.push("IDP contender target");
+  if (!isStrong && !young) tags.push("Injury/bye cover");
+  return tags;
+}
+
+function RosContextSection({ row }) {
+  const { settings } = useSettings();
+  const enabled = settings?.showRosTags !== false;
+  const [ros, setRos] = useState(null);
+  useEffect(() => {
+    if (!enabled || !row) return;
+    let active = true;
+    _loadRosValuesByName().then((map) => {
+      if (!active) return;
+      const name = row.canonicalName || row.displayName || row.name;
+      setRos(map?.[name] ?? null);
+    });
+    return () => {
+      active = false;
+    };
+  }, [enabled, row?.canonicalName, row?.displayName]);
+
+  if (!enabled || !row) return null;
+  if (!ros || !ros.rosValue) {
+    return (
+      <div
+        className="muted"
+        style={{ fontSize: "0.7rem", paddingBottom: 6 }}
+        title="No ROS source ranked this player today."
+      >
+        ROS · no data yet
+      </div>
+    );
+  }
+  const dynastyValue = row.values?.full ?? row.rankDerivedValue ?? null;
+  const tags = _tagsForPlayer({
+    position: row.pos,
+    age: row.age,
+    rosValue: ros.rosValue,
+    rosRank: ros.rosRank,
+    dynastyValue,
+    volatilityFlag: ros.volatilityFlag,
+  });
+  return (
+    <div
+      style={{
+        marginTop: 6,
+        paddingTop: 6,
+        borderTop: "1px dashed rgba(255,255,255,0.08)",
+        fontSize: "0.72rem",
+      }}
+    >
+      <div style={{ color: "var(--subtext)", marginBottom: 4 }}>
+        Short-term context (ROS) · informational only
+      </div>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <span style={{ fontFamily: "var(--mono)" }}>
+          ROS value <strong style={{ color: "var(--cyan)" }}>{Math.round(ros.rosValue)}</strong>
+        </span>
+        {ros.rosRank != null && (
+          <span style={{ fontFamily: "var(--mono)", color: "var(--subtext)" }}>
+            #{ros.rosRank} overall
+          </span>
+        )}
+        {ros.tier != null && (
+          <span style={{ color: "var(--subtext)" }}>Tier {ros.tier}</span>
+        )}
+        {ros.confidence != null && (
+          <span style={{ color: "var(--subtext)" }}>
+            confidence {Math.round(ros.confidence * 100)}%
+          </span>
+        )}
+      </div>
+      {tags.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              style={{
+                fontSize: "0.62rem",
+                padding: "1px 6px",
+                borderRadius: 4,
+                border: `1px solid ${_ROS_TAG_COLOR[tag] || "var(--subtext)"}`,
+                color: _ROS_TAG_COLOR[tag] || "var(--subtext)",
+              }}
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Build the ordered value-chain stages from a player row.
@@ -354,6 +524,11 @@ export default function PlayerPopup({ row, siteKeys = [], onClose, onAddToTrade 
               Injury news · offseason (value unchanged)
             </div>
           )}
+          {/* ── Short-term context (ROS) ──────────────────────────
+              Read-only contender-layer labels.  Never mutates the
+              dynasty value above.  Gated by ``settings.showRosTags``
+              (default true). */}
+          <RosContextSection row={row} />
         </div>
 
         {/* Scoring-fit explainer — what's driving the league-aware
