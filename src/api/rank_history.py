@@ -1,10 +1,14 @@
 """Per-player rank history persistence.
 
 On every contract rebuild we append a compact snapshot of
-``{canonicalName: canonicalConsensusRank}`` to ``data/rank_history.jsonl``.
-Later reads reconstruct a per-player time series so the frontend
-``RankChangeGlyph`` (which accepts a ``history`` prop and degrades to
-a delta arrow when absent) can render an actual sparkline.
+``{canonicalName: canonicalConsensusRank}`` plus ``rankDerivedValue``
+to ``data/rank_history.jsonl``.  Later reads reconstruct a per-player
+time series carrying both the rank and the canonical pipeline value
+at that rank, so the frontend ``RankChangeGlyph`` can render a
+sparkline AND consumers like trade-retro-grading can value each side
+of a historical trade against the same value scale the live UI uses
+today (rather than re-deriving from rank with a frozen client-side
+Hill curve that drifts from the backend).
 
 JSONL is chosen deliberately:
 
@@ -47,6 +51,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+from src.canonical.player_valuation import (
+    HILL_MIDPOINT,
+    HILL_SLOPE,
+    IDP_HILL_MIDPOINT,
+    IDP_HILL_SLOPE,
+    rank_to_value,
+)
+
 HISTORY_PATH: Path = Path(__file__).resolve().parents[2] / "data" / "rank_history.jsonl"
 
 # Retain three full calendar years of daily scrapes.  At ~1,200
@@ -69,8 +81,16 @@ def _today_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
+def _players_array(contract: dict[str, Any]) -> list[dict[str, Any]]:
+    arr = contract.get("playersArray")
+    if not isinstance(arr, list):
+        data = contract.get("data") or {}
+        arr = data.get("playersArray") if isinstance(data, dict) else None
+    return arr if isinstance(arr, list) else []
+
+
 def _extract_ranks(contract: dict[str, Any]) -> dict[str, int]:
-    """Flatten a live contract into ``{canonicalName: rank}``.
+    """Flatten a live contract into ``{canonicalName::assetClass: rank}``.
 
     Accepts either the top-level contract shape or the ``data``-
     wrapped API envelope.  Skips rows without a ranked stamp; we
@@ -82,15 +102,8 @@ def _extract_ranks(contract: dict[str, Any]) -> dict[str, int]:
     identity-validation code) get distinct history series instead of
     silently overwriting each other in the snapshot dict.
     """
-    arr = contract.get("playersArray")
-    if not isinstance(arr, list):
-        data = contract.get("data") or {}
-        arr = data.get("playersArray") if isinstance(data, dict) else None
-    if not isinstance(arr, list):
-        return {}
-
     out: dict[str, int] = {}
-    for row in arr:
+    for row in _players_array(contract):
         if not isinstance(row, dict):
             continue
         key = _player_key(row)
@@ -99,6 +112,49 @@ def _extract_ranks(contract: dict[str, Any]) -> dict[str, int]:
             continue
         out[key] = int(rank)
     return out
+
+
+def _extract_values(contract: dict[str, Any]) -> dict[str, int]:
+    """Flatten a live contract into ``{canonicalName::assetClass: rankDerivedValue}``.
+
+    Mirrors ``_extract_ranks`` but captures the canonical pipeline
+    value (``rankDerivedValue``) so retro consumers can compare a
+    trade's at-trade net to its current net on the same value scale
+    that ``/api/data`` emits today — rather than re-deriving from
+    rank with a frozen client-side Hill curve.
+
+    Skipping rules match ``_extract_ranks``: only rows with a valid
+    rank are captured (a row without a rank can't contribute to a
+    meaningful history series anyway).
+    """
+    out: dict[str, int] = {}
+    for row in _players_array(contract):
+        if not isinstance(row, dict):
+            continue
+        key = _player_key(row)
+        rank = row.get("canonicalConsensusRank")
+        if not key or not isinstance(rank, int) or rank <= 0:
+            continue
+        try:
+            val = int(round(float(row.get("rankDerivedValue") or 0)))
+        except (TypeError, ValueError):
+            continue
+        if val <= 0:
+            continue
+        out[key] = val
+    return out
+
+
+def _value_from_rank(rank: int, scope: str) -> int:
+    """Backfill a value for an old log entry that has rank but no val.
+
+    Uses the canonical Hill curve constants (offense vs IDP).  Picks
+    fall through to the offense curve — picks logged before this
+    schema bump are rare and the discrepancy is bounded.
+    """
+    midpoint = IDP_HILL_MIDPOINT if scope == "idp" else HILL_MIDPOINT
+    slope = IDP_HILL_SLOPE if scope == "idp" else HILL_SLOPE
+    return int(rank_to_value(float(rank), midpoint=midpoint, slope=slope))
 
 
 _OFFENSE_POSITIONS = frozenset({"QB", "RB", "WR", "TE"})
@@ -225,14 +281,23 @@ def append_snapshot(
 
     Idempotent per date — if an entry for ``date`` already exists
     it's overwritten, not duplicated.
+
+    Each entry carries both ``ranks`` and ``values`` keyed by the
+    same composite ``name::assetClass``.  Older readers ignore
+    ``values``; newer readers prefer it over the rank-derived
+    fallback so retro grading lands on the canonical pipeline scale.
     """
     path = path or HISTORY_PATH
     ranks = _extract_ranks(contract)
     if not ranks:
         return False
 
+    values = _extract_values(contract)
+
     date = date or _today_utc()
-    entry = {"date": date, "ranks": ranks}
+    entry: dict[str, Any] = {"date": date, "ranks": ranks}
+    if values:
+        entry["values"] = values
 
     path.parent.mkdir(parents=True, exist_ok=True)
     existing = _read_lines(path)
@@ -265,13 +330,20 @@ def load_history(
     Output shape::
 
         {
-          "Ja'Marr Chase": [
-            {"date": "2026-03-25", "rank": 2},
-            {"date": "2026-03-26", "rank": 2},
+          "Ja'Marr Chase::offense": [
+            {"date": "2026-03-25", "rank": 2, "val": 9719},
+            {"date": "2026-03-26", "rank": 2, "val": 9712},
             ...
           ],
           ...
         }
+
+    ``val`` is the canonical pipeline value at the time of the
+    snapshot (``rankDerivedValue`` from the live contract).  For
+    legacy entries written before this schema bump (no ``values``
+    block on disk), ``val`` is back-filled from rank using the
+    asset-class-aware Hill curve so the consumer never has to
+    re-derive client-side.
 
     Players who don't appear in every snapshot get gaps.  The
     frontend sparkline path handles gaps; no imputation here.
@@ -287,6 +359,7 @@ def load_history(
     for e in windowed:
         date = e.get("date")
         ranks = e.get("ranks") or {}
+        values = e.get("values") if isinstance(e.get("values"), dict) else {}
         if not isinstance(date, str) or not isinstance(ranks, dict):
             continue
         for name, rank in ranks.items():
@@ -295,7 +368,24 @@ def load_history(
                     rank = int(rank)
                 except (TypeError, ValueError):
                     continue
-            per_player.setdefault(str(name), []).append({"date": date, "rank": rank})
+            stored_val = values.get(name) if values else None
+            if stored_val is None:
+                # Legacy entry — derive from rank using the canonical
+                # Hill curve.  Asset class is encoded in the key suffix
+                # ("::idp" / "::offense" / "::pick").
+                idx = str(name).rfind("::")
+                scope = str(name)[idx + 2:].lower() if idx >= 0 else ""
+                val = _value_from_rank(rank, scope)
+            else:
+                try:
+                    val = int(stored_val)
+                except (TypeError, ValueError):
+                    idx = str(name).rfind("::")
+                    scope = str(name)[idx + 2:].lower() if idx >= 0 else ""
+                    val = _value_from_rank(rank, scope)
+            per_player.setdefault(str(name), []).append(
+                {"date": date, "rank": rank, "val": val}
+            )
     return per_player
 
 

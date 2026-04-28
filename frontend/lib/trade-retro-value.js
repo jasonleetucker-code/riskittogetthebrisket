@@ -29,24 +29,43 @@
  */
 import { valueFromRank } from "@/lib/value-history";
 
-function rankAt(history, asOfMs) {
+/**
+ * Find the rank-history point closest-before ``asOfMs``, or — when
+ * the trade predates all coverage — the earliest available sample.
+ * Returns the whole point so callers can read both ``rank`` and the
+ * server-stamped ``val`` (canonical pipeline value at that snapshot).
+ */
+function pointAt(history, asOfMs) {
   if (!Array.isArray(history) || history.length === 0) return null;
   let best = null;
+  let earliest = null;
   for (const point of history) {
     const t = Date.parse(point?.date);
     if (!Number.isFinite(t)) continue;
     const rank = Number(point?.rank);
     if (!Number.isFinite(rank) || rank <= 0) continue;
+    if (!earliest || t < earliest.t) earliest = { t, point };
     if (t <= asOfMs) {
-      if (!best || t > best.t) best = { t, rank };
-    } else if (!best) {
-      // No earlier point — first sample after the trade is the best
-      // available proxy.  Better than null when the player was ranked
-      // shortly after the trade.
-      best = { t, rank };
+      if (!best || t > best.t) best = { t, point };
     }
   }
-  return best ? best.rank : null;
+  // Prefer closest-before; fall back to earliest sample for trades
+  // that predate the rank-history window (better than null when the
+  // player's coverage starts shortly after the trade).
+  return (best || earliest)?.point || null;
+}
+
+function valueFromPoint(point) {
+  if (!point) return null;
+  const stamped = Number(point.val);
+  if (Number.isFinite(stamped) && stamped > 0) return stamped;
+  // Defensive: if the server didn't stamp ``val`` for this point
+  // (shouldn't happen with the new schema), fall back to the local
+  // Hill-curve approximation.  Documented mismatch with backend
+  // canonical curves — see value-history.js::valueFromRank.
+  const r = Number(point.rank);
+  if (!Number.isFinite(r) || r <= 0) return null;
+  return valueFromRank(r);
 }
 
 export function valueSideAtTime(items, historyLookup, asOfMs) {
@@ -66,11 +85,11 @@ export function valueSideAtTime(items, historyLookup, asOfMs) {
       continue;
     }
     const history = historyLookup ? historyLookup(it.name) : null;
-    const rankAtTrade = rankAt(history, asOfMs);
-    if (rankAtTrade != null) {
-      const v = valueFromRank(rankAtTrade);
-      out.push({ name: it.name, val: v, isPick: false, source: "rankHistory" });
-      total += v;
+    const pointAtTrade = pointAt(history, asOfMs);
+    const stamped = valueFromPoint(pointAtTrade);
+    if (stamped != null) {
+      out.push({ name: it.name, val: stamped, isPick: false, source: "rankHistory" });
+      total += stamped;
     } else {
       const v = Number(it.val) || 0;
       out.push({ name: it.name, val: v, isPick: false, source: "current_fallback" });
