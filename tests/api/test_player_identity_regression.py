@@ -390,20 +390,30 @@ class TestTopBoardSingleSourceAllowlist(unittest.TestCase):
                 continue
             if not row.get("isSingleSource"):
                 continue
-            # Skip ONLY ``no_valid_source_values`` quarantines — those
-            # are the fringe rookies / IDPs whose CSV stamps round to
-            # zero across every source and that the daily refresh
-            # routinely shifts in and out of the top board.  Other
-            # quarantine reasons (``duplicate_canonical_identity``,
-            # ``position_source_contradiction``, ``unsupported_position``)
-            # represent genuine identity / join regressions that this
-            # gate is designed to surface as high-rank 1-src offenders;
-            # blanket-skipping all quarantined rows would let those
-            # slip through.  See PR #357 Codex P2 review for rationale.
+            # Skip ONLY rows quarantined PURELY for
+            # ``no_valid_source_values`` — fringe rookies / IDPs whose
+            # CSV stamps round to zero across every source and that the
+            # daily refresh routinely shifts in and out of the top
+            # board.  Mixed-flag rows that ALSO carry
+            # ``duplicate_canonical_identity``,
+            # ``position_source_contradiction``, or
+            # ``unsupported_position`` are genuine identity / join
+            # regressions and must still trip this gate.  Membership-
+            # only check (``"no_valid_source_values" in flags``) would
+            # let a mixed-flag row slip through; the exclusive check
+            # below preserves the cascade suppression while keeping the
+            # join-regression intent.  Codex PR #357 P2 review caught
+            # the membership-vs-exclusive bug.
             anomaly_flags = row.get("anomalyFlags") or []
+            _regression_flags = (
+                "duplicate_canonical_identity",
+                "position_source_contradiction",
+                "unsupported_position",
+            )
             if (
                 row.get("quarantined")
                 and "no_valid_source_values" in anomaly_flags
+                and not any(f in anomaly_flags for f in _regression_flags)
             ):
                 continue
             name = row.get("canonicalName") or ""
