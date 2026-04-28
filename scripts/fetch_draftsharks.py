@@ -515,6 +515,31 @@ def main() -> int:
         )
         return 1
 
+    # Value-sanity guard: even when ``idp_count > 0`` the DS WASM
+    # worker can finish a partial pass that emits IDP rows with
+    # ``dsValue`` rendered as 0 across the whole pool.  We saw this on
+    # the 2026-04-28T18:13Z scrape — Carson Schwesinger (IDP rank 1)
+    # arrived at value=0 alongside every other IDP row, which then
+    # fed straight into the live blend and tripped
+    # ``test_ds_csvs_have_negative_rows`` on the next PR validation.
+    # Refuse to overwrite the existing CSVs in that case so the prior
+    # good scrape stays in place until the page recovers.  Threshold
+    # is "max IDP value > 0": one positive IDP row is enough to prove
+    # the worker finished its pass.
+    idp_max_value = max(
+        (_value_of(r) for r in rows if r.get("position", "").upper() in _IDP_FAMILIES),
+        default=0.0,
+    )
+    if idp_max_value <= 0:
+        print(
+            f"[DS] ERROR: every IDP row has dsValue<=0 (max={idp_max_value}) — "
+            "WASM worker did not produce IDP values.  Refusing to "
+            "overwrite the prior good CSV; re-run later or check the "
+            "DraftSharks page in --headful mode.",
+            file=sys.stderr,
+        )
+        return 1
+
     if args.dry_run:
         print("[DS] dry-run — skipping CSV write")
         print("Top 10 offense:")
