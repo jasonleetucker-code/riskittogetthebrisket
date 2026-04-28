@@ -54,7 +54,7 @@ const BUDGETS_KB = {
   "/league/page": 165, // public hub bundles every section together
   "/rosters/page": 30,
   "/trades/page": 20,
-  "/settings/page": 40,  // bumped 35→40 for ROS engine section (5 toggles + sim-count input)
+  "/settings/page": 50,  // bumped 40→50 for ROS source table (per-source toggles + weight inputs)
   "/login/page": 15,
   "/more/page": 10,
 };

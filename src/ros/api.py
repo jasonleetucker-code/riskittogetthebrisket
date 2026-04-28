@@ -218,6 +218,11 @@ async def get_health() -> JSONResponse:
 async def post_refresh(request: Request) -> JSONResponse:
     """Admin-only manual scrape trigger.
 
+    Accepts an optional JSON body with ``sourceOverrides`` mirroring the
+    dynasty siteWeights shape — ``{<key>: {"enabled": bool, "weight": float}}``
+    — so /settings → "Apply ROS overrides" can disable a source or
+    rescale its weight without redeploying.
+
     PR 1 gates on the same admin session check the rest of /api/admin
     uses.  Long-running so we run it on the threadpool to avoid
     blocking the event loop.
@@ -230,9 +235,35 @@ async def post_refresh(request: Request) -> JSONResponse:
     if not _require_admin_session(request):
         raise HTTPException(status_code=401, detail="admin_required")
 
+    overrides: dict[str, dict[str, Any]] | None = None
+    try:
+        body = await request.json()
+        raw = body.get("sourceOverrides") if isinstance(body, dict) else None
+        if isinstance(raw, dict):
+            sanitized: dict[str, dict[str, Any]] = {}
+            for key, ov in raw.items():
+                if not isinstance(ov, dict):
+                    continue
+                entry: dict[str, Any] = {}
+                if "enabled" in ov:
+                    entry["enabled"] = bool(ov["enabled"])
+                w = ov.get("weight")
+                try:
+                    if w is not None and float(w) >= 0:
+                        entry["weight"] = float(w)
+                except (TypeError, ValueError):
+                    pass
+                if entry:
+                    sanitized[str(key)] = entry
+            if sanitized:
+                overrides = sanitized
+    except Exception:  # noqa: BLE001
+        # No body / malformed JSON — fall through with no overrides.
+        overrides = None
+
     from src.ros.scrape import run_all  # late import to avoid circulars
 
-    summary = await run_in_threadpool(run_all)
+    summary = await run_in_threadpool(run_all, overrides=overrides)
     return JSONResponse(summary)
 
 

@@ -10,6 +10,7 @@ import {
   detectActivePreset,
 } from "@/lib/weight-presets";
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
+import { ROS_SOURCES } from "@/lib/ros-sources";
 import PushNotificationToggle from "@/components/PushNotificationToggle";
 import CustomAlertsConfigurator from "@/components/CustomAlertsConfigurator";
 
@@ -419,16 +420,36 @@ export default function SettingsPage() {
             higher = tighter tails, slower section load
           </span>
         </div>
+        <RosSourceTable
+          overrides={settings.rosSourceOverrides || {}}
+          onToggle={(key, enabled) => {
+            const next = { ...(settings.rosSourceOverrides || {}) };
+            const cur = next[key] || {};
+            next[key] = { ...cur, enabled };
+            update("rosSourceOverrides", next);
+          }}
+          onWeight={(key, weight) => {
+            const next = { ...(settings.rosSourceOverrides || {}) };
+            const cur = next[key] || {};
+            next[key] = { ...cur, weight };
+            update("rosSourceOverrides", next);
+          }}
+          onResetSource={(key) => {
+            const next = { ...(settings.rosSourceOverrides || {}) };
+            delete next[key];
+            update("rosSourceOverrides", next);
+          }}
+        />
         <p
           className="muted"
           style={{ fontSize: "0.7rem", marginTop: 12, marginBottom: 0 }}
         >
-          ROS source weights and per-source enable toggles ship in a future
-          PR — for now the registry defaults are baked in.  Diagnostic page:{" "}
+          Diagnostic + scrape-now controls live at{" "}
           <a href="/tools/ros-data-health" style={{ color: "var(--cyan)" }}>
             /tools/ros-data-health
           </a>
-          .
+          .  Overrides apply on the next admin Refresh — scheduled scrapes
+          run with registry defaults.
         </p>
       </Section>
 
@@ -690,6 +711,200 @@ function SourceTable({ title, sources, onToggle, onWeight }) {
   );
 }
 
+
+
+function RosSourceTable({ overrides, onToggle, onWeight, onResetSource }) {
+  // Triggers an admin scrape with the user's overrides in the body.
+  // Falls back to plain "no-body" call if the user hasn't customized
+  // anything — server applies registry defaults either way.
+  const [submitting, setSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState("");
+
+  const apply = async () => {
+    setSubmitting(true);
+    setFeedback("");
+    try {
+      const body = {};
+      if (overrides && Object.keys(overrides).length > 0) {
+        body.sourceOverrides = overrides;
+      }
+      const res = await fetch("/api/ros/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        if (res.status === 401) {
+          setFeedback("Admin session required.");
+        } else {
+          setFeedback(`Refresh failed (HTTP ${res.status}): ${text.slice(0, 120)}`);
+        }
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setFeedback(
+          `Refreshed ${data.ranSources?.length ?? "?"} sources · ` +
+          `aggregate=${data.playerCount ?? "?"} players`,
+        );
+      }
+    } catch (err) {
+      setFeedback(`Network error: ${err.message || err}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ fontWeight: 600, fontSize: "0.78rem", marginBottom: 6 }}>
+        ROS Sources ({ROS_SOURCES.length})
+      </div>
+      <div className="table-wrap settings-sources-wrap">
+        <table className="settings-sources-table">
+          <thead>
+            <tr style={{ borderBottom: "1px solid var(--border)" }}>
+              <th style={{ textAlign: "left", padding: "6px 8px" }}>Source</th>
+              <th className="settings-src-col-role" style={{ textAlign: "left", padding: "6px 8px" }}>Type</th>
+              <th style={{ textAlign: "center", padding: "6px 8px" }}>On</th>
+              <th style={{ textAlign: "right", padding: "6px 8px" }}>Weight</th>
+              <th className="settings-src-col-status" style={{ textAlign: "center", padding: "6px 8px" }}>Default</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ROS_SOURCES.map((src) => {
+              const ov = overrides?.[src.key] || {};
+              const enabled = ov.enabled !== false;
+              const weight = Number.isFinite(Number(ov.weight))
+                ? Number(ov.weight)
+                : Number(src.baseWeight ?? 1.0);
+              const customized =
+                ov.enabled === false ||
+                (Number.isFinite(Number(ov.weight)) &&
+                  Math.abs(Number(ov.weight) - Number(src.baseWeight ?? 1.0)) > 1e-6);
+              const sourceTypeLabel = src.isRos
+                ? "Real ROS"
+                : src.isDynasty
+                  ? "Dynasty proxy"
+                  : src.sourceType || "—";
+              return (
+                <tr
+                  key={src.key}
+                  style={{
+                    borderBottom: "1px solid var(--border-dim)",
+                    opacity: enabled ? 1 : 0.45,
+                  }}
+                >
+                  <td style={{ padding: "6px 8px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 600 }}>{src.displayName}</span>
+                      {src.isIdp && (
+                        <span
+                          className="badge"
+                          style={{
+                            fontSize: "0.58rem",
+                            padding: "1px 5px",
+                            background: "rgba(80, 160, 255, 0.18)",
+                            color: "var(--cyan)",
+                            border: "1px solid var(--cyan)",
+                            borderRadius: 3,
+                          }}
+                        >
+                          IDP
+                        </span>
+                      )}
+                      {src.isSuperflex && (
+                        <span
+                          className="badge"
+                          style={{
+                            fontSize: "0.58rem",
+                            padding: "1px 5px",
+                            border: "1px solid var(--subtext)",
+                            color: "var(--subtext)",
+                            borderRadius: 3,
+                          }}
+                        >
+                          SF
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: "0.66rem", color: "var(--subtext)", marginTop: 2 }}>
+                      {src.key}
+                    </div>
+                  </td>
+                  <td className="settings-src-col-role" style={{ padding: "6px 8px", fontSize: "0.74rem", color: "var(--subtext)" }}>
+                    {sourceTypeLabel}
+                  </td>
+                  <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                    <input
+                      type="checkbox"
+                      checked={enabled}
+                      onChange={(e) => onToggle(src.key, e.target.checked)}
+                      className="settings-src-toggle"
+                      style={{ cursor: "pointer" }}
+                    />
+                  </td>
+                  <td style={{ padding: "6px 8px", textAlign: "right", fontFamily: "var(--mono)" }}>
+                    <input
+                      type="number"
+                      min={0}
+                      max={5}
+                      step={0.05}
+                      value={weight.toFixed(2)}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        if (Number.isFinite(v) && v >= 0 && v <= 5) {
+                          onWeight(src.key, v);
+                        }
+                      }}
+                      className="input"
+                      style={{ width: 64, textAlign: "right" }}
+                      disabled={!enabled}
+                    />
+                  </td>
+                  <td className="settings-src-col-status" style={{ padding: "6px 8px", textAlign: "center", fontSize: "0.7rem", color: "var(--subtext)" }}>
+                    {customized ? (
+                      <button
+                        type="button"
+                        className="button-reset"
+                        onClick={() => onResetSource(src.key)}
+                        title="Reset to registry default"
+                        style={{
+                          color: "var(--cyan)",
+                          textDecoration: "underline",
+                          cursor: "pointer",
+                          fontSize: "0.68rem",
+                        }}
+                      >
+                        reset ({Number(src.baseWeight ?? 1.0).toFixed(2)})
+                      </button>
+                    ) : (
+                      <span style={{ fontFamily: "var(--mono)" }}>
+                        {Number(src.baseWeight ?? 1.0).toFixed(2)}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10 }}>
+        <button
+          type="button"
+          className="button button-primary"
+          onClick={apply}
+          disabled={submitting}
+        >
+          {submitting ? "Refreshing..." : "Apply now (admin refresh)"}
+        </button>
+        <span style={{ fontSize: "0.7rem", color: "var(--subtext)" }}>
+          {feedback || "Triggers POST /api/ros/refresh — re-runs the orchestrator with these overrides."}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 
 function ServerStatusPanel() {
