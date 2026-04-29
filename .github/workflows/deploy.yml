@@ -68,6 +68,14 @@ jobs:
 
       - name: Python runtime import gate
         shell: bash
+        env:
+          # ``server.py`` requires ``JASON_LOGIN_PASSWORD`` at import
+          # time (audit M1 removed the source-code default).  CI
+          # runners don't have prod's .env, so we use the explicit
+          # dev escape hatch here.  The runner ALSO never serves
+          # auth requests — this env only affects the import-time
+          # guard.
+          ALLOW_DEFAULT_LOGIN_DEV: "1"
         run: |
           set -Eeuo pipefail
           python - <<'PY'
@@ -80,6 +88,8 @@ jobs:
           PY
       - name: Run unit tests
         shell: bash
+        env:
+          ALLOW_DEFAULT_LOGIN_DEV: "1"
         run: |
           set -Eeuo pipefail
           python -m pytest tests/ -x -q --tb=short
