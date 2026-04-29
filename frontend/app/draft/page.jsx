@@ -1815,11 +1815,11 @@ function NominationCandidates({ stats, onDraft, onCycleTag }) {
       >
         <h3 style={{ margin: 0 }}>Good to nominate</h3>
         <span className="muted" style={{ fontSize: "0.68rem" }}>
-          Top 10 rookies KTC / IDPTC overrates vs our board
+          Top 10 rookies KTC / IDPTC overrates vs our board (% gap)
         </span>
       </div>
       <div className="draft-nbt-list">
-        {list.map(({ player, gap, ourDollar, vendorDollar, vendorLabel, rationale }, i) => (
+        {list.map(({ player, gap, gapPct, ourDollar, vendorDollar, vendorLabel, rationale }, i) => (
           <div
             key={player.id}
             className={`draft-nbt-row${player.userTag === TAG_AVOID ? " draft-nbt-avoid" : ""}`}
@@ -1866,9 +1866,9 @@ function NominationCandidates({ stats, onDraft, onCycleTag }) {
                 color: "var(--cyan, #22d3ee)",
                 fontWeight: 600,
               }}
-              title={`${vendorLabel} overrates by $${Math.round(gap)} — leaguemates following ${vendorLabel} will overpay`}
+              title={`${vendorLabel} overrates by ${Math.round(gapPct * 100)}% (+$${Math.round(gap)}) — leaguemates following ${vendorLabel} will overpay`}
             >
-              +{fmt$(gap)}
+              +{Math.round(gapPct * 100)}%
             </span>
           </div>
         ))}

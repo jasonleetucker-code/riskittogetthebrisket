@@ -2292,6 +2292,62 @@ describe("nominationCandidates — vendor split (offense=KTC, IDP=IDPTC)", () =>
     expect(wr.rationale).toContain("KTC values");
     expect(lb.rationale).toContain("IDPTC values");
   });
+
+  it("ranks by percentage gap, not dollar gap", () => {
+    // Cheap player (50% over) should beat expensive player (25% over)
+    // even though the dollar gap is identical.
+    const list = nominationCandidates(
+      statsWith([
+        // $20 board / $30 vendor → 50% over, $10 gap
+        { id: "cheap", name: "Cheap", pos: "WR", preDraft: 20, ktcDollar: 30 },
+        // $40 board / $50 vendor → 25% over, $10 gap (same dollars)
+        { id: "pricey", name: "Pricey", pos: "WR", preDraft: 40, ktcDollar: 50 },
+      ]),
+    );
+    expect(list.map((e) => e.player.id)).toEqual(["cheap", "pricey"]);
+    expect(Math.round(list[0].gapPct * 100)).toBe(50);
+    expect(Math.round(list[1].gapPct * 100)).toBe(25);
+  });
+
+  it("repopulates: drafting a top-N candidate surfaces the next-best from the pool", () => {
+    // Build 12 offense rookies with a strict $1-stepped gap so the
+    // sort order is deterministic.  Limit=10 means only the top 10
+    // gaps appear; the 11th and 12th sit in reserve.
+    const rookies = Array.from({ length: 12 }, (_, i) => ({
+      id: `rook-${i}`,
+      name: `Rook ${i}`,
+      pos: "WR",
+      assetClass: "offense",
+      preDraft: 10,
+      // Largest gap (i=0) → smallest gap (i=11).
+      ktcDollar: 30 - i,
+    }));
+    const before = nominationCandidates(
+      { enrichedPlayers: rookies, topCompetitorMax: 100 },
+      { limit: 10 },
+    );
+    expect(before.map((e) => e.player.id)).toEqual([
+      "rook-0", "rook-1", "rook-2", "rook-3", "rook-4",
+      "rook-5", "rook-6", "rook-7", "rook-8", "rook-9",
+    ]);
+    expect(before.find((e) => e.player.id === "rook-10")).toBeUndefined();
+
+    // Mark the leader drafted; the 11th-best should now slide in.
+    const after = nominationCandidates(
+      {
+        enrichedPlayers: rookies.map((p) =>
+          p.id === "rook-0" ? { ...p, drafted: true } : p,
+        ),
+        topCompetitorMax: 100,
+      },
+      { limit: 10 },
+    );
+    expect(after.map((e) => e.player.id)).toEqual([
+      "rook-1", "rook-2", "rook-3", "rook-4", "rook-5",
+      "rook-6", "rook-7", "rook-8", "rook-9", "rook-10",
+    ]);
+    expect(after.find((e) => e.player.id === "rook-0")).toBeUndefined();
+  });
 });
 
 // ── computeDraftReview / draftReviewToCsv ──────────────────────────────

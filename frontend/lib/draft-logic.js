@@ -1786,11 +1786,13 @@ export function nextBestTargets(stats, { limit = 5 } = {}) {
 export function nominationCandidates(stats, { limit = 10 } = {}) {
   if (!stats || !Array.isArray(stats.enrichedPlayers)) return [];
 
-  // Surfaces rookies a market vendor values MUCH HIGHER than our
-  // board.  If the vendor says a rookie is worth $50 and our board
-  // says $30, leaguemates who reference that vendor will bid up to
-  // $50 — draining their budget on a player our model considers
-  // overpriced.  Largest gap = biggest tax on rivals.
+  // Surfaces rookies a market vendor values much HIGHER than our
+  // board, ranked by *percentage* overrate.  A $20→$30 board-vs-vendor
+  // gap on a cheap player (50% overrate) is a bigger relative tax on
+  // rivals than a $20→$40 gap on an expensive one (only 25%).  Sorting
+  // by percentage keeps low-priced overrates from being buried under
+  // raw-dollar gaps that look big in absolute terms but barely move
+  // the rival's budget needle.
   //
   // Vendor split by position:
   //   - Offense rookies (QB/RB/WR/TE) → KTC reference price.
@@ -1802,8 +1804,8 @@ export function nominationCandidates(stats, { limit = 10 } = {}) {
   //   3. Has both a board ``preDraft`` AND the relevant vendor dollar
   //   4. ``vendorDollar > preDraft`` (vendor overrates vs us)
   //
-  // Sort: ``vendorDollar - preDraft`` descending.  Cap at ``limit``
-  // (default 10).
+  // Sort: ``(vendorDollar - preDraft) / preDraft`` descending.  Cap
+  // at ``limit`` (default 10).
   const out = [];
   for (const p of stats.enrichedPlayers) {
     if (p.drafted) continue;
@@ -1824,14 +1826,16 @@ export function nominationCandidates(stats, { limit = 10 } = {}) {
     if (vendorDollar <= 0) continue;
     const gap = vendorDollar - ourDollar;
     if (gap < 1) continue;  // vendor must overrate by at least $1
+    const gapPct = gap / ourDollar;  // 0.5 → "50% over"
     const drain = Math.min(
       vendorDollar, Math.max(0, stats.topCompetitorMax || 0),
     );
     out.push({
       player: p,
-      score: gap,
+      score: gapPct,
       drain,
       gap,
+      gapPct,
       ourDollar,
       vendorDollar,
       vendorKey,
@@ -1844,13 +1848,13 @@ export function nominationCandidates(stats, { limit = 10 } = {}) {
       expectedPrice: vendorDollar,
       rationale:
         `${vendorLabel} values $${Math.round(vendorDollar)} vs our ` +
-        `$${Math.round(ourDollar)} · $${Math.round(gap)} gap — ` +
-        `leaguemates following ${vendorLabel} will bid past your ` +
-        `board's fair price`,
+        `$${Math.round(ourDollar)} · ${Math.round(gapPct * 100)}% over ` +
+        `(${gap >= 0 ? "+" : ""}$${Math.round(gap)}) — leaguemates ` +
+        `following ${vendorLabel} will bid past your board's fair price`,
     });
   }
 
-  out.sort((a, b) => b.gap - a.gap);
+  out.sort((a, b) => b.gapPct - a.gapPct);
   return out.slice(0, limit);
 }
 
