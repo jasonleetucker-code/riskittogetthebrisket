@@ -4524,6 +4524,11 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         return {"error": "Draft data workbook not found or empty"}
 
     current_year = datetime.now(timezone.utc).year
+    # Default to calendar year; overwritten with the actual draft
+    # season once the Sleeper drafts response is read (below).  This
+    # distinction matters around Dec→Jan when the league is still on
+    # the prior season's rookie draft.
+    league_season = current_year
     num_teams = len(slot_to_original) or 12
     draft_rounds = max(1, len(workbook_picks) // num_teams)
     raw_values = [wp["value"] for wp in workbook_picks]
@@ -4588,14 +4593,29 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         drafts_resp = urllib.request.urlopen(
             f"https://api.sleeper.app/v1/league/{_league_id_for_draft}/drafts", timeout=15
         )
+        # Resolve league season from the Sleeper drafts response — the
+        # source of truth — rather than the server's calendar year.
+        # Around December → January the calendar year ticks over while
+        # the league is still on the prior season's draft, and a naive
+        # `season != now().year` filter would silently skip every
+        # traded pick (and slot mapping) for that window.
+        all_drafts = [d for d in json.loads(drafts_resp.read()) if isinstance(d, dict)]
+        draft_seasons: list[int] = []
+        for d in all_drafts:
+            try:
+                draft_seasons.append(int(d.get("season")))
+            except (TypeError, ValueError):
+                continue
+        if draft_seasons:
+            league_season = max(draft_seasons)
         slot_to_roster: dict[int, int] = {}
-        for draft in json.loads(drafts_resp.read()):
+        for draft in all_drafts:
             try:
                 season = int(draft.get("season"))
             except (TypeError, ValueError):
                 continue
             draft_id = draft.get("draft_id")
-            if season != current_year or not draft_id:
+            if season != league_season or not draft_id:
                 continue
             try:
                 detail_resp = urllib.request.urlopen(
@@ -4665,7 +4685,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                         new_rid = int(t.get("owner_id"))
                     except (TypeError, ValueError):
                         continue
-                    if season != current_year:
+                    if season != league_season:
                         continue
                     original_slot = roster_id_to_slot.get(original_rid)
                     new_first = roster_id_to_first_name.get(new_rid)
@@ -4766,7 +4786,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         "totalBudget": total_budget,
         "numTeams": num_teams,
         "draftRounds": draft_rounds,
-        "season": current_year,
+        "season": league_season,
         "ktcSource": ktc_source,
         "ktcRookieCount": ktc_count,
         "ktcTotalFilled": len(rookies),

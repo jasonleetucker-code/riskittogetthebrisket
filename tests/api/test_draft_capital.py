@@ -180,23 +180,20 @@ class TestSleeperTradeOverlay(unittest.TestCase):
             raise AssertionError(f"unexpected urlopen({target})")
         return fake_urlopen
 
-    def test_traded_pick_moves_dollars_between_teams(self):
-        """When Sleeper reports the (current_year, round=1, slot=5) pick
-        was traded from its original owner to another roster, the
-        receiving team's dollar total must increase by the pick's value
-        and the original owner's must decrease by the same amount —
-        independent of whatever R45:R116 says."""
-        import server
-        from datetime import datetime, timezone
+    def _build_overlay_fixture(self, draft_season):
+        """Construct mocked Sleeper responses for a single traded pick.
 
+        Returns ``(url_map, wp, orig_first, other_first)`` where ``wp``
+        is the workbook pick chosen for the trade and the two first
+        names identify the original / receiving team buckets.
+
+        ``draft_season`` is what Sleeper reports as the league/draft
+        season — may differ from the server's calendar year (Dec→Jan
+        boundary regression)."""
         _, workbook_picks, slot_to_original, _, _ = _load()
         if not workbook_picks or not slot_to_original:
-            self.skipTest("Workbook unavailable")
+            return None
 
-        # Pick a (round, slot) that exists, has a non-zero value, and
-        # whose original-owner first name differs from at least one
-        # other slot's first name (so the trade actually moves dollars
-        # between distinct first-name buckets).
         target = None
         for wp in workbook_picks:
             if wp["value"] <= 0:
@@ -211,17 +208,11 @@ class TestSleeperTradeOverlay(unittest.TestCase):
                 target = (wp, orig, other)
                 break
         if target is None:
-            self.skipTest("No suitable workbook pick for overlay test")
+            return None
         wp, orig_first, other_first = target
 
-        # Build a Sleeper response set that reports the pick was
-        # traded from orig_first's roster to other_first's roster.
-        # Roster IDs are arbitrary; we map them via a fake
-        # slot_to_roster_id so the server resolves them back to
-        # first names through the standings.
-        rosters = []
-        users = []
-        slot_to_roster = {}
+        rosters, users = [], []
+        slot_to_roster: dict[str, int] = {}
         roster_id_for_first: dict[str, int] = {}
         for slot, first_name in slot_to_original.items():
             rid = int(slot)
@@ -235,54 +226,71 @@ class TestSleeperTradeOverlay(unittest.TestCase):
             slot_to_roster[str(slot)] = rid
             roster_id_for_first[first_name] = rid
 
-        current_year = datetime.now(timezone.utc).year
-        drafts = [{"draft_id": "D1", "season": current_year}]
+        drafts = [{"draft_id": "D1", "season": draft_season}]
         draft_detail = {"slot_to_roster_id": slot_to_roster}
         traded_picks = [{
-            "season": current_year,
+            "season": draft_season,
             "round": wp["round"],
             "roster_id": roster_id_for_first[orig_first],
             "owner_id": roster_id_for_first[other_first],
             "previous_owner_id": roster_id_for_first[orig_first],
         }]
-
         url_map = {
             "/rosters": rosters,
             "/users": users,
-            "/league/" : None,  # placeholder; specific paths below win
             "/drafts": drafts,
             "/draft/D1": draft_detail,
             "/traded_picks": traded_picks,
         }
-        # Drop the placeholder so unmatched URLs don't accidentally hit it.
-        del url_map["/league/"]
+        return url_map, wp, orig_first, other_first
 
+    def _run_overlay(self, draft_season):
+        """Drive ``_fetch_draft_capital`` with mocked Sleeper responses
+        for ``draft_season``.  Returns (with_overlay_result,
+        without_overlay_result, wp, orig_first, other_first) or None
+        if the workbook is unavailable."""
+        import server
+        fixture = self._build_overlay_fixture(draft_season)
+        if fixture is None:
+            return None
+        url_map, wp, orig_first, other_first = fixture
         with patch.object(server.urllib.request, "urlopen",
                           self._stub_urlopen(url_map)), \
              patch.object(server, "_sleeper_league_id_for_draft",
                           return_value="TEST_LEAGUE"):
             with_overlay = server._fetch_draft_capital(apply_sleeper_trades=True)
             without_overlay = server._fetch_draft_capital(apply_sleeper_trades=False)
-
         if "error" in with_overlay or "error" in without_overlay:
-            self.skipTest("Workbook returned error")
+            return None
+        return with_overlay, without_overlay, wp, orig_first, other_first
 
-        def total_for(result, team_first):
-            label = f"Team-{team_first}"
-            for row in result["teamTotals"]:
-                if row["team"] == label:
-                    return row["auctionDollars"]
-            return 0
+    @staticmethod
+    def _team_total(result, team_first):
+        label = f"Team-{team_first}"
+        for row in result["teamTotals"]:
+            if row["team"] == label:
+                return row["auctionDollars"]
+        return 0
 
-        # The receiving team must have strictly more dollars with the
-        # overlay applied; the original owner must have strictly less.
-        delta_recv = total_for(with_overlay, other_first) - total_for(without_overlay, other_first)
-        delta_orig = total_for(with_overlay, orig_first) - total_for(without_overlay, orig_first)
+    def test_traded_pick_moves_dollars_between_teams(self):
+        """When Sleeper reports a pick was traded, the receiving team's
+        dollar total must increase and the original owner's must
+        decrease — independent of whatever R45:R116 says."""
+        from datetime import datetime, timezone
+        run = self._run_overlay(datetime.now(timezone.utc).year)
+        if run is None:
+            self.skipTest("Workbook unavailable")
+        with_overlay, without_overlay, wp, orig_first, other_first = run
+
+        delta_recv = (self._team_total(with_overlay, other_first)
+                      - self._team_total(without_overlay, other_first))
+        delta_orig = (self._team_total(with_overlay, orig_first)
+                      - self._team_total(without_overlay, orig_first))
         self.assertGreater(delta_recv, 0,
                            f"Receiving team did not gain dollars: {delta_recv}")
         self.assertLess(delta_orig, 0,
                         f"Original owner did not lose dollars: {delta_orig}")
-        # And the overlaid pick must report the new currentOwner.
+
         traded_pick_label = f"{wp['round']}.{str(wp['pick']).zfill(2)}"
         overlay_pick = next(
             (p for p in with_overlay["picks"] if p["pick"] == traded_pick_label),
@@ -291,6 +299,31 @@ class TestSleeperTradeOverlay(unittest.TestCase):
         self.assertIsNotNone(overlay_pick)
         self.assertEqual(overlay_pick["currentOwner"], f"Team-{other_first}")
         self.assertTrue(overlay_pick["isTraded"])
+
+    def test_overlay_uses_sleeper_draft_season_not_calendar_year(self):
+        """Regression for the Dec→Jan boundary: when Sleeper reports
+        the league/draft season as a year that differs from the
+        server's calendar year, the overlay must still apply and the
+        response must stamp ``season`` from Sleeper, not ``now().year``.
+        Pre-fix, this filter (``season != current_year``) silently
+        dropped every traded pick in that window."""
+        from datetime import datetime, timezone
+        wall_year = datetime.now(timezone.utc).year
+        # Simulate the boundary: Sleeper reports next year's draft.
+        sleeper_season = wall_year + 1
+        run = self._run_overlay(sleeper_season)
+        if run is None:
+            self.skipTest("Workbook unavailable")
+        with_overlay, without_overlay, wp, orig_first, other_first = run
+
+        # The overlay must still flip the dollar totals, even though
+        # the draft season differs from datetime.now().year.
+        delta_recv = (self._team_total(with_overlay, other_first)
+                      - self._team_total(without_overlay, other_first))
+        self.assertGreater(delta_recv, 0,
+                           "Trade overlay regressed under sleeper_season != calendar_year")
+        # And the response must report the actual draft season.
+        self.assertEqual(with_overlay["season"], sleeper_season)
 
 
 if __name__ == "__main__":
