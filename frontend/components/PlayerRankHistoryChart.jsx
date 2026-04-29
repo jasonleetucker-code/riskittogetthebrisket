@@ -242,12 +242,16 @@ export default function PlayerRankHistoryChart({
   }, [state, width, height]);
 
   /* ── Rank-history geometry (companion to the value chart) ────────
-     Renders one thin line per source on a per-source RANK axis (1 at
-     top, N at bottom).  The value-chart's X axis (time) is shared but
-     its Y axis is value (1-9999); this second chart re-normalizes Y
-     to rank.  Sparse data points are expected — per-source ranks
-     started persisting on 2026-04-29 via the source_history schema
-     extension, so the legend notes when a source has no data yet. */
+     Renders ``Our rank`` as a bold line + one thin line per source
+     on an inverted RANK axis (rank 1 at top, rank N at bottom).
+     Mirror of the value chart's ``Our blend`` + per-source layering.
+
+     Renders only when at least one of the two SERIES has 2+ data
+     points — otherwise the SVG would draw single-point ``M`` moves
+     with no ``L`` segments and look empty.  Per-source ranks started
+     persisting 2026-04-29; until the rolling window has 2+ snapshots
+     for SOMETHING, we surface the empty-state copy below the title
+     instead of an empty axis. */
   const rankGeometry = useMemo(() => {
     const sourceRanks = {};
     for (const [key, series] of Object.entries(state.sourceRanks || {})) {
@@ -256,6 +260,14 @@ export default function PlayerRankHistoryChart({
         .map((p) => ({ t: parseMs(p.date), rank: Number(p.rank) }))
         .filter((p) => p.t != null && Number.isFinite(p.rank) && p.rank > 0);
     }
+    // Our (blended) rank — the bold main line, mirroring "Our blend"
+    // on the value chart.  ``state.blended[].rank`` is the
+    // backend-stamped consensus rank for each historical snapshot;
+    // present alongside ``value`` since the schema's earliest write.
+    const blendedRanks = (state.blended || [])
+      .map((p) => ({ t: parseMs(p.date), rank: Number(p.rank) }))
+      .filter((p) => p.t != null && Number.isFinite(p.rank) && p.rank > 0);
+
     const allTimes = [];
     const allRanks = [];
     for (const key of Object.keys(sourceRanks)) {
@@ -264,7 +276,18 @@ export default function PlayerRankHistoryChart({
         allRanks.push(p.rank);
       }
     }
-    if (allRanks.length < 2) return null;
+    for (const p of blendedRanks) {
+      allTimes.push(p.t);
+      allRanks.push(p.rank);
+    }
+    // Empty-state guard: need at least one series with 2+ points or
+    // rendering produces invisible single-pixel "M" moves.
+    const blendedHasLine = blendedRanks.length >= 2;
+    const anySourceHasLine = Object.values(sourceRanks).some(
+      (series) => series.length >= 2,
+    );
+    if (!blendedHasLine && !anySourceHasLine) return null;
+
     const tMin = Math.min(...allTimes);
     const tMax = Math.max(...allTimes);
     const tSpan = tMax - tMin || 1;
@@ -308,6 +331,10 @@ export default function PlayerRankHistoryChart({
     const sourceKeys = Object.keys(sourceRanks).sort();
     sourceKeys.forEach((key, index) => {
       const series = sourceRanks[key];
+      // Skip sources with fewer than 2 points — would render as an
+      // invisible single move on the SVG and clutter the legend
+      // with "→" no-change rows.
+      if (series.length < 2) return;
       sourcePaths.push({
         key,
         label: labelForSource(key),
@@ -318,8 +345,24 @@ export default function PlayerRankHistoryChart({
       });
     });
 
+    const blendedPath = blendedHasLine ? buildRankPath(blendedRanks) : null;
+    const blendedFirst = blendedHasLine ? blendedRanks[0].rank : null;
+    const blendedLast = blendedHasLine
+      ? blendedRanks[blendedRanks.length - 1].rank
+      : null;
+    // Direction matters: rank GETTING BETTER means the number got
+    // smaller (#15 → #8).  Mirror the value chart's green-up /
+    // red-down convention by inverting the sign.
+    const blendedDelta = blendedHasLine
+      ? blendedFirst - blendedLast  // positive = improved (rank ↓)
+      : 0;
+
     return {
       sourcePaths,
+      blendedPath,
+      blendedFirst,
+      blendedLast,
+      blendedDelta,
       chartH,
       rMin,
       rMax,
@@ -427,14 +470,14 @@ export default function PlayerRankHistoryChart({
           </span>
         ))}
       </div>
-      {/* ── Per-source RANK history (companion panel) ──────────────
-          Same X axis (time) as the value chart, inverted Y axis
-          where rank 1 sits at the top.  Rendered only when at least
-          two snapshots carry per-source ranks.  Per-source ranks
-          started persisting 2026-04-29 (see
-          ``src/api/source_history.py::_extract_player_entry``); old
-          snapshots silently omit the data and the empty-state copy
-          notes the rolling window is filling in. */}
+      {/* ── Rank history (companion panel) ─────────────────────────
+          Same X axis (time) as the value chart above, inverted Y
+          axis where rank 1 sits at the top.  ``Our rank`` is the
+          bold main line (mirrors ``Our blend`` on the value chart);
+          per-source ranks are thin layered lines.  Rendered only
+          when at least one series has 2+ snapshots; per-source
+          ranks started persisting 2026-04-29 so the rolling window
+          fills in over time. */}
       {rankGeometry ? (
         <>
           <div
@@ -444,8 +487,20 @@ export default function PlayerRankHistoryChart({
             <span className="player-rank-chart-label">
               Rank history · 180d (per source)
             </span>
-            <span className="muted" style={{ fontSize: "0.7rem" }}>
-              rank 1 = top
+            <span
+              className={`player-rank-chart-delta player-rank-chart-delta--${
+                rankGeometry.blendedDelta > 0
+                  ? "up"
+                  : rankGeometry.blendedDelta < 0
+                  ? "down"
+                  : "flat"
+              }`}
+            >
+              {rankGeometry.blendedDelta === 0
+                ? "rank 1 = top"
+                : rankGeometry.blendedDelta > 0
+                ? `▲ ${rankGeometry.blendedDelta} ranks`
+                : `▼ ${Math.abs(rankGeometry.blendedDelta)} ranks`}
             </span>
           </div>
           <svg
@@ -457,6 +512,7 @@ export default function PlayerRankHistoryChart({
             focusable="false"
             preserveAspectRatio="none"
           >
+            {/* Thin per-source lines first so the blended line overlays */}
             {rankGeometry.sourcePaths.map((s) => (
               <path
                 key={s.key}
@@ -464,13 +520,48 @@ export default function PlayerRankHistoryChart({
                 fill="none"
                 stroke={s.color}
                 strokeWidth={1.25}
-                strokeOpacity={0.7}
+                strokeOpacity={0.55}
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
             ))}
+            {/* Bold "Our rank" line on top */}
+            {rankGeometry.blendedPath && (
+              <path
+                d={rankGeometry.blendedPath}
+                fill="none"
+                stroke={
+                  rankGeometry.blendedDelta >= 0
+                    ? "var(--green)"
+                    : "var(--red)"
+                }
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
           </svg>
           <div className="player-rank-chart-legend">
+            {/* Our rank (bold, first row mirrors the value chart) */}
+            {rankGeometry.blendedPath && (
+              <span className="player-rank-chart-legend-blended">
+                <span
+                  className="player-rank-chart-swatch"
+                  style={{
+                    background:
+                      rankGeometry.blendedDelta >= 0
+                        ? "var(--green)"
+                        : "var(--red)",
+                    height: 3,
+                  }}
+                  aria-hidden="true"
+                />
+                <strong>Our rank</strong>
+                <span className="player-rank-chart-legend-range">
+                  #{rankGeometry.blendedFirst} → #{rankGeometry.blendedLast}
+                </span>
+              </span>
+            )}
             {rankGeometry.sourcePaths.map((s) => (
               <span
                 key={`rank-${s.key}`}
@@ -478,7 +569,7 @@ export default function PlayerRankHistoryChart({
               >
                 <span
                   className="player-rank-chart-swatch"
-                  style={{ background: s.color, opacity: 0.7 }}
+                  style={{ background: s.color, opacity: 0.55 }}
                   aria-hidden="true"
                 />
                 <span>{s.label}</span>
@@ -496,8 +587,9 @@ export default function PlayerRankHistoryChart({
           className="muted"
           style={{ fontSize: "0.7rem", marginTop: 10 }}
         >
-          Per-source rank history fills in over time — first persisted
-          on 2026-04-29; earlier snapshots only carry per-source values.
+          Rank history fills in over time — needs at least two daily
+          snapshots before lines render.  Per-source ranks first
+          persisted on 2026-04-29; earlier dates carry value data only.
         </div>
       )}
       <div className="player-rank-chart-footer">
