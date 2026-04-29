@@ -4501,30 +4501,34 @@ def _round_to_budget(values: list[float], budget: int = 1200) -> list[int]:
     return floors
 
 
-def _fetch_draft_capital(league_key: str | None = None):
+def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades: bool = True):
     """Compute draft capital per team.
 
-    The Draft Data workbook is the authoritative source for BOTH pick
-    values AND pick ownership:
+    The Draft Data workbook is the authoritative source for pick
+    VALUES (Q45:Q116) and the slot→original-owner standings
+    (O30:R42).  Pick OWNERSHIP is overlaid live from Sleeper's
+    ``/traded_picks`` endpoint when ``apply_sleeper_trades=True``
+    (default), so trades made on Sleeper between scheduled
+    refreshes are reflected immediately in per-team dollar totals.
 
-        Q45:Q116 — per-pick dollar values (decimal, sum = 1200)
-        R45:R116 — per-pick current owner (first name)
-        O30:R42  — standings: slot → original owner (first name)
-
-    Sleeper is used only to resolve the sheet's first-name owners into
-    display team names (``user.metadata.team_name`` / ``display_name``)
-    by joining the sheet's standings on Sleeper's draft
-    ``slot_to_roster_id``.  If Sleeper is unavailable we fall back to
-    showing first names directly.
+    If the Sleeper join fails or no trades are reported, the
+    workbook's R45:R116 ownership column is used verbatim.
 
     ``league_key`` selects which league's Sleeper IDs to use for the
     team-name join.  None resolves to the registry default.
+    ``apply_sleeper_trades=False`` preserves the legacy workbook-
+    only behavior (used by tests that assert sheet-derived totals).
     """
     pick_dollars, workbook_picks, slot_to_original, wb_team_totals, rookies = _parse_draft_data()
     if not workbook_picks:
         return {"error": "Draft data workbook not found or empty"}
 
     current_year = datetime.now(timezone.utc).year
+    # Default to calendar year; overwritten with the actual draft
+    # season once the Sleeper drafts response is read (below).  This
+    # distinction matters around Dec→Jan when the league is still on
+    # the prior season's rookie draft.
+    league_season = current_year
     num_teams = len(slot_to_original) or 12
     draft_rounds = max(1, len(workbook_picks) // num_teams)
     raw_values = [wp["value"] for wp in workbook_picks]
@@ -4548,6 +4552,9 @@ def _fetch_draft_capital(league_key: str | None = None):
     # Sleeper's draft slot_to_roster_id (slot → roster id → team name).
     first_name_to_team: dict[str, str] = {}
     all_team_names: list[str] = []
+    # (round, slot) → new-owner first name from Sleeper traded_picks.
+    # Empty when Sleeper is unreachable or apply_sleeper_trades=False.
+    sleeper_trade_overrides: dict[tuple[int, int], str] = {}
     try:
         _league_id_for_draft = _sleeper_league_id_for_draft(league_key)
         if not _league_id_for_draft:
@@ -4555,6 +4562,26 @@ def _fetch_draft_capital(league_key: str | None = None):
             # leave the mapping empty; downstream code renders draft
             # capital without a team-name column.
             raise RuntimeError("no_sleeper_league_configured")
+        # League metadata first — its ``season`` is the canonical
+        # anchor for the active-pick-season window.  Filtering trades
+        # by /drafts alone breaks during the offseason gap when the
+        # league has rolled over but Sleeper hasn't yet created the
+        # new season's draft object: in that window /drafts returns
+        # only the prior season, while /league/{id}.season already
+        # reports the active one and /traded_picks contains the
+        # active-season trades that need to apply to the workbook.
+        try:
+            league_resp = urllib.request.urlopen(
+                f"https://api.sleeper.app/v1/league/{_league_id_for_draft}", timeout=15
+            )
+            league_meta = json.loads(league_resp.read())
+            league_meta_season = int(league_meta.get("season"))
+        except Exception as exc:  # noqa: BLE001
+            logging.warning(f"Sleeper league-meta fetch failed: {exc}")
+            league_meta_season = None
+        if league_meta_season:
+            league_season = league_meta_season
+
         rosters_resp = urllib.request.urlopen(
             f"https://api.sleeper.app/v1/league/{_league_id_for_draft}/rosters", timeout=15
         )
@@ -4586,14 +4613,40 @@ def _fetch_draft_capital(league_key: str | None = None):
         drafts_resp = urllib.request.urlopen(
             f"https://api.sleeper.app/v1/league/{_league_id_for_draft}/drafts", timeout=15
         )
+        # /league/{id}.season is the primary anchor for the active
+        # season; /drafts.season is only consulted as a fallback when
+        # the league-meta call failed.  This pair handles both
+        # boundary cases: the Dec→Jan calendar-year flip AND the
+        # offseason window where the league has rolled over but its
+        # new draft object hasn't been created yet.
+        all_drafts = [d for d in json.loads(drafts_resp.read()) if isinstance(d, dict)]
+        draft_seasons: list[int] = []
+        for d in all_drafts:
+            try:
+                draft_seasons.append(int(d.get("season")))
+            except (TypeError, ValueError):
+                continue
+        if not league_meta_season and draft_seasons:
+            league_season = max(draft_seasons)
+        # The slot-to-roster map MUST come from the active-season
+        # draft.  Falling back to a prior-season draft is unsafe
+        # because rookie draft slots are reverse-standings of the
+        # PRIOR season (so slot order shifts year to year), and a
+        # cross-year mapping would mis-route traded picks to the
+        # wrong workbook slot and shift dollars to the wrong team.
+        # When the active-season draft hasn't been created yet
+        # (offseason rollover gap), we leave slot_to_roster empty
+        # and let the overlay degrade to workbook ownership — the
+        # workbook is freshly hand-maintained for the new season
+        # in that window, so dollars are still defensible.
         slot_to_roster: dict[int, int] = {}
-        for draft in json.loads(drafts_resp.read()):
+        for draft in all_drafts:
             try:
                 season = int(draft.get("season"))
             except (TypeError, ValueError):
                 continue
             draft_id = draft.get("draft_id")
-            if season != current_year or not draft_id:
+            if season != league_season or not draft_id:
                 continue
             try:
                 detail_resp = urllib.request.urlopen(
@@ -4628,6 +4681,49 @@ def _fetch_draft_capital(league_key: str | None = None):
             if rid is not None and first_name:
                 first_name_to_team[str(first_name).strip()] = roster_name_by_id[rid]
 
+        # roster_id → slot (inverse of slot_to_roster) and
+        # roster_id → original-owner first name.  Both bridges are
+        # needed to translate Sleeper traded_picks (keyed by
+        # roster_id) into the workbook's (round, slot, first-name)
+        # space.
+        roster_id_to_slot: dict[int, int] = {
+            int(rid): int(slot) for slot, rid in slot_to_roster.items()
+        }
+        roster_id_to_first_name: dict[int, str] = {}
+        for slot, first_name in slot_to_original.items():
+            rid = slot_to_roster.get(int(slot))
+            if rid is not None and first_name:
+                roster_id_to_first_name[int(rid)] = str(first_name).strip()
+
+        if apply_sleeper_trades:
+            try:
+                traded_resp = urllib.request.urlopen(
+                    f"https://api.sleeper.app/v1/league/{_league_id_for_draft}/traded_picks",
+                    timeout=15,
+                )
+                traded = json.loads(traded_resp.read())
+            except Exception as exc:  # noqa: BLE001
+                logging.warning(f"Sleeper traded_picks fetch failed: {exc}")
+                traded = []
+            if isinstance(traded, list):
+                for t in traded:
+                    if not isinstance(t, dict):
+                        continue
+                    try:
+                        season = int(t.get("season"))
+                        round_n = int(t.get("round"))
+                        original_rid = int(t.get("roster_id"))
+                        new_rid = int(t.get("owner_id"))
+                    except (TypeError, ValueError):
+                        continue
+                    if season != league_season:
+                        continue
+                    original_slot = roster_id_to_slot.get(original_rid)
+                    new_first = roster_id_to_first_name.get(new_rid)
+                    if original_slot is None or not new_first:
+                        continue
+                    sleeper_trade_overrides[(round_n, original_slot)] = new_first
+
     except Exception as e:
         logging.warning(f"Sleeper API failed for draft capital team-name mapping: {e}")
 
@@ -4641,8 +4737,15 @@ def _fetch_draft_capital(league_key: str | None = None):
 
     # Seed every known team at $0 so teams that own no picks still
     # show up in the output (the /draft dashboard relies on this to
-    # render the full 12-team roster).
-    if all_team_names:
+    # render the full 12-team roster).  We pre-seed with Sleeper
+    # team names ONLY when the first-name → team-name bridge is
+    # populated — otherwise ``display()`` will fall back to raw
+    # first names for the picks below, and pre-seeding Sleeper
+    # names would produce duplicate logical rows (e.g. "Russini
+    # Panini" $0 + "Jason" $XX).  In the rollover gap where the
+    # bridge is empty, seed from workbook first names instead so
+    # the seeded keys match the picks-loop keys.
+    if all_team_names and first_name_to_team:
         for t in all_team_names:
             team_totals_decimal.setdefault(t, 0.0)
     else:
@@ -4655,6 +4758,12 @@ def _fetch_draft_capital(league_key: str | None = None):
         val = wp["value"]
         owner_first = wp["owner"]
         origin_first = slot_to_original.get(slot, owner_first)
+        # Sleeper traded_picks wins over the workbook's R45:R116
+        # column when both are available — Sleeper is the system of
+        # record for trades, the workbook is hand-edited and lags.
+        sleeper_owner = sleeper_trade_overrides.get((rnd, slot))
+        if sleeper_owner:
+            owner_first = sleeper_owner
 
         owner_team = display(owner_first)
         origin_team = display(origin_first)
@@ -4715,7 +4824,7 @@ def _fetch_draft_capital(league_key: str | None = None):
         "totalBudget": total_budget,
         "numTeams": num_teams,
         "draftRounds": draft_rounds,
-        "season": current_year,
+        "season": league_season,
         "ktcSource": ktc_source,
         "ktcRookieCount": ktc_count,
         "ktcTotalFilled": len(rookies),
