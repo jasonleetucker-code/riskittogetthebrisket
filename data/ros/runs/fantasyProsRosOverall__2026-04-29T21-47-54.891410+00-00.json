@@ -1,0 +1,21 @@
+{
+  "source_key": "fantasyProsRosOverall",
+  "status": "ok",
+  "error": null,
+  "started_at": "2026-04-29T21:47:53.637160+00:00",
+  "completed_at": "2026-04-29T21:47:54.891410+00:00",
+  "player_count": 389,
+  "source_id": "fantasyProsRosOverall",
+  "source_name": "FantasyPros ROS Overall (ECR)",
+  "source_url": "https://www.fantasypros.com/nfl/rankings/ros-overall.php",
+  "source_type": "ros",
+  "scoring_format": "ppr",
+  "is_superflex": false,
+  "is_2qb": false,
+  "is_te_premium": false,
+  "is_idp": false,
+  "is_ros": true,
+  "is_dynasty": false,
+  "is_projection_source": false,
+  "stale_after_hours": 168
+}
