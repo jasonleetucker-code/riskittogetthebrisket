@@ -24,6 +24,16 @@ concurrency:
   group: data-refresh
   cancel-in-progress: false
 
+# ``contents: write`` for the data-refresh commit + push.
+# ``actions: write`` for the explicit deploy dispatch — deploy.yml
+# uses ``paths-ignore: [data/**, exports/**]`` so a data-only push
+# wouldn't trigger it automatically; we dispatch via ``gh workflow
+# run`` instead.  Without ``actions: write`` the dispatch returns
+# 401 and the data refresh stops short of shipping to production.
+permissions:
+  contents: write
+  actions: write
+
 jobs:
   refresh:
     name: Scrape + Rebuild + Deploy
