@@ -413,6 +413,69 @@ def test_api_data_overlays_fresh_sleeper_for_loaded_league(
     assert "overlay" in res.headers.get("X-Payload-View", "")
 
 
+def test_api_data_overlay_preserves_baked_trades_for_loaded_league(
+    shared_scoring_registry, monkeypatch
+):
+    """The loaded league's baked sleeper block carries pre-processed
+    trades (``[{leagueId, sides, timestamp, week}, ...]`` — the shape
+    ``analyzeSleeperTradeHistory`` consumes on /trades).  The overlay's
+    ``trades`` field has a different shape (raw Sleeper transactions),
+    so the merge for the loaded league must NOT replace baked trades
+    with overlay trades — only the team rosters are overlaid.
+
+    Regression pin: an earlier version of the overlay merge replaced
+    the entire sleeper block with overlay-shape data, blanking the
+    /trades page on mobile + desktop.
+    """
+    baked_trades = [
+        {"leagueId": "L-MAIN", "sides": [{"a": 1}, {"b": 2}],
+         "timestamp": 1700000000000, "week": 3},
+    ]
+    overlay_with_raw_trades = {
+        "teams": [
+            {"ownerId": "oA", "name": "Team A", "players": ["fresh-player-1"]},
+        ],
+        # Overlay's raw-shape trades — must NOT replace baked trades.
+        "trades": [
+            {"transaction_id": "tx-99", "type": "trade",
+             "_leagueId": "L-MAIN", "_statusUpdatedMs": 1701000000000},
+        ],
+        "leagueId": "L-MAIN",
+        "overlaySource": "live",
+        "overlayFetchedAt": "2026-04-29T12:00:00+00:00",
+    }
+    monkeypatch.setattr(
+        server._sleeper_overlay, "fetch_sleeper_overlay",
+        lambda **_kw: overlay_with_raw_trades,
+    )
+    # Stub a contract WITH baked trades.  Patch INSIDE the
+    # TestClient context so the lifespan startup can't repopulate
+    # ``latest_contract_data`` after our stub — same pattern as
+    # ``_install_contract_with_profile``.
+    stub = {
+        "meta": {"leagueKey": "main", "scoringProfile": "superflex_tep15_ppr1"},
+        "players": {"stub": {"name": "Stub"}},
+        "playersArray": [{"name": "Stub"}],
+        "sleeper": {
+            "teams": [{"ownerId": "oA", "name": "Team A", "players": []}],
+            "trades": baked_trades,
+        },
+    }
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        monkeypatch.setattr(server, "latest_contract_data", stub)
+        monkeypatch.setattr(server, "latest_data_bytes", None)
+        monkeypatch.setattr(server, "latest_data_gzip_bytes", None)
+        monkeypatch.setattr(server, "latest_data_etag", None)
+        res = c.get("/api/data?leagueKey=main")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    # Teams come from overlay (fresh rosters).
+    assert body["sleeper"]["teams"][0]["players"] == ["fresh-player-1"]
+    # Trades come from baked block (correct shape), NOT overlay.
+    assert body["sleeper"]["trades"] == baked_trades
+    assert "sides" in body["sleeper"]["trades"][0]
+
+
 def test_api_data_503s_when_scoring_profile_differs(
     shared_scoring_registry, monkeypatch
 ):

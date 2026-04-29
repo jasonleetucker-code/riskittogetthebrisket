@@ -2194,22 +2194,48 @@ async def get_data(request: Request):
             overlay = None
 
         if overlay and overlay.get("teams"):
-            # Splice live overlay onto the rankings payload.  Carry
-            # forward the NFL-wide maps from the loaded contract —
-            # the overlay is lean by design + doesn't refetch
-            # /v1/players/nfl (~5MB).  These keys power frontend
-            # lookups that aren't league-scoped (positions, IDs, etc).
+            # Splice live overlay onto the rankings payload.  The
+            # merge strategy differs by sleeper_matches state because
+            # the baked sleeper block carries fields the overlay does
+            # NOT reproduce in the same shape — most notably
+            # ``sleeper.trades``, which is pre-processed in the bake
+            # to ``[{leagueId, sides, timestamp, week}, ...]`` (the
+            # shape ``analyzeSleeperTradeHistory`` consumes on the
+            # /trades page).  The overlay's ``trades`` field carries
+            # raw Sleeper transactions instead, which the frontend
+            # can't parse.  So:
+            #
+            #   sleeper_matches=True  → keep ALL baked fields, only
+            #     replace ``teams`` with overlay's fresh rosters.
+            #     /waivers + /rosters benefit from ~15-min team
+            #     freshness; /trades stays on the ~2h scrape cadence
+            #     because trade-history reprocessing requires shape
+            #     conversion that lives in the offline scrape pipeline.
+            #
+            #   sleeper_matches=False → use overlay payload + carry
+            #     forward NFL-wide maps from the loaded contract.
+            #     Cross-league /trades has always lived on the overlay
+            #     shape (no baked trades for that league); existing
+            #     behaviour preserved.
             scrubbed = dict(payload_obj) if isinstance(payload_obj, dict) else {}
-            overlay_full = {
-                **{
-                    k: loaded_sleeper.get(k)
-                    for k in ("positions", "playerIds", "idToPlayer",
-                              "scoringSettings", "rosterPositions",
-                              "leagueSettings")
-                    if k in loaded_sleeper
-                },
-                **overlay,
-            }
+            if sleeper_matches:
+                overlay_full = {
+                    **loaded_sleeper,
+                    "teams": overlay["teams"],
+                    "overlaySource": "live-teams",
+                    "overlayFetchedAt": overlay.get("overlayFetchedAt"),
+                }
+            else:
+                overlay_full = {
+                    **{
+                        k: loaded_sleeper.get(k)
+                        for k in ("positions", "playerIds", "idToPlayer",
+                                  "scoringSettings", "rosterPositions",
+                                  "leagueSettings")
+                        if k in loaded_sleeper
+                    },
+                    **overlay,
+                }
             scrubbed["sleeper"] = overlay_full
             meta = dict(scrubbed.get("meta") or {})
             meta["leagueKey"] = league_cfg.key
