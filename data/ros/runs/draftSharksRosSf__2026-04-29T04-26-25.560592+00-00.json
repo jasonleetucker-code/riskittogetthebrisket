@@ -1,0 +1,21 @@
+{
+  "source_key": "draftSharksRosSf",
+  "status": "ok",
+  "error": null,
+  "started_at": "2026-04-29T04:26:25.539485+00:00",
+  "completed_at": "2026-04-29T04:26:25.560592+00:00",
+  "player_count": 1910,
+  "source_id": "draftSharksRosSf",
+  "source_name": "Draft Sharks ROS Superflex",
+  "source_url": "https://www.draftsharks.com/rankings/rest-of-season",
+  "source_type": "ros",
+  "scoring_format": "ppr",
+  "is_superflex": true,
+  "is_2qb": false,
+  "is_te_premium": false,
+  "is_idp": false,
+  "is_ros": true,
+  "is_dynasty": false,
+  "is_projection_source": true,
+  "stale_after_hours": 24
+}
