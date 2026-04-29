@@ -1200,20 +1200,22 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         latest_contract_data = contract_payload
         contract_health = contract_report
 
-        # Post-scrape overlay warm — for every ACTIVE league other
-        # than the one the scraper just built for, force-refresh the
-        # Sleeper overlay so the first user request after a scrape
-        # hits a warm 15-min cache instead of round-tripping to
-        # Sleeper.  Non-fatal: any failure is logged + skipped.
+        # Post-scrape overlay warm — for every ACTIVE league
+        # (including the default league the scraper just built for),
+        # force-refresh the Sleeper overlay so the first user request
+        # after a scrape hits a warm 15-min cache instead of round-
+        # tripping to Sleeper.  The default league used to be skipped
+        # because /api/data served its baked sleeper block directly;
+        # since /api/data now splices the overlay onto every response
+        # (default + cross-league), warming the default league makes
+        # the very first /api/data after a scrape return overlay-fresh
+        # rosters too.  Non-fatal: any failure is logged + skipped.
         try:
-            default_cfg = _league_registry.get_default_league()
             loaded_sleeper = contract_payload.get("sleeper") or {}
             id_map = loaded_sleeper.get("idToPlayer") if isinstance(loaded_sleeper, dict) else {}
             warmed: list[str] = []
             warm_failed: list[str] = []
             for cfg in _league_registry.active_leagues():
-                if default_cfg and cfg.key == default_cfg.key:
-                    continue
                 try:
                     overlay = _sleeper_overlay.fetch_sleeper_overlay(
                         sleeper_league_id=cfg.sleeper_league_id,
@@ -2158,71 +2160,87 @@ async def get_data(request: Request):
             "X-Payload-View": payload_view_name,
         }
 
-        # Cross-league request for a same-scoring-profile league —
-        # serve the shared rankings, then try to splice in a live
-        # Sleeper overlay for the requested league.  The overlay
-        # fetches rosters + trades + metadata from Sleeper on
-        # demand (cached 15 min) so the terminal, /trades page,
-        # team pickers, etc. work without running the full
-        # scraper per league.
-        if not sleeper_matches:
-            scrubbed = dict(payload_obj) if isinstance(payload_obj, dict) else {}
-            # Re-use the NFL-wide Sleeper-ID → display-name map from
-            # the currently-loaded contract (League A's scrape) so
-            # we don't have to refetch /v1/players/nfl (~5MB) for
-            # every overlay.  The map is NFL-wide, not league-scoped,
-            # so it's safe across leagues.
-            loaded_sleeper = (
-                (latest_contract_data or {}).get("sleeper") or {}
-                if isinstance(latest_contract_data, dict) else {}
+        # Live Sleeper overlay — applied to BOTH the loaded league
+        # AND cross-league requests so post-trade roster moves reflect
+        # within ~15 min instead of the ~2h scrape cadence.  The
+        # overlay is in-process cached for 15 min (per league) so
+        # steady-state cost is one Sleeper round-trip per league per
+        # 15-min window.  Failures (Sleeper down, circuit breaker
+        # open, empty roster) fall back to the existing paths:
+        #   - sleeper_matches=True  → serve baked-in sleeper block
+        #     from the cached payload bytes (preserves ETag/304/gzip
+        #     fast path)
+        #   - sleeper_matches=False → null the sleeper block + flag
+        #     sleeperDataReady=false (existing cross-league fallback)
+        # This unification is what makes /waivers, /trade, /rosters,
+        # /draft etc. converge on the same 15-min ceiling regardless
+        # of which league is "loaded."
+        loaded_sleeper = (
+            (latest_contract_data or {}).get("sleeper") or {}
+            if isinstance(latest_contract_data, dict) else {}
+        )
+        id_to_player = loaded_sleeper.get("idToPlayer") or {}
+        try:
+            overlay = await run_in_threadpool(
+                _sleeper_overlay.fetch_sleeper_overlay,
+                sleeper_league_id=league_cfg.sleeper_league_id,
+                id_to_player=id_to_player if isinstance(id_to_player, dict) else {},
             )
-            id_to_player = loaded_sleeper.get("idToPlayer") or {}
-            try:
-                overlay = await run_in_threadpool(
-                    _sleeper_overlay.fetch_sleeper_overlay,
-                    sleeper_league_id=league_cfg.sleeper_league_id,
-                    id_to_player=id_to_player if isinstance(id_to_player, dict) else {},
-                )
-            except Exception as exc:  # noqa: BLE001
-                log.warning(
-                    "sleeper_overlay fetch failed for %s: %s",
-                    league_cfg.key, exc,
-                )
-                overlay = None
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "sleeper_overlay fetch failed for %s: %s",
+                league_cfg.key, exc,
+            )
+            overlay = None
 
+        if overlay and overlay.get("teams"):
+            # Splice live overlay onto the rankings payload.  Carry
+            # forward the NFL-wide maps from the loaded contract —
+            # the overlay is lean by design + doesn't refetch
+            # /v1/players/nfl (~5MB).  These keys power frontend
+            # lookups that aren't league-scoped (positions, IDs, etc).
+            scrubbed = dict(payload_obj) if isinstance(payload_obj, dict) else {}
+            overlay_full = {
+                **{
+                    k: loaded_sleeper.get(k)
+                    for k in ("positions", "playerIds", "idToPlayer",
+                              "scoringSettings", "rosterPositions",
+                              "leagueSettings")
+                    if k in loaded_sleeper
+                },
+                **overlay,
+            }
+            scrubbed["sleeper"] = overlay_full
+            meta = dict(scrubbed.get("meta") or {})
+            meta["leagueKey"] = league_cfg.key
+            meta["scoringProfile"] = league_cfg.scoring_profile
+            meta["sleeperDataReady"] = True
+            meta["sleeperSource"] = "overlay"
+            if not sleeper_matches:
+                meta["sleeperLoadedLeagueKey"] = loaded_league or None
+            scrubbed["meta"] = meta
+            suffix = "overlay" if sleeper_matches else "cross-league-overlay"
+            headers["X-Payload-View"] = f"{payload_view_name}-{suffix}"
+            return JSONResponse(content=scrubbed, headers=headers)
+
+        if not sleeper_matches:
+            # Cross-league + overlay unavailable: null the sleeper
+            # block so the UI falls back to the data-not-ready state
+            # rather than rendering League A's teams under League B's
+            # name.
+            scrubbed = dict(payload_obj) if isinstance(payload_obj, dict) else {}
             meta = dict(scrubbed.get("meta") or {})
             meta["leagueKey"] = league_cfg.key
             meta["scoringProfile"] = league_cfg.scoring_profile
             meta["sleeperLoadedLeagueKey"] = loaded_league or None
-
-            if overlay and overlay.get("teams"):
-                # Carry forward the NFL-wide maps from the loaded
-                # contract — the overlay is lean + doesn't refetch
-                # them.  These keys power frontend lookups that
-                # aren't league-scoped (positions, IDs, etc).
-                overlay_full = {
-                    **{
-                        k: loaded_sleeper.get(k)
-                        for k in ("positions", "playerIds", "idToPlayer",
-                                  "scoringSettings", "rosterPositions",
-                                  "leagueSettings")
-                        if k in loaded_sleeper
-                    },
-                    **overlay,
-                }
-                scrubbed["sleeper"] = overlay_full
-                meta["sleeperDataReady"] = True
-                meta["sleeperSource"] = "overlay"
-                headers["X-Payload-View"] = f"{payload_view_name}-cross-league-overlay"
-            else:
-                # Overlay unavailable (Sleeper down, empty league,
-                # etc.) — null the sleeper block so the UI falls
-                # back to the data-not-ready state.
-                scrubbed["sleeper"] = None
-                meta["sleeperDataReady"] = False
-                headers["X-Payload-View"] = f"{payload_view_name}-cross-league"
+            meta["sleeperDataReady"] = False
+            scrubbed["sleeper"] = None
             scrubbed["meta"] = meta
+            headers["X-Payload-View"] = f"{payload_view_name}-cross-league"
             return JSONResponse(content=scrubbed, headers=headers)
+        # sleeper_matches=True + overlay unavailable: fall through to
+        # the cached payload-bytes fast path below — serves the baked
+        # sleeper block from the most recent scrape.
 
         if payload_etag:
             headers["ETag"] = payload_etag

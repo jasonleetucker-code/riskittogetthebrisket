@@ -356,7 +356,18 @@ def test_api_data_serves_full_contract_when_sleeper_matches(
     shared_scoring_registry, monkeypatch
 ):
     """When the loaded contract's leagueKey matches the requested
-    league, the sleeper block is returned intact."""
+    league AND the live Sleeper overlay is unavailable, the baked-in
+    sleeper block falls through unchanged.
+
+    The overlay path is the new default (so post-trade roster moves
+    reflect within ~15 min), but /api/data must still serve a
+    coherent response when Sleeper is down — that fallback is what
+    this test pins.
+    """
+    monkeypatch.setattr(
+        server._sleeper_overlay, "fetch_sleeper_overlay",
+        lambda **_kw: None,  # overlay unavailable → fall back to baked
+    )
     with TestClient(server.app, raise_server_exceptions=True) as c:
         _install_contract_with_profile(monkeypatch, "main", "superflex_tep15_ppr1")
         res = c.get("/api/data?leagueKey=main")
@@ -364,6 +375,42 @@ def test_api_data_serves_full_contract_when_sleeper_matches(
     body = res.json()
     assert body["sleeper"] is not None
     assert body["sleeper"]["teams"][0]["ownerId"] == "oA"
+
+
+def test_api_data_overlays_fresh_sleeper_for_loaded_league(
+    shared_scoring_registry, monkeypatch
+):
+    """When the live overlay is available, /api/data splices it onto
+    the loaded league's response so the rosters reflect Sleeper
+    activity within the overlay's 15-min cache window — even for
+    the default league.  This is the contract that makes /waivers,
+    /trade, /rosters, /draft converge on a 15-min staleness ceiling
+    instead of inheriting the 2h scrape cadence.
+    """
+    fresh_overlay = {
+        "teams": [
+            {"ownerId": "oA", "name": "Team A", "players": ["fresh-player-1"]},
+        ],
+        "leagueId": "L-MAIN",
+        "overlaySource": "live",
+        "overlayFetchedAt": "2026-04-29T11:30:00+00:00",
+    }
+    monkeypatch.setattr(
+        server._sleeper_overlay, "fetch_sleeper_overlay",
+        lambda **_kw: fresh_overlay,
+    )
+    with TestClient(server.app, raise_server_exceptions=True) as c:
+        _install_contract_with_profile(monkeypatch, "main", "superflex_tep15_ppr1")
+        res = c.get("/api/data?leagueKey=main")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    # The overlay's roster wins over the baked-in empty roster.
+    assert body["sleeper"]["teams"][0]["players"] == ["fresh-player-1"]
+    assert body["meta"]["sleeperSource"] == "overlay"
+    assert body["meta"]["sleeperDataReady"] is True
+    # X-Payload-View header tags the overlay path so ops can grep
+    # logs to confirm the overlay merge fired.
+    assert "overlay" in res.headers.get("X-Payload-View", "")
 
 
 def test_api_data_503s_when_scoring_profile_differs(
