@@ -26,6 +26,12 @@ const SECTIONS = [
     ],
   },
   {
+    title: "Roster",
+    items: [
+      { href: "/waivers", label: "Waivers", desc: "Add/drop analysis vs your roster" },
+    ],
+  },
+  {
     title: "Signals",
     items: [
       { href: "/edge", label: "Edge", desc: "Where ranking sources agree, disagree, and flag issues" },
