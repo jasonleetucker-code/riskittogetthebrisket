@@ -2194,35 +2194,46 @@ async def get_data(request: Request):
             overlay = None
 
         if overlay and overlay.get("teams"):
-            # Splice live overlay onto the rankings payload.  The
-            # merge strategy differs by sleeper_matches state because
-            # the baked sleeper block carries fields the overlay does
-            # NOT reproduce in the same shape — most notably
-            # ``sleeper.trades``, which is pre-processed in the bake
-            # to ``[{leagueId, sides, timestamp, week}, ...]`` (the
-            # shape ``analyzeSleeperTradeHistory`` consumes on the
-            # /trades page).  The overlay's ``trades`` field carries
-            # raw Sleeper transactions instead, which the frontend
-            # can't parse.  So:
+            # Splice live overlay onto the rankings payload.  Both
+            # paths (loaded + cross-league) layer the overlay's
+            # ``teams`` and ``trades`` over the baked sleeper block,
+            # while preserving the NFL-wide maps the overlay doesn't
+            # rebuild on its own.
             #
-            #   sleeper_matches=True  → keep ALL baked fields, only
-            #     replace ``teams`` with overlay's fresh rosters.
-            #     /waivers + /rosters benefit from ~15-min team
-            #     freshness; /trades stays on the ~2h scrape cadence
-            #     because trade-history reprocessing requires shape
-            #     conversion that lives in the offline scrape pipeline.
+            # The overlay's ``trades`` are now produced in the same
+            # ``[{leagueId, week, timestamp, sides[]}, ...]`` shape
+            # that ``analyzeSleeperTradeHistory`` consumes on the
+            # /trades page — see
+            # ``src/api/sleeper_overlay.py::_build_trades_block``.
+            # That parity is what makes /trades reflect Sleeper trade
+            # activity within ~15 min instead of waiting on the next
+            # 2h scrape.
             #
-            #   sleeper_matches=False → use overlay payload + carry
-            #     forward NFL-wide maps from the loaded contract.
-            #     Cross-league /trades has always lived on the overlay
-            #     shape (no baked trades for that league); existing
-            #     behaviour preserved.
+            # Strategy:
+            #   sleeper_matches=True  → start from the baked sleeper
+            #     block (keeps positions, idToPlayer, leagueSettings,
+            #     rosterPositions, scoringSettings, etc.) and overlay
+            #     teams + trades + tradeWindow* on top.  Tagged
+            #     "live-merge" so ops can grep for the new path.
+            #
+            #   sleeper_matches=False → carry NFL-wide maps from the
+            #     loaded contract, then apply the full overlay
+            #     payload on top (overlay wins on every overlapping
+            #     key).  Existing behaviour, with the upgraded trade
+            #     shape now landing on cross-league /trades too.
             scrubbed = dict(payload_obj) if isinstance(payload_obj, dict) else {}
             if sleeper_matches:
                 overlay_full = {
                     **loaded_sleeper,
                     "teams": overlay["teams"],
-                    "overlaySource": "live-teams",
+                    "trades": overlay.get("trades") or [],
+                    "tradeWindowDays": overlay.get("tradeWindowDays")
+                        or loaded_sleeper.get("tradeWindowDays"),
+                    "tradeWindowStart": overlay.get("tradeWindowStart")
+                        or loaded_sleeper.get("tradeWindowStart"),
+                    "tradeWindowCutoffMs": overlay.get("tradeWindowCutoffMs")
+                        or loaded_sleeper.get("tradeWindowCutoffMs"),
+                    "overlaySource": "live-merge",
                     "overlayFetchedAt": overlay.get("overlayFetchedAt"),
                 }
             else:

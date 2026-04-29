@@ -413,45 +413,54 @@ def test_api_data_overlays_fresh_sleeper_for_loaded_league(
     assert "overlay" in res.headers.get("X-Payload-View", "")
 
 
-def test_api_data_overlay_preserves_baked_trades_for_loaded_league(
+def test_api_data_overlay_layers_fresh_trades_in_baked_shape(
     shared_scoring_registry, monkeypatch
 ):
-    """The loaded league's baked sleeper block carries pre-processed
-    trades (``[{leagueId, sides, timestamp, week}, ...]`` — the shape
-    ``analyzeSleeperTradeHistory`` consumes on /trades).  The overlay's
-    ``trades`` field has a different shape (raw Sleeper transactions),
-    so the merge for the loaded league must NOT replace baked trades
-    with overlay trades — only the team rosters are overlaid.
+    """The overlay's ``trades`` block now produces the same
+    ``[{leagueId, week, timestamp, sides[]}, ...]`` shape that the
+    offline scraper bakes into ``sleeper.trades`` (see
+    ``src/api/sleeper_overlay.py::_build_trades_block``).  That
+    parity lets the overlay merge override baked trades with FRESH
+    trades — what makes the /trades page reflect Sleeper activity
+    within the overlay's 15-min cache window.
 
-    Regression pin: an earlier version of the overlay merge replaced
-    the entire sleeper block with overlay-shape data, blanking the
-    /trades page on mobile + desktop.
+    Regression pin: when the overlay was returning raw Sleeper
+    transactions in ``trades`` instead of the processed shape, the
+    merge couldn't safely use them; trades were either blanked
+    (older buggy state) or pinned to the ~2h scrape cadence (the
+    interim fix).  Both regressions are covered by this test going
+    green.
     """
     baked_trades = [
         {"leagueId": "L-MAIN", "sides": [{"a": 1}, {"b": 2}],
          "timestamp": 1700000000000, "week": 3},
     ]
-    overlay_with_raw_trades = {
+    fresh_overlay_trade = {
+        "leagueId": "L-MAIN",
+        "week": 5,
+        "timestamp": 1730000000000,
+        "sides": [
+            {"team": "Team A", "rosterId": 1, "ownerId": "oA",
+             "got": ["Fresh Player"], "gave": []},
+            {"team": "Team B", "rosterId": 2, "ownerId": "oB",
+             "got": [], "gave": ["Fresh Player"]},
+        ],
+    }
+    overlay_payload = {
         "teams": [
             {"ownerId": "oA", "name": "Team A", "players": ["fresh-player-1"]},
         ],
-        # Overlay's raw-shape trades — must NOT replace baked trades.
-        "trades": [
-            {"transaction_id": "tx-99", "type": "trade",
-             "_leagueId": "L-MAIN", "_statusUpdatedMs": 1701000000000},
-        ],
+        # Overlay now emits the same processed shape as the bake.
+        "trades": [fresh_overlay_trade],
+        "tradeWindowDays": 365,
         "leagueId": "L-MAIN",
         "overlaySource": "live",
         "overlayFetchedAt": "2026-04-29T12:00:00+00:00",
     }
     monkeypatch.setattr(
         server._sleeper_overlay, "fetch_sleeper_overlay",
-        lambda **_kw: overlay_with_raw_trades,
+        lambda **_kw: overlay_payload,
     )
-    # Stub a contract WITH baked trades.  Patch INSIDE the
-    # TestClient context so the lifespan startup can't repopulate
-    # ``latest_contract_data`` after our stub — same pattern as
-    # ``_install_contract_with_profile``.
     stub = {
         "meta": {"leagueKey": "main", "scoringProfile": "superflex_tep15_ppr1"},
         "players": {"stub": {"name": "Stub"}},
@@ -459,6 +468,8 @@ def test_api_data_overlay_preserves_baked_trades_for_loaded_league(
         "sleeper": {
             "teams": [{"ownerId": "oA", "name": "Team A", "players": []}],
             "trades": baked_trades,
+            "positions": {"WR": ["A"]},
+            "leagueSettings": {"sample": True},
         },
     }
     with TestClient(server.app, raise_server_exceptions=True) as c:
@@ -469,11 +480,19 @@ def test_api_data_overlay_preserves_baked_trades_for_loaded_league(
         res = c.get("/api/data?leagueKey=main")
     assert res.status_code == 200, res.text
     body = res.json()
-    # Teams come from overlay (fresh rosters).
-    assert body["sleeper"]["teams"][0]["players"] == ["fresh-player-1"]
-    # Trades come from baked block (correct shape), NOT overlay.
-    assert body["sleeper"]["trades"] == baked_trades
-    assert "sides" in body["sleeper"]["trades"][0]
+    sleeper = body["sleeper"]
+    # Teams + trades come from overlay (fresh).
+    assert sleeper["teams"][0]["players"] == ["fresh-player-1"]
+    assert sleeper["trades"] == [fresh_overlay_trade]
+    # Every overlay trade carries the baked-shape ``sides`` array so
+    # frontend trade-grading can parse it.
+    assert "sides" in sleeper["trades"][0]
+    # Non-overlaid baked fields (positions, leagueSettings, …) are
+    # preserved — the overlay merge must not strip them.
+    assert sleeper["positions"] == {"WR": ["A"]}
+    assert sleeper["leagueSettings"] == {"sample": True}
+    # Diagnostic stamp identifies the new merge path.
+    assert sleeper.get("overlaySource") == "live-merge"
 
 
 def test_api_data_503s_when_scoring_profile_differs(

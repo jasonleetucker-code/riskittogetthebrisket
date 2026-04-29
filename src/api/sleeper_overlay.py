@@ -312,28 +312,234 @@ def _build_teams_block(
     return teams
 
 
+def _safe_int(v: Any) -> int | None:
+    """Defensive int coerce — Sleeper sometimes returns roster ids as
+    strings, sometimes as ints."""
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _league_rid_lookup(
+    target_league_id: str,
+) -> tuple[dict[Any, str], dict[Any, str]]:
+    """Per-league roster lookup: ``(rid_to_name, rid_to_owner_id)``.
+
+    Mirrors the offline scraper's helper of the same name in
+    ``Dynasty Scraper.py`` so trade-side construction emits BOTH the
+    display name at that point in time AND the Sleeper user id that
+    owned the roster at that point.  Owner-id is the authoritative
+    aggregation key for trade history — it stays stable for the same
+    human across league chains and correctly splits trades when an
+    orphaned roster changes hands.
+
+    Both maps are keyed under the raw Sleeper ``roster_id`` AND its
+    string + int forms so callers can look up either way without
+    coercing first.  Empty maps on any fetch failure (the trade
+    builder degrades gracefully).
+    """
+    rid_to_name: dict[Any, str] = {}
+    rid_to_owner: dict[Any, str] = {}
+    rosters = _http_get_json(
+        f"https://api.sleeper.app/v1/league/{target_league_id}/rosters"
+    )
+    users = _http_get_json(
+        f"https://api.sleeper.app/v1/league/{target_league_id}/users"
+    )
+    if not isinstance(rosters, list):
+        return rid_to_name, rid_to_owner
+    user_map: dict[str, str] = {}
+    if isinstance(users, list):
+        for u in users:
+            if not isinstance(u, dict):
+                continue
+            uid = str(u.get("user_id") or "")
+            if not uid:
+                continue
+            metadata = u.get("metadata") if isinstance(u.get("metadata"), dict) else {}
+            name = (
+                (metadata or {}).get("team_name")
+                or u.get("display_name")
+                or f"Team {uid}"
+            )
+            user_map[uid] = str(name)
+    for r in rosters:
+        if not isinstance(r, dict):
+            continue
+        rid = r.get("roster_id")
+        oid = str(r.get("owner_id") or "")
+        rid_int = _safe_int(rid)
+        team_name = user_map.get(oid, f"Team {rid}" if rid is not None else "Team")
+        if rid is not None:
+            rid_to_name[rid] = team_name
+        if rid_int is not None:
+            rid_to_name[rid_int] = team_name
+            rid_to_name[str(rid_int)] = team_name
+        if oid:
+            if rid is not None:
+                rid_to_owner[rid] = oid
+            if rid_int is not None:
+                rid_to_owner[rid_int] = oid
+                rid_to_owner[str(rid_int)] = oid
+    return rid_to_name, rid_to_owner
+
+
+def _league_draft_slot_lookup(
+    target_league_id: str,
+) -> dict[tuple[int, int], int]:
+    """Build ``{(season, origin_roster_id): slot}`` from each draft's
+    ``slot_to_roster_id`` map.  Used to format pick labels with the
+    canonical ``"YYYY R.SS"`` slot suffix that the rankings board's
+    pick rows match — without the slot, labels degrade to the
+    tier-rounded ``"YYYY 1st"`` form which still resolves via
+    ``buildPickLookupCandidates`` on the frontend, just less
+    precisely.
+
+    Mirrors the offline scraper's draft enumeration (Dynasty
+    Scraper.py ~870-915) but trimmed to just the slot map.  Empty on
+    any fetch failure.
+    """
+    out: dict[tuple[int, int], int] = {}
+    drafts = _http_get_json(
+        f"https://api.sleeper.app/v1/league/{target_league_id}/drafts"
+    )
+    if not isinstance(drafts, list):
+        return out
+    for d in drafts:
+        if not isinstance(d, dict):
+            continue
+        season = _safe_int(d.get("season"))
+        slot_map = d.get("slot_to_roster_id")
+        if not isinstance(slot_map, dict) or season is None:
+            continue
+        for slot_str, rid_val in slot_map.items():
+            slot_num = _safe_int(slot_str)
+            rid_num = _safe_int(rid_val)
+            if slot_num is None or rid_num is None or slot_num <= 0:
+                continue
+            out[(season, rid_num)] = slot_num
+    return out
+
+
+def _format_trade_pick_label(
+    pick: dict[str, Any],
+    rid_to_name: dict[Any, str],
+    draft_slot_by_origin: dict[tuple[int, int], int],
+) -> str:
+    """Canonical pick label for trade-history valuation.  Matches the
+    offline scraper's ``_format_trade_pick_label`` so the resulting
+    string resolves through the same frontend ``resolvePickRow``
+    pipeline as the baked trades.
+
+    Format precedence:
+      1. ``YYYY R.SS (from Team)`` — when the draft slot is known.
+      2. ``YYYY R{th} (from Team)`` — slot unknown (typical for
+         current-year picks before the draft has happened, or future
+         years).
+    """
+    season = _safe_int(pick.get("season"))
+    round_num = _safe_int(pick.get("round"))
+    origin_rid = _safe_int(pick.get("roster_id") or pick.get("origin_roster_id"))
+
+    from_team: str | None = None
+    if origin_rid is not None:
+        from_team = (
+            rid_to_name.get(origin_rid)
+            or rid_to_name.get(str(origin_rid))
+            or f"Team {origin_rid}"
+        )
+
+    base_label: str | None = None
+    if season is not None and round_num is not None and round_num > 0:
+        slot = (
+            draft_slot_by_origin.get((season, origin_rid))
+            if origin_rid is not None else None
+        )
+        if isinstance(slot, int) and slot > 0:
+            base_label = f"{season} {round_num}.{str(slot).zfill(2)}"
+        else:
+            base_label = f"{season} {_round_suffix(round_num)}"
+
+    if not base_label:
+        season_txt = str(pick.get("season", "")).strip()
+        round_txt = str(pick.get("round", "?")).strip()
+        base_label = f"{season_txt} Round {round_txt}".strip()
+
+    return f"{base_label} (from {from_team})" if from_team else base_label
+
+
+def _append_trade_side_item(
+    side_map: dict[Any, list[str]], rid: Any, label: str,
+) -> None:
+    """Append ``label`` under both string and int keys for ``rid`` so
+    later side construction can find the entries however it indexes.
+    Skips empty labels and dedupes within a single side.
+    """
+    if not label:
+        return
+    keys: list[Any] = []
+    if rid is not None:
+        keys.append(rid)
+    rid_int = _safe_int(rid)
+    if rid_int is not None:
+        keys.extend([rid_int, str(rid_int)])
+    for k in keys:
+        arr = side_map.setdefault(k, [])
+        if label not in arr:
+            arr.append(label)
+
+
 def _build_trades_block(
     sleeper_league_id: str,
     window_days: int = 365,
+    id_to_player: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Fetch the rolling trade history for the league chain.
+    """Fetch the rolling trade history for the league chain and
+    PROCESS each trade into the same shape the offline scraper bakes
+    into ``sleeper.trades``::
+
+        {leagueId, week, timestamp, sides: [{team, rosterId, ownerId,
+                                              got: [...], gave: [...]}, ...]}
+
+    ``got`` / ``gave`` are arrays of canonical asset labels (player
+    display names + pick labels) — the shape that
+    ``frontend/lib/league-analysis.js::analyzeSleeperTradeHistory``
+    consumes on /trades.  Earlier versions returned the raw Sleeper
+    transaction shape (``transaction_id``, ``adds``, ``drops``,
+    ``draft_picks``, ...) which the frontend couldn't grade — that's
+    the bug we're fixing here.
 
     Sleeper's ``/v1/league/<id>/transactions/<week>`` only exposes
-    the current season.  We walk the ``previous_league_id`` chain
-    back one level so the rolling window captures inter-season
-    trades too.  Trades outside the ``window_days`` cutoff are
-    dropped so ``/trades`` doesn't show stale moves.
+    the current season; we walk the ``previous_league_id`` chain
+    (depth 2) so inter-season trades stay in the rolling window.
+    Trades outside ``window_days`` are dropped.
+
+    ``id_to_player`` is the NFL-wide Sleeper-ID → display-name map,
+    typically reused from the loaded contract.  When absent, player
+    labels fall back to the raw Sleeper id.
     """
     cutoff_ms = _utc_now_ms() - int(window_days) * 24 * 3600 * 1000
     chain = _walk_league_chain(sleeper_league_id, max_depth=2)
     if not chain:
         return []
 
+    id_map = id_to_player if isinstance(id_to_player, dict) else {}
+
     trades: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
     for lid in chain:
-        # Weeks 1..18 cover the regular + postseason transaction
-        # calendar; preseason/offseason Sleeper uses weeks 0 (and
-        # sometimes -1) — 0 is cheap to include.
+        # Per-league lookups: roster-id → team name, → owner_id, and
+        # the season-rooted draft-slot map.  Each league chain entry
+        # has its own roster identity (a roster_id can change human
+        # ownership across seasons).
+        rid_to_name, rid_to_owner = _league_rid_lookup(lid)
+        draft_slot_by_origin = _league_draft_slot_lookup(lid)
+
+        # Weeks 0..18 cover preseason/regular/postseason transaction
+        # calendar.  0 is cheap to include and catches preseason
+        # trades that happened before week 1.
         for week in range(0, 19):
             url = (
                 f"https://api.sleeper.app/v1/league/{lid}"
@@ -347,34 +553,83 @@ def _build_trades_block(
                     continue
                 if tx.get("type") != "trade":
                     continue
+                # Match the offline scraper: only completed trades.
+                # Mid-flight proposals shouldn't show up on /trades.
+                if tx.get("status") != "complete":
+                    continue
                 status_ts = tx.get("status_updated") or tx.get("created")
                 ts_ms = _normalize_ts_ms(status_ts)
                 if ts_ms and ts_ms < cutoff_ms:
                     continue
-                # Pass the raw Sleeper trade shape through — the
-                # frontend's ``analyzeSleeperTradeHistory`` already
-                # handles the Sleeper schema; the scraper just
-                # de-duplicates + tags with an in-window flag.
-                trades.append({
-                    **tx,
-                    "_leagueId": lid,
-                    "_statusUpdatedMs": ts_ms or 0,
-                })
+                tx_id = str(tx.get("transaction_id") or "")
+                if tx_id and tx_id in seen:
+                    continue
+                if tx_id:
+                    seen.add(tx_id)
 
-    # De-dup by transaction_id across the league chain (a trade
-    # that bridged seasons can appear twice).
-    seen: set[str] = set()
-    deduped: list[dict[str, Any]] = []
-    for t in trades:
-        tid = str(t.get("transaction_id") or "")
-        if tid and tid in seen:
-            continue
-        if tid:
-            seen.add(tid)
-        deduped.append(t)
-    # Newest first — the /trades UI sorts by recency.
-    deduped.sort(key=lambda t: t.get("_statusUpdatedMs", 0), reverse=True)
-    return deduped
+                roster_ids = tx.get("roster_ids") or []
+                adds = tx.get("adds") if isinstance(tx.get("adds"), dict) else {}
+                drops = tx.get("drops") if isinstance(tx.get("drops"), dict) else {}
+                draft_picks = tx.get("draft_picks") or []
+
+                team_got: dict[Any, list[str]] = {}
+                team_gave: dict[Any, list[str]] = {}
+
+                # adds/drops keyed by sleeper player_id → roster_id.
+                for pid, rid in (adds or {}).items():
+                    label = id_map.get(str(pid)) or str(pid)
+                    _append_trade_side_item(team_got, rid, str(label))
+                for pid, rid in (drops or {}).items():
+                    label = id_map.get(str(pid)) or str(pid)
+                    _append_trade_side_item(team_gave, rid, str(label))
+
+                # Draft picks: owner gained, previous_owner lost.
+                for pick in draft_picks:
+                    if not isinstance(pick, dict):
+                        continue
+                    owner = pick.get("owner_id")
+                    prev = pick.get("previous_owner_id")
+                    label = _format_trade_pick_label(
+                        pick, rid_to_name, draft_slot_by_origin,
+                    )
+                    if owner is not None:
+                        _append_trade_side_item(team_got, owner, label)
+                    if prev is not None:
+                        _append_trade_side_item(team_gave, prev, label)
+
+                sides: list[dict[str, Any]] = []
+                for rid in roster_ids:
+                    rid_key = rid if rid in rid_to_name else _safe_int(rid)
+                    team_name = (
+                        rid_to_name.get(rid_key)
+                        or rid_to_name.get(str(rid))
+                        or f"Team {rid}"
+                    )
+                    owner_id = (
+                        rid_to_owner.get(rid)
+                        or rid_to_owner.get(_safe_int(rid))
+                        or rid_to_owner.get(str(rid))
+                        or ""
+                    )
+                    sides.append({
+                        "team": team_name,
+                        "rosterId": rid,
+                        "ownerId": owner_id,
+                        "got": team_got.get(rid, []) or team_got.get(_safe_int(rid), []),
+                        "gave": team_gave.get(rid, []) or team_gave.get(_safe_int(rid), []),
+                    })
+
+                if sides:
+                    trades.append({
+                        "leagueId": str(lid),
+                        "week": week,
+                        "timestamp": ts_ms or 0,
+                        "sides": sides,
+                    })
+
+    # Newest first — /trades UI sorts by recency.
+    trades.sort(key=lambda t: -int(t.get("timestamp", 0) or 0))
+    return trades
 
 
 def _normalize_ts_ms(v: Any) -> int:
@@ -450,7 +705,11 @@ def fetch_sleeper_overlay(
         return None
 
     league_name = _fetch_league_name(sleeper_league_id) or ""
-    trades = _build_trades_block(sleeper_league_id, window_days=trade_window_days)
+    trades = _build_trades_block(
+        sleeper_league_id,
+        window_days=trade_window_days,
+        id_to_player=id_to_player,
+    )
 
     cutoff_dt = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(
         days=int(trade_window_days)
