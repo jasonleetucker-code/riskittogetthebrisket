@@ -105,13 +105,18 @@ export const SETTINGS_DEFAULTS = {
   // never modifies dynasty values or trade math.  These flags gate
   // the new UI surfaces (added in PR1; PR2-5 wire more consumers).
   rosEnabled: true,
-  // PR2 ships ros-power as a side-by-side alternative to the existing
-  // power.py-based section.  Default false so ros-power is opt-in
-  // until validated; when the user flips it true, the league page
-  // swaps the Power tab to the ROS-driven version.
-  useRosPowerRankings: false,
-  // PR3 ships ros-playoff-odds.  Same opt-in pattern.
-  useRosPlayoffOdds: false,
+  // PR2 shipped ros-power as a side-by-side alternative to the
+  // existing power.py-based section.  Default flipped to true on
+  // 2026-04-29 after the engine validated against ~5 weeks of live
+  // standings; the new ROS-driven Power tab replaces the v1
+  // PPG-based view by default.  Users who prefer v1 can flip the
+  // toggle back on /settings.
+  useRosPowerRankings: true,
+  // PR3 shipped ros-playoff-odds.  Default flipped to true on
+  // 2026-04-29; the ROS-blended Monte Carlo replaces the empirical-
+  // only v1 by default.  Users who prefer v1 can flip back via
+  // /settings.
+  useRosPlayoffOdds: true,
   // PR4 ships the trade-calculator ROS-fit panel + player-popup tags.
   showRosTradePanel: true,
   showRosTags: true,
