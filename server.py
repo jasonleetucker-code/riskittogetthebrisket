@@ -4562,6 +4562,26 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             # leave the mapping empty; downstream code renders draft
             # capital without a team-name column.
             raise RuntimeError("no_sleeper_league_configured")
+        # League metadata first — its ``season`` is the canonical
+        # anchor for the active-pick-season window.  Filtering trades
+        # by /drafts alone breaks during the offseason gap when the
+        # league has rolled over but Sleeper hasn't yet created the
+        # new season's draft object: in that window /drafts returns
+        # only the prior season, while /league/{id}.season already
+        # reports the active one and /traded_picks contains the
+        # active-season trades that need to apply to the workbook.
+        try:
+            league_resp = urllib.request.urlopen(
+                f"https://api.sleeper.app/v1/league/{_league_id_for_draft}", timeout=15
+            )
+            league_meta = json.loads(league_resp.read())
+            league_meta_season = int(league_meta.get("season"))
+        except Exception as exc:  # noqa: BLE001
+            logging.warning(f"Sleeper league-meta fetch failed: {exc}")
+            league_meta_season = None
+        if league_meta_season:
+            league_season = league_meta_season
+
         rosters_resp = urllib.request.urlopen(
             f"https://api.sleeper.app/v1/league/{_league_id_for_draft}/rosters", timeout=15
         )
@@ -4593,12 +4613,12 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         drafts_resp = urllib.request.urlopen(
             f"https://api.sleeper.app/v1/league/{_league_id_for_draft}/drafts", timeout=15
         )
-        # Resolve league season from the Sleeper drafts response — the
-        # source of truth — rather than the server's calendar year.
-        # Around December → January the calendar year ticks over while
-        # the league is still on the prior season's draft, and a naive
-        # `season != now().year` filter would silently skip every
-        # traded pick (and slot mapping) for that window.
+        # /league/{id}.season is the primary anchor for the active
+        # season; /drafts.season is only consulted as a fallback when
+        # the league-meta call failed.  This pair handles both
+        # boundary cases: the Dec→Jan calendar-year flip AND the
+        # offseason window where the league has rolled over but its
+        # new draft object hasn't been created yet.
         all_drafts = [d for d in json.loads(drafts_resp.read()) if isinstance(d, dict)]
         draft_seasons: list[int] = []
         for d in all_drafts:
@@ -4606,8 +4626,16 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 draft_seasons.append(int(d.get("season")))
             except (TypeError, ValueError):
                 continue
-        if draft_seasons:
+        if not league_meta_season and draft_seasons:
             league_season = max(draft_seasons)
+        # Prefer the active-season draft for slot-to-roster mapping;
+        # fall back to the most recent prior-season draft when the
+        # active-season draft hasn't been created yet (offseason
+        # rollover gap).  Dynasty slot orders are stable enough
+        # across the gap that the prior mapping is a safe stand-in.
+        slot_mapping_season = league_season if league_season in draft_seasons else (
+            max(draft_seasons) if draft_seasons else league_season
+        )
         slot_to_roster: dict[int, int] = {}
         for draft in all_drafts:
             try:
@@ -4615,7 +4643,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             except (TypeError, ValueError):
                 continue
             draft_id = draft.get("draft_id")
-            if season != league_season or not draft_id:
+            if season != slot_mapping_season or not draft_id:
                 continue
             try:
                 detail_resp = urllib.request.urlopen(
