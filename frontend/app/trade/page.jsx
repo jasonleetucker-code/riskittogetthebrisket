@@ -866,7 +866,12 @@ export default function TradePage() {
     [sleeperTeams, teamRosterNames],
   );
 
-  // Hydrate roster input and team selection from localStorage
+  // Hydrate roster input and team selection from localStorage.
+  // The localStorage path is a fallback for bootstrap before
+  // ``useTeam`` resolves; the effect below this one keeps the
+  // trade-page selection in lockstep with the topbar's
+  // ``useTeam().selectedTeam`` so the user has ONE source of truth
+  // for "which team's roster drives this page's suggestions."
   useEffect(() => {
     try {
       const saved = localStorage.getItem(ROSTER_KEY);
@@ -877,6 +882,46 @@ export default function TradePage() {
       if (savedTeam !== null) setSelectedTeamIdx(Number(savedTeam));
     } catch { /* ignore */ }
   }, []);
+
+  // Sync trade-page team picker with the topbar's ``useTeam`` state.
+  // When the user picks "Karma Cowboy" in the topbar TeamSwitcher,
+  // the trade page's local ``selectedTeamIdx`` previously stayed
+  // pinned to whatever was in localStorage from a prior session
+  // (often -1 / "Use roster from another team").  That meant the
+  // proactive "Recommended right now" rail showed suggestions for
+  // either the wrong team or no team at all, depending on prior
+  // state.  This effect resolves the topbar's selectedTeam against
+  // the live ``sleeperTeams`` array (matching by ownerId first, name
+  // second) and snaps the local picker — which in turn populates
+  // ``rosterInput`` and triggers the suggestions auto-fetch.
+  useEffect(() => {
+    if (!sleeperTeams || sleeperTeams.length === 0) return;
+    if (!selectedTeam) return;
+    // Find the index of the topbar-selected team.  Owner-id is
+    // stable; name is fallback for legacy contracts that don't
+    // stamp ownerId.
+    const ownerId = String(selectedTeam.ownerId || "");
+    const name = String(selectedTeam.name || "").trim().toLowerCase();
+    let idx = -1;
+    if (ownerId) {
+      idx = sleeperTeams.findIndex(
+        (t) => String(t?.ownerId || "") === ownerId,
+      );
+    }
+    if (idx < 0 && name) {
+      idx = sleeperTeams.findIndex(
+        (t) => String(t?.name || "").trim().toLowerCase() === name,
+      );
+    }
+    if (idx < 0) return;
+    if (idx === selectedTeamIdx) return;
+    // ``selectTeam`` writes localStorage + populates rosterInput +
+    // builds the leagueRosters opponent map.  That's exactly the
+    // state we need for the suggestions fetch to fire with the
+    // right roster.
+    selectTeam(idx);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTeam, sleeperTeams]);
 
   // Hydrate trade workspace from localStorage (with migration)
   useEffect(() => {
@@ -1591,13 +1636,19 @@ export default function TradePage() {
     const bodyKey = `${selectedLeagueKey || ""}|${roster.join("|")}`;
     if (proactiveFetchRef.current.lastBody === bodyKey) return;
     proactiveFetchRef.current.lastBody = bodyKey;
+    // The roster (or league) just changed — clear stale suggestions
+    // so the rail doesn't keep rendering the previous team's ideas
+    // while we fetch fresh ones.  Without this reset, a user who
+    // switches teams via the topbar TeamSwitcher would see the
+    // OLD team's "Recommended right now" cards until they manually
+    // hit "Get Suggestions."
+    setSuggestions(null);
+    setSuggestionsError(null);
     if (proactiveFetchRef.current.timer) {
       clearTimeout(proactiveFetchRef.current.timer);
     }
     proactiveFetchRef.current.timer = setTimeout(() => {
-      // Only auto-fetch if we don't already have suggestions for this
-      // roster — preserves manually-fetched results.
-      if (!suggestions) fetchSuggestions();
+      fetchSuggestions();
     }, 500);
     return () => {
       if (proactiveFetchRef.current.timer) {
