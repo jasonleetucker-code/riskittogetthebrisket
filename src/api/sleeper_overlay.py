@@ -387,18 +387,29 @@ def _league_rid_lookup(
 
 def _league_draft_slot_lookup(
     target_league_id: str,
+    rosters: list[dict[str, Any]] | None = None,
 ) -> dict[tuple[int, int], int]:
-    """Build ``{(season, origin_roster_id): slot}`` from each draft's
-    ``slot_to_roster_id`` map.  Used to format pick labels with the
-    canonical ``"YYYY R.SS"`` slot suffix that the rankings board's
-    pick rows match — without the slot, labels degrade to the
-    tier-rounded ``"YYYY 1st"`` form which still resolves via
-    ``buildPickLookupCandidates`` on the frontend, just less
-    precisely.
+    """Build ``{(season, origin_roster_id): slot}`` for trade-history
+    pick labels.
+
+    Sleeper's ``/v1/league/{id}/drafts`` (LIST) endpoint returns each
+    draft's metadata but ``slot_to_roster_id`` is frequently empty
+    there (the slot map only lands on the per-draft DETAIL endpoint
+    once the league commish has set the draft order).  We fetch the
+    DETAIL endpoint for every draft in pick years and read both
+    ``slot_to_roster_id`` AND ``draft_order`` (the user_id → slot
+    map for leagues that authored their order before the slot map
+    was committed).
+
+    For ``draft_order`` we need user_id → roster_id, which we derive
+    from the roster list's ``owner_id`` field.
 
     Mirrors the offline scraper's draft enumeration (Dynasty
-    Scraper.py ~870-915) but trimmed to just the slot map.  Empty on
-    any fetch failure.
+    Scraper.py ~870-915) so the overlay-fresh and baked pick labels
+    converge on the same slot data.  Returns an empty map on any
+    fetch failure — callers fall back to round-suffix labels which
+    still resolve through ``buildPickLookupCandidates`` on the
+    frontend, just less precisely.
     """
     out: dict[tuple[int, int], int] = {}
     drafts = _http_get_json(
@@ -406,38 +417,123 @@ def _league_draft_slot_lookup(
     )
     if not isinstance(drafts, list):
         return out
+
+    # owner_id → roster_id, derived from the roster list (passed in
+    # by the trade builder so we don't refetch).  Fall back to a
+    # fresh fetch when the caller didn't pass rosters.
+    owner_to_rid: dict[str, int] = {}
+    rs = rosters
+    if rs is None:
+        rs_resp = _http_get_json(
+            f"https://api.sleeper.app/v1/league/{target_league_id}/rosters"
+        )
+        rs = rs_resp if isinstance(rs_resp, list) else []
+    for r in rs or []:
+        if not isinstance(r, dict):
+            continue
+        oid = str(r.get("owner_id") or "").strip()
+        rid_int = _safe_int(r.get("roster_id"))
+        if oid and rid_int is not None:
+            owner_to_rid[oid] = rid_int
+
     for d in drafts:
         if not isinstance(d, dict):
             continue
         season = _safe_int(d.get("season"))
-        slot_map = d.get("slot_to_roster_id")
-        if not isinstance(slot_map, dict) or season is None:
+        draft_id = str(d.get("draft_id") or "").strip()
+        if season is None or not draft_id:
             continue
-        for slot_str, rid_val in slot_map.items():
-            slot_num = _safe_int(slot_str)
-            rid_num = _safe_int(rid_val)
-            if slot_num is None or rid_num is None or slot_num <= 0:
-                continue
-            out[(season, rid_num)] = slot_num
+
+        # Try the DETAIL endpoint first (slot_to_roster_id usually
+        # lands here even when the LIST endpoint's copy is empty).
+        detail = _http_get_json(
+            f"https://api.sleeper.app/v1/draft/{draft_id}"
+        )
+        detail_dict = detail if isinstance(detail, dict) else {}
+
+        # draft_order: { user_id: slot } — needs owner_id → roster_id.
+        draft_order = (
+            detail_dict.get("draft_order") or d.get("draft_order") or {}
+        )
+        if isinstance(draft_order, dict):
+            for uid, slot in draft_order.items():
+                slot_num = _safe_int(slot)
+                rid = owner_to_rid.get(str(uid))
+                if isinstance(rid, int) and isinstance(slot_num, int) and slot_num > 0:
+                    out[(season, rid)] = slot_num
+
+        # slot_to_roster_id: { slot: roster_id } — direct map.
+        slot_to_rid = (
+            detail_dict.get("slot_to_roster_id")
+            or d.get("slot_to_roster_id")
+            or {}
+        )
+        if isinstance(slot_to_rid, dict):
+            for slot, rid_val in slot_to_rid.items():
+                slot_num = _safe_int(slot)
+                rid_num = _safe_int(rid_val)
+                if (
+                    isinstance(slot_num, int) and slot_num > 0
+                    and isinstance(rid_num, int)
+                ):
+                    out[(season, rid_num)] = slot_num
+
     return out
+
+
+def _slot_to_tier_label(slot: Any, league_size: int = 12) -> str:
+    """Bucket a draft slot into Early / Mid / Late thirds.  Mirrors
+    the offline scraper's ``_slot_to_tier_label``.  Used for FUTURE-
+    year picks where slot exists but the rankings board only carries
+    tier-bucketed pick rows (e.g. ``"2027 Early 1st"`` not
+    ``"2027 1.03"`` — the rookie crop-by-slot view is reserved for
+    the upcoming year).
+    """
+    n = _safe_int(slot)
+    if not isinstance(n, int) or n <= 0:
+        return "Mid"
+    size = max(3, int(league_size or 12))
+    per_tier = max(1, size // 3)
+    if n <= per_tier:
+        return "Early"
+    if n <= min(size, per_tier * 2):
+        return "Mid"
+    return "Late"
 
 
 def _format_trade_pick_label(
     pick: dict[str, Any],
     rid_to_name: dict[Any, str],
     draft_slot_by_origin: dict[tuple[int, int], int],
+    *,
+    current_year: int | None = None,
+    league_size: int = 12,
 ) -> str:
     """Canonical pick label for trade-history valuation.  Matches the
     offline scraper's ``_format_trade_pick_label`` so the resulting
     string resolves through the same frontend ``resolvePickRow``
     pipeline as the baked trades.
 
-    Format precedence:
-      1. ``YYYY R.SS (from Team)`` — when the draft slot is known.
-      2. ``YYYY R{th} (from Team)`` — slot unknown (typical for
-         current-year picks before the draft has happened, or future
-         years).
+    Format precedence (in order, first applicable wins):
+      1. ``YYYY R.SS (from Team)`` — current-year picks with known
+         slot.  ``rankDerivedValue`` rows are stamped at the slot
+         level so a slot-specific label is the strongest match.
+      2. ``YYYY {Tier} R{th} (from Team)`` — future-year picks (next
+         season +).  The rankings board only carries tier-bucketed
+         pick rows for years past the upcoming draft, so a slot-
+         specific label would miss the row entirely.  Slot still
+         drives the tier (Early/Mid/Late) when known; default Mid.
+      3. ``YYYY R{th} (from Team)`` — slot unknown for current year
+         (no draft order set yet).  Falls through to the frontend's
+         ``buildPickLookupCandidates`` tier-derivation logic which
+         resolves to the tier-centre slot.
+      4. ``YYYY Round R (from Team)`` — final fallback if season /
+         round failed to coerce to ints.
     """
+    if current_year is None:
+        import datetime as _dt
+        current_year = _dt.datetime.now(_dt.timezone.utc).year
+
     season = _safe_int(pick.get("season"))
     round_num = _safe_int(pick.get("round"))
     origin_rid = _safe_int(pick.get("roster_id") or pick.get("origin_roster_id"))
@@ -456,9 +552,21 @@ def _format_trade_pick_label(
             draft_slot_by_origin.get((season, origin_rid))
             if origin_rid is not None else None
         )
-        if isinstance(slot, int) and slot > 0:
+        if season >= current_year + 1:
+            # Future year — tier label, slot-aware when known.
+            # ``_round_suffix(1) = "1st"`` already includes the digit
+            # so we don't prepend ``round_num`` separately here (the
+            # offline scraper's ``_round_suffix`` returns only the
+            # suffix and prepends — same output, different code split).
+            tier_label = _slot_to_tier_label(slot, league_size=league_size)
+            base_label = (
+                f"{season} {tier_label} {_round_suffix(round_num)}"
+            )
+        elif isinstance(slot, int) and slot > 0:
+            # Current year (or past) with known slot — slot-specific.
             base_label = f"{season} {round_num}.{str(slot).zfill(2)}"
         else:
+            # Current year, slot unknown — round-suffix fallback.
             base_label = f"{season} {_round_suffix(round_num)}"
 
     if not base_label:
@@ -519,23 +627,39 @@ def _build_trades_block(
     typically reused from the loaded contract.  When absent, player
     labels fall back to the raw Sleeper id.
     """
+    import datetime as _dt
     cutoff_ms = _utc_now_ms() - int(window_days) * 24 * 3600 * 1000
     chain = _walk_league_chain(sleeper_league_id, max_depth=2)
     if not chain:
         return []
 
     id_map = id_to_player if isinstance(id_to_player, dict) else {}
+    current_year = _dt.datetime.now(_dt.timezone.utc).year
 
     trades: list[dict[str, Any]] = []
     seen: set[str] = set()
 
     for lid in chain:
-        # Per-league lookups: roster-id → team name, → owner_id, and
-        # the season-rooted draft-slot map.  Each league chain entry
-        # has its own roster identity (a roster_id can change human
-        # ownership across seasons).
+        # Per-league lookups: roster-id → team name, → owner_id,
+        # league size for tier bucketing, and the season-rooted
+        # draft-slot map.  Each league chain entry has its own
+        # roster identity (a roster_id can change human ownership
+        # across seasons).  The rosters fetch is reused by the
+        # draft-slot lookup so we don't pay the round-trip twice.
+        rosters_resp = _http_get_json(
+            f"https://api.sleeper.app/v1/league/{lid}/rosters"
+        )
+        rosters_list = rosters_resp if isinstance(rosters_resp, list) else []
         rid_to_name, rid_to_owner = _league_rid_lookup(lid)
-        draft_slot_by_origin = _league_draft_slot_lookup(lid)
+        draft_slot_by_origin = _league_draft_slot_lookup(
+            lid, rosters=rosters_list,
+        )
+        # League size drives Early/Mid/Late tier bucketing for
+        # future-year picks.  Default to 12-team when the rosters
+        # list is empty (any reasonable size between 8 and 14
+        # produces the same tier breakpoints for our 1st/2nd/3rd-
+        # round labels).
+        league_size = max(3, len(rosters_list) or 12)
 
         # Weeks 0..18 cover preseason/regular/postseason transaction
         # calendar.  0 is cheap to include and catches preseason
@@ -591,6 +715,8 @@ def _build_trades_block(
                     prev = pick.get("previous_owner_id")
                     label = _format_trade_pick_label(
                         pick, rid_to_name, draft_slot_by_origin,
+                        current_year=current_year,
+                        league_size=league_size,
                     )
                     if owner is not None:
                         _append_trade_side_item(team_got, owner, label)

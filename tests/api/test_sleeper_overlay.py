@@ -228,6 +228,10 @@ def test_build_trades_block_uses_draft_slot_when_available(monkeypatch):
     ``slot_to_roster_id``.  Without slots, the label degrades to
     ``YYYY R{th} (from Team)``.  Both forms resolve through
     ``buildPickLookupCandidates`` on the frontend.
+
+    The slot map lives on the per-draft DETAIL endpoint
+    (``/v1/draft/{draft_id}``), not the league's drafts LIST
+    endpoint — so this test pins that the detail fetch is wired up.
     """
     league_id = "L1"
     responses = {
@@ -240,10 +244,15 @@ def test_build_trades_block_uses_draft_slot_when_available(monkeypatch):
             {"user_id": "oA", "display_name": "Team A"},
             {"user_id": "oB", "display_name": "Team B"},
         ],
-        # Draft for season 2026: roster 1 picks at slot 6.
+        # LIST endpoint: drafts metadata, slot_to_roster_id empty.
         f"/league/{league_id}/drafts": [
-            {"season": "2026", "slot_to_roster_id": {"6": 1, "12": 2}},
+            {"season": "2026", "draft_id": "D-2026"},
         ],
+        # DETAIL endpoint: slot_to_roster_id lives here.
+        "/draft/D-2026": {
+            "season": "2026",
+            "slot_to_roster_id": {"6": 1, "12": 2},
+        },
     }
     for w in range(0, 19):
         responses[f"/league/{league_id}/transactions/{w}"] = []
@@ -274,3 +283,120 @@ def test_build_trades_block_uses_draft_slot_when_available(monkeypatch):
     assert "2026" in label
     assert "1.06" in label
     assert "Team A" in label
+
+
+def test_build_trades_block_resolves_slot_via_draft_order(monkeypatch):
+    """Some leagues author the draft order via ``draft_order``
+    (user_id → slot) before ``slot_to_roster_id`` is committed.  The
+    overlay must consult both maps and translate user_id → roster_id
+    via the rosters' ``owner_id`` column.
+    """
+    league_id = "L1"
+    responses = {
+        f"/league/{league_id}": {"name": "Main", "previous_league_id": None},
+        f"/league/{league_id}/rosters": [
+            {"roster_id": 1, "owner_id": "oA"},
+            {"roster_id": 2, "owner_id": "oB"},
+        ],
+        f"/league/{league_id}/users": [
+            {"user_id": "oA", "display_name": "Team A"},
+            {"user_id": "oB", "display_name": "Team B"},
+        ],
+        f"/league/{league_id}/drafts": [
+            {"season": "2026", "draft_id": "D-2026"},
+        ],
+        # DETAIL: only draft_order (user_id → slot), no slot_to_roster_id.
+        "/draft/D-2026": {
+            "season": "2026",
+            "draft_order": {"oA": 4, "oB": 8},
+        },
+    }
+    for w in range(0, 19):
+        responses[f"/league/{league_id}/transactions/{w}"] = []
+    responses[f"/league/{league_id}/transactions/3"] = [
+        {
+            "transaction_id": "tx-pick-order",
+            "type": "trade",
+            "status": "complete",
+            "status_updated": _recent_ms(),
+            "roster_ids": [1, 2],
+            "draft_picks": [
+                {"season": "2026", "round": 2, "roster_id": 1,
+                 "owner_id": 2, "previous_owner_id": 1},
+            ],
+        },
+    ]
+    monkeypatch.setattr(
+        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+    )
+    trades = sleeper_overlay._build_trades_block(league_id, window_days=365)
+    assert len(trades) == 1
+    by_rid = {s["rosterId"]: s for s in trades[0]["sides"]}
+    label = by_rid[2]["got"][0]
+    # Slot 4 from draft_order["oA"] → "2026 2.04 (from Team A)".
+    assert "2.04" in label, f"expected slot-4 label, got {label!r}"
+
+
+def test_build_trades_block_uses_tier_label_for_future_year_picks(monkeypatch):
+    """Picks for ``current_year + 1`` and beyond render as tier-bucketed
+    labels (``"YYYY Mid 1st"``) instead of slot-specific (``"YYYY 1.06"``).
+    The rankings board only carries tier-bucketed pick rows for years
+    past the upcoming draft, so a slot-specific label would miss the
+    row entirely on /trades and produce a $0 valuation — exactly the
+    bug this whole code path is fixing.
+    """
+    import datetime as _dt
+    league_id = "L1"
+    next_year = _dt.datetime.now(_dt.timezone.utc).year + 1
+    # 12-team league so the Early/Mid/Late thirds (per_tier=4) match
+    # the realistic boundaries: slots 1-4 Early, 5-8 Mid, 9-12 Late.
+    rosters = [
+        {"roster_id": i + 1, "owner_id": f"o{i + 1}"} for i in range(12)
+    ]
+    users = [
+        {"user_id": f"o{i + 1}", "display_name": f"Team {i + 1}"}
+        for i in range(12)
+    ]
+    responses = {
+        f"/league/{league_id}": {"name": "Main", "previous_league_id": None},
+        f"/league/{league_id}/rosters": rosters,
+        f"/league/{league_id}/users": users,
+        f"/league/{league_id}/drafts": [
+            {"season": str(next_year), "draft_id": f"D-{next_year}"},
+        ],
+        f"/draft/D-{next_year}": {
+            "season": str(next_year),
+            # Slot known — but next-year picks should still get a
+            # tier label because the board doesn't carry slot rows
+            # for years past the imminent draft.
+            "slot_to_roster_id": {"3": 1},
+        },
+    }
+    for w in range(0, 19):
+        responses[f"/league/{league_id}/transactions/{w}"] = []
+    responses[f"/league/{league_id}/transactions/4"] = [
+        {
+            "transaction_id": "tx-future",
+            "type": "trade",
+            "status": "complete",
+            "status_updated": _recent_ms(),
+            "roster_ids": [1, 2],
+            "draft_picks": [
+                {"season": str(next_year), "round": 1, "roster_id": 1,
+                 "owner_id": 2, "previous_owner_id": 1},
+            ],
+        },
+    ]
+    monkeypatch.setattr(
+        sleeper_overlay, "_http_get_json", _stub_http_responses(responses),
+    )
+    trades = sleeper_overlay._build_trades_block(league_id, window_days=365)
+    assert len(trades) == 1
+    by_rid = {s["rosterId"]: s for s in trades[0]["sides"]}
+    label = by_rid[2]["got"][0]
+    # Slot 3 in a 12-team league → "Early" tier; round 1 → "1st".
+    # Final shape: "{next_year} Early 1st (from Team A)".
+    assert str(next_year) in label
+    assert "Early" in label
+    assert "1st" in label
+    assert "1.03" not in label, f"future-year label must not be slot-specific: {label!r}"
