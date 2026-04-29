@@ -6672,9 +6672,12 @@ def _to_int_or_none(v: Any) -> int | None:
 
 
 def _normalize_pos(pos: Any) -> str:
-    from src.utils.name_clean import POSITION_ALIASES
-    p = str(pos or "").strip().upper()
-    return POSITION_ALIASES.get(p, p)
+    # Thin pass-through to the canonical helper; kept as a local
+    # name so existing call sites (line 6749+) don't need to change.
+    # Audit S2 consolidated the previous inline POSITION_ALIASES.get
+    # idiom.
+    from src.utils.name_clean import normalize_position
+    return normalize_position(pos)
 
 
 def _is_pick_name(name: str) -> bool:

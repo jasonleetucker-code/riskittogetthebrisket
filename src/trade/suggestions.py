@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.canonical.calibration import to_display_value
-from src.utils.name_clean import POSITION_ALIASES as _POS_ALIASES
+from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — see _norm_pos shim removal below (audit S2)
 
 
 # ── Configuration ────────────────────────────────────────────────────
@@ -208,10 +208,10 @@ def _edge_for_suggestion(s: TradeSuggestion) -> tuple[str | None, str | None]:
 
 
 # ── Core engine ──────────────────────────────────────────────────────
-
-def _norm_pos(pos: str) -> str:
-    p = pos.strip().upper()
-    return _POS_ALIASES.get(p, p)
+# ``_norm_pos`` is now imported from ``src.utils.name_clean`` (audit
+# S2); callers that previously relied on the local ``str`` signature
+# get the same behavior plus null-tolerance — strict callers who pass
+# a non-empty string see no change.
 
 
 def build_asset_pool(

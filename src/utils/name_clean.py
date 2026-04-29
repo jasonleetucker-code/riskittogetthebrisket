@@ -37,7 +37,9 @@ _APOSTROPHE_RE = re.compile(r"[\u2018\u2019\u201B\u02BC']")
 
 # ── Canonical position aliases ──────────────────────────────────────────
 # Single source of truth for mapping raw position strings to league-standard
-# position families. All modules should import from here.
+# position families. All modules should import from here, AND callers that
+# need null-tolerant handling should use ``normalize_position()`` rather
+# than wrapping ``POSITION_ALIASES.get(...)`` themselves.
 POSITION_ALIASES: dict[str, str] = {
     "QB": "QB",
     "RB": "RB",
@@ -61,6 +63,28 @@ POSITION_ALIASES: dict[str, str] = {
     "P": "K",
     "PICK": "PICK",
 }
+
+
+def normalize_position(pos: object | None) -> str:
+    """Normalize a raw position string to its canonical family.
+
+    Null-tolerant wrapper around ``POSITION_ALIASES``: accepts None,
+    non-string types, leading/trailing whitespace, and any case.
+    Returns ``""`` for null/empty input.  Unknown positions pass
+    through (uppercased) so callers can decide whether to treat them
+    as filterable or accept them as-is.
+
+    Use this instead of writing ``POSITION_ALIASES.get(p.upper(), p)``
+    inline — every module that did had subtly different null-handling
+    (some accepted ``None``, some required ``str``, some stripped,
+    some didn't).
+    """
+    if pos is None:
+        return ""
+    p = str(pos).strip().upper()
+    if not p:
+        return ""
+    return POSITION_ALIASES.get(p, p)
 
 
 # ── Nickname map ────────────────────────────────────────────────────────

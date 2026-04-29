@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Any
 
-from src.utils.name_clean import POSITION_ALIASES as _POS_ALIASES
+from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — re-exported via _norm_pos shim below for back-compat
 
 # ── Thresholds ──────────────────────────────────────────────────────────
 MIN_ASSET_VALUE = 800          # Minimum model value to consider an asset tradeable
@@ -67,11 +67,10 @@ class Asset:
         return self.ktc_value is not None and self.ktc_value > 0
 
 
-def _norm_pos(pos: str | None) -> str:
-    if not pos:
-        return ""
-    p = str(pos).strip().upper()
-    return _POS_ALIASES.get(p, p)
+# Local ``_norm_pos`` was a thin wrapper around ``POSITION_ALIASES``;
+# it's now imported directly from ``src.utils.name_clean`` (alias
+# ``_norm_pos``) so every trade engine uses the same null-tolerant
+# normalization.  Audit S2.
 
 
 @dataclass
