@@ -1,0 +1,21 @@
+{
+  "source_key": "ffc2qbAdp",
+  "status": "ok",
+  "error": null,
+  "started_at": "2026-04-29T10:36:06.899809+00:00",
+  "completed_at": "2026-04-29T10:36:07.218515+00:00",
+  "player_count": 165,
+  "source_id": "ffc2qbAdp",
+  "source_name": "Fantasy Football Calculator 2QB ADP",
+  "source_url": "https://fantasyfootballcalculator.com/adp/2qb",
+  "source_type": "adp",
+  "scoring_format": "ppr",
+  "is_superflex": false,
+  "is_2qb": true,
+  "is_te_premium": false,
+  "is_idp": false,
+  "is_ros": false,
+  "is_dynasty": false,
+  "is_projection_source": false,
+  "stale_after_hours": 24
+}
