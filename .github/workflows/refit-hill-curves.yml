@@ -14,8 +14,17 @@ name: Refit Hill Curves
 
 on:
   schedule:
-    # First of every month at 06:17 UTC (off the top-of-hour thundering herd).
-    - cron: "17 6 1 * *"
+    # Weekly Tuesday at 06:17 UTC (off the top-of-hour thundering
+    # herd, after the morning scheduled-refresh tick).  Tuesday lines
+    # up with nflverse republish cadence so the refit consumes fresh
+    # data, and the audit-dropped-sources Sunday cron has already run
+    # so any source-side regressions are already surfaced when this
+    # fires.  Auto-commits when drift exceeds the 50-RMSE-point
+    # threshold (see ``scripts/auto_refit_hill_curves.py`` exit codes
+    # — code 1 = applied, 0 = no drift).  Bumped from monthly per
+    # audit OPEN_QUESTIONS_FOR_PRODUCT.md → Q4 → option A (auto-commit
+    # weekly).
+    - cron: "17 6 * * 2"
   workflow_dispatch:
     inputs:
       threshold:
