@@ -1604,6 +1604,10 @@ export default function TradePage() {
         ? { roster, league_rosters: leagueRosters }
         : { roster };
       if (selectedLeagueKey) body.leagueKey = selectedLeagueKey;
+      // /settings → "Trade Suggestion KTC Cap" slider.  When the
+      // user hasn't customized, the backend's default applies (150).
+      const cap = Number(settings?.ktcSuggestionTopN);
+      if (Number.isFinite(cap) && cap > 0) body.ktc_top_n = cap;
       const res = await fetch("/api/trade/suggestions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

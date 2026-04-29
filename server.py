@@ -3465,6 +3465,20 @@ async def post_trade_suggestions(request: Request):
     if league_rosters is not None and not isinstance(league_rosters, list):
         league_rosters = None
 
+    # Optional ``ktc_top_n`` cap from the request body — the
+    # /settings page exposes a slider (default 150, range 50-300)
+    # so deeper-format leagues can include lower-ranked offense
+    # players in suggestion candidacy.  Sanitize to integer in
+    # [50, 300]; out-of-range or missing falls back to the engine's
+    # default constant.
+    from src.trade.suggestions import KTC_TOP_N_FILTER as _KTC_TOP_N_DEFAULT
+    raw_ktc_top_n = body.get("ktc_top_n")
+    try:
+        ktc_top_n = int(raw_ktc_top_n) if raw_ktc_top_n is not None else _KTC_TOP_N_DEFAULT
+    except (TypeError, ValueError):
+        ktc_top_n = _KTC_TOP_N_DEFAULT
+    ktc_top_n = max(50, min(300, ktc_top_n))
+
     # Build the asset pool directly from the live contract.  Every
     # field the suggestion engine needs already lives on the
     # ``playersArray`` rows (see ``build_asset_pool_from_contract``
@@ -3474,6 +3488,7 @@ async def post_trade_suggestions(request: Request):
     # path there's only one source of truth.
     pool = build_asset_pool_from_contract(
         latest_contract_data,
+        ktc_top_n=ktc_top_n,
     )
 
     try:
@@ -3481,6 +3496,7 @@ async def post_trade_suggestions(request: Request):
             roster_names=roster,
             pool=pool,
             league_rosters=league_rosters,
+            ktc_top_n=ktc_top_n,
         )
     except Exception as e:
         log.error(f"Trade suggestion generation failed: {e}")
@@ -3546,7 +3562,17 @@ async def post_trade_finder(request: Request):
     if opponent_teams == ["all"] or not opponent_teams:
         opponent_teams = [t["name"] for t in sleeper_teams if t.get("name") != my_team]
 
-    from src.trade.finder import find_trades
+    from src.trade.finder import find_trades, KTC_TOP_N_FILTER as _FINDER_KTC_TOP_N_DEFAULT
+
+    raw_ktc_top_n_f = body.get("ktc_top_n")
+    try:
+        finder_ktc_top_n = (
+            int(raw_ktc_top_n_f) if raw_ktc_top_n_f is not None
+            else _FINDER_KTC_TOP_N_DEFAULT
+        )
+    except (TypeError, ValueError):
+        finder_ktc_top_n = _FINDER_KTC_TOP_N_DEFAULT
+    finder_ktc_top_n = max(50, min(300, finder_ktc_top_n))
 
     try:
         result = await run_in_threadpool(
@@ -3555,6 +3581,7 @@ async def post_trade_finder(request: Request):
             my_team=my_team,
             opponent_teams=opponent_teams,
             sleeper_teams=sleeper_teams,
+            ktc_top_n=finder_ktc_top_n,
         )
     except Exception as e:
         log.error(f"Trade Finder failed: {e}")

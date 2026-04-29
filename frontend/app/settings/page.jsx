@@ -288,6 +288,22 @@ export default function SettingsPage() {
           onChange={(v) => update("tradeHistoryWindowDays", v)}
           hint={`${settings.tradeHistoryWindowDays} days`}
         />
+        <SliderRow
+          label="Suggestion Pool Cap"
+          value={settings.ktcSuggestionTopN ?? 150}
+          min={50} max={300} step={10}
+          onChange={(v) => update("ktcSuggestionTopN", v)}
+          hint={`Top ${settings.ktcSuggestionTopN ?? 150} KTC offense players considered for trade suggestions`}
+        />
+        <p
+          className="muted"
+          style={{ fontSize: "0.7rem", marginTop: 4, marginBottom: 0 }}
+        >
+          Default 150 fits a standard 12-team Superflex league.  Raise
+          for deeper formats (14-team 2QB, deep-IDP keeper) where the
+          bottom-50 of your roster pool sits below KTC #150 but is
+          genuinely traded.  Picks + IDP are unaffected by this cap.
+        </p>
       </Section>
 
       <Section title="Rankings Display" defaultOpen>

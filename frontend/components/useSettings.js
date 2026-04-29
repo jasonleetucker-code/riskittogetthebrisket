@@ -126,6 +126,11 @@ export const SETTINGS_DEFAULTS = {
   // TE premium adjustment for non-TEP-native ROS sources.  Capped
   // at 0.15 (matches spec).  0 disables the adjustment entirely.
   rosTepBoost: 0.05,
+  // KTC top-N cap on trade-suggestion candidacy.  Default 150 was
+  // a hard constant; bumped to a configurable knob so deeper
+  // formats (14-team 2QB, deep-IDP keeper) can opt into a wider
+  // pool.  Server clamps to [50, 300].
+  ktcSuggestionTopN: 150,
   // Per-source overrides that mirror dynasty's ``siteWeights`` shape.
   // ``{ [sourceKey]: { enabled: bool, weight: number } }``.  Empty
   // means "use registry defaults".
