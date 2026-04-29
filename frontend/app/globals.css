@@ -3974,12 +3974,18 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   font-weight: 600;
 }
 
-/* Sidebar grid holding NextBestTargets + NominationCandidates */
+/* Sidebar grid holding NextBestTargets + NominationCandidates +
+   BestValueOnBoard */
 .draft-sidebar-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
   margin-bottom: 14px;
+}
+@media (max-width: 1300px) {
+  .draft-sidebar-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 @media (max-width: 980px) {
   .draft-sidebar-grid {

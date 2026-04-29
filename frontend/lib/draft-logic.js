@@ -1858,6 +1858,77 @@ export function nominationCandidates(stats, { limit = 10 } = {}) {
   return out.slice(0, limit);
 }
 
+// ── Best value still on the board ──────────────────────────────────────
+/**
+ * Mirror of ``nominationCandidates`` flipped 180°.  Surfaces undrafted
+ * rookies our board values much HIGHER than the relevant market vendor
+ * (KTC for offense, IDPTradeCalc for IDP), ranked by *percentage* gap
+ * above the vendor price.  These are the best buys still available —
+ * if a leaguemate following the vendor walks the bidding to the
+ * vendor's number, we still come out ahead at our board's price.
+ *
+ * Vendor split mirrors ``nominationCandidates``:
+ *   - Offense rookies (QB/RB/WR/TE) → KTC reference price.
+ *   - IDP rookies (DL/LB/DB/etc.)   → IDP Trade Calculator.
+ *
+ * Selection:
+ *   1. Not yet drafted
+ *   2. Not avoid-tagged (we don't want them anyway)
+ *   3. Has both a board ``preDraft`` AND the relevant vendor dollar
+ *   4. ``preDraft > vendorDollar`` (we value them higher than vendor)
+ *
+ * Sort: ``(preDraft - vendorDollar) / vendorDollar`` descending — i.e.
+ * percentage gap above the vendor's price.  Mirrors the percentage
+ * normalization used by ``nominationCandidates`` so a 50% discount on
+ * a $20 vendor price (=$10 board edge) outranks a 25% discount on a
+ * $40 vendor price (=$10 board edge).
+ *
+ * Excludes drafted players and avoid-tags.  Returns top ``limit``
+ * candidates sorted descending by percentage gap.
+ */
+export function bestValueOnBoard(stats, { limit = 10 } = {}) {
+  if (!stats || !Array.isArray(stats.enrichedPlayers)) return [];
+
+  const out = [];
+  for (const p of stats.enrichedPlayers) {
+    if (p.drafted) continue;
+    if (p.userTag === TAG_AVOID) continue;
+    const ourDollar = Math.max(0, p.preDraft || 0);
+    if (ourDollar <= 0) continue;
+    const isIdp =
+      p.assetClass === "idp"
+      || (p.assetClass !== "offense" && classifyPos(p.pos) === "idp");
+    const vendorKey = isIdp ? "idpTradeCalcDollar" : "ktcDollar";
+    const vendorLabel = isIdp ? "IDPTC" : "KTC";
+    const vendorDollar = Math.max(0, Number(p[vendorKey]) || 0);
+    if (vendorDollar <= 0) continue;
+    const gap = ourDollar - vendorDollar;
+    if (gap < 1) continue;  // we must value them at least $1 above
+    const gapPct = gap / vendorDollar;  // 0.5 → "50% under market"
+    out.push({
+      player: p,
+      score: gapPct,
+      gap,
+      gapPct,
+      ourDollar,
+      vendorDollar,
+      vendorKey,
+      vendorLabel,
+      ktcDollar: isIdp ? null : vendorDollar,
+      idpTradeCalcDollar: isIdp ? vendorDollar : null,
+      expectedPrice: vendorDollar,
+      rationale:
+        `Our board $${Math.round(ourDollar)} vs ${vendorLabel} ` +
+        `$${Math.round(vendorDollar)} · ${Math.round(gapPct * 100)}% under ` +
+        `(${gap >= 0 ? "+" : ""}$${Math.round(gap)}) — leaguemates ` +
+        `following ${vendorLabel} should let this clear at a discount`,
+    });
+  }
+
+  out.sort((a, b) => b.gapPct - a.gapPct);
+  return out.slice(0, limit);
+}
+
 // ── Inflation history series ───────────────────────────────────────────
 /**
  * Re-simulate the draft pick-by-pick to produce a time series of

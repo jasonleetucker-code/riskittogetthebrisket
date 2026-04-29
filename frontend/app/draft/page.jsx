@@ -15,6 +15,7 @@ import {
   TIER_DEFS,
   addPlayer,
   addToTargetBoard,
+  bestValueOnBoard,
   bidStatus,
   clearTargetBoard,
   computeDraftReview,
@@ -1869,6 +1870,105 @@ function NominationCandidates({ stats, onDraft, onCycleTag }) {
               title={`${vendorLabel} overrates by ${Math.round(gapPct * 100)}% (+$${Math.round(gap)}) — leaguemates following ${vendorLabel} will overpay`}
             >
               +{Math.round(gapPct * 100)}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * "Best value on the board" list — mirror of NominationCandidates.
+ * Surfaces undrafted rookies our board values much HIGHER than the
+ * vendor (KTC for offense, IDPTC for IDP).  Sorted by percentage gap
+ * above the vendor price so cheap discounts outrank big-dollar but
+ * proportionally smaller mismatches.
+ */
+function BestValueOnBoard({ stats, onDraft, onCycleTag }) {
+  const list = useMemo(
+    () => bestValueOnBoard(stats, { limit: 10 }),
+    [stats],
+  );
+
+  if (list.length === 0) {
+    return (
+      <div className="card draft-nbt">
+        <h3 style={{ margin: "0 0 4px" }}>Best value on the board</h3>
+        <div className="muted" style={{ fontSize: "0.72rem" }}>
+          No vendor underrates — either every rookie's vendor price and
+          our board agree, or KTC / IDPTradeCalc values are missing
+          from the live contract.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card draft-nbt">
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+        }}
+      >
+        <h3 style={{ margin: 0 }}>Best value on the board</h3>
+        <span className="muted" style={{ fontSize: "0.68rem" }}>
+          Top 10 rookies KTC / IDPTC underrates vs our board (% gap)
+        </span>
+      </div>
+      <div className="draft-nbt-list">
+        {list.map(({ player, gap, gapPct, ourDollar, vendorDollar, vendorLabel, rationale }, i) => (
+          <div
+            key={player.id}
+            className={`draft-nbt-row${player.userTag === TAG_TARGET ? " draft-nbt-target" : ""}`}
+            title={rationale}
+          >
+            <span className="draft-nbt-rank">#{i + 1}</span>
+            <button
+              type="button"
+              className={`draft-tag-chip${
+                player.userTag ? ` draft-tag-${player.userTag}` : ""
+              }`}
+              onClick={() => onCycleTag(player.id)}
+              title="Cycle tag"
+            >
+              {player.userTag === TAG_TARGET
+                ? "★"
+                : player.userTag === TAG_AVOID
+                  ? "⊘"
+                  : "+"}
+            </button>
+            <span
+              className={`draft-tier-chip draft-tier-${player.tier}`}
+              title={`${TIER_LABELS[player.tier] || player.tier} tier`}
+            >
+              {player.tier}
+            </span>
+            <span className="draft-nbt-name" onClick={() => onDraft(player)}>
+              {player.name}
+            </span>
+            <span className="muted" style={{ fontSize: "0.68rem" }} title="Our board's pre-draft fair price">
+              ours {fmt$(ourDollar)}
+            </span>
+            <span
+              className="muted"
+              style={{ fontSize: "0.68rem" }}
+              title={`${vendorLabel}'s market value at the same scale`}
+            >
+              {vendorLabel.toLowerCase()} {fmt$(vendorDollar)}
+            </span>
+            <span
+              className="draft-rec-chip"
+              style={{
+                background: "rgba(74, 222, 128, 0.18)",
+                color: "var(--green, #4ade80)",
+                fontWeight: 600,
+              }}
+              title={`${vendorLabel} underrates by ${Math.round(gapPct * 100)}% (+$${Math.round(gap)} board edge) — leaguemates following ${vendorLabel} will let this clear cheap`}
+            >
+              −{Math.round(gapPct * 100)}%
             </span>
           </div>
         ))}
@@ -3835,6 +3935,11 @@ export default function DraftDashboardPage() {
           workspace={workspace}
         />
         <NominationCandidates
+          stats={stats}
+          onDraft={(p) => setModalPlayer(p)}
+          onCycleTag={onCycleTag}
+        />
+        <BestValueOnBoard
           stats={stats}
           onDraft={(p) => setModalPlayer(p)}
           onCycleTag={onCycleTag}
