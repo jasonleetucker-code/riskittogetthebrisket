@@ -714,6 +714,44 @@ restart_service() {
   log "Service ${SERVICE_NAME} is active."
 }
 
+# Idempotent post-deploy data hygiene: reconcile the per-source value
+# history JSONL against the historical ``data/dynasty_data_*.json``
+# exports.  Re-running is cheap (small N of historical exports) and
+# safe — the script merges with existing snapshots and never
+# overwrites natively-stamped data with derived data.
+#
+# This is what makes per-source RANK history fill in immediately
+# after a schema bump (the rank field landed 2026-04-29; the live
+# append path stamps fresh ranks going forward, but the chart wants
+# 180 days of history and the only path to that data on historical
+# dates is rank-from-value derivation in this backfill).  Without
+# the post-deploy hook the chart would be empty until ~30 daily
+# scrapes accumulate.  Non-fatal — a missing virtualenv or import
+# error degrades to "no historical ranks yet" and the chart's
+# empty-state copy already explains that case.
+reconcile_source_history() {
+  local script="${APP_DIR}/scripts/backfill_source_history.py"
+  local data_dir="${APP_DIR}/data"
+  if [[ ! -f "${script}" ]]; then
+    log "[reconcile] backfill script not present; skipping"
+    return 0
+  fi
+  if [[ ! -d "${data_dir}" ]]; then
+    log "[reconcile] data dir absent; skipping"
+    return 0
+  fi
+  if [[ -z "${VENV_DIR:-}" || ! -x "${VENV_DIR}/bin/python" ]]; then
+    log "[reconcile] virtualenv missing; skipping"
+    return 0
+  fi
+  log "[reconcile] running source-history backfill (idempotent)"
+  if "${VENV_DIR}/bin/python" "${script}" --dir "${data_dir}" >/dev/null 2>&1; then
+    log "[reconcile] source-history backfill completed"
+  else
+    warn "[reconcile] source-history backfill exited non-zero — non-fatal"
+  fi
+}
+
 verify_deploy() {
   if [[ -f "${APP_DIR}/deploy/verify-deploy.sh" ]]; then
     log "Running deploy verification script."
@@ -924,6 +962,7 @@ main() {
   ensure_systemd_service
   deploy_frontend_atomic
   restart_service
+  reconcile_source_history
   verify_deploy
   record_success_state
 

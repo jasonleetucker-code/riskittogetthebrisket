@@ -227,3 +227,110 @@ def test_backfill_from_exports_merges_with_existing(tmp_path, path):
 def test_append_returns_false_for_empty_contract(path):
     assert source_history.append_snapshot({"date": "2026-04-23", "playersArray": []}, path=path) is False
     assert not path.exists() or path.read_text() == ""
+
+
+# ── _derive_source_ranks ──────────────────────────────────────────────
+
+
+def test_derive_source_ranks_assigns_ranks_from_value_sort():
+    """The backfill path needs to recover per-source rank history
+    from old snapshots that only persisted per-source values (the
+    ``sourceRanks`` schema field landed 2026-04-29).  Verify the
+    derivation: highest value → rank 1, second-highest → rank 2,
+    etc., per source.
+    """
+    entries = {
+        "A": {"sources": {"ktcSfTep": 9000, "dlfSf": 7000}},
+        "B": {"sources": {"ktcSfTep": 8500, "dlfSf": 9500}},
+        "C": {"sources": {"ktcSfTep": 7500, "dlfSf": 8000}},
+    }
+    source_history._derive_source_ranks(entries)
+    assert entries["A"]["sourceRanks"] == {"ktcSfTep": 1, "dlfSf": 3}
+    assert entries["B"]["sourceRanks"] == {"ktcSfTep": 2, "dlfSf": 1}
+    assert entries["C"]["sourceRanks"] == {"ktcSfTep": 3, "dlfSf": 2}
+
+
+def test_derive_source_ranks_preserves_native_stamps():
+    """When a row already carries a real (contract-stamped)
+    ``sourceRanks`` block, the derivation pass MUST NOT overwrite
+    it.  Fresh contracts go through the live append path which
+    leaves derive_ranks=False; this guard is defense-in-depth for
+    the case where someone runs the backfill over a JSONL that
+    was already partially populated by the live path."""
+    entries = {
+        "A": {
+            "sources": {"ktcSfTep": 5000},
+            "sourceRanks": {"ktcSfTep": 99},  # native, sentinel
+        },
+        "B": {"sources": {"ktcSfTep": 9000}},  # higher value, no native rank
+    }
+    source_history._derive_source_ranks(entries)
+    # A's native sentinel survives.
+    assert entries["A"]["sourceRanks"]["ktcSfTep"] == 99
+    # B gets a derived rank where it had none.
+    assert entries["B"]["sourceRanks"]["ktcSfTep"] == 1
+
+
+def test_derive_source_ranks_skips_zero_or_missing_values():
+    """Players with missing/zero per-source value don't get a
+    derived rank for that source — keeps the chart honest about
+    coverage."""
+    entries = {
+        "A": {"sources": {"ktcSfTep": 9000, "dlfSf": 7000}},
+        "B": {"sources": {"ktcSfTep": 8500}},  # no DLF SF coverage
+        "C": {"sources": {"dlfSf": 9500}},  # no KTC coverage
+    }
+    source_history._derive_source_ranks(entries)
+    assert entries["A"]["sourceRanks"]["ktcSfTep"] == 1
+    assert entries["A"]["sourceRanks"]["dlfSf"] == 2
+    assert entries["B"]["sourceRanks"]["ktcSfTep"] == 2
+    assert "dlfSf" not in entries["B"].get("sourceRanks", {})
+    assert "ktcSfTep" not in entries["C"].get("sourceRanks", {})
+    assert entries["C"]["sourceRanks"]["dlfSf"] == 1
+
+
+def test_backfill_derives_ranks_for_legacy_dict_export(tmp_path, path):
+    """End-to-end: ``backfill_from_exports`` against an old-shape
+    export with the legacy ``players`` dict (no native sourceRanks)
+    should populate the derived rank history so the chart can draw
+    per-source rank lines for historical dates."""
+    export = tmp_path / "dynasty_data_2026-04-15.json"
+    export.write_text(json.dumps({
+        "date": "2026-04-15",
+        "players": {
+            "Star WR": {
+                "ktcSfTep": 9500, "dlfSf": 9000,
+                "_canonicalSiteValues": {"ktcSfTep": 9500, "dlfSf": 9000},
+            },
+            "Mid WR": {
+                "ktcSfTep": 7000, "dlfSf": 7500,
+                "_canonicalSiteValues": {"ktcSfTep": 7000, "dlfSf": 7500},
+            },
+            "Bench WR": {
+                "ktcSfTep": 4000, "dlfSf": 4500,
+                "_canonicalSiteValues": {"ktcSfTep": 4000, "dlfSf": 4500},
+            },
+        },
+    }))
+    source_history.backfill_from_exports([export], path=path)
+    # Verify the JSONL stamps sourceRanks for the legacy export.
+    raw = path.read_text().strip().splitlines()
+    assert len(raw) == 1
+    snap = json.loads(raw[0])
+    # Keys are ``"<displayName>::<assetClass>"`` per ``_player_key``;
+    # legacy dict rows without a position resolve to ``"unknown"``.
+    star_entry = next(
+        v for k, v in snap["players"].items() if k.startswith("Star WR")
+    )
+    assert star_entry["sourceRanks"]["ktcSfTep"] == 1
+    assert star_entry["sourceRanks"]["dlfSf"] == 1
+    mid_entry = next(
+        v for k, v in snap["players"].items() if k.startswith("Mid WR")
+    )
+    assert mid_entry["sourceRanks"]["ktcSfTep"] == 2
+    assert mid_entry["sourceRanks"]["dlfSf"] == 2
+    bench_entry = next(
+        v for k, v in snap["players"].items() if k.startswith("Bench WR")
+    )
+    assert bench_entry["sourceRanks"]["ktcSfTep"] == 3
+    assert bench_entry["sourceRanks"]["dlfSf"] == 3

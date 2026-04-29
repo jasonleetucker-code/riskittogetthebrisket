@@ -186,9 +186,82 @@ def _extract_player_entry(row: dict[str, Any]) -> dict[str, Any] | None:
     return entry
 
 
-def _extract_all(contract: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """Return ``{playerKey: {blended, blendedRank, sources}}`` for every
-    row in the contract that has at least one source value stamped.
+def _derive_source_ranks(
+    entries: dict[str, dict[str, Any]],
+) -> None:
+    """Stamp ``sourceRanks`` on every entry by sorting players within
+    each source's value column.  Mutates ``entries`` in place.
+
+    Used by ``backfill_from_exports`` to recover per-source rank
+    history from old snapshots that only persisted per-source values
+    (the schema's ``sourceRanks`` field was added 2026-04-29).  Rank
+    derived from value isn't byte-identical to the source's own
+    published rank — sources sometimes apply position-aware ties or
+    floor/cap rules — but it's directionally correct for the trend
+    chart, same approximation the existing
+    "Historical blend approximated from per-source median" foot-
+    note already discloses for the blended line.
+
+    Skips entries that already carry an explicit ``sourceRanks``
+    block (those came from a fresh contract row that had it
+    stamped natively — never overwrite real data with derived).
+    """
+    if not entries:
+        return
+    # Collect all source keys appearing across the snapshot.
+    source_keys: set[str] = set()
+    for entry in entries.values():
+        sources = entry.get("sources") or {}
+        if isinstance(sources, dict):
+            source_keys.update(sources.keys())
+    if not source_keys:
+        return
+    for key in sorted(source_keys):
+        # Build (player_key, value) pairs for THIS source, sort
+        # value desc, assign rank 1..N.  Ties resolve by player_key
+        # alphabetically for determinism (rare; small tie-breaker
+        # noise that's acceptable for a trend chart).
+        rows: list[tuple[str, int]] = []
+        for player_key, entry in entries.items():
+            sources = entry.get("sources") or {}
+            if not isinstance(sources, dict):
+                continue
+            v = sources.get(key)
+            try:
+                v_int = int(v) if v is not None else None
+            except (TypeError, ValueError):
+                v_int = None
+            if v_int is None or v_int <= 0:
+                continue
+            rows.append((player_key, v_int))
+        rows.sort(key=lambda x: (-x[1], x[0]))
+        for rank, (player_key, _value) in enumerate(rows, start=1):
+            entry = entries.get(player_key)
+            if not entry:
+                continue
+            existing = entry.get("sourceRanks")
+            if not isinstance(existing, dict):
+                existing = {}
+                entry["sourceRanks"] = existing
+            # Don't overwrite a real (contract-stamped) rank.
+            if key not in existing:
+                existing[key] = rank
+
+
+def _extract_all(
+    contract: dict[str, Any],
+    *,
+    derive_ranks: bool = False,
+) -> dict[str, dict[str, Any]]:
+    """Return ``{playerKey: {blended, blendedRank, sources, sourceRanks}}``
+    for every row in the contract that has at least one source value
+    stamped.
+
+    ``derive_ranks=True`` enables the rank-from-value derivation pass
+    for snapshots that lack natively-stamped ``sourceRanks`` (older
+    exports pre-dating the 2026-04-29 schema extension).  The live
+    ``append_snapshot`` path leaves it False because fresh contracts
+    already carry real ``sourceRanks``.
     """
     out: dict[str, dict[str, Any]] = {}
     arr = contract.get("playersArray")
@@ -221,6 +294,9 @@ def _extract_all(contract: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 if not key or not entry:
                     continue
                 out[key] = entry
+
+    if derive_ranks:
+        _derive_source_ranks(out)
     return out
 
 
@@ -473,7 +549,14 @@ def backfill_from_exports(
                     break
         if not isinstance(date, str):
             continue
-        players = _extract_all(contract)
+        # Derive per-source ranks from values for old exports that
+        # pre-date the 2026-04-29 schema extension.  The chart's
+        # "rank history per source" panel uses this approximation
+        # to fill in historical lines instead of waiting weeks for
+        # fresh natively-stamped data to accumulate.  Live
+        # append_snapshot does NOT derive (the contract already
+        # carries real sourceRanks).
+        players = _extract_all(contract, derive_ranks=True)
         if not players:
             continue
         snapshots[date] = {"date": date, "players": players}
