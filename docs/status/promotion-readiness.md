@@ -1,5 +1,12 @@
 # Promotion Readiness Status
 
+> **⚠ STALE — March 2026 promotion checkpoint, retained for
+> history.**  The `CANONICAL_DATA_MODE=primary` activation step
+> referenced below is no longer applicable; the env var was removed
+> when the live `/api/data` contract became the single source of
+> truth.  Kept for the IDP-calibration metrics + readiness signoff
+> record only.
+
 _Updated: 2026-03-22 (IDP calibration fix — IDP tier 36.8% → 52.2%, offense unchanged)_
 
 ## Current State: **FOUNDER APPROVED — IDP MATERIALLY IMPROVED**

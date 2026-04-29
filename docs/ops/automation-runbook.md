@@ -1,5 +1,12 @@
 # Automation Runbook
 
+> **⚠ STALE — March 2026 snapshot.**  Several knobs documented
+> here (notably `CANONICAL_DATA_MODE`) have been retired.  For the
+> current automation surface, refer to `CLAUDE.md` plus the
+> ``.github/workflows/`` files directly.  Kept for historical
+> context; the schedule + responsibility table at the top is still
+> mostly accurate.
+
 _Last updated: 2026-03-14_
 
 This document describes every automated process in the Risk It to Get the Brisket platform. It is written for Jason (the site owner) — no code knowledge required.

@@ -1,5 +1,12 @@
 # Production Activation Runbook
 
+> **⚠ STALE — March 2026 runbook for a retired feature.**  The
+> `CANONICAL_DATA_MODE=internal_primary` activation step described
+> here no longer applies; the env var was removed when the live
+> `/api/data` contract became the single source of truth.  Kept
+> for historical activation flow only.  See `CLAUDE.md` for the
+> retirement note.
+
 _Prepared: 2026-03-22 | Repo commit: 9dff2dc_
 
 This document contains four operational checklists to be run on the production

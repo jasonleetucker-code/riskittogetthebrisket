@@ -1,5 +1,14 @@
 # Scoring Config Schema
 
+> **⚠ STALE — March 2026 snapshot.**  This doc describes the local
+> per-league `ScoringConfig` dataclass + scoring-adjustment logic
+> that was refactored away when the unified blend in
+> `_compute_unified_rankings` became the single math path.  Kept
+> for historical context.  For the current scoring-profile-driven
+> approach (one ranking pipeline per scoring profile, league-scoped
+> overlays for rosters/trades), see `CLAUDE.md` → "Rankings vs.
+> league context — the core split".
+
 `ScoringConfig` fields:
 - `scoring_version`
 - `league_id`

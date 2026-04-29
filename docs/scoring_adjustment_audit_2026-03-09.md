@@ -1,5 +1,12 @@
 # Scoring-Adjustment Audit (Pre-Refactor) — 2026-03-09
 
+> **⚠ STALE — pre-refactor snapshot, kept for history only.**
+> This audit captured the per-league scoring-adjustment code path
+> as it existed before the March 2026 refactor that consolidated
+> everything into `_compute_unified_rankings`.  None of the
+> adjustments described here are still live.  For the current
+> system, read `CLAUDE.md` + `docs/ARCHITECTURE.md`.
+
 ## Scope audited
 - `/Users/jason/OneDrive/Desktop/Trade Calculator/Dynasty Scraper.py`
 - `/Users/jason/OneDrive/Desktop/Trade Calculator/Static/index.html`

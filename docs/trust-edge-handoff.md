@@ -335,5 +335,8 @@ for p in data.get('playersArray', []):
 2. **Percentile projection engine** — `frontend/lib/edge-detection.js` was removed (dead code, no imports). Can be rebuilt from git history if needed.
 3. **Per-section filtering on Edge page** — sections show fixed top-N lists. Could add interactive filtering later.
 4. **Export/copy on Edge and Finder** — available on Rankings page only.
-5. **Canonical engine mode** — `CANONICAL_DATA_MODE` env var exists for gradual rollout but the canonical 6-step pipeline (`--engine canonical`) is not the default engine.
+5. ~~**Canonical engine mode**~~ — *Retired in 2026.*  The
+   `CANONICAL_DATA_MODE` env var no longer exists; the live
+   `/api/data` contract is now the single source of truth for live
+   player values.  See `CLAUDE.md` → "Canonical Data Mode" note.
 6. **Multi-source overlap** — current sources (KTC + IDPTC) cover non-overlapping pools. When overlap occurs, blended averaging is ready but untested in production.

@@ -1,5 +1,13 @@
 # Risk It To Get The Brisket — Canonical Dynasty Engine Blueprint
 
+> **⚠ STALE — March 2026 snapshot.**  This doc described the
+> ``CANONICAL_DATA_MODE`` offline-canonical-build path that was
+> retired in 2026.  The live ``/api/data`` contract is now the
+> single source of truth (see `CLAUDE.md` → "Canonical Data Mode"
+> section).  Kept for historical context — do NOT use as a current
+> implementation reference.  For current architecture, read
+> `CLAUDE.md` and `docs/ARCHITECTURE.md`.
+
 _Last updated: 2026-03-09_
 
 ## 1. Mission Statement

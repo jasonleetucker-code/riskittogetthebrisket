@@ -1,5 +1,12 @@
 # Public-Primary Activation Runbook
 
+> **⚠ STALE — March 2026 runbook for a retired feature.**  The
+> `CANONICAL_DATA_MODE` env var no longer exists in code; the live
+> `/api/data` contract is now the single source of truth.  This
+> runbook has no current applicability — kept only for reference
+> on the historical activation flow.  See `CLAUDE.md` →
+> "Canonical Data Mode" note for the retirement statement.
+
 _Prepared: 2026-03-22 | Founder approval: GRANTED_
 
 ## Activation Summary
