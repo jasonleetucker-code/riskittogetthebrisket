@@ -4628,14 +4628,17 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
                 continue
         if not league_meta_season and draft_seasons:
             league_season = max(draft_seasons)
-        # Prefer the active-season draft for slot-to-roster mapping;
-        # fall back to the most recent prior-season draft when the
-        # active-season draft hasn't been created yet (offseason
-        # rollover gap).  Dynasty slot orders are stable enough
-        # across the gap that the prior mapping is a safe stand-in.
-        slot_mapping_season = league_season if league_season in draft_seasons else (
-            max(draft_seasons) if draft_seasons else league_season
-        )
+        # The slot-to-roster map MUST come from the active-season
+        # draft.  Falling back to a prior-season draft is unsafe
+        # because rookie draft slots are reverse-standings of the
+        # PRIOR season (so slot order shifts year to year), and a
+        # cross-year mapping would mis-route traded picks to the
+        # wrong workbook slot and shift dollars to the wrong team.
+        # When the active-season draft hasn't been created yet
+        # (offseason rollover gap), we leave slot_to_roster empty
+        # and let the overlay degrade to workbook ownership — the
+        # workbook is freshly hand-maintained for the new season
+        # in that window, so dollars are still defensible.
         slot_to_roster: dict[int, int] = {}
         for draft in all_drafts:
             try:
@@ -4643,7 +4646,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
             except (TypeError, ValueError):
                 continue
             draft_id = draft.get("draft_id")
-            if season != slot_mapping_season or not draft_id:
+            if season != league_season or not draft_id:
                 continue
             try:
                 detail_resp = urllib.request.urlopen(

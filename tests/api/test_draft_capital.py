@@ -354,15 +354,24 @@ class TestSleeperTradeOverlay(unittest.TestCase):
         self.assertEqual(overlay_pick["currentOwner"], f"Team-{other_first}")
         self.assertTrue(overlay_pick["isTraded"])
 
-    def test_overlay_anchors_on_league_meta_when_drafts_lags(self):
+    def test_overlay_degrades_safely_when_active_season_draft_missing(self):
         """Pre-rollover offseason regression (Codex P1): a dynasty
         league has rolled to season N+1 (so ``/league/{id}.season``
-        reports N+1 and Sleeper has trades for N+1 picks) but the
-        N+1 draft hasn't been created yet, so ``/drafts`` only
-        returns season N.  The overlay must anchor on
-        ``/league/{id}.season`` (N+1) — using ``max(drafts.season)``
-        would skip every N+1 trade and revert to the stale workbook
-        owner."""
+        reports N+1) but the N+1 draft hasn't been created yet, so
+        ``/drafts`` only has season N.  The overlay must NOT fall
+        back to N's slot mapping — rookie slot order is reverse-
+        standings of the PRIOR season, so it shifts year to year and
+        a cross-year mapping would mis-route trades and shift dollars
+        to the wrong teams.
+
+        Required behavior in this gap:
+          1. Response ``season`` is anchored on ``/league/{id}.season``
+             (proves league-meta — not max(drafts) — drives it).
+          2. Per-team dollar totals are identical with and without the
+             overlay (proves no unsafe cross-year mapping is applied;
+             we degrade to workbook ownership, which is freshly
+             hand-maintained for N+1 in this window).
+        """
         from datetime import datetime, timezone
         active = datetime.now(timezone.utc).year + 1   # active pick season
         prior = active - 1                              # last completed draft
@@ -374,13 +383,21 @@ class TestSleeperTradeOverlay(unittest.TestCase):
         )
         if run is None:
             self.skipTest("Workbook unavailable")
-        with_overlay, without_overlay, _wp, orig_first, other_first = run
-        delta_recv = (self._team_total(with_overlay, other_first)
-                      - self._team_total(without_overlay, other_first))
-        self.assertGreater(delta_recv, 0,
-                           "Overlay regressed when /drafts season lags league meta season")
+        with_overlay, without_overlay, _wp, _orig_first, _other_first = run
+        # League meta drives the response season, not max(drafts).
         self.assertEqual(with_overlay["season"], active,
                          "Response season must follow league meta, not drafts max")
+        # Overlay must not apply incorrectly: per-team totals must be
+        # bit-identical between with/without when the active-season
+        # slot map is unavailable.
+        with_totals = sorted(
+            (t["team"], t["auctionDollars"]) for t in with_overlay["teamTotals"]
+        )
+        without_totals = sorted(
+            (t["team"], t["auctionDollars"]) for t in without_overlay["teamTotals"]
+        )
+        self.assertEqual(with_totals, without_totals,
+                         "Overlay shifted dollars using a cross-year slot map")
 
     def test_overlay_uses_sleeper_draft_season_not_calendar_year(self):
         """Regression for the Dec→Jan boundary: when Sleeper reports
