@@ -2024,7 +2024,13 @@ def _proxy_next(path: str) -> tuple[Response | None, str | None]:
             headers={"User-Agent": "dynasty-server-next-proxy/1.0"},
             method="GET",
         )
-        with urllib.request.urlopen(req, timeout=1.5) as resp:
+        # 5s timeout matches the other backend→Next proxies in this
+        # file (e.g. lines 2664, 2719).  Production routes pages
+        # through nginx directly to Next.js so this proxy is only
+        # exercised in dev / synthetic test paths, but heavy routes
+        # like /league regularly take 1.4-2.7s SSR — a 1.5s timeout
+        # was causing false 503s in Playwright runs.
+        with urllib.request.urlopen(req, timeout=5.0) as resp:
             body = resp.read()
             headers = {}
             ctype = resp.headers.get("Content-Type")
