@@ -54,7 +54,7 @@ const BUDGETS_KB = {
   "/league/page": 165, // public hub bundles every section together
   "/rosters/page": 30,
   "/trades/page": 20,
-  "/settings/page": 50,  // bumped 40→50 for ROS source table (per-source toggles + weight inputs)
+  "/settings/page": 55,  // bumped 50→55 for guest-pass admin panel (token reveal, list table, revoke)
   "/login/page": 15,
   "/more/page": 10,
 };

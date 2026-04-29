@@ -65,6 +65,7 @@ from src.api.data_contract import (
     normalize_tep_multiplier,
     validate_api_data_contract,
 )
+from src.api import guest_passes as _guest_passes
 from src.api import rank_history as _rank_history
 from src.api import source_history as _source_history
 from src.api import push_delivery as _push_delivery
@@ -455,6 +456,24 @@ def _get_auth_session(request: Request) -> dict | None:
     session = auth_sessions.get(session_id)
     if not isinstance(session, dict):
         return None
+    # Per-session expiry — set when the session originated from a
+    # time-bounded guest pass (see ``/api/auth/login`` fall-through).
+    # Cookie max-age is the client-side ceiling but a tampered or
+    # stretched cookie wouldn't extend the pass's authority.  We
+    # double-check on every request and silently evict expired
+    # sessions so guests can't outlive their pass.
+    expires_at = session.get("expires_at_epoch")
+    if isinstance(expires_at, (int, float)) and expires_at > 0:
+        if time.time() >= float(expires_at):
+            auth_sessions.pop(session_id, None)
+            try:
+                from src.api import session_store as _ss
+                _ss.evict(session_id)
+            except Exception as exc:  # noqa: BLE001
+                log.warning(
+                    "session_store evict on expiry failed: %s", exc,
+                )
+            return None
     return session
 
 
@@ -469,6 +488,8 @@ def _create_auth_session(
     display_name: str | None = None,
     avatar: str | None = None,
     auth_method: str = "password",
+    expires_at_epoch: float | None = None,
+    guest_pass_id: int | None = None,
 ) -> str:
     """Create an in-memory session for ``username``.
 
@@ -477,9 +498,16 @@ def _create_auth_session(
     Sleeper team by ownerId (populated today only by the E2E test
     login path).  ``auth_method`` tags the session for logs and
     audit tooling.
+
+    ``expires_at_epoch`` (optional) bounds the session's authority.
+    Guest-pass logins set this to the pass's expiry so the session
+    silently dies when the pass does — see ``_get_auth_session``.
+    ``guest_pass_id`` records which pass minted the session, so a
+    revoked pass can be cross-referenced if needed (audit + future
+    bulk-revoke-on-pass-revoke if we want it).
     """
     session_id = uuid.uuid4().hex
-    payload = {
+    payload: dict[str, Any] = {
         "username": str(username or ""),
         "sleeper_user_id": str(sleeper_user_id or ""),
         "display_name": str(display_name or username or ""),
@@ -487,6 +515,10 @@ def _create_auth_session(
         "auth_method": str(auth_method or "password"),
         "created_at": _utc_now_iso(),
     }
+    if isinstance(expires_at_epoch, (int, float)) and expires_at_epoch > 0:
+        payload["expires_at_epoch"] = float(expires_at_epoch)
+    if isinstance(guest_pass_id, int) and guest_pass_id > 0:
+        payload["guest_pass_id"] = int(guest_pass_id)
     auth_sessions[session_id] = payload
     # Persist the session so a deploy/restart doesn't force a re-login.
     # Best-effort: any SQLite failure falls through to in-memory-only
@@ -5761,24 +5793,71 @@ async def auth_login(request: Request):
     password = str(payload.get("password") or "")
     next_path = _sanitize_next_path(payload.get("next"), "/app")
 
-    if username != JASON_LOGIN_USERNAME or password != JASON_LOGIN_PASSWORD:
-        return JSONResponse(
-            status_code=401,
-            content={"ok": False, "error": "Invalid username or password."},
+    # Owner login: full session, max-age = JASON_AUTH_COOKIE_MAX_AGE.
+    if username == JASON_LOGIN_USERNAME and password == JASON_LOGIN_PASSWORD:
+        session_id = _create_auth_session(username, auth_method="password")
+        response = JSONResponse(content={"ok": True, "redirect": next_path})
+        response.set_cookie(
+            key=JASON_AUTH_COOKIE_NAME,
+            value=session_id,
+            path="/",
+            httponly=True,
+            samesite="lax",
+            secure=JASON_AUTH_COOKIE_SECURE,
+            max_age=JASON_AUTH_COOKIE_MAX_AGE,
         )
+        return response
 
-    session_id = _create_auth_session(username, auth_method="password")
-    response = JSONResponse(content={"ok": True, "redirect": next_path})
-    response.set_cookie(
-        key=JASON_AUTH_COOKIE_NAME,
-        value=session_id,
-        path="/",
-        httponly=True,
-        samesite="lax",
-        secure=JASON_AUTH_COOKIE_SECURE,
-        max_age=JASON_AUTH_COOKIE_MAX_AGE,
+    # Guest-pass fall-through: any password (regardless of username
+    # field) that matches an active guest pass mints a time-bounded
+    # session.  Cookie max-age is capped at the pass's remaining
+    # lifetime so the session expires alongside the pass.  ``username``
+    # is left as the literal ``"guest"`` so downstream admin gates
+    # (which check username == JASON_LOGIN_USERNAME) reject guests
+    # automatically — a guest can browse the private surface but
+    # cannot trigger admin actions or generate more passes.
+    pass_row = await run_in_threadpool(_guest_passes.validate, password)
+    if pass_row is not None:
+        remaining = max(0.0, pass_row.expires_at_epoch - time.time())
+        if remaining < 1.0:
+            # Expired during the millisecond between fetch and now —
+            # treat as invalid.
+            return JSONResponse(
+                status_code=401,
+                content={"ok": False, "error": "Invalid username or password."},
+            )
+        session_id = _create_auth_session(
+            "guest",
+            auth_method="guest_pass",
+            expires_at_epoch=pass_row.expires_at_epoch,
+            guest_pass_id=pass_row.id,
+        )
+        response = JSONResponse(content={
+            "ok": True,
+            "redirect": next_path,
+            "guest": True,
+            "expiresAtEpoch": pass_row.expires_at_epoch,
+        })
+        # Cookie max-age is the smaller of the pass's remaining
+        # lifetime or the standard ceiling.  Browser may still keep
+        # the cookie longer if the user fiddles with system time;
+        # ``_get_auth_session`` enforces ``expires_at_epoch`` server-
+        # side either way.
+        response.set_cookie(
+            key=JASON_AUTH_COOKIE_NAME,
+            value=session_id,
+            path="/",
+            httponly=True,
+            samesite="lax",
+            secure=JASON_AUTH_COOKIE_SECURE,
+            max_age=int(min(remaining, JASON_AUTH_COOKIE_MAX_AGE)),
+        )
+        return response
+
+    return JSONResponse(
+        status_code=401,
+        content={"ok": False, "error": "Invalid username or password."},
     )
-    return response
 
 
 @app.post("/api/auth/logout")
@@ -6817,6 +6896,106 @@ async def post_admin_force_logout_all(request: Request):
         "inMemoryCleared": in_mem_count,
         "persistedCleared": persisted,
     })
+
+
+@app.post("/api/admin/guest-pass")
+async def post_admin_guest_pass_create(request: Request):
+    """Generate a time-bounded guest password.
+
+    Body::
+
+        {"durationHours": 12, "note": "for Brent"}
+
+    Returns the plaintext token in the response — this is the ONLY
+    time it's exposed.  ``list_passes`` and ``status``/audit calls
+    return the GuestPass shape WITHOUT the plaintext (only its sha256
+    hash lives in the DB).  The owner shares the token with their
+    guest; the guest types it into the login form's password field
+    (any username, or empty).  Validation lives in
+    ``src/api/guest_passes.py::validate``.
+    """
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
+    session = session_or_err
+    payload: dict[str, Any] = {}
+    try:
+        raw = await request.json()
+        if isinstance(raw, dict):
+            payload = raw
+    except Exception:
+        payload = {}
+    raw_hours = payload.get("durationHours")
+    note = str(payload.get("note") or "")
+    try:
+        pass_row, token = await run_in_threadpool(
+            _guest_passes.create,
+            duration_hours=float(raw_hours) if raw_hours is not None else 12.0,
+            note=note,
+            created_by=str(session.get("username") or ""),
+        )
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "invalid_duration", "message": str(exc)},
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("guest_pass create failed: %s", exc)
+        return JSONResponse(
+            status_code=500,
+            content={"error": "create_failed"},
+        )
+    log.info(
+        "admin action: guest_pass minted id=%d by %s expires=%.0f note=%r",
+        pass_row.id, session.get("username"),
+        pass_row.expires_at_epoch, pass_row.note[:40],
+    )
+    return JSONResponse(content={
+        "ok": True,
+        "token": token,  # plaintext — shown ONCE, never again retrievable
+        "pass": pass_row.to_dict(),
+    })
+
+
+@app.get("/api/admin/guest-passes")
+async def get_admin_guest_passes(request: Request):
+    """List recent guest passes.  Query param ``activeOnly=1`` filters
+    to currently-valid passes only.  Plaintext tokens are NEVER
+    returned — only the hash-derived metadata.
+    """
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
+    active_only = request.query_params.get("activeOnly") == "1"
+    rows = await run_in_threadpool(
+        _guest_passes.list_passes,
+        include_inactive=not active_only,
+    )
+    return JSONResponse(content={
+        "passes": [r.to_dict() for r in rows],
+    })
+
+
+@app.post("/api/admin/guest-pass/{pass_id:int}/revoke")
+async def post_admin_guest_pass_revoke(pass_id: int, request: Request):
+    """Mark a guest pass revoked.  Active sessions minted from the
+    pass remain valid until their next request hits
+    ``_get_auth_session`` and finds the pass's per-session
+    ``expires_at_epoch`` already past — but a revoke specifically
+    flips the ``validate`` gate False, so NO new sessions can be
+    minted.  For an immediate boot, follow with
+    ``POST /api/admin/sessions/force-logout-all``.
+    """
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
+    session = session_or_err
+    ok = await run_in_threadpool(_guest_passes.revoke, pass_id)
+    log.info(
+        "admin action: guest_pass revoke id=%d by %s ok=%s",
+        pass_id, session.get("username"), ok,
+    )
+    return JSONResponse(content={"ok": ok, "id": pass_id})
 
 
 @app.post("/api/admin/signal-state/migrate")
