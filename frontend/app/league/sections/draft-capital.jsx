@@ -6,8 +6,16 @@
 // When this tab is the default, /league mobile users land here.
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { LoadingState, EmptyState } from "@/components/ui";
 import { EmptyCard } from "../shared.jsx";
+
+// Dynamically import the trade simulator so its JS goes into a
+// separate chunk (loaded on demand when DraftCapital tab renders)
+// instead of inflating the /league page bundle.
+const TradeSimulator = dynamic(() => import("./_trade-simulator.jsx"), {
+  ssr: false,
+});
 
 function fmtDollar(v) {
   if (v == null) return "$0";
@@ -74,10 +82,13 @@ export default function DraftCapitalSection() {
 
       <PickValueGrid picks={data.picks} draftRounds={data.draftRounds} numTeams={data.numTeams} />
 
+      <TradeSimulator picks={data.picks} teamTotals={data.teamTotals} />
+
       <PicksByRound picks={data.picks} draftRounds={data.draftRounds} />
     </>
   );
 }
+
 
 /* ── Team totals bar chart ─────────────────────────────────────────────── */
 function TeamTotalsChart({ teamTotals, picks, totalBudget, numTeams, draftRounds, season }) {
