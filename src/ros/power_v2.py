@@ -44,7 +44,7 @@ from collections import defaultdict
 from typing import Any
 
 from src.ros import ROS_DATA_DIR
-from src.public_league import luck
+from src.public_league import luck, metrics as _metrics
 from src.public_league.snapshot import PublicLeagueSnapshot
 
 LOG = logging.getLogger("ros.power_v2")
@@ -360,12 +360,17 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         score = round(score_unit * 100, 2)
 
         ros_strength_pct = ros_pct.get(oid, None) if ros_available else None
+        # Display name resolution: ``ManagerRegistry`` doesn't define
+        # a ``display_name_for`` method (the original ``hasattr`` guard
+        # always evaluated False), so this used to fall back to the
+        # raw Sleeper owner_id and the /league Power table rendered
+        # numeric IDs in the OWNER column.  The canonical helper lives
+        # at module scope in ``src.public_league.metrics``; use it
+        # consistently with the rest of the public-league pipeline.
         rankings.append(
             {
                 "ownerId": oid,
-                "displayName": registry.display_name_for(oid)
-                if hasattr(registry, "display_name_for")
-                else oid,
+                "displayName": _metrics.display_name_for(snapshot, oid),
                 "powerScore": score,
                 "components": {k: round(v, 4) for k, v in components.items()},
                 "rosStrengthPercentile": (

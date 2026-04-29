@@ -88,5 +88,87 @@ class TestWeights(unittest.TestCase):
         )
 
 
+class TestDisplayNameResolution(unittest.TestCase):
+    """Regression: power_v2 used to call ``registry.display_name_for(oid)``
+    behind a ``hasattr`` guard.  ``ManagerRegistry`` doesn't define that
+    method (the canonical helper is the module-level
+    ``src.public_league.metrics.display_name_for(snapshot, owner_id)``),
+    so the hasattr always returned False and ``displayName`` fell back
+    to the raw Sleeper owner_id.  The /league Power Rankings table then
+    rendered numeric IDs in the OWNER column.
+
+    The fix imports ``metrics.display_name_for`` and calls it directly.
+    These tests pin the new path:
+
+      1. ``metrics.display_name_for`` is the canonical helper used
+         everywhere else in the public_league pipeline (records.py,
+         streaks.py, activity.py).  Verify it resolves to the
+         manager's human-readable display name when registered.
+      2. Falls back to owner_id when the registry has no entry —
+         matching ``metrics.display_name_for``'s contract so a
+         pre-snapshot orphan ownerId doesn't crash with AttributeError.
+
+    The build_section integration is implicitly covered by the
+    line that calls ``_metrics.display_name_for(snapshot, oid)``;
+    these unit tests pin the helper itself so a future refactor of
+    metrics.py won't silently regress the call site.
+    """
+    def test_metrics_display_name_for_resolves_registered_owner(self):
+        from src.public_league.identity import Manager, ManagerRegistry
+        from src.public_league.snapshot import PublicLeagueSnapshot
+        from src.public_league import metrics
+        registry = ManagerRegistry(
+            by_owner_id={
+                "owner-A": Manager(
+                    owner_id="owner-A",
+                    display_name="Russini Panini",
+                    current_team_name="Russini Panini",
+                ),
+            },
+        )
+        snapshot = PublicLeagueSnapshot(
+            root_league_id="L1",
+            generated_at="2026-04-29T00:00:00Z",
+            seasons=[],
+            managers=registry,
+        )
+        # The canonical helper power_v2 now uses.
+        self.assertEqual(
+            metrics.display_name_for(snapshot, "owner-A"),
+            "Russini Panini",
+        )
+
+    def test_metrics_display_name_for_falls_back_to_owner_id(self):
+        from src.public_league.identity import ManagerRegistry
+        from src.public_league.snapshot import PublicLeagueSnapshot
+        from src.public_league import metrics
+        snapshot = PublicLeagueSnapshot(
+            root_league_id="L1",
+            generated_at="2026-04-29T00:00:00Z",
+            seasons=[],
+            managers=ManagerRegistry(),
+        )
+        # Unknown owner_id falls through to the raw string — never
+        # raises on missing manager.
+        self.assertEqual(
+            metrics.display_name_for(snapshot, "orphan-owner"),
+            "orphan-owner",
+        )
+
+    def test_power_v2_uses_metrics_helper_not_registry_method(self):
+        """Pin the source of the bug: ``ManagerRegistry`` does NOT
+        expose ``display_name_for`` as a method.  Any future code
+        that re-introduces ``registry.display_name_for(...)`` would
+        silently fall back to owner_id again.  This test is the
+        canary."""
+        from src.public_league.identity import ManagerRegistry
+        self.assertFalse(
+            hasattr(ManagerRegistry, "display_name_for"),
+            "If ManagerRegistry gains a display_name_for method, "
+            "update power_v2.py to call it directly and remove this "
+            "test — the bug it pins becomes irrelevant.",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
