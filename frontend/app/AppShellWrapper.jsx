@@ -70,11 +70,15 @@ const PRIMARY_NAV = [
 // counts as "we're inside the trade workflow group".
 const TRADE_GROUP_PREFIXES = ["/trade", "/trades", "/finder", "/angle"];
 
-// Mobile bottom nav — 3-tab model.  /league is intentionally NOT in
-// this bar.  Users reach it via the More menu + desktop top nav; the
-// league content (including Draft Capital) lives behind a single
-// entry instead of a redundant bottom-row tab.
+// Mobile bottom nav — 4-tab model (Home + Ranks + Trade + More).
+// /home (the dashboard at "/") is the post-login landing and the
+// natural daily-checkin surface, so it earns its own bottom tab.
+// /league is intentionally still NOT in this bar — users reach it
+// via More + the desktop top nav; the league content (including
+// Draft Capital) lives behind a single More entry instead of a
+// redundant bottom-row tab.
 const MOBILE_NAV = [
+  { href: "/", label: "Home", icon: "H" },
   { href: "/rankings", label: "Ranks", icon: "R" },
   { href: "/trade", label: "Trade", icon: "T" },
   { href: "/more", label: "More", icon: "M" },

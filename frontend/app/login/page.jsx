@@ -12,12 +12,17 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [redirectPath, setRedirectPath] = useState("/rankings");
+  // Default landing post-login is the Brisket Home dashboard at "/" —
+  // Team Value + Top Movers + Risers/Fallers — which gives a more
+  // useful daily-checkin view than the raw rankings table.  Users
+  // who deep-linked to a specific page before being bounced to login
+  // (``?next=/trade`` etc.) still land back where they intended.
+  const [redirectPath, setRedirectPath] = useState("/");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const next = params.get("next") || "/rankings";
-    setRedirectPath(next.startsWith("/") ? next : "/rankings");
+    const next = params.get("next") || "/";
+    setRedirectPath(next.startsWith("/") ? next : "/");
   }, []);
 
   async function handleAdminSubmit(event) {

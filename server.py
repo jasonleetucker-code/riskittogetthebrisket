@@ -436,7 +436,7 @@ def _check_disk_space(path: Path | None = None) -> tuple[bool, int]:
         return True, -1
 
 
-def _sanitize_next_path(raw: str | None, default: str = "/app") -> str:
+def _sanitize_next_path(raw: str | None, default: str = "/") -> str:
     value = str(raw or "").strip()
     if not value:
         return default
@@ -5791,7 +5791,11 @@ async def auth_login(request: Request):
 
     username = str(payload.get("username") or "").strip()
     password = str(payload.get("password") or "")
-    next_path = _sanitize_next_path(payload.get("next"), "/app")
+    # Post-login default lands users on "/" (the Brisket Home
+    # dashboard — Team Value + Top Movers + Risers/Fallers).  An
+    # explicit ``next`` from the form preserves deep-link return,
+    # but the bare default goes home, not to the legacy /app shell.
+    next_path = _sanitize_next_path(payload.get("next"), "/")
 
     # Owner login: full session, max-age = JASON_AUTH_COOKIE_MAX_AGE.
     if username == JASON_LOGIN_USERNAME and password == JASON_LOGIN_PASSWORD:
