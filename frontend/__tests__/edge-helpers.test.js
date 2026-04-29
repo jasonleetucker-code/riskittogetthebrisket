@@ -329,28 +329,31 @@ describe("isTopRankedForEdgePremium", () => {
     expect(isTopRankedForEdgePremium(undefined)).toBe(false);
   });
 
-  it("admits rows whose consensus rank is inside the top 150", () => {
+  it("admits rows whose consensus rank is inside the top 250", () => {
+    // Cap bumped 150 → 250 (2026-04-29) so mid-board WR / RB
+    // disagreements (Elijah Moore class) surface in the Edge rail.
     expect(isTopRankedForEdgePremium({ rank: 1 })).toBe(true);
     expect(isTopRankedForEdgePremium({ rank: 50 })).toBe(true);
-    expect(isTopRankedForEdgePremium({ rank: 149 })).toBe(true);
     expect(isTopRankedForEdgePremium({ rank: 150 })).toBe(true);
+    expect(isTopRankedForEdgePremium({ rank: 249 })).toBe(true);
+    expect(isTopRankedForEdgePremium({ rank: 250 })).toBe(true);
   });
 
-  it("rejects rows past the top 150", () => {
-    expect(isTopRankedForEdgePremium({ rank: 151 })).toBe(false);
-    expect(isTopRankedForEdgePremium({ rank: 200 })).toBe(false);
-    expect(isTopRankedForEdgePremium({ rank: 500 })).toBe(false);
+  it("rejects rows past the top 250", () => {
+    expect(isTopRankedForEdgePremium({ rank: 251 })).toBe(false);
+    expect(isTopRankedForEdgePremium({ rank: 400 })).toBe(false);
+    expect(isTopRankedForEdgePremium({ rank: 700 })).toBe(false);
   });
 
   it("ignores KTC rank — consensus rank is the sole gate", () => {
     // Previously admitted on ``ktc <= 200`` even when consensus was
     // past 200; that escape hatch is gone.  A player KTC prices top-10
-    // but OUR blend ranks #300 now DOES NOT surface in Sell/Buy.
+    // but OUR blend ranks #500 now DOES NOT surface in Sell/Buy.
     expect(
       isTopRankedForEdgePremium({ rank: 500, sourceRanks: { ktc: 50 } }),
     ).toBe(false);
     expect(
-      isTopRankedForEdgePremium({ rank: 300, sourceRanks: { ktc: 10 } }),
+      isTopRankedForEdgePremium({ rank: 400, sourceRanks: { ktc: 10 } }),
     ).toBe(false);
     // And a player inside top-150 consensus is admitted regardless
     // of KTC rank.

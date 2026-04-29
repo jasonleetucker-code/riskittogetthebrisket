@@ -4606,27 +4606,52 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* The flex parent gives the right-side meta column its natural
+     width via flex-shrink: 0 below; without min-width: 0 here,
+     the name's intrinsic content width wins the layout fight and
+     pushes the option past the menu's max-width — visible as the
+     name being clipped on the LEFT instead of an ellipsis on the
+     RIGHT.  Standard flex-overflow fix. */
+  min-width: 0;
+  flex: 1 1 auto;
 }
 .team-switcher-option-meta {
   font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
   flex-shrink: 0;
+  /* Whitespace inside the meta column ("55p · 71pk") shouldn't
+     wrap mid-token — keep it tight so the name has all the slack. */
+  white-space: nowrap;
 }
 /* Desktop variant: compact in topbar */
 .team-switcher--desktop .team-switcher-toggle {
   font-size: 0.78rem;
   padding: 5px 10px;
 }
-/* Mobile variant: tighter footprint, right-aligned menu still works */
+/* Mobile variant: tighter footprint, anchor menu to the viewport
+   edges so a centered toggle (Karma Cowboy ▼ in the middle of the
+   topbar) doesn't push the menu off the LEFT side of the screen.
+   Previously the menu was ``right: 0`` anchored to the toggle's
+   right edge with ``max-width: calc(100vw - 24px)`` — when the
+   toggle sat well inside the viewport, the menu's left edge clipped
+   below ``x = 0`` and the team names rendered cut-off. */
 .team-switcher--mobile .team-switcher-toggle {
   font-size: 0.72rem;
   padding: 4px 8px;
   max-width: 140px;
 }
 .team-switcher--mobile .team-switcher-menu {
-  min-width: 200px;
+  /* Pin to the viewport, leave 12px margin each side.  Min-width
+     covers the case where the topbar is partially off-screen
+     (rotation, system-bar overlap). */
+  position: fixed;
+  top: var(--mobile-topbar-h, 56px);
+  left: 12px;
+  right: 12px;
+  min-width: 220px;
   max-width: calc(100vw - 24px);
+  max-height: 70vh;
 }
 
 /* ── League switcher ──────────────────────────────────────────────

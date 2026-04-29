@@ -216,11 +216,19 @@ export function applyLens(rows, lensKey) {
  *
  * Sell signals: players the retail market values much higher than the
  * expert consensus — potential sells to retail-first trade partners.
+ *
+ * Capped at the top ``EDGE_PREMIUM_RANK_LIMIT`` (250) on OUR blended
+ * board so deep-bench players with huge source disagreements but no
+ * trade relevance stay out of the rail.  Mirror of the same cap
+ * applied on the /edge page via ``isTopRankedForEdgePremium``.
  */
 export function topRetailPremium(rows, limit = 5) {
   const retailLabel = getRetailLabel();
   return rows
-    .filter((r) => r.marketGapDirection === "retail_premium" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
+    .filter((r) => r.marketGapDirection === "retail_premium"
+      && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD
+      && !r.quarantined
+      && isTopRankedForEdgePremium(r))
     .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
     .slice(0, limit)
     .map((r) => ({
@@ -235,11 +243,14 @@ export function topRetailPremium(rows, limit = 5) {
 /**
  * Buy signals: players the expert consensus values much higher than
  * the retail market — potential buy-low targets from retail-first
- * trade partners.
+ * trade partners.  Same top-N cap as ``topRetailPremium``.
  */
 export function topConsensusPremium(rows, limit = 5) {
   return rows
-    .filter((r) => r.marketGapDirection === "consensus_premium" && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD && !r.quarantined)
+    .filter((r) => r.marketGapDirection === "consensus_premium"
+      && (r.sourceRankSpread ?? 0) >= PREMIUM_SUMMARY_SPREAD
+      && !r.quarantined
+      && isTopRankedForEdgePremium(r))
     .sort((a, b) => (b.sourceRankSpread ?? 0) - (a.sourceRankSpread ?? 0))
     .slice(0, limit)
     .map((r) => ({

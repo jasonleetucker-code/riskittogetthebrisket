@@ -96,13 +96,20 @@ def _player_key(row: dict[str, Any]) -> str | None:
 
 
 def _extract_player_entry(row: dict[str, Any]) -> dict[str, Any] | None:
-    """Pull the per-player (blended, blendedRank, sources) triple.
+    """Pull the per-player (blended, blendedRank, sources, sourceRanks)
+    quad.
 
     Prefers ``sourceRankMeta[key].valueContribution`` (the normalized
     1-9999 vote each source cast into the blend) because it's the
     same number rendered as the chip bars in PlayerPopup.  Falls back
     to ``canonicalSiteValues`` for legacy rows — the raw source scale
     isn't normalized but it's the best we have.
+
+    ``sourceRanks`` is the per-source RANK (1 = best) for each
+    contributing source, sourced from ``row.sourceRanks`` (the
+    backend-stamped per-source rank map).  Stored alongside values so
+    the PlayerPopup chart can render rank trajectories on a separate
+    Y axis from the value chart.
     """
     if not isinstance(row, dict):
         return None
@@ -147,10 +154,31 @@ def _extract_player_entry(row: dict[str, Any]) -> dict[str, Any] | None:
                 if v is not None and v > 0:
                     sources[str(key)] = v
 
-    if blended_val is None and blended_rank_val is None and not sources:
+    # Per-source ranks (1 = best).  ``row.sourceRanks`` is the
+    # primary source; falls back to ``effectiveSourceRanks`` (the
+    # post-Hampel set) which the contract stamps too.
+    source_ranks: dict[str, int] = {}
+    rank_map = row.get("sourceRanks") or row.get("effectiveSourceRanks")
+    if isinstance(rank_map, dict):
+        for key, value in rank_map.items():
+            try:
+                r = int(value) if value is not None else None
+            except (TypeError, ValueError):
+                r = None
+            if r is not None and r > 0:
+                source_ranks[str(key)] = r
+
+    if (
+        blended_val is None
+        and blended_rank_val is None
+        and not sources
+        and not source_ranks
+    ):
         return None
 
     entry: dict[str, Any] = {"sources": sources}
+    if source_ranks:
+        entry["sourceRanks"] = source_ranks
     if blended_val is not None:
         entry["blended"] = blended_val
     if blended_rank_val is not None:
@@ -280,7 +308,8 @@ def load_player_history(
     path: Path | None = None,
 ) -> dict[str, Any]:
     """Return ``{dates, blended: [{date, value, rank, derived?}],
-    sources: {key: [{date, value}, ...]}}`` for a single player.
+    sources: {key: [{date, value}, ...]},
+    sourceRanks: {key: [{date, rank}, ...]}}`` for a single player.
 
     ``blended[].derived`` is ``True`` when the entry's ``value`` was
     reconstructed from the median of per-source values (i.e. the
@@ -289,6 +318,11 @@ def load_player_history(
     recorded points with the same stroke but lets the legend note the
     reconstruction.
 
+    ``sourceRanks`` is sparse — only populated for snapshots written
+    after the rank-history extension (2026-04-29 onward).  Older
+    snapshots silently omit per-source ranks; the chart shows fewer
+    data points until the rolling 180-day window catches up.
+
     Case-insensitive name match.  When a name collides across asset
     classes (rare — the scraper collapses offense/IDP same-names
     upstream), pass ``asset_class`` to disambiguate.
@@ -296,7 +330,7 @@ def load_player_history(
     path = path or HISTORY_PATH
     entries = _read_lines(path)
     if not entries:
-        return {"dates": [], "blended": [], "sources": {}}
+        return {"dates": [], "blended": [], "sources": {}, "sourceRanks": {}}
     entries.sort(key=lambda e: e.get("date") or "")
     windowed = entries[-max(1, int(days)):]
 
@@ -306,6 +340,7 @@ def load_player_history(
     dates: list[str] = []
     blended: list[dict[str, Any]] = []
     sources_accum: dict[str, list[dict[str, Any]]] = {}
+    source_ranks_accum: dict[str, list[dict[str, Any]]] = {}
 
     for snap in windowed:
         date = snap.get("date")
@@ -334,6 +369,7 @@ def load_player_history(
         bv = entry.get("blended")
         br = entry.get("blendedRank")
         sources = entry.get("sources") or {}
+        ranks = entry.get("sourceRanks") or {}
 
         # If the snapshot is pre-contract-builder (no blended value
         # persisted) derive an approximate blend from the median of
@@ -364,8 +400,24 @@ def load_player_history(
                 except (TypeError, ValueError):
                     continue
                 sources_accum.setdefault(str(key), []).append({"date": date, "value": v})
+        if isinstance(ranks, dict):
+            for key, rank_val in ranks.items():
+                try:
+                    r = int(rank_val)
+                except (TypeError, ValueError):
+                    continue
+                if r <= 0:
+                    continue
+                source_ranks_accum.setdefault(str(key), []).append(
+                    {"date": date, "rank": r}
+                )
 
-    return {"dates": dates, "blended": blended, "sources": sources_accum}
+    return {
+        "dates": dates,
+        "blended": blended,
+        "sources": sources_accum,
+        "sourceRanks": source_ranks_accum,
+    }
 
 
 def load_all_player_names(

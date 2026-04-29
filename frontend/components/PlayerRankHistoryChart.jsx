@@ -33,7 +33,7 @@ const CACHE_TTL_MS = 120_000;
 
 async function fetchPlayerHistory(name, signal) {
   const key = String(name).toLowerCase().trim();
-  if (!key) return { dates: [], blended: [], sources: {} };
+  if (!key) return { dates: [], blended: [], sources: {}, sourceRanks: {} };
   const now = Date.now();
   const cached = CACHE.get(key);
   if (cached && cached.expires > now) return cached.result;
@@ -45,6 +45,10 @@ async function fetchPlayerHistory(name, signal) {
     dates: Array.isArray(body?.dates) ? body.dates : [],
     blended: Array.isArray(body?.blended) ? body.blended : [],
     sources: body?.sources && typeof body.sources === "object" ? body.sources : {},
+    sourceRanks:
+      body?.sourceRanks && typeof body.sourceRanks === "object"
+        ? body.sourceRanks
+        : {},
   };
   CACHE.set(key, { result, expires: Date.now() + CACHE_TTL_MS });
   return result;
@@ -128,6 +132,7 @@ export default function PlayerRankHistoryChart({
     dates: [],
     blended: [],
     sources: {},
+    sourceRanks: {},
   });
   const mounted = useRef(true);
 
@@ -156,6 +161,7 @@ export default function PlayerRankHistoryChart({
           dates: [],
           blended: [],
           sources: {},
+          sourceRanks: {},
         });
       });
     return () => controller.abort();
@@ -232,6 +238,91 @@ export default function PlayerRankHistoryChart({
       sourcePaths,
       firstDate: state.dates[0] || null,
       lastDate: state.dates[state.dates.length - 1] || null,
+    };
+  }, [state, width, height]);
+
+  /* ── Rank-history geometry (companion to the value chart) ────────
+     Renders one thin line per source on a per-source RANK axis (1 at
+     top, N at bottom).  The value-chart's X axis (time) is shared but
+     its Y axis is value (1-9999); this second chart re-normalizes Y
+     to rank.  Sparse data points are expected — per-source ranks
+     started persisting on 2026-04-29 via the source_history schema
+     extension, so the legend notes when a source has no data yet. */
+  const rankGeometry = useMemo(() => {
+    const sourceRanks = {};
+    for (const [key, series] of Object.entries(state.sourceRanks || {})) {
+      if (!Array.isArray(series)) continue;
+      sourceRanks[key] = series
+        .map((p) => ({ t: parseMs(p.date), rank: Number(p.rank) }))
+        .filter((p) => p.t != null && Number.isFinite(p.rank) && p.rank > 0);
+    }
+    const allTimes = [];
+    const allRanks = [];
+    for (const key of Object.keys(sourceRanks)) {
+      for (const p of sourceRanks[key]) {
+        allTimes.push(p.t);
+        allRanks.push(p.rank);
+      }
+    }
+    if (allRanks.length < 2) return null;
+    const tMin = Math.min(...allTimes);
+    const tMax = Math.max(...allTimes);
+    const tSpan = tMax - tMin || 1;
+    let rMin = Math.min(...allRanks);
+    let rMax = Math.max(...allRanks);
+    // Pad rank range a bit so lines don't sit on the frame.  Keep
+    // rMin >= 1 so "rank 1" is interpretable.
+    const rPad = Math.max(2, Math.round((rMax - rMin) * 0.05));
+    rMin = Math.max(1, rMin - rPad);
+    rMax += rPad;
+    const rSpan = rMax - rMin || 1;
+    const padX = 8;
+    const padY = 12;
+    const usableW = width - padX * 2;
+    // Rank chart uses ~75% of the value chart's height — secondary
+    // information, doesn't deserve full real estate.
+    const chartH = Math.max(80, Math.round(height * 0.75));
+    const usableH = chartH - padY * 2;
+    const toX = (t) => padX + ((t - tMin) / tSpan) * usableW;
+    // Inverted Y: rank 1 at TOP, rank N at BOTTOM.  Mirror image of
+    // the value chart where the highest value sits at the top.
+    const toY = (r) => padY + ((r - rMin) / rSpan) * usableH;
+
+    const buildRankPath = (points) => {
+      const parts = [];
+      let open = false;
+      for (const p of points) {
+        if (!Number.isFinite(p.rank) || p.rank <= 0) {
+          open = false;
+          continue;
+        }
+        const x = toX(p.t).toFixed(1);
+        const y = toY(p.rank).toFixed(1);
+        parts.push(`${open ? "L" : "M"}${x},${y}`);
+        open = true;
+      }
+      return parts.join(" ");
+    };
+
+    const sourcePaths = [];
+    const sourceKeys = Object.keys(sourceRanks).sort();
+    sourceKeys.forEach((key, index) => {
+      const series = sourceRanks[key];
+      sourcePaths.push({
+        key,
+        label: labelForSource(key),
+        color: colorForSource(key, index),
+        path: buildRankPath(series),
+        first: series[0]?.rank ?? null,
+        last: series[series.length - 1]?.rank ?? null,
+      });
+    });
+
+    return {
+      sourcePaths,
+      chartH,
+      rMin,
+      rMax,
     };
   }, [state, width, height]);
 
@@ -336,6 +427,79 @@ export default function PlayerRankHistoryChart({
           </span>
         ))}
       </div>
+      {/* ── Per-source RANK history (companion panel) ──────────────
+          Same X axis (time) as the value chart, inverted Y axis
+          where rank 1 sits at the top.  Rendered only when at least
+          two snapshots carry per-source ranks.  Per-source ranks
+          started persisting 2026-04-29 (see
+          ``src/api/source_history.py::_extract_player_entry``); old
+          snapshots silently omit the data and the empty-state copy
+          notes the rolling window is filling in. */}
+      {rankGeometry ? (
+        <>
+          <div
+            className="player-rank-chart-head player-rank-chart-head--rank"
+            style={{ marginTop: 12 }}
+          >
+            <span className="player-rank-chart-label">
+              Rank history · 180d (per source)
+            </span>
+            <span className="muted" style={{ fontSize: "0.7rem" }}>
+              rank 1 = top
+            </span>
+          </div>
+          <svg
+            className="player-rank-chart-svg player-rank-chart-svg--rank"
+            width={width}
+            height={rankGeometry.chartH}
+            viewBox={`0 0 ${width} ${rankGeometry.chartH}`}
+            aria-hidden="true"
+            focusable="false"
+            preserveAspectRatio="none"
+          >
+            {rankGeometry.sourcePaths.map((s) => (
+              <path
+                key={s.key}
+                d={s.path}
+                fill="none"
+                stroke={s.color}
+                strokeWidth={1.25}
+                strokeOpacity={0.7}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            ))}
+          </svg>
+          <div className="player-rank-chart-legend">
+            {rankGeometry.sourcePaths.map((s) => (
+              <span
+                key={`rank-${s.key}`}
+                className="player-rank-chart-legend-source"
+              >
+                <span
+                  className="player-rank-chart-swatch"
+                  style={{ background: s.color, opacity: 0.7 }}
+                  aria-hidden="true"
+                />
+                <span>{s.label}</span>
+                {Number.isFinite(s.first) && Number.isFinite(s.last) && (
+                  <span className="player-rank-chart-legend-range">
+                    #{s.first} → #{s.last}
+                  </span>
+                )}
+              </span>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div
+          className="muted"
+          style={{ fontSize: "0.7rem", marginTop: 10 }}
+        >
+          Per-source rank history fills in over time — first persisted
+          on 2026-04-29; earlier snapshots only carry per-source values.
+        </div>
+      )}
       <div className="player-rank-chart-footer">
         <span>
           <strong>Then</strong> {firstDate}
