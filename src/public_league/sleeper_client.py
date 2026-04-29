@@ -51,8 +51,30 @@ _DEFAULT_TIMEOUT = 8.0
 # force threads to queue on the pool and negate the parallelism win.
 _POOL_SIZE = 16
 
+# In-process TTL cache for Sleeper GETs.  The snapshot builder makes
+# ~85 calls per build with mostly-unique URLs, so dedup-within-build
+# benefit is modest — the real win is across-build dedup when:
+#   1. Multiple clients hit /api/public/league in close succession
+#      (pre-snapshot-cache-expiry, when the higher-level
+#      _public_league_cache happens to miss),
+#   2. The 20-min warm-up cron and a synchronous user request race
+#      to rebuild the same snapshot,
+#   3. ROS scrape's fetch_nfl_players (already module-cached) and
+#      another caller hit Sleeper inside the same minute.
+#
+# 60s TTL = under the 20-min warm-up cadence, so cron rebuilds always
+# get fresh data, but bursts of user traffic between cron runs share
+# one upstream request.  Tunable via env without a code change.
+try:
+    _CACHE_TTL_SECONDS = max(0, float(_os.getenv("PUBLIC_LEAGUE_HTTP_CACHE_TTL_SEC", "60")))
+except ValueError:
+    _CACHE_TTL_SECONDS = 60.0
+
 _session_lock = threading.Lock()
 _session: requests.Session | None = None
+
+_request_cache_lock = threading.Lock()
+_request_cache: dict[str, tuple[float, Any]] = {}
 
 
 def _get_session() -> requests.Session:
@@ -85,8 +107,51 @@ def reset_session() -> None:
         _session = None
 
 
+def _cache_get(url: str) -> Any | None:
+    """Return cached payload for ``url`` if still under TTL, else None."""
+    if _CACHE_TTL_SECONDS <= 0:
+        return None
+    import time as _time
+    now = _time.time()
+    with _request_cache_lock:
+        entry = _request_cache.get(url)
+        if entry is None:
+            return None
+        ts, payload = entry
+        if (now - ts) > _CACHE_TTL_SECONDS:
+            # Expired; drop so the next miss doesn't keep growing the
+            # dict with stale entries.
+            _request_cache.pop(url, None)
+            return None
+        return payload
+
+
+def _cache_put(url: str, payload: Any) -> None:
+    if _CACHE_TTL_SECONDS <= 0 or payload is None:
+        # Don't cache failures — we want the next call to retry.
+        return
+    import time as _time
+    with _request_cache_lock:
+        _request_cache[url] = (_time.time(), payload)
+
+
+def reset_request_cache() -> None:
+    """Test hook — drop every cached HTTP response."""
+    with _request_cache_lock:
+        _request_cache.clear()
+
+
 def _request_json(url: str, timeout: float = _DEFAULT_TIMEOUT) -> Any:
-    """GET ``url`` and return parsed JSON, or ``None`` on any failure."""
+    """GET ``url`` and return parsed JSON, or ``None`` on any failure.
+
+    Cached for ``_CACHE_TTL_SECONDS`` (default 60s).  Failures are
+    NOT cached — a transient network error must let the next caller
+    retry.  Set ``PUBLIC_LEAGUE_HTTP_CACHE_TTL_SEC=0`` to disable
+    the cache (e.g. for tests).
+    """
+    cached = _cache_get(url)
+    if cached is not None:
+        return cached
     try:
         resp = _get_session().get(url, timeout=timeout)
     except requests.RequestException as exc:
@@ -99,10 +164,12 @@ def _request_json(url: str, timeout: float = _DEFAULT_TIMEOUT) -> Any:
         log.warning("sleeper_client GET %s returned status %d", url, resp.status_code)
         return None
     try:
-        return resp.json()
+        payload = resp.json()
     except ValueError as exc:
         log.warning("sleeper_client JSON decode failed for %s: %s", url, exc)
         return None
+    _cache_put(url, payload)
+    return payload
 
 
 def fetch_league(league_id: str) -> dict[str, Any] | None:
