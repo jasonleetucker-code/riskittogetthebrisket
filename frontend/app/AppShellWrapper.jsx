@@ -48,6 +48,7 @@ const PRIMARY_NAV = [
     ],
   },
   { href: "/draft", label: "Draft", hint: "Rookie draft prep + ADP" },
+  { href: "/waivers", label: "Waivers", hint: "Add/drop analysis vs your roster" },
   { href: "/edge", label: "Edge", hint: "Where sources disagree most", groupBreak: true },
   {
     href: "/league",
