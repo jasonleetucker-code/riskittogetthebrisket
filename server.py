@@ -4737,8 +4737,15 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
 
     # Seed every known team at $0 so teams that own no picks still
     # show up in the output (the /draft dashboard relies on this to
-    # render the full 12-team roster).
-    if all_team_names:
+    # render the full 12-team roster).  We pre-seed with Sleeper
+    # team names ONLY when the first-name → team-name bridge is
+    # populated — otherwise ``display()`` will fall back to raw
+    # first names for the picks below, and pre-seeding Sleeper
+    # names would produce duplicate logical rows (e.g. "Russini
+    # Panini" $0 + "Jason" $XX).  In the rollover gap where the
+    # bridge is empty, seed from workbook first names instead so
+    # the seeded keys match the picks-loop keys.
+    if all_team_names and first_name_to_team:
         for t in all_team_names:
             team_totals_decimal.setdefault(t, 0.0)
     else:

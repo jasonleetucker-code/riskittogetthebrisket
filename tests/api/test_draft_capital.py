@@ -398,6 +398,23 @@ class TestSleeperTradeOverlay(unittest.TestCase):
         )
         self.assertEqual(with_totals, without_totals,
                          "Overlay shifted dollars using a cross-year slot map")
+        # And teamTotals must not contain duplicate logical teams
+        # (e.g. a Sleeper "Russini Panini" row at $0 plus a workbook
+        # "Jason" row at $XX).  Codex P1 round 4: when the first-name
+        # → team-name bridge is empty (no active-season draft),
+        # pre-seeding Sleeper team names while the picks loop emits
+        # raw first names produced doubled rows.  The teamTotals
+        # length must equal the unique team count from the workbook.
+        team_names = {row["team"] for row in with_overlay["teamTotals"]}
+        self.assertEqual(
+            len(with_overlay["teamTotals"]), len(team_names),
+            f"Duplicate rows in teamTotals: {with_overlay['teamTotals']}",
+        )
+        self.assertLessEqual(
+            len(with_overlay["teamTotals"]),
+            with_overlay.get("numTeams", 12),
+            f"teamTotals exploded past numTeams: {with_overlay['teamTotals']}",
+        )
 
     def test_overlay_uses_sleeper_draft_season_not_calendar_year(self):
         """Regression for the Dec→Jan boundary: when Sleeper reports
