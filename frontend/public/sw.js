@@ -36,6 +36,14 @@
  * Versioning: bump ``CACHE_VERSION`` when the cache layout changes.
  * Old caches are deleted on ``activate``.
  */
+// v5: bump (2026-04-29) — second iOS PWA report of the per-source
+// winner table missing on mobile.  v4 already shipped the fix; the
+// affected users were still pinned to a pre-v4 cache that hadn't
+// activated (iOS Safari delays SW activation until every PWA tab on
+// the origin closes — easy to skip if a backgrounded tab survives
+// device reboots).  This bump forces another activation cycle on
+// hosts where v4 never won the race, evicting the pre-fix bundle and
+// pulling fresh chunks containing the always-rendered breakdown card.
 // v4: bump (2026-04-27) to evict stale PWA caches that pre-date the
 // per-source winner table on /trade (PR #335).  iOS PWA users reported
 // the table missing on mobile because their cached HTML referenced
@@ -45,7 +53,7 @@
 // v3: push + notificationclick handlers added.  Cache layout is
 // otherwise unchanged; the bump just forces an SW activation cycle so
 // existing tabs pick up the new event listeners.
-const CACHE_VERSION = "brisket-v4";
+const CACHE_VERSION = "brisket-v5";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const PUBLIC_LEAGUE_CACHE = `${CACHE_VERSION}-public-league`;

@@ -578,10 +578,15 @@ function TradeSourceBreakdown({ sides, settings }) {
       .filter(Boolean);
   }, [sides, settings]);
 
-  if (rows.length === 0) {
-    return null;
-  }
-
+  // Empty-rows diagnostic — historically this branch returned null,
+  // which made it impossible to distinguish "card not rendering at
+  // all" (the iOS-PWA-stale-cache symptom) from "card rendering but
+  // no per-vendor coverage" (a data path symptom).  We now render
+  // the card chrome even when rows is empty so users can SEE the
+  // section is wired up, and ops can grep the rendered DOM for the
+  // diagnostic copy below to confirm the bundle shipped.  Cheap
+  // (one extra .card on a page with ~20 already) and self-documenting.
+  const hasRows = rows.length > 0;
   const sideLabels = sides.map((s) => s.label);
 
   return (
@@ -602,6 +607,25 @@ function TradeSourceBreakdown({ sides, settings }) {
           </span>
         </span>
       </div>
+      {!hasRows && (
+        <div
+          className="muted"
+          style={{
+            padding: "10px 0",
+            fontSize: "0.78rem",
+            lineHeight: 1.45,
+          }}
+        >
+          No vendor coverage for this trade yet — add at least one
+          player to each side and the per-source breakdown will fill
+          in.  If both sides are populated and you still see this,
+          the contract may be missing per-source value stamps for
+          those rows; check{" "}
+          <code style={{ fontSize: "0.72rem" }}>row.sourceRankMeta</code>{" "}
+          in DevTools.
+        </div>
+      )}
+      {hasRows && (
       <div
         id="source-breakdown-body"
         className="source-breakdown-body"
@@ -693,6 +717,7 @@ function TradeSourceBreakdown({ sides, settings }) {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }
