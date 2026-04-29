@@ -2350,6 +2350,156 @@ describe("nominationCandidates — vendor split (offense=KTC, IDP=IDPTC)", () =>
   });
 });
 
+// ── bestValueOnBoard ───────────────────────────────────────────────────
+
+import { bestValueOnBoard } from "@/lib/draft-logic";
+
+describe("bestValueOnBoard", () => {
+  function statsWith(players) {
+    return { enrichedPlayers: players, topCompetitorMax: 100 };
+  }
+
+  it("returns empty when stats is null or missing", () => {
+    expect(bestValueOnBoard(null)).toEqual([]);
+    expect(bestValueOnBoard({})).toEqual([]);
+  });
+
+  it("offense rookie surfaces when KTC underrates vs our board", () => {
+    const list = bestValueOnBoard(
+      statsWith([
+        { id: "wr-rook", name: "WR Rook", pos: "WR", preDraft: 50, ktcDollar: 30 },
+      ]),
+    );
+    expect(list.length).toBe(1);
+    expect(list[0].vendorLabel).toBe("KTC");
+    expect(list[0].vendorDollar).toBe(30);
+    expect(list[0].ourDollar).toBe(50);
+    expect(list[0].gap).toBe(20);
+  });
+
+  it("IDP rookie surfaces when IDPTradeCalc underrates vs our board", () => {
+    const list = bestValueOnBoard(
+      statsWith([
+        { id: "lb-rook", name: "LB Rook", pos: "LB", preDraft: 48, idpTradeCalcDollar: 25 },
+      ]),
+    );
+    expect(list.length).toBe(1);
+    expect(list[0].vendorLabel).toBe("IDPTC");
+    expect(list[0].vendorDollar).toBe(25);
+    expect(list[0].gap).toBe(23);
+  });
+
+  it("excludes drafted players", () => {
+    const list = bestValueOnBoard(
+      statsWith([
+        { id: "wr-rook", name: "WR Rook", pos: "WR", preDraft: 50, ktcDollar: 30, drafted: true },
+        { id: "wr-rook2", name: "WR Rook 2", pos: "WR", preDraft: 50, ktcDollar: 30 },
+      ]),
+    );
+    expect(list.length).toBe(1);
+    expect(list[0].player.id).toBe("wr-rook2");
+  });
+
+  it("excludes avoid-tagged players (don't promote players we don't want)", () => {
+    const list = bestValueOnBoard(
+      statsWith([
+        { id: "wr-rook", name: "WR Rook", pos: "WR", preDraft: 50, ktcDollar: 30, userTag: "avoid" },
+      ]),
+    );
+    expect(list.length).toBe(0);
+  });
+
+  it("skips when our value is at or below vendor (no edge)", () => {
+    const list = bestValueOnBoard(
+      statsWith([
+        { id: "even", name: "Even", pos: "WR", preDraft: 30, ktcDollar: 30 },
+        { id: "under", name: "Under", pos: "WR", preDraft: 20, ktcDollar: 30 },
+      ]),
+    );
+    expect(list.length).toBe(0);
+  });
+
+  it("skips when vendor dollar is missing", () => {
+    const list = bestValueOnBoard(
+      statsWith([
+        { id: "wr-rook", name: "WR Rook", pos: "WR", preDraft: 50 },
+      ]),
+    );
+    expect(list.length).toBe(0);
+  });
+
+  it("offense rookie with only IDPTradeCalc dollar (no KTC) is skipped", () => {
+    const list = bestValueOnBoard(
+      statsWith([
+        { id: "wr-rook", name: "WR Rook", pos: "WR", preDraft: 50, idpTradeCalcDollar: 30 },
+      ]),
+    );
+    expect(list.length).toBe(0);
+  });
+
+  it("ranks by percentage gap, not dollar gap", () => {
+    // Cheap player (50% under) should beat expensive player (25% under)
+    // even though the dollar gap is identical.
+    const list = bestValueOnBoard(
+      statsWith([
+        // $30 board / $20 vendor → 50% under, $10 gap
+        { id: "cheap", name: "Cheap", pos: "WR", preDraft: 30, ktcDollar: 20 },
+        // $50 board / $40 vendor → 25% under, $10 gap
+        { id: "pricey", name: "Pricey", pos: "WR", preDraft: 50, ktcDollar: 40 },
+      ]),
+    );
+    expect(list.map((e) => e.player.id)).toEqual(["cheap", "pricey"]);
+    expect(Math.round(list[0].gapPct * 100)).toBe(50);
+    expect(Math.round(list[1].gapPct * 100)).toBe(25);
+  });
+
+  it("uses assetClass when pos is missing (IDP rookie without a position string)", () => {
+    const list = bestValueOnBoard(
+      statsWith([
+        {
+          id: "lb-rook",
+          name: "LB Rook",
+          assetClass: "idp",
+          preDraft: 48,
+          idpTradeCalcDollar: 25,
+        },
+      ]),
+    );
+    expect(list.length).toBe(1);
+    expect(list[0].vendorLabel).toBe("IDPTC");
+  });
+
+  it("rationale references the per-row vendor label", () => {
+    const list = bestValueOnBoard(
+      statsWith([
+        { id: "wr-rook", name: "WR Rook", pos: "WR", preDraft: 50, ktcDollar: 30 },
+        { id: "lb-rook", name: "LB Rook", pos: "LB", preDraft: 48, idpTradeCalcDollar: 25 },
+      ]),
+    );
+    const wr = list.find((e) => e.player.name === "WR Rook");
+    const lb = list.find((e) => e.player.name === "LB Rook");
+    expect(wr.rationale).toContain("KTC");
+    expect(lb.rationale).toContain("IDPTC");
+  });
+
+  it("respects the limit parameter", () => {
+    const rookies = Array.from({ length: 12 }, (_, i) => ({
+      id: `rook-${i}`,
+      name: `Rook ${i}`,
+      pos: "WR",
+      assetClass: "offense",
+      preDraft: 30 + i, // Largest edge first.
+      ktcDollar: 10,
+    }));
+    const list = bestValueOnBoard(
+      { enrichedPlayers: rookies },
+      { limit: 5 },
+    );
+    expect(list.length).toBe(5);
+    expect(list[0].player.id).toBe("rook-11");
+  });
+});
+
 // ── computeDraftReview / draftReviewToCsv ──────────────────────────────
 
 describe("computeDraftReview", () => {
