@@ -541,9 +541,9 @@
     "ownerId": "468418790212759552",
     "rosterId": 1,
     "teamName": "Russini Panini",
-    "teamRosStrength": 508.35,
-    "startingLineupScore": 655.99,
-    "benchDepthScore": 144.65,
+    "teamRosStrength": 508.01,
+    "startingLineupScore": 655.92,
+    "benchDepthScore": 143.03,
     "positionalCoverageScore": 100.0,
     "healthAvailabilityScore": 100.0,
     "startingLineup": [
@@ -579,12 +579,12 @@
       },
       {
         "slot": "DL",
-        "playerId": "10916",
-        "canonicalName": "kobie turner",
-        "position": "DT",
-        "rosValue": 19.02,
-        "adjustedValue": 19.02,
-        "confidence": 0.718,
+        "playerId": "11328",
+        "canonicalName": "jalen redmond",
+        "position": "DE",
+        "rosValue": 18.95,
+        "adjustedValue": 18.95,
+        "confidence": 0.864,
         "flagged": null
       },
       {
@@ -778,20 +778,20 @@
         "depthContribution": 19.14
       },
       {
-        "playerId": "11328",
-        "canonicalName": "jalen redmond",
-        "position": "DE",
-        "rosValue": 18.95,
-        "depthFactor": 1.0,
-        "depthContribution": 18.95
-      },
-      {
         "playerId": "6807",
         "canonicalName": "patrick queen",
         "position": "LB",
         "rosValue": 17.4,
         "depthFactor": 0.303,
         "depthContribution": 5.26
+      },
+      {
+        "playerId": "11669",
+        "canonicalName": "laiatu latu",
+        "position": "DL",
+        "rosValue": 17.33,
+        "depthFactor": 1.0,
+        "depthContribution": 17.33
       }
     ],
     "unfilledSlots": [],
