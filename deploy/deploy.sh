@@ -872,11 +872,31 @@ main() {
   tracked_changes="$(git status --porcelain --untracked-files=no)"
   local needs_force_clean="false"
   if [[ -n "${tracked_changes}" ]]; then
+    # Auto-managed paths the data-refresh + scrape jobs constantly
+    # rewrite.  When the only dirty files are in these paths, the
+    # ``git checkout --force`` against TARGET_REV further down will
+    # overwrite them anyway — there's nothing to preserve, and
+    # stashing them just litters the stash list (215 such stashes
+    # accumulated from auto-deploys before this guard).  Anything
+    # outside these paths still goes through the stash path so
+    # genuine in-flight developer edits are preserved.
+    local non_managed_changes
+    non_managed_changes="$(printf '%s\n' "${tracked_changes}" \
+      | awk 'NF' \
+      | awk '{print substr($0, 4)}' \
+      | grep -vE '^(CSVs/site_raw/|exports/|data/)' \
+      || true)"
+
     if [[ "${ALLOW_DIRTY_DEPLOY}" == "true" ]]; then
       warn "Tracked changes detected but ALLOW_DIRTY_DEPLOY=true, proceeding without stash."
+    elif [[ -z "${non_managed_changes}" ]]; then
+      log "Tracked changes are confined to auto-managed paths (CSVs/site_raw/, exports/, data/)."
+      log "Skipping stash — 'git checkout --force ${DEPLOY_REF}' will overwrite them cleanly."
     else
       warn "Tracked git changes detected in ${APP_DIR}:"
       git diff --stat || true
+      warn "Source-tree edits outside auto-managed paths:"
+      printf '  %s\n' "${non_managed_changes}" | head -20 >&2
       local stash_name="deploy-auto-stash-$(date -u +%Y%m%dT%H%M%SZ)"
       log "Auto-stashing tracked changes as '${stash_name}' (inspect later with: git stash list)."
       if ! git stash push -m "${stash_name}"; then
