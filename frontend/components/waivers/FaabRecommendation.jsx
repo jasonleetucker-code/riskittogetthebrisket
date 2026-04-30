@@ -51,7 +51,11 @@ function BidPill({ label, amount, accent, emphasized }) {
   return (
     <div
       style={{
-        flex: 1,
+        // flex-basis 80px keeps the four pills in a single row on
+        // typical phone widths (390px ≥ 4*80 + 3*8 gap = 344px),
+        // and wraps to 2x2 on truly narrow viewports without
+        // needing a media query.
+        flex: "1 1 80px",
         minWidth: 0,
         padding: emphasized ? "10px 14px" : "8px 12px",
         background: emphasized

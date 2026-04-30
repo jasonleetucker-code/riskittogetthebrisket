@@ -17,12 +17,22 @@
   },
 
   "displayNameAliases": {
-    "_doc": "Sleeper display_name (lowercased) -> favorites key.  Use this when the Sleeper handle does not match the favorites key directly.",
+    "_doc": "Sleeper display_name (lowercased) -> favorites key.  Use this when the Sleeper handle does not match the favorites key directly.  All values must point to a key that exists in ``favorites`` above.",
     "jasonleetucker": "jason",
-    "makayla": "michaela",
-    "collin": "colin",
-    "kich": "kitch",
-    "killakich00": "kitch"
+    "tybwell":         "ty",
+    "makayla":         "michaela",
+    "makaylachristy":  "michaela",
+    "jstuedle":        "joel",
+    "ughb":            "blaine",
+    "collin":          "colin",
+    "collinfoz":       "colin",
+    "djrd7122":        "roy",
+    "brenthany":       "brent",
+    "aguilar315":      "ed",
+    "ericleec":        "eric",
+    "jcardsjr":        "joey",
+    "kich":            "kitch",
+    "killakich00":     "kitch"
   },
 
   "weights": {

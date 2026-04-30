@@ -226,4 +226,58 @@ test.describe("public /league page", () => {
     expect(body).toHaveProperty("metrics.cache_hit");
     expect(body).toHaveProperty("metrics.total_served");
   });
+
+  test("teamAssignment section returns 12 manager slots (Phase A)", async ({
+    request,
+  }) => {
+    // The Team Assignment section is registered as eager so the
+    // aggregate /api/public/league response carries it.  It also
+    // resolves through /api/public/league/{section}.  Pin both: the
+    // section endpoint must 200 and the assignments array must
+    // cover every manager in the league.
+    const res = await request.get("/api/public/league/teamAssignment");
+    expect(res.status()).toBe(200);
+    const json = await res.json();
+    const data = json.data || json.body || json;
+    const assignments = (data && data.assignments) || [];
+    expect(Array.isArray(assignments)).toBeTruthy();
+    expect(assignments.length).toBeGreaterThanOrEqual(8); // realistic floor
+    // Every assignment must have a non-empty NFL teams list — a
+    // manager with zero NFL teams means the favorite map + roster
+    // scoring both whiffed, which is a regression we want to catch.
+    for (const a of assignments) {
+      expect(a.nflTeams, `${a.displayName} has no NFL teams`).toBeTruthy();
+      expect(a.nflTeams.length).toBeGreaterThan(0);
+    }
+  });
+
+  test("faabAnalytics lazy section returns documented shape (Phase B5)", async ({
+    request,
+  }) => {
+    // FAAB analytics is a lazy section — only addressable through
+    // /api/public/league/{section}.  Powers the /waivers FAAB
+    // recommender's calibration step.  Shape regression here =
+    // recommender shape regression on next user click.
+    const res = await request.get("/api/public/league/faabAnalytics");
+    expect(res.status()).toBe(200);
+    const json = await res.json();
+    const data = json.data || json.body || json;
+    for (const k of [
+      "leagueBudget",
+      "leagueAvgWinningBid",
+      "leagueMedianWinningBid",
+      "totalBidsAnalyzed",
+      "positionBids",
+      "tierBids",
+      "teamAggression",
+      "recentWins",
+      "playerHistory",
+    ]) {
+      expect(data, `faabAnalytics missing ${k}`).toHaveProperty(k);
+    }
+    expect(typeof data.leagueBudget).toBe("number");
+    expect(Array.isArray(data.recentWins)).toBeTruthy();
+    expect(typeof data.positionBids).toBe("object");
+    expect(typeof data.tierBids).toBe("object");
+  });
 });

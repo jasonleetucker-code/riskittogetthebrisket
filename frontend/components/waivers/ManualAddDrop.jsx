@@ -137,7 +137,10 @@ function SidePicker({
     <div
       className="trade-side"
       style={{
-        flex: 1,
+        // flex-basis 240px ensures the two pickers stack on
+        // viewports ≤ ~520px (240*2 + gap > 480) — desktop keeps
+        // them side-by-side; phone narrows to a clean column.
+        flex: "1 1 240px",
         minWidth: 0,
         background: "var(--surface, rgba(255,255,255,0.03))",
         border: "1px solid var(--border, rgba(255,255,255,0.08))",
