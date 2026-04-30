@@ -117,6 +117,18 @@ def _ros_trade_deadline_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any
     return trade_deadline.build_section(snapshot)
 
 
+def _faab_analytics_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+    """Lazy-import wrapper for src.api.faab_analytics.
+
+    Walks every season's waiver/free-agent transactions to build
+    the league-level FAAB analytics block.  Lazy because the walk
+    can be O(seasons × weeks) and the /league landing page doesn't
+    consume it — only /waivers' upcoming FAAB recommender does.
+    """
+    from src.api import faab_analytics  # noqa: PLC0415
+    return faab_analytics.build_section(snapshot)
+
+
 _LAZY_SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any]]] = {
     "playoffOdds": playoff_odds.build_section,
     "rosTeamStrength": _ros_api.build_section,
@@ -133,6 +145,10 @@ _LAZY_SECTION_BUILDERS: dict[str, Callable[[PublicLeagueSnapshot], dict[str, Any
     # Combines cached playoff + championship + team-strength + roster
     # age into one informational rollup.  No v1 equivalent.
     "rosTradeDeadline": _ros_trade_deadline_section,
+    # FAAB analytics: league-historical winning-bid summary used by
+    # /waivers' FAAB recommender (Phase B6).  Lazy because the
+    # /league landing page doesn't consume it.
+    "faabAnalytics": _faab_analytics_section,
 }
 
 # Derived overview is a first-class section key the UI can fetch just
