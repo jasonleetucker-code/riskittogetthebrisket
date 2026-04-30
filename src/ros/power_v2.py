@@ -230,44 +230,46 @@ def _enumerate_owner_ids(
 ) -> list[str]:
     """Canonical owner list for the rankings table.
 
-    Order of precedence (first match wins on display order — though
-    rows are re-sorted by power score before render):
+    Every source is filtered through ``snapshot.managers.by_owner_id``,
+    which is the authoritative active-owner registry: it's built from
+    the rosters the snapshot actually fetched and excludes the
+    operator-maintained retirement list.  The registry gate matters at
+    every step because each upstream source can carry a stale owner
+    around the season-transition window:
 
-      1. Owners present in the live team-strength snapshot AND still
-         in the manager registry.  The registry gate is essential: the
-         team-strength file is written by a scheduled scrape that may
-         lag the live Sleeper rosters (e.g. an owner left mid-week
-         and the team-strength file still names them).  Without this
-         filter a stale snapshot would push the table to 13+ rows in
-         a 12-team league.  The registry is built from the rosters
-         the snapshot actually fetched plus the operator-maintained
-         retirement list, so it's the authoritative "who's in the
-         league right now" answer.
-      2. Owners on the snapshot's current Sleeper season — covers the
-         case where the team-strength file is temporarily empty.
-      3. Owners with prior-season career history that the manager
-         registry still lists as active — defensive fallback so an
-         old participant who exists in history but not in either of
-         the live sources still appears.
+      * the team-strength snapshot is written by a scheduled scrape
+        and lags live rosters by a refresh cycle;
+      * Sleeper itself sometimes leaves a departed owner attached to
+        a roster slot until a new owner claims it, so even
+        ``snapshot.current_season.rosters`` can still carry them;
+      * historical participants who left the league have rows in past
+        ``career_state`` keys but should not appear in current rankings.
+
+    Order of precedence (for the dedup walk — rows are re-sorted by
+    power score before render):
+
+      1. Owners present in the live team-strength snapshot.
+      2. Owners on the snapshot's current Sleeper season — fallback
+         for an empty team-strength file.
+      3. Owners from prior-season career history — defensive fallback
+         so a registered manager who exists in history but is missing
+         from both live sources (e.g. mid-rejoin) still appears.
     """
     ordered: list[str] = []
     seen: set[str] = set()
+    registry_ids = snapshot.managers.by_owner_id
 
     def _add(oid: str | None) -> None:
         if not oid:
             return
         oid = str(oid).strip()
-        if not oid or oid in seen:
+        if not oid or oid in seen or oid not in registry_ids:
             return
         seen.add(oid)
         ordered.append(oid)
 
-    registry_ids = snapshot.managers.by_owner_id
-
     for row in team_strength_rows:
-        oid = str(row.get("ownerId") or "").strip()
-        if oid and oid in registry_ids:
-            _add(oid)
+        _add(row.get("ownerId"))
 
     current = snapshot.current_season
     if current is not None:
@@ -275,11 +277,7 @@ def _enumerate_owner_ids(
             _add(roster.get("owner_id"))
 
     for oid in historical_owner_ids:
-        # Only include historical owners who are still registered —
-        # retired managers are filtered out at registry build time, so
-        # falling through to ``by_owner_id`` keeps them out here too.
-        if oid in registry_ids:
-            _add(oid)
+        _add(oid)
 
     return ordered
 

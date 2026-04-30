@@ -325,6 +325,27 @@ class TestEnumerateOwnerIds(unittest.TestCase):
         ids = power_v2._enumerate_owner_ids(snapshot, [], ["retired"])
         self.assertNotIn("retired", ids)
 
+    def test_unregistered_current_season_roster_owner_filtered(self):
+        # The current-season fallback also runs through the registry
+        # gate.  Sleeper sometimes leaves a departed owner attached to
+        # a roster slot through the transition window, and the
+        # registry's ``_RETIRED_OWNER_IDS`` filter is the canonical
+        # place to express "this owner_id has left the league".
+        # ``_enumerate_owner_ids`` must respect that — otherwise
+        # retired managers would re-surface in ROS rankings even after
+        # the operator added them to the retirement list.
+        snapshot = _make_snapshot(
+            rosters=[{"owner_id": "alpha", "roster_id": 1}],
+        )
+        # Simulate a retired-but-still-on-roster owner: the snapshot
+        # has them on a roster but the registry build dropped them.
+        snapshot.current_season.rosters.append(
+            {"owner_id": "retired-but-rostered", "roster_id": 99}
+        )
+        ids = power_v2._enumerate_owner_ids(snapshot, [], [])
+        self.assertIn("alpha", ids)
+        self.assertNotIn("retired-but-rostered", ids)
+
     def test_stale_team_strength_owner_filtered_against_registry(self):
         # The team-strength file is written by a scheduled scrape and
         # can lag the live snapshot.  If a manager leaves the league
