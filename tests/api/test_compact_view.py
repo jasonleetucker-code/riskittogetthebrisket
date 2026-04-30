@@ -11,7 +11,26 @@ def _sample_contract():
                 "name": "Josh Allen",
                 "rankDerivedValue": 9200,
                 "canonicalConsensusRank": 1,
-                "sourceRankMeta": {"x": 1, "y": 2},
+                "sourceRankMeta": {
+                    "ktcSfTep": {
+                        "valueContribution": 9100,
+                        "effectiveWeight": 1.0,
+                        "method": "value_direct",
+                        "percentile": 0.0001,
+                        "valueContributionPath": "value_direct",
+                        "isAnchor": True,
+                        "tepBoostApplied": False,
+                        "ladderDepth": 320,
+                    },
+                    "dlfSf": {
+                        "valueContribution": 8800,
+                        "effectiveWeight": 1.0,
+                        "method": "rank_hill",
+                        "percentile": 0.002,
+                        "isAnchor": False,
+                        "ladderDepth": 280,
+                    },
+                },
                 "canonicalSiteValues": {"ktcSfTep": 9000},
                 "droppedSources": [],
                 "effectiveSourceRanks": {"ktcSfTep": 2},
@@ -36,7 +55,15 @@ def _sample_contract():
             {
                 "displayName": "Josh Allen",
                 "rankDerivedValue": 9200,
-                "sourceRankMeta": {"x": 1},
+                "sourceRankMeta": {
+                    "ktcSfTep": {
+                        "valueContribution": 9100,
+                        "effectiveWeight": 1.0,
+                        "method": "value_direct",
+                        "percentile": 0.0001,
+                        "isAnchor": True,
+                    },
+                },
                 "canonicalSiteValues": {"ktcSfTep": 9000},
                 "anomalyFlags": [],
             }
@@ -63,8 +90,12 @@ def test_prunes_contract_level_fields():
 def test_prunes_player_level_fields():
     out = cv.compact_contract(_sample_contract())
     player = out["players"]["Josh Allen"]
-    assert "sourceRankMeta" not in player
-    assert "canonicalSiteValues" not in player
+    # ``sourceRankMeta`` and ``canonicalSiteValues`` are kept on the
+    # compact view — the trade per-source winner card and the
+    # rankings audit popover both read them.  Other audit-only fields
+    # are still pruned.
+    assert "sourceRankMeta" in player
+    assert "canonicalSiteValues" in player
     assert "anomalyFlags" not in player
     # Kept fields.
     assert player["name"] == "Josh Allen"
@@ -75,17 +106,50 @@ def test_prunes_player_level_fields():
 def test_prunes_players_array_fields():
     out = cv.compact_contract(_sample_contract())
     arr_player = out["playersArray"][0]
-    assert "sourceRankMeta" not in arr_player
-    assert "canonicalSiteValues" not in arr_player
+    assert "sourceRankMeta" in arr_player
+    assert "canonicalSiteValues" in arr_player
+    assert "anomalyFlags" not in arr_player
     assert arr_player["rankDerivedValue"] == 9200
+
+
+def test_source_rank_meta_is_slimmed():
+    """``sourceRankMeta`` survives the compact pass but each per-source
+    entry is reduced to the fields the mobile UI actually consumes —
+    valueContribution (drives the trade per-source winner row),
+    effectiveWeight, method.  Audit-only stamps are dropped."""
+    out = cv.compact_contract(_sample_contract())
+    player = out["players"]["Josh Allen"]
+    ktc_meta = player["sourceRankMeta"]["ktcSfTep"]
+    # Kept fields.
+    assert ktc_meta["valueContribution"] == 9100
+    assert ktc_meta["effectiveWeight"] == 1.0
+    assert ktc_meta["method"] == "value_direct"
+    # Dropped audit-only fields.
+    assert "percentile" not in ktc_meta
+    assert "valueContributionPath" not in ktc_meta
+    assert "isAnchor" not in ktc_meta
+    assert "tepBoostApplied" not in ktc_meta
+    assert "ladderDepth" not in ktc_meta
+    # Same slimming applied per-source.
+    dlf_meta = player["sourceRankMeta"]["dlfSf"]
+    assert dlf_meta["valueContribution"] == 8800
+    assert "percentile" not in dlf_meta
+
+
+def test_source_rank_meta_slimming_on_players_array():
+    out = cv.compact_contract(_sample_contract())
+    arr_meta = out["playersArray"][0]["sourceRankMeta"]["ktcSfTep"]
+    assert arr_meta["valueContribution"] == 9100
+    assert "percentile" not in arr_meta
+    assert "isAnchor" not in arr_meta
 
 
 def test_non_destructive():
     orig = _sample_contract()
     _ = cv.compact_contract(orig)
-    # Input unchanged.
+    # Input unchanged: original audit fields still present.
     assert "poolAudit" in orig
-    assert "sourceRankMeta" in orig["players"]["Josh Allen"]
+    assert "percentile" in orig["players"]["Josh Allen"]["sourceRankMeta"]["ktcSfTep"]
 
 
 def test_byte_savings_reports_positive_number():
