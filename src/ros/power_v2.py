@@ -1,6 +1,6 @@
 """ROS-driven power rankings (v2).
 
-Spec formula:
+Spec formula (in-season):
 
     power_score =
         0.38 * team_ros_strength_percentile
@@ -21,13 +21,24 @@ Inputs come from two places:
       ``power.py``.  Provides PPG, recent form, W/L, all-play, streak,
       and luck-regression inputs.
 
-PR2 leaves ``schedule_adjusted_performance`` and ``roster_health_score``
-at 0 (well-documented config-gated TODOs) — the spec calls these out as
-"implement what is reasonable and leave clean TODOs/config flags for the
-rest" because they need data this app doesn't currently surface
-(opponent-strength SOS + injury-aware roster scoring).  The current
-formula renormalises the populated weights so missing terms don't
-deflate the result against teams with full coverage.
+The owner list spans every team that owns a roster in the current
+league, sourced from the team-strength snapshot (live Sleeper rosters)
+unioned with the snapshot's current-season rosters.  Owners who joined
+the league for the upcoming year and have no prior-season record still
+appear with their ROS-based score — without this union the table
+silently drops to the count of owners with historical participation.
+
+Preseason / between-seasons handling: when no scored regular-season
+matchups exist for the snapshot's current season (either because the
+year hasn't kicked off yet or the prior year is complete and the new
+schedule isn't loaded), the historical-results components — PPG,
+recent form, W/L, all-play, streak, and luck regression — describe a
+season that is over and don't project the upcoming year.  Those
+components are routed through ``missing_inputs`` so the formula
+renormalises onto the forward-looking metrics (team ROS strength,
+roster health, and 2026 schedule SOS when available).  The same
+``missing_inputs`` machinery that protects against an absent
+team-strength file already handles renormalisation cleanly.
 
 Render-side, this section is gated by ``settings.useRosPowerRankings``:
 when False, the existing ``power.py`` v1 still drives /league → Power.
@@ -41,7 +52,7 @@ import logging
 import math
 import statistics
 from collections import defaultdict
-from typing import Any
+from typing import Any, Iterable
 
 from src.ros import ROS_DATA_DIR
 from src.public_league import luck, metrics as _metrics
@@ -64,6 +75,25 @@ WEIGHTS: dict[str, float] = {
 }
 
 _RECENT_WINDOW = 3  # matches power.py
+
+# Components driven entirely by the most-recent-loaded season's results.
+# Routed through ``missing_inputs`` when no scored games exist in the
+# current season — see module docstring.
+_HISTORICAL_RESULTS_COMPONENTS: tuple[str, ...] = (
+    "ppg",
+    "recent",
+    "wl_record",
+    "all_play",
+    "streak",
+    "luck_regression",
+)
+
+_EMPTY_CAREER: dict[str, float | int] = {
+    "points": 0.0,
+    "games": 0,
+    "wins": 0.0,
+    "losses": 0.0,
+}
 
 
 def _percentile(values: list[float], target: float) -> float:
@@ -162,6 +192,88 @@ def _schedule_adjusted_scores(
     return out
 
 
+def _is_preseason(snapshot: PublicLeagueSnapshot) -> bool:
+    """True when no in-progress regular season exists for the snapshot.
+
+    Two conditions count as "going into a new season":
+      * no current season at all (empty snapshot);
+      * the snapshot's current season has zero scored regular-season
+        matchups — covers both "Sleeper has the new year live but no
+        games have been played yet" and "the prior year is complete
+        and we're between seasons".
+
+    In this state the historical-results components describe a finished
+    season and don't project the upcoming year.  The build pipeline
+    drops them via ``missing_inputs`` so the score reflects only
+    forward-looking inputs (ROS strength, roster health, SOS).
+    """
+    current = snapshot.current_season
+    if current is None:
+        return True
+    if current.is_complete:
+        return True
+    for wk in current.regular_season_weeks:
+        for entry in current.matchups_by_week.get(wk) or []:
+            pts = entry.get("points")
+            try:
+                if pts is not None and float(pts) > 0:
+                    return False
+            except (TypeError, ValueError):
+                continue
+    return True
+
+
+def _enumerate_owner_ids(
+    snapshot: PublicLeagueSnapshot,
+    team_strength_rows: list[dict[str, Any]],
+    historical_owner_ids: Iterable[str],
+) -> list[str]:
+    """Canonical owner list for the rankings table.
+
+    Order of precedence (first match wins on display order — though
+    rows are re-sorted by power score before render):
+
+      1. Owners present in the live team-strength snapshot.  This is
+         the source of truth for "who is on a roster right now",
+         which is what the going-into-2026 table needs to show.
+      2. Owners on the snapshot's current Sleeper season — covers the
+         case where the team-strength file is temporarily empty.
+      3. Owners with prior-season career history that the manager
+         registry still lists as active — defensive fallback so an
+         old participant who exists in history but not in either of
+         the live sources still appears.
+    """
+    ordered: list[str] = []
+    seen: set[str] = set()
+
+    def _add(oid: str | None) -> None:
+        if not oid:
+            return
+        oid = str(oid).strip()
+        if not oid or oid in seen:
+            return
+        seen.add(oid)
+        ordered.append(oid)
+
+    for row in team_strength_rows:
+        _add(row.get("ownerId"))
+
+    current = snapshot.current_season
+    if current is not None:
+        for roster in current.rosters or []:
+            _add(roster.get("owner_id"))
+
+    registry_ids = snapshot.managers.by_owner_id
+    for oid in historical_owner_ids:
+        # Only include historical owners who are still registered —
+        # retired managers are filtered out at registry build time, so
+        # falling through to ``by_owner_id`` keeps them out here too.
+        if oid in registry_ids:
+            _add(oid)
+
+    return ordered
+
+
 def _streak_score_from_outcomes(outcomes: list[float]) -> float:
     """Convert a chronological list of W/L outcomes (1.0 = W, 0.0 = L,
     0.5 = T) into a 0-1 streak score.  Reads the trailing run only;
@@ -203,7 +315,12 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     """
     registry = snapshot.managers
     seasons_sorted = sorted(snapshot.seasons, key=luck._season_sort_key)
-    if not seasons_sorted:
+    team_strength_rows = _load_team_strength_rows()
+    preseason = _is_preseason(snapshot)
+    if not seasons_sorted and not team_strength_rows and (
+        snapshot.current_season is None
+        or not (snapshot.current_season.rosters or [])
+    ):
         return {
             "currentRanking": [],
             "weights": dict(WEIGHTS),
@@ -252,16 +369,17 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
                 ap = all_play.get(oid) or {}
                 last_season_allplay_share[oid] = float(ap.get("expectedShare", 0.0))
 
-    owner_ids = sorted(career_state.keys())
+    owner_ids = _enumerate_owner_ids(
+        snapshot, team_strength_rows, sorted(career_state.keys())
+    )
     if not owner_ids:
         return {
             "currentRanking": [],
             "weights": dict(WEIGHTS),
-            "missingInputs": ["no owners played"],
+            "missingInputs": ["no owners found"],
             "rosTeamStrengthAvailable": False,
         }
 
-    team_strength_rows = _load_team_strength_rows()
     ros_pct = _load_team_strength_percentiles()
     ros_available = bool(ros_pct)
     roster_health_by_owner = _load_roster_health_scores(team_strength_rows)
@@ -269,10 +387,14 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     schedule_available = bool(schedule_by_owner)
     health_available = bool(roster_health_by_owner)
 
-    # Compute per-owner inputs.
+    # Compute per-owner inputs.  ``career_state`` is a defaultdict but
+    # we read via ``.get`` to avoid mutating it for owners (e.g. new
+    # league members for the upcoming season) who never appeared in
+    # historical play.  Their historical components default to zero;
+    # in preseason mode those weights are renormalised away anyway.
     inputs: dict[str, dict[str, float]] = {}
     for oid in owner_ids:
-        s = career_state[oid]
+        s = career_state.get(oid, _EMPTY_CAREER)
         ppg = s["points"] / s["games"] if s["games"] else 0.0
         rb = last_season_recent.get(oid, [])
         recent = sum(rb) / len(rb) if rb else 0.0
@@ -284,7 +406,6 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         # Luck regression: a team whose actualWins lag expectedWins
         # gets a small boost (regression toward expected).  Clamp to
         # [-0.5, 0.5] then map to [0, 1].
-        career_row = career_state[oid]
         # Re-walk the seasons to compute expectedWins (luck.py exposes
         # this via build_section but at PR-2 budget we'd rather not
         # invoke the whole section).  Re-use the same all_play share
@@ -319,7 +440,9 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
 
     # Renormalise weights when missing inputs are present so the score
     # stays in [0, 100] instead of being deflated by the unfilled
-    # 0.04 + 0.03 = 0.07 budget.
+    # weight budget.  Preseason / between-seasons drops the historical
+    # results components — they describe a finished year and don't
+    # project the upcoming one (see ``_is_preseason``).
     missing_inputs: list[str] = []
     if not ros_available:
         missing_inputs.append("team_ros_strength")
@@ -327,6 +450,10 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         missing_inputs.append("schedule_adjusted")
     if not health_available:
         missing_inputs.append("roster_health")
+    if preseason:
+        for component in _HISTORICAL_RESULTS_COMPONENTS:
+            if component not in missing_inputs:
+                missing_inputs.append(component)
     active_weights = {
         k: v for k, v in WEIGHTS.items() if k not in missing_inputs
     }
@@ -387,6 +514,8 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     return {
         "currentRanking": rankings,
         "weights": dict(WEIGHTS),
+        "effectiveWeights": dict(active_weights),
         "missingInputs": sorted(missing_inputs),
         "rosTeamStrengthAvailable": ros_available,
+        "preseason": preseason,
     }
