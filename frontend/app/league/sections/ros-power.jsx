@@ -137,9 +137,24 @@ export default function RosPowerSection() {
     );
   }
 
-  const weights = data.weights || {};
+  const specWeights = data.weights || {};
+  const effectiveWeights = data.effectiveWeights || specWeights;
   const missing = data.missingInputs || [];
   const rosAvailable = !!data.rosTeamStrengthAvailable;
+  const preseason = !!data.preseason;
+
+  // Render the formula description from whichever weights are actually
+  // applied so the UI doesn't claim "season PPG (18%)" when we're going
+  // into a fresh year and that component has been routed through
+  // ``missingInputs``.  Order by weight descending so the dominant
+  // contributors lead the line.
+  const formulaParts = Object.entries(effectiveWeights)
+    .filter(([, w]) => Number(w) > 0)
+    .sort((a, b) => Number(b[1]) - Number(a[1]))
+    .map(
+      ([key, w]) =>
+        `${COMPONENT_LABELS[key] || key} (${Math.round(Number(w) * 100)}%)`,
+    );
 
   return (
     <div className="card" style={{ marginTop: "var(--space-md)" }}>
@@ -147,15 +162,20 @@ export default function RosPowerSection() {
         ROS Power Rankings
       </div>
       <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
-        ROS roster strength (38%) + season PPG (18%) + recent form (12%) + W/L
-        (10%) + all-play (8%) + streak (5%) + schedule-adjusted (4%) + roster
-        health (3%) + luck regression (2%).{" "}
-        {!rosAvailable && (
-          <span style={{ color: "var(--amber)" }}>
-            ROS roster strength not available yet — using actual-results-only blend.
+        {preseason && (
+          <span style={{ color: "var(--cyan)" }}>
+            Going into the new season — only forward-looking inputs are used.{" "}
           </span>
         )}
-        {missing.length > 0 && (
+        {formulaParts.join(" + ")}
+        {formulaParts.length > 0 && "."}
+        {!rosAvailable && (
+          <span style={{ color: "var(--amber)" }}>
+            {" "}
+            ROS roster strength not available yet.
+          </span>
+        )}
+        {!preseason && missing.length > 0 && (
           <span>
             {" "}
             Missing inputs: {missing.join(", ")}.
@@ -182,7 +202,7 @@ export default function RosPowerSection() {
             <RankingRow
               key={row.ownerId || i}
               row={row}
-              weights={weights}
+              weights={row.weightsApplied || effectiveWeights}
               expanded={expanded === i}
               onToggle={() => setExpanded(expanded === i ? null : i)}
             />
